@@ -4,6 +4,8 @@ import { passwordRulesForLogin, passwordRuleWords } from "@/lib/auth/password-ru
 import { AuthFrame } from "@/components/auth/auth-frame";
 import { ButtonLink } from "@/components/ui/button";
 import { InviteForm } from "./form";
+import { Words } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Set your password" };
 
@@ -12,10 +14,11 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
   // After signing in with a temporary password from the school (09 Add Staff).
   const first = (await searchParams).first === "1";
   const user = await findInvite(token);
+  const t = await getT();
   if (!user) {
     return (
       <AuthFrame eyebrow="Invite link" title="This link has expired" sub="Invite links work once, for 7 days. Ask your School Admin to send you a new one.">
-        <ButtonLink href="/sign-in" variant="primary" size="lg" className="w-full">Go to sign in</ButtonLink>
+        <ButtonLink href="/sign-in" variant="primary" size="lg" className="w-full"><Words k="Go to sign in" /></ButtonLink>
       </AuthFrame>
     );
   }

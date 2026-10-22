@@ -7,6 +7,7 @@ import { Pill } from "@/components/ui/badge";
 import { admissionPage, BASE } from "@/lib/admission/page";
 import { stageOn, type Settings } from "@/lib/admission/settings";
 import type { Viewer } from "@/lib/admission/access";
+import { Words } from "@/lib/i18n/client";
 
 export function admissionTabs(viewer: Pick<Viewer, "see" | "change">, settings: Settings): Tab[] {
   const tests = stageOn(settings, "test") || stageOn(settings, "interview");
@@ -35,8 +36,8 @@ export async function AdmissionHead({ sub, actions, href, title = "Admissions" }
   const { current, viewer, settings } = await admissionPage();
   const tabs = admissionTabs(viewer, settings);
   const scope = viewer.see !== "all"
-    ? <Pill tone="brand" className="!h-6"><User size={13} aria-hidden="true" />Only yours</Pill>
-    : viewer.change === "none" ? <Pill tone="neutral" className="!h-6"><Eye size={13} aria-hidden="true" />View only</Pill> : null;
+    ? <Pill tone="brand" className="!h-6"><User size={13} aria-hidden="true" /><Words k="Only yours" /></Pill>
+    : viewer.change === "none" ? <Pill tone="neutral" className="!h-6"><Eye size={13} aria-hidden="true" /><Words k="View only" /></Pill> : null;
   return (
     <>
       <PageHeader title={title} href={href} userId={current.user.id} sub={<>{scope && <span className="mr-2 align-middle">{scope}</span>}{sub}</>}>

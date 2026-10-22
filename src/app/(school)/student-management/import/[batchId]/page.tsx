@@ -12,8 +12,12 @@ import { ConfirmAction } from "@/components/students/confirm-action";
 import { STUDENT_IMPORT_KINDS } from "@/lib/students/import-kinds";
 import { BASE, studentPage } from "../../_lib/page";
 import { undoImportAction } from "../../_actions/import";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import") };
+}
 
 /** Import (P10), step 5: what was imported, the skipped rows to download, and Undo. */
 export default async function ImportBatchPage({ params }: { params: Promise<{ batchId: string }> }) {
@@ -40,40 +44,40 @@ export default async function ImportBatchPage({ params }: { params: Promise<{ ba
     <>
       <BackLink href={`${BASE}/import/history`} label="Import history" />
       <PageHeader title={`Import of ${batch.fileName}`} href={`${BASE}/import/${batch.id}`} userId={current.user.id}>
-        <ButtonLink href={`${BASE}/import/history`} size="sm">Import history</ButtonLink>
+        <ButtonLink href={`${BASE}/import/history`} size="sm"><Words k="Import history" /></ButtonLink>
       </PageHeader>
       <div className="grid gap-4 lg:grid-cols-2">
         <Card>
           <CardHeader title={`${batch.added} added · ${batch.updated} updated · ${batch.skipped} skipped`} description={`${formatDateTime(batch.createdAt, tz)} by ${data.who?.displayName ?? "someone"}`}
-            action={batch.undoneAt ? <Badge>Undone</Badge> : <Badge tone="success">Imported</Badge>} />
+            action={batch.undoneAt ? <Badge><Words k="Undone" /></Badge> : <Badge tone="success"><Words k="Imported" /></Badge>} />
           <CardBody className="space-y-3">
             {data.students.length > 0 && (
               <ul className="space-y-1 text-[15px]">
                 {data.students.map((s) => <li key={s.id}>{s.archivedAt ? <span className="text-ink2 line-through">{s.fullName}</span> : <Link className="hover:underline" href={`${BASE}/students/${s.id}`}>{s.fullName}</Link>} <span className="text-[13.5px] text-ink2">{s.admissionNo}</span></li>)}
-                {batch.added > data.students.length && <li className="text-ink2">and {batch.added - data.students.length} more</li>}
+                {batch.added > data.students.length && <li className="text-ink2"><Words k="and" /> {batch.added - data.students.length} <Words k="more" /></li>}
               </ul>
             )}
             <div className="flex flex-wrap gap-2">
-              {!batch.undoneAt && <ButtonLink href={`${BASE}?new=1`} size="sm">See them in the Student List</ButtonLink>}
+              {!batch.undoneAt && <ButtonLink href={`${BASE}?new=1`} size="sm"><Words k="See them in the Student List" /></ButtonLink>}
               {!batch.undoneAt && (batch.added > 0 || batch.updated > 0) && (
                 <ConfirmAction action={undoImportAction} fields={{ id: batch.id }} trigger="Undo this import" triggerVariant="danger-outline" title="Undo this import?" confirmLabel="Undo import" confirmVariant="danger">
-                  {batch.added > 0 && <>{batch.added === 1 ? "The 1 student it added is archived, with their class and parent links, and their admission number is free for a corrected file." : `The ${batch.added} students it added are archived, with their class and parent links, and their admission numbers are free for a corrected file.`} Parents with no other child are archived too. </>}
-                  {batch.updated > 0 && <>The {batch.updated} students it updated get their earlier values back, except any changed again since. </>}
-                  The import stays in the history.
+                  {batch.added > 0 && <>{batch.added === 1 ? "The 1 student it added is archived, with their class and parent links, and their admission number is free for a corrected file." : `The ${batch.added} students it added are archived, with their class and parent links, and their admission numbers are free for a corrected file.`} <Words k="Parents with no other child are archived too." /> </>}
+                  {batch.updated > 0 && <><Words k="The" /> {batch.updated} <Words k="students it updated get their earlier values back, except any changed again since." /> </>}
+                  <Words k="The import stays in the history." />
                 </ConfirmAction>
               )}
             </div>
-            {batch.undoneAt && <p className="text-ink2">Undone {formatDateTime(batch.undoneAt, tz)}.</p>}
+            {batch.undoneAt && <p className="text-ink2"><Words k="Undone" /> {formatDateTime(batch.undoneAt, tz)}.</p>}
           </CardBody>
         </Card>
         <Card>
           <CardHeader title="Skipped rows" description={bad.length ? "Download them with their problems, fix and import again." : undefined} />
           <CardBody>
-            {bad.length === 0 ? <p className="text-ink2">Every row was imported.</p> : (
+            {bad.length === 0 ? <p className="text-ink2"><Words k="Every row was imported." /></p> : (
               <>
-                <a href={`${BASE}/import/${batch.id}/errors`} className="mb-3 inline-flex min-h-11 items-center rounded-xl border border-line px-4 font-medium hover:bg-sunken">Download skipped rows (CSV)</a>
+                <a href={`${BASE}/import/${batch.id}/errors`} className="mb-3 inline-flex min-h-11 items-center rounded-xl border border-line px-4 font-medium hover:bg-sunken"><Words k="Download skipped rows (CSV)" /></a>
                 <ul className="max-h-96 divide-y divide-line overflow-y-auto text-[15px]">
-                  {bad.slice(0, 100).map((b) => <li key={b.line} className="py-2"><strong>Row {b.line}</strong>{b.row.fullName ? ` · ${b.row.fullName}` : ""}: <span className="text-bad">{b.problems.join(" ")}</span></li>)}
+                  {bad.slice(0, 100).map((b) => <li key={b.line} className="py-2"><strong><Words k="Row" /> {b.line}</strong>{b.row.fullName ? ` · ${b.row.fullName}` : ""}: <span className="text-bad">{b.problems.join(" ")}</span></li>)}
                 </ul>
               </>
             )}

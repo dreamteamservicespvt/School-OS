@@ -14,8 +14,12 @@ import { NoYear, PageTop } from "../_components/page-top";
 import { ExportLinks } from "../_components/export-links";
 import { ParamSelect, ViewSwitch } from "../_components/pickers";
 import { AddTopItem, ArchivePlan, CopySyllabus, DailyLog, LessonPlanButton, PasteItems, SyllabusTree, type LogChapter, type Row } from "./syllabus-ui";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Syllabus & Lesson Plans" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Syllabus & Lesson Plans") };
+}
 const PATH = "/academic-management/syllabus";
 const PAGE_SIZE = 30;
 
@@ -104,7 +108,7 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
     <>
       <PageTop page={page} title="Syllabus & Lesson Plans" href={PATH}>
         {/* Gap list G44: chapters and topics with their planned month or week, from an Excel sheet. */}
-        {page.scope.manage && <ButtonLink href="/academic-management/import?kind=academic-syllabus" size="sm" variant="ghost">Import from Excel</ButtonLink>}
+        {page.scope.manage && <ButtonLink href="/academic-management/import?kind=academic-syllabus" size="sm" variant="ghost"><Words k="Import from Excel" /></ButtonLink>}
       </PageTop>
       <ViewSwitch views={views} current={view} />
 
@@ -129,7 +133,7 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
                         <h2 className="font-semibold">{b.label} · {b.subject}</h2>
                         <p className="text-sm text-ink-2">{b.teacher ?? "No teacher"}</p>
                       </div>
-                      {b.total === 0 ? <Badge>No syllabus</Badge> : <Badge tone={behind ? "danger" : "success"}>{b.completedPct}%</Badge>}
+                      {b.total === 0 ? <Badge><Words k="No syllabus" /></Badge> : <Badge tone={behind ? "danger" : "success"}>{b.completedPct}%</Badge>}
                     </div>
                     {b.total > 0 && (
                       <>
@@ -137,13 +141,13 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
                           <div className={`h-full rounded-full ${behind ? "bg-danger" : "bg-success"}`} style={{ width: `${b.completedPct}%` }} />
                           <div className="absolute -top-1 h-4.5 w-0.5 bg-ink" style={{ left: `${b.plannedPct}%` }} title={`Planned by today: ${b.plannedPct}%`} />
                         </div>
-                        <p className="mt-2 text-sm text-ink-2">{b.done} of {b.total} topics done · {b.plannedPct}% planned by today</p>
+                        <p className="mt-2 text-sm text-ink-2">{b.done} <Words k="of" /> {b.total} <Words k="topics done ·" /> {b.plannedPct}<Words k="% planned by today" /></p>
                         <p className={`mt-1 text-sm ${b.late.length ? "font-medium text-danger" : "text-success"}`}>{lateWords(b.late)}</p>
                       </>
                     )}
                     <div className="mt-2 flex flex-wrap gap-3 text-sm">
-                      <Link className="min-h-11 py-2.5 font-medium text-brand-text hover:underline" href={`${PATH}?view=syllabus&class=${b.classId}&subject=${b.subjectId}&section=${b.sectionId}${yearQ}`}>Open syllabus</Link>
-                      {(teacherOnly || scope.sectionIds === null || scope.sectionIds.includes(b.sectionId)) && <Link className="min-h-11 py-2.5 font-medium text-brand-text hover:underline" href={`${PATH}?view=log&pair=${b.sectionId}:${b.subjectId}${yearQ}`}>Daily log</Link>}
+                      <Link className="min-h-11 py-2.5 font-medium text-brand-text hover:underline" href={`${PATH}?view=syllabus&class=${b.classId}&subject=${b.subjectId}&section=${b.sectionId}${yearQ}`}><Words k="Open syllabus" /></Link>
+                      {(teacherOnly || scope.sectionIds === null || scope.sectionIds.includes(b.sectionId)) && <Link className="min-h-11 py-2.5 font-medium text-brand-text hover:underline" href={`${PATH}?view=log&pair=${b.sectionId}:${b.subjectId}${yearQ}`}><Words k="Daily log" /></Link>}
                     </div>
                   </li>
                 );
@@ -154,7 +158,7 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
       )}
 
       {data.kind === "syllabus" && (
-        data.classes.length === 0 ? <EmptyState title="No classes in this year">Add classes in Classes &amp; Sections first.</EmptyState> : (
+        data.classes.length === 0 ? <EmptyState title="No classes in this year"><Words k={"Add classes in Classes & Sections first."} /></EmptyState> : (
           <>
             <div className="no-print mb-4 flex flex-wrap items-end gap-3">
               <ParamSelect name="class" label="Class" current={data.classId} clear={["subject", "section"]} options={data.classes.map((c) => ({ value: c.id, label: c.name }))} />
@@ -162,7 +166,7 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
               {data.sections.length > 0 && <ParamSelect name="section" label="Status for" current={data.sectionId} placeholder="No section (plan only)" options={data.sections.map((s) => ({ value: s.id, label: `Section ${s.name}` }))} />}
             </div>
             {data.subjects.length === 0 ? (
-              <EmptyState title="No subjects mapped to this class">Map subjects to the class in Subjects first.</EmptyState>
+              <EmptyState title="No subjects mapped to this class"><Words k="Map subjects to the class in Subjects first." /></EmptyState>
             ) : (
               <SyllabusView tree={data.tree} canEdit={scope.manage && page.writable} where={{ yearId: year.id, classId: data.classId, subjectId: data.subjectId }} showStatus={Boolean(data.sectionId)} yearIds={page.years.map((y) => y.id)} />
             )}
@@ -172,14 +176,14 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
 
       {data.kind === "log" && (
         data.pairs.length === 0 ? (
-          <EmptyState title="No classes given to you yet">The daily log lists the subjects you teach. They appear once you are assigned in Teacher Allocation.</EmptyState>
+          <EmptyState title="No classes given to you yet"><Words k="The daily log lists the subjects you teach. They appear once you are assigned in Teacher Allocation." /></EmptyState>
         ) : (
           <>
             <div className="no-print mb-4"><ParamSelect name="pair" label="Class and subject" current={data.pairKey} options={pairOptions} /></div>
             {data.tree.length === 0 ? (
-              <EmptyState title="No syllabus for this subject yet">{scope.manage ? <>Set it up in the <Link className="font-medium text-brand-text underline" href={`${PATH}?view=syllabus&class=${data.pair?.classId}&subject=${data.pair?.subjectId}${yearQ}`}>Syllabus view</Link>.</> : "Ask the Academic Head to set up the syllabus. Then tick topics here as you teach them."}</EmptyState>
+              <EmptyState title="No syllabus for this subject yet">{scope.manage ? <><Words k="Set it up in the" /> <Link className="font-medium text-brand-text underline" href={`${PATH}?view=syllabus&class=${data.pair?.classId}&subject=${data.pair?.subjectId}${yearQ}`}><Words k="Syllabus view" /></Link>.</> : "Ask the Academic Head to set up the syllabus. Then tick topics here as you teach them."}</EmptyState>
             ) : !page.writable ? (
-              <p className="text-ink-2">{year.name} is closed. The daily log is read-only.</p>
+              <p className="text-ink-2">{year.name} <Words k="is closed. The daily log is read-only." /></p>
             ) : (
               <DailyLog key={`${data.pairKey}:${isoDay(data.logDate)}`} chapters={logChapters(data.tree, data.ticked)} yearId={year.id} sectionId={data.pair!.sectionId} date={isoDay(data.logDate)} maxDate={isoDay(page.today)} />
             )}
@@ -214,19 +218,19 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
                       )}
                     </div>
                     <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-3">
-                      <div><dt className="font-medium">Objectives</dt><dd className="whitespace-pre-line text-ink-2">{p.objectives || "Not written"}</dd></div>
-                      <div><dt className="font-medium">Resources</dt><dd className="whitespace-pre-line break-words text-ink-2">{p.resources || "None"}</dd></div>
-                      <div><dt className="font-medium">Activities and homework</dt><dd className="whitespace-pre-line text-ink-2">{p.activities || "None"}</dd></div>
+                      <div><dt className="font-medium"><Words k="Objectives" /></dt><dd className="whitespace-pre-line text-ink-2">{p.objectives || "Not written"}</dd></div>
+                      <div><dt className="font-medium"><Words k="Resources" /></dt><dd className="whitespace-pre-line break-words text-ink-2">{p.resources || "None"}</dd></div>
+                      <div><dt className="font-medium"><Words k="Activities and homework" /></dt><dd className="whitespace-pre-line text-ink-2">{p.activities || "None"}</dd></div>
                     </dl>
                   </li>
                 ))}
               </ul>
               {data.total > PAGE_SIZE && (
                 <nav aria-label="Pages" className="mt-4 flex items-center justify-between gap-2 text-sm">
-                  <span className="text-ink-2">{plural(data.total, "plan")}, page {data.pageNo} of {Math.ceil(data.total / PAGE_SIZE)}</span>
+                  <span className="text-ink-2">{plural(data.total, "plan")}<Words k=", page" /> {data.pageNo} <Words k="of" /> {Math.ceil(data.total / PAGE_SIZE)}</span>
                   <span className="flex gap-2">
-                    {data.pageNo > 1 && <Link className={buttonClass("secondary", "sm")} href={`${PATH}?view=plans&page=${data.pageNo - 1}${data.pairKey ? `&pair=${data.pairKey}` : ""}${yearQ}`}>Previous</Link>}
-                    {data.pageNo * PAGE_SIZE < data.total && <Link className={buttonClass("secondary", "sm")} href={`${PATH}?view=plans&page=${data.pageNo + 1}${data.pairKey ? `&pair=${data.pairKey}` : ""}${yearQ}`}>Next</Link>}
+                    {data.pageNo > 1 && <Link className={buttonClass("secondary", "sm")} href={`${PATH}?view=plans&page=${data.pageNo - 1}${data.pairKey ? `&pair=${data.pairKey}` : ""}${yearQ}`}><Words k="Previous" /></Link>}
+                    {data.pageNo * PAGE_SIZE < data.total && <Link className={buttonClass("secondary", "sm")} href={`${PATH}?view=plans&page=${data.pageNo + 1}${data.pairKey ? `&pair=${data.pairKey}` : ""}${yearQ}`}><Words k="Next" /></Link>}
                   </span>
                 </nav>
               )}
@@ -262,7 +266,7 @@ function SyllabusView({ tree, canEdit, where, showStatus, yearIds }: { tree: Tre
         <EmptyState title="No syllabus yet for this subject">{canEdit ? "Add units and chapters, paste a list, or copy one from another class or year." : "The syllabus appears here once the Academic Head sets it up."}</EmptyState>
       ) : (
         <>
-          {showStatus && <p className="mb-2 text-sm text-ink-2">Status for the chosen section: Planned, Taught, Completed, or Pending when the planned date has passed.</p>}
+          {showStatus && <p className="mb-2 text-sm text-ink-2"><Words k="Status for the chosen section: Planned, Taught, Completed, or Pending when the planned date has passed." /></p>}
           <SyllabusTree rows={rows} canEdit={canEdit} where={where} showStatus={showStatus} />
         </>
       )}

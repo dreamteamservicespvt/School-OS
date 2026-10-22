@@ -22,8 +22,12 @@ import { HostelHead } from "../_components/head";
 import { ArchivePlanSheet, CloseHostelSheet, FeePlanSheet, HostelSheet, WardensSheet, type PlanStart } from "../_components/sheets";
 import { BASE, hostelGuard, idParam, one, qs, type SearchParams } from "../_lib/page";
 import { MealsForm, MessagesForm, RulesForm, TimingsForm } from "./forms";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Hostel Settings · Hostel Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Hostel Settings · Hostel Management") };
+}
 
 export default async function HostelSettingsPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
@@ -69,7 +73,7 @@ export default async function HostelSettingsPage({ searchParams }: { searchParam
     <>
       <HostelHead pageName="Hostel Settings" href={base} mode={p.mode}
         sub={readOnly ? "The hostel rules, timings, wardens and fee plans." : "The hostel rules, timings, meals, messages, wardens and fee plans."}
-        actions={can.hostels ? <ButtonLink href={qs(base, { hostel: "new" })} variant="secondary" icon={Building2} scroll={false}>Add a hostel</ButtonLink> : undefined} />
+        actions={can.hostels ? <ButtonLink href={qs(base, { hostel: "new" })} variant="secondary" icon={Building2} scroll={false}><Words k="Add a hostel" /></ButtonLink> : undefined} />
       <Split side={380}>
         <Col>
           <Stack>
@@ -84,7 +88,7 @@ export default async function HostelSettingsPage({ searchParams }: { searchParam
             <Card>
               <CardHeader title="Hostels and wardens" icon={Building2} description={mine === null ? "Each hostel with its floors and wardens." : "Your hostel."} divided />
               {p.myHostels.length === 0 ? (
-                <Empty icon={Building2} title="No hostel yet" body={can.hostels ? "Add the boys' or girls' hostel." : "The Principal or School Admin adds the hostels."} action={can.hostels ? <ButtonLink href={qs(base, { hostel: "new" })} variant="primary" icon={Plus} scroll={false}>Add a hostel</ButtonLink> : undefined} />
+                <Empty icon={Building2} title="No hostel yet" body={can.hostels ? "Add the boys' or girls' hostel." : "The Principal or School Admin adds the hostels."} action={can.hostels ? <ButtonLink href={qs(base, { hostel: "new" })} variant="primary" icon={Plus} scroll={false}><Words k="Add a hostel" /></ButtonLink> : undefined} />
               ) : (
                 <ul className="divide-y divide-line/70">
                   {p.myHostels.map((h) => {
@@ -97,12 +101,12 @@ export default async function HostelSettingsPage({ searchParams }: { searchParam
                           <Pill tone={h.gender === "GIRLS" ? "brand" : "info"}>{GENDER[h.gender as "BOYS" | "GIRLS"].label}</Pill>
                         </div>
                         <p className="text-[12.5px] text-ink3">{plural(h.floors.length, "floor")} ({h.floors.join(", ")}) · {plural(n, "room")}{d.notes.get(h.id) ? ` · ${d.notes.get(h.id)}` : ""}</p>
-                        <p className="text-[13px] text-ink2">{w.length ? w.map((x) => `${x.name} (${x.title.toLowerCase()})${x.userLoginId ? "" : ", no login"}`).join(" · ") : <span className="text-warn">No warden yet</span>}</p>
+                        <p className="text-[13px] text-ink2">{w.length ? w.map((x) => `${x.name} (${x.title.toLowerCase()})${x.userLoginId ? "" : ", no login"}`).join(" · ") : <span className="text-warn"><Words k="No warden yet" /></span>}</p>
                         {can.hostels && (
                           <div className="flex gap-3 flex-wrap mt-0.5">
-                            <Link href={qs(base, { wardens: h.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline inline-flex items-center gap-1"><UserCog size={14} aria-hidden="true" />Wardens</Link>
-                            <Link href={qs(base, { hostel: h.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline inline-flex items-center gap-1"><Pencil size={13} aria-hidden="true" />Change</Link>
-                            <Link href={qs(base, { close: h.id })} scroll={false} className="text-[13px] font-semibold text-bad hover:underline">Close hostel</Link>
+                            <Link href={qs(base, { wardens: h.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline inline-flex items-center gap-1"><UserCog size={14} aria-hidden="true" /><Words k="Wardens" /></Link>
+                            <Link href={qs(base, { hostel: h.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline inline-flex items-center gap-1"><Pencil size={13} aria-hidden="true" /><Words k="Change" /></Link>
+                            <Link href={qs(base, { close: h.id })} scroll={false} className="text-[13px] font-semibold text-bad hover:underline"><Words k="Close hostel" /></Link>
                           </div>
                         )}
                       </li>
@@ -110,24 +114,24 @@ export default async function HostelSettingsPage({ searchParams }: { searchParam
                   })}
                 </ul>
               )}
-              {can.rooms && <div className="px-5 py-3 border-t border-line"><Link href={`${BASE}/rooms/import`} className="text-[13px] font-semibold text-brand hover:underline inline-flex items-center gap-1.5"><FileSpreadsheet size={14} aria-hidden="true" />Import rooms from a spreadsheet</Link></div>}
+              {can.rooms && <div className="px-5 py-3 border-t border-line"><Link href={`${BASE}/rooms/import`} className="text-[13px] font-semibold text-brand hover:underline inline-flex items-center gap-1.5"><FileSpreadsheet size={14} aria-hidden="true" /><Words k="Import rooms from a spreadsheet" /></Link></div>}
             </Card>
 
             <Card>
               <CardHeader title="Outing approvers" icon={ShieldCheck} divided />
               <div className="px-5 py-4 text-[13.5px] text-ink2 flex flex-col gap-2">
-                <p>Outing and leave passes go to the <b className="font-semibold text-ink">warden of the student&apos;s hostel</b>. When that warden asks for the pass, another warden of the hostel approves it, else the Principal. Nobody approves their own request.</p>
-                <p className="text-ink3">More approvers can be added in {seesSettings ? <Link href="/settings/forms-approvals" className="text-brand font-semibold hover:underline">Settings, Forms &amp; Approvals</Link> : "Settings, Forms & Approvals"}.</p>
+                <p><Words k="Outing and leave passes go to the" /> <b className="font-semibold text-ink"><Words k="warden of the student's hostel" /></b><Words k=". When that warden asks for the pass, another warden of the hostel approves it, else the Principal. Nobody approves their own request." /></p>
+                <p className="text-ink3"><Words k="More approvers can be added in" /> {seesSettings ? <Link href="/settings/forms-approvals" className="text-brand font-semibold hover:underline"><Words k={"Settings, Forms & Approvals"} /></Link> : "Settings, Forms & Approvals"}.</p>
               </div>
             </Card>
 
             <Card>
               <CardHeader title="Hostel fees" icon={IndianRupee} description={d.year ? `Fee plans for ${d.year.name}. Allocating a bed adds the plan's installments to the student's fees.` : "Set up this academic year first."} divided
-                action={can.feePlans && d.year ? <ButtonLink href={qs(base, { plan: "new", year: d.picked?.id ?? null })} size="sm" variant="secondary" icon={Plus} scroll={false}>Add plan</ButtonLink> : undefined} />
+                action={can.feePlans && d.year ? <ButtonLink href={qs(base, { plan: "new", year: d.picked?.id ?? null })} size="sm" variant="secondary" icon={Plus} scroll={false}><Words k="Add plan" /></ButtonLink> : undefined} />
               {d.years.length > 1 && (
                 <div className="px-5 pt-3">
                   <SegLinks label="School year" size="sm" value={d.year?.id ?? ""} options={d.years.map((y) => ({ value: y.id, label: y.id === d.thisYear?.id ? `${y.name} (this year)` : y.name, href: y.id === d.thisYear?.id ? base : qs(base, { year: y.id }) }))} />
-                  {d.picked && <p className="text-[12.5px] text-ink3 mt-2">Students given a bed for {d.picked.name}, and boarders carried over into it when it opens, get these fees.</p>}
+                  {d.picked && <p className="text-[12.5px] text-ink3 mt-2"><Words k="Students given a bed for" /> {d.picked.name}<Words k=", and boarders carried over into it when it opens, get these fees." /></p>}
                 </div>
               )}
               {d.plans.length === 0 ? (
@@ -138,22 +142,22 @@ export default async function HostelSettingsPage({ searchParams }: { searchParam
                     <li key={x.id} className="px-5 py-3.5 flex flex-col gap-1">
                       <div className="flex items-center gap-2 flex-wrap">
                         <b className="font-semibold text-[14.5px] flex-1 min-w-0">{x.name}</b>
-                        {v.seesFees && <b className="tnum font-semibold">{formatRupees(planTotal(x))}<span className="text-[12px] text-ink3 font-normal"> a year</span></b>}
+                        {v.seesFees && <b className="tnum font-semibold">{formatRupees(planTotal(x))}<span className="text-[12px] text-ink3 font-normal"> <Words k="a year" /></span></b>}
                       </div>
                       <p className="text-[12.5px] text-ink3">{x.campusName ? `${x.campusName} · ` : ""}{hostelName(x.hostelId)} · {x.roomType ?? "any room"}{x.includesMess ? " · mess included" : ""}</p>
                       <p className="text-[12.5px] text-ink2">{v.seesFees ? x.installments.map((i) => `${i.label}: ${formatRupees(i.amountPaise)}, due ${formatDate(i.dueDate, "UTC")}`).join(" · ") : plural(x.installments.length, "installment")}</p>
                       {can.feePlans && (
                         <div className="flex gap-3 mt-0.5">
-                          <Link href={qs(base, { plan: x.id, year: d.picked?.id ?? null })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">Change</Link>
-                          <Link href={qs(base, { archivePlan: x.id, year: d.picked?.id ?? null })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline">Archive</Link>
+                          <Link href={qs(base, { plan: x.id, year: d.picked?.id ?? null })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline"><Words k="Change" /></Link>
+                          <Link href={qs(base, { archivePlan: x.id, year: d.picked?.id ?? null })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline"><Words k="Archive" /></Link>
                         </div>
                       )}
                     </li>
                   ))}
                 </ul>
               )}
-              {!v.seesFees && d.plans.length > 0 && <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">Fee amounts are shown to people with Fee Management.</p>}
-              {v.seesFees && <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">Hostel fees are collected, receipted and followed up in <Link href="/fee-management" className="text-brand font-semibold hover:underline">Fee Management</Link>, under the Hostel fee head.</p>}
+              {!v.seesFees && d.plans.length > 0 && <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3"><Words k="Fee amounts are shown to people with Fee Management." /></p>}
+              {v.seesFees && <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3"><Words k="Hostel fees are collected, receipted and followed up in" /> <Link href="/fee-management" className="text-brand font-semibold hover:underline"><Words k="Fee Management" /></Link><Words k=", under the Hostel fee head." /></p>}
             </Card>
           </Stack>
         </Col>

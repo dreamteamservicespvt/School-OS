@@ -13,6 +13,7 @@ import { Button, type ButtonVariant } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
+import { Words } from "@/lib/i18n/client";
 
 const noSubscribe = () => () => {};
 /** Whether this browser can read QR codes with the camera (false on the server). */
@@ -98,7 +99,7 @@ export function CameraBox({ name, who, required, error }: { name: string; who: s
   const retake = () => { if (input.current) input.current.value = ""; setPreview(null); setState("off"); };
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[13px] font-semibold text-ink2">Photo{required && <span className="text-bad" aria-hidden="true"> *</span>}</span>
+      <span className="text-[13px] font-semibold text-ink2"><Words k="Photo" />{required && <span className="text-bad" aria-hidden="true"> *</span>}</span>
       <input ref={input} type="file" name={name} accept="image/*" capture="user" className="sr-only" tabIndex={-1} aria-hidden="true"
         onChange={(e) => { const f = e.target.files?.[0]; if (f) { setPreview(URL.createObjectURL(f)); setTakenAt(new Date().toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", hour12: true }).toUpperCase()); setState("taken"); } }} />
       {state === "taken" ? (
@@ -108,16 +109,16 @@ export function CameraBox({ name, who, required, error }: { name: string; who: s
             {preview ? <img src={preview} alt={`Photo of ${who || "the visitor"}`} className="w-14 h-14 rounded-lg object-cover" /> : <Avatar name={who || "Visitor"} size={56} />}
             <span className="absolute bottom-1 right-1 w-4 h-4 rounded-full bg-ok text-white grid place-items-center"><Check size={10} strokeWidth={3} aria-hidden="true" /></span>
           </span>
-          <div className="min-w-0 flex-1"><p className="font-semibold text-[14px]">Photo taken at {takenAt}</p><p className="text-[12.5px] text-ink3">Printed on the pass and kept with the visit</p></div>
-          <Button type="button" size="sm" variant="ghost" icon={RotateCcw} onClick={retake}>Retake</Button>
+          <div className="min-w-0 flex-1"><p className="font-semibold text-[14px]"><Words k="Photo taken at" /> {takenAt}</p><p className="text-[12.5px] text-ink3"><Words k="Printed on the pass and kept with the visit" /></p></div>
+          <Button type="button" size="sm" variant="ghost" icon={RotateCcw} onClick={retake}><Words k="Retake" /></Button>
         </div>
       ) : state === "live" ? (
         <div className="relative rounded-xl border border-line bg-shade/80 h-40 overflow-hidden grid place-items-center">
           <video ref={video} muted playsInline className="absolute inset-0 w-full h-full object-cover" />
-          <span className="absolute top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-white bg-shade/60 rounded-full px-2 py-0.5"><span className="w-1.5 h-1.5 rounded-full bg-ok animate-pulse" />Desk camera on</span>
+          <span className="absolute top-3 left-1/2 -translate-x-1/2 inline-flex items-center gap-1.5 text-[11.5px] font-semibold text-white bg-shade/60 rounded-full px-2 py-0.5"><span className="w-1.5 h-1.5 rounded-full bg-ok animate-pulse" /><Words k="Desk camera on" /></span>
           <div className="absolute bottom-3 inset-x-0 flex justify-center gap-2">
-            <Button type="button" size="sm" variant="primary" icon={Camera} onClick={snap}>Take photo</Button>
-            <Button type="button" size="sm" variant="secondary" onClick={() => { stop(); setState("off"); }}>Cancel</Button>
+            <Button type="button" size="sm" variant="primary" icon={Camera} onClick={snap}><Words k="Take photo" /></Button>
+            <Button type="button" size="sm" variant="secondary" onClick={() => { stop(); setState("off"); }}><Words k="Cancel" /></Button>
           </div>
         </div>
       ) : (
@@ -125,8 +126,8 @@ export function CameraBox({ name, who, required, error }: { name: string; who: s
           {["top-3 left-3 border-t-2 border-l-2", "top-3 right-3 border-t-2 border-r-2", "bottom-3 left-3 border-b-2 border-l-2", "bottom-3 right-3 border-b-2 border-r-2"].map((c) => <span key={c} className={cx("absolute w-5 h-5 border-ink3/50 rounded-sm", c)} aria-hidden="true" />)}
           <div className="flex flex-col items-center gap-2 text-ink3 text-[13px] px-4 text-center">
             <ScanFace size={30} aria-hidden="true" />
-            <span>Ask the visitor to look at the camera</span>
-            <Button type="button" size="sm" variant="secondary" icon={Camera} onClick={start}>Take photo</Button>
+            <span><Words k="Ask the visitor to look at the camera" /></span>
+            <Button type="button" size="sm" variant="secondary" icon={Camera} onClick={start}><Words k="Take photo" /></Button>
           </div>
         </div>
       )}

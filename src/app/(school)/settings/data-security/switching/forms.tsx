@@ -9,6 +9,7 @@ import { TextField } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { expectedAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 type ExpectedValues = { oldSoftware: string; students: string; staff: string; guardians: string; goLiveDate: string; oldDues?: string; pastReceipts?: string; advances?: string; cash?: string; bank?: string };
 
@@ -40,7 +41,7 @@ export function ExpectedForm({ values, money }: { values: ExpectedValues; money?
         </div>
       )}
       <TextField label="Go-live date" name="goLiveDate" type="date" defaultValue={v("goLiveDate")} error={state?.errors?.goLiveDate} help="The first day School OS is your record. Any day of the year works. Fees due before it belong to the old software, and finance records start on it." />
-      <SubmitButton variant="secondary" pendingText="Saving…">Save and compare</SubmitButton>
+      <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save and compare" /></SubmitButton>
     </form>
   );
 }

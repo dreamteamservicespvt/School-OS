@@ -17,6 +17,7 @@ import { LEVEL_OPTIONS, combineLevels, extraPermissions, levelWords } from "@/li
 import type { ModuleKey } from "@/lib/modules";
 import type { Created } from "./actions";
 import { SignInChoice } from "../_components/sign-in-choice";
+import { Words } from "@/lib/i18n/client";
 
 type Option = { value: string; label: string };
 export type WizardData = {
@@ -157,7 +158,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
         {stepNames.map((n, i) => (
           <li key={n} aria-current={step === i + 1 ? "step" : undefined}
             className={`rounded-xl border px-3 py-2 text-sm ${step === i + 1 ? "border-brand bg-brand-soft text-brand-text" : step > i + 1 ? "border-line bg-surface text-ink" : "border-line bg-surface text-ink-2"}`}>
-            <span className="block text-xs">Step {i + 1}{step > i + 1 ? " · done" : ""}</span>
+            <span className="block text-xs"><Words k="Step" /> {i + 1}{step > i + 1 ? " · done" : ""}</span>
             <span className="font-medium">{n}</span>
           </li>
         ))}
@@ -170,8 +171,8 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
 
       {/* Step 1 */}
       <fieldset data-step="1" hidden={step !== 1} className="space-y-4 rounded-2xl border border-line bg-surface p-5">
-        <legend className="sr-only">Step 1: Details</legend>
-        {p && <Alert tone="info">Filled from the accepted offer to {p.fullName}. Check and complete the details.</Alert>}
+        <legend className="sr-only"><Words k="Step 1: Details" /></legend>
+        {p && <Alert tone="info"><Words k="Filled from the accepted offer to" /> {p.fullName}<Words k=". Check and complete the details." /></Alert>}
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Full name" name="fullName" required maxLength={120} value={fullName} onChange={(e) => setFullName(e.target.value)} error={err("fullName")} autoComplete="off" />
           <TextField label="Phone" name="phone" required inputMode="numeric" value={phone} placeholder="10-digit mobile" onChange={(e) => setPhone(e.target.value)}
@@ -184,7 +185,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
           <SelectField label="Gender" name="gender" defaultValue="" options={[{ value: "Female", label: "Female" }, { value: "Male", label: "Male" }, { value: "Other", label: "Other" }]} placeholder="Choose" error={err("gender")} />
           <TextField label="Email" name="email" type="email" defaultValue={p?.email} error={err("email")} help="Needed for an email invite." autoComplete="off" />
           <div>
-            <label htmlFor="photo" className="mb-1 block text-sm font-medium">Photo</label>
+            <label htmlFor="photo" className="mb-1 block text-sm font-medium"><Words k="Photo" /></label>
             <input id="photo" name="photo" type="file" accept="image/jpeg,image/png" onChange={(e) => setPhotoName(e.target.files?.[0]?.name ?? null)}
               className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-sm file:mr-3 file:min-h-9 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:text-ink" />
             <p className={`mt-1 text-sm ${err("photo") ? "text-danger" : "text-ink-2"}`}>{err("photo") ?? (photoName ? `Chosen: ${photoName}` : "JPG or PNG, up to 2 MB. Made smaller for phones.")}</p>
@@ -195,7 +196,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
           <CheckboxField name="emailVerified" label="Email verified" />
         </div>
         <details className="rounded-xl border border-line p-4" open={Object.keys(errors).some((k) => ["staffCode", "dateOfBirth", "bloodGroup", "aadhaar", "address", "permanentAddress", "qualification", "experienceYears", "employmentType", "reportingToId", "campusId"].includes(k)) || undefined}>
-          <summary className="cursor-pointer font-medium">More details</summary>
+          <summary className="cursor-pointer font-medium"><Words k="More details" /></summary>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <TextField label="Date of birth" name="dateOfBirth" type="date" max={data.today} error={err("dateOfBirth")} />
             <SelectField label="Blood group" name="bloodGroup" defaultValue="" options={["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((b) => ({ value: b, label: b }))} placeholder="Choose" error={err("bloodGroup")} />
@@ -213,7 +214,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
         </details>
         {dups.length > 0 && (
           <Alert tone="warning" title="This may be someone already on file">
-            <ul className="mt-1 space-y-1">{dups.map((d) => <li key={d.message}>{d.message} <Link href={d.href} className="font-medium underline">Open existing</Link></li>)}</ul>
+            <ul className="mt-1 space-y-1">{dups.map((d) => <li key={d.message}>{d.message} <Link href={d.href} className="font-medium underline"><Words k="Open existing" /></Link></li>)}</ul>
             <CheckboxField name="allowDuplicate" label="It is a different person. Save anyway." className="mt-3" checked={allowDup} onChange={(e) => setAllowDup(e.target.checked)} />
           </Alert>
         )}
@@ -222,14 +223,14 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
 
       {/* Step 2 */}
       <fieldset data-step="2" hidden={step !== 2} className="space-y-4 rounded-2xl border border-line bg-surface p-5">
-        <legend className="sr-only">Step 2: What they can open</legend>
+        <legend className="sr-only"><Words k="Step 2: What they can open" /></legend>
         <CheckboxField name="giveLogin" label="Give a login to School OS" checked={giveLogin} onChange={(e) => setGiveLogin(e.target.checked)}
           help="They get an invite link to set their own password, or a temporary password you give them. Staff without a login can still be on the Time Table and payroll." />
         {giveLogin && (
           <>
             <div>
-              <p className="mb-1 font-medium">Roles <span className="text-danger" aria-hidden="true">*</span></p>
-              <p className="mb-3 text-sm text-ink-2">Pick one or more. What each role can open is shown in plain words.</p>
+              <p className="mb-1 font-medium"><Words k="Roles" /> <span className="text-danger" aria-hidden="true">*</span></p>
+              <p className="mb-3 text-sm text-ink-2"><Words k="Pick one or more. What each role can open is shown in plain words." /></p>
               {errors.roleKeys && <p className="mb-2 text-sm text-danger" role="alert">{errors.roleKeys}</p>}
               <ul className="grid gap-2 sm:grid-cols-2">
                 {data.roles.map((r) => (
@@ -239,7 +240,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
                         onChange={(e) => { setRolesTouched(true); setRoleKeys((k) => (e.target.checked ? [...k, r.key] : k.filter((x) => x !== r.key))); }} />
                       <span className="flex-1">
                         <span className="font-medium">{r.name}</span>
-                        <span className="block text-sm text-ink-2">{r.lines.length} module{r.lines.length === 1 ? "" : "s"}</span>
+                        <span className="block text-sm text-ink-2">{r.lines.length} <Words k="module" />{r.lines.length === 1 ? "" : "s"}</span>
                       </span>
                     </label>
                     <button type="button" className="mt-1 min-h-9 text-sm font-medium text-brand-text hover:underline" aria-expanded={openRole === r.key} onClick={() => setOpenRole(openRole === r.key ? null : r.key)}>
@@ -257,9 +258,9 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
             </div>
             <SignInChoice error={err("temporaryPassword")} />
             <details className="rounded-xl border border-line p-4">
-              <summary className="cursor-pointer font-medium">Adjust permissions (advanced)</summary>
-              <p className="mt-2 text-sm text-ink-2">Start from the roles; change a module only when this one person needs something different. Changes show on their profile.</p>
-              {extras.length > 0 && <Alert tone="warning" className="mt-3">{extras.length} extra permission{extras.length === 1 ? "" : "s"} beyond the chosen role{roleKeys.length === 1 ? "" : "s"}.</Alert>}
+              <summary className="cursor-pointer font-medium"><Words k="Adjust permissions (advanced)" /></summary>
+              <p className="mt-2 text-sm text-ink-2"><Words k="Start from the roles; change a module only when this one person needs something different. Changes show on their profile." /></p>
+              {extras.length > 0 && <Alert tone="warning" className="mt-3">{extras.length} <Words k="extra permission" />{extras.length === 1 ? "" : "s"} <Words k="beyond the chosen role" />{roleKeys.length === 1 ? "" : "s"}.</Alert>}
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {data.modules.map((m) => (
                   <SelectField key={m.key} label={m.name} name={`perm:${m.key}`} value={exceptions[m.key] ?? ""}
@@ -274,14 +275,14 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
 
       {/* Step 3 */}
       <fieldset data-step="3" hidden={step !== 3} className="space-y-4 rounded-2xl border border-line bg-surface p-5">
-        <legend className="sr-only">Step 3: Classes and subjects</legend>
+        <legend className="sr-only"><Words k="Step 3: Classes and subjects" /></legend>
         {!teaching ? (
-          <p className="text-ink-2">{designation} is not a teaching post, so there are no classes to give. Press Create staff.</p>
+          <p className="text-ink-2">{designation} <Words k="is not a teaching post, so there are no classes to give. Press Create staff." /></p>
         ) : data.classes.length === 0 ? (
-          <Alert tone="info">There are no sections in {data.yearName ?? "the current academic year"} yet. Skip this step; classes can be given later in Teacher Allocation.</Alert>
+          <Alert tone="info"><Words k="There are no sections in" /> {data.yearName ?? "the current academic year"} <Words k="yet. Skip this step; classes can be given later in Teacher Allocation." /></Alert>
         ) : (
           <>
-            <p className="text-ink-2">Tick the sections and the subjects taught in each class ({data.yearName}). They stay from year to year until changed.</p>
+            <p className="text-ink-2"><Words k="Tick the sections and the subjects taught in each class (" />{data.yearName}<Words k="). They stay from year to year until changed." /></p>
             <TextField label="Find a class" name="classSearch" value={classFilter} onChange={(e) => setClassFilter(e.target.value)} placeholder="Class 5" />
             <ul className="space-y-3">
               {data.classes.filter((c) => c.name.toLowerCase().includes(classFilter.trim().toLowerCase())).map((c) => {
@@ -306,7 +307,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
                       ))}
                     </div>
                     {c.subjects.length === 0 ? (
-                      <p className="mt-2 text-sm text-ink-2">No subjects set for this class. <Link href="/academic-management" className="font-medium text-brand-text underline">Subjects</Link></p>
+                      <p className="mt-2 text-sm text-ink-2"><Words k="No subjects set for this class." /> <Link href="/academic-management" className="font-medium text-brand-text underline"><Words k="Subjects" /></Link></p>
                     ) : (
                       <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label={`${c.name} subjects`}>
                         {c.subjects.map((s) => (
@@ -317,25 +318,25 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
                         ))}
                       </div>
                     )}
-                    {sel.sections.length > 0 && sel.subjects.length === 0 && c.subjects.length > 0 && <p className="mt-2 text-sm text-warn-text">Tick the subjects taught in {c.name}.</p>}
+                    {sel.sections.length > 0 && sel.subjects.length === 0 && c.subjects.length > 0 && <p className="mt-2 text-sm text-warn-text"><Words k="Tick the subjects taught in" /> {c.name}.</p>}
                   </li>
                 );
               })}
             </ul>
             {allocs.map((a) => <input key={a} type="hidden" name="alloc" value={a} />)}
-            <p className="text-sm text-ink-2" aria-live="polite">{allocs.length} class and subject pair{allocs.length === 1 ? "" : "s"} chosen.</p>
+            <p className="text-sm text-ink-2" aria-live="polite">{allocs.length} <Words k="class and subject pair" />{allocs.length === 1 ? "" : "s"} <Words k="chosen." /></p>
           </>
         )}
         {errors.allocations && <p className="text-sm text-danger" role="alert">{errors.allocations}</p>}
       </fieldset>
 
       <div className="sticky bottom-16 z-10 flex flex-col-reverse gap-2 rounded-2xl border border-line bg-surface p-3 shadow-card sm:static sm:flex-row sm:justify-between sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
-        <div>{step > 1 && <Button variant="secondary" onClick={() => setStep((s) => (s - 1) as 1 | 2)} disabled={pending}>Back</Button>}</div>
+        <div>{step > 1 && <Button variant="secondary" onClick={() => setStep((s) => (s - 1) as 1 | 2)} disabled={pending}><Words k="Back" /></Button>}</div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          {step === 3 && teaching && data.classes.length > 0 && <Button variant="secondary" onClick={() => submit(true)} disabled={pending}>Skip and create staff</Button>}
+          {step === 3 && teaching && data.classes.length > 0 && <Button variant="secondary" onClick={() => submit(true)} disabled={pending}><Words k="Skip and create staff" /></Button>}
           {step < 3
-            ? <Button type="submit" loading={pending} loadingText="Checking…">Next</Button>
-            : <Button type="submit" loading={pending} loadingText="Creating…">Create staff</Button>}
+            ? <Button type="submit" loading={pending} loadingText="Checking…"><Words k="Next" /></Button>
+            : <Button type="submit" loading={pending} loadingText="Creating…"><Words k="Create staff" /></Button>}
         </div>
       </div>
     </form>
@@ -349,38 +350,38 @@ function Summary({ done, onAnother }: { done: Created; onAnother: () => void }) 
   return (
     <section className="space-y-5 rounded-2xl border border-line bg-surface p-5" aria-labelledby="done-title">
       <div>
-        <Badge tone="success">Created</Badge>
-        <h2 id="done-title" className="mt-2 text-xl font-semibold">{done.name} is now on the staff</h2>
+        <Badge tone="success"><Words k="Created" /></Badge>
+        <h2 id="done-title" className="mt-2 text-xl font-semibold">{done.name} <Words k="is now on the staff" /></h2>
       </div>
       <dl className="grid gap-4 sm:grid-cols-2">
-        <div><dt className="text-sm text-ink-2">Staff ID</dt><dd className="font-medium">{done.staffCode}</dd></div>
-        <div><dt className="text-sm text-ink-2">Login</dt><dd className="font-medium">{done.username ?? "No login"}</dd></div>
-        <div><dt className="text-sm text-ink-2">Roles</dt><dd className="font-medium">{done.roles.length ? done.roles.join(", ") : "None"}</dd></div>
-        <div><dt className="text-sm text-ink-2">Classes and subjects</dt><dd className="font-medium">{done.allocated ? `${done.allocated} in Teacher Allocation` : "None"}</dd></div>
+        <div><dt className="text-sm text-ink-2"><Words k="Staff ID" /></dt><dd className="font-medium">{done.staffCode}</dd></div>
+        <div><dt className="text-sm text-ink-2"><Words k="Login" /></dt><dd className="font-medium">{done.username ?? "No login"}</dd></div>
+        <div><dt className="text-sm text-ink-2"><Words k="Roles" /></dt><dd className="font-medium">{done.roles.length ? done.roles.join(", ") : "None"}</dd></div>
+        <div><dt className="text-sm text-ink-2"><Words k="Classes and subjects" /></dt><dd className="font-medium">{done.allocated ? `${done.allocated} in Teacher Allocation` : "None"}</dd></div>
       </dl>
       {done.temporary && done.username && (
         <Alert tone="info" title="Temporary password">
-          They sign in with the username <b>{done.username}</b> and the temporary password you typed. Give it to them in person: it is not shown again or sent by message. At their first sign-in they choose their own password.
+          <Words k="They sign in with the username" /> <b>{done.username}</b> <Words k="and the temporary password you typed. Give it to them in person: it is not shown again or sent by message. At their first sign-in they choose their own password." />
         </Alert>
       )}
       {link && (
         <div className="rounded-xl border border-line bg-surface-2 p-4">
-          <p className="font-medium">Invite link (works for 7 days)</p>
+          <p className="font-medium"><Words k="Invite link (works for 7 days)" /></p>
           {done.sentWords && <p className="mt-1 text-sm">{done.sentWords}</p>}
           <p className="mt-1 break-all text-sm text-ink-2">{link}</p>
           <div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" variant="secondary" onClick={async () => { await navigator.clipboard.writeText(link); setCopied(true); }}>{copied ? "Copied" : "Copy link"}</Button>
-            <a className={buttonClass("secondary", "sm")} href={`https://wa.me/91${done.phone}?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer">Send on WhatsApp</a>
-            <a className={buttonClass("secondary", "sm")} href={`sms:+91${done.phone}?body=${encodeURIComponent(text)}`}>Send by SMS</a>
-            {done.email && <a className={buttonClass("secondary", "sm")} href={`mailto:${done.email}?subject=${encodeURIComponent("Your School OS login")}&body=${encodeURIComponent(text)}`}>Send by email</a>}
+            <a className={buttonClass("secondary", "sm")} href={`https://wa.me/91${done.phone}?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer"><Words k="Send on WhatsApp" /></a>
+            <a className={buttonClass("secondary", "sm")} href={`sms:+91${done.phone}?body=${encodeURIComponent(text)}`}><Words k="Send by SMS" /></a>
+            {done.email && <a className={buttonClass("secondary", "sm")} href={`mailto:${done.email}?subject=${encodeURIComponent("Your School OS login")}&body=${encodeURIComponent(text)}`}><Words k="Send by email" /></a>}
           </div>
-          <p className="mt-2 text-sm text-ink-2">The link is shown only now. A new one can be made later from the profile (New sign-in link).</p>
+          <p className="mt-2 text-sm text-ink-2"><Words k="The link is shown only now. A new one can be made later from the profile (New sign-in link)." /></p>
         </div>
       )}
       <div className="flex flex-wrap gap-2">
-        <ButtonLink href={`/staff-hr-management/${done.staffId}`} variant="primary">Open profile</ButtonLink>
-        <a className={buttonClass("secondary")} href={`/staff-hr-management/id-cards?staff=${done.staffId}`} target="_blank" rel="noopener">Print ID card</a>
-        <Button variant="secondary" onClick={onAnother}>Add another</Button>
+        <ButtonLink href={`/staff-hr-management/${done.staffId}`} variant="primary"><Words k="Open profile" /></ButtonLink>
+        <a className={buttonClass("secondary")} href={`/staff-hr-management/id-cards?staff=${done.staffId}`} target="_blank" rel="noopener"><Words k="Print ID card" /></a>
+        <Button variant="secondary" onClick={onAnother}><Words k="Add another" /></Button>
       </div>
     </section>
   );

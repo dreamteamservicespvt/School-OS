@@ -4,8 +4,11 @@ import { admissionPage, BASE } from "@/lib/admission/page";
 import { PLACES } from "@/lib/imports/places";
 import { PageHeader } from "@/components/shell/page-header";
 import { FileReview } from "@/components/import/file-review";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Check a file · Import enquiries" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Check a file · Import enquiries") };
+}
 
 /** One enquiries file: match, fix, choose for rows that may already be on record, and bring in the good ones. */
 export default async function EnquiryImportFilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

@@ -21,8 +21,12 @@ import { HomeworkHead } from "../_components/homework-head";
 import { FileRow } from "../_components/bits";
 import { BASE, homeworkGuard, homeworkPeriod, iso, one, qs, UUID, type SearchParams } from "../_lib/page";
 import { AcceptLateButton, BulkCompleteSheet, ExcuseButton, GradeSheet, RemindSheet, Thread } from "./sheets";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Submissions & Grading" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Submissions & Grading") };
+}
 
 const HREF = `${BASE}/submissions`;
 const FILTERS = ["all", "check", "graded", "not"] as const;
@@ -69,7 +73,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
     return (
       <div>{head(subLine)}<Stack>
         <Card className="p-3 flex flex-col md:flex-row gap-2.5 md:items-center"><PeriodFilter {...p.dates} fallback="thismonth" className="w-full md:w-auto" /></Card>
-        <Card><Empty icon={NotebookPen} title="No homework given in these dates" body={`${per.label}${range ? ` · ${range}` : ""}. Pick other dates to check work.`} action={<ButtonLink href={HREF} variant="secondary">This month</ButtonLink>} /></Card>
+        <Card><Empty icon={NotebookPen} title="No homework given in these dates" body={`${per.label}${range ? ` · ${range}` : ""}. Pick other dates to check work.`} action={<ButtonLink href={HREF} variant="secondary"><Words k="This month" /></ButtonLink>} /></Card>
       </Stack></div>
     );
   }
@@ -103,7 +107,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
         <Card className="p-3 flex flex-col md:flex-row gap-2.5 md:items-center">
           <PeriodFilter {...p.dates} fallback="thismonth" className="w-full md:w-auto" />
           <UrlSelect param="hw" id="sg-hw" label="Homework" className="flex-1 min-w-0" options={data.list.map((h) => ({ value: h.id, label: `${h.sectionLabel} · ${h.title} · due ${dayDate(h.dueDate)}` }))} />
-          <p className="text-[13px] text-ink3 px-1">Out of {hw.maxMarks} · {hw.subject}{hw.teacher ? ` · ${hw.teacher}` : ""}</p>
+          <p className="text-[13px] text-ink3 px-1"><Words k="Out of" /> {hw.maxMarks} · {hw.subject}{hw.teacher ? ` · ${hw.teacher}` : ""}</p>
         </Card>
         <Stats items={[
           { label: "Handed in", value: `${counted.filter((r) => !notIn(r.sub.status)).length} of ${counted.length}`, icon: Upload, href: here({ f: null }) },
@@ -125,7 +129,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
               <ExportButton href={qs(`${HREF}/export`, { hw: hw.id, f: f === "all" ? null : f, q: q || null })} />
             </div>
           </Toolbar>
-          {canEdit && picking && <p className="px-4 pt-3 text-[13px] text-ink3 lg:hidden">Tap students to tick them, then choose Mark Complete or Remind parents. You see what will change before anything is saved.</p>}
+          {canEdit && picking && <p className="px-4 pt-3 text-[13px] text-ink3 lg:hidden"><Words k="Tap students to tick them, then choose Mark Complete or Remind parents. You see what will change before anything is saved." /></p>}
           <div className="px-3 pt-3">
             <Chips value={f} label="Show" options={[
               { value: "all", label: "Everyone", count: rows.length, href: here({ f: null }) },
@@ -141,12 +145,12 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
           <div className="mt-3 border-t border-line">
             <DataList rows={shown} rowKey={(r) => r.st.id} rowHref={(r) => here({ open: r.sub.id })} scroll={false} minWidth={780} caption={`Submissions for ${hw.title}`}
               select={canEdit ? { form: "subs-bulk", label: (r) => `Select ${r.st.name}`, allLabel: "Select every student shown" } : undefined} pickMode={canEdit && picking}
-              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing {shown.length} of {rows.length}</p>}
+              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {shown.length} <Words k="of" /> {rows.length}</p>}
               empty={<Empty icon={ListChecks} title="Nobody here" body="Try another filter or search." />}
               columns={[
                 { key: "n", label: "Student", render: (r) => <div className="flex items-center gap-2.5"><span className="text-ink3 tnum w-5 text-[13px]">{r.st.rollNo ?? ""}</span><Avatar name={r.st.name} size={32} /><span className="font-semibold">{r.st.name}</span></div> },
                 { key: "a", label: "Admission no.", render: (r) => <span className="font-mono text-[12.5px]">{r.st.admissionNo}</span> },
-                { key: "w", label: "Submission", render: (r) => (r.sub.submittedAt ? <span className="text-[13px] tnum">{momentWords(r.sub.submittedAt, p.tz)}</span> : r.sub.status === "GRADED" ? <span className="text-[13px] text-ink3">Checked in class</span> : <span className="text-[13px] text-ink3">Not submitted</span>) },
+                { key: "w", label: "Submission", render: (r) => (r.sub.submittedAt ? <span className="text-[13px] tnum">{momentWords(r.sub.submittedAt, p.tz)}</span> : r.sub.status === "GRADED" ? <span className="text-[13px] text-ink3"><Words k="Checked in class" /></span> : <span className="text-[13px] text-ink3"><Words k="Not submitted" /></span>) },
                 { key: "s", label: "Status", render: (r) => <Pill tone={SUB_TONE[word(r.sub.status)]}>{word(r.sub.status)}</Pill> },
                 { key: "sc", label: `Score / ${hw.maxMarks}`, align: "right", render: scoreCell },
               ]}
@@ -181,7 +185,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
                 )}
                 <ul>{data.files!.filter((x) => !x.contentType.startsWith("image/")).map((x) => <FileRow key={x.id} name={x.fileName} kind="file" href={fileLink(x.id, p.current.ctx.schoolId)} />)}</ul>
                 {r.sub.note && <p className="text-[13.5px] text-ink2 rounded-xl bg-sunken/60 px-3 py-2">“{r.sub.note}”</p>}
-                <p className="text-[12.5px] text-ink3">{r.sub.status === "LATE" && <span className="text-warn font-semibold">Late · </span>}Handed in {r.sub.submittedAt ? momentWords(r.sub.submittedAt, p.tz) : ""}{data.files!.length ? " · tap a page to see it full size" : ""}</p>
+                <p className="text-[12.5px] text-ink3">{r.sub.status === "LATE" && <span className="text-warn font-semibold"><Words k="Late ·" /> </span>}<Words k="Handed in" /> {r.sub.submittedAt ? momentWords(r.sub.submittedAt, p.tz) : ""}{data.files!.length ? " · tap a page to see it full size" : ""}</p>
               </>
             ) : <Banner tone="warn">{r.sub.status === "GRADED" ? "Checked in class; nothing was handed in online." : canEdit ? "Nothing handed in online yet. If you checked the notebook in class, mark it Complete." : "Nothing handed in yet."}</Banner>}
             {canEdit && r.sub.status === "LATE" && <div><AcceptLateButton id={r.sub.id} /></div>}
@@ -191,7 +195,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
           <Thread submissionId={r.sub.id} canReply={canEdit}
             items={data.comments!.map((c) => ({ id: c.id, who: c.fromStudent ? r.st.name : c.authorName, when: momentWords(c.createdAt, p.tz), text: c.body, fromStudent: c.fromStudent, hidden: c.hiddenAt ? c.hiddenReason ?? "Hidden" : null }))} />
         ) : null;
-        const profile = p.current.permissions["student-management"]?.see !== "none" ? <ButtonLink href={`/student-management/${r.st.id}`} variant="ghost" size="sm" icon={User}>Profile</ButtonLink> : null;
+        const profile = p.current.permissions["student-management"]?.see !== "none" ? <ButtonLink href={`/student-management/${r.st.id}`} variant="ghost" size="sm" icon={User}><Words k="Profile" /></ButtonLink> : null;
         const sub = `Roll ${r.st.rollNo ?? "—"} · ${hw.title}`;
         if (canEdit) {
           return (
@@ -205,15 +209,15 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
         return (
           <UrlSheet wide closeHref={here({ open: null })} title={r.st.name} sub={sub} footer={profile ? <div className="flex justify-start">{profile}</div> : undefined}>
             <div className="grid md:grid-cols-[1fr_1fr] gap-5">
-              <div className="flex flex-col gap-3"><p className="text-[13px] font-semibold text-ink2">What {r.st.name.split(" ")[0]} handed in</p>{handedIn}{thread}</div>
+              <div className="flex flex-col gap-3"><p className="text-[13px] font-semibold text-ink2"><Words k="What" /> {r.st.name.split(" ")[0]} <Words k="handed in" /></p>{handedIn}{thread}</div>
               <div className="flex flex-col gap-3">
-                <p className="text-[13px] font-semibold text-ink2">Checked by {data.grader?.displayName ?? hw.teacher ?? "the teacher"}</p>
+                <p className="text-[13px] font-semibold text-ink2"><Words k="Checked by" /> {data.grader?.displayName ?? hw.teacher ?? "the teacher"}</p>
                 <div className="grid grid-cols-3 gap-2">
                   {[["Status", word(r.sub.status)], ["Score", r.sub.score !== null ? `${r.sub.score} / ${hw.maxMarks}` : "—"], ["Grade", g ?? "—"]].map(([k, v]) => (
                     <div key={k} className="rounded-xl bg-sunken/70 px-3 py-2.5 min-w-0"><p className="text-[12px] text-ink3 font-semibold">{k}</p><p className="font-semibold text-[15px] tnum truncate">{v}</p></div>
                   ))}
                 </div>
-                <div className="rounded-xl border border-line px-3.5 py-3"><p className="text-[12px] text-ink3 font-semibold mb-1">Feedback to the student</p><p className="text-[13.5px] text-ink2">{r.sub.feedback || (r.sub.status === "GRADED" ? "No written feedback." : "Not checked yet.")}</p></div>
+                <div className="rounded-xl border border-line px-3.5 py-3"><p className="text-[12px] text-ink3 font-semibold mb-1"><Words k="Feedback to the student" /></p><p className="text-[13.5px] text-ink2">{r.sub.feedback || (r.sub.status === "GRADED" ? "No written feedback." : "Not checked yet.")}</p></div>
               </div>
             </div>
           </UrlSheet>

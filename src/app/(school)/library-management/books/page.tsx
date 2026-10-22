@@ -24,8 +24,12 @@ import { LibHead } from "../_components/head";
 import { BookSheet } from "../_components/sheets";
 import { BASE, libGuard, libPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { booksWhere, readBooksFilter } from "../_lib/books";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Books · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Books · Library Management") };
+}
 
 const ZERO: CopyCounts = { total: 0, available: 0, issued: 0, reserved: 0, lost: 0, damaged: 0, withdrawn: 0 };
 
@@ -70,7 +74,7 @@ export default async function BooksPage({ searchParams }: { searchParams: Search
         { label: "Import books", href: `${BASE}/books/import`, icon: <FileUp size={16} aria-hidden="true" /> },
         ...(d.unlabelled ? [{ label: `Print ${plural(d.unlabelled, "new label")}`, href: `${BASE}/books/labels?unprinted=1`, file: true, icon: <Printer size={16} aria-hidden="true" /> }] : []),
       ]} />
-      <ButtonLink href={addQ(href({}), "open", "add")} variant="primary" icon={BookPlus} scroll={false}>Add book</ButtonLink>
+      <ButtonLink href={addQ(href({}), "open", "add")} variant="primary" icon={BookPlus} scroll={false}><Words k="Add book" /></ButtonLink>
     </div>
   ) : undefined;
 
@@ -88,8 +92,8 @@ export default async function BooksPage({ searchParams }: { searchParams: Search
         {can.catalogue && d.unlabelled > 0 && (
           <div className="flex items-center gap-3 rounded-2xl bg-info/10 px-4 py-3 text-[14px] flex-wrap">
             <Printer size={18} className="text-info shrink-0" aria-hidden="true" />
-            <span className="flex-1 min-w-0">{plural(d.unlabelled, "copy", "copies")} {d.unlabelled === 1 ? "has" : "have"} no label yet.</span>
-            <ButtonLink href={`${BASE}/books/labels?unprinted=1`} size="sm" variant="secondary" target="_blank" prefetch={false}>Print labels</ButtonLink>
+            <span className="flex-1 min-w-0">{plural(d.unlabelled, "copy", "copies")} {d.unlabelled === 1 ? "has" : "have"} <Words k="no label yet." /></span>
+            <ButtonLink href={`${BASE}/books/labels?unprinted=1`} size="sm" variant="secondary" target="_blank" prefetch={false}><Words k="Print labels" /></ButtonLink>
           </div>
         )}
         <Chips label="Categories" value={f.cat} options={[
@@ -111,7 +115,7 @@ export default async function BooksPage({ searchParams }: { searchParams: Search
           <DataList rows={d.rows} rowKey={(b) => b.id} rowHref={(b) => `${BASE}/books/${b.id}`} minWidth={900} caption="Books"
             empty={<Empty icon={params.q || f.cat || f.subject || f.author || f.avail || per.range ? Search : BookOpen} title={params.q || f.cat || f.subject || f.author || f.avail || per.range ? "No books match" : "No books yet"}
               body={params.q || f.cat || f.subject || f.author || f.avail || per.range ? "Try another search or clear the filters." : can.catalogue ? "Add the first book, or import the catalogue from a spreadsheet." : "The librarian adds the books."}
-              action={!params.q && can.catalogue ? <ButtonLink href={`${BASE}/books/import`} variant="secondary" icon={FileUp}>Import books</ButtonLink> : undefined} />}
+              action={!params.q && can.catalogue ? <ButtonLink href={`${BASE}/books/import`} variant="secondary" icon={FileUp}><Words k="Import books" /></ButtonLink> : undefined} />}
             columns={[
               { key: "title", label: "Title", render: (b) => <span className="block min-w-[180px]"><b className="font-semibold">{b.title}</b>{b.isbn && <span className="block text-[12px] text-ink3 font-mono">{showIsbn(b.isbn)}</span>}</span> },
               { key: "author", label: "Author", render: (b) => b.authorText },
@@ -127,7 +131,7 @@ export default async function BooksPage({ searchParams }: { searchParams: Search
             phone={(b) => {
               const c = d.counts.get(b.id) ?? ZERO;
               return { title: b.title, sub: `${b.authorText}${b.categoryId && catOf.get(b.categoryId) ? ` · ${catOf.get(b.categoryId)!.name}` : ""}`, icon: BookOpen, iconTone: "brand",
-                pills: <><Pill tone={c.available ? "ok" : "neutral"}>{c.available} of {c.total} available</Pill>{c.lost > 0 && <Pill tone="warn">{c.lost} lost</Pill>}</> };
+                pills: <><Pill tone={c.available ? "ok" : "neutral"}>{c.available} <Words k="of" /> {c.total} <Words k="available" /></Pill>{c.lost > 0 && <Pill tone="warn">{c.lost} <Words k="lost" /></Pill>}</> };
             }}
           />
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(`${BASE}/books`, params, { page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(`${BASE}/books`, params, { page: params.page + 1 })} />}

@@ -13,8 +13,12 @@ import { EmptyState } from "@/components/empty-state";
 import { MessageIcon } from "@/components/icons";
 import { ButtonLink } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Messages" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Messages") };
+}
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 
@@ -49,9 +53,9 @@ export default async function MessagesPage({ searchParams }: { searchParams: Sea
   return (
     <>
       <PageHeader title="Messages" href="/messages" userId={current.user.id}>
-        {can(current.permissions, "communication", "create") && <ButtonLink href="/communication" variant="primary">Send a message</ButtonLink>}
+        {can(current.permissions, "communication", "create") && <ButtonLink href="/communication" variant="primary"><Words k="Send a message" /></ButtonLink>}
       </PageHeader>
-      <p className="-mt-3 mb-4 text-ink-2">{data.unread ? `${data.unread} new.` : "Messages sent to you in the app."} Notices for you are on the <Link href="/communication/notices?view=board" className="text-brand-text underline">Notice Board</Link>.</p>
+      <p className="-mt-3 mb-4 text-ink-2">{data.unread ? `${data.unread} new.` : "Messages sent to you in the app."} <Words k="Notices for you are on the" /> <Link href="/communication/notices?view=board" className="text-brand-text underline"><Words k="Notice Board" /></Link>.</p>
       <ListToolbar period={{ timeZone: tz }} placeholder="Search messages" showArchived={false} filters={[{ key: "show", label: "Show", options: [{ value: "unread", label: "New only" }] }]} />
       {data.rows.length === 0 ? (
         <EmptyState title={filtered ? "No messages match" : "No messages yet"} icon={<MessageIcon className="size-6" />}>
@@ -64,20 +68,20 @@ export default async function MessagesPage({ searchParams }: { searchParams: Sea
               <li key={r.id} className={`rounded-2xl border bg-surface p-4 shadow-card ${data.fresh.has(r.id) ? "border-brand" : "border-line"}`}>
                 <div className="flex flex-wrap items-center gap-2">
                   {r.message.title && <h2 className="font-semibold">{r.message.title}</h2>}
-                  {data.fresh.has(r.id) && <Badge tone="brand">New</Badge>}
+                  {data.fresh.has(r.id) && <Badge tone="brand"><Words k="New" /></Badge>}
                   <span className="ml-auto text-sm text-ink-2">{r.sentAt ? formatDateTime(r.sentAt, tz) : ""}</span>
                 </div>
                 <p className="mt-1 whitespace-pre-line break-words">{r.text}</p>
-                <p className="mt-1 text-sm text-ink-2">From {r.message.sentById ? data.senders.get(r.message.sentById) ?? "the school" : "School OS (automatic)"}</p>
+                <p className="mt-1 text-sm text-ink-2"><Words k="From" /> {r.message.sentById ? data.senders.get(r.message.sentById) ?? "the school" : "School OS (automatic)"}</p>
               </li>
             ))}
           </ul>
           {pages > 1 && (
             <nav aria-label="Pages" className="mt-4 flex items-center justify-between text-sm">
-              <span className="text-ink-2">Page {params.page} of {pages}</span>
+              <span className="text-ink-2"><Words k="Page" /> {params.page} <Words k="of" /> {pages}</span>
               <span className="flex gap-2">
-                {params.page > 1 && <ButtonLink href={listHref("/messages", params, { page: params.page - 1 })} size="sm">Previous</ButtonLink>}
-                {params.page < pages && <ButtonLink href={listHref("/messages", params, { page: params.page + 1 })} size="sm">Next</ButtonLink>}
+                {params.page > 1 && <ButtonLink href={listHref("/messages", params, { page: params.page - 1 })} size="sm"><Words k="Previous" /></ButtonLink>}
+                {params.page < pages && <ButtonLink href={listHref("/messages", params, { page: params.page + 1 })} size="sm"><Words k="Next" /></ButtonLink>}
               </span>
             </nav>
           )}

@@ -15,8 +15,12 @@ import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { AccessForm, DetailsForm, DisableButton, EnableButton, ExceptionsForm, LinkForm, ResendInvite, TwoStepReset } from "./person-forms";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "User" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("User") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -111,7 +115,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
 
   return (
     <>
-      <Link href="/settings/users" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline">← Users & Permissions</Link>
+      <Link href="/settings/users" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline"><Words k={"← Users & Permissions"} /></Link>
       <PageHeader title={login.displayName} href={`/settings/users/${id}`} userId={current.user.id}>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={STATE_TONE[state]}>{STATE_LABEL[state]}</Badge>
@@ -127,16 +131,16 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
           <Alert tone="warning" title="Has not set a password yet">
             {login.inviteExpiresAt && login.inviteExpiresAt > new Date()
               ? `The invite link works until ${formatDateTime(login.inviteExpiresAt, tz)}.`
-              : "The invite link has run out."} Lost the link? Make a new one; the old one stops working.
+              : "The invite link has run out."} <Words k="Lost the link? Make a new one; the old one stops working." />
             {mayEdit && <div className="mt-3"><ResendInvite userId={id} name={login.displayName} /></div>}
           </Alert>
         )}
         {state === "DISABLED" && (
           <Alert tone="info" title="Disabled in this school">
-            {login.displayName} cannot open {current.school.name}. Their records and history are kept. {live ? "" : `When enabled, they get back: ${roleList.map((r) => r.name).join(", ") || "no role"}.`}
+            {login.displayName} <Words k="cannot open" /> {current.school.name}<Words k=". Their records and history are kept." /> {live ? "" : `When enabled, they get back: ${roleList.map((r) => r.name).join(", ") || "no role"}.`}
           </Alert>
         )}
-        {isSelf && <Alert tone="info">This is you. Another School Admin must disable you or reset your two-step login.</Alert>}
+        {isSelf && <Alert tone="info"><Words k="This is you. Another School Admin must disable you or reset your two-step login." /></Alert>}
 
         <Card>
           <CardHeader title="Details" />
@@ -157,9 +161,9 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
         <Card>
           <CardHeader title="Belongs to" description="The Staff record this login is for." />
           <CardBody>
-            {staff && <p className="mb-3 text-sm">Linked to <Link href={`/staff-hr-management/${staff.id}`} className="font-medium text-brand-text underline">{staff.fullName}</Link>, {staff.designation}.</p>}
-            {student && <p className="mb-3 text-sm">Linked to the student <Link href={`/student-management/students/${student.id}`} className="font-medium text-brand-text underline">{student.fullName}</Link>.</p>}
-            {mayEdit ? <LinkForm userId={id} current={belongsTo} options={linkOptions} /> : !staff && !student && <p className="text-sm text-ink-2">Not linked to a record.</p>}
+            {staff && <p className="mb-3 text-sm"><Words k="Linked to" /> <Link href={`/staff-hr-management/${staff.id}`} className="font-medium text-brand-text underline">{staff.fullName}</Link>, {staff.designation}.</p>}
+            {student && <p className="mb-3 text-sm"><Words k="Linked to the student" /> <Link href={`/student-management/students/${student.id}`} className="font-medium text-brand-text underline">{student.fullName}</Link>.</p>}
+            {mayEdit ? <LinkForm userId={id} current={belongsTo} options={linkOptions} /> : !staff && !student && <p className="text-sm text-ink-2"><Words k="Not linked to a record." /></p>}
           </CardBody>
         </Card>
 
@@ -191,7 +195,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                 const lvl = levelOf(effective[m.key]);
                 return (
                   <li key={m.key} className="flex min-h-9 items-center justify-between gap-3 border-b border-line py-1 text-sm">
-                    <span>{m.name}{exceptions[m.key] && <span className="ml-1 text-xs text-ink-2">(exception)</span>}</span>
+                    <span>{m.name}{exceptions[m.key] && <span className="ml-1 text-xs text-ink-2"><Words k="(exception)" /></span>}</span>
                     <Badge tone={LEVEL_TONE[lvl]}>{LEVEL_LABEL[lvl]}</Badge>
                   </li>
                 );
@@ -208,7 +212,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                 {sessions.map((s) => (
                   <li key={s.id} className="py-2 text-sm">
                     <span className="font-medium">{describeDevice(s.userAgent)}</span>
-                    <span className="block text-ink-2">Signed in {formatDateTime(s.createdAt, tz)} · last used {formatDateTime(s.lastUsedAt, tz)}{s.ipAddress ? ` · ${s.ipAddress}` : ""}</span>
+                    <span className="block text-ink-2"><Words k="Signed in" /> {formatDateTime(s.createdAt, tz)} <Words k="· last used" /> {formatDateTime(s.lastUsedAt, tz)}{s.ipAddress ? ` · ${s.ipAddress}` : ""}</span>
                   </li>
                 ))}
               </ul>
@@ -219,7 +223,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
         <Card>
           <CardHeader title="Login history" description="Sign-ins and every change to this login, newest first." />
           <CardBody>
-            {history.length === 0 ? <p className="text-sm text-ink-2">Nothing yet.</p> : (
+            {history.length === 0 ? <p className="text-sm text-ink-2"><Words k="Nothing yet." /></p> : (
               <ol className="divide-y divide-line">
                 {history.map((h) => {
                   const detail = historyDetail(h.action, h.before, h.after);
@@ -227,7 +231,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
                   return (
                     <li key={h.id} className="py-2 text-sm">
                       <span className="font-medium">{HISTORY_WORDS[h.action] ?? h.action.replace(/-/g, " ")}</span>
-                      {by && <span className="text-ink-2"> by {by}</span>}
+                      {by && <span className="text-ink-2"> <Words k="by" /> {by}</span>}
                       <span className="block text-ink-2">
                         {formatDateTime(h.at, tz)}{h.device ? ` · ${describeDevice(h.device)}` : ""}{h.ipAddress ? ` · ${h.ipAddress}` : ""}
                       </span>

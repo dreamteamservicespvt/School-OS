@@ -36,8 +36,12 @@ import { billsList, decidable, ordersWhere, readBillsFilter, readOrdersFilter, w
 import { decideAction } from "../actions";
 import { archiveVendorAction, restoreVendorAction } from "./actions";
 import { BillSheet, CancelBillSheet, CancelRequestSheet, OrderSheet, PayBillSheet, RequestSheet, VendorSheet, type VendorStart } from "./sheets";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Purchases & Vendors · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Purchases & Vendors · Inventory Management") };
+}
 
 const TABS = ["requests", "orders", "receipts", "bills", "vendors"] as const;
 type Tab = (typeof TABS)[number];
@@ -148,10 +152,10 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
 
   const actions = can.purchase ? (
     <div className="flex gap-2">
-      <ButtonLink href={here({ new: "1" })} variant="secondary" icon={ClipboardList} scroll={false}>Raise request</ButtonLink>
-      <ButtonLink href={here({ order: "new" })} variant="primary" icon={ShoppingCart} scroll={false}>New order</ButtonLink>
+      <ButtonLink href={here({ new: "1" })} variant="secondary" icon={ClipboardList} scroll={false}><Words k="Raise request" /></ButtonLink>
+      <ButtonLink href={here({ order: "new" })} variant="primary" icon={ShoppingCart} scroll={false}><Words k="New order" /></ButtonLink>
     </div>
-  ) : can.pay ? <ButtonLink href={here({ bill: "new" })} variant="secondary" icon={Receipt} scroll={false}>Record bill</ButtonLink> : undefined;
+  ) : can.pay ? <ButtonLink href={here({ bill: "new" })} variant="secondary" icon={Receipt} scroll={false}><Words k="Record bill" /></ButtonLink> : undefined;
 
   const statusChips: Record<Tab, { value: string; label: string }[]> = {
     requests: [{ value: "", label: "All" }, ...Object.entries(REQUEST_STATUS).map(([value, v]) => ({ value, label: v.label }))],
@@ -183,8 +187,8 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
               {["orders", "receipts", "bills"].includes(tab) && <UrlSelect param="vendor" label="Vendor" options={[{ value: "", label: "All vendors" }, ...d.vendors]} className="max-w-[220px]" />}
               {tab !== "vendors" && <PeriodFilter {...p.dates} fallback="finyear" />}
               {can.export && <ExportButton href={exportHref} />}
-              {tab === "vendors" && (can.purchase || can.pay) && <ButtonLink href={here({ editvendor: "new" })} icon={Plus} scroll={false}>Add vendor</ButtonLink>}
-              {tab === "bills" && can.purchase && <ButtonLink href={here({ bill: "new" })} icon={Plus} scroll={false}>Record bill</ButtonLink>}
+              {tab === "vendors" && (can.purchase || can.pay) && <ButtonLink href={here({ editvendor: "new" })} icon={Plus} scroll={false}><Words k="Add vendor" /></ButtonLink>}
+              {tab === "bills" && can.purchase && <ButtonLink href={here({ bill: "new" })} icon={Plus} scroll={false}><Words k="Record bill" /></ButtonLink>}
             </div>
           </Toolbar>
 
@@ -197,7 +201,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
                 { key: "reason", label: "Reason", render: (r) => <span className="text-[13px] text-ink2">{r.reason}</span> },
                 { key: "dept", label: "Department", render: (r) => (r.departmentId ? deptName.get(r.departmentId) ?? "" : "") },
                 { key: "amount", label: "Estimate", align: "right", nowrap: true, render: (r) => formatRupees(r.estimatePaise) },
-                { key: "status", label: "Status", render: (r) => <span className="flex flex-col items-start gap-1"><Pill tone={REQUEST_STATUS[r.status].tone}>{REQUEST_STATUS[r.status].label}</Pill>{r.approvalId && d.mine.has(r.approvalId) && <span className="text-[12px] font-semibold text-info">Waiting for you</span>}</span> },
+                { key: "status", label: "Status", render: (r) => <span className="flex flex-col items-start gap-1"><Pill tone={REQUEST_STATUS[r.status].tone}>{REQUEST_STATUS[r.status].label}</Pill>{r.approvalId && d.mine.has(r.approvalId) && <span className="text-[12px] font-semibold text-info"><Words k="Waiting for you" /></span>}</span> },
               ]}
               phone={(r) => ({ title: linesWords(r.lines), sub: `${r.number} · ${day(r.date)} · ${formatRupees(r.estimatePaise)}`, icon: ClipboardList, iconTone: "brand", pills: <Pill tone={REQUEST_STATUS[r.status].tone}>{REQUEST_STATUS[r.status].label}</Pill> })}
             />
@@ -212,7 +216,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
                 { key: "items", label: "Items", render: (o) => <span className="block min-w-[200px] text-[13.5px]">{linesWords(o.lines)}</span> },
                 { key: "amount", label: "Amount", align: "right", nowrap: true, render: (o) => formatRupees(o.totalPaise) },
                 { key: "expected", label: "Expected", nowrap: true, render: (o) => (o.expectedOn ? <span className={o.expectedOn < today && ["SENT", "PART_RECEIVED"].includes(o.status) ? "text-bad font-semibold" : ""}>{day(o.expectedOn)}</span> : "") },
-                { key: "status", label: "Status", render: (o) => <span className="flex flex-col items-start gap-1"><Pill tone={ORDER_STATUS[o.status].tone}>{ORDER_STATUS[o.status].label}</Pill>{o.approvalId && d.mine.has(o.approvalId) && o.status === "WAITING" && <span className="text-[12px] font-semibold text-info">Waiting for you</span>}</span> },
+                { key: "status", label: "Status", render: (o) => <span className="flex flex-col items-start gap-1"><Pill tone={ORDER_STATUS[o.status].tone}>{ORDER_STATUS[o.status].label}</Pill>{o.approvalId && d.mine.has(o.approvalId) && o.status === "WAITING" && <span className="text-[12px] font-semibold text-info"><Words k="Waiting for you" /></span>}</span> },
               ]}
               phone={(o) => ({ title: d.vendorName.get(o.vendorId) ?? "", sub: `${o.number} · ${day(o.date)} · ${linesWords(o.lines)}`, right: formatRupees(o.totalPaise), icon: ShoppingCart, iconTone: "brand", pills: <Pill tone={ORDER_STATUS[o.status].tone}>{ORDER_STATUS[o.status].label}</Pill> })}
             />
@@ -239,7 +243,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
               columns={[
                 { key: "date", label: "Bill date", nowrap: true, render: (b) => <span className="tnum">{day(b.bill.billDate)}<span className="block text-[12px] text-ink3 font-mono">{b.bill.billNo}</span></span> },
                 { key: "vendor", label: "Vendor", render: (b) => <b className="font-semibold">{d.vendorName.get(b.bill.vendorId) ?? ""}</b> },
-                { key: "order", label: "Order", render: (b) => (b.bill.orderId ? <Link className="font-mono text-[13px] text-brand hover:underline" href={`${BASE}/purchases/orders/${b.bill.orderId}`}>Open order</Link> : <span className="text-ink3">Direct</span>) },
+                { key: "order", label: "Order", render: (b) => (b.bill.orderId ? <Link className="font-mono text-[13px] text-brand hover:underline" href={`${BASE}/purchases/orders/${b.bill.orderId}`}><Words k="Open order" /></Link> : <span className="text-ink3"><Words k="Direct" /></span>) },
                 { key: "amount", label: "Amount", align: "right", nowrap: true, render: (b) => formatRupees(b.bill.amountPaise) },
                 { key: "left", label: "To pay", align: "right", nowrap: true, render: (b) => (b.expense && b.expense.status !== "CANCELLED" ? formatRupees(b.expense.amountPaise - b.expense.paidPaise) : "") },
                 { key: "due", label: "Due", nowrap: true, render: (b) => (b.bill.dueDate ? <span className={b.bill.dueDate < today && b.expense && b.expense.paidPaise < b.expense.amountPaise ? "text-bad font-semibold" : ""}>{day(b.bill.dueDate)}</span> : "") },
@@ -248,14 +252,14 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
                   const st = b.expense ? billState(b.expense) : "CANCELLED";
                   return (
                     <span className="flex gap-3 items-center whitespace-nowrap">
-                      {b.bill.fileId && <a className="text-[13px] font-semibold text-brand hover:underline" href={fileLink(b.bill.fileId, ctx.schoolId)} target="_blank" rel="noreferrer">Bill</a>}
-                      {can.pay && (st === "UNPAID" || st === "PART_PAID") && <Link className="text-[13px] font-semibold text-brand hover:underline" href={here({ pay: b.bill.id })} scroll={false}>Pay</Link>}
-                      {(can.purchase || can.pay) && st !== "CANCELLED" && st !== "PAID" && <Link className="text-[13px] font-semibold text-ink3 hover:underline" href={here({ cancelbill: b.bill.id })} scroll={false}>Cancel</Link>}
+                      {b.bill.fileId && <a className="text-[13px] font-semibold text-brand hover:underline" href={fileLink(b.bill.fileId, ctx.schoolId)} target="_blank" rel="noreferrer"><Words k="Bill" /></a>}
+                      {can.pay && (st === "UNPAID" || st === "PART_PAID") && <Link className="text-[13px] font-semibold text-brand hover:underline" href={here({ pay: b.bill.id })} scroll={false}><Words k="Pay" /></Link>}
+                      {(can.purchase || can.pay) && st !== "CANCELLED" && st !== "PAID" && <Link className="text-[13px] font-semibold text-ink3 hover:underline" href={here({ cancelbill: b.bill.id })} scroll={false}><Words k="Cancel" /></Link>}
                     </span>
                   );
                 } },
               ]}
-              phone={(b) => { const st = b.expense ? billState(b.expense) : "CANCELLED"; return { title: d.vendorName.get(b.bill.vendorId) ?? "", sub: `Bill ${b.bill.billNo} · ${day(b.bill.billDate)}${b.bill.dueDate ? ` · due ${day(b.bill.dueDate)}` : ""}`, right: formatRupees(b.bill.amountPaise), icon: Receipt, iconTone: "brand", pills: <><Pill tone={BILL_STATUS[st].tone}>{BILL_STATUS[st].label}</Pill>{can.pay && (st === "UNPAID" || st === "PART_PAID") && <Link className="text-[13px] font-semibold text-brand ml-2 relative z-[1]" href={here({ pay: b.bill.id })} scroll={false}>Pay</Link>}</> }; }}
+              phone={(b) => { const st = b.expense ? billState(b.expense) : "CANCELLED"; return { title: d.vendorName.get(b.bill.vendorId) ?? "", sub: `Bill ${b.bill.billNo} · ${day(b.bill.billDate)}${b.bill.dueDate ? ` · due ${day(b.bill.dueDate)}` : ""}`, right: formatRupees(b.bill.amountPaise), icon: Receipt, iconTone: "brand", pills: <><Pill tone={BILL_STATUS[st].tone}>{BILL_STATUS[st].label}</Pill>{can.pay && (st === "UNPAID" || st === "PART_PAID") && <Link className="text-[13px] font-semibold text-brand ml-2 relative z-[1]" href={here({ pay: b.bill.id })} scroll={false}><Words k="Pay" /></Link>}</> }; }}
             />
           )}
 
@@ -293,9 +297,9 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
             ]} />
             {can.purchase && (
               <div className="flex gap-2 flex-wrap">
-                {d.req.status === "APPROVED" && <ButtonLink href={here({ request: null, order: "new", from: d.req.id })} variant="primary" icon={ShoppingCart} scroll={false}>Make the purchase order</ButtonLink>}
-                {d.req.orders[0] && <ButtonLink href={`${BASE}/purchases/orders/${d.req.orders[0].id}`} variant="secondary" icon={FileText}>Open the order</ButtonLink>}
-                {["WAITING", "APPROVED"].includes(d.req.status) && <ButtonLink href={here({ request: null, cancelreq: d.req.id })} variant="ghost" scroll={false}>Cancel request</ButtonLink>}
+                {d.req.status === "APPROVED" && <ButtonLink href={here({ request: null, order: "new", from: d.req.id })} variant="primary" icon={ShoppingCart} scroll={false}><Words k="Make the purchase order" /></ButtonLink>}
+                {d.req.orders[0] && <ButtonLink href={`${BASE}/purchases/orders/${d.req.orders[0].id}`} variant="secondary" icon={FileText}><Words k="Open the order" /></ButtonLink>}
+                {["WAITING", "APPROVED"].includes(d.req.status) && <ButtonLink href={here({ request: null, cancelreq: d.req.id })} variant="ghost" scroll={false}><Words k="Cancel request" /></ButtonLink>}
               </div>
             )}
           </div>
@@ -313,9 +317,9 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
               ...(can.bank ? [["Bank", d.vendorOne.detail?.bankName ? `${d.vendorOne.detail.bankName}${d.vendorOne.detail.accountLast4 ? ` ··${d.vendorOne.detail.accountLast4}` : ""}${d.vendorOne.detail.ifsc ? ` · ${d.vendorOne.detail.ifsc}` : ""}` : "Not given"] as [string, React.ReactNode]] : []),
             ]} />
             <div className="flex gap-2 flex-wrap">
-              {(can.purchase || can.pay) && !d.vendorOne.archivedAt && <ButtonLink href={here({ vendor: null, editvendor: d.vendorOne.id })} variant="secondary" scroll={false}>Change</ButtonLink>}
-              <ButtonLink href={qs(`${BASE}/purchases`, { tab: "orders", vendor: d.vendorOne.id })} variant="ghost">Orders</ButtonLink>
-              <ButtonLink href={qs(`${BASE}/purchases`, { tab: "bills", vendor: d.vendorOne.id })} variant="ghost">Bills</ButtonLink>
+              {(can.purchase || can.pay) && !d.vendorOne.archivedAt && <ButtonLink href={here({ vendor: null, editvendor: d.vendorOne.id })} variant="secondary" scroll={false}><Words k="Change" /></ButtonLink>}
+              <ButtonLink href={qs(`${BASE}/purchases`, { tab: "orders", vendor: d.vendorOne.id })} variant="ghost"><Words k="Orders" /></ButtonLink>
+              <ButtonLink href={qs(`${BASE}/purchases`, { tab: "bills", vendor: d.vendorOne.id })} variant="ghost"><Words k="Bills" /></ButtonLink>
               {can.purchase && (d.vendorOne.archivedAt
                 ? <ActButton action={restoreVendorAction} fields={{ vendorId: d.vendorOne.id }} label="Bring back" icon="restore" size="md" />
                 : <ActButton action={archiveVendorAction} fields={{ vendorId: d.vendorOne.id }} label="Archive" icon="archive" variant="ghost" size="md" />)}

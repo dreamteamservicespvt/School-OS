@@ -24,8 +24,11 @@ import { AutoRefresh, CloseAlertSheet, Playback } from "./_components/live";
 import { RouteMessageSheet } from "./_components/route-sheets";
 import { remindAction } from "./actions";
 import { BASE, UUID, addQ, one, qs, trGuard, type SearchParams } from "./_lib/page";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Live Tracking" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Live Tracking") };
+}
 
 /**
  * Live Tracking (12 §2): every running bus on a sketch of the routes (no

@@ -7,6 +7,7 @@ import { FormMessage } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { loginsAction } from "../_actions/bulk";
+import { Words } from "@/lib/i18n/client";
 
 export function LoginsForm({ ids }: { ids: string[] }) {
   const [state, action] = useActionState<FormState<{ csv: string; count: number; fresh: number }>, FormData>(loginsAction, null);
@@ -16,7 +17,7 @@ export function LoginsForm({ ids }: { ids: string[] }) {
       <FormMessage state={state} />
       {ids.map((id) => <input key={id} type="hidden" name="ids" value={id} />)}
       {href ? (
-        <a href={href} download="student-logins.csv" className="inline-flex min-h-11 items-center rounded-xl bg-brand px-4 font-medium text-brand-ink hover:bg-brand-hover">Download the logins (CSV)</a>
+        <a href={href} download="student-logins.csv" className="inline-flex min-h-11 items-center rounded-xl bg-brand px-4 font-medium text-brand-ink hover:bg-brand-hover"><Words k="Download the logins (CSV)" /></a>
       ) : (
         <SubmitButton pendingText="Making logins…">{`Make logins for ${ids.length} ${ids.length === 1 ? "student" : "students"}`}</SubmitButton>
       )}

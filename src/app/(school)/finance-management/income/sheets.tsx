@@ -6,6 +6,7 @@ import { SArea, SDate, SMoney, SSelect, SText } from "@/components/ui/sheet-fiel
 import { Segmented, Switch } from "@/components/ui/controls";
 import type { Option } from "@/components/ui/field";
 import { recordIncomeAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 const MODES = [{ value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "BANK_TRANSFER", label: "Bank transfer" }, { value: "CHEQUE", label: "Cheque" }];
 
@@ -27,7 +28,7 @@ export function RecordIncomeSheet({ closeHref, today, heads, payers, cash, banks
       <SText name="receivedFrom" label="Received from" required placeholder="Example: Annapurna Caterers" list="ri-from-list" maxLength={120} />
       <datalist id="ri-from-list">{payers.map((x) => <option key={x} value={x} />)}</datalist>
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Mode<span className="text-bad" aria-hidden="true"> *</span></span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Mode" /><span className="text-bad" aria-hidden="true"> *</span></span>
         <Segmented label="Mode" value={mode} onChange={setMode} className="w-full" options={MODES} />
       </div>
       {mode !== "CASH" && <SText name="reference" label="Reference" required placeholder={mode === "CHEQUE" ? "Cheque 118204 · Canara Bank" : "UTR 4283…"} maxLength={80} />}
@@ -36,7 +37,7 @@ export function RecordIncomeSheet({ closeHref, today, heads, payers, cash, banks
       <SArea name="note" label="Note" placeholder="Optional" />
       <div className="flex items-center gap-3 rounded-xl bg-sunken/70 px-3.5 py-3">
         <Switch id="ri-post" on={post} label="Post now" onChange={setPost} />
-        <label htmlFor="ri-post" className="text-[14px]"><b className="font-semibold">Post now</b><span className="block text-[12.5px] text-ink3">{post ? "Goes into the Day Book straight away" : "Kept as a draft, for example until a cheque clears"}</span></label>
+        <label htmlFor="ri-post" className="text-[14px]"><b className="font-semibold"><Words k="Post now" /></b><span className="block text-[12.5px] text-ink3">{post ? "Goes into the Day Book straight away" : "Kept as a draft, for example until a cheque clears"}</span></label>
       </div>
     </SheetForm>
   );

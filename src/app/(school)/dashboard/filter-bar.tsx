@@ -3,6 +3,7 @@
 // the page address; the cards and the lists they open follow them (gap list G36).
 import Link from "next/link";
 import { UrlDate, UrlSelect } from "@/components/ui/url-controls";
+import { Words } from "@/lib/i18n/client";
 
 export function DashFilterBar({ campuses, day, today, showing }: {
   campuses: { id: string; name: string }[];
@@ -22,8 +23,8 @@ export function DashFilterBar({ campuses, day, today, showing }: {
       {day !== null && <UrlDate label="Day" value={day || today} max={today} className="sm:w-44" />}
       {showing && (
         <p className="text-[13px] text-ink2">
-          Showing {showing}. Each number opens its list with the same filter.{" "}
-          <Link href="/dashboard?view=dashboard" className="font-semibold text-brand hover:underline">Reset</Link>
+          <Words k="Showing" /> {showing}<Words k=". Each number opens its list with the same filter." />{" "}
+          <Link href="/dashboard?view=dashboard" className="font-semibold text-brand hover:underline"><Words k="Reset" /></Link>
         </p>
       )}
     </div>

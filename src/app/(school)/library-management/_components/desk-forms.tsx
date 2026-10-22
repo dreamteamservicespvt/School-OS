@@ -16,6 +16,7 @@ import { Alert } from "@/components/ui/alert";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import type { IssueDone, ReturnDone } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 type IssueAct = (p: FormState<IssueDone>, fd: FormData) => Promise<FormState<IssueDone>>;
 type ReturnAct = (p: FormState<ReturnDone>, fd: FormData) => Promise<FormState<ReturnDone>>;
@@ -34,14 +35,14 @@ export function IssueForm({ action, memberKey, copyId, title, defaultDue, minDue
       <input type="hidden" name="member" value={memberKey} />
       <input type="hidden" name="copyId" value={copyId} />
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="issue-due" className="text-[13px] font-semibold text-ink2">Due date <span className="text-bad" aria-hidden="true">*</span></label>
+        <label htmlFor="issue-due" className="text-[13px] font-semibold text-ink2"><Words k="Due date" /> <span className="text-bad" aria-hidden="true">*</span></label>
         <input id="issue-due" name="dueOn" type="date" value={due} min={minDue} onChange={(e) => setDue(e.target.value)} required
           aria-invalid={err("dueOn") ? true : undefined} aria-describedby="issue-due-help" className={cx(inputCls(err("dueOn")), "h-11 tnum")} />
         <p id="issue-due-help" className={cx("text-[12.5px]", err("dueOn") ? "text-bad" : "text-ink3")}>{err("dueOn") ?? dueHint}</p>
       </div>
       {changed && (
         <div className="flex flex-col gap-1.5">
-          <label htmlFor="issue-reason" className="text-[13px] font-semibold text-ink2">Why a different due date? <span className="text-bad" aria-hidden="true">*</span></label>
+          <label htmlFor="issue-reason" className="text-[13px] font-semibold text-ink2"><Words k="Why a different due date?" /> <span className="text-bad" aria-hidden="true">*</span></label>
           <input id="issue-reason" name="dueReason" defaultValue={state && !state.ok ? state.values?.dueReason ?? "" : ""} maxLength={200} placeholder="For example: project work over the holidays"
             aria-invalid={err("dueReason") ? true : undefined} className={cx(inputCls(err("dueReason")), "h-11")} />
           {err("dueReason") && <p className="text-[12.5px] text-bad">{err("dueReason")}</p>}
@@ -53,7 +54,7 @@ export function IssueForm({ action, memberKey, copyId, title, defaultDue, minDue
           {(state.data as { link?: { href: string; label: string } } | undefined)?.link && <> <Link className="font-semibold underline" href={(state.data as unknown as { link: { href: string; label: string } }).link.href}>{(state.data as unknown as { link: { href: string; label: string } }).link.label}</Link></>}
         </Alert>
       )}
-      <Button type="submit" variant="primary" size="lg" icon={ArrowRightLeft} loading={pending} loadingText="Issuing…" className="w-full">Issue “{title.length > 40 ? `${title.slice(0, 40)}…` : title}”</Button>
+      <Button type="submit" variant="primary" size="lg" icon={ArrowRightLeft} loading={pending} loadingText="Issuing…" className="w-full"><Words k="Issue “" />{title.length > 40 ? `${title.slice(0, 40)}…` : title}”</Button>
     </form>
   );
 }
@@ -73,9 +74,9 @@ export function ReturnForm({ action, copyId, title, lateWords, fineWords, fineTo
         <div className="flex items-start gap-3 rounded-2xl bg-ok/10 p-4">
           <CircleCheck size={22} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />
           <div className="min-w-0 text-[14px]">
-            <p className="font-semibold">“{d.title}” returned by {d.member}</p>
+            <p className="font-semibold">“{d.title}<Words k="” returned by" /> {d.member}</p>
             <p className="text-ink2 mt-0.5">
-              {d.fine ? <>Fine {d.fine} for {d.lateDays} day{d.lateDays === 1 ? "" : "s"} late, {d.fineWhere}. </> : d.lateDays > 0 ? "Late, within the days of grace: no fine. " : "On time. "}
+              {d.fine ? <><Words k="Fine" /> {d.fine} <Words k="for" /> {d.lateDays} <Words k="day" />{d.lateDays === 1 ? "" : "s"} <Words k="late," /> {d.fineWhere}. </> : d.lateDays > 0 ? "Late, within the days of grace: no fine. " : "On time. "}
               {d.damage && (d.damageWaiting ? `Damage charge ${d.damage} waits for approval.` : `Damage charge ${d.damage} added.`)}
             </p>
           </div>
@@ -83,10 +84,10 @@ export function ReturnForm({ action, copyId, title, lateWords, fineWords, fineTo
         {d.next && (
           <div className="flex items-start gap-3 rounded-2xl bg-brand/10 p-4">
             <Info size={20} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />
-            <p className="text-[14px]"><b className="font-semibold">Next in queue: {d.next}.</b> Keep copy <span className="font-mono">{d.accessionNo}</span> at the desk; they have been told.</p>
+            <p className="text-[14px]"><b className="font-semibold"><Words k="Next in queue:" /> {d.next}.</b> <Words k="Keep copy" /> <span className="font-mono">{d.accessionNo}</span> <Words k="at the desk; they have been told." /></p>
           </div>
         )}
-        <Link href={againHref} replace scroll={false} className={buttonClass("primary", "lg", "w-full")}><CornerDownLeft size={18} aria-hidden="true" />Return another book</Link>
+        <Link href={againHref} replace scroll={false} className={buttonClass("primary", "lg", "w-full")}><CornerDownLeft size={18} aria-hidden="true" /><Words k="Return another book" /></Link>
       </div>
     );
   }
@@ -98,17 +99,17 @@ export function ReturnForm({ action, copyId, title, lateWords, fineWords, fineTo
       {nextInQueue && (
         <div className="flex items-start gap-2.5 rounded-xl bg-brand/10 px-3.5 py-3 text-[13.5px]">
           <Info size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />
-          <span><b className="font-semibold">Next in queue: {nextInQueue}.</b> The copy is kept for them when returned in good condition.</span>
+          <span><b className="font-semibold"><Words k="Next in queue:" /> {nextInQueue}.</b> <Words k="The copy is kept for them when returned in good condition." /></span>
         </div>
       )}
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Condition</span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Condition" /></span>
         <Segmented label="Condition" value={cond} onChange={setCond} className="w-full" options={[{ value: "good", label: "Good" }, { value: "damaged", label: "Damaged" }]} />
       </div>
       {cond === "damaged" && (
         <>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="ret-charge" className="text-[13px] font-semibold text-ink2">Damage charge</label>
+            <label htmlFor="ret-charge" className="text-[13px] font-semibold text-ink2"><Words k="Damage charge" /></label>
             <div className="relative">
               <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-semibold text-ink3" aria-hidden="true">₹</span>
               <input id="ret-charge" name="charge" inputMode="decimal" value={charge} onChange={(e) => setCharge(e.target.value)} aria-invalid={err("charge") ? true : undefined}
@@ -119,22 +120,22 @@ export function ReturnForm({ action, copyId, title, lateWords, fineWords, fineTo
             </p>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="ret-note" className="text-[13px] font-semibold text-ink2">What is damaged</label>
+            <label htmlFor="ret-note" className="text-[13px] font-semibold text-ink2"><Words k="What is damaged" /></label>
             <input id="ret-note" name="note" maxLength={300} defaultValue={state && !state.ok ? state.values?.note ?? "" : ""} placeholder="For example: cover torn, pages 12 to 18 wet" className={cx(inputCls(false), "h-11")} />
           </div>
         </>
       )}
       {(lateWords || cond === "damaged") && (
         <div className="rounded-xl border border-line px-4 py-3 text-[14px] flex flex-col gap-1">
-          <p className="eyebrow text-ink3">To pay</p>
+          <p className="eyebrow text-ink3"><Words k="To pay" /></p>
           {lateWords && <div className="flex justify-between gap-3"><span className="text-ink2">{lateWords}</span><b className="font-semibold tnum">{fineWords ?? "No fine"}</b></div>}
-          {cond === "damaged" && <div className="flex justify-between gap-3"><span className="text-ink2">Damage charge</span><b className={cx("font-semibold tnum", needsApproval && "text-ink3")}>{needsApproval ? "Waiting approval" : chargeNum > 0 ? `₹${chargeNum.toLocaleString("en-IN")}` : "None"}</b></div>}
+          {cond === "damaged" && <div className="flex justify-between gap-3"><span className="text-ink2"><Words k="Damage charge" /></span><b className={cx("font-semibold tnum", needsApproval && "text-ink3")}>{needsApproval ? "Waiting approval" : chargeNum > 0 ? `₹${chargeNum.toLocaleString("en-IN")}` : "None"}</b></div>}
           <p className="text-[12.5px] text-ink3 mt-1">{fineToFees ? "Added to the student's fees, paid with the other fees." : "Collected at the library desk (Fines & Stock Check)."}</p>
         </div>
       )}
       {state && !state.ok && !err("charge") && <Alert tone="danger">{state.message}</Alert>}
-      {cond === "damaged" && needsApproval && <p className="text-[12.5px] text-warn flex items-center gap-1.5"><TriangleAlert size={14} aria-hidden="true" />₹{chargeNum.toLocaleString("en-IN")} charge needs approval</p>}
-      <Button type="submit" variant="primary" size="lg" icon={CornerDownLeft} loading={pending} loadingText="Returning…" className="w-full">Return “{title.length > 40 ? `${title.slice(0, 40)}…` : title}”</Button>
+      {cond === "damaged" && needsApproval && <p className="text-[12.5px] text-warn flex items-center gap-1.5"><TriangleAlert size={14} aria-hidden="true" />₹{chargeNum.toLocaleString("en-IN")} <Words k="charge needs approval" /></p>}
+      <Button type="submit" variant="primary" size="lg" icon={CornerDownLeft} loading={pending} loadingText="Returning…" className="w-full"><Words k="Return “" />{title.length > 40 ? `${title.slice(0, 40)}…` : title}”</Button>
     </form>
   );
 }

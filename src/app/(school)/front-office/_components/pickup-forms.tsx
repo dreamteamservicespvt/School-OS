@@ -21,6 +21,7 @@ import { cx } from "@/components/ui/cx";
 import { PICKUP_REASONS, type NoPhotoCheck } from "@/lib/front-office/words";
 import { refusedAction, releaseAction, sendCodeAction } from "../actions";
 import { useCanScanQr } from "./fields";
+import { Words } from "@/lib/i18n/client";
 
 /**
  * "Scan ID card": reads the QR on the student's ID card (school code and
@@ -71,7 +72,7 @@ export function ScanIdButton({ base }: { base: string }) {
       {open && (
         <div className="fixed inset-x-4 bottom-4 z-50 sm:inset-x-auto sm:right-6 sm:w-80 rounded-2xl overflow-hidden bg-ink shadow-pop">
           <video ref={video} muted playsInline className="w-full h-48 object-cover" />
-          <p className="text-[12.5px] text-bg px-3 py-2">Hold the QR on the ID card in front of the camera.</p>
+          <p className="text-[12.5px] text-bg px-3 py-2"><Words k="Hold the QR on the ID card in front of the camera." /></p>
         </div>
       )}
       {problem && <p className="sr-only" role="alert">{problem}</p>}
@@ -93,10 +94,10 @@ export function StopSheet({ closeHref, student, classTeacher, calls, deskPhone }
       <div className="flex justify-center pt-1"><span className="w-16 h-16 rounded-full bg-bad text-badink grid place-items-center shadow-pop" aria-hidden="true"><Hand size={30} /></span></div>
       <SText name="who" label="Who is here?" help="Kept with the student’s record" placeholder="Name and relation, like Suresh, neighbour" maxLength={120} />
       {calls.map((c) => (
-        <a key={c.tel + c.name} href={`tel:${c.tel}`} className={cx(buttonClass("secondary"), "w-full !justify-start")}><PhoneCall size={17} aria-hidden="true" />Call {c.name} ({c.relationship.toLowerCase()})</a>
+        <a key={c.tel + c.name} href={`tel:${c.tel}`} className={cx(buttonClass("secondary"), "w-full !justify-start")}><PhoneCall size={17} aria-hidden="true" /><Words k="Call" /> {c.name} ({c.relationship.toLowerCase()})</a>
       ))}
-      {!calls.length && deskPhone && <a href={`tel:${deskPhone}`} className={cx(buttonClass("primary"), "w-full")}><PhoneCall size={17} aria-hidden="true" />Call the front desk</a>}
-      <p className="text-[12.5px] text-ink3 text-center">Adding a person to the list is done in Student Management by someone allowed, never at the desk or gate.</p>
+      {!calls.length && deskPhone && <a href={`tel:${deskPhone}`} className={cx(buttonClass("primary"), "w-full")}><PhoneCall size={17} aria-hidden="true" /><Words k="Call the front desk" /></a>}
+      <p className="text-[12.5px] text-ink3 text-center"><Words k="Adding a person to the list is done in Student Management by someone allowed, never at the desk or gate." /></p>
     </SheetForm>
   );
 }
@@ -121,7 +122,7 @@ export function PickupList({ people, canChoose, chosen, onChoose }: { people: Pi
             <span className="min-w-0 flex-1">
               <span className={cx("block font-semibold text-[14.5px] truncate", !x.allowed && "text-bad")}>{x.name}</span>
               <span className="block text-[12.5px] text-ink3">{x.relationship}{x.phone ? <> · <span className="tnum">{x.phone}</span></> : null}</span>
-              {!x.allowed && <span className="block text-[12px] text-bad font-semibold mt-0.5">Not allowed to collect</span>}
+              {!x.allowed && <span className="block text-[12px] text-bad font-semibold mt-0.5"><Words k="Not allowed to collect" /></span>}
             </span>
             {on && <CircleCheck size={20} className="text-brand shrink-0" aria-hidden="true" />}
           </>
@@ -180,24 +181,24 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
       <input type="hidden" name="photoMatch" value={g?.photo && photo ? "on" : ""} />
       <input type="hidden" name="otherCheck" value={g && !g.photo ? check : ""} />
       <div>
-        <p className="text-[13px] font-semibold text-ink2 mb-2">Who is collecting? <span className="font-normal text-ink3">· from Student Management, Parents & Guardians</span></p>
+        <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Who is collecting?" /> <span className="font-normal text-ink3"><Words k={"· from Student Management, Parents & Guardians"} /></span></p>
         {people.length ? <PickupList people={people} canChoose chosen={who} onChoose={choose} />
-          : <p className="text-[13.5px] text-ink3 rounded-xl bg-sunken/70 px-3.5 py-3">Nobody is on {student.first}’s pickup list yet. It is set in Student Management, Parents & Guardians.</p>}
+          : <p className="text-[13.5px] text-ink3 rounded-xl bg-sunken/70 px-3.5 py-3"><Words k="Nobody is on" /> {student.first}<Words k={"’s pickup list yet. It is set in Student Management, Parents & Guardians."} /></p>}
         {restricted && <p className="mt-2 text-[13px] text-bad flex gap-1.5"><TriangleAlert size={15} className="shrink-0 mt-0.5" aria-hidden="true" />{restricted.restriction}</p>}
         {err.guardianId && <p className="mt-2 text-[12.5px] text-bad" role="alert">{err.guardianId}</p>}
-        <Link href={stopHref} scroll={false} className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-bad hover:underline"><UserX size={16} aria-hidden="true" />Someone not on this list is here</Link>
+        <Link href={stopHref} scroll={false} className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-bad hover:underline"><UserX size={16} aria-hidden="true" /><Words k="Someone not on this list is here" /></Link>
       </div>
 
       {g ? (
         <div className="flex flex-col gap-4 border-t border-line pt-4 animate-rise">
           <div>
-            <p className="text-[13px] font-semibold text-ink2 mb-2">Verify {g.name.split(" ")[0]} <span className="text-bad" aria-hidden="true">*</span></p>
+            <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Verify" /> {g.name.split(" ")[0]} <span className="text-bad" aria-hidden="true">*</span></p>
             {g.photo ? (
               <div className={cx("rounded-xl border p-3 flex items-center gap-3", err.photoMatch ? "border-bad" : "border-line")}>
                 <Avatar name={g.name} size={56} src={g.photo} />
                 <label className="flex-1 flex items-center gap-3 cursor-pointer">
                   <Checkbox checked={photo} onChange={setPhoto} label="Photo matches" />
-                  <span className="text-[14px]"><b className="font-semibold block">The face matches this photo</b><span className="text-[12.5px] text-ink3">Look at the person, not only the ID</span></span>
+                  <span className="text-[14px]"><b className="font-semibold block"><Words k="The face matches this photo" /></b><span className="text-[12.5px] text-ink3"><Words k="Look at the person, not only the ID" /></span></span>
                 </label>
               </div>
             ) : (
@@ -207,7 +208,7 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
                     <Avatar name={g.name} size={48} />
                     <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-sunken text-ink2 grid place-items-center ring-2 ring-surface"><Camera size={13} aria-hidden="true" /></span>
                   </span>
-                  <span className="text-[14px] min-w-0"><b className="font-semibold block">No photo of {g.name.split(" ")[0]} on record</b><span className="text-[12.5px] text-ink3">There is no face to match. Check one of these instead.</span></span>
+                  <span className="text-[14px] min-w-0"><b className="font-semibold block"><Words k="No photo of" /> {g.name.split(" ")[0]} <Words k="on record" /></b><span className="text-[12.5px] text-ink3"><Words k="There is no face to match. Check one of these instead." /></span></span>
                 </div>
                 <div className="flex flex-col gap-2" role="radiogroup" aria-label={`How you checked ${g.name.split(" ")[0]}`}>
                   {NO_PHOTO_OPTIONS.map((o) => (
@@ -219,19 +220,19 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
                   ))}
                 </div>
                 <p className="text-[12.5px] text-ink3">
-                  {photoBase ? <Link href={`${photoBase}${g.guardianId}`} className="font-semibold text-brand hover:underline">Add {g.name.split(" ")[0]}’s photo in Student Management</Link> : <>Ask the office to add {g.name.split(" ")[0]}’s photo in Student Management</>}, so next time the face can be matched.
+                  {photoBase ? <Link href={`${photoBase}${g.guardianId}`} className="font-semibold text-brand hover:underline"><Words k="Add" /> {g.name.split(" ")[0]}<Words k="’s photo in Student Management" /></Link> : <><Words k="Ask the office to add" /> {g.name.split(" ")[0]}<Words k="’s photo in Student Management" /></>}<Words k=", so next time the face can be matched." />
                 </p>
               </div>
             )}
             {err.photoMatch && <p className="mt-1 text-[12.5px] text-bad" role="alert">{err.photoMatch}</p>}
             {codeCheck && (
               <div className="rounded-xl border border-line p-3 mt-2 flex flex-col sm:flex-row sm:items-center gap-3">
-                <span className="text-[14px] flex-1"><b className="font-semibold block">Code to the guardian’s phone</b><span className="text-[12.5px] text-ink3">Switched on by the school. Sent to the number on {g.name.split(" ")[0]}’s record.</span></span>
+                <span className="text-[14px] flex-1"><b className="font-semibold block"><Words k="Code to the guardian’s phone" /></b><span className="text-[12.5px] text-ink3"><Words k="Switched on by the school. Sent to the number on" /> {g.name.split(" ")[0]}<Words k="’s record." /></span></span>
                 {codeLock ? (
                   <p role="alert" className="text-[12.5px] text-bad flex gap-1.5 sm:max-w-[300px]"><TriangleAlert size={15} className="shrink-0 mt-0.5" aria-hidden="true" />{codeLock}</p>
                 ) : !codeSent ? (
                   <div className="flex flex-col items-start gap-1">
-                    <Button type="submit" formAction={sendCode} formNoValidate variant="secondary" icon={Send} loading={sending} onClick={() => setCodeFor(who)}>Send code</Button>
+                    <Button type="submit" formAction={sendCode} formNoValidate variant="secondary" icon={Send} loading={sending} onClick={() => setCodeFor(who)}><Words k="Send code" /></Button>
                     {codeState && !codeState.ok && <span className="text-[12px] text-bad max-w-[260px]" role="alert">{codeState.message}</span>}
                   </div>
                 ) : (
@@ -239,7 +240,7 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
                     <input name="code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 4))} inputMode="numeric" autoComplete="one-time-code" placeholder="4 digits"
                       className={cx(inputCls(err.code), "h-11 !w-28 tnum text-center tracking-[.3em] font-semibold")} aria-label="Code from the guardian" aria-invalid={err.code ? true : undefined} />
                     {code.length === 4 && <CircleCheck size={20} className="text-ok" aria-hidden="true" />}
-                    <Button type="submit" formAction={sendCode} formNoValidate variant="ghost" size="sm" loading={sending} onClick={() => { setCodeFor(who); setCode(""); }}>Send a new code</Button>
+                    <Button type="submit" formAction={sendCode} formNoValidate variant="ghost" size="sm" loading={sending} onClick={() => { setCodeFor(who); setCode(""); }}><Words k="Send a new code" /></Button>
                   </div>
                 )}
                 {codeSent && (codeState?.data as { testMode?: boolean } | undefined)?.testMode && <p role="status" className="text-[12px] text-warn max-w-[260px]">{codeState?.message}</p>}
@@ -270,7 +271,7 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
           </Button>
         </div>
       ) : (
-        people.some((p) => p.allowed) && <p className="text-[13.5px] text-ink3 border-t border-line pt-4">Choose the person collecting {student.first}. Someone in red cannot be chosen.</p>
+        people.some((p) => p.allowed) && <p className="text-[13.5px] text-ink3 border-t border-line pt-4"><Words k="Choose the person collecting" /> {student.first}<Words k=". Someone in red cannot be chosen." /></p>
       )}
     </form>
   );

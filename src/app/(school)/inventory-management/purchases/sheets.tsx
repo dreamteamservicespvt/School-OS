@@ -14,6 +14,7 @@ import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { ItemLines, type ItemPick, type LineStart } from "../_components/client";
 import { billAction, cancelBillAction, cancelRequestAction, closeOrderAction, emailOrderAction, orderAction, payBillAction, receiveAction, requestAction, saveVendorAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -29,7 +30,7 @@ export function Warned() {
       {state?.errors?.billNo && <SArea name="duplicateReason" label="Why save it again?" required placeholder="For example: a second bill with the same number, confirmed with the vendor" />}
       {state?.errors?.mode && (
         <label className="flex items-center gap-2 rounded-xl bg-warn/12 px-3.5 py-3 text-[14px] font-semibold">
-          <input type="checkbox" name="confirmLowCash" className="size-4" /> Pay from cash anyway
+          <input type="checkbox" name="confirmLowCash" className="size-4" /> <Words k="Pay from cash anyway" />
         </label>
       )}
     </>
@@ -72,7 +73,7 @@ export function OrderSheet({ closeHref, items, start, vendors, stores, mainStore
   return (
     <SheetForm title="Make a purchase order" sub={requestWords ?? "Without a request, orders up to the approval limit only."} closeHref={closeHref} action={orderAction} submitLabel={over ? "Send for approval" : "Make order"} hidden={requestId ? { requestId } : undefined} wide>
       <div className="grid sm:grid-cols-2 gap-3">
-        <SSelect name="vendorId" label="Vendor" required options={vendors} placeholder="Choose the vendor" help={<a href={addVendorHref} className="font-semibold text-brand hover:underline">Add a vendor</a>} />
+        <SSelect name="vendorId" label="Vendor" required options={vendors} placeholder="Choose the vendor" help={<a href={addVendorHref} className="font-semibold text-brand hover:underline"><Words k="Add a vendor" /></a>} />
         <SSelect name="locationId" label="Deliver to store" required options={stores} start={mainStore} />
       </div>
       <ItemLines items={items} start={start} price="unit" onTotal={setTotal} help="Price per unit from the vendor's quote. The last price paid is filled in." />
@@ -123,14 +124,14 @@ export function ReceiveSheet({ closeHref, orderId, number, lines, stores, store,
             <li key={l.id} className="rounded-xl border border-line p-3 flex flex-col gap-2">
               <input type="hidden" name="lineId" value={l.id} />
               <div className="grid grid-cols-[1fr_110px] gap-3 items-center">
-                <span className="text-[14px] min-w-0"><b className="font-semibold">{l.name}</b><span className="block text-[12.5px] text-ink3">Ordered {l.ordered} · received {l.received} · {left} to come</span></span>
+                <span className="text-[14px] min-w-0"><b className="font-semibold">{l.name}</b><span className="block text-[12.5px] text-ink3"><Words k="Ordered" /> {l.ordered} <Words k="· received" /> {l.received} · {left} <Words k="to come" /></span></span>
                 <span>
-                  <label className="sr-only" htmlFor={`recv-${l.id}`}>Received now: {l.name}</label>
+                  <label className="sr-only" htmlFor={`recv-${l.id}`}><Words k="Received now:" /> {l.name}</label>
                   <input id={`recv-${l.id}`} name={`recv-${l.id}`} inputMode="numeric" value={qty[l.id] ?? ""} onChange={(e) => setQty((q) => ({ ...q, [l.id]: e.target.value.replace(/[^\d]/g, "") }))}
                     className={cx(inputCls(err || n > left ? "x" : undefined), "h-11 text-right tnum")} />
                 </span>
               </div>
-              {n > left && <p className="text-[12.5px] text-warn font-semibold">Ordered {l.ordered - l.received > 0 ? left : 0}, receiving {n}.</p>}
+              {n > left && <p className="text-[12.5px] text-warn font-semibold"><Words k="Ordered" /> {l.ordered - l.received > 0 ? left : 0}<Words k=", receiving" /> {n}.</p>}
               {l.tracksExpiry && n > 0 && (
                 <div className="grid grid-cols-2 gap-2">
                   <input name={`batch-${l.id}`} placeholder="Batch" defaultValue={typed?.[`batch-${l.id}`] ?? ""} maxLength={40} aria-label={`Batch: ${l.name}`} className={cx(inputCls(undefined), "h-10")} />
@@ -153,12 +154,12 @@ function BillFile() {
   const [name, setName] = useState<string | null>(null);
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[13px] font-semibold text-ink2">Photo or PDF of the bill</span>
+      <span className="text-[13px] font-semibold text-ink2"><Words k="Photo or PDF of the bill" /></span>
       <label className="inline-flex items-center justify-center gap-2 h-11 rounded-xl border border-line bg-surface text-[14px] font-semibold text-ink2 cursor-pointer hover:bg-sunken focus-within:ring-2 focus-within:ring-brand/40">
         <Upload size={16} aria-hidden="true" />{name ?? "Choose file or take photo"}
         <input type="file" name="bill" accept="image/*,application/pdf" capture="environment" className="sr-only" onChange={(e) => setName(e.target.files?.[0]?.name ?? null)} />
       </label>
-      {t.error ? <p className="text-[12.5px] text-bad font-semibold" role="alert">{t.error}</p> : <p className="text-[12.5px] text-ink3">Finance may need it above its set amount.</p>}
+      {t.error ? <p className="text-[12.5px] text-bad font-semibold" role="alert">{t.error}</p> : <p className="text-[12.5px] text-ink3"><Words k="Finance may need it above its set amount." /></p>}
     </div>
   );
 }
@@ -170,7 +171,7 @@ export function BillSheet({ closeHref, orders, vendors, start, today }: { closeH
   return (
     <SheetForm title="Record the vendor's bill" sub="It goes to Finance as a vendor bill (Expenses), linked to the order." closeHref={closeHref} action={billAction} submitLabel="Save bill" pendingText="Saving…">
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="bill-order" className="text-[13px] font-semibold text-ink2">Purchase order</label>
+        <label htmlFor="bill-order" className="text-[13px] font-semibold text-ink2"><Words k="Purchase order" /></label>
         <select key={o.key} id="bill-order" name="orderId" defaultValue={o.value} onChange={(e) => setOrderId(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
           <option value="">No order (a direct purchase)</option>
           {orders.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
@@ -204,13 +205,13 @@ export function PayBillSheet({ closeHref, invoiceId, words, left, today, banks, 
         <SDate name="date" label="Date paid" required start={today} max={today} />
       </div>
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Mode <span className="text-bad" aria-hidden="true">*</span></span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Mode" /> <span className="text-bad" aria-hidden="true">*</span></span>
         <Segmented label="Mode" value={mode} onChange={setMode} className="w-full" options={MODES} />
         {m.error && <p className="text-[12.5px] text-bad">{m.error}</p>}
       </div>
       {mode !== "CASH" && <SText name="reference" label={mode === "CHEQUE" ? "Cheque number" : "Transaction or UTR number"} required maxLength={60} className="[&_input]:font-mono" />}
       {mode === "CASH" ? (cashId ? <input type="hidden" name="accountId" value={cashId} /> : null) : <SSelect key={mode} name="accountId" label="Paid from" required options={banks} start={mainBank} />}
-      <p className="text-[12.5px] text-ink3">The payment goes into the Day Book in Finance Management on the date paid.</p>
+      <p className="text-[12.5px] text-ink3"><Words k="The payment goes into the Day Book in Finance Management on the date paid." /></p>
       <Warned />
     </SheetForm>
   );
@@ -219,7 +220,7 @@ export function PayBillSheet({ closeHref, invoiceId, words, left, today, banks, 
 export function CancelBillSheet({ closeHref, invoiceId, words, paid }: { closeHref: string; invoiceId: string; words: string; paid: boolean }) {
   return (
     <SheetForm title="Cancel this bill" sub={words} closeHref={closeHref} action={cancelBillAction} submitLabel="Cancel bill" submitVariant="danger" hidden={{ invoiceId }}>
-      {paid && <Alert tone="info">It is already paid: a reversal goes into today&apos;s Day Book.</Alert>}
+      {paid && <Alert tone="info"><Words k="It is already paid: a reversal goes into today's Day Book." /></Alert>}
       <SArea name="reason" label="Reason" required maxLength={300} placeholder="For example: entered twice" />
     </SheetForm>
   );
@@ -243,7 +244,7 @@ export function VendorSheet({ closeHref, start, bank }: { closeHref: string; sta
       <SText name="itemsSupplied" label="Items supplied" maxLength={300} start={start?.itemsSupplied} placeholder="Notebooks, pens, chart paper" />
       {bank && (
         <fieldset className="flex flex-col gap-3 rounded-xl border border-line p-3">
-          <legend className="px-1 text-[13px] font-semibold text-ink2">Bank details (for payments)</legend>
+          <legend className="px-1 text-[13px] font-semibold text-ink2"><Words k="Bank details (for payments)" /></legend>
           <div className="grid sm:grid-cols-2 gap-3">
             <SText name="bankName" label="Bank" maxLength={80} start={start?.bankName} />
             <SText name="ifsc" label="IFSC" maxLength={11} start={start?.ifsc} className="[&_input]:font-mono [&_input]:uppercase" />

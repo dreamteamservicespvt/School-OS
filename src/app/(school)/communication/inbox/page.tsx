@@ -16,8 +16,12 @@ import { EmptyState } from "@/components/empty-state";
 import { CommHead } from "../_components/comm-head";
 import { ownerOptions } from "../queries/owners";
 import { ChatButtons, Composer } from "./chat-tools";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "WhatsApp Inbox" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("WhatsApp Inbox") };
+}
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : "");
@@ -45,7 +49,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
       <>
         {head}
         <Card><EmptyState Icon={Inbox} title="WhatsApp Inbox is switched off"
-          action={full ? <ButtonLink href="/communication/settings" icon={Settings2}>Message Settings</ButtonLink> : undefined}>
+          action={full ? <ButtonLink href="/communication/settings" icon={Settings2}><Words k="Message Settings" /></ButtonLink> : undefined}>
           {full ? "Switch it on under Optional pages in Message Settings once WhatsApp Business is connected." : "The Principal or School Admin can switch it on."}
         </EmptyState></Card>
       </>
@@ -112,11 +116,11 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
                       className={cx("flex-1 h-8 px-2 rounded-lg text-[12.5px] font-semibold grid place-items-center whitespace-nowrap transition", tab === t ? "bg-surface text-ink shadow-card" : "text-ink2 hover:text-ink")}>{label}</Link>
                   ))}
                 </nav>
-              ) : <p className="text-[13px] font-semibold text-ink2 px-1">Assigned to me · {data.counts.mine}</p>}
+              ) : <p className="text-[13px] font-semibold text-ink2 px-1"><Words k="Assigned to me ·" /> {data.counts.mine}</p>}
               <form action="/communication/inbox" className="relative">
                 {full && tab !== "all" && <input type="hidden" name="tab" value={tab} />}
                 <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
-                <label htmlFor="inbox-search" className="sr-only">Search chats</label>
+                <label htmlFor="inbox-search" className="sr-only"><Words k="Search chats" /></label>
                 <input id="inbox-search" name="q" defaultValue={q} placeholder="Name or phone" className="h-11 w-full rounded-xl bg-surface border border-line pl-10 pr-3.5 text-[15px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
               </form>
             </div>
@@ -182,12 +186,12 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
                 <Composer chatId={cur.id} firstName={cur.displayName.split(" ")[0]} quick={QUICK_REPLIES} canSend />
               ) : (
                 <div className="p-3 border-t border-line">
-                  <Banner tone="warn" title="The 24-hour reply window has closed." action={<ButtonLink href="/communication" size="sm" variant="secondary">Send Message</ButtonLink>}>WhatsApp allows only an approved template now.</Banner>
+                  <Banner tone="warn" title="The 24-hour reply window has closed." action={<ButtonLink href="/communication" size="sm" variant="secondary"><Words k="Send Message" /></ButtonLink>}><Words k="WhatsApp allows only an approved template now." /></Banner>
                 </div>
               ))}
             </div>
           ) : (
-            <div className="hidden xl:grid place-items-center text-[13.5px] text-ink3">Choose a chat.</div>
+            <div className="hidden xl:grid place-items-center text-[13.5px] text-ink3"><Words k="Choose a chat." /></div>
           )}
 
           {/* About this person */}
@@ -200,10 +204,10 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
                 <p className="text-[12.5px] text-ink2 mt-1.5">{data.about.lines[0] ?? "Number not in School OS"}</p>
               </div>
               <dl className="p-5 flex flex-col gap-3 text-[13px]">
-                <div><dt className="text-ink3 text-[12px]">Assigned to</dt><dd className="font-semibold">{name(cur.assignedToId) ?? "Nobody yet"}</dd></div>
-                <div><dt className="text-ink3 text-[12px]">First message</dt><dd className="tnum">{formatDate(cur.createdAt, tz)}</dd></div>
-                <div><dt className="text-ink3 text-[12px]">Status</dt><dd>{cur.resolvedAt ? `Resolved ${formatDate(cur.resolvedAt, tz)}` : "Open"}</dd></div>
-                {data.query && <div><dt className="text-ink3 text-[12px]">Query</dt><dd><Link href={`/communication/queries/${data.query.id}`} className="text-brand font-semibold hover:underline">{data.query.number}</Link></dd></div>}
+                <div><dt className="text-ink3 text-[12px]"><Words k="Assigned to" /></dt><dd className="font-semibold">{name(cur.assignedToId) ?? "Nobody yet"}</dd></div>
+                <div><dt className="text-ink3 text-[12px]"><Words k="First message" /></dt><dd className="tnum">{formatDate(cur.createdAt, tz)}</dd></div>
+                <div><dt className="text-ink3 text-[12px]"><Words k="Status" /></dt><dd>{cur.resolvedAt ? `Resolved ${formatDate(cur.resolvedAt, tz)}` : "Open"}</dd></div>
+                {data.query && <div><dt className="text-ink3 text-[12px]"><Words k="Query" /></dt><dd><Link href={`/communication/queries/${data.query.id}`} className="text-brand font-semibold hover:underline">{data.query.number}</Link></dd></div>}
               </dl>
               {data.about.links.length > 0 && (
                 <ul className="px-5 pb-5 flex flex-col gap-1.5">

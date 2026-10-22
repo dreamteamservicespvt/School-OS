@@ -8,8 +8,12 @@ import { BASE, studentPage } from "../../../_lib/page";
 import { saveGuardianAction } from "../../../_actions/guardians";
 import { GuardianForm } from "../../guardian-form";
 import { visibleGuardianFor } from "../../load";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Edit parent" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Edit parent") };
+}
 
 export default async function EditGuardianPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -24,7 +28,7 @@ export default async function EditGuardianPage({ params }: { params: Promise<{ i
       <Card className="max-w-3xl">
         <CardBody>
           <GuardianForm action={saveGuardianAction.bind(null, id, null)} g={g} studentId={null} canRestrict={false} cancelHref={`${BASE}/guardians/${id}`} />
-          <p className="mt-4 text-[13.5px] text-ink2">Custody restrictions are set on each child&apos;s link, from the child&apos;s profile.</p>
+          <p className="mt-4 text-[13.5px] text-ink2"><Words k="Custody restrictions are set on each child's link, from the child's profile." /></p>
         </CardBody>
       </Card>
     </>

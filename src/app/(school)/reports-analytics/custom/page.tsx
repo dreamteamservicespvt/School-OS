@@ -22,8 +22,12 @@ import { ColumnPicker, SaveCustomSheet, ScheduleMenu, ScheduleSheet, type Person
 import { archiveCustomAction, archiveScheduleAction, customFeatureAction } from "../actions";
 import { QuickButton } from "../_components/bits";
 import { BASE, one, qs, repGuard, withQ, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Custom & Scheduled Reports" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Custom & Scheduled Reports") };
+}
 
 const HREF = `${BASE}/custom`;
 const PREVIEW_ROWS = 12;
@@ -124,8 +128,8 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
     <div>
       <RepHead pageName="Custom & Scheduled Reports" href={HREF} sub="Build your own report, and have any report emailed every day, week or month"
         actions={canEdit ? <>
-          <ButtonLink href={withQ(HREF, sp, { schedule: "new" })} scroll={false} variant="secondary" icon={CalendarClock}>Schedule a report</ButtonLink>
-          <ButtonLink href={qs(HREF, { view: "build" })} variant="primary" icon={Plus}>Build a report</ButtonLink>
+          <ButtonLink href={withQ(HREF, sp, { schedule: "new" })} scroll={false} variant="secondary" icon={CalendarClock}><Words k="Schedule a report" /></ButtonLink>
+          <ButtonLink href={qs(HREF, { view: "build" })} variant="primary" icon={Plus}><Words k="Build a report" /></ButtonLink>
         </> : null} />
       <div className="flex flex-col gap-5 lg:gap-6">
         <LinkTabs value={view} label="Views" className="self-start" tabs={[{ id: "mine", label: "My reports and schedules", href: viewHref("mine") }, { id: "build", label: "Build a report", href: viewHref("build") }]} />
@@ -139,7 +143,7 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
               <DataList rows={rows} rowKey={(s) => s.id} minWidth={820}
                 empty={<Empty icon={filter === "Archived" ? Archive : CalendarClock} title={filter === "Archived" ? "Nothing archived" : filter === "Paused" ? "No paused schedules" : "No scheduled reports yet"}
                   body={filter === "Active" ? "Schedule any report to arrive by email every day, week or month." : "Archived schedules stay here, with their send history."}
-                  action={filter === "Active" && canEdit ? <ButtonLink href={`${HREF}?schedule=new`} scroll={false} variant="secondary" icon={Plus}>Schedule a report</ButtonLink> : undefined} />}
+                  action={filter === "Active" && canEdit ? <ButtonLink href={`${HREF}?schedule=new`} scroll={false} variant="secondary" icon={Plus}><Words k="Schedule a report" /></ButtonLink> : undefined} />}
                 columns={[
                   { key: "n", label: "Report", render: (s) => { const k = keyLabel(s.reportKey); return <><b className="font-semibold block leading-tight">{s.reportName}</b><span className="text-[12.5px] text-ink3">{k.src} · {k.area} · {PRESETS.find((x) => x.value === s.datePreset)?.label ?? s.datePreset}</span></>; } },
                   { key: "f", label: "Sends", render: (s) => <><span className="block whitespace-nowrap">{frequencyWords(s)}</span><span className="text-[12.5px] text-ink3">{s.format === "xlsx" ? "Excel" : "PDF"}</span></> },
@@ -157,7 +161,7 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
             <Card className="overflow-hidden">
               <CardHeader title="My custom reports" description="Built here, with only the fields each person may see" icon={Table2} />
               {data.customs.length === 0 ? (
-                <Empty icon={Table2} title="No custom reports yet" body="Pick a data area, columns and filters, then save." action={<ButtonLink href={qs(HREF, { view: "build" })} variant="secondary">Build a report</ButtonLink>} />
+                <Empty icon={Table2} title="No custom reports yet" body="Pick a data area, columns and filters, then save." action={<ButtonLink href={qs(HREF, { view: "build" })} variant="secondary"><Words k="Build a report" /></ButtonLink>} />
               ) : (
                 <ul className="px-2 pb-2">
                   {data.customs.map((c) => {
@@ -165,9 +169,9 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
                     return (
                       <li key={c.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/60">
                         <IconTile icon={ar ? CAT_ICON[ar.category] : Table2} size={36} />
-                        <span className="min-w-0 flex-1"><b className="font-semibold text-[14px] block truncate">{c.name}</b><span className="text-[12.5px] text-ink3 block truncate">{ar?.label ?? c.area} · {c.columns.length} columns · {data.customWords.get(c.id)} · saved by {nameOf(c.ownerId)}, {formatDate(c.createdAt, p.tz)}</span></span>
-                        {myAreas.includes(c.area as AreaKey) && <ButtonLink href={specParams(c)} size="sm" variant="ghost">Open</ButtonLink>}
-                        {canEdit && myAreas.includes(c.area as AreaKey) && <ButtonLink href={`${HREF}?schedule=c:${c.id}`} scroll={false} size="sm" variant="secondary" icon={CalendarClock} className="hidden sm:inline-flex">Schedule</ButtonLink>}
+                        <span className="min-w-0 flex-1"><b className="font-semibold text-[14px] block truncate">{c.name}</b><span className="text-[12.5px] text-ink3 block truncate">{ar?.label ?? c.area} · {c.columns.length} <Words k="columns ·" /> {data.customWords.get(c.id)} <Words k="· saved by" /> {nameOf(c.ownerId)}, {formatDate(c.createdAt, p.tz)}</span></span>
+                        {myAreas.includes(c.area as AreaKey) && <ButtonLink href={specParams(c)} size="sm" variant="ghost"><Words k="Open" /></ButtonLink>}
+                        {canEdit && myAreas.includes(c.area as AreaKey) && <ButtonLink href={`${HREF}?schedule=c:${c.id}`} scroll={false} size="sm" variant="secondary" icon={CalendarClock} className="hidden sm:inline-flex"><Words k="Schedule" /></ButtonLink>}
                         {canEdit && c.ownerId === p.current.user.id && <ButtonLink href={withQ(HREF, sp, { archiveReport: c.id })} scroll={false} size="sm" variant="ghost" aria-label={`Archive ${c.name}`}><Archive size={15} aria-hidden="true" /></ButtonLink>}
                       </li>
                     );
@@ -182,19 +186,19 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
               <Card className="overflow-hidden">
                 <CardHeader title="Preview" description={data.preview ? `${AREAS[area].label} · ${data.filterText} · ${data.preview.rows.length} ${data.preview.rows.length === 1 ? "row" : "rows"}` : AREAS[area].label} icon={Table2}
                   action={data.preview && <div className="flex gap-1.5">
-                    <a href={qs(`${HREF}/export`, { area, class: raw.classId, show: raw.show === "all" ? null : raw.show, group: raw.group === "none" ? null : raw.group, nototals: raw.totals ? null : "1" }) + chosen.map((c) => `&col=${c}`).join("")} download className={buttonClass("secondary", "sm")}><Download size={15} aria-hidden="true" />Export</a>
-                    {canEdit && <ButtonLink href={withQ(HREF, sp, { save: "1" })} scroll={false} size="sm" variant="primary" icon={Check}>Save</ButtonLink>}
+                    <a href={qs(`${HREF}/export`, { area, class: raw.classId, show: raw.show === "all" ? null : raw.show, group: raw.group === "none" ? null : raw.group, nototals: raw.totals ? null : "1" }) + chosen.map((c) => `&col=${c}`).join("")} download className={buttonClass("secondary", "sm")}><Download size={15} aria-hidden="true" /><Words k="Export" /></a>
+                    {canEdit && <ButtonLink href={withQ(HREF, sp, { save: "1" })} scroll={false} size="sm" variant="primary" icon={Check}><Words k="Save" /></ButtonLink>}
                   </div>} />
                 {data.problem ? (
                   <Empty icon={Table2} title="Pick at least one column" body={data.problem === "Pick at least one column." ? "Tick the columns you want on the right. The preview updates as you go." : data.problem} />
                 ) : data.preview && data.preview.rows.length === 0 ? (
-                  <Empty icon={Inbox} title="No rows for these filters" body="Try another class or loosen the filter." action={<Link href={qs(HREF, { view: "build", area })} className={buttonClass("secondary")}>Clear filters</Link>} />
+                  <Empty icon={Inbox} title="No rows for these filters" body="Try another class or loosen the filter." action={<Link href={qs(HREF, { view: "build", area })} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>} />
                 ) : data.preview && (
                   <>
                     <SimpleTable minWidth={Math.max(480, data.preview.columns.length * 130)} caption="Preview" rows={data.preview.rows.slice(0, PREVIEW_ROWS)}
                       cols={data.preview.columns.map((c) => ({ label: c.label, right: c.kind !== undefined && c.kind !== "text" && c.kind !== "date", render: (r: Row) => cellText(r[c.key], c.kind) }))}
                       foot={data.preview.totals ? data.preview.columns.map((c) => cellText(data.preview?.totals?.[c.key] ?? null, c.kind)) : undefined} />
-                    <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3 tnum">Showing {Math.min(PREVIEW_ROWS, data.preview.rows.length)} of {data.preview.rows.length.toLocaleString("en-IN")} rows · the saved report has every row{data.preview.note ? ` · ${data.preview.note}` : ""}</p>
+                    <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3 tnum"><Words k="Showing" /> {Math.min(PREVIEW_ROWS, data.preview.rows.length)} <Words k="of" /> {data.preview.rows.length.toLocaleString("en-IN")} <Words k="rows · the saved report has every row" />{data.preview.note ? ` · ${data.preview.note}` : ""}</p>
                   </>
                 )}
               </Card>
@@ -226,8 +230,8 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
 
       {p.a.full && (
         <div className="mt-5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] text-ink3">
-          <span>Custom & Scheduled Reports is on for this school. Switching it off keeps saved reports and pauses schedules.</span>
-          <QuickButton variant="ghost" run={customFeatureAction.bind(null, false)}>Switch off</QuickButton>
+          <span><Words k={"Custom & Scheduled Reports is on for this school. Switching it off keeps saved reports and pauses schedules."} /></span>
+          <QuickButton variant="ghost" run={customFeatureAction.bind(null, false)}><Words k="Switch off" /></QuickButton>
         </div>
       )}
       {one(sp.save) === "1" && canEdit && data.spec && (
@@ -239,11 +243,11 @@ export default async function CustomReportsPage({ searchParams }: { searchParams
       )}
       {archiving && canEdit && (
         <SheetForm title={`Archive “${archiving.reportName}”?`} sub="It stops sending. Its send history is kept, and you can start it again from Archived." closeHref={close} action={archiveScheduleAction}
-          hidden={{ scheduleId: archiving.id }} submitLabel="Archive schedule" submitVariant="danger"><span className="sr-only">Confirm</span></SheetForm>
+          hidden={{ scheduleId: archiving.id }} submitLabel="Archive schedule" submitVariant="danger"><span className="sr-only"><Words k="Confirm" /></span></SheetForm>
       )}
       {archivingReport && canEdit && (
         <SheetForm title={`Archive “${archivingReport.name}”?`} sub="It leaves My custom reports and its schedules are paused. Nothing is deleted." closeHref={close} action={archiveCustomAction}
-          hidden={{ reportId: archivingReport.id }} submitLabel="Archive report" submitVariant="danger"><span className="sr-only">Confirm</span></SheetForm>
+          hidden={{ reportId: archivingReport.id }} submitLabel="Archive report" submitVariant="danger"><span className="sr-only"><Words k="Confirm" /></span></SheetForm>
       )}
     </div>
   );

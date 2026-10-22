@@ -12,8 +12,12 @@ import { ActionForm, FormArea, FormCheck, FormText } from "@/components/students
 import { BASE, studentPage, todayIso } from "../../../_lib/page";
 import { campusAllows } from "@/lib/campus";
 import { addDonationAction, saveAlumniAction } from "../../../_actions/leaving";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Alumni record" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Alumni record") };
+}
 
 /** One alumnus: contact, career, higher education, achievements, donations and the students they mentor. */
 export default async function AlumniRecordPage({ params }: { params: Promise<{ id: string }> }) {
@@ -38,8 +42,8 @@ export default async function AlumniRecordPage({ params }: { params: Promise<{ i
   return (
     <>
       <BackLink href={`${BASE}/leaving/alumni`} label="Alumni" sub={me?.fullName} />
-      <PageHeader title={me?.fullName ?? "Alumni record"} sub={<>Batch {a.graduationYear}{me?.admissionNo ? <> · <span className="font-mono">{me.admissionNo}</span></> : null}{a.career ? ` · ${a.career}` : ""}</>} href={`${BASE}/leaving/alumni/${id}`} userId={current.user.id}>
-        <ButtonLink href={`${BASE}/students/${a.studentId}`} icon={UserRound}>Student Profile</ButtonLink>
+      <PageHeader title={me?.fullName ?? "Alumni record"} sub={<><Words k="Batch" /> {a.graduationYear}{me?.admissionNo ? <> · <span className="font-mono">{me.admissionNo}</span></> : null}{a.career ? ` · ${a.career}` : ""}</>} href={`${BASE}/leaving/alumni/${id}`} userId={current.user.id}>
+        <ButtonLink href={`${BASE}/students/${a.studentId}`} icon={UserRound}><Words k="Student Profile" /></ButtonLink>
       </PageHeader>
       <Split side={380}>
         <Card>
@@ -65,9 +69,9 @@ export default async function AlumniRecordPage({ params }: { params: Promise<{ i
         <Col>
           <Card>
             <CardHeader title="Donations" icon={HandHeart} />
-            {a.donations.length > 0 && <div className="px-5 pb-3"><p className="font-display text-[26px] font-semibold tnum">{formatRupees(total)}</p><p className="text-[12.5px] text-ink3">{a.donations.length} donation{a.donations.length === 1 ? "" : "s"} · receipts through Finance, Income</p></div>}
+            {a.donations.length > 0 && <div className="px-5 pb-3"><p className="font-display text-[26px] font-semibold tnum">{formatRupees(total)}</p><p className="text-[12.5px] text-ink3">{a.donations.length} <Words k="donation" />{a.donations.length === 1 ? "" : "s"} <Words k="· receipts through Finance, Income" /></p></div>}
             <CardBody>
-              {a.donations.length === 0 ? <p className="text-[14px] text-ink3">No donations recorded.</p> : (
+              {a.donations.length === 0 ? <p className="text-[14px] text-ink3"><Words k="No donations recorded." /></p> : (
                 <ul className="-mx-3 mb-4">
                   {a.donations.map((d) => (
                     <Row key={d.id} icon={HandHeart} iconTone="ok" title={d.purpose} sub={`${formatDate(d.date, tz)}${d.receiptRef ? ` · receipt ${d.receiptRef}` : ""}`}
@@ -77,7 +81,7 @@ export default async function AlumniRecordPage({ params }: { params: Promise<{ i
               )}
               {can.manage && (
                 <details className="rounded-2xl border border-line px-4 py-3">
-                  <summary className="flex cursor-pointer items-center gap-1.5 text-[14px] font-semibold text-brand"><Plus size={16} aria-hidden="true" />Record a donation</summary>
+                  <summary className="flex cursor-pointer items-center gap-1.5 text-[14px] font-semibold text-brand"><Plus size={16} aria-hidden="true" /><Words k="Record a donation" /></summary>
                   <ActionForm action={addDonationAction} submitLabel="Record donation" pendingText="Saving…" resetOnSuccess className="mt-3 space-y-4">
                     <input type="hidden" name="alumniId" value={id} />
                     <FormText name="amount" label="Amount (₹)" required inputMode="decimal" />
@@ -91,7 +95,7 @@ export default async function AlumniRecordPage({ params }: { params: Promise<{ i
           </Card>
           <Card>
             <CardHeader title="Mentoring" icon={Users} />
-            {a.mentorings.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">Not mentoring anyone yet. Link a student on the Alumni page.</p> : (
+            {a.mentorings.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="Not mentoring anyone yet. Link a student on the Alumni page." /></p> : (
               <ul className="px-2 pb-2">
                 {a.mentorings.map((m) => { const n = data.students.find((s) => s.id === m.studentId)?.fullName ?? "Student"; return <Row key={m.id} avatar={n} title={n} sub={m.note ?? undefined} href={`${BASE}/students/${m.studentId}`} />; })}
               </ul>

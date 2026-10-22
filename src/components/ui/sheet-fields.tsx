@@ -8,6 +8,7 @@ import { FieldShell, inputCls, SelectField, TextArea, TextField, type Option } f
 import { Switch } from "./controls";
 import { useTyped } from "./url-sheet";
 import { cx } from "./cx";
+import { tx } from "@/lib/i18n/tx";
 
 type Base = { name: string; label: string; help?: React.ReactNode; required?: boolean; className?: string; start?: string | number | null };
 
@@ -54,8 +55,8 @@ export function SSwitch({ name, title, sub, start = false }: { name: string; tit
   return (
     <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3">
       <div className="min-w-0 flex-1 text-[14px]">
-        <b className="font-semibold block">{title}</b>
-        {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{sub}</span>}
+        <b className="font-semibold block">{tx(title)}</b>
+        {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{tx(sub)}</span>}
       </div>
       <Switch on={on} onChange={setOn} label={title} name={name} />
     </div>
@@ -68,20 +69,20 @@ export function SChips({ name, label, options, start = [], required, help }: { n
   const [on, setOn] = useState<Set<string>>(new Set(start));
   return (
     <fieldset className="flex flex-col gap-1.5">
-      <legend className="text-[13px] font-semibold text-ink2 mb-1.5">{label}{required && <span className="text-bad" aria-hidden="true"> *</span>}</legend>
+      <legend className="text-[13px] font-semibold text-ink2 mb-1.5">{tx(label)}{required && <span className="text-bad" aria-hidden="true"> *</span>}</legend>
       <div className="flex flex-wrap gap-2">
         {options.map((o) => {
           const sel = on.has(o.value);
           return (
             <button key={o.value} type="button" aria-pressed={sel} onClick={() => setOn((x) => { const n = new Set(x); if (n.has(o.value)) n.delete(o.value); else n.add(o.value); return n; })}
               className={cx("h-9 px-3 rounded-xl border text-[13.5px] font-semibold transition", sel ? "bg-brand/10 border-brand text-brand" : "border-line text-ink2 hover:border-ink3/50")}>
-              {o.label}
+              {tx(o.label)}
             </button>
           );
         })}
       </div>
       {[...on].map((v) => <input key={v} type="hidden" name={name} value={v} />)}
-      {t.error ? <p className="text-[12.5px] text-bad">{t.error}</p> : help ? <p className="text-[12.5px] text-ink3">{help}</p> : null}
+      {t.error ? <p className="text-[12.5px] text-bad">{tx(t.error)}</p> : help ? <p className="text-[12.5px] text-ink3">{tx(help)}</p> : null}
     </fieldset>
   );
 }

@@ -27,8 +27,12 @@ import { PhotoUpload } from "./photo-upload";
 import { AcademicsTab, BehaviourTab, DocumentsTab, HistoryTab, OverviewTab } from "./tabs";
 import { LibraryView, PickupView } from "./lookup-views";
 import { LibraryPanel } from "@/lib/library/profile-tab";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Student Profile" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Student Profile") };
+}
 
 const ICONS: Record<string, LucideIcon> = { attendance: CalendarCheck2, exam: Award, result: Award, fee: IndianRupee, transport: Bus, bus: Bus, document: FolderOpen, library: BookOpen, behaviour: Medal, homework: CalendarClock };
 const iconFor = (label: string) => Object.entries(ICONS).find(([k]) => label.toLowerCase().includes(k))?.[1] ?? Info;
@@ -119,7 +123,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
 
       {restricted.length > 0 && (
         <Banner tone="bad" icon={ShieldX} className="mb-4" title="Custody restriction.">
-          {restricted.map((l) => <span key={l.id} className="block">Do not release to {l.guardian.name} ({l.relationship.toLowerCase()}). {can.reach === "all" && !can.lookupOnly ? l.restriction : "See the note with the School Admin."}</span>)}
+          {restricted.map((l) => <span key={l.id} className="block"><Words k="Do not release to" /> {l.guardian.name} ({l.relationship.toLowerCase()}). {can.reach === "all" && !can.lookupOnly ? l.restriction : "See the note with the School Admin."}</span>)}
         </Banner>
       )}
 
@@ -138,7 +142,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="font-display text-[24px] md:text-[28px] font-semibold tracking-tight leading-tight">{s.fullName}</h1>
                 <Pill tone={statusTone} dot>{status === "ACTIVE" ? "Studying" : STATUS_LABEL[status]}</Pill>
-                {p.photoWithdrawn && <Pill tone="warn">Photo consent withdrawn</Pill>}
+                {p.photoWithdrawn && <Pill tone="warn"><Words k="Photo consent withdrawn" /></Pill>}
                 <PinButton label={s.fullName} href={href} userId={current.user.id} />
               </div>
               <p className="text-[13.5px] text-ink3 mt-0.5">
@@ -149,7 +153,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
           {(collect || message || menu.length > 0) && (
             <div className="flex gap-2 relative">
               {collect && <ButtonLink href={collect.href} variant="primary" icon={IndianRupee} className="flex-1 lg:flex-none">{collect.label}</ButtonLink>}
-              {message && <ButtonLink href={`/communication?for=students&ids=${id}`} variant={collect ? "secondary" : "primary"} icon={MessageCircle} className="flex-1 lg:flex-none"><span>Message<span className="hidden sm:inline"> parent</span></span></ButtonLink>}
+              {message && <ButtonLink href={`/communication?for=students&ids=${id}`} variant={collect ? "secondary" : "primary"} icon={MessageCircle} className="flex-1 lg:flex-none"><span><Words k="Message" /><span className="hidden sm:inline"> <Words k="parent" /></span></span></ButtonLink>}
               <MoreMenu items={menu} label={`More actions for ${s.fullName}`} />
             </div>
           )}

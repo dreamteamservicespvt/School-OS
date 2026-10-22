@@ -6,6 +6,7 @@
 
 import { TextArea } from "@/components/ui/field";
 import { ActionButton, FormDialog, type Action } from "../../staff-hr-management/_components/forms";
+import { Words } from "@/lib/i18n/client";
 
 export function DecisionButtons({ hidden, approve, reject, withdraw, canDecide, canWithdraw, what, approveLabel = "Approve" }: {
   hidden: Record<string, string>; approve?: Action; reject?: Action; withdraw?: Action;
@@ -24,7 +25,7 @@ export function DecisionButtons({ hidden, approve, reject, withdraw, canDecide, 
         <FormDialog trigger={`Withdraw`} triggerVariant="secondary" title={`Withdraw this ${what}`} action={withdraw} hidden={hidden} submitLabel="Withdraw" pendingText="Withdrawing…">
           {(f) => (
             <>
-              <p className="text-ink-2">The request is taken back from Approvals. Nothing in the register changes.</p>
+              <p className="text-ink-2"><Words k="The request is taken back from Approvals. Nothing in the register changes." /></p>
               <TextArea label="Reason (optional)" name="note" maxLength={500} error={f.err("note")} defaultValue={f.val("note")} />
             </>
           )}

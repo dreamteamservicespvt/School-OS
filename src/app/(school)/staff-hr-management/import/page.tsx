@@ -5,8 +5,11 @@ import { PLACES } from "@/lib/imports/places";
 import { BackLink } from "@/components/ui/module-head";
 import { PageHeader } from "@/components/shell/page-header";
 import { ImportHome } from "@/components/import/import-home";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import staff" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import staff") };
+}
 
 const ABOUT = {
   staff: "One row per staff member, with phone, designation and joining date. Each is added as if typed on Add staff; a login is made when the row says so. Designations and departments not in HR Settings can be matched or added while you check the file.",

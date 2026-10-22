@@ -11,8 +11,12 @@ import { BASE, studentPage } from "../_lib/page";
 import { sectionOptions } from "../_lib/queries";
 import { chosenStudents } from "../bulk-update/chosen";
 import { LoginsForm } from "./logins-form";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Student logins" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Student logins") };
+}
 
 /** Student logins (optional): a username and a set-password link for each chosen student. */
 export default async function StudentLoginsPage({ searchParams }: { searchParams: Promise<{ ids?: string; section?: string }> }) {
@@ -28,7 +32,7 @@ export default async function StudentLoginsPage({ searchParams }: { searchParams
       <BackLink href={BASE} label="Students" />
       <PageHeader title="Student logins" href={`${BASE}/logins`} userId={current.user.id} />
       {!settings.studentLoginsOn ? (
-        <Card className="max-w-2xl"><CardBody><p>Student logins are switched off. Switch them on in <Link className="font-semibold text-brand hover:underline" href={`${BASE}/settings`}>Student Settings</Link>.</p></CardBody></Card>
+        <Card className="max-w-2xl"><CardBody><p><Words k="Student logins are switched off. Switch them on in" /> <Link className="font-semibold text-brand hover:underline" href={`${BASE}/settings`}><Words k="Student Settings" /></Link>.</p></CardBody></Card>
       ) : (
         <div className="max-w-3xl space-y-4">
           <Card>
@@ -37,7 +41,7 @@ export default async function StudentLoginsPage({ searchParams }: { searchParams
               {!sp.ids && (
                 <form method="get" className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
                   <SelectField name="section" label="Section" defaultValue={sp.section ?? ""} placeholder="Choose…" options={data.sections.map((s) => ({ value: s.value, label: `${s.label} (${s.filled})` }))} />
-                  <Button type="submit" variant="secondary">Show</Button>
+                  <Button type="submit" variant="secondary"><Words k="Show" /></Button>
                 </form>
               )}
               {data.students.length > 0 && (

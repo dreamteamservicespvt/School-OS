@@ -19,8 +19,12 @@ import { SalaryHead } from "../_components/salary-head";
 import { BASE, one, qs, salaryGuard, salaryPeriod, type SearchParams } from "../_lib/page";
 import { pauseAdvanceAction } from "./actions";
 import { AdvanceMenu, CloseCashSheet, GiveSheet, InstallmentSheet, PaySheet } from "./sheets";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Advances & Loans" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Advances & Loans") };
+}
 
 const HREF = `${BASE}/advances`;
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -82,7 +86,7 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
   });
   const action = (a: (typeof data.all)[number]) => {
     if (!p.change) return null;
-    if (a.status === "APPROVED") return <div className="relative z-10 flex justify-end"><ButtonLink href={here({ do: "pay", id: a.id })} scroll={false} size="sm" variant="soft">Mark paid</ButtonLink></div>;
+    if (a.status === "APPROVED") return <div className="relative z-10 flex justify-end"><ButtonLink href={here({ do: "pay", id: a.id })} scroll={false} size="sm" variant="soft"><Words k="Mark paid" /></ButtonLink></div>;
     if (a.status === "ACTIVE") return <div className="relative z-10 flex justify-end"><AdvanceMenu {...menu(a)} label={`More for ${name(a)}`} /></div>;
     return null;
   };
@@ -90,7 +94,7 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
   return (
     <div>
       <SalaryHead pageName="Advances & Loans" href={HREF} sub="Salary advances and loans, recovered from monthly pay until the balance is zero"
-        actions={p.can.create && data.settings.advancesOn ? <ButtonLink href={here({ do: "give" })} scroll={false} variant="primary" icon={HandCoins}>Give advance or loan</ButtonLink> : null} />
+        actions={p.can.create && data.settings.advancesOn ? <ButtonLink href={here({ do: "give" })} scroll={false} variant="primary" icon={HandCoins}><Words k="Give advance or loan" /></ButtonLink> : null} />
       <Stack>
         <Stats items={[
           { label: "Active", value: String(active.length), sub: unpaid.length ? `${unpaid.length} approved, not paid yet` : waiting.length ? `${waiting.length} waiting for approval` : "being recovered", icon: HandCoins },
@@ -98,7 +102,7 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
           { label: `Recovered in ${monthName(monthNow).split(" ")[0]}`, value: formatRupees(data.recovered), sub: "in this month’s salary", tone: data.recovered > ZERO ? "ok" : undefined, icon: Repeat },
           { label: "Paid out", value: formatRupees(paidOut), sub: per.from ? per.label : "in the Day Book when paid", icon: Landmark },
         ]} />
-        {!data.settings.advancesOn && <Banner tone="info" title="Advances and loans are switched off.">Switch them on in Salary Settings to give new ones. Open ones are still recovered.</Banner>}
+        {!data.settings.advancesOn && <Banner tone="info" title="Advances and loans are switched off."><Words k="Switch them on in Salary Settings to give new ones. Open ones are still recovered." /></Banner>}
         <Card className="overflow-hidden">
           <Toolbar>
             <div className="overflow-x-auto no-scrollbar shrink-0"><UrlSegmented param="show" options={SHOW} fallback="active" label="Show" /></div>
@@ -120,7 +124,7 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
               { key: "s", label: "Status", render: (a) => <Pill tone={a.paused && a.status === "ACTIVE" ? "warn" : ADVANCE_STATUS_TONE[a.status]}>{statusWord(a)}</Pill> },
               { key: "x", label: "", render: action },
             ]}
-            phone={(a) => ({ avatar: name(a), title: `${name(a)} · ${kind(a)}`, sub: `${formatRupees(balanceOf(a))} left of ${formatRupees(a.amountPaise)} · ${formatRupees(a.installmentPaise)} a month`, pills: <Pill tone={a.paused && a.status === "ACTIVE" ? "warn" : ADVANCE_STATUS_TONE[a.status]} className="!h-[22px] !text-[11.5px]">{statusWord(a)}</Pill>, right: p.change && a.status === "APPROVED" ? <span className="text-[12.5px] font-semibold text-brand">Mark paid</span> : null })} />
+            phone={(a) => ({ avatar: name(a), title: `${name(a)} · ${kind(a)}`, sub: `${formatRupees(balanceOf(a))} left of ${formatRupees(a.amountPaise)} · ${formatRupees(a.installmentPaise)} a month`, pills: <Pill tone={a.paused && a.status === "ACTIVE" ? "warn" : ADVANCE_STATUS_TONE[a.status]} className="!h-[22px] !text-[11.5px]">{statusWord(a)}</Pill>, right: p.change && a.status === "APPROVED" ? <span className="text-[12.5px] font-semibold text-brand"><Words k="Mark paid" /></span> : null })} />
         </Card>
       </Stack>
 
@@ -130,9 +134,9 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
         const hist = target.history as Hist[];
         return (
           <UrlSheet closeHref={here({ open: null })} title={`${kind(target)} ${target.number}`} sub={`${s?.fullName ?? ""} · ${s?.designation ?? ""}`}
-            footer={p.change && target.status === "APPROVED" ? <div className="flex justify-end"><ButtonLink href={here({ open: null, do: "pay", id: target.id })} scroll={false} variant="primary">Mark paid</ButtonLink></div> : p.change && target.status === "ACTIVE" ? <div className="flex justify-end"><AdvanceMenu {...menu(target, false)} size="md" /></div> : null}>
+            footer={p.change && target.status === "APPROVED" ? <div className="flex justify-end"><ButtonLink href={here({ open: null, do: "pay", id: target.id })} scroll={false} variant="primary"><Words k="Mark paid" /></ButtonLink></div> : p.change && target.status === "ACTIVE" ? <div className="flex justify-end"><AdvanceMenu {...menu(target, false)} size="md" /></div> : null}>
             <div className="flex flex-col gap-5">
-              <div className="flex items-center justify-between gap-3"><Pill tone={ADVANCE_STATUS_TONE[target.status]}>{statusWord(target)}</Pill><span className="font-display text-[22px] font-semibold tnum">{formatRupees(balanceOf(target))} <span className="text-[13px] text-ink3 font-sans font-normal">left</span></span></div>
+              <div className="flex items-center justify-between gap-3"><Pill tone={ADVANCE_STATUS_TONE[target.status]}>{statusWord(target)}</Pill><span className="font-display text-[22px] font-semibold tnum">{formatRupees(balanceOf(target))} <span className="text-[13px] text-ink3 font-sans font-normal"><Words k="left" /></span></span></div>
               <Progress value={pct(target)} tone={target.status === "CLOSED" ? "ok" : "brand"} />
               <Card><DL className="pt-5" rows={[
                 ["Amount", formatRupees(target.amountPaise)], ["Each month", formatRupees(target.installmentPaise)],
@@ -142,7 +146,7 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
               ]} /></Card>
               {data.recoveries.length > 0 && <Card><CardHeader title="Recovered" description={`${data.recoveries.length} time${data.recoveries.length === 1 ? "" : "s"}`} />
                 <ul className="divide-y divide-line/70 border-t border-line/70">{data.recoveries.map((r) => <li key={r.id} className="flex justify-between px-5 py-2.5 text-[14px]"><span className="text-ink2">{r.kind === "CASH" ? `Repaid in cash · ${formatDate(r.date)}` : `${monthName(firstOfMonth(r.date))} salary`}</span><span className="tnum font-semibold">{formatRupees(r.amountPaise)}</span></li>)}</ul></Card>}
-              {hist.length > 0 && <div><p className="eyebrow text-ink3 mb-2">History</p><Timeline items={[...hist].reverse().map((h, i) => ({ icon: i === hist.length - 1 ? HandCoins : History, what: `${h.what}${h.reason ? ` · ${h.reason}` : ""}`, when: [h.at ? formatDate(new Date(h.at)) : null, h.by ? by.get(h.by) : null].filter(Boolean).join(" · ") }))} /></div>}
+              {hist.length > 0 && <div><p className="eyebrow text-ink3 mb-2"><Words k="History" /></p><Timeline items={[...hist].reverse().map((h, i) => ({ icon: i === hist.length - 1 ? HandCoins : History, what: `${h.what}${h.reason ? ` · ${h.reason}` : ""}`, when: [h.at ? formatDate(new Date(h.at)) : null, h.by ? by.get(h.by) : null].filter(Boolean).join(" · ") }))} /></div>}
             </div>
           </UrlSheet>
         );
@@ -168,7 +172,7 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
       {doing === "close" && target && target.status === "ACTIVE" && (
         <CloseCashSheet closeHref={here({ do: null, id: null })} advanceId={target.id} today={p.today.toISOString().slice(0, 10)}
           title={`Close ${name(target)}’s ${kind(target).toLowerCase()}?`} label={`Record ${formatRupees(balanceOf(target))} received and close`}>
-          <p className="text-[14px] text-ink2">{name(target)} repays the balance of {formatRupees(balanceOf(target))} in cash. A receipt goes in the Day Book and no more is deducted from salary.</p>
+          <p className="text-[14px] text-ink2">{name(target)} <Words k="repays the balance of" /> {formatRupees(balanceOf(target))} <Words k="in cash. A receipt goes in the Day Book and no more is deducted from salary." /></p>
         </CloseCashSheet>
       )}
     </div>

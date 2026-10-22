@@ -21,8 +21,12 @@ import { shortDate } from "@/lib/students/show";
 import { BASE, studentPageOnCampus } from "../_lib/page";
 import { StudentsHead } from "../_lib/head";
 import { sectionNames } from "../_lib/queries";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Parents & Guardians" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Parents & Guardians") };
+}
 
 const FILTERS = ["consent", "photo", "link", "relation", "campus"] as const;
 const TONE = { GIVEN: "ok", WITHDRAWN: "bad", REFUSED: "bad", REQUESTED: "warn", NONE: "warn" } as const;
@@ -106,7 +110,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
       </div>
     ) },
     { key: "phone", label: "Phone", nowrap: true, render: (g) => <span className="tnum text-[13.5px]">{phoneShow(g.phone)}</span> },
-    { key: "children", label: "Children", render: (g) => g.children.length ? <div className="flex flex-col gap-0.5">{g.children.map((c) => <span key={c.id} className="text-[13.5px] whitespace-nowrap">{c.name}{c.cls && <span className="text-ink3"> · {c.cls}</span>}</span>)}</div> : <span className="text-ink3 text-[13px]">No children linked</span> },
+    { key: "children", label: "Children", render: (g) => g.children.length ? <div className="flex flex-col gap-0.5">{g.children.map((c) => <span key={c.id} className="text-[13.5px] whitespace-nowrap">{c.name}{c.cls && <span className="text-ink3"> · {c.cls}</span>}</span>)}</div> : <span className="text-ink3 text-[13px]"><Words k="No children linked" /></span> },
     { key: "occupation", label: "Occupation", render: (g) => <span className="text-[13.5px]">{g.occupation ?? "–"}</span> },
     { key: "optedOut", label: "Opted out", render: (g) => <span className={cx("text-[13.5px]", g.optedOut && "text-warn font-semibold")}>{g.optedOut ? "Yes" : "No"}</span> },
     { key: "consent", label: "Data consent", render: (g) => <Pill tone={TONE[g.data]}>{g.data === "NONE" ? "Not given" : CONSENT_STATUS_LABEL[g.data]}</Pill> },
@@ -117,7 +121,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
   return (
     <>
       <StudentsHead page="Parents & Guardians" href={path} sub="Parents’ details and phone numbers, linked to all their children in the school"
-        actions={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={UserPlus}>Add parent or guardian</ButtonLink> : undefined} />
+        actions={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={UserPlus}><Words k="Add parent or guardian" /></ButtonLink> : undefined} />
       <div className="flex flex-col gap-4">
         <Stats items={[
           { label: "Parents and guardians", value: data.allCount.toLocaleString("en-IN"), sub: `For ${data.students.toLocaleString("en-IN")} students`, icon: Users },
@@ -148,15 +152,15 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
               sub: g.children.length ? `${g.relationship} of ${g.children.map((c) => `${c.name.split(" ")[0]}${c.cls ? ` (${c.cls})` : ""}`).join(", ")}` : g.relationship,
               avatar: g.name,
               pills: [
-                <Pill key="c" tone={TONE[g.data]} className={cardPill}>Consent {(g.data === "NONE" ? "not given" : CONSENT_STATUS_LABEL[g.data]).toLowerCase()}</Pill>,
+                <Pill key="c" tone={TONE[g.data]} className={cardPill}><Words k="Consent" /> {(g.data === "NONE" ? "not given" : CONSENT_STATUS_LABEL[g.data]).toLowerCase()}</Pill>,
                 linkPill(g, cardPill),
-                g.optedOut ? <Pill key="o" tone="warn" className={cardPill}><MessageCircleOff size={12} aria-hidden="true" />Opted out</Pill> : null,
+                g.optedOut ? <Pill key="o" tone="warn" className={cardPill}><MessageCircleOff size={12} aria-hidden="true" /><Words k="Opted out" /></Pill> : null,
               ].filter(Boolean) as React.ReactNode[],
             })}
             footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={data.rows.length < data.total ? listHref(path, params, { n: take + STEP, page: null }) : null} />}
             empty={filtered
-              ? <Empty icon={SearchX} title="No parents match" body="Try the child’s name or the phone number." action={<ButtonLink href={path}>Clear filters</ButtonLink>} />
-              : <Empty icon={Users} title="No parents yet" body="Parents are added with their children, on Add student or the import." action={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={UserPlus}>Add parent or guardian</ButtonLink> : undefined} />} />
+              ? <Empty icon={SearchX} title="No parents match" body="Try the child’s name or the phone number." action={<ButtonLink href={path}><Words k="Clear filters" /></ButtonLink>} />
+              : <Empty icon={Users} title="No parents yet" body="Parents are added with their children, on Add student or the import." action={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={UserPlus}><Words k="Add parent or guardian" /></ButtonLink> : undefined} />} />
         </Card>
       </div>
     </>

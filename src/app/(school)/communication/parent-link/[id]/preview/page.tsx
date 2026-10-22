@@ -9,9 +9,12 @@ import { GuardianPage } from "@/components/parent-link/guardian-page";
 import { Banner } from "@/components/ui/banner";
 import { BackLink, RecordHead } from "@/components/ui/split";
 import { I18nProvider } from "@/lib/i18n/client";
-import { catalogueFor } from "@/lib/i18n/server";
+import { catalogueFor, pageTitle } from "@/lib/i18n/server";
+import { Words } from "@/lib/i18n/client";
 
-export const metadata: Metadata = { title: "What guardians see" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("What guardians see") };
+}
 
 /** "What guardians see": the page exactly as one real guardian sees it. Nothing on it acts, and opens are not counted. */
 export default async function PreviewPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ child?: string; month?: string }> }) {
@@ -36,10 +39,10 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
     <>
       <BackLink href={`/communication/parent-link/${id}`} label="Parent Link" sub="What they see" />
       <RecordHead title="What guardians see" />
-      <Banner tone="info" title="A preview of this guardian’s page." className="mb-5">Buttons do nothing here, and this visit is not counted as an open.</Banner>
+      <Banner tone="info" title="A preview of this guardian’s page." className="mb-5"><Words k="Buttons do nothing here, and this visit is not counted as an open." /></Banner>
       {data.restricted.length > 0 && (
         <Banner tone="bad" title="Custody restriction." className="mb-5">
-          Not shown to this guardian: {data.restricted.join(", ")}. They cannot pay, give consent or book for {data.restricted.length === 1 ? "this child" : "these children"} here, and get none of {data.restricted.length === 1 ? "the child’s" : "their"} messages.
+          <Words k="Not shown to this guardian:" /> {data.restricted.join(", ")}<Words k=". They cannot pay, give consent or book for" /> {data.restricted.length === 1 ? "this child" : "these children"} <Words k="here, and get none of" /> {data.restricted.length === 1 ? "the child’s" : "their"} <Words k="messages." />
         </Banner>
       )}
       <div className="mx-auto w-full max-w-[400px] sm:rounded-[40px] sm:border-[10px] sm:border-ink/90 sm:shadow-pop overflow-hidden bg-bg">
@@ -52,7 +55,7 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
               </div>
             </I18nProvider>
           ) : (
-            <p className="py-8 px-6 text-center text-ink3">This guardian has no children studying in the school now, so the page shows &ldquo;Please contact the school&rdquo;.</p>
+            <p className="py-8 px-6 text-center text-ink3"><Words k="This guardian has no children studying in the school now, so the page shows “Please contact the school”." /></p>
           )}
         </div>
       </div>

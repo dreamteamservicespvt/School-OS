@@ -10,6 +10,8 @@ import { can } from "@/lib/permissions";
 import { consentLog, type ConsentCounts } from "@/lib/students/consent-log";
 import { goLiveConsentStatus } from "@/lib/parent-link/consent";
 import { ConsentForm } from "./form";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
 const n = (x: number) => x.toLocaleString("en-IN");
 /** "212 of 318 given (40 from paper forms) · 61 waiting · 3 refused · 2 withdrawn · 40 not asked" */
@@ -45,24 +47,24 @@ export default async function ConsentPage({ searchParams }: Search) {
 
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-      <h2 className="sr-only">Consent</h2>
+      <h2 className="sr-only"><Words k="Consent" /></h2>
       <div className="space-y-4">
         {data.types.map((t) => (
           <Card key={t.key} id={`type-${t.key}`}>
             <CardHeader title={t.label}
               description={t.current ? `Version ${t.current.version} since ${formatDate(t.current.createdAt, tz)}${t.current.askedOnAdmission ? " · asked on the admission form" : ""}` : "No text yet. Guardians are not asked for this."}
-              action={t.current ? <Badge tone="success">In use</Badge> : <Badge>Not set up</Badge>} />
+              action={t.current ? <Badge tone="success"><Words k="In use" /></Badge> : <Badge><Words k="Not set up" /></Badge>} />
             {t.current && (
               <CardBody className="space-y-3">
                 <p className="font-medium">{t.current.title}</p>
                 <p className="whitespace-pre-line text-ink-2">{(t.current.text as Record<string, string>)[langs[0]] ?? Object.values(t.current.text as Record<string, string>)[0]}</p>
                 {t.versions.length > 1 && (
                   <details>
-                    <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-brand-text">Earlier versions ({t.versions.length - 1})</summary>
+                    <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-brand-text"><Words k="Earlier versions (" />{t.versions.length - 1})</summary>
                     <ol className="mt-2 space-y-3 border-l-2 border-line pl-4">
                       {t.versions.filter((v) => !v.isCurrent).map((v) => (
                         <li key={v.id}>
-                          <p className="text-sm font-medium">Version {v.version} · {formatDate(v.createdAt, tz)}{v.createdById ? ` · ${data.names.get(v.createdById) ?? "someone"}` : ""}</p>
+                          <p className="text-sm font-medium"><Words k="Version" /> {v.version} · {formatDate(v.createdAt, tz)}{v.createdById ? ` · ${data.names.get(v.createdById) ?? "someone"}` : ""}</p>
                           <p className="whitespace-pre-line text-sm text-ink-2">{(v.text as Record<string, string>)[langs[0]] ?? Object.values(v.text as Record<string, string>)[0]}</p>
                         </li>
                       ))}
@@ -121,7 +123,7 @@ export default async function ConsentPage({ searchParams }: Search) {
               <ConsentForm initialType={chosen} starts={starts}
                 types={data.types.map((t) => ({ value: t.key, label: t.label }))}
                 languages={langs.map((code) => ({ code, name: LANGUAGE_NAMES[code] ?? code }))} />
-            ) : <p className="text-ink-2">Your role can read the consent texts but not change them.</p>}
+            ) : <p className="text-ink-2"><Words k="Your role can read the consent texts but not change them." /></p>}
           </CardBody>
         </Card>
       </div>

@@ -22,8 +22,12 @@ import { BASE, studentPageOnCampus } from "./_lib/page";
 import { StudentsHead } from "./_lib/head";
 import { EXPORT_FIELDS, fieldAllowed } from "./_lib/export-fields";
 import { LIST_FILTERS, loadStudentList, mainGuardian, type ListRow } from "./_lib/queries";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Student List" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Student List") };
+}
 
 type Row = ListRow;
 
@@ -70,11 +74,11 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
       </div>
     ) },
     ...(show.has("classSection") || show.has("rollNo") ? [{ key: "class", label: "Class", nowrap: true, render: (s: Row) => s.sectionLabel
-      ? <><span className="font-medium">{s.sectionLabel}</span>{show.has("rollNo") && s.enrolments[0]?.rollNo ? <span className="text-ink3 text-[12.5px]"> · Roll {s.enrolments[0].rollNo}</span> : null}</>
-      : <span className="text-ink3 text-[13px]">No class this year</span> }] : []),
+      ? <><span className="font-medium">{s.sectionLabel}</span>{show.has("rollNo") && s.enrolments[0]?.rollNo ? <span className="text-ink3 text-[12.5px]"> <Words k="· Roll" /> {s.enrolments[0].rollNo}</span> : null}</>
+      : <span className="text-ink3 text-[13px]"><Words k="No class this year" /></span> }] : []),
     ...(show.has("guardian") || show.has("phone") ? [{ key: "parent", label: "Parent", render: (s: Row) => {
       const g = mainGuardian(s);
-      return g ? <><p className="leading-tight">{show.has("guardian") ? g.guardian.name : g.relationship}</p>{show.has("phone") && <p className="text-[12.5px] text-ink3 tnum">{phoneShow(g.guardian.phone)}</p>}</> : <span className="text-ink3 text-[13px]">Not added</span>;
+      return g ? <><p className="leading-tight">{show.has("guardian") ? g.guardian.name : g.relationship}</p>{show.has("phone") && <p className="text-[12.5px] text-ink3 tnum">{phoneShow(g.guardian.phone)}</p>}</> : <span className="text-ink3 text-[13px]"><Words k="Not added" /></span>;
     } }] : []),
     ...(show.has("gender") ? [{ key: "gender", label: "Gender", render: (s: Row) => <span className="text-[13.5px]">{s.gender ?? "–"}</span> }] : []),
     ...(show.has("category") ? [{ key: "category", label: "Category", render: (s: Row) => <span className="text-[13.5px]">{s.category ?? "–"}</span> }] : []),
@@ -110,14 +114,14 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
       <StudentsHead page="Student List" href={BASE}
         sub={ownNote ? `${ownNote} · ${studying.toLocaleString("en-IN")} students` : year ? `${studying.toLocaleString("en-IN")} studying in ${year.name}` : "No academic year is open"}
         actions={<>
-          {ab.manage && <ButtonLink href={`${BASE}/import`} icon={Upload} className="max-md:hidden">Import</ButtonLink>}
+          {ab.manage && <ButtonLink href={`${BASE}/import`} icon={Upload} className="max-md:hidden"><Words k="Import" /></ButtonLink>}
           {ab.exportList && (
             <details className="relative hidden md:block">
-              <summary className={buttonClass("secondary", "md", "list-none cursor-pointer [&::-webkit-details-marker]:hidden")}><Download size={17} aria-hidden="true" />Export</summary>
+              <summary className={buttonClass("secondary", "md", "list-none cursor-pointer [&::-webkit-details-marker]:hidden")}><Download size={17} aria-hidden="true" /><Words k="Export" /></summary>
               <form method="get" action={`${BASE}/export`} className="absolute right-0 z-30 mt-1.5 w-[min(20rem,calc(100vw-2rem))] space-y-3 rounded-2xl border border-line bg-surface p-4 shadow-pop animate-rise">
                 {[...filtersInUrl.entries()].map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
                 <fieldset>
-                  <legend className="mb-1.5 text-[13px] font-semibold text-ink2">Fields</legend>
+                  <legend className="mb-1.5 text-[13px] font-semibold text-ink2"><Words k="Fields" /></legend>
                   <div className="grid gap-1">
                     {EXPORT_FIELDS.filter((x) => (!x.restricted || ab.seeRestricted) && fieldAllowed(x.key, ab)).map((x) => (
                       <label key={x.key} className="flex min-h-9 items-center gap-2.5 text-[14px]"><input type="checkbox" name="f" value={x.key} defaultChecked={x.default} className="size-[18px] accent-[rgb(var(--brand))]" />{x.label}</label>
@@ -125,19 +129,19 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
                   </div>
                 </fieldset>
                 <fieldset>
-                  <legend className="mb-1.5 text-[13px] font-semibold text-ink2">File type</legend>
+                  <legend className="mb-1.5 text-[13px] font-semibold text-ink2"><Words k="File type" /></legend>
                   <div className="flex flex-wrap gap-4">
                     {[["xlsx", "Excel"], ["csv", "CSV"], ["pdf", "PDF"]].map(([v, l]) => (
                       <label key={v} className="flex min-h-9 items-center gap-2 text-[14px]"><input type="radio" name="format" value={v} defaultChecked={v === "xlsx"} className="size-4 accent-[rgb(var(--brand))]" />{l}</label>
                     ))}
                   </div>
                 </fieldset>
-                <p className="text-[12.5px] text-ink3">Exports the {data.total.toLocaleString("en-IN")} students in this list, with the filters shown. Logged in the export log.</p>
-                <button type="submit" className={buttonClass("primary", "md", "w-full")}><Download size={17} aria-hidden="true" />Export {data.total.toLocaleString("en-IN")} students</button>
+                <p className="text-[12.5px] text-ink3"><Words k="Exports the" /> {data.total.toLocaleString("en-IN")} <Words k="students in this list, with the filters shown. Logged in the export log." /></p>
+                <button type="submit" className={buttonClass("primary", "md", "w-full")}><Download size={17} aria-hidden="true" /><Words k="Export" /> {data.total.toLocaleString("en-IN")} <Words k="students" /></button>
               </form>
             </details>
           )}
-          {ab.manage && <ButtonLink href={`${BASE}/new${f.section ? `?section=${f.section}` : ""}`} variant="primary" icon={UserPlus}>Add student</ButtonLink>}
+          {ab.manage && <ButtonLink href={`${BASE}/new${f.section ? `?section=${f.section}` : ""}`} variant="primary" icon={UserPlus}><Words k="Add student" /></ButtonLink>}
           {ab.manage && <MoreMenu label="More student tools" items={[
             { label: "Import students", href: `${BASE}/import`, icon: <Upload size={17} aria-hidden="true" /> },
             { label: "Bulk field update", href: `${BASE}/bulk-update`, icon: <PenLine size={17} aria-hidden="true" /> },
@@ -147,7 +151,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
           ]} />}
         </>} />
 
-      {!year && <Banner tone="warn" className="mb-4" title="No academic year is open.">Students have no class until the year is opened in <Link className="font-semibold underline" href="/academic-management">Academic Management</Link>.</Banner>}
+      {!year && <Banner tone="warn" className="mb-4" title="No academic year is open."><Words k="Students have no class until the year is opened in" /> <Link className="font-semibold underline" href="/academic-management"><Words k="Academic Management" /></Link>.</Banner>}
 
       {data.tiles.length > 0 && (
         <Chips label="Students by class" value={f.class ?? "all"} options={[
@@ -157,7 +161,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
       )}
       {curClass && curClass.sections.length > 0 && (
         <div className="flex gap-2 mt-3 items-center flex-wrap animate-rise">
-          <span className="text-[13px] text-ink3 font-medium mr-1">Section</span>
+          <span className="text-[13px] text-ink3 font-medium mr-1"><Words k="Section" /></span>
           <SegLinks size="sm" label="Section" value={f.section ?? "all"} options={[
             { value: "all", label: "All", href: href({ section: null }) },
             ...curClass.sections.map((s) => ({ value: s.id, label: s.name, href: href({ section: s.id }) })),
@@ -192,7 +196,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
               pills: [
                 feePill(s, cardPill),
                 resultCol ? resultPill(s, cardPill) : null,
-                s.att !== null ? <Pill key="a" tone={s.att < 85 ? "warn" : "neutral"} className={cardPill}>{s.att}% present</Pill> : null,
+                s.att !== null ? <Pill key="a" tone={s.att < 85 ? "warn" : "neutral"} className={cardPill}>{s.att}<Words k="% present" /></Pill> : null,
                 s.status !== "ACTIVE" ? <Pill key="s" tone={s.status === "ADMITTED" ? "info" : "neutral"} className={cardPill}>{s.status === "ADMITTED" ? "New" : STATUS_LABEL[s.status as StudentStatusKey]}</Pill> : null,
               ].filter(Boolean) as React.ReactNode[],
             };
@@ -200,13 +204,13 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
           footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={moreHref} />}
           empty={anyFilter ? (
             <Empty icon={SearchX} title="No students match"
-              body={params.q ? <>Nobody called “{params.q}” in {curClass ? curClass.name : "any class"}. Try the admission number or the parent&apos;s phone.</> : "Try a different class or filter."}
-              action={<ButtonLink href={BASE}>Clear filters</ButtonLink>} />
+              body={params.q ? <><Words k="Nobody called “" />{params.q}<Words k="” in" /> {curClass ? curClass.name : "any class"}<Words k=". Try the admission number or the parent's phone." /></> : "Try a different class or filter."}
+              action={<ButtonLink href={BASE}><Words k="Clear filters" /></ButtonLink>} />
           ) : ab.reach === "own" ? (
             <Empty icon={Users} title="No students in your classes yet" body="You see the students of the sections you teach. Your sections are set in Academic Management, Teacher Allocation." />
           ) : (
             <Empty icon={Users} title="No students yet" body="Students come from Admission Management, or you can add them here or import your old list."
-              action={ab.manage ? <div className="flex flex-wrap justify-center gap-2"><ButtonLink href={`${BASE}/import`} icon={Upload}>Import students</ButtonLink><ButtonLink href={`${BASE}/new`} variant="primary" icon={UserPlus}>Add student</ButtonLink></div> : undefined} />
+              action={ab.manage ? <div className="flex flex-wrap justify-center gap-2"><ButtonLink href={`${BASE}/import`} icon={Upload}><Words k="Import students" /></ButtonLink><ButtonLink href={`${BASE}/new`} variant="primary" icon={UserPlus}><Words k="Add student" /></ButtonLink></div> : undefined} />
           )} />
       </Card>
     </>

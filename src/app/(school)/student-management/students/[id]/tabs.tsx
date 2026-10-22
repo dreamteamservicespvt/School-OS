@@ -27,6 +27,7 @@ import { BASE } from "../../_lib/page";
 import { addEmergencyAction, addNoteAction, archiveDocumentAction, archiveNoteAction, emergencyAction, uploadDocument } from "../../_actions/students";
 import { pickupAction, setPrimaryAction, unlinkGuardianAction } from "../../_actions/guardians";
 import { adjustPointsAction } from "../../_actions/behaviour";
+import { Words } from "@/lib/i18n/client";
 
 type Base = { can: StudentAbilities; tz: string };
 
@@ -106,7 +107,7 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
         <Card>
           <CardHeader title="Today" icon={Sun} />
           <ul className="px-5 pb-5 flex flex-col gap-3 text-[14px]">
-            {today.length === 0 && <li className="flex gap-3 text-ink3"><CircleCheck size={18} className="text-ok shrink-0 mt-0.5" aria-hidden="true" /><span>Nothing needs attention today.</span></li>}
+            {today.length === 0 && <li className="flex gap-3 text-ink3"><CircleCheck size={18} className="text-ok shrink-0 mt-0.5" aria-hidden="true" /><span><Words k="Nothing needs attention today." /></span></li>}
             {today.map((t) => {
               const look = t.label === "Birthday" ? { icon: Cake, cls: "text-brand" } : TODAY_TONE[t.tone ?? "neutral"];
               const body = <><b className="font-semibold">{t.label}</b> · {t.value}</>;
@@ -124,12 +125,12 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
           <Card>
             <CardHeader title="Pickup list" description="Who may collect the student. Front Office uses this list." icon={UserRoundCheck} />
             <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[14px]">
-              {p.pickups.allowed.length === 0 && <li className="text-ink3">No one yet. Turn on “May pick up” for a parent below.</li>}
+              {p.pickups.allowed.length === 0 && <li className="text-ink3"><Words k="No one yet. Turn on “May pick up” for a parent below." /></li>}
               {p.pickups.allowed.map((g) => (
                 <li key={g.guardianId} className="flex items-center gap-3"><Avatar name={g.name} size={30} /><span className="min-w-0 flex-1"><b className="font-semibold">{g.name}</b> <span className="text-ink3">· {g.relationship}</span></span><span className="tnum text-[13px] text-ink2">{phoneShow(g.phone)}</span></li>
               ))}
               {p.pickups.restricted.map((g) => (
-                <li key={g.guardianId} className="rounded-xl bg-bad/10 px-3 py-2 text-bad flex items-center gap-2"><ShieldX size={16} aria-hidden="true" /><span><b className="font-semibold">Do not release to {g.name}</b> ({g.relationship})</span></li>
+                <li key={g.guardianId} className="rounded-xl bg-bad/10 px-3 py-2 text-bad flex items-center gap-2"><ShieldX size={16} aria-hidden="true" /><span><b className="font-semibold"><Words k="Do not release to" /> {g.name}</b> ({g.relationship})</span></li>
               ))}
             </ul>
           </Card>
@@ -159,7 +160,7 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
         {settings.rfidOn && can.reach === "all" && !can.lookupOnly && (
           <Card>
             <CardHeader title="RFID card" description="For attendance devices" icon={IdCard} />
-            <p className="px-5 pb-5 text-[14px] text-ink2">The card number is recorded when the ID card is printed, on Certificates &amp; ID Cards.</p>
+            <p className="px-5 pb-5 text-[14px] text-ink2"><Words k={"The card number is recorded when the ID card is printed, on Certificates & ID Cards."} /></p>
           </Card>
         )}
       </Col>
@@ -179,7 +180,7 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
             <EditLink href={`${BASE}/guardians/link?student=${studentId}`} label="Link existing" icon={Users} />
           </div>
         ) : undefined} />
-      {p.links.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No parent or guardian is linked yet.</p> : (
+      {p.links.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No parent or guardian is linked yet." /></p> : (
         <div className="grid sm:grid-cols-2 gap-3 px-5 pb-5">
           {p.links.map((l) => (
             <div key={l.id} className={cx("rounded-xl border p-3.5 flex flex-col gap-3", l.restriction ? "border-bad/40 bg-bad/[.04]" : "border-line")}>
@@ -193,22 +194,22 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
                 </div>
               </div>
               <div className="flex flex-wrap gap-1">
-                {l.isPrimary && <Pill tone="brand" className="!h-[22px] !text-[11.5px]">Primary contact</Pill>}
-                {l.canPickUp && !l.restriction && <Pill tone="ok" className="!h-[22px] !text-[11.5px]">May pick up</Pill>}
-                {l.restriction && <Pill tone="bad" className="!h-[22px] !text-[11.5px]">Custody restriction</Pill>}
-                {l.guardian.optedOut && <Pill tone="warn" className="!h-[22px] !text-[11.5px]">Opted out of messages</Pill>}
+                {l.isPrimary && <Pill tone="brand" className="!h-[22px] !text-[11.5px]"><Words k="Primary contact" /></Pill>}
+                {l.canPickUp && !l.restriction && <Pill tone="ok" className="!h-[22px] !text-[11.5px]"><Words k="May pick up" /></Pill>}
+                {l.restriction && <Pill tone="bad" className="!h-[22px] !text-[11.5px]"><Words k="Custody restriction" /></Pill>}
+                {l.guardian.optedOut && <Pill tone="warn" className="!h-[22px] !text-[11.5px]"><Words k="Opted out of messages" /></Pill>}
                 <Pill className="!h-[22px] !text-[11.5px]">{languageLabel(l.guardian.language)}</Pill>
               </div>
-              {l.restriction && !can.lookupOnly && <p className="text-[12.5px] text-bad">Do not release to this person. {l.restriction}</p>}
+              {l.restriction && !can.lookupOnly && <p className="text-[12.5px] text-bad"><Words k="Do not release to this person." /> {l.restriction}</p>}
               {can.manage && (
                 <div className="flex flex-wrap gap-1 border-t border-line/70 pt-2.5 -mb-1">
-                  {!l.isPrimary && !l.restriction && <ActionButton action={setPrimaryAction} fields={{ linkId: l.id, studentId }} variant="ghost">Make primary</ActionButton>}
+                  {!l.isPrimary && !l.restriction && <ActionButton action={setPrimaryAction} fields={{ linkId: l.id, studentId }} variant="ghost"><Words k="Make primary" /></ActionButton>}
                   {!l.restriction && <ActionButton action={pickupAction} fields={{ linkId: l.id, studentId, on: l.canPickUp ? "0" : "1" }} variant="ghost">{l.canPickUp ? "Remove from pickup" : "May pick up"}</ActionButton>}
-                  <Link href={`${href}/parents/${l.id}`} className="inline-flex h-8 items-center rounded-xl px-3 text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink">Settings</Link>
+                  <Link href={`${href}/parents/${l.id}`} className="inline-flex h-8 items-center rounded-xl px-3 text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink"><Words k="Settings" /></Link>
                   {p.links.length > 1 && (
                     <ConfirmAction action={unlinkGuardianAction} fields={{ linkId: l.id, studentId }} trigger="Unlink" triggerVariant="ghost"
                       title={`Unlink ${l.guardian.name}?`} confirmLabel={`Unlink ${l.guardian.name}`} confirmVariant="danger">
-                      {l.guardian.name} will no longer be linked to {p.student.fullName}. Their record and other children stay as they are.
+                      {l.guardian.name} <Words k="will no longer be linked to" /> {p.student.fullName}<Words k=". Their record and other children stay as they are." />
                     </ConfirmAction>
                   )}
                 </div>
@@ -225,7 +226,7 @@ function SiblingsCard({ p }: { p: Profile }) {
   return (
     <Card>
       <CardHeader title="Brothers and sisters" description="Students at the school who share a parent" icon={Users} />
-      {p.siblings.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No brother or sister at the school.</p> : (
+      {p.siblings.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No brother or sister at the school." /></p> : (
         <ul className="px-2 pb-2">
           {p.siblings.map((b) => (
             <li key={b.id}>
@@ -250,18 +251,18 @@ function EmergencyCard({ p, can }: { p: Profile; can: StudentAbilities }) {
   return (
     <Card>
       <CardHeader title="Emergency contacts" description="Called in this order" />
-      {p.emergency.length === 0 ? <p className="px-5 pb-4 text-[14px] text-ink3">No emergency contacts yet.</p> : (
+      {p.emergency.length === 0 ? <p className="px-5 pb-4 text-[14px] text-ink3"><Words k="No emergency contacts yet." /></p> : (
         <ol className="px-5 pb-3">
           {p.emergency.map((e, i) => (
             <li key={`${e.kind}-${e.id}`} className="flex items-center gap-3 py-2 border-b border-line/70 last:border-0 flex-wrap">
               <span className="w-6 h-6 rounded-full bg-sunken text-[12px] font-bold grid place-items-center tnum shrink-0">{i + 1}</span>
-              <span className="flex-1 min-w-0 text-[14px]"><b className="font-semibold">{e.name}</b> <span className="text-ink3">· {e.relation}</span>{e.restricted && <Pill tone="bad" className="ml-1.5 !h-5 !text-[11px]">Restricted</Pill>}</span>
+              <span className="flex-1 min-w-0 text-[14px]"><b className="font-semibold">{e.name}</b> <span className="text-ink3">· {e.relation}</span>{e.restricted && <Pill tone="bad" className="ml-1.5 !h-5 !text-[11px]"><Words k="Restricted" /></Pill>}</span>
               <a className="text-[14px] tnum hover:underline" href={`tel:+91${e.phone}`}>{phoneShow(e.phone)}</a>
               {can.manage && (
                 <span className="flex gap-0.5">
-                  {i > 0 && <ActionButton action={emergencyAction} fields={{ studentId, op: "up", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↑</span><span className="sr-only">Move {e.name} up</span></ActionButton>}
-                  {i < p.emergency.length - 1 && <ActionButton action={emergencyAction} fields={{ studentId, op: "down", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↓</span><span className="sr-only">Move {e.name} down</span></ActionButton>}
-                  <ActionButton action={emergencyAction} fields={{ studentId, op: "remove", kind: e.kind, itemId: e.id }} variant="ghost">Remove</ActionButton>
+                  {i > 0 && <ActionButton action={emergencyAction} fields={{ studentId, op: "up", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↑</span><span className="sr-only"><Words k="Move" /> {e.name} <Words k="up" /></span></ActionButton>}
+                  {i < p.emergency.length - 1 && <ActionButton action={emergencyAction} fields={{ studentId, op: "down", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↓</span><span className="sr-only"><Words k="Move" /> {e.name} <Words k="down" /></span></ActionButton>}
+                  <ActionButton action={emergencyAction} fields={{ studentId, op: "remove", kind: e.kind, itemId: e.id }} variant="ghost"><Words k="Remove" /></ActionButton>
                 </span>
               )}
             </li>
@@ -272,11 +273,11 @@ function EmergencyCard({ p, can }: { p: Profile; can: StudentAbilities }) {
         <div className="px-5 pb-4 flex flex-col gap-3">
           {notListed.length > 0 && (
             <div className="flex flex-wrap gap-2">
-              {notListed.map((l) => <ActionButton key={l.id} action={emergencyAction} fields={{ studentId, op: "add-guardian", kind: "guardian", itemId: l.id }} variant="soft">Add {l.guardian.name}</ActionButton>)}
+              {notListed.map((l) => <ActionButton key={l.id} action={emergencyAction} fields={{ studentId, op: "add-guardian", kind: "guardian", itemId: l.id }} variant="soft"><Words k="Add" /> {l.guardian.name}</ActionButton>)}
             </div>
           )}
           <details className="group">
-            <summary className="inline-flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-xl px-2 -ml-2 text-[13px] font-semibold text-brand hover:bg-brand/8 [&::-webkit-details-marker]:hidden"><Plus size={14} aria-hidden="true" />Add another contact</summary>
+            <summary className="inline-flex h-8 cursor-pointer list-none items-center gap-1.5 rounded-xl px-2 -ml-2 text-[13px] font-semibold text-brand hover:bg-brand/8 [&::-webkit-details-marker]:hidden"><Plus size={14} aria-hidden="true" /><Words k="Add another contact" /></summary>
             <ActionForm action={addEmergencyAction.bind(null, studentId)} submitLabel="Add contact" pendingText="Adding…" resetOnSuccess className="mt-3 grid gap-3 sm:grid-cols-3">
               <FormText name="name" label="Name" required />
               <FormSelect name="relation" label="Relation" required options={[...RELATIONS, "Grandparent", "Uncle", "Aunt", "Neighbour"].filter((r) => r !== "Other").concat("Other").map((r) => ({ value: r, label: r }))} defaultValue="Grandparent" />
@@ -296,11 +297,11 @@ function NotesCard({ p, can, tz }: { p: Profile; can: StudentAbilities; tz: stri
       <div className="px-5 pb-5 flex flex-col gap-4">
         {can.contribute && (
           <details className="rounded-xl border border-line p-3.5 open:pb-4">
-            <summary className="cursor-pointer list-none text-[14px] font-semibold text-brand flex items-center gap-1.5 [&::-webkit-details-marker]:hidden"><Plus size={15} aria-hidden="true" />Add a note</summary>
+            <summary className="cursor-pointer list-none text-[14px] font-semibold text-brand flex items-center gap-1.5 [&::-webkit-details-marker]:hidden"><Plus size={15} aria-hidden="true" /><Words k="Add a note" /></summary>
             <ActionForm action={addNoteAction.bind(null, p.student.id)} submitLabel="Add note" pendingText="Adding…" resetOnSuccess className="mt-3 space-y-3">
               <FormArea name="text" label="Note" required rows={2} />
               <fieldset>
-                <legend className="mb-1 text-[13px] font-semibold text-ink2">Private to (leave all off for everyone who opens the profile)</legend>
+                <legend className="mb-1 text-[13px] font-semibold text-ink2"><Words k="Private to (leave all off for everyone who opens the profile)" /></legend>
                 <div className="flex flex-wrap gap-x-4 gap-y-1">
                   {p.roles.map((r) => (
                     <label key={r.key} className="flex min-h-10 items-center gap-2 text-[14px]"><input type="checkbox" name="roles" value={r.key} className="size-[18px] accent-[rgb(var(--brand))]" />{r.name}</label>
@@ -310,17 +311,17 @@ function NotesCard({ p, can, tz }: { p: Profile; can: StudentAbilities; tz: stri
             </ActionForm>
           </details>
         )}
-        {p.notes.length === 0 ? <p className="text-[14px] text-ink3">No notes yet.</p> : (
+        {p.notes.length === 0 ? <p className="text-[14px] text-ink3"><Words k="No notes yet." /></p> : (
           <ul className="divide-y divide-line/70">
             {p.notes.map((n) => (
               <li key={n.id} className="py-3 first:pt-0">
                 <p className="whitespace-pre-line text-[14.5px]">{n.text}</p>
                 <div className="mt-1 flex flex-wrap items-center gap-2 text-[12.5px] text-ink3">
                   {formatDateTime(n.createdAt, tz)}
-                  {n.visibleToRoles.length > 0 && <Pill tone="warn" className="!h-5 !text-[11px]">Private: {n.visibleToRoles.map((k) => p.roles.find((r) => r.key === k)?.name ?? k).join(", ")}</Pill>}
+                  {n.visibleToRoles.length > 0 && <Pill tone="warn" className="!h-5 !text-[11px]"><Words k="Private:" /> {n.visibleToRoles.map((k) => p.roles.find((r) => r.key === k)?.name ?? k).join(", ")}</Pill>}
                   {can.manage && (
                     <ConfirmAction action={archiveNoteAction} fields={{ noteId: n.id, studentId: p.student.id }} trigger="Remove" triggerVariant="ghost" title="Remove this note?" confirmLabel="Remove note" confirmVariant="danger">
-                      The note is archived and kept in the history; it no longer shows on the profile.
+                      <Words k="The note is archived and kept in the history; it no longer shows on the profile." />
                     </ConfirmAction>
                   )}
                 </div>
@@ -342,11 +343,11 @@ export async function AcademicsTab({ p, can, href, tz }: Base & { p: Profile; hr
     <Split side={340}>
       <Card className="overflow-hidden">
         <CardHeader title="Class history" description="One row for every year. Past years are never changed." icon={ListChecks} />
-        {p.history.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No class on record yet.</p> : (
+        {p.history.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No class on record yet." /></p> : (
           <div className="overflow-x-auto scroll-thin">
             <table className="w-full text-[14px] min-w-[480px]">
-              <caption className="sr-only">Class history</caption>
-              <thead><tr className="text-[12px] text-ink3 text-left border-y border-line"><th className="px-5 py-2.5 font-semibold">Year</th><th className="px-3 py-2.5 font-semibold">Class</th><th className="px-3 py-2.5 font-semibold">Roll</th><th className="px-5 py-2.5 font-semibold text-right">Result</th></tr></thead>
+              <caption className="sr-only"><Words k="Class history" /></caption>
+              <thead><tr className="text-[12px] text-ink3 text-left border-y border-line"><th className="px-5 py-2.5 font-semibold"><Words k="Year" /></th><th className="px-3 py-2.5 font-semibold"><Words k="Class" /></th><th className="px-3 py-2.5 font-semibold"><Words k="Roll" /></th><th className="px-5 py-2.5 font-semibold text-right"><Words k="Result" /></th></tr></thead>
               <tbody>
                 {p.history.map((e) => {
                   const r = e.archivedAt ? "Undone" : { STUDYING: "Studying", PROMOTED: "Promoted", HELD_BACK: "Detained", LEFT: "Left" }[e.status];
@@ -398,7 +399,7 @@ export async function BehaviourTab({ studentId, can, settings, tz, points }: Bas
   return (
     <Split side={340}>
       <Card>
-        <CardHeader title="Incidents and rewards" description="Newest first" icon={Medal} action={can.contribute ? <ButtonLink href={`${BASE}/behaviour/new?student=${studentId}`} size="sm" variant="soft" icon={Plus}>Report incident</ButtonLink> : undefined} />
+        <CardHeader title="Incidents and rewards" description="Newest first" icon={Medal} action={can.contribute ? <ButtonLink href={`${BASE}/behaviour/new?student=${studentId}`} size="sm" variant="soft" icon={Plus}><Words k="Report incident" /></ButtonLink> : undefined} />
         {data.incidents.length === 0 ? <Empty icon={Medal} title="Nothing recorded" body="Incidents, warnings, rewards and recognition show here." /> : (
           <div className="px-5">
             <Timeline items={data.incidents.map(({ incident: i }) => {
@@ -420,7 +421,7 @@ export async function BehaviourTab({ studentId, can, settings, tz, points }: Bas
               <p className={cx("font-display text-[30px] font-semibold tnum leading-none", (points ?? 0) > 0 ? "text-ok" : (points ?? 0) < 0 ? "text-bad" : "")}>{(points ?? 0) > 0 ? "+" : ""}{points ?? 0}</p>
               {can.contribute && (
                 <details className="rounded-xl border border-line p-3.5">
-                  <summary className="cursor-pointer list-none text-[14px] font-semibold text-brand flex items-center gap-1.5 [&::-webkit-details-marker]:hidden"><Plus size={15} aria-hidden="true" />Add or remove points</summary>
+                  <summary className="cursor-pointer list-none text-[14px] font-semibold text-brand flex items-center gap-1.5 [&::-webkit-details-marker]:hidden"><Plus size={15} aria-hidden="true" /><Words k="Add or remove points" /></summary>
                   <ActionForm action={adjustPointsAction.bind(null, studentId)} submitLabel="Save points" pendingText="Saving…" resetOnSuccess className="mt-3 space-y-3">
                     <FormText name="points" label="Points" required inputMode="numeric" help="Use a minus sign to remove, for example -2." />
                     <FormText name="reason" label="Reason" required />
@@ -438,13 +439,13 @@ export async function BehaviourTab({ studentId, can, settings, tz, points }: Bas
         {can.seeCounselling && (
           <Card>
             <CardHeader title="Counselling" icon={HeartHandshake} />
-            {data.cases.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No counselling case.</p> : (
+            {data.cases.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No counselling case." /></p> : (
               <ul className="px-2 pb-2">
                 {data.cases.map((c) => (
                   <li key={c.id}>
                     <Link href={`${BASE}/behaviour/counselling/${c.id}`} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
                       <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT.brand)}><HeartHandshake size={19} aria-hidden="true" /></span>
-                      <span className="min-w-0 flex-1"><b className="block font-semibold text-[14.5px] truncate">{c.reason}</b><span className="text-[12.5px] text-ink3">Opened {formatDate(c.openedOn, tz)}</span></span>
+                      <span className="min-w-0 flex-1"><b className="block font-semibold text-[14.5px] truncate">{c.reason}</b><span className="text-[12.5px] text-ink3"><Words k="Opened" /> {formatDate(c.openedOn, tz)}</span></span>
                       <Pill tone={c.status === "OPEN" ? "info" : "neutral"}>{c.status === "OPEN" ? "Open" : "Closed"}</Pill>
                     </Link>
                   </li>
@@ -466,7 +467,7 @@ export function DocumentsTab({ p, can, settings, tz }: Base & { p: Profile; sett
     <Split side={340}>
       <Card>
         <CardHeader title="Documents" description={total ? `${p.documentsDone} of ${total} collected · links open for 15 minutes` : "Student and parent documents · links open for 15 minutes"} icon={FolderOpen}
-          action={can.contribute ? <ButtonLink href="#upload-document" size="sm" variant="soft" icon={Upload}>Upload</ButtonLink> : undefined} />
+          action={can.contribute ? <ButtonLink href="#upload-document" size="sm" variant="soft" icon={Upload}><Words k="Upload" /></ButtonLink> : undefined} />
         {p.documents.length === 0 && missing.length === 0 ? <Empty icon={FileText} title="No documents yet" body="Upload the birth certificate, transfer certificate and other papers here." /> : (
           <ul className="px-3 pb-3">
             {p.documents.map((d) => {
@@ -475,17 +476,17 @@ export function DocumentsTab({ p, can, settings, tz }: Base & { p: Profile; sett
                 <FileRow key={d.id} name={<>{d.kind}{parent ? <span className="font-normal text-ink3"> · {parent}</span> : null}</>}
                   meta={`${d.file?.fileName ?? "File"} · added ${formatDate(d.createdAt, tz)}${d.note ? ` · ${d.note}` : ""}`}
                   actions={<>
-                    <ButtonLink href={d.link} target="_blank" rel="noopener" size="sm" variant="ghost" icon={Eye}>View</ButtonLink>
+                    <ButtonLink href={d.link} target="_blank" rel="noopener" size="sm" variant="ghost" icon={Eye}><Words k="View" /></ButtonLink>
                     <a href={`${d.link}&download=1`} aria-label={`Download ${d.kind}`} className="inline-flex h-8 w-8 items-center justify-center rounded-xl text-ink2 hover:bg-sunken"><Download size={15} aria-hidden="true" /></a>
                     {can.manage && (
                       <ConfirmAction action={archiveDocumentAction} fields={{ documentId: d.id, studentId: p.student.id }} trigger="Remove" triggerVariant="ghost" title={`Remove ${d.kind}?`} confirmLabel="Remove document" confirmVariant="danger">
-                        The document is archived and kept in the history; it no longer shows here.
+                        <Words k="The document is archived and kept in the history; it no longer shows here." />
                       </ConfirmAction>
                     )}
                   </>} />
               );
             })}
-            {missing.map((k) => <FileRow key={k} name={k} missing actions={can.contribute ? <ButtonLink href="#upload-document" size="sm" icon={Upload}>Add</ButtonLink> : undefined} />)}
+            {missing.map((k) => <FileRow key={k} name={k} missing actions={can.contribute ? <ButtonLink href="#upload-document" size="sm" icon={Upload}><Words k="Add" /></ButtonLink> : undefined} />)}
           </ul>
         )}
       </Card>
@@ -498,7 +499,7 @@ export function DocumentsTab({ p, can, settings, tz }: Base & { p: Profile; sett
               <FormText name="kindOther" label="If other, what is it?" />
               {p.links.length > 0 && <FormSelect name="guardianId" label="Belongs to" options={[{ value: "", label: "The student" }, ...p.links.map((l) => ({ value: l.guardianId, label: `${l.guardian.name} (${l.relationship})` }))]} />}
               <div className="flex flex-col gap-1.5">
-                <label htmlFor="doc-file" className="text-[13px] font-semibold text-ink2">File<span className="text-bad" aria-hidden="true"> *</span></label>
+                <label htmlFor="doc-file" className="text-[13px] font-semibold text-ink2"><Words k="File" /><span className="text-bad" aria-hidden="true"> *</span></label>
                 <input id="doc-file" name="file" type="file" required accept="image/jpeg,image/png,image/webp,application/pdf" className="block w-full rounded-xl border border-line bg-surface p-2 text-[14px] file:mr-3 file:h-9 file:rounded-xl file:border-0 file:bg-brand/10 file:px-3 file:font-semibold file:text-brand" />
               </div>
               <FormText name="note" label="Note" />

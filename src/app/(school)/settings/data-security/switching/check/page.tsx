@@ -15,8 +15,12 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { ExpectedForm } from "../forms";
 import { GoLiveButton } from "../parts";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Go-live check · Switching to School OS" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Go-live check · Switching to School OS") };
+}
 
 const BASE = "/settings/data-security/switching";
 
@@ -45,14 +49,14 @@ export default async function GoLiveCheckPage() {
   return (
     <>
       <div className="mb-4">
-        <Link href={BASE} className="text-sm font-medium text-brand-text hover:underline">← Switching to School OS</Link>
-        <h2 className="mt-1 text-xl font-semibold">Go-live check</h2>
-        <p className="text-ink-2">{s.year ? `Academic year ${s.year.name}.` : "No academic year is set up yet."} Each number opens the list behind it.</p>
+        <Link href={BASE} className="text-sm font-medium text-brand-text hover:underline"><Words k="← Switching to School OS" /></Link>
+        <h2 className="mt-1 text-xl font-semibold"><Words k="Go-live check" /></h2>
+        <p className="text-ink-2">{s.year ? `Academic year ${s.year.name}.` : "No academic year is set up yet."} <Words k="Each number opens the list behind it." /></p>
       </div>
 
       {live && kept && (
         <Alert tone="success" className="mb-5" title={`Live on School OS since ${formatDate(s.plan!.goLiveDate ?? live, tz)}.`}>
-          Confirmed {formatDateTime(live, tz)} with {kept.students} students, {kept.staff} staff and {kept.guardians} parents.
+          <Words k="Confirmed" /> {formatDateTime(live, tz)} <Words k="with" /> {kept.students} <Words k="students," /> {kept.staff} <Words k="staff and" /> {kept.guardians} <Words k="parents." />
         </Alert>
       )}
 
@@ -67,11 +71,11 @@ export default async function GoLiveCheckPage() {
         <div className="space-y-5">
           <Card>
             <CardHeader title="Students in each class" description="Compare with the class registers or your old software's class strength report." />
-            {s.classes.length === 0 ? <CardBody><p className="text-ink-2">No classes this year yet. <Link href="/academic-management" className="font-medium text-brand-text underline">Set them up</Link>.</p></CardBody> : (
+            {s.classes.length === 0 ? <CardBody><p className="text-ink-2"><Words k="No classes this year yet." /> <Link href="/academic-management" className="font-medium text-brand-text underline"><Words k="Set them up" /></Link>.</p></CardBody> : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-[15px]">
-                  <caption className="sr-only">Students in each class and section</caption>
-                  <thead className="bg-surface-2 text-sm"><tr><th scope="col" className="px-4 py-2 text-left font-medium">Class</th><th scope="col" className="px-4 py-2 text-left font-medium">Sections</th><th scope="col" className="px-4 py-2 text-right font-medium">Students</th></tr></thead>
+                  <caption className="sr-only"><Words k="Students in each class and section" /></caption>
+                  <thead className="bg-surface-2 text-sm"><tr><th scope="col" className="px-4 py-2 text-left font-medium"><Words k="Class" /></th><th scope="col" className="px-4 py-2 text-left font-medium"><Words k="Sections" /></th><th scope="col" className="px-4 py-2 text-right font-medium"><Words k="Students" /></th></tr></thead>
                   <tbody className="divide-y divide-line">
                     {s.classes.map((c) => (
                       <tr key={c.id}>
@@ -87,7 +91,7 @@ export default async function GoLiveCheckPage() {
                       </tr>
                     ))}
                   </tbody>
-                  <tfoot className="border-t border-line-strong"><tr><th scope="row" colSpan={2} className="px-4 py-2 text-left">Total</th><td className="px-4 py-2 text-right font-semibold">{s.students}</td></tr></tfoot>
+                  <tfoot className="border-t border-line-strong"><tr><th scope="row" colSpan={2} className="px-4 py-2 text-left"><Words k="Total" /></th><td className="px-4 py-2 text-right font-semibold">{s.students}</td></tr></tfoot>
                 </table>
               </div>
             )}
@@ -121,15 +125,15 @@ export default async function GoLiveCheckPage() {
                 oldSoftware: s.plan?.oldSoftware ?? "", students: e.students?.toString() ?? "", staff: e.staff?.toString() ?? "", guardians: e.guardians?.toString() ?? "", goLiveDate: iso(s.plan?.goLiveDate),
                 ...Object.fromEntries(MONEY_KEYS.filter((k) => (isFinance(k) ? see.finance : see.fees)).map((k) => [k, rupeesText(paiseOf(e[k]))])),
               }} />
-                : <p className="text-ink-2">The Principal or School Admin fills these.</p>}
+                : <p className="text-ink-2"><Words k="The Principal or School Admin fills these." /></p>}
             </CardBody>
           </Card>
           {!live && (
             <Card>
               <CardHeader title="Go live" description="On going live, the move-in is marked done, and the go-live summary is kept. Records can still be added and imports undone." />
               <CardBody>
-                {!canLive ? <p className="text-ink-2">The Principal or School Admin confirms going live.</p>
-                  : stop.length ? <p className="text-ink-2">Clear the problems in red first.</p>
+                {!canLive ? <p className="text-ink-2"><Words k="The Principal or School Admin confirms going live." /></p>
+                  : stop.length ? <p className="text-ink-2"><Words k="Clear the problems in red first." /></p>
                   : <GoLiveButton students={s.students} staff={s.staff} guardians={s.guardians} owedBefore={owedBefore && owedBefore.rows ? { amount: formatRupees(owedBefore.paise), students: owedBefore.students } : null} />}
               </CardBody>
             </Card>
@@ -170,11 +174,11 @@ function MoneyCard({ m, expected, see }: { m: MoneyTotals; expected: Record<stri
       <CardHeader title="Money brought in" description={m.goLive ? `As of the go-live date, ${formatDate(m.goLive)}. Compare with the old software's balance and collection reports.` : "Compare with the old software's balance and collection reports."} />
       <div className="overflow-x-auto">
         <table className="min-w-full text-[15px]">
-          <caption className="sr-only">Money in School OS beside the old software</caption>
+          <caption className="sr-only"><Words k="Money in School OS beside the old software" /></caption>
           <thead className="bg-surface-2 text-sm"><tr>
-            <th scope="col" className="px-4 py-2 text-left font-medium">What</th>
-            <th scope="col" className="px-4 py-2 text-right font-medium">School OS</th>
-            <th scope="col" className="px-4 py-2 text-right font-medium">Old software</th>
+            <th scope="col" className="px-4 py-2 text-left font-medium"><Words k="What" /></th>
+            <th scope="col" className="px-4 py-2 text-right font-medium"><Words k="School OS" /></th>
+            <th scope="col" className="px-4 py-2 text-right font-medium"><Words k="Old software" /></th>
           </tr></thead>
           <tbody className="divide-y divide-line">
             {keys.map((k) => {
@@ -189,7 +193,7 @@ function MoneyCard({ m, expected, see }: { m: MoneyTotals; expected: Record<stri
                   </th>
                   <td className="px-4 py-2 text-right font-semibold">{formatRupees(have)}</td>
                   <td className="px-4 py-2 text-right">
-                    {said === null ? <span className="text-ink-2">Not typed</span> : <>{formatRupees(said)}
+                    {said === null ? <span className="text-ink-2"><Words k="Not typed" /></span> : <>{formatRupees(said)}
                       <span className={`block text-sm ${diff === BigInt(0) ? "text-success" : "text-danger"}`}>{diff === BigInt(0) ? "Matches" : `${formatRupees(diff! > BigInt(0) ? diff! : -diff!)} ${diff! > BigInt(0) ? "more here" : "less here"}`}</span></>}
                   </td>
                 </tr>

@@ -4,6 +4,7 @@ import { rupeesInWords } from "@/lib/documents/words";
 import { slipLines, type SlipAdjustment } from "@/lib/salary/slips";
 import { dayNum, dayShort, monthName } from "@/lib/salary/words";
 import type { PayrollLine } from "@prisma/client";
+import { Words } from "@/lib/i18n/client";
 
 export type SlipPerson = { fullName: string; staffCode: string; designation: string; department: string; pan: string; uan: string; bank: string };
 
@@ -28,21 +29,21 @@ export function SlipView({ school, place, month, paidOn, line, person, showEmplo
       </div>
       <div className="grid md:grid-cols-2 gap-x-6 px-4 py-3">
         <div>
-          <p className="eyebrow text-ink3 mt-2 mb-1">Earnings</p>
+          <p className="eyebrow text-ink3 mt-2 mb-1"><Words k="Earnings" /></p>
           <ul className="divide-y divide-line/70">{earn.map((l, i) => <L key={`${i}-${l.label}`} k={l.label} v={l.amountPaise} />)}
-            <li className="flex justify-between py-1.5 font-semibold"><span>Total earnings</span><span className="tnum">{formatRupees(sum(earn))}</span></li></ul>
+            <li className="flex justify-between py-1.5 font-semibold"><span><Words k="Total earnings" /></span><span className="tnum">{formatRupees(sum(earn))}</span></li></ul>
         </div>
         <div>
-          <p className="eyebrow text-ink3 mt-2 mb-1">Deductions</p>
+          <p className="eyebrow text-ink3 mt-2 mb-1"><Words k="Deductions" /></p>
           <ul className="divide-y divide-line/70">{ded.map((l, i) => <L key={`${i}-${l.label}`} k={l.label} v={l.amountPaise} />)}
-            <li className="flex justify-between py-1.5 font-semibold"><span>Total deductions</span><span className="tnum">{formatRupees(sum(ded))}</span></li></ul>
+            <li className="flex justify-between py-1.5 font-semibold"><span><Words k="Total deductions" /></span><span className="tnum">{formatRupees(sum(ded))}</span></li></ul>
         </div>
       </div>
       <div className="mx-4 mb-4 rounded-xl bg-brand/8 px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
-        <div><p className="font-semibold">Net pay</p><p className="text-[12.5px] text-ink2">{rupeesInWords(line.netPaise)}</p></div>
+        <div><p className="font-semibold"><Words k="Net pay" /></p><p className="text-[12.5px] text-ink2">{rupeesInWords(line.netPaise)}</p></div>
         <p className="font-display text-[24px] font-semibold tnum">{formatRupees(line.netPaise)}</p>
       </div>
-      <p className="px-4 pb-3 text-[12px] text-ink3">{showEmployer ? `School’s share, not taken from your pay: PF ${formatRupees(line.erPfPaise)}${line.esiApplies ? `, ESI ${formatRupees(line.erEsiPaise)}` : ""}. ` : ""}Made by the computer from the approved salary; no signature needed.</p>
+      <p className="px-4 pb-3 text-[12px] text-ink3">{showEmployer ? `School’s share, not taken from your pay: PF ${formatRupees(line.erPfPaise)}${line.esiApplies ? `, ESI ${formatRupees(line.erEsiPaise)}` : ""}. ` : ""}<Words k="Made by the computer from the approved salary; no signature needed." /></p>
     </div>
   );
 }

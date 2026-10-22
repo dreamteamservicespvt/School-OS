@@ -36,8 +36,12 @@ import { CancelReservationSheet } from "./_components/sheets";
 import { BASE, libGuard, libPeriod, one, qs, addQ, UUID, type SearchParams, type LibPageData } from "./_lib/page";
 import { historyWhere, HISTORY_STATUS } from "./_lib/history";
 import { issueAction, returnAction, renewAction, reserveAction, remindAction, remindAllAction, remindLibrarianAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Issue & Return · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Issue & Return · Library Management") };
+}
 
 const LISTS = [
   { value: "issued", label: "Issued today" },
@@ -222,7 +226,7 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
                   { value: "issue", label: "Issue", href: qs(BASE, { member: memberKey, list: list === "issued" ? null : list }) },
                   { value: "return", label: "Return", href: qs(BASE, { mode: "return", member: memberKey, list: list === "issued" ? null : list }) },
                 ]} />
-                {(d.member || copyCode || card) && <Link href={memberStep} replace scroll={false} className="text-[13.5px] font-semibold text-brand hover:underline">Start again</Link>}
+                {(d.member || copyCode || card) && <Link href={memberStep} replace scroll={false} className="text-[13.5px] font-semibold text-brand hover:underline"><Words k="Start again" /></Link>}
               </div>
 
               {mode === "issue" ? (
@@ -263,15 +267,15 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
                           </div>
                         )}
                       </>
-                    ) : <p className="text-[13.5px] text-ink3">Choose the member first.</p>}
+                    ) : <p className="text-[13.5px] text-ink3"><Words k="Choose the member first." /></p>}
                   </Step>
 
                   {d.reserveBook && d.member && (
                     <div className="rounded-2xl border border-line p-4 flex flex-col gap-3">
-                      <p className="text-[14px]"><b className="font-semibold">Reserve “{d.reserveBook.title}” for {d.member.firstName}.</b> <span className="text-ink2">{d.reserveQueue ? `${plural(d.reserveQueue, "member")} already waiting.` : "Nobody is waiting yet."} They are told when a copy is back.</span></p>
+                      <p className="text-[14px]"><b className="font-semibold"><Words k="Reserve “" />{d.reserveBook.title}<Words k="” for" /> {d.member.firstName}.</b> <span className="text-ink2">{d.reserveQueue ? `${plural(d.reserveQueue, "member")} already waiting.` : "Nobody is waiting yet."} <Words k="They are told when a copy is back." /></span></p>
                       <div className="flex gap-2 flex-wrap">
                         <ActButton action={reserveAction} fields={{ member: d.member.key, bookId: d.reserveBook.id }} label="Reserve" icon="reserve" variant="primary" size="md" />
-                        <ButtonLink href={here({ reserve: null })} variant="ghost" scroll={false} replace>Not now</ButtonLink>
+                        <ButtonLink href={here({ reserve: null })} variant="ghost" scroll={false} replace><Words k="Not now" /></ButtonLink>
                       </div>
                     </div>
                   )}
@@ -281,14 +285,14 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
                   <ScanBox key="copy-return" id="scan-return" href={qs(BASE, { mode: "return", list: list === "issued" ? null : list })} param="copy" label="Book barcode" placeholder="Scan the book barcode, or type the accession number" start={copyCode} autoFocus />
                   {d.copyProblem && <Alert tone="danger">{d.copyProblem}</Alert>}
                   {d.copyDone && <Alert tone="info">{d.copyDone}</Alert>}
-                  {d.bookMatches.length > 0 && !d.copy && <Alert tone="info">Scan the copy&apos;s own barcode or type its accession number to return it. A title is not enough, because each copy is returned on its own.</Alert>}
+                  {d.bookMatches.length > 0 && !d.copy && <Alert tone="info"><Words k="Scan the copy's own barcode or type its accession number to return it. A title is not enough, because each copy is returned on its own." /></Alert>}
                   {d.copy && d.returnInfo && (
                     <div className="flex flex-col gap-3">
                       <CopyLine title={d.copy.book.title} author={d.copy.book.authorText} accession={d.copy.accessionNo} status={d.copy.status} changeHref={qs(BASE, { mode: "return" })} />
                       <div className="rounded-xl bg-sunken/60 px-4 py-3 text-[13.5px] grid grid-cols-2 gap-x-4 gap-y-1">
-                        <span className="text-ink3">With</span><b className="font-semibold text-right truncate">{d.returnInfo.holder ? holderWords(d.returnInfo.holder) : "Unknown"}</b>
-                        <span className="text-ink3">Issued</span><span className="text-right tnum">{day(d.returnInfo.issuedOn)}</span>
-                        <span className="text-ink3">Due</span><span className={cx("text-right tnum", d.returnInfo.late.lateDays > 0 && "text-bad font-semibold")}>{day(d.returnInfo.dueOn)}{d.returnInfo.late.lateDays > 0 ? ` · ${plural(d.returnInfo.late.lateDays, "day")} late` : ""}</span>
+                        <span className="text-ink3"><Words k="With" /></span><b className="font-semibold text-right truncate">{d.returnInfo.holder ? holderWords(d.returnInfo.holder) : "Unknown"}</b>
+                        <span className="text-ink3"><Words k="Issued" /></span><span className="text-right tnum">{day(d.returnInfo.issuedOn)}</span>
+                        <span className="text-ink3"><Words k="Due" /></span><span className={cx("text-right tnum", d.returnInfo.late.lateDays > 0 && "text-bad font-semibold")}>{day(d.returnInfo.dueOn)}{d.returnInfo.late.lateDays > 0 ? ` · ${plural(d.returnInfo.late.lateDays, "day")} late` : ""}</span>
                       </div>
                       <ReturnForm key={d.copy.id} action={returnAction} copyId={d.copy.id} title={d.copy.book.title}
                         lateWords={d.returnInfo.late.lateDays > 0 ? `${plural(d.returnInfo.late.lateDays, "day")} late × ${formatRupees(s.finePerDayPaise)}${s.graceDays ? ` (after ${plural(s.graceDays, "day")} of grace)` : ""}` : null}
@@ -350,7 +354,7 @@ async function OverdueWatch({ p, sp }: { p: LibPageData & { mode: string }; sp: 
       <Stack>
         <Stats items={stats} />
         {d.waitingCharges > 0 && (
-          <Alert tone="warning" title={`${plural(d.waitingCharges, "library charge")} waiting for approval`} action={<ButtonLink href="/approvals" size="sm" variant="secondary">Open Approvals</ButtonLink>}>Lost or damaged book charges above the set amount wait for approval before they are added.</Alert>
+          <Alert tone="warning" title={`${plural(d.waitingCharges, "library charge")} waiting for approval`} action={<ButtonLink href="/approvals" size="sm" variant="secondary"><Words k="Open Approvals" /></ButtonLink>}><Words k="Lost or damaged book charges above the set amount wait for approval before they are added." /></Alert>
         )}
         <Split>
           <Col>
@@ -358,12 +362,12 @@ async function OverdueWatch({ p, sp }: { p: LibPageData & { mode: string }; sp: 
               <CardHeader title="Overdue books" icon={AlertTriangle} description={d.counts.overdue ? `${bookWords(d.counts.overdue)} not returned by the due date.` : "Every book out is within its due date."}
                 action={can.remind && d.counts.overdue > 0 ? <ActButton action={remindLibrarianAction} fields={{ what: "overdue" }} label="Remind the librarian" icon="bell" /> : undefined} divided />
               <IssueRows rows={d.rows} today={today} empty="No overdue books." />
-              {d.counts.overdue > d.rows.length && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3">Showing the {d.rows.length} longest overdue of {d.counts.overdue.toLocaleString("en-IN")}. <Link className="font-semibold text-brand hover:underline" href={`${BASE}/reports?r=lib-overdue`}>Open the overdue report</Link></p>}
+              {d.counts.overdue > d.rows.length && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing the" /> {d.rows.length} <Words k="longest overdue of" /> {d.counts.overdue.toLocaleString("en-IN")}. <Link className="font-semibold text-brand hover:underline" href={`${BASE}/reports?r=lib-overdue`}><Words k="Open the overdue report" /></Link></p>}
             </Card>
           </Col>
           <Col>
             <Card className="p-5">
-              <h2 className="font-semibold text-[15px] mb-3">How late</h2>
+              <h2 className="font-semibold text-[15px] mb-3"><Words k="How late" /></h2>
               <HBars labelWidth={92} valueWidth={48} rows={d.buckets.map((b) => ({ key: b.key, label: b.label, value: b.value, text: b.value.toLocaleString("en-IN"), tone: b.key === "30+" ? "bad" as const : "warn" as const }))} />
             </Card>
             <Reservations rows={d.resv} desk={false} cancelHref={() => ""} today={today} />
@@ -394,7 +398,7 @@ function MemberMatches({ matches, hrefFor }: { matches: Member[]; hrefFor: (m: M
     <div className="rounded-xl border border-line divide-y divide-line/70" role="list" aria-label="Members found">
       {matches.map((m) => (
         <div key={m.key} role="listitem">
-          <ListRow avatar={m.name} title={m.name} sub={`${m.group} · card ${m.cardNo}`} href={hrefFor(m)} right={m.blocked ? <Pill tone="bad">Blocked</Pill> : !m.active ? <Pill>Not active</Pill> : undefined} />
+          <ListRow avatar={m.name} title={m.name} sub={`${m.group} · card ${m.cardNo}`} href={hrefFor(m)} right={m.blocked ? <Pill tone="bad"><Words k="Blocked" /></Pill> : !m.active ? <Pill><Words k="Not active" /></Pill> : undefined} />
         </div>
       ))}
     </div>
@@ -410,18 +414,18 @@ function MemberPanel({ m, load, today, schoolId, changeHref, returnHref }: { m: 
         <Avatar name={m.name} src={m.photoFileId ? fileLink(m.photoFileId, schoolId) : null} size={52} />
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-[15.5px] truncate">{m.name}</p>
-          <p className="text-[13px] text-ink3 truncate">{m.group} · card <span className="font-mono">{m.cardNo}</span></p>
+          <p className="text-[13px] text-ink3 truncate">{m.group} <Words k="· card" /> <span className="font-mono">{m.cardNo}</span></p>
           <div className="flex gap-1.5 flex-wrap mt-1.5">
-            <Pill tone={full ? "warn" : "neutral"}>{load.out.length} of {bookWords(m.limit)}</Pill>
-            {overdue > 0 && <Pill tone="bad">{overdue} overdue</Pill>}
-            {load.finesDuePaise > BigInt(0) && <Pill tone="warn">{formatRupees(load.finesDuePaise)} fines due</Pill>}
-            {m.blocked && <Pill tone="bad">Blocked</Pill>}
-            {!m.active && <Pill>Not active</Pill>}
+            <Pill tone={full ? "warn" : "neutral"}>{load.out.length} <Words k="of" /> {bookWords(m.limit)}</Pill>
+            {overdue > 0 && <Pill tone="bad">{overdue} <Words k="overdue" /></Pill>}
+            {load.finesDuePaise > BigInt(0) && <Pill tone="warn">{formatRupees(load.finesDuePaise)} <Words k="fines due" /></Pill>}
+            {m.blocked && <Pill tone="bad"><Words k="Blocked" /></Pill>}
+            {!m.active && <Pill><Words k="Not active" /></Pill>}
           </div>
         </div>
-        <Link href={changeHref} replace scroll={false} className="text-[13px] font-semibold text-brand hover:underline shrink-0">Change</Link>
+        <Link href={changeHref} replace scroll={false} className="text-[13px] font-semibold text-brand hover:underline shrink-0"><Words k="Change" /></Link>
       </div>
-      {m.blocked && <p className="text-[13px] text-bad">Blocked: {m.blocked.reason}</p>}
+      {m.blocked && <p className="text-[13px] text-bad"><Words k="Blocked:" /> {m.blocked.reason}</p>}
       {load.out.length > 0 ? (
         <ul className="flex flex-col divide-y divide-line/70 border-t border-line/70" aria-label="Books out">
           {load.out.map((i) => {
@@ -431,18 +435,18 @@ function MemberPanel({ m, load, today, schoolId, changeHref, returnHref }: { m: 
                 <BookOpen size={17} className="text-ink3 shrink-0" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <p className="text-[14px] font-semibold truncate">{i.copy.book.title}</p>
-                  <p className={cx("text-[12.5px] tnum", late > 0 ? "text-bad" : "text-ink3")}>Copy <span className="font-mono">{i.copy.accessionNo}</span> · due {day(i.dueOn)}{late > 0 ? ` · ${plural(late, "day")} late` : late === 0 ? " · today" : ""}{i.renewals ? ` · renewed ${i.renewals}×` : ""}</p>
+                  <p className={cx("text-[12.5px] tnum", late > 0 ? "text-bad" : "text-ink3")}><Words k="Copy" /> <span className="font-mono">{i.copy.accessionNo}</span> <Words k="· due" /> {day(i.dueOn)}{late > 0 ? ` · ${plural(late, "day")} late` : late === 0 ? " · today" : ""}{i.renewals ? ` · renewed ${i.renewals}×` : ""}</p>
                 </div>
                 <div className="flex gap-1.5">
                   {late <= 0 && <ActButton action={renewAction} fields={{ issueId: i.id }} label="Renew" icon="renew" />}
-                  {returnHref ? <ButtonLink href={returnHref(i.copy.accessionNo)} size="sm" variant="secondary" icon={CornerDownLeft} replace scroll={false}>Return</ButtonLink>
-                    : <ButtonLink href={qs(BASE, { mode: "return", copy: i.copy.accessionNo })} size="sm" variant="ghost" icon={CornerDownLeft} scroll={false}>Return</ButtonLink>}
+                  {returnHref ? <ButtonLink href={returnHref(i.copy.accessionNo)} size="sm" variant="secondary" icon={CornerDownLeft} replace scroll={false}><Words k="Return" /></ButtonLink>
+                    : <ButtonLink href={qs(BASE, { mode: "return", copy: i.copy.accessionNo })} size="sm" variant="ghost" icon={CornerDownLeft} scroll={false}><Words k="Return" /></ButtonLink>}
                 </div>
               </li>
             );
           })}
         </ul>
-      ) : <p className="text-[13px] text-ink3 border-t border-line/70 pt-2.5">No books out.</p>}
+      ) : <p className="text-[13px] text-ink3 border-t border-line/70 pt-2.5"><Words k="No books out." /></p>}
     </div>
   );
 }
@@ -454,10 +458,10 @@ function CopyLine({ title, author, accession, status, changeHref }: { title: str
       <span className="grid place-items-center size-11 rounded-xl bg-brand/10 text-brand shrink-0" aria-hidden="true"><BookOpen size={20} /></span>
       <div className="min-w-0 flex-1">
         <p className="font-semibold text-[15px] leading-snug">{title}</p>
-        <p className="text-[13px] text-ink3 truncate">{author ? `${author} · ` : ""}copy <span className="font-mono">{accession}</span></p>
+        <p className="text-[13px] text-ink3 truncate">{author ? `${author} · ` : ""}<Words k="copy" /> <span className="font-mono">{accession}</span></p>
         <Pill tone={st.tone} className="mt-1.5">{st.label}</Pill>
       </div>
-      <Link href={changeHref} replace scroll={false} className="text-[13px] font-semibold text-brand hover:underline shrink-0">Change</Link>
+      <Link href={changeHref} replace scroll={false} className="text-[13px] font-semibold text-brand hover:underline shrink-0"><Words k="Change" /></Link>
     </div>
   );
 }
@@ -475,9 +479,9 @@ function BookMatches({ rows, pickHref, reserveHref }: { rows: BookMatch[]; pickH
               <p className="text-[12.5px] text-ink3 truncate">{b.authorText ?? "No author"} · {free.length ? `${plural(free.length, "copy", "copies")} on the shelf` : "no copy on the shelf"}</p>
             </div>
             {free.length ? (
-              <ButtonLink href={pickHref(free[0].accessionNo)} size="sm" variant="secondary" replace scroll={false}>Issue copy {free[0].accessionNo}</ButtonLink>
+              <ButtonLink href={pickHref(free[0].accessionNo)} size="sm" variant="secondary" replace scroll={false}><Words k="Issue copy" /> {free[0].accessionNo}</ButtonLink>
             ) : b.copies.length ? (
-              <ButtonLink href={reserveHref(b.id)} size="sm" variant="ghost" replace scroll={false}>Reserve</ButtonLink>
+              <ButtonLink href={reserveHref(b.id)} size="sm" variant="ghost" replace scroll={false}><Words k="Reserve" /></ButtonLink>
             ) : null}
           </div>
         );
@@ -499,9 +503,9 @@ function Reservations({ rows, desk, cancelHref, today }: { rows: ResvRow[]; desk
                 <p className="font-semibold text-[14px] truncate">{r.book.title}</p>
                 <p className="text-[12.5px] text-ink3 truncate">{r.member ? holderWords(r.member) : "Member"} · {r.status === "READY" ? `kept since ${day(r.readyAt ?? today)}` : `since ${formatDate(r.reservedAt, "UTC")}`}</p>
               </div>
-              {r.status === "READY" ? <Pill tone="ok">Ready</Pill> : <Pill tone="info">Waiting</Pill>}
-              {desk && r.member && r.status === "READY" && <ButtonLink href={qs(BASE, { member: r.member.key })} size="sm" variant="secondary" scroll={false} aria-label={`Issue to ${r.member.name}`}>Issue</ButtonLink>}
-              {desk && <Link href={cancelHref(r.id)} scroll={false} className="text-[12.5px] font-semibold text-ink3 hover:text-bad" aria-label={`Cancel the reservation of ${r.book.title}`}>Cancel</Link>}
+              {r.status === "READY" ? <Pill tone="ok"><Words k="Ready" /></Pill> : <Pill tone="info"><Words k="Waiting" /></Pill>}
+              {desk && r.member && r.status === "READY" && <ButtonLink href={qs(BASE, { member: r.member.key })} size="sm" variant="secondary" scroll={false} aria-label={`Issue to ${r.member.name}`}><Words k="Issue" /></ButtonLink>}
+              {desk && <Link href={cancelHref(r.id)} scroll={false} className="text-[12.5px] font-semibold text-ink3 hover:text-bad" aria-label={`Cancel the reservation of ${r.book.title}`}><Words k="Cancel" /></Link>}
             </li>
           ))}
         </ul>
@@ -530,11 +534,11 @@ function IssueRows({ rows, today, empty, desk }: { rows: TodayRow[]; today: Date
 function DueWords({ dueOn, returnedOn, today }: { dueOn: Date; returnedOn: Date | null; today: Date }) {
   if (returnedOn) {
     const late = daysBetween(dueOn, returnedOn);
-    return <span className="tnum text-[13px]">Returned {day(returnedOn)}{late > 0 ? <span className="text-warn"> · {late}d late</span> : ""}</span>;
+    return <span className="tnum text-[13px]"><Words k="Returned" /> {day(returnedOn)}{late > 0 ? <span className="text-warn"> · {late}<Words k="d late" /></span> : ""}</span>;
   }
   const late = daysBetween(dueOn, today);
-  if (late > 0) return <Pill tone="bad">{plural(late, "day")} late</Pill>;
-  if (late === 0) return <Pill tone="warn">Due today</Pill>;
+  if (late > 0) return <Pill tone="bad">{plural(late, "day")} <Words k="late" /></Pill>;
+  if (late === 0) return <Pill tone="warn"><Words k="Due today" /></Pill>;
   return <span className="tnum text-[13px]">{day(dueOn)}</span>;
 }
 
@@ -548,7 +552,7 @@ function TodayList({ list, rows, counts, hrefFor, today, desk }: { list: ListKey
         <SegLinks label="Today's list" value={list} size="sm" options={LISTS.map((l) => ({ value: l.value, label: <>{l.label} <span className="tnum text-ink3">{n[l.value]}</span></>, href: hrefFor(l.value) }))} />
       </div>
       <IssueRows rows={rows} today={today} desk={desk} empty={list === "issued" ? "No books issued yet today." : list === "returned" ? "No books returned yet today." : list === "due" ? "No books due today." : "No overdue books."} />
-      {n[list] > rows.length && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3">Showing {rows.length} of {n[list].toLocaleString("en-IN")}. The history below has them all.</p>}
+      {n[list] > rows.length && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing" /> {rows.length} <Words k="of" /> {n[list].toLocaleString("en-IN")}<Words k=". The history below has them all." /></p>}
     </Card>
   );
 }

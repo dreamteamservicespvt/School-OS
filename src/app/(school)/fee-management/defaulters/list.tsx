@@ -20,6 +20,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { formatRupeesShort } from "@/lib/format";
 import { previewReminderAction, sendReminderAction, type PreviewResult } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export type DefaulterItem = {
   id: string;
@@ -86,15 +87,15 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
     <>
       {canEdit && sel.size > 0 && (
         <div className="flex items-center gap-2 px-4 py-2.5 bg-brand/8 border-b border-brand/20 animate-fade flex-wrap">
-          <p className="text-[13.5px] font-semibold text-brand mr-2">{sel.size} selected</p>
-          <Button size="sm" variant="secondary" icon={Send} onClick={() => setSend(chosen)}>Send reminder</Button>
-          <a href={callList} download className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border border-line bg-surface text-[13.5px] font-semibold hover:bg-sunken"><PhoneCall size={15} aria-hidden="true" />Call list</a>
-          <Button size="sm" variant="ghost" onClick={() => setSel(new Set())}>Clear</Button>
+          <p className="text-[13.5px] font-semibold text-brand mr-2">{sel.size} <Words k="selected" /></p>
+          <Button size="sm" variant="secondary" icon={Send} onClick={() => setSend(chosen)}><Words k="Send reminder" /></Button>
+          <a href={callList} download className="inline-flex items-center gap-1.5 h-9 px-3 rounded-xl border border-line bg-surface text-[13.5px] font-semibold hover:bg-sunken"><PhoneCall size={15} aria-hidden="true" /><Words k="Call list" /></a>
+          <Button size="sm" variant="ghost" onClick={() => setSel(new Set())}><Words k="Clear" /></Button>
         </div>
       )}
       <div className="hidden lg:block overflow-x-auto scroll-thin">
         <table className="w-full text-left text-[14px]" style={{ minWidth: 900 }}>
-          <caption className="sr-only">Students with overdue fees</caption>
+          <caption className="sr-only"><Words k="Students with overdue fees" /></caption>
           <thead>
             <tr className="text-[12px] text-ink3 font-semibold border-b border-line">
               {canEdit && <th className="pl-4 pr-2 py-3 w-10"><Checkbox label="Select all" checked={allOn} indeterminate={!allOn && rows.some((r) => sel.has(r.id))} onChange={() => setSel(allOn ? new Set() : new Set(rows.map((r) => r.id)))} /></th>}
@@ -114,13 +115,13 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
                 <td className="px-3 py-2.5 whitespace-nowrap">{d.cls}</td>
                 <td className="px-3 py-2.5"><p className="leading-tight">{d.parent || "—"}</p><p className="text-[12.5px] text-ink3 tnum">{d.phone}</p></td>
                 <td className="px-3 py-2.5 text-right tnum"><p className="font-semibold">{d.amount}</p><p className="text-[12px] text-ink3 max-w-[180px] truncate ml-auto">{d.heads}</p></td>
-                <td className="px-3 py-2.5"><p className="tnum">{d.since}</p><Pill tone={d.tone} className="!h-5 !text-[11px]">{d.days} days</Pill></td>
+                <td className="px-3 py-2.5"><p className="tnum">{d.since}</p><Pill tone={d.tone} className="!h-5 !text-[11px]">{d.days} <Words k="days" /></Pill></td>
                 <td className="px-3 py-2.5">
                   {d.promise && <Pill tone={d.promise.tone} className="!h-5 !text-[11px] mb-1">{d.promise.words}</Pill>}
-                  {d.promise && !d.lastReminder ? <p className="text-[12px] text-ink3">{d.promise.tone === "info" ? "Reminders paused" : "Not reminded yet"}</p> : d.lastReminder ? <><p className="text-[13px]">{d.lastReminder}</p><p className="text-[12px] text-ink3">{d.reminders} sent{d.promised ? ` · promised ${d.promised}` : ""}</p></>
+                  {d.promise && !d.lastReminder ? <p className="text-[12px] text-ink3">{d.promise.tone === "info" ? "Reminders paused" : "Not reminded yet"}</p> : d.lastReminder ? <><p className="text-[13px]">{d.lastReminder}</p><p className="text-[12px] text-ink3">{d.reminders} <Words k="sent" />{d.promised ? ` · promised ${d.promised}` : ""}</p></>
                     : <span className="text-[13px] text-ink3">{d.promised ? `Promised ${d.promised}` : "Not reminded yet"}</span>}
                 </td>
-                <td className="pr-5 pl-3 py-2.5 relative z-10 text-right">{canCollect && <ButtonLink size="sm" variant="soft" href={`/fee-management/collect/${d.id}`}>Collect</ButtonLink>}</td>
+                <td className="pr-5 pl-3 py-2.5 relative z-10 text-right">{canCollect && <ButtonLink size="sm" variant="soft" href={`/fee-management/collect/${d.id}`}><Words k="Collect" /></ButtonLink>}</td>
               </tr>
             ))}
           </tbody>
@@ -137,7 +138,7 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
                 <p className="text-[13px] text-ink3 truncate">{d.cls} · {d.heads}</p>
                 {d.promise && <p className={cx("text-[12.5px] font-semibold truncate", d.promise.tone === "bad" ? "text-bad" : "text-info")}>{d.promise.words}</p>}
               </div>
-              <div className="text-right shrink-0"><p className="font-semibold tnum">{d.amount}</p><Pill tone={d.tone} className="!h-5 !text-[11px]">{d.days} days</Pill></div>
+              <div className="text-right shrink-0"><p className="font-semibold tnum">{d.amount}</p><Pill tone={d.tone} className="!h-5 !text-[11px]">{d.days} <Words k="days" /></Pill></div>
               <ChevronRight size={18} className="text-ink3 shrink-0" aria-hidden="true" />
             </Link>
           </li>
@@ -199,7 +200,7 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
     <Dialog open onClose={onClose} wide title={ready ? `Send fee reminder to ${parents(ready.recipients)}` : "Send fee reminder"}
       sub={`${n} ${n === 1 ? "student" : "students"} on the list. Check the message, the count and the cost before sending.`}
       footer={<>
-        <Button variant="ghost" onClick={onClose}>Cancel</Button>
+        <Button variant="ghost" onClick={onClose}><Words k="Cancel" /></Button>
         <Button variant="primary" icon={Send} disabled={blocked || checking} loading={pending} onClick={() => formRef.current?.requestSubmit()}>{label}</Button>
       </>}>
       <form ref={formRef} action={action} className="flex flex-col gap-4">
@@ -214,14 +215,14 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
           ))}
         </div>
         <div className="grid md:grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1.5"><span className="text-[13px] font-semibold text-ink2">Channel</span><Segmented label="Channel" value={channel} onChange={(v) => pickChannel(v as typeof channel)} options={CHANNELS} className="w-full" /></div>
+          <div className="flex flex-col gap-1.5"><span className="text-[13px] font-semibold text-ink2"><Words k="Channel" /></span><Segmented label="Channel" value={channel} onChange={(v) => pickChannel(v as typeof channel)} options={CHANNELS} className="w-full" /></div>
           <SelectField name="_tpl" label="Template" value={tpl} onChange={(e) => setTpl(e.target.value)}
             options={[...opts, ...(channel === "sms" ? [] : [{ value: OWN, label: "Own wording" }])]} placeholder={opts.length || channel !== "sms" ? undefined : "No approved SMS template"} />
         </div>
         {ownWording && channel !== "sms" && (
           <TextArea name="text" label="Message" rows={3} value={text} onChange={(e) => setText(e.target.value)} help="You can use {guardian_name}, {student_name}, {class}, {due_amount}, {due_date}, {how_to_pay}, {link} and {school_name}. {how_to_pay} says how each parent pays." />
         )}
-        {channel === "sms" && opts.length === 0 && <Alert tone="warning">SMS needs an approved template. Add one in Communication, Templates (category Fees), or choose WhatsApp.</Alert>}
+        {channel === "sms" && opts.length === 0 && <Alert tone="warning"><Words k="SMS needs an approved template. Add one in Communication, Templates (category Fees), or choose WhatsApp." /></Alert>}
         <div className="rounded-2xl border border-line divide-y divide-line/70">
           {gateway
             ? <SettingRow title="Add the payment link" sub="Parents with a Parent Link get it, with its Pay button; others a Razorpay link for their exact dues, valid 7 days. Off: pay at the school office."><Switch on={link} onChange={setLink} label="Add the payment link" /></SettingRow>

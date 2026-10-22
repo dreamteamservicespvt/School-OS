@@ -12,8 +12,12 @@ import { currentYear } from "@/lib/academic/years";
 import { BASE, studentPage } from "../../../_lib/page";
 import { sectionOptions } from "../../../_lib/queries";
 import { changeSectionAction, placeInSectionAction } from "../../../_actions/students";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Change section" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Change section") };
+}
 
 export default async function ChangeSectionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -35,7 +39,7 @@ export default async function ChangeSectionPage({ params }: { params: Promise<{ 
   }
   const back = `${BASE}/students/${id}`;
   const year = data.year;
-  const cancel = <Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>;
+  const cancel = <Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>;
   const current_ = data.now ? data.sections.find((s) => s.value === data.now!.sectionId) : null;
   const sameClass = data.now ? data.sections.filter((s) => s.classId === data.now!.classId && s.value !== data.now!.sectionId) : [];
   const label = (s: (typeof data.sections)[number]) => `${s.label} (${Math.max(0, s.seats - s.filled)} seats left)`;
@@ -47,20 +51,20 @@ export default async function ChangeSectionPage({ params }: { params: Promise<{ 
       <Card className="max-w-2xl">
         <CardBody>
           {!year ? (
-            <EmptyState title="No academic year is open">Open the year in Academic Management first.</EmptyState>
+            <EmptyState title="No academic year is open"><Words k="Open the year in Academic Management first." /></EmptyState>
           ) : data.now ? (
             sameClass.length === 0 ? (
-              <EmptyState title={`${current_?.className ?? "This class"} has only one section`}>Add another section in Academic Management to move students between sections. To move class, use Promotion.</EmptyState>
+              <EmptyState title={`${current_?.className ?? "This class"} has only one section`}><Words k="Add another section in Academic Management to move students between sections. To move class, use Promotion." /></EmptyState>
             ) : (
               <ActionForm action={changeSectionAction.bind(null, id)} submitLabel="Change section" pendingText="Moving…" footer={cancel}>
-                <p>Now in <strong>{current_?.label}</strong>{data.now.rollNo ? `, roll number ${data.now.rollNo}` : ""}. The student gets the next free roll number in the new section; the old section stays in the history.</p>
+                <p><Words k="Now in" /> <strong>{current_?.label}</strong>{data.now.rollNo ? `, roll number ${data.now.rollNo}` : ""}<Words k=". The student gets the next free roll number in the new section; the old section stays in the history." /></p>
                 <FormSelect name="sectionId" label="New section" required placeholder="Choose" options={sameClass.map((s) => ({ value: s.value, label: label(s) }))} />
                 <FormArea name="reason" label="Reason" rows={2} />
               </ActionForm>
             )
           ) : (
             <ActionForm action={placeInSectionAction.bind(null, id)} submitLabel="Place in section" pendingText="Saving…" footer={cancel}>
-              <p>{data.student.fullName} has no class in {year.name}, for example after re-admission. Choose the class and section.</p>
+              <p>{data.student.fullName} <Words k="has no class in" /> {year.name}<Words k=", for example after re-admission. Choose the class and section." /></p>
               <FormSelect name="sectionId" label="Class and section" required placeholder="Choose" options={data.sections.map((s) => ({ value: s.value, label: label(s) }))} />
             </ActionForm>
           )}

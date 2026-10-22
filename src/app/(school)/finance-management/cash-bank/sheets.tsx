@@ -6,6 +6,7 @@ import { SArea, SDate, SMoney, SSelect, SSwitch, SText } from "@/components/ui/s
 import type { Option } from "@/components/ui/field";
 import { WarnCheck } from "../_components/forms";
 import { addAccountAction, moveMoneyAction, openingAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const num = (s: string) => Number(s.replace(/[^\d.]/g, "")) || 0;
@@ -66,7 +67,7 @@ export function OpeningSheet({ closeHref, accounts, goLive, today }: { closeHref
       sub={change ? `Opening balances were set at go-live${goLive ? ` on ${goLive}` : ""}. A change needs approval.` : "The balance in the account on the day the school starts using School OS."}>
       <SSelect name="accountId" label="Account" required start={acct} onChange={(e) => setAcct(e.target.value)}
         options={accounts.map((a) => ({ value: a.value, label: `${a.label} · ${a.pending ? "change waiting" : a.set ? `now ${inr(a.amount)}` : "not set"}` }))} />
-      {cur?.pending && <p className="text-[13px] text-warn font-semibold">A change to this balance is already waiting for approval.</p>}
+      {cur?.pending && <p className="text-[13px] text-warn font-semibold"><Words k="A change to this balance is already waiting for approval." /></p>}
       <SMoney name="amount" label={change ? `Right opening balance${goLive ? ` on ${goLive}` : ""}` : "Opening balance"} required placeholder={cur?.set ? String(cur.amount) : undefined} />
       {!change && <SDate name="date" label="As on" required start={today} />}
       {change && <SArea name="reason" label="Reason" required rows={2} placeholder="Example: bank statement shows ₹42,21,600, a cheque cleared on 31 Mar" />}

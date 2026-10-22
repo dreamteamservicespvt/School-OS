@@ -17,6 +17,7 @@ import { Segmented, type SegOption } from "@/components/ui/controls";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type Action = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 
@@ -68,7 +69,7 @@ function Body({ action, hidden, submitLabel, busyLabel, onDone, onCancel, childr
       <FormProblem state={state} />
       {children(helpers(state, pending))}
       <div className="flex gap-2 justify-end pt-1">
-        {onCancel && <Button variant="ghost" onClick={onCancel} disabled={pending}>Cancel</Button>}
+        {onCancel && <Button variant="ghost" onClick={onCancel} disabled={pending}><Words k="Cancel" /></Button>}
         <Submit variant={submitVariant} busyLabel={busyLabel} icon={submitIcon === undefined ? Check : submitIcon}>{submitLabel}</Submit>
       </div>
     </form>

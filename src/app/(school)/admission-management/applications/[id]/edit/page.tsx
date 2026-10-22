@@ -9,8 +9,11 @@ import type { CustomValues } from "@/lib/custom-field-rules";
 import { PageHeader } from "@/components/shell/page-header";
 import { ApplicationForm } from "../../application-form";
 import { BackLink } from "../../../_components/pills";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Edit application" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Edit application") };
+}
 
 export default async function EditApplicationPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

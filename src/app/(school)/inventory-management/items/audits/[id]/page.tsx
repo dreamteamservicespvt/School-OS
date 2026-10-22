@@ -16,8 +16,12 @@ import { DecideBox } from "../../../_components/decide";
 import { BASE, invGuard, UUID } from "../../../_lib/page";
 import { decidable, whoNames } from "../../../_lib/lists";
 import { decideAction, saveCountsAction } from "../../../actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Stock audit · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Stock audit · Inventory Management") };
+}
 
 export default async function AuditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -45,13 +49,13 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
     .map(({ l, it }) => ({ itemId: l.itemId, name: itemLabel(it!), code: it!.code, unit: it!.unit, system: l.systemQty, counted: l.countedQty === null ? "" : String(l.countedQty), note: l.note ?? "", pricePaise: Number(it!.pricePaise ?? BigInt(0)) }));
   return (
     <>
-      <InvHead pageName={audit.name} href={`${BASE}/items/audits/${audit.id}`} mode={p.mode} sub={<><Link href={`${BASE}/items?view=audits`} className="hover:underline">Stock audits</Link> · {audit.number}</>} />
+      <InvHead pageName={audit.name} href={`${BASE}/items/audits/${audit.id}`} mode={p.mode} sub={<><Link href={`${BASE}/items?view=audits`} className="hover:underline"><Words k="Stock audits" /></Link> · {audit.number}</>} />
       <Stack>
         {audit.status === "WAITING" && (d.mine
           ? <DecideBox action={decideAction} approvalId={audit.approvalId!} question="Approve these differences? Stock changes to the counts as Audit adjustments." />
-          : <Banner tone="info" title="Waiting for approval">The differences change stock only when approved.</Banner>)}
-        {audit.status === "APPROVED" && <Banner tone="ok" title="Approved">The differences were posted as Audit adjustments{audit.decidedAt ? ` on ${formatDateTime(audit.decidedAt, tz)}` : ""}.</Banner>}
-        {audit.status === "REJECTED" && <Banner tone="warn" title="Not approved">Stock was not changed.{audit.decisionNote ? ` Reason: ${audit.decisionNote}` : ""}</Banner>}
+          : <Banner tone="info" title="Waiting for approval"><Words k="The differences change stock only when approved." /></Banner>)}
+        {audit.status === "APPROVED" && <Banner tone="ok" title="Approved"><Words k="The differences were posted as Audit adjustments" />{audit.decidedAt ? ` on ${formatDateTime(audit.decidedAt, tz)}` : ""}.</Banner>}
+        {audit.status === "REJECTED" && <Banner tone="warn" title="Not approved"><Words k="Stock was not changed." />{audit.decisionNote ? ` Reason: ${audit.decisionNote}` : ""}</Banner>}
         <Card>
           <CardHeader title="Counts" description={audit.status === "OPEN" ? "Type what is on the shelf. The difference shows as you type." : st.label} divided />
           <AuditCounts action={saveCountsAction} auditId={audit.id} lines={lines} editable={audit.status === "OPEN" && can.stock} />

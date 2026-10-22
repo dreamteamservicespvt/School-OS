@@ -15,6 +15,7 @@ import { clockOf, mobileDigits } from "@/lib/front-office/words";
 import { bookAction, lookupPhone, slotsFor } from "../actions";
 import { PhoneBox, SegField } from "./fields";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type Slots = { leave: string | null; free: number[]; taken: { start: number; label: string; kind: string }[] } | null;
 type Opt = { value: string; label: string };
@@ -75,10 +76,10 @@ export function BookSheet({ closeHref, staff, days, start, slots: first, resched
       </div>
       <FieldShell label="Time" id="bk-time" required error={clash ?? atError}>
         <div id="bk-time" className="flex flex-wrap gap-1.5 min-h-9" aria-busy={loading || undefined}>
-          {loading ? <span className="text-[13px] text-ink3 inline-flex items-center gap-2"><Spinner size={16} />Checking free times…</span>
-            : !slots ? <p className="text-[13.5px] text-bad">This day could not be loaded. Pick another day or person.</p>
-              : slots.leave ? <p className="text-[13.5px] text-bad">{who} is not available on this day ({slots.leave.toLowerCase()}). Pick another day or person.</p>
-                : slots.free.length === 0 ? <p className="text-[13.5px] text-bad">{who} has no free {length}-minute slot on this day. Pick another day, a shorter meeting or another person.</p>
+          {loading ? <span className="text-[13px] text-ink3 inline-flex items-center gap-2"><Spinner size={16} /><Words k="Checking free times…" /></span>
+            : !slots ? <p className="text-[13.5px] text-bad"><Words k="This day could not be loaded. Pick another day or person." /></p>
+              : slots.leave ? <p className="text-[13.5px] text-bad">{who} <Words k="is not available on this day (" />{slots.leave.toLowerCase()}<Words k="). Pick another day or person." /></p>
+                : slots.free.length === 0 ? <p className="text-[13.5px] text-bad">{who} <Words k="has no free" /> {length}<Words k="-minute slot on this day. Pick another day, a shorter meeting or another person." /></p>
                   : <>
                     {slots.free.map((m) => (
                       <button type="button" key={m} onClick={() => { setAt(m); setClash(null); }} aria-pressed={at === m}
@@ -86,7 +87,7 @@ export function BookSheet({ closeHref, staff, days, start, slots: first, resched
                     ))}
                     {slots.taken.slice(0, 8).map((x) => (
                       <button type="button" key={`${x.start}${x.label}`} title={x.label} onClick={() => { setAt(null); setClash(`${who} already has ${x.kind === "teach" ? "a class" : "a meeting"} at ${clockOf(x.start)}. Pick another slot.`); }}
-                        className="h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum bg-sunken text-ink3 line-through">{clockOf(x.start)}<span className="sr-only"> taken</span></button>
+                        className="h-9 px-3 rounded-lg text-[12.5px] font-semibold tnum bg-sunken text-ink3 line-through">{clockOf(x.start)}<span className="sr-only"> <Words k="taken" /></span></button>
                     ))}
                   </>}
         </div>

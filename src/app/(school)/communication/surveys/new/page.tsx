@@ -3,8 +3,12 @@ import { commOfficePage } from "@/lib/communication/access";
 import { BackLink, RecordHead } from "@/components/ui/split";
 import { SurveyForm } from "../survey-form";
 import { requireSurveys, surveyFormData } from "../form-data";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "New survey" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("New survey") };
+}
 
 export default async function NewSurveyPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const access = await commOfficePage("create");
@@ -15,7 +19,7 @@ export default async function NewSurveyPage({ searchParams }: { searchParams: Pr
   return (
     <>
       <BackLink href="/communication/surveys" label="Surveys" />
-      <RecordHead title={data?.title ? `Survey: ${data.title}` : "New survey"} sub={<span className="text-[14px] text-ink3">Short questions for parents or staff. Each person answers once, through their own link.</span>} />
+      <RecordHead title={data?.title ? `Survey: ${data.title}` : "New survey"} sub={<span className="text-[14px] text-ink3"><Words k="Short questions for parents or staff. Each person answers once, through their own link." /></span>} />
       {data && <SurveyForm data={data} />}
     </>
   );

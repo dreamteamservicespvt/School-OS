@@ -19,6 +19,7 @@ import { Pill } from "@/components/ui/badge";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { findStudentsAction, saveRollCallAction, type FoundStudent } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 type Act = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 const ICONS = { bell: BellRing, check: Check, cancel: CircleX, send: Send, x: X, out: LogOut, in: LogIn, move: ArrowRightLeft, undo: Undo2 } satisfies Record<string, LucideIcon>;
@@ -171,13 +172,13 @@ export function RollCallForm({ hostelId, date, session, rows, floors, saved, can
         )}
         <div className="relative flex-1 min-w-0 sm:max-w-[260px]">
           <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
-          <label className="sr-only" htmlFor="rc-q">Find a student or room</label>
+          <label className="sr-only" htmlFor="rc-q"><Words k="Find a student or room" /></label>
           <input id="rc-q" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find a student or room" className={cx(inputCls(), "h-10 pl-9 text-[14px]")} />
         </div>
-        <p className="text-[13px] text-ink3 tnum sm:ml-auto" aria-live="polite"><b className="text-ok font-semibold">{present} present</b> · <b className={cx("font-semibold", absent.size ? "text-bad" : "text-ink2")}>{absent.size} absent</b>{away ? <> · <b className="text-info font-semibold">{away} away</b></> : null}</p>
+        <p className="text-[13px] text-ink3 tnum sm:ml-auto" aria-live="polite"><b className="text-ok font-semibold">{present} <Words k="present" /></b> · <b className={cx("font-semibold", absent.size ? "text-bad" : "text-ink2")}>{absent.size} <Words k="absent" /></b>{away ? <> · <b className="text-info font-semibold">{away} <Words k="away" /></b></> : null}</p>
       </div>
       {shown.length === 0 ? (
-        <p className="px-5 py-10 text-center text-[13.5px] text-ink3">No student or room matches “{q}”.</p>
+        <p className="px-5 py-10 text-center text-[13.5px] text-ink3"><Words k="No student or room matches “" />{q}”.</p>
       ) : (
         <ul className="divide-y divide-line/70" aria-label="Residents">
           {shown.map((r) => {
@@ -191,7 +192,7 @@ export function RollCallForm({ hostelId, date, session, rows, floors, saved, can
                   <Avatar name={r.name} size={36} />
                   <span className="min-w-0 flex-1">
                     <span className="block font-semibold text-[14.5px] truncate">{r.name}</span>
-                    <span className="block text-[12.5px] text-ink3 truncate">{r.cls ? `${r.cls} · ` : ""}Room {r.roomNo}, Bed {r.bedNo}{r.away ? ` · ${r.away}` : ""}</span>
+                    <span className="block text-[12.5px] text-ink3 truncate">{r.cls ? `${r.cls} · ` : ""}<Words k="Room" /> {r.roomNo}<Words k=", Bed" /> {r.bedNo}{r.away ? ` · ${r.away}` : ""}</span>
                     {r.school && <span className="block text-[12px] text-warn font-semibold truncate">{r.school}</span>}
                   </span>
                   <Pill tone={r.away ? (r.mark === "LEAVE" ? "brand" : "info") : isAbsent ? "bad" : "ok"}>{mark}</Pill>
@@ -205,12 +206,12 @@ export function RollCallForm({ hostelId, date, session, rows, floors, saved, can
         <div className="sticky bottom-0 z-[2] bg-surface border-t border-line px-4 md:px-5 py-3 flex flex-wrap items-center gap-3 justify-between">
           <div className="text-[13px] min-w-0">
             {state && !state.ok ? <span className="text-bad" role="alert">{state.message}</span>
-              : !editable ? <span className="text-ink3">Roll calls older than 7 days cannot be changed.</span>
+              : !editable ? <span className="text-ink3"><Words k="Roll calls older than 7 days cannot be changed." /></span>
               : <span className="text-ink3">{saved ? "Saved earlier. Change the exceptions and save again." : "Everyone is present to start with. Tap anyone who is not here."}</span>}
           </div>
           {editable && (
             <div className="flex gap-2">
-              {absent.size > 0 && <Button variant="ghost" onClick={() => setAbsent(new Set())}>Mark all present</Button>}
+              {absent.size > 0 && <Button variant="ghost" onClick={() => setAbsent(new Set())}><Words k="Mark all present" /></Button>}
               <Button type="submit" variant="primary" icon={Check} loading={pending}>{saved ? "Save changes" : `Save ${session === "NIGHT" ? "night" : "morning"} roll call`}</Button>
             </div>
           )}

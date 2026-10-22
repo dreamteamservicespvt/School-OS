@@ -7,15 +7,19 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { GatewayForm } from "../gateway-form";
 import { providerInfo } from "../providers-info";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Add a gateway" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Add a gateway") };
+}
 
 export default async function NewGatewayPage() {
   const { current } = await requireSettingsPage("payment-gateways", "create");
   const origin = await appOrigin();
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-2 text-sm"><Link href="/settings/payment-gateways" className="text-brand-text hover:underline">Payment Gateways</Link></nav>
+      <nav aria-label="Breadcrumb" className="mb-2 text-sm"><Link href="/settings/payment-gateways" className="text-brand-text hover:underline"><Words k="Payment Gateways" /></Link></nav>
       <PageHeader title="Add a gateway" href="/settings/payment-gateways/new" userId={current.user.id} />
       <Card className="max-w-3xl">
         <CardBody>

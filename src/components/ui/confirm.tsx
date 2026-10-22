@@ -9,6 +9,7 @@ import { Button, type ButtonVariant } from "./button";
 import { SheetHead, sheetCls } from "./dialog";
 import { inputCls } from "./field";
 import { useT } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 
 type Props = {
   /** The button that opens the confirmation. */
@@ -65,7 +66,7 @@ export function ConfirmButton({ trigger, triggerVariant = "secondary", triggerCl
         onClick={(e) => { if (e.target === e.currentTarget && !busy) ref.current?.close(); }}>
         <SheetHead titleId={titleId} title={title} onClose={() => ref.current?.close()} />
         <div className="px-5 pb-5">
-          <div className="text-[14.5px] text-ink2">{children}</div>
+          <div className="text-[14.5px] text-ink2">{tx(children)}</div>
           {typeToConfirm && (
             <label className="mt-4 flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">
               <span>{t("Type {word} to confirm", { word: typeToConfirm })}</span>

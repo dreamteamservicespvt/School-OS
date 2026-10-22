@@ -4,6 +4,7 @@ import { Check, ChevronRight, Circle } from "lucide-react";
 import { Avatar } from "./avatar";
 import { cx } from "./cx";
 import { TONE_SOFT } from "./stats";
+import { tx } from "@/lib/i18n/tx";
 
 // Simple rows, label-over-value lists, timelines and progress bars (design/ui-prototype/src/kit.jsx).
 
@@ -13,8 +14,8 @@ export function Row({ avatar, icon: Ic, iconTone = "neutral", title, sub, right,
     <>
       {avatar ? <Avatar name={avatar} size={38} /> : Ic ? <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT[iconTone])}><Ic size={19} aria-hidden="true" /></span> : null}
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-[14.5px] leading-snug truncate">{title}</p>
-        {sub && <p className="text-[12.5px] text-ink3 truncate">{sub}</p>}
+        <p className="font-semibold text-[14.5px] leading-snug truncate">{tx(title)}</p>
+        {sub && <p className="text-[12.5px] text-ink3 truncate">{tx(sub)}</p>}
       </div>
       {right && <div className="shrink-0 text-right">{right}</div>}
     </>
@@ -39,7 +40,7 @@ export function DL({ rows, cols = 2, className }: { rows: [string, React.ReactNo
     <dl className={cx("grid gap-x-6 gap-y-3.5 px-5 pb-5", cols === 2 && "sm:grid-cols-2", cols === 3 && "sm:grid-cols-2 xl:grid-cols-3", className)}>
       {rows.map(([k, v]) => (
         <div key={k} className="min-w-0">
-          <dt className="text-[12px] text-ink3 font-semibold">{k}</dt>
+          <dt className="text-[12px] text-ink3 font-semibold">{tx(k)}</dt>
           <dd className="text-[14.5px] mt-0.5 break-words">{v}</dd>
         </div>
       ))}
@@ -80,7 +81,7 @@ export function Checklist({ items }: { items: { label: string; sub?: React.React
         <li key={s.label} className="flex items-center gap-3 px-5 py-3 border-t border-line/70">
           <span className={cx("w-7 h-7 rounded-full grid place-items-center shrink-0 text-[12px] font-bold tnum", s.done ? "bg-ok/15 text-ok" : "bg-sunken text-ink3")}>{s.done ? <Check size={15} strokeWidth={3} aria-hidden="true" /> : i + 1}</span>
           <div className="min-w-0 flex-1">
-            <p className={cx("text-[14.5px] font-semibold", s.done && "text-ink2")}>{s.label}</p>
+            <p className={cx("text-[14.5px] font-semibold", s.done && "text-ink2")}>{tx(s.label)}</p>
             {s.sub && <p className="text-[12.5px] text-ink3">{s.sub}</p>}
           </div>
           {!s.done && s.action}
@@ -121,14 +122,14 @@ export function HBars({ rows, max, unit = "%", lowBelow, labelWidth = 64 }: { ro
 export function Legend({ items }: { items: [string, string][] }) {
   return (
     <div className="flex gap-4 flex-wrap text-[12.5px] text-ink2">
-      {items.map(([cls, l]) => <span key={l} className="flex items-center gap-1.5"><span className={cx("w-2.5 h-2.5 rounded-sm", cls)} />{l}</span>)}
+      {items.map(([cls, l]) => <span key={l} className="flex items-center gap-1.5"><span className={cx("w-2.5 h-2.5 rounded-sm", cls)} />{tx(l)}</span>)}
     </div>
   );
 }
 
 /** "Open" link at the right of a card's title. */
 export function OpenLink({ href, children = "Open" }: { href: string; children?: React.ReactNode }) {
-  return <Link href={href} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink transition shrink-0">{children}<ChevronRight size={16} aria-hidden="true" /></Link>;
+  return <Link href={href} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink transition shrink-0">{tx(children)}<ChevronRight size={16} aria-hidden="true" /></Link>;
 }
 
 /** A settings row: title and help on the left, a control on the right (kit.jsx SettingRow). */
@@ -136,8 +137,8 @@ export function SettingRow({ title, sub, children, id }: { title: React.ReactNod
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
       <label htmlFor={id} className="min-w-0 flex-1 text-[14px]">
-        <b className="font-semibold block">{title}</b>
-        {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{sub}</span>}
+        <b className="font-semibold block">{tx(title)}</b>
+        {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{tx(sub)}</span>}
       </label>
       {children && <div className="shrink-0">{children}</div>}
     </div>

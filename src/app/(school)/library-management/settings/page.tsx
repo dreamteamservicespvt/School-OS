@@ -19,8 +19,12 @@ import { CategorySheet } from "../_components/sheets";
 import { BASE, libGuard, one, UUID, type SearchParams } from "../_lib/page";
 import { archiveCategoryAction } from "../actions";
 import { SettingsForm } from "./settings-form";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Library Settings · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Library Settings · Library Management") };
+}
 
 export default async function LibrarySettingsPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;
@@ -54,18 +58,18 @@ export default async function LibrarySettingsPage({ searchParams }: { searchPara
         }} />
         <Card>
           <CardHeader title="Categories and shelves" icon={FolderTree} description="Reference categories are read in the library and not lent. A category's loan days come before the member's." divided
-            action={can.settings ? <ButtonLink href={`${base}?cat=new`} size="sm" icon={Plus} scroll={false}>Add category</ButtonLink> : undefined} />
+            action={can.settings ? <ButtonLink href={`${base}?cat=new`} size="sm" icon={Plus} scroll={false}><Words k="Add category" /></ButtonLink> : undefined} />
           <ul className="divide-y divide-line/70">
             {d.cats.map((c) => (
               <li key={c.id} className="flex items-center gap-3 px-5 py-3 flex-wrap">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-[14px]">{c.name}</p>
-                  <p className="text-[12.5px] text-ink3">{c.shelf ? `Shelf ${c.shelf}` : "No shelf"} · {c.loanDays ? `${c.loanDays} loan days` : "member's loan days"} · {used(c.id)} book{used(c.id) === 1 ? "" : "s"}</p>
+                  <p className="text-[12.5px] text-ink3">{c.shelf ? `Shelf ${c.shelf}` : "No shelf"} · {c.loanDays ? `${c.loanDays} loan days` : "member's loan days"} · {used(c.id)} <Words k="book" />{used(c.id) === 1 ? "" : "s"}</p>
                 </div>
-                {!c.forLoan && <Pill tone="info">Not lent</Pill>}
+                {!c.forLoan && <Pill tone="info"><Words k="Not lent" /></Pill>}
                 {can.settings && (
                   <span className="flex items-center gap-3">
-                    <Link href={`${base}?cat=${c.id}`} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">Change</Link>
+                    <Link href={`${base}?cat=${c.id}`} scroll={false} className="text-[13px] font-semibold text-brand hover:underline"><Words k="Change" /></Link>
                     {used(c.id) === 0 && <ActButton action={archiveCategoryAction} fields={{ categoryId: c.id }} label="Remove" variant="ghost" ariaLabel={`Remove ${c.name}`} />}
                   </span>
                 )}

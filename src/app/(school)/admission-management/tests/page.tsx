@@ -25,8 +25,12 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { EmptyState } from "@/components/empty-state";
 import { AdmissionHead } from "../_components/head";
 import { OutcomeDialog, ScheduleInterviewButton, ScheduleTestButton, ScoreDialog, type Applicant } from "./test-forms";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Test & Interview" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Test & Interview") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
@@ -104,20 +108,20 @@ export default async function TestsPage({ searchParams }: Search) {
       cells: [
         <div key="d"><p className="font-semibold">{formatDate(t.startsAt, tz)}</p><p className="text-[12.5px] text-ink3">{formatTime(t.startsAt, tz)} · {t.title}</p></div>,
         <span key="v" className="text-[13.5px]">{t.venue ?? "Venue not set"}</span>,
-        <div key="c"><p className="font-medium">{t.classId ? n.classes.get(t.classId) ?? "" : "Mixed classes"}</p><p className="text-[12px] text-ink3">{yl(t.academicYearId)} · out of {t.maxMarks}</p></div>,
+        <div key="c"><p className="font-medium">{t.classId ? n.classes.get(t.classId) ?? "" : "Mixed classes"}</p><p className="text-[12px] text-ink3">{yl(t.academicYearId)} <Words k="· out of" /> {t.maxMarks}</p></div>,
         <span key="b" className="font-semibold tnum">{all}</span>,
-        <span key="s" className="flex items-center gap-2 w-36"><Progress value={all ? (scored / all) * 100 : 0} tone={done ? "ok" : "brand"} className="flex-1" /><span className="text-[12.5px] font-semibold tnum">{scored} of {all}</span></span>,
+        <span key="s" className="flex items-center gap-2 w-36"><Progress value={all ? (scored / all) * 100 : 0} tone={done ? "ok" : "brand"} className="flex-1" /><span className="text-[12.5px] font-semibold tnum">{scored} <Words k="of" /> {all}</span></span>,
       ],
       mobile: {
         title: `${formatDate(t.startsAt, tz)} · ${formatTime(t.startsAt, tz)}`, sub: `${t.classId ? n.classes.get(t.classId) ?? "" : "Mixed classes"} · ${t.venue ?? t.title}`,
-        pills: [<Pill key="b" tone="neutral" className="!h-[22px] !text-[11.5px]">{all} booked</Pill>, <Pill key="s" tone={done ? "ok" : "warn"} className="!h-[22px] !text-[11.5px]">{scored} scored</Pill>],
+        pills: [<Pill key="b" tone="neutral" className="!h-[22px] !text-[11.5px]">{all} <Words k="booked" /></Pill>, <Pill key="s" tone={done ? "ok" : "warn"} className="!h-[22px] !text-[11.5px]">{scored} <Words k="scored" /></Pill>],
       },
     };
   });
 
   const slotRows: ListRow[] = data.slots.map((s) => {
     const cls = n.classes.get(s.application.classId) ?? "";
-    const pill = s.cancelledAt ? <Pill tone="neutral">Cancelled</Pill> : s.outcome ? <Pill tone={OUT_TONE[s.outcome]}>{outcomeLabel(s.outcome)}</Pill> : <Pill tone="neutral">Not yet</Pill>;
+    const pill = s.cancelledAt ? <Pill tone="neutral"><Words k="Cancelled" /></Pill> : s.outcome ? <Pill tone={OUT_TONE[s.outcome]}>{outcomeLabel(s.outcome)}</Pill> : <Pill tone="neutral"><Words k="Not yet" /></Pill>;
     return {
       key: s.id, href: canChange && !s.cancelledAt ? `${PATH}?tab=interviews&outcome=${s.id}` : `${BASE}/applications/${s.application.id}`, active: s.id === outcomeId,
       cells: [
@@ -156,9 +160,9 @@ export default async function TestsPage({ searchParams }: Search) {
             <DataList caption="Entrance tests" rows={testRows} minWidth={720}
               {...rowList([{ key: "d", label: "Date and time" }, { key: "v", label: "Venue" }, { key: "c", label: "Class" }, { key: "b", label: "Booked", align: "right" }, { key: "s", label: "Scores entered" }])}
               empty={filtered
-                ? <EmptyState bare Icon={SearchX} title="No tests in these dates">Try another date range.</EmptyState>
-                : <EmptyState bare Icon={ClipboardCheck} title="No tests scheduled">Schedule an entrance test for one or many applicants. Parents get the date, time and venue.</EmptyState>}
-              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3">{data.tests.length} {data.tests.length === 1 ? "test" : "tests"} · parents get the date, time and venue by WhatsApp or SMS</p>} />
+                ? <EmptyState bare Icon={SearchX} title="No tests in these dates"><Words k="Try another date range." /></EmptyState>
+                : <EmptyState bare Icon={ClipboardCheck} title="No tests scheduled"><Words k="Schedule an entrance test for one or many applicants. Parents get the date, time and venue." /></EmptyState>}
+              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3">{data.tests.length} {data.tests.length === 1 ? "test" : "tests"} <Words k="· parents get the date, time and venue by WhatsApp or SMS" /></p>} />
           </Card>
         ) : (
           <Card className="overflow-hidden">
@@ -167,8 +171,8 @@ export default async function TestsPage({ searchParams }: Search) {
               {...rowList([{ key: "s", label: "Slot", nowrap: true }, { key: "a", label: "Applicant" }, { key: "w", label: "Interviewer" }, { key: "o", label: "Outcome" }])}
               footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3">{slotRows.length} {slotRows.length === 1 ? "interview" : "interviews"}</p>}
               empty={filtered
-                ? <EmptyState bare Icon={SearchX} title="No interviews in these dates">Try another date range.</EmptyState>
-                : <EmptyState bare Icon={Users} title="No interviews booked">Book a 15-minute slot with an interviewer for each applicant.</EmptyState>} />
+                ? <EmptyState bare Icon={SearchX} title="No interviews in these dates"><Words k="Try another date range." /></EmptyState>
+                : <EmptyState bare Icon={Users} title="No interviews booked"><Words k="Book a 15-minute slot with an interviewer for each applicant." /></EmptyState>} />
           </Card>
         )}
       </div>

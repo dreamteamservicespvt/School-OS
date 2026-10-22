@@ -9,6 +9,7 @@ import { SelectField, TextField } from "@/components/ui/field";
 import { FormDialog, err, v } from "../_components/form-dialog";
 import { assignAction, endCoverAction, markAbsentAction, removeSubstituteAction, suggestAction, temporaryTeacherAction, unmarkAbsentAction } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type Need = {
   periodId: string; periodNo: number; startTime: string; endTime: string; sectionLabel: string; subjectName: string | null;
@@ -36,7 +37,7 @@ export function NeedsList({ rows, date, canArrange }: { rows: Need[]; date: stri
               <header className="flex flex-wrap items-center justify-between gap-2 border-b border-line bg-surface-2 px-4 py-2">
                 <h2 className="font-semibold">{list[0].absentName} <span className="font-normal text-ink-2">· {REASON[list[0].reason] ?? list[0].reason} · {list.length} {list.length === 1 ? "period" : "periods"}</span></h2>
                 {canArrange && open.length > 1 && (
-                  <Button size="sm" onClick={() => setAssign({ teacher: list[0].absentName, periods: open, chosen: open.map((p) => p.periodId) })}>Arrange all {open.length}</Button>
+                  <Button size="sm" onClick={() => setAssign({ teacher: list[0].absentName, periods: open, chosen: open.map((p) => p.periodId) })}><Words k="Arrange all" /> {open.length}</Button>
                 )}
               </header>
               <ul className="divide-y divide-line">
@@ -44,10 +45,10 @@ export function NeedsList({ rows, date, canArrange }: { rows: Need[]; date: stri
                   const arranged = r.substitution?.status === "ARRANGED";
                   return (
                     <li key={r.periodId} className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3">
-                      <div className="w-24 shrink-0 text-sm"><span className="block font-semibold">Period {r.periodNo}</span><span className="text-ink-2">{t12(r.startTime)}</span></div>
+                      <div className="w-24 shrink-0 text-sm"><span className="block font-semibold"><Words k="Period" /> {r.periodNo}</span><span className="text-ink-2">{t12(r.startTime)}</span></div>
                       <div className="min-w-40 flex-1">
                         <p className="font-medium">{r.sectionLabel} · {r.subjectName ?? "Period"}</p>
-                        {arranged ? <p className="text-sm">Substitute: <strong>{r.substitution!.substituteName}</strong>{r.substitution!.note ? ` · ${r.substitution!.note}` : ""}</p> : <p><Badge tone="danger">Needed</Badge></p>}
+                        {arranged ? <p className="text-sm"><Words k="Substitute:" /> <strong>{r.substitution!.substituteName}</strong>{r.substitution!.note ? ` · ${r.substitution!.note}` : ""}</p> : <p><Badge tone="danger"><Words k="Needed" /></Badge></p>}
                       </div>
                       {canArrange && (
                         <div className="flex flex-wrap gap-2">
@@ -57,7 +58,7 @@ export function NeedsList({ rows, date, canArrange }: { rows: Need[]; date: stri
                           {arranged && (
                             <ConfirmButton trigger="Remove" triggerVariant="ghost" triggerClassName="text-danger" title="Remove this substitute?" confirmLabel="Remove substitute" confirmVariant="danger"
                               onConfirm={async () => { const p = await removeSubstituteAction(r.substitution!.id); if (!p) router.refresh(); return p; }}>
-                              {r.substitution!.substituteName} is told they no longer cover {r.sectionLabel}, period {r.periodNo}. The period shows as Needed again.
+                              {r.substitution!.substituteName} <Words k="is told they no longer cover" /> {r.sectionLabel}<Words k=", period" /> {r.periodNo}<Words k=". The period shows as Needed again." />
                             </ConfirmButton>
                           )}
                         </div>
@@ -101,23 +102,23 @@ function AssignDialog({ teacher, periods, initial, date, onClose }: { teacher: s
       {(state) => (
         <>
           <fieldset>
-            <legend className="mb-1 text-sm font-medium">Periods</legend>
+            <legend className="mb-1 text-sm font-medium"><Words k="Periods" /></legend>
             <div className="flex flex-wrap gap-2">
               {periods.map((p) => (
                 <label key={p.periodId} className={`flex min-h-11 items-center gap-2 rounded-lg border px-3 text-sm ${chosen.includes(p.periodId) ? "border-brand bg-brand-soft" : "border-line"}`}>
                   <KeepCheck type="checkbox" name="periodIds" value={p.periodId} className="size-5" checked={chosen.includes(p.periodId)} onChange={() => toggle(p.periodId)} />
-                  Period {p.periodNo}, {p.sectionLabel}
+                  <Words k="Period" /> {p.periodNo}, {p.sectionLabel}
                 </label>
               ))}
             </div>
-            {periods.length > 1 && <p className="mt-1 text-xs text-ink-2">Choose several to give them all to one teacher. Only teachers free in all of them are listed.</p>}
+            {periods.length > 1 && <p className="mt-1 text-xs text-ink-2"><Words k="Choose several to give them all to one teacher. Only teachers free in all of them are listed." /></p>}
             {err(state, "periodIds") && <p className="mt-1 text-sm text-danger">{err(state, "periodIds")}</p>}
           </fieldset>
           <fieldset aria-describedby="sub-help">
-            <legend className="mb-1 text-sm font-medium">Substitute <span className="text-danger">*</span></legend>
-            <p id="sub-help" className="mb-2 text-xs text-ink-2">Only free teachers are shown, best match first: teaches the same subject, teaches the class, fewest substitutions this week.</p>
+            <legend className="mb-1 text-sm font-medium"><Words k="Substitute" /> <span className="text-danger">*</span></legend>
+            <p id="sub-help" className="mb-2 text-xs text-ink-2"><Words k="Only free teachers are shown, best match first: teaches the same subject, teaches the class, fewest substitutions this week." /></p>
             {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-            {list === null ? <p className="text-sm text-ink-2" aria-live="polite">Finding free teachers…</p> : list.length === 0 ? (
+            {list === null ? <p className="text-sm text-ink-2" aria-live="polite"><Words k="Finding free teachers…" /></p> : list.length === 0 ? (
               <p className="rounded-xl bg-warn-bg px-3 py-2 text-sm text-warn-text">{chosen.length === 0 ? "Choose a period first." : "No teacher is free in all the chosen periods. Choose fewer periods."}</p>
             ) : (
               <ul className="max-h-[40vh] space-y-1 overflow-y-auto">
@@ -126,7 +127,7 @@ function AssignDialog({ teacher, periods, initial, date, onClose }: { teacher: s
                     <label className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 ${pick === s.id ? "border-brand bg-brand-soft" : "border-line hover:bg-surface-2"}`}>
                       <KeepCheck type="radio" name="substituteId" value={s.id} className="mt-1 size-5" checked={pick === s.id} onChange={() => setPick(s.id)} />
                       <span>
-                        <span className="font-medium">{s.name}</span>{i === 0 && <Badge tone="success" className="ml-2">Best match</Badge>}
+                        <span className="font-medium">{s.name}</span>{i === 0 && <Badge tone="success" className="ml-2"><Words k="Best match" /></Badge>}
                         <span className="block text-sm text-ink-2">{[s.designation, s.why].filter(Boolean).join(" · ")}</span>
                       </span>
                     </label>
@@ -151,7 +152,7 @@ export function MarkAbsentButton({ teachers, date }: { teachers: { id: string; n
           <SelectField label="Teacher" name="staffId" required defaultValue={v(state, "staffId")} placeholder="Choose a teacher" options={teachers.map((t) => ({ value: t.id, label: t.name }))} error={err(state, "staffId")} />
           <TextField label="Date" name="date" type="date" required defaultValue={v(state, "date", date)} error={err(state, "date")} />
           <TextField label="Note" name="note" defaultValue={v(state, "note")} placeholder="Unwell, called at 7:30" error={err(state, "note")} />
-          <p className="text-sm text-ink-2">Their periods that day are listed as needing a substitute. For leave, approve it in Staff &amp; HR instead; it shows here by itself.</p>
+          <p className="text-sm text-ink-2"><Words k={"Their periods that day are listed as needing a substitute. For leave, approve it in Staff & HR instead; it shows here by itself."} /></p>
         </>
       )}
     </FormDialog>
@@ -171,7 +172,7 @@ export function TemporaryTeacherButton({ teachers, today }: { teachers: { id: st
           <SelectField label="Temporary teacher" name="tempStaffId" required defaultValue={v(state, "tempStaffId")} placeholder="Choose a teacher" options={teachers.map((t) => ({ value: t.id, label: t.name }))} error={err(state, "tempStaffId")}
             help="A newly hired temporary teacher is added in Staff & HR first." />
           <TextField label="Note" name="note" defaultValue={v(state, "note")} error={err(state, "note")} />
-          <p className="text-sm text-ink-2">They take the absent teacher&apos;s periods on every school day in between. Periods that clash with their own classes stay Needed.</p>
+          <p className="text-sm text-ink-2"><Words k="They take the absent teacher's periods on every school day in between. Periods that clash with their own classes stay Needed." /></p>
         </>
       )}
     </FormDialog>
@@ -183,7 +184,7 @@ export function UnmarkAbsent({ id, name }: { id: string; name: string }) {
   return (
     <ConfirmButton trigger="Remove" triggerVariant="ghost" triggerClassName="text-danger" title={`Remove ${name}'s absence?`} confirmLabel="Remove absence" confirmVariant="danger"
       onConfirm={async () => { const p = await unmarkAbsentAction(id); if (!p) router.refresh(); return p; }}>
-      Substitutions arranged for it are cancelled and the substitutes are told.
+      <Words k="Substitutions arranged for it are cancelled and the substitutes are told." />
     </ConfirmButton>
   );
 }
@@ -193,7 +194,7 @@ export function EndCover({ id, name }: { id: string; name: string }) {
   return (
     <ConfirmButton trigger="End" triggerVariant="ghost" triggerClassName="text-danger" title={`End ${name}'s temporary cover?`} confirmLabel="End temporary teacher" confirmVariant="danger"
       onConfirm={async () => { const p = await endCoverAction(id); if (!p) router.refresh(); return p; }}>
-      From today, the periods go back to the regular teacher. Past substitutions stay in the history.
+      <Words k="From today, the periods go back to the regular teacher. Past substitutions stay in the history." />
     </ConfirmButton>
   );
 }

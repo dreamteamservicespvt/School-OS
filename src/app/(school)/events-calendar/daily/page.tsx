@@ -15,8 +15,12 @@ import { ActButton } from "../_components/bits";
 import { AssignSheet, DailyLog, SendDiarySheet } from "../_components/daily-sheets";
 import { removeActivityAction, remindDiaryAction } from "../activity-actions";
 import { BASE, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Daily Activities" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Daily Activities") };
+}
 
 const HREF = `${BASE}/daily`;
 
@@ -78,10 +82,10 @@ export default async function DailyPage({ searchParams }: { searchParams: Search
       {d.acts.length ? (
         <div className="overflow-x-auto scroll-thin border-t border-line">
           <table className="text-[12.5px] min-w-full">
-            <caption className="sr-only">Today’s diary for {sec.label}</caption>
+            <caption className="sr-only"><Words k="Today’s diary for" /> {sec.label}</caption>
             <thead>
               <tr className="border-b border-line text-ink3">
-                <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2 min-w-[150px]">Child</th>
+                <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2 min-w-[150px]"><Words k="Child" /></th>
                 {d.acts.map((a) => {
                   const inner = <><span className="flex items-center gap-1 whitespace-nowrap"><EvIcon name={activityIcon(a.type, a.label)} size={13} />{a.label.split(":")[0]}</span><span className="block text-[11px] font-medium opacity-90 tnum">{clock(a.startMin)} · {done(a)}/{present.length}</span></>;
                   return (
@@ -98,7 +102,7 @@ export default async function DailyPage({ searchParams }: { searchParams: Search
                 const off = d.absent.has(k.id);
                 return (
                   <tr key={k.id} className="border-b border-line/60 last:border-0">
-                    <th scope="row" className="sticky left-0 z-10 bg-surface px-4 py-2 font-medium whitespace-nowrap text-left">{k.fullName}{off && <span className="text-bad text-[11.5px] font-semibold"> · absent</span>}</th>
+                    <th scope="row" className="sticky left-0 z-10 bg-surface px-4 py-2 font-medium whitespace-nowrap text-left">{k.fullName}{off && <span className="text-bad text-[11.5px] font-semibold"> <Words k="· absent" /></span>}</th>
                     {d.acts.map((a) => {
                       const l = off ? null : a.logs.find((x) => x.studentId === k.id);
                       return <td key={a.id} className="px-1.5 py-1.5">{l ? <span title={l.note ?? undefined} className={cx("inline-block rounded-md px-1.5 py-0.5 text-[11.5px] font-semibold whitespace-nowrap", needsCare(l.value) ? "bg-warn/12 text-warn" : "bg-ok/12 text-ok")}>{l.value}{l.note ? " *" : ""}</span> : <span className="text-ink3">—</span>}</td>;
@@ -111,7 +115,7 @@ export default async function DailyPage({ searchParams }: { searchParams: Search
         </div>
       ) : (
         <div className="border-t border-line"><Empty icon={CalendarPlus} title="Nothing assigned for today" body={writer ? "Assign today’s activities: meals, nap, water and learning activities." : `${sec.teacher ?? "The class teacher"} has not assigned activities for today yet.`}
-          action={writer ? <ButtonLink variant="secondary" icon={CalendarPlus} href={here({ do: "assign" })} scroll={false}>Assign activities</ButtonLink> : undefined} /></div>
+          action={writer ? <ButtonLink variant="secondary" icon={CalendarPlus} href={here({ do: "assign" })} scroll={false}><Words k="Assign activities" /></ButtonLink> : undefined} /></div>
       )}
     </Card>
   );
@@ -123,7 +127,7 @@ export default async function DailyPage({ searchParams }: { searchParams: Search
       <ul className="px-2 pb-2 max-h-72 overflow-y-auto scroll-thin">
         {!sentToday && range.from <= today && today <= range.to && d.acts.length > 0 && <Row icon={NotebookPen} iconTone="brand" title={shortDay(today)} sub="Being filled in now · not sent yet" />}
         {d.sent.map((x) => <Row key={x.id} icon={Send} iconTone="ok" title={shortDay(isoOf(x.date))} sub={`Sent ${formatTime(x.sentAt, p.tz)} · ${x.people} parents · ${x.logged}% of activities logged`} />)}
-        {!d.sent.length && (sentToday || !d.acts.length || today < range.from || today > range.to) && <li className="px-3 py-3 text-[13.5px] text-ink3">No diaries sent in these dates.</li>}
+        {!d.sent.length && (sentToday || !d.acts.length || today < range.from || today > range.to) && <li className="px-3 py-3 text-[13.5px] text-ink3"><Words k="No diaries sent in these dates." /></li>}
       </ul>
     </Card>
   );
@@ -132,7 +136,7 @@ export default async function DailyPage({ searchParams }: { searchParams: Search
     <Card>
       <CardHeader title="Diary filled in" description={`Activities logged when the diary went out · ${spanWords(range.from, range.to)}`} icon={BarChart3} />
       <div className="px-5 pb-5">
-        {d.filled.size ? <HBars rows={sections.filter((s) => d.filled.has(s.id)).map((s) => ({ k: s.label.replace("Nursery", "Nur"), v: d.filled.get(s.id) ?? 0 }))} lowBelow={90} labelWidth={64} /> : <p className="text-[13.5px] text-ink3">No diaries sent in these dates.</p>}
+        {d.filled.size ? <HBars rows={sections.filter((s) => d.filled.has(s.id)).map((s) => ({ k: s.label.replace("Nursery", "Nur"), v: d.filled.get(s.id) ?? 0 }))} lowBelow={90} labelWidth={64} /> : <p className="text-[13.5px] text-ink3"><Words k="No diaries sent in these dates." /></p>}
       </div>
     </Card>
   );
@@ -141,14 +145,14 @@ export default async function DailyPage({ searchParams }: { searchParams: Search
     <div>
       <EvHead pageName="Daily Activities" href={HREF} sub="The pre-primary daily diary: meals, nap, water and activities for each child. Parents get it in the afternoon."
         actions={writer && <>
-          <ButtonLink variant="secondary" icon={CalendarPlus} className="hidden md:inline-flex" href={here({ do: "assign" })} scroll={false}>Assign activities</ButtonLink>
+          <ButtonLink variant="secondary" icon={CalendarPlus} className="hidden md:inline-flex" href={here({ do: "assign" })} scroll={false}><Words k="Assign activities" /></ButtonLink>
           <ButtonLink variant="primary" icon={Send} href={here({ do: "send" })} scroll={false}>{sentToday ? "Send again" : "Send today’s diary"}</ButtonLink>
         </>} />
       <div className="flex flex-col gap-5 lg:gap-6">
         {writer ? (
           <>
             {sections.length > 1 && <Chips label="Class" value={sectionId} options={sections.map((s) => ({ value: s.id, label: s.label, count: s.students, href: qs(HREF, { section: s.id, ...vp.keep }) }))} />}
-            <p className="text-[13.5px] text-ink3 -mt-2">{subLine}<b className="font-semibold text-ink2">{present.length} present</b>{absentKids.length ? `, ${absentKids.length} absent (${absentKids.map((k) => k.fullName).join(", ")})` : ", no one absent"}</p>
+            <p className="text-[13.5px] text-ink3 -mt-2">{subLine}<b className="font-semibold text-ink2">{present.length} <Words k="present" /></b>{absentKids.length ? `, ${absentKids.length} absent (${absentKids.map((k) => k.fullName).join(", ")})` : ", no one absent"}</p>
             <Split side={340}>
               {diaryTable}
               <Col>
@@ -175,7 +179,7 @@ export default async function DailyPage({ searchParams }: { searchParams: Search
                   return (
                     <div key={c.id} className={cx("rounded-xl border p-3 flex flex-col gap-2 min-w-0", on ? "border-brand bg-brand/10" : "border-line")}>
                       <Link href={qs(HREF, { section: c.id === sections[0].id ? null : c.id, ...vp.keep })} scroll={false} aria-current={on ? "true" : undefined} className="text-left min-w-0 block">
-                        <span className="flex items-baseline justify-between gap-2"><span className="font-semibold text-[14.5px]">{c.label}</span><span className="text-[12.5px] text-ink2 tnum shrink-0"><b className="text-ink">{c.present}</b> of {c.students} in</span></span>
+                        <span className="flex items-baseline justify-between gap-2"><span className="font-semibold text-[14.5px]">{c.label}</span><span className="text-[12.5px] text-ink2 tnum shrink-0"><b className="text-ink">{c.present}</b> <Words k="of" /> {c.students} <Words k="in" /></span></span>
                         <span className="block text-[12.5px] text-ink3 truncate">{c.teacher ?? "No class teacher"}</span>
                         <Progress value={c.due ? (c.logged / c.due) * 100 : c.sentAt ? 100 : 0} tone={behind ? "warn" : "ok"} className="mt-2" />
                         <span className={cx("block text-[12.5px] mt-1.5", behind ? "text-warn font-semibold" : "text-ink3")}>
@@ -183,8 +187,8 @@ export default async function DailyPage({ searchParams }: { searchParams: Search
                         </span>
                       </Link>
                       {behind && !c.sentAt && (c.reminded
-                        ? <span className="text-[12.5px] text-ok font-semibold flex items-center gap-1"><Check size={14} aria-hidden="true" />Reminded</span>
-                        : c.teacher && <ActButton action={remindDiaryAction} fields={{ sectionId: c.id }} label={<><Bell size={15} aria-hidden="true" />Remind {c.teacher.split(" ")[0]}</>} />)}
+                        ? <span className="text-[12.5px] text-ok font-semibold flex items-center gap-1"><Check size={14} aria-hidden="true" /><Words k="Reminded" /></span>
+                        : c.teacher && <ActButton action={remindDiaryAction} fields={{ sectionId: c.id }} label={<><Bell size={15} aria-hidden="true" /><Words k="Remind" /> {c.teacher.split(" ")[0]}</>} />)}
                     </div>
                   );
                 })}

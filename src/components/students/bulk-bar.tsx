@@ -7,6 +7,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { buttonClass } from "@/components/ui/button";
+import { Words } from "@/lib/i18n/client";
 
 export type BulkAction = { label: string; href: string; primary?: boolean; /** A file (PDF, CSV): opened directly instead of as a page. */ file?: boolean };
 
@@ -61,11 +62,11 @@ export function BulkBar({ form, actions, noun = "student" }: { form: string; act
       className={count ? "no-print fixed inset-x-2 bottom-20 z-30 rounded-2xl border border-line bg-surface p-3 shadow-pop sm:bottom-4 lg:left-[17rem]" : "hidden"}
       aria-hidden={count ? undefined : true}>
       <div className="flex flex-wrap items-center gap-2">
-        <p className="mr-2 font-medium" aria-live="polite">{count} {noun}{count === 1 ? "" : "s"} chosen</p>
+        <p className="mr-2 font-medium" aria-live="polite">{count} {noun}{count === 1 ? "" : "s"} <Words k="chosen" /></p>
         {actions.map((a) => (
           <button key={a.label} type="submit" data-href={a.href} data-file={a.file ? "1" : undefined} className={buttonClass(a.primary ? "primary" : "secondary", "sm")}>{a.label}</button>
         ))}
-        <button type="button" onClick={clear} className={buttonClass("ghost", "sm", "ml-auto")}>Clear</button>
+        <button type="button" onClick={clear} className={buttonClass("ghost", "sm", "ml-auto")}><Words k="Clear" /></button>
       </div>
     </form>
   );

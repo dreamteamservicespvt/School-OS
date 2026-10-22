@@ -11,6 +11,7 @@ import { Button, type ButtonVariant } from "@/components/ui/button";
 import { MoreMenu } from "@/components/ui/more-menu";
 import { cx } from "@/components/ui/cx";
 import { prepareAction, togglePinAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 /** Runs a one-tap action; shows its problem under the button. */
 function useQuick() {
@@ -61,7 +62,7 @@ export function PrepareButton({ reportKey, params, words, href }: { reportKey: s
         const r = await prepareAction(reportKey, params, words, "xlsx");
         if (r.problem || !r.runId) setProblem(r.problem ?? "That did not work. Please try again.");
         else router.replace(`${href}${href.includes("?") ? "&" : "?"}run=${r.runId}`, { scroll: false });
-      })}>Prepare the report</Button>
+      })}><Words k="Prepare the report" /></Button>
       {problem && <span role="alert" className="text-[12.5px] text-bad">{problem}</span>}
     </span>
   );

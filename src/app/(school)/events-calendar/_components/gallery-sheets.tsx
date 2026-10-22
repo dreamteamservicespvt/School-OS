@@ -17,6 +17,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { albumAccessAction, publishAlbumAction, saveAlbumAction, tagAction } from "../actions";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 
@@ -42,13 +43,13 @@ export function AlbumSheet({ closeHref, start, events, classes, rule }: { closeH
       {!editing && (
         <>
           <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-semibold text-ink2">Visible to<span className="text-bad" aria-hidden="true"> *</span></span>
+            <span className="text-[13px] font-semibold text-ink2"><Words k="Visible to" /><span className="text-bad" aria-hidden="true"> *</span></span>
             <Segmented label="Visible to" value={vis} onChange={setVis} options={VIS.map((o) => ({ ...o, label: o.value === "CLASSES" ? "Chosen classes" : o.label }))} className="w-full" />
-            <span className="text-[12.5px] text-ink3">Staff only until you change it</span>
+            <span className="text-[12.5px] text-ink3"><Words k="Staff only until you change it" /></span>
           </div>
           {vis === "CLASSES" && <SChips name="classIds" label="Classes" options={classes} required />}
           <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-semibold text-ink2">Students without photo consent<span className="text-bad" aria-hidden="true"> *</span></span>
+            <span className="text-[13px] font-semibold text-ink2"><Words k="Students without photo consent" /><span className="text-bad" aria-hidden="true"> *</span></span>
             <Segmented label="Students without photo consent" value={cr} onChange={setCr} options={RULES} className="w-full" />
           </div>
         </>
@@ -61,8 +62,8 @@ export function PublishStaffOnlySheet({ closeHref, changeHref, albumId }: { clos
   return (
     <SheetForm title="Visible to staff only. Change before publishing?" sub="Parents cannot see this album yet. Pick who can see it, or publish for staff only." closeHref={closeHref}
       action={publishAlbumAction} submitLabel="Publish for staff only" hidden={{ albumId, staffOnly: "on" }}
-      extraButtons={<a href={changeHref} className="h-10 px-4 inline-flex items-center rounded-xl text-[14px] font-semibold text-brand hover:bg-brand/8">Change who can see it</a>}>
-      <p className="text-[14px] text-ink2">Untagged photos stay staff only either way.</p>
+      extraButtons={<a href={changeHref} className="h-10 px-4 inline-flex items-center rounded-xl text-[14px] font-semibold text-brand hover:bg-brand/8"><Words k="Change who can see it" /></a>}>
+      <p className="text-[14px] text-ink2"><Words k="Untagged photos stay staff only either way." /></p>
     </SheetForm>
   );
 }
@@ -84,7 +85,7 @@ export function TagSheet({ closeHref, removeHref, mediaId, src, video, students 
   return (
     <SheetForm wide title="Tag students in this photo" sub="Pick from the event’s list. Photo consent is shown for each. Tap a name, then tap the photo to mark where they are."
       closeHref={closeHref} action={tagAction} submitLabel={<><Tag size={16} aria-hidden="true" />{on.size === 1 ? "Tag 1 student" : `Tag ${on.size || ""} students`.replace("  ", " ")}</>} submitDisabled={!on.size} hidden={{ mediaId }}
-      extraButtons={<Button type="submit" variant="ghost" name="noStudents" value="yes">No students in it</Button>}>
+      extraButtons={<Button type="submit" variant="ghost" name="noStudents" value="yes"><Words k="No students in it" /></Button>}>
       <div ref={box} className="relative rounded-xl overflow-hidden bg-sunken select-none"
         onClick={(e) => {
           if (!active || video || !box.current) return;
@@ -101,7 +102,7 @@ export function TagSheet({ closeHref, removeHref, mediaId, src, video, students 
           return <span key={id} className={cx("absolute -translate-x-1/2 -translate-y-1/2 w-9 h-9 rounded-full border-2 pointer-events-none", s?.consent ? "border-ok" : "border-warn", id === active && "ring-2 ring-brand")} style={{ left: `${pos[id].x * 100}%`, top: `${pos[id].y * 100}%` }} aria-hidden="true" />;
         })}
       </div>
-      {miss > 0 && <p className="text-[13px] text-warn font-medium">{miss} without photo consent: they are left out or blurred when shared{video ? " (videos are left out)" : ""}.</p>}
+      {miss > 0 && <p className="text-[13px] text-warn font-medium">{miss} <Words k="without photo consent: they are left out or blurred when shared" />{video ? " (videos are left out)" : ""}.</p>}
       <div className="relative">
         <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
         <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Student name or class" aria-label="Search students" className={cx(inputCls(false), "h-11 pl-10")} />
@@ -117,9 +118,9 @@ export function TagSheet({ closeHref, removeHref, mediaId, src, video, students 
             <Pill tone={s.consent ? "ok" : "warn"} className="!h-[22px] !text-[11px]">{s.consent ? "Photo consent" : "No consent"}</Pill>
           </li>
         ))}
-        {!list.length && <li className="px-2 py-4 text-[14px] text-ink3">No students match.</li>}
+        {!list.length && <li className="px-2 py-4 text-[14px] text-ink3"><Words k="No students match." /></li>}
       </ul>
-      <a href={removeHref} className="self-start text-[13px] font-semibold text-bad hover:underline">Remove this {video ? "video" : "photo"} from the album</a>
+      <a href={removeHref} className="self-start text-[13px] font-semibold text-bad hover:underline"><Words k="Remove this" /> {video ? "video" : "photo"} <Words k="from the album" /></a>
       {[...on].map((id) => (
         <span key={id} hidden>
           <input type="hidden" name="studentIds" value={id} />
@@ -144,7 +145,7 @@ export function AccessForm({ albumId, visibleTo, classIds, consentRule, classes,
       <input type="hidden" name="consentRule" value={cr} />
       {vis === "CLASSES" && [...cls].map((c) => <input key={c} type="hidden" name="classIds" value={c} />)}
       <label className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Visible to</span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Visible to" /></span>
         <KeepSelect name="visibleTo" value={vis} disabled={!canEdit} onChange={(e) => setVis(e.target.value)} className={cx(inputCls(false), "h-11")} id="al-vis">
           {VIS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </KeepSelect>
@@ -159,10 +160,10 @@ export function AccessForm({ albumId, visibleTo, classIds, consentRule, classes,
         </div>
       )}
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Students without photo consent</span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Students without photo consent" /></span>
         <Segmented label="Students without photo consent" value={cr} onChange={(v) => canEdit && setCr(v)} options={[{ value: "OUT", label: "Leave photo out" }, { value: "BLUR", label: "Blur them" }]} className="w-full" />
       </div>
-      {canEdit && changed && <Button type="submit" variant="primary" loading={pending} className="self-start">Save</Button>}
+      {canEdit && changed && <Button type="submit" variant="primary" loading={pending} className="self-start"><Words k="Save" /></Button>}
       {state && <p role={state.ok ? "status" : "alert"} className={cx("text-[12.5px]", state.ok ? "text-ok" : "text-bad")}>{state.message}</p>}
     </form>
   );
@@ -207,7 +208,7 @@ export function UploadButton({ albumId }: { albumId: string }) {
             if (input.current) input.current.value = "";
           }
         }} />
-      <Button variant="secondary" icon={Upload} loading={busy} loadingText="Uploading…" onClick={() => input.current?.click()}>Upload</Button>
+      <Button variant="secondary" icon={Upload} loading={busy} loadingText="Uploading…" onClick={() => input.current?.click()}><Words k="Upload" /></Button>
       {msg && <span role={msg.ok ? "status" : "alert"} className={cx("text-[12.5px] max-w-[280px]", msg.ok ? "text-ok" : "text-bad")}>{msg.text}</span>}
     </span>
   );

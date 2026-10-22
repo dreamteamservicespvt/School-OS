@@ -17,6 +17,7 @@ import type { FormState } from "@/lib/forms";
 import { formatRupees } from "@/lib/format";
 import { addChargeAction, addOldDuesAction, adjustAction, assignPlanAction, certificateAction, invoiceAction, resendInvoiceAction } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Common = { studentId: string; closeHref: string };
 
@@ -44,17 +45,17 @@ export function AdjustSheet({ studentId, closeHref, rows, start, amounts = true 
     <SheetForm title="Adjust an amount" sub="Adds an adjustment row with a reason. Payments themselves never change."
       closeHref={closeHref} action={adjustAction} submitLabel={how === "remove" ? "Remove the row" : "Save adjustment"} submitVariant={how === "remove" ? "danger" : "primary"}
       pendingText="Saving…" hidden={{ studentId, how }}>
-      {rows.length === 0 ? <Alert tone="info">This student has no open rows to adjust.</Alert> : (
+      {rows.length === 0 ? <Alert tone="info"><Words k="This student has no open rows to adjust." /></Alert> : (
         <>
           <SSelect name="dueId" label="Row" required options={rows} start={row} onChange={(e) => setRow(e.target.value)} help={chosen ? `${chosen.left} left on this row` : undefined} />
           <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-semibold text-ink2">What to do</span>
+            <span className="text-[13px] font-semibold text-ink2"><Words k="What to do" /></span>
             <Segmented label="What to do" value={how} onChange={(v) => setHow(v as typeof how)} options={[
               ...(amounts ? [{ value: "reduce", label: "Reduce" }, { value: "add", label: "Add" }] : []), ...(chosen?.removable ? [{ value: "remove", label: "Remove the row" }] : []),
             ]} />
           </div>
           {how !== "remove" ? <SMoney name="amount" label={how === "add" ? "Amount to add" : "Amount to reduce"} required />
-            : <Alert tone="warning">The row comes off the student’s fees. It stays on the ledger, struck through, with your reason.</Alert>}
+            : <Alert tone="warning"><Words k="The row comes off the student’s fees. It stays on the ledger, struck through, with your reason." /></Alert>}
           <SArea name="reason" label="Reason" required placeholder="Example: fee for the hostel was charged twice in June" />
         </>
       )}
@@ -82,7 +83,7 @@ export function AssignSheet({ studentId, closeHref, plans, own }: Common & { pla
   return (
     <SheetForm title="Assign a fee plan" sub="Pick the class plan. A plan of another class is an exception and needs a reason."
       closeHref={closeHref} action={assignPlanAction} submitLabel="Assign fee plan" pendingText="Assigning…" hidden={{ studentId }} submitDisabled={!plans.length}>
-      {plans.length === 0 ? <Alert tone="info">No fee structure is published for this year yet. Publish one in Fee Structure first.</Alert> : (
+      {plans.length === 0 ? <Alert tone="info"><Words k="No fee structure is published for this year yet. Publish one in Fee Structure first." /></Alert> : (
         <>
           <SSelect name="structureId" label="Fee plan" required options={plans} start={plan} onChange={(e) => setPlan(e.target.value)} />
           {plan !== own && <SArea name="reason" label="Reason" required placeholder="Why this student follows another plan" />}
@@ -115,7 +116,7 @@ export function InvoiceSheet({ studentId, closeHref, rows, father, canLink }: Co
   return (
     <SheetForm title="Fee invoice" sub="What is due now is ticked. Tick more rows to ask for them early. The invoice gets its own number." closeHref={closeHref} action={invoiceAction}
       submitLabel="Make invoice" pendingText="Making…" hidden={{ studentId }} submitDisabled={ticked.size === 0}>
-      {rows.length === 0 ? <Alert tone="info">Nothing is left to pay, so there is nothing to invoice.</Alert> : (
+      {rows.length === 0 ? <Alert tone="info"><Words k="Nothing is left to pay, so there is nothing to invoice." /></Alert> : (
         <>
           <ul className="rounded-xl border border-line divide-y divide-line/70 text-[14px]" aria-label="Rows on the invoice">
             {rows.map((r) => (
@@ -127,10 +128,10 @@ export function InvoiceSheet({ studentId, closeHref, rows, father, canLink }: Co
                 </label>
               </li>
             ))}
-            <li className="flex justify-between gap-3 px-4 py-2.5 font-semibold"><span>Total on the invoice</span><span className="tnum">{formatRupees(total)}</span></li>
+            <li className="flex justify-between gap-3 px-4 py-2.5 font-semibold"><span><Words k="Total on the invoice" /></span><span className="tnum">{formatRupees(total)}</span></li>
           </ul>
           {canLink ? <SSwitch name="send" title={`Send to ${father} on WhatsApp`} sub="With a Razorpay link to pay online. The link works for 7 days." start />
-            : <p className="text-[13px] text-ink3">Online payment is not set up, so the invoice is made without a payment link. Gateways are connected in Settings, Payment Gateways.</p>}
+            : <p className="text-[13px] text-ink3"><Words k="Online payment is not set up, so the invoice is made without a payment link. Gateways are connected in Settings, Payment Gateways." /></p>}
         </>
       )}
     </SheetForm>
@@ -140,7 +141,7 @@ export function InvoiceSheet({ studentId, closeHref, rows, father, canLink }: Co
 /** "Send again" on an invoice: the parent gets its unpaid rows with a fresh payment link. */
 export function ResendInvoice({ studentId, invoiceId }: { studentId: string; invoiceId: string }) {
   const [state, action, pending] = useActionState<FormState<unknown>, FormData>(resendInvoiceAction as never, null);
-  if (state?.ok) return <Pill tone="ok" className="!h-6 !text-[11.5px] shrink-0">Sent</Pill>;
+  if (state?.ok) return <Pill tone="ok" className="!h-6 !text-[11.5px] shrink-0"><Words k="Sent" /></Pill>;
   return (
     <form action={action} className="shrink-0 flex items-center gap-1">
       <input type="hidden" name="studentId" value={studentId} />

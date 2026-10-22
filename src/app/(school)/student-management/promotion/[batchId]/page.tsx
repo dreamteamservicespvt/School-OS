@@ -13,8 +13,12 @@ import { BASE, studentPage } from "../../_lib/page";
 import { undoPromotionAction } from "../../_actions/promotion";
 import { seesStudentFees } from "@/lib/fees/access";
 import { seesResults } from "@/lib/exams/scope";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Promotion batch" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Promotion batch") };
+}
 
 const LABEL = { PROMOTE: "Promoted", DETAIN: "Detained", LEAVING: "Leaving" } as const;
 const TONE = { PROMOTE: "success", DETAIN: "warning", LEAVING: "neutral" } as const;
@@ -51,18 +55,18 @@ export default async function PromotionBatchPage({ params }: { params: Promise<{
     <>
       <BackLink href={`${BASE}/promotion`} label="Promotion" />
       <PageHeader title={`Promotion of ${sec(batch.fromSectionId)} (${yearName(batch.fromYearId)})`} href={`${BASE}/promotion/${batch.id}`} userId={current.user.id}>
-        <ButtonLink href={`${BASE}/promotion`} size="sm">Back to Promotion</ButtonLink>
+        <ButtonLink href={`${BASE}/promotion`} size="sm"><Words k="Back to Promotion" /></ButtonLink>
       </PageHeader>
       <div className="space-y-4">
         <Card>
           <CardHeader title={batch.summary} description={`Saved ${formatDateTime(batch.confirmedAt, tz)} by ${who(batch.confirmedById)}. To ${yearName(batch.toYearId)}.`}
-            action={batch.undoneAt ? <Badge>Undone</Badge> : (
+            action={batch.undoneAt ? <Badge><Words k="Undone" /></Badge> : (
               <ConfirmAction action={undoPromotionAction} fields={{ batchId: batch.id }} trigger="Undo this promotion" triggerVariant="danger-outline"
                 title="Undo this promotion?" confirmLabel="Undo promotion" confirmVariant="danger">
-                The {batch.decisions.length} students go back to {sec(batch.fromSectionId)} in {yearName(batch.fromYearId)} and their new-year class is removed. This works only while nothing is recorded for them in {yearName(batch.toYearId)}. The batch stays in the history.
+                <Words k="The" /> {batch.decisions.length} <Words k="students go back to" /> {sec(batch.fromSectionId)} <Words k="in" /> {yearName(batch.fromYearId)} <Words k="and their new-year class is removed. This works only while nothing is recorded for them in" /> {yearName(batch.toYearId)}<Words k=". The batch stays in the history." />
               </ConfirmAction>
             )} />
-          {batch.undoneAt && <CardBody><p className="text-ink2">Undone {formatDateTime(batch.undoneAt, tz)} by {who(batch.undoneById)}.</p></CardBody>}
+          {batch.undoneAt && <CardBody><p className="text-ink2"><Words k="Undone" /> {formatDateTime(batch.undoneAt, tz)} <Words k="by" /> {who(batch.undoneById)}.</p></CardBody>}
         </Card>
         <Card>
           <CardHeader title="Decisions" />
@@ -78,12 +82,12 @@ export default async function PromotionBatchPage({ params }: { params: Promise<{
                       <p className="text-[13.5px] text-ink2">
                         {[seeResults ? facts.resultText : null, facts.attendancePct != null ? `Attendance ${Math.round(facts.attendancePct)}%` : null, seeFees && facts.feeDuePaise && BigInt(facts.feeDuePaise) > BigInt(0) ? `Fees due ${formatRupees(BigInt(facts.feeDuePaise))}` : null].filter(Boolean).join(" · ")}
                       </p>
-                      {d.decision !== d.suggested && <p className="text-[13.5px]">Suggested {LABEL[d.suggested].toLowerCase()}; changed because: {d.reason}</p>}
+                      {d.decision !== d.suggested && <p className="text-[13.5px]"><Words k="Suggested" /> {LABEL[d.suggested].toLowerCase()}<Words k="; changed because:" /> {d.reason}</p>}
                     </div>
                     <span className="flex items-center gap-2">
                       <Badge tone={TONE[d.decision]}>{LABEL[d.decision]}</Badge>
                       {d.toSectionId && <span className="text-[13.5px]">{sec(d.toSectionId)}</span>}
-                      {d.leavingRequestId && <Link className="text-[13.5px] underline" href={`${BASE}/leaving/${d.leavingRequestId}`}>Leaving</Link>}
+                      {d.leavingRequestId && <Link className="text-[13.5px] underline" href={`${BASE}/leaving/${d.leavingRequestId}`}><Words k="Leaving" /></Link>}
                     </span>
                   </li>
                 );

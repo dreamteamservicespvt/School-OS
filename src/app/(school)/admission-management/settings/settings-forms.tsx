@@ -13,6 +13,7 @@ import { useNotice } from "@/components/ui/notice";
 import { cx } from "@/components/ui/cx";
 import { FormSheet, SubHead } from "../_components/forms";
 import { saveClassAction, saveListAction, saveNumbersAction, saveOwnerRuleAction, saveStagesAction, setPaperAction, setRuleAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 
@@ -52,7 +53,7 @@ export function StagesList({ stages, canEdit }: { stages: StageRow[]; canEdit: b
                 {canEdit ? "Approval" : s.needsApproval ? "Needs approval" : "No approval"}
               </label>
             )}
-            {s.always ? <span className="text-[12px] text-ink3 font-semibold shrink-0">Always on</span>
+            {s.always ? <span className="text-[12px] text-ink3 font-semibold shrink-0"><Words k="Always on" /></span>
               : canEdit ? <Switch on={s.on} label={`${s.label} on`} onChange={(v) => change(i, { on: v })} />
               : <span className="text-[12.5px] font-semibold shrink-0">{s.on ? "On" : "Off"}</span>}
           </li>
@@ -86,10 +87,10 @@ export function OwnerRule({ rule, rules, defaultOwner, turn, staff, canEdit }: {
         {rules.map((r) => (
           <div key={r.value} className={cx("flex items-start gap-3 rounded-xl border p-3.5", rule === r.value ? "border-brand ring-1 ring-brand bg-brand/5" : "border-line")}>
             <span className={cx("w-5 h-5 rounded-full border-2 grid place-items-center mt-0.5 shrink-0", rule === r.value ? "border-brand" : "border-line")} aria-hidden="true">{rule === r.value && <span className="w-2.5 h-2.5 rounded-full bg-brand" />}</span>
-            <span><b className="font-semibold text-[14px] block">{r.label}{rule === r.value && <span className="sr-only"> (chosen)</span>}</b><span className="text-[12.5px] text-ink3">{r.help}</span></span>
+            <span><b className="font-semibold text-[14px] block">{r.label}{rule === r.value && <span className="sr-only"> <Words k="(chosen)" /></span>}</b><span className="text-[12.5px] text-ink3">{r.help}</span></span>
           </div>
         ))}
-        {canEdit && <div><Button variant="secondary" size="sm" icon={Settings2} onClick={() => setOpen(true)}>Change</Button></div>}
+        {canEdit && <div><Button variant="secondary" size="sm" icon={Settings2} onClick={() => setOpen(true)}><Words k="Change" /></Button></div>}
       </div>
       <FormSheet open={open} onClose={() => setOpen(false)} title="Who gets new enquiries" sub="The owner can still be changed by hand. The history keeps every change." action={saveOwnerRuleAction} hidden={{ rule: pick }} submitLabel="Save">
         {(f) => (
@@ -107,7 +108,7 @@ export function OwnerRule({ rule, rules, defaultOwner, turn, staff, canEdit }: {
               help={pick === "class" ? "Gets enquiries with no class wanted, and classes with no owner set below." : "Gets every new enquiry when no other rule applies."} />
             {pick === "turn" && (
               <fieldset className="flex flex-col gap-2">
-                <legend className="text-[13px] font-semibold text-ink2 mb-1.5">Share in turn among</legend>
+                <legend className="text-[13px] font-semibold text-ink2 mb-1.5"><Words k="Share in turn among" /></legend>
                 {staff.map((s) => (
                   <label key={s.value} className="flex items-center gap-3 text-[14px]">
                     <Checkbox checked={chosen.includes(s.value)} label={s.label} onChange={(v) => setChosen((c) => (v ? [...c, s.value] : c.filter((x) => x !== s.value)))} />{s.label}
@@ -117,7 +118,7 @@ export function OwnerRule({ rule, rules, defaultOwner, turn, staff, canEdit }: {
                 {f.err("turnStaffIds") && <p className="text-[12.5px] text-bad">{f.err("turnStaffIds")}</p>}
               </fieldset>
             )}
-            {pick === "class" && <p className="text-[12.5px] text-ink3">Set the owner for each class in “Per class” below.</p>}
+            {pick === "class" && <p className="text-[12.5px] text-ink3"><Words k="Set the owner for each class in “Per class” below." /></p>}
           </>
         )}
       </FormSheet>
@@ -146,7 +147,7 @@ export function PapersTable({ classes, docs, cells, canEdit }: { classes: Opt[];
         <table className="text-[13.5px] min-w-full">
           <thead>
             <tr className="text-[12px] text-ink3 border-b border-line">
-              <th scope="col" className="sticky left-0 z-[1] bg-surface text-left font-semibold px-4 sm:px-5 py-2.5 min-w-[140px] sm:min-w-[190px]">Paper</th>
+              <th scope="col" className="sticky left-0 z-[1] bg-surface text-left font-semibold px-4 sm:px-5 py-2.5 min-w-[140px] sm:min-w-[190px]"><Words k="Paper" /></th>
               {classes.map((c) => <th key={c.value} scope="col" className="font-semibold px-2 py-2.5 whitespace-nowrap">{c.label}</th>)}
             </tr>
           </thead>
@@ -188,11 +189,11 @@ export function ClassEdit({ cls, fee, online, minAge, maxAge, owner, staff, feeO
             {feeOn && <TextField label="Application fee (₹)" name="fee" inputMode="decimal" defaultValue={f.val("fee", fee)} error={f.err("fee")} placeholder="No fee" help="Leave empty for no fee. The fee head lives in Fee Structure." className="tnum" />}
             {onlineOn && (
               <div className="flex items-center justify-between gap-3 rounded-xl border border-line px-3.5 py-3">
-                <span><b className="font-semibold text-[14px] block">Takes online applications</b><span className="text-[12.5px] text-ink3">Shown on the online form</span></span>
+                <span><b className="font-semibold text-[14px] block"><Words k="Takes online applications" /></b><span className="text-[12.5px] text-ink3"><Words k="Shown on the online form" /></span></span>
                 <Switch on={on} onChange={setOn} label="Takes online applications" />
               </div>
             )}
-            <SubHead>Age on 1 June</SubHead>
+            <SubHead><Words k="Age on 1 June" /></SubHead>
             <div className="grid grid-cols-2 gap-3">
               <TextField label="Lowest age" name="minAge" inputMode="numeric" defaultValue={f.val("minAge", minAge?.toString() ?? "")} error={f.err("minAge")} placeholder="Any" className="tnum" />
               <TextField label="Highest age" name="maxAge" inputMode="numeric" defaultValue={f.val("maxAge", maxAge?.toString() ?? "")} error={f.err("maxAge")} placeholder="Any" className="tnum" />
@@ -232,19 +233,19 @@ export function ListChips({ kind, items, what, canEdit }: { kind: "enquiryStatus
           </li>
         ))}
         {canEdit && !adding && (
-          <li><button type="button" onClick={() => setAdding(true)} className="h-8 px-3 rounded-full border border-dashed border-line text-[13px] font-semibold text-brand inline-flex items-center gap-1"><Plus size={14} aria-hidden="true" />Add</button></li>
+          <li><button type="button" onClick={() => setAdding(true)} className="h-8 px-3 rounded-full border border-dashed border-line text-[13px] font-semibold text-brand inline-flex items-center gap-1"><Plus size={14} aria-hidden="true" /><Words k="Add" /></button></li>
         )}
       </ul>
       {adding && (
         <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); const t = text.trim(); if (!t) return; save([...list, { key: `new:${t}`, label: t, archived: false, system: false }]); setText(""); setAdding(false); }}>
           <input autoFocus value={text} onChange={(e) => setText(e.target.value)} maxLength={60} aria-label={`New ${what}`} placeholder={`New ${what}`} className={cx(inputCls(false), "h-10 flex-1 min-w-0")} />
-          <Button type="submit" size="sm" disabled={!text.trim() || pending}>Add</Button>
-          <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setText(""); }}>Cancel</Button>
+          <Button type="submit" size="sm" disabled={!text.trim() || pending}><Words k="Add" /></Button>
+          <Button size="sm" variant="ghost" onClick={() => { setAdding(false); setText(""); }}><Words k="Cancel" /></Button>
         </form>
       )}
       {archived.length > 0 && (
         <p className="text-[12.5px] text-ink3">
-          Archived: {archived.map((x, i) => (
+          <Words k="Archived:" /> {archived.map((x, i) => (
             <span key={x.key}>{i > 0 && ", "}{canEdit ? <button type="button" disabled={pending} onClick={() => save(list.map((y) => (y.key === x.key ? { ...y, archived: false } : y)))} className="underline hover:text-ink" aria-label={`Bring back ${x.label}`}>{x.label}</button> : x.label}</span>
           ))}
         </p>
@@ -259,7 +260,7 @@ export function NumbersButton({ years, yearId, prefix, nextNo, siblingWeight, si
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button size="sm" variant="secondary" icon={Pencil} onClick={() => setOpen(true)}>Change</Button>
+      <Button size="sm" variant="secondary" icon={Pencil} onClick={() => setOpen(true)}><Words k="Change" /></Button>
       <FormSheet open={open} onClose={() => setOpen(false)} title="Year, numbers and priority" sub="Every change is recorded in the audit log" action={saveNumbersAction} hidden={quotaOn ? { quotasShown: "1" } : undefined} submitLabel="Save">
         {(f) => (
           <>
@@ -268,7 +269,7 @@ export function NumbersButton({ years, yearId, prefix, nextNo, siblingWeight, si
             {siblingOn && <TextField label="Sibling priority (points)" name="siblingWeight" inputMode="numeric" defaultValue={f.val("siblingWeight", String(siblingWeight))} error={f.err("siblingWeight")} help="Added to the test score out of 100 when ranking the waiting list." className="tnum" />}
             {quotaOn && (
               <>
-                <SubHead>Share of seats by category (%)</SubHead>
+                <SubHead><Words k="Share of seats by category (%)" /></SubHead>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
                   {categories.map((c) => <TextField key={c} label={c} name={`quota_${c}`} inputMode="decimal" defaultValue={f.val(`quota_${c}`, quotas[c] ? String(quotas[c]) : "")} error={f.err(`quota_${c}`)} placeholder="0" className="tnum" />)}
                 </div>

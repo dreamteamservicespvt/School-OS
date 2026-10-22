@@ -14,6 +14,7 @@ import {
   applyTemplateAction, assistantAction, connectAction, disconnectAction, featureAction, moduleAction, preferencesAction, previewTemplateAction, retestAction, type PreviewState,
 } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 /** A switch that looks like one, for a module or feature. */
 function SwitchLook({ on }: { on: boolean }) {
@@ -26,26 +27,26 @@ function SwitchLook({ on }: { on: boolean }) {
 
 export function ModuleSwitch({ moduleKey, name, on, ready, stage, hides, mayEdit }: { moduleKey: string; name: string; on: boolean; ready: boolean; stage: number; hides: string; mayEdit: boolean }) {
   if (!mayEdit) return <Badge tone={on ? "success" : "neutral"}>{on ? "On" : "Off"}</Badge>;
-  if (!on && !ready) return <span className="text-sm text-ink-2">Arrives in Stage {stage}</span>;
+  if (!on && !ready) return <span className="text-sm text-ink-2"><Words k="Arrives in Stage" /> {stage}</span>;
   if (on) {
     return (
-      <ConfirmButton trigger={<span className="inline-flex items-center gap-2"><SwitchLook on />On</span>} triggerVariant="ghost" title={`Switch off ${name}?`} confirmLabel={`Switch off ${name}`}
+      <ConfirmButton trigger={<span className="inline-flex items-center gap-2"><SwitchLook on /><Words k="On" /></span>} triggerVariant="ghost" title={`Switch off ${name}?`} confirmLabel={`Switch off ${name}`}
         onConfirm={() => moduleAction(moduleKey, false)}>
-        {hides} {name} disappears from the menu, search and dashboards for everyone. Nothing is deleted: switch it on again and everything is back.
+        {hides} {name} <Words k="disappears from the menu, search and dashboards for everyone. Nothing is deleted: switch it on again and everything is back." />
       </ConfirmButton>
     );
   }
-  return <ActionButton variant="ghost" size="md" label={<span className="inline-flex items-center gap-2"><SwitchLook on={false} />Off</span>} pendingLabel="Switching on…" run={() => moduleAction(moduleKey, true)} />;
+  return <ActionButton variant="ghost" size="md" label={<span className="inline-flex items-center gap-2"><SwitchLook on={false} /><Words k="Off" /></span>} pendingLabel="Switching on…" run={() => moduleAction(moduleKey, true)} />;
 }
 
 export function FeatureSwitch({ featureKey, label, on, assistantOn, mayEdit, ready = true }: { featureKey: string; label: string; on: boolean; assistantOn: boolean; mayEdit: boolean; ready?: boolean }) {
   // Not built yet: it cannot be switched on. One switched on before it was held back can still be switched off.
   if (!ready) {
-    if (!on || !mayEdit) return <Badge>Coming soon</Badge>;
+    if (!on || !mayEdit) return <Badge><Words k="Coming soon" /></Badge>;
     return (
       <span className="inline-flex flex-wrap items-center gap-2">
-        <Badge>Coming soon</Badge>
-        <ActionButton variant="ghost" size="md" label={<span>Switch off<span className="sr-only"> {label}</span></span>} pendingLabel="Switching off…" run={() => featureAction(featureKey, false)} />
+        <Badge><Words k="Coming soon" /></Badge>
+        <ActionButton variant="ghost" size="md" label={<span><Words k="Switch off" /><span className="sr-only"> {label}</span></span>} pendingLabel="Switching off…" run={() => featureAction(featureKey, false)} />
       </span>
     );
   }
@@ -75,40 +76,40 @@ export function TemplatePicker({ templates, current, mayEdit }: { templates: { k
         {templates.map((t) => (
           <li key={t.key} className="flex flex-col justify-between gap-3 rounded-xl border border-line p-4">
             <div>
-              <p className="font-medium">{t.name} {current === t.key && <Badge tone="brand">Applied</Badge>}</p>
+              <p className="font-medium">{t.name} {current === t.key && <Badge tone="brand"><Words k="Applied" /></Badge>}</p>
               <p className="text-sm text-ink-2">{t.about}</p>
             </div>
-            {mayEdit && <div><Button size="sm" variant="secondary" onClick={() => { setReplace(false); open(t.key, false); }}>See what it changes</Button></div>}
+            {mayEdit && <div><Button size="sm" variant="secondary" onClick={() => { setReplace(false); open(t.key, false); }}><Words k="See what it changes" /></Button></div>}
           </li>
         ))}
       </ul>
       <Dialog open={chosen !== null} onClose={() => { setChosen(null); setPreview(null); }} title={preview?.name ? `Apply ${preview.name}?` : "School-type template"}>
-        {busy && <p className="text-ink-2">Working out the changes…</p>}
+        {busy && <p className="text-ink-2"><Words k="Working out the changes…" /></p>}
         {!busy && preview && !preview.ok && <Alert tone="danger">{preview.message}</Alert>}
         {!busy && preview?.ok && (
           <div className="space-y-3">
-            <p className="text-sm text-ink-2">A template only switches modules on, never off. Settings you have already chosen are kept unless you tick the box below.</p>
-            {preview.modules!.length > 0 && <div><p className="font-medium">Modules switched on</p><ul className="list-disc pl-5 text-sm">{preview.modules!.map((m) => <li key={m}>{m}</li>)}</ul></div>}
+            <p className="text-sm text-ink-2"><Words k="A template only switches modules on, never off. Settings you have already chosen are kept unless you tick the box below." /></p>
+            {preview.modules!.length > 0 && <div><p className="font-medium"><Words k="Modules switched on" /></p><ul className="list-disc pl-5 text-sm">{preview.modules!.map((m) => <li key={m}>{m}</li>)}</ul></div>}
             {preview.settings!.length > 0 && (
-              <div><p className="font-medium">Settings filled in</p>
+              <div><p className="font-medium"><Words k="Settings filled in" /></p>
                 <ul className="list-disc pl-5 text-sm">{preview.settings!.map((s) => <li key={s.label}>{s.label}: {s.from} → {s.to}</li>)}</ul>
               </div>
             )}
-            {preview.later!.length > 0 && <p className="text-sm text-ink-2">Not ready yet, so not switched on: {preview.later!.join(", ")}.</p>}
-            {changes === 0 && <Alert tone="info">Nothing to change: your school already matches this template{replace ? "" : " for the settings not yet chosen"}.</Alert>}
+            {preview.later!.length > 0 && <p className="text-sm text-ink-2"><Words k="Not ready yet, so not switched on:" /> {preview.later!.join(", ")}.</p>}
+            {changes === 0 && <Alert tone="info"><Words k="Nothing to change: your school already matches this template" />{replace ? "" : " for the settings not yet chosen"}.</Alert>}
             <label className="flex min-h-11 items-center gap-3">
               <input type="checkbox" checked={replace} onChange={(e) => { setReplace(e.target.checked); open(chosen!, e.target.checked); }} className="size-5 accent-brand" />
-              <span className="text-sm">Also replace settings I have already chosen</span>
+              <span className="text-sm"><Words k="Also replace settings I have already chosen" /></span>
             </label>
             {error && <Alert tone="danger">{error}</Alert>}
             <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="secondary" onClick={() => { setChosen(null); setPreview(null); }}>Cancel</Button>
+              <Button variant="secondary" onClick={() => { setChosen(null); setPreview(null); }}><Words k="Cancel" /></Button>
               <Button loading={busy} onClick={async () => {
                 setBusy(true);
                 const problem = await applyTemplateAction(chosen!, replace).catch(() => "That did not work, and nothing was changed. Please try again.");
                 setBusy(false);
                 if (problem) setError(problem); else { setChosen(null); setPreview(null); }
-              }}>Apply {changes} change{changes === 1 ? "" : "s"}</Button>
+              }}><Words k="Apply" /> {changes} <Words k="change" />{changes === 1 ? "" : "s"}</Button>
             </div>
           </div>
         )}
@@ -131,7 +132,7 @@ export function PreferencesForm({ weekStart, rollNumberOrder, mayEdit }: { weekS
         <SelectField label="Roll number order" name="rollNumberOrder" required options={ROLL} defaultValue={state?.values?.rollNumberOrder ?? rollNumberOrder} disabled={!mayEdit} error={state?.errors?.rollNumberOrder}
           help="Used when roll numbers are given to a section." />
       </div>
-      {mayEdit && <SubmitButton variant="secondary" pendingText="Saving…">Save preferences</SubmitButton>}
+      {mayEdit && <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save preferences" /></SubmitButton>}
     </form>
   );
 }
@@ -145,11 +146,11 @@ export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platform
       <FormMessage state={state} />
       <label className="flex min-h-11 items-center gap-3">
         <KeepCheck type="checkbox" name="on" checked={isOn} disabled={!mayEdit} onChange={(e) => setIsOn(e.target.checked)} className="size-5 accent-brand" />
-        <span><span className="font-medium">AI assistant is on</span><span className="block text-sm text-ink-2">The AI only prepares and suggests. A person always checks before anything is saved or sent.</span></span>
+        <span><span className="font-medium"><Words k="AI assistant is on" /></span><span className="block text-sm text-ink-2"><Words k="The AI only prepares and suggests. A person always checks before anything is saved or sent." /></span></span>
       </label>
       {isOn && (
         <fieldset>
-          <legend className="mb-2 text-sm font-medium">Roles that may use it <span className="text-danger" aria-hidden="true">*</span></legend>
+          <legend className="mb-2 text-sm font-medium"><Words k="Roles that may use it" /> <span className="text-danger" aria-hidden="true">*</span></legend>
           <div className="grid gap-2 sm:grid-cols-3">
             {roles.map((r) => (
               <label key={r.key} className="flex min-h-11 items-center gap-3 rounded-lg border border-line px-3">
@@ -167,7 +168,7 @@ export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platform
           defaultValue={state?.values?.aiDailyLimit ?? (dailyLimit === null ? "" : String(dailyLimit))} placeholder={String(platformLimit)} disabled={!mayEdit}
           error={state?.errors?.aiDailyLimit} help={`For the whole school. Empty: ${platformLimit} a day, the most DREAM TEAM allows. After that, everyone carries on without AI until tomorrow.`} />
       )}
-      {mayEdit && <SubmitButton variant="secondary" pendingText="Saving…">Save AI assistant</SubmitButton>}
+      {mayEdit && <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save AI assistant" /></SubmitButton>}
     </form>
   );
 }
@@ -190,14 +191,14 @@ export function IntegrationCard({ def, status, config, hasSecrets, lastCheck, la
         </div>
         <Badge tone={st.tone}>{st.label}</Badge>
       </div>
-      {lastCheck && <p className="text-xs text-ink-2">Last checked {lastCheck}{status === "error" && lastError ? `: ${lastError}` : ""}</p>}
+      {lastCheck && <p className="text-xs text-ink-2"><Words k="Last checked" /> {lastCheck}{status === "error" && lastError ? `: ${lastError}` : ""}</p>}
       {mayEdit && (
         <div className="flex flex-wrap gap-2">
           <Button size="sm" variant={connected ? "secondary" : "primary"} onClick={() => setOpen(true)}>{connected ? "Change details" : "Connect"}</Button>
           {connected && <ActionButton label="Test" pendingLabel="Testing…" run={() => retestAction(def.key)} />}
           {connected && (
             <ConfirmButton trigger="Disconnect" triggerVariant="ghost" title={`Disconnect ${def.name}?`} confirmLabel={`Disconnect ${def.name}`} confirmVariant="danger" onConfirm={() => disconnectAction(def.key)}>
-              School OS stops using {def.name}. The saved details and keys are removed; you will need them again to reconnect.
+              <Words k="School OS stops using" /> {def.name}<Words k=". The saved details and keys are removed; you will need them again to reconnect." />
             </ConfirmButton>
           )}
         </div>
@@ -222,10 +223,10 @@ export function IntegrationCard({ def, status, config, hasSecrets, lastCheck, la
                 help={f.type === "secret" && hasSecrets ? "Saved. Leave blank to keep it." : f.help} required={f.required && !(f.type === "secret" && hasSecrets)} />
             );
           })}
-          <p className="text-sm text-ink-2">Saving tests the details straight away.</p>
+          <p className="text-sm text-ink-2"><Words k="Saving tests the details straight away." /></p>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="secondary" onClick={() => setOpen(false)}>Close</Button>
-            <SubmitButton pendingText="Saving and testing…">Save and test</SubmitButton>
+            <Button variant="secondary" onClick={() => setOpen(false)}><Words k="Close" /></Button>
+            <SubmitButton pendingText="Saving and testing…"><Words k="Save and test" /></SubmitButton>
           </div>
         </form>
       </Dialog>

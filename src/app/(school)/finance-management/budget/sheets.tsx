@@ -7,6 +7,7 @@ import { Segmented } from "@/components/ui/controls";
 import type { Option } from "@/components/ui/field";
 import { copyBudgetsAction, removeBudgetAction, reviseBudgetAction, setBudgetAction } from "./actions";
 import { ConfirmButton } from "@/components/ui/confirm";
+import { Words } from "@/lib/i18n/client";
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const num = (s: string) => Number(s.replace(/[^\d.]/g, "")) || 0;
@@ -22,10 +23,10 @@ export function BudgetSheet({ closeHref, year, yearLabel, heads, centres, taken 
     <SheetForm title="Set a budget" sub={`For the financial year ${yearLabel}`} closeHref={closeHref} action={setBudgetAction} submitLabel="Set budget" pendingText="Saving…" hidden={{ financialYearId: year, period: split }}>
       <SSelect name="accountHeadId" label="Expense head" required options={heads} placeholder="Choose a head" onChange={(e) => setHead(e.target.value)} />
       {centres && <SSelect name="costCentreId" label="Department" options={centres} placeholder="All departments" help="Optional. Leave it for the whole head." onChange={(e) => setDept(e.target.value)} />}
-      {clash && <p className="text-[13px] text-warn font-semibold -mt-2">This head already has a budget for {yearLabel}. Use Revise to change it.</p>}
+      {clash && <p className="text-[13px] text-warn font-semibold -mt-2"><Words k="This head already has a budget for" /> {yearLabel}<Words k=". Use Revise to change it." /></p>}
       <SMoney name="amount" label="Amount for the year" required onValue={(v) => setAmt(num(v))} help={amt ? `${inr(amt / 12)} a month, ${inr(amt / 3)} a term` : undefined} />
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Split</span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Split" /></span>
         <Segmented label="Split" value={split} onChange={setSplit} className="w-full" options={SPLITS} />
       </div>
     </SheetForm>
@@ -38,11 +39,11 @@ export function ReviseSheet({ closeHref, budgetId, title, sub, now, used }: { cl
   return (
     <SheetForm title={title} sub={sub} closeHref={closeHref} action={reviseBudgetAction} submitLabel="Save revision" pendingText="Saving…" hidden={{ budgetId }}>
       <SMoney name="amount" label="New budget for the year" required placeholder={String(now)} onValue={(v) => setAmt(num(v))} help={help} />
-      {amt > 0 && amt < used && <p className="text-[13px] text-warn font-semibold -mt-2">Already {inr(used)} spent or committed. The head shows as over budget.</p>}
+      {amt > 0 && amt < used && <p className="text-[13px] text-warn font-semibold -mt-2"><Words k="Already" /> {inr(used)} <Words k="spent or committed. The head shows as over budget." /></p>}
       <SArea name="reason" label="Reason" required rows={2} placeholder="Example: Annual Day moved to December" help="Kept with the revision." />
       <div className="border-t border-line pt-3">
         <ConfirmButton trigger="Remove this budget" triggerVariant="danger-soft" title="Remove this budget?" confirmLabel="Remove budget" confirmVariant="danger" onConfirm={() => removeBudgetAction(budgetId)}>
-          The head no longer has a budget for this year. Expenses already recorded are not touched. Use this for a budget set by mistake.
+          <Words k="The head no longer has a budget for this year. Expenses already recorded are not touched. Use this for a budget set by mistake." />
         </ConfirmButton>
       </div>
     </SheetForm>
@@ -56,9 +57,9 @@ export function CopySheet({ closeHref, fromYear, nextLabel, total }: { closeHref
     <SheetForm title={`Plan ${nextLabel}`} sub="Copy this year’s budget with a change. You can change each head afterwards." closeHref={closeHref} action={copyBudgetsAction} submitLabel="Make next year’s budget" pendingText="Saving…" hidden={{ fromYearId: fromYear }}>
       <div className="flex items-end gap-2">
         <SText name="percent" label="Change on every head" required start="8" inputMode="numeric" className="w-28" onChange={(e) => setP(e.target.value)} />
-        <span className="text-[15px] text-ink2 pb-2.5">% more</span>
+        <span className="text-[15px] text-ink2 pb-2.5"><Words k="% more" /></span>
       </div>
-      <p className="text-[13px] text-ink3 -mt-1">This year {inr(total)} → next year {inr(total * (1 + v / 100))}. Heads that already have a budget next year are left as they are.</p>
+      <p className="text-[13px] text-ink3 -mt-1"><Words k="This year" /> {inr(total)} <Words k="→ next year" /> {inr(total * (1 + v / 100))}<Words k=". Heads that already have a budget next year are left as they are." /></p>
     </SheetForm>
   );
 }

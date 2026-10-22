@@ -11,6 +11,7 @@ import { inputCls } from "@/components/ui/field";
 import { Segmented, Switch, type SegOption } from "@/components/ui/controls";
 import { Spinner } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
+import { Words, useT } from "@/lib/i18n/client";
 
 function useSetParam() {
   const router = useRouter();
@@ -32,6 +33,7 @@ function useSetParam() {
 
 /** A search box that filters the list as you type. */
 export function UrlSearch({ param = "q", placeholder, id, className, big, autoFocus, label = "Search" }: { param?: string; placeholder: string; id: string; className?: string; big?: boolean; autoFocus?: boolean; label?: string }) {
+  const tr = useT();
   const { set, pending, params } = useSetParam();
   const [value, setValue] = useState(params.get(param) ?? "");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -51,7 +53,7 @@ export function UrlSearch({ param = "q", placeholder, id, className, big, autoFo
           : cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")} />
       {pending ? <Spinner className={cx("absolute top-1/2 -translate-y-1/2 size-4 text-ink3", big ? "right-5" : "right-3.5")} />
         : value && (
-          <button type="button" onClick={() => change("")} aria-label="Clear search"
+          <button type="button" onClick={() => change("")} aria-label={tr.any("Clear search")}
             className={cx("absolute top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken", big ? "right-3" : "right-2")}>
             <X size={16} aria-hidden="true" />
           </button>
@@ -86,16 +88,17 @@ export function UrlSegmented({ param, options, fallback, className, size, label 
 
 /** A date range kept in the address as ?from=YYYY-MM-DD&to=YYYY-MM-DD. */
 export function UrlDates({ from, to, className }: { from: string; to: string; className?: string }) {
+  const tr = useT();
   const { set } = useSetParam();
   return (
     <div className={cx("grid grid-cols-2 gap-2.5", className)}>
       <label className="relative">
-        <span className="sr-only">From</span>
-        <input type="date" defaultValue={from} onChange={(e) => e.target.value && set({ from: e.target.value })} className={cx(inputCls(false), "tnum")} aria-label="From" />
+        <span className="sr-only"><Words k="From" /></span>
+        <input type="date" defaultValue={from} onChange={(e) => e.target.value && set({ from: e.target.value })} className={cx(inputCls(false), "tnum")} aria-label={tr.any("From")} />
       </label>
       <label className="relative">
-        <span className="sr-only">To</span>
-        <input type="date" defaultValue={to} onChange={(e) => e.target.value && set({ to: e.target.value })} className={cx(inputCls(false), "tnum")} aria-label="To" />
+        <span className="sr-only"><Words k="To" /></span>
+        <input type="date" defaultValue={to} onChange={(e) => e.target.value && set({ to: e.target.value })} className={cx(inputCls(false), "tnum")} aria-label={tr.any("To")} />
       </label>
     </div>
   );

@@ -13,6 +13,7 @@ import type { FormState } from "@/lib/forms";
 import {
   ageingAction, counterAction, featureAction, headAccountsAction, lateFeeAction, numberingAction, paymentsAction, receiptsAction, remindersAction, routingAction, scholarshipTypesAction,
 } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 type C = { closeHref: string };
 
@@ -45,7 +46,7 @@ export function RemindersSheet({ closeHref, s, choices, wordsHref }: C & { s: { 
       <SSelect name="channel" label="Send by" required start={s.channel} options={[{ value: "whatsapp", label: "WhatsApp, SMS if it fails" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }]} />
       <SMoney name="min" label="Only when the family owes at least" start={s.min} help="Empty or 0: any amount gets a reminder." />
       <SSwitch name="quietDays" title="Not on days the school is closed" sub="Sundays, holidays and vacations on the School Calendar. That day's reminders go on the next school day." start={s.quietDays} />
-      <p className="text-[13px] text-ink3">The words are the “Fee reminder” templates in <a href={wordsHref} className="text-brand font-semibold underline">Message Templates</a>. The payment link, or how to pay at the school office, is added by itself.</p>
+      <p className="text-[13px] text-ink3"><Words k="The words are the “Fee reminder” templates in" /> <a href={wordsHref} className="text-brand font-semibold underline"><Words k="Message Templates" /></a><Words k=". The payment link, or how to pay at the school office, is added by itself." /></p>
     </SheetForm>
   );
 }
@@ -60,7 +61,7 @@ export function ReceiptsSheet({ closeHref, s }: C & { s: { prefix: string; digit
       </div>
       <SSwitch name="restart" title="Start again each year" sub="Numbers start from 1 in each financial year." start={s.restart} />
       <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3">
-        <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block">Separate series for part payments</b><span className="block text-[12.5px] text-ink3 mt-0.5">Like PP/2026-27/00001</span></div>
+        <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block"><Words k="Separate series for part payments" /></b><span className="block text-[12.5px] text-ink3 mt-0.5"><Words k="Like PP/2026-27/00001" /></span></div>
         <Switch on={partial} onChange={setPartial} label="Separate series for part payments" name="partialSeries" />
       </div>
       {partial && <SText name="partialPrefix" label="Part-payment prefix" required start={s.partialPrefix} className="font-mono" />}
@@ -92,7 +93,7 @@ export function AgeingSheet({ closeHref, ends }: C & { ends: string }) {
 export function RoutingSheet({ closeHref, gateways, classes, s }: C & { gateways: Option[]; classes: Option[]; s: { default: string; byClass: Record<string, string> } }) {
   return (
     <SheetForm title="Payment gateway for each class" sub="Gateways are connected in Settings, Payment Gateways." closeHref={closeHref} action={routingAction} submitLabel="Save" pendingText="Saving…" submitDisabled={!gateways.length}>
-      {!gateways.length ? <Alert tone="info">No payment gateway is connected yet. Connect Razorpay in Settings, Payment Gateways.</Alert> : (
+      {!gateways.length ? <Alert tone="info"><Words k="No payment gateway is connected yet. Connect Razorpay in Settings, Payment Gateways." /></Alert> : (
         <>
           <SSelect name="default" label="Every class" start={s.default} options={gateways} placeholder="The first switched-on Razorpay" />
           {classes.map((c) => <SSelect key={c.value} name={`class:${c.value}`} label={c.label} start={s.byClass[c.value] ?? ""} options={gateways} placeholder="Same as every class" />)}

@@ -17,8 +17,12 @@ import { StudentsHead } from "../../_lib/head";
 import { sectionNames } from "../../_lib/queries";
 import { behaviourTabs } from "../sub-tabs";
 import { studentIdsForFilter } from "@/lib/students/find";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Counselling" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Counselling") };
+}
 const STEP = 25;
 
 /** Counselling cases: only for the roles set in Student Settings, and each counsellor's own cases. */
@@ -73,7 +77,7 @@ export default async function CounsellingPage({ searchParams }: { searchParams: 
       </div>
     ) },
     { key: "case", label: "Reason", className: "max-w-[280px]", render: (r) => <span className="line-clamp-2 text-[13.5px]">{r.reason}</span> },
-    { key: "counsellor", label: "Counsellor", nowrap: true, render: (r) => person(r.counsellorId) ?? <span className="text-ink3">Not given yet</span> },
+    { key: "counsellor", label: "Counsellor", nowrap: true, render: (r) => person(r.counsellorId) ?? <span className="text-ink3"><Words k="Not given yet" /></span> },
     { key: "status", label: "Status", render: (r) => <Pill tone={r.status === "OPEN" ? "info" : "neutral"}>{r.status === "OPEN" ? "Open" : "Closed"}</Pill> },
     { key: "next", label: "Next session", nowrap: true, render: (r) => <span className="text-[13.5px] tnum">{r.nextSessionOn ? shortDate(r.nextSessionOn, tz) : "–"}</span> },
     { key: "sessions", label: "Sessions", align: "right", render: (r) => r._count.sessions },
@@ -83,7 +87,7 @@ export default async function CounsellingPage({ searchParams }: { searchParams: 
     <>
       <StudentsHead page="Behaviour & Counselling" href={path}
         sub={can.seeCounselling ? "Highly restricted. Confidential notes are seen only by the Counsellor." : "The counselling cases given to you. Only you can read the notes."}
-        actions={can.contribute ? <ButtonLink href={`${path}/new`} variant="primary" icon={UserPlus}>Refer to counselling</ButtonLink> : undefined}
+        actions={can.contribute ? <ButtonLink href={`${path}/new`} variant="primary" icon={UserPlus}><Words k="Refer to counselling" /></ButtonLink> : undefined}
         subTabs={await behaviourTabs()} subLabel="Behaviour & Counselling" />
       {(can.seeCounselling || data.total > 0 || filtered) ? (
         <Card className="overflow-hidden">
@@ -102,14 +106,14 @@ export default async function CounsellingPage({ searchParams }: { searchParams: 
             })}
             footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={data.rows.length < data.total ? listHref(path, params, { n: take + STEP }) : null} />}
             empty={filtered
-              ? <Empty icon={SearchX} title="No cases match" action={<ButtonLink href={path}>Clear filters</ButtonLink>} />
+              ? <Empty icon={SearchX} title="No cases match" action={<ButtonLink href={path}><Words k="Clear filters" /></ButtonLink>} />
               : <Empty icon={HeartHandshake} title="No counselling cases" body="Students referred to counselling show here." />} />
         </Card>
       ) : (
         <Card>
           <Empty icon={Lock} title="Counselling cases are private"
             body="You can refer a student; the counsellor is told at once. The case is then seen only by the counsellor and the roles the school allows."
-            action={can.contribute ? <ButtonLink href={`${path}/new`} variant="primary" icon={UserPlus}>Refer a student</ButtonLink> : undefined} />
+            action={can.contribute ? <ButtonLink href={`${path}/new`} variant="primary" icon={UserPlus}><Words k="Refer a student" /></ButtonLink> : undefined} />
         </Card>
       )}
     </>

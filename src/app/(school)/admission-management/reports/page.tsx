@@ -17,8 +17,12 @@ import { cx } from "@/components/ui/cx";
 import { AdmissionHead } from "../_components/head";
 import { defaultYears, filterQuery, readFilters, yearOptions } from "./filters";
 import { ReportToolbar } from "./toolbar";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Admission Reports" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Admission Reports") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const PATH = `${BASE}/reports`;
@@ -58,7 +62,7 @@ export default async function ReportsPage({ searchParams }: Search) {
 
   const body = (k: ReportKey) => {
     const r = R(k);
-    if (r.rows.length === 0) return <p className="text-[13.5px] text-ink3 py-2">Nothing yet for these filters.</p>;
+    if (r.rows.length === 0) return <p className="text-[13.5px] text-ink3 py-2"><Words k="Nothing yet for these filters." /></p>;
     if (k === "pipeline") {
       const by = new Map<string, number>();
       for (const row of r.rows) by.set(String(row.class), (by.get(String(row.class)) ?? 0) + num(row.total));
@@ -75,7 +79,7 @@ export default async function ReportsPage({ searchParams }: Search) {
                 <span className="absolute inset-y-0 left-0 rounded-full bg-ink3/25" style={{ width: `${(num(x.enquiries) / top) * 100}%` }} />
                 <span className="absolute inset-y-0 left-0 rounded-full bg-brand" style={{ width: `${(num(x.admitted) / top) * 100}%` }} />
               </span>
-              <span className="text-right tnum"><b className="font-semibold">{x.admitted}</b><span className="text-ink3"> of {x.enquiries} · {x.rate}</span></span>
+              <span className="text-right tnum"><b className="font-semibold">{x.admitted}</b><span className="text-ink3"> <Words k="of" /> {x.enquiries} · {x.rate}</span></span>
             </li>
           ))}
         </ul>
@@ -116,8 +120,8 @@ export default async function ReportsPage({ searchParams }: Search) {
             <li key={String(x.owner)} className="flex items-center gap-3 text-[13.5px]">
               <Avatar name={String(x.owner)} size={30} />
               <span className="flex-1 font-semibold truncate">{x.owner}</span>
-              <span className="tnum"><b className="font-semibold">{x.done}</b> <span className="text-ink3">done</span></span>
-              {num(x.overdue) > 0 ? <Pill tone="bad" className="!h-5 !text-[11px]">{x.overdue} overdue</Pill> : <Pill tone="ok" className="!h-5 !text-[11px]">On time</Pill>}
+              <span className="tnum"><b className="font-semibold">{x.done}</b> <span className="text-ink3"><Words k="done" /></span></span>
+              {num(x.overdue) > 0 ? <Pill tone="bad" className="!h-5 !text-[11px]">{x.overdue} <Words k="overdue" /></Pill> : <Pill tone="ok" className="!h-5 !text-[11px]"><Words k="On time" /></Pill>}
             </li>
           ))}
         </ul>
@@ -145,7 +149,7 @@ export default async function ReportsPage({ searchParams }: Search) {
     <>
       <AdmissionHead href={PATH} sub="Where enquiries come from, how many join, and applications still pending" />
       {!read ? (
-        <Card><EmptyState bare Icon={FileClock} title="No academic year is set up yet">Reports appear once an admission year is open.</EmptyState></Card>
+        <Card><EmptyState bare Icon={FileClock} title="No academic year is set up yet"><Words k="Reports appear once an admission year is open." /></EmptyState></Card>
       ) : (
         <div className="flex flex-col gap-5 lg:gap-6">
           <ReportToolbar years={yearOpts} classes={data.choices.classes} sources={settings.sourceList.map((s) => ({ value: s.key, label: s.label }))} owners={data.choices.owners}
@@ -159,7 +163,7 @@ export default async function ReportsPage({ searchParams }: Search) {
               </Card>
             ))}
           </div>
-          {can(current.permissions, "admission-management", "export") && <p className="text-[12.5px] text-ink3">Open a report to export it to Excel, CSV or PDF with these filters.</p>}
+          {can(current.permissions, "admission-management", "export") && <p className="text-[12.5px] text-ink3"><Words k="Open a report to export it to Excel, CSV or PDF with these filters." /></p>}
         </div>
       )}
     </>

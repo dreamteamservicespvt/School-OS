@@ -9,8 +9,12 @@ import { BackLink } from "@/components/ui/module-head";
 import { ImportHome } from "@/components/import/import-home";
 import { BASE, studentPage } from "../_lib/page";
 import { sectionOptions } from "../_lib/queries";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import students" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import students") };
+}
 
 const ABOUT = {
   students: "One row per student, with their class, section and parents: the ready sheet, your own sheet, an export from your old software or the UDISE+ download. Old admission numbers are kept. A row that may already be on record waits for your choice: the same student (update the record here), the same family, or a new student.",
@@ -28,7 +32,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
     <>
       <BackLink href={BASE} label="Students" />
       <PageHeader title="Import students" href={`${BASE}/import`} userId={current.user.id}>
-        <ButtonLink href={`${BASE}/import/history`} variant="ghost" icon={History}>Import history</ButtonLink>
+        <ButtonLink href={`${BASE}/import/history`} variant="ghost" icon={History}><Words k="Import history" /></ButtonLink>
       </PageHeader>
       <ImportHome current={current} place={PLACES.students} initial={sp.kind} about={ABOUT}
         students={{ sections: sections.map((s) => ({ value: s.value, label: `${s.label} (${s.filled} of ${s.seats})` })), sectionId: sp.section }} />

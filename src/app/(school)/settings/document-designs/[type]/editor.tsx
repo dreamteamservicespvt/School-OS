@@ -6,6 +6,7 @@ import { Alert } from "@/components/ui/alert";
 import { BASES, CARD_SIZES, defaultOptions, type BaseKey, type DesignOptions } from "@/lib/documents/designs-shared";
 import type { DocType, MergeField } from "@/lib/documents/types";
 import { findRecords, previewDesign, saveDesignAction, uploadCardBackground, type RecordHit, type RecordRef } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 type Props = {
   type: DocType;
@@ -110,7 +111,7 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
   return (
     <div className="grid gap-5 xl:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
       <fieldset disabled={!canEdit} className="min-w-0 space-y-4">
-        <legend className="sr-only">Design choices</legend>
+        <legend className="sr-only"><Words k="Design choices" /></legend>
         <Section title="Ready design">
           <div className="grid gap-2">
             {BASES.map((b) => (
@@ -125,23 +126,23 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
         </Section>
 
         <Section title="Heading and colours">
-          <label className="block text-sm font-medium">Title on the document
+          <label className="block text-sm font-medium"><Words k="Title on the document" />
             <input className={`${input} mt-1`} value={o.title} maxLength={80} disabled={!canEdit} onChange={(e) => set("title", e.target.value)} />
           </label>
-          <label className="block text-sm font-medium">Line under the school name
+          <label className="block text-sm font-medium"><Words k="Line under the school name" />
             <input className={`${input} mt-1`} value={o.headerNote} maxLength={160} disabled={!canEdit} placeholder="For example: Affiliated to CBSE, No. {{affiliation_number}}" onChange={(e) => set("headerNote", e.target.value)} />
           </label>
           <div className="flex flex-wrap items-end gap-3">
-            <label className="text-sm font-medium">Colour
+            <label className="text-sm font-medium"><Words k="Colour" />
               <input type="color" className="mt-1 block h-11 w-16 cursor-pointer rounded-lg border border-line-strong bg-surface" disabled={!canEdit}
                 value={o.accent || "#1d4ed8"} onChange={(e) => set("accent", e.target.value.toUpperCase())} />
             </label>
-            {o.accent ? (canEdit && <Button variant="ghost" size="sm" onClick={() => set("accent", "")}>Use the school&apos;s colour</Button>) : <p className="pb-3 text-sm text-ink-2">Using the school&apos;s branding colour.</p>}
+            {o.accent ? (canEdit && <Button variant="ghost" size="sm" onClick={() => set("accent", "")}><Words k="Use the school's colour" /></Button>) : <p className="pb-3 text-sm text-ink-2"><Words k="Using the school's branding colour." /></p>}
           </div>
           <Check label="Show the school logo" checked={o.showLogo} onChange={(v) => set("showLogo", v)} help="The logo is set in School Profile." />
           {family !== "card" && <Check label="Faint logo behind the text" checked={o.watermark} onChange={(v) => set("watermark", v)} />}
           {family !== "card" && (
-            <label className="block text-sm font-medium">Paper size
+            <label className="block text-sm font-medium"><Words k="Paper size" />
               <select className={`${input} mt-1`} value={o.paper} disabled={!canEdit} onChange={(e) => set("paper", e.target.value as "A4" | "A5")}>
                 <option value="A4">A4</option><option value="A5">A5 (half page)</option>
               </select>
@@ -152,30 +153,30 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
         {family === "card" && (
           <Section title="ID card layout" help="Cards are printed several to an A4 sheet, ready to cut.">
             <div className="grid grid-cols-2 gap-3">
-              <label className="col-span-2 block text-sm font-medium">Size
+              <label className="col-span-2 block text-sm font-medium"><Words k="Size" />
                 <select className={`${input} mt-1`} value={o.card.size} disabled={!canEdit} onChange={(e) => setCard("size", e.target.value as DesignOptions["card"]["size"])}>
                   {CARD_SIZES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
                 </select>
               </label>
-              <label className="block text-sm font-medium">Orientation
+              <label className="block text-sm font-medium"><Words k="Orientation" />
                 <select className={`${input} mt-1`} value={o.card.orientation} disabled={!canEdit} onChange={(e) => setCard("orientation", e.target.value as "landscape" | "portrait")}>
                   <option value="landscape">Horizontal</option><option value="portrait">Vertical</option>
                 </select>
               </label>
-              <label className="block text-sm font-medium">Cards per row
+              <label className="block text-sm font-medium"><Words k="Cards per row" />
                 <select className={`${input} mt-1`} value={o.card.perRow} disabled={!canEdit} onChange={(e) => setCard("perRow", Number(e.target.value))}>
                   {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}</option>)}
                 </select>
               </label>
-              <label className="block text-sm font-medium">Background colour
+              <label className="block text-sm font-medium"><Words k="Background colour" />
                 <input type="color" className="mt-1 block h-11 w-16 cursor-pointer rounded-lg border border-line-strong bg-surface" disabled={!canEdit} value={o.card.background} onChange={(e) => setCard("background", e.target.value.toUpperCase())} />
               </label>
-              <label className="block text-sm font-medium">Valid until
+              <label className="block text-sm font-medium"><Words k="Valid until" />
                 <input className={`${input} mt-1`} value={o.card.validUntil} maxLength={40} disabled={!canEdit} placeholder="31-03-2027" onChange={(e) => setCard("validUntil", e.target.value)} />
               </label>
             </div>
             {canEdit ? <BackgroundPicker fileId={o.card.backgroundFileId} disabled={false} onChange={(id) => setCard("backgroundFileId", id)} />
-              : <p className="text-sm"><span className="font-medium">Background picture:</span> <span className="text-ink-2">{o.card.backgroundFileId ? "A picture is set." : "None."}</span></p>}
+              : <p className="text-sm"><span className="font-medium"><Words k="Background picture:" /></span> <span className="text-ink-2">{o.card.backgroundFileId ? "A picture is set." : "None."}</span></p>}
             <Check label="Show the academic year" checked={o.card.showYear} onChange={(v) => setCard("showYear", v)} />
           </Section>
         )}
@@ -218,17 +219,17 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
 
         <Section title="Signatures and footer">
           {signatories.length === 0 ? (
-            <p className="text-sm text-ink-2">No signatories yet. Add them on the Document Designs page, with a signature picture if you want it printed.</p>
+            <p className="text-sm text-ink-2"><Words k="No signatories yet. Add them on the Document Designs page, with a signature picture if you want it printed." /></p>
           ) : (
             signatories.map((s) => (
               <Check key={s.id} label={`${s.name}, ${s.title}`} checked={o.signatoryIds.includes(s.id)}
                 onChange={(v) => set("signatoryIds", v ? [...o.signatoryIds, s.id].slice(0, 3) : o.signatoryIds.filter((x) => x !== s.id))} />
             ))
           )}
-          {o.signatoryIds.length >= 3 && <p className="text-sm text-ink-2">At most 3 signatures fit on one document.</p>}
+          {o.signatoryIds.length >= 3 && <p className="text-sm text-ink-2"><Words k="At most 3 signatures fit on one document." /></p>}
           {type.codeField && <Check label="QR code to check the document" checked={o.showQr} onChange={(v) => set("showQr", v)} help="Holds the document's number, so anyone can check it with the school." />}
           {(family === "card" || family === "money") && type.codeField && <Check label="Barcode" checked={o.showBarcode} onChange={(v) => set("showBarcode", v)} help="For scanners at the library or the counter." />}
-          <label className="block text-sm font-medium">Footer
+          <label className="block text-sm font-medium"><Words k="Footer" />
             <input className={`${input} mt-1`} value={o.footer} maxLength={300} disabled={!canEdit} onChange={(e) => set("footer", e.target.value)} />
           </label>
         </Section>
@@ -239,8 +240,8 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
             <div className="flex flex-wrap items-center justify-between gap-2">
               <p className="text-sm text-ink-2">{dirty ? "Changes not saved yet." : "No unsaved changes."}</p>
               <div className="flex gap-2">
-                <Button variant="ghost" disabled={!dirty || saving} onClick={() => { const s = JSON.parse(saved); setBase(s.base); setO(s.options); setResult(null); }}>Undo changes</Button>
-                <Button onClick={save} loading={saving} loadingText="Saving…" disabled={!dirty}>Save design</Button>
+                <Button variant="ghost" disabled={!dirty || saving} onClick={() => { const s = JSON.parse(saved); setBase(s.base); setO(s.options); setResult(null); }}><Words k="Undo changes" /></Button>
+                <Button onClick={save} loading={saving} loadingText="Saving…" disabled={!dirty}><Words k="Save design" /></Button>
               </div>
             </div>
           </div>
@@ -249,13 +250,13 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
 
       <div className="space-y-3 xl:sticky xl:top-20 xl:self-start">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className="flex items-center gap-2 font-semibold">Preview {previewing && <Spinner className="size-4 text-ink-2" />}</h2>
+          <h2 className="flex items-center gap-2 font-semibold"><Words k="Preview" /> {previewing && <Spinner className="size-4 text-ink-2" />}</h2>
           <form method="post" action={`/settings/document-designs/${type.key}/pdf`} target="_blank">
             <input type="hidden" name="base" value={base} />
             <input type="hidden" name="options" value={optionsJson} />
             <input type="hidden" name="recordKind" value={record?.kind ?? ""} />
             <input type="hidden" name="recordId" value={record?.id ?? ""} />
-            <Button type="submit" variant="secondary" size="sm">Open as PDF</Button>
+            <Button type="submit" variant="secondary" size="sm"><Words k="Open as PDF" /></Button>
           </form>
         </div>
         {recordKinds.length > 0 && <RecordPicker kinds={recordKinds} label={recordLabel} onPick={(r, label) => { setRecord(r); setRecordLabel(label); }} />}
@@ -267,7 +268,7 @@ export function DesignEditor({ type, fields, initial, signatories, canEdit, reco
             <div className="grid h-[28rem] place-items-center text-ink-2" aria-busy="true"><Spinner className="size-6" /></div>
           )}
         </div>
-        <p className="text-sm text-ink-2">The preview shows {recordLabel === "Sample data" ? "sample data" : recordLabel}. The PDF is exactly what prints.</p>
+        <p className="text-sm text-ink-2"><Words k="The preview shows" /> {recordLabel === "Sample data" ? "sample data" : recordLabel}<Words k=". The PDF is exactly what prints." /></p>
       </div>
     </div>
   );
@@ -285,7 +286,7 @@ function RecordPicker({ kinds, label, onPick }: { kinds: ("student" | "staff")[]
   }, [q, kind]);
   return (
     <details className="rounded-xl border border-line bg-surface p-3">
-      <summary className="min-h-9 cursor-pointer content-center text-sm font-medium">Preview with a real record: <span className="text-brand-text">{label}</span></summary>
+      <summary className="min-h-9 cursor-pointer content-center text-sm font-medium"><Words k="Preview with a real record:" /> <span className="text-brand-text">{label}</span></summary>
       <div className="mt-3 space-y-2">
         <div className="flex gap-2">
           {kinds.length > 1 && (
@@ -296,8 +297,8 @@ function RecordPicker({ kinds, label, onPick }: { kinds: ("student" | "staff")[]
           <input type="search" value={q} onChange={(e) => { setQ(e.target.value); if (e.target.value.trim().length < 2) setHits(null); }} placeholder={kind === "student" ? "Name or admission number" : "Name or staff ID"} aria-label="Search records"
             className="h-11 min-w-0 flex-1 rounded-lg border border-line-strong bg-surface px-3" />
         </div>
-        {pending && <p className="text-sm text-ink-2">Searching…</p>}
-        {hits && hits.length === 0 && <p className="text-sm text-ink-2">Nobody found. Try part of the name.</p>}
+        {pending && <p className="text-sm text-ink-2"><Words k="Searching…" /></p>}
+        {hits && hits.length === 0 && <p className="text-sm text-ink-2"><Words k="Nobody found. Try part of the name." /></p>}
         {hits && hits.length > 0 && (
           <ul className="divide-y divide-line rounded-lg border border-line">
             {hits.map((h) => (
@@ -305,7 +306,7 @@ function RecordPicker({ kinds, label, onPick }: { kinds: ("student" | "staff")[]
             ))}
           </ul>
         )}
-        {label !== "Sample data" && <Button variant="ghost" size="sm" onClick={() => onPick(null, "Sample data")}>Back to sample data</Button>}
+        {label !== "Sample data" && <Button variant="ghost" size="sm" onClick={() => onPick(null, "Sample data")}><Words k="Back to sample data" /></Button>}
       </div>
     </details>
   );
@@ -316,7 +317,7 @@ function BackgroundPicker({ fileId, disabled, onChange }: { fileId: string | nul
   const [problem, setProblem] = useState<string | null>(null);
   return (
     <div className="space-y-2">
-      <p className="text-sm font-medium">Background picture</p>
+      <p className="text-sm font-medium"><Words k="Background picture" /></p>
       <div className="flex flex-wrap items-center gap-2">
         <label className={`inline-flex min-h-11 cursor-pointer items-center rounded-lg border border-line-strong px-4 text-sm font-medium hover:bg-surface-2 ${disabled ? "pointer-events-none opacity-50" : ""}`}>
           {busy ? "Uploading…" : fileId ? "Change picture" : "Upload a picture"}
@@ -332,10 +333,10 @@ function BackgroundPicker({ fileId, disabled, onChange }: { fileId: string | nul
               e.target.value = "";
             }} />
         </label>
-        {fileId && <Button variant="ghost" size="sm" disabled={disabled} onClick={() => onChange(null)}>Remove picture</Button>}
+        {fileId && <Button variant="ghost" size="sm" disabled={disabled} onClick={() => onChange(null)}><Words k="Remove picture" /></Button>}
       </div>
       {problem && <p role="alert" className="text-sm text-danger">{problem}</p>}
-      <p className="text-sm text-ink-2">Optional. A light picture keeps the text easy to read. JPG or PNG, at most 10 MB.</p>
+      <p className="text-sm text-ink-2"><Words k="Optional. A light picture keeps the text easy to read. JPG or PNG, at most 10 MB." /></p>
     </div>
   );
 }

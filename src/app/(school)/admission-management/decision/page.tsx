@@ -28,8 +28,12 @@ import { EmptyState } from "@/components/empty-state";
 import { cx } from "@/components/ui/cx";
 import { AdmissionHead } from "../_components/head";
 import { ConfirmButton, DecideButtons, OfferButtons, OfferSeat, Rerank, WaitMove } from "./decision-forms";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Admission Decision" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Admission Decision") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
@@ -136,7 +140,7 @@ export default async function DecisionPage({ searchParams }: Search) {
       <AdmissionHead href={PATH} sub={mayApprove ? "Approve or reject with remarks, keep the waiting list and confirm admissions" : "Decisions here need approval (Settings, Forms & Approvals)"} />
       <div className="flex flex-col gap-4">
         {canChange && !viewer.overCapacity && anyApproval && (
-          <Banner tone="info" icon={ShieldCheck} title="Principal approval is on.">Decisions waiting in Approvals are made there by the approver. Once approved, you confirm the admission when the family accepts.</Banner>
+          <Banner tone="info" icon={ShieldCheck} title="Principal approval is on."><Words k="Decisions waiting in Approvals are made there by the approver. Once approved, you confirm the admission when the family accepts." /></Banner>
         )}
         <div className="flex flex-col md:flex-row md:items-end gap-3 justify-between">
           <LinkTabs value={tab} label="Decision views" className="flex-1 min-w-0" tabs={[
@@ -163,19 +167,19 @@ export default async function DecisionPage({ searchParams }: Search) {
                       <Link href={`${BASE}/applications/${a.id}`} className="font-semibold text-[16px] leading-tight hover:underline">{a.fullName}</Link>
                       <p className="text-[13px] text-ink3">{n.classes.get(a.classId) ?? ""} · {yl(a.academicYearId)} · <span className="font-mono text-[12px]">{a.applicationNo}</span>{a.category ? ` · Category: ${a.category}` : ""}</p>
                     </div>
-                    {approval && <Pill tone="info" className="shrink-0 hidden sm:inline-flex">With the Principal</Pill>}
+                    {approval && <Pill tone="info" className="shrink-0 hidden sm:inline-flex"><Words k="With the Principal" /></Pill>}
                   </div>
                   <ul className="grid md:grid-cols-2 gap-x-4 gap-y-2">
                     {facts(a).map(([Ic, t, tone]) => (
                       <li key={t} className="flex items-center gap-2 text-[13.5px] min-w-0"><Ic size={16} className={cx("shrink-0", TONE_TEXT[tone])} aria-hidden="true" /><span className={cx("truncate", tone === "bad" && "text-bad font-semibold", tone === "warn" && "text-warn font-semibold")}>{t}</span></li>
                     ))}
                   </ul>
-                  {approval && <p className="text-[12.5px] text-ink3 -mt-1">Sent by {who(approval.askedById)} on {formatDate(approval.createdAt, tz)}. Also waiting in Approvals.</p>}
+                  {approval && <p className="text-[12.5px] text-ink3 -mt-1"><Words k="Sent by" /> {who(approval.askedById)} <Words k="on" /> {formatDate(approval.createdAt, tz)}<Words k=". Also waiting in Approvals." /></p>}
                   {canChange && (
                     <div className="flex gap-2 flex-wrap pt-1">
-                      {approval && !canDecide && <ButtonLink variant="soft" icon={ShieldCheck} href="/approvals">Open in Approvals</ButtonLink>}
+                      {approval && !canDecide && <ButtonLink variant="soft" icon={ShieldCheck} href="/approvals"><Words k="Open in Approvals" /></ButtonLink>}
                       <DecideButtons id={a.id} name={a.fullName} sub={`${n.classes.get(a.classId) ?? ""} · ${yl(a.academicYearId)} · ${a.applicationNo}`} canDecide={canDecide} canReject={mayRejectAdmission} full={isFull} waitingList={settings.waitingListOn} seatsNote={seatText(a)} />
-                      <ButtonLink variant="ghost" icon={Eye} href={`${BASE}/applications/${a.id}`}>Application</ButtonLink>
+                      <ButtonLink variant="ghost" icon={Eye} href={`${BASE}/applications/${a.id}`}><Words k="Application" /></ButtonLink>
                     </div>
                   )}
                 </Card>
@@ -183,13 +187,13 @@ export default async function DecisionPage({ searchParams }: Search) {
             })}
           </div>
         ) : (
-          <Card><EmptyState bare Icon={CheckCheck} title="Nothing waiting for a decision" action={<ButtonLink href={`${BASE}/applications`} variant="secondary">See applications</ButtonLink>}>Applications arrive here once papers, tests and interviews are done.</EmptyState></Card>
+          <Card><EmptyState bare Icon={CheckCheck} title="Nothing waiting for a decision" action={<ButtonLink href={`${BASE}/applications`} variant="secondary"><Words k="See applications" /></ButtonLink>}><Words k="Applications arrive here once papers, tests and interviews are done." /></EmptyState></Card>
         ))}
 
         {tab === "approved" && (
           <Card className="overflow-hidden">
             <CardHeader title="Approved, waiting to be confirmed" description="Confirm when the family accepts. Papers must be verified first, unless an exception is recorded." />
-            {data.apps.length === 0 ? <EmptyState bare Icon={CheckCheck} title="Everyone approved is admitted">Approved applications show here until the admission is confirmed.</EmptyState> : (
+            {data.apps.length === 0 ? <EmptyState bare Icon={CheckCheck} title="Everyone approved is admitted"><Words k="Approved applications show here until the admission is confirmed." /></EmptyState> : (
               <ul className="divide-y divide-line/70 border-t border-line/70">
                 {data.apps.map((a) => {
                   const blocks = data.block.get(a.id) ?? [];
@@ -202,20 +206,20 @@ export default async function DecisionPage({ searchParams }: Search) {
                         <Avatar name={a.fullName} size={42} />
                         <div className="min-w-0">
                           <p className="font-semibold text-[15px] leading-tight"><Link href={`${BASE}/applications/${a.id}`} className="hover:underline">{a.fullName}</Link> <span className="text-ink3 font-normal text-[13px]">· {n.classes.get(a.classId) ?? ""} · {yl(a.academicYearId)}</span></p>
-                          <p className="text-[12.5px] text-ink3">Approved {a.decidedAt ? formatDate(a.decidedAt, tz) : ""} · {settings.offerLettersOn ? (a.offerLetterNo ? `Offer letter ${a.offerLetterNo} sent ${a.offerSentAt ? formatDate(a.offerSentAt, tz) : ""}${a.offerAcceptedAt ? ` · accepted ${formatDate(a.offerAcceptedAt, tz)}` : ""}` : "Offer letter not sent") : a.decisionRemarks ?? ""}</p>
+                          <p className="text-[12.5px] text-ink3"><Words k="Approved" /> {a.decidedAt ? formatDate(a.decidedAt, tz) : ""} · {settings.offerLettersOn ? (a.offerLetterNo ? `Offer letter ${a.offerLetterNo} sent ${a.offerSentAt ? formatDate(a.offerSentAt, tz) : ""}${a.offerAcceptedAt ? ` · accepted ${formatDate(a.offerAcceptedAt, tz)}` : ""}` : "Offer letter not sent") : a.decisionRemarks ?? ""}</p>
                           <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                            {blocks.length ? blocks.map((b) => <Pill key={b} tone="warn" className="!h-[22px] !text-[11.5px]">{b.length > 60 ? `${b.slice(0, 57)}…` : b}</Pill>) : <Pill tone="ok" className="!h-[22px] !text-[11.5px]">Ready to confirm</Pill>}
-                            {a.offerAcceptedAt && <Pill tone="ok" className="!h-[22px] !text-[11.5px]">Offer accepted</Pill>}
+                            {blocks.length ? blocks.map((b) => <Pill key={b} tone="warn" className="!h-[22px] !text-[11.5px]">{b.length > 60 ? `${b.slice(0, 57)}…` : b}</Pill>) : <Pill tone="ok" className="!h-[22px] !text-[11.5px]"><Words k="Ready to confirm" /></Pill>}
+                            {a.offerAcceptedAt && <Pill tone="ok" className="!h-[22px] !text-[11.5px]"><Words k="Offer accepted" /></Pill>}
                           </div>
                         </div>
                       </div>
                       {canChange && (
                         <div className="flex gap-2 flex-wrap">
                           {settings.offerLettersOn && <OfferButtons id={a.id} sent={Boolean(a.offerSentAt)} accepted={Boolean(a.offerAcceptedAt)} hasEmail={Boolean(a.email)} />}
-                          {settings.offerLettersOn && a.offerLetterNo && <ButtonLink variant="ghost" icon={Printer} href={`${PATH}/${a.id}/offer-letter`} target="_blank">Print</ButtonLink>}
+                          {settings.offerLettersOn && a.offerLetterNo && <ButtonLink variant="ghost" icon={Printer} href={`${PATH}/${a.id}/offer-letter`} target="_blank"><Words k="Print" /></ButtonLink>}
                           {blocks.length === 0 && sections.length > 0
                             ? <ConfirmButton id={a.id} name={a.fullName} sub={`${n.classes.get(a.classId) ?? ""} · ${yl(a.academicYearId)} · ${a.applicationNo}`} sections={sections} defaultSection={best?.id ?? null} today={today} family={data.familyAsk.get(a.id) ?? null} />
-                            : <ButtonLink variant="soft" icon={CircleAlert} href={`${BASE}/applications/${a.id}`}>See what is missing</ButtonLink>}
+                            : <ButtonLink variant="soft" icon={CircleAlert} href={`${BASE}/applications/${a.id}`}><Words k="See what is missing" /></ButtonLink>}
                         </div>
                       )}
                     </li>
@@ -227,7 +231,7 @@ export default async function DecisionPage({ searchParams }: Search) {
         )}
 
         {tab === "waiting" && (data.apps.length === 0 ? (
-          <Card><EmptyState bare Icon={ListOrdered} title="The waiting list is empty">Applicants put on the waiting list appear here in priority order.</EmptyState></Card>
+          <Card><EmptyState bare Icon={ListOrdered} title="The waiting list is empty"><Words k="Applicants put on the waiting list appear here in priority order." /></EmptyState></Card>
         ) : wcls && (
           <>
             <Chips value={wcls} label="Class" options={waitClasses.map((c) => ({ value: c, label: n.classes.get(c) ?? "", count: data.apps.filter((a) => a.classId === c).length, href: `${PATH}?tab=waiting&class=${c}` }))} />
@@ -248,14 +252,14 @@ export default async function DecisionPage({ searchParams }: Search) {
                     </li>
                   ))}
                 </ol>
-                <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70">When a seat frees up, the first name gets an offer. {seatText(data.apps.find((a) => a.classId === wcls)!)}</p>
+                <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70"><Words k="When a seat frees up, the first name gets an offer." /> {seatText(data.apps.find((a) => a.classId === wcls)!)}</p>
               </Card>
               <Card>
                 <CardHeader title="Changes by hand" description="Every move needs a reason and is kept" icon={History} />
                 <div className="px-5">
                   {data.history.filter((h) => h.application.classId === wcls).length
                     ? <Timeline items={data.history.filter((h) => h.application.classId === wcls).map((h) => ({ what: h.text, when: `${formatDateTime(h.at, tz)} · ${who(h.byId)}`, icon: ArrowUpDown, tone: "warn" }))} />
-                    : <p className="pb-5 text-[13.5px] text-ink3">No changes yet.</p>}
+                    : <p className="pb-5 text-[13.5px] text-ink3"><Words k="No changes yet." /></p>}
                 </div>
               </Card>
             </Split>

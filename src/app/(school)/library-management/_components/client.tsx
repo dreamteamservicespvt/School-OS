@@ -14,6 +14,7 @@ import { inputCls } from "@/components/ui/field";
 import { useTyped } from "@/components/ui/url-sheet";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
+import { Words } from "@/lib/i18n/client";
 
 const noSubscribe = () => () => {};
 /** Whether this browser can read barcodes with the camera (false on the server). */
@@ -84,14 +85,14 @@ export function ScanBox({ href, param, label, placeholder, start = "", autoFocus
             aria-invalid={problem ? true : undefined} aria-describedby={problem ? `${id}-error` : hint ? `${id}-help` : undefined}
             className={cx(inputCls(problem), "h-12 pl-11 font-mono text-[15px]")} />
         </div>
-        <Button type="submit" variant="primary" loading={busy} className="h-12">Go</Button>
-        {canScan && <Button type="button" variant="secondary" icon={Camera} className="h-12" onClick={() => setScanning((s) => !s)} aria-pressed={scanning}><span className="hidden sm:inline">{scanning ? "Stop" : "Camera"}</span><span className="sr-only sm:hidden">Use the camera</span></Button>}
+        <Button type="submit" variant="primary" loading={busy} className="h-12"><Words k="Go" /></Button>
+        {canScan && <Button type="button" variant="secondary" icon={Camera} className="h-12" onClick={() => setScanning((s) => !s)} aria-pressed={scanning}><span className="hidden sm:inline">{scanning ? "Stop" : "Camera"}</span><span className="sr-only sm:hidden"><Words k="Use the camera" /></span></Button>}
       </form>
       {scanning && (
         <div className="relative rounded-2xl bg-shade/80 h-44 overflow-hidden">
           <video ref={video} muted playsInline className="absolute inset-0 w-full h-full object-cover" />
           <span className="absolute inset-x-8 top-1/2 h-0.5 bg-brand/80 rounded-full animate-pulse" aria-hidden="true" />
-          <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[11.5px] font-semibold text-white bg-shade/60 rounded-full px-2 py-0.5">Hold the barcode inside the frame</span>
+          <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[11.5px] font-semibold text-white bg-shade/60 rounded-full px-2 py-0.5"><Words k="Hold the barcode inside the frame" /></span>
         </div>
       )}
       {problem ? <p id={`${id}-error`} className="text-[12.5px] text-bad" role="alert">{problem}</p> : hint ? <p id={`${id}-help`} className="text-[12.5px] text-ink3">{hint}</p> : null}

@@ -10,8 +10,12 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Banner } from "@/components/ui/chips";
 import { ApplicationForm, type ApplicationValues } from "../application-form";
 import { BackLink } from "../../_components/pills";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "New application" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("New application") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -49,9 +53,9 @@ export default async function NewApplicationPage({ searchParams }: Search) {
       <BackLink href={e ? `${BASE}/enquiries?id=${e.id}` : `${BASE}/applications`} label={e ? "Enquiry" : "Applications"} sub={e?.enquiryNo ?? undefined} />
       <PageHeader title={e ? `Application for ${e.childName}` : "New application"} href={`${BASE}/applications/new`} userId={current.user.id}
         sub={e ? `Filled from enquiry ${e.enquiryNo ?? ""}. Nothing is typed twice.` : "Filled at the counter. The parent can check it on your screen."} />
-      {enquiryId && !e && <Banner tone="warn" className="mb-4">The enquiry was not found, so the form starts empty.</Banner>}
+      {enquiryId && !e && <Banner tone="warn" className="mb-4"><Words k="The enquiry was not found, so the form starts empty." /></Banner>}
       {data.choices.years.length === 0 ? (
-        <Banner tone="warn">No admission year is open. Add the academic year in Academic Management first.</Banner>
+        <Banner tone="warn"><Words k="No admission year is open. Add the academic year in Academic Management first." /></Banner>
       ) : (
         <ApplicationForm
           classes={data.choices.classes} years={data.choices.years} relations={RELATIONS} categories={data.choices.categories}

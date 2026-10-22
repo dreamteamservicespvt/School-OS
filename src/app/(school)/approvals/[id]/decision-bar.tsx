@@ -10,6 +10,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { TextArea } from "@/components/ui/field";
 import type { Decision } from "@/lib/approvals";
 import { decideAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 export function DecisionBar({ id, summary, canDecide, canReject = true, canWithdraw }: { id: string; summary: string; canDecide: boolean; canReject?: boolean; canWithdraw: boolean }) {
   const [asking, setAsking] = useState<null | "reject" | "ask-change">(null);
@@ -36,14 +37,14 @@ export function DecisionBar({ id, summary, canDecide, canReject = true, canWithd
         <div className="flex flex-wrap gap-2">
           {canDecide && (
             <>
-              <Button icon={I.Check} className="flex-1 sm:flex-none" loading={pending && !asking} loadingText="Approving…" onClick={() => run("approve", null)}>Approve</Button>
-              <Button variant="secondary" icon={I.MessageSquareReply} className="flex-1 sm:flex-none" onClick={() => { setNote(""); setNoteError(null); setError(null); setAsking("ask-change"); }}>Ask for a change</Button>
-              {canReject && <Button variant="danger-outline" icon={I.X} className="flex-1 sm:flex-none" onClick={() => { setNote(""); setNoteError(null); setError(null); setAsking("reject"); }}>Reject</Button>}
+              <Button icon={I.Check} className="flex-1 sm:flex-none" loading={pending && !asking} loadingText="Approving…" onClick={() => run("approve", null)}><Words k="Approve" /></Button>
+              <Button variant="secondary" icon={I.MessageSquareReply} className="flex-1 sm:flex-none" onClick={() => { setNote(""); setNoteError(null); setError(null); setAsking("ask-change"); }}><Words k="Ask for a change" /></Button>
+              {canReject && <Button variant="danger-outline" icon={I.X} className="flex-1 sm:flex-none" onClick={() => { setNote(""); setNoteError(null); setError(null); setAsking("reject"); }}><Words k="Reject" /></Button>}
             </>
           )}
           {canWithdraw && (
             <ConfirmButton trigger="Withdraw my request" triggerVariant="secondary" title="Withdraw this request?" confirmLabel="Withdraw" onConfirm={() => decideAction(id, "withdraw", null)}>
-              {summary} will no longer wait for a decision. You can ask again later.
+              {summary} <Words k="will no longer wait for a decision. You can ask again later." />
             </ConfirmButton>
           )}
         </div>
@@ -60,7 +61,7 @@ export function DecisionBar({ id, summary, canDecide, canReject = true, canWithd
             help="The person who asked sees this." />
           {error && <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{error}</p>}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="secondary" onClick={() => setAsking(null)}>Cancel</Button>
+            <Button variant="secondary" onClick={() => setAsking(null)}><Words k="Cancel" /></Button>
             <Button type="submit" variant={asking === "reject" ? "danger" : "primary"} loading={pending} loadingText="Sending…">{asking === "reject" ? "Reject" : "Send back for a change"}</Button>
           </div>
         </form>

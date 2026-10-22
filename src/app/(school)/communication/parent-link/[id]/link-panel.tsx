@@ -11,6 +11,7 @@ import { Segmented } from "@/components/ui/controls";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { resendAction, revokeAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 
@@ -57,24 +58,24 @@ export function LinkPanel({ id, name, channels, reasons }: { id: string; name: s
 
   return (
     <>
-      <Button variant="secondary" icon={Send} onClick={() => setOpen("resend")}>Resend link</Button>
-      <Button variant="danger-soft" icon={Ban} onClick={() => setOpen("revoke")}>Revoke or reissue</Button>
+      <Button variant="secondary" icon={Send} onClick={() => setOpen("resend")}><Words k="Resend link" /></Button>
+      <Button variant="danger-soft" icon={Ban} onClick={() => setOpen("revoke")}><Words k="Revoke or reissue" /></Button>
 
       <Dialog open={open === "resend"} onClose={close} title={`Resend ${name}’s link`} sub="The same link, for a guardian who lost the message. Phones already confirmed keep working."
         footer={<>
-          <Button variant="secondary" onClick={close}>Cancel</Button>
-          <Button icon={Send} loading={pending} loadingText="Sending" disabled={!channels.length} onClick={resend}>Resend link</Button>
+          <Button variant="secondary" onClick={close}><Words k="Cancel" /></Button>
+          <Button icon={Send} loading={pending} loadingText="Sending" disabled={!channels.length} onClick={resend}><Words k="Resend link" /></Button>
         </>}>
         <div className="flex flex-col gap-3">
-          {channels.length ? channelPick || <p className="text-[14px] text-ink2">It goes by {channels[0].label} to the registered mobile.</p>
-            : <p className="text-[14px] text-bad">Neither WhatsApp nor SMS is switched on. Switch one on in Settings, SMS, WhatsApp &amp; Email.</p>}
+          {channels.length ? channelPick || <p className="text-[14px] text-ink2"><Words k="It goes by" /> {channels[0].label} <Words k="to the registered mobile." /></p>
+            : <p className="text-[14px] text-bad"><Words k={"Neither WhatsApp nor SMS is switched on. Switch one on in Settings, SMS, WhatsApp & Email."} /></p>}
           {msg && <p role="alert" className="text-[13px] text-bad">{msg}</p>}
         </div>
       </Dialog>
 
       <Dialog open={open === "revoke"} onClose={close} title={`Revoke ${name}’s link`} sub="The old link stops working at once on every phone. The reason is logged."
         footer={<>
-          <Button variant="secondary" onClick={close}>Cancel</Button>
+          <Button variant="secondary" onClick={close}><Words k="Cancel" /></Button>
           <Button variant="danger" loading={pending} loadingText="Working" onClick={revoke}>{mode === "reissue" ? "Revoke and send a new link" : "Revoke only"}</Button>
         </>}>
         <div className="flex flex-col gap-3">

@@ -20,11 +20,13 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { PanelCard, TodayCard } from "./panels";
 import { ApprovalsCard, AttentionCard, RefreshControl, TasksCard } from "./dashboard-client";
-import { getT } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 import { dayWords } from "@/lib/i18n/dates";
 import type { T } from "@/lib/i18n/t";
 
-export const metadata: Metadata = { title: "Dashboard" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Dashboard") };
+}
 
 const iconOf = (name: string): LucideIcon => ((I as unknown as Record<string, LucideIcon>)[name] ?? I.Circle);
 

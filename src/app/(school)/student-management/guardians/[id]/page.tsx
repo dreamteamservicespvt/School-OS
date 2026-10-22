@@ -27,8 +27,12 @@ import { PhotoUpload } from "../../students/[id]/photo-upload";
 import { feePageAllowedFor } from "@/lib/fees/access";
 import { PAYMENT_STATUS_WORDS, modeLabel } from "@/lib/fees/words";
 import { loadParent360 } from "../load";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Parent" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Parent") };
+}
 
 const TONE = { GIVEN: "ok", WITHDRAWN: "bad", REFUSED: "bad", REQUESTED: "warn", NONE: "warn" } as const;
 const stateWord = (s: keyof typeof TONE) => s === "NONE" ? "Not given" : CONSENT_STATUS_LABEL[s];
@@ -74,12 +78,12 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
       <div className="flex flex-col gap-5 lg:gap-6">
         {g.archivedAt && (
           <Banner tone="warn" title="This record is archived.">
-            {data.merged ? <>It was merged into <Link className="font-semibold underline" href={`${BASE}/guardians/${data.merged.keptId}`}>another parent record</Link> on {formatDate(data.merged.createdAt, tz)}.</> : "It is kept for the history."}
+            {data.merged ? <><Words k="It was merged into" /> <Link className="font-semibold underline" href={`${BASE}/guardians/${data.merged.keptId}`}><Words k="another parent record" /></Link> <Words k="on" /> {formatDate(data.merged.createdAt, tz)}.</> : "It is kept for the history."}
           </Banner>
         )}
         {can.seeRestricted && restricted.length > 0 && (
           <Banner tone="bad" icon={ShieldX} title="Custody restriction.">
-            {restricted.map((l) => `${l.student.fullName.split(" ")[0]}: ${l.restriction}`).join(" · ")} Not on the pickup list{restricted.length === kids.length ? " for any child" : ` for ${restricted.map((l) => l.student.fullName.split(" ")[0]).join(", ")}`}.
+            {restricted.map((l) => `${l.student.fullName.split(" ")[0]}: ${l.restriction}`).join(" · ")} <Words k="Not on the pickup list" />{restricted.length === kids.length ? " for any child" : ` for ${restricted.map((l) => l.student.fullName.split(" ")[0]).join(", ")}`}.
           </Banner>
         )}
 
@@ -93,7 +97,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className="font-display text-[23px] md:text-[26px] font-semibold tracking-tight leading-tight">{g.name}</h1>
-                <Pill tone={TONE[dataState]} dot>Consent {stateWord(dataState).toLowerCase()}</Pill>
+                <Pill tone={TONE[dataState]} dot><Words k="Consent" /> {stateWord(dataState).toLowerCase()}</Pill>
               </div>
               <p className="text-[13.5px] text-ink3 mt-0.5">
                 {g.relationship} · <a href={`tel:+91${g.phone}`} className="tnum hover:underline">+91 {phoneShow(g.phone)}</a>{g.email && <> · {g.email}</>}{g.occupation && <> · {g.occupation}</>}
@@ -102,10 +106,10 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
           </div>
           {(message || manage) && (
             <div className="flex gap-2 flex-wrap relative">
-              {message && <ButtonLink href={`/communication?for=students&ids=${kids.map((k) => k.studentId).join(",")}`} icon={MessageCircle}>Message</ButtonLink>}
+              {message && <ButtonLink href={`/communication?for=students&ids=${kids.map((k) => k.studentId).join(",")}`} icon={MessageCircle}><Words k="Message" /></ButtonLink>}
               {manage && provider && (
-                <ConfirmAction action={parentLinkAction} fields={{ guardianId: id, op: "resend" }} trigger={<><RefreshCw size={16} aria-hidden="true" />Resend Parent Link</>} title="Resend Parent Link?" confirmLabel={`Send to ${g.name}`}>
-                  {g.name}’s personal link goes again to +91 {phoneShow(g.phone)} on WhatsApp, with SMS backup.
+                <ConfirmAction action={parentLinkAction} fields={{ guardianId: id, op: "resend" }} trigger={<><RefreshCw size={16} aria-hidden="true" /><Words k="Resend Parent Link" /></>} title="Resend Parent Link?" confirmLabel={`Send to ${g.name}`}>
+                  {g.name}<Words k="’s personal link goes again to +91" /> {phoneShow(g.phone)} <Words k="on WhatsApp, with SMS backup." />
                 </ConfirmAction>
               )}
               {menu.length > 0 && <MoreMenu items={menu} label={`More actions for ${g.name}`} />}
@@ -119,7 +123,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
           <Col>
             <Card>
               <CardHeader title="Children" description={kids.length > 1 ? "Brothers and sisters share this parent record. Tap a child to open the profile." : "Tap a child to open the profile"} icon={GraduationCap} />
-              {kids.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No children are linked.</p> : (
+              {kids.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No children are linked." /></p> : (
                 <ul className="grid md:grid-cols-2 gap-3 px-5 pb-5">
                   {kids.map((k) => {
                     const due = k.fact?.feeDuePaise ?? BigInt(0);
@@ -137,25 +141,25 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                           <div className="grid grid-cols-2 gap-2 text-[13px]">
                             {data.shows.attendance && (
                               <div className="rounded-xl bg-sunken/60 px-2.5 py-2">
-                                <p className="text-ink3 text-[12px] font-semibold">Attendance</p>
+                                <p className="text-ink3 text-[12px] font-semibold"><Words k="Attendance" /></p>
                                 <p className={cx("font-semibold tnum", k.fact?.attendancePct != null && k.fact.attendancePct < 85 && "text-warn")}>{k.fact?.attendancePct != null ? `${Math.round(k.fact.attendancePct)}% this year` : "Not marked yet"}</p>
                               </div>
                             )}
                             {seeFees && (
                               <div className="rounded-xl bg-sunken/60 px-2.5 py-2">
-                                <p className="text-ink3 text-[12px] font-semibold">Fees</p>
+                                <p className="text-ink3 text-[12px] font-semibold"><Words k="Fees" /></p>
                                 <p className={cx("font-semibold tnum", due > BigInt(0) && "text-bad")}>{k.fact?.feeDuePaise == null ? "Nothing due yet" : due > BigInt(0) ? `${formatRupees(due)} ${k.fact.feeOverdue ? "overdue" : "due"}` : "Paid"}</p>
                               </div>
                             )}
                           </div>
                         )}
                         <div className="flex flex-wrap gap-1.5 items-center">
-                          {(k.fact?.resultText || k.fact?.result) && <Pill tone={k.fact.result === "pass" ? "ok" : k.fact.result === "fail" ? "bad" : "warn"}>Result: {k.fact.resultText ?? RESULT_LABEL[k.fact.result!]}</Pill>}
+                          {(k.fact?.resultText || k.fact?.result) && <Pill tone={k.fact.result === "pass" ? "ok" : k.fact.result === "fail" ? "bad" : "warn"}><Words k="Result:" /> {k.fact.resultText ?? RESULT_LABEL[k.fact.result!]}</Pill>}
                           {k.student.status !== "ACTIVE" && <Pill tone={STATUS_TONE[k.student.status]}>{STATUS_LABEL[k.student.status]}</Pill>}
-                          {k.isPrimary && <Pill tone="brand">Primary contact for messages</Pill>}
-                          {k.canPickUp && !k.restriction && <Pill tone="ok">May pick up</Pill>}
-                          {k.restriction && can.seeRestricted && <Pill tone="bad">Do not release</Pill>}
-                          {manage && !k.isPrimary && !k.restriction && <ActionButton action={setPrimaryAction} fields={{ linkId: k.id, studentId: k.studentId }} variant="ghost">Make primary contact</ActionButton>}
+                          {k.isPrimary && <Pill tone="brand"><Words k="Primary contact for messages" /></Pill>}
+                          {k.canPickUp && !k.restriction && <Pill tone="ok"><Words k="May pick up" /></Pill>}
+                          {k.restriction && can.seeRestricted && <Pill tone="bad"><Words k="Do not release" /></Pill>}
+                          {manage && !k.isPrimary && !k.restriction && <ActionButton action={setPrimaryAction} fields={{ linkId: k.id, studentId: k.studentId }} variant="ghost"><Words k="Make primary contact" /></ActionButton>}
                         </div>
                       </li>
                     );
@@ -167,7 +171,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
             {seeFees && (
               <Card>
                 <CardHeader title="Payments" description={kids.length > 1 ? "The latest payments for all children" : "The latest payments"} icon={Receipt} />
-                {data.payments.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3">No payments yet.</p> : (
+                {data.payments.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No payments yet." /></p> : (
                   <ul className="px-3 pb-3">
                     {data.payments.map((p) => {
                       const to = paymentHref(p);
@@ -236,7 +240,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
               </ul>
               {data.consents.length > 0 && (
                 <details className="border-t border-line px-5 py-3 group">
-                  <summary className="cursor-pointer text-[13.5px] font-semibold text-brand min-h-9 flex items-center">Every record, by child</summary>
+                  <summary className="cursor-pointer text-[13.5px] font-semibold text-brand min-h-9 flex items-center"><Words k="Every record, by child" /></summary>
                   <ul className="mt-1 divide-y divide-line/70">
                     {data.consents.map((c) => (
                       <li key={`${c.studentId}:${c.consentType}`} className="py-2 flex items-center justify-between gap-3 text-[13px]">
@@ -251,7 +255,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
               )}
               {manage && data.consents.some((c) => c.status !== "WITHDRAWN") && (
                 <details className="border-t border-line px-5 py-3">
-                  <summary className="cursor-pointer text-[13.5px] font-semibold text-brand min-h-9 flex items-center">Record consent withdrawal</summary>
+                  <summary className="cursor-pointer text-[13.5px] font-semibold text-brand min-h-9 flex items-center"><Words k="Record consent withdrawal" /></summary>
                   <ActionForm action={withdrawConsentAction.bind(null, id)} submitLabel="Record withdrawal" submitVariant="danger" pendingText="Saving…" className="mt-2 grid gap-3">
                     <FormSelect name="consentType" label="Which consent" required options={CONSENT_TYPES.map((t) => ({ value: t.key, label: t.label }))} defaultValue="photo" help="Photo consent can be withdrawn on its own." />
                     <FormSelect name="studentId" label="For" options={[{ value: "", label: "Every child" }, ...kids.map((l) => ({ value: l.studentId, label: l.student.fullName }))]} />
@@ -271,8 +275,8 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                 ]} />
                 {manage && (
                   <div className="px-5 pb-5 -mt-1">
-                    <ConfirmAction action={parentLinkAction} fields={{ guardianId: id, op: "revoke" }} trigger={<><Ban size={16} aria-hidden="true" />Revoke Parent Link</>} triggerVariant="danger-outline" title="Revoke Parent Link?" confirmLabel="Revoke and send a new link" confirmVariant="danger">
-                      Use this when a phone is lost. The old link stops opening at once, and a new link is sent to +91 {phoneShow(g.phone)}.
+                    <ConfirmAction action={parentLinkAction} fields={{ guardianId: id, op: "revoke" }} trigger={<><Ban size={16} aria-hidden="true" /><Words k="Revoke Parent Link" /></>} triggerVariant="danger-outline" title="Revoke Parent Link?" confirmLabel="Revoke and send a new link" confirmVariant="danger">
+                      <Words k="Use this when a phone is lost. The old link stops opening at once, and a new link is sent to +91" /> {phoneShow(g.phone)}.
                     </ConfirmAction>
                   </div>
                 )}
@@ -282,13 +286,13 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
             {can.seeDocuments && (
               <Card>
                 <CardHeader title="Documents" icon={FolderOpen} />
-                {data.docs.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3">No documents for this parent. They are added on a child’s Documents tab.</p> : (
+                {data.docs.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No documents for this parent. They are added on a child’s Documents tab." /></p> : (
                   <ul className="px-3 pb-3">
                     {data.docs.map((d) => (
                       <li key={d.id} className="flex items-center gap-3 px-2 py-2.5 rounded-xl hover:bg-sunken/60">
                         <span className="w-10 h-10 rounded-xl bg-sunken text-ink2 grid place-items-center shrink-0" aria-hidden="true"><FileText size={19} /></span>
                         <div className="min-w-0 flex-1"><p className="font-semibold text-[14px] truncate">{d.kind}</p><p className="text-[12.5px] text-ink3 truncate tnum">{childName(d.studentId)} · {formatDate(d.createdAt, tz)}</p></div>
-                        <ButtonLink href={fileLink(d.fileId, current.ctx.schoolId)} size="sm" variant="ghost" icon={Eye} target="_blank" rel="noopener">View</ButtonLink>
+                        <ButtonLink href={fileLink(d.fileId, current.ctx.schoolId)} size="sm" variant="ghost" icon={Eye} target="_blank" rel="noopener"><Words k="View" /></ButtonLink>
                       </li>
                     ))}
                   </ul>

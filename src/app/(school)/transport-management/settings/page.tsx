@@ -13,8 +13,11 @@ import { SettingsSheet } from "../_components/settings-sheet";
 import { setLiveAction } from "../actions";
 import { BASE, addQ, one, trGuard, type SearchParams } from "../_lib/page";
 import { schoolRoles } from "@/lib/school-roles";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Transport Settings" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Transport Settings") };
+}
 
 const HREF = `${BASE}/settings`;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];

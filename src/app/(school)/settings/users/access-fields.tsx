@@ -3,6 +3,7 @@
 // Roles, scope and campus: used when inviting a person and on their page.
 import { useState } from "react";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type RoleOption = { id: string; name: string; kind: string; twoStep: boolean; about: string };
 export type CampusOption = { id: string; name: string };
@@ -26,8 +27,8 @@ export function AccessFields({ roles, campuses, roleIds, scope, campusId, errors
   return (
     <div className="space-y-5">
       <fieldset aria-describedby={errors.roleIds ? "roles-error" : undefined}>
-        <legend className="mb-1 text-sm font-medium">Roles <span className="text-danger" aria-hidden="true">*</span></legend>
-        <p className="mb-2 text-sm text-ink-2">A person can have more than one role; they get the widest access any of them gives.</p>
+        <legend className="mb-1 text-sm font-medium"><Words k="Roles" /> <span className="text-danger" aria-hidden="true">*</span></legend>
+        <p className="mb-2 text-sm text-ink-2"><Words k="A person can have more than one role; they get the widest access any of them gives." /></p>
         {groups.map((g) => (
           <div key={g.title} className="mb-3">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-2">{g.title}</p>
@@ -38,7 +39,7 @@ export function AccessFields({ roles, campuses, roleIds, scope, campusId, errors
                     onChange={(e) => setChosen(e.target.checked ? [...chosen, r.id] : chosen.filter((x) => x !== r.id))} />
                   <span>
                     <span className="font-medium">{r.name}</span>
-                    {r.twoStep && <span className="ml-1 text-xs text-ink-2">· two-step login</span>}
+                    {r.twoStep && <span className="ml-1 text-xs text-ink-2"><Words k="· two-step login" /></span>}
                     <span className="block text-sm text-ink-2">{r.about}</span>
                   </span>
                 </label>
@@ -49,7 +50,7 @@ export function AccessFields({ roles, campuses, roleIds, scope, campusId, errors
         {errors.roleIds && <p id="roles-error" className="text-sm text-danger">{errors.roleIds}</p>}
       </fieldset>
       <fieldset>
-        <legend className="mb-2 text-sm font-medium">Scope <span className="text-danger" aria-hidden="true">*</span></legend>
+        <legend className="mb-2 text-sm font-medium"><Words k="Scope" /> <span className="text-danger" aria-hidden="true">*</span></legend>
         <div className="grid gap-2 sm:grid-cols-3">
           {SCOPES.filter((s) => s.value !== "CAMPUS" || campuses.length > 1).map((s) => (
             <label key={s.value} className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-lg border px-3 py-2 ${sc === s.value ? "border-brand bg-brand-soft" : "border-line"}`}>
@@ -62,7 +63,7 @@ export function AccessFields({ roles, campuses, roleIds, scope, campusId, errors
       </fieldset>
       {sc === "CAMPUS" && (
         <div>
-          <label htmlFor="campusId" className="mb-1 block text-sm font-medium">Campus <span className="text-danger" aria-hidden="true">*</span></label>
+          <label htmlFor="campusId" className="mb-1 block text-sm font-medium"><Words k="Campus" /> <span className="text-danger" aria-hidden="true">*</span></label>
           <select id="campusId" name="campusId" defaultValue={campusId} required className={`h-11 w-full max-w-sm rounded-lg border bg-surface px-3 ${errors.campusId ? "border-danger" : "border-line-strong"}`}>
             <option value="">Choose the campus</option>
             {campuses.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}

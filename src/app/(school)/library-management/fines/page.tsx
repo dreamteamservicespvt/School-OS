@@ -32,8 +32,12 @@ import { CollectSheet, CorrectSheet, RejectChargeSheet, StartStockSheet, StopSal
 import { BASE, libGuard, libPeriod, one, qs, UUID, type SearchParams } from "../_lib/page";
 import { finesWhere, readFinesFilter, FINE_TABS } from "../_lib/fines";
 import { decideChargeAction, remindLibrarianAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Fines & Stock Check · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Fines & Stock Check · Library Management") };
+}
 const ZERO = BigInt(0);
 
 export default async function FinesPage({ searchParams }: { searchParams: SearchParams }) {
@@ -108,13 +112,13 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
     const bits: React.ReactNode[] = [];
     if (r.status === "WAITING" && r.approvalId && d.deciders.has(r.approvalId)) {
       bits.push(<ActButton key="ok" action={decideChargeAction} fields={{ fineId: r.id, decision: "approve" }} label="Approve" icon="check" variant="primary" />);
-      bits.push(<Link key="no" href={href({ reject: r.id })} scroll={false} className="text-[13px] font-semibold text-bad hover:underline">Do not approve</Link>);
+      bits.push(<Link key="no" href={href({ reject: r.id })} scroll={false} className="text-[13px] font-semibold text-bad hover:underline"><Words k="Do not approve" /></Link>);
     }
-    if (can.fines && r.status === "DUE" && !r.feeDueId && !r.salaryAt) bits.push(<Link key="c" href={href({ collect: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">Collect</Link>);
-    if (mayGoToSalary(r)) bits.push(<Link key="s" href={href({ salary: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">From salary</Link>);
-    if (can.fines && r.status === "DUE" && r.salaryAt) bits.push(<Link key="d" href={href({ desk: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">Collect here instead</Link>);
-    if (can.fines && r.status === "DUE") bits.push(<Link key="w" href={href({ waive: r.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline">Waive</Link>);
-    if (can.fines && r.status === "NOT_APPROVED") bits.push(<Link key="f" href={href({ correct: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">Correct the amount</Link>);
+    if (can.fines && r.status === "DUE" && !r.feeDueId && !r.salaryAt) bits.push(<Link key="c" href={href({ collect: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline"><Words k="Collect" /></Link>);
+    if (mayGoToSalary(r)) bits.push(<Link key="s" href={href({ salary: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline"><Words k="From salary" /></Link>);
+    if (can.fines && r.status === "DUE" && r.salaryAt) bits.push(<Link key="d" href={href({ desk: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline"><Words k="Collect here instead" /></Link>);
+    if (can.fines && r.status === "DUE") bits.push(<Link key="w" href={href({ waive: r.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline"><Words k="Waive" /></Link>);
+    if (can.fines && r.status === "NOT_APPROVED") bits.push(<Link key="f" href={href({ correct: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline"><Words k="Correct the amount" /></Link>);
     return bits.length ? <span className="flex items-center gap-3 justify-end flex-wrap">{bits}</span> : null;
   };
 
@@ -163,7 +167,7 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
           />
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(base, params, { page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(base, params, { page: params.page + 1 })} />}
         </Card>
-        <p className="text-[12.5px] text-ink3">Fine rate: {formatRupees(s.finePerDayPaise)} a day after {plural(s.graceDays, "day")} of grace, at most {formatRupees(s.maxFinePaise)} a book. Charges above {formatRupees(s.approvalAbovePaise)} need approval. {s.finesToFees ? "Students' fines are added to their fees." : "Fines are collected at the library desk."}</p>
+        <p className="text-[12.5px] text-ink3"><Words k="Fine rate:" /> {formatRupees(s.finePerDayPaise)} <Words k="a day after" /> {plural(s.graceDays, "day")} <Words k="of grace, at most" /> {formatRupees(s.maxFinePaise)} <Words k="a book. Charges above" /> {formatRupees(s.approvalAbovePaise)} <Words k="need approval." /> {s.finesToFees ? "Students' fines are added to their fees." : "Fines are collected at the library desk."}</p>
       </Stack>
       {waive && <WaiveSheet closeHref={href({ waive: null })} fineId={waive.id} words={words(waive)} inFees={Boolean(waive.feeDueId)} inSalary={Boolean(waive.salaryAt)} />}
       {collect && !collect.salaryAt && <CollectSheet closeHref={href({ collect: null })} fineId={collect.id} words={words(collect)} />}
@@ -192,13 +196,13 @@ async function StockView({ p, sp }: { p: P; sp: Raw }) {
   return (
     <>
       <LibHead pageName="Fines & Stock Check" href={base} mode={p.mode}
-        actions={can.fines ? (d.open ? <ButtonLink href={`${base}/stock/${d.open.id}`} variant="primary" icon={ScanLine}>Continue scanning</ButtonLink> : <ButtonLink href={`${base}?view=stock&open=stock`} variant="primary" icon={ClipboardCheck} scroll={false}>Start stock check</ButtonLink>) : undefined} />
+        actions={can.fines ? (d.open ? <ButtonLink href={`${base}/stock/${d.open.id}`} variant="primary" icon={ScanLine}><Words k="Continue scanning" /></ButtonLink> : <ButtonLink href={`${base}?view=stock&open=stock`} variant="primary" icon={ClipboardCheck} scroll={false}><Words k="Start stock check" /></ButtonLink>) : undefined} />
       <Stack>
         <Tabs view="stock" />
         {d.open && (
           <div className="flex items-center gap-3 rounded-2xl bg-brand/10 px-4 py-3 text-[14px] flex-wrap">
             <ScanLine size={18} className="text-brand shrink-0" aria-hidden="true" />
-            <span className="flex-1 min-w-0"><b className="font-semibold">{d.open.name}</b> is open since {formatDateTime(d.open.startedAt, tz)}.</span>
+            <span className="flex-1 min-w-0"><b className="font-semibold">{d.open.name}</b> <Words k="is open since" /> {formatDateTime(d.open.startedAt, tz)}.</span>
             <ButtonLink href={`${base}/stock/${d.open.id}`} size="sm" variant="secondary">{can.fines ? "Continue" : "Open"}</ButtonLink>
           </div>
         )}
@@ -214,9 +218,9 @@ async function StockView({ p, sp }: { p: P; sp: Raw }) {
               { key: "found", label: "Found", align: "right", render: (x) => (x.found ?? (x.status === "OPEN" ? `${x._count.scans} scanned` : "—")) },
               { key: "missing", label: "Missing", align: "right", render: (x) => (x.missing != null ? <span className={cx(x.missing ? "text-bad font-semibold" : "")}>{x.missing}</span> : "—") },
               { key: "extra", label: "Extra", align: "right", render: (x) => x.extra ?? "—" },
-              { key: "status", label: "Status", render: (x) => (x.status === "OPEN" ? <Pill tone="info">Open</Pill> : x.lostMarkedAt ? <Pill tone="ok">Closed, missing marked lost</Pill> : <Pill>Closed</Pill>) },
+              { key: "status", label: "Status", render: (x) => (x.status === "OPEN" ? <Pill tone="info"><Words k="Open" /></Pill> : x.lostMarkedAt ? <Pill tone="ok"><Words k="Closed, missing marked lost" /></Pill> : <Pill><Words k="Closed" /></Pill>) },
             ]}
-            phone={(x) => ({ title: x.name, sub: `${formatDate(x.startedAt, tz)}${x.status === "OPEN" ? ` · ${x._count.scans} scanned` : ` · ${x.found ?? 0} found, ${x.missing ?? 0} missing`}`, icon: ClipboardCheck, right: x.status === "OPEN" ? <Pill tone="info">Open</Pill> : <Pill>Closed</Pill> })}
+            phone={(x) => ({ title: x.name, sub: `${formatDate(x.startedAt, tz)}${x.status === "OPEN" ? ` · ${x._count.scans} scanned` : ` · ${x.found ?? 0} found, ${x.missing ?? 0} missing`}`, icon: ClipboardCheck, right: x.status === "OPEN" ? <Pill tone="info"><Words k="Open" /></Pill> : <Pill><Words k="Closed" /></Pill> })}
           />
         </Card>
       </Stack>

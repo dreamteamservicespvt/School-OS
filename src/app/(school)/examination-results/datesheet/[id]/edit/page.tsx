@@ -4,8 +4,12 @@ import { examPage, type SearchParams } from "../../../_lib/page";
 import { BackLink } from "../../../_components/page-top";
 import { datesheetFormData } from "../../form-data";
 import { DatesheetForm } from "../../datesheet-form";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Change datesheet" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Change datesheet") };
+}
 
 export default async function EditDatesheetPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
   const { id } = await params;
@@ -19,8 +23,8 @@ export default async function EditDatesheetPage({ params, searchParams }: { para
     <>
       <BackLink page={page} href={`/examination-results/datesheet/${id}`} label={data.exam.title} sub="Change datesheet" />
       <div className="mb-5">
-        <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">Change {data.exam.title}</h1>
-        {data.exam.status !== "DRAFT" && !data.exam.locked && <p className="text-[14px] text-ink2 mt-1">This datesheet is published. Changes show on the School Calendar, the Time Table and Parent Link straight away.</p>}
+        <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight"><Words k="Change" /> {data.exam.title}</h1>
+        {data.exam.status !== "DRAFT" && !data.exam.locked && <p className="text-[14px] text-ink2 mt-1"><Words k="This datesheet is published. Changes show on the School Calendar, the Time Table and Parent Link straight away." /></p>}
       </div>
       <DatesheetForm data={data} />
     </>

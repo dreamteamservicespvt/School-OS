@@ -27,8 +27,12 @@ import { AttHead } from "../_components/att-head";
 import { RowMenu } from "../_components/row-menu";
 import { DeviceForm, GeoFenceForm, QrCreateForm, QrSettingsForm } from "../_components/device-forms";
 import { addDeviceAction, createQrAction, geoFenceAction, qrSettingsAction, qrStateAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Devices & QR" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Devices & QR") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const PATH = `${BASE}/devices`;
@@ -97,7 +101,7 @@ export default async function DevicesPage({ searchParams }: Props) {
       <AttHead access={access} features={features} userId={current.user.id} href={PATH} sub="Biometric devices, QR check-in and the campus area for the app"
         actions={devicesOn && canEdit ? <DeviceForm action={addDeviceAction} campuses={campusOptions} types={[...DEVICE_TYPES]} allowed={[...ALLOWED_USERS]} defaultCampus={access.campusId ?? data.campuses[0]?.id} /> : undefined} />
       {off ? (
-        <EmptyState title="Devices, QR and mobile check-in are off" Icon={ScanFace}>Switch them on in <Link className="font-semibold text-brand hover:underline" href={`${BASE}/settings`}>Attendance Settings</Link>, Punch methods.</EmptyState>
+        <EmptyState title="Devices, QR and mobile check-in are off" Icon={ScanFace}><Words k="Switch them on in" /> <Link className="font-semibold text-brand hover:underline" href={`${BASE}/settings`}><Words k="Attendance Settings" /></Link><Words k=", Punch methods." /></EmptyState>
       ) : (
         <div className="flex flex-col gap-5 lg:gap-6">
           {devicesOn && (
@@ -109,15 +113,15 @@ export default async function DevicesPage({ searchParams }: Props) {
                 { label: "Users mapped", value: `${data.mapped.students.toLocaleString("en-IN")} + ${data.mapped.staff}`, sub: notMapped > 0 ? `${notMapped.toLocaleString("en-IN")} people not mapped yet` : "Everyone the devices take", icon: Users },
               ]} />
               {offline.map((d) => (
-                <Banner key={d.id} tone="bad" title={`${d.name} is offline`} action={<ButtonLink size="sm" variant="secondary" href={`${PATH}/${d.id}`}>Check</ButtonLink>}>
-                  since {d.lastSyncAt ? formatDateTime(d.lastSyncAt, tz) : "it was added"}. Punches from it may be missing; mark by hand until it is back.
+                <Banner key={d.id} tone="bad" title={`${d.name} is offline`} action={<ButtonLink size="sm" variant="secondary" href={`${PATH}/${d.id}`}><Words k="Check" /></ButtonLink>}>
+                  <Words k="since" /> {d.lastSyncAt ? formatDateTime(d.lastSyncAt, tz) : "it was added"}<Words k=". Punches from it may be missing; mark by hand until it is back." />
                 </Banner>
               ))}
               <Card className="overflow-hidden">
                 <div className="flex flex-col lg:flex-row gap-2 p-3 border-b border-line">
                   <UrlSearch placeholder="Device, place or serial number" />
                   <div className="flex gap-2">
-                    <ButtonLink href={qs({ guide: "1" })} variant="secondary" icon={BookOpen} scroll={false}>Setup guide</ButtonLink>
+                    <ButtonLink href={qs({ guide: "1" })} variant="secondary" icon={BookOpen} scroll={false}><Words k="Setup guide" /></ButtonLink>
                   </div>
                 </div>
                 <div className="px-3 pt-3">
@@ -133,10 +137,10 @@ export default async function DevicesPage({ searchParams }: Props) {
                     { key: "type", label: "Type", render: (d) => typeLabel(d.deviceType) },
                     { key: "loc", label: "Location", render: (d) => <div><p className="leading-tight">{d.location ?? "Not set"}</p><p className="text-[12px] text-ink3">{campusName.get(d.campusId) ?? ""}</p></div> },
                     { key: "users", label: "Allowed users", render: (d) => allowedLabel(d.allowedUsers) },
-                    { key: "st", label: "Status", render: (d) => { const st = deviceStatus(d, now); const h = data.health.get(d.id); return <div><Pill tone={d.archivedAt ? "neutral" : TONE[st.tone]}>{d.archivedAt ? "Archived" : st.label}</Pill><p className="text-[11.5px] text-ink3 mt-0.5 whitespace-nowrap">Last punch {d.lastPunchAt ? formatDateTime(d.lastPunchAt, tz) : "never"}{h ? ` · ${h.received} today` : ""}</p></div>; } },
+                    { key: "st", label: "Status", render: (d) => { const st = deviceStatus(d, now); const h = data.health.get(d.id); return <div><Pill tone={d.archivedAt ? "neutral" : TONE[st.tone]}>{d.archivedAt ? "Archived" : st.label}</Pill><p className="text-[11.5px] text-ink3 mt-0.5 whitespace-nowrap"><Words k="Last punch" /> {d.lastPunchAt ? formatDateTime(d.lastPunchAt, tz) : "never"}{h ? ` · ${h.received} today` : ""}</p></div>; } },
                   ]}
                   mobile={(d) => { const st = deviceStatus(d, now); return { icon: TYPE_ICON[d.deviceType] ?? ScanFace, iconTone: d.archivedAt ? "neutral" : TONE[st.tone], title: d.name, sub: `${d.location ?? "No location"} · last punch ${d.lastPunchAt ? formatDateTime(d.lastPunchAt, tz) : "never"}`, right: <Pill tone={d.archivedAt ? "neutral" : TONE[st.tone]}>{d.archivedAt ? "Archived" : st.label}</Pill> }; }}
-                  footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing {rows.length} of {data.devices.length} devices</p>}
+                  footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {rows.length} <Words k="of" /> {data.devices.length} <Words k="devices" /></p>}
                   empty={<EmptyState bare Icon={ScanFace} title={q ? "No devices match" : "No devices yet"}>{q ? "Try another name, place or serial number." : "Add a device to get its key, then put the key and the address from the Setup guide into the device."}</EmptyState>} />
               </Card>
             </>
@@ -154,8 +158,8 @@ export default async function DevicesPage({ searchParams }: Props) {
             {qrOn && (
               <Card>
                 <CardHeader icon={QrCode} title="QR posters" description="School name, the QR code and short steps. No personal data." action={canEdit ? <QrCreateForm action={createQrAction} campuses={campusOptions} rotation={settings.qrRotation} /> : undefined} />
-                {!settings.qrStaffOn && !settings.qrStudentsOn && <div className="px-5 pb-3"><Banner tone="info" title="QR check-in is off.">Switch it on for staff or students for scans to count.</Banner></div>}
-                {data.sessions.length === 0 ? <EmptyState bare Icon={QrCode} title="No QR yet">Create a QR, then print its poster for the entrance.</EmptyState> : (
+                {!settings.qrStaffOn && !settings.qrStudentsOn && <div className="px-5 pb-3"><Banner tone="info" title="QR check-in is off."><Words k="Switch it on for staff or students for scans to count." /></Banner></div>}
+                {data.sessions.length === 0 ? <EmptyState bare Icon={QrCode} title="No QR yet"><Words k="Create a QR, then print its poster for the entrance." /></EmptyState> : (
                   <ul className="px-2 pb-2">
                     {data.sessions.map((s) => {
                       const expired = s.expiresAt && s.expiresAt < now;
@@ -170,7 +174,7 @@ export default async function DevicesPage({ searchParams }: Props) {
                           {canEdit && (
                             <div className="flex gap-1">
                               <ActionButton action={qrStateAction} hidden={{ qrId: s.id, change: s.isActive ? "stop" : "start" }}>{s.isActive ? "Stop" : "Start"}</ActionButton>
-                              <ActionButton action={qrStateAction} hidden={{ qrId: s.id, change: "archive" }} variant="ghost">Archive</ActionButton>
+                              <ActionButton action={qrStateAction} hidden={{ qrId: s.id, change: "archive" }} variant="ghost"><Words k="Archive" /></ActionButton>
                             </div>
                           )}
                         </li>
@@ -188,7 +192,7 @@ export default async function DevicesPage({ searchParams }: Props) {
                   <div className="px-5 pb-5">
                     <GeoFenceForm action={geoFenceAction} campuses={campusOptions} campusId={c.id}
                       fence={f ? { latitude: Number(f.latitude), longitude: Number(f.longitude), radiusM: f.radiusM, studentsOn: f.studentsOn, staffOn: f.staffOn } : null} />
-                    {mobileOn && <p className="mt-3 text-[13px] text-ink3">Staff check in from the <Link className="font-semibold text-brand hover:underline" href="/check-in">Check-in page</Link> on their phone.</p>}
+                    {mobileOn && <p className="mt-3 text-[13px] text-ink3"><Words k="Staff check in from the" /> <Link className="font-semibold text-brand hover:underline" href="/check-in"><Words k="Check-in page" /></Link> <Words k="on their phone." /></p>}
                   </div>
                 </Card>
               );
@@ -214,21 +218,21 @@ export default async function DevicesPage({ searchParams }: Props) {
     return (
       <UrlSheet param="guide" wide title="Setup guide" sub="How to connect a device so its punches reach School OS" footer={<CloseSheetButton param="guide" />}>
         <ol className="flex flex-col gap-4 text-[14px] text-ink2 list-decimal pl-5">
-          <li><p className="font-semibold text-ink">Add the device and copy its key.</p><p>The key is shown once; keep it only in the device or its connector.</p></li>
+          <li><p className="font-semibold text-ink"><Words k="Add the device and copy its key." /></p><p><Words k="The key is shown once; keep it only in the device or its connector." /></p></li>
           <li>
-            <p className="font-semibold text-ink">Point the device, or its connector, at this address.</p>
+            <p className="font-semibold text-ink"><Words k="Point the device, or its connector, at this address." /></p>
             <code className="mt-1 block break-all rounded-xl bg-sunken px-3 py-2 font-mono text-[13px] text-ink">{endpoint}</code>
-            <p className="mt-1">Send the key in the header <code className="font-mono">Authorization: Bearer &lt;key&gt;</code>. A GET to the same address checks the connection.</p>
+            <p className="mt-1"><Words k="Send the key in the header" /> <code className="font-mono">Authorization: Bearer &lt;key&gt;</code><Words k=". A GET to the same address checks the connection." /></p>
           </li>
           <li>
-            <p className="font-semibold text-ink">Send punches in batches.</p>
+            <p className="font-semibold text-ink"><Words k="Send punches in batches." /></p>
             <pre className="mt-1 overflow-x-auto rounded-xl bg-sunken px-3 py-2 font-mono text-[12.5px] text-ink">{`POST ${endpoint}
 { "punches": [
   { "punchNo": "10023", "userNo": "SPS-ST-004", "time": "2026-10-09T08:41:00+05:30" }
 ] }`}</pre>
-            <p className="mt-1">Up to 500 punches at a time, at most 60 requests a minute. Each punch needs the device&apos;s own unique punch number, so sending one twice counts once.</p>
+            <p className="mt-1"><Words k="Up to 500 punches at a time, at most 60 requests a minute. Each punch needs the device's own unique punch number, so sending one twice counts once." /></p>
           </li>
-          <li><p className="font-semibold text-ink">ZKTeco, eSSL and similar machines.</p><p>Set each person&apos;s user number on the machine to their staff ID or admission number; Auto-match then links them. Use the push or ADMS setting, or a small connector on a school computer. Keep the machine&apos;s clock right.</p></li>
+          <li><p className="font-semibold text-ink"><Words k="ZKTeco, eSSL and similar machines." /></p><p><Words k="Set each person's user number on the machine to their staff ID or admission number; Auto-match then links them. Use the push or ADMS setting, or a small connector on a school computer. Keep the machine's clock right." /></p></li>
         </ol>
       </UrlSheet>
     );

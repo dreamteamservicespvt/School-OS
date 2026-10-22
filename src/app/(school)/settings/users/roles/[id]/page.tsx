@@ -16,8 +16,12 @@ import { RoleEditor } from "../role-editor";
 import { PutBack, RoleSwitch } from "../role-actions";
 import { schoolRole } from "@/lib/school-roles";
 import { sensitiveChoices, sensitiveLabel } from "@/lib/sensitive";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Role" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Role") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KIND = { READY: "Ready role", TEMPLATE: "Role template", CUSTOM: "Your own role" } as const;
@@ -50,19 +54,19 @@ export default async function RolePage({ params }: { params: Promise<{ id: strin
 
   return (
     <>
-      <Link href="/settings/users/roles" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline">← Roles</Link>
+      <Link href="/settings/users/roles" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline"><Words k="← Roles" /></Link>
       <PageHeader title={role.name} href={`/settings/users/roles/${id}`} userId={current.user.id}>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone="brand">{KIND[role.kind]}</Badge>
           {role.kind === "TEMPLATE" && <Badge tone={role.isEnabled ? "success" : "neutral"}>{role.isEnabled ? "On" : "Off"}</Badge>}
-          {role.archivedAt && <Badge>Archived</Badge>}
-          {may.create && !role.archivedAt && <ButtonLink href={`/settings/users/roles/new?copy=${id}`}>Copy</ButtonLink>}
+          {role.archivedAt && <Badge><Words k="Archived" /></Badge>}
+          {may.create && !role.archivedAt && <ButtonLink href={`/settings/users/roles/new?copy=${id}`}><Words k="Copy" /></ButtonLink>}
           {may.edit && <RoleSwitch id={id} name={role.name} kind={role.kind} isOn={role.isEnabled} archived={Boolean(role.archivedAt)} people={people.size} />}
         </div>
       </PageHeader>
       <div className="space-y-5">
-        {role.archivedAt && <Alert tone="info">This role is archived. Restore it to change it or give it to people.</Alert>}
-        {role.key === "school-admin" && <Alert tone="info">The School Admin role always keeps Full access to Settings, so someone can always manage logins and roles.</Alert>}
+        {role.archivedAt && <Alert tone="info"><Words k="This role is archived. Restore it to change it or give it to people." /></Alert>}
+        {role.key === "school-admin" && <Alert tone="info"><Words k="The School Admin role always keeps Full access to Settings, so someone can always manage logins and roles." /></Alert>}
         <Card>
           <CardHeader title="Permissions" description={people.size ? `${people.size} ${people.size === 1 ? "person has" : "people have"} this role. Changes apply to all of them.` : "Nobody has this role yet."} />
           <CardBody>
@@ -75,7 +79,7 @@ export default async function RolePage({ params }: { params: Promise<{ id: strin
         <Card>
           <CardHeader title="People with this role" />
           <CardBody>
-            {people.size === 0 ? <p className="text-sm text-ink-2">Nobody yet. Give the role from a person&apos;s page in Users.</p> : (
+            {people.size === 0 ? <p className="text-sm text-ink-2"><Words k="Nobody yet. Give the role from a person's page in Users." /></p> : (
               <ul className="flex flex-wrap gap-2">
                 {[...people].sort((a, b) => a[1].localeCompare(b[1])).map(([uid, name]) => (
                   <li key={uid}><Link href={`/settings/users/${uid}`} className="inline-flex min-h-11 items-center rounded-full border border-line px-3 hover:border-brand">{name}</Link></li>
@@ -88,7 +92,7 @@ export default async function RolePage({ params }: { params: Promise<{ id: strin
         <Card>
           <CardHeader title="History" description="Every change to this role, newest first." />
           <CardBody>
-            {history.length === 0 ? <p className="text-sm text-ink-2">No changes since the school was set up.</p> : (
+            {history.length === 0 ? <p className="text-sm text-ink-2"><Words k="No changes since the school was set up." /></p> : (
               <ol className="divide-y divide-line">
                 {history.map((h) => {
                   const before = (h.before ?? {}) as Version;
@@ -115,7 +119,7 @@ export default async function RolePage({ params }: { params: Promise<{ id: strin
                 })}
               </ol>
             )}
-            {latestChange && <p className="mt-2 text-xs text-ink-2">Put back returns the role to how it was just before that change.</p>}
+            {latestChange && <p className="mt-2 text-xs text-ink-2"><Words k="Put back returns the role to how it was just before that change." /></p>}
           </CardBody>
         </Card>
       </div>

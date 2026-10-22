@@ -39,8 +39,12 @@ import { MAINT_STATUS } from "@/lib/inventory/words";
 import { remindRollCallAction, type FoundStudent } from "./actions";
 import { BASE, chosenHostel, hostelGuard, hostelPeriod, idParam, one, qs, type Raw, type SearchParams } from "./_lib/page";
 import { studentIdsForFilter } from "@/lib/students/find";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Roll Call & Incidents · Hostel Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Roll Call & Incidents · Hostel Management") };
+}
 
 type P = Awaited<ReturnType<typeof hostelGuard>>;
 const DAY = 86_400_000;
@@ -142,7 +146,7 @@ async function RollView({ p, sp }: { p: P; sp: Raw }) {
 
   const headActions = (
     <>
-      {can.rollcall && <ButtonLink href={qs(BASE, { view: "incidents", incident: "1" })} variant="secondary" icon={Plus} scroll={false}>Record incident</ButtonLink>}
+      {can.rollcall && <ButtonLink href={qs(BASE, { view: "incidents", incident: "1" })} variant="secondary" icon={Plus} scroll={false}><Words k="Record incident" /></ButtonLink>}
       {can.remind && !saved && due && <ActButton action={remindRollCallAction} fields={{ hostelId: hostel.id, date: dateStr, session }} label="Remind the warden" icon="bell" size="md" />}
     </>
   );
@@ -162,14 +166,14 @@ async function RollView({ p, sp }: { p: P; sp: Raw }) {
 
         {saved && session === "NIGHT" && absentNow > 0 && (
           <Banner tone="bad" icon={AlertTriangle} title={`${plural(absentNow, "student")} absent at night roll call.`}>
-            {unexplained.join(", ")}. {saved.alertedAt ? `The warden and the Principal were told at ${clockAt(saved.alertedAt, tz)}.` : ""} Find the student, then record an incident.
+            {unexplained.join(", ")}. {saved.alertedAt ? `The warden and the Principal were told at ${clockAt(saved.alertedAt, tz)}.` : ""} <Words k="Find the student, then record an incident." />
           </Banner>
         )}
         {!saved && due && !can.rollcall && (
-          <Banner tone="warn" title={`${SESSION[session]} roll call for ${formatDate(date, "UTC")} is not taken yet.`}>It was due at {minuteWords(rollMinute)}.{can.remind ? " Remind the warden." : ""}</Banner>
+          <Banner tone="warn" title={`${SESSION[session]} roll call for ${formatDate(date, "UTC")} is not taken yet.`}><Words k="It was due at" /> {minuteWords(rollMinute)}.{can.remind ? " Remind the warden." : ""}</Banner>
         )}
         {classAbsent > 0 && (
-          <Banner tone="info" title={`${plural(classAbsent, "boarder")} marked absent in class on ${formatDate(date, "UTC")}.`}>Shown under their names. Check they are well; a boarder absent from class is usually in the hostel or the sick room.</Banner>
+          <Banner tone="info" title={`${plural(classAbsent, "boarder")} marked absent in class on ${formatDate(date, "UTC")}.`}><Words k="Shown under their names. Check they are well; a boarder absent from class is usually in the hostel or the sick room." /></Banner>
         )}
 
         <Split side={340}>
@@ -209,7 +213,7 @@ async function RollView({ p, sp }: { p: P; sp: Raw }) {
               { key: "away", label: "Away", align: "right", render: (r) => <span className="tnum">{r.awayCount}</span> },
               { key: "by", label: "Taken by", render: (r) => <span>{(r.takenById && d.takers.get(r.takenById)) ?? "—"}<span className="block text-[12.5px] text-ink3">{clockAt(r.takenAt, tz)}</span></span> },
             ]}
-            phone={(r) => ({ title: `${formatDate(r.date, "UTC")} · ${SESSION[r.session as RollSession]}`, sub: `${r.presentCount} present · ${r.awayCount} away${r.takenById && d.takers.get(r.takenById) ? ` · ${d.takers.get(r.takenById)}` : ""}`, icon: r.session === "NIGHT" ? Moon : Sun, iconTone: r.absentCount ? "bad" : "ok", right: r.absentCount ? <Pill tone="bad">{r.absentCount} absent</Pill> : <Pill tone="ok">All here</Pill> })}
+            phone={(r) => ({ title: `${formatDate(r.date, "UTC")} · ${SESSION[r.session as RollSession]}`, sub: `${r.presentCount} present · ${r.awayCount} away${r.takenById && d.takers.get(r.takenById) ? ` · ${d.takers.get(r.takenById)}` : ""}`, icon: r.session === "NIGHT" ? Moon : Sun, iconTone: r.absentCount ? "bad" : "ok", right: r.absentCount ? <Pill tone="bad">{r.absentCount} <Words k="absent" /></Pill> : <Pill tone="ok"><Words k="All here" /></Pill> })}
           />
         </Card>
       </Stack>
@@ -290,14 +294,14 @@ async function IncidentsView({ p, sp }: { p: P; sp: Raw }) {
       return <span className="block text-[12px] mt-0.5">{to ? <Link href={to} className="font-semibold text-brand hover:underline relative z-[1]">{words}</Link> : <span className="text-ink2">{words}</span>}</span>;
     }
     if (!d.places) return null;
-    return <Link href={href({ raise: r.id })} scroll={false} className="block text-[12.5px] font-semibold text-brand hover:underline mt-0.5 relative z-[1]">Raise maintenance request</Link>;
+    return <Link href={href({ raise: r.id })} scroll={false} className="block text-[12.5px] font-semibold text-brand hover:underline mt-0.5 relative z-[1]"><Words k="Raise maintenance request" /></Link>;
   };
 
   return (
     <>
       <HostelHead pageName="Roll Call & Incidents" href={BASE} mode={p.mode}
         sub="Discipline, medical and maintenance incidents, with what was done."
-        actions={can.rollcall ? <ButtonLink href={href({ incident: "1" })} variant="primary" icon={Plus} scroll={false}>Record incident</ButtonLink> : undefined} />
+        actions={can.rollcall ? <ButtonLink href={href({ incident: "1" })} variant="primary" icon={Plus} scroll={false}><Words k="Record incident" /></ButtonLink> : undefined} />
       <Stack>
         <Views view="incidents" hostel={null} />
         <Chips label="Incident type" value={type ?? ""} options={[
@@ -319,14 +323,14 @@ async function IncidentsView({ p, sp }: { p: P; sp: Raw }) {
               { key: "type", label: "Type", render: (r) => <Pill tone={INCIDENT_TYPE[r.type as IncidentType].tone}>{INCIDENT_TYPE[r.type as IncidentType].label}</Pill> },
               { key: "who", label: "Student(s) or place", render: (r) => <span>{names(r) || r.place || "—"}<span className="block text-[12.5px] text-ink3">{r.hostelId ? d.hostels.get(r.hostelId) : ""}{names(r) && r.place ? ` · ${r.place}` : ""}</span></span> },
               { key: "what", label: "What happened", className: "max-w-[320px]", render: (r) => <span className="line-clamp-3">{r.description}</span> },
-              { key: "action", label: "Action taken", className: "max-w-[260px]", render: (r) => <span className="line-clamp-3">{r.actionTaken ?? <span className="text-ink3">—</span>}{r.parentMessagedAt && <span className="block text-[12px] text-ok">Parent told</span>}{r.behaviourIncidentId && <span className="block text-[12px] text-info">In the behaviour record</span>}{request(r)}</span> },
+              { key: "action", label: "Action taken", className: "max-w-[260px]", render: (r) => <span className="line-clamp-3">{r.actionTaken ?? <span className="text-ink3">—</span>}{r.parentMessagedAt && <span className="block text-[12px] text-ok"><Words k="Parent told" /></span>}{r.behaviourIncidentId && <span className="block text-[12px] text-info"><Words k="In the behaviour record" /></span>}{request(r)}</span> },
               { key: "by", label: "Recorded by", render: (r) => (r.recordedById && d.people.get(r.recordedById)) ?? "—" },
             ]}
             phone={(r) => ({ title: names(r) || r.place || INCIDENT_TYPE[r.type as IncidentType].label, sub: `${formatDate(r.at, tz)}, ${clockAt(r.at, tz)} · ${r.description}`, icon: ShieldAlert, iconTone: INCIDENT_TYPE[r.type as IncidentType].tone, right: <Pill tone={INCIDENT_TYPE[r.type as IncidentType].tone}>{INCIDENT_TYPE[r.type as IncidentType].label}</Pill>, pills: request(r) ?? undefined })}
           />
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(base, params, { view: "incidents", page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(base, params, { view: "incidents", page: params.page + 1 })} />}
         </Card>
-        <p className="text-[12.5px] text-ink3">{inventoryOn ? "Maintenance incidents raise a maintenance request in Inventory Management, followed up there by the store keeper." : "Maintenance incidents are followed up from this log."} Discipline incidents can also go to the student&apos;s behaviour record in Student Management.</p>
+        <p className="text-[12.5px] text-ink3">{inventoryOn ? "Maintenance incidents raise a maintenance request in Inventory Management, followed up there by the store keeper." : "Maintenance incidents are followed up from this log."} <Words k="Discipline incidents can also go to the student's behaviour record in Student Management." /></p>
       </Stack>
       {opening && (
         <IncidentSheet closeHref={href({ incident: null, student: null })} hostels={p.myHostels.map((h) => ({ id: h.id, name: h.name }))} todayStr={p.todayStr}

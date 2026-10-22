@@ -16,8 +16,12 @@ import { UrlSearch, UrlSelect } from "@/components/ui/kit-client";
 import { examPage, one, sectionOptions, withYear, type SearchParams } from "../_lib/page";
 import { NoYear, PageTop } from "../_components/page-top";
 import { GradeGrid, RemarksGrid, StatusBoard, type GradeColumn } from "./report-cards-ui";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Report Cards" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Report Cards") };
+}
 const PATH = "/examination-results/report-cards";
 const VIEWS = ["status", "remarks", "co-scholastic", "competencies"] as const;
 type View = (typeof VIEWS)[number];
@@ -44,7 +48,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
       <>
         <PageTop page={page} href={PATH} />
         <EmptyState title="No report cards for you" Icon={Award}>
-          <p>Report cards are written by the class teacher of each section. You are not a class teacher this year. Ask the Principal if this is wrong.</p>
+          <p><Words k="Report cards are written by the class teacher of each section. You are not a class teacher this year. Ask the Principal if this is wrong." /></p>
         </EmptyState>
       </>
     );
@@ -105,7 +109,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
         <div className="flex flex-col gap-5">
           {top}
           <EmptyState title="No report cards yet" Icon={Award}>
-            <p>A report card is made for each exam once its datesheet is published. {section.label} has no published exam this year yet.</p>
+            <p><Words k="A report card is made for each exam once its datesheet is published." /> {section.label} <Words k="has no published exam this year yet." /></p>
           </EmptyState>
         </div>
       </>
@@ -140,13 +144,13 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
 
   const banner = ready === 0 ? (
     <Banner tone="info" title="Not ready yet.">
-      Report cards are ready once the results of {data.period.label} are published for {section.label}. Remarks and grades can be written now.
+      <Words k="Report cards are ready once the results of" /> {data.period.label} <Words k="are published for" /> {section.label}<Words k=". Remarks and grades can be written now." />
     </Banner>
   ) : sent === rows.length ? (
-    <Banner tone="ok" title="Every report card is sent.">They are on Parent Link for each family.</Banner>
+    <Banner tone="ok" title="Every report card is sent."><Words k="They are on Parent Link for each family." /></Banner>
   ) : (
     <Banner tone="ok" title={`${plural(ready, "report card")} of ${rows.length} ready.`}>
-      Published report cards show on Parent Link at once. Print them for the parent-teacher meeting, or mark them as sent when handed over.
+      <Words k="Published report cards show on Parent Link at once. Print them for the parent-teacher meeting, or mark them as sent when handed over." />
     </Banner>
   );
 
@@ -167,7 +171,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
           </div>
           <div className="p-4 md:p-5">
             {shown.length === 0 ? (
-              <EmptyState title="No student matches" Icon={Users} bare><p>Try a different name.</p></EmptyState>
+              <EmptyState title="No student matches" Icon={Users} bare><p><Words k="Try a different name." /></p></EmptyState>
             ) : v === "status" ? (
               <StatusBoard key={`${section.id}${data.period.key}`} rows={shown.map((r) => ({ studentId: r.studentId, name: r.name, rollNo: r.rollNo === null ? null : String(r.rollNo), admissionNo: r.admissionNo, status: r.status, missing: r.missing, published: r.published }))}
                 sectionId={section.id} period={data.period.key} periodLabel={data.period.label} canWrite={canWrite} directLimit={DIRECT_REPORT_LIMIT} />
@@ -184,7 +188,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
                 values={Object.fromEntries(data.levels.filter((l) => rows.some((r) => r.studentId === l.studentId)).map((l) => [`${l.studentId}:${l.competencyId}`, l.level]))} />
             )}
           </div>
-          {shown.length > 0 && <p className="border-t border-line px-4 py-3 text-[13px] text-ink3 md:px-5">Showing {shown.length} of {rows.length}</p>}
+          {shown.length > 0 && <p className="border-t border-line px-4 py-3 text-[13px] text-ink3 md:px-5"><Words k="Showing" /> {shown.length} <Words k="of" /> {rows.length}</p>}
         </Card>
       </div>
     </>

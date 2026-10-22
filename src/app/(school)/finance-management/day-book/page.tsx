@@ -27,8 +27,12 @@ import { closePreview, closesBetween, closesDays, daysToClose, reopensDays } fro
 import { ActButton } from "../_components/forms";
 import { remindCloseAction } from "./actions";
 import { CloseDaySheet, ReopenDaySheet } from "./sheets";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Day Book" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Day Book") };
+}
 
 const HREF = `${BASE}/day-book`;
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -122,12 +126,12 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
               ...(kind !== "reversal" ? [{ key: "ref", label: "Reference", render: (r: DayRow) => <Ref v={r.reference} /> }] : []),
               { key: "t", label: oneDay ? "Time" : "Date", nowrap: true, render: (r) => <span className="tnum text-ink2">{oneDay ? formatTime(r.at, p.tz) : formatDate(r.date)}</span> },
               ...(kind !== "fee" || showAcct ? [{ key: "acct", label: kind === "fee" ? "Bank account" : "Paid from", nowrap: true, render: (r: DayRow) => <span className="text-[13px] text-ink2">{(kind === "fee" ? r.depositAccount ?? r.account : r.account) ?? "—"}</span> }] : []),
-              { key: "note", label: "Notes", render: (r) => r.waiting ? <PayPill status="WAITING" short /> : r.cancelled ? <Pill tone="bad" className="!h-5 !text-[11px]">Cancelled</Pill> : <span className="text-[12.5px] text-ink3">{r.note ?? ""}</span> },
+              { key: "note", label: "Notes", render: (r) => r.waiting ? <PayPill status="WAITING" short /> : r.cancelled ? <Pill tone="bad" className="!h-5 !text-[11px]"><Words k="Cancelled" /></Pill> : <span className="text-[12.5px] text-ink3">{r.note ?? ""}</span> },
             ]}
             phone={(r) => ({
               title: r.who, sub: `${r.classLabel ? `${r.classLabel} · ` : ""}${r.head}`, icon: MODE_ICON[r.mode] ?? Wallet, iconTone: "neutral",
               right: <><p className={cx("font-semibold tnum text-[14.5px]", (r.cancelled || r.waiting) && "line-through text-ink3", r.total < ZERO && "text-bad")}>{signed(r.total)}</p><p className="text-[12px] text-ink3 tnum">{oneDay ? formatTime(r.at, p.tz) : formatDate(r.date)}</p></>,
-              pills: r.waiting ? <PayPill status="WAITING" short /> : r.cancelled ? <Pill tone="bad" className="!h-5 !text-[11px]">Cancelled</Pill> : undefined,
+              pills: r.waiting ? <PayPill status="WAITING" short /> : r.cancelled ? <Pill tone="bad" className="!h-5 !text-[11px]"><Words k="Cancelled" /></Pill> : undefined,
             })} />
         ) : <p className="px-5 pb-4 -mt-1 text-[13.5px] text-ink3">{empty}</p>}
       </Card>
@@ -143,23 +147,23 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
       <Stack>
         {lateDay && closer && (
           <Banner tone="bad" title={`${formatDate(lateDay)} is not closed yet.`}
-            action={<Link href={closeHref(lateDay)} scroll={false} className={cx(buttonClass("secondary", "sm"), "shrink-0")}>Count and close</Link>}>
-            Count the cash for that day and close it, oldest day first.
+            action={<Link href={closeHref(lateDay)} scroll={false} className={cx(buttonClass("secondary", "sm"), "shrink-0")}><Words k="Count and close" /></Link>}>
+            <Words k="Count the cash for that day and close it, oldest day first." />
           </Banner>
         )}
         {lateDay && !closer && (
           <Banner tone="warn" title={`${formatDate(lateDay)} is not closed yet.`}
             action={<ActButton action={remindCloseAction} fields={{ date: dayKey(lateDay) }} label="Remind the accountant" icon="send" variant="secondary" size="sm" />}>
-            The accountant has not counted the cash and closed that day.
+            <Words k="The accountant has not counted the cash and closed that day." />
           </Banner>
         )}
-        {data.closedYear && <Banner tone="warn" title={`Finance year ${data.closedYear.name} is closed.`}>Its books are read only. Put a mistake right with an adjustment in the open year.</Banner>}
+        {data.closedYear && <Banner tone="warn" title={`Finance year ${data.closedYear.name} is closed.`}><Words k="Its books are read only. Put a mistake right with an adjustment in the open year." /></Banner>}
 
         <Card>
           <CardHeader title="Show the Day Book for" description="Financial year April to March, apart from the academic year" icon={Filter}
             action={<div className="flex gap-1.5 shrink-0">
               {p.can.export && <ExportButton href={qs(`${HREF}/export`, keep)} size="sm" always />}
-              {p.can.export && <a href={`${qs(`${HREF}/export`, keep)}${Object.values(keep).some(Boolean) ? "&" : "?"}format=pdf`} target="_blank" rel="noreferrer" className={cx(buttonClass("ghost", "sm"), "hidden sm:inline-flex")}><Printer size={15} aria-hidden="true" />Print</a>}
+              {p.can.export && <a href={`${qs(`${HREF}/export`, keep)}${Object.values(keep).some(Boolean) ? "&" : "?"}format=pdf`} target="_blank" rel="noreferrer" className={cx(buttonClass("ghost", "sm"), "hidden sm:inline-flex")}><Printer size={15} aria-hidden="true" /><Words k="Print" /></a>}
             </div>} />
           <div className="px-5 pb-4 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
             <PeriodFilter {...p.dates} fallback="today" className="w-full" />
@@ -168,7 +172,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
           </div>
           <div className="px-5 pb-4 flex flex-wrap items-center gap-3 border-t border-line/70 pt-3.5">
             <div className="mr-auto"><UrlSwitch id="db-wait" param="waiting" label="Show waiting entries" sub="cheques and transfers not verified yet" /></div>
-            {(classId || acct || waiting || one(sp.period) || one(sp.from)) && <Link href={HREF} scroll={false} className={buttonClass("ghost")}>Reset</Link>}
+            {(classId || acct || waiting || one(sp.period) || one(sp.from)) && <Link href={HREF} scroll={false} className={buttonClass("ghost")}><Words k="Reset" /></Link>}
           </div>
         </Card>
 
@@ -207,9 +211,9 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
                   <Line k="Difference" v={shownClose.countedCashPaise === shownClose.expectedCashPaise ? "None" : signed(shownClose.countedCashPaise - shownClose.expectedCashPaise)} tone={shownClose.countedCashPaise === shownClose.expectedCashPaise ? "ok" : "bad"} />
                 </ul>
                 {shownClose.differenceReason && <p className="mx-5 mb-4 -mt-1 text-[13px] text-ink2 bg-sunken rounded-xl px-3.5 py-2.5">{shownClose.differenceReason}</p>}
-                <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3">Nothing on this day can change. Entries made for it now go into the next open day.</p>
+                <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3"><Words k="Nothing on this day can change. Entries made for it now go into the next open day." /></p>
                 {reopener && shownClose.id === data.latestCloseId && shownClose.closedById !== p.current.user.id && (
-                  <div className="px-5 pb-4 -mt-1"><Link href={here({ do: "reopen" })} scroll={false} className={buttonClass("secondary", "sm")}>Reopen this day</Link></div>
+                  <div className="px-5 pb-4 -mt-1"><Link href={here({ do: "reopen" })} scroll={false} className={buttonClass("secondary", "sm")}><Words k="Reopen this day" /></Link></div>
                 )}
               </Card>
             )}
@@ -223,7 +227,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
                   <Line k={`Waiting for verification · ${data.match.waiting.count}`} v={formatRupees(data.match.waiting.amount)} tone={data.match.waiting.count ? "warn" : undefined} />
                   {data.match.applicationFees.count > 0 && <Line k={`Application fees, from Admissions · ${data.match.applicationFees.count}`} v={formatRupees(data.match.applicationFees.amount)} />}
                 </ul>
-                {data.match.waiting.count > 0 && <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3">Cheques and bank transfers count only after the accountant checks them. Turn on “Show waiting entries” to see them here.</p>}
+                {data.match.waiting.count > 0 && <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3"><Words k="Cheques and bank transfers count only after the accountant checks them. Turn on “Show waiting entries” to see them here." /></p>}
               </Card>
             )}
             <Card>
@@ -235,7 +239,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
                     return <Pill key={m.mode} tone="neutral" className="!h-8 !px-3 !text-[13px]"><Ic size={14} aria-hidden="true" />{financeModeLabel(m.mode)} {formatRupees(m.amount)}</Pill>;
                   })}
                 </div>
-              ) : <p className="px-5 pb-4 text-[13.5px] text-ink3">No money came in.</p>}
+              ) : <p className="px-5 pb-4 text-[13.5px] text-ink3"><Words k="No money came in." /></p>}
             </Card>
             {data.split && (
               <Card>
@@ -244,8 +248,8 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
                   <ul className="px-5 pb-4">
                     {v.byAccount.map((a) => <Line key={a.name} k={<><b className="font-semibold text-ink">{a.name}</b><span className="block text-[12px] text-ink3">{a.count} {a.count === 1 ? "entry" : "entries"}</span></>} v={formatRupees(a.amount)} />)}
                   </ul>
-                ) : <p className="px-5 pb-4 text-[13.5px] text-ink3">No fees in these dates.</p>}
-                <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3">Online payments show the account Razorpay split them into. Counter payments show the account the cash or cheque goes into.</p>
+                ) : <p className="px-5 pb-4 text-[13.5px] text-ink3"><Words k="No fees in these dates." /></p>}
+                <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3"><Words k="Online payments show the account Razorpay split them into. Counter payments show the account the cash or cheque goes into." /></p>
               </Card>
             )}
             <Card>
@@ -289,9 +293,9 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
               <Mini k={opened.source === "fee" ? "Bank account" : "Cash or bank"} v={(opened.source === "fee" ? opened.depositAccount ?? opened.account : opened.account) ?? "—"} />
             </div>
             {opened.note && <p className="mt-4 text-[13.5px] text-ink2 bg-sunken rounded-xl px-3.5 py-2.5">{opened.note}</p>}
-            {opened.waiting && <Banner tone="warn" className="mt-4" title="Waiting for verification.">Shown because “Show waiting entries” is on. It is not counted until the accountant verifies it in Fees.</Banner>}
-            {opened.cancelled && <Banner tone="bad" className="mt-4" title="Cancelled.">The original line stays; a reversal line takes the money back out.</Banner>}
-            <p className="mt-4 text-[12.5px] text-ink3 flex gap-1.5"><Lock size={14} className="shrink-0 mt-0.5" aria-hidden="true" />Day Book entries cannot be typed or changed here. A wrong entry is put right at its source, which adds a reversal.</p>
+            {opened.waiting && <Banner tone="warn" className="mt-4" title="Waiting for verification."><Words k="Shown because “Show waiting entries” is on. It is not counted until the accountant verifies it in Fees." /></Banner>}
+            {opened.cancelled && <Banner tone="bad" className="mt-4" title="Cancelled."><Words k="The original line stays; a reversal line takes the money back out." /></Banner>}
+            <p className="mt-4 text-[12.5px] text-ink3 flex gap-1.5"><Lock size={14} className="shrink-0 mt-0.5" aria-hidden="true" /><Words k="Day Book entries cannot be typed or changed here. A wrong entry is put right at its source, which adds a reversal." /></p>
           </UrlSheet>
         );
       })()}

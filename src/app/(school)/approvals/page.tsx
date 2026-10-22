@@ -28,8 +28,12 @@ import { decisionOf } from "@/lib/approval-waiting";
 import { approvalRecordLink } from "@/lib/approval-links";
 import { approvalFacts } from "@/lib/approval-facts";
 import { schoolRoles } from "@/lib/school-roles";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Approvals" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Approvals") };
+}
 
 const STATUS_FILTER: Record<string, ApprovalStatus[]> = {
   open: ["WAITING", "ESCALATED"],
@@ -175,29 +179,29 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       ]} />
       {rows.length === 0 ? (
         filtered ? (
-            <EmptyState title="Nothing matches these filters" Icon={SearchX}>Change the search or <Link href={view === first ? "/approvals" : `/approvals?view=${view}`} className="font-semibold text-brand underline">reset the filters</Link>.</EmptyState>
+            <EmptyState title="Nothing matches these filters" Icon={SearchX}><Words k="Change the search or" /> <Link href={view === first ? "/approvals" : `/approvals?view=${view}`} className="font-semibold text-brand underline"><Words k="reset the filters" /></Link>.</EmptyState>
           ) : view === "mine" ? (
-            <EmptyState title="Nothing waiting" Icon={CheckCheck}>New requests show up here and in your notifications.</EmptyState>
+            <EmptyState title="Nothing waiting" Icon={CheckCheck}><Words k="New requests show up here and in your notifications." /></EmptyState>
           ) : view === "asked" ? (
-            <EmptyState title="You have not asked for anything yet" Icon={Inbox}>Requests you send, such as leave, appear here so you can follow them.</EmptyState>
+            <EmptyState title="You have not asked for anything yet" Icon={Inbox}><Words k="Requests you send, such as leave, appear here so you can follow them." /></EmptyState>
           ) : (
-            <EmptyState title="No requests yet" Icon={Inbox}>Requests from every module appear here once people start asking.</EmptyState>
+            <EmptyState title="No requests yet" Icon={Inbox}><Words k="Requests from every module appear here once people start asking." /></EmptyState>
           )
       ) : (
         <>
           <ApprovalList rows={rows} />
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[13.5px] text-ink3">
-            <span className="tnum">{data.total} request{data.total === 1 ? "" : "s"}{pages > 1 ? ` · page ${params.page} of ${pages}` : ""}</span>
+            <span className="tnum">{data.total} <Words k="request" />{data.total === 1 ? "" : "s"}{pages > 1 ? ` · page ${params.page} of ${pages}` : ""}</span>
             {pages > 1 && (
               <span className="flex gap-2">
-                {params.page > 1 && <Link href={listHref("/approvals", params, { page: params.page - 1 })} className="inline-flex h-9 items-center rounded-xl border border-line bg-surface px-3 font-semibold text-ink hover:bg-sunken">Previous</Link>}
-                {params.page < pages && <Link href={listHref("/approvals", params, { page: params.page + 1 })} className="inline-flex h-9 items-center rounded-xl border border-line bg-surface px-3 font-semibold text-ink hover:bg-sunken">Next</Link>}
+                {params.page > 1 && <Link href={listHref("/approvals", params, { page: params.page - 1 })} className="inline-flex h-9 items-center rounded-xl border border-line bg-surface px-3 font-semibold text-ink hover:bg-sunken"><Words k="Previous" /></Link>}
+                {params.page < pages && <Link href={listHref("/approvals", params, { page: params.page + 1 })} className="inline-flex h-9 items-center rounded-xl border border-line bg-surface px-3 font-semibold text-ink hover:bg-sunken"><Words k="Next" /></Link>}
               </span>
             )}
           </div>
         </>
       )}
-      {isOverseer(roleKeys) && <p className="mt-4 text-[13px] text-ink3">Who approves what is set in <Link href="/settings/forms-approvals" className="font-semibold text-brand hover:underline">Settings, Forms &amp; Approvals</Link>.</p>}
+      {isOverseer(roleKeys) && <p className="mt-4 text-[13px] text-ink3"><Words k="Who approves what is set in" /> <Link href="/settings/forms-approvals" className="font-semibold text-brand hover:underline"><Words k={"Settings, Forms & Approvals"} /></Link>.</p>}
     </div>
   );
 }

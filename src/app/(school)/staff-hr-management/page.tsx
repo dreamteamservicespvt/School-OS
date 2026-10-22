@@ -20,8 +20,12 @@ import { BulkBar, STAFF_BULK_FORM } from "./_components/bulk-bar";
 import { copyChannelsOn } from "@/lib/staff/staff-message";
 import { CHANNEL_LABEL } from "@/lib/messaging/channels";
 import { bulkChangeDepartment, bulkMessage } from "./actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Staff List" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Staff List") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -74,7 +78,7 @@ export default async function StaffListPage({ searchParams }: Search) {
 
   const today$ = (r: Row, cls = "") =>
     r.status !== "ACTIVE" ? <StatusBadge status={r.status} className={cls} />
-      : data.leaveToday.has(r.id) ? <Pill tone="warn" dot={!cls} className={cls}>On leave today</Pill>
+      : data.leaveToday.has(r.id) ? <Pill tone="warn" dot={!cls} className={cls}><Words k="On leave today" /></Pill>
         : <span className="text-ink3" title="Shown once Attendance Management records staff attendance">–</span>;
 
   const columns: DataColumn<Row>[] = [
@@ -93,7 +97,7 @@ export default async function StaffListPage({ searchParams }: Search) {
     { key: "department", label: "Department", render: (r) => r.department?.name ?? <span className="text-ink3">–</span> },
     { key: "phone", label: "Phone", nowrap: true, render: (r) => <span className="tnum">{r.phone}</span> },
     { key: "today", label: "Today", render: (r) => today$(r) },
-    { key: "act", label: <span className="sr-only">Actions</span>, render: (r) => (
+    { key: "act", label: <span className="sr-only"><Words k="Actions" /></span>, render: (r) => (
       <div className="flex justify-end gap-0.5">
         <a href={`https://wa.me/91${r.phone}`} target="_blank" rel="noopener noreferrer" className={iconBtn} aria-label={`Message ${r.fullName} on WhatsApp`} title="Message"><MessageCircle size={17} aria-hidden="true" /></a>
         {canChange && <a href={`${BASE}/${r.id}?edit=personal`} className={iconBtn} aria-label={`Edit ${r.fullName}`} title="Edit"><Pencil size={16} aria-hidden="true" /></a>}
@@ -106,9 +110,9 @@ export default async function StaffListPage({ searchParams }: Search) {
       <StaffHead page="Staff List" href={BASE}
         sub={`${data.roll.toLocaleString("en-IN")} staff on roll${campusName ? ` · ${campusName}` : ""}`}
         actions={<>
-          {canAdd && <ButtonLink href={`${BASE}/import`} icon={Upload} className="max-md:hidden">Import</ButtonLink>}
+          {canAdd && <ButtonLink href={`${BASE}/import`} icon={Upload} className="max-md:hidden"><Words k="Import" /></ButtonLink>}
           <ExportLinks href={exportHref} className="max-md:hidden" />
-          {canAdd && <ButtonLink href={`${BASE}/add`} variant="primary" icon={UserPlus}>Add staff</ButtonLink>}
+          {canAdd && <ButtonLink href={`${BASE}/add`} variant="primary" icon={UserPlus}><Words k="Add staff" /></ButtonLink>}
         </>} />
 
       <Stats label="Staff today" className="mb-5" items={[
@@ -152,15 +156,15 @@ export default async function StaffListPage({ searchParams }: Search) {
           footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={moreHref} />}
           empty={anyFilter ? (
             <Empty icon={SearchX} title="No staff match"
-              body={params.q ? <>Nobody called “{params.q}”. Try the staff ID or phone number.</> : "Try a different department or filter."}
-              action={<ButtonLink href={BASE}>Clear filters</ButtonLink>} />
+              body={params.q ? <><Words k="Nobody called “" />{params.q}<Words k="”. Try the staff ID or phone number." /></> : "Try a different department or filter."}
+              action={<ButtonLink href={BASE}><Words k="Clear filters" /></ButtonLink>} />
           ) : (
             <Empty icon={Users} title="No staff added yet" body="Add your teachers and staff one by one, or import them all from Excel."
-              action={canAdd ? <div className="flex flex-wrap justify-center gap-2"><ButtonLink href={`${BASE}/import`} icon={Upload}>Import staff</ButtonLink><ButtonLink href={`${BASE}/add`} variant="primary" icon={UserPlus}>Add staff</ButtonLink></div> : undefined} />
+              action={canAdd ? <div className="flex flex-wrap justify-center gap-2"><ButtonLink href={`${BASE}/import`} icon={Upload}><Words k="Import staff" /></ButtonLink><ButtonLink href={`${BASE}/add`} variant="primary" icon={UserPlus}><Words k="Add staff" /></ButtonLink></div> : undefined} />
           )} />
       </Card>
       {data.rows.length > 0 && (
-        <p className="mt-3 flex items-center gap-1.5 text-[12.5px] text-ink3"><Info size={14} aria-hidden="true" />Present and late show here once Attendance Management records staff attendance.</p>
+        <p className="mt-3 flex items-center gap-1.5 text-[12.5px] text-ink3"><Info size={14} aria-hidden="true" /><Words k="Present and late show here once Attendance Management records staff attendance." /></p>
       )}
     </>
   );

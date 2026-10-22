@@ -16,6 +16,7 @@ import {
   addCopiesAction, backOnShelfAction, blockAction, cancelReservationAction, collectAction, correctChargeAction, decideChargeAction, fineFromSalaryStopAction, fineToSalaryAction,
   limitAction, markLostAction, saveBookAction, saveCategoryAction, startStockAction, waiveAction, withdrawCopyAction,
 } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 
@@ -71,7 +72,7 @@ export function BookSheet({ closeHref, doneHref, categories, start, nextAccessio
         </div>
       )}
       {!more ? (
-        <button type="button" className="self-start text-[13.5px] font-semibold text-brand hover:underline" onClick={() => setMore(true)}>More details: subject, price, shelf</button>
+        <button type="button" className="self-start text-[13.5px] font-semibold text-brand hover:underline" onClick={() => setMore(true)}><Words k="More details: subject, price, shelf" /></button>
       ) : (
         <>
           <div className="grid sm:grid-cols-2 gap-3">
@@ -131,10 +132,10 @@ export function LostSheet({ closeHref, copy, approvalAbove, finesToFees }: { clo
         <>
           <SMoney key={k} name="charge" label="Charge" required start={amount} onValue={setAmount}
             help={big ? `Above ₹${approvalAbove.toLocaleString("en-IN")}: goes to Approvals first and is added only when approved.` : k === "LOST" ? "The book's price, plus the fee in Library Settings. 0 charges nothing." : "The book's price. Change it for small damage; 0 charges nothing."} />
-          <Alert tone="info">{copy.holder} has this copy. The charge is {finesToFees ? "added to their fees (students) or collected at the desk (staff)" : "collected at the library desk"}, and the issue is closed.</Alert>
+          <Alert tone="info">{copy.holder} <Words k="has this copy. The charge is" /> {finesToFees ? "added to their fees (students) or collected at the desk (staff)" : "collected at the library desk"}<Words k=", and the issue is closed." /></Alert>
         </>
       ) : (
-        <Alert tone="info">Nobody has this copy now, so only its status changes. Nothing is charged.</Alert>
+        <Alert tone="info"><Words k="Nobody has this copy now, so only its status changes. Nothing is charged." /></Alert>
       )}
       <SArea name="note" label="Note" maxLength={300} placeholder="Optional: what happened" />
     </SheetForm>
@@ -177,8 +178,8 @@ export function LimitSheet({ closeHref, memberKey, name, limit, fromSettings, se
 export function WaiveSheet({ closeHref, fineId, words, inFees, inSalary = false }: { closeHref: string; fineId: string; words: string; inFees: boolean; inSalary?: boolean }) {
   return (
     <SheetForm title="Waive fine" sub={words} closeHref={closeHref} action={waiveAction} submitLabel="Waive fine" hidden={{ fineId }}>
-      {inFees && <Alert tone="info">The fine is in the student&apos;s fees. Waiving removes that fee row too.</Alert>}
-      {inSalary && <Alert tone="info">The fine was going to be taken from salary. Waiving takes it off the salary too.</Alert>}
+      {inFees && <Alert tone="info"><Words k="The fine is in the student's fees. Waiving removes that fee row too." /></Alert>}
+      {inSalary && <Alert tone="info"><Words k="The fine was going to be taken from salary. Waiving takes it off the salary too." /></Alert>}
       <SArea name="reason" label="Reason" required maxLength={200} placeholder="For example: the child was ill and absent" />
     </SheetForm>
   );
@@ -191,7 +192,7 @@ export function CollectSheet({ closeHref, fineId, words }: { closeHref: string; 
     <SheetForm title="Collect fine" sub={words} closeHref={closeHref} action={collectAction} submitLabel="Collect and give receipt" hidden={{ fineId }}>
       <SegField name="mode" label="Paid by" start="CASH" onChange={setM} options={[{ value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "BANK_TRANSFER", label: "Bank" }, { value: "CHEQUE", label: "Cheque" }]} />
       {m !== "CASH" && <SText name="reference" label={m === "CHEQUE" ? "Cheque number" : "Transaction or UTR number"} required maxLength={60} className="[&_input]:font-mono" />}
-      <p className="text-[12.5px] text-ink3">Recorded as income in Finance Management with a receipt number.</p>
+      <p className="text-[12.5px] text-ink3"><Words k="Recorded as income in Finance Management with a receipt number." /></p>
     </SheetForm>
   );
 }
@@ -200,8 +201,8 @@ export function CollectSheet({ closeHref, fineId, words }: { closeHref: string; 
 export function ToSalarySheet({ closeHref, fineId, words, name }: { closeHref: string; fineId: string; words: string; name: string }) {
   return (
     <SheetForm title="Take from salary" sub={words} closeHref={closeHref} action={fineToSalaryAction} submitLabel="Take from salary" hidden={{ fineId }} pendingText="Saving…">
-      <p className="text-[14px] text-ink2">The fine is added as a deduction to {name}&apos;s next salary worked out in Salary Management, with the fine number as the reason. {name} is told.</p>
-      <p className="text-[13px] text-ink3">It shows as paid here when that salary is approved. It cannot be collected at the desk in the meantime, so it is never taken twice.</p>
+      <p className="text-[14px] text-ink2"><Words k="The fine is added as a deduction to" /> {name}<Words k="'s next salary worked out in Salary Management, with the fine number as the reason." /> {name} <Words k="is told." /></p>
+      <p className="text-[13px] text-ink3"><Words k="It shows as paid here when that salary is approved. It cannot be collected at the desk in the meantime, so it is never taken twice." /></p>
     </SheetForm>
   );
 }
@@ -210,8 +211,8 @@ export function ToSalarySheet({ closeHref, fineId, words, name }: { closeHref: s
 export function StopSalarySheet({ closeHref, fineId, words, where }: { closeHref: string; fineId: string; words: string; where: string }) {
   return (
     <SheetForm title="Collect here instead" sub={words} closeHref={closeHref} action={fineFromSalaryStopAction} submitLabel="Do not take from salary" hidden={{ fineId }} pendingText="Saving…">
-      <p className="text-[14px] text-ink2">{where}. The deduction comes off that salary and the fine is due here again.</p>
-      <p className="text-[13px] text-ink3">A salary already sent for approval cannot change: the accountant takes it back first.</p>
+      <p className="text-[14px] text-ink2">{where}<Words k=". The deduction comes off that salary and the fine is due here again." /></p>
+      <p className="text-[13px] text-ink3"><Words k="A salary already sent for approval cannot change: the accountant takes it back first." /></p>
     </SheetForm>
   );
 }

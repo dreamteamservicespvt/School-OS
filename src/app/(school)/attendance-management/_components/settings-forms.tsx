@@ -5,6 +5,7 @@
 import { CheckboxField, SelectField, TextField } from "@/components/ui/field";
 import { ActionButton, ActionForm, FormDialog, type Action } from "../../staff-hr-management/_components/forms";
 import { toneClass } from "./status";
+import { Words } from "@/lib/i18n/client";
 
 type Option = { value: string; label: string };
 
@@ -86,7 +87,7 @@ export function LateRulesForm({ action, v, roles }: { action: Action; v: Setting
     <ActionForm action={action} submitLabel="Save late rules" keep>
       {(f) => (
         <div className="space-y-5">
-          <p className="text-sm text-ink-2">One rule is used for devices, QR, mobile and marking by hand.</p>
+          <p className="text-sm text-ink-2"><Words k="One rule is used for devices, QR, mobile and marking by hand." /></p>
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField label="Students start at" name="studentStartTime" type="time" required defaultValue={f.val("studentStartTime", v.studentStartTime)} error={f.err("studentStartTime")} />
             <TextField label="Students are late after (minutes)" name="studentLateAfterMin" type="number" min={0} max={240} required defaultValue={f.val("studentLateAfterMin", String(v.studentLateAfterMin))} error={f.err("studentLateAfterMin")} />
@@ -141,7 +142,7 @@ export function StatusForm({ action, tones, counts, status }: { action: Action; 
           <TextField label="Letter" name="letter" required maxLength={3} placeholder="OD" defaultValue={f.val("letter", status?.letter)} error={f.err("letter")} help="Shown in the register." />
           <SelectField label="Colour" name="tone" options={tones} defaultValue={f.val("tone", status?.tone ?? "neutral")} error={f.err("tone")} />
           {status?.system ? (
-            <p className="text-sm text-ink-2 sm:col-span-2">This is a standard status: how it counts and who it is for stay fixed.</p>
+            <p className="text-sm text-ink-2 sm:col-span-2"><Words k="This is a standard status: how it counts and who it is for stay fixed." /></p>
           ) : (
             <>
               <SelectField label="How it counts" name="counts" options={counts} defaultValue={f.val("counts", status?.counts ?? "present")} error={f.err("counts")} />
@@ -165,7 +166,7 @@ export function StatusList({ rows, save, archive, tones, counts }: { rows: Statu
           <div className="flex items-center gap-3">
             <span aria-hidden="true" className={`inline-grid h-8 min-w-8 place-items-center rounded border px-1 text-sm font-semibold ${toneClass(s.tone)}`}>{s.letter}</span>
             <div>
-              <p className="font-medium">{s.name}{s.archived ? " (archived)" : ""}{s.system ? <span className="ml-1 text-sm font-normal text-ink-2">· standard</span> : null}</p>
+              <p className="font-medium">{s.name}{s.archived ? " (archived)" : ""}{s.system ? <span className="ml-1 text-sm font-normal text-ink-2"><Words k="· standard" /></span> : null}</p>
               <p className="text-sm text-ink-2">{countLabel.get(s.counts)} · {forLabel[s.forWhom] ?? s.forWhom}</p>
             </div>
           </div>

@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
 import { Spinner } from "@/components/ui/button";
+import { Words } from "@/lib/i18n/client";
 
 function useSet() {
   const router = useRouter();
@@ -23,7 +24,7 @@ export function GapsToggle({ on }: { on: boolean }) {
   return (
     <label className="flex min-h-11 items-center gap-2 text-[15px]">
       <input type="checkbox" className="size-5 accent-brand" checked={on} onChange={(e) => set("gaps", e.target.checked ? "1" : null)} />
-      Show only sections with gaps
+      <Words k="Show only sections with gaps" />
       {pending && <Spinner className="size-4 text-ink-2" />}
     </label>
   );
@@ -41,7 +42,7 @@ export function TeacherSearch({ value }: { value: string }) {
   }, [text]);
   return (
     <label className="flex max-w-md flex-col gap-1 text-sm">
-      <span className="font-medium">Search teachers</span>
+      <span className="font-medium"><Words k="Search teachers" /></span>
       <span className="flex items-center gap-2">
         <input type="search" value={text} onChange={(e) => setText(e.target.value)} placeholder="Name, class or subject"
           className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-[15px]" />

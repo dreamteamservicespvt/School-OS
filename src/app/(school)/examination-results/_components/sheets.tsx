@@ -13,6 +13,7 @@ import { SheetHead, sheetCls } from "@/components/ui/dialog";
 import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { ProblemInView } from "@/components/ui/problem-in-view";
+import { Words } from "@/lib/i18n/client";
 
 export type Trigger = { label: React.ReactNode; variant?: ButtonVariant; size?: ButtonSize; icon?: React.ReactNode; className?: string; ariaLabel?: string; disabled?: boolean };
 
@@ -103,7 +104,7 @@ export function ActionSheet({ trigger, open: forced, onClose, title, sub, childr
             {open && children}
             {typeToConfirm && (
               <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">
-                <span>Type <b className="text-ink">{typeToConfirm}</b> to confirm</span>
+                <span><Words k="Type" /> <b className="text-ink">{typeToConfirm}</b> <Words k="to confirm" /></span>
                 <input value={typed} onChange={(e) => setTyped(e.target.value)} autoComplete="off" className={cx(inputCls(), "h-11")} />
               </label>
             )}
@@ -111,7 +112,7 @@ export function ActionSheet({ trigger, open: forced, onClose, title, sub, childr
           </form>
           {!bare && (
             <div className="border-t border-line px-5 py-3.5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-              <Button variant="ghost" onClick={close} disabled={pending}>Cancel</Button>
+              <Button variant="ghost" onClick={close} disabled={pending}><Words k="Cancel" /></Button>
               <button type="submit" form={formId} disabled={!ready || pending} aria-busy={pending || undefined}
                 className={buttonClass(confirmVariant, "md")}>
                 {pending ? <Spinning /> : confirmIcon && <span aria-hidden="true" className="contents">{confirmIcon}</span>}

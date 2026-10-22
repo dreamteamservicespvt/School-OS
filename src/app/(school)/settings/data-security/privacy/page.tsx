@@ -10,8 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { ClearRetentionButton, DeletionForm, RetentionForm } from "./forms";
 import { AUTO_WORDS, CLEARABLE, countWords, NEVER_CLEARED, retentionOverview, type Counts, type Due } from "@/lib/data-security/retention";
 import { loginNames } from "@/lib/settings/common";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Privacy · Data Backup & Security" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Privacy · Data Backup & Security") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => ((Array.isArray(v) ? v[0] : v) ?? "").trim();
@@ -61,7 +65,7 @@ export default async function PrivacyPage({ searchParams }: Search) {
 
   return (
     <div className="space-y-5">
-      <h2 className="sr-only">Privacy</h2>
+      <h2 className="sr-only"><Words k="Privacy" /></h2>
       <Card>
         <CardHeader title="How long records are kept" description="Under the DPDP Act 2023, personal data is kept only as long as it is needed. Some records must be kept by law." />
         <CardBody><RetentionForm rules={data.rules} canEdit={canEdit} /></CardBody>
@@ -110,31 +114,31 @@ export default async function PrivacyPage({ searchParams }: Search) {
         <CardHeader title="A person's data" description="When a parent, student or staff member asks to see or remove their data. Removal needs approval and is written to the audit log." />
         <CardBody className="space-y-4">
           {types.length === 0 ? (
-            <p className="text-ink-2">Your role cannot see student or staff records, so you cannot look a person up here.</p>
+            <p className="text-ink-2"><Words k="Your role cannot see student or staff records, so you cannot look a person up here." /></p>
           ) : (
             <form method="get" action="/settings/data-security/privacy#deletion" className="flex flex-wrap items-end gap-2">
               <div>
-                <label htmlFor="p-type" className="mb-1 block text-sm font-medium">Who</label>
+                <label htmlFor="p-type" className="mb-1 block text-sm font-medium"><Words k="Who" /></label>
                 <select id="p-type" name="type" defaultValue={type} className="min-h-11 rounded-lg border border-line-strong bg-surface px-3 text-base text-ink">
                   {types.map((t) => <option key={t} value={t}>{TYPE_LABEL[t]}</option>)}
                 </select>
               </div>
               <div className="min-w-0 flex-1 basis-56">
-                <label htmlFor="p-q" className="mb-1 block text-sm font-medium">Name, admission no., staff ID or phone</label>
+                <label htmlFor="p-q" className="mb-1 block text-sm font-medium"><Words k="Name, admission no., staff ID or phone" /></label>
                 <input id="p-q" name="q" type="search" defaultValue={q} className="min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-base text-ink" />
               </div>
-              <button type="submit" className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 font-medium text-brand-ink hover:bg-brand-hover">Find</button>
+              <button type="submit" className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 font-medium text-brand-ink hover:bg-brand-hover"><Words k="Find" /></button>
             </form>
           )}
 
-          {q.length === 1 && <p className="text-ink-2">Type at least 2 letters or digits.</p>}
+          {q.length === 1 && <p className="text-ink-2"><Words k="Type at least 2 letters or digits." /></p>}
           {q.length >= 2 && !data.chosen && (
-            data.found.length === 0 ? <p className="text-ink-2">Nobody matches “{q}”. Check the spelling, or search by number.</p> : (
+            data.found.length === 0 ? <p className="text-ink-2"><Words k="Nobody matches “" />{q}<Words k="”. Check the spelling, or search by number." /></p> : (
               <ul className="divide-y divide-line rounded-xl border border-line">
                 {data.found.map((p) => (
                   <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
                     <div><p className="font-medium">{p.name}</p><p className="text-sm text-ink-2">{p.detail}</p></div>
-                    <Link href={`/settings/data-security/privacy?type=${type}&person=${p.id}#deletion`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Choose</Link>
+                    <Link href={`/settings/data-security/privacy?type=${type}&person=${p.id}#deletion`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2"><Words k="Choose" /></Link>
                   </li>
                 ))}
               </ul>
@@ -146,16 +150,16 @@ export default async function PrivacyPage({ searchParams }: Search) {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-semibold">{data.chosen.name} <span className="font-normal text-ink-2">· {TYPE_LABEL[type]}</span></p>
                 <div className="flex flex-wrap gap-2">
-                  {canExport && <a href={`/settings/data-security/privacy/person-export?type=${type}&id=${data.chosen.id}`} className="inline-flex min-h-11 items-center rounded-lg border border-line px-3 font-medium hover:bg-surface-2">Export this person&apos;s data</a>}
-                  <Link href="/settings/data-security/privacy#deletion" className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Choose someone else</Link>
+                  {canExport && <a href={`/settings/data-security/privacy/person-export?type=${type}&id=${data.chosen.id}`} className="inline-flex min-h-11 items-center rounded-lg border border-line px-3 font-medium hover:bg-surface-2"><Words k="Export this person's data" /></a>}
+                  <Link href="/settings/data-security/privacy#deletion" className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2"><Words k="Choose someone else" /></Link>
                 </div>
               </div>
-              {canAsk ? <DeletionForm personType={type} personId={data.chosen.id} personName={data.chosen.name} parts={DELETION_PARTS} /> : <p className="text-ink-2">Your role cannot ask for data to be removed. Ask your School Admin.</p>}
+              {canAsk ? <DeletionForm personType={type} personId={data.chosen.id} personName={data.chosen.name} parts={DELETION_PARTS} /> : <p className="text-ink-2"><Words k="Your role cannot ask for data to be removed. Ask your School Admin." /></p>}
             </div>
           )}
 
-          <h3 className="pt-2 font-semibold">Requests to remove data</h3>
-          {data.requests.length === 0 ? <p className="text-ink-2">No requests yet.</p> : (
+          <h3 className="pt-2 font-semibold"><Words k="Requests to remove data" /></h3>
+          {data.requests.length === 0 ? <p className="text-ink-2"><Words k="No requests yet." /></p> : (
             <ul className="divide-y divide-line rounded-xl border border-line">
               {data.requests.map((r) => (
                 <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 p-3">
@@ -163,13 +167,13 @@ export default async function PrivacyPage({ searchParams }: Search) {
                     <p className="font-medium">{r.personName} <span className="font-normal text-ink-2">· {TYPE_LABEL[r.personType as PersonType] ?? r.personType}</span></p>
                     <p className="text-sm text-ink-2">
                       {r.scope === "all" ? "All personal details" : r.scope.split(",").map((k) => DELETION_PARTS.find((p) => p.key === k)?.label.split(" (")[0] ?? k).join("; ")}
-                      {" · "}Asked by {r.askedBy} · {formatDate(r.createdAt, tz)}
+                      {" · "}<Words k="Asked by" /> {r.askedBy} · {formatDate(r.createdAt, tz)}
                     </p>
-                    {r.completedAt && <p className="text-sm text-ink-2">Removed {formatDateTime(r.completedAt, tz)}</p>}
+                    {r.completedAt && <p className="text-sm text-ink-2"><Words k="Removed" /> {formatDateTime(r.completedAt, tz)}</p>}
                   </div>
                   <div className="flex items-center gap-2">
                     <Badge tone={STATUS[r.status]?.tone ?? "neutral"}>{STATUS[r.status]?.label ?? r.status}</Badge>
-                    {r.status === "waiting" && r.approvalId && <Link href="/approvals" className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Open in Approvals</Link>}
+                    {r.status === "waiting" && r.approvalId && <Link href="/approvals" className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2"><Words k="Open in Approvals" /></Link>}
                   </div>
                 </li>
               ))}

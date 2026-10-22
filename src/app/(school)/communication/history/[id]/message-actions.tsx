@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Segmented } from "@/components/ui/controls";
 import { cancelMessage, doResend, previewResend, retryMessage, type ResendPreview } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 type Channel = "whatsapp" | "sms" | "email" | "app";
 /** "preferred": for each person the first channel that can carry it now. */
@@ -43,25 +44,25 @@ export function MessageActions({ id, scheduledWords, canCancel, retryable, overL
   return (
     <>
       {canCancel && (
-        <ConfirmButton trigger={<><X size={17} aria-hidden="true" />Cancel scheduled message</>} triggerVariant="danger-soft" title="Cancel this scheduled message?" confirmLabel="Cancel the message" confirmVariant="danger"
+        <ConfirmButton trigger={<><X size={17} aria-hidden="true" /><Words k="Cancel scheduled message" /></>} triggerVariant="danger-soft" title="Cancel this scheduled message?" confirmLabel="Cancel the message" confirmVariant="danger"
           onConfirm={async () => { const m = await cancelMessage(id); if (!m) router.refresh(); return m; }}>
-          {scheduledWords} Nobody will receive it, and the credits come back.
+          {scheduledWords} <Words k="Nobody will receive it, and the credits come back." />
         </ConfirmButton>
       )}
       {retryable > 0 && (
-        <ConfirmButton trigger={<><RotateCcw size={17} aria-hidden="true" />Retry failed ({retryable})</>} title={`Retry ${retryable} failed?`} confirmLabel={`Retry ${retryable}`}
+        <ConfirmButton trigger={<><RotateCcw size={17} aria-hidden="true" /><Words k="Retry failed (" />{retryable})</>} title={`Retry ${retryable} failed?`} confirmLabel={`Retry ${retryable}`}
           onConfirm={async () => { const m = await retryMessage(id); if (!m) router.refresh(); return m; }}>
-          They are sent again on the same channel. Each message can be retried up to {retryLimit} times.{overLimit > 0 && ` ${overLimit} reached the limit; resend them by another channel instead.`}{notSent > 0 && ` ${notSent} were not sent because no channel could carry it; send them with "Resend failed".`}
+          <Words k="They are sent again on the same channel. Each message can be retried up to" /> {retryLimit} <Words k="times." />{overLimit > 0 && ` ${overLimit} reached the limit; resend them by another channel instead.`}{notSent > 0 && ` ${notSent} were not sent because no channel could carry it; send them with "Resend failed".`}
         </ConfirmButton>
       )}
       {failed > 0 && <Button variant="secondary" icon={MessageSquareText} onClick={() => openResend("failed")}>{notSent > 0 && notSent === failed ? `Send to the ${notSent} not sent` : "Resend failed by another channel"}</Button>}
-      {unread > 0 && <Button variant="primary" icon={Send} onClick={() => openResend("unread")}>Resend to {unread.toLocaleString("en-IN")} unread</Button>}
+      {unread > 0 && <Button variant="primary" icon={Send} onClick={() => openResend("unread")}><Words k="Resend to" /> {unread.toLocaleString("en-IN")} <Words k="unread" /></Button>}
 
       <Dialog open={open !== null} onClose={() => setOpen(null)}
         title={open === "failed" ? `Resend to ${failed} failed?` : `Resend to ${unread.toLocaleString("en-IN")} who have not read it?`}
         sub={open === "failed" ? "Only the people whose message failed." : "Everyone not yet at Read. Those who read it are left out."}
         footer={<>
-          <Button variant="secondary" onClick={() => setOpen(null)}>Close</Button>
+          <Button variant="secondary" onClick={() => setOpen(null)}><Words k="Close" /></Button>
           <Button loading={sending} loadingText="Sending" disabled={!preview?.ok || Boolean(preview.problem) || preview.people === 0}
             onClick={() => startSend(async () => { const m = await doResend(id, open!, channel); if (m) setError(m); })}>
             {preview?.ok ? `Resend to ${preview.people} by ${choiceLabel(channel)}` : "Resend"}
@@ -71,12 +72,12 @@ export function MessageActions({ id, scheduledWords, canCancel, retryable, overL
           <Segmented label="Channel" value={channel} onChange={(v) => { setChannel(v as Choice); if (open) check(open, v as Choice); }} className="self-start"
             options={[...(open === "failed" ? [{ value: "preferred", label: "Best for each" }] : []), ...channels.map((c) => ({ value: c, label: labels[c] }))]} />
           <div aria-live="polite" className="text-[13.5px] text-ink2 tnum">
-            {checking && <p className="text-ink3">Checking count and cost…</p>}
+            {checking && <p className="text-ink3"><Words k="Checking count and cost…" /></p>}
             {!checking && preview && !preview.ok && <p className="text-bad">{preview.message}</p>}
             {!checking && preview?.ok && (
               <>
                 <p>{preview.people} {preview.people === 1 ? "person" : "people"} · {preview.cost}.{channel === "sms" ? " Uses the approved SMS template with its DLT template ID." : ""}</p>
-                {preview.skipped.length > 0 && <p className="text-ink3">Left out: {preview.skipped.join("; ")}</p>}
+                {preview.skipped.length > 0 && <p className="text-ink3"><Words k="Left out:" /> {preview.skipped.join("; ")}</p>}
                 {preview.problem && <p className="mt-1 text-bad">{preview.problem}</p>}
               </>
             )}

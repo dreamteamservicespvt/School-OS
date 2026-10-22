@@ -41,10 +41,14 @@ import { UploadDocumentForm } from "../documents/upload-form";
 import { removeDocumentAction, uploadDocument } from "../documents/actions";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { schoolRoles } from "@/lib/school-roles";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
 type Props = { params: Promise<{ staffId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export const metadata: Metadata = { title: "Staff Profile" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Staff Profile") };
+}
 
 /** Inferred: the most periods a teacher should have in a week. */
 
@@ -142,10 +146,10 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
   return (
     <>
       {viewer.see === "all" ? <BackLink href={s.departmentId ? `${BASE}?department=${s.departmentId}` : BASE} label="Staff List" sub={s.department?.name} /> : <BackLink href={`${BASE}/leave`} label="Staff Leave" />}
-      {s.archivedAt && <Banner tone="warn" className="mb-4" title="This staff record is archived.">It stays in history and reports.</Banner>}
+      {s.archivedAt && <Banner tone="warn" className="mb-4" title="This staff record is archived."><Words k="It stays in history and reports." /></Banner>}
       {head.exit && head.exit.status !== "COMPLETED" && (
         <Banner tone="warn" className="mb-4" title={`${exitTypeLabel(head.exit.type)}: last working day ${formatDate(head.exit.lastWorkingDay, tz)}.`}>
-          {hr ? <Link href={`${BASE}/exit/${head.exit.id}`} className="font-semibold underline">Open the exit</Link> : "HR is handling the handover."}
+          {hr ? <Link href={`${BASE}/exit/${head.exit.id}`} className="font-semibold underline"><Words k="Open the exit" /></Link> : "HR is handling the handover."}
         </Banner>
       )}
 
@@ -158,7 +162,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
               {photoAction && <PhotoForm staffId={s.id} action={photoAction} has={Boolean(s.photoFileId)} />}
               {photoAction && s.photoFileId && (
                 <ConfirmButton trigger="Remove photo" triggerVariant="ghost" title="Remove this photo?" confirmLabel="Remove photo" confirmVariant="danger" onConfirm={removeStaffPhoto.bind(null, s.id)}>
-                  Initials show instead, and the ID card prints without a photo until a new one is added.
+                  <Words k="Initials show instead, and the ID card prints without a photo until a new one is added." />
                 </ConfirmButton>
               )}
             </div>
@@ -166,7 +170,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
               <div className="flex flex-wrap items-center gap-2">
                 <h1 className="font-display text-[24px] font-semibold leading-tight tracking-tight md:text-[28px]">{s.fullName}</h1>
                 <StatusBadge status={s.status} />
-                {head.onLeave && s.status === "ACTIVE" && <Pill tone="warn">On leave today</Pill>}
+                {head.onLeave && s.status === "ACTIVE" && <Pill tone="warn"><Words k="On leave today" /></Pill>}
                 <PinButton label={s.fullName} href={`${BASE}/${s.id}`} userId={current.user.id} />
               </div>
               <p className="mt-0.5 text-[13.5px] text-ink3">
@@ -176,7 +180,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
             </div>
           </div>
           <div className="relative flex flex-wrap gap-2">
-            <a className={buttonClass("secondary", "md", "flex-1 lg:flex-none")} href={`https://wa.me/91${s.phone}`} target="_blank" rel="noopener noreferrer"><MessageCircle size={17} aria-hidden="true" />Message</a>
+            <a className={buttonClass("secondary", "md", "flex-1 lg:flex-none")} href={`https://wa.me/91${s.phone}`} target="_blank" rel="noopener noreferrer"><MessageCircle size={17} aria-hidden="true" /><Words k="Message" /></a>
             {!left && (hr || mine) && <ButtonLink variant="primary" icon={CalendarPlus} href={`${BASE}/leave?apply=${s.id}`} className="flex-1 lg:flex-none">{mine ? "Apply for leave" : `Apply leave for ${first}`}</ButtonLink>}
             {hr && !left && head.printed > 0 && <ReprintForm staffId={s.id} />}
             {hr && !left && <StatusForm staffId={s.id} current={s.status} action={changeStatusAction} today={isoDay(today)} />}
@@ -268,8 +272,8 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     const roleOptions = data.roles.filter((r, i) => data.roles.findIndex((x) => (x.key ?? x.id) === (r.key ?? r.id)) === i).map((r) => ({ key: r.key ?? r.id, name: r.name, lines: roleLines(r.permissions as RolePermissions).map((l) => `${l.module}: ${l.words}`) }));
     const defaultRole = data.designations.find((d) => d.name === s!.designation)?.defaultRoleKey ?? null;
 
-    const loginPill = head.login ? (head.login.status === "ACTIVE" && !data.access?.archivedAt ? (head.login.mustChangePassword ? <Pill tone="warn">Temporary password, not changed yet</Pill> : <Pill tone="ok">Active</Pill>) : head.login.status === "INVITED" ? <Pill tone="warn">Invite not used yet</Pill> : <Pill tone="bad">Switched off</Pill>) : null;
-    const verified = (ok: boolean) => ok ? <Pill tone="ok" className="!h-5 !text-[11px]">Verified</Pill> : <Pill className="!h-5 !text-[11px]">Not verified</Pill>;
+    const loginPill = head.login ? (head.login.status === "ACTIVE" && !data.access?.archivedAt ? (head.login.mustChangePassword ? <Pill tone="warn"><Words k="Temporary password, not changed yet" /></Pill> : <Pill tone="ok"><Words k="Active" /></Pill>) : head.login.status === "INVITED" ? <Pill tone="warn"><Words k="Invite not used yet" /></Pill> : <Pill tone="bad"><Words k="Switched off" /></Pill>) : null;
+    const verified = (ok: boolean) => ok ? <Pill tone="ok" className="!h-5 !text-[11px]"><Words k="Verified" /></Pill> : <Pill className="!h-5 !text-[11px]"><Words k="Not verified" /></Pill>;
 
     return (
       <Split side={380}>
@@ -306,7 +310,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
           </Card>
           <Card>
             <CardHeader title="Emergency contacts" description="Called in this order" action={editable ? <EmergencyForm v={v} action={saveEmergency} /> : undefined} />
-            {contacts.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No emergency contact yet.{editable ? " Add one so the school knows whom to call." : ""}</p> : (
+            {contacts.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No emergency contact yet." />{editable ? " Add one so the school knows whom to call." : ""}</p> : (
               <ol className="divide-y divide-line px-5 pb-3">
                 {contacts.map((c, i) => (
                   <li key={c.id} className="flex items-center gap-3 py-2.5">
@@ -344,8 +348,8 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
             <ul className="space-y-3 px-5 pb-5 text-[14px]">
               <li className="flex flex-wrap items-center gap-2"><Phone size={17} className="text-ink3" aria-hidden="true" /><a href={`tel:+91${s!.phone}`} className="tnum hover:underline">+91 {s!.phone}</a>{verified(s!.phoneVerified)}</li>
               {s!.email ? <li className="flex flex-wrap items-center gap-2"><Mail size={17} className="text-ink3" aria-hidden="true" /><a href={`mailto:${s!.email}`} className="break-all hover:underline">{s!.email}</a>{verified(s!.emailVerified)}</li>
-                : <li className="flex items-center gap-2 text-ink3"><Mail size={17} aria-hidden="true" />No email</li>}
-              {head.onLeave && s!.status === "ACTIVE" && <li className="flex items-center gap-2"><CalendarDays size={17} className="text-warn" aria-hidden="true" />On leave until {formatDate(head.onLeave.toDate, tz)}</li>}
+                : <li className="flex items-center gap-2 text-ink3"><Mail size={17} aria-hidden="true" /><Words k="No email" /></li>}
+              {head.onLeave && s!.status === "ACTIVE" && <li className="flex items-center gap-2"><CalendarDays size={17} className="text-warn" aria-hidden="true" /><Words k="On leave until" /> {formatDate(head.onLeave.toDate, tz)}</li>}
             </ul>
           </Card>
           {(hr || mine) && (
@@ -362,7 +366,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                     ]} />
                     {extras.length > 0 && (
                       <Banner tone="warn" title={`${extras.length} extra permission${extras.length === 1 ? "" : "s"} beyond the role${accessRoles.length === 1 ? "" : "s"}.`}>
-                        {extras.map((k) => `${MODULES.find((m) => m.key === k)?.name} (${exceptions[k]})`).join(", ")}. Change it in Settings, Users &amp; Permissions.
+                        {extras.map((k) => `${MODULES.find((m) => m.key === k)?.name} (${exceptions[k]})`).join(", ")}<Words k={". Change it in Settings, Users & Permissions."} />
                       </Banner>
                     )}
                     {hr && (
@@ -376,11 +380,11 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                   </>
                 ) : hr && !left ? (
                   <>
-                    <p className="text-[14px] text-ink2">{s!.fullName} has no login yet.</p>
+                    <p className="text-[14px] text-ink2">{s!.fullName} <Words k="has no login yet." /></p>
                     <GiveLoginForm staffId={s!.id} roles={roleOptions} defaultRole={defaultRole} modules={MODULES.map((m) => ({ key: m.key, name: m.name }))} action={giveLoginAction}
                       suggested={`${s!.firstName.toLowerCase()}${s!.lastName ? `.${s!.lastName.toLowerCase().replace(/\s+/g, "")}` : ""}`} />
                   </>
-                ) : <p className="text-[14px] text-ink3">No login.</p>}
+                ) : <p className="text-[14px] text-ink3"><Words k="No login." /></p>}
               </div>
             </Card>
           )}
@@ -402,22 +406,22 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       ]);
       return { year, allocs, sections };
     });
-    if (!data) return <EmptyState title="No academic year is open">Classes are given in Teacher Allocation once the academic year is opened in Academic Management.</EmptyState>;
+    if (!data) return <EmptyState title="No academic year is open"><Words k="Classes are given in Teacher Allocation once the academic year is opened in Academic Management." /></EmptyState>;
     return (
       <div className="space-y-5">
         <Card>
           <CardHeader title="Class teacher of" description={data.year.name} />
-          <CardBody>{data.sections.length ? <p className="font-medium">{data.sections.map((x) => `${x.schoolClass.name} ${x.name}`).join(", ")}</p> : <p className="text-ink-2">Not a class teacher this year.</p>}</CardBody>
+          <CardBody>{data.sections.length ? <p className="font-medium">{data.sections.map((x) => `${x.schoolClass.name} ${x.name}`).join(", ")}</p> : <p className="text-ink-2"><Words k="Not a class teacher this year." /></p>}</CardBody>
         </Card>
         <Card>
-          <CardHeader title="Classes and subjects" description={`From Teacher Allocation, ${data.year.name}`} action={hr ? <ButtonLink size="sm" href="/academic-management/teacher-allocation">Teacher Allocation</ButtonLink> : undefined} />
+          <CardHeader title="Classes and subjects" description={`From Teacher Allocation, ${data.year.name}`} action={hr ? <ButtonLink size="sm" href="/academic-management/teacher-allocation"><Words k="Teacher Allocation" /></ButtonLink> : undefined} />
           <CardBody>
-            {data.allocs.length === 0 ? <p className="text-ink-2">No classes given yet. Classes are given in Add Staff step 3 or in Teacher Allocation.</p> : (
+            {data.allocs.length === 0 ? <p className="text-ink-2"><Words k="No classes given yet. Classes are given in Add Staff step 3 or in Teacher Allocation." /></p> : (
               <ul className="divide-y divide-line">
                 {data.allocs.map((a) => (
                   <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                     <span><span className="font-medium">{a.section.schoolClass.name} {a.section.name}</span> · {a.subject.name}</span>
-                    {!a.isMain && <Badge>Second teacher</Badge>}
+                    {!a.isMain && <Badge><Words k="Second teacher" /></Badge>}
                   </li>
                 ))}
               </ul>
@@ -435,25 +439,25 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       const periods = await tx.timetablePeriod.findMany({ where: { versionId: version.id, staffId: s!.id, archivedAt: null }, include: { section: { include: { schoolClass: true } }, subject: true }, orderBy: [{ dayOfWeek: "asc" }, { periodNo: "asc" }] });
       return { version, periods };
     });
-    if (!data) return <EmptyState title="No published Time Table">The teacher&apos;s week shows here once a Time Table is published in Academic Management.</EmptyState>;
+    if (!data) return <EmptyState title="No published Time Table"><Words k="The teacher's week shows here once a Time Table is published in Academic Management." /></EmptyState>;
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const nos = [...new Set(data.periods.map((p) => p.periodNo))].sort((a, b) => a - b);
-    if (data.periods.length === 0) return <EmptyState title="No periods on the Time Table">{s!.fullName} has no periods in {data.version.name}.</EmptyState>;
+    if (data.periods.length === 0) return <EmptyState title="No periods on the Time Table">{s!.fullName} <Words k="has no periods in" /> {data.version.name}.</EmptyState>;
     return (
       <Card>
         <CardHeader title="Time Table" description={`${data.version.name}${data.version.effectiveFrom ? `, from ${formatDate(data.version.effectiveFrom, tz)}` : ""} · ${data.periods.length} periods a week`} />
         <CardBody>
           <div className="hidden relative overflow-x-auto [contain:inline-size] md:block">
             <table className="w-full text-left text-sm">
-              <caption className="sr-only">Periods by day</caption>
-              <thead><tr><th scope="col" className="p-2 text-ink-2">Day</th>{nos.map((n) => <th key={n} scope="col" className="p-2 text-ink-2">Period {n}</th>)}</tr></thead>
+              <caption className="sr-only"><Words k="Periods by day" /></caption>
+              <thead><tr><th scope="col" className="p-2 text-ink-2"><Words k="Day" /></th>{nos.map((n) => <th key={n} scope="col" className="p-2 text-ink-2"><Words k="Period" /> {n}</th>)}</tr></thead>
               <tbody className="divide-y divide-line">
                 {days.map((d, i) => (
                   <tr key={d}>
                     <th scope="row" className="p-2 font-medium">{d}</th>
                     {nos.map((n) => {
                       const p = data.periods.find((x) => x.dayOfWeek === i + 1 && x.periodNo === n);
-                      return <td key={n} className="p-2 align-top">{p ? <><span className="font-medium">{p.section.schoolClass.name} {p.section.name}</span><span className="block text-ink-2">{p.subject?.name}</span></> : <span className="text-ink-2">Free</span>}</td>;
+                      return <td key={n} className="p-2 align-top">{p ? <><span className="font-medium">{p.section.schoolClass.name} {p.section.name}</span><span className="block text-ink-2">{p.subject?.name}</span></> : <span className="text-ink-2"><Words k="Free" /></span>}</td>;
                     })}
                   </tr>
                 ))}
@@ -511,7 +515,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     return (
       <Card>
         <CardHeader title={`Attendance, ${monthLabel(from)}`} description={`${working} working days · ${daysText(counted.present)} present · ${daysText(counted.absent)} absent · ${counted.late} late mark${counted.late === 1 ? "" : "s"} · ${daysText(leaveDays)} on leave`}
-          action={<div className="flex gap-2"><ButtonLink size="sm" href={`${href("attendance")}&month=${prev}`} aria-label="Previous month">‹ Previous</ButtonLink><ButtonLink size="sm" href={`${href("attendance")}&month=${next}`} aria-label="Next month">Next ›</ButtonLink></div>} />
+          action={<div className="flex gap-2"><ButtonLink size="sm" href={`${href("attendance")}&month=${prev}`} aria-label="Previous month"><Words k="‹ Previous" /></ButtonLink><ButtonLink size="sm" href={`${href("attendance")}&month=${next}`} aria-label="Next month"><Words k="Next ›" /></ButtonLink></div>} />
         <CardBody>
           <div className="grid grid-cols-7 gap-1 text-center text-xs text-ink-2" aria-hidden="true">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((x) => <span key={x}>{x}</span>)}</div>
           <ol className="mt-1 grid grid-cols-7 gap-1" aria-label={`Days of ${monthLabel(from)}`}>
@@ -524,7 +528,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
               </li>
             ))}
           </ol>
-          <p className="mt-3 text-sm text-ink-2">Present, absent and late marks come from Staff Attendance in <Link href="/attendance-management" className="text-brand-text underline">Attendance Management</Link>; leave and holidays from Staff Leave and the School Calendar.</p>
+          <p className="mt-3 text-sm text-ink-2"><Words k="Present, absent and late marks come from Staff Attendance in" /> <Link href="/attendance-management" className="text-brand-text underline"><Words k="Attendance Management" /></Link><Words k="; leave and holidays from Staff Leave and the School Calendar." /></p>
         </CardBody>
       </Card>
     );
@@ -541,14 +545,14 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     return (
       <div className="space-y-5">
         <Card>
-          <CardHeader title="Leave balance" description={data.year?.name} action={(hr || mine) && !left ? <ButtonLink size="sm" href={`${BASE}/leave?apply=${s!.id}`} variant="primary">Apply for leave</ButtonLink> : undefined} />
+          <CardHeader title="Leave balance" description={data.year?.name} action={(hr || mine) && !left ? <ButtonLink size="sm" href={`${BASE}/leave?apply=${s!.id}`} variant="primary"><Words k="Apply for leave" /></ButtonLink> : undefined} />
           <CardBody>
             <ul className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
               {data.balances.filter((b) => b.limited).map((b) => (
                 <li key={b.type.id} className="rounded-xl border border-line p-3">
                   <p className="text-sm text-ink-2">{b.type.name}</p>
-                  <p className="text-2xl font-semibold">{b.left}<span className="text-sm font-normal text-ink-2"> left</span></p>
-                  <p className="text-xs text-ink-2">{b.given + b.adjusted} allocated · {b.used} used{b.waiting ? ` · ${b.waiting} waiting` : ""}</p>
+                  <p className="text-2xl font-semibold">{b.left}<span className="text-sm font-normal text-ink-2"> <Words k="left" /></span></p>
+                  <p className="text-xs text-ink-2">{b.given + b.adjusted} <Words k="allocated ·" /> {b.used} <Words k="used" />{b.waiting ? ` · ${b.waiting} waiting` : ""}</p>
                 </li>
               ))}
             </ul>
@@ -557,7 +561,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
         <Card>
           <CardHeader title="Leave history" />
           <CardBody>
-            {data.history.length === 0 ? <p className="text-ink-2">No leave taken yet.</p> : (
+            {data.history.length === 0 ? <p className="text-ink-2"><Words k="No leave taken yet." /></p> : (
               <ul className="divide-y divide-line">
                 {data.history.map((l) => (
                   <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
@@ -591,11 +595,11 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
         <CardHeader title="Workload" description={data.year?.name} />
         <CardBody className="space-y-4">
           <div>
-            <p className="font-medium">{data.periods} of {periodLimit} periods a week</p>
+            <p className="font-medium">{data.periods} <Words k="of" /> {periodLimit} <Words k="periods a week" /></p>
             <div className="mt-2 h-3 overflow-hidden rounded-full bg-surface-3" role="meter" aria-valuemin={0} aria-valuemax={periodLimit} aria-valuenow={data.periods} aria-label="Periods a week">
               <div className={`h-full ${data.periods > periodLimit ? "bg-danger" : "bg-brand"}`} style={{ width: `${pct}%` }} />
             </div>
-            {data.periods > periodLimit && <p className="mt-1 text-sm text-danger">Over the limit by {data.periods - periodLimit} periods.</p>}
+            {data.periods > periodLimit && <p className="mt-1 text-sm text-danger"><Words k="Over the limit by" /> {data.periods - periodLimit} <Words k="periods." /></p>}
           </div>
           <dl className="grid gap-4 sm:grid-cols-2">
             <Detail label="Substitutions taken this year">{data.taken}</Detail>
@@ -631,7 +635,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
             <CardHeader title="Appraisals" />
             <CardBody><ul className="divide-y divide-line">{data.appraisals.map((a) => (
               <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2"><span className="font-medium">{a.cycle.name}</span>
-                <span>{a.status === "DONE" ? <Badge tone="success">Rating {Number(a.finalRating).toFixed(1)} of 5</Badge> : <Badge tone="warning">{a.status === "SELF_REVIEW" ? "Self review" : "Manager review"}</Badge>}</span></li>
+                <span>{a.status === "DONE" ? <Badge tone="success"><Words k="Rating" /> {Number(a.finalRating).toFixed(1)} <Words k="of 5" /></Badge> : <Badge tone="warning">{a.status === "SELF_REVIEW" ? "Self review" : "Manager review"}</Badge>}</span></li>
             ))}</ul></CardBody>
           </Card>
         )}
@@ -640,7 +644,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
             <CardHeader title="Training" />
             <CardBody><ul className="divide-y divide-line">{data.training.map((t) => (
               <li key={t.id} className="flex flex-wrap items-center justify-between gap-2 py-2"><span><span className="font-medium">{t.course}</span>{t.provider ? ` · ${t.provider}` : ""}</span>
-                <span className="text-sm text-ink-2">{formatDate(t.fromDate, tz)} · {Number(t.hours)} hours {t.certificateFileId && <a className="text-brand-text underline" href={`${BASE}/files/${t.certificateFileId}`} target="_blank" rel="noopener">Certificate</a>}</span></li>
+                <span className="text-sm text-ink-2">{formatDate(t.fromDate, tz)} · {Number(t.hours)} <Words k="hours" /> {t.certificateFileId && <a className="text-brand-text underline" href={`${BASE}/files/${t.certificateFileId}`} target="_blank" rel="noopener"><Words k="Certificate" /></a>}</span></li>
             ))}</ul></CardBody>
           </Card>
         )}
@@ -648,7 +652,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
           <Card>
             <CardHeader title="Promotions" />
             <CardBody><ul className="divide-y divide-line">{data.promotions.map((p) => (
-              <li key={p.id} className="py-2"><span className="font-medium">{p.fromDesignation} → {p.toDesignation}</span> <span className="text-sm text-ink-2">from {formatDate(p.effectiveFrom, tz)} · {p.reason}</span></li>
+              <li key={p.id} className="py-2"><span className="font-medium">{p.fromDesignation} → {p.toDesignation}</span> <span className="text-sm text-ink-2"><Words k="from" /> {formatDate(p.effectiveFrom, tz)} · {p.reason}</span></li>
             ))}</ul></CardBody>
           </Card>
         )}
@@ -663,7 +667,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       <Card>
         <CardHeader title="Documents" description="Certificates, ID proof and contracts, with expiry dates." action={hr && !left ? <UploadDocumentForm staffOptions={[{ value: s!.id, label: s!.fullName }]} types={types} action={uploadDocument} fixedStaffId={s!.id} /> : undefined} />
         <CardBody>
-          {docs.length === 0 ? <p className="text-ink-2">No documents yet.{hr ? " Upload certificates, ID proof and contracts with their expiry dates to get reminders." : " Give your documents to HR."}</p> : (
+          {docs.length === 0 ? <p className="text-ink-2"><Words k="No documents yet." />{hr ? " Upload certificates, ID proof and contracts with their expiry dates to get reminders." : " Give your documents to HR."}</p> : (
             <ul className="divide-y divide-line">
               {docs.map((d) => {
                 const status = docStatus(d, today);
@@ -675,11 +679,11 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge tone={DOC_TONE[status]}>{status}</Badge>
-                      {d.fileId && <a href={`${BASE}/files/${d.fileId}`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center px-2 font-medium text-brand-text hover:underline">Open</a>}
+                      {d.fileId && <a href={`${BASE}/files/${d.fileId}`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center px-2 font-medium text-brand-text hover:underline"><Words k="Open" /></a>}
                       {hr && !left && <UploadDocumentForm staffOptions={[{ value: s!.id, label: s!.fullName }]} types={types} action={uploadDocument} fixedStaffId={s!.id} replace={{ id: d.id, kind: d.kind }} />}
                       {hr && !left && (
                         <ConfirmButton trigger="Remove" triggerVariant="danger-soft" title={`Remove ${d.kind}?`} confirmLabel="Remove document" confirmVariant="danger" onConfirm={removeDocumentAction.bind(null, d.id)}>
-                          It is taken off {s!.fullName}’s record and its expiry reminders stop. Use this for a document added by mistake. The file itself is kept for the record.
+                          <Words k="It is taken off" /> {s!.fullName}<Words k="’s record and its expiry reminders stop. Use this for a document added by mistake. The file itself is kept for the record." />
                         </ConfirmButton>
                       )}
                     </div>
@@ -709,8 +713,8 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       return (
         <Card className="p-5 flex flex-col md:flex-row md:items-center gap-4">
           <span className="w-12 h-12 rounded-2xl bg-brand/10 text-brand grid place-items-center shrink-0"><Wallet size={22} aria-hidden="true" /></span>
-          <div className="flex-1"><p className="font-semibold text-[15px]">Your salary slips are in Salary, My Salary Slips</p><p className="text-[13.5px] text-ink3">{last ? `${monthWord(last.run.month)} ${last.run.paidOn ? `was paid on ${formatDate(last.run.paidOn)}` : "is approved"}. ` : ""}Only you can see your slips.</p></div>
-          <ButtonLink variant="primary" icon={ArrowUpRight} href="/salary-management/slips?mine=1">My salary slips</ButtonLink>
+          <div className="flex-1"><p className="font-semibold text-[15px]"><Words k="Your salary slips are in Salary, My Salary Slips" /></p><p className="text-[13.5px] text-ink3">{last ? `${monthWord(last.run.month)} ${last.run.paidOn ? `was paid on ${formatDate(last.run.paidOn)}` : "is approved"}. ` : ""}<Words k="Only you can see your slips." /></p></div>
+          <ButtonLink variant="primary" icon={ArrowUpRight} href="/salary-management/slips?mine=1"><Words k="My salary slips" /></ButtonLink>
         </Card>
       );
     }
@@ -723,17 +727,17 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
               <CardHeader title="Monthly salary" description={st ? `Structure v${st.version} · from ${formatDate(st.effectiveFrom)} · shown only to people with Salary Management` : "No salary structure yet"} icon={Lock} />
               {st ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 px-5 pb-5">
-                  <div><p className="text-[12px] text-ink3 font-semibold">Gross</p><p className="text-[18px] font-semibold tnum">{formatRupees(st.grossPaise)}</p></div>
-                  <div><p className="text-[12px] text-ink3 font-semibold">Deductions</p><p className="text-[18px] font-semibold tnum">{last ? formatRupees(last.deductionsPaise) : "Not paid yet"}</p></div>
-                  <div><p className="text-[12px] text-ink3 font-semibold">Net</p><p className="text-[18px] font-semibold tnum text-ok">{last ? formatRupees(last.netPaise) : "Not paid yet"}</p></div>
+                  <div><p className="text-[12px] text-ink3 font-semibold"><Words k="Gross" /></p><p className="text-[18px] font-semibold tnum">{formatRupees(st.grossPaise)}</p></div>
+                  <div><p className="text-[12px] text-ink3 font-semibold"><Words k="Deductions" /></p><p className="text-[18px] font-semibold tnum">{last ? formatRupees(last.deductionsPaise) : "Not paid yet"}</p></div>
+                  <div><p className="text-[12px] text-ink3 font-semibold"><Words k="Net" /></p><p className="text-[18px] font-semibold tnum text-ok">{last ? formatRupees(last.netPaise) : "Not paid yet"}</p></div>
                 </div>
-              ) : <p className="px-5 pb-4 text-[14px] text-ink3">Left out of the monthly salary until one is added.</p>}
-              <div className="px-5 pb-5"><ButtonLink variant="secondary" icon={ArrowUpRight} href={`/salary-management/structures?open=${s!.id}`}>Open in Salary Management</ButtonLink></div>
+              ) : <p className="px-5 pb-4 text-[14px] text-ink3"><Words k="Left out of the monthly salary until one is added." /></p>}
+              <div className="px-5 pb-5"><ButtonLink variant="secondary" icon={ArrowUpRight} href={`/salary-management/structures?open=${s!.id}`}><Words k="Open in Salary Management" /></ButtonLink></div>
             </Card>
           ) : (
             <Card>
               <CardHeader title="Salary days" description="Days, leave and loss of pay that reached the salary. Amounts are not shown here." icon={Lock} />
-              <div className="px-5 pb-5"><ButtonLink variant="secondary" icon={ArrowUpRight} href={`/salary-management/history?tab=staff&who=${s!.id}`}>Open Salary History</ButtonLink></div>
+              <div className="px-5 pb-5"><ButtonLink variant="secondary" icon={ArrowUpRight} href={`/salary-management/history?tab=staff&who=${s!.id}`}><Words k="Open Salary History" /></ButtonLink></div>
             </Card>
           )}
           <Card>
@@ -744,11 +748,11 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                   <li key={l.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5">
                     <span className="w-10 h-10 rounded-xl grid place-items-center shrink-0 bg-sunken text-ink2"><ReceiptText size={19} aria-hidden="true" /></span>
                     <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px]">{monthWord(l.run.month)}</p><p className="text-[12.5px] text-ink3">{l.run.paidOn ? `paid ${formatDate(l.run.paidOn)}` : "approved"}{!money ? ` · ${Number(l.paidDays)} paid days` : ""}</p></div>
-                    {money ? <b className="font-semibold tnum">{formatRupees(l.netPaise)}</b> : <span className="tnum text-[13px] text-ink2">{Number(l.lopDays)} days loss of pay</span>}
+                    {money ? <b className="font-semibold tnum">{formatRupees(l.netPaise)}</b> : <span className="tnum text-[13px] text-ink2">{Number(l.lopDays)} <Words k="days loss of pay" /></span>}
                   </li>
                 ))}
               </ul>
-            ) : <p className="px-5 pb-5 text-[14px] text-ink3">No approved salary yet.</p>}
+            ) : <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No approved salary yet." /></p>}
           </Card>
         </Split>
         <Card>

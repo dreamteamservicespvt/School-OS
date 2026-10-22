@@ -5,8 +5,12 @@ import { PLACES } from "@/lib/imports/places";
 import { ImportHome } from "@/components/import/import-home";
 import { LibHead } from "../../_components/head";
 import { BASE, libGuard } from "../../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import books · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import books · Library Management") };
+}
 
 const ABOUT = {
   "library-catalogue": "One row per book, with its copies. Each book is checked as if typed on Add book: the ISBN, the authors and the accession numbers.",
@@ -18,7 +22,7 @@ export default async function ImportBooksPage() {
   if (!p.can.catalogue) redirect(`${BASE}/books`);
   return (
     <>
-      <LibHead pageName="Import books" href={`${BASE}/books/import`} mode={p.mode} sub={<Link href={`${BASE}/books`} className="hover:underline">Books</Link>} />
+      <LibHead pageName="Import books" href={`${BASE}/books/import`} mode={p.mode} sub={<Link href={`${BASE}/books`} className="hover:underline"><Words k="Books" /></Link>} />
       <ImportHome current={p.current} place={PLACES.library} about={ABOUT} />
     </>
   );

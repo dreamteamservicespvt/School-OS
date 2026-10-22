@@ -21,6 +21,7 @@ import { mobileDigits } from "@/lib/front-office/words";
 import { addNoteAction, callFollowUpAction, clearNoteAction, enquiryAction, logCallAction, lookupPhone, searchFrom, walkInAction } from "../actions";
 import { PhoneBox, SegField } from "./fields";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 
@@ -31,12 +32,12 @@ function Duplicates({ admissions }: { admissions: boolean }) {
   const m = matches[0];
   return (
     <div className="flex flex-col gap-2">
-      <Banner tone="warn" title="This family may already be with Admissions:" action={admissions ? <Link href={m.href} className={buttonClass("secondary", "sm")}><ExternalLink size={15} aria-hidden="true" />Open in Admissions</Link> : undefined}>
+      <Banner tone="warn" title="This family may already be with Admissions:" action={admissions ? <Link href={m.href} className={buttonClass("secondary", "sm")}><ExternalLink size={15} aria-hidden="true" /><Words k="Open in Admissions" /></Link> : undefined}>
         {m.text}
       </Banner>
       <label className="flex items-center gap-3 rounded-xl bg-sunken/70 px-3.5 py-3 text-[14px]">
         <input type="checkbox" name="force" className="w-5 h-5 accent-[var(--color-brand)]" />
-        <span><b className="font-semibold">Save anyway</b><span className="block text-[12.5px] text-ink3">For example a brother or sister, or a different family with the same phone</span></span>
+        <span><b className="font-semibold"><Words k="Save anyway" /></b><span className="block text-[12.5px] text-ink3"><Words k="For example a brother or sister, or a different family with the same phone" /></span></span>
       </label>
     </div>
   );
@@ -119,17 +120,17 @@ function CallFields({ purposes, classes, staff, defaultWho, today, admissions }:
       </FieldShell>
       {why === "Admission enquiry" && (
         <div className="grid sm:grid-cols-2 gap-3 rounded-xl bg-sunken/70 p-3.5">
-          <p className="sm:col-span-2 text-[13px] text-ink2">The enquiry is made in the same step and goes to Admissions.</p>
+          <p className="sm:col-span-2 text-[13px] text-ink2"><Words k="The enquiry is made in the same step and goes to Admissions." /></p>
           <SText name="childName" label="Child’s name" required maxLength={120} autoComplete="off" />
           <SSelect name="classId" label="Class wanted" required options={classes} placeholder="Choose" />
         </div>
       )}
-      {why === "Complaint" && <Banner tone="info" title="Becomes a query">in Communication, Feedback & Queries, with a number the caller can ask about.</Banner>}
+      {why === "Complaint" && <Banner tone="info" title="Becomes a query"><Words k={"in Communication, Feedback & Queries, with a number the caller can ask about."} /></Banner>}
       <SArea name="note" label="Note" rows={2} placeholder={why === "Complaint" ? "What is the complaint about?" : "What was asked or told"} maxLength={1000} required={why === "Complaint"} />
       <div className="rounded-xl border border-line">
         <div className="flex items-center gap-3 px-4 py-3">
           <Switch id="cl-fu" on={follow} onChange={setFollow} label="Set a follow-up" name="followUp" />
-          <label htmlFor="cl-fu" className="text-[14px] font-semibold flex-1">Set a follow-up</label>
+          <label htmlFor="cl-fu" className="text-[14px] font-semibold flex-1"><Words k="Set a follow-up" /></label>
         </div>
         {follow && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 px-4 pb-4 animate-fade">
@@ -212,7 +213,7 @@ function WalkInFields({ departments, nextNo }: { departments: string[]; nextNo: 
         <SegField name="givenBy" label="Give the number by" start="whatsapp" options={[{ value: "whatsapp", label: "WhatsApp" }, { value: "slip", label: "Slip" }]} />
       </div>
       <SText name="note" label="Note" maxLength={500} placeholder="Optional" />
-      <p className="text-[12.5px] text-ink3">Complaints go to Communication, Feedback & Queries instead: log them as a call with the purpose Complaint.</p>
+      <p className="text-[12.5px] text-ink3"><Words k={"Complaints go to Communication, Feedback & Queries instead: log them as a call with the purpose Complaint."} /></p>
     </>
   );
 }
@@ -232,7 +233,7 @@ export function NoteAdd() {
     <form ref={ref} action={run} className="flex flex-col gap-1.5 p-5 pt-3">
       <div className="flex gap-2">
         <input name="text" value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a note" aria-label="New front-office note" maxLength={200} className={cx(inputCls(state && !state.ok), "h-10 text-[14px]")} />
-        <Button type="submit" variant="secondary" icon={Plus} loading={pending} disabled={!text.trim()}>Add</Button>
+        <Button type="submit" variant="secondary" icon={Plus} loading={pending} disabled={!text.trim()}><Words k="Add" /></Button>
       </div>
       {state && !state.ok && <p className="text-[12.5px] text-bad" role="alert">{state.message}</p>}
     </form>

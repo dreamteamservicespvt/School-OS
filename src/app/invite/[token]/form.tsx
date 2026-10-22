@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { acceptInviteAction, type InviteState } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export function InviteForm({ token, minLength = 8, rulesWords }: { token: string; /** The school's shortest password (Password Policy). */ minLength?: number; rulesWords?: string }) {
   const [state, action, pending] = useActionState<InviteState, FormData>(acceptInviteAction.bind(null, token), null);
@@ -26,7 +27,7 @@ export function InviteForm({ token, minLength = 8, rulesWords }: { token: string
       {state?.message && <Alert tone="danger">{state.message}</Alert>}
       {rulesWords && <p className="text-[13px] text-ink2">{rulesWords}</p>}
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="password" className="text-[13px] font-semibold text-ink2">New password</label>
+        <label htmlFor="password" className="text-[13px] font-semibold text-ink2"><Words k="New password" /></label>
         <div className="relative">
           <input id="password" name="password" type={show ? "text" : "password"} autoComplete="new-password" required value={pw} onChange={(e) => setPw(e.target.value)}
             aria-describedby="password-rules" className={cx(inputCls(), "h-11 pr-12")} />
@@ -45,12 +46,12 @@ export function InviteForm({ token, minLength = 8, rulesWords }: { token: string
         </ul>
       </div>
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="confirm" className="text-[13px] font-semibold text-ink2">Type it again</label>
+        <label htmlFor="confirm" className="text-[13px] font-semibold text-ink2"><Words k="Type it again" /></label>
         <input id="confirm" name="confirm" type={show ? "text" : "password"} autoComplete="new-password" required value={again} onChange={(e) => setAgain(e.target.value)}
           aria-invalid={mismatch || undefined} aria-describedby={mismatch ? "confirm-error" : undefined} className={cx(inputCls(mismatch), "h-11")} />
-        {mismatch && <p id="confirm-error" className="text-[12.5px] text-bad">The two passwords are not the same yet.</p>}
+        {mismatch && <p id="confirm-error" className="text-[12.5px] text-bad"><Words k="The two passwords are not the same yet." /></p>}
       </div>
-      <Button type="submit" variant="primary" size="lg" className="w-full mt-1" loading={pending} loadingText="Saving…" disabled={!ready}>Set my password</Button>
+      <Button type="submit" variant="primary" size="lg" className="w-full mt-1" loading={pending} loadingText="Saving…" disabled={!ready}><Words k="Set my password" /></Button>
     </form>
   );
 }

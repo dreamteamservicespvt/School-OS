@@ -13,11 +13,12 @@ import { MoreMenu } from "@/components/ui/more-menu";
 import { cx } from "@/components/ui/cx";
 import { Text } from "../sheets";
 import { createBoardAction, editBoardAction, hidePostAction, moderateAction, postTopicAction, replyAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export function TopicSheet({ closeHref, boardId, boardTitle, student }: { closeHref: string; boardId: string; boardTitle: string; student: boolean }) {
   return (
     <SheetForm title={student ? "Ask a question" : "New topic"} sub={boardTitle} closeHref={closeHref} action={postTopicAction} hidden={{ boardId, boardTitle }}
-      submitLabel={<><Send size={16} aria-hidden="true" />Post</>} pendingText="Posting…">
+      submitLabel={<><Send size={16} aria-hidden="true" /><Words k="Post" /></>} pendingText="Posting…">
       <Text name="title" label="Title" required help="One short line, like “Q3 of exercise 4.2”" />
       <Text name="body" label="Details" area rows={4} />
     </SheetForm>
@@ -50,7 +51,7 @@ export function BoardSheet({ closeHref, courses, start }: {
       </FieldShell>
       <div className="rounded-xl border border-line px-3.5 py-3 flex items-center gap-3">
         <Switch id="nb-active" on={active} onChange={setActive} label="Active" name="active" />
-        <label htmlFor="nb-active" className="text-[13.5px]"><b className="font-semibold block">Active</b><span className="text-ink3 text-[12.5px]">{active ? "People can post" : "Posts can be read but not added"}</span></label>
+        <label htmlFor="nb-active" className="text-[13.5px]"><b className="font-semibold block"><Words k="Active" /></b><span className="text-ink3 text-[12.5px]">{active ? "People can post" : "Posts can be read but not added"}</span></label>
       </div>
     </SheetForm>
   );
@@ -60,7 +61,7 @@ export function HideSheet({ closeHref, id, title, by, reasons }: { closeHref: st
   const r = useTyped("reason", reasons[0]);
   return (
     <SheetForm title="Hide this post?" closeHref={closeHref} action={hidePostAction} hidden={{ id }} submitLabel="Hide post" pendingText="Hiding…" submitVariant="danger">
-      <p className="text-[14px] text-ink2">“{title}” by {by}. The class sees “Hidden by the teacher” with your reason. Nothing is deleted.</p>
+      <p className="text-[14px] text-ink2">“{title}<Words k="” by" /> {by}<Words k=". The class sees “Hidden by the teacher” with your reason. Nothing is deleted." /></p>
       <FieldShell label="Reason" id="hd-why" required error={r.error}>
         <select id="hd-why" name="reason" defaultValue={r.value} key={r.key} className={cx(inputCls(r.error), "h-11")}>
           {reasons.map((x) => <option key={x} value={x}>{x}</option>)}
@@ -107,10 +108,10 @@ export function ReplyBox({ topicId, student }: { topicId: string; student: boole
   return (
     <div className="mt-4">
       <div className="flex gap-2">
-        <label htmlFor="reply-box" className="sr-only">Write a reply</label>
+        <label htmlFor="reply-box" className="sr-only"><Words k="Write a reply" /></label>
         <input id="reply-box" value={text} onChange={(e) => setText(e.target.value)} placeholder={student ? "Write a reply to your class" : "Write a reply"} className={cx(inputCls(problem), "h-11")}
           onKeyDown={(e) => { if (e.key === "Enter" && text.trim()) { e.preventDefault(); send(); } }} aria-invalid={problem ? true : undefined} />
-        <Button variant="primary" icon={Send} disabled={!text.trim()} loading={busy} onClick={send}>Post</Button>
+        <Button variant="primary" icon={Send} disabled={!text.trim()} loading={busy} onClick={send}><Words k="Post" /></Button>
       </div>
       {problem && <p className="text-[12.5px] text-bad mt-1" role="alert">{problem}</p>}
     </div>

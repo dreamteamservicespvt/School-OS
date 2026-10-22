@@ -27,8 +27,12 @@ import { ExportMenu } from "@/components/communication/export-menu";
 import { CommHead } from "../_components/comm-head";
 import { RemindButton } from "./consent/consent-forms";
 import { ResendBar, ShowsCard } from "./link-tools";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Parent Link" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Parent Link") };
+}
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const DAY = 86400_000;
@@ -90,11 +94,11 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
       <CommHead access={access} page="Parent Link" href="/communication/parent-link"
         sub="One personal link per guardian for all their children. No password, no app."
         actions={<>
-          <ButtonLink href="/communication/parent-link/consent" variant="secondary" icon={FileSignature} className="hidden md:inline-flex">Request consent</ButtonLink>
-          <ButtonLink href="/communication/parent-link/send" variant="primary" icon={Send}>Send to existing families</ButtonLink>
+          <ButtonLink href="/communication/parent-link/consent" variant="secondary" icon={FileSignature} className="hidden md:inline-flex"><Words k="Request consent" /></ButtonLink>
+          <ButtonLink href="/communication/parent-link/send" variant="primary" icon={Send}><Words k="Send to existing families" /></ButtonLink>
         </>} />
       <div className="flex flex-col gap-5 lg:gap-6">
-        {!pl.on && <Banner tone="warn" title="Parent Link is switched off.">Parents who open their link see “Parent Link is not available right now”. Switch it on under What parents see.</Banner>}
+        {!pl.on && <Banner tone="warn" title="Parent Link is switched off."><Words k="Parents who open their link see “Parent Link is not available right now”. Switch it on under What parents see." /></Banner>}
         <Stats items={[
           { label: "Links active", value: s.active.toLocaleString("en-IN"), icon: Link2, sub: "One per guardian", href: quick({ status: "ACTIVE" }) },
           { label: "Opened in last 30 days", value: s.opened30.toLocaleString("en-IN"), icon: Eye, tone: "ok", sub: `${pct(s.opened30, s.active)} of guardians`, href: quick({ status: "ACTIVE", opened: "30" }) },
@@ -108,14 +112,14 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
             <CardHeader title="Links sent and opened" description="Guardians opening their link each week" icon={ChartColumn} />
             <div className="px-5"><Bars data={bars} height={150} ariaLabel="Guardians opening Parent Link per week" /></div>
             <ul className="px-5 pb-5 pt-2 text-[13.5px] flex flex-col gap-1.5 tnum">
-              <li className="flex justify-between gap-3"><span className="text-ink2">Links sent</span><b className="font-semibold">{data.sentCount.toLocaleString("en-IN")}</b></li>
-              <li className="flex justify-between gap-3"><span className="text-ink2">Opened at least once</span><b className="font-semibold">{data.everOpened.toLocaleString("en-IN")} · {pct(data.everOpened, s.active + s.revoked)}</b></li>
-              <li className="flex justify-between gap-3"><span className="text-ink2">Sent automatically on admission</span><b className="font-semibold">{pl.autoSendOnAdmission ? "On" : "Off"}</b></li>
+              <li className="flex justify-between gap-3"><span className="text-ink2"><Words k="Links sent" /></span><b className="font-semibold">{data.sentCount.toLocaleString("en-IN")}</b></li>
+              <li className="flex justify-between gap-3"><span className="text-ink2"><Words k="Opened at least once" /></span><b className="font-semibold">{data.everOpened.toLocaleString("en-IN")} · {pct(data.everOpened, s.active + s.revoked)}</b></li>
+              <li className="flex justify-between gap-3"><span className="text-ink2"><Words k="Sent automatically on admission" /></span><b className="font-semibold">{pl.autoSendOnAdmission ? "On" : "Off"}</b></li>
             </ul>
           </Card>
           <Card className="lg:col-span-2 xl:col-span-1">
             <CardHeader title="Consent records" description="Agreed on Parent Link with a one-time code" icon={FileSignature}
-              action={canEdit ? <ButtonLink href="/communication/parent-link/consent" size="sm" variant="soft" icon={Plus}>Request</ButtonLink> : undefined} />
+              action={canEdit ? <ButtonLink href="/communication/parent-link/consent" size="sm" variant="soft" icon={Plus}><Words k="Request" /></ButtonLink> : undefined} />
             <ul className="px-5 pb-5 flex flex-col gap-4">
               {data.consents.map(({ request: r, given, waiting, withdrawn }) => {
                 const t = data.texts.find((x) => x.id === r.consentTextId);
@@ -124,7 +128,7 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
                 return (
                   <li key={r.id} className="flex flex-col gap-2 pb-4 border-b border-line/70 last:border-0 last:pb-0">
                     <div className="flex items-start gap-2">
-                      <div className="flex-1 min-w-0"><p className="font-semibold text-[14px] leading-snug">{t?.title ?? r.consentType}</p><p className="text-[12.5px] text-ink3">{r.audienceLabel} · version {t?.version ?? 1} · reply by {formatDate(r.replyBy, "UTC")}</p></div>
+                      <div className="flex-1 min-w-0"><p className="font-semibold text-[14px] leading-snug">{t?.title ?? r.consentType}</p><p className="text-[12.5px] text-ink3">{r.audienceLabel} <Words k="· version" /> {t?.version ?? 1} <Words k="· reply by" /> {formatDate(r.replyBy, "UTC")}</p></div>
                       {canEdit && open && waiting.length > 0 && <RemindButton id={r.id} count={waiting.length} />}
                     </div>
                     <span className="flex h-2 rounded-full overflow-hidden bg-sunken" aria-hidden="true">
@@ -133,15 +137,15 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
                       <span className="bg-bad" style={{ width: `${(withdrawn.length / tot) * 100}%` }} />
                     </span>
                     <p className="text-[13px] tnum flex gap-x-3 gap-y-1 flex-wrap">
-                      <span><b className="font-semibold text-ok">{given.length.toLocaleString("en-IN")}</b> given</span>
-                      <span><b className="font-semibold text-warn">{waiting.length.toLocaleString("en-IN")}</b> waiting</span>
-                      <span><b className="font-semibold text-bad">{withdrawn.length.toLocaleString("en-IN")}</b> withdrawn</span>
+                      <span><b className="font-semibold text-ok">{given.length.toLocaleString("en-IN")}</b> <Words k="given" /></span>
+                      <span><b className="font-semibold text-warn">{waiting.length.toLocaleString("en-IN")}</b> <Words k="waiting" /></span>
+                      <span><b className="font-semibold text-bad">{withdrawn.length.toLocaleString("en-IN")}</b> <Words k="withdrawn" /></span>
                     </p>
                   </li>
                 );
               })}
-              {!data.consents.length && <li className="text-[13.5px] text-ink3">No consent requests yet. Guardians agree to each form on their Parent Link with a one-time code.</li>}
-              {data.consents.length > 0 && <li><Link href="/communication/parent-link/consent" className="text-[13px] font-semibold text-brand hover:underline">All consent requests</Link></li>}
+              {!data.consents.length && <li className="text-[13.5px] text-ink3"><Words k="No consent requests yet. Guardians agree to each form on their Parent Link with a one-time code." /></li>}
+              {data.consents.length > 0 && <li><Link href="/communication/parent-link/consent" className="text-[13px] font-semibold text-brand hover:underline"><Words k="All consent requests" /></Link></li>}
             </ul>
           </Card>
         </div>
@@ -165,13 +169,13 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
             paging={{ page: params.page, pageSize: PAGE_SIZE, total: data.total, href: (p) => listHref("/communication/parent-link", params, { page: p }) }}
             empty={
               <EmptyState bare Icon={Link2} title={filtered ? "No links here" : "No Parent Links yet"}
-                action={!filtered ? <ButtonLink href="/communication/parent-link/send" icon={Send}>Send to existing families</ButtonLink> : undefined}>
+                action={!filtered ? <ButtonLink href="/communication/parent-link/send" icon={Send}><Words k="Send to existing families" /></ButtonLink> : undefined}>
                 {filtered ? "Change the search or filters." : "Each guardian gets one personal link to see their children's fees, attendance and notices on a phone. Links are sent when an admission is approved."}
               </EmptyState>
             }
             columns={[
               { key: "name", label: "Guardian", render: (l) => { const g = data.guardians.get(l.guardianId); return <div className="flex items-center gap-2.5"><Avatar name={g?.name ?? "Parent"} size={34} /><div><p className="font-semibold leading-tight">{g?.name ?? "Parent"}</p><p className="text-[12.5px] text-ink3 tnum whitespace-nowrap">{maskPhone(g?.phone ?? "")}</p></div></div>; } },
-              { key: "kids", label: "Children", render: (l) => <span className="text-[13px]">{kidsOf(l.guardianId) || <span className="text-ink3">None studying now</span>}</span> },
+              { key: "kids", label: "Children", render: (l) => <span className="text-[13px]">{kidsOf(l.guardianId) || <span className="text-ink3"><Words k="None studying now" /></span>}</span> },
               { key: "status", label: "Status", render: (l) => <Pill tone={l.status === "ACTIVE" ? "ok" : "bad"} dot>{l.status === "ACTIVE" ? "Active" : "Revoked"}</Pill> },
               { key: "created", label: "Created", nowrap: true, render: (l) => <span className="tnum text-[13px]">{formatDate(l.createdAt, tz)}</span> },
               { key: "last", label: "Last opened", nowrap: true, render: (l) => <span className={cx("tnum text-[13px]", !l.lastOpenedAt && "text-warn font-semibold")}>{opened(l)}</span> },
@@ -183,7 +187,7 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
                 title: g?.name ?? "Parent", sub: `${kidsOf(l.guardianId) || "No child studying"} · opened ${opened(l).toLowerCase()}`, avatar: g?.name ?? "Parent",
                 pills: [
                   <Pill key="s" tone={l.status === "ACTIVE" ? "ok" : "bad"} className="!h-[22px] !text-[11.5px]">{l.status === "ACTIVE" ? "Active" : "Revoked"}</Pill>,
-                  !l.lastOpenedAt && l.status === "ACTIVE" ? <Pill key="n" tone="warn" className="!h-[22px] !text-[11.5px]">Never opened</Pill> : null,
+                  !l.lastOpenedAt && l.status === "ACTIVE" ? <Pill key="n" tone="warn" className="!h-[22px] !text-[11.5px]"><Words k="Never opened" /></Pill> : null,
                 ],
               };
             }}

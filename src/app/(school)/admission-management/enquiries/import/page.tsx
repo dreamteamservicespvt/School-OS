@@ -4,8 +4,11 @@ import { admissionPage, BASE } from "@/lib/admission/page";
 import { PLACES } from "@/lib/imports/places";
 import { PageHeader } from "@/components/shell/page-header";
 import { ImportHome } from "@/components/import/import-home";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import enquiries" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import enquiries") };
+}
 
 const ABOUT = {
   "admission-enquiries": "One row for each child: open enquiries from your old software or a spreadsheet. Each one gets an owner and a follow-up. A child already in School OS is flagged and skipped, and a brother or sister with the same phone and parent is added, linked to the family. A phone on record under another parent's name asks you first.",

@@ -21,6 +21,7 @@ import type { FormState } from "@/lib/forms";
 import { saveDatesheet } from "./actions";
 import type { FormData as Data, FormRow } from "./form-data";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 const PATTERNS = [{ value: "PERCENTAGE", label: "Percentage" }, { value: "GRADING", label: "Grading" }, { value: "CGPA", label: "CGPA" }];
 const DURATIONS = [30, 45, 60, 75, 90, 105, 120, 150, 180, 210, 240].map((m) => ({ value: String(m), label: m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}` }));
@@ -168,7 +169,7 @@ export function DatesheetForm({ data }: { data: Data }) {
 
       <Card className="overflow-hidden">
         <div className="flex flex-col gap-6 p-4 md:p-6">
-          {locked && <Banner tone="warn" title="Results exist for this datesheet.">Only the title can change. Ask the Exam In-charge or the Principal if a date or mark needs changing.</Banner>}
+          {locked && <Banner tone="warn" title="Results exist for this datesheet."><Words k="Only the title can change. Ask the Exam In-charge or the Principal if a date or mark needs changing." /></Banner>}
           <div ref={summaryRef} tabIndex={-1} className="outline-none empty:hidden">
             {tried && !locked && issueCount > 0 && (
               <Banner tone="bad" title={issueCount === 1 ? "Please fix this before saving:" : `Please fix ${issueCount} things before saving:`}>
@@ -180,7 +181,7 @@ export function DatesheetForm({ data }: { data: Data }) {
 
           {/* 1 · Which classes */}
           <section className="flex flex-col gap-3" aria-labelledby="ds-1">
-            <p id="ds-1" className="eyebrow text-ink3">1 · Which classes</p>
+            <p id="ds-1" className="eyebrow text-ink3"><Words k="1 · Which classes" /></p>
             {!exam && (
               <div className="grid grid-cols-2 gap-2 max-w-2xl" role="radiogroup" aria-label="Which classes">
                 {([["single", "Single class", "Pick one class and fill the schedule", User], ["multi", "Multiple classes", "Same schedule for several classes at once", Users]] as const).map(([v, t, s, Ic]) => (
@@ -205,7 +206,7 @@ export function DatesheetForm({ data }: { data: Data }) {
 
           {/* 2 · Exam details */}
           <section className="flex flex-col gap-3" aria-labelledby="ds-2">
-            <p id="ds-2" className="eyebrow text-ink3">2 · Exam details</p>
+            <p id="ds-2" className="eyebrow text-ink3"><Words k="2 · Exam details" /></p>
             <div className="grid md:grid-cols-2 gap-3 max-w-4xl">
               <TextField label="Title" name="title" required maxLength={60} value={d.title} placeholder="For example Half Yearly" error={state?.errors?.title ?? (tried && !d.title.trim() ? "Give the exam a title, like Half Yearly." : undefined)}
                 help="For example FA 1 or Half Yearly" onChange={(e) => setD({ ...d, title: e.target.value })} />
@@ -234,17 +235,17 @@ export function DatesheetForm({ data }: { data: Data }) {
           {/* 3 · Subject schedule */}
           <section className="flex flex-col gap-3" aria-labelledby="ds-3">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <p id="ds-3" className="eyebrow text-ink3">3 · Subject schedule</p>
-              {chosen.length > 0 && <p className="text-[12.5px] text-ink3" aria-live="polite">{datedCount} of {allRows.length} {mode === "multi" ? "papers" : "subjects"} dated</p>}
+              <p id="ds-3" className="eyebrow text-ink3"><Words k="3 · Subject schedule" /></p>
+              {chosen.length > 0 && <p className="text-[12.5px] text-ink3" aria-live="polite">{datedCount} <Words k="of" /> {allRows.length} {mode === "multi" ? "papers" : "subjects"} <Words k="dated" /></p>}
             </div>
             {state?.errors?.schedule && <p role="alert" className="text-[12.5px] text-bad flex items-center gap-1.5"><CircleAlert size={14} aria-hidden="true" />{state.errors.schedule}</p>}
             {chosen.length === 0 ? (
-              <p className="rounded-2xl border border-dashed border-line px-4 py-6 text-center text-[14px] text-ink3">Choose {mode === "single" ? "a class" : "the classes"} above to list their subjects.</p>
+              <p className="rounded-2xl border border-dashed border-line px-4 py-6 text-center text-[14px] text-ink3"><Words k="Choose" /> {mode === "single" ? "a class" : "the classes"} <Words k="above to list their subjects." /></p>
             ) : (
               <>
                 {!dis && (
                   <div className="rounded-2xl bg-sunken/60 p-3 flex flex-col gap-2.5">
-                    <p className="text-[13px] font-semibold text-ink2">Bulk apply · each Apply changes only its own column</p>
+                    <p className="text-[13px] font-semibold text-ink2"><Words k="Bulk apply · each Apply changes only its own column" /></p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                       <BulkBox label="Start time" onApply={() => applyColumn("startTime")}>
                         <KeepSelect aria-label="Start time for all" value={bulk.startTime} onChange={(e) => setBulk({ ...bulk, startTime: e.target.value })} className={cx(inputCls(), "h-11")}>
@@ -278,9 +279,9 @@ export function DatesheetForm({ data }: { data: Data }) {
                       gradeOnly={(r) => Boolean(subjectRows.find((x) => x.subjectId === r.subjectId)?.gradeOnly)}
                       staff={data.staff} onChange={(r, c) => update({ subjectId: r.subjectId }, c)} showRoom={false} error={(r) => sharedError(r.subjectId)} roomHint="" />
                     <details className="rounded-2xl border border-line">
-                      <summary className="flex min-h-11 cursor-pointer items-center px-4 font-semibold text-[14px]">Rooms and invigilators for each class</summary>
+                      <summary className="flex min-h-11 cursor-pointer items-center px-4 font-semibold text-[14px]"><Words k="Rooms and invigilators for each class" /></summary>
                       <div className="flex flex-col gap-4 border-t border-line p-4">
-                        <p className="text-[13px] text-ink3">Each class starts in its own room with its subject teacher invigilating. Two classes cannot share a room or an invigilator at the same time.</p>
+                        <p className="text-[13px] text-ink3"><Words k="Each class starts in its own room with its subject teacher invigilating. Two classes cannot share a room or an invigilator at the same time." /></p>
                         {chosen.map((c) => (
                           <div key={c.id}>
                             <p className="font-semibold text-[14px] mb-1.5">{c.name}</p>
@@ -298,7 +299,7 @@ export function DatesheetForm({ data }: { data: Data }) {
                                   {rowError(r) && <p className="text-[12.5px] text-bad flex items-center gap-1.5"><CircleAlert size={14} aria-hidden="true" />{rowError(r)}</p>}
                                 </li>
                               ))}
-                              {!allRows.some((r) => r.classId === c.id && r.date) && <li className="py-2.5 text-[13px] text-ink3">Give dates above first.</li>}
+                              {!allRows.some((r) => r.classId === c.id && r.date) && <li className="py-2.5 text-[13px] text-ink3"><Words k="Give dates above first." /></li>}
                             </ul>
                           </div>
                         ))}
@@ -306,21 +307,21 @@ export function DatesheetForm({ data }: { data: Data }) {
                     </details>
                   </>
                 )}
-                {tried && datedCount === 0 && <p className="text-[12.5px] text-bad flex items-center gap-1.5"><CircleAlert size={14} aria-hidden="true" />Give at least one subject an exam date.</p>}
+                {tried && datedCount === 0 && <p className="text-[12.5px] text-bad flex items-center gap-1.5"><CircleAlert size={14} aria-hidden="true" /><Words k="Give at least one subject an exam date." /></p>}
               </>
             )}
             <div className="rounded-2xl border border-line p-3.5 text-[13px] text-ink2">
-              <p className="font-semibold text-ink mb-1.5">Before you save</p>
+              <p className="font-semibold text-ink mb-1.5"><Words k="Before you save" /></p>
               <ul className="flex flex-col gap-1 list-disc pl-4">
-                <li>Subjects are listed by date and time. An empty exam date leaves the subject out.</li>
-                <li>The pattern can be changed for one subject. Mark categories (for example Theory 80, Internal 20) are set after saving.</li>
-                <li>Once results are uploaded, only the title can change.</li>
+                <li><Words k="Subjects are listed by date and time. An empty exam date leaves the subject out." /></li>
+                <li><Words k="The pattern can be changed for one subject. Mark categories (for example Theory 80, Internal 20) are set after saving." /></li>
+                <li><Words k="Once results are uploaded, only the title can change." /></li>
               </ul>
             </div>
           </section>
         </div>
         <div className="sticky bottom-16 md:bottom-0 z-10 flex flex-col-reverse gap-2 border-t border-line bg-surface px-4 md:px-6 py-3.5 sm:flex-row sm:justify-end">
-          <ButtonLink href={exam ? `/examination-results/datesheet/${exam.id}` : "/examination-results/datesheet"} variant="ghost">Cancel</ButtonLink>
+          <ButtonLink href={exam ? `/examination-results/datesheet/${exam.id}` : "/examination-results/datesheet"} variant="ghost"><Words k="Cancel" /></ButtonLink>
           <SubmitButton pendingText="Saving…"><Check size={17} aria-hidden="true" />{exam ? "Save changes" : "Save as draft"}</SubmitButton>
         </div>
       </Card>
@@ -334,7 +335,7 @@ function BulkBox({ label, children, onApply }: { label: string; children: React.
       <span className="text-[12px] text-ink3 font-semibold">{label}</span>
       <div className="flex gap-1.5">
         <div className="min-w-0 flex-1">{children}</div>
-        <Button size="sm" variant="secondary" className="!h-11" onClick={onApply} aria-label={`Apply ${label.toLowerCase()} to all subjects`}>Apply</Button>
+        <Button size="sm" variant="secondary" className="!h-11" onClick={onApply} aria-label={`Apply ${label.toLowerCase()} to all subjects`}><Words k="Apply" /></Button>
       </div>
     </div>
   );
@@ -384,7 +385,7 @@ function ScheduleRows({ rows, label, gradeOnly, staff, onChange, dis, showRoom, 
                       </td>
                     )}
                     <td className="px-1 py-2">
-                      {gradeOnly(r) ? <span className="text-[13px] text-ink3">Graded</span> : <input inputMode="numeric" aria-label={`${label(r)} maximum marks`} disabled={dis} value={r.maxMarks || ""} onChange={(ev) => onChange(r, { maxMarks: Number(ev.target.value.replace(/\D/g, "")) })} className={cx(cell(), "!w-[64px] tnum text-center")} />}
+                      {gradeOnly(r) ? <span className="text-[13px] text-ink3"><Words k="Graded" /></span> : <input inputMode="numeric" aria-label={`${label(r)} maximum marks`} disabled={dis} value={r.maxMarks || ""} onChange={(ev) => onChange(r, { maxMarks: Number(ev.target.value.replace(/\D/g, "")) })} className={cx(cell(), "!w-[64px] tnum text-center")} />}
                     </td>
                     <td className="px-1 py-2">
                       <KeepSelect aria-label={`${label(r)} pattern`} disabled={dis} value={r.pattern} onChange={(ev) => onChange(r, { pattern: ev.target.value })} className={cx(cell(), "!w-[120px]")}>
@@ -406,38 +407,38 @@ function ScheduleRows({ rows, label, gradeOnly, staff, onChange, dis, showRoom, 
           const e = error(r);
           return (
             <li key={`${r.classId}-${r.subjectId}`} className={cx("rounded-2xl border p-3", e ? "border-bad/50" : "border-line")}>
-              <p className="mb-2 font-semibold text-[14.5px]">{label(r)} {!r.date && <span className="text-[12.5px] font-normal text-ink3">· left out until dated</span>}</p>
+              <p className="mb-2 font-semibold text-[14.5px]">{label(r)} {!r.date && <span className="text-[12.5px] font-normal text-ink3"><Words k="· left out until dated" /></span>}</p>
               <div className="grid grid-cols-2 gap-2">
-                <label className="col-span-2 flex flex-col gap-1 text-[12px] font-semibold text-ink3">Exam date<input type="date" disabled={dis} value={r.date} onChange={(ev) => onChange(r, { date: ev.target.value })} className={cx(cell(e), "!h-11")} /></label>
-                <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3">Start time
+                <label className="col-span-2 flex flex-col gap-1 text-[12px] font-semibold text-ink3"><Words k="Exam date" /><input type="date" disabled={dis} value={r.date} onChange={(ev) => onChange(r, { date: ev.target.value })} className={cx(cell(e), "!h-11")} /></label>
+                <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3"><Words k="Start time" />
                   <KeepSelect disabled={dis} value={r.startTime} onChange={(ev) => onChange(r, { startTime: ev.target.value })} className={cx(cell(), "!h-11")}>{timeOptions(r.startTime).map((t) => <option key={t} value={t}>{time12(t)}</option>)}</KeepSelect>
                 </label>
-                <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3">Duration
+                <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3"><Words k="Duration" />
                   <KeepSelect disabled={dis} value={String(r.durationMin)} onChange={(ev) => onChange(r, { durationMin: Number(ev.target.value) })} className={cx(cell(), "!h-11")}>
                     {!DURATIONS.some((x) => x.value === String(r.durationMin)) && <option value={r.durationMin}>{r.durationMin} min</option>}
                     {DURATIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </KeepSelect>
                 </label>
-                {showRoom && <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3">Location<input disabled={dis} maxLength={40} value={r.room} placeholder={roomHint} onChange={(ev) => onChange(r, { room: ev.target.value })} className={cx(cell(), "!h-11")} /></label>}
+                {showRoom && <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3"><Words k="Location" /><input disabled={dis} maxLength={40} value={r.room} placeholder={roomHint} onChange={(ev) => onChange(r, { room: ev.target.value })} className={cx(cell(), "!h-11")} /></label>}
                 {showRoom && (
-                  <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3">Invigilator
+                  <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3"><Words k="Invigilator" />
                     <KeepSelect disabled={dis} value={r.invigilatorId} onChange={(ev) => onChange(r, { invigilatorId: ev.target.value })} className={cx(cell(), "!h-11")}>
                       <option value="">None</option>
                       {staff.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
                     </KeepSelect>
                   </label>
                 )}
-                <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3">Max marks
-                  {gradeOnly(r) ? <span className="flex h-11 items-center text-[14px] font-normal text-ink3">Graded</span> : <input inputMode="numeric" disabled={dis} value={r.maxMarks || ""} onChange={(ev) => onChange(r, { maxMarks: Number(ev.target.value.replace(/\D/g, "")) })} className={cx(cell(), "!h-11 tnum")} />}
+                <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3"><Words k="Max marks" />
+                  {gradeOnly(r) ? <span className="flex h-11 items-center text-[14px] font-normal text-ink3"><Words k="Graded" /></span> : <input inputMode="numeric" disabled={dis} value={r.maxMarks || ""} onChange={(ev) => onChange(r, { maxMarks: Number(ev.target.value.replace(/\D/g, "")) })} className={cx(cell(), "!h-11 tnum")} />}
                 </label>
-                <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3">Pattern
+                <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3"><Words k="Pattern" />
                   <KeepSelect disabled={dis} value={r.pattern} onChange={(ev) => onChange(r, { pattern: ev.target.value })} className={cx(cell(), "!h-11")}>
                     <option value="">Exam&apos;s pattern</option>
                     {PATTERNS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                   </KeepSelect>
                 </label>
               </div>
-              {r.startTime && r.date && <p className="mt-1.5 text-[12.5px] text-ink3">{time12(r.startTime)} to {time12(endOf(r.startTime, r.durationMin))}</p>}
+              {r.startTime && r.date && <p className="mt-1.5 text-[12.5px] text-ink3">{time12(r.startTime)} <Words k="to" /> {time12(endOf(r.startTime, r.durationMin))}</p>}
               {e && <p className="mt-1.5 text-[12.5px] text-bad flex items-center gap-1.5" role="alert"><CircleAlert size={14} aria-hidden="true" />{e}</p>}
             </li>
           );

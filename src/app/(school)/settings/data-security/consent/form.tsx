@@ -7,6 +7,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { saveConsentAction } from "../actions";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Start = { title: string; text: Record<string, string>; askedOnAdmission: boolean };
 
@@ -26,7 +27,7 @@ export function ConsentForm({ types, languages, starts, initialType }: {
       <ErrorSummary errors={state?.errors} />
       <FormMessage state={state?.message ? state : null} />
       <div>
-        <label htmlFor="consent-type" className="mb-1 block text-sm font-medium">Consent type<span className="text-danger" aria-hidden="true"> *</span></label>
+        <label htmlFor="consent-type" className="mb-1 block text-sm font-medium"><Words k="Consent type" /><span className="text-danger" aria-hidden="true"> *</span></label>
         <KeepSelect id="consent-type" name="consentType" value={type} onChange={(e) => setType(e.target.value)}
           className="min-h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-base text-ink">
           {types.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
@@ -43,8 +44,8 @@ export function ConsentForm({ types, languages, starts, initialType }: {
       ))}
       <CheckboxField name="askedOnAdmission" label="Asked on the admission form" defaultChecked={v ? v.askedOnAdmission === "on" : start.askedOnAdmission} />
       </div>
-      <p className="text-sm text-ink-2">Saving makes a new version. Guardians who agreed earlier keep the version they agreed to; you can ask them to agree again through Parent Link.</p>
-      <SubmitButton pendingText="Saving…">Save new version</SubmitButton>
+      <p className="text-sm text-ink-2"><Words k="Saving makes a new version. Guardians who agreed earlier keep the version they agreed to; you can ask them to agree again through Parent Link." /></p>
+      <SubmitButton pendingText="Saving…"><Words k="Save new version" /></SubmitButton>
     </form>
   );
 }

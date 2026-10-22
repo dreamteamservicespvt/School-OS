@@ -14,8 +14,12 @@ import { cx } from "@/components/ui/cx";
 import { BackLink } from "../../_components/pills";
 import { defaultYears, filterQuery, readFilters, yearOptions } from "../filters";
 import { ReportToolbar } from "../toolbar";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Admission report" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Admission report") };
+}
 
 type Props = { params: Promise<{ key: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -49,7 +53,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
       <BackLink href={`${BASE}/reports${q ? `?${q}` : ""}`} label="Admission Reports" />
       <PageHeader title={meta.title} href={path} userId={current.user.id} sub={meta.about} />
       {!read || !r ? (
-        <Card><EmptyState bare Icon={FileClock} title="No academic year is set up yet">Reports appear once an admission year is open.</EmptyState></Card>
+        <Card><EmptyState bare Icon={FileClock} title="No academic year is set up yet"><Words k="Reports appear once an admission year is open." /></EmptyState></Card>
       ) : (
         <div className="flex flex-col gap-5">
           <ReportToolbar years={yearOpts} classes={data.choices.classes} sources={settings.sourceList.map((s) => ({ value: s.key, label: s.label }))} owners={data.choices.owners}
@@ -57,7 +61,7 @@ export default async function ReportPage({ params, searchParams }: Props) {
           <Card className="overflow-hidden">
             <CardHeader title={r.headline} description={read.range ? `Added ${read.range.label.toLowerCase()}` : undefined} />
             {r.rows.length === 0 ? (
-              <EmptyState bare Icon={FileClock} title="Nothing to show for these filters">Try another year, date range or class.</EmptyState>
+              <EmptyState bare Icon={FileClock} title="Nothing to show for these filters"><Words k="Try another year, date range or class." /></EmptyState>
             ) : (
               <div className="overflow-x-auto scroll-thin border-t border-line/70">
                 <table className="w-full text-[14px]" style={{ minWidth: Math.max(460, r.columns.length * 120) }}>

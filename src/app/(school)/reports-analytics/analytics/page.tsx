@@ -19,8 +19,12 @@ import { cx } from "@/components/ui/cx";
 import { RepHead, ICON, iconOr } from "../_components/head";
 import { ChartMenu } from "../_components/bits";
 import { BASE, MODULE, one, qs, repGuard, withQ, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Analytics" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Analytics") };
+}
 
 const HREF = `${BASE}/analytics`;
 
@@ -61,16 +65,16 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Se
         <Card>
           <div className="flex flex-col lg:flex-row lg:items-end gap-3 p-4">
             <div className="flex flex-col gap-1.5 min-w-0 lg:w-72">
-              <span className="text-[13px] font-semibold text-ink2">Dates</span>
+              <span className="text-[13px] font-semibold text-ink2"><Words k="Dates" /></span>
               <PeriodFilter {...p.dates} fallback={q.fallback} className="w-full" />
             </div>
             <div className="flex flex-col gap-1.5 lg:w-64">
-              <span className="text-[13px] font-semibold text-ink2" aria-hidden="true">Campus</span>
+              <span className="text-[13px] font-semibold text-ink2" aria-hidden="true"><Words k="Campus" /></span>
               <UrlSelect id="an-campus" param="campus" label="Campus" options={campusOptions} className="w-full" />
             </div>
             <div className="h-11 flex items-center lg:ml-2"><UrlSwitch id="an-cmp" param="compare" label="Compare with last year" /></div>
           </div>
-          <p className="px-4 pb-3 -mt-1 text-[12.5px] text-ink3">Showing: {q.range.label} · {range}. Numbers marked “today” are as on {cellText(p.today, "date")}.</p>
+          <p className="px-4 pb-3 -mt-1 text-[12.5px] text-ink3"><Words k="Showing:" /> {q.range.label} · {range}<Words k=". Numbers marked “today” are as on" /> {cellText(p.today, "date")}.</p>
         </Card>
         {q.areas.length > 1 && <Chips value={area} label="Analytics areas" options={q.areas.map((x) => ({ value: x, label: AREA_LABEL[x], href: qs(HREF, { ...keepDates, area: x === q.areas[0] ? null : x, campus: base.campus, compare: base.compare }) }))} />}
         {both && (
@@ -85,7 +89,7 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Se
         )}
         {view.charts.length === 0 && !view.banner && (
           <Card><Empty icon={CalendarDays} title="No figures for these dates" body={`Nothing was recorded in ${range}.`}
-            action={<Link href={qs(HREF, { area: base.area })} className={buttonClass("secondary")}>Show this year</Link>} /></Card>
+            action={<Link href={qs(HREF, { area: base.area })} className={buttonClass("secondary")}><Words k="Show this year" /></Link>} /></Card>
         )}
         <AreaCharts view={view} pins={pins} canExport={canExport} exportOf={exportOf} drillHref={drillHref} />
         {area === "teachers" && !p.a.teacherResults && (
@@ -95,14 +99,14 @@ export default async function AnalyticsPage({ searchParams }: { searchParams: Se
       {drill && (
         <UrlSheet wide title={drill.title} sub={drill.sub} closeHref={withQ(HREF, sp, { drill: null })}
           footer={<>
-            <CloseSheetButton>Close</CloseSheetButton>
-            {canExport && drill.table.rows.length > 0 && <a href={exportOf({ drill: drillKey })} download className={buttonClass("secondary")}><Download size={17} aria-hidden="true" />Export these {drill.table.rows.length}</a>}
+            <CloseSheetButton><Words k="Close" /></CloseSheetButton>
+            {canExport && drill.table.rows.length > 0 && <a href={exportOf({ drill: drillKey })} download className={buttonClass("secondary")}><Download size={17} aria-hidden="true" /><Words k="Export these" /> {drill.table.rows.length}</a>}
           </>}>
           <div className="-mx-5">
             {drill.table.rows.length
               ? <SimpleTable minWidth={480} caption={drill.title} rows={drill.table.rows} cols={drill.table.columns.map((c) => ({ label: c.label, right: c.kind !== undefined && c.kind !== "text" && c.kind !== "date", render: (r: Row) => cellText(r[c.key], c.kind) }))}
                 foot={drill.table.totals ? drill.table.columns.map((c) => cellText(drill.table.totals?.[c.key] ?? null, c.kind)) : undefined} />
-              : <p className="px-5 py-6 text-[14px] text-ink3">No records behind this number.</p>}
+              : <p className="px-5 py-6 text-[14px] text-ink3"><Words k="No records behind this number." /></p>}
           </div>
           <p className="text-[12.5px] text-ink3 mt-3">{drill.table.rows.length} {drill.table.rows.length === 1 ? "record" : "records"} · {drill.basis}</p>
         </UrlSheet>

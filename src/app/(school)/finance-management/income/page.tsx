@@ -21,8 +21,12 @@ import { BASE, financePage, financePeriod, one, qs, type SearchParams } from "..
 import { cancelIncomeAction, postIncomeAction } from "./actions";
 import { RecordIncomeSheet } from "./sheets";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Income" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Income") };
+}
 
 const HREF = `${BASE}/income`;
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -76,7 +80,7 @@ export default async function IncomePage({ searchParams }: { searchParams: Searc
     <div>
       <FinanceHead pageName="Income" href={HREF} sub="Money the school receives other than fees: rent, donations, scrap sale, interest"
         viewActions={p.can.export ? <ExportButton href={qs(`${HREF}/export`, keep)} /> : null}
-        actions={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={Plus}>Record income</ButtonLink> : null} />
+        actions={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={Plus}><Words k="Record income" /></ButtonLink> : null} />
       <Stack>
         <Stats items={[
           { label: "This financial year", value: formatRupees(data.fySum._sum.amountPaise ?? ZERO), sub: `${formatDate(p.fy.startDate)} to ${formatDate(p.today < p.fy.endDate ? p.today : p.fy.endDate)}`, icon: HandCoins },
@@ -100,8 +104,8 @@ export default async function IncomePage({ searchParams }: { searchParams: Searc
             <DataList rows={data.list.rows} rowKey={(r) => r.id} rowHref={(r) => here({ open: r.id })} minWidth={860} caption="Income entries"
               footer={`Showing ${data.list.rows.length} of ${data.list.count} · ${formatRupees(data.list.posted)} posted`}
               empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="income entries" /> : data.total === 0
-                ? <Empty icon={HandCoins} title="No income recorded yet" body="Hall rent, donations, scrap sale or bank interest go here. Fees reach the Day Book from Fees by themselves." action={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}>Record income</ButtonLink> : undefined} />
-                : <Empty icon={SearchX} title="No income matches" body="Try another date, head or status." action={filtered ? <Link href={HREF} scroll={false} className={buttonClass("secondary")}>Clear filters</Link> : undefined} />}
+                ? <Empty icon={HandCoins} title="No income recorded yet" body="Hall rent, donations, scrap sale or bank interest go here. Fees reach the Day Book from Fees by themselves." action={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="Record income" /></ButtonLink> : undefined} />
+                : <Empty icon={SearchX} title="No income matches" body="Try another date, head or status." action={filtered ? <Link href={HREF} scroll={false} className={buttonClass("secondary")}><Words k="Clear filters" /></Link> : undefined} />}
               columns={[
                 { key: "d", label: "Date", nowrap: true, render: (r) => <><p className="tnum">{formatDate(r.date)}</p><p className="text-[12px] text-ink3 font-mono">{r.receiptNo ?? "Draft"}</p></> },
                 { key: "head", label: "Income head", render: (r) => <span className="text-[13.5px]">{r.headName}</span> },
@@ -122,21 +126,21 @@ export default async function IncomePage({ searchParams }: { searchParams: Searc
               <CardHeader title="By income head" description={`${p.fy.name} so far`} icon={ChartBar} />
               <div className="px-5 pb-5">
                 {byHead.length ? <HBars labelWidth={128} rows={byHead.map((h) => ({ key: h.id, label: h.name, value: maxHead > ZERO ? Number((h.v * BigInt(1000)) / maxHead) / 10 : 0, text: formatRupeesShort(h.v), href: qs(HREF, { head: h.id }), active: headId === h.id }))} />
-                  : <p className="text-[13.5px] text-ink3">No income posted this financial year.</p>}
+                  : <p className="text-[13.5px] text-ink3"><Words k="No income posted this financial year." /></p>}
               </div>
             </Card>
             {data.drafts.length > 0 && (
               <Banner tone="warn" title={`${data.drafts.length} ${data.drafts.length === 1 ? "draft" : "drafts"} not posted.`}
-                action={<Link href={here({ open: data.drafts[0].id })} scroll={false} className={buttonClass("secondary", "sm")}>Open</Link>}>
-                {data.drafts[0].receivedFrom}, {formatRupees(data.drafts[0].amountPaise)}. Drafts are not in the Day Book.
+                action={<Link href={here({ open: data.drafts[0].id })} scroll={false} className={buttonClass("secondary", "sm")}><Words k="Open" /></Link>}>
+                {data.drafts[0].receivedFrom}, {formatRupees(data.drafts[0].amountPaise)}<Words k=". Drafts are not in the Day Book." />
               </Banner>
             )}
             <Card>
               <CardHeader title="Good to know" icon={Info} />
               <ul className="px-5 pb-4 text-[13.5px] text-ink2 flex flex-col gap-2 list-disc pl-9">
-                <li>Fees are not recorded here. They reach the Day Book from Fees by themselves.</li>
-                <li>A posted entry cannot be changed. Cancel it with a reason and record it again.</li>
-                <li>Each posted entry has a receipt to print.</li>
+                <li><Words k="Fees are not recorded here. They reach the Day Book from Fees by themselves." /></li>
+                <li><Words k="A posted entry cannot be changed. Cancel it with a reason and record it again." /></li>
+                <li><Words k="Each posted entry has a receipt to print." /></li>
               </ul>
             </Card>
           </Col>
@@ -154,11 +158,11 @@ export default async function IncomePage({ searchParams }: { searchParams: Searc
       {openId && o && (
         <UrlSheet title={`${o.headName} · ${formatRupees(o.amountPaise)}`} sub={`${o.receiptNo ?? "Draft"} · ${formatDate(o.date)}`} closeHref={here()}
           footer={o.status !== "CANCELLED" ? <div className="flex flex-wrap gap-2 justify-end">
-            {p.can.archive && <ButtonLink href={here({ cancel: o.id })} scroll={false} variant="danger-soft">Cancel entry</ButtonLink>}
+            {p.can.archive && <ButtonLink href={here({ cancel: o.id })} scroll={false} variant="danger-soft"><Words k="Cancel entry" /></ButtonLink>}
             {o.status === "DRAFT" && p.can.edit && <ActButton action={postIncomeAction} fields={{ incomeId: o.id }} label="Post to Day Book" icon="check" />}
-            {o.status === "POSTED" && <a href={`${HREF}/${o.id}/receipt`} target="_blank" rel="noreferrer" className={buttonClass("secondary")}><Printer size={16} aria-hidden="true" />Print receipt</a>}
+            {o.status === "POSTED" && <a href={`${HREF}/${o.id}/receipt`} target="_blank" rel="noreferrer" className={buttonClass("secondary")}><Printer size={16} aria-hidden="true" /><Words k="Print receipt" /></a>}
           </div> : undefined}>
-          <div className="flex items-center gap-2 mb-4"><Pill tone={TONE[o.status]}>{INCOME_STATUS_WORDS[o.status]?.label}</Pill>{o.status === "POSTED" && <span className="text-[13px] text-ink3">In the Day Book for {formatDate(o.date)}</span>}</div>
+          <div className="flex items-center gap-2 mb-4"><Pill tone={TONE[o.status]}>{INCOME_STATUS_WORDS[o.status]?.label}</Pill>{o.status === "POSTED" && <span className="text-[13px] text-ink3"><Words k="In the Day Book for" /> {formatDate(o.date)}</span>}</div>
           <div className="grid grid-cols-2 gap-x-5 gap-y-3.5">
             <Mini k="Received from" v={o.receivedFrom} /><Mini k="Income head" v={`${o.headName}${o.headCode ? ` · ${o.headCode}` : ""}`} />
             <Mini k="Mode" v={<ModeCell mode={o.mode} />} /><Mini k="Reference" v={<Ref v={o.reference} />} />
@@ -166,7 +170,7 @@ export default async function IncomePage({ searchParams }: { searchParams: Searc
           </div>
           {o.note && <p className="mt-4 text-[13.5px] text-ink2 bg-sunken rounded-xl px-3.5 py-2.5">{o.note}</p>}
           {o.status === "CANCELLED" && <Banner tone="bad" className="mt-4" title={`Cancelled${o.cancelledAt ? ` on ${formatDate(o.cancelledAt, p.tz)}` : ""}${o.cancelledBy ? ` by ${o.cancelledBy}` : ""}.`}>{o.cancelReason}</Banner>}
-          {o.status === "POSTED" && <p className="mt-4 text-[12.5px] text-ink3 flex gap-1.5"><Lock size={14} className="shrink-0 mt-0.5" aria-hidden="true" />Posted entries cannot be edited. Cancel and record again if something is wrong.</p>}
+          {o.status === "POSTED" && <p className="mt-4 text-[12.5px] text-ink3 flex gap-1.5"><Lock size={14} className="shrink-0 mt-0.5" aria-hidden="true" /><Words k="Posted entries cannot be edited. Cancel and record again if something is wrong." /></p>}
         </UrlSheet>
       )}
       {openId && !o && (

@@ -15,6 +15,7 @@ import { Alert } from "@/components/ui/alert";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { saveMealsAction, saveMessagesAction, saveRulesAction, saveTimingsAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 type Act = (p: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 
@@ -58,7 +59,7 @@ export function RulesForm({ rules, readOnly }: { rules: string; readOnly: boolea
     <Box title="Hostel rules" description="Shown to staff and printed on the allocation letter." action={saveRulesAction} readOnly={readOnly} saveLabel="Save rules">
       {(v, err) => (
         <div className="px-5 py-4">
-          <label htmlFor="hs-rules" className="sr-only">Hostel rules</label>
+          <label htmlFor="hs-rules" className="sr-only"><Words k="Hostel rules" /></label>
           <textarea id="hs-rules" name="rules" rows={9} maxLength={5000} defaultValue={v("rules", rules)} disabled={readOnly} aria-invalid={err("rules") ? true : undefined}
             placeholder={"1. Lights out at 10:00 PM.\n2. No mobile phones after 9:00 PM.\n3. Visitors only on Sundays, 10 AM to 1 PM."}
             className={cx(inputCls(err("rules")), "min-h-[180px] py-2.5 leading-relaxed")} />
@@ -92,7 +93,7 @@ export function TimingsForm({ start, readOnly }: { start: TimingsStart; readOnly
           <Row title="Outings back by" sub="Filled in on new outing passes; the warden can change it." htmlFor="hs-outingBack"><Time name="outingBack" label="Outings back by" start={v("outingBack", start.outingBack)} readOnly={readOnly} err={err("outingBack")} /></Row>
           <Row title="Late alert after" sub="Minutes after the back-by time before the warden is alerted." htmlFor="hs-lateAfter">
             <input id="hs-lateAfter" name="lateAfter" type="number" min={0} max={180} defaultValue={v("lateAfter", String(start.lateAfter))} disabled={readOnly} aria-invalid={err("lateAfter") ? true : undefined} className={cx(inputCls(err("lateAfter")), "h-10 w-20 tnum text-right")} />
-            <span className="text-[13px] text-ink3">minutes</span>
+            <span className="text-[13px] text-ink3"><Words k="minutes" /></span>
           </Row>
           <Row title="Visiting days" sub="Visits on other days need the warden's approval.">
             <span className="flex flex-wrap gap-1.5" role="group" aria-label="Visiting days">
@@ -107,7 +108,7 @@ export function TimingsForm({ start, readOnly }: { start: TimingsStart; readOnly
           </Row>
           <Row title="Visiting hours">
             <Time name="visitFrom" label="Visiting from" start={v("visitFrom", start.visitFrom)} readOnly={readOnly} err={err("visitFrom")} />
-            <span className="text-[13px] text-ink3">to</span>
+            <span className="text-[13px] text-ink3"><Words k="to" /></span>
             <Time name="visitTo" label="Visiting to" start={v("visitTo", start.visitTo)} readOnly={readOnly} err={err("visitTo")} />
           </Row>
         </div>
@@ -121,9 +122,9 @@ export function MealsForm({ meals, readOnly }: { meals: string[]; readOnly: bool
     <Box title="Meals" description="The meals of the day, in order. Used by the menu and the head count." action={saveMealsAction} readOnly={readOnly} saveLabel="Save meals">
       {(v, err) => (
         <div className="px-5 py-4 flex flex-col gap-1.5">
-          <label htmlFor="hs-meals" className="text-[13px] font-semibold text-ink2">Meals, separated by commas</label>
+          <label htmlFor="hs-meals" className="text-[13px] font-semibold text-ink2"><Words k="Meals, separated by commas" /></label>
           <input id="hs-meals" name="meals" defaultValue={v("meals", meals.join(", "))} maxLength={200} disabled={readOnly} aria-invalid={err("meals") ? true : undefined} className={cx(inputCls(err("meals")), "h-11")} />
-          {err("meals") ? <p className="text-[12.5px] text-bad">{err("meals")}</p> : <p className="text-[12.5px] text-ink3">For example: Breakfast, Lunch, Snacks, Dinner. Menus already set for a meal you remove are kept.</p>}
+          {err("meals") ? <p className="text-[12.5px] text-bad">{err("meals")}</p> : <p className="text-[12.5px] text-ink3"><Words k="For example: Breakfast, Lunch, Snacks, Dinner. Menus already set for a meal you remove are kept." /></p>}
         </div>
       )}
     </Box>

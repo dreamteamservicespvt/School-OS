@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Bookmark, Siren } from "lucide-react";
 import { Button, buttonClass } from "@/components/ui/button";
+import { Words } from "@/lib/i18n/client";
 
 /** Asks the Send Message form to switch to an emergency broadcast. */
 export const EMERGENCY_EVENT = "sos:emergency-broadcast";
@@ -14,11 +15,11 @@ export function SendHeadActions({ full, groups, canEmergency }: { full: boolean;
       {full && (
         <details className="relative hidden md:block">
           <summary className={buttonClass("secondary", "md", "list-none cursor-pointer [&::-webkit-details-marker]:hidden")}>
-            <Bookmark size={17} aria-hidden="true" />Saved groups
+            <Bookmark size={17} aria-hidden="true" /><Words k="Saved groups" />
           </summary>
           <div className="absolute right-0 z-30 mt-1.5 w-72 rounded-2xl border border-line bg-surface p-1.5 shadow-pop">
             {groups.length === 0 ? (
-              <p className="px-3 py-2.5 text-[13.5px] text-ink3">No saved groups yet. Choose who gets a message, then &ldquo;Save as group&rdquo;.</p>
+              <p className="px-3 py-2.5 text-[13.5px] text-ink3"><Words k="No saved groups yet. Choose who gets a message, then “Save as group”." /></p>
             ) : (
               <ul>
                 {groups.map((g) => (
@@ -30,7 +31,7 @@ export function SendHeadActions({ full, groups, canEmergency }: { full: boolean;
         </details>
       )}
       {canEmergency && (
-        <Button variant="danger-soft" icon={Siren} onClick={() => window.dispatchEvent(new Event(EMERGENCY_EVENT))}>Emergency broadcast</Button>
+        <Button variant="danger-soft" icon={Siren} onClick={() => window.dispatchEvent(new Event(EMERGENCY_EVENT))}><Words k="Emergency broadcast" /></Button>
       )}
     </>
   );

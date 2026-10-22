@@ -20,8 +20,12 @@ import { SheetPicker } from "./_components/picker";
 import { TakeSheet } from "./_components/take-sheet";
 import { OfflinePanel } from "./_components/offline-panel";
 import { longDay } from "./_components/dates";
+import { DayText, Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Take Attendance" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Take Attendance") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
@@ -81,7 +85,7 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
 
   return (
     <>
-      <AttHead access={access} features={features} userId={current.user.id} href={BASE} sub={sub}
+      <AttHead access={access} features={features} userId={current.user.id} href={BASE} sub={<DayText text={sub} />}
         actions={<SheetPicker choices={pickerChoices} value={data.chosen ? `${data.chosen.sectionId}:${data.chosen.periodNo}` : ""}
           date={isoDay(date)} maxDate={isoDay(today)} minDate={data.year ? isoDay(data.year.startDate) : undefined}
           classLabel={periodWise ? "Class and period" : "Class and section"} />} />
@@ -89,31 +93,31 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
       <OfflinePanel userId={current.user.id} offlineOn={offlineOn} />
 
       {future ? (
-        <EmptyState title={`${dayText(date)} has not come yet`} Icon={CalendarX2} action={<Link href={BASE} className={buttonClass("secondary", "md")}>Go to today</Link>}>
-          Attendance can be taken for today or earlier days.
+        <EmptyState title={`${dayText(date)} has not come yet`} Icon={CalendarX2} action={<Link href={BASE} className={buttonClass("secondary", "md")}><Words k="Go to today" /></Link>}>
+          <Words k="Attendance can be taken for today or earlier days." />
         </EmptyState>
       ) : data.info && !data.info.on ? (
         <>
           <Banner tone="warn" icon={CalendarOff} className="mb-4" title={offDayMessage(data.info, date)}>
-            If the school opens that day, turn on &quot;allow attendance&quot; for the date in the School Calendar.
+            <Words k={"If the school opens that day, turn on \"allow attendance\" for the date in the School Calendar."} />
           </Banner>
-          <EmptyState title="No attendance on this day" Icon={CalendarOff} action={<Link href={BASE} className={buttonClass("secondary", "md")}>Go to today</Link>}>
-            Holidays, Sundays and days off are left out of every %, report and register total.
+          <EmptyState title="No attendance on this day" Icon={CalendarOff} action={<Link href={BASE} className={buttonClass("secondary", "md")}><Words k="Go to today" /></Link>}>
+            <Words k="Holidays, Sundays and days off are left out of every %, report and register total." />
           </EmptyState>
         </>
       ) : data.problem ? (
         <Banner tone="bad" role="alert">{data.problem}</Banner>
       ) : !sheet ? (
         <EmptyState title={periodWise ? "No periods to take on this date" : "No class to take"} Icon={Users}
-          action={<Link href={`${BASE}/register`} className={buttonClass("secondary", "md")}>Open the register</Link>}>
+          action={<Link href={`${BASE}/register`} className={buttonClass("secondary", "md")}><Words k="Open the register" /></Link>}>
           {periodWise
             ? "Your Time Table has no periods for you on this date. If you are covering a class, ask for the substitution to be arranged."
             : "Daily attendance is taken by the class teacher. You are not class teacher of any section this year. Ask the principal if you need a class."}
         </EmptyState>
       ) : sheet.students.length === 0 ? (
         <EmptyState title={`No students in ${sheet.section.name}`} Icon={Users}
-          action={<Link href="/student-management" className={buttonClass("secondary", "md")}>Open Student Management</Link>}>
-          Students appear here once they are placed in this section in Student Management.
+          action={<Link href="/student-management" className={buttonClass("secondary", "md")}><Words k="Open Student Management" /></Link>}>
+          <Words k="Students appear here once they are placed in this section in Student Management." />
         </EmptyState>
       ) : (
         <>

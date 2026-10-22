@@ -17,8 +17,12 @@ import { EmptyState } from "@/components/empty-state";
 import { requireSurveys } from "../form-data";
 import { STATUS_LABEL, STATUS_TONE } from "../status";
 import { SurveyButtons } from "./survey-buttons";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Survey" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Survey") };
+}
 
 const KIND_LABEL: Record<string, string> = Object.fromEntries(QUESTION_KINDS.map((k) => [k.key, k.label]));
 const fmt = (n: number) => n.toLocaleString("en-IN");
@@ -60,7 +64,7 @@ export default async function SurveyPage({ params }: { params: Promise<{ id: str
         sub={<span className="text-[14px] text-ink3">{sub}</span>}
         actions={
           <div className="flex flex-wrap gap-2">
-            {survey.status === "DRAFT" && <ButtonLink href={`/communication/surveys/${id}/edit`} variant="secondary" icon={Pencil}>Change</ButtonLink>}
+            {survey.status === "DRAFT" && <ButtonLink href={`/communication/surveys/${id}/edit`} variant="secondary" icon={Pencil}><Words k="Change" /></ButtonLink>}
             <SurveyButtons id={id} status={status} waiting={waiting} invited={null} />
             {survey.status !== "DRAFT" && data.answered > 0 && <ExportMenu href={`/communication/surveys/${id}/export`} label="Export answers" />}
           </div>
@@ -69,7 +73,7 @@ export default async function SurveyPage({ params }: { params: Promise<{ id: str
 
       {survey.status === "DRAFT" || !results ? (
         <div className="flex flex-col gap-5 lg:gap-6">
-          <Banner tone="info" title="This survey is a draft.">Nobody has it yet. Change it as needed, then send it. Each person gets their own link.</Banner>
+          <Banner tone="info" title="This survey is a draft."><Words k="Nobody has it yet. Change it as needed, then send it. Each person gets their own link." /></Banner>
           <Card>
             <CardHeader title="Questions" icon={ClipboardList} description={`${data.questions.length} ${data.questions.length === 1 ? "question" : "questions"}`} />
             <ol className="px-5 pb-4 divide-y divide-line/70">
@@ -123,8 +127,8 @@ export default async function SurveyPage({ params }: { params: Promise<{ id: str
                     </li>
                   ))}
                 </ul>
-              ) : <p className="px-5 pb-5 text-[13.5px] text-ink3">No answers to this question.</p>}
-              {q.answered > 12 && <p className="px-5 pb-4 text-[12.5px] text-ink3">and {fmt(q.answered - 12)} more in the export</p>}
+              ) : <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No answers to this question." /></p>}
+              {q.answered > 12 && <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="and" /> {fmt(q.answered - 12)} <Words k="more in the export" /></p>}
             </Card>
           ) : null)}
         </div>

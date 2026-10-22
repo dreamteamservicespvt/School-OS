@@ -13,8 +13,12 @@ import { HouseSheet } from "../_components/co-sheets";
 import { HOUSE_BG } from "@/lib/events/words";
 import { pickStudents } from "../_lib/co";
 import { BASE, UUID, evGuard, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Events Settings" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Events Settings") };
+}
 
 const HREF = `${BASE}/settings`;
 
@@ -60,11 +64,11 @@ export default async function EventsSettingsPage({ searchParams }: { searchParam
               <div className="divide-y divide-line/70 border-t border-line/70">
                 {d.houses.map((h) => (
                   <SettingRow key={h.id} title={h.name} sub={`${h.students} students${h.captain ? ` · Captain ${h.captain}` : " · No captain yet"}`}>
-                    <span className="flex items-center gap-2"><span className={cx("w-6 h-6 rounded-full", HOUSE_BG[h.colour])} aria-hidden="true" />{can && <ButtonLink size="sm" variant="ghost" href={qs(HREF, { do: "house", id: h.id })} scroll={false}>Change</ButtonLink>}</span>
+                    <span className="flex items-center gap-2"><span className={cx("w-6 h-6 rounded-full", HOUSE_BG[h.colour])} aria-hidden="true" />{can && <ButtonLink size="sm" variant="ghost" href={qs(HREF, { do: "house", id: h.id })} scroll={false}><Words k="Change" /></ButtonLink>}</span>
                   </SettingRow>
                 ))}
-                {!d.houses.length && <p className="px-5 py-3 text-[13.5px] text-ink3">No houses yet.</p>}
-                {can && <div className="px-5 py-3"><ButtonLink size="sm" variant="soft" icon={Plus} href={qs(HREF, { do: "house" })} scroll={false}>Add a house</ButtonLink></div>}
+                {!d.houses.length && <p className="px-5 py-3 text-[13.5px] text-ink3"><Words k="No houses yet." /></p>}
+                {can && <div className="px-5 py-3"><ButtonLink size="sm" variant="soft" icon={Plus} href={qs(HREF, { do: "house" })} scroll={false}><Words k="Add a house" /></ButtonLink></div>}
               </div>
             )}
           </Card>
@@ -100,7 +104,7 @@ export default async function EventsSettingsPage({ searchParams }: { searchParam
               <SettingRow title="Clubs" sub="Shown in Co-curricular & Sports"><span className="flex items-center gap-3"><span className="text-[13.5px] text-ink2 tnum">{d.clubs} {d.clubs === 1 ? "club" : "clubs"}</span><FeatureSwitch name="clubsOn" on={s.clubsOn} label="Clubs" canEdit={can} /></span></SettingRow>
               <SettingRow title="Sports teams" sub="Teams, training, fixtures and fitness"><span className="flex items-center gap-3"><span className="text-[13.5px] text-ink2 tnum">{d.teams} {d.teams === 1 ? "team" : "teams"}</span><FeatureSwitch name="sportsOn" on={s.sportsOn} label="Sports teams" canEdit={can} /></span></SettingRow>
             </div>
-            <div className="px-5 pt-3"><p className="text-[13px] font-semibold text-ink2">Kinds of activity</p><p className="text-[12.5px] text-ink3">Offered when recording an achievement</p></div>
+            <div className="px-5 pt-3"><p className="text-[13px] font-semibold text-ink2"><Words k="Kinds of activity" /></p><p className="text-[12.5px] text-ink3"><Words k="Offered when recording an achievement" /></p></div>
             <div className="pt-2"><ListEditor list="activityKinds" items={s.activityKinds} canEdit={can} addLabel="Add kind" placeholder="For example: Robotics" /></div>
           </Card>
         </Col>

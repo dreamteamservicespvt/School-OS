@@ -6,6 +6,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { CircleCheck, Info, TriangleAlert, X } from "lucide-react";
 import { cx } from "./cx";
+import { useT } from "@/lib/i18n/client";
 
 export type Notice = { title: string; body?: string; tone?: "ok" | "bad" | "info" };
 
@@ -25,6 +26,7 @@ export function useNotice() {
 }
 
 function NoticeToast({ notice, onClose }: { notice: Notice; onClose: () => void }) {
+  const tr = useT();
   const tone = notice.tone ?? "ok";
   const I = ICON[tone];
   return (
@@ -35,7 +37,7 @@ function NoticeToast({ notice, onClose }: { notice: Notice; onClose: () => void 
           <p className="text-sm font-semibold">{notice.title}</p>
           {notice.body && <p className="text-[13px] opacity-80 mt-0.5">{notice.body}</p>}
         </div>
-        <button type="button" aria-label="Close" onClick={onClose} className="grid size-8 place-items-center rounded-lg hover:bg-bg/10 opacity-75"><X size={16} aria-hidden="true" /></button>
+        <button type="button" aria-label={tr.any("Close")} onClick={onClose} className="grid size-8 place-items-center rounded-lg hover:bg-bg/10 opacity-75"><X size={16} aria-hidden="true" /></button>
       </div>
     </div>
   );

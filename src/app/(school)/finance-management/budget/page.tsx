@@ -16,8 +16,12 @@ import { FinanceHead } from "../_components/finance-head";
 import { signed } from "../_components/bits";
 import { BASE, financeFeaturePage, one, qs, type SearchParams } from "../_lib/page";
 import { BudgetSheet, CopySheet, ReviseSheet } from "./sheets";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Budget" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Budget") };
+}
 
 const HREF = `${BASE}/budget`;
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -113,8 +117,8 @@ export default async function BudgetPage({ searchParams }: { searchParams: Searc
           {p.can.export && <ExportButton href={qs(`${HREF}/export`, { fy: data.fy.id })} />}
         </>}
         actions={p.can.create && !closed ? <>
-          {budgets.length > 0 && <ButtonLink href={here({ do: "copy" })} scroll={false} variant="secondary" icon={CopyPlus}>Plan {nextYearName}</ButtonLink>}
-          <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={Plus}>Set a budget</ButtonLink>
+          {budgets.length > 0 && <ButtonLink href={here({ do: "copy" })} scroll={false} variant="secondary" icon={CopyPlus}><Words k="Plan" /> {nextYearName}</ButtonLink>}
+          <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={Plus}><Words k="Set a budget" /></ButtonLink>
         </> : null} />
       <Stack>
         <Stats items={[
@@ -124,14 +128,14 @@ export default async function BudgetPage({ searchParams }: { searchParams: Searc
           { label: "Left", value: formatRupeesShort(total.budget - total.spent - total.committed), sub: `${over.length} over · ${near.length} above 80%`, icon: Wallet, tone: over.length ? "bad" : "ok" },
         ]} />
         {over.slice(0, 3).map((b) => (
-          <Banner key={b.id} tone="bad" title={`${b.headName} is over budget: ${b.pct}% used.`} action={<Link href={here({ open: b.id })} scroll={false} className={buttonClass("secondary", "sm")}>Open</Link>}>
-            {formatRupees(b.spent + b.committed - b.amountPaise)} more than the {formatRupees(b.amountPaise)} budget. Approvers see a warning on every new expense here.
+          <Banner key={b.id} tone="bad" title={`${b.headName} is over budget: ${b.pct}% used.`} action={<Link href={here({ open: b.id })} scroll={false} className={buttonClass("secondary", "sm")}><Words k="Open" /></Link>}>
+            {formatRupees(b.spent + b.committed - b.amountPaise)} <Words k="more than the" /> {formatRupees(b.amountPaise)} <Words k="budget. Approvers see a warning on every new expense here." />
           </Banner>
         ))}
         {waitWarn && (
           <Banner tone="warn" title={`Waiting for approval: ${waitWarn.e.note || waitWarn.e.number}, ${formatRupees(waitWarn.e.amountPaise)}.`}
-            action={<Link href={`${BASE}/expenses?open=${waitWarn.e.id}`} className={buttonClass("secondary", "sm")}>Open</Link>}>
-            It would take {waitWarn.b.headName} to {waitWarn.after}% used. The approver sees this warning when deciding.
+            action={<Link href={`${BASE}/expenses?open=${waitWarn.e.id}`} className={buttonClass("secondary", "sm")}><Words k="Open" /></Link>}>
+            <Words k="It would take" /> {waitWarn.b.headName} <Words k="to" /> {waitWarn.after}<Words k="% used. The approver sees this warning when deciding." />
           </Banner>
         )}
         <Card className="overflow-hidden">
@@ -156,13 +160,13 @@ export default async function BudgetPage({ searchParams }: { searchParams: Searc
             ]}
             phone={(b) => ({ title: b.name, sub: `${formatRupees(b.spent + b.committed)} of ${formatRupees(b.budget)}`, icon: Gauge, iconTone: (toneOf(b.pct) === "brand" ? "neutral" : toneOf(b.pct)) as Tone, right: <span className={cx("font-semibold tnum", b.pct > 100 ? "text-bad" : b.pct >= 80 && "text-warn")}>{b.pct}%</span> })}
             empty={budgets.length === 0
-              ? <Empty icon={Calculator} title={`No budgets for ${yearWord(fy.name)} yet`} body="Set a budget for each expense head. Spending is counted from paid expenses by itself." action={p.can.create && !closed ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}>Set a budget</ButtonLink> : undefined} />
+              ? <Empty icon={Calculator} title={`No budgets for ${yearWord(fy.name)} yet`} body="Set a budget for each expense head. Spending is counted from paid expenses by itself." action={p.can.create && !closed ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="Set a budget" /></ButtonLink> : undefined} />
               : <Empty icon={CircleCheck} title="No heads here" body="Nothing is over its budget." />} />
         </Card>
         {heading.length > 0 && (
           <Suggestion title="Where the year is heading" source={`Spending ${formatDate(fy.startDate)} to ${formatDate(p.today)} at the same pace, and approved expenses`}
-            actions={p.can.edit ? <ButtonLink href={here({ revise: heading[0].b.id })} scroll={false} size="sm" variant="secondary" icon={Pencil}>Revise {heading[0].b.headName} budget</ButtonLink> : undefined}>
-            At this pace {heading.map((h, i) => <span key={h.b.id}>{i > 0 ? (i === heading.length - 1 ? " and " : ", ") : ""}<b className="text-ink">{h.b.headName}</b> ends the year near {formatRupees(h.end)}</span>)}, more than budgeted. The other heads look on track.
+            actions={p.can.edit ? <ButtonLink href={here({ revise: heading[0].b.id })} scroll={false} size="sm" variant="secondary" icon={Pencil}><Words k="Revise" /> {heading[0].b.headName} <Words k="budget" /></ButtonLink> : undefined}>
+            <Words k="At this pace" /> {heading.map((h, i) => <span key={h.b.id}>{i > 0 ? (i === heading.length - 1 ? " and " : ", ") : ""}<b className="text-ink">{h.b.headName}</b> <Words k="ends the year near" /> {formatRupees(h.end)}</span>)}<Words k=", more than budgeted. The other heads look on track." />
           </Suggestion>
         )}
       </Stack>
@@ -179,19 +183,19 @@ export default async function BudgetPage({ searchParams }: { searchParams: Searc
       )}
       {openId && o && (
         <UrlSheet wide title={o.headName} sub={`${o.dept} · budget ${formatRupees(o.amountPaise)} for ${yearWord(fy.name)}`} closeHref={here()}
-          footer={p.can.edit && !closed ? <ButtonLink href={here({ revise: o.id })} scroll={false} variant="primary" icon={Pencil}>Revise budget</ButtonLink> : undefined}>
+          footer={p.can.edit && !closed ? <ButtonLink href={here({ revise: o.id })} scroll={false} variant="primary" icon={Pencil}><Words k="Revise budget" /></ButtonLink> : undefined}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
             <Mini k="Budget" v={formatRupees(o.amountPaise)} /><Mini k="Spent" v={formatRupees(o.spent)} /><Mini k="Committed" v={formatRupees(o.committed)} />
             <Mini k="Used" v={<b className={cx("font-semibold", o.pct > 100 ? "text-bad" : o.pct >= 80 && "text-warn")}>{o.pct}%</b>} />
           </div>
-          <p className="text-[13px] font-semibold text-ink2 mb-2">Month by month ({PERIOD_WORD[o.period] ?? o.period})</p>
+          <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Month by month (" />{PERIOD_WORD[o.period] ?? o.period})</p>
           <Bars data={months.map((m, i) => ({ k: monthWord(m), v: Math.round(rupees(spentBy[i]) / 1000), v2: Math.round(rupees(o.amountPaise) / 12 / 1000), tone: spentBy[i] * BigInt(12) > o.amountPaise ? "warn" : "brand" }))}
             tickLabel={(v) => `₹${v}k`} ariaLabel="Spent each month against the monthly budget" />
           <div className="mt-2 mb-5"><Legend items={[["bg-brand", "Spent"], ["bg-ink3/25", "Monthly budget"]]} /></div>
-          <p className="text-[13px] font-semibold text-ink2 mb-2">Revisions · the original is always kept</p>
+          <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Revisions · the original is always kept" /></p>
           <Timeline items={[
-            ...[...o.revisions].reverse().map((r) => ({ what: <>{r.toPaise > r.fromPaise ? "Raised" : "Lowered"} from {formatRupees(r.fromPaise)} to {formatRupees(r.toPaise)}: {r.reason}</>, when: `${formatDateTime(r.createdAt, p.tz)} · ${who(r.createdById)}`, icon: Pencil, tone: "info" as Tone })),
-            { what: <>Set at {formatRupees(o.originalPaise)} · {PERIOD_WORD[o.period] ?? o.period}</>, when: `${formatDateTime(o.createdAt, p.tz)} · ${who(o.createdById)}`, icon: Flag, tone: "brand" as Tone },
+            ...[...o.revisions].reverse().map((r) => ({ what: <>{r.toPaise > r.fromPaise ? "Raised" : "Lowered"} <Words k="from" /> {formatRupees(r.fromPaise)} <Words k="to" /> {formatRupees(r.toPaise)}: {r.reason}</>, when: `${formatDateTime(r.createdAt, p.tz)} · ${who(r.createdById)}`, icon: Pencil, tone: "info" as Tone })),
+            { what: <><Words k="Set at" /> {formatRupees(o.originalPaise)} · {PERIOD_WORD[o.period] ?? o.period}</>, when: `${formatDateTime(o.createdAt, p.tz)} · ${who(o.createdById)}`, icon: Flag, tone: "brand" as Tone },
           ]} />
         </UrlSheet>
       )}

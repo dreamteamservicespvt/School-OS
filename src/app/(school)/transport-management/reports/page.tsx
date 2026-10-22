@@ -10,8 +10,11 @@ import { ReportsFrame } from "@/components/list/reports-frame";
 import { Empty, SimpleTable, Stats } from "@/components/money/kit";
 import { TrHead } from "../_components/head";
 import { BASE, one, qs, trGuard, trPeriod, type SearchParams } from "../_lib/page";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Transport Reports" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Transport Reports") };
+}
 
 const HREF = `${BASE}/reports`;
 const ICONS: Record<TrReportKey, typeof Bus> = { "tr-trips": CalendarCheck, "tr-timings": Timer, "tr-usage": Users, "tr-costs": Fuel, "tr-fees": BadgeIndianRupee, "tr-papers": FileWarning, "tr-alerts": AlertTriangle };

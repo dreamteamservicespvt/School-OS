@@ -19,8 +19,12 @@ import { BackLink } from "@/components/ui/module-head";
 import { ActButton, type ActIcon } from "../../_components/fields";
 import { replyAction } from "../../actions";
 import { BASE, UUID } from "../../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Visitor for you" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Visitor for you") };
+}
 
 const ICON: Record<string, ActIcon> = { "send-in": "door", wait: "clock", "not-available": "cancel" };
 const VARIANT = { "send-in": "primary", wait: "secondary", "not-available": "secondary" } as const;
@@ -56,14 +60,14 @@ export default async function VisitPage({ params }: { params: Promise<{ id: stri
           <div className="min-w-0 flex-1">
             <p className="text-[17px] font-semibold text-ink">{v.name}{v.peopleCount > 1 && <span className="text-ink3 font-normal"> +{v.peopleCount - 1}</span>}</p>
             <p className="text-[14px] text-ink2 mt-0.5">{v.purpose}{v.note ? ` · ${v.note}` : ""}</p>
-            <p className="text-[13px] text-ink3 mt-1 tnum">Pass <span className="font-mono">{v.passNo}</span> · came in at {clockAt(v.timeIn, tz)}{v.timeOut ? ` · left at ${clockAt(v.timeOut, tz)}` : ""}</p>
+            <p className="text-[13px] text-ink3 mt-1 tnum"><Words k="Pass" /> <span className="font-mono">{v.passNo}</span> <Words k="· came in at" /> {clockAt(v.timeIn, tz)}{v.timeOut ? ` · left at ${clockAt(v.timeOut, tz)}` : ""}</p>
           </div>
           <Pill tone={status === "In" ? "ok" : status === "Expired" ? "bad" : "neutral"}>{status === "In" ? "Inside" : status === "Expired" ? "Pass expired" : "Left"}</Pill>
         </div>
         {reply && (
           <p className="mt-4 flex items-center gap-2 text-[14px] text-ink2" role="status">
             <UserRound size={16} aria-hidden="true" />
-            Answer sent: <Pill tone={reply.tone}>{reply.label}</Pill>{v.staffReplyAt && <span className="text-ink3 tnum">at {clockAt(v.staffReplyAt, tz)}</span>}
+            <Words k="Answer sent:" /> <Pill tone={reply.tone}>{reply.label}</Pill>{v.staffReplyAt && <span className="text-ink3 tnum"><Words k="at" /> {clockAt(v.staffReplyAt, tz)}</span>}
           </p>
         )}
         {isMe && open && (
@@ -77,13 +81,13 @@ export default async function VisitPage({ params }: { params: Promise<{ id: stri
           </div>
         )}
         {!open && (
-          <p className="mt-4 flex items-center gap-2 text-[14px] text-ink2"><DoorClosed size={16} aria-hidden="true" />{v.name} has left, so no answer is needed.</p>
+          <p className="mt-4 flex items-center gap-2 text-[14px] text-ink2"><DoorClosed size={16} aria-hidden="true" />{v.name} <Words k="has left, so no answer is needed." /></p>
         )}
         {!isMe && open && !reply && (
-          <p className="mt-4 flex items-center gap-2 text-[14px] text-ink2"><Clock size={16} aria-hidden="true" />Waiting for {staff?.fullName ?? "the staff member"} to answer.</p>
+          <p className="mt-4 flex items-center gap-2 text-[14px] text-ink2"><Clock size={16} aria-hidden="true" /><Words k="Waiting for" /> {staff?.fullName ?? "the staff member"} <Words k="to answer." /></p>
         )}
       </Card>
-      {can.desk && <div className="mt-4"><ButtonLink href={`${BASE}/visitors?q=${encodeURIComponent(v.passNo)}`} variant="secondary">Open in the visitor log</ButtonLink></div>}
+      {can.desk && <div className="mt-4"><ButtonLink href={`${BASE}/visitors?q=${encodeURIComponent(v.passNo)}`} variant="secondary"><Words k="Open in the visitor log" /></ButtonLink></div>}
     </div>
   );
 }

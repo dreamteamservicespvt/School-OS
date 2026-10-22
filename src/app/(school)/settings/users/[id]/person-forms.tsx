@@ -13,6 +13,7 @@ import { accessAction, detailsAction, disableAction, enableAction, exceptionsAct
 import { AccessFields, type CampusOption, type RoleOption } from "../access-fields";
 import { CopyLink } from "../new/invite-form";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export function DetailsForm({ userId, name, phone, email, locked }: { userId: string; name: string; phone: string; email: string; locked: string | null }) {
   const [state, action] = useActionState(detailsAction, null);
@@ -29,7 +30,7 @@ export function DetailsForm({ userId, name, phone, email, locked }: { userId: st
           onBlur={(e) => setPhoneError(e.target.value.trim() ? checkIndianMobile(e.target.value) : null)} onChange={() => phoneError && setPhoneError(null)} />
         <TextField label="Email" name="email" type="email" inputMode="email" defaultValue={v("email", email)} error={state?.errors?.email} />
       </div>
-      <SubmitButton variant="secondary" pendingText="Saving…">Save details</SubmitButton>
+      <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save details" /></SubmitButton>
     </form>
   );
 }
@@ -42,7 +43,7 @@ export function LinkForm({ userId, current, options }: { userId: string; current
       <FormMessage state={state} />
       <SelectField label="This login belongs to" name="record" defaultValue={current} options={options} placeholder="Not linked to a record"
         help="Linking shows their classes, timetable and leave to them, and their login on their Staff Profile. One record only." />
-      <SubmitButton variant="secondary" pendingText="Saving…">Save link</SubmitButton>
+      <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save link" /></SubmitButton>
     </form>
   );
 }
@@ -66,20 +67,20 @@ export function AccessForm({ userId, name, roles, campuses, roleIds, scope, camp
       <form ref={formRef} action={action} className="space-y-4" noValidate>
         <input type="hidden" name="userId" value={userId} />
         <FormMessage state={state} />
-        {noRole && <Alert tone="danger">Choose at least one role. To stop {name} using School OS, disable them instead.</Alert>}
+        {noRole && <Alert tone="danger"><Words k="Choose at least one role. To stop" /> {name} <Words k="using School OS, disable them instead." /></Alert>}
         <AccessFields key={chosen.join()} roles={roles} campuses={campuses} roleIds={chosen} scope={state?.values?.scope ?? scope} campusId={state?.values?.campusId ?? campusId} errors={state?.errors} />
-        <Button onClick={ask}>Save roles and scope</Button>
+        <Button onClick={ask}><Words k="Save roles and scope" /></Button>
       </form>
       <Dialog open={asking} onClose={() => setAsking(false)} title={`Change ${name}'s roles?`}>
         <p className="text-ink-2">
           {isSelf
             ? "Your own access changes straight away."
             : `If the roles change, ${name} is signed out on every device and gets the new access when they sign in again.`}{" "}
-          Every School Admin {isSelf ? "" : `and ${name} `}will be told.
+          <Words k="Every School Admin" /> {isSelf ? "" : `and ${name} `}<Words k="will be told." />
         </p>
         <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={() => setAsking(false)}>Cancel</Button>
-          <Button onClick={() => { setAsking(false); formRef.current?.requestSubmit(); }}>Save and apply</Button>
+          <Button variant="secondary" onClick={() => setAsking(false)}><Words k="Cancel" /></Button>
+          <Button onClick={() => { setAsking(false); formRef.current?.requestSubmit(); }}><Words k="Save and apply" /></Button>
         </div>
       </Dialog>
     </>
@@ -103,12 +104,12 @@ export function ExceptionsForm({ userId, rows }: { userId: string; rows: Excepti
     <form action={action} className="space-y-3">
       <input type="hidden" name="userId" value={userId} />
       <FormMessage state={state} />
-      <p className="text-sm text-ink-2">Use an exception when one person needs more or less than their roles give, for example one teacher who also collects fees. {count ? `${count} exception${count === 1 ? "" : "s"} set.` : "None set."}</p>
+      <p className="text-sm text-ink-2"><Words k="Use an exception when one person needs more or less than their roles give, for example one teacher who also collects fees." /> {count ? `${count} exception${count === 1 ? "" : "s"} set.` : "None set."}</p>
       <div className="overflow-x-auto rounded-xl border border-line">
         <table className="w-full min-w-[30rem] text-sm">
-          <caption className="sr-only">Exceptions by module</caption>
+          <caption className="sr-only"><Words k="Exceptions by module" /></caption>
           <thead className="bg-surface-2 text-left text-ink-2">
-            <tr><th scope="col" className="px-3 py-2 font-medium">Module</th><th scope="col" className="px-3 py-2 font-medium">From their roles</th><th scope="col" className="px-3 py-2 font-medium">Exception</th></tr>
+            <tr><th scope="col" className="px-3 py-2 font-medium"><Words k="Module" /></th><th scope="col" className="px-3 py-2 font-medium"><Words k="From their roles" /></th><th scope="col" className="px-3 py-2 font-medium"><Words k="Exception" /></th></tr>
           </thead>
           <tbody>
             {rows.map((r) => (
@@ -128,8 +129,8 @@ export function ExceptionsForm({ userId, rows }: { userId: string; rows: Excepti
         </table>
       </div>
       <div className="flex flex-wrap gap-2">
-        <SubmitButton variant="secondary" pendingText="Saving…">Save exceptions</SubmitButton>
-        {count > 0 && <Button variant="ghost" onClick={() => setValues(Object.fromEntries(rows.map((r) => [r.key, ""])))}>Clear all exceptions</Button>}
+        <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save exceptions" /></SubmitButton>
+        {count > 0 && <Button variant="ghost" onClick={() => setValues(Object.fromEntries(rows.map((r) => [r.key, ""])))}><Words k="Clear all exceptions" /></Button>}
       </div>
     </form>
   );
@@ -138,7 +139,7 @@ export function ExceptionsForm({ userId, rows }: { userId: string; rows: Excepti
 export function DisableButton({ userId, name, devices }: { userId: string; name: string; devices: number }) {
   return (
     <ConfirmButton trigger="Disable" triggerVariant="danger" title={`Disable ${name}?`} confirmLabel={`Disable ${name}`} confirmVariant="danger" onConfirm={() => disableAction(userId)}>
-      {name} cannot open this school any more and is signed out {devices > 0 ? `on ${devices} device${devices === 1 ? "" : "s"} ` : ""}straight away. Their records and history stay. You can enable them again later with the same roles.
+      {name} <Words k="cannot open this school any more and is signed out" /> {devices > 0 ? `on ${devices} device${devices === 1 ? "" : "s"} ` : ""}<Words k="straight away. Their records and history stay. You can enable them again later with the same roles." />
     </ConfirmButton>
   );
 }
@@ -146,7 +147,7 @@ export function DisableButton({ userId, name, devices }: { userId: string; name:
 export function EnableButton({ userId, name }: { userId: string; name: string }) {
   return (
     <ConfirmButton trigger="Enable" triggerVariant="primary" title={`Enable ${name}?`} confirmLabel={`Enable ${name}`} onConfirm={() => enableAction(userId)}>
-      {name} gets back the roles and scope they had before, and can sign in again.
+      {name} <Words k="gets back the roles and scope they had before, and can sign in again." />
     </ConfirmButton>
   );
 }
@@ -167,7 +168,7 @@ export function ResendInvite({ userId, name }: { userId: string; name: string })
           setBusy(true);
           try { setState(await resendInviteAction(userId)); } catch { setState({ ok: false, message: "That did not work. Please try again." }); }
           setBusy(false);
-        }}>Make a new invite link</Button>
+        }}><Words k="Make a new invite link" /></Button>
       )}
     </div>
   );
@@ -187,18 +188,18 @@ export function TwoStepReset({ userId, name }: { userId: string; name: string })
   const done = state?.ok;
   return (
     <>
-      <Button variant="secondary" onClick={() => setOpen(true)}>Reset two-step login</Button>
+      <Button variant="secondary" onClick={() => setOpen(true)}><Words k="Reset two-step login" /></Button>
       <Dialog open={open && !done} onClose={() => setOpen(false)} title={`Reset ${name}'s two-step login`}>
         <form action={action} className="space-y-4">
           <input type="hidden" name="userId" value={userId} />
           <FormMessage state={state} />
-          <p className="text-sm text-ink-2">Only do this after you have confirmed it is really {name}, in person or by a call to the number in their record. They set up two-step login again at their next sign-in.</p>
+          <p className="text-sm text-ink-2"><Words k="Only do this after you have confirmed it is really" /> {name}<Words k=", in person or by a call to the number in their record. They set up two-step login again at their next sign-in." /></p>
           <SelectField label="Reason" name="reason" required options={REASONS} placeholder="Choose the reason" defaultValue={state?.values?.reason ?? ""} error={state?.errors?.reason} />
           <TextArea label="How did you confirm it is them?" name="checkDone" required value={check} onChange={(e) => setCheck(e.target.value)} rows={2}
             placeholder="For example: in person at the office, with their staff ID card" error={state?.errors?.checkDone} help="At least 5 characters. Saved in the audit log." />
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
-            <SubmitButton pendingText="Resetting…">Reset two-step login</SubmitButton>
+            <Button variant="secondary" onClick={() => setOpen(false)}><Words k="Cancel" /></Button>
+            <SubmitButton pendingText="Resetting…"><Words k="Reset two-step login" /></SubmitButton>
           </div>
         </form>
       </Dialog>

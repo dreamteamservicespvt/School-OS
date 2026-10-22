@@ -15,8 +15,12 @@ import { schoolRoles } from "@/lib/school-roles";
 import {
   archiveDepartment, archiveDesignation, archiveLeaveType, saveDepartment, saveDesignation, saveGeneral, saveLeaveType, toggleFeature,
 } from "./actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "HR Settings" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("HR Settings") };
+}
 
 const FIELD_CHOICES = [
   { value: "email", label: "Email" }, { value: "dateOfBirth", label: "Date of birth" }, { value: "gender", label: "Gender" }, { value: "bloodGroup", label: "Blood group" },
@@ -58,12 +62,12 @@ export default async function HrSettingsPage() {
         <Col>
           <Card className="overflow-hidden">
             <CardHeader title="Departments" icon={Building2} description="The head is the first leave approver for the department" divided action={<DepartmentForm action={saveDepartment} staff={staffOptions} />} />
-            {data.departments.length === 0 ? <p className="px-5 py-4 text-[14px] text-ink3">No departments yet. Add one so leave goes to the right head.</p> : (
+            {data.departments.length === 0 ? <p className="px-5 py-4 text-[14px] text-ink3"><Words k="No departments yet. Add one so leave goes to the right head." /></p> : (
               <ul className="divide-y divide-line">
                 {data.departments.map((d) => (
                   <li key={d.id} className={rowCls}>
                     <div className="min-w-0">
-                      <p className="font-semibold">{d.name} <span className="text-[13px] font-normal text-ink3">· {data.counts.find((c) => c.departmentId === d.id)?._count ?? 0} staff</span></p>
+                      <p className="font-semibold">{d.name} <span className="text-[13px] font-normal text-ink3">· {data.counts.find((c) => c.departmentId === d.id)?._count ?? 0} <Words k="staff" /></span></p>
                       <p className="text-[13px] text-ink3">{d.headStaffId ? `Head: ${nameOf(d.headStaffId) ?? "left the school"}` : "No head yet"}</p>
                     </div>
                     <div className="flex items-start gap-1">
@@ -106,7 +110,7 @@ export default async function HrSettingsPage() {
         <Col>
           <Card className="overflow-hidden">
             <CardHeader title="Leave types and rules" icon={CalendarDays} description="Yearly quota, carry-forward, half days and documents" divided action={<LeaveTypeForm action={saveLeaveType} groups={[...EMPLOYMENT_TYPES]} />} />
-            {data.types.length === 0 ? <p className="px-5 py-4 text-[14px] text-ink3">No staff leave types yet.</p> : (
+            {data.types.length === 0 ? <p className="px-5 py-4 text-[14px] text-ink3"><Words k="No staff leave types yet." /></p> : (
               <ul className="divide-y divide-line">
                 {data.types.map((t) => {
                   const r = data.rules.find((x) => x.leaveTypeId === t.id);
@@ -161,9 +165,9 @@ export default async function HrSettingsPage() {
           <Card>
             <CardHeader title="Leave approvers" icon={Workflow} description="Stored in Settings, Forms & Approvals" />
             <div className="space-y-3 px-5 pb-5">
-              <div className="flex flex-wrap items-center gap-1.5"><Pill tone="ok">Head of department</Pill><ChevronRight size={15} className="text-ink3" aria-hidden="true" /><Pill tone="ok">Next approver from the rule</Pill></div>
-              <p className="text-[13.5px] text-ink3">Nobody approves their own leave. When the head asks for leave, it goes to the next approver.</p>
-              <Link href="/settings/forms-approvals" className={buttonClass("secondary", "sm")}><ArrowUpRight size={15} aria-hidden="true" />Change in Forms &amp; Approvals</Link>
+              <div className="flex flex-wrap items-center gap-1.5"><Pill tone="ok"><Words k="Head of department" /></Pill><ChevronRight size={15} className="text-ink3" aria-hidden="true" /><Pill tone="ok"><Words k="Next approver from the rule" /></Pill></div>
+              <p className="text-[13.5px] text-ink3"><Words k="Nobody approves their own leave. When the head asks for leave, it goes to the next approver." /></p>
+              <Link href="/settings/forms-approvals" className={buttonClass("secondary", "sm")}><ArrowUpRight size={15} aria-hidden="true" /><Words k={"Change in Forms & Approvals"} /></Link>
             </div>
           </Card>
 

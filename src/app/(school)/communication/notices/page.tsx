@@ -20,8 +20,12 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
 import { CommHead } from "../_components/comm-head";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Notice Board" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Notice Board") };
+}
 
 const STATUS_TONE: Record<string, PillTone> = { DRAFT: "neutral", WAITING_APPROVAL: "warn", SCHEDULED: "info", PUBLISHED: "ok", EXPIRED: "neutral", ARCHIVED: "neutral" };
 const PRIORITY_TONE: Record<string, PillTone> = { NORMAL: "neutral", HIGH: "warn", CRITICAL: "bad" };
@@ -58,9 +62,9 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
     const c = data.counts.get(n.id);
     if (n.guardianCount) {
       const seen = c?.seen ?? 0;
-      return <span className="tnum text-[13px]"><b className="font-semibold">{seen.toLocaleString("en-IN")}</b><span className="text-ink3"> of {n.guardianCount.toLocaleString("en-IN")}</span><Progress value={(seen / n.guardianCount) * 100} className="mt-1 w-20 ml-auto" /></span>;
+      return <span className="tnum text-[13px]"><b className="font-semibold">{seen.toLocaleString("en-IN")}</b><span className="text-ink3"> <Words k="of" /> {n.guardianCount.toLocaleString("en-IN")}</span><Progress value={(seen / n.guardianCount) * 100} className="mt-1 w-20 ml-auto" /></span>;
     }
-    if (n.staffCount) return <span className="tnum text-[13px]"><b className="font-semibold">{c?.read ?? 0}</b><span className="text-ink3"> of {n.staffCount}</span></span>;
+    if (n.staffCount) return <span className="tnum text-[13px]"><b className="font-semibold">{c?.read ?? 0}</b><span className="text-ink3"> <Words k="of" /> {n.staffCount}</span></span>;
     return <span className="text-ink3">–</span>;
   };
   const published = (n: (typeof data.rows)[number]) => (n.publishedAt ? formatDate(n.publishedAt, tz) : n.publishAt ? `Due ${formatDate(n.publishAt, tz)}` : "Not yet");
@@ -69,7 +73,7 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
     <>
       <CommHead access={access} page="Notice Board" href="/communication/notices"
         sub={access.full ? "Circulars and notices with read tracking. Notices to parents go for approval first, unless you approve them yourself." : access.canChange ? "Notices for you are on the board, with the notices you wrote. Notices to parents go for approval first." : "Notices for you are on the board."}
-        actions={access.canChange ? <ButtonLink href="/communication/notices/new" variant="primary" icon={Plus}>New notice</ButtonLink> : undefined} />
+        actions={access.canChange ? <ButtonLink href="/communication/notices/new" variant="primary" icon={Plus}><Words k="New notice" /></ButtonLink> : undefined} />
       <Split side={340}>
         <Card className="overflow-hidden min-w-0">
           <Toolbar className="flex-wrap">
@@ -88,13 +92,13 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
             paging={{ page: params.page, pageSize: PAGE_SIZE, total: data.total, href: (p) => listHref("/communication/notices", listParams, { page: p }) }}
             empty={
               <EmptyState bare Icon={Megaphone} title={filtered ? "No notices here" : group === "waiting" ? "Nothing waiting" : "No notices here"}
-                action={access.canChange ? <ButtonLink href="/communication/notices/new" icon={Plus}>New notice</ButtonLink> : undefined}>
+                action={access.canChange ? <ButtonLink href="/communication/notices/new" icon={Plus}><Words k="New notice" /></ButtonLink> : undefined}>
                 {group === "waiting" ? "Drafts, scheduled notices and those waiting for approval show here." : "Try another search, or write a new notice."}
               </EmptyState>
             }
             columns={[
               { key: "title", label: "Notice", render: (n) => <div className="min-w-[230px]"><p className="font-semibold leading-snug">{n.title}</p><p className="text-[12.5px] text-ink3 mt-0.5 flex items-center gap-1.5 flex-wrap">{n.priority !== "NORMAL" && <Pill tone={PRIORITY_TONE[n.priority]} className="!h-5 !text-[11px]">{PRIORITY_LABEL[n.priority]}</Pill>}{n.audienceLabel}</p></div> },
-              { key: "pub", label: "Published", nowrap: true, render: (n) => <span className="tnum text-[13px]">{published(n)}{n.expiresOn && <span className="block text-[12px] text-ink3">until {formatDate(n.expiresOn, "UTC")}</span>}</span> },
+              { key: "pub", label: "Published", nowrap: true, render: (n) => <span className="tnum text-[13px]">{published(n)}{n.expiresOn && <span className="block text-[12px] text-ink3"><Words k="until" /> {formatDate(n.expiresOn, "UTC")}</span>}</span> },
               { key: "status", label: "Status", nowrap: true, render: (n) => <Pill tone={STATUS_TONE[n.status]} dot>{STATUS_LABEL[n.status]}</Pill> },
               { key: "seen", label: "Seen / read", align: "right", nowrap: true, render: seenCell },
             ]}
@@ -103,7 +107,7 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
               pills: [
                 <Pill key="s" tone={STATUS_TONE[n.status]} className="!h-[22px] !text-[11.5px]">{STATUS_LABEL[n.status]}</Pill>,
                 n.priority !== "NORMAL" ? <Pill key="p" tone={PRIORITY_TONE[n.priority]} className="!h-[22px] !text-[11.5px]">{PRIORITY_LABEL[n.priority]}</Pill> : null,
-                n.guardianCount ? <Pill key="seen" tone="neutral" className="!h-[22px] !text-[11.5px]">Seen {data.counts.get(n.id)?.seen ?? 0} of {n.guardianCount}</Pill> : null,
+                n.guardianCount ? <Pill key="seen" tone="neutral" className="!h-[22px] !text-[11.5px]"><Words k="Seen" /> {data.counts.get(n.id)?.seen ?? 0} <Words k="of" /> {n.guardianCount}</Pill> : null,
               ],
             })}
           />
@@ -119,8 +123,8 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
                 </Link>
               </li>
             ))}
-            {!board.length && <li className="text-[13.5px] text-ink3 px-3 py-4">Nothing published for you yet.</li>}
-            {board.length > 6 && <li className="px-3 pt-1 text-[12.5px] text-ink3">and {board.length - 6} more</li>}
+            {!board.length && <li className="text-[13.5px] text-ink3 px-3 py-4"><Words k="Nothing published for you yet." /></li>}
+            {board.length > 6 && <li className="px-3 pt-1 text-[12.5px] text-ink3"><Words k="and" /> {board.length - 6} <Words k="more" /></li>}
           </ul>
         </Card>
       </Split>

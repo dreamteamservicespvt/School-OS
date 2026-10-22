@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string; group?: string };
 
@@ -66,11 +67,11 @@ export function ConsentRequestForm({ texts, who: whoOpts, defaultReplyBy, minDat
       </FieldShell>
       {p && (
         <p className="text-[13.5px] text-ink2 tnum rounded-xl bg-sunken/70 px-3.5 py-2.5">
-          <b className="font-semibold text-ink">{p.todo.toLocaleString("en-IN")}</b> of {p.total.toLocaleString("en-IN")} guardian{p.total === 1 ? "" : "s"} in {p.label} will be asked. {(p.total - p.todo).toLocaleString("en-IN")} already gave this consent and are left out.
+          <b className="font-semibold text-ink">{p.todo.toLocaleString("en-IN")}</b> <Words k="of" /> {p.total.toLocaleString("en-IN")} <Words k="guardian" />{p.total === 1 ? "" : "s"} <Words k="in" /> {p.label} <Words k="will be asked." /> {(p.total - p.todo).toLocaleString("en-IN")} <Words k="already gave this consent and are left out." />
         </p>
       )}
       <div className="flex justify-end gap-2">
-        {p && <Button variant="secondary" onClick={reset}>Change</Button>}
+        {p && <Button variant="secondary" onClick={reset}><Words k="Change" /></Button>}
         <Button type="submit" icon={p ? Send : undefined} loading={pending} loadingText={p ? "Sending" : "Checking"} disabled={Boolean(p && p.todo === 0)}>
           {p ? (p.todo === 0 ? "Nobody to ask" : `Send to ${p.todo.toLocaleString("en-IN")} guardian${p.todo === 1 ? "" : "s"}`) : "Check and send"}
         </Button>
@@ -90,7 +91,7 @@ export function RemindButton({ id, count }: { id: string; count: number }) {
         const m = await remindConsentAction(id);
         if (m) setMsg(m);
         else router.refresh();
-      })}>Remind {count.toLocaleString("en-IN")}</Button>
+      })}><Words k="Remind" /> {count.toLocaleString("en-IN")}</Button>
       {msg && <p role="alert" className="mt-1 text-[12.5px] text-bad max-w-60 text-right">{msg}</p>}
     </div>
   );

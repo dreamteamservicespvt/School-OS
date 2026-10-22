@@ -12,8 +12,12 @@ import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Payment Gateways" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Payment Gateways") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -38,13 +42,13 @@ export default async function PaymentGatewaysPage({ searchParams }: Search) {
   return (
     <>
       <PageHeader title="Payment Gateways" href="/settings/payment-gateways" userId={current.user.id}>
-        {canAdd && <ButtonLink href="/settings/payment-gateways/new" variant="primary">Add a gateway</ButtonLink>}
+        {canAdd && <ButtonLink href="/settings/payment-gateways/new" variant="primary"><Words k="Add a gateway" /></ButtonLink>}
       </PageHeader>
       <p className="-mt-3 mb-4 max-w-prose text-ink-2">
-        Connect Razorpay and other gateways so parents can pay online. Which class or fee head uses which gateway is set in Fee Management, Fee Settings.
+        <Words k="Connect Razorpay and other gateways so parents can pay online. Which class or fee head uses which gateway is set in Fee Management, Fee Settings." />
       </p>
       {!rows.some((r) => r.isActive) && rows.length > 0 && !filtered && (
-        <Alert tone="warning" className="mb-4" title="No gateway is switched on">Parents cannot pay online yet. Open a gateway, test it, then switch it on.</Alert>
+        <Alert tone="warning" className="mb-4" title="No gateway is switched on"><Words k="Parents cannot pay online yet. Open a gateway, test it, then switch it on." /></Alert>
       )}
       <ListToolbar placeholder="Search gateways"
         filters={[
@@ -63,18 +67,18 @@ export default async function PaymentGatewaysPage({ searchParams }: Search) {
         columns={[
           { key: "name", label: "Name", phone: "title", cell: (r) => r.displayName },
           { key: "type", label: "Type", phone: "meta", cell: (r) => { const p = findProvider(r.provider); return p ? `${TYPE_WORDS[p.type]} · ${p.name}` : r.provider; } },
-          { key: "status", label: "Status", phone: "badge", cell: (r) => r.archivedAt ? <Badge>Archived</Badge> : r.isActive ? <Badge tone="success">Active</Badge> : <Badge>Inactive</Badge> },
-          { key: "env", label: "Mode", phone: "meta", cell: (r) => r.environment === "live" ? <Badge tone="brand">Live</Badge> : <Badge tone="warning">Test</Badge> },
-          { key: "test", label: "Last test", phone: "meta", cell: (r) => r.lastTestAt ? <span className={r.lastTestOk ? "text-success" : "text-danger"}>{r.lastTestOk ? "Passed" : "Problem"} · {formatDateTime(r.lastTestAt, tz)}</span> : <span className="text-ink-2">Not tested</span> },
+          { key: "status", label: "Status", phone: "badge", cell: (r) => r.archivedAt ? <Badge><Words k="Archived" /></Badge> : r.isActive ? <Badge tone="success"><Words k="Active" /></Badge> : <Badge><Words k="Inactive" /></Badge> },
+          { key: "env", label: "Mode", phone: "meta", cell: (r) => r.environment === "live" ? <Badge tone="brand"><Words k="Live" /></Badge> : <Badge tone="warning"><Words k="Test" /></Badge> },
+          { key: "test", label: "Last test", phone: "meta", cell: (r) => r.lastTestAt ? <span className={r.lastTestOk ? "text-success" : "text-danger"}>{r.lastTestOk ? "Passed" : "Problem"} · {formatDateTime(r.lastTestAt, tz)}</span> : <span className="text-ink-2"><Words k="Not tested" /></span> },
           { key: "changed", label: "Last changed", cell: (r) => formatDateTime(r.updatedAt, tz) },
         ]}
         actions={(r) => <Link href={`/settings/payment-gateways/${r.id}`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">{r.archivedAt ? "View" : "Edit or test"}</Link>}
         empty={filtered ? (
-          <EmptyState title="No gateway matches these filters"><Link href="/settings/payment-gateways" className="font-medium text-brand-text underline">Clear the filters</Link></EmptyState>
+          <EmptyState title="No gateway matches these filters"><Link href="/settings/payment-gateways" className="font-medium text-brand-text underline"><Words k="Clear the filters" /></Link></EmptyState>
         ) : (
           <EmptyState title="No payment gateway yet">
-            <p>Parents can pay at the counter in cash, UPI or cheque from day one. To take fees online, connect Razorpay (recommended) or another gateway.</p>
-            {canAdd && <div className="mt-4"><ButtonLink href="/settings/payment-gateways/new" variant="primary">Add a gateway</ButtonLink></div>}
+            <p><Words k="Parents can pay at the counter in cash, UPI or cheque from day one. To take fees online, connect Razorpay (recommended) or another gateway." /></p>
+            {canAdd && <div className="mt-4"><ButtonLink href="/settings/payment-gateways/new" variant="primary"><Words k="Add a gateway" /></ButtonLink></div>}
           </EmptyState>
         )}
       />

@@ -6,8 +6,12 @@ import { assignableRoles } from "@/lib/settings/roles";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { InviteForm } from "./invite-form";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Invite a user" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Invite a user") };
+}
 
 export default async function InvitePage({ searchParams }: { searchParams: Promise<{ staff?: string }> }) {
   const { current } = await requireSettingsPage("users", "create");
@@ -24,10 +28,10 @@ export default async function InvitePage({ searchParams }: { searchParams: Promi
   const teacher = roles.find((r) => r.key === "teacher");
   return (
     <>
-      <Link href="/settings/users" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline">← Users & Permissions</Link>
+      <Link href="/settings/users" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline"><Words k={"← Users & Permissions"} /></Link>
       <PageHeader title="Invite a user" href="/settings/users/new" userId={current.user.id} />
       <p className="mb-4 max-w-3xl text-sm text-ink-2">
-        The person gets a link to choose their own password. You never see or send a password. Staff usually get their login from Add Staff; use this for anyone else, or to give an existing staff member a login.
+        <Words k="The person gets a link to choose their own password. You never see or send a password. Staff usually get their login from Add Staff; use this for anyone else, or to give an existing staff member a login." />
       </p>
       <Card>
         <CardBody>

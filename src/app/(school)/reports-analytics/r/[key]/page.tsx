@@ -24,8 +24,12 @@ import { OldSoftwareBanner } from "@/components/money/go-live";
 import { RepHead } from "../../_components/head";
 import { PrepareButton, ReportMenu } from "../../_components/bits";
 import { BASE, one, qs, repGuard, withQ, type SearchParams } from "../../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Report" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Report") };
+}
 
 const fieldCls = "flex flex-col gap-1.5 min-w-0";
 const labelCls = "text-[13px] font-semibold text-ink2";
@@ -117,7 +121,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 p-4">
             {entry.dated ? (
               <div className={`${fieldCls} col-span-2`}>
-                <span className={labelCls}>Dates</span>
+                <span className={labelCls}><Words k="Dates" /></span>
                 <PeriodFilter {...p.dates} fallback={entry.fallback ?? "thismonth"} className="w-full" />
               </div>
             ) : entry.money ? (
@@ -145,30 +149,30 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
           </div>
           <div className="px-5 pb-4 -mt-1 flex items-start gap-2 text-[13px] text-ink2">
             <Filter size={15} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" />
-            <p className="min-w-0"><b className="font-semibold">Showing:</b> {data.words}. {entry.money && "Money reports use the financial year, not the academic year. "}Printed on the screen and on every file.</p>
+            <p className="min-w-0"><b className="font-semibold"><Words k="Showing:" /></b> {data.words}. {entry.money && "Money reports use the financial year, not the academic year. "}<Words k="Printed on the screen and on every file." /></p>
           </div>
         </Card>
 
-        {closed && <Banner tone="info" title={entry.dated ? "These dates are in a closed year." : `${entry.money ? f.fy?.name : f.year?.name} is closed.`}>Figures are final and cannot change. Shown with this year’s layout.</Banner>}
+        {closed && <Banner tone="info" title={entry.dated ? "These dates are in a closed year." : `${entry.money ? f.fy?.name : f.year?.name} is closed.`}><Words k="Figures are final and cannot change. Shown with this year’s layout." /></Banner>}
         {entry.money && entry.dated && <OldSoftwareBanner goLive={p.goLive} from={f.from} to={f.to} what="money records" />}
 
         {data.refused ? (
-          <Card><Empty icon={Lock} title="Not open to you" body={data.refused} action={<Link href={href} className={buttonClass("secondary")}>Show my classes</Link>} /></Card>
+          <Card><Empty icon={Lock} title="Not open to you" body={data.refused} action={<Link href={href} className={buttonClass("secondary")}><Words k="Show my classes" /></Link>} /></Card>
         ) : data.heavyNow && data.run?.status !== "READY" ? (
           <Card>
             {!data.run || data.run.status === "FAILED" ? (
               <Empty icon={Hourglass} title="This is a large report"
-                body={<>{data.run?.status === "FAILED" ? `The last try did not work: ${data.run.problem ?? "please try again"}. ` : ""}Every class in one file. It is prepared in the background so your screen does not freeze.</>}
+                body={<>{data.run?.status === "FAILED" ? `The last try did not work: ${data.run.problem ?? "please try again"}. ` : ""}<Words k="Every class in one file. It is prepared in the background so your screen does not freeze." /></>}
                 action={<div className="flex gap-2 flex-wrap justify-center items-start">
                   {canExport && <PrepareButton reportKey={entry.key} params={keep} words={data.words} href={withQ(href, sp, { run: null })} />}
-                  {entry.byClass && clsOptions[1] && <Link href={withQ(href, sp, { [p.a.own ? "section" : "class"]: clsOptions[1].value, run: null })} scroll={false} className={buttonClass("secondary")}>See one class now</Link>}
+                  {entry.byClass && clsOptions[1] && <Link href={withQ(href, sp, { [p.a.own ? "section" : "class"]: clsOptions[1].value, run: null })} scroll={false} className={buttonClass("secondary")}><Words k="See one class now" /></Link>}
                 </div>} />
             ) : (
               <div className="flex flex-col items-center text-center px-6 py-14 gap-3 animate-fade" role="status">
                 <span className="w-14 h-14 rounded-2xl bg-brand/10 text-brand grid place-items-center"><Spinner size={24} /></span>
-                <h3 className="font-semibold text-[15px]">This report is being prepared. We will notify you.</h3>
-                <p className="text-sm text-ink3 max-w-sm">You can leave this page. A notification with the download link arrives when it is ready.</p>
-                <Link href={href + (href.includes("?") ? "&" : "?") + `run=${data.run.id}`} className={buttonClass("ghost", "sm")}>Check again</Link>
+                <h3 className="font-semibold text-[15px]"><Words k="This report is being prepared. We will notify you." /></h3>
+                <p className="text-sm text-ink3 max-w-sm"><Words k="You can leave this page. A notification with the download link arrives when it is ready." /></p>
+                <Link href={href + (href.includes("?") ? "&" : "?") + `run=${data.run.id}`} className={buttonClass("ghost", "sm")}><Words k="Check again" /></Link>
               </div>
             )}
           </Card>
@@ -177,18 +181,18 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
             <CardHeader title={entry.name} description={`${rows.length.toLocaleString("en-IN")} ${rows.length === 1 ? "row" : "rows"}${data.heavyNow ? " · prepared in the background" : ""}`}
               action={<div className="flex gap-1.5 items-center">
                 {canExport && <ExportButton href={exportHref} size="sm" label="Excel" always />}
-                {canExport && <a href={`${exportHref}${exportHref.includes("?") ? "&" : "?"}format=pdf`} className={`${buttonClass("secondary", "sm")} hidden sm:inline-flex`} download>PDF</a>}
+                {canExport && <a href={`${exportHref}${exportHref.includes("?") ? "&" : "?"}format=pdf`} className={`${buttonClass("secondary", "sm")} hidden sm:inline-flex`} download><Words k="PDF" /></a>}
                 <ReportMenu exportHref={exportHref} reportKey={entry.key} name={entry.name} pinned={data.pinned} scheduleHref={scheduleHref} canExport={canExport} />
               </div>} />
             {data.run?.status === "READY" && (
               <Banner tone="ok" className="mx-4 mb-3" title="Ready."
-                action={<a href={`${BASE}/runs/${data.run.id}`} className={buttonClass("secondary", "sm")}><Download size={15} aria-hidden="true" />Download</a>}>
-                Prepared in the background at {formatTime(data.run.readyAt ?? data.run.createdAt, p.tz)}. The first {SHOW_ROWS} rows are below.
+                action={<a href={`${BASE}/runs/${data.run.id}`} className={buttonClass("secondary", "sm")}><Download size={15} aria-hidden="true" /><Words k="Download" /></a>}>
+                <Words k="Prepared in the background at" /> {formatTime(data.run.readyAt ?? data.run.createdAt, p.tz)}<Words k=". The first" /> {SHOW_ROWS} <Words k="rows are below." />
               </Banner>
             )}
             {rows.length > 1 && (
               <div className="px-4 pb-3 flex items-center gap-2 flex-wrap">
-                <span className="text-[12.5px] text-ink3 font-semibold" aria-hidden="true">Sort by</span>
+                <span className="text-[12.5px] text-ink3 font-semibold" aria-hidden="true"><Words k="Sort by" /></span>
                 <UrlSelect id="rf-sort" param="sort" label="Sort by" className="w-48"
                   options={[{ value: "", label: "As listed" }, ...table.columns.map((c) => ({ value: c.key, label: c.label }))]} />
                 {sortCol && (
@@ -210,7 +214,7 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
             {table.note && <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line">{table.note}</p>}
             {rows.length > 0 && (
               <div className="px-5 py-3 border-t border-line text-[12.5px] text-ink3 flex items-center justify-between gap-3 flex-wrap">
-                <span className="tnum">Showing {shown.length} of {rows.length.toLocaleString("en-IN")}{rows.length > shown.length ? " · the file has every row" : ""}</span>
+                <span className="tnum"><Words k="Showing" /> {shown.length} <Words k="of" /> {rows.length.toLocaleString("en-IN")}{rows.length > shown.length ? " · the file has every row" : ""}</span>
                 {table.links?.map((l) => <Link key={l.href} href={l.href} className="text-[13px] font-semibold text-brand hover:underline">{l.label}</Link>)}
               </div>
             )}
@@ -218,9 +222,9 @@ export default async function ReportPage({ params, searchParams }: { params: Pro
         )}
         <details className="group self-start">
           <summary className="list-none cursor-pointer text-[13px] font-semibold text-ink2 hover:text-ink inline-flex items-center gap-1.5 [&::-webkit-details-marker]:hidden">
-            <Info size={15} aria-hidden="true" />Who can see this report<span className="group-open:hidden"> ▾</span><span className="hidden group-open:inline"> ▴</span>
+            <Info size={15} aria-hidden="true" /><Words k="Who can see this report" /><span className="group-open:hidden"> ▾</span><span className="hidden group-open:inline"> ▴</span>
           </summary>
-          <Banner tone="info" className="mt-3">{whoSees(entry)} Every file contains only the rows the person may see.</Banner>
+          <Banner tone="info" className="mt-3">{whoSees(entry)} <Words k="Every file contains only the rows the person may see." /></Banner>
         </details>
       </div>
     </div>

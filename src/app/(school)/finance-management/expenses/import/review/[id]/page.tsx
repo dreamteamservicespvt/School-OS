@@ -5,8 +5,12 @@ import { PLACES } from "@/lib/imports/places";
 import { FileReview } from "@/components/import/file-review";
 import { FinanceHead } from "../../../../_components/finance-head";
 import { BASE, financePage } from "../../../../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Check a file · Import past expenses" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Check a file · Import past expenses") };
+}
 
 /** One file of past expenses: match, fix, check every row and bring in the good ones. */
 export default async function ExpenseImportFilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -15,7 +19,7 @@ export default async function ExpenseImportFilePage({ params, searchParams }: { 
   return (
     <>
       <FinanceHead pageName="Import past expenses" href={`${BASE}/expenses/import`}
-        sub={<Link href={`${BASE}/expenses`} className="font-semibold text-brand hover:underline">Expenses</Link>} />
+        sub={<Link href={`${BASE}/expenses`} className="font-semibold text-brand hover:underline"><Words k="Expenses" /></Link>} />
       <FileReview current={p.current} place={PLACES.finance} id={(await params).id} sp={await searchParams} />
     </>
   );

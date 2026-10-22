@@ -15,8 +15,12 @@ import { Alert } from "@/components/ui/alert";
 import { ActionButton } from "../../../../staff-hr-management/_components/forms";
 import { PosterPreview } from "../../../_components/poster-preview";
 import { qrStateAction } from "../../actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "QR poster" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("QR poster") };
+}
 
 export default async function QrPosterPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -37,14 +41,14 @@ export default async function QrPosterPage({ params }: { params: Promise<{ id: s
   return (
     <>
       <PageHeader title={`QR poster: ${session.name}`} href={`${BASE}/devices/qr/${session.id}`} userId={current.user.id}>
-        <Link href={`${BASE}/devices?view=qr`} className="font-medium text-brand-text hover:underline">All QR posters</Link>
+        <Link href={`${BASE}/devices?view=qr`} className="font-medium text-brand-text hover:underline"><Words k="All QR posters" /></Link>
       </PageHeader>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <Card>
           <CardHeader title="Poster" description="School branding, the QR code and short instructions. No personal data is printed." />
           <CardBody>
-            {!session.isActive && <Alert tone="warning" className="mb-4">This QR is stopped. Scans are refused until it is started again.</Alert>}
-            {expired && <Alert tone="danger" className="mb-4">This QR expired on {formatDate(session.expiresAt!, tz)}. Create a new one.</Alert>}
+            {!session.isActive && <Alert tone="warning" className="mb-4"><Words k="This QR is stopped. Scans are refused until it is started again." /></Alert>}
+            {expired && <Alert tone="danger" className="mb-4"><Words k="This QR expired on" /> {formatDate(session.expiresAt!, tz)}<Words k=". Create a new one." /></Alert>}
             <PosterPreview posters={posters} initial={settings.posterTheme} pdfHref={`${BASE}/devices/qr/${session.id}/pdf`} />
           </CardBody>
         </Card>
@@ -56,9 +60,9 @@ export default async function QrPosterPage({ params }: { params: Promise<{ id: s
             <Detail label="Expires">{session.expiresAt ? formatDate(session.expiresAt, tz) : "Does not expire"}</Detail>
             <div className="flex flex-wrap gap-2 pt-2">
               <ActionButton action={qrStateAction} hidden={{ qrId: session.id, change: session.isActive ? "stop" : "start" }} size="md">{session.isActive ? "Stop" : "Start"}</ActionButton>
-              <ActionButton action={qrStateAction} hidden={{ qrId: session.id, change: "new-code" }} size="md" variant="danger-outline">New code</ActionButton>
+              <ActionButton action={qrStateAction} hidden={{ qrId: session.id, change: "new-code" }} size="md" variant="danger-outline"><Words k="New code" /></ActionButton>
             </div>
-            <p className="text-sm text-ink-2">A new code makes printed posters stop working. Use it if a photo of the poster is being shared.</p>
+            <p className="text-sm text-ink-2"><Words k="A new code makes printed posters stop working. Use it if a photo of the poster is being shared." /></p>
           </CardBody>
         </Card>
       </div>

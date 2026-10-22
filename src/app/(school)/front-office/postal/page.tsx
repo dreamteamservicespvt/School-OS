@@ -19,8 +19,12 @@ import { FoHead } from "../_components/head";
 import { CommonSheets } from "../_components/common-sheets";
 import { HandSheet, PostalSheet } from "../_components/postal-sheets";
 import { BASE, UUID, addQ, foGuard, foPeriod, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Postal & Deliveries" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Postal & Deliveries") };
+}
 
 const HREF = `${BASE}/postal`;
 const TYPE_WORDS: Record<string, string> = { LETTER: "Letter", COURIER: "Courier", PARCEL: "Parcel" };
@@ -75,8 +79,8 @@ export default async function PostalPage({ searchParams }: { searchParams: Searc
     <div>
       <FoHead pageName="Postal & Deliveries" href={HREF} sub="Letters, couriers and parcels received and sent. The person it is for is told on the app."
         actions={desk ? <>
-          <ButtonLink href={addQ(here, { do: "sent" })} scroll={false} variant="secondary" icon={Send}>Record sent item</ButtonLink>
-          <ButtonLink href={addQ(here, { do: "received" })} scroll={false} variant="primary" icon={PackagePlus}>Record received item</ButtonLink>
+          <ButtonLink href={addQ(here, { do: "sent" })} scroll={false} variant="secondary" icon={Send}><Words k="Record sent item" /></ButtonLink>
+          <ButtonLink href={addQ(here, { do: "received" })} scroll={false} variant="primary" icon={PackagePlus}><Words k="Record received item" /></ButtonLink>
         </> : null} />
       <Stack>
         <Stats items={[
@@ -102,11 +106,11 @@ export default async function PostalPage({ searchParams }: { searchParams: Searc
               { key: "for", label: "For", render: (r) => <span className="text-[13.5px]">{r.forText}</span> },
               { key: "track", label: "Courier and tracking", render: (r) => <div><p className="text-[13px]">{r.courier ?? "—"}</p>{r.trackingNo && <p className="text-[12px] text-ink3 font-mono">{r.trackingNo}</p>}</div> },
               { key: "st", label: "Status", render: (r) => { const s = POSTAL_STATUS[r.status] ?? POSTAL_STATUS.SENT; return <div><Pill tone={s.tone}>{s.label}</Pill>{r.handedToName && <p className="text-[11.5px] text-ink3 mt-1">{r.handedToName}{r.handedAt ? `, ${clockAt(r.handedAt, p.tz)}` : ""}</p>}</div>; } },
-              { key: "act", label: "", render: (r) => (desk && r.status === "AT_DESK" ? <ButtonLink href={addQ(here, { hand: r.id })} scroll={false} size="sm" variant="secondary" icon={HandHelping} className="relative z-[1]">Hand over</ButtonLink> : null) },
+              { key: "act", label: "", render: (r) => (desk && r.status === "AT_DESK" ? <ButtonLink href={addQ(here, { hand: r.id })} scroll={false} size="sm" variant="secondary" icon={HandHelping} className="relative z-[1]"><Words k="Hand over" /></ButtonLink> : null) },
             ]}
             phone={(r) => { const s = POSTAL_STATUS[r.status] ?? POSTAL_STATUS.SENT; return { title: r.party, sub: `${r.direction === "RECEIVED" ? "Received" : "Sent"} · ${TYPE_WORDS[r.itemType] ?? r.itemType} · for ${r.forText}`, icon: r.direction === "RECEIVED" ? ArrowDownToLine : ArrowUpFromLine, iconTone: r.status === "AT_DESK" ? "warn" : "neutral", pills: <Pill tone={s.tone} className="!h-[22px] !text-[11.5px]">{s.label}</Pill> }; }}
-            empty={q || status !== "all" ? <Empty icon={SearchX} title="No entry matches" body="Try the tracking number, the sender or a wider date range." action={<ButtonLink href={HREF} variant="secondary">Clear filters</ButtonLink>} />
-              : <Empty icon={Inbox} title="No letters or parcels on these dates" body="Record each letter, courier and parcel so nothing is lost at the desk." action={desk ? <ButtonLink href={addQ(here, { do: "received" })} scroll={false} variant="secondary" icon={PackagePlus}>Record received item</ButtonLink> : undefined} />} />
+            empty={q || status !== "all" ? <Empty icon={SearchX} title="No entry matches" body="Try the tracking number, the sender or a wider date range." action={<ButtonLink href={HREF} variant="secondary"><Words k="Clear filters" /></ButtonLink>} />
+              : <Empty icon={Inbox} title="No letters or parcels on these dates" body="Record each letter, courier and parcel so nothing is lost at the desk." action={desk ? <ButtonLink href={addQ(here, { do: "received" })} scroll={false} variant="secondary" icon={PackagePlus}><Words k="Record received item" /></ButtonLink> : undefined} />} />
         </Card>
       </Stack>
       {adding && <PostalSheet closeHref={here} received={adding === "received"} forOptions={forOptions} />}
@@ -114,7 +118,7 @@ export default async function PostalPage({ searchParams }: { searchParams: Searc
         <HandSheet closeHref={here} people={data.staff.map((s) => s.name)}
           entry={{ id: data.hand.id, type: TYPE_WORDS[data.hand.itemType] ?? "Item", party: data.hand.party, forText: data.hand.forText, start: data.staff.find((s) => s.id === data.hand!.forStaffId)?.name ?? "" }} />
       )}
-      {handId && !data.hand && <UrlSheet title="Not at the desk" closeHref={here}><p className="text-[14px] text-ink2 pb-4">This item was not found, or it was already handed over.</p></UrlSheet>}
+      {handId && !data.hand && <UrlSheet title="Not at the desk" closeHref={here}><p className="text-[14px] text-ink2 pb-4"><Words k="This item was not found, or it was already handed over." /></p></UrlSheet>}
       <CommonSheets sp={sp} href={HREF} keepKeys={["status", "q", "period", "from", "to"]} />
     </div>
   );

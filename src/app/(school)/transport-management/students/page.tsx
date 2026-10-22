@@ -22,8 +22,11 @@ import { carryOverRows } from "@/lib/transport/carry";
 import { addFeeAction } from "../actions";
 import { BASE, UUID, addQ, one, qs, trGuard, trPeriod, type SearchParams } from "../_lib/page";
 import { assignCandidates, placeOptions } from "../_lib/options";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Student Transport" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Student Transport") };
+}
 
 const HREF = `${BASE}/students`;
 const SHOWS = ["all", "one-way", "no-fee", "future"] as const;

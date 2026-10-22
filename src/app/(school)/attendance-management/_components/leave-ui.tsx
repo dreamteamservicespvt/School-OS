@@ -18,6 +18,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { ActionSheet, FormProblem, QuickChips, type Action } from "./sheet-form";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Found = { id: string; label: string; detail: string };
 type PreviewState = FormState<{ text: string; canApprove: boolean; warn: boolean }>;
@@ -49,7 +50,7 @@ function StudentPicker({ find, error, onPick, placeholder }: { find: (q: string)
         <div className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5">
           <Avatar name={chosen.label} size={36} />
           <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px] truncate">{chosen.label}</p><p className="text-[12.5px] text-ink3 truncate">{chosen.detail}</p></div>
-          <Button size="sm" variant="ghost" onClick={() => pick(null)}>Change</Button>
+          <Button size="sm" variant="ghost" onClick={() => pick(null)}><Words k="Change" /></Button>
         </div>
       ) : (
         <div className="relative">
@@ -70,7 +71,7 @@ function StudentPicker({ find, error, onPick, placeholder }: { find: (q: string)
               ))}
             </ul>
           )}
-          {searched && !pending && q.trim().length >= 2 && list.length === 0 && <p className="text-[12.5px] text-ink3 mt-1.5">No student called &ldquo;{q.trim()}&rdquo; that you may record leave for.</p>}
+          {searched && !pending && q.trim().length >= 2 && list.length === 0 && <p className="text-[12.5px] text-ink3 mt-1.5"><Words k="No student called “" />{q.trim()}<Words k="” that you may record leave for." /></p>}
         </div>
       )}
     </FieldShell>
@@ -104,7 +105,7 @@ function LivePreview({ preview, onResult, tick }: { preview: (s: PreviewState, f
   }, [preview, tick]);
   return (
     <div ref={ref} aria-live="polite" className={cx("-mt-1", !pending && !state && "hidden")}>
-      {pending ? <p className="flex items-center gap-2 text-[13px] text-ink3"><Spinner size={14} /> Counting school days…</p>
+      {pending ? <p className="flex items-center gap-2 text-[13px] text-ink3"><Spinner size={14} /> <Words k="Counting school days…" /></p>
         : state ? <p className={cx("rounded-xl px-3 py-2 text-[13px]", !state.ok ? "bg-bad/10 text-bad" : state.data?.warn ? "bg-warn/12 text-warn" : "bg-sunken text-ink2")}>{state.ok ? state.data?.text : state.message}</p> : null}
     </div>
   );
@@ -127,7 +128,7 @@ export function RecordLeaveButton({ action, preview, find, types, today, placeho
   const reset = () => { setHalf(false); setCanApprove(false); setApproveNow(true); setFrom(today); setTo(today); setReason(""); setFile(null); };
   return (
     <>
-      <Button variant="primary" icon={Plus} onClick={() => { reset(); setOpen(true); }}>Record leave</Button>
+      <Button variant="primary" icon={Plus} onClick={() => { reset(); setOpen(true); }}><Words k="Record leave" /></Button>
       <ActionSheet open={open} onClose={() => setOpen(false)} title="Record student leave" sub={sub}
         action={action} submitLabel="Record leave" pendingText="Saving…">
         {(f) => (
@@ -162,10 +163,10 @@ export function RecordLeaveButton({ action, preview, find, types, today, placeho
               {file ? (
                 <div className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5">
                   <span className="w-9 h-9 rounded-lg bg-sunken grid place-items-center text-ink3"><FileText size={17} aria-hidden="true" /></span>
-                  <div className="min-w-0 flex-1"><p className="font-semibold text-[14px] truncate">{file.name}</p><p className="text-[12px] text-ink3">{(file.size / 1048576).toFixed(1)} MB</p></div>
+                  <div className="min-w-0 flex-1"><p className="font-semibold text-[14px] truncate">{file.name}</p><p className="text-[12px] text-ink3">{(file.size / 1048576).toFixed(1)} <Words k="MB" /></p></div>
                   <Button size="sm" variant="ghost" icon={X} aria-label="Remove the document" onClick={() => { setFile(null); if (fileRef.current) fileRef.current.value = ""; }} />
                 </div>
-              ) : <Button variant="secondary" icon={Camera} onClick={() => fileRef.current?.click()}>Add photo or file</Button>}
+              ) : <Button variant="secondary" icon={Camera} onClick={() => fileRef.current?.click()}><Words k="Add photo or file" /></Button>}
             </FieldShell>
             {canApprove && (
               <div className="rounded-xl border border-line">
@@ -241,13 +242,13 @@ export function BulkApprove({ formId, action }: { formId: string; action: Action
   return (
     <>
       <div className="flex items-center gap-3 px-4 py-2.5 bg-brand/8 border-b border-line animate-rise" role="status">
-        <p className="text-[14px] font-semibold flex-1"><span className="tnum">{ids.length}</span> selected</p>
-        <Button size="sm" variant="ghost" onClick={clear}>Clear</Button>
-        <Button size="sm" variant="secondary" icon={CircleCheck} onClick={() => setConfirm(true)}>Approve</Button>
+        <p className="text-[14px] font-semibold flex-1"><span className="tnum">{ids.length}</span> <Words k="selected" /></p>
+        <Button size="sm" variant="ghost" onClick={clear}><Words k="Clear" /></Button>
+        <Button size="sm" variant="secondary" icon={CircleCheck} onClick={() => setConfirm(true)}><Words k="Approve" /></Button>
       </div>
       <ActionSheet open={confirm} onClose={() => setConfirm(false)} title={`Approve ${ids.length} leave ${ids.length === 1 ? "request" : "requests"}?`}
         action={action} hidden={{ ids: ids.join(",") }} submitLabel={`Approve ${ids.length} ${ids.length === 1 ? "request" : "requests"}`} pendingText="Approving…" onSaved={clear}>
-        {() => <p className="text-[14px] text-ink2">Each day shows as Leave in Take Attendance, and no absence message goes to the parent for those days.</p>}
+        {() => <p className="text-[14px] text-ink2"><Words k="Each day shows as Leave in Take Attendance, and no absence message goes to the parent for those days." /></p>}
       </ActionSheet>
     </>
   );

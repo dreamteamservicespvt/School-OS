@@ -33,8 +33,12 @@ import { ExportMenu } from "../_components/export-menu";
 import { AllTick, BulkApprove, ReasonButton, RecordLeaveButton, RowTick, TapButton } from "../_components/leave-ui";
 import { rangeText } from "../_components/dates";
 import { approveManyStudentLeaveAction, approveStudentLeaveAction, cancelStudentLeaveAction, findStudents, previewStudentLeave, recordStudentLeaveAction, rejectStudentLeaveAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Student Leave" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Student Leave") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const TONE: Record<string, "warn" | "ok" | "bad" | "neutral"> = { WAITING: "warn", APPROVED: "ok", REJECTED: "bad", CANCELLED: "neutral" };
@@ -111,8 +115,8 @@ export default async function StudentLeavePage({ searchParams }: Props) {
 
       <div className="flex flex-col gap-5 lg:gap-6">
         {office && features.has(REASONS_FEATURE) && (
-          <Banner tone="info" title="A parent called about an absence?" action={<Link href={`${BASE}/register/absences`} className={buttonClass("secondary", "sm")}>Open the absent list</Link>}>
-            Record why the student was absent in the day&apos;s absent list. Record leave here when the parent asks for days off.
+          <Banner tone="info" title="A parent called about an absence?" action={<Link href={`${BASE}/register/absences`} className={buttonClass("secondary", "sm")}><Words k="Open the absent list" /></Link>}>
+            <Words k="Record why the student was absent in the day's absent list. Record leave here when the parent asks for days off." />
           </Banner>
         )}
         <Stats items={[
@@ -153,16 +157,16 @@ export default async function StudentLeavePage({ searchParams }: Props) {
             mobile={(r) => ({ avatar: name(r), title: `${name(r)} · ${cls(r)}`, sub: `${data.typeNames.get(r.leaveTypeId) ?? "Leave"} · ${when(r)}`, pills: statusPill(r) })}
             footer={<Pager page={params.page} pageSize={PAGE_SIZE} total={data.total} href={(p) => listHref(path, params, { page: p, status: status === "WAITING" ? null : status })} />}
             empty={<EmptyState bare Icon={CalendarCheck2} title={status === "WAITING" && !filtered ? "No leave waiting" : "No leave matches"}
-              action={canRecord && data.types.length ? <a href={qs({ record: "1" })} className="text-[14px] font-semibold text-brand hover:underline inline-flex items-center gap-1.5"><Plus size={16} aria-hidden="true" />Record leave</a> : undefined}>
+              action={canRecord && data.types.length ? <a href={qs({ record: "1" })} className="text-[14px] font-semibold text-brand hover:underline inline-flex items-center gap-1.5"><Plus size={16} aria-hidden="true" /><Words k="Record leave" /></a> : undefined}>
               {status === "WAITING" && !filtered ? "When a parent asks for leave, record it here." : "Try another status, class or date."}
             </EmptyState>} />
         </Card>
         {!ownOnly && (
           <Banner tone="info" title="Who decides:">
-            class teachers decide for their own section up to {data.settings.classTeacherLeaveDays} days. Longer leave{data.settings.quotaOverNeedsApproval ? ", and leave over the quota," : ""} goes to the Principal. Set in Attendance Settings, Student leave.
+            <Words k="class teachers decide for their own section up to" /> {data.settings.classTeacherLeaveDays} <Words k="days. Longer leave" />{data.settings.quotaOverNeedsApproval ? ", and leave over the quota," : ""} <Words k="goes to the Principal. Set in Attendance Settings, Student leave." />
           </Banner>
         )}
-        {data.types.length === 0 && <Banner tone="warn" title="No leave types yet.">Add student leave types in Attendance Settings, Student leave.</Banner>}
+        {data.types.length === 0 && <Banner tone="warn" title="No leave types yet."><Words k="Add student leave types in Attendance Settings, Student leave." /></Banner>}
       </div>
 
       {o && (
@@ -199,10 +203,10 @@ export default async function StudentLeavePage({ searchParams }: Props) {
               ]} />
             </div>
             {o.r.documentFileId
-              ? <a href={fileLink(o.r.documentFileId, current.ctx.schoolId)} target="_blank" rel="noopener" className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5 hover:bg-sunken"><Paperclip size={17} className="text-ink3" aria-hidden="true" /><span className="font-semibold text-[14px]">Open the document</span></a>
-              : <p className="text-[13px] text-ink3">No document. A doctor&apos;s note can be added any time by recording it again.</p>}
+              ? <a href={fileLink(o.r.documentFileId, current.ctx.schoolId)} target="_blank" rel="noopener" className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5 hover:bg-sunken"><Paperclip size={17} className="text-ink3" aria-hidden="true" /><span className="font-semibold text-[14px]"><Words k="Open the document" /></span></a>
+              : <p className="text-[13px] text-ink3"><Words k="No document. A doctor's note can be added any time by recording it again." /></p>}
             <div>
-              <p className="eyebrow text-ink3 mb-2">History</p>
+              <p className="eyebrow text-ink3 mb-2"><Words k="History" /></p>
               <Timeline items={[
                 ...(o.r.status !== "WAITING" && o.r.decidedAt ? [{
                   icon: o.r.status === "APPROVED" ? CircleCheck : o.r.status === "REJECTED" ? CircleX : Ban, tone: TONE[o.r.status] as "ok" | "bad" | "neutral",

@@ -17,8 +17,12 @@ import { cx } from "@/components/ui/cx";
 import { FeeHead } from "../../../_components/fee-head";
 import { BASE, feeGuard, one, qs, type SearchParams } from "../../../_lib/page";
 import { askFollowUpAction } from "../../actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Fees by class" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Fees by class") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const money = (v: bigint) => (v >= BigInt(10_000_000) ? formatRupeesShort(v) : formatRupees(v));
@@ -55,8 +59,8 @@ export default async function ClassFeesPage({ params, searchParams }: { params: 
   const remind = p.does("defaulters") && owe.some((s) => s.overdue > zero);
   const ledger = p.may("ledger");
   const here = (change: Record<string, string | null>) => qs(`${BASE}/dashboard/class/${sectionId}`, { show: show === "owe" ? null : show, q: one(sp.q) || null, ...change });
-  const status = (r: (typeof rows)[number]) => r.pending === zero ? <Pill tone="ok">Paid</Pill>
-    : r.overdue > zero ? <span className="inline-flex flex-col items-start gap-0.5"><Pill tone={r.daysLate > 30 ? "bad" : "warn"}>Overdue · {r.daysLate} {r.daysLate === 1 ? "day" : "days"}</Pill>{r.oldest && <span className="text-[12px] text-ink3 max-w-[220px] truncate">{r.oldest.label}</span>}</span>
+  const status = (r: (typeof rows)[number]) => r.pending === zero ? <Pill tone="ok"><Words k="Paid" /></Pill>
+    : r.overdue > zero ? <span className="inline-flex flex-col items-start gap-0.5"><Pill tone={r.daysLate > 30 ? "bad" : "warn"}><Words k="Overdue ·" /> {r.daysLate} {r.daysLate === 1 ? "day" : "days"}</Pill>{r.oldest && <span className="text-[12px] text-ink3 max-w-[220px] truncate">{r.oldest.label}</span>}</span>
       : <Pill tone="warn">{r.paid > zero ? "Part paid" : "Not paid"}{r.oldest ? ` · due ${formatDate(r.oldest.dueDate).slice(0, 6)}` : ""}</Pill>;
 
   return (
@@ -64,7 +68,7 @@ export default async function ClassFeesPage({ params, searchParams }: { params: 
       <FeeHead pageName="Fee Dashboard" href={`${BASE}/dashboard`} sub={`${data.name} · fees as of today, ${formatDate(p.today)}`} />
       <Stack>
         <div className="flex flex-wrap items-center gap-2.5">
-          <ButtonLink href={`${BASE}/dashboard#by-class`} variant="secondary" icon={ArrowLeft}>All classes</ButtonLink>
+          <ButtonLink href={`${BASE}/dashboard#by-class`} variant="secondary" icon={ArrowLeft}><Words k="All classes" /></ButtonLink>
         </div>
         <Stats items={[
           { label: "Due so far", value: money(t.due), sub: `${t.students} students · fees due in the next 30 days included`, icon: FileText },
@@ -77,8 +81,8 @@ export default async function ClassFeesPage({ params, searchParams }: { params: 
           {(canAsk || remind) && (
             <div className="px-5 pb-3 -mt-1 flex gap-2 flex-wrap items-center">
               {canAsk && <RemindButton label={`Ask ${first} to follow up`} variant="secondary" doneLabel="Asked" done={data.askedAt ? formatTime(data.askedAt, p.tz) : null} run={askFollowUpAction.bind(null, sectionId)} />}
-              {remind && <ButtonLink size="sm" variant="soft" icon={Send} href={qs(`${BASE}/defaulters`, { section: sectionId, send: "all" })}>Remind parents</ButtonLink>}
-              {canAsk && <p className="text-[12.5px] text-ink3 basis-full">{first} gets the names of the families who still owe, to remind at pickup or the PTM. Teachers do not see amounts.</p>}
+              {remind && <ButtonLink size="sm" variant="soft" icon={Send} href={qs(`${BASE}/defaulters`, { section: sectionId, send: "all" })}><Words k="Remind parents" /></ButtonLink>}
+              {canAsk && <p className="text-[12.5px] text-ink3 basis-full">{first} <Words k="gets the names of the families who still owe, to remind at pickup or the PTM. Teachers do not see amounts." /></p>}
             </div>
           )}
           <Toolbar>
@@ -90,7 +94,7 @@ export default async function ClassFeesPage({ params, searchParams }: { params: 
             ]} />
           </Toolbar>
           <DataList rows={rows} rowKey={(r) => r.studentId} minWidth={720} caption={`${data.name}, students and fees`}
-            footer={rows.length > 0 ? <span className="tnum">{rows.length} of {data.students.length} students · {data.name}</span> : false}
+            footer={rows.length > 0 ? <span className="tnum">{rows.length} <Words k="of" /> {data.students.length} <Words k="students ·" /> {data.name}</span> : false}
             columns={[
               { key: "roll", label: "Roll", render: (r) => <span className="tnum text-ink3">{r.rollNo ?? "—"}</span> },
               { key: "name", label: "Student", render: (r) => <><p className="font-semibold leading-tight">{r.name}</p><p className="text-[12.5px] text-ink3">{r.parent ? `${r.parent.name}${r.parent.phone ? ` · ${r.parent.phone}` : ""}` : r.admissionNo}</p></> },
@@ -100,8 +104,8 @@ export default async function ClassFeesPage({ params, searchParams }: { params: 
               { key: "st", label: "Status", nowrap: true, render: status },
               ...(ledger || p.desk ? [{ key: "act", label: "", align: "right" as const, nowrap: true, render: (r: (typeof rows)[number]) => (
                 <span className="inline-flex gap-1.5">
-                  {ledger && <ButtonLink size="sm" variant="ghost" href={`${BASE}/ledger/${r.studentId}`}>Ledger</ButtonLink>}
-                  {p.desk && r.pending > zero && <ButtonLink size="sm" variant="soft" icon={IndianRupee} href={`${BASE}/collect/${r.studentId}`}>Collect</ButtonLink>}
+                  {ledger && <ButtonLink size="sm" variant="ghost" href={`${BASE}/ledger/${r.studentId}`}><Words k="Ledger" /></ButtonLink>}
+                  {p.desk && r.pending > zero && <ButtonLink size="sm" variant="soft" icon={IndianRupee} href={`${BASE}/collect/${r.studentId}`}><Words k="Collect" /></ButtonLink>}
                 </span>
               ) }] : []),
             ]}

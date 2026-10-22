@@ -29,10 +29,14 @@ import { QuickButton } from "../_components/bits";
 import { DropRuleSheet, ReviewSheet } from "../_components/warning-sheets";
 import { aiDecisionAction, remindFlagAction } from "../actions";
 import { BASE, one, qs, repGuard, withQ, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
 const PAGE_SIZE = 25;
 
-export const metadata = { title: "Early Warnings" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Early Warnings") };
+}
 
 const HREF = `${BASE}/early-warnings`;
 const AREA_ICON = { attendance: CalendarX2, marks: TrendingDown, fees: IndianRupee } as const;
@@ -92,10 +96,10 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
     <div>
       <RepHead pageName="Early Warnings" href={HREF}
         sub={a.own ? `Students in ${own.length === 1 ? `Class ${own[0]}` : "your classes"} who may need help. Nothing happens until a person reviews.` : "Students who may need help, from attendance, marks and fees. Nothing happens to a student until a person reviews."}
-        actions={a.warnings.rule ? <ButtonLink href={withQ(HREF, sp, { rule: "1" })} scroll={false} variant="secondary" icon={Settings2}>Marks-drop rule</ButtonLink> : null} />
+        actions={a.warnings.rule ? <ButtonLink href={withQ(HREF, sp, { rule: "1" })} scroll={false} variant="secondary" icon={Settings2}><Words k="Marks-drop rule" /></ButtonLink> : null} />
       <div className="flex flex-col gap-5 lg:gap-6">
-        {a.own && <Banner tone="info" title="Showing your classes only.">Fee signals go to the Principal and accounts, not to teachers.</Banner>}
-        {!a.own && a.warnings.review === "none" && <Banner tone="info" title="You watch these flags.">Class teachers review their students’ flags; use Remind to ask them. Fee flags go to accounts.</Banner>}
+        {a.own && <Banner tone="info" title="Showing your classes only."><Words k="Fee signals go to the Principal and accounts, not to teachers." /></Banner>}
+        {!a.own && a.warnings.review === "none" && <Banner tone="info" title="You watch these flags."><Words k="Class teachers review their students’ flags; use Remind to ask them. Fee flags go to accounts." /></Banner>}
         <Stats items={[
           { label: "Act now", value: String(counts.actNow), sub: "Open flags · strong signs", tone: "bad", icon: TriangleAlert, href: qs(HREF, { ...keep, status: null, strength: "ACT_NOW" }) },
           { label: "Watch", value: String(counts.watch), sub: "Open flags · fees are always Watch", tone: "warn", icon: Eye, href: qs(HREF, { ...keep, status: null, strength: "WATCH" }) },
@@ -110,8 +114,8 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
               <UrlSegmented param="area" fallback="all" label="Signal" options={[{ value: "all", label: "All" }, ...areas.map((x) => ({ value: x.value, label: x.label }))]} />
             </Toolbar>
             <p className="px-4 pt-3 text-[12.5px] text-ink3">
-              Showing flags raised: {range ? `${range.label} · ${rangeWords(range.from, range.to)}` : "All dates"}
-              {strength !== "all" && <> · {STRENGTH_LABEL[strength]} only · <Link href={qs(HREF, { ...keep, strength: null })} className="text-brand font-semibold hover:underline">Show Act now and Watch</Link></>}
+              <Words k="Showing flags raised:" /> {range ? `${range.label} · ${rangeWords(range.from, range.to)}` : "All dates"}
+              {strength !== "all" && <> · {STRENGTH_LABEL[strength]} <Words k="only ·" /> <Link href={qs(HREF, { ...keep, strength: null })} className="text-brand font-semibold hover:underline"><Words k="Show Act now and Watch" /></Link></>}
             </p>
             <div className="px-3 pt-2">
               <Chips value={status} label="Flag status" options={[
@@ -122,10 +126,10 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
             <DataList rows={shown} rowKey={(f) => f.id} minWidth={720} href={(f) => withQ(HREF, sp, { open: f.id })}
               empty={status === "NEW" && !q
                 ? <Empty icon={CircleCheck} title="Every flag has been reviewed" body="New flags appear here each morning after attendance is taken, and when marks or fees cross a rule." />
-                : <Empty icon={SearchX} title="No flag matches" body="Try another status, signal or dates." action={<Link href={qs(HREF, { period: "acyear" })} className={buttonClass("secondary")}>Show all open flags this year</Link>} />}
+                : <Empty icon={SearchX} title="No flag matches" body="Try another status, signal or dates." action={<Link href={qs(HREF, { period: "acyear" })} className={buttonClass("secondary")}><Words k="Show all open flags this year" /></Link>} />}
               columns={[
                 { key: "n", label: "Student", render: (f) => <span className="flex items-center gap-3"><Avatar name={f.name} size={34} /><span className="min-w-0"><b className="font-semibold block leading-tight">{f.name}</b><span className="text-[12.5px] text-ink3">{f.cls}</span></span></span> },
-                { key: "r", label: "Why", className: "max-w-[340px]", render: (f) => <span className="block text-[13px] text-ink2 leading-snug">{f.signals[0]?.text}{f.signals.length > 1 && <span className="text-ink3"> · +{f.signals.length - 1} more</span>}</span> },
+                { key: "r", label: "Why", className: "max-w-[340px]", render: (f) => <span className="block text-[13px] text-ink2 leading-snug">{f.signals[0]?.text}{f.signals.length > 1 && <span className="text-ink3"> · +{f.signals.length - 1} <Words k="more" /></span>}</span> },
                 { key: "s", label: "Strength", nowrap: true, render: (f) => <Pill tone={strengthTone(f.strength)} dot>{STRENGTH_LABEL[f.strength]}</Pill> },
                 { key: "t", label: "Status", nowrap: true, render: (f) => <Pill tone={STATUS_TONE[f.status]}>{STATUS_LABEL[f.status]}</Pill> },
               ]}
@@ -151,26 +155,26 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
                   <li key={k} className="py-2.5 flex items-start justify-between gap-3"><span className="min-w-0"><span className="block font-medium">{k}</span><span className="block text-[12px] text-ink3">{from}</span></span><b className="font-semibold tnum text-right">{v}</b></li>
                 ))}
               </ul>
-              {rules.lastRefreshAt && <p className="px-5 pb-3 -mt-2 text-[12px] text-ink3">Last checked {formatDateTime(rules.lastRefreshAt, p.tz)}</p>}
-              {a.warnings.rule && <div className="px-5 pb-4"><ButtonLink href={withQ(HREF, sp, { rule: "1" })} scroll={false} size="sm" variant="secondary" icon={Pencil}>Change the marks-drop rule</ButtonLink></div>}
+              {rules.lastRefreshAt && <p className="px-5 pb-3 -mt-2 text-[12px] text-ink3"><Words k="Last checked" /> {formatDateTime(rules.lastRefreshAt, p.tz)}</p>}
+              {a.warnings.rule && <div className="px-5 pb-4"><ButtonLink href={withQ(HREF, sp, { rule: "1" })} scroll={false} size="sm" variant="secondary" icon={Pencil}><Words k="Change the marks-drop rule" /></ButtonLink></div>}
             </Card>
             {/* A class teacher sees only the items about their own students, and the heading only when there are some. */}
             {(a.ai.forecasts || a.ai.insights) && (a.ai.forecastScope === "all" || view.total > 0) && (
               <>
-                <div id="looking-ahead" className="scroll-mt-4 flex items-center gap-2 px-1"><Telescope size={15} className="text-brand" aria-hidden="true" /><p className="text-[13px] font-semibold text-ink2">Looking ahead</p><span className="text-[12px] text-ink3">· {a.ai.forecastScope === "own" ? "about students in your class, " : ""}what may happen next, if nothing changes · most important first</span></div>
+                <div id="looking-ahead" className="scroll-mt-4 flex items-center gap-2 px-1"><Telescope size={15} className="text-brand" aria-hidden="true" /><p className="text-[13px] font-semibold text-ink2"><Words k="Looking ahead" /></p><span className="text-[12px] text-ink3">· {a.ai.forecastScope === "own" ? "about students in your class, " : ""}<Words k="what may happen next, if nothing changes · most important first" /></span></div>
                 {view.groups.length > 0 && (
                   <Card>
                     <div className="px-4 py-3 flex flex-wrap gap-2" aria-label="Looking ahead by area">
                       {view.groups.map((g) => (
                         <Link key={g.area} href={withQ(HREF, sp, { ahead: g.area })} scroll={false} className="inline-flex items-center gap-1.5 h-8 px-3 rounded-full bg-sunken/80 text-[12.5px] font-semibold text-ink2 hover:text-brand">
-                          {g.label} <b className="tnum text-ink">{g.count}</b>{g.actNow ? <span className="text-bad">· {g.actNow} act soon</span> : null}
+                          {g.label} <b className="tnum text-ink">{g.count}</b>{g.actNow ? <span className="text-bad">· {g.actNow} <Words k="act soon" /></span> : null}
                         </Link>
                       ))}
                     </div>
                   </Card>
                 )}
                 {view.top.map((s) => <AheadCard key={s.key} s={s} />)}
-                {view.total > view.top.length && <ButtonLink href={withQ(HREF, sp, { ahead: "all" })} scroll={false} variant="secondary" icon={Sparkles}>See all {view.total} suggestions</ButtonLink>}
+                {view.total > view.top.length && <ButtonLink href={withQ(HREF, sp, { ahead: "all" })} scroll={false} variant="secondary" icon={Sparkles}><Words k="See all" /> {view.total} <Words k="suggestions" /></ButtonLink>}
                 {view.total === 0 && <Card><Empty icon={Telescope} title="Nothing to look out for right now" body="Worked out again every few hours from attendance, marks, fees, admissions, the syllabus, messages, staff leave, the cash and bank books and unusual changes." /></Card>}
               </>
             )}
@@ -181,15 +185,15 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
       {open && !reviewing && (
         <UrlSheet wide title={`${open.name} · ${open.cls}`} sub={`Raised ${formatDate(open.raisedAt, p.tz)} · ${STRENGTH_LABEL[open.strength]} · ${STATUS_LABEL[open.status]}`} closeHref={close}
           footer={open.status !== "CLOSED" && mayReview(a, open.area) ? <>
-            <ButtonLink href={`/student-management/students/${open.studentId}`} variant="ghost" icon={User}>Open profile</ButtonLink>
-            <ButtonLink href={open.status === "NEW" ? withQ(HREF, sp, { first: "1" }) : withQ(HREF, sp, { open: null, review: open.id, as: "ACTION_PLANNED" })} scroll={false} variant="secondary" icon={ListTodo}>Plan an action</ButtonLink>
-            <ButtonLink href={withQ(HREF, sp, { open: null, review: open.id, as: null, first: null })} scroll={false} variant="primary" icon={Check}>Review</ButtonLink>
+            <ButtonLink href={`/student-management/students/${open.studentId}`} variant="ghost" icon={User}><Words k="Open profile" /></ButtonLink>
+            <ButtonLink href={open.status === "NEW" ? withQ(HREF, sp, { first: "1" }) : withQ(HREF, sp, { open: null, review: open.id, as: "ACTION_PLANNED" })} scroll={false} variant="secondary" icon={ListTodo}><Words k="Plan an action" /></ButtonLink>
+            <ButtonLink href={withQ(HREF, sp, { open: null, review: open.id, as: null, first: null })} scroll={false} variant="primary" icon={Check}><Words k="Review" /></ButtonLink>
           </> : open.status !== "CLOSED" && mayRemind(a) ? <>
-            <ButtonLink href={`/student-management/students/${open.studentId}`} variant="ghost" icon={User}>Open profile</ButtonLink>
+            <ButtonLink href={`/student-management/students/${open.studentId}`} variant="ghost" icon={User}><Words k="Open profile" /></ButtonLink>
             <RemindButton run={remindFlagAction.bind(null, open.id)} done={remindAt(open.id)} size="md" label={open.area === "fees" ? "Remind accounts" : "Remind the class teacher"} />
-          </> : <CloseSheetButton>Close</CloseSheetButton>}>
+          </> : <CloseSheetButton><Words k="Close" /></CloseSheetButton>}>
           <div className="flex flex-col gap-4">
-            {one(sp.first) === "1" && open.status === "NEW" && <Banner tone="warn" title="Review this flag first.">Check the reason and write a note. You can plan the action in the same step.</Banner>}
+            {one(sp.first) === "1" && open.status === "NEW" && <Banner tone="warn" title="Review this flag first."><Words k="Check the reason and write a note. You can plan the action in the same step." /></Banner>}
             <ul className="flex flex-col gap-2.5">
               {open.signals.map((s, i) => (
                 <li key={i} className="rounded-2xl border border-line p-3.5 flex gap-3">
@@ -197,18 +201,18 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
                   <div className="min-w-0">
                     <p className="text-[12px] text-ink3 font-semibold">{AREAS.find((x) => x.value === open.area)?.label}</p>
                     <p className="text-[14.5px] font-semibold leading-snug">{s.text}</p>
-                    <p className="text-[12.5px] text-ink3 mt-1">Based on: {s.basis}</p>
+                    <p className="text-[12.5px] text-ink3 mt-1"><Words k="Based on:" /> {s.basis}</p>
                   </div>
                 </li>
               ))}
             </ul>
-            {open.action && <p className="text-[13.5px] text-ink2 flex items-center gap-2"><ListTodo size={16} className="text-ink3" aria-hidden="true" />Planned: <b className="font-semibold text-ink">{open.action}</b></p>}
+            {open.action && <p className="text-[13.5px] text-ink2 flex items-center gap-2"><ListTodo size={16} className="text-ink3" aria-hidden="true" /><Words k="Planned:" /> <b className="font-semibold text-ink">{open.action}</b></p>}
             {open.closedReason && open.status === "CLOSED" && !open.reviews.length && <p className="text-[13.5px] text-ink2">{open.closedReason}</p>}
             <div>
-              <p className="eyebrow text-ink3 mb-2">Review history</p>
+              <p className="eyebrow text-ink3 mb-2"><Words k="Review history" /></p>
               {open.reviews.length
                 ? <Timeline items={open.reviews.map((r) => ({ what: <><b className="font-semibold">{r.who}</b> · {r.decision === "NOT_A_CONCERN" ? "Not a concern" : r.decision === "ACTION_PLANNED" ? `Action planned${r.action ? `: ${r.action}` : ""}` : "Reviewed"}. “{r.note}”</>, when: formatDateTime(r.createdAt, p.tz), icon: UserCheck, tone: "brand" as const }))} />
-                : <p className="text-[13.5px] text-ink3">Not reviewed yet. Nothing happens to {open.name.split(" ")[0]} from this flag alone.</p>}
+                : <p className="text-[13.5px] text-ink3"><Words k="Not reviewed yet. Nothing happens to" /> {open.name.split(" ")[0]} <Words k="from this flag alone." /></p>}
             </div>
           </div>
         </UrlSheet>
@@ -227,7 +231,7 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
               <section key={g.area} className="flex flex-col gap-3">
                 <p className="eyebrow text-ink3">{g.label} · {g.count}{g.actNow ? ` · ${g.actNow} to act on soon` : ""}</p>
                 {g.items.map((s) => <AheadCard key={s.key} s={s} />)}
-                {g.more > 0 && <Link href={withQ(HREF, sp, { ahead: g.area })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">and {g.more} more {g.label.toLowerCase()} suggestions</Link>}
+                {g.more > 0 && <Link href={withQ(HREF, sp, { ahead: g.area })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline"><Words k="and" /> {g.more} <Words k="more" /> {g.label.toLowerCase()} <Words k="suggestions" /></Link>}
               </section>
             ))}
             {all.groups.length === 0 && <Empty icon={Telescope} title="Nothing here right now" body="Suggestions appear when the numbers say so, and go when they no longer do." />}
@@ -247,7 +251,7 @@ function AheadCard({ s }: { s: AiSignal }) {
         {s.certainty && <Pill tone="neutral">{CERTAINTY_LABEL[s.certainty]}</Pill>}
         {s.href && <ButtonLink href={s.href} size="sm" variant="secondary">{s.hrefLabel ?? "Open"}</ButtonLink>}
         <QuickButton run={aiDecisionAction.bind(null, s.key, "FLAGGED")} variant="soft">{s.studentId ? "Add for review" : "Make it a task"}</QuickButton>
-        <QuickButton run={aiDecisionAction.bind(null, s.key, "DISMISSED")} variant="ghost">Not a concern</QuickButton>
+        <QuickButton run={aiDecisionAction.bind(null, s.key, "DISMISSED")} variant="ghost"><Words k="Not a concern" /></QuickButton>
       </>}>{s.body}</Suggestion>
   );
 }

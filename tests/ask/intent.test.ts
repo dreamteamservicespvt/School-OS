@@ -5,6 +5,10 @@
 // numbers and other searches are left to Search. No database here.
 import { describe, expect, it } from "vitest";
 import { askHref, classKey, closestQuestions, looksLikeQuestion, matchIntent, questionTitle, readClass, QUESTION_KEYS, type QuestionKey } from "@/lib/ask/questions";
+import { linkTitleIn, questionTitleIn } from "@/lib/ask/titles";
+import { translator } from "@/lib/i18n/t";
+import { hi } from "@/lib/i18n/catalogues/hi";
+import { te } from "@/lib/i18n/catalogues/te";
 
 const top = (text: string, allowed: readonly QuestionKey[] = QUESTION_KEYS) => matchIntent(text, allowed)[0] ?? null;
 
@@ -101,5 +105,38 @@ describe("a question that matches none", () => {
     expect(closestQuestions("how are the children doing in the exams", allowed)[0]).toBe("below-pass");
     expect(closestQuestions("how is the money side", allowed)[0]).toBe("fees-overdue");
     expect(closestQuestions("anything new", allowed, ["birthdays", "absent-today"])).toEqual(["birthdays", "absent-today"]);
+  });
+});
+
+// Gap list G39: words typed in Hindi or Telugu reach the same questions, and the titles show in
+// the person's language (English titles stay exactly as before).
+describe("Indian languages", () => {
+  it.each([
+    ["आज कौन अनुपस्थित है?", "absent-today", {}],
+    ["कल कक्षा 5 में कौन गैरहाज़िर था", "absent-today", { cls: "5", when: "yesterday" }],
+    ["किसकी फ़ीस बकाया है", "fees-overdue", {}],
+    ["ఈ రోజు గైర్హాజరు ఎవరు", "absent-today", {}],
+    ["తరగతి 7 ఫీజు బాకీ", "fees-overdue", { cls: "7" }],
+    ["ఈ వారం పుట్టినరోజులు", "birthdays", { when: "thisweek" }],
+    ["సిబ్బంది ఆలస్యం నిన్న", "late-staff", { when: "yesterday" }],
+  ] as const)("%s", (text, key, params) => {
+    const m = top(text);
+    expect(m?.key).toBe(key);
+    expect(m?.params).toMatchObject(params);
+  });
+
+  it("looks like a question by its first word", () => {
+    expect(looksLikeQuestion("कौन आया")).toBe(true);
+    expect(looksLikeQuestion("ఎవరు రాలేదు")).toBe(true);
+  });
+
+  it("titles in the person's language, English unchanged", () => {
+    expect(questionTitleIn(translator("en", {}), "absent-today", { cls: "5 A" })).toBe(questionTitle("absent-today", { cls: "5 A" }));
+    const hiT = translator("hi", hi);
+    const teT = translator("te", te);
+    expect(questionTitleIn(hiT, "absent-today", { cls: "5 A" })).toContain("5 A");
+    expect(questionTitleIn(hiT, "absent-today", { cls: "5 A" })).not.toContain("Who");
+    expect(questionTitleIn(teT, "fees-overdue", { amount: 10000 })).toContain("₹10,000");
+    expect(linkTitleIn(teT, "/ask?q=birthdays&when=today", "Whose birthday is today?")).not.toBe("Whose birthday is today?");
   });
 });

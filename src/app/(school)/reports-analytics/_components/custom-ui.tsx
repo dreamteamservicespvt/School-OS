@@ -18,6 +18,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { cx } from "@/components/ui/cx";
 import { saveCustomAction, saveScheduleAction, scheduleStatusAction, sendNowAction } from "../actions";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 /** Ticks a column on or off in the page address; the preview follows. */
 export function ColumnPicker({ fields, chosen }: { fields: { key: string; label: string }[]; chosen: string[] }) {
@@ -55,7 +56,7 @@ export function SaveCustomSheet({ spec, sub, closeHref, doneHref, start }: { spe
   return (
     <SheetForm title="Save this report" sub={sub} closeHref={closeHref} doneHref={doneHref} action={saveCustomAction} submitLabel="Save report"
       hidden={{ area: spec.area, classId: spec.classId, show: spec.show, group: spec.group, totals: spec.totals }}
-      extraButtons={<SubmitButton variant="ghost" name="then" value="schedule" className="!text-brand">Save and schedule it</SubmitButton>}>
+      extraButtons={<SubmitButton variant="ghost" name="then" value="schedule" className="!text-brand"><Words k="Save and schedule it" /></SubmitButton>}>
       {spec.columns.map((c) => <input key={c} type="hidden" name="columns" value={c} />)}
       <SText name="name" label="Name" required start={start} placeholder="Class 7 marks and attendance" autoComplete="off" maxLength={80} />
     </SheetForm>
@@ -130,7 +131,7 @@ function ScheduleFields({ start, reports, presets, people }: { start: ScheduleSt
         <input type="hidden" name="format" value={format} />
       </FieldShell>
       <fieldset className="flex flex-col gap-1.5">
-        <legend className="text-[13px] font-semibold text-ink2 mb-1.5">Send to<span className="text-bad" aria-hidden="true"> *</span></legend>
+        <legend className="text-[13px] font-semibold text-ink2 mb-1.5"><Words k="Send to" /><span className="text-bad" aria-hidden="true"> *</span></legend>
         <div className="flex flex-wrap gap-2">
           {people.map((p) => {
             const on = chosen.includes(p.id);
@@ -144,9 +145,9 @@ function ScheduleFields({ start, reports, presets, people }: { start: ScheduleSt
           })}
         </div>
         {chosen.map((id) => <input key={id} type="hidden" name="recipientIds" value={id} />)}
-        {toError ? <p className="text-[12.5px] text-bad" role="alert">{toError}</p> : <p className="text-[12.5px] text-ink3">Only staff who may see this data can receive it</p>}
+        {toError ? <p className="text-[12.5px] text-bad" role="alert">{toError}</p> : <p className="text-[12.5px] text-ink3"><Words k="Only staff who may see this data can receive it" /></p>}
       </fieldset>
-      <p className="text-[12.5px] text-ink3">Sends {when}. Email is set up in Settings, SMS, WhatsApp & Email.</p>
+      <p className="text-[12.5px] text-ink3"><Words k="Sends" /> {when}<Words k={". Email is set up in Settings, SMS, WhatsApp & Email."} /></p>
     </>
   );
 }

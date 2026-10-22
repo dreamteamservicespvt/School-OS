@@ -3,6 +3,7 @@
 // so dark mode and the school's colour keep working.
 
 import { cx } from "@/components/ui/cx";
+import { Words } from "@/lib/i18n/client";
 
 export type StatusView = { key: string; name: string; letter: string; tone: string };
 
@@ -43,7 +44,7 @@ export const pillTone = (tone: string | undefined) => (({ success: "ok", danger:
 export const toneClass = (tone: string | undefined) => cx(CELL_TONE[tone ?? "neutral"] ?? CELL_TONE.neutral, "border-transparent");
 
 export function StatusChip({ status, size = "md" }: { status: StatusView | undefined; size?: "sm" | "md" }) {
-  if (!status) return <span className="inline-flex items-center rounded-full border border-dashed border-line px-2.5 h-6 text-xs font-semibold text-ink3">Not marked</span>;
+  if (!status) return <span className="inline-flex items-center rounded-full border border-dashed border-line px-2.5 h-6 text-xs font-semibold text-ink3"><Words k="Not marked" /></span>;
   return (
     <span className={cx("inline-flex items-center gap-1.5 rounded-full font-semibold whitespace-nowrap", size === "sm" ? "h-5 px-2 text-[11px]" : "h-6 px-2.5 text-xs", cellClass(status))}>
       <span aria-hidden="true" className="font-bold">{status.letter}</span>

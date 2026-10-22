@@ -15,6 +15,7 @@ import type { FormState } from "@/lib/forms";
 import { FRONT_OFFICE_FEATURES } from "@/lib/front-office/words";
 import { listAddAction, listRemoveAction, settingsAction } from "../actions";
 import { SegField } from "./fields";
+import { Words } from "@/lib/i18n/client";
 
 type Settings = { photoRequired: boolean; idProofRequired: boolean; pickupCodeCheck: boolean; passExpiry: string | null; slotMinutes: number };
 
@@ -26,7 +27,7 @@ export function SettingsSheet({ closeHref, s, features, dayEnd }: { closeHref: s
       <SSwitch name="pickupCodeCheck" title="Pickup code check" sub="A one-time code to the guardian’s registered mobile before a child is released" start={s.pickupCodeCheck} />
       <ExpiryFields passExpiry={s.passExpiry} dayEnd={dayEnd} />
       <SSelect name="slotMinutes" label="Appointment slots" start={String(s.slotMinutes)} options={[10, 15, 20, 30].map((m) => ({ value: String(m), label: `${m} minutes` }))} />
-      <p className="eyebrow text-ink3 pt-1">Optional parts</p>
+      <p className="eyebrow text-ink3 pt-1"><Words k="Optional parts" /></p>
       {FRONT_OFFICE_FEATURES.map((f) => <SSwitch key={f.key} name={f.key} title={f.label} sub={f.about} start={features.includes(f.key)} />)}
     </SheetForm>
   );
@@ -86,7 +87,7 @@ function ListEditor({ list, label, values }: { list: string; label: string; valu
       <form ref={ref} action={run} className="flex gap-2">
         <input type="hidden" name="list" value={list} />
         <input name="value" placeholder={`Add to ${label.toLowerCase()}`} aria-label={`Add to ${label.toLowerCase()}`} maxLength={40} className={cx(inputCls(state && !state.ok), "h-10 text-[14px]")} />
-        <Button type="submit" variant="secondary" icon={Plus} loading={pending}>Add</Button>
+        <Button type="submit" variant="secondary" icon={Plus} loading={pending}><Words k="Add" /></Button>
       </form>
       {problem && <p className="text-[12.5px] text-bad" role="alert">{problem}</p>}
     </section>

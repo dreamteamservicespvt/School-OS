@@ -7,6 +7,7 @@
 import { useState } from "react";
 import { TextField } from "@/components/ui/field";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export function SignInChoice({ error }: { error?: string }) {
   const [how, setHow] = useState<"invite" | "password">("invite");
@@ -18,7 +19,7 @@ export function SignInChoice({ error }: { error?: string }) {
   );
   return (
     <fieldset className="space-y-2">
-      <legend className="mb-1 font-medium">First sign-in</legend>
+      <legend className="mb-1 font-medium"><Words k="First sign-in" /></legend>
       <div className="grid gap-2 sm:grid-cols-2">
         {option("invite", "Send an invite link", "Sent by WhatsApp or SMS, and email when they have one. They choose their own password.")}
         {option("password", "Temporary password", "You type it and give it to them in person. They must choose their own at the first sign-in.")}

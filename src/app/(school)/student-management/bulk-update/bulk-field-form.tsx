@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import type { FormState } from "@/lib/forms";
 import type { BulkRow } from "@/lib/students/bulk";
 import { bulkFieldAction } from "../_actions/bulk";
+import { Words } from "@/lib/i18n/client";
 
 type Student = { id: string; name: string; admissionNo: string; cls: string; current: string | null };
 
@@ -34,11 +35,11 @@ export function BulkFieldForm({ field, label, help, students }: { field: string;
       {students.map((s) => <input key={s.id} type="hidden" name="ids" value={s.id} />)}
       <label className="flex min-h-11 items-center gap-3">
         <input type="checkbox" name="useSame" checked={useSame} onChange={(e) => setUseSame(e.target.checked)} className="size-5 accent-brand" />
-        <span>Give everyone the same {label.toLowerCase()}</span>
+        <span><Words k="Give everyone the same" /> {label.toLowerCase()}</span>
       </label>
       {useSame && (
         <label className="block">
-          <span className="mb-1 block text-[13px] font-semibold text-ink2">{label} for all {students.length}</span>
+          <span className="mb-1 block text-[13px] font-semibold text-ink2">{label} <Words k="for all" /> {students.length}</span>
           <input name="same" required className="h-11 w-full max-w-sm rounded-xl border border-line bg-surface px-3 text-base" />
         </label>
       )}
@@ -49,15 +50,15 @@ export function BulkFieldForm({ field, label, help, students }: { field: string;
           return (
             <li key={s.id} className="grid gap-2 px-3 py-2 sm:grid-cols-[1fr_14rem_14rem] sm:items-center">
               <span><span className="font-medium">{s.name}</span> <span className="text-[13.5px] text-ink2">{s.admissionNo}{s.cls ? ` · ${s.cls}` : ""}</span></span>
-              <span className="text-[13.5px] text-ink2">Now: {s.current ?? "empty"}</span>
+              <span className="text-[13.5px] text-ink2"><Words k="Now:" /> {s.current ?? "empty"}</span>
               {useSame ? <span className="text-[13.5px]">{p ? `New: ${p.after ?? "empty"}` : ""}</span> : (
-                <label><span className="sr-only">New {label.toLowerCase()} for {s.name}</span>
+                <label><span className="sr-only"><Words k="New" /> {label.toLowerCase()} <Words k="for" /> {s.name}</span>
                   <input name={`v_${s.id}`} defaultValue={s.current ?? ""} className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-base" />
                 </label>
               )}
               {p && (p.problem ? <span className="text-[13.5px] text-bad sm:col-span-3">{p.problem}</span>
-                : p.before === p.after ? <span className="sm:col-span-3"><Badge>No change</Badge></span>
-                : <span className="text-[13.5px] sm:col-span-3"><Badge tone={done ? "success" : "brand"}>{done ? "Saved" : "Will change"}</Badge> {p.before ?? "empty"} to {p.after ?? "empty"}</span>)}
+                : p.before === p.after ? <span className="sm:col-span-3"><Badge><Words k="No change" /></Badge></span>
+                : <span className="text-[13.5px] sm:col-span-3"><Badge tone={done ? "success" : "brand"}>{done ? "Saved" : "Will change"}</Badge> {p.before ?? "empty"} <Words k="to" /> {p.after ?? "empty"}</span>)}
             </li>
           );
         })}
@@ -65,9 +66,9 @@ export function BulkFieldForm({ field, label, help, students }: { field: string;
       {!done && (
         <div className="flex flex-wrap gap-2">
           {preview
-            ? <><Button type="submit" loading={pending} loadingText="Saving…" name="step" value="apply">Save {preview.filter((r) => !r.problem && r.before !== r.after).length} changes</Button>
-                <Button type="submit" variant="secondary" disabled={pending} name="step" value="preview">Check again</Button></>
-            : <Button type="submit" loading={pending} loadingText="Checking…" name="step" value="preview">Check the changes</Button>}
+            ? <><Button type="submit" loading={pending} loadingText="Saving…" name="step" value="apply"><Words k="Save" /> {preview.filter((r) => !r.problem && r.before !== r.after).length} <Words k="changes" /></Button>
+                <Button type="submit" variant="secondary" disabled={pending} name="step" value="preview"><Words k="Check again" /></Button></>
+            : <Button type="submit" loading={pending} loadingText="Checking…" name="step" value="preview"><Words k="Check the changes" /></Button>}
         </div>
       )}
     </form>

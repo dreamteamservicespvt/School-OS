@@ -23,8 +23,11 @@ import { TripPanel } from "../_components/trip-panel";
 import { CancelTripSheet, DaySheet, ScheduleSheet } from "../_components/trip-sheets";
 import { startTripAction } from "../actions";
 import { BASE, UUID, addQ, one, qs, trGuard, trPeriod, type SearchParams } from "../_lib/page";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Trips" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Trips") };
+}
 
 const HREF = `${BASE}/trips`;
 

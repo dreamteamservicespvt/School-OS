@@ -12,8 +12,12 @@ import { cx } from "@/components/ui/cx";
 import { examPage, one, withYear, type SearchParams } from "../../../_lib/page";
 import { BackLink } from "../../../_components/page-top";
 import { SeatingButton } from "../../datesheet-ui";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Seating" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Seating") };
+}
 
 export default async function SeatingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
   const { id } = await params;
@@ -44,21 +48,21 @@ export default async function SeatingPage({ params, searchParams }: { params: Pr
       <BackLink page={page} href={`/examination-results/datesheet/${id}`} label={d.exam.title} sub="Seating arrangement" />
       <div className="mb-5 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">Seating arrangement</h1>
-          <p className="text-[14px] text-ink2 mt-1">Seat numbers per room by roll number. Optional.</p>
+          <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight"><Words k="Seating arrangement" /></h1>
+          <p className="text-[14px] text-ink2 mt-1"><Words k="Seat numbers per room by roll number. Optional." /></p>
         </div>
         <div className="flex flex-wrap gap-2">
           {plan.length > 0 && chosen && (
             <a href={`/examination-results/datesheet/${id}/seating/print?sitting=${chosen.key}`} target="_blank" rel="noopener"
               className="inline-flex h-11 items-center gap-2 rounded-xl border border-line bg-surface px-4 text-[14px] font-semibold hover:bg-sunken">
-              <Printer size={17} aria-hidden="true" />Print seating charts
+              <Printer size={17} aria-hidden="true" /><Words k="Print seating charts" />
             </a>
           )}
           {can && list.length > 0 && <SeatingButton examId={id} sittings={list.map((s) => ({ key: s.key, label: s.label, classes: s.classes }))} rooms={data.rooms} />}
         </div>
       </div>
-      {d.exam.status === "DRAFT" && <EmptyState title="Publish the datesheet first">Seat plans are made for a published datesheet.</EmptyState>}
-      {list.length === 0 ? <EmptyState title="No papers yet">Add papers to the datesheet first.</EmptyState> : (
+      {d.exam.status === "DRAFT" && <EmptyState title="Publish the datesheet first"><Words k="Seat plans are made for a published datesheet." /></EmptyState>}
+      {list.length === 0 ? <EmptyState title="No papers yet"><Words k="Add papers to the datesheet first." /></EmptyState> : (
         <>
           <Chips label="Sittings" className="mb-4" value={chosen?.key ?? ""}
             options={list.map((s) => ({ value: s.key, label: `${s.label} · ${short(s.classes)}`, href: withYear(`/examination-results/datesheet/${id}/seating?sitting=${s.key}`, page) }))} />
@@ -66,19 +70,19 @@ export default async function SeatingPage({ params, searchParams }: { params: Pr
             <EmptyState title="No seat plan for this sitting">{can ? "Make a seat plan: give the rooms and their seats, and students are seated by class and roll number." : "Ask the Exam In-charge to make one."}</EmptyState>
           ) : (
             <>
-              <p className="mb-3 text-[13.5px] text-ink2">{plural(seated, "student")} in {plural(plan.length, "room")}</p>
+              <p className="mb-3 text-[13.5px] text-ink2">{plural(seated, "student")} <Words k="in" /> {plural(plan.length, "room")}</p>
               <div className="grid gap-4 xl:grid-cols-2">
                 {plan.map((room) => {
                   const here = [...new Set(room.seats.map((x) => x.label))];
                   const tone = (label: string) => here.indexOf(label) % TONES.length;
                   return (
                     <Card key={room.name} className="p-3">
-                      <p className="eyebrow text-center text-[12px] font-semibold text-ink3 mb-2">Board · {room.name} · {plural(room.seats.length, "seat")}</p>
+                      <p className="eyebrow text-center text-[12px] font-semibold text-ink3 mb-2"><Words k="Board ·" /> {room.name} · {plural(room.seats.length, "seat")}</p>
                       <ol className="grid grid-cols-5 gap-1.5">
                         {room.seats.map((x) => (
                           <li key={x.seatNo} title={`Seat ${x.seatNo}: ${x.name}, ${x.label}${x.rollNo ? `, roll ${x.rollNo}` : ""}`}
                             className={cx("min-h-11 rounded-lg grid place-items-center px-1 py-1 text-[11.5px] font-semibold tnum leading-tight text-center", TONES[tone(x.label)])}>
-                            <span className="sr-only">Seat {x.seatNo}: {x.name}, </span>
+                            <span className="sr-only"><Words k="Seat" /> {x.seatNo}: {x.name}, </span>
                             <span aria-hidden="true">{x.label.replace(/^Class /, "")}-{String(x.rollNo ?? x.seatNo).padStart(2, "0")}</span>
                           </li>
                         ))}
@@ -87,7 +91,7 @@ export default async function SeatingPage({ params, searchParams }: { params: Pr
                         <Legend items={here.map((l) => [DOTS[tone(l)], `${l.replace(/^Class /, "")} · ${plural(room.seats.filter((x) => x.label === l).length, "student")}`] as [string, string])} />
                       </div>
                       <details className="mt-3 rounded-xl border border-line">
-                        <summary className="flex min-h-10 cursor-pointer items-center px-3 text-[13px] font-semibold text-ink2">Names by seat</summary>
+                        <summary className="flex min-h-10 cursor-pointer items-center px-3 text-[13px] font-semibold text-ink2"><Words k="Names by seat" /></summary>
                         <ol className="divide-y divide-line/70 border-t border-line">
                           {room.seats.map((x) => (
                             <li key={x.seatNo} className="flex items-center gap-3 px-3 py-2 text-[13.5px]">

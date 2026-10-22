@@ -2,8 +2,11 @@ import type { Metadata } from "next";
 import { requireSettingsPage } from "@/lib/settings/page-access";
 import { PLACES } from "@/lib/imports/places";
 import { FileReview } from "@/components/import/file-review";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Check a file · Switching to School OS" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Check a file · Switching to School OS") };
+}
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 

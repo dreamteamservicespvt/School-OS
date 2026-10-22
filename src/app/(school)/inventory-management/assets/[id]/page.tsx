@@ -25,8 +25,12 @@ import { decidable, whoNames } from "../../_lib/lists";
 import { decideAction } from "../../actions";
 import { unlinkItemAction } from "../actions";
 import { AssetSheet, AssignSheet, DisposeSheet, LinkItemSheet, RepairSheet, RepairUpdateSheet } from "../sheets";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Asset · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Asset · Inventory Management") };
+}
 const day = (d: Date | null) => (d ? formatDate(d, "UTC") : "");
 const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 
@@ -79,19 +83,19 @@ export default async function AssetPage({ params, searchParams }: { params: Prom
           ...(!d.waiting ? [{ label: "Dispose", href: href({ open: "dispose" }), tone: "bad" as const, icon: <Trash2 size={16} aria-hidden="true" /> }] : []),
         ] : []),
       ]} />
-      {!disposed && <ButtonLink href={href({ open: "repair" })} variant="secondary" icon={Wrench} scroll={false}>Log repair</ButtonLink>}
-      {!disposed && <ButtonLink href={href({ open: "assign" })} variant="primary" icon={ArrowLeftRight} scroll={false}>Move or assign</ButtonLink>}
+      {!disposed && <ButtonLink href={href({ open: "repair" })} variant="secondary" icon={Wrench} scroll={false}><Words k="Log repair" /></ButtonLink>}
+      {!disposed && <ButtonLink href={href({ open: "assign" })} variant="primary" icon={ArrowLeftRight} scroll={false}><Words k="Move or assign" /></ButtonLink>}
     </div>
   ) : undefined;
 
   return (
     <>
-      <InvHead pageName={a.name} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/assets`} className="hover:underline">Assets</Link> · <span className="font-mono">{a.tag}</span></>} />
+      <InvHead pageName={a.name} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/assets`} className="hover:underline"><Words k="Assets" /></Link> · <span className="font-mono">{a.tag}</span></>} />
       <Stack>
         {d.waiting && (d.waiting.approvalId && d.mine.has(d.waiting.approvalId)
           ? <DecideBox action={decideAction} approvalId={d.waiting.approvalId} question={`Dispose of ${a.name} ${a.tag} (${DISPOSAL_METHOD[d.waiting.method] ?? d.waiting.method}${d.waiting.salePaise !== null ? `, ${formatRupees(d.waiting.salePaise)}` : ""})? Reason: ${d.waiting.reason}`} />
           : <Banner tone="info" icon={Trash2} title="Disposal waiting for approval">{DISPOSAL_METHOD[d.waiting.method] ?? d.waiting.method}: {d.waiting.reason}</Banner>)}
-        {disposed && <Banner tone="warn" title={`Disposed${a.disposedOn ? ` on ${day(a.disposedOn)}` : ""}`}>The asset stays in the register as Disposed.</Banner>}
+        {disposed && <Banner tone="warn" title={`Disposed${a.disposedOn ? ` on ${day(a.disposedOn)}` : ""}`}><Words k="The asset stays in the register as Disposed." /></Banner>}
         <Split>
           <Col>
             <Card>
@@ -110,7 +114,7 @@ export default async function AssetPage({ params, searchParams }: { params: Prom
             </Card>
             <Card>
               <CardHeader title="Repairs" divided icon={Wrench} />
-              {a.repairs.length === 0 ? <p className="px-5 py-4 text-[13.5px] text-ink3">No repairs logged.</p> : (
+              {a.repairs.length === 0 ? <p className="px-5 py-4 text-[13.5px] text-ink3"><Words k="No repairs logged." /></p> : (
                 <ul className="divide-y divide-line">
                   {a.repairs.map((r) => (
                     <li key={r.id} className="px-5 py-3 flex items-start gap-3 text-[14px]">
@@ -119,7 +123,7 @@ export default async function AssetPage({ params, searchParams }: { params: Prom
                         <span className="block text-[12.5px] text-ink3">{day(r.date)}{r.vendorId ? ` · ${d.vendorName.get(r.vendorId) ?? ""}` : ""}{r.costPaise !== null ? ` · ${formatRupees(r.costPaise)}` : ""}{r.doneOn ? ` · done ${day(r.doneOn)}` : ""}{r.expenseId ? " · in Finance" : ""}</span>
                         {r.note && <span className="block text-[12.5px] text-ink2">{r.note}</span>}
                       </span>
-                      {can.assets && (r.status === "OPEN" || r.status === "IN_PROGRESS") && <Link className="text-[13px] font-semibold text-brand hover:underline" href={href({ repair: r.id })} scroll={false}>Update</Link>}
+                      {can.assets && (r.status === "OPEN" || r.status === "IN_PROGRESS") && <Link className="text-[13px] font-semibold text-brand hover:underline" href={href({ repair: r.id })} scroll={false}><Words k="Update" /></Link>}
                       <Pill tone={MAINT_STATUS[r.status].tone}>{MAINT_STATUS[r.status].label}</Pill>
                     </li>
                   ))}
@@ -141,10 +145,10 @@ export default async function AssetPage({ params, searchParams }: { params: Prom
           <Col>
             <Card>
               <CardHeader title="Value after depreciation" description={`${s.depreciationMethod === "WDV" ? "Written-down value" : "Straight line"} at ${rate}% a year${a.depreciationRate !== null ? " (this asset's own rate)" : ` (${a.type} rate)`}`} divided />
-              {a.costPaise === null || !a.purchaseDate ? <p className="px-5 py-4 text-[13.5px] text-ink3">Give the purchase date and cost to see its value each year.</p> : (
+              {a.costPaise === null || !a.purchaseDate ? <p className="px-5 py-4 text-[13.5px] text-ink3"><Words k="Give the purchase date and cost to see its value each year." /></p> : (
                 <>
-                  <p className="px-5 pt-4 text-[14px]">Value today: <b className="font-semibold">{formatRupees(bookValue(a, s.depreciationMethod, rate, today))}</b></p>
-                  {rows.length === 0 ? <p className="px-5 py-3 text-[13.5px] text-ink3">Less than a year old: valued at cost.</p> : (
+                  <p className="px-5 pt-4 text-[14px]"><Words k="Value today:" /> <b className="font-semibold">{formatRupees(bookValue(a, s.depreciationMethod, rate, today))}</b></p>
+                  {rows.length === 0 ? <p className="px-5 py-3 text-[13.5px] text-ink3"><Words k="Less than a year old: valued at cost." /></p> : (
                     <SimpleTable caption="Depreciation by year" rows={rows} rowKey={(r) => String(r.year)} minWidth={420} cols={[
                       { label: "Year", render: (r) => `Year ${r.year} (from ${day(r.from)})` },
                       { label: "Opening", right: true, nowrap: true, render: (r) => formatRupees(r.opening) },
@@ -157,7 +161,7 @@ export default async function AssetPage({ params, searchParams }: { params: Prom
             </Card>
             <Card>
               <CardHeader title="Linked stock items" description="Spare parts and consumables for this asset." icon={Link2} divided />
-              {a.links.length === 0 ? <p className="px-5 py-4 text-[13.5px] text-ink3">None linked.</p> : (
+              {a.links.length === 0 ? <p className="px-5 py-4 text-[13.5px] text-ink3"><Words k="None linked." /></p> : (
                 <ul className="divide-y divide-line">
                   {a.links.map((l) => {
                     const it = d.linked.get(l.itemId);
@@ -191,7 +195,7 @@ export default async function AssetPage({ params, searchParams }: { params: Prom
                   {d.requests.map((r) => (
                     <li key={r.id}>
                       <Link href={qs(`${BASE}/rooms`, { tab: "maintenance", request: r.id })} className="px-5 py-3 flex items-center gap-3 text-[14px] hover:bg-sunken/60">
-                        <span className="flex-1 min-w-0"><b className="font-semibold">{r.number}</b> {r.problem}<span className="block text-[12.5px] text-ink3">{PRIORITY[r.priority].label} priority</span></span>
+                        <span className="flex-1 min-w-0"><b className="font-semibold">{r.number}</b> {r.problem}<span className="block text-[12.5px] text-ink3">{PRIORITY[r.priority].label} <Words k="priority" /></span></span>
                         <Pill tone={MAINT_STATUS[r.status].tone}>{MAINT_STATUS[r.status].label}</Pill>
                       </Link>
                     </li>

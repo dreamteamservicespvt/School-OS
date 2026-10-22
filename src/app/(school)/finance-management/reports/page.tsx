@@ -18,8 +18,12 @@ import { UrlSegmented, UrlSelect } from "@/components/money/url-filters";
 import { OldSoftwareBanner, allBeforeGoLive } from "@/components/money/go-live";
 import { FinanceHead } from "../_components/finance-head";
 import { BASE, financeGuard, financePeriod, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Finance Reports" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Finance Reports") };
+}
 
 const HREF = `${BASE}/reports`;
 const SHOW = 500;
@@ -96,7 +100,7 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
   return (
     <div>
       <FinanceHead pageName="Finance Reports" href={HREF} sub="Every report works by financial year (April to March), with a date range inside it · also in Reports & Analytics"
-        viewActions={p.can.export && p.has("finance-tally") && full ? <a href={qs(`${HREF}/tally`, { fy: keep.fy, period: keep.period, from: keep.from, to: keep.to })} className={buttonClass("secondary")}><FileCode2 size={17} aria-hidden="true" />Export for Tally</a> : undefined} />
+        viewActions={p.can.export && p.has("finance-tally") && full ? <a href={qs(`${HREF}/tally`, { fy: keep.fy, period: keep.period, from: keep.from, to: keep.to })} className={buttonClass("secondary")}><FileCode2 size={17} aria-hidden="true" /><Words k="Export for Tally" /></a> : undefined} />
       <Toolbar className="!px-0 !pt-0 mb-5 md:!flex-row">
         <UrlSelect id="fr-fy" param="fy" label="Financial year" className="md:w-72" options={yearOptions} />
         {!old && has("dates") && <PeriodFilter {...p.dates} fallback={null} allLabel={`${fy.name} so far`} className="md:w-64" />}
@@ -104,13 +108,13 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
       {old ? (
         <Card><Empty icon={Archive} title="Kept in the old software"
           body={`School OS started on ${formatDate(p.goLive)}. Opening balances were brought in on that day; reports for earlier years stay in the old software’s files.`}
-          action={<Link href={qs(HREF, { r: def.key })} className={buttonClass("secondary")}>Back to {p.fy.name}</Link>} /></Card>
+          action={<Link href={qs(HREF, { r: def.key })} className={buttonClass("secondary")}><Words k="Back to" /> {p.fy.name}</Link>} /></Card>
       ) : (
         <ReportsFrame reports={links} active={def.key}>
           {off ? (
             <Card><Empty icon={LOOK[def.key]?.icon ?? Gauge} title={off === "finance-budget" ? "Budgets are switched off" : "Accounts are switched off"}
               body={off === "finance-budget" ? "Switch budgets on in Finance Settings to see each head’s budget against what was spent, with alerts at 80% and 100%." : "Switch Accounts on in Finance Settings for journal entries, the ledger and the trial balance."}
-              action={p.may("settings") ? <Link href={`${BASE}/settings`} className={buttonClass("secondary")}>Open Finance Settings</Link> : undefined} /></Card>
+              action={p.may("settings") ? <Link href={`${BASE}/settings`} className={buttonClass("secondary")}><Words k="Open Finance Settings" /></Link> : undefined} /></Card>
           ) : r && (
             <Stack>
               {has("dates") && <OldSoftwareBanner goLive={p.goLive} from={f.from} to={f.to} what="finance records" />}
@@ -144,7 +148,7 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
                   action={<div className="flex flex-wrap justify-end items-center gap-1.5">
                     {has("group") && <UrlSegmented param="group" fallback="month" label="Group by" size="sm" options={[{ value: "month", label: "Month" }, { value: "day", label: "Day" }]} />}
                     {p.can.export && <ExportButton href={exportHref} size="sm" always />}
-                    {p.can.export && <a href={`${exportHref}${exportHref.includes("?") ? "&" : "?"}format=pdf`} target="_blank" rel="noreferrer" className={`${buttonClass("ghost", "sm")} hidden sm:inline-flex`}><Printer size={15} aria-hidden="true" />Print</a>}
+                    {p.can.export && <a href={`${exportHref}${exportHref.includes("?") ? "&" : "?"}format=pdf`} target="_blank" rel="noreferrer" className={`${buttonClass("ghost", "sm")} hidden sm:inline-flex`}><Printer size={15} aria-hidden="true" /><Words k="Print" /></a>}
                   </div>} />
                 {has("by") && (
                   <div className="px-5 pb-3"><UrlSegmented param="by" fallback="head" label="Group by" size="sm" className="w-full md:w-auto" options={[{ value: "head", label: "Head" }, { value: "vendor", label: "Vendor" }, { value: "month", label: "Month" }, { value: "approver", label: "Approver" }]} /></div>
@@ -153,7 +157,7 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
                   <Empty icon={Archive} title="Kept in the old software" body={`School OS has finance records from ${formatDate(p.goLive)}. Earlier ones stay in the old software; their totals came in as opening balances.`} />
                 ) : r.rows.length === 0 ? (
                   <Empty icon={FileSpreadsheet} title="Nothing in this report" body={has("dates") ? "Nothing matches these dates. Try a longer period." : "Nothing is waiting."}
-                    action={def.key === "pending-expenses" ? <Link href={`${BASE}/expenses`} className={buttonClass("secondary")}>Open Expenses</Link> : undefined} />
+                    action={def.key === "pending-expenses" ? <Link href={`${BASE}/expenses`} className={buttonClass("secondary")}><Words k="Open Expenses" /></Link> : undefined} />
                 ) : (
                   <SimpleTable minWidth={Math.max(460, r.columns.length * 120)} caption={def.label} rows={shown}
                     cols={r.columns.map((c) => ({ label: c.label, right: c.kind === "money" || c.kind === "number", render: (row: Record<string, unknown>) => cellText(row[c.key] as never, c.kind) }))}

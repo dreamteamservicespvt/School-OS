@@ -16,8 +16,12 @@ import { ButtonLink } from "@/components/ui/button";
 import { Timeline, type TimelineItem } from "@/components/ui/timeline";
 import { BackLink, Col, DL, RecordHead, Split } from "@/components/ui/split";
 import { LinkPanel } from "./link-panel";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Parent Link" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Parent Link") };
+}
 
 export default async function LinkPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -59,7 +63,7 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
   const TONES: Record<string, TimelineItem["tone"]> = { Opened: "ok", Revoked: "bad", "Phone confirmed with a one-time code": "ok", "Wrong one-time code typed": "warn", "Consent given": "ok", Created: "brand" };
   const history: TimelineItem[] = data.history.map((h) => ({
     icon: ICONS[h.what] ?? HistoryIcon, tone: TONES[h.what] ?? "neutral",
-    what: <>{h.what}{h.detail && <span className="text-ink3"> · {h.detail}</span>}{h.messageId && <> · <Link href={`/communication/history/${h.messageId}`} className="text-brand font-semibold hover:underline">Delivery</Link></>}</>,
+    what: <>{h.what}{h.detail && <span className="text-ink3"> · {h.detail}</span>}{h.messageId && <> · <Link href={`/communication/history/${h.messageId}`} className="text-brand font-semibold hover:underline"><Words k="Delivery" /></Link></>}</>,
     when: `${formatDateTime(h.at, tz)} · ${h.by}${h.ip ? ` · ${h.ip}` : ""}`,
   }));
   const details: [string, React.ReactNode][] = [
@@ -68,7 +72,7 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
     ["Link", <span key="l" className="font-mono text-[13px]">…/p/••••{link.tokenHint}</span>],
     ["Created on", formatDate(link.createdAt, tz)],
     ["Last sent", link.lastSentAt ? formatDateTime(link.lastSentAt, tz) : "Not sent yet"],
-    ["Last opened", link.lastOpenedAt ? formatDateTime(link.lastOpenedAt, tz) : <span key="o" className="text-warn font-semibold">Never</span>],
+    ["Last opened", link.lastOpenedAt ? formatDateTime(link.lastOpenedAt, tz) : <span key="o" className="text-warn font-semibold"><Words k="Never" /></span>],
   ];
 
   return (
@@ -77,35 +81,35 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
       <RecordHead title={guardian.name}
         sub={<>
           <Pill tone={active ? "ok" : "bad"} dot>{active ? "Active" : "Revoked"}</Pill>
-          <Pill tone="neutral">{liveDevices} {liveDevices === 1 ? "phone" : "phones"} verified</Pill>
-          {!link.lastOpenedAt && active && <Pill tone="warn">Never opened</Pill>}
+          <Pill tone="neutral">{liveDevices} {liveDevices === 1 ? "phone" : "phones"} <Words k="verified" /></Pill>
+          {!link.lastOpenedAt && active && <Pill tone="warn"><Words k="Never opened" /></Pill>}
         </>}
         actions={<>
-          {active && <ButtonLink href={`/communication/parent-link/${link.id}/preview`} variant="soft" icon={Smartphone}>What they see</ButtonLink>}
+          {active && <ButtonLink href={`/communication/parent-link/${link.id}/preview`} variant="soft" icon={Smartphone}><Words k="What they see" /></ButtonLink>}
           {active && access.full && <LinkPanel id={link.id} name={guardian.name} channels={channels} reasons={[...REVOKE_REASONS]} />}
         </>} />
 
       <div className="flex flex-col gap-5 lg:gap-6">
         {!active && (
           <Banner tone="info" title={`Revoked${link.revokedAt ? ` on ${formatDateTime(link.revokedAt, tz)}` : ""}.`}
-            action={data.newer ? <ButtonLink href={`/communication/parent-link/${data.newer.id}`} size="sm" variant="secondary">Open the new link</ButtonLink> : undefined}>
-            {link.revokeReason ? `${link.revokeReason}. ` : ""}It no longer opens on any phone.
+            action={data.newer ? <ButtonLink href={`/communication/parent-link/${data.newer.id}`} size="sm" variant="secondary"><Words k="Open the new link" /></ButtonLink> : undefined}>
+            {link.revokeReason ? `${link.revokeReason}. ` : ""}<Words k="It no longer opens on any phone." />
           </Banner>
         )}
-        {guardian.optedOut && <Banner tone="info" title="Opted out of general messages.">Parent Link messages still reach them, because the link is their own key.</Banner>}
+        {guardian.optedOut && <Banner tone="info" title="Opted out of general messages."><Words k="Parent Link messages still reach them, because the link is their own key." /></Banner>}
         <Split side={340}>
           <Col>
             <Card>
               <CardHeader title="History" icon={HistoryIcon} description="Every open with date, time and phone" />
-              <div className="px-5 pb-5">{history.length ? <Timeline items={history} /> : <p className="text-[13.5px] text-ink3">Nothing yet.</p>}</div>
+              <div className="px-5 pb-5">{history.length ? <Timeline items={history} /> : <p className="text-[13.5px] text-ink3"><Words k="Nothing yet." /></p>}</div>
             </Card>
             <Card>
               <CardHeader title="Consent forms" icon={FileSignature} />
               <ul className="px-5 pb-5 flex flex-col gap-2 text-[13.5px]">
                 {waiting.map((r) => (
                   <li key={r.id} className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2.5">
-                    <span>{title(r.consentTextId)?.title ?? consentTypeLabel(r.consentType)}<span className="block text-[12.5px] text-ink3">Asked {formatDate(r.createdAt, tz)} · reply by {formatDate(r.replyBy, "UTC")}</span></span>
-                    <Pill tone="warn">Waiting</Pill>
+                    <span>{title(r.consentTextId)?.title ?? consentTypeLabel(r.consentType)}<span className="block text-[12.5px] text-ink3"><Words k="Asked" /> {formatDate(r.createdAt, tz)} <Words k="· reply by" /> {formatDate(r.replyBy, "UTC")}</span></span>
+                    <Pill tone="warn"><Words k="Waiting" /></Pill>
                   </li>
                 ))}
                 {data.records.map((c) => (
@@ -114,7 +118,7 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
                     <Pill tone={c.withdrawnAt ? "neutral" : "ok"}>{c.withdrawnAt ? "Withdrawn" : "Given"}</Pill>
                   </li>
                 ))}
-                {!data.records.length && !waiting.length && <li className="text-ink3">No consent forms yet.</li>}
+                {!data.records.length && !waiting.length && <li className="text-ink3"><Words k="No consent forms yet." /></li>}
               </ul>
             </Card>
           </Col>
@@ -130,12 +134,12 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
                   const live = !d.revokedAt && d.expiresAt > now;
                   return (
                     <li key={d.id} className="flex items-start justify-between gap-3">
-                      <span><b className="font-semibold">{d.label}</b><span className="block text-[12.5px] text-ink3">Verified {formatDate(d.verifiedAt, tz)} · used {formatDateTime(d.lastUsedAt, tz)}</span></span>
+                      <span><b className="font-semibold">{d.label}</b><span className="block text-[12.5px] text-ink3"><Words k="Verified" /> {formatDate(d.verifiedAt, tz)} <Words k="· used" /> {formatDateTime(d.lastUsedAt, tz)}</span></span>
                       <Pill tone={live ? "ok" : "neutral"} className="shrink-0">{d.revokedAt ? "Signed out" : live ? `Until ${formatDate(d.expiresAt, tz)}` : "Expired"}</Pill>
                     </li>
                   );
                 })}
-                {!link.devices.length && <li className="text-ink3">No phone yet. The first time the link opens on a phone, a one-time code goes to the registered mobile.</li>}
+                {!link.devices.length && <li className="text-ink3"><Words k="No phone yet. The first time the link opens on a phone, a one-time code goes to the registered mobile." /></li>}
               </ul>
             </Card>
           </Col>

@@ -28,8 +28,12 @@ import { BASE, RESIDENT_STATUS, bedWords, plural } from "@/lib/hostel/words";
 import { HostelHead } from "../_components/head";
 import { AddFloorSheet, AddRoomSheet, BlockSheet, CloseRoomSheet, EditRoomSheet, HostelSheet, WardensSheet } from "../_components/sheets";
 import { addQ, chosenHostel, hostelGuard, idParam, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Rooms & Beds · Hostel Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Rooms & Beds · Hostel Management") };
+}
 
 const FLOOR_NAMES = ["Ground", "First", "Second", "Third", "Fourth", "Fifth", "Sixth"];
 
@@ -88,11 +92,11 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
 
   const actions = (
     <>
-      {can.hostels && <ButtonLink href={here({ add: "hostel" })} variant="ghost" icon={Building2} scroll={false}>Add a hostel</ButtonLink>}
-      {can.hostels && hostel && <ButtonLink href={here({ wardens: hostel.id })} variant="ghost" icon={UserCog} scroll={false}>Wardens</ButtonLink>}
-      {can.rooms && <ButtonLink href={`${BASE}/rooms/import`} variant="ghost" icon={FileSpreadsheet}>Import</ButtonLink>}
-      {can.rooms && hostel && <ButtonLink href={here({ add: "floor" })} variant="secondary" icon={Layers} scroll={false}>Add a floor</ButtonLink>}
-      {can.rooms && hostel && <ButtonLink href={here({ add: "room" })} variant="primary" icon={Plus} scroll={false}>Add room</ButtonLink>}
+      {can.hostels && <ButtonLink href={here({ add: "hostel" })} variant="ghost" icon={Building2} scroll={false}><Words k="Add a hostel" /></ButtonLink>}
+      {can.hostels && hostel && <ButtonLink href={here({ wardens: hostel.id })} variant="ghost" icon={UserCog} scroll={false}><Words k="Wardens" /></ButtonLink>}
+      {can.rooms && <ButtonLink href={`${BASE}/rooms/import`} variant="ghost" icon={FileSpreadsheet}><Words k="Import" /></ButtonLink>}
+      {can.rooms && hostel && <ButtonLink href={here({ add: "floor" })} variant="secondary" icon={Layers} scroll={false}><Words k="Add a floor" /></ButtonLink>}
+      {can.rooms && hostel && <ButtonLink href={here({ add: "room" })} variant="primary" icon={Plus} scroll={false}><Words k="Add room" /></ButtonLink>}
     </>
   );
 
@@ -103,7 +107,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
         actions={actions} />
       <Stack>
         {d.occ.rows.length === 0 ? (
-          <Card><Empty icon={Building2} title="No hostel yet" body={can.hostels ? "Add the boys' or girls' hostel first, then its floors, rooms and wardens." : "The Principal or School Admin adds the hostels in Hostel Settings."} action={can.hostels ? <ButtonLink href={here({ add: "hostel" })} variant="primary" icon={Plus} scroll={false}>Add a hostel</ButtonLink> : undefined} /></Card>
+          <Card><Empty icon={Building2} title="No hostel yet" body={can.hostels ? "Add the boys' or girls' hostel first, then its floors, rooms and wardens." : "The Principal or School Admin adds the hostels in Hostel Settings."} action={can.hostels ? <ButtonLink href={here({ add: "hostel" })} variant="primary" icon={Plus} scroll={false}><Words k="Add a hostel" /></ButtonLink> : undefined} /></Card>
         ) : (
           <>
             <Band items={[
@@ -132,9 +136,9 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
                   <Legend items={[["bg-ok", "Free"], ["bg-ink3/50", "Taken"], ["bg-info", "Away now"], ["bg-warn", "Blocked"]]} />
                 </div>
                 {d.grid.length === 0 ? (
-                  <Empty icon={BedDouble} title={`No rooms in ${hostel.name} yet`} body="Add the first room. Its beds are made and numbered for you. Many rooms at once: import them in Hostel Settings." action={can.rooms ? <ButtonLink href={here({ add: "room" })} variant="primary" icon={Plus} scroll={false}>Add room</ButtonLink> : undefined} />
+                  <Empty icon={BedDouble} title={`No rooms in ${hostel.name} yet`} body="Add the first room. Its beds are made and numbered for you. Many rooms at once: import them in Hostel Settings." action={can.rooms ? <ButtonLink href={here({ add: "room" })} variant="primary" icon={Plus} scroll={false}><Words k="Add room" /></ButtonLink> : undefined} />
                 ) : shownRooms.length === 0 ? (
-                  <Empty icon={SearchX} title="No room or student matches" body={q ? `Nothing called “${one(sp.q)}” in ${hostel.name}.` : "No rooms on this floor yet."} action={<ButtonLink href={qs(`${BASE}/rooms`, { hostel: p.myHostels.length > 1 ? hostel.id : null })} variant="secondary">Clear filters</ButtonLink>} />
+                  <Empty icon={SearchX} title="No room or student matches" body={q ? `Nothing called “${one(sp.q)}” in ${hostel.name}.` : "No rooms on this floor yet."} action={<ButtonLink href={qs(`${BASE}/rooms`, { hostel: p.myHostels.length > 1 ? hostel.id : null })} variant="secondary"><Words k="Clear filters" /></ButtonLink>} />
                 ) : (
                   <div className="p-4 md:p-5 flex flex-col gap-6">
                     {floors.map((f) => {
@@ -144,16 +148,16 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
                       const freeHere = rs.reduce((a, r) => a + r.beds.filter((b) => b.state === "free").length, 0);
                       return (
                         <section key={f} aria-label={`${f} floor`}>
-                          <h2 className="text-[13px] font-semibold text-ink2 mb-2.5">{f} floor <span className="text-ink3 font-normal">· {plural(rs.length, "room")} · {plural(bedsHere, "bed")} · {freeHere} free</span></h2>
+                          <h2 className="text-[13px] font-semibold text-ink2 mb-2.5">{f} <Words k="floor" /> <span className="text-ink3 font-normal">· {plural(rs.length, "room")} · {plural(bedsHere, "bed")} · {freeHere} <Words k="free" /></span></h2>
                           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-3">
                             {rs.map((rm) => {
                               const free = rm.beds.filter((b) => b.state === "free").length;
                               return (
                                 <div key={rm.id} className="rounded-2xl border border-line p-3 min-w-0">
                                   <div className="flex items-center justify-between gap-2 mb-2">
-                                    <p className="font-semibold text-[14.5px]">Room {rm.roomNo}</p>
+                                    <p className="font-semibold text-[14.5px]"><Words k="Room" /> {rm.roomNo}</p>
                                     <span className="flex items-center gap-1.5 min-w-0">
-                                      <span className="text-[12px] text-ink3 truncate">{rm.roomType ? `${rm.roomType} · ` : ""}{free ? <b className="text-ok font-semibold">{free} free</b> : "full"}</span>
+                                      <span className="text-[12px] text-ink3 truncate">{rm.roomType ? `${rm.roomType} · ` : ""}{free ? <b className="text-ok font-semibold">{free} <Words k="free" /></b> : "full"}</span>
                                       {can.rooms && <Link href={here({ room: rm.id })} scroll={false} className="size-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken hover:text-ink shrink-0" aria-label={`Change Room ${rm.roomNo}`}><Pencil size={14} aria-hidden="true" /></Link>}
                                     </span>
                                   </div>
@@ -166,7 +170,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
                                           className={cx("rounded-xl px-2.5 py-2 text-left min-w-0 border transition block",
                                             s ? (aw ? "bg-info/8 border-info/30 hover:bg-info/10" : "bg-sunken/60 border-line hover:bg-sunken") : b.state === "blocked" ? "bg-warn/12 border-transparent hover:bg-warn/15" : "bg-ok/10 border-transparent hover:bg-ok/15",
                                             match(rm.roomNo, b.studentId) && "ring-2 ring-brand")}>
-                                          <span className={cx("block text-[11px] font-semibold", s ? "text-ink3" : b.state === "blocked" ? "text-warn" : "text-ok")}>Bed {b.bedNo}</span>
+                                          <span className={cx("block text-[11px] font-semibold", s ? "text-ink3" : b.state === "blocked" ? "text-warn" : "text-ok")}><Words k="Bed" /> {b.bedNo}</span>
                                           <span className={cx("block text-[13px] font-semibold truncate", !s && (b.state === "blocked" ? "text-warn" : "text-ok"))}>{s ? s.name : b.state === "blocked" ? "Blocked" : "Free"}</span>
                                           <span className="block text-[11.5px] text-ink3 truncate">{s ? `${s.classSection ?? ""}${aw ? ` · ${aw.outingType === "LEAVE" ? "on leave" : "on outing"}` : ""}` : b.state === "blocked" ? b.blockedReason ?? "Repair" : can.allocate ? "Tap to give" : "Nobody here"}</span>
                                         </Link>
@@ -182,7 +186,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
                     })}
                   </div>
                 )}
-                {H && <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3 tnum">{hostel.name}: {plural(H.beds, "bed")} · {H.taken} taken · {H.free} free · {H.blocked} blocked · matches the residents list in Allocation</p>}
+                {H && <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3 tnum">{hostel.name}: {plural(H.beds, "bed")} · {H.taken} <Words k="taken ·" /> {H.free} <Words k="free ·" /> {H.blocked} <Words k="blocked · matches the residents list in Allocation" /></p>}
               </Card>
             )}
             {d.blockedBeds.length > 0 && hostel && (
@@ -194,7 +198,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
                     return (
                       <li key={b.id} className="flex items-center gap-3 px-5 py-2.5 flex-wrap">
                         <span className="min-w-0 flex-1"><b className="font-semibold text-[14px]">{bedWords(rm.roomNo, b.bedNo)}</b><span className="block text-[12.5px] text-ink3">{b.blockedReason}</span></span>
-                        {can.rooms && <ButtonLink href={here({ unblock: b.id })} size="sm" variant="secondary" icon={LockOpen} scroll={false}>Unblock</ButtonLink>}
+                        {can.rooms && <ButtonLink href={here({ unblock: b.id })} size="sm" variant="secondary" icon={LockOpen} scroll={false}><Words k="Unblock" /></ButtonLink>}
                       </li>
                     );
                   })}
@@ -223,7 +227,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
                     <p className="text-[13px] text-ink3">{s.classSection ?? "No class"} · <span className="font-mono text-[12px]">{s.admissionNo}</span></p>
                     <div className="flex gap-1.5 mt-1.5 flex-wrap">
                       {st && <Pill tone={st.tone}>{aw ? `${st.label} · back ${aw.toAt ? clockAt(aw.toAt, p.tz) : ""}` : st.label}</Pill>}
-                      {v.seesFees && o.due > BigInt(0) && <Pill tone="warn">{formatRupees(o.due)} hostel fees due</Pill>}
+                      {v.seesFees && o.due > BigInt(0) && <Pill tone="warn">{formatRupees(o.due)} <Words k="hostel fees due" /></Pill>}
                     </div>
                   </div>
                 </div>
@@ -234,23 +238,23 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
                   ...(o.guardians.length ? [["Parents", o.guardians.map((g) => `${g.name} (${g.relationship.toLowerCase()})`).join(", ")] as [string, string], ["Phone", o.guardians[0].phone] as [string, string]] : []),
                 ]} />
                 <div className="flex gap-2 flex-wrap">
-                  {can.allocate && <ButtonLink href={qs(`${BASE}/allocation`, { move: o.alloc.id })} variant="secondary" icon={ArrowRightLeft}>Move to another bed</ButtonLink>}
-                  {seesStudents && <ButtonLink href={`/student-management/students/${s.id}?tab=hostel`} variant="ghost" icon={UserRound}>Profile</ButtonLink>}
-                  {can.allocate && <ButtonLink href={qs(`${BASE}/allocation`, { checkout: o.alloc.id })} variant="danger-soft" icon={LogOut}>Check out</ButtonLink>}
+                  {can.allocate && <ButtonLink href={qs(`${BASE}/allocation`, { move: o.alloc.id })} variant="secondary" icon={ArrowRightLeft}><Words k="Move to another bed" /></ButtonLink>}
+                  {seesStudents && <ButtonLink href={`/student-management/students/${s.id}?tab=hostel`} variant="ghost" icon={UserRound}><Words k="Profile" /></ButtonLink>}
+                  {can.allocate && <ButtonLink href={qs(`${BASE}/allocation`, { checkout: o.alloc.id })} variant="danger-soft" icon={LogOut}><Words k="Check out" /></ButtonLink>}
                 </div>
               </div>
             ) : o.bed.state === "blocked" ? (
               <div className="flex flex-col gap-4">
                 <Banner tone="warn" title="Blocked for repair.">{o.bed.blockedReason}</Banner>
-                {can.rooms && <div className="flex justify-end"><ButtonLink href={here({ unblock: o.bed.id })} variant="primary" icon={LockOpen} scroll={false}>Unblock bed</ButtonLink></div>}
+                {can.rooms && <div className="flex justify-end"><ButtonLink href={here({ unblock: o.bed.id })} variant="primary" icon={LockOpen} scroll={false}><Words k="Unblock bed" /></ButtonLink></div>}
               </div>
             ) : (
               <div className="flex flex-col gap-4">
                 <Banner tone="ok" title="This bed is free.">{can.allocate ? "Give it to a student waiting for a bed, or block it if it needs repair." : "The warden gives free beds to students waiting for one."}</Banner>
                 <div className="flex gap-2 justify-end flex-wrap">
-                  {can.rooms && <ButtonLink href={here({ block: o.bed.id })} variant="ghost" icon={Lock} scroll={false}>Block for repair</ButtonLink>}
-                  {can.rooms && o.room.beds.every((b) => b.state !== "taken") && <ButtonLink href={here({ close: o.room.id })} variant="ghost" icon={DoorClosed} scroll={false}>Close room</ButtonLink>}
-                  {can.allocate && <ButtonLink href={qs(`${BASE}/allocation`, { allocate: "1", bed: o.bed.id })} variant="primary" icon={UserPlus}>Give this bed</ButtonLink>}
+                  {can.rooms && <ButtonLink href={here({ block: o.bed.id })} variant="ghost" icon={Lock} scroll={false}><Words k="Block for repair" /></ButtonLink>}
+                  {can.rooms && o.room.beds.every((b) => b.state !== "taken") && <ButtonLink href={here({ close: o.room.id })} variant="ghost" icon={DoorClosed} scroll={false}><Words k="Close room" /></ButtonLink>}
+                  {can.allocate && <ButtonLink href={qs(`${BASE}/allocation`, { allocate: "1", bed: o.bed.id })} variant="primary" icon={UserPlus}><Words k="Give this bed" /></ButtonLink>}
                 </div>
               </div>
             )}

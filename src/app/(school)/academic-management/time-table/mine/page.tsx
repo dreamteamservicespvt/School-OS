@@ -11,8 +11,12 @@ import { buttonClass } from "@/components/ui/button";
 import { academicPage, one, type SearchParams } from "../../_lib/page";
 import { PageTop } from "../../_components/page-top";
 import { DateParam } from "../../_components/pickers";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "My Time Table" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("My Time Table") };
+}
 const PATH = "/academic-management/time-table/mine";
 
 export default async function MyTimeTablePage({ searchParams }: { searchParams: SearchParams }) {
@@ -33,18 +37,18 @@ export default async function MyTimeTablePage({ searchParams }: { searchParams: 
       <div className="no-print mb-4 flex flex-wrap items-end gap-3">
         <DateParam current={isoDay(date)} />
         <div className="flex gap-2">
-          <Link href={link(addDays(date, -1))} className={buttonClass("secondary", "md")} aria-label="Previous day">Previous</Link>
-          {!isToday && <Link href={PATH} className={buttonClass("secondary", "md")}>Today</Link>}
-          <Link href={link(addDays(date, 1))} className={buttonClass("secondary", "md")} aria-label="Next day">Next</Link>
+          <Link href={link(addDays(date, -1))} className={buttonClass("secondary", "md")} aria-label="Previous day"><Words k="Previous" /></Link>
+          {!isToday && <Link href={PATH} className={buttonClass("secondary", "md")}><Words k="Today" /></Link>}
+          <Link href={link(addDays(date, 1))} className={buttonClass("secondary", "md")} aria-label="Next day"><Words k="Next" /></Link>
         </div>
-        <Link href="/academic-management/time-table?view=teacher" className="min-h-11 py-2.5 font-medium text-brand-text hover:underline">The whole week</Link>
+        <Link href="/academic-management/time-table?view=teacher" className="min-h-11 py-2.5 font-medium text-brand-text hover:underline"><Words k="The whole week" /></Link>
       </div>
       <h2 className="mb-3 text-lg font-semibold">{isToday ? "Today, " : ""}{DAY_NAMES[weekday(date)]} {formatDate(date)}</h2>
 
       {!staffId || !data ? (
-        <EmptyState title="Your login is not linked to a staff record">Ask the office to link your login to your staff record in Staff &amp; HR. Your periods then show here.</EmptyState>
+        <EmptyState title="Your login is not linked to a staff record"><Words k={"Ask the office to link your login to your staff record in Staff & HR. Your periods then show here."} /></EmptyState>
       ) : data.off ? (
-        <Alert tone="info" title={data.off.kind === "holiday" ? `Holiday: ${data.off.title}` : `${data.off.title}: no school`}>No periods on this day.</Alert>
+        <Alert tone="info" title={data.off.kind === "holiday" ? `Holiday: ${data.off.title}` : `${data.off.title}: no school`}><Words k="No periods on this day." /></Alert>
       ) : (
         <>
           {data.exam && (
@@ -52,14 +56,14 @@ export default async function MyTimeTablePage({ searchParams }: { searchParams: 
               {data.exam.classNames.length ? `The datesheet replaces your periods with ${data.exam.classNames.join(", ")}.` : "The datesheet replaces the periods of the classes sitting a paper."}
               {data.duties.length > 0 && (
                 <ul className="mt-2 space-y-1">
-                  {data.duties.map((p, i) => <li key={i}>Invigilate {p.className} {p.subjectName}, {time12(p.startTime)} to {time12(p.endTime)}{p.room ? ` · ${p.room}` : ""}</li>)}
+                  {data.duties.map((p, i) => <li key={i}><Words k="Invigilate" /> {p.className} {p.subjectName}, {time12(p.startTime)} <Words k="to" /> {time12(p.endTime)}{p.room ? ` · ${p.room}` : ""}</li>)}
                 </ul>
               )}
             </Alert>
           )}
-          {data.halfDayEnd && <Alert tone="info" className="mb-3" title={`Half day: school ends at ${time12(data.halfDayEnd)}`}>Periods after that are not held today.</Alert>}
+          {data.halfDayEnd && <Alert tone="info" className="mb-3" title={`Half day: school ends at ${time12(data.halfDayEnd)}`}><Words k="Periods after that are not held today." /></Alert>}
           {teaching.length === 0 ? (
-            <EmptyState title="No periods on this day">Nothing in the published Time Table for you. If that looks wrong, ask the office.</EmptyState>
+            <EmptyState title="No periods on this day"><Words k="Nothing in the published Time Table for you. If that looks wrong, ask the office." /></EmptyState>
           ) : (
             <>
               <p className="mb-3 text-ink-2">{plural(teaching.length, "period")}{teaching.some((p) => p.isSubstitute) ? `, ${plural(teaching.filter((p) => p.isSubstitute).length, "substitution")}` : ""}.</p>
@@ -74,8 +78,8 @@ export default async function MyTimeTablePage({ searchParams }: { searchParams: 
                       {p.isBreak ? <p className="font-medium text-ink-2">{p.label ?? "Break"}</p> : (
                         <>
                           <p className="font-semibold">{p.sectionLabel} · {p.subjectName ?? p.label}</p>
-                          <p className="text-sm text-ink-2">{time12(p.startTime)} to {time12(p.endTime)}{p.room ? ` · ${p.room}` : ""}</p>
-                          {p.isSubstitute && <p className="mt-1"><Badge tone="brand">Substitution</Badge> <span className="text-sm">for {p.substitution?.forStaffName ?? "a colleague"}</span></p>}
+                          <p className="text-sm text-ink-2">{time12(p.startTime)} <Words k="to" /> {time12(p.endTime)}{p.room ? ` · ${p.room}` : ""}</p>
+                          {p.isSubstitute && <p className="mt-1"><Badge tone="brand"><Words k="Substitution" /></Badge> <span className="text-sm"><Words k="for" /> {p.substitution?.forStaffName ?? "a colleague"}</span></p>}
                           {!p.isSubstitute && p.substitution && <p className="mt-1 text-sm text-ink-2">{p.substitution.substituteName ? `${p.substitution.substituteName} takes this period.` : "You are away; a substitute is being arranged."}</p>}
                         </>
                       )}

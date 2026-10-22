@@ -3,6 +3,7 @@
 import { SelectField, TextField } from "@/components/ui/field";
 import { FormDialog, type Action } from "../_components/forms";
 import { Upload } from "lucide-react";
+import { Words } from "@/lib/i18n/client";
 
 type Option = { value: string; label: string };
 
@@ -29,7 +30,7 @@ export function UploadDocumentForm({ staffOptions, types, action, fixedStaffId, 
           <TextField label="Issue date" name="issuedOn" type="date" defaultValue={f.val("issuedOn")} error={f.err("issuedOn")} />
           <TextField label="Expiry date" name="expiresOn" type="date" defaultValue={f.val("expiresOn")} error={f.err("expiresOn")} help="Leave empty if it never expires. Reminders go before this date." />
           <div className="sm:col-span-2">
-            <label htmlFor="doc-file" className="mb-1 block text-sm font-medium">File <span className="text-danger" aria-hidden="true">*</span></label>
+            <label htmlFor="doc-file" className="mb-1 block text-sm font-medium"><Words k="File" /> <span className="text-danger" aria-hidden="true">*</span></label>
             <input id="doc-file" name="file" type="file" required accept="image/jpeg,image/png,application/pdf" className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-sm" aria-describedby="doc-file-help" />
             <p id="doc-file-help" className={`mt-1 text-sm ${f.err("file") ? "text-danger" : "text-ink-2"}`}>{f.err("file") ?? "PDF, JPG or PNG, up to 10 MB."}</p>
           </div>

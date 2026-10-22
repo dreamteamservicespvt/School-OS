@@ -11,6 +11,7 @@ import { ChevronDown, Download, Ellipsis, FileSpreadsheet, FileText, Search, She
 import { Button, Spinner } from "./button";
 import { inputCls } from "./field";
 import { cx } from "./cx";
+import { useT } from "@/lib/i18n/client";
 
 function useAddress() {
   const router = useRouter();
@@ -29,6 +30,7 @@ function useAddress() {
 
 /** A search box kept in the page address as `name` (default "q"). */
 export function UrlSearch({ placeholder, name = "q", className, label }: { placeholder: string; name?: string; className?: string; label?: string }) {
+  const tr = useT();
   const { sp, go, pending } = useAddress();
   const [value, setValue] = useState(sp.get(name) ?? "");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,7 +46,7 @@ export function UrlSearch({ placeholder, name = "q", className, label }: { place
       <input type="search" value={value} onChange={(e) => change(e.target.value)} placeholder={placeholder} aria-label={label ?? placeholder}
         className={cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")} />
       {pending ? <Spinner className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3" />
-        : value && <button type="button" onClick={() => change("")} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken" aria-label="Clear search"><X size={16} aria-hidden="true" /></button>}
+        : value && <button type="button" onClick={() => change("")} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken" aria-label={tr.any("Clear search")}><X size={16} aria-hidden="true" /></button>}
     </div>
   );
 }

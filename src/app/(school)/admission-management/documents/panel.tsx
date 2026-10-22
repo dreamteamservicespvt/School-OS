@@ -15,6 +15,7 @@ import { FieldShell, inputCls, SelectField, TextField } from "@/components/ui/fi
 import { cx } from "@/components/ui/cx";
 import { ActionButton, FormSheet } from "../_components/forms";
 import { originalSeenAction, rejectDocAction, remindAction, uploadDocAction, verifyDocAction } from "../applications/actions";
+import { Words } from "@/lib/i18n/client";
 
 export type PanelDoc = {
   type: string; label: string; required: boolean; id: string | null; status: "NOT_RECEIVED" | "RECEIVED" | "VERIFIED" | "REJECTED";
@@ -55,11 +56,11 @@ export function DocumentsPanel({ a, closeHref, canWork }: { a: PanelApp; closeHr
           </div>
           <p className={cx("text-[12.5px] mt-0.5", d.status === "REJECTED" ? "text-bad" : "text-ink3")}>{d.detail}</p>
           <div className="flex gap-1.5 mt-2 flex-wrap">
-            {d.fileHref && <a href={d.fileHref} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken"><Eye size={15} aria-hidden="true" />View</a>}
-            {canWork && d.id && d.status === "RECEIVED" && <ActionButton action={verifyDocAction} hidden={{ docId: d.id }} variant="soft" icon={Check} busyLabel="Verifying…" className="inline-flex">Verify</ActionButton>}
-            {canWork && d.id && d.status === "RECEIVED" && <Button size="sm" variant="ghost" icon={X} onClick={() => { setReason(""); setTell(true); setRej(d); }}>Reject</Button>}
-            {canWork && (d.status === "NOT_RECEIVED" || d.status === "REJECTED") && <Button size="sm" variant="secondary" icon={Upload} onClick={() => { setFileName(null); setUp(d.type); }}>Upload</Button>}
-            {canWork && d.id && d.status === "VERIFIED" && !d.originalSeen && <ActionButton action={originalSeenAction} hidden={{ docId: d.id }} variant="ghost" icon={Stamp} className="inline-flex">Original seen</ActionButton>}
+            {d.fileHref && <a href={d.fileHref} target="_blank" rel="noopener" className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken"><Eye size={15} aria-hidden="true" /><Words k="View" /></a>}
+            {canWork && d.id && d.status === "RECEIVED" && <ActionButton action={verifyDocAction} hidden={{ docId: d.id }} variant="soft" icon={Check} busyLabel="Verifying…" className="inline-flex"><Words k="Verify" /></ActionButton>}
+            {canWork && d.id && d.status === "RECEIVED" && <Button size="sm" variant="ghost" icon={X} onClick={() => { setReason(""); setTell(true); setRej(d); }}><Words k="Reject" /></Button>}
+            {canWork && (d.status === "NOT_RECEIVED" || d.status === "REJECTED") && <Button size="sm" variant="secondary" icon={Upload} onClick={() => { setFileName(null); setUp(d.type); }}><Words k="Upload" /></Button>}
+            {canWork && d.id && d.status === "VERIFIED" && !d.originalSeen && <ActionButton action={originalSeenAction} hidden={{ docId: d.id }} variant="ghost" icon={Stamp} className="inline-flex"><Words k="Original seen" /></ActionButton>}
           </div>
         </div>
       </li>
@@ -69,7 +70,7 @@ export function DocumentsPanel({ a, closeHref, canWork }: { a: PanelApp; closeHr
   return (
     <Card className="min-w-0 animate-rise">
       <div className="flex items-center justify-between px-3 pt-2.5">
-        <Link href={closeHref} className="xl:invisible inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink h-8 px-1 rounded-lg"><ArrowLeft size={17} aria-hidden="true" />All applicants</Link>
+        <Link href={closeHref} className="xl:invisible inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink h-8 px-1 rounded-lg"><ArrowLeft size={17} aria-hidden="true" /><Words k="All applicants" /></Link>
         <Link href={closeHref} aria-label="Close" className="hidden xl:grid w-9 h-9 place-items-center rounded-xl text-ink2 hover:bg-sunken"><X size={18} aria-hidden="true" /></Link>
       </div>
       <div className="px-5 pb-4 flex items-center gap-3.5">
@@ -80,17 +81,17 @@ export function DocumentsPanel({ a, closeHref, canWork }: { a: PanelApp; closeHr
         </div>
       </div>
       <div className="px-5 pb-4">
-        <div className="flex items-center justify-between text-[13px] mb-1.5"><span className="font-semibold">{a.verified} of {a.required} verified</span><span className="text-ink3">List for {a.className}</span></div>
+        <div className="flex items-center justify-between text-[13px] mb-1.5"><span className="font-semibold">{a.verified} <Words k="of" /> {a.required} <Words k="verified" /></span><span className="text-ink3"><Words k="List for" /> {a.className}</span></div>
         <Progress value={a.required ? (a.verified / a.required) * 100 : 100} tone={done ? "ok" : "warn"} />
       </div>
       {canWork && a.missing.length > 0 && (
-        <div className="px-5 pb-4"><Button variant="soft" icon={Send} className="w-full" onClick={() => setRemind(true)}>Remind parent about {a.missing.length} {a.missing.length === 1 ? "paper" : "papers"}</Button></div>
+        <div className="px-5 pb-4"><Button variant="soft" icon={Send} className="w-full" onClick={() => setRemind(true)}><Words k="Remind parent about" /> {a.missing.length} {a.missing.length === 1 ? "paper" : "papers"}</Button></div>
       )}
       <ul className="border-t border-line/70 divide-y divide-line/70">{required.map(row)}</ul>
-      {required.length === 0 && <p className="px-5 py-4 text-[13.5px] text-ink3 border-t border-line/70">No papers are required for this class.</p>}
+      {required.length === 0 && <p className="px-5 py-4 text-[13.5px] text-ink3 border-t border-line/70"><Words k="No papers are required for this class." /></p>}
       {optional.length > 0 && (
         <div className="border-t border-line/70">
-          <p className="eyebrow text-ink3 px-5 pt-4">Optional papers</p>
+          <p className="eyebrow text-ink3 px-5 pt-4"><Words k="Optional papers" /></p>
           <ul className="divide-y divide-line/70">{optional.map(row)}</ul>
         </div>
       )}
@@ -102,11 +103,11 @@ export function DocumentsPanel({ a, closeHref, canWork }: { a: PanelApp; closeHr
             <FieldShell label="File" id="up-file" required error={f.err("file")} help="PDF, JPG or PNG, up to 5 MB">
               <div className="grid grid-cols-2 gap-2">
                 <label className={cx(inputCls(f.err("file")), "h-11 flex items-center justify-center gap-2 font-semibold cursor-pointer")}>
-                  <Camera size={17} aria-hidden="true" />Take photo
+                  <Camera size={17} aria-hidden="true" /><Words k="Take photo" />
                   <input type="file" name="file" accept="image/jpeg,image/png" capture="environment" className="sr-only" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)} />
                 </label>
                 <label className={cx(inputCls(f.err("file")), "h-11 flex items-center justify-center gap-2 font-semibold cursor-pointer")}>
-                  <Upload size={17} aria-hidden="true" />Choose file
+                  <Upload size={17} aria-hidden="true" /><Words k="Choose file" />
                   <input id="up-file" type="file" name="file" accept="application/pdf,image/jpeg,image/png" className="sr-only" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)} />
                 </label>
               </div>
@@ -126,7 +127,7 @@ export function DocumentsPanel({ a, closeHref, canWork }: { a: PanelApp; closeHr
             <FieldShell label="Reason" id="rj-r" required error={f.err("reason")}>
               <input id="rj-r" name="reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} className={cx(inputCls(f.err("reason")), "h-11")} />
             </FieldShell>
-            <div className="flex items-center gap-3 text-[14px]"><Switch on={tell} onChange={setTell} label="Message the parent" /><span><b className="font-semibold">Message the parent</b><span className="block text-[12.5px] text-ink3">WhatsApp with the reason, SMS if WhatsApp is not set up</span></span></div>
+            <div className="flex items-center gap-3 text-[14px]"><Switch on={tell} onChange={setTell} label="Message the parent" /><span><b className="font-semibold"><Words k="Message the parent" /></b><span className="block text-[12.5px] text-ink3"><Words k="WhatsApp with the reason, SMS if WhatsApp is not set up" /></span></span></div>
           </>
         )}
       </FormSheet>
@@ -134,7 +135,7 @@ export function DocumentsPanel({ a, closeHref, canWork }: { a: PanelApp; closeHr
       <FormSheet open={remind} onClose={() => setRemind(false)} title={`Remind ${a.parent}`} sub={`To +91 ${a.phone}, by WhatsApp or SMS`} action={remindAction} hidden={{ id: a.id }} submitLabel={`Send to ${a.parent}`} submitIcon={Send}>
         {() => (
           <div className="rounded-xl bg-sunken p-3.5 text-[14px] leading-relaxed text-ink2">
-            Dear {a.parent}, for {a.name}’s admission (application {a.applicationNo}) please bring: <b className="text-ink">{a.missing.join(", ")}</b>.
+            <Words k="Dear" /> {a.parent}<Words k=", for" /> {a.name}<Words k="’s admission (application" /> {a.applicationNo}<Words k=") please bring:" /> <b className="text-ink">{a.missing.join(", ")}</b>.
           </div>
         )}
       </FormSheet>

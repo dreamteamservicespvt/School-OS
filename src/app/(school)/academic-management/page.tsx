@@ -9,8 +9,12 @@ import { academicPage, one, type SearchParams } from "./_lib/page";
 import { NoYear, PageTop } from "./_components/page-top";
 import { ExportLinks } from "./_components/export-links";
 import { AddClassButtons, ClassesBoard, StreamsButton } from "./classes-board";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Classes & Sections" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Classes & Sections") };
+}
 
 export default async function ClassesPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
@@ -47,7 +51,7 @@ export default async function ClassesPage({ searchParams }: { searchParams: Sear
       <PageTop page={page} title="Classes & Sections" href="/academic-management">
         {canEdit && <AddClassButtons yearId={year.id} classes={data.classes.map((c) => ({ id: c.id, name: c.name }))} levels={[...LEVELS]} boardsOn={boardsOn} schoolBoard={data.schoolBoard} />}
       </PageTop>
-      {scope.see === "own" && !scope.arrange && <p className="-mt-3 mb-4 text-ink-2">Your classes in {year.name}: the sections you teach or are class teacher of.</p>}
+      {scope.see === "own" && !scope.arrange && <p className="-mt-3 mb-4 text-ink-2"><Words k="Your classes in" /> {year.name}<Words k=": the sections you teach or are class teacher of." /></p>}
 
       <dl className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
@@ -65,10 +69,10 @@ export default async function ClassesPage({ searchParams }: { searchParams: Sear
 
       {data.classes.length === 0 ? (
         scope.see === "own" ? (
-          <EmptyState title={`You have no classes in ${year.name}`}>Your classes appear here once the office gives you a section or a subject in Teacher Allocation.</EmptyState>
+          <EmptyState title={`You have no classes in ${year.name}`}><Words k="Your classes appear here once the office gives you a section or a subject in Teacher Allocation." /></EmptyState>
         ) : (
           <EmptyState title={`No classes in ${year.name} yet`}>
-            <p>Add your classes in teaching order, for example Nursery, LKG, UKG, then Class 1 to Class 10, each with its sections.</p>
+            <p><Words k="Add your classes in teaching order, for example Nursery, LKG, UKG, then Class 1 to Class 10, each with its sections." /></p>
             {canEdit && <div className="mt-4 flex justify-center"><AddClassButtons yearId={year.id} classes={[]} levels={[...LEVELS]} boardsOn={boardsOn} schoolBoard={data.schoolBoard} quickOnly /></div>}
           </EmptyState>
         )
@@ -92,7 +96,7 @@ export default async function ClassesPage({ searchParams }: { searchParams: Sear
         {streamsOn && canEdit ? <StreamsButton yearId={year.id} streams={data.streams.map((s) => ({ id: s.id, name: s.name }))} /> : <span />}
         <ExportLinks href={`/academic-management/export?kind=class-strength${yearQ}`} label="Class strength and seats" />
       </div>
-      {sections.length > 0 && <p className="mt-2 text-sm text-ink-2">{plural(sections.filter((s) => !s.classTeacherId).length, "section")} without a class teacher.</p>}
+      {sections.length > 0 && <p className="mt-2 text-sm text-ink-2">{plural(sections.filter((s) => !s.classTeacherId).length, "section")} <Words k="without a class teacher." /></p>}
     </>
   );
 }

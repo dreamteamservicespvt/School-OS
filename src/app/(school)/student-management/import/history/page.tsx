@@ -11,8 +11,12 @@ import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { STUDENT_IMPORT_KINDS, importKindLabel } from "@/lib/students/import-kinds";
 import { BASE, studentPage } from "../../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import history" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import history") };
+}
 
 /** Every student import: file, who, when, added, skipped; open one to undo it or download its skipped rows. */
 export default async function ImportHistoryPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -33,16 +37,16 @@ export default async function ImportHistoryPage({ searchParams }: { searchParams
     { key: "when", label: "When", phone: "meta", cell: (r) => formatDateTime(r.createdAt, tz) },
     { key: "who", label: "By", cell: (r) => data.people.find((p) => p.id === r.importedById)?.displayName ?? "" },
     { key: "added", label: "Added", phone: "meta", cell: (r) => `${r.added} added, ${r.skipped} skipped` },
-    { key: "status", label: "Status", phone: "badge", cell: (r) => (r.undoneAt ? <Badge>Undone</Badge> : <Badge tone="success">Imported</Badge>) },
+    { key: "status", label: "Status", phone: "badge", cell: (r) => (r.undoneAt ? <Badge><Words k="Undone" /></Badge> : <Badge tone="success"><Words k="Imported" /></Badge>) },
   ];
   return (
     <>
       <BackLink href={`${BASE}/import`} label="Import students" />
       <PageHeader title="Import history" href={path} userId={current.user.id}>
-        <ButtonLink href={`${BASE}/import`} variant="primary">Import students</ButtonLink>
+        <ButtonLink href={`${BASE}/import`} variant="primary"><Words k="Import students" /></ButtonLink>
       </PageHeader>
       <DataTable rows={data.rows} columns={columns} rowKey={(r) => r.id} rowHref={(r) => `${BASE}/import/${r.id}`} total={data.total} params={params} path={path} caption="Student imports"
-        empty={<EmptyState title="No imports yet">Imports of students show here, and each can be undone.</EmptyState>} />
+        empty={<EmptyState title="No imports yet"><Words k="Imports of students show here, and each can be undone." /></EmptyState>} />
     </>
   );
 }

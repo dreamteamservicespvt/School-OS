@@ -16,8 +16,12 @@ import { HomeworkHead } from "../_components/homework-head";
 import { Ring } from "../_components/bits";
 import { BASE, homeworkGuard, one, qs, UUID, type HomeworkPage, type SearchParams } from "../_lib/page";
 import { ArchiveLessonSheet, CopyCourseSheet, DoneButton, LessonMenu, LessonSheet, MoveButtons, VisibleSwitch } from "./sheets";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Study Material" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Study Material") };
+}
 
 const HREF = `${BASE}/study-material`;
 type Sp = Record<string, string | string[] | undefined>;
@@ -90,8 +94,8 @@ async function StaffMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
   return (
     <div>
       {head(c.canWork ? <>
-        <ButtonLink href={here({ do: "copy" })} scroll={false} variant="secondary" icon={Copy}>Copy course</ButtonLink>
-        <ButtonLink href={here({ do: "add" })} scroll={false} variant="primary" icon={Plus}>Add lesson</ButtonLink>
+        <ButtonLink href={here({ do: "copy" })} scroll={false} variant="secondary" icon={Copy}><Words k="Copy course" /></ButtonLink>
+        <ButtonLink href={here({ do: "add" })} scroll={false} variant="primary" icon={Plus}><Words k="Add lesson" /></ButtonLink>
       </> : undefined)}
       <Stack>
         <Chips value={keyOf(c)} label="Courses" options={data.courses.map((x) => ({ value: keyOf(x), label: `${x.subject} · ${x.sectionLabel}`, href: qs(HREF, { c: keyOf(x) }) }))} />
@@ -101,7 +105,7 @@ async function StaffMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
               description={`${plural(lessons.length, "lesson")} in order · ${lessons.filter((l) => l.visible).length} visible to students`} />
             {lessons.length === 0 ? (
               <Empty icon={BookOpenCheck} title="No lessons yet" body={c.canWork ? "Add the first lesson: notes, a file or a video link." : `${c.teacher || "The teacher"} has not added lessons yet.`}
-                action={c.canWork ? <ButtonLink href={here({ do: "add" })} scroll={false} variant="primary" icon={Plus}>Add lesson</ButtonLink> : undefined} />
+                action={c.canWork ? <ButtonLink href={here({ do: "add" })} scroll={false} variant="primary" icon={Plus}><Words k="Add lesson" /></ButtonLink> : undefined} />
             ) : (
               <ol className="px-3 pb-3 flex flex-col gap-2">
                 {lessons.map((l, i) => (
@@ -111,8 +115,8 @@ async function StaffMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[14.5px]">{l.title}{l.chapterTitle && l.chapterTitle !== l.title && <span className="text-ink3 font-normal text-[13px]"> · {l.chapterTitle}</span>}</p>
                         {l.visible
-                          ? <Link href={here({ who: l.id })} scroll={false} className="text-[12.5px] text-ink3 hover:text-brand">Opened by {opened(l)} of {c.students}</Link>
-                          : <p className="text-[12.5px] text-ink3">Hidden from students</p>}
+                          ? <Link href={here({ who: l.id })} scroll={false} className="text-[12.5px] text-ink3 hover:text-brand"><Words k="Opened by" /> {opened(l)} <Words k="of" /> {c.students}</Link>
+                          : <p className="text-[12.5px] text-ink3"><Words k="Hidden from students" /></p>}
                       </div>
                       {c.canWork && (
                         <div className="flex items-center gap-0.5 shrink-0">
@@ -154,7 +158,7 @@ async function StaffMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                 ["Last added", newest ? `${newest.title}, ${shortDay(newest.createdAt)}` : "Nothing yet"],
               ]} />
             </Card>
-            <Banner tone="info" icon={Lightbulb}>Students see lessons in this order. Hide a lesson until you teach it.</Banner>
+            <Banner tone="info" icon={Lightbulb}><Words k="Students see lessons in this order. Hide a lesson until you teach it." /></Banner>
           </Col>
         </Split>
       </Stack>
@@ -172,7 +176,7 @@ async function StaffMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
             {data.who.rows.map((r) => (
               <li key={r.id} className="flex items-center gap-3 py-2 border-b border-line/70 last:border-0">
                 <Avatar name={r.name} size={30} /><span className="flex-1 text-[14px]">{r.name}</span>
-                {r.doneAt ? <span className="text-[12px] text-ok font-semibold">Done</span> : r.openedAt ? <span className="text-[12px] text-ink3">Opened {shortDay(r.openedAt)}</span> : <Pill tone="warn">Not opened</Pill>}
+                {r.doneAt ? <span className="text-[12px] text-ok font-semibold"><Words k="Done" /></span> : r.openedAt ? <span className="text-[12px] text-ink3"><Words k="Opened" /> {shortDay(r.openedAt)}</span> : <Pill tone="warn"><Words k="Not opened" /></Pill>}
               </li>
             ))}
           </ul>
@@ -213,7 +217,7 @@ async function StudentMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
         <Card>
           <div className="flex items-center gap-4 p-5">
             <Ring value={data.lessons.length ? (done / data.lessons.length) * 100 : 0} size={64} stroke={7}><span className="text-[13px] font-bold tnum">{done}/{data.lessons.length}</span></Ring>
-            <div className="min-w-0"><p className="font-semibold text-[16px]">{c.subject}</p><p className="text-[13px] text-ink3">{c.teacher ? `${c.teacher} · ` : ""}{done} of {data.lessons.length} lessons done</p></div>
+            <div className="min-w-0"><p className="font-semibold text-[16px]">{c.subject}</p><p className="text-[13px] text-ink3">{c.teacher ? `${c.teacher} · ` : ""}{done} <Words k="of" /> {data.lessons.length} <Words k="lessons done" /></p></div>
           </div>
           <ol className="px-3 pb-3 flex flex-col gap-2">
             {data.lessons.map((l, i) => {
@@ -224,7 +228,7 @@ async function StudentMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                   <Link href={here({ open: l.id })} scroll={false} className="w-full flex items-center gap-3 rounded-2xl border border-line p-3.5 text-left hover:bg-sunken/50 transition">
                     <span className={cx("w-9 h-9 rounded-full grid place-items-center text-[13px] font-bold tnum shrink-0", d ? "bg-ok/15 text-ok" : "bg-brand/10 text-brand")}>{d ? <Check size={16} strokeWidth={3} aria-label="Done" /> : i + 1}</span>
                     <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px]">{l.title}</p><p className="text-[12.5px] text-ink3">{l.chapterTitle && l.chapterTitle !== l.title ? `${l.chapterTitle} · ` : ""}{plural(n, "item")}</p></div>
-                    {!d && i === next && <Pill tone="brand">Up next</Pill>}
+                    {!d && i === next && <Pill tone="brand"><Words k="Up next" /></Pill>}
                     <ChevronRight size={18} className="text-ink3" aria-hidden="true" />
                   </Link>
                 </li>
@@ -235,7 +239,7 @@ async function StudentMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
       </Stack>
       {open && (
         <UrlSheet closeHref={here()} title={open.title} sub={`${c.subject}${open.chapterTitle ? ` · ${open.chapterTitle}` : ""}${c.teacher ? ` · ${c.teacher}` : ""}`}
-          footer={<div className="flex justify-end gap-2"><ButtonLink href={here()} scroll={false} variant="ghost">Close</ButtonLink><DoneButton id={open.id} done={isDone(open)} after={here()} /></div>}>
+          footer={<div className="flex justify-end gap-2"><ButtonLink href={here()} scroll={false} variant="ghost"><Words k="Close" /></ButtonLink><DoneButton id={open.id} done={isDone(open)} after={here()} /></div>}>
           {open.notes && <p className="text-[14.5px] text-ink2 leading-relaxed whitespace-pre-line mb-3">{open.notes}</p>}
           <ul className="flex flex-col gap-2">
             {open.items.map((it) => {

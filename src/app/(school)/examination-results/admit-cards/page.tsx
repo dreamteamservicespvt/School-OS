@@ -24,8 +24,12 @@ import { examOverlaps } from "../_lib/period";
 import { examPage, one, withYear, type SearchParams } from "../_lib/page";
 import { NoYear, PageTop } from "../_components/page-top";
 import { AdmitPreview, AdmitWorkspace, type AdmitHead, type AdmitPaper, type AdmitStudent } from "./admit-ui";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Admit Cards" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Admit Cards") };
+}
 const PATH = "/examination-results/admit-cards";
 const short = (n: string) => n.replace(/^Class /, "");
 
@@ -82,7 +86,7 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
               <>
                 <span className="flex items-center gap-2"><Pill tone={EXAM_STATUS_TONE[status]}>{status}</Pill>{!ready && <Lock size={14} className="text-ink3" aria-hidden="true" />}</span>
                 <span className="block font-semibold text-[15px] mt-2">{e.title} · {names.length > 3 ? `Classes ${names[0]}–${names.at(-1)}` : names.length === 1 ? `Class ${names[0]}` : `Classes ${names.join(", ")}`}</span>
-                <span className="block text-[12.5px] text-ink3">{formatDate(e.startDate)} to {formatDate(e.endDate)} · {plural(new Set(e.entries.map((x) => x.subjectId)).size, "subject")}{!ready ? " · publish the datesheet first" : ""}</span>
+                <span className="block text-[12.5px] text-ink3">{formatDate(e.startDate)} <Words k="to" /> {formatDate(e.endDate)} · {plural(new Set(e.entries.map((x) => x.subjectId)).size, "subject")}{!ready ? " · publish the datesheet first" : ""}</span>
               </>
             );
             const cls = cx("block h-full w-full text-left rounded-2xl border-2 bg-surface p-4 shadow-card transition", on ? "border-brand" : "border-transparent hover:border-brand/30", !ready && "opacity-60");
@@ -104,8 +108,8 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
         <PageTop page={page} href={PATH} sub={sub} />
         <div className="flex flex-col gap-5">
           {chooser}
-          {data.exams.length === 0 && range ? <EmptyState title="No exams in these dates">Choose other dates, or All exam dates.</EmptyState>
-            : <EmptyState title="No published datesheets">Admit cards are made from a published datesheet. Publish one on the Datesheet page first.</EmptyState>}
+          {data.exams.length === 0 && range ? <EmptyState title="No exams in these dates"><Words k="Choose other dates, or All exam dates." /></EmptyState>
+            : <EmptyState title="No published datesheets"><Words k="Admit cards are made from a published datesheet. Publish one on the Datesheet page first." /></EmptyState>}
         </div>
       </>
     );
@@ -158,16 +162,16 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_380px] items-start">
           <Card className="overflow-hidden min-w-0">
             <div className="p-4 md:p-5 grid grid-cols-2 md:grid-cols-4 gap-3 border-b border-line">
-              <div className="min-w-0"><p className="text-[12px] text-ink3 font-semibold">Exam</p><p className="font-semibold text-[14.5px] truncate">{exam.title} {year.name}</p></div>
-              <div className="min-w-0"><p className="text-[12px] text-ink3 font-semibold">Class</p>
+              <div className="min-w-0"><p className="text-[12px] text-ink3 font-semibold"><Words k="Exam" /></p><p className="font-semibold text-[14.5px] truncate">{exam.title} {year.name}</p></div>
+              <div className="min-w-0"><p className="text-[12px] text-ink3 font-semibold"><Words k="Class" /></p>
                 <Suspense><UrlSelect name="section" label="Class" value={data.sectionId ?? ""} className="mt-0.5 [&_select]:!h-9 [&_select]:!text-[14px]" options={sections.map((s) => ({ value: s.id, label: `${short(s.schoolClass.name)} ${s.name}` }))} /></Suspense>
               </div>
-              <div className="min-w-0"><p className="text-[12px] text-ink3 font-semibold">Type</p><p className="font-semibold text-[14.5px] truncate">{typeLine || "—"}</p></div>
-              <div><p className="text-[12px] text-ink3 font-semibold">Total students</p><p className="font-semibold text-[14.5px] tnum">{total}</p></div>
+              <div className="min-w-0"><p className="text-[12px] text-ink3 font-semibold"><Words k="Type" /></p><p className="font-semibold text-[14.5px] truncate">{typeLine || "—"}</p></div>
+              <div><p className="text-[12px] text-ink3 font-semibold"><Words k="Total students" /></p><p className="font-semibold text-[14.5px] tnum">{total}</p></div>
             </div>
             {data.problem ? <div className="p-4"><EmptyState title="Admit cards are not ready">{data.problem}</EmptyState></div>
-              : !roster || !head ? <div className="p-4"><EmptyState title="No sections yet">Add sections to these classes in Academic Management first.</EmptyState></div>
-              : total === 0 ? <div className="p-4"><EmptyState title="No students in this class">There is nobody to print for in {classLabel}.</EmptyState></div>
+              : !roster || !head ? <div className="p-4"><EmptyState title="No sections yet"><Words k="Add sections to these classes in Academic Management first." /></EmptyState></div>
+              : total === 0 ? <div className="p-4"><EmptyState title="No students in this class"><Words k="There is nobody to print for in" /> {classLabel}.</EmptyState></div>
               : <AdmitWorkspace students={students} papers={papers} head={head} base={pdfBase} batch={ADMIT_BATCH} printedNote={printedNote} />}
           </Card>
           <div className="flex flex-col gap-5 min-w-0">
@@ -183,11 +187,11 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
                     <div key={s.id} className="flex items-center gap-3 text-[13.5px]">
                       <span className="w-12 font-semibold">{short(s.schoolClass.name)} {s.name}</span>
                       <Progress value={n ? (done / n) * 100 : 0} tone={full ? "ok" : "warn"} className="flex-1" label={`${short(s.schoolClass.name)} ${s.name}: ${done} of ${n} printed`} />
-                      <span className={cx("w-20 text-right tnum", !full && "text-warn font-semibold")}>{done} of {n}</span>
+                      <span className={cx("w-20 text-right tnum", !full && "text-warn font-semibold")}>{done} <Words k="of" /> {n}</span>
                     </div>
                   );
                 })}
-                <p className="text-[12.5px] text-ink3 mt-1">The design, instructions and signatures come from <Link className="text-brand hover:underline" href="/settings/document-designs">Settings, Document Designs</Link>.</p>
+                <p className="text-[12.5px] text-ink3 mt-1"><Words k="The design, instructions and signatures come from" /> <Link className="text-brand hover:underline" href="/settings/document-designs"><Words k="Settings, Document Designs" /></Link>.</p>
               </div>
             </Card>
           </div>

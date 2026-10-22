@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { Info, CircleCheck, TriangleAlert } from "lucide-react";
 import { cx } from "./cx";
 import { TONE_TEXT } from "./stats";
+import { tx } from "@/lib/i18n/tx";
 
 // Filter chips, in-page tabs and banners of the approved design (design/ui-prototype/src/kit.jsx, ui.jsx).
 
@@ -24,7 +25,7 @@ export function Chips({ value, options, className, label = "Quick filters" }: { 
           return (
             <Link key={o.value} href={o.href} scroll={false} aria-current={on ? "page" : undefined}
               className={chipCls(on)}>
-              {o.label}{o.count != null && <span className={cx("text-[11.5px] tnum", on ? "opacity-70" : "text-ink3")}>{o.count}</span>}
+              {tx(o.label)}{o.count != null && <span className={cx("text-[11.5px] tnum", on ? "opacity-70" : "text-ink3")}>{o.count}</span>}
             </Link>
           );
         })}
@@ -65,7 +66,7 @@ export function Banner({ tone = "info", icon, title, children, action, className
   return (
     <div role={tone === "bad" ? "alert" : undefined} className={cx("rounded-2xl px-4 py-3 flex flex-wrap md:flex-nowrap items-start md:items-center gap-3 text-[14px]", BANNER[tone], className)}>
       <Ic size={19} className={cx("shrink-0 mt-0.5 md:mt-0", TONE_TEXT[tone])} aria-hidden="true" />
-      <p className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{title} </b>}{children}</p>
+      <p className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{tx(title)} </b>}{tx(children)}</p>
       {action && <div className="shrink-0 flex gap-2 flex-wrap pl-8 md:pl-0">{action}</div>}
     </div>
   );

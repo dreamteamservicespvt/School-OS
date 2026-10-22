@@ -16,6 +16,7 @@ import { ActionButton } from "@/components/students/confirm-action";
 import { Text } from "../sheets";
 import { archiveQuizAction, closeQuizAction, createQuizAction, markShortAction, openQuizAction, submitQuizAction } from "./actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type QKind = "CHOICE" | "TRUE_FALSE" | "SHORT";
 export type QDraft = { kind: QKind; text: string; options: string[]; correctIndex: number | null; marks: number };
@@ -31,30 +32,30 @@ function QuestionEditor({ q, n, onChange, onRemove }: { q: QDraft; n: number; on
     <li className="rounded-xl border border-line p-3 flex flex-col gap-2.5">
       <div className="flex items-start gap-2">
         <span className="text-[14px] font-semibold pt-2.5 tnum">{n}.</span>
-        <label htmlFor={`q-${n}`} className="sr-only">Question {n}</label>
+        <label htmlFor={`q-${n}`} className="sr-only"><Words k="Question" /> {n}</label>
         <textarea id={`q-${n}`} rows={1} value={q.text} onChange={(e) => onChange({ ...q, text: e.target.value })} placeholder="Type the question" className={cx(inputCls(), "py-2 flex-1 resize-y")} />
         <button type="button" onClick={onRemove} aria-label={`Remove question ${n}`} className="w-10 h-10 grid place-items-center rounded-lg text-ink3 hover:bg-sunken shrink-0"><Trash2 size={16} aria-hidden="true" /></button>
       </div>
       <div className="flex flex-wrap items-center gap-2 pl-5">
-        <label className="sr-only" htmlFor={`qk-${n}`}>Question {n} type</label>
+        <label className="sr-only" htmlFor={`qk-${n}`}><Words k="Question" /> {n} <Words k="type" /></label>
         <KeepSelect id={`qk-${n}`} value={q.kind} onChange={(e) => kind(e.target.value as QKind)} className={cx(inputCls(), "!h-9 !w-auto text-[13px]")}>
           <option value="CHOICE">Multiple choice</option><option value="TRUE_FALSE">True or false</option><option value="SHORT">Short answer</option>
         </KeepSelect>
-        <label className="sr-only" htmlFor={`qm-${n}`}>Question {n} marks</label>
+        <label className="sr-only" htmlFor={`qm-${n}`}><Words k="Question" /> {n} <Words k="marks" /></label>
         <KeepSelect id={`qm-${n}`} value={q.marks} onChange={(e) => onChange({ ...q, marks: Number(e.target.value) })} className={cx(inputCls(), "!h-9 !w-auto text-[13px]")}>
           {[1, 2, 3, 4, 5].map((m) => <option key={m} value={m}>{m} {m === 1 ? "mark" : "marks"}</option>)}
         </KeepSelect>
-        {q.kind === "SHORT" && <span className="text-[12.5px] text-ink3">You mark short answers yourself</span>}
+        {q.kind === "SHORT" && <span className="text-[12.5px] text-ink3"><Words k="You mark short answers yourself" /></span>}
       </div>
       {q.kind !== "SHORT" && (
         <fieldset className="flex flex-col gap-1.5 pl-5">
-          <legend className="sr-only">Choices for question {n}; tick the right one</legend>
+          <legend className="sr-only"><Words k="Choices for question" /> {n}<Words k="; tick the right one" /></legend>
           {q.options.map((o, j) => (
             <div key={j} className="flex items-center gap-2">
               <KeepCheck type="radio" name={`right-${n}`} checked={q.correctIndex === j} onChange={() => onChange({ ...q, correctIndex: j })} aria-label={`Choice ${"abcdef"[j]} is right`} className="size-4 accent-[var(--color-ok)]" />
               {q.kind === "TRUE_FALSE" ? <span className={cx("h-9 px-3 rounded-lg text-[13.5px] inline-flex items-center", q.correctIndex === j ? "bg-ok/10 text-ok font-semibold" : "bg-sunken text-ink2")}>{o}</span> : (
                 <>
-                  <label className="sr-only" htmlFor={`qo-${n}-${j}`}>Choice {"abcdef"[j]}</label>
+                  <label className="sr-only" htmlFor={`qo-${n}-${j}`}><Words k="Choice" /> {"abcdef"[j]}</label>
                   <input id={`qo-${n}-${j}`} value={o} onChange={(e) => onChange({ ...q, options: q.options.map((x, k) => (k === j ? e.target.value : x)) })} placeholder={`Choice ${"abcdef"[j]}`}
                     className={cx(inputCls(), "!h-9 text-[13.5px]", q.correctIndex === j && "!border-ok")} />
                   {q.options.length > 2 && <button type="button" aria-label={`Remove choice ${"abcdef"[j]}`} onClick={() => onChange({ ...q, options: q.options.filter((_, k) => k !== j), correctIndex: q.correctIndex === j ? 0 : (q.correctIndex ?? 0) > j ? (q.correctIndex ?? 0) - 1 : q.correctIndex })} className="w-9 h-9 grid place-items-center rounded-lg text-ink3 hover:bg-sunken shrink-0"><X size={15} aria-hidden="true" /></button>}
@@ -62,7 +63,7 @@ function QuestionEditor({ q, n, onChange, onRemove }: { q: QDraft; n: number; on
               )}
             </div>
           ))}
-          {q.kind === "CHOICE" && q.options.length < 6 && <Button size="sm" variant="ghost" icon={Plus} className="self-start" onClick={() => onChange({ ...q, options: [...q.options, ""] })}>Add a choice</Button>}
+          {q.kind === "CHOICE" && q.options.length < 6 && <Button size="sm" variant="ghost" icon={Plus} className="self-start" onClick={() => onChange({ ...q, options: [...q.options, ""] })}><Words k="Add a choice" /></Button>}
         </fieldset>
       )}
     </li>
@@ -92,8 +93,8 @@ export function QuizSheet({ closeHref, sections, bank, start, defaults, edit }: 
   return (
     <SheetForm wide title={edit ? `Edit: ${start?.title}` : "Create quiz"} sub="Multiple choice and true or false questions mark themselves" closeHref={closeHref} action={createQuizAction}
       hidden={{ questions: JSON.stringify(qs), ...(start ? { id: start.id, label } : { sectionId: section?.id ?? "", subjectId }) }}
-      submitLabel={<><Send size={16} aria-hidden="true" />Open for {label}</>} pendingText="Saving…"
-      extraButtons={<Button type="submit" name="intent" value="draft" variant="secondary">Save draft</Button>}>
+      submitLabel={<><Send size={16} aria-hidden="true" /><Words k="Open for" /> {label}</>} pendingText="Saving…"
+      extraButtons={<Button type="submit" name="intent" value="draft" variant="secondary"><Words k="Save draft" /></Button>}>
       <Text name="title" label="Title" required start={start?.title} placeholder="Simple equations: practice 2" />
       {!start && (
         <div className="grid grid-cols-2 gap-3">
@@ -111,15 +112,15 @@ export function QuizSheet({ closeHref, sections, bank, start, defaults, edit }: 
       )}
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <p className="text-[13px] font-semibold text-ink2">Questions · {qs.length}</p>
+          <p className="text-[13px] font-semibold text-ink2"><Words k="Questions ·" /> {qs.length}</p>
           {!kept && (
             <div className="flex flex-wrap gap-2">
-              {pool.length > 0 && <Button size="sm" variant="ghost" icon={Library} onClick={() => setBankOpen((x) => !x)}>From question bank</Button>}
-              <Button size="sm" variant="soft" icon={Plus} onClick={() => setQs((x) => [...x, blank()])}>Add</Button>
+              {pool.length > 0 && <Button size="sm" variant="ghost" icon={Library} onClick={() => setBankOpen((x) => !x)}><Words k="From question bank" /></Button>}
+              <Button size="sm" variant="soft" icon={Plus} onClick={() => setQs((x) => [...x, blank()])}><Words k="Add" /></Button>
             </div>
           )}
         </div>
-        {kept && <p className="text-[12.5px] text-ink3">Students have taken this quiz, so its questions stay as they are.</p>}
+        {kept && <p className="text-[12.5px] text-ink3"><Words k="Students have taken this quiz, so its questions stay as they are." /></p>}
         {bankOpen && (
           <ul className="rounded-xl border border-brand/25 bg-brand/[.03] p-2 max-h-56 overflow-y-auto scroll-thin flex flex-col gap-1">
             {pool.map((b) => {
@@ -163,7 +164,7 @@ export function QuizSheet({ closeHref, sections, bank, start, defaults, edit }: 
       </div>
       <div className="rounded-xl border border-line px-3.5 py-3 flex items-center gap-3">
         <Switch id="cq-show" on={show} onChange={setShow} label="Show answers after" name="showAnswers" />
-        <label htmlFor="cq-show" className="text-[13.5px]"><b className="font-semibold block">Show answers after</b><span className="text-ink3 text-[12.5px]">Students see the right answers once they hand in</span></label>
+        <label htmlFor="cq-show" className="text-[13.5px]"><b className="font-semibold block"><Words k="Show answers after" /></b><span className="text-ink3 text-[12.5px]"><Words k="Students see the right answers once they hand in" /></span></label>
       </div>
     </SheetForm>
   );
@@ -172,16 +173,16 @@ export function QuizSheet({ closeHref, sections, bank, start, defaults, edit }: 
 export function ArchiveQuizSheet({ closeHref, id, title }: { closeHref: string; id: string; title: string }) {
   return (
     <SheetForm title={`Archive “${title}”?`} closeHref={closeHref} action={archiveQuizAction} submitLabel="Archive quiz" pendingText="Archiving…" hidden={{ id }}>
-      <p className="text-[14px] text-ink2">It leaves the quiz lists for teachers and students. Scores already taken are kept in the audit log.</p>
+      <p className="text-[14px] text-ink2"><Words k="It leaves the quiz lists for teachers and students. Scores already taken are kept in the audit log." /></p>
     </SheetForm>
   );
 }
 
 export function CloseQuizButton({ id }: { id: string }) {
-  return <ActionButton action={closeQuizAction} fields={{ id }} variant="secondary" size="md"><Lock size={16} aria-hidden="true" />Close quiz now</ActionButton>;
+  return <ActionButton action={closeQuizAction} fields={{ id }} variant="secondary" size="md"><Lock size={16} aria-hidden="true" /><Words k="Close quiz now" /></ActionButton>;
 }
 export function OpenQuizButton({ id, label }: { id: string; label: string }) {
-  return <ActionButton action={openQuizAction} fields={{ id }} variant="primary" size="md"><Send size={16} aria-hidden="true" />Open for {label}</ActionButton>;
+  return <ActionButton action={openQuizAction} fields={{ id }} variant="primary" size="md"><Send size={16} aria-hidden="true" /><Words k="Open for" /> {label}</ActionButton>;
 }
 
 /** Marks for one student's short answers. */
@@ -231,8 +232,8 @@ export function TakeQuiz({ attemptId, questions, endsAt, attemptsLeft }: { attem
     <>
       <Card className="p-5 md:p-6">
         <div className="flex items-center justify-between gap-3 text-[13px]">
-          <span className="font-semibold text-ink2">Question {i + 1} of {total}</span>
-          {left !== null && <span className={cx("inline-flex items-center gap-1.5 tnum", left < 60 ? "text-bad font-semibold" : "text-ink3")} role="timer" aria-live="off"><Timer size={15} aria-hidden="true" />{Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")} left</span>}
+          <span className="font-semibold text-ink2"><Words k="Question" /> {i + 1} <Words k="of" /> {total}</span>
+          {left !== null && <span className={cx("inline-flex items-center gap-1.5 tnum", left < 60 ? "text-bad font-semibold" : "text-ink3")} role="timer" aria-live="off"><Timer size={15} aria-hidden="true" />{Math.floor(left / 60)}:{String(left % 60).padStart(2, "0")} <Words k="left" /></span>}
         </div>
         <div className="h-2 rounded-full bg-sunken mt-2 overflow-hidden"><div className="h-full bg-brand rounded-full transition-all" style={{ width: `${((i + 1) / total) * 100}%` }} /></div>
         <p className="font-display text-[20px] md:text-[22px] font-semibold leading-snug mt-5" id={`tq-${q.id}`}>{q.text}</p>
@@ -249,9 +250,9 @@ export function TakeQuiz({ attemptId, questions, endsAt, attemptsLeft }: { attem
           </div>
         )}
         <div className="flex gap-2 mt-5">
-          <Button variant="secondary" icon={ChevronLeft} disabled={i === 0} onClick={() => setI(i - 1)} className="flex-1">Previous</Button>
-          {i < total - 1 ? <Button variant="primary" iconRight={ChevronRight} onClick={() => setI(i + 1)} className="flex-1">Next</Button>
-            : <Button variant="primary" icon={Send} onClick={() => setSure(true)} className="flex-1">Submit</Button>}
+          <Button variant="secondary" icon={ChevronLeft} disabled={i === 0} onClick={() => setI(i - 1)} className="flex-1"><Words k="Previous" /></Button>
+          {i < total - 1 ? <Button variant="primary" iconRight={ChevronRight} onClick={() => setI(i + 1)} className="flex-1"><Words k="Next" /></Button>
+            : <Button variant="primary" icon={Send} onClick={() => setSure(true)} className="flex-1"><Words k="Submit" /></Button>}
         </div>
         <div className="flex flex-wrap gap-1.5 mt-4 justify-center">
           {questions.map((x, k) => <button key={x.id} type="button" onClick={() => setI(k)} aria-label={`Go to question ${k + 1}`} aria-current={k === i ? "step" : undefined} className={cx("w-8 h-8 rounded-lg text-[12.5px] font-semibold tnum", k === i ? "bg-ink text-bg" : ans[x.id] !== undefined && ans[x.id] !== "" ? "bg-brand/12 text-brand" : "bg-sunken text-ink3")}>{k + 1}</button>)}
@@ -260,8 +261,8 @@ export function TakeQuiz({ attemptId, questions, endsAt, attemptsLeft }: { attem
       </Card>
       {sure && (
         <Dialog open title="Submit your answers?" onClose={() => setSure(false)}
-          footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setSure(false)}>Go back</Button><Button variant="primary" icon={Send} loading={busy} onClick={submit}>Submit {answered} answers</Button></div>}>
-          <p className="text-[14px] text-ink2">You answered {answered} of {total} questions.{answered < total ? ` ${total - answered} are blank and count as wrong.` : ""} {attemptsLeft <= 1 ? "This is your last attempt, so you cannot change them after this." : `You have ${attemptsLeft - 1} more ${attemptsLeft - 1 === 1 ? "attempt" : "attempts"} after this.`}</p>
+          footer={<div className="flex justify-end gap-2"><Button variant="ghost" onClick={() => setSure(false)}><Words k="Go back" /></Button><Button variant="primary" icon={Send} loading={busy} onClick={submit}><Words k="Submit" /> {answered} <Words k="answers" /></Button></div>}>
+          <p className="text-[14px] text-ink2"><Words k="You answered" /> {answered} <Words k="of" /> {total} <Words k="questions." />{answered < total ? ` ${total - answered} are blank and count as wrong.` : ""} {attemptsLeft <= 1 ? "This is your last attempt, so you cannot change them after this." : `You have ${attemptsLeft - 1} more ${attemptsLeft - 1 === 1 ? "attempt" : "attempts"} after this.`}</p>
         </Dialog>
       )}
     </>

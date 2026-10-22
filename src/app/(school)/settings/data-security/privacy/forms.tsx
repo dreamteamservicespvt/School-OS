@@ -9,6 +9,7 @@ import { useRouter } from "next/navigation";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { clearRetentionAction, requestDeletionAction, saveRetentionAction } from "../actions";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Rule = { recordType: string; label: string; keepMonths: number | null; legal?: string };
 
@@ -29,7 +30,7 @@ export function RetentionForm({ rules, canEdit }: { rules: Rule[]; canEdit: bool
     <form action={action} className="space-y-4">
       <FormMessage state={state?.message ? state : null} />
       <fieldset disabled={!canEdit} className="space-y-4">
-        <legend className="sr-only">How long records are kept</legend>
+        <legend className="sr-only"><Words k="How long records are kept" /></legend>
         {rules.map((r) => {
           const value = state?.values?.[`keep_${r.recordType}`] ?? (r.keepMonths === null ? "forever" : String(r.keepMonths));
           const options = CHOICES.some((c) => c.value === value) ? CHOICES : [...CHOICES, { value, label: `${value} months` }];
@@ -51,8 +52,8 @@ export function RetentionForm({ rules, canEdit }: { rules: Rule[]; canEdit: bool
           );
         })}
       </fieldset>
-      <p className="text-sm text-ink-2">After this time, records are listed for the School Admin to review; nothing is removed by itself.</p>
-      {canEdit && <SubmitButton pendingText="Saving…">Save periods</SubmitButton>}
+      <p className="text-sm text-ink-2"><Words k="After this time, records are listed for the School Admin to review; nothing is removed by itself." /></p>
+      {canEdit && <SubmitButton pendingText="Saving…"><Words k="Save periods" /></SubmitButton>}
     </form>
   );
 }
@@ -66,16 +67,16 @@ export function DeletionForm({ personType, personId, personName, parts }: { pers
       <FormMessage state={state?.message && !state?.errors ? state : null} />
       <input type="hidden" name="personType" value={personType} />
       <input type="hidden" name="personId" value={personId} />
-      <p>Person: <span className="font-medium">{personName}</span></p>
+      <p><Words k="Person:" /> <span className="font-medium">{personName}</span></p>
       <fieldset className="space-y-2">
-        <legend className="mb-1 text-sm font-medium">What to remove<span className="text-danger" aria-hidden="true"> *</span></legend>
+        <legend className="mb-1 text-sm font-medium"><Words k="What to remove" /><span className="text-danger" aria-hidden="true"> *</span></legend>
         <label className="flex min-h-11 items-center gap-3">
           <KeepCheck type="radio" name="scopeAll" value="all" checked={all} onChange={() => setAll(true)} className="size-5 accent-brand" />
-          All personal details
+          <Words k="All personal details" />
         </label>
         <label className="flex min-h-11 items-center gap-3">
           <KeepCheck type="radio" name="scopeAll" value="some" checked={!all} onChange={() => setAll(false)} className="size-5 accent-brand" />
-          Only some details
+          <Words k="Only some details" />
         </label>
         {!all && (
           <div className="ml-8 space-y-1">
@@ -87,13 +88,13 @@ export function DeletionForm({ personType, personId, personName, parts }: { pers
       <TextField label="Who asked" name="askedBy" required defaultValue={state?.values?.askedBy} error={state?.errors?.askedBy} help="For example: Father, by letter on 3 October." />
       <TextArea label="Reason" name="reason" required defaultValue={state?.values?.reason} error={state?.errors?.reason} help="The approver reads this." />
       <div>
-        <label htmlFor="deletion-proof" className="mb-1 block text-sm font-medium">The written request (optional)</label>
+        <label htmlFor="deletion-proof" className="mb-1 block text-sm font-medium"><Words k="The written request (optional)" /></label>
         <input id="deletion-proof" name="proof" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" aria-describedby="deletion-proof-help"
           className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:text-ink" />
-        {state?.errors?.proof ? <p className="mt-1 text-sm text-danger">{state?.errors.proof}</p> : <p id="deletion-proof-help" className="mt-1 text-sm text-ink-2">A photo or PDF of the letter, up to 10 MB.</p>}
+        {state?.errors?.proof ? <p className="mt-1 text-sm text-danger">{state?.errors.proof}</p> : <p id="deletion-proof-help" className="mt-1 text-sm text-ink-2"><Words k="A photo or PDF of the letter, up to 10 MB." /></p>}
       </div>
-      <p className="text-sm text-ink-2">Nothing is removed until the request is approved in Approvals. Then the chosen details are blanked out; fee receipts, results and the audit log stay, without the removed details.</p>
-      <SubmitButton pendingText="Sending…">Send for approval</SubmitButton>
+      <p className="text-sm text-ink-2"><Words k="Nothing is removed until the request is approved in Approvals. Then the chosen details are blanked out; fee receipts, results and the audit log stay, without the removed details." /></p>
+      <SubmitButton pendingText="Sending…"><Words k="Send for approval" /></SubmitButton>
     </form>
   );
 }

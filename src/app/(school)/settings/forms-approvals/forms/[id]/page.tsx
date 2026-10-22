@@ -14,8 +14,12 @@ import { EmptyState } from "@/components/empty-state";
 import { CustomFieldInputs } from "@/components/custom-fields";
 import { FieldEditor } from "../../field-editor";
 import { ArchiveFormButton, FormDetailsForm, MoveButtons, PublishButton, RemoveFormFieldButton } from "../../list-actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Form builder" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Form builder") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -31,7 +35,7 @@ export default async function FormBuilderPage({ params }: { params: Promise<{ id
 
   return (
     <>
-      <Link href="/settings/forms-approvals?tab=forms" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline">← Custom forms</Link>
+      <Link href="/settings/forms-approvals?tab=forms" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline"><Words k="← Custom forms" /></Link>
       <PageHeader title={form.name} href={`/settings/forms-approvals/forms/${id}`} userId={current.user.id}>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={published ? "success" : "warning"}>{published ? `Published, version ${form.version}` : "Draft"}</Badge>
@@ -40,21 +44,21 @@ export default async function FormBuilderPage({ params }: { params: Promise<{ id
         </div>
       </PageHeader>
       <div className="space-y-5">
-        {form.archivedAt && <Alert tone="info">This form is archived. Restore it to change it.</Alert>}
-        {!published && form.version > 0 && <Alert tone="warning">You have changes that are not published. People still fill in version {form.version} until you publish.</Alert>}
-        {published && form.publishedAt && <p className="text-sm text-ink-2">Published {formatDateTime(form.publishedAt, current.school.timeZone)}. Any change makes a draft until you publish again.</p>}
+        {form.archivedAt && <Alert tone="info"><Words k="This form is archived. Restore it to change it." /></Alert>}
+        {!published && form.version > 0 && <Alert tone="warning"><Words k="You have changes that are not published. People still fill in version" /> {form.version} <Words k="until you publish." /></Alert>}
+        {published && form.publishedAt && <p className="text-sm text-ink-2"><Words k="Published" /> {formatDateTime(form.publishedAt, current.school.timeZone)}<Words k=". Any change makes a draft until you publish again." /></p>}
 
         <Card>
           <CardHeader title="Fields" description={`${fields.length} of at most 60. Fields can show only when another answer matches.`}
             action={mayEdit && <FieldEditor mode="form" owner={id} others={fields} trigger="Add a field" triggerVariant="primary" />} />
           {fields.length === 0 ? (
-            <div className="p-5"><EmptyState title="No fields yet">Add the first field, for example &quot;Teaching quality&quot; as a choice of Good, Average, Needs help.</EmptyState></div>
+            <div className="p-5"><EmptyState title="No fields yet"><Words k={"Add the first field, for example \"Teaching quality\" as a choice of Good, Average, Needs help."} /></EmptyState></div>
           ) : (
             <ol>
               {fields.map((f, i) => (
                 <li key={f.key} className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3 first:border-t-0">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium">{i + 1}. {f.label} {f.required && <Badge>Required</Badge>}</p>
+                    <p className="font-medium">{i + 1}. {f.label} {f.required && <Badge><Words k="Required" /></Badge>}</p>
                     <p className="text-sm text-ink-2">{FIELD_TYPES.find((t) => t.value === f.fieldType)?.label}{f.choices.length ? `: ${f.choices.join(", ")}` : ""}{f.showWhen ? ` · ${showWhenWords(f, fields)}` : ""}</p>
                   </div>
                   {mayEdit && (

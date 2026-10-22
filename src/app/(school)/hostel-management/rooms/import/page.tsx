@@ -5,8 +5,12 @@ import { PLACES } from "@/lib/imports/places";
 import { ImportHome } from "@/components/import/import-home";
 import { HostelHead } from "../../_components/head";
 import { BASE, hostelGuard } from "../../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import rooms · Hostel Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import rooms · Hostel Management") };
+}
 
 /** Many rooms at once from a spreadsheet (15 Rooms & Beds, P10), on the same engine as Switching to School OS. */
 export default async function ImportRoomsPage() {
@@ -17,7 +21,7 @@ export default async function ImportRoomsPage() {
   };
   return (
     <>
-      <HostelHead pageName="Import rooms" href={`${BASE}/rooms/import`} mode={p.mode} sub={<Link href={`${BASE}/rooms`} className="hover:underline">Rooms & Beds</Link>} />
+      <HostelHead pageName="Import rooms" href={`${BASE}/rooms/import`} mode={p.mode} sub={<Link href={`${BASE}/rooms`} className="hover:underline"><Words k={"Rooms & Beds"} /></Link>} />
       <ImportHome current={p.current} place={PLACES.hostel} about={about} />
     </>
   );

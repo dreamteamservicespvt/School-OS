@@ -10,8 +10,12 @@ import { Card, CardBody } from "@/components/ui/card";
 import { DefaultRuleButton } from "../../list-actions";
 import { RuleEditor } from "./rule-editor";
 import { schoolRoles } from "@/lib/school-roles";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Approval rule" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Approval rule") };
+}
 
 /** Whole paise as the rupees typed in the editor: 500000 -> "5000". */
 function rupees(paise: string | null | undefined) {
@@ -36,12 +40,12 @@ export default async function RulePage({ params }: { params: Promise<{ type: str
   });
   return (
     <>
-      <Link href="/settings/forms-approvals" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline">← Forms & Approvals</Link>
+      <Link href="/settings/forms-approvals" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline"><Words k={"← Forms & Approvals"} /></Link>
       <PageHeader title={`Approval rule: ${t.label}`} href={`/settings/forms-approvals/rules/${type}`} userId={current.user.id}>
         {rule.custom && <DefaultRuleButton type={type} label={t.label} />}
       </PageHeader>
       <p className="mb-4 max-w-3xl text-sm text-ink-2">
-        Each step names who approves, as a role or a named person, and up to which amount. A request goes to the first step whose limit covers it. Nobody ever approves their own request; it goes to the next approver. Changes apply to new requests.
+        <Words k="Each step names who approves, as a role or a named person, and up to which amount. A request goes to the first step whose limit covers it. Nobody ever approves their own request; it goes to the next approver. Changes apply to new requests." />
       </p>
       <Card>
         <CardBody>

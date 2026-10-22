@@ -29,8 +29,12 @@ import { maintList, readMaintFilter } from "../_lib/lists";
 import { remindStoreAction } from "../actions";
 import { archiveExperimentAction } from "./actions";
 import { ArchiveFacilitySheet, AssignTechSheet, CloseRequestSheet, ExperimentSheet, FacilitySheet, RaiseSheet, SafetyCheckSheet } from "./sheets";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Rooms, Labs & Maintenance · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Rooms, Labs & Maintenance · Inventory Management") };
+}
 
 const TABS = ["maintenance", "facilities", "labs"] as const;
 type Tab = (typeof TABS)[number];
@@ -109,13 +113,13 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
 
   const actions = can.rooms ? (
     <div className="flex gap-2">
-      <ButtonLink href={here({ open: "place" })} variant="secondary" icon={Building2} scroll={false}>Add place</ButtonLink>
-      <ButtonLink href={here({ open: "raise" })} variant="primary" icon={Plus} scroll={false}>Raise request</ButtonLink>
+      <ButtonLink href={here({ open: "place" })} variant="secondary" icon={Building2} scroll={false}><Words k="Add place" /></ButtonLink>
+      <ButtonLink href={here({ open: "raise" })} variant="primary" icon={Plus} scroll={false}><Words k="Raise request" /></ButtonLink>
     </div>
   ) : (
     <div className="flex gap-2">
       {can.remind && openTotal > 0 && <ActButton action={remindStoreAction} fields={{ what: "maintenance" }} label="Remind store keeper" icon="bell" size="md" />}
-      <ButtonLink href={`${BASE}/report-problem`} variant="primary" icon={Megaphone}>Report a problem</ButtonLink>
+      <ButtonLink href={`${BASE}/report-problem`} variant="primary" icon={Megaphone}><Words k="Report a problem" /></ButtonLink>
     </div>
   );
 
@@ -152,7 +156,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
                 { key: "problem", label: "Problem", render: (r) => <span className="block min-w-[200px]"><b className="font-semibold">{r.problem.length > 80 ? `${r.problem.slice(0, 80)}…` : r.problem}</b>{r.assetId && <span className="block text-[12px] text-ink3">{d.maint!.assets.get(r.assetId)?.tag} {d.maint!.assets.get(r.assetId)?.name}</span>}</span> },
                 { key: "place", label: "Place", render: (r) => d.maint!.rooms.get(r.roomId) ?? "" },
                 { key: "priority", label: "Priority", render: (r) => <Pill tone={PRIORITY[r.priority].tone}>{PRIORITY[r.priority].label}</Pill> },
-                { key: "tech", label: "Technician", render: (r) => (r.technicianStaffId ? d.maint!.techs.get(r.technicianStaffId) : r.technicianName) ?? <span className="text-ink3">Not assigned</span> },
+                { key: "tech", label: "Technician", render: (r) => (r.technicianStaffId ? d.maint!.techs.get(r.technicianStaffId) : r.technicianName) ?? <span className="text-ink3"><Words k="Not assigned" /></span> },
                 { key: "raised", label: "Raised", nowrap: true, render: (r) => <span className="text-[13px]">{formatDateTime(r.raisedAt, tz)}<span className="block text-[12px] text-ink3">{d.maint!.who.get(r.raisedById ?? "") ?? ""}</span></span> },
                 { key: "done", label: "Done", nowrap: true, render: (r) => day(r.doneOn) },
                 { key: "cost", label: "Cost", align: "right", nowrap: true, render: (r) => (r.costPaise !== null ? formatRupees(r.costPaise) : "") },
@@ -175,12 +179,12 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
               columns={[
                 { key: "name", label: "Place", render: (r) => <b className="font-semibold">{r.name}</b> },
                 { key: "type", label: "Type", render: (r) => typeOf(r) },
-                { key: "where", label: "Building, floor", render: (r) => [d.fac.get(r.id)?.building, d.fac.get(r.id)?.floor].filter(Boolean).join(", ") || <span className="text-ink3">Not given</span> },
+                { key: "where", label: "Building, floor", render: (r) => [d.fac.get(r.id)?.building, d.fac.get(r.id)?.floor].filter(Boolean).join(", ") || <span className="text-ink3"><Words k="Not given" /></span> },
                 { key: "cap", label: "Capacity", align: "right", render: (r) => r.capacity ?? "" },
                 { key: "incharge", label: "In charge", render: (r) => d.inCharge.get(d.fac.get(r.id)?.inChargeStaffId ?? "") ?? "" },
                 { key: "assets", label: "Assets", align: "right", render: (r) => (d.assetsByRoom.get(r.id) ? <Link className="font-semibold text-brand hover:underline" href={qs(`${BASE}/assets`, { room: r.id })}>{d.assetsByRoom.get(r.id)}</Link> : <span className="text-ink3">0</span>) },
                 { key: "open", label: "Open requests", align: "right", render: (r) => (d.openByRoom.get(r.id) ? <Link className="font-semibold text-warn hover:underline" href={qs(`${BASE}/rooms`, { room: r.id, status: "open" })}>{d.openByRoom.get(r.id)}</Link> : "") },
-                ...(can.rooms ? [{ key: "act", label: "", render: (r: (typeof d.rooms)[number]) => <span className="flex gap-3 text-[13px] font-semibold"><Link className="text-brand hover:underline" href={here({ place: r.id })} scroll={false}>Change</Link><Link className="text-ink3 hover:underline" href={here({ archive: r.id })} scroll={false}>Archive</Link></span> }] : []),
+                ...(can.rooms ? [{ key: "act", label: "", render: (r: (typeof d.rooms)[number]) => <span className="flex gap-3 text-[13px] font-semibold"><Link className="text-brand hover:underline" href={here({ place: r.id })} scroll={false}><Words k="Change" /></Link><Link className="text-ink3 hover:underline" href={here({ archive: r.id })} scroll={false}><Words k="Archive" /></Link></span> }] : []),
               ]}
               phone={(r) => ({ title: r.name, sub: `${typeOf(r)}${r.capacity ? ` · ${r.capacity} seats` : ""}${d.assetsByRoom.get(r.id) ? ` · ${plural(d.assetsByRoom.get(r.id)!, "asset")}` : ""}`, icon: Building2, iconTone: "brand", href: can.rooms ? here({ place: r.id }) : undefined })}
             />
@@ -193,7 +197,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
             {d.labs.length > 0 && (
               <Card>
                 <CardHeader title="Lab safety checks" description="A checklist with date and result." icon={ShieldCheck} divided
-                  action={<div className="flex gap-2 items-center"><PeriodFilter {...p.dates} allLabel="Checks: all dates" />{can.rooms && <ButtonLink href={here({ open: "check" })} size="sm" variant="primary" icon={ClipboardCheck} scroll={false}>Record check</ButtonLink>}</div>} />
+                  action={<div className="flex gap-2 items-center"><PeriodFilter {...p.dates} allLabel="Checks: all dates" />{can.rooms && <ButtonLink href={here({ open: "check" })} size="sm" variant="primary" icon={ClipboardCheck} scroll={false}><Words k="Record check" /></ButtonLink>}</div>} />
                 <div className="px-5 pt-4 flex flex-wrap gap-2">
                   {d.labs.map((l) => {
                     const last = d.checks.find((c) => c.roomId === l.id);
@@ -207,12 +211,12 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
                   { label: "Not fine", render: (c) => ((c.checklist as { item: string; ok: boolean }[]) ?? []).filter((x) => !x.ok).map((x) => x.item).join("; ") || "" },
                   { label: "Note", render: (c) => c.note ?? "" },
                 ]} />
-                {d.checks.length === 0 && <p className="px-5 py-4 text-[13.5px] text-ink3">No checks in these dates.</p>}
+                {d.checks.length === 0 && <p className="px-5 py-4 text-[13.5px] text-ink3"><Words k="No checks in these dates." /></p>}
               </Card>
             )}
             <Card>
               <CardHeader title="Experiments list" description="Experiments per class, with the lab and materials." icon={FlaskConical} divided
-                action={can.rooms ? <ButtonLink href={here({ open: "experiment" })} size="sm" variant="secondary" icon={Plus} scroll={false}>Add experiment</ButtonLink> : undefined} />
+                action={can.rooms ? <ButtonLink href={here({ open: "experiment" })} size="sm" variant="secondary" icon={Plus} scroll={false}><Words k="Add experiment" /></ButtonLink> : undefined} />
               {d.classes.length > 0 && (
                 <div className="px-5 pt-4">
                   <Chips label="Class" value={cls} options={[{ value: "", label: "All classes", href: here({ cls: null }) }, ...d.classes.map((c) => ({ value: c.value, label: c.label, href: here({ cls: c.value }) }))]} />
@@ -231,13 +235,13 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
             </Card>
             <Card>
               <CardHeader title="Lab equipment" description="Assets in the labs. Log repairs and services from the asset." icon={Hammer} divided />
-              {d.labAssets.length === 0 ? <p className="px-5 py-4 text-[13.5px] text-ink3">No lab equipment in the asset register.</p> : (
+              {d.labAssets.length === 0 ? <p className="px-5 py-4 text-[13.5px] text-ink3"><Words k="No lab equipment in the asset register." /></p> : (
                 <SimpleTable caption="Lab equipment" rows={d.labAssets} rowKey={(a) => a.id} minWidth={560} cols={[
                   { label: "Tag", render: (a) => <Link className="font-mono font-semibold hover:underline" href={`${BASE}/assets/${a.id}`}>{a.tag}</Link> },
                   { label: "Equipment", render: (a) => a.name },
                   { label: "Lab", render: (a) => (a.roomId ? roomName.get(a.roomId) ?? "" : "") },
                   { label: "Service", render: (a) => (a.amcEnd ? `AMC to ${day(a.amcEnd)}` : a.warrantyEnd ? `Warranty to ${day(a.warrantyEnd)}` : "") },
-                  { label: "Status", render: (a) => (a.repairs.length ? <Pill tone="warn">Repair open</Pill> : <Pill tone={ASSET_STATUS[a.status].tone}>{ASSET_STATUS[a.status].label}</Pill>) },
+                  { label: "Status", render: (a) => (a.repairs.length ? <Pill tone="warn"><Words k="Repair open" /></Pill> : <Pill tone={ASSET_STATUS[a.status].tone}>{ASSET_STATUS[a.status].label}</Pill>) },
                 ]} />
               )}
             </Card>
@@ -250,7 +254,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
           footer={can.rooms && (d.detail.r.status === "OPEN" || d.detail.r.status === "IN_PROGRESS") ? (
             <div className="flex gap-2 w-full justify-end">
               <ButtonLink href={here({ request: null, assign: d.detail.r.id })} variant="secondary" scroll={false}>{d.detail.tech ? "Change technician" : "Assign technician"}</ButtonLink>
-              <ButtonLink href={here({ request: null, close: d.detail.r.id })} variant="primary" scroll={false}>Close</ButtonLink>
+              <ButtonLink href={here({ request: null, close: d.detail.r.id })} variant="primary" scroll={false}><Words k="Close" /></ButtonLink>
             </div>
           ) : undefined}>
           <div className="flex flex-col gap-4">

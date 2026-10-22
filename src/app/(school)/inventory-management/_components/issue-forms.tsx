@@ -15,6 +15,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { InlineForm, ItemLines, StudentFinder, type ItemPick, type Student } from "./client";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 type Act = (p: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
@@ -59,7 +60,7 @@ export function IssueForm({ action, find, items, stockBy, staff, departments, se
         return (
           <>
             <div className="flex flex-col gap-1.5">
-              <span className="text-[13px] font-semibold text-ink2">Issue to <span className="text-bad" aria-hidden="true">*</span></span>
+              <span className="text-[13px] font-semibold text-ink2"><Words k="Issue to" /> <span className="text-bad" aria-hidden="true">*</span></span>
               <Segmented label="Issue to" value={to} onChange={setTo} options={TO} className="w-full" />
               <input type="hidden" name="toKind" value={to} />
             </div>
@@ -68,7 +69,7 @@ export function IssueForm({ action, find, items, stockBy, staff, departments, se
             {to === "DEPARTMENT" && <SSelect name="departmentId" label="Department" required options={departments} placeholder="Choose the department" />}
             {to === "CLASS" && <SSelect name="sectionId" label="Class" required options={sections} placeholder="Choose the class" />}
             <div className="flex flex-col gap-1.5">
-              <label htmlFor="issue-store" className="text-[13px] font-semibold text-ink2">From store <span className="text-bad" aria-hidden="true">*</span></label>
+              <label htmlFor="issue-store" className="text-[13px] font-semibold text-ink2"><Words k="From store" /> <span className="text-bad" aria-hidden="true">*</span></label>
               <KeepSelect id="issue-store" name="locationId" value={store} onChange={(e) => setStore(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
                 {stores.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </KeepSelect>
@@ -103,14 +104,14 @@ export function BookSetForm({ action, find, sets, stockBy, stores, mainStore, wi
         <>
           <StudentFinder id="set-student" find={find} onPick={(s) => { setStudent(s); if (s?.classId && !setId) { const first = sets.find((x) => x.classIds.includes(s.classId!)); if (first) setSetId(first.value); } }} />
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="set-pick" className="text-[13px] font-semibold text-ink2">Book set <span className="text-bad" aria-hidden="true">*</span></label>
+            <label htmlFor="set-pick" className="text-[13px] font-semibold text-ink2"><Words k="Book set" /> <span className="text-bad" aria-hidden="true">*</span></label>
             <KeepSelect id="set-pick" name="setId" value={setId} onChange={(e) => setSetId(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
               <option value="">Choose the set</option>
               {ordered.map((s) => <option key={s.value} value={s.value}>{s.label}{forClass.includes(s) ? " (for this class)" : ""}</option>)}
             </KeepSelect>
           </div>
           <div className="flex flex-col gap-1.5">
-            <label htmlFor="set-store" className="text-[13px] font-semibold text-ink2">From store</label>
+            <label htmlFor="set-store" className="text-[13px] font-semibold text-ink2"><Words k="From store" /></label>
             <KeepSelect id="set-store" name="locationId" value={store} onChange={(e) => setStore(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
               {stores.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
             </KeepSelect>
@@ -133,13 +134,13 @@ export function BookSetForm({ action, find, sets, stockBy, stores, mainStore, wi
           )}
           {set && missing.length > 0 && (
             <div className="rounded-xl bg-warn/12 px-3.5 py-2.5 text-[13.5px] flex flex-col gap-2">
-              <p><b className="font-semibold">{missing.length} of {set.lines.length} items are out of stock</b> in this store: {missing.map((m) => names[m.itemId] ?? m.name).join(", ")}.</p>
+              <p><b className="font-semibold">{missing.length} <Words k="of" /> {set.lines.length} <Words k="items are out of stock" /></b> <Words k="in this store:" /> {missing.map((m) => names[m.itemId] ?? m.name).join(", ")}.</p>
               {withMissing ? (
                 <label className="flex items-center gap-2 font-semibold">
                   <KeepCheck type="checkbox" name="allowMissing" checked={allow} onChange={(e) => setAllow(e.target.checked)} className="size-4 accent-[var(--brand)]" />
-                  Issue the rest now and the missing items later
+                  <Words k="Issue the rest now and the missing items later" />
                 </label>
-              ) : <p>Inventory Settings do not allow a set with items missing. Get the stock in first.</p>}
+              ) : <p><Words k="Inventory Settings do not allow a set with items missing. Get the stock in first." /></p>}
             </div>
           )}
           <Toggle name="chargeToFees" title="Charge the set price to the student's fees" sub={charge ? (set ? `${rupees(set.pricePaise)}, shown in Fee Management.` : "The set price, shown in Fee Management.") : "A free issue: nothing is charged."} on={charge} onChange={setCharge} />

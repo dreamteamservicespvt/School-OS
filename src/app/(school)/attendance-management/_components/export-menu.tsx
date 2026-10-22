@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 import { Download, FileSpreadsheet, FileText, Printer, Sheet } from "lucide-react";
 import { Button, type ButtonSize } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
+import { Words } from "@/lib/i18n/client";
 
 export function ExportMenu({ href, label = "Export", size = "md", print, className }: { href: string; label?: string; size?: ButtonSize; print?: boolean; className?: string }) {
   const [open, setOpen] = useState(false);
@@ -39,7 +40,7 @@ export function ExportMenu({ href, label = "Export", size = "md", print, classNa
             ))}
             {print && (
               <a role="menuitem" href={`${href}${join}format=pdf&print=1`} target="_blank" rel="noopener" className={cls} onClick={() => setOpen(false)}>
-                <Printer size={17} className="text-ink3" aria-hidden="true" />Print
+                <Printer size={17} className="text-ink3" aria-hidden="true" /><Words k="Print" />
               </a>
             )}
           </div>

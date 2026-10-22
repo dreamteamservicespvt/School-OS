@@ -16,8 +16,12 @@ import { sectionOptions } from "../_lib/queries";
 import { bulkSectionAction } from "../_actions/bulk";
 import { BulkFieldForm } from "./bulk-field-form";
 import { chosenStudents } from "./chosen";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Bulk field update" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Bulk field update") };
+}
 
 /** Bulk field update and bulk section change for students chosen on the Student List, or a whole section. */
 export default async function BulkUpdatePage({ searchParams }: { searchParams: Promise<{ ids?: string; section?: string; field?: string }> }) {
@@ -51,9 +55,9 @@ export default async function BulkUpdatePage({ searchParams }: { searchParams: P
               {sp.ids && <input type="hidden" name="ids" value={sp.ids} />}
               {!sp.ids && <SelectField name="section" label="Section" defaultValue={sp.section ?? ""} placeholder="Choose…" options={data.sections.map((s) => ({ value: s.value, label: `${s.label} (${s.filled})` }))} />}
               <SelectField name="field" label="What to change" defaultValue={field ?? ""} placeholder="Choose…" options={[{ value: "section", label: "Section (same class)" }, ...fields.map((f) => ({ value: f.key, label: f.label }))]} />
-              <Button type="submit" variant="secondary">Show</Button>
+              <Button type="submit" variant="secondary"><Words k="Show" /></Button>
             </form>
-            {sp.ids && <p className="mt-2 text-[13.5px]"><Link className="font-semibold text-brand hover:underline" href={BASE}>Choose other students</Link></p>}
+            {sp.ids && <p className="mt-2 text-[13.5px]"><Link className="font-semibold text-brand hover:underline" href={BASE}><Words k="Choose other students" /></Link></p>}
           </CardBody>
         </Card>
 

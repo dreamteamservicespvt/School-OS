@@ -19,8 +19,12 @@ import { ReportsFrame } from "@/components/list/reports-frame";
 import { FeeHead } from "../_components/fee-head";
 import { BASE, feeGuard, one, qs, type SearchParams } from "../_lib/page";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Fee Reports" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Fee Reports") };
+}
 
 const HREF = `${BASE}/reports`;
 const SHOW = 500;
@@ -92,7 +96,7 @@ export default async function FeeReportsPage({ searchParams }: { searchParams: S
           <CardHeader title={def.label} description={def.about}
             action={<div className="flex flex-wrap justify-end items-center gap-1.5">
               <ExportButton href={exportHref} size="sm" always />
-              <a href={`${exportHref}&format=pdf`} target="_blank" rel="noreferrer" className={`${buttonClass("ghost", "sm")} hidden sm:inline-flex`}><Printer size={15} aria-hidden="true" />Print</a>
+              <a href={`${exportHref}&format=pdf`} target="_blank" rel="noreferrer" className={`${buttonClass("ghost", "sm")} hidden sm:inline-flex`}><Printer size={15} aria-hidden="true" /><Words k="Print" /></a>
             </div>} />
           {filtersOn && (
             <Toolbar className="md:flex-wrap border-t border-line">
@@ -109,7 +113,7 @@ export default async function FeeReportsPage({ searchParams }: { searchParams: S
           {has("dates") && <OldSoftwareBanner goLive={p.goLive} from={f.from} to={f.to} what="fee records" className="mx-5 mb-3" />}
           {has("dates") && allBeforeGoLive(p.goLive, f.from, f.to) ? <OldSoftwareEmpty goLive={p.goLive} what="fee records" /> : r.rows.length === 0 ? (
             <Empty icon={FileSpreadsheet} title="Nothing in this report" body={has("dates") ? "Nothing matches these dates and filters. Try a longer period." : "Nothing matches these filters."}
-              action={<Link href={qs(HREF, { r: def.key })} scroll={false} className={buttonClass("secondary")}>Clear filters</Link>} />
+              action={<Link href={qs(HREF, { r: def.key })} scroll={false} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>} />
           ) : (
             <SimpleTable minWidth={Math.max(560, r.columns.length * 120)} caption={def.label} rows={shown}
               cols={r.columns.map((c) => ({ label: c.label, right: c.kind === "money" || c.kind === "number", render: (row: Record<string, unknown>) => cellText(row[c.key] as never, c.kind) }))}

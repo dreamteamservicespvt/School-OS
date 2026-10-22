@@ -19,6 +19,7 @@ import { cx } from "@/components/ui/cx";
 import { ProblemInView } from "@/components/ui/problem-in-view";
 import type { FormState } from "@/lib/forms";
 import { qtyWords } from "@/lib/inventory/words";
+import { Words } from "@/lib/i18n/client";
 
 type Act = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 const ICONS = { bell: BellRing, check: Check, cancel: CircleX, send: Send, ret: CornerDownLeft, x: X, mail: Mail, archive: Archive, restore: RotateCcw } satisfies Record<string, LucideIcon>;
@@ -98,17 +99,17 @@ export function ItemLines({ items, start = [], price, limit, stockAt, label = "I
         return (
           <div key={r.key} className="rounded-xl border border-line p-2.5 flex flex-col gap-1.5">
             <div className={cx("grid gap-2 items-center", price ? "grid-cols-[1fr_84px_104px_auto]" : "grid-cols-[1fr_96px_auto]")}>
-              <label className="sr-only" htmlFor={`line-item-${r.key}`}>Item on line {i + 1}</label>
+              <label className="sr-only" htmlFor={`line-item-${r.key}`}><Words k="Item on line" /> {i + 1}</label>
               <KeepSelect id={`line-item-${r.key}`} name="itemId" value={r.itemId} onChange={(e) => set(r.key, { itemId: e.target.value })} className={cx(inputCls(t.error), "h-11 min-w-0")}>
                 <option value="">Choose an item</option>
                 {items.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </KeepSelect>
-              <label className="sr-only" htmlFor={`line-qty-${r.key}`}>Quantity on line {i + 1}</label>
+              <label className="sr-only" htmlFor={`line-qty-${r.key}`}><Words k="Quantity on line" /> {i + 1}</label>
               <input id={`line-qty-${r.key}`} name="qty" inputMode="numeric" value={r.qty} onChange={(e) => set(r.key, { qty: e.target.value.replace(/[^\d]/g, "") })} placeholder="Qty"
                 aria-invalid={over ? true : undefined} className={cx(inputCls(over ? "x" : undefined), "h-11 tnum text-right")} />
               {price && (
                 <>
-                  <label className="sr-only" htmlFor={`line-price-${r.key}`}>Price per unit on line {i + 1}</label>
+                  <label className="sr-only" htmlFor={`line-price-${r.key}`}><Words k="Price per unit on line" /> {i + 1}</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3 text-[14px]" aria-hidden="true">₹</span>
                     <input id={`line-price-${r.key}`} name="price" inputMode="decimal" value={r.price} onChange={(e) => set(r.key, { price: e.target.value })} placeholder="Rate" className={cx(inputCls(undefined), "h-11 pl-7 tnum text-right")} />
@@ -130,8 +131,8 @@ export function ItemLines({ items, start = [], price, limit, stockAt, label = "I
         );
       })}
       <div className="flex items-center justify-between gap-3 flex-wrap">
-        <Button variant="ghost" size="sm" icon={Plus} onClick={() => { setRows((rs) => [...rs, { key: next, itemId: "", qty: "", price: "" }]); setNext((n) => n + 1); }}>Add a line</Button>
-        {price && total > 0 && <span className="text-[13.5px] font-semibold tnum">Total ₹{(total / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>}
+        <Button variant="ghost" size="sm" icon={Plus} onClick={() => { setRows((rs) => [...rs, { key: next, itemId: "", qty: "", price: "" }]); setNext((n) => n + 1); }}><Words k="Add a line" /></Button>
+        {price && total > 0 && <span className="text-[13.5px] font-semibold tnum"><Words k="Total ₹" />{(total / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>}
       </div>
       {t.error ? <p className="text-[12.5px] text-bad" role="alert">{t.error}</p> : help ? <p className="text-[12.5px] text-ink3">{help}</p> : null}
     </fieldset>
@@ -161,11 +162,11 @@ export function StudentFinder({ find, start, onPick, id = "student-find" }: { fi
   if (picked) {
     return (
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Student</span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Student" /></span>
         <div className="flex items-center gap-3 rounded-xl border border-brand/40 bg-brand/5 px-3 py-2.5">
           <UserRound size={18} className="text-brand shrink-0" aria-hidden="true" />
           <span className="min-w-0 flex-1 text-[14px]"><b className="font-semibold">{picked.name}</b><span className="block text-[12.5px] text-ink3">{picked.admissionNo}{picked.cls ? ` · ${picked.cls}` : ""}</span></span>
-          <button type="button" className="text-[13px] font-semibold text-brand hover:underline" onClick={() => pick(null)}>Change</button>
+          <button type="button" className="text-[13px] font-semibold text-brand hover:underline" onClick={() => pick(null)}><Words k="Change" /></button>
         </div>
         <input type="hidden" name="studentId" value={picked.id} />
       </div>
@@ -173,7 +174,7 @@ export function StudentFinder({ find, start, onPick, id = "student-find" }: { fi
   }
   return (
     <div className="flex flex-col gap-1.5 relative">
-      <label htmlFor={id} className="text-[13px] font-semibold text-ink2">Student <span className="text-bad" aria-hidden="true">*</span></label>
+      <label htmlFor={id} className="text-[13px] font-semibold text-ink2"><Words k="Student" /> <span className="text-bad" aria-hidden="true">*</span></label>
       <div className="relative">
         <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
         <input id={id} value={q} onChange={(e) => search(e.target.value)} placeholder="Name or admission number" autoComplete="off" role="combobox" aria-expanded={found.length > 0} aria-controls={`${id}-list`}
@@ -190,8 +191,8 @@ export function StudentFinder({ find, start, onPick, id = "student-find" }: { fi
           ))}
         </ul>
       )}
-      {q.trim().length >= 2 && !busy && found.length === 0 && <p className="text-[12.5px] text-ink3">No student studying now matches “{q.trim()}”.</p>}
-      {t.error ? <p className="text-[12.5px] text-bad">{t.error}</p> : <p className="text-[12.5px] text-ink3">Type at least 2 letters.</p>}
+      {q.trim().length >= 2 && !busy && found.length === 0 && <p className="text-[12.5px] text-ink3"><Words k="No student studying now matches “" />{q.trim()}”.</p>}
+      {t.error ? <p className="text-[12.5px] text-bad">{t.error}</p> : <p className="text-[12.5px] text-ink3"><Words k="Type at least 2 letters." /></p>}
     </div>
   );
 }
@@ -222,7 +223,7 @@ export function ScanBox({ href, param, label, placeholder, autoFocus, id }: { hr
           <input id={id} name="code" placeholder={placeholder} autoFocus={autoFocus} autoComplete="off" spellCheck={false} aria-invalid={problem ? true : undefined}
             className={cx(inputCls(problem), "h-12 pl-11 font-mono text-[15px]")} />
         </div>
-        <Button type="submit" variant="primary" loading={busy} className="h-12">Go</Button>
+        <Button type="submit" variant="primary" loading={busy} className="h-12"><Words k="Go" /></Button>
       </div>
       {problem && <p className="text-[12.5px] text-bad" role="alert">{problem}</p>}
     </form>

@@ -29,8 +29,12 @@ import { ActButton } from "../_components/client";
 import { CountSheet, ExpenseSheet, MenuSheet } from "../_components/sheets";
 import { copyMenuAction } from "../actions";
 import { BASE, hostelGuard, hostelPeriod, one, qs, type Raw, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Mess · Hostel Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Mess · Hostel Management") };
+}
 
 type P = Awaited<ReturnType<typeof hostelGuard>>;
 const DAY = 86_400_000;
@@ -80,20 +84,20 @@ async function MenuView({ p, sp }: { p: P; sp: Raw }) {
         <Views view="menu" />
         <Card className="overflow-hidden">
           <div className="flex items-center gap-2 px-4 md:px-5 py-3 border-b border-line">
-            {canGoBack ? <ButtonLink href={href(prev)} variant="ghost" size="sm" icon={ChevronLeft} aria-label="Earlier week">Earlier</ButtonLink> : <span className="w-[84px]" />}
+            {canGoBack ? <ButtonLink href={href(prev)} variant="ghost" size="sm" icon={ChevronLeft} aria-label="Earlier week"><Words k="Earlier" /></ButtonLink> : <span className="w-[84px]" />}
             <div className="flex-1 text-center min-w-0">
               <p className="font-semibold text-[15px]">{week.getTime() === thisWeek.getTime() ? "This week" : week.getTime() === thisWeek.getTime() - 7 * DAY ? "Last week" : week.getTime() === thisWeek.getTime() + 7 * DAY ? "Next week" : "Week of"}</p>
               <p className="text-[12.5px] text-ink3">{weekWords}</p>
             </div>
-            <ButtonLink href={href(next)} variant="ghost" size="sm" icon={ChevronRight} aria-label="Later week">Later</ButtonLink>
+            <ButtonLink href={href(next)} variant="ghost" size="sm" icon={ChevronRight} aria-label="Later week"><Words k="Later" /></ButtonLink>
           </div>
           {d.items.length === 0 && (
-            <div className="px-5 pt-4"><p className="text-[13.5px] text-ink2 flex gap-2 items-center"><Salad size={16} className="text-ink3" aria-hidden="true" />No menu for this week yet.{can.mess ? (d.last.length ? " Copy last week's, then change what differs." : " Tap a meal to write what is served.") : ""}</p></div>
+            <div className="px-5 pt-4"><p className="text-[13.5px] text-ink2 flex gap-2 items-center"><Salad size={16} className="text-ink3" aria-hidden="true" /><Words k="No menu for this week yet." />{can.mess ? (d.last.length ? " Copy last week's, then change what differs." : " Tap a meal to write what is served.") : ""}</p></div>
           )}
           {/* Desktop: meals down, days across */}
           <div className="hidden lg:block overflow-x-auto p-4 md:p-5">
             <table className="w-full min-w-[980px] border-separate border-spacing-1.5 text-[13px]">
-              <caption className="sr-only">Mess menu, {weekWords}</caption>
+              <caption className="sr-only"><Words k="Mess menu," /> {weekWords}</caption>
               <thead>
                 <tr>
                   <th className="w-24" />
@@ -126,7 +130,7 @@ async function MenuView({ p, sp }: { p: P; sp: Raw }) {
                   </tr>
                 ))}
                 <tr>
-                  <th scope="row" className="text-left font-semibold text-ink3 text-[12.5px] pr-2">Per day</th>
+                  <th scope="row" className="text-left font-semibold text-ink3 text-[12.5px] pr-2"><Words k="Per day" /></th>
                   {MENU_DAYS.map((_, i) => <td key={i} className="px-2 text-[12px] text-ink3 tnum">{kcalOf(i) ? `${kcalOf(i).toLocaleString("en-IN")} kcal · ${proteinOf(i)} g` : ""}</td>)}
                 </tr>
               </tbody>
@@ -136,7 +140,7 @@ async function MenuView({ p, sp }: { p: P; sp: Raw }) {
           <div className="lg:hidden divide-y divide-line/70">
             {MENU_DAYS.map((x, i) => (
               <section key={x} aria-label={DAY_NAMES[i]} className={cx("px-4 py-3", i === todayIdx && "bg-brand/[.04]")}>
-                <h3 className="font-semibold text-[14px] mb-1.5">{DAY_NAMES[i]}{i === todayIdx ? <span className="text-brand"> · today</span> : ""}{kcalOf(i) ? <span className="text-[12px] text-ink3 font-normal tnum"> · {kcalOf(i).toLocaleString("en-IN")} kcal</span> : null}</h3>
+                <h3 className="font-semibold text-[14px] mb-1.5">{DAY_NAMES[i]}{i === todayIdx ? <span className="text-brand"> <Words k="· today" /></span> : ""}{kcalOf(i) ? <span className="text-[12px] text-ink3 font-normal tnum"> · {kcalOf(i).toLocaleString("en-IN")} <Words k="kcal" /></span> : null}</h3>
                 <ul className="flex flex-col gap-1">
                   {s.meals.map((m) => {
                     const c = cell(i, m);
@@ -148,7 +152,7 @@ async function MenuView({ p, sp }: { p: P; sp: Raw }) {
             ))}
           </div>
         </Card>
-        <p className="text-[12.5px] text-ink3">Calories and protein are per plate. The meals of the day are set in Hostel Settings.</p>
+        <p className="text-[12.5px] text-ink3"><Words k="Calories and protein are per plate. The meals of the day are set in Hostel Settings." /></p>
       </Stack>
       {editing !== undefined && (
         <MenuSheet closeHref={href(week)} week={isoOf(week)} day={editDay} dayName={`${DAY_NAMES[editDay]}, ${formatDate(new Date(week.getTime() + editDay * DAY), "UTC")}`} meal={editMeal}
@@ -196,8 +200,8 @@ async function CountView({ p, sp }: { p: P; sp: Raw }) {
               return (
                 <li key={m} className="rounded-2xl border border-line p-3.5 flex flex-col gap-1.5">
                   <span className="text-[12.5px] font-semibold text-ink3">{m}</span>
-                  <span className="text-[22px] font-bold tnum leading-none">{row ? row.actual : "—"}<span className="text-[13px] font-medium text-ink3"> / {exp} expected</span></span>
-                  {row ? <span className={cx("text-[12.5px]", row.actual < row.expected ? "text-warn" : "text-ok")}>{row.actual === row.expected ? "As expected" : row.actual < row.expected ? `${row.expected - row.actual} fewer` : `${row.actual - row.expected} more`}{row.note ? ` · ${row.note}` : ""}</span> : <span className="text-[12.5px] text-ink3">Not counted yet</span>}
+                  <span className="text-[22px] font-bold tnum leading-none">{row ? row.actual : "—"}<span className="text-[13px] font-medium text-ink3"> / {exp} <Words k="expected" /></span></span>
+                  {row ? <span className={cx("text-[12.5px]", row.actual < row.expected ? "text-warn" : "text-ok")}>{row.actual === row.expected ? "As expected" : row.actual < row.expected ? `${row.expected - row.actual} fewer` : `${row.actual - row.expected} more`}{row.note ? ` · ${row.note}` : ""}</span> : <span className="text-[12.5px] text-ink3"><Words k="Not counted yet" /></span>}
                   {can.mess && <ButtonLink href={qs(base, { ...keep, count: m })} size="sm" variant={row ? "ghost" : "secondary"} scroll={false} className="self-start mt-1">{row ? "Change" : "Record count"}</ButtonLink>}
                 </li>
               );
@@ -216,7 +220,7 @@ async function CountView({ p, sp }: { p: P; sp: Raw }) {
               { key: "act", label: "Actual", align: "right", render: (r) => <b className="font-semibold tnum">{r.actual}</b> },
               { key: "diff", label: "Difference", align: "right", render: (r) => <span className={cx("tnum", r.actual < r.expected ? "text-warn" : r.actual > r.expected ? "text-info" : "text-ink3")}>{r.actual - r.expected > 0 ? "+" : ""}{r.actual - r.expected}</span> },
               { key: "note", label: "Note", render: (r) => r.note ?? <span className="text-ink3">—</span> },
-              { key: "edit", label: "", render: (r) => (can.mess && r.date.getTime() >= p.today.getTime() - 7 * DAY ? <Link href={qs(base, { ...keep, count: r.meal, date: isoOf(r.date) })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">Change</Link> : null) },
+              { key: "edit", label: "", render: (r) => (can.mess && r.date.getTime() >= p.today.getTime() - 7 * DAY ? <Link href={qs(base, { ...keep, count: r.meal, date: isoOf(r.date) })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline"><Words k="Change" /></Link> : null) },
             ]}
             phone={(r) => ({ title: `${formatDate(r.date, "UTC")} · ${r.meal}`, sub: r.note ?? `${r.expected} expected`, icon: UtensilsCrossed, iconTone: r.actual < r.expected ? "warn" : "ok", right: <b className="font-semibold tnum">{r.actual} / {r.expected}</b> })}
           />
@@ -266,7 +270,7 @@ async function ExpensesView({ p, sp }: { p: P; sp: Raw }) {
   return (
     <>
       <HostelHead pageName="Mess" href={base} mode={p.mode} sub="Groceries, gas, milk and the like. Each goes to Finance, Expenses under Hostel mess."
-        actions={can.mess ? <ButtonLink href={href({ new: "1" })} variant="primary" icon={Plus} scroll={false}>Add expense</ButtonLink> : undefined} />
+        actions={can.mess ? <ButtonLink href={href({ new: "1" })} variant="primary" icon={Plus} scroll={false}><Words k="Add expense" /></ButtonLink> : undefined} />
       <Stack>
         <Views view="expenses" />
         <Stats items={[
@@ -301,7 +305,7 @@ async function ExpensesView({ p, sp }: { p: P; sp: Raw }) {
             <Card>
               <CardHeader title="By item" icon={Receipt} description={per.label} />
               <div className="px-5 pb-5">
-                {d.byItem.length ? <HBars labelWidth={96} rows={d.byItem.map((x) => ({ key: x.item, label: x.item, value: Number(x._sum.amountPaise ?? 0) / maxItem, text: formatRupees(x._sum.amountPaise ?? BigInt(0)) }))} /> : <p className="text-[13px] text-ink3">Nothing spent in these dates.</p>}
+                {d.byItem.length ? <HBars labelWidth={96} rows={d.byItem.map((x) => ({ key: x.item, label: x.item, value: Number(x._sum.amountPaise ?? 0) / maxItem, text: formatRupees(x._sum.amountPaise ?? BigInt(0)) }))} /> : <p className="text-[13px] text-ink3"><Words k="Nothing spent in these dates." /></p>}
               </div>
             </Card>
           </Col>

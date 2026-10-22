@@ -4,6 +4,7 @@ import { Tabs, type Tab } from "@/components/ui/tabs";
 import { Pill } from "@/components/ui/badge";
 import { BASE, type AttendanceAccess } from "@/lib/attendance/access";
 import type { AttendanceFeature } from "@/lib/attendance/settings";
+import { Words } from "@/lib/i18n/client";
 
 /** The module's pages as tabs (05 §2). Each person sees only the pages their role reaches. */
 export function attendanceTabs(access: AttendanceAccess, features: Set<AttendanceFeature>): Tab[] {
@@ -34,8 +35,8 @@ export function AttHead({ access, features, userId, href, sub, actions }: {
   const key = path === `${BASE}/register` ? "register" : path === `${BASE}/staff` ? "staff" : path.startsWith(`${BASE}/devices`) ? "devices" : path === `${BASE}/settings` ? "settings" : null;
   const readOnly = key !== null && access.pages[key] === "view";
   const scope = access.change === "none" || readOnly
-    ? <Pill tone="neutral" className="!h-6 mr-2 align-middle"><Eye size={13} aria-hidden="true" />View only</Pill>
-    : access.see === "own" ? <Pill tone="brand" className="!h-6 mr-2 align-middle"><User size={13} aria-hidden="true" />Only yours</Pill> : null;
+    ? <Pill tone="neutral" className="!h-6 mr-2 align-middle"><Eye size={13} aria-hidden="true" /><Words k="View only" /></Pill>
+    : access.see === "own" ? <Pill tone="brand" className="!h-6 mr-2 align-middle"><User size={13} aria-hidden="true" /><Words k="Only yours" /></Pill> : null;
   return (
     <>
       <PageHeader title="Attendance" href={href} userId={userId} sub={scope || sub ? <>{scope}{sub}</> : undefined}>{actions}</PageHeader>

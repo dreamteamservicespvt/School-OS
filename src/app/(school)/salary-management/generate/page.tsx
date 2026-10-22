@@ -28,8 +28,12 @@ import { cancelStatutoryAction, calculateAction, decideRunAction, lockRunAction,
 import { AdjustmentSheet, OpenMonthSheet, PayRunSheet, StatutoryPaySheet, TdsSheet } from "./sheets";
 import { STATUTORY_KINDS, STATUTORY_WORDS, duesTrackedFrom, statutoryDues, statutoryPaymentsOf, type StatutoryKind } from "@/lib/salary/statutory-payments";
 import { schoolRole } from "@/lib/school-roles";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Generate Salary" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Generate Salary") };
+}
 
 const HREF = `${BASE}/generate`;
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -138,7 +142,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
   return (
     <div>
       <SalaryHead pageName="Generate Salary" href={HREF} sub={sub}
-        actions={<ButtonLink href={here({ do: "open-month" })} scroll={false} variant="secondary" icon={CalendarPlus}>Open a month</ButtonLink>} />
+        actions={<ButtonLink href={here({ do: "open-month" })} scroll={false} variant="secondary" icon={CalendarPlus}><Words k="Open a month" /></ButtonLink>} />
       <Stack>
         <Stats items={[
           { label: "Salary structures", value: `${data.staffNow.length - data.missing.length} of ${data.staffNow.length}`, sub: data.missing.length ? `${data.missing.length} missing · ${data.missing.slice(0, 2).map((s) => s.fullName).join(", ")}` : "Everyone has one", tone: data.missing.length ? "warn" : undefined, icon: FileSpreadsheet, href: p.may("structures") ? `${BASE}/structures` : undefined },
@@ -150,7 +154,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
         ]} />
 
         {!run ? (
-          <Card><Empty icon={CalendarPlus} title="No salary month yet" body="Open the month to work out everyone’s pay from their structure, attendance and leave." action={p.change ? <ButtonLink href={here({ do: "open-month" })} scroll={false} variant="primary" icon={CalendarPlus}>Open a month</ButtonLink> : undefined} /></Card>
+          <Card><Empty icon={CalendarPlus} title="No salary month yet" body="Open the month to work out everyone’s pay from their structure, attendance and leave." action={p.change ? <ButtonLink href={here({ do: "open-month" })} scroll={false} variant="primary" icon={CalendarPlus}><Words k="Open a month" /></ButtonLink> : undefined} /></Card>
         ) : (
           <Split side={340}>
             <Col className="[&>*]:min-w-0">
@@ -158,47 +162,47 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                 <div className="px-5 pt-4 pb-3 flex items-start justify-between gap-3 flex-wrap">
                   <div className="min-w-0">
                     <h2 className="font-semibold text-[15px] leading-tight flex items-center gap-2 flex-wrap">{monthName(run.month)} <RunPill s={status} /></h2>
-                    <p className="text-[13px] text-ink3 mt-0.5">{run.staffCount} staff · {run.paidOn ? `Paid ${dayShort(run.paidOn)}${run.approvedById ? ` · approved by ${userName(run.approvedById)}` : ""}` : `Pay day ${dayShort(lastOfMonth(run.month))}`}</p>
+                    <p className="text-[13px] text-ink3 mt-0.5">{run.staffCount} <Words k="staff ·" /> {run.paidOn ? `Paid ${dayShort(run.paidOn)}${run.approvedById ? ` · approved by ${userName(run.approvedById)}` : ""}` : `Pay day ${dayShort(lastOfMonth(run.month))}`}</p>
                   </div>
                   {run.month.getTime() !== thisMonth.getTime() && data.allRuns.some((r) => r.month.getTime() === thisMonth.getTime()) && (
-                    <ButtonLink href={qs(HREF, { ...per.keep, campus: one(sp.campus) || null })} scroll={false} size="sm" variant="ghost">Back to {monthName(thisMonth).split(" ")[0]}</ButtonLink>
+                    <ButtonLink href={qs(HREF, { ...per.keep, campus: one(sp.campus) || null })} scroll={false} size="sm" variant="ghost"><Words k="Back to" /> {monthName(thisMonth).split(" ")[0]}</ButtonLink>
                   )}
                 </div>
                 <RunSteps status={status} />
                 <div className="px-5 pb-4 flex flex-col gap-3">
-                  {(status === "OPEN" || status === "CALCULATED") && run.calculatedAt && <Banner tone="info">Attendance and approved leave up to <b className="font-semibold">{formatDateTime(run.calculatedAt, p.tz)}</b> are in. They keep coming in by themselves until the month is sent for approval.</Banner>}
-                  {status === "OPEN" && !run.calculatedAt && <Banner tone="info">Not worked out yet. Calculate to bring in attendance, leave and structures.</Banner>}
+                  {(status === "OPEN" || status === "CALCULATED") && run.calculatedAt && <Banner tone="info"><Words k="Attendance and approved leave up to" /> <b className="font-semibold">{formatDateTime(run.calculatedAt, p.tz)}</b> <Words k="are in. They keep coming in by themselves until the month is sent for approval." /></Banner>}
+                  {status === "OPEN" && !run.calculatedAt && <Banner tone="info"><Words k="Not worked out yet. Calculate to bring in attendance, leave and structures." /></Banner>}
                   {status === "CALCULATED" && run.sentBackReason && <Banner tone="bad" title="Sent back:">{run.sentBackReason}</Banner>}
                   {status === "WAITING" && data.approval && <Banner tone="warn" title={`Sent by ${data.approval.sentBy}${run.sentAt ? ` · ${formatDateTime(run.sentAt, p.tz)}` : ""}.`}>{data.approval.can ? "Check the totals and approve, or send it back with a reason." : `Waiting for ${data.approval.approver}. Amounts cannot change now unless it is sent back.`}</Banner>}
-                  {status === "APPROVED" && <Banner tone="ok" title="Approved.">{included.length} salary slips are made and each staff member was told. Amounts are frozen. Pay the staff, then mark it paid.</Banner>}
-                  {status === "PAID" && <Banner tone="ok" title={`Paid ${run.paidOn ? dayShort(run.paidOn) : ""}.`}>One salary entry is in the Day Book on the date paid. Corrections go in next month as an adjustment.</Banner>}
-                  {status === "LOCKED" && <Banner tone="info" icon={Lock} title="Locked for good.">This run never changes. A correction is an adjustment, with a reason, in a following month.</Banner>}
-                  {!p.change && <Banner tone="info" icon={Eye}>View only. Check that leave and attendance reach the salary; the Accountant runs it.</Banner>}
+                  {status === "APPROVED" && <Banner tone="ok" title="Approved.">{included.length} <Words k="salary slips are made and each staff member was told. Amounts are frozen. Pay the staff, then mark it paid." /></Banner>}
+                  {status === "PAID" && <Banner tone="ok" title={`Paid ${run.paidOn ? dayShort(run.paidOn) : ""}.`}><Words k="One salary entry is in the Day Book on the date paid. Corrections go in next month as an adjustment." /></Banner>}
+                  {status === "LOCKED" && <Banner tone="info" icon={Lock} title="Locked for good."><Words k="This run never changes. A correction is an adjustment, with a reason, in a following month." /></Banner>}
+                  {!p.change && <Banner tone="info" icon={Eye}><Words k="View only. Check that leave and attendance reach the salary; the Accountant runs it." /></Banner>}
                 </div>
                 {p.change && (
                   <div className="px-5 pb-5 flex gap-2 flex-wrap">
                     {editable && <>
-                      {status === "CALCULATED" && <ButtonLink href={here({ do: "send" })} scroll={false} variant="primary" icon={Send}>Send for approval</ButtonLink>}
+                      {status === "CALCULATED" && <ButtonLink href={here({ do: "send" })} scroll={false} variant="primary" icon={Send}><Words k="Send for approval" /></ButtonLink>}
                       <ActButton action={calculateAction} fields={{ runId: run.id }} label={status === "OPEN" ? "Calculate" : "Recalculate"} variant={status === "OPEN" ? "primary" : "secondary"} />
-                      <ButtonLink href={here({ do: "adjust" })} scroll={false} variant="ghost" icon={Plus}>Add adjustment</ButtonLink>
+                      <ButtonLink href={here({ do: "adjust" })} scroll={false} variant="ghost" icon={Plus}><Words k="Add adjustment" /></ButtonLink>
                     </>}
                     {status === "WAITING" && (data.approval?.can ? <>
-                      <ButtonLink href={here({ do: "approve" })} scroll={false} variant="primary" icon={Check}>Approve salary</ButtonLink>
-                      <ButtonLink href={here({ do: "back" })} scroll={false} variant="secondary">Send back</ButtonLink>
+                      <ButtonLink href={here({ do: "approve" })} scroll={false} variant="primary" icon={Check}><Words k="Approve salary" /></ButtonLink>
+                      <ButtonLink href={here({ do: "back" })} scroll={false} variant="secondary"><Words k="Send back" /></ButtonLink>
                     </> : <>
-                      <ButtonLink href={run.approvalId ? `/approvals/${run.approvalId}` : "/approvals"} variant="secondary" icon={Hourglass}>Open in Approvals</ButtonLink>
+                      <ButtonLink href={run.approvalId ? `/approvals/${run.approvalId}` : "/approvals"} variant="secondary" icon={Hourglass}><Words k="Open in Approvals" /></ButtonLink>
                       {run.sentById === p.current.user.id && <ActButton action={takeBackAction} fields={{ runId: run.id }} label="Take back to change" variant="ghost" icon="undo" />}
                     </>)}
                     {status === "APPROVED" && <>
-                      <ButtonLink href={here({ do: "pay" })} scroll={false} variant="primary" icon={Banknote}>Mark paid</ButtonLink>
-                      <a href={`${HREF}/bank-file?run=${run.id}&format=xlsx`} download className={buttonClass("secondary")}><FileDown size={17} aria-hidden="true" />Bank transfer file</a>
-                      <ButtonLink href={`${BASE}/slips?run=${run.id}`} variant="ghost" icon={ReceiptText}>See slips</ButtonLink>
+                      <ButtonLink href={here({ do: "pay" })} scroll={false} variant="primary" icon={Banknote}><Words k="Mark paid" /></ButtonLink>
+                      <a href={`${HREF}/bank-file?run=${run.id}&format=xlsx`} download className={buttonClass("secondary")}><FileDown size={17} aria-hidden="true" /><Words k="Bank transfer file" /></a>
+                      <ButtonLink href={`${BASE}/slips?run=${run.id}`} variant="ghost" icon={ReceiptText}><Words k="See slips" /></ButtonLink>
                     </>}
                     {(status === "PAID" || status === "LOCKED") && <>
-                      <a href={`${HREF}/statement?run=${run.id}&kind=PF`} download className={buttonClass("secondary")}><FileDown size={17} aria-hidden="true" />PF statement</a>
-                      <a href={`${HREF}/statement?run=${run.id}&kind=ESI`} download className={buttonClass("secondary")}><FileDown size={17} aria-hidden="true" />ESI statement</a>
-                      {status === "PAID" && <ButtonLink href={here({ do: "lock" })} scroll={false} variant="ghost" icon={Lock}>Lock now</ButtonLink>}
-                      {status === "PAID" && p.can.edit && <ButtonLink href={here({ do: "reverse" })} scroll={false} variant="ghost" icon={Undo2}>Reverse payment</ButtonLink>}
+                      <a href={`${HREF}/statement?run=${run.id}&kind=PF`} download className={buttonClass("secondary")}><FileDown size={17} aria-hidden="true" /><Words k="PF statement" /></a>
+                      <a href={`${HREF}/statement?run=${run.id}&kind=ESI`} download className={buttonClass("secondary")}><FileDown size={17} aria-hidden="true" /><Words k="ESI statement" /></a>
+                      {status === "PAID" && <ButtonLink href={here({ do: "lock" })} scroll={false} variant="ghost" icon={Lock}><Words k="Lock now" /></ButtonLink>}
+                      {status === "PAID" && p.can.edit && <ButtonLink href={here({ do: "reverse" })} scroll={false} variant="ghost" icon={Undo2}><Words k="Reverse payment" /></ButtonLink>}
                     </>}
                   </div>
                 )}
@@ -210,18 +214,18 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                   <ul className="divide-y divide-line/70 border-t border-line/70">
                     {negative.length > 0 && <Check1 icon={TriangleAlert} tone="bad" title={`Net pay below zero for ${negative.length} staff · cannot be sent or approved`}
                       sub={`${negative.slice(0, 3).map((l) => (money ? `${name(l.staffId)} ${amt(l.netPaise)}` : name(l.staffId))).join(", ")}. A correction or one-time deduction is more than the pay. Change or remove the adjustment first.`}
-                      action={<ButtonLink href={here({ show: "flag" })} scroll={false} size="sm" variant="secondary">Show</ButtonLink>} />}
+                      action={<ButtonLink href={here({ show: "flag" })} scroll={false} size="sm" variant="secondary"><Words k="Show" /></ButtonLink>} />}
                     {noStructure.length > 0 && <Check1 icon={FileWarning} tone="warn" title={`${noStructure.length} staff ${noStructure.length === 1 ? "has" : "have"} no salary structure`} sub={`${noStructure.slice(0, 3).map((l) => `${name(l.staffId)}, ${staffOf.get(l.staffId)?.designation}`).join("; ")}${noStructure.length > 3 ? ` and ${noStructure.length - 3} more` : ""}. Left out until a structure exists.`}
-                      action={p.change ? <ButtonLink href={`${BASE}/structures?do=add&staff=${noStructure[0].staffId}`} size="sm" variant="secondary">Add</ButtonLink> : null} />}
+                      action={p.change ? <ButtonLink href={`${BASE}/structures?do=add&staff=${noStructure[0].staffId}`} size="sm" variant="secondary"><Words k="Add" /></ButtonLink> : null} />}
                     {incomplete.length > 0 && <Check1 icon={CalendarX2} tone="warn" title={`Attendance missing for ${incomplete.length} staff`} sub={incomplete.slice(0, 3).map((l) => `${name(l.staffId)} ${l.notMarkedDays} ${l.notMarkedDays === 1 ? "day" : "days"}`).join(", ") + ". Not marked and no leave asked."}
-                      action={p.current.permissions["attendance-management"]?.see !== "none" ? <ButtonLink href="/attendance-management/staff" size="sm" variant="secondary">Open</ButtonLink> : null} />}
+                      action={p.current.permissions["attendance-management"]?.see !== "none" ? <ButtonLink href="/attendance-management/staff" size="sm" variant="secondary"><Words k="Open" /></ButtonLink> : null} />}
                     {noTds.length > 0 && <Check1 icon={Receipt} tone="warn" title={`${noTds.length} staff ${noTds.length === 1 ? "has" : "have"} no TDS amount`} sub={`${noTds.slice(0, 2).map((l) => name(l.staffId)).join(", ")} · yearly pay is above the ${formatRupeesShort(data.settings.tdsReminderAbovePaise)} limit set in Salary Settings`}
-                      action={p.change ? <ButtonLink href={here({ tds: noTds[0].staffId })} scroll={false} size="sm" variant="secondary">Enter TDS</ButtonLink> : null} />}
+                      action={p.change ? <ButtonLink href={here({ tds: noTds[0].staffId })} scroll={false} size="sm" variant="secondary"><Words k="Enter TDS" /></ButtonLink> : null} />}
                     {corrections.length > 0 && <Check1 icon={Undo2} tone="info" title={`${corrections.length} ${corrections.length === 1 ? "correction" : "corrections"} for earlier months`}
                       sub={corrections.slice(0, 3).map((a) => `${name(a.staffId)}: ${correctionLabel(a)}, ${Number(a.lopDays) < 0 ? `${dayNum(-Number(a.lopDays))} ${Number(a.lopDays) === -1 ? "day" : "days"} given back` : `${dayNum(Number(a.lopDays))} more loss of pay`}${money ? ` (${a.type === "DEDUCTION" ? "−" : "+"}${amt(a.amountPaise)})` : ""}`).join("; ") + ". Leave or attendance changed after that salary was approved."}
-                      action={<ButtonLink href={here({ show: "adj" })} scroll={false} size="sm" variant="ghost">Show</ButtonLink>} />}
+                      action={<ButtonLink href={here({ show: "adj" })} scroll={false} size="sm" variant="ghost"><Words k="Show" /></ButtonLink>} />}
                     {lopLines.length > 0 && <Check1 icon={Info} tone="info" title={`${lopLines.length} staff ${lopLines.length === 1 ? "has" : "have"} loss of pay · ${dayNum(lopTotal)} ${lopTotal === 1 ? "day" : "days"}`} sub={lopLines.slice(0, 4).map((l) => `${name(l.staffId)} ${dayNum(Number(l.lopDays))}`).join(", ")}
-                      action={<ButtonLink href={here({ show: "lop" })} scroll={false} size="sm" variant="ghost">Show</ButtonLink>} />}
+                      action={<ButtonLink href={here({ show: "lop" })} scroll={false} size="sm" variant="ghost"><Words k="Show" /></ButtonLink>} />}
                   </ul>
                 </Card>
               )}
@@ -240,15 +244,15 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                     <MoneyLi sub k="Loans and advances" v={amt(data.breakdown.recovery)} />
                     {data.breakdown.cut + data.breakdown.other > ZERO && <MoneyLi sub k="One-time and other deductions" v={amt(data.breakdown.cut + data.breakdown.other)} />}
                     <MoneyLi k="Deductions" v={amt(run.deductionsPaise)} strong />
-                    <li className="flex justify-between border-t border-line pt-2 mt-1"><span className="font-semibold">Net pay</span><b className="font-display text-[20px] font-semibold">{amt(run.netPaise)}</b></li>
+                    <li className="flex justify-between border-t border-line pt-2 mt-1"><span className="font-semibold"><Words k="Net pay" /></span><b className="font-display text-[20px] font-semibold">{amt(run.netPaise)}</b></li>
                   </ul>
                   <div className="mx-5 mb-5 rounded-xl bg-sunken/70 px-3.5 py-3 text-[13px] tnum">
-                    <p className="font-semibold text-ink2">School’s cost on top</p>
-                    <p className="text-ink3 mt-0.5">Employer PF {amt(run.employerPfPaise)} · employer ESI {amt(run.employerEsiPaise)}. Not taken from net pay.</p>
+                    <p className="font-semibold text-ink2"><Words k="School’s cost on top" /></p>
+                    <p className="text-ink3 mt-0.5"><Words k="Employer PF" /> {amt(run.employerPfPaise)} <Words k="· employer ESI" /> {amt(run.employerEsiPaise)}<Words k=". Not taken from net pay." /></p>
                   </div>
                   {data.adjustments.length > 0 && (
                     <div className="px-5 pb-5">
-                      <p className="eyebrow text-ink3 mb-1.5">Adjustments</p>
+                      <p className="eyebrow text-ink3 mb-1.5"><Words k="Adjustments" /></p>
                       <ul className="flex flex-col gap-1">
                         {data.adjustments.map((a) => (
                           <li key={a.id} className="text-[13px] flex justify-between items-center gap-2">
@@ -292,22 +296,22 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                           {d.balance > ZERO ? (
                             <span className="flex items-center gap-2 shrink-0">
                               <b className={cx("tnum", d.overdue ? "text-bad" : "text-warn")}>{amt(d.balance)}</b>
-                              {p.change && <Link href={here({ do: "gov", kind: d.kind })} scroll={false} className={buttonClass("secondary", "sm")}>Record paid</Link>}
+                              {p.change && <Link href={here({ do: "gov", kind: d.kind })} scroll={false} className={buttonClass("secondary", "sm")}><Words k="Record paid" /></Link>}
                             </span>
-                          ) : <span className="text-[13px] text-ok font-semibold shrink-0">Paid</span>}
+                          ) : <span className="text-[13px] text-ok font-semibold shrink-0"><Words k="Paid" /></span>}
                         </li>
                       ))}
                     </ul>
                   )}
                   {data.gov.payments.length > 0 && (
                     <div className="px-5 pb-5">
-                      <p className="eyebrow text-ink3 mb-1.5">Payments</p>
+                      <p className="eyebrow text-ink3 mb-1.5"><Words k="Payments" /></p>
                       <ul className="flex flex-col gap-1.5">
                         {data.gov.payments.map((x) => (
                           <li key={x.id} className="text-[13px] flex justify-between items-center gap-2">
-                            <span className={cx("min-w-0", x.cancelledAt && "line-through text-ink3")}>{x.label} · {amt(x.amountPaise)} on {formatDate(x.paidOn)}{x.reference ? ` · ${x.reference}` : ""}</span>
-                            {x.cancelledAt ? <span className="text-[12px] text-ink3 shrink-0" title={x.cancelReason ?? ""}>Cancelled</span>
-                              : p.can.edit && <Link href={here({ do: "gov-cancel", pay: x.id })} scroll={false} className={buttonClass("ghost", "sm")}>Cancel</Link>}
+                            <span className={cx("min-w-0", x.cancelledAt && "line-through text-ink3")}>{x.label} · {amt(x.amountPaise)} <Words k="on" /> {formatDate(x.paidOn)}{x.reference ? ` · ${x.reference}` : ""}</span>
+                            {x.cancelledAt ? <span className="text-[12px] text-ink3 shrink-0" title={x.cancelReason ?? ""}><Words k="Cancelled" /></span>
+                              : p.can.edit && <Link href={here({ do: "gov-cancel", pay: x.id })} scroll={false} className={buttonClass("ghost", "sm")}><Words k="Cancel" /></Link>}
                           </li>
                         ))}
                       </ul>
@@ -333,7 +337,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                       </li>
                     ))}
                   </ul>
-                ) : <p className="px-5 pb-5 text-[13.5px] text-ink3">No salary months in {per.label.toLowerCase()}.</p>}
+                ) : <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No salary months in" /> {per.label.toLowerCase()}.</p>}
               </Card>
               {p.campuses.length > 1 && (
                 <Card className="p-4"><UrlSelect id="gen-campus" param="campus" label="Campus" options={p.campuses.map((c) => ({ value: c.id, label: campusWord(c.name) }))} /></Card>
@@ -351,21 +355,21 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
             </Toolbar>
             {rows.length === 0 ? (
               <Empty icon={SearchX} title="No staff match" body={show === "adj" ? "No adjustments yet. Open a row to add a bonus, arrears or a deduction." : "Try a different search or filter."}
-                action={<Link href={qs(HREF, { ...per.keep, run: run.id, campus: one(sp.campus) || null })} scroll={false} className={buttonClass("secondary")}>Show everyone</Link>} />
+                action={<Link href={qs(HREF, { ...per.keep, run: run.id, campus: one(sp.campus) || null })} scroll={false} className={buttonClass("secondary")}><Words k="Show everyone" /></Link>} />
             ) : (
               <>
                 <div className="hidden lg:block overflow-x-auto scroll-thin">
                   <table className={cx("w-full text-[13.5px]", money ? "min-w-[1040px]" : "min-w-[640px]")}>
-                    <caption className="sr-only">{monthName(run.month)} salary by staff member</caption>
+                    <caption className="sr-only">{monthName(run.month)} <Words k="salary by staff member" /></caption>
                     <thead>
                       <tr className="text-[12px] text-ink3 font-semibold border-b border-line text-right">
-                        <th scope="col" className="sticky left-0 z-10 bg-surface text-left pl-5 pr-3 py-3 font-semibold">Staff member</th>
-                        <th scope="col" className="px-2 py-3 font-semibold">Paid days</th><th scope="col" className="px-2 py-3 font-semibold">Leave</th><th scope="col" className="px-2 py-3 font-semibold">Loss of pay</th>
+                        <th scope="col" className="sticky left-0 z-10 bg-surface text-left pl-5 pr-3 py-3 font-semibold"><Words k="Staff member" /></th>
+                        <th scope="col" className="px-2 py-3 font-semibold"><Words k="Paid days" /></th><th scope="col" className="px-2 py-3 font-semibold"><Words k="Leave" /></th><th scope="col" className="px-2 py-3 font-semibold"><Words k="Loss of pay" /></th>
                         {money && <>
-                          <th scope="col" className="px-2 py-3 font-semibold">Gross</th><th scope="col" className="px-2 py-3 font-semibold">PF</th><th scope="col" className="px-2 py-3 font-semibold">ESI</th><th scope="col" className="px-2 py-3 font-semibold">PT</th>
-                          <th scope="col" className="px-2 py-3 font-semibold">TDS</th><th scope="col" className="px-2 py-3 font-semibold">Loans</th><th scope="col" className="px-2 py-3 font-semibold">Net</th>
+                          <th scope="col" className="px-2 py-3 font-semibold"><Words k="Gross" /></th><th scope="col" className="px-2 py-3 font-semibold"><Words k="PF" /></th><th scope="col" className="px-2 py-3 font-semibold"><Words k="ESI" /></th><th scope="col" className="px-2 py-3 font-semibold"><Words k="PT" /></th>
+                          <th scope="col" className="px-2 py-3 font-semibold"><Words k="TDS" /></th><th scope="col" className="px-2 py-3 font-semibold"><Words k="Loans" /></th><th scope="col" className="px-2 py-3 font-semibold"><Words k="Net" /></th>
                         </>}
-                        <th scope="col" className="pl-2 pr-5 py-3 font-semibold text-left">Flags</th>
+                        <th scope="col" className="pl-2 pr-5 py-3 font-semibold text-left"><Words k="Flags" /></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -392,7 +396,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                                 <td className="px-2">{l.recoveryPaise + l.cutPaise ? amt(l.recoveryPaise + l.cutPaise) : "—"}</td>
                                 <td className="px-2 font-semibold">{amt(l.netPaise)}</td>
                               </>}
-                            </> : <td colSpan={money ? 10 : 3} className="px-2 text-center text-ink3 font-sans">Not paid until a salary structure is added</td>}
+                            </> : <td colSpan={money ? 10 : 3} className="px-2 text-center text-ink3 font-sans"><Words k="Not paid until a salary structure is added" /></td>}
                             <td className="pl-2 pr-5 text-left"><div className="flex gap-1 flex-wrap">{l.flags.map((f) => <FlagPill key={f} f={f} />)}</div></td>
                           </tr>
                         );
@@ -412,13 +416,13 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                           <p className="text-[13px] text-ink3 truncate">{l.included ? `${dayNum(d.paid)} days paid${money ? ` · gross ${amt(l.grossPaise)}` : d.leave ? ` · ${dayNum(d.leave)} leave` : ""}` : "No salary structure"}</p>
                           {(l.flags.length > 0 || d.lop > 0) && <div className="flex gap-1.5 mt-1.5 flex-wrap">{d.lop > 0 && <FlagPillLop n={d.lop} />}{l.flags.filter((f) => f !== "No salary structure").map((f) => <FlagPill key={f} f={f} phone />)}</div>}
                         </div>
-                        {l.included && money && <span className="text-right shrink-0"><span className="block font-semibold tnum">{amt(l.netPaise)}</span><span className="text-[12px] text-ink3">net</span></span>}
+                        {l.included && money && <span className="text-right shrink-0"><span className="block font-semibold tnum">{amt(l.netPaise)}</span><span className="text-[12px] text-ink3"><Words k="net" /></span></span>}
                       </>
                     );
                     return <li key={l.id}>{l.included ? <Link href={here({ open: l.staffId })} scroll={false} className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-sunken">{body}</Link> : <div className="flex items-center gap-3 px-4 py-3">{body}</div>}</li>;
                   })}
                 </ul>
-                <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing {rows.length} of {data.lines.length} staff · totals above are for all {run.staffCount} paid</div>
+                <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {rows.length} <Words k="of" /> {data.lines.length} <Words k="staff · totals above are for all" /> {run.staffCount} <Words k="paid" /></div>
               </>
             )}
           </Card>
@@ -437,12 +441,12 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
         return (
           <UrlSheet wide closeHref={here({ open: null })} title={`How ${s?.fullName}’s pay was worked out`}
             sub={`${monthName(run.month)}${st ? ` · structure v${st.version} from ${formatDate(st.effectiveFrom)}` : ""} · ${dayNum(d.paid)} of ${openLine.daysInMonth} days paid`}
-            footer={editable ? <div className="flex gap-2 justify-end"><ButtonLink href={here({ open: null, do: "adjust", staff: openLine.staffId })} scroll={false} variant="primary" icon={Plus}>Add adjustment</ButtonLink></div> : undefined}>
+            footer={editable ? <div className="flex gap-2 justify-end"><ButtonLink href={here({ open: null, do: "adjust", staff: openLine.staffId })} scroll={false} variant="primary" icon={Plus}><Words k="Add adjustment" /></ButtonLink></div> : undefined}>
             {money ? (
               <>
                 <div className="grid md:grid-cols-2 gap-5 text-[14px]">
                   <div>
-                    <p className="eyebrow text-ink3 mb-1">Earnings</p>
+                    <p className="eyebrow text-ink3 mb-1"><Words k="Earnings" /></p>
                     <ul className="divide-y divide-line/70">
                       {earnings.map((e) => <WorkRow key={e.name} k={e.name} v={amt(BigInt(e.amountPaise))} sub={e.how === "Fixed" ? undefined : e.how} />)}
                       <WorkRow k="Full month" v={amt(full)} tone="font-semibold" />
@@ -453,7 +457,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                     </ul>
                   </div>
                   <div>
-                    <p className="eyebrow text-ink3 mb-1">Deductions</p>
+                    <p className="eyebrow text-ink3 mb-1"><Words k="Deductions" /></p>
                     <ul className="divide-y divide-line/70">
                       <WorkRow k="PF, 12%" v={amt(openLine.pfPaise)} sub={openLine.pfPaise === ZERO ? "PF does not apply" : openLine.basicEarnedPaise > openLine.pfWagePaise ? `On ${amt(openLine.pfWagePaise)} (ceiling), not ${amt(openLine.basicEarnedPaise)}` : `On basic pay ${amt(openLine.pfWagePaise)}`} />
                       <WorkRow k="ESI, 0.75%" v={openLine.esiApplies ? amt(openLine.esiPaise) : "Not applicable"} sub={openLine.esiApplies ? `On ${amt(openLine.esiWagePaise)}; wages are within the ESI limit` : "Wages above the ESI limit, or ESI is off for this person"} />
@@ -466,10 +470,10 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                   </div>
                 </div>
                 <div className="mt-5 rounded-2xl bg-brand/8 px-4 py-3.5 flex items-center justify-between gap-3 flex-wrap">
-                  <span className="text-[14px] font-semibold">Net pay</span>
+                  <span className="text-[14px] font-semibold"><Words k="Net pay" /></span>
                   <span className="font-display text-[24px] font-semibold tnum">{amt(openLine.netPaise)}</span>
                 </div>
-                <p className="text-[12.5px] text-ink3 mt-3">School’s cost on top, not taken from net pay: employer PF {amt(openLine.erPfPaise)}{openLine.esiApplies ? `, employer ESI ${amt(openLine.erEsiPaise)} (3.25%)` : ""}.</p>
+                <p className="text-[12.5px] text-ink3 mt-3"><Words k="School’s cost on top, not taken from net pay: employer PF" /> {amt(openLine.erPfPaise)}{openLine.esiApplies ? `, employer ESI ${amt(openLine.erEsiPaise)} (3.25%)` : ""}.</p>
               </>
             ) : (
               <DL rows={[
@@ -492,10 +496,10 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
       {doing === "send" && run && status === "CALCULATED" && (
         <ConfirmSheet closeHref={here({ do: null })} title={`Send ${monthName(run.month)} salary for approval?`} label="Send for approval" action={sendRunAction} hidden={{ runId: run.id }}>
           <div className="flex flex-col gap-3 text-[14px] text-ink2">
-            <p><b className="font-semibold text-ink">{run.staffCount} staff, net {amt(run.netPaise)}</b> (gross {amt(run.grossPaise)}).{noStructure.length ? ` ${noStructure.length} staff ${noStructure.length === 1 ? "is" : "are"} left out until they have a salary structure: ${someNames(noStructure.map((l) => name(l.staffId)))}.` : ""}</p>
-            <p>Attendance after today is not in yet. Days after today, and leave or attendance changed after approval, come into next month’s salary by themselves as arrears or a deduction, with the reason.</p>
-            {data.adjustments.length > 0 && <p>{data.adjustments.length} adjustment{data.adjustments.length > 1 ? "s" : ""} included, each with its reason.</p>}
-            <p>Nobody approves a month they sent: it goes to the Principal, or to the School Admin when the Principal sent it.</p>
+            <p><b className="font-semibold text-ink">{run.staffCount} <Words k="staff, net" /> {amt(run.netPaise)}</b> <Words k="(gross" /> {amt(run.grossPaise)}).{noStructure.length ? ` ${noStructure.length} staff ${noStructure.length === 1 ? "is" : "are"} left out until they have a salary structure: ${someNames(noStructure.map((l) => name(l.staffId)))}.` : ""}</p>
+            <p><Words k="Attendance after today is not in yet. Days after today, and leave or attendance changed after approval, come into next month’s salary by themselves as arrears or a deduction, with the reason." /></p>
+            {data.adjustments.length > 0 && <p>{data.adjustments.length} <Words k="adjustment" />{data.adjustments.length > 1 ? "s" : ""} <Words k="included, each with its reason." /></p>}
+            <p><Words k="Nobody approves a month they sent: it goes to the Principal, or to the School Admin when the Principal sent it." /></p>
           </div>
         </ConfirmSheet>
       )}
@@ -503,7 +507,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
         <ConfirmSheet closeHref={here({ do: null })} title={`Approve ${monthName(run.month)} salary?`} label={`Approve salary for ${run.staffCount} staff`} action={decideRunAction} hidden={{ runId: run.id, decision: "approve" }}>
           <div className="flex flex-col gap-3 text-[14px] text-ink2">
             <DL rows={[["Net pay", amt(run.netPaise)], ["Gross pay", amt(run.grossPaise)], ["Deductions", amt(run.deductionsPaise)], ["School’s PF and ESI share", amt(run.employerPfPaise + run.employerEsiPaise)]]} />
-            <p>After approval, the amounts cannot change. A mistake is put right with an adjustment in {monthName(addMonths(run.month, 1))}. It reaches the Day Book only when it is marked paid.</p>
+            <p><Words k="After approval, the amounts cannot change. A mistake is put right with an adjustment in" /> {monthName(addMonths(run.month, 1))}<Words k=". It reaches the Day Book only when it is marked paid." /></p>
           </div>
         </ConfirmSheet>
       )}
@@ -528,7 +532,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
       )}
       {doing === "lock" && run && status === "PAID" && (
         <ConfirmSheet closeHref={here({ do: null })} title={`Lock ${monthName(run.month)} for good?`} label={`Lock ${monthName(run.month)}`} action={lockRunAction} hidden={{ runId: run.id }}>
-          <p className="text-[14px] text-ink2">Nothing in this run can change after locking. It also locks by itself when the next month is approved.</p>
+          <p className="text-[14px] text-ink2"><Words k="Nothing in this run can change after locking. It also locks by itself when the next month is approved." /></p>
         </ConfirmSheet>
       )}
       {doing === "reverse" && run && status === "PAID" && (
@@ -554,5 +558,5 @@ function Check1({ icon: Icon, tone, title, sub, action }: { icon: typeof Info; t
 }
 
 function FlagPillLop({ n }: { n: number }) {
-  return <span className="inline-flex items-center h-[22px] px-2 rounded-full bg-bad/10 text-bad text-[11.5px] font-semibold">{dayNum(n)} LOP</span>;
+  return <span className="inline-flex items-center h-[22px] px-2 rounded-full bg-bad/10 text-bad text-[11.5px] font-semibold">{dayNum(n)} <Words k="LOP" /></span>;
 }

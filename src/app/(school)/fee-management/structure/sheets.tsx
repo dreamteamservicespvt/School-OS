@@ -22,6 +22,7 @@ import {
   archiveHeadAction, assignClassAction, copyAction, discardAction, prepareYearAction, publishAction, removeRowAction, restoreAction, saveHeadAction, saveRowAction,
 } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type HeadData = { id: string; name: string; kind: string; taxable: boolean; gstRate: string; sacCode: string; bankAccountId: string; lateFeeApplies: boolean; system: boolean };
 
@@ -35,7 +36,7 @@ export function HeadSheet({ closeHref, head, banks, gstin, splitOn }: { closeHre
       <SSelect name="kind" label="Kind" start={head?.kind ?? "other"} options={HEAD_KINDS.map((k) => ({ value: k, label: headKindLabel(k) }))} help="Used for reports and the fee certificate (tuition is shown on its own)." />
       <div className="rounded-xl border border-line flex items-center gap-3 px-4 py-3">
         <div className="min-w-0 flex-1 text-[14px]">
-          <b className="font-semibold block">Taxable (GST)</b>
+          <b className="font-semibold block"><Words k="Taxable (GST)" /></b>
           <span className="block text-[12.5px] text-ink3 mt-0.5">{gstin ? `Uses the school’s GSTIN ${gstin} from School Profile` : "Add the school’s GSTIN in School Profile first"}</span>
         </div>
         <KeepCheck type="checkbox" name="taxable" checked={taxable} onChange={(e) => setTaxable(e.target.checked)} className="size-5 accent-[var(--color-brand)]" aria-label="Taxable (GST)" />
@@ -56,7 +57,7 @@ function ArchiveHead({ id, name }: { id: string; name: string }) {
   return (
     <ConfirmButton trigger="Archive" triggerVariant="danger-outline" title={`Archive ${name}?`} confirmLabel="Archive" confirmVariant="danger"
       onConfirm={() => run(archiveHeadAction, { headId: id })}>
-      It can no longer be added to fees. Old receipts and reports keep it.
+      <Words k="It can no longer be added to fees. Old receipts and reports keep it." />
     </ConfirmButton>
   );
 }
@@ -117,22 +118,22 @@ export function RowSheet({ closeHref, yearId, classId, category, className, head
           ))}
         </ul>
         <div className="flex items-center gap-3 mt-2 flex-wrap">
-          <Button size="sm" variant="ghost" icon={Plus} onClick={() => setInst([...inst, { label: `Installment ${inst.length + 1}`, due: inst.at(-1)?.due ?? yearStart, amount: "" }])}>Add installment</Button>
+          <Button size="sm" variant="ghost" icon={Plus} onClick={() => setInst([...inst, { label: `Installment ${inst.length + 1}`, due: inst.at(-1)?.due ?? yearStart, amount: "" }])}><Words k="Add installment" /></Button>
           <p className={cx("text-[12.5px] flex items-center gap-1.5", adds ? "text-ok" : "text-ink3")}>
-            {adds ? <><CircleCheck size={14} aria-hidden="true" />Adds up to {formatRupees(totalP!)}</> : <><CircleAlert size={14} aria-hidden="true" />Installments add up to {formatRupees(sum)}{totalP ? `. Total is ${formatRupees(totalP)}.` : "."}</>}
+            {adds ? <><CircleCheck size={14} aria-hidden="true" /><Words k="Adds up to" /> {formatRupees(totalP!)}</> : <><CircleAlert size={14} aria-hidden="true" /><Words k="Installments add up to" /> {formatRupees(sum)}{totalP ? `. Total is ${formatRupees(totalP)}.` : "."}</>}
           </p>
         </div>
       </FieldShell>
-      <p className="text-[13px] text-ink3">Applies to {className}{category ? ` (${category})` : ""}: {students} {students === 1 ? "student" : "students"}. For one student only, use the student’s ledger.</p>
+      <p className="text-[13px] text-ink3"><Words k="Applies to" /> {className}{category ? ` (${category})` : ""}: {students} {students === 1 ? "student" : "students"}<Words k=". For one student only, use the student’s ledger." /></p>
     </SheetForm>
   );
 }
 
 export function RemoveRow({ yearId, classId, category, feeHeadId, name }: { yearId: string; classId: string; category: string; feeHeadId: string; name: string }) {
   return (
-    <ConfirmButton trigger={<><Trash2 size={15} aria-hidden="true" />Remove</>} triggerVariant="ghost" title={`Remove ${name}?`} confirmLabel="Remove from draft" confirmVariant="danger"
+    <ConfirmButton trigger={<><Trash2 size={15} aria-hidden="true" /><Words k="Remove" /></>} triggerVariant="ghost" title={`Remove ${name}?`} confirmLabel="Remove from draft" confirmVariant="danger"
       onConfirm={() => run(removeRowAction, { yearId, classId, category, feeHeadId })}>
-      It comes off the draft. Students’ fees change only when you publish.
+      <Words k="It comes off the draft. Students’ fees change only when you publish." />
     </ConfirmButton>
   );
 }
@@ -201,7 +202,7 @@ export function PublishSheet({ closeHref, structureId, version, impact, start, w
       <FromDate start={start} impact={impact} help="Unpaid installments due on or after this date follow the new version." />
       {needsOk && <SArea name="reason" label="Why the fees change mid-year" required rows={3} help="The Principal sees this in Approvals." />}
       {!needsOk && withoutPlan > 0 && <SSwitch name="assign" title={`Give it to ${withoutPlan} ${withoutPlan === 1 ? "student" : "students"} without fees`} sub="Students of the class who have no fees for this year yet." start />}
-      <label className="flex items-start gap-3 text-[14px]"><input type="checkbox" name="confirm" className="mt-1 size-4 accent-[var(--color-brand)]" /><span>I have checked the amounts and installments.</span></label>
+      <label className="flex items-start gap-3 text-[14px]"><input type="checkbox" name="confirm" className="mt-1 size-4 accent-[var(--color-brand)]" /><span><Words k="I have checked the amounts and installments." /></span></label>
     </SheetForm>
   );
 }
@@ -230,7 +231,7 @@ export function RestoreSheet({ closeHref, structureId, version, start, impact }:
     <SheetForm title={`Use version ${version} again`} sub="It is published again as a new version. Paid rows never change." closeHref={closeHref}
       action={restoreAction} submitLabel="Use this version" pendingText="Restoring…" hidden={{ structureId }}>
       <FromDate start={start} impact={impact} />
-      <label className="flex items-start gap-3 text-[14px]"><input type="checkbox" name="confirm" className="mt-1 size-4 accent-[var(--color-brand)]" /><span>Unpaid installments from this date change back to version {version}.</span></label>
+      <label className="flex items-start gap-3 text-[14px]"><input type="checkbox" name="confirm" className="mt-1 size-4 accent-[var(--color-brand)]" /><span><Words k="Unpaid installments from this date change back to version" /> {version}.</span></label>
     </SheetForm>
   );
 }
@@ -240,7 +241,7 @@ export function DiscardDraft({ structureId }: { structureId: string }) {
   return (
     <ConfirmButton trigger="Discard draft" triggerVariant="ghost" title="Discard this draft?" confirmLabel="Discard draft" confirmVariant="danger"
       onConfirm={() => run(discardAction, { structureId })}>
-      The changes in the draft are thrown away. The version in use stays as it is.
+      <Words k="The changes in the draft are thrown away. The version in use stays as it is." />
     </ConfirmButton>
   );
 }

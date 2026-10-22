@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ActionButton } from "../action-button";
 import { DOCUMENT_TYPES_VAULT } from "@/lib/settings/profile-rules";
 import { documentAction, saveDocumentAction, shareDocumentAction, uploadVersionAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export type DocRow = {
   id: string;
@@ -40,7 +41,7 @@ function FileInput({ error }: { error?: string }) {
   const [local, setLocal] = useState<string | null>(null);
   return (
     <div>
-      <label htmlFor="doc-file" className="mb-1 block text-sm font-medium">File <span className="text-danger" aria-hidden="true">*</span></label>
+      <label htmlFor="doc-file" className="mb-1 block text-sm font-medium"><Words k="File" /> <span className="text-danger" aria-hidden="true">*</span></label>
       <input id="doc-file" name="file" type="file" required accept="application/pdf,image/jpeg,image/png" capture={undefined}
         onChange={(e) => {
           const f = e.target.files?.[0];
@@ -73,8 +74,8 @@ function DocForm({ doc, roles, onDone }: { doc: DocRow | null; roles: RoleChoice
       </div>
       {!doc && <FileInput error={state?.errors?.file} />}
       <fieldset>
-        <legend className="mb-1 text-sm font-medium">Who can see it <span className="text-danger" aria-hidden="true">*</span></legend>
-        <p className="mb-2 text-sm text-ink-2">School Admins always can.</p>
+        <legend className="mb-1 text-sm font-medium"><Words k="Who can see it" /> <span className="text-danger" aria-hidden="true">*</span></legend>
+        <p className="mb-2 text-sm text-ink-2"><Words k="School Admins always can." /></p>
         <div className="grid gap-2 sm:grid-cols-2">
           {roles.map((r) => (
             <label key={r.key} className="flex min-h-11 items-center gap-3 rounded-lg border border-line px-3">
@@ -86,7 +87,7 @@ function DocForm({ doc, roles, onDone }: { doc: DocRow | null; roles: RoleChoice
         {state?.errors?.visibleTo && <p className="mt-1 text-sm text-danger">{state.errors.visibleTo}</p>}
       </fieldset>
       <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={onDone}>Cancel</Button>
+        <Button variant="secondary" onClick={onDone}><Words k="Cancel" /></Button>
         <SubmitButton pendingText={doc ? "Saving…" : "Uploading…"}>{doc ? "Save document" : "Upload document"}</SubmitButton>
       </div>
     </form>
@@ -101,7 +102,7 @@ function VersionForm({ doc, onDone }: { doc: DocRow; onDone: () => void }) {
   }, null);
   return (
     <form action={action} className="space-y-4" noValidate>
-      <p className="text-ink-2">The {doc.versions.length} older version{doc.versions.length === 1 ? " is" : "s are"} kept. The new version needs to be verified again.</p>
+      <p className="text-ink-2"><Words k="The" /> {doc.versions.length} <Words k="older version" />{doc.versions.length === 1 ? " is" : "s are"} <Words k="kept. The new version needs to be verified again." /></p>
       <FormMessage state={state?.ok ? null : state} />
       <input type="hidden" name="id" value={doc.id} />
       <FileInput error={state?.errors?.file} />
@@ -110,8 +111,8 @@ function VersionForm({ doc, onDone }: { doc: DocRow; onDone: () => void }) {
         <TextField label="New expiry date" name="expiresOn" type="date" defaultValue={state?.values?.expiresOn ?? ""} error={state?.errors?.expiresOn} />
       </div>
       <div className="flex justify-end gap-2">
-        <Button variant="secondary" onClick={onDone}>Cancel</Button>
-        <SubmitButton pendingText="Uploading…">Upload new version</SubmitButton>
+        <Button variant="secondary" onClick={onDone}><Words k="Cancel" /></Button>
+        <SubmitButton pendingText="Uploading…"><Words k="Upload new version" /></SubmitButton>
       </div>
     </form>
   );
@@ -126,12 +127,12 @@ function ShareForm({ doc }: { doc: DocRow }) {
       <form action={action} className="flex flex-wrap items-end gap-3">
         <input type="hidden" name="id" value={doc.id} />
         <SelectField label="The link works for" name="days" defaultValue="7" options={[{ value: "1", label: "1 day" }, { value: "3", label: "3 days" }, { value: "7", label: "7 days" }, { value: "14", label: "14 days" }, { value: "30", label: "30 days" }]} />
-        <SubmitButton pendingText="Making link…">Make sharing link</SubmitButton>
+        <SubmitButton pendingText="Making link…"><Words k="Make sharing link" /></SubmitButton>
       </form>
       {state && !state.ok && <FormMessage state={state} />}
       {state?.ok && (
         <div className="space-y-2">
-          <label htmlFor="share-link" className="block text-sm font-medium">Sharing link</label>
+          <label htmlFor="share-link" className="block text-sm font-medium"><Words k="Sharing link" /></label>
           <div className="flex gap-2">
             <input id="share-link" readOnly value={full} onFocus={(e) => e.target.select()} className="h-11 min-w-0 flex-1 rounded-lg border border-line-strong bg-surface-2 px-3 font-mono text-sm" />
             <Button onClick={async () => { await navigator.clipboard.writeText(full); setCopied(true); }}>{copied ? "Copied" : "Copy"}</Button>
@@ -151,14 +152,14 @@ export function Documents({ docs, roles, canEdit, total }: { docs: DocRow[]; rol
 
   return (
     <div>
-      {canEdit && total > 0 && <div className="mb-3"><Button onClick={() => setDialog({ kind: "new" })}>Upload a document</Button></div>}
+      {canEdit && total > 0 && <div className="mb-3"><Button onClick={() => setDialog({ kind: "new" })}><Words k="Upload a document" /></Button></div>}
       {docs.length === 0 ? (
         total === 0 ? (
           <EmptyState title="No school documents yet">
-            Keep registration, affiliation, NOCs and safety certificates here, with expiry dates, so renewals are never missed.
-            {canEdit && <div className="mt-4"><Button onClick={() => setDialog({ kind: "new" })}>Upload the first document</Button></div>}
+            <Words k="Keep registration, affiliation, NOCs and safety certificates here, with expiry dates, so renewals are never missed." />
+            {canEdit && <div className="mt-4"><Button onClick={() => setDialog({ kind: "new" })}><Words k="Upload the first document" /></Button></div>}
           </EmptyState>
-        ) : <p className="rounded-xl border border-dashed border-line p-6 text-center text-ink-2">No documents match these filters. Change the search or press Reset.</p>
+        ) : <p className="rounded-xl border border-dashed border-line p-6 text-center text-ink-2"><Words k="No documents match these filters. Change the search or press Reset." /></p>
       ) : (
         <ul className="space-y-3">
           {docs.map((d) => {
@@ -172,7 +173,7 @@ export function Documents({ docs, roles, canEdit, total }: { docs: DocRow[]; rol
                       {d.title}
                       {st && <Badge tone={st.tone}>{st.label}</Badge>}
                       <Badge tone={d.verified ? "success" : "neutral"}>{d.verified ? "Verified" : "Not verified"}</Badge>
-                      {d.archived && <Badge>Removed</Badge>}
+                      {d.archived && <Badge><Words k="Removed" /></Badge>}
                     </p>
                     <p className="text-sm text-ink-2">
                       {d.docType}
@@ -182,14 +183,14 @@ export function Documents({ docs, roles, canEdit, total }: { docs: DocRow[]; rol
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    {latest && <a href={latest.href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-lg border border-line-strong px-3 text-sm font-medium hover:bg-surface-2">Preview</a>}
-                    {!d.archived && <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: "share", doc: d })}>Share</Button>}
-                    {canEdit && !d.archived && <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: "version", doc: d })}>New version</Button>}
+                    {latest && <a href={latest.href} target="_blank" rel="noreferrer" className="inline-flex min-h-11 items-center rounded-lg border border-line-strong px-3 text-sm font-medium hover:bg-surface-2"><Words k="Preview" /></a>}
+                    {!d.archived && <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: "share", doc: d })}><Words k="Share" /></Button>}
+                    {canEdit && !d.archived && <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: "version", doc: d })}><Words k="New version" /></Button>}
                     {canEdit && (d.archived ? (
-                      <ConfirmButton trigger="Restore" triggerVariant="secondary" title={`Restore ${d.title}?`} confirmLabel="Restore document" onConfirm={() => documentAction(d.id, "restore")}>It will appear in the list again, with its reminders.</ConfirmButton>
+                      <ConfirmButton trigger="Restore" triggerVariant="secondary" title={`Restore ${d.title}?`} confirmLabel="Restore document" onConfirm={() => documentAction(d.id, "restore")}><Words k="It will appear in the list again, with its reminders." /></ConfirmButton>
                     ) : (
                       <ConfirmButton trigger="Remove" triggerVariant="danger-soft" title={`Remove ${d.title}?`} confirmLabel="Remove document" confirmVariant="danger" onConfirm={() => documentAction(d.id, "archive")}>
-                        It is taken off the list and stops sending reminders. Added by mistake? This is the way to take it off. You can bring it back from “Show removed” if you need it.
+                        <Words k="It is taken off the list and stops sending reminders. Added by mistake? This is the way to take it off. You can bring it back from “Show removed” if you need it." />
                       </ConfirmButton>
                     ))}
                     <Button size="sm" variant="ghost" aria-expanded={open === d.id} onClick={() => setOpen(open === d.id ? null : d.id)}>{open === d.id ? "Less" : "More"}</Button>
@@ -198,19 +199,19 @@ export function Documents({ docs, roles, canEdit, total }: { docs: DocRow[]; rol
                 {open === d.id && (
                   <div className="mt-3 space-y-3 border-t border-line pt-3">
                     <div>
-                      <p className="text-sm font-medium">Versions</p>
+                      <p className="text-sm font-medium"><Words k="Versions" /></p>
                       <ol className="mt-1 space-y-1 text-sm">
                         {[...d.versions].reverse().map((v) => (
-                          <li key={v.n}><a className="text-brand-text underline" href={v.href} target="_blank" rel="noreferrer">Version {v.n}: {v.fileName}</a> <span className="text-ink-2">uploaded {v.uploadedAt}</span></li>
+                          <li key={v.n}><a className="text-brand-text underline" href={v.href} target="_blank" rel="noreferrer"><Words k="Version" /> {v.n}: {v.fileName}</a> <span className="text-ink-2"><Words k="uploaded" /> {v.uploadedAt}</span></li>
                         ))}
                       </ol>
                     </div>
-                    <p className="text-sm"><span className="text-ink-2">Who can see it: </span>{d.visibleTo.map((k) => roles.find((r) => r.key === k)?.name ?? k).join(", ")}</p>
+                    <p className="text-sm"><span className="text-ink-2"><Words k="Who can see it:" /> </span>{d.visibleTo.map((k) => roles.find((r) => r.key === k)?.name ?? k).join(", ")}</p>
                     {canEdit && (
                       <div className="flex flex-wrap gap-2">
-                        {!d.archived && <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: "edit", doc: d })}>Edit details</Button>}
+                        {!d.archived && <Button size="sm" variant="secondary" onClick={() => setDialog({ kind: "edit", doc: d })}><Words k="Edit details" /></Button>}
                         {!d.archived && (d.verified ? (
-                          <ConfirmButton trigger="Mark not verified" triggerVariant="ghost" title="Mark as not verified?" confirmLabel="Mark not verified" onConfirm={() => documentAction(d.id, "unverify")}>The document stays; it will show as not verified until someone checks it again.</ConfirmButton>
+                          <ConfirmButton trigger="Mark not verified" triggerVariant="ghost" title="Mark as not verified?" confirmLabel="Mark not verified" onConfirm={() => documentAction(d.id, "unverify")}><Words k="The document stays; it will show as not verified until someone checks it again." /></ConfirmButton>
                         ) : (
                           <ActionButton label="Mark verified" pendingLabel="Saving…" run={() => documentAction(d.id, "verify")} />
                         ))}

@@ -30,8 +30,12 @@ import { EmptyState } from "@/components/empty-state";
 import { cx } from "@/components/ui/cx";
 import { AttHead } from "../_components/att-head";
 import { ExportMenu } from "../_components/export-menu";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Attendance Reports" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Attendance Reports") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const PATH = `${BASE}/reports`;
@@ -104,7 +108,7 @@ export default async function ReportsPage({ searchParams }: Props) {
     <>
       <AttHead access={access} features={features} userId={current.user.id} href={PATH} sub={sub} />
       {list.length === 0 ? (
-        <EmptyState title="No reports for your role" Icon={FileText}>Attendance reports are for teachers of a class, HR, the School Admin and the Principal.</EmptyState>
+        <EmptyState title="No reports for your role" Icon={FileText}><Words k="Attendance reports are for teachers of a class, HR, the School Admin and the Principal." /></EmptyState>
       ) : (
         <div className="flex flex-col gap-5 lg:gap-6">
           {tabs.length > 0 && (
@@ -113,7 +117,7 @@ export default async function ReportsPage({ searchParams }: Props) {
 
           {r === "daily" && data.day && (
             <>
-              {data.day.off ? <Banner tone="info" title={`${data.day.off}.`}>Attendance is off for this date. Choose another date.</Banner> : (
+              {data.day.off ? <Banner tone="info" title={`${data.day.off}.`}><Words k="Attendance is off for this date. Choose another date." /></Banner> : (
                 <Stats items={[
                   // The count and its % use the same students: those on leave are left out of both (TEACHING-19).
                   { label: "Students present", value: `${data.day.students.present.toLocaleString("en-IN")} of ${data.day.students.counted.toLocaleString("en-IN")}`, sub: data.day.students.marked ? `${percentText(data.day.students.percent)} · ${data.day.students.late} came late${data.day.students.leave ? ` · ${data.day.students.leave} on leave, not counted` : ""}${data.day.students.notMarked ? ` · ${data.day.students.notMarked} not marked` : ""}` : "Not marked yet", tone: "ok", icon: UserCheck },
@@ -131,7 +135,7 @@ export default async function ReportsPage({ searchParams }: Props) {
               <Card>
                 <CardHeader icon={ChartColumn} title={`${new Intl.DateTimeFormat("en-GB", { month: "long", timeZone: "UTC" }).format(today)}, day by day`} description="School days only; students on leave are not counted" />
                 <div className="px-5 pb-4">
-                  {data.trend.length ? <Bars data={data.trend} max={100} ticks={[0, 50, 90]} unit="%" ariaLabel="Attendance this month by day" /> : <p className="text-[14px] text-ink3">No attendance taken this month yet.</p>}
+                  {data.trend.length ? <Bars data={data.trend} max={100} ticks={[0, 50, 90]} unit="%" ariaLabel="Attendance this month by day" /> : <p className="text-[14px] text-ink3"><Words k="No attendance taken this month yet." /></p>}
                 </div>
               </Card>
               <Card>
@@ -158,12 +162,12 @@ export default async function ReportsPage({ searchParams }: Props) {
                   <Card key={kind}>
                     <CardHeader icon={kind === "streak" ? UserX : TrendingDown} title={kind === "streak" ? "Absent days in a row" : String(t.rows.find((x) => !String(x.kind).startsWith("Absent"))?.kind ?? "Below the threshold") + " this year"}
                       description="The parent, class teacher and Principal are told once" action={<>{rows.length > 0 && <Pill tone="bad">{rows.length}</Pill>}</>} />
-                    {rows.length === 0 ? <div className="px-5 pb-5"><Banner tone="ok" title="Nobody right now.">Flags clear on their own when attendance recovers.</Banner></div> : (
+                    {rows.length === 0 ? <div className="px-5 pb-5"><Banner tone="ok" title="Nobody right now."><Words k="Flags clear on their own when attendance recovers." /></Banner></div> : (
                       <ul className="px-2 pb-2">
                         {rows.map((x, i) => (
                           <li key={i} className="flex items-center gap-3 px-3 py-2.5 rounded-xl">
                             <Avatar name={String(x.who)} size={38} />
-                            <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px] truncate">{x.who} <span className="text-ink3 font-normal">· {x.class}</span></p><p className="text-[12.5px] text-ink3 truncate">Flagged on {x.since}</p></div>
+                            <div className="min-w-0 flex-1"><p className="font-semibold text-[14.5px] truncate">{x.who} <span className="text-ink3 font-normal">· {x.class}</span></p><p className="text-[12.5px] text-ink3 truncate"><Words k="Flagged on" /> {x.since}</p></div>
                             <span className="font-semibold tnum text-bad">{x.value}</span>
                           </li>
                         ))}
@@ -187,7 +191,7 @@ export default async function ReportsPage({ searchParams }: Props) {
                       <CardHeader icon={Clock} title={`${kind} late, ${(range?.label ?? "this month").toLowerCase()}`} description={kind === "Staff" ? "Times late · by the staff late rule" : "Late days · top ten"} />
                       <div className="px-5 pb-5">
                         {rows.length ? <HBars rows={rows.map((x) => ({ k: String(x.who), v: Number(x.count), label: String(x.count) }))} max={Math.max(5, ...rows.map((x) => Number(x.count)))} unit="" labelWidth={128} />
-                          : <p className="text-[14px] text-ink3">Nobody was late in these dates.</p>}
+                          : <p className="text-[14px] text-ink3"><Words k="Nobody was late in these dates." /></p>}
                       </div>
                     </Card>
                   );
@@ -240,7 +244,7 @@ function TableCard({ t, toolbar, about, className }: { t: ReportTable | null; to
     <Card className={cx("overflow-hidden", className)}>
       <div className="px-5 pt-4 pb-3">
         <h2 className="font-display text-[17px] font-semibold">{t.title}</h2>
-        {about && <p className="text-[13px] text-ink3">{about} Holidays, Sundays and other non-working days are left out.</p>}
+        {about && <p className="text-[13px] text-ink3">{about} <Words k="Holidays, Sundays and other non-working days are left out." /></p>}
       </div>
       {toolbar && <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 px-3 pb-3 border-b border-line">{toolbar}</div>}
       {t.columns.length === 0 ? <EmptyState bare Icon={FileText} title="Nothing to show">{t.empty}</EmptyState> : (

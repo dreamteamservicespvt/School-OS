@@ -3,6 +3,7 @@
 import { Pill } from "@/components/ui/badge";
 import { cx } from "@/components/ui/cx";
 import { RUN_STATUS_LABEL, RUN_STATUS_TONE, RUN_STEPS } from "@/lib/salary/words";
+import { Words } from "@/lib/i18n/client";
 
 export function RunPill({ s, small }: { s: string; small?: boolean }) {
   return <Pill tone={RUN_STATUS_TONE[s] ?? "neutral"} dot className={small ? "!h-5 !text-[11px]" : undefined}>{RUN_STATUS_LABEL[s] ?? s}</Pill>;
@@ -23,7 +24,7 @@ export function RunSteps({ status }: { status: string }) {
           );
         })}
       </ol>
-      <p className="md:hidden px-5 -mt-2 pb-3 text-[12.5px] text-ink3">Step {at + 1} of 6 · {RUN_STATUS_LABEL[status]}</p>
+      <p className="md:hidden px-5 -mt-2 pb-3 text-[12.5px] text-ink3"><Words k="Step" /> {at + 1} <Words k="of 6 ·" /> {RUN_STATUS_LABEL[status]}</p>
     </>
   );
 }

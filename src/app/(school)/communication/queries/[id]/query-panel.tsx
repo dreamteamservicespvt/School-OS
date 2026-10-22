@@ -12,6 +12,7 @@ import { Segmented } from "@/components/ui/controls";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { assignAction, noteAction, pickUpAction, priorityAction, ratingAction, replyAction, statusAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 
@@ -39,16 +40,16 @@ export function QueryHeadActions({ id, status, canPickUp, owners }: { id: string
   return (
     <>
       {msg && <p role="alert" className="w-full text-[13px] text-bad">{msg}</p>}
-      {canPickUp && <Button variant="secondary" icon={Hand} loading={pending} onClick={() => run(() => pickUpAction(id))}>Pick up</Button>}
-      {open && <Button variant="secondary" icon={UserCheck} onClick={() => setAssign(true)}>Assign</Button>}
-      {open && <Button icon={CircleCheck} onClick={() => setResolve(true)}>Resolve</Button>}
+      {canPickUp && <Button variant="secondary" icon={Hand} loading={pending} onClick={() => run(() => pickUpAction(id))}><Words k="Pick up" /></Button>}
+      {open && <Button variant="secondary" icon={UserCheck} onClick={() => setAssign(true)}><Words k="Assign" /></Button>}
+      {open && <Button icon={CircleCheck} onClick={() => setResolve(true)}><Words k="Resolve" /></Button>}
       {status === "RESOLVED" && (
         <ConfirmButton trigger="Close" title="Close this query?" confirmLabel="Close query"
           onConfirm={async () => { const m = await statusAction(id, "CLOSED", null); if (!m) router.refresh(); return m; }}>
-          The requester may be asked to rate how it was handled (1 to 5), if that is switched on in Message Settings.
+          <Words k="The requester may be asked to rate how it was handled (1 to 5), if that is switched on in Message Settings." />
         </ConfirmButton>
       )}
-      {(status === "RESOLVED" || status === "CLOSED") && <Button variant="ghost" icon={RotateCcw} loading={pending} onClick={() => run(() => statusAction(id, "OPEN", null))}>Reopen</Button>}
+      {(status === "RESOLVED" || status === "CLOSED") && <Button variant="ghost" icon={RotateCcw} loading={pending} onClick={() => run(() => statusAction(id, "OPEN", null))}><Words k="Reopen" /></Button>}
 
       <Dialog open={assign} onClose={() => setAssign(false)} title="Assign to" sub="A person, or a department where anyone can pick it up">
         <ul className="flex flex-col">
@@ -65,8 +66,8 @@ export function QueryHeadActions({ id, status, canPickUp, owners }: { id: string
       </Dialog>
       <Dialog open={resolve} onClose={() => setResolve(false)} title="Resolve this query" sub="The resolution is kept on the ticket and sent to the requester."
         footer={<>
-          <Button variant="secondary" onClick={() => setResolve(false)}>Cancel</Button>
-          <Button loading={pending} loadingText="Saving" disabled={resolution.trim().length < 5} onClick={() => run(() => statusAction(id, "RESOLVED", resolution), () => setResolve(false))}>Resolve</Button>
+          <Button variant="secondary" onClick={() => setResolve(false)}><Words k="Cancel" /></Button>
+          <Button loading={pending} loadingText="Saving" disabled={resolution.trim().length < 5} onClick={() => run(() => statusAction(id, "RESOLVED", resolution), () => setResolve(false))}><Words k="Resolve" /></Button>
         </>}>
         <FieldShell label="Resolution notes" id="q-resolution" required error={resolution && resolution.trim().length < 5 ? "Say what was done, in a sentence" : undefined}>
           <textarea id="q-resolution" rows={3} value={resolution} onChange={(e) => setResolution(e.target.value)} maxLength={2000} className={cx(inputCls(), "py-2.5")}
@@ -93,7 +94,7 @@ export function QueryComposer({ id, fromName, replyChannels }: { id: string; fro
         placeholder={mode === "reply" ? `Goes to ${fromName} with the ticket number` : "Only staff can see this"}
         className={cx(inputCls(), "py-2.5", mode === "note" && "bg-warn/5")} />
       {msg && <p role="alert" className="text-[13px] text-bad">{msg}</p>}
-      {mode === "reply" && !replyChannels.length && <p className="text-[12.5px] text-ink3">No channel is switched on for this person. Call them, then add an internal note.</p>}
+      {mode === "reply" && !replyChannels.length && <p className="text-[12.5px] text-ink3"><Words k="No channel is switched on for this person. Call them, then add an internal note." /></p>}
       <div className="flex items-center gap-2 justify-end flex-wrap">
         {mode === "reply" && replyChannels.length > 1 && (
           <select aria-label="Send by" value={channel} onChange={(e) => setChannel(e.target.value)} className={cx(inputCls(), "h-10 !w-auto pr-9")}>
@@ -125,7 +126,7 @@ export function QuerySide({ id, status, priority, priorities, rating }: { id: st
       )}
       {!open && (
         <div>
-          <p className="text-[13px] font-semibold text-ink2 mb-1.5">Rating from the requester{rating ? `: ${rating} of 5` : ""}</p>
+          <p className="text-[13px] font-semibold text-ink2 mb-1.5"><Words k="Rating from the requester" />{rating ? `: ${rating} of 5` : ""}</p>
           <div className="flex gap-1">{[1, 2, 3, 4, 5].map((r) => (
             <button key={r} type="button" aria-label={`Record rating ${r} of 5`} aria-pressed={rating === r} disabled={pending} onClick={() => run(() => ratingAction(id, r))}
               className={cx("grid size-10 place-items-center rounded-xl border transition", rating !== null && r <= rating ? "border-warn/40 bg-warn/10 text-warn" : "border-line text-ink3 hover:bg-sunken")}>

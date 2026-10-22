@@ -19,8 +19,12 @@ import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { UploadDocumentForm } from "./upload-form";
 import { uploadDocument } from "./actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Documents & ID Cards" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Documents & ID Cards") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -83,11 +87,11 @@ export default async function DocumentsPage({ searchParams }: Props) {
     ) },
     { key: "kind", label: "Document", render: (d) => d.kind },
     { key: "number", label: "Number", render: (d) => d.number ? <span className="font-mono text-[13px]">{showDocNumber(d.kind, d.number, viewer.restricted)}</span> : <span className="text-ink3">–</span> },
-    { key: "expires", label: "Expires", nowrap: true, render: (d) => d.expiresOn ? <span className="tnum">{formatDate(d.expiresOn, tz)}</span> : <span className="text-ink3">No expiry</span> },
+    { key: "expires", label: "Expires", nowrap: true, render: (d) => d.expiresOn ? <span className="tnum">{formatDate(d.expiresOn, tz)}</span> : <span className="text-ink3"><Words k="No expiry" /></span> },
     { key: "status", label: "Status", render: (d) => <Pill tone={DOC_TONE[d.st]}>{d.st}</Pill> },
-    { key: "act", label: <span className="sr-only">Actions</span>, align: "right", render: (d) => (
+    { key: "act", label: <span className="sr-only"><Words k="Actions" /></span>, align: "right", render: (d) => (
       <div className="relative z-[1] flex items-center justify-end gap-1">
-        {d.fileId && <a href={`${BASE}/files/${d.fileId}`} target="_blank" rel="noopener" className={buttonClass("ghost", "sm")}>Open<span className="sr-only"> {d.kind} of {d.staff.fullName}</span></a>}
+        {d.fileId && <a href={`${BASE}/files/${d.fileId}`} target="_blank" rel="noopener" className={buttonClass("ghost", "sm")}><Words k="Open" /><span className="sr-only"> {d.kind} <Words k="of" /> {d.staff.fullName}</span></a>}
         {hr && d.st !== "Valid" && <UploadDocumentForm staffOptions={staffOptions} types={data.settings.documentTypes} action={uploadDocument} fixedStaffId={d.staff.id} replace={{ id: d.id, kind: d.kind }} />}
       </div>
     ) },
@@ -97,7 +101,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
     <>
       <StaffHead page="Documents & ID Cards" href={`${BASE}/documents`} sub="Certificates, ID proof and contracts with expiry reminders · staff ID cards"
         actions={<>
-          {view !== "id-cards" && <ButtonLink href={viewHref("id-cards")} icon={IdCard} className="max-md:hidden">ID cards</ButtonLink>}
+          {view !== "id-cards" && <ButtonLink href={viewHref("id-cards")} icon={IdCard} className="max-md:hidden"><Words k="ID cards" /></ButtonLink>}
           {hr && view !== "id-cards" && <UploadDocumentForm staffOptions={staffOptions} types={data.settings.documentTypes} action={uploadDocument} />}
         </>} />
 
@@ -120,13 +124,13 @@ export default async function DocumentsPage({ searchParams }: Props) {
             <ListToolbar placeholder="Staff name or staff ID" showArchived={false} period={{ timeZone: tz, allLabel: "Expires: any" }}
               filters={[{ key: "status", label: "Status", allLabel: view === "attention" ? "Needs attention" : "Every status", options: STATUSES.map((s) => ({ value: s, label: `${s} (${counts[s]})` })) }]} />
           </Toolbar>
-          <p className="border-b border-line px-4 py-3 text-[13.5px] text-ink2">Reminders go to HR and the staff member {data.settings.reminderDays.join(" and ")} days before expiry.</p>
+          <p className="border-b border-line px-4 py-3 text-[13.5px] text-ink2"><Words k="Reminders go to HR and the staff member" /> {data.settings.reminderDays.join(" and ")} <Words k="days before expiry." /></p>
           <DataList caption="Staff documents" rows={shown} columns={columns} rowKey={(d) => d.id} minWidth={900}
             rowHref={(d) => `${BASE}/${d.staff.id}?tab=documents`} rowLabel={(d) => `Open ${d.staff.fullName}'s documents`}
             mobile={(d) => ({ title: d.staff.fullName, avatar: d.staff.fullName, sub: `${d.kind} · ${d.expiresOn ? `expires ${formatDate(d.expiresOn, tz)}` : "no expiry"}`, pills: [<Pill key="s" tone={DOC_TONE[d.st]} className={cardPill}>{d.st}</Pill>] })}
             footer={<ListFooter shown={shown.length} total={shown.length} />}
             empty={anyFilter || rows.length
-              ? <Empty icon={SearchX} title={view === "attention" && !anyFilter ? "Every document is in order" : "No documents match"} body={view === "attention" && !anyFilter ? "Nothing has expired, is expiring soon or is missing." : "Change the status, date or search to see more."} action={anyFilter ? <ButtonLink href={viewHref(view)}>Clear filters</ButtonLink> : undefined} />
+              ? <Empty icon={SearchX} title={view === "attention" && !anyFilter ? "Every document is in order" : "No documents match"} body={view === "attention" && !anyFilter ? "Nothing has expired, is expiring soon or is missing." : "Change the status, date or search to see more."} action={anyFilter ? <ButtonLink href={viewHref(view)}><Words k="Clear filters" /></ButtonLink> : undefined} />
               : <Empty icon={FolderOpen} title="No staff documents yet" body="Upload certificates, ID proof and contracts with their expiry dates to get reminders before they expire." />} />
         </Card>
       ) : (
@@ -142,7 +146,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
     return (
       <Card>
         <CardHeader title="Print ID cards" icon={Printer} description={`${total} staff · ${never} never printed. Cards print ${BATCH} to a PDF, in the school's Staff ID card design from Settings, Document Designs (layout, size, colours, fields and signatures).`} />
-        {total === 0 ? <p className="px-5 pb-5 text-ink3">No active staff to print.</p> : (
+        {total === 0 ? <p className="px-5 pb-5 text-ink3"><Words k="No active staff to print." /></p> : (
           <div className="space-y-4 px-5 pb-5">
             <div className="flex flex-wrap gap-2">
               {Array.from({ length: batches }, (_, i) => (
@@ -160,7 +164,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
                     <span className="flex flex-wrap gap-2">
                       {Array.from({ length: b }, (_, i) => (
                         <a key={i} className={buttonClass("secondary", "sm")} href={`${BASE}/id-cards?designation=${encodeURIComponent(d.designation)}&batch=${i + 1}`} target="_blank" rel="noopener">
-                          {b === 1 ? "Print" : `Batch ${i + 1} of ${b}`}<span className="sr-only"> ID cards for {d.designation}</span>
+                          {b === 1 ? "Print" : `Batch ${i + 1} of ${b}`}<span className="sr-only"> <Words k="ID cards for" /> {d.designation}</span>
                         </a>
                       ))}
                     </span>
@@ -168,7 +172,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
                 );
               })}
             </div>
-            <p className="text-[13px] text-ink3">To print chosen staff, tick them on the <Link href={BASE} className="font-semibold text-brand underline">Staff List</Link> and choose Print ID cards. A card printed before is recorded as a reprint.</p>
+            <p className="text-[13px] text-ink3"><Words k="To print chosen staff, tick them on the" /> <Link href={BASE} className="font-semibold text-brand underline"><Words k="Staff List" /></Link> <Words k="and choose Print ID cards. A card printed before is recorded as a reprint." /></p>
           </div>
         )}
       </Card>

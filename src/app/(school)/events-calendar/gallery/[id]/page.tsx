@@ -17,8 +17,12 @@ import { ActButton, CopyLink } from "../../_components/bits";
 import { AccessForm, AlbumSheet, ConfirmSheet, PublishStaffOnlySheet, TagSheet, UploadButton, type TagPick } from "../../_components/gallery-sheets";
 import { archiveAlbumAction, askConsentAction, newLinkAction, publishAlbumAction, removeMediaAction, shareAlbumAction } from "../../actions";
 import { BASE, UUID, evGuard, one, qs, type SearchParams } from "../../_lib/page";
+import { DayText, Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Album" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Album") };
+}
 
 /** One album (mod-events.jsx AlbumDetail): photos with consent marks, tagging, who can see it, publish and share. */
 export default async function AlbumPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
@@ -88,17 +92,17 @@ export default async function AlbumPage({ params, searchParams }: { params: Prom
 
   return (
     <div>
-      <Link href={`${BASE}/gallery`} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink mb-3 -ml-1 h-8 px-1 rounded-lg"><ArrowLeft size={17} aria-hidden="true" />Gallery <span className="text-ink3 font-normal">/ {a.number}</span></Link>
+      <Link href={`${BASE}/gallery`} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink mb-3 -ml-1 h-8 px-1 rounded-lg"><ArrowLeft size={17} aria-hidden="true" /><Words k="Gallery" /> <span className="text-ink3 font-normal">/ {a.number}</span></Link>
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 mb-5">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap"><h1 className="font-display text-[24px] md:text-[28px] font-semibold tracking-tight leading-tight">{a.name}</h1><Pill tone={st.tone} dot>{st.label}</Pill></div>
-          <p className="text-[14px] text-ink3 mt-1">{d.ev ? `${d.ev.name} · ` : ""}{longDay(isoOf(a.date))} · {photos} photos{videos ? `, ${videos} videos` : ""}</p>
+          <p className="text-[14px] text-ink3 mt-1">{d.ev ? `${d.ev.name} · ` : ""}<DayText text={longDay(isoOf(a.date))} /> · {photos} <Words k="photos" />{videos ? `, ${videos} videos` : ""}</p>
         </div>
         {full && (
           <div className="flex gap-2 flex-wrap items-start">
             {a.status !== "ARCHIVED" && <UploadButton albumId={a.id} />}
             {a.status === "DRAFT" && (a.visibleTo === "STAFF"
-              ? <ButtonLink variant="primary" icon={Globe} href={here({ do: "publish" })} scroll={false}>Publish</ButtonLink>
+              ? <ButtonLink variant="primary" icon={Globe} href={here({ do: "publish" })} scroll={false}><Words k="Publish" /></ButtonLink>
               : <ActButton action={publishAlbumAction} fields={{ albumId: a.id }} label="Publish" icon="Globe" variant="primary" size="md" />)}
             {link && <ActButton action={shareAlbumAction} fields={{ albumId: a.id }} label="Share link" icon="Send" size="md" />}
             <MoreMenu items={[
@@ -110,14 +114,14 @@ export default async function AlbumPage({ params, searchParams }: { params: Prom
         )}
       </div>
       <Stack>
-        {a.status === "ARCHIVED" && <Banner tone="info" title="Archived.">Hidden from parents. Staff can still see it.</Banner>}
+        {a.status === "ARCHIVED" && <Banner tone="info" title="Archived."><Words k="Hidden from parents. Staff can still see it." /></Banner>}
         {without > 0 && (
           <Banner tone="warn" title={`${without} ${without === 1 ? "student" : "students"} in this album ${without === 1 ? "has" : "have"} no photo consent.`}
             action={full && <ActButton action={askConsentAction} fields={{ albumId: a.id }} label="Ask guardians" />}>
             {a.consentRule === "OUT" ? "Photos with them are left out when shared." : "They are blurred when shared."}
           </Banner>
         )}
-        {untagged > 0 && <Banner tone="info" title={`${untagged} ${untagged === 1 ? "photo is" : "photos are"} not tagged yet.`}>They stay visible to staff only until the students in them are tagged.</Banner>}
+        {untagged > 0 && <Banner tone="info" title={`${untagged} ${untagged === 1 ? "photo is" : "photos are"} not tagged yet.`}><Words k="They stay visible to staff only until the students in them are tagged." /></Banner>}
         <Split side={300}>
           <Card className="p-3 md:p-4 min-w-0">
             {d.items.length ? (
@@ -147,7 +151,7 @@ export default async function AlbumPage({ params, searchParams }: { params: Prom
                   );
                 })}
               </ul>
-            ) : <p className="text-[14px] text-ink3 p-6 text-center">No photos yet.{full && a.status !== "ARCHIVED" ? " Upload them from a phone or computer." : ""}</p>}
+            ) : <p className="text-[14px] text-ink3 p-6 text-center"><Words k="No photos yet." />{full && a.status !== "ARCHIVED" ? " Upload them from a phone or computer." : ""}</p>}
           </Card>
           <Col>
             <Card id="who">

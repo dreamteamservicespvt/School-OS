@@ -12,8 +12,12 @@ import { loadVisibleStudent, StudentNotFound } from "@/lib/students/access";
 import { RELATIONS } from "@/lib/students/labels";
 import { BASE, studentPage } from "../../_lib/page";
 import { linkExistingAction } from "../../_actions/guardians";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Link existing parent" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Link existing parent") };
+}
 
 /** Link a parent already on record (a brother's or sister's) to a student, found by phone or name. */
 export default async function LinkGuardianPage({ searchParams }: { searchParams: Promise<{ student?: string; q?: string; guardian?: string }> }) {
@@ -53,24 +57,24 @@ export default async function LinkGuardianPage({ searchParams }: { searchParams:
           <CardBody>
             <form method="get" className="flex flex-wrap gap-2">
               <input type="hidden" name="student" value={data.student.id} />
-              <label className="min-w-0 flex-1 basis-60"><span className="sr-only">Phone or name</span>
+              <label className="min-w-0 flex-1 basis-60"><span className="sr-only"><Words k="Phone or name" /></span>
                 <input name="q" type="search" defaultValue={q} placeholder="Phone or name" className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-base" />
               </label>
-              <button type="submit" className={buttonClass("secondary")}>Find</button>
+              <button type="submit" className={buttonClass("secondary")}><Words k="Find" /></button>
             </form>
           </CardBody>
         </Card>
         {(q || sp.guardian) && (
           data.found.length === 0 ? (
             <EmptyState title="No parent found">
-              <p>Check the number, or <Link className="font-semibold text-brand hover:underline" href={`${BASE}/guardians/new?student=${data.student.id}`}>add a new parent</Link>.</p>
+              <p><Words k="Check the number, or" /> <Link className="font-semibold text-brand hover:underline" href={`${BASE}/guardians/new?student=${data.student.id}`}><Words k="add a new parent" /></Link>.</p>
             </EmptyState>
           ) : (
             <Card>
               <CardHeader title={`Link to ${data.student.fullName}`} />
               <CardBody>
                 <ActionForm action={linkExistingAction.bind(null, data.student.id)} submitLabel="Link parent" pendingText="Linking…"
-                  footer={<Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>}>
+                  footer={<Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>}>
                   <FormChoice name="guardianId" label="Parent" columns={2} defaultValue={data.found.length === 1 ? data.found[0].id : undefined}
                     options={data.found.map((g) => ({ value: g.id, label: `${g.name} (${g.relationship})`, help: `${g.phone}${g.students.length ? ` · parent of ${g.students.map((s) => s.student.fullName).join(", ")}` : ""}` }))} />
                   <FormSelect name="relationship" label={`Relation to ${data.student.fullName}`} required options={RELATIONS.map((r) => ({ value: r, label: r }))} defaultValue={data.found.length === 1 ? data.found[0].relationship : "Father"} />

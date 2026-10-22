@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { TextArea } from "@/components/ui/field";
 import { FormDialog, err, v } from "./form-dialog";
 import { startCorrection, stopCorrection } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 export type YearOption = { id: string; name: string; status: string };
 
@@ -24,7 +25,7 @@ export function YearPicker({ years, current, defaultId }: { years: YearOption[];
   if (years.length === 0) return null;
   return (
     <label className="flex items-center gap-2 text-sm">
-      <span className="text-ink-2">Academic year</span>
+      <span className="text-ink-2"><Words k="Academic year" /></span>
       <select value={current ?? ""} className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-[15px]"
         onChange={(e) => {
           const next = new URLSearchParams(sp.toString());
@@ -44,19 +45,19 @@ export function ClosedYearStrip({ yearId, yearName, canCorrect, correction }: { 
   if (correction) {
     return (
       <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warn/30 bg-warn-bg px-4 py-3 text-sm text-warn-text">
-        <p><strong>Correcting {yearName}.</strong> Reason: {correction}. Every change is logged with this reason.</p>
-        <form action={stopCorrection}><Button type="submit" size="sm" variant="secondary">Finish correction</Button></form>
+        <p><strong><Words k="Correcting" /> {yearName}.</strong> <Words k="Reason:" /> {correction}<Words k=". Every change is logged with this reason." /></p>
+        <form action={stopCorrection}><Button type="submit" size="sm" variant="secondary"><Words k="Finish correction" /></Button></form>
       </div>
     );
   }
   return (
     <div role="status" className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-warn/30 bg-warn-bg px-4 py-3 text-sm text-warn-text">
-      <p>You are viewing {yearName}. This year is closed. Changes are not allowed.</p>
+      <p><Words k="You are viewing" /> {yearName}<Words k=". This year is closed. Changes are not allowed." /></p>
       {canCorrect && (
         <FormDialog trigger="Make a correction" triggerSize="sm" title={`Correct ${yearName}`} action={startCorrection} submitLabel="Start correction" hidden={{ yearId }}>
           {(state) => (
             <>
-              <p className="text-ink-2">For 30 minutes you can change records of {yearName}. Each change is written to the Audit Log with your name and this reason.</p>
+              <p className="text-ink-2"><Words k="For 30 minutes you can change records of" /> {yearName}<Words k=". Each change is written to the Audit Log with your name and this reason." /></p>
               <TextArea label="Reason" name="reason" required rows={3} defaultValue={v(state, "reason")} error={err(state, "reason")} help="For example: Ravi's section was entered wrongly in March." />
             </>
           )}

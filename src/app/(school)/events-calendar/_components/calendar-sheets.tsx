@@ -14,6 +14,7 @@ import { cx } from "@/components/ui/cx";
 import { addEntryAction, copyHolidaysAction, removeEntryAction } from "../actions";
 import { WarningConfirm } from "./bits";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 const TYPE_OPTIONS: Opt[] = [
@@ -43,14 +44,14 @@ export function AddEntrySheet({ closeHref, defDate, classes, campuses }: { close
           sub={closes ? "Off: attendance is off and reports leave the day out." : "Off: the day stays as it is. On: attendance is taken that day even on a Sunday, weekend or holiday, and the day counts in every %."} start={false} />
       </div>
       <label className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Applies to</span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Applies to" /></span>
         <KeepSelect name="applies" value={applies} onChange={(e) => setApplies(e.target.value)} className={cx(inputCls(false), "h-11")}>
           {appliesOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </KeepSelect>
       </label>
       {applies === "classes" && <SChips name="classIds" label="Classes" options={classes} required />}
       <details className="group">
-        <summary className="cursor-pointer text-[13.5px] font-semibold text-brand list-none flex items-center gap-1.5"><ChevronRight size={15} className="group-open:rotate-90 transition" aria-hidden="true" />More details</summary>
+        <summary className="cursor-pointer text-[13.5px] font-semibold text-brand list-none flex items-center gap-1.5"><ChevronRight size={15} className="group-open:rotate-90 transition" aria-hidden="true" /><Words k="More details" /></summary>
         <div className="flex flex-col gap-3 mt-3">
           <SArea name="details" label="Description" rows={2} maxLength={500} />
           <NotifyBox />
@@ -65,7 +66,7 @@ function NotifyBox() {
   const [on, setOn] = useState(t.value === "on");
   return (
     <label className="flex items-center gap-3 text-[14px]">
-      <Checkbox checked={on} onChange={setOn} label="Tell parents" />Tell parents by message
+      <Checkbox checked={on} onChange={setOn} label="Tell parents" /><Words k="Tell parents by message" />
       {on && <input type="hidden" name="notify" value="on" />}
     </label>
   );
@@ -75,7 +76,7 @@ export function RemoveEntrySheet({ closeHref, entry }: { closeHref: string; entr
   return (
     <SheetForm title={`Remove ${entry.title}?`} sub={entry.closes ? `Attendance will be needed for ${entry.when}. Teachers see it on their attendance screen.` : "It is taken off the calendar."}
       closeHref={closeHref} action={removeEntryAction} submitLabel={entry.closes ? "Remove and switch attendance on" : "Remove"} submitVariant="danger" hidden={{ entryId: entry.id }}>
-      <p className="text-[14px] text-ink2">You can undo this for a few seconds after.</p>
+      <p className="text-[14px] text-ink2"><Words k="You can undo this for a few seconds after." /></p>
     </SheetForm>
   );
 }
@@ -87,7 +88,7 @@ export function CopyHolidaysSheet({ closeHref, rows }: { closeHref: string; rows
         <ul className="flex flex-col divide-y divide-line/70">
           {rows.map((r) => <CopyRow key={r.id} r={r} />)}
         </ul>
-      ) : <p className="text-[14px] text-ink3">Every holiday of last year is already on this year&apos;s calendar, or last year has none.</p>}
+      ) : <p className="text-[14px] text-ink3"><Words k="Every holiday of last year is already on this year's calendar, or last year has none." /></p>}
     </SheetForm>
   );
 }
@@ -98,7 +99,7 @@ function CopyRow({ r }: { r: { id: string; title: string; type: string; from: st
     <li className="py-2.5 flex flex-col gap-2 md:flex-row md:items-center md:gap-3">
       <label className="flex items-center gap-3 min-w-0 flex-1">
         <Checkbox checked={on} onChange={setOn} label={`Copy ${r.title}`} />
-        <span className="min-w-0"><span className="block font-semibold text-[14px] truncate">{r.title}</span><span className="block text-[12.5px] text-ink3">Last year: {r.lastWhen}</span></span>
+        <span className="min-w-0"><span className="block font-semibold text-[14px] truncate">{r.title}</span><span className="block text-[12.5px] text-ink3"><Words k="Last year:" /> {r.lastWhen}</span></span>
       </label>
       {on && <input type="hidden" name="pick" value={r.id} />}
       <div className={cx("flex gap-2", !on && "opacity-40 pointer-events-none")}>

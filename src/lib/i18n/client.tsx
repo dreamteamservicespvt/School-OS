@@ -4,6 +4,8 @@
 // The page's layout puts <I18nProvider> around the screen with one language's words.
 import { createContext, useContext, useEffect, useMemo } from "react";
 import type { Lang } from "./languages";
+import { screenMessage } from "./messages";
+import { dayWords } from "./dates";
 import { englishT, translator, type MessageKey, type T, type Vars } from "./t";
 
 const I18nContext = createContext<T>(englishT);
@@ -33,4 +35,28 @@ export function useT(): T {
  */
 export function Words({ k, vars }: { k: MessageKey; vars?: Vars }) {
   return <>{useT()(k, vars)}</>;
+}
+
+/**
+ * Words that came in as a prop or from the rules (a label, a title, a server message), in the
+ * screen's language when the catalogue has them; anything else (a name, a number) as it is.
+ */
+export function Any({ text }: { text: string }) {
+  return <>{screenMessage(useT(), text)}</>;
+}
+
+/** A date written in words ("Sat 17 Oct 2026", "Thursday, 22 October") with the day and month names in the screen's language. */
+export function DayText({ text }: { text: string }) {
+  return <>{dayWords(useT(), text)}</>;
+}
+
+/** A select's options in the screen's language (an <option> takes only plain words). */
+export function OptionList({ options, placeholder }: { options: readonly { value: string; label: string }[]; placeholder?: string }) {
+  const t = useT();
+  return (
+    <>
+      {placeholder !== undefined && <option value="">{t.any(placeholder)}</option>}
+      {options.map((o) => <option key={o.value} value={o.value}>{t.any(o.label)}</option>)}
+    </>
+  );
 }

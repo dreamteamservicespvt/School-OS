@@ -25,8 +25,12 @@ import { BASE, invGuard, one, qs, UUID, type SearchParams } from "../../../_lib/
 import { decidable, whoNames } from "../../../_lib/lists";
 import { decideAction } from "../../../actions";
 import { CloseOrderSheet, EmailOrderSheet, ReceiveSheet } from "../../sheets";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Purchase order · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Purchase order · Inventory Management") };
+}
 const day = (d: Date) => formatDate(d, "UTC");
 const ZERO = BigInt(0);
 
@@ -73,17 +77,17 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
           ...(can.purchase && live ? [{ label: received ? "Close order" : "Cancel order", href: href({ open: "close" }), tone: "bad" as const }] : []),
         ]} />
       )}
-      {can.purchase && live && <ButtonLink href={href({ open: "receive" })} variant="primary" icon={Truck} scroll={false}>Goods received</ButtonLink>}
+      {can.purchase && live && <ButtonLink href={href({ open: "receive" })} variant="primary" icon={Truck} scroll={false}><Words k="Goods received" /></ButtonLink>}
     </div>
   );
 
   return (
     <>
-      <InvHead pageName={`Purchase order ${o.number}`} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/purchases?tab=orders`} className="hover:underline">Purchase orders</Link> · {d.vendor?.name}</>} />
+      <InvHead pageName={`Purchase order ${o.number}`} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/purchases?tab=orders`} className="hover:underline"><Words k="Purchase orders" /></Link> · {d.vendor?.name}</>} />
       <Stack>
         {o.status === "WAITING" && (d.mine
           ? <DecideBox action={decideAction} approvalId={o.approvalId!} question={`Approve ${o.number} to ${d.vendor?.name ?? "the vendor"} for ${formatRupees(o.totalPaise)}?`} />
-          : <Banner tone="info" title="Waiting for approval">The order is above the approved amount. It can be sent and received once approved.</Banner>)}
+          : <Banner tone="info" title="Waiting for approval"><Words k="The order is above the approved amount. It can be sent and received once approved." /></Banner>)}
         {o.status === "CANCELLED" && <Banner tone="warn" title="Cancelled">{o.closedReason ?? o.decisionNote ?? "This order was cancelled."}</Banner>}
         {o.status === "CLOSED" && <Banner tone="info" title="Closed">{o.closedReason ?? "Nothing more is expected."}</Banner>}
         <Split>
@@ -106,8 +110,8 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
                     <li key={r.id} className="px-5 py-3 text-[14px]">
                       <b className="font-semibold">{r.number}</b> <span className="text-ink3">· {day(r.date)} · {storeName.get(r.locationId) ?? ""} · {d.who.get(r.receivedById ?? "") ?? ""}</span>
                       <span className="block text-[13px] text-ink2">{r.lines.map((l) => `${d.items.get(l.itemId)?.name ?? "Item"} × ${l.qty}${l.batchNo ? ` (batch ${l.batchNo})` : ""}`).join(", ")}</span>
-                      {can.assets && <span className="block text-[12.5px] mt-1">{r.lines.map((l) => <Link key={l.id} className="mr-3 font-semibold text-brand hover:underline" href={qs(`${BASE}/assets`, { open: "add", receipt: r.id, line: l.id })}>Add {d.items.get(l.itemId)?.name ?? "item"} as assets</Link>)}</span>}
-                      {r.extraReason && <span className="block text-[12.5px] text-warn">More than ordered: {r.extraReason}</span>}
+                      {can.assets && <span className="block text-[12.5px] mt-1">{r.lines.map((l) => <Link key={l.id} className="mr-3 font-semibold text-brand hover:underline" href={qs(`${BASE}/assets`, { open: "add", receipt: r.id, line: l.id })}><Words k="Add" /> {d.items.get(l.itemId)?.name ?? "item"} <Words k="as assets" /></Link>)}</span>}
+                      {r.extraReason && <span className="block text-[12.5px] text-warn"><Words k="More than ordered:" /> {r.extraReason}</span>}
                     </li>
                   ))}
                 </ul>
@@ -129,15 +133,15 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             </Card>
             <Card>
               <CardHeader title="Bills" description={`${formatRupees(billed)} billed of ${formatRupees(o.totalPaise)}`} divided />
-              {d.bills.length === 0 ? <p className="px-5 py-4 text-[13.5px] text-ink3">No bill recorded yet.</p> : (
+              {d.bills.length === 0 ? <p className="px-5 py-4 text-[13.5px] text-ink3"><Words k="No bill recorded yet." /></p> : (
                 <ul className="divide-y divide-line">
                   {d.bills.map((b) => {
                     const bs = b.expense ? billState(b.expense) : "CANCELLED";
                     return (
                       <li key={b.bill.id} className="px-5 py-3 flex items-center gap-3 text-[14px]">
-                        <span className="flex-1 min-w-0"><b className="font-semibold">Bill {b.bill.billNo}</b><span className="block text-[12.5px] text-ink3">{day(b.bill.billDate)} · {formatRupees(b.bill.amountPaise)}{b.expense ? ` · ${b.expense.number}` : ""}</span></span>
-                        {b.bill.fileId && <a className="text-[13px] font-semibold text-brand hover:underline" href={fileLink(b.bill.fileId, current.ctx.schoolId)} target="_blank" rel="noreferrer">View</a>}
-                        {can.pay && (bs === "UNPAID" || bs === "PART_PAID") && <Link className="text-[13px] font-semibold text-brand hover:underline" href={qs(`${BASE}/purchases`, { tab: "bills", pay: b.bill.id })}>Pay</Link>}
+                        <span className="flex-1 min-w-0"><b className="font-semibold"><Words k="Bill" /> {b.bill.billNo}</b><span className="block text-[12.5px] text-ink3">{day(b.bill.billDate)} · {formatRupees(b.bill.amountPaise)}{b.expense ? ` · ${b.expense.number}` : ""}</span></span>
+                        {b.bill.fileId && <a className="text-[13px] font-semibold text-brand hover:underline" href={fileLink(b.bill.fileId, current.ctx.schoolId)} target="_blank" rel="noreferrer"><Words k="View" /></a>}
+                        {can.pay && (bs === "UNPAID" || bs === "PART_PAID") && <Link className="text-[13px] font-semibold text-brand hover:underline" href={qs(`${BASE}/purchases`, { tab: "bills", pay: b.bill.id })}><Words k="Pay" /></Link>}
                         <Pill tone={BILL_STATUS[bs].tone}>{BILL_STATUS[bs].label}</Pill>
                       </li>
                     );

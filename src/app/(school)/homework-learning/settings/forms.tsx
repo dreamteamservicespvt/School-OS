@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import { ActionForm } from "@/components/students/action-form";
 import { optionalPageAction, saveSettingsAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export type Row =
   | { kind: "switch"; name: string; title: string; sub?: string; value: boolean }
@@ -56,24 +57,24 @@ export function SettingsRows({ section, rows, editable, extra }: { section: stri
 export function GradeBands({ bands, editable }: { bands: { grade: string; from: number }[]; editable: boolean }) {
   const [rows, setRows] = useState(bands.length ? bands : [{ grade: "A", from: 80 }, { grade: "D", from: 0 }]);
   if (!editable) {
-    return <p className="px-5 py-3.5 text-[14px] border-t border-line/70"><b className="font-semibold">Homework grades</b> <span className="text-ink2">· {[...bands].sort((a, b) => b.from - a.from).map((b) => `${b.grade} from ${b.from}%`).join(", ")}</span></p>;
+    return <p className="px-5 py-3.5 text-[14px] border-t border-line/70"><b className="font-semibold"><Words k="Homework grades" /></b> <span className="text-ink2">· {[...bands].sort((a, b) => b.from - a.from).map((b) => `${b.grade} from ${b.from}%`).join(", ")}</span></p>;
   }
   return (
     <fieldset className="px-5 py-3.5 border-t border-line/70 flex flex-col gap-2">
-      <legend className="sr-only">Homework grades</legend>
-      <p className="text-[14px]"><b className="font-semibold block">Homework grades</b><span className="text-ink3 text-[12.5px]">Worked out from the score. One grade starts at 0%.</span></p>
+      <legend className="sr-only"><Words k="Homework grades" /></legend>
+      <p className="text-[14px]"><b className="font-semibold block"><Words k="Homework grades" /></b><span className="text-ink3 text-[12.5px]"><Words k="Worked out from the score. One grade starts at 0%." /></span></p>
       {rows.map((b, i) => (
         <div key={i} className="flex items-center gap-2">
-          <label className="sr-only" htmlFor={`band${i}grade`}>Grade {i + 1}</label>
+          <label className="sr-only" htmlFor={`band${i}grade`}><Words k="Grade" /> {i + 1}</label>
           <input id={`band${i}grade`} name={`band${i}grade`} defaultValue={b.grade} maxLength={4} className={cx(inputCls(), "!h-10 !w-20 text-[14px]")} />
-          <span className="text-[13px] text-ink3">from</span>
-          <label className="sr-only" htmlFor={`band${i}from`}>Grade {i + 1} starts at</label>
+          <span className="text-[13px] text-ink3"><Words k="from" /></span>
+          <label className="sr-only" htmlFor={`band${i}from`}><Words k="Grade" /> {i + 1} <Words k="starts at" /></label>
           <input id={`band${i}from`} name={`band${i}from`} type="number" min={0} max={100} defaultValue={b.from} className={cx(inputCls(), "!h-10 !w-20 tnum text-[14px]")} />
           <span className="text-[13px] text-ink3">%</span>
           {rows.length > 1 && <button type="button" aria-label={`Remove grade ${b.grade}`} onClick={() => setRows((x) => x.filter((_, k) => k !== i))} className="w-9 h-9 grid place-items-center rounded-lg text-ink3 hover:bg-sunken"><X size={15} aria-hidden="true" /></button>}
         </div>
       ))}
-      {rows.length < 6 && <Button size="sm" variant="ghost" icon={Plus} className="self-start" onClick={() => setRows((x) => [...x, { grade: "", from: 0 }])}>Add a grade</Button>}
+      {rows.length < 6 && <Button size="sm" variant="ghost" icon={Plus} className="self-start" onClick={() => setRows((x) => [...x, { grade: "", from: 0 }])}><Words k="Add a grade" /></Button>}
     </fieldset>
   );
 }

@@ -15,6 +15,7 @@ import { AttachPicker } from "../_components/attach";
 import { Text } from "../sheets";
 import { addLessonAction, archiveLessonAction, copyCourseAction, editLessonAction, lessonDoneAction, lessonVisibleAction, moveLessonAction } from "./actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type CourseRef = { sectionId: string; subjectId: string; label: string; subject: string };
 export type LessonForm = { id: string; title: string; chapterId: string; notes: string; visible: boolean; items: { id: string; name: string }[] };
@@ -29,7 +30,7 @@ export function LessonSheet({ closeHref, course, chapters, lesson, maxMb }: {
   const edit = !!lesson;
   return (
     <SheetForm title={edit ? `Edit: ${lesson.title}` : "Add lesson"} sub={`${course.subject} · Class ${course.label}`} closeHref={closeHref}
-      action={(edit ? editLessonAction : addLessonAction) as (p: unknown, fd: FormData) => Promise<{ ok: boolean; message?: string }>} submitLabel={edit ? "Save changes" : <><Plus size={16} aria-hidden="true" />Add lesson</>} pendingText="Saving…"
+      action={(edit ? editLessonAction : addLessonAction) as (p: unknown, fd: FormData) => Promise<{ ok: boolean; message?: string }>} submitLabel={edit ? "Save changes" : <><Plus size={16} aria-hidden="true" /><Words k="Add lesson" /></>} pendingText="Saving…"
       hidden={edit ? { id: lesson.id } : { sectionId: course.sectionId, subjectId: course.subjectId, label: course.label }}>
       <FieldShell label="Course" id="ls-course" required>
         <input id="ls-course" value={`${course.subject} · Class ${course.label}`} readOnly className={cx(inputCls(), "h-11 bg-sunken/50")} />
@@ -44,13 +45,13 @@ export function LessonSheet({ closeHref, course, chapters, lesson, maxMb }: {
       <Text name="notes" label="Notes" area rows={3} start={lesson?.notes} placeholder="Typed notes students read with the lesson" help="Optional when you add a file or link" />
       {edit && lesson.items.length > 0 && (
         <fieldset className="flex flex-col gap-1.5">
-          <legend className="text-[13px] font-semibold text-ink2 mb-1">In this lesson</legend>
+          <legend className="text-[13px] font-semibold text-ink2 mb-1"><Words k="In this lesson" /></legend>
           {lesson.items.map((f) => (
             <label key={f.id} className={cx("flex items-center gap-2.5 rounded-xl border border-line px-3 py-2 text-[13.5px]", remove.has(f.id) && "opacity-50 line-through")}>
               <span className="flex-1 min-w-0 truncate">{f.name}</span>
               <KeepCheck type="checkbox" name="remove" value={f.id} checked={remove.has(f.id)} className="size-4"
                 onChange={(e) => setRemove((x) => { const n = new Set(x); if (e.target.checked) n.add(f.id); else n.delete(f.id); return n; })} />
-              <span className="text-[12.5px] text-ink3">Remove</span>
+              <span className="text-[12.5px] text-ink3"><Words k="Remove" /></span>
             </label>
           ))}
         </fieldset>
@@ -60,7 +61,7 @@ export function LessonSheet({ closeHref, course, chapters, lesson, maxMb }: {
       </FieldShell>
       <div className="rounded-xl border border-line px-3.5 py-3 flex items-center gap-3">
         <Switch id="ls-vis" on={visible} onChange={setVisible} label="Visible to students" name="visible" />
-        <label htmlFor="ls-vis" className="text-[13.5px]"><b className="font-semibold block">Visible to students</b><span className="text-ink3 text-[12.5px]">{visible ? "Students with a login get a notification" : "Hidden until you show it"}</span></label>
+        <label htmlFor="ls-vis" className="text-[13.5px]"><b className="font-semibold block"><Words k="Visible to students" /></b><span className="text-ink3 text-[12.5px]">{visible ? "Students with a login get a notification" : "Hidden until you show it"}</span></label>
       </div>
     </SheetForm>
   );
@@ -69,7 +70,7 @@ export function LessonSheet({ closeHref, course, chapters, lesson, maxMb }: {
 export function ArchiveLessonSheet({ closeHref, id, title }: { closeHref: string; id: string; title: string }) {
   return (
     <SheetForm title={`Archive “${title}”?`} closeHref={closeHref} action={archiveLessonAction} submitLabel="Archive lesson" pendingText="Archiving…" hidden={{ id }}>
-      <p className="text-[14px] text-ink2">Students no longer see it. Its files and who opened it are kept, and you can undo it from the message that follows.</p>
+      <p className="text-[14px] text-ink2"><Words k="Students no longer see it. Its files and who opened it are kept, and you can undo it from the message that follows." /></p>
     </SheetForm>
   );
 }

@@ -10,6 +10,7 @@ import { KeepCheck } from "@/components/ui/keep-select";
 import type { RemarkOption } from "@/lib/exams/remark-drafts";
 import type { RemarkRow } from "@/lib/exams/report-cards";
 import { draftRemarksAction, makePdfAction, markCardsAction, saveCoScholasticAction, saveCompetencyAction, saveRemarksAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 const STATUS_WORDS: Record<string, string> = { NOT_READY: "Not ready", READY: "Ready", PRINTED: "Printed", SENT: "Sent" };
 const STATUS_TONE: Record<string, "neutral" | "brand" | "success" | "warning"> = { NOT_READY: "warning", READY: "brand", PRINTED: "success", SENT: "success" };
@@ -29,7 +30,7 @@ function SaveBar({ dirty, saving, onSave, message }: { dirty: number; saving: bo
       <p role="status" aria-live="polite" className={message && !message.ok ? "text-danger" : "text-ink-2"}>
         {message ? message.text : dirty ? `${dirty} change${dirty === 1 ? "" : "s"} not saved yet` : "Everything is saved."}
       </p>
-      <Button onClick={onSave} disabled={!dirty} loading={saving} loadingText="Saving">Save</Button>
+      <Button onClick={onSave} disabled={!dirty} loading={saving} loadingText="Saving"><Words k="Save" /></Button>
     </div>
   );
 }
@@ -53,20 +54,20 @@ export function StatusBoard({ rows, sectionId, period, periodLabel, canWrite, di
       {canWrite && ready.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2">
           {ready.length <= directLimit ? (
-            <a href={pdf([])} target="_blank" rel="noopener" className={buttonClass("primary")}>Print all ready ({ready.length})</a>
+            <a href={pdf([])} target="_blank" rel="noopener" className={buttonClass("primary")}><Words k="Print all ready (" />{ready.length})</a>
           ) : (
-            <Button disabled={busy} loading={busy} onClick={() => startBusy(async () => { const e = await makePdfAction(sectionId, period); setNote(e ?? null); if (!e) router.refresh(); })}>Make PDF of all ready ({ready.length})</Button>
+            <Button disabled={busy} loading={busy} onClick={() => startBusy(async () => { const e = await makePdfAction(sectionId, period); setNote(e ?? null); if (!e) router.refresh(); })}><Words k="Make PDF of all ready (" />{ready.length})</Button>
           )}
           {picked.length > 0 && (
             <>
-              {picked.length <= directLimit && <a href={pdf(picked)} target="_blank" rel="noopener" className={buttonClass("secondary")}>Print chosen ({picked.length})</a>}
+              {picked.length <= directLimit && <a href={pdf(picked)} target="_blank" rel="noopener" className={buttonClass("secondary")}><Words k="Print chosen (" />{picked.length})</a>}
               <ConfirmButton trigger={`Mark ${picked.length} as printed`} title="Mark as printed?" confirmLabel="Mark as printed"
                 onConfirm={async () => { const e = await markCardsAction(sectionId, period, picked, "PRINTED"); if (!e) { setChosen([]); router.refresh(); } return e; }}>
-                <p>{picked.length} report card{picked.length === 1 ? "" : "s"} of {periodLabel} will show as Printed, for example after a parent-teacher meeting.</p>
+                <p>{picked.length} <Words k="report card" />{picked.length === 1 ? "" : "s"} <Words k="of" /> {periodLabel} <Words k="will show as Printed, for example after a parent-teacher meeting." /></p>
               </ConfirmButton>
               <ConfirmButton trigger={`Mark ${picked.length} as sent`} title="Mark as sent?" confirmLabel="Mark as sent"
                 onConfirm={async () => { const e = await markCardsAction(sectionId, period, picked, "SENT"); if (!e) { setChosen([]); router.refresh(); } return e; }}>
-                <p>Use this when the report cards were handed or sent to parents. Published report cards are on Parent Link already.</p>
+                <p><Words k="Use this when the report cards were handed or sent to parents. Published report cards are on Parent Link already." /></p>
               </ConfirmButton>
             </>
           )}
@@ -75,15 +76,15 @@ export function StatusBoard({ rows, sectionId, period, periodLabel, canWrite, di
       {note && <Alert tone="danger" className="mb-3">{note}</Alert>}
       <div className="hidden overflow-x-auto rounded-2xl border border-line bg-surface md:block">
         <table className="w-full text-left text-[15px]">
-          <caption className="sr-only">Report card status</caption>
+          <caption className="sr-only"><Words k="Report card status" /></caption>
           <thead className="border-b border-line bg-surface-2 text-sm text-ink-2">
             <tr>
               {canWrite && <th scope="col" className="w-12 px-3 py-2"><input type="checkbox" aria-label="Choose every ready report card" checked={ready.length > 0 && picked.length === ready.length} onChange={toggleAll} disabled={ready.length === 0} className="size-5 accent-[var(--brand)]" /></th>}
-              <th scope="col" className="px-3 py-2 font-medium">Roll</th>
-              <th scope="col" className="px-3 py-2 font-medium">Student</th>
-              <th scope="col" className="px-3 py-2 font-medium">Status</th>
-              <th scope="col" className="px-3 py-2 font-medium">Not filled in</th>
-              <th scope="col" className="px-3 py-2 font-medium"><span className="sr-only">Open</span></th>
+              <th scope="col" className="px-3 py-2 font-medium"><Words k="Roll" /></th>
+              <th scope="col" className="px-3 py-2 font-medium"><Words k="Student" /></th>
+              <th scope="col" className="px-3 py-2 font-medium"><Words k="Status" /></th>
+              <th scope="col" className="px-3 py-2 font-medium"><Words k="Not filled in" /></th>
+              <th scope="col" className="px-3 py-2 font-medium"><span className="sr-only"><Words k="Open" /></span></th>
             </tr>
           </thead>
           <tbody className="divide-y divide-line">
@@ -93,8 +94,8 @@ export function StatusBoard({ rows, sectionId, period, periodLabel, canWrite, di
                 <td className="px-3 py-2 tabular-nums text-ink-2">{r.rollNo ?? ""}</td>
                 <th scope="row" className="px-3 py-2 font-medium">{r.name}<span className="block text-sm font-normal text-ink-2">{r.admissionNo}</span></th>
                 <td className="px-3 py-2"><Badge tone={STATUS_TONE[r.status] ?? "neutral"}>{STATUS_WORDS[r.status] ?? r.status}</Badge></td>
-                <td className="px-3 py-2 text-sm">{r.missing.length ? <span className="text-warn-text">{r.missing.join(", ")}</span> : <span className="text-success">All filled in</span>}</td>
-                <td className="px-3 py-2 text-right">{r.status !== "NOT_READY" && <a href={pdf([r.studentId])} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center font-medium text-brand-text hover:underline">View PDF</a>}</td>
+                <td className="px-3 py-2 text-sm">{r.missing.length ? <span className="text-warn-text">{r.missing.join(", ")}</span> : <span className="text-success"><Words k="All filled in" /></span>}</td>
+                <td className="px-3 py-2 text-right">{r.status !== "NOT_READY" && <a href={pdf([r.studentId])} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center font-medium text-brand-text hover:underline"><Words k="View PDF" /></a>}</td>
               </tr>
             ))}
           </tbody>
@@ -107,8 +108,8 @@ export function StatusBoard({ rows, sectionId, period, periodLabel, canWrite, di
               {canWrite && <input type="checkbox" aria-label={`Choose ${r.name}`} disabled={r.status === "NOT_READY"} checked={picked.includes(r.studentId)} onChange={(e) => setChosen((c) => (e.target.checked ? [...c, r.studentId] : c.filter((x) => x !== r.studentId)))} className="mt-1 size-5 accent-[var(--brand)]" />}
               <div className="flex-1">
                 <div className="flex items-start justify-between gap-2"><span className="font-medium">{r.rollNo ? `${r.rollNo}. ` : ""}{r.name}</span><Badge tone={STATUS_TONE[r.status] ?? "neutral"}>{STATUS_WORDS[r.status] ?? r.status}</Badge></div>
-                {r.missing.length > 0 && <p className="text-sm text-warn-text">Not filled in: {r.missing.join(", ")}</p>}
-                {r.status !== "NOT_READY" && <a href={pdf([r.studentId])} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center font-medium text-brand-text">View PDF</a>}
+                {r.missing.length > 0 && <p className="text-sm text-warn-text"><Words k="Not filled in:" /> {r.missing.join(", ")}</p>}
+                {r.status !== "NOT_READY" && <a href={pdf([r.studentId])} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center font-medium text-brand-text"><Words k="View PDF" /></a>}
               </div>
             </div>
           </li>
@@ -221,11 +222,11 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
               <div className="mb-2 flex flex-wrap items-baseline justify-between gap-2">
                 <span className="font-medium">{r.rollNo ? `${r.rollNo}. ` : ""}{r.name}</span>
                 {r.attendanceFromRegister ? (
-                  <span className="text-sm text-ink-2">Attendance {r.attendancePresent}/{r.attendanceWorking} days (from the register)</span>
+                  <span className="text-sm text-ink-2"><Words k="Attendance" /> {r.attendancePresent}/{r.attendanceWorking} <Words k="days (from the register)" /></span>
                 ) : (
                   <span className="flex items-center gap-2 text-sm">
-                    <label className="flex items-center gap-1">Present <input inputMode="numeric" aria-label={`Days present, ${r.name}`} value={v.ap} disabled={!classTeacher} onChange={(e) => set(r.studentId, "ap", e.target.value.replace(/\D/g, "").slice(0, 3))} className="h-11 w-16 rounded-lg border border-line-strong bg-surface px-2 tabular-nums" /></label>
-                    <label className="flex items-center gap-1">of <input inputMode="numeric" aria-label={`Working days, ${r.name}`} value={v.aw} disabled={!classTeacher} onChange={(e) => set(r.studentId, "aw", e.target.value.replace(/\D/g, "").slice(0, 3))} className="h-11 w-16 rounded-lg border border-line-strong bg-surface px-2 tabular-nums" /></label>
+                    <label className="flex items-center gap-1"><Words k="Present" /> <input inputMode="numeric" aria-label={`Days present, ${r.name}`} value={v.ap} disabled={!classTeacher} onChange={(e) => set(r.studentId, "ap", e.target.value.replace(/\D/g, "").slice(0, 3))} className="h-11 w-16 rounded-lg border border-line-strong bg-surface px-2 tabular-nums" /></label>
+                    <label className="flex items-center gap-1"><Words k="of" /> <input inputMode="numeric" aria-label={`Working days, ${r.name}`} value={v.aw} disabled={!classTeacher} onChange={(e) => set(r.studentId, "aw", e.target.value.replace(/\D/g, "").slice(0, 3))} className="h-11 w-16 rounded-lg border border-line-strong bg-surface px-2 tabular-nums" /></label>
                   </span>
                 )}
               </div>
@@ -265,16 +266,16 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
                   )}
                 </div>
                 <label className="block">
-                  <span className="mb-1 block text-sm font-medium">Principal remark</span>
+                  <span className="mb-1 block text-sm font-medium"><Words k="Principal remark" /></span>
                   <textarea rows={2} maxLength={500} value={v.pr} disabled={!principal} onChange={(e) => set(r.studentId, "pr", e.target.value)} className="w-full rounded-lg border border-line-strong bg-surface p-2 disabled:bg-surface-2" />
-                  {!principal && <span className="text-xs text-ink-2">Written by the Principal.</span>}
+                  {!principal && <span className="text-xs text-ink-2"><Words k="Written by the Principal." /></span>}
                 </label>
               </div>
             </li>
           );
         })}
       </ul>
-      {typedAttendance && <p className="mt-2 text-sm text-ink-2">Attendance is typed here because no attendance register covers these days.</p>}
+      {typedAttendance && <p className="mt-2 text-sm text-ink-2"><Words k="Attendance is typed here because no attendance register covers these days." /></p>}
       {(classTeacher || principal) && <SaveBar dirty={changed.length} saving={saving} onSave={save} message={message} />}
     </>
   );
@@ -311,7 +312,7 @@ export function GradeGrid({ kind, rows, columns, values, sectionId, period, canW
           <caption className="sr-only">{kind === "co-scholastic" ? "Co-scholastic grades" : "Competency levels"}</caption>
           <thead className="border-b border-line bg-surface-2 text-sm text-ink-2">
             <tr>
-              <th scope="col" className="sticky left-0 bg-surface-2 px-3 py-2 font-medium">Student</th>
+              <th scope="col" className="sticky left-0 bg-surface-2 px-3 py-2 font-medium"><Words k="Student" /></th>
               {columns.map((c) => (
                 <th key={c.id} scope="col" className="min-w-36 px-3 py-2 align-bottom font-medium">
                   {c.group && <span className="block text-xs font-normal">{c.group}</span>}

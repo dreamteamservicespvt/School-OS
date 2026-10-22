@@ -5,6 +5,7 @@ import { SheetForm, useTyped } from "@/components/ui/url-sheet";
 import { SDate, SMoney, SSelect, SSwitch, SText } from "@/components/ui/sheet-fields";
 import { SelectField, type Option } from "@/components/ui/field";
 import { reviseBulkAction, saveStructureAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export type Comp = { id: string; name: string; kind: string; calc: string; percentBp: number | null; systemKey: string | null };
 export type Template = { id: string; name: string; amounts: Record<string, number> };
@@ -40,7 +41,7 @@ export function StructureSheet({ closeHref, mode, title, sub, staff, staffId, co
           <SMoney key={c.id} name={`c_${c.id}`} label={c.name} required={c.systemKey === "basic"} start={base[c.id] ? String(base[c.id]) : ""} onValue={(v) => setTyped((x) => ({ ...x, [c.id]: num(v) }))} />
         ))}
       </div>
-      {pct.length > 0 && <p className="text-[13px] text-ink3 -mt-1">{pct.map((c) => `${c.name.replace(/ allowance$/, "")} (${(c.percentBp ?? 0) / 100}%)`).join(" and ")} {pct.length === 1 ? "is" : "are"} worked out from basic. Gross: <b className="text-ink font-semibold tnum">{inr(gross)}</b> a month.</p>}
+      {pct.length > 0 && <p className="text-[13px] text-ink3 -mt-1">{pct.map((c) => `${c.name.replace(/ allowance$/, "")} (${(c.percentBp ?? 0) / 100}%)`).join(" and ")} {pct.length === 1 ? "is" : "are"} <Words k="worked out from basic. Gross:" /> <b className="text-ink font-semibold tnum">{inr(gross)}</b> <Words k="a month." /></p>}
       {fixed.filter((c) => c.kind === "DEDUCTION").map((c) => (
         <SMoney key={c.id} name={`c_${c.id}`} label={`${c.name} (a month)`} start={base[c.id] ? String(base[c.id]) : ""} help="Leave empty if it does not apply" />
       ))}
@@ -70,12 +71,12 @@ export function ReviseBulkSheet({ closeHref, ids, rows, from }: { closeHref: str
       </div>
       <SText name="reason" label="Reason" required placeholder="Like: annual increment 2026-27" />
       <div>
-        <p className="eyebrow text-ink3 mb-1.5">Preview</p>
+        <p className="eyebrow text-ink3 mb-1.5"><Words k="Preview" /></p>
         <ul className="rounded-xl border border-line divide-y divide-line/70 text-[14px]">
           {rows.slice(0, 8).map((r) => <li key={r.name} className="flex justify-between gap-3 px-3.5 py-2.5"><span className="truncate">{r.name}</span><span className="tnum shrink-0">{inr(r.gross)} → <b className="font-semibold">{inr(Math.round(r.gross * (1 + p / 100)))}</b></span></li>)}
-          {rows.length > 8 && <li className="px-3.5 py-2.5 text-ink3">and {rows.length - 8} more</li>}
+          {rows.length > 8 && <li className="px-3.5 py-2.5 text-ink3"><Words k="and" /> {rows.length - 8} <Words k="more" /></li>}
         </ul>
-        <p className="text-[12.5px] text-ink3 mt-1.5">Fixed earnings go up and are rounded to the rupee; percentage parts follow basic pay.</p>
+        <p className="text-[12.5px] text-ink3 mt-1.5"><Words k="Fixed earnings go up and are rounded to the rupee; percentage parts follow basic pay." /></p>
       </div>
     </SheetForm>
   );

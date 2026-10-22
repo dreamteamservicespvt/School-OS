@@ -15,8 +15,12 @@ import { aiReady } from "@/lib/ai";
 import { CommHead } from "./_components/comm-head";
 import { SendForm, type Person, type SendFormData } from "./send-form";
 import { SendHeadActions } from "./send-head-actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Send Message" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Send Message") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -158,12 +162,12 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
         actions={<SendHeadActions full={access.full} groups={data.groups} canEmergency={access.canEmergency} />} />
       {!data.year && (
         <Banner tone="warn" className="mb-5" title="No academic year is open.">
-          Parents and students are chosen by class and section of the current year. Open the year in{" "}
-          <Link className="underline font-semibold" href="/academic-management">Academic Management</Link>, or send to staff or chosen people for now.
+          <Words k="Parents and students are chosen by class and section of the current year. Open the year in" />{" "}
+          <Link className="underline font-semibold" href="/academic-management"><Words k="Academic Management" /></Link><Words k=", or send to staff or chosen people for now." />
         </Banner>
       )}
       {scope.sectionIds !== "all" && data.year && data.sections.length === 0 && (
-        <Banner tone="info" className="mb-5">You are not the teacher of any section this year, so you can send only to chosen people. Ask the office to send to a class.</Banner>
+        <Banner tone="info" className="mb-5"><Words k="You are not the teacher of any section this year, so you can send only to chosen people. Ask the office to send to a class." /></Banner>
       )}
       <SendForm data={form} />
     </>

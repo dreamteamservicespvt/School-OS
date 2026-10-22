@@ -14,8 +14,12 @@ import { UrlSearch } from "@/components/money/url-filters";
 import { cx } from "@/components/ui/cx";
 import { FeeHead } from "../_components/fee-head";
 import { BASE, feeGuard, one, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Student Fee Ledger" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Student Fee Ledger") };
+}
 
 /** Student Fee Ledger without a student chosen: find one (mod-fees.jsx StudentPicker). */
 export default async function LedgerIndexPage({ searchParams }: { searchParams: SearchParams }) {
@@ -33,7 +37,7 @@ export default async function LedgerIndexPage({ searchParams }: { searchParams: 
   return (
     <div>
       <FeeHead pageName="Student Fee Ledger" href={`${BASE}/ledger`} sub={own ? "Fee status of the students in your classes." : "Each student’s fees, payments, balance and receipts. Nothing here is ever deleted."}
-        actions={p.can.change ? <ButtonLink href={`${BASE}/ledger/import`} variant="secondary" icon={FileInput}>Import old dues and receipts</ButtonLink> : undefined} />
+        actions={p.can.change ? <ButtonLink href={`${BASE}/ledger/import`} variant="secondary" icon={FileInput}><Words k="Import old dues and receipts" /></ButtonLink> : undefined} />
       <div className="max-w-3xl">
         <UrlSearch big id="ledger-search" placeholder="Name, admission no. or parent phone" autoFocus label="Find a student" />
         <Card className="mt-4 overflow-hidden">
@@ -54,7 +58,7 @@ export default async function LedgerIndexPage({ searchParams }: { searchParams: 
                       </span>
                       {s.due > BigInt(0)
                         ? <span className="text-right"><span className="block font-semibold tnum">{formatRupees(s.due)}</span><span className={cx("text-[12px] font-semibold", s.overdue ? "text-bad" : "text-warn")}>{s.overdue ? "Overdue" : "Due"}</span></span>
-                        : <Pill tone="ok">No dues</Pill>}
+                        : <Pill tone="ok"><Words k="No dues" /></Pill>}
                     </Link>
                   </li>
                 ))}

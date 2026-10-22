@@ -28,8 +28,12 @@ import { LibHead } from "../_components/head";
 import { BlockSheet, LimitSheet } from "../_components/sheets";
 import { BASE, libGuard, one, qs, type SearchParams } from "../_lib/page";
 import { memberRows, readMembersFilter, type MemberRow } from "../_lib/members";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Members & Cards · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Members & Cards · Library Management") };
+}
 
 const settingsLimit = (s: LibrarySettings, m: Pick<Member, "kind" | "level">) => (m.kind === "STAFF" ? s.staffBooks : s.rules.find((r) => r.level === m.level)?.books ?? s.studentBooks);
 
@@ -78,10 +82,10 @@ export default async function MembersPage({ searchParams }: { searchParams: Sear
     { key: "limit", label: "Limit", nowrap: true, render: (m: MemberRow) => <span title={m.limitChanged ? `Changed: ${m.limitChanged.reason}` : undefined}>{bookWords(m.limit)}{m.limitChanged && <span className="text-info"> *</span>}</span> },
     { key: "out", label: "Books out", align: "right" as const, render: (m: MemberRow) => <span className={m.overdue ? "text-bad font-semibold" : ""}>{m.out}{m.overdue ? ` (${m.overdue} late)` : ""}</span> },
     { key: "fines", label: "Fines due", align: "right" as const, nowrap: true, render: (m: MemberRow) => (m.finesPaise > BigInt(0) ? <span className="text-warn font-semibold">{formatRupees(m.finesPaise)}</span> : "") },
-    { key: "status", label: "Status", render: (m: MemberRow) => (m.blocked ? <Pill tone="bad">Blocked</Pill> : m.active ? <Pill tone="ok">Active</Pill> : <Pill>Not active</Pill>) },
+    { key: "status", label: "Status", render: (m: MemberRow) => (m.blocked ? <Pill tone="bad"><Words k="Blocked" /></Pill> : m.active ? <Pill tone="ok"><Words k="Active" /></Pill> : <Pill><Words k="Not active" /></Pill>) },
     ...(can.members ? [{ key: "act", label: "", render: (m: MemberRow) => (
       <span className="flex gap-3 justify-end text-[13px] font-semibold whitespace-nowrap">
-        <Link href={href({ limit: m.key })} scroll={false} className="text-brand hover:underline">Limit</Link>
+        <Link href={href({ limit: m.key })} scroll={false} className="text-brand hover:underline"><Words k="Limit" /></Link>
         <Link href={href({ block: m.key })} scroll={false} className={m.blocked ? "text-brand hover:underline" : "text-bad hover:underline"}>{m.blocked ? "Unblock" : "Block"}</Link>
       </span>
     ) }] : []),
@@ -107,18 +111,18 @@ export default async function MembersPage({ searchParams }: { searchParams: Sear
             </div>
           </Toolbar>
           {can.members && f.tab === "students" && !f.sec && (
-            <p className="px-5 py-2.5 text-[13px] text-ink3 border-b border-line flex items-center gap-2"><IdCard size={15} aria-hidden="true" />Choose a class to print its library cards. The card number is the admission number, as on the ID card.</p>
+            <p className="px-5 py-2.5 text-[13px] text-ink3 border-b border-line flex items-center gap-2"><IdCard size={15} aria-hidden="true" /><Words k="Choose a class to print its library cards. The card number is the admission number, as on the ID card." /></p>
           )}
           <DataList rows={d.rows} rowKey={(m) => m.key} minWidth={900} caption="Library members"
             empty={<Empty icon={f.q ? Search : UsersRound} title={f.tab === "blocked" ? "Nobody is blocked" : f.q ? "No members match" : "No members"} body={f.q ? "Try another name or number." : undefined} />}
             columns={columns}
             phone={(m) => ({
               title: m.name, sub: `${m.group} · ${m.cardNo}`, avatar: m.name,
-              right: m.blocked ? <Pill tone="bad">Blocked</Pill> : <span className="text-[12.5px] text-ink3 tnum">{m.out} of {m.limit}</span>,
+              right: m.blocked ? <Pill tone="bad"><Words k="Blocked" /></Pill> : <span className="text-[12.5px] text-ink3 tnum">{m.out} <Words k="of" /> {m.limit}</span>,
               pills: <>
-                {m.overdue > 0 && <Pill tone="bad">{m.overdue} late</Pill>}
-                {m.finesPaise > BigInt(0) && <Pill tone="warn">{formatRupees(m.finesPaise)} due</Pill>}
-                {can.members && <span className="flex gap-3 text-[12.5px] font-semibold"><Link href={href({ limit: m.key })} scroll={false} className="text-brand">Limit</Link><Link href={href({ block: m.key })} scroll={false} className={m.blocked ? "text-brand" : "text-bad"}>{m.blocked ? "Unblock" : "Block"}</Link></span>}
+                {m.overdue > 0 && <Pill tone="bad">{m.overdue} <Words k="late" /></Pill>}
+                {m.finesPaise > BigInt(0) && <Pill tone="warn">{formatRupees(m.finesPaise)} <Words k="due" /></Pill>}
+                {can.members && <span className="flex gap-3 text-[12.5px] font-semibold"><Link href={href({ limit: m.key })} scroll={false} className="text-brand"><Words k="Limit" /></Link><Link href={href({ block: m.key })} scroll={false} className={m.blocked ? "text-brand" : "text-bad"}>{m.blocked ? "Unblock" : "Block"}</Link></span>}
               </>,
             })}
           />

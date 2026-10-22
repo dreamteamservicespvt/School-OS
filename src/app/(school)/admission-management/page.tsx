@@ -24,8 +24,12 @@ import { AdmissionHead } from "./_components/head";
 import { Pipeline } from "./_components/pipeline";
 import { AddEnquiryButton } from "./enquiries/enquiry-forms";
 import { moveCard } from "./actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Admission Dashboard" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Admission Dashboard") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
@@ -106,7 +110,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
   const actions = (
     <>
       {data.yearId && <AddEnquiryButton c={data.choices} variant="secondary" />}
-      {data.yearId && <ButtonLink href={`${BASE}/applications/new`} variant="primary" icon={FilePlus2}>New application</ButtonLink>}
+      {data.yearId && <ButtonLink href={`${BASE}/applications/new`} variant="primary" icon={FilePlus2}><Words k="New application" /></ButtonLink>}
     </>
   );
 
@@ -114,7 +118,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
     return (
       <>
         <AdmissionHead href={BASE} sub={sub} />
-        <Card><EmptyState bare Icon={CalendarX2} title="No academic year yet" action={<ButtonLink href="/academic-management" variant="primary">Open Academic Management</ButtonLink>}>Add the academic year and its classes and sections in Academic Management. Admissions open for it straight away.</EmptyState></Card>
+        <Card><EmptyState bare Icon={CalendarX2} title="No academic year yet" action={<ButtonLink href="/academic-management" variant="primary"><Words k="Open Academic Management" /></ButtonLink>}><Words k="Add the academic year and its classes and sections in Academic Management. Admissions open for it straight away." /></EmptyState></Card>
       </>
     );
   }
@@ -136,7 +140,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
       <AdmissionHead href={BASE} sub={sub} actions={actions} />
       <div className="flex flex-col gap-5 lg:gap-6">
         <div className="flex flex-col lg:flex-row gap-2.5 lg:items-center">
-          {yearOptions.length > 1 && thisYear ? <UrlSegmented param="year" label="Admission year" options={yearOptions} value={thisYear.id} /> : <p className="text-[14px] font-semibold text-ink2">Admission year {thisYear?.name ?? yl(undefined)}</p>}
+          {yearOptions.length > 1 && thisYear ? <UrlSegmented param="year" label="Admission year" options={yearOptions} value={thisYear.id} /> : <p className="text-[14px] font-semibold text-ink2"><Words k="Admission year" /> {thisYear?.name ?? yl(undefined)}</p>}
           <div className="grid grid-cols-2 lg:flex gap-2 lg:ml-auto">
             <PeriodFilter timeZone={tz} allLabel="Any date" className="col-span-2 lg:col-span-1" />
             <UrlSelect param="class" label="Class" allLabel="All classes" options={data.choices.classes} className="lg:w-40" />
@@ -170,7 +174,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
                       </span>
                       <span className="text-right">
                         <span className="font-display font-semibold text-[18px] tnum">{s.count}</span>
-                        <span className={cx("block md:inline md:ml-2 text-[12px] font-semibold tnum", s.week ? "text-ok" : "text-ink3")}>{s.week ? `+${s.week}` : "0"}<span className="hidden md:inline font-normal text-ink3"> this week</span></span>
+                        <span className={cx("block md:inline md:ml-2 text-[12px] font-semibold tnum", s.week ? "text-ok" : "text-ink3")}>{s.week ? `+${s.week}` : "0"}<span className="hidden md:inline font-normal text-ink3"> <Words k="this week" /></span></span>
                       </span>
                     </a>
                   </li>
@@ -186,7 +190,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
 
           <Col>
             <Card>
-              <CardHeader title="Today’s follow-ups" description="Owners got a reminder at the set time" icon={AlarmClock} action={fu.overdueCount ? <Pill tone="bad">{fu.overdueCount} overdue</Pill> : undefined} />
+              <CardHeader title="Today’s follow-ups" description="Owners got a reminder at the set time" icon={AlarmClock} action={fu.overdueCount ? <Pill tone="bad">{fu.overdueCount} <Words k="overdue" /></Pill> : undefined} />
               <div className="px-2 pb-3">
                 {groups.map((g) => g.rows.length > 0 && (
                   <div key={g.key} className="mb-1">
@@ -201,21 +205,21 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
                     })}
                   </div>
                 ))}
-                {!fu.overdue.length && !fu.today.length && !fu.tomorrow.length && <p className="text-[13.5px] text-ink3 px-3 py-6 text-center">No follow-ups due for these filters.</p>}
+                {!fu.overdue.length && !fu.today.length && !fu.tomorrow.length && <p className="text-[13.5px] text-ink3 px-3 py-6 text-center"><Words k="No follow-ups due for these filters." /></p>}
               </div>
             </Card>
 
             <Card>
               <CardHeader title="Seats left for new joiners" description={yl(thisYear)} icon={Armchair} />
               {seats.length === 0 ? (
-                <p className="px-5 pb-5 text-[13.5px] text-ink3">No sections for {thisYear?.name ?? yl(undefined)} yet. Add them in Academic Management, Classes & Sections.</p>
+                <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No sections for" /> {thisYear?.name ?? yl(undefined)} <Words k={"yet. Add them in Academic Management, Classes & Sections."} /></p>
               ) : (
                 <ul className="px-5 pb-4 flex flex-col gap-2.5">
                   {seats.map((c) => (
                     <li key={c.classId} className="flex items-center gap-3 text-[13.5px]">
                       <span className="w-16 font-medium text-ink2 shrink-0">{c.className}</span>
                       <span className="flex-1 text-ink3 text-[12.5px] truncate tnum">{c.sections.map((s) => `${s.name} ${s.free}`).join(" · ")}</span>
-                      {c.free === 0 ? <Pill tone="bad" className="!h-5 !text-[11px]">Full</Pill> : <span className={cx("font-semibold tnum", c.free <= 3 && "text-warn")}>{c.free} left</span>}
+                      {c.free === 0 ? <Pill tone="bad" className="!h-5 !text-[11px]"><Words k="Full" /></Pill> : <span className={cx("font-semibold tnum", c.free <= 3 && "text-warn")}>{c.free} <Words k="left" /></span>}
                     </li>
                   ))}
                 </ul>
@@ -227,7 +231,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
                 <CardHeader title="Group view" description={`Admissions across campuses, ${thisYear?.name ?? yl(undefined)}`} icon={Building2} />
                 <div className="px-5 pb-4">
                   <div className="grid grid-cols-[1fr_repeat(3,56px)] gap-y-2 text-[13.5px]">
-                    <span className="text-[12px] text-ink3 font-semibold">Campus</span>
+                    <span className="text-[12px] text-ink3 font-semibold"><Words k="Campus" /></span>
                     {["Enq.", "Appl.", "Adm."].map((h) => <span key={h} className="text-[12px] text-ink3 font-semibold text-right">{h}</span>)}
                     {[...data.group, { name: "Total", enq: data.group.reduce((p, g) => p + g.enq, 0), app: data.group.reduce((p, g) => p + g.app, 0), adm: data.group.reduce((p, g) => p + g.adm, 0) }].map((g) => (
                       <div key={g.name} className="contents">

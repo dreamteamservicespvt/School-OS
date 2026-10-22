@@ -14,6 +14,7 @@ import { InlineForm, SegField } from "../_components/client";
 import { reportProblemAction } from "../report-problem/actions";
 import { Warned } from "../purchases/sheets";
 import { archiveFacilityAction, assignMaintenanceAction, closeMaintenanceAction, raiseAction, safetyCheckAction, saveExperimentAction, saveFacilityAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 export type AssetPick = { value: string; label: string; roomId: string | null };
@@ -41,7 +42,7 @@ export function ProblemFields({ places, assets, startPlace = "" }: { places: Opt
       {here.length > 0 && <SSelect key={place} name="assetId" label="Asset" options={here} placeholder="Not a particular asset" help="If something particular is broken, like the projector" />}
       <SArea name="problem" label="Problem" required rows={3} maxLength={500} placeholder="For example: ceiling fan not working, makes a noise" />
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Photo</span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Photo" /></span>
         <label className="flex items-center gap-3 rounded-xl border border-dashed border-line px-4 py-3 cursor-pointer hover:bg-sunken/60">
           <Camera size={20} className="text-ink3" aria-hidden="true" />
           <span className="text-[14px] min-w-0 truncate">{photo || "Take a photo or choose one (optional)"}</span>
@@ -86,7 +87,7 @@ export function FacilitySheet({ closeHref, start, types, campuses, staff }: { cl
 export function ArchiveFacilitySheet({ closeHref, roomId, name }: { closeHref: string; roomId: string; name: string }) {
   return (
     <SheetForm title={`Archive ${name}`} sub="The Time Table stops offering it. Its history stays." closeHref={closeHref} action={archiveFacilityAction} submitLabel="Archive" submitVariant="danger" hidden={{ roomId }}>
-      <Alert tone="info">A place with assets or open maintenance requests cannot be archived. Move or close them first.</Alert>
+      <Alert tone="info"><Words k="A place with assets or open maintenance requests cannot be archived. Move or close them first." /></Alert>
     </SheetForm>
   );
 }
@@ -121,7 +122,7 @@ export function CloseRequestSheet({ closeHref, requestId, words, today }: { clos
           </div>
           <SSwitch name="toFinance" title="Send the cost to Finance" sub="Recorded as an expense under Repairs and maintenance." start />
           <SText name="billNo" label="Bill number" maxLength={40} placeholder="Optional" />
-          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">Bill (photo or PDF)
+          <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2"><Words k="Bill (photo or PDF)" />
             <input type="file" name="bill" accept="image/*,application/pdf" className="text-[13px] font-normal" />
           </label>
         </>
@@ -156,7 +157,7 @@ export function SafetyCheckSheet({ closeHref, labs, lab, today, checklist }: { c
         <SDate name="date" label="Date" required start={today} max={today} />
       </div>
       <fieldset className="flex flex-col gap-1 rounded-xl border border-line p-3">
-        <legend className="px-1 text-[13px] font-semibold text-ink2">Checklist</legend>
+        <legend className="px-1 text-[13px] font-semibold text-ink2"><Words k="Checklist" /></legend>
         {checklist.map((c) => (
           <label key={c} className="flex items-center gap-2.5 py-1.5 text-[14px]">
             <input type="checkbox" name="passed" value={c} defaultChecked className="size-4" /> {c}

@@ -15,8 +15,12 @@ import { DataTable } from "@/components/list/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { UploadForm } from "@/components/import/file-forms";
 import { UndoImportButton, AutoRefresh } from "../parts";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Imports · Data Backup & Security" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Imports · Data Backup & Security") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -49,35 +53,35 @@ export default async function ImportsPage({ searchParams }: Search) {
 
   return (
     <>
-      <h2 className="sr-only">Imports</h2>
+      <h2 className="sr-only"><Words k="Imports" /></h2>
       {running > 0 && <AutoRefresh seconds={6} />}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader title="Import from a spreadsheet" description="Upload, check the matched columns and every row, fix or leave out the rows with problems, then bring in the rest. Nothing is saved before that." />
           <CardBody>
-            {canImport ? <UploadForm place="settings" kinds={kinds.map((k) => ({ value: k.key, label: k.label }))} kind={wanted} /> : <p className="text-ink-2">Your role can see import history but not import. Ask your School Admin.</p>}
+            {canImport ? <UploadForm place="settings" kinds={kinds.map((k) => ({ value: k.key, label: k.label }))} kind={wanted} /> : <p className="text-ink-2"><Words k="Your role can see import history but not import. Ask your School Admin." /></p>}
           </CardBody>
         </Card>
         <Card>
           <CardHeader title="Ready sheets" description="Excel sheets made for your school, with drop-down lists of your own classes, designations and fee heads. Columns with a star must be filled." />
           <CardBody>
-            {kinds.length === 0 ? <p className="text-ink-2">No imports are available yet.</p> : (
+            {kinds.length === 0 ? <p className="text-ink-2"><Words k="No imports are available yet." /></p> : (
               <ul className="divide-y divide-line">
                 {kinds.map((k) => (
                   <li key={k.key} className="flex flex-wrap items-center justify-between gap-2 py-2">
                     <span className="font-medium">{k.label}</span>
-                    <a href={`/settings/data-security/switching/template/${k.key}`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2" download>Download the ready Excel sheet</a>
+                    <a href={`/settings/data-security/switching/template/${k.key}`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2" download><Words k="Download the ready Excel sheet" /></a>
                   </li>
                 ))}
               </ul>
             )}
-            <p className="mt-3 text-sm text-ink-2">Students, staff, fee dues and other records are imported from their own pages too; every import appears in the history below.</p>
+            <p className="mt-3 text-sm text-ink-2"><Words k="Students, staff, fee dues and other records are imported from their own pages too; every import appears in the history below." /></p>
           </CardBody>
         </Card>
       </div>
 
-      <h2 className="mb-3 mt-8 text-lg font-semibold">Import history</h2>
-      {running > 0 && <p className="mb-3 text-ink-2" role="status">{running} import{running === 1 ? " is" : "s are"} running now. This page updates by itself.</p>}
+      <h2 className="mb-3 mt-8 text-lg font-semibold"><Words k="Import history" /></h2>
+      {running > 0 && <p className="mb-3 text-ink-2" role="status">{running} <Words k="import" />{running === 1 ? " is" : "s are"} <Words k="running now. This page updates by itself." /></p>}
       <DataTable
         caption="Import history"
         rows={rows}
@@ -91,15 +95,15 @@ export default async function ImportsPage({ searchParams }: Search) {
           { key: "file", label: "File", phone: "meta", cell: (r) => <span className="break-all">{shownFileName(r.fileName)}</span> },
           { key: "who", label: "By", cell: (r) => (r.importedById ? names.get(r.importedById) ?? "Someone" : "School OS") },
           { key: "result", label: "Result", phone: "meta", cell: (r) => `${r.added} added · ${r.updated} updated · ${r.skipped} with problems` },
-          { key: "status", label: "Status", phone: "badge", cell: (r) => (r.undoneAt ? <Badge>Undone {formatDateTime(r.undoneAt, tz)}</Badge> : <Badge tone="success">Imported</Badge>) },
+          { key: "status", label: "Status", phone: "badge", cell: (r) => (r.undoneAt ? <Badge><Words k="Undone" /> {formatDateTime(r.undoneAt, tz)}</Badge> : <Badge tone="success"><Words k="Imported" /></Badge>) },
         ]}
         actions={(r) => (
           <div className="flex flex-wrap justify-end gap-1">
-            {r.skipped > 0 && <a href={`/settings/data-security/imports/${r.id}/errors`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Rows with problems</a>}
+            {r.skipped > 0 && <a href={`/settings/data-security/imports/${r.id}/errors`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2"><Words k="Rows with problems" /></a>}
             {canUndo(r.kind) && !r.undoneAt && (r.added > 0 || r.updated > 0) && importKind(r.kind) && <UndoImportButton batchId={r.id} label={importKind(r.kind)!.label} added={r.added} />}
           </div>
         )}
-        empty={<EmptyState title="Nothing has been imported yet">When a school moves to School OS, its students, staff and fee dues usually come in from spreadsheets. Each import is listed here and can be undone.</EmptyState>}
+        empty={<EmptyState title="Nothing has been imported yet"><Words k="When a school moves to School OS, its students, staff and fee dues usually come in from spreadsheets. Each import is listed here and can be undone." /></EmptyState>}
       />
     </>
   );

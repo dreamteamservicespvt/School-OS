@@ -23,8 +23,12 @@ import { HomeworkHead } from "./_components/homework-head";
 import { FileRow, Ring, SubIcon, subjectIcon, subjectTone } from "./_components/bits";
 import { BASE, homeworkGuard, homeworkPeriod, iso, one, qs, UUID, type HomeworkPage, type SearchParams } from "./_lib/page";
 import { ArchiveSheet, CardMenu, EditSheet, GiveSheet, RemindButton, SubmitSheet, type GiveSection } from "./sheets";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Homework" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Homework") };
+}
 
 const DAY = 86_400_000;
 
@@ -113,7 +117,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
   return (
     <div>
       <HomeworkHead page="homework" pageName="Homework" sub={sub}
-        actions={<ButtonLink href={here({ do: "give" })} scroll={false} variant="primary" icon={NotebookPen}>Give homework</ButtonLink>} />
+        actions={<ButtonLink href={here({ do: "give" })} scroll={false} variant="primary" icon={NotebookPen}><Words k="Give homework" /></ButtonLink>} />
       <Stack>
         <Band items={[
           { label: `Current · ${per.label.toLowerCase()}`, big: String(t.given), foot: `${plural(t.assigned, "student")} in ${plural(t.classes, "class", "classes")}` },
@@ -133,7 +137,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
             {sectionOpts.length > 1 && <UrlSelect param="section" id="hw-class" label="Class" className="md:w-36" options={[{ value: "", label: "All classes" }, ...sectionOpts.map(([v, l]) => ({ value: v, label: `Class ${l}` }))]} />}
             {!mine && subjectOpts.length > 1 && <UrlSelect param="subject" id="hw-sub" label="Subject" className="md:w-44" options={[{ value: "", label: "All subjects" }, ...subjectOpts.map(([v, l]) => ({ value: v, label: l }))]} />}
             <UrlSegmented param="view" fallback={p.settings.listView === "list" ? "list" : "cards"} className="hidden md:inline-flex" label="Show as"
-              options={[{ value: "cards", label: <><LayoutGrid size={15} aria-hidden="true" />Cards</> }, { value: "list", label: <><Rows3 size={15} aria-hidden="true" />List</> }]} />
+              options={[{ value: "cards", label: <><LayoutGrid size={15} aria-hidden="true" /><Words k="Cards" /></> }, { value: "list", label: <><Rows3 size={15} aria-hidden="true" /><Words k="List" /></> }]} />
           </Toolbar>
           <div className="flex flex-wrap items-center justify-between gap-3 px-3 pt-3">
             <UrlSegmented param="tab" fallback="current" label="Which homework"
@@ -143,7 +147,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
           {rows.length === 0 ? (
             <Empty icon={NotebookPen} title={tab === "current" ? "No current homework here" : tab === "archived" ? "Nothing archived" : "Nothing in history yet"}
               body={`Nothing given in ${per.label.toLowerCase()}${range ? ` (${range})` : ""}. Pick other dates${editsHere ? ", or give homework" : ""}.`}
-              action={editsHere && tab === "current" ? <ButtonLink href={here({ do: "give" })} scroll={false} variant="primary" icon={NotebookPen}>Give homework</ButtonLink> : undefined} />
+              action={editsHere && tab === "current" ? <ButtonLink href={here({ do: "give" })} scroll={false} variant="primary" icon={NotebookPen}><Words k="Give homework" /></ButtonLink> : undefined} />
           ) : view === "cards" ? (
             <>
               <ul className="grid md:grid-cols-2 xl:grid-cols-3 gap-3 p-3">
@@ -156,23 +160,23 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                         <SubIcon subject={r.subject} />
                         <Link href={`${BASE}/homework/${r.id}`} className="min-w-0 flex-1 text-left">
                           <p className="font-semibold text-[14.5px] leading-snug hover:underline">{r.title}</p>
-                          <p className="text-[12.5px] text-ink3 mt-0.5">{r.subject} · Class {r.sectionLabel}{(!mine || !mayWork(s, r)) && r.teacher && ` · ${r.teacher}`}</p>
+                          <p className="text-[12.5px] text-ink3 mt-0.5">{r.subject} <Words k="· Class" /> {r.sectionLabel}{(!mine || !mayWork(s, r)) && r.teacher && ` · ${r.teacher}`}</p>
                         </Link>
-                        {r.archived ? <Pill tone="neutral">Archived</Pill> : r.status !== "Current" ? <Pill tone={HW_TONE[r.status]}>{r.status}</Pill> : dueToday ? <Pill tone="warn">Due today</Pill> : null}
+                        {r.archived ? <Pill tone="neutral"><Words k="Archived" /></Pill> : r.status !== "Current" ? <Pill tone={HW_TONE[r.status]}>{r.status}</Pill> : dueToday ? <Pill tone="warn"><Words k="Due today" /></Pill> : null}
                       </div>
                       <div>
-                        <div className="flex justify-between text-[12.5px] mb-1"><span className="text-ink2"><b className="font-semibold text-ink tnum">{n}</b> assigned, <b className="font-semibold text-ink tnum">{r.counts.submitted}</b> submitted</span><span className="text-ink3 tnum">{r.counts.graded} checked</span></div>
+                        <div className="flex justify-between text-[12.5px] mb-1"><span className="text-ink2"><b className="font-semibold text-ink tnum">{n}</b> <Words k="assigned," /> <b className="font-semibold text-ink tnum">{r.counts.submitted}</b> <Words k="submitted" /></span><span className="text-ink3 tnum">{r.counts.graded} <Words k="checked" /></span></div>
                         <Progress value={pct(r.counts.submitted, n)} tone={r.status === "Past due" && r.counts.submitted < n ? "warn" : "brand"} />
                       </div>
                       <div className="flex items-center justify-between gap-2 text-[12.5px] text-ink3">
-                        <span className="tnum">Given {dayDate(r.startDate)} · due <b className={cx("font-semibold", dueToday ? "text-warn" : "text-ink2")}>{dueToday ? "today" : dayDate(r.dueDate)}</b></span>
-                        {p.settings.cardShowsSeen && r.seen !== null && <span className="inline-flex items-center gap-1 shrink-0"><Eye size={13} aria-hidden="true" />Seen by {r.seen} of {n}</span>}
+                        <span className="tnum"><Words k="Given" /> {dayDate(r.startDate)} <Words k="· due" /> <b className={cx("font-semibold", dueToday ? "text-warn" : "text-ink2")}>{dueToday ? "today" : dayDate(r.dueDate)}</b></span>
+                        {p.settings.cardShowsSeen && r.seen !== null && <span className="inline-flex items-center gap-1 shrink-0"><Eye size={13} aria-hidden="true" /><Words k="Seen by" /> {r.seen} <Words k="of" /> {n}</span>}
                         {p.settings.cardShowsFiles && r.files > 0 && <span className="shrink-0">{plural(r.files, "file")}</span>}
                       </div>
                       <div className="flex gap-2 mt-auto">
                         {subsOpen
                           ? <ButtonLink href={`${BASE}/submissions?hw=${r.id}`} size="sm" variant="secondary" className="flex-1" icon={ListChecks}>{checkLabel(r)}</ButtonLink>
-                          : <ButtonLink href={`${BASE}/homework/${r.id}`} size="sm" variant="secondary" className="flex-1" icon={Eye}>Who handed in</ButtonLink>}
+                          : <ButtonLink href={`${BASE}/homework/${r.id}`} size="sm" variant="secondary" className="flex-1" icon={Eye}><Words k="Who handed in" /></ButtonLink>}
                         {menu(r)}
                       </div>
                     </li>
@@ -187,7 +191,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                 columns={[
                   { key: "t", label: "Homework", render: (r) => <div className="flex items-center gap-3"><SubIcon subject={r.subject} size={34} /><div><p className="font-semibold leading-tight">{r.title}</p><p className="text-[12.5px] text-ink3">{r.subject} · {r.sectionLabel}{!mine && r.teacher ? ` · ${r.teacher}` : ""}</p></div></div> },
                   { key: "d", label: "Due", nowrap: true, render: (r) => <span className="tnum">{dayDate(r.dueDate)}</span> },
-                  { key: "c", label: "Handed in", render: (r) => <span className="tnum">{r.counts.submitted} of {r.counts.assigned}</span> },
+                  { key: "c", label: "Handed in", render: (r) => <span className="tnum">{r.counts.submitted} <Words k="of" /> {r.counts.assigned}</span> },
                   { key: "p", label: "Seen by parent", render: (r) => <span className="tnum">{r.seen === null ? "—" : `${r.seen} of ${r.counts.assigned}`}</span> },
                   { key: "s", label: "Status", render: (r) => <Pill tone={r.archived ? "neutral" : HW_TONE[r.status]}>{r.archived ? "Archived" : r.status}</Pill> },
                 ]}
@@ -229,7 +233,7 @@ function Overview({ lines, idle, load, per, today, tz, canRemind }: {
                 <Avatar name={t.name} size={34} />
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-[14px] leading-snug truncate">{t.name} <span className="font-normal text-ink3">· {t.subjects.join(", ")}</span></p>
-                  <p className="text-[12.5px] text-ink3 truncate tnum">{t.given} given · {t.classes.join(", ")} · {pct(t.handed, t.assigned)}% handed in{t.toCheck ? ` · ${t.toCheck} to check` : ""}</p>
+                  <p className="text-[12.5px] text-ink3 truncate tnum">{t.given} <Words k="given ·" /> {t.classes.join(", ")} · {pct(t.handed, t.assigned)}<Words k="% handed in" />{t.toCheck ? ` · ${t.toCheck} to check` : ""}</p>
                 </div>
                 {canRemind && t.toCheck >= 10 && <RemindButton staffId={t.staffId} done={t.remindedAt ? formatTime(t.remindedAt, tz) : null} />}
               </li>
@@ -237,7 +241,7 @@ function Overview({ lines, idle, load, per, today, tz, canRemind }: {
             {idle.map((t) => (
               <li key={t.staffId} className="flex items-center gap-3 px-3 py-2.5 rounded-xl">
                 <Avatar name={t.name} size={34} />
-                <div className="min-w-0 flex-1"><p className="font-semibold text-[14px] leading-snug truncate">{t.name} <span className="font-normal text-ink3">· {t.subjects.join(", ")}</span></p><p className="text-[12.5px] text-ink3">No homework given in these dates</p></div>
+                <div className="min-w-0 flex-1"><p className="font-semibold text-[14px] leading-snug truncate">{t.name} <span className="font-normal text-ink3">· {t.subjects.join(", ")}</span></p><p className="text-[12.5px] text-ink3"><Words k="No homework given in these dates" /></p></div>
               </li>
             ))}
           </ul>
@@ -251,7 +255,7 @@ function Overview({ lines, idle, load, per, today, tz, canRemind }: {
               <li key={x.day} className="flex items-start gap-3 px-3 py-2.5 rounded-xl">
                 <span className={cx("w-11 h-11 rounded-xl grid place-items-center shrink-0 font-display text-[18px] font-semibold tnum", x.heavy.length ? "bg-warn/12 text-warn" : "bg-sunken text-ink2")}>{x.due.length}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="font-semibold text-[14px] leading-snug">Due {x.date.getTime() === today.getTime() ? `today, ${dayDate(x.date)}` : dayDate(x.date)}</p>
+                  <p className="font-semibold text-[14px] leading-snug"><Words k="Due" /> {x.date.getTime() === today.getTime() ? `today, ${dayDate(x.date)}` : dayDate(x.date)}</p>
                   <p className="text-[12.5px] text-ink3">{x.due.map((h) => `${h.sectionLabel} ${h.subject}`).join(" · ")}</p>
                   {x.heavy.length > 0 && <p className="text-[12.5px] text-warn font-semibold mt-0.5">{x.heavy.map(([c, n]) => `${c} has ${n} due`).join(" · ")}</p>}
                 </div>
@@ -356,11 +360,11 @@ async function StudentHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                             : x.score !== null ? `Score ${x.score} of ${h.maxMarks}` : x.checkResult === "INCORRECT" ? "Checked · needs another look" : "Checked · complete"}
                       </p>
                     </Link>
-                    {state(x) === "todo" && can.can && <ButtonLink href={here({ submit: h.id })} scroll={false} size="sm" variant="primary" icon={Upload}>Submit</ButtonLink>}
-                    {state(x) === "todo" && !can.can && <Pill tone="neutral">In class</Pill>}
+                    {state(x) === "todo" && can.can && <ButtonLink href={here({ submit: h.id })} scroll={false} size="sm" variant="primary" icon={Upload}><Words k="Submit" /></ButtonLink>}
+                    {state(x) === "todo" && !can.can && <Pill tone="neutral"><Words k="In class" /></Pill>}
                     {state(x) === "submitted" && <Pill tone={x.status === "LATE" ? "warn" : "info"}>{x.status === "LATE" ? "Late" : "Waiting to be checked"}</Pill>}
-                    {state(x) === "checked" && (can.can ? <ButtonLink href={here({ submit: h.id })} scroll={false} size="sm" variant="secondary" icon={Repeat}>Hand in again</ButtonLink>
-                      : g ? <Pill tone={g === "A" ? "ok" : "brand"}>Grade {g}</Pill> : <Pill tone={x.checkResult === "INCORRECT" ? "warn" : "ok"}>{x.checkResult === "INCORRECT" ? "Incorrect" : "Complete"}</Pill>)}
+                    {state(x) === "checked" && (can.can ? <ButtonLink href={here({ submit: h.id })} scroll={false} size="sm" variant="secondary" icon={Repeat}><Words k="Hand in again" /></ButtonLink>
+                      : g ? <Pill tone={g === "A" ? "ok" : "brand"}><Words k="Grade" /> {g}</Pill> : <Pill tone={x.checkResult === "INCORRECT" ? "warn" : "ok"}>{x.checkResult === "INCORRECT" ? "Incorrect" : "Complete"}</Pill>)}
                   </li>
                 );
               })}
@@ -381,7 +385,7 @@ async function StudentHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
               {h.attachments.length > 0 && <ul>{h.attachments.map((a) => <FileRow key={a.id} name={a.name} kind={a.kind} meta={a.kind === "link" ? "Link" : a.kind === "photo" ? "Photo" : "File"} href={a.kind === "link" ? a.url : a.fileId ? fileLink(a.fileId, p.current.ctx.schoolId) : null} />)}</ul>}
               {(open.fileIds.length > 0 || open.note) && (
                 <div>
-                  <p className="text-[13px] font-semibold text-ink2 mb-1">What you handed in</p>
+                  <p className="text-[13px] font-semibold text-ink2 mb-1"><Words k="What you handed in" /></p>
                   {open.note && <p className="text-[14px] text-ink2 mb-1">{open.note}</p>}
                   <ul>{data.fileRows.map((f) => <FileRow key={f.id} name={f.fileName} kind="photo" meta={open.submittedAt ? momentWords(open.submittedAt, p.tz) : undefined} href={fileLink(f.id, p.current.ctx.schoolId)} />)}</ul>
                 </div>
@@ -392,11 +396,11 @@ async function StudentHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                     <Ring value={open.score !== null ? (open.score / h.maxMarks) * 100 : open.checkResult === "COMPLETE" ? 100 : 0} tone={open.checkResult === "INCORRECT" ? "warn" : "ok"}><span className="text-[13px] font-bold tnum">{open.score ?? (open.checkResult === "COMPLETE" ? "✓" : "")}</span></Ring>
                     <div>
                       <p className="font-semibold text-[15px]">{open.score !== null ? `${open.score} of ${h.maxMarks}` : open.checkResult === "INCORRECT" ? "Incorrect" : "Complete"}{g ? ` · Grade ${g}` : ""}</p>
-                      <p className="text-[12.5px] text-ink3">Checked by {teacherOf(open) || "your teacher"}{open.gradedAt ? ` · ${shortDay(open.gradedAt)}` : ""}</p>
+                      <p className="text-[12.5px] text-ink3"><Words k="Checked by" /> {teacherOf(open) || "your teacher"}{open.gradedAt ? ` · ${shortDay(open.gradedAt)}` : ""}</p>
                     </div>
                   </div>
-                  {p.settings.feedbackVisible && open.feedback && <p className="text-[14px] text-ink2 mt-3"><b className="font-semibold text-ink">Feedback: </b>{open.feedback}</p>}
-                  {open.resubmitAllowed && <p className="text-[13px] text-info mt-2 flex gap-1.5"><Repeat size={15} className="shrink-0 mt-0.5" aria-hidden="true" />Your teacher lets you hand this in again{open.resubmitUntil ? ` until ${dayDate(open.resubmitUntil)}` : ""}.</p>}
+                  {p.settings.feedbackVisible && open.feedback && <p className="text-[14px] text-ink2 mt-3"><b className="font-semibold text-ink"><Words k="Feedback:" /> </b>{open.feedback}</p>}
+                  {open.resubmitAllowed && <p className="text-[13px] text-info mt-2 flex gap-1.5"><Repeat size={15} className="shrink-0 mt-0.5" aria-hidden="true" /><Words k="Your teacher lets you hand this in again" />{open.resubmitUntil ? ` until ${dayDate(open.resubmitUntil)}` : ""}.</p>}
                 </div>
               )}
               {!can.can && open.status !== "GRADED" && <p className="text-[13px] text-ink3">{can.why}</p>}

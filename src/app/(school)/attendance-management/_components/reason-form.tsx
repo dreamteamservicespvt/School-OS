@@ -6,6 +6,7 @@
 import { useRouter } from "next/navigation";
 import { SelectField, TextField } from "@/components/ui/field";
 import { FormDialog, type Action } from "../../staff-hr-management/_components/forms";
+import { Words } from "@/lib/i18n/client";
 
 export function ReasonButton({ action, studentId, date, name, reasons, current, note }: {
   action: Action; studentId: string; date: string; name: string;
@@ -22,7 +23,7 @@ export function ReasonButton({ action, studentId, date, name, reasons, current, 
             options={reasons.map((r) => ({ value: r.key, label: r.label }))} />
           <TextField label="Short note" name="note" maxLength={100} defaultValue={f.val("note", note ?? "")} error={f.err("note")}
             help="Needed for Other. For example: the parent called at 11; grandmother unwell." />
-          <p className="text-[13px] text-ink3">The mark and the attendance % do not change. The change is kept in the audit log.</p>
+          <p className="text-[13px] text-ink3"><Words k="The mark and the attendance % do not change. The change is kept in the audit log." /></p>
         </>
       )}
     </FormDialog>

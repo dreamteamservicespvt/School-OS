@@ -19,8 +19,12 @@ import { schoolRoles } from "@/lib/school-roles";
 import {
   AgeingSheet, CounterSheet, FeatureSwitch, HeadAccountsSheet, LateFeeSheet, NumberingSheet, PaymentsSheet, ReceiptsSheet, RemindersSheet, RoutingSheet, ScholarshipTypesSheet,
 } from "./sheets";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Fee Settings" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Fee Settings") };
+}
 
 const HREF = `${BASE}/settings`;
 const rupees = (p: bigint | null) => (p === null ? "" : (Number(p) / 100).toString());
@@ -34,7 +38,7 @@ function SetCard({ title, sub, icon, edit, rows, children, action }: { title: st
   return (
     <Card>
       <CardHeader title={title} description={sub} icon={icon}
-        action={action ?? (edit ? <Link href={`${HREF}?edit=${edit}`} scroll={false} className={cx(buttonClass("ghost", "sm"), "shrink-0")}>Change</Link> : undefined)} />
+        action={action ?? (edit ? <Link href={`${HREF}?edit=${edit}`} scroll={false} className={cx(buttonClass("ghost", "sm"), "shrink-0")}><Words k="Change" /></Link> : undefined)} />
       {rows && (
         <ul className="px-5 pb-3 flex flex-col text-[14px]">
           {rows.map((r, i) => (
@@ -61,15 +65,15 @@ function ReminderPreview({ r, remindersOn }: { r: ReminderSettingsPreview; remin
   const families = (n: number) => `${n} ${n === 1 ? "family" : "families"}`;
   return (
     <section aria-labelledby="reminder-preview" className="rounded-xl border border-line p-4 flex flex-col gap-3">
-      <h3 id="reminder-preview" className="font-semibold text-[14px]">What a parent gets</h3>
+      <h3 id="reminder-preview" className="font-semibold text-[14px]"><Words k="What a parent gets" /></h3>
       {r.stops.map((x) => <p key={x} className="text-[13.5px] text-warn-text">{x}</p>)}
       {r.sample ? (
         <>
-          <p className="text-[12.5px] text-ink3">To {r.sample.parent}{r.sample.students.length ? `, about ${r.sample.students.join(" and ")}` : ""} · {r.sample.channel}{r.sample.dueWords ? ` · ${r.sample.dueWords}` : ""}</p>
+          <p className="text-[12.5px] text-ink3"><Words k="To" /> {r.sample.parent}{r.sample.students.length ? `, about ${r.sample.students.join(" and ")}` : ""} · {r.sample.channel}{r.sample.dueWords ? ` · ${r.sample.dueWords}` : ""}</p>
           <p className="whitespace-pre-wrap break-words rounded-xl bg-sunken px-3.5 py-3 text-[14px] leading-relaxed">{r.sample.text}</p>
-          <p className="text-[12.5px] text-ink3">How to pay in this message: {r.sample.way}. Links show here as words; each parent gets their own.</p>
+          <p className="text-[12.5px] text-ink3"><Words k="How to pay in this message:" /> {r.sample.way}<Words k=". Links show here as words; each parent gets their own." /></p>
         </>
-      ) : <p className="text-[13.5px] text-ink3">Nobody owes anything now, so there is no message to show.</p>}
+      ) : <p className="text-[13.5px] text-ink3"><Words k="Nobody owes anything now, so there is no message to show." /></p>}
       {r.warnings.map((x) => <p key={x} className="text-[13.5px] text-bad">{x}</p>)}
       <p className="text-[12.5px] text-ink3">{r.online}</p>
       {remindersOn && (
@@ -78,7 +82,7 @@ function ReminderPreview({ r, remindersOn }: { r: ReminderSettingsPreview; remin
           {left.length ? ` Left out: ${left.join(", ")}.` : ""}
         </p>
       )}
-      <p className="text-[12.5px] text-ink3">Change the words in <Link href="/communication/templates" className="text-brand font-semibold">Message Templates</Link>.</p>
+      <p className="text-[12.5px] text-ink3"><Words k="Change the words in" /> <Link href="/communication/templates" className="text-brand font-semibold"><Words k="Message Templates" /></Link>.</p>
     </section>
   );
 }
@@ -143,7 +147,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
 
           <SetCard title="Reminder schedule" sub="Sent by itself for each unpaid installment. Opted-out parents are skipped." icon={BellRing} edit="reminders">
             <div className="px-5 pb-4 flex flex-col gap-3">
-              {!s.remindersOn && <p className="text-[13.5px] text-ink3">Off. Reminders go only when someone sends them from Defaulters.</p>}
+              {!s.remindersOn && <p className="text-[13.5px] text-ink3"><Words k="Off. Reminders go only when someone sends them from Defaulters." /></p>}
               <div className="flex flex-wrap gap-2">
                 {REMINDER_DAY_CHOICES.filter((d) => s.reminderDays.includes(d) || [-7, -3, -1, 0, 7, 21].includes(d)).map((d) => {
                   const on = s.remindersOn && s.reminderDays.includes(d);
@@ -160,7 +164,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
           </SetCard>
 
           <SetCard title="Receipts" icon={ReceiptIndianRupee} edit="receipts" rows={[
-            { title: "Receipt number", sub: "Prefix and running number", value: <span className="font-mono text-[13px]">{data.next} next</span> },
+            { title: "Receipt number", sub: "Prefix and running number", value: <span className="font-mono text-[13px]">{data.next} <Words k="next" /></span> },
             { title: "Start again each year", sub: "From 1 in each financial year", on: s.restartEachYear },
             { title: "Separate series for part payments", sub: s.partialSeries ? `Like ${s.partialPrefix.replaceAll("{YEAR}", data.fy.name)}00001` : "Part payments use the same series", on: s.partialSeries },
             { title: "Print office copy and parent copy", on: s.printCopies === "both" },
@@ -195,9 +199,9 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
         <Col>
           <Card className="overflow-hidden">
             <CardHeader title="Payment gateway for each class" description="Gateways are connected in Settings, Payment Gateways" icon={Globe}
-              action={<Link href={`${HREF}?edit=gateway`} scroll={false} className={cx(buttonClass("ghost", "sm"), "shrink-0")}>Change</Link>} />
+              action={<Link href={`${HREF}?edit=gateway`} scroll={false} className={cx(buttonClass("ghost", "sm"), "shrink-0")}><Words k="Change" /></Link>} />
             {data.gateways.length === 0 ? (
-              <p className="px-5 pb-5 text-[13.5px] text-ink3">No gateway connected. Parents cannot pay online until Razorpay is connected in <Link href="/settings/payment-gateways" className="text-brand font-semibold">Settings, Payment Gateways</Link>.</p>
+              <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No gateway connected. Parents cannot pay online until Razorpay is connected in" /> <Link href="/settings/payment-gateways" className="text-brand font-semibold"><Words k="Settings, Payment Gateways" /></Link>.</p>
             ) : (
               <SimpleTable minWidth={420} caption="Payment gateway for each class"
                 cols={[
@@ -220,7 +224,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
           ]} />
 
           <SetCard title="Fees into different bank accounts" sub="Each fee head goes to its own account. Razorpay splits online payments." icon={Landmark}
-            action={<div className="flex items-center gap-2 shrink-0">{features.has("fee-bank-accounts") && <Link href={`${HREF}?edit=accounts`} scroll={false} className={buttonClass("ghost", "sm")}>Change</Link>}<FeatureSwitch featureKey="fee-bank-accounts" on={features.has("fee-bank-accounts")} label="Fees into different bank accounts" /></div>}>
+            action={<div className="flex items-center gap-2 shrink-0">{features.has("fee-bank-accounts") && <Link href={`${HREF}?edit=accounts`} scroll={false} className={buttonClass("ghost", "sm")}><Words k="Change" /></Link>}<FeatureSwitch featureKey="fee-bank-accounts" on={features.has("fee-bank-accounts")} label="Fees into different bank accounts" /></div>}>
             {features.has("fee-bank-accounts") ? (
               <ul className="px-5 pb-4 flex flex-col text-[14px]">
                 {data.accounts.map((a) => {
@@ -234,7 +238,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
                   );
                 })}
               </ul>
-            ) : <p className="px-5 pb-4 text-[13.5px] text-ink3">All fees go to {mainAccount ? accName.get(mainAccount.id) : "the main bank account"}.</p>}
+            ) : <p className="px-5 pb-4 text-[13.5px] text-ink3"><Words k="All fees go to" /> {mainAccount ? accName.get(mainAccount.id) : "the main bank account"}.</p>}
           </SetCard>
 
           <SetCard title="Counter permissions" sub="Who may do each thing at the fee counter" icon={KeyRound} edit="counter">
@@ -246,7 +250,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
           </SetCard>
 
           <SetCard title="Approval limits" sub="Stored in Settings, Forms & Approvals" icon={ShieldCheck}
-            action={<Link href="/settings/forms-approvals" className={cx(buttonClass("ghost", "sm"), "shrink-0")}>Open</Link>}>
+            action={<Link href="/settings/forms-approvals" className={cx(buttonClass("ghost", "sm"), "shrink-0")}><Words k="Open" /></Link>}>
             <ul className="px-5 pb-4 flex flex-col text-[14px]">
               {[
                 [`Concession above ${formatRupees(s.concessionLimitPaise)}`, approverOf("concession")],

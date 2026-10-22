@@ -11,8 +11,12 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AssistantForm, FeatureSwitch, IntegrationCard, ModuleSwitch, PreferencesForm, TemplatePicker } from "./switch-forms";
 import { schoolRoles } from "@/lib/school-roles";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Modules On/Off" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Modules On/Off") };
+}
 
 const SECTIONS = [["modules", "Modules"], ["templates", "School-type templates"], ["preferences", "System preferences"], ["ai", "AI assistant"], ["integrations", "Integrations"]] as const;
 
@@ -57,8 +61,8 @@ export default async function ModulesPage() {
             ))}
           </ul>
           <CardBody className="border-t border-line">
-            <p className="text-sm font-medium">Always on</p>
-            <p className="text-sm text-ink-2">{core.map((m) => m.name).join(", ")}. These hold the school&apos;s core records, so they cannot be switched off.</p>
+            <p className="text-sm font-medium"><Words k="Always on" /></p>
+            <p className="text-sm text-ink-2">{core.map((m) => m.name).join(", ")}<Words k=". These hold the school's core records, so they cannot be switched off." /></p>
           </CardBody>
         </Card>
 
@@ -78,18 +82,18 @@ export default async function ModulesPage() {
           <CardHeader id="ai" title="AI assistant" description="Off until you switch it on. Each feature below has its own switch." />
           <CardBody className="space-y-5">
             <div className="rounded-xl border border-line px-4 py-3">
-              <p className="font-medium">AI service{" "}{usage.connected ? <Badge tone="success">Connected</Badge> : <Badge>Not connected yet</Badge>}</p>
+              <p className="font-medium"><Words k="AI service" />{" "}{usage.connected ? <Badge tone="success"><Words k="Connected" /></Badge> : <Badge><Words k="Not connected yet" /></Badge>}</p>
               <p className="text-sm text-ink-2">
                 {usage.connected
                   ? "Run by DREAM TEAM. Only what each task needs is sent: never Aadhaar, bank details, salary or counselling notes, and phone numbers are hidden unless a feature needs them. Every request is logged, and nothing changes until a person accepts a suggestion."
                   : "Not connected yet: DREAM TEAM connects it. Until then every feature below works on School OS's own rules, with no outside service."}
               </p>
-              <p className="mt-1 text-sm">This month: {usage.month.requests} {usage.month.requests === 1 ? "request" : "requests"}, about {formatRupees(usage.month.costPaise)} · Today: {usage.today} of {usage.dailyLimit} a day</p>
+              <p className="mt-1 text-sm"><Words k="This month:" /> {usage.month.requests} {usage.month.requests === 1 ? "request" : "requests"}<Words k=", about" /> {formatRupees(usage.month.costPaise)} <Words k="· Today:" /> {usage.today} <Words k="of" /> {usage.dailyLimit} <Words k="a day" /></p>
             </div>
             <AssistantForm on={assistantOn} roles={data.roles.map((r) => ({ key: r.key!, name: r.name }))} chosen={aiRolesOf(prefs)} mayEdit={mayEdit} dailyLimit={prefs.aiDailyLimit ?? null} platformLimit={usage.platformLimit} />
             <div>
-              <p className="mb-2 font-medium">AI features</p>
-              {!assistantOn && <p className="mb-2 text-sm text-ink-2">Switch on the AI assistant first. While it is off, every feature is off.</p>}
+              <p className="mb-2 font-medium"><Words k="AI features" /></p>
+              {!assistantOn && <p className="mb-2 text-sm text-ink-2"><Words k="Switch on the AI assistant first. While it is off, every feature is off." /></p>}
               <ul className="divide-y divide-line rounded-xl border border-line">
                 {SHOWN_AI_FEATURES.map((f) => (
                   <li key={f.key} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -108,7 +112,7 @@ export default async function ModulesPage() {
         <Card>
           <CardHeader id="integrations" title="Integrations" description={`${data.integrations.filter((i) => i.status === "connected").length} connected · ${data.integrations.filter((i) => i.status === "error").length} with an error. Keys are stored encrypted and never shown again.`} />
           <CardBody>
-            {data.integrations.some((i) => i.status === "error") && <p className="mb-3 text-sm"><Badge tone="danger">Error</Badge> <span className="text-ink-2">An integration failed its last test. Open it to fix the details.</span></p>}
+            {data.integrations.some((i) => i.status === "error") && <p className="mb-3 text-sm"><Badge tone="danger"><Words k="Error" /></Badge> <span className="text-ink-2"><Words k="An integration failed its last test. Open it to fix the details." /></span></p>}
             <ul className="grid gap-3 md:grid-cols-2">
               {INTEGRATIONS.map((def) => {
                 const row = data.integrations.find((i) => i.key === def.key);

@@ -6,19 +6,23 @@ import { withSchool } from "@/lib/db";
 import { periodSetup } from "@/lib/period-setup";
 import { aiAllowed } from "@/lib/settings/switch-rules";
 import { answerQuestion, logAsk, offeredQuestions, readyMadeFor, SHOW_ROWS, type AskAnswer } from "@/lib/ask/answer";
-import { isQuestionKey, isWhen, questionTitle, type AskParams, type AskVia } from "@/lib/ask/questions";
+import { isQuestionKey, isWhen, type AskParams, type AskVia } from "@/lib/ask/questions";
+import { linkTitleIn, questionTitleIn } from "@/lib/ask/titles";
+import { getT } from "@/lib/i18n/server";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { cx } from "@/components/ui/cx";
+import { Words } from "@/lib/i18n/client";
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export async function generateMetadata({ searchParams }: Props): Promise<Metadata> {
   const q = one((await searchParams).q);
-  return { title: isQuestionKey(q) ? questionTitle(q) : "Questions" };
+  const t = await getT();
+  return { title: isQuestionKey(q) ? questionTitleIn(t, q) : t("Questions") };
 }
 
 /** The question's page address, read safely. */
@@ -41,6 +45,7 @@ function readAsk(sp: Record<string, string | string[] | undefined>): AskParams {
  */
 export default async function AskPage({ searchParams }: Props) {
   const current = await requireCurrent();
+  const t = await getT();
   const sp = await searchParams;
   const key = one(sp.q);
   const offered = offeredQuestions(current);
@@ -53,7 +58,7 @@ export default async function AskPage({ searchParams }: Props) {
     return (
       <>
         <PageHeader title="Questions" href={href} userId={current.user.id} sub="Ready-made questions about the lists your role opens. Each answer comes from the list itself." />
-        <OtherQuestions ready={ready} current={null} />
+        <OtherQuestions ready={ready.map((r) => ({ ...r, title: linkTitleIn(t, r.href, r.title) }))} current={null} />
       </>
     );
   }
@@ -69,12 +74,12 @@ export default async function AskPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title={answer.title} href={`${href}?q=${key}`} userId={current.user.id} pinLabel={questionTitle(key)} sub={answer.ok ? answer.scope : undefined} />
+      <PageHeader title={t.lang === "en" ? answer.title : questionTitleIn(t, key, params)} href={`${href}?q=${key}`} userId={current.user.id} pinLabel={questionTitleIn(t, key)} sub={answer.ok ? answer.scope : undefined} />
       <div className="flex flex-col gap-4">
         {via === "ai" && (
           <p className="rounded-2xl border border-info/30 bg-info/10 px-4 py-3 text-[13.5px]">
-            <span className="mr-2 inline-flex h-[22px] items-center rounded-full bg-info/15 px-2 text-[11.5px] font-semibold text-info">Suggestion</span>
-            The AI assistant read your words as this question. Check it is what you meant; the answer below is from the school&apos;s own records.
+            <span className="mr-2 inline-flex h-[22px] items-center rounded-full bg-info/15 px-2 text-[11.5px] font-semibold text-info"><Words k="Suggestion" /></span>
+            <Words k="The AI assistant read your words as this question. Check it is what you meant; the answer below is from the school's own records." />
           </p>
         )}
         {answer.ok ? <Answer a={answer} /> : (
@@ -83,7 +88,7 @@ export default async function AskPage({ searchParams }: Props) {
             {answer.problem}
           </EmptyState>
         )}
-        <OtherQuestions ready={ready} current={key} />
+        <OtherQuestions ready={ready.map((r) => ({ ...r, title: linkTitleIn(t, r.href, r.title) }))} current={key} />
       </div>
     </>
   );
@@ -134,7 +139,7 @@ function Answer({ a }: { a: Extract<AskAnswer, { ok: true }> }) {
         </>
       )}
       <div className="px-5 py-4 flex flex-wrap items-center gap-3 border-t border-line">
-        {a.total > SHOW_ROWS && <p className="text-[13px] text-ink3">Showing the first {SHOW_ROWS} of {a.total.toLocaleString("en-IN")}.</p>}
+        {a.total > SHOW_ROWS && <p className="text-[13px] text-ink3"><Words k="Showing the first" /> {SHOW_ROWS} <Words k="of" /> {a.total.toLocaleString("en-IN")}.</p>}
         <Link href={a.link.href} prefetch={false} className={cx(buttonClass("secondary", "md"), "ml-auto")}>
           {a.link.label}<ArrowRight size={16} aria-hidden="true" />
         </Link>
@@ -148,7 +153,7 @@ function OtherQuestions({ ready, current }: { ready: { key: string; title: strin
   if (!list.length) {
     return current ? null : (
       <EmptyState title="No ready-made questions for your role yet" Icon={CircleHelp}>
-        Questions are about lists your role already opens, such as today&apos;s absent list or fees overdue. Use Search to find a student, staff member or page.
+        <Words k="Questions are about lists your role already opens, such as today's absent list or fees overdue. Use Search to find a student, staff member or page." />
       </EmptyState>
     );
   }

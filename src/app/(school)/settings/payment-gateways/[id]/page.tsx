@@ -14,8 +14,12 @@ import { Alert } from "@/components/ui/alert";
 import { GatewayForm } from "../gateway-form";
 import { providerInfo } from "../providers-info";
 import { ArchiveGateway, LinkedAccountForm, RemoveLinkedAccount, RestoreGateway, SwitchGateway, TestSavedButton } from "../parts";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Payment gateway" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Payment gateway") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -44,20 +48,20 @@ export default async function GatewayPage({ params }: { params: Promise<{ id: st
 
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-2 text-sm"><Link href="/settings/payment-gateways" className="text-brand-text hover:underline">Payment Gateways</Link></nav>
+      <nav aria-label="Breadcrumb" className="mb-2 text-sm"><Link href="/settings/payment-gateways" className="text-brand-text hover:underline"><Words k="Payment Gateways" /></Link></nav>
       <PageHeader title={g.displayName} href={`/settings/payment-gateways/${g.id}`} userId={current.user.id}>
         <div className="flex flex-wrap items-center gap-2">
-          {g.archivedAt ? <Badge>Archived</Badge> : g.isActive ? <Badge tone="success">Active</Badge> : <Badge>Inactive</Badge>}
-          {g.environment === "live" ? <Badge tone="brand">Live</Badge> : <Badge tone="warning">Test</Badge>}
+          {g.archivedAt ? <Badge><Words k="Archived" /></Badge> : g.isActive ? <Badge tone="success"><Words k="Active" /></Badge> : <Badge><Words k="Inactive" /></Badge>}
+          {g.environment === "live" ? <Badge tone="brand"><Words k="Live" /></Badge> : <Badge tone="warning"><Words k="Test" /></Badge>}
         </div>
       </PageHeader>
 
       {g.archivedAt ? (
         <Alert tone="info" className="mb-5" title="This gateway is archived" action={canArchive ? <RestoreGateway id={g.id} /> : undefined}>
-          It takes no payments. Payments already made through it keep their record.
+          <Words k="It takes no payments. Payments already made through it keep their record." />
         </Alert>
       ) : g.environment === "test" && g.isActive ? (
-        <Alert tone="warning" className="mb-5" title="Test mode">Payments through this gateway are pretend payments. Switch to live mode when Razorpay has activated your account.</Alert>
+        <Alert tone="warning" className="mb-5" title="Test mode"><Words k="Payments through this gateway are pretend payments. Switch to live mode when Razorpay has activated your account." /></Alert>
       ) : null}
 
       <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -99,14 +103,14 @@ export default async function GatewayPage({ params }: { params: Promise<{ id: st
                 description="When fees go into different bank accounts (Fee Management, Fee Settings), add each account here after setting it up in Razorpay Route. Razorpay then splits online payments to them." />
               <CardBody className="space-y-5">
                 {linked.length === 0 ? (
-                  <p className="text-ink-2">No bank account added. All online payments go to the main account linked to your Razorpay account.</p>
+                  <p className="text-ink-2"><Words k="No bank account added. All online payments go to the main account linked to your Razorpay account." /></p>
                 ) : (
                   <ul className="divide-y divide-line rounded-xl border border-line">
                     {linked.map((l) => (
                       <li key={l.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
                         <div>
                           <p className="font-medium">{l.label}</p>
-                          <p className="text-sm text-ink-2">{l.bankName} · account ending {l.accountLast4} · {l.ifsc} · <code>{l.linkedAccountId}</code></p>
+                          <p className="text-sm text-ink-2">{l.bankName} <Words k="· account ending" /> {l.accountLast4} · {l.ifsc} · <code>{l.linkedAccountId}</code></p>
                         </div>
                         {canArchive && !g.archivedAt && <RemoveLinkedAccount gatewayId={g.id} id={l.id} label={l.label} />}
                       </li>
@@ -115,7 +119,7 @@ export default async function GatewayPage({ params }: { params: Promise<{ id: st
                 )}
                 {canEdit && !g.archivedAt && (
                   <details className="rounded-xl border border-line p-4">
-                    <summary className="min-h-11 cursor-pointer content-center font-medium">Add a bank account</summary>
+                    <summary className="min-h-11 cursor-pointer content-center font-medium"><Words k="Add a bank account" /></summary>
                     <div className="mt-4"><LinkedAccountForm gatewayId={g.id} /></div>
                   </details>
                 )}
@@ -128,7 +132,7 @@ export default async function GatewayPage({ params }: { params: Promise<{ id: st
           <Card>
             <CardHeader title="History" />
             <CardBody>
-              {history.length === 0 ? <p className="text-ink-2">No changes yet.</p> : (
+              {history.length === 0 ? <p className="text-ink-2"><Words k="No changes yet." /></p> : (
                 <ol className="space-y-3 text-sm">
                   {history.map((h) => (
                     <li key={h.id}>
@@ -138,7 +142,7 @@ export default async function GatewayPage({ params }: { params: Promise<{ id: st
                   ))}
                 </ol>
               )}
-              <Link href={`/settings/data-security/audit-log?record=${g.id}`} className="mt-4 inline-flex min-h-11 items-center font-medium text-brand-text hover:underline">Full history with old and new values</Link>
+              <Link href={`/settings/data-security/audit-log?record=${g.id}`} className="mt-4 inline-flex min-h-11 items-center font-medium text-brand-text hover:underline"><Words k="Full history with old and new values" /></Link>
             </CardBody>
           </Card>
           {!g.archivedAt && canArchive && (

@@ -19,8 +19,11 @@ import { RouteSheet } from "../_components/route-sheets";
 import { restoreRouteAction } from "../actions";
 import { BASE, addQ, one, qs, trGuard, type SearchParams } from "../_lib/page";
 import { crewOptions } from "../_lib/options";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Routes & Stops" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Routes & Stops") };
+}
 
 const HREF = `${BASE}/routes`;
 

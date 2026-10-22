@@ -6,6 +6,8 @@ import { supportPhone } from "@/lib/console/outbox";
 import { AuthFrame } from "@/components/auth/auth-frame";
 import { ButtonLink } from "@/components/ui/button";
 import { SchoolInviteForm } from "./form";
+import { Words } from "@/lib/i18n/client";
+import { getT } from "@/lib/i18n/server";
 
 export const metadata: Metadata = { title: "Set your password", robots: { index: false, follow: false } };
 export const dynamic = "force-dynamic";
@@ -21,20 +23,21 @@ const GONE: Record<string, [string, string]> = {
 export default async function SchoolInvitePage({ params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const look = await findSchoolInvite(token);
+  const t = await getT();
   if (look.state !== "ok") {
     const [title, sub] = GONE[look.state];
     const help = supportPhone();
     return (
-      <AuthFrame eyebrow="School OS" title={title} sub={<>{sub}{help ? <> DREAM TEAM support: <a href={`tel:${help.replace(/\s/g, "")}`} className="font-semibold text-brand">{help}</a>.</> : null}</>}>
-        <ButtonLink href="/sign-in" variant="primary" size="lg" className="w-full">Go to sign in</ButtonLink>
+      <AuthFrame eyebrow="School OS" title={title} sub={<>{t.any(sub)}{help ? <> <Words k="DREAM TEAM support:" /> <a href={`tel:${help.replace(/\s/g, "")}`} className="font-semibold text-brand">{help}</a>.</> : null}</>}>
+        <ButtonLink href="/sign-in" variant="primary" size="lg" className="w-full"><Words k="Go to sign in" /></ButtonLink>
       </AuthFrame>
     );
   }
   const inv = look.invite;
   const reset = inv.kind === "RESET";
   return (
-    <AuthFrame eyebrow={look.schoolName} title={reset ? `Set a new password, ${inv.name.split(" ")[0]}` : `Welcome, ${inv.name.split(" ")[0]}`}
-      sub={<>{reset ? "Your old password no longer works." : `Your ${ROLE_WORDS[inv.roleKey] ?? "School Admin"} login is ready.`} Your username is your mobile number, <b className="font-semibold text-ink tnum">{maskMobile(inv.phone)}</b>. Nobody else, including DREAM TEAM, can see your password.</>}>
+    <AuthFrame eyebrow={look.schoolName} title={reset ? t("Set a new password, {name}", { name: inv.name.split(" ")[0] }) : t("Welcome, {name}", { name: inv.name.split(" ")[0] })}
+      sub={<>{reset ? t("Your old password no longer works.") : t("Your {role} login is ready.", { role: t.any(ROLE_WORDS[inv.roleKey] ?? "School Admin") })} <Words k="Your username is your mobile number," /> <b className="font-semibold text-ink tnum">{maskMobile(inv.phone)}</b><Words k=". Nobody else, including DREAM TEAM, can see your password." /></>}>
       <SchoolInviteForm token={token} phoneMasked={maskMobile(inv.phone)} reset={reset} />
     </AuthFrame>
   );

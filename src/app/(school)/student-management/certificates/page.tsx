@@ -25,8 +25,12 @@ import { decideCertificateAction } from "../_actions/certificates";
 import { certificateTabs } from "./sub-tabs";
 import { studentIdsForFilter } from "@/lib/students/find";
 import { visibleStudentIds } from "@/lib/students/access";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Certificates & ID Cards" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Certificates & ID Cards") };
+}
 
 const FILTERS = ["type", "status"] as const;
 const STEP = 25;
@@ -79,7 +83,7 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
   const statusHref = (st: string | null) => listHref(path, params, { status: st, n: null });
 
   const columns: DataColumn<Row>[] = [
-    { key: "number", label: "Number", nowrap: true, render: (r) => r.number ? <span className="font-mono text-[12.5px]">{r.number}</span> : <span className="text-[12.5px] text-ink3">Not given yet</span> },
+    { key: "number", label: "Number", nowrap: true, render: (r) => r.number ? <span className="font-mono text-[12.5px]">{r.number}</span> : <span className="text-[12.5px] text-ink3"><Words k="Not given yet" /></span> },
     { key: "type", label: "Type", render: (r) => <span className="text-[13.5px] whitespace-nowrap">{typeName(r)}</span> },
     { key: "student", label: "Student", render: (r) => {
       const s = who(r.studentId);
@@ -99,7 +103,7 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
   return (
     <>
       <StudentsHead page="Certificates & ID Cards" href={path} sub="TC, bonafide, study and character certificates, and student ID cards class by class"
-        actions={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={FilePlus2}>Issue certificate</ButtonLink> : undefined}
+        actions={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={FilePlus2}><Words k="Issue certificate" /></ButtonLink> : undefined}
         subTabs={await certificateTabs()} subLabel="Certificates & ID Cards" />
       <div className="flex flex-col gap-4">
         {data.waiting.length > 0 && (
@@ -113,19 +117,19 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
                   <li key={c.id} className="flex flex-wrap items-center gap-3 px-4 md:px-5 py-3">
                     <Avatar name={s?.fullName ?? "?"} size={36} />
                     <div className="min-w-0 flex-1">
-                      <Link href={`${path}/${c.id}`} className="font-semibold text-[14.5px] hover:underline">{CERTIFICATE_LABEL[c.type]}{c.isDuplicate ? " (duplicate)" : ""} for {s?.fullName}</Link>
-                      <p className="text-[12.5px] text-ink3">{data.cls.get(c.studentId) || s?.admissionNo} · asked {formatDateTime(c.createdAt, tz)}{c.purpose ? ` · ${c.purpose}` : ""}</p>
+                      <Link href={`${path}/${c.id}`} className="font-semibold text-[14.5px] hover:underline">{CERTIFICATE_LABEL[c.type]}{c.isDuplicate ? " (duplicate)" : ""} <Words k="for" /> {s?.fullName}</Link>
+                      <p className="text-[12.5px] text-ink3">{data.cls.get(c.studentId) || s?.admissionNo} <Words k="· asked" /> {formatDateTime(c.createdAt, tz)}{c.purpose ? ` · ${c.purpose}` : ""}</p>
                     </div>
                     {mine ? (
                       <div className="flex flex-wrap gap-2">
                         <ConfirmAction action={decideCertificateAction} fields={{ id: c.id, decision: "approve" }} trigger="Approve" triggerVariant="primary" title={`Approve the ${CERTIFICATE_LABEL[c.type]} for ${s?.fullName}?`} confirmLabel="Approve">
-                          It gets the next number in the series and can then be issued.
+                          <Words k="It gets the next number in the series and can then be issued." />
                         </ConfirmAction>
                         <ConfirmAction action={decideCertificateAction} fields={{ id: c.id, decision: "reject" }} trigger="Reject" triggerVariant="danger-outline" title="Reject this request?" confirmLabel="Reject" confirmVariant="danger" reason={{ label: "Reason", min: 5 }}>
-                          The person who asked is told, with your reason.
+                          <Words k="The person who asked is told, with your reason." />
                         </ConfirmAction>
                       </div>
-                    ) : <Pill tone="warn">Waiting for the approver</Pill>}
+                    ) : <Pill tone="warn"><Words k="Waiting for the approver" /></Pill>}
                   </li>
                 );
               })}
@@ -141,7 +145,7 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
             <ListToolbar placeholder="Student name, admission number or certificate number" showArchived={false} period={{ timeZone: tz, allLabel: "Any date" }}
               filters={[{ key: "type", label: "Type", allLabel: "Every type", options: types.map((t) => ({ value: t, label: CERTIFICATE_LABEL[t] })) }]}>
               {settings.digiLockerOn && can.manage && (
-                <ButtonLink href={`${path}/digilocker${range ? `?period=${range.period}&from=${range.from}&to=${range.to}` : ""}`} icon={FileBadge}>DigiLocker file</ButtonLink>
+                <ButtonLink href={`${path}/digilocker${range ? `?period=${range.period}&from=${range.from}&to=${range.to}` : ""}`} icon={FileBadge}><Words k="DigiLocker file" /></ButtonLink>
               )}
             </ListToolbar>
           </Toolbar>
@@ -154,9 +158,9 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
             }}
             footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={data.rows.length < data.total ? listHref(path, params, { n: take + STEP }) : null} />}
             empty={filtered
-              ? <Empty icon={SearchX} title="Nothing matches these filters" action={<ButtonLink href={path}>Clear filters</ButtonLink>} />
+              ? <Empty icon={SearchX} title="Nothing matches these filters" action={<ButtonLink href={path}><Words k="Clear filters" /></ButtonLink>} />
               : <Empty icon={FileBadge} title="No certificates yet" body={`Bonafide, study, character certificates and TCs show here with their number and status${year ? ` for ${year.name} and earlier years` : ""}.`}
-                action={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={FilePlus2}>Issue certificate</ButtonLink> : undefined} />} />
+                action={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={FilePlus2}><Words k="Issue certificate" /></ButtonLink> : undefined} />} />
         </Card>
       </div>
     </>

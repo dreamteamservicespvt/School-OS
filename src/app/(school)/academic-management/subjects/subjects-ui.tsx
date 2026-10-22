@@ -10,6 +10,7 @@ import {
   reopenMapAction, restoreSubjectAction, saveOptionAction, updateMapAction, updateSubjectAction,
 } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { id: string; name: string };
 const TYPES = [{ value: "CORE", label: "Core" }, { value: "OPTIONAL", label: "Optional" }, { value: "ELECTIVE", label: "Elective" }, { value: "LANGUAGE", label: "Language" }];
@@ -43,8 +44,8 @@ function SubjectFields({ state, classes, today }: { state: Parameters<typeof v>[
       </div>
       {classes.length > 0 && (
         <fieldset>
-          <legend className="mb-1 text-sm font-medium">Classes <span className="font-normal text-ink-2">(can be mapped later)</span></legend>
-          <label className="mb-2 flex min-h-11 items-center gap-2 text-sm"><KeepCheck type="checkbox" className="size-5 accent-brand" checked={all} onChange={(e) => setAll(e.target.checked)} /> All classes</label>
+          <legend className="mb-1 text-sm font-medium"><Words k="Classes" /> <span className="font-normal text-ink-2"><Words k="(can be mapped later)" /></span></legend>
+          <label className="mb-2 flex min-h-11 items-center gap-2 text-sm"><KeepCheck type="checkbox" className="size-5 accent-brand" checked={all} onChange={(e) => setAll(e.target.checked)} /> <Words k="All classes" /></label>
           <div className="grid max-h-48 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-line p-2 sm:grid-cols-3">
             {classes.map((c) => (
               <label key={c.id} className="flex min-h-10 items-center gap-2 text-sm">
@@ -65,7 +66,7 @@ function SubjectFields({ state, classes, today }: { state: Parameters<typeof v>[
 export function SubjectRowActions({ s }: { s: { id: string; name: string; code: string; type: string; gradeOnly: boolean; archived: boolean } }) {
   const router = useRouter();
   if (s.archived) {
-    return <ConfirmButton trigger="Restore" triggerVariant="ghost" title={`Restore ${s.name}?`} confirmLabel={`Restore ${s.name}`} onConfirm={async () => { const p = await restoreSubjectAction(s.id); if (!p) router.refresh(); return p; }}>It comes back in the subject list. Map it to classes again.</ConfirmButton>;
+    return <ConfirmButton trigger="Restore" triggerVariant="ghost" title={`Restore ${s.name}?`} confirmLabel={`Restore ${s.name}`} onConfirm={async () => { const p = await restoreSubjectAction(s.id); if (!p) router.refresh(); return p; }}><Words k="It comes back in the subject list. Map it to classes again." /></ConfirmButton>;
   }
   return (
     <div className="flex flex-wrap justify-end gap-1">
@@ -83,7 +84,7 @@ export function SubjectRowActions({ s }: { s: { id: string; name: string; code: 
       </FormDialog>
       <ConfirmButton trigger="Archive" triggerVariant="ghost" triggerClassName="min-h-11 text-danger" title={`Archive ${s.name}?`} confirmLabel={`Archive ${s.name}`} confirmVariant="danger"
         onConfirm={async () => { const p = await archiveSubjectAction(s.id); if (!p) router.refresh(); return p; }}>
-        It stops in every class from today. Past marks, homework and Time Tables stay linked to it.
+        <Words k="It stops in every class from today. Past marks, homework and Time Tables stay linked to it." />
       </ConfirmButton>
     </div>
   );
@@ -108,7 +109,7 @@ export function MapSubjectButton({ classId, className, subjects, today }: { clas
 export function MapRowActions({ m, className, today }: { m: { id: string; subject: string; periodsPerWeek: number; ended: boolean }; className: string; today: string }) {
   const router = useRouter();
   if (m.ended) {
-    return <ConfirmButton trigger="Extend" triggerVariant="ghost" title={`Run ${m.subject} again in ${className}?`} confirmLabel={`Extend ${m.subject}`} onConfirm={async () => { const p = await reopenMapAction(m.id); if (!p) router.refresh(); return p; }}>The end date is removed, so it runs again with no end.</ConfirmButton>;
+    return <ConfirmButton trigger="Extend" triggerVariant="ghost" title={`Run ${m.subject} again in ${className}?`} confirmLabel={`Extend ${m.subject}`} onConfirm={async () => { const p = await reopenMapAction(m.id); if (!p) router.refresh(); return p; }}><Words k="The end date is removed, so it runs again with no end." /></ConfirmButton>;
   }
   return (
     <div className="flex flex-wrap justify-end gap-1">
@@ -118,7 +119,7 @@ export function MapRowActions({ m, className, today }: { m: { id: string; subjec
       <FormDialog trigger="End" triggerSize="sm" triggerVariant="ghost" triggerLabel={`End ${m.subject} for ${className}`} title={`End ${m.subject} for ${className}`} action={endMapAction} submitLabel="End from this date" danger hidden={{ mapId: m.id }}>
         {(state) => (
           <>
-            <p className="text-ink-2">The subject stops from this date. Past marks and homework stay linked. You can extend it again later.</p>
+            <p className="text-ink-2"><Words k="The subject stops from this date. Past marks and homework stay linked. You can extend it again later." /></p>
             <TextField label="Stops from" name="endsFrom" type="date" required defaultValue={v(state, "endsFrom", today)} error={err(state, "endsFrom")} />
           </>
         )}
@@ -132,7 +133,7 @@ export function CopyMapButton({ fromClassId, fromName, classes }: { fromClassId:
     <FormDialog trigger="Copy to other classes" title={`Copy ${fromName}'s subjects`} action={copyMapAction} submitLabel="Copy subjects" hidden={{ fromClassId }}>
       {(state) => (
         <fieldset>
-          <legend className="mb-2 text-ink-2">Subjects already in a class are kept. Periods per week are copied too.</legend>
+          <legend className="mb-2 text-ink-2"><Words k="Subjects already in a class are kept. Periods per week are copied too." /></legend>
           {err(state, "toClassIds") && <p className="mb-2 text-sm text-danger">{err(state, "toClassIds")}</p>}
           <div className="grid max-h-64 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-line p-2">
             {classes.filter((c) => c.id !== fromClassId).map((c) => (
@@ -171,9 +172,9 @@ export function RecordChoicesButton({ options, students }: { options: { id: stri
           <SelectField label="Subject chosen" name="optionId" required defaultValue={v(state, "optionId")} placeholder="Choose the subject" error={err(state, "optionId")}
             options={options.map((o) => ({ value: o.id, label: `${o.label}${o.left !== null ? ` (${o.left} seats left)` : ""}` }))} />
           <fieldset>
-            <legend className="mb-1 text-sm font-medium">Students who have not chosen yet</legend>
+            <legend className="mb-1 text-sm font-medium"><Words k="Students who have not chosen yet" /></legend>
             {err(state, "studentIds") && <p className="mb-1 text-sm text-danger">{err(state, "studentIds")}</p>}
-            {students.length === 0 ? <p className="text-ink-2">Everyone has chosen.</p> : (
+            {students.length === 0 ? <p className="text-ink-2"><Words k="Everyone has chosen." /></p> : (
               <div className="grid max-h-72 gap-1 overflow-y-auto rounded-lg border border-line p-2 sm:grid-cols-2">
                 {students.map((s) => (
                   <label key={s.id} className="flex min-h-10 items-center gap-2 text-sm"><input type="checkbox" name="studentIds" value={s.id} className="size-5 accent-brand" /> {s.name} <span className="text-ink-2">{s.section}{s.rollNo ? `, roll ${s.rollNo}` : ""}</span></label>
@@ -192,7 +193,7 @@ export function RemoveChoiceButton({ id, name }: { id: string; name: string }) {
   return (
     <ConfirmButton trigger="Remove" triggerVariant="ghost" triggerClassName="min-h-11 text-danger" title={`Remove ${name}'s choice?`} confirmLabel="Remove choice" confirmVariant="danger"
       onConfirm={async () => { const p = await removeChoiceAction(id); if (!p) router.refresh(); return p; }}>
-      The seat becomes free and {name} shows under “not chosen yet”.
+      <Words k="The seat becomes free and" /> {name} <Words k="shows under “not chosen yet”." />
     </ConfirmButton>
   );
 }

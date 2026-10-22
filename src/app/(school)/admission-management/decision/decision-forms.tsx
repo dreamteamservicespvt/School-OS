@@ -11,23 +11,24 @@ import { SelectField, TextArea, TextField, type Option } from "@/components/ui/f
 import { ActionButton, FormSheet, SubHead } from "../_components/forms";
 import { confirmAction, decideAction, moveWaitAction, offerAcceptedAction, offerSeatAction, offerSentAction, rerankAction, undoAction, waitAction } from "./actions";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export function DecideButtons({ id, name, sub, canDecide, canReject, full, waitingList, seatsNote }: { id: string; name: string; sub: string; canDecide: boolean; canReject: boolean; full: boolean; waitingList: boolean; seatsNote: string }) {
   const [open, setOpen] = useState<null | "approve" | "reject" | "wait">(null);
   const close = () => setOpen(null);
   return (
     <>
-      {full && waitingList ? <Button variant="primary" icon={ListOrdered} onClick={() => setOpen("wait")}>Add to waiting list</Button>
-        : canDecide ? <Button variant="primary" icon={CircleCheck} onClick={() => setOpen("approve")}>Approve</Button> : null}
-      {canDecide && canReject && <Button variant="danger-soft" icon={X} onClick={() => setOpen("reject")}>Reject</Button>}
-      {!full && waitingList && <Button variant="ghost" icon={ListOrdered} onClick={() => setOpen("wait")}>Waiting list</Button>}
+      {full && waitingList ? <Button variant="primary" icon={ListOrdered} onClick={() => setOpen("wait")}><Words k="Add to waiting list" /></Button>
+        : canDecide ? <Button variant="primary" icon={CircleCheck} onClick={() => setOpen("approve")}><Words k="Approve" /></Button> : null}
+      {canDecide && canReject && <Button variant="danger-soft" icon={X} onClick={() => setOpen("reject")}><Words k="Reject" /></Button>}
+      {!full && waitingList && <Button variant="ghost" icon={ListOrdered} onClick={() => setOpen("wait")}><Words k="Waiting list" /></Button>}
 
       <FormSheet open={open === "approve"} onClose={close} title={`Approve ${name}`} sub={sub} action={decideAction} hidden={{ id, decision: "approve" }} submitLabel="Approve" submitIcon={CircleCheck}>
         {(f) => (
           <>
             <p className="rounded-xl bg-sunken px-3.5 py-3 text-[13.5px] text-ink2">{seatsNote}</p>
             <TextArea label="Remarks" name="remarks" rows={2} maxLength={1000} placeholder="For example: good test score, sister in 5 A" defaultValue={f.val("remarks")} error={f.err("remarks")} help="Optional. Kept with the decision." />
-            <p className="text-[12.5px] text-ink3">The parent gets a message that the admission is approved. Confirm the admission when the family accepts.</p>
+            <p className="text-[12.5px] text-ink3"><Words k="The parent gets a message that the admission is approved. Confirm the admission when the family accepts." /></p>
           </>
         )}
       </FormSheet>
@@ -46,23 +47,23 @@ export function ConfirmButton({ id, name, sub, sections, defaultSection, today, 
   const [sec, setSec] = useState(defaultSection ?? sections[0]?.value ?? "");
   return (
     <>
-      <Button variant="primary" icon={BadgeCheck} onClick={() => setOpen(true)}>Confirm admission</Button>
+      <Button variant="primary" icon={BadgeCheck} onClick={() => setOpen(true)}><Words k="Confirm admission" /></Button>
       <FormSheet open={open} onClose={() => setOpen(false)} wide title={`Confirm admission: ${name}`} sub={sub} action={confirmAction} hidden={{ id, sectionId: sec }} submitLabel="Confirm admission" busyLabel="Making the student record…" submitIcon={BadgeCheck}>
         {(f) => (
           <>
-            <SubHead>Class place</SubHead>
+            <SubHead><Words k="Class place" /></SubHead>
             <div className="flex flex-col gap-1.5">
-              <p className="text-[13px] font-semibold text-ink2">Section <span className="text-bad" aria-hidden="true">*</span></p>
+              <p className="text-[13px] font-semibold text-ink2"><Words k="Section" /> <span className="text-bad" aria-hidden="true">*</span></p>
               {sections.length <= 4
                 ? <Segmented label="Section" value={sec} onChange={setSec} options={sections} className="w-full" size="sm" />
                 : <KeepSelect aria-label="Section" value={sec} onChange={(e) => setSec(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3">{sections.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}</KeepSelect>}
-              <p className="text-[12.5px] text-ink3">The section with most free seats is picked for you.</p>
+              <p className="text-[12.5px] text-ink3"><Words k="The section with most free seats is picked for you." /></p>
               {f.err("sectionId") && <p className="text-[12.5px] text-bad">{f.err("sectionId")}</p>}
             </div>
             <TextField label="Admission date" name="admissionDate" type="date" required defaultValue={f.val("admissionDate", today)} error={f.err("admissionDate")} className="tnum" />
             {family && (
               <fieldset className="flex flex-col gap-2">
-                <legend className="text-[13px] font-semibold text-ink2 mb-1.5">Parents <span className="text-bad" aria-hidden="true">*</span></legend>
+                <legend className="text-[13px] font-semibold text-ink2 mb-1.5"><Words k="Parents" /> <span className="text-bad" aria-hidden="true">*</span></legend>
                 <p className="rounded-xl bg-warn/10 px-3.5 py-3 text-[13.5px] text-ink2">{family.question}</p>
                 {family.options.map((o) => (
                   <label key={o.value} className="flex items-start gap-2.5 rounded-xl border border-line px-3.5 py-2.5 text-[14px] cursor-pointer has-[:checked]:border-brand has-[:checked]:bg-brand/5">
@@ -73,7 +74,7 @@ export function ConfirmButton({ id, name, sub, sections, defaultSection, today, 
                 {f.err("family") && <p className="text-[12.5px] text-bad">{f.err("family")}</p>}
               </fieldset>
             )}
-            <p className="text-[12.5px] text-ink3">Makes the student with an admission number, links the parents, sends Parent Link, sets up the fee plan and queues the ID card. Runs once per application.</p>
+            <p className="text-[12.5px] text-ink3"><Words k="Makes the student with an admission number, links the parents, sends Parent Link, sets up the fee plan and queues the ID card. Runs once per application." /></p>
           </>
         )}
       </FormSheet>
@@ -87,7 +88,7 @@ export function OfferButtons({ id, sent, accepted, hasEmail }: { id: string; sen
   return (
     <>
       {!accepted && <Button variant="secondary" icon={FileSignature} onClick={() => setOpen(true)}>{sent ? "Send offer again" : "Send offer letter"}</Button>}
-      {sent && !accepted && <ActionButton action={offerAcceptedAction} hidden={{ id }} size="md" icon={CircleCheck} className="inline-flex">Mark accepted</ActionButton>}
+      {sent && !accepted && <ActionButton action={offerAcceptedAction} hidden={{ id }} size="md" icon={CircleCheck} className="inline-flex"><Words k="Mark accepted" /></ActionButton>}
       <FormSheet open={open} onClose={() => setOpen(false)} title="Send the offer letter" sub="Made from the offer-letter design in Settings" action={offerSentAction} hidden={{ id }} submitLabel="Record as sent" submitIcon={FileSignature}>
         {(f) => <SelectField label="How" name="channel" required options={channels} defaultValue={f.val("channel", "whatsapp")} error={f.err("channel")} />}
       </FormSheet>
@@ -111,14 +112,14 @@ export function WaitMove({ id, name, rank, above, below }: { id: string; name: s
 }
 
 export function OfferSeat({ id }: { id: string }) {
-  return <ActionButton action={offerSeatAction} hidden={{ id }} variant="soft" busyLabel="Sending…" className="inline-flex">Offer seat</ActionButton>;
+  return <ActionButton action={offerSeatAction} hidden={{ id }} variant="soft" busyLabel="Sending…" className="inline-flex"><Words k="Offer seat" /></ActionButton>;
 }
 
 export function Rerank({ yearId, classId, className }: { yearId: string; classId: string; className: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button size="sm" variant="soft" icon={RefreshCw} onClick={() => setOpen(true)}>Re-rank by the rules</Button>
+      <Button size="sm" variant="soft" icon={RefreshCw} onClick={() => setOpen(true)}><Words k="Re-rank by the rules" /></Button>
       <FormSheet open={open} onClose={() => setOpen(false)} title={`Re-rank the ${className} waiting list`} sub="Every position is worked out again from the rules. Moves made by hand are replaced." action={rerankAction} hidden={{ yearId, classId }} submitLabel="Re-rank" submitIcon={RefreshCw}>
         {(f) => <TextArea label="Reason" name="reason" required rows={2} maxLength={300} defaultValue={f.val("reason")} error={f.err("reason")} />}
       </FormSheet>
@@ -130,10 +131,10 @@ export function UndoAdmission({ id }: { id: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <Button variant="ghost" icon={Undo2} onClick={() => setOpen(true)}>Undo admission (10 min)</Button>
+      <Button variant="ghost" icon={Undo2} onClick={() => setOpen(true)}><Words k="Undo admission (10 min)" /></Button>
       <FormSheet open={open} onClose={() => setOpen(false)} title="Undo admission?" sub="The student, the new parent records, their Parent Links, the class place, the fee plan and the documents are taken back. Allowed only while nothing else has happened to the student (no payment, attendance or marks), because fee payments are never deleted. The application fee stays with the application."
         action={undoAction} hidden={{ id }} submitLabel="Undo admission" submitVariant="danger" submitIcon={Undo2}>
-        {() => <p className="text-[14px] text-ink2">The application goes back to approved. Nothing is deleted; the history keeps both steps.</p>}
+        {() => <p className="text-[14px] text-ink2"><Words k="The application goes back to approved. Nothing is deleted; the history keeps both steps." /></p>}
       </FormSheet>
     </>
   );

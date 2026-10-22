@@ -5,8 +5,12 @@ import { CAME_BY, ensureTopics, QUERY_PRIORITIES, QUERY_TYPE_LABEL } from "@/lib
 import { BackLink, RecordHead } from "@/components/ui/split";
 import { QueryForm, type QueryFormData } from "./query-form";
 import { ownerOptions } from "../owners";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Log a query" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Log a query") };
+}
 
 export default async function NewQueryPage() {
   const access = await commPage("create");
@@ -25,7 +29,7 @@ export default async function NewQueryPage() {
   return (
     <>
       <BackLink href="/communication/queries" label="Feedback & Queries" />
-      <RecordHead title="Log a query" sub={<span className="text-[14px] text-ink3">From a call, a visit, a letter or WhatsApp. It gets a ticket number, an owner and a status.</span>} />
+      <RecordHead title="Log a query" sub={<span className="text-[14px] text-ink3"><Words k="From a call, a visit, a letter or WhatsApp. It gets a ticket number, an owner and a status." /></span>} />
       <QueryForm data={data} />
     </>
   );

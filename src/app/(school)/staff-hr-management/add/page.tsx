@@ -17,8 +17,11 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Wizard, type WizardData } from "./wizard";
 import { checkDetails, createStaffAction } from "./actions";
 import { schoolRoles } from "@/lib/school-roles";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Add Staff" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Add Staff") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 

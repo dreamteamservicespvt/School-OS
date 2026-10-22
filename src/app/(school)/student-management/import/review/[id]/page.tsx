@@ -5,8 +5,11 @@ import { PageHeader } from "@/components/shell/page-header";
 import { BackLink } from "@/components/ui/module-head";
 import { FileReview } from "@/components/import/file-review";
 import { BASE, studentPage } from "../../../_lib/page";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Check a file · Import students" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Check a file · Import students") };
+}
 
 /** One file of students: match, fix, choose for rows that may already be on record, and bring in the good ones. */
 export default async function StudentImportFilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

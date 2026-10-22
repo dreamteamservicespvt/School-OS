@@ -15,8 +15,12 @@ import { Button } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import { isUnread, notificationPage, UNREAD } from "@/lib/notifications";
 import { markAllNotificationsRead, openNotification } from "../actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Notifications" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Notifications") };
+}
 
 const PAGE = 30;
 
@@ -64,7 +68,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
         sub={data.unread ? `${data.unread} new` : "You are all caught up"}>
         {data.unread > 0 && (
           <form action={markAllNotificationsRead}>
-            <Button type="submit" variant="secondary" icon={I.CheckCheck}>Mark all read</Button>
+            <Button type="submit" variant="secondary" icon={I.CheckCheck}><Words k="Mark all read" /></Button>
           </form>
         )}
       </PageHeader>
@@ -72,7 +76,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
         filters={[{ key: "show", label: "Show", allLabel: "All notifications", options: [{ value: "unread", label: "New only" }] }]} />
       {data.notes.length === 0 ? (
         <EmptyState title={filtered ? "No notifications match" : "No notifications"} Icon={filtered ? I.SearchX : I.Bell}
-          action={filtered ? <Link href="/notifications" className="text-sm font-semibold text-brand hover:underline">Clear the filters</Link> : undefined}>
+          action={filtered ? <Link href="/notifications" className="text-sm font-semibold text-brand hover:underline"><Words k="Clear the filters" /></Link> : undefined}>
           {filtered ? "Change the search, the dates or the filter." : "Alerts meant for you, such as requests waiting for your approval, appear here. Each one opens the right screen."}
         </EmptyState>
       ) : (
@@ -91,7 +95,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className={cx("block text-[14.5px] leading-snug", !fresh ? "text-ink2" : "font-semibold text-ink")}>
-                          {fresh && <span className="sr-only">New. </span>}{n.text}
+                          {fresh && <span className="sr-only"><Words k="New." /> </span>}{n.text}
                           {n.count > 1 && <span className="ml-1.5 tnum text-ink3 font-medium">×{n.count}</span>}
                         </span>
                         <span className="block text-[12.5px] text-ink3 mt-1 tnum">{formatDateTime(n.createdAt, tz)}</span>
@@ -106,10 +110,10 @@ export default async function NotificationsPage({ searchParams }: { searchParams
           </ul>
           {pages > 1 && (
             <nav aria-label="Pages" className="mt-4 flex items-center justify-between gap-3 text-sm">
-              <span className="text-ink3 tnum">Page {params.page} of {pages} · {data.total} notifications</span>
+              <span className="text-ink3 tnum"><Words k="Page" /> {params.page} <Words k="of" /> {pages} · {data.total} <Words k="notifications" /></span>
               <span className="flex gap-2">
-                {params.page > 1 && <Link className="h-10 px-3.5 inline-flex items-center gap-1 rounded-xl border border-line bg-surface font-semibold hover:border-ink3/50" href={listHref("/notifications", params, { page: params.page - 1 })}><I.ChevronLeft size={16} aria-hidden="true" />Newer</Link>}
-                {params.page < pages && <Link className="h-10 px-3.5 inline-flex items-center gap-1 rounded-xl border border-line bg-surface font-semibold hover:border-ink3/50" href={listHref("/notifications", params, { page: params.page + 1 })}>Older<I.ChevronRight size={16} aria-hidden="true" /></Link>}
+                {params.page > 1 && <Link className="h-10 px-3.5 inline-flex items-center gap-1 rounded-xl border border-line bg-surface font-semibold hover:border-ink3/50" href={listHref("/notifications", params, { page: params.page - 1 })}><I.ChevronLeft size={16} aria-hidden="true" /><Words k="Newer" /></Link>}
+                {params.page < pages && <Link className="h-10 px-3.5 inline-flex items-center gap-1 rounded-xl border border-line bg-surface font-semibold hover:border-ink3/50" href={listHref("/notifications", params, { page: params.page + 1 })}><Words k="Older" /><I.ChevronRight size={16} aria-hidden="true" /></Link>}
               </span>
             </nav>
           )}

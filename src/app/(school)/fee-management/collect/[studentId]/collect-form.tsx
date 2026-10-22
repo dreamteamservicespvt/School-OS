@@ -22,6 +22,7 @@ import type { DueStatus } from "@/lib/fees/dues";
 import { DUE_WORD } from "../../_components/bits";
 import { askDiscountApproval, collectFee, qrPaid, resendReceipt, sendLink, showQr, type Collected, type QrLink } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type DueRow = { id: string; head: string; label: string; due: string; net: number; paid: number; balance: number; status: DueStatus; lateFee: boolean };
 
@@ -137,7 +138,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
         {studentCard}
         <Card className="overflow-hidden">
           <CardHeader title="What is being paid" description="Overdue and due rows are ticked for you"
-            action={paidCount > 0 ? <button type="button" onClick={() => setShowPaid(!showPaid)} className="text-[13px] font-semibold text-brand h-8 px-2 rounded-lg hover:bg-brand/8">{showPaid ? "Hide" : "Show"} {paidCount} paid</button> : null} />
+            action={paidCount > 0 ? <button type="button" onClick={() => setShowPaid(!showPaid)} className="text-[13px] font-semibold text-brand h-8 px-2 rounded-lg hover:bg-brand/8">{showPaid ? "Hide" : "Show"} {paidCount} <Words k="paid" /></button> : null} />
           {open.length === 0 ? (
             <Empty icon={PartyPopper} title="All fees paid for this year" body={`${firstName} has nothing due. ${nextDueText}`} />
           ) : (
@@ -153,7 +154,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                         : <Checkbox checked={on} onChange={() => toggle(r.id)} label={`${r.head} ${r.label}`} />}
                       <div className="min-w-0 flex-1">
                         <p className="font-semibold text-[14.5px]">{r.head} <span className="text-ink3 font-normal">· {r.label}</span></p>
-                        <p className="text-[12.5px] text-ink3">Due {r.due}{r.paid > 0 && !isPaid ? ` · ${inr(r.paid)} already paid` : ""}{r.lateFee && !isPaid ? <span className="text-bad"> · late fee</span> : null}</p>
+                        <p className="text-[12.5px] text-ink3"><Words k="Due" /> {r.due}{r.paid > 0 && !isPaid ? ` · ${inr(r.paid)} already paid` : ""}{r.lateFee && !isPaid ? <span className="text-bad"> <Words k="· late fee" /></span> : null}</p>
                       </div>
                       <Pill tone={DUE_WORD[r.status].tone} className="hidden sm:inline-flex">{DUE_WORD[r.status].label}</Pill>
                       <span className="w-24 text-right font-semibold tnum text-[15px]">{inr(isPaid ? r.net : r.balance)}</span>
@@ -171,10 +172,10 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
       <Card className="xl:sticky xl:top-4 overflow-hidden">
         <div className="p-5 flex flex-col gap-4">
           <div className="flex items-baseline justify-between">
-            <h2 className="font-semibold text-[15px]">Payment</h2>
+            <h2 className="font-semibold text-[15px]"><Words k="Payment" /></h2>
             <span className="text-[13px] text-ink3 tnum">{ticked.size} {ticked.size === 1 ? "row" : "rows"} · {inr(selTotal)}</span>
           </div>
-          {advanceHeld && <p className="text-[12.5px] text-info flex gap-1.5 -mt-2"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{advanceHeld} advance is held. It is used for the next installments by itself.</p>}
+          {advanceHeld && <p className="text-[12.5px] text-info flex gap-1.5 -mt-2"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{advanceHeld} <Words k="advance is held. It is used for the next installments by itself." /></p>}
           <FieldShell label="Amount received" id="pay-amt" error={(tried && errAmt) || serverErr("amount")}
             help={extra ? `${inr(extra)} more than the dues. It is held as advance.` : partial ? `Part payment. ${inr(owed - amt)} stays due on the latest row.` : "Change it for a part payment"}>
             <div className="relative">
@@ -185,7 +186,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
             </div>
           </FieldShell>
           <div>
-            <p className="text-[13px] font-semibold text-ink2 mb-1.5" id="mode-label">How is it paid?</p>
+            <p className="text-[13px] font-semibold text-ink2 mb-1.5" id="mode-label"><Words k="How is it paid?" /></p>
             <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-labelledby="mode-label">
               {MODES.map((m) => (
                 <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} onClick={() => { setMode(m.id); setTried(false); }}
@@ -197,7 +198,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
               <button type="submit" formAction={qrAction} data-plain="1" disabled={!gateway || selTotal === 0 || qrBusy}
                 title={gateway ? "A QR the parent scans with any UPI app" : "Connect Razorpay in Settings, Payment Gateways"}
                 className="h-[58px] rounded-xl border border-dashed border-line flex flex-col items-center justify-center gap-1 text-[12.5px] font-semibold text-ink2 hover:border-brand hover:text-brand disabled:opacity-50 disabled:pointer-events-none">
-                {qrBusy ? <LoaderCircle size={18} className="animate-spin" aria-hidden="true" /> : <QrCode size={18} aria-hidden="true" />}Show QR
+                {qrBusy ? <LoaderCircle size={18} className="animate-spin" aria-hidden="true" /> : <QrCode size={18} aria-hidden="true" />}<Words k="Show QR" />
               </button>
             </div>
           </div>
@@ -226,7 +227,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
               </FieldShell>
             </>
           )}
-          {verifyModes.includes(mode) && <p className="text-[12.5px] text-ink3 -mt-2 flex gap-1.5"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{mode === "CHEQUE" ? "Cheques wait" : `${MODES.find((m) => m.id === mode)?.label} payments wait`} for the accountant to verify before the receipt is final.</p>}
+          {verifyModes.includes(mode) && <p className="text-[12.5px] text-ink3 -mt-2 flex gap-1.5"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{mode === "CHEQUE" ? "Cheques wait" : `${MODES.find((m) => m.id === mode)?.label} payments wait`} <Words k="for the accountant to verify before the receipt is final." /></p>}
 
           <div>
             <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand hover:underline">
@@ -246,7 +247,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
               )}
               {counter.waive && lateTicked.length > 0 && (
                 <div className="rounded-xl border border-line p-3 flex flex-col gap-2">
-                  <p className="text-[13px] font-semibold text-ink2">Waive the late fee</p>
+                  <p className="text-[13px] font-semibold text-ink2"><Words k="Waive the late fee" /></p>
                   {lateTicked.map((r) => (
                     <label key={r.id} className="flex items-center gap-2.5 text-[13.5px]">
                       <KeepCheck type="checkbox" name="waiveDueId" value={r.id} checked={waive.has(r.id)} onChange={(e) => { setEdited(null); setWaive((x) => { const n = new Set(x); if (e.target.checked) n.add(r.id); else n.delete(r.id); return n; }); }} className="size-4 accent-[rgb(var(--brand))]" />
@@ -270,11 +271,11 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
 
           {problem?.warning && (
             <Alert tone="warning" title="Same payment again?" action={
-              <Button size="sm" variant="secondary" type="submit" onClick={() => { if (dupRef.current) dupRef.current.value = "1"; }}>Collect again</Button>
+              <Button size="sm" variant="secondary" type="submit" onClick={() => { if (dupRef.current) dupRef.current.value = "1"; }}><Words k="Collect again" /></Button>
             }>{server?.message}</Alert>
           )}
           {problem?.code === "needs-approval" && (
-            <Alert tone="warning" title="Above your discount limit." action={<Button size="sm" variant="secondary" type="submit" formAction={askAction} data-plain="1">Ask for approval</Button>}>{server?.message}</Alert>
+            <Alert tone="warning" title="Above your discount limit." action={<Button size="sm" variant="secondary" type="submit" formAction={askAction} data-plain="1"><Words k="Ask for approval" /></Button>}>{server?.message}</Alert>
           )}
           {askState && !askState.ok && <Alert tone="danger">{askState.message}</Alert>}
           {server && !problem?.warning && problem?.code !== "needs-approval" && !Object.keys(server.errors ?? {}).length && (
@@ -288,7 +289,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
             {busy ? "Saving payment…" : `Collect ${inr(Number.isNaN(amt) ? 0 : amt)}`}
           </Button>
           <Button type="submit" formAction={linkAction} data-plain="1" variant="ghost" className="w-full" icon={Send} loading={linkBusy} disabled={selTotal === 0 || !gateway}
-            title={gateway ? undefined : "Connect Razorpay in Settings, Payment Gateways"}>Send payment link instead</Button>
+            title={gateway ? undefined : "Connect Razorpay in Settings, Payment Gateways"}><Words k="Send payment link instead" /></Button>
         </div>
       </Card>
     </form>
@@ -317,9 +318,9 @@ function QrSheet({ qr, father, onClose }: { qr: QrLink; father: string; onClose:
       <div className="flex flex-col items-center gap-4 pb-2">
         <div className="p-4 rounded-2xl bg-white shadow-card border border-line [&_svg]:w-[200px] [&_svg]:h-[200px]" role="img" aria-label="Payment QR code" dangerouslySetInnerHTML={{ __html: qr.svg }} />
         {paid ? (
-          <p className="text-[14px] text-ok font-semibold flex items-center gap-2"><Check size={17} aria-hidden="true" />Paid{paid.receiptNo ? ` · receipt ${paid.receiptNo}` : ""}</p>
+          <p className="text-[14px] text-ok font-semibold flex items-center gap-2"><Check size={17} aria-hidden="true" /><Words k="Paid" />{paid.receiptNo ? ` · receipt ${paid.receiptNo}` : ""}</p>
         ) : (
-          <p className="text-[13px] text-ink3 flex items-center gap-2"><LoaderCircle size={15} className="animate-spin" aria-hidden="true" />Waiting for {father} to pay…</p>
+          <p className="text-[13px] text-ink3 flex items-center gap-2"><LoaderCircle size={15} className="animate-spin" aria-hidden="true" /><Words k="Waiting for" /> {father} <Words k="to pay…" /></p>
         )}
         <p className="text-[12px] text-ink3 break-all text-center">{qr.url}</p>
       </div>
@@ -360,19 +361,19 @@ function ReceiptSheet({ r, studentName, onClose }: { r: Collected; studentName: 
             </div>
             {!r.waiting && (
               <div className="grid grid-cols-3 gap-2 w-full mt-4">
-                <a href={pdf} target="_blank" rel="noopener" className={buttonClass("secondary")}><Printer size={17} aria-hidden="true" />Print</a>
-                <a href={`${pdf}?download=1`} className={buttonClass("secondary")}><Download size={17} aria-hidden="true" />PDF</a>
+                <a href={pdf} target="_blank" rel="noopener" className={buttonClass("secondary")}><Printer size={17} aria-hidden="true" /><Words k="Print" /></a>
+                <a href={`${pdf}?download=1`} className={buttonClass("secondary")}><Download size={17} aria-hidden="true" /><Words k="PDF" /></a>
                 <form action={resend} className="contents">
                   <input type="hidden" name="paymentId" value={r.paymentId} />
-                  <Button type="submit" variant="secondary" icon={MessageCircle} loading={resending}>Resend</Button>
+                  <Button type="submit" variant="secondary" icon={MessageCircle} loading={resending}><Words k="Resend" /></Button>
                 </form>
               </div>
             )}
             {resent && !resent.ok && <Alert tone="danger" className="w-full mt-3 text-left">{resent.message}</Alert>}
             {resent?.ok && <p className="text-[13px] text-ok mt-3">{resent.message}</p>}
             <div className="flex gap-2 w-full mt-2">
-              <Link href="/fee-management" className={buttonClass("primary", "md", "flex-1")}>Collect another fee</Link>
-              <Button variant="ghost" onClick={onClose}>Done</Button>
+              <Link href="/fee-management" className={buttonClass("primary", "md", "flex-1")}><Words k="Collect another fee" /></Link>
+              <Button variant="ghost" onClick={onClose}><Words k="Done" /></Button>
             </div>
           </div>
         </div>

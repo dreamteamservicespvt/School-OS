@@ -9,6 +9,7 @@ import { cx } from "@/components/ui/cx";
 import { inputCls } from "@/components/ui/field";
 import { PhoneCard, PhoneNotice } from "@/components/parent-link/phone-shell";
 import { submitSurveyAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 type Q = { id: string; kind: string; text: string; options: string[]; required: boolean };
 const RATING_WORDS = ["", "Very poor", "Poor", "Okay", "Good", "Very good"];
@@ -21,7 +22,7 @@ export function AnswerForm({ schoolId, token, questions }: { schoolId: string; t
   const [pending, start] = useTransition();
   const set = (id: string, v: string) => { setAnswers((a) => ({ ...a, [id]: v })); setMissing((m) => { const n = new Set(m); n.delete(id); return n; }); };
 
-  if (done) return <PhoneNotice title="Thank you!" icon={<CircleCheck size={26} className="text-ok" />}>Your answers reached the school.</PhoneNotice>;
+  if (done) return <PhoneNotice title="Thank you!" icon={<CircleCheck size={26} className="text-ok" />}><Words k="Your answers reached the school." /></PhoneNotice>;
 
   function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,7 +48,7 @@ export function AnswerForm({ schoolId, token, questions }: { schoolId: string; t
         const bad = missing.has(q.id);
         return (
           <PhoneCard key={q.id} id={`q-${q.id}`} className={cx(bad && "!border-bad")} aria-labelledby={`ql-${q.id}`}>
-            <p id={`ql-${q.id}`} className="font-semibold text-[15px] leading-snug"><span className="text-ink3 tnum mr-1">{i + 1}.</span>{q.text}{q.required ? <span className="text-bad"> *</span> : <span className="text-ink3 font-normal text-[13px]"> (optional)</span>}</p>
+            <p id={`ql-${q.id}`} className="font-semibold text-[15px] leading-snug"><span className="text-ink3 tnum mr-1">{i + 1}.</span>{q.text}{q.required ? <span className="text-bad"> *</span> : <span className="text-ink3 font-normal text-[13px]"> <Words k="(optional)" /></span>}</p>
             {q.kind === "rating" && (
               <div className="mt-3">
                 <div role="radiogroup" aria-labelledby={`ql-${q.id}`} className="flex gap-1.5">
@@ -78,12 +79,12 @@ export function AnswerForm({ schoolId, token, questions }: { schoolId: string; t
             {q.kind === "date" && (
               <input type="date" aria-labelledby={`ql-${q.id}`} value={v} onChange={(e) => set(q.id, e.target.value)} className={cx(inputCls(bad), "mt-3 h-12 tnum")} />
             )}
-            {bad && <p className="text-[12.5px] text-bad mt-2">Please answer this question.</p>}
+            {bad && <p className="text-[12.5px] text-bad mt-2"><Words k="Please answer this question." /></p>}
           </PhoneCard>
         );
       })}
       {message && <p role="alert" className="rounded-2xl bg-bad/10 border border-bad/30 text-bad text-[14px] px-4 py-3">{message}</p>}
-      <Button type="submit" size="lg" icon={Send} loading={pending} loadingText="Sending" className="w-full !h-14 !text-[16px]">Send answers</Button>
+      <Button type="submit" size="lg" icon={Send} loading={pending} loadingText="Sending" className="w-full !h-14 !text-[16px]"><Words k="Send answers" /></Button>
     </form>
   );
 }

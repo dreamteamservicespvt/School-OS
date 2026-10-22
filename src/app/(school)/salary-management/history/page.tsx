@@ -14,8 +14,12 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { SalaryHead } from "../_components/salary-head";
 import { RunPill } from "../_components/bits";
 import { BASE, one, qs, salaryGuard, salaryPeriod, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Salary History" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Salary History") };
+}
 
 const HREF = `${BASE}/history`;
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -72,7 +76,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Sear
     const dept = [...byDept.entries()].filter(([, v]) => money || v.lop > 0).sort((a, b) => (money ? (b[1].money > a[1].money ? 1 : -1) : b[1].lop - a[1].lop));
     const pending = data.runs.filter((r) => !DONE.includes(r.status)).map((r) => monthName(r.month).split(" ")[0]);
     body = data.runs.length === 0 ? (
-      <Card><Empty icon={ReceiptText} title={`No salary in ${per.label.toLowerCase()}`} body="Pick another period, or open a month in Generate Salary." action={<ButtonLink href={`${BASE}/generate`} variant="secondary" icon={ArrowUpRight}>Open Generate Salary</ButtonLink>} /></Card>
+      <Card><Empty icon={ReceiptText} title={`No salary in ${per.label.toLowerCase()}`} body="Pick another period, or open a month in Generate Salary." action={<ButtonLink href={`${BASE}/generate`} variant="secondary" icon={ArrowUpRight}><Words k="Open Generate Salary" /></ButtonLink>} /></Card>
     ) : (
       <Split className="[&>*]:min-w-0">
         <Card className="overflow-hidden">
@@ -103,12 +107,12 @@ export default async function HistoryPage({ searchParams }: { searchParams: Sear
             <CardHeader title={money ? "Year so far" : "Days so far"} description={done.length ? `${monthName(done[0].month).split(" ")[0]} to ${monthName(done[done.length - 1].month).split(" ")[0]}, approved` : "Nothing approved yet"} />
             <ul className="px-5 pb-5 text-[14px] flex flex-col gap-1.5 tnum">
               {money ? <>
-                <li className="flex justify-between"><span className="text-ink2">Gross</span><b className="font-semibold">{formatRupees(sum("grossPaise"))}</b></li>
-                <li className="flex justify-between"><span className="text-ink2">Deductions</span><span>{formatRupees(sum("deductionsPaise"))}</span></li>
-                <li className="flex justify-between border-t border-line pt-2 mt-1 items-baseline"><span className="font-semibold">Net paid</span><b className="font-display text-[20px] font-semibold">{formatRupees(sum("netPaise"))}</b></li>
+                <li className="flex justify-between"><span className="text-ink2"><Words k="Gross" /></span><b className="font-semibold">{formatRupees(sum("grossPaise"))}</b></li>
+                <li className="flex justify-between"><span className="text-ink2"><Words k="Deductions" /></span><span>{formatRupees(sum("deductionsPaise"))}</span></li>
+                <li className="flex justify-between border-t border-line pt-2 mt-1 items-baseline"><span className="font-semibold"><Words k="Net paid" /></span><b className="font-display text-[20px] font-semibold">{formatRupees(sum("netPaise"))}</b></li>
               </> : <>
-                <li className="flex justify-between"><span className="text-ink2">Paid leave</span><b className="font-semibold">{dayNum(done.reduce((s, r) => s + leave(r.id), 0))} days</b></li>
-                <li className="flex justify-between border-t border-line pt-2 mt-1 items-baseline"><span className="font-semibold">Loss of pay</span><b className="font-display text-[20px] font-semibold">{dayNum(done.reduce((s, r) => s + lop(r.id), 0))} days</b></li>
+                <li className="flex justify-between"><span className="text-ink2"><Words k="Paid leave" /></span><b className="font-semibold">{dayNum(done.reduce((s, r) => s + leave(r.id), 0))} <Words k="days" /></b></li>
+                <li className="flex justify-between border-t border-line pt-2 mt-1 items-baseline"><span className="font-semibold"><Words k="Loss of pay" /></span><b className="font-display text-[20px] font-semibold">{dayNum(done.reduce((s, r) => s + lop(r.id), 0))} <Words k="days" /></b></li>
               </>}
             </ul>
           </Card>
@@ -148,7 +152,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Sear
             ]),
             { key: "p", label: "Paid on", nowrap: true, render: (x) => (x.r.paidOn ? formatDate(x.r.paidOn) : <RunPill s={x.r.status} />) },
           ]}
-          phone={(x) => ({ icon: ReceiptText, title: monthName(x.r.month), sub: x.r.paidOn ? `Paid ${formatDate(x.r.paidOn)}` : `${dayNum(Number(x.l.paidDays))} paid days`, right: money ? <b className="font-semibold tnum">{formatRupees(x.l.netPaise)}</b> : <span className="tnum text-[13px]">{dayNum(Number(x.l.lopDays))} LOP</span> })} />
+          phone={(x) => ({ icon: ReceiptText, title: monthName(x.r.month), sub: x.r.paidOn ? `Paid ${formatDate(x.r.paidOn)}` : `${dayNum(Number(x.l.paidDays))} paid days`, right: money ? <b className="font-semibold tnum">{formatRupees(x.l.netPaise)}</b> : <span className="tnum text-[13px]">{dayNum(Number(x.l.lopDays))} <Words k="LOP" /></span> })} />
       </Card>
     );
   } else {
@@ -174,14 +178,14 @@ export default async function HistoryPage({ searchParams }: { searchParams: Sear
                 <li key={r.key} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-sunken/70">
                   <span className="w-10 h-10 rounded-xl grid place-items-center shrink-0 bg-brand/10 text-brand"><Ic size={19} aria-hidden="true" /></span>
                   <a href={href("xlsx")} download className="min-w-0 flex-1"><p className="font-semibold text-[14.5px] truncate">{r.title}</p><p className="text-[12.5px] text-ink3 truncate">{r.sub}</p></a>
-                  <span className="hidden sm:flex gap-1 text-[12.5px]"><a href={href("csv")} download className="px-2 py-1 rounded-lg text-ink2 hover:bg-sunken">CSV</a><a href={href("pdf")} download className="px-2 py-1 rounded-lg text-ink2 hover:bg-sunken">PDF</a></span>
+                  <span className="hidden sm:flex gap-1 text-[12.5px]"><a href={href("csv")} download className="px-2 py-1 rounded-lg text-ink2 hover:bg-sunken"><Words k="CSV" /></a><a href={href("pdf")} download className="px-2 py-1 rounded-lg text-ink2 hover:bg-sunken"><Words k="PDF" /></a></span>
                   <Download size={17} className="text-ink3" aria-hidden="true" />
                 </li>
               );
             })}
             {money && <li className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-sunken/70">
               <span className="w-10 h-10 rounded-xl grid place-items-center shrink-0 bg-brand/10 text-brand"><UserRound size={19} aria-hidden="true" /></span>
-              <Link href={here({ tab: "staff" })} className="min-w-0 flex-1"><p className="font-semibold text-[14.5px] truncate">Employee salary history</p><p className="text-[12.5px] text-ink3 truncate">Every month for one person · choose them in By staff member</p></Link>
+              <Link href={here({ tab: "staff" })} className="min-w-0 flex-1"><p className="font-semibold text-[14.5px] truncate"><Words k="Employee salary history" /></p><p className="text-[12.5px] text-ink3 truncate"><Words k="Every month for one person · choose them in By staff member" /></p></Link>
               <ArrowUpRight size={17} className="text-ink3" aria-hidden="true" />
             </li>}
             {extra.map((r) => (
@@ -192,12 +196,12 @@ export default async function HistoryPage({ searchParams }: { searchParams: Sear
               </li>
             ))}
           </ul>
-          <p className="px-5 pb-4 text-[12.5px] text-ink3">With the school name, the period and your name on top. Every export is kept in the export log.</p>
+          <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="With the school name, the period and your name on top. Every export is kept in the export log." /></p>
         </Card>
         {money && lastDone && prev && diff !== null ? (
           <Suggestion title={`${monthName(lastDone.month).split(" ")[0]} ${Math.abs(Number(diff)) * 20 > Number(prev.netPaise) ? "changed a lot" : "looks normal"}`} source={`salary runs in ${per.label.toLowerCase()} and their rows`}
-            actions={<ButtonLink size="sm" variant="secondary" href={qs(`${BASE}/generate`, { run: lastDone.id })}>Open {monthName(lastDone.month).split(" ")[0]}</ButtonLink>}>
-            {monthName(lastDone.month).split(" ")[0]}’s net pay is {formatRupees(diff < ZERO ? -diff : diff)} {diff < ZERO ? "less" : "more"} than {monthName(prev.month).split(" ")[0]}’s
+            actions={<ButtonLink size="sm" variant="secondary" href={qs(`${BASE}/generate`, { run: lastDone.id })}><Words k="Open" /> {monthName(lastDone.month).split(" ")[0]}</ButtonLink>}>
+            {monthName(lastDone.month).split(" ")[0]}<Words k="’s net pay is" /> {formatRupees(diff < ZERO ? -diff : diff)} {diff < ZERO ? "less" : "more"} <Words k="than" /> {monthName(prev.month).split(" ")[0]}’s
             {lastDone.staffCount !== prev.staffCount ? `, with ${lastDone.staffCount} staff instead of ${prev.staffCount}` : ", with the same staff"}.
             {data.lastLop ? ` ${data.lastLop} ${data.lastLop === 1 ? "person had" : "people had"} loss of pay in the latest month.` : ""}
           </Suggestion>

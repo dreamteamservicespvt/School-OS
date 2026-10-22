@@ -5,6 +5,7 @@
 import { useState } from "react";
 import { SelectField, TextArea, TextField } from "@/components/ui/field";
 import { ActionButton, FormDialog, type Action } from "../../staff-hr-management/_components/forms";
+import { Words } from "@/lib/i18n/client";
 
 type Option = { value: string; label: string };
 
@@ -24,7 +25,7 @@ export function OvertimeForm({ action, staff, today }: { action: Action; staff: 
 }
 
 export function ArchiveOvertime({ id, action }: { id: string; action: Action }) {
-  return <ActionButton action={action} hidden={{ overtimeId: id }} variant="ghost" pendingText="Archiving…">Archive</ActionButton>;
+  return <ActionButton action={action} hidden={{ overtimeId: id }} variant="ghost" pendingText="Archiving…"><Words k="Archive" /></ActionButton>;
 }
 
 export function ShiftForm({ action, shift }: { action: Action; shift?: { id: string; name: string; startTime: string; endTime: string; lateAfterMin: number | null } }) {
@@ -54,7 +55,7 @@ export function AssignShiftForm({ action, shifts, staff, today }: { action: Acti
           <SelectField label="Shift" name="shiftId" required options={shifts} placeholder="Choose" defaultValue={f.val("shiftId")} error={f.err("shiftId")} />
           <TextField label="From date" name="fromDate" type="date" required defaultValue={f.val("fromDate", today)} error={f.err("fromDate")} />
           <fieldset className="sm:col-span-2">
-            <legend className="mb-1 text-sm font-medium">Staff <span className="text-danger">*</span></legend>
+            <legend className="mb-1 text-sm font-medium"><Words k="Staff" /> <span className="text-danger">*</span></legend>
             <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find by name" aria-label="Find staff by name"
               className="mb-2 h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-base" />
             <ul className="max-h-72 divide-y divide-line overflow-y-auto rounded-xl border border-line">

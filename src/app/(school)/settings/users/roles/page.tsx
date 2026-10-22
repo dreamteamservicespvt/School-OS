@@ -12,8 +12,12 @@ import { EmptyState } from "@/components/empty-state";
 import { UsersNav } from "../sub-nav";
 import { RoleSwitch } from "./role-actions";
 import { schoolRoles } from "@/lib/school-roles";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Roles" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Roles") };
+}
 
 const KIND = { READY: "Ready role", TEMPLATE: "Role template", CUSTOM: "Your own role" } as const;
 
@@ -42,14 +46,14 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
           <Link href={`/settings/users/roles/${r.id}`} className="font-medium text-brand-text hover:underline">{r.name}</Link>
           <span className="ml-2 inline-flex gap-1 align-middle">
             {r.kind === "TEMPLATE" && <Badge tone={r.isEnabled ? "success" : "neutral"}>{r.isEnabled ? "On" : "Off"}</Badge>}
-            {r.requiresTwoStep && <Badge tone="brand">Two-step login</Badge>}
-            {r.archivedAt && <Badge>Archived</Badge>}
+            {r.requiresTwoStep && <Badge tone="brand"><Words k="Two-step login" /></Badge>}
+            {r.archivedAt && <Badge><Words k="Archived" /></Badge>}
           </span>
           <p className="text-sm text-ink-2">{KIND[r.kind]} · {n === 0 ? "Nobody has it" : <Link href={`/settings/users?role=${r.id}`} className="underline">{n} {n === 1 ? "person" : "people"}</Link>}</p>
           <p className="text-sm text-ink-2">{roleAbout(r.permissions as Partial<RolePermissions>)}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          {mayCreate && !r.archivedAt && <ButtonLink size="sm" href={`/settings/users/roles/new?copy=${r.id}`}>Copy</ButtonLink>}
+          {mayCreate && !r.archivedAt && <ButtonLink size="sm" href={`/settings/users/roles/new?copy=${r.id}`}><Words k="Copy" /></ButtonLink>}
           {mayEdit && <RoleSwitch id={r.id} name={r.name} kind={r.kind} isOn={r.isEnabled} archived={Boolean(r.archivedAt)} people={n} />}
         </div>
       </li>
@@ -59,12 +63,12 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader title="Users & Permissions" href="/settings/users/roles" userId={current.user.id}>
-        {mayCreate && <ButtonLink href="/settings/users/roles/new" variant="primary">Create a role</ButtonLink>}
+        {mayCreate && <ButtonLink href="/settings/users/roles/new" variant="primary"><Words k="Create a role" /></ButtonLink>}
       </PageHeader>
       <UsersNav active="roles" />
-      {!mayEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2">You can see what each role does. The School Admin changes roles.</p>}
+      {!mayEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2"><Words k="You can see what each role does. The School Admin changes roles." /></p>}
       <p className="mb-4 max-w-3xl text-sm text-ink-2">
-        A role is a set of things a person may do. Change a role and everyone with it changes at once. For one person only, use exceptions on their page.
+        <Words k="A role is a set of things a person may do. Change a role and everyone with it changes at once. For one person only, use exceptions on their page." />
       </p>
       <div className="space-y-5">
         {groups.map((g) => (
@@ -73,8 +77,8 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
             {g.list.length ? <ul>{g.list.map(row)}</ul> : (
               <div className="p-4">
                 <EmptyState title="No roles of your own yet">
-                  Copy a ready role and change it, for example a Fee Clerk from the Accountant role.
-                  {mayCreate && <div className="mt-4"><ButtonLink href="/settings/users/roles/new" variant="primary">Create a role</ButtonLink></div>}
+                  <Words k="Copy a ready role and change it, for example a Fee Clerk from the Accountant role." />
+                  {mayCreate && <div className="mt-4"><ButtonLink href="/settings/users/roles/new" variant="primary"><Words k="Create a role" /></ButtonLink></div>}
                 </EmptyState>
               </div>
             )}
@@ -83,11 +87,11 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
         {archived.length > 0 && (
           showArchived ? (
             <Card>
-              <CardHeader title="Archived roles" description="Nobody can be given these. Restore one to use it again." action={<Link href="/settings/users/roles" className="text-sm font-medium text-brand-text underline">Hide</Link>} />
+              <CardHeader title="Archived roles" description="Nobody can be given these. Restore one to use it again." action={<Link href="/settings/users/roles" className="text-sm font-medium text-brand-text underline"><Words k="Hide" /></Link>} />
               <ul>{archived.map(row)}</ul>
             </Card>
           ) : (
-            <Link href="/settings/users/roles?archived=1" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-text underline">Show {archived.length} archived role{archived.length === 1 ? "" : "s"}</Link>
+            <Link href="/settings/users/roles?archived=1" className="inline-flex min-h-11 items-center text-sm font-medium text-brand-text underline"><Words k="Show" /> {archived.length} <Words k="archived role" />{archived.length === 1 ? "" : "s"}</Link>
           )
         )}
       </div>

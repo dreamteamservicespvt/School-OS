@@ -8,8 +8,12 @@ import { loadVisibleStudent, StudentNotFound } from "@/lib/students/access";
 import { BASE, studentPage } from "../../_lib/page";
 import { saveGuardianAction } from "../../_actions/guardians";
 import { GuardianForm } from "../guardian-form";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Add parent" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Add parent") };
+}
 
 export default async function NewGuardianPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {
   const { current, can } = await studentPage();
@@ -27,7 +31,7 @@ export default async function NewGuardianPage({ searchParams }: { searchParams: 
   return (
     <>
       <BackLink href={`${BASE}/guardians`} label="Parents & Guardians" />
-      <PageHeader title={student ? `Add parent for ${student.fullName}` : "Add parent"} sub={student ? <>A brother&apos;s or sister&apos;s parent already on record? Use <a className="font-semibold text-brand hover:underline" href={`${BASE}/guardians/link?student=${student.id}`}>Link existing parent</a> instead.</> : undefined} href={`${BASE}/guardians/new`} userId={current.user.id} />
+      <PageHeader title={student ? `Add parent for ${student.fullName}` : "Add parent"} sub={student ? <><Words k="A brother's or sister's parent already on record? Use" /> <a className="font-semibold text-brand hover:underline" href={`${BASE}/guardians/link?student=${student.id}`}><Words k="Link existing parent" /></a> <Words k="instead." /></> : undefined} href={`${BASE}/guardians/new`} userId={current.user.id} />
       <Card className="max-w-3xl">
         <CardBody>
           <GuardianForm action={saveGuardianAction.bind(null, null, student?.id ?? null)} studentId={student?.id ?? null} canRestrict={can.seeRestricted}

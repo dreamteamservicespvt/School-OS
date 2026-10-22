@@ -16,8 +16,12 @@ import { BackLink, Col, DL, RecordHead, Split } from "@/components/ui/split";
 import { UrlSegmented } from "@/components/ui/url-filters";
 import { cx } from "@/components/ui/cx";
 import { NoticeActions } from "./notice-actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Notice" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Notice") };
+}
 
 const PRIORITY_TONE: Record<string, PillTone> = { NORMAL: "neutral", HIGH: "warn", CRITICAL: "bad" };
 const STATUS_TONE: Record<string, PillTone> = { DRAFT: "neutral", WAITING_APPROVAL: "warn", SCHEDULED: "info", PUBLISHED: "ok", EXPIRED: "neutral", ARCHIVED: "neutral" };
@@ -75,7 +79,7 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
     ["Expires on", n.expiresOn ? formatDate(n.expiresOn, "UTC") : "30 days after publishing"],
   ];
   if (data.author) details.push(["Written by", data.author]);
-  if (n.messageId) details.push(["Message", <Link key="m" className="text-brand font-semibold hover:underline" href={`/communication/history/${n.messageId}`}>See delivery</Link>]);
+  if (n.messageId) details.push(["Message", <Link key="m" className="text-brand font-semibold hover:underline" href={`/communication/history/${n.messageId}`}><Words k="See delivery" /></Link>]);
 
   return (
     <>
@@ -83,8 +87,8 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
       <RecordHead title={n.title}
         sub={<>
           <Pill tone={STATUS_TONE[n.status]} dot>{STATUS_LABEL[n.status]}</Pill>
-          <Pill tone={PRIORITY_TONE[n.priority]}>{PRIORITY_LABEL[n.priority]} priority</Pill>
-          {n.askAck && <Pill tone="info">Asks for “I have read this”</Pill>}
+          <Pill tone={PRIORITY_TONE[n.priority]}>{PRIORITY_LABEL[n.priority]} <Words k="priority" /></Pill>
+          {n.askAck && <Pill tone="info"><Words k="Asks for “I have read this”" /></Pill>}
         </>}
         actions={<NoticeActions id={n.id}
           canEdit={data.manager && access.canChange && n.status === "DRAFT"}
@@ -94,9 +98,9 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
           unseen={access.full && n.status === "PUBLISHED" ? unseen : 0} channels={[...channels]} />} />
 
       <div className="flex flex-col gap-5 lg:gap-6">
-        {n.status === "WAITING_APPROVAL" && <Banner tone="warn" title="Waiting for the Principal.">It goes out on the chosen channels once approved.</Banner>}
-        {n.status === "SCHEDULED" && n.publishAt && <Banner tone="info" title={`Scheduled for ${formatDateTime(n.publishAt, tz)}.`}>It is published at that time.</Banner>}
-        {n.status === "ARCHIVED" && <Banner tone="info" title="Archived.">It is no longer on the board or Parent Link.</Banner>}
+        {n.status === "WAITING_APPROVAL" && <Banner tone="warn" title="Waiting for the Principal."><Words k="It goes out on the chosen channels once approved." /></Banner>}
+        {n.status === "SCHEDULED" && n.publishAt && <Banner tone="info" title={`Scheduled for ${formatDateTime(n.publishAt, tz)}.`}><Words k="It is published at that time." /></Banner>}
+        {n.status === "ARCHIVED" && <Banner tone="info" title="Archived."><Words k="It is no longer on the board or Parent Link." /></Banner>}
         <Split side={340}>
           <Col>
             <Card className={cx(n.priority === "CRITICAL" && "border-bad/50")}>
@@ -117,14 +121,14 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
               <Card className="overflow-hidden">
                 <div className="p-4 md:px-5 flex flex-col md:flex-row md:items-center gap-3">
                   <div className="flex-1">
-                    <p className="text-[13px] font-semibold text-ink3">Seen by parents</p>
-                    <p className="font-display text-[24px] font-semibold tnum leading-tight">{(data.guardians.length - unseen).toLocaleString("en-IN")} <span className="text-[14px] text-ink3 font-sans">of {data.guardians.length.toLocaleString("en-IN")}</span></p>
-                    <p className="text-[12.5px] text-ink3">From Parent Link opens and WhatsApp read receipts{n.askAck ? ` · ${acked} tapped “I have read this”` : ""}</p>
+                    <p className="text-[13px] font-semibold text-ink3"><Words k="Seen by parents" /></p>
+                    <p className="font-display text-[24px] font-semibold tnum leading-tight">{(data.guardians.length - unseen).toLocaleString("en-IN")} <span className="text-[14px] text-ink3 font-sans"><Words k="of" /> {data.guardians.length.toLocaleString("en-IN")}</span></p>
+                    <p className="text-[12.5px] text-ink3"><Words k="From Parent Link opens and WhatsApp read receipts" />{n.askAck ? ` · ${acked} tapped “I have read this”` : ""}</p>
                   </div>
                 </div>
                 <div className="border-t border-line px-4 md:px-5 py-2.5 flex items-center gap-2">
                   <UrlSegmented param="seen" label="Show" size="sm" options={[{ value: "all", label: "All" }, { value: "seen", label: "Seen" }, { value: "not", label: "Not seen" }]} />
-                  <span className="text-[12px] text-ink3 ml-auto">{guardianRows.length} shown</span>
+                  <span className="text-[12px] text-ink3 ml-auto">{guardianRows.length} <Words k="shown" /></span>
                 </div>
                 <ul className="divide-y divide-line/70 border-t border-line max-h-96 overflow-y-auto scroll-thin">
                   {guardianRows.map((g) => {
@@ -133,11 +137,11 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
                       <li key={g.id} className="flex items-center gap-3 px-4 md:px-5 py-2.5">
                         <Avatar name={g.name} size={32} />
                         <div className="min-w-0 flex-1"><p className="text-[14px] font-semibold truncate">{g.name}</p><p className="text-[12px] text-ink3 truncate">{g.relationship}</p></div>
-                        {v ? <span className="text-right text-[12.5px] tnum"><span className="block font-semibold">{formatDateTime(v.firstSeenAt, tz)}</span><span className="text-ink3">{v.via === "whatsapp" ? "WhatsApp read" : "Parent Link"}</span></span> : <Pill tone="warn">Not seen</Pill>}
+                        {v ? <span className="text-right text-[12.5px] tnum"><span className="block font-semibold">{formatDateTime(v.firstSeenAt, tz)}</span><span className="text-ink3">{v.via === "whatsapp" ? "WhatsApp read" : "Parent Link"}</span></span> : <Pill tone="warn"><Words k="Not seen" /></Pill>}
                       </li>
                     );
                   })}
-                  {!guardianRows.length && <li className="px-5 py-4 text-[13.5px] text-ink3">Nobody here.</li>}
+                  {!guardianRows.length && <li className="px-5 py-4 text-[13.5px] text-ink3"><Words k="Nobody here." /></li>}
                 </ul>
               </Card>
             )}
@@ -146,7 +150,7 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
               <Card className="overflow-hidden">
                 <div className="p-4 md:px-5">
                   <p className="text-[13px] font-semibold text-ink3">{n.askAck ? "Acknowledged by staff and students" : "Read by staff and students"}</p>
-                  <p className="font-display text-[24px] font-semibold tnum leading-tight">{data.people.length - notRead.length} <span className="text-[14px] text-ink3 font-sans">of {data.people.length}</span></p>
+                  <p className="font-display text-[24px] font-semibold tnum leading-tight">{data.people.length - notRead.length} <span className="text-[14px] text-ink3 font-sans"><Words k="of" /> {data.people.length}</span></p>
                 </div>
                 <ul className="divide-y divide-line/70 border-t border-line max-h-96 overflow-y-auto scroll-thin">
                   {peopleRows.map((p) => {

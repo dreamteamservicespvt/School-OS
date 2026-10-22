@@ -4,8 +4,12 @@ import { commOfficePage } from "@/lib/communication/access";
 import { BackLink, RecordHead } from "@/components/ui/split";
 import { SurveyForm } from "../../survey-form";
 import { requireSurveys, surveyFormData } from "../../form-data";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Change survey" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Change survey") };
+}
 
 export default async function EditSurveyPage({ params }: { params: Promise<{ id: string }> }) {
   const access = await commOfficePage("edit");
@@ -17,7 +21,7 @@ export default async function EditSurveyPage({ params }: { params: Promise<{ id:
   return (
     <>
       <BackLink href={`/communication/surveys/${id}`} label="Survey" />
-      <RecordHead title={`Survey: ${data.title}`} sub={<span className="text-[14px] text-ink3">A draft can be changed until it is sent.</span>} />
+      <RecordHead title={`Survey: ${data.title}`} sub={<span className="text-[14px] text-ink3"><Words k="A draft can be changed until it is sent." /></span>} />
       <SurveyForm data={data} />
     </>
   );

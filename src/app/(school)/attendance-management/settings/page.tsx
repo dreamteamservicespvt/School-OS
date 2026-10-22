@@ -20,8 +20,12 @@ import {
   archiveLeaveTypeAction, archiveStatusAction, saveDisplayAction, saveFeatureAction, saveLateRulesAction, saveLeaveRulesAction, saveLeaveTypeAction,
   saveNotificationsAction, savePunchMethodsAction, saveStatusAction,
 } from "./actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Attendance Settings" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Attendance Settings") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const TABS = [
@@ -140,14 +144,14 @@ export default async function SettingsPage({ searchParams }: Props) {
               <div className="flex flex-col gap-2 px-5 pb-5 sm:flex-row sm:items-center sm:gap-4">
                 <span className="font-display text-[32px] font-semibold leading-none tnum">{lock.atText}</span>
                 <p className="text-[13px] text-ink3">
-                  {lock.locked ? "Today's attendance is locked." : `Today's attendance locks in ${minutesText(lockIn)}.`} Teachers see &ldquo;You can change it until {lock.atText}&rdquo;.
+                  {lock.locked ? "Today's attendance is locked." : `Today's attendance locks in ${minutesText(lockIn)}.`} <Words k="Teachers see “You can change it until" /> {lock.atText}&rdquo;.
                 </p>
               </div>
               <div className="border-t border-line/70 px-5 py-3.5">
-                <p className="text-[14px] font-semibold">Who can change marks after the lock</p>
-                <p className="mb-2.5 text-[12.5px] text-ink3">Everyone else sends a correction request to Approvals. The original stays in the audit log.</p>
+                <p className="text-[14px] font-semibold"><Words k="Who can change marks after the lock" /></p>
+                <p className="mb-2.5 text-[12.5px] text-ink3"><Words k="Everyone else sends a correction request to Approvals. The original stays in the audit log." /></p>
                 <div className="flex flex-wrap gap-2">
-                  {s.lockOverrideRoles.length ? s.lockOverrideRoles.map((r) => <span key={r} className="inline-flex h-9 items-center rounded-full border border-line px-3 text-[13px] font-medium">{roleName(r)}</span>) : <span className="text-[13px] text-ink3">Nobody. Every change after the lock is a correction request.</span>}
+                  {s.lockOverrideRoles.length ? s.lockOverrideRoles.map((r) => <span key={r} className="inline-flex h-9 items-center rounded-full border border-line px-3 text-[13px] font-medium">{roleName(r)}</span>) : <span className="text-[13px] text-ink3"><Words k="Nobody. Every change after the lock is a correction request." /></span>}
                 </div>
               </div>
             </Card>
@@ -162,12 +166,12 @@ export default async function SettingsPage({ searchParams }: Props) {
           <>
             <Card>
               <CardHeader icon={MessageCircle} title="Absence message to parents" description="One message per absent student per day. None for approved leave. The text and channels are Communication's “Absent today” message."
-                action={<ButtonLink size="sm" variant="secondary" href="/communication/settings#automatic">Change the message</ButtonLink>} />
+                action={<ButtonLink size="sm" variant="secondary" href="/communication/settings#automatic"><Words k="Change the message" /></ButtonLink>} />
               <div className="border-t border-line/70 px-5 py-4 space-y-3">
-                {message && !message.on && <Alert tone="warning" title="No absence message goes to parents">The “Absent today” message is switched off in Communication, Message Settings.</Alert>}
-                {message?.on && !message.ready && <Alert tone="warning" title="No absence message goes to parents">No channel that can carry it is switched on. Connect WhatsApp or SMS in Settings, Messaging.</Alert>}
-                {s.absenceAlertOn ? null : <Alert tone="info" title="Absence messages are off here">Switch on “Absence message to parents” below to send it after each register.</Alert>}
-                <p className="eyebrow text-ink3">Message parents get</p>
+                {message && !message.on && <Alert tone="warning" title="No absence message goes to parents"><Words k="The “Absent today” message is switched off in Communication, Message Settings." /></Alert>}
+                {message?.on && !message.ready && <Alert tone="warning" title="No absence message goes to parents"><Words k="No channel that can carry it is switched on. Connect WhatsApp or SMS in Settings, Messaging." /></Alert>}
+                {s.absenceAlertOn ? null : <Alert tone="info" title="Absence messages are off here"><Words k="Switch on “Absence message to parents” below to send it after each register." /></Alert>}
+                <p className="eyebrow text-ink3"><Words k="Message parents get" /></p>
                 <div className="max-w-md rounded-2xl rounded-tl-md bg-ok/10 px-4 py-3 text-[14px] leading-relaxed">
                   {message?.text ?? "No template for this message yet. Add one in Communication, Message Templates."}
                   <p className="mt-1 text-right text-[11px] text-ink3">{message?.channels || "No channel"} · {s.absenceAlertOn && message?.on ? (s.absenceDelayMinutes ? `after ${minutesText(s.absenceDelayMinutes)}` : "at once") : "Off"}</p>
@@ -186,7 +190,7 @@ export default async function SettingsPage({ searchParams }: Props) {
             <Card className="overflow-hidden">
               <CardHeader icon={CalendarDays} title="Student leave types" description="Leave types offered when recording student leave" action={<LeaveTypeForm action={saveLeaveTypeAction} quotasOn={v.quotasOn} />} />
               {data.types.length === 0 ? (
-                <p className="border-t border-line/70 px-5 py-4 text-[13px] text-ink3">No leave types yet. Add the first one.</p>
+                <p className="border-t border-line/70 px-5 py-4 text-[13px] text-ink3"><Words k="No leave types yet. Add the first one." /></p>
               ) : (
                 <ul className="divide-y divide-line/70 border-t border-line/70">
                   {data.types.map((t) => {
@@ -198,7 +202,7 @@ export default async function SettingsPage({ searchParams }: Props) {
                         <span className="text-[14px] font-semibold tnum">{q ? `${Number(q.days)} days a ${q.period === "year" ? "year" : "term"}` : "No limit"}</span>
                         <div className="flex gap-1">
                           <LeaveTypeForm action={saveLeaveTypeAction} type={row} quotasOn={v.quotasOn} />
-                          <ActionButton action={archiveLeaveTypeAction} hidden={{ typeId: t.id }} variant="ghost">Archive</ActionButton>
+                          <ActionButton action={archiveLeaveTypeAction} hidden={{ typeId: t.id }} variant="ghost"><Words k="Archive" /></ActionButton>
                         </div>
                       </li>
                     );

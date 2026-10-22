@@ -12,8 +12,12 @@ import { periodSetup } from "@/lib/period-setup";
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Login history · Data Backup & Security" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Login history · Data Backup & Security") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -42,8 +46,8 @@ export default async function LoginHistoryPage({ searchParams }: Search) {
 
   return (
     <>
-      <h2 className="sr-only">Login history</h2>
-      <p className="mb-4 max-w-prose text-ink-2">Every sign-in, wrong password, one-time code and sign-out, with the device. A person can sign themselves out of other devices from My Profile.</p>
+      <h2 className="sr-only"><Words k="Login history" /></h2>
+      <p className="mb-4 max-w-prose text-ink-2"><Words k="Every sign-in, wrong password, one-time code and sign-out, with the device. A person can sign themselves out of other devices from My Profile." /></p>
       <ListToolbar placeholder="Search by IP address" showArchived={false} period={dates}
         filters={[
           { key: "outcome", label: "Result", options: [{ value: "failed", label: "Failed or locked" }, { value: "ok", label: "Signed in or out" }] },
@@ -64,9 +68,9 @@ export default async function LoginHistoryPage({ searchParams }: Search) {
           { key: "ip", label: "IP address", cell: (r) => r.ipAddress ?? "" },
         ]}
         empty={filtered ? (
-          <EmptyState title="Nothing matches these filters"><Link href="/settings/data-security/login-history" className="font-medium text-brand-text underline">Clear the filters</Link></EmptyState>
+          <EmptyState title="Nothing matches these filters"><Link href="/settings/data-security/login-history" className="font-medium text-brand-text underline"><Words k="Clear the filters" /></Link></EmptyState>
         ) : (
-          <EmptyState title="No sign-ins recorded yet">Each sign-in to this school will be listed here.</EmptyState>
+          <EmptyState title="No sign-ins recorded yet"><Words k="Each sign-in to this school will be listed here." /></EmptyState>
         )}
       />
     </>

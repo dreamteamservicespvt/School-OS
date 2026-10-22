@@ -19,8 +19,12 @@ import { AttHead } from "../../_components/att-head";
 import { CorrectionForm } from "../../_components/correction-form";
 import { UrlFilters } from "../../_components/url-filters";
 import { requestCorrectionAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Request a correction" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Request a correction") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
@@ -66,12 +70,12 @@ export default async function CorrectionPage({ searchParams }: Props) {
   return (
     <>
       <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register/correction`} sub="Request a correction: the principal approves it, and the original stays in the audit log"
-        actions={<ButtonLink href={back} icon={ArrowLeft}>Back to the {forWhom === "staff" ? "staff attendance" : "register"}</ButtonLink>} />
+        actions={<ButtonLink href={back} icon={ArrowLeft}><Words k="Back to the" /> {forWhom === "staff" ? "staff attendance" : "register"}</ButtonLink>} />
 
       {forWhom === "staff" && access.staff !== "all" ? (
-        <Banner tone="bad" title="Not for your role.">Only HR, the School Admin or the Principal can correct staff attendance. Ask them if your own attendance is wrong.</Banner>
+        <Banner tone="bad" title="Not for your role."><Words k="Only HR, the School Admin or the Principal can correct staff attendance. Ask them if your own attendance is wrong." /></Banner>
       ) : forWhom === "student" && data.sections.length === 0 ? (
-        <EmptyState title="No classes to correct" Icon={Users}>You are not class teacher or subject teacher of any section this year.</EmptyState>
+        <EmptyState title="No classes to correct" Icon={Users}><Words k="You are not class teacher or subject teacher of any section this year." /></EmptyState>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Card>
@@ -82,10 +86,10 @@ export default async function CorrectionPage({ searchParams }: Props) {
                 ...(forWhom === "student" ? [{ name: "section", label: "Class and section", type: "select" as const, value: data.section?.id ?? "", options: data.sections.map((s) => ({ value: s.id, label: s.name })) }] : []),
                 { name: "date", label: "Date", type: "date", value: isoDay(date), max: isoDay(today) },
               ]} reset={["student", "staff"]} />
-              {data.info && !data.info.on && <Banner tone="warn" icon={CalendarX2} className="mb-4">{offDayMessage(data.info, date)} Corrections are only for days attendance is taken.</Banner>}
+              {data.info && !data.info.on && <Banner tone="warn" icon={CalendarX2} className="mb-4">{offDayMessage(data.info, date)} <Words k="Corrections are only for days attendance is taken." /></Banner>}
               {!lock.locked && !(data.info && !data.info.on) && (
                 <Banner tone="info" icon={Info} className="mb-4">
-                  Attendance for {dayText(date)} is not locked yet (it locks at {lock.atText}). You can still change it directly in{" "}
+                  <Words k="Attendance for" /> {dayText(date)} <Words k="is not locked yet (it locks at" /> {lock.atText}<Words k="). You can still change it directly in" />{" "}
                   <Link className="font-medium underline" href={forWhom === "staff" ? `${BASE}/staff?date=${isoDay(date)}` : `${BASE}?section=${data.section?.id ?? ""}&date=${isoDay(date)}${periodNo ? `&period=${periodNo}` : ""}`}>{forWhom === "staff" ? "Staff Attendance" : "Take Attendance"}</Link>.
                 </Banner>
               )}
@@ -94,7 +98,7 @@ export default async function CorrectionPage({ searchParams }: Props) {
                   statuses={data.statuses.map((s) => ({ key: s.key, name: s.name, letter: s.letter, tone: s.tone }))}
                   hidden={{ forWhom, sectionId: data.section?.id ?? "", date: isoDay(date), periodNo: String(periodNo) }} />
               ) : data.people && data.people.length === 0 ? (
-                <EmptyState bare title="Nobody to correct" Icon={Users}>There are no {forWhom === "staff" ? "staff" : "students"} here.</EmptyState>
+                <EmptyState bare title="Nobody to correct" Icon={Users}><Words k="There are no" /> {forWhom === "staff" ? "staff" : "students"} <Words k="here." /></EmptyState>
               ) : null}
             </CardBody>
           </Card>
@@ -106,7 +110,7 @@ export default async function CorrectionPage({ searchParams }: Props) {
                 { icon: ClipboardIcon, tone: "brand", what: "You ask for the change with a reason", when: "It goes to Approvals" },
                 { icon: ShieldCheck, tone: "ok", what: "The principal approves it", when: "The register, % and reports change. The original stays in the audit log." },
               ]} />
-              <p className="mt-4 text-[13px] text-ink3">A correction does not send a new absence message to parents.</p>
+              <p className="mt-4 text-[13px] text-ink3"><Words k="A correction does not send a new absence message to parents." /></p>
             </CardBody>
           </Card>
         </div>

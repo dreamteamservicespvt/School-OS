@@ -10,7 +10,7 @@ import { requireSettingsAction } from "../settings/page-access";
 import { canBring, canUndo, kindInfo, MoveInProblem } from "../move-in/service";
 import { moduleImportRefusal } from "./module-import";
 import { findModule } from "../modules";
-import { reachFor } from "../permissions";
+import { PermissionDeniedError, reachFor } from "../permissions";
 import { HrOnlyError } from "../staff/access";
 import { withSchool } from "../db";
 import { FullOnlyError, viewerFor } from "../admission/access";
@@ -73,7 +73,28 @@ export async function placeRefusal(current: Current, place: ImportPlace, kind: s
       // People who add rooms; a warden brings rooms into their own hostel only (the import's own check).
       return reachFor(current.permissions, "hostel-management", need) !== "none" && hostelCan(hostelViewer(current)).rooms
         ? null : `Your role cannot ${need === "create" ? "import rooms" : "undo a room import"}. Ask the hostel warden.`;
+    case "students":
+      // Student Management full (05-roles.md), as for adding or archiving a student by hand.
+      return reachFor(current.permissions, "student-management", need) !== "none" && current.permissions["student-management"]?.change === "all"
+        ? null : new PermissionDeniedError("student-management").message;
   }
+}
+
+/**
+ * The choices made with the upload on this place's page, checked on the
+ * server and kept with the file. Student Management: the section for rows
+ * with no class (one of the person's own campus) and the class fee plan.
+ */
+export async function placeOptions(place: ImportPlace, current: Current, fd: FormData): Promise<Record<string, unknown> | undefined> {
+  if (place.key !== "students") return undefined;
+  const sectionId = String(fd.get("sectionId") ?? "").trim();
+  if (sectionId) {
+    const ok = /^[0-9a-f-]{36}$/i.test(sectionId) && await withSchool(current.ctx, (tx) => tx.section.count({
+      where: { id: sectionId, archivedAt: null, ...(current.campusId ? { schoolClass: { campusId: current.campusId } } : {}) },
+    }));
+    if (!ok) throw new MoveInProblem("Choose the class and section again.", "sectionId");
+  }
+  return { sectionId: sectionId || null, applyFeePlan: fd.get("applyFeePlan") === "on" };
 }
 
 /** For server actions: the person, allowed to bring in (or undo) this kind at this place. Throws a plain refusal. */

@@ -17,16 +17,18 @@ import { Pill } from "@/components/ui/badge";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import { AutoRefresh } from "@/app/(school)/settings/data-security/parts";
-import { UploadForm } from "./file-forms";
+import { UploadForm, type StudentChoices } from "./file-forms";
 import { UndoBatchButton } from "./file-buttons";
 
-export async function ImportHome({ current, place, initial, about }: {
+export async function ImportHome({ current, place, initial, about, students }: {
   current: Current;
   place: ImportPlace;
   /** The kind to offer first (?kind= on the page). */
   initial?: string;
   /** One line per kind: what a row is and what it becomes. */
   about: Record<string, string>;
+  /** Student Management's own choices with the upload. */
+  students?: StudentChoices;
 }) {
   const tz = current.school.timeZone;
   const keys = place.kinds ?? [];
@@ -72,7 +74,7 @@ export async function ImportHome({ current, place, initial, about }: {
         <p className="mt-1 text-[14px] text-ink2">School OS finds the headings, matches the columns (also when they are written another way) and tidies dates, phones and names. Then you check every row, fix or leave out the ones with problems, and bring in the rest. Nothing is saved before that.</p>
         <div className="mt-3">
           {mine.length ? (
-            <UploadForm place={place.key} kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={initial && mine.some((k) => k.key === initial) ? initial : undefined} guess={false}
+            <UploadForm place={place.key} kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={initial && mine.some((k) => k.key === initial) ? initial : undefined} guess={false} students={students}
               help="Excel (.xlsx) or CSV, up to 10 MB: the ready sheet, your own sheet or an export from your old software." />
           ) : <p className="text-ink2">Your role can see these imports but not bring records in.</p>}
         </div>

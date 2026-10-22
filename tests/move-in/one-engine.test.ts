@@ -15,6 +15,7 @@ import { fileHref, PLACES } from "@/lib/imports/places";
 import "@/lib/import-registry";
 import { makeFeeSchool, type FeeSchool } from "../fees/fixture";
 import { makeHostelSchool, type HostelFixture } from "../hostel/fixture";
+import { studentSchool } from "../students/fixtures";
 import { makeUser } from "../helpers";
 
 let f: FeeSchool;
@@ -129,5 +130,48 @@ describe("a warden brings rooms into their own hostel only, wherever the file co
     const batchId = (await run(a, (tx) => tx.moveInFile.findUniqueOrThrow({ where: { id: other } }))).batchId!;
     await expect(run(w, (tx) => undoImport(tx, w, batchId))).rejects.toThrow("This import added rooms in another hostel. Ask the Principal or School Admin to undo it.");
     await run(a, (tx) => undoImport(tx, a, batchId));
+  });
+});
+
+describe("Student Management, Import students (G16)", () => {
+  let st: Awaited<ReturnType<typeof studentSchool>>;
+  beforeAll(async () => {
+    st = await studentSchool();
+  }, 120_000);
+
+  it("keeps the section for rows with no class and the fee plan choice with the file, and the import job uses them", async () => {
+    const c = st.ctx;
+    const csv = "Student Name,Date of Birth,Gender,Father's Name,Mobile Number\nKAVYA REDDY,14/03/2016,2-Female,SURESH REDDY,9876512345\n";
+    const [id] = await upload(c, csv, "udise.csv", "students");
+    await run(c, (tx) => tx.moveInFile.update({ where: { id }, data: { options: { sectionId: st.s5b, applyFeePlan: false } } }));
+    const w = await run(c, (tx) => workOn(tx, c, id, { check: true }));
+    // A UDISE+ download is read by the Students import: its headings are known, its codes and capitals tidied.
+    expect(w.checked!.problems).toEqual([]);
+    expect(w.checked!.ready[0].values).toMatchObject({ fullName: "Kavya Reddy", guardianName: "Suresh Reddy" });
+    await run(c, (tx) => importFile(tx, c, id, { link: fileHref(PLACES.students, id) }));
+    await drain(c);
+    const kavya = await run(c, (tx) => tx.student.findFirstOrThrow({ where: { fullName: "Kavya Reddy" }, include: { enrolments: true } }));
+    expect(kavya.enrolments[0].sectionId).toBe(st.s5b);
+  });
+
+  it("brings in changes to students already here on the same engine, and only on Student Management", async () => {
+    const admin = await who(st.admin.id, st.school.id);
+    expect(await placeRefusal(admin, PLACES.students, "students-update", "create")).toBeNull();
+    expect(await placeRefusal(admin, PLACES.settings, "students-update", "create")).not.toBeNull();
+    const teacher = await who(st.teacherUser.id, st.school.id);
+    expect(await placeRefusal(teacher, PLACES.students, "students", "create")).not.toBeNull();
+    const c = st.ctx;
+    const kavya = await run(c, (tx) => tx.student.findFirstOrThrow({ where: { fullName: "Kavya Reddy" } }));
+    const [id] = await upload(c, `Admission number,Address\n${kavya.admissionNo},"4-2 Kukatpally, Hyderabad"\n`, "changes.csv", "students-update");
+    const w = await run(c, (tx) => workOn(tx, c, id, { check: true }));
+    expect(w.checked!.ready).toHaveLength(1);
+    await run(c, (tx) => importFile(tx, c, id));
+    await drain(c);
+    expect((await run(c, (tx) => tx.student.findUniqueOrThrow({ where: { id: kavya.id } }))).address).toBe("4-2 Kukatpally, Hyderabad");
+    const batchId = (await run(c, (tx) => tx.moveInFile.findUniqueOrThrow({ where: { id } }))).batchId!;
+    await run(c, (tx) => undoImport(tx, c, batchId));
+    expect((await run(c, (tx) => tx.student.findUniqueOrThrow({ where: { id: kavya.id } }))).address).toBeNull();
+    // Undo opens the file again, to fix and bring in again.
+    expect((await run(c, (tx) => tx.moveInFile.findUniqueOrThrow({ where: { id } }))).status).toBe("open");
   });
 });

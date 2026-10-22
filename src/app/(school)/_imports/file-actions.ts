@@ -26,7 +26,7 @@ import {
 import { aiReady } from "@/lib/ai";
 import { aiAllowed } from "@/lib/settings/switch-rules";
 import { suggestColumnsByAi, type AiColumnsResult } from "@/lib/ai/smart-import";
-import { placeCurrent, placeOf, placeRefusal } from "@/lib/imports/place-access";
+import { placeCurrent, placeOf, placeOptions, placeRefusal } from "@/lib/imports/place-access";
 import { fileHref, placeHolds, wordsFor, type ImportPlace } from "@/lib/imports/places";
 
 const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
@@ -67,7 +67,8 @@ const refresh = (place: ImportPlace, id?: string) => { revalidatePath(place.base
 export async function uploadAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const kind = String(fd.get("kind") ?? "");
   const file = fd.get("file");
-  const values = { kind };
+  const values: Record<string, string> = { kind };
+  for (const k of ["sectionId", "applyFeePlan"]) { const v = fd.get(k); if (typeof v === "string") values[k] = v; }
   let place: ImportPlace;
   let ids: string[] = [];
   try {
@@ -80,20 +81,22 @@ export async function uploadAction(_prev: FormState, fd: FormData): Promise<Form
       return { ok: false, message: m, errors: { file: m }, values };
     }
     // A module's page brings in only its own kinds: one is always chosen there.
-    if ((kind && !kindInfo(kind)) || (!kind && place.kinds !== null) || (kind && !placeHolds(place, kind))) {
+    if ((kind && !kindInfo(kind) && !place.kinds?.includes(kind)) || (!kind && place.kinds !== null) || (kind && !placeHolds(place, kind))) {
       return { ok: false, message: "Choose what the file holds.", errors: { kind: "Choose what the file holds." }, values };
     }
     if (kind) {
       const why = await placeRefusal(current, place, kind, "create");
       if (why) return { ok: false, message: why, errors: { kind: why }, values };
     }
+    const options = await placeOptions(place, current, fd);
     ids = await withSchool(current.ctx, async (tx) => {
       const saved = await saveFile(tx, current.ctx, { file, purpose: "move-in", allowed: SHEET_TYPES });
-      return addUpload(tx, current.ctx, current.permissions, { fileId: saved.id, fileName: file.name, kind: kind || null }, current.modulesOn);
+      return addUpload(tx, current.ctx, current.permissions, { fileId: saved.id, fileName: file.name, kind: kind || null, options }, current.modulesOn);
     }, { timeout: 120_000 });
   } catch (e) {
     const m = problem(e);
-    return { ok: false, message: m, errors: { file: m }, values };
+    const field = e instanceof MoveInProblem && e.field ? e.field : "file";
+    return { ok: false, message: m, errors: { [field]: m }, values };
   }
   if (ids.length > 1) {
     await flash({ message: `School OS found ${ids.length} sheets with records in ${file.name}. Open each one to check it and bring it in.` });
@@ -325,7 +328,6 @@ export async function undoBatchAction(placeKey: string, batchId: string): Promis
         if (e instanceof Error && e.constructor === Error) throw new MoveInProblem(e.message);
         throw e;
       }
-      await tx.moveInFile.updateMany({ where: { batchId: batch.id, status: "imported", archivedAt: null }, data: { status: "open", batchId: null, importFileId: null } });
       words = wordsFor(batch.kind, kindInfo(batch.kind)?.label ?? "records");
     }, { timeout: 120_000 });
     refresh(place);

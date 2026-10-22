@@ -23,7 +23,8 @@ const NO_STORE = { "Cache-Control": "no-store" };
 export async function placeTemplateResponse(place: ImportPlace, key: string) {
   const current = await getCurrent();
   if (!current) return new Response("Sign in first.", { status: 401 });
-  const kind = kindInfo(key) ? importKind(key) : null;
+  // A kind listed for Switching to School OS, or one this module's page names (changes to students already here).
+  const kind = kindInfo(key) || (place.kinds?.includes(key) ?? false) ? importKind(key) : null;
   if (!kind || !placeHolds(place, key)) return new Response("This import is not known.", { status: 404 });
   // The sheet for a kind of record is for people who may bring that kind in here, as on the Bring in buttons.
   const why = await placeRefusal(current, place, key, "create");

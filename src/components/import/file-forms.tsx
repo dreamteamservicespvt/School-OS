@@ -7,7 +7,7 @@
 
 import { useActionState, useState } from "react";
 import { FormMessage } from "@/components/ui/alert";
-import { SelectField, TextField } from "@/components/ui/field";
+import { CheckboxField, SelectField, TextField } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { columnsAction, fixRowAction, sheetAction, uploadAction, valuesAction } from "@/app/(school)/_imports/file-actions";
@@ -15,8 +15,12 @@ import { KeepSelect } from "@/components/ui/keep-select";
 
 type Opt = { value: string; label: string };
 
-export function UploadForm({ place, kinds, kind, guess = true, help }: { place: string; kinds: Opt[]; kind?: string; guess?: boolean; help?: string }) {
+/** Student Management's own choices with the upload: the section for rows with no class, and the class fee plan. */
+export type StudentChoices = { sections: Opt[]; sectionId?: string };
+
+export function UploadForm({ place, kinds, kind, guess = true, help, students }: { place: string; kinds: Opt[]; kind?: string; guess?: boolean; help?: string; students?: StudentChoices }) {
   const [state, action] = useActionState<FormState, FormData>(uploadAction, null);
+  const refused = Boolean(state && !state.ok);
   return (
     <form action={action} className="space-y-4" noValidate>
       <FormMessage state={state} />
@@ -32,6 +36,14 @@ export function UploadForm({ place, kinds, kind, guess = true, help }: { place: 
       </div>
       {kinds.length === 1 && !guess ? <input type="hidden" name="kind" value={kinds[0].value} /> : (
         <SelectField label="What is in it?" name="kind" options={guess ? [{ value: "", label: "Let School OS work it out" }, ...kinds] : kinds} defaultValue={state?.values?.kind ?? kind ?? (guess ? "" : kinds[0]?.value)} error={state?.errors?.kind} />
+      )}
+      {students && (
+        <>
+          <SelectField key={`s${refused}`} label="Class and section" name="sectionId" options={[{ value: "", label: "From the file's Class and Section columns" }, ...students.sections]}
+            defaultValue={(refused ? state?.values?.sectionId : undefined) ?? students.sectionId ?? ""} error={state?.errors?.sectionId} help="Used for new students on rows with no class in the file." />
+          <CheckboxField key={`f${refused}`} name="applyFeePlan" label="Apply the class fee plan" help="Each new student gets the fee plan of their class (Fee Management)."
+            defaultChecked={refused ? state?.values?.applyFeePlan === "on" : true} />
+        </>
       )}
       <SubmitButton pendingText="Reading the file…">Upload and check</SubmitButton>
     </form>

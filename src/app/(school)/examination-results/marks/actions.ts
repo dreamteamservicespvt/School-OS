@@ -5,7 +5,7 @@ import { plural } from "@/lib/academic/common";
 import { ExamRuleError } from "@/lib/exams/common";
 import { loadPaper, readMarkRows as cleanRows, remindTeachers, reopenPaper, requestModeration, saveMarks, submitPaper, lockPapers, type MarkValue } from "@/lib/exams/marks";
 import { assertInScope, assertYearInScope, teachesPaper } from "@/lib/exams/scope";
-import { readSheet } from "@/lib/importer";
+import { readTable } from "@/lib/move-in/read";
 import { writeAudit } from "@/lib/audit";
 import { assertYearOpen } from "@/lib/academic/years";
 import { act, actSimple, str, BASE } from "../_lib/server";
@@ -92,7 +92,7 @@ export async function readMarksSheet(fd: FormData): Promise<ImportResult> {
     if (!paper) throw new ExamRuleError("This paper was not found.");
     if (!teachesPaper(scope, sectionId, paper.subject.id)) throw new ExamRuleError(`You do not teach ${paper.subject.name} in ${paper.section.label}.`);
     let sheet: { headers: string[]; rows: string[][] };
-    try { sheet = await readSheet(Buffer.from(await file.arrayBuffer()), file.name); } catch { throw new ExamRuleError("This file could not be read. Save it as .xlsx or .csv and try again."); }
+    try { sheet = await readTable(Buffer.from(await file.arrayBuffer()), file.name); } catch { throw new ExamRuleError("This file could not be read. Save it as .xlsx or .csv and try again."); }
     const h = sheet.headers.map((x) => x.trim().toLowerCase());
     const col = (...names: string[]) => h.findIndex((x) => names.includes(x));
     const iAdm = col("admission no", "admission number", "admission no.");

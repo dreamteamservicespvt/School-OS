@@ -89,17 +89,23 @@ export function anthropicProvider(apiKey: string): AiProvider {
 // The fake used by tests, kept on globalThis so every copy of this module sees it.
 const slot = globalThis as unknown as { __schoolOsAiProvider?: AiProvider | null };
 
-/** For tests only: answer every AI request with this provider (null puts the real one back). */
+/** Only the test runner may put a fake in: a running school never answers from one, and never counts one as connected. */
+const testing = () => process.env.NODE_ENV === "test" || Boolean(process.env.VITEST);
+const fakeIn = () => (testing() ? slot.__schoolOsAiProvider ?? null : null);
+
+/** For tests only: answer every AI request with this provider (null puts the real one back). Refused outside the test runner. */
 export function useAiProvider(p: AiProvider | null) {
+  if (p && !testing()) throw new Error("A stand-in AI service can only be used by the tests.");
   slot.__schoolOsAiProvider = p;
 }
 
 /** The provider to use, or null when the AI service is not connected. */
 export function currentProvider(): AiProvider | null {
-  if (slot.__schoolOsAiProvider) return slot.__schoolOsAiProvider;
+  const fake = fakeIn();
+  if (fake) return fake;
   const key = aiKey();
   return key ? anthropicProvider(key) : null;
 }
 
 /** Is the AI service connected (a platform key is set, or a test provider is in)? */
-export const aiConnected = () => Boolean(slot.__schoolOsAiProvider) || aiKey() !== null;
+export const aiConnected = () => Boolean(fakeIn()) || aiKey() !== null;

@@ -14,10 +14,15 @@ export type DeclarableField = "phone" | "email";
 
 /** Field names that are never sent, whatever the feature (restricted and highly restricted). */
 const NEVER: { test: RegExp; what: string }[] = [
-  { test: /aadh?aa?r|^uid(no|number)?$/i, what: "Aadhaar" },
+  { test: /aadh?aa?r|^uid(_?no|_?number)?$/i, what: "Aadhaar" },
+  // APAAR ID and PEN are restricted on the Student record (04-data-model.md).
+  { test: /apaar|^(student_)?pen(_?no|_?number|_?id)?$/i, what: "APAAR and PEN numbers" },
   { test: /bank|ifsc|account_?(no|num)|acc_?no|upi_?id/i, what: "bank details" },
   { test: /salary|ctc|gross|net_?pay|basic_?pay|wage|payslip|deduction/i, what: "salary" },
   { test: /counsel/i, what: "counselling notes" },
+  { test: /private_?notes?/i, what: "private notes" },
+  // Not a school record at all, but never to leave either.
+  { test: /password|passcode|secret|api_?key|(^|_)otp(_|$)|(^|_)(auth|access|refresh)_?token/i, what: "passwords and keys" },
 ];
 
 const AADHAAR = /(?<!\d)\d{4}[ -]?\d{4}[ -]?\d{4}(?!\d)/g;

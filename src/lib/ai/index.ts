@@ -117,6 +117,8 @@ export async function aiTask<T>(ctx: SchoolContext, task: AiTask<T>, now = new D
       if (task.images?.length && !task.needs?.includes("images")) return { stop: "restricted-data" as const, id: await log({ outcome: "refused", reason: "restricted-data" }) };
       const m = minimise(task.input, new Set(task.needs?.filter((n): n is DeclarableField => n !== "images")));
       if (m.refused.length) return { stop: "restricted-data" as const, id: await log({ outcome: "refused", reason: "restricted-data", masked: m.masked }) };
+      // One request at a time per school past this point, so two at once cannot both take the last one of the day.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`ai-daily:${ctx.schoolId}`}))`;
       if ((await sentToday(tx, timeZone, now)) >= dailyLimitOf(prefs)) return { stop: "daily-limit" as const, id: await log({ outcome: "fallback", reason: "daily-limit" }) };
       const id = await log({ outcome: "pending", sent: true, masked: m.masked });
       return { stop: null, id, provider, text: JSON.stringify(m.value) };

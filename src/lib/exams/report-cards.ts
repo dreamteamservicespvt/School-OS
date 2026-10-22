@@ -4,7 +4,7 @@
 // remarks for their own section; the Principal writes principal remarks.
 import "server-only";
 
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate } from "../format";
@@ -111,6 +111,34 @@ export type RemarkRow = {
   evidence?: { text: string; source: string }[];
 };
 
+/** The evidence a suggestion showed, cleaned: at most 8 sentences, each with its source. */
+function cleanEvidence(raw: unknown): { text: string; source: string }[] | null {
+  if (!Array.isArray(raw)) return null;
+  const out = raw.slice(0, 8).flatMap((l) => {
+    const x = (l ?? {}) as Record<string, unknown>;
+    const text = typeof x.text === "string" ? x.text.trim().slice(0, 300) : "";
+    const source = typeof x.source === "string" ? x.source.trim().slice(0, 300) : "";
+    return text && source ? [{ text, source }] : [];
+  });
+  return out.length ? out : null;
+}
+
+/**
+ * Where a class teacher remark came from: a suggestion kept or edited (from the
+ * phrase bank, or reworded by the AI), with its evidence; a remark that started
+ * from one and is later changed by hand stays "edited"; typed or cleared, none.
+ */
+function remarkOrigin(row: RemarkRow, text: string | null, before: { classTeacherRemarkFrom: string | null } | null): Prisma.ReportCardUncheckedUpdateInput {
+  const none = { classTeacherRemarkFrom: null, classTeacherRemarkEvidence: Prisma.DbNull };
+  if (!text) return none;
+  if (row.suggestion === "kept" || row.suggestion === "edited") {
+    const evidence = cleanEvidence(row.evidence);
+    return { classTeacherRemarkFrom: `${row.byAi ? "ai" : "suggestion"}${row.suggestion === "edited" ? "-edited" : ""}`, classTeacherRemarkEvidence: evidence ?? Prisma.DbNull };
+  }
+  const was = before?.classTeacherRemarkFrom;
+  return was ? { classTeacherRemarkFrom: was.endsWith("-edited") ? was : `${was}-edited` } : none;
+}
+
 /**
  * Saves remarks and typed attendance for many students at once (the bulk entry
  * grid). Remarks kept from a suggestion are logged "prepared by AI, confirmed
@@ -144,7 +172,11 @@ export async function saveRemarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
     }
     const before = await tx.reportCard.findUnique({ where: { schoolId_studentId_academicYearId_period: { schoolId: ctx.schoolId, studentId: st.studentId, academicYearId: section.academicYearId, period: option.key } } });
     const data: Prisma.ReportCardUncheckedUpdateInput = { updatedById: ctx.userId, sectionId: input.sectionId };
-    if (row.classTeacherRemark !== undefined) data.classTeacherRemark = row.classTeacherRemark?.trim() || null;
+    if (row.classTeacherRemark !== undefined) {
+      data.classTeacherRemark = row.classTeacherRemark?.trim() || null;
+      // Where the remark came from (gap G30), kept with it.
+      if (data.classTeacherRemark !== (before?.classTeacherRemark ?? null)) Object.assign(data, remarkOrigin(row, data.classTeacherRemark, before));
+    }
     if (row.principalRemark !== undefined) data.principalRemark = row.principalRemark?.trim() || null;
     if (p !== undefined) data.attendancePresent = p;
     if (w !== undefined) data.attendanceWorking = w;
@@ -157,7 +189,7 @@ export async function saveRemarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
     const byAi = Boolean(suggestion && row.byAi);
     if (suggestion) suggested.push({ how: suggestion, byAi });
     const how = byAi ? "Prepared by AI" : "Suggested from the student's records";
-    changes.push({ student: st.name, before: before ? { classTeacherRemark: before.classTeacherRemark, principalRemark: before.principalRemark, attendancePresent: before.attendancePresent, attendanceWorking: before.attendanceWorking } : null, after: data, ...(suggestion ? { suggestion: suggestion === "kept" ? `${how}, kept as suggested` : `${how}, edited before saving` } : {}) });
+    changes.push({ student: st.name, before: before ? { classTeacherRemark: before.classTeacherRemark, principalRemark: before.principalRemark, attendancePresent: before.attendancePresent, attendanceWorking: before.attendanceWorking } : null, after: { ...data, classTeacherRemarkEvidence: data.classTeacherRemarkEvidence === Prisma.DbNull ? null : data.classTeacherRemarkEvidence }, ...(suggestion ? { suggestion: suggestion === "kept" ? `${how}, kept as suggested` : `${how}, edited before saving` } : {}) });
   }
   if (changes.length) {
     await refreshReportCards(tx, ctx, section.academicYearId, [input.sectionId]);

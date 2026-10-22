@@ -1,8 +1,9 @@
 // Confirm admission (02 §2, automation A2) and Undo admission, gap list G21
 // and follow-up A, through the server actions with a real session:
-// - the papers verified at admission become the student's documents, named
-//   as Student Settings lists them, with the photo and the previous school's
-//   last class and marks;
+// - every paper received or verified at admission becomes the student's
+//   document (same file), named as Student Settings lists them, with the
+//   photo and the previous school's last class and marks; papers uploaded,
+//   verified or rejected after admission follow onto the student's record;
 // - a parent on record is reused only when the phone and the name match
 //   (close spellings allowed); the same phone under another name waits for
 //   the admissions person to say same family or different family;
@@ -29,6 +30,7 @@ import { withSchool, type SchoolContext } from "@/lib/db";
 import { createApplication, type ApplicationInput } from "@/lib/admission/applications";
 import { DATA_CONSENT } from "@/lib/admission/consent";
 import { familyQuestion, type Conversion } from "@/lib/admission/convert";
+import { rejectDocument, uploadDocument, verifyDocument } from "@/lib/admission/documents";
 import { PAPER_TO_STUDENT_DOCUMENT, studentDocumentKind } from "@/lib/admission/settings";
 import { DEFAULT_DOCUMENTS } from "@/lib/students/settings";
 import { ensureFeeDefaults } from "@/lib/fees/settings";
@@ -68,7 +70,7 @@ async function confirm(appId: string, extra: Record<string, string> = {}) {
 const stored = (contentType: string, fileName: string) => run((tx) => tx.storedFile.create({ data: { schoolId: t.school.id, storageKey: `test/${randomUUID()}`, fileName, contentType, sizeBytes: 1000, purpose: "admission-document" } }));
 
 /** An application at the counter, approved, with data consent given, papers as asked. */
-async function approved(over: Record<string, unknown> = {}, opts: { papers?: Record<string, { status: "VERIFIED" | "RECEIVED"; type: string }>; exception?: boolean } = {}): Promise<Application> {
+async function approved(over: Record<string, unknown> = {}, opts: { papers?: Record<string, { status: "VERIFIED" | "RECEIVED" | "REJECTED"; type: string }>; exception?: boolean } = {}): Promise<Application> {
   const cctx = counsellor.ctx;
   const app = await withSchool(cctx, (tx) => createApplication(tx, cctx, counsellor.v, counsellor.s, applicationInput(t.nextYearId, t.c1, { phone: phone(), ...over }) as ApplicationInput, { campusId: t.campusId, channel: "counter", force: true }));
   for (const [docType, p] of Object.entries(opts.papers ?? {})) {
@@ -121,7 +123,7 @@ describe("the papers checked at admission become the student's documents (G21)",
     expect(studentDocumentKind("other", DEFAULT_DOCUMENTS)).toBe("Other certificate");
   });
 
-  it("carries every verified paper (same file), sets the photo and keeps the previous school's class and marks", async () => {
+  it("carries every received and verified paper (same file), sets the photo and keeps the previous school's class and marks", async () => {
     await signIn(t.counsellor.id);
     const app = await approved({ previousSchool: "Little Stars School", previousClass: "UKG", previousMarks: "A grade" }, {
       exception: false,
@@ -130,8 +132,10 @@ describe("the papers checked at admission become the student's documents (G21)",
         photo: { status: "VERIFIED", type: "image/jpeg" },
         "address-proof": { status: "VERIFIED", type: "application/pdf" },
         "parent-id": { status: "VERIFIED", type: "image/png" },
-        // Received but not verified: stays on the application.
+        // Received but not verified yet: carried, and its note says so.
         aadhaar: { status: "RECEIVED", type: "image/jpeg" },
+        // Rejected: the family brings a new copy, so it is not carried.
+        "transfer-certificate": { status: "REJECTED", type: "application/pdf" },
       },
     });
     const r = await confirm(app.id);
@@ -139,21 +143,78 @@ describe("the papers checked at admission become the student's documents (G21)",
     const after = await run((tx) => tx.application.findUniqueOrThrow({ where: { id: app.id } }));
     const studentId = after.studentId!;
     const docs = await run((tx) => tx.studentDocument.findMany({ where: { studentId, archivedAt: null }, orderBy: { kind: "asc" } }));
-    expect(docs.map((d) => d.kind)).toEqual(["Address proof", "Birth certificate", "Parent's ID proof", "Passport-size photo"]);
+    expect(docs.map((d) => d.kind)).toEqual(["Aadhaar card", "Address proof", "Birth certificate", "Parent's ID proof", "Passport-size photo"]);
     expect(docs.every((d) => d.guardianId === null && d.note?.includes(app.applicationNo))).toBe(true);
-    const papers = await run((tx) => tx.applicationDocument.findMany({ where: { applicationId: app.id, status: "VERIFIED" } }));
+    expect(docs.find((d) => d.kind === "Aadhaar card")?.note).toBe(`Received at admission (application ${app.applicationNo}), not verified yet`);
+    expect(docs.find((d) => d.kind === "Birth certificate")?.note).toBe(`Verified at admission (application ${app.applicationNo})`);
+    const papers = await run((tx) => tx.applicationDocument.findMany({ where: { applicationId: app.id, status: { in: ["VERIFIED", "RECEIVED"] } } }));
     expect(docs.map((d) => d.fileId).sort()).toEqual(papers.map((p) => p.fileId).sort());
+    const rejected = await run((tx) => tx.applicationDocument.findFirstOrThrow({ where: { applicationId: app.id, status: "REJECTED" } }));
+    expect(docs.some((d) => d.fileId === rejected.fileId)).toBe(false);
     const student = await run((tx) => tx.student.findUniqueOrThrow({ where: { id: studentId } }));
     expect(student.photoFileId).toBe(papers.find((p) => p.docType === "photo")!.fileId);
     expect(await run((tx) => tx.studentPreviousSchool.findUnique({ where: { studentId } }))).toMatchObject({ schoolName: "Little Stars School", lastClass: "UKG", marks: "A grade" });
-    // "Documents 4 of 6" on the profile: the four verified ones count, Aadhaar and TC are still missing.
+    // "Documents 5 of 6" on the profile: only the rejected TC is still missing.
     const kinds = new Set(docs.map((d) => d.kind));
-    expect(DEFAULT_DOCUMENTS.filter((k) => kinds.has(k))).toHaveLength(4);
+    expect(DEFAULT_DOCUMENTS.filter((k) => kinds.has(k))).toHaveLength(5);
     const c = await conversionOf(app.id);
-    expect(c.studentDocumentIds).toHaveLength(4);
+    expect(c.studentDocumentIds).toHaveLength(5);
     expect(c.photoFileId).toBe(student.photoFileId);
     const audits = await run((tx) => tx.auditLogEntry.count({ where: { recordType: "Student Document", recordId: { in: docs.map((d) => d.id) }, action: "uploaded" } }));
-    expect(audits).toBe(4);
+    expect(audits).toBe(5);
+    const history = await run((tx) => tx.applicationActivity.findFirstOrThrow({ where: { applicationId: app.id, kind: "admitted" } }));
+    expect(history.text).toContain("5 papers added to the student's documents (1 not verified yet), with the photo.");
+  });
+
+  it("a received photo that is not verified yet is kept as a document but is not made the student's photo", async () => {
+    await signIn(t.counsellor.id);
+    const app = await approved({}, { papers: { photo: { status: "RECEIVED", type: "image/jpeg" } } });
+    expect(await confirm(app.id)).toMatchObject({ ok: true });
+    const studentId = (await run((tx) => tx.application.findUniqueOrThrow({ where: { id: app.id } }))).studentId!;
+    expect(await run((tx) => tx.studentDocument.count({ where: { studentId, kind: "Passport-size photo", archivedAt: null } }))).toBe(1);
+    expect(await run((tx) => tx.student.findUniqueOrThrow({ where: { id: studentId } }))).toMatchObject({ photoFileId: null });
+  });
+
+  it("admitted with papers pending: a paper uploaded, verified, replaced or rejected later follows onto the student's documents", async () => {
+    await signIn(t.counsellor.id);
+    const app = await approved();
+    expect(await confirm(app.id)).toMatchObject({ ok: true });
+    const studentId = (await run((tx) => tx.application.findUniqueOrThrow({ where: { id: app.id } }))).studentId!;
+    const docsNow = () => run((tx) => tx.studentDocument.findMany({ where: { studentId, archivedAt: null } }));
+    expect(await docsNow()).toEqual([]);
+    const cctx = counsellor.ctx;
+    const pdf = (name: string) => new File([Buffer.from(`%PDF-1.4\n% ${name}\n`)], name, { type: "application/pdf" });
+
+    // The TC comes from the old school a week later.
+    const tc = await withSchool(cctx, (tx) => uploadDocument(tx, cctx, counsellor.v, { applicationId: app.id, docType: "transfer-certificate", file: pdf("tc.pdf"), note: null }));
+    let docs = await docsNow();
+    expect(docs).toHaveLength(1);
+    expect(docs[0]).toMatchObject({ kind: "Transfer certificate (previous school)", fileId: tc.fileId, note: `Received after admission (application ${app.applicationNo}), not verified yet` });
+
+    await withSchool(cctx, (tx) => verifyDocument(tx, cctx, counsellor.v, tc.id));
+    docs = await docsNow();
+    expect(docs).toHaveLength(1);
+    expect(docs[0].note).toBe(`Verified after admission (application ${app.applicationNo})`);
+
+    // A clearer copy replaces the first one on the student's record.
+    const again = await withSchool(cctx, (tx) => uploadDocument(tx, cctx, counsellor.v, { applicationId: app.id, docType: "transfer-certificate", file: pdf("tc-clear.pdf"), note: null }));
+    docs = await docsNow();
+    expect(docs.map((d) => d.fileId)).toEqual([again.fileId]);
+
+    // Rejected: it comes off the student's documents; the family brings a new copy.
+    await withSchool(cctx, (tx) => rejectDocument(tx, cctx, counsellor.v, "School", again.id, "Stamp not clear", false));
+    expect(await docsNow()).toEqual([]);
+    const history = await run((tx) => tx.applicationActivity.findMany({ where: { applicationId: app.id, kind: "document" }, orderBy: { at: "asc" } }));
+    expect(history.map((h) => h.text)).toEqual([
+      "Transfer certificate (TC) uploaded. Added to the student's documents.",
+      "Transfer certificate (TC) verified. Updated on the student's documents.",
+      "Transfer certificate (TC) uploaded (new copy). Added to the student's documents.",
+      "Transfer certificate (TC) rejected: Stamp not clear. Taken off the student's documents.",
+    ]);
+    // A paper on an application that is not admitted touches no student.
+    const other = await approved();
+    await withSchool(cctx, (tx) => uploadDocument(tx, cctx, counsellor.v, { applicationId: other.id, docType: "birth-certificate", file: pdf("bc.pdf"), note: null }));
+    expect(await run((tx) => tx.studentDocument.count({ where: { note: { contains: other.applicationNo } } }))).toBe(0);
   });
 });
 

@@ -26,7 +26,7 @@ import type { Current } from "@/lib/current";
  * The translations the sender confirmed (G40), only while the school's translation switch allows them:
  * with AI or the switch off, everyone gets the text as typed, whatever the form says.
  */
-function confirmedTranslations(current: Current, form: FormData, english: { text: string | null; title: string | null }) {
+function confirmedTranslations(current: Current, form: FormData, english: { text?: string | null; title?: string | null }) {
   if (!aiReady(current, "ai-translation")) return { ok: true as const, translations: null };
   return readTranslations(form, english);
 }

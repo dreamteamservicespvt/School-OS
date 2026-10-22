@@ -104,7 +104,7 @@ export type ReadTranslations = { ok: true; translations: Translations | null } |
  * The confirmed translations sent with the form, checked: made from the English
  * as it now stands, and each keeping its blanks. Null when none were confirmed.
  */
-export function readTranslations(form: FormData, english: { text: string | null; title: string | null }): ReadTranslations {
+export function readTranslations(form: FormData, english: { text?: string | null; title?: string | null }): ReadTranslations {
   if (form.get(TR_FIELDS.on) !== "on") return { ok: true, translations: null };
   const text = (english.text ?? "").trim();
   if (!text) return { ok: true, translations: null };

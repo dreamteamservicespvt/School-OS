@@ -32,7 +32,7 @@ import { withSchool } from "@/lib/db";
 import { accessIn } from "@/lib/auth/access";
 import { useAiProvider as setAiProvider, type AiProvider, type AiRequest } from "@/lib/ai";
 import { saveAssistant, setFeature } from "@/lib/settings/switches";
-import { planMessage, recordSend } from "@/lib/messaging/send";
+import { planMessage, recordSend, type SendInput } from "@/lib/messaging/send";
 import { readTranslations, translatedLabel, translationKey, translationProblem, TR_FIELDS } from "@/lib/messaging/translation";
 import { checkOrSend, translateForParents } from "@/app/(school)/communication/actions";
 import { addDlt, makeCommSchool } from "./fixture";
@@ -194,7 +194,7 @@ describe("sending the confirmed translations", () => {
   it("sends the sender's edited version, keeps every version for Message History and marks the send as prepared by AI", async () => {
     const edited = `${TE} గొడుగులు తీసుకురండి.`;
     const sent = await withSchool(s.ctx, async (tx) => {
-      const input = { to: { kinds: ["parents"], classIds: [s.cls.id] }, channels: ["whatsapp"] as ["whatsapp"], text: TEXT, translations: { te: { text: edited, title: null, edited: true }, hi: { text: HI, title: null } } };
+      const input: SendInput = { to: { kinds: ["parents"], classIds: [s.cls.id] }, channels: ["whatsapp"], text: TEXT, translations: { te: { text: edited, title: null, edited: true }, hi: { text: HI, title: null } } };
       return recordSend(tx, s.ctx, input, await planMessage(tx, s.ctx, input));
     });
     const m = await withSchool(s.ctx, (tx) => tx.message.findUniqueOrThrow({ where: { id: sent.messageId }, include: { recipients: true } }));

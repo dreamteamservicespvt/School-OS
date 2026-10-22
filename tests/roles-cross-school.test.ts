@@ -70,8 +70,9 @@ describe("the database shows a person's other school only before a school is cho
 describe("the role lists the pages use hold only this school's roles", () => {
   it("Settings role lists, pickers and the AI assistant's roles: each role once, all from school A", async () => {
     await withSchool(inA(), async (tx) => {
+      const picker = await schoolRoles(tx, inA(), { where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { id: true, key: true, name: true, schoolId: true } });
       const lists = [
-        await schoolRoles(tx, inA(), { where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { id: true, key: true, name: true, schoolId: true } }),
+        picker,
         await schoolRoles(tx, inA(), { orderBy: [{ name: "asc" }] }),
         await assignableRoles(tx, inA()),
       ];
@@ -80,7 +81,7 @@ describe("the role lists the pages use hold only this school's roles", () => {
         const names = list.map((r) => r.name);
         expect(new Set(names).size).toBe(names.length);
       }
-      expect(lists[0].every((r) => r.schoolId === f.school.id)).toBe(true);
+      expect(picker.every((r) => r.schoolId === f.school.id)).toBe(true);
       expect(await schoolRole(tx, inA(), { where: { key: bCustom.key } })).toBeNull();
     });
   });

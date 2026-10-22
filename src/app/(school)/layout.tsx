@@ -65,6 +65,7 @@ export default async function SchoolLayout({ children }: { children: React.React
       year={year ? { name: year.name, closed: year.status === "CLOSED" } : null}
       person={{ id: current.user.id, name: current.user.displayName, role: current.roles[0]?.name ?? "", photo: await withSchool(current.ctx, (tx) => myPhotoLink(tx, current.ctx, current.user.id)).catch(() => null) }}
       menu={shell.menu.map((m) => m.key)}
+      landing={shell.landing}
       bottom={shell.bottom}
       quick={shell.quick}
       pages={shell.pages}

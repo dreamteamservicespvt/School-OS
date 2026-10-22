@@ -12,7 +12,7 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { withSchool } from "@/lib/db";
 import { accessIn } from "@/lib/auth/access";
 import { requirePermission } from "@/lib/permissions";
-import { FO_PAGES, foPageAllowed, type FoPageKey } from "@/lib/front-office/access";
+import { FO_PAGES, foLanding, foPageAllowed, type FoPageKey } from "@/lib/front-office/access";
 import { registerVisitor } from "@/lib/front-office/visitors";
 import { logCall } from "@/lib/front-office/calls";
 import { FRONT_OFFICE_WIDGETS } from "@/lib/dashboard/widgets/front-office";
@@ -75,6 +75,13 @@ describe("Front Office by role", () => {
     expect(await pagesOf(f.office.id)).toEqual(["visitors", "pickup"]);
     expect(await pagesOf(f.gate.id)).toEqual(["visitors", "pickup"]);
     expect(await pagesOf(f.teacher.id)).toEqual([]);
+  });
+
+  it("opens the menu link straight on a page the role can see, with no redirect on the way (QA PERF-01)", async () => {
+    const landing = async (id: string) => foLanding((await foFor(f, id)).v);
+    expect(await landing(f.frontdesk.id)).toBe("/front-office");
+    for (const id of [f.principal.id, f.admin.id, f.vp.id, f.office.id, f.gate.id]) expect(await landing(id)).toBe("/front-office/visitors");
+    expect(await landing(f.teacher.id)).toBeNull();
   });
 
   it("gives desk work only to the desk, booking to the Principal too, and masks phones for Office Staff and Gate Security", async () => {

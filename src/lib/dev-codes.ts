@@ -86,6 +86,14 @@ export const channelWord = (channel: string) => CHANNEL_WORDS[channel] ?? channe
  * What a screen says when Test mode kept a one-time code back (QA ADMIT-03):
  * never "Code sent", because nothing reached the phone.
  */
+/** For a parent's screen (online admission form, Parent Link): no staff words or settings paths. */
+export const PARENT_CODE_NOT_SENT = "We could not send the code just now. Please contact the school office.";
+
+/** What a parent's screen says when the code was not sent; on a tester's computer it adds where the code is. */
+export function codeNotSentParentWords(inLog: boolean): string {
+  return `${PARENT_CODE_NOT_SENT}${inLog ? " (On this tester's computer the code is in the server log.)" : ""}`;
+}
+
 export function codeNotSentWords(input: { to: string; channel: string; inLog: boolean }): string {
   return `Test mode, not sent: no code went to ${input.to}, because the school's ${channelWord(input.channel)} is in Test mode (Settings, SMS, WhatsApp & Email).${input.inLog ? " On this computer the code is in the server log." : ""}`;
 }

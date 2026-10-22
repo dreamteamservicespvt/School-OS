@@ -15,11 +15,17 @@ import { messageSettings } from "@/lib/messaging/settings";
 import { ACCESS_WORDS, confirmDevice, deviceCookieName, findLink, hashToken, linkUsable, newDeviceKey, ParentLinkProblem, codeSentWords, sendCode } from "@/lib/parent-link/links";
 import { askConsentCode, confirmConsent } from "@/lib/parent-link/consent";
 import { guardianFor } from "./guardian";
+import { PARENT_CODE_NOT_SENT } from "@/lib/dev-codes";
 
 /** notSent: Test mode kept the code back; the page shows the message instead of "code sent". */
 export type GuardianState = { ok: boolean; message?: string; step?: "code" | "done"; notSent?: boolean } | null;
 
 const GONE = ACCESS_WORDS.gone;
+
+/** The code box opens only when there is a code to type (sent, or in the log on a tester's computer). */
+function codeStep(w: { ok: boolean; message: string; notSent?: boolean }): GuardianState {
+  return w.ok ? { ok: true, step: "code", message: w.message, notSent: w.notSent } : { ok: false, message: w.message };
+}
 
 async function limits(keys: [string, number, number][]) {
   for (const [key, max, seconds] of keys) {
@@ -63,9 +69,9 @@ export async function sendDeviceCode(token: string, _prev: GuardianState, _form:
       return { sent, settings: (await messageSettings(tx, ctx)).parentLink };
     });
     await setDeviceCookie(found.linkId, key, pl.settings.deviceDays);
-    return { ok: true, step: "code", message: codeSentWords(pl.sent, `Code sent. It works for ${pl.settings.codeMinutes} minutes.`), notSent: pl.sent.testMode };
+    return codeStep(codeSentWords(pl.sent, `Code sent. It works for ${pl.settings.codeMinutes} minutes.`));
   } catch (e) {
-    if (e instanceof ParentLinkProblem || e instanceof MessagingProblem) return { ok: false, message: e instanceof ParentLinkProblem ? e.message : "The school cannot send codes right now. Please call the school." };
+    if (e instanceof ParentLinkProblem || e instanceof MessagingProblem) return { ok: false, message: e instanceof ParentLinkProblem ? e.message : PARENT_CODE_NOT_SENT };
     throw e;
   }
 }
@@ -108,10 +114,10 @@ export async function askConsent(token: string, _prev: GuardianState, form: Form
   if (!studentIds.length) return { ok: false, message: "Choose your child for this consent." };
   try {
     const sent = await withSchool(g.ctx, (tx) => askConsentCode(tx, g.ctx, g.linkId, g.guardianId, { consentTextId, studentIds, action }));
-    return { ok: true, step: "code", message: codeSentWords(sent, "Code sent. Type it below to confirm."), notSent: sent.testMode };
+    return codeStep(codeSentWords(sent, "Code sent. Type it below to confirm."));
   } catch (e) {
     if (e instanceof ParentLinkProblem) return { ok: false, message: e.message };
-    if (e instanceof MessagingProblem) return { ok: false, message: "The school cannot send codes right now. Please call the school." };
+    if (e instanceof MessagingProblem) return { ok: false, message: PARENT_CODE_NOT_SENT };
     throw e;
   }
 }

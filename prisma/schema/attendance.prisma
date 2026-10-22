@@ -131,6 +131,9 @@ model AttendanceMark {
   @@index([schoolId, sectionId, date])
   @@index([schoolId, date, statusKey])
   @@index([schoolId, absenceReason, date])
+  /// Marks not yet locked, for the attendance lock every 15 minutes: a partial index
+  /// (attendance_mark_not_locked, WHERE locked = false) in the migration
+  /// 20261022233100_speed_attendance_lock_index (gap list G37).
   @@map("attendance_mark")
 }
 

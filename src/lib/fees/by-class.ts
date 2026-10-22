@@ -14,9 +14,9 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import type { Tx } from "../db";
-import { addDays, DAY_MS } from "../staff/dates";
+import { addDays, DAY_MS, isoDay } from "../staff/dates";
 import { classGroups, type ClassGroup } from "../attendance/classwise";
-import { DUE_WINDOW_DAYS, netAmount } from "./dues";
+import { DUE_WINDOW_DAYS } from "./dues";
 import { feeStudentFilter, type FeeViewer } from "./access";
 import { OPEN_LINK } from "../students/guardian-access";
 import { sectionInCampus } from "../campus";
@@ -89,17 +89,29 @@ function finishTotals(t: FeeTotals) {
  */
 async function dueRows(tx: Tx, viewer: Pick<FeeViewer, "yearIds" | "campusId">, today: Date, studentIds: string[] | null): Promise<Row[]> {
   const horizon = addDays(today, DUE_WINDOW_DAYS);
+  const only = studentIds ?? (await feeStudentFilter(tx, viewer)).studentId?.in ?? null;
+  const years = [...viewer.yearIds];
+  // An archived student's rows are not counted, as on Defaulters (fees/defaulters.ts). Archived students are few.
   const archived = (await tx.student.findMany({ where: { archivedAt: { not: null } }, select: { id: true } })).map((s) => s.id);
-  const where: Prisma.StudentFeeDueWhereInput = {
-    state: "OPEN",
-    dueDate: { lte: horizon },
-    // An archived student's rows are not counted, as on Defaulters (fees/defaulters.ts). Archived students are few.
-    ...(archived.length ? { NOT: { studentId: { in: archived } } } : {}),
-    ...(viewer.yearIds.length ? { OR: [{ academicYearId: { in: viewer.yearIds } }, { balancePaise: { gt: 0 } }] } : {}),
-    ...(studentIds ? { studentId: { in: studentIds } } : await feeStudentFilter(tx, viewer)),
-  };
-  const rows = await tx.studentFeeDue.findMany({ where, select: { studentId: true, label: true, dueDate: true, amountPaise: true, concessionPaise: true, adjustmentPaise: true, paidPaise: true, balancePaise: true } });
-  return rows.map((r) => ({ studentId: r.studentId, label: r.label, dueDate: r.dueDate, net: netAmount(r), paid: r.paidPaise, balance: r.balancePaise > ZERO ? r.balancePaise : ZERO }));
+  // One row per student with their fee rows in one JSON text, not one row per fee row: a school's year is tens
+  // of thousands of fee rows, and the database client took most of a second to turn them into rows (G37).
+  // The same rows as before: open, fallen due by the horizon, this year's or still owing; net as netAmount() in ./dues.ts.
+  const packed = await tx.$queryRaw<{ rows: string }[]>`
+    SELECT json_agg(json_build_array(student_id, label, due_date - DATE '1970-01-01', (amount_paise - concession_paise + adjustment_paise)::text, paid_paise::text, balance_paise::text))::text AS rows
+    FROM student_fee_due
+    WHERE state = 'OPEN' AND due_date <= ${isoDay(horizon)}::date
+      AND NOT (student_id = ANY(${archived}::uuid[]))
+      AND (cardinality(${years}::uuid[]) = 0 OR academic_year_id = ANY(${years}::uuid[]) OR balance_paise > 0)
+      AND (${only}::uuid[] IS NULL OR student_id = ANY(${only}::uuid[]))
+    GROUP BY student_id`;
+  const out: Row[] = [];
+  for (const p of packed) {
+    for (const [studentId, label, days, net, paid, balance] of JSON.parse(p.rows) as [string, string, number, string, string, string][]) {
+      const b = BigInt(balance);
+      out.push({ studentId, label, dueDate: new Date(days * DAY_MS), net: BigInt(net), paid: BigInt(paid), balance: b > ZERO ? b : ZERO });
+    }
+  }
+  return out;
 }
 
 function studentFees(rows: Row[], today: Date, who: { studentId: string; name: string; admissionNo: string; rollNo: number | null }): StudentFees {

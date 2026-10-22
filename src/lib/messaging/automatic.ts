@@ -240,13 +240,12 @@ async function logLines(tx: Tx, ctx: SchoolContext, ruleKey: string, event: { ke
   if (!people.length) return;
   if (outcome === "sent" || outcome === "no-credits") {
     // A person skipped earlier (opted out at the time) now gets it: the line moves to sent.
-    for (const p of people) {
-      await tx.automationLog.upsert({
-        where: { schoolId_ruleKey_eventKey_recipientKey: { schoolId: ctx.schoolId, ruleKey, eventKey: event.key, recipientKey: p.key } },
-        create: { schoolId: ctx.schoolId, ruleKey, eventKey: event.key, eventLabel: event.label, recipientKey: p.key, recipientName: p.name, outcome, note, messageId },
-        update: { outcome, note, messageId },
-      });
-    }
+    // Lines already there change in one write, the others are added in one more (G37: it was one per person).
+    await tx.automationLog.updateMany({ where: { ruleKey, eventKey: event.key, recipientKey: { in: people.map((p) => p.key) } }, data: { outcome, note, messageId } });
+    await tx.automationLog.createMany({
+      data: people.map((p) => ({ schoolId: ctx.schoolId, ruleKey, eventKey: event.key, eventLabel: event.label, recipientKey: p.key, recipientName: p.name, outcome, note, messageId })),
+      skipDuplicates: true,
+    });
     return;
   }
   await tx.automationLog.createMany({

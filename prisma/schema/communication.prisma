@@ -205,6 +205,14 @@ model MessageRecipient {
   @@index([schoolId, staffId])
   @@index([schoolId, userLoginId, channel])
   @@index([schoolId, providerMessageId])
+  /// Failed this week (Dashboard), still queued (gap list G37).
+  @@index([schoolId, status, failedAt])
+  /// Message History's counts of everyone reached, read from the index alone (G37).
+  @@index([schoolId, isBackup, status, provider])
+  /// Message delivery month by month (G37).
+  @@index([schoolId, queuedAt])
+  /// How often each template version was used (G37).
+  @@index([schoolId, templateVersionId])
   @@map("message_recipient")
 }
 

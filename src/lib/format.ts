@@ -9,16 +9,31 @@ export function formatRupees(paise: bigint | number): string {
   return p % 100 === 0 ? wholeRupees.format(p / 100) : withPaise.format(p / 100);
 }
 
+/**
+ * One formatter per time zone, made once: making one costs far more than using
+ * it, and a list or a reminder run formats thousands of dates (gap list G37).
+ */
+function formatterFor(cache: Map<string, Intl.DateTimeFormat>, timeZone: string, make: () => Intl.DateTimeFormat) {
+  let f = cache.get(timeZone);
+  if (!f) {
+    f = make();
+    if (cache.size < 100) cache.set(timeZone, f);
+  }
+  return f;
+}
+const DATE_FORMATS = new Map<string, Intl.DateTimeFormat>();
+const TIME_FORMATS = new Map<string, Intl.DateTimeFormat>();
+
 /** Dates show as DD-MM-YYYY, in the school's time zone. */
 export function formatDate(date: Date, timeZone = "Asia/Kolkata"): string {
-  const parts = new Intl.DateTimeFormat("en-GB", { timeZone, day: "2-digit", month: "2-digit", year: "numeric" }).formatToParts(date);
+  const parts = formatterFor(DATE_FORMATS, timeZone, () => new Intl.DateTimeFormat("en-GB", { timeZone, day: "2-digit", month: "2-digit", year: "numeric" })).formatToParts(date);
   const get = (type: string) => parts.find((p) => p.type === type)?.value ?? "";
   return `${get("day")}-${get("month")}-${get("year")}`;
 }
 
 /** Times in 12-hour format with AM and PM (inferred). */
 export function formatTime(date: Date, timeZone = "Asia/Kolkata"): string {
-  return new Intl.DateTimeFormat("en-IN", { timeZone, hour: "numeric", minute: "2-digit", hour12: true })
+  return formatterFor(TIME_FORMATS, timeZone, () => new Intl.DateTimeFormat("en-IN", { timeZone, hour: "numeric", minute: "2-digit", hour12: true }))
     .format(date)
     .replace(/\s?(am|pm)$/i, (m) => ` ${m.trim().toUpperCase()}`);
 }

@@ -33,8 +33,8 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { currentYear, currentYears } from "../academic/years";
 import { mainCampus } from "../campus";
-import { attendanceSettings } from "../attendance/settings";
-import { attendanceSummary } from "../attendance/summary";
+import { attendanceSettings, statusList, statusMap, type StatusInfo } from "../attendance/settings";
+import { attendanceSummary, narrowSummary, type SummaryResult } from "../attendance/summary";
 import { schoolDays } from "../attendance/calendar";
 import { UNEXPLAINED_ALONE } from "./absence-signals";
 import { mostlyUnexplained, reasonMix, unexplained } from "../attendance/absence-reasons";
@@ -146,6 +146,24 @@ export type Ctx = { tx: Tx; ctx: SchoolContext; today: Date; year: { id: string;
 
 type Enrolled = { studentId: string; sectionId: string; classId: string };
 
+/**
+ * The year's attendance of these students so far, read once for every part
+ * that needs it: a shorter range (the last 30 days, one month) is taken from
+ * its day statuses (narrowSummary), not read again (G37: five reads of a big
+ * school's marks took Looking ahead past ten seconds).
+ */
+const yearMarks = new WeakMap<Ctx, { ids: string[]; read: Promise<{ sum: SummaryResult; statuses: Map<string, StatusInfo> }> }>();
+function yearAttendance(c: Ctx, ids: string[]) {
+  const have = yearMarks.get(c);
+  if (have && have.ids.length === ids.length && have.ids.every((id, i) => id === ids[i])) return have.read;
+  const read = Promise.all([
+    attendanceSummary(c.tx, c.ctx, { studentIds: ids, from: c.year.startDate, to: c.today, today: c.today }),
+    statusList(c.tx, c.ctx, { includeArchived: true }).then(statusMap),
+  ]).then(([sum, statuses]) => ({ sum, statuses }));
+  yearMarks.set(c, { ids, read });
+  return read;
+}
+
 async function names(tx: Tx, ids: string[]) {
   return new Map((await tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true } })).map((s) => [s.id, s.fullName]));
 }
@@ -161,11 +179,11 @@ async function attendanceForecasts(c: Ctx, enrolled: Enrolled[]): Promise<Foreca
   const threshold = settings.thresholdPercent;
   const ids = enrolled.map((e) => e.studentId);
   const recentFrom = addDays(c.today, -30) < c.year.startDate ? c.year.startDate : addDays(c.today, -30);
-  const [all, recent, left] = await Promise.all([
-    attendanceSummary(c.tx, c.ctx, { studentIds: ids, from: c.year.startDate, to: c.today, today: c.today }),
-    attendanceSummary(c.tx, c.ctx, { studentIds: ids, from: recentFrom, to: c.today, today: c.today }),
+  const [{ sum: all, statuses }, left] = await Promise.all([
+    yearAttendance(c, ids),
     schoolDays(c.tx, c.ctx, addDays(c.today, 1), c.year.endDate),
   ]);
+  const recent = { people: narrowSummary(all, recentFrom, c.today, statuses) };
   const daysLeft = left.working.length;
   if (daysLeft < 10) return [];
   const found: { e: Enrolled; now: number; end: number; recent: number }[] = [];
@@ -392,7 +410,9 @@ async function leavingForecasts(c: Ctx, enrolled: Enrolled[]): Promise<Forecast[
     const e = back === 0 ? c.today : new Date(Date.UTC(c.today.getUTCFullYear(), c.today.getUTCMonth() - back + 1, 0));
     return { s: s < c.year.startDate ? c.year.startDate : s, e };
   });
-  const sums = await Promise.all(months.map((m) => (m.e < m.s ? null : attendanceSummary(c.tx, c.ctx, { studentIds: ids, from: m.s, to: m.e, today: c.today }))));
+  // Each month inside the year so far: from the year's day statuses (yearAttendance), not read again.
+  const year = await yearAttendance(c, ids);
+  const sums = months.map((m) => (m.e < m.s ? null : { people: narrowSummary(year.sum, m.s, m.e < c.today ? m.e : c.today, year.statuses) }));
   const [mixes, open] = await Promise.all([
     reasonMix(c.tx, c.ctx, ids, c.year.startDate, c.today),
     c.tx.riskFlag.findMany({ where: { closedAt: null, studentId: { in: ids }, area: { in: ["marks", "fees"] } }, select: { studentId: true, area: true, reason: true } }),

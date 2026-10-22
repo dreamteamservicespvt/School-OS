@@ -6,6 +6,7 @@
 // card for that exam; a term card shows the term's other exams.
 import "server-only";
 
+import type { Prisma, ReportCardStatus } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { examKey, finalKey, periodKey, type Period } from "./common";
 
@@ -62,18 +63,28 @@ export async function refreshReportCards(tx: Tx, ctx: SchoolContext, yearId: str
     const results = await tx.result.findMany({ where: { studentId: { in: studentIds }, academicYearId: yearId, OR: [{ status: "PUBLISHED" }, { leftOut: true }] }, select: { key: true, studentId: true, status: true, leftOut: true } });
     // Found by student, not by section: a report card (with its remarks) follows a student who changed section (G23).
     const cards = await tx.reportCard.findMany({ where: { studentId: { in: studentIds }, academicYearId: yearId } });
+    // Looked up, and written together: new cards in one write, changed ones in one per new status (G37: one query
+    // per student made publishing a whole school's results run past the background job's time limit).
+    const resultsOf = new Map<string, typeof results>();
+    for (const r of results) resultsOf.set(r.studentId, [...(resultsOf.get(r.studentId) ?? []), r]);
+    const cardOf = new Map<string, (typeof cards)[number]>();
+    for (const c of cards) if (!cardOf.has(`${c.studentId}|${c.period}`)) cardOf.set(`${c.studentId}|${c.period}`, c);
+    const fresh: Prisma.ReportCardCreateManyInput[] = [];
+    const moves = new Map<string, string[]>();
     for (const o of options) {
       const needed = neededKeys(o);
       for (const studentId of studentIds) {
-        const ok = cardReady(needed, results.filter((r) => r.studentId === studentId));
-        const card = cards.find((c) => c.studentId === studentId && c.period === o.key);
+        const ok = cardReady(needed, resultsOf.get(studentId) ?? []);
+        const card = cardOf.get(`${studentId}|${o.key}`);
         if (!card) {
-          if (ok) await tx.reportCard.create({ data: { schoolId: ctx.schoolId, academicYearId: yearId, studentId, sectionId, period: o.key, status: "READY" } });
+          if (ok) fresh.push({ schoolId: ctx.schoolId, academicYearId: yearId, studentId, sectionId, period: o.key, status: "READY" });
           continue;
         }
         const status = !ok ? "NOT_READY" : card.status === "NOT_READY" ? "READY" : card.status;
-        if (status !== card.status || card.sectionId !== sectionId) await tx.reportCard.update({ where: { id: card.id }, data: { status, sectionId } });
+        if (status !== card.status || card.sectionId !== sectionId) moves.set(status, [...(moves.get(status) ?? []), card.id]);
       }
     }
+    if (fresh.length) await tx.reportCard.createMany({ data: fresh });
+    for (const [status, ids] of moves) await tx.reportCard.updateMany({ where: { id: { in: ids } }, data: { status: status as ReportCardStatus, sectionId } });
   }
 }

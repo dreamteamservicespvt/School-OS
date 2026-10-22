@@ -44,14 +44,17 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
     const ofCampus = await recipientCampusWhere(tx, current.ctx, access.scope.campusId);
     const listWhere: Prisma.MessageWhereInput = { AND: [where, campus] };
     const mine: Prisma.MessageWhereInput = { AND: [mineOnly, campus] };
+    // The people reached: every recipient is of a message of this school, so with full access and the whole school
+    // there is nothing to check on the message (G37: joining every recipient to its message took seconds at a big school).
+    const ofMine: Prisma.MessageRecipientWhereInput = access.full && !access.scope.campusId ? {} : { message: mine };
     const [rows, total, sentCount, reach, firstSent, testMode] = await Promise.all([
       tx.message.findMany({ where: listWhere, orderBy: { createdAt: params.sort === "date" && params.dir === "asc" ? "asc" : "desc" }, ...skipTake(params) }),
       tx.message.count({ where: listWhere }),
       tx.message.count({ where: { AND: [mine], status: { in: ["SENT", "QUEUED"] } } }),
-      tx.messageRecipient.groupBy({ by: ["status", "provider"], where: { schoolId: current.ctx.schoolId, isBackup: false, message: mine, AND: [ofCampus] }, _count: { _all: true } }),
+      tx.messageRecipient.groupBy({ by: ["status", "provider"], where: { schoolId: current.ctx.schoolId, isBackup: false, ...ofMine, AND: [ofCampus] }, _count: { _all: true } }),
       tx.message.findFirst({ where: mine, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
       // Test mode (no provider connected yet): only recorded, nothing reached anyone, so never counted as delivered.
-      tx.messageRecipient.count({ where: { schoolId: current.ctx.schoolId, isBackup: false, provider: "sandbox", status: { in: ["SENT", "DELIVERED", "READ"] }, message: mine, AND: [ofCampus] } }),
+      tx.messageRecipient.count({ where: { schoolId: current.ctx.schoolId, isBackup: false, provider: "sandbox", status: { in: ["SENT", "DELIVERED", "READ"] }, ...ofMine, AND: [ofCampus] } }),
     ]);
     // "One person": everyone this sender has messaged, found by name; then their messages, newest first.
     const who = typeof sp.who === "string" ? sp.who.trim().slice(0, 60) : "";

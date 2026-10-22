@@ -23,6 +23,7 @@
 // signals never reach a role without the whole school's fees.
 import "server-only";
 
+import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
@@ -31,8 +32,8 @@ import { remindedSince, sendReminder } from "../reminders";
 import { currentYear, currentYears, studentYear, yearsFor } from "../academic/years";
 import { personCampusId } from "../campus";
 import { classTeacherSectionIds, ownSectionIds } from "../people";
-import { attendanceSettings } from "../attendance/settings";
-import { attendanceSummary } from "../attendance/summary";
+import { attendanceSettings, statusList, statusMap } from "../attendance/settings";
+import { attendanceSummary, narrowSummary } from "../attendance/summary";
 import { flagStatusOf, OPEN_ATTENDANCE_FLAG } from "../attendance/flags";
 import { examSettings } from "../exams/settings";
 import type { SubjectResult } from "../exams/compute";
@@ -124,10 +125,12 @@ async function attendanceSignals(tx: Tx, ctx: SchoolContext, year: { id: string;
   const ids = [...enrol.keys()].filter((id) => !covered.has(id));
   if (!ids.length || today < year.startDate) return [];
   const recentFrom = addDays(today, -29) < year.startDate ? year.startDate : addDays(today, -29);
-  const [sum, recent] = await Promise.all([
+  // The last 30 days come from the year's own day statuses: one read of the marks, not two (G37).
+  const [sum, statuses] = await Promise.all([
     attendanceSummary(tx, ctx, { studentIds: ids, from: year.startDate, to: today, today }),
-    attendanceSummary(tx, ctx, { studentIds: ids, from: recentFrom, to: today, today }),
+    statusList(tx, ctx, { includeArchived: true }).then(statusMap),
   ]);
+  const recent = { people: narrowSummary(sum, recentFrom, today, statuses) };
   const since = `${formatDate(year.startDate, "UTC")} to ${formatDate(today, "UTC")}`;
   const out: Signal[] = [];
   for (const id of ids) {
@@ -237,33 +240,50 @@ export async function refreshFlags(tx: Tx, ctx: SchoolContext, now = new Date())
   const quiet = await tx.riskFlag.findMany({ where: { closedAt: { gte: new Date(now.getTime() - QUIET_DAYS * DAY_MS) }, status: "CLOSED", NOT: { closedReason: { in: [CLEARED, JOINED] } } }, select: { studentId: true, area: true, strength: true } });
   const key = (s: { studentId: string; area: string }) => `${s.studentId}:${s.area}`;
   const openBy = new Map(open.map((f) => [key(f), f]));
+  // Closed lately as not a concern, by student and area, with the strengths it was closed at.
+  const quietBy = new Map<string, Set<string>>();
+  for (const q of quiet) quietBy.set(key(q), (quietBy.get(key(q)) ?? new Set()).add(q.strength));
   const seen = new Set<string>();
   let raised = 0, updated = 0, cleared = 0;
   const newActNow: { flagId: string; studentId: string; sectionId: string | null; reason: string }[] = [];
+  // Written together at the end (G37: one query each, not one per flag; a big school's first run raises thousands).
+  const changed: { id: string; reason: string; basis: string; strength: string; value: number | null; section_id: string | null }[] = [];
+  const fresh: Prisma.RiskFlagCreateManyInput[] = [];
   for (const s of signals) {
     const k = key(s);
     seen.add(k);
     const f = openBy.get(k);
     if (f) {
       if (f.reason !== s.reason || f.strength !== s.strength || f.basis !== s.basis || f.value !== s.value) {
-        await tx.riskFlag.update({ where: { id: f.id }, data: { reason: s.reason, basis: s.basis, strength: s.strength, value: s.value, sectionId: s.sectionId } });
+        changed.push({ id: f.id, reason: s.reason, basis: s.basis, strength: s.strength, value: s.value, section_id: s.sectionId });
         updated++;
       }
       continue;
     }
     // A person closed this as not a concern lately: not raised again unless it got stronger.
-    if (quiet.some((q) => q.studentId === s.studentId && q.area === s.area && (q.strength === s.strength || s.strength === "WATCH"))) continue;
-    const flag = await tx.riskFlag.create({ data: { schoolId: ctx.schoolId, studentId: s.studentId, academicYearId: yearOf.get(s.studentId) ?? years[0].id, sectionId: s.sectionId, area: s.area, strength: s.strength, reason: s.reason, basis: s.basis, value: s.value, raisedAt: now } });
+    const q = quietBy.get(k);
+    if (q && (q.has(s.strength) || s.strength === "WATCH")) continue;
+    const id = randomUUID();
+    fresh.push({ id, schoolId: ctx.schoolId, studentId: s.studentId, academicYearId: yearOf.get(s.studentId) ?? years[0].id, sectionId: s.sectionId, area: s.area, strength: s.strength, reason: s.reason, basis: s.basis, value: s.value, raisedAt: now });
     raised++;
-    if (s.strength === "ACT_NOW" && s.area !== "fees") newActNow.push({ flagId: flag.id, studentId: s.studentId, sectionId: s.sectionId, reason: s.reason });
+    if (s.strength === "ACT_NOW" && s.area !== "fees") newActNow.push({ flagId: id, studentId: s.studentId, sectionId: s.sectionId, reason: s.reason });
   }
+  if (fresh.length) await tx.riskFlag.createMany({ data: fresh });
+  if (changed.length) {
+    await tx.$executeRaw`
+      UPDATE risk_flag AS f SET reason = v.reason, basis = v.basis, strength = v.strength, value = v.value, section_id = v.section_id, updated_at = (${new Date()}::timestamptz AT TIME ZONE 'UTC')
+      FROM jsonb_to_recordset(${JSON.stringify(changed)}::jsonb) AS v(id uuid, reason text, basis text, strength text, value float8, section_id uuid)
+      WHERE f.id = v.id`;
+  }
+  const gone: string[] = [];
   for (const f of open) {
     if (seen.has(key(f))) continue;
     // Added by a person from a suggestion (Looking ahead): it stays until a person closes it.
     if (f.basis.startsWith(SUGGESTION_BASIS)) continue;
-    await tx.riskFlag.update({ where: { id: f.id }, data: { status: "CLOSED", closedAt: now, closedReason: CLEARED } });
+    gone.push(f.id);
     cleared++;
   }
+  if (gone.length) await tx.riskFlag.updateMany({ where: { id: { in: gone } }, data: { status: "CLOSED", closedAt: now, closedReason: CLEARED } });
   // New Act now flags go to the class teacher (inferred: 19 §4 Sends).
   if (newActNow.length) {
     const sections = await tx.section.findMany({ where: { id: { in: [...new Set(newActNow.map((x) => x.sectionId).filter((x): x is string => Boolean(x)))] } }, select: { id: true, classTeacherId: true } });

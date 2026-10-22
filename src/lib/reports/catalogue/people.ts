@@ -101,19 +101,23 @@ const COMMUNICATION: ReportEntry[] = [
     async run(rc) {
       const range = rc.f.range ? momentWhere(rc.f.range, rc.tz) : { gte: rc.f.from, lt: rc.f.to };
       const list = await rc.tx.messageRecipient.groupBy({ by: ["status", "channel"], where: { queuedAt: range }, _count: { _all: true } });
-      // Month by month needs the dates; read only what is needed.
-      const rows0 = await rc.tx.messageRecipient.findMany({ where: { queuedAt: range }, select: { queuedAt: true, status: true, provider: true } });
+      // Month by month (in UTC, as stored), counted by the database: a big school sends hundreds of thousands a term (G37).
+      const at = (d: Date) => d.toISOString().slice(0, 23);
+      const counted = await rc.tx.$queryRaw<{ k: string; status: string; provider: string | null; n: bigint }[]>`
+        SELECT to_char(queued_at, 'YYYY-MM') AS k, status::text AS status, provider, count(*) AS n
+        FROM message_recipient WHERE queued_at >= ${at(range.gte)}::timestamp AND queued_at < ${at(range.lt)}::timestamp
+        GROUP BY 1, 2, 3`;
       const by = new Map<string, { sent: number; delivered: number; read: number; failed: number; waiting: number }>();
-      for (const r of rows0) {
-        const k = r.queuedAt.toISOString().slice(0, 7);
-        const v = by.get(k) ?? { sent: 0, delivered: 0, read: 0, failed: 0, waiting: 0 };
-        v.sent++;
+      for (const r of counted) {
+        const n = Number(r.n);
+        const v = by.get(r.k) ?? { sent: 0, delivered: 0, read: 0, failed: 0, waiting: 0 };
+        v.sent += n;
         // Test mode only records a message: nobody received it, so it is not delivered (COMM-04).
-        if ((r.status === "DELIVERED" || r.status === "READ") && r.provider !== "sandbox") v.delivered++;
-        if (r.status === "READ") v.read++;
-        if (r.status === "FAILED") v.failed++;
-        if (r.status === "QUEUED" || r.status === "SENDING") v.waiting++;
-        by.set(k, v);
+        if ((r.status === "DELIVERED" || r.status === "READ") && r.provider !== "sandbox") v.delivered += n;
+        if (r.status === "READ") v.read += n;
+        if (r.status === "FAILED") v.failed += n;
+        if (r.status === "QUEUED" || r.status === "SENDING") v.waiting += n;
+        by.set(r.k, v);
       }
       const month = (k: string) => new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }).format(new Date(`${k}-01T00:00:00Z`));
       const t: Table = {

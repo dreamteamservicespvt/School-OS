@@ -27,12 +27,13 @@ import { MAX_ROWS, readWorkbook, ReadProblem, type Sheet } from "./read";
 import { findHeaderRow, guessKind, matchColumns, type ColumnMatch } from "./match";
 import { classKey, plain, splitClassSection } from "./tidy";
 import { cleanCsv, prepareSheet, rowsForImport, type Choices, type Prepared } from "./prepare";
-import type { Lookups } from "./lookups";
+import { teacherOption, type Lookups } from "./lookups";
 import { markRecalled, mergeRemembered, recallMapping, rememberMapping, type Recalled } from "./memory";
 import { aiConfirmedNote } from "../ai/audit";
 import { alignGoLive } from "../finance/settings-save";
 import { keptMoney, MONEY_KEYS, moneyTotals, type MoneyExpected } from "./money";
 import { broughtInOf, fileBatchIds } from "./batches";
+
 
 export class MoveInProblem extends Error {
   constructor(message: string, public field?: string) { super(message); }
@@ -57,6 +58,7 @@ const KNOWN: Record<string, Omit<MoveInKind, "key" | "label">> = {
   students: { module: "student-management", order: 3, about: "Students with their class, section, roll number and admission number, and their parents. Old admission numbers are kept." },
   "students-update": { module: "student-management", order: 4, about: "Changes to students already here, found by admission number." },
   "attendance-so-far": { module: "attendance-management", order: 4.5, about: "Starting part way through the year? For each student, the days the school met and the days present up to the day before go-live. Attendance % and early warnings count them from the first day." },
+  "academic-allocations": { module: "academic-management", order: 4.6, about: "Which teacher teaches which subject in which class and section, and each section's class teacher. Attendance, marks entry and the Time Table use it from the first day. Full Academic Management only." },
   "fee-old-dues": { module: "fee-management", order: 6, about: "For each student, the amount still unpaid from before. Each becomes an opening balance row on the Student Fee Ledger, marked Brought in." },
   "fee-past-receipts": { module: "fee-management", order: 7, about: "Payments already made this year in the old software, with their receipt numbers. They reduce the dues, are kept read-only as Brought in, and never reach the Day Book." },
   "finance-past-expenses": { module: "finance-management", order: 9, about: "Expenses of this financial year, for reports. Kept as Brought in; they never reach the Day Book or the cash and bank books." },
@@ -221,12 +223,14 @@ export async function schoolLookups(tx: Tx, ctx: SchoolContext): Promise<Lookups
     include: { schoolClass: { select: { name: true, sortOrder: true } } },
     orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }],
   }) : [];
-  const [designations, departments, feeHeads, expenseHeads, leaveTypes] = await Promise.all([
+  const [designations, departments, feeHeads, expenseHeads, leaveTypes, subjects, teachers] = await Promise.all([
     tx.designation.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { name: true } }),
     tx.department.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
     tx.feeHead.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
     tx.accountHead.findMany({ where: { kind: "EXPENSE", archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
     tx.leaveType.findMany({ where: { forWhom: "staff", paid: true, archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
+    tx.subject.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { name: true } }),
+    tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching" }, orderBy: { fullName: "asc" }, select: { fullName: true, staffCode: true } }),
   ]);
   return {
     yearId: year?.id ?? null,
@@ -237,6 +241,8 @@ export async function schoolLookups(tx: Tx, ctx: SchoolContext): Promise<Lookups
     feeHeads: feeHeads.map((h) => h.name),
     expenseHeads: expenseHeads.map((h) => h.name),
     leaveTypes: leaveTypes.map((t) => t.name),
+    subjects: subjects.map((x) => x.name),
+    teachers: teachers.map((t) => teacherOption(t)),
   };
 }
 
@@ -453,7 +459,7 @@ export async function chooseRow(tx: Tx, ctx: SchoolContext, id: string, line: nu
   const f = await openFile(tx, id);
   if (!Number.isInteger(line) || line < 2) throw new MoveInProblem("This row was not found.");
   const v = value.trim();
-  if (v && !/^(new|sibling|other-family|update:[0-9a-f-]{36}|family:[0-9a-f-]{36}|family-row:\d{1,6})$/i.test(v)) throw new MoveInProblem("Choose one of the choices shown for this row.");
+  if (v && !/^(new|sibling|other-family|update:[0-9a-f-]{36}|family:[0-9a-f-]{36}|staff:[0-9a-f-]{36}|handover:[0-9a-f-]{36}|family-row:\d{1,6})$/i.test(v)) throw new MoveInProblem("Choose one of the choices shown for this row.");
   const all = { ...((f.rowChoices ?? {}) as Record<string, string>) };
   const before = all[String(line)] ?? null;
   if (v) all[String(line)] = v;

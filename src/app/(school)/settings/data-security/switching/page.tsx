@@ -60,6 +60,7 @@ export default async function SwitchingPage({ searchParams }: Search) {
         tx.staff.count({ where: { archivedAt: null, OR: [{ bankAccountEnc: { not: null } }, { panEnc: { not: null } }, { uan: { not: null } }] } }),
         tx.salaryToDate.count({ where: { archivedAt: null } }),
         tx.leaveBalance.count({ where: { archivedAt: null, adjustments: { array_contains: [{ kind: "brought-in" }] } } }),
+        tx.teacherAllocation.count({ where: { archivedAt: null, toDate: null } }),
       ]),
     ]);
     const batches = await tx.importBatch.findMany({ where: { id: { in: files.flatMap((f) => fileBatchIds(f)) } } });
@@ -79,10 +80,11 @@ export default async function SwitchingPage({ searchParams }: Search) {
   const files = data.files.filter((f) => can(current.permissions, kindModule(f.kind), "view") && !refused.has(f.kind));
   const importing = files.some((f) => f.status === "importing");
   const live = summary.plan?.wentLiveAt;
-  const [departments, oldDues, receipts, expenses, structures, openings, attendanceSoFar, payDetails, salaryToDate, leaveBalances] = data.counts;
+  const [departments, oldDues, receipts, expenses, structures, openings, attendanceSoFar, payDetails, salaryToDate, leaveBalances, allocations] = data.counts;
   const have: Record<string, number> = {
     departments, staff: summary.staff, students: summary.students, "fee-old-dues": oldDues, "fee-past-receipts": receipts, "finance-past-expenses": expenses,
     "fee-structures": structures, "opening-balances": openings, "attendance-so-far": attendanceSoFar, "staff-leave-balances": leaveBalances, "staff-pay-details": payDetails, "salary-to-date": salaryToDate,
+    "academic-allocations": allocations,
   };
   // The steps after setting up the year: each import, and the steps typed on a screen, in workflow 15 order.
   const steps = [

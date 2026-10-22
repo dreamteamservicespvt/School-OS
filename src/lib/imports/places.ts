@@ -8,7 +8,7 @@
 // the person who does that work never needs Settings (05-roles.md).
 import type { ModuleKey } from "../modules";
 
-export type PlaceKey = "settings" | "fees" | "finance" | "events" | "staff" | "enquiries" | "library" | "inventory-items" | "inventory-assets" | "hostel" | "students" | "salary" | "attendance";
+export type PlaceKey = "settings" | "fees" | "finance" | "events" | "staff" | "enquiries" | "library" | "inventory-items" | "inventory-assets" | "hostel" | "students" | "salary" | "attendance" | "academic";
 
 export type ImportPlace = {
   key: PlaceKey;
@@ -40,6 +40,7 @@ export const PLACES: Record<PlaceKey, ImportPlace> = {
   students: { key: "students", module: "student-management", base: "/student-management/import", kinds: ["students", "students-update"], name: "Import students" },
   salary: { key: "salary", module: "salary-management", base: "/salary-management/structures/import", kinds: ["salary-structures", "salary-to-date"], name: "Import salary" },
   attendance: { key: "attendance", module: "attendance-management", base: "/attendance-management/import", kinds: ["attendance-so-far"], name: "Import attendance so far" },
+  academic: { key: "academic", module: "academic-management", base: "/academic-management/import", kinds: ["academic-allocations"], name: "Import from Excel" },
 };
 
 /**
@@ -55,6 +56,8 @@ export const OWN_RULES: Record<string, PlaceKey> = {
   "staff-pay-details": "staff",
   // Salary to date: full Salary Management only, as for salary itself.
   "salary-to-date": "salary",
+  // Academic Management: Teacher Allocation needs full Academic Management, as for Assign teacher.
+  "academic-allocations": "academic",
 };
 
 export function importPlace(key: unknown): ImportPlace | null {
@@ -99,6 +102,7 @@ export const HOME: Record<string, { href: string; label: string }> = {
   "staff-leave-balances": { href: "/staff-hr-management/leave?view=balances", label: "Open leave balances" },
   "staff-pay-details": { href: "/staff-hr-management", label: "Open Staff List" },
   "salary-to-date": { href: "/salary-management/history", label: "Open Salary History" },
+  "academic-allocations": { href: "/academic-management/teacher-allocation", label: "Open Teacher Allocation" },
 };
 
 /** One record and many, in the words of each kind's own module. */
@@ -120,6 +124,7 @@ export const WORDS: Record<string, { one: string; many: string }> = {
   "staff-leave-balances": { one: "leave balance", many: "leave balances" },
   "staff-pay-details": { one: "staff member's pay details", many: "staff members' pay details" },
   "salary-to-date": { one: "staff member's salary to date", many: "staff members' salary to date" },
+  "academic-allocations": { one: "teacher assignment", many: "teacher assignments" },
 };
 
 export const wordsFor = (kind: string, label: string) => WORDS[kind] ?? { one: label.toLowerCase().replace(/s$/, ""), many: label.toLowerCase() };

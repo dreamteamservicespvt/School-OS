@@ -50,6 +50,16 @@ describe("a user of school A cannot read school B", () => {
     });
   });
 
+  it("a person in both schools sees only school A's roles and access rows while in school A (QA PLATFORM-ROLES-01)", async () => {
+    const both = await makeUser({ schools: [{ id: a.id, roleKeys: ["principal"] }, { id: b.id, roleKeys: ["principal", "accountant"] }] });
+    await withSchool({ schoolId: a.id, userId: both.id }, async (tx) => {
+      const [roles, accesses, links] = await Promise.all([tx.role.findMany(), tx.schoolAccess.findMany(), tx.schoolAccessRole.findMany()]);
+      for (const rows of [roles, accesses, links] as { schoolId: string }[][]) expect(rows.every((r) => r.schoolId === a.id)).toBe(true);
+      expect(roles.filter((r) => r.key === "principal")).toHaveLength(1);
+    });
+    expect((await schoolsFor(both.id)).map((s) => s.id).sort()).toEqual([a.id, b.id].sort());
+  });
+
   it("sees only school A's custom forms (Settings, Forms & Approvals)", async () => {
     await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.customForm.create({ data: { schoolId: b.id, name: "School B consent form" } }));
     await withSchool(ctxA(), async (tx) => {

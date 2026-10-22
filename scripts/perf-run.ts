@@ -167,6 +167,12 @@ add("Fee Dashboard reads", async () => {
 // Attendance.
 const aa = (c: Current) => read(c, (tx) => attendanceAccess(tx, c.ctx, c));
 add("Attendance: register month", async () => read(principal, (tx) => registerMonth(tx, principal.ctx, { sectionId: fixed.sectionId, month: new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)), today })));
+// After a save: absence messages and attendance flags for the biggest section (the job each save queues; rolled back).
+add("Attendance: after a save (absence messages, flags)", async () => {
+  const { afterAttendanceSaved } = await import("../src/lib/attendance/alerts");
+  const job = { ...principal, ctx: { schoolId, userId: null } } as Current;
+  return rolledBack(job, (tx) => afterAttendanceSaved(tx, job.ctx, { sectionId: fixed.sectionId, date: fixed.markedDay.toISOString().slice(0, 10), messages: true }));
+}, true);
 // Saving the register again for the last marked day: a few marks changed, and every mark changed.
 const resave = (status: (i: number) => string) => async () => {
   const a = await aa(principal);

@@ -30,6 +30,7 @@ import { cleanCsv, prepareSheet, rowsForImport, type Choices, type Prepared } fr
 import { teacherOption, type Lookups } from "./lookups";
 import { markRecalled, mergeRemembered, recallMapping, rememberMapping, type Recalled } from "./memory";
 import { aiConfirmedNote } from "../ai/audit";
+import { isUnclear } from "../ai/register-photo";
 import { alignGoLive } from "../finance/settings-save";
 import { keptMoney, MONEY_KEYS, moneyTotals, type MoneyExpected } from "./money";
 import { broughtInOf, fileBatchIds } from "./batches";
@@ -164,17 +165,28 @@ export function firstChoices(sheet: Sheet, kindKey?: string | null) {
  * records: a workbook with a Students sheet and a Staff sheet becomes two.
  * The person may only bring in what their role can add.
  */
-export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: PermissionMap, upload: { fileId: string; fileName: string; kind?: string | null; options?: Record<string, unknown>; exclude?: readonly string[] }, modulesOn?: ReadonlySet<ModuleKey>) {
-  const sheets = await readStored(tx, upload.fileId);
-  const info: SheetInfo[] = sheets.map((s) => ({ name: s.name, rows: Math.max(0, s.rows.length - 1) }));
-  const usable = sheets.map((s, i) => ({ s, i })).filter(({ s }) => s.rows.filter((r) => r.some((c) => c)).length >= 2);
-  if (!usable.length) throw new MoveInProblem("This file has no rows to bring in. Put the headings in one row and the records below them.");
-  // `exclude`: kinds the place's own rules refuse this person (a module page's narrower rule, src/lib/imports/places.ts OWN_RULES).
+/**
+ * The kinds this person may bring in with an upload, or a refusal in plain words.
+ * `exclude`: kinds the place's own rules refuse this person (a module page's narrower rule, src/lib/imports/places.ts OWN_RULES).
+ */
+export function uploadKinds(permissions: PermissionMap, upload: { kind?: string | null; exclude?: readonly string[] }, modulesOn?: ReadonlySet<ModuleKey>) {
   const allowed = new Set(moveInKinds(modulesOn).filter((k) => canBring(permissions, k.key, modulesOn) && !upload.exclude?.includes(k.key)).map((k) => k.key));
   // A kind not listed for Switching, chosen on its module's page ("Changes to students already here").
   if (upload.kind && mayChoose(permissions, upload.kind, modulesOn)) allowed.add(upload.kind);
   if (!allowed.size) throw new MoveInProblem("Your role cannot add any of these records. Ask your School Admin.");
   if (upload.kind && !allowed.has(upload.kind)) throw new MoveInProblem("Your role cannot add these records.", "kind");
+  return allowed;
+}
+
+/** A register photo a file was read from, and the rows of the file it gave (gap list G43). */
+export type PhotoMeta = { fileId: string; fileName: string; contentType: string; from: number; to: number };
+
+export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: PermissionMap, upload: { fileId: string; fileName: string; kind?: string | null; options?: Record<string, unknown>; exclude?: readonly string[]; photos?: PhotoMeta[] }, modulesOn?: ReadonlySet<ModuleKey>) {
+  const sheets = await readStored(tx, upload.fileId);
+  const info: SheetInfo[] = sheets.map((s) => ({ name: s.name, rows: Math.max(0, s.rows.length - 1) }));
+  const usable = sheets.map((s, i) => ({ s, i })).filter(({ s }) => s.rows.filter((r) => r.some((c) => c)).length >= 2);
+  if (!usable.length) throw new MoveInProblem("This file has no rows to bring in. Put the headings in one row and the records below them.");
+  const allowed = uploadKinds(permissions, upload, modulesOn);
 
   const made: string[] = [];
   const picks = usable.map(({ s, i }) => ({ i, first: firstChoices(s, upload.kind || null) }));
@@ -195,11 +207,12 @@ export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: Permiss
         schoolId: ctx.schoolId, fileId: upload.fileId, fileName: upload.fileName.slice(0, 200), sheets: info, sheetIndex: p.i,
         headerRow: p.first.headerRow, kind, columnMatch: match, createdById: ctx.userId,
         ...(upload.options ? { options: upload.options as Prisma.InputJsonValue } : {}),
+        ...(upload.photos?.length ? { photos: upload.photos as unknown as Prisma.InputJsonValue } : {}),
       },
     });
     made.push(row.id);
   }
-  await writeAudit(tx, ctx, { action: "uploaded", recordType: "Move-in File", recordId: made[0] ?? null, after: { fileName: upload.fileName, sheets: chosen.map((p) => sheets[p.i].name), ...(recalledFrom.length ? { matchedAsLastTime: recalledFrom } : {}) } });
+  await writeAudit(tx, ctx, { action: "uploaded", recordType: "Move-in File", recordId: made[0] ?? null, after: { fileName: upload.fileName, sheets: chosen.map((p) => sheets[p.i].name), ...(recalledFrom.length ? { matchedAsLastTime: recalledFrom } : {}), ...(upload.photos?.length ? { readFromPhotos: upload.photos.map((p) => p.fileName) } : {}) } });
   return made;
 }
 
@@ -289,6 +302,7 @@ export async function workOn(tx: Tx, ctx: SchoolContext, id: string, opts: { che
   const prepared = prepareSheet(kind.key, kind.columns, sheet.rows, choices, lookups);
   let checked: Checked | null = null;
   if (opts.check) checked = await checkRows(tx, ctx, kind, prepared, decisionsOf(choices, prepared));
+  if (checked && photosOf(file).length) checked = unclearAsProblems(checked);
   // A match confirmed before for files with these headings, when this file still uses it: shown as "matched as last time".
   const recalled = file.status === "open" ? await recallMapping(tx, kind.key, sheet.rows[file.headerRow - 1] ?? []) : null;
   const remembered: (Recalled & { keys: string[] }) | null = recalled
@@ -312,6 +326,25 @@ export async function checkRows(tx: Tx, ctx: SchoolContext, kind: ImportKind<unk
     problems: preview.bad.map((b) => ({ line: b.line, values: byLine.get(b.line)!.values, problems: b.problems, choices: b.choices ?? [], chosen: decisions[b.line] ?? null, chosenWords: decisions[b.line] ? decisionWords(decisions[b.line]) || null : null })),
     decided: ready.filter((r) => decisions[r.line]).map((r) => ({ line: r.line, values: r.values, chosen: decisions[r.line], words: decisionWords(decisions[r.line]) })),
     left: leftCounts(preview.left),
+  };
+}
+
+/** The register photos a file was read from (none for a sheet). */
+export const photosOf = (f: { photos?: unknown }): PhotoMeta[] =>
+  Array.isArray(f.photos) ? (f.photos as PhotoMeta[]).filter((p) => p && typeof p.fileId === "string" && Number.isInteger(p.from) && Number.isInteger(p.to)) : [];
+
+export const UNCLEAR_PROBLEM = "Part of this row could not be read from the photo. Look at the register and type it in (Fix this row), or leave the row out.";
+
+/** A row read from a photo with a part the reader could not read is never ready: a person types it in from the register first. */
+export function unclearAsProblems(checked: Checked): Checked {
+  const unclear = checked.ready.filter((r) => Object.values(r.values).some(isUnclear));
+  if (!unclear.length) return checked;
+  const lines = new Set(unclear.map((r) => r.line));
+  return {
+    ...checked,
+    ready: checked.ready.filter((r) => !lines.has(r.line)),
+    decided: checked.decided.filter((d) => !lines.has(d.line)),
+    problems: [...checked.problems, ...unclear.map((r) => ({ line: r.line, values: r.values, problems: [UNCLEAR_PROBLEM], choices: [], chosen: null, chosenWords: null }))].sort((a, b) => a.line - b.line),
   };
 }
 
@@ -597,7 +630,10 @@ export async function importFile(tx: Tx, ctx: SchoolContext, id: string, opts: {
   await tx.moveInFile.update({ where: { id }, data: { status: "importing", importFileId: fileId, broughtIn: brought, waiting: problems + leftOut } });
   // Bringing the file in confirms its column match: the next file with these headings is matched the same way.
   await rememberMapping(tx, ctx, { kind: w.kind.key, headers: w.sheet.rows[f.headerRow - 1] ?? [], match: w.choices.columnMatch, fileName: f.fileName });
-  await writeAudit(tx, ctx, { action: "import-started", recordType: "Move-in File", recordId: id, after: { kind: w.kind.key, rows: ready.length, leftWithProblems: problems, leftOutByPerson: leftOut, broughtInBefore: w.prepared.passed.broughtIn } });
+  // Rows read from register photos were prepared by the AI service: the person bringing them in confirms them (00-global.md §2.1 rule 6).
+  const fromPhotos = photosOf(f).length > 0;
+  await writeAudit(tx, ctx, { action: "import-started", recordType: "Move-in File", recordId: id, after: { kind: w.kind.key, rows: ready.length, leftWithProblems: problems, leftOutByPerson: leftOut, broughtInBefore: w.prepared.passed.broughtIn, ...(fromPhotos ? { readFromPhotos: true } : {}) },
+    ...(fromPhotos ? { actorNote: await aiConfirmedNote(tx, ctx) } : {}) });
   return { rows: ready.length, problems, leftOut };
 }
 

@@ -24,6 +24,7 @@ import {
   kindInfo, leaveOut, removeFile, setColumns, setTidy, setValues, undoFix,
 } from "@/lib/move-in/service";
 import { aiReady } from "@/lib/ai";
+import { addPhotoUpload } from "@/lib/move-in/photos";
 import { aiAllowed } from "@/lib/settings/switch-rules";
 import { suggestColumnsByAi, type AiColumnsResult } from "@/lib/ai/smart-import";
 import { bringable, placeCurrent, placeOf, placeOptions, placeRefusal } from "@/lib/imports/place-access";
@@ -110,6 +111,46 @@ export async function uploadAction(_prev: FormState, fd: FormData): Promise<Form
     redirect(place.base);
   }
   redirect(fileHref(place, ids[0]));
+}
+
+/**
+ * Photos or scans of paper register pages (gap list G43): read by the AI
+ * assistant into rows that open in the same review as any sheet. Refused in
+ * plain words, with the ready sheet as the way on, while the AI assistant is off.
+ */
+export async function uploadPhotosAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  const kind = String(fd.get("kind") ?? "");
+  const files = fd.getAll("photos").filter((f): f is File => f instanceof File && f.size > 0);
+  const values: Record<string, string> = { kind };
+  for (const k of ["sectionId", "applyFeePlan", "privateCovered"]) { const v = fd.get(k); if (typeof v === "string") values[k] = v; }
+  let place: ImportPlace;
+  let made: { ids: string[]; dropped: string[] };
+  try {
+    place = placeOf(fd.get("place"));
+    const current = await placeCurrent(place, "create");
+    if ((kind && !kindInfo(kind) && !place.kinds?.includes(kind)) || (!kind && place.kinds !== null) || (kind && !placeHolds(place, kind))) {
+      return { ok: false, message: "Choose what the pages hold.", errors: { kind: "Choose what the pages hold." }, values };
+    }
+    if (kind) {
+      const why = await placeRefusal(current, place, kind, "create");
+      if (why) return { ok: false, message: why, errors: { kind: why }, values };
+    }
+    const options = await placeOptions(place, current, fd);
+    const strict = place.key === "settings" ? Object.keys(OWN_RULES) : [];
+    const ok = await bringable(current, place, strict);
+    const exclude = strict.filter((k) => !ok.has(k));
+    made = await addPhotoUpload(current.ctx, current, { files, kind: kind || null, privateCovered: fd.get("privateCovered") === "on", options, exclude });
+  } catch (e) {
+    const m = problem(e);
+    const field = e instanceof MoveInProblem && e.field ? e.field : "photos";
+    return { ok: false, message: m, errors: { [field]: m }, values };
+  }
+  if (made.dropped.length) await flash({ message: `Read from the photos. Columns of ${made.dropped.join(" and ")} were left out: they are never kept from the AI assistant. Add them by hand later if needed.` });
+  if (made.ids.length > 1) {
+    refresh(place);
+    redirect(place.base);
+  }
+  redirect(fileHref(place, made.ids[0]));
 }
 
 // ── Working on one file ───────────────────────────────────────────────────

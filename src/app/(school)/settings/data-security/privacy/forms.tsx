@@ -106,7 +106,7 @@ export function ClearRetentionButton({ runId, total, lines }: { runId: string; t
     <ConfirmButton trigger={total === 1 ? "Clear this record" : `Clear these ${total} records`} triggerVariant="danger-outline" title={`Remove personal details from ${total} record${total === 1 ? "" : "s"}?`} confirmLabel="Remove personal details" confirmVariant="danger"
       onConfirm={async () => { const p = await clearRetentionAction(runId); if (!p) router.refresh(); return p; }}>
       <ul className="list-disc space-y-1 pl-5">{lines.map((l) => <li key={l}>{l}</li>)}</ul>
-      <p className="mt-2">This cannot be undone. The records themselves stay (pass numbers, counts and costs), and this is written to the audit log.</p>
+      <p className="mt-2"><Words k="This cannot be undone. The records themselves stay (pass numbers, counts and costs), and this is written to the audit log." /></p>
     </ConfirmButton>
   );
 }

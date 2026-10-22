@@ -200,16 +200,16 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
       {suggestions && classTeacher && (
         <div className="mb-3 flex flex-col gap-2">
           <div className="flex flex-wrap items-center gap-3">
-            <Button variant="secondary" loading={drafting && !one} loadingText="Suggesting" disabled={drafting} onClick={() => suggest()}>Suggest for the class</Button>
-            {waiting.length > 0 && <Button variant="secondary" onClick={reviewNext}>Review next ({waiting.length} waiting)</Button>}
+            <Button variant="secondary" loading={drafting && !one} loadingText="Suggesting" disabled={drafting} onClick={() => suggest()}><Words k="Suggest for the class" /></Button>
+            {waiting.length > 0 && <Button variant="secondary" onClick={reviewNext}><Words k="Review next (" />{waiting.length} <Words k="waiting)" /></Button>}
             {reword && (
               <label className="flex min-h-11 items-center gap-2 text-sm">
                 <KeepCheck type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} className="h-5 w-5" />
-                Also reword with the AI assistant (it sees only the marks, attendance and homework shown as sources, never the student&apos;s name)
+                <Words k="Also reword with the AI assistant (it sees only the marks, attendance and homework shown as sources, never the student's name)" />
               </label>
             )}
           </div>
-          <p className="text-sm text-ink-2">Built only from each student&apos;s own marks, the change since the exam before, the class average, attendance, homework and co-scholastic grades, in your school&apos;s phrases, with where each sentence comes from. No marks, no suggestion. Nothing is saved until you choose one, check it and press Save.</p>
+          <p className="text-sm text-ink-2"><Words k="Built only from each student's own marks, the change since the exam before, the class average, attendance, homework and co-scholastic grades, in your school's phrases, with where each sentence comes from. No marks, no suggestion. Nothing is saved until you choose one, check it and press Save." /></p>
         </div>
       )}
       <ul className="space-y-3">
@@ -233,7 +233,7 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
               <div className="grid gap-3 md:grid-cols-2">
                 <div>
                   <div className="mb-1 flex flex-wrap items-baseline justify-between gap-2">
-                    <label htmlFor={`ct-${r.studentId}`} className="text-sm font-medium">Class teacher remark</label>
+                    <label htmlFor={`ct-${r.studentId}`} className="text-sm font-medium"><Words k="Class teacher remark" /></label>
                     {suggestions && classTeacher && !hint && (
                       <button type="button" disabled={drafting} onClick={() => suggest([r.studentId])} className="min-h-9 text-sm font-medium text-brand-text hover:underline disabled:opacity-60">
                         {drafting && one === r.studentId ? "Suggesting…" : "Suggest a remark"}
@@ -241,7 +241,7 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
                     )}
                   </div>
                   <textarea id={`ct-${r.studentId}`} rows={2} maxLength={500} value={v.ct} disabled={!classTeacher} onChange={(e) => set(r.studentId, "ct", e.target.value)} className="w-full rounded-lg border border-line-strong bg-surface p-2 disabled:bg-surface-2" />
-                  {from && v.ct.trim() && v.ct !== start[r.studentId].ct && <span className="text-xs text-ink-2">{v.ct.trim() === from.text.trim() ? "From a suggestion" : "From a suggestion, edited"}. Saved only when you press Save.</span>}
+                  {from && v.ct.trim() && v.ct !== start[r.studentId].ct && <span className="text-xs text-ink-2">{v.ct.trim() === from.text.trim() ? "From a suggestion" : "From a suggestion, edited"}<Words k=". Saved only when you press Save." /></span>}
                   {hint && (
                     <div className="mt-1 rounded-lg border border-dashed border-line-strong bg-surface-2 p-2 text-sm" role="note" aria-label={hint.options.length ? `Suggestions for ${r.name}` : `No suggestion for ${r.name}`}>
                       {hint.options.length ? (
@@ -249,19 +249,19 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
                           <ul className="space-y-3">
                             {hint.options.map((o, i) => (
                               <li key={o.id}>
-                                <span className="flex flex-wrap items-center gap-2"><Badge tone="brand">Suggestion</Badge><span className="text-xs font-medium text-ink-2">{o.label}{o.byAi ? " · reworded by the AI assistant" : ""}</span></span>
+                                <span className="flex flex-wrap items-center gap-2"><Badge tone="brand"><Words k="Suggestion" /></Badge><span className="text-xs font-medium text-ink-2">{o.label}{o.byAi ? " · reworded by the AI assistant" : ""}</span></span>
                                 <p className="mt-1">{o.text}</p>
                                 <ol className="mt-1 space-y-0.5 text-xs text-ink-2">
-                                  {o.lines.map((l, n) => <li key={n}>Source {n + 1}: {l.source}</li>)}
+                                  {o.lines.map((l, n) => <li key={n}><Words k="Source" /> {n + 1}: {l.source}</li>)}
                                 </ol>
-                                <button type="button" data-use={i === 0 ? "" : undefined} className="mt-1 min-h-9 font-medium text-brand-text hover:underline" onClick={() => use(r.studentId, o)}>Use this</button>
+                                <button type="button" data-use={i === 0 ? "" : undefined} className="mt-1 min-h-9 font-medium text-brand-text hover:underline" onClick={() => use(r.studentId, o)}><Words k="Use this" /></button>
                               </li>
                             ))}
                           </ul>
                           <span className="mt-1.5 block text-xs text-ink-2">{hint.why}</span>
-                          <button type="button" className="min-h-9 font-medium text-ink-2 hover:underline" onClick={() => discard(r.studentId)}>Discard</button>
+                          <button type="button" className="min-h-9 font-medium text-ink-2 hover:underline" onClick={() => discard(r.studentId)}><Words k="Discard" /></button>
                         </>
-                      ) : <>{hint.why} <button type="button" className="min-h-9 font-medium text-ink-2 hover:underline" onClick={() => discard(r.studentId)}>Close</button></>}
+                      ) : <>{hint.why} <button type="button" className="min-h-9 font-medium text-ink-2 hover:underline" onClick={() => discard(r.studentId)}><Words k="Close" /></button></>}
                     </div>
                   )}
                 </div>

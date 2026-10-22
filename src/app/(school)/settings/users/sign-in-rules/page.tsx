@@ -8,8 +8,12 @@ import { UsersNav } from "../sub-nav";
 import { PasswordRulesForm, SessionRulesForm } from "./rules-forms";
 import { EXPIRY_CHOICES, HISTORY_CHOICES, MIN_LENGTH_CHOICES, readPasswordRules } from "@/lib/auth/password-rules";
 import { formatDate } from "@/lib/format";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Password and session rules" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Password and session rules") };
+}
 
 /** Settings, Users & Permissions, "Password and session rules" (20-settings.md; gap list G45). */
 export default async function SignInRulesPage() {
@@ -23,7 +27,7 @@ export default async function SignInRulesPage() {
     <>
       <PageHeader title="Users & Permissions" href="/settings/users" userId={current.user.id} />
       <UsersNav active="rules" />
-      {may.readOnly && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2">You can see the rules here. The School Admin changes them.</p>}
+      {may.readOnly && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2"><Words k="You can see the rules here. The School Admin changes them." /></p>}
       <Card className="mb-5">
         <CardHeader title="Password rules" description="What every new password must be. They apply the next time someone sets a password: an invite link, a temporary password, Change password or a reset. Passwords set earlier keep working." />
         <div className="px-5 pb-5">

@@ -15,8 +15,12 @@ import { buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { ActionForm, FormText } from "@/components/students/action-form";
 import { paperFormsAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Paper forms received · Consent" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Paper forms received · Consent") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -47,12 +51,12 @@ export default async function PaperFormsPage({ searchParams }: Search) {
 
   return (
     <div className="grid max-w-3xl gap-4">
-      <h2 className="text-lg font-semibold">Paper forms received</h2>
-      <p className="max-w-prose text-ink-2">For consent forms parents already signed on paper. Tick the students whose signed form you hold; each is recorded for the child&apos;s first parent on record, as given on the date of the forms, and kept as recorded from a paper form with your name. For a whole school, a parent who said no, or another parent who signed, use Student Management, Import students, Consent from paper forms.</p>
+      <h2 className="text-lg font-semibold"><Words k="Paper forms received" /></h2>
+      <p className="max-w-prose text-ink-2"><Words k="For consent forms parents already signed on paper. Tick the students whose signed form you hold; each is recorded for the child's first parent on record, as given on the date of the forms, and kept as recorded from a paper form with your name. For a whole school, a parent who said no, or another parent who signed, use Student Management, Import students, Consent from paper forms." /></p>
       {!may ? (
-        <EmptyState title="Your role cannot record consent forms">Recording consent is Student Management work. Ask the School Admin or the office.</EmptyState>
+        <EmptyState title="Your role cannot record consent forms"><Words k="Recording consent is Student Management work. Ask the School Admin or the office." /></EmptyState>
       ) : data.texts.length === 0 ? (
-        <EmptyState title="No consent texts yet">Add the consent texts on the Consent page first, so each form is kept with the version it carried.</EmptyState>
+        <EmptyState title="No consent texts yet"><Words k="Add the consent texts on the Consent page first, so each form is kept with the version it carried." /></EmptyState>
       ) : (
         <>
           <Card>
@@ -60,24 +64,24 @@ export default async function PaperFormsPage({ searchParams }: Search) {
             <CardBody>
               <form method="get" className="flex flex-wrap items-end gap-2">
                 <label className="min-w-0 flex-1 basis-52">
-                  <span className="mb-1 block text-[13px] font-semibold text-ink2">Class</span>
+                  <span className="mb-1 block text-[13px] font-semibold text-ink2"><Words k="Class" /></span>
                   <select name="section" defaultValue={sectionId} className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-base">
                     <option value="">Choose</option>
                     {data.sections.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                   </select>
                 </label>
                 <label className="min-w-0 flex-1 basis-52">
-                  <span className="mb-1 block text-[13px] font-semibold text-ink2">Consent</span>
+                  <span className="mb-1 block text-[13px] font-semibold text-ink2"><Words k="Consent" /></span>
                   <select name="type" defaultValue={data.type} className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-base">
                     {data.texts.map((t) => <option key={t.consentType} value={t.consentType}>{t.title} (version {t.version})</option>)}
                   </select>
                 </label>
-                <button type="submit" className={buttonClass("secondary")}>Show students</button>
+                <button type="submit" className={buttonClass("secondary")}><Words k="Show students" /></button>
               </form>
             </CardBody>
           </Card>
           {data.section && text && (
-            data.sheet.length === 0 ? <EmptyState title="No students in this class">Choose another class.</EmptyState> : (
+            data.sheet.length === 0 ? <EmptyState title="No students in this class"><Words k="Choose another class." /></EmptyState> : (
               <Card>
                 <CardHeader title={`${data.section.label}: ${text.title}`} description={`Version ${text.version} · ${open.length} of ${data.sheet.length} students have no consent on record`} />
                 <CardBody>
@@ -86,7 +90,7 @@ export default async function PaperFormsPage({ searchParams }: Search) {
                     <input type="hidden" name="consentType" value={data.type} />
                     <FormText name="formDate" label="Date on the forms" type="date" required max={today} defaultValue={today} help="The date the parents signed. If the dates differ, use the import instead." />
                     <fieldset>
-                      <legend className="mb-2 text-[13px] font-semibold text-ink2">Signed forms received</legend>
+                      <legend className="mb-2 text-[13px] font-semibold text-ink2"><Words k="Signed forms received" /></legend>
                       <ul className="divide-y divide-line/70 rounded-xl border border-line">
                         {data.sheet.map((s) => {
                           const done = s.state === "given";
@@ -97,9 +101,9 @@ export default async function PaperFormsPage({ searchParams }: Search) {
                                 <span className="font-medium">{s.rollNo ? `${s.rollNo}. ` : ""}{s.name}</span>
                                 <span className="block text-[12.5px] text-ink3">{s.parent ? s.parent.name : "No parent on record who can give consent"}</span>
                               </label>
-                              {s.state === "given" && <Pill tone="ok">Given{s.on ? ` ${formatDate(s.on, s.how === "paper-form" ? "UTC" : tz)}` : ""} · {consentHowWords(s.how)}</Pill>}
-                              {s.state === "refused" && <Pill tone="bad">Refused on paper</Pill>}
-                              {s.state === "withdrawn" && <Pill tone="bad">Withdrawn</Pill>}
+                              {s.state === "given" && <Pill tone="ok"><Words k="Given" />{s.on ? ` ${formatDate(s.on, s.how === "paper-form" ? "UTC" : tz)}` : ""} · {consentHowWords(s.how)}</Pill>}
+                              {s.state === "refused" && <Pill tone="bad"><Words k="Refused on paper" /></Pill>}
+                              {s.state === "withdrawn" && <Pill tone="bad"><Words k="Withdrawn" /></Pill>}
                             </li>
                           );
                         })}
@@ -112,7 +116,7 @@ export default async function PaperFormsPage({ searchParams }: Search) {
           )}
         </>
       )}
-      <p><Link href="/settings/data-security/consent" className="font-medium text-brand-text underline-offset-2 hover:underline">Back to Consent</Link></p>
+      <p><Link href="/settings/data-security/consent" className="font-medium text-brand-text underline-offset-2 hover:underline"><Words k="Back to Consent" /></Link></p>
     </div>
   );
 }

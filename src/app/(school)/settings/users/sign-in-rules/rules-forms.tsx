@@ -6,6 +6,7 @@ import { FormMessage } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { Option } from "@/components/ui/field";
 import { savePasswordRulesAction, saveSessionRulesAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 /** Time without use on computers and phones, and the longest sign-in. */
 export function SessionRulesForm({ readOnly, saved, values, computerOptions, phoneOptions, maxOptions }: {
@@ -17,7 +18,7 @@ export function SessionRulesForm({ readOnly, saved, values, computerOptions, pho
   return (
     <form action={action} className="space-y-4" noValidate>
       <FormMessage state={state} />
-      {!saved && <p className="text-sm text-ink-2">Your school has not set its own session rules yet, so every device stays signed in for 7 days without use, as before.</p>}
+      {!saved && <p className="text-sm text-ink-2"><Words k="Your school has not set its own session rules yet, so every device stays signed in for 7 days without use, as before." /></p>}
       <div className="grid gap-4 sm:grid-cols-3">
         <SelectField label="Sign out a computer after it is not used for" name="idleComputer" options={computerOptions} defaultValue={v("idleComputer")} disabled={readOnly} error={state?.errors?.idleComputer} required />
         <SelectField label="Sign out a phone after it is not used for" name="idlePhone" options={phoneOptions} defaultValue={v("idlePhone")} disabled={readOnly} error={state?.errors?.idlePhone} required
@@ -26,10 +27,9 @@ export function SessionRulesForm({ readOnly, saved, values, computerOptions, pho
           help="Used or not, the person signs in again after this." />
       </div>
       <p className="text-sm text-ink-2">
-        A person signed out this way sees &quot;You were signed out because you were away&quot; and signs in again. A remembered device stays remembered: on it, the password alone is enough and no one-time code is asked.
-        Anyone can still sign out everywhere from My profile.
+        <Words k={"A person signed out this way sees \"You were signed out because you were away\" and signs in again. A remembered device stays remembered: on it, the password alone is enough and no one-time code is asked. Anyone can still sign out everywhere from My profile."} />
       </p>
-      {!readOnly && <SubmitButton pendingText="Saving…">Save session rules</SubmitButton>}
+      {!readOnly && <SubmitButton pendingText="Saving…"><Words k="Save session rules" /></SubmitButton>}
     </form>
   );
 }
@@ -52,9 +52,9 @@ export function PasswordRulesForm({ readOnly, values, lengthOptions, historyOpti
           help={expiryNote ?? "When it is due, the person chooses a new one at sign-in."} />
       </div>
       <p className="text-sm text-ink-2">
-        Every new password also needs a letter and a number, and may not be a common password such as Password@123, Welcome1 or Qwerty123. A person who works in more than one school follows the strictest rules of their schools.
+        <Words k="Every new password also needs a letter and a number, and may not be a common password such as Password@123, Welcome1 or Qwerty123. A person who works in more than one school follows the strictest rules of their schools." />
       </p>
-      {!readOnly && <SubmitButton pendingText="Saving…">Save password rules</SubmitButton>}
+      {!readOnly && <SubmitButton pendingText="Saving…"><Words k="Save password rules" /></SubmitButton>}
     </form>
   );
 }

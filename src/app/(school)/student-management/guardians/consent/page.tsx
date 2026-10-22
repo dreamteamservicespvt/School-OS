@@ -78,7 +78,7 @@ export default async function ConsentRequestPage({ searchParams }: { searchParam
                 {data.pending.length === 0 ? <p className="text-ink2"><Words k="Everyone here has already given consent. Nothing to send." /></p> : (
                   <ConfirmAction action={consentRequestAction} fields={{ ids: data.pending.map((g) => g.id).join(","), types: "" }} trigger={`Send to ${data.pending.length} ${data.pending.length === 1 ? "parent" : "parents"}`} triggerVariant="primary"
                     title={`Send a consent request to ${data.pending.length} ${data.pending.length === 1 ? "parent" : "parents"}?`} confirmLabel={`Send to ${data.pending.length}`}>
-                    They get a request for each consent the school asks for (data, photo and APAAR consent where set up), for each of their children, through Parent Link.
+                    <Words k="They get a request for each consent the school asks for (data, photo and APAAR consent where set up), for each of their children, through Parent Link." />
                   </ConfirmAction>
                 )}
               </CardBody>

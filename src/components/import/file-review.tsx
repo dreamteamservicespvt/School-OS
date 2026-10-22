@@ -29,6 +29,7 @@ import { acceptAiColumnsAction, aiColumnsAction } from "@/app/(school)/_imports/
 import { aiReady } from "@/lib/ai";
 import { AiColumnSuggestions } from "./ai-column-suggestions";
 import { PhotoRowBadge, RegisterPhotos } from "./register-photos";
+import { Words } from "@/lib/i18n/client";
 
 const STEPS = [
   { key: "columns", label: "Match columns" },
@@ -68,7 +69,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
   }, { timeout: 120_000 });
 
   if (!result.ok) {
-    return <Alert tone="danger" action={<Link className="font-medium underline" href={BASE}>Back to {place.name}</Link>}>{result.message}</Alert>;
+    return <Alert tone="danger" action={<Link className="font-medium underline" href={BASE}><Words k="Back to" /> {place.name}</Link>}>{result.message}</Alert>;
   }
   const { w, batches, failure, step } = result;
   const { file, kind, prepared, lookups, checked } = w;
@@ -90,7 +91,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
       <div>
         <Link href={BASE} className="text-sm font-medium text-brand-text hover:underline">← {place.name}</Link>
         <h2 className="mt-1 text-xl font-semibold break-all">{file.fileName}{sheetName ? ` · ${sheetName}` : ""}</h2>
-        <p className="text-sm text-ink-2">{label} · {count(allRows, "row")} · uploaded {formatDateTime(file.createdAt, tz)}</p>
+        <p className="text-sm text-ink-2">{label} · {count(allRows, "row")} <Words k="· uploaded" /> {formatDateTime(file.createdAt, tz)}</p>
       </div>
       {file.status !== "importing" && mayBring && <RemoveFileButton place={place.key} id={file.id} imported={file.status === "imported" || batches.length > 0} back={BASE} />}
     </div>
@@ -111,10 +112,10 @@ export async function FileReview({ current, place, id, sp }: Props) {
             </dl>
             <div className="flex flex-wrap gap-2">
               {HOME[kind.key] && i === batches.length - 1 && <ButtonLink href={HOME[kind.key].href} variant="primary">{HOME[kind.key].label}</ButtonLink>}
-              {batch.skipped > 0 && <a href={errorsHref(place, batch.id, kind.key)} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2" download>Download the rows not saved</a>}
+              {batch.skipped > 0 && <a href={errorsHref(place, batch.id, kind.key)} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2" download><Words k="Download the rows not saved" /></a>}
               {(batch.added > 0 || batch.updated > 0) && undoRefused === null && file.status !== "importing" && <UndoImportButton place={place.key} id={file.id} batchId={batch.id} added={batch.added} updated={batch.updated} one={words.one} many={words.many} />}
             </div>
-            {batch.skipped > 0 && <p className="text-sm text-ink-2">{batch.skipped === 1 ? "This row changed" : "These rows changed"} between the check and the import (for example a section filled up). {batch.skipped === 1 ? "It is" : "They are"} back with the file below, to fix and bring in.</p>}
+            {batch.skipped > 0 && <p className="text-sm text-ink-2">{batch.skipped === 1 ? "This row changed" : "These rows changed"} <Words k="between the check and the import (for example a section filled up)." /> {batch.skipped === 1 ? "It is" : "They are"} <Words k="back with the file below, to fix and bring in." /></p>}
           </CardBody>
         </Card>
       ))}
@@ -129,12 +130,12 @@ export async function FileReview({ current, place, id, sp }: Props) {
         {file.status === "importing" && (
           <Card className="mb-4"><CardBody className="space-y-2" >
             <AutoRefresh seconds={4} />
-            <p className="font-medium" role="status">Bringing in {words.many} now…</p>
-            <p className="text-ink-2">This page updates by itself. You can leave it; you will get a notification when it is done.</p>
+            <p className="font-medium" role="status"><Words k="Bringing in" /> {words.many} <Words k="now…" /></p>
+            <p className="text-ink-2"><Words k="This page updates by itself. You can leave it; you will get a notification when it is done." /></p>
           </CardBody></Card>
         )}
-        {broughtIn || (file.status === "imported" && <Alert>This file was imported.</Alert>)}
-        {file.status === "imported" && batches.length > 0 && <p className="text-sm text-ink-2">Every row of this file is brought in.</p>}
+        {broughtIn || (file.status === "imported" && <Alert><Words k="This file was imported." /></Alert>)}
+        {file.status === "imported" && batches.length > 0 && <p className="text-sm text-ink-2"><Words k="Every row of this file is brought in." /></p>}
       </>
     );
   }
@@ -167,26 +168,26 @@ export async function FileReview({ current, place, id, sp }: Props) {
       {header}
       {photos.length > 0 && (
         <Alert tone="warning" className="mb-4" title="Read from a photo: check every row against the register.">
-          The AI assistant copied these rows from {photos.length === 1 ? "the photo" : `${photos.length} photos`} of the register, and it can misread handwriting. A part it could not read shows as [unclear] and must be typed in. Fix a wrong row or leave it out; nothing is saved until you press Bring in.
+          <Words k="The AI assistant copied these rows from" /> {photos.length === 1 ? "the photo" : `${photos.length} photos`} <Words k="of the register, and it can misread handwriting. A part it could not read shows as [unclear] and must be typed in. Fix a wrong row or leave it out; nothing is saved until you press Bring in." />
         </Alert>
       )}
-      {failure && <Alert tone="danger" className="mb-4" title="The last import did not finish, and nothing was saved.">{failure} Fix the rows below and bring them in again.</Alert>}
+      {failure && <Alert tone="danger" className="mb-4" title="The last import did not finish, and nothing was saved.">{failure} <Words k="Fix the rows below and bring them in again." /></Alert>}
       {broughtIn}
       {waiting && (
         <Alert tone="warning" className="mb-4" title={waiting}
-          action={step !== "check" ? <Link className="font-medium underline" href={`${here}?step=check`}>See the rows</Link> : undefined}>
+          action={step !== "check" ? <Link className="font-medium underline" href={`${here}?step=check`}><Words k="See the rows" /></Link> : undefined}>
           {mayEdit ? `${onlyReady ? "Bring them in below" : "Fix them below and bring them in"}: they come in as a further import of this file, with its own Undo. Not needed? Remove the file from the list; what it brought in stays.` : "Your role can look at this file but not bring them in."}
         </Alert>
       )}
       <details className="mb-4 rounded-2xl border border-line bg-surface px-5 py-3" open={sp.sheet === "1"}>
-        <summary className="min-h-11 cursor-pointer py-2 font-medium">Sheet, heading row and what it holds <span className="font-normal text-ink-2">· {label}, headings in row {file.headerRow}</span></summary>
+        <summary className="min-h-11 cursor-pointer py-2 font-medium"><Words k="Sheet, heading row and what it holds" /> <span className="font-normal text-ink-2">· {label}<Words k=", headings in row" /> {file.headerRow}</span></summary>
         <div className="pb-2 pt-1">
           {mayEdit ? (
             <SheetForm place={place.key} id={file.id} sheetIndex={file.sheetIndex} headerRow={file.headerRow} kind={kind.key}
               sheets={sheetList.map((s, i) => ({ value: String(i), label: `${s.name} (${count(s.rows, "row")})` }))}
               headerChoices={w.sheet.rows.slice(0, 20).map((r, i) => ({ value: String(i + 1), label: `Row ${i + 1}: ${r.filter(Boolean).slice(0, 4).join(", ").slice(0, 60) || "empty"}` }))}
               kinds={kinds.map((k) => ({ value: k.key, label: k.label }))} />
-          ) : <p className="text-ink-2">Your role can look at this file but not change it.</p>}
+          ) : <p className="text-ink-2"><Words k="Your role can look at this file but not change it." /></p>}
         </div>
       </details>
 
@@ -210,11 +211,11 @@ export async function FileReview({ current, place, id, sp }: Props) {
             <CardBody className="space-y-4">
               {w.remembered && (
                 <Alert title="Matched as last time.">
-                  {w.remembered.keys.length} {w.remembered.keys.length === 1 ? "column is" : "columns are"} matched the way you confirmed for {w.remembered.source ? `${w.remembered.source} files` : `“${w.remembered.fileName}”`} ({formatDate(w.remembered.updatedAt, tz)}). Check each one; change any that is wrong.
+                  {w.remembered.keys.length} {w.remembered.keys.length === 1 ? "column is" : "columns are"} <Words k="matched the way you confirmed for" /> {w.remembered.source ? `${w.remembered.source} files` : `“${w.remembered.fileName}”`} ({formatDate(w.remembered.updatedAt, tz)}<Words k="). Check each one; change any that is wrong." />
                 </Alert>
               )}
               {aiOffer && <AiColumnSuggestions ask={aiColumnsAction.bind(null, place.key, file.id)} accept={acceptAiColumnsAction.bind(null, place.key, file.id)} />}
-              {mayEdit ? <ColumnsForm key={JSON.stringify(w.choices.columnMatch)} place={place.key} id={file.id} rows={columnRows} headers={headers} samples={sample} /> : <p className="text-ink-2">Your role cannot change this file.</p>}
+              {mayEdit ? <ColumnsForm key={JSON.stringify(w.choices.columnMatch)} place={place.key} id={file.id} rows={columnRows} headers={headers} samples={sample} /> : <p className="text-ink-2"><Words k="Your role cannot change this file." /></p>}
             </CardBody>
           </Card>
           <div className="flex flex-col gap-5 self-start">
@@ -250,7 +251,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
                   ))}
                 </ul>
               )}
-              {Object.entries(prepared.dateOrders).some(([, o]) => o === "MDY") && <p className="mt-3 text-sm text-ink-2">Some dates are written month first (like 03/14/2016), so they are read that way.</p>}
+              {Object.entries(prepared.dateOrders).some(([, o]) => o === "MDY") && <p className="mt-3 text-sm text-ink-2"><Words k="Some dates are written month first (like 03/14/2016), so they are read that way." /></p>}
             </CardBody>
           </Card>
           {(["class", "designation", "department"] as const).map((column) => {
@@ -278,15 +279,15 @@ export async function FileReview({ current, place, id, sp }: Props) {
                       )}
                       {column !== "class" && can(current.permissions, "staff-hr-management", "edit") && <AddOptionsButton place={place.key} id={file.id} column={column} words={groups.map((g) => g.value)} />}
                     </ValuesForm>
-                  ) : <p className="text-ink-2">{count(groups.length, "word")} {groups.length === 1 ? "needs" : "need"} matching. Your role cannot change this file.</p>}
+                  ) : <p className="text-ink-2">{count(groups.length, "word")} {groups.length === 1 ? "needs" : "need"} <Words k="matching. Your role cannot change this file." /></p>}
                 </CardBody>
               </Card>
             );
           })}
           {prepared.unmatched.length === 0 && <Alert tone="success" title="Every class and name in the file matches School OS." />}
           <div className="flex flex-wrap gap-2">
-            <ButtonLink href={`${here}?step=check`} variant="primary">Continue to check</ButtonLink>
-            <ButtonLink href={`${here}?step=columns`}>Back to columns</ButtonLink>
+            <ButtonLink href={`${here}?step=check`} variant="primary"><Words k="Continue to check" /></ButtonLink>
+            <ButtonLink href={`${here}?step=columns`}><Words k="Back to columns" /></ButtonLink>
           </div>
         </div>
       )}
@@ -301,13 +302,13 @@ export async function FileReview({ current, place, id, sp }: Props) {
             <Num label="Left out by you" value={prepared.passed.leftOut} />
             <Num label="Passed over" value={prepared.passed.empty + prepared.passed.headings + prepared.passed.totals + checked.left.reduce((a, l) => a + l.count, 0)} hint={[prepared.passed.empty && `${prepared.passed.empty} empty`, prepared.passed.headings && `${prepared.passed.headings} repeated ${prepared.passed.headings === 1 ? "heading row" : "heading rows"}`, prepared.passed.totals && `${prepared.passed.totals} total ${prepared.passed.totals === 1 ? "row" : "rows"}`, ...checked.left.map((l) => `${l.count} ${l.reason.toLowerCase()}`)].filter(Boolean).join(", ") || undefined} />
           </dl>
-          {missingRequired.length > 0 && <Alert tone="warning" title={`Choose the column for ${missingRequired.map((c) => c.label).join(", ")}.`} action={<Link className="font-medium underline" href={`${here}?step=columns`}>Match columns</Link>}>Every row shows a problem until it is matched.</Alert>}
-          {prepared.unmatched.length > 0 && <Alert tone="warning" title={`${prepared.unmatched.length} ${prepared.unmatched.length === 1 ? "word needs" : "words need"} matching.`} action={<Link className="font-medium underline" href={`${here}?step=values`}>Match words</Link>}>Rows with an unmatched class or designation show a problem until it is matched.</Alert>}
+          {missingRequired.length > 0 && <Alert tone="warning" title={`Choose the column for ${missingRequired.map((c) => c.label).join(", ")}.`} action={<Link className="font-medium underline" href={`${here}?step=columns`}><Words k="Match columns" /></Link>}><Words k="Every row shows a problem until it is matched." /></Alert>}
+          {prepared.unmatched.length > 0 && <Alert tone="warning" title={`${prepared.unmatched.length} ${prepared.unmatched.length === 1 ? "word needs" : "words need"} matching.`} action={<Link className="font-medium underline" href={`${here}?step=values`}><Words k="Match words" /></Link>}><Words k="Rows with an unmatched class or designation show a problem until it is matched." /></Alert>}
 
           {checked.problems.length > 0 && (
             <Card>
               <CardHeader title="Rows with problems" description="Fix a row here, or leave it out. Fixes are kept with this file, never written into your file."
-                action={<a href={problemsHref(place, file.id)} download className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-brand-text hover:bg-surface-2">Download these rows</a>} />
+                action={<a href={problemsHref(place, file.id)} download className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-brand-text hover:bg-surface-2"><Words k="Download these rows" /></a>} />
               <ul className="divide-y divide-line">
                 {checked.problems.slice(0, 100).map((p) => {
                   const fixed = prepared.rows.find((r) => r.line === p.line)?.fixed;
@@ -315,16 +316,16 @@ export async function FileReview({ current, place, id, sp }: Props) {
                     <li key={p.line} className="px-5 py-3">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p><strong>Row {p.line}</strong>{p.values.fullName || p.values.name ? ` · ${p.values.fullName || p.values.name}` : ""}{fixed ? <Badge tone="brand" className="ml-2">Fixed by you</Badge> : <PhotoRowBadge photos={photos} line={p.line} />}</p>
+                          <p><strong><Words k="Row" /> {p.line}</strong>{p.values.fullName || p.values.name ? ` · ${p.values.fullName || p.values.name}` : ""}{fixed ? <Badge tone="brand" className="ml-2"><Words k="Fixed by you" /></Badge> : <PhotoRowBadge photos={photos} line={p.line} />}</p>
                           <p className="text-danger">{p.problems.join(" ")}</p>
-                          {p.chosen && <p className="text-sm text-ink-2">Your choice: {p.chosenWords ?? p.chosen}</p>}
+                          {p.chosen && <p className="text-sm text-ink-2"><Words k="Your choice:" /> {p.chosenWords ?? p.chosen}</p>}
                         </div>
                         {mayEdit && <div className="flex gap-1">{p.chosen && <ClearChoiceButton place={place.key} id={file.id} line={p.line} />}{fixed && <UndoFixButton place={place.key} id={file.id} line={p.line} />}<LeaveOutButton place={place.key} id={file.id} lines={[p.line]} out /></div>}
                       </div>
                       {mayEdit && p.choices.length > 0 && <RowChoices place={place.key} id={file.id} line={p.line} choices={p.choices.filter((c) => c.value !== p.chosen)} />}
                       {mayEdit && (
                         <details className="mt-1">
-                          <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-brand-text">Fix this row</summary>
+                          <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-brand-text"><Words k="Fix this row" /></summary>
                           <FixRowForm place={place.key} id={file.id} line={p.line} fields={kind.columns.map((c) => ({
                             key: c.key, label: c.label, value: p.values[c.key] ?? "", required: c.required,
                             options: c.key === "gender" ? [{ value: "", label: "Choose" }, { value: "Male", label: "Male" }, { value: "Female", label: "Female" }, { value: "Other", label: "Other" }]
@@ -336,7 +337,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
                   );
                 })}
               </ul>
-              {checked.problems.length > 100 && <p className="px-5 pb-4 text-sm text-ink-2">The first 100 are shown. Download all {checked.problems.length}, fix them in Excel and bring that file in, or leave them all out.</p>}
+              {checked.problems.length > 100 && <p className="px-5 pb-4 text-sm text-ink-2"><Words k="The first 100 are shown. Download all" /> {checked.problems.length}<Words k=", fix them in Excel and bring that file in, or leave them all out." /></p>}
               {mayEdit && checked.problems.length > 1 && <div className="border-t border-line px-5 py-3"><LeaveOutButton place={place.key} id={file.id} lines={checked.problems.map((p) => p.line)} out label={`Leave out all ${checked.problems.length} rows with problems`} /></div>}
             </Card>
           )}
@@ -347,7 +348,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
               <ul className="divide-y divide-line">
                 {checked.decided.slice(0, 100).map((d) => (
                   <li key={d.line} className="flex flex-wrap items-start justify-between gap-2 px-5 py-3">
-                    <p className="min-w-0"><strong>Row {d.line}</strong>{d.values.fullName ? ` · ${d.values.fullName}` : ""}<span className="block text-sm text-ink-2">{d.words}</span></p>
+                    <p className="min-w-0"><strong><Words k="Row" /> {d.line}</strong>{d.values.fullName ? ` · ${d.values.fullName}` : ""}<span className="block text-sm text-ink-2">{d.words}</span></p>
                     {mayEdit && <ClearChoiceButton place={place.key} id={file.id} line={d.line} />}
                   </li>
                 ))}
@@ -356,7 +357,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
           )}
 
           {prepared.passed.leftOut > 0 && mayEdit && (
-            <p className="text-sm text-ink-2">{prepared.passed.leftOut} {prepared.passed.leftOut === 1 ? "row is" : "rows are"} left out. <LeaveOutButton place={place.key} id={file.id} lines={(w.choices.leftOut)} out={false} label="Bring them all back" /></p>
+            <p className="text-sm text-ink-2">{prepared.passed.leftOut} {prepared.passed.leftOut === 1 ? "row is" : "rows are"} <Words k="left out." /> <LeaveOutButton place={place.key} id={file.id} lines={(w.choices.leftOut)} out={false} label="Bring them all back" /></p>
           )}
 
           <Card>
@@ -367,26 +368,26 @@ export async function FileReview({ current, place, id, sp }: Props) {
                   <li key={r.line} className="px-5 py-3">
                     <div className="flex flex-wrap items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <p><strong>Row {r.line}</strong>{r.fixed ? <Badge tone="brand" className="ml-2">Fixed by you</Badge> : <PhotoRowBadge photos={photos} line={r.line} />}</p>
+                        <p><strong><Words k="Row" /> {r.line}</strong>{r.fixed ? <Badge tone="brand" className="ml-2"><Words k="Fixed by you" /></Badge> : <PhotoRowBadge photos={photos} line={r.line} />}</p>
                         <p className="text-sm text-ink-2 break-words">{kind.columns.filter((c) => r.values[c.key]).map((c) => `${c.label}: ${r.values[c.key]}`).join(" · ")}</p>
                       </div>
                       {mayEdit && <div className="flex gap-1">{r.fixed && <UndoFixButton place={place.key} id={file.id} line={r.line} />}<LeaveOutButton place={place.key} id={file.id} lines={[r.line]} out /></div>}
                     </div>
                     {mayEdit && (
                       <details className="mt-1">
-                        <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-brand-text">Fix this row</summary>
+                        <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-brand-text"><Words k="Fix this row" /></summary>
                         <FixRowForm place={place.key} id={file.id} line={r.line} fields={kind.columns.map((c) => ({ key: c.key, label: c.label, value: r.values[c.key] ?? "", required: c.required }))} />
                       </details>
                     )}
                   </li>
                 ))}
-                {checked.ready.length > 100 && <li className="px-5 py-3 text-sm text-ink-2">The first 100 are shown. Check the rest against the register too before bringing them in.</li>}
+                {checked.ready.length > 100 && <li className="px-5 py-3 text-sm text-ink-2"><Words k="The first 100 are shown. Check the rest against the register too before bringing them in." /></li>}
               </ul>
             )}
             {checked.ready.length > 0 && !photos.length && (
               <div className="max-h-[28rem] overflow-auto">
                 <table className="min-w-full text-sm">
-                  <thead className="sticky top-0 bg-surface-2"><tr><th scope="col" className="px-3 py-2 text-left font-medium">Row</th>{kind.columns.filter((c) => checked.ready.some((r) => r.values[c.key])).map((c) => <th key={c.key} scope="col" className="whitespace-nowrap px-3 py-2 text-left font-medium">{c.label}</th>)}</tr></thead>
+                  <thead className="sticky top-0 bg-surface-2"><tr><th scope="col" className="px-3 py-2 text-left font-medium"><Words k="Row" /></th>{kind.columns.filter((c) => checked.ready.some((r) => r.values[c.key])).map((c) => <th key={c.key} scope="col" className="whitespace-nowrap px-3 py-2 text-left font-medium">{c.label}</th>)}</tr></thead>
                   <tbody className="divide-y divide-line">
                     {checked.ready.slice(0, 10).map((r) => (
                       <tr key={r.line}><td className="px-3 py-2 text-ink-2">{r.line}</td>{kind.columns.filter((c) => checked.ready.some((x) => x.values[c.key])).map((c) => <td key={c.key} className="whitespace-nowrap px-3 py-2">{r.values[c.key]}</td>)}</tr>
@@ -398,7 +399,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
             <CardBody className="flex flex-wrap items-center gap-3 border-t border-line">
               {mayEdit && checked.ready.length > 0 ? <ImportButton place={place.key} id={file.id} ready={checked.ready.length} problems={checked.problems.length} leftOut={prepared.passed.leftOut} one={words.one} many={words.many} />
                 : <p className="text-ink-2">{checked.ready.length ? bringRefused ?? "Your role cannot bring these in." : "Fix the problems above, or match the columns and words, to make rows ready."}</p>}
-              {kind.key === "students" && <p className="text-sm text-ink-2">A parent already on record with the same phone is linked only when the name matches (a close spelling is fine), so brothers and sisters share their parents. Any other match waits for your choice above.</p>}
+              {kind.key === "students" && <p className="text-sm text-ink-2"><Words k="A parent already on record with the same phone is linked only when the name matches (a close spelling is fine), so brothers and sisters share their parents. Any other match waits for your choice above." /></p>}
             </CardBody>
           </Card>
         </div>

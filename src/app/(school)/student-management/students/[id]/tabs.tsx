@@ -149,11 +149,11 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
             </ul>
             {p.apaarConsent && (
               <p className="px-5 pb-3 -mt-1 text-[13.5px] flex items-center justify-between gap-3">
-                <span className="min-w-0"><span className="block">APAAR consent</span><span className="block text-[12.5px] text-ink3">{apaarWords(p.apaarConsent, tz)}</span></span>
+                <span className="min-w-0"><span className="block"><Words k="APAAR consent" /></span><span className="block text-[12.5px] text-ink3">{apaarWords(p.apaarConsent, tz)}</span></span>
                 <Pill tone={p.apaarConsent.state === "GIVEN" ? "ok" : p.apaarConsent.state === "WITHDRAWN" || p.apaarConsent.state === "REFUSED" ? "bad" : "warn"}>{CONSENT_STATUS_LABEL[p.apaarConsent.state]}</Pill>
               </p>
             )}
-            <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3">APAAR and PEN are exported from Reports &amp; Analytics, Government Reports.</p>
+            <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3"><Words k={"APAAR and PEN are exported from Reports & Analytics, Government Reports."} /></p>
           </Card>
         )}
 

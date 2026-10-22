@@ -154,11 +154,11 @@ export default async function SwitchingPage({ searchParams }: Search) {
             {mine.length ? <UploadForm place="settings" kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={wantKind && mine.some((k) => k.key === wantKind) ? wantKind : undefined} />
               : <p className="text-ink-2"><Words k="Your role can see this page but not add records. Ask your School Admin." /></p>}
             <details className="mt-4 text-sm text-ink-2">
-              <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">Records on paper?</summary>
-              <p>Download the ready Excel sheet next to each step. It has drop-down lists of your own classes, sections and designations, so typing from the register is quick and the rows are right the first time.</p>
+              <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink"><Words k="Records on paper?" /></summary>
+              <p><Words k="Download the ready Excel sheet next to each step. It has drop-down lists of your own classes, sections and designations, so typing from the register is quick and the rows are right the first time." /></p>
               {mine.length > 0 && (
                 <div className="mt-3 border-t border-line pt-3 text-ink">
-                  <p className="mb-2 font-medium">Or upload photos of the register pages</p>
+                  <p className="mb-2 font-medium"><Words k="Or upload photos of the register pages" /></p>
                   <PhotoUploadForm place="settings" kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={wantKind && mine.some((k) => k.key === wantKind) ? wantKind : undefined} refusal={photoRefusal(current)} />
                 </div>
               )}

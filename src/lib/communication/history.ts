@@ -5,6 +5,8 @@ import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import type { ListParams } from "../list";
 import { inPeriod, PERIOD_FILTERS } from "./period";
+import { RULES } from "../messaging/automatic";
+import { codeSender, isCodeMessage } from "../messaging/one-time-code";
 
 export const HISTORY_FILTERS = ["channel", "status", "sender", "rule", "person", ...PERIOD_FILTERS] as const;
 
@@ -57,6 +59,17 @@ export async function countsFor(tx: Tx, ctx: SchoolContext, messageIds: string[]
     if (r.status === "QUEUED" || r.status === "SENDING") c.queued += n;
   }
   return out;
+}
+
+/**
+ * Who sent a message, in words: an automatic rule ("Rule: Absent today"), a notice,
+ * School OS for a one-time code ("School OS (sign-in)", QA SEC-01), or the person.
+ */
+export function senderWords(m: { ruleKey: string | null; sourceType: string | null; sentById: string | null; messageType: string; trigger: string | null }, names: Map<string, string>): string {
+  if (m.ruleKey) return `Rule: ${RULES.find((r) => r.key === m.ruleKey)?.label ?? m.ruleKey}`;
+  if (isCodeMessage(m)) return codeSender(m);
+  if (m.sourceType === "Notice") return "Notice";
+  return names.get(m.sentById ?? "") ?? "School";
 }
 
 export async function senderNames(tx: Tx, ids: (string | null)[]) {

@@ -5,8 +5,8 @@ import { readListParams } from "@/lib/list";
 import { formatDateTime } from "@/lib/format";
 import { PermissionDeniedError, reachFor } from "@/lib/permissions";
 import { CHANNEL_LABEL, type Channel } from "@/lib/messaging/channels";
-import { RULES } from "@/lib/messaging/automatic";
-import { countsFor, HISTORY_FILTERS, historyWhere, messageCampusWhere, MESSAGE_STATUS_LABEL, senderNames, type Counts } from "@/lib/communication/history";
+import { CODE_HIDDEN_LABEL, isCodeMessage } from "@/lib/messaging/one-time-code";
+import { countsFor, HISTORY_FILTERS, historyWhere, messageCampusWhere, MESSAGE_STATUS_LABEL, senderNames, senderWords, type Counts } from "@/lib/communication/history";
 
 export const dynamic = "force-dynamic";
 
@@ -40,11 +40,11 @@ export async function GET(req: Request) {
   const rows: Row[] = data.rows.map((m) => ({
     m,
     c: data.counts.get(m.id)!,
-    by: m.ruleKey ? `Rule: ${RULES.find((r) => r.key === m.ruleKey)?.label ?? m.ruleKey}` : m.sourceType === "Notice" ? "Notice" : data.names.get(m.sentById ?? "") ?? "School",
+    by: senderWords(m, data.names),
   }));
   const columns: ExportColumn<Row>[] = [
     { label: "Date and time", value: (r) => formatDateTime(r.m.createdAt, tz) },
-    { label: "Title or template", value: (r) => r.m.title ?? r.m.trigger ?? r.m.body.slice(0, 80) },
+    { label: "Title or template", value: (r) => r.m.title ?? r.m.trigger ?? (isCodeMessage(r.m) ? CODE_HIDDEN_LABEL : r.m.body.slice(0, 80)) },
     { label: "Audience", value: (r) => r.m.audienceLabel },
     { label: "Sent by", value: (r) => r.by },
     { label: "Channel", value: (r) => r.m.channels.map((c) => CHANNEL_LABEL[c as Channel] ?? c).join(", ") },

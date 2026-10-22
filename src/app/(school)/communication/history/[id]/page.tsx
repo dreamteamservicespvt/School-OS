@@ -10,9 +10,9 @@ import { formatDateTime } from "@/lib/format";
 import { CHANNEL_LABEL, onChannels, type Channel } from "@/lib/messaging/channels";
 import { retryableFailures } from "@/lib/messaging/deliver";
 import { NOT_SENT } from "@/lib/messaging/send";
-import { RULES } from "@/lib/messaging/automatic";
+import { CODE_HIDDEN_LABEL, hiddenCodeText, isCodeMessage } from "@/lib/messaging/one-time-code";
 import { withHiddenLinks } from "@/lib/parent-link/token";
-import { countsFor, DELIVERY_LABEL, inTestMode, MESSAGE_STATUS_LABEL, messageCampusWhere, recipientCampusWhere, senderNames } from "@/lib/communication/history";
+import { countsFor, DELIVERY_LABEL, inTestMode, MESSAGE_STATUS_LABEL, messageCampusWhere, recipientCampusWhere, senderNames, senderWords } from "@/lib/communication/history";
 import { unreadCount } from "@/lib/messaging/resend";
 import { EmptyState } from "@/components/empty-state";
 import { Pill, type PillTone } from "@/components/ui/badge";
@@ -34,11 +34,10 @@ const PAGE = 50;
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-/** A one-time code is never shown to staff once real messages are sent. */
-function shownText(text: string, sourceType: string | null, provider: string | null) {
+/** Personal links are never shown; nor is a one-time code, in test mode too (QA SEC-01). */
+function shownText(text: string, isCode: boolean) {
   const t = withHiddenLinks(text);
-  if (sourceType === "Parent Link Code" && provider && provider !== "sandbox") return t.replace(/\b\d{6}\b/g, "••••••");
-  return t;
+  return isCode ? hiddenCodeText(t) : t;
 }
 
 export default async function MessagePage({ params, searchParams }: Props) {
@@ -78,7 +77,9 @@ export default async function MessagePage({ params, searchParams }: Props) {
   });
   if (!data) notFound();
   const { m, counts } = data;
-  const sender = m.ruleKey ? `Rule: ${RULES.find((r) => r.key === m.ruleKey)?.label ?? m.ruleKey}` : m.sourceType === "Notice" ? "Notice" : data.names.get(m.sentById ?? "") ?? "School";
+  const sender = senderWords(m, data.names);
+  // A one-time code: shown hidden, never retried or resent, and not an emergency broadcast (QA SEC-01).
+  const isCode = isCodeMessage(m);
   const skipped = (Array.isArray(m.skipped) ? m.skipped : []) as { reason: string; count: number; names?: string[] }[];
   const sent = m.status === "SENT" || m.status === "QUEUED";
 
@@ -105,7 +106,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
       <BackLink href="/communication/history" label="Message History" sub={formatDateTime(m.createdAt, tz)} />
       <RecordHead title={m.title ?? m.trigger ?? "Message"}
         sub={<>{formatDateTime(m.sentAt ?? m.scheduledAt ?? m.createdAt, tz)} · {m.ruleKey ? "Automatic rule" : "Sent by"} {senderName} <ChannelPills channels={m.channels} backup={m.smsBackup} /></>}
-        actions={access.canChange ? (
+        actions={access.canChange && !isCode ? (
           <MessageActions id={m.id} canCancel={m.status === "SCHEDULED"}
             scheduledWords={m.scheduledAt ? `It was going to ${m.recipientCount} people on ${formatDateTime(m.scheduledAt, tz)}.` : null}
             retryable={m.status === "CANCELLED" ? 0 : data.retry.rows.length} overLimit={data.retry.overLimit} retryLimit={data.retry.retryLimit}
@@ -116,7 +117,8 @@ export default async function MessagePage({ params, searchParams }: Props) {
       <div className="flex flex-col gap-5 lg:gap-6">
         {m.status === "SCHEDULED" && m.scheduledAt && <Banner tone="info" title={`Scheduled for ${formatDateTime(m.scheduledAt, tz)}.`}>Nobody has received it yet. You can cancel it until it goes.</Banner>}
         {m.status === "CANCELLED" && <Banner tone="warn" title="Cancelled.">{m.cancelledAt ? `On ${formatDateTime(m.cancelledAt, tz)}` : ""}{m.cancelledById ? ` by ${data.names.get(m.cancelledById) ?? "staff"}` : ""}. Nobody got it, and no credits were used.</Banner>}
-        {m.isEmergency && <Banner tone="bad" title="Emergency broadcast.">Sent also to parents who opted out.</Banner>}
+        {isCode && <Banner tone="info" title={`${CODE_HIDDEN_LABEL}.`}>The code is never kept or shown here; only the person it went to saw it. A code that did not arrive is not sent again: the person asks for a new code.</Banner>}
+        {m.isEmergency && !isCode && <Banner tone="bad" title="Emergency broadcast.">Sent also to parents who opted out.</Banner>}
         {counts.testMode > 0 && <Banner tone="warn" title="Test mode: not really sent.">The channel is in test mode in Settings, SMS, WhatsApp &amp; Email, so the {counts.testMode.toLocaleString("en-IN")} {counts.testMode === 1 ? "person" : "people"} marked &ldquo;Test mode&rdquo; below did not receive this message. It is only recorded.</Banner>}
         {skipped.length > 0 && (
           <Banner tone="warn" title={`${skipped.reduce((n, x) => n + x.count, 0)} left out when it was sent:`}>
@@ -161,10 +163,10 @@ export default async function MessagePage({ params, searchParams }: Props) {
           </Card>
           <Col>
             <Card>
-              <CardHeader title="The message" description={m.ruleKey ? `Automatic: ${senderName}` : `By ${senderName}`} icon={MessageSquareText} />
+              <CardHeader title="The message" description={isCode ? CODE_HIDDEN_LABEL : m.ruleKey ? `Automatic: ${senderName}` : `By ${senderName}`} icon={MessageSquareText} />
               <div className="px-5 pb-5">
-                <div className="rounded-2xl rounded-tl-md bg-sunken/70 p-3.5 text-[14px] leading-relaxed whitespace-pre-line break-words">{sample ? shownText(sample.text, m.sourceType, sample.provider) : withHiddenLinks(m.body)}</div>
-                {sample && <p className="text-[12.5px] text-ink3 mt-2">Shown as {sample.name} received it. Each person’s copy fills in their own details.</p>}
+                <div className="rounded-2xl rounded-tl-md bg-sunken/70 p-3.5 text-[14px] leading-relaxed whitespace-pre-line break-words">{shownText(sample ? sample.text : m.body, isCode)}</div>
+                {sample && <p className="text-[12.5px] text-ink3 mt-2">{isCode ? `Shown as ${sample.name} received it, with the code hidden.` : `Shown as ${sample.name} received it. Each person’s copy fills in their own details.`}</p>}
               </div>
             </Card>
             <Card>

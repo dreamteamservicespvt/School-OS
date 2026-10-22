@@ -6,8 +6,7 @@ import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { RULES } from "@/lib/messaging/automatic";
-import { countsFor, DELIVERY_LABEL, HISTORY_FILTERS, historyWhere, inTestMode, messageCampusWhere, recipientCampusWhere, senderNames } from "@/lib/communication/history";
+import { countsFor, DELIVERY_LABEL, HISTORY_FILTERS, historyWhere, inTestMode, messageCampusWhere, recipientCampusWhere, senderNames, senderWords } from "@/lib/communication/history";
 import { Card } from "@/components/ui/card";
 import { Stats } from "@/components/ui/stats";
 import { Toolbar } from "@/components/ui/toolbar";
@@ -85,7 +84,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
   const retryLimit = 3;
   const exportHref = listHref("/communication/history/export", { ...params, page: 1 }, {});
   const anyFilter = Boolean(params.q || Object.keys(params.filters).length);
-  const sender = (m: (typeof data.rows)[number]) => (m.ruleKey ? RULES.find((r) => r.key === m.ruleKey)?.label ?? m.ruleKey : m.sourceType === "Notice" ? "Notice" : data.names.get(m.sentById ?? "") ?? "School");
+  const sender = (m: (typeof data.rows)[number]) => senderWords(m, data.names).replace(/^Rule: /, "");
 
   return (
     <>

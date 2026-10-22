@@ -5,7 +5,7 @@ import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { findModule } from "@/lib/modules";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { canBring, canUndo, goLiveSummary, kindInfo, moveInKinds, settleImports } from "@/lib/move-in/service";
+import { canBring, canUndo, goLiveSummary, kindInfo, kindModule, moveInKinds, settleImports } from "@/lib/move-in/service";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
@@ -61,7 +61,9 @@ export default async function SwitchingPage({ searchParams }: Search) {
     const batches = await tx.importBatch.findMany({ where: { id: { in: files.map((f) => f.batchId).filter((x): x is string => Boolean(x)) } } });
     return { files, summary, counts, batches: new Map(batches.map((b) => [b.id, b])) };
   });
-  const { files, summary } = data;
+  const { summary } = data;
+  // Files of records the person may not see in their own module (salary details, for example) are not listed.
+  const files = data.files.filter((f) => can(current.permissions, kindModule(f.kind), "view"));
   const kinds = moveInKinds(current.modulesOn);
   const mine = kinds.filter((k) => canBring(current.permissions, k.key, current.modulesOn));
   const importing = files.some((f) => f.status === "importing");

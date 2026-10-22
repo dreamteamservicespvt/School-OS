@@ -3,9 +3,10 @@ import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { readListParams, skipTake } from "@/lib/list";
-import { importKind } from "@/lib/importer";
+import { importKind, importKinds } from "@/lib/importer";
+import { can } from "@/lib/permissions";
 import { shownFileName } from "@/lib/data-security/imports";
-import { canBring, mayImport, moveInKinds } from "@/lib/move-in/service";
+import { canBring, kindModule, mayImport, moveInKinds } from "@/lib/move-in/service";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/list/data-table";
@@ -22,10 +23,12 @@ export default async function ImportsPage({ searchParams }: Search) {
   const sp = await searchParams;
   const params = readListParams(sp);
   const tz = current.school.timeZone;
+  // Imports of records the person may not see in their own module (salary details, for example) are not listed.
+  const seen = importKinds().filter((k) => can(current.permissions, kindModule(k.key), "view")).map((k) => k.key);
   const { rows, total, running, names } = await withSchool(current.ctx, async (tx) => {
     const [rows, total, running] = await Promise.all([
-      tx.importBatch.findMany({ orderBy: { createdAt: "desc" }, ...skipTake(params) }),
-      tx.importBatch.count(),
+      tx.importBatch.findMany({ where: { kind: { in: seen } }, orderBy: { createdAt: "desc" }, ...skipTake(params) }),
+      tx.importBatch.count({ where: { kind: { in: seen } } }),
       tx.backgroundJob.count({ where: { kind: "import-run", status: { in: ["queued", "running"] } } }),
     ]);
     const ids = [...new Set(rows.map((r) => r.importedById).filter((x): x is string => Boolean(x)))];

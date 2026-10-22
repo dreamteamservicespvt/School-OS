@@ -11,7 +11,7 @@ import { can } from "@/lib/permissions";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { PARTS } from "@/lib/move-in/match";
 import { sectionLabel } from "@/lib/move-in/lookups";
-import { kindInfo, lastFailure, moveInKinds, MoveInProblem, settleImports, workOn } from "@/lib/move-in/service";
+import { kindInfo, kindModule, lastFailure, moveInKinds, MoveInProblem, settleImports, workOn } from "@/lib/move-in/service";
 import { placeHolds, errorsHref, fileHref, HOME, problemsHref, wordsFor, type ImportPlace } from "@/lib/imports/places";
 import { placeRefusal } from "@/lib/imports/place-access";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -46,6 +46,8 @@ export async function FileReview({ current, place, id, sp }: Props) {
       const f = /^[0-9a-f-]{36}$/i.test(id) ? await tx.moveInFile.findFirst({ where: { id, archivedAt: null }, select: { kind: true } }) : null;
       // A module's page shows only the files it brings in.
       if (f && !placeHolds(place, f.kind)) throw new MoveInProblem("This file was not found. It may have been removed.");
+      // Its rows only for people who may see those records in their own module (salary details, for example).
+      if (f && !can(current.permissions, kindModule(f.kind), "view")) throw new MoveInProblem("Your role cannot see these records.");
       const w = await workOn(tx, current.ctx, id, { check: step === "check" });
       const batch = w.file.batchId ? await tx.importBatch.findUnique({ where: { id: w.file.batchId } }) : null;
       const failure = w.file.status === "open" ? await lastFailure(tx, w.file.importFileId) : null;

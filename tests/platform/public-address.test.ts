@@ -4,13 +4,15 @@
 // public addresses only, host names looked up and checked, the connection made
 // to the checked address, no redirects followed, and a short time limit.
 import http from "node:http";
-import type { AddressInfo } from "node:net";
+import net, { type AddressInfo } from "node:net";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { withSchool } from "@/lib/db";
-import { isPrivateAddress, publicUrlProblem, PRIVATE_ADDRESS_WORDS } from "@/lib/net/public-address";
+import { isPrivateAddress, publicHostProblem, publicUrlProblem, PRIVATE_ADDRESS_WORDS } from "@/lib/net/public-address";
 import { AddressRefused, publicAddresses, publicFetch, type Resolver } from "@/lib/net/public-fetch";
 import { connectIntegration, INTEGRATIONS, testIntegration } from "@/lib/settings/switches";
 import { SettingsProblem } from "@/lib/settings/common";
+import { smtpProvider } from "@/lib/messaging/providers/smtp";
+import { checkChannel } from "@/lib/messaging/channel-admin";
 import { makeSchool } from "../helpers";
 
 describe("which addresses are private", () => {
@@ -45,6 +47,8 @@ describe("typed addresses", () => {
     expect(publicUrlProblem("http://example.com/")).toMatch(/https/);
     expect(publicUrlProblem("http://tally.example.com:9000/", { allowHttp: true })).toBeNull();
     expect(publicUrlProblem("ftp://example.com/", { allowHttp: true })).toMatch(/https/);
+    expect(publicUrlProblem("file:///etc/passwd", { allowHttp: true })).toMatch(/https/);
+    expect(publicUrlProblem("gopher://example.com:6379/_INFO", { allowHttp: true })).toMatch(/https/);
     expect(publicUrlProblem("https://admin:secret@example.com/")).toMatch(/user name and password/);
     expect(publicUrlProblem("https://hooks.example.com/school-os")).toBeNull();
   });
@@ -122,5 +126,67 @@ describe("an integration's test connection", () => {
     const lookedUpPrivate = (url: string, o: { allowHttp: boolean }) => publicFetch(url, { ...o, resolve: async () => [{ address: "10.20.30.40", family: 4 }] });
     const r = await testIntegration(webhooks, { address: "https://hooks.example.com/school-os", secret: "kept" }, lookedUpPrivate);
     expect(r).toEqual({ ok: false, note: `Webhook address: ${PRIVATE_ADDRESS_WORDS}` });
+  });
+});
+
+describe("the school's email server (SMTP) in SMS, WhatsApp & Email", () => {
+  it.each([
+    "localhost", "127.0.0.1", "127.1", "0x7f.1", "2130706433", "::1", "[::1]", "169.254.169.254", "10.0.0.5", "172.20.1.1", "192.168.1.10",
+    "fd00:ec2::254", "metadata.google.internal", "mail.local", "intranet", "100.100.100.200",
+  ])("%s is refused as a server name", (host) => {
+    expect(publicHostProblem(host)).toBe(PRIVATE_ADDRESS_WORDS);
+  });
+
+  it("a real server name or public address is fine; a web address or port is not a server name", () => {
+    expect(publicHostProblem("smtp.gmail.com")).toBeNull();
+    expect(publicHostProblem("smtp-relay.brevo.com.")).toBeNull();
+    expect(publicHostProblem("142.250.4.108")).toBeNull();
+    expect(publicHostProblem("https://smtp.gmail.com")).toMatch(/only the server name/);
+    expect(publicHostProblem("smtp.gmail.com:587")).toMatch(/only the server name/);
+  });
+
+  it("saving refuses a private server and ports that are not for email", async () => {
+    const school = await makeSchool("Mail Wall School");
+    const ctx = { schoolId: school.id, userId: null };
+    const input = (host: string, port = "587") => ({ provider: "smtp", live: true, isOn: true, config: { host, port, fromName: "School", fromAddress: "office@school.in", user: "office" }, secrets: { password: "pw-123456" }, lowCreditAlert: 0 });
+    for (const host of ["127.0.0.1", "localhost", "169.254.169.254", "metadata.google.internal", "10.1.1.1"]) {
+      const e = await withSchool(ctx, (tx) => checkChannel(tx, ctx, "email", input(host)));
+      expect(e.host).toBe(PRIVATE_ADDRESS_WORDS);
+    }
+    expect((await withSchool(ctx, (tx) => checkChannel(tx, ctx, "email", input("smtp.gmail.com", "6379")))).port).toMatch(/587, 465, 25 or 2525/);
+    expect(await withSchool(ctx, (tx) => checkChannel(tx, ctx, "email", input("smtp.gmail.com")))).toEqual({});
+  });
+
+  describe("sending (the test message too)", () => {
+    // A local stand-in for a mail server that refuses everything; it counts who connects.
+    let server: net.Server;
+    let connections = 0;
+    beforeAll(async () => {
+      server = net.createServer((sock) => { connections++; sock.end("554 No thanks\r\n"); });
+      await new Promise<void>((r) => server.listen(0, "127.0.0.1", () => r()));
+    });
+    afterAll(async () => { await new Promise((r) => server.close(r)); });
+    const cfg = (host: string, port: number) => ({ config: { host, port: String(port), fromAddress: "office@school.in", user: "office" }, secrets: { password: "pw" } });
+    const msg = { channel: "email" as const, to: "parent@example.com", text: "Hello", subject: "Test" };
+
+    it("never connects to a server name that is looked up to a private address", async () => {
+      const lookedUpPrivate = (h: string) => publicAddresses(h, { resolve: async () => [{ address: "169.254.169.254", family: 4 }] });
+      const r = await smtpProvider(cfg("mail.example.com", 587), { publicAddresses: lookedUpPrivate }).send(msg);
+      expect(r).toEqual({ ok: false, retryable: false, reason: `Email server: ${PRIVATE_ADDRESS_WORDS}` });
+      const typedPrivate = await smtpProvider(cfg("127.0.0.1", 587)).send(msg);
+      expect(typedPrivate).toMatchObject({ ok: false, retryable: false, reason: `Email server: ${PRIVATE_ADDRESS_WORDS}` });
+      const otherPort = await smtpProvider(cfg("smtp.gmail.com", 6379)).send(msg);
+      expect(otherPort).toMatchObject({ ok: false, retryable: false });
+      expect(connections).toBe(0);
+    });
+
+    it("connects to exactly the address that was checked", async () => {
+      const port = (server.address() as AddressInfo).port;
+      const checked = async () => [{ address: "127.0.0.1", family: 4 }];
+      // The test lets its own stand-in through, on its own port.
+      const r = await smtpProvider(cfg("mail.example.com", port), { publicAddresses: checked, ports: [port] }).send(msg);
+      expect(r).toMatchObject({ ok: false, retryable: false });
+      expect(connections).toBe(1);
+    });
   });
 });

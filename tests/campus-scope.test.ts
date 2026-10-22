@@ -61,6 +61,10 @@ import { allocate } from "@/lib/hostel/allocation";
 import { genderFits } from "@/lib/hostel/words";
 import { currentEnrolment } from "@/lib/academic/years";
 import { studentRecord } from "@/lib/documents/records";
+import { searchStudents as pickupSearch } from "@/lib/front-office/pickup";
+import { searchCounterStudents } from "@/lib/inventory/lookup";
+import { searchMembers } from "@/lib/library/members";
+import { librarySettings } from "@/lib/library/settings";
 import { makeSchool, makeUser } from "./helpers";
 import { addStudent } from "./students/fixtures";
 
@@ -255,6 +259,17 @@ describe("a login limited to one campus", () => {
     expect(forNorth).not.toContain(mainAsk.id);
     expect(await waiting(cur.admin)).toEqual(expect.arrayContaining([mainAsk.id, northAsk.id]));
     await expect(withSchool(cur.northAdmin.ctx, (tx) => decide(tx, cur.northAdmin.ctx, mainAsk.id, "approve", null))).rejects.toThrow("This request was not found.");
+  });
+
+  it("finds only its campus's students at the gate, the store counter and the library desk", async () => {
+    const names = (rows: { name: string }[]) => rows.map((r) => r.name).sort();
+    expect(names(await run((tx) => pickupSearch(tx, ctx, "Kumar", 8, cur.northAdmin)))).toEqual(["Neha Kumar"]);
+    expect(names(await run((tx) => pickupSearch(tx, ctx, "Kumar", 8, cur.admin)))).toEqual(["Mohan Kumar", "Neha Kumar"]);
+    expect(names(await run((tx) => searchCounterStudents(tx, ctx, "Kumar", 8, cur.northAdmin)))).toEqual(["Neha Kumar"]);
+    const members = async (c: Current, q: string) => run(async (tx) => (await searchMembers(tx, ctx, await librarySettings(tx, ctx), q, 8, c)).map((m) => m.name).sort());
+    expect(await members(cur.northAdmin, "Kumar")).toEqual(["Neha Kumar"]);
+    expect(await members(cur.admin, "Kumar")).toEqual(["Mohan Kumar", "Neha Kumar"]);
+    expect(await members(cur.northAdmin, "Meena")).toEqual([]);
   });
 
   it("cannot add a student to another campus's class or move one it cannot see", async () => {

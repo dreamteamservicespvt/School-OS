@@ -12,7 +12,7 @@ import { DOCUMENT_TYPES, IMAGE_TYPES, saveFile } from "@/lib/files";
 import { instantOf } from "@/lib/front-office/time";
 import { currentYear, currentYears } from "@/lib/academic/years";
 import { findStudents } from "@/lib/students/find";
-import { personCampusId } from "@/lib/campus";
+import { inCampus, personCampusId } from "@/lib/campus";
 import {
   hostelAction, inHostel, need, str, id, optionalId, ids, text, maybe, int, money, isoDate, minute, on, HostelProblem, UUID_RE, type HostelWork,
 } from "@/lib/hostel/act";
@@ -73,8 +73,8 @@ export async function findStudentsAction(q: string, mode: "new" | "resident"): P
       // Each student's class in their own campus's current year.
       const yearIds = (await currentYears(w.tx, w.ctx)).map((y) => y.id);
       const rows = mode === "new"
-        ? await findStudents(w.tx, term, { scope: {}, where: { id: { notIn: active.map((a) => a.studentId) } }, yearId: yearIds, statuses: ["ACTIVE"], take: 12 })
-        : await findStudents(w.tx, term, { scope: {}, where: { id: { in: active.filter((a) => w.mine === null || w.mine.includes(a.hostelId)).map((a) => a.studentId) } }, yearId: yearIds, statuses: "any", take: 12 });
+        ? await findStudents(w.tx, term, { scope: inCampus(w.current), where: { id: { notIn: active.map((a) => a.studentId) } }, yearId: yearIds, statuses: ["ACTIVE"], take: 12 })
+        : await findStudents(w.tx, term, { scope: inCampus(w.current), where: { id: { in: active.filter((a) => w.mine === null || w.mine.includes(a.hostelId)).map((a) => a.studentId) } }, yearId: yearIds, statuses: "any", take: 12 });
       const info = await studentsInfo(w.tx, w.ctx, rows.map((r) => r.id));
       const rooms = await w.tx.hostelRoom.findMany({ where: { id: { in: rows.map((r) => activeBy.get(r.id)?.roomId).filter((x): x is string => Boolean(x)) } }, select: { id: true, roomNo: true } });
       const beds = await w.tx.hostelBed.findMany({ where: { id: { in: rows.map((r) => activeBy.get(r.id)?.bedId).filter((x): x is string => Boolean(x)) } }, select: { id: true, bedNo: true } });

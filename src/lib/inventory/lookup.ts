@@ -7,6 +7,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { currentYearIds } from "../academic/years";
 import { sectionsForCurrentYears } from "../academic";
+import { inCampus, type CampusLimit } from "../campus";
 import { findStudents } from "../students/find";
 import { itemLabel } from "./items";
 import { reorderOf, totalsFor } from "./stock";
@@ -32,10 +33,11 @@ export async function studentsByIds(tx: Tx, ctx: SchoolContext, ids: string[]): 
  * Students studying now: the one student search (name with one letter wrong,
  * admission or roll number). Never by parents: the store keeper does not see them.
  */
-export async function searchCounterStudents(tx: Tx, ctx: SchoolContext, q: string, take = 8) {
+/** Students for the store counter; only the person's campus's when they are limited to one. */
+export async function searchCounterStudents(tx: Tx, ctx: SchoolContext, q: string, take = 8, limit?: CampusLimit | null) {
   const t = q.trim();
   if (t.length < 2) return [];
-  const found = await findStudents(tx, t, { scope: {}, yearId: await currentYearIds(tx, ctx), byParent: false, take });
+  const found = await findStudents(tx, t, { scope: inCampus(limit), yearId: await currentYearIds(tx, ctx), byParent: false, take });
   const byId = new Map((await studentsByIds(tx, ctx, found.map((s) => s.id))).map((s) => [s.id, s]));
   return found.map((s) => byId.get(s.id)).filter((s): s is NonNullable<typeof s> => Boolean(s));
 }

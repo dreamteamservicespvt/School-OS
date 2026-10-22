@@ -13,6 +13,7 @@ import { notify } from "../notifications";
 import { formatNumber, nextNumber } from "../sequences";
 import { currentYearIds } from "../academic/years";
 import { findStudents } from "../students/find";
+import { inCampus, type CampusLimit } from "../campus";
 import { FrontOfficeProblem } from "./problem";
 import { messageVisitor } from "./notify";
 import { clockAt, instantOf, localOf, todayIso } from "./time";
@@ -35,17 +36,17 @@ export async function enrolmentsOf(tx: Tx, ctx: SchoolContext, ids: string[]) {
   return out;
 }
 
-/** Students matching a search (the one student search), or a whole class like "7 B". */
-export async function searchStudents(tx: Tx, ctx: SchoolContext, rawQ: string, take = 8): Promise<PickupStudent[]> {
+/** Students matching a search (the one student search), or a whole class like "7 B"; only the person's campus's when they are limited to one. */
+export async function searchStudents(tx: Tx, ctx: SchoolContext, rawQ: string, take = 8, limit?: CampusLimit | null): Promise<PickupStudent[]> {
   const q = rawQ.trim().replace(/\s+/g, " ").slice(0, 60);
   if (q.length < 2) return [];
-  const where: Prisma.StudentWhereInput = { archivedAt: null, status: "ACTIVE" };
+  const where: Prisma.StudentWhereInput = { archivedAt: null, status: "ACTIVE", ...inCampus(limit) };
   const cls = /^(?:class\s+)?([a-z0-9]+)\s*[- ]?\s*([a-z])$/i.exec(q);
   let ids: string[] | null = null;
   if (cls) {
     const yearIds = await currentYearIds(tx, ctx);
     const sections = yearIds.length ? await tx.section.findMany({
-      where: { academicYearId: { in: yearIds }, archivedAt: null, name: { equals: cls[2], mode: "insensitive" }, schoolClass: { OR: [{ name: { equals: cls[1], mode: "insensitive" } }, { name: { equals: `Class ${cls[1]}`, mode: "insensitive" } }] } },
+      where: { academicYearId: { in: yearIds }, archivedAt: null, name: { equals: cls[2], mode: "insensitive" }, schoolClass: { ...inCampus(limit), OR: [{ name: { equals: cls[1], mode: "insensitive" } }, { name: { equals: `Class ${cls[1]}`, mode: "insensitive" } }] } },
       select: { id: true },
     }) : [];
     if (sections.length) {
@@ -54,7 +55,7 @@ export async function searchStudents(tx: Tx, ctx: SchoolContext, rawQ: string, t
   }
   if (!ids) {
     // The one student search: name (one letter wrong allowed), admission or roll number, parent name or phone.
-    const hits = await findStudents(tx, q, { scope: {}, yearId: await currentYearIds(tx, ctx), statuses: ["ACTIVE"], take });
+    const hits = await findStudents(tx, q, { scope: inCampus(limit), yearId: await currentYearIds(tx, ctx), statuses: ["ACTIVE"], take });
     return hits.map((h) => ({ id: h.id, name: h.name, first: h.firstName, admissionNo: h.admissionNo, photoFileId: h.photoFileId, classSection: h.classSection?.replace(/^Class\s+/i, "") ?? null, rollNo: h.rollNo }));
   }
   const rows = await tx.student.findMany({

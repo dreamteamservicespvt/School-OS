@@ -46,7 +46,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
 
   const data = await withSchool(ctx, async (tx) => {
     const [results, info, list, pass, check, school] = await Promise.all([
-      q ? searchStudents(tx, ctx, q, 8) : Promise.resolve([]),
+      q ? searchStudents(tx, ctx, q, 8, p.current) : Promise.resolve([]),
       studentId ? pickupStudent(tx, ctx, studentId, p.today) : Promise.resolve(null),
       (async () => { const m = momentWhere(range, p.tz); return pickupsOn(tx, m.gte, m.lt); })(),
       gpId ? tx.gatePass.findFirst({ where: { id: gpId, kind: "PICKUP", archivedAt: null } }) : Promise.resolve(null),

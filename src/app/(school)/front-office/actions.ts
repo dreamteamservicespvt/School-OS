@@ -14,6 +14,7 @@ import { addGateEntry, checkOutVisitor, registerVisitor, remindDeskAboutPass, re
 import { loginsWithRole } from "@/lib/front-office/people";
 import { letOut, refusedPickup, releaseStudent, sendPickupCode } from "@/lib/front-office/pickup";
 import { findStudents } from "@/lib/students/find";
+import { inCampus } from "@/lib/campus";
 import { closeCall, deskEnquiry, logCall, recognisePhone, setCallFollowUp, type KnownPhone } from "@/lib/front-office/calls";
 import { addNote, addWalkIn, clearNote, closeWalkIn, editNote } from "@/lib/front-office/desk";
 import { arriveAppointment, bookAppointment, dayPlan, remindAppointment, setAppointmentStatus } from "@/lib/front-office/appointments";
@@ -272,7 +273,7 @@ export async function searchFrom(q: string) {
       if (t.length < 3) return [];
       // The one student search (student or parent name, one letter wrong allowed, phone, admission number),
       // then each student's parents: the parent who matched first.
-      const hits = await findStudents(w.tx, t, { scope: {}, yearId: null, statuses: ["ACTIVE"], take: 6 });
+      const hits = await findStudents(w.tx, t, { scope: inCampus(w.current), yearId: null, statuses: ["ACTIVE"], take: 6 });
       const links = await w.tx.studentGuardian.findMany({
         where: { archivedAt: null, studentId: { in: hits.map((h) => h.id) }, guardian: { archivedAt: null } },
         select: { studentId: true, relationship: true, isPrimary: true, guardian: { select: { id: true, name: true } } },

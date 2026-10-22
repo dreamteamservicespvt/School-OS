@@ -12,6 +12,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { currentYearIds } from "../academic/years";
 import { findStudents } from "../students/find";
+import { inCampus, type CampusLimit } from "../campus";
 import { LibraryProblem } from "./problem";
 import type { LibrarySettings } from "./settings";
 import type { MemberKey } from "./words";
@@ -142,14 +143,14 @@ export async function memberByCode(tx: Tx, ctx: SchoolContext, s: LibrarySetting
   return null;
 }
 
-/** Members by name, admission number or staff code (the desk's search); students best match first. */
-export async function searchMembers(tx: Tx, ctx: SchoolContext, s: LibrarySettings, q: string, take = 8): Promise<Member[]> {
+/** Members by name, admission number or staff code (the desk's search); students best match first. Only the person's campus's when they are limited to one. */
+export async function searchMembers(tx: Tx, ctx: SchoolContext, s: LibrarySettings, q: string, take = 8, limit?: CampusLimit | null): Promise<Member[]> {
   const t = q.trim();
   if (t.length < 2) return [];
   const [students, staff] = await Promise.all([
     // The one student search (name with one letter wrong, admission or roll number); not by parents.
-    currentYearIds(tx, ctx).then((yearIds) => findStudents(tx, t, { scope: {}, yearId: yearIds, statuses: ACTIVE_STUDENT, byParent: false, take })),
-    tx.staff.findMany({ where: { archivedAt: null, status: { in: [...ACTIVE_STAFF] }, OR: [{ fullName: { contains: t, mode: "insensitive" } }, { staffCode: { contains: t, mode: "insensitive" } }] }, select: { id: true }, orderBy: { fullName: "asc" }, take }),
+    currentYearIds(tx, ctx).then((yearIds) => findStudents(tx, t, { scope: inCampus(limit), yearId: yearIds, statuses: ACTIVE_STUDENT, byParent: false, take })),
+    tx.staff.findMany({ where: { archivedAt: null, status: { in: [...ACTIVE_STAFF] }, ...inCampus(limit), OR: [{ fullName: { contains: t, mode: "insensitive" } }, { staffCode: { contains: t, mode: "insensitive" } }] }, select: { id: true }, orderBy: { fullName: "asc" }, take }),
   ]);
   const map = await membersOf(tx, ctx, s, { studentIds: students.map((x) => x.id), staffIds: staff.map((x) => x.id) });
   const order = [...students.map((x) => `S:${x.id}`), ...staff.map((x) => `T:${x.id}`)];

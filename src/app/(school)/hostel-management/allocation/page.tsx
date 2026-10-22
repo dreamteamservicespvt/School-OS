@@ -25,9 +25,9 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { Stats, Stack, Toolbar, DataList, Empty, ListRow } from "@/components/money/kit";
 import { clockAt } from "@/lib/front-office/time";
 import { roomGrid } from "@/lib/hostel/rooms";
-import { bedHistory, hostelFeesDue, outNow, residents, studentsInfo, waitingForBed, type Resident } from "@/lib/hostel/allocation";
-import { currentFeePlans, planTotal } from "@/lib/hostel/settings";
-import { BASE, RESIDENT_STATUS, bedWords, genderFits, plural } from "@/lib/hostel/words";
+import { bedHistory, bedYears, hostelFeesDue, outNow, residents, studentsInfo, waitingForBed, type Resident } from "@/lib/hostel/allocation";
+import { openFeePlans, planTotal } from "@/lib/hostel/settings";
+import { BASE, RESIDENT_STATUS, bedWords, genderFits, isoOf, plural } from "@/lib/hostel/words";
 import { inScope } from "@/lib/hostel/scope";
 import { HostelHead } from "../_components/head";
 import { ActButton } from "../_components/client";
@@ -84,7 +84,8 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
     if (v.seesFees) for (const r of rows) if (r.allocation.status === "ACTIVE") dues.set(r.student.id, await hostelFeesDue(tx, r.student.id, p.today));
     const waitingAll = await waitingForBed(tx, ctx);
     const genders = new Set(p.myHostels.map((h) => h.gender));
-    const waiting = waitingAll.filter((w) => mine === null || genders.has(genderFits(w.gender) ?? "BOYS"));
+    // A warden sees those who fit their hostel; a student whose gender is not on record shows to every warden.
+    const waiting = waitingAll.filter((w) => mine === null || !genderFits(w.gender) || genders.has(genderFits(w.gender)!));
 
     // Sheets
     const wantsAllocate = can.allocate && one(sp.allocate) === "1";
@@ -93,13 +94,14 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
     const historyId = idParam(sp.history);
     const grid = wantsAllocate || moveId ? await roomGrid(tx, p.myHostels.map((h) => h.id)) : [];
     const beds: FreeBed[] = grid.flatMap((r) => r.beds.filter((b) => b.state === "free").map((b) => ({ id: b.id, hostelId: r.hostelId, roomNo: r.roomNo, bedNo: b.bedNo, floor: r.floor, roomType: r.roomType })));
-    // Every campus's current year's plans; the sheet offers the student's own campus's.
-    const plans = wantsAllocate ? await currentFeePlans(tx, ctx) : [];
+    // The plans of every year still open (this year and next); the sheet offers those of the year the bed belongs to.
+    const plans = wantsAllocate ? await openFeePlans(tx, ctx) : [];
     let startStudent: FoundStudent | null = null;
     const sid = idParam(sp.student);
     if (wantsAllocate && sid) {
       const s = (await studentsInfo(tx, ctx, [sid])).get(sid);
-      if (s) startStudent = { id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: genderFits(s.gender), bed: null, hostelId: null, campusId: s.campusId };
+      const [years, st] = await Promise.all([bedYears(tx, [sid]), tx.student.findUnique({ where: { id: sid }, select: { joiningDate: true } })]);
+      if (s) startStudent = { id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: genderFits(s.gender), bed: null, hostelId: null, campusId: s.campusId, years: years.get(sid) ?? [], joins: st?.joiningDate ? isoOf(st.joiningDate) : null };
     }
     const one_ = async (id: string | null) => {
       if (!id) return null;
@@ -187,14 +189,14 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
         </Card>
 
         <Card id="waiting">
-          <CardHeader title="Waiting for a bed" icon={UserPlus} description="Students admitted with “hostel needed” who have never had a bed." divided />
+          <CardHeader title="Waiting for a bed" icon={UserPlus} description="Students whose admission application asked for the hostel and who have never had a bed, including those admitted for next year." divided />
           {d.waiting.length === 0 ? (
             <Empty icon={Users} title="Nobody is waiting" body="Students marked “hostel needed” at admission show here until they get a bed." />
           ) : (
             <ul className="divide-y divide-line/70">
               {d.waiting.map((w) => (
                 <li key={w.id}>
-                  <ListRow title={w.name} sub={`${w.classSection ?? "No class"} · ${w.admissionNo}${w.askedAt ? ` · asked ${formatDate(w.askedAt, tz)}` : ""}`} icon={UserPlus} iconTone="warn"
+                  <ListRow title={w.name} sub={`${w.classSection ?? "No class"} · ${w.admissionNo} · hostel needed on application ${w.applicationNo ?? ""}${w.askedAt ? `, ${formatDate(w.askedAt, tz)}` : ""}${w.joins && w.joins.getTime() > p.today.getTime() ? ` · joins ${formatDate(w.joins, "UTC")}` : ""}`} icon={UserPlus} iconTone="warn"
                     right={can.allocate ? <ButtonLink href={href({ allocate: "1", student: w.id })} size="sm" variant="secondary" scroll={false}>Give a bed</ButtonLink> : <Pill tone="warn">Waiting</Pill>} />
                 </li>
               ))}
@@ -205,9 +207,9 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
 
       {d.wantsAllocate && (
         <AllocateSheet closeHref={href({ allocate: null, student: null, bed: null })} hostels={p.myHostels} beds={d.beds}
-          plans={d.plans.map((x) => ({ id: x.id, name: x.name, hostelId: x.hostelId, roomType: x.roomType, campusId: x.campusId, words: `${x.name}${x.campusName ? ` (${x.campusName})` : ""}${v.seesFees ? ` · ${formatRupees(planTotal(x))} a year` : ""}` }))}
+          plans={d.plans.map((x) => ({ id: x.id, name: x.name, hostelId: x.hostelId, roomType: x.roomType, campusId: x.campusId, yearId: x.academicYearId, yearName: x.yearName, words: `${x.name}, ${x.yearName}${x.campusName ? ` (${x.campusName})` : ""}${v.seesFees ? ` · ${formatRupees(planTotal(x))} a year` : ""}` }))}
           start={{ bedId: idParam(sp.bed), hostelId: null, student: d.startStudent }}
-          waiting={d.waiting.map((w) => ({ id: w.id, name: w.name, admissionNo: w.admissionNo, cls: w.classSection ?? "", gender: genderFits(w.gender), bed: null, hostelId: null, campusId: w.campusId }))}
+          waiting={d.waiting.map((w) => ({ id: w.id, name: w.name, admissionNo: w.admissionNo, cls: w.classSection ?? "", gender: genderFits(w.gender), bed: null, hostelId: null, campusId: w.campusId, years: w.years, joins: w.joins ? isoOf(w.joins) : null }))}
           todayStr={p.todayStr} showFees={v.seesFees} />
       )}
       {d.move && <MoveSheet closeHref={href({ move: null })} allocationId={d.move.allocation.id} name={d.move.student.name} from={bedWords(d.move.roomNo, d.move.bedNo)} beds={d.beds} hostels={p.myHostels} todayStr={p.todayStr} />}

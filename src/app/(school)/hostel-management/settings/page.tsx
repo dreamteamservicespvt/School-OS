@@ -15,7 +15,8 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Empty, Split, Col, Stack } from "@/components/money/kit";
-import { wardensByHostel, currentFeePlans, planTotal } from "@/lib/hostel/settings";
+import { SegLinks } from "@/components/ui/blocks";
+import { wardensByHostel, currentFeePlans, openFeePlans, openYears, planTotal } from "@/lib/hostel/settings";
 import { GENDER, minuteValue, paiseToRupees, plural } from "@/lib/hostel/words";
 import { HostelHead } from "../_components/head";
 import { ArchivePlanSheet, CloseHostelSheet, FeePlanSheet, HostelSheet, WardensSheet, type PlanStart } from "../_components/sheets";
@@ -34,20 +35,25 @@ export default async function HostelSettingsPage({ searchParams }: { searchParam
 
   const d = await withSchool(ctx, async (tx) => {
     const ids = p.myHostels.map((h) => h.id);
-    const [wardens, year, rooms] = await Promise.all([
+    const campusId = await personCampusId(tx, ctx, current);
+    const [wardens, thisYear, rooms, years] = await Promise.all([
       wardensByHostel(tx, ids),
-      // New plans are for the current year of the person's own campus; the list shows every campus's current plans.
-      personCampusId(tx, ctx, current).then((campusId) => currentYear(tx, ctx, campusId)),
+      // New plans are for the current year of the person's own campus, or the year chosen (next year's plans are set before it opens).
+      currentYear(tx, ctx, campusId),
       tx.hostelRoom.groupBy({ by: ["hostelId"], where: { hostelId: { in: ids }, archivedAt: null }, _count: { _all: true } }),
+      openYears(tx, ctx, campusId),
     ]);
-    const plans = await currentFeePlans(tx, ctx);
+    const picked = years.find((y) => y.id === one(sp.year) && y.id !== thisYear?.id) ?? null;
+    const year = picked ?? thisYear;
+    // This year: every campus's current plans; another year: that year's plans.
+    const plans = picked ? (await openFeePlans(tx, ctx)).filter((x) => x.academicYearId === picked.id) : await currentFeePlans(tx, ctx);
     const staff = can.hostels && idParam(sp.wardens) ? await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, select: { id: true, fullName: true, designation: true, userLoginId: true }, orderBy: { fullName: "asc" }, take: 500 }) : [];
     const notes = await tx.hostel.findMany({ where: { id: { in: ids } }, select: { id: true, note: true } });
-    return { wardens, year, plans, staff, rooms, notes: new Map(notes.map((n) => [n.id, n.note])) };
+    return { wardens, year, thisYear, picked, years: years.filter((y) => !thisYear || y.startDate >= thisYear.startDate), plans, staff, rooms, notes: new Map(notes.map((n) => [n.id, n.note])) };
   });
 
   const base = `${BASE}/settings`;
-  const close = base;
+  const close = d.picked ? qs(base, { year: d.picked.id }) : base;
   const edit = can.hostels && idParam(sp.hostel) ? p.myHostels.find((h) => h.id === one(sp.hostel)) ?? null : null;
   const closing = can.hostels && idParam(sp.close) ? p.myHostels.find((h) => h.id === one(sp.close)) ?? null : null;
   const wardensFor = can.hostels && idParam(sp.wardens) ? p.myHostels.find((h) => h.id === one(sp.wardens)) ?? null : null;
@@ -117,7 +123,13 @@ export default async function HostelSettingsPage({ searchParams }: { searchParam
 
             <Card>
               <CardHeader title="Hostel fees" icon={IndianRupee} description={d.year ? `Fee plans for ${d.year.name}. Allocating a bed adds the plan's installments to the student's fees.` : "Set up this academic year first."} divided
-                action={can.feePlans && d.year ? <ButtonLink href={qs(base, { plan: "new" })} size="sm" variant="secondary" icon={Plus} scroll={false}>Add plan</ButtonLink> : undefined} />
+                action={can.feePlans && d.year ? <ButtonLink href={qs(base, { plan: "new", year: d.picked?.id ?? null })} size="sm" variant="secondary" icon={Plus} scroll={false}>Add plan</ButtonLink> : undefined} />
+              {d.years.length > 1 && (
+                <div className="px-5 pt-3">
+                  <SegLinks label="School year" size="sm" value={d.year?.id ?? ""} options={d.years.map((y) => ({ value: y.id, label: y.id === d.thisYear?.id ? `${y.name} (this year)` : y.name, href: y.id === d.thisYear?.id ? base : qs(base, { year: y.id }) }))} />
+                  {d.picked && <p className="text-[12.5px] text-ink3 mt-2">Students given a bed for {d.picked.name}, and boarders carried over into it when it opens, get these fees.</p>}
+                </div>
+              )}
               {d.plans.length === 0 ? (
                 <Empty icon={IndianRupee} title="No hostel fee plan yet" body={can.feePlans ? "Add a plan for each room type, such as Non-AC and AC." : "The Accountant or Principal sets the hostel fee plans."} />
               ) : (
@@ -132,8 +144,8 @@ export default async function HostelSettingsPage({ searchParams }: { searchParam
                       <p className="text-[12.5px] text-ink2">{v.seesFees ? x.installments.map((i) => `${i.label}: ${formatRupees(i.amountPaise)}, due ${formatDate(i.dueDate, "UTC")}`).join(" · ") : plural(x.installments.length, "installment")}</p>
                       {can.feePlans && (
                         <div className="flex gap-3 mt-0.5">
-                          <Link href={qs(base, { plan: x.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">Change</Link>
-                          <Link href={qs(base, { archivePlan: x.id })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline">Archive</Link>
+                          <Link href={qs(base, { plan: x.id, year: d.picked?.id ?? null })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline">Change</Link>
+                          <Link href={qs(base, { archivePlan: x.id, year: d.picked?.id ?? null })} scroll={false} className="text-[13px] font-semibold text-ink2 hover:underline">Archive</Link>
                         </div>
                       )}
                     </li>
@@ -154,7 +166,7 @@ export default async function HostelSettingsPage({ searchParams }: { searchParam
         <WardensSheet closeHref={close} hostelId={wardensFor.id} hostelName={wardensFor.name} staff={d.staff.map((x) => ({ id: x.id, name: x.fullName, sub: x.designation ?? "", hasLogin: Boolean(x.userLoginId) }))}
           start={(d.wardens.get(wardensFor.id) ?? []).map((x) => ({ staffId: x.staffId, title: x.title }))} />
       )}
-      {planEdit && d.year && <FeePlanSheet closeHref={close} hostels={p.myHostels.map((h) => ({ id: h.id, name: h.name }))} start={planEdit === "new" ? null : planStart(planEdit)} yearName={d.year.name} />}
+      {planEdit && d.year && <FeePlanSheet closeHref={close} hostels={p.myHostels.map((h) => ({ id: h.id, name: h.name }))} start={planEdit === "new" ? null : planStart(planEdit)} yearName={d.year.name} yearId={d.picked?.id} />}
       {planArchive && <ArchivePlanSheet closeHref={close} planId={planArchive.id} name={planArchive.name} />}
     </>
   );

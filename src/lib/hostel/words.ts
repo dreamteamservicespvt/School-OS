@@ -128,3 +128,29 @@ export function mondayOf(d: Date) {
 }
 
 export const isoOf = (d: Date) => d.toISOString().slice(0, 10);
+
+/** A school year a student has a class in ("2027-28", 1 Apr 2027 to 31 Mar 2028), as ISO days. */
+export type BedYear = { id: string; name: string; start: string; end: string };
+
+/**
+ * The school year a bed from `startIso` belongs to (its hostel fee plan is
+ * that year's): the year of the student's class that covers the day; else the
+ * next year they have a class in (a student admitted for next year who
+ * arrives before it starts). Null when they have no class for that day or later.
+ */
+export function bedYearOf(years: readonly BedYear[], startIso: string): BedYear | null {
+  const sorted = [...years].sort((a, b) => a.start.localeCompare(b.start));
+  return sorted.find((y) => y.start <= startIso && startIso <= y.end) ?? sorted.find((y) => y.start > startIso) ?? null;
+}
+
+/**
+ * The first night a new bed starts on by default: today, or the day the
+ * student joins the school when that is later; a student whose class is only
+ * in a later year (admitted for next year) from that year's first day.
+ */
+export function bedStartFor(years: readonly BedYear[], joinsIso: string | null, todayIso: string): string {
+  const now = years.some((y) => y.start <= todayIso && todayIso <= y.end);
+  const first = [...years].sort((a, b) => a.start.localeCompare(b.start)).find((y) => y.start > todayIso);
+  const from = [todayIso, joinsIso ?? "", now || !first ? "" : first.start];
+  return from.sort().at(-1)!;
+}

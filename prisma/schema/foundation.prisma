@@ -124,34 +124,34 @@ model Campus {
 /// through School Access. It will be linked to exactly one Staff, Student or
 /// Driver record when those modules are built (04-data-model.md, rule 32).
 model UserLogin {
-  id                String          @id @default(uuid()) @db.Uuid
-  username          String          @unique
-  displayName       String          @map("display_name")
-  phone             String?
-  email             String?
-  passwordHash      String?         @map("password_hash")
-  status            UserLoginStatus @default(INVITED)
-  inviteTokenHash   String?         @unique @map("invite_token_hash")
-  inviteExpiresAt   DateTime?       @map("invite_expires_at")
-  failedAttempts    Int             @default(0) @map("failed_attempts")
-  lockedUntil       DateTime?       @map("locked_until")
-  lastSignInAt      DateTime?       @map("last_sign_in_at")
-  passwordChangedAt DateTime?       @map("password_changed_at")
+  id                 String          @id @default(uuid()) @db.Uuid
+  username           String          @unique
+  displayName        String          @map("display_name")
+  phone              String?
+  email              String?
+  passwordHash       String?         @map("password_hash")
+  status             UserLoginStatus @default(INVITED)
+  inviteTokenHash    String?         @unique @map("invite_token_hash")
+  inviteExpiresAt    DateTime?       @map("invite_expires_at")
+  failedAttempts     Int             @default(0) @map("failed_attempts")
+  lockedUntil        DateTime?       @map("locked_until")
+  lastSignInAt       DateTime?       @map("last_sign_in_at")
+  passwordChangedAt  DateTime?       @map("password_changed_at")
   /// A temporary password typed by HR (09 Add Staff): the person chooses their own at the first sign-in.
-  mustChangePassword Boolean        @default(false) @map("must_change_password")
+  mustChangePassword Boolean         @default(false) @map("must_change_password")
   /// Two-step login: a one-time code at sign-in, for roles that need it.
-  twoStepResetAt    DateTime?       @map("two_step_reset_at")
+  twoStepResetAt     DateTime?       @map("two_step_reset_at")
   /// Two-step login the person switched on for themselves (roles may also require it).
-  twoStepChosen     Boolean         @default(false) @map("two_step_chosen")
+  twoStepChosen      Boolean         @default(false) @map("two_step_chosen")
   /// Per-person notification channel choices: { [type]: ["app","push","email","whatsapp"] }.
-  notificationPrefs Json            @default("{}") @map("notification_prefs")
+  notificationPrefs  Json            @default("{}") @map("notification_prefs")
   /// Appearance chosen in Profile: light, dark or system; a school colour; and the text size.
-  theme             String          @default("light")
-  accent            String          @default("royal")
-  textSize          String          @default("normal") @map("text_size")
-  createdAt         DateTime        @default(now()) @map("created_at")
-  updatedAt         DateTime        @updatedAt @map("updated_at")
-  archivedAt        DateTime?       @map("archived_at")
+  theme              String          @default("light")
+  accent             String          @default("royal")
+  textSize           String          @default("normal") @map("text_size")
+  createdAt          DateTime        @default(now()) @map("created_at")
+  updatedAt          DateTime        @updatedAt @map("updated_at")
+  archivedAt         DateTime?       @map("archived_at")
 
   sessions      Session[]
   accesses      SchoolAccess[]
@@ -163,23 +163,23 @@ model UserLogin {
 
 /// One signed-in device. The browser keeps a random token; only its hash is stored.
 model Session {
-  id            String    @id @default(uuid()) @db.Uuid
-  userLoginId   String    @map("user_login_id") @db.Uuid
-  tokenHash     String    @unique @map("token_hash")
+  id               String    @id @default(uuid()) @db.Uuid
+  userLoginId      String    @map("user_login_id") @db.Uuid
+  tokenHash        String    @unique @map("token_hash")
   /// The school this device is working in now (not a school record itself).
-  schoolId      String?   @map("active_school_id") @db.Uuid
-  campusId      String?   @map("active_campus_id") @db.Uuid
-  userAgent     String?   @map("user_agent")
-  ipAddress     String?   @map("ip_address")
+  schoolId         String?   @map("active_school_id") @db.Uuid
+  campusId         String?   @map("active_campus_id") @db.Uuid
+  userAgent        String?   @map("user_agent")
+  ipAddress        String?   @map("ip_address")
   /// Hash of the browser's own random device id (cookie), so a sign-in from a new device is told apart.
-  deviceKey     String?   @map("device_key")
+  deviceKey        String?   @map("device_key")
   /// Signed in with a one-time code instead of the password: a new password may be set without the old one for a short time.
-  signedInWithCode Boolean @default(false) @map("signed_in_with_code")
-  createdAt     DateTime  @default(now()) @map("created_at")
-  lastUsedAt    DateTime  @default(now()) @map("last_used_at")
-  expiresAt     DateTime  @map("expires_at")
-  revokedAt     DateTime? @map("revoked_at")
-  revokedReason String?   @map("revoked_reason")
+  signedInWithCode Boolean   @default(false) @map("signed_in_with_code")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  lastUsedAt       DateTime  @default(now()) @map("last_used_at")
+  expiresAt        DateTime  @map("expires_at")
+  revokedAt        DateTime? @map("revoked_at")
+  revokedReason    String?   @map("revoked_reason")
 
   userLogin UserLogin @relation(fields: [userLoginId], references: [id])
 

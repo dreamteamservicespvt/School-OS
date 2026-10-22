@@ -10,7 +10,7 @@ import { mayResetWithoutOld, revokeAllSessions, revokeSession, setSessionSchool 
 import { securityAlert } from "@/lib/auth/security-alert";
 import { formatDateTime } from "@/lib/format";
 import { schoolsFor } from "@/lib/auth/access";
-import { clearSessionCookie, deviceInfo, requireCurrent } from "@/lib/current";
+import { clearSessionCookie, deviceInfo, getCurrent, requireCurrent } from "@/lib/current";
 import { cookies } from "next/headers";
 import { forgetDevice, REMEMBERED_COOKIE } from "@/lib/auth/remembered";
 import { ACCENT_COOKIE, SIZE_COOKIE, THEME_COOKIE, cleanAccent, cleanTextSize, cleanTheme } from "@/lib/theme";
@@ -167,4 +167,14 @@ export async function setAppearance(formData: FormData) {
   jar.set(ACCENT_COOKIE, current.school.accent ? cleanAccent(current.school.accent) : accent, opts);
   jar.set(SIZE_COOKIE, textSize, opts);
   revalidatePath("/", "layout");
+}
+
+/**
+ * Keeps this sign-in going while the person is busy on a page without
+ * opening another (a long form): the browser asks now and then after they
+ * typed or tapped (components/shell/away-watch.tsx). Reading the session on
+ * the server counts as use. False when the sign-in has already ended.
+ */
+export async function keepSignedIn(): Promise<boolean> {
+  return Boolean(await getCurrent());
 }

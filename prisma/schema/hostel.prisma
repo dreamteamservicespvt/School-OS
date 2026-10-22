@@ -300,28 +300,28 @@ model RollCallMark {
 
 /// Hostel Incident: discipline, medical or maintenance, with the students involved.
 model HostelIncident {
-  id                  String             @id @default(uuid()) @db.Uuid
-  schoolId            String             @map("school_id") @db.Uuid
+  id                   String             @id @default(uuid()) @db.Uuid
+  schoolId             String             @map("school_id") @db.Uuid
   /// HI-2026-0031, given once.
-  incidentNo          String             @map("incident_no")
-  hostelId            String?            @map("hostel_id") @db.Uuid
-  type                HostelIncidentType
-  at                  DateTime
-  studentIds          String[]           @default([]) @map("student_ids") @db.Uuid
+  incidentNo           String             @map("incident_no")
+  hostelId             String?            @map("hostel_id") @db.Uuid
+  type                 HostelIncidentType
+  at                   DateTime
+  studentIds           String[]           @default([]) @map("student_ids") @db.Uuid
   /// Maintenance: the room or place, such as "Room B-12, fan".
-  place               String?
-  description         String
-  actionTaken         String?            @map("action_taken")
-  informParent        Boolean            @default(false) @map("inform_parent")
-  parentMessagedAt    DateTime?          @map("parent_messaged_at")
+  place                String?
+  description          String
+  actionTaken          String?            @map("action_taken")
+  informParent         Boolean            @default(false) @map("inform_parent")
+  parentMessagedAt     DateTime?          @map("parent_messaged_at")
   /// The Student Management behaviour incident made from a discipline incident.
-  behaviourIncidentId String?            @map("behaviour_incident_id") @db.Uuid
+  behaviourIncidentId  String?            @map("behaviour_incident_id") @db.Uuid
   /// The Inventory Management maintenance request raised from a maintenance incident.
-  maintenanceRequestId String?           @map("maintenance_request_id") @db.Uuid
-  recordedById        String?            @map("recorded_by_id") @db.Uuid
-  createdAt           DateTime           @default(now()) @map("created_at")
-  updatedAt           DateTime           @updatedAt @map("updated_at")
-  archivedAt          DateTime?          @map("archived_at")
+  maintenanceRequestId String?            @map("maintenance_request_id") @db.Uuid
+  recordedById         String?            @map("recorded_by_id") @db.Uuid
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @updatedAt @map("updated_at")
+  archivedAt           DateTime?          @map("archived_at")
 
   @@unique([schoolId, incidentNo])
   @@index([schoolId, at])

@@ -91,3 +91,22 @@ model BackupRun {
   @@index([finishedAt])
   @@map("backup_run")
 }
+
+/// Password Policy: the school's password and session rules (Settings, Users &
+/// Permissions, "Password and session rules"; gap list G45). A school with no row
+/// keeps the rules every school had before: 7 days without use on any device, no
+/// longest sign-in.
+model PasswordPolicy {
+  schoolId            String   @id @map("school_id") @db.Uuid
+  /// Signed out after this many minutes without use on a computer.
+  idleMinutesComputer Int      @default(10080) @map("idle_minutes_computer")
+  /// Signed out after this many minutes without use on a phone (the browser or the installed app).
+  idleMinutesPhone    Int      @default(10080) @map("idle_minutes_phone")
+  /// The longest one sign-in lasts, used or not, in minutes; null = no limit.
+  maxSessionMinutes   Int?     @map("max_session_minutes")
+  updatedById         String?  @map("updated_by_id") @db.Uuid
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@map("password_policy")
+}

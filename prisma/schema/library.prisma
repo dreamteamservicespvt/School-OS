@@ -58,60 +58,60 @@ enum StockCheckStatus {
 
 /// Library Settings (13 §6): one per school.
 model LibrarySetting {
-  schoolId              String   @id @map("school_id") @db.Uuid
+  schoolId             String   @id @map("school_id") @db.Uuid
   /// Borrowing limits and loan days for students by class group (the class's level):
   /// [{ level: "Primary", books: 2, loanDays: 14 }]. A level not listed uses the student default.
-  studentRules          Json     @default("[]") @map("student_rules")
-  studentBooks          Int      @default(2) @map("student_books")
-  studentLoanDays       Int      @default(14) @map("student_loan_days")
-  staffBooks            Int      @default(5) @map("staff_books")
-  staffLoanDays         Int      @default(30) @map("staff_loan_days")
+  studentRules         Json     @default("[]") @map("student_rules")
+  studentBooks         Int      @default(2) @map("student_books")
+  studentLoanDays      Int      @default(14) @map("student_loan_days")
+  staffBooks           Int      @default(5) @map("staff_books")
+  staffLoanDays        Int      @default(30) @map("staff_loan_days")
   /// A due date on a Sunday or a School Calendar holiday moves to the next school day.
-  moveDueOffHolidays    Boolean  @default(true) @map("move_due_off_holidays")
-  finePerDayPaise       BigInt   @default(200) @map("fine_per_day_paise")
-  maxFinePaise          BigInt   @default(10000) @map("max_fine_paise")
-  graceDays             Int      @default(0) @map("grace_days")
+  moveDueOffHolidays   Boolean  @default(true) @map("move_due_off_holidays")
+  finePerDayPaise      BigInt   @default(200) @map("fine_per_day_paise")
+  maxFinePaise         BigInt   @default(10000) @map("max_fine_paise")
+  graceDays            Int      @default(0) @map("grace_days")
   /// Issues are blocked while a member's unpaid fines are above this amount (0 = never blocked).
-  blockFinesAbovePaise  BigInt   @default(10000) @map("block_fines_above_paise")
+  blockFinesAbovePaise BigInt   @default(10000) @map("block_fines_above_paise")
   /// Students' fines are added to their fees in Fee Management (one place to pay).
-  finesToFees           Boolean  @default(true) @map("fines_to_fees")
+  finesToFees          Boolean  @default(true) @map("fines_to_fees")
   /// "price" or "price-plus": the charge for a lost book.
-  lostCharge            String   @default("price-plus") @map("lost_charge")
-  lostExtraPaise        BigInt   @default(5000) @map("lost_extra_paise")
+  lostCharge           String   @default("price-plus") @map("lost_charge")
+  lostExtraPaise       BigInt   @default(5000) @map("lost_extra_paise")
   /// Lost or damaged charges above this go to Approvals first.
-  approvalAbovePaise    BigInt   @default(50000) @map("approval_above_paise")
-  maxRenewals           Int      @default(2) @map("max_renewals")
+  approvalAbovePaise   BigInt   @default(50000) @map("approval_above_paise")
+  maxRenewals          Int      @default(2) @map("max_renewals")
   /// "fcfs" (first come, first served) or "staff-first".
-  queueOrder            String   @default("fcfs") @map("queue_order")
+  queueOrder           String   @default("fcfs") @map("queue_order")
   /// "barcode", "qr" or "rfid".
-  labelType             String   @default("barcode") @map("label_type")
+  labelType            String   @default("barcode") @map("label_type")
   /// Accession numbers: digits wide, and a prefix (empty for plain numbers).
-  accessionPrefix       String   @default("") @map("accession_prefix")
-  accessionWidth        Int      @default(5) @map("accession_width")
-  remindDueTomorrow     Boolean  @default(true) @map("remind_due_tomorrow")
-  remindOverdue         Boolean  @default(true) @map("remind_overdue")
-  remindReservation     Boolean  @default(true) @map("remind_reservation")
-  updatedById           String?  @map("updated_by_id") @db.Uuid
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  accessionPrefix      String   @default("") @map("accession_prefix")
+  accessionWidth       Int      @default(5) @map("accession_width")
+  remindDueTomorrow    Boolean  @default(true) @map("remind_due_tomorrow")
+  remindOverdue        Boolean  @default(true) @map("remind_overdue")
+  remindReservation    Boolean  @default(true) @map("remind_reservation")
+  updatedById          String?  @map("updated_by_id") @db.Uuid
+  updatedAt            DateTime @updatedAt @map("updated_at")
 
   @@map("library_setting")
 }
 
 /// A category of books with its shelf; some are not lent (reference).
 model LibraryCategory {
-  id          String    @id @default(uuid()) @db.Uuid
-  schoolId    String    @map("school_id") @db.Uuid
-  name        String
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  name       String
   /// Shelf letters, such as "A" or "R-1".
-  shelf       String?
+  shelf      String?
   /// Loan days for books of this category; empty uses the member's loan days.
-  loanDays    Int?      @map("loan_days")
+  loanDays   Int?      @map("loan_days")
   /// Reference books stay in the reading room.
-  forLoan     Boolean   @default(true) @map("for_loan")
-  sortOrder   Int       @default(0) @map("sort_order")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  archivedAt  DateTime? @map("archived_at")
+  forLoan    Boolean   @default(true) @map("for_loan")
+  sortOrder  Int       @default(0) @map("sort_order")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
 
   @@unique([schoolId, name])
   @@map("library_category")
@@ -174,27 +174,27 @@ model Book {
 
 /// Book Copy: one physical copy, with its accession number and barcode.
 model BookCopy {
-  id              String         @id @default(uuid()) @db.Uuid
-  schoolId        String         @map("school_id") @db.Uuid
-  bookId          String         @map("book_id") @db.Uuid
+  id             String         @id @default(uuid()) @db.Uuid
+  schoolId       String         @map("school_id") @db.Uuid
+  bookId         String         @map("book_id") @db.Uuid
   /// Unique in the school, never reused.
-  accessionNo     String         @map("accession_no")
+  accessionNo    String         @map("accession_no")
   /// What the label's barcode or QR holds (the accession number unless an RFID tag says otherwise).
-  barcode         String
-  status          BookCopyStatus @default(AVAILABLE)
+  barcode        String
+  status         BookCopyStatus @default(AVAILABLE)
   /// Why it was withdrawn, lost or damaged.
-  statusNote      String?        @map("status_note")
-  statusAt        DateTime?      @map("status_at")
-  acquiredOn      DateTime?      @map("acquired_on") @db.Date
-  labelPrintedAt  DateTime?      @map("label_printed_at")
-  createdById     String?        @map("created_by_id") @db.Uuid
-  createdAt       DateTime       @default(now()) @map("created_at")
-  updatedAt       DateTime       @updatedAt @map("updated_at")
+  statusNote     String?        @map("status_note")
+  statusAt       DateTime?      @map("status_at")
+  acquiredOn     DateTime?      @map("acquired_on") @db.Date
+  labelPrintedAt DateTime?      @map("label_printed_at")
+  createdById    String?        @map("created_by_id") @db.Uuid
+  createdAt      DateTime       @default(now()) @map("created_at")
+  updatedAt      DateTime       @updatedAt @map("updated_at")
   /// Set only when the catalogue import that added the copy is undone: the
   /// copy stays withdrawn for the record and its accession number is free again.
-  releasedAt      DateTime?      @map("released_at")
+  releasedAt     DateTime?      @map("released_at")
 
-  book Book @relation(fields: [bookId], references: [id])
+  book   Book        @relation(fields: [bookId], references: [id])
   issues BookIssue[]
 
   /// Accession number and barcode unique in the school among copies not
@@ -206,30 +206,30 @@ model BookCopy {
 
 /// Book Issue: one copy lent to one student or staff member.
 model BookIssue {
-  id           String            @id @default(uuid()) @db.Uuid
-  schoolId     String            @map("school_id") @db.Uuid
-  copyId       String            @map("copy_id") @db.Uuid
-  bookId       String            @map("book_id") @db.Uuid
-  memberKind   LibraryMemberKind @map("member_kind")
-  studentId    String?           @map("student_id") @db.Uuid
-  staffId      String?           @map("staff_id") @db.Uuid
+  id               String            @id @default(uuid()) @db.Uuid
+  schoolId         String            @map("school_id") @db.Uuid
+  copyId           String            @map("copy_id") @db.Uuid
+  bookId           String            @map("book_id") @db.Uuid
+  memberKind       LibraryMemberKind @map("member_kind")
+  studentId        String?           @map("student_id") @db.Uuid
+  staffId          String?           @map("staff_id") @db.Uuid
   /// The student's section when the book was issued (reports by class).
-  sectionId    String?           @map("section_id") @db.Uuid
-  issuedOn     DateTime          @map("issued_on") @db.Date
-  issuedAt     DateTime          @default(now()) @map("issued_at")
-  dueOn        DateTime          @map("due_on") @db.Date
-  renewals     Int               @default(0)
-  returnedOn   DateTime?         @map("returned_on") @db.Date
-  returnedAt   DateTime?         @map("returned_at")
-  outcome      BookIssueOutcome?
-  lateDays     Int?              @map("late_days")
+  sectionId        String?           @map("section_id") @db.Uuid
+  issuedOn         DateTime          @map("issued_on") @db.Date
+  issuedAt         DateTime          @default(now()) @map("issued_at")
+  dueOn            DateTime          @map("due_on") @db.Date
+  renewals         Int               @default(0)
+  returnedOn       DateTime?         @map("returned_on") @db.Date
+  returnedAt       DateTime?         @map("returned_at")
+  outcome          BookIssueOutcome?
+  lateDays         Int?              @map("late_days")
   /// Set when the due date was changed from the one the settings gave, with who changed it.
-  dueChangedReason String?       @map("due_changed_reason")
-  lastRemindedOn DateTime?       @map("last_reminded_on") @db.Date
-  issuedById   String?           @map("issued_by_id") @db.Uuid
-  returnedById String?           @map("returned_by_id") @db.Uuid
-  createdAt    DateTime          @default(now()) @map("created_at")
-  updatedAt    DateTime          @updatedAt @map("updated_at")
+  dueChangedReason String?           @map("due_changed_reason")
+  lastRemindedOn   DateTime?         @map("last_reminded_on") @db.Date
+  issuedById       String?           @map("issued_by_id") @db.Uuid
+  returnedById     String?           @map("returned_by_id") @db.Uuid
+  createdAt        DateTime          @default(now()) @map("created_at")
+  updatedAt        DateTime          @updatedAt @map("updated_at")
 
   copy BookCopy @relation(fields: [copyId], references: [id])
 
@@ -244,20 +244,20 @@ model BookIssue {
 /// Library Member: only what differs from the automatic membership of every
 /// active student and staff member: a changed limit or a block, with reasons.
 model LibraryMember {
-  id           String            @id @default(uuid()) @db.Uuid
-  schoolId     String            @map("school_id") @db.Uuid
-  memberKind   LibraryMemberKind @map("member_kind")
-  studentId    String?           @map("student_id") @db.Uuid
-  staffId      String?           @map("staff_id") @db.Uuid
+  id            String            @id @default(uuid()) @db.Uuid
+  schoolId      String            @map("school_id") @db.Uuid
+  memberKind    LibraryMemberKind @map("member_kind")
+  studentId     String?           @map("student_id") @db.Uuid
+  staffId       String?           @map("staff_id") @db.Uuid
   /// Books at a time, replacing the settings' limit.
-  limitOverride Int?             @map("limit_override")
-  limitReason  String?           @map("limit_reason")
-  blockedAt    DateTime?         @map("blocked_at")
-  blockReason  String?           @map("block_reason")
-  blockedById  String?           @map("blocked_by_id") @db.Uuid
-  updatedById  String?           @map("updated_by_id") @db.Uuid
-  createdAt    DateTime          @default(now()) @map("created_at")
-  updatedAt    DateTime          @updatedAt @map("updated_at")
+  limitOverride Int?              @map("limit_override")
+  limitReason   String?           @map("limit_reason")
+  blockedAt     DateTime?         @map("blocked_at")
+  blockReason   String?           @map("block_reason")
+  blockedById   String?           @map("blocked_by_id") @db.Uuid
+  updatedById   String?           @map("updated_by_id") @db.Uuid
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @updatedAt @map("updated_at")
 
   @@unique([schoolId, studentId])
   @@unique([schoolId, staffId])

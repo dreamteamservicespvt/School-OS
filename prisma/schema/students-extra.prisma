@@ -42,7 +42,6 @@ enum PromotionDecisionKind {
   LEAVING
 }
 
-
 /// Student Settings: the rules for student records in one school (section 6).
 model StudentSettings {
   schoolId             String    @id @map("school_id") @db.Uuid
@@ -605,7 +604,6 @@ model JobPost {
   @@index([schoolId, createdAt])
   @@map("job_post")
 }
-
 
 /// Bulk Update: one bulk field change, with every before and after value, so it can be undone.
 model BulkUpdate {

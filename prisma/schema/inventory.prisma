@@ -719,10 +719,10 @@ model AssetDisposal {
 
 /// Stock items linked to an asset (a computer and its spare parts).
 model AssetItemLink {
-  id          String   @id @default(uuid()) @db.Uuid
-  schoolId    String   @map("school_id") @db.Uuid
-  assetId     String   @map("asset_id") @db.Uuid
-  itemId      String   @map("item_id") @db.Uuid
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  assetId     String    @map("asset_id") @db.Uuid
+  itemId      String    @map("item_id") @db.Uuid
   note        String?
   createdById String?   @map("created_by_id") @db.Uuid
   createdAt   DateTime  @default(now()) @map("created_at")

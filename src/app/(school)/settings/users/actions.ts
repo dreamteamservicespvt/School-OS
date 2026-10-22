@@ -10,6 +10,7 @@ import { schoolsFor } from "@/lib/auth/access";
 import { changeAccess, disableUser, enableUser, inviteUser, linkRecord, resendInvite, resetTwoStep, setExceptions, updateDetails } from "@/lib/settings/users";
 import { archiveRole, createRole, restoreRole, restoreRoleVersion, setTemplateOn, updateRole } from "@/lib/settings/roles";
 import { asFormState, runSettings } from "../run";
+import { forgetSessionRules, saveSessionRules } from "@/lib/auth/session-rules";
 
 const PAGE = "users" as const;
 import { inviteSentWords } from "@/lib/settings/invite-message";
@@ -187,4 +188,19 @@ export async function putBackRoleAction(auditId: string, roleId: string): Promis
   if (!r.ok) return r.message;
   await flash({ message: r.data ? "Put back as it was before that change. Every School Admin was told." : "The role is already like that." });
   revalidatePath(`${USERS}/roles/${roleId}`);
+}
+
+// ------------------------------------------------- Password and session rules
+
+/** Saves the school's session rules (time without use, longest sign-in). Checked again on the server and in the database. */
+export async function saveSessionRulesAction(_: FormState, fd: FormData): Promise<FormState> {
+  const values = formValues(fd);
+  const max = String(fd.get("maxSession") ?? "none");
+  const input = { idleComputer: Number(fd.get("idleComputer")), idlePhone: Number(fd.get("idlePhone")), maxSession: max === "none" ? null : Number(max) };
+  const r = await runSettings(PAGE, "edit", (tx, current) => saveSessionRules(tx, current.ctx, input));
+  if (!r.ok) return asFormState(r, values, "");
+  forgetSessionRules(r.current.school.id);
+  if (!r.data) return { ok: true, message: "Nothing changed." };
+  revalidatePath(`${USERS}/sign-in-rules`);
+  return { ok: true, message: "Session rules saved. They apply to every signed-in device from its next page." };
 }

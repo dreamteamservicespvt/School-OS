@@ -9,7 +9,7 @@ import { cx } from "@/components/ui/cx";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { codeSignInAction, signInAction, type SignInState } from "./actions";
 
-export function SignInForm({ notice, startWithCode }: { notice?: string; startWithCode?: boolean }) {
+export function SignInForm({ notice, noticeTone = "success", startWithCode }: { notice?: string; noticeTone?: "success" | "info"; startWithCode?: boolean }) {
   const [mode, setMode] = useState<"password" | "code">(startWithCode ? "code" : "password");
   const [state, action, pending] = useActionState<SignInState, FormData>(signInAction, null);
   const [codeState, codeAction, codePending] = useActionState<SignInState, FormData>(codeSignInAction, null);
@@ -33,7 +33,7 @@ export function SignInForm({ notice, startWithCode }: { notice?: string; startWi
 
   return (
     <form action={mode === "password" ? action : codeAction} onSubmit={check} noValidate className="flex flex-col gap-4">
-      {notice && !current && <Alert tone="success">{notice}</Alert>}
+      {notice && !current && <Alert tone={noticeTone}>{notice}</Alert>}
       {current?.message && <Alert tone="danger">{current.message}</Alert>}
 
       <FieldShell label="Mobile number, email or username" id="username" error={missing.login}>

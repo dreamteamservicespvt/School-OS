@@ -23,6 +23,8 @@ import { cleanTheme } from "@/lib/theme";
 import { cx } from "@/components/ui/cx";
 import { Info, Lock, TriangleAlert } from "lucide-react";
 import { aiAllowed } from "@/lib/settings/switch-rules";
+import { sessionEnds, sessionRulesFor } from "@/lib/auth/session-rules";
+import { AwayWatch } from "@/components/shell/away-watch";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +57,9 @@ export default async function SchoolLayout({ children }: { children: React.React
     admin ? schoolPlanState(current.school.id).catch(() => null) : Promise.resolve(null),
   ]);
   if (missing) notFound();
+  // The school's session rules, so an open page follows them too (the server already does).
+  const rules = current.support ? null : await sessionRulesFor(current.session.schoolId);
+  const ends = rules ? sessionEnds(current.session, rules) : null;
   const supportEnds = current.support ? endsWords(current.support.endsAt, new Date(), current.school.timeZone) : null;
   const banner = isPaused(current)
     ? { tone: "problem" as const, text: "School OS for this school is paused. You can still pay or download the school's data.", payUrl: null, href: "/paused" }
@@ -85,6 +90,7 @@ export default async function SchoolLayout({ children }: { children: React.React
     >
       {current.support && supportEnds && <SupportBar schoolName={current.school.name} ends={supportEnds} endsAt={current.support.endsAt.toISOString()} who={current.support.name} />}
       <RecentPages userId={current.user.id} pages={shell.pages} />
+      {rules && ends && <AwayWatch idleMs={ends.idleMinutes * 60_000} endsAt={rules.maxSession === null ? null : current.session.createdAt.getTime() + rules.maxSession * 60_000} />}
       <SchoolColour accent={current.school.accent} />
       {notices.map((n) => {
         const I = n.level === "problem" ? TriangleAlert : n.level === "info" ? Info : Lock;

@@ -32,29 +32,29 @@ enum SalaryAdvanceStatus {
 
 /// Salary Settings: payroll preferences and salary slip options, one per school.
 model SalarySetting {
-  id                    String   @id @default(uuid()) @db.Uuid
-  schoolId              String   @unique @map("school_id") @db.Uuid
+  id                    String    @id @default(uuid()) @db.Uuid
+  schoolId              String    @unique @map("school_id") @db.Uuid
   /// "last-working" or a day of the month ("1" to "28").
-  payDay                String   @default("last-working") @map("pay_day")
+  payDay                String    @default("last-working") @map("pay_day")
   /// "calendar" (the month's own days) or "thirty".
-  lopDays               String   @default("calendar") @map("lop_days")
+  lopDays               String    @default("calendar") @map("lop_days")
   /// This many late marks count as half a day of loss of pay; 0 is off.
-  lateMarksPerHalfDay   Int      @default(3) @map("late_marks_per_half_day")
-  overtimeOn            Boolean  @default(false) @map("overtime_on")
-  overtimeHourPaise     BigInt   @default(0) @map("overtime_hour_paise")
+  lateMarksPerHalfDay   Int       @default(3) @map("late_marks_per_half_day")
+  overtimeOn            Boolean   @default(false) @map("overtime_on")
+  overtimeHourPaise     BigInt    @default(0) @map("overtime_hour_paise")
   /// Staff with no TDS amount whose yearly pay is above this are flagged.
-  tdsReminderAbovePaise BigInt   @default(120000000) @map("tds_reminder_above_paise")
-  slipWhatsapp          Boolean  @default(true) @map("slip_whatsapp")
-  slipEmail             Boolean  @default(false) @map("slip_email")
-  slipShowEmployer      Boolean  @default(true) @map("slip_show_employer")
-  slipShowLeave         Boolean  @default(false) @map("slip_show_leave")
-  advancesOn            Boolean  @default(true) @map("advances_on")
+  tdsReminderAbovePaise BigInt    @default(120000000) @map("tds_reminder_above_paise")
+  slipWhatsapp          Boolean   @default(true) @map("slip_whatsapp")
+  slipEmail             Boolean   @default(false) @map("slip_email")
+  slipShowEmployer      Boolean   @default(true) @map("slip_show_employer")
+  slipShowLeave         Boolean   @default(false) @map("slip_show_leave")
+  advancesOn            Boolean   @default(true) @map("advances_on")
   /// PF, ESI, Professional Tax and TDS taken from salary are tracked as money to
   /// pay to the government from this month's salary on (first day). Empty: not
   /// tracked (schools that had salary before this was added switch it on).
   statutoryDuesFrom     DateTime? @map("statutory_dues_from") @db.Date
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
 
   @@map("salary_setting")
 }

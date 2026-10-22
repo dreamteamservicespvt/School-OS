@@ -21,11 +21,11 @@ model ReportPin {
 
 /// Report Use: when a person last opened a report, for "Used recently".
 model ReportUse {
-  id        String   @id @default(uuid()) @db.Uuid
-  schoolId  String   @map("school_id") @db.Uuid
-  userId    String   @map("user_id") @db.Uuid
-  key       String
-  usedAt    DateTime @default(now()) @map("used_at")
+  id       String   @id @default(uuid()) @db.Uuid
+  schoolId String   @map("school_id") @db.Uuid
+  userId   String   @map("user_id") @db.Uuid
+  key      String
+  usedAt   DateTime @default(now()) @map("used_at")
 
   @@unique([schoolId, userId, key])
   @@index([schoolId, userId, usedAt])
@@ -34,22 +34,22 @@ model ReportUse {
 
 /// Report Run: a heavy report prepared in the background, and its file.
 model ReportRun {
-  id          String    @id @default(uuid()) @db.Uuid
-  schoolId    String    @map("school_id") @db.Uuid
-  userId      String    @map("user_id") @db.Uuid
-  key         String
-  title       String
+  id        String    @id @default(uuid()) @db.Uuid
+  schoolId  String    @map("school_id") @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  key       String
+  title     String
   /// The report's filters as page-address words, so the same report can be run again.
-  params      Json      @default("{}")
-  filters     String    @default("")
-  format      String    @default("xlsx")
+  params    Json      @default("{}")
+  filters   String    @default("")
+  format    String    @default("xlsx")
   /// QUEUED, READY, FAILED.
-  status      String    @default("QUEUED")
-  rows        Int?
-  fileId      String?   @map("file_id") @db.Uuid
-  problem     String?
-  createdAt   DateTime  @default(now()) @map("created_at")
-  readyAt     DateTime? @map("ready_at")
+  status    String    @default("QUEUED")
+  rows      Int?
+  fileId    String?   @map("file_id") @db.Uuid
+  problem   String?
+  createdAt DateTime  @default(now()) @map("created_at")
+  readyAt   DateTime? @map("ready_at")
 
   @@index([schoolId, userId, createdAt])
   @@map("report_run")
@@ -73,35 +73,35 @@ model EarlyWarningSetting {
 
 /// Risk Flag: one student's risk signal (attendance, marks or fees) waiting for a person to review it.
 model RiskFlag {
-  id             String       @id @default(uuid()) @db.Uuid
-  schoolId       String       @map("school_id") @db.Uuid
-  studentId      String       @map("student_id") @db.Uuid
-  academicYearId String       @map("academic_year_id") @db.Uuid
-  sectionId      String?      @map("section_id") @db.Uuid
+  id               String       @id @default(uuid()) @db.Uuid
+  schoolId         String       @map("school_id") @db.Uuid
+  studentId        String       @map("student_id") @db.Uuid
+  academicYearId   String       @map("academic_year_id") @db.Uuid
+  sectionId        String?      @map("section_id") @db.Uuid
   /// attendance, marks or fees.
-  area           String
+  area             String
   /// WATCH or ACT_NOW.
-  strength       String       @default("WATCH")
+  strength         String       @default("WATCH")
   /// The reason in plain words, with the numbers behind it.
-  reason         String
+  reason           String
   /// Where the numbers come from.
-  basis          String
+  basis            String
   /// The numbers, for sorting and the student's profile.
-  value          Float?
+  value            Float?
   /// NEW, REVIEWED, ACTION_PLANNED, CLOSED.
-  status         String       @default("NEW")
+  status           String       @default("NEW")
   /// Set when the signal has cleared or a person closed it.
-  closedAt       DateTime?    @map("closed_at")
-  closedReason   String?      @map("closed_reason")
+  closedAt         DateTime?    @map("closed_at")
+  closedReason     String?      @map("closed_reason")
   /// The planned action, and the Task or Counselling Case it created.
-  action         String?
-  taskId         String?      @map("task_id") @db.Uuid
-  counsellingId  String?      @map("counselling_id") @db.Uuid
-  raisedAt       DateTime     @default(now()) @map("raised_at")
-  updatedAt      DateTime     @updatedAt @map("updated_at")
+  action           String?
+  taskId           String?      @map("task_id") @db.Uuid
+  counsellingId    String?      @map("counselling_id") @db.Uuid
+  raisedAt         DateTime     @default(now()) @map("raised_at")
+  updatedAt        DateTime     @updatedAt @map("updated_at")
   /// Set when an attendance flag joined the student's Attendance Flag, the one record for attendance concerns.
-  attendanceFlagId String?    @map("attendance_flag_id") @db.Uuid
-  reviews        FlagReview[]
+  attendanceFlagId String?      @map("attendance_flag_id") @db.Uuid
+  reviews          FlagReview[]
 
   @@index([schoolId, status])
   @@index([schoolId, studentId])
@@ -169,18 +169,18 @@ model GovernmentExport {
 
 /// Custom Report: a report a person built from one data area, with their columns, filters, grouping and totals.
 model CustomReport {
-  id          String    @id @default(uuid()) @db.Uuid
-  schoolId    String    @map("school_id") @db.Uuid
-  name        String
+  id         String    @id @default(uuid()) @db.Uuid
+  schoolId   String    @map("school_id") @db.Uuid
+  name       String
   /// students, fees, attendance, staff.
-  area        String
-  columns     String[]
+  area       String
+  columns    String[]
   /// classId, show, groupBy, totals.
-  filters     Json      @default("{}")
-  ownerId     String    @map("owner_id") @db.Uuid
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  archivedAt  DateTime? @map("archived_at")
+  filters    Json      @default("{}")
+  ownerId    String    @map("owner_id") @db.Uuid
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  archivedAt DateTime? @map("archived_at")
 
   @@index([schoolId, ownerId])
   @@map("custom_report")
@@ -188,31 +188,31 @@ model CustomReport {
 
 /// Report Schedule: a saved or catalogue report emailed to chosen staff every day, week or month.
 model ReportSchedule {
-  id             String               @id @default(uuid()) @db.Uuid
-  schoolId       String               @map("school_id") @db.Uuid
+  id           String               @id @default(uuid()) @db.Uuid
+  schoolId     String               @map("school_id") @db.Uuid
   /// "c:<custom report id>" or a catalogue key.
-  reportKey      String               @map("report_key")
-  reportName     String               @map("report_name")
+  reportKey    String               @map("report_key")
+  reportName   String               @map("report_name")
   /// A relative date preset: thisweek, lastweek, thismonth, lastmonth, today, yesterday.
-  datePreset     String               @default("lastweek") @map("date_preset")
+  datePreset   String               @default("lastweek") @map("date_preset")
   /// DAILY, WEEKLY, MONTHLY.
-  frequency      String               @default("WEEKLY")
+  frequency    String               @default("WEEKLY")
   /// Weekday 1 (Monday) to 7, or day of the month 1 to 28.
-  day            Int                  @default(1)
+  day          Int                  @default(1)
   /// Minutes after midnight, school time.
-  timeMin        Int                  @default(480) @map("time_min")
+  timeMin      Int                  @default(480) @map("time_min")
   /// pdf or xlsx.
-  format         String               @default("pdf")
-  recipientIds   String[]             @map("recipient_ids") @db.Uuid
+  format       String               @default("pdf")
+  recipientIds String[]             @map("recipient_ids") @db.Uuid
   /// ACTIVE, PAUSED.
-  status         String               @default("ACTIVE")
-  nextAt         DateTime             @map("next_at")
-  lastSentAt     DateTime?            @map("last_sent_at")
-  createdById    String               @map("created_by_id") @db.Uuid
-  createdAt      DateTime             @default(now()) @map("created_at")
-  updatedAt      DateTime             @updatedAt @map("updated_at")
-  archivedAt     DateTime?            @map("archived_at")
-  sends          ReportScheduleSend[]
+  status       String               @default("ACTIVE")
+  nextAt       DateTime             @map("next_at")
+  lastSentAt   DateTime?            @map("last_sent_at")
+  createdById  String               @map("created_by_id") @db.Uuid
+  createdAt    DateTime             @default(now()) @map("created_at")
+  updatedAt    DateTime             @updatedAt @map("updated_at")
+  archivedAt   DateTime?            @map("archived_at")
+  sends        ReportScheduleSend[]
 
   @@index([schoolId, status, nextAt])
   @@map("report_schedule")
@@ -220,18 +220,18 @@ model ReportSchedule {
 
 /// Report Schedule Send: one email of a scheduled report to one person.
 model ReportScheduleSend {
-  id          String         @id @default(uuid()) @db.Uuid
-  schoolId    String         @map("school_id") @db.Uuid
-  scheduleId  String         @map("schedule_id") @db.Uuid
-  userId      String         @map("user_id") @db.Uuid
+  id         String         @id @default(uuid()) @db.Uuid
+  schoolId   String         @map("school_id") @db.Uuid
+  scheduleId String         @map("schedule_id") @db.Uuid
+  userId     String         @map("user_id") @db.Uuid
   /// The day the send was for, so it goes once.
-  slot        String
-  rows        Int?
-  fileId      String?        @map("file_id") @db.Uuid
-  messageId   String?        @map("message_id") @db.Uuid
-  problem     String?
-  createdAt   DateTime       @default(now()) @map("created_at")
-  schedule    ReportSchedule @relation(fields: [scheduleId], references: [id])
+  slot       String
+  rows       Int?
+  fileId     String?        @map("file_id") @db.Uuid
+  messageId  String?        @map("message_id") @db.Uuid
+  problem    String?
+  createdAt  DateTime       @default(now()) @map("created_at")
+  schedule   ReportSchedule @relation(fields: [scheduleId], references: [id])
 
   @@unique([scheduleId, userId, slot])
   @@index([schoolId, scheduleId])

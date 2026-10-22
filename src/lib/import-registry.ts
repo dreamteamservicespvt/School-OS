@@ -21,3 +21,4 @@ import "./staff/leave-import";
 import "./staff/pay-details-import";
 import "./academic/allocation-import";
 import "./academic/timetable-import";
+import "./academic/syllabus-import";

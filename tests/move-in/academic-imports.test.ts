@@ -198,3 +198,80 @@ describe("Time Table from Excel (G44)", () => {
     await expect(run((tx) => undoImport(tx, c, second))).rejects.toThrow(/is published, so this import cannot be undone/);
   });
 });
+
+describe("Syllabus from Excel (G44)", () => {
+  it("full Academic Management only", async () => {
+    const principal = await s.currentFor(s.principal.id);
+    const teacher = await s.currentFor(s.teacherUser.id);
+    await run((tx) => tx.role.updateMany({ where: { schoolId: s.school.id, key: "office-staff" }, data: { isEnabled: true } }));
+    const office = await s.currentFor((await makeUser({ schools: [{ id: s.school.id, roleKeys: ["office-staff"] }] })).id);
+    expect(await placeRefusal(principal, PLACES.academic, "academic-syllabus", "create")).toBeNull();
+    expect(await placeRefusal(principal, PLACES.settings, "academic-syllabus", "archive")).toBeNull();
+    for (const p of [teacher, office]) {
+      expect(await placeRefusal(p, PLACES.academic, "academic-syllabus", "create")).toMatch(/full Academic Management/);
+      expect(await placeRefusal(p, PLACES.settings, "academic-syllabus", "create")).not.toBeNull();
+    }
+  });
+
+  it("reads the planned month or week inside the school year", async () => {
+    const { plannedIn } = await import("@/lib/academic/syllabus-import");
+    const year = { name: "2026-27", startDate: d("2026-04-01"), endDate: d("2027-03-31") };
+    expect(plannedIn("Jan", year)).toEqual({ from: d("2027-01-01"), to: d("2027-01-31") });
+    expect(plannedIn("July 2026", year)).toEqual({ from: d("2026-07-01"), to: d("2026-07-31") });
+    expect(plannedIn("Week 1", year)).toEqual({ from: d("2026-04-01"), to: d("2026-04-07") });
+    expect(plannedIn("Week 5 of August", year)).toEqual({ from: d("2026-08-29"), to: d("2026-08-31") });
+    expect(plannedIn("Sept week 2", year)).toEqual({ from: d("2026-09-08"), to: d("2026-09-14") });
+    expect(plannedIn("15-11-2026", year)).toEqual({ from: null, to: d("2026-11-15") });
+    expect(plannedIn("", year)).toBeNull();
+    expect(plannedIn("May 2027", year)).toMatch(/is not inside 2026-27/);
+    expect(plannedIn("Juny", year)).toMatch(/Write the planned month or week/);
+  });
+
+  it("builds one tree per class and subject, explains each row, never adds a second copy, and Undo archives what came in", async () => {
+    await run((tx) => tx.syllabusItem.create({ data: { schoolId: s.school.id, academicYearId: s.year.id, classId: s.c6.id, subjectId: s.subjects.SCI, kind: "CHAPTER", title: "Plants", sortOrder: 1 } }));
+    const csv = [
+      "Class,Subject,Unit,Lesson,Topic,Sl No,Month",
+      "Class 5,Maths,Numbers,Fractions,,2,July",
+      "Class 5,Maths,Numbers,Fractions,Adding fractions,,Week 2 of July",
+      "Class 5,Maths,Numbers,Large numbers,,1,June 2026",
+      "5,MAT,,Geometry,,,Week 20",
+      "Class 5,Maths,Numbers,Fractions,,,",
+      "Class 7,Maths,,Algebra,,,",
+      "Class 5,Hindi,,Varnamala,,,",
+      "Class 5,Science,,Plants,,,Juny",
+      "Class 6,English,,Poems,,,May 2027",
+      "Class 6,English,,Prose,,abc,",
+      "Class 6,Science,,plants,,,",
+    ].join("\n");
+    const [id] = await upload(csv, "syllabus.csv", "academic-syllabus");
+    const w = await run((tx) => workOn(tx, c, id, { check: true }));
+    expect(w.choices.columnMatch).toMatchObject({ class: [0], subject: [1], unit: [2], chapter: [3], topic: [4], order: [5], planned: [6] });
+    const checked = w.checked!;
+    expect(checked.ready.map((r) => r.line)).toEqual([2, 3, 4, 5]);
+    const problem = (line: number) => problemOf(checked, line)?.problems.join(" ") ?? "";
+    expect(problem(6)).toMatch(/Fractions is twice in the file for Class 5, Mathematics/);
+    expect(problem(7)).toMatch(/Class 7 is not set up this year/);
+    expect(problem(8)).toMatch(/Subject "Hindi" is not in Subjects/);
+    expect(problem(9)).toMatch(/Write the planned month or week/);
+    expect(problem(10)).toMatch(/is not inside 2026-27/);
+    expect(problem(11)).toMatch(/Order must be a whole number/);
+    expect(problem(12)).toMatch(/plants is already in the syllabus of Class 6, Science/);
+
+    const batchId = await bringIn(id);
+    expect(await run((tx) => tx.importBatch.findUniqueOrThrow({ where: { id: batchId } }))).toMatchObject({ added: 4, updated: 0 });
+    const items = await run((tx) => tx.syllabusItem.findMany({ where: { classId: s.c5.id, subjectId: s.subjects.MAT, archivedAt: null } }));
+    const by = (title: string) => items.find((i) => i.title === title)!;
+    expect(items).toHaveLength(5);
+    expect(by("Numbers")).toMatchObject({ kind: "UNIT", parentId: null });
+    expect(by("Fractions")).toMatchObject({ kind: "CHAPTER", parentId: by("Numbers").id, sortOrder: 2, plannedFrom: d("2026-07-01"), plannedTo: d("2026-07-31") });
+    expect(by("Adding fractions")).toMatchObject({ kind: "TOPIC", parentId: by("Fractions").id, plannedFrom: d("2026-07-08"), plannedTo: d("2026-07-14") });
+    expect(by("Large numbers")).toMatchObject({ parentId: by("Numbers").id, sortOrder: 1, plannedTo: d("2026-06-30") });
+    expect(by("Geometry")).toMatchObject({ kind: "CHAPTER", parentId: null, plannedFrom: d("2026-08-12"), plannedTo: d("2026-08-18") });
+    expect(await run((tx) => tx.auditLogEntry.count({ where: { recordType: "Syllabus Item", action: "created", recordId: { in: items.map((i) => i.id) } } }))).toBe(5);
+
+    expect(await run((tx) => undoImport(tx, c, batchId))).toMatchObject({ archived: 4 });
+    expect(await run((tx) => tx.syllabusItem.count({ where: { classId: s.c5.id, subjectId: s.subjects.MAT, archivedAt: null } }))).toBe(0);
+    // What was there before stays.
+    expect(await run((tx) => tx.syllabusItem.count({ where: { classId: s.c6.id, subjectId: s.subjects.SCI, archivedAt: null } }))).toBe(1);
+  });
+});

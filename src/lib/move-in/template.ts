@@ -38,6 +38,7 @@ const UPLOAD_AT: Record<string, string> = {
   "salary-to-date": "Salary Management, Salary Structures, Import",
   "academic-allocations": "Academic Management, Import from Excel",
   "academic-timetable": "Academic Management, Import from Excel",
+  "academic-syllabus": "Academic Management, Import from Excel",
 };
 /** Kinds brought in only on their own module's page. */
 const ONLY_THERE: Record<string, string> = {

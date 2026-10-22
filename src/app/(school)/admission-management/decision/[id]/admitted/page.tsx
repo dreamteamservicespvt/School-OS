@@ -41,7 +41,9 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
   const canUndo = viewer.change === "all" && undoUntil > Date.now();
   const admNo = student?.admissionNo ?? c?.admissionNo ?? "";
   const place = section ? `${section.schoolClass.name} ${section.name}` : "";
-  const welcome = c?.welcome === "queued" || c?.welcome === "sent" ? "“Admission confirmed” message, with the admission number" : c?.welcome ? `Not sent (${c.welcome}). Send it from Communication.` : "Not sent. Check the “admission-welcome” rule in Communication.";
+  const welcome = c?.welcome === "queued" || c?.welcome === "sent" ? "“Admission confirmed” message, with the admission number"
+    : c?.welcome === "held" ? "Not sent: automatic messages to parents start when the school goes live on School OS. Send it from Communication if needed."
+      : c?.welcome ? `Not sent (${c.welcome}). Send it from Communication.` : "Not sent. Check the “admission-welcome” rule in Communication.";
   const parents = data.guardians.map((g) => `${g.name}${c?.linkedGuardianIds.includes(g.id) ? " (already a parent here)" : ""}`).join(" and ");
 
   const sentLinks = data.links.filter((l) => l.lastSentAt).length;

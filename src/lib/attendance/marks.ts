@@ -213,6 +213,8 @@ export type SaveResult = {
   noChannel?: boolean;
   /** Absence messages are on here, but Communication's "Absent today" message is switched off: nothing goes. */
   ruleOff?: boolean;
+  /** The school is still moving in: absence messages start when it goes live (workflow 15, step 10). */
+  held?: boolean;
   summary: string;
 };
 
@@ -397,8 +399,9 @@ export async function saveClassAttendance(tx: Tx, ctx: SchoolContext, access: At
   return {
     outcome: "saved", counts, changed: changes.length, clockFlagged,
     messagesAt: rule?.ready ? sendAt : null,
-    noChannel: Boolean(rule?.on && !rule.ready),
+    noChannel: Boolean(rule?.on && !rule.ready && !rule.held),
     ruleOff: Boolean(rule && !rule.on),
+    held: Boolean(rule?.held),
     summary: `Attendance saved for ${label}: ${countsText(counts, statuses)}.`,
   };
 }

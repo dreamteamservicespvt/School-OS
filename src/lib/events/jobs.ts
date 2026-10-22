@@ -28,4 +28,4 @@ defineSchedule("event-reminders", 30, async (tx, ctx, now) => {
     console.warn(JSON.stringify({ level: "warn", event: "event-reminders-failed", schoolId: ctx.schoolId, reason: e.message }));
   }
   await sendPtmReminders(tx, ctx, today, hour);
-});
+}, { heldWhileMovingIn: true });

@@ -13,6 +13,7 @@ import { MessagingProblem, sendAutomatic, sendMessage } from "../messaging";
 import { ruleReady, ruleStates } from "../messaging/automatic";
 import { CHANNEL_LABEL } from "../messaging/channels";
 import { currentVersions, templateByKey, versionFor } from "../messaging/templates";
+import { HELD_UNTIL_LIVE, movingIn } from "../move-in/live";
 
 export type AbsenceMessageView = {
   /** "Absent today" is switched on in Communication, Message Settings. */
@@ -58,6 +59,8 @@ export async function sendAttendanceMessage(tx: Tx, ctx: SchoolContext, alert: A
   if (!alert.guardianId) return { status: "skipped", note: "No parent on file" };
   const guardian = await tx.guardian.findFirst({ where: { id: alert.guardianId, archivedAt: null }, select: { optedOut: true } });
   if (!guardian) return { status: "skipped", note: "No parent on file" };
+  // Workflow 15, step 10: attendance messages to parents start when the school goes live.
+  if (await movingIn(tx, ctx)) return { status: "skipped", note: HELD_UNTIL_LIVE };
   const optedOut = "The parent has opted out of messages";
   const date = formatDate(alert.date, "UTC");
   try {

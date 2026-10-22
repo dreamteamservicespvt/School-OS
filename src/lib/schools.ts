@@ -32,6 +32,12 @@ export type NewSchool = {
   trialEndsOn?: Date;
   /** Optional modules to switch on from the first day (Library, Inventory, Hostel). */
   optionalOn?: string[];
+  /**
+   * The school starts by moving in from its old software (workflow 15): it gets a
+   * Move-in Plan, and automatic messages to parents and late fees wait until the
+   * Principal presses Go live (src/lib/move-in/live.ts). Add School in the console sets it.
+   */
+  movingIn?: boolean;
 };
 
 /** Makes the school, its main campus, its starting roles and its modules. ctx.schoolId is the new school's id. */
@@ -78,7 +84,8 @@ export async function buildSchool(tx: Tx, ctx: SchoolContext, input: NewSchool) 
   // Two-step login is on from the first day for the roles that need it (School Admin,
   // Principal, Accountant: 08-platform-security.md §2). A School Admin can switch it off.
   await tx.schoolFeature.create({ data: { schoolId, featureKey: NEW_SCHOOL_TWO_STEP_FEATURE, isOn: true } });
-  await writeAudit(tx, ctx, { action: "created", recordType: "School", recordId: schoolId, after: { code: input.code, name: input.name, twoStepLogin: "on" } });
+  if (input.movingIn) await tx.moveInPlan.create({ data: { schoolId } });
+  await writeAudit(tx, ctx, { action: "created", recordType: "School", recordId: schoolId, after: { code: input.code, name: input.name, twoStepLogin: "on", ...(input.movingIn ? { movingIn: "until Go live" } : {}) } });
   return { school, campus };
 }
 

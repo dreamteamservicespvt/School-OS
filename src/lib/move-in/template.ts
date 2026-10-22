@@ -32,6 +32,7 @@ const UPLOAD_AT: Record<string, string> = {
   "inventory-items": "Inventory Management, Items & Stock, Import",
   "inventory-assets": "Inventory Management, Assets, Import",
   "hostel-rooms": "Hostel Management, Rooms & Beds, Import",
+  "attendance-so-far": "Attendance Management, Import attendance so far",
 };
 /** Kinds brought in only on their own module's page. */
 const ONLY_THERE: Record<string, string> = {

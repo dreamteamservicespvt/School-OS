@@ -943,6 +943,18 @@ describe("Switching to School OS files stay in their school", () => {
     });
     await expect(withSchool(ctxA(), (tx) => tx.importMapping.create({ data: { schoolId: b.id, kind: "students", headerKey: "from-a", fileName: "x.xlsx" } }))).rejects.toThrow();
   });
+
+  it("school A cannot read, change or add to school B's attendance so far (Opening Attendance, G19)", async () => {
+    const some = "00000000-0000-4000-8000-00000000b019";
+    const data = { schoolId: b.id, academicYearId: some, studentId: some, fromDate: new Date("2026-04-01"), upTo: new Date("2026-09-30"), daysMet: 92, daysPresent: 90 };
+    const row = await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.openingAttendance.create({ data }));
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.openingAttendance.count()).toBe(0);
+      expect(await tx.openingAttendance.findUnique({ where: { id: row.id } })).toBeNull();
+      expect((await tx.openingAttendance.updateMany({ where: { id: row.id }, data: { daysPresent: 92 } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.openingAttendance.create({ data }))).rejects.toThrow();
+  });
 });
 
 describe("The AI Call log stays in its school", () => {

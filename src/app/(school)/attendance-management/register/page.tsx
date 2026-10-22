@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft, CalendarDays, CalendarX2, ClipboardPen, Users } from "lucide-react";
+import { ArrowLeft, CalendarDays, CalendarX2, ClipboardPen, Upload, Users } from "lucide-react";
+import { ButtonLink } from "@/components/ui/button";
 import { periodFromSearch } from "@/lib/periods";
 import { periodSetup } from "@/lib/period-setup";
 import { classWise } from "@/lib/attendance/classwise";
@@ -102,7 +103,11 @@ export default async function RegisterPage({ searchParams }: Props) {
   return (
     <>
       <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register`} sub={sub}
-        actions={exportHref && view === "class" ? <ExportMenu href={exportHref} print /> : undefined} />
+        actions={<>
+          {/* Starting part way through the year (workflow 15): the totals from the old register. */}
+          {access.full && access.see === "all" && <ButtonLink href={`${BASE}/import`} variant="ghost" icon={Upload}>Import attendance so far</ButtonLink>}
+          {exportHref && view === "class" ? <ExportMenu href={exportHref} print /> : null}
+        </>} />
 
       {data.sections.length === 0 ? (
         <EmptyState title="No classes to show" Icon={Users}>

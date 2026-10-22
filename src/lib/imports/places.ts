@@ -8,7 +8,7 @@
 // the person who does that work never needs Settings (05-roles.md).
 import type { ModuleKey } from "../modules";
 
-export type PlaceKey = "settings" | "fees" | "finance" | "events" | "staff" | "enquiries" | "library" | "inventory-items" | "inventory-assets" | "hostel" | "students" | "salary";
+export type PlaceKey = "settings" | "fees" | "finance" | "events" | "staff" | "enquiries" | "library" | "inventory-items" | "inventory-assets" | "hostel" | "students" | "salary" | "attendance";
 
 export type ImportPlace = {
   key: PlaceKey;
@@ -39,6 +39,16 @@ export const PLACES: Record<PlaceKey, ImportPlace> = {
   hostel: { key: "hostel", module: "hostel-management", base: "/hostel-management/rooms/import", kinds: ["hostel-rooms"], name: "Import rooms" },
   students: { key: "students", module: "student-management", base: "/student-management/import", kinds: ["students", "students-update"], name: "Import students" },
   salary: { key: "salary", module: "salary-management", base: "/salary-management/structures/import", kinds: ["salary-structures"], name: "Import salary structures" },
+  attendance: { key: "attendance", module: "attendance-management", base: "/attendance-management/import", kinds: ["attendance-so-far"], name: "Import attendance so far" },
+};
+
+/**
+ * Kinds listed for Switching to School OS that keep their own module page's
+ * rules there too, because the module's own rule is narrower than "may add in
+ * the module": attendance so far needs full Attendance Management (05-roles.md).
+ */
+export const OWN_RULES: Record<string, PlaceKey> = {
+  "attendance-so-far": "attendance",
 };
 
 export function importPlace(key: unknown): ImportPlace | null {
@@ -79,6 +89,7 @@ export const HOME: Record<string, { href: string; label: string }> = {
   "inventory-items": { href: "/inventory-management/items", label: "Open Items & Stock" },
   "inventory-assets": { href: "/inventory-management/assets", label: "Open Assets" },
   "hostel-rooms": { href: "/hostel-management/rooms", label: "Open Rooms & Beds" },
+  "attendance-so-far": { href: "/attendance-management/register", label: "Open Attendance Register" },
 };
 
 /** One record and many, in the words of each kind's own module. */
@@ -96,6 +107,7 @@ export const WORDS: Record<string, { one: string; many: string }> = {
   students: { one: "student", many: "students" },
   "students-update": { one: "student's changes", many: "students' changes" },
   "salary-structures": { one: "salary structure", many: "salary structures" },
+  "attendance-so-far": { one: "student's attendance so far", many: "students' attendance so far" },
 };
 
 export const wordsFor = (kind: string, label: string) => WORDS[kind] ?? { one: label.toLowerCase().replace(/s$/, ""), many: label.toLowerCase() };

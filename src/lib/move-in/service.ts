@@ -54,6 +54,7 @@ const KNOWN: Record<string, Omit<MoveInKind, "key" | "label">> = {
   staff: { module: "staff-hr-management", order: 2, about: "Teachers and other staff, with phone, designation and joining date. Logins can be made for them." },
   students: { module: "student-management", order: 3, about: "Students with their class, section, roll number and admission number, and their parents. Old admission numbers are kept." },
   "students-update": { module: "student-management", order: 4, about: "Changes to students already here, found by admission number." },
+  "attendance-so-far": { module: "attendance-management", order: 4.5, about: "Starting part way through the year? For each student, the days the school met and the days present up to the day before go-live. Attendance % and early warnings count them from the first day." },
   "fee-old-dues": { module: "fee-management", order: 6, about: "For each student, the amount still unpaid from before. Each becomes an opening balance row on the Student Fee Ledger, marked Brought in." },
   "fee-past-receipts": { module: "fee-management", order: 7, about: "Payments already made this year in the old software, with their receipt numbers. They reduce the dues, are kept read-only as Brought in, and never reach the Day Book." },
   "finance-past-expenses": { module: "finance-management", order: 9, about: "Expenses of this financial year, for reports. Kept as Brought in; they never reach the Day Book or the cash and bank books." },
@@ -156,12 +157,13 @@ export function firstChoices(sheet: Sheet, kindKey?: string | null) {
  * records: a workbook with a Students sheet and a Staff sheet becomes two.
  * The person may only bring in what their role can add.
  */
-export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: PermissionMap, upload: { fileId: string; fileName: string; kind?: string | null; options?: Record<string, unknown> }, modulesOn?: ReadonlySet<ModuleKey>) {
+export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: PermissionMap, upload: { fileId: string; fileName: string; kind?: string | null; options?: Record<string, unknown>; exclude?: readonly string[] }, modulesOn?: ReadonlySet<ModuleKey>) {
   const sheets = await readStored(tx, upload.fileId);
   const info: SheetInfo[] = sheets.map((s) => ({ name: s.name, rows: Math.max(0, s.rows.length - 1) }));
   const usable = sheets.map((s, i) => ({ s, i })).filter(({ s }) => s.rows.filter((r) => r.some((c) => c)).length >= 2);
   if (!usable.length) throw new MoveInProblem("This file has no rows to bring in. Put the headings in one row and the records below them.");
-  const allowed = new Set(moveInKinds(modulesOn).filter((k) => canBring(permissions, k.key, modulesOn)).map((k) => k.key));
+  // `exclude`: kinds the place's own rules refuse this person (a module page's narrower rule, src/lib/imports/places.ts OWN_RULES).
+  const allowed = new Set(moveInKinds(modulesOn).filter((k) => canBring(permissions, k.key, modulesOn) && !upload.exclude?.includes(k.key)).map((k) => k.key));
   // A kind not listed for Switching, chosen on its module's page ("Changes to students already here").
   if (upload.kind && mayChoose(permissions, upload.kind, modulesOn)) allowed.add(upload.kind);
   if (!allowed.size) throw new MoveInProblem("Your role cannot add any of these records. Ask your School Admin.");

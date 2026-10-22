@@ -27,6 +27,7 @@ Where a part of a finding comes from reading the code, the entry says so.
 | PLATFORM-18 | P4 | Dashboard | Transport papers alert says "and 1 more and 1 more" | f184e44 |
 | PLATFORM-19 | n/a (environment) | Background jobs | No job worker runs in the QA environment | not fixed: environment |
 | PLATFORM-ROLES-01 | P2 | Settings, Staff & HR, Approvals (roles) | A person in two schools sees, and can pick, their other school's roles | Fixed: b0057be, 0d1cdd9, 858aec2 |
+| PLATFORM-ROLES-02 | P2 | Staff & HR, Super Admin console | Closing a login in one school disables it in the person's other school too | Fixed: 45d74f4 |
 
 ---
 
@@ -199,6 +200,14 @@ Where a part of a finding comes from reading the code, the entry says so.
   - The same commit fixes the React key warnings on `/student-management` and `/student-management/guardians`: the phone cards' pills come from helpers without keys (fee, result and Parent Link pills); `DataList` now gives each pill its own key.
 - **Verified:** `tests/roles-cross-school.test.ts` (a Principal of two schools who holds a role only school B has: in school A the database, the role lists and `assignableRoles` hold only A's roles, each once; sign-in and the School switcher still see both schools; Add staff, Users & Permissions, Roles and the AI assistant refuse school B's role; a source scan fails if a `tx.role` read in `src/` leaves out the school). With the migration taken out, the database test fails. `tests/isolation.test.ts` adds a person in both schools. `tests/data-list-keys.test.ts` renders keyless pills and fails on the old `DataList` with the key warning.
 
+## PLATFORM-ROLES-02 · P2 · Staff & HR, Super Admin console · Closing a login in one school disables it in the person's other school too
+- **Found:** in the code, while fixing PLATFORM-ROLES-01. It was not seen in the browser.
+- **Steps:** A teacher works in school A and school B with one login. In school A, switch off their login (staff profile), or let their exit reach its last working day, or undo the staff import that made them.
+- **Expected:** Their access to school A closes. Their login keeps working in school B.
+- **Actual:** The login was disabled (or, for an import undo, archived) for both schools.
+- **Root cause:** `src/lib/staff/exit.ts` (`switchOffLogin`, `finishLastDay`) and `src/lib/staff/import.ts` (undo) counted the person's other live School Access rows inside school A's work. The database hides other schools' rows there, so the count was always 0. DREAM TEAM's `disableAdmin` and `cancelInvite` in `src/lib/console/schools.ts` had the same count, run inside one school's console work.
+- **Fix:** 45d74f4. `worksElsewhere()` in `src/lib/auth/access.ts` asks through `withUser()`, the way sign-in and Users & Permissions › Disable already do. All five places use it. When the login still opens another school, only this school's access and sessions close; the login is not switched off and its remembered devices are kept.
+- **Verified:** `tests/staff-hr/login-elsewhere.test.ts`: a teacher in two schools. Switch off login, the last working day and import undo in school A leave the login active, and the School switcher lists only school B. A teacher in school A only is still switched off or archived. On the old code, 3 of its 5 tests fail.
 ## PLATFORM-19 · environment · No job worker runs in the QA environment
 - **Actual:**
   - No `npm run worker` process is running.

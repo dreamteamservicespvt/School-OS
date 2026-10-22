@@ -138,6 +138,8 @@ export async function FileReview({ current, place, id, sp }: Props) {
 
   // Rows still with a file part brought in: counted in plain words.
   const waiting = batches.length > 0 && checked ? waitingWords(checked.ready.length, checked.problems.length, prepared.passed.leftOut) : "";
+  /** Only ready rows wait (after an Undo): nothing to fix, just bring them in. */
+  const onlyReady = Boolean(waiting) && !checked?.problems.length && !prepared.passed.leftOut;
 
   // What else the sheet could hold: kinds this page brings in that the person may add here, and its own.
   const kinds: { key: string; label: string }[] = [];
@@ -165,7 +167,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
       {waiting && (
         <Alert tone="warning" className="mb-4" title={waiting}
           action={step !== "check" ? <Link className="font-medium underline" href={`${here}?step=check`}>See the rows</Link> : undefined}>
-          {mayEdit ? "Fix them below and bring them in: they come in as a further import of this file, with its own Undo. Not needed? Remove the file from the list; what it brought in stays." : "Your role can look at this file but not bring them in."}
+          {mayEdit ? `${onlyReady ? "Bring them in below" : "Fix them below and bring them in"}: they come in as a further import of this file, with its own Undo. Not needed? Remove the file from the list; what it brought in stays.` : "Your role can look at this file but not bring them in."}
         </Alert>
       )}
       <details className="mb-4 rounded-2xl border border-line bg-surface px-5 py-3" open={sp.sheet === "1"}>

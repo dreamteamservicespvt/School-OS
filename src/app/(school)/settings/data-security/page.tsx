@@ -4,6 +4,7 @@ import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime, formatTime } from "@/lib/format";
 import { lastBackup } from "@/lib/data-security/privacy";
+import { fileBackupStatus } from "@/lib/backup/files";
 import { exportExpired, EXPORT_LINK_HOURS } from "@/lib/data-security/data-export";
 import { daysAgo, securityAlerts, TWO_STEP_FEATURE } from "@/lib/data-security/alerts";
 import { describeDevice } from "@/lib/data-security/audit-view";
@@ -43,7 +44,8 @@ export default async function DataSecurityPage() {
         where: { archivedAt: null, userLogin: { status: "ACTIVE", archivedAt: null }, roles: { some: { role: { requiresTwoStep: true, isEnabled: true, archivedAt: null } } } },
         select: { userLogin: { select: { id: true, displayName: true, email: true, phone: true } } },
       });
-      return { exports, jobStatus: new Map(jobs.map((j) => [j.idempotencyKey, j.status])), alerts, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])), twoStepOn: twoStep?.isOn ?? false, twoStepRoles: [...new Set(twoStepRoles.map((r) => r.name))], sensitive: sensitive.map((s) => s.userLogin) };
+      const files = await fileBackupStatus(tx);
+      return { files, exports, jobStatus: new Map(jobs.map((j) => [j.idempotencyKey, j.status])), alerts, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])), twoStepOn: twoStep?.isOn ?? false, twoStepRoles: [...new Set(twoStepRoles.map((r) => r.name))], sensitive: sensitive.map((s) => s.userLogin) };
     }),
   ]);
   const unreachable: { id: string; displayName: string }[] = [];
@@ -70,6 +72,19 @@ export default async function DataSecurityPage() {
             ) : (
               <Alert tone="warning" title="No backup has been recorded on this server yet">
                 On the live service a full copy is made every night and the database is backed up continuously. This server has not recorded one yet; DREAM TEAM sets this up before a school&apos;s real data goes in.
+              </Alert>
+            )}
+            {data.files.setUp ? (
+              <p>
+                Files (photos, documents, receipts): {data.files.lastCopiedAt ? `last copied ${backupWords(data.files.lastCopiedAt, tz)}` : "not copied yet"}.{" "}
+                {data.files.waiting === 0 ? `All ${data.files.total} files are in the backup.` : `${data.files.waiting} of ${data.files.total} files wait for the next copy, which runs every hour.`}
+              </p>
+            ) : (
+              <p className="text-sm text-ink-2">Files: copies to a second place are not set up on this server yet. DREAM TEAM sets this up before a school&apos;s real data goes in.</p>
+            )}
+            {data.files.setUp && (data.files.problems > 0 || data.files.lastRunFailed) && (
+              <Alert tone="warning" title="Some files could not be copied at the last run">
+                {data.files.problems > 0 ? `${data.files.problems} file${data.files.problems === 1 ? "" : "s"} could not be copied. ` : ""}DREAM TEAM has been told and is checking. Your files are still safe where they are, and the copy is tried again every hour.
               </Alert>
             )}
             <ul className="list-disc space-y-1 pl-5 text-sm text-ink-2">

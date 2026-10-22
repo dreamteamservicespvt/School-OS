@@ -1,7 +1,7 @@
 // Uploading and opening private files (08-platform-security.md §8).
 import "server-only";
 
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import sharp from "sharp";
 import type { SchoolContext, Tx } from "./db";
 import { fileStore } from "./storage";
@@ -65,6 +65,7 @@ export async function saveFile(tx: Tx, ctx: SchoolContext, input: SaveFileInput)
       fileName: file.name.slice(0, 200) || "file",
       contentType: type,
       sizeBytes: body.length,
+      sha256: createHash("sha256").update(body).digest("hex"),
       purpose: input.purpose,
       uploadedById: ctx.userId,
     },

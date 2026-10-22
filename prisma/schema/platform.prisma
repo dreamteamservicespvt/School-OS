@@ -14,8 +14,13 @@ model StoredFile {
   uploadedById String?   @map("uploaded_by_id") @db.Uuid
   createdAt    DateTime  @default(now()) @map("created_at")
   archivedAt   DateTime? @map("archived_at")
+  /// SHA-256 of the stored bytes (hex), taken at upload or at the first backup; restore tests compare it.
+  sha256       String?
+  /// When the file was last copied to the backup place (backup/files.ts); empty until then.
+  backedUpAt   DateTime? @map("backed_up_at")
 
   @@index([schoolId, purpose])
+  @@index([schoolId, backedUpAt])
   @@map("stored_file")
 }
 

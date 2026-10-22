@@ -17,6 +17,8 @@ import { allocationActiveOn } from "./allocation";
 const REASON_WORDS: Record<string, string> = { leave: "Leave", absent: "Absent", temporary: "Temporary teacher" };
 export const reasonWords = (r: string) => REASON_WORDS[r] ?? r;
 
+export type Away = { reason: string; leaveRequestId: string | null; coverId: string | null; /** Marked absent on Substitutions (a Staff Absence) that day. */ marked: boolean };
+
 /** Staff away on a date: approved leave, marked absent by hand, or replaced by a temporary teacher. */
 export async function absentStaffOn(tx: Tx, ctx: SchoolContext, date: Date) {
   const [leave, absences, covers] = await Promise.all([
@@ -24,11 +26,21 @@ export async function absentStaffOn(tx: Tx, ctx: SchoolContext, date: Date) {
     tx.staffAbsence.findMany({ where: { schoolId: ctx.schoolId, date, archivedAt: null } }),
     tx.temporaryCover.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, fromDate: { lte: date }, toDate: { gte: date } } }),
   ]);
-  const away = new Map<string, { reason: string; leaveRequestId: string | null; coverId: string | null }>();
-  for (const c of covers) away.set(c.absentStaffId, { reason: "temporary", leaveRequestId: null, coverId: c.id });
-  for (const l of leave) away.set(l.staffId!, { reason: "leave", leaveRequestId: l.id, coverId: away.get(l.staffId!)?.coverId ?? null });
-  for (const a of absences) if (!away.has(a.staffId)) away.set(a.staffId, { reason: "absent", leaveRequestId: null, coverId: null });
+  const marked = new Set(absences.map((a) => a.staffId));
+  const away = new Map<string, Away>();
+  for (const c of covers) away.set(c.absentStaffId, { reason: "temporary", leaveRequestId: null, coverId: c.id, marked: marked.has(c.absentStaffId) });
+  for (const l of leave) away.set(l.staffId!, { reason: "leave", leaveRequestId: l.id, coverId: away.get(l.staffId!)?.coverId ?? null, marked: marked.has(l.staffId!) });
+  for (const a of absences) if (!away.has(a.staffId)) away.set(a.staffId, { reason: "absent", leaveRequestId: null, coverId: null, marked: true });
   return away;
+}
+
+/**
+ * Whose periods are listed as needing cover: everyone away, except a teacher
+ * on approved leave when the campus's switch "Raise substitutions
+ * automatically" is off (04 §6) and nobody has marked them absent by hand.
+ */
+export function listedAway(away: Map<string, Away>, autoSubstitutions: boolean): string[] {
+  return [...away.entries()].filter(([, a]) => autoSubstitutions || a.reason !== "leave" || a.marked).map(([id]) => id);
 }
 
 export type NeedRow = PeriodCell & {
@@ -49,8 +61,9 @@ export async function needsOn(tx: Tx, ctx: SchoolContext, campusId: string, date
   const subs = await tx.substitution.findMany({ where: { schoolId: ctx.schoolId, date, archivedAt: null, status: { not: "CANCELLED" }, period: { section: { schoolClass: { campusId } } } } });
   const periodIds = new Set<string>(subs.map((s) => s.periodId));
   const day = weekday(date);
+  const listed = listedAway(away, (await academicSettings(tx, ctx, campusId)).autoSubstitutions);
   let fromAway: PeriodCell[] = [];
-  if (version && away.size) fromAway = await cellsWhere(tx, { versionId: version.id, dayOfWeek: day, staffId: { in: [...away.keys()] } });
+  if (version && listed.length) fromAway = await cellsWhere(tx, { versionId: version.id, dayOfWeek: day, staffId: { in: listed } });
   const extra = await cellsWhere(tx, { id: { in: [...periodIds].filter((id) => !fromAway.some((p) => p.id === id)) } });
   const all = [...fromAway, ...extra];
   const names = new Map((await tx.staff.findMany({ where: { id: { in: [...new Set([...all.map((p) => p.staffId), ...subs.map((s) => s.substituteStaffId), ...subs.map((s) => s.absentStaffId)].filter((x): x is string => Boolean(x)))] } }, select: { id: true, fullName: true } })).map((s) => [s.id, s.fullName]));
@@ -246,12 +259,15 @@ export async function markAbsent(tx: Tx, ctx: SchoolContext, input: { staffId: s
   const off = await dayOff(tx, ctx, input.date, staff.campusId);
   if (off) throw new AcademicRuleError(`${formatDate(input.date)} is not a school day (${off.title}).`, "date");
   const away = (await absentStaffOn(tx, ctx, input.date)).get(staff.id);
-  if (away) throw new AcademicRuleError(`${staff.fullName} is already marked away on ${formatDate(input.date)} (${reasonWords(away.reason).toLowerCase()}).`, "staffId");
+  // With the switch "Raise substitutions automatically" off, approved leave lists nothing by itself:
+  // marking the teacher absent here lists their periods (04 §6).
+  const leaveByHand = away?.reason === "leave" && !away.marked && !(await academicSettings(tx, ctx, staff.campusId)).autoSubstitutions;
+  if (away && !leaveByHand) throw new AcademicRuleError(`${staff.fullName} is already marked away on ${formatDate(input.date)} (${reasonWords(away.reason).toLowerCase()}).`, "staffId");
   const row = await tx.staffAbsence.create({ data: { schoolId: ctx.schoolId, staffId: staff.id, date: input.date, note: input.note, createdById: ctx.userId } });
   // Their own substitute duties that day are released too.
   const covering = await tx.substitution.findMany({ where: { date: input.date, substituteStaffId: staff.id, status: "ARRANGED", archivedAt: null } });
   for (const c of covering) await tx.substitution.update({ where: { id: c.id }, data: { substituteStaffId: null, status: "NEEDED" } });
-  const raised = await raiseFor(tx, ctx, staff.id, staff.campusId, [input.date], { reason: "absent" });
+  const raised = await raiseFor(tx, ctx, staff.id, staff.campusId, [input.date], { reason: "absent", leaveRequestId: leaveByHand ? away!.leaveRequestId : null });
   await writeAudit(tx, ctx, { action: "marked-absent", recordType: "Staff Absence", recordId: row.id, after: { staff: staff.fullName, date: input.date.toISOString().slice(0, 10), periods: raised, released: covering.length } });
   return { absence: row, raised, name: staff.fullName, released: covering.length };
 }

@@ -212,7 +212,7 @@ export function TimingsForm({ s, pageYearId }: { s: { dayStart: string; dayEnd: 
       <section className="space-y-2 rounded-2xl border border-line bg-surface p-4">
         <h2 className="font-semibold">Substitution rule</h2>
         <CheckboxField label="Raise substitutions automatically when a teacher's leave is approved" name="autoSubstitutions" defaultChecked={(v(state, "autoSubstitutions", s.autoSubstitutions ? "on" : "")) === "on"}
-          help="Their periods are listed as Needed in Substitutions. Teachers marked absent by hand are always listed." />
+          help="Their periods are listed as Needed in Substitutions. When this is off, leave lists nothing by itself: mark the teacher absent on Substitutions to list their periods. Teachers marked absent are always listed." />
       </section>
       <SubmitButton pendingText="Saving…">Save timings and rules</SubmitButton>
     </form>

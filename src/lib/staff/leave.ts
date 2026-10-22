@@ -11,6 +11,7 @@ import { notify } from "../notifications";
 import { requestApproval } from "../approvals";
 import { formatDate } from "../format";
 import { assertYearOpen } from "../academic/years";
+import { academicSettings } from "../academic/settings";
 import { headLoginFor, ensureHrDefaults } from "./settings";
 import { addDays, eachDay, isoDay, isoWeekday } from "./dates";
 import { loginsForCampus } from "./campus-logins";
@@ -219,8 +220,14 @@ export async function teacherPeriods(tx: Tx, ctx: SchoolContext, staff: { id: st
   return out;
 }
 
-/** Substitution rows (status Needed) for every period of an approved teacher leave. Safe to run twice. */
+/**
+ * Substitution rows (status Needed) for every period of an approved teacher
+ * leave. Safe to run twice. Nothing is raised when the campus's Academic
+ * Settings switch "Raise substitutions automatically" is off (04 §6): the
+ * office then marks the teacher absent on Substitutions by hand.
+ */
 export async function raiseSubstitutions(tx: Tx, ctx: SchoolContext, leave: Pick<LeaveRequest, "id" | "fromDate" | "toDate">, staff: { id: string; campusId: string }, halfDayPart: string | null) {
+  if (!(await academicSettings(tx, ctx, staff.campusId)).autoSubstitutions) return 0;
   const needs = await teacherPeriods(tx, ctx, staff, leave.fromDate, leave.toDate, halfDayPart);
   if (needs.length === 0) return 0;
   const existing = await tx.substitution.findMany({ where: { leaveRequestId: leave.id, archivedAt: null }, select: { periodId: true, date: true } });

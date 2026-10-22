@@ -38,6 +38,9 @@ import { askEventConsent, declineEvent } from "@/app/p/[token]/event-actions";
 import { bookPtmSlot } from "@/app/p/[token]/ptm-actions";
 import { GET as receiptRoute } from "@/app/p/[token]/fees/[paymentId]/route";
 import { collect, dues, makeFeeSchool, R, type FeeSchool } from "../fees/fixture";
+import { takeLoggedCode, watchLoggedCodes } from "../helpers";
+
+watchLoggedCodes();
 
 let f: FeeSchool;
 let fatherId = "";
@@ -58,11 +61,8 @@ const phone = () => `9${String(Math.floor(Math.random() * 1e9)).padStart(9, "0")
 async function confirmPhone(id: string) {
   const key = newDeviceKey();
   await withSchool(f.ctx, (tx) => sendCode(tx, f.ctx, id, "device", { keyHash: hashToken(key) }));
-  const code = await withSchool(f.ctx, async (tx) => {
-    const c = await tx.parentLinkCode.findFirstOrThrow({ where: { parentLinkId: id }, orderBy: { createdAt: "desc" } });
-    const r = await tx.messageRecipient.findFirstOrThrow({ where: { messageId: c.messageId! } });
-    return r.text.match(/\b(\d{6})\b/)![1];
-  });
+  // From the server log: the message keeps "••••••" (QA SEC-01).
+  const code = takeLoggedCode();
   const r = await withSchool(f.ctx, (tx) => confirmDevice(tx, f.ctx, id, key, code, { userAgent: "test", ipAddress: null }));
   expect(r.ok).toBe(true);
   return key;

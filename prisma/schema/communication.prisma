@@ -142,6 +142,8 @@ model Message {
   cancelledAt       DateTime?     @map("cancelled_at")
   cancelledById     String?       @map("cancelled_by_id") @db.Uuid
   createdAt         DateTime      @default(now()) @map("created_at")
+  /// When the retention check removed its text and its recipients' details (counts and costs stay).
+  clearedAt         DateTime?     @map("cleared_at")
 
   recipients MessageRecipient[]
 

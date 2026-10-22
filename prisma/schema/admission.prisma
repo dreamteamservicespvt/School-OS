@@ -167,6 +167,8 @@ model Enquiry {
   updatedById    String?   @map("updated_by_id") @db.Uuid
   updatedAt      DateTime  @updatedAt @map("updated_at")
   archivedAt     DateTime? @map("archived_at")
+  /// When the retention check removed its personal details (an enquiry that did not join, Settings, Privacy).
+  clearedAt      DateTime? @map("cleared_at")
 
   campaign     AdmissionCampaign? @relation(fields: [campaignId], references: [id])
   activities   EnquiryActivity[]

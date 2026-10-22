@@ -7,7 +7,9 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { DELETION_PARTS, personTypesFor, retentionRules, type PersonType } from "@/lib/data-security/privacy";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { DeletionForm, RetentionForm } from "./forms";
+import { ClearRetentionButton, DeletionForm, RetentionForm } from "./forms";
+import { AUTO_WORDS, CLEARABLE, countWords, NEVER_CLEARED, retentionOverview, type Counts, type Due } from "@/lib/data-security/retention";
+import { loginNames } from "@/lib/settings/common";
 
 export const metadata: Metadata = { title: "Privacy · Data Backup & Security" };
 
@@ -37,6 +39,8 @@ export default async function PrivacyPage({ searchParams }: Search) {
 
   const data = await withSchool(current.ctx, async (tx) => {
     const rules = await retentionRules(tx);
+    const retention = await retentionOverview(tx);
+    const clearers = await loginNames(tx, retention.history.map((h) => h.clearedById));
     const requests = await tx.deletionRequest.findMany({ orderBy: { createdAt: "desc" }, take: 30 });
     let found: { id: string; name: string; detail: string }[] = [];
     if (type && q.length >= 2) {
@@ -52,7 +56,7 @@ export default async function PrivacyPage({ searchParams }: Search) {
       else if (type === "guardian") chosen = await tx.guardian.findUnique({ where: { id: personId }, select: { id: true, name: true } });
       else chosen = await tx.staff.findUnique({ where: { id: personId }, select: { id: true, fullName: true } }).then((s) => (s ? { id: s.id, name: s.fullName } : null));
     }
-    return { rules, requests, found, chosen };
+    return { rules, requests, found, chosen, retention, clearers };
   });
 
   return (
@@ -61,6 +65,45 @@ export default async function PrivacyPage({ searchParams }: Search) {
       <Card>
         <CardHeader title="How long records are kept" description="Under the DPDP Act 2023, personal data is kept only as long as it is needed. Some records must be kept by law." />
         <CardBody><RetentionForm rules={data.rules} canEdit={canEdit} /></CardBody>
+      </Card>
+
+      <Card id="retention">
+        <CardHeader title="Records past their keeping period" description="Every night School OS looks for records older than the periods above. They are listed here for the School Admin; nothing is cleared until you say yes. Clearing removes the personal details and keeps the record." />
+        <CardBody className="space-y-4">
+          {data.retention.waiting ? (() => {
+            const due = data.retention.waiting.due as Due;
+            const entries = Object.entries(due) as [keyof typeof CLEARABLE, { count: number; before: string }][];
+            const total = entries.reduce((n, [, v]) => n + v.count, 0);
+            const lines = entries.map(([k, v]) => `${countWords(k, v.count)} from before ${formatDate(new Date(v.before), tz)}: ${CLEARABLE[k].how.toLowerCase()}`);
+            return (
+              <div className="space-y-3">
+                <p className="font-medium">Found on {formatDate(data.retention.waiting.runOn, tz)}:</p>
+                <ul className="list-disc space-y-1 pl-5">{lines.map((l) => <li key={l}>{l}</li>)}</ul>
+                {canEdit ? <ClearRetentionButton runId={data.retention.waiting.id} total={total} lines={lines} /> : <p className="text-sm text-ink-2">Only the School Admin can clear these.</p>}
+              </div>
+            );
+          })() : (
+            <p className="text-ink-2">{data.retention.latest ? `Nothing is past its period. Last checked ${formatDate(data.retention.latest.runOn, tz)}.` : "The first check runs tonight."}</p>
+          )}
+          <p className="text-sm text-ink-2">Never cleared here: {NEVER_CLEARED.join("; ")}. One-time codes older than 30 days and full data exports whose link has expired are cleared by themselves.</p>
+          {data.retention.history.length > 0 && (
+            <>
+              <h3 className="pt-2 font-semibold">What was cleared</h3>
+              <ul className="divide-y divide-line rounded-xl border border-line">
+                {data.retention.history.map((h) => {
+                  const cleared = Object.entries(h.cleared as Counts).map(([k, n]) => countWords(k, n));
+                  const auto = Object.entries(h.autoCleared as Counts).map(([k, n]) => `${n} ${(AUTO_WORDS[k] ?? [k, k])[n === 1 ? 0 : 1]}`);
+                  return (
+                    <li key={h.id} className="p-3">
+                      {cleared.length > 0 && <p><span className="font-medium">{cleared.join(", ")}</span> <span className="text-ink-2">· cleared {h.clearedAt ? formatDateTime(h.clearedAt, tz) : ""}{h.clearedById ? ` by ${data.clearers.get(h.clearedById) ?? "a School Admin"}` : ""}</span></p>}
+                      {auto.length > 0 && <p className="text-sm text-ink-2">{formatDate(h.runOn, tz)}: {auto.join(", ")} cleared by themselves</p>}
+                    </li>
+                  );
+                })}
+              </ul>
+            </>
+          )}
+        </CardBody>
       </Card>
 
       <Card id="deletion">

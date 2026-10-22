@@ -987,6 +987,18 @@ describe("The AI Call log stays in its school", () => {
   });
 });
 
+describe("Retention runs stay in their school", () => {
+  it("school A cannot read, change or add to school B's retention runs (Privacy, G46)", async () => {
+    const row = await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.retentionRun.create({ data: { schoolId: b.id, runOn: new Date("2026-10-23"), status: "waiting", due: { enquiries: { count: 3, before: "2024-10-23T00:00:00.000Z" } } } }));
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.retentionRun.count()).toBe(0);
+      expect(await tx.retentionRun.findUnique({ where: { id: row.id } })).toBeNull();
+      expect((await tx.retentionRun.updateMany({ where: { id: row.id }, data: { status: "cleared" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.retentionRun.create({ data: { schoolId: b.id, runOn: new Date("2026-10-24") } }))).rejects.toThrow();
+  });
+});
+
 describe("The one student search stays in its school", () => {
   it("school A's search (raw SQL under row-level security) never finds school B's student by name, typo, number or parent phone", async () => {
     const { findStudents, studentIdsMatching } = await import("@/lib/students/find");

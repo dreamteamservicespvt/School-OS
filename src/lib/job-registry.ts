@@ -8,6 +8,7 @@ import { pruneRateLimits } from "./rate-limit";
 import "./exports";
 import "./importer";
 import "./data-security/jobs";
+import "./backup/jobs";
 import "./staff/jobs";
 import "./attendance/jobs";
 import "./settings/jobs";

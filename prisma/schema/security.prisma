@@ -76,7 +76,7 @@ model GatewayLinkedAccount {
   @@map("gateway_linked_account")
 }
 
-/// One finished backup of the whole database, written by scripts/backup.sh.
+/// One finished backup of the whole database (scripts/backup.sh), or one restore test (npm run restore:test).
 /// Holds no school data; each school sees the latest time in Settings.
 model BackupRun {
   id              String    @id @default(uuid()) @db.Uuid
@@ -87,6 +87,11 @@ model BackupRun {
   location        String?
   /// When a restore of this copy was proven on a test copy (monthly).
   restoreTestedAt DateTime? @map("restore_tested_at")
+  /// A restore test's result (kind "restore-test", npm run restore:test): "passed" or "failed".
+  /// Empty on older rows with a restore time, which passed.
+  result          String?
+  /// Counts only, never school data: { schools, rows, files, problems, seconds }.
+  details         Json?
 
   @@index([finishedAt])
   @@map("backup_run")

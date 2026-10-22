@@ -39,6 +39,8 @@ import { formatDate, formatRupees, formatRupeesShort } from "../format";
 import { wordList } from "../academic/common";
 import { addDays, DAY_MS, todayIn } from "../staff/dates";
 import { BUILT_MODULES } from "../modules";
+import { readPreferences } from "../settings/profile-rules";
+import { aiRolesOf } from "../settings/switch-rules";
 
 export type ForecastArea = "attendance" | "marks" | "fees" | "students" | "admissions" | "staff" | "finance";
 export const FORECAST_AREA_LABEL: Record<ForecastArea, string> = {
@@ -439,7 +441,8 @@ export async function computeForecasts(tx: Tx, ctx: SchoolContext, now = new Dat
 /**
  * Works the signals out again and stores them: new ones are added, changed ones
  * updated, and ones the numbers no longer support are cleared. The Principal
- * and School Admin are told once, in one notification, when new ones appear.
+ * and School Admin, when their role uses the AI assistant, are told once, in
+ * one notification, when new ones appear.
  * Only for schools with Forecasts switched on; at most every 3 hours unless forced.
  */
 export async function refreshForecasts(tx: Tx, ctx: SchoolContext, now = new Date(), opts: { force?: boolean } = {}) {
@@ -472,7 +475,10 @@ export async function refreshForecasts(tx: Tx, ctx: SchoolContext, now = new Dat
   const toTell = fresh.filter((f) => !decided.has(f.key));
   if (toTell.length) {
     const people = new Set<string>();
-    for (const role of LEADER_ROLES) for (const id of await loginsWithRole(tx, ctx, role)) people.add(id);
+    // Only the leaders whose role the school chose for the AI assistant (Settings, Modules On/Off) are told.
+    const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { preferences: true } });
+    const aiRoles = new Set(aiRolesOf(readPreferences(school?.preferences)));
+    for (const role of LEADER_ROLES.filter((r) => aiRoles.has(r))) for (const id of await loginsWithRole(tx, ctx, role)) people.add(id);
     const urgent = toTell.filter((f) => f.strength === "ACT_NOW").length;
     for (const to of people) {
       await notify(tx, { ...ctx, userId: null }, {

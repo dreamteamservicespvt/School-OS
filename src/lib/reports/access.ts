@@ -19,6 +19,7 @@ import { financeLevel, financePageAllowed } from "../finance/access";
 import { salaryLevel } from "../salary/access";
 import { attendancePages } from "../attendance/access";
 import { pageMode } from "../duty";
+import { aiAllowed } from "../settings/switch-rules";
 import { taskAccess } from "../dashboard/tasks";
 import { CATEGORIES, CATEGORY_MODULE, MONEY, type Category, type ReportViewer } from "./types";
 
@@ -89,7 +90,7 @@ export type ReportAccess = {
   teacherResults: boolean;
 };
 
-type Who = Pick<ReportViewer, "permissions" | "roles" | "modulesOn" | "features">;
+type Who = Pick<ReportViewer, "permissions" | "roles" | "modulesOn" | "features" | "aiRoles">;
 
 /** Is this module built, switched on and open to the person? */
 export function moduleOpen(who: Who, key: ModuleKey) {
@@ -136,10 +137,11 @@ export function reportAccess(who: Who): ReportAccess {
   const feeSignals = fees && !own && !(roleKeys.includes("academic-head") && !full && !roleKeys.includes("vice-principal"));
   const leader = full || roleKeys.includes("vice-principal");
   const review: "all" | "own" | "none" = own ? "own" : full && pageMode(who, MODULE, "warnings") === "full" ? "all" : "none";
-  const ai = who.features.has("ai-assistant") && leader;
+  // AI only for the roles the school chose for the AI assistant (00-global.md §2.1 rule 8): leaders see all of it.
+  const ai = aiAllowed(who) && leader;
   // A class teacher sees the forecasts about their own students (19 Early Warnings: "A class teacher sees
-  // only their students"; TEACHING-15). Never the money ones: fee signals stay with the school's money roles.
-  const ownForecasts = !ai && who.features.has("ai-assistant") && own && warningsOn;
+  // only their students"; TEACHING-15), when their role is chosen for AI. Never the money ones: fee signals stay with the school's money roles.
+  const ownForecasts = !ai && aiAllowed(who) && own && warningsOn;
 
   return {
     see: p.see, full, own, roleKeys, cats,
@@ -159,7 +161,7 @@ export function reportAccess(who: Who): ReportAccess {
       feeReview: feeSignals && warningsOn && full && who.permissions["fee-management"].change === "all",
       rule: roleKeys.includes("principal") && full,
     },
-    ai: { insights: ai && who.features.has("ai-insights"), forecasts: (ai || ownForecasts) && who.features.has("ai-forecasts"), forecastScope: ai ? "all" : "own" },
+    ai: { insights: ai && aiAllowed(who, "ai-insights"), forecasts: (ai || ownForecasts) && aiAllowed(who, "ai-forecasts"), forecastScope: ai ? "all" : "own" },
     teacherResults: roleKeys.includes("principal") || roleKeys.includes("academic-head"),
   };
 }

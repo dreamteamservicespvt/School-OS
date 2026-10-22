@@ -7,7 +7,7 @@
 // and "F Name"; those are listed below.
 
 import type { ImportColumn } from "../importer";
-import { classKey, plain, readDate, splitClassSection, tidyGender, tidyPhone } from "./tidy";
+import { classKey, plain, readDate, splitClassSection, tidyBloodGroup, tidyGender, tidyPhone } from "./tidy";
 
 /** Columns School OS can put together from several columns of the file. */
 export const PARTS: Record<string, { key: string; label: string; names: string[] }[]> = {
@@ -170,7 +170,8 @@ export type ColumnMatch = Record<string, number[]>;
 /**
  * Matches the file's headings to the import's columns. Each heading is used
  * once, best fits first. Required columns still missing are then looked for
- * by their values: ten-digit mobiles, dates, Male and Female.
+ * by their values: ten-digit mobiles, dates, Male and Female; then optional
+ * ones whose kind of value nothing else in the import holds (a blood group).
  */
 export function matchColumns(kindKey: string, columns: ImportColumn[], headers: string[], sample: string[][]): ColumnMatch {
   const ts = targets(kindKey, columns);
@@ -203,14 +204,29 @@ export function matchColumns(kindKey: string, columns: ImportColumn[], headers: 
       const col = byContent(valueType(kindKey, c.key), c.key, headers.length, sample, used);
       if (col !== null) { match[c.key] = [col]; used.add(col); }
     }
+    // Optional columns too, by their values alone, but only where nothing else in this
+    // import holds that kind of value (one gender, one blood group, one phone; never which
+    // of two phones, and never a date) and nearly every value fits. The person still sees and checks it.
+    const typeCount = new Map<ValueType, number>();
+    for (const c of columns) typeCount.set(valueType(kindKey, c.key), (typeCount.get(valueType(kindKey, c.key)) ?? 0) + 1);
+    for (const c of columns) {
+      const type = valueType(kindKey, c.key);
+      if (match[c.key] || c.required || !BY_VALUE_ALONE.has(type) || typeCount.get(type) !== 1) continue;
+      const col = byContent(type, c.key, headers.length, sample, used, { share: 0.9, least: 3 });
+      if (col !== null) { match[c.key] = [col]; used.add(col); }
+    }
   }
   return match;
 }
+
+/** Kinds of value clear enough to match an optional column by its values alone (a date could be any date). */
+const BY_VALUE_ALONE: ReadonlySet<ValueType> = new Set(["gender", "blood", "phone"]);
 
 function testFor(type: ValueType): ((v: string) => boolean) | null {
   return type === "phone" ? (v) => /^[6-9]\d{9}$/.test(tidyPhone(v)) :
     type === "date" ? (v) => readDate(v) !== null :
     type === "gender" ? (v) => ["Male", "Female", "Other"].includes(tidyGender(v)) :
+    type === "blood" ? (v) => /^(A|B|AB|O)[+-]$/.test(tidyBloodGroup(v)) :
     type === "class" ? (v) => classKey(v) !== null || splitClassSection(v) !== null : null;
 }
 
@@ -221,16 +237,16 @@ function valuesAgree(type: ValueType, col: number, sample: string[][]) {
   return vals.length < 3 || vals.filter(test).length / vals.length >= 0.3;
 }
 
-function byContent(type: ValueType, key: string, width: number, sample: string[][], used: Set<number>): number | null {
+function byContent(type: ValueType, key: string, width: number, sample: string[][], used: Set<number>, need = { share: 0.7, least: 2 }): number | null {
   const test = testFor(type);
   if (!test) return null;
   let best: { col: number; share: number; year: number } | null = null;
   for (let col = 0; col < width; col++) {
     if (used.has(col)) continue;
     const vals = sample.map((r) => (r[col] ?? "").trim()).filter(Boolean);
-    if (vals.length < 2) continue;
+    if (vals.length < need.least) continue;
     const share = vals.filter(test).length / vals.length;
-    if (share < 0.7) continue;
+    if (share < need.share) continue;
     // Of two date columns, the date of birth is the earlier one.
     const year = type === "date" ? Math.min(...vals.map((v) => readDate(v)?.getUTCFullYear() ?? 9999)) : 0;
     const better = !best || share > best.share + 0.05 || (type === "date" && key === "dateOfBirth" && year < best.year);

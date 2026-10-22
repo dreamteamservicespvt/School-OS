@@ -78,9 +78,9 @@ function panelOf(ch: AChart): Panel {
       : [];
   const href = `${BASE}/analytics?area=${ch.key.split(".")[0]}`;
   if (ch.kind === "hbars" && (ch.unit ?? "%") === "%" && (ch.max ?? 100) <= 100) {
-    return { kind: "bars", title: ch.title, sub: ch.sub, icon: "Sparkles", rows: rows.slice(0, 12).map((r) => ({ key: r.k, label: r.k, value: r.v })), goal: ch.goal, lowBelow: ch.lowBelow, href, linkLabel: "Analytics", empty: ch.empty ?? "Nothing yet." };
+    return { kind: "bars", title: ch.title, sub: ch.sub, icon: "BarChart3", rows: rows.slice(0, 12).map((r) => ({ key: r.k, label: r.k, value: r.v })), goal: ch.goal, lowBelow: ch.lowBelow, href, linkLabel: "Analytics", empty: ch.empty ?? "Nothing yet." };
   }
-  return { kind: "list", title: ch.title, sub: ch.sub, icon: "Sparkles", rows: rows.slice(0, 8).map((r) => ({ id: r.k, title: r.k, sub: "", right: r.label })), href, linkLabel: "Analytics", empty: ch.empty ?? "Nothing yet." };
+  return { kind: "list", title: ch.title, sub: ch.sub, icon: "BarChart3", rows: rows.slice(0, 8).map((r) => ({ id: r.k, title: r.k, sub: "", right: r.label })), href, linkLabel: "Analytics", empty: ch.empty ?? "Nothing yet." };
 }
 
 /** Charts the person pinned from Analytics, under their numbers. */

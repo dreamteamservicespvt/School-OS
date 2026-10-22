@@ -9,6 +9,7 @@ import { writeAudit } from "../audit";
 import { dayStartUtc } from "../periods";
 import { OPTIONAL_PAGES, HomeworkProblem, type OptionalFeature } from "./access";
 import { readBands, type GradeBand } from "./words";
+import { aiAllowed, type AiWho } from "../settings/switch-rules";
 
 export type HomeworkSettings = Omit<HomeworkSetting, "gradeBands"> & { gradeBands: GradeBand[] };
 
@@ -68,5 +69,9 @@ export async function homeworkFeatures(tx: Tx, ctx: SchoolContext): Promise<Set<
   return new Set(rows.map((r) => r.featureKey));
 }
 
-/** The teacher assistant drafts only when the school has AI and the teacher assistant on (Settings, Modules On/Off). */
+/** The school has AI and the teacher assistant on (Settings, Modules On/Off). Who may use it is checked by teacherAssistantFor. */
 export const assistantOn = (features: ReadonlySet<string>) => features.has("ai-assistant") && features.has("ai-teacher-assistant");
+
+/** The teacher assistant drafts for this person only when the school has it on and their role uses the AI assistant. */
+export const teacherAssistantFor = (features: ReadonlySet<string>, who: Pick<AiWho, "roles" | "aiRoles">) =>
+  assistantOn(features) && aiAllowed({ ...who, features }, "ai-teacher-assistant");

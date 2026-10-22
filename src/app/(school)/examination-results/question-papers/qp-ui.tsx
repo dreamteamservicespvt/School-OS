@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Archive, FileCheck2, FilePen, FileText, Plus, Printer, Sparkles } from "lucide-react";
+import { Archive, FileCheck2, FilePen, FilePlus2, FileText, Plus, Printer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
@@ -106,7 +106,7 @@ export function MakePaperButton({ pairs, exams, start }: { pairs: Pair[]; exams:
   const [pair, setPair] = useState(start || pairs[0]?.value || "");
   return (
     <>
-      <Button variant="primary" icon={Sparkles} onClick={() => setOpen(true)}>Make a paper</Button>
+      <Button variant="primary" icon={FilePlus2} onClick={() => setOpen(true)}>Make a paper</Button>
       <ActionSheet open={open} onClose={() => setOpen(false)} title="Make a paper" sub="Questions are picked from the bank to match the total and the difficulty mix. It is saved as a draft."
         confirmLabel="Make paper" pendingText="Picking questions…" run={(fd) => { fd.set("method", "automatic"); return makePaperForm(fd); }} wide>
         <PaperFields pairs={pairs} exams={exams} pair={pair} setPair={setPair} manual={false} />

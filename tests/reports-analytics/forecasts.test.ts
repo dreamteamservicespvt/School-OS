@@ -7,6 +7,7 @@ import { withSchool } from "@/lib/db";
 import { aboutRupees, payHabit, projectAttendance, projectNext, refreshForecasts, seatForecast, forecastsFor } from "@/lib/reports/forecasts";
 import { aiSignals, decideAiSignal, refreshFlags } from "@/lib/reports/warnings";
 import { reportAccess } from "@/lib/reports/access";
+import { saveAssistant } from "@/lib/settings/switches";
 import { viewerOf } from "@/lib/reports/run";
 import type { ReportViewer } from "@/lib/reports/types";
 import { collect, dues, feature, makeFeeSchool, R, type FeeSchool } from "../fees/fixture";
@@ -112,6 +113,10 @@ describe("Looking ahead for a real school", () => {
   });
 
   it("a class teacher sees the items about students of their own section, and only those (TEACHING-15)", async () => {
+    // Only once the school chooses the class teacher's role for the AI assistant (G24): until then, none.
+    expect(reportAccess(await viewer(att.school.id, att.teacherA.id)).ai.forecasts).toBe(false);
+    const sys = { schoolId: att.school.id, userId: att.admin.id };
+    await withSchool(sys, (tx) => saveAssistant(tx, sys, { on: true, roles: ["principal", "school-admin", "class-teacher"] }));
     const mine = await viewer(att.school.id, att.teacherA.id);
     const a = reportAccess(mine);
     expect(a.ai).toMatchObject({ forecasts: true, forecastScope: "own", insights: false });

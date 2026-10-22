@@ -17,9 +17,12 @@ import { AcademicRuleError } from "@/lib/academic/common";
 import { ParentLinkProblem, sendToFamilies } from "@/lib/parent-link/links";
 import { MessagingProblem } from "@/lib/messaging";
 import {
-  MoveInProblem, addMissingClasses, addMissingOptions, addUpload, canBring, canUndo, chooseRow, chooseSheet, fixRow, getFile, goLive, importFile,
+  MoveInProblem, acceptAiColumns, addMissingClasses, addMissingOptions, addUpload, aiColumnInput, canBring, canUndo, chooseRow, chooseSheet, fixRow, getFile, goLive, importFile,
   kindInfo, leaveOut, liveGuardianIds, removeFile, saveExpected, setColumns, setTidy, setValues, undoFix,
 } from "@/lib/move-in/service";
+import { aiReady } from "@/lib/ai";
+import { aiAllowed } from "@/lib/settings/switch-rules";
+import { suggestColumnsByAi, type AiColumnsResult } from "@/lib/ai/smart-import";
 
 const BASE = "/settings/data-security/switching";
 const PAGE = "data-security" as const;
@@ -118,6 +121,35 @@ export async function columnsAction(_prev: FormState, fd: FormData): Promise<For
   if (r) return { ok: false, message: r };
   refresh(id);
   redirect(`${BASE}/${id}?step=${next}`);
+}
+
+/**
+ * Smart Import's AI suggestions for the columns the rules left. Only the headings and what
+ * kind of values each column holds are sent; nothing changes until the person ticks and saves.
+ */
+export async function aiColumnsAction(id: string): Promise<AiColumnsResult> {
+  try {
+    const { current } = await forFile(id);
+    if (!aiReady(current, "ai-smart-import")) return { ok: false, suggestions: [], message: "The AI assistant is not available for Smart Import here." };
+    // The file is read in a short transaction; the AI service is asked outside it.
+    const input = await withSchool(current.ctx, (tx) => aiColumnInput(tx, id), { timeout: 60_000 });
+    return await suggestColumnsByAi(current.ctx, input);
+  } catch (e) {
+    return { ok: false, suggestions: [], message: problem(e) };
+  }
+}
+
+/** The AI suggestions the person ticked, added to the column match. */
+export async function acceptAiColumnsAction(id: string, picks: { key: string; index: number }[]): Promise<string | void> {
+  const r = await run(async () => {
+    const { current } = await forFile(id);
+    // Only while Smart Import is on for this person: nothing AI-prepared is saved with AI off (00-global.md §2.1 rule 8).
+    if (!aiAllowed(current, "ai-smart-import")) throw new MoveInProblem("Smart Import is off for your role here. Match the columns by hand.");
+    if (!Array.isArray(picks)) throw new MoveInProblem("Tick the matches to use.");
+    await withSchool(current.ctx, (tx) => acceptAiColumns(tx, current.ctx, id, picks.map((p) => ({ key: String(p?.key ?? ""), index: Number(p?.index) }))), { timeout: 60_000 });
+  });
+  if (r) return r;
+  refresh(id);
 }
 
 export async function tidyAction(id: string, on: boolean): Promise<string | void> {

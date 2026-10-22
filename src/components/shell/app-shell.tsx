@@ -40,6 +40,11 @@ export type ShellProps = {
   theme: string;
   /** While DREAM TEAM looks inside the school (07-super-admin.md §3.4): the profile menu only offers to end it. */
   support?: { ends: string } | null;
+  /**
+   * Ask and Do is on for this person (aiAllowed with "ai-ask-do"). Off, the box is a plain Search box and
+   * no AI label shows anywhere (00-global.md §2.1 rule 8).
+   */
+  ai?: boolean;
   children: React.ReactNode;
 };
 
@@ -104,7 +109,7 @@ function Sheet({ open, onClose, title, sub, children, wide }: { open: boolean; o
 }
 
 /* ---------- Sidebar (computer and tablet) ---------- */
-function Sidebar({ school, schools, menu, quick, onQuick, onSwitch, onAsk }: Pick<ShellProps, "school" | "schools" | "menu" | "quick"> & { onQuick: () => void; onSwitch: () => void; onAsk: () => void }) {
+function Sidebar({ school, schools, menu, quick, ai, onQuick, onSwitch, onAsk }: Pick<ShellProps, "school" | "schools" | "menu" | "quick" | "ai"> & { onQuick: () => void; onSwitch: () => void; onAsk: () => void }) {
   const isOn = useActive();
   const visible = new Set(menu);
   const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => visible.has(i.key)) })).filter((g) => g.items.length);
@@ -157,7 +162,9 @@ function Sidebar({ school, schools, menu, quick, onQuick, onSwitch, onAsk }: Pic
         ))}
       </nav>
       <button type="button" onClick={onAsk} className="m-3 p-3.5 rounded-2xl bg-sunken text-left hidden lg:block hover:bg-line/60 transition">
-        <span className="text-[13px] font-semibold flex items-center gap-2"><I.Sparkles size={15} className="text-brand" aria-hidden="true" />Ask School OS</span>
+        {ai
+          ? <span className="text-[13px] font-semibold flex items-center gap-2"><I.Sparkles size={15} className="text-brand" aria-hidden="true" />Ask School OS</span>
+          : <span className="text-[13px] font-semibold flex items-center gap-2"><I.Search size={15} className="text-brand" aria-hidden="true" />Search</span>}
         <span className="block text-xs text-ink3 mt-1 leading-relaxed">Type what you want, like a student&apos;s name, an admission number or a page.</span>
       </button>
     </aside>
@@ -165,7 +172,7 @@ function Sidebar({ school, schools, menu, quick, onQuick, onSwitch, onAsk }: Pic
 }
 
 /* ---------- Top bar ---------- */
-function TopBar({ school, year, person, approvals, canApprove, canMessage, unread, theme, onSearch, onNotif, onProfile, title }: Pick<ShellProps, "school" | "year" | "person" | "approvals" | "canApprove" | "canMessage" | "unread" | "theme"> & { onSearch: () => void; onNotif: () => void; onProfile: () => void; title: string }) {
+function TopBar({ school, year, person, approvals, canApprove, canMessage, unread, theme, ai, onSearch, onNotif, onProfile, title }: Pick<ShellProps, "school" | "year" | "person" | "approvals" | "canApprove" | "canMessage" | "unread" | "theme" | "ai"> & { onSearch: () => void; onNotif: () => void; onProfile: () => void; title: string }) {
   const [dark, setDark] = useState(false);
   useEffect(() => {
     const m = window.matchMedia("(prefers-color-scheme: dark)");
@@ -199,7 +206,7 @@ function TopBar({ school, year, person, approvals, canApprove, canMessage, unrea
       <button type="button" onClick={onSearch}
         className="hidden md:flex items-center gap-3 h-11 flex-1 min-w-0 max-w-xl rounded-xl bg-sunken border border-transparent hover:border-line px-3.5 text-ink3 text-[14.5px] transition">
         <I.Search size={18} className="shrink-0" aria-hidden="true" />
-        <span className="truncate">Search students, staff, pages… or type what to do</span>
+        <span className="truncate">{ai ? "Search students, staff, pages… or ask a question" : "Search students, staff, pages…"}</span>
         <span className="ml-auto hidden xl:flex gap-1 shrink-0"><Kbd>Ctrl</Kbd><Kbd>K</Kbd></span>
       </button>
       <div className="flex-1 hidden xl:block" />
@@ -467,6 +474,7 @@ function phoneTitle(pathname: string, pages: PageLink[]) {
 
 export function AppShell(props: ShellProps) {
   const { school, schools, year, person, menu, bottom, quick, pages, shortcuts, approvals, canApprove, canMessage, unread, notes, theme, support, children } = props;
+  const ai = props.ai === true;
   const pathname = usePathname();
   const [palette, setPalette] = useState(false);
   const [notif, setNotif] = useState(false);
@@ -498,9 +506,9 @@ export function AppShell(props: ShellProps) {
   return (
     <div className="flex min-h-dvh">
       <a href="#main" className="skip-link">Skip to the page</a>
-      <Sidebar school={school} schools={schools} menu={menu} quick={quick} onQuick={() => setQuickOpen(true)} onSwitch={() => setSwitchOpen(true)} onAsk={() => setPalette(true)} />
+      <Sidebar school={school} schools={schools} menu={menu} quick={quick} ai={ai} onQuick={() => setQuickOpen(true)} onSwitch={() => setSwitchOpen(true)} onAsk={() => setPalette(true)} />
       <div className="flex-1 flex flex-col min-w-0">
-        <TopBar school={school} year={year} person={person} approvals={approvals} canApprove={canApprove} canMessage={canMessage} unread={unread} theme={theme}
+        <TopBar school={school} year={year} person={person} approvals={approvals} canApprove={canApprove} canMessage={canMessage} unread={unread} theme={theme} ai={ai}
           title={phoneTitle(pathname, pages)} onSearch={() => setPalette(true)} onNotif={() => setNotif(true)} onProfile={() => setProfile(true)} />
         {children}
       </div>

@@ -126,7 +126,8 @@ type Hint = { why: string; options: RemarkOption[] };
 /** The suggestion a kept remark started from, to record it with the remark. */
 type Kept = { text: string; byAi: boolean; lines: { text: string; source: string }[] };
 
-export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, suggestions }: { rows: RemarkGridRow[]; sectionId: string; period: string; classTeacher: boolean; principal: boolean; suggestions: boolean }) {
+export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, suggestions, reword = false }: { rows: RemarkGridRow[]; sectionId: string; period: string; classTeacher: boolean; principal: boolean; suggestions: boolean; reword?: boolean }) {
+  const [useAi, setUseAi] = useState(false);
   const router = useRouter();
   const start = useMemo(() => Object.fromEntries(rows.map((r) => [r.studentId, { ct: r.classTeacherRemark, pr: r.principalRemark, ap: r.attendancePresent?.toString() ?? "", aw: r.attendanceWorking?.toString() ?? "" }])) as Record<string, RemarkVals>, [rows]);
   const [vals, setVals] = useState(start);
@@ -146,7 +147,7 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
 
   const suggest = (ids?: string[]) => startDraft(async () => {
     setOne(ids?.length === 1 ? ids[0] : null);
-    const r = await draftRemarksAction(sectionId, period, ids);
+    const r = await draftRemarksAction(sectionId, period, ids, { reword: reword && useAi });
     setOne(null);
     if (!r.ok) { setMessage({ ok: false, text: r.message }); return; }
     setMessage(r.message ? { ok: true, text: r.message } : null);
@@ -199,6 +200,12 @@ export function RemarksGrid({ rows, sectionId, period, classTeacher, principal, 
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="secondary" loading={drafting && !one} loadingText="Suggesting" disabled={drafting} onClick={() => suggest()}>Suggest for the class</Button>
             {waiting.length > 0 && <Button variant="secondary" onClick={reviewNext}>Review next ({waiting.length} waiting)</Button>}
+            {reword && (
+              <label className="flex min-h-11 items-center gap-2 text-sm">
+                <input type="checkbox" checked={useAi} onChange={(e) => setUseAi(e.target.checked)} className="h-5 w-5" />
+                Also reword with the AI assistant (it sees only the marks, attendance and homework shown as sources, never the student&apos;s name)
+              </label>
+            )}
           </div>
           <p className="text-sm text-ink-2">Built only from each student&apos;s own marks, the change since the exam before, the class average, attendance, homework and co-scholastic grades, in your school&apos;s phrases, with where each sentence comes from. No marks, no suggestion. Nothing is saved until you choose one, check it and press Save.</p>
         </div>

@@ -14,8 +14,10 @@ import { KeepCheck } from "@/components/ui/keep-select";
 
 type Mod = { key: string; name: string };
 
-export function RoleEditor({ id, name, kind, permissions, requiresTwoStep, copyFromId, modules, people, readOnly, cancelHref }: {
+export function RoleEditor({ id, name, kind, permissions, requiresTwoStep, sensitiveFields, sensitiveOptions, copyFromId, modules, people, readOnly, cancelHref }: {
   id: string | null; name: string; kind: "READY" | "TEMPLATE" | "CUSTOM"; permissions: Partial<RolePermissions>; requiresTwoStep: boolean;
+  /** "" = as before (each module's own rule), or a level (src/lib/sensitive.ts). */
+  sensitiveFields: string; sensitiveOptions: { value: string; label: string; words: string }[];
   copyFromId: string | null; modules: Mod[]; people: number; readOnly: boolean; cancelHref: string;
 }) {
   const [state, action, pending] = useActionState(saveRoleAction, null);
@@ -23,11 +25,14 @@ export function RoleEditor({ id, name, kind, permissions, requiresTwoStep, copyF
   const [roleName, setRoleName] = useState(state?.values?.name ?? name);
   const [grid, setGrid] = useState<Record<string, AccessLevel>>(() => Object.fromEntries(modules.map((m) => [m.key, (state?.values?.[`p_${m.key}`] as AccessLevel) ?? permissions[m.key as keyof RolePermissions] ?? "none"])));
   const [twoStep, setTwoStep] = useState(requiresTwoStep);
+  const [sensitive, setSensitive] = useState(state?.values?.sensitiveFields ?? sensitiveFields);
   const [asking, setAsking] = useState(false);
   const [nameError, setNameError] = useState<string | null>(null);
   const nameLocked = kind !== "CUSTOM" && Boolean(id);
   const changes = permissionChanges(roleName || "This", permissions, grid as RolePermissions);
   if (id && twoStep !== requiresTwoStep) changes.push(`${roleName} role ${twoStep ? "now needs" : "no longer needs"} two-step login`);
+  const labelOf = (v: string) => sensitiveOptions.find((o) => o.value === v)?.label ?? v;
+  if (id && sensitive !== sensitiveFields) changes.push(`${roleName} role sees sensitive fields: ${labelOf(sensitive)} instead of ${labelOf(sensitiveFields)}`);
   const reached = Object.values(grid).filter((l) => l !== "none").length;
 
   const save = () => {
@@ -55,6 +60,20 @@ export function RoleEditor({ id, name, kind, permissions, requiresTwoStep, copyF
             <span><span className="font-medium">Needs two-step login</span><span className="block text-sm text-ink-2">A one-time code at every sign-in. Turn on for roles that handle money or every record.</span></span>
           </label>
         </div>
+
+        <fieldset>
+          <legend className="mb-1 font-medium">Sensitive fields this role may see</legend>
+          <p className="mb-2 text-sm text-ink-2">Hidden everywhere from a role that may not see them: on screen, in exports, in Search and in AI answers. Only the levels this role may have are offered.</p>
+          {state?.errors?.sensitiveFields && <p className="mb-2 text-sm text-danger">{state.errors.sensitiveFields}</p>}
+          <div className="grid gap-2 sm:grid-cols-2">
+            {sensitiveOptions.map((o) => (
+              <label key={o.value || "before"} className={`flex min-h-11 items-start gap-3 rounded-lg border px-3 py-2 ${sensitive === o.value ? "border-brand bg-brand-soft" : "border-line"}`}>
+                <KeepCheck type="radio" name="sensitiveFields" value={o.value} checked={sensitive === o.value} disabled={readOnly} onChange={() => setSensitive(o.value)} className="mt-0.5 size-5 accent-brand" />
+                <span><span className="font-medium">{o.label}</span><span className="block text-sm text-ink-2">{o.words}</span></span>
+              </label>
+            ))}
+          </div>
+        </fieldset>
 
         <fieldset>
           <legend className="mb-1 font-medium">What this role can do</legend>

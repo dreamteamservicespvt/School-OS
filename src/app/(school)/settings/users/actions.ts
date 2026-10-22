@@ -12,6 +12,7 @@ import { archiveRole, createRole, restoreRole, restoreRoleVersion, setTemplateOn
 import { asFormState, runSettings } from "../run";
 import { forgetSessionRules, saveSessionRules } from "@/lib/auth/session-rules";
 import { savePasswordRules } from "@/lib/auth/password-rules";
+import type { SensitiveLevel } from "@/lib/sensitive";
 
 const PAGE = "users" as const;
 import { inviteSentWords } from "@/lib/settings/invite-message";
@@ -155,7 +156,12 @@ function grid(fd: FormData) {
 
 export async function saveRoleAction(_: FormState, fd: FormData): Promise<FormState> {
   const id = String(fd.get("id") ?? "");
-  const input = { name: String(fd.get("name") ?? ""), permissions: grid(fd), requiresTwoStep: fd.get("requiresTwoStep") === "on", copyFromId: String(fd.get("copyFromId") ?? "") || null };
+  // Sensitive fields: "" is "as before" (each module's own rule); checked against what 05-roles.md allows the role on the server.
+  const sensitive = fd.get("sensitiveFields");
+  const input = {
+    name: String(fd.get("name") ?? ""), permissions: grid(fd), requiresTwoStep: fd.get("requiresTwoStep") === "on", copyFromId: String(fd.get("copyFromId") ?? "") || null,
+    sensitiveFields: sensitive === null ? undefined : sensitive === "" ? null : (String(sensitive) as SensitiveLevel),
+  };
   const values = formValues(fd);
   if (id) {
     const r = await runSettings(PAGE, "edit", (tx, current) => updateRole(tx, current.ctx, id, input));

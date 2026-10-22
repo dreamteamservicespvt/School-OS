@@ -9,8 +9,9 @@ import type { SchoolContext, Tx } from "../db";
 import type { Current } from "../current";
 import type { Reach } from "../permissions";
 import { requirePermission, type Action } from "../permissions";
+import { seesRestricted, type SensitiveRole } from "../sensitive";
 
-/** Roles that may see restricted staff fields in full (inferred: the roles that keep staff records). */
+/** Roles that may see restricted staff fields in full (inferred: the roles that keep staff records), unless the school set the role's sensitive fields (src/lib/sensitive.ts). */
 export const RESTRICTED_ROLE_KEYS = ["principal", "school-admin", "hr"] as const;
 
 export type Viewer = {
@@ -34,8 +35,8 @@ export type Viewer = {
 
 export type ViewerSource = Pick<Current, "permissions" | "roles" | "user"> & { campusId?: string | null };
 
-export function canSeeRestricted(roleKeys: readonly (string | null)[]) {
-  return roleKeys.some((k) => k !== null && (RESTRICTED_ROLE_KEYS as readonly string[]).includes(k));
+export function canSeeRestricted(roles: readonly (SensitiveRole | string | null)[]) {
+  return seesRestricted(roles.map((r) => (r !== null && typeof r === "object" ? r : { key: r })), RESTRICTED_ROLE_KEYS);
 }
 
 export async function viewerFor(tx: Tx, ctx: SchoolContext, current: ViewerSource): Promise<Viewer> {
@@ -52,7 +53,7 @@ export async function viewerFor(tx: Tx, ctx: SchoolContext, current: ViewerSourc
     change: current.permissions["staff-hr-management"].change,
     staffId: me?.id ?? null,
     headOf: heads.map((h) => h.id),
-    restricted: canSeeRestricted(roleKeys),
+    restricted: canSeeRestricted(current.roles),
     salary: current.permissions["salary-management"].see,
     roleKeys,
     campusId,

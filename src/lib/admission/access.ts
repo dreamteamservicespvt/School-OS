@@ -13,6 +13,7 @@ import type { Current } from "../current";
 import type { Reach } from "../permissions";
 import { campusAllows } from "../campus";
 import { AdmissionProblem } from "./act";
+import { seesRestricted } from "../sensitive";
 
 export type Viewer = {
   userId: string;
@@ -41,7 +42,8 @@ export async function viewerFor(tx: Tx, ctx: SchoolContext, current: ViewerSourc
     see: current.permissions["admission-management"].see,
     change: current.permissions["admission-management"].change,
     staffId: me?.id ?? null,
-    restricted: roleKeys.some((k) => RESTRICTED.includes(k)),
+    // Aadhaar-related fields: the Principal and School Admin, unless the school set the role's sensitive fields (src/lib/sensitive.ts).
+    restricted: seesRestricted(current.roles, RESTRICTED),
     overCapacity: roleKeys.some((k) => RESTRICTED.includes(k)),
     roleKeys,
     campusId: current.campusId ?? null,

@@ -15,6 +15,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "./db";
 import { DOCUMENT_TYPES, saveFile } from "./files";
+import { seesRestricted, type SensitiveRole } from "./sensitive";
 import {
   type CustomFieldDef,
   type CustomValue,
@@ -35,9 +36,9 @@ export async function loadCustomFields(tx: Tx, recordType: string, opts: { inclu
   return rows.map(toFieldDef);
 }
 
-/** Restricted fields are only for the School Admin and the Principal. */
-export function visibleFields<F extends { visibility?: string }>(fields: F[], roles: { key: string | null }[]): F[] {
-  const allowed = roles.some((r) => r.key === "school-admin" || r.key === "principal");
+/** Restricted fields are only for the School Admin and the Principal, unless the school set a role's sensitive fields (src/lib/sensitive.ts). */
+export function visibleFields<F extends { visibility?: string }>(fields: F[], roles: readonly SensitiveRole[]): F[] {
+  const allowed = seesRestricted(roles, ["school-admin", "principal"]);
   return fields.filter((f) => f.visibility !== "restricted" || allowed);
 }
 

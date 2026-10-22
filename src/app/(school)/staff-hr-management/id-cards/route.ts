@@ -1,16 +1,15 @@
-// Staff ID cards as a PDF, in batches of up to 50 (P9), from the shared ID
-// card design. Chosen staff (?ids=), one staff member (?staff=), or the
+// Staff ID cards as a PDF, in batches of up to 50 (P9), in the school's Staff
+// ID card design (Settings, Document Designs). Chosen staff (?ids=), one staff member (?staff=), or the
 // Staff List filters (?designation=...). Every printed card is recorded;
 // a card printed before is a reprint, with its reason.
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { readListParams } from "@/lib/list";
-import { htmlToPdf } from "@/lib/pdf";
 import { writeAudit } from "@/lib/audit";
 import { logExport } from "@/lib/exports";
 import { staffScope, viewerFor } from "@/lib/staff/access";
 import { STAFF_FILTERS, staffWhere } from "@/lib/staff/list";
-import { idCardsHtml } from "@/lib/staff/print";
+import { staffIdCards } from "@/lib/staff/print";
 import { UUID_RE } from "@/lib/staff/act";
 
 const BATCH = 50;
@@ -49,7 +48,7 @@ export async function GET(req: Request) {
     });
     await writeAudit(tx, current.ctx, { action: "printed", recordType: "Staff ID Card Print", recordId: null, after: { cards: staff.length, reprints: staff.filter((s) => before.has(s.id)).length, batch, of: Math.ceil(all.length / BATCH), reason: reason || null } });
     await logExport(tx, current.ctx, { title: "Staff ID cards", format: "pdf", filters: `Batch ${batch} of ${Math.ceil(all.length / BATCH)}`, rows: staff.length });
-    const pdf = await htmlToPdf(await idCardsHtml(tx, current.ctx, staff, current.school.timeZone), { margin: "10mm" });
+    const pdf = await (await staffIdCards(tx, current.ctx, staff, current.school.timeZone)).pdf();
     return new Response(new Uint8Array(pdf), {
       headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="staff-id-cards-${batch}.pdf"`, "Cache-Control": "no-store" },
     });

@@ -99,7 +99,7 @@ export function UndoImportButton({ id, added, label }: { id: string; added: numb
   );
 }
 
-export function GoLiveButton({ students, staff, guardians }: { students: number; staff: number; guardians: number }) {
+export function GoLiveButton({ students, staff, guardians, owedBefore }: { students: number; staff: number; guardians: number; owedBefore?: { amount: string; students: number } | null }) {
   const router = useRouter();
   const [send, setSend] = useState(true);
   return (
@@ -111,6 +111,8 @@ export function GoLiveButton({ students, staff, guardians }: { students: number;
       <ConfirmButton trigger="Go live" triggerVariant="primary" title="Go live on School OS?" confirmLabel={send ? "Go live and send Parent Links" : "Go live"} typeToConfirm="go live"
         onConfirm={async () => { const p = await goLiveAction(send); if (!p) router.refresh(); return p; }}>
         <p>School OS becomes your school&apos;s record from today, with {plural(students, "student")} and {plural(staff, "staff member", "staff")}. This summary is kept as it is now.</p>
+        <p className="mt-2">Automatic messages to parents, fee reminders and late fees start now.</p>
+        {owedBefore && <p className="mt-2 font-medium text-ink">{owedBefore.amount} of fees due before go-live is still owed by {plural(owedBefore.students, "student")}. Reminders and late fees will go for it. Settle it first under “Fees due before go-live” if the old software collected it or it is in the old dues.</p>}
         {send ? <p className="mt-2">Every parent is sent their Parent Link with the consent request, by WhatsApp or SMS as set up in Settings.</p> : <p className="mt-2">Parent Links are not sent now. Send them from Communication, Parent Link, when you are ready.</p>}
       </ConfirmButton>
     </div>

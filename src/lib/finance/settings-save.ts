@@ -47,6 +47,25 @@ export async function saveFinanceSettings(tx: Tx, ctx: SchoolContext, input: Fin
   return after;
 }
 
+/**
+ * Switching to School OS (workflow 15): the go-live date on the go-live check
+ * is also the first day of finance records, so the Day Book, day close and
+ * reports start on the same day as the fees (rule 2: enter it once). Moved by
+ * the same rule as Finance Settings: never later than a record already made.
+ * Returns why it could not move, or null.
+ */
+export async function alignGoLive(tx: Tx, ctx: SchoolContext, date: Date): Promise<string | null> {
+  const before = await financeSettings(tx, ctx);
+  if (before.goLiveDate.getTime() === date.getTime()) return null;
+  if (date > before.goLiveDate) {
+    const first = await tx.dayBookEntry.findFirst({ where: { section: { not: "opening" } }, orderBy: { date: "asc" }, select: { date: true } });
+    if (first && date > first.date) return `Finance records start on ${formatDate(first.date)}, so the go-live date cannot be later than that.`;
+  }
+  const after = await tx.financeSetting.update({ where: { schoolId: ctx.schoolId }, data: { goLiveDate: date, updatedById: ctx.userId } });
+  await writeAudit(tx, ctx, { action: "updated", recordType: "Finance Settings", recordId: after.id, before: { goLive: formatDate(before.goLiveDate) }, after: { goLive: formatDate(date), from: "Go-live check, Switching to School OS" } });
+  return null;
+}
+
 export type HeadInput = { kind: "INCOME" | "EXPENSE"; name: string; code: string; group: string };
 
 /** A new head in the chart of accounts. Income codes start with 4, expense codes with 5. */

@@ -9,7 +9,7 @@ import { SMoney, SSelect, SSwitch, SText } from "@/components/ui/sheet-fields";
 import { Segmented, Switch } from "@/components/ui/controls";
 import { FieldShell, type Option } from "@/components/ui/field";
 import type { FormState } from "@/lib/forms";
-import { addComponentAction, preferencesAction, ratesAction, slabsAction, slipOptionAction, statutorySwitchAction } from "./actions";
+import { addComponentAction, duesTrackingAction, preferencesAction, ratesAction, slabsAction, slipOptionAction, statutorySwitchAction } from "./actions";
 
 type Act = (prev: unknown, fd: FormData) => Promise<FormState<unknown>>;
 
@@ -90,6 +90,22 @@ export function RatesSheet({ closeHref, months, now }: { closeHref: string; mont
 const PAY_DAYS = [{ value: "last-working", label: "Last working day" }, ...Array.from({ length: 10 }, (_, i) => ({ value: String(i + 1), label: `${i + 1}${i === 0 ? "st" : i === 1 ? "nd" : i === 2 ? "rd" : "th"} of next month` }))];
 const LOP = [{ value: "calendar", label: "Calendar days" }, { value: "thirty", label: "A fixed 30" }];
 const LATE = [{ value: "0", label: "Off" }, ...[2, 3, 4, 5].map((n) => ({ value: String(n), label: `${n} late = ½ day` }))];
+
+/** PF, ESI, Professional Tax and TDS to pay: tracked from a salary month, or off. */
+export function DuesTrackingSheet({ closeHref, on, months, start }: { closeHref: string; on: boolean; months: Option[]; start: string }) {
+  const [v, setV] = useState(on);
+  return (
+    <SheetForm title="PF, ESI, Professional Tax and TDS to pay" sub="What salary takes for the government stays money to pay until you record it paid, with the challan number. Paying it puts it in the Day Book."
+      closeHref={closeHref} action={duesTrackingAction} submitLabel="Save" pendingText="Saving…" hidden={{ on: v ? "1" : "0" }}>
+      <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3">
+        <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block">Track what is to pay</b><span className="block text-[12.5px] text-ink3 mt-0.5">Off: nothing is listed as to pay.</span></div>
+        <Switch on={v} onChange={setV} label="Track what is to pay" />
+      </div>
+      {v && <SSelect name="from" label="From the salary of" required options={months} start={start}
+        help="Months before this were paid outside School OS, for example as expenses, so they are not asked for again." />}
+    </SheetForm>
+  );
+}
 
 export function PreferencesSheet({ closeHref, now }: { closeHref: string; now: { payDay: string; lopDays: string; lateMarks: string; overtimeOn: boolean; overtimeHour: string; tdsReminder: string } }) {
   const [ot, setOt] = useState(now.overtimeOn);

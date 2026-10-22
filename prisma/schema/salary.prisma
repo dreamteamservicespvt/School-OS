@@ -49,6 +49,10 @@ model SalarySetting {
   slipShowEmployer      Boolean  @default(true) @map("slip_show_employer")
   slipShowLeave         Boolean  @default(false) @map("slip_show_leave")
   advancesOn            Boolean  @default(true) @map("advances_on")
+  /// PF, ESI, Professional Tax and TDS taken from salary are tracked as money to
+  /// pay to the government from this month's salary on (first day). Empty: not
+  /// tracked (schools that had salary before this was added switch it on).
+  statutoryDuesFrom     DateTime? @map("statutory_dues_from") @db.Date
   createdAt             DateTime @default(now()) @map("created_at")
   updatedAt             DateTime @updatedAt @map("updated_at")
 
@@ -390,6 +394,37 @@ model SalaryRecovery {
 }
 
 /// Statutory Statement: a PF or ESI statement made for a month's run, for the government portals.
+/// Statutory Payment (inferred, gap list G34): PF, ESI, Professional Tax or TDS
+/// taken from one month's salary (with the school's PF and ESI share), paid to
+/// the government. Until paid in full, the rest is money to pay. It reaches the
+/// Day Book on the date paid. Never deleted: a wrong one is cancelled with a
+/// reason, which adds a reversal in the Day Book.
+model StatutoryPayment {
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
+  runId           String    @map("run_id") @db.Uuid
+  campusId        String    @map("campus_id") @db.Uuid
+  /// The salary month it was taken from (first day).
+  month           DateTime  @db.Date
+  /// PF, ESI, PT (Professional Tax) or TDS.
+  kind            String
+  amountPaise     BigInt    @map("amount_paise")
+  paidOn          DateTime  @map("paid_on") @db.Date
+  mode            String
+  /// Challan or acknowledgement number.
+  reference       String?
+  accountId       String?   @map("account_id") @db.Uuid
+  financialYearId String    @map("financial_year_id") @db.Uuid
+  paidById        String?   @map("paid_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  cancelledAt     DateTime? @map("cancelled_at")
+  cancelReason    String?   @map("cancel_reason")
+  cancelledById   String?   @map("cancelled_by_id") @db.Uuid
+
+  @@index([schoolId, runId])
+  @@map("statutory_payment")
+}
+
 model StatutoryStatement {
   id            String   @id @default(uuid()) @db.Uuid
   schoolId      String   @map("school_id") @db.Uuid

@@ -381,6 +381,9 @@ export async function reversePayment(tx: Tx, ctx: SchoolContext, runId: string, 
   if (run.status === "LOCKED") throw new MoneyProblem(frozenWords(run));
   if (run.status !== "PAID") throw new MoneyProblem("Only a month marked paid can have its payment reversed.");
   if (reason.trim().length < 5) throw new MoneyProblem("Give a reason of at least 5 characters.", "reason");
+  // What was paid to the government from this month stays tied to it: cancel those payments first.
+  const paidOn = await tx.statutoryPayment.findMany({ where: { runId: run.id, cancelledAt: null }, select: { kind: true } });
+  if (paidOn.length) throw new MoneyProblem(`${[...new Set(paidOn.map((x) => (x.kind === "PT" ? "Professional Tax" : x.kind)))].join(", ")} for ${monthName(run.month)} is already recorded paid to the government. Cancel that payment first.`);
   await reverseSource(tx, ctx, { sourceType: "payroll", sourceId: run.id, date: today, reversalType: "payroll-reversal", note: reason.trim() });
   const list = [...((run.reversals as object[]) ?? []), { at: new Date().toISOString(), by: ctx.userId, reason: reason.trim(), paidOn: run.paidOn ? isoDay(run.paidOn) : null }];
   const updated = await tx.payrollRun.update({ where: { id: run.id }, data: { status: "APPROVED", paidOn: null, payMode: null, payReference: null, payAccountId: null, paidById: null, reversals: list } });

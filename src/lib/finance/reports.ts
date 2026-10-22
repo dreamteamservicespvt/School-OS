@@ -14,6 +14,8 @@ import { chart, headSide, payables, trialBalance } from "./journals";
 import { EXPENSE_STATUS_WORDS } from "./words";
 import { dayBookWithoutPay } from "./access";
 import { accountBook } from "./daybook";
+import { statutoryDues } from "../salary/statutory-payments";
+import { monthName as salaryMonth } from "../salary/words";
 import type { FinanceFeature } from "./words";
 
 const ZERO = BigInt(0);
@@ -228,10 +230,16 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
     filters: [],
     run: async (tx, ctx, f) => {
       const rows = (await payables(tx, f.today)).filter((r) => !f.hidePay?.includes(r.accountHeadId));
+      // PF, ESI, Professional Tax and TDS taken from salary and not paid yet: staff pay, so only for people who see it.
+      const gov = f.hidePay ? [] : await statutoryDues(tx, { open: true, today: f.today });
       return {
         columns: [{ key: "number", label: "Number" }, { key: "date", label: "Date", kind: "date" }, { key: "vendor", label: "Vendor" }, { key: "status", label: "Status" }, { key: "dueDate", label: "Bill due", kind: "date" }, { key: "balance", label: "To pay", kind: "money" }],
-        rows: rows.map((r) => ({ number: r.number, date: r.date, vendor: r.vendor, status: EXPENSE_STATUS_WORDS[r.status]?.label ?? r.status, dueDate: r.dueDate, balance: r.balance })),
-        totals: { number: "Total", balance: sum(rows, (r) => r.balance) },
+        rows: [
+          ...rows.map((r) => ({ number: r.number, date: r.date, vendor: r.vendor, status: EXPENSE_STATUS_WORDS[r.status]?.label ?? r.status, dueDate: r.dueDate, balance: r.balance })),
+          ...gov.map((g) => ({ number: `${g.label} · ${salaryMonth(g.month)} salary`, date: g.month, vendor: g.payee, status: "Taken from salary, to pay", dueDate: g.dueDate, balance: g.balance })),
+        ],
+        totals: { number: "Total", balance: sum(rows, (r) => r.balance) + sum(gov, (g) => g.balance) },
+        note: gov.length ? "Includes PF, ESI, Professional Tax and TDS taken from salary and not yet paid to the government. Record them paid in Generate Salary." : undefined,
       };
     },
   },

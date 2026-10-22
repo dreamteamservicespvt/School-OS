@@ -42,7 +42,8 @@ export const DEFAULT_PT_SLABS = [
 export async function ensureSalaryDefaults(tx: Tx, ctx: SchoolContext) {
   const setting = await tx.salarySetting.findUnique({ where: { schoolId: ctx.schoolId } });
   if (setting) return setting;
-  const made = await tx.salarySetting.create({ data: { schoolId: ctx.schoolId } });
+  // A school starting salary now tracks PF, ESI, Professional Tax and TDS to pay from its first month.
+  const made = await tx.salarySetting.create({ data: { schoolId: ctx.schoolId, statutoryDuesFrom: new Date("2000-01-01T00:00:00Z") } });
   for (const c of DEFAULT_COMPONENTS) {
     await tx.salaryComponent.upsert({ where: { schoolId_name: { schoolId: ctx.schoolId, name: c.name } }, create: { schoolId: ctx.schoolId, ...c }, update: {} });
   }

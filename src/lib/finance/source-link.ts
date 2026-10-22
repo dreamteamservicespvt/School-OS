@@ -13,6 +13,8 @@ export type SourceLinkEntry = {
   applicationId?: string | null;
   /** For an expense payment or its cancelling: the expense it paid. */
   expenseId?: string | null;
+  /** For a PF, ESI, Professional Tax or TDS payment or its cancelling: the salary month it was taken from. */
+  runId?: string | null;
 };
 
 export type SourceLinkAccess = {
@@ -40,6 +42,7 @@ export function dayBookSourceLink(e: SourceLinkEntry, can: SourceLinkAccess): [s
   // The Day Book keeps the expense payment; the expense and its bill are one step up.
   if (t === "expense-payment" || t === "expense-cancel") return e.expenseId ? ["Open the expense and bill", `${F}/expenses?open=${e.expenseId}`] : null;
   if (t === "payroll" || t === "payroll-reversal") return can.salaryRuns ? ["Open the month's salary", `/salary-management/generate?run=${e.sourceId}`] : null;
+  if (t === "statutory-payment" || t === "statutory-cancel") return can.salaryRuns && e.runId ? ["Open the month's salary", `/salary-management/generate?run=${e.runId}`] : null;
   if (t === "salary-advance") return can.advances ? ["Open the advance or loan", `/salary-management/advances?open=${e.sourceId}`] : null;
   if (t === "transfer" || t === "transfer-cancel") return ["Open the money move in Cash & Bank", `${F}/cash-bank?t=${e.sourceId}`];
   if (t === "opening-balance") return ["Open the book in Cash & Bank", e.accountId ? `${F}/cash-bank?book=${e.accountId}` : `${F}/cash-bank`];

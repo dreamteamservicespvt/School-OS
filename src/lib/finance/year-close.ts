@@ -20,6 +20,7 @@ import { formatDate, formatRupees } from "../format";
 import { MoneyProblem } from "../fees/problem";
 import { accountBook } from "./daybook";
 import { findFinanceReport } from "./reports";
+import { statutoryDues } from "../salary/statutory-payments";
 import { financialYearOf, fyBounds, fyStartMonth } from "./years";
 
 const ZERO = BigInt(0);
@@ -45,7 +46,7 @@ export async function yearClosePlan(tx: Tx, ctx: SchoolContext, fyId: string, to
   if (!fy) throw new MoneyProblem("Choose the financial year.");
   const inYear = { gte: fy.startDate, lte: fy.endDate };
   const range = `from=${iso(fy.startDate)}&to=${iso(fy.endDate)}&period=custom`;
-  const [earlier, waitingPays, draftIncome, waitingExpenses, unpaidExpenses, unpaidRuns, dayCloses, monthCloses, accounts] = await Promise.all([
+  const [earlier, waitingPays, draftIncome, waitingExpenses, unpaidExpenses, unpaidRuns, dayCloses, monthCloses, accounts, dues] = await Promise.all([
     tx.financialYear.findMany({ where: { archivedAt: null, status: "OPEN", endDate: { lt: fy.startDate } }, orderBy: { startDate: "asc" }, select: { name: true } }),
     tx.payment.count({ where: { status: "WAITING", paymentDate: inYear } }),
     tx.income.count({ where: { status: "DRAFT", date: inYear } }),
@@ -55,6 +56,8 @@ export async function yearClosePlan(tx: Tx, ctx: SchoolContext, fyId: string, to
     tx.dayClose.count({ where: { date: inYear, reopenedAt: null } }),
     tx.periodClose.count({ where: { financialYearId: fy.id } }),
     tx.bankAccount.findMany({ where: { archivedAt: null }, orderBy: [{ kind: "asc" }, { isMain: "desc" }, { name: "asc" }], select: { id: true, name: true, kind: true } }),
+    // Staff pay: only for people who may see it.
+    hidePay ? Promise.resolve([]) : statutoryDues(tx, { from: fy.startDate, to: fy.endDate, open: true }),
   ]);
   const checks: YearCheck[] = [];
   const ended = fy.endDate < today;
@@ -72,6 +75,8 @@ export async function yearClosePlan(tx: Tx, ctx: SchoolContext, fyId: string, to
   if (waitingExpenses) checks.push({ key: "waiting", tone: "look", text: `${plural(waitingExpenses, "expense dated in the year is", "expenses dated in the year are")} Draft or waiting for approval. ${waitingExpenses === 1 ? "It stays" : "They stay"} open and ${waitingExpenses === 1 ? "is" : "are"} paid in the new year.`, href: `/finance-management/expenses?tab=waiting` });
   if (unpaidExpenses.length) checks.push({ key: "to-pay", tone: "look", text: `${plural(unpaidExpenses.length, "approved expense", "approved expenses")} still to pay, ${formatRupees(toPay)}. ${unpaidExpenses.length === 1 ? "It is" : "They are"} paid in the new year, on the date paid.`, href: `/finance-management/expenses?status=APPROVED&${range}` });
   if (unpaidRuns) checks.push({ key: "salary", tone: "look", text: `${plural(unpaidRuns, "month's salary of the year is", "months' salary of the year are")} not marked paid yet. It reaches the Day Book in the new year, on the date paid.`, href: "/salary-management/generate" });
+  const duesLeft = dues.reduce((t, d) => t + d.balance, ZERO);
+  if (duesLeft > ZERO) checks.push({ key: "statutory", tone: "look", text: `PF, ESI, Professional Tax and TDS taken from the year's salary and not paid to the government yet: ${formatRupees(duesLeft)}. ${dues.length === 1 ? "It stays" : "They stay"} to pay, and ${dues.length === 1 ? "is" : "are"} recorded paid in the new year.`, href: "/finance-management/reports?r=pending-expenses" });
   const days = Math.round((Math.min(fy.endDate.getTime(), today.getTime() - DAY) - fy.startDate.getTime()) / DAY) + 1;
   if (dayCloses > 0 && dayCloses < days) checks.push({ key: "days", tone: "look", text: `${plural(dayCloses, "day", "days")} of the year ${dayCloses === 1 ? "was" : "were"} counted and closed in the Day Book. Days not counted are locked with the year all the same.` });
   if (monthCloses) checks.push({ key: "months", tone: "ok", text: `${plural(monthCloses, "month is", "months are")} already closed. The rest close with the year.` });

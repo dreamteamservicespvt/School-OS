@@ -44,7 +44,7 @@ export function seesStaffPay(permissions: PermissionMap) {
 }
 
 export const PAY_SECTIONS = ["salary", "salary-advance"];
-export const PAY_SOURCES = ["payroll", "salary-advance"];
+export const PAY_SOURCES = ["payroll", "salary-advance", "statutory-payment", "statutory-cancel"];
 
 /**
  * The account heads that are staff pay (the Salaries head and any head under

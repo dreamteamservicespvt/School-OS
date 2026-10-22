@@ -7,6 +7,7 @@ import { todayIn } from "@/lib/staff/dates";
 import type { Tx } from "@/lib/db";
 import { addComponent, archiveComponent, asStatutory, lastFrozenMonth, saveSlabs, savePreferences, saveStatutory, setSlipOption, SLIP_OPTIONS, statutoryFor, type SlipOption } from "@/lib/salary/settings";
 import { addMonths, firstOfMonth, monthName, parseMonthKey } from "@/lib/salary/words";
+import { setDuesTracking } from "@/lib/salary/statutory-payments";
 import { salaryAction } from "../_lib/action";
 
 const pctBp = (fd: FormData, key: string, label: string) => {
@@ -101,4 +102,14 @@ export async function slabsAction(_prev: unknown, fd: FormData) {
     await saveSlabs(tx, ctx, state, rows);
     return { state, rows: rows.length, top: rows.length ? formatRupees(rows[rows.length - 1].taxPaise) : "" };
   }, (r) => `Professional Tax table for ${r.state} saved · ${r.rows} rows. Months not approved yet use it.`);
+}
+
+/** PF, ESI, Professional Tax and TDS to pay to the government: tracked from a salary month, or off. */
+export async function duesTrackingAction(_prev: unknown, fd: FormData) {
+  return salaryAction("edit", fd, async (tx, ctx) => {
+    if (str(fd, "on") !== "1") return setDuesTracking(tx, ctx, null);
+    const from = parseMonthKey(str(fd, "from"));
+    if (!from) throw new MoneyProblem("Choose the first salary month to track.", "from");
+    return setDuesTracking(tx, ctx, from);
+  }, (m) => (m ? `Tracked from ${monthName(m)} salary. Each month marked paid shows what is to pay to the government until it is recorded paid.` : "Not tracked any more. Payments already recorded stay."));
 }

@@ -52,7 +52,7 @@ async function upload(csv: string) {
     const r = await uploadAction(null, form(csv));
     throw new Error(r?.message ?? "Not uploaded");
   } catch (e) {
-    const m = /^REDIRECT \/admission-management\/enquiries\/import\/file\/([0-9a-f-]{36})$/.exec((e as Error).message);
+    const m = /^REDIRECT \/admission-management\/enquiries\/import\/review\/([0-9a-f-]{36})$/.exec((e as Error).message);
     if (!m) throw e;
     return m[1];
   }

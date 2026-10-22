@@ -51,7 +51,8 @@ const isSettings = (place: ImportPlace) => place.key === "settings";
 const downloads = (place: ImportPlace) => place.downloads ?? place.base;
 
 /** One file's pages: its check and review steps, and its rows with problems. */
-export const fileHref = (place: ImportPlace, id: string) => (isSettings(place) ? `${place.base}/${id}` : `${place.base}/file/${id}`);
+// "review", not "file": a support browser takes /file/<id> for a download (src/lib/support-paths.ts).
+export const fileHref = (place: ImportPlace, id: string) => (isSettings(place) ? `${place.base}/${id}` : `${place.base}/review/${id}`);
 export const problemsHref = (place: ImportPlace, id: string) => `${fileHref(place, id)}/problems`;
 
 /** The ready Excel sheet for one kind, made for this school. */

@@ -116,11 +116,12 @@ export async function FileReview({ current, place, id, sp }: Props) {
     );
   }
 
-  // What else the sheet could hold: kinds this page brings in that the person may add here.
-  const kinds = [];
+  // What else the sheet could hold: kinds this page brings in that the person may add here, and its own.
+  const kinds: { key: string; label: string }[] = [];
   for (const k of moveInKinds(current.modulesOn)) {
     if (k.key === kind.key || (placeHolds(place, k.key) && (await placeRefusal(current, place, k.key, "create")) === null)) kinds.push(k);
   }
+  if (!kinds.some((k) => k.key === kind.key)) kinds.push({ key: kind.key, label });
   const sample = w.sheet.rows.slice(file.headerRow, file.headerRow + 12);
   const columnRows = kind.columns.map((c) => ({
     key: c.key, label: c.label, required: Boolean(c.required),

@@ -82,7 +82,7 @@ describe("Fee Management, Finance Management and the School Calendar (G15, G16)"
     expect(await run(c, (tx) => tx.studentFeeDue.count({ where: { studentId: f.ravi.id, kind: "OLD_DUES", state: "OPEN", amountPaise: 350000n } }))).toBe(1);
     // The notification brings the Accountant back to Fee Management, not to Settings.
     const note = await run(c, (tx) => tx.notification.findFirst({ where: { userLoginId: f.accountant.id, type: "import" }, orderBy: { createdAt: "desc" } }));
-    expect(note?.link).toBe(`/fee-management/ledger/import/file/${id}`);
+    expect(note?.link).toBe(`/fee-management/ledger/import/review/${id}`);
     expect(await run(c, (tx) => tx.auditLogEntry.count({ where: { action: "imported", recordType: "Import", recordId: batch.id } }))).toBe(1);
 
     await run(c, (tx) => undoImport(tx, c, batch.id));

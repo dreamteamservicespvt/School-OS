@@ -54,7 +54,7 @@ describe("rows with no old dues are left out, not problems (follow-up C)", () =>
     up.set("file", new File([csv], "every-student.csv", { type: "text/csv" }));
     // Uploading opens the file's own page on Fee Management.
     const sent = await uploadAction(null, up).then((r) => r?.message ?? "Not uploaded", (e: Error) => e.message);
-    const id = /^REDIRECT \/fee-management\/ledger\/import\/file\/([0-9a-f-]{36})$/.exec(sent)?.[1];
+    const id = /^REDIRECT \/fee-management\/ledger\/import\/review\/([0-9a-f-]{36})$/.exec(sent)?.[1];
     if (!id) throw new Error(sent);
 
     const checked = (await withSchool(f.ctx, (tx) => workOn(tx, f.ctx, id, { check: true }), { timeout: 120_000 })).checked!;

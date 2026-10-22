@@ -10,7 +10,9 @@ import { periodPublished } from "@/lib/exams/report-status";
 import { sectionInfo } from "@/lib/exams/results";
 import { sectionStudents } from "@/lib/exams/roster";
 import { assertInScope, writesReportCards } from "@/lib/exams/scope";
-import { aiAllowed } from "@/lib/settings/switch-rules";
+import { remarkSuggestionsFor } from "@/lib/exams/remark-switch";
+import { rewordRemarks } from "@/lib/exams/remark-ai";
+import type { SchoolContext } from "@/lib/db";
 import { act, actSimple } from "../_lib/server";
 
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -58,17 +60,30 @@ export async function saveCompetencyAction(sectionId: string, period: string, ro
   });
 }
 
-/** Suggestions only: nothing is saved until the teacher keeps them and saves. */
-export async function draftRemarksAction(sectionId: string, period: string): Promise<{ ok: boolean; message: string; drafts: RemarkDraft[] }> {
+/**
+ * Suggestions only: nothing is saved until the teacher picks one, checks it
+ * and saves. For the whole class, or for the students named. Offered when the
+ * school switched on Remark suggestions in Exam Settings (rules only, no AI),
+ * or when the AI teacher assistant is on for the person's role.
+ */
+export async function draftRemarksAction(sectionId: string, period: string, studentIds?: string[], opts: { reword?: boolean } = {}): Promise<{ ok: boolean; message: string; drafts: RemarkDraft[] }> {
   let drafts: RemarkDraft[] = [];
+  const who: { ctx?: SchoolContext } = {};
   const r = await act("view", async ({ tx, current, scope }) => {
+    who.ctx = current.ctx;
     check(sectionId, period);
+    if (studentIds !== undefined && (!Array.isArray(studentIds) || studentIds.length > 300 || !studentIds.every((id) => typeof id === "string" && UUID.test(id)))) throw new ExamRuleError("Reload the page and try again.");
     await assertInScope(tx, scope, "section", sectionId);
     if (!writesReportCards(scope, sectionId)) throw new ExamRuleError("Only the class teacher of this section, the Exam In-charge or the Principal can draft remarks.");
-    if (!aiAllowed(current, "ai-teacher-assistant")) throw new ExamRuleError(current.features.has("ai-teacher-assistant") && current.features.has("ai-assistant") ? "Remark suggestions are not used by your role in this school." : "Remark suggestions are switched off for this school.");
-    drafts = await draftRemarks(tx, current.ctx, sectionId, period);
+    if (!remarkSuggestionsFor(current)) throw new ExamRuleError(current.features.has("ai-teacher-assistant") && current.features.has("ai-assistant") ? "Remark suggestions are not used by your role in this school." : "Remark suggestions are switched off for this school.");
+    drafts = await draftRemarks(tx, current.ctx, sectionId, period, studentIds);
   }, { needs: "any" });
-  return { ok: Boolean(r?.ok), message: r?.message ?? "", drafts };
+  if (!r?.ok || !who.ctx || opts.reword !== true) return { ok: Boolean(r?.ok), message: r?.message ?? "", drafts };
+  // The AI assistant may only reword them, after the school transaction; its own checks
+  // (AI on, teacher assistant on, the person's role, the daily limit) are in aiTask().
+  const names = new Map(drafts.map((d) => [d.studentId, d.firstName]));
+  const reworded = await rewordRemarks(who.ctx, drafts, names);
+  return { ok: true, message: reworded.message, drafts: reworded.drafts };
 }
 
 export async function markCardsAction(sectionId: string, period: string, studentIds: string[], as: "PRINTED" | "SENT") {

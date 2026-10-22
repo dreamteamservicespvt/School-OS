@@ -10,7 +10,7 @@ import type { Band } from "@/lib/exams/grades";
 import { ExamRuleError } from "@/lib/exams/common";
 import { recomputeDrafts } from "@/lib/exams/results";
 import {
-  addListItem, archiveArea, archiveCompetency, archiveGradeScale, archiveListItem, examSettings, importPreset, saveArea, saveBoards, saveClassPatterns, saveCompetency, saveGradeScale, saveRules, saveWeights, setExamFeature,
+  addListItem, archiveArea, archiveCompetency, archiveGradeScale, archiveListItem, examSettings, importPreset, saveArea, saveBoards, saveClassPatterns, saveCompetency, saveGradeScale, saveRemarkPhrases, saveRules, saveWeights, setExamFeature,
   type BoardChoice, type RulesInput,
 } from "@/lib/exams/settings";
 import { actSimple, str } from "../_lib/server";
@@ -197,4 +197,13 @@ export async function setFeatureAction(key: string, on: boolean) {
     if (key === "exam-boards") await redo(tx, current.ctx);
     return { flash: { message: on ? "Switched on." : "Switched off." } };
   }, RECOMPUTE);
+}
+
+/** The phrase bank for remark suggestions: { [phraseKey]: sentences }. */
+export async function saveRemarkPhrasesAction(phrases: Record<string, string[]>) {
+  return actSimple("edit", async ({ tx, current }) => {
+    if (!phrases || typeof phrases !== "object" || Array.isArray(phrases)) throw new ExamRuleError("Reload the page and try again.");
+    const n = await saveRemarkPhrases(tx, current.ctx, Object.fromEntries(Object.entries(phrases).slice(0, 40).map(([k, v]) => [k, Array.isArray(v) ? v.slice(0, 5).map((x) => String(x ?? "").slice(0, 400)) : []])));
+    return { flash: { message: n ? "Remark phrases saved." : "Remark phrases are back to the ready-made ones." } };
+  });
 }

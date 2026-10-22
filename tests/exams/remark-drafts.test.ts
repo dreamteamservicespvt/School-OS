@@ -2,7 +2,8 @@
 // only from evidence in the student's own records, each sentence with its
 // source, in words for the period, and no suggestion at all without marks.
 import { describe, expect, it } from "vitest";
-import { draftRemark, type RemarkEvidence } from "@/lib/exams/remark-drafts";
+import { classAverages, draftRemark, type RemarkEvidence } from "@/lib/exams/remark-drafts";
+import { checkPhrase, cleanPhrases, DEFAULT_PHRASES, readPhrases } from "@/lib/exams/remark-phrases";
 
 const d = (s: string) => new Date(`${s}T00:00:00Z`);
 const base = (o: Partial<RemarkEvidence> = {}): RemarkEvidence => ({
@@ -84,5 +85,84 @@ describe("a student with marks", () => {
     expect(low.lines.find((l) => /Attendance is low/.test(l.text))!.source).toBe("Attendance typed on this report card: 60 of 100 days (60%), below 75%");
     const plain = draftRemark(base({ exams: [exam("Class Test October", [["Mathematics", 40, 50]])], attendance: { present: 85, working: 100, fromRegister: true, from: d("2026-04-01"), to: d("2026-10-16") }, homework: { given: 2, done: 0, from: d("2026-04-01"), to: d("2026-10-16") } }));
     expect(plain.lines).toHaveLength(1);
+  });
+});
+
+describe("against the class average (gap G30)", () => {
+  it("names a subject well above or below the class average, with both numbers and how many students", () => {
+    const avg = classAverages([
+      [exam("Half Yearly", [["Mathematics", 20, 50], ["English", 40, 50]])],
+      [exam("Half Yearly", [["Mathematics", 25, 50], ["English", 40, 50]])],
+      [exam("Half Yearly", [["Mathematics", 30, 50], ["English", 45, 50]])],
+    ]);
+    expect(avg.find((a) => a.subject === "Mathematics")).toEqual({ subject: "Mathematics", average: 50, students: 3 });
+    const r = draftRemark(base({ exams: [exam("Half Yearly", [["Mathematics", 40, 50], ["English", 30, 50]])], classAverages: avg }));
+    const above = r.lines.find((l) => l.fact === "aboveClass")!;
+    expect(above.text).toBe("Above the class average in Mathematics.");
+    expect(above.source).toBe("Marks in Half Yearly: Mathematics 80%, class average 50% (3 students)");
+    const below = r.lines.find((l) => l.fact === "belowClass")!;
+    expect(below.text).toMatch(/^Below the class average in English/);
+    expect(below.source).toBe("Marks in Half Yearly: English 60%, class average 83.3% (3 students)");
+  });
+
+  it("says nothing about the class when fewer than 3 students wrote the subject", () => {
+    const avg = classAverages([[exam("Half Yearly", [["Mathematics", 10, 50]])], [exam("Half Yearly", [["Mathematics", 12, 50]])]]);
+    expect(avg).toEqual([]);
+    const r = draftRemark(base({ exams: [exam("Half Yearly", [["Mathematics", 45, 50]])], classAverages: [{ subject: "Mathematics", average: 20, students: 2 }] }));
+    expect(r.lines.some((l) => /class average/.test(l.source))).toBe(false);
+  });
+});
+
+describe("two or three ways of putting it", () => {
+  it("full, short and with a next step, each listing its sentences' sources", () => {
+    const r = draftRemark(base({
+      exams: [exam("Half Yearly", [["Mathematics", 45, 50], ["English", 30, 50]])],
+      previous: exam("Unit Test 2", [["Mathematics", 15, 25], ["English", 20, 25]]),
+      attendance: { present: 99, working: 100, fromRegister: true, from: d("2026-04-01"), to: d("2026-10-16") },
+    }));
+    expect(r.options.map((o) => o.id)).toEqual(["full", "short", "next"]);
+    expect(r.options[0].text).toBe(r.text);
+    const next = r.options.find((o) => o.id === "next")!;
+    expect(next.lines.map((l) => l.fact)).toEqual(["levelGood", "improved", "dropped"]);
+    for (const o of r.options) {
+      expect(o.text).toBe(o.lines.map((l) => l.text).join(" "));
+      for (const l of o.lines) expect(l.source.length).toBeGreaterThan(0);
+    }
+    expect(new Set(r.options.map((o) => o.text)).size).toBe(r.options.length);
+  });
+
+  it("only how it went: one suggestion, never padded out", () => {
+    const r = draftRemark(base({ exams: [exam("Class Test October", [["Mathematics", 45, 50]])] }));
+    expect(r.options).toHaveLength(1);
+  });
+
+  it("never longer than the report card takes", () => {
+    const long = { ...DEFAULT_PHRASES, levelGood: ["{name} has done well {period}. ".repeat(4).trim()], improved: ["Has improved in {subjects} since {before}, which is very good to see and shows steady effort in class and at home over these weeks."] };
+    const r = draftRemark(base({ phrases: long, exams: [exam("Half Yearly", [["Mathematics", 45, 50], ["English", 30, 50]])], previous: exam("Unit Test 2", [["Mathematics", 15, 25], ["English", 20, 25]]), attendance: { present: 99, working: 100, fromRegister: true, from: d("2026-04-01"), to: d("2026-10-16") }, homework: { given: 10, done: 10, from: d("2026-04-01"), to: d("2026-10-16") } }));
+    for (const o of r.options) expect(o.text.length).toBeLessThanOrEqual(500);
+  });
+});
+
+describe("the school's phrase bank", () => {
+  it("the school's own words are used, the numbers stay in the source", () => {
+    const phrases = readPhrases({ levelExcellent: ["Excellent work by {name} {period}."] });
+    const r = draftRemark(base({ phrases, exams: [exam("Class Test October", [["Mathematics", 45, 50]])] }));
+    expect(r.text).toBe("Excellent work by Ananya in Class Test October.");
+    expect(r.lines[0].source).toBe("Marks in Class Test October: 45 of 50 (90%)");
+  });
+
+  it("refuses words about the child rather than their work, sensitive words and unknown blanks", () => {
+    expect(checkPhrase("levelSupport", "{name} is lazy and must try harder.")).toMatch(/describes the child/);
+    expect(checkPhrase("levelGood", "{name} did well for a girl.")).toMatch(/not for a report card/);
+    expect(checkPhrase("levelGood", "{name} did well in {subjects}.")).toMatch(/cannot be used here/);
+    expect(checkPhrase("strong", "Strong in maths.")).toMatch(/Keep \{subjects\}/);
+    expect(checkPhrase("strong", "Shines in {subjects}.")).toBeNull();
+    expect(cleanPhrases({ strong: ["Strong in {subjects}."] }).phrases).toEqual({});
+    expect(cleanPhrases({ strong: ["Shines in {subjects}."] }).phrases).toEqual({ strong: ["Shines in {subjects}."] });
+  });
+
+  it("an unreadable stored phrase falls back to the ready-made one", () => {
+    expect(readPhrases({ strong: ["{name} is lazy."], weak: "not a list" }).strong).toEqual(DEFAULT_PHRASES.strong);
+    expect(readPhrases(null)).toEqual(DEFAULT_PHRASES);
   });
 });

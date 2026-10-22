@@ -123,6 +123,10 @@ model ExamSettings {
   /// results published: "approval" (default) adds them only through a request
   /// approved in Approvals; "off" leaves the student out of that exam.
   lateMarks           String   @default("approval") @map("late_marks")
+  /// The school's own words for report-card remark suggestions (gap G30):
+  /// { [phraseKey]: ["sentence with {blanks}", ...] }, only where it differs
+  /// from the defaults in src/lib/exams/remark-phrases.ts.
+  remarkPhrases       Json     @default("{}") @map("remark_phrases")
   /// An exam a late joiner was left out of, in the final result: "leave-out"
   /// (default; the exams they sat count in its place) or "zero" (counted as 0%).
   lateJoinRule        String   @default("leave-out") @map("late_join_rule")
@@ -357,6 +361,12 @@ model ReportCard {
   period             String
   classTeacherRemark String?          @map("class_teacher_remark")
   principalRemark    String?          @map("principal_remark")
+  /// Where the class teacher remark came from (gap G30): "suggestion" (the
+  /// school's phrase bank) or "ai" (reworded by the AI assistant), with
+  /// "-edited" when the teacher changed it; null when typed by hand.
+  classTeacherRemarkFrom     String? @map("class_teacher_remark_from")
+  /// The sentences of that suggestion and the source of each: [{ text, source }].
+  classTeacherRemarkEvidence Json?   @map("class_teacher_remark_evidence")
   /// Days present and working days, typed when Attendance does not give them.
   attendancePresent  Int?             @map("attendance_present")
   attendanceWorking  Int?             @map("attendance_working")

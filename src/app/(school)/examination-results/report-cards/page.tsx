@@ -7,7 +7,8 @@ import { plural } from "@/lib/academic/common";
 import { DIRECT_REPORT_LIMIT, reportBoard } from "@/lib/exams/report-cards";
 import { periodsForClass } from "@/lib/exams/report-status";
 import { writesReportCards } from "@/lib/exams/scope";
-import { aiAllowed } from "@/lib/settings/switch-rules";
+import { remarkSuggestionsFor } from "@/lib/exams/remark-switch";
+import { aiReady } from "@/lib/ai";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { Banner, Chips, Stats, Toolbar, type StatItem } from "@/components/ui/kit";
@@ -171,7 +172,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
               <StatusBoard key={`${section.id}${data.period.key}`} rows={shown.map((r) => ({ studentId: r.studentId, name: r.name, rollNo: r.rollNo === null ? null : String(r.rollNo), admissionNo: r.admissionNo, status: r.status, missing: r.missing, published: r.published }))}
                 sectionId={section.id} period={data.period.key} periodLabel={data.period.label} canWrite={canWrite} directLimit={DIRECT_REPORT_LIMIT} />
             ) : v === "remarks" ? (
-              <RemarksGrid key={`${section.id}${data.period.key}`} sectionId={section.id} period={data.period.key} classTeacher={classTeacher} principal={canWrite && s.principal} suggestions={b.features.aiRemarks && aiAllowed(page.current, "ai-teacher-assistant")}
+              <RemarksGrid key={`${section.id}${data.period.key}`} sectionId={section.id} period={data.period.key} classTeacher={classTeacher} principal={canWrite && s.principal} suggestions={remarkSuggestionsFor(page.current)} reword={remarkSuggestionsFor(page.current) && aiReady(page.current, "ai-teacher-assistant")}
                 rows={shown.map((r) => ({ studentId: r.studentId, name: r.name, rollNo: r.rollNo === null ? null : String(r.rollNo), classTeacherRemark: r.classTeacherRemark, principalRemark: r.principalRemark, attendancePresent: r.attendancePresent, attendanceWorking: r.attendanceWorking, attendanceFromRegister: r.attendanceFromRegister }))} />
             ) : v === "co-scholastic" ? (
               <GradeGrid key={`${section.id}${data.period.key}co`} kind="co-scholastic" sectionId={section.id} period={data.period.key} canWrite={classTeacher} rows={nameRows}

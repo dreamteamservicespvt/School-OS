@@ -185,6 +185,7 @@ export const EXAM_FEATURES = [
   { key: "exam-co-scholastic", label: "Co-scholastic grades", help: "Work education, art, health and physical education on CBSE-style report cards." },
   { key: "exam-competencies", label: "Competency-based assessment", help: "Competencies per subject and their levels on the report card." },
   { key: "exam-boards", label: "Grade scale and format per board", help: "For schools running two boards, such as State board to class 8 and CBSE for 9 to 12." },
+  { key: "exam-remark-suggestions", label: "Remark suggestions", help: "Suggested report card remarks from each student's own marks, attendance and homework, each sentence with its source. Works without the AI assistant." },
 ] as const;
 
 export type ExamFeature = (typeof EXAM_FEATURES)[number]["key"];

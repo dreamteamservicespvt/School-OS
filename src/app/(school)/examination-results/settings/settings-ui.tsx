@@ -10,10 +10,11 @@ import { inputCls } from "@/components/ui/field";
 import { TONE_SOFT } from "@/components/ui/kit";
 import { cx } from "@/components/ui/cx";
 import { checkBands, type Band } from "@/lib/exams/grades";
+import { BLANK_WORDS, checkPhrase, DEFAULT_PHRASES, MAX_VARIANTS, PHRASE_KEYS, PHRASES, type PhraseBank, type PhraseKey } from "@/lib/exams/remark-phrases";
 import { ActionSheet } from "../_components/sheets";
 import {
   addListItemAction, archiveAreaAction, archiveCompetencyAction, archiveListItemAction, archiveScaleAction, importPresetAction, saveAreaForm, saveBoardsAction, saveClassPatternsAction,
-  saveCompetencyForm, saveRulesForm, saveScaleAction, saveWeightsAction, setFeatureAction,
+  saveCompetencyForm, saveRemarkPhrasesAction, saveRulesForm, saveScaleAction, saveWeightsAction, setFeatureAction,
 } from "./actions";
 
 type Option = { value: string; label: string; help?: string };
@@ -496,6 +497,49 @@ export function FeatureSwitch({ k, title, sub, on, canEdit }: { k: string; title
         {msg && !msg.ok && <Note msg={msg} />}
       </div>
       <Switch label={title} on={v} disabled={!canEdit || pending} onChange={(x) => { setV(x); run(() => setFeatureAction(k, x), x ? "On" : "Off", undefined); }} />
+    </div>
+  );
+}
+
+// ---------- Remark phrases (gap G30) ----------
+
+/** The school's words for remark suggestions: one sentence per line, up to three ways of saying each. */
+export function RemarkPhrasesEditor({ bank, canEdit, on }: { bank: PhraseBank; canEdit: boolean; on: boolean }) {
+  const [vals, setVals] = useState<Record<string, string>>(() => Object.fromEntries(PHRASE_KEYS.map((k) => [k, bank[k].join("\n")])));
+  const { pending, msg, setMsg, run } = useRun();
+  const lines = (k: PhraseKey) => (vals[k] ?? "").split("\n").map((x) => x.trim()).filter(Boolean);
+  const problem = (k: PhraseKey) => {
+    const l = lines(k);
+    if (l.length > MAX_VARIANTS) return `At most ${MAX_VARIANTS} ways of saying it.`;
+    return l.map((t) => checkPhrase(k, t)).find(Boolean) ?? null;
+  };
+  const bad = PHRASE_KEYS.some((k) => problem(k));
+  return (
+    <div className="px-5 pb-5 flex flex-col gap-3">
+      <p className="text-[13px] text-ink3">
+        {on ? "Used when a class teacher asks for remark suggestions. " : "Used once Remark suggestions is switched on below, or the AI teacher assistant is on. "}
+        The numbers always come from the student&apos;s own records and are shown as the source; only these words change. Words in braces are filled in: {Object.entries(BLANK_WORDS).map(([k, w]) => `{${k}} ${w}`).join(", ")}.
+      </p>
+      {PHRASE_KEYS.map((k) => {
+        const p = problem(k);
+        return (
+          <div key={k} className="flex flex-col gap-1">
+            <label htmlFor={`phrase-${k}`} className="font-semibold text-[14px]">{PHRASES[k].when}</label>
+            <textarea id={`phrase-${k}`} rows={Math.max(1, Math.min(MAX_VARIANTS, lines(k).length))} disabled={!canEdit} value={vals[k]}
+              onChange={(e) => { setMsg(null); setVals({ ...vals, [k]: e.target.value }); }}
+              aria-invalid={Boolean(p)} aria-describedby={`phrase-${k}-help`} className={cx(inputCls(Boolean(p)), "!h-auto py-2")} />
+            <span id={`phrase-${k}-help`} className={cx("text-[12px]", p ? "text-bad" : "text-ink3")}>{p ?? `One sentence per line. Can use ${PHRASES[k].blanks.map((b) => `{${b}}`).join(", ")}.`}</span>
+          </div>
+        );
+      })}
+      <Note msg={msg} />
+      {canEdit && (
+        <div className="flex flex-wrap gap-3">
+          <Button variant="secondary" icon={Check} disabled={bad} loading={pending} loadingText="Saving"
+            onClick={() => run(() => saveRemarkPhrasesAction(Object.fromEntries(PHRASE_KEYS.map((k) => [k, lines(k)]))), "Remark phrases saved.")}>Save phrases</Button>
+          <Button variant="ghost" onClick={() => { setMsg(null); setVals(Object.fromEntries(PHRASE_KEYS.map((k) => [k, DEFAULT_PHRASES[k].join("\n")]))); }}>Back to the ready-made phrases</Button>
+        </div>
+      )}
     </div>
   );
 }

@@ -211,8 +211,10 @@ were checked by reading the code, typecheck and lint.
   row left out brings in the ready row and keeps the other two counted with the file; the go-live check warns about
   it without stopping; the fixed row and the row brought back come in as a second import of the same file (file then
   imported, two batches); Undo of the second, then of the first, each puts its own rows back; a file sent before the
-  update settles and undoes as before; the plain-words counts. tests/move-in/service.test.ts and
-  tests/move-in/one-engine.test.ts now expect a file with a row left out to stay part brought in.
+  update settles and undoes as before; the plain-words counts. tests/move-in/service.test.ts,
+  tests/move-in/one-engine.test.ts and tests/fees/old-dues-left-out.test.ts now expect a file with a row left out,
+  or a row with a problem, to stay part brought in with that row counted (the last one said before "the row with a
+  problem was never brought in").
 - **Status:** Fixed.
 
 ## GOLIVE-01 · P4 · Settings › Switching to School OS › Go-live check · "Fees due before go-live" sends the person to the page they are on

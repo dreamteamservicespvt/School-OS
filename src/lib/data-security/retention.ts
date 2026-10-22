@@ -129,7 +129,7 @@ async function clearType(tx: Tx, type: ClearableType, before: Date, now: Date): 
     where: { message: w.messages },
     data: { name: "Removed", description: null, address: "", values: {}, text: REMOVED_TEXT, sealedCode: null, history: [] },
   });
-  const m = await tx.message.updateMany({ where: w.messages, data: { title: null, body: REMOVED_TEXT, audienceLabel: REMOVED_TEXT, audience: {}, skipped: [], trigger: null, clearedAt: now } });
+  const m = await tx.message.updateMany({ where: w.messages, data: { title: null, body: REMOVED_TEXT, audienceLabel: REMOVED_TEXT, audience: {}, skipped: [], translations: [], trigger: null, clearedAt: now } });
   return m.count;
 }
 

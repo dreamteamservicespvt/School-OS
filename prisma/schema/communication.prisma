@@ -144,6 +144,8 @@ model Message {
   createdAt         DateTime      @default(now()) @map("created_at")
   /// When the retention check removed its text and its recipients' details (counts and costs stay).
   clearedAt         DateTime?     @map("cleared_at")
+  /// Typed text translated into parents' languages, checked and confirmed by the sender (G40): [{ language, text, title, edited }].
+  translations      Json          @default("[]")
 
   recipients MessageRecipient[]
 

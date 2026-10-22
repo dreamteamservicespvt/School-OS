@@ -13,7 +13,7 @@ import { can } from "@/lib/permissions";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { PARTS } from "@/lib/move-in/match";
 import { sectionLabel } from "@/lib/move-in/lookups";
-import { kindInfo, kindModule, lastFailure, moveInKinds, MoveInProblem, settleImports, workOn } from "@/lib/move-in/service";
+import { kindInfo, kindModule, lastFailure, moveInKinds, MoveInProblem, photosOf, settleImports, workOn } from "@/lib/move-in/service";
 import { placeHolds, errorsHref, fileHref, HOME, problemsHref, wordsFor, type ImportPlace } from "@/lib/imports/places";
 import { placeRefusal } from "@/lib/imports/place-access";
 import { fileBatchIds } from "@/lib/move-in/batches";
@@ -28,6 +28,7 @@ import { AddClassesButton, AddOptionsButton, ClearChoiceButton, ImportButton, Le
 import { acceptAiColumnsAction, aiColumnsAction } from "@/app/(school)/_imports/file-actions";
 import { aiReady } from "@/lib/ai";
 import { AiColumnSuggestions } from "./ai-column-suggestions";
+import { PhotoRowBadge, RegisterPhotos } from "./register-photos";
 
 const STEPS = [
   { key: "columns", label: "Match columns" },
@@ -71,6 +72,8 @@ export async function FileReview({ current, place, id, sp }: Props) {
   }
   const { w, batches, failure, step } = result;
   const { file, kind, prepared, lookups, checked } = w;
+  // Rows read from photos of a paper register (gap list G43): each is marked, with the photo beside them.
+  const photos = photosOf(file);
   const info = kindInfo(kind.key);
   const label = info?.label ?? kind.label;
   const words = wordsFor(kind.key, label);
@@ -162,6 +165,11 @@ export async function FileReview({ current, place, id, sp }: Props) {
   return (
     <>
       {header}
+      {photos.length > 0 && (
+        <Alert tone="warning" className="mb-4" title="Read from a photo: check every row against the register.">
+          The AI assistant copied these rows from {photos.length === 1 ? "the photo" : `${photos.length} photos`} of the register, and it can misread handwriting. A part it could not read shows as [unclear] and must be typed in. Fix a wrong row or leave it out; nothing is saved until you press Bring in.
+        </Alert>
+      )}
       {failure && <Alert tone="danger" className="mb-4" title="The last import did not finish, and nothing was saved.">{failure} Fix the rows below and bring them in again.</Alert>}
       {broughtIn}
       {waiting && (
@@ -209,8 +217,9 @@ export async function FileReview({ current, place, id, sp }: Props) {
               {mayEdit ? <ColumnsForm key={JSON.stringify(w.choices.columnMatch)} place={place.key} id={file.id} rows={columnRows} headers={headers} samples={sample} /> : <p className="text-ink-2">Your role cannot change this file.</p>}
             </CardBody>
           </Card>
-          <Card className="self-start">
-            <CardHeader title="Your file" description={`The first rows after the headings (row ${file.headerRow}).`} />
+          <div className="flex flex-col gap-5 self-start">
+          <Card>
+            <CardHeader title={photos.length ? "Rows read from the photo" : "Your file"} description={`The first rows after the headings (row ${file.headerRow}).`} />
             <div className="max-h-[32rem] overflow-auto">
               <table className="min-w-full text-sm">
                 <thead className="sticky top-0 bg-surface-2"><tr>{headers.map((h, i) => <th key={i} scope="col" className="whitespace-nowrap px-3 py-2 text-left font-medium">{h}</th>)}</tr></thead>
@@ -220,6 +229,8 @@ export async function FileReview({ current, place, id, sp }: Props) {
               </table>
             </div>
           </Card>
+          <RegisterPhotos photos={photos} schoolId={current.ctx.schoolId} />
+          </div>
         </div>
       )}
 
@@ -281,6 +292,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
       )}
 
       {step === "check" && checked && (
+        <div className={photos.length ? "grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]" : undefined}>
         <div className="space-y-5">
           <dl className="grid grid-cols-2 gap-3 md:grid-cols-4">
             {prepared.passed.broughtIn > 0 && <Num label="Brought in already" value={prepared.passed.broughtIn} tone="success" />}
@@ -303,7 +315,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
                     <li key={p.line} className="px-5 py-3">
                       <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <p><strong>Row {p.line}</strong>{p.values.fullName || p.values.name ? ` · ${p.values.fullName || p.values.name}` : ""}{fixed && <Badge tone="brand" className="ml-2">Fixed by you</Badge>}</p>
+                          <p><strong>Row {p.line}</strong>{p.values.fullName || p.values.name ? ` · ${p.values.fullName || p.values.name}` : ""}{fixed ? <Badge tone="brand" className="ml-2">Fixed by you</Badge> : <PhotoRowBadge photos={photos} line={p.line} />}</p>
                           <p className="text-danger">{p.problems.join(" ")}</p>
                           {p.chosen && <p className="text-sm text-ink-2">Your choice: {p.chosenWords ?? p.chosen}</p>}
                         </div>
@@ -348,8 +360,30 @@ export async function FileReview({ current, place, id, sp }: Props) {
           )}
 
           <Card>
-            <CardHeader title="Ready to bring in" description={checked.ready.length ? `The first ${Math.min(10, checked.ready.length)} of ${checked.ready.length}, as they will be saved.` : "No row is ready yet."} />
-            {checked.ready.length > 0 && (
+            <CardHeader title="Ready to bring in" description={checked.ready.length ? (photos.length ? `${checked.ready.length} ${checked.ready.length === 1 ? "row" : "rows"} as they will be saved. Check each against the photo.` : `The first ${Math.min(10, checked.ready.length)} of ${checked.ready.length}, as they will be saved.`) : "No row is ready yet."} />
+            {checked.ready.length > 0 && photos.length > 0 && (
+              <ul className="divide-y divide-line border-t border-line">
+                {checked.ready.slice(0, 100).map((r) => (
+                  <li key={r.line} className="px-5 py-3">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p><strong>Row {r.line}</strong>{r.fixed ? <Badge tone="brand" className="ml-2">Fixed by you</Badge> : <PhotoRowBadge photos={photos} line={r.line} />}</p>
+                        <p className="text-sm text-ink-2 break-words">{kind.columns.filter((c) => r.values[c.key]).map((c) => `${c.label}: ${r.values[c.key]}`).join(" · ")}</p>
+                      </div>
+                      {mayEdit && <div className="flex gap-1">{r.fixed && <UndoFixButton place={place.key} id={file.id} line={r.line} />}<LeaveOutButton place={place.key} id={file.id} lines={[r.line]} out /></div>}
+                    </div>
+                    {mayEdit && (
+                      <details className="mt-1">
+                        <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-brand-text">Fix this row</summary>
+                        <FixRowForm place={place.key} id={file.id} line={r.line} fields={kind.columns.map((c) => ({ key: c.key, label: c.label, value: r.values[c.key] ?? "", required: c.required }))} />
+                      </details>
+                    )}
+                  </li>
+                ))}
+                {checked.ready.length > 100 && <li className="px-5 py-3 text-sm text-ink-2">The first 100 are shown. Check the rest against the register too before bringing them in.</li>}
+              </ul>
+            )}
+            {checked.ready.length > 0 && !photos.length && (
               <div className="max-h-[28rem] overflow-auto">
                 <table className="min-w-full text-sm">
                   <thead className="sticky top-0 bg-surface-2"><tr><th scope="col" className="px-3 py-2 text-left font-medium">Row</th>{kind.columns.filter((c) => checked.ready.some((r) => r.values[c.key])).map((c) => <th key={c.key} scope="col" className="whitespace-nowrap px-3 py-2 text-left font-medium">{c.label}</th>)}</tr></thead>
@@ -367,6 +401,8 @@ export async function FileReview({ current, place, id, sp }: Props) {
               {kind.key === "students" && <p className="text-sm text-ink-2">A parent already on record with the same phone is linked only when the name matches (a close spelling is fine), so brothers and sisters share their parents. Any other match waits for your choice above.</p>}
             </CardBody>
           </Card>
+        </div>
+        <RegisterPhotos photos={photos} schoolId={current.ctx.schoolId} />
         </div>
       )}
     </>

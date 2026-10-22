@@ -13,7 +13,8 @@ import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { AutoRefresh } from "../parts";
-import { UploadForm } from "@/components/import/file-forms";
+import { PhotoUploadForm, UploadForm } from "@/components/import/file-forms";
+import { photoRefusal } from "@/lib/move-in/photos";
 import { OWN_RULES, PLACES } from "@/lib/imports/places";
 import { placeRefusal } from "@/lib/imports/place-access";
 import { RemoveFileButton } from "@/components/import/file-buttons";
@@ -151,6 +152,12 @@ export default async function SwitchingPage({ searchParams }: Search) {
             <details className="mt-4 text-sm text-ink-2">
               <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">Records on paper?</summary>
               <p>Download the ready Excel sheet next to each step. It has drop-down lists of your own classes, sections and designations, so typing from the register is quick and the rows are right the first time.</p>
+              {mine.length > 0 && (
+                <div className="mt-3 border-t border-line pt-3 text-ink">
+                  <p className="mb-2 font-medium">Or upload photos of the register pages</p>
+                  <PhotoUploadForm place="settings" kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={wantKind && mine.some((k) => k.key === wantKind) ? wantKind : undefined} refusal={photoRefusal(current)} />
+                </div>
+              )}
             </details>
             <details className="text-sm text-ink-2">
               <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">Old Excel file (.xls)?</summary>

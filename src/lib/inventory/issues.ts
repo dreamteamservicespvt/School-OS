@@ -14,7 +14,7 @@ import { writeAudit } from "../audit";
 import { formatRupees } from "../format";
 import { nextNumber, formatNumber } from "../sequences";
 import { addCharge } from "../fees/structure";
-import { currentYear } from "../academic/years";
+import { currentEnrolment } from "../academic/years";
 import { InventoryProblem } from "./problem";
 import { inventorySettings } from "./settings";
 import { balanceOf, move, notEnough, usableBatches } from "./stock";
@@ -39,9 +39,9 @@ export async function storeFeeHead(tx: Tx, ctx: SchoolContext) {
 export type IssueLine = { itemId: string; qty: number };
 export type Recipient = { toKind: IssueTo; staffId?: string | null; departmentId?: string | null; sectionId?: string | null; studentId?: string | null };
 
-/** The year a store charge belongs to: the student's enrolment in the current year (not a closed past year). */
-async function chargeYear(tx: Tx, ctx: SchoolContext, studentId: string) {
-  return (await studentSection(tx, ctx, studentId))?.academicYearId;
+/** The year a store charge belongs to: the student's class this year, in their own campus's current year (not a closed past year). */
+async function chargeYear(tx: Tx, studentId: string) {
+  return (await currentEnrolment(tx, studentId))?.academicYearId;
 }
 
 /** Who an issue is to, in words: "Kiran Rao (staff)", "Science department", "Class 5 A", "Meena Reddy, Class 5 A". */
@@ -60,14 +60,6 @@ export async function recipientWords(tx: Tx, r: Pick<StockIssue, "toKind" | "sta
   return "";
 }
 
-/** The student's section this year (for reports by class), or their latest. */
-async function studentSection(tx: Tx, ctx: SchoolContext, studentId: string) {
-  const year = await currentYear(tx, ctx);
-  const e = await tx.enrolment.findFirst({ where: { studentId, archivedAt: null, ...(year ? { academicYearId: year.id } : {}) }, orderBy: { createdAt: "desc" } })
-    ?? await tx.enrolment.findFirst({ where: { studentId, archivedAt: null }, orderBy: { createdAt: "desc" } });
-  return e;
-}
-
 async function checkRecipient(tx: Tx, ctx: SchoolContext, r: Recipient) {
   switch (r.toKind) {
     case "STAFF":
@@ -83,7 +75,8 @@ async function checkRecipient(tx: Tx, ctx: SchoolContext, r: Recipient) {
       const st = r.studentId ? await tx.student.findFirst({ where: { id: r.studentId, archivedAt: null } }) : null;
       if (!st) throw new InventoryProblem("Choose the student.", "studentId");
       if (!STUDYING.includes(st.status)) throw new InventoryProblem(`${st.fullName} is not studying in the school now.`, "studentId");
-      const e = await studentSection(tx, ctx, st.id);
+      // The class this year, in the student's own campus's current year (for reports by class).
+      const e = await currentEnrolment(tx, st.id);
       return { studentId: st.id, studentSectionId: e?.sectionId ?? null };
     }
   }
@@ -137,7 +130,7 @@ export async function issueStock(tx: Tx, ctx: SchoolContext, input: IssueInput) 
     const words = checked.map((c) => `${itemLabel(c.item)} × ${c.qty}`).join(", ");
     const due = await addCharge(tx, ctx, {
       studentId: input.studentId!, feeHeadId: head.id, amountPaise: total, dueDate: input.date,
-      label: `Store: ${words}`.slice(0, 120), reason: `Store counter issue ${issue.number}: ${words}`.slice(0, 300), academicYearId: await chargeYear(tx, ctx, input.studentId!),
+      label: `Store: ${words}`.slice(0, 120), reason: `Store counter issue ${issue.number}: ${words}`.slice(0, 300), academicYearId: await chargeYear(tx, input.studentId!),
     });
     feeDueId = due.id;
     await tx.stockIssue.update({ where: { id: issue.id }, data: { feeDueId } });
@@ -252,7 +245,7 @@ export async function issueBookSet(tx: Tx, ctx: SchoolContext, input: { setId: s
   let feeDueId: string | null = null;
   if (charge > ZERO) {
     const head = await storeFeeHead(tx, ctx);
-    const due = await addCharge(tx, ctx, { studentId: input.studentId, feeHeadId: head.id, amountPaise: charge, dueDate: input.date, label: set.name.slice(0, 120), reason: `Book set issued at the store counter (${issue.number})`, academicYearId: await chargeYear(tx, ctx, input.studentId) });
+    const due = await addCharge(tx, ctx, { studentId: input.studentId, feeHeadId: head.id, amountPaise: charge, dueDate: input.date, label: set.name.slice(0, 120), reason: `Book set issued at the store counter (${issue.number})`, academicYearId: await chargeYear(tx, input.studentId) });
     feeDueId = due.id;
     await tx.stockIssue.update({ where: { id: issue.id }, data: { feeDueId } });
   }

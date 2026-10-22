@@ -31,17 +31,21 @@ export function clampMonth(month: Date, b: MonthBounds): Date {
   return monthStart(month);
 }
 
-/** The first day of the academic year before the current one (or of the current one when there is none before it). */
-export async function previousYearStart(tx: Tx, today: Date): Promise<Date | null> {
-  const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: today } }, orderBy: { startDate: "desc" }, select: { startDate: true, endDate: true }, take: 3 });
+/**
+ * The first day of the academic year before the current one (or of the
+ * current one when there is none before it). Each campus has its own years:
+ * with a campus, that campus's.
+ */
+export async function previousYearStart(tx: Tx, today: Date, campusId?: string | null): Promise<Date | null> {
+  const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: today }, ...(campusId ? { campusId } : {}) }, orderBy: { startDate: "desc" }, select: { startDate: true, endDate: true }, take: 3 });
   const current = years.find((y) => y.endDate >= today) ?? years[0] ?? null;
   if (!current) return null;
   return years.find((y) => y.startDate < current.startDate)?.startDate ?? current.startDate;
 }
 
-/** The first day of the current academic year (the latest one started when today falls in none). */
-export async function currentYearStart(tx: Tx, today: Date): Promise<Date | null> {
-  const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: today } }, orderBy: { startDate: "desc" }, select: { startDate: true, endDate: true }, take: 3 });
+/** The first day of the current academic year (the latest one started when today falls in none); with a campus, that campus's. */
+export async function currentYearStart(tx: Tx, today: Date, campusId?: string | null): Promise<Date | null> {
+  const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: today }, ...(campusId ? { campusId } : {}) }, orderBy: { startDate: "desc" }, select: { startDate: true, endDate: true }, take: 3 });
   return (years.find((y) => y.endDate >= today) ?? years[0])?.startDate ?? null;
 }
 
@@ -60,10 +64,12 @@ function bounds(prevStart: Date | null, firstRecord: Date | null, today: Date): 
  */
 export async function studentBounds(tx: Tx, studentId: string, today: Date, from: CalendarFrom = "previous-year"): Promise<MonthBounds> {
   const enrol = await tx.enrolment.findMany({ where: { studentId, archivedAt: null }, select: { academicYearId: true } });
+  // The school years of the student's own campus.
+  const campusId = (await tx.student.findFirst({ where: { id: studentId }, select: { campusId: true } }))?.campusId ?? null;
   const [firstYear, firstMark, prev] = await Promise.all([
     tx.academicYear.findFirst({ where: { id: { in: enrol.map((e) => e.academicYearId) } }, select: { startDate: true }, orderBy: { startDate: "asc" } }),
     tx.attendanceMark.findFirst({ where: { studentId, archivedAt: null }, orderBy: { date: "asc" }, select: { date: true } }),
-    from === "current-year" ? currentYearStart(tx, today) : previousYearStart(tx, today),
+    from === "current-year" ? currentYearStart(tx, today, campusId) : previousYearStart(tx, today, campusId),
   ]);
   const first = [firstYear?.startDate, firstMark?.date].filter((d): d is Date => Boolean(d));
   return bounds(prev, first.length ? new Date(Math.min(...first.map((d) => d.getTime()))) : null, today);
@@ -106,8 +112,13 @@ export async function schoolBounds(tx: Tx, today: Date): Promise<MonthBounds> {
   return bounds(await previousYearStart(tx, today), null, today);
 }
 
-/** Whether this person may see the student's attendance: everyone's, or students of their own sections this year. */
+/**
+ * Whether this person may see the student's attendance: everyone's (their
+ * campus's students when limited to one campus), or students of their own
+ * sections this year.
+ */
 export async function mayViewStudent(tx: Tx, access: AttendanceAccess, studentId: string) {
+  if (access.students === "all") return !access.campusLimit || Boolean(await tx.student.findFirst({ where: { id: studentId, campusId: access.campusLimit }, select: { id: true } }));
   const allowed = registerSections(access);
   if (allowed === "all") return true;
   if (!allowed.length || !access.yearId) return false;

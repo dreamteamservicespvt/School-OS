@@ -14,6 +14,8 @@ import type { SchoolContext, Tx } from "../db";
 import { defineImport, RowProblem, type ImportColumn, type ImportKind, type RowChoice, type RowResult } from "../importer";
 import { writeAudit } from "../audit";
 import { currentYear } from "../academic/years";
+import { personCampusId } from "../campus";
+import { campusLimitOf } from "../staff/campus-logins";
 import { checkIndianMobile } from "../format";
 import { createStudent, admissionHolder, admissionNoTaken, findDuplicates, nextRollNo, seatsLeft, StudentProblem, DuplicateFound, type DuplicateMatch } from "./students";
 import { GENDERS, OPTIONAL_FORM_FIELDS } from "./labels";
@@ -176,6 +178,9 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
       const motherProblem = motherPhone ? checkIndianMobile(motherPhone) : null;
       if (motherProblem) problems.push(`Mother's phone: ${motherProblem}`);
       const admissionNo = row.admissionNo?.trim() || null;
+      // One campus: a student already on record elsewhere is never updated or linked from here.
+      const limit = await campusLimitOf(tx, ctx);
+      const mine = (s: { campusId?: string | null } | null) => !limit || !s || s.campusId === limit;
       /** Problems with the values themselves; they also stop an update. */
       const valueProblems = [...problems];
 
@@ -187,16 +192,17 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
         if (seen.has(`adm:${admissionNo.toLowerCase()}`)) problems.push(`Admission number ${admissionNo} appears twice in this file.`);
         seen.add(`adm:${admissionNo.toLowerCase()}`);
         const holder = await admissionHolder(tx, admissionNo);
-        if (holder && !holder.archivedAt && decision.update === holder.id) target = holder;
+        if (holder && !holder.archivedAt && decision.update === holder.id && mine(holder)) target = holder;
         else if (holder) {
           problems.push((await admissionNoTaken(tx, admissionNo))!);
-          if (!holder.archivedAt) offer({ value: `update:${holder.id}`, label: `Same student: update ${holder.fullName} (${holder.admissionNo}) with this row's details` });
+          if (!holder.archivedAt && mine(holder)) offer({ value: `update:${holder.id}`, label: `Same student: update ${holder.fullName} (${holder.admissionNo}) with this row's details` });
         }
       }
       let dups: DuplicateMatch[] = [];
       if (!target && (dob || phone)) {
-        dups = (await findDuplicates(tx, { fullName: titleName, dateOfBirth: dob, guardianPhone: phoneProblem ? null : phone, phones: [motherProblem ? null : motherPhone] }))
-          .filter((d) => !choices.some((c) => c.value === `update:${d.id}`));
+        const found = await findDuplicates(tx, { fullName: titleName, dateOfBirth: dob, guardianPhone: phoneProblem ? null : phone, phones: [motherProblem ? null : motherPhone] });
+        const onCampus = limit ? new Set((await tx.student.findMany({ where: { id: { in: found.map((d) => d.id) }, campusId: limit }, select: { id: true } })).map((x) => x.id)) : null;
+        dups = found.filter((d) => !choices.some((c) => c.value === `update:${d.id}`) && (!onCampus || onCampus.has(d.id)));
         const picked = dups.find((d) => d.id === decision.update);
         if (picked) target = picked;
         else if (dups.length) {
@@ -238,11 +244,13 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
       if (row.className) {
         const k = `${ctx.schoolId}|${row.className}|${row.sectionName}`;
         if (!mem.sections.has(k)) {
-          const year = await currentYear(tx, ctx);
+          // A class named in the file is looked for in the importing person's own campus, in its current year.
+          const campusId = await personCampusId(tx, ctx, null);
+          const year = await currentYear(tx, ctx, campusId);
           const cls = row.className.trim();
           const names = [cls, `Class ${cls}`, cls.replace(/^class\s*/i, "Class ")];
           const sec = year ? await tx.section.findFirst({
-            where: { academicYearId: year.id, archivedAt: null, name: { equals: (row.sectionName || "A").trim(), mode: "insensitive" }, schoolClass: { name: { in: names, mode: "insensitive" } } },
+            where: { academicYearId: year.id, archivedAt: null, name: { equals: (row.sectionName || "A").trim(), mode: "insensitive" }, schoolClass: { name: { in: names, mode: "insensitive" }, ...(campusId ? { campusId } : {}) } },
           }) : null;
           mem.sections.set(k, sec?.id ?? null);
         }
@@ -301,7 +309,7 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
 
       let siblingId: string | null = null;
       if (row.siblingAdmissionNo) {
-        const sib = await tx.student.findFirst({ where: { admissionNo: { equals: row.siblingAdmissionNo.trim(), mode: "insensitive" }, archivedAt: null } });
+        const sib = await tx.student.findFirst({ where: { admissionNo: { equals: row.siblingAdmissionNo.trim(), mode: "insensitive" }, archivedAt: null, ...(limit ? { campusId: limit } : {}) } });
         if (!sib) problems.push(`Sibling admission number ${row.siblingAdmissionNo} was not found.`);
         siblingId = sib?.id ?? null;
       }

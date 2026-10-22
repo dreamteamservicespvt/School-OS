@@ -3,7 +3,7 @@ import { withSchool } from "@/lib/db";
 import { htmlToPdf } from "@/lib/pdf";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { getStudentSettings } from "@/lib/students/settings";
-import { abilities } from "@/lib/students/access";
+import { abilities, visibleStudentIds } from "@/lib/students/access";
 import { certificateHtml, printContext } from "@/lib/students/certificates";
 import { writeAudit } from "@/lib/audit";
 import { origin } from "../../_lib/page";
@@ -48,7 +48,8 @@ export async function GET(req: Request) {
   const out = await withSchool(current.ctx, async (tx) => {
     const can = abilities(current, await getStudentSettings(tx, current.ctx));
     if (can.reach !== "all" || can.lookupOnly) return { error: "You do not have permission to print certificates.", status: 403 } as const;
-    const certs = await tx.certificate.findMany({ where: { id: { in: ids }, status: { in: ["ISSUED", "CANCELLED"] } }, orderBy: { createdAt: "asc" } });
+    const mine = await visibleStudentIds(tx, current);
+    const certs = await tx.certificate.findMany({ where: { id: { in: ids }, status: { in: ["ISSUED", "CANCELLED"] }, ...(mine ? { studentId: { in: mine } } : {}) }, orderBy: { createdAt: "asc" } });
     if (certs.length === 0) return { error: "These certificates are not issued yet. Issue them first.", status: 409 } as const;
     const pages: string[] = [];
     for (const c of certs) pages.push(await certificateHtml(c, await printContext(tx, current.ctx, c, site)));

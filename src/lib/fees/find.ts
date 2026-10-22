@@ -32,7 +32,8 @@ export type FoundStudent = {
  */
 export async function findStudents(tx: Tx, viewer: FeeViewer, q: string, today: Date, take = 8): Promise<FoundStudent[]> {
   if (!q.trim()) return [];
-  const hits = await findAnyStudents(tx, q, { scope: studentScope(viewer), yearId: viewer.yearId ?? null, statuses: "any", take });
+  // Roll numbers and classes of each campus's current year (studentScope carries the campus, when limited to one).
+  const hits = await findAnyStudents(tx, q, { scope: studentScope(viewer), yearId: viewer.yearIds, statuses: "any", take });
   return describeStudents(tx, viewer, hits.map((h) => h.id), today);
 }
 
@@ -50,7 +51,8 @@ export function feeIntent(q: string): string | null {
 /** Students with the oldest overdue fees: most likely at the counter today. */
 export async function mostOverdue(tx: Tx, viewer: FeeViewer, today: Date, take = 6): Promise<FoundStudent[]> {
   const where: Prisma.StudentFeeDueWhereInput = { state: "OPEN", balancePaise: { gt: 0 }, dueDate: { lt: today } };
-  if (viewer.see !== "all") {
+  // Own reach, or a person limited to one campus: only the students they may see.
+  if (viewer.see !== "all" || viewer.campusId) {
     const ids = (await tx.student.findMany({ where: studentScope(viewer), select: { id: true } })).map((s) => s.id);
     where.studentId = { in: ids };
   }
@@ -58,7 +60,10 @@ export async function mostOverdue(tx: Tx, viewer: FeeViewer, today: Date, take =
   return describeStudents(tx, viewer, oldest.map((o) => o.studentId), today);
 }
 
-/** Name, class, father, phone and dues for each student, in the order given. */
+/**
+ * Name, class, father, phone and dues for each student, in the order given.
+ * The class is of the student's own campus's current year.
+ */
 export async function describeStudents(tx: Tx, viewer: FeeViewer, ids: string[], today: Date): Promise<FoundStudent[]> {
   if (!ids.length) return [];
   const [students, classes, dues] = await Promise.all([
@@ -66,11 +71,11 @@ export async function describeStudents(tx: Tx, viewer: FeeViewer, ids: string[],
       where: { id: { in: ids } },
       select: {
         id: true, fullName: true, admissionNo: true, photoFileId: true,
-        enrolments: { where: { archivedAt: null, ...(viewer.yearId ? { academicYearId: viewer.yearId } : {}) }, select: { rollNo: true }, take: 1, orderBy: { createdAt: "desc" } },
+        enrolments: { where: { archivedAt: null, ...(viewer.yearIds.length ? { academicYearId: { in: viewer.yearIds } } : {}) }, select: { rollNo: true }, take: 1, orderBy: { createdAt: "desc" } },
         guardians: { where: { archivedAt: null }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }], select: { relationship: true, guardian: { select: { name: true, phone: true } } } },
       },
     }),
-    classOfStudents(tx, ids, viewer.yearId),
+    classOfStudents(tx, ids, viewer.yearIds),
     tx.studentFeeDue.findMany({ where: { studentId: { in: ids }, state: "OPEN", balancePaise: { gt: 0 }, dueDate: { lte: addDays(today, DUE_WINDOW_DAYS) } }, select: { studentId: true, balancePaise: true, dueDate: true } }),
   ]);
   const out: FoundStudent[] = [];

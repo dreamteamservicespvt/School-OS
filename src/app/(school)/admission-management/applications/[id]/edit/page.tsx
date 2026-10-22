@@ -18,9 +18,11 @@ export default async function EditApplicationPage({ params }: { params: Promise<
   const { current, viewer, settings } = await workPage("edit");
   if (viewer.change !== "all") redirect(`${BASE}/applications/${id}`);
   const data = await withSchool(current.ctx, async (tx) => {
-    const app = await tx.application.findFirst({ where: { id, archivedAt: null } });
+    const app = await tx.application.findFirst({ where: { id, archivedAt: null, ...(viewer.campusId ? { campusId: viewer.campusId } : {}) } });
     if (!app) return null;
-    return { app, choices: await applicationChoices(tx, current, settings, app.academicYearId) };
+    // The class can change only within the campus of the application's year.
+    const year = await tx.academicYear.findUnique({ where: { id: app.academicYearId }, select: { campusId: true } });
+    return { app, choices: await applicationChoices(tx, { roles: current.roles, campusId: year?.campusId ?? app.campusId }, settings, app.academicYearId) };
   });
   if (!data) notFound();
   const { app } = data;

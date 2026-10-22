@@ -2,9 +2,10 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Link2, ListChecks, ScanFace, Settings2 } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { inCampus } from "@/lib/campus";
 import { formatDateTime } from "@/lib/format";
 import { attendancePage } from "@/lib/attendance/page";
-import { BASE } from "@/lib/attendance/access";
+import { BASE, staffLimit, studentLimit } from "@/lib/attendance/access";
 import { ALLOWED_USERS, DEVICE_TYPES, deviceStatus, REJECT_WORDS } from "@/lib/attendance/devices";
 import { UUID_RE } from "@/lib/staff/act";
 import { PAGE_SIZE, listHref, readListParams, skipTake } from "@/lib/list";
@@ -43,7 +44,8 @@ export default async function DevicePage({ params, searchParams }: { params: Pro
   const path = `${BASE}/devices/${id}`;
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const device = await tx.attendanceDevice.findFirst({ where: { id } });
+    // Another campus's device is not found for a person limited to one campus; so are its people in the pickers.
+    const device = await tx.attendanceDevice.findFirst({ where: { id, ...inCampus({ campusId: access.campusLimit }) } });
     if (!device) return null;
     const when = range ? { punchedAt: momentWhere(range, tz) } : {};
     const where = { deviceId: id, ...when, ...(onlyRejected ? { accepted: false } : {}) };
@@ -53,15 +55,15 @@ export default async function DevicePage({ params, searchParams }: { params: Pro
       tx.devicePunch.count({ where }),
       tx.devicePunch.groupBy({ by: ["accepted"], where: { deviceId: id, ...when }, _count: true }),
       tx.devicePunch.groupBy({ by: ["deviceUserNo"], where: { deviceId: id, rejectReason: "unknown-user" }, _count: true }),
-      tx.campus.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+      tx.campus.findMany({ where: { archivedAt: null, ...(access.campusLimit ? { id: access.campusLimit } : {}) }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
     ]);
     const staffIds = [...maps.map((m) => m.staffId), ...punches.map((p) => p.staffId)].filter((x): x is string => Boolean(x));
     const studentIds = [...maps.map((m) => m.studentId), ...punches.map((p) => p.studentId)].filter((x): x is string => Boolean(x));
     const [staff, students, allStaff, allStudents] = await Promise.all([
       tx.staff.findMany({ where: { id: { in: staffIds } }, select: { id: true, fullName: true, staffCode: true } }),
       tx.student.findMany({ where: { id: { in: studentIds } }, select: { id: true, fullName: true, admissionNo: true } }),
-      device.allowedUsers !== "students" ? tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } }) : [],
-      device.allowedUsers !== "staff" ? tx.student.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, admissionNo: true }, take: 3000 }) : [],
+      device.allowedUsers !== "students" ? tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, AND: [staffLimit(access)] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } }) : [],
+      device.allowedUsers !== "staff" ? tx.student.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] }, ...studentLimit(access) }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, admissionNo: true }, take: 3000 }) : [],
     ]);
     const mappedNos = new Set(maps.map((m) => m.deviceUserNo));
     return {

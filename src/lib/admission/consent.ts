@@ -147,14 +147,14 @@ export async function recordConsents(tx: Tx, ctx: SchoolContext, app: { id: stri
 /** At the counter: send the code to the parent's mobile. */
 export async function sendConsentCode(tx: Tx, ctx: SchoolContext, v: Viewer, schoolName: string, applicationId: string, opts: { deliver?: Deliver } = {}) {
   requireFull(v, "consent");
-  const app = await loadApplication(tx, applicationId);
+  const app = await loadApplication(tx, applicationId, v);
   return startOtp(tx, ctx, { phone: app.phone, purpose: `consent:${app.id}`, schoolName, about: { recordType: "Application", recordId: app.id } }, opts);
 }
 
 /** At the counter: the parent reads out the code; the consents are saved with the text version. */
 export async function confirmConsentAtCounter(tx: Tx, ctx: SchoolContext, v: Viewer, schoolName: string, applicationId: string, input: { code: string; types: string[]; givenByName: string }) {
   requireFull(v, "consent");
-  const app = await loadApplication(tx, applicationId);
+  const app = await loadApplication(tx, applicationId, v);
   if (!input.types.includes(DATA_CONSENT)) throw new AdmissionProblem("The data consent is needed for admission. The guardian must agree to it.", "consent_data-processing");
   await verifyOtp(tx, { purpose: `consent:${app.id}`, phone: app.phone, code: input.code });
   const texts = await admissionConsentTexts(tx, schoolName);

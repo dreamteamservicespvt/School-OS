@@ -9,7 +9,8 @@ import { APPLICATION_FILTERS, applicationOrder, applicationWhere } from "@/lib/a
 import { OPEN_STAGES, STAGES } from "@/lib/admission/applications";
 import { progressOf } from "@/lib/admission/documents";
 import { feeStatus } from "@/lib/admission/fee";
-import { classRules, openYears, stageOn } from "@/lib/admission/settings";
+import { admissionYears, campusNames, classList, classRules, openYears, stageOn, withCampus } from "@/lib/admission/settings";
+import { applicationScope } from "@/lib/admission/access";
 import { names } from "@/lib/admission/choices";
 import { phoneWords, whenWords } from "@/lib/admission/words";
 import { STAGE_TONE } from "@/lib/admission/tones";
@@ -42,12 +43,15 @@ export default async function ApplicationsPage({ searchParams }: Search) {
   const now = new Date();
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const years = await openYears(tx);
+    // Every open year of each campus the person sees (only their campus's when limited to one).
+    const limit = viewer.campusId;
+    const [years, admitting, classRows, campus] = await Promise.all([openYears(tx, limit), admissionYears(tx, current.ctx, settings, limit), classList(tx, limit), campusNames(tx, limit)]);
     const yearIds = years.length ? years.map((y) => y.id) : [NONE];
-    const where = applicationWhere(params, { yearId: yearIds, range, timeZone: tz });
+    const where = applicationWhere(params, { yearId: yearIds, range, timeZone: tz, campusId: limit });
     // Counts for the chips and the numbers on top ignore the stage chosen, so each chip shows its own size.
-    const base = applicationWhere({ ...params, filters: { ...params.filters, stage: "" } }, { yearId: yearIds, range, timeZone: tz });
-    const all = { archivedAt: null, academicYearId: { in: yearIds } };
+    const base = applicationWhere({ ...params, filters: { ...params.filters, stage: "" } }, { yearId: yearIds, range, timeZone: tz, campusId: limit });
+    const all = { archivedAt: null, academicYearId: { in: yearIds }, ...applicationScope(viewer) };
+    const classOptions = classRows.map((c) => ({ value: c.id, label: withCampus(campus, c.name, c.campusId) }));
     const [rows, total, n, rules, byStage, oldestDecision, papersMissing, feeDue, totalYear] = await Promise.all([
       tx.application.findMany({
         where, orderBy: applicationOrder(params), ...skipTake(params),
@@ -67,7 +71,7 @@ export default async function ApplicationsPage({ searchParams }: Search) {
       tx.application.count({ where: { ...all, stage: { notIn: ["WITHDRAWN", "REJECTED"] }, feeDuePaise: { gt: 0 }, payments: { none: { status: "CONFIRMED", cancelledAt: null } } } }),
       tx.application.count({ where: all }),
     ]);
-    return { years, rows, total, n, rules, byStage, oldestDecision, papersMissing, feeDue, totalYear };
+    return { years, admitting, classOptions, rows, total, n, rules, byStage, oldestDecision, papersMissing, feeDue, totalYear };
   });
 
   type Row = (typeof data.rows)[number];
@@ -76,9 +80,14 @@ export default async function ApplicationsPage({ searchParams }: Search) {
   const tests = stageOn(settings, "test") || stageOn(settings, "interview");
   const count = (s: string) => data.byStage.find((b) => b.stage === s)?._count._all ?? 0;
   const stageTotal = data.byStage.reduce((a, b) => a + b._count._all, 0);
-  const midYear = data.years.find((y) => y.status === "ACTIVE" && y.id !== year?.id) ?? null;
-  const yearLabel = (id: string) => (midYear && id === midYear.id ? `${midYear.name} mid-year` : data.years.find((y) => y.id === id)?.name ?? "");
-  const classes = [...n.classes.entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  // A campus's current year is "mid-year" while its admissions are open for the next year.
+  const midYear = data.years.find((y) => y.status === "ACTIVE" && y.id !== year?.id && (!year || y.campusId === year.campusId)) ?? null;
+  const isMidYear = (y: { id: string; status: string; campusId: string }) => y.status === "ACTIVE" && data.admitting.some((a) => a.campusId === y.campusId && a.id !== y.id);
+  const yearLabel = (id: string) => {
+    const y = data.years.find((x) => x.id === id);
+    return y ? (isMidYear(y) ? `${y.name} mid-year` : y.name) : "";
+  };
+  const classes = [...data.classOptions].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
   const filtered = Boolean(params.q || Object.keys(params.filters).length || params.archived);
   const canAdd = viewer.change === "all" && data.years.length > 0;
 

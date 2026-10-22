@@ -6,7 +6,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "@/lib/db";
-import { currentYear } from "@/lib/academic/years";
+import { currentYearIds } from "@/lib/academic/years";
 import { ACTIVE_STAFF, ACTIVE_STUDENT, membersOf, type Member } from "@/lib/library/members";
 import type { LibrarySettings } from "@/lib/library/settings";
 import { studentIdsForFilter } from "@/lib/students/find";
@@ -30,10 +30,11 @@ export async function memberRows(tx: Tx, ctx: SchoolContext, s: LibrarySettings,
   const q = f.q;
   const pg = { skip: page?.skip ?? 0, take: page?.take ?? 20000 };
   if (f.tab === "students") {
-    const year = await currentYear(tx, ctx);
-    if (year) {
+    // Students of every campus, each in their own campus's current year.
+    const yearIds = await currentYearIds(tx, ctx);
+    if (yearIds.length) {
       const where: Prisma.EnrolmentWhereInput = {
-        academicYearId: year.id, archivedAt: null, ...(f.sec ? { sectionId: f.sec } : {}),
+        academicYearId: { in: yearIds }, archivedAt: null, ...(f.sec ? { sectionId: f.sec } : {}),
         student: { archivedAt: null, status: { in: [...ACTIVE_STUDENT] }, ...(q ? { id: { in: await studentIdsForFilter(tx, q) } } : {}) },
       };
       total = await tx.enrolment.count({ where });

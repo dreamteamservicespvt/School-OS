@@ -1,6 +1,6 @@
 // A parent the person may open: linked to at least one of their students
-// (everyone, for people who see all students). And Parent 360, everything the
-// parent page shows, read once within what the person may see.
+// (everyone, for people who see all students of the whole school). And Parent
+// 360, everything the parent page shows, read once within what the person may see.
 import "server-only";
 
 import type { Tx } from "@/lib/db";
@@ -17,7 +17,7 @@ import { sectionNames } from "../_lib/queries";
 
 export async function visibleGuardianFor(tx: Tx, who: Who, id: string) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
-  const all = abilities(who).reach === "all";
+  const all = abilities(who).reach === "all" && !who.campusId;
   const scope = await studentScope(tx, who);
   return tx.guardian.findFirst({ where: { id, ...(all ? {} : { students: { some: { archivedAt: null, student: scope } } }) } });
 }
@@ -33,7 +33,8 @@ export async function visibleGuardianFor(tx: Tx, who: Who, id: string) {
 export async function loadParent360(tx: Tx, who: Who, id: string, o: { yearId: string | null; seeDocuments: boolean; parentLink: boolean }) {
   const g = await visibleGuardianFor(tx, who, id);
   if (!g) return null;
-  const all = abilities(who).reach === "all";
+  // A "One campus" login sees only that campus's children, even with whole-school reach.
+  const all = abilities(who).reach === "all" && !who.campusId;
   const scope = all ? {} : await studentScope(tx, who);
   const links = await tx.studentGuardian.findMany({
     where: { guardianId: id, archivedAt: null, ...(all ? {} : { student: scope }) },

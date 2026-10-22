@@ -1,6 +1,7 @@
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { currentYear } from "@/lib/academic/years";
+import { personCampusId } from "@/lib/campus";
 import { buildExport, exportResponse, logExport, type ExportColumn, type ExportFormat } from "@/lib/exports";
 import { formatDate } from "@/lib/format";
 import { PermissionDeniedError } from "@/lib/permissions";
@@ -31,7 +32,8 @@ export async function GET(req: Request) {
   const data = await withSchool(current.ctx, async (tx) => {
     const viewer = await feeViewer(tx, current.ctx, current);
     if (!feePageAllowed(viewer, "reports") || viewer.see !== "all") return null;
-    const year = await currentYear(tx, current.ctx);
+    // "This year so far" is the person's own campus's current year, as on the screen.
+    const year = await currentYear(tx, current.ctx, await personCampusId(tx, current.ctx, current));
     const { f, range } = reportFilter(sp, { ...dates, today, yearStart: year?.startDate ?? null });
     const result = await def.run(tx, current.ctx, f, viewer);
     const words = [

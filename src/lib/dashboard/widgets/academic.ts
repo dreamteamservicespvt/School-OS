@@ -8,6 +8,7 @@ import { periodsForStaffOnDate, effectiveVersion } from "../../academic/timetabl
 import { needsOn } from "../../academic/substitutions";
 import { allocationActiveOn } from "../../academic/allocation";
 import { mainCampusId } from "../../academic/settings";
+import { personCampusId } from "../../campus";
 import { CLOSED_TYPES } from "../../academic/calendar";
 import { schoolCalendar } from "../../calendar/school-days";
 import { weekday } from "../../academic/common";
@@ -148,7 +149,8 @@ const myAgenda: Widget<"agenda"> = {
 /** Periods today whose teacher is away and no substitute is arranged (Done when 6 of 04). */
 function needsToday(c: DashContext) {
   return c.memo("needs-today", async () => {
-    const campusId = c.viewer.campusId ?? (await mainCampusId(c.tx, c.viewer.ctx));
+    // The person's own campus: the one they are limited to, else their Staff record's, else the main campus.
+    const campusId = (await personCampusId(c.tx, c.viewer.ctx, c.viewer)) ?? (await mainCampusId(c.tx, c.viewer.ctx));
     const needs = await needsOn(c.tx, c.viewer.ctx, campusId, c.today);
     return { campusId, off: needs.off, open: needs.rows.filter((r) => r.substitution?.status !== "ARRANGED"), all: needs.rows };
   });
@@ -316,14 +318,16 @@ const nextHoliday: Widget<"band"> = {
   homes: ["staff"],
   // Every staff member sees the School Calendar (05-roles.md), whatever their Academic Management access.
   async load(c) {
+    // The person's own campus (their limit, else the campus of the year they work in).
+    const campusId = c.viewer.campusId ?? c.year?.campusId ?? null;
     const h = await c.tx.calendarEntry.findFirst({
-      where: { archivedAt: null, type: { in: CLOSED_TYPES }, attendanceOn: false, endDate: { gte: c.today }, ...(c.viewer.campusId ? { OR: [{ campusId: null }, { campusId: c.viewer.campusId }] } : {}) },
+      where: { archivedAt: null, type: { in: CLOSED_TYPES }, attendanceOn: false, endDate: { gte: c.today }, ...(campusId ? { OR: [{ campusId: null }, { campusId }] } : {}) },
       orderBy: { startDate: "asc" },
     });
     if (!h) return null;
     const one = h.startDate.getTime() === h.endDate.getTime();
     // Back on the next school day (the school's one rule): a holiday ending on a Saturday is back on Monday.
-    const after = await schoolCalendar(c.tx, c.viewer.ctx, addDays(h.endDate, 1), addDays(h.endDate, 21), c.viewer.campusId ?? null);
+    const after = await schoolCalendar(c.tx, c.viewer.ctx, addDays(h.endDate, 1), addDays(h.endDate, 21), campusId);
     const back = after.working()[0] ?? addDays(h.endDate, 1);
     return { id: "academic.next-holiday", label: "Next holiday", big: h.title, foot: `${one ? shortDate(h.startDate) : `${shortDate(h.startDate)} to ${shortDate(h.endDate)}`} · back ${dayWord(back, c.today) === "Tomorrow" ? "tomorrow" : shortDate(back)}` };
   },

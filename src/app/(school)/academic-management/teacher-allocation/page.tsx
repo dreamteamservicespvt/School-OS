@@ -35,7 +35,8 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
     let sectionIds = page.scope.sectionIds;
     if (classId) sectionIds = (await tx.section.findMany({ where: { classId, academicYearId: year.id, archivedAt: null, ...(page.scope.sectionIds ? { id: { in: page.scope.sectionIds } } : {}) }, select: { id: true } })).map((s) => s.id);
     const grid = view === "grid" ? await allocationGrid(tx, page.current.ctx, year.id, page.campusId, date, sectionIds) : null;
-    const workloads = await teacherWorkloads(tx, page.current.ctx, year.id, page.campusId, date, own ? page.scope.staffId ?? "none" : null);
+    // One campus: that campus's teachers only (also the teacher picker).
+    const workloads = await teacherWorkloads(tx, page.current.ctx, year.id, page.campusId, date, own ? page.scope.staffId ?? "none" : null, own ? null : page.current);
     const subjectsTaught = await tx.teacherAllocation.findMany({ where: { academicYearId: year.id, ...allocationActiveOn(date) }, select: { staffId: true, subjectId: true }, distinct: ["staffId", "subjectId"] });
     const maps = grid ? await tx.subjectClass.findMany({ where: { classId: { in: [...new Set(grid.rows.map((r) => r.classId))] }, ...mapActiveOn(date) }, select: { classId: true, subjectId: true, periodsPerWeek: true } }) : [];
     const totalGaps = classId && !own ? (await allocationGrid(tx, page.current.ctx, year.id, page.campusId, date, page.scope.sectionIds)).gaps : grid?.gaps ?? 0;

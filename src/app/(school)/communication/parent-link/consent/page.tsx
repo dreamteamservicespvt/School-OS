@@ -24,7 +24,7 @@ export default async function ConsentPage() {
     const ctx = current.ctx;
     const [texts, who, requests] = await Promise.all([
       currentConsentTexts(tx, ctx),
-      whoOptions(tx, ctx),
+      whoOptions(tx, ctx, access.scope.campusId),
       tx.consentRequest.findMany({ where: { schoolId: ctx.schoolId }, orderBy: { createdAt: "desc" }, take: 50 }),
     ]);
     const statuses = [];

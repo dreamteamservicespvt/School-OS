@@ -13,6 +13,8 @@ import type { AgendaItem, Birthday, DashContext, ListRow, Viewer, Widget } from 
 const BASE = "/staff-hr-management";
 const isHr = (v: Viewer) => reach(v, "staff-hr-management") === "all";
 const ACTIVE = ["ACTIVE", "ON_LEAVE", "SUSPENDED"] as const;
+/** One campus: that campus's staff only. */
+const campus = (c: DashContext) => (c.viewer.campusId ? { campusId: c.viewer.campusId } : {});
 
 /** Approved leave covering today, read once. */
 function onLeaveToday(c: DashContext) {
@@ -21,7 +23,7 @@ function onLeaveToday(c: DashContext) {
       where: { status: "APPROVED", archivedAt: null, staffId: { not: null }, fromDate: { lte: c.today }, toDate: { gte: c.today } },
       orderBy: { fromDate: "asc" },
     });
-    const staff = await c.tx.staff.findMany({ where: { id: { in: rows.map((r) => r.staffId!) }, archivedAt: null }, select: { id: true, fullName: true, designation: true, staffCode: true } });
+    const staff = await c.tx.staff.findMany({ where: { id: { in: rows.map((r) => r.staffId!) }, archivedAt: null, ...campus(c) }, select: { id: true, fullName: true, designation: true, staffCode: true } });
     const types = new Map((await c.tx.leaveType.findMany({ where: { id: { in: rows.map((r) => r.leaveTypeId) } }, select: { id: true, name: true } })).map((t) => [t.id, t.name]));
     return rows.flatMap((r) => {
       const s = staff.find((x) => x.id === r.staffId);
@@ -37,7 +39,7 @@ const staffBand: Widget<"band"> = {
   homes: ["leader", "hr"],
   allowed: isHr,
   async load(c) {
-    const [active, away] = await Promise.all([c.tx.staff.count({ where: { archivedAt: null, status: "ACTIVE" } }), onLeaveToday(c)]);
+    const [active, away] = await Promise.all([c.tx.staff.count({ where: { archivedAt: null, status: "ACTIVE", ...campus(c) } }), onLeaveToday(c)]);
     return { id: "staff.head-count", label: "Staff", big: n(active), foot: away.length ? `${plural(away.length, "person", "people")} on leave today` : "No one on leave today", href: BASE };
   },
 };
@@ -81,7 +83,7 @@ function documentStates(c: DashContext) {
     const settings = await hrSettings(c.tx, c.viewer.ctx);
     const soonDays = Math.max(...settings.reminderDays, 30);
     const docs = await c.tx.staffDocument.findMany({
-      where: { archivedAt: null, expiresOn: { not: null }, staff: { archivedAt: null, status: { notIn: ["RESIGNED", "RETIRED", "TERMINATED"] } } },
+      where: { archivedAt: null, expiresOn: { not: null }, staff: { archivedAt: null, status: { notIn: ["RESIGNED", "RETIRED", "TERMINATED"] }, ...campus(c) } },
       include: { staff: { select: { fullName: true } } }, orderBy: { expiresOn: "asc" },
     });
     const withState = docs.map((d) => ({ ...d, st: docStatus(d, c.today, soonDays) }));
@@ -192,7 +194,7 @@ const staffBirthdays: Widget<"birthdays"> = {
     const keys = days.map((d) => d.toISOString().slice(5, 10));
     const found = await c.tx.$queryRaw<{ id: string }[]>`SELECT id FROM staff WHERE archived_at IS NULL AND date_of_birth IS NOT NULL AND to_char(date_of_birth, 'MM-DD') = ANY(${keys})`;
     if (!found.length) return [];
-    const staff = await c.tx.staff.findMany({ where: { id: { in: found.map((f) => f.id) }, status: { in: [...ACTIVE] } }, select: { id: true, fullName: true, dateOfBirth: true, userLoginId: true } });
+    const staff = await c.tx.staff.findMany({ where: { id: { in: found.map((f) => f.id) }, status: { in: [...ACTIVE] }, ...campus(c) }, select: { id: true, fullName: true, dateOfBirth: true, userLoginId: true } });
     return staff.map((s): Birthday => {
       const day = days.find((d) => d.toISOString().slice(5, 10) === s.dateOfBirth!.toISOString().slice(5, 10))!;
       const mine = s.userLoginId === c.viewer.user.id;

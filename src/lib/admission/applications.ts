@@ -10,12 +10,12 @@ import { writeAudit } from "../audit";
 import { encryptField } from "../crypto";
 import { nextNumber, formatNumber } from "../sequences";
 import { formatDate } from "../format";
-import { assertYearOpen } from "../academic/years";
+import { assertYearOpen, currentEnrolment } from "../academic/years";
 import { requestApproval } from "../approvals";
 import { AdmissionProblem } from "./act";
-import { requireFull, type Viewer } from "./access";
+import { requireFull, requireOwnCampus, type Viewer } from "./access";
 import { DuplicateProblem, systemStatus, type Match } from "./enquiries";
-import { applicationPrefix, classList, classRule, needsPreviousSchool, stageOn, type Settings } from "./settings";
+import { applicationPrefix, classList, classRule, needsPreviousSchool, stageOn, yearOnCampus, type Settings } from "./settings";
 import { messageParent } from "./notify-parents";
 
 export const STAGES: { value: ApplicationStage; label: string }[] = [
@@ -102,11 +102,21 @@ export async function findSibling(tx: Tx, phones: (string | null)[]) {
   return link?.student ?? null;
 }
 
-async function checkInput(tx: Tx, input: ApplicationInput, s: Settings) {
-  const classes = await classList(tx);
-  const cls = classes.find((c) => c.id === input.classId);
+/**
+ * Checks the form. The application is for the campus of the class applied
+ * for, in that campus's year (each campus has its own years): the year chosen,
+ * or the campus's open year of the same name. `limit`: a person limited to one
+ * campus applies only for its classes. `campusId`: an existing application's
+ * campus, which a change of class keeps.
+ */
+async function checkInput(tx: Tx, input: ApplicationInput, s: Settings, opts: { limit?: { campusId?: string | null } | null; campusId?: string | null } = {}) {
+  const all = await classList(tx);
+  const cls = all.find((c) => c.id === input.classId);
   if (!cls) throw new AdmissionProblem("Choose the class applied for.", "classId");
-  const year = await tx.academicYear.findFirst({ where: { id: input.yearId, archivedAt: null } });
+  requireOwnCampus(opts.limit ?? {}, cls.campusId, "classId");
+  if (opts.campusId && cls.campusId !== opts.campusId) throw new AdmissionProblem("Choose a class of this application's campus. For another campus, make a new application.", "classId");
+  const classes = all.filter((c) => c.campusId === cls.campusId);
+  const year = await yearOnCampus(tx, input.yearId, cls.campusId);
   if (!year) throw new AdmissionProblem("Choose the admission year.", "yearId");
   await assertYearOpen(tx, year.id);
   if (!GENDERS.includes(input.gender as (typeof GENDERS)[number])) throw new AdmissionProblem("Choose the gender.", "gender");
@@ -128,21 +138,26 @@ async function checkInput(tx: Tx, input: ApplicationInput, s: Settings) {
   return { cls, year, rule };
 }
 
-/** Same child already here: name and date of birth with the same phone, as a student or an open application (workflow 1). */
-export async function childDuplicates(tx: Tx, input: { fullName: string; dateOfBirth: Date; phone: string }, excludeId?: string): Promise<Match[]> {
+/**
+ * Same child already here: name and date of birth with the same phone, as a student or an open application (workflow 1).
+ * campusId: a person limited to one campus is shown that campus's matches only.
+ */
+export async function childDuplicates(tx: Tx, input: { fullName: string; dateOfBirth: Date; phone: string }, excludeId?: string, campusId?: string | null): Promise<Match[]> {
   const out: Match[] = [];
+  const campus = campusId ? { campusId } : {};
   const apps = await tx.application.findMany({
-    where: { archivedAt: null, id: excludeId ? { not: excludeId } : undefined, stage: { notIn: ["WITHDRAWN", "REJECTED"] }, dateOfBirth: input.dateOfBirth, fullName: { equals: input.fullName, mode: "insensitive" } },
+    where: { archivedAt: null, id: excludeId ? { not: excludeId } : undefined, stage: { notIn: ["WITHDRAWN", "REJECTED"] }, dateOfBirth: input.dateOfBirth, fullName: { equals: input.fullName, mode: "insensitive" }, ...campus },
     take: 3,
   });
   for (const a of apps) out.push({ kind: "application", id: a.id, href: `/admission-management/applications/${a.id}`, text: `${a.fullName}, born ${formatDate(a.dateOfBirth)}, already has application ${a.applicationNo}.` });
   const students = await tx.student.findMany({
-    where: { archivedAt: null, dateOfBirth: input.dateOfBirth, fullName: { equals: input.fullName, mode: "insensitive" }, guardians: { some: { archivedAt: null, guardian: { phone: input.phone } } } },
+    where: { archivedAt: null, dateOfBirth: input.dateOfBirth, fullName: { equals: input.fullName, mode: "insensitive" }, guardians: { some: { archivedAt: null, guardian: { phone: input.phone } } }, ...campus },
     take: 3,
-    include: { enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1 } },
   });
   for (const st of students) {
-    const sec = st.enrolments[0] ? await tx.section.findUnique({ where: { id: st.enrolments[0].sectionId }, include: { schoolClass: true } }) : null;
+    // The class this year, in the student's own campus's current year.
+    const en = await currentEnrolment(tx, st.id);
+    const sec = en ? await tx.section.findUnique({ where: { id: en.sectionId }, include: { schoolClass: true } }) : null;
     out.push({ kind: "parent", id: st.id, href: `/student-management?q=${encodeURIComponent(st.admissionNo)}`, text: `A student with this name, date of birth and parent phone already exists${sec ? ` in ${sec.schoolClass.name} ${sec.name}` : ""} (admission no. ${st.admissionNo}).` });
   }
   return out;
@@ -166,36 +181,37 @@ export async function ensureChecklist(tx: Tx, ctx: SchoolContext, app: Pick<Appl
   }
 }
 
-export type CreateOptions = { campusId: string; channel: "counter" | "online"; enquiryId?: string | null; force?: boolean };
+/** campusId is kept for older callers: the application's campus is always its class's (and year's) campus. */
+export type CreateOptions = { campusId?: string; channel: "counter" | "online"; enquiryId?: string | null; force?: boolean };
 
 /**
  * Saves a new application. Fields already known from the enquiry are filled
  * on the form; the same child twice is stopped unless the person chose
- * "Save anyway".
+ * "Save anyway". It is for the campus of the class applied for.
  */
 export async function createApplication(tx: Tx, ctx: SchoolContext, v: Viewer | null, s: Settings, input: ApplicationInput, opts: CreateOptions) {
   if (v) requireFull(v, "applications");
-  const { cls, year, rule } = await checkInput(tx, input, s);
+  const { cls, year, rule } = await checkInput(tx, input, s, { limit: v });
   const fullName = [input.firstName, input.lastName].filter(Boolean).join(" ");
   if (!opts.force) {
-    const dupes = await childDuplicates(tx, { fullName, dateOfBirth: input.dateOfBirth, phone: input.phone });
+    const dupes = await childDuplicates(tx, { fullName, dateOfBirth: input.dateOfBirth, phone: input.phone }, undefined, v?.campusId);
     if (dupes.length) throw new DuplicateProblem(dupes);
   }
-  let enquiry = opts.enquiryId ? await tx.enquiry.findFirst({ where: { id: opts.enquiryId, archivedAt: null } }) : null;
+  let enquiry = opts.enquiryId ? await tx.enquiry.findFirst({ where: { id: opts.enquiryId, archivedAt: null, ...(v?.campusId ? { campusId: v.campusId } : {}) } }) : null;
   if (opts.enquiryId && !enquiry) throw new AdmissionProblem("The enquiry this application came from was not found.");
   if (enquiry && (await tx.application.count({ where: { enquiryId: enquiry.id, archivedAt: null, stage: { notIn: ["WITHDRAWN", "REJECTED"] } } })) > 0) {
     throw new AdmissionProblem("This enquiry already has an application.", undefined, { href: `/admission-management/enquiries/${enquiry.id}`, label: "Open the enquiry" });
   }
   if (!enquiry && opts.channel === "online") {
     // An online form from a family already in Enquiries joins their enquiry.
-    enquiry = await tx.enquiry.findFirst({ where: { archivedAt: null, phone: input.phone, status: { notIn: ["applied", "admitted"] } }, orderBy: { createdAt: "desc" } });
+    enquiry = await tx.enquiry.findFirst({ where: { archivedAt: null, phone: input.phone, status: { notIn: ["applied", "admitted"] }, campusId: cls.campusId }, orderBy: { createdAt: "desc" } });
   }
   const sibling = await findSibling(tx, [input.phone, input.altPhone]);
   const n = await nextNumber(tx, ctx, `application:${year.name}`);
   const applicationNo = formatNumber(applicationPrefix(s.applicationPrefix, year.name), n, 4);
   const app = await tx.application.create({
     data: {
-      schoolId: ctx.schoolId, campusId: opts.campusId, academicYearId: year.id, applicationNo, enquiryId: enquiry?.id ?? null, classId: cls.id,
+      schoolId: ctx.schoolId, campusId: cls.campusId, academicYearId: year.id, applicationNo, enquiryId: enquiry?.id ?? null, classId: cls.id,
       firstName: input.firstName, lastName: input.lastName, fullName, dateOfBirth: input.dateOfBirth, gender: input.gender,
       fatherName: input.fatherName, motherName: input.motherName, guardianName: input.guardianName, guardianRelation: input.guardianRelation,
       phone: input.phone, altPhone: input.altPhone, email: input.email, address: input.address,
@@ -215,8 +231,12 @@ export async function createApplication(tx: Tx, ctx: SchoolContext, v: Viewer | 
   return app;
 }
 
-export async function loadApplication(tx: Tx, id: string) {
-  const app = await tx.application.findFirst({ where: { id, archivedAt: null } });
+/**
+ * An application by id. `limit` (the Viewer, or anything with campusId): for
+ * a person limited to one campus, another campus's application is not found.
+ */
+export async function loadApplication(tx: Tx, id: string, limit?: { campusId?: string | null } | null) {
+  const app = await tx.application.findFirst({ where: { id, archivedAt: null, ...(limit?.campusId ? { campusId: limit.campusId } : {}) } });
   if (!app) throw new AdmissionProblem("This application was not found. It may have been archived.");
   return app;
 }
@@ -224,16 +244,18 @@ export async function loadApplication(tx: Tx, id: string) {
 /** Edit the form while it is still open (not decided). */
 export async function editApplication(tx: Tx, ctx: SchoolContext, v: Viewer, s: Settings, id: string, input: ApplicationInput) {
   requireFull(v, "applications");
-  const app = await loadApplication(tx, id);
+  const app = await loadApplication(tx, id, v);
   if (!OPEN_STAGES.includes(app.stage) && app.stage !== "WAITING_LIST") throw new AdmissionProblem(`This application is ${stageLabel(app.stage).toLowerCase()}, so its form can no longer be changed.`);
-  const { cls, rule } = await checkInput(tx, { ...input, yearId: app.academicYearId }, s);
+  // The class stays on the campus of the application's year (the year decides where the child is admitted).
+  const appYear = await tx.academicYear.findUnique({ where: { id: app.academicYearId }, select: { campusId: true } });
+  const { cls, rule } = await checkInput(tx, { ...input, yearId: app.academicYearId }, s, { limit: v, campusId: appYear?.campusId ?? app.campusId });
   const fullName = [input.firstName, input.lastName].filter(Boolean).join(" ");
   const sibling = await findSibling(tx, [input.phone, input.altPhone]);
   const before = { classId: app.classId, fullName: app.fullName, dateOfBirth: app.dateOfBirth.toISOString().slice(0, 10), phone: app.phone, address: app.address, previousSchool: app.previousSchool, previousMarks: app.previousMarks };
   const changed = await tx.application.update({
     where: { id },
     data: {
-      classId: cls.id, firstName: input.firstName, lastName: input.lastName, fullName, dateOfBirth: input.dateOfBirth, gender: input.gender,
+      classId: cls.id, campusId: cls.campusId, firstName: input.firstName, lastName: input.lastName, fullName, dateOfBirth: input.dateOfBirth, gender: input.gender,
       fatherName: input.fatherName, motherName: input.motherName, guardianName: input.guardianName, guardianRelation: input.guardianRelation,
       phone: input.phone, altPhone: input.altPhone, email: input.email, address: input.address, previousSchool: input.previousSchool,
       previousClass: input.previousClass, previousMarks: input.previousMarks, preferences: input.preferences as Prisma.InputJsonValue,
@@ -254,7 +276,7 @@ export async function editApplication(tx: Tx, ctx: SchoolContext, v: Viewer, s: 
 /** Review: mark "Reviewed" with a note. */
 export async function review(tx: Tx, ctx: SchoolContext, v: Viewer, id: string, note: string | null) {
   requireFull(v, "reviews");
-  const app = await loadApplication(tx, id);
+  const app = await loadApplication(tx, id, v);
   if (app.stage !== "SUBMITTED" && app.stage !== "SUBMITTED_ONLINE") throw new AdmissionProblem("This application is already past review.");
   await tx.application.update({ where: { id }, data: { stage: "REVIEWED", reviewedAt: new Date(), reviewedById: ctx.userId, reviewNote: note, sentBackAt: null, updatedById: ctx.userId } });
   await activity(tx, ctx, id, "reviewed", `Reviewed.${note ? ` ${note}` : ""}`);
@@ -264,7 +286,7 @@ export async function review(tx: Tx, ctx: SchoolContext, v: Viewer, id: string, 
 /** Send back to the parent for missing details, by message. */
 export async function sendBack(tx: Tx, ctx: SchoolContext, v: Viewer, schoolName: string, id: string, note: string) {
   requireFull(v, "applications");
-  const app = await loadApplication(tx, id);
+  const app = await loadApplication(tx, id, v);
   if (CLOSED_STAGES.includes(app.stage)) throw new AdmissionProblem("This application is closed.");
   if (note.trim().length < 5) throw new AdmissionProblem("Say what is missing, so the parent knows what to send.", "note");
   const parent = app.fatherName ?? app.motherName ?? app.guardianName ?? "Parent";
@@ -296,7 +318,7 @@ export async function feeSettled(tx: Tx, app: Pick<Application, "id" | "feeDuePa
 /** Move to Documents, Test & Interview or Decision, with the same checks wherever it is done. */
 export async function moveStage(tx: Tx, ctx: SchoolContext, v: Viewer, s: Settings, id: string, to: ApplicationStage) {
   requireFull(v, "moving applications");
-  const app = await loadApplication(tx, id);
+  const app = await loadApplication(tx, id, v);
   if (app.stage === to) return app;
   if (!movableTo(s, app.stage).includes(to)) {
     if (to === "TEST_INTERVIEW") throw new AdmissionProblem("Tests and interviews are switched off in Admission Settings.");
@@ -350,7 +372,7 @@ export async function closeRankGap(tx: Tx, app: Pick<Application, "academicYearI
 /** Withdraw: the parent is no longer interested. Needs a reason. */
 export async function withdraw(tx: Tx, ctx: SchoolContext, v: Viewer, id: string, reason: string) {
   requireFull(v, "withdrawing applications");
-  const app = await loadApplication(tx, id);
+  const app = await loadApplication(tx, id, v);
   if (CLOSED_STAGES.includes(app.stage)) throw new AdmissionProblem(app.stage === "ADMITTED" ? "This child is already admitted. Use Leaving & Alumni in Student Management instead." : "This application is already closed.");
   if (reason.trim().length < 5) throw new AdmissionProblem("Give the reason the family is withdrawing.", "reason");
   await tx.application.update({ where: { id }, data: { stage: "WITHDRAWN", withdrawnReason: reason.trim(), withdrawnAt: new Date(), waitingRank: null, updatedById: ctx.userId } });

@@ -38,7 +38,7 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
   const data = await withSchool(current.ctx, async (tx) => {
     await ensureTopics(tx, current.ctx);
-    const base = await queryWhere(tx, current.ctx, access.full ? "all" : "own");
+    const base = await queryWhere(tx, current.ctx, access.full ? "all" : "own", access.scope.campusId);
     const where = queryListWhere(base, current.ctx, params, now, tz);
     const [rows, total, topics, depts, byStatus, overdue, resolvedMonth, resolvedTimes, ratings, byTopic, settings] = await Promise.all([
       tx.query.findMany({ where, orderBy: params.sort === "due" ? { dueBy: params.dir } : { createdAt: "desc" }, ...skipTake(params) }),

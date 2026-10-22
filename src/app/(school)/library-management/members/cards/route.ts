@@ -6,6 +6,7 @@ import { withSchool } from "@/lib/db";
 import { htmlToPdf } from "@/lib/pdf";
 import { writeAudit } from "@/lib/audit";
 import { currentYear } from "@/lib/academic/years";
+import { personCampusId } from "@/lib/campus";
 import { librarySettings } from "@/lib/library/settings";
 import { libraryCardsHtml } from "@/lib/library/labels";
 import { libRoute, plain } from "../../_lib/route";
@@ -21,7 +22,9 @@ export async function GET(req: Request) {
   if (f.tab === "students" && !f.sec) return plain("Choose a class to print its library cards.", 400);
   const html = await withSchool(x.current.ctx, async (tx) => {
     const s = await librarySettings(tx, x.current.ctx);
-    const year = await currentYear(tx, x.current.ctx);
+    // The class's own year (each campus has its own school year); staff cards, the person's own campus's year.
+    const classYear = f.tab === "students" && f.sec ? (await tx.section.findFirst({ where: { id: f.sec }, select: { academicYear: true } }))?.academicYear ?? null : null;
+    const year = classYear ?? await currentYear(tx, x.current.ctx, await personCampusId(tx, x.current.ctx, x.current));
     const { rows } = await memberRows(tx, x.current.ctx, s, { ...f, q: "" }, x.today, null);
     const members = rows.filter((m) => m.active).slice(0, 400);
     if (!members.length) return null;

@@ -3,13 +3,13 @@
 import { z } from "zod";
 import { parseForm, type FormState } from "@/lib/forms";
 import { requireAction } from "@/lib/current";
-import { withSchool } from "@/lib/db";
+import { withSchool, type Tx } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { AcademicRuleError, isoDay, plural, todayIn } from "@/lib/academic/common";
-import { mainCampusId } from "@/lib/academic/settings";
 import { academicScope, type AcademicScope } from "@/lib/academic/scope";
 import { KIND_ORDER, addItem, archiveItem, archiveLessonPlan, copySyllabus, flatten, logProgress, moveItem, nextPendingTopic, nextPeriodDate, saveLessonPlan, syllabusTree, untick, updateItem } from "@/lib/academic/syllabus";
-import { act, actSimple } from "../_lib/server";
+import { sectionInCampus } from "@/lib/campus";
+import { act, actSimple, classOnCampus, sameCampus, yearCampus } from "../_lib/server";
 
 const PATH = "/academic-management/syllabus";
 const uuid = (m: string) => z.string().uuid(m);
@@ -20,6 +20,9 @@ const longText = (label: string) => z.string().trim().max(4000, `${label} can be
 function ownSection(scope: AcademicScope, sectionId: string) {
   if (scope.sectionIds && !scope.sectionIds.includes(sectionId)) throw new AcademicRuleError("You can only record this for your own classes.");
 }
+
+// A syllabus is a year's (and so a campus's): its class is on that year's campus.
+const itemYear = (id: string) => async (tx: Tx) => (await tx.syllabusItem.findFirst({ where: { id } }))?.academicYearId ?? null;
 
 // ------------------------------------------------------------ the syllabus tree (set-up)
 
@@ -35,7 +38,8 @@ export async function addItemAction(_prev: FormState, fd: FormData): Promise<For
   const parsed = parseForm(itemSchema, fd);
   if (!parsed.ok) return parsed.state;
   const d = parsed.data;
-  return act("create", async ({ tx, current }) => {
+  return act("create", async ({ tx, current, campus }) => {
+    await classOnCampus(tx, d.classId, await campus(), "Choose a class.", "classId");
     const r = await addItem(tx, current.ctx, d);
     return { flash: { message: `${r.title} added.` } };
   }, { formData: fd, yearId: d.yearId, revalidate: [PATH] });
@@ -50,19 +54,19 @@ export async function updateItemAction(_prev: FormState, fd: FormData): Promise<
   return act("edit", async ({ tx, current }) => {
     await updateItem(tx, current.ctx, d.id, d);
     return { flash: { message: `${d.title} saved.` } };
-  }, { formData: fd, yearOf: async (tx) => (await tx.syllabusItem.findFirst({ where: { id: d.id } }))?.academicYearId ?? null, revalidate: [PATH] });
+  }, { formData: fd, yearOf: itemYear(d.id), notFound: "This item was not found.", revalidate: [PATH] });
 }
 
 export async function archiveItemAction(id: string): Promise<string | undefined> {
   return actSimple("archive", async ({ tx, current }) => {
     const r = await archiveItem(tx, current.ctx, id);
     return { flash: { message: `${r.item.title}${r.ids.length > 1 ? ` and ${plural(r.ids.length - 1, "item")} under it` : ""} archived. Progress already logged stays in history.` } };
-  }, { yearOf: async (tx) => (await tx.syllabusItem.findFirst({ where: { id } }))?.academicYearId ?? null, revalidate: [PATH] });
+  }, { yearOf: itemYear(id), notFound: "This item was not found.", revalidate: [PATH] });
 }
 
 export async function moveItemAction(id: string, dir: "up" | "down"): Promise<string | undefined> {
   if (dir !== "up" && dir !== "down") return "Choose up or down.";
-  return actSimple("edit", async ({ tx, current }) => { await moveItem(tx, current.ctx, id, dir); }, { yearOf: async (tx) => (await tx.syllabusItem.findFirst({ where: { id } }))?.academicYearId ?? null, revalidate: [PATH] });
+  return actSimple("edit", async ({ tx, current }) => { await moveItem(tx, current.ctx, id, dir); }, { yearOf: itemYear(id), notFound: "This item was not found.", revalidate: [PATH] });
 }
 
 const copySchema = z.object({
@@ -75,7 +79,10 @@ export async function copySyllabusAction(_prev: FormState, fd: FormData): Promis
   if (!parsed.ok) return parsed.state;
   const d = parsed.data;
   const [fromYear, fromClass, fromSubject] = d.from.split(":");
-  return act("create", async ({ tx, current }) => {
+  return act("create", async ({ tx, current, campus }) => {
+    await classOnCampus(tx, d.classId, await campus(), "Choose a class.", "classId");
+    // One campus: copied only from a year of the person's campus.
+    if (current.campusId) sameCampus(current, await yearCampus(tx, fromYear), "There is no syllabus there to copy.");
     const n = await copySyllabus(tx, current.ctx, { yearId: fromYear, classId: fromClass, subjectId: fromSubject }, { yearId: d.yearId, classId: d.classId, subjectId: d.subjectId });
     return { flash: { message: `Copied ${plural(n, "item")}. Planned dates moved to this year; check them.` } };
   }, { formData: fd, yearId: d.yearId, revalidate: [PATH] });
@@ -107,7 +114,8 @@ export async function pasteItemsAction(_prev: FormState, fd: FormData): Promise<
     if (titlePart.length > 200) return { ok: false, message: `Line ${i + 1} is longer than 200 characters.`, errors: { text: `Line ${i + 1} is longer than 200 characters.` }, values: { text: d.text } };
     parsedLines.push({ depth, title: titlePart, plannedTo, line: i + 1 });
   }
-  return act("create", async ({ tx, current }) => {
+  return act("create", async ({ tx, current, campus }) => {
+    await classOnCampus(tx, d.classId, await campus(), "Choose a class.", "classId");
     const parents: (string | null)[] = [null, null, null, null];
     let n = 0;
     for (const p of parsedLines) {
@@ -153,7 +161,7 @@ export async function untickAction(input: { sectionId: string; itemId: string; d
     const n = await untick(tx, current.ctx, input.sectionId, input.itemId, new Date(`${input.date}T00:00:00Z`));
     if (!n) throw new AcademicRuleError("That tick was already taken back.");
     return { flash: { message: "Tick taken back. Progress updated." } };
-  }, { yearOf: async (tx) => (await tx.section.findFirst({ where: { id: input.sectionId } }))?.academicYearId ?? null, needs: "any", revalidate: [PATH] });
+  }, { yearOf: async (tx) => (await tx.section.findFirst({ where: { id: input.sectionId } }))?.academicYearId ?? null, notFound: "That tick was not found.", needs: "any", revalidate: [PATH] });
 }
 
 // ------------------------------------------------------------ lesson plans
@@ -163,7 +171,7 @@ export async function planDefaultsAction(sectionId: string, subjectId: string): 
   if (!/^[0-9a-f-]{36}$/i.test(sectionId) || !/^[0-9a-f-]{36}$/i.test(subjectId)) return null;
   const { current } = await requireAction("academic-management", "view");
   return withSchool(current.ctx, async (tx) => {
-    const section = await tx.section.findFirst({ where: { id: sectionId, archivedAt: null } });
+    const section = await tx.section.findFirst({ where: { id: sectionId, archivedAt: null, ...sectionInCampus(current) }, include: { schoolClass: { select: { campusId: true } } } });
     if (!section) return null;
     const scope = await academicScope(tx, current, section.academicYearId);
     if (scope.sectionIds && !scope.sectionIds.includes(section.id)) return null;
@@ -171,8 +179,8 @@ export async function planDefaultsAction(sectionId: string, subjectId: string): 
     const tree = await syllabusTree(tx, section.academicYearId, section.classId, subjectId, section.id, today);
     const topics = flatten(tree).map((n) => ({ id: n.id, label: `${"— ".repeat(n.depth)}${n.title}${n.status === "Completed" ? " (completed)" : n.status === "Taught" ? " (taught)" : ""}` }));
     const next = await nextPendingTopic(tx, section.academicYearId, section.id, section.classId, subjectId, today);
-    const campusId = await mainCampusId(tx, current.ctx);
-    const date = await nextPeriodDate(tx, current.ctx, section.id, subjectId, today, campusId);
+    // The section's own campus: its Time Table and holidays.
+    const date = await nextPeriodDate(tx, current.ctx, section.id, subjectId, today, section.schoolClass.campusId);
     return { topics, topicId: next?.id ?? "", date: isoDay(date) };
   });
 }
@@ -196,6 +204,7 @@ export async function saveLessonPlanAction(_prev: FormState, fd: FormData): Prom
     if (d.id) {
       const plan = await tx.lessonPlan.findFirst({ where: { id: d.id, archivedAt: null } });
       if (!plan) throw new AcademicRuleError("This lesson plan was not found.");
+      if (current.campusId) sameCampus(current, await yearCampus(tx, plan.academicYearId), "This lesson plan was not found.");
       if (!scope.manage && plan.staffId !== scope.staffId) throw new AcademicRuleError("Only the teacher who wrote this plan can change it.");
     }
     if (!scope.staffId && !d.id) throw new AcademicRuleError("Your login is not linked to a staff record, so a plan cannot be saved in your name.");
@@ -210,7 +219,7 @@ export async function archiveLessonPlanAction(id: string): Promise<string | unde
     if (plan && !scope.manage && plan.staffId !== scope.staffId) throw new AcademicRuleError("Only the teacher who wrote this plan can remove it.");
     await archiveLessonPlan(tx, current.ctx, id);
     return { flash: { message: "Lesson plan archived." } };
-  }, { yearOf: async (tx) => (await tx.lessonPlan.findFirst({ where: { id } }))?.academicYearId ?? null, needs: "any", revalidate: [PATH] });
+  }, { yearOf: async (tx) => (await tx.lessonPlan.findFirst({ where: { id } }))?.academicYearId ?? null, notFound: "This lesson plan was not found.", needs: "any", revalidate: [PATH] });
 }
 
 /** Items of another class or year to copy from, for the Copy dialog. */
@@ -218,10 +227,12 @@ export async function copySourcesAction(yearIds: string[], subjectId: string): P
   if (!/^[0-9a-f-]{36}$/i.test(subjectId) || !Array.isArray(yearIds) || yearIds.some((y) => !/^[0-9a-f-]{36}$/i.test(y))) return [];
   const { current } = await requireAction("academic-management", "view");
   return withSchool(current.ctx, async (tx) => {
-    const rows = await tx.syllabusItem.groupBy({ by: ["academicYearId", "classId", "subjectId"], where: { academicYearId: { in: yearIds }, archivedAt: null, parentId: null }, _count: { _all: true } });
+    // One campus: only that campus's years.
+    const visible = current.campusId ? (await tx.academicYear.findMany({ where: { id: { in: yearIds }, campusId: current.campusId }, select: { id: true } })).map((y) => y.id) : yearIds;
+    const rows = await tx.syllabusItem.groupBy({ by: ["academicYearId", "classId", "subjectId"], where: { academicYearId: { in: visible }, archivedAt: null, parentId: null }, _count: { _all: true } });
     const [classes, years, subjects] = await Promise.all([
       tx.schoolClass.findMany({ where: { id: { in: rows.map((r) => r.classId) } }, select: { id: true, name: true } }),
-      tx.academicYear.findMany({ where: { id: { in: yearIds } }, select: { id: true, name: true } }),
+      tx.academicYear.findMany({ where: { id: { in: visible } }, select: { id: true, name: true } }),
       tx.subject.findMany({ where: { id: { in: rows.map((r) => r.subjectId) } }, select: { id: true, name: true } }),
     ]);
     return rows

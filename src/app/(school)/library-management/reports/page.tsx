@@ -8,8 +8,7 @@ import type { Metadata } from "next";
 import { BarChart3, ChevronRight, FileBarChart } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatRupees } from "@/lib/format";
-import { currentYear } from "@/lib/academic/years";
-import { sectionsForYear } from "@/lib/academic";
+import { sectionsForCurrentYears } from "@/lib/academic";
 import { cellText } from "@/lib/reports/run";
 import { Card, CardHeader } from "@/components/ui/card";
 import { BarsChart } from "@/components/ui/bars-chart";
@@ -37,9 +36,9 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
   const f = r.f;
 
   const d = await withSchool(current.ctx, async (tx) => {
-    const year = await currentYear(tx, current.ctx);
     const [sections, issued, overdue, fines, byMonth, byClass, popular, cats, buckets, copies, sessions] = await Promise.all([
-      year ? sectionsForYear(tx, current.ctx, year.id) : Promise.resolve([]),
+      // Each campus's classes, from its own current year.
+      sectionsForCurrentYears(tx, current.ctx, current.campusId),
       tx.bookIssue.count({ where: { ...(f.from && f.to ? { issuedOn: { gte: f.from, lte: f.to } } : {}), ...(f.sectionIds ? { sectionId: { in: f.sectionIds } } : {}) } }),
       overdueCount(tx, today, { sectionIds: f.sectionIds }),
       fineTotals(tx, current.ctx, f),

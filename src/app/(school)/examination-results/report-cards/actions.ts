@@ -9,7 +9,7 @@ import type { RemarkDraft } from "@/lib/exams/remark-drafts";
 import { periodPublished } from "@/lib/exams/report-status";
 import { sectionInfo } from "@/lib/exams/results";
 import { sectionStudents } from "@/lib/exams/roster";
-import { writesReportCards } from "@/lib/exams/scope";
+import { assertInScope, writesReportCards } from "@/lib/exams/scope";
 import { aiAllowed } from "@/lib/settings/switch-rules";
 import { act, actSimple } from "../_lib/server";
 
@@ -31,6 +31,7 @@ async function grid(work: Parameters<typeof act>[1]): Promise<GridResult> {
 export async function saveRemarksAction(sectionId: string, period: string, rows: RemarkRow[]): Promise<GridResult> {
   return grid(async ({ tx, current, scope }) => {
     check(sectionId, period);
+    await assertInScope(tx, scope, "section", sectionId);
     if (!Array.isArray(rows) || rows.length > 300) throw new ExamRuleError("Reload the page and try again.");
     const n = await saveRemarks(tx, current.ctx, scope, { sectionId, period, rows, principal: scope.principal, confirmedBy: current.user.displayName });
     return { flash: { message: n ? `Saved for ${plural(n, "student")}.` : "Nothing had changed." } };
@@ -40,6 +41,7 @@ export async function saveRemarksAction(sectionId: string, period: string, rows:
 export async function saveCoScholasticAction(sectionId: string, period: string, rows: { studentId: string; areaId: string; grade: string | null }[]): Promise<GridResult> {
   return grid(async ({ tx, current, scope }) => {
     check(sectionId, period);
+    await assertInScope(tx, scope, "section", sectionId);
     if (!Array.isArray(rows) || rows.length > 5000) throw new ExamRuleError("Reload the page and try again.");
     const n = await saveCoScholastic(tx, current.ctx, scope, { sectionId, period, rows });
     return { flash: { message: n ? `${plural(n, "grade")} saved.` : "Nothing had changed." } };
@@ -49,6 +51,7 @@ export async function saveCoScholasticAction(sectionId: string, period: string, 
 export async function saveCompetencyAction(sectionId: string, period: string, rows: { studentId: string; competencyId: string; level: string | null }[]): Promise<GridResult> {
   return grid(async ({ tx, current, scope }) => {
     check(sectionId, period);
+    await assertInScope(tx, scope, "section", sectionId);
     if (!Array.isArray(rows) || rows.length > 5000) throw new ExamRuleError("Reload the page and try again.");
     const n = await saveCompetencyLevels(tx, current.ctx, scope, { sectionId, period, rows });
     return { flash: { message: n ? `${plural(n, "level")} saved.` : "Nothing had changed." } };
@@ -60,6 +63,7 @@ export async function draftRemarksAction(sectionId: string, period: string): Pro
   let drafts: RemarkDraft[] = [];
   const r = await act("view", async ({ tx, current, scope }) => {
     check(sectionId, period);
+    await assertInScope(tx, scope, "section", sectionId);
     if (!writesReportCards(scope, sectionId)) throw new ExamRuleError("Only the class teacher of this section, the Exam In-charge or the Principal can draft remarks.");
     if (!aiAllowed(current, "ai-teacher-assistant")) throw new ExamRuleError(current.features.has("ai-teacher-assistant") && current.features.has("ai-assistant") ? "Remark suggestions are not used by your role in this school." : "Remark suggestions are switched off for this school.");
     drafts = await draftRemarks(tx, current.ctx, sectionId, period);
@@ -70,6 +74,7 @@ export async function draftRemarksAction(sectionId: string, period: string): Pro
 export async function markCardsAction(sectionId: string, period: string, studentIds: string[], as: "PRINTED" | "SENT") {
   return actSimple("edit", async ({ tx, current, scope }) => {
     check(sectionId, period);
+    await assertInScope(tx, scope, "section", sectionId);
     if (as !== "PRINTED" && as !== "SENT") throw new ExamRuleError("Choose printed or sent.");
     const n = await markCards(tx, current.ctx, scope, { sectionId, period, studentIds: studentIds.filter((s) => UUID.test(s)), as });
     if (n === 0) throw new ExamRuleError("None of these report cards is ready yet, so nothing was marked.");
@@ -81,6 +86,7 @@ export async function markCardsAction(sectionId: string, period: string, student
 export async function makePdfAction(sectionId: string, period: string) {
   return actSimple("print", async ({ tx, current, scope }) => {
     check(sectionId, period);
+    await assertInScope(tx, scope, "section", sectionId);
     if (!writesReportCards(scope, sectionId)) throw new ExamRuleError("Only the class teacher of this section, the Exam In-charge or the Principal can print these report cards.");
     const section = await sectionInfo(tx, sectionId);
     const option = await findPeriod(tx, section.academicYearId, section.classId, period);

@@ -6,6 +6,8 @@ import { logExport } from "@/lib/exports";
 import { experienceLetterHtml } from "@/lib/staff/print";
 import { ExitProblem, issueExperienceLetter } from "@/lib/staff/exit";
 import { UUID_RE } from "@/lib/staff/act";
+import { viewerFor } from "@/lib/staff/access";
+import { offCampus } from "@/lib/staff/list";
 
 const text = (t: string, status: number) => new Response(t, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
@@ -16,6 +18,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ exitId:
   if (!UUID_RE.test(exitId)) return text("This exit was not found.", 404);
   try {
     return await withSchool(current.ctx, async (tx) => {
+      // One campus: another campus's exit is not found.
+      if (current.campusId) {
+        const e = await tx.exitCase.findFirst({ where: { id: exitId }, select: { staffId: true } });
+        if (!e || offCampus(await viewerFor(tx, current.ctx, current), e.staffId)) return text("This exit was not found.", 404);
+      }
       const number = await issueExperienceLetter(tx, current.ctx, exitId);
       const exit = await tx.exitCase.findUniqueOrThrow({ where: { id: exitId } });
       const staff = await tx.staff.findUniqueOrThrow({ where: { id: exit.staffId }, include: { department: true } });

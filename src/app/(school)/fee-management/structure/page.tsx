@@ -5,6 +5,7 @@ import { formatDate, formatRupees } from "@/lib/format";
 import { addDays, monthEnd } from "@/lib/staff/dates";
 import { classCards, classStructure, feeHeads, publishImpact, publishNeedsApproval, restoreImpact, waitingApproval } from "@/lib/fees/structure";
 import { frequencyLabel, headKindLabel, type FrequencyValue } from "@/lib/fees/words";
+import { inCampus } from "@/lib/campus";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
@@ -33,13 +34,16 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
   const headParam = one(sp.head);
 
   const data = await withSchool(p.current.ctx, async (tx) => {
-    const years = await tx.academicYear.findMany({ where: { archivedAt: null }, orderBy: { startDate: "asc" }, include: { terms: { where: { archivedAt: null }, orderBy: { sortOrder: "asc" } } } });
+    // A Fee Structure belongs to a class and a year, both of one campus. A person limited to one campus sees its years only.
+    const years = await tx.academicYear.findMany({ where: { archivedAt: null, ...inCampus(p.viewer) }, orderBy: { startDate: "asc" }, include: { terms: { where: { archivedAt: null }, orderBy: { sortOrder: "asc" } } } });
     const current = years.find((y) => y.id === p.year?.id) ?? years.at(-1) ?? null;
-    const next = current ? years.find((y) => y.startDate > current.startDate) ?? null : null;
+    // "Next year" is the next year of the same campus.
+    const next = current ? years.find((y) => y.campusId === current.campusId && y.startDate > current.startDate) ?? null : null;
     const year = years.find((y) => y.id === one(sp.year)) ?? current;
     if (!year) return { year: null } as const;
     const [cards, heads, school, banks, versions] = await Promise.all([
-      classCards(tx, p.current.ctx, year.id, null),
+      // The classes of the year's own campus.
+      classCards(tx, p.current.ctx, year.id, year.campusId),
       feeHeads(tx, p.current.ctx),
       tx.school.findUniqueOrThrow({ where: { id: p.current.ctx.schoolId }, select: { gstin: true } }),
       tx.bankAccount.findMany({ where: { kind: "BANK", archivedAt: null }, orderBy: [{ isMain: "desc" }, { name: "asc" }], select: { id: true, name: true, accountLast4: true } }),

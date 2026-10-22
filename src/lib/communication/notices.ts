@@ -56,6 +56,47 @@ export function readAudience(v: unknown): NoticeAudience {
 
 export class NoticeProblem extends Error {}
 
+/**
+ * Is this notice for a person limited to one campus? A notice for other
+ * campuses only is not theirs (unless they wrote it); a notice with no campus
+ * is for the whole school and shows to everyone. Always true for the whole school.
+ */
+export function noticeOnCampus(n: { audience: unknown; createdById: string | null }, campusId: string | null | undefined, userId?: string | null) {
+  if (!campusId) return true;
+  if (userId && n.createdById === userId) return true;
+  const c = readAudience(n.audience).campusIds;
+  return c.length === 0 || c.includes(campusId);
+}
+
+/** The classes and sections a person limited to one campus chooses must be of that campus. */
+export async function checkNoticeCampus(tx: Tx, a: NoticeAudience, campusId: string | null | undefined) {
+  if (!campusId) return;
+  const [classes, sections] = await Promise.all([
+    a.classIds.length ? tx.schoolClass.count({ where: { id: { in: a.classIds }, campusId } }) : Promise.resolve(0),
+    a.sectionIds.length ? tx.section.count({ where: { id: { in: a.sectionIds }, schoolClass: { campusId } } }) : Promise.resolve(0),
+  ]);
+  if (classes !== a.classIds.length || sections !== a.sectionIds.length) throw new NoticeProblem("Choose classes and sections of your campus.");
+}
+
+/** For a person limited to one campus: only the guardians with a child at that campus. */
+export async function guardiansOnCampus(tx: Tx, ids: string[], campusId: string | null | undefined) {
+  if (!campusId || !ids.length) return ids;
+  const links = await tx.studentGuardian.findMany({ where: { guardianId: { in: ids }, ...OPEN_LINK, student: { campusId, archivedAt: null } }, select: { guardianId: true } });
+  const keep = new Set(links.map((l) => l.guardianId));
+  return ids.filter((g) => keep.has(g));
+}
+
+/** For a person limited to one campus: only the logins of that campus's staff and students. */
+export async function loginsOnCampus(tx: Tx, ctx: SchoolContext, ids: string[], campusId: string | null | undefined) {
+  if (!campusId || !ids.length) return ids;
+  const [staff, students] = await Promise.all([
+    tx.staff.findMany({ where: { schoolId: ctx.schoolId, userLoginId: { in: ids }, campusId, archivedAt: null }, select: { userLoginId: true } }),
+    tx.student.findMany({ where: { schoolId: ctx.schoolId, userLoginId: { in: ids }, campusId, archivedAt: null }, select: { userLoginId: true } }),
+  ]);
+  const keep = new Set([...staff, ...students].map((x) => x.userLoginId));
+  return ids.filter((l) => keep.has(l));
+}
+
 export async function describeNoticeAudience(tx: Tx, ctx: SchoolContext, a: NoticeAudience) {
   const who: string[] = [];
   if (a.parents) who.push("Parents");
@@ -151,8 +192,13 @@ export type NoticeInput = {
   askAck: boolean;
 };
 
-/** Checks a notice against the sender's scope: a teacher writes only to their own sections' parents and students. */
+/**
+ * Checks a notice against the sender's scope: a teacher writes only to their
+ * own sections' parents and students. A sender limited to one campus writes
+ * for that campus only: the notice is set to their campus, whatever was chosen.
+ */
 export function checkNoticeScope(input: NoticeInput, scope: Scope) {
+  if (scope.campusId) input.audience = { ...input.audience, campusIds: [scope.campusId] };
   if (scope.sectionIds === "all") {
     if (input.audience.staff && !scope.staff) throw new NoticeProblem("Your role cannot send notices to staff. Ask the office.");
     return;
@@ -416,9 +462,15 @@ export async function unseenGuardianIds(tx: Tx, ctx: SchoolContext, noticeId: st
   return { notice: n, ids: all.filter((g) => !seen.has(g)) };
 }
 
-/** Resend to parents who have not seen it, by the same or another channel (decided 9 October 2026). */
-export async function noticeResendInput(tx: Tx, ctx: SchoolContext, noticeId: string, channel: "whatsapp" | "sms" | "email"): Promise<import("../messaging/send").SendInput> {
-  const { notice, ids } = await unseenGuardianIds(tx, ctx, noticeId);
+/**
+ * Resend to parents who have not seen it, by the same or another channel (decided 9 October 2026).
+ * campusId: a person limited to one campus resends to that campus's parents only.
+ */
+export async function noticeResendInput(tx: Tx, ctx: SchoolContext, noticeId: string, channel: "whatsapp" | "sms" | "email", campusId?: string | null): Promise<import("../messaging/send").SendInput> {
+  const unseen = await unseenGuardianIds(tx, ctx, noticeId);
+  const notice = unseen.notice;
+  if (!noticeOnCampus(notice, campusId, ctx.userId)) throw new NoticeProblem("This notice was not found.");
+  const ids = await guardiansOnCampus(tx, unseen.ids, campusId);
   if (notice.status !== "PUBLISHED") throw new NoticeProblem("Only a published notice can be sent again.");
   if (!ids.length) throw new NoticeProblem("Every parent has seen this notice. There is nothing to resend.");
   await ensureReadyTemplates(tx, ctx);
@@ -438,11 +490,15 @@ export async function noticeResendInput(tx: Tx, ctx: SchoolContext, noticeId: st
   };
 }
 
-/** Remind staff and students who have not tapped "I have read this" (inferred). */
-export async function remindUnacknowledged(tx: Tx, ctx: SchoolContext, noticeId: string) {
+/**
+ * Remind staff and students who have not tapped "I have read this" (inferred).
+ * campusId: a person limited to one campus reminds that campus's people only.
+ */
+export async function remindUnacknowledged(tx: Tx, ctx: SchoolContext, noticeId: string, campusId?: string | null) {
   const n = await tx.notice.findFirstOrThrow({ where: { id: noticeId, schoolId: ctx.schoolId } });
+  if (!noticeOnCampus(n, campusId, ctx.userId)) throw new NoticeProblem("This notice was not found.");
   if (!n.askAck || n.status !== "PUBLISHED") throw new NoticeProblem("This notice does not ask for acknowledgement.");
-  const logins = await audienceLogins(tx, ctx, readAudience(n.audience));
+  const logins = await loginsOnCampus(tx, ctx, await audienceLogins(tx, ctx, readAudience(n.audience)), campusId);
   const done = new Set((await tx.noticeAcknowledgement.findMany({ where: { noticeId, acknowledgedAt: { not: null } }, select: { userLoginId: true } })).map((a) => a.userLoginId));
   const todo = logins.filter((l) => !done.has(l));
   if (!todo.length) throw new NoticeProblem("Everyone has acknowledged this notice.");

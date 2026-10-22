@@ -7,6 +7,10 @@ import { TIME_RE, plural } from "@/lib/academic/common";
 import { ExamRuleError } from "@/lib/exams/common";
 import { archiveExam, createDatesheet, publishDatesheet, restoreExam, setCategories, updateDatesheet, type ExamDetails, type ScheduleRow } from "@/lib/exams/datesheet";
 import { generateSeating } from "@/lib/exams/seating";
+import { assertInScope } from "@/lib/exams/scope";
+import { inCampus } from "@/lib/campus";
+import type { Tx } from "@/lib/db";
+import type { Current } from "@/lib/current";
 import { act, actSimple, str, BASE } from "../_lib/server";
 
 const PATTERNS: ExamPattern[] = ["PERCENTAGE", "GRADING", "CGPA"];
@@ -45,12 +49,24 @@ function readRows(fd: FormData): ScheduleRow[] {
   }));
 }
 
+/** A person limited to one campus chooses invigilators from that campus's staff only (those already on the datesheet stay). */
+async function checkInvigilators(tx: Tx, current: Current, rows: ScheduleRow[], examId: string) {
+  if (!current.campusId) return;
+  const kept = /^[0-9a-f-]{36}$/i.test(examId) ? new Set((await tx.datesheetEntry.findMany({ where: { examId, archivedAt: null }, select: { invigilatorId: true } })).map((e) => e.invigilatorId)) : new Set<string | null>();
+  const ids = [...new Set(rows.filter((r) => r.date).map((r) => r.invigilatorId).filter((x): x is string => Boolean(x) && !kept.has(x)))];
+  if (ids.length === 0) return;
+  const mine = await tx.staff.count({ where: { id: { in: ids }, ...inCampus(current) } });
+  if (mine !== ids.length) throw new ExamRuleError("A chosen invigilator is no longer on the staff list. Choose again.", "schedule");
+}
+
 export async function saveDatesheet(_prev: FormState, fd: FormData): Promise<FormState> {
   const examId = str(fd, "examId");
   let target = "";
-  const state = await act("edit", async ({ tx, current, yearId }) => {
+  const state = await act("edit", async ({ tx, current, scope, yearId }) => {
     const d = readDetails(fd);
     const rows = readRows(fd);
+    if (examId) await assertInScope(tx, scope, "exam", examId);
+    await checkInvigilators(tx, current, rows, examId);
     if (examId) {
       const r = await updateDatesheet(tx, current.ctx, examId, d, rows);
       target = `${BASE}/datesheet/${examId}`;
@@ -66,7 +82,8 @@ export async function saveDatesheet(_prev: FormState, fd: FormData): Promise<For
 }
 
 export async function publishDatesheetAction(examId: string, tellParents: boolean) {
-  return actSimple("edit", async ({ tx, current }) => {
+  return actSimple("edit", async ({ tx, current, scope }) => {
+    await assertInScope(tx, scope, "exam", examId);
     const r = await publishDatesheet(tx, current.ctx, examId, { tellParents });
     const bits = [`${plural(r.days, "exam day")} added to the School Calendar and Time Table`, "admit cards can be printed"];
     if (r.invigilators) bits.push(`${plural(r.invigilators, "invigilator")} told`);
@@ -77,21 +94,24 @@ export async function publishDatesheetAction(examId: string, tellParents: boolea
 }
 
 export async function archiveExamAction(examId: string) {
-  return actSimple("archive", async ({ tx, current }) => {
+  return actSimple("archive", async ({ tx, current, scope }) => {
+    await assertInScope(tx, scope, "exam", examId);
     await archiveExam(tx, current.ctx, examId);
     return { flash: { message: "Datesheet archived. Its exam days were taken off the School Calendar. You can restore it from the archived list." } };
   }, { needs: "datesheets" });
 }
 
 export async function restoreExamAction(examId: string) {
-  return actSimple("archive", async ({ tx, current }) => {
+  return actSimple("archive", async ({ tx, current, scope }) => {
+    await assertInScope(tx, scope, "exam", examId);
     await restoreExam(tx, current.ctx, examId);
     return { flash: { message: "Datesheet restored." } };
   }, { needs: "datesheets" });
 }
 
 export async function saveCategoriesAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  return act("edit", async ({ tx, current }) => {
+  return act("edit", async ({ tx, current, scope }) => {
+    await assertInScope(tx, scope, "paper", str(fd, "entryId"));
     const names = fd.getAll("catName").map(String);
     const maxes = fd.getAll("catMax").map((x) => Number(String(x).trim() || NaN));
     const cats = names.map((name, i) => ({ name, max: maxes[i] })).filter((c) => c.name.trim() || Number.isFinite(c.max));
@@ -114,7 +134,8 @@ export async function makeSeatingForm(fd: FormData) {
 }
 
 export async function makeSeatingAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  return act("edit", async ({ tx, current }) => {
+  return act("edit", async ({ tx, current, scope }) => {
+    await assertInScope(tx, scope, "exam", str(fd, "examId"));
     const names = fd.getAll("roomName").map(String);
     const seats = fd.getAll("roomSeats").map((x) => Number(String(x).trim() || NaN));
     const rooms = names.map((name, i) => ({ name, capacity: seats[i] })).filter((r) => r.name.trim() || Number.isFinite(r.capacity));

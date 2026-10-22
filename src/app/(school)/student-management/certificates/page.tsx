@@ -20,9 +20,11 @@ import { classShort, shortDate, shownCount } from "@/lib/students/show";
 import { BASE, studentPage } from "../_lib/page";
 import { StudentsHead } from "../_lib/head";
 import { sectionNames } from "../_lib/queries";
+import { currentEnrolments } from "@/lib/academic/years";
 import { decideCertificateAction } from "../_actions/certificates";
 import { certificateTabs } from "./sub-tabs";
 import { studentIdsForFilter } from "@/lib/students/find";
+import { visibleStudentIds } from "@/lib/students/access";
 
 export const metadata: Metadata = { title: "Certificates & ID Cards" };
 
@@ -32,7 +34,7 @@ const STATUSES = Object.keys(CERT_STATUS_LABEL) as CertificateStatus[];
 
 /** Certificates issued and requested: number, type, student, date, status; requests waiting for approval on top. */
 export default async function CertificatesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, settings, can, tz, year } = await studentPage();
+  const { current, settings, can, tz, year, yearIds } = await studentPage();
   const raw = await searchParams;
   const params = readListParams(raw, FILTERS);
   const take = shownCount(raw, STEP);
@@ -41,7 +43,10 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
   const data = await withSchool(current.ctx, async (tx) => {
     const f = params.filters;
     const nameIds = params.q ? await studentIdsForFilter(tx, params.q) : null;
+    // A person limited to one campus: that campus's students' certificates only.
+    const mine = await visibleStudentIds(tx, current, yearIds);
     const base: Prisma.CertificateWhereInput = {
+      ...(mine ? { studentId: { in: mine } } : {}),
       ...(f.type && f.type in CERTIFICATE_LABEL ? { type: f.type as CertificateType } : {}),
       ...(range ? { issueDate: dateWhere(range) } : {}),
       ...(params.q ? { OR: [{ number: { contains: params.q, mode: "insensitive" as const } }, { studentId: { in: nameIds ?? [] } }] } : {}),
@@ -51,16 +56,18 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
     const [total, rows, waiting, byStatus] = await Promise.all([
       tx.certificate.count({ where }),
       tx.certificate.findMany({ where, orderBy: orderBy as object, take }),
-      tx.certificate.findMany({ where: { status: "REQUESTED" }, orderBy: { createdAt: "asc" }, take: 30 }),
+      tx.certificate.findMany({ where: { status: "REQUESTED", ...(mine ? { studentId: { in: mine } } : {}) }, orderBy: { createdAt: "asc" }, take: 30 }),
       tx.certificate.groupBy({ by: ["status"], where: base, _count: true }),
     ]);
     const approvals = await tx.approval.findMany({ where: { id: { in: waiting.map((w) => w.approvalId).filter((x): x is string => Boolean(x)) } } });
     const mayDecide = new Set<string>();
     for (const a of approvals) if (await canDecide(tx, current.ctx, a)) mayDecide.add(a.id);
     const ids = [...rows, ...waiting].map((r) => r.studentId);
-    const students = await tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, admissionNo: true, enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1, select: { sectionId: true } } } });
-    const names = await sectionNames(tx, students.flatMap((s) => s.enrolments.map((e) => e.sectionId)));
-    const cls = new Map(students.map((s) => { const n = s.enrolments[0] ? names.get(s.enrolments[0].sectionId) : null; return [s.id, n ? classShort(n.className, n.sectionName) : ""]; }));
+    const students = await tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, admissionNo: true } });
+    // Each student's class this year, in their own campus's current year.
+    const thisYear = await currentEnrolments(tx, students.map((s) => s.id));
+    const names = await sectionNames(tx, [...thisYear.values()].map((e) => e.sectionId));
+    const cls = new Map(students.map((s) => { const e = thisYear.get(s.id); const n = e ? names.get(e.sectionId) : null; return [s.id, n ? classShort(n.className, n.sectionName) : ""]; }));
     return { total, rows, waiting, mayDecide, students, cls, byStatus };
   });
   type Row = (typeof data.rows)[number];

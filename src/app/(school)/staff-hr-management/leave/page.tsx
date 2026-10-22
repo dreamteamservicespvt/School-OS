@@ -1,13 +1,15 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
-import { withSchool } from "@/lib/db";
+import { withSchool, type Tx } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { approvalsFor } from "@/lib/approvals";
 import { staffPage, BASE } from "@/lib/staff/page";
 import { balancesFor, calendarLabel, daysText, leaveYearFor } from "@/lib/staff/leave";
 import { addDays, eachDay, isoDay, monthEnd, monthLabel, monthStart } from "@/lib/staff/dates";
 import { offDayMap } from "@/lib/staff/leave";
+import { campusStaffWhere, offCampus } from "@/lib/staff/list";
+import { personCampusId } from "@/lib/campus";
 import { StaffHead } from "../_components/head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge, Pill, type BadgeTone } from "@/components/ui/badge";
@@ -34,6 +36,11 @@ const STATUS_WORDS: Record<string, { label: string; tone: BadgeTone }> = {
 
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
 
+/** Ids of the staff matching a filter (Leave Request rows link to staff by id only). */
+async function staffIdsWhere(tx: Tx, where: Prisma.StaffWhereInput) {
+  return (await tx.staff.findMany({ where, select: { id: true } })).map((s) => s.id);
+}
+
 export default async function StaffLeavePage({ searchParams }: Props) {
   const sp = await searchParams;
   const { current, viewer, tz, today } = await staffPage();
@@ -43,7 +50,11 @@ export default async function StaffLeavePage({ searchParams }: Props) {
 
   const base = await withSchool(current.ctx, async (tx) => {
     const roleKeys = current.roles.map((r) => r.key);
-    const where = await approvalsFor(tx, current.ctx, roleKeys, { type: "staff-leave" });
+    // One campus: only the leave of their campus's staff (and their own) is waiting for them here.
+    const campusLeave = viewer.campusId
+      ? { recordId: { in: (await tx.leaveRequest.findMany({ where: { status: "WAITING", archivedAt: null, staffId: { in: await staffIdsWhere(tx, campusStaffWhere(viewer)) } }, select: { id: true } })).map((r) => r.id) } }
+      : {};
+    const where = await approvalsFor(tx, current.ctx, roleKeys, { type: "staff-leave", ...campusLeave });
     const [waitingForMe, types, rules, me] = await Promise.all([
       tx.approval.count({ where }),
       tx.leaveType.findMany({ where: { forWhom: "staff", archivedAt: null }, orderBy: { name: "asc" } }),
@@ -66,7 +77,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
   // Apply form: HR may apply for anyone; ?apply=<staffId> opens it for that person.
   const applyFor = one(sp.apply);
   const staffOptions = canHr
-    ? await withSchool(current.ctx, (tx) => tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } }))
+    ? await withSchool(current.ctx, (tx) => tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, AND: [campusStaffWhere(viewer)] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } }))
     : [];
   const fixed = applyFor && canHr && applyFor !== viewer.staffId ? staffOptions.find((s) => s.id === applyFor) : undefined;
   const typeOptions = base.types.map((t) => {
@@ -186,7 +197,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
   async function Requests() {
     const data = await withSchool(current.ctx, async (tx) => {
       const approvals = await tx.approval.findMany({ where: base.approvalsWhere, orderBy: { createdAt: "asc" }, take: 100 });
-      const requests = await tx.leaveRequest.findMany({ where: { approvalId: { in: approvals.map((a) => a.id) } } });
+      const requests = (await tx.leaveRequest.findMany({ where: { approvalId: { in: approvals.map((a) => a.id) } } })).filter((r) => !offCampus(viewer, r.staffId));
       const staff = await tx.staff.findMany({ where: { id: { in: requests.map((r) => r.staffId!).filter(Boolean) } }, select: { id: true, fullName: true, designation: true, campusId: true } });
       const details = await tx.staffLeaveDetail.findMany({ where: { leaveRequestId: { in: requests.map((r) => r.id) } } });
       const balances = new Map<string, Awaited<ReturnType<typeof balancesFor>> extends Map<string, infer R> ? R : never>();
@@ -197,7 +208,9 @@ export default async function StaffLeavePage({ searchParams }: Props) {
       return { approvals, requests, staff, details, balances };
     });
     const away = await withSchool(current.ctx, async (tx) => {
-      const leaves = await tx.leaveRequest.findMany({ where: { staffId: { not: null }, status: "APPROVED", archivedAt: null, fromDate: { lte: today }, toDate: { gte: today }, ...(hr ? {} : { staff: { departmentId: { in: viewer.headOf } } }) }, orderBy: { toDate: "asc" }, take: 20 });
+      // Leave rows link to staff by id only: the staff this person sees (their campus; heads, their departments).
+      const whose = await staffIdsWhere(tx, { AND: [campusStaffWhere(viewer), hr ? {} : { departmentId: { in: viewer.headOf } }] });
+      const leaves = await tx.leaveRequest.findMany({ where: { staffId: { in: whose }, status: "APPROVED", archivedAt: null, fromDate: { lte: today }, toDate: { gte: today } }, orderBy: { toDate: "asc" }, take: 20 });
       const people = await tx.staff.findMany({ where: { id: { in: leaves.map((l) => l.staffId!) } }, select: { id: true, fullName: true, photoFileId: true } });
       return leaves.map((l) => ({ ...l, person: people.find((p) => p.id === l.staffId) }));
     });
@@ -280,10 +293,10 @@ export default async function StaffLeavePage({ searchParams }: Props) {
       const within = range ? dateWhere(range) : null;
       const rows = await tx.leaveRequest.findMany({
         where: {
-          staffId: { not: null }, archivedAt: null, ...(status ? { status: status as "WAITING" } : {}),
+          archivedAt: null, ...(status ? { status: status as "WAITING" } : {}),
           // Leave that touches the chosen dates.
           ...(within ? { fromDate: { lte: within.lte }, toDate: { gte: within.gte } } : {}),
-          ...(q ? { staff: { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { staffCode: { contains: q, mode: "insensitive" } }] } } : {}),
+          staffId: { in: await staffIdsWhere(tx, { AND: [campusStaffWhere(viewer), q ? { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { staffCode: { contains: q, mode: "insensitive" } }] } : {}] }) },
         },
         orderBy: { fromDate: "desc" }, take: 100,
       });
@@ -311,9 +324,9 @@ export default async function StaffLeavePage({ searchParams }: Props) {
     const data = await withSchool(current.ctx, async (tx) => {
       const departments = await tx.department.findMany({ where: { archivedAt: null, ...(hr ? {} : { id: { in: viewer.headOf } }) }, orderBy: { name: "asc" } });
       const deptIds = dept && departments.some((d) => d.id === dept) ? [dept] : hr ? null : viewer.headOf;
-      const staff = await tx.staff.findMany({ where: { archivedAt: null, ...(deptIds ? { departmentId: { in: deptIds } } : {}) }, select: { id: true, fullName: true, departmentId: true, campusId: true } });
+      const staff = await tx.staff.findMany({ where: { archivedAt: null, ...(deptIds ? { departmentId: { in: deptIds } } : {}), AND: [campusStaffWhere(viewer)] }, select: { id: true, fullName: true, departmentId: true, campusId: true } });
       const leaves = await tx.leaveRequest.findMany({ where: { staffId: { in: staff.map((s) => s.id) }, status: { in: ["APPROVED", "WAITING"] }, archivedAt: null, fromDate: { lte: to }, toDate: { gte: from } }, orderBy: { fromDate: "asc" } });
-      const holidays = await offDayMap(tx, current.ctx, from, to, base.me?.campusId ?? null);
+      const holidays = await offDayMap(tx, current.ctx, from, to, viewer.campusId ?? base.me?.campusId ?? null);
       return { departments, staff, leaves, holidays };
     });
     const prev = isoDay(addDays(from, -1)).slice(0, 7);
@@ -370,23 +383,30 @@ export default async function StaffLeavePage({ searchParams }: Props) {
   async function Balances() {
     const yearId = one(sp.year);
     const data = await withSchool(current.ctx, async (tx) => {
-      const years = await tx.academicYear.findMany({ where: { archivedAt: null }, orderBy: { startDate: "desc" } });
-      const current_ = years.find((y) => y.id === yearId) ?? years.find((y) => y.startDate <= today && y.endDate >= today) ?? years[0];
-      if (!current_) return { years, year: null, staff: [], balances: new Map() as Awaited<ReturnType<typeof balancesFor>> };
-      const staff = await tx.staff.findMany({ where: { archivedAt: null, campusId: current_.campusId, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } });
+      // One campus: only that campus's years. The year shown first is the person's own campus's year holding today.
+      const years = await tx.academicYear.findMany({ where: { archivedAt: null, ...(viewer.campusId ? { campusId: viewer.campusId } : {}) }, orderBy: { startDate: "desc" } });
+      const mine = await personCampusId(tx, current.ctx, viewer);
+      const holdsToday = (y: (typeof years)[number]) => y.startDate <= today && y.endDate >= today;
+      const current_ = years.find((y) => y.id === yearId) ?? years.find((y) => y.campusId === mine && holdsToday(y)) ?? years.find(holdsToday) ?? years[0];
+      // Two campuses have two years of the same name: each is shown with its campus.
+      const campusIds = [...new Set(years.map((y) => y.campusId))];
+      const names = new Map<string, string>(campusIds.length > 1 ? (await tx.campus.findMany({ where: { id: { in: campusIds } }, select: { id: true, name: true } })).map((c) => [c.id, c.name] as const) : []);
+      if (!current_) return { years, names, year: null, staff: [], balances: new Map() as Awaited<ReturnType<typeof balancesFor>> };
+      const staff = await tx.staff.findMany({ where: { archivedAt: null, campusId: current_.campusId, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, AND: [campusStaffWhere(viewer)] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } });
       const balances = await balancesFor(tx, current.ctx, staff.map((s) => s.id), current_.id);
-      return { years, year: current_, staff, balances };
+      return { years, names, year: current_, staff, balances };
     });
+    const yearLabel = (y: { name: string; campusId: string }) => (data.names.get(y.campusId) ? `${y.name} · ${data.names.get(y.campusId)}` : y.name);
     if (!data.year) return <EmptyState title="No academic year yet">Balances are kept per academic year. Add one in Academic Management.</EmptyState>;
     const paid = base.types.filter((t) => t.paid);
     return (
       <Card>
-        <CardHeader title={`Leave balances, ${data.year.name}`} description="Days left of each leave type. Adjust a balance with a reason; every change is kept."
-          action={canHr ? <CarryForwardForm years={data.years.map((y) => ({ value: y.id, label: y.name }))} action={carryForwardAction} /> : undefined} />
+        <CardHeader title={`Leave balances, ${yearLabel(data.year)}`} description="Days left of each leave type. Adjust a balance with a reason; every change is kept."
+          action={canHr ? <CarryForwardForm years={data.years.map((y) => ({ value: y.id, label: yearLabel(y) }))} action={carryForwardAction} /> : undefined} />
         <CardBody>
           {data.years.length > 1 && (
             <nav aria-label="Academic year" className="mb-3 flex flex-wrap gap-2">
-              {data.years.map((y) => <Link key={y.id} href={`${BASE}/leave?view=balances&year=${y.id}`} aria-current={y.id === data.year!.id ? "page" : undefined} className={`inline-flex min-h-11 items-center rounded-full border px-4 ${y.id === data.year!.id ? "border-brand bg-brand-soft text-brand-text" : "border-line text-ink-2"}`}>{y.name}</Link>)}
+              {data.years.map((y) => <Link key={y.id} href={`${BASE}/leave?view=balances&year=${y.id}`} aria-current={y.id === data.year!.id ? "page" : undefined} className={`inline-flex min-h-11 items-center rounded-full border px-4 ${y.id === data.year!.id ? "border-brand bg-brand-soft text-brand-text" : "border-line text-ink-2"}`}>{yearLabel(y)}</Link>)}
             </nav>
           )}
           <div className="relative overflow-x-auto [contain:inline-size]">

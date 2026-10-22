@@ -14,6 +14,11 @@ import { formatDateTime } from "@/lib/format";
 import { DOCUMENT_TYPES, FileProblem, saveFile } from "@/lib/files";
 import { isChannel } from "@/lib/messaging/channels";
 import { BACKUP_TYPES, type BackupType } from "@/lib/messaging/settings";
+import type { AudienceRule, Scope } from "@/lib/messaging/recipients";
+import { yearsFor } from "@/lib/academic/years";
+
+/** A sender limited to one campus reaches that campus only, whatever the form says (also kept on the message and the group). */
+const onCampus = (to: AudienceRule, scope: Scope): AudienceRule => (scope.campusId ? { ...to, campusIds: [scope.campusId] } : to);
 
 export type SendState = { ok: boolean; message?: string; errors?: Record<string, string>; preview?: SendPreview } | null;
 
@@ -22,7 +27,7 @@ export async function checkOrSend(_prev: SendState, form: FormData): Promise<Sen
   const { current, scope } = access;
   const read = readSendForm(form, current.school.timeZone);
   if (!read.ok) return { ok: false, message: Object.keys(read.errors).length === 1 ? Object.values(read.errors)[0] : `Please fix ${Object.keys(read.errors).length} things before checking.`, errors: read.errors };
-  const input = { ...read.input, scope };
+  const input = { ...read.input, to: onCampus(read.input.to, scope), scope };
   if (input.emergency) {
     if (!access.canEmergency) return { ok: false, message: "Only the Principal and School Admin can send an emergency broadcast." };
     if (form.get("intent") === "send" && String(form.get("emergencyWord") ?? "").trim().toUpperCase() !== "EMERGENCY") {
@@ -77,15 +82,16 @@ export type LivePreview = { preview: SendPreview | null; errors: Record<string, 
 export async function livePreview(form: FormData): Promise<LivePreview> {
   const access = await commAction("create");
   const { current, scope } = access;
-  const to = readAudienceForm(form);
+  const chosen = readAudienceForm(form);
   const read = readSendForm(form, current.school.timeZone);
-  if (!to) return { preview: null, errors: read.ok ? {} : read.errors };
+  if (!chosen) return { preview: null, errors: read.ok ? {} : read.errors };
+  const to = onCampus(chosen, scope);
   const channels = form.getAll("channels").map(String).filter(isChannel);
   const templates = Object.fromEntries(channels.map((ch) => [ch, /^[0-9a-f-]{36}$/.test(String(form.get(`template_${ch}`) ?? "")) ? String(form.get(`template_${ch}`)) : null]));
   const typeRaw = String(form.get("messageType") ?? "general");
   const messageType: BackupType | "general" = (BACKUP_TYPES as readonly string[]).includes(typeRaw) ? (typeRaw as BackupType) : "general";
   const input: SendInput = read.ok
-    ? { ...read.input, scope }
+    ? { ...read.input, to: onCampus(read.input.to, scope), scope }
     : {
         to, channels, templates, scope, messageType,
         text: String(form.get("text") ?? "").trim() || null,
@@ -114,11 +120,12 @@ export async function livePreview(form: FormData): Promise<LivePreview> {
 
 /** Save the chosen recipients as a group (inferred). */
 export async function saveGroup(_prev: SendState, form: FormData): Promise<SendState> {
-  const { current } = await commAction("create");
+  const { current, scope } = await commAction("create");
   const name = String(form.get("groupName") ?? "").trim();
   if (name.length < 2 || name.length > 60) return { ok: false, message: "Give the group a name of 2 to 60 characters.", errors: { groupName: "Give the group a name of 2 to 60 characters." } };
-  const rule = readAudienceForm(form);
-  if (!rule) return { ok: false, message: "Choose who is in the group first." };
+  const chosen = readAudienceForm(form);
+  if (!chosen) return { ok: false, message: "Choose who is in the group first." };
+  const rule = onCampus(chosen, scope);
   delete rule.groupId;
   const msg = await withSchool(current.ctx, async (tx) => {
     const dup = await tx.recipientGroup.findFirst({ where: { schoolId: current.ctx.schoolId, archivedAt: null, name: { equals: name, mode: "insensitive" } } });
@@ -138,20 +145,25 @@ export async function findPeople(q: string): Promise<{ type: "guardian" | "stude
   if (term.length < 2) return [];
   return withSchool(current.ctx, async (tx) => {
     const digits = term.replace(/\D/g, "");
-    const year = await tx.academicYear.findFirst({ where: { schoolId: current.ctx.schoolId, status: "ACTIVE" }, select: { id: true } });
-    const inScope = (sectionId: string | null | undefined) => scope.sectionIds === "all" || (sectionId ? scope.sectionIds.includes(sectionId) : false);
-    // The one student search, within the sender's sections (parents are found just below).
-    const reach = scope.sectionIds === "all" ? {} : year ? { enrolments: { some: { academicYearId: year.id, archivedAt: null, sectionId: { in: scope.sectionIds } } } } : { id: { in: [] } };
-    const students = await findStudents(tx, term, { scope: reach, yearId: year?.id ?? null, statuses: ["ACTIVE", "ADMITTED"], byParent: false, take: 8 });
+    // This year of each campus (only the sender's campus when limited to one): a school with two campuses has two current years.
+    const years = await yearsFor(tx, current.ctx, scope.campusId ?? null);
+    const yearIds = years.map((y) => y.id);
+    const campusOfYear = new Map(years.map((y) => [y.id, y.campusId]));
+    const inScope = (e: { sectionId: string; academicYearId: string }) =>
+      (!scope.campusId || campusOfYear.get(e.academicYearId) === scope.campusId) && (scope.sectionIds === "all" || scope.sectionIds.includes(e.sectionId));
+    // The one student search, within the sender's sections and campus (parents are found just below).
+    const sections = scope.sectionIds === "all" ? {} : yearIds.length ? { enrolments: { some: { academicYearId: { in: yearIds }, archivedAt: null, sectionId: { in: scope.sectionIds } } } } : { id: { in: [] } };
+    const reach = scope.campusId ? { AND: [sections, { campusId: scope.campusId }] } : sections;
+    const students = await findStudents(tx, term, { scope: reach, yearId: yearIds.length ? yearIds : null, campusId: scope.campusId ?? null, statuses: ["ACTIVE", "ADMITTED"], byParent: false, take: 8 });
     const guardians = await tx.guardian.findMany({
       where: { schoolId: current.ctx.schoolId, archivedAt: null, OR: [{ name: { contains: term, mode: "insensitive" } }, ...(digits.length >= 4 ? [{ phone: { contains: digits } }] : [])] },
       take: 8, select: { id: true, name: true, phone: true, relationship: true, students: { where: { archivedAt: null }, select: { studentId: true, student: { select: { fullName: true } } } } },
     });
-    const genrol = year ? await tx.enrolment.findMany({ where: { academicYearId: year.id, studentId: { in: guardians.flatMap((g) => g.students.map((s) => s.studentId)) } }, select: { studentId: true, sectionId: true } }) : [];
-    const staff = scope.staff ? await tx.staff.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null, fullName: { contains: term, mode: "insensitive" } }, take: 6, select: { id: true, fullName: true, designation: true } }) : [];
+    const genrol = yearIds.length ? await tx.enrolment.findMany({ where: { academicYearId: { in: yearIds }, archivedAt: null, studentId: { in: guardians.flatMap((g) => g.students.map((s) => s.studentId)) } }, select: { studentId: true, sectionId: true, academicYearId: true } }) : [];
+    const staff = scope.staff ? await tx.staff.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null, fullName: { contains: term, mode: "insensitive" }, ...(scope.campusId ? { campusId: scope.campusId } : {}) }, take: 6, select: { id: true, fullName: true, designation: true } }) : [];
     return [
       ...guardians
-        .filter((g) => scope.sectionIds === "all" || g.students.some((s) => inScope(genrol.find((e) => e.studentId === s.studentId)?.sectionId)))
+        .filter((g) => (scope.sectionIds === "all" && !scope.campusId) || g.students.some((s) => genrol.some((e) => e.studentId === s.studentId && inScope(e))))
         .map((g) => ({ type: "guardian" as const, id: g.id, name: g.name, detail: `${g.relationship}${g.students.length ? ` of ${g.students.map((s) => s.student.fullName.split(" ")[0]).join(", ")}` : ""} · ••${g.phone.slice(-4)}` })),
       ...students.map((s) => ({ type: "student" as const, id: s.id, name: s.name, detail: `Student · ${s.admissionNo}` })),
       ...staff.map((s) => ({ type: "staff" as const, id: s.id, name: s.fullName, detail: s.designation })),

@@ -17,7 +17,8 @@ const EMERGENCY_ROLES = ["principal", "school-admin"];
 async function build(current: Current): Promise<CommAccess> {
   const change = reachFor(current.permissions, "communication", "create");
   const roleKeys = current.roles.map((r) => r.key).filter((k): k is string => Boolean(k));
-  const scope = await withSchool(current.ctx, (tx) => scopeFor(tx, current.ctx, change === "none" ? "own" : change, roleKeys));
+  // A person limited to one campus reaches that campus only (src/lib/messaging/recipients.ts).
+  const scope = await withSchool(current.ctx, (tx) => scopeFor(tx, current.ctx, change === "none" ? "own" : change, roleKeys, current.campusId));
   return {
     current,
     full: change === "all",

@@ -15,6 +15,8 @@ import { ID_BATCH_SIZE, idCardsHtml, sectionCards } from "@/lib/students/id-card
 import { StudentProblem } from "@/lib/students/students";
 import { BASE, studentPage } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
+import { visibleStudentIds } from "@/lib/students/access";
+import { campusAllows } from "@/lib/campus";
 import { replaceCardAction, saveRfidAction } from "../../_actions/certificates";
 
 export const metadata: Metadata = { title: "ID cards" };
@@ -23,16 +25,17 @@ const isId = (v?: string) => Boolean(v && /^[0-9a-f-]{36}$/i.test(v));
 
 /** ID cards (03 §2): class tiles; per class the total, batches of up to 50, missing photos, a single-card preview and batch PDFs; replacements and RFID. */
 export default async function IdCardsPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
-  const { current, settings, year, can, tz } = await studentPage();
+  const { current, settings, yearIds, can, tz } = await studentPage();
   const sp = await searchParams;
   const path = `${BASE}/certificates/id-cards`;
   const data = await withSchool(current.ctx, async (tx) => {
-    const sections = await sectionOptions(tx, current, year?.id);
+    const sections = await sectionOptions(tx, current, yearIds);
     let chosen: (Awaited<ReturnType<typeof sectionCards>> & { preview: string | null }) | null = null;
     let problem: string | null = null;
     if (isId(sp.section)) {
       try {
         const c = await sectionCards(tx, sp.section!);
+        if (!campusAllows(current, c.section.schoolClass.campusId)) throw new StudentProblem("Choose a class and section.");
         const first = c.students.find((s) => s.photoFileId) ?? c.students[0];
         const preview = first ? await idCardsHtml(tx, current.ctx, [first], { classLabel: c.label, yearName: c.section.academicYear.name, validUntil: settings.idCardValidUntil ?? c.section.academicYear.endDate }) : null;
         chosen = { ...c, preview };
@@ -40,8 +43,10 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
         if (e instanceof StudentProblem) problem = e.message; else throw e;
       }
     }
-    const replacements = await tx.idCardPrint.findMany({ where: { isReplacement: true }, orderBy: { createdAt: "desc" }, take: 15 });
-    const printedThisYear = year ? await tx.idCardPrint.groupBy({ by: ["sectionId"], where: { academicYearId: year.id, replacedAt: null }, _count: true }) : [];
+    // A person limited to one campus: that campus's cards only.
+    const mine = await visibleStudentIds(tx, current, yearIds);
+    const replacements = await tx.idCardPrint.findMany({ where: { isReplacement: true, ...(mine ? { studentId: { in: mine } } : {}) }, orderBy: { createdAt: "desc" }, take: 15 });
+    const printedThisYear = yearIds.length ? await tx.idCardPrint.groupBy({ by: ["sectionId"], where: { academicYearId: { in: yearIds }, replacedAt: null }, _count: true }) : [];
     const names = await tx.student.findMany({ where: { id: { in: replacements.map((r) => r.studentId) } }, select: { id: true, fullName: true } });
     return { sections, chosen, problem, replacements, printedThisYear, names };
   });

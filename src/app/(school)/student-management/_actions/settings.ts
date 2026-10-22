@@ -102,7 +102,7 @@ export async function saveSettingsAction(section: string, _prev: FormState, fd: 
   const r = await attemptForm(values, async () => {
     await withSchool(current.ctx, async (tx) => {
       if (policy) {
-        const year = await tx.academicYear.findFirst({ where: { id: policy.yearId, archivedAt: null } });
+        const year = await tx.academicYear.findFirst({ where: { id: policy.yearId, archivedAt: null, ...(current.campusId ? { campusId: current.campusId } : {}) } });
         if (!year) throw new StudentProblem("Choose the year.", "academicYearId");
         if (year.status === "CLOSED") return void (values.closed = "1");
         const { yearId, ...p } = policy;

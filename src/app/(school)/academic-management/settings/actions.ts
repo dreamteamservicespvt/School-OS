@@ -5,12 +5,20 @@ import { checkbox, parseForm, type FormState } from "@/lib/forms";
 import { formatDate } from "@/lib/format";
 import { TIME_RE, AcademicRuleError, plural } from "@/lib/academic/common";
 import { closeYear, createYear, openYear, removeYear, updateYear } from "@/lib/academic/lifecycle";
-import { archiveSlot, mainCampusId, saveAcademicSettings, saveSlot } from "@/lib/academic/settings";
+import { archiveSlot, saveAcademicSettings, saveSlot } from "@/lib/academic/settings";
 import { addCondition, addFinancialYear, archiveCondition, archiveTerm, savePreference, saveTerm, setFeature } from "@/lib/academic/rules";
 import { addRoom, archiveRoom } from "@/lib/academic/rooms";
 import { ACADEMIC_FEATURES, type AcademicFeature } from "@/lib/academic/scope";
 import { noticeNewYear } from "@/lib/transport/carry";
-import { act, actSimple } from "../_lib/server";
+import type { Tx } from "@/lib/db";
+import { act, actSimple, pageYearOf, sameCampus, staffInCampus, yearCampus } from "../_lib/server";
+
+// Years, timings, the period master and rooms belong to a campus: a change is
+// made on the campus of the page's year, and a person limited to one campus
+// changes only theirs. Financial years, subject conditions for every class and
+// the optional parts belong to the whole school.
+const yearCampusOf = (yearId: string) => (tx: Tx) => yearCampus(tx, yearId);
+const NO_YEAR = "This academic year was not found.";
 
 const PATH = "/academic-management";
 const uuid = (m: string) => z.string().uuid(m);
@@ -35,11 +43,11 @@ export async function createYearAction(_prev: FormState, fd: FormData): Promise<
   const parsed = parseForm(yearSchema, fd);
   if (!parsed.ok) return parsed.state;
   const d = parsed.data;
-  return act("create", async ({ tx, current }) => {
-    const campusId = await mainCampusId(tx, current.ctx);
+  return act("create", async ({ tx, current, campus }) => {
+    const campusId = await campus();
     const r = await createYear(tx, current.ctx, { campusId, name: d.name, startDate: d.startDate, endDate: d.endDate, copyFromYearId: d.copyFrom, termPreset: d.termPreset });
     return { flash: { message: `${r.message} It is Upcoming until you open it.`, link: { href: `${PATH}?year=${r.year.id}`, label: `See ${r.year.name}` } } };
-  }, { formData: fd });
+  }, { formData: fd, pageYearId: pageYearOf(fd) });
 }
 
 export async function updateYearAction(_prev: FormState, fd: FormData): Promise<FormState> {
@@ -49,7 +57,7 @@ export async function updateYearAction(_prev: FormState, fd: FormData): Promise<
   return act("edit", async ({ tx, current }) => {
     const y = await updateYear(tx, current.ctx, d.yearId, d);
     return { flash: { message: `${y.name} saved: ${formatDate(y.startDate)} to ${formatDate(y.endDate)}.` } };
-  }, { formData: fd });
+  }, { formData: fd, campusOf: yearCampusOf(d.yearId), notFound: NO_YEAR });
 }
 
 export async function openYearAction(yearId: string, oldYear: "close" | "keep"): Promise<string | undefined> {
@@ -59,21 +67,21 @@ export async function openYearAction(yearId: string, oldYear: "close" | "keep"):
     // Transport: bus places from last year wait for the Transport In-charge to carry them over.
     const bus = current.modulesOn.has("transport-management") ? await noticeNewYear(tx, current.ctx, r.year) : 0;
     return { flash: { message: `${r.year.name} is now the active year.${r.previous ? ` ${r.previous.name} is ${oldYear === "close" ? "closed and read-only" : "kept open for late changes"}.` : ""}${bus ? ` ${bus} bus place${bus === 1 ? "" : "s"} to carry over: the Transport In-charge is told.` : ""}` } };
-  });
+  }, { campusOf: yearCampusOf(yearId), notFound: NO_YEAR });
 }
 
 export async function closeYearAction(yearId: string): Promise<string | undefined> {
   return actSimple("edit", async ({ tx, current }) => {
     const y = await closeYear(tx, current.ctx, yearId);
     return { flash: { message: `${y.name} is closed. It is read-only now; corrections need a reason and are logged.` } };
-  });
+  }, { campusOf: yearCampusOf(yearId), notFound: NO_YEAR });
 }
 
 export async function removeYearAction(yearId: string): Promise<string | undefined> {
   return actSimple("archive", async ({ tx, current }) => {
     const r = await removeYear(tx, current.ctx, yearId);
     return { flash: { message: `${r.year.name} removed with ${plural(r.counts.sections, "section")} and ${plural(r.counts.terms, "term")}.` } };
-  });
+  }, { campusOf: yearCampusOf(yearId), notFound: NO_YEAR });
 }
 
 // ---------------------------------------------------------------- terms and financial years
@@ -85,6 +93,10 @@ export async function saveTermAction(_prev: FormState, fd: FormData): Promise<Fo
   if (!parsed.ok) return parsed.state;
   const d = parsed.data;
   return act(d.id ? "edit" : "create", async ({ tx, current }) => {
+    if (d.id && current.campusId) {
+      const t = await tx.term.findFirst({ where: { id: d.id }, select: { academicYearId: true } });
+      if (t) sameCampus(current, await yearCampus(tx, t.academicYearId), "This term was not found.");
+    }
     const r = await saveTerm(tx, current.ctx, { academicYearId: d.yearId, name: d.name, startDate: d.startDate, endDate: d.endDate }, d.id);
     return { flash: { message: `${r.name} saved.${r.warning ? ` Note: ${r.warning}` : ""}`, tone: r.warning ? "info" : "success" } };
   }, { formData: fd, yearId: d.yearId });
@@ -94,7 +106,7 @@ export async function archiveTermAction(id: string): Promise<string | undefined>
   return actSimple("archive", async ({ tx, current }) => {
     const t = await archiveTerm(tx, current.ctx, id);
     return { flash: { message: `${t.name} removed.` } };
-  }, { yearOf: async (tx) => (await tx.term.findFirst({ where: { id } }))?.academicYearId ?? null });
+  }, { yearOf: async (tx) => (await tx.term.findFirst({ where: { id } }))?.academicYearId ?? null, notFound: "This term was already removed." });
 }
 
 export async function addFinancialYearAction(_prev: FormState, fd: FormData): Promise<FormState> {
@@ -124,11 +136,10 @@ export async function saveTimingsAction(_prev: FormState, fd: FormData): Promise
   const workingDays = days(fd, "workingDays");
   const halfDays = days(fd, "halfDays");
   if (workingDays.length === 0) return { ok: false, message: "Choose at least one working day.", errors: { workingDays: "Choose at least one working day." } };
-  return act("edit", async ({ tx, current }) => {
-    const campusId = await mainCampusId(tx, current.ctx);
-    await saveAcademicSettings(tx, current.ctx, campusId, { ...d, workingDays, halfDays });
+  return act("edit", async ({ tx, current, campus }) => {
+    await saveAcademicSettings(tx, current.ctx, await campus(), { ...d, workingDays, halfDays });
     return { flash: { message: "School timings and Time Table rules saved." } };
-  }, { formData: fd });
+  }, { formData: fd, pageYearId: pageYearOf(fd) });
 }
 
 const slotSchema = z.object({
@@ -146,18 +157,18 @@ export async function saveSlotAction(_prev: FormState, fd: FormData): Promise<Fo
   const d = parsed.data;
   const slotDays = days(fd, "days");
   if (!d.isBreak && d.number < 1) return { ok: false, message: "Give the period number, like 1.", errors: { number: "Give the period number, like 1." } };
-  return act(d.id ? "edit" : "create", async ({ tx, current }) => {
-    const campusId = await mainCampusId(tx, current.ctx);
-    const row = await saveSlot(tx, current.ctx, campusId, { label: d.label, number: d.number, startTime: d.startTime, endTime: d.endTime, isBreak: d.isBreak, days: slotDays }, d.id);
+  return act(d.id ? "edit" : "create", async ({ tx, current, campus }) => {
+    // The page's campus: a period of another campus is not found there.
+    const row = await saveSlot(tx, current.ctx, await campus(), { label: d.label, number: d.number, startTime: d.startTime, endTime: d.endTime, isBreak: d.isBreak, days: slotDays }, d.id);
     return { flash: { message: `${row.label} saved.` } };
-  }, { formData: fd, revalidate: [PATH] });
+  }, { formData: fd, revalidate: [PATH], pageYearId: pageYearOf(fd) });
 }
 
 export async function archiveSlotAction(id: string): Promise<string | undefined> {
   return actSimple("archive", async ({ tx, current }) => {
     const s = await archiveSlot(tx, current.ctx, id);
     return { flash: { message: `${s.label} removed from the period master. Time Tables keep the periods already placed.` } };
-  });
+  }, { campusOf: async (tx) => (await tx.periodSlot.findFirst({ where: { id } }))?.campusId, notFound: "This period was not found." });
 }
 
 // ---------------------------------------------------------------- teacher preferences, subject conditions
@@ -168,6 +179,7 @@ export async function savePreferenceAction(_prev: FormState, fd: FormData): Prom
   const d = parsed.data;
   const unavailable = fd.getAll("unavailable").map(String).filter((u) => /^[1-7]:-?\d{1,2}$/.test(u));
   return act("edit", async ({ tx, current }) => {
+    await staffInCampus(tx, current, d.staffId, "Choose a teacher.", "staffId");
     const s = await savePreference(tx, current.ctx, d.staffId, { maxPerDay: d.maxPerDay, maxPerWeek: d.maxPerWeek, unavailable, note: d.note });
     return { flash: { message: `${s.fullName}'s preferences saved. They are used when making the Time Table automatically.` } };
   }, { formData: fd });
@@ -185,14 +197,19 @@ export async function addConditionAction(_prev: FormState, fd: FormData): Promis
   return act("create", async ({ tx, current }) => {
     const r = await addCondition(tx, current.ctx, d);
     return { flash: { message: `Added: ${r.words}.` } };
-  }, { formData: fd });
+  }, { formData: fd, campusOf: classCampusOf(d.classId), notFound: "Choose a class, or all classes." });
 }
 
 export async function archiveConditionAction(id: string): Promise<string | undefined> {
   return actSimple("archive", async ({ tx, current }) => {
     await archiveCondition(tx, current.ctx, id);
     return { flash: { message: "Condition removed." } };
-  });
+  }, { campusOf: async (tx) => classCampusOf((await tx.subjectCondition.findFirst({ where: { id }, select: { classId: true } }))?.classId ?? null)(tx), notFound: "This condition was already removed." });
+}
+
+/** A condition for one class is that class's campus; for every class (null), the whole school's. */
+function classCampusOf(classId: string | null) {
+  return async (tx: Tx) => (classId ? (await tx.schoolClass.findFirst({ where: { id: classId }, select: { campusId: true } }))?.campusId : null);
 }
 
 // ---------------------------------------------------------------- optional parts and rooms
@@ -209,17 +226,16 @@ export async function addRoomAction(_prev: FormState, fd: FormData): Promise<For
   const parsed = parseForm(z.object({ name: z.string().trim().min(1, "Give the room a name, like Lab 1.").max(40, "The name can be at most 40 characters."), kind: z.enum(["classroom", "lab", "activity"], { errorMap: () => ({ message: "Choose the kind of room." }) }), capacity: optionalInt("Capacity", 1, 2000) }), fd);
   if (!parsed.ok) return parsed.state;
   const d = parsed.data;
-  return act("create", async ({ tx, current }) => {
+  return act("create", async ({ tx, current, campus }) => {
     if (!current.features.has("academic-rooms")) throw new AcademicRuleError("Switch on Rooms and lab bookings first.");
-    const campusId = await mainCampusId(tx, current.ctx);
-    const r = await addRoom(tx, current.ctx, campusId, d);
+    const r = await addRoom(tx, current.ctx, await campus(), d);
     return { flash: { message: `${r.name} added.` } };
-  }, { formData: fd });
+  }, { formData: fd, pageYearId: pageYearOf(fd) });
 }
 
 export async function archiveRoomAction(id: string): Promise<string | undefined> {
   return actSimple("archive", async ({ tx, current }) => {
     const r = await archiveRoom(tx, current.ctx, id);
     return { flash: { message: `${r.name} removed. Bookings already made stay in the history.` } };
-  });
+  }, { campusOf: async (tx) => (await tx.room.findFirst({ where: { id } }))?.campusId, notFound: "This room was already removed." });
 }

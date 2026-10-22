@@ -11,7 +11,7 @@ import { writeAudit } from "../audit";
 import { decryptField, encryptField } from "../crypto";
 import { formatTime } from "../format";
 import { isoDay } from "../staff/dates";
-import { AttendanceProblem, type AttendanceAccess } from "./access";
+import { AttendanceProblem, campusOpen, campusOrSchool, type AttendanceAccess } from "./access";
 import { dayInfo } from "./calendar";
 import { offDayWords } from "../calendar/school-days";
 import { attendanceFeatures, attendanceSettings } from "./settings";
@@ -49,7 +49,8 @@ export async function createQrSession(tx: Tx, ctx: SchoolContext, access: Attend
   if (input.name.trim().length < 2) throw new AttendanceProblem("Name is needed, for example \"Main entrance\".", "name");
   if (!["students", "staff", "both"].includes(input.forWhom)) throw new AttendanceProblem("Choose who checks in with this QR.", "forWhom");
   if (!["daily", "fixed"].includes(input.rotation)) throw new AttendanceProblem("Choose a changing or fixed QR.", "rotation");
-  if (input.scope === "campus" && !input.campusId) throw new AttendanceProblem("Choose the campus.", "campusId");
+  // A person limited to one campus makes QR for that campus only (a whole-school QR is the school's).
+  if (input.scope === "campus" && (!input.campusId || !campusOpen(access, input.campusId))) throw new AttendanceProblem("Choose the campus.", "campusId");
   if (input.expiresAt && input.expiresAt <= input.now) throw new AttendanceProblem("Expiry must be in the future.", "expiresAt");
   const row = await tx.qrSession.create({
     data: {
@@ -63,7 +64,7 @@ export async function createQrSession(tx: Tx, ctx: SchoolContext, access: Attend
 
 export async function setQrSessionState(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, id: string, change: "stop" | "start" | "archive" | "new-code") {
   requireAdmin(access);
-  const row = await tx.qrSession.findFirst({ where: { id, archivedAt: null } });
+  const row = await tx.qrSession.findFirst({ where: { id, archivedAt: null, ...campusOrSchool(access) } });
   if (!row) throw new AttendanceProblem("This QR was not found.");
   if (change === "new-code") await tx.qrSession.update({ where: { id }, data: { secretEnc: encryptField(randomBytes(32).toString("base64url")) } });
   else await tx.qrSession.update({ where: { id }, data: change === "archive" ? { archivedAt: new Date(), isActive: false } : { isActive: change === "start" } });
@@ -77,7 +78,7 @@ export async function saveGeoFence(tx: Tx, ctx: SchoolContext, access: Attendanc
   if (!Number.isFinite(input.longitude) || Math.abs(input.longitude) > 180) throw new AttendanceProblem("Longitude must be a number between -180 and 180, like 78.486671.", "longitude");
   if (!Number.isInteger(input.radiusM) || input.radiusM < MIN_RADIUS_M || input.radiusM > 5000) throw new AttendanceProblem(`Radius must be between ${MIN_RADIUS_M} and 5000 metres.`, "radiusM");
   const campus = await tx.campus.findFirst({ where: { id: input.campusId, archivedAt: null } });
-  if (!campus) throw new AttendanceProblem("Choose the campus.", "campusId");
+  if (!campus || !campusOpen(access, campus.id)) throw new AttendanceProblem("Choose the campus.", "campusId");
   const before = await tx.geoFence.findUnique({ where: { schoolId_campusId: { schoolId: ctx.schoolId, campusId: campus.id } } });
   const data = { latitude: input.latitude, longitude: input.longitude, radiusM: input.radiusM, studentsOn: input.studentsOn, staffOn: input.staffOn, updatedById: ctx.userId };
   await tx.geoFence.upsert({ where: { schoolId_campusId: { schoolId: ctx.schoolId, campusId: campus.id } }, create: { schoolId: ctx.schoolId, campusId: campus.id, ...data }, update: data });

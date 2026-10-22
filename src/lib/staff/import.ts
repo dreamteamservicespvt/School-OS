@@ -9,6 +9,7 @@ import { writeAudit } from "../audit";
 import { checkIndianMobile } from "../format";
 import { namesAlike } from "../students/name-match";
 import { checkAadhaar, createStaff, findDuplicates, StaffProblem, type StaffDetails } from "./staff";
+import { campusLimitOf } from "./campus-logins";
 import { EMPLOYMENT_TYPES, BLOOD_GROUPS, GENDERS, ensureHrDefaults } from "./settings";
 import { day } from "./dates";
 
@@ -134,14 +135,16 @@ defineImport<Row>({
   },
   async save(tx, ctx, value) {
     try {
+      // One campus (src/lib/campus.ts): staff imported by someone limited to one campus join that campus, and their logins open it only.
+      const campusLimit = await campusLimitOf(tx, ctx);
       if (value.linkLoginId) {
         // Their own login already signs in here: the staff record joins it (checked in the preview).
-        const r = await createStaff(tx, ctx, value.details, null, [], { allowDuplicate: true });
+        const r = await createStaff(tx, ctx, value.details, null, [], { allowDuplicate: true, campusLimit });
         await tx.staff.update({ where: { id: r.staff.id }, data: { userLoginId: value.linkLoginId } });
         await writeAudit(tx, ctx, { action: "login-linked", recordType: "Staff", recordId: r.staff.id, after: { staff: r.staff.fullName, userLoginId: value.linkLoginId, from: "Import" } });
         return { id: r.staff.id, created: true };
       }
-      const r = await createStaff(tx, ctx, value.details, value.login && value.roleKey ? { roleKeys: [value.roleKey], username: null, exceptions: {}, campusId: null } : null, [], { allowDuplicate: false });
+      const r = await createStaff(tx, ctx, value.details, value.login && value.roleKey ? { roleKeys: [value.roleKey], username: null, exceptions: {}, campusId: null } : null, [], { allowDuplicate: false, campusLimit });
       return { id: r.staff.id, created: true };
     } catch (e) {
       if (e instanceof StaffProblem) throw new RowProblem(`${value.details.fullName}: ${e.message}`);

@@ -273,10 +273,11 @@ function SectionDialog({ mode, yearId, classId, className, section, teachers, st
   );
 }
 
-export function StreamsButton({ streams }: { streams: Option[] }) {
+/** `yearId`: the page's year, so the stream is added on that year's campus. */
+export function StreamsButton({ yearId, streams }: { yearId: string; streams: Option[] }) {
   const router = useRouter();
   return (
-    <FormDialog trigger="Streams" title="Streams" action={addStreamAction} submitLabel="Add stream">
+    <FormDialog trigger="Streams" title="Streams" action={addStreamAction} submitLabel="Add stream" hidden={{ yearId }}>
       {(state) => (
         <>
           {streams.length === 0 ? <p className="text-ink-2">No streams yet. Add Science, Commerce or Arts, then attach sections to them.</p> : (

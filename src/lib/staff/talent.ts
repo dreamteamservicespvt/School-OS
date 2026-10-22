@@ -136,12 +136,20 @@ export async function markHired(tx: Tx, ctx: SchoolContext, applicationId: strin
 
 // ---------------------------------------------------------------- appraisal
 
-export async function startCycle(tx: Tx, ctx: SchoolContext, input: { name: string; academicYearId: string; criteria: string[]; startDate: Date; endDate: Date }) {
+/**
+ * Starts an appraisal cycle for every staff member on roll. `campusId`: the
+ * campus the person starting it is limited to ("One campus"): the cycle is for
+ * that campus's staff, in a year of that campus.
+ */
+export async function startCycle(tx: Tx, ctx: SchoolContext, input: { name: string; academicYearId: string; criteria: string[]; startDate: Date; endDate: Date }, opts: { campusId?: string | null } = {}) {
   if (input.criteria.length === 0) throw new TalentProblem("Add at least one thing to rate, one per line.", "criteria");
   if (input.endDate < input.startDate) throw new TalentProblem("End date is before the start date.", "endDate");
+  if (opts.campusId && !(await tx.academicYear.findFirst({ where: { id: input.academicYearId, campusId: opts.campusId, archivedAt: null }, select: { id: true } }))) {
+    throw new TalentProblem("Choose the academic year from the list.", "academicYearId");
+  }
   if (await tx.appraisalCycle.findFirst({ where: { schoolId: ctx.schoolId, name: input.name } })) throw new TalentProblem(`A cycle named ${input.name} already exists.`, "name");
   const cycle = await tx.appraisalCycle.create({ data: { schoolId: ctx.schoolId, ...input, createdById: ctx.userId } });
-  const staff = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, include: { department: true } });
+  const staff = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, ...(opts.campusId ? { campusId: opts.campusId } : {}) }, include: { department: true } });
   await tx.appraisal.createMany({
     data: staff.map((s) => ({
       schoolId: ctx.schoolId, cycleId: cycle.id, staffId: s.id,
@@ -187,8 +195,14 @@ export async function saveReview(tx: Tx, ctx: SchoolContext, appraisalId: string
   await writeAudit(tx, ctx, { action: `appraisal-${by}-review`, recordType: "Appraisal", recordId: a.id, after: { ratings: clean, comment } as Prisma.InputJsonValue });
 }
 
-export async function closeCycle(tx: Tx, ctx: SchoolContext, cycleId: string) {
-  const c = await tx.appraisalCycle.findFirstOrThrow({ where: { id: cycleId } });
+/** Closes a cycle. `campusId` ("One campus"): only a cycle in a year of that campus; another is not found. */
+export async function closeCycle(tx: Tx, ctx: SchoolContext, cycleId: string, opts: { campusId?: string | null } = {}) {
+  const c = await tx.appraisalCycle.findFirst({ where: { id: cycleId } });
+  if (!c) throw new TalentProblem("This appraisal cycle was not found.");
+  if (opts.campusId) {
+    const year = await tx.academicYear.findFirst({ where: { id: c.academicYearId }, select: { campusId: true } });
+    if (year?.campusId !== opts.campusId) throw new TalentProblem("This appraisal cycle was not found.");
+  }
   if (c.status === "CLOSED") throw new TalentProblem("This cycle is already closed.");
   await tx.appraisalCycle.update({ where: { id: c.id }, data: { status: "CLOSED", closedAt: new Date() } });
   await writeAudit(tx, ctx, { action: "closed", recordType: "Appraisal Cycle", recordId: c.id, before: { status: "OPEN" }, after: { status: "CLOSED" } });

@@ -6,7 +6,20 @@ import { checkbox, optionalDate, parseForm, type FormState } from "@/lib/forms";
 import { addSubject, archiveSubject, copySubjectMap, endMap, mapSubject, recordChoices, removeChoice, reopenMap, saveElectiveOption, updateMap, updateSubject } from "@/lib/academic/subjects";
 import { AcademicRuleError, todayIn } from "@/lib/academic/common";
 import { writeAudit } from "@/lib/audit";
-import { act, actSimple } from "../_lib/server";
+import type { Tx } from "@/lib/db";
+import type { Current } from "@/lib/current";
+import { act, actSimple, classOnCampus, sameCampus, yearCampus } from "../_lib/server";
+
+// Subjects belong to the whole school; the subject map of a class belongs to the class's campus.
+const classCampus = (classId: string) => async (tx: Tx) => (await tx.schoolClass.findFirst({ where: { id: classId }, select: { campusId: true } }))?.campusId;
+const mapCampus = (mapId: string) => async (tx: Tx) => (await tx.subjectClass.findFirst({ where: { id: mapId }, select: { schoolClass: { select: { campusId: true } } } }))?.schoolClass.campusId;
+
+/** One campus: every class picked must be on the person's campus. */
+async function classesInCampus(tx: Tx, current: Current, classIds: string[], notFound: string, field?: string) {
+  if (!current.campusId || classIds.length === 0) return;
+  const other = await tx.schoolClass.count({ where: { id: { in: classIds }, campusId: { not: current.campusId } } });
+  if (other > 0) throw new AcademicRuleError(notFound, field);
+}
 
 const TYPES = ["CORE", "OPTIONAL", "ELECTIVE", "LANGUAGE"] as const;
 const ppw = z.string().trim().transform((v) => (v === "" ? "0" : v)).refine((v) => /^\d+$/.test(v), "Periods per week must be a whole number.").transform(Number).refine((n) => n >= 0 && n <= 30, "Periods per week must be between 0 and 30.");
@@ -26,6 +39,7 @@ export async function addSubjectAction(_prev: FormState, fd: FormData): Promise<
   const classIds = fd.getAll("classIds").map(String).filter((x) => /^[0-9a-f-]{36}$/i.test(x));
   const d = parsed.data;
   return act("create", async ({ tx, current }) => {
+    await classesInCampus(tx, current, classIds, "This class was not found.", "classIds");
     const s = await addSubject(tx, current.ctx, { name: d.name, code: d.code || null, type: d.type as SubjectType, gradeOnly: d.gradeOnly, classIds, periodsPerWeek: d.periodsPerWeek, fromDate: d.fromDate });
     return { flash: { message: `${s.name} (${s.code}) added${classIds.length ? ` to ${classIds.length} ${classIds.length === 1 ? "class" : "classes"}` : ""}.` } };
   }, { formData: fd });
@@ -71,7 +85,7 @@ export async function mapSubjectAction(_prev: FormState, fd: FormData): Promise<
   return act("create", async ({ tx, current }) => {
     const r = await mapSubject(tx, current.ctx, parsed.data);
     return { flash: { message: `${r.label} from ${parsed.data.fromDate ? "the date given" : "now"}.` } };
-  }, { formData: fd });
+  }, { formData: fd, campusOf: classCampus(parsed.data.classId), notFound: "Choose a class." });
 }
 
 export async function updateMapAction(_prev: FormState, fd: FormData): Promise<FormState> {
@@ -80,7 +94,7 @@ export async function updateMapAction(_prev: FormState, fd: FormData): Promise<F
   return act("edit", async ({ tx, current }) => {
     const label = await updateMap(tx, current.ctx, parsed.data.mapId, { periodsPerWeek: parsed.data.periodsPerWeek });
     return { flash: { message: `${label}: ${parsed.data.periodsPerWeek} periods a week.` } };
-  }, { formData: fd });
+  }, { formData: fd, campusOf: mapCampus(parsed.data.mapId), notFound: "This subject was not found for the class." });
 }
 
 export async function endMapAction(_prev: FormState, fd: FormData): Promise<FormState> {
@@ -89,14 +103,14 @@ export async function endMapAction(_prev: FormState, fd: FormData): Promise<Form
   return act("edit", async ({ tx, current }) => {
     const words = await endMap(tx, current.ctx, parsed.data.mapId, parsed.data.endsFrom);
     return { flash: { message: `${words}. Past marks and homework stay linked.` } };
-  }, { formData: fd });
+  }, { formData: fd, campusOf: mapCampus(parsed.data.mapId), notFound: "This subject was not found for the class." });
 }
 
 export async function reopenMapAction(mapId: string): Promise<string | undefined> {
   return actSimple("edit", async ({ tx, current }) => {
     const words = await reopenMap(tx, current.ctx, mapId);
     return { flash: { message: `${words}.` } };
-  });
+  }, { campusOf: mapCampus(mapId), notFound: "This subject was not found for the class." });
 }
 
 export async function copyMapAction(_prev: FormState, fd: FormData): Promise<FormState> {
@@ -104,6 +118,7 @@ export async function copyMapAction(_prev: FormState, fd: FormData): Promise<For
   const to = fd.getAll("toClassIds").map(String).filter((x) => /^[0-9a-f-]{36}$/i.test(x));
   if (to.length === 0) return { ok: false, message: "Tick at least one class to copy to.", errors: { toClassIds: "Tick at least one class to copy to." } };
   return act("create", async ({ tx, current }) => {
+    await classesInCampus(tx, current, [fromClassId, ...to].filter((x) => /^[0-9a-f-]{36}$/i.test(x)), "This class was not found.", "toClassIds");
     const words = await copySubjectMap(tx, current.ctx, fromClassId, to, todayIn(current.school.timeZone));
     return { flash: { message: words } };
   }, { formData: fd });
@@ -123,7 +138,13 @@ export async function saveOptionAction(_prev: FormState, fd: FormData): Promise<
   const parsed = parseForm(optionSchema, fd);
   if (!parsed.ok) return parsed.state;
   const { id, yearId, ...rest } = parsed.data;
-  return act(id ? "edit" : "create", async ({ tx, current }) => {
+  return act(id ? "edit" : "create", async ({ tx, current, campus }) => {
+    // The class is on the year's campus; a choice being changed is on the person's campus.
+    await classOnCampus(tx, rest.classId, await campus(), "Choose a class.", "classId");
+    if (id && current.campusId) {
+      const o = await tx.electiveOption.findFirst({ where: { id }, select: { academicYearId: true } });
+      if (o) sameCampus(current, await yearCampus(tx, o.academicYearId), "This choice was not found.");
+    }
     await saveElectiveOption(tx, current.ctx, { academicYearId: yearId, ...rest }, id || undefined);
     return { flash: { message: `${rest.groupName} choice saved.` } };
   }, { formData: fd, yearId });
@@ -137,12 +158,12 @@ export async function recordChoicesAction(_prev: FormState, fd: FormData): Promi
   return act("edit", async ({ tx, current }) => {
     const r = await recordChoices(tx, current.ctx, optionId, students);
     return { flash: { message: `${r.subject} recorded for ${r.added} ${r.added === 1 ? "student" : "students"}.` } };
-  }, { formData: fd, yearOf: async (tx) => (await tx.electiveOption.findFirst({ where: { id: optionId } }))?.academicYearId ?? null });
+  }, { formData: fd, yearOf: async (tx) => (await tx.electiveOption.findFirst({ where: { id: optionId } }))?.academicYearId ?? null, notFound: "This choice was not found." });
 }
 
 export async function removeChoiceAction(choiceId: string): Promise<string | undefined> {
   return actSimple("edit", async ({ tx, current }) => {
     await removeChoice(tx, current.ctx, choiceId);
     return { flash: { message: "Choice removed." } };
-  }, { yearOf: async (tx) => (await tx.electiveChoice.findFirst({ where: { id: choiceId } }))?.academicYearId ?? null });
+  }, { yearOf: async (tx) => (await tx.electiveChoice.findFirst({ where: { id: choiceId } }))?.academicYearId ?? null, notFound: "This choice was not found." });
 }

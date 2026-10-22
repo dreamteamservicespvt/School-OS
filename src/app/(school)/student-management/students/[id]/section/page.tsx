@@ -8,6 +8,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { ActionForm, FormArea, FormSelect } from "@/components/students/action-form";
 import { loadVisibleStudent, StudentNotFound } from "@/lib/students/access";
+import { currentYear } from "@/lib/academic/years";
 import { BASE, studentPage } from "../../../_lib/page";
 import { sectionOptions } from "../../../_lib/queries";
 import { changeSectionAction, placeInSectionAction } from "../../../_actions/students";
@@ -16,21 +17,24 @@ export const metadata: Metadata = { title: "Change section" };
 
 export default async function ChangeSectionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { current, can, year } = await studentPage();
+  const { current, can } = await studentPage();
   if (!can.manage) redirect(`${BASE}/students/${id}`);
   let data;
   try {
     data = await withSchool(current.ctx, async (tx) => {
       const student = await loadVisibleStudent(tx, current, id);
+      // The student's own campus's current year, and that campus's sections.
+      const year = await currentYear(tx, current.ctx, student.campusId);
       const now = year ? await tx.enrolment.findFirst({ where: { studentId: id, academicYearId: year.id, archivedAt: null, status: { not: "LEFT" } } }) : null;
       const sections = await sectionOptions(tx, current, year?.id);
-      return { student, now, sections };
+      return { student, now, sections, year };
     });
   } catch (e) {
     if (e instanceof StudentNotFound) notFound();
     throw e;
   }
   const back = `${BASE}/students/${id}`;
+  const year = data.year;
   const cancel = <Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>;
   const current_ = data.now ? data.sections.find((s) => s.value === data.now!.sectionId) : null;
   const sameClass = data.now ? data.sections.filter((s) => s.classId === data.now!.classId && s.value !== data.now!.sectionId) : [];

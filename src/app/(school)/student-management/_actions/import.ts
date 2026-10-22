@@ -36,7 +36,7 @@ export async function uploadImportAction(_prev: FormState, fd: FormData): Promis
   let fileId = "";
   const r = await attemptForm(values, async () => {
     await withSchool(current.ctx, async (tx) => {
-      if (isId(sectionId) && !(await tx.section.findFirst({ where: { id: sectionId, archivedAt: null } }))) throw new StudentProblem("Choose the class and section again.", "sectionId");
+      if (isId(sectionId) && !(await tx.section.findFirst({ where: { id: sectionId, archivedAt: null, ...(current.campusId ? { schoolClass: { campusId: current.campusId } } : {}) } }))) throw new StudentProblem("Choose the class and section again.", "sectionId");
       fileId = (await saveFile(tx, current.ctx, { file, purpose: "student-import", allowed: SHEET_TYPES })).id;
       await loadSheet(tx, fileId);
     }, { timeout: 60_000 });
@@ -66,6 +66,8 @@ export async function runImportAction(_prev: FormState, fd: FormData): Promise<F
   const r = await attemptForm({}, async () => {
     await withSchool(current.ctx, async (tx) => {
       const sheet = await loadSheet(tx, fileId);
+      // One campus: students go only into that campus's sections.
+      if (isId(sectionId) && current.campusId && !(await tx.section.count({ where: { id: sectionId, schoolClass: { campusId: current.campusId } } }))) throw new StudentProblem("Choose the class and section again.", "sectionId");
       const kind = studentImportFor(kindKey, { sectionId: isId(sectionId) ? sectionId : null, applyFeePlan: fee });
       // Smart Import: only the fixes the person ticked, and only when Smart Import is on for them (Settings, Modules On/Off).
       const smart = aiAllowed(current, "ai-smart-import");

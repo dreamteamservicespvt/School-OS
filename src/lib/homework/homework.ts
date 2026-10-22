@@ -15,7 +15,7 @@ import { effectiveVersion } from "../academic/timetable";
 import { weekday } from "../academic/common";
 import { formatDate } from "../format";
 import { HomeworkProblem } from "./access";
-import { mayRead, requireDesk, requireStaff, requireWork, requireYearOpen, shortSection, workSections, workSubjects, type HomeworkScope } from "./scope";
+import { listWhere, mayRead, onCampus, requireDesk, requireStaff, requireWork, requireYearOpen, shortSection, workSections, workSubjects, type HomeworkScope } from "./scope";
 import { homeworkSettings } from "./settings";
 import { dayDate, homeworkStatus, HANDED_IN, isPastDue, plural, TO_CHECK, type HomeworkStatus } from "./words";
 import { tellParentsHomeworkSet } from "./notify-parents";
@@ -136,6 +136,8 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
   const sections = await workSections(tx, s);
   const section = sections.find((x) => x.id === input.sectionId);
   if (!section) throw new HomeworkProblem("Choose one of your classes that has students.", "sectionId");
+  // The section's own year: in a school with two campuses, each campus has its own.
+  requireYearOpen(s, section.yearId);
   const subjects = await workSubjects(tx, s, section.id, section.classId, today);
   const subject = subjects.find((x) => x.id === input.subjectId);
   if (!subject) throw new HomeworkProblem(`You do not teach this subject to ${section.label}. Ask the Academic Head if Teacher Allocation is wrong.`, "subjectId");
@@ -144,7 +146,7 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
   let targets = [section];
   if (input.givenTo === "CLASS") {
     targets = [];
-    for (const x of sections.filter((y) => y.classId === section.classId)) {
+    for (const x of sections.filter((y) => y.classId === section.classId && y.yearId === section.yearId)) {
       const subs = await workSubjects(tx, s, x.id, x.classId, today);
       if (subs.some((y) => y.id === subject.id)) targets.push(x);
     }
@@ -153,7 +155,7 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
   const made: { id: string; sectionLabel: string; students: number; notified: number; parents: string | null }[] = [];
   const settings = await homeworkSettings(tx, ctx);
   for (const t of targets) {
-    let students = await sectionStudents(tx, s.yearId!, t.id);
+    let students = await sectionStudents(tx, t.yearId, t.id);
     if (input.givenTo === "STUDENTS") {
       const chosen = new Set(input.studentIds);
       students = students.filter((x) => chosen.has(x.id));
@@ -161,7 +163,7 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
     }
     const hw = await tx.homework.create({
       data: {
-        schoolId: ctx.schoolId, academicYearId: s.yearId!, sectionId: t.id, classId: t.classId, subjectId: subject.id, teacherId: s.staffId, groupId,
+        schoolId: ctx.schoolId, academicYearId: t.yearId, sectionId: t.id, classId: t.classId, subjectId: subject.id, teacherId: s.staffId, groupId,
         title, instructions: input.instructions?.trim() || null, givenTo: input.givenTo, startDate: input.startDate, dueDate: input.dueDate,
         maxMarks: input.maxMarks, onlineSubmission: input.onlineSubmission && settings.onlineSubmission, fromSuggestion: input.fromSuggestion, createdById: ctx.userId,
       },
@@ -207,7 +209,7 @@ export type EditInput = { title: string; instructions: string | null; startDate:
 
 export async function editHomework(tx: Tx, s: HomeworkScope, id: string, input: EditInput) {
   const hw = await tx.homework.findFirst({ where: { id, archivedAt: null } });
-  if (!hw) throw new HomeworkProblem("This homework was not found. It may have been archived.");
+  if (!hw || !onCampus(s, hw.sectionId)) throw new HomeworkProblem("This homework was not found. It may have been archived.");
   requireWork(s, hw, "this homework");
   const year = await tx.academicYear.findUnique({ where: { id: hw.academicYearId }, select: { status: true } });
   if (year?.status === "CLOSED") throw new HomeworkProblem("This academic year is closed, so its homework can only be read.");
@@ -230,7 +232,7 @@ export async function editHomework(tx: Tx, s: HomeworkScope, id: string, input: 
 
 export async function archiveHomework(tx: Tx, s: HomeworkScope, id: string) {
   const hw = await tx.homework.findFirst({ where: { id, archivedAt: null } });
-  if (!hw) throw new HomeworkProblem("This homework was not found. It may already be archived.");
+  if (!hw || !onCampus(s, hw.sectionId)) throw new HomeworkProblem("This homework was not found. It may already be archived.");
   requireWork(s, hw, "this homework");
   await tx.homework.update({ where: { id }, data: { archivedAt: new Date(), archivedById: s.ctx.userId } });
   await writeAudit(tx, s.ctx, { action: "archived", recordType: "Homework", recordId: id, before: { title: hw.title } });
@@ -239,7 +241,7 @@ export async function archiveHomework(tx: Tx, s: HomeworkScope, id: string) {
 
 export async function restoreHomework(tx: Tx, s: HomeworkScope, id: string) {
   const hw = await tx.homework.findFirst({ where: { id, archivedAt: { not: null } } });
-  if (!hw) throw new HomeworkProblem("This homework is not archived.");
+  if (!hw || !onCampus(s, hw.sectionId)) throw new HomeworkProblem("This homework is not archived.");
   requireWork(s, hw, "this homework");
   await tx.homework.update({ where: { id }, data: { archivedAt: null, archivedById: null } });
   await writeAudit(tx, s.ctx, { action: "restored", recordType: "Homework", recordId: id, after: { title: hw.title } });
@@ -304,10 +306,14 @@ export type HomeworkRow = {
 
 export type ListFilter = { history?: boolean; classId?: string | null; subjectId?: string | null; q?: string; from?: Date | null; to?: Date | null; archived?: boolean; status?: string | null };
 
-/** The homework this person may read, with counts. Current: due today or later; History: past due and closed. */
+/**
+ * The homework this person may read, with counts. Current: due today or later;
+ * History: past due and closed. Each campus's own current year, and only their
+ * campus's sections when the person is limited to one campus.
+ */
 export async function listHomework(tx: Tx, s: HomeworkScope, today: Date, f: ListFilter = {}) {
   const where: Prisma.HomeworkWhereInput = {
-    academicYearId: s.yearId ?? undefined,
+    ...listWhere(s),
     archivedAt: f.archived ? { not: null } : null,
     ...(s.level === "student" ? { submissions: { some: { studentId: s.student?.id ?? "00000000-0000-0000-0000-000000000000", archivedAt: null } } } : {}),
     ...(s.level === "own" ? { OR: [...s.pairs.map((p) => ({ sectionId: p.sectionId, subjectId: p.subjectId })), ...(s.staffId ? [{ teacherId: s.staffId }] : []), ...(s.ctSections.length ? [{ sectionId: { in: s.ctSections } }] : [])] } : {}),

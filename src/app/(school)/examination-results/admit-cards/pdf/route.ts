@@ -4,7 +4,7 @@ import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { ExamRuleError } from "@/lib/exams/common";
-import { examScope } from "@/lib/exams/scope";
+import { assertYearInScope, examScope } from "@/lib/exams/scope";
 import { renderAdmitCards } from "@/lib/exams/admit";
 
 export const dynamic = "force-dynamic";
@@ -29,6 +29,7 @@ export async function GET(req: Request) {
       const exam = await tx.exam.findFirst({ where: { id: examId, archivedAt: null }, select: { academicYearId: true } });
       if (!exam) throw new ExamRuleError("This exam was not found.");
       const scope = await examScope(tx, current, exam.academicYearId);
+      assertYearInScope(scope, exam.academicYearId, "exam");
       if (!scope.datesheets && !scope.manage) throw new ExamRuleError("Your role does not print admit cards. Ask the office or the Exam In-charge.");
       const r = await renderAdmitCards(tx, current.ctx, { examId, sectionId, studentId, batch });
       return { pdf: await r.doc.pdf(), name: r.fileName };

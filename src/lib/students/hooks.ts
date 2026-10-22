@@ -110,7 +110,8 @@ export type ListFacts = {
 };
 export type ListColumn = "attendance" | "fees" | "results";
 /** The person asking: what they may see decides which facts they get. */
-export type FactViewer = { ctx: SchoolContext; permissions: PermissionMap; roles: { key: string | null }[] };
+/** `campusId`: the campus a "One campus" login is limited to (its facts stay within it); null for the whole school. */
+export type FactViewer = { ctx: SchoolContext; permissions: PermissionMap; roles: { key: string | null }[]; campusId?: string | null };
 export type ListSource = {
   covers: ListColumn;
   /** May this person see the column at all (their roles' permissions)? */
@@ -130,6 +131,20 @@ export async function listFacts(tx: Tx, who: FactViewer, studentIds: string[], a
   for (const p of shown) {
     const part = await p.load(tx, who, { studentIds, academicYearId });
     for (const [id, f] of part) out.set(id, { ...out.get(id), ...f });
+  }
+  return { facts: out, shows };
+}
+
+/**
+ * The same facts when the students are in different years: each campus's
+ * students in their own campus's current year (year id -> student ids).
+ */
+export async function listFactsByYear(tx: Tx, who: FactViewer, byYear: Map<string, string[]>) {
+  const { shows } = await listFacts(tx, who, [], null);
+  const out = new Map<string, ListFacts>();
+  for (const [yearId, ids] of byYear) {
+    const part = await listFacts(tx, who, ids, yearId);
+    for (const [id, f] of part.facts) out.set(id, f);
   }
   return { facts: out, shows };
 }

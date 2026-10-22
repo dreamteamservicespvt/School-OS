@@ -20,7 +20,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ fileId: 
   }
   const file = await withSchool(current.ctx, (tx) => tx.storedFile.findFirst({ where: { id: fileId, purpose: "report-cards" }, select: { id: true, uploadedById: true } }));
   if (!file) return plain("This file was not found. It may belong to another school or have been removed.", 404);
-  if (file.uploadedById && file.uploadedById !== current.user.id && reachFor(current.permissions, "examination-results", "print") !== "all") {
+  // A PDF made by someone else opens for whole-school print reach only: the file does not say which campus it is of.
+  if (file.uploadedById && file.uploadedById !== current.user.id && (reachFor(current.permissions, "examination-results", "print") !== "all" || current.campusId)) {
     return plain("This PDF was made for someone else. Make your own from the Report Cards page.", 403);
   }
   return NextResponse.redirect(new URL(fileLink(file.id, current.ctx.schoolId), req.url));

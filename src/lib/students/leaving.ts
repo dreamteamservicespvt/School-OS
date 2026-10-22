@@ -10,6 +10,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { requestApproval } from "../approvals";
 import { formatRupees } from "../format";
+import { currentEnrolment } from "../academic/years";
 import { runClearanceChecks } from "./clearance";
 // Each module's clearance check registers itself when imported.
 import "../fees/clearance";
@@ -135,7 +136,8 @@ export async function markAlumni(tx: Tx, ctx: SchoolContext, studentIds: string[
   for (const id of studentIds) {
     const s = await tx.student.findFirst({ where: { id, status: "GRADUATED" } });
     if (!s) continue;
-    const lastEnr = await tx.enrolment.findFirst({ where: { studentId: id, archivedAt: null }, orderBy: { createdAt: "desc" }, include: { student: false } });
+    // The year they finished in: their class this year, else their newest (never "the enrolment made last").
+    const lastEnr = await currentEnrolment(tx, id);
     const year = lastEnr ? await tx.academicYear.findUnique({ where: { id: lastEnr.academicYearId } }) : null;
     await applyStatus(tx, ctx, id, "ALUMNI", today(), "Marked as alumni", "alumni");
     const guardianPhone = (await tx.studentGuardian.findFirst({ where: { studentId: id, isPrimary: true, archivedAt: null }, include: { guardian: true } }))?.guardian.phone ?? null;

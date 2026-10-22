@@ -12,7 +12,8 @@ import { flash } from "@/lib/flash";
 import { dateField, optionalDate, optionalEmail, optionalIndianMobile, optionalText, parseForm, text, indianMobile, checkbox, formValues, type FormState } from "@/lib/forms";
 import { IMAGE_TYPES, saveFile } from "@/lib/files";
 import { CATEGORIES, GENDERS, BLOOD_GROUPS, RELATIONS, STATUS_LABEL, type StudentStatusKey } from "@/lib/students/labels";
-import { loadVisibleStudent } from "@/lib/students/access";
+import { loadVisibleStudent, type Who } from "@/lib/students/access";
+import { campusAllows, sectionCampusId } from "@/lib/campus";
 import {
   addEmergencyContact, archiveEmergencyContact, changeSection, changeStatus, createStudent, DuplicateFound, guardiansByPhone,
   moveEmergency, placeInSection, previewAdmissionNo, admissionNoTaken, saveContact, saveEnrolment, saveExtraFields, saveIdentifiers,
@@ -51,6 +52,11 @@ const addSchema = z.object({
   previousSchool: optionalText("Previous school", 200),
 });
 
+/** A person limited to one campus places students only in that campus's sections. */
+async function sectionOnCampus(tx: Parameters<Parameters<typeof withSchool>[1]>[0], who: Who, sectionId: string) {
+  if (!campusAllows(who, await sectionCampusId(tx, sectionId))) throw new StudentProblem("Choose a class and section of your campus.", "sectionId");
+}
+
 export type AddStudentData = { duplicates?: { id: string; fullName: string; admissionNo: string; why: string }[] };
 
 export async function addStudent(_prev: FormState, fd: FormData): Promise<FormState> {
@@ -61,6 +67,7 @@ export async function addStudent(_prev: FormState, fd: FormData): Promise<FormSt
   let created: { id: string; name: string; admissionNo: string; section: string } | null = null;
   try {
     created = await withSchool(current.ctx, async (tx) => {
+      await sectionOnCampus(tx, current, parsed.data.sectionId);
       const r = await createStudent(tx, current.ctx, { ...parsed.data, aadhaar: can.seeRestricted ? parsed.data.aadhaar : null });
       return { id: r.student.id, name: r.student.fullName, admissionNo: r.student.admissionNo, section: `${r.section.schoolClass.name} ${r.section.name}` };
     });
@@ -275,6 +282,7 @@ export async function changeSectionAction(id: string, _prev: FormState, fd: Form
   const r = await attemptForm(formValues(fd), async () => {
     await withSchool(current.ctx, async (tx) => {
       await loadVisibleStudent(tx, current, id);
+      await sectionOnCampus(tx, current, parsed.data.sectionId);
       const c = await changeSection(tx, current.ctx, id, parsed.data.sectionId, parsed.data.reason);
       undo = { id: c.change.id, label: c.label };
     });
@@ -293,6 +301,7 @@ export async function placeInSectionAction(id: string, _prev: FormState, fd: For
   return attemptForm(formValues(fd), async () => {
     await withSchool(current.ctx, async (tx) => {
       await loadVisibleStudent(tx, current, id);
+      await sectionOnCampus(tx, current, parsed.data.sectionId);
       await placeInSection(tx, current.ctx, id, parsed.data.sectionId);
     });
     revalidatePath(profile(id));

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { SelectField } from "@/components/ui/field";
 import { ActionForm, FormSelect } from "@/components/students/action-form";
 import { readField } from "@/lib/students/bulk";
+import { studentYearLookup } from "@/lib/academic/years";
 import { BULK_FIELDS } from "@/lib/students/labels";
 import { BASE, studentPage } from "../_lib/page";
 import { sectionOptions } from "../_lib/queries";
@@ -20,17 +21,19 @@ export const metadata: Metadata = { title: "Bulk field update" };
 
 /** Bulk field update and bulk section change for students chosen on the Student List, or a whole section. */
 export default async function BulkUpdatePage({ searchParams }: { searchParams: Promise<{ ids?: string; section?: string; field?: string }> }) {
-  const { current, year, can } = await studentPage();
+  const { current, yearIds, can } = await studentPage();
   if (!can.manage) redirect(BASE);
   const sp = await searchParams;
   const fields = BULK_FIELDS.filter((f) => can.seeRestricted || !["apaarId", "pen"].includes(f.key));
   const field = sp.field === "section" ? "section" : fields.find((f) => f.key === sp.field)?.key ?? null;
   const data = await withSchool(current.ctx, async (tx) => {
-    const students = await chosenStudents(tx, current, year?.id ?? null, sp);
+    const students = await chosenStudents(tx, current, yearIds, sp);
+    // A roll number is read from the student's own campus's current year.
+    const yearOf = studentYearLookup(tx, current.ctx);
     const withValues = field && field !== "section"
-      ? await Promise.all(students.map(async (s) => ({ ...s, current: await readField(tx, field, s.id, year?.id ?? null) })))
+      ? await Promise.all(students.map(async (s) => ({ ...s, current: await readField(tx, field, s.id, (await yearOf(s.id))?.id ?? null) })))
       : students.map((s) => ({ ...s, current: null }));
-    return { students: withValues, sections: await sectionOptions(tx, current, year?.id) };
+    return { students: withValues, sections: await sectionOptions(tx, current, yearIds) };
   });
   const keep = [sp.ids ? ["ids", sp.ids] : null, sp.section ? ["section", sp.section] : null].filter((x): x is string[] => Boolean(x));
   const meta = fields.find((f) => f.key === field);

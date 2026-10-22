@@ -7,6 +7,7 @@ import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate } from "../format";
+import { inCampus, type CampusLimit } from "../campus";
 import { AcademicRuleError, addDays, plural } from "./common";
 import { academicSettings } from "./settings";
 import { mapActiveOn } from "./subjects";
@@ -199,22 +200,22 @@ export async function allocationGrid(tx: Tx, ctx: SchoolContext, yearId: string,
   return { subjects: subjects.map((s) => ({ id: s.id, name: s.name, code: s.code })), rows, gaps };
 }
 
-/** Each teacher's classes and subjects, periods per week and limit. */
-export async function teacherWorkloads(tx: Tx, ctx: SchoolContext, yearId: string, campusId: string, date: Date, onlyStaffId?: string | null) {
+/** Each teacher's classes and subjects, periods per week and limit. `limit`: only that campus's teachers (One campus). */
+export async function teacherWorkloads(tx: Tx, ctx: SchoolContext, yearId: string, campusId: string, date: Date, onlyStaffId?: string | null, limit?: CampusLimit | null) {
   const teachers = await tx.staff.findMany({
-    where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching", ...(onlyStaffId ? { id: onlyStaffId } : {}) },
+    where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching", ...(onlyStaffId ? { id: onlyStaffId } : {}), ...inCampus(limit) },
     orderBy: { fullName: "asc" },
     select: { id: true, fullName: true, designation: true },
   });
   const ids = teachers.map((t) => t.id);
-  const [load, limit, allocations] = await Promise.all([
+  const [load, limitOf, allocations] = await Promise.all([
     workloadFor(tx, ctx, yearId, date, ids),
     limitsFor(tx, ctx, campusId, ids),
     tx.teacherAllocation.findMany({ where: { academicYearId: yearId, staffId: { in: ids }, ...allocationActiveOn(date), section: { archivedAt: null } }, include: { section: { include: { schoolClass: true } }, subject: true } }),
   ]);
   return teachers.map((t) => {
     const mine = allocations.filter((a) => a.staffId === t.id).sort((a, b) => a.section.schoolClass.sortOrder - b.section.schoolClass.sortOrder || a.section.name.localeCompare(b.section.name));
-    const l = limit(t.id);
+    const l = limitOf(t.id);
     return {
       id: t.id, name: t.fullName, designation: t.designation,
       periods: load.get(t.id) ?? 0, limit: l.perWeek,

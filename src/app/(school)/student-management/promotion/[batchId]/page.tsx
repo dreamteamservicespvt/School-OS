@@ -30,6 +30,8 @@ export default async function PromotionBatchPage({ params }: { params: Promise<{
   const data = await withSchool(current.ctx, async (tx) => {
     const batch = await tx.promotionBatch.findUnique({ where: { id: batchId }, include: { decisions: true } });
     if (!batch) return null;
+    // One campus: that campus's batches only.
+    if (current.campusId && !(await tx.academicYear.count({ where: { id: batch.fromYearId, campusId: current.campusId } }))) return null;
     const [students, sections, years, people] = await Promise.all([
       tx.student.findMany({ where: { id: { in: batch.decisions.map((d) => d.studentId) } }, select: { id: true, fullName: true, admissionNo: true } }),
       tx.section.findMany({ where: { id: { in: [batch.fromSectionId, ...batch.decisions.map((d) => d.toSectionId).filter((x): x is string => Boolean(x))] } }, include: { schoolClass: true } }),

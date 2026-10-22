@@ -27,6 +27,8 @@ import { approvalsFor } from "../approvals";
 import { schoolDays } from "../attendance/calendar";
 import { classWise } from "../attendance/classwise";
 import { currentYear } from "../academic/years";
+import { inCampus, personCampusId } from "../campus";
+import { feeStudentFilter } from "../fees/access";
 import { forecast as feeForecast } from "../fees/dashboard";
 import { loginsWithRole } from "../front-office/people";
 import { formatDate } from "../format";
@@ -92,7 +94,10 @@ export async function composeBrief(tx: Tx, who: ReportViewer, now = new Date(), 
   const today = todayIn(who.school.timeZone, now);
   const k = kind ?? briefKind(today);
   const a = reportAccess(who);
-  const year = await currentYear(tx, ctx, who.campusId);
+  // The person's own campus's year; a "One campus" login reads only its campus's money and admissions.
+  const year = await currentYear(tx, ctx, await personCampusId(tx, ctx, who));
+  const only = await feeStudentFilter(tx, { campusId: who.campusId ?? null });
+  const campus = inCampus(who);
   const back = await lookBack(tx, ctx, today, k, year?.campusId ?? who.campusId ?? null);
   const lines: BriefLine[] = [];
   const range = back ? `from=${iso(back.from)}&to=${iso(back.to)}` : "";
@@ -114,11 +119,11 @@ export async function composeBrief(tx: Tx, who: ReportViewer, now = new Date(), 
   }
   if (back && a.fees && moduleOpen(who, "fee-management")) {
     const [paid, fc] = await Promise.all([
-      tx.payment.aggregate({ where: { status: "POSTED", broughtIn: false, paymentDate: { gte: back.from, lte: back.to } }, _sum: { amountPaise: true }, _count: { _all: true } }),
-      feeForecast(tx, today),
+      tx.payment.aggregate({ where: { status: "POSTED", broughtIn: false, paymentDate: { gte: back.from, lte: back.to }, ...only }, _sum: { amountPaise: true }, _count: { _all: true } }),
+      feeForecast(tx, today, { only }),
     ]);
     const monthStart = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1));
-    const month = await tx.payment.aggregate({ where: { status: "POSTED", broughtIn: false, paymentDate: { gte: monthStart, lte: today } }, _sum: { amountPaise: true } });
+    const month = await tx.payment.aggregate({ where: { status: "POSTED", broughtIn: false, paymentDate: { gte: monthStart, lte: today }, ...only }, _sum: { amountPaise: true } });
     const expected = fc.months[0]?.expected ?? null;
     lines.push({
       section: "happened", href: `/fee-management/dashboard?period=custom&${range}`,
@@ -136,9 +141,9 @@ export async function composeBrief(tx: Tx, who: ReportViewer, now = new Date(), 
   if (back && moduleOpen(who, "admission-management") && who.permissions["admission-management"].see === "all") {
     const end = addDays(back.to, 1);
     const [enquiries, applications, admitted] = await Promise.all([
-      tx.enquiry.count({ where: { archivedAt: null, createdAt: { gte: back.from, lt: end } } }),
-      tx.application.count({ where: { archivedAt: null, createdAt: { gte: back.from, lt: end } } }),
-      tx.application.count({ where: { archivedAt: null, admittedAt: { gte: back.from, lt: end } } }),
+      tx.enquiry.count({ where: { archivedAt: null, createdAt: { gte: back.from, lt: end }, ...campus } }),
+      tx.application.count({ where: { archivedAt: null, createdAt: { gte: back.from, lt: end }, ...campus } }),
+      tx.application.count({ where: { archivedAt: null, admittedAt: { gte: back.from, lt: end }, ...campus } }),
     ]);
     if (enquiries + applications + admitted > 0) {
       lines.push({
@@ -238,7 +243,7 @@ export async function todaysBrief(tx: Tx, who: ReportViewer, now = new Date()): 
   if (kept) {
     // The kept lines are what was sent; the period is worked out again for the same morning.
     const k = kept.kind as BriefKind;
-    const year = await currentYear(tx, who.ctx, who.campusId);
+    const year = await currentYear(tx, who.ctx, await personCampusId(tx, who.ctx, who));
     const back = await lookBack(tx, who.ctx, today, k, year?.campusId ?? who.campusId ?? null);
     return { kind: k, forDate: kept.forDate, lines: kept.lines as unknown as BriefLine[], title: titleOf(k), period: periodOf(back) };
   }

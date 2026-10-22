@@ -1,6 +1,8 @@
 // The school's Parent Link page (11-communication.md, Parent Link, school
 // staff): summary figures, the links list with filters, one link's history,
-// and choosing guardians by whole school, class or section.
+// and choosing guardians by whole school, class or section. A person limited
+// to one campus sees and manages only the links of guardians with a child at
+// that campus (`campusId` below; none for the whole school).
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
@@ -8,14 +10,19 @@ import type { SchoolContext, Tx } from "../db";
 import type { ListParams } from "../list";
 import { currentYears } from "../academic/years";
 import { OPEN_LINK } from "../students/guardian-access";
+import { ParentLinkProblem } from "../parent-link/links";
 
 import { inPeriod, PERIOD_FILTERS } from "./period";
 export const LINK_FILTERS = ["status", "class", "section", "opened", ...PERIOD_FILTERS] as const;
 const DAY = 86400_000;
 
-/** Guardians of students studying now, optionally only in some classes or sections; never through a link with a custody restriction. */
-export async function guardianIdsIn(tx: Tx, ctx: SchoolContext, pick: { classIds?: string[]; sectionIds?: string[] }) {
-  const years = await currentYears(tx, ctx);
+/**
+ * Guardians of students studying now, optionally only in some classes or
+ * sections, or at one campus; never through a link with a custody restriction.
+ * Each campus's current year (only the campus's when one is given).
+ */
+export async function guardianIdsIn(tx: Tx, ctx: SchoolContext, pick: { classIds?: string[]; sectionIds?: string[]; campusId?: string | null }) {
+  const years = await currentYears(tx, ctx, pick.campusId ? [pick.campusId] : null);
   const narrow = Boolean(pick.classIds?.length || pick.sectionIds?.length);
   let studentIds: string[] | null = null;
   if (narrow) {
@@ -27,15 +34,34 @@ export async function guardianIdsIn(tx: Tx, ctx: SchoolContext, pick: { classIds
     studentIds = rows.map((r) => r.studentId);
   }
   const links = await tx.studentGuardian.findMany({
-    where: { schoolId: ctx.schoolId, ...OPEN_LINK, ...(studentIds ? { studentId: { in: studentIds } } : {}), guardian: { archivedAt: null }, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } },
+    where: { schoolId: ctx.schoolId, ...OPEN_LINK, ...(studentIds ? { studentId: { in: studentIds } } : {}), guardian: { archivedAt: null }, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] }, ...(pick.campusId ? { campusId: pick.campusId } : {}) } },
     select: { guardianId: true },
   });
   return [...new Set(links.map((l) => l.guardianId))];
 }
 
-export async function linkListWhere(tx: Tx, ctx: SchoolContext, params: ListParams, now = new Date(), timeZone = "Asia/Kolkata"): Promise<Prisma.ParentLinkWhereInput> {
+/** Every guardian with a child at the campus (any child on record, studying now or not). */
+export async function campusGuardianIds(tx: Tx, ctx: SchoolContext, campusId: string) {
+  const links = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, student: { campusId, archivedAt: null } }, select: { guardianId: true } });
+  return [...new Set(links.map((l) => l.guardianId))];
+}
+
+/** The links a person may see: every one, or those of their campus's guardians. */
+export async function linkCampusWhere(tx: Tx, ctx: SchoolContext, campusId: string | null | undefined): Promise<Prisma.ParentLinkWhereInput> {
+  return campusId ? { guardianId: { in: await campusGuardianIds(tx, ctx, campusId) } } : {};
+}
+
+/** Refuses the link of another campus's guardian for a person limited to one campus (the same words as a link not found). */
+export async function assertLinkOnCampus(tx: Tx, ctx: SchoolContext, linkId: string, campusId: string | null | undefined) {
+  if (!campusId) return;
+  const l = await tx.parentLink.findFirst({ where: { id: linkId, schoolId: ctx.schoolId }, select: { guardianId: true } });
+  const ok = l ? await tx.studentGuardian.findFirst({ where: { schoolId: ctx.schoolId, guardianId: l.guardianId, archivedAt: null, student: { campusId, archivedAt: null } }, select: { id: true } }) : null;
+  if (!ok) throw new ParentLinkProblem("This link was not found.");
+}
+
+export async function linkListWhere(tx: Tx, ctx: SchoolContext, params: ListParams, now = new Date(), timeZone = "Asia/Kolkata", campusId?: string | null): Promise<Prisma.ParentLinkWhereInput> {
   const f = params.filters;
-  const and: Prisma.ParentLinkWhereInput[] = [{ schoolId: ctx.schoolId }];
+  const and: Prisma.ParentLinkWhereInput[] = [{ schoolId: ctx.schoolId }, await linkCampusWhere(tx, ctx, campusId)];
   if (f.status === "ACTIVE" || f.status === "REVOKED") and.push({ status: f.status });
   const when = inPeriod(f, timeZone);
   if (when) and.push({ createdAt: when });
@@ -43,7 +69,7 @@ export async function linkListWhere(tx: Tx, ctx: SchoolContext, params: ListPara
   else if (f.opened === "30") and.push({ lastOpenedAt: { gte: new Date(now.getTime() - 30 * DAY) } });
   else if (f.opened === "not30") and.push({ OR: [{ lastOpenedAt: null }, { lastOpenedAt: { lt: new Date(now.getTime() - 30 * DAY) } }] });
   if (f.class || f.section) {
-    const ids = await guardianIdsIn(tx, ctx, { classIds: f.class ? [f.class] : [], sectionIds: f.section ? [f.section] : [] });
+    const ids = await guardianIdsIn(tx, ctx, { classIds: f.class ? [f.class] : [], sectionIds: f.section ? [f.section] : [], campusId });
     and.push({ guardianId: { in: ids } });
   }
   if (params.q) {
@@ -54,17 +80,17 @@ export async function linkListWhere(tx: Tx, ctx: SchoolContext, params: ListPara
   return { AND: and };
 }
 
-/** Links active and revoked, guardians who opened in the last 30 days, and who never opened. */
-export async function linkSummary(tx: Tx, ctx: SchoolContext, now = new Date()) {
-  const base = { schoolId: ctx.schoolId };
+/** Links active and revoked, guardians who opened in the last 30 days, and who never opened (of one campus's guardians when one is given). */
+export async function linkSummary(tx: Tx, ctx: SchoolContext, now = new Date(), campusId?: string | null) {
+  const base = { schoolId: ctx.schoolId, ...(await linkCampusWhere(tx, ctx, campusId)) };
   const [active, revoked, opened30, never, all] = await Promise.all([
     tx.parentLink.count({ where: { ...base, status: "ACTIVE" } }),
     tx.parentLink.count({ where: { ...base, status: "REVOKED" } }),
     tx.parentLink.count({ where: { ...base, status: "ACTIVE", lastOpenedAt: { gte: new Date(now.getTime() - 30 * DAY) } } }),
     tx.parentLink.count({ where: { ...base, status: "ACTIVE", lastOpenedAt: null } }),
-    guardianIdsIn(tx, ctx, {}),
+    guardianIdsIn(tx, ctx, { campusId }),
   ]);
-  const withLink = await tx.parentLink.count({ where: { ...base, status: "ACTIVE", guardianId: { in: all } } });
+  const withLink = await tx.parentLink.count({ where: { schoolId: ctx.schoolId, status: "ACTIVE", guardianId: { in: all } } });
   return { active, revoked, opened30, never, withoutLink: Math.max(0, all.length - withLink) };
 }
 
@@ -72,10 +98,11 @@ export async function linkSummary(tx: Tx, ctx: SchoolContext, now = new Date()) 
  * Each guardian's children with class and section, for the list. A child the
  * guardian has a custody restriction for is kept, marked `restricted`: the
  * office sees it, and that the child is not on the guardian's Parent Link.
+ * campusId: only the children at that campus (a person limited to one campus).
  */
-export async function childrenByGuardian(tx: Tx, ctx: SchoolContext, guardianIds: string[]) {
-  const links = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, guardianId: { in: guardianIds }, archivedAt: null, student: { archivedAt: null } }, include: { student: { select: { id: true, fullName: true } } } });
-  const years = await currentYears(tx, ctx);
+export async function childrenByGuardian(tx: Tx, ctx: SchoolContext, guardianIds: string[], campusId?: string | null) {
+  const links = await tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, guardianId: { in: guardianIds }, archivedAt: null, student: { archivedAt: null, ...(campusId ? { campusId } : {}) } }, include: { student: { select: { id: true, fullName: true } } } });
+  const years = await currentYears(tx, ctx, campusId ? [campusId] : null);
   const enrolments = years.length ? await tx.enrolment.findMany({ where: { schoolId: ctx.schoolId, academicYearId: { in: years.map((y) => y.id) }, archivedAt: null, studentId: { in: links.map((l) => l.studentId) } } }) : [];
   const [classes, sections] = await Promise.all([
     tx.schoolClass.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.classId) } }, select: { id: true, name: true } }),

@@ -7,7 +7,8 @@ import type { Prisma, StudentStatus } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { nextNumber } from "../sequences";
-import { assertYearOpen, currentYear } from "../academic/years";
+import { assertYearOpen, currentEnrolment, currentEnrolments, currentYear, studentYear } from "../academic/years";
+import { mainCampus } from "../campus";
 import { encryptField, maskLast4 } from "../crypto";
 import { requestApproval } from "../approvals";
 import { getStudentSettings } from "./settings";
@@ -49,8 +50,17 @@ export async function admissionFormat(tx: Tx, ctx: SchoolContext, yearStart?: Da
   return { prefix, key, padding: s.admissionPadding };
 }
 
-export async function previewAdmissionNo(tx: Tx, ctx: SchoolContext) {
-  const year = await currentYear(tx, ctx);
+/**
+ * The admission number year is the current year of the campus the student
+ * joins (each campus has its own school year); with no campus given, the main
+ * campus's.
+ */
+async function admissionYear(tx: Tx, ctx: SchoolContext, campusId?: string | null) {
+  return currentYear(tx, ctx, campusId ?? (await mainCampus(tx, ctx)));
+}
+
+export async function previewAdmissionNo(tx: Tx, ctx: SchoolContext, campusId?: string | null) {
+  const year = await admissionYear(tx, ctx, campusId);
   const f = await admissionFormat(tx, ctx, year?.startDate);
   const seq = await tx.numberSequence.findUnique({ where: { schoolId_key: { schoolId: ctx.schoolId, key: f.key } } });
   for (let n = seq?.nextValue ?? 1, i = 0; i < 50; n++, i++) {
@@ -64,8 +74,8 @@ export async function previewAdmissionNo(tx: Tx, ctx: SchoolContext) {
  * Takes the next free admission number; numbers typed in by hand are skipped, never reused.
  * (The running number also passes over numbers freed by an import undo, so it never gives one out twice.)
  */
-export async function takeAdmissionNo(tx: Tx, ctx: SchoolContext) {
-  const year = await currentYear(tx, ctx);
+export async function takeAdmissionNo(tx: Tx, ctx: SchoolContext, campusId?: string | null) {
+  const year = await admissionYear(tx, ctx, campusId);
   const f = await admissionFormat(tx, ctx, year?.startDate);
   for (let i = 0; i < 200; i++) {
     const n = await nextNumber(tx, ctx, f.key);
@@ -83,8 +93,7 @@ export async function takeAdmissionNo(tx: Tx, ctx: SchoolContext) {
 export async function admissionHolder(tx: Tx, admissionNo: string, exceptStudentId?: string) {
   return tx.student.findFirst({
     where: { admissionNo: { equals: admissionNo.trim(), mode: "insensitive" }, releasedAt: null, ...(exceptStudentId ? { id: { not: exceptStudentId } } : {}) },
-    include: { enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1 } },
-  });
+  }).then(async (s) => (s ? { ...s, enrolments: [await currentEnrolment(tx, s.id)].filter((e): e is NonNullable<typeof e> => Boolean(e)) } : null));
 }
 
 /** Rule: admission number unique in the school. Says whose it is, in plain words. */
@@ -123,11 +132,12 @@ export async function findDuplicates(tx: Tx, q: { fullName: string; dateOfBirth?
     where: { archivedAt: null, OR: or, ...(q.exceptId ? { id: { not: q.exceptId } } : {}) },
     include: {
       guardians: { where: { archivedAt: null }, include: { guardian: true }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] },
-      enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1 },
     },
     orderBy: { createdAt: "asc" },
     take: 300,
   });
+  // Each match's class this year, in their own campus's current year.
+  const current = await currentEnrolments(tx, found.map((s) => s.id));
   const day = q.dateOfBirth?.toISOString().slice(0, 10);
   const hits = found.flatMap((s) => {
     const like = namesAlike(name, s.fullName);
@@ -139,9 +149,9 @@ export async function findDuplicates(tx: Tx, q: { fullName: string; dateOfBirth?
     const why = sameDob ? `${nameWords} and date of birth` : `${nameWords} and parent's phone`;
     return [{ s, why: like === "same" ? why : why.replace(" and ", " and same ") }];
   });
-  const sections = hits.length ? await tx.section.findMany({ where: { id: { in: hits.map((h) => h.s.enrolments[0]?.sectionId).filter((x): x is string => Boolean(x)) } }, include: { schoolClass: true } }) : [];
+  const sections = hits.length ? await tx.section.findMany({ where: { id: { in: hits.map((h) => current.get(h.s.id)?.sectionId).filter((x): x is string => Boolean(x)) } }, include: { schoolClass: true } }) : [];
   return hits.map(({ s, why }) => {
-    const sec = sections.find((x) => x.id === s.enrolments[0]?.sectionId);
+    const sec = sections.find((x) => x.id === current.get(s.id)?.sectionId);
     return {
       id: s.id, fullName: s.fullName, admissionNo: s.admissionNo, why,
       classSection: sec ? `${sec.schoolClass.name.replace(/^Class /, "")} ${sec.name}` : null,
@@ -209,7 +219,7 @@ export async function createStudent(tx: Tx, ctx: SchoolContext, input: NewStuden
   let admissionNo = input.admissionNo?.trim() || null;
   if (admissionNo) {
     const taken = await admissionNoTaken(tx, admissionNo);
-    if (taken) throw new StudentProblem(`${taken} Use the next free number: ${await previewAdmissionNo(tx, ctx)}.`, "admissionNo");
+    if (taken) throw new StudentProblem(`${taken} Use the next free number: ${await previewAdmissionNo(tx, ctx, section.academicYear.campusId)}.`, "admissionNo");
   }
 
   const dups = await findDuplicates(tx, { fullName: input.fullName, dateOfBirth: input.dateOfBirth, guardianPhone: input.guardianPhone });
@@ -223,7 +233,7 @@ export async function createStudent(tx: Tx, ctx: SchoolContext, input: NewStuden
     }
   }
 
-  admissionNo ??= await takeAdmissionNo(tx, ctx);
+  admissionNo ??= await takeAdmissionNo(tx, ctx, section.academicYear.campusId);
   const name = splitName(input.fullName);
   const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
   const status: StudentStatus = input.admissionDate > today ? "ADMITTED" : "ACTIVE";
@@ -361,7 +371,8 @@ export async function saveContact(tx: Tx, ctx: SchoolContext, studentId: string,
 export async function saveEnrolment(tx: Tx, ctx: SchoolContext, studentId: string, e: { admissionNo: string; admissionDate: Date | null; rollNo: number | null }) {
   const taken = await admissionNoTaken(tx, e.admissionNo, studentId);
   if (taken) throw new StudentProblem(taken, "admissionNo");
-  const year = await currentYear(tx, ctx);
+  // The roll number of this year's class: the student's own campus's current year.
+  const year = await studentYear(tx, ctx, studentId);
   if (year && e.rollNo !== null) {
     const enr = await tx.enrolment.findFirst({ where: { studentId, academicYearId: year.id, archivedAt: null } });
     if (enr && enr.rollNo !== e.rollNo) {
@@ -477,7 +488,8 @@ export async function applyStatus(tx: Tx, ctx: SchoolContext, studentId: string,
 
 /** Change section within the same class (keeps history). Returns the change, for Undo. */
 export async function changeSection(tx: Tx, ctx: SchoolContext, studentId: string, toSectionId: string, reason: string | null) {
-  const year = await currentYear(tx, ctx);
+  // This year's class is in the student's own campus's current year.
+  const year = await studentYear(tx, ctx, studentId);
   if (!year) throw new StudentProblem("No academic year is open. Open one in Academic Management.");
   await assertYearOpen(tx, year.id);
   const enr = await tx.enrolment.findFirst({ where: { studentId, academicYearId: year.id, archivedAt: null } });

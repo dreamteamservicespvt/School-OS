@@ -13,7 +13,7 @@ import { notify } from "../notifications";
 import { saveFile, DOCUMENT_TYPES, FileProblem } from "../files";
 import { flatten, syllabusTree } from "../academic/syllabus";
 import { HomeworkProblem } from "./access";
-import { mayRead, requireDesk, requireWork, requireYearOpen, shortSection, type HomeworkScope } from "./scope";
+import { inYears, mayRead, onCampus, requireDesk, requireWork, requireYearOpen, shortSection, type HomeworkScope } from "./scope";
 import { homeworkSettings } from "./settings";
 import { sectionStudents } from "./homework";
 import { checkLink } from "./homework";
@@ -21,18 +21,22 @@ import { checkLink } from "./homework";
 export type CourseRow = {
   id: string | null; sectionId: string; classId: string; subjectId: string; sectionLabel: string; subject: string; teacher: string;
   teacherId: string | null; lessons: number; visible: number; students: number; canWork: boolean;
+  /** The section's own academic year (each campus has its own). */
+  yearId: string;
 };
 
 /**
  * The courses this person may open: a teacher's own sections and subjects (and,
  * when the settings allow, every subject of the class they are class teacher of);
- * every taught pair for Full reach; a student's own section (or whole class).
+ * every taught pair for Full reach (on their campus, when limited to one); a
+ * student's own section (or whole class). Each campus's own current year.
  */
 export async function courseList(tx: Tx, s: HomeworkScope): Promise<CourseRow[]> {
-  if (!s.yearId) return [];
+  const years = inYears(s);
+  if (!years) return [];
   const settings = await homeworkSettings(tx, s.ctx);
   let pairs: { sectionId: string; subjectId: string; staffId: string | null }[] = [];
-  const alloc = await tx.teacherAllocation.findMany({ where: { academicYearId: s.yearId, archivedAt: null }, select: { sectionId: true, subjectId: true, staffId: true } });
+  const alloc = await tx.teacherAllocation.findMany({ where: { academicYearId: years, archivedAt: null, ...(s.campusSections ? { sectionId: { in: s.campusSections } } : {}) }, select: { sectionId: true, subjectId: true, staffId: true } });
   if (s.level === "full") pairs = alloc;
   else if (s.level === "own") {
     const ct = settings.classTeacherReadsCourses ? s.ctSections : [];
@@ -40,7 +44,7 @@ export async function courseList(tx: Tx, s: HomeworkScope): Promise<CourseRow[]>
     for (const p of s.pairs) if (!pairs.some((x) => x.sectionId === p.sectionId && x.subjectId === p.subjectId)) pairs.push({ ...p, staffId: s.staffId });
   } else if (s.student) {
     const sectionIds = settings.studentCourses === "class"
-      ? (await tx.section.findMany({ where: { classId: s.student.classId, academicYearId: s.yearId, archivedAt: null }, select: { id: true } })).map((x) => x.id)
+      ? (await tx.section.findMany({ where: { classId: s.student.classId, academicYearId: years, archivedAt: null }, select: { id: true } })).map((x) => x.id)
       : [s.student.sectionId];
     pairs = alloc.filter((a) => sectionIds.includes(a.sectionId));
   }
@@ -50,11 +54,11 @@ export async function courseList(tx: Tx, s: HomeworkScope): Promise<CourseRow[]>
   const list = [...seen.values()];
   if (!list.length) return [];
   const [courses, sections, subjects, staff, counts] = await Promise.all([
-    tx.course.findMany({ where: { academicYearId: s.yearId, archivedAt: null, sectionId: { in: list.map((p) => p.sectionId) } }, include: { lessons: { where: { archivedAt: null }, select: { visible: true } } } }),
+    tx.course.findMany({ where: { academicYearId: years, archivedAt: null, sectionId: { in: list.map((p) => p.sectionId) } }, include: { lessons: { where: { archivedAt: null }, select: { visible: true } } } }),
     tx.section.findMany({ where: { id: { in: list.map((p) => p.sectionId) } }, include: { schoolClass: { select: { name: true, sortOrder: true } } } }),
     tx.subject.findMany({ where: { id: { in: list.map((p) => p.subjectId) } }, select: { id: true, name: true } }),
     tx.staff.findMany({ where: { id: { in: list.map((p) => p.staffId).filter((x): x is string => !!x) } }, select: { id: true, fullName: true } }),
-    tx.enrolment.groupBy({ by: ["sectionId"], where: { academicYearId: s.yearId, archivedAt: null, status: "STUDYING", sectionId: { in: list.map((p) => p.sectionId) } }, _count: true }),
+    tx.enrolment.groupBy({ by: ["sectionId"], where: { academicYearId: years, archivedAt: null, status: "STUDYING", sectionId: { in: list.map((p) => p.sectionId) } }, _count: true }),
   ]);
   const sec = new Map(sections.map((x) => [x.id, x]));
   const sub = new Map(subjects.map((x) => [x.id, x.name]));
@@ -69,6 +73,7 @@ export async function courseList(tx: Tx, s: HomeworkScope): Promise<CourseRow[]>
       sectionLabel: x ? shortSection(x.schoolClass.name, x.name) : "", subject: sub.get(p.subjectId) ?? "", teacher: teacherId ? who.get(teacherId) ?? "" : "", teacherId,
       lessons: c?.lessons.length ?? 0, visible: c?.lessons.filter((l) => l.visible).length ?? 0, students: n.get(p.sectionId) ?? 0,
       canWork: s.modes["study-material"] === "edit" && (s.level === "full" || s.pairs.some((q) => q.sectionId === p.sectionId && q.subjectId === p.subjectId)),
+      yearId: x?.academicYearId ?? "",
       sort: x?.schoolClass.sortOrder ?? 0,
     };
   });
@@ -81,20 +86,22 @@ export async function courseList(tx: Tx, s: HomeworkScope): Promise<CourseRow[]>
 export async function ensureCourse(tx: Tx, s: HomeworkScope, sectionId: string, subjectId: string) {
   requireDesk(s, "study-material");
   requireYearOpen(s);
-  const existing = await tx.course.findFirst({ where: { academicYearId: s.yearId!, sectionId, subjectId, archivedAt: null } });
-  const section = await tx.section.findFirst({ where: { id: sectionId, academicYearId: s.yearId!, archivedAt: null } });
-  if (!section) throw new HomeworkProblem("This class was not found in this academic year.");
-  const alloc = await tx.teacherAllocation.findFirst({ where: { sectionId, subjectId, academicYearId: s.yearId!, archivedAt: null }, select: { staffId: true } });
+  // The class in one of the person's current years (each campus has its own); another campus's class is not found.
+  const section = await tx.section.findFirst({ where: { id: sectionId, academicYearId: { in: s.yearIds }, archivedAt: null } });
+  if (!section || !onCampus(s, section.id)) throw new HomeworkProblem("This class was not found in this academic year.");
+  requireYearOpen(s, section.academicYearId);
+  const existing = await tx.course.findFirst({ where: { academicYearId: section.academicYearId, sectionId, subjectId, archivedAt: null } });
+  const alloc = await tx.teacherAllocation.findFirst({ where: { sectionId, subjectId, academicYearId: section.academicYearId, archivedAt: null }, select: { staffId: true } });
   requireWork(s, { sectionId, subjectId, teacherId: existing?.teacherId ?? alloc?.staffId ?? null }, "this course", "study-material");
   if (existing) return existing;
-  const c = await tx.course.create({ data: { schoolId: s.ctx.schoolId, academicYearId: s.yearId!, sectionId, classId: section.classId, subjectId, teacherId: alloc?.staffId ?? s.staffId, createdById: s.ctx.userId } });
+  const c = await tx.course.create({ data: { schoolId: s.ctx.schoolId, academicYearId: section.academicYearId, sectionId, classId: section.classId, subjectId, teacherId: alloc?.staffId ?? s.staffId, createdById: s.ctx.userId } });
   await writeAudit(tx, s.ctx, { action: "created", recordType: "Course", recordId: c.id, after: { sectionId, subjectId } });
   return c;
 }
 
 async function courseFor(tx: Tx, s: HomeworkScope, courseId: string, write: boolean) {
   const c = await tx.course.findFirst({ where: { id: courseId, archivedAt: null } });
-  if (!c) throw new HomeworkProblem("This course was not found.");
+  if (!c || !onCampus(s, c.sectionId)) throw new HomeworkProblem("This course was not found.");
   if (write) {
     requireWork(s, c, "this course", "study-material");
     const y = await tx.academicYear.findUnique({ where: { id: c.academicYearId }, select: { status: true } });
@@ -147,9 +154,10 @@ function checkLesson(input: LessonInput, needContent: boolean) {
   return title;
 }
 
-async function chapterTitle(tx: Tx, chapterId: string | null) {
+/** A chapter of the course's own class's syllabus (so never another campus's). */
+async function chapterTitle(tx: Tx, chapterId: string | null, classId: string) {
   if (!chapterId) return null;
-  const c = await tx.syllabusItem.findFirst({ where: { id: chapterId, archivedAt: null }, select: { title: true, kind: true } });
+  const c = await tx.syllabusItem.findFirst({ where: { id: chapterId, classId, archivedAt: null }, select: { title: true, kind: true } });
   if (!c) throw new HomeworkProblem("That chapter was not found in the syllabus.", "chapterId");
   return c.title;
 }
@@ -160,7 +168,7 @@ export async function addLesson(tx: Tx, s: HomeworkScope, courseId: string, inpu
   const title = checkLesson(input, true);
   const last = await tx.lesson.aggregate({ where: { courseId, archivedAt: null }, _max: { sortOrder: true } });
   const l = await tx.lesson.create({
-    data: { schoolId: s.ctx.schoolId, courseId, title, chapterId: input.chapterId, chapterTitle: await chapterTitle(tx, input.chapterId), notes: input.notes?.trim() || null, visible: input.visible, sortOrder: (last._max.sortOrder ?? -1) + 1, createdById: s.ctx.userId },
+    data: { schoolId: s.ctx.schoolId, courseId, title, chapterId: input.chapterId, chapterTitle: await chapterTitle(tx, input.chapterId, c.classId), notes: input.notes?.trim() || null, visible: input.visible, sortOrder: (last._max.sortOrder ?? -1) + 1, createdById: s.ctx.userId },
   });
   await addItems(tx, s, l.id, input.items);
   await writeAudit(tx, s.ctx, { action: "created", recordType: "Lesson", recordId: l.id, after: { title, visible: input.visible, items: input.items.length } });
@@ -171,14 +179,14 @@ export async function addLesson(tx: Tx, s: HomeworkScope, courseId: string, inpu
 export async function editLesson(tx: Tx, s: HomeworkScope, lessonId: string, input: LessonInput & { removeItemIds: string[] }) {
   const l = await tx.lesson.findFirst({ where: { id: lessonId, archivedAt: null } });
   if (!l) throw new HomeworkProblem("This lesson was not found.");
-  await courseFor(tx, s, l.courseId, true);
+  const c = await courseFor(tx, s, l.courseId, true);
   const title = checkLesson(input, false);
   if (input.removeItemIds.length) await tx.lessonItem.updateMany({ where: { lessonId, id: { in: input.removeItemIds }, archivedAt: null }, data: { archivedAt: new Date() } });
   const last = await tx.lessonItem.aggregate({ where: { lessonId, archivedAt: null }, _max: { sortOrder: true } });
   await addItems(tx, s, lessonId, input.items, (last._max.sortOrder ?? -1) + 1);
   const left = await tx.lessonItem.count({ where: { lessonId, archivedAt: null } });
   if (!left && !input.notes?.trim()) throw new HomeworkProblem("A lesson needs some content: notes, a file or a link.", "notes");
-  await tx.lesson.update({ where: { id: lessonId }, data: { title, chapterId: input.chapterId, chapterTitle: await chapterTitle(tx, input.chapterId), notes: input.notes?.trim() || null, visible: input.visible } });
+  await tx.lesson.update({ where: { id: lessonId }, data: { title, chapterId: input.chapterId, chapterTitle: await chapterTitle(tx, input.chapterId, c.classId), notes: input.notes?.trim() || null, visible: input.visible } });
   await writeAudit(tx, s.ctx, { action: "changed", recordType: "Lesson", recordId: lessonId, before: { title: l.title, visible: l.visible }, after: { title, visible: input.visible, added: input.items.length, removed: input.removeItemIds.length } });
 }
 

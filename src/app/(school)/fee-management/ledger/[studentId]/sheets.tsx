@@ -32,8 +32,12 @@ export function OldDuesSheet({ studentId, closeHref, name, heads, start }: Commo
   );
 }
 
-export function AdjustSheet({ studentId, closeHref, rows, start }: Common & { rows: (Option & { removable: boolean; left: string })[]; start: string }) {
-  const [how, setHow] = useState<"reduce" | "add" | "remove">("reduce");
+/**
+ * `amounts`: may add to or reduce a row ("edit a student's fees"); without it
+ * only removing a row is offered ("assign / unassign fees", via `removable`).
+ */
+export function AdjustSheet({ studentId, closeHref, rows, start, amounts = true }: Common & { rows: (Option & { removable: boolean; left: string })[]; start: string; amounts?: boolean }) {
+  const [how, setHow] = useState<"reduce" | "add" | "remove">(amounts ? "reduce" : "remove");
   const [row, setRow] = useState(start || rows[0]?.value || "");
   const chosen = rows.find((r) => r.value === row);
   return (
@@ -46,7 +50,7 @@ export function AdjustSheet({ studentId, closeHref, rows, start }: Common & { ro
           <div className="flex flex-col gap-1.5">
             <span className="text-[13px] font-semibold text-ink2">What to do</span>
             <Segmented label="What to do" value={how} onChange={(v) => setHow(v as typeof how)} options={[
-              { value: "reduce", label: "Reduce" }, { value: "add", label: "Add" }, ...(chosen?.removable ? [{ value: "remove", label: "Remove the row" }] : []),
+              ...(amounts ? [{ value: "reduce", label: "Reduce" }, { value: "add", label: "Add" }] : []), ...(chosen?.removable ? [{ value: "remove", label: "Remove the row" }] : []),
             ]} />
           </div>
           {how !== "remove" ? <SMoney name="amount" label={how === "add" ? "Amount to add" : "Amount to reduce"} required />

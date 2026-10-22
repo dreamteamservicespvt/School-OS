@@ -30,14 +30,14 @@ export default async function QueryPage({ params }: { params: Promise<{ id: stri
   const { current } = access;
   const tz = current.school.timeZone;
   const data = await withSchool(current.ctx, async (tx) => {
-    const q = await tx.query.findFirst({ where: { AND: [{ id }, await queryWhere(tx, current.ctx, access.full ? "all" : "own")] } });
+    const q = await tx.query.findFirst({ where: { AND: [{ id }, await queryWhere(tx, current.ctx, access.full ? "all" : "own", access.scope.campusId)] } });
     if (!q) return null;
     const notes = await tx.queryNote.findMany({ where: { queryId: q.id }, orderBy: { createdAt: "asc" } });
     const ids = [...notes.map((n) => n.createdById), q.createdById].filter(Boolean) as string[];
     const authors = await tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } });
     const staff = current.user.id ? await tx.staff.findFirst({ where: { schoolId: current.ctx.schoolId, userLoginId: current.user.id }, select: { departmentId: true } }) : null;
     const on = await onChannels(tx, current.ctx);
-    return { q, notes, authors: new Map(authors.map((a) => [a.id, a.displayName])), labels: await queryLabels(tx, [q]), owners: await ownerOptions(tx, current.ctx), myDept: staff?.departmentId ?? null, on };
+    return { q, notes, authors: new Map(authors.map((a) => [a.id, a.displayName])), labels: await queryLabels(tx, [q]), owners: await ownerOptions(tx, current.ctx, access.scope.campusId), myDept: staff?.departmentId ?? null, on };
   });
   if (!data) notFound();
   const { q, labels } = data;

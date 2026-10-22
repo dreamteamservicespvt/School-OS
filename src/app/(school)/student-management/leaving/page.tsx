@@ -14,6 +14,7 @@ import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
 import { isCleared } from "@/lib/students/leaving";
 import { shortDate, shownCount } from "@/lib/students/show";
 import { BASE, studentPage } from "../_lib/page";
+import { visibleStudentIds } from "@/lib/students/access";
 import { StudentsHead } from "../_lib/head";
 import { CERT_LABEL, CHECK_LABEL, LEAVING_TYPE_LABEL, studentFacts, tcFor } from "./load";
 import { leavingTabs } from "./sub-tabs";
@@ -35,8 +36,11 @@ export default async function LeavingPage({ searchParams }: { searchParams: Prom
   const path = `${BASE}/leaving`;
   const data = await withSchool(current.ctx, async (tx) => {
     const f = params.filters;
+    // One campus: that campus's students only.
+    const mine = await visibleStudentIds(tx, current);
     const where: Prisma.LeavingRequestWhereInput = {
       status: "IN_PROGRESS",
+      ...(mine ? { AND: [{ studentId: { in: mine } }] } : {}),
       ...(range ? { lastDate: dateWhere(range) } : {}),
       ...(f.type ? { type: f.type as "TRANSFER" } : {}),
       ...(f.clearance === "pending" ? { checks: { some: { status: { in: ["PENDING", "WAIVER_ASKED"] } } } } : f.clearance === "clear" ? { checks: { none: { status: { in: ["PENDING", "WAIVER_ASKED"] } } } } : {}),

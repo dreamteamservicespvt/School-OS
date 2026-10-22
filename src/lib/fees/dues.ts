@@ -137,12 +137,14 @@ async function sectionLabels(tx: Tx, sectionIds: string[]) {
 
 /**
  * Class and section names for many students: in the given year, else each
- * student's class this year (lists, reports, Day Book entries).
+ * student's class this year (lists, reports, Day Book entries), which is in
+ * their own campus's current year. A list of years (each campus's current
+ * year, FeeViewer.yearIds) means "this year" too.
  */
-export async function classOfStudents(tx: Tx, studentIds: string[], academicYearId?: string | null) {
+export async function classOfStudents(tx: Tx, studentIds: string[], academicYearId?: string | readonly string[] | null) {
   const out = new Map<string, ClassOf>();
   if (!studentIds.length) return out;
-  const rows = academicYearId
+  const rows = typeof academicYearId === "string"
     ? await tx.enrolment.findMany({ where: { studentId: { in: [...new Set(studentIds)] }, archivedAt: null, academicYearId } })
     : [...(await currentEnrolments(tx, studentIds)).values()];
   const labels = await sectionLabels(tx, rows.map((r) => r.sectionId));

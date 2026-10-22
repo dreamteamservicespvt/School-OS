@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { randomUUID } from "node:crypto";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
-import { currentYear } from "@/lib/academic/years";
+import { yearsFor } from "@/lib/academic/years";
 import { channelSetups, preferredChannel, CHANNEL_LABEL, type Channel } from "@/lib/messaging/channels";
 import { creditBalances } from "@/lib/messaging/credits";
 import { messageSettings } from "@/lib/messaging/settings";
@@ -31,20 +31,28 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
   const groupParam = typeof sp.group === "string" && UUID.test(sp.group) ? sp.group : null;
   const data = await withSchool(current.ctx, async (tx) => {
     await ensureReadyTemplates(tx, current.ctx);
-    const year = await currentYear(tx, current.ctx);
-    const sections = year
+    // This year of each campus (a school with two campuses has two current years); only the
+    // sender's campus when they are limited to one, so other campuses' classes are not offered.
+    const years = await yearsFor(tx, current.ctx, scope.campusId ?? null);
+    const yearIds = years.map((y) => y.id);
+    const year = years.find((y) => y.status === "ACTIVE") ?? years[0] ?? null;
+    const sections = yearIds.length
       ? await tx.section.findMany({
-          where: { schoolId: current.ctx.schoolId, academicYearId: year.id, archivedAt: null, ...(scope.sectionIds === "all" ? {} : { id: { in: scope.sectionIds } }) },
-          select: { id: true, name: true, classId: true, schoolClass: { select: { name: true, sortOrder: true } } },
+          where: { schoolId: current.ctx.schoolId, academicYearId: { in: yearIds }, archivedAt: null, ...(scope.sectionIds === "all" ? {} : { id: { in: scope.sectionIds } }) },
+          select: { id: true, name: true, classId: true, schoolClass: { select: { name: true, sortOrder: true, campusId: true } } },
         })
       : [];
     sections.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name));
+    // With classes of several campuses on offer, each class shows its campus.
+    const campusIds = [...new Set(sections.map((s) => s.schoolClass.campusId))];
+    const campusName = new Map(campusIds.length > 1 ? (await tx.campus.findMany({ where: { id: { in: campusIds } }, select: { id: true, name: true } })).map((c) => [c.id, c.name] as const) : []);
+    const className = (s: (typeof sections)[number]) => (campusName.has(s.schoolClass.campusId) ? `${s.schoolClass.name} (${campusName.get(s.schoolClass.campusId)})` : s.schoolClass.name);
     // Students studying in each section, shown on the class and section buttons.
-    const counts = year && sections.length
-      ? await tx.enrolment.groupBy({ by: ["sectionId"], where: { schoolId: current.ctx.schoolId, academicYearId: year.id, archivedAt: null, status: "STUDYING", sectionId: { in: sections.map((s) => s.id) }, student: { archivedAt: null } }, _count: { _all: true } })
+    const counts = yearIds.length && sections.length
+      ? await tx.enrolment.groupBy({ by: ["sectionId"], where: { schoolId: current.ctx.schoolId, academicYearId: { in: yearIds }, archivedAt: null, status: "STUDYING", sectionId: { in: sections.map((s) => s.id) }, student: { archivedAt: null } }, _count: { _all: true } })
       : [];
     const perSection = new Map(counts.map((c) => [c.sectionId, c._count._all]));
-    const classes = [...new Map(sections.map((s) => [s.classId, { id: s.classId, name: s.schoolClass.name, count: 0 }])).values()];
+    const classes = [...new Map(sections.map((s) => [s.classId, { id: s.classId, name: className(s), count: 0 }])).values()];
     for (const c of classes) c.count = sections.filter((s) => s.classId === c.id).reduce((n, s) => n + (perSection.get(s.id) ?? 0), 0);
     const setups = await channelSetups(tx, current.ctx);
     const on: Channel[] = ["app", ...(["whatsapp", "sms", "email"] as const).filter((c) => setups[c].isOn)];
@@ -55,21 +63,22 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
     });
     const roles = scope.staff ? await tx.role.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null, isEnabled: true }, select: { key: true, name: true }, orderBy: { name: "asc" } }) : [];
     const departments = scope.staff
-      ? await tx.department.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null }, select: { id: true, name: true, _count: { select: { staff: { where: { archivedAt: null, status: "ACTIVE" } } } } }, orderBy: { name: "asc" } })
+      ? await tx.department.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null }, select: { id: true, name: true, _count: { select: { staff: { where: { archivedAt: null, status: "ACTIVE", ...(scope.campusId ? { campusId: scope.campusId } : {}) } } } } }, orderBy: { name: "asc" } })
       : [];
-    const staffCount = scope.staff ? await tx.staff.count({ where: { schoolId: current.ctx.schoolId, archivedAt: null, status: "ACTIVE" } }) : 0;
+    const staffCount = scope.staff ? await tx.staff.count({ where: { schoolId: current.ctx.schoolId, archivedAt: null, status: "ACTIVE", ...(scope.campusId ? { campusId: scope.campusId } : {}) } }) : 0;
     const groups = await tx.recipientGroup.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } });
     const settings = await messageSettings(tx, current.ctx);
     const school = await tx.school.findUniqueOrThrow({ where: { id: current.ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true, email: true } });
     let initialPeople: Person[] = [];
     let initialNote: string | null = null;
-    if (chosenIds.length && year) {
+    if (chosenIds.length && yearIds.length) {
       const enrolled = await tx.enrolment.findMany({
-        where: { schoolId: current.ctx.schoolId, academicYearId: year.id, archivedAt: null, status: "STUDYING", studentId: { in: chosenIds }, student: { archivedAt: null } },
+        where: { schoolId: current.ctx.schoolId, academicYearId: { in: yearIds }, archivedAt: null, status: "STUDYING", studentId: { in: chosenIds }, student: { archivedAt: null } },
         select: { sectionId: true, student: { select: { id: true, fullName: true } } },
       });
       const names = new Map(sections.map((s) => [s.id, sectionLabel(s.schoolClass.name, s.name)]));
-      const reachable = enrolled.filter((e) => scope.sectionIds === "all" || scope.sectionIds.includes(e.sectionId));
+      // The sender's sections, in their campus's year when limited to one campus (a student who moved campus is listed once).
+      const reachable = [...new Map(enrolled.filter((e) => scope.sectionIds === "all" || scope.sectionIds.includes(e.sectionId)).map((e) => [e.student.id, e])).values()];
       reachable.sort((a, b) => a.student.fullName.localeCompare(b.student.fullName));
       initialPeople = reachable.map((e) => ({ type: "parentsOf" as const, id: e.student.id, name: `Parents of ${e.student.fullName}`, detail: names.get(e.sectionId) ?? "" }));
       const left = chosenIds.length - reachable.length;
@@ -84,7 +93,7 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
       initialNote,
       year: year?.name ?? null,
       classes,
-      sections: sections.map((s) => ({ id: s.id, classId: s.classId, label: `${s.schoolClass.name} ${s.name}`, count: perSection.get(s.id) ?? 0 })),
+      sections: sections.map((s) => ({ id: s.id, classId: s.classId, label: `${className(s)} ${s.name}`, count: perSection.get(s.id) ?? 0 })),
       on,
       preferred: on.includes(preferred) ? preferred : "app",
       channelNotes: {

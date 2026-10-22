@@ -165,14 +165,15 @@ export function WardensSheet({ closeHref, hostelId, hostelName, staff, start }: 
 /* ---------- Allocation ---------- */
 
 export type FreeBed = { id: string; hostelId: string; roomNo: string; bedNo: number; floor: string; roomType: string | null };
-export type PlanOpt = { id: string; name: string; hostelId: string | null; roomType: string | null; words: string };
+/** `campusId`: the campus whose school year the plan is for. */
+export type PlanOpt = { id: string; name: string; hostelId: string | null; roomType: string | null; words: string; campusId?: string | null };
 
 function planFor(plans: PlanOpt[], hostelId: string, roomType: string | null) {
   const score = (p: PlanOpt) => (p.hostelId && p.hostelId !== hostelId) || (p.roomType && p.roomType !== roomType) ? -1 : (p.hostelId ? 2 : 0) + (p.roomType ? 1 : 0);
   return plans.map((p) => ({ p, s: score(p) })).filter((x) => x.s >= 0).sort((a, b) => b.s - a.s)[0]?.p ?? null;
 }
 
-export function AllocateSheet({ closeHref, hostels, beds, plans, start, waiting, todayStr, showFees }: {
+export function AllocateSheet({ closeHref, hostels, beds, plans: allPlans, start, waiting, todayStr, showFees }: {
   closeHref: string; hostels: HostelOpt[]; beds: FreeBed[]; plans: PlanOpt[]; start: { bedId: string | null; hostelId: string | null; student: FoundStudent | null }; waiting: FoundStudent[]; todayStr: string; showFees: boolean;
 }) {
   const startBed = beds.find((b) => b.id === start.bedId) ?? null;
@@ -182,6 +183,8 @@ export function AllocateSheet({ closeHref, hostels, beds, plans, start, waiting,
   const free = beds.filter((b) => b.hostelId === hid);
   const [bedId, setBedId] = useState(startBed?.id ?? free[0]?.id ?? "");
   const bed = beds.find((b) => b.id === bedId) ?? null;
+  // Only the plans of the student's own campus's year (each campus has its own school year).
+  const plans = allPlans.filter((p) => !p.campusId || !student?.campusId || p.campusId === student.campusId);
   const auto = bed ? planFor(plans, bed.hostelId, bed.roomType) : null;
   const [planId, setPlanId] = useState<string | null>(null);
   const plan = planId === null ? auto?.id ?? (plans.length ? "" : "none") : planId;
@@ -189,6 +192,8 @@ export function AllocateSheet({ closeHref, hostels, beds, plans, start, waiting,
   const genderBad = student?.gender && hostel && student.gender !== hostel.gender;
   const pickStudent = (s: FoundStudent | null) => {
     setStudent(s);
+    // Another student may be on another campus, with that campus's plans.
+    if (s?.campusId !== student?.campusId) setPlanId(null);
     if (s?.gender && !startBed) {
       const h = hostels.find((x) => x.gender === s.gender);
       if (h) { setHid(h.id); setBedId(beds.find((b) => b.hostelId === h.id)?.id ?? ""); }

@@ -109,7 +109,7 @@ describe("Report totals equal the modules' totals", () => {
       const f = await readFilters(tx, principal.ctx, e, {}, SETUP, TODAY);
       return {
         t: await runEntry(tx, principal, e, f),
-        by: await feesByClass(tx, { userId: principal.user.id, see: "all", change: "all", roleKeys: ["principal"], sectionIds: null, yearId: fee.year.id }, TODAY),
+        by: await feesByClass(tx, { userId: principal.user.id, see: "all", change: "all", roleKeys: ["principal"], sectionIds: null, yearId: fee.year.id, yearIds: [fee.year.id], campusId: null }, TODAY),
       };
     });
     expect(t.totals?.overdue).toBe(by.totals.overdue);

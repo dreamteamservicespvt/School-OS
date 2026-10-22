@@ -7,7 +7,7 @@ import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { commOfficeAction, OfficeOnly } from "@/lib/communication/access";
 import { COMM_FEATURES } from "@/lib/communication/features";
-import { archiveSurvey, audienceCount, audienceOptions, closeSurvey, QUESTION_KINDS, remindSurvey, saveSurvey, sendSurvey, SurveyProblem, MAX_OPTIONS, MAX_QUESTIONS, type QuestionKind, type SurveyInput } from "@/lib/communication/surveys";
+import { archiveSurvey, audienceCount, audienceOptions, campusAudience, closeSurvey, loadSurvey, QUESTION_KINDS, remindSurvey, saveSurvey, sendSurvey, SurveyProblem, MAX_OPTIONS, MAX_QUESTIONS, type QuestionKind, type SurveyInput } from "@/lib/communication/surveys";
 
 const uuid = /^[0-9a-f-]{36}$/;
 const PATH = "/communication/surveys";
@@ -55,10 +55,14 @@ export async function saveSurveyAction(id: string | null, raw: unknown, send: bo
     const { ctx } = a.current;
     const tz = a.current.school.timeZone;
     const today = new Date(`${new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(new Date())}T00:00:00Z`);
+    // A person limited to one campus writes surveys for their campus only.
+    const campusId = a.scope.campusId ?? null;
     const out = await withSchool(ctx, async (tx) => {
-      const labels = new Map((await audienceOptions(tx, ctx)).map((o) => [o.value, o.label]));
+      if (id && !(await loadSurvey(tx, ctx, id, campusId))) throw new SurveyProblem("This survey was not found.");
+      input.audience = await campusAudience(tx, input.audience, campusId);
+      const labels = new Map((await audienceOptions(tx, ctx, campusId)).map((o) => [o.value, o.label]));
       const survey = await saveSurvey(tx, ctx, id, input, labels, today);
-      const sent = send ? await sendSurvey(tx, ctx, survey.id, tz) : null;
+      const sent = send ? await sendSurvey(tx, ctx, survey.id, tz, new Date(), campusId) : null;
       return { survey, sent };
     });
     revalidatePath(PATH);
@@ -75,7 +79,7 @@ export async function saveSurveyAction(id: string | null, raw: unknown, send: bo
 export async function audienceCountAction(value: string): Promise<number | null> {
   try {
     const a = await access();
-    return await withSchool(a.current.ctx, (tx) => audienceCount(tx, a.current.ctx, value));
+    return await withSchool(a.current.ctx, async (tx) => audienceCount(tx, a.current.ctx, await campusAudience(tx, value, a.scope.campusId)));
   } catch {
     return null;
   }
@@ -95,28 +99,28 @@ async function one(id: string, action: "create" | "edit" | "archive", fn: (a: Aw
 
 export async function sendSurveyAction(id: string) {
   return one(id, "create", async (a) => {
-    const r = await withSchool(a.current.ctx, (tx) => sendSurvey(tx, a.current.ctx, id, a.current.school.timeZone));
+    const r = await withSchool(a.current.ctx, (tx) => sendSurvey(tx, a.current.ctx, id, a.current.school.timeZone, new Date(), a.scope.campusId));
     return `Survey sent to ${r.invited.toLocaleString("en-IN")} ${r.invited === 1 ? "person" : "people"}.`;
   });
 }
 
 export async function remindSurveyAction(id: string) {
   return one(id, "create", async (a) => {
-    const n = await withSchool(a.current.ctx, (tx) => remindSurvey(tx, a.current.ctx, id, a.current.school.timeZone));
+    const n = await withSchool(a.current.ctx, (tx) => remindSurvey(tx, a.current.ctx, id, a.current.school.timeZone, a.scope.campusId));
     return `Reminder sent to ${n.toLocaleString("en-IN")} who have not answered.`;
   });
 }
 
 export async function closeSurveyAction(id: string) {
   return one(id, "edit", async (a) => {
-    await withSchool(a.current.ctx, (tx) => closeSurvey(tx, a.current.ctx, id));
+    await withSchool(a.current.ctx, (tx) => closeSurvey(tx, a.current.ctx, id, a.scope.campusId));
     return "Survey closed. No more answers are taken.";
   });
 }
 
 export async function archiveSurveyAction(id: string) {
   return one(id, "archive", async (a) => {
-    await withSchool(a.current.ctx, (tx) => archiveSurvey(tx, a.current.ctx, id));
+    await withSchool(a.current.ctx, (tx) => archiveSurvey(tx, a.current.ctx, id, a.scope.campusId));
     return "Survey archived.";
   });
 }

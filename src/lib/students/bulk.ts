@@ -6,7 +6,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { currentYear, assertYearOpen } from "../academic/years";
+import { assertYearOpen, studentYearLookup } from "../academic/years";
 import { checkIndianMobile } from "../format";
 import { saveFile, IMAGE_TYPES } from "../files";
 import { admissionNoTaken, changeSection, StudentProblem } from "./students";
@@ -46,12 +46,14 @@ function normalise(field: string, raw: string): { value: string | null; problem:
 /** Step 1: the before-and-after preview. Nothing is saved. */
 export async function previewBulkUpdate(tx: Tx, ctx: SchoolContext, field: string, values: { studentId: string; value: string }[]): Promise<BulkRow[]> {
   if (!BULK_FIELDS.some((f) => f.key === field)) throw new StudentProblem("Choose a field to update.", "field");
-  const year = await currentYear(tx, ctx);
+  // Each student's roll number is in their own campus's current year.
+  const yearOf = studentYearLookup(tx, ctx);
   const rows: BulkRow[] = [];
   const seen = new Map<string, string>();
   for (const { studentId, value } of values) {
     const s = await tx.student.findFirst({ where: { id: studentId, archivedAt: null } });
     if (!s) continue;
+    const year = await yearOf(studentId);
     const before = await readField(tx, field, studentId, year?.id ?? null);
     const n = normalise(field, value);
     let problem = n.problem;
@@ -73,9 +75,11 @@ export async function previewBulkUpdate(tx: Tx, ctx: SchoolContext, field: strin
     rows.push({ studentId, fullName: s.fullName, admissionNo: s.admissionNo, before, after: n.value, problem });
   }
   // Roll numbers must not clash with students left as they are.
-  if (field === "rollNo" && year) {
+  if (field === "rollNo") {
     const changing = new Set(rows.map((r) => r.studentId));
     for (const r of rows.filter((x) => !x.problem && x.after)) {
+      const year = await yearOf(r.studentId);
+      if (!year) continue;
       const enr = await tx.enrolment.findFirst({ where: { studentId: r.studentId, academicYearId: year.id, archivedAt: null } });
       const clash = enr && (await tx.enrolment.findFirst({ where: { sectionId: enr.sectionId, academicYearId: year.id, rollNo: Number(r.after), archivedAt: null, studentId: { notIn: [...changing] } }, include: { student: true } }));
       if (clash) r.problem = `Roll number ${r.after} already belongs to ${clash.student.fullName}.`;
@@ -102,13 +106,15 @@ async function writeField(tx: Tx, ctx: SchoolContext, field: string, studentId: 
 export async function applyBulkUpdate(tx: Tx, ctx: SchoolContext, field: string, values: { studentId: string; value: string }[]) {
   const rows = await previewBulkUpdate(tx, ctx, field, values);
   const good = rows.filter((r) => !r.problem && r.before !== r.after);
-  const year = await currentYear(tx, ctx);
-  if (field === "rollNo" && year) {
-    await assertYearOpen(tx, year.id);
+  const yearOf = studentYearLookup(tx, ctx);
+  const yearIds = new Map<string, string | null>();
+  for (const r of good) yearIds.set(r.studentId, (await yearOf(r.studentId))?.id ?? null);
+  if (field === "rollNo") {
+    for (const y of new Set([...yearIds.values()].filter((x): x is string => Boolean(x)))) await assertYearOpen(tx, y);
     // Two passes, so swapping two roll numbers never collides half-way.
-    for (const r of good) await tx.enrolment.updateMany({ where: { studentId: r.studentId, academicYearId: year.id }, data: { rollNo: null } });
+    for (const r of good) { const y = yearIds.get(r.studentId); if (y) await tx.enrolment.updateMany({ where: { studentId: r.studentId, academicYearId: y }, data: { rollNo: null } }); }
   }
-  for (const r of good) await writeField(tx, ctx, field, r.studentId, r.after, year?.id ?? null);
+  for (const r of good) await writeField(tx, ctx, field, r.studentId, r.after, yearIds.get(r.studentId) ?? null);
   const batch = await tx.bulkUpdate.create({
     data: { schoolId: ctx.schoolId, field, changes: good.map((r) => ({ studentId: r.studentId, before: r.before, after: r.after })), createdById: ctx.userId },
   });
@@ -127,16 +133,18 @@ export async function undoBulkUpdate(tx: Tx, ctx: SchoolContext, bulkUpdateId: s
   if (!b) throw new StudentProblem("This bulk update was not found.");
   if (b.undoneAt) throw new StudentProblem("This bulk update was already undone.");
   const changes = b.changes as { studentId: string; before: string | null; after: string | null }[];
-  const year = await currentYear(tx, ctx);
-  if (b.field === "rollNo" && year) {
-    for (const c of changes) await tx.enrolment.updateMany({ where: { studentId: c.studentId, academicYearId: year.id }, data: { rollNo: null } });
+  const yearOf = studentYearLookup(tx, ctx);
+  const yearIds = new Map<string, string | null>();
+  for (const c of changes) yearIds.set(c.studentId, (await yearOf(c.studentId))?.id ?? null);
+  if (b.field === "rollNo") {
+    for (const c of changes) { const y = yearIds.get(c.studentId); if (y) await tx.enrolment.updateMany({ where: { studentId: c.studentId, academicYearId: y }, data: { rollNo: null } }); }
   }
   if (b.field === "admissionNo") {
     for (const c of changes) {
       if (c.before && (await admissionNoTaken(tx, c.before, c.studentId))) throw new StudentProblem(`Admission number ${c.before} is now used by another student, so this cannot be undone.`);
     }
   }
-  for (const c of changes) await writeField(tx, ctx, b.field, c.studentId, c.before, year?.id ?? null);
+  for (const c of changes) await writeField(tx, ctx, b.field, c.studentId, c.before, yearIds.get(c.studentId) ?? null);
   await tx.bulkUpdate.update({ where: { id: b.id }, data: { undoneAt: new Date(), undoneById: ctx.userId } });
   await writeAudit(tx, ctx, { action: "bulk-update-undone", recordType: "Student", recordId: null, after: { field: b.field, bulkUpdateId: b.id, students: changes.length } });
   return changes.length;
@@ -162,11 +170,15 @@ export async function bulkChangeSection(tx: Tx, ctx: SchoolContext, studentIds: 
 
 export type PhotoMatch = { fileName: string; studentId: string | null; fullName: string | null; problem: string | null; hasPhoto: boolean };
 
-/** Matches photo files to students by admission number in the file name (e.g. "SPS-2026-0145.jpg"). */
-export async function matchPhotos(tx: Tx, fileNames: string[]): Promise<PhotoMatch[]> {
+/**
+ * Matches photo files to students by admission number in the file name (e.g.
+ * "SPS-2026-0145.jpg"). `campusId`: only that campus's students (a person
+ * limited to one campus).
+ */
+export async function matchPhotos(tx: Tx, fileNames: string[], campusId?: string | null): Promise<PhotoMatch[]> {
   const stem = (n: string) => n.replace(/\.[a-z0-9]+$/i, "").trim().toLowerCase();
   const key = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
-  const students = await tx.student.findMany({ where: { archivedAt: null }, select: { id: true, admissionNo: true, fullName: true, photoFileId: true } });
+  const students = await tx.student.findMany({ where: { archivedAt: null, ...(campusId ? { campusId } : {}) }, select: { id: true, admissionNo: true, fullName: true, photoFileId: true } });
   const byKey = new Map(students.map((s) => [key(s.admissionNo), s]));
   const out: PhotoMatch[] = fileNames.map((fileName) => {
     const s = byKey.get(key(stem(fileName)));
@@ -182,8 +194,8 @@ export async function matchPhotos(tx: Tx, fileNames: string[]): Promise<PhotoMat
 }
 
 /** Saves the chosen photos. Students who already have a photo are replaced only when asked. */
-export async function saveBulkPhotos(tx: Tx, ctx: SchoolContext, files: File[], opts: { replaceExisting: boolean; skip: Set<string> }) {
-  const matches = await matchPhotos(tx, files.map((f) => f.name));
+export async function saveBulkPhotos(tx: Tx, ctx: SchoolContext, files: File[], opts: { replaceExisting: boolean; skip: Set<string>; campusId?: string | null }) {
+  const matches = await matchPhotos(tx, files.map((f) => f.name), opts.campusId);
   let saved = 0;
   const skipped: string[] = [];
   const done = new Set<string>();

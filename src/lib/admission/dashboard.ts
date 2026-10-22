@@ -6,11 +6,11 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { Tx } from "../db";
 import { CLOSED_STATUSES, label, stageOn, type Settings } from "./settings";
-import { enquiryScope, type Viewer } from "./access";
+import { applicationScope, enquiryScope, type Viewer } from "./access";
 import { progressOf } from "./documents";
 import { classRules } from "./settings";
 import { seatsFor } from "./seats";
-import type { Filters } from "./reports";
+import { yearParam, yearWhere, type Filters } from "./reports";
 
 const DAY = 86_400_000;
 
@@ -31,11 +31,12 @@ export function boardColumns(s: Settings) {
 }
 
 function enquiryWhere(f: Filters, v: Viewer): Prisma.EnquiryWhereInput {
-  return { AND: [enquiryScope(v)], archivedAt: null, academicYearId: f.yearId, ...(f.classId ? { classId: f.classId } : {}), ...(f.source ? { firstSource: f.source } : {}), ...(f.ownerStaffId ? { ownerStaffId: f.ownerStaffId } : {}), ...(f.campusId ? { campusId: f.campusId } : {}), ...(f.created ? { createdAt: f.created } : {}) };
+  return { AND: [enquiryScope(v)], archivedAt: null, academicYearId: yearWhere(f.yearId), ...(f.classId ? { classId: f.classId } : {}), ...(f.source ? { firstSource: f.source } : {}), ...(f.ownerStaffId ? { ownerStaffId: f.ownerStaffId } : {}), ...(f.campusId ? { campusId: f.campusId } : {}), ...(f.created ? { createdAt: f.created } : {}) };
 }
-function appWhere(f: Filters): Prisma.ApplicationWhereInput {
+/** Applications for the filters, within the viewer's campus when they are limited to one. */
+function appWhere(f: Filters, v: Viewer): Prisma.ApplicationWhereInput {
   const enquiry: Prisma.EnquiryWhereInput = { ...(f.source ? { firstSource: f.source } : {}), ...(f.ownerStaffId ? { ownerStaffId: f.ownerStaffId } : {}) };
-  return { archivedAt: null, academicYearId: f.yearId, ...(f.classId ? { classId: f.classId } : {}), ...(f.campusId ? { campusId: f.campusId } : {}), ...(f.created ? { createdAt: f.created } : {}), ...(Object.keys(enquiry).length ? { enquiry } : {}) };
+  return { AND: [applicationScope(v)], archivedAt: null, academicYearId: yearWhere(f.yearId), ...(f.classId ? { classId: f.classId } : {}), ...(f.campusId ? { campusId: f.campusId } : {}), ...(f.created ? { createdAt: f.created } : {}), ...(Object.keys(enquiry).length ? { enquiry } : {}) };
 }
 
 /** Applications in Test & Interview with an interview booked and no outcome yet are "at the interview"; the rest are at the test. */
@@ -62,7 +63,7 @@ export type StageRow = { key: ColumnKey; label: string; count: number; week: num
 export async function whereNow(tx: Tx, s: Settings, v: Viewer, f: Filters, now = new Date()): Promise<StageRow[]> {
   const week = new Date(now.getTime() - 7 * DAY);
   const e: Prisma.EnquiryWhereInput = { ...enquiryWhere(f, v), status: { notIn: [...CLOSED_STATUSES] } };
-  const yearQ = `year=${f.yearId}`;
+  const yearQ = new URLSearchParams(yearParam(f.yearId)).toString();
   const [eCount, eWeek, eOld] = await Promise.all([
     tx.enquiry.count({ where: e }),
     tx.enquiry.count({ where: { ...e, createdAt: { gte: week } } }),
@@ -71,7 +72,7 @@ export async function whereNow(tx: Tx, s: Settings, v: Viewer, f: Filters, now =
   const stageName = (key: string, fallback: string) => s.stageList.find((x) => x.key === key)?.label ?? fallback;
   const rows: StageRow[] = [{ key: "enq", label: stageName("enquiry", "Enquiry"), count: eCount, week: eWeek, oldest: eOld?.createdAt ?? null, href: `/admission-management/enquiries?${yearQ}` }];
   if (v.see !== "all") return rows;
-  const base = appWhere(f);
+  const base = appWhere(f, v);
   const hrefs: Record<ColumnKey, string> = {
     enq: "", app: `/admission-management/applications?${yearQ}&stage=new`, docs: `/admission-management/documents?${yearQ}`, test: `/admission-management/tests?${yearQ}`,
     int: `/admission-management/tests?${yearQ}&tab=interviews`, appr: `/admission-management/decision?${yearQ}`, done: `/admission-management/applications?${yearQ}&stage=ADMITTED`,
@@ -95,15 +96,16 @@ export type PipeColumn = { key: ColumnKey; label: string; count: number; cards: 
 /** The pipeline board: the first few cards of each column, oldest waiting first. */
 export async function pipeline(tx: Tx, s: Settings, v: Viewer, f: Filters, names: { classes: Map<string, string>; staff: Map<string, string> }, take = 3): Promise<PipeColumn[]> {
   const cls = (id: string | null) => (id ? names.classes.get(id) ?? "" : "Class not set");
+  const yearQ = new URLSearchParams(yearParam(f.yearId)).toString();
   const cols = boardColumns(s);
   const e: Prisma.EnquiryWhereInput = { ...enquiryWhere(f, v), status: { notIn: [...CLOSED_STATUSES] } };
   const [eRows, eCount] = await Promise.all([tx.enquiry.findMany({ where: e, take, orderBy: { createdAt: "desc" } }), tx.enquiry.count({ where: e })]);
   const out: PipeColumn[] = [{
-    key: "enq", label: "Enquiries", count: eCount, href: `/admission-management/enquiries?year=${f.yearId}`,
+    key: "enq", label: "Enquiries", count: eCount, href: `/admission-management/enquiries?${yearQ}`,
     cards: eRows.map((r) => ({ id: r.id, name: r.childName, cls: cls(r.classId), meta: `${label(s.sourceList, r.source)} · ${r.ownerStaffId ? names.staff.get(r.ownerStaffId) ?? "" : label(s.statusList, r.status)}`, href: `/admission-management/enquiries?id=${r.id}` })),
   }];
   if (v.see !== "all") return out;
-  const base = appWhere(f);
+  const base = appWhere(f, v);
   const rules = await classRules(tx);
   for (const c of cols.filter((c) => c.key !== "enq")) {
     const where = { ...base, ...stageWhere(c.key, s) };
@@ -115,7 +117,7 @@ export async function pipeline(tx: Tx, s: Settings, v: Viewer, f: Filters, names
       tx.application.count({ where }),
     ]);
     out.push({
-      key: c.key, label: c.label, count, href: c.key === "done" ? `/admission-management/applications?year=${f.yearId}&stage=ADMITTED` : c.key === "appr" ? "/admission-management/decision" : c.key === "docs" ? "/admission-management/documents" : c.key === "test" || c.key === "int" ? `/admission-management/tests${c.key === "int" ? "?tab=interviews" : ""}` : `/admission-management/applications?year=${f.yearId}`,
+      key: c.key, label: c.label, count, href: c.key === "done" ? `/admission-management/applications?${new URLSearchParams({ ...yearParam(f.yearId), stage: "ADMITTED" })}` : c.key === "appr" ? "/admission-management/decision" : c.key === "docs" ? "/admission-management/documents" : c.key === "test" || c.key === "int" ? `/admission-management/tests${c.key === "int" ? "?tab=interviews" : ""}` : `/admission-management/applications?${yearQ}`,
       cards: rows.map((r) => {
         const p = progressOf(r.documents, rules.get(r.classId)?.documents ?? []);
         const paid = r.payments.reduce((x, y) => x + y.amountPaise, BigInt(0));
@@ -138,7 +140,7 @@ export async function headline(tx: Tx, v: Viewer, f: Filters, dayStart: Date, no
   const week = new Date(now.getTime() - 7 * DAY);
   const e = enquiryWhere(f, v);
   const open: Prisma.EnquiryWhereInput = { ...e, status: { notIn: [...CLOSED_STATUSES] } };
-  const a = appWhere(f);
+  const a = appWhere(f, v);
   const [enquiries, enqWeek, enqOpen, overdue, today] = await Promise.all([
     tx.enquiry.count({ where: e }),
     tx.enquiry.count({ where: { ...e, createdAt: { gte: week } } }),
@@ -151,10 +153,11 @@ export async function headline(tx: Tx, v: Viewer, f: Filters, dayStart: Date, no
     tx.application.count({ where: a }),
     tx.application.count({ where: { ...a, stage: "DECISION" } }),
     tx.application.count({ where: { ...a, stage: "ADMITTED", studentId: { not: null } } }),
-    seatsFor(tx, f.yearId, f.classId ? [f.classId] : undefined),
+    // Each campus's year has its own sections and seats.
+    Promise.all((Array.isArray(f.yearId) ? f.yearId : [f.yearId]).map((y) => seatsFor(tx, y, f.classId ? [f.classId] : undefined))),
   ]);
   // Seats for new joiners: those already taken by new admissions, held for approved children, and still free.
   let free = 0;
-  for (const c of seats.values()) free += c.free + c.held;
+  for (const m of seats) for (const c of m.values()) free += c.free + c.held;
   return { enquiries, enqWeek, enqOpen, overdue, today, applications, waiting, admitted, seats: free + admitted };
 }

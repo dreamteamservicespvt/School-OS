@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Lock, MessageSquarePlus, MessagesSquare, Pencil, Pin, Plus } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { boardTopics, HIDE_REASONS, listBoards, mayModerate, topicThread } from "@/lib/homework/discussions";
+import { inYears } from "@/lib/homework/scope";
 import { momentWords, plural } from "@/lib/homework/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
@@ -40,7 +41,8 @@ export default async function DiscussionsPage({ searchParams }: { searchParams: 
     let courses: { value: string; label: string }[] = [];
     if (staffPosts && doing === "board") {
       const pairs = s.level === "full"
-        ? await tx.teacherAllocation.findMany({ where: { academicYearId: s.yearId ?? undefined, archivedAt: null }, select: { sectionId: true, subjectId: true } })
+        // Each campus's current year; only their campus's classes when limited to one campus.
+        ? await tx.teacherAllocation.findMany({ where: { academicYearId: inYears(s), archivedAt: null, ...(s.campusSections ? { sectionId: { in: s.campusSections } } : {}) }, select: { sectionId: true, subjectId: true } })
         : s.pairs;
       const uniq = [...new Map(pairs.map((x) => [`${x.sectionId}|${x.subjectId}`, x])).values()];
       const [secs, subs] = await Promise.all([

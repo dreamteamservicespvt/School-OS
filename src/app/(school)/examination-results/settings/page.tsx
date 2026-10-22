@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { Award, Layers, ListChecks, Palette, Scale, SlidersHorizontal, Sigma, Target, ToggleRight } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { inCampus } from "@/lib/campus";
 import { reachFor, type PermissionMap } from "@/lib/permissions";
 import { PRESETS } from "@/lib/exams/grades";
 import { PATTERNS } from "@/lib/exams/common";
@@ -32,7 +33,8 @@ export default async function ExamSettingsPage({ searchParams }: { searchParams:
       tx.coScholasticArea.findMany({ where: { archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, kind: true, grades: true, description: true } }),
       tx.role.findMany({ where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true, permissions: true } }),
       tx.schoolFeature.findMany({ where: { featureKey: { in: [...EXAM_FEATURES] } }, select: { featureKey: true, isOn: true } }),
-      tx.schoolClass.findMany({ where: { archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
+      // One campus: the exam pattern of that campus's classes only.
+      tx.schoolClass.findMany({ where: { archivedAt: null, ...inCampus(page.current) }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
       boardsInUse(tx, ctx),
       tx.competency.findMany({ where: { archivedAt: null }, orderBy: { createdAt: "asc" }, select: { id: true, subjectId: true, name: true, levels: true } }),
       tx.subject.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),

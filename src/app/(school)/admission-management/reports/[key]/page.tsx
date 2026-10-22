@@ -5,14 +5,14 @@ import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { fullPage, BASE } from "@/lib/admission/page";
 import { REPORTS, report, type ReportKey } from "@/lib/admission/reports";
-import { openYears } from "@/lib/admission/settings";
+import { admissionYears, campusNames, openYears } from "@/lib/admission/settings";
 import { enquiryChoices, names } from "@/lib/admission/choices";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { cx } from "@/components/ui/cx";
 import { BackLink } from "../../_components/pills";
-import { filterQuery, readFilters } from "../filters";
+import { defaultYears, filterQuery, readFilters, yearOptions } from "../filters";
 import { ReportToolbar } from "../toolbar";
 
 export const metadata: Metadata = { title: "Admission report" };
@@ -23,20 +23,25 @@ export default async function ReportPage({ params, searchParams }: Props) {
   const { key } = await params;
   const meta = REPORTS.find((r) => r.key === key);
   if (!meta) notFound();
-  const { current, viewer, settings, year, tz } = await fullPage();
+  const { current, viewer, settings, tz } = await fullPage();
   const raw = await searchParams;
-  const read = readFilters(raw, settings, year?.id ?? null, tz);
   const data = await withSchool(current.ctx, async (tx) => {
-    const [n, years, choices, campuses] = await Promise.all([
-      names(tx), openYears(tx), enquiryChoices(tx, current.ctx, current, settings, tz),
-      tx.campus.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    // Each campus has its own years: by default each campus's admission year (only the person's campus when limited to one).
+    const limit = viewer.campusId;
+    const [n, years, choices, campuses, admitting, campus] = await Promise.all([
+      names(tx), openYears(tx, limit), enquiryChoices(tx, current.ctx, current, settings, tz),
+      tx.campus.findMany({ where: { archivedAt: null, ...(limit ? { id: limit } : {}) }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+      admissionYears(tx, current.ctx, settings, limit), campusNames(tx, limit),
     ]);
+    const def = defaultYears(admitting, raw);
+    const read = readFilters(raw, settings, def, tz);
+    const yearOpts = yearOptions(years, admitting, def, campus);
     const r = read ? await report(tx, settings, viewer, key as ReportKey, read.f, n) : null;
-    return { years, choices, campuses, r };
+    return { years, choices, campuses, read, yearOpts, r };
   });
   const path = `${BASE}/reports/${key}`;
   const q = filterQuery(raw);
-  const yearOpts = [...data.years].sort((a, b) => (a.id === year?.id ? -1 : b.id === year?.id ? 1 : 0)).map((y) => ({ value: y.id, label: y.status === "ACTIVE" && year && y.id !== year.id ? `${y.name} mid-year` : y.name }));
+  const { read, yearOpts } = data;
   const canExport = can(current.permissions, "admission-management", "export");
   const r = data.r;
   return (

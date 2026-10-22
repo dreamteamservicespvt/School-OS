@@ -11,7 +11,7 @@ import type { Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { HomeworkProblem } from "./access";
-import { mayRead, requireDesk, requireWork, requireYearOpen, shortSection, workSections, workSubjects, type HomeworkScope } from "./scope";
+import { inYears, listWhere, mayRead, onCampus, requireDesk, requireWork, requireYearOpen, shortSection, workSections, workSubjects, type HomeworkScope } from "./scope";
 import { sectionStudents } from "./homework";
 import { markAttempt, quizWord } from "./words";
 
@@ -65,11 +65,13 @@ export async function createQuiz(tx: Tx, s: HomeworkScope, input: QuizInput, ope
   const title = checkQuiz(input, open);
   const section = (await workSections(tx, s, "quizzes")).find((x) => x.id === input.sectionId);
   if (!section) throw new HomeworkProblem("Choose one of your classes that has students.", "sectionId");
+  requireYearOpen(s, section.yearId);
   const subject = (await workSubjects(tx, s, section.id, section.classId, today)).find((x) => x.id === input.subjectId);
   if (!subject) throw new HomeworkProblem(`You do not teach this subject to ${section.label}.`, "subjectId");
   const q = await tx.quiz.create({
     data: {
-      schoolId: s.ctx.schoolId, academicYearId: s.yearId!, sectionId: section.id, classId: section.classId, subjectId: subject.id, teacherId: s.staffId, title,
+      // The section's own year: in a school with two campuses, each campus has its own.
+      schoolId: s.ctx.schoolId, academicYearId: section.yearId, sectionId: section.id, classId: section.classId, subjectId: subject.id, teacherId: s.staffId, title,
       status: open ? "OPEN" : "DRAFT", opensAt: input.opensAt, closesAt: input.closesAt, timeLimitMin: input.timeLimitMin, attemptsAllowed: input.attemptsAllowed, showAnswers: input.showAnswers, createdById: s.ctx.userId,
     },
   });
@@ -81,7 +83,7 @@ export async function createQuiz(tx: Tx, s: HomeworkScope, input: QuizInput, ope
 
 async function quizFor(tx: Tx, s: HomeworkScope, id: string) {
   const q = await tx.quiz.findFirst({ where: { id, archivedAt: null } });
-  if (!q) throw new HomeworkProblem("This quiz was not found. It may have been archived.");
+  if (!q || !onCampus(s, q.sectionId)) throw new HomeworkProblem("This quiz was not found. It may have been archived.");
   requireWork(s, q, "this quiz", "quizzes");
   return q;
 }
@@ -157,10 +159,10 @@ export type QuizRow = {
   timeLimitMin: number | null; attemptsAllowed: number; taken: number; students: number; avg: number | null; word: ReturnType<typeof quizWord>; opensAt: Date | null; closesAt: Date | null; createdAt: Date; toMark: number;
 };
 
-/** The quizzes this person may read, newest first, with taken and average. */
+/** The quizzes this person may read, newest first, with taken and average. Each campus's own current year; one campus's when limited to it. */
 export async function listQuizzes(tx: Tx, s: HomeworkScope, now: Date, f: { from?: Date | null; to?: Date | null; q?: string } = {}) {
   const where: Prisma.QuizWhereInput = {
-    archivedAt: null, academicYearId: s.yearId ?? undefined,
+    archivedAt: null, ...listWhere(s),
     ...(s.level === "student" ? { sectionId: s.student?.sectionId ?? "00000000-0000-0000-0000-000000000000", status: { not: "DRAFT" } } : {}),
     ...(s.level === "own" ? { OR: [...s.pairs.map((p) => ({ sectionId: p.sectionId, subjectId: p.subjectId })), ...(s.staffId ? [{ teacherId: s.staffId }] : []), ...(s.ctSections.length ? [{ sectionId: { in: s.ctSections } }] : [])] } : {}),
     ...(f.from && f.to ? { createdAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY) } } : {}),
@@ -172,7 +174,7 @@ export async function listQuizzes(tx: Tx, s: HomeworkScope, now: Date, f: { from
     tx.section.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.sectionId))] } }, include: { schoolClass: { select: { name: true } } } }),
     tx.subject.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.subjectId))] } }, select: { id: true, name: true } }),
     tx.staff.findMany({ where: { id: { in: rows.map((r) => r.teacherId).filter((x): x is string => !!x) } }, select: { id: true, fullName: true } }),
-    tx.enrolment.groupBy({ by: ["sectionId"], where: { academicYearId: s.yearId ?? undefined, archivedAt: null, status: "STUDYING", sectionId: { in: [...new Set(rows.map((r) => r.sectionId))] } }, _count: true }),
+    tx.enrolment.groupBy({ by: ["sectionId"], where: { academicYearId: inYears(s), archivedAt: null, status: "STUDYING", sectionId: { in: [...new Set(rows.map((r) => r.sectionId))] } }, _count: true }),
   ]);
   const sec = new Map(sections.map((x) => [x.id, shortSection(x.schoolClass.name, x.name)]));
   const sub = new Map(subjects.map((x) => [x.id, x.name]));
@@ -223,7 +225,7 @@ export async function quizResults(tx: Tx, s: HomeworkScope, id: string) {
 /** The teacher marks short answers of one attempt; the score is worked out again. */
 export async function markShortAnswers(tx: Tx, s: HomeworkScope, attemptId: string, marks: Record<string, number>) {
   const a = await tx.quizAttempt.findFirst({ where: { id: attemptId }, include: { quiz: { include: { questions: { where: { archivedAt: null } } } } } });
-  if (!a) throw new HomeworkProblem("This attempt was not found.");
+  if (!a || !onCampus(s, a.quiz.sectionId)) throw new HomeworkProblem("This attempt was not found.");
   requireWork(s, a.quiz, "this quiz", "quizzes");
   const manual: Record<string, number> = { ...(a.manualMarks as Record<string, number>) };
   for (const qn of a.quiz.questions.filter((x) => x.kind === "SHORT")) {

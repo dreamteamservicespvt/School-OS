@@ -10,7 +10,8 @@ import { PermissionDeniedError, type Action } from "@/lib/permissions";
 import { formValues, type FormState } from "@/lib/forms";
 import { flash, type Flash } from "@/lib/flash";
 import { AcademicRuleError } from "@/lib/academic/common";
-import { ClosedYearError, chosenYear } from "@/lib/academic/years";
+import { ClosedYearError } from "@/lib/academic/years";
+import { pageYear } from "@/lib/academic/page-campus";
 import { FileProblem } from "@/lib/files";
 import { ExamRuleError } from "@/lib/exams/common";
 import { examScope, type ExamScope } from "@/lib/exams/scope";
@@ -49,10 +50,17 @@ export async function act(action: Action, work: (w: Work) => Promise<{ flash?: F
   try {
     const { current } = await requireAction("examination-results", action);
     const result = await withSchool(current.ctx, async (tx) => {
-      const year = await chosenYear(tx, current.ctx, opts.yearId ?? null);
+      // The year given (the page's), else the person's own campus's year; a year of another campus is never used
+      // for a person limited to one campus (page-campus.ts).
+      const { year } = await pageYear(tx, current.ctx, current, opts.yearId ?? null);
       const scope = await examScope(tx, current, year?.id ?? null);
       const needs = opts.needs ?? "manage";
       if (needs !== "any" && !scope[needs]) throw new ExamRuleError(NEED_WORDS[needs]);
+      if (opts.yearId && year?.id !== opts.yearId && /^[0-9a-f-]{36}$/i.test(opts.yearId)) {
+        // A year of another campus than the person's (or no such year): never work in another year instead.
+        const asked = await tx.academicYear.findFirst({ where: { id: opts.yearId, archivedAt: null }, select: { id: true } });
+        if (asked) throw new ExamRuleError("This academic year was not found.");
+      }
       return work({ tx, current, scope, yearId: year?.id ?? null });
     }, { timeout: opts.timeout ?? 60_000 });
     if (result?.flash) await flash(result.flash);

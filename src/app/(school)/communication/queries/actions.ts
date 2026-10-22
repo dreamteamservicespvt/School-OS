@@ -71,7 +71,7 @@ export async function logQueryAction(_prev: QueryState, form: FormData): Promise
 
 async function guard(id: string) {
   const access = await commAction("edit");
-  const ok = await withSchool(access.current.ctx, async (tx) => tx.query.findFirst({ where: { AND: [{ id }, await queryWhere(tx, access.current.ctx, access.full ? "all" : "own")] }, select: { id: true } }));
+  const ok = await withSchool(access.current.ctx, async (tx) => tx.query.findFirst({ where: { AND: [{ id }, await queryWhere(tx, access.current.ctx, access.full ? "all" : "own", access.scope.campusId)] }, select: { id: true } }));
   if (!ok) throw new QueryProblem("This query was not found, or it is not yours.");
   return access;
 }
@@ -139,10 +139,11 @@ export async function ratingAction(id: string, rating: number) {
 
 /** The children of a parent, for "About (student)". */
 export async function childrenOfGuardian(guardianId: string): Promise<{ id: string; name: string }[]> {
-  const { current } = await commAction("create");
+  const { current, scope } = await commAction("create");
   if (!uuid.test(guardianId)) return [];
   return withSchool(current.ctx, async (tx) => {
-    const rows = await tx.studentGuardian.findMany({ where: { schoolId: current.ctx.schoolId, guardianId, archivedAt: null, student: { archivedAt: null } }, select: { student: { select: { id: true, fullName: true } } } });
+    // Only the children at their campus for a person limited to one campus.
+    const rows = await tx.studentGuardian.findMany({ where: { schoolId: current.ctx.schoolId, guardianId, archivedAt: null, student: { archivedAt: null, ...(scope.campusId ? { campusId: scope.campusId } : {}) } }, select: { student: { select: { id: true, fullName: true } } } });
     return rows.map((r) => ({ id: r.student.id, name: r.student.fullName }));
   });
 }

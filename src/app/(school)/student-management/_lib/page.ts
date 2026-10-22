@@ -7,7 +7,10 @@ import { unstable_rethrow } from "next/navigation";
 import { requireAction, requirePage } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { appOrigin } from "@/lib/origin";
-import { currentYear } from "@/lib/academic/years";
+import { currentYear, yearsFor } from "@/lib/academic/years";
+import { personCampusId } from "@/lib/campus";
+import type { Current } from "@/lib/current";
+import type { Tx } from "@/lib/db";
 import { getStudentSettings } from "@/lib/students/settings";
 import { abilities, requireManage } from "@/lib/students/access";
 import { PermissionDeniedError, type Action } from "@/lib/permissions";
@@ -26,24 +29,39 @@ import "@/lib/students/provider-modules";
 export const MODULE = "student-management" as const;
 export const BASE = "/student-management";
 
+/**
+ * The years the pages work in. `year`: the current year of the person's own
+ * campus (the one they are limited to, else their Staff record's, else the
+ * main campus). `years`: the current year of every campus they see, one each,
+ * so a school whose campuses start the year on different dates lists each
+ * student in their own campus's year.
+ */
+async function pageYears(tx: Tx, current: Current) {
+  const [year, years] = await Promise.all([
+    personCampusId(tx, current.ctx, current).then((campusId) => currentYear(tx, current.ctx, campusId)),
+    yearsFor(tx, current.ctx, current.campusId),
+  ]);
+  return { year, years, yearIds: years.length ? years.map((y) => y.id) : year ? [year.id] : [] };
+}
+
 export const studentPage = cache(async () => {
   const current = await requirePage(MODULE);
-  const { settings, year } = await withSchool(current.ctx, async (tx) => ({
+  const { settings, year, years, yearIds } = await withSchool(current.ctx, async (tx) => ({
     settings: await getStudentSettings(tx, current.ctx),
-    year: await currentYear(tx, current.ctx),
+    ...(await pageYears(tx, current)),
   }));
-  return { current, settings, year, can: abilities(current, settings), tz: current.school.timeZone };
+  return { current, settings, year, years, yearIds, can: abilities(current, settings), tz: current.school.timeZone };
 });
 
 /** For server actions: checks the role on the server first; "manage" also needs Full. */
 export async function studentAction(action: Action, opts: { manage?: boolean } = {}) {
   const { current } = await requireAction(MODULE, action);
-  const { settings, year } = await withSchool(current.ctx, async (tx) => ({
+  const { settings, year, years, yearIds } = await withSchool(current.ctx, async (tx) => ({
     settings: await getStudentSettings(tx, current.ctx),
-    year: await currentYear(tx, current.ctx),
+    ...(await pageYears(tx, current)),
   }));
   if (opts.manage) requireManage(current);
-  return { current, settings, year, can: abilities(current, settings) };
+  return { current, settings, year, years, yearIds, can: abilities(current, settings) };
 }
 
 /** Turns a rule's refusal into plain words next to the right field; anything else is a calm general message. */

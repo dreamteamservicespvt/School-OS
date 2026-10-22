@@ -8,6 +8,7 @@ import { canDecide } from "@/lib/approvals";
 import { formatDate, formatDateTime, formatRupees, formatRupeesShort } from "@/lib/format";
 import { payrollStaff, runBreakdown, lineDays } from "@/lib/salary/payroll";
 import { salarySettings } from "@/lib/salary/settings";
+import { runsOnCampus } from "@/lib/salary/campus";
 import { addMonths, correctionLabel, dayNum, dayShort, firstOfMonth, lastOfMonth, monthKey, monthName, monthShort } from "@/lib/salary/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
@@ -42,12 +43,17 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
   const sp = await searchParams;
   const ctx = p.current.ctx;
   const money = p.money;
-  const campusId = p.campuses.find((c) => c.id === one(sp.campus))?.id ?? p.me?.campusId ?? p.campuses[0]?.id ?? "";
+  const pick = (k: string) => (UUID.test(one(sp[k])) ? one(sp[k]) : "");
+  // A link to one month (?run=, from Approvals) opens that month's campus. One campus: p.campuses is
+  // their campus alone, so a month or ?campus= of another campus is never shown.
+  const runCampus = pick("run") && !one(sp.campus)
+    ? (await withSchool(ctx, (tx) => tx.payrollRun.findFirst({ where: { id: pick("run"), ...runsOnCampus(p.current) }, select: { campusId: true } })))?.campusId
+    : undefined;
+  const campusId = p.campuses.find((c) => c.id === one(sp.campus))?.id ?? p.campuses.find((c) => c.id === runCampus)?.id ?? p.homeCampusId;
   const campus = p.campuses.find((c) => c.id === campusId);
   const per = salaryPeriod(sp, p.dates, "finyear");
   const q = one(sp.q).trim().toLowerCase().slice(0, 80);
   const show = SHOW.some((s) => s.value === one(sp.show)) ? one(sp.show) : "all";
-  const pick = (k: string) => (UUID.test(one(sp[k])) ? one(sp[k]) : "");
   const doing = p.change ? one(sp.do) : "";
   const thisMonth = firstOfMonth(p.today);
 

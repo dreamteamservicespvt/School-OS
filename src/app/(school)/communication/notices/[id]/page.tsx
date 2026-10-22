@@ -6,7 +6,7 @@ import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { fileLink } from "@/lib/files";
-import { audienceGuardianIds, audienceLogins, markRead, PRIORITY_LABEL, readAudience, STATUS_LABEL } from "@/lib/communication/notices";
+import { audienceGuardianIds, audienceLogins, guardiansOnCampus, loginsOnCampus, markRead, noticeOnCampus, PRIORITY_LABEL, readAudience, STATUS_LABEL } from "@/lib/communication/notices";
 import { channelSetups } from "@/lib/messaging/channels";
 import { Pill, type PillTone } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -37,13 +37,18 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
     const mine = n.createdById === current.user.id;
     const inAudience = logins.includes(current.user.id);
     if (!access.full && !mine && !inAudience) return null;
+    // A notice for other campuses only is not found for a person limited to one campus (unless it is for them).
+    const campusId = access.scope.campusId;
+    if (!inAudience && !noticeOnCampus(n, campusId, current.user.id)) return null;
     // Opening a published notice counts as read.
     if (inAudience && n.status === "PUBLISHED") await markRead(tx, current.ctx, n.id, false);
     const manager = access.full || mine;
     const acks = manager ? await tx.noticeAcknowledgement.findMany({ where: { noticeId: n.id } }) : [];
     const myAck = await tx.noticeAcknowledgement.findFirst({ where: { noticeId: n.id, userLoginId: current.user.id } });
-    const people = manager && logins.length ? await tx.userLogin.findMany({ where: { id: { in: logins } }, select: { id: true, displayName: true }, orderBy: { displayName: "asc" } }) : [];
-    const guardianIds = manager && n.status !== "DRAFT" ? await audienceGuardianIds(tx, current.ctx, a) : [];
+    // Who read it and who saw it: only their campus's people for a person limited to one campus.
+    const shown = await loginsOnCampus(tx, current.ctx, logins, campusId);
+    const people = manager && shown.length ? await tx.userLogin.findMany({ where: { id: { in: shown } }, select: { id: true, displayName: true }, orderBy: { displayName: "asc" } }) : [];
+    const guardianIds = manager && n.status !== "DRAFT" ? await guardiansOnCampus(tx, await audienceGuardianIds(tx, current.ctx, a), campusId) : [];
     const views = manager ? await tx.noticeGuardianView.findMany({ where: { noticeId: n.id } }) : [];
     const guardians = guardianIds.length ? await tx.guardian.findMany({ where: { id: { in: guardianIds.slice(0, 2000) } }, select: { id: true, name: true, relationship: true }, orderBy: { name: "asc" } }) : [];
     const files = n.attachmentFileIds.length ? await tx.storedFile.findMany({ where: { id: { in: n.attachmentFileIds } }, select: { id: true, fileName: true } }) : [];

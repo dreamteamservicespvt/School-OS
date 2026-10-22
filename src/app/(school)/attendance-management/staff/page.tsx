@@ -6,7 +6,7 @@ import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { day, eachDay, isoDay, monthEnd, monthLabel, monthStart } from "@/lib/staff/dates";
 import { attendancePage } from "@/lib/attendance/page";
-import { BASE } from "@/lib/attendance/access";
+import { BASE, correctionAllowed, staffAllowed, staffIdLimit, staffLimit } from "@/lib/attendance/access";
 import { readMonth } from "@/lib/attendance/register";
 import { lockState, dayText } from "@/lib/attendance/marks";
 import { dayInfo, offDayMessage, schoolDays } from "@/lib/attendance/calendar";
@@ -80,7 +80,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
 
   const base = await withSchool(current.ctx, async (tx) => ({
     statuses: statusesFor(await statusList(tx, current.ctx), "staff").map((s) => ({ key: s.key, name: s.name, letter: s.letter, tone: s.tone })) as StatusView[],
-    count: await tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } } }),
+    count: await tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, AND: [staffLimit(access)] } }),
   }));
   const statuses = base.statuses;
   const byKey = new Map(statuses.map((s) => [s.key, s]));
@@ -90,7 +90,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
     : "Your own attendance, from the devices, QR, the app or the register";
 
   const opened = one(sp.staff);
-  const sheet = opened && /^[0-9a-f-]{36}$/.test(opened) && (all || opened === access.staffId) ? await StaffMonthSheet(opened) : null;
+  const sheet = opened && /^[0-9a-f-]{36}$/.test(opened) && ((all && staffAllowed(access, opened)) || opened === access.staffId) ? await StaffMonthSheet(opened) : null;
 
   return (
     <>
@@ -143,7 +143,10 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
       // The department tiles count everyone; the list below follows the search and the tile chosen.
       const whole = await staffDay(tx, current.ctx, access, date);
       const searched = q ? await staffDay(tx, current.ctx, access, date, { q }) : whole;
-      const corrections = all ? await tx.attendanceCorrection.findMany({ where: { forWhom: "staff", archivedAt: null }, orderBy: { createdAt: "desc" }, take: 5 }) : [];
+      // A person limited to one campus sees the corrections about that campus's staff only.
+      const corrections = all
+        ? (await tx.attendanceCorrection.findMany({ where: { forWhom: "staff", archivedAt: null }, orderBy: { createdAt: "desc" }, take: access.limitStaff ? 200 : 5 })).filter((c) => correctionAllowed(access, c)).slice(0, 5)
+        : [];
       const users = await tx.userLogin.findMany({ where: { id: { in: corrections.flatMap((c) => [c.requestedById, c.decidedById]).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
       return {
         info: await dayInfo(tx, current.ctx, date, access.campusId),
@@ -368,7 +371,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
       const from = monthStart(month);
       const to = monthEnd(month);
       const staff = await tx.staff.findMany({
-        where: { archivedAt: null, joiningDate: { lte: to }, ...(all ? { status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } } : { id: access.staffId ?? "00000000-0000-0000-0000-000000000000" }) },
+        where: { archivedAt: null, joiningDate: { lte: to }, ...(all ? { status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, AND: [staffLimit(access)] } : { id: access.staffId ?? "00000000-0000-0000-0000-000000000000" }) },
         orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true },
       });
       const [sum, days] = await Promise.all([
@@ -453,8 +456,8 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
     const range = periodFromSearch(sp, { ...dates, fallback: "thismonth" });
     const data = await withSchool(current.ctx, async (tx) => {
       const [rows, staff] = await Promise.all([
-        tx.overtimeEntry.findMany({ where: { archivedAt: null, ...(range ? { date: dateWhere(range) } : {}) }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 500 }),
-        tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } }),
+        tx.overtimeEntry.findMany({ where: { archivedAt: null, ...(range ? { date: dateWhere(range) } : {}), ...staffIdLimit(access) }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 500 }),
+        tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, AND: [staffLimit(access)] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } }),
       ]);
       return { rows, staff };
     });
@@ -488,8 +491,8 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
     const data = await withSchool(current.ctx, async (tx) => {
       const [shifts, staff, assignments] = await Promise.all([
         tx.staffShift.findMany({ orderBy: [{ archivedAt: "asc" }, { startTime: "asc" }] }),
-        tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } }),
-        tx.staffShiftAssignment.findMany({ where: { archivedAt: null, fromDate: { lte: today } }, orderBy: { fromDate: "desc" }, include: { shift: true } }),
+        tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, AND: [staffLimit(access)] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } }),
+        tx.staffShiftAssignment.findMany({ where: { archivedAt: null, fromDate: { lte: today }, ...staffIdLimit(access) }, orderBy: { fromDate: "desc" }, include: { shift: true } }),
       ]);
       return { shifts, staff, assignments };
     });

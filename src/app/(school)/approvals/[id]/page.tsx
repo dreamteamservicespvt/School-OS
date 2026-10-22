@@ -7,6 +7,7 @@ import { formatDateTime, formatRupees } from "@/lib/format";
 import { OPEN_STATUSES, canDecide, mayReject, requestLabel, ruleStepCount, stepWords } from "@/lib/approvals";
 import { approvalFacts } from "@/lib/approval-facts";
 import { ACTION_WORDS, canSeeApproval, statusWords, type HistoryLine } from "@/lib/approvals-inbox";
+import { approvalOffCampus } from "@/lib/approval-campus";
 import { approvalRecordLink } from "@/lib/approval-links";
 import { askerJobs, profileLinks } from "@/lib/approval-people";
 import { PageHeader } from "@/components/shell/page-header";
@@ -29,7 +30,7 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
   const tz = current.school.timeZone;
   const data = await withSchool(current.ctx, async (tx) => {
     const a = await tx.approval.findUnique({ where: { id } });
-    if (!a || !canSeeApproval(a, current.ctx, roleKeys)) return null;
+    if (!a || !canSeeApproval(a, current.ctx, roleKeys) || (await approvalOffCampus(tx, current.ctx, a))) return null;
     const lines = ((a.history as HistoryLine[]) ?? []);
     // Older requests may have no lines; the asking itself is always the first.
     const history: HistoryLine[] = lines.length ? lines : [{ action: "asked", by: a.askedById, at: a.createdAt.toISOString(), note: null }];

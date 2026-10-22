@@ -7,7 +7,7 @@ import type { AskableType, FollowUp } from "../approvals";
 import { notSentBack, requestIds, type StillWaiting } from "../approval-waiting";
 import { certificateDecided } from "./certificates";
 import { waiverDecided } from "./leaving";
-import { currentYear } from "../academic/years";
+import { studentYear } from "../academic/years";
 import { applyStatus } from "./students";
 
 export const followUps = {
@@ -28,7 +28,7 @@ export const followUps = {
     const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
     await applyStatus(tx, ctx, student.id, "ACTIVE", today, "Re-admitted (approved)", `approval:${approval.id}`, { leavingDate: null, leavingReason: null });
     // Back in this year's class when the year is still open; otherwise the profile offers "Place in a section".
-    const year = await currentYear(tx, ctx);
+    const year = await studentYear(tx, ctx, student.id);
     if (year && year.status !== "CLOSED") {
       await tx.enrolment.updateMany({ where: { studentId: student.id, academicYearId: year.id, status: "LEFT", archivedAt: null }, data: { status: "STUDYING" } });
     }

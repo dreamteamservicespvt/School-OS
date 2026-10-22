@@ -35,7 +35,8 @@ export async function GET(req: Request) {
   const staffId = UUID.test(g("who")) ? g("who") : null;
   if (key === "employee" && !staffId) return new Response("Choose the staff member.", { status: 400 });
   const out = await withSchool(current.ctx, async (tx) => {
-    const built = await buildSalaryReport(tx, key, { from, to, staffId, money: level === "full" });
+    // One campus: their campus's months only.
+    const built = await buildSalaryReport(tx, key, { from, to, staffId, money: level === "full", campusId: current.campusId });
     if (!built) return null;
     const words = range?.label ?? "Any date";
     await logExport(tx, current.ctx, { title: built.title, format, filters: words, rows: built.rows.length });

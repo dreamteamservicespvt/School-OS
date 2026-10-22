@@ -11,9 +11,10 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { formatNumber, nextNumber } from "../sequences";
-import { currentYear } from "../academic/years";
+import { currentYearIds } from "../academic/years";
 import { isSchoolDay } from "../calendar/school-days";
 import { findStudents } from "../students/find";
+import { inCampus, type CampusLimit } from "../campus";
 import { FrontOfficeProblem } from "./problem";
 import { messageVisitor } from "./notify";
 import { channelInTestMode, logCodeSentBy } from "../dev-codes";
@@ -23,9 +24,10 @@ import { maskPhone, NO_PHOTO_CHECKS, PICKUP_REASONS, type NoPhotoCheck } from ".
 export type PickupStudent = { id: string; name: string; first: string; admissionNo: string; photoFileId: string | null; classSection: string | null; rollNo: number | null };
 
 export async function enrolmentsOf(tx: Tx, ctx: SchoolContext, ids: string[]) {
-  const year = await currentYear(tx, ctx);
-  if (!ids.length || !year) return new Map<string, { sectionId: string; classId: string; campusId: string; label: string; rollNo: number | null; classTeacherId: string | null }>();
-  const rows = await tx.enrolment.findMany({ where: { studentId: { in: ids }, academicYearId: year.id, archivedAt: null }, select: { studentId: true, sectionId: true, rollNo: true } });
+  // Each student's class in their own campus's current year.
+  const yearIds = await currentYearIds(tx, ctx);
+  if (!ids.length || !yearIds.length) return new Map<string, { sectionId: string; classId: string; campusId: string; label: string; rollNo: number | null; classTeacherId: string | null }>();
+  const rows = await tx.enrolment.findMany({ where: { studentId: { in: ids }, academicYearId: { in: yearIds }, archivedAt: null }, select: { studentId: true, sectionId: true, rollNo: true } });
   const sections = await tx.section.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.sectionId))] } }, select: { id: true, name: true, classTeacherId: true, schoolClass: { select: { id: true, name: true, campusId: true } } } });
   const byId = new Map(sections.map((s) => [s.id, s]));
   const out = new Map<string, { sectionId: string; classId: string; campusId: string; label: string; rollNo: number | null; classTeacherId: string | null }>();
@@ -36,17 +38,17 @@ export async function enrolmentsOf(tx: Tx, ctx: SchoolContext, ids: string[]) {
   return out;
 }
 
-/** Students matching a search (the one student search), or a whole class like "7 B". */
-export async function searchStudents(tx: Tx, ctx: SchoolContext, rawQ: string, take = 8): Promise<PickupStudent[]> {
+/** Students matching a search (the one student search), or a whole class like "7 B"; only the person's campus's when they are limited to one. */
+export async function searchStudents(tx: Tx, ctx: SchoolContext, rawQ: string, take = 8, limit?: CampusLimit | null): Promise<PickupStudent[]> {
   const q = rawQ.trim().replace(/\s+/g, " ").slice(0, 60);
   if (q.length < 2) return [];
-  const where: Prisma.StudentWhereInput = { archivedAt: null, status: "ACTIVE" };
+  const where: Prisma.StudentWhereInput = { archivedAt: null, status: "ACTIVE", ...inCampus(limit) };
   const cls = /^(?:class\s+)?([a-z0-9]+)\s*[- ]?\s*([a-z])$/i.exec(q);
   let ids: string[] | null = null;
   if (cls) {
-    const year = await currentYear(tx, ctx);
-    const sections = year ? await tx.section.findMany({
-      where: { academicYearId: year.id, archivedAt: null, name: { equals: cls[2], mode: "insensitive" }, schoolClass: { OR: [{ name: { equals: cls[1], mode: "insensitive" } }, { name: { equals: `Class ${cls[1]}`, mode: "insensitive" } }] } },
+    const yearIds = await currentYearIds(tx, ctx);
+    const sections = yearIds.length ? await tx.section.findMany({
+      where: { academicYearId: { in: yearIds }, archivedAt: null, name: { equals: cls[2], mode: "insensitive" }, schoolClass: { ...inCampus(limit), OR: [{ name: { equals: cls[1], mode: "insensitive" } }, { name: { equals: `Class ${cls[1]}`, mode: "insensitive" } }] } },
       select: { id: true },
     }) : [];
     if (sections.length) {
@@ -55,8 +57,7 @@ export async function searchStudents(tx: Tx, ctx: SchoolContext, rawQ: string, t
   }
   if (!ids) {
     // The one student search: name (one letter wrong allowed), admission or roll number, parent name or phone.
-    const year = await currentYear(tx, ctx);
-    const hits = await findStudents(tx, q, { scope: {}, yearId: year?.id ?? null, statuses: ["ACTIVE"], take });
+    const hits = await findStudents(tx, q, { scope: inCampus(limit), yearId: await currentYearIds(tx, ctx), statuses: ["ACTIVE"], take });
     return hits.map((h) => ({ id: h.id, name: h.name, first: h.firstName, admissionNo: h.admissionNo, photoFileId: h.photoFileId, classSection: h.classSection?.replace(/^Class\s+/i, "") ?? null, rollNo: h.rollNo }));
   }
   const rows = await tx.student.findMany({

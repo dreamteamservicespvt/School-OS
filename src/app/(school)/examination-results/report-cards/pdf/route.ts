@@ -6,7 +6,7 @@ import { withSchool } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { ExamRuleError } from "@/lib/exams/common";
-import { examScope, seesSection, writesReportCards } from "@/lib/exams/scope";
+import { assertYearInScope, examScope, resultSubjects, seesSection, writesReportCards } from "@/lib/exams/scope";
 import { DIRECT_REPORT_LIMIT, findPeriod, renderReportCards } from "@/lib/exams/report-cards";
 import { periodPublished } from "@/lib/exams/report-status";
 import { sectionInfo } from "@/lib/exams/results";
@@ -34,8 +34,13 @@ export async function GET(req: Request) {
     const out = await withSchool(current.ctx, async (tx) => {
       const section = await sectionInfo(tx, sectionId);
       const scope = await examScope(tx, current, section.academicYearId);
+      assertYearInScope(scope, section.academicYearId, "section");
       const single = studentIds.length === 1;
-      if (!(single ? seesSection(scope, sectionId) : writesReportCards(scope, sectionId))) throw new ExamRuleError(`Only the class teacher of ${section.label}, the Exam In-charge or the Principal can print these report cards.`);
+      // A whole report card shows every subject, the total and the rank: the class teacher, full reach, or someone who
+      // sees every subject's results in this section (as on the Report Cards page and the Student Profile). Not Office
+      // Staff, who see no results, and not a subject teacher of the section (G02).
+      const seesWholeCard = writesReportCards(scope, sectionId) || (scope.results && resultSubjects(scope, sectionId) === null && seesSection(scope, sectionId));
+      if (!(single ? seesWholeCard : writesReportCards(scope, sectionId))) throw new ExamRuleError(`Only the class teacher of ${section.label}, the Exam In-charge or the Principal can print these report cards.`);
       const option = await findPeriod(tx, section.academicYearId, section.classId, period);
       if (!option) throw new ExamRuleError("This report card period was not found.");
       const roster = await sectionStudents(tx, [sectionId], section.academicYearId);

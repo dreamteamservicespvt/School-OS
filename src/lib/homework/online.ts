@@ -11,7 +11,7 @@ import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { saveFile, DOCUMENT_TYPES, FileProblem } from "../files";
 import { HomeworkProblem } from "./access";
-import { requireDesk, requireWork, requireYearOpen, shortSection, workSections, workSubjects, type HomeworkScope } from "./scope";
+import { inYears, listWhere, onCampus, requireDesk, requireWork, requireYearOpen, shortSection, workSections, workSubjects, type HomeworkScope } from "./scope";
 import { checkLink, sectionStudents } from "./homework";
 import { momentWords, sessionWord } from "./words";
 
@@ -27,6 +27,7 @@ export async function scheduleClass(tx: Tx, s: HomeworkScope, input: ScheduleInp
   requireYearOpen(s);
   const section = (await workSections(tx, s, "online-classes")).find((x) => x.id === input.sectionId);
   if (!section) throw new HomeworkProblem("Choose one of your classes that has students.", "sectionId");
+  requireYearOpen(s, section.yearId);
   const subject = (await workSubjects(tx, s, section.id, section.classId, today)).find((x) => x.id === input.subjectId);
   if (!subject) throw new HomeworkProblem(`You do not teach this subject to ${section.label}.`, "subjectId");
   const title = input.title.trim().replace(/\s+/g, " ") || `${subject.name} for ${section.label}`;
@@ -50,13 +51,14 @@ export async function scheduleClass(tx: Tx, s: HomeworkScope, input: ScheduleInp
   for (let w = 0; w < input.repeatWeeks; w++) {
     made.push(await tx.onlineClassSession.create({
       data: {
-        schoolId: s.ctx.schoolId, academicYearId: s.yearId!, sectionId: section.id, classId: section.classId, subjectId: subject.id, teacherId: s.staffId, title,
+        // The section's own year: in a school with two campuses, each campus has its own.
+        schoolId: s.ctx.schoolId, academicYearId: section.yearId, sectionId: section.id, classId: section.classId, subjectId: subject.id, teacherId: s.staffId, title,
         startsAt: new Date(input.startsAt.getTime() + w * WEEK), lengthMin: input.lengthMin, meetingLink: link, seriesId, createdById: s.ctx.userId,
       },
     }));
   }
   await writeAudit(tx, s.ctx, { action: "scheduled", recordType: "Online Class Session", recordId: made[0].id, after: { title, section: section.label, subject: subject.name, starts: input.startsAt.toISOString(), weeks: input.repeatWeeks } });
-  const students = await sectionStudents(tx, s.yearId!, section.id);
+  const students = await sectionStudents(tx, section.yearId, section.id);
   for (const st of students) {
     if (st.userLoginId) await notify(tx, s.ctx, { to: st.userLoginId, type: "online-class", text: `Online class: ${title}, ${momentWords(input.startsAt, timeZone)}.`, link: "/homework-learning/online-classes", groupKey: "online-class", mergedText: (n) => `${n} online classes scheduled` }, now);
   }
@@ -65,7 +67,7 @@ export async function scheduleClass(tx: Tx, s: HomeworkScope, input: ScheduleInp
 
 async function sessionFor(tx: Tx, s: HomeworkScope, id: string) {
   const x = await tx.onlineClassSession.findFirst({ where: { id, archivedAt: null } });
-  if (!x) throw new HomeworkProblem("This online class was not found.");
+  if (!x || !onCampus(s, x.sectionId)) throw new HomeworkProblem("This online class was not found.");
   requireWork(s, x, "this online class", "online-classes");
   return x;
 }
@@ -200,9 +202,10 @@ export type SessionRow = {
   word: ReturnType<typeof sessionWord>; meetingLink: string; seriesId: string | null; joined: number | null; of: number; recordings: number; cancelNote: string | null; reminded: boolean;
 };
 
+/** Online classes this person may read: each campus's own current year, one campus's when limited to it. */
 export async function listSessions(tx: Tx, s: HomeworkScope, now: Date, f: { from?: Date | null; to?: Date | null; q?: string }) {
   const where: Prisma.OnlineClassSessionWhereInput = {
-    archivedAt: null, academicYearId: s.yearId ?? undefined,
+    archivedAt: null, ...listWhere(s),
     ...(s.level === "student" ? { sectionId: s.student?.sectionId ?? "00000000-0000-0000-0000-000000000000" } : {}),
     ...(s.level === "own" ? { OR: [...s.pairs.map((p) => ({ sectionId: p.sectionId, subjectId: p.subjectId })), ...(s.staffId ? [{ teacherId: s.staffId }] : []), ...(s.ctSections.length ? [{ sectionId: { in: s.ctSections } }] : [])] } : {}),
     ...(f.from && f.to ? { startsAt: { gte: new Date(f.from.getTime() - 6 * 3_600_000), lt: new Date(f.to.getTime() + 30 * 3_600_000) } } : {}),
@@ -214,7 +217,7 @@ export async function listSessions(tx: Tx, s: HomeworkScope, now: Date, f: { fro
     tx.section.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.sectionId))] } }, include: { schoolClass: { select: { name: true } } } }),
     tx.subject.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.subjectId))] } }, select: { id: true, name: true } }),
     tx.staff.findMany({ where: { id: { in: rows.map((r) => r.teacherId).filter((x): x is string => !!x) } }, select: { id: true, fullName: true } }),
-    tx.enrolment.groupBy({ by: ["sectionId"], where: { academicYearId: s.yearId ?? undefined, archivedAt: null, status: "STUDYING", sectionId: { in: [...new Set(rows.map((r) => r.sectionId))] } }, _count: true }),
+    tx.enrolment.groupBy({ by: ["sectionId"], where: { academicYearId: inYears(s), archivedAt: null, status: "STUDYING", sectionId: { in: [...new Set(rows.map((r) => r.sectionId))] } }, _count: true }),
   ]);
   const sec = new Map(sections.map((x) => [x.id, shortSection(x.schoolClass.name, x.name)]));
   const sub = new Map(subjects.map((x) => [x.id, x.name]));

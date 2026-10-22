@@ -7,6 +7,7 @@ import {
 import { withSchool } from "@/lib/db";
 import { fileLink } from "@/lib/files";
 import { formatDate, formatRupees } from "@/lib/format";
+import { studentYear } from "@/lib/academic/years";
 import { canSeeStudent } from "@/lib/fees/access";
 import { studentCard } from "@/lib/fees/dues";
 import { studentLedger, type LedgerEntry, type LedgerKind } from "@/lib/fees/ledger";
@@ -67,33 +68,39 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
   const cancelId = one(sp.cancel);
   const pq = one(sp.pq).trim().slice(0, 80);
   const canEdit = p.does("ledger");
+  // Counter permissions (Fee Settings): add old dues, a charge or an adjustment; assign or remove fee rows.
+  const canEditFees = canEdit && p.can.counter("edit-student-fees");
+  const canAssignFees = canEdit && p.can.counter("assign-fees");
 
   const data = await withSchool(p.current.ctx, async (tx) => {
     if (!(await canSeeStudent(tx, p.viewer, studentId))) return null;
-    const card = await studentCard(tx, p.current.ctx, studentId, p.year?.id);
+    // "This year" for this student is their own campus's current year.
+    const year = await studentYear(tx, p.current.ctx, studentId);
+    const card = await studentCard(tx, p.current.ctx, studentId, year?.id);
     if (!card) return null;
     const ledger = await studentLedger(tx, studentId, p.today, p.tz);
     const sheet = payId ? await paymentView(tx, p.current.ctx, p.viewer, payId, p.tz) : null;
     const cancel = cancelId && canEdit ? await paymentView(tx, p.current.ctx, p.viewer, cancelId, p.tz) : null;
-    const extra = canEdit && doing ? await sheetData(tx, doing, card, studentId) : null;
+    const extra = canEdit && doing ? await sheetData(tx, doing, card, year) : null;
     const pick = doing === "pick" ? (pq ? await findStudents(tx, p.viewer, pq, p.today, 12) : await mostOverdue(tx, p.viewer, p.today, 8)) : null;
     const gateway = canEdit && doing === "invoice" ? Boolean(await gatewayFor(tx, p.current.ctx, card.classId)) : false;
     // Promise to Pay (when on): an open promise, or a broken one still waiting for a new call.
     const promise = (await promisesOf(tx, p.current.ctx, [studentId], p.today)).get(studentId) ?? null;
-    return { promise: promise && (promise.state === "OPEN" || promise.state === "BROKEN") ? promise : null, card, ledger, sheet: sheet?.studentId === studentId ? sheet : null, cancel: cancel?.studentId === studentId ? cancel : null, extra, pick, gateway };
+    return { promise: promise && (promise.state === "OPEN" || promise.state === "BROKEN") ? promise : null, card, ledger, sheet: sheet?.studentId === studentId ? sheet : null, cancel: cancel?.studentId === studentId ? cancel : null, extra, pick, gateway, year };
   });
   if (!data) notFound();
 
-  async function sheetData(tx: Parameters<Parameters<typeof withSchool>[1]>[0], what: string, card: NonNullable<Awaited<ReturnType<typeof studentCard>>>, sid: string) {
+  async function sheetData(tx: Parameters<Parameters<typeof withSchool>[1]>[0], what: string, card: NonNullable<Awaited<ReturnType<typeof studentCard>>>, year: Awaited<ReturnType<typeof studentYear>>) {
     if (what === "opening" || what === "charge") {
       const heads = await tx.feeHead.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, systemKey: true } });
       const sorted = what === "opening" ? [...heads.filter((h) => h.systemKey === "old-dues"), ...heads.filter((h) => h.systemKey !== "old-dues" && h.systemKey !== "late-fee")] : heads.filter((h) => h.systemKey !== "old-dues");
       return { kind: "heads" as const, heads: sorted.map((h) => ({ value: h.id, label: h.name })) };
     }
     if (what === "assign") {
-      const plans = p.year ? await tx.feeStructure.findMany({ where: { academicYearId: p.year.id, status: "PUBLISHED", archivedAt: null }, orderBy: { createdAt: "asc" } }) : [];
+      // The plans of the student's own campus's year.
+      const plans = year ? await tx.feeStructure.findMany({ where: { academicYearId: year.id, status: "PUBLISHED", archivedAt: null }, orderBy: { createdAt: "asc" } }) : [];
       const classes = await tx.schoolClass.findMany({ where: { id: { in: plans.map((s) => s.classId) } }, select: { id: true, name: true, sortOrder: true } });
-      const own = p.year && card.classId ? await structureForStudent(tx, p.year.id, card.classId, null, p.features.has("fee-category-fees")) : null;
+      const own = year && card.classId ? await structureForStudent(tx, year.id, card.classId, null, p.features.has("fee-category-fees")) : null;
       const opts = plans
         .map((s) => { const c = classes.find((x) => x.id === s.classId); return { value: s.id, label: `${c?.name ?? "Class"}${s.category ? ` · ${s.category}` : ""}${s.id === own?.id ? " (own class)" : ""}`, order: c?.sortOrder ?? 0 }; })
         .sort((a, b) => (a.value === own?.id ? -1 : b.value === own?.id ? 1 : a.order - b.order));
@@ -104,7 +111,6 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
       const cur = years.find((y) => y.startDate <= p.today && y.endDate >= p.today);
       return { kind: "years" as const, years: years.map((y) => ({ value: y.id, label: y.name })), start: cur?.id ?? years[0]?.id ?? "" };
     }
-    void sid;
     return null;
   }
 
@@ -132,13 +138,16 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
   const heads = [...L.heads].sort((a, b) => Number(b.total - a.total));
   const today = p.today;
   const payHref = (id: string) => here({ pay: id });
-  const yearName = p.year?.name?.replace("-", "–") ?? "";
+  const year = data.year;
+  const yearName = year?.name?.replace("-", "–") ?? "";
+  const canAdjust = canEditFees || canAssignFees;
+  const hasPlan = L.installments.some((r) => r.kind === "FEE");
 
   const menu = canEdit ? [
     { icon: <Award size={17} aria-hidden="true" />, label: "Fee certificate", href: here({ do: "certificate" }) },
-    { icon: <History size={17} aria-hidden="true" />, label: "Add opening balance (old dues)", href: here({ do: "opening" }) },
-    { icon: <Scale size={17} aria-hidden="true" />, label: "Adjust an amount", href: here({ do: "adjust" }) },
-    { icon: <Plus size={17} aria-hidden="true" />, label: "Add a charge", href: here({ do: "charge" }) },
+    ...(canEditFees ? [{ icon: <History size={17} aria-hidden="true" />, label: "Add opening balance (old dues)", href: here({ do: "opening" }) }] : []),
+    ...(canAdjust ? [{ icon: <Scale size={17} aria-hidden="true" />, label: "Adjust an amount", href: here({ do: "adjust" }) }] : []),
+    ...(canEditFees ? [{ icon: <Plus size={17} aria-hidden="true" />, label: "Add a charge", href: here({ do: "charge" }) }] : []),
     { icon: <FileInput size={17} aria-hidden="true" />, label: "Import old dues", href: `${BASE}/ledger/import?kind=fee-old-dues` },
     { icon: <FileSpreadsheet size={17} aria-hidden="true" />, label: "Import past receipts", href: `${BASE}/ledger/import?kind=fee-past-receipts` },
   ] : [];
@@ -243,11 +252,11 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
           {tab === "fees" && (
             <Card className="overflow-hidden">
               <CardHeader title={`Fees${yearName ? ` for ${yearName}` : ""}`} description="Each fee head with its installments, oldest first"
-                action={canEdit ? <ButtonLink size="sm" variant="ghost" icon={Plus} scroll={false} href={here({ do: L.installments.some((r) => r.kind === "FEE") ? "charge" : "assign" })}>{L.installments.some((r) => r.kind === "FEE") ? "Add a charge" : "Assign fee"}</ButtonLink> : null} />
+                action={(hasPlan ? canEditFees : canAssignFees) ? <ButtonLink size="sm" variant="ghost" icon={Plus} scroll={false} href={here({ do: hasPlan ? "charge" : "assign" })}>{hasPlan ? "Add a charge" : "Assign fee"}</ButtonLink> : null} />
               <DataList rows={installments} rowKey={(r) => r.id} minWidth={640} caption="Fees and installments"
                 rowClass={(r) => r.status === "Removed" && "opacity-60"}
                 footer={`${installments.filter((r) => r.status === "Paid").length} of ${installments.filter((r) => r.status !== "Removed").length} installments paid · Year total ${formatRupees(L.yearTotal)}`}
-                empty={<Empty icon={FileText} title="No fees yet" body={`${first} has no fee plan for this year.`} action={canEdit ? <ButtonLink href={here({ do: "assign" })} scroll={false} variant="primary" icon={Plus}>Assign fee plan</ButtonLink> : undefined} />}
+                empty={<Empty icon={FileText} title="No fees yet" body={`${first} has no fee plan for this year.`} action={canAssignFees ? <ButtonLink href={here({ do: "assign" })} scroll={false} variant="primary" icon={Plus}>Assign fee plan</ButtonLink> : undefined} />}
                 columns={[
                   { key: "head", label: "Fee head", render: (r) => <><p className="font-semibold leading-tight">{r.head}{r.broughtIn && <Pill tone="neutral" className="ml-2 !h-5 !text-[11px]">Brought in</Pill>}</p><p className="text-[12.5px] text-ink3">{r.label}</p></> },
                   { key: "due", label: "Due date", nowrap: true, render: (r) => <span className="tnum">{formatDate(r.dueDate)}</span> },
@@ -344,7 +353,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
           {tab === "adjust" && (
             <Card>
               <CardHeader title="Adjustments" description="Concessions, late fees, reversals and old dues, each with its reason and who approved it"
-                action={canEdit ? <ButtonLink size="sm" variant="ghost" icon={Scale} scroll={false} href={here({ do: "adjust" })}>Adjust an amount</ButtonLink> : null} />
+                action={canAdjust ? <ButtonLink size="sm" variant="ghost" icon={Scale} scroll={false} href={here({ do: "adjust" })}>Adjust an amount</ButtonLink> : null} />
               {adjustments.length === 0 ? <Empty icon={Scale} title="No adjustments" body={`${first} has no concessions, late fees or corrections.`} /> : (
                 <ul className="px-5 pb-3">
                   {adjustments.map((e) => {
@@ -404,22 +413,22 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
         </UrlSheet>
       )}
 
-      {canEdit && doing === "opening" && data.extra?.kind === "heads" && (
-        <OldDuesSheet studentId={studentId} closeHref={close} name={card.name} heads={data.extra.heads} start={p.year ? new Date(p.year.startDate.getTime() - 86400000).toISOString().slice(0, 10) : today.toISOString().slice(0, 10)} />
+      {canEditFees && doing === "opening" && data.extra?.kind === "heads" && (
+        <OldDuesSheet studentId={studentId} closeHref={close} name={card.name} heads={data.extra.heads} start={year ? new Date(year.startDate.getTime() - 86400000).toISOString().slice(0, 10) : today.toISOString().slice(0, 10)} />
       )}
-      {canEdit && doing === "charge" && data.extra?.kind === "heads" && (
+      {canEditFees && doing === "charge" && data.extra?.kind === "heads" && (
         <ChargeSheet studentId={studentId} closeHref={close} heads={data.extra.heads} start={today.toISOString().slice(0, 10)} />
       )}
-      {canEdit && doing === "assign" && data.extra?.kind === "plans" && (
+      {canAssignFees && doing === "assign" && data.extra?.kind === "plans" && (
         <AssignSheet studentId={studentId} closeHref={close} plans={data.extra.plans} own={data.extra.own} />
       )}
       {canEdit && doing === "certificate" && data.extra?.kind === "years" && (
         <CertificateSheet studentId={studentId} closeHref={close} years={data.extra.years} start={data.extra.start} />
       )}
-      {canEdit && doing === "adjust" && (
-        <AdjustSheet studentId={studentId} closeHref={close} start={one(sp.row)}
-          rows={L.installments.filter((r) => r.status !== "Removed").map((r) => ({
-            value: r.id, label: `${r.head} · ${r.label} (${formatRupees(r.amount)})`, left: formatRupees(r.balance), removable: r.paid === ZERO,
+      {canAdjust && doing === "adjust" && (
+        <AdjustSheet studentId={studentId} closeHref={close} start={one(sp.row)} amounts={canEditFees}
+          rows={L.installments.filter((r) => r.status !== "Removed" && (canEditFees || r.paid === ZERO)).map((r) => ({
+            value: r.id, label: `${r.head} · ${r.label} (${formatRupees(r.amount)})`, left: formatRupees(r.balance), removable: canAssignFees && r.paid === ZERO,
           }))} />
       )}
       {canEdit && doing === "invoice" && (

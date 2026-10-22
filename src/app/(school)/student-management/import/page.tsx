@@ -17,10 +17,10 @@ export const metadata: Metadata = { title: "Import students" };
 
 /** Import (P10), steps 1 and 2: download the template, then upload the filled file. */
 export default async function ImportPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
-  const { current, year, can } = await studentPage();
+  const { current, yearIds, can } = await studentPage();
   if (!can.manage) redirect(BASE);
   const sp = await searchParams;
-  const sections = await withSchool(current.ctx, (tx) => sectionOptions(tx, current, year?.id));
+  const sections = await withSchool(current.ctx, (tx) => sectionOptions(tx, current, yearIds));
   return (
     <>
       <BackLink href={BASE} label="Students" />

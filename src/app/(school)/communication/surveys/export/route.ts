@@ -5,7 +5,7 @@ import { formatDate } from "@/lib/format";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { commOfficeAction, OfficeOnly } from "@/lib/communication/access";
 import { COMM_FEATURES } from "@/lib/communication/features";
-import { shownStatus, SURVEY_FILTERS, surveyWhere } from "@/lib/communication/surveys";
+import { shownStatus, SURVEY_FILTERS, surveyCampusWhere, surveyWhere } from "@/lib/communication/surveys";
 import { STATUS_LABEL } from "../status";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,8 @@ export async function GET(req: Request) {
   const params = readListParams(Object.fromEntries(url.searchParams), SURVEY_FILTERS);
   const format = (["csv", "xlsx", "pdf"].includes(url.searchParams.get("format") ?? "") ? url.searchParams.get("format") : "xlsx") as ExportFormat;
   const data = await withSchool(current.ctx, async (tx) => {
-    const rows = await tx.survey.findMany({ where: surveyWhere(current.ctx, params, tz), orderBy: { createdAt: "desc" }, take: 5000 });
+    // A person limited to one campus gets their campus's surveys only.
+    const rows = await tx.survey.findMany({ where: { AND: [surveyWhere(current.ctx, params, tz), await surveyCampusWhere(tx, current.ctx, current.campusId)] }, orderBy: { createdAt: "desc" }, take: 5000 });
     const answered = rows.length ? await tx.surveyInvite.groupBy({ by: ["surveyId"], where: { schoolId: current.ctx.schoolId, surveyId: { in: rows.map((r) => r.id) }, answeredAt: { not: null } }, _count: { _all: true } }) : [];
     const filters = [params.q && `search "${params.q}"`, ...Object.entries(params.filters).map(([k, v]) => `${k}: ${v}`)].filter(Boolean).join(", ") || "All surveys";
     await logExport(tx, current.ctx, { title: "Surveys", format, filters, rows: rows.length });

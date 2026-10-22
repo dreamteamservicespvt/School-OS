@@ -17,6 +17,7 @@ import { namesAlike } from "../students/name-match";
 import { AdmissionProblem, checkMobile, todayIn, zonedToInstant } from "./act";
 import { CLOSED_STATUSES, admissionYear, live, loadSettings } from "./settings";
 import { defaultFollowUp, pickOwner } from "./enquiries";
+import { personCampusId } from "../campus";
 
 type Row = {
   childName: string; parentName: string; phone: string; email: string | null; classId: string | null;
@@ -28,15 +29,38 @@ type Row = {
 /** One family already on record with this phone or email: its parent names and children. */
 type Known = { text: string; parents: string[]; children: string[]; enquiryId: string | null };
 
-/** Open enquiries, open applications and current parents with this phone or email, with their names. */
-async function onRecord(tx: Tx, phone: string, email: string | null): Promise<Known[]> {
+/**
+ * The campus the importing person is limited to ("One campus" in Users &
+ * Permissions), read from their School Access by the same rule as accessIn()
+ * in src/lib/auth/access.ts (their widest scope counts); null for the whole
+ * school. The shared importer passes no person, so it is read here, once per
+ * transaction.
+ */
+const limits = new WeakMap<Tx, Promise<string | null>>();
+export function importCampusLimit(tx: Tx, ctx: SchoolContext): Promise<string | null> {
+  if (!ctx.userId) return Promise.resolve(null);
+  const have = limits.get(tx);
+  if (have) return have;
+  const p = (async () => {
+    const rows = await tx.schoolAccess.findMany({ where: { userLoginId: ctx.userId!, schoolId: ctx.schoolId, archivedAt: null }, select: { scope: true, campusId: true } });
+    const ORDER = ["OWN", "CHOSEN_CLASSES", "CAMPUS", "WHOLE_SCHOOL"];
+    const widest = rows.map((r) => r.scope).sort((x, y) => ORDER.indexOf(y) - ORDER.indexOf(x))[0];
+    return widest === "CAMPUS" ? rows.find((r) => r.scope === "CAMPUS")?.campusId ?? null : null;
+  })();
+  limits.set(tx, p);
+  return p;
+}
+
+/** Open enquiries, open applications and current parents with this phone or email, with their names (of one campus when limited). */
+async function onRecord(tx: Tx, phone: string, email: string | null, campusId: string | null): Promise<Known[]> {
   const or = <T>(p: T, e: T) => [p, ...(email ? [e] : [])];
+  const campus = campusId ? { campusId } : {};
   const [enquiries, applications, guardians] = await Promise.all([
-    tx.enquiry.findMany({ where: { archivedAt: null, status: { notIn: [...CLOSED_STATUSES] }, OR: or({ phone }, { email: { equals: email!, mode: "insensitive" as const } }) }, orderBy: { createdAt: "asc" }, take: 10 }),
-    tx.application.findMany({ where: { archivedAt: null, stage: { notIn: ["REJECTED", "WITHDRAWN", "ADMITTED"] }, OR: or({ phone }, { email: { equals: email!, mode: "insensitive" as const } }) }, take: 10 }),
+    tx.enquiry.findMany({ where: { archivedAt: null, status: { notIn: [...CLOSED_STATUSES] }, ...campus, OR: or({ phone }, { email: { equals: email!, mode: "insensitive" as const } }) }, orderBy: { createdAt: "asc" }, take: 10 }),
+    tx.application.findMany({ where: { archivedAt: null, stage: { notIn: ["REJECTED", "WITHDRAWN", "ADMITTED"] }, ...campus, OR: or({ phone }, { email: { equals: email!, mode: "insensitive" as const } }) }, take: 10 }),
     tx.guardian.findMany({
       where: { archivedAt: null, OR: or({ phone }, { email: { equals: email!, mode: "insensitive" as const } }) }, take: 5,
-      include: { students: { where: { archivedAt: null, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } }, include: { student: { select: { fullName: true } } } } },
+      include: { students: { where: { archivedAt: null, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] }, ...campus } }, include: { student: { select: { fullName: true } } } } },
     }),
   ]);
   return [
@@ -82,6 +106,7 @@ defineImport<Row>({
   ],
   async check(tx, ctx, row, seen, place) {
     const s = await loadSettings(tx, ctx);
+    const limit = await importCampusLimit(tx, ctx);
     const problems: string[] = [];
     const choices: RowChoice[] = [];
     let phone = "";
@@ -101,7 +126,7 @@ defineImport<Row>({
       // Earlier rows of this file with the same phone.
       const earlier = [...seen].filter((k) => k.startsWith(fileKey(phone))).map((k) => JSON.parse(k.slice(fileKey(phone).length)) as { line: number; child: string; parent: string });
       const sameChildRow = earlier.find((r) => namesAlike(r.child, child));
-      const known = await onRecord(tx, phone, email);
+      const known = await onRecord(tx, phone, email, limit);
       const sameChild = known.find((k) => k.children.some((c) => namesAlike(c, child)));
       if (sameChildRow) problems.push(`Row ${sameChildRow.line} has the same child (${sameChildRow.child}) with this phone. Keep one row.`);
       else if (sameChild) problems.push(`Already in School OS: ${sameChild.text}. Not added twice.`);
@@ -120,9 +145,12 @@ defineImport<Row>({
     }
     let classId: string | null = null;
     if (row.className) {
-      const classes = await tx.schoolClass.findMany({ where: { archivedAt: null }, select: { id: true, name: true } });
-      const c = classes.find((x) => same(x.name, row.className) || same(x.name, `Class ${row.className}`));
-      if (!c) problems.push(`Class "${row.className}" is not a class of this school.`);
+      // Only the person's campus's classes when limited to one; else the class of their own campus first.
+      const classes = await tx.schoolClass.findMany({ where: { archivedAt: null, ...(limit ? { campusId: limit } : {}) }, select: { id: true, name: true, campusId: true } });
+      const found = classes.filter((x) => same(x.name, row.className) || same(x.name, `Class ${row.className}`));
+      const own = found.length > 1 ? await personCampusId(tx, ctx, { campusId: limit }) : null;
+      const c = found.find((x) => x.campusId === own) ?? found[0];
+      if (!c) problems.push(limit ? `Class "${row.className}" is not a class of your campus.` : `Class "${row.className}" is not a class of this school.`);
       classId = c?.id ?? null;
     }
     const sources = live(s.sourceList);
@@ -141,7 +169,7 @@ defineImport<Row>({
     }
     let ownerStaffId: string | null = null;
     if (row.owner) {
-      const staff = await tx.staff.findMany({ where: { archivedAt: null, fullName: { equals: row.owner.trim(), mode: "insensitive" } }, select: { id: true } });
+      const staff = await tx.staff.findMany({ where: { archivedAt: null, fullName: { equals: row.owner.trim(), mode: "insensitive" }, ...(limit ? { campusId: limit } : {}) }, select: { id: true } });
       if (staff.length === 0) problems.push(`No staff member is called "${row.owner}".`);
       else if (staff.length > 1) problems.push(`More than one staff member is called "${row.owner}". Leave Owner empty and reassign after the import.`);
       else ownerStaffId = staff[0].id;
@@ -159,22 +187,26 @@ defineImport<Row>({
   async save(tx: Tx, ctx: SchoolContext, v: Row) {
     const s = await loadSettings(tx, ctx);
     const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { timeZone: true } });
-    const year = await admissionYear(tx, ctx, s);
+    // The enquiry is for the campus of the class wanted, else the person's own campus, in that campus's admission year.
+    const limit = await importCampusLimit(tx, ctx);
+    const cls = v.classId ? await tx.schoolClass.findFirst({ where: { id: v.classId }, select: { campusId: true } }) : null;
+    const campusId = cls?.campusId ?? (await personCampusId(tx, ctx, { campusId: limit }));
+    if (!campusId) throw new AdmissionProblem("Add a campus before importing enquiries.");
+    if (limit && campusId !== limit) throw new AdmissionProblem("You can import enquiries only for your own campus.");
+    const year = await admissionYear(tx, ctx, s, campusId);
     if (!year) throw new AdmissionProblem("Set up an academic year before importing enquiries.");
-    const campus = await tx.campus.findFirst({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }], select: { id: true } });
-    if (!campus) throw new AdmissionProblem("Add a campus before importing enquiries.");
     const me = ctx.userId ? await tx.staff.findFirst({ where: { userLoginId: ctx.userId, archivedAt: null }, select: { id: true } }) : null;
     const owner = v.ownerStaffId ?? (await pickOwner(tx, ctx, s, { classId: v.classId, adderStaffId: me?.id ?? null, today: todayIn(school.timeZone) }));
-    const nextFollowUpAt = v.followUp ? zonedToInstant(`${v.followUp}T11:00`, school.timeZone) : await defaultFollowUp(tx, ctx, school.timeZone, new Date(), campus.id);
+    const nextFollowUpAt = v.followUp ? zonedToInstant(`${v.followUp}T11:00`, school.timeZone) : await defaultFollowUp(tx, ctx, school.timeZone, new Date(), campusId);
     // A brother or sister: linked to the family's first open enquiry (in School OS, or saved from an earlier row),
     // found by the parent's name, so another family with the same phone is never linked.
-    const fam = v.sibling ? await tx.enquiry.findMany({ where: { phone: v.phone, archivedAt: null, status: { notIn: [...CLOSED_STATUSES] } }, orderBy: [{ createdAt: "asc" }, { enquiryNo: "asc" }], select: { id: true, childName: true, parentName: true, siblingOfId: true } }) : [];
+    const fam = v.sibling ? await tx.enquiry.findMany({ where: { phone: v.phone, archivedAt: null, status: { notIn: [...CLOSED_STATUSES] }, ...(limit ? { campusId: limit } : {}) }, orderBy: [{ createdAt: "asc" }, { enquiryNo: "asc" }], select: { id: true, childName: true, parentName: true, siblingOfId: true } }) : [];
     const mine = fam.find((x) => namesAlike(x.parentName, v.parentName)) ?? fam[0] ?? null;
     const first = mine?.siblingOfId ? fam.find((x) => x.id === mine.siblingOfId) ?? mine : mine;
     const e = await tx.enquiry.create({
       data: {
         enquiryNo: await nextEnquiryNo(tx, ctx),
-        schoolId: ctx.schoolId, campusId: campus.id, academicYearId: year.id,
+        schoolId: ctx.schoolId, campusId, academicYearId: year.id,
         childName: v.childName, parentName: v.parentName, phone: v.phone, email: v.email, classId: v.classId,
         source: v.source, firstSource: v.source, status: v.status, ownerStaffId: owner, nextFollowUpAt, nextAction: v.nextAction, notes: v.notes,
         siblingOfId: first?.id ?? null, createdById: ctx.userId, updatedById: ctx.userId,

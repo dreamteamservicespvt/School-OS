@@ -18,6 +18,15 @@ import { ExamRuleError, overlaps, timeRange, durationWords } from "./common";
 import { examSettings } from "./settings";
 import { loadSchoolCalendar, offDayWords } from "../calendar/school-days";
 import { messageParents } from "./notify-parents";
+import { examInScope, type ExamScope } from "./scope";
+
+/**
+ * Holidays and vacations that count for a campus: the whole school's (no campus) and the campus's own. In a school
+ * with two campuses, one campus's holiday does not stop the other's exams.
+ */
+export function campusHolidays(campusId: string | null | undefined): Prisma.CalendarEntryWhereInput {
+  return { archivedAt: null, type: { in: ["holiday", "vacation"] }, ...(campusId ? { OR: [{ campusId: null }, { campusId }] } : {}) };
+}
 
 export type ExamDetails = {
   title: string;
@@ -67,14 +76,15 @@ type Named = { id: string; name: string };
 
 async function names(tx: Tx, classIds: string[], subjectIds: string[], staffIds: string[]) {
   const [classes, subjects, staff] = await Promise.all([
-    tx.schoolClass.findMany({ where: { id: { in: classIds } }, select: { id: true, name: true } }),
+    tx.schoolClass.findMany({ where: { id: { in: classIds } }, select: { id: true, name: true, campusId: true } }),
     tx.subject.findMany({ where: { id: { in: subjectIds } }, select: { id: true, name: true, gradeOnly: true } }),
     tx.staff.findMany({ where: { id: { in: staffIds } }, select: { id: true, fullName: true } }),
   ]);
   const cls = new Map(classes.map((c) => [c.id, c.name]));
+  const campus = new Map(classes.map((c) => [c.id, c.campusId]));
   const sub = new Map(subjects.map((s) => [s.id, s]));
   const stf = new Map(staff.map((s) => [s.id, s.fullName]));
-  return { cls, sub, stf };
+  return { cls, campus, sub, stf };
 }
 
 const when = (r: { date: Date; startTime: string }) => `${time12(r.startTime)} on ${formatDate(r.date)}`;
@@ -109,7 +119,8 @@ export async function findClash(tx: Tx, examId: string | null, rows: (ScheduleRo
       if (a.classId === b.classId) {
         return `${cls(a.classId)} already has ${sub(b.subjectId)} at ${when(b)}${inExam(b)}. Change the date or time of ${sub(a.subjectId)}.`;
       }
-      if (a.room && b.room && a.room.trim().toLowerCase() === b.room.trim().toLowerCase()) {
+      // A room is a room of one campus: "Room 12" on another campus is another room.
+      if (a.room && b.room && a.room.trim().toLowerCase() === b.room.trim().toLowerCase() && n.campus.get(a.classId) === n.campus.get(b.classId)) {
         return `${a.room} is used by ${cls(b.classId)} (${sub(b.subjectId)}) at that time${inExam(b)}. Choose another room for ${cls(a.classId)} ${sub(a.subjectId)}.`;
       }
       if (a.invigilatorId && a.invigilatorId === b.invigilatorId) {
@@ -441,15 +452,19 @@ export type EntryView = {
   categories: Category[]; marksDueDate: Date | null;
 };
 
-/** One exam with its papers, in date and time order, with names filled in. */
-export async function examDetail(tx: Tx, examId: string, opts: { archived?: boolean } = {}) {
-  const exam = await tx.exam.findFirst({ where: { id: examId, ...(opts.archived ? {} : { archivedAt: null }) }, include: { entries: { where: { archivedAt: null }, orderBy: [{ date: "asc" }, { startTime: "asc" }] } } });
+/**
+ * One exam with its papers, in date and time order, with names filled in, and the campus of its year.
+ * Given the person's scope, an exam of another campus than theirs is not found (One campus).
+ */
+export async function examDetail(tx: Tx, examId: string, opts: { archived?: boolean; scope?: Pick<ExamScope, "yearIds"> } = {}) {
+  const exam = await tx.exam.findFirst({ where: { id: examId, ...(opts.archived ? {} : { archivedAt: null }), ...(opts.scope ? examInScope(opts.scope) : {}) }, include: { entries: { where: { archivedAt: null }, orderBy: [{ date: "asc" }, { startTime: "asc" }] } } });
   if (!exam) return null;
   const n = await names(tx, exam.classIds, [...new Set(exam.entries.map((e) => e.subjectId))], [...new Set(exam.entries.map((e) => e.invigilatorId).filter((x): x is string => Boolean(x)))]);
-  const [type, term, classes] = await Promise.all([
+  const [type, term, classes, year] = await Promise.all([
     tx.examType.findFirst({ where: { id: exam.examTypeId } }),
     tx.term.findFirst({ where: { id: exam.termId } }),
     tx.schoolClass.findMany({ where: { id: { in: exam.classIds } }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, board: true } }),
+    tx.academicYear.findFirst({ where: { id: exam.academicYearId }, select: { campusId: true } }),
   ]);
   const entries: EntryView[] = exam.entries.map((e) => ({
     id: e.id, classId: e.classId, className: n.cls.get(e.classId) ?? "", subjectId: e.subjectId, subjectName: n.sub.get(e.subjectId)?.name ?? "", gradeOnly: Boolean(n.sub.get(e.subjectId)?.gradeOnly),
@@ -457,7 +472,7 @@ export async function examDetail(tx: Tx, examId: string, opts: { archived?: bool
     room: e.room, invigilatorId: e.invigilatorId, invigilator: e.invigilatorId ? n.stf.get(e.invigilatorId) ?? null : null, maxMarks: e.maxMarks, pattern: e.pattern,
     categories: readCategories(e.categories), marksDueDate: e.marksDueDate,
   }));
-  return { exam, entries, typeName: type?.name ?? "", termName: term?.name ?? "", classes };
+  return { exam, entries, typeName: type?.name ?? "", termName: term?.name ?? "", classes, campusId: year?.campusId ?? null };
 }
 
 export type ExamFilters = { q?: string; classId?: string; from?: Date | null; to?: Date | null; status?: string; archived?: boolean };

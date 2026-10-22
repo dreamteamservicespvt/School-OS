@@ -6,9 +6,10 @@ import { withSchool, type Tx } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportColumn, type ExportFormat } from "@/lib/exports";
 import { formatDate } from "@/lib/format";
 import { PermissionDeniedError } from "@/lib/permissions";
-import { chosenYear } from "@/lib/academic/years";
 import { academicScope, type AcademicScope } from "@/lib/academic/scope";
-import { mainCampusId, periodSlots } from "@/lib/academic/settings";
+import { periodSlots } from "@/lib/academic/settings";
+import { pageYear } from "@/lib/academic/page-campus";
+import { campusAllows, inCampus, type CampusLimit } from "@/lib/campus";
 import { classesForYear } from "@/lib/academic/structure";
 import { SUBJECT_TYPES, subjectTypeLabel } from "@/lib/academic/subjects";
 import type { SubjectType } from "@prisma/client";
@@ -39,10 +40,10 @@ export async function GET(req: Request) {
   const today = todayIn(current.school.timeZone);
 
   const built = await withSchool(ctx, async (tx) => {
-    const campusId = await mainCampusId(tx, ctx);
-    const year = await chosenYear(tx, ctx, p.get("year"));
+    // The page's campus and year (src/lib/academic/page-campus.ts): a person limited to one campus exports only theirs.
+    const { year, campusId } = await pageYear(tx, ctx, current, p.get("year"));
     const scope = await academicScope(tx, current, year?.id ?? null);
-    const out = await build(tx, ctx, scope, { kind: p.get("kind") ?? "", p, campusId, yearId: year?.id ?? null, yearName: year?.name ?? "", today });
+    const out = await build(tx, ctx, scope, { kind: p.get("kind") ?? "", p, campusId, yearId: year?.id ?? null, yearName: year?.name ?? "", today, limit: current });
     if (out) await logExport(tx, ctx, { title: out.title, format, filters: out.filters, rows: out.rows.length });
     return out;
   }, { timeout: 60_000 });
@@ -53,8 +54,8 @@ export async function GET(req: Request) {
   return exportResponse(file);
 }
 
-async function build(tx: Tx, ctx: SchoolContext, scope: AcademicScope, a: { kind: string; p: URLSearchParams; campusId: string; yearId: string | null; yearName: string; today: Date }): Promise<Built | null> {
-  const { p, yearId, today } = a;
+async function build(tx: Tx, ctx: SchoolContext, scope: AcademicScope, a: { kind: string; p: URLSearchParams; campusId: string; yearId: string | null; yearName: string; today: Date; limit: CampusLimit }): Promise<Built | null> {
+  const { p, yearId, today, limit } = a;
   const own = scope.see === "own" && !scope.arrange;
   const inScope = (sectionId: string) => !scope.sectionIds || scope.sectionIds.includes(sectionId);
 
@@ -69,7 +70,8 @@ async function build(tx: Tx, ctx: SchoolContext, scope: AcademicScope, a: { kind
       const q = (p.get("q") ?? "").trim();
       const type = p.get("type") ?? "";
       const subjects = await tx.subject.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, ...(type && SUBJECT_TYPES.some((t) => t.value === type) ? { type: type as SubjectType } : {}), ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { code: { contains: q, mode: "insensitive" } }] } : {}) }, orderBy: { name: "asc" } });
-      const maps = await tx.subjectClass.findMany({ where: { subjectId: { in: subjects.map((s) => s.id) }, archivedAt: null, toDate: null }, include: { schoolClass: { select: { name: true, sortOrder: true } } } });
+      // The classes of the page's campus (subjects are the whole school's).
+      const maps = await tx.subjectClass.findMany({ where: { subjectId: { in: subjects.map((s) => s.id) }, archivedAt: null, toDate: null, schoolClass: { campusId: a.campusId } }, include: { schoolClass: { select: { name: true, sortOrder: true } } } });
       const rows = subjects.map((s) => ({ Subject: s.name, Code: s.code, Type: subjectTypeLabel(s.type), "Grade only": s.gradeOnly ? "Yes" : "No", Classes: maps.filter((m) => m.subjectId === s.id).sort((x, y) => x.schoolClass.sortOrder - y.schoolClass.sortOrder).map((m) => m.schoolClass.name).join(", ") }));
       return { title: "Subjects", filters: [q && `search "${q}"`, type && `type ${subjectTypeLabel(type)}`].filter(Boolean).join(", "), labels: ["Subject", "Code", "Type", "Grade only", "Classes"], rows };
     }
@@ -90,7 +92,7 @@ async function build(tx: Tx, ctx: SchoolContext, scope: AcademicScope, a: { kind
     }
     case "workload": {
       if (!yearId) return null;
-      const list = await teacherWorkloads(tx, ctx, yearId, a.campusId, today, own ? scope.staffId ?? "none" : null);
+      const list = await teacherWorkloads(tx, ctx, yearId, a.campusId, today, own ? scope.staffId ?? "none" : null, own ? null : limit);
       const rows = list.map((w) => ({ Teacher: w.name, Designation: w.designation, "Periods a week": w.periods, Limit: w.limit, "Over limit": w.periods > w.limit ? "Yes" : "", Classes: w.teaches.map((t) => `${t.label} ${t.subject}`).join(", ") }));
       return { title: "Teacher workload", filters: a.yearName, labels: ["Teacher", "Designation", "Periods a week", "Limit", "Over limit", "Classes"], rows };
     }
@@ -100,13 +102,14 @@ async function build(tx: Tx, ctx: SchoolContext, scope: AcademicScope, a: { kind
       const vId = p.get("version");
       let version = vId ? await tx.timetableVersion.findFirst({ where: { id: vId, archivedAt: null } }) : null;
       if (version && version.status !== "PUBLISHED" && !scope.arrange) version = null;
+      if (version && !campusAllows(limit, version.campusId)) version = null;
       version ??= await publishedVersionForYear(tx, yearId, today);
       if (!version) return null;
       if (a.kind === "free-periods") {
         if (own) return null;
         const dayNo = Number(p.get("day")) || weekday(today);
         const cells = await versionCells(tx, version.id);
-        const teachers = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: "ACTIVE", staffType: "Teaching" }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } });
+        const teachers = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: "ACTIVE", staffType: "Teaching", ...inCampus(limit) }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } });
         const slots = (await periodSlots(tx, ctx, version.campusId)).filter((s) => !s.isBreak && s.days.includes(dayNo));
         const rows = slots.map((s) => {
           const busy = new Set(cells.filter((c) => c.dayOfWeek === dayNo && c.periodNo === s.number && c.staffId).map((c) => c.staffId));
@@ -125,6 +128,8 @@ async function build(tx: Tx, ctx: SchoolContext, scope: AcademicScope, a: { kind
         who = cells[0]?.sectionLabel ?? "Class";
       } else if (staffId) {
         if (own && staffId !== scope.staffId) return null;
+        // One campus: that campus's teachers, and the person's own Time Table.
+        if (staffId !== scope.staffId && limit.campusId && !(await tx.staff.findFirst({ where: { id: staffId, ...inCampus(limit) }, select: { id: true } }))) return null;
         cells = await staffGrid(tx, version.id, staffId);
         who = cells[0]?.staffName ?? "Teacher";
       } else return null;
@@ -142,7 +147,7 @@ async function build(tx: Tx, ctx: SchoolContext, scope: AcademicScope, a: { kind
       if (!scope.arrange) return null;
       const date = parseDay(p.get("date")) ?? today;
       const l = await substitutionLoads(tx, ctx, date);
-      const teachers = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, staffType: "Teaching" }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } });
+      const teachers = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, staffType: "Teaching", ...inCampus(limit) }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } });
       const rows = teachers.map((t) => ({ Teacher: t.fullName, "This week": l.week.get(t.id) ?? 0, "This month": l.month.get(t.id) ?? 0 }));
       return { title: "Substitution load", filters: `week and month of ${formatDate(date)}`, labels: ["Teacher", "This week", "This month"], rows };
     }

@@ -1,12 +1,14 @@
 // Who a message goes to (11-communication.md, Send Message, "Who"): parents,
 // students or staff, narrowed by class, section, campus, role or a saved
-// group, or chosen one by one. Always limited to what the sender may reach.
+// group, or chosen one by one. Always limited to what the sender may reach:
+// a sender limited to one campus ("One campus" in Users & Permissions)
+// reaches only that campus's parents, students and staff, whatever is chosen.
 // A parent never gets a child's messages through a link with a custody or
 // access restriction (../students/guardian-access.ts).
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
-import { currentYear, currentYears } from "../academic/years";
+import { currentYears, yearsFor } from "../academic/years";
 import { OPEN_LINK } from "../students/guardian-access";
 import { ownSectionIds, sectionLabel } from "../people";
 import type { Reach } from "../permissions";
@@ -49,23 +51,30 @@ export type AudienceRule = {
   loginContact?: Record<string, { phone?: string | null; email?: string | null }>;
 };
 
-/** How far a sender may reach. "all" for the office; a teacher's own sections otherwise. */
-export type Scope = { sectionIds: string[] | "all"; staff: boolean; label: string };
+/**
+ * How far a sender may reach. "all" for the office; a teacher's own sections otherwise.
+ * campusId: the campus the sender is limited to; "all" then means all of that campus.
+ */
+export type Scope = { sectionIds: string[] | "all"; staff: boolean; label: string; campusId?: string | null };
 
 /** Office roles whose "Own" reach in Communication means parents of the whole school (05-roles.md: fee reminders, messages to parents). */
 const PARENT_WIDE_ROLES = ["accountant", "receptionist", "office-staff", "admission-counsellor"];
 
-export async function scopeFor(tx: Tx, ctx: SchoolContext, reach: Reach, roleKeys: string[]): Promise<Scope> {
-  if (reach === "all") return { sectionIds: "all", staff: true, label: "Whole school" };
-  if (roleKeys.some((k) => PARENT_WIDE_ROLES.includes(k))) return { sectionIds: "all", staff: false, label: "Parents and students of the whole school" };
-  const year = await currentYear(tx, ctx);
-  const sections = year ? await ownSectionIds(tx, ctx, year.id) : [];
-  return { sectionIds: sections, staff: false, label: "Your own sections" };
+/** campusId: the campus the sender is limited to (Current.campusId); null or left out for the whole school. */
+export async function scopeFor(tx: Tx, ctx: SchoolContext, reach: Reach, roleKeys: string[], campusId?: string | null): Promise<Scope> {
+  const campus = campusId ?? null;
+  const campusName = campus ? (await tx.campus.findFirst({ where: { id: campus, schoolId: ctx.schoolId }, select: { name: true } }))?.name ?? "your campus" : null;
+  if (reach === "all") return { sectionIds: "all", staff: true, label: campusName ?? "Whole school", campusId: campus };
+  if (roleKeys.some((k) => PARENT_WIDE_ROLES.includes(k))) return { sectionIds: "all", staff: false, label: `Parents and students of ${campusName ?? "the whole school"}`, campusId: campus };
+  // Their own sections this year: each campus's current year (only their campus's when limited to one).
+  const years = await yearsFor(tx, ctx, campus);
+  const sections = (await Promise.all(years.map((y) => ownSectionIds(tx, ctx, y.id)))).flat();
+  return { sectionIds: [...new Set(sections)], staff: false, label: "Your own sections", campusId: campus };
 }
 
 export const SYSTEM_SCOPE: Scope = { sectionIds: "all", staff: true, label: "Whole school" };
 
-export type StudentInfo = { id: string; name: string; classLabel: string; className: string; sectionName: string; sectionId: string; admissionNo: string; dateOfBirth: Date | null };
+export type StudentInfo = { id: string; name: string; classLabel: string; className: string; sectionName: string; sectionId: string; admissionNo: string; dateOfBirth: Date | null; campusId?: string | null };
 
 export type Candidate = {
   key: string;
@@ -80,6 +89,8 @@ export type Candidate = {
   optedOut: boolean;
   students: StudentInfo[];
   inScope: boolean;
+  /** A staff member's campus (to keep a sender limited to one campus within it). */
+  campusId?: string | null;
 };
 
 type Enrolled = StudentInfo & { userLoginId: string | null };
@@ -103,7 +114,7 @@ async function enrolledStudents(tx: Tx, ctx: SchoolContext, where: { studentIds?
     select: { sectionId: true, student: { select: { id: true, fullName: true, admissionNo: true, userLoginId: true, dateOfBirth: true } } },
   });
   const sectionIds = [...new Set(enrolments.map((e) => e.sectionId))];
-  const sections = await tx.section.findMany({ where: { id: { in: sectionIds } }, select: { id: true, name: true, schoolClass: { select: { name: true, sortOrder: true } } } });
+  const sections = await tx.section.findMany({ where: { id: { in: sectionIds } }, select: { id: true, name: true, schoolClass: { select: { name: true, sortOrder: true, campusId: true } } } });
   const sec = new Map(sections.map((s) => [s.id, s]));
   // A student who moved campus this year is enrolled in both campuses' years: listed once.
   const once = new Set<string>();
@@ -119,13 +130,19 @@ async function enrolledStudents(tx: Tx, ctx: SchoolContext, where: { studentIds?
       className: s?.schoolClass.name ?? "",
       sectionName: s?.name ?? "",
       classLabel: s ? sectionLabel(s.schoolClass.name, s.name) : "",
+      campusId: s?.schoolClass.campusId ?? null,
     };
   });
 }
 
-function inScopeSection(scope: Scope, sectionId: string) {
-  return scope.sectionIds === "all" || scope.sectionIds.includes(sectionId);
+/** A student the sender may reach: in their sections, and on their campus when they are limited to one. */
+function inScopeStudent(scope: Scope, s: { sectionId: string; campusId?: string | null }) {
+  if (scope.campusId && s.campusId !== scope.campusId) return false;
+  return scope.sectionIds === "all" || scope.sectionIds.includes(s.sectionId);
 }
+
+/** A staff member the sender may reach. */
+const inScopeStaff = (scope: Scope, c: { campusId?: string | null }) => scope.staff && (!scope.campusId || c.campusId === scope.campusId);
 
 const joinNames = (names: string[]) => (names.length <= 1 ? names.join("") : `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`);
 
@@ -189,7 +206,7 @@ async function staffCandidates(tx: Tx, ctx: SchoolContext, where: { staffIds?: s
       ...(where.campusIds?.length ? { campusId: { in: where.campusIds } } : {}),
       ...(loginFilter ? { userLoginId: { in: loginFilter } } : {}),
     },
-    select: { id: true, fullName: true, designation: true, phone: true, email: true, userLoginId: true },
+    select: { id: true, fullName: true, designation: true, phone: true, email: true, userLoginId: true, campusId: true },
     orderBy: { fullName: "asc" },
   });
   return staff.map((s) => ({
@@ -205,6 +222,7 @@ async function staffCandidates(tx: Tx, ctx: SchoolContext, where: { staffIds?: s
     optedOut: false,
     students: [],
     inScope: true,
+    campusId: s.campusId,
   }));
 }
 
@@ -219,6 +237,8 @@ export async function resolveAudience(tx: Tx, ctx: SchoolContext, rule: Audience
     const g = await tx.recipientGroup.findFirst({ where: { id: rule.groupId, schoolId: ctx.schoolId, archivedAt: null } });
     if (g) r = { ...(g.rule as AudienceRule), allGuardians: rule.allGuardians ?? (g.rule as AudienceRule).allGuardians };
   }
+  // A sender limited to one campus reaches that campus only, whatever the rule or group says.
+  if (scope.campusId) r = { ...r, campusIds: [scope.campusId] };
   const kinds = new Set(r.kinds ?? []);
   const guardians = new Map<string, Candidate>();
   const others: Candidate[] = [];
@@ -231,7 +251,7 @@ export async function resolveAudience(tx: Tx, ctx: SchoolContext, rule: Audience
     const campusIds = r.campusIds?.length ? r.campusIds : undefined;
     let pool = await enrolledStudents(tx, ctx, narrowed ? { sectionIds, classIds, campusIds } : { campusIds });
     // A teacher choosing "Parents" without a class gets their own sections only.
-    if (!narrowed && scope.sectionIds !== "all") pool = pool.filter((s) => inScopeSection(scope, s.sectionId));
+    if (!narrowed && scope.sectionIds !== "all") pool = pool.filter((s) => inScopeStudent(scope, s));
     if (kinds.has("parents")) for (const [id, c] of await guardiansFor(tx, ctx, pool, Boolean(r.allGuardians))) guardians.set(id, c);
     if (kinds.has("students")) {
       for (const s of pool) others.push(studentCandidate(s));
@@ -275,10 +295,10 @@ export async function resolveAudience(tx: Tx, ctx: SchoolContext, rule: Audience
     if (kinds.has("teachers") && kinds.has("admins") && !kinds.has("staff")) {
       extra = await staffCandidates(tx, ctx, { roleKeys: ADMIN_ROLES, campusIds });
     }
-    for (const c of [...list, ...extra]) if (!others.some((o) => o.key === c.key)) others.push({ ...c, inScope: scope.staff });
+    for (const c of [...list, ...extra]) if (!others.some((o) => o.key === c.key)) others.push({ ...c, inScope: inScopeStaff(scope, c) });
   }
   if (r.staffIds?.length) {
-    for (const c of await staffCandidates(tx, ctx, { staffIds: r.staffIds })) if (!others.some((o) => o.key === c.key)) others.push({ ...c, inScope: scope.staff });
+    for (const c of await staffCandidates(tx, ctx, { staffIds: r.staffIds })) if (!others.some((o) => o.key === c.key)) others.push({ ...c, inScope: inScopeStaff(scope, c) });
   }
 
   if (r.loginIds?.length) {
@@ -290,12 +310,13 @@ export async function resolveAudience(tx: Tx, ctx: SchoolContext, rule: Audience
     for (const l of logins) {
       if (others.some((o) => o.userLoginId === l.id)) continue;
       const alt = r.loginContact?.[l.id];
-      others.push({ key: `login:${l.id}`, type: "login", id: l.id, name: l.displayName, description: "School OS login", phone: alt?.phone !== undefined ? alt.phone : l.phone, email: alt?.email !== undefined ? alt.email : l.email, userLoginId: l.id, language: school?.defaultLanguage ?? "en", optedOut: false, students: [], inScope: scope.staff });
+      others.push({ key: `login:${l.id}`, type: "login", id: l.id, name: l.displayName, description: "School OS login", phone: alt?.phone !== undefined ? alt.phone : l.phone, email: alt?.email !== undefined ? alt.email : l.email, userLoginId: l.id, language: school?.defaultLanguage ?? "en", optedOut: false, students: [], inScope: scope.staff && !scope.campusId });
     }
   }
 
-  for (const c of guardians.values()) c.inScope = c.students.length === 0 ? scope.sectionIds === "all" : c.students.some((s) => inScopeSection(scope, s.sectionId));
-  for (const c of others) if (c.type === "student") c.inScope = c.students.every((s) => inScopeSection(scope, s.sectionId));
+  // A parent with no child studying now is reachable only by a sender of the whole school.
+  for (const c of guardians.values()) c.inScope = c.students.length === 0 ? scope.sectionIds === "all" && !scope.campusId : c.students.some((s) => inScopeStudent(scope, s));
+  for (const c of others) if (c.type === "student") c.inScope = c.students.every((s) => inScopeStudent(scope, s));
   return [...guardians.values(), ...others];
 }
 

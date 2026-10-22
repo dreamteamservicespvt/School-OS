@@ -5,7 +5,9 @@
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
-import { currentYear } from "../academic/years";
+import { currentYearIds } from "../academic/years";
+import { sectionsForCurrentYears } from "../academic";
+import { inCampus, type CampusLimit } from "../campus";
 import { findStudents } from "../students/find";
 import { itemLabel } from "./items";
 import { reorderOf, totalsFor } from "./stock";
@@ -15,9 +17,10 @@ export type CounterStudent = { id: string; name: string; admissionNo: string; cl
 
 export async function studentsByIds(tx: Tx, ctx: SchoolContext, ids: string[]): Promise<CounterStudent[]> {
   if (!ids.length) return [];
-  const year = await currentYear(tx, ctx);
+  // Each student's class in their own campus's current year.
+  const yearIds = await currentYearIds(tx, ctx);
   const students = await tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, admissionNo: true } });
-  const enrol = await tx.enrolment.findMany({ where: { studentId: { in: ids }, archivedAt: null, ...(year ? { academicYearId: year.id } : {}) }, select: { studentId: true, sectionId: true } });
+  const enrol = await tx.enrolment.findMany({ where: { studentId: { in: ids }, archivedAt: null, ...(yearIds.length ? { academicYearId: { in: yearIds } } : {}) }, select: { studentId: true, sectionId: true } });
   const sections = await tx.section.findMany({ where: { id: { in: enrol.map((e) => e.sectionId) } }, select: { id: true, name: true, classId: true, schoolClass: { select: { name: true } } } });
   return students.map((s) => {
     const e = enrol.find((x) => x.studentId === s.id);
@@ -30,11 +33,11 @@ export async function studentsByIds(tx: Tx, ctx: SchoolContext, ids: string[]): 
  * Students studying now: the one student search (name with one letter wrong,
  * admission or roll number). Never by parents: the store keeper does not see them.
  */
-export async function searchCounterStudents(tx: Tx, ctx: SchoolContext, q: string, take = 8) {
+/** Students for the store counter; only the person's campus's when they are limited to one. */
+export async function searchCounterStudents(tx: Tx, ctx: SchoolContext, q: string, take = 8, limit?: CampusLimit | null) {
   const t = q.trim();
   if (t.length < 2) return [];
-  const year = await currentYear(tx, ctx);
-  const found = await findStudents(tx, t, { scope: {}, yearId: year?.id ?? null, byParent: false, take });
+  const found = await findStudents(tx, t, { scope: inCampus(limit), yearId: await currentYearIds(tx, ctx), byParent: false, take });
   const byId = new Map((await studentsByIds(tx, ctx, found.map((s) => s.id))).map((s) => [s.id, s]));
   return found.map((s) => byId.get(s.id)).filter((s): s is NonNullable<typeof s> => Boolean(s));
 }
@@ -62,13 +65,9 @@ export async function stockByStore(tx: Tx) {
   return out;
 }
 
-/** The sections of this year, as "Class 5 A", for the class pickers. */
+/** The sections of this year, as "Class 5 A", for the class pickers: each campus's from its own current year. */
 export async function sectionOptions(tx: Tx, ctx: SchoolContext) {
-  const year = await currentYear(tx, ctx);
-  const sections = await tx.section.findMany({ where: { archivedAt: null, ...(year ? { academicYearId: year.id } : {}) }, select: { id: true, name: true, classId: true, schoolClass: { select: { name: true, sortOrder: true } } } });
-  return sections
-    .sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name))
-    .map((s) => ({ value: s.id, label: `${s.schoolClass.name} ${s.name}`, classId: s.classId }));
+  return (await sectionsForCurrentYears(tx, ctx)).map((s) => ({ value: s.id, label: s.label, classId: s.classId }));
 }
 
 export async function classOptions(tx: Tx, ctx: SchoolContext) {

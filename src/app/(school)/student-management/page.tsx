@@ -30,17 +30,18 @@ type Row = ListRow;
 const STEP = 25;
 
 export default async function StudentListPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, settings, year, can: ab, tz } = await studentPage();
+  const { current, settings, year, years, yearIds, can: ab, tz } = await studentPage();
   const raw = await searchParams;
   const params = readListParams(raw, LIST_FILTERS);
   const shownCount = Math.min(500, Math.max(STEP, Number.parseInt(String(raw.n ?? ""), 10) || STEP));
-  const yearId = year?.id ?? null;
+  // Each student's class is in their own campus's current year (two campuses can start the year on different dates).
+  const yearId = yearIds;
   // The fee column and the "Has dues" filter only for people allowed to see fees (not the Admission Counsellor, who sees admission fees only).
   const seeFees = seesStudentFees(current);
   if (!seeFees) delete params.filters.fee;
 
   const data = await withSchool(current.ctx, (tx) =>
-    loadStudentList(tx, current, { params, yearId, yearStart: year?.startDate ?? null, settings, shown: shownCount, seeParents: ab.seeParents }));
+    loadStudentList(tx, current, { params, yearId, years: years.length ? years : year ? [year] : [], yearStart: year?.startDate ?? null, settings, shown: shownCount, seeParents: ab.seeParents }));
 
   const f = params.filters;
   const curClass = data.tiles.find((t) => t.id === f.class) ?? null;

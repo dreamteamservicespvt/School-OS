@@ -48,7 +48,7 @@ const TZ = "Asia/Kolkata";
 const today = todayIn(TZ);
 const tomorrow = addDays(today, 1);
 
-const viewerOf = (s: FeeSchool): FeeViewer => ({ userId: s.accountant.id, see: "all", change: "all", roleKeys: ["accountant"], sectionIds: null, yearId: s.year.id });
+const viewerOf = (s: FeeSchool): FeeViewer => ({ userId: s.accountant.id, see: "all", change: "all", roleKeys: ["accountant"], sectionIds: null, yearId: s.year.id, yearIds: [s.year.id], campusId: null });
 const currentFor = async (schoolId: string, userId: string): Promise<Current> => {
   const access = await accessIn(userId, schoolId);
   return { ...access!, ctx: { schoolId, userId }, user: { id: userId, displayName: "Test" }, menu: [], schools: [], session: null } as unknown as Current;

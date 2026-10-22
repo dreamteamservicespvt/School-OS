@@ -6,9 +6,10 @@ import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { htmlToPdf } from "@/lib/pdf";
 import { logExport } from "@/lib/exports";
-import { chosenYear } from "@/lib/academic/years";
 import { academicScope } from "@/lib/academic/scope";
-import { mainCampusId, periodSlots, academicSettings } from "@/lib/academic/settings";
+import { periodSlots, academicSettings } from "@/lib/academic/settings";
+import { pageYear } from "@/lib/academic/page-campus";
+import { campusAllows, inCampus } from "@/lib/campus";
 import { publishedVersionForYear, roomGrid, sectionGrid, staffGrid } from "@/lib/academic/timetable";
 import { timetableHtml, type PrintPage } from "@/lib/academic/timetable-print";
 import { todayIn } from "@/lib/academic/common";
@@ -21,8 +22,8 @@ export async function GET(req: Request) {
   const pdf = url.searchParams.get("format") === "pdf";
 
   const result = await withSchool(ctx, async (tx) => {
-    const campusId = await mainCampusId(tx, ctx);
-    const year = await chosenYear(tx, ctx, url.searchParams.get("year"));
+    // The page's campus and year (src/lib/academic/page-campus.ts): a person limited to one campus prints only theirs.
+    const { year, campusId } = await pageYear(tx, ctx, current, url.searchParams.get("year"));
     if (!year) return null;
     const scope = await academicScope(tx, current, year.id);
     const vId = url.searchParams.get("version");
@@ -30,7 +31,7 @@ export async function GET(req: Request) {
     if (version && version.status !== "PUBLISHED" && !scope.arrange) version = null;
     if (!version && vId) {
       const v = await tx.timetableVersion.findFirst({ where: { id: vId, archivedAt: null } });
-      if (v && (v.status === "PUBLISHED" || scope.arrange)) version = v;
+      if (v && (v.status === "PUBLISHED" || scope.arrange) && campusAllows(current, v.campusId)) version = v;
     }
     version ??= await publishedVersionForYear(tx, year.id, today);
     if (!version) return { pages: [] as PrintPage[], slots: await periodSlots(tx, ctx, campusId), days: (await academicSettings(tx, ctx, campusId)).workingDays };
@@ -48,7 +49,8 @@ export async function GET(req: Request) {
     }
     for (const staffId of url.searchParams.getAll("staff").slice(0, 200)) {
       if (own && staffId !== scope.staffId) continue;
-      const st = await tx.staff.findFirst({ where: { id: staffId }, select: { fullName: true } });
+      // One campus: that campus's teachers, and the person's own Time Table.
+      const st = await tx.staff.findFirst({ where: { id: staffId, ...(staffId === scope.staffId ? {} : inCampus(current)) }, select: { fullName: true } });
       if (st) pages.push({ title: `${st.fullName}: Time Table`, subtitle, cells: await staffGrid(tx, version.id, staffId), mode: "teacher" });
     }
     for (const room of url.searchParams.getAll("room").slice(0, 50)) {

@@ -11,22 +11,29 @@ import { formatDate } from "../format";
 import { CLOSED_STATUSES, classRules, label, stageOn, type Settings } from "./settings";
 import { progressOf } from "./documents";
 import { stageLabel, OPEN_STAGES } from "./applications";
-import { enquiryScope, type Viewer } from "./access";
+import { applicationScope, enquiryScope, type Viewer } from "./access";
 
 export type Filters = {
-  yearId: string; classId?: string | null; source?: string | null; ownerStaffId?: string | null; campusId?: string | null;
+  /** One year, or several: each campus's admission year (a school with two campuses has two). */
+  yearId: string | string[]; classId?: string | null; source?: string | null; ownerStaffId?: string | null; campusId?: string | null;
   /** The date filter (P2): enquiries added, or applications submitted, in this window. */
   created?: { gte: Date; lt: Date } | null;
 };
 
 const DAY = 86_400_000;
 
+/** The year filter for one year or several. */
+export const yearWhere = (yearId: string | string[]) => (Array.isArray(yearId) ? { in: yearId } : yearId);
+/** "year=<id>" for a link to a list, when the filter is one year; the lists' own default (every open year) otherwise. */
+export const yearParam = (yearId: string | string[]): Record<string, string> => (Array.isArray(yearId) ? {} : { year: yearId });
+
 function enquiryBase(f: Filters, v: Viewer): Prisma.EnquiryWhereInput {
-  return { AND: [enquiryScope(v)], archivedAt: null, academicYearId: f.yearId, ...(f.classId ? { classId: f.classId } : {}), ...(f.source ? { firstSource: f.source } : {}), ...(f.ownerStaffId ? { ownerStaffId: f.ownerStaffId } : {}), ...(f.campusId ? { campusId: f.campusId } : {}), ...(f.created ? { createdAt: f.created } : {}) };
+  return { AND: [enquiryScope(v)], archivedAt: null, academicYearId: yearWhere(f.yearId), ...(f.classId ? { classId: f.classId } : {}), ...(f.source ? { firstSource: f.source } : {}), ...(f.ownerStaffId ? { ownerStaffId: f.ownerStaffId } : {}), ...(f.campusId ? { campusId: f.campusId } : {}), ...(f.created ? { createdAt: f.created } : {}) };
 }
 
-function appBase(f: Filters): Prisma.ApplicationWhereInput {
-  return { archivedAt: null, academicYearId: f.yearId, ...(f.classId ? { classId: f.classId } : {}), ...(f.source ? { enquiry: { firstSource: f.source } } : {}), ...(f.ownerStaffId ? { enquiry: { ownerStaffId: f.ownerStaffId } } : {}), ...(f.campusId ? { campusId: f.campusId } : {}), ...(f.created ? { createdAt: f.created } : {}) };
+/** Applications for the filters, within the viewer's campus when they are limited to one. */
+function appBase(f: Filters, v: Viewer): Prisma.ApplicationWhereInput {
+  return { AND: [applicationScope(v)], archivedAt: null, academicYearId: yearWhere(f.yearId), ...(f.classId ? { classId: f.classId } : {}), ...(f.source ? { enquiry: { firstSource: f.source } } : {}), ...(f.ownerStaffId ? { enquiry: { ownerStaffId: f.ownerStaffId } } : {}), ...(f.campusId ? { campusId: f.campusId } : {}), ...(f.created ? { createdAt: f.created } : {}) };
 }
 
 export type FunnelStage = { key: string; label: string; count: number; lastWeek: number; oldest: Date | null; href: string };
@@ -34,15 +41,15 @@ export type FunnelStage = { key: string; label: string; count: number; lastWeek:
 export async function funnel(tx: Tx, s: Settings, v: Viewer, f: Filters, now = new Date()): Promise<FunnelStage[]> {
   const week = new Date(now.getTime() - 7 * DAY);
   const e = enquiryBase(f, v);
-  const a = appBase(f);
-  const q = (extra: Record<string, string>) => `/admission-management/applications?${new URLSearchParams({ year: f.yearId, ...(f.classId ? { class: f.classId } : {}), ...extra })}`;
+  const a = appBase(f, v);
+  const q = (extra: Record<string, string>) => `/admission-management/applications?${new URLSearchParams({ ...yearParam(f.yearId), ...(f.classId ? { class: f.classId } : {}), ...extra })}`;
   const out: FunnelStage[] = [];
   const [eCount, eWeek, eOldest] = await Promise.all([
     tx.enquiry.count({ where: e }),
     tx.enquiry.count({ where: { ...e, createdAt: { gte: week } } }),
     tx.enquiry.findFirst({ where: { ...e, status: { notIn: [...CLOSED_STATUSES] } }, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
   ]);
-  out.push({ key: "enquiry", label: s.stageList.find((x) => x.key === "enquiry")!.label, count: eCount, lastWeek: eWeek, oldest: eOldest?.createdAt ?? null, href: `/admission-management/enquiries?${new URLSearchParams({ year: f.yearId, ...(f.classId ? { class: f.classId } : {}) })}` });
+  out.push({ key: "enquiry", label: s.stageList.find((x) => x.key === "enquiry")!.label, count: eCount, lastWeek: eWeek, oldest: eOldest?.createdAt ?? null, href: `/admission-management/enquiries?${new URLSearchParams({ ...yearParam(f.yearId), ...(f.classId ? { class: f.classId } : {}) })}` });
   if (v.see !== "all") return out;
   const [aCount, aWeek, aOldest] = await Promise.all([
     tx.application.count({ where: a }),
@@ -108,7 +115,7 @@ export async function board(tx: Tx, s: Settings, v: Viewer, f: Filters, classNam
     cards: eRows.map((r) => ({ id: r.id, kind: "enquiry", title: r.childName, meta: `${r.classId ? classNames.get(r.classId) ?? "" : "Class not set"} · ${label(s.statusList, r.status)}`, href: `/admission-management/enquiries/${r.id}` })),
   }];
   if (v.see !== "all") return cols;
-  const a = appBase(f);
+  const a = appBase(f, v);
   const col = async (key: string, title: string, stages: Prisma.ApplicationWhereInput["stage"], accepts: string[]) => {
     const where = { ...a, stage: stages };
     const [rows, count] = await Promise.all([tx.application.findMany({ where, take, orderBy: { updatedAt: "asc" } }), tx.application.count({ where })]);
@@ -156,7 +163,7 @@ export async function report(tx: Tx, s: Settings, v: Viewer, key: ReportKey, f: 
   const cls = (id: string | null) => (id ? names.classes.get(id) ?? "?" : "Class not set");
   const owner = (id: string | null) => (id ? names.staff.get(id) ?? "?" : "No owner");
   const e = enquiryBase(f, v);
-  const a = appBase(f);
+  const a = appBase(f, v);
 
   if (key === "pipeline") {
     const rows = await tx.enquiry.groupBy({ by: ["classId", "ownerStaffId", "status"], where: e, _count: { _all: true } });

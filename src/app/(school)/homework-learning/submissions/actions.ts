@@ -5,6 +5,7 @@ import { HomeworkProblem } from "@/lib/homework/access";
 import { acceptLate, addComment, bulkComplete, gradeSubmission, hideComment, setExcused } from "@/lib/homework/submissions";
 import { remindParents } from "@/lib/homework/notify-parents";
 import { draftFeedback } from "@/lib/homework/assistant";
+import { onCampus } from "@/lib/homework/scope";
 import { homeworkFeatures, homeworkSettings, lateAfter, teacherAssistantFor } from "@/lib/homework/settings";
 import { plural } from "@/lib/homework/words";
 import { hwAsk, hwForm, hwQuick } from "../_lib/action";
@@ -71,7 +72,8 @@ export async function draftFeedbackAction(submissionId: string, result: string, 
     if (!UUID.test(submissionId)) throw new HomeworkProblem("Choose the student's work.");
     const sub = await tx.submission.findFirst({ where: { id: submissionId, archivedAt: null } });
     const hw = sub ? await tx.homework.findFirst({ where: { id: sub.homeworkId } }) : null;
-    if (!sub || !hw) throw new HomeworkProblem("This work was not found.");
+    // Another campus's work is not found for a person limited to one campus.
+    if (!sub || !hw || !onCampus(s, hw.sectionId)) throw new HomeworkProblem("This work was not found.");
     if (s.modes.submissions !== "edit") throw new HomeworkProblem("Your role reads this page but does not change it.");
     const st = await tx.student.findUnique({ where: { id: sub.studentId }, select: { fullName: true } });
     const settings = await homeworkSettings(tx, current.ctx);

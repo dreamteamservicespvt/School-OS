@@ -28,17 +28,17 @@ const CONDUCT = ["Good", "Very good", "Excellent", "Satisfactory"];
 
 /** Issue certificate (03 §2): student, type, purpose, date of issue, signatory; preview; issue (or send for approval). */
 export default async function IssueCertificatePage({ searchParams }: { searchParams: Promise<{ student?: string; type?: string; ids?: string }> }) {
-  const { current, settings, year, can, tz } = await studentPage();
+  const { current, settings, yearIds, can, tz } = await studentPage();
   if (!can.manage) redirect(`${BASE}/certificates`);
   const sp = await searchParams;
   const types = (Object.keys(CERTIFICATE_LABEL) as CertificateType[]).filter((t) => t !== "MIGRATION" || settings.migrationOn);
   const type = (types.includes(sp.type as CertificateType) ? sp.type : "BONAFIDE") as CertificateType;
   const wanted = [...new Set([...(sp.ids ?? "").split(","), sp.student ?? ""].filter(isId))].slice(0, 200);
   const data = await withSchool(current.ctx, async (tx) => {
-    const scope = await studentScope(tx, current, year?.id);
+    const scope = await studentScope(tx, current, yearIds);
     const students = wanted.length ? await tx.student.findMany({ where: { AND: [scope, { id: { in: wanted } }] }, select: { id: true, fullName: true, admissionNo: true } }) : [];
     const signatories = await tx.signatory.findMany({ where: { archivedAt: null }, orderBy: { title: "asc" } });
-    const sections = await sectionOptions(tx, current, year?.id);
+    const sections = await sectionOptions(tx, current, yearIds);
     // For a TC on one student: what clearance says now, and whether an original was issued.
     let tc: { block: string | null; original: string | null } | null = null;
     if (type === "TC" && students.length === 1) {

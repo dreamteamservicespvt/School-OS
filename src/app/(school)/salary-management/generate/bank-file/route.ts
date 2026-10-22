@@ -5,6 +5,7 @@ import { buildExport, exportResponse, logExport, type ExportColumn, type ExportF
 import { PermissionDeniedError } from "@/lib/permissions";
 import { salaryLevel } from "@/lib/salary/access";
 import { monthName } from "@/lib/salary/words";
+import { runsOnCampus } from "@/lib/salary/campus";
 
 export const dynamic = "force-dynamic";
 const UUID = /^[0-9a-f-]{36}$/i;
@@ -24,7 +25,8 @@ export async function GET(req: Request) {
   const runId = url.searchParams.get("run") ?? "";
   if (!UUID.test(runId)) return new Response("Choose the salary month.", { status: 400 });
   const data = await withSchool(current.ctx, async (tx) => {
-    const run = await tx.payrollRun.findFirst({ where: { id: runId } });
+    // One campus: another campus's month is not found.
+    const run = await tx.payrollRun.findFirst({ where: { id: runId, ...runsOnCampus(current) } });
     if (!run) return { error: "This salary month was not found." };
     if (!["APPROVED", "PAID", "LOCKED"].includes(run.status)) return { error: `${monthName(run.month)} is not approved yet. The bank file is made from approved salary.` };
     const lines = await tx.payrollLine.findMany({ where: { runId, included: true } });

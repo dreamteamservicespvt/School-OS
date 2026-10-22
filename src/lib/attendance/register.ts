@@ -5,6 +5,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { eachDay, isoDay, monthEnd, monthLabel, monthStart } from "../staff/dates";
+import { sectionInCampus } from "../campus";
 import { registerSections, type AttendanceAccess } from "./access";
 import { schoolDays } from "./calendar";
 import { roster, sectionInfo } from "./marks";
@@ -24,24 +25,33 @@ const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 /**
  * The sections this person may open in the register, in class order: for the
- * current year, or for an earlier year (everyone's for whole-school roles;
- * for teachers, the sections they had in that year).
+ * current years (the default: one per campus they may see), or for the years
+ * given (everyone's for whole-school roles; for teachers, the sections they
+ * had in that year). A person limited to one campus gets that campus's only.
  */
-export async function registerChoices(tx: Tx, access: AttendanceAccess, yearId: string | null = access.yearId) {
-  if (!yearId) return [];
-  let where: Prisma.SectionWhereInput;
-  if (yearId === access.yearId) {
-    const allowed = registerSections(access);
-    if (allowed !== "all" && allowed.length === 0) return [];
-    where = { academicYearId: yearId, ...(allowed === "all" ? {} : { id: { in: allowed } }) };
-  } else if (access.students === "all") {
-    where = { academicYearId: yearId };
+export async function registerChoices(tx: Tx, access: AttendanceAccess, years: string | string[] | null = null) {
+  const ids = years === null ? access.yearIds : Array.isArray(years) ? years : [years];
+  if (ids.length === 0 || access.students === "none") return [];
+  const or: Prisma.SectionWhereInput[] = [];
+  if (access.students === "all") {
+    or.push({ academicYearId: { in: ids } });
   } else {
-    if (access.students === "none" || !access.staffId) return [];
-    const taught = await tx.teacherAllocation.findMany({ where: { academicYearId: yearId, staffId: access.staffId, archivedAt: null }, select: { sectionId: true } });
-    where = { academicYearId: yearId, OR: [{ classTeacherId: access.staffId }, { id: { in: taught.map((t) => t.sectionId).filter((x): x is string => Boolean(x)) } }] };
+    // Their own sections of this year; in any other year, the sections they were class teacher of or taught.
+    if (access.yearId && ids.includes(access.yearId)) {
+      const allowed = registerSections(access);
+      if (allowed !== "all" && allowed.length) or.push({ academicYearId: access.yearId, id: { in: allowed } });
+    }
+    const other = ids.filter((y) => y !== access.yearId);
+    if (other.length && access.staffId) {
+      const taught = await tx.teacherAllocation.findMany({ where: { academicYearId: { in: other }, staffId: access.staffId, archivedAt: null }, select: { sectionId: true } });
+      or.push({ academicYearId: { in: other }, OR: [{ classTeacherId: access.staffId }, { id: { in: taught.map((t) => t.sectionId).filter((x): x is string => Boolean(x)) } }] });
+    }
   }
-  const rows = await tx.section.findMany({ where: { ...where, archivedAt: null }, include: { schoolClass: { select: { name: true, sortOrder: true } } } });
+  if (or.length === 0) return [];
+  const rows = await tx.section.findMany({
+    where: { OR: or, archivedAt: null, ...sectionInCampus({ campusId: access.campusLimit }) },
+    include: { schoolClass: { select: { name: true, sortOrder: true } } },
+  });
   rows.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name));
   return rows.map((s) => ({ id: s.id, name: `${s.schoolClass.name} ${s.name}` }));
 }
@@ -52,12 +62,12 @@ export async function registerChoices(tx: Tx, access: AttendanceAccess, yearId: 
  * person may see, to this month.
  */
 export async function registerYears(tx: Tx, access: AttendanceAccess, today: Date) {
-  const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: today } }, orderBy: { startDate: "asc" }, select: { id: true, name: true, startDate: true, endDate: true } });
+  const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: today }, ...(access.campusLimit ? { campusId: access.campusLimit } : {}) }, orderBy: { startDate: "asc" }, select: { id: true, name: true, startDate: true, endDate: true } });
   const visible = [];
-  for (const y of years) if (y.id === access.yearId || (await registerChoices(tx, access, y.id)).length) visible.push(y);
+  for (const y of years) if (access.yearIds.includes(y.id) || (await registerChoices(tx, access, y.id)).length) visible.push(y);
   const max = isoDay(today).slice(0, 7);
   // From the previous academic year's first month (approved CalendarMonth), or the first year this person may see.
-  const prev = await previousYearStart(tx, today);
+  const prev = await previousYearStart(tx, today, access.campusLimit);
   const shown = visible.filter((y) => !prev || y.endDate >= prev);
   const first = shown[0];
   const from = first ? (prev && prev > first.startDate ? prev : first.startDate) : null;

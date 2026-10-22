@@ -31,7 +31,8 @@
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
-import { currentYears } from "../academic/years";
+import { currentYear, currentYears } from "../academic/years";
+import { mainCampus } from "../campus";
 import { attendanceSettings } from "../attendance/settings";
 import { attendanceSummary } from "../attendance/summary";
 import { schoolDays } from "../attendance/calendar";
@@ -626,6 +627,8 @@ export async function computeForecasts(tx: Tx, ctx: SchoolContext, now = new Dat
   const today = todayIn(school.timeZone, now);
   const years = await currentYears(tx, ctx);
   if (!years.length) return [];
+  // The school-wide parts once, with the main campus's year (a school's campuses can start the year on different dates).
+  const main = (await currentYear(tx, ctx, await mainCampus(tx, ctx))) ?? years[0];
   // The newer parts load only here (the background job), so pages that read stored signals stay light.
   const { cashForecasts, creditForecasts, marksNeededForecasts, reachForecasts, syllabusForecasts } = await import("./forecasts-more");
   const { unusualForecasts } = await import("./unusual");
@@ -657,7 +660,7 @@ export async function computeForecasts(tx: Tx, ctx: SchoolContext, now = new Dat
     for (const [name, area, part] of parts) if (wants(area)) await run(name, part);
   }
   // Parts about the whole school: once.
-  const c: Ctx = { tx, ctx, today, year: years[0] };
+  const c: Ctx = { tx, ctx, today, year: main };
   const school_parts: [string, ForecastArea, () => Promise<Forecast[]>][] = [
     ["fees", "fees", () => feeForecasts(c)],
     ["staff", "staff", () => staffForecasts(c)],

@@ -4,6 +4,7 @@ import { workPage, BASE } from "@/lib/admission/page";
 import { UUID_RE } from "@/lib/admission/act";
 import { RELATIONS } from "@/lib/admission/applications";
 import { applicationChoices } from "@/lib/admission/choices";
+import { admissionYears } from "@/lib/admission/settings";
 import { admissionConsentTexts, DATA_CONSENT, PHOTO_CONSENT } from "@/lib/admission/consent";
 import { PageHeader } from "@/components/shell/page-header";
 import { Banner } from "@/components/ui/chips";
@@ -19,8 +20,11 @@ export default async function NewApplicationPage({ searchParams }: Search) {
   const sp = await searchParams;
   const enquiryId = typeof sp.enquiry === "string" && UUID_RE.test(sp.enquiry) ? sp.enquiry : null;
   const data = await withSchool(current.ctx, async (tx) => {
-    const enquiry = enquiryId ? await tx.enquiry.findFirst({ where: { id: enquiryId, archivedAt: null } }) : null;
-    const choices = await applicationChoices(tx, current, settings, enquiry?.academicYearId ?? year?.id ?? null);
+    const enquiry = enquiryId ? await tx.enquiry.findFirst({ where: { id: enquiryId, archivedAt: null, ...(viewer.campusId ? { campusId: viewer.campusId } : {}) } }) : null;
+    // Seats are shown in each campus's admission year (only the person's campus when limited to one).
+    const admitting = await admissionYears(tx, current.ctx, settings, viewer.campusId);
+    const seatYears = [...new Set([enquiry?.academicYearId ?? year?.id, ...admitting.map((y) => y.id)].filter((y): y is string => Boolean(y)))];
+    const choices = await applicationChoices(tx, current, settings, seatYears);
     const texts = await admissionConsentTexts(tx, current.school.name);
     return { enquiry, choices, texts };
   });

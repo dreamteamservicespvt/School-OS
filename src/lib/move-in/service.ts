@@ -12,6 +12,7 @@ import { writeAudit } from "../audit";
 import { importKind, importKinds, leftCounts, previewImport, type Decisions, type ImportKind, type RowChoice } from "../importer";
 import { startImport } from "../data-security/imports";
 import { currentYear } from "../academic/years";
+import { mainCampus } from "../campus";
 import { addClass, addSection } from "../academic/structure";
 import { ensureHrDefaults } from "../staff/settings";
 import { fileStore } from "../storage";
@@ -181,8 +182,18 @@ export async function getFile(tx: Tx, id: string) {
   return tx.moveInFile.findFirst({ where: { id, archivedAt: null } });
 }
 
+/**
+ * The year a move-in works in: the main campus's current year. A school whose
+ * campuses start the year on different dates has one current year each; the
+ * one whose year started last is not "the" year, so moving in always goes to
+ * the main campus (its classes, its year).
+ */
+async function moveInYear(tx: Tx, ctx: SchoolContext) {
+  return currentYear(tx, ctx, await mainCampus(tx, ctx));
+}
+
 export async function schoolLookups(tx: Tx, ctx: SchoolContext): Promise<Lookups & { yearId: string | null; campusId: string | null }> {
-  const year = await currentYear(tx, ctx);
+  const year = await moveInYear(tx, ctx);
   const sections = year ? await tx.section.findMany({
     where: { academicYearId: year.id, archivedAt: null, schoolClass: { archivedAt: null } },
     include: { schoolClass: { select: { name: true, sortOrder: true } } },
@@ -436,7 +447,7 @@ export async function leaveOut(tx: Tx, id: string, lines: number[], out: boolean
  */
 export async function addMissingClasses(tx: Tx, ctx: SchoolContext, id: string, words: string[]) {
   await openFile(tx, id);
-  const year = await currentYear(tx, ctx);
+  const year = await moveInYear(tx, ctx);
   if (!year) throw new MoveInProblem("Set up this academic year first in Academic Management.");
   const lookups = await schoolLookups(tx, ctx);
   const style = lookups.sections.some((s) => /^class\s/i.test(s.className)) || lookups.sections.length === 0 ? "Class " : "";
@@ -580,7 +591,7 @@ export type Summary = Awaited<ReturnType<typeof goLiveSummary>>;
 
 /** The go-live summary (step 9): what School OS now holds, beside what the old software says, and what to look at. */
 export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
-  const year = await currentYear(tx, ctx);
+  const year = await moveInYear(tx, ctx);
   const plan = await getPlan(tx, ctx);
   const [classes, enrolments, staff, staffNoLogin, guardians, openFiles, problemBatches, departments] = await Promise.all([
     year ? tx.section.findMany({ where: { academicYearId: year.id, archivedAt: null, schoolClass: { archivedAt: null } }, include: { schoolClass: { select: { id: true, name: true, sortOrder: true } } }, orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }] }) : Promise.resolve([]),

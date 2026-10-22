@@ -158,3 +158,31 @@ export async function chatToQuery(tx: Tx, ctx: SchoolContext, chatId: string, ty
     throw e;
   }
 }
+
+/**
+ * For a person limited to one campus: the chats about their campus (with a
+ * parent of one of its students, or one of its staff), chats with numbers not
+ * on record, and chats given to them. {} for the whole school.
+ */
+export async function inboxCampusWhere(tx: Tx, ctx: SchoolContext, campusId: string | null | undefined): Promise<Prisma.WhatsappChatWhereInput> {
+  if (!campusId) return {};
+  const [links, staff] = await Promise.all([
+    tx.studentGuardian.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, student: { campusId, archivedAt: null } }, select: { guardianId: true } }),
+    tx.staff.findMany({ where: { schoolId: ctx.schoolId, campusId }, select: { id: true } }),
+  ]);
+  return {
+    OR: [
+      ...(ctx.userId ? [{ assignedToId: ctx.userId }] : []),
+      { contactType: "unknown" },
+      { contactType: "guardian", contactId: { in: [...new Set(links.map((l) => l.guardianId))] } },
+      { contactType: "staff", contactId: { in: staff.map((s) => s.id) } },
+    ],
+  };
+}
+
+/** Refuses a chat about another campus for a person limited to one campus (the same words as a chat not found). */
+export async function assertChatOnCampus(tx: Tx, ctx: SchoolContext, chatId: string, campusId: string | null | undefined) {
+  if (!campusId) return;
+  const ok = await tx.whatsappChat.findFirst({ where: { AND: [{ id: chatId, schoolId: ctx.schoolId }, await inboxCampusWhere(tx, ctx, campusId)] }, select: { id: true } });
+  if (!ok) throw new InboxProblem("This chat was not found, or it is not given to you.");
+}

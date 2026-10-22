@@ -3,7 +3,7 @@ import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { htmlToPdf } from "@/lib/pdf";
-import { examScope } from "@/lib/exams/scope";
+import { examScope, seesYear } from "@/lib/exams/scope";
 import { seatingHtml, seatingPlan, sittings } from "@/lib/exams/seating";
 
 export const dynamic = "force-dynamic";
@@ -23,7 +23,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const exam = await tx.exam.findFirst({ where: { id, archivedAt: null } });
     if (!exam) return null;
     const scope = await examScope(tx, current, exam.academicYearId);
-    if (!scope.datesheets && !scope.manage) return null;
+    if ((!scope.datesheets && !scope.manage) || !seesYear(scope, exam.academicYearId)) return null;
     const s = (await sittings(tx, id)).find((x) => x.key === sitting);
     if (!s) return null;
     const plan = await seatingPlan(tx, id, sitting);

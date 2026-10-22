@@ -5,7 +5,7 @@ import { readListParams } from "@/lib/list";
 import { formatDate } from "@/lib/format";
 import { PermissionDeniedError, reachFor } from "@/lib/permissions";
 import { PRIORITY_LABEL, STATUS_LABEL } from "@/lib/communication/notices";
-import { NOTICE_FILTERS, noticeCounts, noticeWhere } from "@/lib/communication/notice-list";
+import { NOTICE_FILTERS, noticeCampusWhere, noticeCounts, noticeWhere } from "@/lib/communication/notice-list";
 import type { Notice } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +25,8 @@ export async function GET(req: Request) {
   const tz = current.school.timeZone;
   const full = reachFor(current.permissions, "communication", "view") === "all";
   const data = await withSchool(current.ctx, async (tx) => {
-    const rows = await tx.notice.findMany({ where: noticeWhere(current.ctx, full, params, tz), orderBy: { createdAt: "desc" }, take: 10000 });
+    // A person limited to one campus does not get notices for other campuses only.
+    const rows = await tx.notice.findMany({ where: { AND: [noticeWhere(current.ctx, full, params, tz), await noticeCampusWhere(tx, current.ctx, current.campusId)] }, orderBy: { createdAt: "desc" }, take: 10000 });
     const counts = await noticeCounts(tx, rows);
     const filters = [params.q && `search "${params.q}"`, ...Object.entries(params.filters).map(([k, v]) => `${k}: ${v}`)].filter(Boolean).join(", ");
     await logExport(tx, current.ctx, { title: "Notices", format, filters, rows: rows.length });

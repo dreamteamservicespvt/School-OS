@@ -65,18 +65,27 @@ export function sortRows(t: Table, sort: string | null, dir: "asc" | "desc"): Ta
   return { ...t, rows };
 }
 
-/** The person's own sections this year, for own reach; null for the whole school. */
-export async function reachSections(tx: Tx, ctx: SchoolContext, own: boolean, yearId: string | null) {
-  if (!own) return null;
-  return yearId ? ownSectionIds(tx, ctx, yearId) : [];
+/**
+ * The sections a run may read: for own reach, the person's own sections this
+ * year; for a person limited to one campus, only that campus's sections;
+ * null for the whole school.
+ */
+export async function reachSections(tx: Tx, ctx: SchoolContext, own: boolean, yearId: string | null, campusId: string | null = null) {
+  if (!own && !campusId) return null;
+  if (!yearId) return [];
+  const mine = own ? await ownSectionIds(tx, ctx, yearId) : null;
+  if (!campusId) return mine;
+  const onCampus = (await tx.section.findMany({ where: { academicYearId: yearId, schoolClass: { campusId } }, select: { id: true } })).map((s) => s.id);
+  return mine ? mine.filter((id) => onCampus.includes(id)) : onCampus;
 }
 
 /** Runs one report for one person. Refuses a report the person may not see. */
 export async function runEntry(tx: Tx, who: ReportViewer, entry: ReportEntry, f: ReportFilters): Promise<Table> {
   const a = reportAccess(who);
   if (!entryAllowed(entry, a, who)) throw new ReportProblem(closedWords(entry, a, who));
-  const sections = await reachSections(tx, who.ctx, a.own, f.year?.id ?? null);
+  const sections = await reachSections(tx, who.ctx, a.own, f.year?.id ?? null, who.campusId ?? null);
   if (a.own && f.sectionId && !sections?.includes(f.sectionId)) throw new ReportProblem("You can see reports for your own classes only.");
+  if (who.campusId && f.sectionId && !sections?.includes(f.sectionId)) throw new ReportProblem("You can see reports for your own campus only.");
   const cache = new Map<string, Promise<unknown>>();
   const rc: RunCtx = {
     tx, ctx: who.ctx, who, f, tz: who.school.timeZone, sections,
@@ -90,7 +99,7 @@ export async function runEntry(tx: Tx, who: ReportViewer, entry: ReportEntry, f:
 export async function optionsFor(tx: Tx, who: ReportViewer, entry: ReportEntry, f: ReportFilters) {
   if (!entry.options) return [];
   const a = reportAccess(who);
-  const sections = await reachSections(tx, who.ctx, a.own, f.year?.id ?? null);
+  const sections = await reachSections(tx, who.ctx, a.own, f.year?.id ?? null, who.campusId ?? null);
   const cache = new Map<string, Promise<unknown>>();
   return entry.options({
     tx, ctx: who.ctx, who, f, tz: who.school.timeZone, sections,

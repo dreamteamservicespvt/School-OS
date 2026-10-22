@@ -10,10 +10,12 @@ import { cancelScheduled, retryFailed } from "@/lib/messaging/deliver";
 import { creditWords, MessagingProblem } from "@/lib/messaging/send";
 import { planResend, resend, type ResendWho } from "@/lib/messaging/resend";
 import { CHANNEL_LABEL, isChannel } from "@/lib/messaging/channels";
+import { messageCampusWhere } from "@/lib/communication/history";
 
 async function ownMessage(id: string) {
   const access = await commAction("create");
-  const ok = await withSchool(access.current.ctx, (tx) => tx.message.findFirst({ where: { id, schoolId: access.current.ctx.schoolId, ...(access.full ? {} : { sentById: access.current.user.id }) }, select: { id: true } }));
+  // A message only to another campus's people is not found for a person limited to one campus.
+  const ok = await withSchool(access.current.ctx, async (tx) => tx.message.findFirst({ where: { id, schoolId: access.current.ctx.schoolId, ...(access.full ? {} : { sentById: access.current.user.id }), AND: [await messageCampusWhere(tx, access.current.ctx, access.scope.campusId)] }, select: { id: true } }));
   if (!ok) throw new MessagingProblem("This message was not found, or you did not send it.");
   return access;
 }

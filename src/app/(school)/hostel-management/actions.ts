@@ -10,8 +10,9 @@ import { formatRupees } from "@/lib/format";
 import { canDecide, decide } from "@/lib/approvals";
 import { DOCUMENT_TYPES, IMAGE_TYPES, saveFile } from "@/lib/files";
 import { instantOf } from "@/lib/front-office/time";
-import { currentYear } from "@/lib/academic/years";
+import { currentYear, currentYears } from "@/lib/academic/years";
 import { findStudents } from "@/lib/students/find";
+import { inCampus, personCampusId } from "@/lib/campus";
 import {
   hostelAction, inHostel, need, str, id, optionalId, ids, text, maybe, int, money, isoDate, minute, on, HostelProblem, UUID_RE, type HostelWork,
 } from "@/lib/hostel/act";
@@ -52,7 +53,8 @@ async function roomInScope(w: HostelWork, roomId: string) {
 
 /* ---------- Finding students in forms ---------- */
 
-export type FoundStudent = { id: string; name: string; admissionNo: string; cls: string; gender: Gender | null; bed: string | null; hostelId: string | null };
+/** `campusId`: the student's campus, so the bed sheet offers the fee plans of that campus's year. */
+export type FoundStudent = { id: string; name: string; admissionNo: string; cls: string; gender: Gender | null; bed: string | null; hostelId: string | null; campusId?: string | null };
 
 /**
  * Students for the pickers: "new" finds studying students without a bed (for
@@ -68,10 +70,11 @@ export async function findStudentsAction(q: string, mode: "new" | "resident"): P
       const active = await w.tx.bedAllocation.findMany({ where: { status: "ACTIVE" }, select: { studentId: true, hostelId: true, roomId: true, bedId: true } });
       const activeBy = new Map(active.map((a) => [a.studentId, a]));
       // The one student search, among students without a bed, or living in the person's own hostels.
-      const year = await currentYear(w.tx, w.ctx);
+      // Each student's class in their own campus's current year.
+      const yearIds = (await currentYears(w.tx, w.ctx)).map((y) => y.id);
       const rows = mode === "new"
-        ? await findStudents(w.tx, term, { scope: {}, where: { id: { notIn: active.map((a) => a.studentId) } }, yearId: year?.id ?? null, statuses: ["ACTIVE"], take: 12 })
-        : await findStudents(w.tx, term, { scope: {}, where: { id: { in: active.filter((a) => w.mine === null || w.mine.includes(a.hostelId)).map((a) => a.studentId) } }, yearId: year?.id ?? null, statuses: "any", take: 12 });
+        ? await findStudents(w.tx, term, { scope: inCampus(w.current), where: { id: { notIn: active.map((a) => a.studentId) } }, yearId: yearIds, statuses: ["ACTIVE"], take: 12 })
+        : await findStudents(w.tx, term, { scope: inCampus(w.current), where: { id: { in: active.filter((a) => w.mine === null || w.mine.includes(a.hostelId)).map((a) => a.studentId) } }, yearId: yearIds, statuses: "any", take: 12 });
       const info = await studentsInfo(w.tx, w.ctx, rows.map((r) => r.id));
       const rooms = await w.tx.hostelRoom.findMany({ where: { id: { in: rows.map((r) => activeBy.get(r.id)?.roomId).filter((x): x is string => Boolean(x)) } }, select: { id: true, roomNo: true } });
       const beds = await w.tx.hostelBed.findMany({ where: { id: { in: rows.map((r) => activeBy.get(r.id)?.bedId).filter((x): x is string => Boolean(x)) } }, select: { id: true, bedNo: true } });
@@ -81,7 +84,7 @@ export async function findStudentsAction(q: string, mode: "new" | "resident"): P
         const room = a ? rooms.find((x) => x.id === a.roomId) : null;
         const bed = a ? beds.find((x) => x.id === a.bedId) : null;
         const g = (s.gender ?? "").toLowerCase();
-        return { id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: (["male", "m", "boy"].includes(g) ? "BOYS" : ["female", "f", "girl"].includes(g) ? "GIRLS" : null) as Gender | null, bed: room && bed ? `Room ${room.roomNo}, Bed ${bed.bedNo}` : null, hostelId: a?.hostelId ?? null };
+        return { id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: (["male", "m", "boy"].includes(g) ? "BOYS" : ["female", "f", "girl"].includes(g) ? "GIRLS" : null) as Gender | null, bed: room && bed ? `Room ${room.roomNo}, Bed ${bed.bedNo}` : null, hostelId: a?.hostelId ?? null, campusId: s.campusId };
       });
     });
   } catch {
@@ -476,7 +479,11 @@ export async function saveMessagesAction(_p: S, fd: FormData): Promise<S> {
 export async function saveFeePlanAction(_p: S, fd: FormData): Promise<S> {
   return hostelAction("edit", fd, async (w) => {
     need(w.can.feePlans, "set hostel fee plans");
-    const year = await currentYear(w.tx, w.ctx);
+    const planId = optionalId(fd, "planId");
+    // A changed plan keeps its own year; a new plan is for the current year of the person's own campus.
+    const existing = planId ? await w.tx.hostelFeePlan.findFirst({ where: { id: planId, archivedAt: null }, select: { academicYearId: true } }) : null;
+    if (planId && !existing) throw new HostelProblem("This fee plan was not found.");
+    const year = existing ? { id: existing.academicYearId } : await currentYear(w.tx, w.ctx, await personCampusId(w.tx, w.ctx, w.current));
     if (!year) throw new HostelProblem("Set up this academic year first (Academic Management).");
     const labels = fd.getAll("instLabel").map((x) => String(x).trim());
     const dues = fd.getAll("instDue").map((x) => String(x).trim());
@@ -492,7 +499,6 @@ export async function saveFeePlanAction(_p: S, fd: FormData): Promise<S> {
     });
     const type = str(fd, "roomType");
     const hostelId = optionalId(fd, "hostelId");
-    const planId = optionalId(fd, "planId");
     await saveFeePlan(w.tx, w.ctx, planId, { academicYearId: year.id, name: text(fd, "name", "Plan name", { min: 3, max: 60 }), hostelId, roomType: type && (ROOM_TYPES as readonly string[]).includes(type) ? type : type ? text(fd, "roomType", "Room type", { max: 30 }) : null, includesMess: on(fd, "includesMess"), note: maybe(fd, "note", "Note", 300), installments });
     return { added: !planId };
   }, (r) => (r.added ? "Fee plan added. Students given a bed from now on get these hostel fees." : "Fee plan saved. The change applies to students given a bed from now on."));

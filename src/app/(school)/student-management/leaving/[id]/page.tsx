@@ -16,6 +16,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { ActionButton, ConfirmAction } from "@/components/students/confirm-action";
 import { blockMessage, isCleared } from "@/lib/students/leaving";
 import { BASE, studentPage, todayIso } from "../../_lib/page";
+import { campusAllows } from "@/lib/campus";
 import { askWaiverAction, cancelLeavingAction, completeLeavingAction, refreshClearanceAction } from "../../_actions/leaving";
 import { CERT_LABEL, CHECK_LABEL, CHECK_TONE, LEAVING_TYPE_LABEL, studentFacts } from "../load";
 
@@ -33,6 +34,9 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
   const data = await withSchool(current.ctx, async (tx) => {
     const req = await tx.leavingRequest.findUnique({ where: { id }, include: { checks: { orderBy: { name: "asc" } } } });
     if (!req) return null;
+    // One campus: that campus's students only.
+    const st = await tx.student.findFirst({ where: { id: req.studentId }, select: { campusId: true } });
+    if (!campusAllows(current, st?.campusId)) return null;
     const [facts, certs, people] = await Promise.all([
       studentFacts(tx, [req.studentId]),
       tx.certificate.findMany({ where: { leavingRequestId: id }, orderBy: { createdAt: "desc" } }),

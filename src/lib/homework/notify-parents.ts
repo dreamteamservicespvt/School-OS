@@ -10,7 +10,7 @@ import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { CHANNEL_LABEL, MessagingProblem, NOT_SENT, planMessage, sendAutomatic, sendMessage, templateByKey, type Channel, type SendInput } from "../messaging";
 import { HomeworkProblem } from "./access";
-import { requireWork, type HomeworkScope } from "./scope";
+import { onCampus, requireWork, type HomeworkScope } from "./scope";
 import { seenFor } from "./homework";
 
 type SetInput = { homeworkId: string; title: string; subject: string; sectionLabel: string; dueDate: Date; studentIds: string[] };
@@ -67,7 +67,7 @@ export async function unseenStudents(tx: Tx, homeworkId: string) {
 
 async function resendInput(tx: Tx, s: HomeworkScope, homeworkId: string) {
   const hw = await tx.homework.findFirst({ where: { id: homeworkId, archivedAt: null } });
-  if (!hw) throw new HomeworkProblem("This homework was not found. It may have been archived.");
+  if (!hw || !onCampus(s, hw.sectionId)) throw new HomeworkProblem("This homework was not found. It may have been archived.");
   requireWork(s, hw, "this homework");
   const students = await unseenStudents(tx, homeworkId);
   if (!students.length) throw new HomeworkProblem("Every parent has already seen this homework.");
@@ -129,7 +129,7 @@ export async function resendToUnseen(tx: Tx, s: HomeworkScope, homeworkId: strin
 /** "Remind parents" from Submissions: the students chosen who have not handed in. */
 export async function remindParents(tx: Tx, s: HomeworkScope, homeworkId: string, studentIds: string[]) {
   const hw = await tx.homework.findFirst({ where: { id: homeworkId, archivedAt: null } });
-  if (!hw) throw new HomeworkProblem("This homework was not found.");
+  if (!hw || !onCampus(s, hw.sectionId)) throw new HomeworkProblem("This homework was not found.");
   requireWork(s, hw, "this homework", "submissions");
   const subs = await tx.submission.findMany({ where: { homeworkId, studentId: { in: studentIds }, archivedAt: null, status: { in: ["ASSIGNED", "MISSING"] } }, select: { studentId: true } });
   if (!subs.length) throw new HomeworkProblem("Everyone chosen has already handed in. Reminders go only to parents of students who have not.");

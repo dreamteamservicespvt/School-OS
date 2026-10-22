@@ -4,6 +4,7 @@ import "server-only";
 
 import type { Tx } from "../db";
 import { STUDYING } from "../students/labels";
+import { currentEnrolments } from "../academic/years";
 
 export type StudentCard = { id: string; name: string; admissionNo: string; cls: string; classSort: number; photoFileId: string | null; status: string; campusId: string; studying: boolean };
 
@@ -12,12 +13,12 @@ export async function studentCards(tx: Tx, ids: string[]): Promise<Map<string, S
   const unique = [...new Set(ids)];
   const out = new Map<string, StudentCard>();
   if (!unique.length) return out;
-  const [students, enrolments] = await Promise.all([
+  const [students, current] = await Promise.all([
     tx.student.findMany({ where: { id: { in: unique } }, select: { id: true, fullName: true, admissionNo: true, photoFileId: true, status: true, campusId: true } }),
-    tx.enrolment.findMany({ where: { studentId: { in: unique }, archivedAt: null }, orderBy: { createdAt: "desc" }, select: { studentId: true, sectionId: true } }),
+    currentEnrolments(tx, unique),
   ]);
-  const latest = new Map<string, string>();
-  for (const e of enrolments) if (!latest.has(e.studentId)) latest.set(e.studentId, e.sectionId);
+  // Each student's class this year, in their own campus's current year.
+  const latest = new Map<string, string>([...current].map(([id, e]) => [id, e.sectionId]));
   const sections = await tx.section.findMany({ where: { id: { in: [...new Set(latest.values())] } }, include: { schoolClass: { select: { name: true, sortOrder: true } } } });
   for (const s of students) {
     const sec = sections.find((x) => x.id === latest.get(s.id));

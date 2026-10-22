@@ -10,7 +10,7 @@ import type { Band } from "@/lib/exams/grades";
 import { ExamRuleError } from "@/lib/exams/common";
 import { recomputeDrafts } from "@/lib/exams/results";
 import {
-  addListItem, archiveArea, archiveCompetency, archiveGradeScale, archiveListItem, importPreset, saveArea, saveBoards, saveClassPatterns, saveCompetency, saveGradeScale, saveRules, saveWeights, setExamFeature,
+  addListItem, archiveArea, archiveCompetency, archiveGradeScale, archiveListItem, examSettings, importPreset, saveArea, saveBoards, saveClassPatterns, saveCompetency, saveGradeScale, saveRules, saveWeights, setExamFeature,
   type BoardChoice, type RulesInput,
 } from "@/lib/exams/settings";
 import { actSimple, str } from "../_lib/server";
@@ -123,7 +123,16 @@ export async function saveClassPatternsAction(patterns: Record<string, string>) 
   return actSimple("edit", async ({ tx, current }) => {
     const entries = Object.entries(patterns ?? {});
     if (entries.length > 300 || entries.some(([id]) => !UUID.test(id))) throw new ExamRuleError("Reload the page and try again.");
-    await saveClassPatterns(tx, current.ctx, Object.fromEntries(entries.map(([id, p]) => [id, String(p) as ExamPattern])));
+    let chosen: Record<string, ExamPattern> = Object.fromEntries(entries.map(([id, p]) => [id, String(p) as ExamPattern]));
+    if (current.campusId) {
+      // One campus: only that campus's classes; the other campuses' classes keep their patterns.
+      const mine = new Set((await tx.schoolClass.findMany({ where: { campusId: current.campusId }, select: { id: true } })).map((c) => c.id));
+      if (Object.keys(chosen).some((id) => !mine.has(id))) throw new ExamRuleError("A class here was archived or changed. Reload the page.");
+      const others = Object.entries((await examSettings(tx, current.ctx)).classPatterns).filter(([id]) => !mine.has(id));
+      const open = new Set((await tx.schoolClass.findMany({ where: { id: { in: others.map(([id]) => id) }, archivedAt: null }, select: { id: true } })).map((c) => c.id));
+      chosen = { ...Object.fromEntries(others.filter(([id]) => open.has(id))), ...chosen };
+    }
+    await saveClassPatterns(tx, current.ctx, chosen);
     return { flash: { message: "Exam pattern per class saved. New datesheets start with it; exams already made keep theirs." } };
   });
 }

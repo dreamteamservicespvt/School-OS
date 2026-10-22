@@ -14,7 +14,7 @@ import { Col, Empty, HBars, ListFooter, Split, Toolbar } from "@/components/ui/b
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
 import { cx } from "@/components/ui/cx";
-import { studentScope } from "@/lib/students/access";
+import { studentScope, visibleStudentIds } from "@/lib/students/access";
 import { BEHAVIOUR_KINDS, BEHAVIOUR_KIND_LABEL, isPositive, type BehaviourKind } from "@/lib/students/labels";
 import { classShort, shortDate, shownCount } from "@/lib/students/show";
 import { BASE, studentPage } from "../_lib/page";
@@ -30,7 +30,7 @@ const STEP = 25;
 const kindTone = (k: string) => isPositive(k) ? "ok" : k === "incident" ? "warn" : "bad";
 
 export default async function BehaviourPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, year, can, settings, tz } = await studentPage();
+  const { current, yearIds, can, settings, tz } = await studentPage();
   if (!can.seeBehaviour) redirect(`${BASE}/behaviour/counselling`);
   const raw = await searchParams;
   const params = readListParams(raw, FILTERS);
@@ -39,11 +39,12 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
   const path = `${BASE}/behaviour`;
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const scope = await studentScope(tx, current, year?.id);
+    const scope = await studentScope(tx, current, yearIds);
     const f = params.filters;
-    const studentWhere: Prisma.StudentWhereInput = { AND: [scope, ...(f.section && year ? [{ enrolments: { some: { sectionId: f.section, academicYearId: year.id, archivedAt: null } } }] : []), ...(params.q ? [{ id: { in: await studentIdsForFilter(tx, params.q) } }] : [])] };
-    const base: Prisma.BehaviourIncidentWhereInput = { archivedAt: params.archived ? { not: null } : null, ...(year ? { academicYearId: year.id } : {}) };
-    const mine = can.reach === "all" ? null : (await tx.student.findMany({ where: scope, select: { id: true } })).map((x) => x.id);
+    const studentWhere: Prisma.StudentWhereInput = { AND: [scope, ...(f.section && yearIds.length ? [{ enrolments: { some: { sectionId: f.section, academicYearId: { in: yearIds }, archivedAt: null } } }] : []), ...(params.q ? [{ id: { in: await studentIdsForFilter(tx, params.q) } }] : [])] };
+    // This year: each campus's own current year (a person limited to one campus: theirs).
+    const base: Prisma.BehaviourIncidentWhereInput = { archivedAt: params.archived ? { not: null } : null, ...(yearIds.length ? { academicYearId: { in: yearIds } } : {}) };
+    const mine = await visibleStudentIds(tx, current, yearIds);
     if (mine) base.students = { some: { studentId: { in: mine } } };
     const where: Prisma.BehaviourIncidentWhereInput = { ...base, ...(f.kind ? { kind: f.kind } : {}), ...(f.status ? { status: f.status } : {}), ...(range ? { date: dateWhere(range) } : {}) };
     // Incident rows link to students by id only: narrow to the students in the filters.
@@ -52,7 +53,7 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
       const byStudent: Prisma.BehaviourIncidentWhereInput = { students: { some: { studentId: { in: ids } } } };
       // A search also finds the words in "What happened" (within the chosen class, if any).
       if (params.q && f.section) {
-        const inClass = (await tx.student.findMany({ where: { AND: [scope, { enrolments: { some: { sectionId: f.section, academicYearId: year?.id, archivedAt: null } } }] }, select: { id: true } })).map((x) => x.id);
+        const inClass = (await tx.student.findMany({ where: { AND: [scope, { enrolments: { some: { sectionId: f.section, academicYearId: { in: yearIds }, archivedAt: null } } }] }, select: { id: true } })).map((x) => x.id);
         where.AND = [{ OR: [byStudent, { AND: [{ description: { contains: params.q, mode: "insensitive" } }, { students: { some: { studentId: { in: inClass } } } }] }] }];
       } else if (params.q) where.AND = [{ OR: [byStudent, { description: { contains: params.q, mode: "insensitive" } }] }];
       else where.AND = [byStudent];
@@ -63,7 +64,7 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
     const [total, rows, sections, month] = await Promise.all([
       tx.behaviourIncident.count({ where }),
       tx.behaviourIncident.findMany({ where, orderBy: orderBy as object, take, include: { students: true } }),
-      sectionOptions(tx, current, year?.id, { own: can.reach === "own" }),
+      sectionOptions(tx, current, yearIds, { own: can.reach === "own" }),
       tx.behaviourIncident.groupBy({ by: ["kind"], where: { ...base, archivedAt: null, date: { gte: monthStart } }, _count: true }),
     ]);
     const studentIds = [...new Set(rows.flatMap((r) => r.students.map((s) => s.studentId)))];
@@ -78,7 +79,7 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
     const [students, reporters, enrol, toCounselling] = await Promise.all([
       tx.student.findMany({ where: { id: { in: allIds } }, select: { id: true, fullName: true } }),
       tx.userLogin.findMany({ where: { id: { in: rows.map((r) => r.reportedById).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } }),
-      year ? tx.enrolment.findMany({ where: { studentId: { in: allIds }, academicYearId: year.id, archivedAt: null }, select: { studentId: true, sectionId: true } }) : [],
+      yearIds.length ? tx.enrolment.findMany({ where: { studentId: { in: allIds }, academicYearId: { in: yearIds }, archivedAt: null }, select: { studentId: true, sectionId: true } }) : [],
       can.seeCounselling ? tx.counsellingCase.findMany({ where: { incidentId: { in: rows.map((r) => r.id) } }, select: { incidentId: true } }) : [],
     ]);
     const names = await sectionNames(tx, enrol.map((e) => e.sectionId));

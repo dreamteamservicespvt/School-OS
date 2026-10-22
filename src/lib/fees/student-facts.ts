@@ -23,10 +23,10 @@ async function schoolToday(tx: Tx, schoolId: string) {
   return todayIn(school?.timeZone);
 }
 
-/** Of these students, those whose fees this person may see: everyone, or (Own) the students of their own sections this year. */
+/** Of these students, those whose fees this person may see: everyone (on their campus, for a "One campus" login), or (Own) the students of their own sections this year. */
 async function feeVisible(tx: Tx, who: FactViewer, ids: string[]): Promise<string[]> {
   if (!ids.length || !seesStudentFees(who)) return [];
-  if (who.permissions["fee-management"].see === "all") return ids;
+  if (who.permissions["fee-management"].see === "all" && !who.campusId) return ids;
   const viewer = await feeViewer(tx, who.ctx, { ...who, user: { id: who.ctx.userId ?? "" } });
   const rows = await tx.student.findMany({ where: { id: { in: ids }, ...studentScope(viewer) }, select: { id: true } });
   return rows.map((r) => r.id);
@@ -70,7 +70,7 @@ export const listFacts: ListSource = {
 export const studentsWithDues: FeeFilterSource = async (tx, who, q) => {
   if (!seesStudentFees(who)) return null;
   const owing = await studentsOwing(tx, await schoolToday(tx, who.ctx.schoolId), q.kind);
-  return who.permissions["fee-management"].see === "all" ? owing : feeVisible(tx, who, owing);
+  return who.permissions["fee-management"].see === "all" && !who.campusId ? owing : feeVisible(tx, who, owing);
 };
 
 /** Payments for the new year's fees stop a promotion being undone (03 §2: "no attendance, no payment"). */

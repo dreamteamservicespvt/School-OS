@@ -13,7 +13,7 @@ export const metadata: Metadata = { title: "Send to existing families" };
 export default async function SendFamiliesPage() {
   const access = await commOfficePage("create");
   const { current } = access;
-  const data = await withSchool(current.ctx, async (tx) => ({ who: await whoOptions(tx, current.ctx), setups: await channelSetups(tx, current.ctx) }));
+  const data = await withSchool(current.ctx, async (tx) => ({ who: await whoOptions(tx, current.ctx, access.scope.campusId), setups: await channelSetups(tx, current.ctx) }));
   const channels = (["whatsapp", "sms"] as const).filter((c) => data.setups[c].isOn).map((c) => ({ value: c, label: c === "sms" ? "SMS" : "WhatsApp" }));
   return (
     <>

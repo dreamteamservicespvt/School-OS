@@ -18,6 +18,7 @@ import { ActionForm, FormSelect, FormText } from "@/components/students/action-f
 import { StudentPicker } from "@/components/students/student-picker";
 import { BASE, studentPage } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
+import { visibleStudentIds } from "@/lib/students/access";
 import { linkMentorAction, markAlumniAction } from "../../_actions/leaving";
 import { studentIdsForFilter } from "@/lib/students/find";
 
@@ -27,15 +28,19 @@ const FILTERS = ["year", "mentor"] as const;
 
 /** Alumni (optional): records of past students, donations, mentors and the job board. */
 export default async function AlumniPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, settings, year, can } = await studentPage();
+  const { current, settings, yearIds, can } = await studentPage();
   if (!settings.alumniOn) redirect(`${BASE}/leaving`);
   const params = readListParams(await searchParams, FILTERS);
   const path = `${BASE}/leaving/alumni`;
   const data = await withSchool(current.ctx, async (tx) => {
     const f = params.filters;
     const nameIds = params.q ? await studentIdsForFilter(tx, params.q) : null;
+    // One campus: that campus's alumni only.
+    const mine = await visibleStudentIds(tx, current);
+    const own = mine ? { studentId: { in: mine } } : {};
     const where: Prisma.AlumniRecordWhereInput = {
       archivedAt: null,
+      ...(mine ? { AND: [own] } : {}),
       ...(f.year ? { graduationYear: f.year } : {}),
       ...(f.mentor ? { isMentor: true } : {}),
       ...(nameIds ? { OR: [{ studentId: { in: nameIds } }, { career: { contains: params.q!, mode: "insensitive" } }, { higherEducation: { contains: params.q!, mode: "insensitive" } }] } : {}),
@@ -43,13 +48,13 @@ export default async function AlumniPage({ searchParams }: { searchParams: Promi
     const [total, rows, years, graduated, donated, all] = await Promise.all([
       tx.alumniRecord.count({ where }),
       tx.alumniRecord.findMany({ where, orderBy: [{ graduationYear: "desc" }, { createdAt: "desc" }], ...skipTake(params), include: { _count: { select: { donations: true } } } }),
-      tx.alumniRecord.findMany({ where: { archivedAt: null }, distinct: ["graduationYear"], select: { graduationYear: true }, orderBy: { graduationYear: "desc" } }),
-      tx.student.findMany({ where: { status: "GRADUATED", archivedAt: null }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" }, take: 500 }),
-      tx.alumniDonation.aggregate({ _sum: { amountPaise: true }, _count: true }),
-      tx.alumniRecord.findMany({ where: { archivedAt: null }, select: { id: true, studentId: true }, take: 1000 }),
+      tx.alumniRecord.findMany({ where: { archivedAt: null, ...own }, distinct: ["graduationYear"], select: { graduationYear: true }, orderBy: { graduationYear: "desc" } }),
+      tx.student.findMany({ where: { status: "GRADUATED", archivedAt: null, ...(current.campusId ? { campusId: current.campusId } : {}) }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" }, take: 500 }),
+      tx.alumniDonation.aggregate({ where: mine ? { alumni: own } : {}, _sum: { amountPaise: true }, _count: true }),
+      tx.alumniRecord.findMany({ where: { archivedAt: null, ...own }, select: { id: true, studentId: true }, take: 1000 }),
     ]);
     const names = await tx.student.findMany({ where: { id: { in: [...rows.map((r) => r.studentId), ...all.map((a) => a.studentId)] } }, select: { id: true, fullName: true, admissionNo: true } });
-    const sections = can.manage ? await sectionOptions(tx, current, year?.id) : [];
+    const sections = can.manage ? await sectionOptions(tx, current, yearIds) : [];
     return { total, rows, years, graduated, donated, all, names, sections };
   });
   type Row = (typeof data.rows)[number];

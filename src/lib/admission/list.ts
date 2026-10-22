@@ -5,7 +5,7 @@ import "server-only";
 import type { ApplicationStage, Prisma } from "@prisma/client";
 import type { ListParams } from "../list";
 import { orderByFor } from "../list";
-import { enquiryScope, type Viewer } from "./access";
+import { applicationScope, enquiryScope, type Viewer } from "./access";
 import { CLOSED_STATUSES } from "./settings";
 import { STAGES } from "./applications";
 import { instantToLocal, zonedToInstant } from "./act";
@@ -72,9 +72,10 @@ export function enquiryOrder(params: ListParams) {
 
 export const APPLICATION_FILTERS = ["stage", "class", "year", "docs", "fee", "channel", "period", "from", "to"] as const;
 
-export function applicationWhere(params: ListParams, opts: { yearId: string | string[]; range?: DayRange | null; timeZone?: string }): Prisma.ApplicationWhereInput {
+/** campusId: the campus the person is limited to (Viewer.campusId); none for the whole school. */
+export function applicationWhere(params: ListParams, opts: { yearId: string | string[]; range?: DayRange | null; timeZone?: string; campusId?: string | null }): Prisma.ApplicationWhereInput {
   const f = params.filters;
-  const and: Prisma.ApplicationWhereInput[] = [];
+  const and: Prisma.ApplicationWhereInput[] = [applicationScope(opts)];
   // The date filter is on the day the application was submitted.
   if (opts.range) and.push({ createdAt: momentWhere(opts.range, opts.timeZone ?? "Asia/Kolkata") });
   if (params.q) {

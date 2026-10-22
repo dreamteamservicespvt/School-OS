@@ -5,6 +5,7 @@ import { UUID_RE, problemState } from "@/lib/admission/act";
 import { inSchool } from "@/lib/admission/server";
 import { moveStage, loadApplication } from "@/lib/admission/applications";
 import { boardColumns } from "@/lib/admission/dashboard";
+import { enquiryScope } from "@/lib/admission/access";
 
 /**
  * A pipeline card moves one column on, with the same checks as the buttons.
@@ -17,10 +18,10 @@ export async function moveCard(id: string, from: string, to: string): Promise<{ 
       const cols = boardColumns(s).map((c) => c.key as string);
       if (cols[cols.indexOf(from) + 1] !== to) return { ok: false, title: "Move one step at a time" };
       if (from === "enq") {
-        const e = await tx.enquiry.findFirst({ where: { id, archivedAt: null }, select: { childName: true } });
+        const e = await tx.enquiry.findFirst({ where: { id, archivedAt: null, AND: [enquiryScope(v)] }, select: { childName: true } });
         return { ok: false, title: `${e?.childName ?? "This enquiry"} has no application yet`, body: "Open the enquiry and use Convert to application, so the form can be filled." };
       }
-      const app = await loadApplication(tx, id);
+      const app = await loadApplication(tx, id, v);
       if (to === "int") return { ok: false, title: `${app.fullName} cannot move on yet`, body: "Book an interview slot in Test & Interview first." };
       if (to === "done") {
         return { ok: false, title: `${app.fullName} cannot move on yet`, body: app.stage === "APPROVED" ? "Confirm the admission from Admission Decision." : "The admission must be approved first, in Admission Decision." };

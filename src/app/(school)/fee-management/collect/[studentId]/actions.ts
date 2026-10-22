@@ -12,10 +12,19 @@ import { MoneyProblem } from "@/lib/fees/problem";
 import { COUNTER_MODES } from "@/lib/fees/words";
 import { dateTimeOf, id, ids, needRupees, optionalText, rupeesOf, str, UUID_RE } from "@/lib/fees/act";
 import { requireAction } from "@/lib/current";
-import { withSchool } from "@/lib/db";
+import { withSchool, type Tx } from "@/lib/db";
+import { canSeeStudent, feeViewer, type FeeViewer } from "@/lib/fees/access";
+import { counterAllowed, feeSettings } from "@/lib/fees/settings";
 import { feeAction } from "../../_lib/action";
 
 const ZERO = BigInt(0);
+
+/** The student from the form, if the person may see them (their campus, when limited to one). */
+async function student(tx: Tx, viewer: FeeViewer, fd: FormData) {
+  const studentId = id(fd, "studentId", "student");
+  if (!(await canSeeStudent(tx, viewer, studentId))) throw new MoneyProblem("This student was not found.");
+  return studentId;
+}
 
 export type Collected = {
   paymentId: string;
@@ -31,12 +40,13 @@ export type Collected = {
 /** Collect Fee: posts the payment, makes the receipt and tells the parent, all in one step (A1). */
 export async function collectFee(_prev: unknown, fd: FormData) {
   return feeAction("create", fd, async (tx, ctx, viewer) => {
+    const studentId = await student(tx, viewer, fd);
     const mode = str(fd, "mode");
     if (!COUNTER_MODES.some((m) => m.value === mode)) throw new MoneyProblem("Choose how it is paid.", "mode");
     const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { timeZone: true } });
     const paidAtRaw = str(fd, "paidAt");
     const result = await collectPayment(tx, ctx, { roleKeys: viewer.roleKeys }, {
-      studentId: id(fd, "studentId", "student"),
+      studentId,
       dueIds: ids(fd, "dueId"),
       amountPaise: needRupees(fd, "amount", "Amount received"),
       mode: mode as PaymentMode,
@@ -81,21 +91,24 @@ export async function collectFee(_prev: unknown, fd: FormData) {
 
 /** A discount above the counter limit: sends it to the principal as a concession on the ticked rows. */
 export async function askDiscountApproval(_prev: unknown, fd: FormData) {
-  return feeAction("create", fd, async (tx, ctx) => {
+  return feeAction("create", fd, async (tx, ctx, viewer) => {
+    const studentId = await student(tx, viewer, fd);
+    // The same counter permission as a discount within the limit (collectPayment).
+    if (!counterAllowed(await feeSettings(tx, ctx), viewer.roleKeys, "give-discount")) throw new MoneyProblem("Giving a discount needs the \"give discount\" permission.", "discount");
     const amount = needRupees(fd, "discount", "Discount");
     const reason = str(fd, "discountReason");
     if (reason.length < 5) throw new MoneyProblem("Give a reason of at least 5 characters for the discount.", "discountReason");
     const dueIds = ids(fd, "dueId");
     if (!dueIds.length) throw new MoneyProblem("Tick the rows the discount is for.", "dueIds");
-    const r = await giveConcession(tx, ctx, { studentId: id(fd, "studentId", "student"), type: "DISCOUNT", mode: "amount", amountPaise: amount, percentBp: 0, feeHeadIds: [], dueIds, periodFrom: null, periodTo: null, reason }, { forceApproval: true });
+    const r = await giveConcession(tx, ctx, { studentId, type: "DISCOUNT", mode: "amount", amountPaise: amount, percentBp: 0, feeHeadIds: [], dueIds, periodFrom: null, periodTo: null, reason }, { forceApproval: true });
     return { estimate: formatRupees(r.estimate) };
   }, (r) => ({ message: `Discount of ${r.estimate} sent to the principal for approval. Collect once it is approved.`, tone: "info", link: { href: "/approvals", label: "Open Approvals" } }), { staffOnly: "give discounts" });
 }
 
 /** "Send payment link instead": a Razorpay link for the ticked rows, by WhatsApp. */
 export async function sendLink(_prev: unknown, fd: FormData) {
-  return feeAction("create", fd, async (tx, ctx) => {
-    const r = await sendPaymentLink(tx, ctx, { studentId: id(fd, "studentId", "student"), dueIds: ids(fd, "dueId"), channel: "whatsapp" });
+  return feeAction("create", fd, async (tx, ctx, viewer) => {
+    const r = await sendPaymentLink(tx, ctx, { studentId: await student(tx, viewer, fd), dueIds: ids(fd, "dueId"), channel: "whatsapp" });
     return { amount: formatRupees(r.amount), to: r.card.fatherName ?? r.card.primaryGuardian?.name ?? "the parent", expires: formatDate(r.link.expiresAt) };
   }, (r) => `Payment link sent to ${r.to}. ${r.amount} · WhatsApp, with SMS backup. Valid till ${r.expires}.`, { staffOnly: "send payment links" });
 }
@@ -105,8 +118,8 @@ export type QrLink = { url: string; svg: string; amount: string; linkId: string 
 /** "Show QR": a payment link for the ticked rows as a QR code the parent scans. The payment shows up by itself once Razorpay confirms it. */
 export async function showQr(_prev: unknown, fd: FormData) {
   const origin = await appOrigin();
-  return feeAction("create", fd, async (tx, ctx) => {
-    const r = await createPaymentLink(tx, ctx, { studentId: id(fd, "studentId", "student"), dueIds: ids(fd, "dueId"), source: "LINK", channel: "qr" });
+  return feeAction("create", fd, async (tx, ctx, viewer) => {
+    const r = await createPaymentLink(tx, ctx, { studentId: await student(tx, viewer, fd), dueIds: ids(fd, "dueId"), source: "LINK", channel: "qr" });
     const url = `${origin}${payPath(ctx.schoolId, r.token)}`;
     const svg = await QRCode.toString(url, { type: "svg", margin: 1, errorCorrectionLevel: "M", color: { dark: "#0f1715", light: "#ffffff" } });
     return { url, svg, amount: formatRupees(r.amount), linkId: r.link.id } satisfies QrLink;
@@ -120,6 +133,8 @@ export async function qrPaid(linkId: string): Promise<{ paid: boolean; receiptNo
   return withSchool(current.ctx, async (tx) => {
     const link = await tx.paymentLink.findFirst({ where: { id: linkId } });
     if (!link?.paymentId) return { paid: false, receiptNo: null };
+    // Another campus's link (for a person limited to one) says nothing.
+    if (!(await canSeeStudent(tx, await feeViewer(tx, current.ctx, current), link.studentId))) return { paid: false, receiptNo: null };
     const receipt = await tx.receipt.findUnique({ where: { paymentId: link.paymentId } });
     return { paid: true, receiptNo: receipt?.number ?? null };
   });
@@ -127,11 +142,12 @@ export async function qrPaid(linkId: string): Promise<{ paid: boolean; receiptNo
 
 /** Resend the receipt to the parent on WhatsApp. */
 export async function resendReceipt(_prev: unknown, fd: FormData) {
-  return feeAction("print", fd, async (tx, ctx) => {
+  return feeAction("print", fd, async (tx, ctx, viewer) => {
     const paymentId = id(fd, "paymentId", "payment");
     const p = await tx.payment.findFirst({ where: { id: paymentId } });
     const receipt = await tx.receipt.findUnique({ where: { paymentId } });
-    if (!p || !receipt || p.status !== "POSTED") throw new MoneyProblem("Only a posted payment's receipt can be sent.");
+    // A payment of a student the person may not see (another campus) is answered like one that does not exist.
+    if (!p || !receipt || p.status !== "POSTED" || !(await canSeeStudent(tx, viewer, p.studentId))) throw new MoneyProblem("Only a posted payment's receipt can be sent.");
     // A second copy needs its own event key, so it is not taken for a duplicate of the first.
     const r = await sendAutomatic(tx, ctx, {
       rule: "fee-paid",

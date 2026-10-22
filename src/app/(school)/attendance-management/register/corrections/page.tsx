@@ -5,7 +5,7 @@ import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { listHref, readListParams, skipTake, PAGE_SIZE } from "@/lib/list";
 import { attendancePage } from "@/lib/attendance/page";
-import { BASE } from "@/lib/attendance/access";
+import { BASE, correctionAllowed, sectionLimit } from "@/lib/attendance/access";
 import { registerChoices } from "@/lib/attendance/register";
 import { CORRECTION_WORDS, statusName, type CorrectionEntry } from "@/lib/attendance/corrections";
 import { statusList } from "@/lib/attendance/settings";
@@ -36,8 +36,14 @@ export default async function CorrectionsPage({ searchParams }: Props) {
     const sections = await registerChoices(tx, access);
     const names = new Map(sections.map((s) => [s.id, s.name]));
     const scope: Prisma.AttendanceCorrectionWhereInput[] = [];
-    if (access.students !== "none") scope.push(access.students === "all" ? { forWhom: "student" } : { forWhom: "student", sectionId: { in: sections.map((s) => s.id) } });
-    if (access.staff === "all") scope.push({ forWhom: "staff" });
+    // A person limited to one campus sees that campus's corrections only (staff corrections: every person in it on their campus).
+    if (access.students !== "none") scope.push(access.students === "all" ? { forWhom: "student", ...sectionLimit(access) } : { forWhom: "student", sectionId: { in: sections.map((s) => s.id) } });
+    if (access.staff === "all") {
+      const visible = access.limitStaff
+        ? (await tx.attendanceCorrection.findMany({ where: { forWhom: "staff", archivedAt: null }, select: { id: true, forWhom: true, sectionId: true, entries: true } })).filter((c) => correctionAllowed(access, c)).map((c) => c.id)
+        : null;
+      scope.push(visible ? { forWhom: "staff", id: { in: visible } } : { forWhom: "staff" });
+    }
     if (scope.length === 0) scope.push({ requestedById: current.user.id });
     const base: Prisma.AttendanceCorrectionWhereInput = {
       archivedAt: null,

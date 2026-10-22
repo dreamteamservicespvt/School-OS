@@ -13,6 +13,7 @@ import { checkIndianMobile, formatDate } from "../format";
 import { splitName } from "./students";
 import { GENDERS } from "./labels";
 import { parseDate } from "./parse-date";
+import { campusLimitOf } from "../staff/campus-logins";
 
 export const STUDENT_UPDATE_IMPORT = "students-update";
 
@@ -84,7 +85,9 @@ const kind: ImportKind<StudentUpdate> = {
     const seenKey = `upd:${admissionNo.toLowerCase()}`;
     if (seen.has(seenKey)) return { ok: false, problems: [`Admission number ${admissionNo} appears twice in this file. Keep one row.`] };
     seen.add(seenKey);
-    const s = await tx.student.findFirst({ where: { admissionNo: { equals: admissionNo, mode: "insensitive" }, archivedAt: null } });
+    // One campus: only that campus's students can be updated.
+    const limit = await campusLimitOf(tx, ctx);
+    const s = await tx.student.findFirst({ where: { admissionNo: { equals: admissionNo, mode: "insensitive" }, archivedAt: null, ...(limit ? { campusId: limit } : {}) } });
     if (!s) return { ok: false, problems: [`No student has admission number ${admissionNo}. To add new students, use Students (CSV or Excel).`] };
 
     // The new values: only the cells that have something in them.

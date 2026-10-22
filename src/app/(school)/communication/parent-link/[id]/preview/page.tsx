@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
+import { linkCampusWhere } from "@/lib/communication/parent-link-admin";
 import { loadGuardianView } from "@/lib/parent-link/view";
 import { loadSections } from "@/lib/parent-link/render";
 import { GuardianPage } from "@/components/parent-link/guardian-page";
@@ -18,7 +19,8 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
   const access = await commPage();
   const { current } = access;
   const data = await withSchool(current.ctx, async (tx) => {
-    const link = await tx.parentLink.findFirst({ where: { id, schoolId: current.ctx.schoolId } });
+    // Another campus's guardian's link is not found for a person limited to one campus.
+    const link = await tx.parentLink.findFirst({ where: { id, schoolId: current.ctx.schoolId, ...(await linkCampusWhere(tx, current.ctx, access.scope.campusId)) } });
     if (!link) return null;
     const view = await loadGuardianView(tx, current.ctx, { linkId: link.id, guardianId: link.guardianId, childId: typeof child === "string" ? child : null, token: "", preview: true });
     const school = await tx.school.findUniqueOrThrow({ where: { id: current.ctx.schoolId }, select: { phone: true } });

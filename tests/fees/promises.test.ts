@@ -25,7 +25,7 @@ import { at, d } from "../attendance/fixture";
 const T = todayIn("Asia/Kolkata");
 const day = (n: number) => addDays(T, n);
 const job = (f: FeeSchool): SchoolContext => ({ schoolId: f.school.id, userId: null });
-const viewerOf = (f: FeeSchool): FeeViewer => ({ userId: f.accountant.id, see: "all", change: "all", roleKeys: ["accountant"], sectionIds: null, yearId: f.year.id });
+const viewerOf = (f: FeeSchool): FeeViewer => ({ userId: f.accountant.id, see: "all", change: "all", roleKeys: ["accountant"], sectionIds: null, yearId: f.year.id, yearIds: [f.year.id], campusId: null });
 const note = (f: FeeSchool, studentId: string, promisedOn: Date | null, amountPaise: bigint | null = null, text = "", today = T) =>
   withSchool(f.ctx, (tx) => addCallNote(tx, f.ctx, { studentId, note: text, promisedOn, amountPaise, today }));
 const reload = (f: FeeSchool, id: string) => withSchool(f.ctx, (tx) => tx.feeCallNote.findUniqueOrThrow({ where: { id } }));

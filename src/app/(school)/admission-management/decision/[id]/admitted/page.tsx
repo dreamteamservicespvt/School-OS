@@ -19,7 +19,7 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
   if (!UUID_RE.test(id)) notFound();
   const { current, viewer, tz } = await workPage();
   const data = await withSchool(current.ctx, async (tx) => {
-    const app = await tx.application.findFirst({ where: { id, archivedAt: null } });
+    const app = await tx.application.findFirst({ where: { id, archivedAt: null, ...(viewer.campusId ? { campusId: viewer.campusId } : {}) } });
     if (!app) return null;
     if (!app.studentId) return { admitted: false as const };
     const c = (app.conversion ?? null) as unknown as Conversion | null;

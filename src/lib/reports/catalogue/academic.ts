@@ -12,6 +12,7 @@ import { runReport, type ReportKey as AttendanceKey, type ReportInput } from "..
 import { monthStart } from "../../staff/dates";
 import { analyse, studentsBehind } from "../../exams/analysis";
 import { examScope, type ExamScope } from "../../exams/scope";
+import { campusSectionIds } from "../../campus";
 import { examSettings } from "../../exams/settings";
 import type { SubjectResult } from "../../exams/compute";
 import { taskReport } from "../../dashboard/tasks";
@@ -147,7 +148,8 @@ const ATTENDANCE: ReportEntry[] = [
 export async function reportExamScope(rc: Pick<RunCtx, "tx" | "who" | "memo" | "f">): Promise<ExamScope> {
   return rc.memo("exam-scope", async () => {
     const s = await examScope(rc.tx, rc.who, rc.f.year?.id ?? null);
-    return s.see === "all" ? { ...s, sectionIds: null, teaches: null } : s;
+    // Whole-school readers see every section; a person limited to one campus, that campus's.
+    return s.see === "all" ? { ...s, sectionIds: rc.who.campusId ? await campusSectionIds(rc.tx, rc.who) : null, teaches: null } : s;
   });
 }
 

@@ -25,19 +25,19 @@ const n = (v: unknown) => Number(v);
 type Built = { title: string; columns: ExportColumn<Record<string, unknown>>[]; rows: Record<string, unknown>[] };
 const col = (label: string, key: string): ExportColumn<Record<string, unknown>> => ({ label, value: (x) => x[key] as string | number });
 
-/** Runs whose month falls in the period, oldest first. */
-export async function runsIn(tx: Tx, from: Date | null, to: Date | null, opts: { done?: boolean } = {}) {
+/** Runs whose month falls in the period, oldest first. `campusId` ("One campus"): that campus's runs only. */
+export async function runsIn(tx: Tx, from: Date | null, to: Date | null, opts: { done?: boolean; campusId?: string | null } = {}) {
   return tx.payrollRun.findMany({
-    where: { ...(from && to ? { month: { gte: firstOfMonth(from), lte: to } } : {}), ...(opts.done ? { status: { in: [...DONE] } } : { status: { not: "OPEN" } }) },
+    where: { ...(from && to ? { month: { gte: firstOfMonth(from), lte: to } } : {}), ...(opts.done ? { status: { in: [...DONE] } } : { status: { not: "OPEN" } }), ...(opts.campusId ? { campusId: opts.campusId } : {}) },
     orderBy: [{ month: "asc" }],
   });
 }
 
-export async function buildSalaryReport(tx: Tx, key: SalaryReportKey, o: { from: Date | null; to: Date | null; staffId?: string | null; money: boolean }): Promise<Built | null> {
+export async function buildSalaryReport(tx: Tx, key: SalaryReportKey, o: { from: Date | null; to: Date | null; staffId?: string | null; money: boolean; campusId?: string | null }): Promise<Built | null> {
   const def = SALARY_REPORTS.find((x) => x.key === key);
   if (!def || (def.money && !o.money)) return null;
-  const runs = await runsIn(tx, o.from, o.to, { done: key !== "summary" && key !== "days" });
-  const campuses = await tx.campus.findMany({ select: { id: true, name: true } });
+  const runs = await runsIn(tx, o.from, o.to, { done: key !== "summary" && key !== "days", campusId: o.campusId });
+  const campuses = await tx.campus.findMany({ where: o.campusId ? { id: o.campusId } : {}, select: { id: true, name: true } });
   const campus = new Map(campuses.map((c) => [c.id, c.name]));
   const many = campuses.length > 1;
   const runOf = new Map(runs.map((x) => [x.id, x]));

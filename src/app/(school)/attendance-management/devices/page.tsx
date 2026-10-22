@@ -4,10 +4,11 @@ import { redirect } from "next/navigation";
 import { BookOpen, CircleCheck, CircleX, Fingerprint, MapPin, Nfc, QrCode, ScanFace, ScanEye, ShieldCheck, Users } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { inCampus } from "@/lib/campus";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { appOrigin } from "@/lib/origin";
 import { attendancePage } from "@/lib/attendance/page";
-import { BASE } from "@/lib/attendance/access";
+import { BASE, campusOrSchool, studentLimit } from "@/lib/attendance/access";
 import { ALLOWED_USERS, DEVICE_TYPES, deviceHealth, deviceStatus, rejectedSummary } from "@/lib/attendance/devices";
 import { POSTER_THEMES } from "@/lib/attendance/qr";
 import { instantAt, time12 } from "@/lib/attendance/time";
@@ -46,16 +47,22 @@ export default async function DevicesPage({ searchParams }: Props) {
   const showArchived = sp.archived === "1";
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const campuses = await tx.campus.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } });
-    const devices = devicesOn ? await tx.attendanceDevice.findMany({ where: showArchived ? {} : { archivedAt: null }, orderBy: [{ archivedAt: "desc" }, { name: "asc" }] }) : [];
-    const health = devicesOn ? await deviceHealth(tx, current.ctx, instantAt(today, "00:00", tz), instantAt(addDays(today, 1), "00:00", tz)) : new Map();
+    // A person limited to one campus sees that campus's devices, people, QR and campus area (and the whole school's QR).
+    const limit = access.campusLimit;
+    const onCampus = inCampus({ campusId: limit });
+    const campuses = await tx.campus.findMany({ where: { archivedAt: null, ...(limit ? { id: limit } : {}) }, orderBy: { name: "asc" }, select: { id: true, name: true } });
+    const devices = devicesOn ? await tx.attendanceDevice.findMany({ where: { ...(showArchived ? {} : { archivedAt: null }), ...onCampus }, orderBy: [{ archivedAt: "desc" }, { name: "asc" }] }) : [];
+    const allHealth = devicesOn ? await deviceHealth(tx, current.ctx, instantAt(today, "00:00", tz), instantAt(addDays(today, 1), "00:00", tz)) : new Map();
+    const campusDevices = limit ? new Set((await tx.attendanceDevice.findMany({ where: onCampus, select: { id: true } })).map((d) => d.id)) : null;
+    const health = campusDevices ? new Map([...allHealth].filter(([id]) => campusDevices.has(id))) : allHealth;
+    const onCampusDevice = limit ? { device: { campusId: limit } } : {};
     const [mappedStudents, mappedStaff, students, staff, sessions, fences] = await Promise.all([
-      tx.deviceUserMap.findMany({ where: { archivedAt: null, studentId: { not: null } }, distinct: ["studentId"], select: { studentId: true } }),
-      tx.deviceUserMap.findMany({ where: { archivedAt: null, staffId: { not: null } }, distinct: ["staffId"], select: { staffId: true } }),
-      tx.student.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] } } }),
-      tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } } }),
-      qrOn ? tx.qrSession.findMany({ where: { archivedAt: null }, orderBy: { createdAt: "desc" } }) : Promise.resolve([]),
-      qrOn || mobileOn ? tx.geoFence.findMany() : Promise.resolve([]),
+      tx.deviceUserMap.findMany({ where: { archivedAt: null, studentId: { not: null }, ...onCampusDevice }, distinct: ["studentId"], select: { studentId: true } }),
+      tx.deviceUserMap.findMany({ where: { archivedAt: null, staffId: { not: null }, ...onCampusDevice }, distinct: ["staffId"], select: { staffId: true } }),
+      tx.student.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] }, ...studentLimit(access) } }),
+      tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, ...onCampus } }),
+      qrOn ? tx.qrSession.findMany({ where: { archivedAt: null, ...campusOrSchool(access) }, orderBy: { createdAt: "desc" } }) : Promise.resolve([]),
+      qrOn || mobileOn ? tx.geoFence.findMany({ where: onCampus }) : Promise.resolve([]),
     ]);
     return { campuses, devices, health, mapped: { students: mappedStudents.length, staff: mappedStaff.length }, totals: { students, staff }, sessions, fences };
   });

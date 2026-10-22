@@ -8,11 +8,14 @@ import type { Tx } from "../db";
 import { addDays, monthEnd, monthStart } from "../staff/dates";
 import { classOfStudents } from "./dues";
 import { feesByClass } from "./by-class";
-import { studentScope, type FeeViewer } from "./access";
+import { feeStudentFilter, studentScope, type FeeViewer } from "./access";
 import { openPromises, promisedBetween, promisesOnHere } from "./promises";
 import { studentIdsForFilter } from "../students/find";
 
 const ZERO = BigInt(0);
+
+/** Fee rows and payments of these students only (feeStudentFilter); {} for the whole school. */
+export type OnlyStudents = { studentId?: { in: string[] } };
 
 /**
  * The Fee Dashboard band. Pending (not late yet), overdue and the overdue
@@ -20,7 +23,7 @@ const ZERO = BigInt(0);
  * class, Fee Reports and the Dashboard always agree.
  */
 export async function feeTiles(tx: Tx, viewer: FeeViewer, today: Date) {
-  const studentFilter: Prisma.PaymentWhereInput = viewer.see === "all" ? {} : { studentId: { in: await scopedStudentIds(tx, viewer) } };
+  const studentFilter: Prisma.PaymentWhereInput = viewer.see === "all" ? await feeStudentFilter(tx, viewer) : { studentId: { in: await scopedStudentIds(tx, viewer) } };
   const [todayAgg, monthAgg, byClass] = await Promise.all([
     tx.payment.aggregate({ where: { ...studentFilter, status: "POSTED", broughtIn: false, paymentDate: today }, _sum: { amountPaise: true }, _count: { _all: true } }),
     tx.payment.aggregate({ where: { ...studentFilter, status: "POSTED", broughtIn: false, paymentDate: { gte: monthStart(today), lte: today } }, _sum: { amountPaise: true }, _count: { _all: true } }),
@@ -46,14 +49,17 @@ async function scopedStudentIds(tx: Tx, viewer: FeeViewer) {
   return rows.map((r) => r.id);
 }
 
-/** Collected per month in the academic year against the amount due per month. */
-export async function monthlyTrend(tx: Tx, yearStart: Date, yearEnd: Date) {
+/**
+ * Collected per month in the academic year against the amount due per month.
+ * `only`: the students of the person's campus (feeStudentFilter), when limited to one.
+ */
+export async function monthlyTrend(tx: Tx, yearStart: Date, yearEnd: Date, only: OnlyStudents = {}) {
   const months: { key: string; label: string; start: Date; end: Date }[] = [];
   for (let d = monthStart(yearStart); d <= yearEnd; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))) {
     months.push({ key: d.toISOString().slice(0, 7), label: new Intl.DateTimeFormat("en-IN", { month: "short", timeZone: "UTC" }).format(d), start: d, end: monthEnd(d) });
   }
-  const paid = await tx.payment.groupBy({ by: ["paymentDate"], where: { status: "POSTED", broughtIn: false, paymentDate: { gte: yearStart, lte: yearEnd } }, _sum: { amountPaise: true } });
-  const due = await tx.studentFeeDue.groupBy({ by: ["dueDate"], where: { state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, dueDate: { gte: yearStart, lte: yearEnd } }, _sum: { amountPaise: true, concessionPaise: true, adjustmentPaise: true } });
+  const paid = await tx.payment.groupBy({ by: ["paymentDate"], where: { ...only, status: "POSTED", broughtIn: false, paymentDate: { gte: yearStart, lte: yearEnd } }, _sum: { amountPaise: true } });
+  const due = await tx.studentFeeDue.groupBy({ by: ["dueDate"], where: { ...only, state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, dueDate: { gte: yearStart, lte: yearEnd } }, _sum: { amountPaise: true, concessionPaise: true, adjustmentPaise: true } });
   return months.map((m) => ({
     label: m.label,
     key: m.key,
@@ -62,8 +68,8 @@ export async function monthlyTrend(tx: Tx, yearStart: Date, yearEnd: Date) {
   }));
 }
 
-export async function modeBreakdown(tx: Tx, from: Date, to: Date) {
-  const rows = await tx.payment.groupBy({ by: ["mode"], where: { status: "POSTED", broughtIn: false, paymentDate: { gte: from, lte: to } }, _sum: { amountPaise: true }, _count: { _all: true } });
+export async function modeBreakdown(tx: Tx, from: Date, to: Date, only: OnlyStudents = {}) {
+  const rows = await tx.payment.groupBy({ by: ["mode"], where: { ...only, status: "POSTED", broughtIn: false, paymentDate: { gte: from, lte: to } }, _sum: { amountPaise: true }, _count: { _all: true } });
   return rows.map((r) => ({ mode: r.mode, amount: r._sum.amountPaise ?? ZERO, count: r._count._all })).sort((a, b) => Number(b.amount - a.amount));
 }
 
@@ -75,22 +81,24 @@ export async function modeBreakdown(tx: Tx, from: Date, to: Date) {
  * With Promise to Pay on (the school's switch, or opts.promises), each open promise is counted in full
  * in the month of its promised date (what is left to pay on it), and that
  * family's overdue rows are left out of the share, so nothing counts twice.
+ * `opts.only`: the students of the person's campus, when limited to one.
  */
-export async function forecast(tx: Tx, today: Date, opts: { promises?: boolean } = {}) {
+export async function forecast(tx: Tx, today: Date, opts: { promises?: boolean; only?: OnlyStudents } = {}) {
+  const only = opts.only ?? {};
   const pastFrom = monthStart(new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() - 3, 1)));
   const pastTo = addDays(monthStart(today), -1);
-  const pastDue = await tx.studentFeeDue.aggregate({ where: { state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, dueDate: { gte: pastFrom, lte: pastTo } }, _sum: { amountPaise: true, concessionPaise: true, adjustmentPaise: true, paidPaise: true } });
+  const pastDue = await tx.studentFeeDue.aggregate({ where: { ...only, state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, dueDate: { gte: pastFrom, lte: pastTo } }, _sum: { amountPaise: true, concessionPaise: true, adjustmentPaise: true, paidPaise: true } });
   const dueTotal = (pastDue._sum.amountPaise ?? ZERO) - (pastDue._sum.concessionPaise ?? ZERO) + (pastDue._sum.adjustmentPaise ?? ZERO);
   const paidTotal = pastDue._sum.paidPaise ?? ZERO;
   // No dues in the last 3 months to learn from: no estimate, rather than an invented rate (AI rule 2).
   const rate = dueTotal > ZERO ? Number(paidTotal) / Number(dueTotal) : null;
-  const promises = (opts.promises ?? (await promisesOnHere(tx))) ? await openPromises(tx, today) : [];
+  const promises = (opts.promises ?? (await promisesOnHere(tx))) ? await openPromises(tx, today, undefined, only) : [];
   const promisedIds = [...new Set(promises.map((p) => p.studentId))];
   const out = [];
   for (let k = 0; k < 3; k++) {
     const start = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth() + k, 1));
     const end = monthEnd(start);
-    const agg = await tx.studentFeeDue.aggregate({ where: { state: "OPEN", balancePaise: { gt: 0 }, dueDate: { gte: start, lte: end } }, _sum: { balancePaise: true } });
+    const agg = await tx.studentFeeDue.aggregate({ where: { ...only, state: "OPEN", balancePaise: { gt: 0 }, dueDate: { gte: start, lte: end } }, _sum: { balancePaise: true } });
     const due = agg._sum.balancePaise ?? ZERO;
     // Overdue rows of families with an open promise: the promise stands for them.
     const covered = promisedIds.length && start < today
@@ -107,10 +115,14 @@ export async function forecast(tx: Tx, today: Date, opts: { promises?: boolean }
 
 export type RecentFilter = { from: Date; to: Date; classId?: string | null; feeHeadId?: string | null; mode?: string | null; status?: string | null; collectorId?: string | null; partial?: boolean | null; q?: string | null };
 
-/** Recent Payments, newest first, with the filters of 06 §2. */
+/**
+ * Recent Payments, newest first, with the filters of 06 §2. Only the person's
+ * campus when limited to one; a class's students are those of its campus's year.
+ */
 export async function recentPayments(tx: Tx, viewer: FeeViewer, f: RecentFilter, take = 25, skip = 0) {
-  const classStudents = f.classId ? (await tx.enrolment.findMany({ where: { classId: f.classId, archivedAt: null, ...(viewer.yearId ? { academicYearId: viewer.yearId } : {}) }, select: { studentId: true } })).map((e) => e.studentId) : null;
-  const scoped = viewer.see === "all" ? null : await scopedStudentIds(tx, viewer);
+  const thisYear = viewer.yearIds.length ? { academicYearId: { in: viewer.yearIds } } : {};
+  const classStudents = f.classId ? (await tx.enrolment.findMany({ where: { classId: f.classId, archivedAt: null, ...thisYear }, select: { studentId: true } })).map((e) => e.studentId) : null;
+  const scoped = viewer.see === "all" && !viewer.campusId ? null : await scopedStudentIds(tx, viewer);
   const ids = classStudents && scoped ? classStudents.filter((x) => scoped.includes(x)) : classStudents ?? scoped;
   // Search: student name or admission number, class name, or receipt number.
   let search: Prisma.PaymentWhereInput = {};
@@ -119,7 +131,7 @@ export async function recentPayments(tx: Tx, viewer: FeeViewer, f: RecentFilter,
     const [byName, byClass, byReceipt] = await Promise.all([
       studentIdsForFilter(tx, q),
       tx.schoolClass.findMany({ where: { name: { equals: q, mode: "insensitive" } }, select: { id: true } }).then((cls) => cls.length
-        ? tx.enrolment.findMany({ where: { archivedAt: null, classId: { in: cls.map((c) => c.id) }, ...(viewer.yearId ? { academicYearId: viewer.yearId } : {}) }, select: { studentId: true }, take: 3000 })
+        ? tx.enrolment.findMany({ where: { archivedAt: null, classId: { in: cls.map((c) => c.id) }, ...thisYear }, select: { studentId: true }, take: 3000 })
         : []),
       tx.receipt.findMany({ where: { number: { contains: q, mode: "insensitive" } }, select: { paymentId: true }, take: 200 }),
     ]);
@@ -142,7 +154,7 @@ export async function recentPayments(tx: Tx, viewer: FeeViewer, f: RecentFilter,
     tx.payment.aggregate({ where: { ...where, status: "POSTED" }, _sum: { amountPaise: true } }),
   ]);
   const students = await tx.student.findMany({ where: { id: { in: rows.map((r) => r.studentId) } }, select: { id: true, fullName: true, admissionNo: true } });
-  const classes = await classOfStudents(tx, rows.map((r) => r.studentId), viewer.yearId);
+  const classes = await classOfStudents(tx, rows.map((r) => r.studentId), viewer.yearIds);
   const receipts = await tx.receipt.findMany({ where: { paymentId: { in: rows.map((r) => r.id) } } });
   const heads = await tx.feeHead.findMany({ where: { id: { in: rows.flatMap((r) => r.allocations.map((a) => a.feeHeadId)) } } });
   return {

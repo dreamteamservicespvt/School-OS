@@ -8,6 +8,7 @@ import { DOCUMENT_TYPES, saveFile } from "@/lib/files";
 import { checkIndianMobile } from "@/lib/format";
 import { act, dateOf, dateTimeOf, file, FieldProblem, id, optionalDateOf, optionalId, rupeesOf, str } from "@/lib/staff/act";
 import { HrOnlyError, viewerFor } from "@/lib/staff/access";
+import { offCampus } from "@/lib/staff/list";
 import { hrFeaturesOn, type HrFeature } from "@/lib/staff/settings";
 import {
   addApplication, addTraining, APPLICATION_STATUSES, closeCycle, makeOffer, openVacancy, recordOutcome, recordPromotion, saveReview, scheduleInterview, setApplicationStatus, setOfferStatus,
@@ -27,6 +28,13 @@ async function hrIn(feature: HrFeature, fd: FormData, work: (tx: Tx, current: Ct
 }
 
 const text = (fd: FormData, k: string, max = 500) => str(fd, k).slice(0, max) || null;
+
+/** One campus: staff of another campus cannot be chosen (the same words as a choice not on the list). */
+async function onCampus(tx: Tx, current: Ctx, staffIds: string[], problem: TalentProblem) {
+  if (!current.campusId) return;
+  const viewer = await viewerFor(tx, current.ctx, current);
+  if (staffIds.some((s) => offCampus(viewer, s))) throw problem;
+}
 
 export async function vacancyAction(_: FormState<unknown>, fd: FormData) {
   return act(fd, async () => {
@@ -72,10 +80,14 @@ export async function applicationStatusAction(_: FormState<unknown>, fd: FormDat
 export async function interviewAction(_: FormState<unknown>, fd: FormData) {
   return act(fd, async () => {
     const minutes = Number(str(fd, "minutes") || "30");
-    await hrIn("hr-recruitment", fd, (tx, c) => scheduleInterview(tx, c.ctx, {
-      applicationId: id(fd, "applicationId", "applicant"), startsAt: dateTimeOf(fd, "startsAt", "Date and time", c.school.timeZone), minutes,
-      interviewerIds: fd.getAll("interviewerIds").map(String).filter((v) => /^[0-9a-f-]{36}$/i.test(v)), place: text(fd, "place", 120),
-    }, c.school.timeZone));
+    const interviewerIds = fd.getAll("interviewerIds").map(String).filter((v) => /^[0-9a-f-]{36}$/i.test(v));
+    await hrIn("hr-recruitment", fd, async (tx, c) => {
+      await onCampus(tx, c, interviewerIds, new TalentProblem("Choose the interviewers from the list.", "interviewerIds"));
+      return scheduleInterview(tx, c.ctx, {
+        applicationId: id(fd, "applicationId", "applicant"), startsAt: dateTimeOf(fd, "startsAt", "Date and time", c.school.timeZone), minutes,
+        interviewerIds, place: text(fd, "place", 120),
+      }, c.school.timeZone);
+    });
   }, () => "Interview scheduled. The interviewers were told.");
 }
 
@@ -106,13 +118,13 @@ export async function cycleAction(_: FormState<unknown>, fd: FormData) {
     const criteria = str(fd, "criteria").split("\n").map((c) => c.trim()).filter(Boolean).slice(0, 15);
     const name = str(fd, "name");
     if (name.length < 3) throw new FieldProblem("Name is needed, like Appraisal 2026-27.", "name");
-    await hrIn("hr-appraisal", fd, (tx, c) => startCycle(tx, c.ctx, { name: name.slice(0, 80), academicYearId: id(fd, "academicYearId", "academic year"), criteria, startDate: dateOf(fd, "startDate", "Start date"), endDate: dateOf(fd, "endDate", "End date") }));
+    await hrIn("hr-appraisal", fd, (tx, c) => startCycle(tx, c.ctx, { name: name.slice(0, 80), academicYearId: id(fd, "academicYearId", "academic year"), criteria, startDate: dateOf(fd, "startDate", "Start date"), endDate: dateOf(fd, "endDate", "End date") }, { campusId: c.campusId }));
   }, () => "Appraisal cycle started. Every staff member was asked for a self review.");
 }
 
 export async function closeCycleAction(_: FormState<unknown>, fd: FormData) {
   return act(fd, async () => {
-    await hrIn("hr-appraisal", fd, (tx, c) => closeCycle(tx, c.ctx, id(fd, "cycleId", "cycle")));
+    await hrIn("hr-appraisal", fd, (tx, c) => closeCycle(tx, c.ctx, id(fd, "cycleId", "cycle"), { campusId: c.campusId }));
   }, () => "Appraisal cycle closed.");
 }
 
@@ -125,7 +137,9 @@ export async function reviewAction(_: FormState<unknown>, fd: FormData) {
     await withSchool(current.ctx, async (tx) => {
       if (!(await hrFeaturesOn(tx, current.ctx)).has("hr-appraisal")) throw new TalentProblem("Appraisal is switched off in HR Settings.");
       const viewer = await viewerFor(tx, current.ctx, current);
-      const a = await tx.appraisal.findFirstOrThrow({ where: { id: appraisalId }, include: { cycle: true } });
+      const a = await tx.appraisal.findFirst({ where: { id: appraisalId }, include: { cycle: true } });
+      // One campus: another campus's appraisal is not found, unless they are its reviewer.
+      if (!a || (offCampus(viewer, a.staffId) && a.reviewerId !== viewer.staffId)) throw new TalentProblem("This appraisal was not found.");
       if (by === "self" && a.staffId !== viewer.staffId) throw new HrOnlyError("someone else's self review");
       if (by === "manager") {
         if (a.staffId === viewer.staffId) throw new TalentProblem("Nobody can review themselves as the reviewer.");
@@ -146,6 +160,7 @@ export async function trainingAction(_: FormState<unknown>, fd: FormData) {
     const course = str(fd, "course");
     if (course.length < 2) throw new FieldProblem("Course is needed.", "course");
     await hrIn("hr-training", fd, async (tx, c) => {
+      await onCampus(tx, c, [id(fd, "staffId", "staff member")], new TalentProblem("Choose the staff member.", "staffId"));
       const certificateFileId = cert ? (await saveFile(tx, c.ctx, { file: cert, purpose: "training-certificate", allowed: DOCUMENT_TYPES, maxImageWidth: 1600 })).id : null;
       return addTraining(tx, c.ctx, { staffId: id(fd, "staffId", "staff member"), course: course.slice(0, 150), provider: text(fd, "provider", 120), fromDate: dateOf(fd, "fromDate", "From date"), toDate: dateOf(fd, "toDate", "To date"), hours, certificateFileId });
     });
@@ -156,6 +171,10 @@ export async function promotionAction(_: FormState<unknown>, fd: FormData) {
   return act(fd, async () => {
     const reason = str(fd, "reason");
     if (reason.length < 3) throw new FieldProblem("Reason is needed.", "reason");
-    await hrIn("hr-promotions", fd, (tx, c) => recordPromotion(tx, c.ctx, { staffId: id(fd, "staffId", "staff member"), toDesignation: str(fd, "toDesignation"), toDepartmentId: optionalId(fd, "toDepartmentId"), effectiveFrom: dateOf(fd, "effectiveFrom", "Effective from"), reason: reason.slice(0, 500) }));
+    await hrIn("hr-promotions", fd, async (tx, c) => {
+      const staffId = id(fd, "staffId", "staff member");
+      await onCampus(tx, c, [staffId], new TalentProblem("Choose the staff member.", "staffId"));
+      return recordPromotion(tx, c.ctx, { staffId, toDesignation: str(fd, "toDesignation"), toDepartmentId: optionalId(fd, "toDepartmentId"), effectiveFrom: dateOf(fd, "effectiveFrom", "Effective from"), reason: reason.slice(0, 500) });
+    });
   }, () => "Promotion recorded. Change the salary in Salary Management if needed.");
 }

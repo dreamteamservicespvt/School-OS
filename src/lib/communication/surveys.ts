@@ -65,20 +65,58 @@ export const SURVEY_EXAMPLES: { key: string; title: string; sub: string; audienc
 
 // ── Audience ─────────────────────────────────────────────────────────────
 
-/** "parents", "class:<id>" or "staff" → who gets the survey. */
+/** A group for one campus ends in "@<campus id>" (chosen by a person limited to one campus). */
+const ONE_CAMPUS = /@([0-9a-f-]{36})$/;
+const splitCampus = (value: string) => {
+  const m = ONE_CAMPUS.exec(value);
+  return { base: m ? value.slice(0, -m[0].length) : value, campusId: m ? m[1] : null };
+};
+
+/** "parents", "class:<id>" or "staff", each maybe "@<campus id>" → who gets the survey. */
 export function audienceRule(value: string): AudienceRule | null {
-  if (value === "parents") return { kinds: ["parents"] };
-  if (value === "staff") return { kinds: ["staff"] };
-  const m = /^class:([0-9a-f-]{36})$/.exec(value);
-  return m ? { kinds: ["parents"], classIds: [m[1]] } : null;
+  const { base, campusId } = splitCampus(value);
+  const campus = campusId ? { campusIds: [campusId] } : {};
+  if (base === "parents") return { kinds: ["parents"], ...campus };
+  if (base === "staff") return { kinds: ["staff"], ...campus };
+  const m = /^class:([0-9a-f-]{36})$/.exec(base);
+  return m ? { kinds: ["parents"], classIds: [m[1]], ...campus } : null;
 }
 
-export async function audienceOptions(tx: Tx, ctx: SchoolContext) {
-  const classes = await tx.schoolClass.findMany({ where: { schoolId: ctx.schoolId }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } });
+/** The campus a survey is for: its "@campus", else its class's campus; null for the whole school. */
+export async function surveyCampus(tx: Tx, value: string): Promise<string | null> {
+  const { base, campusId } = splitCampus(value);
+  if (campusId) return campusId;
+  const m = /^class:([0-9a-f-]{36})$/.exec(base);
+  return m ? (await tx.schoolClass.findFirst({ where: { id: m[1] }, select: { campusId: true } }))?.campusId ?? null : null;
+}
+
+/**
+ * May a person limited to one campus see and work on this survey? Only a
+ * survey for their campus: one for the whole school reaches, and shows the
+ * answers of, other campuses' parents and staff. Always true for the whole school.
+ */
+export async function surveyOnCampus(tx: Tx, survey: { audienceValue: string }, campusId: string | null | undefined) {
+  return !campusId || (await surveyCampus(tx, survey.audienceValue)) === campusId;
+}
+
+/** The group a person limited to one campus chose, kept to their campus; another campus's group is refused. */
+export async function campusAudience(tx: Tx, value: string, campusId: string | null | undefined): Promise<string> {
+  if (!campusId) return value;
+  const { base, campusId: chosen } = splitCampus(value);
+  if (chosen && chosen !== campusId) throw new SurveyProblem("Choose who gets the survey.");
+  if (base.startsWith("class:") && (await surveyCampus(tx, base)) !== campusId) throw new SurveyProblem("Choose who gets the survey.");
+  return `${base}@${campusId}`;
+}
+
+/** The groups to choose from: only the person's campus's when they are limited to one. */
+export async function audienceOptions(tx: Tx, ctx: SchoolContext, campusId?: string | null) {
+  const classes = await tx.schoolClass.findMany({ where: { schoolId: ctx.schoolId, ...(campusId ? { campusId } : {}) }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } });
+  const campus = campusId ? (await tx.campus.findFirst({ where: { id: campusId, schoolId: ctx.schoolId }, select: { name: true } }))?.name ?? "your campus" : null;
+  const at = campusId ? `@${campusId}` : "";
   return [
-    { value: "parents", label: "All parents" },
-    ...classes.map((c) => ({ value: `class:${c.id}`, label: `Parents of ${c.name}` })),
-    { value: "staff", label: "All staff" },
+    { value: `parents${at}`, label: campus ? `All parents of ${campus}` : "All parents" },
+    ...classes.map((c) => ({ value: `class:${c.id}${at}`, label: `Parents of ${c.name}` })),
+    { value: `staff${at}`, label: campus ? `All staff of ${campus}` : "All staff" },
   ];
 }
 
@@ -122,7 +160,7 @@ function clean(input: SurveyInput, today: Date) {
 export async function saveSurvey(tx: Tx, ctx: SchoolContext, id: string | null, input: SurveyInput, labels: Map<string, string>, today: Date) {
   const c = clean(input, today);
   const audienceLabel = labels.get(input.audience) ?? "Selected people";
-  const data = { title: c.title, audienceKind: input.audience === "staff" ? "staff" : "parents", audienceValue: input.audience, audienceLabel, anonymous: input.anonymous, closesOn: c.closesOn };
+  const data = { title: c.title, audienceKind: splitCampus(input.audience).base === "staff" ? "staff" : "parents", audienceValue: input.audience, audienceLabel, anonymous: input.anonymous, closesOn: c.closesOn };
   let survey;
   if (id) {
     const old = await tx.survey.findFirst({ where: { id, schoolId: ctx.schoolId, archivedAt: null } });
@@ -182,9 +220,19 @@ async function sendTo(tx: Tx, ctx: SchoolContext, survey: { id: string; title: s
   }
 }
 
-/** Sends a draft: one invite per person, with their own link. */
-export async function sendSurvey(tx: Tx, ctx: SchoolContext, id: string, tz: string, now = new Date()) {
+/**
+ * One survey a person may work on, or refused as not found (campusId: a person
+ * limited to one campus works on their campus's surveys only).
+ */
+export async function loadSurvey(tx: Tx, ctx: SchoolContext, id: string, campusId?: string | null) {
   const survey = await tx.survey.findFirst({ where: { id, schoolId: ctx.schoolId, archivedAt: null } });
+  if (!survey || !(await surveyOnCampus(tx, survey, campusId))) return null;
+  return survey;
+}
+
+/** Sends a draft: one invite per person, with their own link. */
+export async function sendSurvey(tx: Tx, ctx: SchoolContext, id: string, tz: string, now = new Date(), campusId?: string | null) {
+  const survey = await loadSurvey(tx, ctx, id, campusId);
   if (!survey) throw new SurveyProblem("This survey was not found.");
   if (survey.status !== "DRAFT") throw new SurveyProblem("This survey was already sent.");
   if (!(await tx.surveyQuestion.count({ where: questionsWhere(ctx, id) }))) throw new SurveyProblem("Add at least one question.");
@@ -213,8 +261,8 @@ export function isOpen(s: { status: string; closesOn: Date | null }, tz: string,
 /** OPEN surveys past their closing date show as closed. */
 export const shownStatus = (s: { status: string; closesOn: Date | null }, tz: string, now = new Date()) => (s.status === "OPEN" && !isOpen(s, tz, now) ? "CLOSED" : s.status);
 
-export async function remindSurvey(tx: Tx, ctx: SchoolContext, id: string, tz: string) {
-  const survey = await tx.survey.findFirst({ where: { id, schoolId: ctx.schoolId, archivedAt: null } });
+export async function remindSurvey(tx: Tx, ctx: SchoolContext, id: string, tz: string, campusId?: string | null) {
+  const survey = await loadSurvey(tx, ctx, id, campusId);
   if (!survey || !isOpen(survey, tz)) throw new SurveyProblem("Only an open survey can be reminded.");
   const waiting = await tx.surveyInvite.findMany({ where: { schoolId: ctx.schoolId, surveyId: id, answeredAt: null } });
   if (!waiting.length) throw new SurveyProblem("Everyone has answered.");
@@ -223,8 +271,8 @@ export async function remindSurvey(tx: Tx, ctx: SchoolContext, id: string, tz: s
   return waiting.length;
 }
 
-export async function closeSurvey(tx: Tx, ctx: SchoolContext, id: string) {
-  const survey = await tx.survey.findFirst({ where: { id, schoolId: ctx.schoolId, archivedAt: null } });
+export async function closeSurvey(tx: Tx, ctx: SchoolContext, id: string, campusId?: string | null) {
+  const survey = await loadSurvey(tx, ctx, id, campusId);
   if (!survey) throw new SurveyProblem("This survey was not found.");
   if (survey.status !== "OPEN") throw new SurveyProblem(survey.status === "DRAFT" ? "A draft has not been sent." : "This survey is already closed.");
   await tx.survey.update({ where: { id }, data: { status: "CLOSED", closedAt: new Date() } });
@@ -232,8 +280,8 @@ export async function closeSurvey(tx: Tx, ctx: SchoolContext, id: string) {
 }
 
 /** Drafts can be archived (removed from the list); sent surveys keep their answers. */
-export async function archiveSurvey(tx: Tx, ctx: SchoolContext, id: string) {
-  const survey = await tx.survey.findFirst({ where: { id, schoolId: ctx.schoolId, archivedAt: null } });
+export async function archiveSurvey(tx: Tx, ctx: SchoolContext, id: string, campusId?: string | null) {
+  const survey = await loadSurvey(tx, ctx, id, campusId);
   if (!survey) throw new SurveyProblem("This survey was not found.");
   if (survey.status === "OPEN" && (!survey.closesOn || survey.closesOn.getTime() >= Date.now() - 86400_000)) throw new SurveyProblem("Close the survey first.");
   await tx.survey.update({ where: { id }, data: { archivedAt: new Date() } });
@@ -241,6 +289,15 @@ export async function archiveSurvey(tx: Tx, ctx: SchoolContext, id: string) {
 }
 
 // ── The list ─────────────────────────────────────────────────────────────
+
+/** For a person limited to one campus: their campus's surveys only (see surveyOnCampus). {} for the whole school. */
+export async function surveyCampusWhere(tx: Tx, ctx: SchoolContext, campusId: string | null | undefined): Promise<Prisma.SurveyWhereInput> {
+  if (!campusId) return {};
+  const rows = await tx.survey.findMany({ where: { schoolId: ctx.schoolId }, select: { id: true, audienceValue: true } });
+  const ok: string[] = [];
+  for (const r of rows) if (await surveyOnCampus(tx, r, campusId)) ok.push(r.id);
+  return { id: { in: ok } };
+}
 
 export function surveyWhere(ctx: SchoolContext, p: ListParams, tz: string): Prisma.SurveyWhereInput {
   const and: Prisma.SurveyWhereInput[] = [{ schoolId: ctx.schoolId, archivedAt: null }];

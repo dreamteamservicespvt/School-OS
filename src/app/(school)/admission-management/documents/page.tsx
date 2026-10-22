@@ -8,7 +8,8 @@ import { momentWhere, periodFromSearch } from "@/lib/periods";
 import { workPage, BASE } from "@/lib/admission/page";
 import { UUID_RE } from "@/lib/admission/act";
 import { progressOf } from "@/lib/admission/documents";
-import { classRules, docLabel, openYears } from "@/lib/admission/settings";
+import { admissionYear, campusNames, classList, classRules, docLabel, openYears, withCampus } from "@/lib/admission/settings";
+import { applicationScope } from "@/lib/admission/access";
 import { names } from "@/lib/admission/choices";
 import { phoneWords } from "@/lib/admission/words";
 import { Card } from "@/components/ui/card";
@@ -34,7 +35,7 @@ const NONE = "00000000-0000-0000-0000-000000000000";
 const WORKING: Prisma.ApplicationWhereInput["stage"] = { in: ["SUBMITTED", "SUBMITTED_ONLINE", "REVIEWED", "DOCUMENTS", "TEST_INTERVIEW", "DECISION", "APPROVED", "WAITING_LIST"] };
 
 export default async function DocumentsPage({ searchParams }: Search) {
-  const { current, viewer, year, tz } = await workPage();
+  const { current, viewer, settings, year, tz } = await workPage();
   const raw = await searchParams;
   const params = readListParams(raw, ["show", "class", "period", "from", "to"]);
   const range = periodFromSearch(raw, { timeZone: tz });
@@ -42,8 +43,10 @@ export default async function DocumentsPage({ searchParams }: Search) {
   const f = params.filters;
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const years = await openYears(tx);
+    // Every open year of each campus the person sees (only their campus's when limited to one).
+    const years = await openYears(tx, viewer.campusId);
     const base: Prisma.ApplicationWhereInput = {
+      ...applicationScope(viewer),
       archivedAt: null, academicYearId: { in: years.length ? years.map((y) => y.id) : [NONE] }, stage: WORKING,
       ...(f.class && UUID_RE.test(f.class) ? { classId: f.class } : {}),
       ...(range ? { createdAt: momentWhere(range, tz) } : {}),
@@ -67,7 +70,7 @@ export default async function DocumentsPage({ searchParams }: Search) {
     ]);
     let panel: PanelApp | null = null;
     if (openId) {
-      const app = await tx.application.findFirst({ where: { id: openId, archivedAt: null }, include: { documents: true } });
+      const app = await tx.application.findFirst({ where: { id: openId, archivedAt: null, ...applicationScope(viewer) }, include: { documents: true } });
       if (app) {
         const checklist = rules.get(app.classId)?.documents ?? [];
         const ids = [...new Set(app.documents.flatMap((d) => [d.verifiedById, d.uploadedById]).filter((x): x is string => Boolean(x)))];
@@ -84,23 +87,28 @@ export default async function DocumentsPage({ searchParams }: Search) {
         });
         const p = progressOf(app.documents, checklist);
         const y = years.find((x) => x.id === app.academicYearId);
+        // "Mid-year" against the admission year of the application's own campus.
+        const campusYear = (await admissionYear(tx, current.ctx, settings, app.campusId)) ?? year;
         panel = {
           id: app.id, name: app.fullName, className: n.classes.get(app.classId) ?? "", applicationNo: app.applicationNo,
-          yearLabel: y ? (y.status === "ACTIVE" && year && year.id !== y.id ? `${y.name} mid-year` : y.name) : "",
+          yearLabel: y ? (y.status === "ACTIVE" && campusYear && campusYear.id !== y.id ? `${y.name} mid-year` : y.name) : "",
           parent: app.fatherName ?? app.motherName ?? app.guardianName ?? "Parent", phone: phoneWords(app.phone),
           verified: p.requiredVerified, required: p.required, docs,
           missing: docs.filter((d) => d.status === "NOT_RECEIVED" || d.status === "REJECTED").map((d) => d.status === "REJECTED" ? `${d.label} (new copy: ${(d.rejectReason ?? "").toLowerCase()})` : d.label),
         };
       }
     }
-    return { rows, total, rules, n, counts: { all, missing, verify, done }, panel };
+    // The class filter offers the person's campus's classes (each with its campus when they see several).
+    const [classRows, campus] = await Promise.all([classList(tx, viewer.campusId), campusNames(tx, viewer.campusId)]);
+    const classOptions = classRows.map((c) => ({ value: c.id, label: withCampus(campus, c.name, c.campusId) }));
+    return { rows, total, rules, n, classOptions, counts: { all, missing, verify, done }, panel };
   });
 
   const { n, panel } = data;
   const chip = (v: string | null) => listHref(PATH, params, { show: v, page: null });
   const rowHref = (id: string) => listHref(PATH, params, { id });
   const filtered = Boolean(params.q || Object.keys(f).length);
-  const classes = [...n.classes.entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  const classes = [...data.classOptions].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
 
   const listRows: ListRow[] = data.rows.map((r) => {
     const checklist = data.rules.get(r.classId)?.documents ?? [];

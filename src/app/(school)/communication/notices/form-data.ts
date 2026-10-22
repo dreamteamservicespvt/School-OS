@@ -3,7 +3,7 @@ import "server-only";
 import type { Notice } from "@prisma/client";
 import { withSchool } from "@/lib/db";
 import type { CommAccess } from "@/lib/communication/access";
-import { currentYear } from "@/lib/academic/years";
+import { yearsFor } from "@/lib/academic/years";
 import { readAudience, needsApproval, DEFAULT_EXPIRY_DAYS } from "@/lib/communication/notices";
 import { utcToLocal } from "@/lib/communication/time";
 import { formatDate } from "@/lib/format";
@@ -15,14 +15,20 @@ export async function noticeFormData(access: CommAccess, notice: Notice | null):
   const { current, scope } = access;
   const tz = current.school.timeZone;
   return withSchool(current.ctx, async (tx) => {
-    const year = await currentYear(tx, current.ctx);
-    const sections = year
-      ? await tx.section.findMany({ where: { schoolId: current.ctx.schoolId, academicYearId: year.id, archivedAt: null, ...(scope.sectionIds === "all" ? {} : { id: { in: scope.sectionIds } }) }, select: { id: true, name: true, classId: true, schoolClass: { select: { name: true, sortOrder: true } } } })
+    // This year of each campus (a school with two campuses has two current years); only the sender's
+    // campus when they are limited to one, so other campuses' classes are not offered.
+    const yearIds = (await yearsFor(tx, current.ctx, scope.campusId ?? null)).map((y) => y.id);
+    const sections = yearIds.length
+      ? await tx.section.findMany({ where: { schoolId: current.ctx.schoolId, academicYearId: { in: yearIds }, archivedAt: null, ...(scope.sectionIds === "all" ? {} : { id: { in: scope.sectionIds } }) }, select: { id: true, name: true, classId: true, schoolClass: { select: { name: true, sortOrder: true, campusId: true } } } })
       : [];
     sections.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name));
-    const classes = [...new Map(sections.map((s) => [s.classId, { id: s.classId, name: s.schoolClass.name, sections: sections.filter((x) => x.classId === s.classId).map((x) => ({ id: x.id, name: x.name })) }])).values()];
+    const campuses = await tx.campus.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null, ...(scope.campusId ? { id: scope.campusId } : {}) }, select: { id: true, name: true } });
+    // With classes of several campuses on offer, each class shows its campus.
+    const several = new Set(sections.map((s) => s.schoolClass.campusId)).size > 1;
+    const campusOf = (id: string) => campuses.find((c) => c.id === id)?.name;
+    const className = (s: (typeof sections)[number]) => (several && campusOf(s.schoolClass.campusId) ? `${s.schoolClass.name} (${campusOf(s.schoolClass.campusId)})` : s.schoolClass.name);
+    const classes = [...new Map(sections.map((s) => [s.classId, { id: s.classId, name: className(s), sections: sections.filter((x) => x.classId === s.classId).map((x) => ({ id: x.id, name: x.name })) }])).values()];
     const roles = scope.staff ? await tx.role.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null, isEnabled: true, key: { not: null } }, select: { key: true, name: true }, orderBy: { name: "asc" } }) : [];
-    const campuses = await tx.campus.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null }, select: { id: true, name: true } });
     const files = notice?.attachmentFileIds.length ? await tx.storedFile.findMany({ where: { id: { in: notice.attachmentFileIds } }, select: { id: true, fileName: true } }) : [];
     const a = notice ? readAudience(notice.audience) : null;
     return {

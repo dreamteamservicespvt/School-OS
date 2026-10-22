@@ -22,17 +22,20 @@ export const metadata: Metadata = { title: "Send consent request" };
  * section, or to every parent who has not given consent (after switching to School OS).
  */
 export default async function ConsentRequestPage({ searchParams }: { searchParams: Promise<{ ids?: string; section?: string; scope?: string }> }) {
-  const { current, year, can } = await studentPage();
+  const { current, yearIds, can } = await studentPage();
   if (!can.manage) redirect(`${BASE}/guardians`);
   const sp = await searchParams;
   const ids = (sp.ids ?? "").split(",").filter((x) => /^[0-9a-f-]{36}$/i.test(x));
   const data = await withSchool(current.ctx, async (tx) => {
-    const sections = await sectionOptions(tx, current, year?.id);
+    const sections = await sectionOptions(tx, current, yearIds);
+    // One campus: only the parents of that campus's students.
+    const campus = current.campusId ? { campusId: current.campusId } : {};
     let where: object | null = null;
     if (ids.length) where = { id: { in: ids } };
-    else if (sp.section && year) where = { students: { some: { ...OPEN_LINK, student: { enrolments: { some: { sectionId: sp.section, academicYearId: year.id, archivedAt: null } } } } } };
-    else if (sp.scope === "all") where = { students: { some: { ...OPEN_LINK, student: { status: { in: ["ADMITTED", "ACTIVE", "PROMOTED"] } } } } };
-    const guardians = where ? await tx.guardian.findMany({ where: { AND: [where, { archivedAt: null }] }, select: { id: true, name: true }, take: 5000 }) : [];
+    else if (sp.section && yearIds.length) where = { students: { some: { ...OPEN_LINK, student: { ...campus, enrolments: { some: { sectionId: sp.section, academicYearId: { in: yearIds }, archivedAt: null } } } } } };
+    else if (sp.scope === "all") where = { students: { some: { ...OPEN_LINK, student: { ...campus, status: { in: ["ADMITTED", "ACTIVE", "PROMOTED"] } } } } };
+    const inCampus = current.campusId ? [{ students: { some: { ...OPEN_LINK, student: campus } } }] : [];
+    const guardians = where ? await tx.guardian.findMany({ where: { AND: [where, { archivedAt: null }, ...inCampus] }, select: { id: true, name: true }, take: 5000 }) : [];
     const consents = guardians.length ? await consentRows(tx, current.ctx, { guardianIds: guardians.map((g) => g.id) }) : [];
     const pending = guardians.filter((g) => CONSENT_TYPES.some((t) => consentState(consents.filter((c) => c.guardianId === g.id), t.key) !== "GIVEN"));
     return { sections, guardians, pending };

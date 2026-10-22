@@ -13,6 +13,7 @@ import { parseForm, type FormState } from "@/lib/forms";
 import { flash } from "@/lib/flash";
 import { CORRECTION_COOKIE } from "./_lib/server";
 import { sealCorrection } from "@/lib/academic/correction-cookie";
+import { inCampus } from "@/lib/campus";
 
 const correctionSchema = z.object({
   yearId: z.string().uuid("Choose the year."),
@@ -28,7 +29,8 @@ export async function startCorrection(_prev: FormState, formData: FormData): Pro
     return { ok: false, message: "Only the Principal or School Admin can correct a closed year." };
   }
   const year = await withSchool(current.ctx, async (tx) => {
-    const y = await tx.academicYear.findFirst({ where: { id: parsed.data.yearId, archivedAt: null } });
+    // One campus: only that campus's years (another campus's year is "not closed" here, as if unknown).
+    const y = await tx.academicYear.findFirst({ where: { id: parsed.data.yearId, archivedAt: null, ...inCampus(current) } });
     if (y?.status === "CLOSED") await writeAudit(tx, current.ctx, { action: "correction-started", recordType: "Academic Year", recordId: y.id, after: { reason: parsed.data.reason } });
     return y;
   });

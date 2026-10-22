@@ -13,7 +13,7 @@ import { dateField, formValues, optionalDate, optionalEmail, optionalIndianMobil
 import { DOCUMENT_TYPES, saveFile } from "@/lib/files";
 import { formatRupees } from "@/lib/format";
 import { writeAudit } from "@/lib/audit";
-import { loadVisibleStudent } from "@/lib/students/access";
+import { loadVisibleStudent, type Who } from "@/lib/students/access";
 import { addDonation, askWaiver, cancelLeaving, completeLeaving, linkMentor, markAlumni, postJob, refreshClearance, saveAlumni, startLeaving } from "@/lib/students/leaving";
 import { StudentProblem } from "@/lib/students/students";
 import { BASE, attempt, attemptForm, studentAction, todayIso } from "../_lib/page";
@@ -79,7 +79,12 @@ export async function askWaiverAction(fd: FormData) {
   const checkId = String(fd.get("checkId") ?? "");
   const reason = String(fd.get("reason") ?? "").trim().slice(0, 500);
   if (!isId(checkId)) return "This check was not found.";
-  const r = await attempt(() => withSchool(current.ctx, (tx) => askWaiver(tx, current.ctx, checkId, reason)));
+  const r = await attempt(() => withSchool(current.ctx, async (tx) => {
+    const check = await tx.studentClearanceCheck.findFirst({ where: { id: checkId }, select: { request: { select: { studentId: true } } } });
+    if (!check) throw new StudentProblem("This check was not found.");
+    await loadVisibleStudent(tx, current, check.request.studentId);
+    await askWaiver(tx, current.ctx, checkId, reason);
+  }));
   if (r) return r;
   await flash({ message: "Waiver asked. It is waiting in Approvals for someone allowed to approve it." });
   revalidatePath(L);
@@ -119,13 +124,23 @@ export async function cancelLeavingAction(fd: FormData) {
 
 // ---------- Alumni ----------
 
+/** An alumni record of a student this person may see (one campus: that campus's alumni only). */
+async function alumniInReach(tx: Parameters<Parameters<typeof withSchool>[1]>[0], who: Who, alumniId: string) {
+  const a = await tx.alumniRecord.findFirst({ where: { id: alumniId, archivedAt: null }, select: { studentId: true } });
+  if (!a) throw new StudentProblem("This alumni record was not found.");
+  await loadVisibleStudent(tx, who, a.studentId);
+}
+
 export async function markAlumniAction(fd: FormData) {
   const { current, settings } = await studentAction("edit", { manage: true });
   if (!settings.alumniOn) return "Alumni records are switched off in Student Settings.";
   const ids = String(fd.get("ids") ?? "").split(",").filter(isId).slice(0, 500);
   if (ids.length === 0) return "Choose at least one graduated student.";
   let done = 0;
-  const r = await attempt(() => withSchool(current.ctx, async (tx) => { done = await markAlumni(tx, current.ctx, ids); }, { timeout: 60_000 }));
+  const r = await attempt(() => withSchool(current.ctx, async (tx) => {
+    for (const s of ids) await loadVisibleStudent(tx, current, s);
+    done = await markAlumni(tx, current.ctx, ids);
+  }, { timeout: 60_000 }));
   if (r) return r;
   await flash({ message: done ? `${done} ${done === 1 ? "student is" : "students are"} now alumni.` : "Nobody was changed: only graduated students can be marked as alumni." });
   revalidatePath(L);
@@ -145,7 +160,10 @@ export async function saveAlumniAction(id: string, _prev: FormState, fd: FormDat
   if (!settings.alumniOn) return { ok: false, message: "Alumni records are switched off in Student Settings." };
   const parsed = parseForm(alumniSchema, fd);
   if (!parsed.ok) return parsed.state;
-  const r = await attemptForm(formValues(fd), () => withSchool(current.ctx, (tx) => saveAlumni(tx, current.ctx, id, parsed.data)));
+  const r = await attemptForm(formValues(fd), () => withSchool(current.ctx, async (tx) => {
+    await alumniInReach(tx, current, id);
+    return saveAlumni(tx, current.ctx, id, parsed.data);
+  }));
   if (r?.ok) { revalidatePath(`${L}/alumni/${id}`); return { ok: true, message: "Saved." }; }
   return r;
 }
@@ -164,7 +182,12 @@ export async function addDonationAction(_prev: FormState, fd: FormData): Promise
   const parsed = parseForm(donationSchema, fd);
   if (!parsed.ok) return parsed.state;
   const d = parsed.data;
-  const r = await attemptForm(formValues(fd), async () => { await withSchool(current.ctx, (tx) => addDonation(tx, current.ctx, { alumniId: d.alumniId, amountPaise: d.amount, date: d.date, purpose: d.purpose, receiptRef: d.receiptRef })); });
+  const r = await attemptForm(formValues(fd), async () => {
+    await withSchool(current.ctx, async (tx) => {
+      await alumniInReach(tx, current, d.alumniId);
+      await addDonation(tx, current.ctx, { alumniId: d.alumniId, amountPaise: d.amount, date: d.date, purpose: d.purpose, receiptRef: d.receiptRef });
+    });
+  });
   if (r?.ok) { revalidatePath(`${L}/alumni`); return { ok: true, message: `Donation of ${formatRupees(d.amount)} recorded. Record the receipt in Finance, Income.` }; }
   return r;
 }
@@ -179,6 +202,7 @@ export async function linkMentorAction(_prev: FormState, fd: FormData): Promise<
   if (!isId(alumniId)) return { ok: false, message: "Choose the alumnus.", errors: { alumniId: "Choose the alumnus." }, values };
   if (!isId(studentId)) return { ok: false, message: "Choose the student.", errors: { studentId: "Choose the student." }, values };
   const r = await attemptForm(values, () => withSchool(current.ctx, async (tx) => {
+    await alumniInReach(tx, current, alumniId);
     await loadVisibleStudent(tx, current, studentId);
     await linkMentor(tx, current.ctx, alumniId, studentId, note);
   }));

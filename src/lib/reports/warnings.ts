@@ -28,7 +28,8 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { remindedSince, sendReminder } from "../reminders";
-import { currentYear, currentYears } from "../academic/years";
+import { currentYear, currentYears, studentYear, yearsFor } from "../academic/years";
+import { personCampusId } from "../campus";
 import { classTeacherSectionIds, ownSectionIds } from "../people";
 import { attendanceSettings } from "../attendance/settings";
 import { attendanceSummary } from "../attendance/summary";
@@ -189,7 +190,7 @@ async function marksSignals(tx: Tx, year: { id: string }, enrol: Map<string, str
  */
 async function feeSignals(tx: Tx, ctx: SchoolContext, year: { id: string }, enrol: Map<string, string>, today: Date, rules: Awaited<ReturnType<typeof warningRules>>): Promise<Signal[]> {
   if (!BUILT_MODULES.has("fee-management")) return [];
-  const d = await defaulters(tx, ctx, { userId: "", see: "all", change: "none", roleKeys: [], sectionIds: null, yearId: year.id }, today);
+  const d = await defaulters(tx, ctx, { userId: "", see: "all", change: "none", roleKeys: [], sectionIds: null, yearId: year.id, yearIds: [year.id], campusId: null }, today);
   return d.rows.filter((r) => r.daysOverdue > rules.feeDays && enrol.has(r.studentId)).map((r) => ({
     studentId: r.studentId, sectionId: enrol.get(r.studentId) ?? null, area: "fees" as const,
     strength: "WATCH" as const,
@@ -285,17 +286,26 @@ export async function flagScope(tx: Tx, who: ReportViewer, a: ReportAccess): Pro
 
 /** The Risk Flag filter, and the sections whose Attendance Flags this person sees (null: every section). */
 async function scopeOf(tx: Tx, who: ReportViewer, a: ReportAccess) {
-  // The person's campus year for own reach; every campus's current year for people who see the school (gap list G25).
-  const year = a.own ? await currentYear(tx, who.ctx, who.campusId) : await currentYears(tx, who.ctx, who.campusId ? [who.campusId] : null);
-  if (!a.warnings.on) return { where: { id: "00000000-0000-0000-0000-000000000000" } as Prisma.RiskFlagWhereInput, sectionIds: [] as string[] | null, year };
+  // Each campus's current year (only theirs for a person limited to one campus).
+  const years = await yearsFor(tx, who.ctx, who.campusId ?? null);
+  if (!a.warnings.on) return { where: { id: "00000000-0000-0000-0000-000000000000" } as Prisma.RiskFlagWhereInput, sectionIds: [] as string[] | null, years };
   const where: Prisma.RiskFlagWhereInput = {};
   if (!a.warnings.fees) where.area = { in: ["attendance", "marks"] };
   let sectionIds: string[] | null = null;
-  if (a.own) {
-    sectionIds = year && !Array.isArray(year) ? await ownSectionIds(tx, who.ctx, year.id) : [];
-    where.sectionId = { in: sectionIds };
+  if (a.own) sectionIds = (await Promise.all(years.map((y) => ownSectionIds(tx, who.ctx, y.id)))).flat();
+  if (who.campusId) {
+    // One campus: that campus's students' flags only.
+    const onCampus = new Set((await tx.section.findMany({ where: { schoolClass: { campusId: who.campusId } }, select: { id: true } })).map((s) => s.id));
+    sectionIds = (sectionIds ?? [...onCampus]).filter((id) => onCampus.has(id));
   }
-  return { where, sectionIds, year };
+  if (sectionIds) where.sectionId = { in: sectionIds };
+  return { where, sectionIds, years };
+}
+
+/** Attendance Flag rows of every year in the scope (each campus's own). */
+async function flagRowsOf(tx: Tx, who: ReportViewer, s: { years: { id: string; startDate: Date }[]; sectionIds: string[] | null }, q: { rules: Awaited<ReturnType<typeof warningRules>>; studentIds?: string[]; openOnly?: boolean }) {
+  const today = todayIn(who.school.timeZone);
+  return (await Promise.all(s.years.map((year) => attendanceFlagRows(tx, who.ctx, { year, today, rules: q.rules, sectionIds: s.sectionIds, studentIds: q.studentIds, openOnly: q.openOnly })))).flat();
 }
 
 /**
@@ -315,7 +325,7 @@ async function visibleRows(tx: Tx, who: ReportViewer, a: ReportAccess, q: { stud
   });
   const covered = await coveredStudents(tx, q.studentIds);
   const rules = await warningRules(tx, who.ctx);
-  const att = await attendanceFlagRows(tx, who.ctx, { year: s.year, today: todayIn(who.school.timeZone), rules, sectionIds: s.sectionIds, studentIds: q.studentIds, openOnly: q.openOnly });
+  const att = await flagRowsOf(tx, who, s, { rules, studentIds: q.studentIds, openOnly: q.openOnly });
   return [
     ...risk.filter((f) => !(f.area === "attendance" && f.closedAt === null && covered.has(f.studentId))).map(riskRow),
     ...att.filter((r) => !raised || ((!raised.gte || r.raisedAt >= raised.gte) && (!raised.lt || r.raisedAt < raised.lt))),
@@ -371,7 +381,7 @@ async function visibleFlag(tx: Tx, who: ReportViewer, a: ReportAccess, flagId: s
     if (f) return riskRow(f);
     const af = await tx.attendanceFlag.findFirst({ where: { id: flagId }, select: { studentId: true } });
     if (af) {
-      const rows = await attendanceFlagRows(tx, who.ctx, { year: s.year, today: todayIn(who.school.timeZone), rules: await warningRules(tx, who.ctx), sectionIds: s.sectionIds, studentIds: [af.studentId] });
+      const rows = await flagRowsOf(tx, who, s, { rules: await warningRules(tx, who.ctx), studentIds: [af.studentId] });
       const row = rows.find((r) => rowIs(r, flagId));
       if (row) return row;
     }
@@ -554,8 +564,13 @@ export async function visibleForecasts(tx: Tx, who: ReportViewer, a: ReportAcces
   if (!a.ai.forecasts && !a.ai.insights) return [];
   // Ranked most important first (forecastsFor); unusual activity only with Student insights on.
   const rows = await forecastsFor(tx, { fees: a.warnings.fees, finance: a.finance !== null, forecasts: a.ai.forecasts, insights: a.ai.insights });
-  if (a.ai.forecastScope === "all") return rows;
-  const year = await currentYear(tx, who.ctx, who.campusId);
+  if (a.ai.forecastScope === "all" && !who.campusId) return rows;
+  if (a.ai.forecastScope === "all") {
+    // One campus: only forecasts about that campus's students (school-wide ones are left out).
+    const onCampus = new Set((await tx.student.findMany({ where: { campusId: who.campusId! }, select: { id: true } })).map((s) => s.id));
+    return rows.filter((r) => r.studentId !== null && onCampus.has(r.studentId));
+  }
+  const year = await currentYear(tx, who.ctx, await personCampusId(tx, who.ctx, who));
   const sections = year ? await classTeacherSectionIds(tx, who.ctx, year.id) : [];
   if (!year || !sections.length) return [];
   const mine = new Set((await tx.enrolment.findMany({ where: { sectionId: { in: sections }, academicYearId: year.id, archivedAt: null, status: "STUDYING" }, select: { studentId: true } })).map((e) => e.studentId));
@@ -604,10 +619,9 @@ export async function decideAiSignal(tx: Tx, who: ReportViewer, a: ReportAccess,
   if (!signal) throw new WarningProblem("This suggestion is no longer there.");
   let flagId: string | null = signal.flagId ?? null;
   if (decision === "FLAGGED" && !flagId) {
-    // The student's own campus year (gap list G25).
-    const years = await currentYears(tx, who.ctx);
-    const enrol = signal.studentId ? await tx.enrolment.findFirst({ where: { studentId: signal.studentId, academicYearId: { in: years.map((y) => y.id) }, archivedAt: null }, select: { sectionId: true, academicYearId: true } }) : null;
-    const year = years.find((y) => y.id === enrol?.academicYearId) ?? years[0];
+    // The student's own campus's current year, and their class in it.
+    const year = signal.studentId ? await studentYear(tx, who.ctx, signal.studentId) : null;
+    const enrol = signal.studentId && year ? await tx.enrolment.findFirst({ where: { studentId: signal.studentId, academicYearId: year.id, archivedAt: null }, select: { sectionId: true, academicYearId: true } }) : null;
     if (signal.studentId && year) {
       const area = signal.area === "marks" || signal.area === "fees" ? signal.area : "attendance";
       // One open flag per student and area: a suggestion joins the open one if there is one. For

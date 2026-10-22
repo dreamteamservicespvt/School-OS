@@ -4,7 +4,7 @@ import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { fullPage, BASE } from "@/lib/admission/page";
 import { REPORTS, report, type Report, type ReportKey } from "@/lib/admission/reports";
-import { openYears } from "@/lib/admission/settings";
+import { admissionYears, campusNames, openYears } from "@/lib/admission/settings";
 import { enquiryChoices, names } from "@/lib/admission/choices";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Stats } from "@/components/ui/stats";
@@ -15,7 +15,7 @@ import { Pill } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { cx } from "@/components/ui/cx";
 import { AdmissionHead } from "../_components/head";
-import { filterQuery, readFilters } from "./filters";
+import { defaultYears, filterQuery, readFilters, yearOptions } from "./filters";
 import { ReportToolbar } from "./toolbar";
 
 export const metadata: Metadata = { title: "Admission Reports" };
@@ -35,20 +35,25 @@ const weighted = (rows: Report["rows"], count: string, value: string) => {
 const days = (d: number | null) => (d === null ? "None yet" : `${d} ${d === 1 ? "day" : "days"}`);
 
 export default async function ReportsPage({ searchParams }: Search) {
-  const { current, viewer, settings, year, tz } = await fullPage();
+  const { current, viewer, settings, tz } = await fullPage();
   const raw = await searchParams;
-  const read = readFilters(raw, settings, year?.id ?? null, tz);
   const data = await withSchool(current.ctx, async (tx) => {
-    const [n, years, choices, campuses] = await Promise.all([
-      names(tx), openYears(tx), enquiryChoices(tx, current.ctx, current, settings, tz),
-      tx.campus.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    // Each campus has its own years: by default each campus's admission year (only the person's campus when limited to one).
+    const limit = viewer.campusId;
+    const [n, years, choices, campuses, admitting, campus] = await Promise.all([
+      names(tx), openYears(tx, limit), enquiryChoices(tx, current.ctx, current, settings, tz),
+      tx.campus.findMany({ where: { archivedAt: null, ...(limit ? { id: limit } : {}) }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+      admissionYears(tx, current.ctx, settings, limit), campusNames(tx, limit),
     ]);
+    const def = defaultYears(admitting, raw);
+    const read = readFilters(raw, settings, def, tz);
+    const yearOpts = yearOptions(years, admitting, def, campus);
     const all = read ? await Promise.all(REPORTS.map((r) => report(tx, settings, viewer, r.key, read.f, n))) : [];
-    return { years, choices, campuses, reports: new Map(all.map((r) => [r.key as ReportKey, r])) };
+    return { years, choices, campuses, read, yearOpts, reports: new Map(all.map((r) => [r.key as ReportKey, r])) };
   });
 
   const q = filterQuery(raw);
-  const yearOpts = [...data.years].sort((a, b) => (a.id === year?.id ? -1 : b.id === year?.id ? 1 : 0)).map((y) => ({ value: y.id, label: y.status === "ACTIVE" && year && y.id !== year.id ? `${y.name} mid-year` : y.name }));
+  const { read, yearOpts } = data;
   const R = (k: ReportKey) => data.reports.get(k)!;
 
   const body = (k: ReportKey) => {

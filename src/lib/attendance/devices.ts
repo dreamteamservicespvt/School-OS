@@ -10,7 +10,8 @@ import { createHash, randomBytes } from "node:crypto";
 import type { AttendanceDevice, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { AttendanceProblem, type AttendanceAccess } from "./access";
+import { inCampus } from "../campus";
+import { AttendanceProblem, campusOpen, staffLimit, studentLimit, type AttendanceAccess } from "./access";
 import { dayInfo } from "./calendar";
 import { attendanceSettings } from "./settings";
 import { clockMinutes, instantAt, minutesOf, schoolDateOf } from "./time";
@@ -68,7 +69,8 @@ export async function addDevice(tx: Tx, ctx: SchoolContext, access: AttendanceAc
   requireAdmin(access);
   checkDevice(input);
   const campus = await tx.campus.findFirst({ where: { id: input.campusId, archivedAt: null } });
-  if (!campus) throw new AttendanceProblem("Choose the campus.", "campusId");
+  // A person limited to one campus adds devices for that campus only.
+  if (!campus || !campusOpen(access, campus.id)) throw new AttendanceProblem("Choose the campus.", "campusId");
   const dup = await tx.attendanceDevice.findFirst({ where: { schoolId: ctx.schoolId, serialNo: input.serialNo.trim() } });
   if (dup) throw new AttendanceProblem(`Device ID ${input.serialNo.trim()} is already added as "${dup.name}".`, "serialNo");
   const key = newDeviceKey();
@@ -85,8 +87,9 @@ export async function addDevice(tx: Tx, ctx: SchoolContext, access: AttendanceAc
 export async function updateDevice(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, id: string, input: DeviceInput) {
   requireAdmin(access);
   checkDevice(input);
-  const before = await tx.attendanceDevice.findFirst({ where: { id, archivedAt: null } });
+  const before = await tx.attendanceDevice.findFirst({ where: { id, archivedAt: null, ...inCampus({ campusId: access.campusLimit }) } });
   if (!before) throw new AttendanceProblem("This device was not found.");
+  if (!campusOpen(access, input.campusId)) throw new AttendanceProblem("Choose the campus.", "campusId");
   const dup = await tx.attendanceDevice.findFirst({ where: { schoolId: ctx.schoolId, serialNo: input.serialNo.trim(), id: { not: id } } });
   if (dup) throw new AttendanceProblem(`Device ID ${input.serialNo.trim()} is already added as "${dup.name}".`, "serialNo");
   const data = { name: input.name.trim(), serialNo: input.serialNo.trim(), location: input.location, campusId: input.campusId, deviceType: input.deviceType, allowedUsers: input.allowedUsers, ipAddress: input.ipAddress, connectionNote: input.connectionNote };
@@ -97,7 +100,7 @@ export async function updateDevice(tx: Tx, ctx: SchoolContext, access: Attendanc
 /** Replaces the device key. The old key stops working at once. */
 export async function regenerateKey(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, id: string) {
   requireAdmin(access);
-  const device = await tx.attendanceDevice.findFirst({ where: { id, archivedAt: null } });
+  const device = await tx.attendanceDevice.findFirst({ where: { id, archivedAt: null, ...inCampus({ campusId: access.campusLimit }) } });
   if (!device) throw new AttendanceProblem("This device was not found.");
   const key = newDeviceKey();
   await tx.attendanceDevice.update({ where: { id }, data: { keyHash: hashKey(key), keyLast4: key.slice(-4), keyCreatedAt: new Date() } });
@@ -107,7 +110,7 @@ export async function regenerateKey(tx: Tx, ctx: SchoolContext, access: Attendan
 
 export async function setDeviceState(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, id: string, change: "activate" | "deactivate" | "archive" | "restore") {
   requireAdmin(access);
-  const device = await tx.attendanceDevice.findFirst({ where: { id } });
+  const device = await tx.attendanceDevice.findFirst({ where: { id, ...inCampus({ campusId: access.campusLimit }) } });
   if (!device) throw new AttendanceProblem("This device was not found.");
   const data: Prisma.AttendanceDeviceUpdateInput =
     change === "activate" ? { isActive: true } : change === "deactivate" ? { isActive: false } : change === "archive" ? { archivedAt: new Date(), isActive: false } : { archivedAt: null };
@@ -129,14 +132,14 @@ export function deviceStatus(d: Pick<AttendanceDevice, "isActive" | "lastSyncAt"
 /** Matches device user numbers to staff IDs and admission numbers (the ID card numbers). Only unmatched numbers are touched. */
 export async function autoMatch(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, deviceId: string) {
   requireAdmin(access);
-  const device = await tx.attendanceDevice.findFirst({ where: { id: deviceId, archivedAt: null } });
+  const device = await tx.attendanceDevice.findFirst({ where: { id: deviceId, archivedAt: null, ...inCampus({ campusId: access.campusLimit }) } });
   if (!device) throw new AttendanceProblem("This device was not found.");
   const numbers = await tx.devicePunch.findMany({ where: { deviceId, rejectReason: "unknown-user" }, select: { deviceUserNo: true }, distinct: ["deviceUserNo"] });
   const mapped = new Set((await tx.deviceUserMap.findMany({ where: { deviceId, archivedAt: null }, select: { deviceUserNo: true } })).map((m) => m.deviceUserNo));
   let matched = 0;
   for (const { deviceUserNo } of numbers) {
     if (mapped.has(deviceUserNo)) continue;
-    const found = await findPerson(tx, deviceUserNo, device.allowedUsers);
+    const found = await findPerson(tx, deviceUserNo, device.allowedUsers, access);
     if (!found) continue;
     await tx.deviceUserMap.create({ data: { schoolId: ctx.schoolId, deviceId, deviceUserNo, ...found, matchedBy: "auto", createdById: ctx.userId } });
     matched++;
@@ -145,14 +148,15 @@ export async function autoMatch(tx: Tx, ctx: SchoolContext, access: AttendanceAc
   return matched;
 }
 
-async function findPerson(tx: Tx, code: string, allowed: string): Promise<{ staffId?: string; studentId?: string } | null> {
+/** The staff member or student with this ID card number; on the person's campus only when their access is limited to one. */
+async function findPerson(tx: Tx, code: string, allowed: string, access: AttendanceAccess): Promise<{ staffId?: string; studentId?: string } | null> {
   const c = code.trim();
   if (allowed !== "students") {
-    const s = await tx.staff.findFirst({ where: { archivedAt: null, staffCode: { equals: c, mode: "insensitive" } }, select: { id: true } });
+    const s = await tx.staff.findFirst({ where: { AND: [{ archivedAt: null, staffCode: { equals: c, mode: "insensitive" } }, staffLimit(access)] }, select: { id: true } });
     if (s) return { staffId: s.id };
   }
   if (allowed !== "staff") {
-    const st = await tx.student.findFirst({ where: { archivedAt: null, admissionNo: { equals: c, mode: "insensitive" } }, select: { id: true } });
+    const st = await tx.student.findFirst({ where: { archivedAt: null, admissionNo: { equals: c, mode: "insensitive" }, ...studentLimit(access) }, select: { id: true } });
     if (st) return { studentId: st.id };
   }
   return null;
@@ -160,17 +164,17 @@ async function findPerson(tx: Tx, code: string, allowed: string): Promise<{ staf
 
 export async function mapUser(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, input: { deviceId: string; deviceUserNo: string; who: string }) {
   requireAdmin(access);
-  const device = await tx.attendanceDevice.findFirst({ where: { id: input.deviceId, archivedAt: null } });
+  const device = await tx.attendanceDevice.findFirst({ where: { id: input.deviceId, archivedAt: null, ...inCampus({ campusId: access.campusLimit }) } });
   if (!device) throw new AttendanceProblem("This device was not found.");
   const no = input.deviceUserNo.trim();
   if (!/^[\w\-]{1,40}$/.test(no)) throw new AttendanceProblem("Device user number is needed (letters and numbers).", "deviceUserNo");
   const [kind, id] = input.who.split(":");
   let person: { staffId?: string; studentId?: string; name: string } | null = null;
   if (kind === "staff" && device.allowedUsers !== "students") {
-    const s = await tx.staff.findFirst({ where: { id, archivedAt: null }, select: { id: true, fullName: true } });
+    const s = await tx.staff.findFirst({ where: { AND: [{ id, archivedAt: null }, staffLimit(access)] }, select: { id: true, fullName: true } });
     if (s) person = { staffId: s.id, name: s.fullName };
   } else if (kind === "student" && device.allowedUsers !== "staff") {
-    const s = await tx.student.findFirst({ where: { id, archivedAt: null }, select: { id: true, fullName: true } });
+    const s = await tx.student.findFirst({ where: { id, archivedAt: null, ...studentLimit(access) }, select: { id: true, fullName: true } });
     if (s) person = { studentId: s.id, name: s.fullName };
   }
   if (!person) throw new AttendanceProblem(`Choose a ${device.allowedUsers === "students" ? "student" : device.allowedUsers === "staff" ? "staff member" : "student or staff member"} allowed on this device.`, "who");
@@ -184,7 +188,7 @@ export async function mapUser(tx: Tx, ctx: SchoolContext, access: AttendanceAcce
 
 export async function unmapUser(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, mapId: string) {
   requireAdmin(access);
-  const m = await tx.deviceUserMap.findFirst({ where: { id: mapId, archivedAt: null } });
+  const m = await tx.deviceUserMap.findFirst({ where: { id: mapId, archivedAt: null, ...(access.campusLimit ? { device: { campusId: access.campusLimit } } : {}) } });
   if (!m) throw new AttendanceProblem("This mapping was not found.");
   await tx.deviceUserMap.update({ where: { id: mapId }, data: { archivedAt: new Date() } });
   await writeAudit(tx, ctx, { action: "device-user-unmapped", recordType: "Device User Map", recordId: mapId, before: { deviceUserNo: m.deviceUserNo } });
@@ -229,7 +233,9 @@ async function markFromPunch(tx: Tx, ctx: SchoolContext, input: { staffId?: stri
     }
     const rule = (await shiftsOn(tx, ctx, [input.staffId], input.date)).get(input.staffId)!;
     const auto = statusFromInTime(input.at, input.date, rule, settings.staffHalfDayAfter, input.timeZone);
-    const year = await tx.academicYear.findFirst({ where: { schoolId: ctx.schoolId, startDate: { lte: input.date }, endDate: { gte: input.date }, archivedAt: null } });
+    // The mark's year is the year of the staff member's own campus on that date.
+    const staff = await tx.staff.findFirst({ where: { id: input.staffId }, select: { campusId: true } });
+    const year = await tx.academicYear.findFirst({ where: { schoolId: ctx.schoolId, startDate: { lte: input.date }, endDate: { gte: input.date }, archivedAt: null, ...(staff ? { campusId: staff.campusId } : {}) } });
     const mark = await tx.attendanceMark.create({ data: { schoolId: ctx.schoolId, academicYearId: year?.id ?? null, staffId: input.staffId, date: input.date, periodNo: 0, statusKey: auto.statusKey, lateMinutes: auto.lateMinutes, inTime: input.at, method: input.method, markedAt: new Date() } });
     return { markId: mark.id, sectionId: null };
   }
@@ -321,7 +327,7 @@ async function checkPunch(tx: Tx, ctx: SchoolContext, device: AttendanceDevice, 
 /** "Re-run the sync": checks the punches rejected as unknown users again, after mapping (05 §5). */
 export async function reprocessRejected(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, deviceId: string, now: Date, timeZone: string) {
   requireAdmin(access);
-  const device = await tx.attendanceDevice.findFirst({ where: { id: deviceId, archivedAt: null } });
+  const device = await tx.attendanceDevice.findFirst({ where: { id: deviceId, archivedAt: null, ...inCampus({ campusId: access.campusLimit }) } });
   if (!device) throw new AttendanceProblem("This device was not found.");
   const settings = await attendanceSettings(tx, ctx);
   const rows = await tx.devicePunch.findMany({ where: { deviceId, accepted: false, rejectReason: { in: ["unknown-user", "not-allowed"] } }, orderBy: { punchedAt: "asc" }, take: 2000 });

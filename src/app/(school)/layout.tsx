@@ -18,6 +18,7 @@ import { isUnread, notificationPage } from "@/lib/notifications";
 import { PAGE_PATH_HEADER, recordMissing } from "@/lib/record-gate";
 import { myPhotoLink } from "@/lib/profile-photo";
 import { currentYear } from "@/lib/academic/years";
+import { personCampusId } from "@/lib/campus";
 import { cleanTheme } from "@/lib/theme";
 import { cx } from "@/components/ui/cx";
 import { Info, Lock, TriangleAlert } from "lucide-react";
@@ -47,7 +48,8 @@ export default async function SchoolLayout({ children }: { children: React.React
     activeSystemNotices(),
     withSchool(current.ctx, async (tx) => ({
       missing: await recordMissing(tx, pagePath),
-      year: await currentYear(tx, current.ctx),
+      // The current year of the person's own campus (00-global.md, top bar: "the person's campus").
+      year: await currentYear(tx, current.ctx, await personCampusId(tx, current.ctx, current)),
       notes: await notificationPage(tx, { userLoginId: current.user.id }, 0, 8),
     })),
     admin ? schoolPlanState(current.school.id).catch(() => null) : Promise.resolve(null),

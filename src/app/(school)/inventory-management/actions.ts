@@ -181,7 +181,7 @@ export async function findStudentsAction(q: string): Promise<CounterStudent[]> {
   try {
     return await inInventory("view", async (w) => {
       if (!w.can.issue) return [];
-      return searchCounterStudents(w.tx, w.ctx, String(q ?? "").slice(0, 60));
+      return searchCounterStudents(w.tx, w.ctx, String(q ?? "").slice(0, 60), 8, w.current);
     });
   } catch {
     return [];

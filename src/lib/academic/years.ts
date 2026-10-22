@@ -16,7 +16,13 @@ export class ClosedYearError extends Error {
   }
 }
 
-/** The active academic year of the campus (or of the school's main campus). */
+/**
+ * The active academic year of the campus. With no campus: the newest active
+ * year of any campus, which in a school whose campuses start the year on
+ * different dates is only one of them; use yearsFor / currentYears for
+ * lists, studentYear for a student, and the person's campus (src/lib/campus.ts
+ * personCampusId) for a page's default.
+ */
 export async function currentYear(tx: Tx, ctx: SchoolContext, campusId?: string | null) {
   const where = { schoolId: ctx.schoolId, archivedAt: null, ...(campusId ? { campusId } : {}) };
   return (
@@ -35,21 +41,62 @@ export async function currentYears(tx: Tx, ctx: SchoolContext, campusIds?: strin
     where: { schoolId: ctx.schoolId, archivedAt: null, ...(campusIds?.length ? { campusId: { in: campusIds } } : {}) },
     orderBy: { startDate: "desc" },
   });
+  // An archived campus's years stay out of "the current years".
+  const live = new Set((await tx.campus.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null }, select: { id: true } })).map((c) => c.id));
   const byCampus = new Map<string, (typeof rows)[number]>();
   for (const y of rows) {
+    if (!live.has(y.campusId)) continue;
     const have = byCampus.get(y.campusId);
     if (!have || (have.status !== "ACTIVE" && y.status === "ACTIVE")) byCampus.set(y.campusId, y);
   }
   return [...byCampus.values()];
 }
 
-/** The year chosen in the URL (?year=), if valid, else the current one. */
-export async function chosenYear(tx: Tx, ctx: SchoolContext, yearId?: string | null) {
+/** The ids of every campus's current year: "this year" for students of any campus. */
+export async function currentYearIds(tx: Tx, ctx: SchoolContext) {
+  return (await currentYears(tx, ctx)).map((y) => y.id);
+}
+
+/**
+ * The year chosen in the URL (?year=), if valid, else the current one.
+ * `limit`: the campus the person is limited to (Current.campusId); a year of
+ * another campus is never chosen for them. `campusId`: whose current year is
+ * the default (the person's own campus, src/lib/campus.ts personCampusId).
+ */
+export async function chosenYear(tx: Tx, ctx: SchoolContext, yearId?: string | null, where: { limit?: string | null; campusId?: string | null } = {}) {
   if (yearId && /^[0-9a-f-]{36}$/i.test(yearId)) {
-    const y = await tx.academicYear.findFirst({ where: { id: yearId, schoolId: ctx.schoolId, archivedAt: null } });
+    const y = await tx.academicYear.findFirst({ where: { id: yearId, schoolId: ctx.schoolId, archivedAt: null, ...(where.limit ? { campusId: where.limit } : {}) } });
     if (y) return y;
   }
-  return currentYear(tx, ctx);
+  return currentYear(tx, ctx, where.limit ?? where.campusId ?? null);
+}
+
+/** The current year of a student's own campus: the year their class, attendance and fees of "this year" belong to. */
+export async function studentYear(tx: Tx, ctx: SchoolContext, studentId: string) {
+  const s = await tx.student.findFirst({ where: { id: studentId, schoolId: ctx.schoolId }, select: { campusId: true } });
+  return currentYear(tx, ctx, s?.campusId ?? null);
+}
+
+/**
+ * Each student's own campus's current year, looked up once per campus: for
+ * work on many students at once (bulk changes, imports).
+ */
+export function studentYearLookup(tx: Tx, ctx: SchoolContext) {
+  const byCampus = new Map<string, ReturnType<typeof currentYear>>();
+  return async (studentId: string) => {
+    const s = await tx.student.findFirst({ where: { id: studentId, schoolId: ctx.schoolId }, select: { campusId: true } });
+    if (!s) return null;
+    if (!byCampus.has(s.campusId)) byCampus.set(s.campusId, currentYear(tx, ctx, s.campusId));
+    return byCampus.get(s.campusId)!;
+  };
+}
+
+/**
+ * The current years a person works in, one per campus: only their campus's
+ * when their access is limited to one campus, else every campus's.
+ */
+export async function yearsFor(tx: Tx, ctx: SchoolContext, limit: string | null | undefined) {
+  return currentYears(tx, ctx, limit ? [limit] : null);
 }
 
 export async function isYearClosed(tx: Tx, academicYearId: string) {
@@ -106,18 +153,39 @@ export function pickCurrentEnrolment<E extends { academicYearId: string; created
   return best;
 }
 
-/** Each student's enrolment this year (see pickCurrentEnrolment), by student id. */
+/**
+ * Each student's enrolment this year, by student id: the one in the current
+ * year of the student's own campus (each campus has its own year, by the
+ * currentYear rule: the newest active year, else the newest), else
+ * pickCurrentEnrolment. The one rule for "this year's class" everywhere.
+ */
 export async function currentEnrolments(tx: Tx, studentIds: string[]): Promise<Map<string, Enrolment>> {
   const ids = [...new Set(studentIds)];
   if (!ids.length) return new Map();
-  const rows = await tx.enrolment.findMany({ where: { studentId: { in: ids }, archivedAt: null } });
+  const [rows, students] = await Promise.all([
+    tx.enrolment.findMany({ where: { studentId: { in: ids }, archivedAt: null } }),
+    tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, campusId: true } }),
+  ]);
+  const campusOf = new Map(students.map((s) => [s.id, s.campusId]));
+  const campusYears = await tx.academicYear.findMany({
+    where: { campusId: { in: [...new Set(students.map((s) => s.campusId))] }, archivedAt: null },
+    orderBy: { startDate: "desc" },
+    select: { id: true, campusId: true, status: true },
+  });
+  const currentOf = new Map<string, { id: string; status: string }>();
+  for (const y of campusYears) {
+    const have = currentOf.get(y.campusId);
+    if (!have || (have.status !== "ACTIVE" && y.status === "ACTIVE")) currentOf.set(y.campusId, y);
+  }
   const years = await tx.academicYear.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.academicYearId))] } }, select: { id: true, status: true, startDate: true } });
   const yearMap = new Map(years.map((y) => [y.id, y]));
   const byStudent = new Map<string, Enrolment[]>();
   for (const r of rows) byStudent.set(r.studentId, [...(byStudent.get(r.studentId) ?? []), r]);
   const out = new Map<string, Enrolment>();
   for (const [id, list] of byStudent) {
-    const e = pickCurrentEnrolment(list, yearMap);
+    const campus = campusOf.get(id);
+    const thisYear = campus ? currentOf.get(campus)?.id : undefined;
+    const e = (thisYear ? list.find((x) => x.academicYearId === thisYear) : undefined) ?? pickCurrentEnrolment(list, yearMap);
     if (e) out.set(id, e);
   }
   return out;

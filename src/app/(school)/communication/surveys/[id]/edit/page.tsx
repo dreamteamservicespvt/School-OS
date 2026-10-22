@@ -12,7 +12,7 @@ export default async function EditSurveyPage({ params }: { params: Promise<{ id:
   requireSurveys(access);
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const data = await surveyFormData(access.current.ctx, access.current.school.timeZone, id, null);
+  const data = await surveyFormData(access.current.ctx, access.current.school.timeZone, id, null, access.scope.campusId);
   if (!data) notFound();
   return (
     <>

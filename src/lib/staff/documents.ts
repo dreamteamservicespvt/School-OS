@@ -2,7 +2,7 @@
 // of automation A15 (09 Documents & ID Cards).
 import "server-only";
 
-import type { StaffDocument } from "@prisma/client";
+import type { Prisma, StaffDocument } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
@@ -10,6 +10,7 @@ import { formatDate } from "../format";
 import { maskLast4 } from "../crypto";
 import { hrPeople } from "./access";
 import { StaffProblem } from "./staff";
+import { campusLimitsOf } from "./campus-logins";
 import { hrSettings } from "./settings";
 import { DAY_MS, isoDay } from "./dates";
 
@@ -43,8 +44,9 @@ export function showDocNumber(kind: string, number: string | null, full: boolean
 
 export type NewDocument = { staffId: string; kind: string; fileId: string; number: string | null; issuedOn: Date | null; expiresOn: Date | null };
 
-export async function addDocument(tx: Tx, ctx: SchoolContext, input: NewDocument, replaceId?: string | null) {
-  const staff = await tx.staff.findFirst({ where: { id: input.staffId, archivedAt: null } });
+/** `staffWhere`: the staff the person may change (one campus: src/lib/staff/list.ts campusStaffWhere); another is not found. */
+export async function addDocument(tx: Tx, ctx: SchoolContext, input: NewDocument, replaceId?: string | null, staffWhere: Prisma.StaffWhereInput = {}) {
+  const staff = await tx.staff.findFirst({ where: { id: input.staffId, archivedAt: null, AND: [staffWhere] } });
   if (!staff) throw new StaffProblem("This staff member was not found.");
   if (input.issuedOn && input.expiresOn && input.expiresOn < input.issuedOn) throw new StaffProblem("Expiry date is before the issue date. Check the dates.", "expiresOn");
   let doc: StaffDocument;
@@ -73,8 +75,8 @@ export async function addDocument(tx: Tx, ctx: SchoolContext, input: NewDocument
 }
 
 /** Takes a document off a staff member's record (added by mistake, or no longer needed). The file is kept. */
-export async function removeDocument(tx: Tx, ctx: SchoolContext, id: string) {
-  const doc = await tx.staffDocument.findFirst({ where: { id, archivedAt: null } });
+export async function removeDocument(tx: Tx, ctx: SchoolContext, id: string, staffWhere: Prisma.StaffWhereInput = {}) {
+  const doc = await tx.staffDocument.findFirst({ where: { id, archivedAt: null, staff: { AND: [staffWhere] } } });
   if (!doc) throw new StaffProblem("This document was not found. It may already be removed.");
   await tx.staffDocument.update({ where: { id: doc.id }, data: { archivedAt: new Date() } });
   await writeAudit(tx, ctx, { action: "archived", recordType: "Staff Document", recordId: doc.id, before: { kind: doc.kind, fileId: doc.fileId } });
@@ -92,9 +94,11 @@ export async function sendExpiryReminders(tx: Tx, ctx: SchoolContext, today: Dat
   if (windows.length === 0) return 0;
   const docs = await tx.staffDocument.findMany({
     where: { schoolId: ctx.schoolId, archivedAt: null, expiresOn: { gte: today, lte: new Date(today.getTime() + windows[0] * DAY_MS) }, staff: { archivedAt: null, status: { notIn: ["RESIGNED", "RETIRED", "TERMINATED"] } } },
-    include: { staff: { select: { fullName: true, userLoginId: true } } },
+    include: { staff: { select: { fullName: true, userLoginId: true, campusId: true } } },
   });
   const hr = await hrPeople(tx, ctx);
+  // One campus: HR limited to one campus hears only of their campus's staff.
+  const limits = await campusLimitsOf(tx, ctx, hr);
   let sent = 0;
   for (const doc of docs) {
     const left = Math.round((doc.expiresOn!.getTime() - today.getTime()) / DAY_MS);
@@ -103,7 +107,8 @@ export async function sendExpiryReminders(tx: Tx, ctx: SchoolContext, today: Dat
     if (fresh.length === 0) continue;
     const when = left === 0 ? "today" : `in ${left} day${left === 1 ? "" : "s"}`;
     const text = `${doc.kind} of ${doc.staff.fullName} expires on ${formatDate(doc.expiresOn!)} (${when}). Upload the renewed document.`;
-    for (const to of new Set([...hr, ...(doc.staff.userLoginId ? [doc.staff.userLoginId] : [])])) {
+    const told = hr.filter((h) => !limits.get(h) || limits.get(h) === doc.staff.campusId);
+    for (const to of new Set([...told, ...(doc.staff.userLoginId ? [doc.staff.userLoginId] : [])])) {
       await notify(tx, ctx, {
         to, type: "document-expiry",
         text: to === doc.staff.userLoginId ? `Your ${doc.kind} expires on ${formatDate(doc.expiresOn!)} (${when}). Please give HR the renewed document.` : text,

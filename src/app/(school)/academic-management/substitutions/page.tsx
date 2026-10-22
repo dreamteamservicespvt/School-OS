@@ -3,6 +3,7 @@ import Link from "next/link";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { needsOn, substitutionLoads, substituteTimetable, reasonWords } from "@/lib/academic/substitutions";
+import { inCampus } from "@/lib/campus";
 import { DAY_NAMES, addDays, isoDay, parseDay, plural, time12, weekday } from "@/lib/academic/common";
 import { EmptyState } from "@/components/empty-state";
 import { Alert } from "@/components/ui/alert";
@@ -34,20 +35,24 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
     const needs = await needsOn(tx, ctx, page.campusId, date);
     let rows = needs.rows;
     if (mineOnly) rows = rows.filter((r) => r.absentStaffId === scope.staffId || r.substitution?.substituteId === scope.staffId);
-    const teachers = scope.arrange ? await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching" }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } }) : [];
-    const absences = scope.arrange ? await tx.staffAbsence.findMany({ where: { schoolId: ctx.schoolId, date, archivedAt: null } }) : [];
+    // One campus: that campus's teachers, absences and temporary teachers only.
+    const campusStaff = page.current.campusId ? { in: (await tx.staff.findMany({ where: { schoolId: ctx.schoolId, ...inCampus(page.current) }, select: { id: true } })).map((s) => s.id) } : undefined;
+    const teachers = scope.arrange ? await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching", ...inCampus(page.current) }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } }) : [];
+    const absences = scope.arrange ? await tx.staffAbsence.findMany({ where: { schoolId: ctx.schoolId, date, archivedAt: null, ...(campusStaff ? { staffId: campusStaff } : {}) } }) : [];
     const bySub = view === "by-teacher" ? (await substituteTimetable(tx, ctx, page.campusId, date)).filter((s) => !mineOnly || s.id === scope.staffId) : [];
     let loads: { id: string; name: string; week: number; month: number }[] = [];
     if (view === "load") {
       const l = await substitutionLoads(tx, ctx, date);
       loads = teachers.map((t) => ({ id: t.id, name: t.fullName, week: l.week.get(t.id) ?? 0, month: l.month.get(t.id) ?? 0 })).sort((a, b) => b.month - a.month || b.week - a.week || a.name.localeCompare(b.name));
     }
-    const covers = view === "temporary" ? await tx.temporaryCover.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, toDate: { gte: page.today } }, orderBy: { fromDate: "asc" } }) : [];
+    const covers = view === "temporary" ? await tx.temporaryCover.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, toDate: { gte: page.today }, ...(campusStaff ? { absentStaffId: campusStaff } : {}) }, orderBy: { fromDate: "asc" } }) : [];
     const names = new Map((await tx.staff.findMany({ where: { id: { in: [...absences.map((a) => a.staffId), ...covers.flatMap((c) => [c.absentStaffId, c.tempStaffId])] } }, select: { id: true, fullName: true } })).map((s) => [s.id, s.fullName]));
     return { off: needs.off, rows, teachers, absences, bySub, loads, covers, names };
   });
 
   const link = (d: Date) => { const p = new URLSearchParams(); p.set("date", isoDay(d)); if (view !== "needed") p.set("view", view); return `${PATH}?${p}`; };
+  // Exports work on the page's campus (the year's, when another campus's year is open).
+  const yearQ = page.yearQuery ? `&${page.yearQuery}` : "";
   const isToday = isoDay(date) === isoDay(page.today);
   const needed = data.rows.filter((r) => r.substitution?.status !== "ARRANGED").length;
   const teachers = data.teachers.map((t) => ({ id: t.id, name: t.fullName }));
@@ -103,7 +108,7 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
                 <NeedsList rows={rows} date={isoDay(date)} canArrange={scope.arrange && page.writable !== false} />
               </>
             )}
-            {!mineOnly && rows.length > 0 && <div className="mt-4"><ExportLinks href={`/academic-management/export?kind=substitutions&date=${isoDay(date)}`} label="Substitutions" /></div>}
+            {!mineOnly && rows.length > 0 && <div className="mt-4"><ExportLinks href={`/academic-management/export?kind=substitutions&date=${isoDay(date)}${yearQ}`} label="Substitutions" /></div>}
           </>
         )
       )}
@@ -134,7 +139,7 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
               </table>
             </div>
           )}
-          <div className="mt-4"><ExportLinks href={`/academic-management/export?kind=substitution-load&date=${isoDay(date)}`} label="Substitution load" /></div>
+          <div className="mt-4"><ExportLinks href={`/academic-management/export?kind=substitution-load&date=${isoDay(date)}${yearQ}`} label="Substitution load" /></div>
         </>
       )}
 

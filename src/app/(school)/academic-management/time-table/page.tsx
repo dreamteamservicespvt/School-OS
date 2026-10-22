@@ -6,6 +6,7 @@ import { subjectsForClass } from "@/lib/academic/subjects";
 import { clashCheck, effectiveVersion, gridRows, publishedVersionForYear, roomGrid, sectionGrid, staffGrid, versionCells, versionsForYear, type PeriodCell } from "@/lib/academic/timetable";
 import { bookingsBetween, roomNames, roomsFor } from "@/lib/academic/rooms";
 import { featureOn } from "@/lib/academic/scope";
+import { inCampus } from "@/lib/campus";
 import { DAY_NAMES, addDays, isoDay, plural, weekday } from "@/lib/academic/common";
 import { EmptyState } from "@/components/empty-state";
 import { Alert } from "@/components/ui/alert";
@@ -56,7 +57,8 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
       where: { academicYearId: year.id, archivedAt: null, schoolClass: { campusId: page.campusId, archivedAt: null }, ...(scope.sectionIds ? { id: { in: scope.sectionIds } } : {}) },
       include: { schoolClass: true }, orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }],
     });
-    const teachers = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching" }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } });
+    // One campus: that campus's teachers (pickers, free periods); a teacher's own Time Table stays open to them.
+    const teachers = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching", ...inCampus(current) }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } });
     const clashes = shown && scope.arrange ? await clashCheck(tx, ctx, shown.id) : [];
     const classes = [...new Map(sections.map((s) => [s.classId, { id: s.classId, name: s.schoolClass.name }])).values()];
 

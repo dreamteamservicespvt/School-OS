@@ -15,7 +15,8 @@ export type YearOption = { id: string; name: string; status: string };
 
 const STATUS_WORDS: Record<string, string> = { ACTIVE: "active", UPCOMING: "upcoming", OPEN: "open, not active", CLOSED: "closed" };
 
-export function YearPicker({ years, current }: { years: YearOption[]; current: string | null }) {
+/** `defaultId`: the year shown with no ?year= (the person's own campus's); another campus's active year stays in the address. */
+export function YearPicker({ years, current, defaultId }: { years: YearOption[]; current: string | null; defaultId?: string | null }) {
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -28,7 +29,7 @@ export function YearPicker({ years, current }: { years: YearOption[]; current: s
         onChange={(e) => {
           const next = new URLSearchParams(sp.toString());
           const chosen = years.find((y) => y.id === e.target.value);
-          if (!chosen || chosen.status === "ACTIVE") next.delete("year"); else next.set("year", e.target.value);
+          if (!chosen || (chosen.status === "ACTIVE" && (defaultId === undefined || chosen.id === defaultId))) next.delete("year"); else next.set("year", e.target.value);
           next.delete("page");
           start(() => router.push(next.toString() ? `${pathname}?${next}` : pathname));
         }}>

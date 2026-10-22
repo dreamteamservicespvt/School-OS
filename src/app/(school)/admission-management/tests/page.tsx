@@ -8,8 +8,9 @@ import { momentWhere, periodFromSearch } from "@/lib/periods";
 import { workPage, BASE } from "@/lib/admission/page";
 import { UUID_RE } from "@/lib/admission/act";
 import { OPEN_STAGES } from "@/lib/admission/applications";
-import { admissionStaff, openYears, stageOn } from "@/lib/admission/settings";
-import { outcomeLabel } from "@/lib/admission/tests";
+import { admissionStaff, admissionYears, campusNames, classList, openYears, stageOn, withCampus } from "@/lib/admission/settings";
+import { outcomeLabel, testScope } from "@/lib/admission/tests";
+import { applicationScope } from "@/lib/admission/access";
 import { names } from "@/lib/admission/choices";
 import { whenWords } from "@/lib/admission/words";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -34,7 +35,7 @@ const NONE = "00000000-0000-0000-0000-000000000000";
 const OUT_TONE: Record<string, "ok" | "bad" | "warn"> = { RECOMMENDED: "ok", NOT_RECOMMENDED: "bad", HOLD: "warn" };
 
 export default async function TestsPage({ searchParams }: Search) {
-  const { current, viewer, settings, year, tz, today } = await workPage();
+  const { current, viewer, settings, tz, today } = await workPage();
   const testsOn = stageOn(settings, "test");
   const interviewsOn = stageOn(settings, "interview");
   if (!testsOn && !interviewsOn) redirect(BASE);
@@ -50,43 +51,47 @@ export default async function TestsPage({ searchParams }: Search) {
   const weekEnd = new Date(now.getTime() + 7 * 86_400_000);
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const years = await openYears(tx);
+    // Every open year of each campus the person sees (only their campus's when limited to one).
+    const limit = viewer.campusId;
+    const [years, admitting, classRows, campus] = await Promise.all([openYears(tx, limit), admissionYears(tx, current.ctx, settings, limit), classList(tx, limit), campusNames(tx, limit)]);
+    const classOptions = classRows.map((c) => ({ value: c.id, label: withCampus(campus, c.name, c.campusId) }));
     const yearIds = years.length ? years.map((y) => y.id) : [NONE];
+    const mine = applicationScope(viewer);
     const n = await names(tx);
-    const open = await tx.application.findMany({ where: { archivedAt: null, academicYearId: { in: yearIds }, stage: { in: OPEN_STAGES } }, orderBy: [{ stage: "desc" }, { fullName: "asc" }], select: { id: true, fullName: true, applicationNo: true, classId: true, stage: true } });
+    const open = await tx.application.findMany({ where: { archivedAt: null, academicYearId: { in: yearIds }, stage: { in: OPEN_STAGES }, ...mine }, orderBy: [{ stage: "desc" }, { fullName: "asc" }], select: { id: true, fullName: true, applicationNo: true, classId: true, stage: true } });
     const applicants: Applicant[] = open.map((a) => ({ id: a.id, name: a.fullName, meta: n.classes.get(a.classId) ?? "" }));
     const when = range ? { startsAt: momentWhere(range, tz) } : {};
     const testWhere: Prisma.AdmissionTestWhereInput = { archivedAt: null, academicYearId: { in: yearIds }, ...when };
-    const slotWhere: Prisma.InterviewSlotWhereInput = { application: { academicYearId: { in: yearIds }, archivedAt: null }, ...when };
+    const slotWhere: Prisma.InterviewSlotWhereInput = { application: { academicYearId: { in: yearIds }, archivedAt: null, ...mine }, ...when };
     const [tests, slots, staff, nextTest, toScore, weekInterviews, recommended] = await Promise.all([
       tx.admissionTest.findMany({ where: testWhere, orderBy: { startsAt: "desc" }, take: 100, include: { bookings: { where: { archivedAt: null }, select: { marks: true, absent: true } } } }),
       tx.interviewSlot.findMany({ where: slotWhere, orderBy: { startsAt: "desc" }, take: 150, include: { application: { select: { id: true, fullName: true, applicationNo: true, classId: true, academicYearId: true } } } }),
-      admissionStaff(tx, current.ctx, { allStaff: true }),
+      admissionStaff(tx, current.ctx, { allStaff: true, campusId: limit }),
       tx.admissionTest.findFirst({ where: { archivedAt: null, academicYearId: { in: yearIds }, startsAt: { gte: now } }, orderBy: { startsAt: "asc" }, include: { _count: { select: { bookings: { where: { archivedAt: null } } } } } }),
       tx.admissionTestBooking.count({ where: { archivedAt: null, marks: null, absent: false, test: { archivedAt: null, academicYearId: { in: yearIds } } } }),
-      tx.interviewSlot.findMany({ where: { cancelledAt: null, outcome: null, startsAt: { gte: now, lt: weekEnd }, application: { academicYearId: { in: yearIds }, archivedAt: null } }, orderBy: { startsAt: "asc" }, select: { startsAt: true } }),
-      tx.interviewSlot.count({ where: { cancelledAt: null, outcome: "RECOMMENDED", application: { academicYearId: { in: yearIds }, archivedAt: null } } }),
+      tx.interviewSlot.findMany({ where: { cancelledAt: null, outcome: null, startsAt: { gte: now, lt: weekEnd }, application: { academicYearId: { in: yearIds }, archivedAt: null, ...mine } }, orderBy: { startsAt: "asc" }, select: { startsAt: true } }),
+      tx.interviewSlot.count({ where: { cancelledAt: null, outcome: "RECOMMENDED", application: { academicYearId: { in: yearIds }, archivedAt: null, ...mine } } }),
     ]);
     let score = null;
     if (scoreId) {
-      const t = await tx.admissionTest.findFirst({ where: { id: scoreId, archivedAt: null }, include: { bookings: { where: { archivedAt: null }, orderBy: { createdAt: "asc" }, include: { application: { select: { fullName: true, classId: true, applicationNo: true } } } } } });
+      const t = await tx.admissionTest.findFirst({ where: { id: scoreId, archivedAt: null, ...(await testScope(tx, viewer)) }, include: { bookings: { where: { archivedAt: null }, orderBy: { createdAt: "asc" }, include: { application: { select: { fullName: true, classId: true, applicationNo: true } } } } } });
       if (t) {
         const booked = new Set(t.bookings.map((b) => b.applicationId));
         score = { t, more: applicants.filter((a) => !booked.has(a.id) && (!t.classId || open.find((o) => o.id === a.id)?.classId === t.classId)) };
       }
     }
-    const outcome = outcomeId ? await tx.interviewSlot.findFirst({ where: { id: outcomeId }, include: { application: { select: { fullName: true, classId: true } } } }) : null;
-    return { years, n, applicants, tests, slots, staff, nextTest, toScore, weekInterviews, recommended, score, outcome };
+    const outcome = outcomeId ? await tx.interviewSlot.findFirst({ where: { id: outcomeId, application: mine }, include: { application: { select: { fullName: true, classId: true } } } }) : null;
+    return { years, admitting, classOptions, n, applicants, tests, slots, staff, nextTest, toScore, weekInterviews, recommended, score, outcome };
   });
 
   const { n } = data;
   const staffName = new Map(data.staff.map((s) => [s.id, s.fullName]));
   const principal = data.staff.find((s) => /principal/i.test(s.designation ?? "")) ?? data.staff[0];
-  const yl = (id: string) => { const y = data.years.find((x) => x.id === id); return y ? (y.status === "ACTIVE" && year && year.id !== y.id ? `${y.name} mid-year` : y.name) : ""; };
+  const yl = (id: string) => { const y = data.years.find((x) => x.id === id); return y ? (y.status === "ACTIVE" && data.admitting.some((a) => a.campusId === y.campusId && a.id !== y.id) ? `${y.name} mid-year` : y.name) : ""; };
   const tabHref = (t: string) => (t === "tests" ? PATH : `${PATH}?tab=interviews`);
   const back = tab === "tests" ? PATH : `${PATH}?tab=interviews`;
   const filtered = Boolean(range);
-  const classes = [...n.classes.entries()].map(([value, label]) => ({ value, label })).sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+  const classes = [...data.classOptions].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
   const nt = data.nextTest;
   const wk = data.weekInterviews;
 

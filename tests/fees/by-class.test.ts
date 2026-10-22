@@ -21,7 +21,7 @@ let f: FeeSchool;
 let teacher: { id: string };
 const TODAY = new Date("2026-10-05T00:00:00Z");
 
-const full = (userId: string, roleKeys = ["principal"]): FeeViewer => ({ userId, see: "all", change: "all", roleKeys, sectionIds: null, yearId: f.year.id });
+const full = (userId: string, roleKeys = ["principal"]): FeeViewer => ({ userId, see: "all", change: "all", roleKeys, sectionIds: null, yearId: f.year.id, yearIds: [f.year.id], campusId: null });
 
 beforeAll(async () => {
   f = await makeFeeSchool();
@@ -69,7 +69,7 @@ describe("Fees by class", () => {
     expect([ravi.overdue, ravi.pending, ravi.daysLate]).toEqual([BigInt(0), R(6000), 0]);
     const sita = s!.students.find((x) => x.name === "Sita Rao")!;
     expect(sita.daysLate).toBe(178);
-    const own: FeeViewer = { userId: teacher.id, see: "own", change: "none", roleKeys: ["class-teacher"], sectionIds: [], yearId: f.year.id };
+    const own: FeeViewer = { userId: teacher.id, see: "own", change: "none", roleKeys: ["class-teacher"], sectionIds: [], yearId: f.year.id, yearIds: [f.year.id], campusId: null };
     expect(await withSchool({ schoolId: f.school.id, userId: teacher.id }, (tx) => sectionFees(tx, own, f.a.id, TODAY))).toBeNull();
   });
 
@@ -88,7 +88,7 @@ describe("Fees by class", () => {
   });
 
   it("refuses the follow-up to anyone without the whole school's fees", async () => {
-    const own: FeeViewer = { userId: teacher.id, see: "own", change: "none", roleKeys: ["class-teacher"], sectionIds: [f.a.id], yearId: f.year.id };
+    const own: FeeViewer = { userId: teacher.id, see: "own", change: "none", roleKeys: ["class-teacher"], sectionIds: [f.a.id], yearId: f.year.id, yearIds: [f.year.id], campusId: null };
     const tctx = { schoolId: f.school.id, userId: teacher.id };
     await expect(withSchool(tctx, (tx) => askTeacherFollowUp(tx, tctx, own, { sectionId: f.a.id, today: TODAY }))).rejects.toThrow(/whole school/);
   });

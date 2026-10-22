@@ -15,6 +15,8 @@ const BASE = "/salary-management";
 const full = (v: Viewer) => salaryLevel(v.permissions) === "full";
 const DONE = ["APPROVED", "PAID", "LOCKED"] as const;
 const MONTH = (d: Date) => monthName(d).split(" ")[0];
+/** One campus: that campus's payroll and staff only. */
+const campus = (v: Viewer) => (v.campusId ? { campusId: v.campusId } : {});
 
 /** "Salary slip · Sep 2026 · Ready to download" on the person's own home. */
 const mySlip: Widget<"band"> = {
@@ -43,7 +45,7 @@ const monthToDo: Widget<"attention"> = {
   async load(c) {
     const now = firstOfMonth(c.today);
     const prev = addMonths(now, -1);
-    const runs = await c.tx.payrollRun.findMany({ where: { month: { in: [prev, now] } }, select: { id: true, month: true, status: true, staffCount: true } });
+    const runs = await c.tx.payrollRun.findMany({ where: { month: { in: [prev, now] }, ...campus(c.viewer) }, select: { id: true, month: true, status: true, staffCount: true } });
     const last = runs.filter((r) => r.month.getTime() === prev.getTime());
     const unpaid = last.filter((r) => r.status === "APPROVED");
     if (unpaid.length) {
@@ -72,7 +74,7 @@ const noStructure: Widget<"attention"> = {
   homes: ["accountant"],
   allowed: full,
   async load(c) {
-    const staff = await c.tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, select: { id: true, fullName: true } });
+    const staff = await c.tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, ...campus(c.viewer) }, select: { id: true, fullName: true } });
     const have = new Set((await c.tx.salaryStructure.findMany({ where: { archivedAt: null }, select: { staffId: true }, distinct: ["staffId"] })).map((s) => s.staffId));
     const missing = staff.filter((s) => !have.has(s.id));
     if (!missing.length) return null;
@@ -88,7 +90,8 @@ const advancesToPay: Widget<"attention"> = {
   homes: ["accountant"],
   allowed: full,
   async load(c) {
-    const count = await c.tx.salaryAdvance.count({ where: { status: "APPROVED" } });
+    const onCampus = c.viewer.campusId ? (await c.tx.staff.findMany({ where: { campusId: c.viewer.campusId }, select: { id: true } })).map((s) => s.id) : null;
+    const count = await c.tx.salaryAdvance.count({ where: { status: "APPROVED", ...(onCampus ? { staffId: { in: onCampus } } : {}) } });
     if (!count) return null;
     return { id: "salary.advances-to-pay", tone: "info", icon: "CreditCard", title: `${plural(count, "advance")} approved, not paid yet`, detail: "Pay it and mark it paid; it goes in the Day Book on that date.", action: "Advances", href: `${BASE}/advances`, value: String(count) };
   },

@@ -12,8 +12,9 @@ import { fileLink } from "../files";
 import { ruleReady } from "../messaging/automatic";
 import { formatDate, formatTime } from "../format";
 import { assertYearOpen } from "../academic/years";
+import { sectionInCampus } from "../campus";
 import { isoDay } from "../staff/dates";
-import { AttendanceProblem, BASE, canTakeDaily, NotYoursError, type AttendanceAccess } from "./access";
+import { AttendanceProblem, BASE, canTakeDaily, NotYoursError, sectionAllowed, type AttendanceAccess } from "./access";
 import { dayInfo, OffDayError } from "./calendar";
 import { loadSchoolCalendar } from "../calendar/school-days";
 import { attendanceFeatures, attendanceSettings, statusList, statusesFor, type StatusInfo } from "./settings";
@@ -91,9 +92,13 @@ export async function takeChoices(tx: Tx, ctx: SchoolContext, access: Attendance
   const features = await attendanceFeatures(tx, ctx);
   const periodWise = features.has("attendance-period-wise");
   const full = access.students === "all" && access.change === "all";
+  // Whole-school people: every campus's current year (their campus's only when limited to one); others their own sections.
+  // Only sections whose campus and class have school on the day.
   const [all, calendar] = await Promise.all([
     tx.section.findMany({
-      where: { academicYearId: access.yearId, archivedAt: null, ...(full ? {} : { id: { in: periodWise ? [...access.classSections, ...access.teachingSections] : access.classSections } }) },
+      where: full
+        ? { academicYearId: { in: access.yearIds }, archivedAt: null, ...sectionInCampus({ campusId: access.campusLimit }) }
+        : { academicYearId: access.yearId, archivedAt: null, id: { in: periodWise ? [...access.classSections, ...access.teachingSections] : access.classSections } },
       include: { schoolClass: { select: { name: true, sortOrder: true, campusId: true } } },
     }),
     loadSchoolCalendar(tx, ctx, date, date),
@@ -116,7 +121,7 @@ export async function takeChoices(tx: Tx, ctx: SchoolContext, access: Attendance
   const mine = await teacherPeriodsOn(tx, ctx, access.staffId, access.campusId, date);
   for (const p of mine) {
     const s = sections.find((x) => x.id === p.sectionId) ?? (await tx.section.findFirst({ where: { id: p.sectionId }, include: { schoolClass: { select: { name: true, sortOrder: true, campusId: true } } } }));
-    if (!s || !calendar.campus(s.schoolClass.campusId).info(date, { classId: s.classId }).on) continue;
+    if (!s || !sectionAllowed(access, s.id) || !calendar.campus(s.schoolClass.campusId).info(date, { classId: s.classId }).on) continue;
     out.push({ sectionId: s.id, name: `${s.schoolClass.name} ${s.name}`, periodNo: p.periodNo, periodLabel: `Period ${p.periodNo}, ${time12(p.startTime)}${p.subject ? ` · ${p.subject}` : ""}${p.substitute ? " (substitution)" : ""}`, startTime: p.startTime, done: isDone(s.id, p.periodNo) });
   }
   return out;
@@ -125,7 +130,7 @@ export async function takeChoices(tx: Tx, ctx: SchoolContext, access: Attendance
 /** May this person take attendance for this section (and period) on this date? */
 export async function canTake(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, sectionId: string, date: Date, periodNo: number) {
   if (access.change === "none" || access.students === "none") return false;
-  if (access.change === "all" && access.students === "all") return true;
+  if (access.change === "all" && access.students === "all" && sectionAllowed(access, sectionId)) return true;
   if (periodNo === 0) return canTakeDaily(access, sectionId);
   if (!access.staffId || !access.campusId) return false;
   const mine = await teacherPeriodsOn(tx, ctx, access.staffId, access.campusId, date);
@@ -144,7 +149,7 @@ export type SheetStudent = {
 
 export async function loadSheet(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, input: { sectionId: string; date: Date; periodNo: number; now: Date; timeZone: string }) {
   const section = await sectionInfo(tx, input.sectionId);
-  if (!section) throw new AttendanceProblem("This class was not found.");
+  if (!section || !sectionAllowed(access, section.id)) throw new AttendanceProblem("This class was not found.");
   if (!(await canTake(tx, ctx, access, section.id, input.date, input.periodNo))) throw new NotYoursError();
   const settings = await attendanceSettings(tx, ctx);
   const reasonsOn = (await attendanceFeatures(tx, ctx)).has(REASONS_FEATURE);
@@ -234,7 +239,7 @@ export async function saveClassAttendance(tx: Tx, ctx: SchoolContext, access: At
     if (seen) return { outcome: seen.outcome === "correction" ? "correction" : "unchanged", counts: {}, changed: 0, correctionId: seen.correctionId ?? undefined, clockFlagged: seen.clockFlagged, summary: "Already received." };
   }
   const section = await sectionInfo(tx, input.sectionId);
-  if (!section) throw new AttendanceProblem("This class was not found.", "sectionId");
+  if (!section || !sectionAllowed(access, section.id)) throw new AttendanceProblem("This class was not found.", "sectionId");
   if (!(await canTake(tx, ctx, access, section.id, input.date, input.periodNo))) throw new NotYoursError();
   await assertYearOpen(tx, section.academicYearId);
   const today = schoolDateOf(input.now, input.timeZone);

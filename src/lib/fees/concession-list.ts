@@ -14,7 +14,11 @@ import { studentIdsForFilter } from "../students/find";
 
 const ZERO = BigInt(0);
 
-export type ConcessionFilter = { q?: string | null; status?: string | null; range?: DayRange | null; timeZone: string; scholarship?: boolean; ids?: string[] };
+export type ConcessionFilter = {
+  q?: string | null; status?: string | null; range?: DayRange | null; timeZone: string; scholarship?: boolean; ids?: string[];
+  /** Only these students' records (feeStudentFilter): a person limited to one campus. */
+  only?: { studentId?: { in: string[] } };
+};
 
 /** Ids of students matching the search (the one student search). */
 function studentsLike(tx: Tx, q: string) {
@@ -58,7 +62,7 @@ export type ConcessionRow = {
 };
 
 export async function concessionRows(tx: Tx, f: ConcessionFilter, take = 300) {
-  const where: Prisma.ConcessionWhereInput = { ...(f.scholarship ? { type: "SCHOLARSHIP" as const } : {}), ...(f.ids ? { id: { in: f.ids } } : {}) };
+  const where: Prisma.ConcessionWhereInput = { ...(f.only ?? {}), ...(f.scholarship ? { type: "SCHOLARSHIP" as const } : {}), ...(f.ids ? { id: { in: f.ids } } : {}) };
   const q = f.q?.trim();
   if (q) {
     const types = CONCESSION_TYPES.filter((t) => t.label.toLowerCase().includes(q.toLowerCase())).map((t) => t.value);
@@ -132,7 +136,7 @@ export type RefundRow = {
 };
 
 export async function refundRows(tx: Tx, f: ConcessionFilter, take = 300) {
-  const where: Prisma.RefundWhereInput = f.ids ? { id: { in: f.ids } } : {};
+  const where: Prisma.RefundWhereInput = { ...(f.only ?? {}), ...(f.ids ? { id: { in: f.ids } } : {}) };
   const q = f.q?.trim();
   if (q) {
     const receipts = await tx.receipt.findMany({ where: { number: { contains: q, mode: "insensitive" } }, select: { paymentId: true }, take: 50 });
@@ -178,11 +182,15 @@ export async function refundRows(tx: Tx, f: ConcessionFilter, take = 300) {
   return { rows, total, count };
 }
 
-/** Scholarship types in use this year: how many students and how much. */
-export async function scholarshipTypes(tx: Tx, academicYearId: string | null) {
+/**
+ * Scholarship types in use this year (each campus's current year when several
+ * are given): how many students and how much. `only`: one campus's students.
+ */
+export async function scholarshipTypes(tx: Tx, academicYearId: string | readonly string[] | null, only: { studentId?: { in: string[] } } = {}) {
+  const years = academicYearId == null ? [] : typeof academicYearId === "string" ? [academicYearId] : [...academicYearId];
   const rows = await tx.concession.groupBy({
     by: ["scholarshipType"],
-    where: { type: "SCHOLARSHIP", status: "APPLIED", ...(academicYearId ? { academicYearId } : {}) },
+    where: { ...only, type: "SCHOLARSHIP", status: "APPLIED", ...(years.length ? { academicYearId: { in: years } } : {}) },
     _count: { _all: true },
     _sum: { appliedPaise: true },
   });

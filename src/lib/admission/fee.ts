@@ -20,7 +20,7 @@ import { razorpayCredentials } from "../payments/gateways";
 import { createOrder, verifyPaymentSignature, type RazorpayCredentials } from "../payments/razorpay";
 import type { GatewayEvent } from "../payments/events";
 import { AdmissionProblem } from "./act";
-import { requireFull, type Viewer } from "./access";
+import { applicationScope, requireFull, type Viewer } from "./access";
 import { activity, loadApplication, CLOSED_STAGES } from "./applications";
 
 export const COUNTER_MODES = [
@@ -63,7 +63,7 @@ async function remaining(tx: Tx, app: Application) {
 /** Collect the application fee at the counter: confirmed when the money is in hand, with a receipt. */
 export async function recordCounterPayment(tx: Tx, ctx: SchoolContext, v: Viewer, applicationId: string, input: { amountPaise: bigint; mode: string; reference: string | null }) {
   requireFull(v, "the application fee");
-  const app = await loadApplication(tx, applicationId);
+  const app = await loadApplication(tx, applicationId, v);
   if (CLOSED_STAGES.includes(app.stage) && app.stage !== "ADMITTED") throw new AdmissionProblem("This application is closed, so no fee can be taken.");
   if (!app.feeDuePaise) throw new AdmissionProblem("No application fee is due for this application (Admission Settings).");
   if (!COUNTER_MODES.some((m) => m.value === input.mode)) throw new AdmissionProblem("Choose how the fee was paid.", "mode");
@@ -90,7 +90,7 @@ export async function cancelPayment(tx: Tx, ctx: SchoolContext, v: Viewer, payme
   requireFull(v, "the application fee");
   if (ctx.support) throw new AdmissionProblem("DREAM TEAM support access cannot cancel payments. Ask the Principal.");
   if (!v.overCapacity) throw new AdmissionProblem("Only the Principal or School Admin can cancel a payment.");
-  const p = await tx.applicationFeePayment.findFirst({ where: { id: paymentId } });
+  const p = await tx.applicationFeePayment.findFirst({ where: { id: paymentId, application: applicationScope(v) } });
   if (!p) throw new AdmissionProblem("This payment was not found.");
   if (p.cancelledAt) throw new AdmissionProblem("This payment is already cancelled.");
   if (p.status !== "CONFIRMED") throw new AdmissionProblem(p.status === "PENDING" ? "This payment is still waiting for confirmation from Razorpay, so there is nothing to cancel." : "This online payment failed, so there is nothing to cancel.");

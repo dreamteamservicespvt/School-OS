@@ -5,7 +5,7 @@ import { withSchool } from "@/lib/db";
 import { readListParams, listHref } from "@/lib/list";
 import { staffPage, BASE } from "@/lib/staff/page";
 import { pageHidden } from "@/lib/duty";
-import { STAFF_FILTERS, staffOrder, staffWhere } from "@/lib/staff/list";
+import { onRollWhere, STAFF_FILTERS, staffOrder, staffWhere } from "@/lib/staff/list";
 import { EMPLOYMENT_TYPES, STAFF_STATUSES } from "@/lib/staff/settings";
 import { onLeaveOn } from "@/lib/staff/leave";
 import { Card } from "@/components/ui/card";
@@ -41,13 +41,14 @@ export default async function StaffListPage({ searchParams }: Search) {
   const whereAnyDept = staffWhere({ ...params, filters: otherFilters }, viewer);
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const onRoll = { archivedAt: null, status: { in: ["ACTIVE" as const, "ON_LEAVE" as const, "SUSPENDED" as const] } };
+    // One campus: the counts and the "on leave today" names are of their campus's staff (and their own record).
+    const onRoll = onRollWhere(viewer);
     const [rows, total, designations, departments, campuses, byDept, roll, teaching, rollIds] = await Promise.all([
       tx.staff.findMany({ where, orderBy: staffOrder(params), take: shownCount, include: { department: { select: { name: true } } } }),
       tx.staff.count({ where }),
       tx.designation.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { name: true } }),
       tx.department.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
-      tx.campus.findMany({ where: { archivedAt: null }, select: { id: true, name: true } }),
+      tx.campus.findMany({ where: { archivedAt: null, ...(viewer.campusId ? { id: viewer.campusId } : {}) }, select: { id: true, name: true } }),
       tx.staff.groupBy({ by: ["departmentId"], where: whereAnyDept, _count: { _all: true } }),
       tx.staff.count({ where: onRoll }),
       tx.staff.count({ where: { ...onRoll, staffType: "Teaching" } }),

@@ -11,6 +11,8 @@ import type { AccessLevel } from "@/lib/roles";
 import type { StaffStatus } from "@prisma/client";
 import { act, dateOf, FieldProblem, file, id, str } from "@/lib/staff/act";
 import { canChangeStaff, HrOnlyError, viewerFor, type Viewer } from "@/lib/staff/access";
+import { offCampus } from "@/lib/staff/list";
+import { campusAllows } from "@/lib/campus";
 import { contactSchema, employmentSchema, personalSchema } from "@/lib/staff/schemas";
 import { changeStatus, giveLogin, issueInvite, saveEmergencyContacts, StaffProblem, updateRestricted, updateStaffSection } from "@/lib/staff/staff";
 import { hrSettings, STAFF_STATUSES } from "@/lib/staff/settings";
@@ -18,11 +20,16 @@ import { reopenLogin, switchOffLogin } from "@/lib/staff/exit";
 
 type Who = { current: Awaited<ReturnType<typeof requireAction>>["current"]; viewer: Viewer; staffId: string };
 
-/** Loads who is asking and checks they may change this staff record (HR for everyone, staff for their own). */
+/**
+ * Loads who is asking and checks they may change this staff record (HR for
+ * everyone, staff for their own). One campus: another campus's staff member
+ * is not found, the same words as a record that does not exist.
+ */
 async function who(fd: FormData, hrOnly: boolean): Promise<Who> {
   const { current } = await requireAction("staff-hr-management", "edit");
   const staffId = id(fd, "staffId", "staff member");
   const viewer = await withSchool(current.ctx, (tx) => viewerFor(tx, current.ctx, current));
+  if (offCampus(viewer, staffId)) throw new StaffProblem("This staff member was not found.");
   if (hrOnly ? viewer.change !== "all" : !canChangeStaff(viewer, staffId)) throw new HrOnlyError("this change");
   return { current, viewer, staffId };
 }
@@ -50,7 +57,17 @@ export async function saveContact(_: FormState<unknown>, fd: FormData) {
 export async function saveEmployment(_: FormState<unknown>, fd: FormData) {
   const parsed = parseForm(employmentSchema, fd);
   if (!parsed.ok) return parsed.state;
-  return run(fd, true, (w, tx) => updateStaffSection(tx, w.current.ctx, w.staffId, "employment", parsed.data), (r) => (r.changed ? "Employment details saved." : "Nothing changed."));
+  return run(fd, true, async (w, tx) => {
+    // One campus: a staff member is not moved to another campus, and the reporting manager is one of the campus's staff (or the one already set).
+    if (w.viewer.campusId) {
+      const before = await tx.staff.findFirst({ where: { id: w.staffId }, select: { campusId: true, reportingToId: true } });
+      const campusId = parsed.data.campusId;
+      if (campusId && campusId !== before?.campusId && !campusAllows(w.viewer, campusId)) throw new FieldProblem("Choose a campus from the list.", "campusId");
+      const manager = parsed.data.reportingToId;
+      if (manager && manager !== before?.reportingToId && offCampus(w.viewer, manager)) throw new FieldProblem("Choose the reporting manager from the list.", "reportingToId");
+    }
+    return updateStaffSection(tx, w.current.ctx, w.staffId, "employment", parsed.data);
+  }, (r) => (r.changed ? "Employment details saved." : "Nothing changed."));
 }
 
 export async function saveEmergency(_: FormState<unknown>, fd: FormData) {
@@ -157,7 +174,8 @@ export async function giveLoginAction(_: FormState<unknown>, fd: FormData) {
     const staff = await tx.staff.findFirstOrThrow({ where: { id: w.staffId, archivedAt: null } });
     if (["RESIGNED", "RETIRED", "TERMINATED"].includes(staff.status)) throw new StaffProblem(`${staff.fullName} has left the school.`);
     const settings = await hrSettings(tx, w.current.ctx);
-    return giveLogin(tx, w.current.ctx, staff, { roleKeys: fd.getAll("roleKeys").map(String).filter(Boolean), username: str(fd, "username") || null, exceptions, campusId: null }, settings.usernameFormat);
+    // One campus: a login given by someone limited to one campus opens that campus only.
+    return giveLogin(tx, w.current.ctx, staff, { roleKeys: fd.getAll("roleKeys").map(String).filter(Boolean), username: str(fd, "username") || null, exceptions, campusId: w.viewer.campusId }, settings.usernameFormat);
   }, (r) => `Login ${r.username} made. Share the invite link shown on the profile.`);
 }
 

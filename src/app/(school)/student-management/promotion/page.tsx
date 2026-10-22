@@ -17,7 +17,8 @@ import { seesResults } from "@/lib/exams/scope";
 import { RESULT_LABEL } from "@/lib/students/labels";
 import { StudentProblem } from "@/lib/students/students";
 import { BASE, studentPage } from "../_lib/page";
-import { classOptions, sectionOptions } from "../_lib/queries";
+import { campusPrefixes, classOptions, sectionOptions } from "../_lib/queries";
+import { campusAllows, sectionCampusId } from "@/lib/campus";
 import { StudentsHead } from "../_lib/head";
 import { PromotionReview, type ReviewRow } from "./review";
 
@@ -36,13 +37,17 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
   const seeResults = seesResults(current);
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const years = await tx.academicYear.findMany({ where: { archivedAt: null }, orderBy: { startDate: "asc" } });
+    // One campus: that campus's years and classes only. Two campuses: each year is named with its campus.
+    const rawYears = await tx.academicYear.findMany({ where: { archivedAt: null, ...(current.campusId ? { campusId: current.campusId } : {}) }, orderBy: { startDate: "asc" } });
+    const prefix = await campusPrefixes(tx, rawYears.map((y) => y.campusId));
+    const years = rawYears.map((y) => ({ ...y, name: `${prefix.get(y.campusId) ?? ""}${y.name}` }));
     const fromYear = years.find((y) => y.id === sp.fromYear && y.status !== "CLOSED") ?? (year && year.status !== "CLOSED" ? year : years.find((y) => y.status !== "CLOSED")) ?? null;
     const sections = await sectionOptions(tx, current, fromYear?.id);
-    const classes = await classOptions(tx);
+    const classes = await classOptions(tx, current);
     let preview: Preview | null = null;
     let error: { message: string; field?: string } | null = null;
-    if (isId(sp.from)) {
+    if (isId(sp.from) && !campusAllows(current, await sectionCampusId(tx, sp.from!))) error = { message: "Choose the class and section to promote.", field: "fromSectionId" };
+    else if (isId(sp.from)) {
       try {
         preview = await promotionPreview(tx, current.ctx, { fromSectionId: sp.from!, toYearId: isId(sp.toYear) ? sp.toYear : null, toClassId: isId(sp.toClass) ? sp.toClass : null }, { feeAmounts: seeFees });
       } catch (e) {
@@ -50,7 +55,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
         else throw e;
       }
     }
-    const batches = await tx.promotionBatch.findMany({ orderBy: { confirmedAt: "desc" }, take: 30 });
+    const batches = await tx.promotionBatch.findMany({ where: current.campusId ? { fromYearId: { in: rawYears.map((y) => y.id) } } : {}, orderBy: { confirmedAt: "desc" }, take: 30 });
     const sectionIds = batches.map((b) => b.fromSectionId);
     const batchSections = await tx.section.findMany({ where: { id: { in: sectionIds } }, include: { schoolClass: true, academicYear: true } });
     const people = await tx.userLogin.findMany({ where: { id: { in: batches.map((b) => b.confirmedById).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });

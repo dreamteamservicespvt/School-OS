@@ -5,7 +5,7 @@ import type { SchoolContext } from "@/lib/db";
 import { canDecide } from "@/lib/approvals";
 import { fileLink } from "@/lib/files";
 import { formatDate, formatRupees } from "@/lib/format";
-import { canSeeStudent } from "@/lib/fees/access";
+import { canSeeStudent, feeStudentFilter } from "@/lib/fees/access";
 import { concessionRows, refundRows, scholarshipTypes, type ConcessionRow, type RefundRow } from "@/lib/fees/concession-list";
 import { concessionHeadChoices } from "@/lib/fees/concessions";
 import { studentCard } from "@/lib/fees/dues";
@@ -82,40 +82,43 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
   const ctx = p.current.ctx;
 
   const data = await withSchool(ctx, async (tx) => {
-    const yearId = p.year?.id ?? null;
-    const filter = { q, status: st || null, range: per.range, timeZone: p.tz };
+    // "This year": each campus's current year. A person limited to one campus sees its students' records only.
+    const yearIds = p.viewer.yearIds;
+    const thisYear = yearIds.length ? { academicYearId: { in: yearIds } } : {};
+    const only = await feeStudentFilter(tx, p.viewer);
+    const filter = { q, status: st || null, range: per.range, timeZone: p.tz, only };
     const [cons, refs, schol, rules, heads, counts] = await Promise.all([
       tab === "concessions" ? concessionRows(tx, filter) : null,
       tab === "refunds" ? refundRows(tx, filter) : null,
-      tab === "scholarships" ? Promise.all([scholarshipTypes(tx, yearId), concessionRows(tx, { ...filter, scholarship: true })]) : null,
+      tab === "scholarships" ? Promise.all([scholarshipTypes(tx, yearIds, only), concessionRows(tx, { ...filter, scholarship: true })]) : null,
       tx.bulkDiscountRule.findMany({ where: { archivedAt: null }, orderBy: { createdAt: "asc" } }),
       tx.feeHead.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } }),
       Promise.all([
-        tx.concession.aggregate({ where: { status: "APPLIED", ...(yearId ? { academicYearId: yearId } : {}) }, _sum: { appliedPaise: true }, _count: { _all: true } }),
-        tx.concession.count({ where: { status: "WAITING" } }),
-        tx.refund.count({ where: { status: "WAITING" } }),
-        tx.refund.aggregate({ where: { status: "REFUNDED", ...(p.year ? { refundedOn: { gte: p.year.startDate, lte: p.year.endDate } } : {}) }, _sum: { amountPaise: true }, _count: { _all: true } }),
-        tx.refund.count({ where: { status: "APPROVED" } }),
-        tx.concession.groupBy({ by: ["studentId"], where: { type: "SCHOLARSHIP", status: "APPLIED", ...(yearId ? { academicYearId: yearId } : {}) } }),
-        tx.concession.count({ where: { type: "SCHOLARSHIP" } }),
-        tx.concession.count(),
-        tx.refund.count(),
+        tx.concession.aggregate({ where: { ...only, status: "APPLIED", ...thisYear }, _sum: { appliedPaise: true }, _count: { _all: true } }),
+        tx.concession.count({ where: { ...only, status: "WAITING" } }),
+        tx.refund.count({ where: { ...only, status: "WAITING" } }),
+        tx.refund.aggregate({ where: { ...only, status: "REFUNDED", ...(p.year ? { refundedOn: { gte: p.year.startDate, lte: p.year.endDate } } : {}) }, _sum: { amountPaise: true }, _count: { _all: true } }),
+        tx.refund.count({ where: { ...only, status: "APPROVED" } }),
+        tx.concession.groupBy({ by: ["studentId"], where: { ...only, type: "SCHOLARSHIP", status: "APPLIED", ...thisYear } }),
+        tx.concession.count({ where: { ...only, type: "SCHOLARSHIP" } }),
+        tx.concession.count({ where: only }),
+        tx.refund.count({ where: only }),
       ]),
     ]);
-    const ruleUse = await tx.concession.groupBy({ by: ["bulkRuleId"], where: { bulkRuleId: { in: rules.map((r) => r.id) }, status: "APPLIED" }, _count: { _all: true }, _sum: { appliedPaise: true } });
+    const ruleUse = await tx.concession.groupBy({ by: ["bulkRuleId"], where: { ...only, bulkRuleId: { in: rules.map((r) => r.id) }, status: "APPLIED" }, _count: { _all: true }, _sum: { appliedPaise: true } });
 
-    // The record opened from Approvals or a row.
+    // The record opened from Approvals or a row (another campus's record stays unknown).
     let opened: { kind: "concession"; row: ConcessionRow } | { kind: "refund"; row: RefundRow } | null = null;
     if (open || decline || revoke || mark) {
       const idWanted = open || decline || revoke || mark;
       const c = await tx.concession.findFirst({ where: { id: idWanted }, select: { id: true, studentId: true, createdAt: true } });
       if (c) {
-        const r = (await concessionRows(tx, { timeZone: p.tz, ids: [c.id] }, 1)).rows[0];
+        const r = (await concessionRows(tx, { timeZone: p.tz, ids: [c.id], only }, 1)).rows[0];
         if (r) opened = { kind: "concession", row: r };
       } else {
         const rf = await tx.refund.findFirst({ where: { id: idWanted }, select: { id: true } });
         if (rf) {
-          const r = (await refundRows(tx, { timeZone: p.tz, ids: [rf.id] }, 1)).rows[0];
+          const r = (await refundRows(tx, { timeZone: p.tz, ids: [rf.id], only }, 1)).rows[0];
           if (r) opened = { kind: "refund", row: r };
         }
       }

@@ -35,7 +35,8 @@ export default async function HistoryPage({ searchParams }: { searchParams: Sear
   const per = salaryPeriod(sp, p.dates, "finyear");
 
   const data = await withSchool(ctx, async (tx) => {
-    const runs = await runsIn(tx, per.from, per.to);
+    // One campus: their campus's months only.
+    const runs = await runsIn(tx, per.from, per.to, { campusId: p.current.campusId });
     const lines = await tx.payrollLine.findMany({ where: { runId: { in: runs.map((r) => r.id) }, included: true }, select: { runId: true, staffId: true, grossPaise: true, netPaise: true, deductionsPaise: true, paidDays: true, leaveDays: true, unpaidLeaveDays: true, lopDays: true, daysInMonth: true, absentDays: true } });
     const staff = await tx.staff.findMany({ where: { id: { in: [...new Set(lines.map((l) => l.staffId))] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true, designation: true, department: { select: { name: true } } } });
     const lastLop = tab === "reports" && money ? await tx.payrollLine.count({ where: { runId: { in: runs.slice(-1).map((r) => r.id) }, lopDays: { gt: 0 } } }) : 0;

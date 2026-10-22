@@ -4,10 +4,11 @@ import { logExport } from "@/lib/exports";
 import { PermissionDeniedError, reachFor } from "@/lib/permissions";
 import { dateWhere, periodFromSearch } from "@/lib/periods";
 import { getStudentSettings } from "@/lib/students/settings";
-import { abilities } from "@/lib/students/access";
+import { abilities, visibleStudentIds } from "@/lib/students/access";
 import { CERTIFICATE_LABEL } from "@/lib/students/labels";
 import { digiLockerCsv } from "@/lib/students/digilocker";
 import { sectionNames } from "../../_lib/queries";
+import { currentEnrolments } from "@/lib/academic/years";
 
 export const dynamic = "force-dynamic";
 
@@ -30,19 +31,23 @@ export async function GET(req: Request) {
     const can = abilities(current, settings);
     if (!settings.digiLockerOn) return { error: "The DigiLocker file is switched off in Student Settings.", status: 404 } as const;
     if (!can.manage) return { error: "You do not have permission to export certificates.", status: 403 } as const;
+    const mine = await visibleStudentIds(tx, current);
     const certs = await tx.certificate.findMany({
-      where: { status: "ISSUED", number: { not: null }, ...(range ? { issueDate: dateWhere(range) } : {}) },
+      where: { status: "ISSUED", number: { not: null }, ...(range ? { issueDate: dateWhere(range) } : {}), ...(mine ? { studentId: { in: mine } } : {}) },
       orderBy: [{ issueDate: "asc" }, { number: "asc" }], take: 20000,
     });
     const students = await tx.student.findMany({
       where: { id: { in: certs.map((c) => c.studentId) } },
-      select: { id: true, fullName: true, admissionNo: true, dateOfBirth: true, gender: true, apaarId: true, enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1, select: { sectionId: true } } },
+      select: { id: true, fullName: true, admissionNo: true, dateOfBirth: true, gender: true, apaarId: true },
     });
-    const names = await sectionNames(tx, students.flatMap((s) => s.enrolments.map((e) => e.sectionId)));
+    // Each student's class this year, in their own campus's current year.
+    const thisYear = await currentEnrolments(tx, students.map((s) => s.id));
+    const names = await sectionNames(tx, [...thisYear.values()].map((e) => e.sectionId));
     const byId = new Map(students.map((s) => [s.id, s]));
     const csv = digiLockerCsv(certs.map((c) => {
       const s = byId.get(c.studentId);
-      const sec = s?.enrolments[0] ? names.get(s.enrolments[0].sectionId) : null;
+      const e = thisYear.get(c.studentId);
+      const sec = e ? names.get(e.sectionId) : null;
       return {
         number: c.number, type: CERTIFICATE_LABEL[c.type], issueDate: c.issueDate, studentName: s?.fullName ?? "", admissionNo: s?.admissionNo ?? "",
         dateOfBirth: s?.dateOfBirth ?? null, gender: s?.gender ?? null, apaarId: can.seeRestricted ? s?.apaarId ?? null : null, className: sec?.label ?? "", purpose: c.purpose,

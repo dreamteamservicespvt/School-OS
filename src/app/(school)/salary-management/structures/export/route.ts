@@ -25,7 +25,8 @@ export async function GET(req: Request) {
   const dept = UUID.test(g("dept")) ? g("dept") : null;
   const today = new Date();
   const data = await withSchool(current.ctx, async (tx) => {
-    const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, ...(dept ? { departmentId: dept } : {}) }, orderBy: { staffCode: "asc" }, select: { id: true, fullName: true, staffCode: true, designation: true } });
+    // One campus: their campus's staff only.
+    const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, ...(dept ? { departmentId: dept } : {}), ...(current.campusId ? { campusId: current.campusId } : {}) }, orderBy: { staffCode: "asc" }, select: { id: true, fullName: true, staffCode: true, designation: true } });
     const all = await tx.salaryStructure.findMany({ where: { archivedAt: null, staffId: { in: staff.map((s) => s.id) } }, orderBy: [{ effectiveFrom: "desc" }, { version: "desc" }] });
     const rows = staff.filter((s) => !q || [s.fullName, s.staffCode, s.designation].some((x) => x.toLowerCase().includes(q)))
       .map((s) => ({ s, c: all.find((v) => v.staffId === s.id && v.effectiveFrom <= today) ?? all.find((v) => v.staffId === s.id) ?? null }));

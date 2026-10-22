@@ -1,12 +1,13 @@
 // What every Admission Management page starts with: the signed-in person,
 // checked on the server, what they may see here, the settings and the
-// admission year.
+// admission year (of the person's own campus: each campus has its own years).
 import "server-only";
 
 import { cache } from "react";
 import { redirect } from "next/navigation";
 import { requirePage } from "../current";
 import { withSchool } from "../db";
+import { personCampusId } from "../campus";
 import type { Action } from "../permissions";
 import { viewerFor } from "./access";
 import { admissionYear, loadSettings } from "./settings";
@@ -17,12 +18,14 @@ export const BASE = "/admission-management";
 
 export const admissionPage = cache(async (action: Action = "view") => {
   const current = await requirePage(MODULE, action);
-  const { viewer, settings, year } = await withSchool(current.ctx, async (tx) => {
+  const { viewer, settings, year, campusId } = await withSchool(current.ctx, async (tx) => {
     const settings = await loadSettings(tx, current.ctx);
-    return { viewer: await viewerFor(tx, current.ctx, current), settings, year: await admissionYear(tx, current.ctx, settings) };
+    const campusId = await personCampusId(tx, current.ctx, current);
+    return { viewer: await viewerFor(tx, current.ctx, current), settings, year: await admissionYear(tx, current.ctx, settings, campusId), campusId };
   });
   const tz = current.school.timeZone;
-  return { current, viewer, settings, year, tz, today: todayIn(tz) };
+  /** campusId: the person's own campus (theirs when limited to one; else their staff record's; else the main campus). */
+  return { current, viewer, settings, year, campusId, tz, today: todayIn(tz) };
 });
 
 /** Pages for people who see every admission (the team, and View reach). People with Own reach get the "no access" page (05-roles.md). */

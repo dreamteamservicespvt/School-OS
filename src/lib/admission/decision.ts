@@ -10,7 +10,7 @@ import { decide as decideApproval, DecisionProblem, mayReject, rejectRefusal, ty
 import { nextNumber, formatNumber } from "../sequences";
 import { formatDate } from "../format";
 import { AdmissionProblem } from "./act";
-import { requireFull, type Viewer } from "./access";
+import { applicationScope, requireFull, type Viewer } from "./access";
 import { activity, loadApplication, parentName, sendForDecision, stageLabel } from "./applications";
 import { loadSettings, type Settings } from "./settings";
 import { fullWords, seatsFor } from "./seats";
@@ -83,7 +83,7 @@ export async function onAdmissionDecision(tx: Tx, ctx: SchoolContext, approval: 
 export async function decideApplication(tx: Tx, ctx: SchoolContext, v: Viewer, id: string, decision: "approve" | "reject", remarks: string | null) {
   requireFull(v, "admission decisions");
   if (decision === "reject" && !(await mayReject(tx, ctx, "admission"))) throw new AdmissionProblem(rejectRefusal("admission"));
-  const app = await loadApplication(tx, id);
+  const app = await loadApplication(tx, id, v);
   if (decision === "reject" && (!remarks || remarks.trim().length < 5)) throw new AdmissionProblem("Write the remarks: a rejection is never made without them.", "remarks");
   if (app.stage !== "DECISION") throw new AdmissionProblem(`This application is ${stageLabel(app.stage).toLowerCase()}, not waiting for a decision. Send it for a decision first.`);
   const approval = app.approvalId ? await tx.approval.findFirst({ where: { id: app.approvalId } }) : null;
@@ -125,7 +125,7 @@ export async function addToWaitingList(tx: Tx, ctx: SchoolContext, v: Viewer, id
   requireFull(v, "the waiting list");
   const s = await loadSettings(tx, ctx);
   if (!s.waitingListOn) throw new AdmissionProblem("The waiting list is switched off in Admission Settings.");
-  const app = await loadApplication(tx, id);
+  const app = await loadApplication(tx, id, v);
   if (!["DECISION", "REVIEWED", "DOCUMENTS", "TEST_INTERVIEW", "SUBMITTED", "SUBMITTED_ONLINE", "APPROVED"].includes(app.stage)) throw new AdmissionProblem(`This application is ${stageLabel(app.stage).toLowerCase()}, so it cannot go on the waiting list.`);
   if (app.studentId) throw new AdmissionProblem("This child is already admitted.");
   const mine = await rankInfo(tx, s, app);
@@ -154,7 +154,7 @@ export async function addToWaitingList(tx: Tx, ctx: SchoolContext, v: Viewer, id
 /** Move someone up or down by hand: needs a reason, written to the history (Done when 8). */
 export async function moveOnWaitingList(tx: Tx, ctx: SchoolContext, v: Viewer, id: string, toRank: number, reason: string) {
   requireFull(v, "the waiting list");
-  const app = await loadApplication(tx, id);
+  const app = await loadApplication(tx, id, v);
   if (app.stage !== "WAITING_LIST" || app.waitingRank === null) throw new AdmissionProblem("This applicant is not on the waiting list.");
   const count = await tx.application.count({ where: { academicYearId: app.academicYearId, classId: app.classId, stage: "WAITING_LIST", archivedAt: null } });
   if (!Number.isInteger(toRank) || toRank < 1 || toRank > count) throw new AdmissionProblem(`Choose a position from 1 to ${count}.`, "toRank");
@@ -177,7 +177,8 @@ export async function rerankWaitingList(tx: Tx, ctx: SchoolContext, v: Viewer, y
   requireFull(v, "the waiting list");
   if (reason.trim().length < 5) throw new AdmissionProblem("Give a reason for re-ranking the list.", "reason");
   const s = await loadSettings(tx, ctx);
-  const waiting = await tx.application.findMany({ where: { academicYearId: yearId, classId, stage: "WAITING_LIST", archivedAt: null } });
+  // Another campus's list is not found (nothing to re-rank) for a person limited to one campus.
+  const waiting = await tx.application.findMany({ where: { academicYearId: yearId, classId, stage: "WAITING_LIST", archivedAt: null, ...applicationScope(v) } });
   const scored = [];
   for (const w of waiting) scored.push({ w, info: await rankInfo(tx, s, w) });
   scored.sort((a, b) => b.info.score - a.info.score || a.w.createdAt.getTime() - b.w.createdAt.getTime());
@@ -194,7 +195,7 @@ export async function markOfferSent(tx: Tx, ctx: SchoolContext, v: Viewer, id: s
   requireFull(v, "offer letters");
   const s = await loadSettings(tx, ctx);
   if (!s.offerLettersOn) throw new AdmissionProblem("Offer letters are switched off in Admission Settings.");
-  const app = await loadApplication(tx, id);
+  const app = await loadApplication(tx, id, v);
   if (app.stage !== "APPROVED" && app.stage !== "ADMITTED") throw new AdmissionProblem("An offer letter is given only after the admission is approved.");
   if (channel === "email" && !app.email) throw new AdmissionProblem("This application has no email address. Send it by WhatsApp or print it.", "channel");
   let letterNo = app.offerLetterNo;
@@ -214,7 +215,7 @@ export async function markOfferSent(tx: Tx, ctx: SchoolContext, v: Viewer, id: s
 
 export async function markOfferAccepted(tx: Tx, ctx: SchoolContext, v: Viewer, id: string) {
   requireFull(v, "offer letters");
-  const app = await loadApplication(tx, id);
+  const app = await loadApplication(tx, id, v);
   if (!app.offerSentAt) throw new AdmissionProblem("Send the offer letter first.");
   if (app.offerAcceptedAt) throw new AdmissionProblem("The offer is already marked as accepted.");
   await tx.application.update({ where: { id }, data: { offerAcceptedAt: new Date(), updatedById: ctx.userId } });
@@ -225,7 +226,7 @@ export async function markOfferAccepted(tx: Tx, ctx: SchoolContext, v: Viewer, i
 /** Take a waiting-list applicant back to a decision when a seat is free. */
 export async function offerSeat(tx: Tx, ctx: SchoolContext, v: Viewer, id: string) {
   requireFull(v, "the waiting list");
-  const app = await loadApplication(tx, id);
+  const app = await loadApplication(tx, id, v);
   if (app.stage !== "WAITING_LIST") throw new AdmissionProblem("This applicant is not on the waiting list.");
   const s = await loadSettings(tx, ctx);
   await sendForDecision(tx, ctx, v, s, app);

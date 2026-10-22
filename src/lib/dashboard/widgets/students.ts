@@ -11,7 +11,7 @@ import { getStudentSettings } from "../../students/settings";
 import { consentRows, consentState } from "../../students/consent";
 import { STUDYING } from "../../students/labels";
 import { classTiles, LIST_FILTERS, studentListWhere } from "@/app/(school)/student-management/_lib/queries";
-import { addDays, dayWord, myClassSections, n, plural } from "../common";
+import { addDays, campusStudents, dayWord, myClassSections, n, plural } from "../common";
 import type { BandItem, Birthday, DashContext, ListRow, Viewer, Widget } from "../types";
 
 const BASE = "/student-management";
@@ -24,7 +24,7 @@ const worksWithStudents = (v: Viewer) => { const a = abilities(v); return a.reac
 /** Students in the default Student List (studying, within the person's reach). */
 async function studentCount(c: DashContext, raw: Record<string, string> = {}) {
   const settings = await settingsOf(c);
-  const where = await studentListWhere(c.tx, c.viewer, readListParams(raw, LIST_FILTERS), c.year?.id ?? null, c.year?.startDate ?? null, settings);
+  const where = await studentListWhere(c.tx, c.viewer, readListParams(raw, LIST_FILTERS), c.yearIds, c.year?.startDate ?? null, settings);
   return c.tx.student.count({ where });
 }
 
@@ -36,7 +36,7 @@ const studentsBand: Widget<"band"> = {
   allowed: (v) => abilities(v).reach === "all",
   async load(c) {
     const [total, fresh] = await Promise.all([studentCount(c), c.year ? studentCount(c, { new: "1" }) : Promise.resolve(0)]);
-    const sections = c.year ? await c.tx.section.count({ where: { academicYearId: c.year.id, archivedAt: null } }) : 0;
+    const sections = c.yearIds.length ? await c.tx.section.count({ where: { academicYearId: { in: c.yearIds }, archivedAt: null } }) : 0;
     return { id: "students.head-count", label: "Students", big: n(total), foot: [sections ? `${plural(sections, "section")}` : null, fresh ? `${n(fresh)} joined this year` : null].filter(Boolean).join(" · ") || "Studying now", href: BASE };
   },
 };
@@ -46,7 +46,8 @@ async function guardiansWithoutConsent(c: DashContext) {
   return c.memo("guardians-no-consent", async () => {
     const can = await canOf(c);
     const and: Prisma.GuardianWhereInput[] = [{ archivedAt: null }];
-    if (can.reach === "own") and.push({ students: { some: { archivedAt: null, student: await studentScope(c.tx, c.viewer, c.year?.id) } } });
+    // Own reach, or one campus: the parents of their students only.
+    if (can.reach === "own" || c.viewer.campusId) and.push({ students: { some: { archivedAt: null, student: await studentScope(c.tx, c.viewer, c.yearIds) } } });
     const guardians = await c.tx.guardian.findMany({ where: { AND: and }, select: { id: true } });
     if (!guardians.length) return { total: 0, without: 0 };
     const rows = await consentRows(c.tx, c.viewer.ctx, { guardianIds: guardians.map((g) => g.id) });
@@ -96,8 +97,8 @@ const classesOverview: Widget<"panel"> = {
   homes: ["leader", "academic-head", "office"],
   allowed: (v) => abilities(v).reach === "all",
   async load(c) {
-    if (!c.year) return null;
-    const tiles = await classTiles(c.tx, c.viewer, c.year.id);
+    if (!c.yearIds.length) return null;
+    const tiles = await classTiles(c.tx, c.viewer, c.yearIds);
     if (!tiles.length) return null;
     const total = tiles.reduce((s, t) => s + t.total, 0);
     return {
@@ -185,10 +186,10 @@ const birthdays: Widget<"birthdays"> = {
     const keys = days.map((d) => d.key);
     const found = await c.tx.$queryRaw<{ id: string }[]>`SELECT id FROM student WHERE archived_at IS NULL AND date_of_birth IS NOT NULL AND to_char(date_of_birth, 'MM-DD') = ANY(${keys})`;
     if (!found.length) return [];
-    const scope = await studentScope(c.tx, c.viewer, c.year?.id);
+    const scope = await studentScope(c.tx, c.viewer, c.yearIds);
     const students = await c.tx.student.findMany({
       where: { AND: [scope, { id: { in: found.map((f) => f.id) }, status: { in: [...STUDYING] } }] },
-      include: { enrolments: { where: { archivedAt: null, ...(c.year ? { academicYearId: c.year.id } : {}) }, take: 1 } },
+      include: { enrolments: { where: { archivedAt: null, ...(c.yearIds.length ? { academicYearId: { in: c.yearIds } } : {}) }, take: 1 } },
     });
     const sections = new Map((await c.tx.section.findMany({ where: { id: { in: students.flatMap((s) => s.enrolments.map((e) => e.sectionId)) } }, include: { schoolClass: true } })).map((s) => [s.id, `${s.schoolClass.name.replace(/^Class /, "")} ${s.name}`]));
     const out: Birthday[] = students.map((s) => {
@@ -223,9 +224,9 @@ const openIncidents: Widget<"attention"> = {
   allowed: (v) => abilities(v).reach === "all" && abilities(v).seeBehaviour,
   async load(c) {
     if (!c.year) return null;
-    const count = await c.tx.behaviourIncident.count({ where: { archivedAt: null, academicYearId: c.year.id, status: "OPEN" } });
+    const count = await c.tx.behaviourIncident.count({ where: { archivedAt: null, academicYearId: { in: c.yearIds }, status: "OPEN" } });
     if (!count) return null;
-    const latest = await c.tx.behaviourIncident.findFirst({ where: { archivedAt: null, academicYearId: c.year.id, status: "OPEN" }, orderBy: { date: "desc" }, select: { typeKey: true, date: true } });
+    const latest = await c.tx.behaviourIncident.findFirst({ where: { archivedAt: null, academicYearId: { in: c.yearIds }, status: "OPEN" }, orderBy: { date: "desc" }, select: { typeKey: true, date: true } });
     return {
       id: "students.open-incidents", tone: "info", icon: "UserX",
       title: `${plural(count, "discipline case")} still open`,
@@ -242,7 +243,8 @@ const certificateRequests: Widget<"attention"> = {
   homes: ["office", "leader"],
   allowed: (v) => abilities(v).manage,
   async load(c) {
-    const rows = await c.tx.certificate.findMany({ where: { status: "REQUESTED" }, orderBy: { createdAt: "asc" }, select: { type: true, studentId: true } });
+    const mine = await campusStudents(c);
+    const rows = await c.tx.certificate.findMany({ where: { status: "REQUESTED", ...(mine ? { studentId: { in: mine } } : {}) }, orderBy: { createdAt: "asc" }, select: { type: true, studentId: true } });
     if (!rows.length) return null;
     const first = await c.tx.student.findUnique({ where: { id: rows[0].studentId }, select: { fullName: true } });
     const words = rows[0].type.toLowerCase().replace(/_/g, " ");
@@ -260,7 +262,8 @@ async function caseWhere(c: DashContext): Promise<Prisma.CounsellingCaseWhereInp
   const settings = await settingsOf(c);
   if (!settings.counsellingOn) return null;
   const can = await canOf(c);
-  return { archivedAt: null, ...(can.seeCounselling ? {} : { counsellorId: c.viewer.ctx.userId ?? "" }) };
+  const mine = await campusStudents(c);
+  return { archivedAt: null, ...(can.seeCounselling ? {} : { counsellorId: c.viewer.ctx.userId ?? "" }), ...(mine ? { studentId: { in: mine } } : {}) };
 }
 
 const openCases: Widget<"band"> = {

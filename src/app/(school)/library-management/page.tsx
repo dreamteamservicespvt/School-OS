@@ -134,7 +134,7 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
     else if (card) {
       member = await memberByCode(tx, ctx, s, card);
       if (!member) {
-        matches = await searchMembers(tx, ctx, s, card);
+        matches = await searchMembers(tx, ctx, s, card, 8, current);
         if (matches.length === 1) [member] = matches;
         else if (!matches.length) memberProblem = `No student or staff member found for “${card}”. Check the card, or search by name.`;
       }

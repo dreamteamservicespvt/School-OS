@@ -8,6 +8,7 @@ import { feeTiles, forecast, modeBreakdown, monthlyTrend, recentPayments } from 
 import { failedOnline, reversalsToCheck, studentsForPayer, unmatchedOnline } from "@/lib/fees/online";
 import { classOfStudents } from "@/lib/fees/dues";
 import { paymentView } from "@/lib/fees/payment-view";
+import { feeStudentFilter } from "@/lib/fees/access";
 import { PROMISE_FEATURE, promiseSummary } from "@/lib/fees/promises";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
@@ -70,27 +71,32 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
   const data = await withSchool(p.current.ctx, async (tx) => {
     const base = { from, to, status: status === "all" ? null : status, mode: mode === "all" ? null : mode, q: q || null };
     const promisesOn = p.features.has(PROMISE_FEATURE);
+    // A person limited to one campus sees only its students' money; {} for the whole school.
+    const only = await feeStudentFilter(tx, p.viewer);
+    const onCampus = only.studentId ? new Set(only.studentId.in) : null;
+    const mine = (studentId: string) => !onCampus || onCampus.has(studentId);
     const [tiles, trend, modes, failed, waiting, list, counts, fc, promises] = await Promise.all([
       feeTiles(tx, p.viewer, today),
-      p.year ? monthlyTrend(tx, p.year.startDate, p.year.endDate) : Promise.resolve([]),
-      modeBreakdown(tx, period === "today" ? today : monthStart(today), today),
-      failedOnline(tx, addDays(today, -7)),
-      tx.payment.findMany({ where: { status: "WAITING" }, orderBy: { paidAt: "asc" }, select: { id: true, amountPaise: true } }),
+      p.year ? monthlyTrend(tx, p.year.startDate, p.year.endDate, only) : Promise.resolve([]),
+      modeBreakdown(tx, period === "today" ? today : monthStart(today), today, only),
+      failedOnline(tx, addDays(today, -7), only),
+      tx.payment.findMany({ where: { ...only, status: "WAITING" }, orderBy: { paidAt: "asc" }, select: { id: true, amountPaise: true } }),
       recentPayments(tx, p.viewer, { ...base, partial: tab === "partial" }, take, (page - 1) * take),
       Promise.all([recentPayments(tx, p.viewer, { ...base, partial: false }, 0), recentPayments(tx, p.viewer, { ...base, partial: true }, 0)]),
       // A forecast is a suggestion: shown only with the AI assistant on, to the roles chosen for it (00-global.md §2.1 rule 8).
-      p.features.has("fee-forecast") && aiAllowed(p.current) ? forecast(tx, today, { promises: promisesOn }) : Promise.resolve(null),
-      promisesOn ? promiseSummary(tx, today, p.viewer.yearId) : Promise.resolve(null),
+      p.features.has("fee-forecast") && aiAllowed(p.current) ? forecast(tx, today, { promises: promisesOn, only }) : Promise.resolve(null),
+      promisesOn ? promiseSummary(tx, today, p.viewer.yearId, only) : Promise.resolve(null),
     ]);
-    const upiToday = (await modeBreakdown(tx, today, today)).find((m) => m.mode === "UPI")?.count ?? 0;
-    // Online payments to check (A8): only for the people who collect fees.
-    const [unmatched, reversals] = p.desk ? await Promise.all([unmatchedOnline(tx, addDays(today, -30)), reversalsToCheck(tx, addDays(today, -30))]) : [[], []];
+    const upiToday = (await modeBreakdown(tx, today, today, only)).find((m) => m.mode === "UPI")?.count ?? 0;
+    // Online payments to check (A8): only for the people who collect fees. One not matched to a student belongs to no campus yet.
+    const [unmatched, reversalsAll] = p.desk ? await Promise.all([unmatchedOnline(tx, addDays(today, -30)), reversalsToCheck(tx, addDays(today, -30))]) : [[], []];
+    const reversals = reversalsAll.filter((r) => mine(r.studentId));
     const matching = p.desk && /^[0-9a-f-]{36}$/i.test(matchId) ? unmatched.find((u) => u.id === matchId) ?? null : null;
-    const suggested = matching ? await studentsForPayer(tx, matching.payer.contact) : [];
+    const suggested = matching ? (await studentsForPayer(tx, matching.payer.contact)).filter((s) => mine(s.id)) : [];
     const stuckIds = [...new Set([...failed.failed.map((f) => f.studentId), ...failed.stuck.map((s) => s.studentId), ...reversals.map((r) => r.studentId)])];
     const [stuckStudents, stuckClasses, guardians] = await Promise.all([
       tx.student.findMany({ where: { id: { in: stuckIds } }, select: { id: true, fullName: true } }),
-      classOfStudents(tx, stuckIds, p.viewer.yearId),
+      classOfStudents(tx, stuckIds, p.viewer.yearIds),
       tx.studentGuardian.findMany({ where: { studentId: { in: stuckIds }, ...OPEN_LINK }, orderBy: [{ isPrimary: "desc" }], include: { guardian: { select: { name: true, phone: true } } } }),
     ]);
     const sheet = payId ? await paymentView(tx, p.current.ctx, p.viewer, payId, p.tz) : null;

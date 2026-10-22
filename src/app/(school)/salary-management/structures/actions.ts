@@ -6,12 +6,16 @@ import { formatDate, formatRupees } from "@/lib/format";
 import { writeAudit } from "@/lib/audit";
 import { components, linesFrom } from "@/lib/salary/settings";
 import { reviseByPercent, saveStructure } from "@/lib/salary/structures";
+import { assertStaffOnCampus } from "@/lib/salary/campus";
 import { salaryAction } from "../_lib/action";
 
 const ZERO = BigInt(0);
 
 export async function saveStructureAction(_prev: unknown, fd: FormData) {
-  return salaryAction("edit", fd, async (tx, ctx) => {
+  return salaryAction("edit", fd, async (tx, ctx, current) => {
+    const staffId = id(fd, "staffId", "staff member");
+    // One campus: another campus's staff member is not found.
+    await assertStaffOnCampus(tx, ctx, current, staffId);
     const comps = await components(tx, ctx);
     const amounts = new Map<string, bigint>();
     for (const c of comps) {
@@ -27,7 +31,7 @@ export async function saveStructureAction(_prev: unknown, fd: FormData) {
     if (ifsc && !/^[A-Z]{4}0[A-Z0-9]{6}$/.test(ifsc)) throw new MoneyProblem("An IFSC looks like HDFC0001234.", "ifsc");
     const revising = str(fd, "mode") === "revise";
     const row = await saveStructure(tx, ctx, {
-      staffId: id(fd, "staffId", "staff member"), effectiveFrom: dateOf(fd, "effectiveFrom", "Effective from"),
+      staffId, effectiveFrom: dateOf(fd, "effectiveFrom", "Effective from"),
       lines: linesFrom(comps, amounts), pfApplies: str(fd, "pf") === "on", esiApplies: str(fd, "esi") === "on",
       tdsPaise: rupeesOf(fd, "tds", "TDS per month") ?? ZERO,
       reason: revising ? text(fd, "reason", "Reason", { min: 3, max: 200 }) : optionalText(fd, "reason", "Reason", 200),
@@ -39,8 +43,9 @@ export async function saveStructureAction(_prev: unknown, fd: FormData) {
 }
 
 export async function reviseBulkAction(_prev: unknown, fd: FormData) {
-  return salaryAction("edit", fd, async (tx, ctx) => {
+  return salaryAction("edit", fd, async (tx, ctx, current) => {
     const ids = str(fd, "ids").split(",").filter((x) => UUID_RE.test(x));
+    await assertStaffOnCampus(tx, ctx, current, ids, "ids");
     const pct = Number(str(fd, "percent").replace(/[^\d.]/g, ""));
     if (!(pct > 0 && pct <= 100)) throw new MoneyProblem("Enter the increase in percent, like 5.", "percent");
     const from = dateOf(fd, "from", "From");
@@ -51,7 +56,7 @@ export async function reviseBulkAction(_prev: unknown, fd: FormData) {
 
 /** Import from a CSV (staff ID, basic, conveyance, special allowance, TDS, effective from): every row is checked before anything is saved. */
 export async function importStructuresAction(_prev: unknown, fd: FormData) {
-  return salaryAction("create", fd, async (tx, ctx) => {
+  return salaryAction("create", fd, async (tx, ctx, current) => {
     const f = file(fd, "file");
     if (!f) throw new MoneyProblem("Choose the CSV file.", "file");
     if (f.size > 2_000_000) throw new MoneyProblem("The file is bigger than 2 MB. Split it into smaller files.", "file");
@@ -67,7 +72,8 @@ export async function importStructuresAction(_prev: unknown, fd: FormData) {
       const [code, b, c, s, t, d] = raw.split(",").map((x) => x.trim().replace(/^"|"$/g, ""));
       const at = `Row ${i + 2}`;
       try {
-        const staff = await tx.staff.findFirst({ where: { staffCode: code, archivedAt: null }, select: { id: true } });
+        // One campus: a staff ID of another campus is "no staff with ID", like one that does not exist.
+        const staff = await tx.staff.findFirst({ where: { staffCode: code, archivedAt: null, ...(current.campusId ? { campusId: current.campusId } : {}) }, select: { id: true } });
         if (!staff) throw new MoneyProblem(`no staff with ID ${code || "(empty)"}`);
         const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(d ?? "") ?? /^(\d{4})-(\d{2})-(\d{2})$/.exec(d ?? "");
         if (!m) throw new MoneyProblem("effective_from must be a date like 01-11-2026");

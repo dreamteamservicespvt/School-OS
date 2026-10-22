@@ -15,6 +15,7 @@ import { previewAdmissionNo } from "@/lib/students/students";
 import { currentPolicy } from "@/lib/students/settings";
 import { BEHAVIOUR_KINDS, BEHAVIOUR_KIND_LABEL, CERTIFICATE_LABEL, ID_CARD_FIELDS, LIST_COLUMNS, OPTIONAL_FORM_FIELDS, STATUS_RULES } from "@/lib/students/labels";
 import { BASE, studentPage } from "../_lib/page";
+import { campusPrefixes } from "../_lib/queries";
 import { saveSettingsAction } from "../_actions/settings";
 import { aiAllowed } from "@/lib/settings/switch-rules";
 
@@ -60,7 +61,10 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
   const canSettings = canDo(current.permissions, "settings", "view");
   const sp = await searchParams;
   const data = await withSchool(current.ctx, async (tx) => {
-    const years = await tx.academicYear.findMany({ where: { archivedAt: null, status: { not: "CLOSED" } }, orderBy: { startDate: "asc" } });
+    // One campus: that campus's years. Two campuses: each year named with its campus.
+    const rawYears = await tx.academicYear.findMany({ where: { archivedAt: null, status: { not: "CLOSED" }, ...(current.campusId ? { campusId: current.campusId } : {}) }, orderBy: { startDate: "asc" } });
+    const prefix = await campusPrefixes(tx, rawYears.map((y) => y.campusId));
+    const years = rawYears.map((y) => ({ ...y, name: `${prefix.get(y.campusId) ?? ""}${y.name}` }));
     const policyYear = years.find((y) => y.id === sp.year) ?? (year && year.status !== "CLOSED" ? year : years[0]) ?? null;
     return {
       years, policyYear,

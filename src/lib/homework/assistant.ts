@@ -15,11 +15,12 @@ export type Draft = { title: string; instructions: string; source: string };
 /** A homework draft for a section and subject, from its syllabus. Null when there is nothing to draft from. */
 export async function draftHomework(tx: Tx, s: HomeworkScope, sectionId: string, subjectId: string, today: Date, on: boolean): Promise<Draft | null> {
   if (!on) throw new HomeworkProblem("The teacher assistant is switched off. The School Admin switches it on in Settings, Modules On/Off.");
-  if (!s.yearId || !mayWork(s, { sectionId, subjectId })) return null;
+  if (!s.yearIds.length || !mayWork(s, { sectionId, subjectId })) return null;
   const section = await tx.section.findFirst({ where: { id: sectionId }, include: { schoolClass: { select: { name: true } } } });
   const subject = await tx.subject.findUnique({ where: { id: subjectId }, select: { name: true } });
   if (!section || !subject) return null;
-  const tree = await syllabusTree(tx, s.yearId, section.classId, subjectId, sectionId, today);
+  // The section's own year's syllabus (each campus has its own year).
+  const tree = await syllabusTree(tx, section.academicYearId, section.classId, subjectId, sectionId, today);
   const flat = flatten(tree);
   const leaves = flat.filter((n) => n.children.length === 0);
   if (!leaves.length) return null;

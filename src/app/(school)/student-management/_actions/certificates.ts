@@ -73,6 +73,7 @@ export async function decideCertificateAction(fd: FormData) {
   const r = await attempt(() => withSchool(current.ctx, async (tx) => {
     const cert = await tx.certificate.findUnique({ where: { id } });
     if (!cert?.approvalId || cert.status !== "REQUESTED") throw new StudentProblem("This certificate is not waiting for approval.");
+    await loadVisibleStudent(tx, current, cert.studentId);
     await decide(tx, current.ctx, cert.approvalId, decision, reason);
   }));
   if (r) return r;

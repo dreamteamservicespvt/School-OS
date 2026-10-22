@@ -123,6 +123,8 @@ export type DashContext = {
   minuteNow: number;
   tz: string;
   year: { id: string; name: string; startDate: Date; endDate: Date; status: string; campusId: string } | null;
+  /** The current year of every campus the person sees, one each (a school's campuses can start the year on different dates). */
+  yearIds: string[];
   /** Read once and shared between loaders. */
   memo: <T>(key: string, fn: () => Promise<T>) => Promise<T>;
 };

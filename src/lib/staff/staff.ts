@@ -147,18 +147,31 @@ export function splitName(fullName: string) {
   return { firstName: parts[0], lastName: parts.length > 1 ? parts.slice(1).join(" ") : null, fullName: parts.join(" ") };
 }
 
-export async function createStaff(tx: Tx, ctx: SchoolContext, details: StaffDetails, login: LoginChoice, allocations: AllocationPick[], opts: { allowDuplicate?: boolean } = {}) {
+/**
+ * Adds a staff member. `campusLimit`: the campus the person adding is limited
+ * to ("One campus"): the new staff member joins that campus, another campus is
+ * refused, the reporting manager is one of that campus's staff (or the person
+ * adding), and a login made here opens that campus only.
+ */
+export async function createStaff(tx: Tx, ctx: SchoolContext, details: StaffDetails, login: LoginChoice, allocations: AllocationPick[], opts: { allowDuplicate?: boolean; campusLimit?: string | null } = {}) {
   const settings = await hrSettings(tx, ctx);
   const dups = await findDuplicates(tx, ctx, { phone: details.phone, email: details.email });
   if (dups.length && !opts.allowDuplicate) throw new StaffProblem(dups[0].message, "phone", { href: dups[0].href, label: "Open existing" });
   const designation = await tx.designation.findFirst({ where: { schoolId: ctx.schoolId, name: details.designation, archivedAt: null } });
   if (!designation) throw new StaffProblem("Choose a designation from the list (HR Settings).", "designation");
-  const campus = details.campusId
-    ? await tx.campus.findFirst({ where: { id: details.campusId, archivedAt: null } })
+  const limit = opts.campusLimit ?? null;
+  if (limit && details.campusId && details.campusId !== limit) throw new StaffProblem("Choose a campus from the list.", "campusId");
+  const campusId = details.campusId ?? limit;
+  const campus = campusId
+    ? await tx.campus.findFirst({ where: { id: campusId, archivedAt: null } })
     : await tx.campus.findFirst({ where: { schoolId: ctx.schoolId, archivedAt: null }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }] });
   if (!campus) throw new StaffProblem("Choose a campus.", "campusId");
   if (details.departmentId && !(await tx.department.findFirst({ where: { id: details.departmentId, archivedAt: null } }))) throw new StaffProblem("Choose a department from the list.", "departmentId");
-  if (details.reportingToId && !(await tx.staff.findFirst({ where: { id: details.reportingToId, archivedAt: null } }))) throw new StaffProblem("Choose the reporting manager from the list.", "reportingToId");
+  const managerScope: Prisma.StaffWhereInput = limit ? { OR: [{ campusId: limit }, { userLoginId: ctx.userId ?? "00000000-0000-0000-0000-000000000000" }] } : {};
+  if (details.reportingToId && !(await tx.staff.findFirst({ where: { id: details.reportingToId, archivedAt: null, ...managerScope } }))) throw new StaffProblem("Choose the reporting manager from the list.", "reportingToId");
+  // A login made by someone limited to one campus opens that campus only, never the whole school or another campus.
+  if (limit && login?.campusId && login.campusId !== limit) throw new StaffProblem("Choose a campus from the list.", "accessCampusId");
+  const loginChoice: LoginChoice = limit && login ? { ...login, campusId: limit } : login;
   if (details.aadhaar) { const p = checkAadhaar(details.aadhaar); if (p) throw new StaffProblem(p, "aadhaar"); }
 
   let staffCode: string;
@@ -168,7 +181,7 @@ export async function createStaff(tx: Tx, ctx: SchoolContext, details: StaffDeta
     do staffCode = formatStaffId(settings.staffIdPrefix, settings.staffIdDigits, await nextNumber(tx, ctx, "staff"));
     while (await tx.staff.findFirst({ where: { schoolId: ctx.schoolId, staffCode }, select: { id: true } }));
   }
-  return createWithCode(tx, ctx, staffCode, details, designation.staffType, campus.id, login, allocations, settings.usernameFormat);
+  return createWithCode(tx, ctx, staffCode, details, designation.staffType, campus.id, loginChoice, allocations, settings.usernameFormat);
 }
 
 async function createWithCode(tx: Tx, ctx: SchoolContext, staffCode: string, d: StaffDetails, staffType: string, campusId: string, login: LoginChoice, allocations: AllocationPick[], usernameFormat: string) {

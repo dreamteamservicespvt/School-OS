@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CalendarX2, Settings2, UserX } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { sectionInCampus } from "@/lib/campus";
 import { attendancePage } from "@/lib/attendance/page";
 import { BASE } from "@/lib/attendance/access";
 import { absentList, mayOpenAbsentList, reasonChoices, REASONS_FEATURE, SOURCE_WORDS } from "@/lib/attendance/absence-reasons";
@@ -45,8 +46,9 @@ export default async function AbsentListPage({ searchParams }: Props) {
   const choices = reasonChoices(access.seesFees);
 
   const data = await withSchool(current.ctx, async (tx) => {
+    // Every campus's current year; only their campus's sections when their access is limited to one campus.
     const sections = access.students === "all" || access.studentLeave === "all"
-      ? (await tx.section.findMany({ where: { academicYearId: access.yearId ?? undefined, archivedAt: null }, include: { schoolClass: { select: { name: true, sortOrder: true } } } }))
+      ? (await tx.section.findMany({ where: { ...(access.yearIds.length ? { academicYearId: { in: access.yearIds } } : {}), archivedAt: null, ...sectionInCampus({ campusId: access.campusLimit }) }, include: { schoolClass: { select: { name: true, sortOrder: true } } } }))
         .sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name)).map((s) => ({ id: s.id, name: `${s.schoolClass.name} ${s.name}` }))
       : await registerChoices(tx, access);
     const sectionId = wantedSection && UUID_RE.test(wantedSection) && sections.some((s) => s.id === wantedSection) ? wantedSection : null;

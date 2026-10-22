@@ -13,7 +13,7 @@ import { ageingGroupOf, feeSettings } from "./settings";
 import { ageingLabel, cancelReasonLabel, concessionTypeLabel, modeLabel, percentWord, CONCESSION_STATUS_WORDS, REFUND_STATUS_WORDS } from "./words";
 import { defaulters } from "./defaulters";
 import { feesByClass } from "./by-class";
-import type { FeeViewer } from "./access";
+import { feeStudentFilter, type FeeViewer } from "./access";
 
 const ZERO = BigInt(0);
 
@@ -53,18 +53,22 @@ async function inClassFilter(tx: Tx, classId: string | null) {
   };
 }
 
-/** Posted, School OS payments in the period (never brought-in ones), with the filters applied. */
-async function payments(tx: Tx, f: ReportFilter, extra: Prisma.PaymentWhereInput = {}) {
+/**
+ * Posted, School OS payments in the period (never brought-in ones), with the
+ * filters applied; only the person's campus when their access is limited to one.
+ */
+async function payments(tx: Tx, f: ReportFilter, viewer: FeeViewer, extra: Prisma.PaymentWhereInput = {}) {
   const inClass = await inClassFilter(tx, f.classId);
   const classStudents = inClass?.studentIds ?? null;
+  const campus = await feeStudentFilter(tx, viewer);
   const list = await tx.payment.findMany({
     where: {
+      AND: [campus, classStudents ? { studentId: { in: classStudents } } : {}],
       status: "POSTED",
       broughtIn: false,
       paymentDate: { gte: f.from, lte: f.to },
       ...(f.mode ? { mode: f.mode as never } : {}),
       ...(f.collectorId ? { collectedById: f.collectorId } : {}),
-      ...(classStudents ? { studentId: { in: classStudents } } : {}),
       ...(f.feeHeadId ? { allocations: { some: { feeHeadId: f.feeHeadId } } } : {}),
       ...extra,
     },
@@ -84,14 +88,22 @@ async function headNames(tx: Tx) {
   return new Map(h.map((x) => [x.id, x]));
 }
 
+/** Tax invoices of payments the person may see: their campus's students only, when limited to one. */
+async function campusInvoices<T extends { paymentId: string }>(tx: Tx, viewer: FeeViewer, inv: T[]) {
+  const campus = await feeStudentFilter(tx, viewer);
+  if (!campus.studentId) return inv;
+  const ok = new Set((await tx.payment.findMany({ where: { id: { in: inv.map((i) => i.paymentId) }, ...campus }, select: { id: true } })).map((p) => p.id));
+  return inv.filter((i) => ok.has(i.paymentId));
+}
+
 export const FEE_REPORTS: ReportDef[] = [
   {
     key: "collection",
     label: "Collection report",
     about: "Money collected by date, class, fee head, mode and collector; daily, monthly or yearly.",
     filters: ["dates", "group", "class", "head", "mode", "collector"],
-    async run(tx, _ctx, f) {
-      const list = await payments(tx, f);
+    async run(tx, _ctx, f, viewer) {
+      const list = await payments(tx, f, viewer);
       const groups = new Map<string, { count: number; amount: bigint; late: bigint; cash: bigint; other: bigint }>();
       for (const p of list) {
         const k = periodKey(p.paymentDate, f.group);
@@ -124,8 +136,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Collection details",
     about: "Every payment in the period with receipt number, student, heads, mode and collector.",
     filters: ["dates", "class", "head", "mode", "collector"],
-    async run(tx, _ctx, f) {
-      const list = await payments(tx, f);
+    async run(tx, _ctx, f, viewer) {
+      const list = await payments(tx, f, viewer);
       const n = await names(tx, list.map((p) => p.studentId));
       const heads = await headNames(tx);
       const receipts = await tx.receipt.findMany({ where: { paymentId: { in: list.map((p) => p.id) } } });
@@ -161,8 +173,9 @@ export const FEE_REPORTS: ReportDef[] = [
     filters: ["class", "head"],
     async run(tx, ctx, f, viewer) {
       const s = await feeSettings(tx, ctx);
-      const dues = await tx.studentFeeDue.findMany({ where: { state: "OPEN", balancePaise: { gt: 0 }, ...(f.feeHeadId ? { feeHeadId: f.feeHeadId } : {}) }, select: { studentId: true, balancePaise: true, dueDate: true } });
-      const classes = await classOfStudents(tx, [...new Set(dues.map((d) => d.studentId))], viewer.yearId);
+      const dues = await tx.studentFeeDue.findMany({ where: { ...(await feeStudentFilter(tx, viewer)), state: "OPEN", balancePaise: { gt: 0 }, ...(f.feeHeadId ? { feeHeadId: f.feeHeadId } : {}) }, select: { studentId: true, balancePaise: true, dueDate: true } });
+      // Each student's class in their own campus's current year.
+      const classes = await classOfStudents(tx, [...new Set(dues.map((d) => d.studentId))], viewer.yearIds);
       const n = await names(tx, [...new Set(dues.map((d) => d.studentId))]);
       const per = new Map<string, { notDue: bigint; buckets: bigint[]; total: bigint }>();
       for (const d of dues) {
@@ -248,8 +261,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Discount and concession report",
     about: "Every discount, scholarship, bulk discount and waiver with reason, status and amount.",
     filters: ["dates", "class"],
-    async run(tx, _ctx, f) {
-      const list = await tx.concession.findMany({ where: { createdAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { createdAt: "asc" } });
+    async run(tx, _ctx, f, viewer) {
+      const list = await tx.concession.findMany({ where: { ...(await feeStudentFilter(tx, viewer)), createdAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { createdAt: "asc" } });
       const n = await names(tx, list.map((c) => c.studentId));
       const classIn = await classInYearOf(tx, list);
       const filtered = list.filter((c) => !f.classId || classIn(c.studentId, c.academicYearId)?.classId === f.classId);
@@ -275,8 +288,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Penalty (late fee) report",
     about: "Late fee added, waived and collected in the period.",
     filters: ["dates", "class"],
-    async run(tx, _ctx, f) {
-      const rowsDb = await tx.studentFeeDue.findMany({ where: { kind: "LATE_FEE", createdAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } } });
+    async run(tx, _ctx, f, viewer) {
+      const rowsDb = await tx.studentFeeDue.findMany({ where: { ...(await feeStudentFilter(tx, viewer)), kind: "LATE_FEE", createdAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } } });
       const classIn = await classInYearOf(tx, rowsDb);
       const n = await names(tx, rowsDb.map((r) => r.studentId));
       const filtered = rowsDb.filter((r) => !f.classId || classIn(r.studentId, r.academicYearId)?.classId === f.classId);
@@ -296,8 +309,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Payment-mode report",
     about: "Collection by mode: cash, UPI, card, net banking, bank transfer, cheque, gateway.",
     filters: ["dates", "class", "collector"],
-    async run(tx, _ctx, f) {
-      const list = await payments(tx, f);
+    async run(tx, _ctx, f, viewer) {
+      const list = await payments(tx, f, viewer);
       const by = new Map<string, { count: number; amount: bigint }>();
       for (const p of list) {
         const g = by.get(p.mode) ?? { count: 0, amount: ZERO };
@@ -319,8 +332,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Cancelled payments report",
     about: "Who cancelled which payment, when, the reason and the amount (replaces the old Deleted Payments Log).",
     filters: ["dates", "class"],
-    async run(tx, _ctx, f) {
-      const list = await tx.payment.findMany({ where: { status: "CANCELLED", cancelledAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { cancelledAt: "asc" } });
+    async run(tx, _ctx, f, viewer) {
+      const list = await tx.payment.findMany({ where: { ...(await feeStudentFilter(tx, viewer)), status: "CANCELLED", cancelledAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { cancelledAt: "asc" } });
       const n = await names(tx, list.map((p) => p.studentId));
       const classIn = await classInYearOf(tx, list);
       const receipts = await tx.receipt.findMany({ where: { paymentId: { in: list.map((p) => p.id) } } });
@@ -342,8 +355,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Refund report",
     about: "Refunds asked, approved and paid, with reason and mode.",
     filters: ["dates", "class"],
-    async run(tx, _ctx, f) {
-      const list = await tx.refund.findMany({ where: { createdAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { createdAt: "asc" } });
+    async run(tx, _ctx, f, viewer) {
+      const list = await tx.refund.findMany({ where: { ...(await feeStudentFilter(tx, viewer)), createdAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { createdAt: "asc" } });
       const n = await names(tx, list.map((r) => r.studentId));
       const classes = await classOfStudents(tx, list.map((r) => r.studentId));
       const filtered = list.filter((r) => !f.classId || classes.get(r.studentId)?.classId === f.classId);
@@ -364,8 +377,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Audit report",
     about: "Installment-wise breakdown of every payment, for accounting.",
     filters: ["dates", "class", "head"],
-    async run(tx, _ctx, f) {
-      const list = await payments(tx, f);
+    async run(tx, _ctx, f, viewer) {
+      const list = await payments(tx, f, viewer);
       const dues = await tx.studentFeeDue.findMany({ where: { id: { in: list.flatMap((p) => p.allocations.map((a) => a.dueId)) } } });
       const heads = await headNames(tx);
       const receipts = await tx.receipt.findMany({ where: { paymentId: { in: list.map((p) => p.id) } } });
@@ -395,8 +408,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Tax report",
     about: "Collection on taxable fee heads by period.",
     filters: ["dates", "group"],
-    async run(tx, _ctx, f) {
-      const inv = await tx.taxInvoice.findMany({ where: { date: { gte: f.from, lte: f.to }, status: "valid" }, orderBy: { date: "asc" } });
+    async run(tx, _ctx, f, viewer) {
+      const inv = await campusInvoices(tx, viewer, await tx.taxInvoice.findMany({ where: { date: { gte: f.from, lte: f.to }, status: "valid" }, orderBy: { date: "asc" } }));
       const by = new Map<string, { count: number; taxable: bigint; tax: bigint; total: bigint }>();
       for (const i of inv) {
         const k = periodKey(i.date, f.group);
@@ -417,8 +430,8 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "GST report",
     about: "For GST filing: taxable collection by fee head and GST rate, tax amount, and every tax invoice in the period.",
     filters: ["dates"],
-    async run(tx, _ctx, f) {
-      const inv = await tx.taxInvoice.findMany({ where: { date: { gte: f.from, lte: f.to }, status: "valid" }, orderBy: [{ date: "asc" }, { number: "asc" }] });
+    async run(tx, _ctx, f, viewer) {
+      const inv = await campusInvoices(tx, viewer, await tx.taxInvoice.findMany({ where: { date: { gte: f.from, lte: f.to }, status: "valid" }, orderBy: [{ date: "asc" }, { number: "asc" }] }));
       const pays = await tx.payment.findMany({ where: { id: { in: inv.map((i) => i.paymentId) } }, select: { id: true, studentId: true } });
       const n = await names(tx, pays.map((p) => p.studentId));
       const rows: Record<string, Cell>[] = [];
@@ -451,9 +464,11 @@ export const FEE_REPORTS: ReportDef[] = [
     label: "Online payments",
     about: "Every gateway confirmation and failure: posted, already posted (a second confirmation), failed, found by reconciliation, matched by hand, not matched, or refunded or disputed at Razorpay.",
     filters: ["dates"],
-    async run(tx, _ctx, f) {
-      const list = await tx.gatewayTransaction.findMany({ where: { receivedAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { receivedAt: "asc" } });
-      const pays = await tx.payment.findMany({ where: { id: { in: list.map((l) => l.paymentId).filter((x): x is string => Boolean(x)) } }, select: { id: true, studentId: true } });
+    async run(tx, _ctx, f, viewer) {
+      const all = await tx.gatewayTransaction.findMany({ where: { receivedAt: { gte: f.from, lt: new Date(f.to.getTime() + DAY_MS) } }, orderBy: { receivedAt: "asc" } });
+      const pays = await tx.payment.findMany({ where: { id: { in: all.map((l) => l.paymentId).filter((x): x is string => Boolean(x)) }, ...(await feeStudentFilter(tx, viewer)) }, select: { id: true, studentId: true } });
+      // A person limited to one campus: only their campus's payments. Rows not matched to any payment belong to no campus and stay.
+      const list = viewer.campusId ? all.filter((l) => !l.paymentId || pays.some((p) => p.id === l.paymentId)) : all;
       const n = await names(tx, pays.map((p) => p.studentId));
       const OUTCOME: Record<string, string> = {
         posted: "Posted", "already-posted": "Second confirmation, ignored", "failed-recorded": "Failed", unmatched: "Not matched", ignored: "Ignored",

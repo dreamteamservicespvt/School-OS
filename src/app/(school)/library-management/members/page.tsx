@@ -10,8 +10,8 @@ import { withSchool } from "@/lib/db";
 import { formatRupees } from "@/lib/format";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { fileLink } from "@/lib/files";
-import { currentYear } from "@/lib/academic/years";
-import { sectionsForYear } from "@/lib/academic";
+import { yearsFor } from "@/lib/academic/years";
+import { sectionsForCurrentYears } from "@/lib/academic";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -43,13 +43,14 @@ export default async function MembersPage({ searchParams }: { searchParams: Sear
   const limitKey = can.members ? one(sp.limit) : "";
 
   const d = await withSchool(current.ctx, async (tx) => {
-    const year = await currentYear(tx, current.ctx);
+    // Each campus's current year (a school's campuses can start the year on different dates).
+    const yearIds = (await yearsFor(tx, current.ctx, current.campusId)).map((y) => y.id);
     const [list, sections, blocked, staffCount, studentCount, sheetMember] = await Promise.all([
       memberRows(tx, current.ctx, s, f, today, skipTake(params)),
-      year ? sectionsForYear(tx, current.ctx, year.id) : Promise.resolve([]),
+      sectionsForCurrentYears(tx, current.ctx, current.campusId),
       tx.libraryMember.count({ where: { blockedAt: { not: null } } }),
       tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } } }),
-      year ? tx.enrolment.count({ where: { academicYearId: year.id, archivedAt: null, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED", "PROMOTED"] } } } }) : Promise.resolve(0),
+      yearIds.length ? tx.enrolment.count({ where: { academicYearId: { in: yearIds }, archivedAt: null, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED", "PROMOTED"] } } } }) : Promise.resolve(0),
       blockKey || limitKey ? memberByKey(tx, current.ctx, s, blockKey || limitKey) : Promise.resolve(null),
     ]);
     const out = await tx.bookIssue.count({ where: { returnedAt: null } });

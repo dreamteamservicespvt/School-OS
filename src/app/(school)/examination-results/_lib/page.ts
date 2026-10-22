@@ -4,8 +4,7 @@ import "server-only";
 
 import { requirePage } from "@/lib/current";
 import { withSchool } from "@/lib/db";
-import { chosenYear } from "@/lib/academic/years";
-import { mainCampusId } from "@/lib/academic/settings";
+import { campusYears, pageYear } from "@/lib/academic/page-campus";
 import { todayIn } from "@/lib/academic/common";
 import { examScope } from "@/lib/exams/scope";
 import { ensureExamDefaults } from "@/lib/exams/settings";
@@ -20,18 +19,21 @@ export async function examPage(raw: Raw) {
   const today = todayIn(current.school.timeZone);
   const base = await withSchool(current.ctx, async (tx) => {
     await ensureExamDefaults(tx, current.ctx);
-    const campusId = await mainCampusId(tx, current.ctx);
-    const year = await chosenYear(tx, current.ctx, one(raw.year) || null);
-    const years = await tx.academicYear.findMany({ where: { campusId, archivedAt: null }, orderBy: { startDate: "desc" } });
+    // The page's campus: the one the person is limited to, else the chosen year's, else their own (page-campus.ts).
+    const asked = one(raw.year) || null;
+    const { year, campusId } = await pageYear(tx, current.ctx, current, asked);
+    const defaultYearId = asked ? (await pageYear(tx, current.ctx, current, null)).year?.id ?? null : year?.id ?? null;
+    const years = await campusYears(tx, current.ctx, campusId);
     const scope = await examScope(tx, current, year?.id ?? null);
-    return { campusId, year, years, scope };
+    return { campusId, year, years, scope, defaultYearId };
   });
   const closed = base.year?.status === "CLOSED";
   return {
     current, today, ...base, closed,
     /** Changes are allowed: the year exists and is not closed. */
     writable: Boolean(base.year) && !closed,
-    yearQuery: base.year && base.year.status !== "ACTIVE" ? `year=${base.year.id}` : "",
+    // A year other than the person's default one (not active, or another campus's) stays in links and exports.
+    yearQuery: base.year && (base.year.status !== "ACTIVE" || base.year.id !== base.defaultYearId) ? `year=${base.year.id}` : "",
   };
 }
 

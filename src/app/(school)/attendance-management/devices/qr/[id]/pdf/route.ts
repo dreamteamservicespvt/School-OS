@@ -5,7 +5,7 @@ import { htmlToPdf } from "@/lib/pdf";
 import { appOrigin } from "@/lib/origin";
 import { todayIn } from "@/lib/staff/dates";
 import { UUID_RE } from "@/lib/staff/act";
-import { attendanceAccess } from "@/lib/attendance/access";
+import { attendanceAccess, campusOrSchool } from "@/lib/attendance/access";
 import { attendanceSettings } from "@/lib/attendance/settings";
 import { posterData, posterHtml } from "@/lib/attendance/poster";
 import { writeAudit } from "@/lib/audit";
@@ -21,7 +21,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const settings = await attendanceSettings(tx, current.ctx);
     const access = await attendanceAccess(tx, current.ctx, current, settings.lockOverrideRoles);
     if (!access.admin) return null;
-    const session = await tx.qrSession.findFirst({ where: { id, archivedAt: null } });
+    const session = await tx.qrSession.findFirst({ where: { id, archivedAt: null, ...campusOrSchool(access) } });
     if (!session) return null;
     await writeAudit(tx, current.ctx, { action: "printed", recordType: "QR Session", recordId: session.id, after: { theme } });
     return posterHtml(await posterData(tx, current.ctx, session, origin, today), theme);

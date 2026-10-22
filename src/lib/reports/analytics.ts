@@ -10,6 +10,7 @@ import type { SchoolContext, Tx } from "../db";
 import { attendanceSummary } from "../attendance/summary";
 import { teacherWorkloads } from "../academic/allocation";
 import { progressBoard } from "../academic/syllabus";
+import { personCampusId } from "../campus";
 import { formatRupees, formatRupeesShort } from "../format";
 import { reportAccess, moduleOpen, type ReportAccess } from "./access";
 import { entryAllowed, findEntry } from "./catalogue";
@@ -96,18 +97,30 @@ async function catalogue(inp: AnalyticsInput, key: string, extra: Record<string,
   return runEntry(inp.tx, inp.who, entry, f);
 }
 
-async function yearOf(tx: Tx, today: Date) {
-  return tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lte: today }, endDate: { gte: today } } }) ?? tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lte: today } }, orderBy: { startDate: "desc" } });
+/** The year running today on a campus (any campus when none is given), else the latest one started. */
+async function yearOf(tx: Tx, today: Date, campusId: string | null = null) {
+  const c = campusId ? { campusId } : {};
+  return (await tx.academicYear.findFirst({ where: { archivedAt: null, ...c, startDate: { lte: today }, endDate: { gte: today } } }))
+    ?? tx.academicYear.findFirst({ where: { archivedAt: null, ...c, startDate: { lte: today } }, orderBy: { startDate: "desc" } });
+}
+
+/** The year running today on each campus (a school's campuses can start the year on different dates), or on the one campus. */
+async function yearsOf(tx: Tx, today: Date, campusId: string | null) {
+  const campuses = campusId ? [campusId] : (await tx.campus.findMany({ where: { archivedAt: null }, select: { id: true } })).map((c) => c.id);
+  return (await Promise.all(campuses.map((c) => yearOf(tx, today, c)))).filter((y): y is NonNullable<typeof y> => Boolean(y));
 }
 
 /* ---------- Students ---------- */
 async function students(inp: AnalyticsInput): Promise<AreaView> {
   const { tx, today } = inp;
-  const year = await yearOf(tx, today);
+  // Each campus's own year (two campuses can start the year on different dates).
+  const nowYears = await yearsOf(tx, today, inp.campusId);
+  const year = nowYears[0];
   if (!year) return { stats: [], charts: [], drills: {}, banner: { title: "No academic year yet.", body: "Set up the year in Academics first." } };
+  const yearStart = new Date(Math.min(...nowYears.map((y) => y.startDate.getTime())));
   const from = d(inp.range.from), to = d(inp.range.to);
   const enrol = await tx.enrolment.findMany({
-    where: { academicYearId: year.id, archivedAt: null, status: "STUDYING", student: { archivedAt: null, ...(inp.campusId ? { campusId: inp.campusId } : {}) } },
+    where: { academicYearId: { in: nowYears.map((y) => y.id) }, archivedAt: null, status: "STUDYING", student: { archivedAt: null, ...(inp.campusId ? { campusId: inp.campusId } : {}) } },
     select: { studentId: true, sectionId: true, classId: true, student: { select: { fullName: true, admissionNo: true, gender: true, category: true } } },
   });
   const classes = await tx.schoolClass.findMany({ where: { id: { in: [...new Set(enrol.map((e) => e.classId))] } }, select: { id: true, name: true, sortOrder: true } });
@@ -135,7 +148,7 @@ async function students(inp: AnalyticsInput): Promise<AreaView> {
   // Attendance today and in the dates, from Attendance Management's own summary.
   const [day, span] = await Promise.all([
     ids.length ? attendanceSummary(tx, inp.who.ctx, { studentIds: ids, from: today, to: today, today }) : null,
-    ids.length ? attendanceSummary(tx, inp.who.ctx, { studentIds: ids, from: from < year.startDate ? year.startDate : from, to, today }) : null,
+    ids.length ? attendanceSummary(tx, inp.who.ctx, { studentIds: ids, from: from < yearStart ? yearStart : from, to, today }) : null,
   ]);
   const absentToday = enrol.filter((e) => { const s = day?.people.get(e.studentId); return s && s.countedDays > 0 && s.absent > 0; });
   const lateToday = enrol.filter((e) => (day?.people.get(e.studentId)?.late ?? 0) > 0).length;
@@ -163,8 +176,10 @@ async function students(inp: AnalyticsInput): Promise<AreaView> {
   const dayPct = day && day.overall.countedDays ? day.overall.percent : null;
 
   // Strength over the years: students on the rolls in each year.
-  const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: today } }, orderBy: { startDate: "desc" }, take: 5 });
-  const strength = await Promise.all(years.reverse().map(async (y) => ({ k: y.name.replace(/^20(\d\d)-(20)?(\d\d)$/, "$1–$3"), v: await tx.enrolment.count({ where: { academicYearId: y.id, archivedAt: null, ...(inp.campusId ? { student: { campusId: inp.campusId } } : {}) } }) })));
+  // Two campuses each have a "2026-27": the same year name is one bar.
+  const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: today }, ...(inp.campusId ? { campusId: inp.campusId } : {}) }, orderBy: { startDate: "desc" }, take: 20 });
+  const names = [...new Set(years.map((y) => y.name))].slice(0, 5).reverse();
+  const strength = await Promise.all(names.map(async (name) => ({ k: name.replace(/^20(\d\d)-(20)?(\d\d)$/, "$1–$3"), v: await tx.enrolment.count({ where: { academicYearId: { in: years.filter((y) => y.name === name).map((y) => y.id) }, archivedAt: null, ...(inp.campusId ? { student: { campusId: inp.campusId } } : {}) } }) })));
 
   const months = monthsBetween(from, to);
   const moves = months.map((m) => ({ k: monthShort(m), v: joined.filter((s) => monthKey(s.joiningDate!) === m).length, v2: left.filter((s) => monthKey(s.leavingDate!) === m).length }));
@@ -283,7 +298,7 @@ async function hr(inp: AnalyticsInput): Promise<AreaView> {
   for (const s of staff) depts.set(s.department?.name ?? "No department", (depts.get(s.department?.name ?? "No department") ?? 0) + 1);
   const dr = [...depts.entries()].sort((a, b) => b[1] - a[1]);
   const leaveDays = leave?.totals ? num(leave.totals.total) : 0;
-  const lv = await tx.leaveRequest.findMany({ where: { staffId: { not: null }, status: "APPROVED", archivedAt: null, fromDate: { lte: d(inp.range.to) }, toDate: { gte: d(inp.range.from) } }, select: { fromDate: true, days: true } });
+  const lv = await tx.leaveRequest.findMany({ where: { staffId: inp.campusId ? { in: staff.map((s) => s.id) } : { not: null }, status: "APPROVED", archivedAt: null, fromDate: { lte: d(inp.range.to) }, toDate: { gte: d(inp.range.from) } }, select: { fromDate: true, days: true } });
   const months = monthsBetween(d(inp.range.from), d(inp.range.to));
   const lvBars = months.map((m) => ({ k: monthShort(m), v: lv.filter((l) => monthKey(l.fromDate) === m).reduce((s, l) => s + Number(l.days), 0) }));
   const joined = moves?.rows.filter((r) => r.what === "Joined").length ?? 0;
@@ -307,8 +322,8 @@ async function hr(inp: AnalyticsInput): Promise<AreaView> {
 /* ---------- Teacher workload ---------- */
 async function workload(inp: AnalyticsInput): Promise<AreaView> {
   const { tx, today } = inp;
-  const year = await yearOf(tx, today);
   const campus = inp.campusId ?? (await tx.campus.findFirst({ where: { archivedAt: null }, orderBy: { createdAt: "asc" }, select: { id: true } }))?.id;
+  const year = await yearOf(tx, today, campus ?? null);
   if (!year || !campus) return { stats: [], charts: [], drills: {}, banner: { title: "No timetable yet.", body: "Teacher loads appear when subjects are given to teachers in Academics." } };
   const loads = (await teacherWorkloads(tx, inp.who.ctx, year.id, campus, today)).filter((t) => t.periods > 0).sort((a, b) => b.periods - a.periods);
   const subs = await tx.substitution.findMany({ where: { archivedAt: null, substituteStaffId: { not: null }, date: { gte: d(inp.range.from), lte: d(inp.range.to) } }, select: { substituteStaffId: true, date: true, absentStaffId: true, period: { select: { periodNo: true } } } });
@@ -345,7 +360,7 @@ async function workload(inp: AnalyticsInput): Promise<AreaView> {
 /* ---------- Syllabus & teachers (Principal and Academic Head) ---------- */
 async function teachers(inp: AnalyticsInput): Promise<AreaView> {
   const { tx, today } = inp;
-  const year = await yearOf(tx, today);
+  const year = await yearOf(tx, today, inp.campusId ?? (await personCampusId(tx, inp.who.ctx, inp.who)));
   if (!year) return { stats: [], charts: [], drills: {} };
   const alloc = await tx.teacherAllocation.findMany({ where: { academicYearId: year.id, archivedAt: null, isMain: true, section: { archivedAt: null } }, include: { section: { include: { schoolClass: true } }, subject: true } });
   const staff = new Map((await tx.staff.findMany({ where: { id: { in: [...new Set(alloc.map((a) => a.staffId))] } }, select: { id: true, fullName: true } })).map((s) => [s.id, s.fullName]));
@@ -434,8 +449,9 @@ export function analyticsQuery(who: ReportViewer, sp: Raw, setup: PeriodSetupLik
   const fallback = only("accountant") ? "finyear" as const : only("admission-counsellor") ? "last6m" as const : "acyear" as const;
   const range = periodFromSearch(sp, { ...setup, fallback })!;
   const campusRaw = one(sp.campus);
-  const both = campusRaw === "both";
-  const campusId = /^[0-9a-f-]{36}$/i.test(campusRaw) ? campusRaw : who.campusId ?? null;
+  // A person limited to one campus always sees that campus, never the others side by side.
+  const both = campusRaw === "both" && !who.campusId;
+  const campusId = who.campusId ?? (/^[0-9a-f-]{36}$/i.test(campusRaw) ? campusRaw : null);
   return { areas, area, range, fallback, compare: one(sp.compare) === "1", both, campusId, exam: /^[\w-]{1,64}$/.test(one(sp.exam)) ? one(sp.exam) : undefined };
 }
 
@@ -444,6 +460,7 @@ export const areaOfChart = (key: string) => (key.split(".")[0] as AreaKey);
 
 /** Campuses side by side (school groups): the same numbers, the same dates. */
 export async function compareCampuses(inp: AnalyticsInput) {
+  if (inp.who.campusId) return null;
   const campuses = await inp.tx.campus.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } });
   if (campuses.length < 2) return null;
   const cols = await Promise.all(campuses.map(async (c) => {

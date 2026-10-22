@@ -6,7 +6,7 @@ import { revalidatePath } from "next/cache";
 import { withSchool } from "@/lib/db";
 import { commAction, commOfficeAction, OfficeOnly } from "@/lib/communication/access";
 import { COMM_FEATURES } from "@/lib/communication/features";
-import { assignChat, chatToQuery, InboxProblem, markRead, replyToChat, setResolved } from "@/lib/communication/inbox";
+import { assertChatOnCampus, assignChat, chatToQuery, inboxCampusWhere, InboxProblem, markRead, replyToChat, setResolved } from "@/lib/communication/inbox";
 
 const uuid = /^[0-9a-f-]{36}$/;
 const PATH = "/communication/inbox";
@@ -30,24 +30,39 @@ async function run(office: boolean, fn: (a: Awaited<ReturnType<typeof inboxAcces
 
 export async function replyChatAction(chatId: string, text: string): Promise<string | void> {
   if (!uuid.test(chatId)) return "This chat was not found.";
-  return run(false, (a) => withSchool(a.current.ctx, (tx) => replyToChat(tx, a.current.ctx, a.full, chatId, String(text ?? ""))));
+  return run(false, (a) => withSchool(a.current.ctx, async (tx) => {
+    // A chat about another campus is not found for a person limited to one campus.
+    await assertChatOnCampus(tx, a.current.ctx, chatId, a.scope.campusId);
+    return replyToChat(tx, a.current.ctx, a.full, chatId, String(text ?? ""));
+  }));
 }
 
 export async function resolveChatAction(chatId: string, resolved: boolean): Promise<string | void> {
   if (!uuid.test(chatId)) return "This chat was not found.";
-  return run(false, (a) => withSchool(a.current.ctx, (tx) => setResolved(tx, a.current.ctx, a.full, chatId, Boolean(resolved))));
+  return run(false, (a) => withSchool(a.current.ctx, async (tx) => {
+    await assertChatOnCampus(tx, a.current.ctx, chatId, a.scope.campusId);
+    return setResolved(tx, a.current.ctx, a.full, chatId, Boolean(resolved));
+  }));
 }
 
 export async function assignChatAction(chatId: string, userLoginId: string): Promise<string | void> {
   if (!uuid.test(chatId) || !uuid.test(userLoginId)) return "Choose a staff member.";
-  return run(true, (a) => withSchool(a.current.ctx, (tx) => assignChat(tx, a.current.ctx, chatId, userLoginId)));
+  return run(true, (a) => withSchool(a.current.ctx, async (tx) => {
+    await assertChatOnCampus(tx, a.current.ctx, chatId, a.scope.campusId);
+    // A person limited to one campus gives chats to their campus's staff only.
+    if (a.scope.campusId && !(await tx.staff.findFirst({ where: { schoolId: a.current.ctx.schoolId, userLoginId, campusId: a.scope.campusId, archivedAt: null }, select: { id: true } }))) throw new InboxProblem("Choose a staff member who can sign in to School OS.");
+    return assignChat(tx, a.current.ctx, chatId, userLoginId);
+  }));
 }
 
 export async function chatToQueryAction(chatId: string): Promise<{ ok: true; id: string; number: string } | { ok: false; message: string }> {
   if (!uuid.test(chatId)) return { ok: false, message: "This chat was not found." };
   try {
     const a = await inboxAccess(true);
-    const q = await withSchool(a.current.ctx, (tx) => chatToQuery(tx, a.current.ctx, chatId));
+    const q = await withSchool(a.current.ctx, async (tx) => {
+      await assertChatOnCampus(tx, a.current.ctx, chatId, a.scope.campusId);
+      return chatToQuery(tx, a.current.ctx, chatId);
+    });
     revalidatePath(PATH);
     return { ok: true, id: q.id, number: q.number };
   } catch (e) {
@@ -63,7 +78,7 @@ export async function markReadAction(chatId: string): Promise<void> {
     const a = await commAction("view");
     if (!a.current.features.has(COMM_FEATURES.inbox)) return;
     await withSchool(a.current.ctx, async (tx) => {
-      const chat = await tx.whatsappChat.findFirst({ where: { id: chatId, schoolId: a.current.ctx.schoolId }, select: { assignedToId: true } });
+      const chat = await tx.whatsappChat.findFirst({ where: { AND: [{ id: chatId, schoolId: a.current.ctx.schoolId }, await inboxCampusWhere(tx, a.current.ctx, a.scope.campusId)] }, select: { assignedToId: true } });
       if (chat && (a.full || chat.assignedToId === a.current.user.id)) await markRead(tx, a.current.ctx, chatId);
     });
   } catch {

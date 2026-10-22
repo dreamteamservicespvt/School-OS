@@ -8,7 +8,7 @@ import type { SchoolContext, Tx } from "../db";
 import type { PermissionMap } from "../permissions";
 import { PermissionDeniedError } from "../permissions";
 import { ownSectionIds } from "../people";
-import { currentYear } from "../academic/years";
+import { yearsFor } from "../academic/years";
 import type { ResolvedSettings } from "./settings";
 
 /** The parts of the signed-in person this module needs (Current satisfies it). */
@@ -16,6 +16,8 @@ export type Who = {
   ctx: SchoolContext;
   permissions: PermissionMap;
   roles: { key: string | null }[];
+  /** The campus their access is limited to ("One campus" in Users & Permissions); null for the whole school. */
+  campusId?: string | null;
 };
 
 /**
@@ -155,26 +157,41 @@ export function abilities(who: Who, settings?: Pick<ResolvedSettings, "counselli
 }
 
 /**
- * The limit on Student rows for this person. With "own" reach: students
- * enrolled this year in the sections they teach or are class teacher of, and
- * students whose counselling cases are given to them.
+ * The limit on Student rows for this person. A person limited to one campus
+ * sees only that campus's students. With "own" reach: students enrolled this
+ * year in the sections they teach or are class teacher of, and students whose
+ * counselling cases are given to them. "This year" is each campus's own
+ * current year unless a year is given.
  */
-export async function studentScope(tx: Tx, who: Who, yearId?: string | null): Promise<Prisma.StudentWhereInput> {
+export async function studentScope(tx: Tx, who: Who, yearId?: string | string[] | null): Promise<Prisma.StudentWhereInput> {
   const a = abilities(who);
   if (a.reach === "none") return { id: { in: [] } };
-  if (a.reach === "all") return {};
-  const year = yearId ?? (await currentYear(tx, who.ctx))?.id;
-  const sections = year ? await ownSectionIds(tx, who.ctx, year) : [];
+  const campus: Prisma.StudentWhereInput | null = who.campusId ? { campusId: who.campusId } : null;
+  if (a.reach === "all") return campus ?? {};
+  const given = Array.isArray(yearId) ? yearId : yearId ? [yearId] : [];
+  const years = given.length ? given : (await yearsFor(tx, who.ctx, who.campusId)).map((y) => y.id);
+  const sections = (await Promise.all(years.map((y) => ownSectionIds(tx, who.ctx, y)))).flat();
   const cases = who.ctx.userId
     ? await tx.counsellingCase.findMany({ where: { counsellorId: who.ctx.userId, archivedAt: null }, select: { studentId: true } })
     : [];
   // Hostel Warden (05-roles.md): Own = the boarders in the hostels they are warden of.
   const boarders = who.ctx.userId && who.roles.some((r) => r.key === "hostel-warden") ? await wardenBoarders(tx, who.ctx) : [];
   const or: Prisma.StudentWhereInput[] = [];
-  if (sections.length && year) or.push({ enrolments: { some: { academicYearId: year, sectionId: { in: sections }, archivedAt: null } } });
+  if (sections.length && years.length) or.push({ enrolments: { some: { academicYearId: { in: years }, sectionId: { in: sections }, archivedAt: null } } });
   if (cases.length) or.push({ id: { in: cases.map((c) => c.studentId) } });
   if (boarders.length) or.push({ id: { in: boarders } });
-  return or.length ? { OR: or } : { id: { in: [] } };
+  const own: Prisma.StudentWhereInput = or.length ? { OR: or } : { id: { in: [] } };
+  return campus ? { AND: [campus, own] } : own;
+}
+
+/**
+ * Ids of the students this person may see, for records that link to students
+ * by id only (incidents, certificates, leaving records...); null when they see
+ * every student of the school.
+ */
+export async function visibleStudentIds(tx: Tx, who: Who, yearId?: string | string[] | null): Promise<string[] | null> {
+  if (abilities(who).reach === "all" && !who.campusId) return null;
+  return (await tx.student.findMany({ where: await studentScope(tx, who, yearId), select: { id: true } })).map((s) => s.id);
 }
 
 /** Students with a bed now in a hostel this person is a warden of. */

@@ -17,8 +17,9 @@ import type { Tx } from "../db";
 import { addDays, DAY_MS } from "../staff/dates";
 import { classGroups, type ClassGroup } from "../attendance/classwise";
 import { DUE_WINDOW_DAYS, netAmount } from "./dues";
-import type { FeeViewer } from "./access";
+import { feeStudentFilter, type FeeViewer } from "./access";
 import { OPEN_LINK } from "../students/guardian-access";
+import { sectionInCampus } from "../campus";
 
 const ZERO = BigInt(0);
 export const NO_SECTION = "none";
@@ -81,14 +82,18 @@ function finishTotals(t: FeeTotals) {
   return t;
 }
 
-/** The fee rows that count, for these students (or everyone the viewer may see). */
-async function dueRows(tx: Tx, yearId: string | null, today: Date, studentIds: string[] | null): Promise<Row[]> {
+/**
+ * The fee rows that count, for these students (or everyone the viewer may see:
+ * the whole school, or their campus). "This year" is each campus's current year
+ * (`yearIds`), or the one year asked for.
+ */
+async function dueRows(tx: Tx, viewer: Pick<FeeViewer, "yearIds" | "campusId">, today: Date, studentIds: string[] | null): Promise<Row[]> {
   const horizon = addDays(today, DUE_WINDOW_DAYS);
   const where: Prisma.StudentFeeDueWhereInput = {
     state: "OPEN",
     dueDate: { lte: horizon },
-    ...(yearId ? { OR: [{ academicYearId: yearId }, { balancePaise: { gt: 0 } }] } : {}),
-    ...(studentIds ? { studentId: { in: studentIds } } : {}),
+    ...(viewer.yearIds.length ? { OR: [{ academicYearId: { in: viewer.yearIds } }, { balancePaise: { gt: 0 } }] } : {}),
+    ...(studentIds ? { studentId: { in: studentIds } } : await feeStudentFilter(tx, viewer)),
   };
   const rows = await tx.studentFeeDue.findMany({ where, select: { studentId: true, label: true, dueDate: true, amountPaise: true, concessionPaise: true, adjustmentPaise: true, paidPaise: true, balancePaise: true } });
   return rows.map((r) => ({ studentId: r.studentId, label: r.label, dueDate: r.dueDate, net: netAmount(r), paid: r.paidPaise, balance: r.balancePaise > ZERO ? r.balancePaise : ZERO }));
@@ -121,7 +126,7 @@ function studentFees(rows: Row[], today: Date, who: { studentId: string; name: s
 export async function feesDueOf(tx: Tx, yearId: string | null, today: Date, studentIds: string[]) {
   const out = new Map<string, { pending: bigint; overdue: bigint }>();
   if (!studentIds.length) return out;
-  for (const r of await dueRows(tx, yearId, today, studentIds)) {
+  for (const r of await dueRows(tx, { yearIds: yearId ? [yearId] : [], campusId: null }, today, studentIds)) {
     const t = out.get(r.studentId) ?? { pending: ZERO, overdue: ZERO };
     t.pending += r.balance;
     if (r.balance > ZERO && r.dueDate < today) t.overdue += r.balance;
@@ -140,26 +145,27 @@ export async function studentsOwing(tx: Tx, today: Date, kind: "dues" | "overdue
   return rows.map((r) => r.studentId);
 }
 
-/** Whom the viewer may see: everyone, or (Own) their sections' students. */
+/** Whom the viewer may see: everyone (on their campus, when limited to one), or (Own) their sections' students. */
 function sectionFilter(viewer: FeeViewer): Prisma.SectionWhereInput {
-  return viewer.see === "all" ? {} : { id: { in: viewer.sectionIds ?? [] } };
+  return { ...sectionInCampus(viewer), ...(viewer.see === "all" ? {} : { id: { in: viewer.sectionIds ?? [] } }) };
 }
 
 /**
- * Every section of the current year with its fee totals as of today, and the
- * school's totals (which include students not in a section this year).
+ * Every section of the current year (each campus's own current year) with its
+ * fee totals as of today, and the school's totals (which include students not
+ * in a section this year). A person limited to one campus sees that campus only.
  */
 export async function feesByClass(tx: Tx, viewer: FeeViewer, today: Date): Promise<FeesByClass> {
   if (viewer.see === "none") return { sections: [], groups: [], totals: emptyTotals(), nextDue: null };
-  const sections = viewer.yearId
-    ? await tx.section.findMany({ where: { academicYearId: viewer.yearId, archivedAt: null, ...sectionFilter(viewer) }, include: { schoolClass: { select: { id: true, name: true, sortOrder: true, level: true } } } })
+  const sections = viewer.yearIds.length
+    ? await tx.section.findMany({ where: { academicYearId: { in: viewer.yearIds }, archivedAt: null, ...sectionFilter(viewer) }, include: { schoolClass: { select: { id: true, name: true, sortOrder: true, level: true } } } })
     : [];
-  const enrol = viewer.yearId
-    ? await tx.enrolment.findMany({ where: { academicYearId: viewer.yearId, archivedAt: null, sectionId: { in: sections.map((s) => s.id) }, student: { archivedAt: null } }, select: { studentId: true, sectionId: true } })
+  const enrol = viewer.yearIds.length
+    ? await tx.enrolment.findMany({ where: { academicYearId: { in: viewer.yearIds }, archivedAt: null, sectionId: { in: sections.map((s) => s.id) }, student: { archivedAt: null } }, select: { studentId: true, sectionId: true } })
     : [];
   const sectionOf = new Map(enrol.map((e) => [e.studentId, e.sectionId]));
   // Own reach: only their sections' students. Full and View: every row in the school.
-  const rows = await dueRows(tx, viewer.yearId, today, viewer.see === "all" ? null : [...sectionOf.keys()]);
+  const rows = await dueRows(tx, viewer, today, viewer.see === "all" ? null : [...sectionOf.keys()]);
   const byStudent = new Map<string, Row[]>();
   for (const r of rows) byStudent.set(r.studentId, [...(byStudent.get(r.studentId) ?? []), r]);
   // Everyone in a section counts as a student of it, even with nothing due yet.
@@ -194,17 +200,21 @@ export async function feesByClass(tx: Tx, viewer: FeeViewer, today: Date): Promi
   return { sections: out, groups, totals: finishTotals(totals), nextDue };
 }
 
-/** One section's students with their fees, for the class page. Own reach sees only their own sections. */
+/**
+ * One section's students with their fees, for the class page. Own reach sees
+ * only their own sections; a person limited to one campus only its sections.
+ * The section is of its own campus's current year.
+ */
 export async function sectionFees(tx: Tx, viewer: FeeViewer, sectionId: string, today: Date) {
-  if (viewer.see === "none" || !viewer.yearId) return null;
+  if (viewer.see === "none" || !viewer.yearIds.length) return null;
   if (viewer.see !== "all" && !(viewer.sectionIds ?? []).includes(sectionId)) return null;
-  const sec = await tx.section.findFirst({ where: { id: sectionId, academicYearId: viewer.yearId, archivedAt: null }, include: { schoolClass: { select: { id: true, name: true } } } });
+  const sec = await tx.section.findFirst({ where: { id: sectionId, academicYearId: { in: viewer.yearIds }, archivedAt: null, ...sectionInCampus(viewer) }, include: { schoolClass: { select: { id: true, name: true } } } });
   if (!sec) return null;
   const enrol = await tx.enrolment.findMany({
-    where: { sectionId, academicYearId: viewer.yearId, archivedAt: null, student: { archivedAt: null } },
+    where: { sectionId, academicYearId: sec.academicYearId, archivedAt: null, student: { archivedAt: null } },
     select: { studentId: true, rollNo: true, student: { select: { fullName: true, admissionNo: true } } },
   });
-  const rows = await dueRows(tx, viewer.yearId, today, enrol.map((e) => e.studentId));
+  const rows = await dueRows(tx, viewer, today, enrol.map((e) => e.studentId));
   const students = enrol.map((e) => studentFees(rows.filter((r) => r.studentId === e.studentId), today, { studentId: e.studentId, name: e.student.fullName, admissionNo: e.student.admissionNo, rollNo: e.rollNo }));
   const totals = emptyTotals();
   for (const s of students) addStudent(totals, s);

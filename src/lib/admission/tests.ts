@@ -10,7 +10,7 @@ import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { formatDateTime, formatDate } from "../format";
 import { AdmissionProblem, instantToLocal, zonedToInstant } from "./act";
-import { requireFull, type Viewer } from "./access";
+import { applicationScope, campusYearIds, requireFull, type Viewer } from "./access";
 import { activity, loadApplication, parentName, CLOSED_STAGES } from "./applications";
 import type { Settings } from "./settings";
 import { messageParent } from "./notify-parents";
@@ -29,6 +29,16 @@ function requireOn(s: Settings, what: "test" | "interview") {
   if (what === "interview" && !s.interviewsOn) throw new AdmissionProblem("Interviews are switched off in Admission Settings.");
 }
 
+/**
+ * The admission tests a person may work on: every one, or for a person
+ * limited to one campus, the tests in that campus's years (a test belongs to
+ * the year, and so the campus, of its applicants).
+ */
+export async function testScope(tx: Tx, v: Pick<Viewer, "campusId">): Promise<Prisma.AdmissionTestWhereInput> {
+  const ids = await campusYearIds(tx, v);
+  return ids ? { academicYearId: { in: ids } } : {};
+}
+
 export type TestInput = { title: string; classId: string | null; startsAt: Date; venue: string | null; maxMarks: number; applicationIds: string[] };
 
 /** Schedule a test for one or many applicants. Parents get a message; the date goes on the School Calendar as "admission test". */
@@ -40,7 +50,7 @@ export async function scheduleTest(tx: Tx, ctx: SchoolContext, v: Viewer, s: Set
   if (!Number.isInteger(input.maxMarks) || input.maxMarks < 1 || input.maxMarks > 1000) throw new AdmissionProblem("Maximum marks must be a whole number from 1 to 1000.", "maxMarks");
   const ids = [...new Set(input.applicationIds)];
   if (ids.length === 0) throw new AdmissionProblem("Choose at least one applicant for the test.", "applicationIds");
-  const apps = await tx.application.findMany({ where: { id: { in: ids }, archivedAt: null } });
+  const apps = await tx.application.findMany({ where: { id: { in: ids }, archivedAt: null, ...applicationScope(v) } });
   const closed = apps.filter((a) => CLOSED_STAGES.includes(a.stage));
   if (closed.length) throw new AdmissionProblem(`${closed.map((a) => a.fullName).join(", ")} ${closed.length === 1 ? "is" : "are"} no longer applying.`, "applicationIds");
   if (apps.length !== ids.length) throw new AdmissionProblem("Some applicants were not found. Refresh the page and choose again.", "applicationIds");
@@ -71,9 +81,9 @@ async function book(tx: Tx, ctx: SchoolContext, school: { name: string; timeZone
 export async function addToTest(tx: Tx, ctx: SchoolContext, v: Viewer, s: Settings, school: { name: string; timeZone: string }, testId: string, applicationIds: string[]) {
   requireFull(v, "tests");
   requireOn(s, "test");
-  const test = await tx.admissionTest.findFirst({ where: { id: testId, archivedAt: null } });
+  const test = await tx.admissionTest.findFirst({ where: { id: testId, archivedAt: null, ...(await testScope(tx, v)) } });
   if (!test) throw new AdmissionProblem("This test was not found.");
-  const apps = await tx.application.findMany({ where: { id: { in: applicationIds }, archivedAt: null, stage: { notIn: ["REJECTED", "WITHDRAWN", "ADMITTED"] } } });
+  const apps = await tx.application.findMany({ where: { id: { in: applicationIds }, archivedAt: null, stage: { notIn: ["REJECTED", "WITHDRAWN", "ADMITTED"] }, ...applicationScope(v) } });
   if (apps.length === 0) throw new AdmissionProblem("Choose at least one applicant who is still applying.", "applicationIds");
   return book(tx, ctx, school, test, apps);
 }
@@ -84,7 +94,7 @@ export type ScoreRow = { applicationId: string; marks: string; absent: boolean; 
 export async function recordScores(tx: Tx, ctx: SchoolContext, v: Viewer, s: Settings, testId: string, rows: ScoreRow[]) {
   requireFull(v, "test scores");
   requireOn(s, "test");
-  const test = await tx.admissionTest.findFirst({ where: { id: testId, archivedAt: null }, include: { bookings: { where: { archivedAt: null }, include: { application: { select: { fullName: true } } } } } });
+  const test = await tx.admissionTest.findFirst({ where: { id: testId, archivedAt: null, ...(await testScope(tx, v)) }, include: { bookings: { where: { archivedAt: null }, include: { application: { select: { fullName: true } } } } } });
   if (!test) throw new AdmissionProblem("This test was not found.");
   let saved = 0;
   for (const r of rows) {
@@ -131,9 +141,9 @@ export async function freeSlots(tx: Tx, interviewerStaffId: string, dayIso: stri
 export async function scheduleInterview(tx: Tx, ctx: SchoolContext, v: Viewer, s: Settings, school: { name: string; timeZone: string }, input: { applicationId: string; interviewerStaffId: string; startsAt: Date; minutes?: number }, now = new Date()) {
   requireFull(v, "interviews");
   requireOn(s, "interview");
-  const app = await loadApplication(tx, input.applicationId);
+  const app = await loadApplication(tx, input.applicationId, v);
   if (CLOSED_STAGES.includes(app.stage)) throw new AdmissionProblem("This application is closed.");
-  const interviewer = await tx.staff.findFirst({ where: { id: input.interviewerStaffId, archivedAt: null } });
+  const interviewer = await tx.staff.findFirst({ where: { id: input.interviewerStaffId, archivedAt: null, ...(v.campusId ? { campusId: v.campusId } : {}) } });
   if (!interviewer) throw new AdmissionProblem("Choose the interviewer.", "interviewerStaffId");
   if (input.startsAt.getTime() < now.getTime() - 60_000) throw new AdmissionProblem("Choose a slot in the future.", "startsAt");
   const minutes = input.minutes ?? SLOT_MINUTES;
@@ -164,7 +174,7 @@ export async function scheduleInterview(tx: Tx, ctx: SchoolContext, v: Viewer, s
 export async function recordInterview(tx: Tx, ctx: SchoolContext, v: Viewer, s: Settings, slotId: string, outcome: InterviewOutcome, notes: string | null) {
   requireFull(v, "interviews");
   requireOn(s, "interview");
-  const slot = await tx.interviewSlot.findFirst({ where: { id: slotId, cancelledAt: null } });
+  const slot = await tx.interviewSlot.findFirst({ where: { id: slotId, cancelledAt: null, application: applicationScope(v) } });
   if (!slot) throw new AdmissionProblem("This interview was not found or was cancelled.");
   if (!OUTCOMES.some((o) => o.value === outcome)) throw new AdmissionProblem("Choose the outcome.", "outcome");
   if (outcome === slot.outcome && (notes ?? null) === (slot.notes ?? null)) throw new AdmissionProblem("Nothing changed.");
@@ -176,7 +186,7 @@ export async function recordInterview(tx: Tx, ctx: SchoolContext, v: Viewer, s: 
 
 export async function cancelInterview(tx: Tx, ctx: SchoolContext, v: Viewer, slotId: string, reason: string) {
   requireFull(v, "interviews");
-  const slot = await tx.interviewSlot.findFirst({ where: { id: slotId, cancelledAt: null } });
+  const slot = await tx.interviewSlot.findFirst({ where: { id: slotId, cancelledAt: null, application: applicationScope(v) } });
   if (!slot) throw new AdmissionProblem("This interview was not found or is already cancelled.");
   if (slot.outcome) throw new AdmissionProblem("This interview already has an outcome, so it stays in the history.");
   if (reason.trim().length < 3) throw new AdmissionProblem("Give a reason for cancelling.", "reason");

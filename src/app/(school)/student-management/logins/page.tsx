@@ -16,12 +16,12 @@ export const metadata: Metadata = { title: "Student logins" };
 
 /** Student logins (optional): a username and a set-password link for each chosen student. */
 export default async function StudentLoginsPage({ searchParams }: { searchParams: Promise<{ ids?: string; section?: string }> }) {
-  const { current, settings, year, can } = await studentPage();
+  const { current, settings, yearIds, can } = await studentPage();
   if (!can.manage) redirect(BASE);
   const sp = await searchParams;
   const data = await withSchool(current.ctx, async (tx) => ({
-    students: settings.studentLoginsOn ? await chosenStudents(tx, current, year?.id ?? null, sp) : [],
-    sections: await sectionOptions(tx, current, year?.id),
+    students: settings.studentLoginsOn ? await chosenStudents(tx, current, yearIds, sp) : [],
+    sections: await sectionOptions(tx, current, yearIds),
   }));
   return (
     <>

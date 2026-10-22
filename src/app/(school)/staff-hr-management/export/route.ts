@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   return withSchool(current.ctx, async (tx) => {
     const viewer = await viewerFor(tx, current.ctx, current);
     const rows = await tx.staff.findMany({ where: staffWhere(params, viewer), orderBy: staffOrder(params), take: 5000, include: { department: { select: { name: true } } } });
-    const [departments, campuses] = await Promise.all([tx.department.findMany({ select: { id: true, name: true } }), tx.campus.findMany({ select: { id: true, name: true } })]);
+    const [departments, campuses] = await Promise.all([tx.department.findMany({ select: { id: true, name: true } }), tx.campus.findMany({ where: viewer.campusId ? { id: viewer.campusId } : {}, select: { id: true, name: true } })]);
     const filters = describeFilters(params, { departments: new Map(departments.map((d) => [d.id, d.name])), campuses: new Map(campuses.map((c) => [c.id, c.name])) });
     type Row = (typeof rows)[number];
     const file = await buildExport<Row>(format, [

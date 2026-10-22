@@ -9,7 +9,7 @@ import type { HostelSetting } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatRupees } from "../format";
-import { assertYearOpen } from "../academic/years";
+import { assertYearOpen, currentYears } from "../academic/years";
 import { HostelProblem } from "./problem";
 import { DEFAULT_MEALS, GENDER, minuteWords, type Gender } from "./words";
 
@@ -247,6 +247,20 @@ export async function feePlans(tx: Tx, academicYearId: string) {
 }
 
 export type FeePlan = Awaited<ReturnType<typeof feePlans>>[number];
+
+/**
+ * The fee plans of every campus's current year. A school's campuses can start
+ * the year on different dates, so each campus has its own year and its own
+ * plans; with more than one campus each plan carries its campus's name.
+ */
+export async function currentFeePlans(tx: Tx, ctx: SchoolContext) {
+  const years = await currentYears(tx, ctx);
+  const names = years.length > 1
+    ? new Map((await tx.campus.findMany({ where: { id: { in: years.map((y) => y.campusId) } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]))
+    : null;
+  const lists = await Promise.all(years.map(async (y) => (await feePlans(tx, y.id)).map((p) => ({ ...p, campusId: y.campusId, campusName: names?.get(y.campusId) ?? null }))));
+  return lists.flat();
+}
 
 /** The plan for a bed: the one for this hostel and room type, else this hostel, else this room type, else every hostel. */
 export function planForRoom(plans: FeePlan[], hostelId: string, roomType: string | null): FeePlan | null {

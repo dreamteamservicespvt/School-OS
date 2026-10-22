@@ -50,7 +50,8 @@ async function giveSections(tx: Tx, p: HomeworkPage): Promise<GiveSection[]> {
       subs.push({ id: x.id, name: x.name, next: { date: iso(next.date), words: next.words } });
     }
     const tomorrow = await nextWorkingDay(tx, p.current.ctx, sec.id, p.today);
-    const roster = await sectionStudents(tx, p.scope.yearId!, sec.id);
+    // The section's own year: in a school with two campuses, each campus has its own.
+    const roster = await sectionStudents(tx, sec.yearId, sec.id);
     out.push({ id: sec.id, label: sec.label, classId: sec.classId, className: sec.className, students: sec.students, subjects: subs, tomorrow: { date: iso(tomorrow), words: dayDate(tomorrow) }, roster: roster.map((r) => ({ id: r.id, name: r.name, rollNo: r.rollNo })) });
   }
   return out;
@@ -72,7 +73,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
     const [{ all }, archived] = await Promise.all([listHomework(tx, s, p.today), tab === "archived" ? listHomework(tx, s, p.today, { archived: true }) : null]);
     const inPeriod = (r: HomeworkRow) => !per.from || !per.to || (r.startDate >= per.from && r.startDate <= per.to);
     const inP = all.filter(inPeriod);
-    const overview = s.level === "full" ? await byTeacher(tx, inP, s.yearId, p.today, p.tz) : null;
+    const overview = s.level === "full" ? await byTeacher(tx, inP, s, p.today, p.tz) : null;
     const give = doing === "give" ? await giveSections(tx, p) : null;
     const editing = doing === "edit" && target ? await tx.homework.findFirst({ where: { id: target, archivedAt: null }, include: { attachments: { where: { archivedAt: null } } } }) : null;
     const archiving = doing === "archive" && target ? all.find((r) => r.id === target) ?? null : null;

@@ -14,7 +14,7 @@ import { formatDate, formatRupees } from "../format";
 import { nextNumber, formatNumber } from "../sequences";
 import { requestApproval } from "../approvals";
 import { addCharge, removeDue } from "../fees/structure";
-import { currentYear } from "../academic/years";
+import { studentYear } from "../academic/years";
 import { ensureFinanceDefaults } from "../finance/settings";
 import { recordIncome } from "../finance/income";
 import { calculateRun } from "../salary/payroll";
@@ -64,7 +64,8 @@ async function postToFees(tx: Tx, ctx: SchoolContext, s: LibrarySettings, fine: 
   if (!fine.studentId || !s.finesToFees || fine.status !== "DUE" || fine.feeDueId) return fine;
   const head = await libraryFeeHead(tx, ctx);
   // The fine belongs to this year's fees when the student is enrolled this year.
-  const year = await currentYear(tx, ctx);
+  // The student's own campus's current year.
+  const year = await studentYear(tx, ctx, fine.studentId);
   const enrolled = year ? await tx.enrolment.findFirst({ where: { studentId: fine.studentId, academicYearId: year.id, archivedAt: null }, select: { id: true } }) : null;
   const due = await addCharge(tx, ctx, {
     studentId: fine.studentId, feeHeadId: head.id, amountPaise: fine.amountPaise, dueDate: today, ...(enrolled && year ? { academicYearId: year.id } : {}),

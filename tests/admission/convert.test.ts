@@ -7,8 +7,11 @@
 // - a parent on record is reused only when the phone and the name match
 //   (close spellings allowed); the same phone under another name waits for
 //   the admissions person to say same family or different family;
-// - Undo takes the fee plan rows it made off the student's fees, and is
-//   refused once a payment or attendance is recorded.
+// - Undo takes back what the admission made (the fee plan rows, marked
+//   removed, and every document, also those that followed later), leaves the
+//   application fee with the application, and is refused once a payment
+//   (even a cancelled one: payments are never deleted) or attendance is
+//   recorded.
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 let token: string | null = null;
@@ -31,6 +34,8 @@ import { createApplication, type ApplicationInput } from "@/lib/admission/applic
 import { DATA_CONSENT } from "@/lib/admission/consent";
 import { familyQuestion, type Conversion } from "@/lib/admission/convert";
 import { rejectDocument, uploadDocument, verifyDocument } from "@/lib/admission/documents";
+import { feeStatus, recordCounterPayment } from "@/lib/admission/fee";
+import { cancelPayment as cancelFeePayment } from "@/lib/fees/cancel";
 import { PAPER_TO_STUDENT_DOCUMENT, studentDocumentKind } from "@/lib/admission/settings";
 import { DEFAULT_DOCUMENTS } from "@/lib/students/settings";
 import { ensureFeeDefaults } from "@/lib/fees/settings";
@@ -336,6 +341,57 @@ describe("Undo admission takes the fee plan back, and only while nothing else ha
     expect(r?.message).toMatch(/A fee payment is already recorded for this student, so the admission cannot be undone/);
     expect(await run((tx) => tx.student.findUniqueOrThrow({ where: { id: studentId } }))).toMatchObject({ archivedAt: null });
     expect(await run((tx) => tx.studentFeeDue.count({ where: { studentId, state: "REMOVED" } }))).toBe(0);
+  });
+
+  it("takes back the papers that followed after admission too; the application fee and its Day Book entry stay with the application", async () => {
+    await signIn(t.principal.id);
+    const app0 = await approved();
+    // The application fee, paid at the admission counter before the admission.
+    const app = await run((tx) => tx.application.update({ where: { id: app0.id }, data: { feeDuePaise: R(500) } }));
+    const pay = await withSchool(counsellor.ctx, (tx) => recordCounterPayment(tx, counsellor.ctx, counsellor.v, app.id, { amountPaise: R(500), mode: "cash", reference: null }));
+    expect(await run((tx) => tx.dayBookEntry.count({ where: { sourceId: pay.id } }))).toBe(1);
+    expect(await confirm(app.id)).toMatchObject({ ok: true });
+    const studentId = (await run((tx) => tx.application.findUniqueOrThrow({ where: { id: app.id } }))).studentId!;
+    const cctx = counsellor.ctx;
+    await withSchool(cctx, (tx) => uploadDocument(tx, cctx, counsellor.v, { applicationId: app.id, docType: "transfer-certificate", file: new File([Buffer.from("%PDF-1.4\n% tc\n")], "tc.pdf", { type: "application/pdf" }), note: null }));
+    expect(await run((tx) => tx.studentDocument.count({ where: { studentId, archivedAt: null } }))).toBe(1);
+
+    expect(await undoAction(START, form({ id: app.id }))).toMatchObject({ ok: true });
+    expect(await run((tx) => tx.studentDocument.count({ where: { studentId, archivedAt: null } }))).toBe(0);
+    expect(await run((tx) => tx.studentFeeDue.count({ where: { studentId, state: { not: "REMOVED" } } }))).toBe(0);
+    // The application fee is the applicant's, not the student's: still paid, still in the Day Book, never reversed.
+    const after = await run((tx) => tx.applicationFeePayment.findUniqueOrThrow({ where: { id: pay.id } }));
+    expect(after).toMatchObject({ status: "CONFIRMED", cancelledAt: null, receiptNo: pay.receiptNo });
+    expect(await run((tx) => tx.dayBookEntry.findMany({ where: { sourceId: pay.id } }))).toEqual([expect.objectContaining({ direction: "IN", amountPaise: R(500) })]);
+    const back = await run((tx) => tx.application.findUniqueOrThrow({ where: { id: app.id }, include: { payments: true } }));
+    expect(back.stage).toBe("APPROVED");
+    expect(feeStatus(back, back.payments).key).toBe("paid");
+    const history = await run((tx) => tx.applicationActivity.findFirstOrThrow({ where: { applicationId: app.id, kind: "admission-undone" } }));
+    expect(history.text).toMatch(/the documents \(1\)\. The application fee stays with the application\.$/);
+    // Admitted again without paying the application fee twice.
+    expect(await confirm(app.id)).toMatchObject({ ok: true });
+    expect(await run((tx) => tx.applicationFeePayment.count({ where: { applicationId: app.id } }))).toBe(1);
+  });
+
+  it("is refused once a fee payment is recorded, even one cancelled since: the payment and its receipt stay on record", async () => {
+    await signIn(t.principal.id);
+    const app = await approved();
+    expect(await confirm(app.id)).toMatchObject({ ok: true });
+    const studentId = (await run((tx) => tx.application.findUniqueOrThrow({ where: { id: app.id } }))).studentId!;
+    const pctx: SchoolContext = { schoolId: t.school.id, userId: t.principal.id };
+    const due = await run((tx) => tx.studentFeeDue.findFirstOrThrow({ where: { studentId, state: "OPEN" }, orderBy: { dueDate: "asc" } }));
+    const paid = await collect(pctx, { studentId, dueIds: [due.id], amountPaise: R(1000) }, ["principal"]);
+    await withSchool(pctx, (tx) => cancelFeePayment(tx, pctx, paid.payment.id, { reason: "Wrong amount", note: null }));
+    expect(await run((tx) => tx.payment.findUniqueOrThrow({ where: { id: paid.payment.id } }))).toMatchObject({ status: "CANCELLED" });
+
+    const r = await undoAction(START, form({ id: app.id }));
+    expect(r).toMatchObject({ ok: false });
+    expect(r?.message).toBe("A fee payment is already recorded for this student, so the admission cannot be undone. Record the student leaving in Student Management (Leaving & Alumni) instead.");
+    expect(await run((tx) => tx.payment.count({ where: { id: paid.payment.id } }))).toBe(1);
+    expect(await run((tx) => tx.receipt.count({ where: { paymentId: paid.payment.id } }))).toBe(1);
+    expect(await run((tx) => tx.student.findUniqueOrThrow({ where: { id: studentId } }))).toMatchObject({ archivedAt: null });
+    expect(await run((tx) => tx.studentFeeDue.count({ where: { studentId, state: "REMOVED" } }))).toBe(0);
+    expect(await run((tx) => tx.application.findUniqueOrThrow({ where: { id: app.id } }))).toMatchObject({ stage: "ADMITTED", studentId });
   });
 
   it("is refused once attendance is marked for the student", async () => {

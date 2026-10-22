@@ -13,7 +13,11 @@
 // Parent Link is created and sent; the welcome message goes through
 // Communication's automatic rule. "Undo admission" works for 10 minutes
 // while nothing else has happened (no payment, attendance or marks), and
-// takes the fee plan rows it made off the student's fees.
+// takes back what it made: the student, the class place, the new parents and
+// their Parent Links, the fee plan rows (marked removed, "Admission undone")
+// and the documents. A fee payment is never deleted, so once one is recorded
+// (even a cancelled one) the undo is refused and the student is withdrawn in
+// Leaving & Alumni instead. The application fee stays with the application.
 import "server-only";
 
 import { Prisma, type Application, type Guardian } from "@prisma/client";
@@ -349,7 +353,8 @@ export async function undoAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, appli
     await refreshBalances(tx, dues.map((d) => d.id));
     await writeAudit(tx, ctx, { action: "removed", recordType: "Student Fee Due", recordId: student.id, before: { rows: dues.length, total: formatRupees(dues.reduce((a, d) => a + d.amountPaise, BigInt(0))) }, after: { reason: "Admission undone" } });
   }
-  if (c.studentDocumentIds?.length) await tx.studentDocument.updateMany({ where: { id: { in: c.studentDocumentIds }, archivedAt: null }, data: { archivedAt: at } });
+  // Every document on the new student: the papers carried at admission and any that followed since (papers.ts).
+  const docs = await tx.studentDocument.updateMany({ where: { studentId: student.id, archivedAt: null }, data: { archivedAt: at } });
   await tx.studentGuardian.updateMany({ where: { id: { in: c.linkIds } }, data: { archivedAt: at } });
   if (c.newGuardianIds.length) {
     const stillUsed = await tx.studentGuardian.findMany({ where: { guardianId: { in: c.newGuardianIds }, archivedAt: null }, select: { guardianId: true } });
@@ -367,7 +372,7 @@ export async function undoAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, appli
     const e = await tx.enquiry.findUnique({ where: { id: app.enquiryId } });
     if (e && e.status === "admitted") await tx.enquiry.update({ where: { id: e.id }, data: { status: "applied", closedAt: null } });
   }
-  await activity(tx, ctx, app.id, "admission-undone", `Admission undone: ${student.fullName} (${c.admissionNo}) archived, with the new parent records, their Parent Links, the class place${dues.length ? `, the fee plan (${dues.length} row${dues.length === 1 ? "" : "s"})` : ""}${c.studentDocumentIds?.length ? " and the documents" : ""}.`);
+  await activity(tx, ctx, app.id, "admission-undone", `Admission undone: ${student.fullName} (${c.admissionNo}) archived, with the new parent records, their Parent Links, the class place${dues.length ? `, the fee plan (${dues.length} row${dues.length === 1 ? "" : "s"})` : ""}${docs.count ? ` and the documents (${docs.count})` : ""}. The application fee stays with the application.`);
   await writeAudit(tx, ctx, { action: "admission-undone", recordType: "Application", recordId: app.id, before: { studentId: student.id, admissionNo: c.admissionNo }, after: { stage: "APPROVED" } });
   await writeAudit(tx, ctx, { action: "archived", recordType: "Student", recordId: student.id, after: { reason: "Admission undone within 10 minutes" } });
   return c.admissionNo;

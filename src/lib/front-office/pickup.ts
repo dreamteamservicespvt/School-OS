@@ -15,7 +15,7 @@ import { currentYear } from "../academic/years";
 import { findStudents } from "../students/find";
 import { FrontOfficeProblem } from "./problem";
 import { messageVisitor } from "./notify";
-import { logCodeSentBy } from "../dev-codes";
+import { channelInTestMode, logCodeSentBy } from "../dev-codes";
 import { clockAt, instantOf, localOf, todayIso } from "./time";
 import { maskPhone, PICKUP_REASONS } from "./words";
 
@@ -122,9 +122,10 @@ export async function sendPickupCode(tx: Tx, ctx: SchoolContext, studentId: stri
   if (sent.status !== "queued") {
     throw new FrontOfficeProblem(`The code could not be sent: ${sent.note ?? "messages are not set up"}. Verify by calling the guardian instead.`);
   }
-  await logCodeSentBy(tx, ctx, sent.channel, { to: link.guardian.phone, purpose: "pickup", code });
+  const inLog = await logCodeSentBy(tx, ctx, sent.channel, { to: link.guardian.phone, purpose: "pickup", code });
   await writeAudit(tx, ctx, { action: "pickup-code-sent", recordType: "Student", recordId: studentId, after: { guardianId, to: maskPhone(link.guardian.phone) } });
-  return { to: maskPhone(link.guardian.phone) };
+  // Test mode only records the message, so the desk must not be told it was sent (QA ADMIT-03).
+  return { to: maskPhone(link.guardian.phone), channel: sent.channel, testMode: await channelInTestMode(tx, ctx, sent.channel), inLog };
 }
 
 async function checkCode(tx: Tx, studentId: string, guardianId: string, code: string, now: Date) {

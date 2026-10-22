@@ -23,7 +23,7 @@ import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
 import { messageSettings } from "../messaging/settings";
 import type { AudienceRule } from "../messaging/recipients";
 import { OPEN_LINK } from "../students/guardian-access";
-import { logCodeSentBy, mayLogCode } from "../dev-codes";
+import { codeNotSentWords, logCodeSentBy, mayLogCode } from "../dev-codes";
 
 export class ParentLinkProblem extends Error {}
 
@@ -297,12 +297,18 @@ export async function sendCode(tx: Tx, ctx: SchoolContext, linkId: string, purpo
     idempotencyKey: `parent-link-code:${row.id}`,
   });
   await tx.parentLinkCode.update({ where: { id: row.id }, data: { messageId: sent.messageId } });
-  if (mayLogCode(inTestMode(setups[channel]) ? "test" : "real")) {
-    const guardian = await tx.guardian.findUnique({ where: { id: link.guardianId }, select: { phone: true } });
-    await logCodeSentBy(tx, ctx, channel, { to: guardian?.phone, purpose: purpose === "device" ? "Parent Link, new phone" : "Parent Link, consent", code });
-  }
+  const testMode = inTestMode(setups[channel]);
+  const guardian = await tx.guardian.findUnique({ where: { id: link.guardianId }, select: { phone: true } });
+  const inLog = mayLogCode(testMode ? "test" : "real")
+    && await logCodeSentBy(tx, ctx, channel, { to: guardian?.phone, purpose: purpose === "device" ? "Parent Link, new phone" : "Parent Link, consent", code });
   await writeAudit(tx, ctx, { action: "code-sent", recordType: "Parent Link", recordId: linkId, after: { purpose, channel } });
-  return row;
+  // Test mode only records the message: the page must not say "Code sent" (QA ADMIT-03).
+  return { ...row, channel, testMode, inLog, sentTo: maskPhone(guardian?.phone ?? "") };
+}
+
+/** What the parent's page says once a code has gone, or was kept back by Test mode. */
+export function codeSentWords(r: { channel: string; testMode: boolean; inLog: boolean; sentTo: string }, sent: string): string {
+  return r.testMode ? codeNotSentWords({ to: r.sentTo, channel: r.channel, inLog: r.inLog }) : sent;
 }
 
 export type CodeCheck = { ok: true; code: { id: string; detail: unknown } } | { ok: false; message: string };

@@ -12,7 +12,7 @@ import { withSchool } from "@/lib/db";
 import { deviceInfo } from "@/lib/current";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { MessagingProblem } from "@/lib/messaging/send";
-import { ParentLinkProblem } from "@/lib/parent-link/links";
+import { codeSentWords, ParentLinkProblem } from "@/lib/parent-link/links";
 import { askEventConsentCode, confirmEventConsent, declineOnParentLink } from "@/lib/events/consent";
 import { localNow } from "@/lib/events/jobs";
 import type { GuardianState } from "./actions";
@@ -53,8 +53,8 @@ export async function askEventConsent(token: string, _prev: GuardianState, form:
   ]);
   if (limited) return { ok: false, message: limited };
   try {
-    await withSchool(g.ctx, (tx) => askEventConsentCode(tx, g.ctx, g.linkId, g.guardianId, x.eventId, x.studentId, g.today));
-    return { ok: true, step: "code", message: "Code sent. Type it below to confirm." };
+    const sent = await withSchool(g.ctx, (tx) => askEventConsentCode(tx, g.ctx, g.linkId, g.guardianId, x.eventId, x.studentId, g.today));
+    return { ok: true, step: "code", message: codeSentWords(sent, "Code sent. Type it below to confirm."), notSent: sent.testMode };
   } catch (e) {
     if (e instanceof ParentLinkProblem) return { ok: false, message: e.message };
     if (e instanceof MessagingProblem) return { ok: false, message: "The school cannot send codes right now. Please call the school." };

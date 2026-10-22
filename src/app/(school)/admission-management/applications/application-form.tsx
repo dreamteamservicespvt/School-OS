@@ -60,7 +60,7 @@ export function ApplicationForm(p: Props) {
   const [code, setCode] = useState("");
   const [sent, setSent] = useState<string | null>(null);
   const [checked, setChecked] = useState(false);
-  const [codeMsg, setCodeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [codeMsg, setCodeMsg] = useState<{ ok: boolean; text: string; warn?: boolean } | null>(null);
   const [photo, setPhoto] = useState(false);
   const [busy, start] = useTransition();
   const router = useRouter();
@@ -84,7 +84,7 @@ export function ApplicationForm(p: Props) {
 
   const sendCode = () => start(async () => {
     const r = await sendFormCodeAction(digits);
-    setCodeMsg({ ok: r.ok, text: r.message });
+    setCodeMsg({ ok: r.ok, text: r.message, warn: r.testMode });
     if (r.ok) { setSent(digits); setChecked(false); setCode(""); }
   });
   const checkCode = () => start(async () => {
@@ -230,7 +230,7 @@ export function ApplicationForm(p: Props) {
                   {photo && <input type="hidden" name="consent_photo" value="on" />}
                 </div>
               )}
-              {codeMsg && <p role="status" className={cx("text-[12.5px] flex items-center gap-1.5", codeMsg.ok ? "text-ok" : "text-bad")}>{!codeMsg.ok && <CircleAlert size={14} aria-hidden="true" />}{codeMsg.text}</p>}
+              {codeMsg && <p role="status" className={cx("text-[12.5px] flex items-center gap-1.5", codeMsg.warn ? "text-warn" : codeMsg.ok ? "text-ok" : "text-bad")}>{(!codeMsg.ok || codeMsg.warn) && <CircleAlert size={14} aria-hidden="true" className="shrink-0" />}{codeMsg.text}</p>}
               {err("code") && !codeMsg && <p className="text-[12.5px] text-bad flex items-center gap-1.5"><CircleAlert size={14} aria-hidden="true" />{err("code")}</p>}
             </div>
           </>

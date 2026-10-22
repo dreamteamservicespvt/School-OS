@@ -10,7 +10,7 @@ import { readApplicationForm } from "@/lib/admission/application-form";
 import { createApplication, editApplication, moveStage, review, sendBack, STAGES, withdraw } from "@/lib/admission/applications";
 import { DuplicateProblem, type Match } from "@/lib/admission/enquiries";
 import { markOriginalSeen, recordPapersException, rejectDocument, remindMissing, uploadDocument, verifyDocument } from "@/lib/admission/documents";
-import { admissionConsentTexts, confirmConsentAtCounter, counterFormPurpose, DATA_CONSENT, PHOTO_CONSENT, recordConsents, sendConsentCode, startOtp, tryOtp, verifyOtp } from "@/lib/admission/consent";
+import { admissionConsentTexts, confirmConsentAtCounter, counterFormPurpose, DATA_CONSENT, PHOTO_CONSENT, otpSentWords, recordConsents, sendConsentCode, startOtp, tryOtp, verifyOtp } from "@/lib/admission/consent";
 import { requireFull } from "@/lib/admission/access";
 import { cancelPayment, recordCounterPayment } from "@/lib/admission/fee";
 import { sendFeeLink } from "@/lib/admission/public";
@@ -54,14 +54,14 @@ export async function saveApplicationAction(_: DupState, fd: FormData): Promise<
 }
 
 /** New application at the counter: send the consent code to the parent's phone. */
-export async function sendFormCodeAction(phone: string): Promise<{ ok: boolean; message: string }> {
+export async function sendFormCodeAction(phone: string): Promise<{ ok: boolean; message: string; testMode?: boolean }> {
   try {
     const to = checkMobile(phone.replace(/\s/g, ""), "phone", "Parent's phone");
-    await inSchool("create", async (w) => {
+    const r = await inSchool("create", async (w) => {
       requireFull(w.v, "new applications");
       return startOtp(w.tx, w.ctx, { phone: to, purpose: counterFormPurpose(w.ctx.userId), schoolName: w.current.school.name, about: null });
     });
-    return { ok: true, message: `Code sent to +91 ${to} by SMS. It works for 10 minutes.` };
+    return { ok: true, message: otpSentWords(r, `+91 ${to.slice(0, 5)} ${to.slice(5)}`), testMode: r.testMode };
   } catch (err) {
     return { ok: false, message: problemState(err)?.message ?? "The code could not be sent." };
   }
@@ -130,7 +130,7 @@ export async function exceptionAction(_: FormState<unknown>, fd: FormData) {
 }
 
 export async function sendCodeAction(_: FormState<unknown>, fd: FormData) {
-  return admissionAct("edit", fd, (w) => sendConsentCode(w.tx, w.ctx, w.v, w.current.school.name, id(fd, "id", "application")), () => "A one-time code was sent to the parent's mobile. It works for 10 minutes.");
+  return admissionAct("edit", fd, (w) => sendConsentCode(w.tx, w.ctx, w.v, w.current.school.name, id(fd, "id", "application")), (r) => otpSentWords(r, "the parent's mobile"));
 }
 
 export async function confirmConsentAction(_: FormState<unknown>, fd: FormData) {

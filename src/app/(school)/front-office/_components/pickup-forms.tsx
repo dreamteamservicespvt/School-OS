@@ -200,6 +200,7 @@ export function ReleaseForm({ student, people, codeCheck, releasedBy, nowHHMM, s
                     {code.length === 4 && <CircleCheck size={20} className="text-ok" aria-hidden="true" />}
                   </div>
                 )}
+                {codeSent && (codeState?.data as { testMode?: boolean } | undefined)?.testMode && <p role="status" className="text-[12px] text-warn max-w-[260px]">{codeState?.message}</p>}
               </div>
             )}
             {err.code && <p className="mt-1 text-[12.5px] text-bad" role="alert">{err.code}</p>}

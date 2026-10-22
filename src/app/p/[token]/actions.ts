@@ -12,11 +12,12 @@ import { deviceInfo } from "@/lib/current";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { MessagingProblem } from "@/lib/messaging/send";
 import { messageSettings } from "@/lib/messaging/settings";
-import { ACCESS_WORDS, confirmDevice, deviceCookieName, findLink, hashToken, linkUsable, newDeviceKey, ParentLinkProblem, sendCode } from "@/lib/parent-link/links";
+import { ACCESS_WORDS, confirmDevice, deviceCookieName, findLink, hashToken, linkUsable, newDeviceKey, ParentLinkProblem, codeSentWords, sendCode } from "@/lib/parent-link/links";
 import { askConsentCode, confirmConsent } from "@/lib/parent-link/consent";
 import { guardianFor } from "./guardian";
 
-export type GuardianState = { ok: boolean; message?: string; step?: "code" | "done" } | null;
+/** notSent: Test mode kept the code back; the page shows the message instead of "code sent". */
+export type GuardianState = { ok: boolean; message?: string; step?: "code" | "done"; notSent?: boolean } | null;
 
 const GONE = ACCESS_WORDS.gone;
 
@@ -58,11 +59,11 @@ export async function sendDeviceCode(token: string, _prev: GuardianState, _form:
       // No code while the school has Parent Link off or the link is revoked.
       const stop = await linkUsable(tx, ctx, found.linkId);
       if (stop) throw new ParentLinkProblem(ACCESS_WORDS[stop]);
-      await sendCode(tx, ctx, found.linkId, "device", { keyHash: hashToken(key) });
-      return (await messageSettings(tx, ctx)).parentLink;
+      const sent = await sendCode(tx, ctx, found.linkId, "device", { keyHash: hashToken(key) });
+      return { sent, settings: (await messageSettings(tx, ctx)).parentLink };
     });
-    await setDeviceCookie(found.linkId, key, pl.deviceDays);
-    return { ok: true, step: "code", message: `Code sent. It works for ${pl.codeMinutes} minutes.` };
+    await setDeviceCookie(found.linkId, key, pl.settings.deviceDays);
+    return { ok: true, step: "code", message: codeSentWords(pl.sent, `Code sent. It works for ${pl.settings.codeMinutes} minutes.`), notSent: pl.sent.testMode };
   } catch (e) {
     if (e instanceof ParentLinkProblem || e instanceof MessagingProblem) return { ok: false, message: e instanceof ParentLinkProblem ? e.message : "The school cannot send codes right now. Please call the school." };
     throw e;
@@ -106,8 +107,8 @@ export async function askConsent(token: string, _prev: GuardianState, form: Form
   const consentTextId = String(form.get("consentTextId") ?? "");
   if (!studentIds.length) return { ok: false, message: "Choose your child for this consent." };
   try {
-    await withSchool(g.ctx, (tx) => askConsentCode(tx, g.ctx, g.linkId, g.guardianId, { consentTextId, studentIds, action }));
-    return { ok: true, step: "code", message: "Code sent. Type it below to confirm." };
+    const sent = await withSchool(g.ctx, (tx) => askConsentCode(tx, g.ctx, g.linkId, g.guardianId, { consentTextId, studentIds, action }));
+    return { ok: true, step: "code", message: codeSentWords(sent, "Code sent. Type it below to confirm."), notSent: sent.testMode };
   } catch (e) {
     if (e instanceof ParentLinkProblem) return { ok: false, message: e.message };
     if (e instanceof MessagingProblem) return { ok: false, message: "The school cannot send codes right now. Please call the school." };

@@ -12,7 +12,8 @@ import type * as z from "zod/v4";
 import { aiKey } from "./config";
 import { NO_USAGE, type AiUsage } from "./cost";
 
-export type AiImage = { mediaType: "image/jpeg" | "image/png" | "image/webp"; data: string };
+/** A picture, or a PDF scan, sent for a task that declares it needs pictures. Base64. */
+export type AiImage = { mediaType: "image/jpeg" | "image/png" | "image/webp" | "application/pdf"; data: string };
 
 export type AiRequest = {
   model: string;
@@ -51,7 +52,9 @@ export function anthropicProvider(apiKey: string): AiProvider {
     async ask(req) {
       const client = new Anthropic({ apiKey, timeout: req.timeoutMs, maxRetries: 2 });
       const content: Anthropic.Beta.BetaContentBlockParam[] = [
-        ...req.images.map((img) => ({ type: "image" as const, source: { type: "base64" as const, media_type: img.mediaType, data: img.data } })),
+        ...req.images.map((img): Anthropic.Beta.BetaContentBlockParam => img.mediaType === "application/pdf"
+          ? { type: "document", source: { type: "base64", media_type: "application/pdf", data: img.data } }
+          : { type: "image", source: { type: "base64", media_type: img.mediaType, data: img.data } }),
         { type: "text" as const, text: req.text },
       ];
       try {

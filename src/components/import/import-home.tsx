@@ -18,7 +18,8 @@ import { Pill } from "@/components/ui/badge";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import { AutoRefresh } from "@/app/(school)/settings/data-security/parts";
-import { UploadForm, type StudentChoices } from "./file-forms";
+import { PhotoUploadForm, UploadForm, type StudentChoices } from "./file-forms";
+import { photoRefusal } from "@/lib/move-in/photos";
 import { UndoBatchButton } from "./file-buttons";
 
 export async function ImportHome({ current, place, initial, about, students }: {
@@ -78,6 +79,15 @@ export async function ImportHome({ current, place, initial, about, students }: {
             <UploadForm place={place.key} kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={initial && mine.some((k) => k.key === initial) ? initial : undefined} guess={false} students={students}
               help="Excel (.xlsx) or CSV, up to 10 MB: the ready sheet, your own sheet or an export from your old software." />
           ) : <p className="text-ink2">Your role can see these imports but not bring records in.</p>}
+          {mine.length > 0 && (
+            <details className="mt-4 rounded-xl border border-line px-4">
+              <summary className="flex min-h-11 cursor-pointer items-center font-medium">Records on paper? Upload photos of the register</summary>
+              <div className="pb-4 pt-1">
+                <PhotoUploadForm place={place.key} kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={initial && mine.some((k) => k.key === initial) ? initial : undefined} guess={false} students={students}
+                  refusal={photoRefusal(current)} sheetHref={templateHref(place, (mine.find((k) => k.key === initial) ?? mine[0]).key)} />
+              </div>
+            </details>
+          )}
         </div>
       </section>
 

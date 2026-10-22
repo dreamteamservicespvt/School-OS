@@ -31,6 +31,12 @@ const PHONE = /(?<![\d+])(?:\+?91[ -]?|0)?[6-9]\d{4}[ -]?\d{5}(?!\d)/g;
 const LONG_DIGITS = /(?<!\d)\d{9,18}(?!\d)/g;
 const EMAIL = /[^\s@"'<>()]+@[^\s@"'<>()]+\.[A-Za-z]{2,}/g;
 
+/** What a field or column named this holds when it is never sent and never kept from an AI answer (Aadhaar, bank details…), or null. */
+export function restrictedName(name: string): string | null {
+  const k = keyName(name.trim());
+  return NEVER.find((n) => n.test.test(k))?.what ?? null;
+}
+
 export type Minimised = { value: unknown; masked: number; refused: string[] };
 
 /** Hides restricted numbers, and phones and emails unless allowed, in one piece of text. */

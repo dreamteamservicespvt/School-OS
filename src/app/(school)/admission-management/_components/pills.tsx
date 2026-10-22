@@ -8,15 +8,16 @@ import { cx } from "@/components/ui/cx";
 import { stageLabel } from "@/lib/admission/applications";
 import { STAGE_TONE } from "@/lib/admission/tones";
 import type { FeeStatus } from "@/lib/admission/fee";
+import { Words } from "@/lib/i18n/client";
 
 /** Papers verified out of those the class needs, as a bar and "3 of 5". */
 export function DocPill({ verified, required, className }: { verified: number; required: number; className?: string }) {
-  if (required === 0) return <span className="text-[13px] text-ink3">None needed</span>;
+  if (required === 0) return <span className="text-[13px] text-ink3"><Words k="None needed" /></span>;
   const done = verified >= required;
   return (
     <span className={cx("flex items-center gap-2 w-32", className)}>
       <Progress value={(verified / required) * 100} tone={done ? "ok" : "warn"} className="flex-1" />
-      <span className={cx("text-[12.5px] font-semibold tnum whitespace-nowrap", !done && "text-warn")}>{verified} of {required}</span>
+      <span className={cx("text-[12.5px] font-semibold tnum whitespace-nowrap", !done && "text-warn")}>{verified} <Words k="of" /> {required}</span>
     </span>
   );
 }

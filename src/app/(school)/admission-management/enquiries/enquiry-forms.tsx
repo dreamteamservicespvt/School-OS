@@ -17,6 +17,7 @@ import type { CustomFieldDef, CustomValues } from "@/lib/custom-field-rules";
 import type { Match } from "@/lib/admission/enquiries";
 import { FormProblem, MoreDetails, PhoneField, SegField, Submit, WhenField } from "../_components/forms";
 import { addEnquiryAction, checkDuplicates, editEnquiryAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export type EnquiryChoices = {
   classes: Option[];
@@ -43,12 +44,12 @@ function DuplicateBox({ matches, sibling, onSibling, onCancel, siblingLabel }: {
         <p key={`${m.kind}-${m.id}`} className="font-semibold text-[14px] flex gap-2"><TriangleAlert size={17} className="text-warn shrink-0 mt-0.5" aria-hidden="true" />{m.text}</p>
       ))}
       {sibling ? (
-        <p className="text-[13px] text-ink2 mt-2 flex items-center gap-1.5"><Check size={15} className="text-ok" aria-hidden="true" />Will be added as a sibling enquiry, linked to the same family.</p>
+        <p className="text-[13px] text-ink2 mt-2 flex items-center gap-1.5"><Check size={15} className="text-ok" aria-hidden="true" /><Words k="Will be added as a sibling enquiry, linked to the same family." /></p>
       ) : (
         <div className="flex gap-2 mt-3 flex-wrap">
-          <Link href={matches[0].kind === "enquiry" ? `/admission-management/enquiries?id=${matches[0].id}` : matches[0].href} className={buttonClass("secondary", "sm")}><ExternalLink size={15} aria-hidden="true" />Open existing</Link>
+          <Link href={matches[0].kind === "enquiry" ? `/admission-management/enquiries?id=${matches[0].id}` : matches[0].href} className={buttonClass("secondary", "sm")}><ExternalLink size={15} aria-hidden="true" /><Words k="Open existing" /></Link>
           <Button size="sm" variant="soft" icon={Users} onClick={onSibling}>{siblingLabel}</Button>
-          <Button size="sm" variant="ghost" onClick={onCancel}>Cancel</Button>
+          <Button size="sm" variant="ghost" onClick={onCancel}><Words k="Cancel" /></Button>
         </div>
       )}
     </div>
@@ -139,7 +140,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
         )}
       </MoreDetails>
       <div className="flex gap-2 justify-end pt-1">
-        <Button variant="ghost" onClick={onCancel} disabled={pending}>Cancel</Button>
+        <Button variant="ghost" onClick={onCancel} disabled={pending}><Words k="Cancel" /></Button>
         <Submit busyLabel={mode === "add" ? "Adding…" : "Saving…"} disabled={blockedByMatch}>{mode === "add" ? "Add enquiry" : "Save changes"}</Submit>
       </div>
     </form>
@@ -165,7 +166,7 @@ export function EditEnquiryButton({ c, saved }: { c: EnquiryChoices; saved: Save
   const [round, setRound] = useState(0);
   return (
     <>
-      <button type="button" onClick={() => { setRound((r) => r + 1); setOpen(true); }} className="text-brand hover:underline inline-flex items-center gap-1"><Pencil size={12} aria-hidden="true" />Edit</button>
+      <button type="button" onClick={() => { setRound((r) => r + 1); setOpen(true); }} className="text-brand hover:underline inline-flex items-center gap-1"><Pencil size={12} aria-hidden="true" /><Words k="Edit" /></button>
       <Dialog open={open} onClose={() => setOpen(false)} title="Edit enquiry" sub={`${saved.childName} · the history keeps every change`}>
         <EnquiryForm key={round} c={c} saved={saved} onCancel={() => setOpen(false)} onDone={() => setOpen(false)} />
       </Dialog>

@@ -26,6 +26,7 @@ import { EditEnquiryButton, type EnquiryChoices, type SavedEnquiry } from "./enq
 import {
   archiveAction, callAction, changeSourceAction, changeStatusAction, closeLostAction, followUpAction, messageAction, noteAction, reassignAction, reopenAction,
 } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 
 export type PanelActivity = { id: string; kind: string; text: string; when: string; by: string | null; direction: string | null };
@@ -81,7 +82,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
   return (
     <Card className="min-w-0 animate-rise">
       <div className="flex items-center justify-between px-3 pt-2.5">
-        <Link href={closeHref} scroll={false} className="xl:invisible inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink h-8 px-1 rounded-lg"><ArrowLeft size={17} aria-hidden="true" />All enquiries</Link>
+        <Link href={closeHref} scroll={false} className="xl:invisible inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink h-8 px-1 rounded-lg"><ArrowLeft size={17} aria-hidden="true" /><Words k="All enquiries" /></Link>
         <Link href={closeHref} scroll={false} aria-label="Close" title="Close" className="hidden xl:inline-flex size-9 items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink"><X size={19} aria-hidden="true" /></Link>
       </div>
       <div className="px-5 pb-4 flex items-start gap-3.5">
@@ -93,7 +94,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
             <Pill tone={STATUS_TONE[e.status] ?? "neutral"} dot>{e.statusLabel}</Pill>
             {e.campaign && <Pill tone="info">{e.campaign}</Pill>}
             {e.lostReason && <Pill tone="neutral">{e.lostReason}</Pill>}
-            {e.archived && <Pill tone="warn">Archived</Pill>}
+            {e.archived && <Pill tone="warn"><Words k="Archived" /></Pill>}
           </div>
         </div>
       </div>
@@ -121,16 +122,16 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
       </dl>
       {canWork && !closed && !e.archived && (
         <div className="flex gap-2 px-5 pb-4">
-          {full ? <ButtonLink href={`/admission-management/applications/new?enquiry=${e.id}`} variant="primary" icon={FilePlus2} className="flex-1">Convert to application</ButtonLink>
-            : <Button variant="secondary" icon={ListChecks} className="flex-1" onClick={() => setSheet("status")}>Change status</Button>}
+          {full ? <ButtonLink href={`/admission-management/applications/new?enquiry=${e.id}`} variant="primary" icon={FilePlus2} className="flex-1"><Words k="Convert to application" /></ButtonLink>
+            : <Button variant="secondary" icon={ListChecks} className="flex-1" onClick={() => setSheet("status")}><Words k="Change status" /></Button>}
           <MoreMenu items={menu} />
         </div>
       )}
       {e.applicationId && full && (
-        <div className="px-5 pb-4"><ButtonLink href={`/admission-management/applications/${e.applicationId}`} variant="secondary" icon={FileText} className="w-full">Open the application</ButtonLink></div>
+        <div className="px-5 pb-4"><ButtonLink href={`/admission-management/applications/${e.applicationId}`} variant="secondary" icon={FileText} className="w-full"><Words k="Open the application" /></ButtonLink></div>
       )}
       {canWork && e.status === "lost" && !e.archived && (
-        <div className="px-5 pb-4"><Button variant="secondary" icon={RotateCcw} className="w-full" onClick={() => setSheet("reopen")}>Reopen enquiry</Button></div>
+        <div className="px-5 pb-4"><Button variant="secondary" icon={RotateCcw} className="w-full" onClick={() => setSheet("reopen")}><Words k="Reopen enquiry" /></Button></div>
       )}
 
       <div className="px-3 border-b border-line flex gap-1" role="tablist" aria-label="Enquiry history">
@@ -144,7 +145,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
       </div>
       {tab === "chat" ? (
         <div className="p-4 flex flex-col gap-3" role="tabpanel">
-          {messages.length === 0 ? <p className="text-[13.5px] text-ink3 text-center py-6">No messages yet.{canWork && !closed ? " Use Message to send the first one." : ""}</p> : (
+          {messages.length === 0 ? <p className="text-[13.5px] text-ink3 text-center py-6"><Words k="No messages yet." />{canWork && !closed ? " Use Message to send the first one." : ""}</p> : (
             <ol className="flex flex-col gap-2.5">
               {[...messages].reverse().map((m) => (
                 <li key={m.id} className={cx("max-w-[86%] rounded-2xl px-3.5 py-2.5 text-[14px] leading-snug", m.direction === "incoming" ? "bg-sunken self-start rounded-bl-md" : "bg-brand/10 self-end rounded-br-md")}>
@@ -154,7 +155,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
               ))}
             </ol>
           )}
-          {canWork && !closed && <Button variant="secondary" icon={Send} onClick={() => setSheet("msg")}>Send a message</Button>}
+          {canWork && !closed && <Button variant="secondary" icon={Send} onClick={() => setSheet("msg")}><Words k="Send a message" /></Button>}
         </div>
       ) : (
         <div className="px-5 pt-5" role="tabpanel">
@@ -162,7 +163,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
             const [Ic, tone] = KIND[a.kind] ?? [Circle, undefined];
             return { what: a.text, when: `${a.when}${a.by ? ` · ${a.by}` : ""}`, icon: Ic, tone };
           })} />
-          <p className="text-[12px] text-ink3 pb-4 -mt-2 flex items-center gap-1.5"><Lock size={13} aria-hidden="true" />Full history is kept. Notes, calls and changes are never deleted.</p>
+          <p className="text-[12px] text-ink3 pb-4 -mt-2 flex items-center gap-1.5"><Lock size={13} aria-hidden="true" /><Words k="Full history is kept. Notes, calls and changes are never deleted." /></p>
         </div>
       )}
 
@@ -183,7 +184,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
           <SelectField label="Template" name="_template" required options={templates.map((t) => ({ value: t.key, label: t.label }))} value={tpl}
             onChange={(x) => { setTpl(x.target.value); setText(templates.find((t) => t.key === x.target.value)?.text ?? ""); }} />
           <TextArea label="Message" name="text" required rows={5} value={text} onChange={(x) => setText(x.target.value)} error={f.err("text")} help="You can change the words before sending." />
-          {channel === "email" && !e.email && <Banner tone="warn">No email on this enquiry yet. Add one with Edit, or send on WhatsApp.</Banner>}
+          {channel === "email" && !e.email && <Banner tone="warn"><Words k="No email on this enquiry yet. Add one with Edit, or send on WhatsApp." /></Banner>}
           {f.err("channel") && <p className="text-[12.5px] text-bad">{f.err("channel")}</p>}
         </>}
       </FormSheet>
@@ -201,7 +202,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
       </FormSheet>
       <FormSheet open={sheet === "source"} onClose={close} title="Change source" sub="Only the admission team can do this" action={changeSourceAction} hidden={hidden} submitLabel="Change source">
         {(f) => <>
-          <Banner tone="info" icon={Lock}>The first recorded source, <b className="font-semibold text-ink">{e.firstSourceLabel ?? e.sourceLabel}</b>, stays in the activity log and the source reports count it.</Banner>
+          <Banner tone="info" icon={Lock}><Words k="The first recorded source," /> <b className="font-semibold text-ink">{e.firstSourceLabel ?? e.sourceLabel}</b><Words k=", stays in the activity log and the source reports count it." /></Banner>
           <SelectField label="New source" name="source" required options={c.sources.filter((s) => s.value !== e.source)} placeholder="Choose" defaultValue={f.val("source")} error={f.err("source")} />
           <TextField label="Reason" name="reason" required maxLength={300} placeholder="For example: parent says a friend referred them" defaultValue={f.val("reason")} error={f.err("reason")} />
         </>}

@@ -11,6 +11,7 @@ import { feePlanApplies } from "@/lib/students/hooks";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { UndoAdmission } from "../../decision-forms";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Admission confirmed" };
 
@@ -69,9 +70,9 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
     <div className="max-w-[640px] mx-auto w-full">
       <Card className="p-5 md:p-7 flex flex-col items-center text-center">
         <span className="w-16 h-16 rounded-full bg-ok text-surface grid place-items-center shadow-pop"><Check size={34} strokeWidth={3} aria-hidden="true" /></span>
-        <h1 className="font-display text-[24px] font-semibold mt-4">{student?.fullName ?? app.fullName} is now a student</h1>
-        <p className="text-ink3 text-[14px] mt-1">Admission number <b className="font-mono text-ink text-[13.5px]">{admNo}</b>{place ? ` · ${place}` : ""}{c?.rollNo ? ` · roll ${c.rollNo}` : ""}</p>
-        <p className="text-ink3 text-[12.5px] mt-0.5">Confirmed {app.admittedAt ? formatDateTime(app.admittedAt, tz) : ""} from application {app.applicationNo}</p>
+        <h1 className="font-display text-[24px] font-semibold mt-4">{student?.fullName ?? app.fullName} <Words k="is now a student" /></h1>
+        <p className="text-ink3 text-[14px] mt-1"><Words k="Admission number" /> <b className="font-mono text-ink text-[13.5px]">{admNo}</b>{place ? ` · ${place}` : ""}{c?.rollNo ? ` · roll ${c.rollNo}` : ""}</p>
+        <p className="text-ink3 text-[12.5px] mt-0.5"><Words k="Confirmed" /> {app.admittedAt ? formatDateTime(app.admittedAt, tz) : ""} <Words k="from application" /> {app.applicationNo}</p>
         <ul className="w-full mt-5 text-left rounded-2xl border border-line divide-y divide-line/70">
           {rows.map(([Ic, t, s, href]) => {
             const inner = (
@@ -89,12 +90,12 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
           })}
         </ul>
         <div className="flex gap-2 w-full mt-4 flex-wrap">
-          <ButtonLink href={`${BASE}/decision?tab=approved`} variant="primary" className="flex-1">Done</ButtonLink>
+          <ButtonLink href={`${BASE}/decision?tab=approved`} variant="primary" className="flex-1"><Words k="Done" /></ButtonLink>
           {canUndo && <UndoAdmission id={id} />}
         </div>
         {canUndo
-          ? <p className="mt-3 text-[12.5px] text-ink3">Undo works until {formatDateTime(new Date(undoUntil), tz)}, if nothing else has happened to the student.</p>
-          : app.admittedAt && <p className="mt-3 text-[12.5px] text-ink3">Admitted on {formatDate(app.admittedAt, tz)}. To reverse it now, record the student leaving in Student Management.</p>}
+          ? <p className="mt-3 text-[12.5px] text-ink3"><Words k="Undo works until" /> {formatDateTime(new Date(undoUntil), tz)}<Words k=", if nothing else has happened to the student." /></p>
+          : app.admittedAt && <p className="mt-3 text-[12.5px] text-ink3"><Words k="Admitted on" /> {formatDate(app.admittedAt, tz)}<Words k=". To reverse it now, record the student leaving in Student Management." /></p>}
       </Card>
     </div>
   );

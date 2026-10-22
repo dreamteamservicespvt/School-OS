@@ -31,6 +31,7 @@ import { EnquiryPanel, type PanelEnquiry } from "./panel";
 import { STATUS_TONE } from "@/lib/admission/tones";
 import { periodFromSearch } from "@/lib/periods";
 import { PeriodFilter } from "@/components/list/period-filter";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Enquiries" };
 
@@ -143,7 +144,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
     const cls = e.classId ? n.classes.get(e.classId) ?? "" : "Not decided";
     const next = due && e.nextFollowUpAt
       ? <span key="n" className={cx("text-[13px] tnum whitespace-nowrap", due === "overdue" ? "text-bad font-semibold" : due === "today" ? "text-warn font-semibold" : "text-ink2")}>{due === "overdue" && <CircleAlert size={13} className="inline -mt-0.5 mr-1" aria-label="Overdue" />}{whenWords(e.nextFollowUpAt, tz, now)}</span>
-      : <span key="n" className="text-ink3">None</span>;
+      : <span key="n" className="text-ink3"><Words k="None" /></span>;
     const status = <Pill key="st" tone={STATUS_TONE[e.status] ?? "neutral"}>{label(settings.statusList, e.status)}</Pill>;
     const owner = e.ownerStaffId ? n.staff.get(e.ownerStaffId) ?? "" : "No owner";
     const last = "activities" in e && Array.isArray(e.activities) ? (e.activities as { text: string }[])[0]?.text : undefined;
@@ -155,7 +156,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
           <div key="p"><p className="leading-tight">{e.parentName}</p><p className="text-[12.5px] text-ink3 tnum">{phoneWords(e.phone)}</p></div>,
           <div key="cl"><p className="font-medium">{cls}</p><p className="text-[12px] text-ink3">{yearLabel(e.academicYearId)}</p></div>,
           view === "whatsapp"
-            ? <p key="s" className="text-[13px] text-ink2 max-w-[220px] truncate">{last ? `“${last}”` : <span className="text-ink3">No messages yet</span>}</p>
+            ? <p key="s" className="text-[13px] text-ink2 max-w-[220px] truncate">{last ? `“${last}”` : <span className="text-ink3"><Words k="No messages yet" /></span>}</p>
             : <div key="s"><p className="text-[13.5px]">{label(settings.sourceList, e.source)}</p>{e.campaign && <p className="text-[12px] text-info whitespace-nowrap">{e.campaign.name}</p>}</div>,
         ]),
         status,
@@ -182,17 +183,17 @@ export default async function EnquiriesPage({ searchParams }: Search) {
 
   const actions = (
     <>
-      {full && <ButtonLink href={`${PATH}/import`} variant="secondary" icon={Upload} className="hidden md:inline-flex">Import</ButtonLink>}
+      {full && <ButtonLink href={`${PATH}/import`} variant="secondary" icon={Upload} className="hidden md:inline-flex"><Words k="Import" /></ButtonLink>}
       {canAdd && <AddEnquiryButton c={choices} />}
     </>
   );
   const empty = filtered ? (
-    <EmptyState bare Icon={SearchX} title="No enquiries match" action={<ButtonLink href={PATH} variant="secondary">Clear filters</ButtonLink>}>
+    <EmptyState bare Icon={SearchX} title="No enquiries match" action={<ButtonLink href={PATH} variant="secondary"><Words k="Clear filters" /></ButtonLink>}>
       {params.q ? `Nobody called “${params.q}”. Try the phone number.` : "Try a different filter."}
     </EmptyState>
   ) : (
     <EmptyState bare Icon={Inbox} title={own ? "No enquiries of yours yet" : "No enquiries yet"} action={canAdd ? <AddEnquiryButton c={choices} /> : undefined}>
-      Add each walk-in or phone enquiry here, with a follow-up date, so no family is forgotten.
+      <Words k="Add each walk-in or phone enquiry here, with a follow-up date, so no family is forgotten." />
     </EmptyState>
   );
 
@@ -206,7 +207,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
               <div className="flex flex-col gap-2.5 p-3 md:p-4 border-b border-line/70">
                 <div className="flex flex-col md:flex-row gap-2.5 md:items-center">
                   <UrlSearch placeholder="Child, parent, phone or ENQ number" />
-                  <UrlSegmented param="view" label="Show" options={[{ value: "all", label: "All enquiries" }, { value: "whatsapp", label: <><MessageCircle size={15} aria-hidden="true" />WhatsApp</> }]} />
+                  <UrlSegmented param="view" label="Show" options={[{ value: "all", label: "All enquiries" }, { value: "whatsapp", label: <><MessageCircle size={15} aria-hidden="true" /><Words k="WhatsApp" /></> }]} />
                   {!narrow && <ExportMenu href={listHref(`${PATH}/export`, params, { page: null, id: null })} />}
                 </div>
                 <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2">
@@ -230,7 +231,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
               templates={enquiryTemplates(current.school.name, panel)} />
           )}
           {openId && !panel && (
-            <Card className="xl:col-start-2"><EmptyState Icon={SearchX} title="Enquiry not found" action={<ButtonLink href={PATH} variant="secondary">All enquiries</ButtonLink>}>It may have been archived, or it belongs to someone else.</EmptyState></Card>
+            <Card className="xl:col-start-2"><EmptyState Icon={SearchX} title="Enquiry not found" action={<ButtonLink href={PATH} variant="secondary"><Words k="All enquiries" /></ButtonLink>}><Words k="It may have been archived, or it belongs to someone else." /></EmptyState></Card>
           )}
         </div>
     </>

@@ -26,6 +26,7 @@ import { EmptyState } from "@/components/empty-state";
 import { cx } from "@/components/ui/cx";
 import { AdmissionHead } from "../_components/head";
 import { DocumentsPanel, type PanelApp, type PanelDoc } from "./panel";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Documents & Verification" };
 
@@ -121,12 +122,12 @@ export default async function DocumentsPage({ searchParams }: Search) {
       key: r.id, href: rowHref(r.id), active: r.id === openId,
       cells: [
         <div key="c" className="flex items-center gap-3 min-w-0"><Avatar name={r.fullName} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight truncate">{r.fullName}</p><p className="text-[12px] text-ink3 whitespace-nowrap">{cls} · <span className="font-mono">{r.applicationNo}</span></p></div></div>,
-        <span key="p" className="flex items-center gap-2 w-32"><Progress value={p.required ? (p.requiredVerified / p.required) * 100 : 100} tone={done ? "ok" : "warn"} className="flex-1" /><span className="text-[12.5px] font-semibold tnum">{p.requiredVerified} of {p.required}</span></span>,
-        missing.length ? <span key="m" className="text-[13px] text-warn">{missing.join(", ")}</span> : toVerify ? <span key="m" className="text-[13px] text-info">{toVerify} to verify</span> : <span key="m" className="text-[13px] text-ok">None</span>,
+        <span key="p" className="flex items-center gap-2 w-32"><Progress value={p.required ? (p.requiredVerified / p.required) * 100 : 100} tone={done ? "ok" : "warn"} className="flex-1" /><span className="text-[12.5px] font-semibold tnum">{p.requiredVerified} <Words k="of" /> {p.required}</span></span>,
+        missing.length ? <span key="m" className="text-[13px] text-warn">{missing.join(", ")}</span> : toVerify ? <span key="m" className="text-[13px] text-info">{toVerify} <Words k="to verify" /></span> : <span key="m" className="text-[13px] text-ok"><Words k="None" /></span>,
       ],
       mobile: {
         title: r.fullName, sub: `${cls} · ${p.requiredVerified} of ${p.required} verified`, avatar: r.fullName,
-        pills: [missing.length ? <Pill key="m" tone="warn" className="!h-[22px] !text-[11.5px]">{missing.length} missing</Pill> : done ? <Pill key="ok" tone="ok" className="!h-[22px] !text-[11.5px]">All verified</Pill> : <Pill key="v" tone="info" className="!h-[22px] !text-[11.5px]">{toVerify} to verify</Pill>],
+        pills: [missing.length ? <Pill key="m" tone="warn" className="!h-[22px] !text-[11.5px]">{missing.length} <Words k="missing" /></Pill> : done ? <Pill key="ok" tone="ok" className="!h-[22px] !text-[11.5px]"><Words k="All verified" /></Pill> : <Pill key="v" tone="info" className="!h-[22px] !text-[11.5px]">{toVerify} <Words k="to verify" /></Pill>],
       },
     };
   });
@@ -152,9 +153,9 @@ export default async function DocumentsPage({ searchParams }: Search) {
             </div>
             <DataList caption="Applicants and their papers" {...rowList([{ key: "c", label: "Applicant" }, { key: "p", label: "Verified" }, { key: "m", label: "Missing papers" }])} rows={listRows} minWidth={560}
               empty={filtered ? (
-                <EmptyState bare Icon={SearchX} title="No applicants match" action={<ButtonLink href={PATH} variant="secondary">Clear filters</ButtonLink>}>Try another filter or search.</EmptyState>
+                <EmptyState bare Icon={SearchX} title="No applicants match" action={<ButtonLink href={PATH} variant="secondary"><Words k="Clear filters" /></ButtonLink>}><Words k="Try another filter or search." /></EmptyState>
               ) : (
-                <EmptyState bare Icon={FolderOpen} title="No applicants yet">Applicants still being processed appear here with the papers for their class.</EmptyState>
+                <EmptyState bare Icon={FolderOpen} title="No applicants yet"><Words k="Applicants still being processed appear here with the papers for their class." /></EmptyState>
               )}
               footer={<Pager page={params.page} pageSize={PAGE_SIZE} total={data.total} prevHref={listHref(PATH, params, { page: params.page - 1 })} nextHref={listHref(PATH, params, { page: params.page + 1 })} />} />
           </Card>
@@ -162,9 +163,9 @@ export default async function DocumentsPage({ searchParams }: Search) {
         {panel ? (
           <DocumentsPanel key={panel.id} a={panel} closeHref={listHref(PATH, params, {})} canWork={viewer.change === "all"} />
         ) : openId ? (
-          <Card><EmptyState bare Icon={SearchX} title="Applicant not found" action={<ButtonLink href={PATH} variant="secondary">All applicants</ButtonLink>}>It may have been archived.</EmptyState></Card>
+          <Card><EmptyState bare Icon={SearchX} title="Applicant not found" action={<ButtonLink href={PATH} variant="secondary"><Words k="All applicants" /></ButtonLink>}><Words k="It may have been archived." /></EmptyState></Card>
         ) : (
-          <Card className="hidden xl:block"><EmptyState bare Icon={FolderOpen} title="Pick an applicant">Their checklist for the class applied for opens here, with Verify and Reject on each paper.</EmptyState></Card>
+          <Card className="hidden xl:block"><EmptyState bare Icon={FolderOpen} title="Pick an applicant"><Words k="Their checklist for the class applied for opens here, with Verify and Reject on each paper." /></EmptyState></Card>
         )}
       </div>
     </>

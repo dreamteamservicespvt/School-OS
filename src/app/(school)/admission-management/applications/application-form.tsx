@@ -22,6 +22,7 @@ import type { CustomFieldDef, CustomValues } from "@/lib/custom-field-rules";
 import { FormProblem, MoreDetails, PhoneField, SegField, SubHead, Submit } from "../_components/forms";
 import { checkFormCodeAction, saveApplicationAction, sendFormCodeAction } from "./actions";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type FormClass = { value: string; label: string; previousSchool: boolean; seatsText: string; full: boolean };
 
@@ -107,22 +108,22 @@ export function ApplicationForm(p: Props) {
       {matches.length === 0 && <FormProblem state={state} />}
       {matches.length > 0 && (
         <ProblemInView token={state}><div role="alert" className="rounded-2xl bg-warn/10 p-4">
-          <p className="font-semibold flex items-center gap-2"><CircleAlert size={17} className="text-warn" aria-hidden="true" />This child may already have an application</p>
+          <p className="font-semibold flex items-center gap-2"><CircleAlert size={17} className="text-warn" aria-hidden="true" /><Words k="This child may already have an application" /></p>
           <ul className="mt-2 space-y-1 text-[14px] text-ink2">{matches.map((m) => <li key={`${m.kind}-${m.id}`}>{m.text}</li>)}</ul>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Link href={matches[0].href} className={buttonClass("secondary", "sm")}>Open existing</Link>
-            <Button size="sm" variant="secondary" onClick={() => { setForce(true); setDismissedFor(state); setTimeout(() => formRef.current?.requestSubmit(), 0); }}>Save anyway</Button>
-            <Button size="sm" variant="ghost" onClick={() => setDismissedFor(state)}>Cancel</Button>
+            <Link href={matches[0].href} className={buttonClass("secondary", "sm")}><Words k="Open existing" /></Link>
+            <Button size="sm" variant="secondary" onClick={() => { setForce(true); setDismissedFor(state); setTimeout(() => formRef.current?.requestSubmit(), 0); }}><Words k="Save anyway" /></Button>
+            <Button size="sm" variant="ghost" onClick={() => setDismissedFor(state)}><Words k="Cancel" /></Button>
           </div>
         </div></ProblemInView>
       )}
 
       <Card className="p-4 md:p-6 flex flex-col gap-4">
         <div className="flex items-center gap-3 rounded-xl bg-sunken px-3.5 py-2.5 text-[13.5px]">
-          <Hash size={16} className="text-ink3" aria-hidden="true" /><span className="text-ink3">Application number</span>
+          <Hash size={16} className="text-ink3" aria-hidden="true" /><span className="text-ink3"><Words k="Application number" /></span>
           <b className="font-mono font-semibold text-[13px] ml-auto">{p.applicationNo ?? "Given when saved"}</b>
         </div>
-        <SubHead>Child</SubHead>
+        <SubHead><Words k="Child" /></SubHead>
         <div className="grid md:grid-cols-2 gap-3">
           {edit ? (
             <>
@@ -133,7 +134,7 @@ export function ApplicationForm(p: Props) {
             <SelectField label="Admission year" name="yearId" required options={p.years} defaultValue={val("yearId")} error={err("yearId")} />
           )}
           <FieldShell label="Class applied for" id="na-cls" required error={err("classId")}
-            help={cls ? (cls.full ? <span className="text-warn font-semibold">{cls.label} is full. The application can still go on the waiting list.</span> : `Seats left · ${cls.seatsText}`) : undefined}>
+            help={cls ? (cls.full ? <span className="text-warn font-semibold">{cls.label} <Words k="is full. The application can still go on the waiting list." /></span> : `Seats left · ${cls.seatsText}`) : undefined}>
             <KeepSelect id="na-cls" name="classId" value={classId} onChange={(e) => setClassId(e.target.value)} aria-invalid={err("classId") ? true : undefined} className={cx(inputCls(err("classId")), "h-11 pr-9")}>
               <option value="">Choose class</option>
               {p.classes.map((c) => <option key={c.value} value={c.value}>{c.label}{c.full ? " (full)" : ""}</option>)}
@@ -152,8 +153,8 @@ export function ApplicationForm(p: Props) {
           </div>
         </div>
 
-        <SubHead>Parents</SubHead>
-        {p.parentHint && <p className="text-[13px] text-ink3 -mt-2">From the enquiry: {p.parentHint}. Move it to the right box if needed.</p>}
+        <SubHead><Words k="Parents" /></SubHead>
+        {p.parentHint && <p className="text-[13px] text-ink3 -mt-2"><Words k="From the enquiry:" /> {p.parentHint}<Words k=". Move it to the right box if needed." /></p>}
         <div className="grid md:grid-cols-2 gap-3">
           <TextField label="Father’s name" name="fatherName" maxLength={120} defaultValue={val("fatherName")} error={err("fatherName")} />
           <TextField label="Mother’s name" name="motherName" maxLength={120} defaultValue={val("motherName")} error={err("motherName")} help="At least one parent or guardian" />
@@ -167,7 +168,7 @@ export function ApplicationForm(p: Props) {
 
         {(!cls || cls.previousSchool || val("previousSchool")) && (
           <>
-            <SubHead>Previous school</SubHead>
+            <SubHead><Words k="Previous school" /></SubHead>
             <div className="grid md:grid-cols-3 gap-3">
               <TextField label="School name" name="previousSchool" required={cls?.previousSchool} maxLength={150} defaultValue={val("previousSchool")} error={err("previousSchool")} />
               <TextField label="Last class" name="previousClass" maxLength={40} placeholder="Class 4 (2025-26)" defaultValue={val("previousClass")} error={err("previousClass")} />
@@ -176,15 +177,15 @@ export function ApplicationForm(p: Props) {
           </>
         )}
 
-        <SubHead>Preferences</SubHead>
+        <SubHead><Words k="Preferences" /></SubHead>
         <div className="grid md:grid-cols-2 gap-3">
           <TextField label="Second language" name="secondLanguage" maxLength={40} placeholder="Telugu or Hindi" defaultValue={val("secondLanguage")} />
           {(showTransport || showHostel) && (
             <div className="flex flex-col gap-2.5 rounded-xl border border-line p-3">
-              {showTransport && <div className="flex items-center gap-3 text-[14px]"><Switch on={transport} onChange={setTransport} label="Transport needed" /><span className="font-semibold">Transport needed</span></div>}
+              {showTransport && <div className="flex items-center gap-3 text-[14px]"><Switch on={transport} onChange={setTransport} label="Transport needed" /><span className="font-semibold"><Words k="Transport needed" /></span></div>}
               {transport && <input type="hidden" name="transportNeeded" value="on" />}
               {showTransport && transport && <input name="transportStop" aria-label="Pick-up place" maxLength={80} placeholder="Pick-up place, e.g. Miyapur X Roads" defaultValue={val("transportStop")} className={cx(inputCls(false), "h-10")} />}
-              {showHostel && <div className="flex items-center gap-3 text-[14px]"><Switch on={hostel} onChange={setHostel} label="Hostel needed" /><span className="font-semibold">Hostel needed</span></div>}
+              {showHostel && <div className="flex items-center gap-3 text-[14px]"><Switch on={hostel} onChange={setHostel} label="Hostel needed" /><span className="font-semibold"><Words k="Hostel needed" /></span></div>}
               {hostel && <input type="hidden" name="hostelNeeded" value="on" />}
             </div>
           )}
@@ -208,33 +209,33 @@ export function ApplicationForm(p: Props) {
 
         {!edit && (
           <>
-            <SubHead>Consent (DPDP Act 2023)</SubHead>
+            <SubHead><Words k="Consent (DPDP Act 2023)" /></SubHead>
             <div className={cx("rounded-xl border p-3.5 flex flex-col gap-3", err("code") ? "border-bad ring-4 ring-bad/10" : "border-line")}>
               <p className="text-[13.5px] text-ink2 leading-relaxed">
-                The guardian agrees to the school’s consent text{p.consentVersion ? ` (${p.consentVersion})` : ""} for the child’s data. A one-time code goes to <b className="font-semibold text-ink tnum">+91 {digits || "…"}</b>.
+                <Words k="The guardian agrees to the school’s consent text" />{p.consentVersion ? ` (${p.consentVersion})` : ""} <Words k="for the child’s data. A one-time code goes to" /> <b className="font-semibold text-ink tnum">+91 {digits || "…"}</b>.
               </p>
               <input type="hidden" name="consent_data-processing" value={checked ? "on" : ""} />
               {checked ? (
                 <>
                   <input type="hidden" name="code" value={code} />
-                  <p className="text-[14px] font-semibold text-ok flex items-center gap-2"><ShieldCheck size={18} aria-hidden="true" />Data consent given, confirmed with the code</p>
+                  <p className="text-[14px] font-semibold text-ok flex items-center gap-2"><ShieldCheck size={18} aria-hidden="true" /><Words k="Data consent given, confirmed with the code" /></p>
                 </>
               ) : !sent ? (
-                <Button type="button" variant="soft" icon={Send} className="self-start" disabled={!phoneOk || busy} loading={busy} loadingText="Sending…" onClick={sendCode}>Send one-time code</Button>
+                <Button type="button" variant="soft" icon={Send} className="self-start" disabled={!phoneOk || busy} loading={busy} loadingText="Sending…" onClick={sendCode}><Words k="Send one-time code" /></Button>
               ) : (
                 <div className="flex gap-2 items-end">
                   <FieldShell label="Code from the guardian" id="na-otp" className="flex-1">
                     <input id="na-otp" name="code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} inputMode="numeric" autoComplete="one-time-code" placeholder="6 digits" className={cx(inputCls(false), "h-11 tnum tracking-widest")} />
                   </FieldShell>
-                  <Button type="button" variant="primary" disabled={code.length !== 6 || busy} loading={busy} onClick={checkCode}>Confirm</Button>
-                  <Button type="button" variant="ghost" disabled={busy} onClick={sendCode}>Send again</Button>
+                  <Button type="button" variant="primary" disabled={code.length !== 6 || busy} loading={busy} onClick={checkCode}><Words k="Confirm" /></Button>
+                  <Button type="button" variant="ghost" disabled={busy} onClick={sendCode}><Words k="Send again" /></Button>
                 </div>
               )}
-              {!phoneOk && !checked && <p className="text-[12.5px] text-ink3">Type the parent’s phone above first.</p>}
+              {!phoneOk && !checked && <p className="text-[12.5px] text-ink3"><Words k="Type the parent’s phone above first." /></p>}
               {p.photoConsentAsked !== false && (
                 <div className="flex items-start gap-3 text-[13.5px]">
                   <Checkbox checked={photo} onChange={setPhoto} label="Photo consent" />
-                  <span><b className="font-semibold">Photo consent</b> <span className="text-ink3">(separate): the child’s photo may be used in the gallery and on social media. Confirmed with the same code.</span></span>
+                  <span><b className="font-semibold"><Words k="Photo consent" /></b> <span className="text-ink3"><Words k="(separate): the child’s photo may be used in the gallery and on social media. Confirmed with the same code." /></span></span>
                   {photo && <input type="hidden" name="consent_photo" value="on" />}
                 </div>
               )}
@@ -243,11 +244,11 @@ export function ApplicationForm(p: Props) {
             </div>
           </>
         )}
-        {p.values.enquiryId && !edit && <Banner tone="info" icon={Users}>Saving sets the enquiry to Applied, so the family shows once in the funnel.</Banner>}
+        {p.values.enquiryId && !edit && <Banner tone="info" icon={Users}><Words k="Saving sets the enquiry to Applied, so the family shows once in the funnel." /></Banner>}
       </Card>
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Link href={p.cancelHref} className={buttonClass("secondary")}>Cancel</Link>
+        <Link href={p.cancelHref} className={buttonClass("secondary")}><Words k="Cancel" /></Link>
         <Submit busyLabel="Saving…">{edit ? "Save changes" : "Save application"}</Submit>
       </div>
     </form>

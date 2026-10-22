@@ -11,6 +11,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { useNotice } from "@/components/ui/notice";
 import { cx } from "@/components/ui/cx";
 import type { PipeColumn } from "@/lib/admission/dashboard";
+import { Words } from "@/lib/i18n/client";
 
 type Move = (id: string, from: string, to: string) => Promise<{ ok: boolean; title: string; body?: string }>;
 
@@ -69,9 +70,9 @@ export function Pipeline({ columns, move, filtered }: { columns: PipeColumn[]; m
                   </div>
                 );
               })}
-              {!col.cards.length && <p className="text-[12.5px] text-ink3 px-1.5 py-3 text-center">Nobody here{filtered ? ` for ${filtered}` : ""}</p>}
+              {!col.cards.length && <p className="text-[12.5px] text-ink3 px-1.5 py-3 text-center"><Words k="Nobody here" />{filtered ? ` for ${filtered}` : ""}</p>}
               {col.count > col.cards.length && (
-                <Link href={col.href} className="text-[12.5px] font-semibold text-brand h-8 rounded-lg hover:bg-brand/8 grid place-items-center">+{col.count - col.cards.length} more</Link>
+                <Link href={col.href} className="text-[12.5px] font-semibold text-brand h-8 rounded-lg hover:bg-brand/8 grid place-items-center">+{col.count - col.cards.length} <Words k="more" /></Link>
               )}
             </section>
           );

@@ -13,6 +13,7 @@ import { cx } from "@/components/ui/cx";
 import { FormSheet, WhenField } from "../_components/forms";
 import { addToTestAction, cancelInterviewAction, freeSlotsAction, outcomeAction, scheduleInterviewAction, scheduleTestAction, scoresAction } from "./actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type Applicant = { id: string; name: string; meta: string };
 
@@ -43,7 +44,7 @@ export function ScheduleTestButton({ applicants, classes, chosen: first = [], op
   const [chosen, setChosen] = useState(new Set(first));
   return (
     <>
-      <Button variant="primary" icon={CalendarPlus} onClick={() => setOpen(true)}>Schedule test</Button>
+      <Button variant="primary" icon={CalendarPlus} onClick={() => setOpen(true)}><Words k="Schedule test" /></Button>
       <FormSheet open={open} onClose={() => setOpen(false)} title="Schedule test" sub="Parents get a message with the date, time and venue" action={scheduleTestAction}
         submitLabel={chosen.size ? `Book ${chosen.size} ${chosen.size === 1 ? "applicant" : "applicants"}` : "Schedule test"} submitIcon={CalendarPlus}>
         {(f) => (
@@ -79,7 +80,7 @@ export function ScheduleInterviewButton({ applicants, staff, defaultInterviewer,
   const label = slots?.find((s) => s.value === slot)?.label;
   return (
     <>
-      <Button variant="primary" icon={Plus} onClick={() => setOpen(true)}>Schedule interview</Button>
+      <Button variant="primary" icon={Plus} onClick={() => setOpen(true)}><Words k="Schedule interview" /></Button>
       <FormSheet open={open} onClose={() => setOpen(false)} title="Schedule interview" sub="15-minute slots. An interviewer is never booked twice for the same time." action={scheduleInterviewAction}
         hidden={{ slot }} submitLabel={label ? `Book ${label}` : "Book slot"} submitIcon={Check}>
         {(f) => (
@@ -127,7 +128,7 @@ export function ScoreDialog({ testId, title, sub, maxMarks, lines, canChange, cl
       <FormSheet open={open} onClose={close} wide title={title} sub={sub} action={scoresAction} hidden={{ testId }} submitLabel="Save scores" onSaved={() => router.replace(closeHref, { scroll: false })}>
         {(f) => (
           <>
-            {rows.length === 0 && <p className="text-[14px] text-ink3">No applicant is booked for this test yet.</p>}
+            {rows.length === 0 && <p className="text-[14px] text-ink3"><Words k="No applicant is booked for this test yet." /></p>}
             <ul className="flex flex-col divide-y divide-line/70 -mt-2">
               {rows.map((x, i) => {
                 const err = !x.absent && x.marks !== "" && (Number.isNaN(Number(x.marks)) || Number(x.marks) < 0 || Number(x.marks) > maxMarks);
@@ -139,10 +140,10 @@ export function ScoreDialog({ testId, title, sub, maxMarks, lines, canChange, cl
                       <input name={`marks_${x.applicationId}`} aria-label={`Score for ${x.name}`} value={x.absent ? "" : x.marks} disabled={!canChange || x.absent} inputMode="decimal" placeholder={`/ ${maxMarks}`}
                         onChange={(e) => setRows((l) => l.map((y, j) => (j === i ? { ...y, marks: e.target.value.replace(/[^\d.]/g, "").slice(0, 6) } : y)))}
                         aria-invalid={err || undefined} className={cx(inputCls(err), "h-10 text-center tnum")} />
-                      {err && <p className="text-[11.5px] text-bad mt-1">0 to {maxMarks}</p>}
+                      {err && <p className="text-[11.5px] text-bad mt-1"><Words k="0 to" /> {maxMarks}</p>}
                     </div>
                     <label className="flex items-center gap-2 text-[13px] text-ink2 col-span-2 md:col-span-1">
-                      <KeepCheck type="checkbox" name={`absent_${x.applicationId}`} checked={x.absent} disabled={!canChange} onChange={(e) => setRows((l) => l.map((y, j) => (j === i ? { ...y, absent: e.target.checked } : y)))} className="size-4 accent-brand" />Absent
+                      <KeepCheck type="checkbox" name={`absent_${x.applicationId}`} checked={x.absent} disabled={!canChange} onChange={(e) => setRows((l) => l.map((y, j) => (j === i ? { ...y, absent: e.target.checked } : y)))} className="size-4 accent-brand" /><Words k="Absent" />
                     </label>
                     <input name={`remarks_${x.applicationId}`} aria-label={`Remarks for ${x.name}`} value={x.remarks} disabled={!canChange} maxLength={300} placeholder="Remarks"
                       onChange={(e) => setRows((l) => l.map((y, j) => (j === i ? { ...y, remarks: e.target.value } : y)))} className={cx(inputCls(false), "h-10 col-span-2 md:col-span-1 text-[14px]")} />
@@ -150,7 +151,7 @@ export function ScoreDialog({ testId, title, sub, maxMarks, lines, canChange, cl
                 );
               })}
             </ul>
-            {bad && <p className="text-[13px] text-bad">Fix the scores marked in red. Each is 0 to {maxMarks}.</p>}
+            {bad && <p className="text-[13px] text-bad"><Words k="Fix the scores marked in red. Each is 0 to" /> {maxMarks}.</p>}
             {f.err("marks") && <p className="text-[13px] text-bad">{f.err("marks")}</p>}
           </>
         )}
@@ -166,7 +167,7 @@ function AddApplicants({ testId, more, chosen, onChange }: { testId: string; mor
   const [open, setOpen] = useState(false);
   return (
     <div className="fixed bottom-4 right-4 z-[70] print:hidden">
-      <Button variant="secondary" icon={UserPlus} onClick={() => setOpen(true)} className="shadow-pop">Add applicants</Button>
+      <Button variant="secondary" icon={UserPlus} onClick={() => setOpen(true)} className="shadow-pop"><Words k="Add applicants" /></Button>
       <FormSheet open={open} onClose={() => setOpen(false)} title="Add applicants to this test" sub="Parents get the date, time and venue" action={addToTestAction} hidden={{ testId }} submitLabel={`Add ${chosen.size}`} submitIcon={UserPlus}>
         {(f) => <Picker applicants={more} chosen={chosen} onChange={onChange} error={f.err("applicationIds")} />}
       </FormSheet>
@@ -188,12 +189,12 @@ export function OutcomeDialog({ slotId, title, sub, outcome, notes, closeHref, c
         {(f) => (
           <>
             <div className="flex flex-col gap-1.5">
-              <p className="text-[13px] font-semibold text-ink2">Outcome <span className="text-bad" aria-hidden="true">*</span></p>
+              <p className="text-[13px] font-semibold text-ink2"><Words k="Outcome" /> <span className="text-bad" aria-hidden="true">*</span></p>
               <Segmented label="Outcome" value={o} onChange={setO} options={OUTCOME_OPTIONS} className="w-full" size="sm" />
             </div>
             <TextArea label="Notes" name="notes" rows={3} maxLength={1000} placeholder="How did the child and parents come across?" defaultValue={f.val("notes", notes)} error={f.err("notes")} />
-            {outcome && <p className="text-[12.5px] text-ink3">Was {OUTCOME_OPTIONS.find((x) => x.value === outcome)?.label}. Every change of outcome is kept in the decision history.</p>}
-            {canCancel && <Button variant="ghost" size="sm" icon={X} className="self-start" onClick={() => setCancel(true)}>Cancel this interview</Button>}
+            {outcome && <p className="text-[12.5px] text-ink3"><Words k="Was" /> {OUTCOME_OPTIONS.find((x) => x.value === outcome)?.label}<Words k=". Every change of outcome is kept in the decision history." /></p>}
+            {canCancel && <Button variant="ghost" size="sm" icon={X} className="self-start" onClick={() => setCancel(true)}><Words k="Cancel this interview" /></Button>}
           </>
         )}
       </FormSheet>

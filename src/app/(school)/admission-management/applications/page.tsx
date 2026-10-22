@@ -28,6 +28,7 @@ import { EmptyState } from "@/components/empty-state";
 import { AdmissionHead } from "../_components/head";
 import { DocPill, FeePill, StagePill } from "../_components/pills";
 import { OnlineLinkButton } from "./online-link";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Applications" };
 
@@ -120,12 +121,12 @@ export default async function ApplicationsPage({ searchParams }: Search) {
     return {
       key: r.id, href: `${PATH}/${r.id}`,
       cells: [
-        <div key="a" className="flex items-center gap-3 min-w-0"><Avatar name={r.fullName} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight truncate">{r.fullName}{r.channel === "online" && <Pill tone="info" className="ml-2 !h-5 !text-[11px] align-middle">Online</Pill>}</p><p className="text-[12px] text-ink3 font-mono">{r.applicationNo}</p></div></div>,
+        <div key="a" className="flex items-center gap-3 min-w-0"><Avatar name={r.fullName} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight truncate">{r.fullName}{r.channel === "online" && <Pill tone="info" className="ml-2 !h-5 !text-[11px] align-middle"><Words k="Online" /></Pill>}</p><p className="text-[12px] text-ink3 font-mono">{r.applicationNo}</p></div></div>,
         <div key="c"><p className="font-medium">{cls}</p><p className="text-[12px] text-ink3">{yearLabel(r.academicYearId)}</p></div>,
         <span key="p" className="tnum text-[13.5px]">{phoneWords(r.phone)}</span>,
         <StagePill key="s" stage={r.stage} />,
         <DocPill key="d" verified={p.requiredVerified} required={p.required} />,
-        ...(tests ? [<span key="t" className="text-[13px] whitespace-nowrap">{tw ?? <span className="text-ink3">None</span>}</span>] : []),
+        ...(tests ? [<span key="t" className="text-[13px] whitespace-nowrap">{tw ?? <span className="text-ink3"><Words k="None" /></span>}</span>] : []),
         ...(fee ? [<FeePill key="f" status={st} />] : []),
         <span key="sub" className="text-[13px] tnum">{formatDate(r.createdAt, tz)}</span>,
       ],
@@ -133,8 +134,8 @@ export default async function ApplicationsPage({ searchParams }: Search) {
         title: r.fullName, sub: `${r.applicationNo} · ${cls} · ${formatDate(r.createdAt, tz)}`, avatar: r.fullName,
         pills: [
           <Pill key="s" tone={STAGE_TONE[r.stage] ?? "neutral"} className="!h-[22px] !text-[11.5px]">{STAGES.find((x) => x.value === r.stage)?.label}</Pill>,
-          p.required ? <Pill key="d" tone={p.requiredVerified >= p.required ? "ok" : "warn"} className="!h-[22px] !text-[11.5px]">Papers {p.requiredVerified}/{p.required}</Pill> : null,
-          fee && st.key === "due" ? <Pill key="f" tone="bad" className="!h-[22px] !text-[11.5px]">Fee not paid</Pill> : null,
+          p.required ? <Pill key="d" tone={p.requiredVerified >= p.required ? "ok" : "warn"} className="!h-[22px] !text-[11.5px]"><Words k="Papers" /> {p.requiredVerified}/{p.required}</Pill> : null,
+          fee && st.key === "due" ? <Pill key="f" tone="bad" className="!h-[22px] !text-[11.5px]"><Words k="Fee not paid" /></Pill> : null,
         ],
       },
     };
@@ -154,7 +155,7 @@ export default async function ApplicationsPage({ searchParams }: Search) {
   const actions = (
     <>
       {settings.onlineOn && <OnlineLinkButton code={current.school.code} classes={classes} schoolName={current.school.name} feeOn={fee} yearName={year?.name ?? ""} />}
-      {canAdd && <ButtonLink href={`${PATH}/new`} variant="primary" icon={FilePlus2}>New application</ButtonLink>}
+      {canAdd && <ButtonLink href={`${PATH}/new`} variant="primary" icon={FilePlus2}><Words k="New application" /></ButtonLink>}
     </>
   );
 
@@ -188,12 +189,12 @@ export default async function ApplicationsPage({ searchParams }: Search) {
           </div>
           <DataList caption="Applications" {...rowList(columns)} rows={listRows} minWidth={1000}
             empty={filtered ? (
-              <EmptyState bare Icon={SearchX} title="No applications match" action={<ButtonLink href={PATH} variant="secondary">Clear filters</ButtonLink>}>
+              <EmptyState bare Icon={SearchX} title="No applications match" action={<ButtonLink href={PATH} variant="secondary"><Words k="Clear filters" /></ButtonLink>}>
                 {params.q ? `Nobody called “${params.q}”. Try the application number or phone.` : "Try another stage, class or fee filter."}
               </EmptyState>
             ) : (
-              <EmptyState bare Icon={FileText} title="No applications yet" action={canAdd ? <ButtonLink href={`${PATH}/new`} variant="primary" icon={FilePlus2}>New application</ButtonLink> : undefined}>
-                Fill an application at the counter, or open an enquiry and convert it, so nothing is typed twice.
+              <EmptyState bare Icon={FileText} title="No applications yet" action={canAdd ? <ButtonLink href={`${PATH}/new`} variant="primary" icon={FilePlus2}><Words k="New application" /></ButtonLink> : undefined}>
+                <Words k="Fill an application at the counter, or open an enquiry and convert it, so nothing is typed twice." />
               </EmptyState>
             )}
             footer={<Pager page={params.page} pageSize={PAGE_SIZE} total={data.total} prevHref={listHref(PATH, params, { page: params.page - 1 })} nextHref={listHref(PATH, params, { page: params.page + 1 })} />} />

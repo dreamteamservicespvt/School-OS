@@ -13,6 +13,7 @@ import { EmptyState } from "@/components/empty-state";
 import { AdmissionHead } from "../_components/head";
 import { ClassEdit, ListChips, NumbersButton, OwnerRule, PapersTable, RuleSwitch, StagesList } from "./settings-forms";
 import { schoolRoles } from "@/lib/school-roles";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Admission Settings" };
 
@@ -90,7 +91,7 @@ export default async function AdmissionSettingsPage() {
                 {data.classes.map((c) => (
                   <li key={c.id} className="flex items-center justify-between gap-3 px-3.5 py-2.5"><span className="text-ink2">{c.name}</span><span className="font-semibold">{staffName(data.rules.get(c.id)?.ownerStaffId ?? null) ?? `${staffName(s.defaultOwnerStaffId) ?? "Person adding it"} (default owner)`}</span></li>
                 ))}
-                <li className="flex items-center justify-between gap-3 px-3.5 py-2.5"><span className="text-ink2">No class wanted</span><span className="font-semibold">{staffName(s.defaultOwnerStaffId) ?? "Person adding it"} (default owner)</span></li>
+                <li className="flex items-center justify-between gap-3 px-3.5 py-2.5"><span className="text-ink2"><Words k="No class wanted" /></span><span className="font-semibold">{staffName(s.defaultOwnerStaffId) ?? "Person adding it"} <Words k="(default owner)" /></span></li>
               </ul>
             )}
           </div>
@@ -99,7 +100,7 @@ export default async function AdmissionSettingsPage() {
         <Card className="overflow-hidden">
           <CardHeader title="Papers needed per class" description="Tap a cell to switch Required, Optional or Not needed" icon={FolderOpen} />
           {cls.length ? <PapersTable canEdit={canEdit} classes={cls} docs={DOC_TYPES.map((d) => ({ value: d.key, label: d.label }))} cells={cells} />
-            : <EmptyState bare Icon={FolderOpen} title="No classes yet">Add classes in Academic Management, Classes &amp; Sections.</EmptyState>}
+            : <EmptyState bare Icon={FolderOpen} title="No classes yet"><Words k={"Add classes in Academic Management, Classes & Sections."} /></EmptyState>}
         </Card>
 
         <Card className="overflow-hidden">
@@ -156,9 +157,9 @@ export default async function AdmissionSettingsPage() {
 
         <Card>
           <CardHeader title="Approval limits" description="Shown here, stored in Settings, Forms & Approvals" icon={ShieldCheck}
-            action={can(current.permissions, "settings", "edit") ? <ButtonLink size="sm" variant="ghost" iconRight={ChevronRight} href="/settings/forms-approvals">Open</ButtonLink> : undefined} />
+            action={can(current.permissions, "settings", "edit") ? <ButtonLink size="sm" variant="ghost" iconRight={ChevronRight} href="/settings/forms-approvals"><Words k="Open" /></ButtonLink> : undefined} />
           <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[14px]">
-            <li className="flex items-center justify-between gap-3"><span className="text-ink2">Admission decision</span>{decisionStage?.needsApproval ? <Pill tone="brand">{approver}</Pill> : <Pill tone="neutral">No approval</Pill>}</li>
+            <li className="flex items-center justify-between gap-3"><span className="text-ink2"><Words k="Admission decision" /></span>{decisionStage?.needsApproval ? <Pill tone="brand">{approver}</Pill> : <Pill tone="neutral"><Words k="No approval" /></Pill>}</li>
           </ul>
         </Card>
       </div>

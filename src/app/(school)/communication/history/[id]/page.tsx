@@ -11,6 +11,7 @@ import { CHANNEL_LABEL, onChannels, type Channel } from "@/lib/messaging/channel
 import { retryableFailures } from "@/lib/messaging/deliver";
 import { NOT_SENT } from "@/lib/messaging/send";
 import { CODE_HIDDEN_LABEL, hiddenCodeText, isCodeMessage } from "@/lib/messaging/one-time-code";
+import { systemPurposeOf, systemWhatWords } from "@/lib/messaging/system-message";
 import { withHiddenLinks } from "@/lib/parent-link/token";
 import { countsFor, DELIVERY_LABEL, inTestMode, MESSAGE_STATUS_LABEL, messageCampusWhere, recipientCampusWhere, senderNames, senderWords } from "@/lib/communication/history";
 import { unreadCount } from "@/lib/messaging/resend";
@@ -80,6 +81,8 @@ export default async function MessagePage({ params, searchParams }: Props) {
   const sender = senderWords(m, data.names);
   // A one-time code: shown hidden, never retried or resent, and not an emergency broadcast (QA SEC-01).
   const isCode = isCodeMessage(m);
+  // A person's own link (Parent Link, staff invite): sent by School OS, not an emergency broadcast (QA LABEL-01).
+  const system = systemPurposeOf(m);
   const skipped = (Array.isArray(m.skipped) ? m.skipped : []) as { reason: string; count: number; names?: string[] }[];
   const sent = m.status === "SENT" || m.status === "QUEUED";
 
@@ -118,7 +121,8 @@ export default async function MessagePage({ params, searchParams }: Props) {
         {m.status === "SCHEDULED" && m.scheduledAt && <Banner tone="info" title={`Scheduled for ${formatDateTime(m.scheduledAt, tz)}.`}>Nobody has received it yet. You can cancel it until it goes.</Banner>}
         {m.status === "CANCELLED" && <Banner tone="warn" title="Cancelled.">{m.cancelledAt ? `On ${formatDateTime(m.cancelledAt, tz)}` : ""}{m.cancelledById ? ` by ${data.names.get(m.cancelledById) ?? "staff"}` : ""}. Nobody got it, and no credits were used.</Banner>}
         {isCode && <Banner tone="info" title={`${CODE_HIDDEN_LABEL}.`}>The code is never kept or shown here; only the person it went to saw it. A code that did not arrive is not sent again: the person asks for a new code.</Banner>}
-        {m.isEmergency && !isCode && <Banner tone="bad" title="Emergency broadcast.">Sent also to parents who opted out.</Banner>}
+        {system && <Banner tone="info" title="Sent by School OS.">This is {systemWhatWords(system)}. It goes also to people who opted out of messages, because it is their own link. It is not an emergency broadcast.</Banner>}
+        {m.isEmergency && !isCode && !system && <Banner tone="bad" title="Emergency broadcast.">Sent also to parents who opted out.</Banner>}
         {counts.testMode > 0 && <Banner tone="warn" title="Test mode: not really sent.">The channel is in test mode in Settings, SMS, WhatsApp &amp; Email, so the {counts.testMode.toLocaleString("en-IN")} {counts.testMode === 1 ? "person" : "people"} marked &ldquo;Test mode&rdquo; below did not receive this message. It is only recorded.</Banner>}
         {skipped.length > 0 && (
           <Banner tone="warn" title={`${skipped.reduce((n, x) => n + x.count, 0)} left out when it was sent:`}>

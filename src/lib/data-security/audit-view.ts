@@ -93,6 +93,9 @@ const WORDS: Record<string, string> = {
   "consent-text-saved": "Saved a consent text version",
   "retention-changed": "Changed how long records are kept",
   "feature-switched": "Switched a feature",
+  // A Parent Link or an invite: School OS's own message, not an emergency broadcast (QA LABEL-01).
+  "system-message-sent": "Message sent by School OS (a personal link)",
+  "system-message-relabelled": "Marked as sent by School OS, not an emergency broadcast",
 };
 
 export function actionWords(action: string): string {

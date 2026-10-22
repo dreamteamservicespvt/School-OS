@@ -6,7 +6,8 @@ import type { SchoolContext, Tx } from "../db";
 import type { ListParams } from "../list";
 import { inPeriod, PERIOD_FILTERS } from "./period";
 import { RULES } from "../messaging/automatic";
-import { codeSender, isCodeMessage } from "../messaging/one-time-code";
+import { codeSender, isCodeMessage, ONE_TIME_CODE } from "../messaging/one-time-code";
+import { SYSTEM_MESSAGES, systemPurposeOf, systemSenderWords } from "../messaging/system-message";
 
 export const HISTORY_FILTERS = ["channel", "status", "sender", "rule", "person", ...PERIOD_FILTERS] as const;
 
@@ -24,7 +25,8 @@ export function historyWhere(ctx: SchoolContext, full: boolean, p: ListParams, t
   else if (f.status) and.push({ status: f.status as Prisma.EnumMessageStatusFilter["equals"] });
   if (f.sender === "me") and.push({ sentById: ctx.userId });
   if (f.sender === "rules") and.push({ ruleKey: { not: null } });
-  if (f.sender === "people") and.push({ ruleKey: null, sourceType: null });
+  // People: not School OS's own messages (one-time codes, Parent Links, invites; QA SEC-01, LABEL-01).
+  if (f.sender === "people") and.push({ ruleKey: null, sourceType: null, messageType: { notIn: [ONE_TIME_CODE, ...Object.keys(SYSTEM_MESSAGES)] } });
   if (f.sender === "notices") and.push({ sourceType: "Notice" });
   if (f.rule) and.push({ ruleKey: f.rule });
   const when = inPeriod(f, timeZone);
@@ -63,11 +65,14 @@ export async function countsFor(tx: Tx, ctx: SchoolContext, messageIds: string[]
 
 /**
  * Who sent a message, in words: an automatic rule ("Rule: Absent today"), a notice,
- * School OS for a one-time code ("School OS (sign-in)", QA SEC-01), or the person.
+ * School OS for a one-time code ("School OS (sign-in)", QA SEC-01) or a person's own
+ * link ("School OS (Parent Link)", "School OS (staff invite)", QA LABEL-01), or the person.
  */
 export function senderWords(m: { ruleKey: string | null; sourceType: string | null; sentById: string | null; messageType: string; trigger: string | null }, names: Map<string, string>): string {
   if (m.ruleKey) return `Rule: ${RULES.find((r) => r.key === m.ruleKey)?.label ?? m.ruleKey}`;
   if (isCodeMessage(m)) return codeSender(m);
+  const system = systemPurposeOf(m);
+  if (system) return systemSenderWords(system);
   if (m.sourceType === "Notice") return "Notice";
   return names.get(m.sentById ?? "") ?? "School";
 }

@@ -289,9 +289,9 @@ export async function sendCode(tx: Tx, ctx: SchoolContext, linkId: string, purpo
     to: { guardianIds: [link.guardianId] },
     channels: [channel],
     templates: { [channel]: templateId },
-    values: { code },
+    // The code goes only to the provider; Message History keeps "••••••" (QA SEC-01).
+    oneTimeCode: { code, purpose: "parent-link" },
     single: true,
-    emergency: true,
     trigger: purpose === "device" ? "Parent Link one-time code (new phone)" : "Parent Link one-time code (consent)",
     source: { type: "Parent Link Code", id: row.id },
     idempotencyKey: `parent-link-code:${row.id}`,

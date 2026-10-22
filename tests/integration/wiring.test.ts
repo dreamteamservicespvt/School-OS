@@ -21,6 +21,9 @@ import { certificateHtml, printContext } from "@/lib/students/certificates";
 import { idCardsHtml, sectionCards } from "@/lib/students/id-cards";
 import { notify } from "@/lib/notifications";
 import { addDlt, makeCommSchool } from "../communication/fixture";
+import { takeLoggedCode, watchLoggedCodes } from "../helpers";
+
+watchLoggedCodes();
 
 let s: Awaited<ReturnType<typeof makeCommSchool>>;
 const device = { userAgent: "Wiring test", ipAddress: "10.0.0.4" };
@@ -85,7 +88,10 @@ describe("two-step sign-in codes", () => {
     const msg = await withSchool(s.ctx, (tx) => tx.message.findFirstOrThrow({ where: { sourceType: "User Login", sourceId: s.principal.id, trigger: { startsWith: "Sign-in code" } }, include: { recipients: true } }));
     expect(msg.recipients).toHaveLength(1);
     expect(msg.recipients[0]).toMatchObject({ channel: "sms", address: "9876543299" });
-    expect(msg.recipients[0].text).toMatch(/^\d{6} is your School OS sign-in code/);
+    // The code goes only to the provider: the message keeps "••••••" (QA SEC-01).
+    expect(msg.recipients[0].text).toMatch(/^•••••• is your School OS sign-in code/);
+    expect(msg.recipients[0].sealedCode).toBeTruthy();
+    expect(msg).toMatchObject({ messageType: "one-time-code", isEmergency: false, sentById: null });
   });
 
   it("a code to confirm a new mobile number goes to that new number", async () => {
@@ -93,7 +99,8 @@ describe("two-step sign-in codes", () => {
     expect(r).toMatchObject({ channel: "sms" });
     const msg = await withSchool(s.ctx, (tx) => tx.message.findFirstOrThrow({ where: { idempotencyKey: "change-phone:k-new-phone" }, include: { recipients: true } }));
     expect(msg.recipients[0]).toMatchObject({ channel: "sms", address: "9876500001" });
-    expect(msg.recipients[0].text).toContain("246810");
+    expect(msg.recipients[0].text).not.toContain("246810");
+    expect(JSON.stringify(msg.recipients[0].values)).not.toContain("246810");
   });
 
   it("fall back to email (or the log in development) when SMS is off", async () => {
@@ -173,11 +180,8 @@ describe("Student Management and Communication", () => {
     // The guardian agrees on Parent Link with a one-time code.
     const link = await withSchool(s.ctx, async (tx) => (await tx.parentLink.findFirst({ where: { guardianId: g, status: "ACTIVE" } })) ?? (await import("@/lib/parent-link/links")).createLink(tx, s.ctx, g));
     await withSchool(s.ctx, (tx) => askConsentCode(tx, s.ctx, link.id, g, { consentTextId: texts.photo.id, studentIds: [s.priya.id], action: "give" }));
-    const code = await withSchool(s.ctx, async (tx) => {
-      const c = await tx.parentLinkCode.findFirstOrThrow({ where: { parentLinkId: link.id, purpose: "consent" }, orderBy: { createdAt: "desc" } });
-      const r = await tx.messageRecipient.findFirstOrThrow({ where: { messageId: c.messageId! } });
-      return r.text.match(/\b(\d{6})\b/)![1];
-    });
+    // From the server log: the message keeps "••••••" (QA SEC-01).
+    const code = takeLoggedCode();
     const done = await withSchool(s.ctx, (tx) => confirmConsent(tx, s.ctx, link.id, g, code, device));
     expect(done.ok).toBe(true);
     const after = await withSchool(s.ctx, (tx) => consentRows(tx, s.ctx, { guardianIds: [g] }));

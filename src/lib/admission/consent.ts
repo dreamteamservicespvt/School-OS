@@ -14,6 +14,7 @@ import { AdmissionProblem } from "./act";
 import { requireFull, type Viewer } from "./access";
 import { activity, loadApplication } from "./applications";
 import { messageParent } from "./notify-parents";
+import { CODE_MASK, withCode } from "../messaging/one-time-code";
 import { channelInTestMode, channelWord, codeNotSentParentWords, codeNotSentWords, logCodeSentBy, PARENT_CODE_NOT_SENT } from "../dev-codes";
 
 export const DATA_CONSENT = "data-processing";
@@ -62,13 +63,14 @@ export async function startOtp(tx: Tx, ctx: SchoolContext, input: { phone: strin
   await tx.admissionOtp.updateMany({ where: { purpose: input.purpose, usedAt: null }, data: { usedAt: now } });
   const row = await tx.admissionOtp.create({ data: { schoolId: ctx.schoolId, phone: input.phone, purpose: input.purpose, codeHash: "pending", expiresAt: new Date(now.getTime() + OTP_TTL_MS) } });
   await tx.admissionOtp.update({ where: { id: row.id }, data: { codeHash: hashCode(row.id, code) } });
-  const text = `${code} is your code to confirm consent for admission at ${input.schoolName}. It works for 10 minutes. Do not share it with anyone else.`;
+  // The message keeps "••••••"; the code goes only to the provider (QA SEC-01).
+  const text = `${CODE_MASK} is your code to confirm consent for admission at ${input.schoolName}. It works for 10 minutes. Do not share it with anyone else.`;
   const sentTo = `•••••${input.phone.slice(-4)}`;
   if (opts.deliver) {
-    if (!(await opts.deliver(input.phone, text))) throw new AdmissionProblem("The code could not be sent just now. Please try again in a minute.");
+    if (!(await opts.deliver(input.phone, withCode(text, code)))) throw new AdmissionProblem("The code could not be sent just now. Please try again in a minute.");
     return { sentTo, channel: "sms", testMode: false, inLog: false };
   }
-  const r = await messageParent(tx, ctx, { to: { name: "Parent", phone: input.phone }, template: "admission-consent-code", channel: "sms", text, secret: true, about: input.about ?? { recordType: "Application", recordId: input.purpose } });
+  const r = await messageParent(tx, ctx, { to: { name: "Parent", phone: input.phone }, template: "admission-consent-code", channel: "sms", text, code, about: input.about ?? { recordType: "Application", recordId: input.purpose } });
   // Say why (for example no SMS set up), so the office does not blame the parent's number.
   // A parent (online form) is never shown staff words or settings paths.
   if (r.status !== "queued") throw new AdmissionProblem(opts.forParent ? PARENT_CODE_NOT_SENT : r.status === "skipped" && r.note ? `The code could not be sent. ${r.note}.` : "The code could not be sent to this number.");

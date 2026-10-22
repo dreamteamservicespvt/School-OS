@@ -44,9 +44,10 @@ export async function sendCodeBySms(input: { schoolId: string; userLoginId: stri
         to: { loginIds: [input.userLoginId], loginContact: { [input.userLoginId]: { phone: input.phone, email: null } } },
         channels: ["sms"],
         templates: { sms: templateId },
-        values: { code: input.code },
+        // The code goes only to the provider; Message History keeps "••••••" (QA SEC-01).
+        // A required system message: it reaches the person even if they opted out of messages.
+        oneTimeCode: { code: input.code, purpose: input.purpose && input.purpose !== "sign-in" ? "new-contact" : "sign-in" },
         single: true,
-        emergency: true,
         trigger: input.purpose && input.purpose !== "sign-in" ? `Confirmation code (${input.purpose})` : "Sign-in code (two-step login)",
         source: { type: "User Login", id: input.userLoginId },
         audienceLabel: "Sign-in code",

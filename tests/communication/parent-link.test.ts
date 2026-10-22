@@ -12,6 +12,7 @@ import { loadSections } from "@/lib/parent-link/render";
 import { saveNotice } from "@/lib/communication/notices";
 import { childrenByGuardian } from "@/lib/communication/parent-link-admin";
 import { makeCommSchool } from "./fixture";
+import { takeLoggedCode, watchLoggedCodes } from "../helpers";
 
 let s: Awaited<ReturnType<typeof makeCommSchool>>;
 const device = { userAgent: "Mozilla/5.0 (Linux; Android 14) Chrome/120", ipAddress: "10.0.0.1" };
@@ -20,13 +21,18 @@ beforeAll(async () => {
   s = await makeCommSchool();
 });
 
-/** The code as the sandbox shows it in the message log. */
+watchLoggedCodes();
+
+/** The code from the server log (development only); the message itself keeps "••••••" (QA SEC-01). */
 async function lastCode(linkId: string) {
-  return withSchool(s.ctx, async (tx) => {
-    const code = await tx.parentLinkCode.findFirstOrThrow({ where: { parentLinkId: linkId }, orderBy: { createdAt: "desc" } });
-    const r = await tx.messageRecipient.findFirstOrThrow({ where: { messageId: code.messageId! } });
-    return r.text.match(/\b(\d{6})\b/)![1];
+  const code = takeLoggedCode();
+  const text = await withSchool(s.ctx, async (tx) => {
+    const row = await tx.parentLinkCode.findFirstOrThrow({ where: { parentLinkId: linkId }, orderBy: { createdAt: "desc" } });
+    return (await tx.messageRecipient.findFirstOrThrow({ where: { messageId: row.messageId! } })).text;
   });
+  expect(text).toContain("••••••");
+  expect(text).not.toContain(code);
+  return code;
 }
 
 async function confirmPhone(linkId: string) {

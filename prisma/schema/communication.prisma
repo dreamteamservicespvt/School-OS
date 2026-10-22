@@ -118,7 +118,7 @@ model Message {
   creditCost        Int           @default(0) @map("credit_cost")
   status            MessageStatus @default(QUEUED)
   isEmergency       Boolean       @default(false) @map("is_emergency")
-  /// fee, attendance, result, general... (decides SMS backup).
+  /// fee, attendance, result, general... (decides SMS backup); "one-time-code" for a code (never resent, ignores opt-outs).
   messageType       String        @default("general") @map("message_type")
   smsBackup         Boolean       @default(false) @map("sms_backup")
   /// The SMS template (with DLT template IDs) used for backup SMS.
@@ -173,8 +173,10 @@ model MessageRecipient {
   templateVersionId String?        @map("template_version_id") @db.Uuid
   /// Blanks filled for this person, kept for retries and SMS backup.
   values            Json           @default("{}")
-  /// The exact text this person gets.
+  /// The exact text this person gets. A one-time code is kept as "••••••" (QA SEC-01).
   text              String
+  /// A one-time code, encrypted, only until the delivery job hands it to the provider; then cleared (src/lib/messaging/one-time-code.ts).
+  sealedCode        String?        @map("sealed_code")
   status            DeliveryStatus @default(QUEUED)
   failReason        String?        @map("fail_reason")
   providerMessageId String?        @map("provider_message_id")

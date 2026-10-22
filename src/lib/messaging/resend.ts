@@ -8,6 +8,7 @@ import type { SchoolContext, Tx } from "../db";
 import { PREFERRED_ORDER, type Channel } from "./channels";
 import { planMessage, sendMessage, MessagingProblem, type SendInput } from "./send";
 import type { AudienceRule, Scope } from "./recipients";
+import { CODE_NOT_RESENT, isCodeMessage } from "./one-time-code";
 
 export type ResendWho = "unread" | "failed";
 
@@ -65,6 +66,8 @@ async function targets(tx: Tx, ctx: SchoolContext, messageId: string, who: Resen
 export async function resendInput(tx: Tx, ctx: SchoolContext, messageId: string, who: ResendWho, channel: Channel | "preferred", scope: Scope): Promise<SendInput> {
   const m = await tx.message.findFirst({ where: { id: messageId, schoolId: ctx.schoolId } });
   if (!m) throw new MessagingProblem("This message was not found.");
+  // A one-time code is never sent again, by any channel (QA SEC-01).
+  if (isCodeMessage(m)) throw new MessagingProblem(CODE_NOT_RESENT);
   if (m.status === "SCHEDULED" || m.status === "CANCELLED") throw new MessagingProblem("This message has not been sent, so there is nothing to resend.");
   if (who === "unread" && m.status !== "SENT") throw new MessagingProblem("This message is still going out. Resend to unread once everyone has been sent it.");
   const t = await targets(tx, ctx, messageId, who);
@@ -104,8 +107,8 @@ export async function resendInput(tx: Tx, ctx: SchoolContext, messageId: string,
 
 /** How many people "Resend to unread" would reach: none until the message has finished going (COMM-03). */
 export async function unreadCount(tx: Tx, ctx: SchoolContext, messageId: string) {
-  const m = await tx.message.findFirst({ where: { id: messageId, schoolId: ctx.schoolId }, select: { status: true } });
-  if (m?.status !== "SENT") return 0;
+  const m = await tx.message.findFirst({ where: { id: messageId, schoolId: ctx.schoolId }, select: { status: true, messageType: true } });
+  if (m?.status !== "SENT" || isCodeMessage(m)) return 0;
   return (await targets(tx, ctx, messageId, "unread")).count;
 }
 

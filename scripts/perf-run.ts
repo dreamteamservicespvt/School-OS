@@ -48,7 +48,11 @@ const { loadStudentList, LIST_FILTERS } = await import("../src/app/(school)/stud
 const { feeViewer } = await import("../src/lib/fees/access");
 const { findStudents: findFeeStudents, mostOverdue } = await import("../src/lib/fees/find");
 const { studentLedger } = await import("../src/lib/fees/ledger");
-const { defaulterLists } = await import("../src/lib/fees/defaulters");
+const feeDefaulters = await import("../src/lib/fees/defaulters");
+// The page reads the whole list and its filtered one (defaulterLists; one at a time before it existed, to compare versions).
+const defaulterLists: typeof feeDefaulters.defaulterLists = "defaulterLists" in feeDefaulters
+  ? feeDefaulters.defaulterLists
+  : (tx, ctx, v, day, fs) => Promise.all(fs.map((f) => (feeDefaulters as unknown as { defaulters: typeof feeDefaulters.defaulters }).defaulters(tx, ctx, v, day, f)));
 const { feeTiles, monthlyTrend, forecast, recentPayments } = await import("../src/lib/fees/dashboard");
 const { attendanceAccess } = await import("../src/lib/attendance/access");
 const { registerMonth } = await import("../src/lib/attendance/register");
@@ -212,9 +216,10 @@ add("Message History", async () => {
       tx.message.findMany({ where, orderBy: { createdAt: "desc" }, ...skipTake(params) }),
       tx.message.count({ where }),
       tx.message.count({ where: { AND: [mine], status: { in: ["SENT", "QUEUED"] } } }),
-      tx.messageRecipient.groupBy({ by: ["status", "provider"], where: { schoolId, isBackup: false }, _count: { _all: true } }),
+      // HISTORY_JOIN=1: as the page read them before G37, each recipient joined to its message.
+      tx.messageRecipient.groupBy({ by: ["status", "provider"], where: { schoolId, isBackup: false, ...(process.env.HISTORY_JOIN === "1" ? { message: mine } : {}) }, _count: { _all: true } }),
       tx.message.findFirst({ where: mine, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
-      tx.messageRecipient.count({ where: { schoolId, isBackup: false, provider: "sandbox", status: { in: ["SENT", "DELIVERED", "READ"] } } }),
+      tx.messageRecipient.count({ where: { schoolId, isBackup: false, provider: "sandbox", status: { in: ["SENT", "DELIVERED", "READ"] }, ...(process.env.HISTORY_JOIN === "1" ? { message: mine } : {}) } }),
     ]);
     return { rows, total, sentCount, reach, firstSent, testMode, counts: await countsFor(tx, principal.ctx, rows.map((r) => r.id)), names: await senderNames(tx, rows.map((r) => r.sentById)) };
   });

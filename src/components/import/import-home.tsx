@@ -12,6 +12,7 @@ import { kindInfo, settleImports } from "@/lib/move-in/service";
 import { shownFileName } from "@/lib/data-security/imports";
 import { errorsHref, fileHref, templateHref, wordsFor, type ImportPlace } from "@/lib/imports/places";
 import { placeRefusal } from "@/lib/imports/place-access";
+import { fileBatchIds } from "@/lib/move-in/batches";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
@@ -91,7 +92,7 @@ export async function ImportHome({ current, place, initial, about, students }: {
                 <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-[14px]">
                   <span className="min-w-0 break-all">
                     <Link href={fileHref(place, f.id)} className="font-medium text-brand hover:underline">{f.fileName}{(f.sheets as unknown[]).length > 1 && sheet ? ` · ${sheet.name}` : ""}</Link>
-                    <span className="block text-[13px] text-ink3">{k?.label ?? f.kind} · uploaded {formatDateTime(f.createdAt, tz)}</span>
+                    <span className="block text-[13px] text-ink3">{k?.label ?? f.kind} · uploaded {formatDateTime(f.createdAt, tz)}{fileBatchIds(f).length ? ` · part brought in${f.waiting ? `, ${f.waiting} ${f.waiting === 1 ? "row" : "rows"} not brought in yet` : ""}` : ""}</span>
                   </span>
                   {f.status === "importing" ? <Pill tone="brand">Importing</Pill> : k?.may && <ButtonLink href={fileHref(place, f.id)} size="sm" variant="primary">Continue</ButtonLink>}
                 </li>

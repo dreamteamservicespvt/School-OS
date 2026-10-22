@@ -6,6 +6,7 @@ import { can } from "@/lib/permissions";
 import { findModule } from "@/lib/modules";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { canBring, canUndo, goLiveSummary, kindInfo, kindModule, moveInKinds, settleImports } from "@/lib/move-in/service";
+import { fileBatchIds } from "@/lib/move-in/batches";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
@@ -56,7 +57,7 @@ export default async function SwitchingPage({ searchParams }: Search) {
         tx.openingBalance.count({ where: { archivedAt: null, kind: { not: "STUDENT_DUES" } } }),
       ]),
     ]);
-    const batches = await tx.importBatch.findMany({ where: { id: { in: files.map((f) => f.batchId).filter((x): x is string => Boolean(x)) } } });
+    const batches = await tx.importBatch.findMany({ where: { id: { in: files.flatMap((f) => fileBatchIds(f)) } } });
     return { files, summary, counts, batches: new Map(batches.map((b) => [b.id, b])) };
   });
   const { summary } = data;
@@ -150,16 +151,18 @@ export default async function SwitchingPage({ searchParams }: Search) {
           {files.map((f) => {
             const sheet = (f.sheets as { name: string; rows: number }[])[f.sheetIndex];
             const batch = f.batchId ? data.batches.get(f.batchId) : undefined;
+            const part = fileBatchIds(f).map((b) => data.batches.get(b)).filter((b) => b !== undefined);
+            const added = part.reduce((n, b) => n + b.added, 0);
             const label = kindInfo(f.kind)?.label ?? f.kind;
             return (
               <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <Link href={`${BASE}/${f.id}`} className="font-medium text-brand-text underline-offset-2 hover:underline break-all">{f.fileName}{(f.sheets as unknown[]).length > 1 && sheet ? ` · ${sheet.name}` : ""}</Link>
-                  <p className="text-sm text-ink-2">{label} · uploaded {formatDateTime(f.createdAt, tz)}{batch ? ` · ${batch.added} added${batch.skipped ? `, ${batch.skipped} with problems` : ""}` : ""}</p>
+                  <p className="text-sm text-ink-2">{label} · uploaded {formatDateTime(f.createdAt, tz)}{part.length ? ` · ${added} added` : ""}{f.status === "open" && part.length && f.waiting ? ` · ${f.waiting} ${f.waiting === 1 ? "row" : "rows"} not brought in yet` : ""}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
-                  <FileStatus status={f.status} undone={Boolean(batch?.undoneAt)} />
-                  {f.status !== "importing" && canBring(current.permissions, f.kind, current.modulesOn) && <RemoveFileButton place="settings" id={f.id} imported={f.status === "imported"} back={BASE} />}
+                  <FileStatus status={f.status} undone={Boolean(batch?.undoneAt)} part={part.length > 0} />
+                  {f.status !== "importing" && canBring(current.permissions, f.kind, current.modulesOn) && <RemoveFileButton place="settings" id={f.id} imported={f.status === "imported" || part.length > 0} back={BASE} />}
                   {f.status === "imported" && batch && !batch.undoneAt && canUndo(current.permissions, f.kind, current.modulesOn) && <ButtonLink href={`${BASE}/${f.id}`} size="sm">See result</ButtonLink>}
                   {f.status === "open" && canBring(current.permissions, f.kind, current.modulesOn) && <ButtonLink href={`${BASE}/${f.id}`} size="sm" variant="primary">Continue</ButtonLink>}
                 </div>
@@ -187,8 +190,8 @@ function Step({ n, title, done, status, about, children }: { n: number; title: s
   );
 }
 
-function FileStatus({ status, undone }: { status: string; undone: boolean }) {
+function FileStatus({ status, undone, part }: { status: string; undone: boolean; part: boolean }) {
   if (status === "importing") return <Badge tone="brand">Importing</Badge>;
   if (status === "imported") return undone ? <Badge>Undone</Badge> : <Badge tone="success">Imported</Badge>;
-  return <Badge tone="warning">Being checked</Badge>;
+  return <Badge tone="warning">{part ? "Part brought in" : "Being checked"}</Badge>;
 }

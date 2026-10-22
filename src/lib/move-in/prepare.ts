@@ -18,6 +18,8 @@ export type Choices = {
   tidy: boolean;
   /** Row number → the choice made for a row that may already be on record (read by the import's own check). */
   rowChoices?: Record<string, string>;
+  /** Rows an earlier import of this file brought in: not checked or brought in again. */
+  done?: number[];
 };
 
 export type Change = { key: string; from: string; to: string };
@@ -27,8 +29,8 @@ export type Unmatched = { column: "class" | "designation" | "department"; value:
 export type Prepared = {
   headers: string[];
   rows: PreparedRow[];
-  /** Rows passed over: empty, the headings again (exports that repeat them on every page) and totals. */
-  passed: { empty: number; headings: number; totals: number; leftOut: number };
+  /** Rows passed over: empty, the headings again (exports that repeat them on every page) and totals; rows left out by the person; rows an earlier import of the file brought in. */
+  passed: { empty: number; headings: number; totals: number; leftOut: number; broughtIn: number };
   unmatched: Unmatched[];
   /** Tidy-ups by column: how many values, with a few examples. */
   tidied: { key: string; label: string; count: number; examples: Change[] }[];
@@ -62,7 +64,8 @@ export function prepareSheet(kindKey: string, columns: ImportColumn[], grid: str
   const m = choices.columnMatch;
   const keys = columns.map((c) => c.key);
   const leftOut = new Set(choices.leftOut);
-  const passed = { empty: 0, headings: 0, totals: 0, leftOut: 0 };
+  const done = new Set(choices.done ?? []);
+  const passed = { empty: 0, headings: 0, totals: 0, leftOut: 0, broughtIn: 0 };
   const plainHeaders = headers.map(plain);
 
   // The order of day and month is worked out once per date column.
@@ -86,6 +89,7 @@ export function prepareSheet(kindKey: string, columns: ImportColumn[], grid: str
     if (filled.length === 0) { passed.empty++; continue; }
     if (raw.filter((c, i) => c.trim() && plain(c) === plainHeaders[i]).length >= 2) { passed.headings++; continue; }
     if (filled.length <= 2 && raw.some((c) => /^(grand\s*)?total\b|^sub\s*total\b|^count\b/i.test(c.trim()))) { passed.totals++; continue; }
+    if (done.has(line)) { passed.broughtIn++; continue; }
     if (leftOut.has(line)) { passed.leftOut++; continue; }
 
     const fixes = choices.rowFixes[String(line)] ?? {};

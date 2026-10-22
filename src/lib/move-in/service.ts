@@ -32,6 +32,7 @@ import { markRecalled, mergeRemembered, recallMapping, rememberMapping, type Rec
 import { aiConfirmedNote } from "../ai/audit";
 import { alignGoLive } from "../finance/settings-save";
 import { keptMoney, MONEY_KEYS, moneyTotals, type MoneyExpected } from "./money";
+import { broughtInOf, fileBatchIds } from "./batches";
 
 export class MoveInProblem extends Error {
   constructor(message: string, public field?: string) { super(message); }
@@ -232,8 +233,9 @@ export async function schoolLookups(tx: Tx, ctx: SchoolContext): Promise<Lookups
   };
 }
 
-export const choicesOf = (f: { headerRow: number; columnMatch: unknown; valueMatch: unknown; rowFixes: unknown; leftOut: unknown; tidy: boolean; rowChoices?: unknown }): Choices => ({
+export const choicesOf = (f: { headerRow: number; columnMatch: unknown; valueMatch: unknown; rowFixes: unknown; leftOut: unknown; tidy: boolean; rowChoices?: unknown; broughtIn?: unknown }): Choices => ({
   headerRow: f.headerRow,
+  done: Object.keys(broughtInOf({ broughtIn: f.broughtIn })).map(Number).filter(Number.isInteger),
   columnMatch: (f.columnMatch ?? {}) as ColumnMatch,
   valueMatch: (f.valueMatch ?? {}) as Choices["valueMatch"],
   rowFixes: (f.rowFixes ?? {}) as Choices["rowFixes"],
@@ -320,6 +322,10 @@ export async function chooseSheet(tx: Tx, ctx: SchoolContext, id: string, input:
   const headerRow = sheetChanged ? first.headerRow : input.headerRow;
   if (!Number.isInteger(headerRow) || headerRow < 1 || headerRow > Math.min(sheet.rows.length, 30)) throw new MoveInProblem("Choose the row that holds the headings.", "headerRow");
   const headerChanged = headerRow !== f.headerRow;
+  // Rows already brought in are known by their row in this sheet, read as this kind.
+  if ((sheetChanged || kindChanged || headerChanged) && (Object.keys(broughtInOf(f)).length || fileBatchIds(f).length)) {
+    throw new MoveInProblem("Part of this file is already brought in. To choose another sheet, heading row or kind of record, undo its imports first, or upload the file again.");
+  }
   const kind = importKind(input.kind)!;
   let match = f.columnMatch as ColumnMatch;
   if (sheetChanged || kindChanged || headerChanged) {
@@ -534,7 +540,7 @@ export async function removeFile(tx: Tx, ctx: SchoolContext, id: string) {
   const f = await getFile(tx, id);
   if (!f) throw new MoveInProblem("This file was not found.");
   if (f.status === "importing") throw new MoveInProblem("This file is being imported. Wait for it to finish.");
-  await tx.moveInFile.update({ where: { id }, data: { archivedAt: new Date(), status: f.status === "imported" ? "imported" : "cancelled" } });
+  await tx.moveInFile.update({ where: { id }, data: { archivedAt: new Date(), status: f.status === "imported" || fileBatchIds(f).length ? "imported" : "cancelled" } });
   await writeAudit(tx, ctx, { action: "archived", recordType: "Move-in File", recordId: id, after: { fileName: f.fileName } });
 }
 
@@ -544,6 +550,9 @@ export async function removeFile(tx: Tx, ctx: SchoolContext, id: string) {
  * Hands the clean rows to the shared importer as a background job. Only rows
  * that pass the checks now are sent; the import checks them again as it runs,
  * so a row that changed in between is listed with its problem, not imported.
+ * The rows not sent (rows with problems, rows left out by the person) stay
+ * with the file, counted, to fix and bring in as a further import of it; rows
+ * an earlier import of the file brought in are not sent again.
  */
 export async function importFile(tx: Tx, ctx: SchoolContext, id: string, opts: { link?: string } = {}) {
   const f = await openFile(tx, id);
@@ -561,24 +570,57 @@ export async function importFile(tx: Tx, ctx: SchoolContext, id: string, opts: {
   // The import job sees the rows with their own lines in the file, and the choices made for them.
   const lines = ready.map((r) => r.line);
   const decisions = Object.fromEntries(Object.entries(decisionsOf(w.choices, w.prepared)).filter(([line]) => lines.includes(Number(line))));
-  await startImport(tx, ctx, { kind: w.kind.key, fileId, match: identity, lines, decisions, ...(opts.link ? { link: opts.link } : {}), ...(w.checked!.left.length ? { left: w.checked!.left } : {}),
+  const brought = broughtInOf(f);
+  // Rows the kind leaves out on purpose ("No old dues") are counted with the file's first import only.
+  const first = !Object.keys(brought).length && !fileBatchIds(f).length;
+  await startImport(tx, ctx, { kind: w.kind.key, fileId, match: identity, lines, decisions, ...(opts.link ? { link: opts.link } : {}), ...(first && w.checked!.left.length ? { left: w.checked!.left } : {}),
     ...(f.options && Object.keys(f.options as object).length ? { options: f.options as Record<string, string | number | boolean | null> } : {}) });
-  await tx.moveInFile.update({ where: { id }, data: { status: "importing", importFileId: fileId } });
+  const problems = w.checked!.problems.length;
+  const leftOut = w.prepared.passed.leftOut;
+  // The rows being brought in are marked with the cleaned file until its import is done (settleImports).
+  for (const l of lines) brought[String(l)] = fileId;
+  await tx.moveInFile.update({ where: { id }, data: { status: "importing", importFileId: fileId, broughtIn: brought, waiting: problems + leftOut } });
   // Bringing the file in confirms its column match: the next file with these headings is matched the same way.
   await rememberMapping(tx, ctx, { kind: w.kind.key, headers: w.sheet.rows[f.headerRow - 1] ?? [], match: w.choices.columnMatch, fileName: f.fileName });
-  await writeAudit(tx, ctx, { action: "import-started", recordType: "Move-in File", recordId: id, after: { kind: w.kind.key, rows: ready.length, leftWithProblems: w.checked!.problems.length } });
-  return { rows: ready.length, problems: w.checked!.problems.length };
+  await writeAudit(tx, ctx, { action: "import-started", recordType: "Move-in File", recordId: id, after: { kind: w.kind.key, rows: ready.length, leftWithProblems: problems, leftOutByPerson: leftOut, broughtInBefore: w.prepared.passed.broughtIn } });
+  return { rows: ready.length, problems, leftOut };
 }
 
-/** Moves files whose import job finished (or failed) on to their next state. */
+/**
+ * Moves files whose import job finished (or failed) on to their next state.
+ * The rows it brought in are kept with the file under the new import; a row
+ * the import could not save goes back to the file. A file with rows still
+ * waiting opens again to fix them; a file with none is imported.
+ */
 export async function settleImports(tx: Tx) {
   const running = await tx.moveInFile.findMany({ where: { status: "importing", archivedAt: null } });
   for (const f of running) {
     if (!f.importFileId) continue;
-    const batch = await tx.importBatch.findFirst({ where: { fileName: { endsWith: `#${f.importFileId}` } }, select: { id: true } });
-    if (batch) { await tx.moveInFile.update({ where: { id: f.id }, data: { status: "imported", batchId: batch.id } }); continue; }
-    const job = await tx.backgroundJob.findFirst({ where: { kind: "import-run", idempotencyKey: { startsWith: `import:${f.importFileId}:` } } });
-    if (job?.status === "failed") await tx.moveInFile.update({ where: { id: f.id }, data: { status: "open" } });
+    const sent = f.importFileId;
+    const brought = broughtInOf(f);
+    const batch = await tx.importBatch.findFirst({ where: { fileName: { endsWith: `#${sent}` } }, select: { id: true, errorReport: true, undoneAt: true } });
+    if (batch) {
+      const failed = new Set(((batch.errorReport ?? []) as { line?: number }[]).map((b) => String(b.line)));
+      let back = 0;
+      let kept = 0;
+      for (const [line, b] of Object.entries(brought)) {
+        if (b !== sent) continue;
+        if (failed.has(line) || batch.undoneAt) { delete brought[line]; back++; } else { brought[line] = batch.id; kept++; }
+      }
+      // An import that saved none of its rows is not one of the file's imports (it stays in the history).
+      // A file sent before rows were kept with it (no rows marked) counts its import as before.
+      const legacy = kept + back === 0 && !batch.undoneAt;
+      const batchIds = kept || legacy ? [...fileBatchIds(f).filter((b) => b !== batch.id), batch.id] : fileBatchIds(f);
+      const waiting = f.waiting + back;
+      await tx.moveInFile.update({ where: { id: f.id }, data: { status: waiting > 0 || !batchIds.length ? "open" : "imported", batchId: batchIds.at(-1) ?? null, batchIds, broughtIn: brought, waiting } });
+      continue;
+    }
+    const job = await tx.backgroundJob.findFirst({ where: { kind: "import-run", idempotencyKey: { startsWith: `import:${sent}:` } } });
+    if (job?.status === "failed") {
+      // Nothing was saved: the rows sent are waiting again.
+      const kept = Object.fromEntries(Object.entries(brought).filter(([, b]) => b !== sent));
+      await tx.moveInFile.update({ where: { id: f.id }, data: { status: "open", broughtIn: kept } });
+    }
   }
 }
 
@@ -621,13 +663,16 @@ export type Summary = Awaited<ReturnType<typeof goLiveSummary>>;
 export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
   const year = await moveInYear(tx, ctx);
   const plan = await getPlan(tx, ctx);
-  const [classes, enrolments, staff, staffNoLogin, guardians, openFiles, problemBatches, departments] = await Promise.all([
+  const [classes, enrolments, staff, staffNoLogin, guardians, openFiles, partFiles, problemBatches, departments] = await Promise.all([
     year ? tx.section.findMany({ where: { academicYearId: year.id, archivedAt: null, schoolClass: { archivedAt: null } }, include: { schoolClass: { select: { id: true, name: true, sortOrder: true } } }, orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }] }) : Promise.resolve([]),
     year ? tx.enrolment.findMany({ where: { academicYearId: year.id, archivedAt: null, student: { archivedAt: null, status: "ACTIVE" } }, select: { sectionId: true, rollNo: true } }) : Promise.resolve([]),
     tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } } }),
     tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, userLoginId: null } }),
     tx.guardian.findMany({ where: { archivedAt: null, students: { some: { archivedAt: null, student: { archivedAt: null, status: "ACTIVE" } } } }, select: { name: true, phone: true, students: { where: { archivedAt: null }, select: { studentId: true } } } }),
-    tx.moveInFile.count({ where: { archivedAt: null, status: { in: ["open", "importing"] } } }),
+    // Not imported yet: a file being brought in now, or one still being checked with nothing brought in.
+    tx.moveInFile.count({ where: { archivedAt: null, OR: [{ status: "importing" }, { status: "open", batchIds: { isEmpty: true }, batchId: null }] } }),
+    // Part brought in: its ready rows came in, and rows with problems or left out are still with it.
+    tx.moveInFile.findMany({ where: { archivedAt: null, status: "open", OR: [{ batchIds: { isEmpty: false } }, { batchId: { not: null } }] }, select: { waiting: true } }),
     tx.importBatch.count({ where: { undoneAt: null, skipped: { gt: 0 } } }),
     tx.department.count({ where: { archivedAt: null } }),
   ]);
@@ -656,7 +701,7 @@ export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
     guardians: guardians.length,
     families: phones.size,
     departments,
-    checks: { noRoll, staffNoLogin, sharedPhones, overFull, openFiles, problemBatches },
+    checks: { noRoll, staffNoLogin, sharedPhones, overFull, openFiles, partFiles: partFiles.length, waitingRows: partFiles.reduce((n, f) => n + f.waiting, 0), problemBatches },
     expected,
     money,
     plan,
@@ -699,6 +744,12 @@ export function warnings(s: Summary): string[] {
   if (e.staff != null && e.staff !== s.staff) out.push(`Your old software says ${e.staff} staff; School OS has ${s.staff} (${s.staff > e.staff ? "+" : ""}${s.staff - e.staff}).`);
   if (e.guardians != null && e.guardians !== s.guardians) out.push(`Your old software says ${e.guardians} parents; School OS has ${s.guardians} (${s.guardians > e.guardians ? "+" : ""}${s.guardians - e.guardians}).`);
   if (s.staff === 0) out.push("No staff are added yet.");
+  if (s.checks.partFiles > 0) {
+    const n = s.checks.partFiles;
+    const rows = s.checks.waitingRows;
+    const waitingWords = rows ? `${rows} ${rows === 1 ? "row with problems or left out is" : "rows with problems or left out are"} not brought in yet` : "some rows are not brought in yet";
+    out.push(`${n} ${n === 1 ? "file is" : "files are"} part brought in: ${waitingWords}. Open ${n === 1 ? "it" : "each one"} to fix the rows and bring them in, or remove the file from the list if they are not needed; what it brought in stays.`);
+  }
   if (s.checks.problemBatches > 0) out.push(`${s.checks.problemBatches} ${s.checks.problemBatches === 1 ? "import left" : "imports left"} rows out because of problems. Download them from Import history, fix and bring them in.`);
   if (s.checks.overFull.length) out.push(`More students than seats in ${s.checks.overFull.slice(0, 5).join(", ")}${s.checks.overFull.length > 5 ? ` and ${s.checks.overFull.length - 5} more` : ""}.`);
   if (s.checks.noRoll > 0) out.push(`${s.checks.noRoll} ${s.checks.noRoll === 1 ? "student has" : "students have"} no roll number. Roll numbers can be given class by class in Student Management.`);

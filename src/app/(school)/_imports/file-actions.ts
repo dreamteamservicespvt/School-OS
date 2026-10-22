@@ -28,6 +28,8 @@ import { aiAllowed } from "@/lib/settings/switch-rules";
 import { suggestColumnsByAi, type AiColumnsResult } from "@/lib/ai/smart-import";
 import { placeCurrent, placeOf, placeOptions, placeRefusal } from "@/lib/imports/place-access";
 import { fileHref, placeHolds, wordsFor, type ImportPlace } from "@/lib/imports/places";
+import { fileBatchIds, reopenAfterUndo } from "@/lib/move-in/batches";
+import { count, stayWords } from "@/lib/imports/words";
 
 const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
 
@@ -259,15 +261,15 @@ export async function leaveOutAction(placeKey: string, id: string, lines: number
 }
 
 export async function importAction(placeKey: string, id: string): Promise<string | void> {
-  let result = { rows: 0, problems: 0 };
-  let label = "";
+  let result = { rows: 0, problems: 0, leftOut: 0 };
+  let words = { one: "record", many: "records" };
   const r = await onFile(placeKey, id, async ({ current, file, place }) => {
-    const info = kindInfo(file.kind);
-    label = info ? wordsFor(file.kind, info.label).many : "records";
+    words = wordsFor(file.kind, kindInfo(file.kind)?.label ?? "records");
     result = await withSchool(current.ctx, (tx) => importFile(tx, current.ctx, id, { link: fileHref(place, id) }), { timeout: 300_000 });
   });
   if (r) return r;
-  await flash({ message: `Bringing in ${result.rows} ${label}. You will get a notification when it is done${result.problems ? `; ${result.problems} ${result.problems === 1 ? "row" : "rows"} with problems stay here to fix` : ""}.` });
+  const stay = stayWords(result.problems, result.leftOut);
+  await flash({ message: `Bringing in ${count(result.rows, words.one, words.many)}. You will get a notification when it is done.${stay ? ` ${stay}` : ""}` });
 }
 
 export async function removeAction(placeKey: string, id: string): Promise<string | void> {
@@ -276,30 +278,42 @@ export async function removeAction(placeKey: string, id: string): Promise<string
   await flash({ message: "The file is removed from this list. Nothing it imported was changed." });
 }
 
-/** Undoes the import a file made, and opens the file again to fix and bring in again (workflow 15, "fix the file, undo and import again"). */
-export async function undoFileImportAction(placeKey: string, id: string): Promise<string | void> {
+/**
+ * Undoes one import a file made (a file brought in a part at a time has one
+ * for each part); the rows it brought in go back to the file, to fix and
+ * bring in again (workflow 15, "fix the file, undo and import again").
+ */
+export async function undoFileImportAction(placeKey: string, id: string, batchId: string): Promise<string | void> {
   let archived = 0;
+  let putBack = 0;
+  let words = { one: "record", many: "records" };
   const r = await run(async () => {
     const { current, file, place } = await forFile(placeKey, id, "archive");
-    if (file.status !== "imported" || !file.batchId) throw new MoveInProblem("This file has no import to undo.");
+    if (file.status === "importing") throw new MoveInProblem("This file is being imported. Wait for it to finish.");
+    if (!isId(batchId) || !fileBatchIds(file).includes(batchId)) throw new MoveInProblem("This file has no such import to undo.");
+    words = wordsFor(file.kind, kindInfo(file.kind)?.label ?? "records");
     await withSchool(current.ctx, async (tx) => {
-      const batch = await tx.importBatch.findUnique({ where: { id: file.batchId! } });
+      const batch = await tx.importBatch.findUnique({ where: { id: batchId } });
       if (!batch) throw new MoveInProblem("This import was not found.");
-      if (!batch.undoneAt) {
+      if (batch.undoneAt) {
+        // Undone elsewhere before the file heard of it: its rows go back to the file.
+        await reopenAfterUndo(tx, batch.id);
+      } else {
         try {
-          await undoImport(tx, current.ctx, batch.id);
+          const u = await undoImport(tx, current.ctx, batch.id);
+          archived = u.archived;
+          putBack = u.putBack;
         } catch (e) {
           if (e instanceof Error && e.constructor === Error) throw new MoveInProblem(e.message);
           throw e;
         }
       }
-      archived = batch.added;
-      await tx.moveInFile.update({ where: { id }, data: { status: "open", batchId: null, importFileId: null } });
     }, { timeout: 120_000 });
     refresh(place, id);
   });
   if (r) return r;
-  await flash({ message: `Import undone: the ${archived} records it added are archived. The file is open again to fix and bring in.` });
+  const parts = [archived ? `${count(archived, words.one, words.many)} it added ${archived === 1 ? "is" : "are"} archived` : "", putBack ? `${count(putBack, "record")} it changed ${putBack === 1 ? "is" : "are"} put back as ${putBack === 1 ? "it was" : "they were"}` : ""].filter(Boolean);
+  await flash({ message: `Import undone${parts.length ? `: ${parts.join(", and ")}` : ""}. Its rows are back with the file, to fix and bring in again.` });
 }
 
 /**

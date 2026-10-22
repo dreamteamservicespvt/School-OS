@@ -11,6 +11,7 @@ import { ActionButton } from "@/app/(school)/settings/action-button";
 import {
   addClassesAction, addOptionsAction, chooseRowAction, importAction, leaveOutAction, removeAction, tidyAction, undoBatchAction, undoFileImportAction, undoFixAction,
 } from "@/app/(school)/_imports/file-actions";
+import { stayWords } from "@/lib/imports/words";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -73,13 +74,13 @@ export function UndoFixButton({ place, id, line }: OnFile & { line: number }) {
   return <ActionButton variant="ghost" label="Undo my fix" run={async () => { const p = await undoFixAction(place, id, line); if (!p) router.refresh(); return p; }} />;
 }
 
-export function ImportButton({ place, id, ready, problems, one, many }: OnFile & { ready: number; problems: number; one: string; many: string }) {
+export function ImportButton({ place, id, ready, problems, leftOut, one, many }: OnFile & { ready: number; problems: number; leftOut: number; one: string; many: string }) {
   const router = useRouter();
   return (
     <ConfirmButton trigger={`Bring in ${plural(ready, one, many)}`} triggerVariant="primary" title={`Bring in ${plural(ready, one, many)}?`} confirmLabel={`Bring in ${plural(ready, "row")}`}
       onConfirm={async () => { const p = await importAction(place, id); if (!p) router.refresh(); return p; }}>
-      <p>Only the {plural(ready, "ready row")} are imported.{problems ? ` The ${plural(problems, "row")} with problems stay here; fix them and bring them in after.` : ""}</p>
-      <p className="mt-2">You can undo the whole import later from this page; what it added is archived, never lost.</p>
+      <p>Only the {plural(ready, "ready row")} {ready === 1 ? "is" : "are"} brought in.{problems || leftOut ? ` ${stayWords(problems, leftOut)}` : ""}</p>
+      <p className="mt-2">You can undo this import later from this page; what it added is archived, never lost.</p>
     </ConfirmButton>
   );
 }
@@ -94,11 +95,11 @@ export function RemoveFileButton({ place, id, imported, back }: OnFile & { impor
   );
 }
 
-export function UndoImportButton({ place, id, added, one, many }: OnFile & { added: number; one: string; many: string }) {
+export function UndoImportButton({ place, id, batchId, added, one, many }: OnFile & { batchId: string; added: number; updated?: number; one: string; many: string }) {
   const router = useRouter();
   return (
     <ConfirmButton trigger="Undo import" triggerVariant="danger-outline" title={`Undo the import of ${plural(added, one, many)}?`} confirmLabel={`Undo import of ${plural(added, "record")}`} confirmVariant="danger"
-      onConfirm={async () => { const p = await undoFileImportAction(place, id); if (!p) router.refresh(); return p; }}>
+      onConfirm={async () => { const p = await undoFileImportAction(place, id, batchId); if (!p) router.refresh(); return p; }}>
       The {plural(added, "record")} it added are archived, and the file opens again so you can fix it and bring it in again. This is written to the audit log.
     </ConfirmButton>
   );

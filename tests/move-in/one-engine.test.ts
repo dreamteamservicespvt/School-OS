@@ -76,7 +76,8 @@ describe("Fee Management, Finance Management and the School Calendar (G15, G16)"
     await run(c, (tx) => importFile(tx, c, id, { link: fileHref(PLACES.fees, id) }));
     await drain(c);
     const file = await run(c, (tx) => tx.moveInFile.findUniqueOrThrow({ where: { id } }));
-    expect(file.status).toBe("imported");
+    // The row left out stays with the file, counted, to bring in later if needed (QA IMPORT-01).
+    expect(file).toMatchObject({ status: "open", waiting: 1, broughtIn: { "2": file.batchId } });
     const batch = await run(c, (tx) => tx.importBatch.findUniqueOrThrow({ where: { id: file.batchId! } }));
     expect(batch).toMatchObject({ kind: "fee-old-dues", added: 1, skipped: 0, importedById: f.accountant.id });
     expect(await run(c, (tx) => tx.studentFeeDue.count({ where: { studentId: f.ravi.id, kind: "OLD_DUES", state: "OPEN", amountPaise: 350000n } }))).toBe(1);

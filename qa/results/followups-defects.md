@@ -151,3 +151,66 @@ proved by a vitest test against `school_os_w4_test` where the fix is in the app.
   waits when React keeps no key, and the React that Next.js runs still keeps that key (so an upgrade that changes
   it fails the test instead of bringing the warning back unnoticed).
 - **Status:** Fixed.
+
+---
+
+# Follow-up defects from browser testing of the one import engine (22-10-2026, night)
+
+Three findings from browser testing after gap list G16 (one import engine) was merged. Fixes are on branch
+`wave11/w1`, each proved by a vitest test against `school_os_w1_test` where the fix is in the app. Screen-only parts
+were checked by reading the code, typecheck and lint.
+
+| ID | Priority | Module | Short title | Status |
+|---|---|---|---|---|
+| IMPORT-01 | P1 | Every import page, Switching to School OS | Rows with problems and rows left out are lost after Bring in | Fixed |
+| GOLIVE-01 | P4 | Settings (Switching to School OS, Go-live check) | "Fees due before go-live" sends the person to the page they are on | Fixed |
+| UNDO-01 | P4 | Every import page | "The 1 record it added are archived" | Fixed |
+
+## IMPORT-01 · P1 · Every import page · Rows with problems and rows left out are lost after Bring in
+- **Steps:** Events & Calendar › Import holidays; upload a 2-row CSV with one ready row and one row with a problem
+  (date 31-02-2027); Check and bring in; Bring in 1 holiday.
+- **Expected:** what the confirm promises: "The 1 row with problems stays here; fix it and bring it in after." The
+  row is counted after the import, can be fixed, and is brought in as a further import, with Undo for each import.
+- **Actual:** the confirm said "Only the 1 ready row are imported. The 1 row with problems stay here; fix them and
+  bring them in after." After the import the file page showed only "Brought in · Added 1 · Updated 0 · Left out
+  with problems 0" with Open School Calendar and Undo import. The row with the problem was not counted anywhere and
+  could not be fixed or brought in; only Undo opened the file again. The same on all 12 import pages and in
+  Switching to School OS. Rows the person left out were lost the same way.
+- **Root cause:** `importFile()` in src/lib/move-in/service.ts sent only the ready rows to the import job, and
+  `settleImports()` then marked the whole file `imported`. A Move-in File knew one Import Batch and nothing about
+  which of its rows that import brought in, so it could not stay open for the rest. "Left out with problems" on the
+  result counted only rows that failed inside the job, not the rows held back by the check.
+- **Design chosen:** one file carries several imports (the simplest safe design: no second file to keep in step
+  with the first, and the fixes, matches and choices already made stay with the rows they were made for).
+  - The file keeps which of its rows each import brought in (`brought_in`: row → Import Batch), every import not
+    undone (`batch_ids`, oldest first) and how many rows were still waiting after its last import (`waiting`).
+  - Bring in sends only the ready rows not brought in before. When the import is done, a row the import could not
+    save goes back to the file. A file with rows still waiting (rows with problems, rows left out by the person, rows
+    not saved) opens again; a file with none is `imported`.
+  - Rows already brought in are not checked or sent again, and show as "Brought in already" in the counts. The sheet,
+    heading row and kind cannot change while part of the file is brought in (rows are known by their row number).
+  - Undo works for each import on its own, wherever it is pressed (the file page, the module's Earlier imports,
+    Settings › Imports): its rows go back to the file, which opens again; the file's other imports stay. Rows the
+    kind leaves out on purpose ("No old dues") are counted with the file's first import only.
+  - The file page shows a card for each import ("Brought in, part 1 of 2": Added, Updated, Not saved, with its own
+    Undo) and, while rows wait, "1 row with problems not brought in yet" (also "… and 1 row left out by you"), then
+    the rows to fix. The Switching to School OS file list and the module Import pages say "Part brought in · 2 rows
+    not brought in yet". Remove from list says the records it brought in stay.
+  - The confirm: "Only the 1 ready row is brought in. The 1 row with problems stays here, counted with the file; fix
+    it and bring it in after." (rows left out are named the same way); the message after Bring in says the same.
+- **Go-live check:** a file with nothing brought in still counts as "not imported yet" and stops going live, as
+  before. A file part brought in with rows still waiting does not stop going live (its ready rows are in, and rows
+  left out on purpose may never be needed); it is a warning instead: "1 file is part brought in: 2 rows with problems
+  or left out are not brought in yet. Open it to fix the rows and bring them in, or remove the file from the list if
+  they are not needed; what it brought in stays."
+- **Migration:** `20261022193000_move_in_file_rows_waiting` adds `batch_ids`, `brought_in` and `waiting` to
+  `move_in_file` with empty defaults, and puts each existing file's import into `batch_ids`. Existing files keep
+  working: one already imported shows its one import with Undo as before; one still being checked has none; an import
+  still running when the update lands settles as `imported`, as before.
+- **Tests:** tests/move-in/rows-waiting.test.ts (6 tests): a holiday file with a ready row, a row with a problem and a
+  row left out brings in the ready row and keeps the other two counted with the file; the go-live check warns about
+  it without stopping; the fixed row and the row brought back come in as a second import of the same file (file then
+  imported, two batches); Undo of the second, then of the first, each puts its own rows back; a file sent before the
+  update settles and undoes as before; the plain-words counts. tests/move-in/service.test.ts and
+  tests/move-in/one-engine.test.ts now expect a file with a row left out to stay part brought in.
+- **Status:** Fixed.

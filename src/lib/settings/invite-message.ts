@@ -65,7 +65,8 @@ export async function sendInviteMessage(tx: Tx, ctx: SchoolContext, login: { id:
     templates,
     perPerson: { [login.id]: { link: invitePlaceholderFor(login.id, nonce) } },
     // The invite is the person's own key to their login: it is not a general message they can opt out of.
-    emergency: true,
+    // Sent by School OS, not an emergency broadcast (QA LABEL-01).
+    systemMessage: "staff-invite" as const,
     trigger: "Invite to School OS",
     source: { type: "User Login", id: login.id },
     audienceLabel: `Invite: ${login.displayName}`,

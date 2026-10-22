@@ -9,6 +9,7 @@ import { PREFERRED_ORDER, type Channel } from "./channels";
 import { planMessage, sendMessage, MessagingProblem, type SendInput } from "./send";
 import type { AudienceRule, Scope } from "./recipients";
 import { CODE_NOT_RESENT, isCodeMessage } from "./one-time-code";
+import { systemPurposeOf } from "./system-message";
 
 export type ResendWho = "unread" | "failed";
 
@@ -97,6 +98,8 @@ export async function resendInput(tx: Tx, ctx: SchoolContext, messageId: string,
     perPerson: t.perPerson,
     messageType: (m.messageType as SendInput["messageType"]) ?? "general",
     emergency: m.isEmergency,
+    // A Parent Link or an invite sent again is still School OS's own message (QA LABEL-01).
+    systemMessage: systemPurposeOf(m),
     scope,
     trigger: `${who === "failed" ? "Resend to failed" : "Resend to unread"} of an earlier message`,
     source: m.sourceType && m.sourceId ? { type: m.sourceType, id: m.sourceId } : null,

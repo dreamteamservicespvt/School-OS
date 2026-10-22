@@ -1,9 +1,9 @@
 // Demo data for Settings: school details, a second campus, custom fields
-// with a "show only when" rule, a published custom form, two approval rules,
-// and a few requests in Approvals (waiting, decided and asked by a teacher).
-// Writes rows directly: the seed runs outside the app, so it does not use
-// the server-only helpers.
-import { randomUUID } from "node:crypto";
+// with a "show only when" rule, a published custom form and two approval
+// rules. Writes rows directly. The requests in Approvals are made by each
+// module's seed through the app, so every one points at a real record (QA
+// SEED-03): leave in staff-hr.ts and attendance.ts, a concession and a refund
+// in fees-finance.ts, expenses, outing passes, purchases and so on.
 import { withSchool } from "../../src/lib/db";
 import type { ModuleSeed } from "./types";
 
@@ -59,22 +59,6 @@ export const seedSettings: ModuleSeed = async (s) => {
       data: [
         { schoolId: s.schoolId, requestType: "refund", steps: [{ approverRole: "accountant", upToPaise: "500000" }, { approverRole: "principal", upToPaise: null }], escalateAfterDays: 2, updatedById: s.users.admin },
         { schoolId: s.schoolId, requestType: "concession", steps: [{ approverRole: "principal", upToPaise: null }], escalateAfterDays: 3, updatedById: s.users.admin },
-      ],
-    });
-
-    // A few requests in Approvals.
-    const days = (n: number) => new Date(Date.now() - n * 86_400_000);
-    const asked = (by: string, at: Date, note: string | null) => [{ at: at.toISOString(), by, action: "asked", note }];
-    await tx.approval.createMany({
-      data: [
-        { schoolId: s.schoolId, type: "expense", recordType: "Expense", recordId: randomUUID(), summary: "Lab chemicals for Class 10 practicals", amountPaise: BigInt(1_240_000), reason: "Stock ran out before the board practicals.", askedById: s.users.accountant, currentApproverRole: "principal", step: 2, createdAt: days(1), history: asked(s.users.accountant, days(1), "Stock ran out before the board practicals.") },
-        { schoolId: s.schoolId, type: "refund", recordType: "Fee Payment", recordId: randomUUID(), summary: "Refund of bus fee, Aarav Reddy (Class 6 A)", amountPaise: BigInt(350_000), reason: "Family moved closer to school; no bus from July.", askedById: s.users.admin, currentApproverRole: "accountant", step: 1, createdAt: days(3), history: asked(s.users.admin, days(3), "Family moved closer to school; no bus from July.") },
-        { schoolId: s.schoolId, type: "concession", recordType: "Student", recordId: randomUUID(), summary: "Sibling discount for Diya Sharma (Class 2 B)", amountPaise: BigInt(600_000), reason: "Elder brother in Class 7.", askedById: s.users.accountant, currentApproverRole: "principal", step: 1, createdAt: days(4), history: asked(s.users.accountant, days(4), "Elder brother in Class 7.") },
-        { schoolId: s.schoolId, type: "staff-leave", recordType: "Staff Leave", recordId: randomUUID(), summary: "Casual leave, Ravi Teja, 2 days", reason: "Family function in Warangal.", askedById: s.users.teacher, currentApproverRole: "principal", step: 1, createdAt: days(2), history: asked(s.users.teacher, days(2), "Family function in Warangal.") },
-        { schoolId: s.schoolId, type: "expense", recordType: "Expense", recordId: randomUUID(), summary: "Printer cartridges for the office", amountPaise: BigInt(320_000), askedById: s.users.accountant, currentApproverRole: "principal", step: 2, status: "APPROVED", decidedById: s.users.principal, decidedAt: days(5), createdAt: days(6),
-          history: [...asked(s.users.accountant, days(6), null), { at: days(5).toISOString(), by: s.users.principal, action: "approve", note: null }] },
-        { schoolId: s.schoolId, type: "certificate", recordType: "Certificate", recordId: randomUUID(), summary: "Bonafide certificate, Sai Kiran (Class 9 C)", askedById: s.users.admin, currentApproverRole: "principal", step: 1, status: "REJECTED", decidedById: s.users.principal, decidedAt: days(7), decisionReason: "Fees for Term 1 are still due. Ask the family to clear them first.", createdAt: days(8),
-          history: [...asked(s.users.admin, days(8), null), { at: days(7).toISOString(), by: s.users.principal, action: "ask-change", note: "Fees for Term 1 are still due. Ask the family to clear them first." }] },
       ],
     });
   });

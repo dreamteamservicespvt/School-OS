@@ -25,6 +25,7 @@ import { inTestMode } from "./providers";
 import { countWithReason } from "./skip-words";
 import { BACKUP_TYPES, type BackupType } from "./settings";
 import { CODE_MASK, codeSenderWords, hasCode, ONE_TIME_CODE, sealCode, withCode, type OneTimeCode } from "./one-time-code";
+import { SYSTEM_MESSAGE_SENT, systemSenderWords, type SystemPurpose } from "./system-message";
 
 export const MAX_TEXT = 1000;
 export const DELIVER_JOB = "messaging:deliver";
@@ -66,6 +67,12 @@ export type SendInput = {
    * is never resent, has no sender and is not an emergency broadcast (./one-time-code.ts).
    */
   oneTimeCode?: OneTimeCode | null;
+  /**
+   * A message School OS sends with a person's own link (QA LABEL-01): a Parent Link or a
+   * staff invite. It reaches people who opted out (it is their key, not news), has no
+   * sender and is not an emergency broadcast (./system-message.ts).
+   */
+  systemMessage?: SystemPurpose | null;
   scheduledAt?: Date | null;
   /** How far the sender may reach. Software-made messages reach the whole school. */
   scope?: Scope;
@@ -450,7 +457,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   for (const c of candidates) {
     if (input.exclude?.(c.key)) continue;
     if (!c.inScope) { addSkip(skipped, "Outside your classes", c.name, c.key); continue; }
-    if (c.optedOut && !input.emergency && !input.oneTimeCode) { addSkip(skipped, "Opted out of messages", c.name, c.key); continue; }
+    if (c.optedOut && !input.emergency && !input.oneTimeCode && !input.systemMessage) { addSkip(skipped, "Opted out of messages", c.name, c.key); continue; }
     const kind = c.type === "guardian" ? "guardian" : "staff";
     // One message per student when each student has their own values (fee due, absent today).
     const split = c.type === "guardian" && input.perStudent ? c.students.filter((s) => input.perStudent![s.id]) : null;
@@ -644,6 +651,7 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
   const failForCredits = Boolean(short);
 
   const code = input.oneTimeCode ?? null;
+  const system = code ? null : input.systemMessage ?? null;
   // Guard (QA SEC-01): a one-time code is never written into a message, whoever built the plan.
   if (code) {
     const stored = [input.text ?? "", input.title ?? "", ...plan.rows.flatMap((r) => [r.text, r.title ?? "", JSON.stringify(r.values)]), ...notSent.flatMap((n) => [n.text, JSON.stringify(n.values)])];
@@ -668,12 +676,14 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
       creditCost: Object.values(plan.charged).reduce((a, b) => a + (b ?? 0), 0),
       status: !sending ? "SENT" : scheduled ? "SCHEDULED" : "QUEUED",
       sentAt: sending ? null : now,
-      isEmergency: Boolean(input.emergency) && !code,
-      messageType: code ? ONE_TIME_CODE : input.messageType ?? "general",
+      // A code or a personal link is a required message, never an emergency broadcast (QA SEC-01, LABEL-01).
+      isEmergency: Boolean(input.emergency) && !code && !system,
+      messageType: code ? ONE_TIME_CODE : system ?? input.messageType ?? "general",
       smsBackup: Boolean(plan.backupTemplateId),
       backupTemplateId: plan.backupTemplateId,
-      // A code is sent by School OS, not by the person who asked for it.
-      sentById: input.ruleKey || code ? null : ctx.userId,
+      // A code or a personal link is sent by School OS, not by the person who asked for it
+      // (the Audit Log line keeps who asked).
+      sentById: input.ruleKey || code || system ? null : ctx.userId,
       ruleKey: input.ruleKey ?? null,
       trigger: input.trigger ?? null,
       sourceType: input.source?.type ?? null,
@@ -744,10 +754,10 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
   }
   if (sending) await enqueue(tx, ctx, DELIVER_JOB, `deliver:${message.id}:0:0`, { messageId: message.id, round: "0", chunk: 0 }, scheduled ? input.scheduledAt! : now);
   await writeAudit(tx, ctx, {
-    action: code ? "one-time-code-sent" : scheduled ? "scheduled-message" : input.emergency ? "sent-emergency-broadcast" : "sent-message",
+    action: code ? "one-time-code-sent" : scheduled ? "scheduled-message" : system ? SYSTEM_MESSAGE_SENT : input.emergency ? "sent-emergency-broadcast" : "sent-message",
     recordType: "Message",
     recordId: message.id,
-    actorNote: input.ruleKey ? `Automatic rule: ${input.ruleKey}` : code ? codeSenderWords(code.purpose) : null,
+    actorNote: input.ruleKey ? `Automatic rule: ${input.ruleKey}` : code ? codeSenderWords(code.purpose) : system ? systemSenderWords(system) : null,
     after: code
       ? { purpose: input.trigger ?? code.purpose, to: plan.audienceLabel, channels: plan.channels, credits: message.creditCost, code: "hidden" }
       : { to: plan.audienceLabel, people: plan.people, notSent: notSent.length, channels: plan.channels, credits: message.creditCost, scheduledAt: scheduled ? input.scheduledAt!.toISOString() : null },

@@ -21,7 +21,8 @@
 //      });
 //
 //    It resolves the people (main contact or all guardians, opted-out parents
-//    skipped unless emergency: true, the sender's scope applied, duplicates by
+//    skipped unless emergency: true, or the message is a one-time code or a
+//    person's own link: oneTimeCode, systemMessage; the sender's scope applied, duplicates by
 //    phone dropped), picks each person's language version of the template,
 //    fills the blanks (a person with a missing blank is skipped and listed;
 //    single: true blocks instead), checks credits (blocked when short, or

@@ -161,3 +161,66 @@ export async function remindConsent(tx: Tx, ctx: SchoolContext, requestId: strin
   await writeAudit(tx, ctx, { action: "reminded-consent", recordType: "Consent Request", recordId: request.id, after: { guardians: waiting.length } });
   return { count: sent.people, messageId: sent.messageId, missed: sent.skipped.find((g) => g.notSent)?.reason.slice(NOT_SENT.length) ?? null };
 }
+
+export const GO_LIVE_AUDIENCE = "All parents, on going live";
+
+/**
+ * Going live (workflow 15, step 10; gap list G42): each guardian of this
+ * year's students who has no consent on record is asked, through Parent Link,
+ * for every consent the school asks of every family (a current text marked
+ * "Asked on the admission form"). One Consent Request per consent, so the
+ * Consent pages count asked, given, waiting; one message tells each guardian
+ * (test mode and opt-outs as for any message; the forms are on their Parent
+ * Link either way). A child with a custody restriction against the guardian
+ * is never counted for them, and is never on their Parent Link.
+ */
+export async function askConsentOnGoLive(tx: Tx, ctx: SchoolContext, guardianIds: string[], replyBy = new Date(Date.now() + 14 * 86_400_000)) {
+  const texts = (await currentConsentTexts(tx, ctx)).filter((t) => t.consentType !== "message-opt-in");
+  const asked = new Set((await tx.consentText.findMany({ where: { id: { in: texts.map((t) => t.id) }, askedOnAdmission: true }, select: { id: true } })).map((t) => t.id));
+  const forms = texts.filter((t) => asked.has(t.id));
+  if (!forms.length || !guardianIds.length) return { requests: 0, guardians: 0, alreadyGiven: 0, messageId: null as string | null };
+  const kids = new Map<string, string[]>();
+  for (const g of guardianIds) kids.set(g, await childrenOfGuardian(tx, ctx, g, { studying: true }));
+  const standing = await standingConsents(tx, ctx, { guardianIds });
+  const reached = new Set<string>();
+  const requestIds: string[] = [];
+  const titles: string[] = [];
+  let alreadyGiven = 0;
+  for (const t of forms) {
+    const todo = guardianIds.filter((g) => {
+      const mine = kids.get(g) ?? [];
+      if (!mine.length) return false;
+      const all = mine.every((s) => standing.some((r) => r.guardianId === g && r.studentId === s && r.consentType === t.consentType && !r.archivedAt));
+      if (all) alreadyGiven++;
+      return !all;
+    });
+    if (!todo.length) continue;
+    const req = await tx.consentRequest.create({ data: { schoolId: ctx.schoolId, consentType: t.consentType, consentTextId: t.id, audienceLabel: GO_LIVE_AUDIENCE, guardianIds: todo, replyBy, createdById: ctx.userId } });
+    await writeAudit(tx, ctx, { action: "requested-consent", recordType: "Consent Request", recordId: req.id, after: { type: t.consentType, version: t.version, guardians: todo.length, on: "going live", replyBy: replyBy.toISOString().slice(0, 10) } });
+    requestIds.push(req.id);
+    titles.push(t.title);
+    todo.forEach((g) => reached.add(g));
+  }
+  if (!reached.size) return { requests: 0, guardians: 0, alreadyGiven, messageId: null };
+  const title = titles.join("; ");
+  // A request is never stopped by messaging: anyone no channel reaches still sees the forms on their Parent Link.
+  const sent = await notifyConsent(tx, ctx, requestIds[0], [...reached], title, "Consent request on going live", "record").catch((e) => { if (e instanceof MessagingProblem) return null; throw e; });
+  if (sent) await tx.consentRequest.updateMany({ where: { id: { in: requestIds } }, data: { messageId: sent.messageId } });
+  return { requests: requestIds.length, guardians: reached.size, alreadyGiven, messageId: sent?.messageId ?? null };
+}
+
+/** Asked on going live: each guardian counted once, answered when they answered every consent asked. */
+export async function goLiveConsentStatus(tx: Tx, ctx: SchoolContext) {
+  const requests = await tx.consentRequest.findMany({ where: { schoolId: ctx.schoolId, audienceLabel: GO_LIVE_AUDIENCE }, orderBy: { createdAt: "asc" }, select: { id: true } });
+  if (!requests.length) return null;
+  const asked = new Set<string>();
+  const waiting = new Set<string>();
+  const byType: { consentType: string; given: number; waiting: number; withdrawn: number; refused: number; asked: number }[] = [];
+  for (const r of requests) {
+    const s = await requestStatus(tx, ctx, r.id);
+    s.request.guardianIds.forEach((g) => asked.add(g));
+    s.waiting.forEach((g) => waiting.add(g));
+    byType.push({ consentType: s.request.consentType, asked: s.request.guardianIds.length, given: s.given.length, waiting: s.waiting.length, withdrawn: s.withdrawn.length, refused: s.refused.length });
+  }
+  return { asked: asked.size, answered: asked.size - waiting.size, waiting: waiting.size, byType };
+}

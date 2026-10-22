@@ -33,6 +33,8 @@ import { aiConfirmedNote } from "../ai/audit";
 import { alignGoLive } from "../finance/settings-save";
 import { keptMoney, MONEY_KEYS, moneyTotals, type MoneyExpected } from "./money";
 import { broughtInOf, fileBatchIds } from "./batches";
+import { messageSettings } from "../messaging/settings";
+import { askConsentOnGoLive } from "../parent-link/consent";
 
 
 export class MoveInProblem extends Error {
@@ -800,4 +802,16 @@ export async function liveGuardianIds(tx: Tx) {
   // Not a guardian whose every child has a custody restriction against them.
   const rows = await tx.guardian.findMany({ where: { archivedAt: null, students: { some: { ...OPEN_LINK, student: { archivedAt: null, status: "ACTIVE" } } } }, select: { id: true } });
   return rows.map((r) => r.id);
+}
+
+/**
+ * Step 10, with "Send each parent their Parent Link now": the consent request
+ * (DPDP Act 2023) to each guardian of this year's students without consent on
+ * record (gap list G42). Not asked when Parent Link or its consent forms are
+ * switched off: the guardian could not answer. Returns null then.
+ */
+export async function askConsentAfterGoLive(tx: Tx, ctx: SchoolContext) {
+  const settings = await messageSettings(tx, ctx);
+  if (!settings.parentLink.on || settings.parentLink.shows.consent === false) return null;
+  return askConsentOnGoLive(tx, ctx, await liveGuardianIds(tx));
 }

@@ -7,8 +7,11 @@ import { BackLink, NoYear, PageTop } from "../../_components/page-top";
 import { datesheetFormData } from "../form-data";
 import { DatesheetForm } from "../datesheet-form";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Add datesheet" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Add datesheet") };
+}
 
 export default async function NewDatesheetPage({ searchParams }: { searchParams: SearchParams }) {
   const page = await examPage(await searchParams);

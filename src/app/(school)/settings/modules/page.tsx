@@ -12,8 +12,11 @@ import { Badge } from "@/components/ui/badge";
 import { AssistantForm, FeatureSwitch, IntegrationCard, ModuleSwitch, PreferencesForm, TemplatePicker } from "./switch-forms";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Modules On/Off" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Modules On/Off") };
+}
 
 const SECTIONS = [["modules", "Modules"], ["templates", "School-type templates"], ["preferences", "System preferences"], ["ai", "AI assistant"], ["integrations", "Integrations"]] as const;
 

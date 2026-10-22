@@ -22,8 +22,11 @@ import { campusAllows, sectionCampusId } from "@/lib/campus";
 import { StudentsHead } from "../_lib/head";
 import { PromotionReview, type ReviewRow } from "./review";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Promotion" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Promotion") };
+}
 
 const isId = (v?: string) => Boolean(v && /^[0-9a-f-]{36}$/i.test(v));
 

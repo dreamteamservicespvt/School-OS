@@ -33,8 +33,11 @@ import { BASE, libGuard, libPeriod, one, qs, UUID, type SearchParams } from "../
 import { finesWhere, readFinesFilter, FINE_TABS } from "../_lib/fines";
 import { decideChargeAction, remindLibrarianAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Fines & Stock Check · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Fines & Stock Check · Library Management") };
+}
 const ZERO = BigInt(0);
 
 export default async function FinesPage({ searchParams }: { searchParams: SearchParams }) {

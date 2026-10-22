@@ -25,8 +25,11 @@ import { RepHead } from "../../_components/head";
 import { PrepareButton, ReportMenu } from "../../_components/bits";
 import { BASE, one, qs, repGuard, withQ, type SearchParams } from "../../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Report" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Report") };
+}
 
 const fieldCls = "flex flex-col gap-1.5 min-w-0";
 const labelCls = "text-[13px] font-semibold text-ink2";

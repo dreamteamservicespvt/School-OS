@@ -16,8 +16,11 @@ import { STATE_LABEL, STATE_TONE } from "@/lib/settings/users";
 import { UsersNav } from "./sub-nav";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Users & Permissions" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Users & Permissions") };
+}
 
 const FILTERS = ["status", "role", "twostep", "exceptions"] as const;
 

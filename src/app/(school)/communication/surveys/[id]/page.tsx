@@ -18,8 +18,11 @@ import { requireSurveys } from "../form-data";
 import { STATUS_LABEL, STATUS_TONE } from "../status";
 import { SurveyButtons } from "./survey-buttons";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Survey" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Survey") };
+}
 
 const KIND_LABEL: Record<string, string> = Object.fromEntries(QUESTION_KINDS.map((k) => [k.key, k.label]));
 const fmt = (n: number) => n.toLocaleString("en-IN");

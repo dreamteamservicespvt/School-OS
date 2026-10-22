@@ -23,8 +23,11 @@ import { remindMeAction, removeMaterialAction, removeRecordingAction } from "./a
 import { ConfirmButton } from "@/components/ui/confirm";
 import { AttendanceSheet, CancelSheet, CopyLink, MaterialSheet, RecordingBox, ScheduleSheet, type OcSection } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Online Classes" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Online Classes") };
+}
 
 const HREF = `${BASE}/online-classes`;
 type Sp = Record<string, string | string[] | undefined>;

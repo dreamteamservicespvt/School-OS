@@ -23,8 +23,11 @@ import { StudentsHead } from "./_lib/head";
 import { EXPORT_FIELDS, fieldAllowed } from "./_lib/export-fields";
 import { LIST_FILTERS, loadStudentList, mainGuardian, type ListRow } from "./_lib/queries";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Student List" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Student List") };
+}
 
 type Row = ListRow;
 

@@ -10,8 +10,11 @@ import { ImportHome } from "@/components/import/import-home";
 import { BASE, studentPage } from "../_lib/page";
 import { sectionOptions } from "../_lib/queries";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import students" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import students") };
+}
 
 const ABOUT = {
   students: "One row per student, with their class, section and parents: the ready sheet, your own sheet, an export from your old software or the UDISE+ download. Old admission numbers are kept. A row that may already be on record waits for your choice: the same student (update the record here), the same family, or a new student.",

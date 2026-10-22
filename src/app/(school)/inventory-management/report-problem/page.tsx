@@ -22,8 +22,11 @@ import { BASE, MAINT_STATUS, MODULE, PRIORITY } from "@/lib/inventory/words";
 import { ReportProblemForm } from "../rooms/sheets";
 import { one, qs, uuidOr, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Report a problem" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Report a problem") };
+}
 const SELF = `${BASE}/report-problem`;
 
 export default async function ReportProblemPage({ searchParams }: { searchParams: SearchParams }) {

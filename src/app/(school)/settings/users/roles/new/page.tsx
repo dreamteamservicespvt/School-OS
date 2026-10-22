@@ -9,8 +9,11 @@ import { Card, CardBody } from "@/components/ui/card";
 import { RoleEditor } from "../role-editor";
 import { schoolRole, schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Create a role" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Create a role") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

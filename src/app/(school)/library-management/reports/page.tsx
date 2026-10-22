@@ -23,8 +23,11 @@ import { LibHead } from "../_components/head";
 import { BASE, libGuard, libPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { readReportFilter } from "../_lib/reports";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Library Reports · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Library Reports · Library Management") };
+}
 const SHOW = 100;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

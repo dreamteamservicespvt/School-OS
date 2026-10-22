@@ -18,8 +18,11 @@ import { EmptyState } from "@/components/empty-state";
 import { cx } from "@/components/ui/cx";
 import { AddTaskButton, TaskDetail } from "./task-parts";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "My Tasks" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("My Tasks") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";

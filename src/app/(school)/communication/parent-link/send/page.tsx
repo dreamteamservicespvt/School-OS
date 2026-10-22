@@ -8,8 +8,11 @@ import { BackLink, RecordHead } from "@/components/ui/split";
 import { whoOptions } from "../who-options";
 import { FamiliesForm } from "./families-form";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Send to existing families" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Send to existing families") };
+}
 
 export default async function SendFamiliesPage() {
   const access = await commOfficePage("create");

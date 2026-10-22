@@ -20,8 +20,11 @@ import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
 import { CommHead } from "../_components/comm-head";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Surveys" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Surveys") };
+}
 
 const EXAMPLE_ICON = { parents: Smile, staff: Users, event: PartyPopper } as const;
 

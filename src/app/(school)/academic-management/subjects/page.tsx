@@ -17,8 +17,11 @@ import { ExportLinks } from "../_components/export-links";
 import { ClassPicker, ViewSwitch } from "../_components/pickers";
 import { AddSubjectButton, CopyMapButton, MapRowActions, MapSubjectButton, OptionButton, RecordChoicesButton, RemoveChoiceButton, SubjectRowActions } from "./subjects-ui";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Subjects" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Subjects") };
+}
 const PATH = "/academic-management/subjects";
 
 export default async function SubjectsPage({ searchParams }: { searchParams: SearchParams }) {

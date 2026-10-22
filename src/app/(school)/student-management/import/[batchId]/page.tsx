@@ -13,8 +13,11 @@ import { STUDENT_IMPORT_KINDS } from "@/lib/students/import-kinds";
 import { BASE, studentPage } from "../../_lib/page";
 import { undoImportAction } from "../../_actions/import";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import") };
+}
 
 /** Import (P10), step 5: what was imported, the skipped rows to download, and Undo. */
 export default async function ImportBatchPage({ params }: { params: Promise<{ batchId: string }> }) {

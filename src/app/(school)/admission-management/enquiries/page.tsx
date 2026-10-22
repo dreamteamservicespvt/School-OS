@@ -32,8 +32,11 @@ import { STATUS_TONE } from "@/lib/admission/tones";
 import { periodFromSearch } from "@/lib/periods";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Enquiries" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Enquiries") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const PATH = `${BASE}/enquiries`;

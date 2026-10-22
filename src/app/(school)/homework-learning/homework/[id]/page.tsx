@@ -17,9 +17,12 @@ import { BackLink, FileRow, SubIcon } from "../../_components/bits";
 import { BASE, homeworkGuard, one, qs, UUID, type SearchParams } from "../../_lib/page";
 import { ArchiveSheet, CardMenu, EditSheet, ResendSheet } from "../../sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
 
-export const metadata = { title: "Homework details" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Homework details") };
+}
 
 /** One homework (mod-homework.jsx HomeworkDetail): instructions, counts and who has seen it, with "Resend to N". */
 export default async function HomeworkDetailPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {

@@ -32,8 +32,11 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 import { aiAllowed } from "@/lib/settings/switch-rules";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Fee Dashboard" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Fee Dashboard") };
+}
 
 const HREF = `${BASE}/dashboard`;
 const STATUS = [

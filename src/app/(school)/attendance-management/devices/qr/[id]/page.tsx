@@ -16,8 +16,11 @@ import { ActionButton } from "../../../../staff-hr-management/_components/forms"
 import { PosterPreview } from "../../../_components/poster-preview";
 import { qrStateAction } from "../../actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "QR poster" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("QR poster") };
+}
 
 export default async function QrPosterPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -12,8 +12,11 @@ import { Banner, Empty } from "@/components/money/kit";
 import { BASE, feeGuard } from "../../../_lib/page";
 import { ApplicantFeeForm } from "./applicant-form";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Collect Fee" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Collect Fee") };
+}
 
 type Tone = "ok" | "info" | "warn" | "bad" | "neutral";
 const STATUS: Record<string, { label: string; tone: Tone }> = {

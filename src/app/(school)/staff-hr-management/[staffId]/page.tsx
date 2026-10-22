@@ -42,10 +42,13 @@ import { removeDocumentAction, uploadDocument } from "../documents/actions";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
 type Props = { params: Promise<{ staffId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
-export const metadata: Metadata = { title: "Staff Profile" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Staff Profile") };
+}
 
 /** Inferred: the most periods a teacher should have in a week. */
 

@@ -27,8 +27,11 @@ import { LibHead } from "../../_components/head";
 import { AddCopiesSheet, BackOnShelfSheet, BookSheet, LostSheet, WithdrawSheet } from "../../_components/sheets";
 import { BASE, libGuard, libPeriod, one, qs, UUID, type SearchParams } from "../../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Book · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Book · Library Management") };
+}
 const day = (d: Date) => formatDate(d, "UTC");
 
 export default async function BookPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {

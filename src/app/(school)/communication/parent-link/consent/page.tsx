@@ -13,8 +13,11 @@ import { BackLink, RecordHead, Split } from "@/components/ui/split";
 import { whoOptions } from "../who-options";
 import { ConsentRequestForm, RemindButton } from "./consent-forms";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Consent forms" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Consent forms") };
+}
 
 export default async function ConsentPage() {
   const access = await commOfficePage();

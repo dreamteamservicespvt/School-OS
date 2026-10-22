@@ -17,8 +17,11 @@ import { BASE, invGuard, UUID } from "../../../_lib/page";
 import { decidable, whoNames } from "../../../_lib/lists";
 import { decideAction, saveCountsAction } from "../../../actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Stock audit · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Stock audit · Inventory Management") };
+}
 
 export default async function AuditPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

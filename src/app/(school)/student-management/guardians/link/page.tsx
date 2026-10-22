@@ -13,8 +13,11 @@ import { RELATIONS } from "@/lib/students/labels";
 import { BASE, studentPage } from "../../_lib/page";
 import { linkExistingAction } from "../../_actions/guardians";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Link existing parent" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Link existing parent") };
+}
 
 /** Link a parent already on record (a brother's or sister's) to a student, found by phone or name. */
 export default async function LinkGuardianPage({ searchParams }: { searchParams: Promise<{ student?: string; q?: string; guardian?: string }> }) {

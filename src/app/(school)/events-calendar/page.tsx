@@ -19,8 +19,11 @@ import { JumpSelect } from "./_components/bits";
 import { AddEntrySheet, CopyHolidaysSheet, RemoveEntrySheet } from "./_components/calendar-sheets";
 import { BASE, evGuard, evPeriod, one, qs, type SearchParams } from "./_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "School Calendar" };
+export async function generateMetadata() {
+  return { title: await pageTitle("School Calendar") };
+}
 
 const pad = (n: number) => String(n).padStart(2, "0");
 const ym = (iso: string) => iso.slice(0, 7);

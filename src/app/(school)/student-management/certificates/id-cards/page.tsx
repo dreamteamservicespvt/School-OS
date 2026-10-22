@@ -19,8 +19,11 @@ import { visibleStudentIds } from "@/lib/students/access";
 import { campusAllows } from "@/lib/campus";
 import { replaceCardAction, saveRfidAction } from "../../_actions/certificates";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "ID cards" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("ID cards") };
+}
 
 const isId = (v?: string) => Boolean(v && /^[0-9a-f-]{36}$/i.test(v));
 

@@ -20,8 +20,11 @@ import { RepHead, ICON, iconOr } from "../_components/head";
 import { ChartMenu } from "../_components/bits";
 import { BASE, MODULE, one, qs, repGuard, withQ, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Analytics" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Analytics") };
+}
 
 const HREF = `${BASE}/analytics`;
 

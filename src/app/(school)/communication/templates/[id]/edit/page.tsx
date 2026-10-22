@@ -5,8 +5,11 @@ import { BackLink, RecordHead } from "@/components/ui/split";
 import { TemplateForm } from "../../template-form";
 import { templateFormData } from "../../form-data";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Edit template" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Edit template") };
+}
 
 export default async function EditTemplatePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

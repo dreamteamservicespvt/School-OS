@@ -26,8 +26,11 @@ import { GateEntrySheet } from "../_components/visitor-sheets";
 import { CheckSheet } from "../_components/pass-check";
 import { BASE, addQ, foGuard, foPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Visitors" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Visitors") };
+}
 
 const HREF = `${BASE}/visitors`;
 const STATUS_ORDER: Record<VisitorStatus, number> = { In: 0, Expired: 1, Out: 2 };

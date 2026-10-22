@@ -13,8 +13,11 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Payment Gateways" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Payment Gateways") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 

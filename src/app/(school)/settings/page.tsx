@@ -3,9 +3,11 @@ import Link from "next/link";
 import { requirePage } from "@/lib/current";
 import { PageHeader } from "@/components/shell/page-header";
 import { settingsPagesFor } from "@/lib/settings-pages";
-import { getT } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Settings" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Settings") };
+}
 
 export default async function SettingsHome() {
   const current = await requirePage("settings");

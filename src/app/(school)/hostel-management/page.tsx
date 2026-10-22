@@ -40,8 +40,11 @@ import { remindRollCallAction, type FoundStudent } from "./actions";
 import { BASE, chosenHostel, hostelGuard, hostelPeriod, idParam, one, qs, type Raw, type SearchParams } from "./_lib/page";
 import { studentIdsForFilter } from "@/lib/students/find";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Roll Call & Incidents · Hostel Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Roll Call & Incidents · Hostel Management") };
+}
 
 type P = Awaited<ReturnType<typeof hostelGuard>>;
 const DAY = 86_400_000;

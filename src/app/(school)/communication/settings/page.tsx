@@ -26,8 +26,11 @@ import { CommHead } from "../_components/comm-head";
 import { ownerOptions } from "../queries/owners";
 import { DeliveryForm, FeatureSwitches, GroupArchive, OptOutPanel, ParentLinkForm, QueryRulesForm, RuleRow, TopicList, type RuleRowData } from "./settings-forms";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Message Settings" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Message Settings") };
+}
 
 export default async function MessageSettingsPage() {
   const access = await commOfficePage("edit");

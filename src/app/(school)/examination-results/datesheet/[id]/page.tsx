@@ -18,8 +18,11 @@ import { examPage, one, withYear, type SearchParams } from "../../_lib/page";
 import { CategoriesButton, PublishSheet, RestoreButton } from "../datesheet-ui";
 import { DetailMenu } from "./detail-menu";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Datesheet" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Datesheet") };
+}
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
 export default async function DatesheetDetail({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {

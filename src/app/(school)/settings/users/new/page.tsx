@@ -7,8 +7,11 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { InviteForm } from "./invite-form";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Invite a user" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Invite a user") };
+}
 
 export default async function InvitePage({ searchParams }: { searchParams: Promise<{ staff?: string }> }) {
   const { current } = await requireSettingsPage("users", "create");

@@ -20,8 +20,11 @@ import { FeeHead } from "../_components/fee-head";
 import { BASE, feeGuard, one, qs, type SearchParams } from "../_lib/page";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Fee Reports" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Fee Reports") };
+}
 
 const HREF = `${BASE}/reports`;
 const SHOW = 500;

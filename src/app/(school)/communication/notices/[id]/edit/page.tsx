@@ -9,8 +9,11 @@ import { ButtonLink } from "@/components/ui/button";
 import { NoticeForm } from "../../notice-form";
 import { noticeFormData } from "../../form-data";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Change notice" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Change notice") };
+}
 
 export default async function EditNoticePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

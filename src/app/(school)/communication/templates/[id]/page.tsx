@@ -16,8 +16,11 @@ import { UrlSegmented } from "@/components/ui/url-filters";
 import { ChannelPills } from "../../_components/channel-pills";
 import { ApprovalButton, ArchiveTemplate, RefreshApproval } from "./template-actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Message template" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Message template") };
+}
 
 const WA_TONE: Record<string, PillTone> = { APPROVED: "ok", PENDING: "warn", REJECTED: "bad", NOT_SUBMITTED: "neutral" };
 

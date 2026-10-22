@@ -28,8 +28,11 @@ import { feePageAllowedFor } from "@/lib/fees/access";
 import { PAYMENT_STATUS_WORDS, modeLabel } from "@/lib/fees/words";
 import { loadParent360 } from "../load";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Parent" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Parent") };
+}
 
 const TONE = { GIVEN: "ok", WITHDRAWN: "bad", REQUESTED: "warn", NONE: "warn" } as const;
 const stateWord = (s: keyof typeof TONE) => s === "NONE" ? "Not given" : CONSENT_STATUS_LABEL[s];

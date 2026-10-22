@@ -19,8 +19,11 @@ import * as I from "lucide-react";
 import { DecisionBar } from "./decision-bar";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Request" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Request") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

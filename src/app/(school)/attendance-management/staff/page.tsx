@@ -42,8 +42,11 @@ import { StaffSheet } from "../_components/staff-sheet";
 import { ArchiveOvertime, ArchiveShift, AssignShiftForm, OvertimeForm, ShiftForm } from "../_components/staff-forms";
 import { archiveOvertimeAction, archiveShiftAction, assignShiftAction, recordOvertimeAction, saveShiftAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Staff Attendance" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Staff Attendance") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);

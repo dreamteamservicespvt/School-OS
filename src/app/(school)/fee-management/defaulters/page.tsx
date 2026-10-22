@@ -23,8 +23,11 @@ import { BASE, feeGuard, feePeriod, feeViewOnCampus, one, qs, type SearchParams 
 import { DefaulterList, type DefaulterItem } from "./list";
 import { CallNoteForm } from "./call-note";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Defaulters" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Defaulters") };
+}
 
 const HREF = `${BASE}/defaulters`;
 const AMOUNTS = [{ value: "", label: "Any amount" }, { value: "5000", label: "₹5,000 or more" }, { value: "10000", label: "₹10,000 or more" }, { value: "20000", label: "₹20,000 or more" }];

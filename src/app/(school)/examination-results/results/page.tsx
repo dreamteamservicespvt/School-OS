@@ -27,8 +27,11 @@ import { examPage, one, sectionOptions, withYear, type SearchParams } from "../_
 import { NoYear, PageTop } from "../_components/page-top";
 import { CancelScheduleButton, PublishFlow, PublishedMenu, ResultTable, type TableCol, type TableRow } from "./results-ui";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Results" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Results") };
+}
 const PATH = "/examination-results/results";
 
 const data_ids = (list: { id: string }[]) => list.map((x) => x.id);

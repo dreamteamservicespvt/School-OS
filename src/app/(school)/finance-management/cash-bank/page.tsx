@@ -21,8 +21,11 @@ import { ConfirmButton } from "@/components/ui/confirm";
 import { AddAccountSheet, MoveMoneySheet, OpeningSheet } from "./sheets";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Cash & Bank" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Cash & Bank") };
+}
 
 const HREF = `${BASE}/cash-bank`;
 const UUID = /^[0-9a-f-]{36}$/i;

@@ -6,8 +6,11 @@ import { BackLink, RecordHead } from "@/components/ui/split";
 import { QueryForm, type QueryFormData } from "./query-form";
 import { ownerOptions } from "../owners";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Log a query" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Log a query") };
+}
 
 export default async function NewQueryPage() {
   const access = await commPage("create");

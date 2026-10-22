@@ -14,8 +14,11 @@ import { ExportLinks } from "../_components/export-links";
 import { DateParam, ViewSwitch } from "../_components/pickers";
 import { EndCover, MarkAbsentButton, NeedsList, TemporaryTeacherButton, UnmarkAbsent, type Need } from "./substitutions-ui";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Substitutions" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Substitutions") };
+}
 const PATH = "/academic-management/substitutions";
 
 export default async function SubstitutionsPage({ searchParams }: { searchParams: SearchParams }) {

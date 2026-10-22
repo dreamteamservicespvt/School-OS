@@ -14,8 +14,11 @@ import { undoPromotionAction } from "../../_actions/promotion";
 import { seesStudentFees } from "@/lib/fees/access";
 import { seesResults } from "@/lib/exams/scope";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Promotion batch" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Promotion batch") };
+}
 
 const LABEL = { PROMOTE: "Promoted", DETAIN: "Detained", LEAVING: "Leaving" } as const;
 const TONE = { PROMOTE: "success", DETAIN: "warning", LEAVING: "neutral" } as const;

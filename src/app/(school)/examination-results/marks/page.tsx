@@ -24,8 +24,11 @@ import { examPage, one, withYear, type SearchParams } from "../_lib/page";
 import { NoYear, PageTop } from "../_components/page-top";
 import { LockExamButton, RemindBar, RemindButton } from "./marks-ui";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Marks Entry" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Marks Entry") };
+}
 const PATH = "/examination-results/marks";
 const PAGE = 50;
 const STATUSES = ["NOT_STARTED", "IN_PROGRESS", "SUBMITTED", "LOCKED"] as const;

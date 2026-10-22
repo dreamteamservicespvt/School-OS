@@ -20,8 +20,11 @@ import { CommonSheets } from "../_components/common-sheets";
 import { HandSheet, PostalSheet } from "../_components/postal-sheets";
 import { BASE, UUID, addQ, foGuard, foPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Postal & Deliveries" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Postal & Deliveries") };
+}
 
 const HREF = `${BASE}/postal`;
 const TYPE_WORDS: Record<string, string> = { LETTER: "Letter", COURIER: "Courier", PARCEL: "Parcel" };

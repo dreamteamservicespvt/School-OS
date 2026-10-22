@@ -12,8 +12,11 @@ import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { UndoAdmission } from "../../decision-forms";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Admission confirmed" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Admission confirmed") };
+}
 
 export default async function AdmittedPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

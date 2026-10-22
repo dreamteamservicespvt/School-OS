@@ -21,8 +21,11 @@ import {
   saveNotificationsAction, savePunchMethodsAction, saveStatusAction,
 } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Attendance Settings" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Attendance Settings") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const TABS = [

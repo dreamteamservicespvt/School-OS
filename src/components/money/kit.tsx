@@ -310,7 +310,7 @@ export function DataList<R>({ columns, rows, rowKey, rowHref, phone, empty, foot
                   ))}
                   {href && (
                     <td className="pr-3">
-                      <Link href={href} scroll={false} className="absolute inset-0 z-0" aria-label="Open" />
+                      <Link href={href} scroll={false} className="absolute inset-0 z-0"><span className="sr-only"><Words k="Open" /></span></Link>
                       <ChevronRight size={18} className="text-ink3 opacity-0 group-hover:opacity-100 transition" aria-hidden="true" />
                     </td>
                   )}

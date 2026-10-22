@@ -33,8 +33,11 @@ import { decideAction, remindStoreAction } from "../actions";
 import { closeAssetAuditAction } from "./actions";
 import { AssetSheet, ScanTags, StartAssetAuditSheet } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Assets · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Assets · Inventory Management") };
+}
 
 const VIEWS = ["", "repairs", "disposals", "audit"] as const;
 type View = (typeof VIEWS)[number];

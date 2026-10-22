@@ -22,8 +22,11 @@ import { visibleStudentIds } from "@/lib/students/access";
 import { linkMentorAction, markAlumniAction } from "../../_actions/leaving";
 import { studentIdsForFilter } from "@/lib/students/find";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Alumni" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Alumni") };
+}
 
 const FILTERS = ["year", "mentor"] as const;
 

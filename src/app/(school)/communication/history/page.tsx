@@ -23,8 +23,11 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { CommHead } from "../_components/comm-head";
 import { ChannelPills, CHANNEL_ICON, CHANNEL_NAME } from "../_components/channel-pills";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Message History" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Message History") };
+}
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 1000) / 10}%` : "–");

@@ -15,8 +15,11 @@ import { cx } from "@/components/ui/cx";
 import { FeeHead } from "../_components/fee-head";
 import { BASE, feeGuard, one, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Student Fee Ledger" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Student Fee Ledger") };
+}
 
 /** Student Fee Ledger without a student chosen: find one (mod-fees.jsx StudentPicker). */
 export default async function LedgerIndexPage({ searchParams }: { searchParams: SearchParams }) {

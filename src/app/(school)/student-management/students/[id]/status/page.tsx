@@ -13,8 +13,11 @@ import { PROFILE_CHANGES, STATUS_LABEL, STATUS_TONE, type StudentStatusKey } fro
 import { BASE, studentPage, todayIso } from "../../../_lib/page";
 import { changeStatusAction } from "../../../_actions/students";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Change status" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Change status") };
+}
 
 export default async function ChangeStatusPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

@@ -26,8 +26,11 @@ import { PickupList, ReleaseForm, ScanIdButton, StopSheet, type PickupChoice } f
 import { sendGatePassAction } from "../actions";
 import { BASE, UUID, addQ, foGuard, foPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Student Pickup" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Student Pickup") };
+}
 
 const HREF = `${BASE}/pickup`;
 

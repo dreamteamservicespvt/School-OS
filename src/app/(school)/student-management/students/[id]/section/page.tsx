@@ -13,8 +13,11 @@ import { BASE, studentPage } from "../../../_lib/page";
 import { sectionOptions } from "../../../_lib/queries";
 import { changeSectionAction, placeInSectionAction } from "../../../_actions/students";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Change section" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Change section") };
+}
 
 export default async function ChangeSectionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

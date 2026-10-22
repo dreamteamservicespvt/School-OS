@@ -23,8 +23,11 @@ import { DataList } from "../../_components/data-list";
 import { ReasonButton } from "../../_components/reason-form";
 import { setAbsenceReasonAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Absent list" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Absent list") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);

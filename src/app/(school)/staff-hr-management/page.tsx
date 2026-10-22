@@ -21,8 +21,11 @@ import { copyChannelsOn } from "@/lib/staff/staff-message";
 import { CHANNEL_LABEL } from "@/lib/messaging/channels";
 import { bulkChangeDepartment, bulkMessage } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Staff List" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Staff List") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 

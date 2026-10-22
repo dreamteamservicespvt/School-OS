@@ -23,8 +23,11 @@ import { sectionNames, sectionOptions } from "../_lib/queries";
 import { behaviourTabs } from "./sub-tabs";
 import { studentIdsForFilter } from "@/lib/students/find";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Behaviour & Counselling" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Behaviour & Counselling") };
+}
 
 const FILTERS = ["kind", "status", "section"] as const;
 const STEP = 25;

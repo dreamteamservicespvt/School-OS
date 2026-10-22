@@ -65,6 +65,19 @@ export async function getT(): Promise<T> {
   return makeT(await screenLanguage());
 }
 
+/**
+ * A page's browser-tab title in the screen language: the whole title when the catalogue has
+ * it, else each " · " part ("Import books · Library Management"). English stays as written.
+ */
+export async function pageTitle(text: string): Promise<string> {
+  const lang = await screenLanguage();
+  if (lang === "en") return text;
+  const t = makeT(lang);
+  const dict = catalogueFor(lang);
+  if (dict[text]) return t.any(text);
+  return text.split(" · ").map((part) => t.any(part)).join(" · ");
+}
+
 /** Keeps a chosen language on this browser for a year (pages with no sign-in use it). */
 export async function rememberLanguage(lang: Lang) {
   (await cookies()).set(LANG_COOKIE, lang, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });

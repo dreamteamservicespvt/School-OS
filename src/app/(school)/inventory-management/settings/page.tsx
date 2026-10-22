@@ -20,8 +20,11 @@ import { ArchiveCategorySheet, ArchiveLocationSheet, CategorySheet, LocationShee
 import { BASE, invGuard, one, UUID, type SearchParams } from "../_lib/page";
 import { SettingsForm } from "./settings-form";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Inventory Settings · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Inventory Settings · Inventory Management") };
+}
 
 export default async function InventorySettingsPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;

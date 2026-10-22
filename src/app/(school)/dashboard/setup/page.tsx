@@ -12,9 +12,12 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { Meter, Ring } from "@/components/ui/display";
 import { StepList } from "./step-list";
-import { Words } from "@/lib/i18n/client";
+import { DayText, Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Setup checklist" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Setup checklist") };
+}
 
 export default async function SetupPage() {
   const current = await requirePage("dashboard");
@@ -39,7 +42,7 @@ export default async function SetupPage() {
     <div className="flex flex-col gap-5 lg:gap-6">
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
         <div>
-          <p className="text-[13px] font-semibold text-ink3">{longDay(todayFor(current.school.timeZone))}</p>
+          <p className="text-[13px] font-semibold text-ink3"><DayText text={longDay(todayFor(current.school.timeZone))} /></p>
           <h1 className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight mt-0.5"><Words k="Welcome," /> {current.user.displayName.split(" ")[0]}</h1>
           <p className="text-[15px] text-ink3 mt-1"><Words k="Let’s get" /> {current.school.name} <Words k="ready. Most schools finish in a week." /></p>
         </div>

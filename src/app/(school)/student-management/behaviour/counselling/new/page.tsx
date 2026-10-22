@@ -13,8 +13,11 @@ import { BASE, studentPage } from "../../../_lib/page";
 import { sectionOptions } from "../../../_lib/queries";
 import { referAction } from "../../../_actions/behaviour";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Refer to counselling" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Refer to counselling") };
+}
 
 export default async function ReferPage({ searchParams }: { searchParams: Promise<{ student?: string; incident?: string }> }) {
   const { current, settings, yearIds, can } = await studentPage();

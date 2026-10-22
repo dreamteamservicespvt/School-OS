@@ -29,8 +29,11 @@ import { HostelHead } from "../_components/head";
 import { AddFloorSheet, AddRoomSheet, BlockSheet, CloseRoomSheet, EditRoomSheet, HostelSheet, WardensSheet } from "../_components/sheets";
 import { addQ, chosenHostel, hostelGuard, idParam, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Rooms & Beds · Hostel Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Rooms & Beds · Hostel Management") };
+}
 
 const FLOOR_NAMES = ["Ground", "First", "Second", "Third", "Fourth", "Fifth", "Sixth"];
 

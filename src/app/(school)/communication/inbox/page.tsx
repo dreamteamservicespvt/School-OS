@@ -17,8 +17,11 @@ import { CommHead } from "../_components/comm-head";
 import { ownerOptions } from "../queries/owners";
 import { ChatButtons, Composer } from "./chat-tools";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "WhatsApp Inbox" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("WhatsApp Inbox") };
+}
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : "");

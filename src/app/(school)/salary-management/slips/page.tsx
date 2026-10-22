@@ -25,8 +25,11 @@ import { sendSlipsAction } from "./actions";
 import { SlipView, type SlipPerson } from "./slip-view";
 import { salaryBroughtIn, sumBroughtIn } from "@/lib/salary/to-date-totals";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Salary Slips" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Salary Slips") };
+}
 
 const HREF = `${BASE}/slips`;
 const UUID = /^[0-9a-f-]{36}$/i;

@@ -20,8 +20,11 @@ import { saveSettingsAction } from "../_actions/settings";
 import { aiAllowed } from "@/lib/settings/switch-rules";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Student Settings" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Student Settings") };
+}
 
 const SECTIONS = [
   { key: "general", label: "Student records" },

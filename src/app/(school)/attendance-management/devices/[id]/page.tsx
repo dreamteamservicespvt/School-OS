@@ -26,8 +26,11 @@ import { AttHead } from "../../_components/att-head";
 import { DeviceForm, MapUserForm, RegenerateKey } from "../../_components/device-forms";
 import { autoMatchAction, deviceStateAction, mapUserAction, regenerateKeyAction, reprocessAction, unmapUserAction, updateDeviceAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Attendance device" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Attendance device") };
+}
 
 const TONE = { success: "ok", warning: "warn", danger: "bad", neutral: "neutral" } as const;
 

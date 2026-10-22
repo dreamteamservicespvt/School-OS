@@ -21,8 +21,11 @@ import { BASE, studentPage, todayIso } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { requestCertificateAction } from "../../_actions/certificates";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Issue certificate" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Issue certificate") };
+}
 
 const isId = (v?: string) => Boolean(v && /^[0-9a-f-]{36}$/i.test(v));
 const CONDUCT = ["Good", "Very good", "Excellent", "Satisfactory"];

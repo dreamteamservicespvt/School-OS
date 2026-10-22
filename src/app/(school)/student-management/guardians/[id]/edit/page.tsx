@@ -9,8 +9,11 @@ import { saveGuardianAction } from "../../../_actions/guardians";
 import { GuardianForm } from "../../guardian-form";
 import { visibleGuardianFor } from "../../load";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Edit parent" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Edit parent") };
+}
 
 export default async function EditGuardianPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

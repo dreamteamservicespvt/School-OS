@@ -18,8 +18,11 @@ import { LibHead } from "../../../_components/head";
 import { BASE, libGuard, UUID } from "../../../_lib/page";
 import { CloseStockButton, MarkLostButton, StockScanner } from "./stock-client";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Stock check · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Stock check · Library Management") };
+}
 
 export default async function StockCheckPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

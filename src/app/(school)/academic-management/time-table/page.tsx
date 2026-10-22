@@ -20,8 +20,11 @@ import { VersionBar, type VersionRow } from "./version-bar";
 import { LabBookings } from "./lab-bookings";
 import { PrintPicker } from "./print-picker";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Time Table" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Time Table") };
+}
 const PATH = "/academic-management/time-table";
 
 const plain = (c: PeriodCell): Cell => ({ id: c.id, sectionId: c.sectionId, sectionLabel: c.sectionLabel, dayOfWeek: c.dayOfWeek, periodNo: c.periodNo, startTime: c.startTime, endTime: c.endTime, subjectId: c.subjectId, subjectName: c.subjectName, subjectCode: c.subjectCode, staffId: c.staffId, staffName: c.staffName, room: c.room, isBreak: c.isBreak, label: c.label });

@@ -9,8 +9,11 @@ import { BASE, studentPage } from "../../_lib/page";
 import { saveGuardianAction } from "../../_actions/guardians";
 import { GuardianForm } from "../guardian-form";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Add parent" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Add parent") };
+}
 
 export default async function NewGuardianPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {
   const { current, can } = await studentPage();

@@ -6,8 +6,11 @@ import { ImportHome } from "@/components/import/import-home";
 import { FinanceHead } from "../../_components/finance-head";
 import { BASE, financePage } from "../../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import past expenses · Finance Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import past expenses · Finance Management") };
+}
 
 const ABOUT = {
   "finance-past-expenses": "One row per expense paid this financial year before School OS, with its expense head (Finance Settings). They are kept as Brought in, so expense reports cover the whole year; they never reach the Day Book or the cash and bank books, because the opening balances already include them.",

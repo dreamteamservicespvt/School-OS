@@ -17,9 +17,12 @@ import { ActButton, CopyLink } from "../../_components/bits";
 import { AccessForm, AlbumSheet, ConfirmSheet, PublishStaffOnlySheet, TagSheet, UploadButton, type TagPick } from "../../_components/gallery-sheets";
 import { archiveAlbumAction, askConsentAction, newLinkAction, publishAlbumAction, removeMediaAction, shareAlbumAction } from "../../actions";
 import { BASE, UUID, evGuard, one, qs, type SearchParams } from "../../_lib/page";
-import { Words } from "@/lib/i18n/client";
+import { DayText, Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Album" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Album") };
+}
 
 /** One album (mod-events.jsx AlbumDetail): photos with consent marks, tagging, who can see it, publish and share. */
 export default async function AlbumPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
@@ -93,7 +96,7 @@ export default async function AlbumPage({ params, searchParams }: { params: Prom
       <div className="flex flex-col lg:flex-row lg:items-end lg:justify-between gap-3 mb-5">
         <div className="min-w-0">
           <div className="flex items-center gap-2 flex-wrap"><h1 className="font-display text-[24px] md:text-[28px] font-semibold tracking-tight leading-tight">{a.name}</h1><Pill tone={st.tone} dot>{st.label}</Pill></div>
-          <p className="text-[14px] text-ink3 mt-1">{d.ev ? `${d.ev.name} · ` : ""}{longDay(isoOf(a.date))} · {photos} <Words k="photos" />{videos ? `, ${videos} videos` : ""}</p>
+          <p className="text-[14px] text-ink3 mt-1">{d.ev ? `${d.ev.name} · ` : ""}<DayText text={longDay(isoOf(a.date))} /> · {photos} <Words k="photos" />{videos ? `, ${videos} videos` : ""}</p>
         </div>
         {full && (
           <div className="flex gap-2 flex-wrap items-start">

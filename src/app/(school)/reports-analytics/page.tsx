@@ -16,8 +16,11 @@ import { PinButton, QuickButton } from "./_components/bits";
 import { customFeatureAction } from "./actions";
 import { BASE, one, qs, repGuard, type SearchParams } from "./_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "All Reports" };
+export async function generateMetadata() {
+  return { title: await pageTitle("All Reports") };
+}
 
 /** All Reports (19 §2, mod-reports.jsx Catalogue): every ready report this person may see, with search, pins and recent ones. */
 export default async function AllReportsPage({ searchParams }: { searchParams: SearchParams }) {

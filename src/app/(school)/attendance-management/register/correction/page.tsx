@@ -20,8 +20,11 @@ import { CorrectionForm } from "../../_components/correction-form";
 import { UrlFilters } from "../../_components/url-filters";
 import { requestCorrectionAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Request a correction" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Request a correction") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);

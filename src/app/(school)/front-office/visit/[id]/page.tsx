@@ -20,8 +20,11 @@ import { ActButton, type ActIcon } from "../../_components/fields";
 import { replyAction } from "../../actions";
 import { BASE, UUID } from "../../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Visitor for you" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Visitor for you") };
+}
 
 const ICON: Record<string, ActIcon> = { "send-in": "door", wait: "clock", "not-available": "cancel" };
 const VARIANT = { "send-in": "primary", wait: "secondary", "not-available": "secondary" } as const;

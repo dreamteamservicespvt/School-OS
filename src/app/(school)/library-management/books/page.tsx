@@ -25,8 +25,11 @@ import { BookSheet } from "../_components/sheets";
 import { BASE, libGuard, libPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { booksWhere, readBooksFilter } from "../_lib/books";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Books · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Books · Library Management") };
+}
 
 const ZERO: CopyCounts = { total: 0, available: 0, issued: 0, reserved: 0, lost: 0, damaged: 0, withdrawn: 0 };
 

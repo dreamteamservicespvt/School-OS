@@ -12,8 +12,11 @@ import { BASE, studentPage } from "../../../_lib/page";
 import { mergeAction } from "../../../_actions/guardians";
 import { visibleGuardianFor } from "../../load";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Merge parent records" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Merge parent records") };
+}
 
 /** Merge two parent records that are the same person (needed after imports), keeping every link and history. */
 export default async function MergeGuardianPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ q?: string }> }) {

@@ -18,8 +18,11 @@ import {
   OpenYear, PreferenceButton, RemoveYear, RoomButton, SlotButton, TermButton, TimingsForm,
 } from "./settings-ui";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Academic Settings" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Academic Settings") };
+}
 const PATH = "/academic-management/settings";
 const STATUS: Record<string, { label: string; tone: BadgeTone }> = {
   ACTIVE: { label: "Active", tone: "success" }, UPCOMING: { label: "Upcoming", tone: "brand" }, OPEN: { label: "Open, not active", tone: "warning" }, CLOSED: { label: "Closed", tone: "neutral" },

@@ -16,8 +16,11 @@ import { RoleEditor } from "../role-editor";
 import { PutBack, RoleSwitch } from "../role-actions";
 import { schoolRole } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Role" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Role") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KIND = { READY: "Ready role", TEMPLATE: "Role template", CUSTOM: "Your own role" } as const;

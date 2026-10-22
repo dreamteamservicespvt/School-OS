@@ -25,8 +25,11 @@ import {
   applicationAction, applicationStatusAction, closeCycleAction, cycleAction, interviewAction, offerAction, offerStatusAction, outcomeAction, promotionAction, reviewAction, trainingAction, vacancyAction, vacancyStatusAction,
 } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Recruitment & Appraisal" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Recruitment & Appraisal") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 

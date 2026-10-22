@@ -21,8 +21,11 @@ import { DecisionButtons } from "../../../_components/decision";
 import { CORRECTION_STATUS } from "../../../_components/words";
 import { approveCorrectionAction, rejectCorrectionAction, withdrawCorrectionAction } from "../../actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Attendance correction" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Attendance correction") };
+}
 
 type Version = { id: string; name: string; status: string };
 

@@ -20,8 +20,11 @@ import {
   AgeingSheet, CounterSheet, FeatureSwitch, HeadAccountsSheet, LateFeeSheet, NumberingSheet, PaymentsSheet, ReceiptsSheet, RemindersSheet, RoutingSheet, ScholarshipTypesSheet,
 } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Fee Settings" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Fee Settings") };
+}
 
 const HREF = `${BASE}/settings`;
 const rupees = (p: bigint | null) => (p === null ? "" : (Number(p) / 100).toString());

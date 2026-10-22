@@ -10,8 +10,11 @@ import { NoYear, PageTop } from "./_components/page-top";
 import { ExportLinks } from "./_components/export-links";
 import { AddClassButtons, ClassesBoard, StreamsButton } from "./classes-board";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Classes & Sections" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Classes & Sections") };
+}
 
 export default async function ClassesPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;

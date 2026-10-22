@@ -11,8 +11,11 @@ import { Banner } from "@/components/ui/chips";
 import { ApplicationForm, type ApplicationValues } from "../application-form";
 import { BackLink } from "../../_components/pills";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "New application" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("New application") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 

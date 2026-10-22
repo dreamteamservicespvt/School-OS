@@ -20,8 +20,11 @@ import { examPage, one, sectionOptions, withYear, type SearchParams } from "../_
 import { examOverlaps, periodQuery } from "../_lib/period";
 import { NoYear, PageTop } from "../_components/page-top";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Exam Analysis" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Exam Analysis") };
+}
 const PATH = "/examination-results/analysis";
 const DRILLS: Drill["kind"][] = ["all", "pass", "fail", "grade", "section", "subject-pass", "subject-fail", "top", "help"];
 const pctTxt = (v: number | null | undefined) => (v === null || v === undefined ? "–" : `${Number.isInteger(v) ? v : v.toFixed(1)}%`);

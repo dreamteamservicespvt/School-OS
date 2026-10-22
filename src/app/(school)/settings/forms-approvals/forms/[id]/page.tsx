@@ -15,8 +15,11 @@ import { CustomFieldInputs } from "@/components/custom-fields";
 import { FieldEditor } from "../../field-editor";
 import { ArchiveFormButton, FormDetailsForm, MoveButtons, PublishButton, RemoveFormFieldButton } from "../../list-actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Form builder" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Form builder") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

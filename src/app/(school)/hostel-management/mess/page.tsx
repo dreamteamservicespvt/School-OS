@@ -30,8 +30,11 @@ import { CountSheet, ExpenseSheet, MenuSheet } from "../_components/sheets";
 import { copyMenuAction } from "../actions";
 import { BASE, hostelGuard, hostelPeriod, one, qs, type Raw, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Mess · Hostel Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Mess · Hostel Management") };
+}
 
 type P = Awaited<ReturnType<typeof hostelGuard>>;
 const DAY = 86_400_000;

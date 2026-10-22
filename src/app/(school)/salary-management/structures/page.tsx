@@ -23,8 +23,11 @@ import { AllTick, BulkBar, RowTick } from "../_components/bulk";
 import { BASE, one, qs, salaryGuard, salaryPeriod, type SearchParams } from "../_lib/page";
 import { ReviseBulkSheet, StructureSheet, type Comp } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Salary Structures" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Salary Structures") };
+}
 
 const HREF = `${BASE}/structures`;
 const UUID = /^[0-9a-f-]{36}$/i;

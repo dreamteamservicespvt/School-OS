@@ -17,8 +17,11 @@ import { HomeworkHead } from "../_components/homework-head";
 import { BASE, homeworkGuard, homeworkPeriod, one, qs, UUID, type SearchParams } from "../_lib/page";
 import { IssueSheet } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Learning Progress" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Learning Progress") };
+}
 
 const HREF = `${BASE}/learning-progress`;
 

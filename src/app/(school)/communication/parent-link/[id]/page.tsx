@@ -17,8 +17,11 @@ import { Timeline, type TimelineItem } from "@/components/ui/timeline";
 import { BackLink, Col, DL, RecordHead, Split } from "@/components/ui/split";
 import { LinkPanel } from "./link-panel";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Parent Link" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Parent Link") };
+}
 
 export default async function LinkPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

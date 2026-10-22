@@ -21,9 +21,12 @@ import { ActButton } from "../../_components/bits";
 import { AttendanceForm, CancelEventSheet, EventSheet, OfficeConsentSheet, RegisterSheet, RemindSheet, SeatsSheet, VolunteerSheet } from "../../_components/event-sheets";
 import { remindConsentAction, removeVolunteerAction, withdrawAction } from "../../actions";
 import { BASE, UUID, evGuard, one, qs, type SearchParams } from "../../_lib/page";
-import { Words } from "@/lib/i18n/client";
+import { DayText, Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Event" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Event") };
+}
 
 const ZERO = BigInt(0);
 
@@ -139,7 +142,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
         <span className="w-14 h-14 rounded-2xl bg-brand/10 text-brand grid place-items-center shrink-0"><EvIcon name={eventIcon(e.type, e.name)} size={26} /></span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap"><h1 className="font-display text-[24px] md:text-[28px] font-semibold tracking-tight leading-tight">{e.name}</h1><Pill tone={EVENT_STATUS[status].tone} dot>{EVENT_STATUS[status].label}</Pill></div>
-          <p className="text-[14px] text-ink3 mt-0.5">{[e.type, longDay(isoOf(e.date)), timeSpan(e.startMin, e.endMin), e.venue].filter(Boolean).join(" · ")}</p>
+          <p className="text-[14px] text-ink3 mt-0.5"><DayText text={[e.type, longDay(isoOf(e.date)), timeSpan(e.startMin, e.endMin), e.venue].filter(Boolean).join(" · ")} /></p>
         </div>
         {full && !cancelled && (
           <div className="flex gap-2 flex-wrap">

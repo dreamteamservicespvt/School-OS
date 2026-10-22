@@ -21,8 +21,11 @@ import { examPage, one, withYear, type SearchParams } from "../_lib/page";
 import { NoYear, PageTop } from "../_components/page-top";
 import { DatesheetMenu } from "./datesheet-ui";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Datesheet" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Datesheet") };
+}
 const PATH = "/examination-results/datesheet";
 const STATUSES: ShownExamStatus[] = ["Draft", "Published", "Ongoing", "Completed", "Results published"];
 

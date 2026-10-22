@@ -12,8 +12,11 @@ import { academicPage, one, type SearchParams } from "../../_lib/page";
 import { PageTop } from "../../_components/page-top";
 import { DateParam } from "../../_components/pickers";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "My Time Table" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("My Time Table") };
+}
 const PATH = "/academic-management/time-table/mine";
 
 export default async function MyTimeTablePage({ searchParams }: { searchParams: SearchParams }) {

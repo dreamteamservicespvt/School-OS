@@ -10,6 +10,7 @@ import { Search, X } from "lucide-react";
 import { cx } from "./cx";
 import { inputCls } from "./field";
 import { buttonClass, Spinner } from "./button";
+import { useT } from "@/lib/i18n/client";
 
 function useUrl() {
   const router = useRouter();
@@ -27,6 +28,7 @@ function useUrl() {
 
 /** The list's search box (kit.jsx SearchBox); what is typed goes into ?q= after a short pause. */
 export function UrlSearch({ placeholder, id, param = "q", className }: { placeholder: string; id: string; param?: string; className?: string }) {
+  const tr = useT();
   const { sp, go, pending } = useUrl();
   const [q, setQ] = useState(sp.get(param) ?? "");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -44,7 +46,7 @@ export function UrlSearch({ placeholder, id, param = "q", className }: { placeho
       <input id={id} type="search" value={q} onChange={(e) => set(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); set(q, true); } }}
         placeholder={placeholder} autoComplete="off" className={cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:appearance-none")} />
       {pending ? <Spinner className="absolute right-3 top-1/2 -translate-y-1/2 size-4 text-ink3" />
-        : q && <button type="button" onClick={() => set("", true)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken" aria-label="Clear search"><X size={16} aria-hidden="true" /></button>}
+        : q && <button type="button" onClick={() => set("", true)} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken" aria-label={tr.any("Clear search")}><X size={16} aria-hidden="true" /></button>}
     </div>
   );
 }

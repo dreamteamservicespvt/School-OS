@@ -15,8 +15,11 @@ import { CustomFieldInputs } from "@/components/custom-fields";
 import { FieldEditor } from "./field-editor";
 import { ArchiveFieldButton, ArchiveFormButton, FormDetailsForm, MoveButtons } from "./list-actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Forms & Approvals" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Forms & Approvals") };
+}
 
 const TABS = [["rules", "Approval rules"], ["fields", "Custom fields"], ["forms", "Custom forms"]] as const;
 type Tab = (typeof TABS)[number][0];

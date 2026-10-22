@@ -18,8 +18,11 @@ import { OWN_RULES, PLACES } from "@/lib/imports/places";
 import { placeRefusal } from "@/lib/imports/place-access";
 import { RemoveFileButton } from "@/components/import/file-buttons";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Switching to School OS · Data Backup & Security" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Switching to School OS · Data Backup & Security") };
+}
 
 const BASE = "/settings/data-security/switching";
 

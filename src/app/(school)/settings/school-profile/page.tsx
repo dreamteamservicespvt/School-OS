@@ -15,8 +15,11 @@ import { Campuses } from "./campuses";
 import { Documents, type DocRow } from "./documents";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "School Profile" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("School Profile") };
+}
 
 /** A setting shown as text, for people who read School Profile but do not change it. */
 function Facts({ rows, cols = "sm:grid-cols-2" }: { rows: [string, React.ReactNode][]; cols?: string }) {

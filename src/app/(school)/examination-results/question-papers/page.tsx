@@ -18,8 +18,11 @@ import { periodQuery } from "../_lib/period";
 import { NoYear, PageTop } from "../_components/page-top";
 import { AddQuestionButton, ArchiveQuestionButton, BankBar, MakePaperButton, PaperMenu, type Pair } from "./qp-ui";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Question Papers" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Question Papers") };
+}
 const PATH = "/examination-results/question-papers";
 const DIFF_TONE: Record<string, "ok" | "info" | "warn"> = { easy: "ok", medium: "info", hard: "warn" };
 const BANK_PAGE = 50;

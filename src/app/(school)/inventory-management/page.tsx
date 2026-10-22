@@ -28,8 +28,11 @@ import { BASE, invGuard, invPeriod, one, qs, addQ, uuidOr, type SearchParams } f
 import { issuesList, readIssuesFilter, recipients } from "./_lib/lists";
 import { findStudentsAction, giveMissingAction, issueAction, issueSetAction, remindStoreAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Issue Stock · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Issue Stock · Inventory Management") };
+}
 
 const ZERO = BigInt(0);
 const day = (d: Date) => formatDate(d, "UTC");

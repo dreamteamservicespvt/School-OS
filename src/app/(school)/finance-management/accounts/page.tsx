@@ -22,8 +22,11 @@ import { reverseJournalAction } from "./actions";
 import { JournalSheet } from "./sheets";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Accounts" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Accounts") };
+}
 
 const HREF = `${BASE}/accounts`;
 const UUID = /^[0-9a-f-]{36}$/i;

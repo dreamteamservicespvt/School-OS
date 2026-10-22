@@ -17,10 +17,13 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
 const TONE: Record<string, PillTone> = { sent: "ok", "no-credits": "bad", "not-sent": "bad" };
 
-export const metadata: Metadata = { title: "Automation log" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Automation log") };
+}
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 

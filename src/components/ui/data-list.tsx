@@ -206,9 +206,9 @@ export function Pager({ page, pageSize, total, prevHref, nextHref, scroll }: { p
       <span className="tnum" aria-live="polite">{to > from ? <Words k="Showing {from} to {to} of {total}" vars={{ from, to, total: total.toLocaleString("en-IN") }} /> : <Words k="Showing {from} of {total}" vars={{ from, total: total.toLocaleString("en-IN") }} />}</span>
       {pages > 1 && (
         <nav aria-label="Pages" className="flex items-center gap-1.5">
-          {page > 1 && <Link href={prevHref} scroll={scroll} aria-label="Previous page" className={btn}><ChevronLeft size={17} aria-hidden="true" /></Link>}
+          {page > 1 && <Link href={prevHref} scroll={scroll} className={btn}><ChevronLeft size={17} aria-hidden="true" /><span className="sr-only"><Words k="Previous page" /></span></Link>}
           <span className="tnum px-1"><Words k="Page {page} of {pages}" vars={{ page, pages }} /></span>
-          {page < pages && <Link href={nextHref} scroll={scroll} aria-label="Next page" className={btn}><ChevronRight size={17} aria-hidden="true" /></Link>}
+          {page < pages && <Link href={nextHref} scroll={scroll} className={btn}><ChevronRight size={17} aria-hidden="true" /><span className="sr-only"><Words k="Next page" /></span></Link>}
         </nav>
       )}
     </div>

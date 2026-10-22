@@ -28,8 +28,11 @@ import { UrlSearch, UrlSelect } from "@/components/ui/url-filters";
 import { ChannelPills } from "../../_components/channel-pills";
 import { MessageActions } from "./message-actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Message" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Message") };
+}
 
 const TONE: Record<string, PillTone> = { QUEUED: "neutral", SENDING: "neutral", SENT: "neutral", DELIVERED: "info", READ: "ok", FAILED: "bad" };
 const PAGE = 50;

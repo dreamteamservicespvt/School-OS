@@ -12,8 +12,11 @@ import { EmptyState } from "@/components/empty-state";
 import { STUDENT_IMPORT_KINDS, importKindLabel } from "@/lib/students/import-kinds";
 import { BASE, studentPage } from "../../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import history" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import history") };
+}
 
 /** Every student import: file, who, when, added, skipped; open one to undo it or download its skipped rows. */
 export default async function ImportHistoryPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {

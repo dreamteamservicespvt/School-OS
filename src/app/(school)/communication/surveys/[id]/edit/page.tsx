@@ -5,8 +5,11 @@ import { BackLink, RecordHead } from "@/components/ui/split";
 import { SurveyForm } from "../../survey-form";
 import { requireSurveys, surveyFormData } from "../../form-data";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Change survey" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Change survey") };
+}
 
 export default async function EditSurveyPage({ params }: { params: Promise<{ id: string }> }) {
   const access = await commOfficePage("edit");

@@ -17,8 +17,11 @@ import { certificateData, certificateHtml, printContext } from "@/lib/students/c
 import { BASE, origin, studentPage } from "../../_lib/page";
 import { cancelCertificateAction, decideCertificateAction, issueCertificateAction } from "../../_actions/certificates";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Certificate" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Certificate") };
+}
 
 /** One certificate: its status, the printed page, and the next step (approve, issue, print, cancel). */
 export default async function CertificatePage({ params }: { params: Promise<{ id: string }> }) {

@@ -26,8 +26,11 @@ import { decideAction } from "../../actions";
 import { unlinkItemAction } from "../actions";
 import { AssetSheet, AssignSheet, DisposeSheet, LinkItemSheet, RepairSheet, RepairUpdateSheet } from "../sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Asset · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Asset · Inventory Management") };
+}
 const day = (d: Date | null) => (d ? formatDate(d, "UTC") : "");
 const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "");
 

@@ -14,8 +14,11 @@ import { counsellors, readConfidential } from "@/lib/students/behaviour";
 import { BASE, studentPage, todayIso } from "../../../_lib/page";
 import { addSessionAction, saveCaseAction } from "../../../_actions/behaviour";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Counselling case" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Counselling case") };
+}
 
 export default async function CasePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

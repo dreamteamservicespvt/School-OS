@@ -23,8 +23,11 @@ import { archiveCustomAction, archiveScheduleAction, customFeatureAction } from 
 import { QuickButton } from "../_components/bits";
 import { BASE, one, qs, repGuard, withQ, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Custom & Scheduled Reports" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Custom & Scheduled Reports") };
+}
 
 const HREF = `${BASE}/custom`;
 const PREVIEW_ROWS = 12;

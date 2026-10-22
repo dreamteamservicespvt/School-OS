@@ -13,8 +13,11 @@ import { examPage, one, withYear, type SearchParams } from "../../../_lib/page";
 import { BackLink } from "../../../_components/page-top";
 import { SeatingButton } from "../../datesheet-ui";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Seating" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Seating") };
+}
 
 export default async function SeatingPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
   const { id } = await params;

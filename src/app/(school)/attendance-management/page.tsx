@@ -20,9 +20,12 @@ import { SheetPicker } from "./_components/picker";
 import { TakeSheet } from "./_components/take-sheet";
 import { OfflinePanel } from "./_components/offline-panel";
 import { longDay } from "./_components/dates";
-import { Words } from "@/lib/i18n/client";
+import { DayText, Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Take Attendance" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Take Attendance") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
@@ -82,7 +85,7 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
 
   return (
     <>
-      <AttHead access={access} features={features} userId={current.user.id} href={BASE} sub={sub}
+      <AttHead access={access} features={features} userId={current.user.id} href={BASE} sub={<DayText text={sub} />}
         actions={<SheetPicker choices={pickerChoices} value={data.chosen ? `${data.chosen.sectionId}:${data.chosen.periodNo}` : ""}
           date={isoDay(date)} maxDate={isoDay(today)} minDate={data.year ? isoDay(data.year.startDate) : undefined}
           classLabel={periodWise ? "Class and period" : "Class and section"} />} />

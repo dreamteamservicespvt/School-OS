@@ -37,8 +37,11 @@ import { decideAction } from "../actions";
 import { archiveVendorAction, restoreVendorAction } from "./actions";
 import { BillSheet, CancelBillSheet, CancelRequestSheet, OrderSheet, PayBillSheet, RequestSheet, VendorSheet, type VendorStart } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Purchases & Vendors · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Purchases & Vendors · Inventory Management") };
+}
 
 const TABS = ["requests", "orders", "receipts", "bills", "vendors"] as const;
 type Tab = (typeof TABS)[number];

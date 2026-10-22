@@ -28,8 +28,11 @@ import { BASE, invGuard, invPeriod, one, qs, UUID, type SearchParams } from "../
 import { whoNames } from "../../_lib/lists";
 import { restoreItemAction } from "../../actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Item · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Item · Inventory Management") };
+}
 const day = (d: Date) => formatDate(d, "UTC");
 
 export default async function ItemPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {

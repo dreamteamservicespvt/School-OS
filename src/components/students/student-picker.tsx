@@ -9,12 +9,13 @@ import { useFormResult } from "./action-form";
 import { Spinner } from "@/components/ui/button";
 import { searchStudents, studentsInSection, type PickedStudent } from "@/app/(school)/student-management/_actions/lookup";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 
 export function StudentPicker({ name, label, multiple = false, sections = [], initial = [], anyStatus = false, required = true, help }: {
   name: string; label: string; multiple?: boolean; sections?: { value: string; label: string }[];
   initial?: PickedStudent[]; anyStatus?: boolean; required?: boolean; help?: string;
 }) {
+  const tr = useT();
   const state = useFormResult();
   const error = state?.errors?.[name];
   const [chosen, setChosen] = useState<PickedStudent[]>(initial);
@@ -35,7 +36,7 @@ export function StudentPicker({ name, label, multiple = false, sections = [], in
       <legend className="mb-1 text-[13px] font-semibold text-ink2">{label}{required && <span className="text-bad" aria-hidden="true"> *</span>}</legend>
       {chosen.map((s) => <input key={s.id} type="hidden" name={name} value={s.id} />)}
       {chosen.length > 0 && (
-        <ul className="mb-2 flex flex-wrap gap-2" aria-label="Chosen students">
+        <ul className="mb-2 flex flex-wrap gap-2" aria-label={tr.any("Chosen students")}>
           {chosen.map((s) => (
             <li key={s.id} className="inline-flex items-center gap-1 rounded-full bg-brand/8 py-1 pl-3 pr-1 text-brand">
               {s.name}{s.cls ? ` (${s.cls})` : ""}

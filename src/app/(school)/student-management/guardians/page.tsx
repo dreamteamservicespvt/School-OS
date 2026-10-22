@@ -22,8 +22,11 @@ import { BASE, studentPageOnCampus } from "../_lib/page";
 import { StudentsHead } from "../_lib/head";
 import { sectionNames } from "../_lib/queries";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Parents & Guardians" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Parents & Guardians") };
+}
 
 const FILTERS = ["consent", "photo", "link", "relation", "campus"] as const;
 const TONE = { GIVEN: "ok", WITHDRAWN: "bad", REQUESTED: "warn", NONE: "warn" } as const;

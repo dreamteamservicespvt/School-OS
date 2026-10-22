@@ -6,8 +6,11 @@ import { ImportHome } from "@/components/import/import-home";
 import { SalaryHead } from "../../_components/salary-head";
 import { BASE, salaryGuard } from "../../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import salary · Salary Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import salary · Salary Management") };
+}
 
 const ABOUT = {
   "salary-structures": "One row per staff member: staff ID, basic, conveyance, special allowance, monthly TDS and the 1st of the month it starts. Each row becomes a new version of that person's structure, as if typed on Add structure; earlier versions stay. Undo works until salary has been worked out with them.",

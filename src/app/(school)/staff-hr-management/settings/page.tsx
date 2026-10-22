@@ -16,8 +16,11 @@ import {
   archiveDepartment, archiveDesignation, archiveLeaveType, saveDepartment, saveDesignation, saveGeneral, saveLeaveType, toggleFeature,
 } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "HR Settings" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("HR Settings") };
+}
 
 const FIELD_CHOICES = [
   { value: "email", label: "Email" }, { value: "dateOfBirth", label: "Date of birth" }, { value: "gender", label: "Gender" }, { value: "bloodGroup", label: "Blood group" },

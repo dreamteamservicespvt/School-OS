@@ -20,8 +20,11 @@ import { ListToolbar } from "@/components/list/list-toolbar";
 import { UploadDocumentForm } from "./upload-form";
 import { uploadDocument } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Documents & ID Cards" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Documents & ID Cards") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 

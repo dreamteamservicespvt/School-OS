@@ -19,8 +19,11 @@ import { CERT_LABEL, LEAVING_TYPE_LABEL, studentFacts, tcFor } from "../load";
 import { leavingTabs } from "../sub-tabs";
 import { studentIdsForFilter } from "@/lib/students/find";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Left" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Left") };
+}
 
 const FILTERS = ["type", "status"] as const;
 const STEP = 25;

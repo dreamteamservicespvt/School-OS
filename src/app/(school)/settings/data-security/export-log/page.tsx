@@ -12,8 +12,11 @@ import { ListToolbar } from "@/components/list/list-toolbar";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Export log · Data Backup & Security" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Export log · Data Backup & Security") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 type ExportAfter = { title?: string; format?: string; filters?: string; rows?: number; recordTypes?: number; sizeBytes?: number; personType?: string };

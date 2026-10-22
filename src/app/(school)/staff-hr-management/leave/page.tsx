@@ -23,8 +23,11 @@ import { EmptyState } from "@/components/empty-state";
 import { AdjustBalanceForm, ApplyLeaveForm, CancelLeaveForm, CarryForwardForm, DecideButtons } from "./leave-forms";
 import { adjustBalanceAction, applyLeaveAction, cancelLeaveAction, carryForwardAction, decideLeave, previewLeave } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Staff Leave" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Staff Leave") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 

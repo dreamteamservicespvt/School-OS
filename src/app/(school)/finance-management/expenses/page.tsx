@@ -28,8 +28,11 @@ import { AttachBillSheet, ChangeExpenseSheet, PaySheet, RecordExpenseSheet, Vend
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Expenses" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Expenses") };
+}
 
 const HREF = `${BASE}/expenses`;
 const UUID = /^[0-9a-f-]{36}$/i;

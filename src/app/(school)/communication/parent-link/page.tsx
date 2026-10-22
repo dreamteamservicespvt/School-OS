@@ -28,8 +28,11 @@ import { CommHead } from "../_components/comm-head";
 import { RemindButton } from "./consent/consent-forms";
 import { ResendBar, ShowsCard } from "./link-tools";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Parent Link" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Parent Link") };
+}
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 const DAY = 86400_000;

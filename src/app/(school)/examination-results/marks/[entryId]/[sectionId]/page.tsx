@@ -13,8 +13,11 @@ import { BackLink } from "../../../_components/page-top";
 import { MarksGrid, type GridStudent } from "../../marks-grid";
 import { LockPaperButton, ReopenButton } from "../../marks-ui";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Marks Entry" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Marks Entry") };
+}
 
 const UUID = /^[0-9a-f-]{36}$/i;
 

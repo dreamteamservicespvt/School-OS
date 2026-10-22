@@ -29,8 +29,11 @@ import { AdjustmentSheet, OpenMonthSheet, PayRunSheet, StatutoryPaySheet, TdsShe
 import { STATUTORY_KINDS, STATUTORY_WORDS, duesTrackedFrom, statutoryDues, statutoryPaymentsOf, type StatutoryKind } from "@/lib/salary/statutory-payments";
 import { schoolRole } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Generate Salary" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Generate Salary") };
+}
 
 const HREF = `${BASE}/generate`;
 const UUID = /^[0-9a-f-]{36}$/i;

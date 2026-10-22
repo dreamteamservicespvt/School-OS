@@ -18,8 +18,11 @@ import { Line } from "../_components/bits";
 import { BASE, financeManagerPage, one, qs, type SearchParams } from "../_lib/page";
 import { AddHeadSheet, BillsSheet, CloseMonthSheet, CloseYearSheet, CostCentreSheet, FeatureSwitch, HeadChip, TallySheet, YearSheet } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Finance Settings" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Finance Settings") };
+}
 
 const HREF = `${BASE}/settings`;
 const ZERO = BigInt(0);

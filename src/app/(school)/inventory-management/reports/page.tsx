@@ -25,8 +25,11 @@ import { InvHead } from "../_components/head";
 import { BASE, invGuard, invPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { readReportFilter, STORE_REPORTS } from "../_lib/reports";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Inventory Reports · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Inventory Reports · Inventory Management") };
+}
 const SHOW = 100;
 const ZERO = BigInt(0);
 

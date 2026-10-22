@@ -10,6 +10,7 @@ import * as I from "lucide-react";
 import { cx } from "@/components/ui/cx";
 import { inputCls } from "@/components/ui/field";
 import { PeriodFilter, type PeriodFilterProps } from "./period-filter";
+import { useT } from "@/lib/i18n/client";
 
 export type FilterDef = { key: string; label: string; options: { value: string; label: string }[]; /** Words for the empty choice; default "{label}: all". */ allLabel?: string };
 
@@ -20,6 +21,7 @@ export function ListToolbar({ placeholder = "Search", filters = [], more = [], s
   placeholder?: string; filters?: FilterDef[]; /** Less used filters, behind "More filters". */ more?: FilterDef[]; showArchived?: boolean;
   period?: PeriodDef; children?: React.ReactNode;
 }) {
+  const tr = useT();
   const router = useRouter();
   const pathname = usePathname();
   const sp = useSearchParams();
@@ -67,9 +69,9 @@ export function ListToolbar({ placeholder = "Search", filters = [], more = [], s
               timer.current = setTimeout(() => go({ q: v.trim() || null }), 300);
             }}
             className={cx(inputCls(), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")} />
-          {pending ? <I.LoaderCircle size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 animate-spin text-ink3" aria-label="Loading" />
+          {pending ? <I.LoaderCircle size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 animate-spin text-ink3" aria-label={tr.any("Loading")} />
             : q && (
-              <button type="button" onClick={() => { setQ(""); go({ q: null }); }} aria-label="Clear search"
+              <button type="button" onClick={() => { setQ(""); go({ q: null }); }} aria-label={tr.any("Clear search")}
                 className="absolute right-1.5 top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken"><I.X size={16} aria-hidden="true" /></button>
             )}
         </div>

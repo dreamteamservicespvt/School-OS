@@ -37,8 +37,11 @@ import { BASE, libGuard, libPeriod, one, qs, addQ, UUID, type SearchParams, type
 import { historyWhere, HISTORY_STATUS } from "./_lib/history";
 import { issueAction, returnAction, renewAction, reserveAction, remindAction, remindAllAction, remindLibrarianAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Issue & Return · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Issue & Return · Library Management") };
+}
 
 const LISTS = [
   { value: "issued", label: "Issued today" },

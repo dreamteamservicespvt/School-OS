@@ -16,8 +16,11 @@ import { EmptyState } from "@/components/empty-state";
 import { UploadForm } from "@/components/import/file-forms";
 import { UndoImportButton, AutoRefresh } from "../parts";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Imports · Data Backup & Security" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Imports · Data Backup & Security") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 

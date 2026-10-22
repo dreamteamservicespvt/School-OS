@@ -17,8 +17,11 @@ import { bulkSectionAction } from "../_actions/bulk";
 import { BulkFieldForm } from "./bulk-field-form";
 import { chosenStudents } from "./chosen";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Bulk field update" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Bulk field update") };
+}
 
 /** Bulk field update and bulk section change for students chosen on the Student List, or a whole section. */
 export default async function BulkUpdatePage({ searchParams }: { searchParams: Promise<{ ids?: string; section?: string; field?: string }> }) {

@@ -8,8 +8,11 @@ import { cleanAccent, cleanTextSize, cleanTheme } from "@/lib/theme";
 import { PageHeader } from "@/components/shell/page-header";
 import { Appearance } from "../appearance";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Colours and text size" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Colours and text size") };
+}
 
 export default async function AppearancePage() {
   const current = await requireCurrent();

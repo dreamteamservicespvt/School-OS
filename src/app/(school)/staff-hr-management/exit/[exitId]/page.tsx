@@ -17,8 +17,11 @@ import { EXIT_STATUS } from "../exit-status";
 import { AddHandoverForm, CancelExitForm, ClearanceForm, CompleteExitButton, HandOverForm, SettlementForm } from "../exit-forms";
 import { addHandoverAction, cancelExitAction, clearanceAction, completeExitAction, handOverAction, settlementAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Staff Exit" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Staff Exit") };
+}
 
 type Props = { params: Promise<{ exitId: string }> };
 

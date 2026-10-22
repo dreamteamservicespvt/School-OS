@@ -24,8 +24,11 @@ import { FileRow, Ring, SubIcon, subjectIcon, subjectTone } from "./_components/
 import { BASE, homeworkGuard, homeworkPeriod, iso, one, qs, UUID, type HomeworkPage, type SearchParams } from "./_lib/page";
 import { ArchiveSheet, CardMenu, EditSheet, GiveSheet, RemindButton, SubmitSheet, type GiveSection } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Homework" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Homework") };
+}
 
 const DAY = 86_400_000;
 

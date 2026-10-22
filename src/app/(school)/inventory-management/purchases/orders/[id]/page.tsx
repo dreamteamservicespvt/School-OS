@@ -26,8 +26,11 @@ import { decidable, whoNames } from "../../../_lib/lists";
 import { decideAction } from "../../../actions";
 import { CloseOrderSheet, EmailOrderSheet, ReceiveSheet } from "../../sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Purchase order · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Purchase order · Inventory Management") };
+}
 const day = (d: Date) => formatDate(d, "UTC");
 const ZERO = BigInt(0);
 

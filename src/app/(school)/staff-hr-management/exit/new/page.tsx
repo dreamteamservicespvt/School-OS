@@ -10,8 +10,11 @@ import { Card, CardBody } from "@/components/ui/card";
 import { NewExitForm } from "../exit-forms";
 import { startExitAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Record exit" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Record exit") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 

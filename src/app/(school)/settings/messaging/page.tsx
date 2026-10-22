@@ -16,8 +16,11 @@ import { Alert } from "@/components/ui/alert";
 import { ExportMenu } from "@/components/communication/export-menu";
 import { ChannelCard, CreditsForm, DltForm } from "./channel-forms";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "SMS, WhatsApp & Email" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("SMS, WhatsApp & Email") };
+}
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 

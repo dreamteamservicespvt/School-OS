@@ -14,9 +14,12 @@ import { EvHead } from "../_components/head";
 import { EvIcon } from "../_components/icons";
 import { AlbumSheet } from "../_components/gallery-sheets";
 import { BASE, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
-import { Words } from "@/lib/i18n/client";
+import { DayText, Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Gallery" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Gallery") };
+}
 
 const HREF = `${BASE}/gallery`;
 const TILES = ["bg-brand/10 text-brand", "bg-ok/10 text-ok", "bg-warn/12 text-warn", "bg-bad/10 text-bad", "bg-info/10 text-info"];
@@ -85,7 +88,7 @@ export default async function GalleryPage({ searchParams }: { searchParams: Sear
                   </span>
                   <span className="block p-3">
                     <span className="block font-semibold text-[14px] truncate">{r.a.name}</span>
-                    <span className="block text-[12px] text-ink3 truncate">{longDay(isoOf(r.a.date))} · {d.words.get(r.a.id)}</span>
+                    <span className="block text-[12px] text-ink3 truncate"><DayText text={longDay(isoOf(r.a.date))} /> · {d.words.get(r.a.id)}</span>
                     <span className="mt-1.5 flex"><Pill tone={r.consent === "all" ? "ok" : r.consent === "some" ? "warn" : "neutral"} className="!h-[22px] !text-[11px]">{r.consent === "some" ? `${r.without} without consent` : r.consent === "all" ? "All consented" : "Not tagged"}</Pill></span>
                   </span>
                 </Link>

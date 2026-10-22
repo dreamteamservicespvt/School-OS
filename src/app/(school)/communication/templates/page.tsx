@@ -19,8 +19,11 @@ import { ExportMenu } from "@/components/communication/export-menu";
 import { CommHead } from "../_components/comm-head";
 import { ChannelPills, CHANNEL_NAME } from "../_components/channel-pills";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Message Templates" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Message Templates") };
+}
 
 const WA_TONE: Record<string, PillTone> = { APPROVED: "ok", PENDING: "warn", REJECTED: "bad", NOT_SUBMITTED: "neutral" };
 

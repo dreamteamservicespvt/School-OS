@@ -605,6 +605,12 @@ export const EN = [
   "This request is waiting for",
   ". You can see it but not decide it.",
   "Reason given",
+  // src/app/(school)/ask/page.tsx
+  "Questions",
+  "Suggestion",
+  "The AI assistant read your words as this question. Check it is what you meant; the answer below is from the school's own records.",
+  "Showing the first",
+  "Questions are about lists your role already opens, such as today's absent list or fees overdue. Use Search to find a student, staff member or page.",
   // src/app/(school)/attendance-management/page.tsx
   "Go to today",
   "Attendance can be taken for today or earlier days.",
@@ -1170,7 +1176,6 @@ export const EN = [
   "New survey",
   "Start from an example",
   // src/app/(school)/communication/surveys/survey-form.tsx
-  "Questions",
   "Question",
   "type",
   "Add a choice",
@@ -1300,7 +1305,6 @@ export const EN = [
   "No classes with students yet this year.",
   "{section}: {n} students",
   "Based on: {basis}",
-  "Suggestion",
   "Class list",
   "Today and next",
   "Nothing on the School Calendar for the next 7 days.",
@@ -2675,7 +2679,6 @@ export const EN = [
   "No hostel yet.",
   "Roll call absences by day",
   "No roll calls on these dates.",
-  "Showing the first",
   "rows. Export the report for all of them.",
   // src/app/(school)/hostel-management/rooms/page.tsx
   "Add a hostel",
@@ -4714,6 +4717,8 @@ export const EN = [
   "Page {page} of {pages}",
   "Showing {from} to {to} of {total}",
   "Showing {from} of {total}",
+  "Previous page",
+  "Next page",
   // src/components/ui/field.tsx
   "Please fix {n} things before saving:",
   // src/components/ui/toast.tsx
@@ -14149,6 +14154,24 @@ export const EN = [
   "A flag closed as not a concern has no action.",
   "You review these flags yourself.",
   "This suggestion is no longer there.",
+  // Phase 3 batch 5: page titles, Ask page, aria-labels
+  "Ready-made questions about the lists your role opens. Each answer comes from the list itself.",
+  "This question cannot be answered here",
+  "No ready-made questions for your role yet",
+  "Other questions",
+  "Questions you can ask",
+  "Or type your own words in Search, such as “absent today” or “fees due class 5”.",
+  "Check a file",
+  "Check-in",
+  "Stock audit",
+  "Live Tracking",
+  "Transport Reports",
+  "Routes & Stops",
+  "Route",
+  "Transport Settings",
+  "Student Transport",
+  "Vehicles & Drivers",
+  "Loading",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

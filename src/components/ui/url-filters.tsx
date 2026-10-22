@@ -10,6 +10,7 @@ import { Segmented, type SegOption } from "./controls";
 import { Spinner } from "./button";
 import { cx } from "./cx";
 import { inputCls } from "./field";
+import { useT } from "@/lib/i18n/client";
 
 function useGo() {
   const router = useRouter();
@@ -27,6 +28,7 @@ function useGo() {
 
 /** The search box at the top of a list card. */
 export function UrlSearch({ placeholder, param = "q", className, label }: { placeholder: string; param?: string; className?: string; label?: string }) {
+  const tr = useT();
   const { go, sp, pending } = useGo();
   const [q, setQ] = useState(sp.get(param) ?? "");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -43,7 +45,7 @@ export function UrlSearch({ placeholder, param = "q", className, label }: { plac
         }}
         className={cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")} />
       {pending ? <Spinner className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3" />
-        : q && <button type="button" onClick={() => { setQ(""); go({ [param]: null }); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken" aria-label="Clear search"><X size={16} aria-hidden="true" /></button>}
+        : q && <button type="button" onClick={() => { setQ(""); go({ [param]: null }); }} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken" aria-label={tr.any("Clear search")}><X size={16} aria-hidden="true" /></button>}
     </div>
   );
 }

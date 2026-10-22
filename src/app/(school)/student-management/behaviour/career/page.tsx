@@ -19,8 +19,11 @@ import { StudentsHead } from "../../_lib/head";
 import { behaviourTabs } from "../sub-tabs";
 import { careerAction, careerStatusAction } from "../../_actions/behaviour";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Career guidance" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Career guidance") };
+}
 
 /** Career guidance (optional, secondary schools): notes, entrance exams, college applications, scholarships, interests, alumni mentors. */
 export default async function CareerPage({ searchParams }: { searchParams: Promise<{ kind?: string }> }) {

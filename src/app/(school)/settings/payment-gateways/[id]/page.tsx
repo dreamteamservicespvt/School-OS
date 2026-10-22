@@ -15,8 +15,11 @@ import { GatewayForm } from "../gateway-form";
 import { providerInfo } from "../providers-info";
 import { ArchiveGateway, LinkedAccountForm, RemoveLinkedAccount, RestoreGateway, SwitchGateway, TestSavedButton } from "../parts";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Payment gateway" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Payment gateway") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 

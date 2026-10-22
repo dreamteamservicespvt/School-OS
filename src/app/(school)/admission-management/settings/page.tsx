@@ -14,8 +14,11 @@ import { AdmissionHead } from "../_components/head";
 import { ClassEdit, ListChips, NumbersButton, OwnerRule, PapersTable, RuleSwitch, StagesList } from "./settings-forms";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Admission Settings" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Admission Settings") };
+}
 
 const STAGE_SUB: Record<string, string> = {
   enquiry: "Every admission starts here", application: "Counter or online form", documents: "Papers needed per class, below",

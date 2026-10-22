@@ -15,8 +15,11 @@ import { BASE, studentPage } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { consentRequestAction } from "../../_actions/guardians";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Send consent request" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Send consent request") };
+}
 
 /**
  * Bulk consent request (03 §2, D8a): to chosen parents, to the parents of a

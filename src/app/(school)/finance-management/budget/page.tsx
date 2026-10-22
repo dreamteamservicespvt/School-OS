@@ -17,8 +17,11 @@ import { signed } from "../_components/bits";
 import { BASE, financeFeaturePage, one, qs, type SearchParams } from "../_lib/page";
 import { BudgetSheet, CopySheet, ReviseSheet } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Budget" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Budget") };
+}
 
 const HREF = `${BASE}/budget`;
 const UUID = /^[0-9a-f-]{36}$/i;

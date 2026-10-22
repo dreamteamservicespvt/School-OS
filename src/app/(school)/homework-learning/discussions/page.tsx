@@ -15,8 +15,11 @@ import { BackLink } from "../_components/bits";
 import { BASE, homeworkGuard, one, qs, UUID, type SearchParams } from "../_lib/page";
 import { BoardSheet, HideSheet, ModMenu, ReplyBox, TopicSheet } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Discussions" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Discussions") };
+}
 
 const HREF = `${BASE}/discussions`;
 

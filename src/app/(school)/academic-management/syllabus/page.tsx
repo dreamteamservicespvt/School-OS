@@ -15,8 +15,11 @@ import { ExportLinks } from "../_components/export-links";
 import { ParamSelect, ViewSwitch } from "../_components/pickers";
 import { AddTopItem, ArchivePlan, CopySyllabus, DailyLog, LessonPlanButton, PasteItems, SyllabusTree, type LogChapter, type Row } from "./syllabus-ui";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Syllabus & Lesson Plans" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Syllabus & Lesson Plans") };
+}
 const PATH = "/academic-management/syllabus";
 const PAGE_SIZE = 30;
 

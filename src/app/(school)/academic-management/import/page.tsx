@@ -3,8 +3,11 @@ import { PLACES } from "@/lib/imports/places";
 import { ImportHome } from "@/components/import/import-home";
 import { academicPage, one, type SearchParams } from "../_lib/page";
 import { PageTop } from "../_components/page-top";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import from Excel · Academic Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import from Excel · Academic Management") };
+}
 
 const ABOUT: Record<string, string> = {
   "academic-allocations": "One row per class and section, subject and teacher (staff ID or name), with Primary or Secondary and Yes when the teacher is the class teacher. Each row is an assignment as made on Teacher Allocation, from the year's start while you are moving in. A subject that has another teacher, or a section with another class teacher, waits for you to choose Hand over. Undo takes the assignments back.",

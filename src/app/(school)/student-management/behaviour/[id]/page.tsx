@@ -17,8 +17,11 @@ import { BEHAVIOUR_KIND_LABEL, isPositive, type BehaviourKind } from "@/lib/stud
 import { BASE, studentPage } from "../../_lib/page";
 import { archiveIncidentAction, closeIncidentAction } from "../../_actions/behaviour";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Behaviour record" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Behaviour record") };
+}
 
 export default async function IncidentPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;

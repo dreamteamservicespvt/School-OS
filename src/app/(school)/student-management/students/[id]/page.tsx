@@ -28,8 +28,11 @@ import { AcademicsTab, BehaviourTab, DocumentsTab, HistoryTab, OverviewTab } fro
 import { LibraryView, PickupView } from "./lookup-views";
 import { LibraryPanel } from "@/lib/library/profile-tab";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Student Profile" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Student Profile") };
+}
 
 const ICONS: Record<string, LucideIcon> = { attendance: CalendarCheck2, exam: Award, result: Award, fee: IndianRupee, transport: Bus, bus: Bus, document: FolderOpen, library: BookOpen, behaviour: Medal, homework: CalendarClock };
 const iconFor = (label: string) => Object.entries(ICONS).find(([k]) => label.toLowerCase().includes(k))?.[1] ?? Info;

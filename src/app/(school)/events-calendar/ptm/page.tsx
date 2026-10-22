@@ -22,8 +22,11 @@ import { BookSlotSheet, CancelPtmSheet, MeetingSheet, PlanPtmSheet, type BookPic
 import { cancelBookingAction, queueAction, summaryAction } from "../actions";
 import { BASE, UUID, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "PTM" };
+export async function generateMetadata() {
+  return { title: await pageTitle("PTM") };
+}
 
 const HREF = `${BASE}/ptm`;
 

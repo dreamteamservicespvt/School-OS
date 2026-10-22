@@ -23,8 +23,11 @@ import { ArchivePlanSheet, CloseHostelSheet, FeePlanSheet, HostelSheet, WardensS
 import { BASE, hostelGuard, idParam, one, qs, type SearchParams } from "../_lib/page";
 import { MealsForm, MessagesForm, RulesForm, TimingsForm } from "./forms";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Hostel Settings · Hostel Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Hostel Settings · Hostel Management") };
+}
 
 export default async function HostelSettingsPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;

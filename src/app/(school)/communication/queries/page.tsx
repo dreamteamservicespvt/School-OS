@@ -22,8 +22,11 @@ import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
 import { CommHead } from "../_components/comm-head";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Feedback & Queries" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Feedback & Queries") };
+}
 
 const STATUS_TONE: Record<string, PillTone> = { OPEN: "warn", IN_PROGRESS: "info", RESOLVED: "ok", CLOSED: "neutral" };
 const PRIORITY_TONE: Record<string, PillTone> = { low: "neutral", normal: "neutral", high: "warn", urgent: "bad" };

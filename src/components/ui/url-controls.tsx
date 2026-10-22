@@ -11,6 +11,7 @@ import { Segmented, type SegOption } from "./controls";
 import { Dialog } from "./dialog";
 import { cx } from "./cx";
 import { inputCls } from "./field";
+import { useT } from "@/lib/i18n/client";
 
 function useUrl() {
   const router = useRouter();
@@ -27,6 +28,7 @@ function useUrl() {
 }
 
 export function UrlSearch({ param = "q", placeholder, label, className, id }: { param?: string; placeholder: string; label?: string; className?: string; id?: string }) {
+  const tr = useT();
   const { sp, go, pending } = useUrl();
   const [q, setQ] = useState(sp.get(param) ?? "");
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -42,7 +44,7 @@ export function UrlSearch({ param = "q", placeholder, label, className, id }: { 
       <input id={id} type="search" value={q} onChange={(e) => change(e.target.value)} placeholder={placeholder} aria-label={label ?? placeholder}
         className={cx(inputCls(false), "h-11 pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden")} />
       {pending ? <Spinner className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3" />
-        : q && <button type="button" onClick={() => change("")} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken" aria-label="Clear search"><X size={16} aria-hidden="true" /></button>}
+        : q && <button type="button" onClick={() => change("")} className="absolute right-2 top-1/2 -translate-y-1/2 w-8 h-8 grid place-items-center rounded-lg text-ink3 hover:bg-sunken" aria-label={tr.any("Clear search")}><X size={16} aria-hidden="true" /></button>}
     </div>
   );
 }

@@ -34,8 +34,11 @@ import { AllTick, BulkApprove, ReasonButton, RecordLeaveButton, RowTick, TapButt
 import { rangeText } from "../_components/dates";
 import { approveManyStudentLeaveAction, approveStudentLeaveAction, cancelStudentLeaveAction, findStudents, previewStudentLeave, recordStudentLeaveAction, rejectStudentLeaveAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Student Leave" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Student Leave") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const TONE: Record<string, "warn" | "ok" | "bad" | "neutral"> = { WAITING: "warn", APPROVED: "ok", REJECTED: "bad", CANCELLED: "neutral" };

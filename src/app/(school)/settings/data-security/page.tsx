@@ -15,8 +15,11 @@ import { ExportButton, TwoStepSwitch, AutoRefresh } from "./parts";
 import { REMEMBER_DAYS } from "@/lib/auth/remembered";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Data Backup & Security" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Data Backup & Security") };
+}
 
 function backupWords(at: Date, tz: string, now = new Date()) {
   const day = formatDate(at, tz);

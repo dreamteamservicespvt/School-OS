@@ -7,8 +7,11 @@ import { PLACES } from "@/lib/imports/places";
 import { ImportHome } from "@/components/import/import-home";
 import { AttHead } from "../_components/att-head";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import attendance so far · Attendance" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import attendance so far · Attendance") };
+}
 
 const ABOUT = {
   "attendance-so-far": "Starting part way through the year: one row per student with the admission number, the days the school met and the days present, up to the day before you started on School OS. Each becomes one opening total for the year, not daily marks. The year's attendance %, Early Warnings and forecasts count it from the first day. Undo takes the totals back.",

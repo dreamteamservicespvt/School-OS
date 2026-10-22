@@ -15,8 +15,11 @@ import { ParamSelect, ViewSwitch } from "../_components/pickers";
 import { AllocationGrid } from "./allocation-ui";
 import { GapsToggle, TeacherSearch } from "./filters";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Teacher Allocation" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Teacher Allocation") };
+}
 const PATH = "/academic-management/teacher-allocation";
 
 export default async function AllocationPage({ searchParams }: { searchParams: SearchParams }) {

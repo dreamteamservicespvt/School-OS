@@ -13,8 +13,11 @@ import { UsersNav } from "../sub-nav";
 import { RoleSwitch } from "./role-actions";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Roles" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Roles") };
+}
 
 const KIND = { READY: "Ready role", TEMPLATE: "Role template", CUSTOM: "Your own role" } as const;
 

@@ -14,8 +14,11 @@ import { PageTop } from "../_components/page-top";
 import { EXAM_FEATURES, FEATURE_WORDS } from "./features";
 import { AreasList, BoardsEditor, ClassPatternsEditor, CompetencyList, FeatureSwitch, NameList, RulesForm, ScaleEditor, WeightsEditor } from "./settings-ui";
 import { schoolRoles } from "@/lib/school-roles";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Exam Settings" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Exam Settings") };
+}
 const PATH = "/examination-results/settings";
 
 export default async function ExamSettingsPage({ searchParams }: { searchParams: SearchParams }) {

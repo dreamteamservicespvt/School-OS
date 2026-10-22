@@ -3,8 +3,11 @@ import { commPage } from "@/lib/communication/access";
 import { BackLink, RecordHead } from "@/components/ui/split";
 import { NoticeForm } from "../notice-form";
 import { noticeFormData } from "../form-data";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "New notice" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("New notice") };
+}
 
 export default async function NewNoticePage() {
   const access = await commPage("create");

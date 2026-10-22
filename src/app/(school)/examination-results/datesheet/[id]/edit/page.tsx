@@ -5,8 +5,11 @@ import { BackLink } from "../../../_components/page-top";
 import { datesheetFormData } from "../../form-data";
 import { DatesheetForm } from "../../datesheet-form";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Change datesheet" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Change datesheet") };
+}
 
 export default async function EditDatesheetPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {
   const { id } = await params;

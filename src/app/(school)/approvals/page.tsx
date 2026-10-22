@@ -29,8 +29,11 @@ import { approvalRecordLink } from "@/lib/approval-links";
 import { approvalFacts } from "@/lib/approval-facts";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Approvals" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Approvals") };
+}
 
 const STATUS_FILTER: Record<string, ApprovalStatus[]> = {
   open: ["WAITING", "ESCALATED"],

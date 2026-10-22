@@ -14,8 +14,11 @@ import { HOUSE_BG } from "@/lib/events/words";
 import { pickStudents } from "../_lib/co";
 import { BASE, UUID, evGuard, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Events Settings" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Events Settings") };
+}
 
 const HREF = `${BASE}/settings`;
 

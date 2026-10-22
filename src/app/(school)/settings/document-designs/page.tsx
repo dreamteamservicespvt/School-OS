@@ -11,8 +11,11 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ArchiveSignatory, SignatoryForm } from "./signatories";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Document Designs" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Document Designs") };
+}
 
 export default async function DocumentDesignsPage() {
   const { current, may } = await requireSettingsPage("document-designs");

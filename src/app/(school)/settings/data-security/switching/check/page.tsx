@@ -16,8 +16,11 @@ import { Alert } from "@/components/ui/alert";
 import { ExpectedForm } from "../forms";
 import { GoLiveButton } from "../parts";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Go-live check · Switching to School OS" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Go-live check · Switching to School OS") };
+}
 
 const BASE = "/settings/data-security/switching";
 

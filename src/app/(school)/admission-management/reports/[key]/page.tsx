@@ -15,8 +15,11 @@ import { BackLink } from "../../_components/pills";
 import { defaultYears, filterQuery, readFilters, yearOptions } from "../filters";
 import { ReportToolbar } from "../toolbar";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Admission report" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Admission report") };
+}
 
 type Props = { params: Promise<{ key: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 

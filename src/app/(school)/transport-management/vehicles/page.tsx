@@ -23,8 +23,11 @@ import { CancelCostSheet, CostSheet, DriverSheet, KeySheet, PaperSheet, VehicleS
 import { archiveDriverAction, archiveVehicleAction, archiveVendorAction, revokeKeyAction, sendInviteAction, setAppLoginAction } from "../actions";
 import { BASE, UUID, addQ, one, qs, rangeDates, trGuard, trPeriod, type SearchParams } from "../_lib/page";
 import { crewOptions } from "../_lib/options";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Vehicles & Drivers" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Vehicles & Drivers") };
+}
 
 const HREF = `${BASE}/vehicles`;
 const VIEWS = ["vehicles", "people", "papers", "costs", "vendors"] as const;

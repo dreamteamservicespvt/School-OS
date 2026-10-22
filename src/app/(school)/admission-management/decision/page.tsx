@@ -29,8 +29,11 @@ import { cx } from "@/components/ui/cx";
 import { AdmissionHead } from "../_components/head";
 import { ConfirmButton, DecideButtons, OfferButtons, OfferSeat, Rerank, WaitMove } from "./decision-forms";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Admission Decision" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Admission Decision") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";

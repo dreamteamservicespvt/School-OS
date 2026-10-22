@@ -16,8 +16,11 @@ import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { EXIT_STATUS } from "./exit-status";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Staff Exit" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Staff Exit") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";

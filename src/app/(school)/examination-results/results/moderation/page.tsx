@@ -16,8 +16,11 @@ import { ExportLinks } from "../../../academic-management/_components/export-lin
 import { examPage, type SearchParams } from "../../_lib/page";
 import { BackLink, NoYear, PageTop } from "../../_components/page-top";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Moderation report" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Moderation report") };
+}
 const PATH = "/examination-results/results/moderation";
 
 const STATUS: Record<string, { label: string; tone: "warning" | "success" | "danger" | "neutral" }> = {

@@ -13,8 +13,11 @@ import { BASE, studentPage, todayIso } from "../../../_lib/page";
 import { campusAllows } from "@/lib/campus";
 import { addDonationAction, saveAlumniAction } from "../../../_actions/leaving";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Alumni record" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Alumni record") };
+}
 
 /** One alumnus: contact, career, higher education, achievements, donations and the students they mentor. */
 export default async function AlumniRecordPage({ params }: { params: Promise<{ id: string }> }) {

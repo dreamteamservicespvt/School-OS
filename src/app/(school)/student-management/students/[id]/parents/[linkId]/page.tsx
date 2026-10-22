@@ -12,8 +12,11 @@ import { RELATIONS } from "@/lib/students/labels";
 import { BASE, studentPage } from "../../../../_lib/page";
 import { linkSettingsAction } from "../../../../_actions/guardians";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Parent link settings" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Parent link settings") };
+}
 
 export default async function LinkSettingsPage({ params }: { params: Promise<{ id: string; linkId: string }> }) {
   const { id, linkId } = await params;

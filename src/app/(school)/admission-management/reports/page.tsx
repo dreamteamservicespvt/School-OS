@@ -18,8 +18,11 @@ import { AdmissionHead } from "../_components/head";
 import { defaultYears, filterQuery, readFilters, yearOptions } from "./filters";
 import { ReportToolbar } from "./toolbar";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Admission Reports" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Admission Reports") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const PATH = `${BASE}/reports`;

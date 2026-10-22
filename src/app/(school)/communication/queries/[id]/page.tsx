@@ -18,8 +18,11 @@ import { cx } from "@/components/ui/cx";
 import { QueryComposer, QueryHeadActions, QuerySide } from "./query-panel";
 import { ownerOptions } from "../owners";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Query" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Query") };
+}
 
 const STATUS_TONE: Record<string, PillTone> = { OPEN: "brand", IN_PROGRESS: "warn", RESOLVED: "ok", CLOSED: "neutral" };
 const PRIORITY_TONE: Record<string, PillTone> = { low: "neutral", normal: "neutral", high: "warn", urgent: "bad" };

@@ -10,8 +10,11 @@ import { BeforeGoLivePanel } from "./before-go-live";
 import { FeeHead } from "../../_components/fee-head";
 import { BASE, feeGuard, one, type SearchParams } from "../../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import old dues and receipts · Fee Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import old dues and receipts · Fee Management") };
+}
 
 const ABOUT = {
   "fee-old-dues": "One row per student and fee head: the amount still unpaid from before School OS. Each becomes an opening balance row on the Student Fee Ledger, marked Brought in. A second import for the same student and fee head is refused.",

@@ -16,8 +16,11 @@ import { AssignSheet, DailyLog, SendDiarySheet } from "../_components/daily-shee
 import { removeActivityAction, remindDiaryAction } from "../activity-actions";
 import { BASE, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Daily Activities" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Daily Activities") };
+}
 
 const HREF = `${BASE}/daily`;
 

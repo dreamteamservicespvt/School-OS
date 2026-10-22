@@ -4,8 +4,11 @@ import { BackLink, RecordHead } from "@/components/ui/split";
 import { SurveyForm } from "../survey-form";
 import { requireSurveys, surveyFormData } from "../form-data";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "New survey" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("New survey") };
+}
 
 export default async function NewSurveyPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const access = await commOfficePage("create");

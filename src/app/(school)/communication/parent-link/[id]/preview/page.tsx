@@ -9,10 +9,12 @@ import { GuardianPage } from "@/components/parent-link/guardian-page";
 import { Banner } from "@/components/ui/banner";
 import { BackLink, RecordHead } from "@/components/ui/split";
 import { I18nProvider } from "@/lib/i18n/client";
-import { catalogueFor } from "@/lib/i18n/server";
+import { catalogueFor, pageTitle } from "@/lib/i18n/server";
 import { Words } from "@/lib/i18n/client";
 
-export const metadata: Metadata = { title: "What guardians see" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("What guardians see") };
+}
 
 /** "What guardians see": the page exactly as one real guardian sees it. Nothing on it acts, and opens are not counted. */
 export default async function PreviewPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ child?: string; month?: string }> }) {

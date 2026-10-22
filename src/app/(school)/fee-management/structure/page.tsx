@@ -17,8 +17,11 @@ import { FeeHead } from "../_components/fee-head";
 import { BASE, feeGuard, one, qs, type SearchParams } from "../_lib/page";
 import { AssignClass, CopySheet, DiscardDraft, HeadSheet, PrepareSheet, PublishSheet, RemoveRow, RestoreSheet, RowSheet, type HeadData } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Fee Structure" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Fee Structure") };
+}
 
 const HREF = `${BASE}/structure`;
 const ZERO = BigInt(0);

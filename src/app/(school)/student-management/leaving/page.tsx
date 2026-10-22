@@ -20,8 +20,11 @@ import { CERT_LABEL, CHECK_LABEL, LEAVING_TYPE_LABEL, studentFacts, tcFor } from
 import { leavingTabs } from "./sub-tabs";
 import { studentIdsForFilter } from "@/lib/students/find";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Leaving & Alumni" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Leaving & Alumni") };
+}
 
 const FILTERS = ["type", "clearance"] as const;
 const STEP = 25;

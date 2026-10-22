@@ -32,8 +32,11 @@ import { BASE, invGuard, invPeriod, one, qs, addQ, uuidOr, type SearchParams } f
 import { itemsList, movesList, readItemsFilter, readMovesFilter } from "../_lib/lists";
 import { archiveSetAction, remindStoreAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Items & Stock · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Items & Stock · Inventory Management") };
+}
 
 const VIEWS = ["", "lab", "sets", "audits", "moves"] as const;
 type View = (typeof VIEWS)[number];

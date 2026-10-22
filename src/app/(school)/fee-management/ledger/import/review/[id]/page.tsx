@@ -6,8 +6,11 @@ import { FileReview } from "@/components/import/file-review";
 import { FeeHead } from "../../../../_components/fee-head";
 import { BASE, feeGuard, type SearchParams } from "../../../../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Check a file · Import old dues and receipts" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Check a file · Import old dues and receipts") };
+}
 
 /** One file of old dues or past receipts: match, fix, check every row and bring in the good ones. */
 export default async function FeeImportFilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {

@@ -9,8 +9,11 @@ import { sectionOptions } from "../../_lib/queries";
 import { IncidentForm } from "./incident-form";
 import { loadVisibleStudent } from "@/lib/students/access";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Report incident" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Report incident") };
+}
 
 export default async function ReportIncidentPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {
   const { current, settings, yearIds, can, tz } = await studentPage();

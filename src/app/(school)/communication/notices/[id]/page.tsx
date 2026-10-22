@@ -17,8 +17,11 @@ import { UrlSegmented } from "@/components/ui/url-filters";
 import { cx } from "@/components/ui/cx";
 import { NoticeActions } from "./notice-actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Notice" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Notice") };
+}
 
 const PRIORITY_TONE: Record<string, PillTone> = { NORMAL: "neutral", HIGH: "warn", CRITICAL: "bad" };
 const STATUS_TONE: Record<string, PillTone> = { DRAFT: "neutral", WAITING_APPROVAL: "warn", SCHEDULED: "info", PUBLISHED: "ok", EXPIRED: "neutral", ARCHIVED: "neutral" };

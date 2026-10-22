@@ -12,8 +12,11 @@ import { BASE, homeworkGuard, UUID } from "../../_lib/page";
 import { startQuizAction } from "../actions";
 import { TakeQuiz } from "../sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Quiz" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Quiz") };
+}
 
 /** A student's quiz (mod-homework.jsx TakeQuiz): start it, answer one question at a time, then the score and the answers. */
 export default async function QuizPage({ params }: { params: Promise<{ id: string }> }) {

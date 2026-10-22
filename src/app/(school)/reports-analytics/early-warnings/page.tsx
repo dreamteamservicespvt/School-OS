@@ -30,10 +30,13 @@ import { DropRuleSheet, ReviewSheet } from "../_components/warning-sheets";
 import { aiDecisionAction, remindFlagAction } from "../actions";
 import { BASE, one, qs, repGuard, withQ, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
 const PAGE_SIZE = 25;
 
-export const metadata = { title: "Early Warnings" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Early Warnings") };
+}
 
 const HREF = `${BASE}/early-warnings`;
 const AREA_ICON = { attendance: CalendarX2, marks: TrendingDown, fees: IndianRupee } as const;

@@ -33,8 +33,11 @@ import { ExportMenu } from "../_components/export-menu";
 import { cellClass, Legend, type StatusView } from "../_components/status";
 import { REASONS_FEATURE } from "@/lib/attendance/absence-reasons";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Attendance Register" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Attendance Register") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);

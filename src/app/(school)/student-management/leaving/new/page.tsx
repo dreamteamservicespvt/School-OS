@@ -12,8 +12,11 @@ import { BASE, studentPage, todayIso } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { startLeavingAction } from "../../_actions/leaving";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Start leaving" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Start leaving") };
+}
 
 /** Start leaving (03 §2): transfer or withdrawal with reason, last date, destination school and documents. */
 export default async function StartLeavingPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {

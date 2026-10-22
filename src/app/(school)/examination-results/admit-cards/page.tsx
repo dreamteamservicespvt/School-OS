@@ -25,8 +25,11 @@ import { examPage, one, withYear, type SearchParams } from "../_lib/page";
 import { NoYear, PageTop } from "../_components/page-top";
 import { AdmitPreview, AdmitWorkspace, type AdmitHead, type AdmitPaper, type AdmitStudent } from "./admit-ui";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Admit Cards" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Admit Cards") };
+}
 const PATH = "/examination-results/admit-cards";
 const short = (n: string) => n.replace(/^Class /, "");
 

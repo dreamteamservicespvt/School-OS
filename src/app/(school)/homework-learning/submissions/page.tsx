@@ -22,8 +22,11 @@ import { FileRow } from "../_components/bits";
 import { BASE, homeworkGuard, homeworkPeriod, iso, one, qs, UUID, type SearchParams } from "../_lib/page";
 import { AcceptLateButton, BulkCompleteSheet, ExcuseButton, GradeSheet, RemindSheet, Thread } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Submissions & Grading" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Submissions & Grading") };
+}
 
 const HREF = `${BASE}/submissions`;
 const FILTERS = ["all", "check", "graded", "not"] as const;

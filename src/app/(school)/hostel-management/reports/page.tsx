@@ -22,8 +22,11 @@ import { isoOf } from "@/lib/hostel/words";
 import { HostelHead } from "../_components/head";
 import { BASE, hostelGuard, hostelPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Hostel Reports · Hostel Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Hostel Reports · Hostel Management") };
+}
 const SHOW = 100;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 

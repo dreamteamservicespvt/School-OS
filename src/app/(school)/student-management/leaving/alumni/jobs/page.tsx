@@ -12,8 +12,11 @@ import { ConfirmAction } from "@/components/students/confirm-action";
 import { BASE, studentPage } from "../../../_lib/page";
 import { archiveJobAction, postJobAction } from "../../../_actions/leaving";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Alumni job board" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Alumni job board") };
+}
 
 /** Alumni job board: job posts shared with alumni. */
 export default async function JobBoardPage() {

@@ -16,8 +16,11 @@ import { cx } from "@/components/ui/cx";
 import { isUnread, notificationPage, UNREAD } from "@/lib/notifications";
 import { markAllNotificationsRead, openNotification } from "../actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Notifications" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Notifications") };
+}
 
 const PAGE = 30;
 

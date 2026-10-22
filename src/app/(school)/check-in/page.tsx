@@ -6,8 +6,11 @@ import { ScanFace } from "lucide-react";
 import { formatDate } from "@/lib/format";
 import { Card } from "@/components/ui/card";
 import { CheckInPanel } from "./check-in-panel";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Check-in" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Check-in") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 

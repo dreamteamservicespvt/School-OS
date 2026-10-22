@@ -6,8 +6,11 @@ import { FileReview } from "@/components/import/file-review";
 import { SalaryHead } from "../../../../_components/salary-head";
 import { BASE, salaryGuard } from "../../../../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Check a file · Import salary" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Check a file · Import salary") };
+}
 
 /** One file of salary structures: match, fix, check every row and bring in the good ones. */
 export default async function StructuresImportFilePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {

@@ -37,8 +37,11 @@ import { checkInAction, type FoundStudent } from "../actions";
 import { hostelGuard, hostelPeriod, idParam, one, qs, type SearchParams } from "../_lib/page";
 import { studentIdsForFilter } from "@/lib/students/find";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Allocation · Hostel Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Allocation · Hostel Management") };
+}
 
 const VIEWS = [
   { value: "", label: "Everyone with a bed" },

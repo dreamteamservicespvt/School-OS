@@ -17,8 +17,11 @@ import { BASE, one, qs, salaryGuard, type SearchParams } from "../_lib/page";
 import { archiveComponentAction } from "./actions";
 import { ComponentSheet, DuesTrackingSheet, PreferencesSheet, RatesSheet, SlabsSheet, SlipSwitch, StatutorySwitch } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Salary Settings" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Salary Settings") };
+}
 
 const HREF = `${BASE}/settings`;
 const UUID = /^[0-9a-f-]{36}$/i;

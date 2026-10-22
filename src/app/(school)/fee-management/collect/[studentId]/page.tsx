@@ -15,8 +15,11 @@ import { pct } from "../../_components/bits";
 import { BASE, feeGuard } from "../../_lib/page";
 import { CollectForm, type DueRow } from "./collect-form";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Collect Fee" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Collect Fee") };
+}
 
 /** Collect Fee, step 2: the student's dues, ticked for you, and the payment (fees.jsx). */
 export default async function CollectPage({ params }: { params: Promise<{ studentId: string }> }) {

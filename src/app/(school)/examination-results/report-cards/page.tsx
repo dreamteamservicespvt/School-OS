@@ -16,8 +16,11 @@ import { examPage, one, sectionOptions, withYear, type SearchParams } from "../_
 import { NoYear, PageTop } from "../_components/page-top";
 import { GradeGrid, RemarksGrid, StatusBoard, type GradeColumn } from "./report-cards-ui";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Report Cards" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Report Cards") };
+}
 const PATH = "/examination-results/report-cards";
 const VIEWS = ["status", "remarks", "co-scholastic", "competencies"] as const;
 type View = (typeof VIEWS)[number];

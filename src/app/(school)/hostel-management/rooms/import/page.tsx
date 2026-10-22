@@ -6,8 +6,11 @@ import { ImportHome } from "@/components/import/import-home";
 import { HostelHead } from "../../_components/head";
 import { BASE, hostelGuard } from "../../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Import rooms · Hostel Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Import rooms · Hostel Management") };
+}
 
 /** Many rooms at once from a spreadsheet (15 Rooms & Beds, P10), on the same engine as Switching to School OS. */
 export default async function ImportRoomsPage() {

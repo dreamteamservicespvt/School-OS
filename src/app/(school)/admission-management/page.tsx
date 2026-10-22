@@ -25,8 +25,11 @@ import { Pipeline } from "./_components/pipeline";
 import { AddEnquiryButton } from "./enquiries/enquiry-forms";
 import { moveCard } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Admission Dashboard" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Admission Dashboard") };
+}
 
 type Search = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";

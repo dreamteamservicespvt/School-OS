@@ -28,8 +28,11 @@ import { RowMenu } from "../_components/row-menu";
 import { DeviceForm, GeoFenceForm, QrCreateForm, QrSettingsForm } from "../_components/device-forms";
 import { addDeviceAction, createQrAction, geoFenceAction, qrSettingsAction, qrStateAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Devices & QR" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Devices & QR") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const PATH = `${BASE}/devices`;

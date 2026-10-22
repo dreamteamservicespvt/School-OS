@@ -15,8 +15,11 @@ import { SalaryHead } from "../_components/salary-head";
 import { RunPill } from "../_components/bits";
 import { BASE, one, qs, salaryGuard, salaryPeriod, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Salary History" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Salary History") };
+}
 
 const HREF = `${BASE}/history`;
 const UUID = /^[0-9a-f-]{36}$/i;

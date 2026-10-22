@@ -22,8 +22,11 @@ import { cancelIncomeAction, postIncomeAction } from "./actions";
 import { RecordIncomeSheet } from "./sheets";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Income" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Income") };
+}
 
 const HREF = `${BASE}/income`;
 const UUID = /^[0-9a-f-]{36}$/i;

@@ -29,8 +29,11 @@ import { BlockSheet, LimitSheet } from "../_components/sheets";
 import { BASE, libGuard, one, qs, type SearchParams } from "../_lib/page";
 import { memberRows, readMembersFilter, type MemberRow } from "../_lib/members";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Members & Cards · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Members & Cards · Library Management") };
+}
 
 const settingsLimit = (s: LibrarySettings, m: Pick<Member, "kind" | "level">) => (m.kind === "STAFF" ? s.staffBooks : s.rules.find((r) => r.level === m.level)?.books ?? s.studentBooks);
 

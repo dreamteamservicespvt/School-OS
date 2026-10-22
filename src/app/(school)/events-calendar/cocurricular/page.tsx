@@ -27,9 +27,12 @@ import {
 import { archiveGroupAction, certificatesAction, removeMemberAction } from "../activity-actions";
 import { achievementList, pickStudents, staffOptions } from "../_lib/co";
 import { BASE, UUID, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
-import { Words } from "@/lib/i18n/client";
+import { DayText, Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Co-curricular & Sports" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Co-curricular & Sports") };
+}
 
 const HREF = `${BASE}/cocurricular`;
 const TABS = ["ach", "houses", "clubs", "sports"] as const;
@@ -174,7 +177,7 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
                   empty={<Empty icon={Award} title="No achievements in these dates" body="Pick other dates or another level." />}
                   columns={[
                     { key: "s", label: "Student", render: (a) => <div className="flex items-center gap-2.5"><Avatar name={a.student} size={32} /><div><p className="font-semibold leading-tight">{a.student}</p><p className="text-[12.5px] text-ink3">{a.place}</p></div></div> },
-                    { key: "act", label: "Activity or competition", render: (a) => <div className="max-w-[240px]"><p className="leading-snug">{a.activity}</p><p className="text-[12.5px] text-ink3">{a.won ? a.position || "Won" : "Took part"} · {longDay(isoOf(a.date)).replace(/^\w+ /, "")}</p></div> },
+                    { key: "act", label: "Activity or competition", render: (a) => <div className="max-w-[240px]"><p className="leading-snug">{a.activity}</p><p className="text-[12.5px] text-ink3">{a.won ? a.position || "Won" : "Took part"} · <DayText text={longDay(isoOf(a.date)).replace(/^\w+ /, "")} /></p></div> },
                     { key: "level", label: "Level", render: (a) => <Pill tone={LEVEL_TONE[a.level] ?? "neutral"}>{a.level}</Pill> },
                     ...(s.creditsOn ? [{ key: "cr", label: "Credits", align: "right" as const, render: (a: (typeof rows)[number]) => <span className="tnum">{a.credits ? `+${a.credits}` : "—"}</span> }] : []),
                     { key: "cert", label: "Certificate", render: (a) => (
@@ -295,7 +298,7 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
               empty={<Empty icon={CalendarDays} title="No meetings in these dates" body="Pick other dates." />}
               columns={[
                 { key: "c", label: "Club", render: (m) => <span className="font-semibold">{d.clubs.find((c) => c.id === m.clubId)?.name}</span> },
-                { key: "d", label: "Date", nowrap: true, render: (m) => <span className="tnum text-[13px]">{longDay(isoOf(m.date))}</span> },
+                { key: "d", label: "Date", nowrap: true, render: (m) => <span className="tnum text-[13px]"><DayText text={longDay(isoOf(m.date))} /></span> },
                 { key: "t", label: "Topic", render: (m) => <span className="text-[13px] text-ink2">{m.topic ?? "—"}</span> },
                 { key: "p", label: "Present", align: "right", render: (m) => <span className="tnum">{m.presentIds.length} <Words k="of" /> {m.memberIds.length}</span> },
               ]}

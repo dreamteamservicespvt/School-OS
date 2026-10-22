@@ -18,8 +18,11 @@ import { sectionNames } from "../../_lib/queries";
 import { behaviourTabs } from "../sub-tabs";
 import { studentIdsForFilter } from "@/lib/students/find";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Counselling" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Counselling") };
+}
 const STEP = 25;
 
 /** Counselling cases: only for the roles set in Student Settings, and each counsellor's own cases. */

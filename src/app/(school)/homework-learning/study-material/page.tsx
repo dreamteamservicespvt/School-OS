@@ -17,8 +17,11 @@ import { Ring } from "../_components/bits";
 import { BASE, homeworkGuard, one, qs, UUID, type HomeworkPage, type SearchParams } from "../_lib/page";
 import { ArchiveLessonSheet, CopyCourseSheet, DoneButton, LessonMenu, LessonSheet, MoveButtons, VisibleSwitch } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Study Material" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Study Material") };
+}
 
 const HREF = `${BASE}/study-material`;
 type Sp = Record<string, string | string[] | undefined>;

@@ -21,8 +21,11 @@ import { AttHead } from "../../_components/att-head";
 import { CORRECTION_STATUS } from "../../_components/words";
 import { pillTone } from "../../_components/status";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Attendance corrections" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Attendance corrections") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const PILL: Record<string, "ok" | "warn" | "bad" | "neutral"> = { WAITING: "warn", APPROVED: "ok", REJECTED: "bad", WITHDRAWN: "neutral" };

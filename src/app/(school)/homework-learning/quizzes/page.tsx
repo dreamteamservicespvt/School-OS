@@ -22,8 +22,11 @@ import { SubIcon, subjectIcon, subjectTone } from "../_components/bits";
 import { BASE, homeworkGuard, homeworkPeriod, localInput, one, qs, UUID, type HomeworkPage, type SearchParams } from "../_lib/page";
 import { ArchiveQuizSheet, CloseQuizButton, MarkShortSheet, OpenQuizButton, QuizSheet, type BankQuestion, type QDraft, type QuizSection } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Quizzes" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Quizzes") };
+}
 
 const HREF = `${BASE}/quizzes`;
 const DAY = 86_400_000;

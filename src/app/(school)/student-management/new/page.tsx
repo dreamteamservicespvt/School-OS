@@ -12,8 +12,11 @@ import { BASE, studentPage, todayIso } from "../_lib/page";
 import { sectionOptions } from "../_lib/queries";
 import { AddStudentForm } from "./add-student-form";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Add student" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Add student") };
+}
 
 export default async function AddStudentPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
   const { current, settings, year, yearIds, can, tz } = await studentPage();

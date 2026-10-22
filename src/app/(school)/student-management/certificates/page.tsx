@@ -26,8 +26,11 @@ import { certificateTabs } from "./sub-tabs";
 import { studentIdsForFilter } from "@/lib/students/find";
 import { visibleStudentIds } from "@/lib/students/access";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Certificates & ID Cards" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Certificates & ID Cards") };
+}
 
 const FILTERS = ["type", "status"] as const;
 const STEP = 25;

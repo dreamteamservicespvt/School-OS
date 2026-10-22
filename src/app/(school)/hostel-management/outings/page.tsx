@@ -37,8 +37,11 @@ import { decidePassAction, markOutAction, markReturnedAction, remindWardenAction
 import { BASE, hostelGuard, hostelPeriod, idParam, one, qs, type Raw, type SearchParams } from "../_lib/page";
 import { studentIdsForFilter } from "@/lib/students/find";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Outing & Visitors · Hostel Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Outing & Visitors · Hostel Management") };
+}
 
 type P = Awaited<ReturnType<typeof hostelGuard>>;
 const STATUSES: (PassStatus | "")[] = ["", "WAITING", "APPROVED", "OUT", "LATE", "RETURNED", "REJECTED", "CANCELLED"];

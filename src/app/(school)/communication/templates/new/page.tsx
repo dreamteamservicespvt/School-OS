@@ -4,8 +4,11 @@ import { BackLink, RecordHead } from "@/components/ui/split";
 import { TemplateForm } from "../template-form";
 import { templateFormData } from "../form-data";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "New template" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("New template") };
+}
 
 export default async function NewTemplatePage() {
   const access = await commOfficePage("create");

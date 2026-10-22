@@ -8,8 +8,11 @@ import { Card, CardBody } from "@/components/ui/card";
 import { GatewayForm } from "../gateway-form";
 import { providerInfo } from "../providers-info";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Add a gateway" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Add a gateway") };
+}
 
 export default async function NewGatewayPage() {
   const { current } = await requireSettingsPage("payment-gateways", "create");

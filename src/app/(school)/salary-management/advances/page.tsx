@@ -20,8 +20,11 @@ import { BASE, one, qs, salaryGuard, salaryPeriod, type SearchParams } from "../
 import { pauseAdvanceAction } from "./actions";
 import { AdvanceMenu, CloseCashSheet, GiveSheet, InstallmentSheet, PaySheet } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Advances & Loans" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Advances & Loans") };
+}
 
 const HREF = `${BASE}/advances`;
 const UUID = /^[0-9a-f-]{36}$/i;

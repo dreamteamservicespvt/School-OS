@@ -18,8 +18,11 @@ import { FeeHead } from "../../../_components/fee-head";
 import { BASE, feeGuard, one, qs, type SearchParams } from "../../../_lib/page";
 import { askFollowUpAction } from "../../actions";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Fees by class" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Fees by class") };
+}
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const money = (v: bigint) => (v >= BigInt(10_000_000) ? formatRupeesShort(v) : formatRupees(v));

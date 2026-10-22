@@ -20,8 +20,11 @@ import { BASE, libGuard, one, UUID, type SearchParams } from "../_lib/page";
 import { archiveCategoryAction } from "../actions";
 import { SettingsForm } from "./settings-form";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Library Settings · Library Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Library Settings · Library Management") };
+}
 
 export default async function LibrarySettingsPage({ searchParams }: { searchParams: SearchParams }) {
   const sp = await searchParams;

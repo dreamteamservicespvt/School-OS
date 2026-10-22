@@ -26,11 +26,13 @@ import { signOut, signOutDevice } from "../actions";
 import { forgetRemembered, signOutOthers } from "./actions";
 import { EditDetails, NotePrefsTable, PasswordButton, TwoStepRow } from "./parts";
 import { LanguageChoice } from "./language-choice";
-import { getT } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 import { cleanLang, isLang, schoolLanguages } from "@/lib/i18n/languages";
 import { Words } from "@/lib/i18n/client";
 
-export const metadata: Metadata = { title: "My profile" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("My profile") };
+}
 
 function describeDevice(ua: string | null): { name: string; icon: LucideIcon } {
   if (!ua) return { name: "Unknown device", icon: I.MonitorSmartphone };

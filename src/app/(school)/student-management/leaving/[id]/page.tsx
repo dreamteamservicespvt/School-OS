@@ -20,8 +20,11 @@ import { campusAllows } from "@/lib/campus";
 import { askWaiverAction, cancelLeavingAction, completeLeavingAction, refreshClearanceAction } from "../../_actions/leaving";
 import { CERT_LABEL, CHECK_LABEL, CHECK_TONE, LEAVING_TYPE_LABEL, studentFacts } from "../load";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Leaving" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Leaving") };
+}
 
 const CHECK_ICON: Record<string, LucideIcon> = { Fees: IndianRupee, Library: BookOpen, Inventory: Boxes };
 

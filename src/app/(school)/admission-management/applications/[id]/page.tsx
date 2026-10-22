@@ -36,8 +36,11 @@ import { STAGE_TONE } from "@/lib/admission/tones";
 import { BackLink } from "../../_components/pills";
 import { AppActions, CancelPayment, ConsentButtons, ExceptionButton, RemindButton } from "./app-forms";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Application" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Application") };
+}
 
 const KIND_ICON: Record<string, { icon: LucideIcon; tone?: string }> = {
   created: { icon: FileText }, edited: { icon: Pencil }, reviewed: { icon: CircleCheck, tone: "brand" }, "sent-back": { icon: Send, tone: "warn" },

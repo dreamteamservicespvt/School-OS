@@ -27,8 +27,11 @@ import { BASE, feePeriod, feeGuard, one, qs, type SearchParams } from "../_lib/p
 import { ApproveButton, ArchiveRule, ConcessionSheet, DeclineSheet, MarkRefundedSheet, RefundSheet, RevokeSheet, RuleSheet, RuleSwitch } from "./sheets";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Concessions & Refunds" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Concessions & Refunds") };
+}
 
 const HREF = `${BASE}/concessions`;
 const ZERO = BigInt(0);

@@ -31,8 +31,11 @@ import { cx } from "@/components/ui/cx";
 import { AttHead } from "../_components/att-head";
 import { ExportMenu } from "../_components/export-menu";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Attendance Reports" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Attendance Reports") };
+}
 
 type Props = { searchParams: Promise<Record<string, string | string[] | undefined>> };
 const PATH = `${BASE}/reports`;

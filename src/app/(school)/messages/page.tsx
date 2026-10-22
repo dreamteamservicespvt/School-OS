@@ -14,8 +14,11 @@ import { MessageIcon } from "@/components/icons";
 import { ButtonLink } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Messages" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Messages") };
+}
 
 type Search = Promise<Record<string, string | string[] | undefined>>;
 

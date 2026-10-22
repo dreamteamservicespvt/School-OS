@@ -15,8 +15,11 @@ import { cx } from "@/components/ui/cx";
 import { FeeHead } from "./_components/fee-head";
 import { BASE, feePage, one, type SearchParams } from "./_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Collect Fee" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Collect Fee") };
+}
 
 /** Collect Fee, step 1: find the student (fees.jsx). Their dues show up ready to collect. */
 export default async function CollectFeePage({ searchParams }: { searchParams: SearchParams }) {

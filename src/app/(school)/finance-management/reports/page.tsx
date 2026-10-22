@@ -19,8 +19,11 @@ import { OldSoftwareBanner, allBeforeGoLive } from "@/components/money/go-live";
 import { FinanceHead } from "../_components/finance-head";
 import { BASE, financeGuard, financePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Finance Reports" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Finance Reports") };
+}
 
 const HREF = `${BASE}/reports`;
 const SHOW = 500;

@@ -30,8 +30,11 @@ import { remindStoreAction } from "../actions";
 import { archiveExperimentAction } from "./actions";
 import { ArchiveFacilitySheet, AssignTechSheet, CloseRequestSheet, ExperimentSheet, FacilitySheet, RaiseSheet, SafetyCheckSheet } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Rooms, Labs & Maintenance · Inventory Management" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Rooms, Labs & Maintenance · Inventory Management") };
+}
 
 const TABS = ["maintenance", "facilities", "labs"] as const;
 type Tab = (typeof TABS)[number];

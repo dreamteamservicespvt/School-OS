@@ -11,8 +11,11 @@ import { DefaultRuleButton } from "../../list-actions";
 import { RuleEditor } from "./rule-editor";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Approval rule" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Approval rule") };
+}
 
 /** Whole paise as the rupees typed in the editor: 500000 -> "5000". */
 function rupees(paise: string | null | undefined) {

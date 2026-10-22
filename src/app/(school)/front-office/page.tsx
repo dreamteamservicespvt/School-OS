@@ -20,8 +20,11 @@ import { CommonSheets } from "./_components/common-sheets";
 import { NoteAdd, NoteClear } from "./_components/desk-sheets";
 import { BASE, addQ, foPage, foTabs, type SearchParams } from "./_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Reception Desk" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Reception Desk") };
+}
 
 /** Reception Desk (16 §2, mod-frontoffice.jsx DeskPage): today's visitors, calls, appointments and walk-in requests on one screen. */
 export default async function DeskPage({ searchParams }: { searchParams: SearchParams }) {

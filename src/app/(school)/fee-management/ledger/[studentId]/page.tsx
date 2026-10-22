@@ -36,8 +36,11 @@ import { BASE, feeGuard, feePeriod, one, qs, type SearchParams } from "../../_li
 import { PeriodFilter } from "@/components/list/period-filter";
 import { AdjustSheet, AssignSheet, CertificateSheet, ChargeSheet, InvoiceSheet, OldDuesSheet, ResendInvoice } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Student Fee Ledger" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Student Fee Ledger") };
+}
 
 const ZERO = BigInt(0);
 const KIND: Record<LedgerKind, [string, Tone, LucideIcon]> = {

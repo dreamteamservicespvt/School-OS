@@ -22,8 +22,11 @@ import { RowMenu, type RowItem } from "../_components/row-menu";
 import { appointmentStatusAction, remindAction } from "../actions";
 import { BASE, UUID, addQ, foGuard, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Appointments" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Appointments") };
+}
 
 const HREF = `${BASE}/appointments`;
 const ISO = /^\d{4}-\d{2}-\d{2}$/;

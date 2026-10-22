@@ -9,8 +9,11 @@ import { loadSettings } from "@/lib/admission/settings";
 import { EmptyState } from "@/components/empty-state";
 import { ButtonLink } from "@/components/ui/button";
 import { admissionTabs } from "../admission-management/_components/head";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "No access" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("No access") };
+}
 
 type Page = { href: string; label: string };
 

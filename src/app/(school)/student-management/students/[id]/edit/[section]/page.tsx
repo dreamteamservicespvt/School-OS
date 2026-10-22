@@ -16,8 +16,11 @@ import {
   saveContactAction, saveEnrolmentAction, saveExtraFieldsAction, saveIdentifiersAction, savePersonalAction, savePreviousSchoolAction,
 } from "../../../../_actions/students";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Edit student" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Edit student") };
+}
 
 const TITLES: Record<string, string> = {
   personal: "Personal", contact: "Contact", enrolment: "Enrolment", previous: "Previous school", identifiers: "Identifiers", extra: "Extra fields",

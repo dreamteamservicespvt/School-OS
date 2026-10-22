@@ -12,8 +12,11 @@ import { sectionOptions } from "../_lib/queries";
 import { chosenStudents } from "../bulk-update/chosen";
 import { LoginsForm } from "./logins-form";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Student logins" };
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Student logins") };
+}
 
 /** Student logins (optional): a username and a set-password link for each chosen student. */
 export default async function StudentLoginsPage({ searchParams }: { searchParams: Promise<{ ids?: string; section?: string }> }) {

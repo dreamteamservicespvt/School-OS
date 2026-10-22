@@ -10,8 +10,11 @@ import { HomeworkHead } from "../_components/homework-head";
 import { homeworkGuard } from "../_lib/page";
 import { GradeBands, OptionalSwitch, SettingsRows, type Row } from "./forms";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Homework Settings" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Homework Settings") };
+}
 
 const CHANNEL: Record<string, string> = { app: "App", whatsapp: "WhatsApp", sms: "SMS", email: "Email" };
 const clock = (hhmm: string) => {

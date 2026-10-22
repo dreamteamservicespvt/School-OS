@@ -21,8 +21,11 @@ import { RouteMessageSheet, RouteSheet, StopSheet } from "../../_components/rout
 import { archiveRouteAction, archiveStopAction, copyEveningAction, moveStopAction } from "../../actions";
 import { BASE, UUID, addQ, one, trGuard, type SearchParams } from "../../_lib/page";
 import { crewOptions } from "../../_lib/options";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Route" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Route") };
+}
 
 /** One route (12 §2 Routes & Stops): stops in order with times, location, fee and the students at each stop. */
 export default async function RoutePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: SearchParams }) {

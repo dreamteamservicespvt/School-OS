@@ -28,8 +28,11 @@ import { ActButton } from "../_components/forms";
 import { remindCloseAction } from "./actions";
 import { CloseDaySheet, ReopenDaySheet } from "./sheets";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
-export const metadata = { title: "Day Book" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Day Book") };
+}
 
 const HREF = `${BASE}/day-book`;
 const UUID = /^[0-9a-f-]{36}$/i;

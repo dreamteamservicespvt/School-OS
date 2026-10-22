@@ -25,9 +25,12 @@ import { RowMenu, type RowItem } from "../_components/row-menu";
 import { closeCallAction, closeWalkInAction } from "../actions";
 import { BASE, UUID, addQ, foGuard, foPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
+import { pageTitle } from "@/lib/i18n/server";
 
 
-export const metadata = { title: "Enquiries & Calls" };
+export async function generateMetadata() {
+  return { title: await pageTitle("Enquiries & Calls") };
+}
 
 const HREF = `${BASE}/enquiries`;
 const SOURCE_WORDS: Record<string, string> = { "walk-in": "Walk-in", phone: "Phone" };

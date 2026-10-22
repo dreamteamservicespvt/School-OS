@@ -23,7 +23,8 @@ import { attendanceFor } from "./attendance";
 // Attendance Management's register is the source of report card attendance.
 import "../attendance/report-card-source";
 import { writesReportCards, type ExamScope } from "./scope";
-import { draftRemark, type ExamMarks, type RemarkDraft } from "./remark-drafts";
+import { classAverages, draftRemark, type ExamMarks, type RemarkDraft } from "./remark-drafts";
+import { readPhrases } from "./remark-phrases";
 import { attendanceSettings } from "../attendance/settings";
 import { addDays, todayIn } from "../academic/common";
 import { HANDED_IN } from "../homework/words";
@@ -34,9 +35,9 @@ export { periodsForClass, refreshReportCards } from "./report-status";
 export const DIRECT_REPORT_LIMIT = 40;
 
 async function features(tx: Tx, ctx: SchoolContext) {
-  const rows = await tx.schoolFeature.findMany({ where: { schoolId: ctx.schoolId, isOn: true, featureKey: { in: ["exam-co-scholastic", "exam-competencies", "exam-boards", "ai-assistant", "ai-teacher-assistant"] } } });
+  const rows = await tx.schoolFeature.findMany({ where: { schoolId: ctx.schoolId, isOn: true, featureKey: { in: ["exam-co-scholastic", "exam-competencies", "exam-boards", "exam-remark-suggestions", "ai-assistant", "ai-teacher-assistant"] } } });
   const on = new Set(rows.map((r) => r.featureKey));
-  return { coScholastic: on.has("exam-co-scholastic"), competencies: on.has("exam-competencies"), boards: on.has("exam-boards"), aiRemarks: on.has("ai-assistant") && on.has("ai-teacher-assistant") };
+  return { coScholastic: on.has("exam-co-scholastic"), competencies: on.has("exam-competencies"), boards: on.has("exam-boards"), aiRemarks: on.has("ai-assistant") && on.has("ai-teacher-assistant"), ruleRemarks: on.has("exam-remark-suggestions") };
 }
 
 export async function findPeriod(tx: Tx, yearId: string, classId: string, key: string): Promise<PeriodOption | null> {
@@ -104,6 +105,10 @@ export type RemarkRow = {
   studentId: string; classTeacherRemark?: string | null; principalRemark?: string | null; attendancePresent?: number | null; attendanceWorking?: number | null;
   /** The class teacher remark came from a suggestion: kept as it was, or edited first. */
   suggestion?: "kept" | "edited" | null;
+  /** That suggestion was reworded by the AI assistant (otherwise it came from the school's phrase bank). */
+  byAi?: boolean;
+  /** The sentences of that suggestion and where each came from. */
+  evidence?: { text: string; source: string }[];
 };
 
 /**
@@ -119,7 +124,7 @@ export async function saveRemarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
   if (!option) throw new ExamRuleError("Choose the exam or term first.");
   const students = await sectionStudents(tx, [input.sectionId], section.academicYearId);
   const changes: unknown[] = [];
-  const suggested: ("kept" | "edited")[] = [];
+  const suggested: { how: "kept" | "edited"; byAi: boolean }[] = [];
   for (const row of input.rows) {
     const st = students.find((s) => s.studentId === row.studentId);
     if (!st) throw new ExamRuleError("A student here is no longer in this section. Reload the page.");
@@ -149,15 +154,22 @@ export async function saveRemarks(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
     if (before) await tx.reportCard.update({ where: { id: before.id }, data });
     else await tx.reportCard.create({ data: { schoolId: ctx.schoolId, academicYearId: section.academicYearId, studentId: st.studentId, sectionId: input.sectionId, period: option.key, ...(data as object) } as Prisma.ReportCardUncheckedCreateInput });
     const suggestion = data.classTeacherRemark && (row.suggestion === "kept" || row.suggestion === "edited") ? row.suggestion : null;
-    if (suggestion) suggested.push(suggestion);
-    changes.push({ student: st.name, before: before ? { classTeacherRemark: before.classTeacherRemark, principalRemark: before.principalRemark, attendancePresent: before.attendancePresent, attendanceWorking: before.attendanceWorking } : null, after: data, ...(suggestion ? { suggestion: suggestion === "kept" ? "Prepared by AI, kept as suggested" : "Prepared by AI, edited before saving" } : {}) });
+    const byAi = Boolean(suggestion && row.byAi);
+    if (suggestion) suggested.push({ how: suggestion, byAi });
+    const how = byAi ? "Prepared by AI" : "Suggested from the student's records";
+    changes.push({ student: st.name, before: before ? { classTeacherRemark: before.classTeacherRemark, principalRemark: before.principalRemark, attendancePresent: before.attendancePresent, attendanceWorking: before.attendanceWorking } : null, after: data, ...(suggestion ? { suggestion: suggestion === "kept" ? `${how}, kept as suggested` : `${how}, edited before saving` } : {}) });
   }
   if (changes.length) {
     await refreshReportCards(tx, ctx, section.academicYearId, [input.sectionId]);
-    const edited = suggested.filter((x) => x === "edited").length;
-    const actorNote = suggested.length
-      ? `Prepared by AI, confirmed by ${input.confirmedBy?.trim() || "the class teacher"}: ${suggested.length} class teacher ${suggested.length === 1 ? "remark" : "remarks"}${edited ? ` (${edited} edited before saving)` : ""}`
-      : null;
+    // Rule 6 of 00-global.md §2.1: a remark the AI reworded is "prepared by AI, confirmed by <person>";
+    // one from the phrase bank alone used no AI, so it never says AI (rule 8).
+    const by = input.confirmedBy?.trim() || "the class teacher";
+    const note = (list: typeof suggested, lead: string) => {
+      if (!list.length) return null;
+      const edited = list.filter((x) => x.how === "edited").length;
+      return `${lead}, confirmed by ${by}: ${list.length} class teacher ${list.length === 1 ? "remark" : "remarks"}${edited ? ` (${edited} edited before saving)` : ""}`;
+    };
+    const actorNote = [note(suggested.filter((x) => x.byAi), "Prepared by AI"), note(suggested.filter((x) => !x.byAi), "Started from a suggestion")].filter(Boolean).join("; ") || null;
     await writeAudit(tx, ctx, { action: "report-card-remarks", recordType: "Report Card", recordId: `${input.sectionId}:${option.key}`, after: { section: section.label, period: option.label, changes } as unknown as Prisma.InputJsonValue, actorNote });
   }
   return changes.length;
@@ -236,7 +248,7 @@ function examMarksOf(title: string, r: { subjects: unknown; complete: boolean; l
  * Always a "Suggestion": nothing is saved until the teacher keeps it and
  * saves (00-global.md §2.1).
  */
-export async function draftRemarks(tx: Tx, ctx: SchoolContext, sectionId: string, periodKey: string): Promise<RemarkDraft[]> {
+export async function draftRemarks(tx: Tx, ctx: SchoolContext, sectionId: string, periodKey: string, onlyStudentIds?: string[]): Promise<RemarkDraft[]> {
   const board = await reportBoard(tx, ctx, sectionId, periodKey);
   if (!board) return [];
   const { section, option } = board;
@@ -265,9 +277,17 @@ export async function draftRemarks(tx: Tx, ctx: SchoolContext, sectionId: string
     where: { studentId: { in: ids }, archivedAt: null, status: { not: "EXCUSED" }, homework: { academicYearId: section.academicYearId, archivedAt: null, dueDate: { gte: dates.from, lte: hwTo } } },
     select: { studentId: true, status: true },
   }) : [];
-  return board.rows.map((s) => {
+  const phrases = readPhrases(settings.remarkPhrases);
+  const writtenOf = (studentId: string) => inPeriod.flatMap((e) => {
+    const m = examMarksOf(e.title, results.find((r) => r.studentId === studentId && r.key === examKey(e.id)));
+    return m && m.subjects.length ? [{ id: e.id, m }] : [];
+  });
+  // The class average per subject, from every student on the roll (not only those asked for).
+  const averages = classAverages(board.rows.map((r) => writtenOf(r.studentId).map((w) => w.m)));
+  const asked = onlyStudentIds ? board.rows.filter((r) => onlyStudentIds.includes(r.studentId)) : board.rows;
+  return asked.map((s) => {
     const mine = (examId: string) => results.find((r) => r.studentId === s.studentId && r.key === examKey(examId));
-    const written = inPeriod.flatMap((e) => { const m = examMarksOf(e.title, mine(e.id)); return m && m.subjects.length ? [{ id: e.id, m }] : []; });
+    const written = writtenOf(s.studentId);
     const waiting = inPeriod.some((e) => { const r = mine(e.id); return !r || (!r.complete && !r.leftOut); });
     // The exam before the latest one written in this period, with marks of its own.
     const latest = written.length ? exams.findIndex((e) => e.id === written[written.length - 1].id) : -1;
@@ -293,6 +313,8 @@ export async function draftRemarks(tx: Tx, ctx: SchoolContext, sectionId: string
         const g = board.grades.find((x) => x.studentId === s.studentId && x.areaId === a.id && x.grade);
         return g ? [{ area: a.name, grade: g.grade, best: g.grade === a.grades[0] }] : [];
       }),
+      classAverages: averages,
+      phrases,
     });
   });
 }

@@ -5,7 +5,8 @@
 //   your own remark." Never a negative remark with no data behind it.
 // - A student with marks gets sentences built from their own marks and the
 //   change since the exam before, each with its source.
-// - A kept suggestion is logged "prepared by AI, confirmed by <person>".
+// - A kept suggestion is logged "started from a suggestion, confirmed by <person>"
+//   (no AI was used; "prepared by AI" is kept for remarks the AI reworded).
 // - Only the section's class teacher (or the Exam In-charge or Principal) may
 //   ask, and only with the teacher assistant on.
 import { beforeAll, describe, expect, it, vi } from "vitest";
@@ -119,7 +120,7 @@ describe("Suggest remarks", () => {
     expect(low.lines[0].source).toMatch(/8 of 50 \(16%\), pass mark/);
   });
 
-  it("a kept suggestion is logged as prepared by AI, confirmed by the teacher", async () => {
+  it("a kept suggestion is logged as started from a suggestion, confirmed by the teacher (no AI used)", async () => {
     as(teacherNow);
     const r = await draftRemarksAction(s.s5a.id, `exam:${ct}`);
     const a = r.drafts.find((y) => y.studentId === kids[0])!;
@@ -130,7 +131,7 @@ describe("Suggest remarks", () => {
     expect(saved).toMatchObject({ ok: true });
     const entry = await s.run((tx) => tx.auditLogEntry.findFirstOrThrow({ where: { action: "report-card-remarks" }, orderBy: { at: "desc" } }));
     expect(entry.userLoginId).toBe(s.teacherUser.id);
-    expect(entry.actorNote).toBe("Prepared by AI, confirmed by Test: 1 class teacher remark");
+    expect(entry.actorNote).toBe("Started from a suggestion, confirmed by Test: 1 class teacher remark");
     const changes = (entry.after as { changes: { suggestion?: string }[] }).changes;
     expect(changes.filter((c) => c.suggestion)).toHaveLength(1);
     const card = await s.run((tx) => tx.reportCard.findFirstOrThrow({ where: { studentId: kids[0], period: `exam:${ct}` } }));
@@ -141,7 +142,7 @@ describe("Suggest remarks", () => {
     as(teacherNow);
     await saveRemarksAction(s.s5a.id, `exam:${ct}`, [{ studentId: kids[0], classTeacherRemark: "Aarav has done very well. Keep practising.", suggestion: "edited" }]);
     const edited = await s.run((tx) => tx.auditLogEntry.findFirstOrThrow({ where: { action: "report-card-remarks" }, orderBy: { at: "desc" } }));
-    expect(edited.actorNote).toBe("Prepared by AI, confirmed by Test: 1 class teacher remark (1 edited before saving)");
+    expect(edited.actorNote).toBe("Started from a suggestion, confirmed by Test: 1 class teacher remark (1 edited before saving)");
     await saveRemarksAction(s.s5a.id, `exam:${ct}`, [{ studentId: kids[3], classTeacherRemark: "Needs help with tables." }]);
     const typed = await s.run((tx) => tx.auditLogEntry.findFirstOrThrow({ where: { action: "report-card-remarks" }, orderBy: { at: "desc" } }));
     expect(typed.actorNote).toBeNull();
@@ -159,5 +160,25 @@ describe("Suggest remarks", () => {
     as(await s.currentFor(s.teacherUser.id));
     const r = await draftRemarksAction(s.s5a.id, `exam:${ct}`);
     expect(r).toMatchObject({ ok: false, message: "Remark suggestions are switched off for this school." });
+  });
+});
+
+describe("Remark suggestions with AI off (gap G30)", () => {
+  it("work from the rules alone once the school switches on Remark suggestions in Exam Settings", async () => {
+    await s.run(async (tx) => {
+      await tx.schoolFeature.updateMany({ where: { featureKey: "ai-assistant" }, data: { isOn: false } });
+      await tx.schoolFeature.create({ data: { schoolId: s.school.id, featureKey: "exam-remark-suggestions", isOn: true } });
+    });
+    as(await s.currentFor(s.teacherUser.id));
+    const r = await draftRemarksAction(s.s5a.id, `exam:${ct}`);
+    expect(r.ok).toBe(true);
+    const a = r.drafts.find((y) => y.studentId === kids[0])!;
+    expect(a.options.length).toBeGreaterThanOrEqual(2);
+    expect(a.options.every((o) => !o.byAi)).toBe(true);
+    // Asked for one student only: only that student, and nothing saved.
+    const before = await s.run((tx) => tx.auditLogEntry.count());
+    const one = await draftRemarksAction(s.s5a.id, `exam:${ct}`, [kids[3]]);
+    expect(one.drafts.map((d) => d.studentId)).toEqual([kids[3]]);
+    expect(await s.run((tx) => tx.auditLogEntry.count())).toBe(before);
   });
 });

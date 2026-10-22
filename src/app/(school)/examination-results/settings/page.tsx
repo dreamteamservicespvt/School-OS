@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { Award, Layers, ListChecks, Palette, Scale, SlidersHorizontal, Sigma, Target, ToggleRight } from "lucide-react";
+import { Award, Layers, ListChecks, MessageSquareText, Palette, Scale, SlidersHorizontal, Sigma, Target, ToggleRight } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { inCampus } from "@/lib/campus";
 import { reachFor, type PermissionMap } from "@/lib/permissions";
@@ -12,7 +12,8 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { examPage, type SearchParams } from "../_lib/page";
 import { PageTop } from "../_components/page-top";
 import { EXAM_FEATURES, FEATURE_WORDS } from "./features";
-import { AreasList, BoardsEditor, ClassPatternsEditor, CompetencyList, FeatureSwitch, NameList, RulesForm, ScaleEditor, WeightsEditor } from "./settings-ui";
+import { AreasList, BoardsEditor, ClassPatternsEditor, CompetencyList, FeatureSwitch, NameList, RemarkPhrasesEditor, RulesForm, ScaleEditor, WeightsEditor } from "./settings-ui";
+import { readPhrases } from "@/lib/exams/remark-phrases";
 import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Exam Settings" };
@@ -108,6 +109,11 @@ export default async function ExamSettingsPage({ searchParams }: { searchParams:
         <Card>
           <CardHeader title="Competencies" description="Competency-based assessment: competencies per subject and their levels, graded on report cards" icon={Target} />
           <CompetencyList items={data.competencies} subjects={data.subjects} canEdit={canEdit} on={on("exam-competencies")} />
+        </Card>
+
+        <Card>
+          <CardHeader title="Remark phrases" description="The sentences remark suggestions are made of. Each suggestion shows the marks, attendance or homework behind every sentence" icon={MessageSquareText} />
+          <RemarkPhrasesEditor bank={readPhrases(s.remarkPhrases)} canEdit={canEdit} on={on("exam-remark-suggestions")} />
         </Card>
 
         <Card>

@@ -11,6 +11,7 @@ import { writeAudit } from "../audit";
 import { ExamRuleError } from "./common";
 import { checkBands, presetBands, readBands, PRESETS, type Band } from "./grades";
 import type { PassRules } from "./compute";
+import { cleanPhrases, PHRASES, type PhraseKey } from "./remark-phrases";
 
 export const DEFAULT_EXAM_TYPES = ["Unit Test 1", "Unit Test 2", "FA 1", "FA 2", "SA 1", "SA 2", "Half Yearly", "Pre-final", "Annual", "Practical", "Internal Assessment"];
 export const DEFAULT_CATEGORIES = ["Theory", "Internal", "Practical", "Assignment", "Attendance", "Project"];
@@ -361,4 +362,22 @@ export async function setExamFeature(tx: Tx, ctx: SchoolContext, key: string, on
   const before = await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId: ctx.schoolId, featureKey: key } } });
   await tx.schoolFeature.upsert({ where: { schoolId_featureKey: { schoolId: ctx.schoolId, featureKey: key } }, create: { schoolId: ctx.schoolId, featureKey: key, isOn: on }, update: { isOn: on } });
   await writeAudit(tx, ctx, { action: on ? "switched-on" : "switched-off", recordType: "School Feature", recordId: key, before: { on: before?.isOn ?? false }, after: { on } });
+}
+
+/**
+ * Saves the school's phrase bank for remark suggestions (gap G30). Only the
+ * words change: a phrase keeps its blanks, and words that describe the child
+ * rather than their work, or caste, religion, gender, income or health, are
+ * refused. A phrase left as the default is not stored.
+ */
+export async function saveRemarkPhrases(tx: Tx, ctx: SchoolContext, raw: Record<string, string[]>) {
+  const before = await examSettings(tx, ctx);
+  const { phrases, problems } = cleanPhrases(raw);
+  if (problems.length) {
+    const p = problems[0];
+    throw new ExamRuleError(`${PHRASES[p.key as PhraseKey].when}: ${p.problem}`, "remarkPhrases");
+  }
+  await tx.examSettings.update({ where: { schoolId: ctx.schoolId }, data: { remarkPhrases: phrases as Prisma.InputJsonValue, updatedById: ctx.userId } });
+  await writeAudit(tx, ctx, { action: "changed", recordType: "Exam Settings", recordId: ctx.schoolId, before: { remarkPhrases: before.remarkPhrases as Prisma.InputJsonValue }, after: { remarkPhrases: phrases as Prisma.InputJsonValue } });
+  return Object.keys(phrases).length;
 }

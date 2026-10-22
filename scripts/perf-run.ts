@@ -8,7 +8,8 @@
 // ONLY=word (only paths whose name has it), OUT=file.json (each path's time,
 // queries and a fingerprint of its result, so two versions of the code can be
 // compared: the same fingerprint means the same answer), NOW=2026-10-22T05:30:00Z,
-// SCHEDULES=0 (leave out the background schedules), REPORTS=0 (leave out the report catalogue).
+// SCHEDULES=0 (leave out the background schedules), REPORTS=0 (leave out the report catalogue),
+// QUERIES=1 (the costliest kinds of query of each path).
 //
 // Saves (attendance, payroll, schedules) run inside a transaction that is
 // rolled back, so the database is the same after a run and runs compare.
@@ -259,15 +260,30 @@ if (process.env.SCHEDULES !== "0") {
   }
 }
 
-const fingerprint = (v: unknown) => createHash("sha1").update(JSON.stringify(v, (_k, x) => (typeof x === "bigint" ? `${x}n` : x instanceof Map ? [...x.entries()] : x instanceof Set ? [...x] : x)) ?? "undefined").digest("hex").slice(0, 12);
-const results: { name: string; ms: number; queries: number; fp: string; error?: string; top: string }[] = [];
+/** The same answer gives the same fingerprint: object keys and Map entries are sorted first (their order is not part of the answer). */
+const canonical = (x: unknown): unknown => {
+  if (typeof x === "bigint") return `${x}n`;
+  if (x instanceof Date) return x.toISOString();
+  if (x instanceof Map) return [...x.entries()].map(([k, v]) => [canonical(k), canonical(v)]).sort((a, b) => (JSON.stringify(a[0]) < JSON.stringify(b[0]) ? -1 : 1));
+  if (x instanceof Set) return [...x].map(canonical).sort();
+  if (Array.isArray(x)) return x.map(canonical);
+  if (x && typeof x === "object") return Object.fromEntries(Object.keys(x).sort().map((k) => [k, canonical((x as Record<string, unknown>)[k])]));
+  return x;
+};
+const fingerprint = (v: unknown) => createHash("sha1").update(JSON.stringify(canonical(v)) ?? "undefined").digest("hex").slice(0, 12);
+// ms: wall time (median); cpu: this process's CPU, the database client's own work included; db: time the database reported for the queries.
+// On a busy machine the wall time swings; cpu and db show what the code itself costs.
+const results: { name: string; ms: number; cpu: number; db: number; queries: number; fp: string; error?: string; top: string }[] = [];
 for (const p of paths.filter((x) => !ONLY || x.name.toLowerCase().includes(ONLY.toLowerCase()))) {
   const times: number[] = [];
+  const cpus: number[] = [];
+  const dbs: number[] = [];
   let q = 0, fp = "", error: string | undefined, top = "";
   for (let r = 0; r < RUNS; r++) {
     queries = 0;
     slow = [];
     const t = performance.now();
+    const c0 = process.cpuUsage();
     try {
       const out = await p.run();
       fp = p.save ? "(save)" : fingerprint(out);
@@ -275,13 +291,29 @@ for (const p of paths.filter((x) => !ONLY || x.name.toLowerCase().includes(ONLY.
       error = e instanceof Error ? e.message.split("\n").slice(-1)[0].slice(0, 160) : String(e);
     }
     times.push(performance.now() - t);
+    const c1 = process.cpuUsage(c0);
+    cpus.push((c1.user + c1.system) / 1000);
+    dbs.push(slow.reduce((n, x) => n + x.ms, 0));
     q = queries;
     const worst = slow.sort((a, b) => b.ms - a.ms)[0];
     top = worst ? `${worst.ms}ms ${worst.query.replace(/\s+/g, " ").slice(0, 160)}` : "";
   }
+  if (process.env.QUERIES) {
+    // QUERIES=1: the costliest kinds of query of the last run, with how often each was sent.
+    const by = new Map<string, { n: number; ms: number }>();
+    for (const x of slow) {
+      const k = x.query.replace(/\s+/g, " ").slice(0, 200);
+      const row = by.get(k) ?? { n: 0, ms: 0 };
+      row.n++;
+      row.ms += x.ms;
+      by.set(k, row);
+    }
+    for (const [k, r] of [...by].sort((a, b) => b[1].ms - a[1].ms).slice(0, 12)) console.log(`      ${String(r.ms).padStart(6)}ms ${String(r.n).padStart(5)}x  ${k}`);
+  }
   const ms = [...times].sort((a, b) => a - b)[Math.floor(times.length / 2)];
-  results.push({ name: p.name, ms: Math.round(ms), queries: q, fp, error, top });
-  console.log(`${String(Math.round(ms)).padStart(7)} ms ${String(q).padStart(6)} q  ${p.name}${error ? `  FAILED: ${error}` : ""}`);
+  const med = (xs: number[]) => Math.round([...xs].sort((a, b) => a - b)[Math.floor(xs.length / 2)]);
+  results.push({ name: p.name, ms: Math.round(ms), cpu: med(cpus), db: med(dbs), queries: q, fp, error, top });
+  console.log(`${String(Math.round(ms)).padStart(7)} ms ${String(med(cpus)).padStart(6)} cpu ${String(med(dbs)).padStart(6)} db ${String(q).padStart(6)} q  ${p.name}${error ? `  FAILED: ${error}` : ""}`);
 }
 
 console.log("\nSlowest 25:");

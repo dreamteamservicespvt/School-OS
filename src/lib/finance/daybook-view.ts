@@ -44,6 +44,10 @@ export type DayRow = {
   sourceId: string;
   /** For an application fee: the application it was paid on. */
   applicationId?: string | null;
+  /** For an expense payment or its cancelling: the expense it paid (the entry's source is the payment). */
+  expenseId?: string | null;
+  /** The cash or bank account the money is in. */
+  accountId?: string | null;
 };
 
 const SECTION_OF: Record<string, DayRow["source"]> = {
@@ -113,6 +117,8 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
       account: e.accountId ? acc.get(e.accountId) ?? null : null, depositAccount: e.depositAccountId ? acc.get(e.depositAccountId) ?? null : null,
       note: e.note, waiting: false, cancelled: reversed.has(e.id), studentId: e.studentId, sourceType: e.sourceType, sourceId: e.sourceId,
       applicationId: e.sourceType.startsWith("application-fee") ? appFees.find((x) => x.id === e.sourceId)?.applicationId ?? null : null,
+      expenseId: e.sourceType.startsWith("expense") ? expensePays.find((x) => x.id === e.sourceId)?.expense.id ?? null : null,
+      accountId: e.accountId,
     };
   });
   const waitingRows: DayRow[] = waitingPays.map((p) => ({

@@ -41,7 +41,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
   const data = await withSchool(current.ctx, async (tx) => {
     // The same reach and consent groups as the Dashboard's Parents and consent cards.
     const base = await guardiansInReach(tx, current, yearIds, { archived: params.archived });
-    const { allIds, ...ids } = await guardianConsentGroups(tx, current, base);
+    const { allIds, state, ...ids } = await guardianConsentGroups(tx, current, base);
     const links = provider ? await parentLinkStatus(tx, current.ctx, allIds) : new Map<string, { status: string; lastOpenedAt: Date | null }>();
     const notOpened = allIds.filter((id) => !links.get(id)?.lastOpenedAt);
     const activeLinks = allIds.filter((id) => links.get(id)?.status === "Active").length;

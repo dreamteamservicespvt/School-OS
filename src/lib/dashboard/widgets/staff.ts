@@ -5,7 +5,7 @@ import "server-only";
 
 import { approvalsFor } from "../../approvals";
 import { hrFeaturesOn, hrSettings } from "../../staff/settings";
-import { viewerFor } from "../../staff/access";
+import { viewerFor, type ViewerSource } from "../../staff/access";
 import { campusStaffWhere, onRollWhere, STAFF_FILTERS, staffWhere } from "../../staff/list";
 import { readListParams } from "../../list";
 import { docStatus } from "../../staff/documents";
@@ -17,7 +17,7 @@ const BASE = "/staff-hr-management";
 const isHr = (v: Viewer) => reach(v, "staff-hr-management") === "all";
 const ACTIVE = ["ACTIVE", "ON_LEAVE", "SUSPENDED"] as const;
 /** The person as the Staff & HR pages see them (their reach, campus and own Staff record), read once. */
-const staffViewer = (c: DashContext) => c.memo("staff-viewer", () => viewerFor(c.tx, c.viewer.ctx, c.viewer));
+const staffViewer = (c: DashContext) => c.memo("staff-viewer", () => viewerFor(c.tx, c.viewer.ctx, c.viewer as unknown as ViewerSource));
 /** One campus: that campus's staff and the person's own record, as the Staff & HR lists show them. */
 const campus = async (c: DashContext) => campusStaffWhere(await staffViewer(c));
 

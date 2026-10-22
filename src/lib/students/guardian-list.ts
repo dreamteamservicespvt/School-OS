@@ -34,6 +34,8 @@ export async function guardianConsentGroups(tx: Tx, who: Who, where: Prisma.Guar
   const state = (id: string, type: string) => consentState(byGuardian.get(id) ?? [], type);
   return {
     allIds,
+    /** One guardian's state for a consent type. */
+    state,
     dataNot: allIds.filter((id) => state(id, "data-processing") !== "GIVEN" && state(id, "data-processing") !== "WITHDRAWN"),
     dataWithdrawn: allIds.filter((id) => state(id, "data-processing") === "WITHDRAWN"),
     photoNot: allIds.filter((id) => state(id, "photo") !== "GIVEN"),

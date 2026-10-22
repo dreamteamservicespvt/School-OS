@@ -37,13 +37,15 @@ export function LateFeeSheet({ closeHref, s, heads }: C & { s: { on: boolean; ty
 
 const DAY_WORDS = (d: number) => (d === 0 ? "On the due date" : d < 0 ? `${-d} ${d === -1 ? "day" : "days"} before` : `${d} ${d === 1 ? "day" : "days"} after`);
 
-export function RemindersSheet({ closeHref, s, choices }: C & { s: { on: boolean; days: number[]; channel: string; template: string }; choices: number[] }) {
+export function RemindersSheet({ closeHref, s, choices, wordsHref }: C & { s: { on: boolean; days: number[]; channel: string; min: string; quietDays: boolean }; choices: number[]; wordsHref: string }) {
   return (
     <SheetForm title="Reminder schedule" sub="Sent by itself for each unpaid installment. Opted-out parents are skipped." closeHref={closeHref} action={remindersAction} submitLabel="Save schedule" pendingText="Saving…">
       <SSwitch name="on" title="Send reminders by themselves" start={s.on} />
-      <SChips name="day" label="When" options={choices.map((d) => ({ value: String(d), label: DAY_WORDS(d) }))} start={s.days.map(String)} />
+      <SChips name="day" label="When" options={choices.map((d) => ({ value: String(d), label: DAY_WORDS(d) }))} start={s.days.map(String)} help="A family gets at most one reminder a day, about everything it owes now." />
       <SSelect name="channel" label="Send by" required start={s.channel} options={[{ value: "whatsapp", label: "WhatsApp, SMS if it fails" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }]} />
-      <SArea name="template" label="Message" required rows={4} start={s.template} help="You can use {guardian_name}, {student_name}, {class}, {due_amount}, {due_date}, {link} and {school_name}." />
+      <SMoney name="min" label="Only when the family owes at least" start={s.min} help="Empty or 0: any amount gets a reminder." />
+      <SSwitch name="quietDays" title="Not on days the school is closed" sub="Sundays, holidays and vacations on the School Calendar. That day's reminders go on the next school day." start={s.quietDays} />
+      <p className="text-[13px] text-ink3">The words are the “Fee reminder” templates in <a href={wordsHref} className="text-brand font-semibold underline">Message Templates</a>. The payment link, or how to pay at the school office, is added by itself.</p>
     </SheetForm>
   );
 }

@@ -62,7 +62,7 @@ describe("while the school is moving in", () => {
     const job = await withSchool(f.ctx, (tx) => tx.backgroundJob.findFirstOrThrow({ where: { kind: "schedule:fee-late-fees" }, orderBy: { createdAt: "desc" } }));
     expect(job).toMatchObject({ status: "done", result: { held: HELD_UNTIL_LIVE } });
     // The reminder day of the 10 October installment.
-    expect(await withSchool(f.ctx, (tx) => automaticReminders(tx, f.ctx, new Date("2026-10-10T00:00:00Z")))).toEqual({ sent: 0 });
+    expect(await withSchool(f.ctx, (tx) => automaticReminders(tx, f.ctx, new Date("2026-10-10T00:00:00Z")))).toEqual({ sent: 0, status: "held" });
     expect(await feeMessages()).toBe(0);
   });
 

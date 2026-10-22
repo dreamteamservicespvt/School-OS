@@ -46,14 +46,23 @@ export async function saveLateFee(tx: Tx, ctx: SchoolContext, i: LateFeeInput) {
 
 export const REMINDER_DAY_CHOICES = [-7, -3, -1, 0, 1, 3, 7, 14, 21, 30];
 
-export async function saveReminders(tx: Tx, ctx: SchoolContext, i: { on: boolean; days: number[]; channel: string; template: string }) {
+/** The largest "smallest amount" a school can set for reminders (₹1,00,000). */
+const REMINDER_MIN_MAX = BigInt(10_000_000);
+
+/**
+ * The reminder schedule (06 §6): on or off, the days before and after the due
+ * date, the channel, the smallest amount worth a reminder and whether closed
+ * days are quiet. The words are the "Fee reminder" templates in Message
+ * Templates (approved by WhatsApp, with a DLT ID for SMS), so they are not saved here.
+ */
+export async function saveReminders(tx: Tx, ctx: SchoolContext, i: { on: boolean; days: number[]; channel: string; minPaise: bigint; quietDays: boolean }) {
   const days = [...new Set(i.days)].filter((d) => REMINDER_DAY_CHOICES.includes(d)).sort((a, b) => a - b);
   if (i.on && !days.length) throw new MoneyProblem("Choose at least one day to send reminders.", "day");
   if (!["whatsapp", "sms", "email"].includes(i.channel)) throw new MoneyProblem("Choose how reminders are sent.", "channel");
-  const t = i.template.trim();
-  if (t.length < 10 || t.length > 1000) throw new MoneyProblem("The message must be 10 to 1,000 characters.", "template");
+  if (i.minPaise < ZERO || i.minPaise > REMINDER_MIN_MAX) throw new MoneyProblem(`The smallest amount must be ₹0 to ${formatRupees(REMINDER_MIN_MAX)}.`, "min");
   const s = await feeSettings(tx, ctx);
-  await save(tx, ctx, "reminders", { remindersOn: i.on, reminderDays: days, reminderChannel: i.channel, reminderTemplate: t }, { remindersOn: s.remindersOn, reminderDays: s.reminderDays, channel: s.reminderChannel });
+  await save(tx, ctx, "reminders", { remindersOn: i.on, reminderDays: days, reminderChannel: i.channel, reminderMinPaise: i.minPaise, reminderQuietDays: i.quietDays },
+    { remindersOn: s.remindersOn, reminderDays: s.reminderDays, channel: s.reminderChannel, min: formatRupees(s.reminderMinPaise), quietDays: s.reminderQuietDays });
 }
 
 export async function saveReceipts(tx: Tx, ctx: SchoolContext, i: { prefix: string; digits: number; restartEachYear: boolean; partialSeries: boolean; partialPrefix: string; printCopies: string; terms: string | null }) {

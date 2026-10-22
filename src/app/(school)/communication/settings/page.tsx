@@ -70,6 +70,7 @@ export default async function MessageSettingsPage() {
   const ruleRows: RuleRowData[] = data.rules.map((r) => ({
     key: r.key, label: r.label, when: r.when, module: r.module, audience: r.audience, isOn: r.isOn, channels: r.channels, sendTo: r.sendTo, timing: r.timing,
     timingFields: (r.timingFields ?? []).map((f) => ({ key: f.key, label: f.label, kind: f.kind })),
+    channelsSetIn: r.channelsFrom === "fee-settings" ? { label: "Fee Settings", href: "/fee-management/settings?edit=reminders" } : null,
     templates: CHANNELS.map((c) => {
       const id = r.templateIds[c as Channel];
       const vs = data.versions.filter((v) => v.templateId === id);

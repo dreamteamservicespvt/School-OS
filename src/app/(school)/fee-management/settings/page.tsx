@@ -118,7 +118,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
                   );
                 })}
               </div>
-              <p className="text-[13px] text-ink3">{CHANNEL[s.reminderChannel] ?? s.reminderChannel} · payment link added when online payment is set up</p>
+              <p className="text-[13px] text-ink3">{CHANNEL[s.reminderChannel] ?? s.reminderChannel} · {s.reminderMinPaise > BigInt(0) ? `only when ${formatRupees(s.reminderMinPaise)} or more is owed` : "any amount owed"} · {s.reminderQuietDays ? "not on days the school is closed" : "every day, holidays too"}</p>
             </div>
           </SetCard>
 
@@ -236,7 +236,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
         <LateFeeSheet closeHref={close} heads={data.heads.filter((h) => !h.systemKey && h.lateFeeApplies).map((h) => ({ value: h.id, label: h.name }))}
           s={{ on: s.lateFeeOn, type: s.lateFeeType, amount: rupees(s.lateFeePaise), percent: String(s.lateFeePercentBp / 100), grace: s.graceDays, max: rupees(s.lateFeeMaxPaise), headIds: s.lateFeeHeadIds }} />
       )}
-      {edit === "reminders" && <RemindersSheet closeHref={close} choices={REMINDER_DAY_CHOICES} s={{ on: s.remindersOn, days: s.reminderDays, channel: s.reminderChannel, template: s.reminderTemplate }} />}
+      {edit === "reminders" && <RemindersSheet closeHref={close} choices={REMINDER_DAY_CHOICES} wordsHref="/communication/templates" s={{ on: s.remindersOn, days: s.reminderDays, channel: s.reminderChannel, min: s.reminderMinPaise > BigInt(0) ? rupees(s.reminderMinPaise) : "", quietDays: s.reminderQuietDays }} />}
       {edit === "receipts" && <ReceiptsSheet closeHref={close} s={{ prefix: s.receiptPrefix, digits: s.receiptDigits, restart: s.restartEachYear, partialSeries: s.partialSeries, partialPrefix: s.partialPrefix, printCopies: s.printCopies, terms: s.receiptTerms ?? "" }} />}
       {edit === "numbers" && <NumberingSheet closeHref={close} s={{ taxInvoicePrefix: s.taxInvoicePrefix, invoicePrefix: s.invoicePrefix, certificatePrefix: s.certificatePrefix }} />}
       {edit === "ageing" && <AgeingSheet closeHref={close} ends={s.ageing.filter((g) => g.to !== null).map((g) => g.to).join(", ")} />}

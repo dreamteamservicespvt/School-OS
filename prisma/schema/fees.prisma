@@ -123,7 +123,12 @@ model FeeSetting {
   /// Days relative to the due date: -3 = three days before, 0 = on the day, 7 = seven days after.
   reminderDays         Int[]    @default([-3, 0, 7]) @map("reminder_days")
   reminderChannel      String   @default("whatsapp") @map("reminder_channel")
+  /// Kept from before 22 October 2026: the words now come from the "Fee reminder" templates in Message Templates.
   reminderTemplate     String   @map("reminder_template")
+  /// No automatic reminder to a family owing less than this (0 = any amount) (inferred, 22 October 2026).
+  reminderMinPaise     BigInt   @default(0) @map("reminder_min_paise")
+  /// No automatic reminder on a day the school is closed; that day's reminders go on the next school day (inferred, 22 October 2026).
+  reminderQuietDays    Boolean  @default(false) @map("reminder_quiet_days")
   /// Ageing groups as day ranges: [{ from: 0, to: 30 }, ..., { from: 91, to: null }].
   ageingGroups         Json     @map("ageing_groups")
   /// Modes that arrive as Waiting for verification (empty = step off).

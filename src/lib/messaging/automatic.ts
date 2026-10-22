@@ -24,6 +24,8 @@ export type RuleDef = {
   defaultOn: boolean;
   /** Settings for timing shown on the rule, e.g. the time of day. */
   timingFields?: { key: string; label: string; kind: "time" | "days"; default: string }[];
+  /** The channel is chosen on another page, not here (fee reminders: Fee Settings). */
+  channelsFrom?: "fee-settings";
 };
 
 // Transport rules (pickup, drop, arriving) belong to Transport Management and
@@ -32,7 +34,7 @@ export type RuleDef = {
 export const RULES: RuleDef[] = [
   { key: "absence", label: "Absent today", when: "A student is marked absent", module: "Attendance Management", audience: "parents", messageType: "attendance", defaultChannels: ["whatsapp"], defaultOn: true },
   { key: "late", label: "Late arrival", when: "A student is marked late", module: "Attendance Management", audience: "parents", messageType: "attendance", defaultChannels: ["whatsapp"], defaultOn: false },
-  { key: "fee-due", label: "Fee reminder", when: "A fee due date comes (on the reminder days set in Fee Management)", module: "Fee Management", audience: "parents", messageType: "fee", defaultChannels: ["whatsapp"], defaultOn: true },
+  { key: "fee-due", label: "Fee reminder", when: "A fee due date comes (on the reminder days set in Fee Management)", module: "Fee Management", audience: "parents", messageType: "fee", defaultChannels: ["whatsapp"], defaultOn: true, channelsFrom: "fee-settings" },
   { key: "fee-paid", label: "Fee received", when: "A fee payment is received", module: "Fee Management", audience: "parents", messageType: "fee", defaultChannels: ["whatsapp"], defaultOn: true },
   { key: "exam-reminder", label: "Exam reminder", when: "A datesheet is published, and before exams", module: "Examination & Results", audience: "parents", messageType: "general", defaultChannels: ["whatsapp"], defaultOn: true,
     timingFields: [{ key: "daysBefore", label: "Days before the first exam", kind: "days", default: "3" }] },
@@ -61,9 +63,12 @@ export type RuleState = RuleDef & { isOn: boolean; channels: Channel[]; template
 export async function ruleStates(tx: Tx, ctx: SchoolContext): Promise<RuleState[]> {
   const rows = await tx.automaticMessageRule.findMany({ where: { schoolId: ctx.schoolId } });
   const templates = await tx.template.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, key: { in: RULES.map((r) => r.key) } }, select: { id: true, key: true, channel: true }, orderBy: { createdAt: "asc" } });
+  // Fee reminders go by the channel chosen in Fee Settings (06 §6, gap list G11), so the two pages never disagree.
+  const feeChannel = (await tx.feeSetting.findUnique({ where: { schoolId: ctx.schoolId }, select: { reminderChannel: true } }))?.reminderChannel ?? null;
   return RULES.map((def) => {
     const row = rows.find((r) => r.key === def.key);
-    const channels = (row?.channels.length ? row.channels : def.defaultChannels) as Channel[];
+    const fixed = def.channelsFrom === "fee-settings" && feeChannel ? [feeChannel] : null;
+    const channels = (fixed ?? (row?.channels.length ? row.channels : def.defaultChannels)) as Channel[];
     const templateIds: Partial<Record<Channel, string>> = {};
     for (const t of templates) if (t.key === def.key && !templateIds[t.channel as Channel]) templateIds[t.channel as Channel] = t.id;
     const timing = Object.fromEntries((def.timingFields ?? []).map((t) => [t.key, t.default]));

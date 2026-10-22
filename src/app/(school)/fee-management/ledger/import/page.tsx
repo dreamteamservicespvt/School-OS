@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ModuleImportPage } from "@/components/import/module-import-page";
+import { PLACES } from "@/lib/imports/places";
+import { ImportHome } from "@/components/import/import-home";
 import { FeeHead } from "../../_components/fee-head";
 import { BASE, feeGuard, one, type SearchParams } from "../../_lib/page";
 
@@ -14,7 +15,8 @@ const ABOUT = {
 
 /**
  * Workflow 15, steps 5 and 6: the Accountant brings in old dues and this
- * year's past receipts from Fee Management (Fee Management Full; no Settings needed).
+ * year's past receipts from Fee Management (Fee Management Full; no Settings
+ * needed), on the same engine as Switching to School OS.
  */
 export default async function FeeImportPage({ searchParams }: { searchParams: SearchParams }) {
   const p = await feeGuard("ledger");
@@ -24,8 +26,7 @@ export default async function FeeImportPage({ searchParams }: { searchParams: Se
     <>
       <FeeHead pageName="Import old dues and receipts" href={`${BASE}/ledger/import`}
         sub={<>Moving from old software or registers: set this year&apos;s fee structures first, then bring in old dues, then this year&apos;s receipts. <Link href={`${BASE}/ledger`} className="font-semibold text-brand hover:underline">Student Fee Ledger</Link></>} />
-      <ModuleImportPage current={p.current} keys={["fee-old-dues", "fee-past-receipts"]} initial={one(sp.kind)} base={`${BASE}/ledger/import`} about={ABOUT}
-        doneHref={`${BASE}/ledger`} doneLabel="Open Student Fee Ledger" />
+      <ImportHome current={p.current} place={PLACES.fees} initial={one(sp.kind)} about={ABOUT} />
     </>
   );
 }

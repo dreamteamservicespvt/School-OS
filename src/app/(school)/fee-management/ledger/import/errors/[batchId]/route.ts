@@ -1,8 +1,9 @@
-// The rows an old dues or past receipts import left out, with their problems, to fix and import again.
-import { moduleErrorsResponse } from "@/lib/imports/module-routes";
+// The rows an import of old dues or past receipts left out, with their problems, to fix and bring in again.
+import { PLACES } from "@/lib/imports/places";
+import { placeErrorsResponse } from "@/lib/imports/place-routes";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(req: Request, { params }: { params: Promise<{ batchId: string }> }) {
-  return moduleErrorsResponse(req, (await params).batchId, "fee-old-dues", ["fee-old-dues", "fee-past-receipts"]);
+export async function GET(_req: Request, { params }: { params: Promise<{ batchId: string }> }) {
+  return placeErrorsResponse(PLACES["fees"], (await params).batchId);
 }

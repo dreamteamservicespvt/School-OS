@@ -1,8 +1,9 @@
 // The ready Excel sheet for old dues or past receipts, made for this school.
-import { moduleTemplateResponse } from "@/lib/imports/module-routes";
+import { PLACES } from "@/lib/imports/places";
+import { kindParam, placeTemplateResponse } from "@/lib/imports/place-routes";
 
 export const dynamic = "force-dynamic";
 
 export function GET(req: Request) {
-  return moduleTemplateResponse(req, "fee-old-dues", ["fee-old-dues", "fee-past-receipts"]);
+  return placeTemplateResponse(PLACES["fees"], kindParam(req, PLACES["fees"]));
 }

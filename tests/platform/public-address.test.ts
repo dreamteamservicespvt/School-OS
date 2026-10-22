@@ -13,6 +13,7 @@ import { connectIntegration, INTEGRATIONS, testIntegration } from "@/lib/setting
 import { SettingsProblem } from "@/lib/settings/common";
 import { smtpProvider } from "@/lib/messaging/providers/smtp";
 import { checkChannel } from "@/lib/messaging/channel-admin";
+import { isGraphPage, listWhatsappTemplates, submitWhatsappTemplate, whatsappProvider } from "@/lib/messaging/providers/whatsapp";
 import { makeSchool } from "../helpers";
 
 describe("which addresses are private", () => {
@@ -188,5 +189,42 @@ describe("the school's email server (SMTP) in SMS, WhatsApp & Email", () => {
       expect(r).toMatchObject({ ok: false, retryable: false });
       expect(connections).toBe(1);
     });
+  });
+});
+
+describe("WhatsApp (Meta Cloud API) details typed in SMS, WhatsApp & Email", () => {
+  // Every call goes to Meta's own address; the IDs the school types go into it, so they must be numbers only.
+  it("saving refuses IDs that are not numbers", async () => {
+    const school = await makeSchool("WhatsApp Wall School");
+    const ctx = { schoolId: school.id, userId: null };
+    const input = (phoneNumberId: string, businessAccountId: string) => ({ provider: "meta-cloud", live: true, isOn: true, config: { phoneNumberId, businessAccountId }, secrets: { accessToken: "token-123" }, lowCreditAlert: 0 });
+    const bad = await withSchool(ctx, (tx) => checkChannel(tx, ctx, "whatsapp", input("../../169.254.169.254", "123/../me")));
+    expect(bad.phoneNumberId).toMatch(/only numbers/);
+    expect(bad.businessAccountId).toMatch(/only numbers/);
+    expect(await withSchool(ctx, (tx) => checkChannel(tx, ctx, "whatsapp", input("106540352242922", "102290129340398")))).toEqual({});
+  });
+
+  it("sending never calls out with an ID that is not a number, and a page link to anywhere but Meta is not followed", async () => {
+    const calls: string[] = [];
+    vi.stubGlobal("fetch", async (url: string) => {
+      calls.push(String(url));
+      return new Response(JSON.stringify({ data: [{ name: "fee_due", language: "en", status: "APPROVED" }], paging: { next: "http://169.254.169.254/latest/meta-data/" } }), { status: 200 });
+    });
+    try {
+      const msg = { channel: "whatsapp" as const, to: "9848012345", text: "Hello" };
+      expect(await whatsappProvider({ config: { phoneNumberId: "../me" }, secrets: { accessToken: "t" } }).send(msg)).toMatchObject({ ok: false, retryable: false, reason: expect.stringMatching(/only numbers/) });
+      expect(await submitWhatsappTemplate({ config: { businessAccountId: "1/../2" }, secrets: { accessToken: "t" } }, { name: "x", language: "en", category: "UTILITY", body: "Hi", variables: [] })).toMatchObject({ ok: false });
+      expect(await listWhatsappTemplates({ config: { businessAccountId: "x" }, secrets: { accessToken: "t" } })).toBeNull();
+      expect(calls).toEqual([]);
+      // A real account: the first page is read, the link to the metadata address is not followed.
+      expect(await listWhatsappTemplates({ config: { businessAccountId: "102290129340398" }, secrets: { accessToken: "t" } })).toBeNull();
+      expect(calls).toHaveLength(1);
+      expect(new URL(calls[0]).hostname).toBe("graph.facebook.com");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+    expect(isGraphPage("https://graph.facebook.com/v23.0/102290129340398/message_templates?after=abc")).toBe(true);
+    expect(isGraphPage("https://graph.facebook.com.evil.example/v23.0/x")).toBe(false);
+    expect(isGraphPage("http://graph.facebook.com/v23.0/x")).toBe(false);
   });
 });

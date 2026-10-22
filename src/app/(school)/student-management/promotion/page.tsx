@@ -21,6 +21,7 @@ import { campusPrefixes, classOptions, sectionOptions } from "../_lib/queries";
 import { campusAllows, sectionCampusId } from "@/lib/campus";
 import { StudentsHead } from "../_lib/head";
 import { PromotionReview, type ReviewRow } from "./review";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Promotion" };
 
@@ -86,7 +87,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
       <div className="flex flex-col gap-5">
         {nextYear && (
           <Banner tone="info" icon={CalendarDays} title={`${nextYear.name} is being prepared.`}>
-            The list uses the published final results, and the attendance and fees recorded so far, and updates by itself. Saved batches move students into {nextYear.name}.
+            <Words k="The list uses the published final results, and the attendance and fees recorded so far, and updates by itself. Saved batches move students into" /> {nextYear.name}.
           </Banner>
         )}
         <Card className="p-2.5 md:p-3">
@@ -104,12 +105,12 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
         <Card>
           <CardHeader title="Choose the class" description="Default target: the next class, same section name, next year" icon={ListChecks} />
           {!data.fromYear ? (
-            <Empty icon={CalendarDays} title="No open academic year" body="Open an academic year in Academic Management, then return." action={<ButtonLink href="/academic-management">Open Academic Management</ButtonLink>} />
+            <Empty icon={CalendarDays} title="No open academic year" body="Open an academic year in Academic Management, then return." action={<ButtonLink href="/academic-management"><Words k="Open Academic Management" /></ButtonLink>} />
           ) : (
             <form method="get">
               <div className="grid gap-4 px-5 pb-5 md:grid-cols-[1fr_auto_1fr] md:items-start">
                 <fieldset className="rounded-xl border border-line p-4 grid gap-3">
-                  <legend className="eyebrow text-ink3 px-1">From</legend>
+                  <legend className="eyebrow text-ink3 px-1"><Words k="From" /></legend>
                   <SelectField name="fromYear" label="Year" required defaultValue={data.fromYear.id}
                     options={data.years.filter((y) => y.status !== "CLOSED").map((y) => ({ value: y.id, label: y.name }))} />
                   <SelectField name="from" label="Class and section" required defaultValue={p?.from.id ?? sp.from ?? ""} placeholder="Choose…"
@@ -118,20 +119,20 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
                 </fieldset>
                 <span className="hidden md:grid size-10 place-items-center rounded-full bg-sunken text-ink3 self-center" aria-hidden="true"><ArrowRight size={18} /></span>
                 <fieldset className="rounded-xl border border-line p-4 grid gap-3">
-                  <legend className="eyebrow text-ink3 px-1">To</legend>
+                  <legend className="eyebrow text-ink3 px-1"><Words k="To" /></legend>
                   <SelectField name="toYear" label="Year" defaultValue={p?.toYear.id ?? sp.toYear ?? ""} placeholder="Next year"
                     error={data.error?.field === "toYearId" ? data.error.message : undefined}
                     options={laterYears.map((y) => ({ value: y.id, label: y.name }))} />
                   <SelectField name="toClass" label="Class" defaultValue={sp.toClass ?? ""} placeholder="Next class" options={data.classes} />
-                  <p className="text-[12.5px] text-ink3 -mt-1">Students can be split across sections in the next step</p>
+                  <p className="text-[12.5px] text-ink3 -mt-1"><Words k="Students can be split across sections in the next step" /></p>
                 </fieldset>
               </div>
               {data.error && !data.error.field && <div className="px-5 pb-4"><Alert tone="danger">{data.error.message}</Alert></div>}
               {data.error?.field === "toYearId" && (
-                <div className="px-5 pb-4"><Alert tone="warning" action={<Link className="font-medium underline" href="/academic-management">Open Academic Management</Link>}>{data.error.message}</Alert></div>
+                <div className="px-5 pb-4"><Alert tone="warning" action={<Link className="font-medium underline" href="/academic-management"><Words k="Open Academic Management" /></Link>}>{data.error.message}</Alert></div>
               )}
               <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-4">
-                <p className="text-[14px] text-ink2">{p ? <><b className="font-semibold text-ink">{rows.length} students</b> in {p.from.label} · moving to {p.finalClass ? "the next step (final class)" : `${p.toClass?.name ?? ""} (${p.toYear.name})`}</> : "Pick the class to promote"}</p>
+                <p className="text-[14px] text-ink2">{p ? <><b className="font-semibold text-ink">{rows.length} <Words k="students" /></b> <Words k="in" /> {p.from.label} <Words k="· moving to" /> {p.finalClass ? "the next step (final class)" : `${p.toClass?.name ?? ""} (${p.toYear.name})`}</> : "Pick the class to promote"}</p>
                 <Button type="submit" variant={p ? "secondary" : "primary"}>{p ? "Show again" : "Show the students"}<ArrowRight size={17} aria-hidden="true" /></Button>
               </div>
             </form>
@@ -146,7 +147,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
                 : `Moving to ${p.toClass?.name ?? ""} in ${p.toYear.name}. Rules: ${p.rules.passRequired ? "pass required" : "pass not required"}${p.rules.minAttendancePct != null ? `, at least ${p.rules.minAttendancePct}% attendance` : ""}${p.rules.feeDuesAllowed ? ", fee dues shown as a warning only" : ", no fee dues allowed"}${p.policyVersion ? ` (promotion policy version ${p.policyVersion})` : ""}.`} />
             <div className="px-5 pb-5">
               {rows.length > 0 && !p.finalClass && p.resultsPublished < rows.length && (
-                <Alert tone="warning" className="mb-4" action={<Link className="font-medium underline" href="/examination-results/results">Open Results</Link>}>
+                <Alert tone="warning" className="mb-4" action={<Link className="font-medium underline" href="/examination-results/results"><Words k="Open Results" /></Link>}>
                   {p.resultsPublished === 0
                     ? `Final results for ${p.from.className} are not published yet. Until they are, the suggestions use only attendance and fees. Publish the final results first.`
                     : `Final results are published for ${p.resultsPublished} of ${rows.length} students in ${p.from.label}. The others show "final result not published".`}
@@ -166,7 +167,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
 
         <Card>
           <CardHeader title="Promotion history" description="Past batches and who confirmed them" icon={History} />
-          {data.batches.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3">No promotions yet. Batches you confirm show here with who confirmed them.</p> : (
+          {data.batches.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No promotions yet. Batches you confirm show here with who confirmed them." /></p> : (
             <ul className="px-3 pb-3">
               {data.batches.map((b) => {
                 const s = data.batchSections.find((x) => x.id === b.fromSectionId);
@@ -174,7 +175,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
                   <Row key={b.id} href={`${BASE}/promotion/${b.id}`} icon={b.undoneAt ? Undo2 : ArrowUpRight} iconTone={b.undoneAt ? "neutral" : "ok"}
                     title={s ? `${s.schoolClass.name} ${s.name} (${s.academicYear.name})` : "Class"}
                     sub={`${b.summary} · confirmed by ${data.people.find((x) => x.id === b.confirmedById)?.displayName ?? "someone"}`}
-                    right={<span className="flex flex-col items-end gap-1"><span className="text-[13px] text-ink3 tnum whitespace-nowrap">{formatDateTime(b.confirmedAt, tz)}</span>{b.undoneAt && <Pill tone="neutral">Undone</Pill>}</span>} />
+                    right={<span className="flex flex-col items-end gap-1"><span className="text-[13px] text-ink3 tnum whitespace-nowrap">{formatDateTime(b.confirmedAt, tz)}</span>{b.undoneAt && <Pill tone="neutral"><Words k="Undone" /></Pill>}</span>} />
                 );
               })}
             </ul>

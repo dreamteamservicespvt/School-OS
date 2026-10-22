@@ -8,6 +8,7 @@ import { BASE, studentPage, todayIso } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { IncidentForm } from "./incident-form";
 import { loadVisibleStudent } from "@/lib/students/access";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Report incident" };
 
@@ -30,7 +31,7 @@ export default async function ReportIncidentPage({ searchParams }: { searchParam
   return (
     <>
       <BackLink href={`${BASE}/behaviour`} label="Behaviour & Counselling" />
-      <PageHeader title="Report incident" sub={<>Also for a warning, a suspension, a reward or recognition.</>} href={`${BASE}/behaviour/new`} userId={current.user.id} />
+      <PageHeader title="Report incident" sub={<><Words k="Also for a warning, a suspension, a reward or recognition." /></>} href={`${BASE}/behaviour/new`} userId={current.user.id} />
       <Card className="max-w-3xl">
         <CardBody>
           <IncidentForm types={settings.incidentTypes} sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} initial={data.initial}

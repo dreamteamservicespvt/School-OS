@@ -16,6 +16,7 @@ import { loadVisibleStudent } from "@/lib/students/access";
 import { BEHAVIOUR_KIND_LABEL, isPositive, type BehaviourKind } from "@/lib/students/labels";
 import { BASE, studentPage } from "../../_lib/page";
 import { archiveIncidentAction, closeIncidentAction } from "../../_actions/behaviour";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Behaviour record" };
 
@@ -43,18 +44,18 @@ export default async function IncidentPage({ params }: { params: Promise<{ id: s
       <PageHeader title={typeLabel} sub={`${formatDate(inc.date, tz)} · ${data.students.map((s) => s.fullName).join(", ")}`} href={path} userId={current.user.id}>
         <div className="flex flex-wrap gap-2">
           {settings.counsellingOn && can.contribute && !inc.archivedAt && !isPositive(inc.kind) && data.students.length === 1 && (
-            <ButtonLink href={`${BASE}/behaviour/counselling/new?student=${data.students[0].id}&incident=${id}`} icon={HeartHandshake}>Refer to counselling</ButtonLink>
+            <ButtonLink href={`${BASE}/behaviour/counselling/new?student=${data.students[0].id}&incident=${id}`} icon={HeartHandshake}><Words k="Refer to counselling" /></ButtonLink>
           )}
           {can.manage && !inc.archivedAt && (
             <ConfirmAction action={archiveIncidentAction} fields={{ id }} trigger="Archive" triggerVariant="danger-outline" title="Archive this record?" confirmLabel="Archive record" confirmVariant="danger">
-              It leaves the behaviour timeline. Points it gave are reversed with a new entry; nothing is deleted.
+              <Words k="It leaves the behaviour timeline. Points it gave are reversed with a new entry; nothing is deleted." />
             </ConfirmAction>
           )}
         </div>
       </PageHeader>
       <Split side={320}>
         <Card>
-          <CardHeader title="What happened" icon={MessageSquareText} description={<span className="flex flex-wrap gap-1"><Badge tone={isPositive(inc.kind) ? "success" : inc.kind === "suspension" ? "danger" : "warning"}>{BEHAVIOUR_KIND_LABEL[inc.kind as BehaviourKind]}</Badge><Badge tone={inc.status === "OPEN" ? "warning" : "neutral"}>{inc.status === "OPEN" ? "Open" : "Closed"}</Badge>{inc.archivedAt && <Badge tone="danger">Archived</Badge>}</span>} />
+          <CardHeader title="What happened" icon={MessageSquareText} description={<span className="flex flex-wrap gap-1"><Badge tone={isPositive(inc.kind) ? "success" : inc.kind === "suspension" ? "danger" : "warning"}>{BEHAVIOUR_KIND_LABEL[inc.kind as BehaviourKind]}</Badge><Badge tone={inc.status === "OPEN" ? "warning" : "neutral"}>{inc.status === "OPEN" ? "Open" : "Closed"}</Badge>{inc.archivedAt && <Badge tone="danger"><Words k="Archived" /></Badge>}</span>} />
           <p className="mx-5 mb-4 whitespace-pre-line rounded-2xl bg-sunken/60 px-4 py-3 text-[14.5px]">{inc.description}</p>
           <DL rows={[
             ["Date", formatDate(inc.date, tz)],

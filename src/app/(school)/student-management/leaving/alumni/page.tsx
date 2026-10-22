@@ -21,6 +21,7 @@ import { sectionOptions } from "../../_lib/queries";
 import { visibleStudentIds } from "@/lib/students/access";
 import { linkMentorAction, markAlumniAction } from "../../_actions/leaving";
 import { studentIdsForFilter } from "@/lib/students/find";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Alumni" };
 
@@ -65,14 +66,14 @@ export default async function AlumniPage({ searchParams }: { searchParams: Promi
     { key: "career", label: "Career", phone: "meta", cell: (r) => r.career ?? "" },
     { key: "higher", label: "Higher education", cell: (r) => r.higherEducation ?? "" },
     { key: "phone", label: "Phone", cell: (r) => r.phone ?? "" },
-    { key: "mentor", label: "Mentor", phone: "badge", cell: (r) => r.isMentor ? <Badge tone="brand">Mentor</Badge> : "" },
+    { key: "mentor", label: "Mentor", phone: "badge", cell: (r) => r.isMentor ? <Badge tone="brand"><Words k="Mentor" /></Badge> : "" },
     { key: "donations", label: "Donations", cell: (r) => r._count.donations || "" },
   ];
 
   return (
     <>
       <StudentsHead page="Leaving & Alumni" href={path} sub="Records of past students, donations, mentors and the job board"
-        actions={<ButtonLink href={`${path}/jobs`} icon={Briefcase}>Job board</ButtonLink>}
+        actions={<ButtonLink href={`${path}/jobs`} icon={Briefcase}><Words k="Job board" /></ButtonLink>}
         subTabs={await leavingTabs()} subLabel="Leaving & Alumni" />
       <div className="grid gap-4 xl:grid-cols-[1fr_22rem]">
         <div>
@@ -82,7 +83,7 @@ export default async function AlumniPage({ searchParams }: { searchParams: Promi
               { key: "mentor", label: "Mentors", options: [{ value: "1", label: "Mentors only" }] },
             ]} />
           <DataTable rows={data.rows} columns={columns} rowKey={(r) => r.id} rowHref={(r) => `${path}/${r.id}`} total={data.total} params={params} path={path} caption="Alumni"
-            empty={<EmptyState title={Object.keys(params.filters).length || params.q ? "Nothing matches these filters" : "No alumni records yet"}>Graduated students become alumni here. Mark them from the card on this page.</EmptyState>} />
+            empty={<EmptyState title={Object.keys(params.filters).length || params.q ? "Nothing matches these filters" : "No alumni records yet"}><Words k="Graduated students become alumni here. Mark them from the card on this page." /></EmptyState>} />
         </div>
         <div className="space-y-4">
           {can.manage && data.graduated.length > 0 && (
@@ -92,7 +93,7 @@ export default async function AlumniPage({ searchParams }: { searchParams: Promi
                 <p className="mb-3 text-[15px]">{data.graduated.slice(0, 5).map((s) => s.fullName).join(", ")}{data.graduated.length > 5 ? ` and ${data.graduated.length - 5} more` : ""}.</p>
                 <ConfirmAction action={markAlumniAction} fields={{ ids: data.graduated.map((s) => s.id).join(",") }} trigger={`Mark ${data.graduated.length} as alumni`} triggerVariant="primary"
                   title={`Mark ${data.graduated.length} graduated ${data.graduated.length === 1 ? "student" : "students"} as alumni?`} confirmLabel="Mark as alumni">
-                  An alumni record is made for each, with the graduation year and the parent&apos;s phone. You can add their career and college later.
+                  <Words k="An alumni record is made for each, with the graduation year and the parent's phone. You can add their career and college later." />
                 </ConfirmAction>
               </CardBody>
             </Card>
@@ -101,7 +102,7 @@ export default async function AlumniPage({ searchParams }: { searchParams: Promi
             <CardHeader title="Donations" />
             <CardBody>
               <p className="text-2xl font-semibold">{formatRupees(data.donated._sum.amountPaise ?? BigInt(0))}</p>
-              <p className="text-[13.5px] text-ink2">{data.donated._count} {data.donated._count === 1 ? "donation" : "donations"} recorded. Add one on an alumnus&apos;s record; the receipt is made in Finance, Income.</p>
+              <p className="text-[13.5px] text-ink2">{data.donated._count} {data.donated._count === 1 ? "donation" : "donations"} <Words k="recorded. Add one on an alumnus's record; the receipt is made in Finance, Income." /></p>
             </CardBody>
           </Card>
           {can.manage && data.all.length > 0 && (

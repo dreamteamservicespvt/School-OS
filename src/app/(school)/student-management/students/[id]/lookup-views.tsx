@@ -13,6 +13,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { Banner } from "@/components/ui/blocks";
 import { classShort, phoneShow } from "@/lib/students/show";
 import type { Profile } from "../../_lib/profile";
+import { Words } from "@/lib/i18n/client";
 
 function Head({ p, size, extra, action }: { p: Profile; size: number; extra?: React.ReactNode; action?: React.ReactNode }) {
   const s = p.student;
@@ -24,7 +25,7 @@ function Head({ p, size, extra, action }: { p: Profile; size: number; extra?: Re
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h1 className="font-display text-[24px] font-semibold leading-tight tracking-tight md:text-[28px]">{s.fullName}</h1>
-            <Pill tone="neutral"><Eye size={13} aria-hidden="true" />View only</Pill>
+            <Pill tone="neutral"><Eye size={13} aria-hidden="true" /><Words k="View only" /></Pill>
           </div>
           <p className="mt-0.5 text-[13.5px] text-ink3">{cls}{p.now?.rollNo ? ` · Roll ${p.now.rollNo}` : ""} · <span className="font-mono text-[12.5px]">{s.admissionNo}</span></p>
           {extra}
@@ -41,15 +42,15 @@ export function PickupView({ p, back, showPhones, pickupHref }: { p: Profile; ba
     <>
       {back}
       <div className="flex max-w-3xl flex-col gap-5">
-        <Head p={p} size={88} action={pickupHref ? <ButtonLink href={pickupHref} variant="primary" icon={DoorOpen}>Student Pickup</ButtonLink> : undefined} />
+        <Head p={p} size={88} action={pickupHref ? <ButtonLink href={pickupHref} variant="primary" icon={DoorOpen}><Words k="Student Pickup" /></ButtonLink> : undefined} />
         {p.pickups.restricted.length > 0 && (
           <Banner tone="bad" icon={ShieldX} title="Custody restriction.">
-            {p.pickups.restricted.map((g) => <span key={g.guardianId} className="block">Do not release to {g.name} ({g.relationship.toLowerCase()}). See the note with the School Admin.</span>)}
+            {p.pickups.restricted.map((g) => <span key={g.guardianId} className="block"><Words k="Do not release to" /> {g.name} ({g.relationship.toLowerCase()}<Words k="). See the note with the School Admin." /></span>)}
           </Banner>
         )}
         <Card>
           <CardHeader title="Approved pickup list" icon={ShieldCheck} description={`Only these people may take ${first} home. For anyone else, call the parent first.`} />
-          {p.pickups.allowed.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No one is on the pickup list yet. Ask the class teacher or the office.</p> : (
+          {p.pickups.allowed.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No one is on the pickup list yet. Ask the class teacher or the office." /></p> : (
             <ul className="px-3 pb-3">
               {p.pickups.allowed.map((g) => (
                 <li key={g.guardianId} className="flex items-center gap-3 rounded-xl px-2 py-2.5">
@@ -77,7 +78,7 @@ export function LibraryView({ p, back, panel }: { p: Profile; back: React.ReactN
         {panel ?? (
           <Card>
             <CardHeader title="Library" icon={BookOpen} />
-            <p className="px-5 pb-5 text-[14px] text-ink3">Library cards, books out and fines show here once Library Management is in use.</p>
+            <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="Library cards, books out and fines show here once Library Management is in use." /></p>
           </Card>
         )}
       </div>

@@ -14,6 +14,7 @@ import { CONSENT_TYPES } from "@/lib/students/labels";
 import { BASE, studentPage } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { consentRequestAction } from "../../_actions/guardians";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Send consent request" };
 
@@ -45,34 +46,34 @@ export default async function ConsentRequestPage({ searchParams }: { searchParam
   return (
     <>
       <BackLink href={`${BASE}/guardians`} label="Parents & Guardians" />
-      <PageHeader title="Send consent request" sub={<span className="block max-w-prose">Each parent gets a request through Parent Link and agrees with a one-time code sent to their registered mobile. Staff never tick consent for a parent. Consents already given are left as they are.</span>} href={`${BASE}/guardians/consent`} userId={current.user.id} />
+      <PageHeader title="Send consent request" sub={<span className="block max-w-prose"><Words k="Each parent gets a request through Parent Link and agrees with a one-time code sent to their registered mobile. Staff never tick consent for a parent. Consents already given are left as they are." /></span>} href={`${BASE}/guardians/consent`} userId={current.user.id} />
       <div className="grid max-w-3xl gap-4">
         <Card>
           <CardHeader title="Who gets it" />
           <CardBody>
             <form method="get" className="flex flex-wrap items-end gap-2">
               <label className="min-w-0 flex-1 basis-52">
-                <span className="mb-1 block text-[13px] font-semibold text-ink2">Parents of a section</span>
+                <span className="mb-1 block text-[13px] font-semibold text-ink2"><Words k="Parents of a section" /></span>
                 <select name="section" defaultValue={sp.section ?? ""} className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-base">
                   <option value="">Choose</option>
                   {data.sections.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
                 </select>
               </label>
-              <button type="submit" className={buttonClass("secondary")}>Choose section</button>
-              <Link href={`${BASE}/guardians/consent?scope=all`} className={buttonClass("ghost")}>Every parent</Link>
+              <button type="submit" className={buttonClass("secondary")}><Words k="Choose section" /></button>
+              <Link href={`${BASE}/guardians/consent?scope=all`} className={buttonClass("ghost")}><Words k="Every parent" /></Link>
             </form>
           </CardBody>
         </Card>
         {label && (
-          data.guardians.length === 0 ? <EmptyState title="No parents found">Choose another section.</EmptyState> : (
+          data.guardians.length === 0 ? <EmptyState title="No parents found"><Words k="Choose another section." /></EmptyState> : (
             <Card>
               <CardHeader title={`Send to ${label}`} />
               <CardBody className="space-y-3">
-                <p>{data.guardians.length} {data.guardians.length === 1 ? "parent" : "parents"}; <strong>{data.pending.length}</strong> still {data.pending.length === 1 ? "has" : "have"} a consent not given.</p>
-                {data.pending.length === 0 ? <p className="text-ink2">Everyone here has already given consent. Nothing to send.</p> : (
+                <p>{data.guardians.length} {data.guardians.length === 1 ? "parent" : "parents"}; <strong>{data.pending.length}</strong> <Words k="still" /> {data.pending.length === 1 ? "has" : "have"} <Words k="a consent not given." /></p>
+                {data.pending.length === 0 ? <p className="text-ink2"><Words k="Everyone here has already given consent. Nothing to send." /></p> : (
                   <ConfirmAction action={consentRequestAction} fields={{ ids: data.pending.map((g) => g.id).join(","), types: "" }} trigger={`Send to ${data.pending.length} ${data.pending.length === 1 ? "parent" : "parents"}`} triggerVariant="primary"
                     title={`Send a consent request to ${data.pending.length} ${data.pending.length === 1 ? "parent" : "parents"}?`} confirmLabel={`Send to ${data.pending.length}`}>
-                    They get data and photo consent requests for each of their children through Parent Link.
+                    <Words k="They get data and photo consent requests for each of their children through Parent Link." />
                   </ConfirmAction>
                 )}
               </CardBody>

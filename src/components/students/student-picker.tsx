@@ -9,6 +9,7 @@ import { useFormResult } from "./action-form";
 import { Spinner } from "@/components/ui/button";
 import { searchStudents, studentsInSection, type PickedStudent } from "@/app/(school)/student-management/_actions/lookup";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export function StudentPicker({ name, label, multiple = false, sections = [], initial = [], anyStatus = false, required = true, help }: {
   name: string; label: string; multiple?: boolean; sections?: { value: string; label: string }[];
@@ -47,7 +48,7 @@ export function StudentPicker({ name, label, multiple = false, sections = [], in
         <div className="space-y-2 rounded-xl border border-line p-3">
           <div className="flex flex-wrap gap-2">
             <label className="relative min-w-0 flex-1 basis-52">
-              <span className="sr-only">Search students</span>
+              <span className="sr-only"><Words k="Search students" /></span>
               <input type="search" value={q} placeholder="Search by name or admission number" autoComplete="off"
                 onChange={(e) => {
                   const v = e.target.value; setQ(v); setSection("");
@@ -59,7 +60,7 @@ export function StudentPicker({ name, label, multiple = false, sections = [], in
             </label>
             {sections.length > 0 && (
               <label>
-                <span className="sr-only">Or open a section</span>
+                <span className="sr-only"><Words k="Or open a section" /></span>
                 <KeepSelect value={section} onChange={(e) => { const v = e.target.value; setSection(v); setQ(""); if (v) start(async () => setFound(await studentsInSection(v))); else setFound([]); }}
                   className="h-11 rounded-xl border border-line bg-surface px-3 text-base">
                   <option value="">Or open a section</option>
@@ -71,7 +72,7 @@ export function StudentPicker({ name, label, multiple = false, sections = [], in
           {found.length > 0 ? (
             <ul className="max-h-72 divide-y divide-line overflow-y-auto">
               {multiple && section && (
-                <li><button type="button" className="min-h-11 w-full px-1 text-left font-medium text-brand" onClick={() => setChosen((c) => [...c, ...found.filter((f) => !c.some((x) => x.id === f.id))])}>Choose all {found.length}</button></li>
+                <li><button type="button" className="min-h-11 w-full px-1 text-left font-medium text-brand" onClick={() => setChosen((c) => [...c, ...found.filter((f) => !c.some((x) => x.id === f.id))])}><Words k="Choose all" /> {found.length}</button></li>
               )}
               {found.map((s) => (
                 <li key={s.id}>
@@ -82,7 +83,7 @@ export function StudentPicker({ name, label, multiple = false, sections = [], in
                 </li>
               ))}
             </ul>
-          ) : (q.trim().length >= 2 && !pending) ? <p className="text-[13.5px] text-ink2">No student found. Try the admission number.</p> : null}
+          ) : (q.trim().length >= 2 && !pending) ? <p className="text-[13.5px] text-ink2"><Words k="No student found. Try the admission number." /></p> : null}
         </div>
       )}
       {error ? <p id={`${id}-err`} className="mt-1 text-[13.5px] text-bad">{error}</p> : help ? <p className="mt-1 text-[13.5px] text-ink2">{help}</p> : null}

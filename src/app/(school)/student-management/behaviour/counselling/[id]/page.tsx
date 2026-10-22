@@ -13,6 +13,7 @@ import { ActionForm, FormArea, FormSelect, FormText } from "@/components/student
 import { counsellors, readConfidential } from "@/lib/students/behaviour";
 import { BASE, studentPage, todayIso } from "../../../_lib/page";
 import { addSessionAction, saveCaseAction } from "../../../_actions/behaviour";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Counselling case" };
 
@@ -53,7 +54,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
                   {notes && <FormArea name="confidential" label="Confidential notes" rows={4} className="sm:col-span-2" help="Highly restricted." />}
                 </ActionForm>
               )}
-              {c.sessions.length === 0 ? <p className="text-[14px] text-ink3">No sessions yet.</p> : (
+              {c.sessions.length === 0 ? <p className="text-[14px] text-ink3"><Words k="No sessions yet." /></p> : (
                 <div className={c.status === "OPEN" ? "border-t border-line pt-4" : ""}>
                   <Timeline items={c.sessions.map((s) => {
                     const secret = readConfidential(s.confidentialEnc, notes);
@@ -61,8 +62,8 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
                       icon: CalendarClock, tone: "brand" as const,
                       what: <>
                         {s.summary}
-                        {secret && <span className="mt-2 block whitespace-pre-line rounded-xl bg-sunken/70 px-3 py-2 text-[14px]"><span className="sr-only">Confidential: </span>{secret}</span>}
-                        {!notes && s.confidentialEnc && <span className="mt-1 flex items-center gap-1.5 text-[13px] italic text-ink3"><Lock size={13} aria-hidden="true" />Private: confidential notes recorded (only the Counsellor can read them)</span>}
+                        {secret && <span className="mt-2 block whitespace-pre-line rounded-xl bg-sunken/70 px-3 py-2 text-[14px]"><span className="sr-only"><Words k="Confidential:" /> </span>{secret}</span>}
+                        {!notes && s.confidentialEnc && <span className="mt-1 flex items-center gap-1.5 text-[13px] italic text-ink3"><Lock size={13} aria-hidden="true" /><Words k="Private: confidential notes recorded (only the Counsellor can read them)" /></span>}
                       </>,
                       when: `${formatDate(s.date, tz)}${s.followUpOn ? ` · follow-up ${formatDate(s.followUpOn, tz)}` : ""}`,
                     };
@@ -80,7 +81,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
               ["Reason", c.reason],
               ["Referred by", data.referredBy?.displayName ?? null],
               ["Opened", formatDate(c.openedOn, tz)],
-              ...(c.incidentId ? [["From", <Link key="f" className="font-semibold text-brand hover:underline" href={`${BASE}/behaviour/${c.incidentId}`}>The behaviour record</Link>] as [string, React.ReactNode]] : []),
+              ...(c.incidentId ? [["From", <Link key="f" className="font-semibold text-brand hover:underline" href={`${BASE}/behaviour/${c.incidentId}`}><Words k="The behaviour record" /></Link>] as [string, React.ReactNode]] : []),
             ]} />
             <CardBody className="space-y-4">
               <ActionForm action={saveCaseAction.bind(null, id)} submitLabel="Save case" pendingText="Saving…" className="space-y-3 border-t border-line pt-4">

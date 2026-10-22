@@ -18,6 +18,7 @@ import { sectionOptions } from "../../_lib/queries";
 import { visibleStudentIds } from "@/lib/students/access";
 import { campusAllows } from "@/lib/campus";
 import { replaceCardAction, saveRfidAction } from "../../_actions/certificates";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "ID cards" };
 
@@ -60,16 +61,16 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
         subTabs={await certificateTabs()} subLabel="Certificates & ID Cards" />
       {data.problem && <Alert tone="warning" className="mb-4">{data.problem}</Alert>}
       {!c ? (
-        data.sections.length === 0 ? <EmptyState title="No classes this year">Set up classes and sections in Academic Management, then print ID cards class by class.</EmptyState> : (
+        data.sections.length === 0 ? <EmptyState title="No classes this year"><Words k="Set up classes and sections in Academic Management, then print ID cards class by class." /></EmptyState> : (
           <>
-            <p className="mb-3 text-ink2">Pick a class. Cards print in batches of up to {ID_BATCH_SIZE} as a print-ready PDF.</p>
+            <p className="mb-3 text-ink2"><Words k="Pick a class. Cards print in batches of up to" /> {ID_BATCH_SIZE} <Words k="as a print-ready PDF." /></p>
             <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
               {data.sections.map((s) => (
                 <li key={s.value}>
                   <Link href={`?section=${s.value}`} className="block rounded-xl border border-line bg-surface p-4 hover:border-brand">
                     <span className="block text-lg font-semibold">{s.label}</span>
-                    <span className="block text-[13.5px] text-ink2">{s.filled} students</span>
-                    <span className="block text-[13.5px] text-ink2">{printed.get(s.value) ?? 0} cards printed</span>
+                    <span className="block text-[13.5px] text-ink2">{s.filled} <Words k="students" /></span>
+                    <span className="block text-[13.5px] text-ink2">{printed.get(s.value) ?? 0} <Words k="cards printed" /></span>
                   </Link>
                 </li>
               ))}
@@ -80,15 +81,15 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
         <div className="grid gap-4 lg:grid-cols-[1fr_24rem]">
           <Card>
             <CardHeader title={`${c.label} · ${c.section.academicYear.name}`} description={`${c.students.length} students · up to ${ID_BATCH_SIZE} per batch · ${c.batches} ${c.batches === 1 ? "batch" : "batches"} · valid until ${formatDate(settings.idCardValidUntil ?? c.section.academicYear.endDate, tz)}`}
-              action={<Link href={path} className="text-[13px] font-semibold text-ink2 font-semibold text-brand hover:underline">All classes</Link>} />
+              action={<Link href={path} className="text-[13px] font-semibold text-ink2 font-semibold text-brand hover:underline"><Words k="All classes" /></Link>} />
             <CardBody className="space-y-4">
-              {c.students.length === 0 ? <p className="text-ink2">No students in this class yet.</p> : (
+              {c.students.length === 0 ? <p className="text-ink2"><Words k="No students in this class yet." /></p> : (
                 <>
                   {missing.length > 0 && (
                     <Alert tone="warning" title={`${missing.length} ${missing.length === 1 ? "student has" : "students have"} no photo`}
-                      action={<Link className="font-medium underline" href={`${BASE}/bulk-photos`}>Upload photos</Link>}>
+                      action={<Link className="font-medium underline" href={`${BASE}/bulk-photos`}><Words k="Upload photos" /></Link>}>
                       <ul className="mt-1 flex flex-wrap gap-x-3">{missing.map((s) => <li key={s.id}><Link className="underline" href={`${BASE}/students/${s.id}`}>{s.fullName}</Link></li>)}</ul>
-                      <p className="mt-1">Their cards print with an empty photo box. Print anyway, or add photos first.</p>
+                      <p className="mt-1"><Words k="Their cards print with an empty photo box. Print anyway, or add photos first." /></p>
                     </Alert>
                   )}
                   <div className="flex flex-wrap gap-2">
@@ -106,7 +107,7 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
                     {c.students.map((s) => (
                       <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                         <span>{s.rollNo ? `${s.rollNo}. ` : ""}{s.fullName} <span className="text-[13.5px] text-ink2">{s.admissionNo}</span></span>
-                        <span className="flex gap-1">{!s.photoFileId && <Badge tone="warning">No photo</Badge>}{s.printed ? <Badge tone="success">Printed</Badge> : <Badge>Not printed</Badge>}</span>
+                        <span className="flex gap-1">{!s.photoFileId && <Badge tone="warning"><Words k="No photo" /></Badge>}{s.printed ? <Badge tone="success"><Words k="Printed" /></Badge> : <Badge><Words k="Not printed" /></Badge>}</span>
                       </li>
                     ))}
                   </ul>
@@ -137,12 +138,12 @@ export default async function IdCardsPage({ searchParams }: { searchParams: Prom
               </ActionForm>
               {data.replacements.length > 0 && (
                 <>
-                  <h3 className="mb-1 mt-5 font-medium">Replacement log</h3>
+                  <h3 className="mb-1 mt-5 font-medium"><Words k="Replacement log" /></h3>
                   <ul className="divide-y divide-line text-[15px]">
                     {data.replacements.map((r) => (
                       <li key={r.id} className="flex flex-wrap justify-between gap-2 py-2">
                         <span>{data.names.find((n) => n.id === r.studentId)?.fullName} · {r.reason}</span>
-                        <span className="text-[13.5px] text-ink2">{formatDateTime(r.createdAt, tz)} · <a className="font-semibold text-brand hover:underline" href={`${path}/print?replacement=${r.id}`} target="_blank" rel="noreferrer">Print</a></span>
+                        <span className="text-[13.5px] text-ink2">{formatDateTime(r.createdAt, tz)} · <a className="font-semibold text-brand hover:underline" href={`${path}/print?replacement=${r.id}`} target="_blank" rel="noreferrer"><Words k="Print" /></a></span>
                       </li>
                     ))}
                   </ul>

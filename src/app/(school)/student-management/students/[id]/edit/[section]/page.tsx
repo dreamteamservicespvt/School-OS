@@ -15,6 +15,7 @@ import { loadProfile } from "../../../../_lib/profile";
 import {
   saveContactAction, saveEnrolmentAction, saveExtraFieldsAction, saveIdentifiersAction, savePersonalAction, savePreviousSchoolAction,
 } from "../../../../_actions/students";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Edit student" };
 
@@ -37,7 +38,7 @@ export default async function EditStudentSection({ params }: { params: Promise<{
   }
   const s = p.student;
   const back = `${BASE}/students/${id}${section === "previous" ? "?tab=academics" : ""}`;
-  const cancel = <Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Back to profile</Link>;
+  const cancel = <Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Back to profile" /></Link>;
   const iso = (d: Date | null | undefined) => (d ? d.toISOString().slice(0, 10) : "");
   const sectionTabs = Object.entries(TITLES).filter(([k]) => (k !== "identifiers" || can.seeRestricted) && (k !== "extra" || p.customFields.length > 0));
 
@@ -90,8 +91,8 @@ export default async function EditStudentSection({ params }: { params: Promise<{
               <FormText name="admissionDate" label="Admission date" type="date" defaultValue={iso(s.joiningDate)} />
               <FormText name="rollNo" label="Roll number" inputMode="numeric" defaultValue={p.now?.rollNo ?? ""} disabled={!p.now} help={p.now ? `In ${p.now.section?.schoolClass.name} ${p.now.section?.name}.` : "The student has no class this year."} />
               <div className="text-[13.5px] text-ink2 sm:col-span-2">
-                Class and section: {p.now?.section ? `${p.now.section.schoolClass.name} ${p.now.section.name}` : "none this year"}. To move within the class use{" "}
-                <Link className="font-semibold text-brand hover:underline" href={`${BASE}/students/${id}/section`}>Change section</Link>; to move class, use Promotion.
+                <Words k="Class and section:" /> {p.now?.section ? `${p.now.section.schoolClass.name} ${p.now.section.name}` : "none this year"}<Words k=". To move within the class use" />{" "}
+                <Link className="font-semibold text-brand hover:underline" href={`${BASE}/students/${id}/section`}><Words k="Change section" /></Link><Words k="; to move class, use Promotion." />
               </div>
             </ActionForm>
           )}
@@ -127,11 +128,11 @@ export default async function EditStudentSection({ params }: { params: Promise<{
                   </div>
                 );
               })}
-              <p className="text-[13.5px] text-ink2 sm:col-span-2">Aadhaar is changed with the personal details. Identifier types are set in Student Settings.</p>
+              <p className="text-[13.5px] text-ink2 sm:col-span-2"><Words k="Aadhaar is changed with the personal details. Identifier types are set in Student Settings." /></p>
             </ActionForm>
           )}
           {section === "extra" && (
-            p.customFields.length === 0 ? <p className="text-ink2">The school has no extra fields for students. They are added in <SettingsLink href="/settings/forms-approvals">Settings, Forms &amp; Approvals</SettingsLink>.</p> : (
+            p.customFields.length === 0 ? <p className="text-ink2"><Words k="The school has no extra fields for students. They are added in" /> <SettingsLink href="/settings/forms-approvals"><Words k={"Settings, Forms & Approvals"} /></SettingsLink>.</p> : (
               <ActionForm action={saveExtraFieldsAction.bind(null, id)} submitLabel="Save extra fields" pendingText="Saving…" footer={cancel} className="grid gap-4 sm:grid-cols-2">
                 {p.customFields.map((f) => {
                   const v = p.extra[f.key] ?? "";

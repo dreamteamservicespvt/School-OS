@@ -9,6 +9,7 @@ import { BLOOD_GROUPS, CATEGORIES, GENDERS, RELATIONS } from "@/lib/students/lab
 import type { FormState } from "@/lib/forms";
 import { addStudent, checkAdmissionNo, parentsForPhone, type AddStudentData } from "../_actions/students";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Section = { value: string; label: string; seats: number; filled: number };
 type Parent = { id: string; name: string; relationship: string; children: string[] };
@@ -54,18 +55,18 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
             {duplicates.map((d) => (
               <li key={d.id}>
                 <strong>{d.fullName}</strong> ({d.admissionNo}): {d.why}.{" "}
-                <Link href={`/student-management/students/${d.id}`} className="font-medium underline" target="_blank">Open existing</Link>
+                <Link href={`/student-management/students/${d.id}`} className="font-medium underline" target="_blank"><Words k="Open existing" /></Link>
               </li>
             ))}
           </ul>
           <TextArea name="duplicateReason" label="Reason to save anyway" required rows={2} className="mt-3"
             help="For example: twins, or a different child with the same name. Kept in the history." defaultValue={v("duplicateReason")} error={err("duplicateReason")} />
-          <div className="mt-3"><SubmitButton pendingText="Saving…">Save anyway</SubmitButton></div>
+          <div className="mt-3"><SubmitButton pendingText="Saving…"><Words k="Save anyway" /></SubmitButton></div>
         </Alert>
       )}
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
-        <legend className="sr-only">Student</legend>
+        <legend className="sr-only"><Words k="Student" /></legend>
         <TextField name="fullName" label="Full name" required autoComplete="off" defaultValue={v("fullName")} error={err("fullName")} className="sm:col-span-2" />
         {/* Keyed by the value sent, so it remounts with that class selected: the form reset
             after a failed save (React 19) otherwise put it back to "Choose" (PEOPLE-12). */}
@@ -74,7 +75,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           help={left === null ? undefined : left > 0 ? `${left} of ${section!.seats} seats left.` : `${section!.label} is full. Choose another section, or add seats in Academic Management.`} />
         <TextField name="dateOfBirth" label="Date of birth" type="date" required max={today} defaultValue={v("dateOfBirth")} error={err("dateOfBirth")} />
         <fieldset>
-          <legend className="mb-1 text-[13px] font-semibold text-ink2">Gender<span className="text-bad" aria-hidden="true"> *</span></legend>
+          <legend className="mb-1 text-[13px] font-semibold text-ink2"><Words k="Gender" /><span className="text-bad" aria-hidden="true"> *</span></legend>
           <div className="flex flex-wrap gap-2">
             {GENDERS.map((g) => (
               <label key={g} className="flex min-h-11 items-center gap-2 rounded-xl border border-line px-3 has-[:checked]:border-brand has-[:checked]:bg-brand/8">
@@ -88,7 +89,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
       </fieldset>
 
       <fieldset className="grid gap-4 rounded-xl border border-line p-4 sm:grid-cols-2">
-        <legend className="px-1 font-semibold">Parent or guardian</legend>
+        <legend className="px-1 font-semibold"><Words k="Parent or guardian" /></legend>
         <SelectField name="guardianRelation" label="Relation" required options={RELATIONS.map((r) => ({ value: r, label: r }))} defaultValue={v("guardianRelation", "Father")} error={err("guardianRelation")} />
         <TextField name="guardianPhone" label="Parent's phone" required type="tel" inputMode="numeric" autoComplete="off" placeholder="10-digit mobile"
           defaultValue={v("guardianPhone")} error={err("guardianPhone")} onBlur={(e) => lookPhone(e.target.value)}
@@ -96,17 +97,17 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           help="+91. A parent already on record with this phone can be linked (brother or sister)." />
         {parents.length > 0 && (
           <div className="rounded-xl border border-brand/40 bg-brand/8 p-3 sm:col-span-2" role="status">
-            <p className="font-medium">This phone belongs to a parent already on record.</p>
+            <p className="font-medium"><Words k="This phone belongs to a parent already on record." /></p>
             <div className="mt-2 space-y-2">
               {parents.map((p) => (
                 <label key={p.id} className="flex min-h-11 items-start gap-2">
                   <KeepCheck type="radio" name="linkChoice" checked={linkId === p.id} onChange={() => setLinkId(p.id)} className="mt-1 size-4 accent-brand" />
-                  <span>Link <strong>{p.name}</strong> ({p.relationship}{p.children.length ? `, parent of ${p.children.join(", ")}` : ""})</span>
+                  <span><Words k="Link" /> <strong>{p.name}</strong> ({p.relationship}{p.children.length ? `, parent of ${p.children.join(", ")}` : ""})</span>
                 </label>
               ))}
               <label className="flex min-h-11 items-center gap-2">
                 <KeepCheck type="radio" name="linkChoice" checked={!linkId} onChange={() => setLinkId("")} className="size-4 accent-brand" />
-                <span>Add as a new parent</span>
+                <span><Words k="Add as a new parent" /></span>
               </label>
             </div>
           </div>
@@ -118,7 +119,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
       </fieldset>
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
-        <legend className="sr-only">Numbers</legend>
+        <legend className="sr-only"><Words k="Numbers" /></legend>
         <TextField name="admissionNo" label="Admission number" autoComplete="off" placeholder={nextAdmissionNo}
           defaultValue={v("admissionNo")} error={err("admissionNo") ?? admNote ?? undefined}
           onBlur={async (e) => { const r = await checkAdmissionNo(e.target.value); setAdmNote(r.taken); }}
@@ -130,7 +131,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
       <CheckboxField name="applyFeePlan" label="Apply class fee plan" defaultChecked={state && !state.ok ? state.values?.applyFeePlan === "on" : true} help={feePlanNote} />
 
       <details className="rounded-xl border border-line" open={[...required, "bloodGroup", "category", "religion", "motherTongue", "address", "aadhaar", "previousSchool"].some((k) => v(k)) || required.length > 0 || undefined}>
-        <summary className="flex min-h-12 cursor-pointer items-center px-4 font-semibold">More details</summary>
+        <summary className="flex min-h-12 cursor-pointer items-center px-4 font-semibold"><Words k="More details" /></summary>
         <div className="grid gap-4 border-t border-line p-4 sm:grid-cols-2">
           <SelectField name="bloodGroup" label="Blood group" required={req("bloodGroup")} placeholder="Not known" options={BLOOD_GROUPS.map((b) => ({ value: b, label: b }))} defaultValue={v("bloodGroup")} error={err("bloodGroup")} />
           <SelectField name="category" label="Category" required={req("category")} placeholder="Choose" options={CATEGORIES.map((c) => ({ value: c, label: c }))} defaultValue={v("category")} error={err("category")} />
@@ -139,13 +140,13 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           <TextArea name="address" label="Address" required={req("address")} rows={2} className="sm:col-span-2" defaultValue={v("address")} error={err("address")} />
           {showAadhaar && <TextField name="aadhaar" label="Aadhaar number" required={req("aadhaar")} inputMode="numeric" autoComplete="off" defaultValue={v("aadhaar")} error={err("aadhaar")} help="Restricted. Stored encrypted and shown masked." />}
           <TextField name="previousSchool" label="Previous school" required={req("previousSchool")} className="sm:col-span-2" defaultValue={v("previousSchool")} error={err("previousSchool")} />
-          <p className="text-[13.5px] text-ink2 sm:col-span-2">Photo, identifiers, emergency contacts and the school&apos;s extra fields are added on the Student Profile after saving.</p>
+          <p className="text-[13.5px] text-ink2 sm:col-span-2"><Words k="Photo, identifiers, emergency contacts and the school's extra fields are added on the Student Profile after saving." /></p>
         </div>
       </details>
 
       <div className="flex flex-wrap gap-2">
-        {!duplicates.length && <SubmitButton pendingText="Adding…">Add student</SubmitButton>}
-        <Link href="/student-management" className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>
+        {!duplicates.length && <SubmitButton pendingText="Adding…"><Words k="Add student" /></SubmitButton>}
+        <Link href="/student-management" className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>
       </div>
     </form>
   );

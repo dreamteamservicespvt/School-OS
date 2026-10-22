@@ -18,6 +18,7 @@ import { sectionOptions } from "../../_lib/queries";
 import { StudentsHead } from "../../_lib/head";
 import { behaviourTabs } from "../sub-tabs";
 import { careerAction, careerStatusAction } from "../../_actions/behaviour";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Career guidance" };
 
@@ -70,7 +71,7 @@ export default async function CareerPage({ searchParams }: { searchParams: Promi
           {data.mentorships.length > 0 && (
             <Card>
               <CardHeader title="Alumni mentors" icon={Users} />
-              <ul className="px-5 pb-4 flex flex-col gap-2 text-[14px]">{data.mentorships.map((m) => <li key={m.id}>{name(m.studentId)} is mentored by <b className="font-semibold">{name(m.alumni.studentId)}</b>{m.note ? <span className="text-ink3"> · {m.note}</span> : null}</li>)}</ul>
+              <ul className="px-5 pb-4 flex flex-col gap-2 text-[14px]">{data.mentorships.map((m) => <li key={m.id}>{name(m.studentId)} <Words k="is mentored by" /> <b className="font-semibold">{name(m.alumni.studentId)}</b>{m.note ? <span className="text-ink3"> · {m.note}</span> : null}</li>)}</ul>
             </Card>
           )}
         </Col>

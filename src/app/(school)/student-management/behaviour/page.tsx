@@ -22,6 +22,7 @@ import { StudentsHead } from "../_lib/head";
 import { sectionNames, sectionOptions } from "../_lib/queries";
 import { behaviourTabs } from "./sub-tabs";
 import { studentIdsForFilter } from "@/lib/students/find";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Behaviour & Counselling" };
 
@@ -96,7 +97,7 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
     { key: "student", label: "Student", render: (r) => (
       <div className="flex flex-col">
         {who(r).map((s) => <span key={s.studentId} className="whitespace-nowrap"><b className="font-semibold">{name(s.studentId)}</b>{data.cls.get(s.studentId) && <span className="text-ink3 text-[12.5px]"> · {data.cls.get(s.studentId)}</span>}</span>)}
-        {r.students.length > 2 && <span className="text-[12.5px] text-ink3">and {r.students.length - 1} others</span>}
+        {r.students.length > 2 && <span className="text-[12.5px] text-ink3"><Words k="and" /> {r.students.length - 1} <Words k="others" /></span>}
       </div>
     ) },
     { key: "type", label: "Type", render: (r) => <Pill tone={kindTone(r.kind)}>{typeLabel(r)}</Pill> },
@@ -105,7 +106,7 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
     { key: "status", label: "Status", render: (r) => (
       <div>
         <Pill tone={r.status === "OPEN" ? "info" : "neutral"}>{r.status === "OPEN" ? "Open" : "Closed"}</Pill>
-        {data.referred.has(r.id) && <p className="text-[11.5px] text-ink3 mt-0.5 whitespace-nowrap">To counselling</p>}
+        {data.referred.has(r.id) && <p className="text-[11.5px] text-ink3 mt-0.5 whitespace-nowrap"><Words k="To counselling" /></p>}
       </div>
     ) },
   ];
@@ -122,7 +123,7 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
   return (
     <>
       <StudentsHead page="Behaviour & Counselling" href={path} sub="Incidents, warnings and rewards. Counselling notes stay with the counsellor."
-        actions={can.contribute ? <ButtonLink href={`${path}/new`} variant="primary" icon={Plus}>Report incident</ButtonLink> : undefined}
+        actions={can.contribute ? <ButtonLink href={`${path}/new`} variant="primary" icon={Plus}><Words k="Report incident" /></ButtonLink> : undefined}
         subTabs={await behaviourTabs()} subLabel="Behaviour & Counselling" />
       <Split side={300}>
         <Card className="overflow-hidden">
@@ -142,20 +143,20 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
               avatar: name(r.students[0]?.studentId ?? "") || "?",
               pills: [
                 <Pill key="t" tone={kindTone(r.kind)} className={cardPill}>{typeLabel(r)}</Pill>,
-                r.status === "OPEN" ? <Pill key="s" tone="info" className={cardPill}>Open</Pill> : null,
+                r.status === "OPEN" ? <Pill key="s" tone="info" className={cardPill}><Words k="Open" /></Pill> : null,
               ].filter(Boolean) as React.ReactNode[],
             })}
             footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={data.rows.length < data.total ? listHref(path, params, { n: take + STEP }) : null} />}
             empty={filtered
-              ? <Empty icon={SearchX} title="Nothing matches these filters" body="Try another type or clear the search." action={<ButtonLink href={path}>Clear filters</ButtonLink>} />
+              ? <Empty icon={SearchX} title="Nothing matches these filters" body="Try another type or clear the search." action={<ButtonLink href={path}><Words k="Clear filters" /></ButtonLink>} />
               : <Empty icon={ShieldCheck} title="No behaviour records this year" body="Incidents, warnings, suspensions, rewards and recognition show here. Three taps on a phone: student, type, note."
-                action={can.contribute ? <ButtonLink href={`${path}/new`} variant="primary" icon={Plus}>Report incident</ButtonLink> : undefined} />} />
+                action={can.contribute ? <ButtonLink href={`${path}/new`} variant="primary" icon={Plus}><Words k="Report incident" /></ButtonLink> : undefined} />} />
         </Card>
         <Col>
           {settings.pointsOn && (
             <Card>
               <CardHeader title="Behaviour points" description="Highest and lowest this year" icon={Award} />
-              {data.points.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3">No points given yet.</p> : (
+              {data.points.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No points given yet." /></p> : (
                 <ul className="px-3 pb-3">
                   {data.points.map((p) => {
                     const v = p._sum.points ?? 0;
@@ -178,7 +179,7 @@ export default async function BehaviourPage({ searchParams }: { searchParams: Pr
             <div className="px-5 pb-5"><HBars rows={monthRows.map((r) => ({ ...r, label: String(r.v) }))} max={monthMax} labelWidth={88} /></div>
           </Card>
           {!settings.counsellingOn && can.manage && (
-            <p className="text-[13px] text-ink3 px-1">Counselling and career guidance are optional. Switch them on in <Link className="font-semibold text-brand underline" href={`${BASE}/settings#behaviour`}>Student Settings</Link>.</p>
+            <p className="text-[13px] text-ink3 px-1"><Words k="Counselling and career guidance are optional. Switch them on in" /> <Link className="font-semibold text-brand underline" href={`${BASE}/settings#behaviour`}><Words k="Student Settings" /></Link>.</p>
           )}
         </Col>
       </Split>

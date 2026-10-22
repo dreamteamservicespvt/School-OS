@@ -9,6 +9,7 @@ import { BackLink } from "@/components/ui/module-head";
 import { ImportHome } from "@/components/import/import-home";
 import { BASE, studentPage } from "../_lib/page";
 import { sectionOptions } from "../_lib/queries";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Import students" };
 
@@ -27,7 +28,7 @@ export default async function ImportPage({ searchParams }: { searchParams: Promi
     <>
       <BackLink href={BASE} label="Students" />
       <PageHeader title="Import students" href={`${BASE}/import`} userId={current.user.id}>
-        <ButtonLink href={`${BASE}/import/history`} variant="ghost" icon={History}>Import history</ButtonLink>
+        <ButtonLink href={`${BASE}/import/history`} variant="ghost" icon={History}><Words k="Import history" /></ButtonLink>
       </PageHeader>
       <ImportHome current={current} place={PLACES.students} initial={sp.kind} about={ABOUT}
         students={{ sections: sections.map((s) => ({ value: s.value, label: `${s.label} (${s.filled} of ${s.seats})` })), sectionId: sp.section }} />

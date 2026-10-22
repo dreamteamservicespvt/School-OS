@@ -12,6 +12,7 @@ import { loadVisibleStudent, StudentNotFound } from "@/lib/students/access";
 import { PROFILE_CHANGES, STATUS_LABEL, STATUS_TONE, type StudentStatusKey } from "@/lib/students/labels";
 import { BASE, studentPage, todayIso } from "../../../_lib/page";
 import { changeStatusAction } from "../../../_actions/students";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Change status" };
 
@@ -40,33 +41,33 @@ export default async function ChangeStatusPage({ params }: { params: Promise<{ i
       <PageHeader title="Change status" href={`${back}/status`} userId={current.user.id} />
       <div className="grid max-w-5xl gap-4 lg:grid-cols-2">
         <Card>
-          <CardHeader title={data.student.fullName} description={<>Now: <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge></>} />
+          <CardHeader title={data.student.fullName} description={<><Words k="Now:" /> <Badge tone={STATUS_TONE[status]}>{STATUS_LABEL[status]}</Badge></>} />
           <CardBody>
             {data.waiting ? (
-              <p>A re-admission request is waiting in <Link className="font-semibold text-brand hover:underline" href="/approvals">Approvals</Link>. The status changes when it is approved.</p>
+              <p><Words k="A re-admission request is waiting in" /> <Link className="font-semibold text-brand hover:underline" href="/approvals"><Words k="Approvals" /></Link><Words k=". The status changes when it is approved." /></p>
             ) : choices.length === 0 ? (
-              <p className="text-ink2">No change can be made here. Promotion is done on the Promotion page, and leaving on Leaving &amp; Alumni.</p>
+              <p className="text-ink2"><Words k={"No change can be made here. Promotion is done on the Promotion page, and leaving on Leaving & Alumni."} /></p>
             ) : (
               <ActionForm action={changeStatusAction.bind(null, id)} submitLabel="Change status" pendingText="Saving…"
-                footer={<Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>}>
+                footer={<Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>}>
                 <FormChoice name="to" label="New status" defaultValue={choices.length === 1 ? choices[0].to : undefined}
                   options={choices.map((c) => ({ value: c.to, label: c.approval ? `${STATUS_LABEL[c.to]} (re-admission)` : STATUS_LABEL[c.to], help: c.approval ? "Needs approval in Approvals." : undefined }))} />
                 <FormText name="effectiveDate" label="Effective date" type="date" required defaultValue={todayIso(tz)} />
                 <FormArea name="reason" label="Reason" required rows={2} help="Kept in the student's history." />
               </ActionForm>
             )}
-            <p className="mt-4 text-[13.5px] text-ink2">Only the allowed changes are offered. Promotion, transfer, withdrawal and graduation are done on their own pages.</p>
+            <p className="mt-4 text-[13.5px] text-ink2"><Words k="Only the allowed changes are offered. Promotion, transfer, withdrawal and graduation are done on their own pages." /></p>
           </CardBody>
         </Card>
         <Card>
           <CardHeader title="Status history" />
           <CardBody>
-            {data.history.length === 0 ? <p className="text-ink2">No changes yet.</p> : (
+            {data.history.length === 0 ? <p className="text-ink2"><Words k="No changes yet." /></p> : (
               <ol className="space-y-3">
                 {data.history.map((h) => (
                   <li key={h.id}>
                     <p className="font-medium">{h.fromStatus === "NEW" ? "Added" : `${STATUS_LABEL[h.fromStatus as StudentStatusKey] ?? h.fromStatus} to ${STATUS_LABEL[h.toStatus as StudentStatusKey] ?? h.toStatus}`}</p>
-                    <p className="text-[13.5px] text-ink2">From {formatDate(h.effectiveDate, tz)} · {h.reason}</p>
+                    <p className="text-[13.5px] text-ink2"><Words k="From" /> {formatDate(h.effectiveDate, tz)} · {h.reason}</p>
                   </li>
                 ))}
               </ol>

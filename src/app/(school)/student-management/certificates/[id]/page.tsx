@@ -16,6 +16,7 @@ import { CERTIFICATE_LABEL, CERT_STATUS_LABEL, CERT_STATUS_TONE } from "@/lib/st
 import { certificateData, certificateHtml, printContext } from "@/lib/students/certificates";
 import { BASE, origin, studentPage } from "../../_lib/page";
 import { cancelCertificateAction, decideCertificateAction, issueCertificateAction } from "../../_actions/certificates";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Certificate" };
 
@@ -68,7 +69,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
               cert.approvedById ? ["Approved by", person(cert.approvedById)] : null,
               cert.issuedAt ? ["Issued", `${formatDateTime(cert.issuedAt, tz)} by ${person(cert.issuedById)}`] : null,
               cert.cancelReason ? ["Why cancelled", cert.cancelReason] : null,
-              settings.qrOn && cert.status === "ISSUED" ? ["QR check", <Link key="q" className="inline-flex items-center gap-1.5 font-semibold text-brand hover:underline" href={`/verify/${cert.verifyCode}`} target="_blank"><QrCode size={15} aria-hidden="true" />Open the public check</Link>] : null,
+              settings.qrOn && cert.status === "ISSUED" ? ["QR check", <Link key="q" className="inline-flex items-center gap-1.5 font-semibold text-brand hover:underline" href={`/verify/${cert.verifyCode}`} target="_blank"><QrCode size={15} aria-hidden="true" /><Words k="Open the public check" /></Link>] : null,
             ] as ([string, React.ReactNode] | null)[]).filter((r): r is [string, React.ReactNode] => r !== null)} />
           </Card>
           {can.manage && cert.status !== "CANCELLED" && (
@@ -77,17 +78,17 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
                 {cert.status === "REQUESTED" && (data.mayDecide ? (
                   <>
                     <ConfirmAction action={decideCertificateAction} fields={{ id, decision: "approve" }} trigger="Approve" triggerVariant="primary" title={`Approve this ${CERTIFICATE_LABEL[cert.type].toLowerCase()}?`} confirmLabel="Approve">
-                      It gets the next number in the series and can then be issued.
+                      <Words k="It gets the next number in the series and can then be issued." />
                     </ConfirmAction>
                     <ConfirmAction action={decideCertificateAction} fields={{ id, decision: "reject" }} trigger="Reject" triggerVariant="danger-outline" title="Reject this request?" confirmLabel="Reject" confirmVariant="danger" reason={{ label: "Reason", min: 5 }}>
-                      The person who asked is told, with your reason.
+                      <Words k="The person who asked is told, with your reason." />
                     </ConfirmAction>
                   </>
-                ) : <p className="w-full text-[13.5px] text-ink2">Waiting for approval{data.approval?.currentApproverRole ? ` by the ${data.approval.currentApproverRole.replace(/-/g, " ")}` : ""}. It shows in Approvals.</p>)}
-                {cert.status === "APPROVED" && <ActionButton action={issueCertificateAction} fields={{ id }} variant="primary" size="md">Issue</ActionButton>}
-                {cert.status === "ISSUED" && cert.type === "TC" && <ButtonLink href={`${BASE}/certificates/new?student=${cert.studentId}&type=TC`} icon={Copy}>Print a duplicate</ButtonLink>}
+                ) : <p className="w-full text-[13.5px] text-ink2"><Words k="Waiting for approval" />{data.approval?.currentApproverRole ? ` by the ${data.approval.currentApproverRole.replace(/-/g, " ")}` : ""}<Words k=". It shows in Approvals." /></p>)}
+                {cert.status === "APPROVED" && <ActionButton action={issueCertificateAction} fields={{ id }} variant="primary" size="md"><Words k="Issue" /></ActionButton>}
+                {cert.status === "ISSUED" && cert.type === "TC" && <ButtonLink href={`${BASE}/certificates/new?student=${cert.studentId}&type=TC`} icon={Copy}><Words k="Print a duplicate" /></ButtonLink>}
                 <ConfirmAction action={cancelCertificateAction} fields={{ id }} trigger="Cancel certificate" triggerVariant="danger-outline" title="Cancel this certificate?" confirmLabel="Cancel certificate" confirmVariant="danger" reason={{ label: "Reason", min: 5 }}>
-                  {cert.number ? `Number ${cert.number} is not used again. ` : ""}The QR check will say Cancelled. The record stays.
+                  {cert.number ? `Number ${cert.number} is not used again. ` : ""}<Words k="The QR check will say Cancelled. The record stays." />
                 </ConfirmAction>
               </CardBody>
             </Card>
@@ -96,7 +97,7 @@ export default async function CertificatePage({ params }: { params: Promise<{ id
         <Card className="min-w-0">
           <CardHeader icon={FileText} title={printable ? "The certificate" : "Preview"} description={printable ? undefined : "How it will look. The number and QR code are added when it is issued."} />
           <CardBody>
-            {cert.status === "APPROVED" && <Banner tone="info" className="mb-3">Approved. Press Issue to print it.</Banner>}
+            {cert.status === "APPROVED" && <Banner tone="info" className="mb-3"><Words k="Approved. Press Issue to print it." /></Banner>}
             <iframe title={label} srcDoc={data.html} sandbox="" className="h-[70vh] w-full rounded-xl border border-line bg-surface" />
           </CardBody>
         </Card>

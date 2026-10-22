@@ -19,6 +19,7 @@ import { BASE, studentPage, todayIso } from "../../_lib/page";
 import { campusAllows } from "@/lib/campus";
 import { askWaiverAction, cancelLeavingAction, completeLeavingAction, refreshClearanceAction } from "../../_actions/leaving";
 import { CERT_LABEL, CHECK_LABEL, CHECK_TONE, LEAVING_TYPE_LABEL, studentFacts } from "../load";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Leaving" };
 
@@ -57,19 +58,19 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
       <BackLink href={`${BASE}/leaving`} label="Leaving & Alumni" sub={student.name} />
       <PageHeader title={`${student.name} is ${open ? "leaving" : req.status === "LEFT" ? "left" : "not leaving (cancelled)"}`} href={`${BASE}/leaving/${id}`} userId={current.user.id}
         sub={`${LEAVING_TYPE_LABEL[req.type]} · ${req.reason} · last day ${formatDate(req.lastDate, tz)}${req.destinationSchool ? ` · to ${req.destinationSchool}` : ""}`}>
-        <ButtonLink href={`${BASE}/students/${req.studentId}`} icon={UserRound}>Student Profile</ButtonLink>
+        <ButtonLink href={`${BASE}/students/${req.studentId}`} icon={UserRound}><Words k="Student Profile" /></ButtonLink>
       </PageHeader>
       <Split side={340}>
         <Col>
           {open && (cleared
             ? <Banner tone="ok" title="Clearance passed.">{tc ? `The TC is ${CERT_LABEL[tc.status].toLowerCase()}${tc.number ? ` (${tc.number})` : ""}.` : "The TC can be issued now."}</Banner>
-            : <Banner tone="warn" title="Clearance pending.">{block}. Settle each one below, or ask for a waiver with a reason.</Banner>)}
+            : <Banner tone="warn" title="Clearance pending.">{block}<Words k=". Settle each one below, or ask for a waiver with a reason." /></Banner>)}
           <Card>
             <CardHeader title="Clearance" icon={ListChecks} description="Checked when leaving started and each time you check again. Only modules that are switched on are checked."
-              action={open && can.manage ? <ActionButton action={refreshClearanceAction} fields={{ id }}>Check again</ActionButton> : undefined} />
+              action={open && can.manage ? <ActionButton action={refreshClearanceAction} fields={{ id }}><Words k="Check again" /></ActionButton> : undefined} />
             <div className="px-5 pb-5">
               {req.checks.length === 0 ? (
-                <div className="flex items-start gap-3 rounded-2xl bg-sunken/60 px-4 py-3 text-[14px] text-ink2"><Info size={18} className="mt-0.5 shrink-0 text-ink3" aria-hidden="true" />Nothing to check yet: fee dues and library books are checked here once Fee Management and Library Management are in use. Clearance passes.</div>
+                <div className="flex items-start gap-3 rounded-2xl bg-sunken/60 px-4 py-3 text-[14px] text-ink2"><Info size={18} className="mt-0.5 shrink-0 text-ink3" aria-hidden="true" /><Words k="Nothing to check yet: fee dues and library books are checked here once Fee Management and Library Management are in use. Clearance passes." /></div>
               ) : (
                 <ul className="divide-y divide-line/70 rounded-2xl border border-line">
                   {req.checks.map((c) => {
@@ -80,7 +81,7 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
                         <span className={cx("grid size-9 shrink-0 place-items-center rounded-xl", ok ? "bg-ok/10 text-ok" : c.status === "WAIVER_ASKED" ? "bg-warn/12 text-warn" : "bg-bad/10 text-bad")}><Ic size={17} aria-hidden="true" /></span>
                         <div className="min-w-0 flex-1">
                           <p className="text-[14px] font-semibold">{c.name} <Badge tone={CHECK_TONE[c.status]} className="!h-[22px] !text-[11.5px] align-middle">{CHECK_LABEL[c.status]}</Badge></p>
-                          <p className={cx("text-[12.5px]", ok ? "text-ink3" : "text-ink2")}>{c.detail}{c.waiverReason ? ` · Waiver reason: ${c.waiverReason}` : ""} · checked {formatDateTime(c.checkedAt, tz)}</p>
+                          <p className={cx("text-[12.5px]", ok ? "text-ink3" : "text-ink2")}>{c.detail}{c.waiverReason ? ` · Waiver reason: ${c.waiverReason}` : ""} <Words k="· checked" /> {formatDateTime(c.checkedAt, tz)}</p>
                         </div>
                         {ok && <CircleCheck size={18} className="text-ok" aria-hidden="true" />}
                         {open && can.manage && c.status === "PENDING" && (
@@ -88,11 +89,11 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
                             {c.actionHref && <ButtonLink href={c.actionHref} size="sm" variant="soft">{c.actionLabel ?? "Settle"}</ButtonLink>}
                             <ConfirmAction action={askWaiverAction} fields={{ checkId: c.id }} trigger="Ask for waiver" triggerVariant="secondary"
                               title={`Waive ${c.name} for ${student.name}?`} confirmLabel="Send for approval" reason={{ label: "Reason", min: 5 }}>
-                              {c.detail}. The waiver goes to Approvals; someone allowed to approve it decides. The check stays pending until then.
+                              {c.detail}<Words k=". The waiver goes to Approvals; someone allowed to approve it decides. The check stays pending until then." />
                             </ConfirmAction>
                           </div>
                         )}
-                        {c.status === "WAIVER_ASKED" && c.approvalId && <Link href="/approvals" className="text-[13px] font-semibold text-brand hover:underline">See in Approvals</Link>}
+                        {c.status === "WAIVER_ASKED" && c.approvalId && <Link href="/approvals" className="text-[13px] font-semibold text-brand hover:underline"><Words k="See in Approvals" /></Link>}
                       </li>
                     );
                   })}
@@ -102,7 +103,7 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
           </Card>
           <Card className="overflow-hidden">
             <CardHeader title="Certificates" icon={FileOutput} divided={data.certs.length > 0}
-              action={open && can.manage && !tc && cleared ? <ButtonLink href={`${BASE}/certificates/new?student=${req.studentId}&type=TC`} variant="primary" size="sm" icon={FileOutput}>Issue TC</ButtonLink> : undefined} />
+              action={open && can.manage && !tc && cleared ? <ButtonLink href={`${BASE}/certificates/new?student=${req.studentId}&type=TC`} variant="primary" size="sm" icon={FileOutput}><Words k="Issue TC" /></ButtonLink> : undefined} />
             {data.certs.length === 0 ? (
               <p className="px-5 pb-5 text-[14px] text-ink3">{open && can.manage && !tc && !cleared ? "No TC yet. It can be issued when every check is clear or waived." : "No TC yet."}</p>
             ) : (
@@ -130,7 +131,7 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
               ...(req.destinationSchool ? [["Destination school", req.destinationSchool] as [string, React.ReactNode]] : []),
               ...(req.cancelReason ? [["Why cancelled", req.cancelReason] as [string, React.ReactNode]] : []),
               ["Started", `${formatDateTime(req.createdAt, tz)} by ${data.people[0]?.displayName ?? "someone"}`],
-              ...(req.documentFileIds.length > 0 ? [["Documents", <ul key="d">{req.documentFileIds.map((f, i) => <li key={f}><a className="font-semibold text-brand hover:underline" href={fileLink(f, current.ctx.schoolId)} target="_blank" rel="noreferrer">Document {i + 1}</a></li>)}</ul>] as [string, React.ReactNode]] : []),
+              ...(req.documentFileIds.length > 0 ? [["Documents", <ul key="d">{req.documentFileIds.map((f, i) => <li key={f}><a className="font-semibold text-brand hover:underline" href={fileLink(f, current.ctx.schoolId)} target="_blank" rel="noreferrer"><Words k="Document" /> {i + 1}</a></li>)}</ul>] as [string, React.ReactNode]] : []),
             ]} />
           </Card>
           {open && can.manage && (
@@ -139,13 +140,13 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
                 {due ? (
                   <ConfirmAction action={completeLeavingAction} fields={{ id }} trigger="Mark as left" triggerVariant="primary"
                     title={`Mark ${student.name} as left?`} confirmLabel="Mark as left">
-                    The status changes to {req.type === "TRANSFER" ? "Transferred" : req.type === "GRADUATION" ? "Graduated" : "Withdrawn"} from {formatDate(req.lastDate, tz)}. The record stays, and the student no longer shows in class lists.
+                    <Words k="The status changes to" /> {req.type === "TRANSFER" ? "Transferred" : req.type === "GRADUATION" ? "Graduated" : "Withdrawn"} <Words k="from" /> {formatDate(req.lastDate, tz)}<Words k=". The record stays, and the student no longer shows in class lists." />
                   </ConfirmAction>
-                ) : <p className="text-[13.5px] text-ink2">The status changes by itself on {formatDate(req.lastDate, tz)}.</p>}
+                ) : <p className="text-[13.5px] text-ink2"><Words k="The status changes by itself on" /> {formatDate(req.lastDate, tz)}.</p>}
                 <div>
                   <ConfirmAction action={cancelLeavingAction} fields={{ id }} trigger="Cancel leaving" triggerVariant="danger-outline"
                     title="Cancel this leaving request?" confirmLabel="Cancel leaving" confirmVariant="danger" reason={{ label: "Reason", min: 5, placeholder: "For example: the family decided to stay." }}>
-                    {student.name} stays in the class. A TC that is waiting for approval is cancelled too.
+                    {student.name} <Words k="stays in the class. A TC that is waiting for approval is cancelled too." />
                   </ConfirmAction>
                 </div>
               </div>

@@ -11,6 +11,7 @@ import { ActionForm, FormArea, FormText } from "@/components/students/action-for
 import { ConfirmAction } from "@/components/students/confirm-action";
 import { BASE, studentPage } from "../../../_lib/page";
 import { archiveJobAction, postJobAction } from "../../../_actions/leaving";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Alumni job board" };
 
@@ -34,13 +35,13 @@ export default async function JobBoardPage() {
                     <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand" aria-hidden="true"><Briefcase size={19} /></span>
                     <div className="min-w-0 flex-1">
                       <p className="text-[14.5px] font-semibold">{j.title}</p>
-                      <p className="flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-ink3">{j.organisation}{j.location && <><span aria-hidden="true">·</span><MapPin size={12} aria-hidden="true" />{j.location}</>}<span aria-hidden="true">·</span>posted {formatDate(j.createdAt, tz)}{j.applyBy ? ` · apply by ${formatDate(j.applyBy, tz)}` : ""}</p>
+                      <p className="flex flex-wrap items-center gap-x-1.5 text-[12.5px] text-ink3">{j.organisation}{j.location && <><span aria-hidden="true">·</span><MapPin size={12} aria-hidden="true" />{j.location}</>}<span aria-hidden="true">·</span><Words k="posted" /> {formatDate(j.createdAt, tz)}{j.applyBy ? ` · apply by ${formatDate(j.applyBy, tz)}` : ""}</p>
                       <p className="mt-2 whitespace-pre-line text-[14px] text-ink2">{j.description}</p>
-                      <p className="mt-2 text-[13.5px]"><b className="font-semibold">How to apply:</b> {j.contact}</p>
+                      <p className="mt-2 text-[13.5px]"><b className="font-semibold"><Words k="How to apply:" /></b> {j.contact}</p>
                     </div>
                     {can.manage && (
                       <ConfirmAction action={archiveJobAction} fields={{ id: j.id }} trigger="Take down" triggerVariant="ghost" title={`Take down "${j.title}"?`} confirmLabel="Take down">
-                        The post is removed from the board and kept in the records.
+                        <Words k="The post is removed from the board and kept in the records." />
                       </ConfirmAction>
                     )}
                   </div>

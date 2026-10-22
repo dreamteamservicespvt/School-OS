@@ -18,6 +18,7 @@ import { StudentsHead } from "../../_lib/head";
 import { CERT_LABEL, LEAVING_TYPE_LABEL, studentFacts, tcFor } from "../load";
 import { leavingTabs } from "../sub-tabs";
 import { studentIdsForFilter } from "@/lib/students/find";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Left" };
 
@@ -86,11 +87,11 @@ export default async function LeftPage({ searchParams }: { searchParams: Promise
           mobile={(r) => {
             const s = data.facts.get(r.studentId);
             return { title: s?.name ?? "", sub: `${s?.short ? `${s.short} · ` : ""}${LEAVING_TYPE_LABEL[r.type]} · ${shortDate(r.lastDate, tz)}`, avatar: s?.name ?? "?",
-              pills: [<Pill key="tc" tone={data.tcs.get(r.id)?.status === "ISSUED" ? "ok" : "neutral"} className={cardPill}>TC: {tcLabel(r).toLowerCase()}</Pill>] };
+              pills: [<Pill key="tc" tone={data.tcs.get(r.id)?.status === "ISSUED" ? "ok" : "neutral"} className={cardPill}><Words k="TC:" /> {tcLabel(r).toLowerCase()}</Pill>] };
           }}
           footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={data.rows.length < data.total ? listHref(path, params, { n: take + STEP }) : null} />}
           empty={filtered
-            ? <Empty icon={SearchX} title="Nothing matches these filters" action={<ButtonLink href={path}>Clear filters</ButtonLink>} />
+            ? <Empty icon={SearchX} title="Nothing matches these filters" action={<ButtonLink href={path}><Words k="Clear filters" /></ButtonLink>} />
             : <Empty icon={DoorClosed} title={cancelled ? "No cancelled requests" : "Nobody has left yet"} body="Students who transferred, withdrew or graduated show here. Their records are kept." />} />
       </Card>
     </>

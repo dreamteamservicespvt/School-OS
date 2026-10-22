@@ -20,6 +20,7 @@ import { CERTIFICATE_LABEL } from "@/lib/students/labels";
 import { BASE, studentPage, todayIso } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { requestCertificateAction } from "../../_actions/certificates";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Issue certificate" };
 
@@ -58,19 +59,19 @@ export default async function IssueCertificatePage({ searchParams }: { searchPar
   return (
     <>
       <BackLink href={back} label={sp.student ? "Student profile" : "Certificates & ID Cards"} />
-      <PageHeader title="Issue certificate" sub={<>The certificate fills from the student&apos;s record. Preview it, then issue. A TC always goes for approval first{settings.approvalCertificates.length ? `, and so do ${settings.approvalCertificates.map((t) => CERTIFICATE_LABEL[t as CertificateType]?.toLowerCase()).filter(Boolean).join(", ")}` : ""}.</>} href={`${BASE}/certificates/new`} userId={current.user.id} />
+      <PageHeader title="Issue certificate" sub={<><Words k="The certificate fills from the student's record. Preview it, then issue. A TC always goes for approval first" />{settings.approvalCertificates.length ? `, and so do ${settings.approvalCertificates.map((t) => CERTIFICATE_LABEL[t as CertificateType]?.toLowerCase()).filter(Boolean).join(", ")}` : ""}.</>} href={`${BASE}/certificates/new`} userId={current.user.id} />
       <Card className="max-w-2xl">
         <CardBody>
           {data.tc?.block && (
             <Alert tone="warning" className="mb-4" title="TC blocked" action={firstStudent ? <Link className="font-medium underline" href={`${BASE}/leaving${data.tc.block.includes("Start leaving") ? `/new?student=${firstStudent.id}` : ""}`}>{data.tc.block.includes("Start leaving") ? "Start leaving" : "Open Leaving & Alumni"}</Link> : undefined}>{data.tc.block}</Alert>
           )}
-          {data.tc?.original && <Alert tone="info" className="mb-4">An original TC was issued ({data.tc.original}). A new one prints as Duplicate and needs a reason.</Alert>}
-          {data.signatories.length === 0 && <Alert tone="warning" className="mb-4">No signatories are set up. Add the Principal&apos;s name and signature in <SettingsLink href="/settings/document-designs">Settings, Document Designs</SettingsLink>. A character certificate needs a signatory.</Alert>}
+          {data.tc?.original && <Alert tone="info" className="mb-4"><Words k="An original TC was issued (" />{data.tc.original}<Words k="). A new one prints as Duplicate and needs a reason." /></Alert>}
+          {data.signatories.length === 0 && <Alert tone="warning" className="mb-4"><Words k="No signatories are set up. Add the Principal's name and signature in" /> <SettingsLink href="/settings/document-designs"><Words k="Settings, Document Designs" /></SettingsLink><Words k=". A character certificate needs a signatory." /></Alert>}
           <ActionForm action={requestCertificateAction}
             footer={<>
-              <SubmitButton pendingText="Saving…">Issue</SubmitButton>
-              <button type="submit" formAction={`${BASE}/certificates/preview`} formMethod="get" formTarget="_blank" formNoValidate className={buttonClass("secondary")}>Preview</button>
-              <Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>
+              <SubmitButton pendingText="Saving…"><Words k="Issue" /></SubmitButton>
+              <button type="submit" formAction={`${BASE}/certificates/preview`} formMethod="get" formTarget="_blank" formNoValidate className={buttonClass("secondary")}><Words k="Preview" /></button>
+              <Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>
             </>}>
             <StudentPicker name="studentIds" label={data.students.length > 1 ? "Students" : "Student"} multiple={data.students.length > 1 || !sp.student} initial={data.students.map((s) => ({ id: s.id, name: s.fullName, admissionNo: s.admissionNo, cls: "" }))}
               anyStatus sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} help="Several students get one certificate each (not for a TC)." />
@@ -80,7 +81,7 @@ export default async function IssueCertificatePage({ searchParams }: { searchPar
             {data.signatories.length > 0 && <FormSelect name="signatoryId" label="Signatory" required defaultValue={defaultSig} options={data.signatories.map((s) => ({ value: s.id, label: `${s.name}, ${s.title}` }))} />}
             <FormSelect name="conduct" label="Conduct" defaultValue="Good" options={CONDUCT.map((c) => ({ value: c, label: c }))} help="Printed on a TC and a character certificate." />
             <FormText name="duplicateReason" label="Reason for a duplicate" required={Boolean(type === "TC" && data.tc?.original)} maxLength={300} help="Only for a second copy of a TC, for example: the original was lost." />
-            <p className="text-[13.5px] text-ink2">Certificate number: given automatically, next in the series for the type and year{type === "TC" ? " (when approved)" : ""}.</p>
+            <p className="text-[13.5px] text-ink2"><Words k="Certificate number: given automatically, next in the series for the type and year" />{type === "TC" ? " (when approved)" : ""}.</p>
           </ActionForm>
         </CardBody>
       </Card>

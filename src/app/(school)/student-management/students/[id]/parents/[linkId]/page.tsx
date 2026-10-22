@@ -11,6 +11,7 @@ import { loadVisibleStudent, StudentNotFound } from "@/lib/students/access";
 import { RELATIONS } from "@/lib/students/labels";
 import { BASE, studentPage } from "../../../../_lib/page";
 import { linkSettingsAction } from "../../../../_actions/guardians";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Parent link settings" };
 
@@ -40,10 +41,10 @@ export default async function LinkSettingsPage({ params }: { params: Promise<{ i
         <CardBody>
           {l.restriction && <Alert tone="danger" className="mb-4" title="Do not release to this person. See note.">{l.restriction}</Alert>}
           <ActionForm action={linkSettingsAction.bind(null, linkId)} submitLabel="Save" pendingText="Saving…"
-            footer={<Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>}>
+            footer={<Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>}>
             <FormSelect name="relationship" label="Relation to this student" required options={RELATIONS.map((r) => ({ value: r, label: r }))} defaultValue={l.relationship} />
             <fieldset className="space-y-3 rounded-xl border border-danger/30 p-4">
-              <legend className="px-1 font-semibold">Custody / access restriction</legend>
+              <legend className="px-1 font-semibold"><Words k="Custody / access restriction" /></legend>
               {can.seeRestricted ? (
                 <>
                   <FormCheck name="restricted" label="This person must not collect or contact the student" defaultChecked={Boolean(l.restriction)}
@@ -52,7 +53,7 @@ export default async function LinkSettingsPage({ params }: { params: Promise<{ i
                   <FormArea name="reason" label="Reason for the change" rows={2} help="Needed when the restriction is set, changed or removed. Kept in the history." />
                 </>
               ) : (
-                <p className="text-ink2">Only the School Admin or Principal can change a restriction.{l.restriction ? " A restriction is set on this link." : ""}</p>
+                <p className="text-ink2"><Words k="Only the School Admin or Principal can change a restriction." />{l.restriction ? " A restriction is set on this link." : ""}</p>
               )}
             </fieldset>
           </ActionForm>

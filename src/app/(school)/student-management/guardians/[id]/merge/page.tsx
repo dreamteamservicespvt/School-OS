@@ -11,6 +11,7 @@ import { ActionForm, FormChoice } from "@/components/students/action-form";
 import { BASE, studentPage } from "../../../_lib/page";
 import { mergeAction } from "../../../_actions/guardians";
 import { visibleGuardianFor } from "../../load";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Merge parent records" };
 
@@ -40,15 +41,15 @@ export default async function MergeGuardianPage({ params, searchParams }: { para
   return (
     <>
       <BackLink href={back} label={data.keep.name} sub="Merge" />
-      <PageHeader title="Merge parent records" sub={<span className="block max-w-prose">Keep <strong>{data.keep.name}</strong> ({data.keep.phone}) and move another record&apos;s children, consent records and documents to it. The other record is archived, not deleted.</span>} href={`${back}/merge`} userId={current.user.id} />
+      <PageHeader title="Merge parent records" sub={<span className="block max-w-prose"><Words k="Keep" /> <strong>{data.keep.name}</strong> ({data.keep.phone}<Words k=") and move another record's children, consent records and documents to it. The other record is archived, not deleted." /></span>} href={`${back}/merge`} userId={current.user.id} />
       <div className="grid max-w-4xl gap-4">
         <Card>
           <CardBody>
             <form method="get" className="flex flex-wrap gap-2">
-              <label className="min-w-0 flex-1 basis-60"><span className="sr-only">Phone or name</span>
+              <label className="min-w-0 flex-1 basis-60"><span className="sr-only"><Words k="Phone or name" /></span>
                 <input name="q" type="search" defaultValue={q} placeholder="Search another record by phone or name" className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-base" />
               </label>
-              <button type="submit" className={buttonClass("secondary")}>Find</button>
+              <button type="submit" className={buttonClass("secondary")}><Words k="Find" /></button>
             </form>
           </CardBody>
         </Card>
@@ -59,7 +60,7 @@ export default async function MergeGuardianPage({ params, searchParams }: { para
             <CardHeader title={q ? "Records found" : "Likely the same person"} />
             <CardBody>
               <ActionForm action={mergeAction.bind(null, id)} submitLabel={`Merge into ${data.keep.name}`} pendingText="Merging…"
-                footer={<Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink">Cancel</Link>}>
+                footer={<Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>}>
                 <FormChoice name="mergeId" label="Record to merge in" columns={2}
                   options={data.found.map((g) => ({ value: g.id, label: `${g.name} (${g.relationship})`, help: `${g.phone}${g.students.length ? ` · ${g.students.map((s) => s.student.fullName).join(", ")}` : " · no children"}` }))} />
               </ActionForm>

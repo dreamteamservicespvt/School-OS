@@ -19,6 +19,7 @@ import { StudentsHead } from "../_lib/head";
 import { CERT_LABEL, CHECK_LABEL, LEAVING_TYPE_LABEL, studentFacts, tcFor } from "./load";
 import { leavingTabs } from "./sub-tabs";
 import { studentIdsForFilter } from "@/lib/students/find";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Leaving & Alumni" };
 
@@ -79,7 +80,7 @@ export default async function LeavingPage({ searchParams }: { searchParams: Prom
     } },
     { key: "reason", label: "Reason", className: "max-w-[240px]", render: (r) => <div><p className="text-[13.5px]">{LEAVING_TYPE_LABEL[r.type]}</p><p className="text-[12px] text-ink3 line-clamp-1">{r.reason}</p></div> },
     { key: "lastDate", label: "Last date", nowrap: true, sortHref: listHref(path, params, { sort: "lastDate", dir: params.sort === "lastDate" && params.dir === "asc" ? "desc" : "asc" }), sorted: params.sort === "lastDate" ? params.dir : null, render: (r) => <span className="tnum text-[13.5px]">{shortDate(r.lastDate, tz)}</span> },
-    { key: "clearance", label: "Clearance", render: (r) => r.checks.length ? <div className="flex flex-wrap gap-1.5">{r.checks.map((c) => checkPill(c))}</div> : <span className="text-[12.5px] text-ink3">No checks yet</span> },
+    { key: "clearance", label: "Clearance", render: (r) => r.checks.length ? <div className="flex flex-wrap gap-1.5">{r.checks.map((c) => checkPill(c))}</div> : <span className="text-[12.5px] text-ink3"><Words k="No checks yet" /></span> },
     { key: "tc", label: "TC", render: (r) => { const t = tcState(r); return <Pill tone={t.tone}>{t.label}</Pill>; } },
   ];
   const filtered = Boolean(params.q || Object.keys(params.filters).length || range);
@@ -87,7 +88,7 @@ export default async function LeavingPage({ searchParams }: { searchParams: Prom
   return (
     <>
       <StudentsHead page="Leaving & Alumni" href={path} sub="Transfer or withdrawal with fee and library clearance, and records of past students"
-        actions={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={LogOut}>Start leaving</ButtonLink> : undefined}
+        actions={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={LogOut}><Words k="Start leaving" /></ButtonLink> : undefined}
         subTabs={await leavingTabs()} subLabel="Leaving & Alumni" />
       <Card className="overflow-hidden">
         <Toolbar>
@@ -101,15 +102,15 @@ export default async function LeavingPage({ searchParams }: { searchParams: Prom
             const s = data.facts.get(r.studentId);
             const t = tcState(r);
             return { title: s?.name ?? "", sub: `${s?.short ? `${s.short} · ` : ""}${LEAVING_TYPE_LABEL[r.type]} · last day ${shortDate(r.lastDate, tz)}`, avatar: s?.name ?? "?",
-              pills: [...r.checks.filter((c) => c.status !== "CLEAR").map((c) => checkPill(c, cardPill)), <Pill key="tc" tone={t.tone} className={cardPill}>TC: {t.label.toLowerCase()}</Pill>] };
+              pills: [...r.checks.filter((c) => c.status !== "CLEAR").map((c) => checkPill(c, cardPill)), <Pill key="tc" tone={t.tone} className={cardPill}><Words k="TC:" /> {t.label.toLowerCase()}</Pill>] };
           }}
           footer={<ListFooter shown={data.rows.length} total={data.total} moreHref={data.rows.length < data.total ? listHref(path, params, { n: take + STEP }) : null} />}
           empty={filtered
-            ? <Empty icon={SearchX} title="Nothing matches these filters" action={<ButtonLink href={path}>Clear filters</ButtonLink>} />
+            ? <Empty icon={SearchX} title="Nothing matches these filters" action={<ButtonLink href={path}><Words k="Clear filters" /></ButtonLink>} />
             : <Empty icon={DoorOpen} title="Nobody is leaving right now" body="Students in the leaving process show here with their clearance and TC."
-              action={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={LogOut}>Start leaving</ButtonLink> : undefined} />} />
+              action={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={LogOut}><Words k="Start leaving" /></ButtonLink> : undefined} />} />
         {data.rows.length > 0 && data.rows.every((r) => r.checks.length === 0) && (
-          <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70">No clearance checks run yet: fee dues and library books are checked here once Fee Management and Library Management are in use.</p>
+          <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70"><Words k="No clearance checks run yet: fee dues and library books are checked here once Fee Management and Library Management are in use." /></p>
         )}
       </Card>
     </>

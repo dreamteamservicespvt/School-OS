@@ -1,14 +1,15 @@
 import Link from "next/link";
-import { Ban, Check, ChevronRight, DoorOpen, Printer, ScanLine, Search, ShieldCheck, UserRound } from "lucide-react";
+import { Ban, CalendarOff, Check, ChevronRight, DoorOpen, Printer, ScanLine, Search, ShieldCheck, UserRound } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { momentWhere } from "@/lib/periods";
 import { appOrigin } from "@/lib/origin";
 import { qrSvg } from "@/lib/students/codes";
 import { fileLink } from "@/lib/files";
+import { abilities } from "@/lib/students/access";
 import { checkPass } from "@/lib/front-office/visitors";
 import { pickupStudent, pickupsOn, searchStudents } from "@/lib/front-office/pickup";
 import { clockAt, shortDay } from "@/lib/front-office/time";
-import { hhmmOf, maskPhone, showPhone } from "@/lib/front-office/words";
+import { closedWords, hhmmOf, maskPhone, showPhone } from "@/lib/front-office/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
@@ -71,11 +72,12 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
   const closeHref = here({});
   const stopOpen = one(sp.stop) === "1" && info && (canRelease || p.can.gateWork);
   const checkBase = qs(HREF, keep);
+  const hostelOn = p.current.modulesOn.has("hostel-management");
 
   return (
     <div>
       <FoHead pageName="Student Pickup" href={HREF}
-        sub={gate ? "At the gate: check the pickup gate pass and the photos before a child leaves" : "Early pickup gate pass, only for people on the student’s approved pickup list"}
+        sub={`${p.closedToday ? `${closedWords(p.closedToday)} · ` : ""}${gate ? "At the gate: check the pickup gate pass and the photos before a child leaves" : "Early pickup gate pass, only for people on the student’s approved pickup list"}`}
         actions={p.can.gateWork ? <ButtonLink href={`${checkBase}${checkBase.includes("?") ? "&" : "?"}check=`} scroll={false} variant={gate ? "primary" : "secondary"} icon={ScanLine}>Check gate pass</ButtonLink> : null} />
       <Split side={380}>
         <Col>
@@ -110,13 +112,19 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                 <div className="min-w-0 flex-1">
                   <p className="font-display font-semibold text-[20px] leading-tight">{info.student.name}</p>
                   <p className="text-[13px] text-ink3">{info.student.classSection ? `Class ${info.student.classSection}` : "No class this year"}{info.student.rollNo ? ` · Roll ${info.student.rollNo}` : ""} · <span className="font-mono text-[12px]">{info.student.admissionNo}</span></p>
-                  <p className="text-[13px] text-ink3">{info.classTeacher ? `Class teacher ${info.classTeacher} · ` : ""}{info.attendance ? <span className={cx("font-semibold", { success: "text-ok", danger: "text-bad", warning: "text-warn", info: "text-info" }[info.attendance.tone] ?? "text-ink2")}>{info.attendance.label} today</span> : <span>Attendance not marked yet</span>}</p>
+                  <p className="text-[13px] text-ink3">{info.classTeacher ? `Class teacher ${info.classTeacher} · ` : ""}{info.attendance ? <span className={cx("font-semibold", { success: "text-ok", danger: "text-bad", warning: "text-warn", info: "text-info" }[info.attendance.tone] ?? "text-ink2")}>{info.attendance.label} today</span> : info.closed ? <span className="font-semibold text-warn">{closedWords(info.closed)}</span> : <span>Attendance not marked yet</span>}</p>
                 </div>
               </div>
               <div className="p-4 md:p-5 flex flex-col gap-4">
+                {info.closed && !gate && (
+                  <Banner tone="info" icon={CalendarOff} title={`${closedWords(info.closed)}.`}>
+                    Release {info.student.first} only if they are at school today, for example for an event or a special class.{hostelOn ? " Boarders going out use a Hostel Outing pass in Hostel Management." : ""}
+                  </Banner>
+                )}
                 {canRelease ? (
                   <ReleaseForm key={info.student.id} student={{ id: info.student.id, first: info.student.first }} people={people} codeCheck={p.settings.pickupCodeCheck}
-                    releasedBy={p.current.user.displayName} nowHHMM={hhmmOf(p.minute)} stopHref={here({ stop: "1" })} />
+                    releasedBy={p.current.user.displayName} nowHHMM={hhmmOf(p.minute)} stopHref={here({ stop: "1" })}
+                    photoBase={abilities(p.current).manage ? "/student-management/guardians/" : null} />
                 ) : (
                   <>
                     <div>
@@ -168,7 +176,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
             <p className="font-semibold text-[14.5px] flex items-center gap-2"><ShieldCheck size={17} className="text-brand" aria-hidden="true" />How pickup stays safe</p>
             <ul className="mt-2.5 flex flex-col gap-2 text-[13.5px] text-ink2">
               <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />Only people on the approved list can be chosen.</li>
-              <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />{p.settings.pickupCodeCheck ? "Photo match, and a code to the guardian’s phone." : "Photo match with the guardian’s photo on record."}</li>
+              <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />{p.settings.pickupCodeCheck ? "Photo match (no photo on record: ID proof or a call to a guardian), and a code to the guardian’s phone." : "Photo match with the guardian’s photo on record; with no photo, ID proof or a call to a guardian."}</li>
               <li className="flex gap-2"><Check size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />The gate checks the pass before the child leaves.</li>
               <li className="flex gap-2"><Ban size={16} className="text-bad shrink-0 mt-0.5" aria-hidden="true" />The list is changed only in Student Management, never at the desk or gate.</li>
             </ul>

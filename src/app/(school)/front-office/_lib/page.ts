@@ -13,7 +13,8 @@ import { periodFromSearch, type PeriodKey } from "@/lib/periods";
 import { foCan, foPageAllowed, foViewer, type FoPageKey } from "@/lib/front-office/access";
 import { foFeaturesOn, frontOfficeSettings, passEndMinute } from "@/lib/front-office/settings";
 import { minuteNow, todayDate, todayIso } from "@/lib/front-office/time";
-import { BASE, clockOf, type FrontOfficeFeature } from "@/lib/front-office/words";
+import { BASE, clockOf, passLine, type ClosedDay, type FrontOfficeFeature } from "@/lib/front-office/words";
+import { isSchoolDay } from "@/lib/calendar/school-days";
 
 export { BASE };
 export const MODULE = "front-office" as const;
@@ -29,14 +30,17 @@ export const foPage = cache(async () => {
   const [dates, data] = await Promise.all([
     periodSetup(current),
     withSchool(current.ctx, async (tx) => {
-      const [settings, features] = await Promise.all([frontOfficeSettings(tx, current.ctx), foFeaturesOn(tx, current.ctx)]);
+      const [settings, features, day] = await Promise.all([frontOfficeSettings(tx, current.ctx), foFeaturesOn(tx, current.ctx), isSchoolDay(tx, current.ctx, today, { campusId: null })]);
       const passEnd = await passEndMinute(tx, current.ctx, settings, todayStr);
-      return { settings, features, passEnd };
+      // A holiday, Sunday or Saturday off at the main campus (the one school-day rule, QA FO-02, FO-03).
+      const closedToday: ClosedDay | null = day.on ? null : { reason: day.reason, title: day.title };
+      return { settings, features, passEnd, closedToday };
     }),
   ]);
   const has = (f: FrontOfficeFeature) => data.features.has(f);
   const may = (page: FoPageKey) => foPageAllowed(v, page) && (page !== "postal" || has("front-office-postal"));
-  return { current, v, can, tz, now, today, todayStr, minute: minuteNow(tz, now), dates, ...data, passEndWords: clockOf(data.passEnd), has, may };
+  const minute = minuteNow(tz, now);
+  return { current, v, can, tz, now, today, todayStr, minute, dates, ...data, passEndWords: clockOf(data.passEnd), passLine: passLine(data.passEnd, minute, data.closedToday), has, may };
 });
 
 export type FoPage = Awaited<ReturnType<typeof foPage>>;

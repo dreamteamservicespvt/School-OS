@@ -2,13 +2,14 @@
 
 // Student Pickup at the desk (16 §2, mod-frontoffice.jsx Release): choose the
 // person collecting from the approved list (red ones cannot be chosen), match
-// the photo, the code to the guardian's phone when the school uses it, the
-// reason and the time; then the Pickup gate pass is made on the server.
+// the photo (or, with no photo on record, check ID proof or call a guardian),
+// the code to the guardian's phone when the school uses it, the reason and the
+// time; then the Pickup gate pass is made on the server.
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Ban, CircleCheck, DoorOpen, Hand, PhoneCall, ScanLine, Send, TriangleAlert, UserX } from "lucide-react";
+import { Ban, Camera, CircleCheck, DoorOpen, Hand, PhoneCall, ScanLine, Send, TriangleAlert, UserX } from "lucide-react";
 import type { FormState } from "@/lib/forms";
 import { Avatar } from "@/components/ui/avatar";
 import { Button, buttonClass } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import { FieldShell, inputCls } from "@/components/ui/field";
 import { SheetForm } from "@/components/ui/url-sheet";
 import { SText } from "@/components/ui/sheet-fields";
 import { cx } from "@/components/ui/cx";
-import { PICKUP_REASONS } from "@/lib/front-office/words";
+import { PICKUP_REASONS, type NoPhotoCheck } from "@/lib/front-office/words";
 import { refusedAction, releaseAction, sendCodeAction } from "../actions";
 import { useCanScanQr } from "./fields";
 
@@ -134,18 +135,27 @@ export function PickupList({ people, canChoose, chosen, onChoose }: { people: Pi
   );
 }
 
-export function ReleaseForm({ student, people, codeCheck, releasedBy, nowHHMM, stopHref }: {
+/** With no photo on record there is no face to match: the checks the desk can do instead (QA FO-01). */
+const NO_PHOTO_OPTIONS: { value: NoPhotoCheck; title: (name: string) => string; sub: string }[] = [
+  { value: "id-proof", title: (name) => `ID proof shows ${name}`, sub: "Aadhaar, driving licence or another photo ID. Match the face with the ID photo." },
+  { value: "call", title: () => "A parent or guardian confirmed on a call", sub: "Call a number on the student’s record and ask who is collecting." },
+];
+
+export function ReleaseForm({ student, people, codeCheck, releasedBy, nowHHMM, stopHref, photoBase }: {
   student: { id: string; first: string };
   people: PickupChoice[];
   codeCheck: boolean;
   releasedBy: string;
   nowHHMM: string;
   stopHref: string;
+  /** Where a guardian's photo is added in Student Management (the guardian id is added), for people allowed to; null says who to ask. */
+  photoBase: string | null;
 }) {
   const [state, run, pending] = useActionState<S, FormData>(releaseAction, null);
   const [codeState, sendCode, sending] = useActionState<S, FormData>(sendCodeAction, null);
   const [who, setWho] = useState<string | null>(state?.values?.guardianId ?? null);
   const [photo, setPhoto] = useState(false);
+  const [check, setCheck] = useState<NoPhotoCheck | "">("");
   const [code, setCode] = useState("");
   const [codeFor, setCodeFor] = useState<string | null>(null);
   const [reason, setReason] = useState(state?.values?.reason ?? "");
@@ -154,16 +164,19 @@ export function ReleaseForm({ student, people, codeCheck, releasedBy, nowHHMM, s
   const restricted = people.find((p) => !p.allowed && p.restriction);
   const why = reason === "Other" ? other.trim() : reason;
   const codeSent = codeState?.ok && codeFor === who;
-  const ready = Boolean(g && photo && (!codeCheck || code.length === 4) && why);
+  // A photo on record is matched with the face; without one, ID proof or a call to a guardian instead.
+  const verified = g ? (g.photo ? photo : Boolean(check)) : false;
+  const ready = Boolean(g && verified && (!codeCheck || code.length === 4) && why);
   const err = state && !state.ok ? state.errors ?? {} : {};
-  const choose = (id: string) => { setWho(id); setPhoto(false); setCode(""); };
+  const choose = (id: string) => { setWho(id); setPhoto(false); setCheck(""); setCode(""); };
 
   return (
     <form action={run} className="flex flex-col gap-4" noValidate>
       <input type="hidden" name="studentId" value={student.id} />
       <input type="hidden" name="guardianId" value={who ?? ""} />
       <input type="hidden" name="reason" value={reason} />
-      <input type="hidden" name="photoMatch" value={photo ? "on" : ""} />
+      <input type="hidden" name="photoMatch" value={g?.photo && photo ? "on" : ""} />
+      <input type="hidden" name="otherCheck" value={g && !g.photo ? check : ""} />
       <div>
         <p className="text-[13px] font-semibold text-ink2 mb-2">Who is collecting? <span className="font-normal text-ink3">· from Student Management, Parents & Guardians</span></p>
         {people.length ? <PickupList people={people} canChoose chosen={who} onChoose={choose} />
@@ -177,13 +190,37 @@ export function ReleaseForm({ student, people, codeCheck, releasedBy, nowHHMM, s
         <div className="flex flex-col gap-4 border-t border-line pt-4 animate-rise">
           <div>
             <p className="text-[13px] font-semibold text-ink2 mb-2">Verify {g.name.split(" ")[0]} <span className="text-bad" aria-hidden="true">*</span></p>
-            <div className={cx("rounded-xl border p-3 flex items-center gap-3", err.photoMatch ? "border-bad" : "border-line")}>
-              <Avatar name={g.name} size={56} src={g.photo} />
-              <label className="flex-1 flex items-center gap-3 cursor-pointer">
-                <Checkbox checked={photo} onChange={setPhoto} label="Photo matches" />
-                <span className="text-[14px]"><b className="font-semibold block">The face matches this photo</b><span className="text-[12.5px] text-ink3">Look at the person, not only the ID</span></span>
-              </label>
-            </div>
+            {g.photo ? (
+              <div className={cx("rounded-xl border p-3 flex items-center gap-3", err.photoMatch ? "border-bad" : "border-line")}>
+                <Avatar name={g.name} size={56} src={g.photo} />
+                <label className="flex-1 flex items-center gap-3 cursor-pointer">
+                  <Checkbox checked={photo} onChange={setPhoto} label="Photo matches" />
+                  <span className="text-[14px]"><b className="font-semibold block">The face matches this photo</b><span className="text-[12.5px] text-ink3">Look at the person, not only the ID</span></span>
+                </label>
+              </div>
+            ) : (
+              <div className={cx("rounded-xl border p-3 flex flex-col gap-3", err.photoMatch ? "border-bad" : "border-line")}>
+                <div className="flex items-center gap-3">
+                  <span className="relative shrink-0">
+                    <Avatar name={g.name} size={48} />
+                    <span className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-sunken text-ink2 grid place-items-center ring-2 ring-surface"><Camera size={13} aria-hidden="true" /></span>
+                  </span>
+                  <span className="text-[14px] min-w-0"><b className="font-semibold block">No photo of {g.name.split(" ")[0]} on record</b><span className="text-[12.5px] text-ink3">There is no face to match. Check one of these instead.</span></span>
+                </div>
+                <div className="flex flex-col gap-2" role="radiogroup" aria-label={`How you checked ${g.name.split(" ")[0]}`}>
+                  {NO_PHOTO_OPTIONS.map((o) => (
+                    <button key={o.value} type="button" role="radio" aria-checked={check === o.value} onClick={() => setCheck(o.value)}
+                      className={cx("text-left rounded-xl border px-3 py-2.5 flex items-start gap-2.5 transition", check === o.value ? "border-brand ring-1 ring-brand bg-brand/[.05]" : "border-line hover:border-ink3/50")}>
+                      <span className={cx("mt-0.5 w-4 h-4 rounded-full border-2 shrink-0 grid place-items-center", check === o.value ? "border-brand" : "border-ink3/60")} aria-hidden="true">{check === o.value && <span className="w-2 h-2 rounded-full bg-brand" />}</span>
+                      <span className="text-[14px]"><b className="font-semibold block">{o.title(g.name)}</b><span className="text-[12.5px] text-ink3">{o.sub}</span></span>
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[12.5px] text-ink3">
+                  {photoBase ? <Link href={`${photoBase}${g.guardianId}`} className="font-semibold text-brand hover:underline">Add {g.name.split(" ")[0]}’s photo in Student Management</Link> : <>Ask the office to add {g.name.split(" ")[0]}’s photo in Student Management</>}, so next time the face can be matched.
+                </p>
+              </div>
+            )}
             {err.photoMatch && <p className="mt-1 text-[12.5px] text-bad" role="alert">{err.photoMatch}</p>}
             {codeCheck && (
               <div className="rounded-xl border border-line p-3 mt-2 flex flex-col sm:flex-row sm:items-center gap-3">
@@ -224,7 +261,7 @@ export function ReleaseForm({ student, people, codeCheck, releasedBy, nowHHMM, s
           </div>
           {state && !state.ok && !Object.keys(err).length && <p className="text-[13px] text-bad" role="alert">{state.message}</p>}
           <Button type="submit" variant="primary" size="lg" className="w-full !h-14 !text-[16px]" icon={DoorOpen} disabled={!ready} loading={pending}>
-            {pending ? "Making gate pass…" : ready ? `Release ${student.first} and make gate pass` : !photo ? "Check the photo first" : codeCheck && code.length !== 4 ? (codeSent ? "Enter the code from the guardian" : "Send the code first") : "Choose a reason"}
+            {pending ? "Making gate pass…" : ready ? `Release ${student.first} and make gate pass` : !verified ? (g.photo ? "Check the photo first" : "Check ID proof or call first") : codeCheck && code.length !== 4 ? (codeSent ? "Enter the code from the guardian" : "Send the code first") : "Choose a reason"}
           </Button>
         </div>
       ) : (

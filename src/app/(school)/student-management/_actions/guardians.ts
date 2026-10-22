@@ -11,7 +11,8 @@ import { withSchool, type Tx } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { checkbox, formValues, indianMobile, optionalDate, optionalEmail, optionalIndianMobile, optionalText, parseForm, text, type FormState } from "@/lib/forms";
 import { loadVisibleStudent, type Who } from "@/lib/students/access";
-import { createGuardian, linkGuardian, mergeGuardians, parentLinkProvider, PhoneOnRecord, setPickup, setPrimary, setRestriction, unlinkGuardian, updateGuardian } from "@/lib/students/guardians";
+import { createGuardian, linkGuardian, mergeGuardians, parentLinkProvider, PhoneOnRecord, setGuardianPhoto, setPickup, setPrimary, setRestriction, unlinkGuardian, updateGuardian } from "@/lib/students/guardians";
+import { IMAGE_TYPES, saveFile } from "@/lib/files";
 import { requestConsent, withdrawConsent } from "@/lib/students/consent";
 import { CONSENT_TYPES, LANGUAGES, RELATIONS } from "@/lib/students/labels";
 import { StudentProblem } from "@/lib/students/students";
@@ -36,6 +37,31 @@ async function visibleGuardian(tx: Tx, who: Who, guardianId: string) {
   const g = await tx.guardian.findFirst({ where: { id: guardianId, archivedAt: null, OR: [{ students: { none: { archivedAt: null } } }, { students: { some: { archivedAt: null, student: scope } } }] } });
   if (!g) throw new StudentProblem("This parent was not found, or is not a parent of your students.");
   return g;
+}
+
+/** The parent's photo, matched by the front desk and the gate at pickup (QA FO-01). */
+export async function uploadGuardianPhoto(guardianId: string, _prev: FormState, fd: FormData): Promise<FormState> {
+  const file = fd.get("photo");
+  if (!(file instanceof File) || file.size === 0) return { ok: false, message: "Choose a photo (JPG or PNG).", errors: { photo: "Choose a photo (JPG or PNG)." } };
+  const { current } = await studentAction("edit", { manage: true });
+  const r = await attemptForm({}, () => withSchool(current.ctx, async (tx) => {
+    await visibleGuardian(tx, current, guardianId);
+    const saved = await saveFile(tx, current.ctx, { file, purpose: "guardian-photo", allowed: IMAGE_TYPES, maxImageWidth: 600 });
+    await setGuardianPhoto(tx, current.ctx, guardianId, saved.id);
+  }));
+  if (!r?.ok) return r;
+  revalidatePath(`${BASE}/guardians/${guardianId}`);
+  return { ok: true, message: "Photo saved." };
+}
+
+export async function removeGuardianPhoto(guardianId: string) {
+  const { current } = await studentAction("edit", { manage: true });
+  const r = await attempt(() => withSchool(current.ctx, async (tx) => {
+    await visibleGuardian(tx, current, guardianId);
+    await setGuardianPhoto(tx, current.ctx, guardianId, null);
+  }));
+  if (!r) revalidatePath(`${BASE}/guardians/${guardianId}`);
+  return r;
 }
 
 export async function setPrimaryAction(fd: FormData) {

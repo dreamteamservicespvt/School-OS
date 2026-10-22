@@ -115,7 +115,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
   return (
     <div>
       <FoHead pageName="Visitors" href={HREF}
-        sub={gate ? "At the gate only: register visitors, record vehicles and check passes" : `Visitor log · every pass expires by itself at ${p.passEndWords}`}
+        sub={gate ? "At the gate only: register visitors, record vehicles and check passes" : p.passLine}
         actions={<>
           {p.can.gateWork && <ButtonLink href={`${sheetHref}${sheetHref.includes("?") ? "&" : "?"}check=`} scroll={false} variant="secondary" icon={ScanLine}>Check a pass</ButtonLink>}
           {gate && gateLogOn && p.can.gateWork && <ButtonLink href={addQ(sheetHref, { do: "gate" })} scroll={false} variant="secondary" icon={Car}>Gate entry</ButtonLink>}

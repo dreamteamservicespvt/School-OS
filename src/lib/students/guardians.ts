@@ -145,6 +145,14 @@ export async function setPickup(tx: Tx, ctx: SchoolContext, linkId: string, canP
   await writeAudit(tx, ctx, { action: "pickup-list-changed", recordType: "Student", recordId: link.studentId, before: { guardianId: link.guardianId, canPickUp: link.canPickUp }, after: { canPickUp } });
 }
 
+/** The guardian's photo, which the front desk and the gate match at pickup (16 §2 Student Pickup). */
+export async function setGuardianPhoto(tx: Tx, ctx: SchoolContext, guardianId: string, fileId: string | null) {
+  const before = await tx.guardian.findFirst({ where: { id: guardianId, archivedAt: null }, select: { photoFileId: true } });
+  if (!before) throw new StudentProblem("This parent was not found.");
+  await tx.guardian.update({ where: { id: guardianId }, data: { photoFileId: fileId, updatedById: ctx.userId } });
+  await writeAudit(tx, ctx, { action: fileId ? (before.photoFileId ? "photo-replaced" : "photo-added") : "photo-removed", recordType: "Guardian", recordId: guardianId, before: { photoFileId: before.photoFileId }, after: { photoFileId: fileId } });
+}
+
 /**
  * Custody / access restriction (03 §5): only an admin changes it, with a
  * reason. A flagged guardian leaves the pickup list and cannot be the primary

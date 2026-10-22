@@ -54,6 +54,16 @@ export function foPageAllowed(v: Pick<FoViewer, "level">, page: FoPageKey) {
   return v.level !== null && (FO_PAGES[page] as readonly FoLevel[]).includes(v.level);
 }
 
+/**
+ * The page the Front Office menu link opens (QA PERF-01): the Reception Desk
+ * for the desk, else Visitors, which every Front Office level reads, so nobody
+ * waits for a redirect on the way in. Null for people without Front Office.
+ */
+export function foLanding(v: Pick<FoViewer, "level">): string | null {
+  if (v.level === null) return null;
+  return foPageAllowed(v, "desk") ? "/front-office" : "/front-office/visitors";
+}
+
 /** What each level may do, so buttons a role cannot use are hidden (and the server refuses them). */
 export function foCan(v: FoViewer) {
   const full = v.level === "full";

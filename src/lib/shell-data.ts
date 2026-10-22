@@ -13,6 +13,7 @@ import { FINANCE_PAGES, financePageAllowed, type FinancePageKey } from "./financ
 import { pageHidden } from "./duty";
 import { answersSupport, waitingSupportCount } from "./console/support";
 import type { ModuleKey } from "./modules";
+import { foLanding, foViewer } from "./front-office/access";
 
 /** The page a module's own address opens, when the link names no page. */
 const FRONT_PAGE: Partial<Record<string, string>> = { "attendance-management": "take", "fee-management": "dashboard" };
@@ -57,6 +58,19 @@ export function quickActionsFor(current: Pick<Current, "roles" | "menu" | "permi
     .slice(0, 6);
 }
 
+/**
+ * Where a module's menu link opens for this person when its own address would
+ * only send them on (QA PERF-01): the Principal and others without the
+ * Reception Desk land on Visitors straight away, with its loading shape,
+ * instead of waiting for a redirect.
+ */
+export function landingFor(current: Pick<Current, "permissions" | "roles" | "user">): Record<string, string> {
+  const out: Record<string, string> = {};
+  const fo = foLanding(foViewer(current));
+  if (fo && fo !== "/front-office") out["front-office"] = fo;
+  return out;
+}
+
 export async function shellData(current: Current) {
   const [{ unread, approvals: requests, campus }, supportWaiting] = await Promise.all([withSchool(current.ctx, async (tx) => ({
     unread: await tx.notification.count({ where: { userLoginId: current.user.id, ...UNREAD } }),
@@ -68,7 +82,8 @@ export async function shellData(current: Current) {
   answersSupport(current) ? waitingSupportCount(current.school.id).catch(() => 0) : Promise.resolve(0)]);
   const approvals = requests + supportWaiting;
 
-  const menu = current.menu.map((m) => ({ key: m.key, name: m.name, href: `/${m.key}` }));
+  const landing = landingFor(current);
+  const menu = current.menu.map((m) => ({ key: m.key, name: m.name, href: landing[m.key] ?? `/${m.key}` }));
   const visible = new Set<string>(current.menu.map((m) => m.key));
   const pages = [
     ...current.menu.map((m) => ({ label: m.name, href: `/${m.key}`, hint: BUILT_MODULES.has(m.key) ? undefined : `Stage ${m.stage}` })),
@@ -95,6 +110,7 @@ export async function shellData(current: Current) {
 
   return {
     menu,
+    landing,
     bottom,
     quick,
     place,

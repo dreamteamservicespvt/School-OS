@@ -18,6 +18,7 @@ import { FormResultProvider, useTyped } from "@/components/ui/url-sheet";
 import { cx } from "@/components/ui/cx";
 import { ProblemInView } from "@/components/ui/problem-in-view";
 import type { FormState } from "@/lib/forms";
+import { qtyWords } from "@/lib/inventory/words";
 
 type Act = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 const ICONS = { bell: BellRing, check: Check, cancel: CircleX, send: Send, ret: CornerDownLeft, x: X, mail: Mail, archive: Archive, restore: RotateCcw } satisfies Record<string, LucideIcon>;
@@ -54,15 +55,17 @@ export function SegField({ name, label, options, start, onChange, size, help }: 
 export type ItemPick = { value: string; label: string; unit: string; stock: number; price: string; lastPrice: string; tracksExpiry: boolean };
 export type LineStart = { itemId: string; qty: string; price?: string };
 
-const qty = (n: number, unit: string) => `${n.toLocaleString("en-IN")} ${unit === "piece" ? (n === 1 ? "piece" : "pieces") : unit}`;
+const qty = qtyWords;
 
 /**
  * Item lines sent as itemId[], qty[] (and price[] when `price` is set). Each
  * line shows the stock in hand at the chosen store; with `limit` a quantity
  * above it is shown in red (the server refuses it too).
  */
-export function ItemLines({ items, start = [], price, limit, stockAt, label = "Items and quantities", help, minRows = 1, onTotal, unitPaise }: {
+export function ItemLines({ items, start = [], price, limit, stockAt, label = "Items and quantities", help, minRows = 1, onTotal, onOver, unitPaise }: {
   items: ItemPick[]; start?: LineStart[]; price?: "unit" | null; limit?: boolean; stockAt?: (itemId: string) => number; label?: string; help?: React.ReactNode; minRows?: number; onTotal?: (paise: number) => void;
+  /** With `limit`: how many lines ask for more than the stock, so the form can hold its button (QA INV-02). */
+  onOver?: (lines: number) => void;
   /** Without a price column: each item's price, to total the lines (a fee charge, a set price). */
   unitPaise?: Record<string, number>;
 }) {
@@ -75,6 +78,8 @@ export function ItemLines({ items, start = [], price, limit, stockAt, label = "I
   const have = (id: string) => (stockAt ? stockAt(id) : byId.get(id)?.stock ?? 0);
   const total = rows.reduce((a, r) => a + (price ? Math.round((Number(r.price.replace(/[₹,\s]/g, "")) || 0) * 100) : unitPaise?.[r.itemId] ?? 0) * (Number(r.qty) || 0), 0);
   useEffect(() => { onTotal?.(total); }, [total, onTotal]);
+  const overLines = limit ? rows.filter((r) => { const it = byId.get(r.itemId); return Boolean(it && (Number(r.qty) || 0) > have(it.value)); }).length : 0;
+  useEffect(() => { onOver?.(overLines); }, [overLines, onOver]);
   const set = (key: number, change: Partial<{ itemId: string; qty: string; price: string }>) => setRows((rs) => rs.map((r) => {
     if (r.key !== key) return r;
     const nr = { ...r, ...change };
@@ -227,8 +232,10 @@ export function ScanBox({ href, param, label, placeholder, autoFocus, id }: { hr
 /* ---------- An inline form that resets after success ---------- */
 
 /** A form on the page (not in a sheet): problems shown in place, then cleared for the next entry after a success. */
-export function InlineForm<T>({ action, children, submit, pendingText, className, hidden, doneHref }: {
+export function InlineForm<T>({ action, children, submit, pendingText, className, hidden, doneHref, blocked }: {
   action: (p: FormState<T>, fd: FormData) => Promise<FormState<T>>; children: (state: FormState<T>, round: number) => React.ReactNode; submit: React.ReactNode | ((state: FormState<T>) => React.ReactNode); pendingText?: string; className?: string; hidden?: Record<string, string>; doneHref?: string;
+  /** Holds the button while something on the form is wrong (the submit words say what). */
+  blocked?: boolean;
 }) {
   const router = useRouter();
   // Each success adds one to the round, which resets the fields for the next entry.
@@ -252,7 +259,7 @@ export function InlineForm<T>({ action, children, submit, pendingText, className
           {state.message} {link && <Link className="font-semibold underline" href={link.href}>{link.label}</Link>}
         </div></ProblemInView>
       )}
-      <Button type="submit" variant="primary" size="lg" loading={pending} loadingText={pendingText} className="w-full">{typeof submit === "function" ? submit(state) : submit}</Button>
+      <Button type="submit" variant="primary" size="lg" loading={pending} loadingText={pendingText} disabled={blocked} className="w-full">{typeof submit === "function" ? submit(state) : submit}</Button>
     </form>
     </FormResultProvider>
   );

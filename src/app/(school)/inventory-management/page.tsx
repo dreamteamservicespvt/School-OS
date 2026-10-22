@@ -19,7 +19,7 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { Stats, Split, Col, Stack, Toolbar, DataList, Empty, type StatItem } from "@/components/money/kit";
 import { itemOptions, stockByStore, staffOptions, departmentOptions, sectionOptions, locationOptions } from "@/lib/inventory/lookup";
 import { itemLabel } from "@/lib/inventory/items";
-import { ISSUE_TO, plural } from "@/lib/inventory/words";
+import { ISSUE_TO, ISSUE_TO_MANY, plural } from "@/lib/inventory/words";
 import { InvHead } from "./_components/head";
 import { ActButton } from "./_components/client";
 import { IssueForm, BookSetForm, type SetPick } from "./_components/issue-forms";
@@ -86,7 +86,7 @@ export default async function IssueStockPage({ searchParams }: { searchParams: S
       <Toolbar className="md:flex-wrap">
         <UrlSearch placeholder="Search issue number, name or item" label="Search issues" className="flex-1 md:min-w-[260px]" id="issues-search" />
         <div className="flex gap-2 flex-wrap">
-          <UrlSelect param="to" label="Issued to" options={[{ value: "", label: "Everyone" }, ...Object.entries(ISSUE_TO).map(([value, label]) => ({ value, label: `${label}s` }))]} />
+          <UrlSelect param="to" label="Issued to" options={[{ value: "", label: "Everyone" }, ...Object.entries(ISSUE_TO_MANY).map(([value, label]) => ({ value, label }))]} />
           <SegLinks label="Show" size="md" value={f.open ? "open" : f.sets ? "sets" : ""} options={[
             { value: "", label: "All", href: here({ open: null, sets: null, page: null }) },
             { value: "open", label: "To return", href: here({ open: "1", sets: null, page: null }) },

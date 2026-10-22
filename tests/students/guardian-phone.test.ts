@@ -2,7 +2,8 @@
 // the old number must be confirmed again; the link keeps working (QA PEOPLE-13).
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
-import { updateGuardian } from "@/lib/students/guardians";
+import { setGuardianPhoto, updateGuardian } from "@/lib/students/guardians";
+import { randomUUID } from "node:crypto";
 import { createLink, confirmedDevice, hashToken, newDeviceKey } from "@/lib/parent-link/links";
 import { addStudent, studentSchool } from "./fixtures";
 
@@ -33,5 +34,16 @@ describe("guardian phone change", () => {
     expect(link.status).toBe("ACTIVE");
     const log = await withSchool(s.ctx, (tx) => tx.auditLogEntry.findFirst({ where: { recordType: "Parent Link", recordId: linkId, action: "phones-signed-out" } }));
     expect(log?.after).toMatchObject({ reason: "Guardian changed mobile", phones: 1 });
+  });
+
+  it("keeps a guardian's photo for the pickup check, with each change in the audit log (QA FO-01)", async () => {
+    const { student } = await addStudent(s.ctx, s.s5a, { guardianPhone: "9876533333", guardianName: "Demo Photo Parent" });
+    const guardianId = await withSchool(s.ctx, async (tx) => (await tx.studentGuardian.findFirstOrThrow({ where: { studentId: student.id } })).guardianId);
+    const fileId = randomUUID();
+    await withSchool(s.ctx, (tx) => setGuardianPhoto(tx, s.ctx, guardianId, fileId));
+    expect((await withSchool(s.ctx, (tx) => tx.guardian.findUniqueOrThrow({ where: { id: guardianId } }))).photoFileId).toBe(fileId);
+    await withSchool(s.ctx, (tx) => setGuardianPhoto(tx, s.ctx, guardianId, null));
+    const log = await withSchool(s.ctx, (tx) => tx.auditLogEntry.findMany({ where: { recordType: "Guardian", recordId: guardianId }, orderBy: { at: "asc" } }));
+    expect(log.map((l) => l.action)).toEqual(["photo-added", "photo-removed"]);
   });
 });

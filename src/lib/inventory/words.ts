@@ -58,6 +58,8 @@ export function stockState(qty: number, reorder: number): StockState {
 }
 
 export const ISSUE_TO: Record<"STAFF" | "DEPARTMENT" | "CLASS" | "STUDENT", string> = { STAFF: "Staff member", DEPARTMENT: "Department", CLASS: "Class", STUDENT: "Student" };
+/** The same, for many: the "Issued to" filter (never a plural made by adding "s", QA INV-01). */
+export const ISSUE_TO_MANY: Record<keyof typeof ISSUE_TO, string> = { STAFF: "Staff members", DEPARTMENT: "Departments", CLASS: "Classes", STUDENT: "Students" };
 
 export const REQUEST_STATUS: Record<"WAITING" | "APPROVED" | "REJECTED" | "ORDERED" | "CANCELLED", { label: string; tone: Tone }> = {
   WAITING: { label: "Waiting", tone: "info" },

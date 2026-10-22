@@ -21,7 +21,7 @@ import { handOver, recordPostal } from "@/lib/front-office/postal";
 import { addToList, isListKey, removeFromList, saveSettings } from "@/lib/front-office/settings";
 import { messageVisitor, sentWords } from "@/lib/front-office/notify";
 import { clockAt, instantOf } from "@/lib/front-office/time";
-import { clockOf, FRONT_OFFICE_FEATURES, minutesOf, type ReplyKey } from "@/lib/front-office/words";
+import { clockOf, FRONT_OFFICE_FEATURES, isNoPhotoCheck, minutesOf, type ReplyKey } from "@/lib/front-office/words";
 import { withSchool } from "@/lib/db";
 import { requireCurrent } from "@/lib/current";
 import { flash } from "@/lib/flash";
@@ -142,7 +142,7 @@ export async function releaseAction(_: S, fd: FormData): Promise<S> {
     need(w.can.release, "release students");
     return releaseStudent(w.tx, w.ctx, {
       studentId: id(fd, "studentId", "student"), guardianId: id(fd, "guardianId", "person collecting"), photoMatch: str(fd, "photoMatch") === "on",
-      code: str(fd, "code") || null, reason: str(fd, "reason"), otherReason: str(fd, "otherReason") || null, minute: hhmm(fd, "time", "time"),
+      otherCheck: ((c) => (isNoPhotoCheck(c) ? c : null))(str(fd, "otherCheck")), code: str(fd, "code") || null, reason: str(fd, "reason"), otherReason: str(fd, "otherReason") || null, minute: hhmm(fd, "time", "time"),
     }, { timeZone: w.tz, codeCheck: (await w.tx.frontOfficeSetting.findUnique({ where: { schoolId: w.ctx.schoolId } }))?.pickupCodeCheck ?? false });
   }, (r) => `${r.student.first} released to ${r.person.name}${r.classTeacher ? `. ${r.classTeacher} told.` : "."}`);
   if (!r?.ok || !r.data) return r as S;

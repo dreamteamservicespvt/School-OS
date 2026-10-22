@@ -1,9 +1,10 @@
-// The one shared importer (00-global.md P10): template, upload, match
-// columns, preview with each row's problems in plain words, import the good
-// rows, download the bad ones, and undo the whole import later.
+// The import kinds and the steps every import ends with (00-global.md P10):
+// each kind's own check, save and undo, the row-by-row preview, importing
+// the good rows (each on its own), the history for Undo and the rows with
+// problems to download. Files are read, matched and tidied by the Switching
+// to School OS engine (src/lib/move-in), the one way into School OS.
 import "server-only";
 
-import ExcelJS from "exceljs";
 import { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "./db";
 import { writeAudit } from "./audit";
@@ -82,76 +83,7 @@ export function importKinds() {
   return [...kinds.values()].sort((a, b) => a.label.localeCompare(b.label));
 }
 
-export function templateCsv(kind: Pick<ImportKind<unknown>, "columns">) {
-  const header = kind.columns.map((c) => c.label + (c.required ? " *" : "")).join(",");
-  const example = kind.columns.map((c) => (c.example ?? "").replace(/,/g, " ")).join(",");
-  return "﻿" + header + "\r\n" + example + "\r\n";
-}
-
-/** Reads a CSV or Excel file into rows of text, keyed by the file's own headings. */
-export async function readSheet(buf: Buffer, fileName: string): Promise<{ headers: string[]; rows: string[][] }> {
-  if (fileName.toLowerCase().endsWith(".csv") || buf.subarray(0, 2).toString() !== "PK") {
-    const text = buf.toString("utf8").replace(/^﻿/, "");
-    const rows = parseCsv(text).filter((r) => r.some((c) => c.trim() !== ""));
-    return { headers: (rows[0] ?? []).map((h) => h.trim()), rows: rows.slice(1) };
-  }
-  const wb = new ExcelJS.Workbook();
-  await wb.xlsx.load(buf as unknown as ArrayBuffer);
-  const ws = wb.worksheets[0];
-  const rows: string[][] = [];
-  ws?.eachRow({ includeEmpty: false }, (row) => {
-    const values = (row.values as unknown[]).slice(1).map((v) => cellText(v));
-    rows.push(values);
-  });
-  return { headers: (rows[0] ?? []).map((h) => h.trim()), rows: rows.slice(1) };
-}
-
-function cellText(v: unknown): string {
-  if (v === null || v === undefined) return "";
-  if (v instanceof Date) return v.toISOString().slice(0, 10);
-  if (typeof v === "object") {
-    const o = v as { text?: string; result?: unknown; richText?: { text: string }[] };
-    if (o.richText) return o.richText.map((t) => t.text).join("");
-    if (o.text) return o.text;
-    if (o.result !== undefined) return cellText(o.result);
-  }
-  return String(v).trim();
-}
-
-export function parseCsv(text: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = "";
-  let quoted = false;
-  for (let i = 0; i < text.length; i++) {
-    const ch = text[i];
-    if (quoted) {
-      if (ch === '"' && text[i + 1] === '"') { cell += '"'; i++; }
-      else if (ch === '"') quoted = false;
-      else cell += ch;
-    } else if (ch === '"') quoted = true;
-    else if (ch === ",") { row.push(cell); cell = ""; }
-    else if (ch === "\n" || ch === "\r") {
-      if (ch === "\r" && text[i + 1] === "\n") i++;
-      row.push(cell); rows.push(row); row = []; cell = "";
-    } else cell += ch;
-  }
-  if (cell !== "" || row.length) { row.push(cell); rows.push(row); }
-  return rows;
-}
-
 const norm = (s: string) => s.toLowerCase().replace(/\*/g, "").replace(/[^a-z0-9]/g, "");
-
-/** Matches the file's headings to the import's columns by name (step 3). */
-export function autoMatch(columns: ImportColumn[], headers: string[]): Record<string, number> {
-  const match: Record<string, number> = {};
-  columns.forEach((c) => {
-    const names = [c.label, c.key, ...(c.aliases ?? [])].map(norm);
-    const i = headers.findIndex((h) => names.includes(norm(h)));
-    if (i >= 0) match[c.key] = i;
-  });
-  return match;
-}
 
 export type BadRow = { line: number; row: Record<string, string>; problems: string[]; choices?: RowChoice[] };
 

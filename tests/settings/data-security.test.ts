@@ -9,14 +9,15 @@ import { accessIn } from "@/lib/auth/access";
 import { reachFor } from "@/lib/permissions";
 import { decide } from "@/lib/approvals";
 import { saveFile } from "@/lib/files";
-import { autoMatch, errorCsv, importKind, previewImport, readSheet, undoImport } from "@/lib/importer";
+import { errorCsv, importKind, previewImport, undoImport } from "@/lib/importer";
 import { runImportJob, startImport } from "@/lib/data-security/imports";
 import { exportableModels, exportExpired, requestDataExport, runDataExport } from "@/lib/data-security/data-export";
 import { auditWhere, diff } from "@/lib/data-security/audit-view";
 import { requestDeletion, setRetention, retentionRules, PrivacyProblem } from "@/lib/data-security/privacy";
 import { ConsentProblem, consentTexts, saveConsentText } from "@/lib/data-security/consent";
 import { fileStore } from "@/lib/storage";
-import { makeSchool, makeUser } from "../helpers";
+import { makeSchool, makeUser, byHeadings } from "../helpers";
+import { readTable } from "@/lib/move-in/read";
 
 let school: Awaited<ReturnType<typeof makeSchool>>;
 let other: Awaited<ReturnType<typeof makeSchool>>;
@@ -59,8 +60,8 @@ describe("importer, end to end (departments)", () => {
     const file = new File([csv], "departments.csv", { type: "text/csv" });
     const saved = await withSchool(ctx, (tx) => saveFile(tx, ctx, { file, purpose: "import", allowed: ["text/csv", "text/plain", "application/vnd.ms-excel"] }));
     const kind = importKind("departments")!;
-    const sheet = await readSheet(Buffer.from(csv), "departments.csv");
-    const match = autoMatch(kind.columns, sheet.headers);
+    const sheet = await readTable(Buffer.from(csv), "departments.csv");
+    const match = byHeadings(kind, sheet.headers);
     expect(match).toEqual({ name: 0, head: 1 });
 
     const preview = await withSchool(ctx, (tx) => previewImport(tx, ctx, kind, sheet.rows, match));

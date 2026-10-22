@@ -6,7 +6,8 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { defineJob, enqueue } from "../jobs";
-import { importKind, previewImport, readSheet, runImport } from "../importer";
+import { importKind, previewImport, runImport } from "../importer";
+import { decodeText, readDelimited } from "../move-in/read";
 import { fileStore } from "../storage";
 import { notify } from "../notifications";
 import "../import-registry";
@@ -30,7 +31,9 @@ export async function readUploaded(tx: Tx, fileId: string) {
   if (!file || file.purpose !== "import") return null;
   const body = await fileStore().get(file.storageKey);
   if (!body) return null;
-  return { file, sheet: await readSheet(body, file.fileName) };
+  // The clean rows Switching to School OS wrote: always a comma-separated UTF-8 file.
+  const rows = readDelimited(decodeText(body), ",").filter((r) => r.some((c) => c !== ""));
+  return { file, sheet: { headers: rows[0] ?? [], rows: rows.slice(1) } };
 }
 
 /** Queues the import. The same file and matching queue it only once. */
@@ -69,16 +72,4 @@ defineJob("import-run", "An import", (tx, ctx, payload) => runImportJob(tx, ctx,
 /** The file name as the person uploaded it (the stored name carries the upload's id for repeats). */
 export function shownFileName(stored: string) {
   return stored.replace(/#[0-9a-f-]{36}$/i, "");
-}
-
-/** The matching chosen on screen, read from the page address (col_<key>=<column number>). */
-export function matchFromParams(sp: Record<string, string | string[] | undefined>, keys: string[], width: number) {
-  const match: Record<string, number> = {};
-  for (const k of keys) {
-    const raw = sp[`col_${k}`];
-    const v = (Array.isArray(raw) ? raw[0] : raw) ?? "";
-    const n = Number.parseInt(v, 10);
-    if (v !== "" && Number.isInteger(n) && n >= 0 && n < width) match[k] = n;
-  }
-  return match;
 }

@@ -3,6 +3,13 @@ import { vi } from "vitest";
 import { prisma, withSchool } from "@/lib/db";
 import { createSchool } from "@/lib/schools";
 import { hashPassword } from "@/lib/auth/password";
+import { matchColumns } from "@/lib/move-in/match";
+import type { ImportColumn } from "@/lib/importer";
+
+/** A file's headings matched to an import's columns by the one import engine's matcher, one file column each. */
+export function byHeadings(kind: { key: string; columns: ImportColumn[] }, headers: string[]): Record<string, number> {
+  return Object.fromEntries(Object.entries(matchColumns(kind.key, kind.columns, headers, [])).map(([k, cols]) => [k, cols[0]]));
+}
 
 export const PASSWORD = "Correct-horse-42";
 

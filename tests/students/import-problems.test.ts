@@ -2,7 +2,8 @@
 // at once, so the office fixes the file in one go (QA PEOPLE-01).
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
-import { autoMatch, previewImport } from "@/lib/importer";
+import { previewImport } from "@/lib/importer";
+import { byHeadings } from "../helpers";
 import { studentImport, STUDENT_IMPORT } from "@/lib/students/import";
 import { studentSchool } from "./fixtures";
 
@@ -21,7 +22,7 @@ describe("import preview problems", () => {
       ["Demo Good Row", "", "", "12-03-2016", "Male", "Demo Ravi Rao", "9876512345"],
       ["", "", "", "", "", "", ""],
     ];
-    const preview = await withSchool(s.ctx, (tx) => previewImport(tx, s.ctx, kind, rows, autoMatch(kind.columns, headers)));
+    const preview = await withSchool(s.ctx, (tx) => previewImport(tx, s.ctx, kind, rows, byHeadings(kind, headers)));
     const bad = preview.bad.find((b) => b.line === 2)!;
     expect(bad.problems).toEqual(["Date of birth is empty.", "Parent's phone: Phone number has 5 digits. Indian mobile numbers have 10 digits."]);
     // The empty columns are not said twice in other words.

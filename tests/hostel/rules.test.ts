@@ -10,7 +10,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool, type Tx } from "@/lib/db";
 import { canDecide, decide } from "@/lib/approvals";
-import { importKind, previewImport, runImport, undoImport, autoMatch } from "@/lib/importer";
+import { importKind, previewImport, runImport, undoImport} from "@/lib/importer";
 import { runClearanceChecks } from "@/lib/students/clearance";
 import { setClearance, startExit } from "@/lib/staff/exit";
 import { activeBedOf, allocate, bedHistory, checkOut, moveBed, residents } from "@/lib/hostel/allocation";
@@ -25,7 +25,7 @@ import { ROOMS_IMPORT } from "@/lib/hostel/import";
 import { assertHostel } from "@/lib/hostel/scope";
 import "@/lib/hostel/handlers";
 import "@/lib/hostel/clearance";
-import { makeSchool } from "../helpers";
+import { makeSchool, byHeadings } from "../helpers";
 import { TODAY, TZ, anyHostel, as, day, giveBed, hostelFor, ist, makeHostelSchool, plus, type HostelFixture } from "./fixture";
 
 describe("Hostel Management rules", () => {
@@ -267,7 +267,7 @@ describe("Hostel Management rules", () => {
       ["Boys' Hostel", "Ground", "B-1", "2", ""],
       ["Girls' Hostel", "Ground", "G-2", "20", ""],
     ];
-    const preview = await withSchool(A, (tx) => previewImport(tx, A, kind, rows, autoMatch(kind.columns, headers)));
+    const preview = await withSchool(A, (tx) => previewImport(tx, A, kind, rows, byHeadings(kind, headers)));
     expect(preview.good.map((g) => (g.value as { roomNo: string }).roomNo)).toEqual(["B-11", "B-12"]);
     expect(preview.bad.map((b) => b.problems[0])).toEqual([
       "There is no hostel called “Staff Quarters”. Add it in Hostel Settings first.",

@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import { prisma, withSchool, type SchoolContext, type Tx } from "@/lib/db";
 import { saveFile, SHEET_TYPES } from "@/lib/files";
 import { runDueJobs } from "@/lib/jobs";
-import { autoMatch, importKind, previewImport, RowProblem, runImport, undoImport, type Decisions, type ImportKind } from "@/lib/importer";
+import { importKind, previewImport, RowProblem, runImport, undoImport, type Decisions, type ImportKind } from "@/lib/importer";
 import { accessIn } from "@/lib/auth/access";
 import { findLogin } from "@/lib/auth/sign-in";
 import { addUpload, canBring, chooseRow, importFile, lastFailure, mayImport, moveInKinds, phonesOfDifferentFamilies, settleImports, workOn } from "@/lib/move-in/service";
@@ -21,7 +21,7 @@ import "@/lib/fees/import";
 import "@/lib/import-registry";
 import { addStudent, studentSchool } from "../students/fixtures";
 import { makeFeeSchool, type FeeSchool } from "../fees/fixture";
-import { makeSchool, makeUser } from "../helpers";
+import { makeSchool, makeUser, byHeadings } from "../helpers";
 
 let s: Awaited<ReturnType<typeof studentSchool>>;
 let ctx: SchoolContext;
@@ -29,7 +29,7 @@ let ctx: SchoolContext;
 const HEAD = ["Full name", "Class", "Section", "Date of birth", "Gender", "Father's or guardian's name", "Parent's phone", "Mother's name", "Mother's phone", "Admission number", "Roll number", "Address"];
 type Row = [name: string, cls: string, sec: string, dob: string, gender: string, father: string, phone: string, mother: string, motherPhone: string, adm: string, roll: string, address: string];
 const kind = () => studentImport(STUDENT_IMPORT, { sectionId: null, applyFeePlan: false });
-const match = () => autoMatch(kind().columns, HEAD);
+const match = () => byHeadings(kind(), HEAD);
 const check = (rows: Row[], decisions: Decisions = {}, c: SchoolContext = ctx) => withSchool(c, (tx) => previewImport(tx, c, kind(), rows, match(), decisions));
 async function bring(rows: Row[], decisions: Decisions = {}, c: SchoolContext = ctx) {
   return withSchool(c, async (tx) => {
@@ -123,7 +123,7 @@ describe("one bad row never sinks the whole file (G12)", () => {
     await prisma.userLogin.update({ where: { id: s.principal.id }, data: { phone: principalPhone, displayName: "Lata Menon" } });
     const staff = importKind("staff")!;
     const headers = ["Full name", "Phone", "Designation", "Joining date", "Email", "Create login"];
-    const sm = autoMatch(staff.columns, headers);
+    const sm = byHeadings(staff, headers);
     const rows = [
       ["Lata Menon", principalPhone, "Teacher", "01-06-2019", "", "Yes"],
       ["Gita One", phone(), "Teacher", "01-06-2020", "same@school.in", ""],
@@ -189,10 +189,10 @@ describe("Undo, fix the file and import it again (G13)", () => {
     const headers = ["Full name", "Phone", "Designation", "Joining date", "Create login"];
     const p = phone();
     const rows = [["Ramu Login", p, "Teacher", "01-06-2020", "Yes"]];
-    const once = await run(async (tx) => runImport(tx, ctx, staff, "staff.csv", await previewImport(tx, ctx, staff, rows, autoMatch(staff.columns, headers))));
+    const once = await run(async (tx) => runImport(tx, ctx, staff, "staff.csv", await previewImport(tx, ctx, staff, rows, byHeadings(staff, headers))));
     expect(once.added).toBe(1);
     await undo(once.id);
-    const twice = await run(async (tx) => runImport(tx, ctx, staff, "staff.csv", await previewImport(tx, ctx, staff, rows, autoMatch(staff.columns, headers))));
+    const twice = await run(async (tx) => runImport(tx, ctx, staff, "staff.csv", await previewImport(tx, ctx, staff, rows, byHeadings(staff, headers))));
     expect(twice).toMatchObject({ added: 1, skipped: 0 });
     const login = await findLogin(p);
     expect(login).not.toBeNull();
@@ -367,7 +367,7 @@ describe("the Accountant brings in old dues, receipts and expenses from their ow
   it("a students import with old dues brought in is undone only after the old dues import", async () => {
     const a = adm("OD");
     const k = studentImport(STUDENT_IMPORT, { sectionId: null, applyFeePlan: true });
-    const students = await run(async (tx) => runImport(tx, f.pctx, k, "students.csv", await previewImport(tx, f.pctx, k, [["Dues Child", "5", "A", "01-02-2016", "F", "Dues Father", phone(), "", "", a, "", ""]], autoMatch(k.columns, HEAD))), f.pctx);
+    const students = await run(async (tx) => runImport(tx, f.pctx, k, "students.csv", await previewImport(tx, f.pctx, k, [["Dues Child", "5", "A", "01-02-2016", "F", "Dues Father", phone(), "", "", a, "", ""]], byHeadings(k, HEAD))), f.pctx);
     expect(students.added).toBe(1);
     const od = importKind("fee-old-dues")!;
     const dues = await run(async (tx) => runImport(tx, f.ctx, od, "dues.csv", await previewImport(tx, f.ctx, od, [[a, "", "2500", "31-03-2026", ""]], { admissionNo: 0, feeHead: 1, amount: 2, dueDate: 3, note: 4 })), f.ctx);

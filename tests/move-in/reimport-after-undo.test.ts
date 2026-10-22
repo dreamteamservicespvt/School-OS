@@ -4,7 +4,8 @@
 // of records used since, or taken by anything but an import undo, stay taken.
 import { describe, expect, it } from "vitest";
 import { withSchool, type Tx } from "@/lib/db";
-import { autoMatch, importKind, previewImport, runImport, undoImport } from "@/lib/importer";
+import { importKind, previewImport, runImport, undoImport } from "@/lib/importer";
+import { byHeadings } from "../helpers";
 import { CATALOGUE_IMPORT } from "@/lib/library/import";
 import { copyByCode } from "@/lib/library/catalogue";
 import { ITEMS_IMPORT, ASSETS_IMPORT } from "@/lib/inventory/import";
@@ -17,9 +18,9 @@ import { as, makeHostelSchool } from "../hostel/fixture";
 async function importTwice(ctx: { schoolId: string; userId: string | null }, key: string, headers: string[], rows: string[][]) {
   const kind = importKind(key)!;
   const run = <T,>(fn: (tx: Tx) => Promise<T>) => withSchool(ctx, fn, { timeout: 60_000 });
-  const once = await run(async (tx) => runImport(tx, ctx, kind, "old.csv", await previewImport(tx, ctx, kind, rows, autoMatch(kind.columns, headers))));
+  const once = await run(async (tx) => runImport(tx, ctx, kind, "old.csv", await previewImport(tx, ctx, kind, rows, byHeadings(kind, headers))));
   await run((tx) => undoImport(tx, ctx, once.id));
-  const preview = await run((tx) => previewImport(tx, ctx, kind, rows, autoMatch(kind.columns, headers)));
+  const preview = await run((tx) => previewImport(tx, ctx, kind, rows, byHeadings(kind, headers)));
   const twice = await run((tx) => runImport(tx, ctx, kind, "old.csv", preview));
   return { once, preview, twice, run };
 }

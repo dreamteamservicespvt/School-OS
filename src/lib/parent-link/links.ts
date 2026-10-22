@@ -18,10 +18,12 @@ import { prisma, withSchool, type SchoolContext, type Tx } from "../db";
 import { writeAudit } from "../audit";
 import { sendMessage, MessagingProblem, type SendResult } from "../messaging/send";
 import { channelSetups, whatsappIsLive, type Channel } from "../messaging/channels";
+import { inTestMode } from "../messaging/providers";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
 import { messageSettings } from "../messaging/settings";
 import type { AudienceRule } from "../messaging/recipients";
 import { OPEN_LINK } from "../students/guardian-access";
+import { logCodeSentBy, mayLogCode } from "../dev-codes";
 
 export class ParentLinkProblem extends Error {}
 
@@ -295,6 +297,10 @@ export async function sendCode(tx: Tx, ctx: SchoolContext, linkId: string, purpo
     idempotencyKey: `parent-link-code:${row.id}`,
   });
   await tx.parentLinkCode.update({ where: { id: row.id }, data: { messageId: sent.messageId } });
+  if (mayLogCode(inTestMode(setups[channel]) ? "test" : "real")) {
+    const guardian = await tx.guardian.findUnique({ where: { id: link.guardianId }, select: { phone: true } });
+    await logCodeSentBy(tx, ctx, channel, { to: guardian?.phone, purpose: purpose === "device" ? "Parent Link, new phone" : "Parent Link, consent", code });
+  }
   await writeAudit(tx, ctx, { action: "code-sent", recordType: "Parent Link", recordId: linkId, after: { purpose, channel } });
   return row;
 }

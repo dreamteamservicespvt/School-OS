@@ -19,7 +19,8 @@ import { CANCELLED_REASON, DELIVER_JOB, MessagingProblem, NOT_SENT } from "./sen
 export { CANCELLED_REASON };
 import { messageSettings, type BackupType } from "./settings";
 import { currentVersions, render } from "./templates";
-import { withRealLinks } from "../parent-link/token";
+import { linksIn, withRealLinks } from "../parent-link/token";
+import { logTestModeLink, testModeCarriesCodes } from "../dev-codes";
 
 /** Stop starting new sends after this long, so a job always finishes within its transaction time. */
 const RUN_BUDGET_MS = 6_000;
@@ -139,6 +140,8 @@ export async function deliverMessage(tx: Tx, ctx: SchoolContext, payload: { mess
       if (!out) return { ok: true, providerMessageId: `app-${r.id}`, status: "DELIVERED" };
       const provider = c.providers[r.channel as ProviderChannel];
       if (!provider) return { ok: false, retryable: false, reason: `${CHANNEL_LABEL[r.channel as Channel] ?? r.channel} is not connected.` };
+      // Test mode sends nothing: on a tester's computer the personal links it would have sent go to the server log.
+      if (provider.key === "sandbox" && testModeCarriesCodes()) for (const l of linksIn(r.text)) logTestModeLink({ to: r.address, what: l.what, url: l.url });
       try {
         return await provider.send(out);
       } catch {

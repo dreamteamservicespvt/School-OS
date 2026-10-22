@@ -19,3 +19,13 @@ Logins (password DEMO_PASSWORD): `cems.principal`, `cems.admin`, `cems.accountan
 `cems.driver`; School B: `qab.admin`.
 
 Results are written to `qa-output/` (screenshots, results.jsonl).
+
+One-time codes (two-step and sign-in, Parent Link, admission consent, pickup,
+console) are written to the server log, one line each, when the app runs on this
+computer (`next dev`, or `next start` with `APP_URL=http://localhost:...`) and the
+school's messages are in Test mode:
+`[dev] one-time code for xxxxxx3210 (sign-in): 123456`. Parent Links, invites and
+survey links that Test mode did not send are there too (`[dev] Parent Link for ...`).
+Start the app with its output in a file (`npx next start -p 3000 > app.log 2>&1`) and
+set `QA_SERVER_LOG` to it; `signIn()` in `lib.mjs` then types the two-step code
+itself. A live server (APP_URL a real address) never writes codes or links.

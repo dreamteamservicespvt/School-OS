@@ -50,8 +50,8 @@ export function SchoolInviteForm({ token, phoneMasked, reset }: { token: string;
   const ready = rules.every((r) => r.ok) && pw === again;
   return (
     <form action={action} noValidate className="flex flex-col gap-4">
-      {state?.message ? <Alert tone="danger">{state.message}</Alert> : !codeNotSent(sent.test) && <Alert tone="success">{sent.message}</Alert>}
-      {sent.test && <TestCodeNote />}
+      {state?.message ? <Alert tone="danger">{state.message}</Alert> : !codeNotSent(sent.test, sent.inLog) && <Alert tone="success">{sent.message}</Alert>}
+      {sent.test && <TestCodeNote inLog={sent.inLog} />}
       <OtpBoxes label={`6-digit code sent to +91 ${sent.sentTo}`} error={state?.field === "code"} />
       <div className="flex flex-col gap-1.5">
         <label htmlFor="password" className="text-[13px] font-semibold text-ink2">{reset ? "New password" : "Choose a password"}</label>

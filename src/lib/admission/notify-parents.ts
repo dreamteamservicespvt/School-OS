@@ -66,9 +66,6 @@ export async function messageParent(tx: Tx, ctx: SchoolContext, msg: ParentMessa
       to: {}, channels: [channel], text: msg.secret ? "One-time code for admission consent" : msg.text, title: trigger,
       trigger, source: { type: msg.about.recordType, id: msg.about.recordId }, audienceLabel: msg.to.name, onNoCredits: "block",
     }, plan);
-    if (process.env.NODE_ENV !== "production" && msg.secret) {
-      console.info(JSON.stringify({ level: "info", event: "admission-parent-code", note: "development only", to: msg.to.phone.slice(-4), text: msg.text }));
-    }
     await writeAudit(tx, ctx, {
       action: "message-to-parent", recordType: msg.about.recordType, recordId: msg.about.recordId,
       after: { kind: msg.template, channel, to: channel === "email" ? address : `•••••${msg.to.phone.slice(-4)}`, messageId: r.messageId, text: msg.secret ? "(one-time code)" : msg.text },

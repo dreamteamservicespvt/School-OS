@@ -7,6 +7,7 @@ import { CONSOLE_STEP_COOKIE, DEVICE_DAYS, pendingCode, testCopyCode } from "@/l
 import { consoleHostAllowed, getConsole } from "@/lib/console/current";
 import { appUrl, codesCanBeSent } from "@/lib/console/outbox";
 import { withConsole } from "@/lib/db";
+import { mayLogCode } from "@/lib/dev-codes";
 import { CodeStep, PasswordStep } from "./form";
 
 export const metadata: Metadata = { title: "Console sign in", robots: { index: false, follow: false } };
@@ -36,7 +37,7 @@ export default async function ConsoleSignInPage({ searchParams }: { searchParams
       {step === 1 ? (
         <PasswordStep notice={notice} />
       ) : (
-        <CodeStep sentTo={pending!.sentTo} name={user!.name} trustDays={DEVICE_DAYS} test={!codesCanBeSent()} shownCode={testCopyCode(challenge)} />
+        <CodeStep sentTo={pending!.sentTo} name={user!.name} trustDays={DEVICE_DAYS} test={!codesCanBeSent()} inLog={mayLogCode("none")} shownCode={testCopyCode(challenge)} />
       )}
     </ConsoleFrame>
   );

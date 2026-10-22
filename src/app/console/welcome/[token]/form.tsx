@@ -54,8 +54,8 @@ export function WelcomeForm({ token, phoneMasked }: { token: string; phoneMasked
     <>
       <StepDots step={2} labels={["Confirm your phone", "Set your password"]} />
       <form action={action} noValidate className="mt-5 flex flex-col gap-4">
-        {state?.message ? <Alert tone="danger">{state.message}</Alert> : !codeNotSent(sent.test) && <Alert tone="success">{sent.message}</Alert>}
-        {sent.test && <TestCodeNote />}
+        {state?.message ? <Alert tone="danger">{state.message}</Alert> : !codeNotSent(sent.test, sent.inLog) && <Alert tone="success">{sent.message}</Alert>}
+        {sent.test && <TestCodeNote inLog={sent.inLog} />}
         <OtpBoxes label={`6-digit code sent to +91 ${sent.sentTo}`} error={state?.field === "code"} />
         <div className="flex flex-col gap-1.5">
           <label htmlFor="password" className="text-[13px] font-semibold text-ink2">Choose a password</label>

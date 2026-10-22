@@ -510,6 +510,13 @@ export async function visibleForecasts(tx: Tx, who: ReportViewer, a: ReportAcces
   return rows.filter((r) => r.area !== "fees" && r.area !== "finance" && r.studentId !== null && mine.has(r.studentId));
 }
 
+/**
+ * What a suggestion's key may contain: "dropout:<id>:2026-10" and
+ * "unusual-att:<id>:2026-10-18" here, and Looking ahead's keys (forecasts.ts),
+ * among them "leaving-f:<id>:attendance+fees+marks:2026-10" with a "+".
+ */
+export const SIGNAL_KEY_RE = /^[\w:.+-]{1,200}$/;
+
 export type AiSignal = {
   key: string; kind: "dropout" | "prediction" | "unusual"; title: string; source: string; body: string; studentId?: string; flagId?: string;
   /** Looking ahead: the area, how soon to act, and where to look. */

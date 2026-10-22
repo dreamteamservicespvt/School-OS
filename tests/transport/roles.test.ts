@@ -12,7 +12,9 @@ import { accessIn } from "@/lib/auth/access";
 import { requirePermission } from "@/lib/permissions";
 import { PAGES, type PageKey } from "@/lib/transport/words";
 import { pageAllowed } from "@/lib/transport/access";
-import { issueDriverKey, revokeDriverKey } from "@/lib/transport/fleet";
+import { hashKey, issueDriverKey, revokeDriverKey } from "@/lib/transport/fleet";
+import { DRIVER_LIMIT_PER_MINUTE, driverKeyLimit } from "@/lib/transport/driver-api";
+import { hitLimit } from "@/lib/rate-limit";
 import { ensureTrips } from "@/lib/transport/trips";
 import { TRANSPORT_WIDGETS } from "@/lib/dashboard/widgets/transport";
 import { makeTransportSchool, today, trFor, STOP1, type TrFixture } from "./fixture";
@@ -250,10 +252,25 @@ describe("Transport Management by role", () => {
 
     it("slows down a phone that sends too much", async () => {
       const k = (await withSchool(f.ctx, (tx) => issueDriverKey(tx, f.ctx, f.srinu.id, "Busy phone"))).key;
+      // 90 calls a minute per phone key. The first 88 of this minute are counted
+      // straight on the phone's counter (quicker than 88 calls); the API then
+      // counts the 89th and 90th and refuses the 91st. Not across a new minute.
+      expect(DRIVER_LIMIT_PER_MINUTE).toBe(90);
+      const left = 60_000 - (Date.now() % 60_000);
+      if (left < 8_000) await new Promise((r) => setTimeout(r, left + 50));
+      for (let i = 0; i < DRIVER_LIMIT_PER_MINUTE - 2; i++) expect((await hitLimit(driverKeyLimit(hashKey(k)), DRIVER_LIMIT_PER_MINUTE, 60)).ok).toBe(true);
       const codes: number[] = [];
-      for (let i = 0; i < 92; i++) codes.push((await api("trips", { key: k, schoolId: f.school.id })).status);
-      expect(codes.slice(0, 90).every((s) => s === 200)).toBe(true);
-      expect(codes.at(-1)).toBe(429);
-    });
+      const answers: Response[] = [];
+      for (let i = 0; i < 3; i++) {
+        const res = await api("trips", { key: k, schoolId: f.school.id });
+        codes.push(res.status);
+        answers.push(res);
+      }
+      expect(codes).toEqual([200, 200, 429]);
+      expect(Number(answers[2].headers.get("Retry-After"))).toBeGreaterThan(0);
+      // Another phone is not slowed down by this one.
+      const other = (await withSchool(f.ctx, (tx) => issueDriverKey(tx, f.ctx, f.srinu.id, "Quiet phone"))).key;
+      expect((await api("trips", { key: other, schoolId: f.school.id })).status).toBe(200);
+    }, 60_000);
   });
 });

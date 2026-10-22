@@ -21,6 +21,7 @@ import type { DeviceInfo } from "../auth/sessions";
 import { logActivity, maskMobile, tenDigits, type ConsoleActor } from "./activity";
 import { codesByWhatsapp, codesCanBeSent, deliver, type ConsoleOutgoing } from "./outbox";
 import { isTestCopy } from "../test-copy-env";
+import { logOneTimeCode } from "../dev-codes";
 
 export const CONSOLE_COOKIE = "sos_console";
 export const CONSOLE_STEP_COOKIE = "sos_console_step";
@@ -94,6 +95,7 @@ async function sendCode(user: SuperAdminUser, purpose: "sign-in" | "welcome", no
   if (user.email) messages.push({ channel: "email", to: user.email, purpose: "code", subject: `${code} is your School OS Console code`, text: `Hello ${user.name},\n\n${text}\n\nIf you did not try to sign in, tell the Owner at once.\n`, safeText: safe });
   const sent = await deliver(messages);
   if (sent.every((s) => s.status === "FAILED")) return { ok: false as const, message: "The code could not be sent just now. Try again in a minute." };
+  logOneTimeCode({ to: user.phone, purpose: purpose === "sign-in" ? "console sign-in" : "console set-up", code, carriedBy: sent.every((s) => s.status === "TEST") ? "none" : "real" });
   return { ok: true as const, challenge, sentTo: maskMobile(user.phone), test: sent.every((s) => s.status === "TEST") };
 }
 

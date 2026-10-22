@@ -16,17 +16,21 @@ import { hitLimit } from "./rate-limit";
 const BURST_MS = 20_000;
 export type TickResult = { ran: number; schedules: boolean };
 
-export async function tickJobs(budgetMs = BURST_MS): Promise<TickResult> {
+/**
+ * One burst. `only` keeps it to some jobs (one school's, or some kinds), and
+ * then the timed work for every school is left to the next full burst.
+ */
+export async function tickJobs(budgetMs = BURST_MS, only?: { schoolId?: string; kinds?: string[] }): Promise<TickResult> {
   const until = Date.now() + budgetMs;
   // Timed work (reminders, escalations) is queued at most once a minute, like the worker.
-  const schedules = (await hitLimit("job-tick:schedules", 1, 60)).ok;
+  const schedules = !only && (await hitLimit("job-tick:schedules", 1, 60)).ok;
   if (schedules) {
     await queueSchedules();
     await consoleWork();
   }
   let ran = 0;
   while (Date.now() < until) {
-    const n = await runDueJobs(5);
+    const n = await runDueJobs(5, only);
     ran += n;
     if (n === 0) break;
   }

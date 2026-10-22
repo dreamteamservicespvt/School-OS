@@ -16,7 +16,9 @@ describe("job bursts", () => {
     await withSchool(ctx, async (tx) => {
       for (let i = 0; i < 3; i++) await enqueue(tx, ctx, "test-tick", `tick-${i}`, {});
     });
-    await Promise.all([tickJobs(10_000), tickJobs(10_000)]);
+    // Only this file's jobs: other test files' jobs share the queue.
+    const only = { schoolId: school.id, kinds: ["test-tick"] };
+    await Promise.all([tickJobs(10_000, only), tickJobs(10_000, only)]);
     expect(runs).toBe(3);
     const jobs = await withSchool(ctx, (tx) => tx.backgroundJob.findMany({ where: { kind: "test-tick" } }));
     expect(jobs.every((j) => j.status === "done")).toBe(true);

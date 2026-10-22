@@ -8,7 +8,7 @@
 // the person who does that work never needs Settings (05-roles.md).
 import type { ModuleKey } from "../modules";
 
-export type PlaceKey = "settings" | "fees" | "finance" | "events" | "staff" | "enquiries" | "library" | "inventory-items" | "inventory-assets" | "hostel" | "students";
+export type PlaceKey = "settings" | "fees" | "finance" | "events" | "staff" | "enquiries" | "library" | "inventory-items" | "inventory-assets" | "hostel" | "students" | "salary";
 
 export type ImportPlace = {
   key: PlaceKey;
@@ -38,6 +38,7 @@ export const PLACES: Record<PlaceKey, ImportPlace> = {
   "inventory-assets": { key: "inventory-assets", module: "inventory-management", base: "/inventory-management/assets/import", downloads: "/inventory-management/import", kinds: ["inventory-assets"], name: "Import assets" },
   hostel: { key: "hostel", module: "hostel-management", base: "/hostel-management/rooms/import", kinds: ["hostel-rooms"], name: "Import rooms" },
   students: { key: "students", module: "student-management", base: "/student-management/import", kinds: ["students", "students-update"], name: "Import students" },
+  salary: { key: "salary", module: "salary-management", base: "/salary-management/structures/import", kinds: ["salary-structures"], name: "Import salary structures" },
 };
 
 export function importPlace(key: unknown): ImportPlace | null {
@@ -66,6 +67,7 @@ export const errorsHref = (place: ImportPlace, batchId: string, kind: string) =>
 export const HOME: Record<string, { href: string; label: string }> = {
   students: { href: "/student-management", label: "Open Student List" },
   "students-update": { href: "/student-management", label: "Open Student List" },
+  "salary-structures": { href: "/salary-management/structures", label: "Open Salary Structures" },
   staff: { href: "/staff-hr-management", label: "Open Staff List" },
   departments: { href: "/staff-hr-management/settings", label: "Open HR Settings" },
   "fee-old-dues": { href: "/fee-management/ledger", label: "Open Student Fee Ledger" },
@@ -93,6 +95,7 @@ export const WORDS: Record<string, { one: string; many: string }> = {
   "hostel-rooms": { one: "room", many: "rooms" },
   students: { one: "student", many: "students" },
   "students-update": { one: "student's changes", many: "students' changes" },
+  "salary-structures": { one: "salary structure", many: "salary structures" },
 };
 
 export const wordsFor = (kind: string, label: string) => WORDS[kind] ?? { one: label.toLowerCase().replace(/s$/, ""), many: label.toLowerCase() };

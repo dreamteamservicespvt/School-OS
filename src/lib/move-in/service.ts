@@ -60,10 +60,12 @@ const KNOWN: Record<string, Omit<MoveInKind, "key" | "label">> = {
   "hostel-rooms": { module: "hostel-management", order: 13, about: "Hostel rooms and their beds." },
   "inventory-items": { module: "inventory-management", order: 14, about: "Items with their opening stock." },
   "inventory-assets": { module: "inventory-management", order: 15, about: "The asset register with tags." },
+  // Brought in only on Salary Management's own page (restricted pay details), not listed for Switching.
+  "salary-structures": { module: "salary-management", order: 16, about: "Each staff member's basic, allowances and monthly TDS, from the month they start." },
 };
 // UDISE+ files are read by the Students import; changes to students come in on Student Management, Import,
 // and a row of the Students file that is a student already here can be chosen as "same student: update".
-const HIDDEN = new Set(["students-udise", STUDENT_UPDATE_IMPORT]);
+const HIDDEN = new Set(["students-udise", STUDENT_UPDATE_IMPORT, "salary-structures"]);
 
 /** The module that owns an import kind ("settings" for kinds not listed). */
 export function kindModule(key: string): ModuleKey {
@@ -102,7 +104,7 @@ export const mayImport = (permissions: PermissionMap, kindKey: string, action: "
 };
 
 /** Kinds not listed for Switching to School OS that a module's Import page brings in when the person chooses them. */
-const BY_CHOICE = new Set([STUDENT_UPDATE_IMPORT]);
+const BY_CHOICE = new Set([STUDENT_UPDATE_IMPORT, "salary-structures"]);
 
 /** May this person bring in this kind when they choose it on a page (a listed kind, or one brought in by choice). */
 export const mayChoose = (permissions: PermissionMap, kindKey: string, modulesOn?: ReadonlySet<ModuleKey>) =>

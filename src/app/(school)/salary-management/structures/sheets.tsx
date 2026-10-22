@@ -1,12 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Download, Upload } from "lucide-react";
 import { SheetForm, useTyped } from "@/components/ui/url-sheet";
 import { SDate, SMoney, SSelect, SSwitch, SText } from "@/components/ui/sheet-fields";
 import { SelectField, type Option } from "@/components/ui/field";
-import { buttonClass } from "@/components/ui/button";
-import { importStructuresAction, reviseBulkAction, saveStructureAction } from "./actions";
+import { reviseBulkAction, saveStructureAction } from "./actions";
 
 export type Comp = { id: string; name: string; kind: string; calc: string; percentBp: number | null; systemKey: string | null };
 export type Template = { id: string; name: string; amounts: Record<string, number> };
@@ -79,22 +77,6 @@ export function ReviseBulkSheet({ closeHref, ids, rows, from }: { closeHref: str
         </ul>
         <p className="text-[12.5px] text-ink3 mt-1.5">Fixed earnings go up and are rounded to the rupee; percentage parts follow basic pay.</p>
       </div>
-    </SheetForm>
-  );
-}
-
-export function ImportSheet({ closeHref, templateHref }: { closeHref: string; templateHref: string }) {
-  const t = useTyped("file");
-  const [name, setName] = useState<string | null>(null);
-  return (
-    <SheetForm title="Import salary structures from a file" sub="Each row is checked first. Nothing changes unless every row is right." closeHref={closeHref} action={importStructuresAction} submitLabel="Check and import" pendingText="Checking…">
-      <p className="text-[14px] text-ink2">Use the template with one row a staff member: staff ID, basic, conveyance, special allowance, TDS and the effective date. Every row becomes a new version; old versions stay.</p>
-      <a href={templateHref} download className={buttonClass("soft", "sm", "self-start")}><Download size={15} aria-hidden="true" />Download template</a>
-      <label className="flex items-center justify-center gap-2 h-12 rounded-xl border border-dashed border-line bg-surface text-[14px] font-semibold text-ink2 cursor-pointer hover:bg-sunken focus-within:ring-2 focus-within:ring-brand/40">
-        <Upload size={16} aria-hidden="true" />{name ?? "Choose the CSV file"}
-        <input type="file" name="file" accept=".csv,text/csv" className="sr-only" onChange={(e) => setName(e.target.files?.[0]?.name ?? null)} />
-      </label>
-      {t.error && <p className="text-[12.5px] text-bad font-semibold" role="alert">{t.error}</p>}
     </SheetForm>
   );
 }

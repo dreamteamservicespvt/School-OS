@@ -14,3 +14,4 @@ import "./events/import";
 import "./library/import";
 import "./hostel/import";
 import "./inventory/import";
+import "./salary/import";

@@ -34,7 +34,10 @@ const UPLOAD_AT: Record<string, string> = {
   "hostel-rooms": "Hostel Management, Rooms & Beds, Import",
 };
 /** Kinds brought in only on their own module's page. */
-const ONLY_THERE: Record<string, string> = { "students-update": "Student Management, Import students, Changes to students already here" };
+const ONLY_THERE: Record<string, string> = {
+  "students-update": "Student Management, Import students, Changes to students already here",
+  "salary-structures": "Salary Management, Salary Structures, Import",
+};
 
 export async function templateWorkbook(kind: ImportKind<unknown>, lookups: Lookups, schoolName: string): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();

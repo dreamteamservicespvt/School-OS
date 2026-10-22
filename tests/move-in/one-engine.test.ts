@@ -175,3 +175,34 @@ describe("Student Management, Import students (G16)", () => {
     expect((await run(c, (tx) => tx.moveInFile.findUniqueOrThrow({ where: { id } }))).status).toBe("open");
   });
 });
+
+describe("Salary Management, Import salary structures (G16)", () => {
+  it("brings in new structure versions on the engine for full Salary Management only; Undo archives them", async () => {
+    const acc = await who(f.accountant.id);
+    expect(await placeRefusal(acc, PLACES.salary, "salary-structures", "create")).toBeNull();
+    const teacher = await makeUser({ schools: [{ id: f.school.id, roleKeys: ["teacher"] }] });
+    expect(await placeRefusal(await who(teacher.id), PLACES.salary, "salary-structures", "create")).toMatch(/Only the Accountant, the Principal or the School Admin/);
+    // Pay details are not listed for Switching to School OS in Settings.
+    expect(await placeRefusal(acc, PLACES.settings, "salary-structures", "create")).not.toBeNull();
+
+    const c = f.ctx;
+    await run(c, async (tx) => {
+      const campus = await tx.campus.findFirstOrThrow({ where: { archivedAt: null } });
+      await tx.staff.create({ data: { schoolId: f.school.id, campusId: campus.id, staffCode: "SAL-1", firstName: "Asha", lastName: "Rao", fullName: "Asha Rao", phone: "9876500999", designation: "Teacher", joiningDate: new Date("2020-06-01T00:00:00Z") } });
+    });
+    const csv = "Staff ID,Basic,Conveyance,Special allowance,TDS,Effective from\nSAL-1,\"Rs. 22,000\",1600,3400,0,01-11-2026\nNOPE-9,1000,,,,01-11-2026\nSAL-1,1000,,,,15-11-2026\n";
+    const [id] = await upload(c, csv, "structures.csv", "salary-structures");
+    const checked = (await run(c, (tx) => workOn(tx, c, id, { check: true }))).checked!;
+    expect(checked.ready.map((r) => r.line)).toEqual([2]);
+    expect(checked.problems.find((p) => p.line === 3)?.problems).toContain("No staff member has the staff ID NOPE-9.");
+    expect(checked.problems.find((p) => p.line === 4)?.problems.join(" ")).toMatch(/twice in the file.*1st of a month/);
+    await run(c, (tx) => importFile(tx, c, id, { link: fileHref(PLACES.salary, id) }));
+    await drain(c);
+    const staffId = (await run(c, (tx) => tx.staff.findFirstOrThrow({ where: { staffCode: "SAL-1" } }))).id;
+    const s = await run(c, (tx) => tx.salaryStructure.findFirstOrThrow({ where: { staffId, archivedAt: null } }));
+    expect(s).toMatchObject({ version: 1, tdsPaise: 0n, reason: "Imported from a spreadsheet" });
+    const batchId = (await run(c, (tx) => tx.moveInFile.findUniqueOrThrow({ where: { id } }))).batchId!;
+    await run(c, (tx) => undoImport(tx, c, batchId));
+    expect((await run(c, (tx) => tx.salaryStructure.findUniqueOrThrow({ where: { id: s.id } }))).archivedAt).not.toBeNull();
+  });
+});

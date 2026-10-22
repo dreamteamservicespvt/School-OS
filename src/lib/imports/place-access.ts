@@ -17,6 +17,7 @@ import { FullOnlyError, viewerFor } from "../admission/access";
 import { libCan, libViewer } from "../library/access";
 import { invCan, invViewer } from "../inventory/access";
 import { hostelCan, hostelViewer } from "../hostel/access";
+import { salaryLevel } from "../salary/access";
 import { importPlace, placeHolds, type ImportPlace } from "./places";
 
 type Need = "create" | "archive";
@@ -77,6 +78,10 @@ export async function placeRefusal(current: Current, place: ImportPlace, kind: s
       // Student Management full (05-roles.md), as for adding or archiving a student by hand.
       return reachFor(current.permissions, "student-management", need) !== "none" && current.permissions["student-management"]?.change === "all"
         ? null : new PermissionDeniedError("student-management").message;
+    case "salary":
+      // Full Salary Management only (the Accountant, the Principal, the School Admin), as for typing a structure.
+      return reachFor(current.permissions, "salary-management", need) !== "none" && salaryLevel(current.permissions) === "full"
+        ? null : "Only the Accountant, the Principal or the School Admin can change salary.";
   }
 }
 
@@ -86,6 +91,8 @@ export async function placeRefusal(current: Current, place: ImportPlace, kind: s
  * with no class (one of the person's own campus) and the class fee plan.
  */
 export async function placeOptions(place: ImportPlace, current: Current, fd: FormData): Promise<Record<string, unknown> | undefined> {
+  // Salary: a person limited to one campus brings in that campus's staff only.
+  if (place.key === "salary") return { campusId: current.campusId ?? null };
   if (place.key !== "students") return undefined;
   const sectionId = String(fd.get("sectionId") ?? "").trim();
   if (sectionId) {

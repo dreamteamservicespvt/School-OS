@@ -1,9 +1,8 @@
 "use server";
 
-import { dateOf, file, id, optionalText, parseRupees, rupeesOf, str, text, UUID_RE } from "@/lib/fees/act";
+import { dateOf, id, optionalText, rupeesOf, str, text, UUID_RE } from "@/lib/fees/act";
 import { MoneyProblem } from "@/lib/fees/problem";
 import { formatDate, formatRupees } from "@/lib/format";
-import { writeAudit } from "@/lib/audit";
 import { components, linesFrom } from "@/lib/salary/settings";
 import { reviseByPercent, saveStructure } from "@/lib/salary/structures";
 import { assertStaffOnCampus } from "@/lib/salary/campus";
@@ -52,50 +51,4 @@ export async function reviseBulkAction(_prev: unknown, fd: FormData) {
     const n = await reviseByPercent(tx, ctx, ids, Math.round(pct * 100), from, text(fd, "reason", "Reason", { min: 3, max: 200 }));
     return { n, pct, from: formatDate(from) };
   }, (r) => `${r.n} structures revised by ${r.pct}% from ${r.from}. New versions saved; earlier months are not changed.`);
-}
-
-/** Import from a CSV (staff ID, basic, conveyance, special allowance, TDS, effective from): every row is checked before anything is saved. */
-export async function importStructuresAction(_prev: unknown, fd: FormData) {
-  return salaryAction("create", fd, async (tx, ctx, current) => {
-    const f = file(fd, "file");
-    if (!f) throw new MoneyProblem("Choose the CSV file.", "file");
-    if (f.size > 2_000_000) throw new MoneyProblem("The file is bigger than 2 MB. Split it into smaller files.", "file");
-    const lines = (await f.text()).split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-    const head = lines.shift()?.toLowerCase() ?? "";
-    if (!head.includes("staff")) throw new MoneyProblem("The first row must be the headings from the template: staff_id, basic, conveyance, special_allowance, tds, effective_from.", "file");
-    const comps = await components(tx, ctx);
-    const byName = (n: string) => comps.find((c) => c.name.toLowerCase() === n || c.systemKey === n);
-    const basic = byName("basic"), conv = byName("conveyance"), special = byName("special allowance");
-    const problems: string[] = [];
-    const rows: { staffId: string; amounts: Map<string, bigint>; tds: bigint; from: Date; esi: boolean }[] = [];
-    for (const [i, raw] of lines.entries()) {
-      const [code, b, c, s, t, d] = raw.split(",").map((x) => x.trim().replace(/^"|"$/g, ""));
-      const at = `Row ${i + 2}`;
-      try {
-        // One campus: a staff ID of another campus is "no staff with ID", like one that does not exist.
-        const staff = await tx.staff.findFirst({ where: { staffCode: code, archivedAt: null, ...(current.campusId ? { campusId: current.campusId } : {}) }, select: { id: true } });
-        if (!staff) throw new MoneyProblem(`no staff with ID ${code || "(empty)"}`);
-        const m = /^(\d{2})-(\d{2})-(\d{4})$/.exec(d ?? "") ?? /^(\d{4})-(\d{2})-(\d{2})$/.exec(d ?? "");
-        if (!m) throw new MoneyProblem("effective_from must be a date like 01-11-2026");
-        const iso = m[1].length === 4 ? `${m[1]}-${m[2]}-${m[3]}` : `${m[3]}-${m[2]}-${m[1]}`;
-        const amounts = new Map<string, bigint>();
-        const bp = parseRupees(b ?? "", "basic");
-        if (!bp) throw new MoneyProblem("basic is needed");
-        if (basic) amounts.set(basic.id, bp);
-        const cv = parseRupees(c ?? "", "conveyance"); if (conv && cv) amounts.set(conv.id, cv);
-        const sv = parseRupees(s ?? "", "special_allowance"); if (special && sv) amounts.set(special.id, sv);
-        const gross = bp * BigInt(3) / BigInt(2) + (cv ?? ZERO) + (sv ?? ZERO);
-        rows.push({ staffId: staff.id, amounts, tds: parseRupees(t ?? "", "tds") ?? ZERO, from: new Date(`${iso}T00:00:00Z`), esi: gross <= BigInt(2100000) });
-      } catch (e) {
-        problems.push(`${at}: ${e instanceof Error ? e.message : "could not be read"}`);
-      }
-    }
-    if (!rows.length && !problems.length) throw new MoneyProblem("The file has no rows under the headings.", "file");
-    if (problems.length) throw new MoneyProblem(`Nothing was saved. Put these right and choose the file again: ${problems.slice(0, 6).join("; ")}${problems.length > 6 ? `; and ${problems.length - 6} more` : ""}.`, "file");
-    for (const r of rows) {
-      await saveStructure(tx, ctx, { staffId: r.staffId, effectiveFrom: r.from, lines: linesFrom(comps, r.amounts), pfApplies: true, esiApplies: r.esi, tdsPaise: r.tds, reason: `Imported from ${f.name}` });
-    }
-    await writeAudit(tx, ctx, { action: "salary-structures-imported", recordType: "Salary Structure", recordId: null, after: { file: f.name, rows: rows.length } });
-    return rows.length;
-  }, (n) => `${n} salary structures imported. Each is a new version; old versions stay.`);
 }

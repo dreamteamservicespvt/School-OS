@@ -21,7 +21,7 @@ import { SalaryHead } from "../_components/salary-head";
 import { WorkRow } from "../_components/bits";
 import { AllTick, BulkBar, RowTick } from "../_components/bulk";
 import { BASE, one, qs, salaryGuard, salaryPeriod, type SearchParams } from "../_lib/page";
-import { ImportSheet, ReviseBulkSheet, StructureSheet, type Comp } from "./sheets";
+import { ReviseBulkSheet, StructureSheet, type Comp } from "./sheets";
 
 export const metadata = { title: "Salary Structures" };
 
@@ -100,7 +100,7 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
     <div>
       <SalaryHead pageName="Salary Structures" href={HREF} sub="Each staff member’s earnings and deductions, with every past version kept"
         actions={<>
-          <ButtonLink href={here({ do: "import" })} scroll={false} variant="secondary" icon={Upload} className="hidden md:inline-flex">Import</ButtonLink>
+          {p.change && <ButtonLink href={`${HREF}/import`} variant="secondary" icon={Upload} className="hidden md:inline-flex">Import</ButtonLink>}
           <ButtonLink href={here({ do: "add" })} scroll={false} variant="primary" icon={Plus}>Add structure</ButtonLink>
         </>} />
       <Stack>
@@ -215,7 +215,6 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
         <ReviseBulkSheet closeHref={here({ do: null, ids: null })} ids={bulkIds.join(",")} from={iso(nextStart)}
           rows={bulkIds.map((id) => ({ id, s: data.staff.find((x) => x.id === id), c: currentOf(id) })).filter((r) => r.s && r.c).map((r) => ({ name: r.s!.fullName, gross: rupees(r.c!.grossPaise) }))} />
       )}
-      {doing === "import" && <ImportSheet closeHref={here({ do: null })} templateHref={`${HREF}/template`} />}
     </div>
   );
 }

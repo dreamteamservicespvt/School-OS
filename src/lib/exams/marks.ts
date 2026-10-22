@@ -327,7 +327,11 @@ export type PaperRow = {
 const BY_LABEL = new Intl.Collator(undefined, { numeric: true });
 
 /** The papers a person enters marks for (their own allocations), or every paper for full reach. */
-export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, yearId: string, f: { examId?: string; status?: string; q?: string }) {
+/**
+ * `counts: false` leaves out what each paper's marks and teachers are (done, of, waiting, teachers come back
+ * empty): for the Dashboard, which shows only which papers wait for marks (G37: it read every mark of the year).
+ */
+export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, yearId: string, f: { examId?: string; status?: string; q?: string; counts?: boolean }) {
   const exams = await tx.exam.findMany({ where: { academicYearId: yearId, archivedAt: null, status: { not: "DRAFT" }, ...(f.examId ? { id: f.examId } : {}) }, include: { entries: { where: { archivedAt: null } } }, orderBy: { startDate: "desc" } });
   const sections = await tx.section.findMany({ where: { academicYearId: yearId, archivedAt: null }, include: { schoolClass: true }, orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }] });
   const subjectIds = [...new Set(exams.flatMap((e) => e.entries.map((x) => x.subjectId)))];
@@ -338,14 +342,15 @@ export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, ye
     pairs.push({ exam, entry, section });
   }
   if (pairs.length === 0) return [];
+  const counts = f.counts !== false;
   const [papers, marks, roster, waiting, allocs] = await Promise.all([
     tx.marksPaper.findMany({ where: { entryId: { in: pairs.map((p) => p.entry.id) } } }),
-    tx.marks.findMany({ where: { entryId: { in: pairs.map((p) => p.entry.id) } }, select: { entryId: true, sectionId: true, studentId: true, absent: true, total: true, grade: true } }),
-    sectionStudents(tx, [...new Set(pairs.map((p) => p.section.id))], yearId),
-    tx.marksModeration.groupBy({ by: ["entryId"], where: { status: "waiting", entryId: { in: pairs.map((p) => p.entry.id) } }, _count: true }),
-    tx.teacherAllocation.findMany({ where: { academicYearId: yearId, archivedAt: null, sectionId: { in: [...new Set(pairs.map((p) => p.section.id))] } }, select: { sectionId: true, subjectId: true, staffId: true } }),
+    counts ? tx.marks.findMany({ where: { entryId: { in: pairs.map((p) => p.entry.id) } }, select: { entryId: true, sectionId: true, studentId: true, absent: true, total: true, grade: true } }) : [],
+    counts ? sectionStudents(tx, [...new Set(pairs.map((p) => p.section.id))], yearId) : [],
+    counts ? tx.marksModeration.groupBy({ by: ["entryId"], where: { status: "waiting", entryId: { in: pairs.map((p) => p.entry.id) } }, _count: true }) : [],
+    counts ? tx.teacherAllocation.findMany({ where: { academicYearId: yearId, archivedAt: null, sectionId: { in: [...new Set(pairs.map((p) => p.section.id))] } }, select: { sectionId: true, subjectId: true, staffId: true } }) : [],
   ]);
-  const staff = await tx.staff.findMany({ where: { id: { in: [...new Set(allocs.map((a) => a.staffId))] } }, select: { id: true, fullName: true, userLoginId: true } });
+  const staff = counts ? await tx.staff.findMany({ where: { id: { in: [...new Set(allocs.map((a) => a.staffId))] } }, select: { id: true, fullName: true, userLoginId: true } }) : [];
   // Looked up once rather than searched for every paper (the Dashboard reads every paper of the year: QA PLATFORM-13).
   // Each lookup keeps the first row, as a search with find() would.
   const first = <T, K>(rows: T[], key: (r: T) => K) => {

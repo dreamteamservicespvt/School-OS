@@ -106,7 +106,7 @@ const marksDue: Widget<"attention"> = {
     const v = await examView(c);
     if (!v || (v.scope.office && !v.scope.manage)) return null;
     // A teacher with no sections given has no papers; papersFor already keeps to teachesPaper().
-    const papers = (await papersFor(c.tx, c.viewer.ctx, v.scope, v.yearId, {}))
+    const papers = (await papersFor(c.tx, c.viewer.ctx, v.scope, v.yearId, { counts: false }))
       .filter((p) => p.status !== "SUBMITTED" && p.status !== "LOCKED" && p.date <= c.today && (!p.due || p.due <= addDays(c.today, 3)));
     if (!papers.length) return null;
     const late = papers.filter((p) => p.due && p.due < c.today);

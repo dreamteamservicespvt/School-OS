@@ -11,8 +11,8 @@ import { staffAllowed, staffIdLimit, staffLimit, type AttendanceAccess } from ".
 import { offDayMessage, schoolDays } from "./calendar";
 import { loadSchoolCalendar } from "../calendar/school-days";
 import { registerChoices } from "./register";
-import { attendanceSettings, statusList } from "./settings";
-import { attendanceSummary, percentText } from "./summary";
+import { attendanceSettings, statusList, statusMap } from "./settings";
+import { addDay, attendanceSummary, finish, percentText, type PersonSummary } from "./summary";
 import { deviceHealth, REJECT_WORDS } from "./devices";
 import { minutesText } from "./time";
 import { classWise } from "./classwise";
@@ -230,16 +230,25 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       const classes = new Map<string, string[]>();
       for (const s of withClass) classes.set(s.schoolClass.name, [...(classes.get(s.schoolClass.name) ?? []), s.id]);
       const rows: ReportRow[] = [];
+      const statusBy = statusMap(statuses);
+      // Every class's students in one read, and one summary of all of them for all the months (G37: it was one per class and month).
+      // A person's day status does not depend on the range or on who else is in it, so a class's month is its students' days of that month.
+      const enrolled = await tx.enrolment.findMany({ where: { sectionId: { in: withClass.map((s) => s.id) }, archivedAt: null }, select: { studentId: true, sectionId: true } });
+      const whole = months.length ? await attendanceSummary(tx, ctx, { studentIds: [...new Set(enrolled.map((e) => e.studentId))], from: months[0], to: monthEnd(months[months.length - 1]), today: input.today }) : null;
       for (const [cls, ids] of classes) {
-        const studentIds = (await tx.enrolment.findMany({ where: { sectionId: { in: ids }, archivedAt: null }, select: { studentId: true } })).map((e) => e.studentId);
+        const inClass = new Set(ids);
+        const studentIds = enrolled.filter((e) => inClass.has(e.sectionId)).map((e) => e.studentId);
         const row: ReportRow = { who: cls };
         let yearPresent = 0;
         let yearCounted = 0;
         for (const m of months) {
-          const sum = await attendanceSummary(tx, ctx, { studentIds, from: m, to: monthEnd(m), today: input.today });
-          row[isoDay(m).slice(0, 7)] = sum.overall.countedDays ? pct(sum.overall.percent) : "";
-          yearPresent += sum.overall.present;
-          yearCounted += sum.overall.countedDays;
+          const key = isoDay(m).slice(0, 7);
+          const month: PersonSummary = { workingDays: 0, markedDays: 0, countedDays: 0, present: 0, absent: 0, late: 0, leave: 0, byStatus: {}, percent: null };
+          for (const id of studentIds) for (const [day, st] of whole?.days.get(id) ?? []) if (day.startsWith(key)) addDay(month, st, statusBy);
+          finish(month);
+          row[key] = month.countedDays ? pct(month.percent) : "";
+          yearPresent += month.present;
+          yearCounted += month.countedDays;
         }
         row.year = yearCounted ? pct(Math.round((yearPresent / yearCounted) * 1000) / 10) : "";
         rows.push(row);

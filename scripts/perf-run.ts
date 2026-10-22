@@ -184,7 +184,7 @@ add("Attendance: every report", async () => {
   const keys = reportsFor(a, features);
   const out: unknown[] = [];
   for (const k of keys) {
-    const input = readReportInput((x) => (x === "r" ? k : null), today, keys);
+    const input = readReportInput((x) => (x === "report" ? k : null), today, keys);
     out.push(await read(principal, (tx) => runReport(tx, principal.ctx, a, input)).catch((e) => `failed: ${e instanceof Error ? e.message : e}`));
   }
   return out;

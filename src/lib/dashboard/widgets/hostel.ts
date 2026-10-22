@@ -94,15 +94,17 @@ const lateReturns: Widget<"attention"> = {
   allowed: reads,
   async load(c) {
     const mine = await mineOf(c);
-    const late = await c.tx.gatePass.findMany({ where: { kind: "HOSTEL_OUTING", status: "OUT", archivedAt: null, toAt: { lt: c.now }, ...(mine ? { hostelId: { in: mine } } : {}) }, orderBy: { toAt: "asc" }, take: 20 });
+    const where = { kind: "HOSTEL_OUTING" as const, status: "OUT" as const, archivedAt: null, toAt: { lt: c.now }, ...(mine ? { hostelId: { in: mine } } : {}) };
+    // Every late student, as Outings lists them with status Late (the first few are named).
+    const [late, count] = await Promise.all([c.tx.gatePass.findMany({ where, orderBy: { toAt: "asc" }, take: 20 }), c.tx.gatePass.count({ where })]);
     if (!late.length) return null;
     const info = await studentsInfo(c.tx, c.viewer.ctx, late.map((p) => p.studentId));
     const first = info.get(late[0].studentId);
     return {
       id: "hostel.late", tone: "bad", icon: "Clock",
-      title: late.length === 1 ? `${first?.first ?? "A student"} not returned (due ${clockAt(late[0].toAt!, c.tz)})` : `${plural(late.length, "student")} not back by the return time`,
+      title: count === 1 ? `${first?.first ?? "A student"} not returned (due ${clockAt(late[0].toAt!, c.tz)})` : `${plural(count, "student")} not back by the return time`,
       detail: worker(c.viewer) ? `Out with ${late[0].collectorName}. Call them, then mark returned.` : "The warden is following up.",
-      action: "Open", href: `${BASE}/outings?status=LATE`, value: String(late.length),
+      action: "Open", href: `${BASE}/outings?status=LATE`, value: String(count),
     };
   },
 };

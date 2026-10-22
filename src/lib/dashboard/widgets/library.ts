@@ -61,7 +61,7 @@ const reservations: Widget<"band"> = {
       c.tx.reservation.count({ where: { status: "READY" } }),
       c.tx.reservation.count({ where: { status: "WAITING" } }),
     ]);
-    return { id: "library.reservations", label: "Reservations", big: n(ready + waiting), foot: ready ? `${plural(ready, "book")} kept at the desk` : waiting ? `${plural(waiting, "member")} waiting` : "Nobody waiting", href: `${BASE}?do=reservations` };
+    return { id: "library.reservations", label: "Reservations", big: n(ready + waiting), foot: ready ? `${plural(ready, "book")} kept at the desk` : waiting ? `${plural(waiting, "member")} waiting` : "Nobody waiting", href: `${BASE}#reservations` };
   },
 };
 
@@ -108,7 +108,7 @@ const readyToCollect: Widget<"panel"> = {
         right: r.status === "READY" ? "Ready" : "Waiting", rightTone: r.status === "READY" ? "ok" : "info", href: m ? `${BASE}?member=${m.key}` : BASE,
       };
     });
-    return { slot: "side", panel: { kind: "list", title: "Reservations", sub: "Kept at the desk first, then the queue", icon: "BookOpenCheck", rows: list, href: `${BASE}?do=reservations`, linkLabel: "All reservations", empty: "Nobody is waiting for a book." } };
+    return { slot: "side", panel: { kind: "list", title: "Reservations", sub: "Kept at the desk first, then the queue", icon: "BookOpenCheck", rows: list, href: `${BASE}#reservations`, linkLabel: "All reservations", empty: "Nobody is waiting for a book." } };
   },
 };
 

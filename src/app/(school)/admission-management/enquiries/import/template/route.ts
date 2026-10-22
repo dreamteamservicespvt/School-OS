@@ -1,11 +1,9 @@
-// The enquiry import template: the columns, with an example row.
-import { requireAction } from "@/lib/current";
-import { importKind, templateCsv } from "@/lib/importer";
-import "@/lib/admission/import";
+// The ready Excel sheet for enquiries, made for this school.
+import { PLACES } from "@/lib/imports/places";
+import { kindParam, placeTemplateResponse } from "@/lib/imports/place-routes";
 
-export async function GET() {
-  await requireAction("admission-management", "create");
-  return new Response(templateCsv(importKind("admission-enquiries")!), {
-    headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": 'attachment; filename="enquiry-import-template.csv"', "Cache-Control": "no-store" },
-  });
+export const dynamic = "force-dynamic";
+
+export function GET(req: Request) {
+  return placeTemplateResponse(PLACES["enquiries"], kindParam(req, PLACES["enquiries"]));
 }

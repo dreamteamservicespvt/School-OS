@@ -131,7 +131,7 @@ export function UndoAdmission({ id }: { id: string }) {
   return (
     <>
       <Button variant="ghost" icon={Undo2} onClick={() => setOpen(true)}>Undo admission (10 min)</Button>
-      <FormSheet open={open} onClose={() => setOpen(false)} title="Undo admission?" sub="The student, the new parent records, their Parent Links, the class place, the fee plan and the documents are taken back. Allowed only while nothing else has happened to the student (no payment, attendance or marks)."
+      <FormSheet open={open} onClose={() => setOpen(false)} title="Undo admission?" sub="The student, the new parent records, their Parent Links, the class place, the fee plan and the documents are taken back. Allowed only while nothing else has happened to the student (no payment, attendance or marks), because fee payments are never deleted. The application fee stays with the application."
         action={undoAction} hidden={{ id }} submitLabel="Undo admission" submitVariant="danger" submitIcon={Undo2}>
         {() => <p className="text-[14px] text-ink2">The application goes back to approved. Nothing is deleted; the history keeps both steps.</p>}
       </FormSheet>

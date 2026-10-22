@@ -6,13 +6,18 @@
 // the phone matches and the name matches too (brothers and sisters; close
 // spellings allowed, src/lib/students/name-match.ts); a phone on record under
 // another name is never merged silently: the admissions person says whether
-// it is the same family. The verified papers become the student's documents
-// (with the photo), and the previous school keeps its last class and marks.
+// it is the same family. Every received or verified paper becomes the
+// student's document (papers.ts; a verified photo becomes the student's
+// photo), and the previous school keeps its last class and marks.
 // The consent given on the form becomes each guardian's Consent Records;
 // Parent Link is created and sent; the welcome message goes through
 // Communication's automatic rule. "Undo admission" works for 10 minutes
 // while nothing else has happened (no payment, attendance or marks), and
-// takes the fee plan rows it made off the student's fees.
+// takes back what it made: the student, the class place, the new parents and
+// their Parent Links, the fee plan rows (marked removed, "Admission undone")
+// and the documents. A fee payment is never deleted, so once one is recorded
+// (even a cancelled one) the undo is refused and the student is withdrawn in
+// Leaving & Alumni instead. The application fee stays with the application.
 import "server-only";
 
 import { Prisma, type Application, type Guardian } from "@prisma/client";
@@ -23,16 +28,15 @@ import { assertYearOpen } from "../academic/years";
 import { createStudent, StudentProblem } from "../students/students";
 import { createGuardian, linkGuardian } from "../students/guardians";
 import { recordConsentGiven } from "../students/consent";
-import { getStudentSettings } from "../students/settings";
 import { namesAlike } from "../students/name-match";
 import { refreshBalances } from "../fees/dues";
-import { IMAGE_TYPES } from "../files";
 import { sendLinksOnAdmission } from "../parent-link/links";
 import { MessagingProblem, sendAutomatic } from "../messaging";
 import { AdmissionProblem } from "./act";
 import { requireFull, type Viewer } from "./access";
 import { activity, feeSettled, loadApplication } from "./applications";
-import { classRule, loadSettings, stageOn, studentDocumentKind } from "./settings";
+import { classRule, loadSettings, stageOn } from "./settings";
+import { carryPapers } from "./papers";
 import { progressOf } from "./documents";
 import { hasDataConsent } from "./consent";
 import { seatsFor } from "./seats";
@@ -51,7 +55,7 @@ export type Conversion = {
   consentRecordIds?: string[];
   parentLinkIds?: string[];
   welcome?: string;
-  /** The verified papers made into Student Documents (same files). */
+  /** The received and verified papers made into Student Documents (same files). */
   studentDocumentIds?: string[];
   /** The photo paper, set as the student's photo. */
   photoFileId?: string | null;
@@ -294,37 +298,11 @@ export async function confirmAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, ap
     const e = await tx.enquiry.findUnique({ where: { id: app.enquiryId } });
     if (e) await systemStatus(tx, ctx, s, e, "admitted", `Admitted as ${student.fullName}, admission no. ${student.admissionNo}.`);
   }
-  const docsWords = papers.documentIds.length ? ` ${papers.documentIds.length} verified paper${papers.documentIds.length === 1 ? "" : "s"} added to the student's documents${papers.photoFileId ? ", with the photo" : ""}.` : "";
+  const docsWords = papers.documentIds.length ? ` ${papers.documentIds.length} paper${papers.documentIds.length === 1 ? "" : "s"} added to the student's documents${papers.notVerified ? ` (${papers.notVerified} not verified yet)` : ""}${papers.photoFileId ? ", with the photo" : ""}.` : "";
   const familyWords = input.family === "new" && !chosen ? " The phone was on record for another family: new parent records made, as chosen." : chosen ? ` Linked to ${chosen.name} as the same family, as chosen.` : "";
   await activity(tx, ctx, app.id, "admitted", `Admitted as ${student.fullName}, admission no. ${student.admissionNo}, ${cls?.name ?? ""} ${section.name}, roll no. ${enrolment.rollNo}. ${newGuardianIds.length} new parent record${newGuardianIds.length === 1 ? "" : "s"}${linkedGuardianIds.length ? `, ${linkedGuardianIds.length} linked to an existing parent (sibling)` : ""}.${docsWords}${familyWords}`, conversion as unknown as Prisma.InputJsonValue);
   await writeAudit(tx, ctx, { action: "admitted", recordType: "Application", recordId: app.id, before: { stage: "APPROVED" }, after: { studentId: student.id, admissionNo: student.admissionNo, sectionId: section.id, rollNo: enrolment.rollNo, newGuardianIds, linkedGuardianIds, documents: papers.documentIds.length, feeRows: feeDueIds.length, family: input.family ?? null } });
   return { student, enrolment, conversion, welcome };
-}
-
-/**
- * The papers verified at admission become the student's documents, pointing
- * at the same stored files (nothing is copied), named as Student Settings
- * lists them. A verified photo becomes the student's photo.
- */
-async function carryPapers(tx: Tx, ctx: SchoolContext, app: Application, studentId: string) {
-  const papers = await tx.applicationDocument.findMany({ where: { applicationId: app.id, status: "VERIFIED", fileId: { not: null } }, orderBy: { createdAt: "asc" } });
-  const documentIds: string[] = [];
-  let photoFileId: string | null = null;
-  if (!papers.length) return { documentIds, photoFileId };
-  const kinds = (await getStudentSettings(tx, ctx)).requiredDocuments;
-  const files = await tx.storedFile.findMany({ where: { id: { in: papers.map((p) => p.fileId!) } }, select: { id: true, contentType: true, fileName: true } });
-  for (const p of papers) {
-    const kind = studentDocumentKind(p.docType, kinds);
-    const doc = await tx.studentDocument.create({
-      data: { schoolId: ctx.schoolId, studentId, kind, fileId: p.fileId!, note: `Verified at admission (application ${app.applicationNo})${p.originalSeen ? ", original seen" : ""}`, uploadedById: p.uploadedById ?? ctx.userId },
-    });
-    documentIds.push(doc.id);
-    const file = files.find((f) => f.id === p.fileId);
-    await writeAudit(tx, ctx, { action: "uploaded", recordType: "Student Document", recordId: doc.id, after: { studentId, kind, fileName: file?.fileName ?? null, from: `Application ${app.applicationNo}` } });
-    if (p.docType === "photo" && !photoFileId && file && (IMAGE_TYPES as readonly string[]).includes(file.contentType)) photoFileId = file.id;
-  }
-  if (photoFileId) await tx.student.update({ where: { id: studentId }, data: { photoFileId } });
-  return { documentIds, photoFileId };
 }
 
 /** What has already happened to a new student, in plain words; empty when the admission can still be undone. */
@@ -375,7 +353,8 @@ export async function undoAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, appli
     await refreshBalances(tx, dues.map((d) => d.id));
     await writeAudit(tx, ctx, { action: "removed", recordType: "Student Fee Due", recordId: student.id, before: { rows: dues.length, total: formatRupees(dues.reduce((a, d) => a + d.amountPaise, BigInt(0))) }, after: { reason: "Admission undone" } });
   }
-  if (c.studentDocumentIds?.length) await tx.studentDocument.updateMany({ where: { id: { in: c.studentDocumentIds }, archivedAt: null }, data: { archivedAt: at } });
+  // Every document on the new student: the papers carried at admission and any that followed since (papers.ts).
+  const docs = await tx.studentDocument.updateMany({ where: { studentId: student.id, archivedAt: null }, data: { archivedAt: at } });
   await tx.studentGuardian.updateMany({ where: { id: { in: c.linkIds } }, data: { archivedAt: at } });
   if (c.newGuardianIds.length) {
     const stillUsed = await tx.studentGuardian.findMany({ where: { guardianId: { in: c.newGuardianIds }, archivedAt: null }, select: { guardianId: true } });
@@ -393,7 +372,7 @@ export async function undoAdmission(tx: Tx, ctx: SchoolContext, v: Viewer, appli
     const e = await tx.enquiry.findUnique({ where: { id: app.enquiryId } });
     if (e && e.status === "admitted") await tx.enquiry.update({ where: { id: e.id }, data: { status: "applied", closedAt: null } });
   }
-  await activity(tx, ctx, app.id, "admission-undone", `Admission undone: ${student.fullName} (${c.admissionNo}) archived, with the new parent records, their Parent Links, the class place${dues.length ? `, the fee plan (${dues.length} row${dues.length === 1 ? "" : "s"})` : ""}${c.studentDocumentIds?.length ? " and the documents" : ""}.`);
+  await activity(tx, ctx, app.id, "admission-undone", `Admission undone: ${student.fullName} (${c.admissionNo}) archived, with the new parent records, their Parent Links, the class place${dues.length ? `, the fee plan (${dues.length} row${dues.length === 1 ? "" : "s"})` : ""}${docs.count ? ` and the documents (${docs.count})` : ""}. The application fee stays with the application.`);
   await writeAudit(tx, ctx, { action: "admission-undone", recordType: "Application", recordId: app.id, before: { studentId: student.id, admissionNo: c.admissionNo }, after: { stage: "APPROVED" } });
   await writeAudit(tx, ctx, { action: "archived", recordType: "Student", recordId: student.id, after: { reason: "Admission undone within 10 minutes" } });
   return c.admissionNo;

@@ -29,6 +29,11 @@ import { dayBookView } from "@/lib/finance/daybook-view";
 import { todayIn } from "@/lib/staff/dates";
 import { cancelPaymentAction, counterPaymentAction } from "@/app/(school)/admission-management/applications/actions";
 import { admissionSchool, applicationInput } from "./fixtures";
+import { randomUUID } from "node:crypto";
+import type { FeeViewer } from "@/lib/fees/access";
+import { applicantForFees, collectApplicationFee, findApplicants } from "@/lib/fees/applicants";
+import { collectApplicationFeeAction } from "@/app/(school)/fee-management/collect/application/[applicationId]/actions";
+import { makeUser } from "../helpers";
 
 let t: Awaited<ReturnType<typeof admissionSchool>>;
 type Who = Awaited<ReturnType<typeof t.who>>;
@@ -169,5 +174,72 @@ describe("cancelling an application fee, the normal way (G21)", () => {
     const pay = await run((tx) => tx.applicationFeePayment.findFirstOrThrow({ where: { applicationId: app.id } }));
     const support: SchoolContext = { ...principal.ctx, support: { requestId: "r1", name: "DREAM TEAM" } };
     await expect(withSchool(support, (tx) => cancelPayment(tx, support, principal.v, pay.id, { reason: "Duplicate", note: null }))).rejects.toThrow(/support access cannot cancel payments/);
+  });
+});
+
+describe("the Accountant takes the application fee in Fee Management, Collect Fee (G21)", () => {
+  let accountant: { id: string };
+  const feeViewerOf = (userId: string, campusId: string | null = null): FeeViewer => ({ userId, see: "all", change: "all", roleKeys: ["accountant"], sectionIds: null, yearId: null, yearIds: [], campusId });
+  beforeAll(async () => {
+    accountant = await makeUser({ schools: [{ id: t.school.id, roleKeys: ["accountant"] }], name: "Accountant" });
+  });
+
+  it("finds the applicant by name, application number or phone, and takes the fee with a receipt in the application fee series and a Day Book entry", async () => {
+    const app = await application();
+    const v = feeViewerOf(accountant.id);
+    for (const q of [app.fullName, app.applicationNo, app.phone.slice(-6)]) {
+      const found = await run((tx) => findApplicants(tx, v, q));
+      expect(found.map((a) => a.id)).toContain(app.id);
+      expect(found.find((a) => a.id === app.id)?.status.key).toBe("due");
+    }
+    await signIn(accountant.id);
+    const r = await collectApplicationFeeAction(START, form({ applicationId: app.id, amount: "500", mode: "upi", reference: "UPI99887766" }));
+    expect(r).toMatchObject({ ok: true, message: expect.stringMatching(/^Application fee ₹500(\.00)? received\. Receipt .+\/AF\//) });
+    const pay = await run((tx) => tx.applicationFeePayment.findFirstOrThrow({ where: { applicationId: app.id } }));
+    expect(pay).toMatchObject({ status: "CONFIRMED", mode: "upi", amountPaise: BigInt(50000), receivedById: accountant.id });
+    expect(pay.receiptNo).toMatch(/\/AF\//);
+    const main = await run((tx) => mainBankAccount(tx, sys));
+    expect(await entriesOf(pay.id)).toEqual([expect.objectContaining({ direction: "IN", mode: "UPI", section: "other-fees", headName: "Application fee", accountId: main.id, sourceType: "application-fee" })]);
+    // The application shows it as paid, wherever it is looked at.
+    const shown = await run((tx) => applicantForFees(tx, v, app.id));
+    expect(shown).toMatchObject({ status: { key: "paid" }, leftPaise: BigInt(0), payments: [expect.objectContaining({ id: pay.id, receiptNo: pay.receiptNo, status: "CONFIRMED" })] });
+    const history = await run((tx) => tx.applicationActivity.findFirstOrThrow({ where: { applicationId: app.id, kind: "fee" } }));
+    expect(history.text).toContain("at the fee counter");
+    // Paid in full: a second payment is refused, and nothing new is posted.
+    expect(await collectApplicationFeeAction(START, form({ applicationId: app.id, amount: "100", mode: "cash" }))).toMatchObject({ ok: false, message: "The application fee is already paid." });
+    expect(await run((tx) => tx.applicationFeePayment.count({ where: { applicationId: app.id } }))).toBe(1);
+  });
+
+  it("keeps the counter's rules: a reference for UPI, and no more than is due", async () => {
+    const app = await application();
+    await signIn(accountant.id);
+    expect(await collectApplicationFeeAction(START, form({ applicationId: app.id, amount: "500", mode: "upi" }))).toMatchObject({ ok: false, errors: { reference: expect.stringMatching(/transaction reference/) } });
+    expect(await collectApplicationFeeAction(START, form({ applicationId: app.id, amount: "900", mode: "cash" }))).toMatchObject({ ok: false, errors: { amount: expect.stringMatching(/^Only ₹500(\.00)? is due/) } });
+    expect(await run((tx) => tx.applicationFeePayment.count({ where: { applicationId: app.id } }))).toBe(0);
+  });
+
+  it("is refused to the Admission Counsellor, who sees only fee status in Fee Management; the Accountant has no Admission Management", async () => {
+    const app = await application();
+    await signIn(t.counsellor.id);
+    expect(await collectApplicationFeeAction(START, form({ applicationId: app.id, amount: "500", mode: "cash" }))).toMatchObject({ ok: false });
+    await signIn(accountant.id);
+    expect(await counterPaymentAction(START, form({ id: app.id, amount: "500", mode: "cash" }))).toMatchObject({ ok: false });
+    expect(await run((tx) => tx.applicationFeePayment.count({ where: { applicationId: app.id } }))).toBe(0);
+  });
+
+  it("a person limited to another campus does not find or open the applicant", async () => {
+    const app = await application();
+    const other = feeViewerOf(accountant.id, randomUUID());
+    expect(await run((tx) => findApplicants(tx, other, app.applicationNo))).toEqual([]);
+    expect(await run((tx) => applicantForFees(tx, other, app.id))).toBeNull();
+    await expect(run((tx) => collectApplicationFee(tx, { schoolId: t.school.id, userId: accountant.id }, other, app.id, { amountPaise: BigInt(50000), mode: "cash", reference: null }))).rejects.toThrow(/not found/);
+  });
+
+  it("an application fee taken before this page existed (never posted to the Day Book) still shows as paid, with its receipt", async () => {
+    const app = await application();
+    const old = await run((tx) => tx.applicationFeePayment.create({ data: { schoolId: t.school.id, applicationId: app.id, amountPaise: BigInt(50000), mode: "cash", status: "CONFIRMED", receiptNo: `OLD/AF/X${n}`, confirmedAt: new Date() } }));
+    const shown = await run((tx) => applicantForFees(tx, feeViewerOf(accountant.id), app.id));
+    expect(shown).toMatchObject({ status: { key: "paid" }, payments: [expect.objectContaining({ id: old.id, receiptNo: old.receiptNo, status: "CONFIRMED" })] });
+    expect((await run((tx) => findApplicants(tx, feeViewerOf(accountant.id), app.applicationNo)))[0].status.key).toBe("paid");
   });
 });

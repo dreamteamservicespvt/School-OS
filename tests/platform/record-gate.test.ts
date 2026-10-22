@@ -19,6 +19,9 @@ describe("which paths open a record", () => {
     expect(recordsIn(`/student-management/students/${id}/edit/personal`)).toHaveLength(1);
     expect(recordsIn(`/student-management/students/${id}/parents/${id}`)).toHaveLength(2);
     expect(recordsIn(`/fee-management/payments/${id}?print=1`)[0].ids).toEqual([id]);
+    // An applicant's application fee at Collect Fee: the application, not a student called "application".
+    expect(recordsIn(`/fee-management/collect/application/${id}`)).toEqual([expect.objectContaining({ ids: [id], notAnId: false })]);
+    expect(recordsIn(`/fee-management/collect/application/${id}`)[0].rule.path).toBe("fee-management/collect/application/:applicationId");
   });
 
   it("leaves fixed pages, other shapes and unknown paths to the page", () => {

@@ -12,6 +12,7 @@ import { applicationScope, requireFull, type Viewer } from "./access";
 import { activity, loadApplication, parentName, CLOSED_STAGES } from "./applications";
 import { classRule, docLabel, DOC_TYPES, type ClassDoc } from "./settings";
 import { messageParent } from "./notify-parents";
+import { followPaper } from "./papers";
 
 /** Admission papers are at most 5 MB each (inferred limit). */
 export const MAX_DOC_BYTES = 5 * 1024 * 1024;
@@ -50,7 +51,9 @@ export async function uploadDocument(tx: Tx, ctx: SchoolContext, v: Viewer, inpu
   const doc = existing
     ? await tx.applicationDocument.update({ where: { id: existing.id }, data: { fileId: stored.id, status: "RECEIVED", note: input.note, rejectReason: null, verifiedAt: null, verifiedById: null, uploadedById: ctx.userId, uploadedAt: now } })
     : await tx.applicationDocument.create({ data: { schoolId: ctx.schoolId, applicationId: app.id, docType: input.docType, required: (await classRule(tx, app.classId)).documents.find((d) => d.type === input.docType)?.required ?? false, fileId: stored.id, status: "RECEIVED", note: input.note, uploadedById: ctx.userId, uploadedAt: now } });
-  await activity(tx, ctx, app.id, "document", `${docLabel(input.docType)} uploaded${existing?.fileId ? " (new copy)" : ""}.`, { docType: input.docType, fileId: stored.id, previousFileId: existing?.fileId ?? null });
+  // Admitted with papers pending: the paper goes onto the student's documents too.
+  const followed = await followPaper(tx, ctx, app, doc, "uploaded", existing?.fileId ?? null);
+  await activity(tx, ctx, app.id, "document", `${docLabel(input.docType)} uploaded${existing?.fileId ? " (new copy)" : ""}.${followed ? ` ${followed}` : ""}`, { docType: input.docType, fileId: stored.id, previousFileId: existing?.fileId ?? null });
   await writeAudit(tx, ctx, { action: "document-uploaded", recordType: "Application", recordId: app.id, before: existing ? { status: existing.status, fileId: existing.fileId } : null, after: { docType: input.docType, fileId: stored.id, status: "RECEIVED" } });
   return doc;
 }
@@ -60,8 +63,9 @@ export async function verifyDocument(tx: Tx, ctx: SchoolContext, v: Viewer, docI
   const { doc, app } = await loadDoc(tx, v, docId);
   if (doc.status === "VERIFIED") throw new AdmissionProblem("This paper is already verified.");
   if (!doc.fileId && !doc.originalSeen) throw new AdmissionProblem(`Upload ${docLabel(doc.docType).toLowerCase()} or mark the original as seen at the counter before verifying it.`);
-  await tx.applicationDocument.update({ where: { id: doc.id }, data: { status: "VERIFIED", verifiedById: ctx.userId, verifiedAt: new Date(), rejectReason: null } });
-  await activity(tx, ctx, app.id, "document", `${docLabel(doc.docType)} verified.`, { docType: doc.docType });
+  const done = await tx.applicationDocument.update({ where: { id: doc.id }, data: { status: "VERIFIED", verifiedById: ctx.userId, verifiedAt: new Date(), rejectReason: null } });
+  const followed = await followPaper(tx, ctx, app, done, "verified");
+  await activity(tx, ctx, app.id, "document", `${docLabel(doc.docType)} verified.${followed ? ` ${followed}` : ""}`, { docType: doc.docType });
   await writeAudit(tx, ctx, { action: "document-verified", recordType: "Application", recordId: app.id, before: { docType: doc.docType, status: doc.status }, after: { status: "VERIFIED" } });
 }
 
@@ -69,7 +73,8 @@ export async function rejectDocument(tx: Tx, ctx: SchoolContext, v: Viewer, scho
   requireFull(v, "rejecting papers");
   const { doc, app } = await loadDoc(tx, v, docId);
   if (reason.trim().length < 3) throw new AdmissionProblem("Give a reason, for example \"Photo not clear\".", "reason");
-  await tx.applicationDocument.update({ where: { id: doc.id }, data: { status: "REJECTED", rejectReason: reason.trim(), verifiedAt: null, verifiedById: null } });
+  const done = await tx.applicationDocument.update({ where: { id: doc.id }, data: { status: "REJECTED", rejectReason: reason.trim(), verifiedAt: null, verifiedById: null } });
+  const followed = await followPaper(tx, ctx, app, done, "rejected");
   let told = false;
   let notSent: string | null = null;
   if (tellParent) {
@@ -78,7 +83,7 @@ export async function rejectDocument(tx: Tx, ctx: SchoolContext, v: Viewer, scho
     told = r.status === "queued";
     if (!told) notSent = r.note ?? "No valid mobile number";
   }
-  await activity(tx, ctx, app.id, "document", `${docLabel(doc.docType)} rejected: ${reason.trim()}.${told ? " Message to the parent queued." : notSent ? ` Parent not messaged: ${notSent}.` : ""}`, { docType: doc.docType });
+  await activity(tx, ctx, app.id, "document", `${docLabel(doc.docType)} rejected: ${reason.trim()}.${followed ? ` ${followed}` : ""}${told ? " Message to the parent queued." : notSent ? ` Parent not messaged: ${notSent}.` : ""}`, { docType: doc.docType });
   await writeAudit(tx, ctx, { action: "document-rejected", recordType: "Application", recordId: app.id, before: { docType: doc.docType, status: doc.status }, after: { status: "REJECTED", reason: reason.trim(), told } });
   return { told, notSent };
 }

@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ChevronRight, SearchX, UserRoundSearch } from "lucide-react";
+import { ChevronRight, SearchX, UserPlus, UserRoundSearch } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { fileLink } from "@/lib/files";
 import { formatRupees } from "@/lib/format";
 import { findStudents, mostOverdue, type FoundStudent } from "@/lib/fees/find";
+import { findApplicants, type FoundApplicant } from "@/lib/fees/applicants";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Pill } from "@/components/ui/badge";
@@ -22,15 +23,21 @@ export default async function CollectFeePage({ searchParams }: { searchParams: S
   if (p.viewer.see === "own") redirect(`${BASE}/ledger`);
   if (!p.desk) redirect(`${BASE}/dashboard`);
   const q = one((await searchParams).q).trim().slice(0, 80);
-  const list = await withSchool(p.current.ctx, (tx) => (q ? findStudents(tx, p.viewer, q, p.today, 8) : mostOverdue(tx, p.viewer, p.today, 6)));
+  const [list, applicants] = await withSchool(p.current.ctx, (tx) => Promise.all([
+    q ? findStudents(tx, p.viewer, q, p.today, 8) : mostOverdue(tx, p.viewer, p.today, 6),
+    // Applicants are not students yet: their application fee is collected here too (02 §2).
+    q ? findApplicants(tx, p.viewer, q, 6) : Promise.resolve([] as FoundApplicant[]),
+  ]));
   return (
     <div>
       <FeeHead title="Collect fee" pageName="Collect Fee" href={BASE} sub="Find the student. Their dues show up ready to collect." />
       <div className="max-w-3xl">
-        <UrlSearch big id="fee-search" placeholder="Student name, admission no. or parent phone" autoFocus label="Find a student" />
+        <UrlSearch big id="fee-search" placeholder="Student name, admission no., application no. or parent phone" autoFocus label="Find a student" />
         <Card className="mt-4 overflow-hidden">
-          {q && list.length === 0 ? (
+          {q && list.length === 0 && applicants.length === 0 ? (
             <Empty icon={SearchX} title={`No student called “${q}”`} body="Try the admission number or the parent’s mobile number." />
+          ) : q && list.length === 0 ? (
+            <p className="text-[14px] text-ink3 px-5 py-4">No student found for “{q}”. The applicants found are below.</p>
           ) : !q && list.length === 0 ? (
             <Empty icon={UserRoundSearch} title="Nobody is overdue" body="Search above to find any student and collect their fees." />
           ) : (
@@ -42,8 +49,35 @@ export default async function CollectFeePage({ searchParams }: { searchParams: S
             </>
           )}
         </Card>
+        {applicants.length > 0 && (
+          <Card className="mt-4 overflow-hidden">
+            <p className="eyebrow text-ink3 px-5 pt-4 pb-1">Applicants, for the application fee</p>
+            <ul className="p-2">
+              {applicants.map((a) => <ApplicantRow key={a.id} a={a} />)}
+            </ul>
+          </Card>
+        )}
       </div>
     </div>
+  );
+}
+
+function ApplicantRow({ a }: { a: FoundApplicant }) {
+  const left = a.status.duePaise - a.status.paidPaise;
+  return (
+    <li>
+      <Link href={`${BASE}/collect/application/${a.id}`} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken text-left group">
+        <span className="w-[42px] h-[42px] rounded-full bg-brand/10 text-brand grid place-items-center shrink-0"><UserPlus size={19} aria-hidden="true" /></span>
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-[15px] truncate">{a.name}</p>
+          <p className="text-[13px] text-ink3 truncate">Application {a.applicationNo} · {a.className}{a.parent ? ` · ${a.parent}` : ""}</p>
+        </div>
+        {a.status.key === "paid" ? <Pill tone="ok">Paid</Pill>
+          : a.status.key === "waiting" ? <Pill tone="info">Waiting</Pill>
+            : <span className="text-right"><span className="block font-semibold tnum">{formatRupees(left > BigInt(0) ? left : BigInt(0))}</span><span className="text-[12px] font-semibold text-warn">Application fee</span></span>}
+        <ChevronRight size={18} className="text-ink3 group-hover:translate-x-0.5 transition" aria-hidden="true" />
+      </Link>
+    </li>
   );
 }
 

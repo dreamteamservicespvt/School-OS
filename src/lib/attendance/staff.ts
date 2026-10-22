@@ -16,6 +16,7 @@ import { attendanceFeatures, attendanceSettings, statusList, statusMap, statuses
 import { instantAt, minutesOf, schoolDateOf } from "./time";
 import { LockedError, lockState } from "./marks";
 import { attendanceSummary } from "./summary";
+import { absentFromAttendance, presentFromAttendance } from "../academic/substitutions";
 
 const dayText = (d: Date) => formatDate(d, "UTC");
 const ACTIVE_STAFF = ["ACTIVE", "ON_LEAVE", "SUSPENDED"] as const;
@@ -158,7 +159,7 @@ export async function saveStaffAttendance(tx: Tx, ctx: SchoolContext, access: At
     if (same) continue;
     changes.push({ staffId: e.staffId, name: s.fullName, before: b?.statusKey ?? null, after: statusKey, inTime: inTime ?? b?.inTime ?? null, outTime: outTime ?? b?.outTime ?? null, late: late ?? b?.lateMinutes ?? null, note });
   }
-  if (changes.length === 0) return { changed: 0 };
+  if (changes.length === 0) return { changed: 0, periodsToCover: 0 };
   if (lock.locked && !access.lockOverride && changes.some((c) => c.before !== null)) {
     throw new LockedError(input.date, lock, `${BASE}/register/correction?for=staff&date=${isoDay(input.date)}`);
   }
@@ -168,12 +169,22 @@ export async function saveStaffAttendance(tx: Tx, ctx: SchoolContext, access: At
     if (b) await tx.attendanceMark.update({ where: { id: b.id }, data: { ...data, method: b.method === "register" ? "register" : b.method } });
     else await tx.attendanceMark.create({ data: { schoolId: ctx.schoolId, academicYearId: yearOf(c.staffId), staffId: c.staffId, date: input.date, periodNo: 0, method: "register", ...data } });
   }
+  // Today: a teacher marked absent (not on approved leave, which lists its own periods) has their periods
+  // listed for cover in Substitutions; marked in again, that cover is cancelled (04 §2, G31).
+  let periodsToCover = 0;
+  if (input.date >= today) {
+    const away = (key: string | null) => key !== null && (absentKeys.has(key) || key === "leave");
+    for (const c of changes) {
+      if (away(c.after) && !away(c.before) && !leave.has(c.staffId) && !fullLeave.has(c.staffId)) periodsToCover += await absentFromAttendance(tx, ctx, c.staffId, input.date);
+      else if (!away(c.after) && away(c.before)) await presentFromAttendance(tx, ctx, c.staffId, input.date);
+    }
+  }
   await writeAudit(tx, ctx, {
     action: lock.locked ? "staff-attendance-changed-after-lock" : "staff-attendance-saved", recordType: "Attendance Mark", recordId: null,
     before: changes.filter((c) => c.before).map((c) => ({ staff: c.name, status: c.before })) as unknown as Prisma.InputJsonValue,
     after: { date: isoDay(input.date), changes: changes.map((c) => ({ staff: c.name, status: c.after, in: c.inTime?.toISOString() ?? null, out: c.outTime?.toISOString() ?? null })) } as unknown as Prisma.InputJsonValue,
   });
-  return { changed: changes.length };
+  return { changed: changes.length, periodsToCover };
 }
 
 // ---------------------------------------------------------------- overtime and shifts

@@ -14,6 +14,7 @@ import { effectiveVersion, type PeriodCell } from "./timetable";
 import { academicSettings } from "./settings";
 import { allocationActiveOn } from "./allocation";
 import { raiseSubstitutions } from "../staff/leave";
+import { tellArrangers } from "./arrangers";
 
 const REASON_WORDS: Record<string, string> = { leave: "Leave", absent: "Absent", temporary: "Temporary teacher" };
 export const reasonWords = (r: string) => REASON_WORDS[r] ?? r;
@@ -461,4 +462,29 @@ export function replanWords(r: Replan): string {
     r.raised && `${plural(r.raised, "more period")} of teachers who are away listed as Needed`,
   ].filter(Boolean);
   return parts.length ? ` Substitutions: ${parts.join("; ")}.` : "";
+}
+
+/**
+ * Staff Attendance (05 §2) marks a teacher absent for today: their periods are
+ * listed as needing cover, as "Mark absent" on Substitutions does (04 §2), and
+ * the people who arrange substitutions are told. Nothing happens on a day
+ * without school or when the teacher is already listed as away that day.
+ */
+export async function absentFromAttendance(tx: Tx, ctx: SchoolContext, staffId: string, date: Date): Promise<number> {
+  const staff = await tx.staff.findFirst({ where: { id: staffId, archivedAt: null }, select: { id: true, fullName: true, campusId: true, staffType: true } });
+  if (!staff || staff.staffType !== "Teaching") return 0;
+  if (await dayOff(tx, ctx, date, staff.campusId)) return 0;
+  if ((await absentStaffOn(tx, ctx, date)).has(staff.id)) return 0;
+  const r = await markAbsent(tx, ctx, { staffId: staff.id, date, note: "Marked absent in Staff Attendance" });
+  const periods = r.raised + r.released;
+  if (periods > 0) await tellArrangers(tx, ctx, staff.campusId, { date, text: `${staff.fullName} is absent on ${formatDate(date)}: ${plural(periods, "period")} need${periods === 1 ? "s" : ""} a substitute.` });
+  return periods;
+}
+
+/** Staff Attendance marks the teacher in after all: the absence is taken off and its covers cancelled, the substitutes told. */
+export async function presentFromAttendance(tx: Tx, ctx: SchoolContext, staffId: string, date: Date): Promise<boolean> {
+  const a = await tx.staffAbsence.findFirst({ where: { staffId, date, archivedAt: null } });
+  if (!a) return false;
+  await unmarkAbsent(tx, ctx, a.id);
+  return true;
 }

@@ -7,6 +7,9 @@ import { academicScope, arrangesTimetable, ownPageRedirect } from "@/lib/academi
 import { assignSubstitute, markAbsent, needsOn, replanAfterPublish, replanWords } from "@/lib/academic/substitutions";
 import { makeDraft, publishVersion } from "@/lib/academic/timetable";
 import { raiseSubstitutions } from "@/lib/staff/leave";
+import { arrangerLogins } from "@/lib/academic/arrangers";
+import { attendanceAccess } from "@/lib/attendance/access";
+import { saveStaffAttendance } from "@/lib/attendance/staff";
 import { makeUser } from "../helpers";
 import { academicSchool, d } from "./fixture";
 
@@ -116,5 +119,61 @@ describe("republishing a Time Table keeps or plainly re-plans the covers (04 §2
     // Meera's cover of 5 B on Monday is cancelled with the reason.
     const cancelled = await s.run((tx) => tx.substitution.findFirst({ where: { date: mon, substituteStaffId: meera.id } }));
     expect(cancelled).toMatchObject({ status: "CANCELLED", note: "The new Time Table changed this period" });
+  });
+});
+
+describe("a teacher marked absent raises the periods needing cover (04 §2, A5)", () => {
+  const TZ = "Asia/Kolkata";
+
+  it("Staff Attendance 'Absent' today lists the teacher's periods and tells those who arrange cover; 'Present' again cancels them", async () => {
+    const s = await academicSchool();
+    const today = d("2026-11-30");
+    const now = new Date("2026-11-30T04:30:00Z"); // 10:00 in India
+    const principalNow = await s.currentFor(s.principal.id);
+    const save = (statusKey: string) => s.run(async (tx) => saveStaffAttendance(tx, s.ctx, await attendanceAccess(tx, s.ctx, principalNow), { date: today, now, timeZone: TZ, entries: [{ staffId: s.staff[0].id, statusKey }] }));
+
+    const r = await save("absent");
+    expect(r.periodsToCover).toBe(2);
+    const { rows } = await s.run((tx) => needsOn(tx, s.ctx, s.campusId, today));
+    expect(rows.map((x) => `${x.periodNo} ${x.sectionLabel} ${x.reason} ${x.substitution?.status}`)).toEqual(["1 Class 5 A absent NEEDED", "2 Class 5 B absent NEEDED"]);
+    // The only person who arranges cover here (the principal) saved it, and nobody is told about their own action.
+    const told = await s.run((tx) => tx.notification.findMany({ where: { schoolId: s.school.id, type: "substitution" } }));
+    expect(told).toEqual([]);
+
+    // Marked in after all: the absence goes and the periods are no longer needed.
+    await save("present");
+    expect((await s.run((tx) => needsOn(tx, s.ctx, s.campusId, today))).rows).toEqual([]);
+    expect(await s.run((tx) => tx.staffAbsence.count({ where: { staffId: s.staff[0].id, archivedAt: null } }))).toBe(0);
+  });
+
+  it("tells Office Staff and the Principal, not teachers, when periods need cover", async () => {
+    const s = await academicSchool();
+    await s.run((tx) => tx.role.updateMany({ where: { schoolId: s.school.id, key: "office-staff" }, data: { isEnabled: true } }));
+    const office = await makeUser({ schools: [{ id: s.school.id, roleKeys: ["office-staff"] }] });
+    const admin = await makeUser({ schools: [{ id: s.school.id, roleKeys: ["school-admin"] }] });
+    const logins = await s.run((tx) => arrangerLogins(tx, s.ctx, s.campusId));
+    expect(logins.sort()).toEqual([office.id, s.principal.id, admin.id].sort());
+    expect(logins).not.toContain(s.teacherUser.id);
+
+    // The school admin marks Kiran absent in Staff Attendance: the principal and the office hear, with the day's page.
+    const today = d("2026-12-01");
+    const adminCtx = { schoolId: s.school.id, userId: admin.id };
+    const adminNow = await s.currentFor(admin.id);
+    const r = await s.run(async (tx) => saveStaffAttendance(tx, adminCtx, await attendanceAccess(tx, adminCtx, adminNow), { date: today, now: new Date("2026-12-01T04:30:00Z"), timeZone: TZ, entries: [{ staffId: s.staff[1].id, statusKey: "absent" }] }));
+    expect(r.periodsToCover).toBe(2);
+    const told = await s.run((tx) => tx.notification.findMany({ where: { schoolId: s.school.id, type: "substitution" }, orderBy: { userLoginId: "asc" } }));
+    expect(told.map((n) => n.userLoginId).sort()).toEqual([office.id, s.principal.id].sort());
+    expect(told[0]).toMatchObject({ text: "Kiran Das is absent on 01-12-2026: 2 periods need a substitute.", link: "/academic-management/substitutions?date=2026-12-01" });
+  });
+
+  it("a teacher on approved leave marked absent is not listed twice", async () => {
+    const s = await academicSchool();
+    const today = d("2026-12-02");
+    const leave = await approvedLeave(s, s.staff[2].id, today);
+    await s.run((tx) => raiseSubstitutions(tx, s.ctx, leave, { id: s.staff[2].id, campusId: s.campusId }, null));
+    const principalNow = await s.currentFor(s.principal.id);
+    const r = await s.run(async (tx) => saveStaffAttendance(tx, s.ctx, await attendanceAccess(tx, s.ctx, principalNow), { date: today, now: new Date("2026-12-02T04:30:00Z"), timeZone: TZ, entries: [{ staffId: s.staff[2].id, statusKey: "absent" }] }));
+    expect(r.periodsToCover).toBe(0);
+    expect((await s.run((tx) => needsOn(tx, s.ctx, s.campusId, today))).rows.map((x) => x.reason)).toEqual(["leave"]);
   });
 });

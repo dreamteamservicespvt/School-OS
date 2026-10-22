@@ -80,6 +80,12 @@ const UDISE_COLUMNS: ImportColumn[] = [
 
 export type ImportOptions = { sectionId: string | null; applyFeePlan: boolean };
 
+/** The choices kept with a file (Student Management, Import): a section id for rows with no class, and the fee plan switch (on unless said off). */
+export function importOptions(o: Record<string, unknown>): ImportOptions {
+  const sectionId = typeof o.sectionId === "string" && new RegExp(`^${UUID}$`, "i").test(o.sectionId) ? o.sectionId : null;
+  return { sectionId, applyFeePlan: o.applyFeePlan !== false };
+}
+
 type NewRow = {
   mode: "create";
   fullName: string; sectionId: string; dateOfBirth: Date; gender: string; guardianName: string; guardianRelation: string; guardianPhone: string;
@@ -156,6 +162,7 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
     key,
     label,
     columns,
+    withOptions: (o) => makeKind(key, label, columns, importOptions(o)),
     async check(tx, ctx, row, seen, place): Promise<RowResult<Value>> {
       const mem = memoryOf(seen);
       const line = place?.line ?? 0;

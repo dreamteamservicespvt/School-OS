@@ -101,10 +101,19 @@ export const mayImport = (permissions: PermissionMap, kindKey: string, action: "
   return Boolean(importKind(kindKey) && switchedOn(owner, modulesOn) && can(permissions, owner, action));
 };
 
-function kindOf(key: string): ImportKind<unknown> {
+/** Kinds not listed for Switching to School OS that a module's Import page brings in when the person chooses them. */
+const BY_CHOICE = new Set([STUDENT_UPDATE_IMPORT]);
+
+/** May this person bring in this kind when they choose it on a page (a listed kind, or one brought in by choice). */
+export const mayChoose = (permissions: PermissionMap, kindKey: string, modulesOn?: ReadonlySet<ModuleKey>) =>
+  canBring(permissions, kindKey, modulesOn) || (BY_CHOICE.has(kindKey) && mayImport(permissions, kindKey, "create", modulesOn));
+
+function kindOf(key: string, options: unknown = {}): ImportKind<unknown> {
   const k = importKind(key);
-  if (!k || HIDDEN.has(key)) throw new MoveInProblem("This kind of record cannot be brought in yet.", "kind");
-  // A fresh Students import each time: the registered one remembers sections it looked up, so a class added since would still read as missing.
+  if (!k || (HIDDEN.has(key) && !BY_CHOICE.has(key))) throw new MoveInProblem("This kind of record cannot be brought in yet.", "kind");
+  // A fresh Students import each time (withOptions): the registered one remembers sections it looked up, so a class added since would still read as missing.
+  const o = options && typeof options === "object" && !Array.isArray(options) ? (options as Record<string, unknown>) : {};
+  if (k.withOptions) return k.withOptions(o);
   if (key === STUDENT_IMPORT) return studentImport(STUDENT_IMPORT, { sectionId: null, applyFeePlan: true }) as ImportKind<unknown>;
   return k;
 }
@@ -142,12 +151,14 @@ export function firstChoices(sheet: Sheet, kindKey?: string | null) {
  * records: a workbook with a Students sheet and a Staff sheet becomes two.
  * The person may only bring in what their role can add.
  */
-export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: PermissionMap, upload: { fileId: string; fileName: string; kind?: string | null }, modulesOn?: ReadonlySet<ModuleKey>) {
+export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: PermissionMap, upload: { fileId: string; fileName: string; kind?: string | null; options?: Record<string, unknown> }, modulesOn?: ReadonlySet<ModuleKey>) {
   const sheets = await readStored(tx, upload.fileId);
   const info: SheetInfo[] = sheets.map((s) => ({ name: s.name, rows: Math.max(0, s.rows.length - 1) }));
   const usable = sheets.map((s, i) => ({ s, i })).filter(({ s }) => s.rows.filter((r) => r.some((c) => c)).length >= 2);
   if (!usable.length) throw new MoveInProblem("This file has no rows to bring in. Put the headings in one row and the records below them.");
   const allowed = new Set(moveInKinds(modulesOn).filter((k) => canBring(permissions, k.key, modulesOn)).map((k) => k.key));
+  // A kind not listed for Switching, chosen on its module's page ("Changes to students already here").
+  if (upload.kind && mayChoose(permissions, upload.kind, modulesOn)) allowed.add(upload.kind);
   if (!allowed.size) throw new MoveInProblem("Your role cannot add any of these records. Ask your School Admin.");
   if (upload.kind && !allowed.has(upload.kind)) throw new MoveInProblem("Your role cannot add these records.", "kind");
 
@@ -169,6 +180,7 @@ export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: Permiss
       data: {
         schoolId: ctx.schoolId, fileId: upload.fileId, fileName: upload.fileName.slice(0, 200), sheets: info, sheetIndex: p.i,
         headerRow: p.first.headerRow, kind, columnMatch: match, createdById: ctx.userId,
+        ...(upload.options ? { options: upload.options as Prisma.InputJsonValue } : {}),
       },
     });
     made.push(row.id);
@@ -249,7 +261,7 @@ export async function workOn(tx: Tx, ctx: SchoolContext, id: string, opts: { che
   if (!file) throw new MoveInProblem("This file was not found. It may have been removed.");
   const sheets = await readStored(tx, file.fileId);
   const sheet = sheets[file.sheetIndex] ?? sheets[0];
-  const kind = kindOf(file.kind);
+  const kind = kindOf(file.kind, file.options);
   if (kind.key === "staff") await ensureHrDefaults(tx, ctx);
   const lookups = await schoolLookups(tx, ctx);
   const choices = choicesOf(file);
@@ -296,7 +308,7 @@ export async function chooseSheet(tx: Tx, ctx: SchoolContext, id: string, input:
   const sheets = await readStored(tx, f.fileId);
   if (!Number.isInteger(input.sheetIndex) || !sheets[input.sheetIndex]) throw new MoveInProblem("Choose a sheet of the file.", "sheetIndex");
   kindOf(input.kind);
-  if (!canBring(permissions, input.kind)) throw new MoveInProblem("Your role cannot add these records.", "kind");
+  if (!mayChoose(permissions, input.kind)) throw new MoveInProblem("Your role cannot add these records.", "kind");
   const sheet = sheets[input.sheetIndex];
   const sheetChanged = input.sheetIndex !== f.sheetIndex;
   const kindChanged = input.kind !== f.kind;
@@ -545,7 +557,8 @@ export async function importFile(tx: Tx, ctx: SchoolContext, id: string, opts: {
   // The import job sees the rows with their own lines in the file, and the choices made for them.
   const lines = ready.map((r) => r.line);
   const decisions = Object.fromEntries(Object.entries(decisionsOf(w.choices, w.prepared)).filter(([line]) => lines.includes(Number(line))));
-  await startImport(tx, ctx, { kind: w.kind.key, fileId, match: identity, lines, decisions, ...(opts.link ? { link: opts.link } : {}), ...(w.checked!.left.length ? { left: w.checked!.left } : {}) });
+  await startImport(tx, ctx, { kind: w.kind.key, fileId, match: identity, lines, decisions, ...(opts.link ? { link: opts.link } : {}), ...(w.checked!.left.length ? { left: w.checked!.left } : {}),
+    ...(f.options && Object.keys(f.options as object).length ? { options: f.options as Record<string, string | number | boolean | null> } : {}) });
   await tx.moveInFile.update({ where: { id }, data: { status: "importing", importFileId: fileId } });
   // Bringing the file in confirms its column match: the next file with these headings is matched the same way.
   await rememberMapping(tx, ctx, { kind: w.kind.key, headers: w.sheet.rows[f.headerRow - 1] ?? [], match: w.choices.columnMatch, fileName: f.fileName });

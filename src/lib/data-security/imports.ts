@@ -21,6 +21,8 @@ export type ImportJob = {
   link?: string;
   /** Rows the check left out on purpose before handing the rows over ("No old dues"), counted with the import. */
   left?: { reason: string; count: number }[];
+  /** The choices made with the upload (ImportKind.withOptions). */
+  options?: Record<string, string | number | boolean | null>;
 };
 
 export async function readUploaded(tx: Tx, fileId: string) {
@@ -40,8 +42,9 @@ export async function startImport(tx: Tx, ctx: SchoolContext, job: ImportJob) {
 }
 
 export async function runImportJob(tx: Tx, ctx: SchoolContext, payload: ImportJob) {
-  const kind = importKind(payload.kind);
-  if (!kind) throw new Error(`Import kind ${payload.kind} is not registered`);
+  const registered = importKind(payload.kind);
+  if (!registered) throw new Error(`Import kind ${payload.kind} is not registered`);
+  const kind = registered.withOptions ? registered.withOptions(payload.options ?? {}) : registered;
   // Safe to run twice: an import of this file already saved is not run again.
   const done = await tx.importBatch.findFirst({ where: { kind: kind.key, fileName: { endsWith: `#${payload.fileId}` } } });
   if (done) return { batchId: done.id, repeated: true };

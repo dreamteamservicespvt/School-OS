@@ -60,6 +60,12 @@ export type ImportKind<T> = {
   undo: (tx: Tx, ctx: SchoolContext, ids: string[]) => Promise<void>;
   /** Puts back the values an import changed; returns how many records were put back. */
   revert?: (tx: Tx, ctx: SchoolContext, rows: UpdatedRow[]) => Promise<number>;
+  /**
+   * The same import with the choices made with the upload (kept with the file
+   * and handed to the import job), such as Student Management's section for
+   * rows with no class. Unknown or wrong choices are ignored.
+   */
+  withOptions?: (options: Record<string, unknown>) => ImportKind<T>;
 };
 
 export type UpdatedRow = { id: string; before: Record<string, unknown>; after: Record<string, unknown> };
@@ -286,6 +292,8 @@ export async function undoImport(tx: Tx, ctx: SchoolContext, batchId: string) {
   const changed = (batch.updatedRows ?? []) as unknown as UpdatedRow[];
   const putBack = changed.length && kind.revert ? await kind.revert(tx, ctx, changed) : 0;
   await tx.importBatch.update({ where: { id: batchId }, data: { undoneAt: new Date(), undoneById: ctx.userId } });
+  // The file it came from opens again, wherever the Undo was pressed, so the corrected rows can be brought in (workflow 15).
+  await tx.moveInFile.updateMany({ where: { batchId, status: "imported", archivedAt: null }, data: { status: "open", batchId: null, importFileId: null } });
   await writeAudit(tx, ctx, { action: "import-undone", recordType: "Import", recordId: batchId, after: { kind: batch.kind, archived: created.length, putBack } });
   return { archived: created.length, putBack };
 }

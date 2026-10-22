@@ -2,8 +2,9 @@
 // person in a role that needs it types a 6-digit one-time code. The code is
 // stored only as a hash, works for 10 minutes and for 5 tries, and is sent by
 // email when the person has one, else by SMS through Communication when the
-// school's SMS channel is on (with a DLT template, rule 34). A person may
-// trust their own device for 30 days. The School Feature "two-step-login" is
+// school's SMS channel is on (with a DLT template, rule 34). After a right
+// code the device is remembered and skips the code until the person signs out
+// there (remembered.ts). The School Feature "two-step-login" is
 // on from the first day (Add School); a School Admin can switch it off in
 // Settings, Data Backup & Security. Nobody is locked out: a person no code can
 // reach signs in with the password and is shown how to fix it (sign-in.ts).
@@ -23,13 +24,12 @@ export const TWO_STEP_FEATURE = "two-step-login";
 export const CODE_TTL_MS = 10 * 60 * 1000;
 /** Wrong codes allowed before the code stops working. */
 export const MAX_CODE_TRIES = 5;
-/** A trusted device skips the code for 30 days. */
-export const TRUST_DAYS = 30;
 /** Codes sent to one person in 15 minutes, at most. */
 export const MAX_SENDS = 5;
 
 export const CHALLENGE_COOKIE = "sos_two_step";
-export const TRUSTED_COOKIE = "sos_trusted";
+/** "Keep me signed in on this device", carried from the password page to the code page ("0" when unticked). */
+export const KEEP_SIGNED_IN_COOKIE = "sos_remember";
 
 /** Whether this person must type a code to open this school. */
 export async function needsTwoStep(userLoginId: string, schoolId: string): Promise<boolean> {
@@ -49,25 +49,6 @@ export async function roleNeedsTwoStep(userLoginId: string, schoolId: string): P
     });
     return count > 0;
   });
-}
-
-/** A trusted device counts only if it was trusted after the person's last two-step reset. */
-export async function isTrustedDevice(userLoginId: string, token: string | null | undefined, now = new Date()): Promise<boolean> {
-  if (!token) return false;
-  const device = await prisma.trustedDevice.findUnique({ where: { tokenHash: hashToken(token) } });
-  if (!device || device.userLoginId !== userLoginId || device.revokedAt || device.expiresAt <= now) return false;
-  const user = await prisma.userLogin.findUnique({ where: { id: userLoginId }, select: { twoStepResetAt: true } });
-  if (user?.twoStepResetAt && device.createdAt <= user.twoStepResetAt) return false;
-  await prisma.trustedDevice.update({ where: { id: device.id }, data: { lastUsedAt: now } });
-  return true;
-}
-
-export async function trustDevice(userLoginId: string, device: DeviceInfo, now = new Date()) {
-  const token = newToken();
-  await prisma.trustedDevice.create({
-    data: { userLoginId, tokenHash: hashToken(token), userAgent: device.userAgent?.slice(0, 400) ?? null, lastUsedAt: now, expiresAt: new Date(now.getTime() + TRUST_DAYS * 86_400_000) },
-  });
-  return token;
 }
 
 function codeHash(token: string, code: string) {

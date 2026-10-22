@@ -2,7 +2,10 @@
 // database keeps only its hash, with the device and when it was last used.
 
 import { prisma } from "../db";
-import { hashToken, newToken } from "./tokens";
+import { deviceKeyOf, hashToken, newToken } from "./tokens";
+import { forgetAllDevices } from "./remembered";
+
+export { deviceKeyOf };
 
 /** A session ends after this long without use (inferred until Settings sets time-outs). */
 export const SESSION_IDLE_MS = 7 * 24 * 60 * 60 * 1000;
@@ -14,9 +17,6 @@ const TOUCH_EVERY_MS = 5 * 60 * 1000;
  * (a long-lived cookie, see signInDevice in lib/current.ts); only its hash is kept.
  */
 export type DeviceInfo = { userAgent?: string | null; ipAddress?: string | null; deviceId?: string | null };
-
-/** The stored form of a browser's device id. */
-export const deviceKeyOf = (deviceId: string | null | undefined) => (deviceId ? hashToken(`device:${deviceId}`) : null);
 
 export async function createSession(userLoginId: string, schoolId: string | null, device: DeviceInfo, now = new Date(), opts: { signedInWithCode?: boolean } = {}) {
   const token = newToken();
@@ -72,14 +72,17 @@ export async function revokeSession(sessionId: string, userLoginId: string, reas
 
 /**
  * Signs a person out everywhere at once: used for "Sign out everywhere",
- * after a password change, and when a login is disabled or its roles change
- * (08-platform-security.md §2).
+ * after a password change or reset, and "Sign out everywhere else"
+ * (08-platform-security.md §2). Their remembered devices are forgotten too, so
+ * each asks for the two-step code again; `keepRememberedToken` keeps the one
+ * the person is using when they stay signed in here.
  */
-export async function revokeAllSessions(userLoginId: string, reason: string, exceptSessionId?: string) {
+export async function revokeAllSessions(userLoginId: string, reason: string, exceptSessionId?: string, opts: { keepRememberedToken?: string | null } = {}) {
   const result = await prisma.session.updateMany({
     where: { userLoginId, revokedAt: null, ...(exceptSessionId ? { id: { not: exceptSessionId } } : {}) },
     data: { revokedAt: new Date(), revokedReason: reason },
   });
+  await forgetAllDevices(prisma, userLoginId, { keepToken: exceptSessionId ? opts.keepRememberedToken : null });
   return result.count;
 }
 

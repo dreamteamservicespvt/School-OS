@@ -369,12 +369,17 @@ export async function saveClassAttendance(tx: Tx, ctx: SchoolContext, access: At
       skipDuplicates: true,
     });
   }
+  // Changed marks with the same new values are written together (G37: a class saved again with every mark
+  // changed was one query per student, at the 8 AM peak).
+  const sameChange = new Map<string, { ids: string[]; data: Prisma.AttendanceMarkUncheckedUpdateManyInput }>();
   for (const c of changes.filter((x) => before.has(x.studentId))) {
-    await tx.attendanceMark.update({
-      where: { id: before.get(c.studentId)!.id },
-      data: { statusKey: c.statusKey, note: c.note ?? null, method: "register", markedById: ctx.userId, markedAt: input.now, takenAt, leaveRequestId: c.leaveRequestId, ...reasonOf(c.studentId) },
-    });
+    const data = { statusKey: c.statusKey, note: c.note ?? null, method: "register", markedById: ctx.userId, markedAt: input.now, takenAt, leaveRequestId: c.leaveRequestId, ...reasonOf(c.studentId) };
+    const k = JSON.stringify(data);
+    const group = sameChange.get(k) ?? { ids: [], data };
+    group.ids.push(before.get(c.studentId)!.id);
+    sameChange.set(k, group);
   }
+  for (const { ids, data } of sameChange.values()) await tx.attendanceMark.updateMany({ where: { id: { in: ids } }, data });
   const afterLock = lockedForThis;
   await writeAudit(tx, ctx, {
     action: afterLock ? "attendance-changed-after-lock" : existing.length ? "attendance-changed" : "attendance-saved",

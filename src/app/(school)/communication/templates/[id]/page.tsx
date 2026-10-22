@@ -15,6 +15,7 @@ import { BackLink, Col, DL, RecordHead, Split } from "@/components/ui/split";
 import { UrlSegmented } from "@/components/ui/url-filters";
 import { ChannelPills } from "../../_components/channel-pills";
 import { ApprovalButton, ArchiveTemplate, RefreshApproval } from "./template-actions";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Message template" };
 
@@ -62,7 +63,7 @@ export default async function TemplatePage({ params, searchParams }: { params: P
     ["Used by", rules.length ? rules.join(", ") : "Typed messages only"],
   ];
   if (isSms && v) {
-    details.push(["DLT template ID", v.dltTemplateId ? <span key="d" className="font-mono text-[13px]">{v.dltTemplateId}</span> : <Pill key="d" tone="bad">Missing</Pill>]);
+    details.push(["DLT template ID", v.dltTemplateId ? <span key="d" className="font-mono text-[13px]">{v.dltTemplateId}</span> : <Pill key="d" tone="bad"><Words k="Missing" /></Pill>]);
     details.push(["Length", `${smsParts(v.body)} SMS part${smsParts(v.body) > 1 ? "s" : ""} before blanks`]);
   }
   if (isWa && v?.whatsappName) details.push(["WhatsApp name", <span key="w" className="font-mono text-[13px]">{v.whatsappName}</span>]);
@@ -73,20 +74,20 @@ export default async function TemplatePage({ params, searchParams }: { params: P
       <RecordHead title={t.name}
         sub={<>
           <Pill tone="neutral">{categoryLabel(t.category)}</Pill>
-          {isWa && <Pill tone={WA_TONE[wa]} dot>WhatsApp {WHATSAPP_STATUS_LABEL[wa].toLowerCase()}</Pill>}
-          {isSms && (missingDlt ? <Pill tone="bad">DLT template ID missing</Pill> : <Pill tone="ok">DLT ID added</Pill>)}
-          {t.archivedAt && <Pill tone="neutral">Archived</Pill>}
+          {isWa && <Pill tone={WA_TONE[wa]} dot><Words k="WhatsApp" /> {WHATSAPP_STATUS_LABEL[wa].toLowerCase()}</Pill>}
+          {isSms && (missingDlt ? <Pill tone="bad"><Words k="DLT template ID missing" /></Pill> : <Pill tone="ok"><Words k="DLT ID added" /></Pill>)}
+          {t.archivedAt && <Pill tone="neutral"><Words k="Archived" /></Pill>}
         </>}
         actions={<>
-          {canEdit && <ButtonLink href={`/communication/templates/${t.id}/edit`} variant="secondary" icon={Pencil}>Edit</ButtonLink>}
+          {canEdit && <ButtonLink href={`/communication/templates/${t.id}/edit`} variant="secondary" icon={Pencil}><Words k="Edit" /></ButtonLink>}
           {access.full && <ArchiveTemplate id={t.id} name={t.name} archived={Boolean(t.archivedAt)} usedBy={rules} />}
         </>} />
 
       <div className="flex flex-col gap-5 lg:gap-6">
-        {t.archivedAt && <Banner tone="info" title={`Archived on ${formatDateTime(t.archivedAt, tz)}.`}>It cannot be chosen for new messages.</Banner>}
-        {missingDlt && <Banner tone="bad" title="No DLT template ID.">This SMS template cannot be used to send SMS. Add the ID from the DLT portal with Edit.</Banner>}
-        {isWa && data.provider === "sandbox" && <Banner tone="info" title="WhatsApp is in test mode.">A template sent for approval is approved straight away. Connect WhatsApp in Settings to send it to WhatsApp for real.</Banner>}
-        {v?.whatsappStatus === "REJECTED" && <Banner tone="warn" title="WhatsApp rejected this text.">{v.whatsappNote ? `“${v.whatsappNote}” ` : ""}Change the wording with Edit and send it again.</Banner>}
+        {t.archivedAt && <Banner tone="info" title={`Archived on ${formatDateTime(t.archivedAt, tz)}.`}><Words k="It cannot be chosen for new messages." /></Banner>}
+        {missingDlt && <Banner tone="bad" title="No DLT template ID."><Words k="This SMS template cannot be used to send SMS. Add the ID from the DLT portal with Edit." /></Banner>}
+        {isWa && data.provider === "sandbox" && <Banner tone="info" title="WhatsApp is in test mode."><Words k="A template sent for approval is approved straight away. Connect WhatsApp in Settings to send it to WhatsApp for real." /></Banner>}
+        {v?.whatsappStatus === "REJECTED" && <Banner tone="warn" title="WhatsApp rejected this text.">{v.whatsappNote ? `“${v.whatsappNote}” ` : ""}<Words k="Change the wording with Edit and send it again." /></Banner>}
         <Split side={340}>
           <Card className="min-w-0">
             <CardHeader title="The text" icon={FileText} description={v ? `Saved ${formatDateTime(v.createdAt, tz)}${v.createdById ? ` by ${data.people.get(v.createdById) ?? "staff"}` : ""} · used in ${usedIn(v.id)}` : undefined} />
@@ -98,13 +99,13 @@ export default async function TemplatePage({ params, searchParams }: { params: P
                   <BlankText text={v.body} />
                 </div>
                 <div>
-                  <p className="eyebrow text-ink3 mb-1.5">Blanks in this template</p>
+                  <p className="eyebrow text-ink3 mb-1.5"><Words k="Blanks in this template" /></p>
                   {v.variables.length ? (
                     <div className="flex gap-1.5 flex-wrap">{v.variables.map((k) => <span key={k} title={variableLabel(k)} className="font-mono text-[12px] px-2 py-1 rounded-lg bg-brand/10 text-brand">{`{${k}}`}</span>)}</div>
-                  ) : <p className="text-[13.5px] text-ink3">None. Everyone gets the same text.</p>}
+                  ) : <p className="text-[13.5px] text-ink3"><Words k="None. Everyone gets the same text." /></p>}
                 </div>
                 <div>
-                  <p className="eyebrow text-ink3 mb-1.5">Preview with sample details</p>
+                  <p className="eyebrow text-ink3 mb-1.5"><Words k="Preview with sample details" /></p>
                   <div className="rounded-2xl rounded-tl-md bg-surface border border-line p-3.5 shadow-card text-[14px] leading-relaxed whitespace-pre-line break-words">{preview?.ok ? preview.text : v.body}</div>
                 </div>
                 {(isWa && access.full && !t.archivedAt) && (
@@ -114,7 +115,7 @@ export default async function TemplatePage({ params, searchParams }: { params: P
                   </div>
                 )}
               </div>
-            ) : <p className="px-5 pb-5 text-[13.5px] text-ink3">No text saved yet.</p>}
+            ) : <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No text saved yet." /></p>}
           </Card>
           <Col>
             <Card>
@@ -126,7 +127,7 @@ export default async function TemplatePage({ params, searchParams }: { params: P
               <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[13.5px]">
                 {t.versions.filter((x) => x.language === lang).map((x) => (
                   <li key={x.id} className="flex justify-between gap-3">
-                    <span><b className="font-semibold">v{x.version}</b>{x.isCurrent && <span className="text-ok font-semibold"> · in use</span>}<span className="block text-[12.5px] text-ink3">Used in {usedIn(x.id)}</span></span>
+                    <span><b className="font-semibold">v{x.version}</b>{x.isCurrent && <span className="text-ok font-semibold"> <Words k="· in use" /></span>}<span className="block text-[12.5px] text-ink3"><Words k="Used in" /> {usedIn(x.id)}</span></span>
                     <span className="text-ink3 text-right text-[12.5px]">{x.createdById ? `${data.people.get(x.createdById) ?? "Staff"} · ` : ""}{formatDateTime(x.createdAt, tz)}</span>
                   </li>
                 ))}

@@ -18,6 +18,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
 import { CommHead } from "../_components/comm-head";
 import { ChannelPills, CHANNEL_NAME } from "../_components/channel-pills";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Message Templates" };
 
@@ -56,12 +57,12 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
     <>
       <CommHead access={access} page="Message Templates" href="/communication/templates"
         sub="Ready message formats in each language, with blanks like student name and due amount. Each save makes a new version."
-        actions={canEdit ? <ButtonLink href="/communication/templates/new" variant="primary" icon={Plus}>New template</ButtonLink> : undefined} />
+        actions={canEdit ? <ButtonLink href="/communication/templates/new" variant="primary" icon={Plus}><Words k="New template" /></ButtonLink> : undefined} />
       <div className="flex flex-col gap-5 lg:gap-6">
         {data.noDlt > 0 && params.filters.status !== "dlt-missing" && (
           <Banner tone="warn" title={`${data.noDlt} SMS ${data.noDlt === 1 ? "template has" : "templates have"} no DLT template ID.`}
-            action={<ButtonLink href="/communication/templates?status=dlt-missing" size="sm" variant="secondary">Show them</ButtonLink>}>
-            They can be saved, but no SMS can be sent from them.
+            action={<ButtonLink href="/communication/templates?status=dlt-missing" size="sm" variant="secondary"><Words k="Show them" /></ButtonLink>}>
+            <Words k="They can be saved, but no SMS can be sent from them." />
           </Banner>
         )}
         <Card className="overflow-hidden min-w-0">
@@ -82,7 +83,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
             footer={<div className="px-4 py-3 border-t border-line text-[13px] text-ink3">{data.total.toLocaleString("en-IN")} {params.archived ? "archived " : ""}{data.total === 1 ? "template" : "templates"} · <Link href={listHref("/communication/templates", { ...params, archived: !params.archived }, { page: null })} className="text-brand font-semibold hover:underline">{params.archived ? "Show templates in use" : "Show archived"}</Link></div>}
             empty={
               <EmptyState bare Icon={FileText} title={filtered ? "No templates here" : "No templates yet"}
-                action={canEdit && !filtered ? <ButtonLink href="/communication/templates/new" icon={Plus}>New template</ButtonLink> : undefined}>
+                action={canEdit && !filtered ? <ButtonLink href="/communication/templates/new" icon={Plus}><Words k="New template" /></ButtonLink> : undefined}>
                 {filtered ? "Change the search or filters." : "Templates are ready message formats with blanks like {student_name}, in each language you use."}
               </EmptyState>
             }
@@ -91,7 +92,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
               { key: "ch", label: "Channel", render: (t) => <ChannelPills channels={[t.channel]} /> },
               { key: "langs", label: "Languages", render: (t) => <span className="text-[13px]">{langs(t)}</span> },
               { key: "wa", label: "WhatsApp", nowrap: true, render: (t) => (t.channel === "whatsapp" ? <Pill tone={WA_TONE[waStatus(t.versions)]} dot>{WHATSAPP_STATUS_LABEL[waStatus(t.versions)]}</Pill> : <span className="text-ink3">–</span>) },
-              { key: "dlt", label: "DLT template ID", render: (t) => (t.channel !== "sms" ? <span className="text-ink3">No SMS</span> : missing(t) ? <Pill tone="bad">Missing</Pill> : <span className="font-mono text-[12.5px]">{t.versions.map((v) => v.dltTemplateId).join(", ")}</span>) },
+              { key: "dlt", label: "DLT template ID", render: (t) => (t.channel !== "sms" ? <span className="text-ink3"><Words k="No SMS" /></span> : missing(t) ? <Pill tone="bad"><Words k="Missing" /></Pill> : <span className="font-mono text-[12.5px]">{t.versions.map((v) => v.dltTemplateId).join(", ")}</span>) },
               { key: "ver", label: "Version", align: "right", render: (t) => <span className="tnum">{ver(t)}</span> },
               { key: "used", label: "Used by", render: (t) => <span className="text-[13px] text-ink2">{usedBy(t, data.firstIds, t.id).join(", ") || "Typed messages"}</span> },
             ]}
@@ -100,8 +101,8 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
               iconTone: missing(t) || (t.channel === "whatsapp" && waStatus(t.versions) === "REJECTED") ? "bad" : "brand",
               pills: [
                 <ChannelPills key="c" channels={[t.channel]} />,
-                t.channel === "whatsapp" ? <Pill key="w" tone={WA_TONE[waStatus(t.versions)]} className="!h-[22px] !text-[11.5px]">WhatsApp {WHATSAPP_STATUS_LABEL[waStatus(t.versions)].toLowerCase()}</Pill> : null,
-                missing(t) ? <Pill key="d" tone="bad" className="!h-[22px] !text-[11.5px]">DLT ID missing</Pill> : null,
+                t.channel === "whatsapp" ? <Pill key="w" tone={WA_TONE[waStatus(t.versions)]} className="!h-[22px] !text-[11.5px]"><Words k="WhatsApp" /> {WHATSAPP_STATUS_LABEL[waStatus(t.versions)].toLowerCase()}</Pill> : null,
+                missing(t) ? <Pill key="d" tone="bad" className="!h-[22px] !text-[11.5px]"><Words k="DLT ID missing" /></Pill> : null,
               ],
             })}
           />

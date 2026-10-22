@@ -25,6 +25,7 @@ import { FieldShell, inputCls } from "@/components/ui/field";
 import { Dialog } from "@/components/ui/dialog";
 import { Split, Col } from "@/components/ui/split";
 import { cx } from "@/components/ui/cx";
+import { Words } from "@/lib/i18n/client";
 
 type Channel = "whatsapp" | "sms" | "email" | "app";
 export type Person = { type: "guardian" | "student" | "staff" | "parentsOf"; id: string; name: string; detail: string };
@@ -321,8 +322,8 @@ export function SendForm({ data }: { data: SendFormData }) {
 
       {emergency && (
         <Banner tone="bad" icon={Siren} className="mb-5" title="Emergency broadcast."
-          action={<Button size="sm" variant="secondary" icon={X} onClick={() => { setEmergency(false); setWord(""); touch(); }}>Not an emergency</Button>}>
-          Goes to everyone chosen, including parents who opted out. You will type EMERGENCY to send it.
+          action={<Button size="sm" variant="secondary" icon={X} onClick={() => { setEmergency(false); setWord(""); touch(); }}><Words k="Not an emergency" /></Button>}>
+          <Words k="Goes to everyone chosen, including parents who opted out. You will type EMERGENCY to send it." />
         </Banner>
       )}
       {serverMessage && <Banner tone="bad" className="mb-5">{serverMessage}</Banner>}
@@ -347,44 +348,44 @@ export function SendForm({ data }: { data: SendFormData }) {
               </div>
 
               {data.initialPeople && data.initialPeople.length > 0 && aud === "single" && (
-                <p className="text-[13px] text-ink2">The main contact of each of the {data.initialPeople.length} student{data.initialPeople.length === 1 ? "" : "s"} you chose on the Student List is added below.{data.initialNote ? ` ${data.initialNote}` : ""}</p>
+                <p className="text-[13px] text-ink2"><Words k="The main contact of each of the" /> {data.initialPeople.length} <Words k="student" />{data.initialPeople.length === 1 ? "" : "s"} <Words k="you chose on the Student List is added below." />{data.initialNote ? ` ${data.initialNote}` : ""}</p>
               )}
 
               {(aud === "school" || aud === "classes" || aud === "sections") && (
                 <div>
-                  <p className="text-[13px] font-semibold text-ink2 mb-2">Send to</p>
+                  <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Send to" /></p>
                   <Toggles label="Send to" options={[{ value: "parents", label: "Parents" }, { value: "students", label: "Students" }]} value={who} onToggle={(v) => { setWho(toggleIn(who, v)); touch(); }} />
                 </div>
               )}
               {aud === "school" && (
                 <p className="text-[13.5px] text-ink2">
-                  All <b className="font-semibold">{fmt(data.sections.reduce((a, s) => a + s.count, 0))} students</b> studying {data.year ? `in ${data.year}` : "this year"}{who.includes("parents") ? ", through their parents. A family with two children gets one message." : "."}
+                  <Words k="All" /> <b className="font-semibold">{fmt(data.sections.reduce((a, s) => a + s.count, 0))} <Words k="students" /></b> <Words k="studying" /> {data.year ? `in ${data.year}` : "this year"}{who.includes("parents") ? ", through their parents. A family with two children gets one message." : "."}
                 </p>
               )}
               {aud === "classes" && (
                 <div>
-                  <p className="text-[13px] font-semibold text-ink2 mb-2">Classes <span className="text-ink3 font-normal">· students in each</span></p>
+                  <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Classes" /> <span className="text-ink3 font-normal"><Words k="· students in each" /></span></p>
                   <Toggles label="Classes" options={data.classes.map((c) => ({ value: c.id, label: c.name, count: c.count }))} value={classes} onToggle={(v) => { setClasses(toggleIn(classes, v)); touch(); }} />
                 </div>
               )}
               {aud === "sections" && (
                 <div>
-                  <p className="text-[13px] font-semibold text-ink2 mb-2">{data.wholeSchool ? "Sections" : "Your sections"} <span className="text-ink3 font-normal">· students in each</span></p>
+                  <p className="text-[13px] font-semibold text-ink2 mb-2">{data.wholeSchool ? "Sections" : "Your sections"} <span className="text-ink3 font-normal"><Words k="· students in each" /></span></p>
                   <Toggles label="Sections" options={data.sections.map((s) => ({ value: s.id, label: s.label, count: s.count }))} value={sections} onToggle={(v) => { setSections(toggleIn(sections, v)); touch(); }} />
-                  {!data.wholeSchool && <p className="text-[12.5px] text-ink3 mt-2">Other classes are not offered. To reach them, ask the office.</p>}
+                  {!data.wholeSchool && <p className="text-[12.5px] text-ink3 mt-2"><Words k="Other classes are not offered. To reach them, ask the office." /></p>}
                 </div>
               )}
               {aud === "staff" && (
                 <div className="flex flex-col gap-3">
                   <div>
-                    <p className="text-[13px] font-semibold text-ink2 mb-2">Who</p>
+                    <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Who" /></p>
                     <Toggles label="Staff"
                       options={[{ value: "staff", label: "All staff", count: data.staffCount }, { value: "teachers", label: "Teachers" }, { value: "admins", label: "Admins" }]}
                       value={staffKinds} onToggle={(v) => { setStaffKinds(v === "staff" ? ["staff"] : toggleIn(staffKinds.filter((x) => x !== "staff"), v)); touch(); }} />
                   </div>
                   {data.departments.length > 0 && (
                     <div>
-                      <p className="text-[13px] font-semibold text-ink2 mb-2">Departments <span className="text-ink3 font-normal">· none chosen means every department</span></p>
+                      <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Departments" /> <span className="text-ink3 font-normal"><Words k="· none chosen means every department" /></span></p>
                       <Toggles label="Departments" options={data.departments.map((d) => ({ value: d.id, label: d.name, count: d.count }))} value={depts} onToggle={(v) => { setDepts(toggleIn(depts, v)); touch(); }} />
                     </div>
                   )}
@@ -393,13 +394,13 @@ export function SendForm({ data }: { data: SendFormData }) {
               {aud === "single" && (
                 <div className="flex flex-col gap-2">
                   <div className="relative">
-                    <label htmlFor="send-people" className="sr-only">Find a parent, student or staff member</label>
+                    <label htmlFor="send-people" className="sr-only"><Words k="Find a parent, student or staff member" /></label>
                     <input id="send-people" type="search" value={search} onChange={(e) => lookFor(e.target.value)} placeholder="Student or parent name, admission number or phone"
                       className={cx(inputCls(), "h-11")} autoComplete="off" aria-controls="send-people-results" />
                     {search.trim().length >= 2 && (
                       <ul id="send-people-results" className="mt-1 flex flex-col rounded-xl border border-line bg-surface p-1">
-                        {searching && <li className="p-3 text-[13.5px] text-ink3">Searching…</li>}
-                        {!searching && found.length === 0 && <li className="p-3 text-[13.5px] text-ink3">Nobody found among the people you may message.</li>}
+                        {searching && <li className="p-3 text-[13.5px] text-ink3"><Words k="Searching…" /></li>}
+                        {!searching && found.length === 0 && <li className="p-3 text-[13.5px] text-ink3"><Words k="Nobody found among the people you may message." /></li>}
                         {found.map((p) => (
                           <li key={`${p.type}:${p.id}`}>
                             <button type="button" className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left hover:bg-sunken/70"
@@ -442,7 +443,7 @@ export function SendForm({ data }: { data: SendFormData }) {
               {parentsChosen && (
                 <div className="flex items-center gap-3">
                   <Checkbox id="send-both" checked={allGuardians} onChange={(v) => { setAllGuardians(v); touch(); }} label="Both parents, not only the main contact" />
-                  <label htmlFor="send-both" className="text-[14px]">Both parents, not only the main contact</label>
+                  <label htmlFor="send-both" className="text-[14px]"><Words k="Both parents, not only the main contact" /></label>
                 </div>
               )}
               {tried && <Problem text={err.who} />}
@@ -454,7 +455,7 @@ export function SendForm({ data }: { data: SendFormData }) {
             <CardHeader title="2. What and how" icon={MessageSquareText} description="WhatsApp first. SMS needs an approved template with a DLT template ID." />
             <div className="px-5 pb-5 flex flex-col gap-4">
               <div>
-                <p className="text-[13px] font-semibold text-ink2 mb-1.5">Send by <span className="text-bad" aria-hidden="true">*</span></p>
+                <p className="text-[13px] font-semibold text-ink2 mb-1.5"><Words k="Send by" /> <span className="text-bad" aria-hidden="true">*</span></p>
                 <div className="grid grid-cols-2 lg:grid-cols-4 gap-2" id="send-channels" tabIndex={-1}>
                   {(["whatsapp", "sms", "email", "app"] as Channel[]).map((c) => {
                     const on = channels.includes(c);
@@ -471,7 +472,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                   })}
                 </div>
                 {tried && <Problem text={err.channels} className="mt-1.5" />}
-                {data.on.length < 4 && <p className="text-[12.5px] text-ink3 mt-1.5">Channels that are not connected are switched on in <Link href="/settings/messaging" className="underline">Settings, SMS, WhatsApp &amp; Email</Link>.</p>}
+                {data.on.length < 4 && <p className="text-[12.5px] text-ink3 mt-1.5"><Words k="Channels that are not connected are switched on in" /> <Link href="/settings/messaging" className="underline"><Words k={"Settings, SMS, WhatsApp & Email"} /></Link>.</p>}
                 {channels.includes("sms") && !data.smsReady && <Problem className="mt-1.5" text="Add your DLT entity ID and sender header in Settings, SMS, WhatsApp & Email before sending SMS." />}
               </div>
 
@@ -479,7 +480,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 <div className={cx("rounded-xl p-3.5 flex items-start gap-3", backupOk ? "bg-sunken/70" : "bg-sunken/40")}>
                   <div className="pt-0.5"><Checkbox id="send-backup" checked={backupOn} onChange={(v) => { if (backupOk) { setBackup(v); touch(); } }} label="If not delivered or read, also send by SMS" /></div>
                   <div className={cx("text-[14px] min-w-0 flex-1", !backupOk && "opacity-60")}>
-                    <label htmlFor="send-backup" className="font-semibold">If not delivered or read, also send by SMS</label>
+                    <label htmlFor="send-backup" className="font-semibold"><Words k="If not delivered or read, also send by SMS" /></label>
                     <span className="block text-[12.5px] text-ink3 mt-0.5">
                       {backupOk
                         ? `After ${Math.round((data.backupWait[type] ?? 120) / 60 * 10) / 10} hours, anyone whose message failed or is unread gets the approved SMS version. Counted in the cost.`
@@ -512,7 +513,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                       {templatesFor(c).map((t) => <option key={t.id} value={t.id}>{t.name}{t.dlt ? ` · DLT ${t.dlt.slice(-6)}` : ""}</option>)}
                     </select>
                     {c === "sms" && templatesFor("sms").length === 0 && (
-                      <p className="text-[12.5px] text-bad">No SMS template has a DLT template ID yet. Add it in <Link href="/communication/templates?channel=sms" className="underline">Message Templates</Link>, or send by WhatsApp.</p>
+                      <p className="text-[12.5px] text-bad"><Words k="No SMS template has a DLT template ID yet. Add it in" /> <Link href="/communication/templates?channel=sms" className="underline"><Words k="Message Templates" /></Link><Words k=", or send by WhatsApp." /></p>
                     )}
                   </FieldShell>
                 ))}
@@ -531,7 +532,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                   </div>
                   <p className="text-[12.5px] text-ink3 mt-1.5 flex gap-1.5">
                     <Lock size={14} className="shrink-0 mt-0.5" aria-hidden="true" />
-                    {t.locked ? `Approved template, version ${t.version}. The text is locked; only the blanks fill in for each person.` : `Template, version ${t.version}. The blanks fill in for each person.`} Languages: {t.languages.map((l) => LANG[l] ?? l).join(", ")}.
+                    {t.locked ? `Approved template, version ${t.version}. The text is locked; only the blanks fill in for each person.` : `Template, version ${t.version}. The blanks fill in for each person.`} <Words k="Languages:" /> {t.languages.map((l) => LANG[l] ?? l).join(", ")}.
                   </p>
                 </div>
               ))}
@@ -541,7 +542,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                   <textarea id="send-text" name="text" rows={5} value={text} maxLength={1000} onChange={(e) => { setText(e.target.value); touch(); }}
                     aria-invalid={(blankError && !titleBlankError) || (tried && err.text) ? true : undefined} aria-describedby={blankError && !titleBlankError ? "send-text-error" : "send-text-help"}
                     className={cx(inputCls(Boolean(blankError && !titleBlankError) || (tried && err.text)), "py-2.5")} />
-                  {blankError && !titleBlankError && <p className="text-[12.5px] text-ink3">{fmt(text.length)} of 1,000 characters</p>}
+                  {blankError && !titleBlankError && <p className="text-[12.5px] text-ink3">{fmt(text.length)} <Words k="of 1,000 characters" /></p>}
                   {blankWarning && <p className="text-[12.5px] text-warn flex gap-1.5"><TriangleAlert size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{blankWarning}</p>}
                 </FieldShell>
               )}
@@ -553,17 +554,17 @@ export function SendForm({ data }: { data: SendFormData }) {
                   {fileName ? (
                     <div className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5">
                       <span className="w-9 h-9 rounded-lg bg-sunken text-ink2 grid place-items-center shrink-0"><FileText size={17} aria-hidden="true" /></span>
-                      <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold truncate">{fileName}</span><span className="block text-[12px] text-ink3">Goes with the email. PDF or picture, up to 10 MB.</span></span>
-                      <Button size="sm" variant="ghost" onClick={() => { if (fileRef.current) fileRef.current.value = ""; setFileName(null); }}>Remove</Button>
+                      <span className="min-w-0 flex-1"><span className="block text-[14px] font-semibold truncate">{fileName}</span><span className="block text-[12px] text-ink3"><Words k="Goes with the email. PDF or picture, up to 10 MB." /></span></span>
+                      <Button size="sm" variant="ghost" onClick={() => { if (fileRef.current) fileRef.current.value = ""; setFileName(null); }}><Words k="Remove" /></Button>
                     </div>
                   ) : (
-                    <Button variant="secondary" icon={Paperclip} onClick={() => fileRef.current?.click()}>Attach a file</Button>
+                    <Button variant="secondary" icon={Paperclip} onClick={() => fileRef.current?.click()}><Words k="Attach a file" /></Button>
                   )}
                 </div>
               )}
 
               {!isStaff && (
-                <p className="text-[12.5px] text-ink3">Language: each parent gets a template in their own language when the template has that version; a typed message goes as written.</p>
+                <p className="text-[12.5px] text-ink3"><Words k="Language: each parent gets a template in their own language when the template has that version; a typed message goes as written." /></p>
               )}
             </div>
           </Card>
@@ -588,7 +589,7 @@ export function SendForm({ data }: { data: SendFormData }) {
           <Card className={cx("overflow-hidden", emergency && "border-bad/40")} aria-live="polite">
             <CardHeader title="3. Check and send" icon={ListChecks} description="Exactly who, how much, and what they will see" />
             <div className="px-5 pb-4">
-              <p className="eyebrow text-ink3">Users to notify</p>
+              <p className="eyebrow text-ink3"><Words k="Users to notify" /></p>
               <p className={cx("font-display text-[34px] font-semibold tnum leading-tight transition-opacity", checking && "opacity-50")}>
                 {whoReady && live ? fmt(n) : "–"} <span className="text-[16px] text-ink3 font-sans font-semibold">{noun}</span>
               </p>
@@ -601,18 +602,18 @@ export function SendForm({ data }: { data: SendFormData }) {
                     <span>{countWithReason(g.count, g.reason)}{g.names.length ? ` (${g.names.slice(0, 3).join(", ")}${g.count > 3 ? " and others" : ""})` : ""}</span>
                   </li>
                 ))}
-                {!data.full && <li className="flex gap-2"><Lock size={15} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>Limited to {data.scopeLabel}</span></li>}
+                {!data.full && <li className="flex gap-2"><Lock size={15} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span><Words k="Limited to" /> {data.scopeLabel}</span></li>}
               </ul>
             </div>
             <div className="border-t border-line px-5 py-4">
-              <p className="eyebrow text-ink3 mb-2">Message credits</p>
+              <p className="eyebrow text-ink3 mb-2"><Words k="Message credits" /></p>
               <ul className="flex flex-col gap-1.5 text-[13.5px] tnum">
                 {(live?.cost ?? []).filter((c) => c.credits > 0).map((c) => (
                   <li key={c.channel} className="flex justify-between gap-3"><span className="text-ink2">{c.channel}{c.test ? " · test mode" : ""}</span><span className="font-semibold">{c.test ? "None used" : fmt(c.credits)}</span></li>
                 ))}
-                {(live?.backupCost ?? 0) > 0 && <li className="flex justify-between gap-3"><span className="text-ink2">SMS backup · up to {fmt(live!.backupCost)} SMS{live?.backupTest ? " · test mode" : ""}</span><span className="font-semibold">{live?.backupTest ? "None used" : `up to ${fmt(live!.backupCost)}`}</span></li>}
-                {free.length > 0 && <li className="flex justify-between gap-3"><span className="text-ink2">{free.map((c) => CH[c].label).join(" and ")}</span><span className="font-semibold">Free</span></li>}
-                <li className="flex justify-between gap-3 border-t border-line/70 pt-1.5 mt-0.5"><span className="font-semibold">Total</span><span className="font-semibold">{live?.backupCost && !live.backupTest ? "up to " : ""}{paidTotal ? fmt(paidTotal) : testWords ? "None" : "Free"}</span></li>
+                {(live?.backupCost ?? 0) > 0 && <li className="flex justify-between gap-3"><span className="text-ink2"><Words k="SMS backup · up to" /> {fmt(live!.backupCost)} <Words k="SMS" />{live?.backupTest ? " · test mode" : ""}</span><span className="font-semibold">{live?.backupTest ? "None used" : `up to ${fmt(live!.backupCost)}`}</span></li>}
+                {free.length > 0 && <li className="flex justify-between gap-3"><span className="text-ink2">{free.map((c) => CH[c].label).join(" and ")}</span><span className="font-semibold"><Words k="Free" /></span></li>}
+                <li className="flex justify-between gap-3 border-t border-line/70 pt-1.5 mt-0.5"><span className="font-semibold"><Words k="Total" /></span><span className="font-semibold">{live?.backupCost && !live.backupTest ? "up to " : ""}{paidTotal ? fmt(paidTotal) : testWords ? "None" : "Free"}</span></li>
               </ul>
               {live && (
                 <p className={cx("mt-2.5 text-[13px] font-semibold flex items-center gap-1.5", live.creditProblem ? "text-bad" : "text-ok")}>
@@ -621,15 +622,15 @@ export function SendForm({ data }: { data: SendFormData }) {
                 </p>
               )}
               {testWords && (
-                <p className="mt-2 text-[13px] text-warn flex gap-1.5"><FlaskConical size={15} className="shrink-0 mt-0.5" aria-hidden="true" /><span>{testWords}: nobody will receive this message, and no credits are used. Connect it in <Link href="/settings/messaging" className="underline">Settings, SMS, WhatsApp &amp; Email</Link> to send for real.</span></p>
+                <p className="mt-2 text-[13px] text-warn flex gap-1.5"><FlaskConical size={15} className="shrink-0 mt-0.5" aria-hidden="true" /><span>{testWords}<Words k=": nobody will receive this message, and no credits are used. Connect it in" /> <Link href="/settings/messaging" className="underline"><Words k={"Settings, SMS, WhatsApp & Email"} /></Link> <Words k="to send for real." /></span></p>
               )}
-              {live?.creditProblem && <Link href="/settings/messaging" className="mt-1 inline-block text-[13px] font-semibold text-brand underline">Top up credits</Link>}
+              {live?.creditProblem && <Link href="/settings/messaging" className="mt-1 inline-block text-[13px] font-semibold text-brand underline"><Words k="Top up credits" /></Link>}
             </div>
             {/* Preview as one real person sees it */}
             <div className="border-t border-line px-5 py-4 bg-sunken/40">
               <div className="flex items-center gap-2 mb-3">
-                <p className="eyebrow text-ink3 flex-1">Preview</p>
-                {live && live.samples.length > 0 && <span className="text-[12px] text-ink3 tnum">{Math.min(pi, live.samples.length - 1) + 1} of {live.samples.length}</span>}
+                <p className="eyebrow text-ink3 flex-1"><Words k="Preview" /></p>
+                {live && live.samples.length > 0 && <span className="text-[12px] text-ink3 tnum">{Math.min(pi, live.samples.length - 1) + 1} <Words k="of" /> {live.samples.length}</span>}
                 <button type="button" aria-label="Previous recipient" disabled={!live || pi === 0} onClick={() => setPi(pi - 1)} className="w-8 h-8 grid place-items-center rounded-lg text-ink2 hover:bg-sunken disabled:opacity-40"><ChevronLeft size={17} aria-hidden="true" /></button>
                 <button type="button" aria-label="Next recipient" disabled={!live || pi >= live.samples.length - 1} onClick={() => setPi(pi + 1)} className="w-8 h-8 grid place-items-center rounded-lg text-ink2 hover:bg-sunken disabled:opacity-40"><ChevronRight size={17} aria-hidden="true" /></button>
               </div>
@@ -642,9 +643,9 @@ export function SendForm({ data }: { data: SendFormData }) {
                   </div>
                   <div className="rounded-2xl rounded-tl-md bg-surface border border-line p-3 shadow-card max-w-full">
                     {sample.title && <p className="text-[13px] font-semibold mb-1">{sample.title}</p>}
-                    {sample.text ? <p className="text-[14px] leading-relaxed break-words whitespace-pre-line">{sample.text}</p> : <p className="text-[14px] text-ink3">Type the message to see it here.</p>}
+                    {sample.text ? <p className="text-[14px] leading-relaxed break-words whitespace-pre-line">{sample.text}</p> : <p className="text-[14px] text-ink3"><Words k="Type the message to see it here." /></p>}
                     {fileName && <p className="mt-2 text-[12.5px] text-ink2 flex items-center gap-1.5 rounded-lg bg-sunken px-2 py-1.5"><FileText size={14} aria-hidden="true" />{fileName}</p>}
-                    {sample.parts !== null && <p className="text-[11px] text-ink3 text-right mt-1 tnum">{sample.parts} SMS part{sample.parts === 1 ? "" : "s"}</p>}
+                    {sample.parts !== null && <p className="text-[11px] text-ink3 text-right mt-1 tnum">{sample.parts} <Words k="SMS part" />{sample.parts === 1 ? "" : "s"}</p>}
                   </div>
                 </>
               ) : (
@@ -657,12 +658,12 @@ export function SendForm({ data }: { data: SendFormData }) {
                 loading={pending} loadingText="Sending" disabled={!data.canSend || cannotSend}>
                 {live && whoReady ? sendLabel : when === "now" ? "Send" : "Schedule"}
               </Button>
-              {tried && !valid && <p className="text-[12.5px] text-bad text-center">Fix the marked fields above first.</p>}
+              {tried && !valid && <p className="text-[12.5px] text-bad text-center"><Words k="Fix the marked fields above first." /></p>}
               {(tried || cannotSend) && valid && blocked && live && <p className="text-[12.5px] text-bad text-center">{live.creditProblem ?? live.problems[0] ?? "Nobody can be reached with these choices."}</p>}
-              {cannotSend && !valid && blankError && <p className="text-[12.5px] text-bad text-center">Fix the blank in the message first.</p>}
+              {cannotSend && !valid && blankError && <p className="text-[12.5px] text-bad text-center"><Words k="Fix the blank in the message first." /></p>}
               <div className="flex gap-2">
-                <Button variant="ghost" className="flex-1" icon={Bookmark} disabled={!whoReady || aud === "group"} onClick={() => { setGroupName(whoLabel.slice(0, 60)); setGroupOpen(true); }}>Save as group</Button>
-                <Button variant="ghost" className="flex-1" icon={Eye} disabled={!live || live.samples.length < 2} onClick={() => setPi(live ? (pi + 1) % live.samples.length : 0)}>Next person</Button>
+                <Button variant="ghost" className="flex-1" icon={Bookmark} disabled={!whoReady || aud === "group"} onClick={() => { setGroupName(whoLabel.slice(0, 60)); setGroupOpen(true); }}><Words k="Save as group" /></Button>
+                <Button variant="ghost" className="flex-1" icon={Eye} disabled={!live || live.samples.length < 2} onClick={() => setPi(live ? (pi + 1) % live.samples.length : 0)}><Words k="Next person" /></Button>
               </div>
               <p className="text-[12px] text-ink3 text-center">{when === "later" ? "It can be cancelled until it goes." : "A message cannot be unsent once delivered."}</p>
             </div>
@@ -674,13 +675,13 @@ export function SendForm({ data }: { data: SendFormData }) {
         title={emergency ? "Emergency broadcast" : `${when === "now" ? "Send" : "Schedule"} to ${fmt(n)} ${noun}?`}
         sub={emergency ? "Goes to everyone chosen, including those who opted out." : "A message cannot be unsent once delivered. A wrong message needs a correction message."}
         footer={<>
-          <Button variant="secondary" onClick={() => setConfirm(false)}>Go back</Button>
+          <Button variant="secondary" onClick={() => setConfirm(false)}><Words k="Go back" /></Button>
           <Button variant={emergency ? "danger" : "primary"} icon={emergency ? Siren : when === "now" ? Send : CalendarClock} loading={pending} loadingText="Sending"
             disabled={emergency && word.trim().toUpperCase() !== "EMERGENCY"} onClick={() => { doSend(); setConfirm(false); }}>{sendLabel}</Button>
         </>}>
         {testWords && (
           <Banner tone="warn" icon={FlaskConical} className="mb-3" title={`${testWords}.`}>
-            Nobody will receive this message. It is only recorded in Message History, and no credits are used.
+            <Words k="Nobody will receive this message. It is only recorded in Message History, and no credits are used." />
           </Banner>
         )}
         <ul className="flex flex-col gap-2.5 text-[14px] pb-1">
@@ -699,14 +700,14 @@ export function SendForm({ data }: { data: SendFormData }) {
 
       <Dialog open={groupOpen} onClose={() => setGroupOpen(false)} title="Save as a group" sub="Pick it next time under Who gets it"
         footer={<>
-          <Button variant="secondary" onClick={() => setGroupOpen(false)}>Cancel</Button>
+          <Button variant="secondary" onClick={() => setGroupOpen(false)}><Words k="Cancel" /></Button>
           <Button loading={groupPending} loadingText="Saving" onClick={() => {
             if (!formRef.current) return;
             const fd = new FormData(formRef.current);
             fd.delete("file");
             fd.set("groupName", groupName);
             startTransition(() => dispatchGroup(fd));
-          }}>Save group</Button>
+          }}><Words k="Save group" /></Button>
         </>}>
         <FieldShell label="Group name" id="send-group-name" required error={groupState && !groupState.ok ? groupState.message : undefined}
           help={groupState?.ok ? groupState.message : "It updates as students join or leave."}>

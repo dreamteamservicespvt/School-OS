@@ -4,6 +4,7 @@ import { commOfficePage } from "@/lib/communication/access";
 import { BackLink, RecordHead } from "@/components/ui/split";
 import { TemplateForm } from "../../template-form";
 import { templateFormData } from "../../form-data";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Edit template" };
 
@@ -16,7 +17,7 @@ export default async function EditTemplatePage({ params }: { params: Promise<{ i
   return (
     <>
       <BackLink href={`/communication/templates/${id}`} label={data.name} sub="Edit" />
-      <RecordHead title={`Edit ${data.name}`} sub={<span className="text-[14px] text-ink3">Saving makes a new version of each changed language. Messages already sent keep the version they used.</span>} />
+      <RecordHead title={`Edit ${data.name}`} sub={<span className="text-[14px] text-ink3"><Words k="Saving makes a new version of each changed language. Messages already sent keep the version they used." /></span>} />
       <TemplateForm data={data} />
     </>
   );

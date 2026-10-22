@@ -17,6 +17,7 @@ import { BackLink, Col, DL, RecordHead, Split } from "@/components/ui/split";
 import { cx } from "@/components/ui/cx";
 import { QueryComposer, QueryHeadActions, QuerySide } from "./query-panel";
 import { ownerOptions } from "../owners";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Query" };
 
@@ -78,14 +79,14 @@ export default async function QueryPage({ params }: { params: Promise<{ id: stri
       <RecordHead title={`${topic ? `${topic}: ` : ""}${type.toLowerCase()} from ${q.fromName}`}
         sub={<>
           <Pill tone={STATUS_TONE[q.status]} dot>{QUERY_STATUS_LABEL[q.status]}</Pill>
-          <Pill tone={PRIORITY_TONE[q.priority] ?? "neutral"}>{priority} priority</Pill>
-          {overdue && <Pill tone="bad">Overdue</Pill>}
+          <Pill tone={PRIORITY_TONE[q.priority] ?? "neutral"}>{priority} <Words k="priority" /></Pill>
+          {overdue && <Pill tone="bad"><Words k="Overdue" /></Pill>}
         </>}
         actions={access.canChange ? <QueryHeadActions id={q.id} status={q.status} canPickUp={canPickUp} owners={data.owners} /> : undefined} />
 
       <div className="flex flex-col gap-5 lg:gap-6">
-        {overdue && <Banner tone="bad" title="Past its reply time limit.">It was due by {formatDateTime(q.dueBy!, tz)}.</Banner>}
-        {q.escalatedAt && <Banner tone="warn" title="Escalated.">On {formatDateTime(q.escalatedAt, tz)}, because it was overdue.</Banner>}
+        {overdue && <Banner tone="bad" title="Past its reply time limit."><Words k="It was due by" /> {formatDateTime(q.dueBy!, tz)}.</Banner>}
+        {q.escalatedAt && <Banner tone="warn" title="Escalated."><Words k="On" /> {formatDateTime(q.escalatedAt, tz)}<Words k=", because it was overdue." /></Banner>}
         {q.resolution && <Banner tone="ok" icon={CircleCheck} title={`Resolved${q.resolvedAt ? ` on ${formatDateTime(q.resolvedAt, tz)}` : ""}.`}><span className="whitespace-pre-line">{q.resolution}</span></Banner>}
         <Split side={340}>
           <Card className="min-w-0">
@@ -100,11 +101,11 @@ export default async function QueryPage({ params }: { params: Promise<{ id: stri
                   <p className="text-[12.5px] font-semibold flex items-center gap-1.5 mb-1 flex-wrap">
                     {n.kind === "internal" ? <Lock size={13} className="text-warn" aria-hidden="true" /> : <Send size={13} className="text-brand" aria-hidden="true" />}
                     {who(n.createdById)}
-                    {n.kind === "internal" && <span className="text-warn">· Internal note</span>}
+                    {n.kind === "internal" && <span className="text-warn"><Words k="· Internal note" /></span>}
                     <span className="text-ink3 font-normal ml-auto">{formatDateTime(n.createdAt, tz)}</span>
                   </p>
                   <p className="leading-relaxed whitespace-pre-line break-words">{n.text}</p>
-                  {n.messageId && <Link href={`/communication/history/${n.messageId}`} className="mt-1.5 inline-block text-[12.5px] font-semibold text-brand hover:underline">See delivery</Link>}
+                  {n.messageId && <Link href={`/communication/history/${n.messageId}`} className="mt-1.5 inline-block text-[12.5px] font-semibold text-brand hover:underline"><Words k="See delivery" /></Link>}
                 </li>
               ))}
             </ol>

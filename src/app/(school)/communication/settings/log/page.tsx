@@ -16,6 +16,7 @@ import { UrlSearch, UrlSelect } from "@/components/ui/url-filters";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
+import { Words } from "@/lib/i18n/client";
 
 const TONE: Record<string, PillTone> = { sent: "ok", "no-credits": "bad", "not-sent": "bad" };
 
@@ -42,7 +43,7 @@ export default async function AutomationLogPage({ searchParams }: { searchParams
   return (
     <>
       <BackLink href="/communication/settings" label="Message Settings" />
-      <RecordHead title="Automation log" sub={<span className="text-[14px] text-ink3">What each automatic message sent, to whom, and why.</span>} />
+      <RecordHead title="Automation log" sub={<span className="text-[14px] text-ink3"><Words k="What each automatic message sent, to whom, and why." /></span>} />
       <Card className="overflow-hidden min-w-0">
         <Toolbar className="flex-wrap">
           <UrlSearch placeholder="Person or event" className="min-w-[14rem]" />

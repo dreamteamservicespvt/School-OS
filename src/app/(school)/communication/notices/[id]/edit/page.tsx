@@ -8,6 +8,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ButtonLink } from "@/components/ui/button";
 import { NoticeForm } from "../../notice-form";
 import { noticeFormData } from "../../form-data";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Change notice" };
 
@@ -24,8 +25,8 @@ export default async function EditNoticePage({ params }: { params: Promise<{ id:
       <>
         {back}
         <EmptyState title="This notice can no longer be changed">
-          Only a draft can be changed. Archive this notice and write a new one.
-          <div className="mt-4"><ButtonLink href={`/communication/notices/${id}`}>Back to the notice</ButtonLink></div>
+          <Words k="Only a draft can be changed. Archive this notice and write a new one." />
+          <div className="mt-4"><ButtonLink href={`/communication/notices/${id}`}><Words k="Back to the notice" /></ButtonLink></div>
         </EmptyState>
       </>
     );

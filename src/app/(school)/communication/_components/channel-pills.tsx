@@ -1,5 +1,6 @@
 import { Bell, Mail, MessageCircle, MessageSquareText, type LucideIcon } from "lucide-react";
 import { Pill, type PillTone } from "@/components/ui/badge";
+import { Words } from "@/lib/i18n/client";
 
 export const CHANNEL_ICON: Record<string, LucideIcon> = { whatsapp: MessageCircle, sms: MessageSquareText, email: Mail, app: Bell };
 export const CHANNEL_NAME: Record<string, string> = { whatsapp: "WhatsApp", sms: "SMS", email: "Email", app: "App notice" };
@@ -13,7 +14,7 @@ export function ChannelPills({ channels, backup }: { channels: string[]; backup?
         const Ic = CHANNEL_ICON[c] ?? Bell;
         return <Pill key={c} tone={TONE[c] ?? "neutral"} className="!h-[22px] !text-[11.5px]"><Ic size={12} aria-hidden="true" />{CHANNEL_NAME[c] ?? c}</Pill>;
       })}
-      {backup && <Pill tone="warn" className="!h-[22px] !text-[11.5px]">SMS backup</Pill>}
+      {backup && <Pill tone="warn" className="!h-[22px] !text-[11.5px]"><Words k="SMS backup" /></Pill>}
     </span>
   );
 }

@@ -21,6 +21,7 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
 import { CommHead } from "../_components/comm-head";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Feedback & Queries" };
 
@@ -69,7 +70,7 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
     <>
       <CommHead access={access} page="Feedback & Queries" href="/communication/queries"
         sub={access.full ? "Questions and complaints from parents, students and staff. Each gets a number, an owner and a status." : "Queries given to you or your department, and those you logged."}
-        actions={<ButtonLink href="/communication/queries/new" variant="primary" icon={Plus}>Log a query</ButtonLink>} />
+        actions={<ButtonLink href="/communication/queries/new" variant="primary" icon={Plus}><Words k="Log a query" /></ButtonLink>} />
       <div className="flex flex-col gap-5 lg:gap-6">
         <Stats items={[
           { label: "Open", value: count("OPEN").toLocaleString("en-IN"), icon: Inbox, tone: "warn", href: "/communication/queries" },
@@ -100,7 +101,7 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
             paging={{ page: params.page, pageSize: PAGE_SIZE, total: data.total, href: (p) => listHref("/communication/queries", params, { page: p }) }}
             empty={
               <EmptyState bare Icon={Inbox} title={filtered || status !== "active" ? "No queries here" : "No open queries"}
-                action={filtered ? <ButtonLink href="/communication/queries?status=all">Show all</ButtonLink> : undefined}>
+                action={filtered ? <ButtonLink href="/communication/queries?status=all"><Words k="Show all" /></ButtonLink> : undefined}>
                 {filtered || status !== "active" ? "Nothing matches this filter." : "Queries and complaints from calls, visits, WhatsApp or staff are logged here, each with a ticket number, an owner and a status."}
               </EmptyState>
             }
@@ -111,14 +112,14 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
               { key: "pri", label: "Priority", render: (q) => <Pill tone={PRIORITY_TONE[q.priority] ?? "neutral"}>{QUERY_PRIORITIES.find((p) => p.key === q.priority)?.label ?? q.priority}</Pill> },
               { key: "owner", label: "Owner", render: (q) => <span className="text-[13px]">{labels.owner(q)}</span> },
               { key: "status", label: "Status", render: (q) => <Pill tone={STATUS_TONE[q.status]} dot>{QUERY_STATUS_LABEL[q.status]}</Pill> },
-              { key: "due", label: "Due by", nowrap: true, render: (q) => <span className={cx("text-[13px]", isOverdue(q) && "text-bad font-semibold")}>{q.dueBy ? formatDateTime(q.dueBy, tz) : "–"}<span className="block text-ink3 text-[12px] font-normal">{ageWords(q.createdAt, now)} old</span></span> },
+              { key: "due", label: "Due by", nowrap: true, render: (q) => <span className={cx("text-[13px]", isOverdue(q) && "text-bad font-semibold")}>{q.dueBy ? formatDateTime(q.dueBy, tz) : "–"}<span className="block text-ink3 text-[12px] font-normal">{ageWords(q.createdAt, now)} <Words k="old" /></span></span> },
             ]}
             mobile={(q) => ({
               title: `${q.fromName}${labels.topic(q) ? ` · ${labels.topic(q)}` : ""}`, sub: `${q.number} · ${labels.about(q) || ageWords(q.createdAt, now)}`,
               icon: q.type === "complaint" ? TriangleAlert : MessageSquareText, iconTone: isOverdue(q) ? "bad" : (STATUS_TONE[q.status] as "warn"),
               pills: [
                 <Pill key="s" tone={STATUS_TONE[q.status]} className="!h-[22px] !text-[11.5px]">{QUERY_STATUS_LABEL[q.status]}</Pill>,
-                isOverdue(q) ? <Pill key="o" tone="bad" className="!h-[22px] !text-[11.5px]">Overdue</Pill> : null,
+                isOverdue(q) ? <Pill key="o" tone="bad" className="!h-[22px] !text-[11.5px]"><Words k="Overdue" /></Pill> : null,
                 q.priority !== "normal" ? <Pill key="p" tone={PRIORITY_TONE[q.priority] ?? "neutral"} className="!h-[22px] !text-[11.5px]">{QUERY_PRIORITIES.find((p) => p.key === q.priority)?.label ?? q.priority}</Pill> : null,
               ],
             })}
@@ -127,7 +128,7 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-6 items-start">
           <Card>
             <CardHeader title="Feedback by topic" description="All queries and feedback in the last four months" icon={ChartColumn} />
-            <div className="px-5 pb-5">{topicRows.length ? <HBars rows={topicRows} unit="" labelWidth={90} ariaLabel="Queries by topic" /> : <p className="text-[13.5px] text-ink3">No queries yet.</p>}</div>
+            <div className="px-5 pb-5">{topicRows.length ? <HBars rows={topicRows} unit="" labelWidth={90} ariaLabel="Queries by topic" /> : <p className="text-[13.5px] text-ink3"><Words k="No queries yet." /></p>}</div>
           </Card>
           <Card>
             <CardHeader title="Reply time targets" description={targets.on ? "Overdue queries go to the next person" : "Off. Switch them on in Message Settings."} icon={Timer} />
@@ -135,7 +136,7 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
               {(Object.keys(QUERY_TYPE_LABEL) as QueryType[]).map((k) => (
                 <li key={k} className="flex justify-between gap-3 py-1 border-b border-line/70 last:border-0">
                   <b className="font-semibold">{QUERY_TYPE_LABEL[k]}</b>
-                  <span className={cx("tnum whitespace-nowrap", !targets.on && "text-ink3")}>{targets.hours[k]} hours</span>
+                  <span className={cx("tnum whitespace-nowrap", !targets.on && "text-ink3")}>{targets.hours[k]} <Words k="hours" /></span>
                 </li>
               ))}
             </ul>

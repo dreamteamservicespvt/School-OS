@@ -12,6 +12,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { BackLink, RecordHead, Split } from "@/components/ui/split";
 import { whoOptions } from "../who-options";
 import { ConsentRequestForm, RemindButton } from "./consent-forms";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Consent forms" };
 
@@ -38,7 +39,7 @@ export default async function ConsentPage() {
   return (
     <>
       <BackLink href="/communication/parent-link" label="Parent Link" />
-      <RecordHead title="Consent forms" sub={<span className="text-[14px] text-ink3">Guardians see each form on their Parent Link and agree with a one-time code to their mobile.</span>} />
+      <RecordHead title="Consent forms" sub={<span className="text-[14px] text-ink3"><Words k="Guardians see each form on their Parent Link and agree with a one-time code to their mobile." /></span>} />
       <Split side={380}>
         <Card className="min-w-0">
           <CardHeader title="Requests sent" icon={ListChecks} description="Given, waiting and withdrawn for each request" />
@@ -52,7 +53,7 @@ export default async function ConsentPage() {
                   <div className="flex items-start gap-2">
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-[14px] leading-snug">{t?.title ?? r.consentType}{t ? ` · version ${t.version}` : ""} <Pill tone={open ? "info" : "neutral"} className="!h-5 !text-[11px] ml-1">{open ? "Open" : "Closed"}</Pill></p>
-                      <p className="text-[12.5px] text-ink3">{r.audienceLabel} · sent {formatDate(r.createdAt, tz)} · reply by {formatDate(r.replyBy, "UTC")}{r.lastReminderAt ? ` · reminded ${formatDateTime(r.lastReminderAt, tz)}` : ""}</p>
+                      <p className="text-[12.5px] text-ink3">{r.audienceLabel} <Words k="· sent" /> {formatDate(r.createdAt, tz)} <Words k="· reply by" /> {formatDate(r.replyBy, "UTC")}{r.lastReminderAt ? ` · reminded ${formatDateTime(r.lastReminderAt, tz)}` : ""}</p>
                     </div>
                     {open && waiting.length > 0 && <RemindButton id={r.id} count={waiting.length} />}
                   </div>
@@ -62,21 +63,21 @@ export default async function ConsentPage() {
                     <span className="bg-bad" style={{ width: `${(withdrawn.length / tot) * 100}%` }} />
                   </span>
                   <p className="text-[13px] tnum flex gap-x-3 gap-y-1 flex-wrap">
-                    <span><b className="font-semibold text-ok">{given.length.toLocaleString("en-IN")}</b> given</span>
-                    <span><b className="font-semibold text-warn">{waiting.length.toLocaleString("en-IN")}</b> waiting</span>
-                    <span><b className="font-semibold text-bad">{withdrawn.length.toLocaleString("en-IN")}</b> withdrawn</span>
+                    <span><b className="font-semibold text-ok">{given.length.toLocaleString("en-IN")}</b> <Words k="given" /></span>
+                    <span><b className="font-semibold text-warn">{waiting.length.toLocaleString("en-IN")}</b> <Words k="waiting" /></span>
+                    <span><b className="font-semibold text-bad">{withdrawn.length.toLocaleString("en-IN")}</b> <Words k="withdrawn" /></span>
                   </p>
                 </li>
               );
             })}
-            {!data.statuses.length && <li className="text-[13.5px] text-ink3">No consent requests yet. Requests you send appear here with given, waiting and withdrawn counts.</li>}
+            {!data.statuses.length && <li className="text-[13.5px] text-ink3"><Words k="No consent requests yet. Requests you send appear here with given, waiting and withdrawn counts." /></li>}
           </ul>
         </Card>
         <Card>
           <CardHeader title="Request consent" icon={FileSignature} description="Each guardian agrees with a one-time code" />
           {data.texts.length === 0 ? (
             <div className="px-5 pb-5">
-              <Banner tone="info" title="No consent texts yet." action={<ButtonLink href="/settings/data-security" size="sm" variant="secondary">Open settings</ButtonLink>}>Add consent types and their wording in Settings, Data Backup &amp; Security.</Banner>
+              <Banner tone="info" title="No consent texts yet." action={<ButtonLink href="/settings/data-security" size="sm" variant="secondary"><Words k="Open settings" /></ButtonLink>}><Words k={"Add consent types and their wording in Settings, Data Backup & Security."} /></Banner>
             </div>
           ) : (
             <ConsentRequestForm texts={data.texts.map((t) => ({ value: t.id, label: `${t.title} (version ${t.version})` }))} who={data.who} defaultReplyBy={defaultReply.toISOString().slice(0, 10)} minDate={today} />

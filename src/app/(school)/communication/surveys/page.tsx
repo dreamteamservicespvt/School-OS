@@ -19,6 +19,7 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
 import { CommHead } from "../_components/comm-head";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Surveys" };
 
@@ -37,8 +38,8 @@ export default async function SurveysPage({ searchParams }: { searchParams: Sear
     return (
       <>
         {head()}
-        <Card><EmptyState Icon={ClipboardList} title="Surveys are switched off" action={<ButtonLink href="/communication/settings" icon={Settings2}>Message Settings</ButtonLink>}>
-          Switch them on under Optional pages in Message Settings.
+        <Card><EmptyState Icon={ClipboardList} title="Surveys are switched off" action={<ButtonLink href="/communication/settings" icon={Settings2}><Words k="Message Settings" /></ButtonLink>}>
+          <Words k="Switch them on under Optional pages in Message Settings." />
         </EmptyState></Card>
       </>
     );
@@ -69,10 +70,10 @@ export default async function SurveysPage({ searchParams }: { searchParams: Sear
 
   return (
     <>
-      {head(<ButtonLink href="/communication/surveys/new" variant="primary" icon={Plus}>New survey</ButtonLink>)}
+      {head(<ButtonLink href="/communication/surveys/new" variant="primary" icon={Plus}><Words k="New survey" /></ButtonLink>)}
       <div className="flex flex-col gap-5 lg:gap-6">
         <div>
-          <p className="eyebrow text-ink3 mb-2.5">Start from an example</p>
+          <p className="eyebrow text-ink3 mb-2.5"><Words k="Start from an example" /></p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {SURVEY_EXAMPLES.map((e) => {
               const Icon = EXAMPLE_ICON[e.key as keyof typeof EXAMPLE_ICON] ?? ClipboardList;
@@ -102,14 +103,14 @@ export default async function SurveysPage({ searchParams }: { searchParams: Sear
             paging={{ page: params.page, pageSize: PAGE_SIZE, total: data.total, href: (p) => listHref("/communication/surveys", params, { page: p }) }}
             empty={
               <EmptyState bare Icon={ClipboardList} title={filtered ? "No survey sent in these dates" : "No surveys yet"}
-                action={<ButtonLink href="/communication/surveys/new" icon={Plus}>New survey</ButtonLink>}>
+                action={<ButtonLink href="/communication/surveys/new" icon={Plus}><Words k="New survey" /></ButtonLink>}>
                 {filtered ? "Pick a longer period, like This year." : "Start from an example above, or write your own."}
               </EmptyState>
             }
             columns={[
               { key: "title", label: "Survey", render: (s) => <div className="min-w-[220px]"><p className="font-semibold">{s.title}</p><p className="text-[12.5px] text-ink3">{s.number} · {s.audienceLabel}{s.anonymous ? " · anonymous" : ""}</p></div> },
               { key: "sent", label: "Sent", nowrap: true, render: sentCell },
-              { key: "resp", label: "Responses", render: (s) => s.status === "DRAFT" ? <span className="text-ink3">–</span> : <div className="w-40"><p className="text-[13px] tnum"><b className="font-semibold">{resp(s).toLocaleString("en-IN")}</b> <span className="text-ink3">of {s.invitedCount.toLocaleString("en-IN")}</span></p><Progress value={s.invitedCount ? (resp(s) / s.invitedCount) * 100 : 0} className="mt-1" /></div> },
+              { key: "resp", label: "Responses", render: (s) => s.status === "DRAFT" ? <span className="text-ink3">–</span> : <div className="w-40"><p className="text-[13px] tnum"><b className="font-semibold">{resp(s).toLocaleString("en-IN")}</b> <span className="text-ink3"><Words k="of" /> {s.invitedCount.toLocaleString("en-IN")}</span></p><Progress value={s.invitedCount ? (resp(s) / s.invitedCount) * 100 : 0} className="mt-1" /></div> },
               { key: "status", label: "Status", nowrap: true, render: (s) => <Pill tone={STATUS_TONE[status(s)]} dot>{STATUS_LABEL[status(s)]}</Pill> },
             ]}
             mobile={(s) => ({

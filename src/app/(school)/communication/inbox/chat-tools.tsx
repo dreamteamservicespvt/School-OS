@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { cx } from "@/components/ui/cx";
 import { assignChatAction, chatToQueryAction, markReadAction, replyChatAction, resolveChatAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export function Composer({ chatId, firstName, quick, canSend }: { chatId: string; firstName: string; quick: string[]; canSend: boolean }) {
   const router = useRouter();
@@ -30,7 +31,7 @@ export function Composer({ chatId, firstName, quick, canSend }: { chatId: string
       </div></div>
       {msg && <p role="alert" className="text-[13px] text-bad">{msg}</p>}
       <form onSubmit={(e) => { e.preventDefault(); if (draft.trim()) send(); }} className="flex items-center gap-2">
-        <label htmlFor="inbox-reply" className="sr-only">Reply</label>
+        <label htmlFor="inbox-reply" className="sr-only"><Words k="Reply" /></label>
         <input id="inbox-reply" value={draft} maxLength={1000} onChange={(e) => setDraft(e.target.value)} placeholder={`Reply to ${firstName}`}
           className="h-11 flex-1 min-w-0 rounded-xl bg-surface border border-line px-3.5 text-[15px] outline-none focus:border-brand focus:ring-4 focus:ring-brand/15" />
         <Button type="submit" icon={SendHorizontal} loading={pending} disabled={!draft.trim()} aria-label="Send reply" className="!px-3.5" />
@@ -62,8 +63,8 @@ export function ChatButtons({ chatId, name, assigned, resolved, queryHref, offic
     <div className="flex items-center gap-1.5 flex-wrap justify-end">
       {msg && <p role="alert" className="w-full text-right text-[12.5px] text-bad">{msg}</p>}
       {office && <Button size="sm" variant="secondary" icon={UserCheck} onClick={() => setOpen(true)}>{assigned ? "Reassign" : "Assign"}</Button>}
-      {office && (queryHref ? <a href={queryHref} className="h-9 px-3 rounded-xl text-[13px] font-semibold text-brand hover:bg-brand/10 inline-flex items-center gap-1.5"><ClipboardList size={15} aria-hidden="true" />Query</a>
-        : <Button size="sm" variant="ghost" icon={ClipboardList} loading={pending} onClick={toQuery}>Make it a query</Button>)}
+      {office && (queryHref ? <a href={queryHref} className="h-9 px-3 rounded-xl text-[13px] font-semibold text-brand hover:bg-brand/10 inline-flex items-center gap-1.5"><ClipboardList size={15} aria-hidden="true" /><Words k="Query" /></a>
+        : <Button size="sm" variant="ghost" icon={ClipboardList} loading={pending} onClick={toQuery}><Words k="Make it a query" /></Button>)}
       <Button size="sm" variant={resolved ? "ghost" : "soft"} icon={resolved ? RotateCcw : CircleCheck} loading={pending} onClick={() => run(() => resolveChatAction(chatId, !resolved))}>{resolved ? "Reopen" : "Resolved"}</Button>
       <Dialog open={open} onClose={() => setOpen(false)} title={`Give ${name}’s chat to`} sub="They see it under Assigned to me and get a notification">
         <ul className="flex flex-col max-h-[55vh] overflow-y-auto">

@@ -11,6 +11,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { Segmented } from "@/components/ui/controls";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
+import { Words } from "@/lib/i18n/client";
 
 type Text = { language: string; subject: string; body: string; dltTemplateId: string; locked: boolean; saved: boolean };
 export type TemplateFormData = {
@@ -139,12 +140,12 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
         <CardHeader title="The text" icon={Languages} description="One version in each language. Tap a blank to add it where the cursor is."
           action={unused.length > 0 ? (
             <div className="flex gap-2">
-              <label htmlFor="t-addlang" className="sr-only">Add a language</label>
+              <label htmlFor="t-addlang" className="sr-only"><Words k="Add a language" /></label>
               <select id="t-addlang" value={addLang} onChange={(e) => setAddLang(e.target.value)} className={cx(inputCls(), "h-9 w-auto pr-9 text-[13.5px]")}>
                 <option value="">Add a language…</option>
                 {unused.map((l) => <option key={l.code} value={l.code}>{l.label}</option>)}
               </select>
-              <Button size="sm" variant="secondary" icon={Plus} disabled={!addLang} onClick={addLanguage}>Add</Button>
+              <Button size="sm" variant="secondary" icon={Plus} disabled={!addLang} onClick={addLanguage}><Words k="Add" /></Button>
             </div>
           ) : undefined} />
         <div className="px-5 pb-5 flex flex-col gap-4">
@@ -155,7 +156,7 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
           {cur && (
             <div className="grid grid-cols-1 gap-5 *:min-w-0 lg:grid-cols-2">
               <div className="flex flex-col gap-4">
-                {cur.locked && <Banner tone="info" icon={Lock} title="Approved by WhatsApp and locked.">Make a new template to change the wording.</Banner>}
+                {cur.locked && <Banner tone="info" icon={Lock} title="Approved by WhatsApp and locked."><Words k="Make a new template to change the wording." /></Banner>}
                 {hasSubject && (
                   <FieldShell label={channel === "email" ? "Subject" : "Title"} id="t-subject" required={channel === "email"} error={err(`subject:${cur.language}`)}>
                     <input id="t-subject" value={cur.subject} disabled={cur.locked} onChange={(e) => patch(cur.language, { subject: e.target.value })} maxLength={150} className={cx(inputCls(err(`subject:${cur.language}`)), "h-11")} />
@@ -168,7 +169,7 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
                 </FieldShell>
                 {!cur.locked && (
                   <div>
-                    <p className="text-[12.5px] text-ink3 mb-1.5">Tap a blank to add it</p>
+                    <p className="text-[12.5px] text-ink3 mb-1.5"><Words k="Tap a blank to add it" /></p>
                     <div className="flex flex-wrap gap-1.5">
                       {data.variables.map((v) => (
                         <button key={v.key} type="button" onClick={() => insert(v.key)} title={v.label}
@@ -185,15 +186,15 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
                 )}
               </div>
               <div>
-                <p className="eyebrow text-ink3 mb-1.5">Preview with sample details</p>
+                <p className="eyebrow text-ink3 mb-1.5"><Words k="Preview with sample details" /></p>
                 <div className="rounded-2xl bg-sunken/70 p-4">
                   <div className="max-w-sm rounded-2xl rounded-tl-md bg-surface border border-line p-3.5 shadow-card text-[14px] leading-relaxed">
                     {hasSubject && cur.subject && <p className="font-semibold">{cur.subject}</p>}
-                    <p className="whitespace-pre-line break-words">{preview || <span className="text-ink3">The text appears here as a parent would see it.</span>}</p>
+                    <p className="whitespace-pre-line break-words">{preview || <span className="text-ink3"><Words k="The text appears here as a parent would see it." /></span>}</p>
                   </div>
                 </div>
                 {cur.body && [...cur.body.matchAll(BLANK)].length > 0 && (
-                  <p className="mt-2 text-[12.5px] text-ink3">A person with no value for a blank is skipped and listed before sending.</p>
+                  <p className="mt-2 text-[12.5px] text-ink3"><Words k="A person with no value for a blank is skipped and listed before sending." /></p>
                 )}
               </div>
             </div>
@@ -202,7 +203,7 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
       </Card>
 
       <div className="flex flex-wrap gap-2 justify-end">
-        <ButtonLink href={data.id ? `/communication/templates/${data.id}` : "/communication/templates"} variant="secondary">Cancel</ButtonLink>
+        <ButtonLink href={data.id ? `/communication/templates/${data.id}` : "/communication/templates"} variant="secondary"><Words k="Cancel" /></ButtonLink>
         <Button type="submit" icon={Check} loading={pending} loadingText="Saving">{data.id ? "Save new version" : "Save template"}</Button>
       </div>
     </form>

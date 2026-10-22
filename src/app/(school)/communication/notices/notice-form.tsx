@@ -5,6 +5,7 @@ import { startTransition, useActionState, useRef, useState } from "react";
 import { saveNoticeAction, type NoticeState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
+import { Words } from "@/lib/i18n/client";
 
 export type NoticeFormData = {
   id: string | null;
@@ -76,19 +77,19 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
 
       <section className="space-y-4 rounded-2xl border border-line/70 bg-surface p-5 shadow-card">
         <div>
-          <label htmlFor="n-title" className="mb-1.5 block text-[13px] font-semibold text-ink2">Title <span className="text-bad" aria-hidden>*</span></label>
+          <label htmlFor="n-title" className="mb-1.5 block text-[13px] font-semibold text-ink2"><Words k="Title" /> <span className="text-bad" aria-hidden>*</span></label>
           <input id="n-title" name="title" defaultValue={v.title} maxLength={150} required aria-invalid={err("title") ? true : undefined} aria-describedby="ne-title"
             className={`h-11 w-full rounded-xl border bg-surface px-3.5 text-[15px] ${err("title") ? "border-bad ring-4 ring-bad/10" : "border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"}`} />
           {err("title") && <p id="ne-title" className="mt-1.5 text-[12.5px] text-bad">{err("title")}</p>}
         </div>
         <div>
-          <label htmlFor="n-body" className="mb-1.5 block text-[13px] font-semibold text-ink2">Notice <span className="text-bad" aria-hidden>*</span></label>
+          <label htmlFor="n-body" className="mb-1.5 block text-[13px] font-semibold text-ink2"><Words k="Notice" /> <span className="text-bad" aria-hidden>*</span></label>
           <textarea id="n-body" name="body" rows={8} defaultValue={v.body} maxLength={5000} required aria-invalid={err("body") ? true : undefined} aria-describedby="ne-body"
             className={`w-full rounded-xl border bg-surface px-3.5 text-[15px] py-2 ${err("body") ? "border-bad ring-4 ring-bad/10" : "border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"}`} />
-          {err("body") ? <p id="ne-body" className="mt-1.5 text-[12.5px] text-bad">{err("body")}</p> : <p className="mt-1.5 text-[12.5px] text-ink3">Line breaks are kept. Up to 5000 characters.</p>}
+          {err("body") ? <p id="ne-body" className="mt-1.5 text-[12.5px] text-bad">{err("body")}</p> : <p className="mt-1.5 text-[12.5px] text-ink3"><Words k="Line breaks are kept. Up to 5000 characters." /></p>}
         </div>
         <div>
-          <label htmlFor="n-files" className="mb-1.5 block text-[13px] font-semibold text-ink2">Attachments</label>
+          <label htmlFor="n-files" className="mb-1.5 block text-[13px] font-semibold text-ink2"><Words k="Attachments" /></label>
           {keep.length > 0 && (
             <ul className="mb-2 flex flex-wrap gap-2">
               {keep.map((f) => (
@@ -99,30 +100,30 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
             </ul>
           )}
           <input id="n-files" name="files" type="file" multiple accept="application/pdf,image/jpeg,image/png,image/webp" className="block w-full text-sm file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none file:bg-surface file:px-4" />
-          {err("files") ? <p className="mt-1.5 text-[12.5px] text-bad">{err("files")}</p> : <p className="mt-1.5 text-[12.5px] text-ink3">PDF or photos, up to 5 files of 10 MB each.</p>}
+          {err("files") ? <p className="mt-1.5 text-[12.5px] text-bad">{err("files")}</p> : <p className="mt-1.5 text-[12.5px] text-ink3"><Words k="PDF or photos, up to 5 files of 10 MB each." /></p>}
         </div>
       </section>
 
       <section className="space-y-4 rounded-2xl border border-line/70 bg-surface p-5 shadow-card">
         <fieldset id="n-audience" tabIndex={-1}>
-          <legend className="mb-2 font-semibold">Audience <span className="text-bad" aria-hidden>*</span></legend>
+          <legend className="mb-2 font-semibold"><Words k="Audience" /> <span className="text-bad" aria-hidden>*</span></legend>
           <div className="flex flex-wrap gap-x-6">
-            <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="parents" checked={parents} onChange={(e) => setParents(e.target.checked)} className={box} />Parents</label>
-            <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="students" checked={students} onChange={(e) => setStudents(e.target.checked)} className={box} />Students</label>
-            {data.staffAllowed && <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="staff" checked={staff} onChange={(e) => setStaff(e.target.checked)} className={box} />Staff</label>}
+            <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="parents" checked={parents} onChange={(e) => setParents(e.target.checked)} className={box} /><Words k="Parents" /></label>
+            <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="students" checked={students} onChange={(e) => setStudents(e.target.checked)} className={box} /><Words k="Students" /></label>
+            {data.staffAllowed && <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="staff" checked={staff} onChange={(e) => setStaff(e.target.checked)} className={box} /><Words k="Staff" /></label>}
           </div>
           {err("audience") && <p className="mt-1.5 text-[12.5px] text-bad">{err("audience")}</p>}
-          {parents && <p className="text-sm text-ink3">Parents see it on their Parent Link, and by message on the channels chosen below.</p>}
+          {parents && <p className="text-sm text-ink3"><Words k="Parents see it on their Parent Link, and by message on the channels chosen below." /></p>}
         </fieldset>
         {(parents || students) && data.classes.length > 0 && (
           <fieldset>
-            <legend className="mb-1 text-[13px] font-semibold text-ink2">Classes and sections</legend>
+            <legend className="mb-1 text-[13px] font-semibold text-ink2"><Words k="Classes and sections" /></legend>
             <p className="mb-2 text-sm text-ink3">{data.wholeSchool ? "Nothing ticked: the whole school." : "Choose your own sections."}</p>
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {data.classes.map((c) => (
                 <div key={c.id} className="rounded-xl border border-line p-3">
                   {data.wholeSchool ? (
-                    <label className="flex min-h-11 items-center gap-2 font-medium"><input type="checkbox" name="classIds" value={c.id} checked={classes.includes(c.id)} onChange={(e) => setClasses(e.target.checked ? [...classes, c.id] : classes.filter((x) => x !== c.id))} className={box} />{c.name} (all)</label>
+                    <label className="flex min-h-11 items-center gap-2 font-medium"><input type="checkbox" name="classIds" value={c.id} checked={classes.includes(c.id)} onChange={(e) => setClasses(e.target.checked ? [...classes, c.id] : classes.filter((x) => x !== c.id))} className={box} />{c.name} <Words k="(all)" /></label>
                   ) : <p className="font-medium">{c.name}</p>}
                   <div className="flex flex-wrap gap-x-4">
                     {c.sections.map((s) => (
@@ -136,7 +137,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
         )}
         {staff && data.roles.length > 0 && (
           <fieldset>
-            <legend className="mb-1 text-[13px] font-semibold text-ink2">Staff roles (nothing ticked: all staff)</legend>
+            <legend className="mb-1 text-[13px] font-semibold text-ink2"><Words k="Staff roles (nothing ticked: all staff)" /></legend>
             <div className="flex flex-wrap gap-x-5">
               {data.roles.map((r) => <label key={r.key} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="roleKeys" value={r.key} defaultChecked={v.roleKeys.includes(r.key)} className={box} />{r.name}</label>)}
             </div>
@@ -144,7 +145,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
         )}
         {data.campuses.length > 1 && (
           <fieldset>
-            <legend className="mb-1 text-[13px] font-semibold text-ink2">Campuses (nothing ticked: all)</legend>
+            <legend className="mb-1 text-[13px] font-semibold text-ink2"><Words k="Campuses (nothing ticked: all)" /></legend>
             <div className="flex flex-wrap gap-x-5">
               {data.campuses.map((c) => <label key={c.id} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="campusIds" value={c.id} defaultChecked={v.campusIds.includes(c.id)} className={box} />{c.name}</label>)}
             </div>
@@ -154,7 +155,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
 
       <section className="space-y-4 rounded-2xl border border-line/70 bg-surface p-5 shadow-card">
         <fieldset>
-          <legend className="mb-2 font-semibold">Priority</legend>
+          <legend className="mb-2 font-semibold"><Words k="Priority" /></legend>
           <div className="flex flex-wrap gap-2">
             {[["NORMAL", "Normal"], ["HIGH", "High"], ...(data.criticalAllowed ? [["CRITICAL", "Critical"]] : [])].map(([k, l]) => (
               <label key={k} className={`inline-flex min-h-11 cursor-pointer items-center rounded-full border px-4 ${priority === k ? (k === "CRITICAL" ? "border-bad ring-4 ring-bad/10 bg-bad/10 font-medium text-bad" : k === "HIGH" ? "border-warn bg-warn/10 font-medium text-warn" : "border-brand bg-brand/10 font-medium text-brand") : "border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"}`}>
@@ -162,10 +163,10 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
               </label>
             ))}
           </div>
-          {priority === "CRITICAL" && <p className="mt-2 text-sm text-bad">A Critical notice is pinned at the top of every chosen parent&rsquo;s Parent Link until it expires, and goes even to parents who opted out of messages.</p>}
+          {priority === "CRITICAL" && <p className="mt-2 text-sm text-bad"><Words k="A Critical notice is pinned at the top of every chosen parent’s Parent Link until it expires, and goes even to parents who opted out of messages." /></p>}
         </fieldset>
         <fieldset>
-          <legend className="mb-2 font-semibold">Channels</legend>
+          <legend className="mb-2 font-semibold"><Words k="Channels" /></legend>
           <div className="flex flex-wrap gap-x-5">
             {CHANNELS.map((c) => (
               <label key={c.key} className="flex min-h-11 items-center gap-2">
@@ -174,31 +175,31 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
               </label>
             ))}
           </div>
-          <p className="text-sm text-ink3">WhatsApp, SMS and email go to parents, using the notice template and your credits.</p>
+          <p className="text-sm text-ink3"><Words k="WhatsApp, SMS and email go to parents, using the notice template and your credits." /></p>
         </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="n-publishAt" className="mb-1.5 block text-[13px] font-semibold text-ink2">Publish at</label>
+            <label htmlFor="n-publishAt" className="mb-1.5 block text-[13px] font-semibold text-ink2"><Words k="Publish at" /></label>
             <input id="n-publishAt" type="datetime-local" name="publishAt" defaultValue={v.publishAt} className="h-11 w-full rounded-lg border border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none bg-surface px-3" />
-            <p className="mt-1.5 text-[12.5px] text-ink3">Blank: now.</p>
+            <p className="mt-1.5 text-[12.5px] text-ink3"><Words k="Blank: now." /></p>
             {err("publishAt") && <p className="text-sm text-bad">{err("publishAt")}</p>}
           </div>
           <div>
-            <label htmlFor="n-expiresOn" className="mb-1.5 block text-[13px] font-semibold text-ink2">Expires on</label>
+            <label htmlFor="n-expiresOn" className="mb-1.5 block text-[13px] font-semibold text-ink2"><Words k="Expires on" /></label>
             <input id="n-expiresOn" type="date" name="expiresOn" defaultValue={v.expiresOn} className="h-11 w-full rounded-lg border border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none bg-surface px-3" />
-            <p className="mt-1.5 text-[12.5px] text-ink3">Blank: 30 days after publishing ({data.defaultExpiry} if published today).</p>
+            <p className="mt-1.5 text-[12.5px] text-ink3"><Words k="Blank: 30 days after publishing (" />{data.defaultExpiry} <Words k="if published today)." /></p>
             {err("expiresOn") && <p className="text-sm text-bad">{err("expiresOn")}</p>}
           </div>
         </div>
-        <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="askAck" defaultChecked={v.askAck} className={box} />Ask staff and students to tap &ldquo;I have read this&rdquo;</label>
+        <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="askAck" defaultChecked={v.askAck} className={box} /><Words k="Ask staff and students to tap “I have read this”" /></label>
         {priority === "CRITICAL" && (
           <div className="max-w-sm">
-            <label htmlFor="n-criticalWord" className="mb-1.5 block text-[13px] font-semibold text-ink2">Type CRITICAL to pin this on every chosen parent&rsquo;s Parent Link</label>
+            <label htmlFor="n-criticalWord" className="mb-1.5 block text-[13px] font-semibold text-ink2"><Words k="Type CRITICAL to pin this on every chosen parent’s Parent Link" /></label>
             <input id="n-criticalWord" name="criticalWord" value={word} onChange={(e) => setWord(e.target.value)} autoComplete="off" className={`h-11 w-full rounded-xl border bg-surface px-3.5 text-[15px] ${err("criticalWord") ? "border-bad ring-4 ring-bad/10" : "border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none"}`} />
             {err("criticalWord") && <p className="mt-1.5 text-[12.5px] text-bad">{err("criticalWord")}</p>}
           </div>
         )}
-        {approval && <Alert tone="info">This notice goes for approval first. It is published once approved.</Alert>}
+        {approval && <Alert tone="info"><Words k="This notice goes for approval first. It is published once approved." /></Alert>}
       </section>
 
       <div className="flex flex-wrap gap-2">
@@ -208,7 +209,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
         </Button>
         <Button type="submit" variant="secondary" loading={pending && pressed === "draft"} loadingText="Saving" disabled={pending}
           onClick={() => { intent.current = "draft"; setPressed("draft"); }}>
-          Save draft
+          <Words k="Save draft" />
         </Button>
       </div>
     </form>

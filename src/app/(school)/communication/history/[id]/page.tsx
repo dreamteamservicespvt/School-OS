@@ -27,6 +27,7 @@ import { BackLink, Col, DL, RecordHead, Split } from "@/components/ui/split";
 import { UrlSearch, UrlSelect } from "@/components/ui/url-filters";
 import { ChannelPills } from "../../_components/channel-pills";
 import { MessageActions } from "./message-actions";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Message" };
 
@@ -115,15 +116,15 @@ export default async function MessagePage({ params, searchParams }: Props) {
             retryable={m.status === "CANCELLED" ? 0 : data.retry.rows.length} overLimit={data.retry.overLimit} retryLimit={data.retry.retryLimit}
             unread={data.unread} failed={sent ? counts.failed : 0} notSent={sent ? data.retry.notSent : 0}
             channels={(["whatsapp", "sms", "email", "app"] as Channel[]).filter((c) => data.on.includes(c))} labels={CHANNEL_LABEL} />
-        ) : m.status === "CANCELLED" ? <Pill tone="neutral">Cancelled · not sent</Pill> : null} />
+        ) : m.status === "CANCELLED" ? <Pill tone="neutral"><Words k="Cancelled · not sent" /></Pill> : null} />
 
       <div className="flex flex-col gap-5 lg:gap-6">
-        {m.status === "SCHEDULED" && m.scheduledAt && <Banner tone="info" title={`Scheduled for ${formatDateTime(m.scheduledAt, tz)}.`}>Nobody has received it yet. You can cancel it until it goes.</Banner>}
-        {m.status === "CANCELLED" && <Banner tone="warn" title="Cancelled.">{m.cancelledAt ? `On ${formatDateTime(m.cancelledAt, tz)}` : ""}{m.cancelledById ? ` by ${data.names.get(m.cancelledById) ?? "staff"}` : ""}. Nobody got it, and no credits were used.</Banner>}
-        {isCode && <Banner tone="info" title={`${CODE_HIDDEN_LABEL}.`}>The code is never kept or shown here; only the person it went to saw it. A code that did not arrive is not sent again: the person asks for a new code.</Banner>}
-        {system && <Banner tone="info" title="Sent by School OS.">This is {systemWhatWords(system)}. It goes also to people who opted out of messages, because it is their own link. It is not an emergency broadcast.</Banner>}
-        {m.isEmergency && !isCode && !system && <Banner tone="bad" title="Emergency broadcast.">Sent also to parents who opted out.</Banner>}
-        {counts.testMode > 0 && <Banner tone="warn" title="Test mode: not really sent.">The channel is in test mode in Settings, SMS, WhatsApp &amp; Email, so the {counts.testMode.toLocaleString("en-IN")} {counts.testMode === 1 ? "person" : "people"} marked &ldquo;Test mode&rdquo; below did not receive this message. It is only recorded.</Banner>}
+        {m.status === "SCHEDULED" && m.scheduledAt && <Banner tone="info" title={`Scheduled for ${formatDateTime(m.scheduledAt, tz)}.`}><Words k="Nobody has received it yet. You can cancel it until it goes." /></Banner>}
+        {m.status === "CANCELLED" && <Banner tone="warn" title="Cancelled.">{m.cancelledAt ? `On ${formatDateTime(m.cancelledAt, tz)}` : ""}{m.cancelledById ? ` by ${data.names.get(m.cancelledById) ?? "staff"}` : ""}<Words k=". Nobody got it, and no credits were used." /></Banner>}
+        {isCode && <Banner tone="info" title={`${CODE_HIDDEN_LABEL}.`}><Words k="The code is never kept or shown here; only the person it went to saw it. A code that did not arrive is not sent again: the person asks for a new code." /></Banner>}
+        {system && <Banner tone="info" title="Sent by School OS."><Words k="This is" /> {systemWhatWords(system)}<Words k=". It goes also to people who opted out of messages, because it is their own link. It is not an emergency broadcast." /></Banner>}
+        {m.isEmergency && !isCode && !system && <Banner tone="bad" title="Emergency broadcast."><Words k="Sent also to parents who opted out." /></Banner>}
+        {counts.testMode > 0 && <Banner tone="warn" title="Test mode: not really sent."><Words k={"The channel is in test mode in Settings, SMS, WhatsApp & Email, so the"} /> {counts.testMode.toLocaleString("en-IN")} {counts.testMode === 1 ? "person" : "people"} <Words k="marked “Test mode” below did not receive this message. It is only recorded." /></Banner>}
         {skipped.length > 0 && (
           <Banner tone="warn" title={`${skipped.reduce((n, x) => n + x.count, 0)} left out when it was sent:`}>
             {skipped.map((x) => `${x.reason} ${x.count}${x.names?.length ? ` (${x.names.slice(0, 4).join(", ")}${x.count > 4 ? " and others" : ""})` : ""}`).join("; ")}.

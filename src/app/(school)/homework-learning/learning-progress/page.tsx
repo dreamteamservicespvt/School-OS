@@ -16,6 +16,7 @@ import { UrlSearch, UrlSelect } from "@/components/money/url-filters";
 import { HomeworkHead } from "../_components/homework-head";
 import { BASE, homeworkGuard, homeworkPeriod, one, qs, UUID, type SearchParams } from "../_lib/page";
 import { IssueSheet } from "./sheets";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Learning Progress" };
 
@@ -105,10 +106,10 @@ export default async function LearningProgressPage({ searchParams }: { searchPar
               empty={<Empty icon={Users} title="No student matches" body="Try another name or roll number." />}
               columns={[
                 { key: "n", label: "Student", render: (r) => <span className="whitespace-nowrap"><span className="text-ink3 tnum inline-block w-6">{r.rollNo ?? ""}</span><span className="font-semibold">{r.name}</span></span> },
-                { key: "h", label: "Homework done", render: (r) => <div className="w-28"><Progress value={r.given ? (r.done / r.given) * 100 : 0} tone={r.given && r.done / r.given < 0.75 ? "warn" : "brand"} /><span className="text-[12.5px] text-ink3 tnum">{r.done} of {r.given}{r.missing ? ` · ${r.missing} missing` : ""}</span></div> },
+                { key: "h", label: "Homework done", render: (r) => <div className="w-28"><Progress value={r.given ? (r.done / r.given) * 100 : 0} tone={r.given && r.done / r.given < 0.75 ? "warn" : "brand"} /><span className="text-[12.5px] text-ink3 tnum">{r.done} <Words k="of" /> {r.given}{r.missing ? ` · ${r.missing} missing` : ""}</span></div> },
                 { key: "s", label: "Avg score", align: "right", render: (r) => <span className="tnum">{r.scorePct !== null ? `${r.scorePct}%` : "—"}</span> },
                 { key: "q", label: "Quizzes", align: "right", render: (r) => <span className="tnum">{r.quizzes}{r.quizPct !== null ? ` · ${r.quizPct}%` : ""}</span> },
-                { key: "l", label: "Lessons", align: "right", render: (r) => <span className="tnum">{r.lessonsDone} of {t.lessons}</span> },
+                { key: "l", label: "Lessons", align: "right", render: (r) => <span className="tnum">{r.lessonsDone} <Words k="of" /> {t.lessons}</span> },
               ]}
               phone={(r) => ({ avatar: r.name, title: `${r.rollNo ?? ""}. ${r.name}`, sub: `Homework ${r.done} of ${r.given}${r.quizPct !== null ? ` · quizzes ${r.quizPct}%` : ""}`, right: <span className={cx("font-semibold tnum text-[14px]", r.given > 0 && r.done / r.given < 0.75 && "text-warn")}>{r.scorePct !== null ? `${r.scorePct}%` : "—"}</span> })} />
           </Card>
@@ -126,26 +127,26 @@ export default async function LearningProgressPage({ searchParams }: { searchPar
                     </li>
                   ))}
                 </ul>
-              ) : <p className="px-5 pb-5 text-[13.5px] text-ink3">Shows once at least three students have taken a quiz in these dates.</p>}
+              ) : <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="Shows once at least three students have taken a quiz in these dates." /></p>}
             </Card>
             <Card>
               <CardHeader title="Course certificates" description="For finishing a learning path" icon={Award} />
               <div className="px-5 pb-5 flex flex-col gap-3">
-                {data.certs!.length === 0 && <p className="text-[13.5px] text-ink3">No course in this class has visible lessons yet.</p>}
+                {data.certs!.length === 0 && <p className="text-[13.5px] text-ink3"><Words k="No course in this class has visible lessons yet." /></p>}
                 {data.certs!.map((c) => (
                   <div key={c.course.id} className="rounded-2xl border border-line p-3.5">
-                    <p className="font-semibold text-[14.5px]">{c.subject} · Class {pr.section.label}</p>
-                    <p className="text-[12.5px] text-ink3">{plural(c.lessons, "lesson")} · {c.finished.length} finished every lesson · {c.issued.length} issued</p>
+                    <p className="font-semibold text-[14.5px]">{c.subject} <Words k="· Class" /> {pr.section.label}</p>
+                    <p className="text-[12.5px] text-ink3">{plural(c.lessons, "lesson")} · {c.finished.length} <Words k="finished every lesson ·" /> {c.issued.length} <Words k="issued" /></p>
                     {c.issued.length > 0 && (
                       <ul className="mt-2 flex flex-wrap gap-1.5">
                         {c.issued.slice(0, 6).map((x) => <li key={x.id}><a href={`${HREF}/certificate/${x.id}`} target="_blank" rel="noopener noreferrer" className="h-7 px-2.5 rounded-lg bg-sunken text-[12px] inline-flex items-center gap-1 hover:text-brand"><FileText size={12} aria-hidden="true" />{x.number}</a></li>)}
-                        {c.issued.length > 6 && <li className="text-[12px] text-ink3 self-center">and {c.issued.length - 6} more</li>}
+                        {c.issued.length > 6 && <li className="text-[12px] text-ink3 self-center"><Words k="and" /> {c.issued.length - 6} <Words k="more" /></li>}
                       </ul>
                     )}
-                    {c.canIssue && c.ready.length > 0 && <ButtonLink href={here({ do: "issue", course: c.course.id })} scroll={false} size="sm" variant="soft" icon={Award} className="mt-2">Issue {plural(c.ready.length, "certificate")}</ButtonLink>}
+                    {c.canIssue && c.ready.length > 0 && <ButtonLink href={here({ do: "issue", course: c.course.id })} scroll={false} size="sm" variant="soft" icon={Award} className="mt-2"><Words k="Issue" /> {plural(c.ready.length, "certificate")}</ButtonLink>}
                   </div>
                 ))}
-                <p className="text-[12.5px] text-ink3">Design from Settings, Document Designs, Course certificate.</p>
+                <p className="text-[12.5px] text-ink3"><Words k="Design from Settings, Document Designs, Course certificate." /></p>
               </div>
             </Card>
           </Col>

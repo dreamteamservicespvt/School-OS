@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CheckboxField, SelectField, TextField } from "@/components/ui/field";
 import { FormDialog, err, v } from "../_components/form-dialog";
 import { assignAction, endAllocationAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 type Cell = { allocationId: string; staffId: string; staffName: string; isMain: boolean; fromDate: string | null; toDate: string | null; upcoming: boolean };
 type Row = { sectionId: string; classId: string; label: string; cells: Record<string, Cell[] | null> };
@@ -24,10 +25,10 @@ export function AllocationGrid({ rows, subjects, teachers, canEdit, yearId, toda
     <>
       <div className="relative max-h-[70vh] overflow-auto rounded-2xl border border-line bg-surface">
         <table className="w-full border-separate border-spacing-0 text-left text-sm">
-          <caption className="sr-only">Teachers for each subject in each section</caption>
+          <caption className="sr-only"><Words k="Teachers for each subject in each section" /></caption>
           <thead>
             <tr>
-              <th scope="col" className="sticky left-0 top-0 z-20 border-b border-r border-line bg-surface-2 px-3 py-2 font-medium">Section</th>
+              <th scope="col" className="sticky left-0 top-0 z-20 border-b border-r border-line bg-surface-2 px-3 py-2 font-medium"><Words k="Section" /></th>
               {subjects.map((s) => <th key={s.id} scope="col" title={s.name} className="sticky top-0 z-10 min-w-36 border-b border-line bg-surface-2 px-3 py-2 font-medium">{s.name}</th>)}
             </tr>
           </thead>
@@ -37,15 +38,15 @@ export function AllocationGrid({ rows, subjects, teachers, canEdit, yearId, toda
                 <th scope="row" className="sticky left-0 z-10 whitespace-nowrap border-b border-r border-line bg-surface px-3 py-2 font-medium">{r.label}</th>
                 {subjects.map((s) => {
                   const cells = r.cells[s.id];
-                  if (cells === null) return <td key={s.id} className="border-b border-line bg-surface-2/50 px-3 py-2 text-ink-2"><span className="sr-only">Not taught</span><span aria-hidden="true">·</span></td>;
+                  if (cells === null) return <td key={s.id} className="border-b border-line bg-surface-2/50 px-3 py-2 text-ink-2"><span className="sr-only"><Words k="Not taught" /></span><span aria-hidden="true">·</span></td>;
                   const main = cells.find((c) => c.isMain && !c.upcoming);
                   const gap = !main;
                   const content = (
                     <>
-                      {main ? <span className="block font-medium">{main.staffName}</span> : <span className="block font-medium text-danger">No teacher</span>}
-                      {cells.filter((c) => !c.isMain).map((c) => <span key={c.allocationId} className="block text-xs text-ink-2">Second: {c.staffName}</span>)}
-                      {cells.filter((c) => c.isMain && c.upcoming).map((c) => <span key={c.allocationId} className="block text-xs text-brand-text">From {fmt(c.fromDate)}: {c.staffName}</span>)}
-                      {main?.toDate && <span className="block text-xs text-warn-text">Until {fmt(main.toDate)}</span>}
+                      {main ? <span className="block font-medium">{main.staffName}</span> : <span className="block font-medium text-danger"><Words k="No teacher" /></span>}
+                      {cells.filter((c) => !c.isMain).map((c) => <span key={c.allocationId} className="block text-xs text-ink-2"><Words k="Second:" /> {c.staffName}</span>)}
+                      {cells.filter((c) => c.isMain && c.upcoming).map((c) => <span key={c.allocationId} className="block text-xs text-brand-text"><Words k="From" /> {fmt(c.fromDate)}: {c.staffName}</span>)}
+                      {main?.toDate && <span className="block text-xs text-warn-text"><Words k="Until" /> {fmt(main.toDate)}</span>}
                     </>
                   );
                   return (
@@ -82,7 +83,7 @@ function AssignDialog({ open, onClose, yearId, today, sectionId, sectionLabel, s
       <FormDialog open={open} onClose={onClose} title={`End ${ending.staffName}'s assignment`} action={endAllocationAction} submitLabel="End assignment" danger hidden={{ allocationId: ending.allocationId }}>
         {(state) => (
           <>
-            <p className="text-ink-2">{ending.staffName} stops teaching {subject.name} in {sectionLabel} from this date. The history is kept.</p>
+            <p className="text-ink-2">{ending.staffName} <Words k="stops teaching" /> {subject.name} <Words k="in" /> {sectionLabel} <Words k="from this date. The history is kept." /></p>
             <TextField label="Ends from" name="from" type="date" required defaultValue={v(state, "from", today)} error={err(state, "from")} />
           </>
         )}
@@ -98,7 +99,7 @@ function AssignDialog({ open, onClose, yearId, today, sectionId, sectionLabel, s
               {cells.map((c) => (
                 <li key={c.allocationId} className="flex flex-wrap items-center justify-between gap-2 px-3 py-1">
                   <span><strong>{c.staffName}</strong>, {c.isMain ? "primary" : "secondary"}{c.fromDate ? `, from ${fmt(c.fromDate)}` : ""}{c.toDate ? ` until ${fmt(c.toDate)}` : ""}</span>
-                  <button type="button" className="min-h-11 rounded-lg px-2 font-medium text-danger hover:bg-surface-2" onClick={() => setEnding(c)}>End</button>
+                  <button type="button" className="min-h-11 rounded-lg px-2 font-medium text-danger hover:bg-surface-2" onClick={() => setEnding(c)}><Words k="End" /></button>
                 </li>
               ))}
             </ul>

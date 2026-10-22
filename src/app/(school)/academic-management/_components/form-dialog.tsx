@@ -10,6 +10,7 @@ import { ErrorSummary } from "@/components/ui/field";
 import { FormMessage } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
+import { Words } from "@/lib/i18n/client";
 
 export type ServerFormAction = (prev: FormState, formData: FormData) => Promise<FormState>;
 
@@ -69,7 +70,7 @@ function DialogForm({ action, submitLabel, pendingText, hidden, children, onClos
       {state && !state.ok && (Object.keys(state.errors ?? {}).length > 1 ? <ErrorSummary errors={state.errors} /> : <FormMessage state={state} />)}
       {children(state)}
       <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button variant="secondary" onClick={onClose}><Words k="Cancel" /></Button>
         <SubmitButton pendingText={pendingText ?? "Saving…"} variant={danger ? "danger" : "primary"}>{submitLabel}</SubmitButton>
       </div>
     </form>

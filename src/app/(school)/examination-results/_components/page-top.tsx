@@ -9,6 +9,7 @@ import { Banner } from "@/components/ui/kit";
 import { YearPicker } from "../../academic-management/_components/year-bar";
 import { withYear, type ExamPage } from "../_lib/page";
 import { ExamTabs, type ExamTab } from "./exam-tabs";
+import { Words } from "@/lib/i18n/client";
 
 const BASE = "/examination-results";
 
@@ -42,15 +43,15 @@ export function PageTop({ page, href, sub, children, title, back, showYear = tru
   const own = page.scope.see === "own" && !page.scope.office;
   const crumbs = title ? (
     <>
-      <Link href={withYear(`${BASE}/datesheet`, page)} className="hover:text-ink hover:underline">Examination &amp; Results</Link>
+      <Link href={withYear(`${BASE}/datesheet`, page)} className="hover:text-ink hover:underline"><Words k={"Examination & Results"} /></Link>
       {back && <><ChevronRight size={13} aria-hidden="true" /><Link href={withYear(back.href, page)} className="hover:text-ink hover:underline">{back.label}</Link></>}
     </>
   ) : undefined;
   return (
     <>
       <PageHeader title={title ?? "Examination & Results"} href={href} userId={page.current.user.id} sub={sub} crumbs={crumbs}>
-        {own && <Pill tone="brand"><User size={13} aria-hidden="true" />Only yours</Pill>}
-        {!page.writable && page.year && <Pill tone="neutral"><Eye size={13} aria-hidden="true" />View only</Pill>}
+        {own && <Pill tone="brand"><User size={13} aria-hidden="true" /><Words k="Only yours" /></Pill>}
+        {!page.writable && page.year && <Pill tone="neutral"><Eye size={13} aria-hidden="true" /><Words k="View only" /></Pill>}
         {showYear && page.years.length > 1 && (
           <Suspense>
             <YearPicker years={page.years.map((y) => ({ id: y.id, name: y.name, status: y.status }))} current={page.year?.id ?? null} defaultId={page.defaultYearId} />
@@ -60,7 +61,7 @@ export function PageTop({ page, href, sub, children, title, back, showYear = tru
       </PageHeader>
       {page.year && page.closed && (
         <Banner tone="warn" className="mb-5" title={`You are viewing ${page.year.name}.`}>
-          This year is closed, so exams, marks and results can be seen and printed but not changed.
+          <Words k="This year is closed, so exams, marks and results can be seen and printed but not changed." />
         </Banner>
       )}
       {tabs && <ExamTabs tabs={examTabs(page)} />}
@@ -80,8 +81,8 @@ export function BackLink({ page, href, label, sub }: { page: Pick<ExamPage, "yea
 /** When the school has no academic year yet. */
 export function NoYear() {
   return (
-    <EmptyState title="No academic year yet" Icon={CalendarX2} action={<ButtonLink href="/academic-management/settings" variant="primary">Open Academic Settings</ButtonLink>}>
-      <p>Exams belong to an academic year and its terms. Create the current year first in Academic Management.</p>
+    <EmptyState title="No academic year yet" Icon={CalendarX2} action={<ButtonLink href="/academic-management/settings" variant="primary"><Words k="Open Academic Settings" /></ButtonLink>}>
+      <p><Words k="Exams belong to an academic year and its terms. Create the current year first in Academic Management." /></p>
     </EmptyState>
   );
 }

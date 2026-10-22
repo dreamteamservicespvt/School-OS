@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { ExportLinks } from "../../../academic-management/_components/export-links";
 import { examPage, type SearchParams } from "../../_lib/page";
 import { BackLink, NoYear, PageTop } from "../../_components/page-top";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Moderation report" };
 const PATH = "/examination-results/results/moderation";
@@ -67,15 +68,15 @@ export default async function ModerationPage({ searchParams }: { searchParams: S
   return (
     <>
       <BackLink page={page} href="/examination-results/results" label="Results" sub="Moderation report" />
-      <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">Moderation report</h1>
-      <p className="mt-1 mb-5 text-[14px] text-ink2">Every change asked for after marks were submitted or locked, with the old and new marks, the reason and who decided. {waiting > 0 && <>{waiting} waiting: decide them in <Link href="/approvals" className="font-semibold text-brand underline">Approvals</Link>.</>}</p>
+      <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight"><Words k="Moderation report" /></h1>
+      <p className="mt-1 mb-5 text-[14px] text-ink2"><Words k="Every change asked for after marks were submitted or locked, with the old and new marks, the reason and who decided." /> {waiting > 0 && <>{waiting} <Words k="waiting: decide them in" /> <Link href="/approvals" className="font-semibold text-brand underline"><Words k="Approvals" /></Link>.</>}</p>
       <ListToolbar placeholder="Search by student, subject or reason" showArchived={false} period={{ ...dates }}
         filters={[
           { key: "exam", label: "Exam", options: exams.map((e) => ({ value: e.id, label: e.title })) },
           { key: "status", label: "Status", options: Object.entries(STATUS).map(([value, s]) => ({ value, label: s.label })) },
         ]} />
       <DataTable rows={shown} columns={columns} rowKey={(r) => r.id} rowHref={(r) => (r.approvalId ? `/approvals/${r.approvalId}` : "/approvals")} total={rows.length} params={params} path={PATH} caption="Marks changes after lock"
-        empty={filtered ? <EmptyState title="No changes match">Try another search or remove a filter.</EmptyState> : <EmptyState title="No changes after lock">When a teacher asks to change marks that are submitted or locked, it shows here with the old and new marks.</EmptyState>} />
+        empty={filtered ? <EmptyState title="No changes match"><Words k="Try another search or remove a filter." /></EmptyState> : <EmptyState title="No changes after lock"><Words k="When a teacher asks to change marks that are submitted or locked, it shows here with the old and new marks." /></EmptyState>} />
       {rows.length > 0 && <div className="mt-4"><ExportLinks href={exportHref} label="Moderation report" /></div>}
     </>
   );

@@ -19,6 +19,7 @@ import { Legend, TimetableGrid, type Cell, type EditContext } from "./grid";
 import { VersionBar, type VersionRow } from "./version-bar";
 import { LabBookings } from "./lab-bookings";
 import { PrintPicker } from "./print-picker";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Time Table" };
 const PATH = "/academic-management/time-table";
@@ -131,9 +132,9 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
   return (
     <>
       <PageTop page={page} title="Time Table" href={PATH}>
-        <ButtonLink href="/academic-management/time-table/mine" size="sm">My day</ButtonLink>
+        <ButtonLink href="/academic-management/time-table/mine" size="sm"><Words k="My day" /></ButtonLink>
         {/* Gap list G44: a complete Time Table from Excel, into the draft (never published by itself). */}
-        {scope.arrange && <ButtonLink href="/academic-management/import?kind=academic-timetable" size="sm" variant="ghost">Import from Excel</ButtonLink>}
+        {scope.arrange && <ButtonLink href="/academic-management/import?kind=academic-timetable" size="sm" variant="ghost"><Words k="Import from Excel" /></ButtonLink>}
       </PageTop>
       <ViewSwitch views={views} current={view} keep={["version"]} />
       {(scope.arrange || data.versions.length > 0) && (
@@ -147,16 +148,16 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
             <Alert tone="danger" title={`${plural(hard.length, "clash", "clashes")} to fix before publishing`}>
               <ul className="mt-1 space-y-1">
                 {hard.slice(0, 20).map((c, i) => (
-                  <li key={i} className="flex flex-wrap items-center gap-2">{c.message} <Link className="font-medium underline" href={q({ view: "class", section: c.sectionId, at: `${c.dayOfWeek}:${c.periodNo}` })}>Go to {sectionLabel(c.sectionId)}</Link></li>
+                  <li key={i} className="flex flex-wrap items-center gap-2">{c.message} <Link className="font-medium underline" href={q({ view: "class", section: c.sectionId, at: `${c.dayOfWeek}:${c.periodNo}` })}><Words k="Go to" /> {sectionLabel(c.sectionId)}</Link></li>
                 ))}
               </ul>
             </Alert>
           )}
           {soft.length > 0 && (
             <details className="mt-2 rounded-xl border border-line bg-warn-bg px-4 py-2 text-sm text-warn-text">
-              <summary className="min-h-10 cursor-pointer py-2 font-medium">{plural(soft.length, "thing")} to check (limits and conditions)</summary>
+              <summary className="min-h-10 cursor-pointer py-2 font-medium">{plural(soft.length, "thing")} <Words k="to check (limits and conditions)" /></summary>
               <ul className="space-y-1 pb-2">
-                {soft.slice(0, 40).map((c, i) => <li key={i}>{c.message} <Link className="underline" href={q({ view: "class", section: c.sectionId, at: `${c.dayOfWeek}:${c.periodNo}` })}>Go to</Link></li>)}
+                {soft.slice(0, 40).map((c, i) => <li key={i}>{c.message} <Link className="underline" href={q({ view: "class", section: c.sectionId, at: `${c.dayOfWeek}:${c.periodNo}` })}><Words k="Go to" /></Link></li>)}
               </ul>
             </details>
           )}
@@ -169,7 +170,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
         </EmptyState>
       ) : data.slots.length === 0 ? (
         <EmptyState title="No periods set up">
-          {scope.manage ? <>Add the periods, breaks and lunch with their times first. <Link className="font-medium text-brand-text underline" href="/academic-management/settings?tab=periods">Open the period master</Link></> : "Ask the Principal to set up the periods in Academic Settings."}
+          {scope.manage ? <><Words k="Add the periods, breaks and lunch with their times first." /> <Link className="font-medium text-brand-text underline" href="/academic-management/settings?tab=periods"><Words k="Open the period master" /></Link></> : "Ask the Principal to set up the periods in Academic Settings."}
         </EmptyState>
       ) : view === "class" ? (
         data.sections.length === 0 ? (
@@ -180,12 +181,12 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
               <ParamSelect name="section" label="Class and section" current={data.sectionId} clear={["at"]}
                 options={data.sections.map((s) => ({ value: s.id, label: `${s.schoolClass.name} ${s.name}`, group: s.schoolClass.name }))} />
               <div className="flex flex-wrap gap-2">
-                <a href={`${PATH}/print?section=${data.sectionId}${versionQ}`} target="_blank" rel="noopener" className={buttonClass("secondary", "sm")}>Print</a>
+                <a href={`${PATH}/print?section=${data.sectionId}${versionQ}`} target="_blank" rel="noopener" className={buttonClass("secondary", "sm")}><Words k="Print" /></a>
                 <PrintPicker base={`${PATH}/print?x=1${versionQ}`} sections={data.sections.map((s) => ({ id: s.id, label: `${s.schoolClass.name} ${s.name}` }))} />
                 <ExportLinks href={`/academic-management/export?kind=timetable&section=${data.sectionId}${versionQ}${yearQ}`} label="This Time Table" />
               </div>
             </div>
-            {data.edit && <p className="no-print mb-2 text-sm text-ink-2">Click a period to change it. Clashes are checked as you choose.</p>}
+            {data.edit && <p className="no-print mb-2 text-sm text-ink-2"><Words k="Click a period to change it. Clashes are checked as you choose." /></p>}
             <TimetableGrid slots={slots} days={data.days} cells={data.cells.map(plain)} mode="class" edit={data.edit} highlight={one(raw.at) || null} today={todayDay}
               clashKeys={hard.filter((c) => c.sectionId === data.sectionId).map((c) => `${c.dayOfWeek}:${c.periodNo}`)} />
             <div className="mt-3"><Legend /></div>
@@ -193,17 +194,17 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
         )
       ) : view === "teacher" ? (
         !data.staffId ? (
-          <EmptyState title="No teacher record">Your login is not linked to a staff record. Ask the office to link it in Staff &amp; HR.</EmptyState>
+          <EmptyState title="No teacher record"><Words k={"Your login is not linked to a staff record. Ask the office to link it in Staff & HR."} /></EmptyState>
         ) : (
           <>
             <div className="no-print mb-3 flex flex-wrap items-end justify-between gap-3">
               {!own ? <ParamSelect name="staff" label="Teacher" current={data.staffId} options={data.teachers.map((t) => ({ value: t.id, label: t.fullName }))} /> : <span />}
               <div className="flex flex-wrap gap-2">
-                <a href={`${PATH}/print?staff=${data.staffId}${versionQ}`} target="_blank" rel="noopener" className={buttonClass("secondary", "sm")}>Print</a>
+                <a href={`${PATH}/print?staff=${data.staffId}${versionQ}`} target="_blank" rel="noopener" className={buttonClass("secondary", "sm")}><Words k="Print" /></a>
                 <ExportLinks href={`/academic-management/export?kind=timetable&staff=${data.staffId}${versionQ}${yearQ}`} label="This Time Table" />
               </div>
             </div>
-            <p className="mb-2 text-sm text-ink-2">{plural(data.cells.filter((c) => !c.isBreak).length, "period")} a week.{scope.arrange ? " Click a period to open its class." : ""}</p>
+            <p className="mb-2 text-sm text-ink-2">{plural(data.cells.filter((c) => !c.isBreak).length, "period")} <Words k="a week." />{scope.arrange ? " Click a period to open its class." : ""}</p>
             <TimetableGrid slots={slots} days={data.days} cells={data.cells.map(plain)} mode="teacher" today={todayDay}
               linkFor={scope.arrange || !own ? Object.fromEntries(data.cells.map((c) => [c.sectionId, q({ view: "class", section: c.sectionId, staff: null, at: `${c.dayOfWeek}:${c.periodNo}` })])) : undefined} />
             <div className="mt-3"><Legend /></div>
@@ -211,12 +212,12 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
         )
       ) : view === "room" ? (
         data.roomList.length === 0 ? (
-          <EmptyState title="No rooms yet">{scope.manage ? <>Add rooms and labs in <Link className="font-medium text-brand-text underline" href="/academic-management/settings?tab=options">Academic Settings</Link>, or give sections a room.</> : "Rooms appear once the school adds them."}</EmptyState>
+          <EmptyState title="No rooms yet">{scope.manage ? <><Words k="Add rooms and labs in" /> <Link className="font-medium text-brand-text underline" href="/academic-management/settings?tab=options"><Words k="Academic Settings" /></Link><Words k=", or give sections a room." /></> : "Rooms appear once the school adds them."}</EmptyState>
         ) : (
           <>
             <div className="no-print mb-3 flex flex-wrap items-end justify-between gap-3">
               <ParamSelect name="room" label="Room or lab" current={data.room} options={data.roomList.map((r) => ({ value: r, label: r }))} />
-              <a href={`${PATH}/print?room=${encodeURIComponent(data.room)}${versionQ}`} target="_blank" rel="noopener" className={buttonClass("secondary", "sm")}>Print</a>
+              <a href={`${PATH}/print?room=${encodeURIComponent(data.room)}${versionQ}`} target="_blank" rel="noopener" className={buttonClass("secondary", "sm")}><Words k="Print" /></a>
             </div>
             <TimetableGrid slots={slots} days={data.days} cells={data.cells.map(plain)} mode="room" today={todayDay} />
             {data.labRooms.some((r) => r.name.toLowerCase() === data.room.toLowerCase()) && (
@@ -240,8 +241,8 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
               const free = data.teachers.filter((t) => !busy.has(t.id));
               return (
                 <li key={s.number} className="rounded-2xl border border-line bg-surface p-4">
-                  <p className="font-semibold">{s.label} <span className="font-normal text-ink-2">· {s.startTime} to {s.endTime} · {plural(free.length, "teacher")} free</span></p>
-                  {free.length === 0 ? <p className="mt-1 text-sm text-ink-2">Every teacher is teaching.</p> : <p className="mt-1 text-sm">{free.map((t) => t.fullName).join(", ")}</p>}
+                  <p className="font-semibold">{s.label} <span className="font-normal text-ink-2">· {s.startTime} <Words k="to" /> {s.endTime} · {plural(free.length, "teacher")} <Words k="free" /></span></p>
+                  {free.length === 0 ? <p className="mt-1 text-sm text-ink-2"><Words k="Every teacher is teaching." /></p> : <p className="mt-1 text-sm">{free.map((t) => t.fullName).join(", ")}</p>}
                 </li>
               );
             })}
@@ -269,14 +270,14 @@ function Overview({ data, day, q, versionQ, clashAt: clashList }: { data: Overvi
     <div className="space-y-6">
       <div className="no-print flex flex-wrap items-end justify-between gap-3">
         <ParamSelect name="day" label="Day" current={String(day)} options={data.days.map((d) => ({ value: String(d), label: DAY_NAMES[d] }))} />
-        <a href={`${PATH}/print?all=1${versionQ}`} target="_blank" rel="noopener" className={buttonClass("secondary", "sm")}>Print all classes</a>
+        <a href={`${PATH}/print?all=1${versionQ}`} target="_blank" rel="noopener" className={buttonClass("secondary", "sm")}><Words k="Print all classes" /></a>
       </div>
       <section aria-labelledby="ov-classes">
-        <h2 id="ov-classes" className="mb-2 font-semibold">All classes on {DAY_NAMES[day]}</h2>
+        <h2 id="ov-classes" className="mb-2 font-semibold"><Words k="All classes on" /> {DAY_NAMES[day]}</h2>
         <div className="relative overflow-x-auto rounded-2xl border border-line bg-surface">
           <table className="w-full min-w-[640px] text-left text-sm">
             <thead className="bg-surface-2">
-              <tr><th scope="col" className="sticky left-0 bg-surface-2 px-3 py-2 font-medium">Section</th>{teaching.map((s) => <th key={s.number} scope="col" className="px-2 py-2 font-medium">{s.label}</th>)}</tr>
+              <tr><th scope="col" className="sticky left-0 bg-surface-2 px-3 py-2 font-medium"><Words k="Section" /></th>{teaching.map((s) => <th key={s.number} scope="col" className="px-2 py-2 font-medium">{s.label}</th>)}</tr>
             </thead>
             <tbody>
               {data.sections.map((sec) => (
@@ -298,13 +299,13 @@ function Overview({ data, day, q, versionQ, clashAt: clashList }: { data: Overvi
         </div>
       </section>
       <section aria-labelledby="ov-load">
-        <h2 id="ov-load" className="mb-2 font-semibold">Teacher workload in this Time Table</h2>
-        {data.workload.length === 0 ? <p className="text-ink-2">No teacher has periods yet.</p> : (
+        <h2 id="ov-load" className="mb-2 font-semibold"><Words k="Teacher workload in this Time Table" /></h2>
+        {data.workload.length === 0 ? <p className="text-ink-2"><Words k="No teacher has periods yet." /></p> : (
           <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
             {data.workload.map((w) => (
               <li key={w.id} className={`flex items-center justify-between gap-2 rounded-xl border border-line px-3 py-2 ${w.periods > w.limit ? "bg-danger-soft" : "bg-surface"}`}>
                 <Link href={q({ view: "teacher", staff: w.id })} className="font-medium hover:underline">{w.name}</Link>
-                <span className={w.periods > w.limit ? "font-medium text-danger" : "text-ink-2"}>{w.periods} of {w.limit}</span>
+                <span className={w.periods > w.limit ? "font-medium text-danger" : "text-ink-2"}>{w.periods} <Words k="of" /> {w.limit}</span>
               </li>
             ))}
           </ul>

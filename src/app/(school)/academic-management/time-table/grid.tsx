@@ -13,6 +13,7 @@ import { CheckboxField, SelectField, TextField } from "@/components/ui/field";
 import { FormDialog, err, v } from "../_components/form-dialog";
 import { checkClashAction, removePeriodAction, savePeriodAction } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 const DAY_NAMES = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 const DAY_SHORT = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -67,8 +68,8 @@ export function TimetableGrid({ slots, days, cells, mode, edit, highlight, clash
   }, [highlight]);
 
   const body = (day: number, slot: Slot, list: Cell[] | undefined) => {
-    if (!slot.days.includes(day)) return <span className="text-xs text-ink-2">No period</span>;
-    if (!list?.length) return edit ? <span className="text-sm text-ink-2">+ Add</span> : <span className="text-sm text-ink-2">Free</span>;
+    if (!slot.days.includes(day)) return <span className="text-xs text-ink-2"><Words k="No period" /></span>;
+    if (!list?.length) return edit ? <span className="text-sm text-ink-2"><Words k="+ Add" /></span> : <span className="text-sm text-ink-2"><Words k="Free" /></span>;
     return list.map((c) => (
       <span key={c.id} className="block">
         {c.isBreak ? <span className="font-medium text-ink-2">{c.label ?? "Break"}</span> : (
@@ -111,10 +112,10 @@ export function TimetableGrid({ slots, days, cells, mode, edit, highlight, clash
       {/* Week grid on wider screens and in print. */}
       <div className="tt-grid relative hidden overflow-x-auto rounded-2xl border border-line bg-surface md:block print:block print:overflow-visible print:border-0">
         <table className="w-full table-fixed border-separate border-spacing-1 text-left">
-          <caption className="sr-only">Periods down the side, days across</caption>
+          <caption className="sr-only"><Words k="Periods down the side, days across" /></caption>
           <thead>
             <tr>
-              <th scope="col" className="w-32 px-2 py-2 text-sm font-medium text-ink-2">Period</th>
+              <th scope="col" className="w-32 px-2 py-2 text-sm font-medium text-ink-2"><Words k="Period" /></th>
               {days.map((d) => <th key={d} scope="col" className={`px-2 py-2 text-sm font-medium ${today === d ? "text-brand-text" : ""}`}>{DAY_NAMES[d]}</th>)}
             </tr>
           </thead>
@@ -123,7 +124,7 @@ export function TimetableGrid({ slots, days, cells, mode, edit, highlight, clash
               <tr key={slot.number}>
                 <th scope="row" className="px-2 py-1 align-top text-sm">
                   <span className="block font-medium">{slot.label}</span>
-                  <span className="block text-xs font-normal text-ink-2">{t12(slot.startTime)} to {t12(slot.endTime)}</span>
+                  <span className="block text-xs font-normal text-ink-2">{t12(slot.startTime)} <Words k="to" /> {t12(slot.endTime)}</span>
                 </th>
                 {slot.isBreak && mode !== "room" && !days.some((d) => at.get(`${d}:${slot.number}`)?.some((c) => !c.isBreak)) ? (
                   <td colSpan={days.length} className="rounded-lg bg-surface-3 px-3 py-2 text-center text-sm font-medium text-ink-2">{slot.label}</td>
@@ -169,9 +170,9 @@ export function TimetableGrid({ slots, days, cells, mode, edit, highlight, clash
 export function Legend() {
   return (
     <ul className="flex flex-wrap gap-3 text-sm text-ink-2" aria-label="Legend">
-      <li className="flex items-center gap-1.5"><span className="inline-block size-3 rounded bg-brand-soft ring-1 ring-line" />Teaching</li>
-      <li className="flex items-center gap-1.5"><span className="inline-block size-3 rounded bg-surface-3 ring-1 ring-line" />Lunch or break</li>
-      <li className="flex items-center gap-1.5"><span className="inline-block size-3 rounded bg-warn-bg ring-1 ring-line" />Fixed or assembly</li>
+      <li className="flex items-center gap-1.5"><span className="inline-block size-3 rounded bg-brand-soft ring-1 ring-line" /><Words k="Teaching" /></li>
+      <li className="flex items-center gap-1.5"><span className="inline-block size-3 rounded bg-surface-3 ring-1 ring-line" /><Words k="Lunch or break" /></li>
+      <li className="flex items-center gap-1.5"><span className="inline-block size-3 rounded bg-warn-bg ring-1 ring-line" /><Words k="Fixed or assembly" /></li>
     </ul>
   );
 }
@@ -195,8 +196,8 @@ function EditPeriodDialog({ edit, day, slot, cell, onClose }: { edit: EditContex
           {cell && (
             <div className="border-t border-line pt-3">
               {removeError && <p className="mb-2 text-sm text-danger" role="alert">{removeError}</p>}
-              <Button variant="danger-outline" onClick={remove} loading={removing} loadingText="Removing…">Remove this period</Button>
-              <p className="mt-1 text-xs text-ink-2">You can undo it for 10 seconds.</p>
+              <Button variant="danger-outline" onClick={remove} loading={removing} loadingText="Removing…"><Words k="Remove this period" /></Button>
+              <p className="mt-1 text-xs text-ink-2"><Words k="You can undo it for 10 seconds." /></p>
             </div>
           )}
         </>
@@ -259,7 +260,7 @@ function PeriodFields({ edit, day, slot, cell, state }: { edit: EditContext; day
             {subjectId && assigned.length > 0 && (
               <label className="mt-2 flex min-h-11 items-center gap-2 text-[15px]">
                 <KeepCheck type="checkbox" className="size-5" checked={showAll} onChange={(e) => setShowAll(e.target.checked)} />
-                Show all teachers
+                <Words k="Show all teachers" />
               </label>
             )}
           </div>
@@ -270,8 +271,8 @@ function PeriodFields({ edit, day, slot, cell, state }: { edit: EditContext; day
       {isBreak && <TextField label="Name" name="label" defaultValue={v(state, "label", cell?.label ?? slot.label)} placeholder="Lunch" />}
       <CheckboxField label="Whole week" name="wholeWeek" checked={wholeWeek} onChange={(e) => setWholeWeek(e.target.checked)} help="Changes this period on every day of the week." />
       <div aria-live="polite">
-        {checking && <p className="text-sm text-ink-2">Checking for clashes…</p>}
-        {!checking && problems.length > 0 && <Alert tone="danger" title="This would clash">{problems.map((p) => <p key={p}>{p}</p>)}<p className="mt-1">Pick another teacher, room or period.</p></Alert>}
+        {checking && <p className="text-sm text-ink-2"><Words k="Checking for clashes…" /></p>}
+        {!checking && problems.length > 0 && <Alert tone="danger" title="This would clash">{problems.map((p) => <p key={p}>{p}</p>)}<p className="mt-1"><Words k="Pick another teacher, room or period." /></p></Alert>}
       </div>
     </>
   );

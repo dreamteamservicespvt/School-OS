@@ -20,6 +20,7 @@ import { examOverlaps, periodQuery } from "../_lib/period";
 import { examPage, one, withYear, type SearchParams } from "../_lib/page";
 import { NoYear, PageTop } from "../_components/page-top";
 import { DatesheetMenu } from "./datesheet-ui";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Datesheet" };
 const PATH = "/examination-results/datesheet";
@@ -132,14 +133,14 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
   return (
     <div>
       <PageTop page={page} href={PATH} sub={mineSub}>
-        {canAdd && <ButtonLink href={withYear(`${PATH}/new`, page)} variant="primary" icon={CalendarPlus}>Add datesheet</ButtonLink>}
+        {canAdd && <ButtonLink href={withYear(`${PATH}/new`, page)} variant="primary" icon={CalendarPlus}><Words k="Add datesheet" /></ButtonLink>}
       </PageTop>
       <div className="flex flex-col gap-5 lg:gap-6">
         {band.length > 0 && <Band items={band} label="The next exam" />}
 
         {cards.length === 0 && !archived && !range ? (
-          <EmptyState title="No datesheets yet" Icon={CalendarDays} action={canAdd ? <ButtonLink href={withYear(`${PATH}/new`, page)} variant="primary" icon={CalendarPlus}>Add datesheet</ButtonLink> : undefined}>
-            <p>A datesheet sets each subject&apos;s exam date, time, room and maximum marks. Creating one creates the exam.</p>
+          <EmptyState title="No datesheets yet" Icon={CalendarDays} action={canAdd ? <ButtonLink href={withYear(`${PATH}/new`, page)} variant="primary" icon={CalendarPlus}><Words k="Add datesheet" /></ButtonLink> : undefined}>
+            <p><Words k="A datesheet sets each subject's exam date, time, room and maximum marks. Creating one creates the exam." /></p>
           </EmptyState>
         ) : (
           <Card>
@@ -158,7 +159,7 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
             </div>
             {rows.length === 0 ? (
               <ListEmpty icon={CalendarX} title={archived ? "No archived datesheets" : "No datesheet matches"} body={archived ? "Archived datesheets show here, and can be restored." : "Try another class or status."}
-                action={filtered ? <ButtonLink href={href({ q: null, class: null, status: null })} variant="secondary">Clear filters</ButtonLink> : undefined} />
+                action={filtered ? <ButtonLink href={href({ q: null, class: null, status: null })} variant="secondary"><Words k="Clear filters" /></ButtonLink> : undefined} />
             ) : (
               <ul className="grid md:grid-cols-2 xl:grid-cols-3 gap-3 p-3" aria-label="Datesheets">
                 {rows.map((d) => {
@@ -175,14 +176,14 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
                         <Pill tone={tone}>{d.archivedAt ? "Archived" : d.shown}</Pill>
                       </div>
                       <div className="grid grid-cols-[1fr_1fr_0.8fr] gap-2 text-[13px]">
-                        <div className="rounded-xl bg-sunken/60 px-2.5 py-2 min-w-0"><p className="text-[11.5px] text-ink3 font-semibold">From</p><p className="font-semibold tnum truncate">{formatDate(d.startDate)}</p></div>
-                        <div className="rounded-xl bg-sunken/60 px-2.5 py-2 min-w-0"><p className="text-[11.5px] text-ink3 font-semibold">To</p><p className="font-semibold tnum truncate">{formatDate(d.endDate)}</p></div>
-                        <div className="rounded-xl bg-sunken/60 px-2.5 py-2 min-w-0"><p className="text-[11.5px] text-ink3 font-semibold">Students</p><p className="font-semibold tnum">{d.students}</p></div>
+                        <div className="rounded-xl bg-sunken/60 px-2.5 py-2 min-w-0"><p className="text-[11.5px] text-ink3 font-semibold"><Words k="From" /></p><p className="font-semibold tnum truncate">{formatDate(d.startDate)}</p></div>
+                        <div className="rounded-xl bg-sunken/60 px-2.5 py-2 min-w-0"><p className="text-[11.5px] text-ink3 font-semibold"><Words k="To" /></p><p className="font-semibold tnum truncate">{formatDate(d.endDate)}</p></div>
+                        <div className="rounded-xl bg-sunken/60 px-2.5 py-2 min-w-0"><p className="text-[11.5px] text-ink3 font-semibold"><Words k="Students" /></p><p className="font-semibold tnum">{d.students}</p></div>
                       </div>
                       <p className="text-[12.5px] text-ink3">{plural(d.subjects, "subject")} · {d.note}<br />{d.extra}</p>
                       <div className="flex gap-2 mt-auto">
-                        <ButtonLink href={detail} size="sm" variant="secondary" icon={Eye} className="flex-1">View</ButtonLink>
-                        {s.datesheets && page.writable && d.shown === "Draft" && !d.archivedAt && <ButtonLink href={`${detail}${detail.includes("?") ? "&" : "?"}publish=1`} size="sm" variant="soft" icon={Send} className="flex-1">Publish</ButtonLink>}
+                        <ButtonLink href={detail} size="sm" variant="secondary" icon={Eye} className="flex-1"><Words k="View" /></ButtonLink>
+                        {s.datesheets && page.writable && d.shown === "Draft" && !d.archivedAt && <ButtonLink href={`${detail}${detail.includes("?") ? "&" : "?"}publish=1`} size="sm" variant="soft" icon={Send} className="flex-1"><Words k="Publish" /></ButtonLink>}
                         {s.datesheets && (
                           <DatesheetMenu examId={d.id} title={`${d.title} · ${classRange(d.classes)}`} archived={Boolean(d.archivedAt)} writable={page.writable}
                             printHref={`${PATH}/${d.id}/print`} editHref={withYear(`${PATH}/${d.id}/edit`, page)} hasResults={d.shown === "Completed" || d.shown === "Results published" || d.shown === "Ongoing"} />
@@ -193,7 +194,7 @@ export default async function DatesheetPage({ searchParams }: { searchParams: Se
                 })}
               </ul>
             )}
-            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum">Showing {rows.length ? 1 : 0} to {rows.length} of {rows.length}</div>
+            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {rows.length ? 1 : 0} <Words k="to" /> {rows.length} <Words k="of" /> {rows.length}</div>
           </Card>
         )}
       </div>

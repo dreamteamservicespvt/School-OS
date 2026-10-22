@@ -15,6 +15,7 @@ import {
   addListItemAction, archiveAreaAction, archiveCompetencyAction, archiveListItemAction, archiveScaleAction, importPresetAction, saveAreaForm, saveBoardsAction, saveClassPatternsAction,
   saveCompetencyForm, saveRulesForm, saveScaleAction, saveWeightsAction, setFeatureAction,
 } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 type Option = { value: string; label: string; help?: string };
 
@@ -61,19 +62,19 @@ export function NameList({ kind, items, canEdit, what, example }: { kind: "examT
             )}
           </span>
         ))}
-        {canEdit && <Button size="sm" variant="soft" icon={Plus} onClick={() => setAdding(true)}>Add</Button>}
+        {canEdit && <Button size="sm" variant="soft" icon={Plus} onClick={() => setAdding(true)}><Words k="Add" /></Button>}
       </div>
       <ActionSheet open={adding} onClose={() => setAdding(false)} title={`Add ${what}`} confirmLabel={`Add ${what}`} pendingText="Adding…"
         run={(fd) => addListItemAction(kind, String(fd.get("name") ?? ""))}>
         <label className="block">
-          <span className="mb-1.5 block text-[13.5px] font-semibold">Name</span>
+          <span className="mb-1.5 block text-[13.5px] font-semibold"><Words k="Name" /></span>
           <input name="name" required maxLength={40} autoFocus className={cx(inputCls(), "h-11")} placeholder={example} />
           <span className="mt-1 block text-[12.5px] text-ink3">{kind === "examType" ? "It is offered when adding a datesheet." : "It is offered when splitting a subject's marks on a datesheet."}</span>
         </label>
       </ActionSheet>
       <ActionSheet open={Boolean(archive)} onClose={() => setArchive(null)} title={`Archive ${archive?.name ?? ""}?`} confirmLabel="Archive" confirmVariant="danger" pendingText="Archiving…"
         run={() => archiveListItemAction(kind, archive!.id)}>
-        <p className="text-[14px] text-ink2">It will no longer be offered for new datesheets. Exams that already use it keep it. Adding the same name again brings it back.</p>
+        <p className="text-[14px] text-ink2"><Words k="It will no longer be offered for new datesheets. Exams that already use it keep it. Adding the same name again brings it back." /></p>
       </ActionSheet>
     </>
   );
@@ -99,7 +100,7 @@ export function ScaleEditor({ scales, schoolScaleId, presets, canEdit, pass }: {
     setMsg(null);
     setBands((x) => x.map((b, j) => (j !== i ? b : { ...b, [k]: k === "from" || k === "to" ? Number(String(v).replace(/\D/g, "").slice(0, 3) || 0) : k === "points" ? (v === "" ? null : Number(String(v).replace(/[^\d.]/g, "").slice(0, 4))) : v })));
   };
-  if (!scale) return <p className="px-5 pb-5 text-ink3">No grade scale yet.</p>;
+  if (!scale) return <p className="px-5 pb-5 text-ink3"><Words k="No grade scale yet." /></p>;
 
   return (
     <>
@@ -112,7 +113,7 @@ export function ScaleEditor({ scales, schoolScaleId, presets, canEdit, pass }: {
           )}
           {canEdit && (
             <>
-              <span className="text-[13px] font-semibold text-ink2">Start from</span>
+              <span className="text-[13px] font-semibold text-ink2"><Words k="Start from" /></span>
               <Segmented size="sm" label="Start from a ready-made scale" value={presets.find((p) => JSON.stringify(p.bands) === JSON.stringify(bands))?.key ?? ""}
                 onChange={(k) => { const p = presets.find((x) => x.key === k); if (p) { setBands(p.bands.map((b) => ({ ...b }))); setMsg(null); } }}
                 options={presets.map((p) => ({ value: p.key, label: p.name }))} />
@@ -129,14 +130,14 @@ export function ScaleEditor({ scales, schoolScaleId, presets, canEdit, pass }: {
           </div>
           <div className="relative h-4 text-[11px] text-ink3 mt-1 tnum">
             <span className="absolute left-0">0%</span>
-            <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${pass}%` }}>{pass}% pass</span>
+            <span className="absolute -translate-x-1/2 whitespace-nowrap" style={{ left: `${pass}%` }}>{pass}<Words k="% pass" /></span>
             <span className="absolute right-0">100%</span>
           </div>
         </div>
       </div>
       <div className="overflow-x-auto scroll-thin border-t border-line">
         <table className="w-full text-[13.5px] min-w-[600px]">
-          <caption className="sr-only">Grades of {scale.name}</caption>
+          <caption className="sr-only"><Words k="Grades of" /> {scale.name}</caption>
           <thead><tr className="text-[12px] text-ink3 text-left border-b border-line">{["Grade", "From %", "To %", "Points", "Remark", "Passing"].map((h) => <th key={h} scope="col" className="font-semibold px-3 py-2.5 first:pl-5">{h}</th>)}</tr></thead>
           <tbody>
             {bands.map((b, i) => (
@@ -146,7 +147,7 @@ export function ScaleEditor({ scales, schoolScaleId, presets, canEdit, pass }: {
                 <td className="px-3 py-2"><input aria-label={`${b.grade} to`} inputMode="numeric" disabled={!canEdit} value={b.to} onChange={(e) => set(i, "to", e.target.value)} className={cx(inputCls(), "!h-9 !w-20 tnum")} /></td>
                 <td className="px-3 py-2">{canEdit ? <input aria-label={`${b.grade} points`} inputMode="decimal" value={b.points ?? ""} onChange={(e) => set(i, "points", e.target.value)} className={cx(inputCls(), "!h-9 !w-16 tnum")} /> : <span className="tnum">{b.points ?? ""}</span>}</td>
                 <td className="px-3 py-2 text-ink2">{canEdit ? <input aria-label={`${b.grade} remark`} value={b.remark} maxLength={60} onChange={(e) => set(i, "remark", e.target.value)} className={cx(inputCls(), "!h-9 min-w-36")} /> : b.remark}</td>
-                <td className="px-3 py-2">{canEdit ? <Switch label={`${b.grade} passes`} on={b.passing} onChange={(v) => set(i, "passing", v)} /> : b.passing ? <Check size={17} className="text-ok" aria-label="Yes" /> : <span className="text-ink3">No</span>}</td>
+                <td className="px-3 py-2">{canEdit ? <Switch label={`${b.grade} passes`} on={b.passing} onChange={(v) => set(i, "passing", v)} /> : b.passing ? <Check size={17} className="text-ok" aria-label="Yes" /> : <span className="text-ink3"><Words k="No" /></span>}</td>
               </tr>
             ))}
           </tbody>
@@ -159,16 +160,16 @@ export function ScaleEditor({ scales, schoolScaleId, presets, canEdit, pass }: {
         </div>
         {canEdit && (
           <div className="flex flex-wrap gap-2">
-            {canEdit && bands.length < 20 && <Button size="sm" variant="ghost" icon={Plus} onClick={() => setBands((x) => [...x, { grade: "", from: 0, to: 0, points: null, remark: "", passing: false }])}>Add grade</Button>}
-            {id !== schoolScaleId && scales.length > 1 && <Button size="sm" variant="danger-soft" disabled={pending} onClick={() => run(() => archiveScaleAction(scale.id), "Grade scale archived.")}>Archive</Button>}
+            {canEdit && bands.length < 20 && <Button size="sm" variant="ghost" icon={Plus} onClick={() => setBands((x) => [...x, { grade: "", from: 0, to: 0, points: null, remark: "", passing: false }])}><Words k="Add grade" /></Button>}
+            {id !== schoolScaleId && scales.length > 1 && <Button size="sm" variant="danger-soft" disabled={pending} onClick={() => run(() => archiveScaleAction(scale.id), "Grade scale archived.")}><Words k="Archive" /></Button>}
             <Button variant="primary" icon={Check} disabled={Boolean(problem) || !changed} loading={pending} loadingText="Saving"
-              onClick={() => run(() => saveScaleAction(scale.id, name, bands), `Saved as version ${scale.version + 1}. Published results keep the scale they were made with.`)}>Save grade scale</Button>
+              onClick={() => run(() => saveScaleAction(scale.id, name, bands), `Saved as version ${scale.version + 1}. Published results keep the scale they were made with.`)}><Words k="Save grade scale" /></Button>
           </div>
         )}
       </div>
       {canEdit && presets.some((p) => !scales.some((s) => s.preset === p.key)) && (
         <div className="px-5 py-3 border-t border-line flex flex-wrap items-center gap-2 text-[13px] text-ink2">
-          <span>Add another ready-made scale, for example for a second board:</span>
+          <span><Words k="Add another ready-made scale, for example for a second board:" /></span>
           {presets.filter((p) => !scales.some((s) => s.preset === p.key)).map((p) => (
             <Button key={p.key} size="sm" variant="secondary" disabled={pending} onClick={() => run(() => importPresetAction(p.key), `${p.name} added.`)}>{p.name}</Button>
           ))}
@@ -201,14 +202,14 @@ export function WeightsEditor({ types, weights, canEdit }: { types: { id: string
           </div>
         </div>
       ))}
-      {canEdit && !showAll && <button type="button" onClick={() => setShowAll(true)} className="self-start text-[13px] font-semibold text-brand hover:underline">Show every exam type</button>}
+      {canEdit && !showAll && <button type="button" onClick={() => setShowAll(true)} className="self-start text-[13px] font-semibold text-brand hover:underline"><Words k="Show every exam type" /></button>}
       <p className={cx("text-[13px] flex items-center gap-1.5", sum === 100 ? "text-ok" : sum === 0 ? "text-ink3" : "text-bad")}>
-        {sum === 100 ? <><CircleCheck size={15} aria-hidden="true" />Adds up to 100%</> : sum === 0 ? "No weights: the final result is the average of the year's exams." : <><CircleAlert size={15} aria-hidden="true" />These add up to {sum}%. They must add up to 100%.</>}
+        {sum === 100 ? <><CircleCheck size={15} aria-hidden="true" /><Words k="Adds up to 100%" /></> : sum === 0 ? "No weights: the final result is the average of the year's exams." : <><CircleAlert size={15} aria-hidden="true" /><Words k="These add up to" /> {sum}<Words k="%. They must add up to 100%." /></>}
       </p>
       <Note msg={msg} />
       {canEdit && (
         <Button variant="secondary" className="self-start" icon={Check} disabled={!ok} loading={pending} loadingText="Saving"
-          onClick={() => run(() => saveWeightsAction(types.map((t) => ({ examTypeId: t.id, weight: Number(vals[t.id] || 0) }))), "Final result weights saved.")}>Save weights</Button>
+          onClick={() => run(() => saveWeightsAction(types.map((t) => ({ examTypeId: t.id, weight: Number(vals[t.id] || 0) }))), "Final result weights saved.")}><Words k="Save weights" /></Button>
       )}
     </div>
   );
@@ -253,7 +254,7 @@ export function RulesForm({ v, scales, roles, canEdit, lateMarks, lateJoin }: { 
   return (
     <form className="px-5 pb-4" onSubmit={(e) => { e.preventDefault(); const fd = new FormData(e.currentTarget); run(() => saveRulesForm(fd), "Exam rules saved."); }}>
       <fieldset disabled={!canEdit || pending} className="contents">
-        <h3 className="mt-1 text-[12px] font-semibold uppercase tracking-wide text-ink3">Pass rules and ranks</h3>
+        <h3 className="mt-1 text-[12px] font-semibold uppercase tracking-wide text-ink3"><Words k="Pass rules and ranks" /></h3>
         <Row title="Pass marks per subject" sub="Below this, the subject shows as failed" htmlFor="r-passPercentSubject"><Num name="passPercentSubject" value={v.passPercentSubject} min={0} max={100} suffix="%" disabled={!canEdit} /></Row>
         <Row title="Pass marks overall" htmlFor="r-passPercentOverall"><Num name="passPercentOverall" value={v.passPercentOverall} min={0} max={100} suffix="%" disabled={!canEdit} /></Row>
         <Row title="Absent (AB)" sub="How AB counts in the total. Medical leave (ML) is always left out." htmlFor="r-absentRule">
@@ -271,8 +272,8 @@ export function RulesForm({ v, scales, roles, canEdit, lateMarks, lateJoin }: { 
           <Switch label="GPA and CGPA" name="gpaOn" on={gpa} onChange={setGpa} disabled={!canEdit} />
         </Row>
 
-        <h3 className="mt-5 text-[12px] font-semibold uppercase tracking-wide text-ink3">Late joiners</h3>
-        <p className="text-[12.5px] text-ink3">A student who joins after an exam&apos;s marks are in shows as &quot;Joined after this exam&quot;. They never stop the class&apos;s results from being published.</p>
+        <h3 className="mt-5 text-[12px] font-semibold uppercase tracking-wide text-ink3"><Words k="Late joiners" /></h3>
+        <p className="text-[12.5px] text-ink3"><Words k={"A student who joins after an exam's marks are in shows as \"Joined after this exam\". They never stop the class's results from being published."} /></p>
         <Row title="Their marks" sub={lateMarks.find((o) => o.value === late)?.help} htmlFor="r-lateMarks">
           <select id="r-lateMarks" name="lateMarks" value={late} onChange={(e) => setLate(e.target.value)} className={sel}>{lateMarks.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
         </Row>
@@ -280,7 +281,7 @@ export function RulesForm({ v, scales, roles, canEdit, lateMarks, lateJoin }: { 
           <select id="r-lateJoinRule" name="lateJoinRule" value={missed} onChange={(e) => setMissed(e.target.value)} className={sel}>{lateJoin.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</select>
         </Row>
 
-        <h3 className="mt-5 text-[12px] font-semibold uppercase tracking-wide text-ink3">Exam rules</h3>
+        <h3 className="mt-5 text-[12px] font-semibold uppercase tracking-wide text-ink3"><Words k="Exam rules" /></h3>
         <Row title="School's grade scale" sub="Used unless a datesheet or a board chooses another" htmlFor="r-defaultScaleId">
           <select id="r-defaultScaleId" name="defaultScaleId" defaultValue={v.defaultScaleId ?? ""} className={sel}>{scales.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}</select>
         </Row>
@@ -290,8 +291,8 @@ export function RulesForm({ v, scales, roles, canEdit, lateMarks, lateJoin }: { 
         <Row title="Marks due" sub="Days after each paper. Teachers are reminded before." htmlFor="r-marksDueDays"><Num name="marksDueDays" value={v.marksDueDays} min={1} max={60} suffix="days" disabled={!canEdit} /></Row>
         <Row title="Reminder to parents" sub="Days before each paper. 0 sends no reminder." htmlFor="r-reminderDaysBefore"><Num name="reminderDaysBefore" value={v.reminderDaysBefore} min={0} max={7} suffix="days" disabled={!canEdit} /></Row>
         <div className="py-3.5">
-          <p className="font-semibold text-[14px]" id="r-pub">Who can publish results</p>
-          <p className="text-[12.5px] text-ink3">Only roles with full reach in Examination &amp; Results can be chosen.</p>
+          <p className="font-semibold text-[14px]" id="r-pub"><Words k="Who can publish results" /></p>
+          <p className="text-[12.5px] text-ink3"><Words k={"Only roles with full reach in Examination & Results can be chosen."} /></p>
           <div className="mt-2 flex flex-wrap gap-2" role="group" aria-labelledby="r-pub">
             {roles.map((r) => (
               <label key={r.key} className="flex min-h-10 cursor-pointer items-center gap-2 rounded-xl border border-line px-3 text-[13.5px] font-semibold has-[:checked]:border-brand has-[:checked]:bg-brand/10 has-[:checked]:text-brand">
@@ -304,7 +305,7 @@ export function RulesForm({ v, scales, roles, canEdit, lateMarks, lateJoin }: { 
       {canEdit && (
         <div className="flex flex-col gap-2 border-t border-line pt-3 md:flex-row md:items-center md:justify-between">
           <Note msg={msg} />
-          <Button type="submit" variant="primary" icon={Check} loading={pending} loadingText="Saving" className="md:ml-auto">Save rules</Button>
+          <Button type="submit" variant="primary" icon={Check} loading={pending} loadingText="Saving" className="md:ml-auto"><Words k="Save rules" /></Button>
         </div>
       )}
     </form>
@@ -322,34 +323,34 @@ export function AreasList({ areas, canEdit, on }: { areas: Area[]; canEdit: bool
   const a = edit && edit !== "new" ? edit : null;
   return (
     <>
-      {!on && <p className="px-5 pb-3 text-[13px] text-ink3">Switch on co-scholastic grades below to show these on report cards.</p>}
+      {!on && <p className="px-5 pb-3 text-[13px] text-ink3"><Words k="Switch on co-scholastic grades below to show these on report cards." /></p>}
       <ul className="px-5 pb-4 flex flex-col gap-2">
         {areas.map((x) => (
           <li key={x.id} className="flex items-center gap-3 rounded-xl border border-line px-3.5 py-2.5">
             <div className="min-w-0 flex-1">
               <p className="font-semibold text-[14px]">{x.name} <span className="ml-1 text-[12px] font-normal text-ink3">{KIND_WORDS[x.kind] ?? x.kind}</span></p>
-              <p className="text-[12.5px] text-ink3 truncate">Grades {x.grades.join(", ")}{x.description ? ` · ${x.description}` : ""}</p>
+              <p className="text-[12.5px] text-ink3 truncate"><Words k="Grades" /> {x.grades.join(", ")}{x.description ? ` · ${x.description}` : ""}</p>
             </div>
-            {canEdit && <Button size="sm" variant="ghost" onClick={() => setEdit(x)}>Edit</Button>}
+            {canEdit && <Button size="sm" variant="ghost" onClick={() => setEdit(x)}><Words k="Edit" /></Button>}
             {canEdit && <Button size="sm" variant="ghost" onClick={() => setArchive(x)} aria-label={`Archive ${x.name}`}><X size={15} aria-hidden="true" /></Button>}
           </li>
         ))}
-        {areas.length === 0 && <li className="text-[13px] text-ink3">No areas yet.</li>}
+        {areas.length === 0 && <li className="text-[13px] text-ink3"><Words k="No areas yet." /></li>}
       </ul>
-      {canEdit && <div className="px-5 pb-5"><Button size="sm" variant="soft" icon={Plus} onClick={() => setEdit("new")}>Add area</Button></div>}
+      {canEdit && <div className="px-5 pb-5"><Button size="sm" variant="soft" icon={Plus} onClick={() => setEdit("new")}><Words k="Add area" /></Button></div>}
       <ActionSheet key={a?.id ?? "new"} open={Boolean(edit)} onClose={() => setEdit(null)} title={a ? `Change ${a.name}` : "Add co-scholastic area"} confirmLabel={a ? "Save" : "Add area"} pendingText="Saving…" run={saveAreaForm}>
         <div className="flex flex-col gap-4">
           {a && <input type="hidden" name="id" value={a.id} />}
-          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold">Name</span><input name="name" required maxLength={60} defaultValue={a?.name} placeholder="Art education" className={cx(inputCls(), "h-11")} /></label>
-          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold">Kind</span>
+          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold"><Words k="Name" /></span><input name="name" required maxLength={60} defaultValue={a?.name} placeholder="Art education" className={cx(inputCls(), "h-11")} /></label>
+          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold"><Words k="Kind" /></span>
             <select name="kind" defaultValue={a?.kind ?? "area"} className={cx(inputCls(), "h-11")}><option value="area">Area</option><option value="skill">Skill</option><option value="activity">Activity</option></select>
           </label>
-          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold">Grades</span><input name="grades" required defaultValue={a?.grades.join(", ") ?? "A, B, C"} className={cx(inputCls(), "h-11")} /><span className="mt-1 block text-[12.5px] text-ink3">Best first, separated by commas.</span></label>
-          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold">Who grades it <span className="font-normal text-ink3">(optional)</span></span><input name="description" maxLength={120} defaultValue={a?.description ?? ""} placeholder="Graded by the art teacher" className={cx(inputCls(), "h-11")} /></label>
+          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold"><Words k="Grades" /></span><input name="grades" required defaultValue={a?.grades.join(", ") ?? "A, B, C"} className={cx(inputCls(), "h-11")} /><span className="mt-1 block text-[12.5px] text-ink3"><Words k="Best first, separated by commas." /></span></label>
+          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold"><Words k="Who grades it" /> <span className="font-normal text-ink3"><Words k="(optional)" /></span></span><input name="description" maxLength={120} defaultValue={a?.description ?? ""} placeholder="Graded by the art teacher" className={cx(inputCls(), "h-11")} /></label>
         </div>
       </ActionSheet>
       <ActionSheet open={Boolean(archive)} onClose={() => setArchive(null)} title={`Archive ${archive?.name ?? ""}?`} confirmLabel="Archive" confirmVariant="danger" pendingText="Archiving…" run={() => archiveAreaAction(archive!.id)}>
-        <p className="text-[14px] text-ink2">It will not be on new report cards. Grades already given stay on past report cards.</p>
+        <p className="text-[14px] text-ink2"><Words k="It will not be on new report cards. Grades already given stay on past report cards." /></p>
       </ActionSheet>
     </>
   );
@@ -362,7 +363,7 @@ export function ClassPatternsEditor({ classes, patterns, options, canEdit }: { c
   const [vals, setVals] = useState<Record<string, string>>(start);
   const { pending, msg, setMsg, run } = useRun();
   const changed = classes.some((c) => vals[c.id] !== (patterns[c.id] ?? "PERCENTAGE"));
-  if (classes.length === 0) return <p className="px-5 pb-5 text-[13px] text-ink3">No classes yet. Add them in Academic Management, Classes &amp; Sections.</p>;
+  if (classes.length === 0) return <p className="px-5 pb-5 text-[13px] text-ink3"><Words k={"No classes yet. Add them in Academic Management, Classes & Sections."} /></p>;
   return (
     <div className="px-5 pb-5 flex flex-col gap-2.5">
       {classes.map((c) => (
@@ -376,7 +377,7 @@ export function ClassPatternsEditor({ classes, patterns, options, canEdit }: { c
       <Note msg={msg} />
       {canEdit && (
         <Button variant="secondary" className="self-start" icon={Check} disabled={!changed} loading={pending} loadingText="Saving"
-          onClick={() => run(() => saveClassPatternsAction(vals), "Exam pattern per class saved.")}>Save patterns</Button>
+          onClick={() => run(() => saveClassPatternsAction(vals), "Exam pattern per class saved.")}><Words k="Save patterns" /></Button>
       )}
     </div>
   );
@@ -398,23 +399,23 @@ export function BoardsEditor({ boards, values, scales, formats, schoolScale, can
   const sel = cx(inputCls(), "!h-10");
   return (
     <div className="px-5 pb-5 flex flex-col gap-3">
-      {!on && <p className="text-[13px] text-ink3">Switch on Different boards below. Until then every class uses the school&apos;s grade scale and report card design.</p>}
-      {boards.length === 0 && <p className="text-[13px] text-ink3">No board is set. Set the school&apos;s board in Settings, School Profile, and a class&apos;s own board in Academic Management, Classes &amp; Sections.</p>}
+      {!on && <p className="text-[13px] text-ink3"><Words k="Switch on Different boards below. Until then every class uses the school's grade scale and report card design." /></p>}
+      {boards.length === 0 && <p className="text-[13px] text-ink3"><Words k={"No board is set. Set the school's board in Settings, School Profile, and a class's own board in Academic Management, Classes & Sections."} /></p>}
       {boards.map((b) => (
         <fieldset key={b.board} className="rounded-xl border border-line p-3.5 flex flex-col gap-3">
           <legend className="sr-only">{b.board}</legend>
           <div>
-            <p className="font-semibold text-[14px] flex items-center gap-2">{b.board}{b.isSchoolBoard && <Pill tone="neutral">School&apos;s board</Pill>}</p>
+            <p className="font-semibold text-[14px] flex items-center gap-2">{b.board}{b.isSchoolBoard && <Pill tone="neutral"><Words k="School's board" /></Pill>}</p>
             <p className="text-[12.5px] text-ink3">{b.classes.length ? `Classes: ${b.classes.join(", ")}` : "No class follows this board yet."}</p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
-            <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">Grade scale
+            <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2"><Words k="Grade scale" />
               <select disabled={!canEdit} value={vals[b.board].scaleId} onChange={(e) => set(b.board, "scaleId", e.target.value)} className={sel}>
                 <option value="">School&apos;s scale ({schoolScale})</option>
                 {scales.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
               </select>
             </label>
-            <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">Report card format
+            <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2"><Words k="Report card format" />
               <select disabled={!canEdit} value={vals[b.board].reportBase} onChange={(e) => set(b.board, "reportBase", e.target.value)} className={sel}>
                 <option value="">School&apos;s report card design</option>
                 {formats.map((x) => <option key={x.value} value={x.value}>{x.label}</option>)}
@@ -426,7 +427,7 @@ export function BoardsEditor({ boards, values, scales, formats, schoolScale, can
       <Note msg={msg} />
       {canEdit && boards.length > 0 && (
         <Button variant="secondary" className="self-start" icon={Check} disabled={!changed} loading={pending} loadingText="Saving"
-          onClick={() => run(() => saveBoardsAction(Object.fromEntries(Object.entries(vals).map(([k, v]) => [k, { scaleId: v.scaleId || null, reportBase: v.reportBase || null }]))), "Board settings saved.")}>Save board settings</Button>
+          onClick={() => run(() => saveBoardsAction(Object.fromEntries(Object.entries(vals).map(([k, v]) => [k, { scaleId: v.scaleId || null, reportBase: v.reportBase || null }]))), "Board settings saved.")}><Words k="Save board settings" /></Button>
       )}
     </div>
   );
@@ -443,7 +444,7 @@ export function CompetencyList({ items, subjects, canEdit, on }: { items: Compet
   const bySubject = subjects.map((s) => ({ s, list: items.filter((x) => x.subjectId === s.id) })).filter((g) => g.list.length);
   return (
     <>
-      {!on && <p className="px-5 pb-3 text-[13px] text-ink3">Switch on Competency-based assessment below to grade these on report cards.</p>}
+      {!on && <p className="px-5 pb-3 text-[13px] text-ink3"><Words k="Switch on Competency-based assessment below to grade these on report cards." /></p>}
       <div className="px-5 pb-4 flex flex-col gap-3">
         {bySubject.map(({ s, list }) => (
           <div key={s.id}>
@@ -453,33 +454,33 @@ export function CompetencyList({ items, subjects, canEdit, on }: { items: Compet
                 <li key={x.id} className="flex items-center gap-3 rounded-xl border border-line px-3.5 py-2.5">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-[14px]">{x.name}</p>
-                    <p className="text-[12.5px] text-ink3 truncate">Levels {x.levels.join(", ")}</p>
+                    <p className="text-[12.5px] text-ink3 truncate"><Words k="Levels" /> {x.levels.join(", ")}</p>
                   </div>
-                  {canEdit && <Button size="sm" variant="ghost" onClick={() => setEdit(x)}>Edit</Button>}
+                  {canEdit && <Button size="sm" variant="ghost" onClick={() => setEdit(x)}><Words k="Edit" /></Button>}
                   {canEdit && <Button size="sm" variant="ghost" onClick={() => setArchive(x)} aria-label={`Archive ${x.name}`}><X size={15} aria-hidden="true" /></Button>}
                 </li>
               ))}
             </ul>
           </div>
         ))}
-        {items.length === 0 && <p className="text-[13px] text-ink3">No competencies yet.</p>}
+        {items.length === 0 && <p className="text-[13px] text-ink3"><Words k="No competencies yet." /></p>}
       </div>
-      {canEdit && subjects.length > 0 && <div className="px-5 pb-5"><Button size="sm" variant="soft" icon={Plus} onClick={() => setEdit("new")}>Add competency</Button></div>}
+      {canEdit && subjects.length > 0 && <div className="px-5 pb-5"><Button size="sm" variant="soft" icon={Plus} onClick={() => setEdit("new")}><Words k="Add competency" /></Button></div>}
       <ActionSheet key={c?.id ?? "new"} open={Boolean(edit)} onClose={() => setEdit(null)} title={c ? `Change ${c.name}` : "Add competency"} confirmLabel={c ? "Save" : "Add competency"} pendingText="Saving…" run={saveCompetencyForm}>
         <div className="flex flex-col gap-4">
           {c && <input type="hidden" name="id" value={c.id} />}
-          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold">Subject</span>
+          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold"><Words k="Subject" /></span>
             <select name="subjectId" required defaultValue={c?.subjectId ?? ""} className={cx(inputCls(), "h-11")}>
               <option value="" disabled>Choose the subject</option>
               {subjects.map((x) => <option key={x.id} value={x.id}>{x.name}</option>)}
             </select>
           </label>
-          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold">Competency</span><input name="name" required maxLength={120} defaultValue={c?.name} placeholder="Reads with understanding" className={cx(inputCls(), "h-11")} /></label>
-          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold">Levels</span><input name="levels" required defaultValue={c?.levels.join(", ") ?? "Beginning, Developing, Proficient, Advanced"} className={cx(inputCls(), "h-11")} /><span className="mt-1 block text-[12.5px] text-ink3">From first to highest, separated by commas. 2 to 8 levels.</span></label>
+          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold"><Words k="Competency" /></span><input name="name" required maxLength={120} defaultValue={c?.name} placeholder="Reads with understanding" className={cx(inputCls(), "h-11")} /></label>
+          <label className="block"><span className="mb-1.5 block text-[13.5px] font-semibold"><Words k="Levels" /></span><input name="levels" required defaultValue={c?.levels.join(", ") ?? "Beginning, Developing, Proficient, Advanced"} className={cx(inputCls(), "h-11")} /><span className="mt-1 block text-[12.5px] text-ink3"><Words k="From first to highest, separated by commas. 2 to 8 levels." /></span></label>
         </div>
       </ActionSheet>
       <ActionSheet open={Boolean(archive)} onClose={() => setArchive(null)} title={`Archive ${archive?.name ?? ""}?`} confirmLabel="Archive" confirmVariant="danger" pendingText="Archiving…" run={() => archiveCompetencyAction(archive!.id)}>
-        <p className="text-[14px] text-ink2">It will not be on new report cards. Levels already given stay on past report cards.</p>
+        <p className="text-[14px] text-ink2"><Words k="It will not be on new report cards. Levels already given stay on past report cards." /></p>
       </ActionSheet>
     </>
   );

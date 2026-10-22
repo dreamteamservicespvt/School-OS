@@ -14,6 +14,7 @@ import { ExportLinks } from "../_components/export-links";
 import { ParamSelect, ViewSwitch } from "../_components/pickers";
 import { AllocationGrid } from "./allocation-ui";
 import { GapsToggle, TeacherSearch } from "./filters";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Teacher Allocation" };
 const PATH = "/academic-management/teacher-allocation";
@@ -54,20 +55,20 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
     <>
       <PageTop page={page} title="Teacher Allocation" href={PATH}>
         {/* Gap list G44: the allocation from an Excel sheet, on the one import engine. */}
-        {page.scope.manage && <ButtonLink href="/academic-management/import?kind=academic-allocations" variant="ghost" icon={Upload}>Import from Excel</ButtonLink>}
+        {page.scope.manage && <ButtonLink href="/academic-management/import?kind=academic-allocations" variant="ghost" icon={Upload}><Words k="Import from Excel" /></ButtonLink>}
       </PageTop>
       <ViewSwitch views={[{ value: "grid", label: "By class" }, { value: "teachers", label: own ? "My classes and load" : "Teachers and workload" }]} current={view} />
       {view === "grid" && data.grid && (
         <>
-          {!own && data.totalGaps > 0 && <Alert tone="warning" className="mb-4" title={`${plural(data.totalGaps, "subject")} in ${data.classId ? "the school" : "these classes"} have no teacher yet`}>Gaps show in red. {canEdit ? "Click a cell to assign a teacher." : ""}</Alert>}
+          {!own && data.totalGaps > 0 && <Alert tone="warning" className="mb-4" title={`${plural(data.totalGaps, "subject")} in ${data.classId ? "the school" : "these classes"} have no teacher yet`}><Words k="Gaps show in red." /> {canEdit ? "Click a cell to assign a teacher." : ""}</Alert>}
           <div className="no-print mb-4 flex flex-wrap items-end gap-3">
             <ParamSelect name="class" label="Class" current={data.classId} placeholder={own ? "All my classes" : "All classes"} options={data.classes.map((c) => ({ value: c.id, label: c.name }))} />
             <GapsToggle on={gapsOnly} />
           </div>
           {data.grid.rows.length === 0 ? (
-            <EmptyState title="No sections here">Add classes and sections in Classes &amp; Sections, then map subjects to them.</EmptyState>
+            <EmptyState title="No sections here"><Words k={"Add classes and sections in Classes & Sections, then map subjects to them."} /></EmptyState>
           ) : data.grid.subjects.length === 0 ? (
-            <EmptyState title="No subjects mapped">Map subjects to this class in Subjects, By class. Then assign teachers here.</EmptyState>
+            <EmptyState title="No subjects mapped"><Words k="Map subjects to this class in Subjects, By class. Then assign teachers here." /></EmptyState>
           ) : (
             <AllocationGrid rows={data.grid.rows.map((r) => ({ ...r, cells: Object.fromEntries(Object.entries(r.cells).map(([k, cells]) => [k, cells?.map((c) => ({ ...c, fromDate: c.fromDate ? isoDay(c.fromDate) : null, toDate: c.toDate ? isoDay(c.toDate) : null })) ?? null])) }))}
               subjects={data.grid.subjects} teachers={teachers} canEdit={canEdit} yearId={year.id} today={isoDay(date)} gapsOnly={gapsOnly} ppw={ppw} />
@@ -92,13 +93,13 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
                         <h2 className="font-semibold">{w.name}</h2>
                         <p className="text-sm text-ink-2">{w.designation}</p>
                       </div>
-                      <Badge tone={over ? "danger" : w.periods === 0 ? "warning" : "neutral"}>{w.periods} of {w.limit} periods</Badge>
+                      <Badge tone={over ? "danger" : w.periods === 0 ? "warning" : "neutral"}>{w.periods} <Words k="of" /> {w.limit} <Words k="periods" /></Badge>
                     </div>
                     <div className="mt-3 h-2 overflow-hidden rounded-full bg-surface-3" role="img" aria-label={`${w.periods} of ${w.limit} periods a week`}>
                       <div className={`h-full ${over ? "bg-danger" : pct > 90 ? "bg-warn" : "bg-brand"}`} style={{ width: `${pct}%` }} />
                     </div>
-                    {over && <p className="mt-2 text-sm text-danger">{w.name}: {w.periods} periods, limit {w.limit}.</p>}
-                    {w.teaches.length === 0 ? <p className="mt-3 text-sm text-ink-2">No classes yet.</p> : (
+                    {over && <p className="mt-2 text-sm text-danger">{w.name}: {w.periods} <Words k="periods, limit" /> {w.limit}.</p>}
+                    {w.teaches.length === 0 ? <p className="mt-3 text-sm text-ink-2"><Words k="No classes yet." /></p> : (
                       <ul className="mt-3 flex flex-wrap gap-1.5 text-sm">
                         {w.teaches.map((t) => <li key={t.id} className={`rounded-full px-2.5 py-0.5 ${t.isMain ? "bg-surface-3" : "bg-brand-soft text-brand-text"}`}>{t.label}, {t.subject}{t.isMain ? "" : " (second)"}</li>)}
                       </ul>

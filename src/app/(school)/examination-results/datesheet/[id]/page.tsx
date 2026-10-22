@@ -17,6 +17,7 @@ import { cx } from "@/components/ui/cx";
 import { examPage, one, withYear, type SearchParams } from "../../_lib/page";
 import { CategoriesButton, PublishSheet, RestoreButton } from "../datesheet-ui";
 import { DetailMenu } from "./detail-menu";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Datesheet" };
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
@@ -89,7 +90,7 @@ export default async function DatesheetDetail({ params, searchParams }: { params
   return (
     <div>
       <Link href={list} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink mb-3 -ml-1 h-8 px-1 rounded-lg">
-        <ArrowLeft size={17} aria-hidden="true" />Datesheet <span className="text-ink3 font-normal">/ {title}</span>
+        <ArrowLeft size={17} aria-hidden="true" /><Words k="Datesheet" /> <span className="text-ink3 font-normal">/ {title}</span>
       </Link>
       <div className="flex flex-col gap-5 lg:gap-6">
         <Card className="p-4 md:p-5 flex flex-col lg:flex-row lg:items-center gap-4">
@@ -99,15 +100,15 @@ export default async function DatesheetDetail({ params, searchParams }: { params
               <h1 className="font-display text-[22px] md:text-[26px] font-semibold tracking-tight leading-tight">{title}</h1>
               <Pill tone={tone} dot>{exam.archivedAt ? "Archived" : status}</Pill>
             </div>
-            <p className="text-[13.5px] text-ink3 mt-0.5">{formatDate(exam.startDate)} to {formatDate(exam.endDate)} · {data.typeName} · {data.termName} · {patternLabel(exam.pattern)} · {plural(data.students, "student")} · {note}</p>
+            <p className="text-[13.5px] text-ink3 mt-0.5">{formatDate(exam.startDate)} <Words k="to" /> {formatDate(exam.endDate)} · {data.typeName} · {data.termName} · {patternLabel(exam.pattern)} · {plural(data.students, "student")} · {note}</p>
           </div>
           <div className="flex gap-2 flex-wrap no-print">
             {can && exam.status === "DRAFT" && entries.length > 0 && (
               <PublishSheet examId={id} title={title} papers={entries.length} students={data.students} firstDay={formatDate(entries[0].date)}
                 past={ahead.past} nextDay={ahead.next ? formatDate(ahead.next, "UTC") : null} startOpen={one(raw.publish) === "1"} />
             )}
-            {can && exam.status !== "DRAFT" && !data.locked && <ButtonLink href={withYear(`/examination-results/datesheet/${id}/edit`, page)} icon={DoorOpen}>Rooms & invigilators</ButtonLink>}
-            {seatingOn && exam.status !== "DRAFT" && !exam.archivedAt && page.scope.datesheets && <ButtonLink href={withYear(`/examination-results/datesheet/${id}/seating`, page)} icon={Grid3x3}>Seating</ButtonLink>}
+            {can && exam.status !== "DRAFT" && !data.locked && <ButtonLink href={withYear(`/examination-results/datesheet/${id}/edit`, page)} icon={DoorOpen}><Words k={"Rooms & invigilators"} /></ButtonLink>}
+            {seatingOn && exam.status !== "DRAFT" && !exam.archivedAt && page.scope.datesheets && <ButtonLink href={withYear(`/examination-results/datesheet/${id}/seating`, page)} icon={Grid3x3}><Words k="Seating" /></ButtonLink>}
             {exam.archivedAt && page.scope.datesheets && page.writable && <RestoreButton examId={id} />}
             <DetailMenu examId={id} title={title} printHref={`/examination-results/datesheet/${id}/print`}
               editHref={can ? withYear(`/examination-results/datesheet/${id}/edit`, page) : null} locked={data.locked}
@@ -116,10 +117,10 @@ export default async function DatesheetDetail({ params, searchParams }: { params
           </div>
         </Card>
 
-        {exam.archivedAt && <Banner tone="warn" title="Archived.">This datesheet is not shown to parents or on the School Calendar. Restore it to use it again.</Banner>}
-        {!exam.archivedAt && status === "Draft" && <Banner tone="info" title="Draft.">Only staff can see it. Publishing puts the papers on the School Calendar and the Time Table, makes admit cards ready and tells parents.</Banner>}
-        {!exam.archivedAt && (status === "Published" || status === "Ongoing") && !data.locked && <Banner tone="ok" title="Published.">Parents see this datesheet on Parent Link. The exam days are on the School Calendar and in the Time Table, and reminders go to parents the day before each paper.</Banner>}
-        {!exam.archivedAt && data.locked && <Banner tone="info" title="Results exist for this datesheet.">Only the title can change now. Ask the Exam In-charge or the Principal for anything else.</Banner>}
+        {exam.archivedAt && <Banner tone="warn" title="Archived."><Words k="This datesheet is not shown to parents or on the School Calendar. Restore it to use it again." /></Banner>}
+        {!exam.archivedAt && status === "Draft" && <Banner tone="info" title="Draft."><Words k="Only staff can see it. Publishing puts the papers on the School Calendar and the Time Table, makes admit cards ready and tells parents." /></Banner>}
+        {!exam.archivedAt && (status === "Published" || status === "Ongoing") && !data.locked && <Banner tone="ok" title="Published."><Words k="Parents see this datesheet on Parent Link. The exam days are on the School Calendar and in the Time Table, and reminders go to parents the day before each paper." /></Banner>}
+        {!exam.archivedAt && data.locked && <Banner tone="info" title="Results exist for this datesheet."><Words k="Only the title can change now. Ask the Exam In-charge or the Principal for anything else." /></Banner>}
 
         <Split side={340}>
           <Col>
@@ -132,12 +133,12 @@ export default async function DatesheetDetail({ params, searchParams }: { params
                   { key: "day", label: "Date", nowrap: true, render: (r) => <span className="font-semibold tnum">{dayDate(r.date)}</span> },
                   { key: "sub", label: "Subject", render: (r) => <><p className="font-semibold">{r.subjectName}</p><p className="text-[12.5px] text-ink3">{r.gradeOnly ? "Graded" : r.categories.length ? r.categories.map((c) => `${c.name} ${c.max}`).join(" · ") : `One mark out of ${r.maxMarks}`}{r.pattern ? ` · ${patternLabel(r.pattern)}` : ""}</p></> },
                   { key: "time", label: "Time", nowrap: true, render: (r) => <span className="tnum">{r.time}<span className="block text-[12.5px] text-ink3">{r.duration}</span></span> },
-                  { key: "room", label: "Room", render: (r) => r.room ?? <span className="text-ink3">Not set</span> },
-                  { key: "inv", label: "Invigilator", render: (r) => r.invigilator ?? <span className="text-ink3">Not set</span> },
+                  { key: "room", label: "Room", render: (r) => r.room ?? <span className="text-ink3"><Words k="Not set" /></span> },
+                  { key: "inv", label: "Invigilator", render: (r) => r.invigilator ?? <span className="text-ink3"><Words k="Not set" /></span> },
                   { key: "max", label: "Max marks", align: "right", render: (r) => <b className="font-semibold">{r.gradeOnly ? "Graded" : r.maxMarks}</b> },
                 ]}
-                mobile={(r) => ({ icon: FileText, iconTone: "brand", title: r.subjectName, sub: `${dayDate(r.date)} · ${r.time}`, right: <span className="text-[13px] font-semibold tnum">{r.gradeOnly ? "Graded" : r.maxMarks}<span className="block text-[11.5px] text-ink3 font-normal">max</span></span>, pills: <><Pill tone="neutral" className="!h-[22px] !text-[11.5px]">{r.room ?? "No room"}</Pill>{r.invigilator && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]">{r.invigilator}</Pill>}</> })}
-                empty={<p className="px-5 pb-5 text-ink3 text-[14px]">No papers for {chosen?.name} in this datesheet.</p>} />
+                mobile={(r) => ({ icon: FileText, iconTone: "brand", title: r.subjectName, sub: `${dayDate(r.date)} · ${r.time}`, right: <span className="text-[13px] font-semibold tnum">{r.gradeOnly ? "Graded" : r.maxMarks}<span className="block text-[11.5px] text-ink3 font-normal"><Words k="max" /></span></span>, pills: <><Pill tone="neutral" className="!h-[22px] !text-[11.5px]">{r.room ?? "No room"}</Pill>{r.invigilator && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]">{r.invigilator}</Pill>}</> })}
+                empty={<p className="px-5 pb-5 text-ink3 text-[14px]"><Words k="No papers for" /> {chosen?.name} <Words k="in this datesheet." /></p>} />
             </Card>
             <Card>
               <CardHeader icon={SlidersHorizontal} title="Mark categories" description={data.locked ? "Marks are entered, so the split stays as it is." : "How each subject's marks are split. Teachers enter each part in Marks Entry."} />
@@ -171,7 +172,7 @@ export default async function DatesheetDetail({ params, searchParams }: { params
                   <li key={t} className="flex gap-2"><Check size={16} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />{t}</li>
                 ))}
               </ul>
-              {data.scaleName && <p className="px-5 pb-5 -mt-2 text-[13px] text-ink3">Grade scale: {data.scaleName}</p>}
+              {data.scaleName && <p className="px-5 pb-5 -mt-2 text-[13px] text-ink3"><Words k="Grade scale:" /> {data.scaleName}</p>}
             </Card>
           </Col>
         </Split>

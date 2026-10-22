@@ -14,6 +14,7 @@ import {
   pasteItemsAction, planDefaultsAction, saveLessonPlanAction, untickAction, updateItemAction,
 } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Kind = "UNIT" | "CHAPTER" | "LESSON" | "TOPIC";
 const KINDS: Kind[] = ["UNIT", "CHAPTER", "LESSON", "TOPIC"];
@@ -50,13 +51,13 @@ export function SyllabusTree({ rows, canEdit, where, showStatus }: { rows: Row[]
             {showStatus && <Badge tone={STATUS_TONE[r.status] ?? "neutral"}>{r.status}</Badge>}
             {canEdit && (
               <div className="flex flex-wrap items-center gap-1">
-                {r.kind !== "TOPIC" && <Button size="sm" variant="ghost" onClick={() => setAdding(r)} aria-label={`Add under ${r.title}`}>+ Add</Button>}
-                <Button size="sm" variant="ghost" onClick={() => setEditing(r)} aria-label={`Edit ${r.title}`}>Edit</Button>
+                {r.kind !== "TOPIC" && <Button size="sm" variant="ghost" onClick={() => setAdding(r)} aria-label={`Add under ${r.title}`}><Words k="+ Add" /></Button>}
+                <Button size="sm" variant="ghost" onClick={() => setEditing(r)} aria-label={`Edit ${r.title}`}><Words k="Edit" /></Button>
                 <Button size="sm" variant="ghost" disabled={r.first || pending} onClick={() => move(r.id, "up")} aria-label={`Move ${r.title} up`}>↑</Button>
                 <Button size="sm" variant="ghost" disabled={r.last || pending} onClick={() => move(r.id, "down")} aria-label={`Move ${r.title} down`}>↓</Button>
                 <ConfirmButton trigger="Archive" triggerVariant="ghost" triggerClassName="text-danger" title={`Archive ${r.title}?`} confirmLabel={`Archive ${KIND_WORDS[r.kind].toLowerCase()}`} confirmVariant="danger"
                   onConfirm={async () => { const p = await archiveItemAction(r.id); if (!p) router.refresh(); return p; }}>
-                  {r.hasChildren ? "Everything under it is archived too. " : ""}Progress already logged stays in history.
+                  {r.hasChildren ? "Everything under it is archived too. " : ""}<Words k="Progress already logged stays in history." />
                 </ConfirmButton>
               </div>
             )}
@@ -85,7 +86,7 @@ function ItemDialog({ where, parent, onClose }: { where: Where; parent: Row | nu
   const allowed = parent ? KINDS.slice(KINDS.indexOf(parent.kind) + 1) : KINDS;
   const fields = (state: Parameters<typeof v>[0]) => (
     <>
-      {parent && <p className="text-ink-2">Under {KIND_WORDS[parent.kind].toLowerCase()} <strong>{parent.title}</strong>.</p>}
+      {parent && <p className="text-ink-2"><Words k="Under" /> {KIND_WORDS[parent.kind].toLowerCase()} <strong>{parent.title}</strong>.</p>}
       <SelectField label="Kind" name="kind" required defaultValue={v(state, "kind", allowed[0])} options={allowed.map((k) => ({ value: k, label: KIND_WORDS[k] }))} error={err(state, "kind")} />
       <TextField label="Title" name="title" required defaultValue={v(state, "title")} placeholder={allowed[0] === "UNIT" ? "Unit 1: Numbers" : "Place value"} error={err(state, "title")} />
       <div className="grid grid-cols-2 gap-3">
@@ -109,7 +110,7 @@ export function PasteItems({ where }: { where: Where }) {
     <FormDialog trigger="Paste a list" title="Paste the syllabus as a list" action={pasteItemsAction} submitLabel="Add all" hidden={where} wide>
       {(state) => (
         <>
-          <p className="text-ink-2">One item a line. No dash for a unit, one dash for a chapter, two for a lesson, three for a topic. Add a planned end date after a bar. Copy a column from Excel and add the dashes, or type it.</p>
+          <p className="text-ink-2"><Words k="One item a line. No dash for a unit, one dash for a chapter, two for a lesson, three for a topic. Add a planned end date after a bar. Copy a column from Excel and add the dashes, or type it." /></p>
           <pre className="overflow-x-auto rounded-lg bg-surface-2 p-3 text-sm">{"Unit 1: Numbers\n- Large numbers | 15-07-2026\n--- Place value\n--- Comparing numbers\n- Fractions | 30-08-2026"}</pre>
           <TextArea label="List" name="text" required rows={10} defaultValue={v(state, "text")} error={err(state, "text")} />
         </>
@@ -129,11 +130,11 @@ export function CopySyllabus({ where, yearIds }: { where: Where; yearIds: string
   }, [open, yearIds, where]);
   return (
     <>
-      <Button variant="secondary" onClick={() => setOpen(true)}>Copy from another class or year</Button>
+      <Button variant="secondary" onClick={() => setOpen(true)}><Words k="Copy from another class or year" /></Button>
       {open && (
         <FormDialog open onClose={() => { setOpen(false); setOptions(null); }} title="Copy a syllabus" action={copySyllabusAction} submitLabel="Copy" hidden={where}>
           {(state) => (
-            options === null ? <p className="text-ink-2" aria-live="polite">Loading syllabuses…</p> : options.length === 0 ? <p className="text-ink-2">No other class or year has a syllabus yet.</p> : (
+            options === null ? <p className="text-ink-2" aria-live="polite"><Words k="Loading syllabuses…" /></p> : options.length === 0 ? <p className="text-ink-2"><Words k="No other class or year has a syllabus yet." /></p> : (
               <SelectField label="Copy from" name="from" required defaultValue={v(state, "from", options[0]?.value)} options={options} error={err(state, "from")} help="Planned dates move to this year. The same subject is listed first." />
             )
           )}
@@ -184,7 +185,7 @@ export function DailyLog({ chapters, yearId, sectionId, date, maxDate }: { chapt
                 {t.tickedToday ? (
                   <div className="flex min-h-14 items-center justify-between gap-2 px-4">
                     <span className="flex items-center gap-3"><span aria-hidden="true" className="grid size-6 place-items-center rounded bg-success text-surface">✓</span>{t.title}</span>
-                    <Button size="sm" variant="ghost" onClick={() => takeBack(t.id)} loading={busy}>Take back</Button>
+                    <Button size="sm" variant="ghost" onClick={() => takeBack(t.id)} loading={busy}><Words k="Take back" /></Button>
                   </div>
                 ) : (
                   <label className="flex min-h-14 cursor-pointer items-center gap-3 px-4 hover:bg-surface-2">
@@ -218,7 +219,7 @@ function ChapterDone({ yearId, sectionId, chapterId, title, date }: { yearId: st
         if (r?.ok) { router.refresh(); return; }
         return r?.message ?? "That did not work. Please try again.";
       }}>
-      Every topic under it counts as done for this section.
+      <Words k="Every topic under it counts as done for this section." />
     </ConfirmButton>
   );
 }
@@ -259,8 +260,8 @@ function PlanDialog({ yearId, pairs, plan, defaultPair, onClose }: { yearId: str
       {(state) => (
         <>
           <SelectField label="Class, section and subject" name="pair" required value={pair} onChange={(e) => setPair(e.target.value)} options={pairs} error={err(state, "pair")} placeholder={pairs.length ? undefined : "No classes given to you yet"} />
-          {info === null ? <p className="text-sm text-ink-2" aria-live="polite">Loading topics…</p> : info.topics.length === 0 ? (
-            <p className="rounded-xl bg-warn-bg px-3 py-2 text-sm text-warn-text">This subject has no syllabus yet for the class. Ask the Academic Head to set it up in the Syllabus view.</p>
+          {info === null ? <p className="text-sm text-ink-2" aria-live="polite"><Words k="Loading topics…" /></p> : info.topics.length === 0 ? (
+            <p className="rounded-xl bg-warn-bg px-3 py-2 text-sm text-warn-text"><Words k="This subject has no syllabus yet for the class. Ask the Academic Head to set it up in the Syllabus view." /></p>
           ) : (
             <SelectField label="Topic" name="topicId" required value={topicId} onChange={(e) => setTopicId(e.target.value)} options={info.topics.map((t) => ({ value: t.id, label: t.label }))} error={err(state, "topicId")} help={plan ? undefined : "The next pending topic is chosen for you."} />
           )}
@@ -279,7 +280,7 @@ export function ArchivePlan({ id, title }: { id: string; title: string }) {
   return (
     <ConfirmButton trigger="Archive" triggerVariant="ghost" triggerClassName="text-danger" title="Archive this lesson plan?" confirmLabel="Archive lesson plan" confirmVariant="danger"
       onConfirm={async () => { const p = await archiveLessonPlanAction(id); if (!p) router.refresh(); return p; }}>
-      The plan for {title} leaves the list. It stays in the history.
+      <Words k="The plan for" /> {title} <Words k="leaves the list. It stays in the history." />
     </ConfirmButton>
   );
 }

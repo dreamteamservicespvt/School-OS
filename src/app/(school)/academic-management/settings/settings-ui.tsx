@@ -14,6 +14,7 @@ import {
   closeYearAction, createYearAction, openYearAction, removeYearAction, saveSlotAction, saveTermAction, saveTimingsAction, savePreferenceAction,
   setFeatureAction, updateYearAction,
 } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 const DAYS = [1, 2, 3, 4, 5, 6, 7];
 const DAY_SHORT = ["", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
@@ -53,7 +54,7 @@ export function NewYearButton({ years, suggested, presets, pageYearId }: { years
           <SelectField label="Copy classes, sections, allocations and terms from" name="copyFrom" value={copy} onChange={(e) => setCopy(e.target.value)} placeholder="Nothing, start empty" options={years}
             help="The old year stays exactly as it is. Everything is copied into new records." />
           {!copy && <SelectField label="Terms" name="termPreset" defaultValue={v(state, "termPreset", "two-terms")} options={[...presets]} help="Change term dates later in the Terms tab." />}
-          <p className="text-sm text-ink-2">The new year is Upcoming. Open it when it starts; the current year stays active until then.</p>
+          <p className="text-sm text-ink-2"><Words k="The new year is Upcoming. Open it when it starts; the current year stays active until then." /></p>
         </>
       )}
     </FormDialog>
@@ -88,26 +89,26 @@ export function OpenYear({ yearId, yearName, message, activeName }: { yearId: st
   });
   return (
     <>
-      <Button size="sm" onClick={() => { setError(null); setOpen(true); }}>Open {yearName}</Button>
+      <Button size="sm" onClick={() => { setError(null); setOpen(true); }}><Words k="Open" /> {yearName}</Button>
       <Dialog open={open} onClose={() => setOpen(false)} title={`Open ${yearName}?`}>
         <p>{message}</p>
         {activeName && (
           <fieldset className="mt-4 space-y-2">
-            <legend className="mb-1 text-sm font-medium">What happens to {activeName}</legend>
+            <legend className="mb-1 text-sm font-medium"><Words k="What happens to" /> {activeName}</legend>
             <label className="flex min-h-11 items-start gap-3 rounded-lg border border-line p-3 has-[:checked]:border-brand">
               <input type="radio" name="old" className="mt-0.5 size-5" checked={old === "keep"} onChange={() => setOld("keep")} />
-              <span><span className="font-medium">Keep it open</span><span className="block text-sm text-ink-2">For late marks, fees and report cards. Close it later.</span></span>
+              <span><span className="font-medium"><Words k="Keep it open" /></span><span className="block text-sm text-ink-2"><Words k="For late marks, fees and report cards. Close it later." /></span></span>
             </label>
             <label className="flex min-h-11 items-start gap-3 rounded-lg border border-line p-3 has-[:checked]:border-brand">
               <input type="radio" name="old" className="mt-0.5 size-5" checked={old === "close"} onChange={() => setOld("close")} />
-              <span><span className="font-medium">Close it now</span><span className="block text-sm text-ink-2">It becomes read-only. Corrections need a reason and are logged.</span></span>
+              <span><span className="font-medium"><Words k="Close it now" /></span><span className="block text-sm text-ink-2"><Words k="It becomes read-only. Corrections need a reason and are logged." /></span></span>
             </label>
           </fieldset>
         )}
         {error && <p className="mt-3 text-sm text-danger" role="alert">{error}</p>}
         <div className="mt-4 flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
-          <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
-          <Button onClick={go} loading={busy} loadingText="Opening…">Open {yearName}</Button>
+          <Button variant="secondary" onClick={() => setOpen(false)}><Words k="Cancel" /></Button>
+          <Button onClick={go} loading={busy} loadingText="Opening…"><Words k="Open" /> {yearName}</Button>
         </div>
       </Dialog>
     </>
@@ -119,7 +120,7 @@ export function CloseYear({ yearId, yearName, notes }: { yearId: string; yearNam
   return (
     <ConfirmButton trigger="Close year" triggerVariant="ghost" triggerClassName="text-danger" title={`Close ${yearName}?`} confirmLabel={`Close ${yearName}`} confirmVariant="danger" typeToConfirm={yearName}
       onConfirm={async () => { const p = await closeYearAction(yearId); if (!p) router.refresh(); return p; }}>
-      <p>{yearName} becomes read-only. Only the Principal or School Admin can make a correction, with a reason that is logged.</p>
+      <p>{yearName} <Words k="becomes read-only. Only the Principal or School Admin can make a correction, with a reason that is logged." /></p>
       {notes.length > 0 && <ul className="mt-2 list-disc pl-5 text-sm">{notes.map((n) => <li key={n}>{n}</li>)}</ul>}
     </ConfirmButton>
   );
@@ -148,7 +149,7 @@ export function TermButton({ yearId, term, suggested }: { yearId: string; term?:
             <TextField label="Starts" name="startDate" type="date" required defaultValue={v(state, "startDate", term?.start ?? suggested?.start)} error={err(state, "startDate")} />
             <TextField label="Ends" name="endDate" type="date" required defaultValue={v(state, "endDate", term?.end ?? suggested?.end)} error={err(state, "endDate")} />
           </div>
-          <p className="text-sm text-ink-2">Terms sit inside the year and cannot overlap. A gap between terms is allowed; you are told about it.</p>
+          <p className="text-sm text-ink-2"><Words k="Terms sit inside the year and cannot overlap. A gap between terms is allowed; you are told about it." /></p>
         </>
       )}
     </FormDialog>
@@ -160,7 +161,7 @@ export function ArchiveTerm({ id, name }: { id: string; name: string }) {
   return (
     <ConfirmButton trigger="Remove" triggerVariant="ghost" triggerClassName="text-danger" title={`Remove ${name}?`} confirmLabel={`Remove ${name}`} confirmVariant="danger"
       onConfirm={async () => { const p = await archiveTermAction(id); if (!p) router.refresh(); return p; }}>
-      It leaves the term lists. Blocked if exams already belong to it.
+      <Words k="It leaves the term lists. Blocked if exams already belong to it." />
     </ConfirmButton>
   );
 }
@@ -175,7 +176,7 @@ export function FinancialYearButton({ suggested }: { suggested: { name: string; 
             <TextField label="Starts" name="startDate" type="date" required defaultValue={v(state, "startDate", suggested.start)} error={err(state, "startDate")} />
             <TextField label="Ends" name="endDate" type="date" required defaultValue={v(state, "endDate", suggested.end)} error={err(state, "endDate")} />
           </div>
-          <p className="text-sm text-ink-2">Fee receipts and accounts are numbered by financial year (1 April to 31 March).</p>
+          <p className="text-sm text-ink-2"><Words k="Fee receipts and accounts are numbered by financial year (1 April to 31 March)." /></p>
         </>
       )}
     </FormDialog>
@@ -191,7 +192,7 @@ export function TimingsForm({ s, pageYearId }: { s: { dayStart: string; dayEnd: 
       <input type="hidden" name="pageYearId" value={pageYearId} />
       <FormMessage state={state} />
       <section className="space-y-4 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="font-semibold">School timings and working days</h2>
+        <h2 className="font-semibold"><Words k="School timings and working days" /></h2>
         <div className="grid max-w-md grid-cols-2 gap-3">
           <TextField label="School starts" name="dayStart" type="time" required defaultValue={v(state, "dayStart", s.dayStart)} error={err(state, "dayStart")} />
           <TextField label="School ends" name="dayEnd" type="time" required defaultValue={v(state, "dayEnd", s.dayEnd)} error={err(state, "dayEnd")} />
@@ -201,20 +202,20 @@ export function TimingsForm({ s, pageYearId }: { s: { dayStart: string; dayEnd: 
         <TextField label="Half days end at" name="halfDayEnd" type="time" defaultValue={v(state, "halfDayEnd", s.halfDayEnd)} error={err(state, "halfDayEnd")} className="max-w-[12rem]" />
       </section>
       <section className="space-y-4 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="font-semibold">Teacher workload limits</h2>
+        <h2 className="font-semibold"><Words k="Teacher workload limits" /></h2>
         <div className="grid max-w-xl gap-3 sm:grid-cols-3">
           <TextField label="Periods a day, at most" name="maxPeriodsPerDay" inputMode="numeric" required defaultValue={v(state, "maxPeriodsPerDay", s.maxPeriodsPerDay)} error={err(state, "maxPeriodsPerDay")} />
           <TextField label="Periods a week, at most" name="maxPeriodsPerWeek" inputMode="numeric" required defaultValue={v(state, "maxPeriodsPerWeek", s.maxPeriodsPerWeek)} error={err(state, "maxPeriodsPerWeek")} />
           <TextField label="Periods in a row, at most" name="maxConsecutive" inputMode="numeric" required defaultValue={v(state, "maxConsecutive", s.maxConsecutive)} error={err(state, "maxConsecutive")} />
         </div>
-        <p className="text-sm text-ink-2">Shown as a warning when assigning teachers and in the Time Table clash check. A teacher&apos;s own preferences can set lower limits.</p>
+        <p className="text-sm text-ink-2"><Words k="Shown as a warning when assigning teachers and in the Time Table clash check. A teacher's own preferences can set lower limits." /></p>
       </section>
       <section className="space-y-2 rounded-2xl border border-line bg-surface p-4">
-        <h2 className="font-semibold">Substitution rule</h2>
+        <h2 className="font-semibold"><Words k="Substitution rule" /></h2>
         <CheckboxField label="Raise substitutions automatically when a teacher's leave is approved" name="autoSubstitutions" defaultChecked={(v(state, "autoSubstitutions", s.autoSubstitutions ? "on" : "")) === "on"}
           help="Their periods are listed as Needed in Substitutions. When this is off, leave lists nothing by itself: mark the teacher absent on Substitutions to list their periods. Teachers marked absent are always listed." />
       </section>
-      <SubmitButton pendingText="Saving…">Save timings and rules</SubmitButton>
+      <SubmitButton pendingText="Saving…"><Words k="Save timings and rules" /></SubmitButton>
     </form>
   );
 }
@@ -246,7 +247,7 @@ export function ArchiveSlot({ id, label }: { id: string; label: string }) {
   return (
     <ConfirmButton trigger="Remove" triggerVariant="ghost" triggerClassName="text-danger" title={`Remove ${label}?`} confirmLabel={`Remove ${label}`} confirmVariant="danger"
       onConfirm={async () => { const p = await archiveSlotAction(id); if (!p) router.refresh(); return p; }}>
-      It leaves the period master. Periods already placed in Time Tables stay until you change them.
+      <Words k="It leaves the period master. Periods already placed in Time Tables stay until you change them." />
     </ConfirmButton>
   );
 }
@@ -263,11 +264,11 @@ export function PreferenceButton({ teacher, pref, days, slots }: { teacher: { id
             <TextField label="Periods a week, at most" name="maxPerWeek" inputMode="numeric" defaultValue={v(state, "maxPerWeek", pref?.maxPerWeek)} placeholder="School limit" error={err(state, "maxPerWeek")} />
           </div>
           <fieldset>
-            <legend className="mb-1 text-sm font-medium">Not available (rest times)</legend>
-            <p className="mb-2 text-xs text-ink-2">Tick the periods this teacher should not get when the Time Table is made automatically.</p>
+            <legend className="mb-1 text-sm font-medium"><Words k="Not available (rest times)" /></legend>
+            <p className="mb-2 text-xs text-ink-2"><Words k="Tick the periods this teacher should not get when the Time Table is made automatically." /></p>
             <div className="relative overflow-x-auto">
               <table className="text-sm">
-                <thead><tr><th className="px-2 text-left font-medium">Period</th>{days.map((d) => <th key={d} className="px-2 font-medium">{DAY_SHORT[d]}</th>)}</tr></thead>
+                <thead><tr><th className="px-2 text-left font-medium"><Words k="Period" /></th>{days.map((d) => <th key={d} className="px-2 font-medium">{DAY_SHORT[d]}</th>)}</tr></thead>
                 <tbody>
                   {slots.map((s) => (
                     <tr key={s.number}>
@@ -299,7 +300,7 @@ export function ConditionButton({ subjects, classes, days, slots }: { subjects: 
           <SelectField label="Period" name="periodNo" required defaultValue={v(state, "periodNo")} placeholder="Choose a period" options={slots} error={err(state, "periodNo")} />
           <SelectField label="Day" name="dayOfWeek" defaultValue={v(state, "dayOfWeek")} placeholder="Every day" options={days.map((d) => ({ value: String(d), label: ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][d] }))} error={err(state, "dayOfWeek")} />
           <SelectField label="Class" name="classId" defaultValue={v(state, "classId")} placeholder="All classes" options={classes} error={err(state, "classId")} />
-          <p className="text-sm text-ink-2">For example, no Maths in period 8. Used when making the Time Table automatically, and warned about in the clash check.</p>
+          <p className="text-sm text-ink-2"><Words k="For example, no Maths in period 8. Used when making the Time Table automatically, and warned about in the clash check." /></p>
         </>
       )}
     </FormDialog>
@@ -314,7 +315,7 @@ export function ArchiveCondition({ id, words }: { id: string; words: string }) {
     <span className="flex items-center gap-2">
       {error && <span className="text-sm text-danger" role="alert">{error}</span>}
       <Button size="sm" variant="ghost" className="text-danger" loading={busy} aria-label={`Remove: ${words}`}
-        onClick={() => start(async () => { const p = await archiveConditionAction(id); if (p) setError(p); else router.refresh(); })}>Remove</Button>
+        onClick={() => start(async () => { const p = await archiveConditionAction(id); if (p) setError(p); else router.refresh(); })}><Words k="Remove" /></Button>
     </span>
   );
 }
@@ -360,7 +361,7 @@ export function ArchiveRoom({ id, name }: { id: string; name: string }) {
   return (
     <ConfirmButton trigger="Remove" triggerVariant="ghost" triggerClassName="text-danger" title={`Remove ${name}?`} confirmLabel={`Remove ${name}`} confirmVariant="danger"
       onConfirm={async () => { const p = await archiveRoomAction(id); if (!p) router.refresh(); return p; }}>
-      It leaves the room list. Bookings already made stay in the history.
+      <Words k="It leaves the room list. Bookings already made stay in the history." />
     </ConfirmButton>
   );
 }

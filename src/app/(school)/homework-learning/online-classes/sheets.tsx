@@ -14,6 +14,7 @@ import { cx } from "@/components/ui/cx";
 import { Text } from "../sheets";
 import { attendanceAction, cancelClassAction, materialAction, recordingAction, scheduleClassAction } from "./actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type OcSection = { id: string; label: string; subjects: { id: string; name: string }[] };
 
@@ -28,7 +29,7 @@ export function ScheduleSheet({ closeHref, sections, start }: { closeHref: strin
   const weeks = useTyped("weeks", "4");
   return (
     <SheetForm title="Schedule an online class" sub="Paste the meeting link from Google Meet, Zoom or another app" closeHref={closeHref} action={scheduleClassAction}
-      hidden={{ sectionId: section?.id ?? "", subjectId }} submitLabel={<><CalendarPlus size={16} aria-hidden="true" />Schedule</>} pendingText="Scheduling…">
+      hidden={{ sectionId: section?.id ?? "", subjectId }} submitLabel={<><CalendarPlus size={16} aria-hidden="true" /><Words k="Schedule" /></>} pendingText="Scheduling…">
       <div className="grid grid-cols-2 gap-3">
         <FieldShell label="Class and section" id="oc-cls" required>
           <KeepSelect id="oc-cls" value={section?.id} onChange={(e) => { setSectionId(e.target.value); const n = sections.find((x) => x.id === e.target.value); if (n && !n.subjects.some((x) => x.id === subjectId)) setSubjectId(n.subjects[0]?.id ?? ""); }} className={cx(inputCls(), "h-11")}>
@@ -53,7 +54,7 @@ export function ScheduleSheet({ closeHref, sections, start }: { closeHref: strin
       </FieldShell>
       <div className="rounded-xl border border-line px-3.5 py-3 flex items-center gap-3">
         <Switch id="oc-rep" on={repeat} onChange={setRepeat} label="Repeat every week" name="repeat" />
-        <label htmlFor="oc-rep" className="text-[13.5px] flex-1"><b className="font-semibold block">Repeat every week</b><span className="text-ink3 text-[12.5px]">Same day and time</span></label>
+        <label htmlFor="oc-rep" className="text-[13.5px] flex-1"><b className="font-semibold block"><Words k="Repeat every week" /></b><span className="text-ink3 text-[12.5px]"><Words k="Same day and time" /></span></label>
         {repeat && (
           <select aria-label="For how many weeks" name="weeks" defaultValue={weeks.value} key={weeks.key} className={cx(inputCls(weeks.error), "!h-9 !w-auto text-[13px]")}>
             {[2, 3, 4, 6, 8, 10, 12].map((n) => <option key={n} value={n}>for {n} weeks</option>)}
@@ -68,7 +69,7 @@ export function ScheduleSheet({ closeHref, sections, start }: { closeHref: strin
 export function CancelSheet({ closeHref, id, title }: { closeHref: string; id: string; title: string }) {
   return (
     <SheetForm title={`Cancel “${title}”?`} closeHref={closeHref} action={cancelClassAction} hidden={{ id }} submitLabel="Cancel class" pendingText="Cancelling…" submitVariant="danger">
-      <p className="text-[14px] text-ink2">Students are told at once. You can undo it from the message that follows.</p>
+      <p className="text-[14px] text-ink2"><Words k="Students are told at once. You can undo it from the message that follows." /></p>
       <Text name="note" label="Note for students" placeholder="For example: Moved to Sat 17 Oct" help="Optional" />
     </SheetForm>
   );
@@ -81,7 +82,7 @@ export function AttendanceSheet({ closeHref, id, title, roster }: { closeHref: s
   return (
     <SheetForm title="Who joined?" sub={title} closeHref={closeHref} action={attendanceAction} hidden={{ id }} submitLabel={`Save · ${on.size} of ${roster.length} joined`} pendingText="Saving…">
       <div className="flex justify-between items-center">
-        <p className="text-[13px] text-ink3">Tick the students who were in the class.</p>
+        <p className="text-[13px] text-ink3"><Words k="Tick the students who were in the class." /></p>
         <Button size="sm" variant="ghost" onClick={() => setOn(all ? new Set() : new Set(roster.map((r) => r.id)))}>{all ? "Clear all" : "Tick all"}</Button>
       </div>
       <ul className="flex flex-col divide-y divide-line/70 max-h-[50vh] overflow-y-auto scroll-thin">
@@ -126,7 +127,7 @@ export function RecordingBox({ id }: { id: string }) {
     <FieldShell label="Add a recording link" id="rec-link" error={problem ?? undefined}>
       <div className="flex gap-2">
         <input id="rec-link" value={url} onChange={(e) => setUrl(e.target.value)} placeholder="Paste a link" className={cx(inputCls(problem), "!h-10")} inputMode="url" />
-        <Button variant="secondary" disabled={!url.trim()} loading={busy} className="!h-10" onClick={add}>Add</Button>
+        <Button variant="secondary" disabled={!url.trim()} loading={busy} className="!h-10" onClick={add}><Words k="Add" /></Button>
       </div>
     </FieldShell>
   );

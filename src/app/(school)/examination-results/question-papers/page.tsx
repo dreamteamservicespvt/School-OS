@@ -17,6 +17,7 @@ import { examPage, one, withYear, type SearchParams } from "../_lib/page";
 import { periodQuery } from "../_lib/period";
 import { NoYear, PageTop } from "../_components/page-top";
 import { AddQuestionButton, ArchiveQuestionButton, BankBar, MakePaperButton, PaperMenu, type Pair } from "./qp-ui";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Question Papers" };
 const PATH = "/examination-results/question-papers";
@@ -125,8 +126,8 @@ export default async function QuestionPapersPage({ searchParams }: { searchParam
             { key: "q", label: "Questions", align: "right", render: (p) => p.questionIds.length },
             { key: "m", label: "Total marks", align: "right", render: (p) => p.totalMarks },
             { key: "by", label: "Made by", render: (p) => <><p className="text-[13.5px]">{data.people.find((x) => x.id === p.createdById)?.displayName ?? ""}</p><p className="text-[12px] text-ink3">{formatDate(p.createdAt, tz)}</p></> },
-            { key: "s", label: "Status", render: (p) => p.status === "final" ? <Pill tone="ok"><Lock size={12} aria-hidden="true" />Final</Pill> : <Pill tone="neutral">Draft</Pill> },
-            { key: "a", label: <span className="sr-only">Actions</span>, align: "right", render: (p) => <PaperMenu id={p.id} title={p.title} status={p.status} canEdit={page.writable} /> },
+            { key: "s", label: "Status", render: (p) => p.status === "final" ? <Pill tone="ok"><Lock size={12} aria-hidden="true" /><Words k="Final" /></Pill> : <Pill tone="neutral"><Words k="Draft" /></Pill> },
+            { key: "a", label: <span className="sr-only"><Words k="Actions" /></span>, align: "right", render: (p) => <PaperMenu id={p.id} title={p.title} status={p.status} canEdit={page.writable} /> },
           ]}
           mobile={(p) => ({ icon: p.status === "final" ? Lock : FileText, iconTone: p.status === "final" ? "ok" : "neutral", title: p.title, sub: `${p.totalMarks} marks · ${pairLabel(p.classId, p.subjectId)}`, right: <PaperMenu id={p.id} title={p.title} status={p.status} canEdit={page.writable} /> })}
           footer={`Showing ${rows.length} paper${rows.length === 1 ? "" : "s"}`} />
@@ -153,10 +154,10 @@ export default async function QuestionPapersPage({ searchParams }: { searchParam
             { key: "d", label: "Difficulty", render: (x) => <Pill tone={DIFF_TONE[x.difficulty] ?? "neutral"}>{difficultyLabel(x.difficulty)}</Pill> },
             { key: "m", label: "Marks", align: "right", render: (x) => x.marks },
             { key: "u", label: "Used in", render: (x) => <span className="text-[13px] text-ink3">{x.usedIn.length ? x.usedIn.join(", ") : "Not used"}</span> },
-            ...(page.writable ? [{ key: "a", label: <span className="sr-only">Actions</span>, align: "right" as const, render: (x: (typeof bank.rows)[number]) => <ArchiveQuestionButton id={x.id} text={x.text} /> }] : []),
+            ...(page.writable ? [{ key: "a", label: <span className="sr-only"><Words k="Actions" /></span>, align: "right" as const, render: (x: (typeof bank.rows)[number]) => <ArchiveQuestionButton id={x.id} text={x.text} /> }] : []),
           ]}
           mobile={(x) => ({ icon: CircleHelp, title: x.text, sub: `${x.chapter} · ${typeLabel(x.type)} · ${x.marks} mark${x.marks === 1 ? "" : "s"}`, pills: <Pill tone={DIFF_TONE[x.difficulty] ?? "neutral"}>{difficultyLabel(x.difficulty)}</Pill> })}
-          footer={<span>Showing {bank.rows.length ? (pageNo - 1) * BANK_PAGE + 1 : 0} to {(pageNo - 1) * BANK_PAGE + bank.rows.length} of {bank.total}{pages > 1 && <> · {pageNo > 1 && <a className="font-semibold text-brand hover:underline" href={link({ page: String(pageNo - 1) })}>Previous</a>}{pageNo > 1 && pageNo < pages && " · "}{pageNo < pages && <a className="font-semibold text-brand hover:underline" href={link({ page: String(pageNo + 1) })}>Next</a>}</>}{!chosen && page.writable ? " · Choose a class and subject to make a paper from ticked questions" : ""}</span>} />
+          footer={<span><Words k="Showing" /> {bank.rows.length ? (pageNo - 1) * BANK_PAGE + 1 : 0} <Words k="to" /> {(pageNo - 1) * BANK_PAGE + bank.rows.length} <Words k="of" /> {bank.total}{pages > 1 && <> · {pageNo > 1 && <a className="font-semibold text-brand hover:underline" href={link({ page: String(pageNo - 1) })}><Words k="Previous" /></a>}{pageNo > 1 && pageNo < pages && " · "}{pageNo < pages && <a className="font-semibold text-brand hover:underline" href={link({ page: String(pageNo + 1) })}><Words k="Next" /></a>}</>}{!chosen && page.writable ? " · Choose a class and subject to make a paper from ticked questions" : ""}</span>} />
       </Card>
     );
   }

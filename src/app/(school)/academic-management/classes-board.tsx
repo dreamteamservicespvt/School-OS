@@ -13,6 +13,7 @@ import {
   addClassAction, addClassesAction, addStreamAction, archiveClassAction, archiveSectionAction, archiveStreamAction,
   reorderClassesAction, restoreSectionAction, saveSectionAction, updateClassAction,
 } from "./class-actions";
+import { Words } from "@/lib/i18n/client";
 
 type Section = { id: string; name: string; seats: number; students: number; classTeacherId: string | null; classTeacherName: string | null; room: string | null; streamId: string | null; streamName: string | null };
 type Klass = { id: string; name: string; sortOrder: number; level: string | null; board: string | null; sections: Section[] };
@@ -55,9 +56,9 @@ function ManyClassesFields({ state }: { state: Parameters<typeof v>[0] }) {
       <TextArea label="Class names" name="names" required rows={5} value={names} onChange={(e) => setNames(e.target.value)} error={err(state, "names")}
         help="One per line, or a range like Class 1 to Class 10. Classes are added in this order." />
       <div className="flex flex-wrap gap-2">
-        <Button size="sm" variant="ghost" onClick={() => setNames("Nursery\nLKG\nUKG\nClass 1 to Class 10")}>Nursery to Class 10</Button>
-        <Button size="sm" variant="ghost" onClick={() => setNames("Nursery\nLKG\nUKG\nClass 1 to Class 12")}>Nursery to Class 12</Button>
-        <Button size="sm" variant="ghost" onClick={() => setNames("Class 1 to Class 12")}>Class 1 to 12</Button>
+        <Button size="sm" variant="ghost" onClick={() => setNames("Nursery\nLKG\nUKG\nClass 1 to Class 10")}><Words k="Nursery to Class 10" /></Button>
+        <Button size="sm" variant="ghost" onClick={() => setNames("Nursery\nLKG\nUKG\nClass 1 to Class 12")}><Words k="Nursery to Class 12" /></Button>
+        <Button size="sm" variant="ghost" onClick={() => setNames("Class 1 to Class 12")}><Words k="Class 1 to 12" /></Button>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="Sections in each class" name="sections" required defaultValue={v(state, "sections", "A")} error={err(state, "sections")} help="For example A, B. Change single classes later." />
@@ -129,28 +130,28 @@ export function ClassesBoard(props: {
           <label className="flex min-h-11 items-center gap-2 text-[15px]">
             <input type="checkbox" className="size-5 accent-brand" checked={sp.get("archived") === "1"}
               onChange={(e) => { const n = new URLSearchParams(sp.toString()); if (e.target.checked) n.set("archived", "1"); else n.delete("archived"); router.replace(`${pathname}?${n}`); }} />
-            Archived
+            <Words k="Archived" />
           </label>
         )}
-        {saving && <span className="text-sm text-ink-2" role="status">Saving the new order…</span>}
+        {saving && <span className="text-sm text-ink-2" role="status"><Words k="Saving the new order…" /></span>}
       </div>
       {problem && <p role="alert" className="mb-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{problem}</p>}
       {props.archived && (
         <section className="mb-5 rounded-2xl border border-dashed border-line bg-surface p-4">
-          <h2 className="font-semibold">Archived sections</h2>
-          {props.archived.length === 0 ? <p className="mt-1 text-sm text-ink-2">Nothing archived in this year.</p> : (
+          <h2 className="font-semibold"><Words k="Archived sections" /></h2>
+          {props.archived.length === 0 ? <p className="mt-1 text-sm text-ink-2"><Words k="Nothing archived in this year." /></p> : (
             <ul className="mt-2 divide-y divide-line">
               {props.archived.map((a) => (
                 <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                   <span>{a.label}</span>
-                  {canEdit && <ConfirmButton trigger="Restore" title={`Restore ${a.label}?`} confirmLabel={`Restore ${a.label}`} onConfirm={async () => { const p = await restoreSectionAction(a.id); if (!p) router.refresh(); return p; }}>It comes back with its seats and class teacher.</ConfirmButton>}
+                  {canEdit && <ConfirmButton trigger="Restore" title={`Restore ${a.label}?`} confirmLabel={`Restore ${a.label}`} onConfirm={async () => { const p = await restoreSectionAction(a.id); if (!p) router.refresh(); return p; }}><Words k="It comes back with its seats and class teacher." /></ConfirmButton>}
                 </li>
               ))}
             </ul>
           )}
         </section>
       )}
-      {shown.length === 0 && <p className="rounded-xl border border-dashed border-line p-6 text-center text-ink-2">Nothing matches “{q}”. <button type="button" className="font-medium text-brand-text underline" onClick={() => setQ("")}>Clear the search</button></p>}
+      {shown.length === 0 && <p className="rounded-xl border border-dashed border-line p-6 text-center text-ink-2"><Words k="Nothing matches “" />{q}”. <button type="button" className="font-medium text-brand-text underline" onClick={() => setQ("")}><Words k="Clear the search" /></button></p>}
       <ol className="space-y-3">
         {shown.map((c) => {
           const i = ids.indexOf(c.id);
@@ -169,7 +170,7 @@ export function ClassesBoard(props: {
                   <h2 className="text-lg font-semibold">{c.name}</h2>
                   {c.level && <Badge>{c.level}</Badge>}
                   {props.boardsOn && <Badge tone="brand">{c.board ?? props.schoolBoard ?? "School board"}</Badge>}
-                  <span className="text-sm text-ink-2">{c.sections.length} {c.sections.length === 1 ? "section" : "sections"} · {students} students</span>
+                  <span className="text-sm text-ink-2">{c.sections.length} {c.sections.length === 1 ? "section" : "sections"} · {students} <Words k="students" /></span>
                 </div>
                 {canEdit && (
                   <div className="no-print flex flex-wrap items-center gap-1">
@@ -195,21 +196,21 @@ export function ClassesBoard(props: {
                 )}
               </div>
               {c.sections.length === 0 ? (
-                <p className="px-4 py-3 text-sm text-ink-2">No sections in this year. {canEdit && "Add a section to place students."}</p>
+                <p className="px-4 py-3 text-sm text-ink-2"><Words k="No sections in this year." /> {canEdit && "Add a section to place students."}</p>
               ) : (
                 <div className="relative overflow-x-auto">
                   <table className="w-full text-left text-[15px]">
-                    <caption className="sr-only">Sections of {c.name}</caption>
+                    <caption className="sr-only"><Words k="Sections of" /> {c.name}</caption>
                     <thead className="bg-surface-2 text-sm text-ink-2">
                       <tr>
-                        <th scope="col" className="px-4 py-2 font-medium">Section</th>
-                        {props.streamsOn && <th scope="col" className="px-4 py-2 font-medium">Stream</th>}
-                        <th scope="col" className="px-4 py-2 font-medium">Class teacher</th>
-                        <th scope="col" className="hidden px-4 py-2 font-medium sm:table-cell">Room</th>
-                        <th scope="col" className="px-4 py-2 text-right font-medium">Students</th>
-                        <th scope="col" className="hidden px-4 py-2 text-right font-medium sm:table-cell">Seats</th>
-                        <th scope="col" className="px-4 py-2 text-right font-medium">Seats left</th>
-                        {canEdit && <th scope="col" className="px-2 py-2"><span className="sr-only">Actions</span></th>}
+                        <th scope="col" className="px-4 py-2 font-medium"><Words k="Section" /></th>
+                        {props.streamsOn && <th scope="col" className="px-4 py-2 font-medium"><Words k="Stream" /></th>}
+                        <th scope="col" className="px-4 py-2 font-medium"><Words k="Class teacher" /></th>
+                        <th scope="col" className="hidden px-4 py-2 font-medium sm:table-cell"><Words k="Room" /></th>
+                        <th scope="col" className="px-4 py-2 text-right font-medium"><Words k="Students" /></th>
+                        <th scope="col" className="hidden px-4 py-2 text-right font-medium sm:table-cell"><Words k="Seats" /></th>
+                        <th scope="col" className="px-4 py-2 text-right font-medium"><Words k="Seats left" /></th>
+                        {canEdit && <th scope="col" className="px-2 py-2"><span className="sr-only"><Words k="Actions" /></span></th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-line">
@@ -218,12 +219,12 @@ export function ClassesBoard(props: {
                         return (
                           <tr key={s.id}>
                             <td className="px-4 py-2 font-medium"><Link className="text-brand-text hover:underline" href={`/academic-management/time-table?section=${s.id}`}>{c.name} {s.name}</Link></td>
-                            {props.streamsOn && <td className="px-4 py-2">{s.streamName ?? <span className="text-ink-2">None</span>}</td>}
-                            <td className="px-4 py-2">{s.classTeacherName ?? <Badge tone="warning">Not set</Badge>}</td>
-                            <td className="hidden px-4 py-2 sm:table-cell">{s.room ?? <span className="text-ink-2">Not set</span>}</td>
+                            {props.streamsOn && <td className="px-4 py-2">{s.streamName ?? <span className="text-ink-2"><Words k="None" /></span>}</td>}
+                            <td className="px-4 py-2">{s.classTeacherName ?? <Badge tone="warning"><Words k="Not set" /></Badge>}</td>
+                            <td className="hidden px-4 py-2 sm:table-cell">{s.room ?? <span className="text-ink-2"><Words k="Not set" /></span>}</td>
                             <td className="px-4 py-2 text-right tabular-nums">{s.students}</td>
                             <td className="hidden px-4 py-2 text-right tabular-nums sm:table-cell">{s.seats}</td>
-                            <td className="px-4 py-2 text-right tabular-nums">{left < 0 ? <Badge tone="danger">{left}</Badge> : left === 0 ? <Badge tone="warning">Full</Badge> : left}</td>
+                            <td className="px-4 py-2 text-right tabular-nums">{left < 0 ? <Badge tone="danger">{left}</Badge> : left === 0 ? <Badge tone="warning"><Words k="Full" /></Badge> : left}</td>
                             {canEdit && (
                               <td className="whitespace-nowrap px-2 py-1 text-right">
                                 <SectionDialog mode="edit" yearId={yearId} classId={c.id} className={c.name} section={s} teachers={props.teachers} streams={props.streams} streamsOn={props.streamsOn} defaultSeats={s.seats} />
@@ -280,14 +281,14 @@ export function StreamsButton({ yearId, streams }: { yearId: string; streams: Op
     <FormDialog trigger="Streams" title="Streams" action={addStreamAction} submitLabel="Add stream" hidden={{ yearId }}>
       {(state) => (
         <>
-          {streams.length === 0 ? <p className="text-ink-2">No streams yet. Add Science, Commerce or Arts, then attach sections to them.</p> : (
+          {streams.length === 0 ? <p className="text-ink-2"><Words k="No streams yet. Add Science, Commerce or Arts, then attach sections to them." /></p> : (
             <ul className="divide-y divide-line rounded-xl border border-line">
               {streams.map((s) => (
                 <li key={s.id} className="flex items-center justify-between gap-2 px-3 py-1">
                   <span>{s.name}</span>
                   <ConfirmButton trigger="Archive" triggerVariant="ghost" triggerClassName="min-h-11 text-danger" title={`Archive ${s.name}?`} confirmLabel={`Archive ${s.name}`} confirmVariant="danger"
                     onConfirm={async () => { const p = await archiveStreamAction(s.id); if (!p) router.refresh(); return p; }}>
-                    Sections using it must be moved to another stream first.
+                    <Words k="Sections using it must be moved to another stream first." />
                   </ConfirmButton>
                 </li>
               ))}

@@ -13,6 +13,7 @@ import { AttachPicker, HandInPicker } from "./_components/attach";
 import { RemindButton as SharedRemind } from "@/components/remind-button";
 import { archiveHomeworkAction, draftHomeworkAction, editHomeworkAction, giveHomeworkAction, remindTeacherAction, resendHomeworkAction, submitWorkAction } from "./actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type DueChoice = { date: string; words: string };
 export type GiveSection = {
@@ -113,29 +114,29 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
         )}
       </FieldShell>
       {own && (section.subjects.length > 1 ? (
-        <div className="-mt-2 flex flex-wrap items-center gap-1.5 text-[13px] text-ink3">Subject:
+        <div className="-mt-2 flex flex-wrap items-center gap-1.5 text-[13px] text-ink3"><Words k="Subject:" />
           {section.subjects.map((x) => (
             <button key={x.id} type="button" aria-pressed={x.id === subject.id} onClick={() => { setSubjectId(x.id); setDraft(null); }}
               className={cx("h-8 px-2.5 rounded-lg border text-[13px] font-semibold", x.id === subject.id ? "bg-brand/10 border-brand text-brand" : "border-line text-ink2")}>{x.name}</button>
           ))}
         </div>
-      ) : <p className="text-[13px] text-ink3 -mt-2">Subject: <b className="font-semibold text-ink2">{subject.name}</b></p>)}
+      ) : <p className="text-[13px] text-ink3 -mt-2"><Words k="Subject:" /> <b className="font-semibold text-ink2">{subject.name}</b></p>)}
 
       <div className="flex flex-col gap-3">
         <div className="flex items-center justify-between gap-2">
-          <p className="text-[13px] font-semibold text-ink2">2 · What to do</p>
-          {ai && <Button size="sm" variant="soft" icon={Sparkles} loading={drafting} onClick={askDraft}>Draft with AI</Button>}
+          <p className="text-[13px] font-semibold text-ink2"><Words k="2 · What to do" /></p>
+          {ai && <Button size="sm" variant="soft" icon={Sparkles} loading={drafting} onClick={askDraft}><Words k="Draft with AI" /></Button>}
         </div>
         {aiProblem && <p className="text-[12.5px] text-ink3" role="status">{aiProblem}</p>}
         {draft && (
           <div className="rounded-2xl border border-brand/25 bg-brand/[.03] p-3.5">
-            <p className="flex items-center gap-2 text-[13.5px] font-semibold"><Sparkles size={15} className="text-brand" aria-hidden="true" />Draft homework<Pill tone="brand" className="!h-5 !text-[11px] ml-auto">Suggestion</Pill></p>
+            <p className="flex items-center gap-2 text-[13.5px] font-semibold"><Sparkles size={15} className="text-brand" aria-hidden="true" /><Words k="Draft homework" /><Pill tone="brand" className="!h-5 !text-[11px] ml-auto"><Words k="Suggestion" /></Pill></p>
             <p className="text-[13.5px] font-semibold mt-2">{draft.title}</p>
             <p className="text-[13.5px] text-ink2 mt-0.5">{draft.instructions}</p>
-            <p className="text-[12px] text-ink3 mt-1.5">Based on: {draft.source}</p>
+            <p className="text-[12px] text-ink3 mt-1.5"><Words k="Based on:" /> {draft.source}</p>
             <div className="flex gap-2 mt-2">
-              <Button size="sm" variant="soft" onClick={() => { setTitle(draft.title); setInstr(draft.instructions); setFromSuggestion(true); setDraft(null); }}>Use and edit</Button>
-              <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>Discard</Button>
+              <Button size="sm" variant="soft" onClick={() => { setTitle(draft.title); setInstr(draft.instructions); setFromSuggestion(true); setDraft(null); }}><Words k="Use and edit" /></Button>
+              <Button size="sm" variant="ghost" onClick={() => setDraft(null)}><Words k="Discard" /></Button>
             </div>
           </div>
         )}
@@ -153,17 +154,17 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
       </FieldShell>
 
       <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="self-start inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-brand h-8 px-1 rounded-lg">
-        <ChevronDown size={16} className={cx("transition", more && "rotate-180")} aria-hidden="true" />More details
+        <ChevronDown size={16} className={cx("transition", more && "rotate-180")} aria-hidden="true" /><Words k="More details" />
       </button>
       <div className={cx("flex flex-col gap-3", !more && "hidden")}>
         <FieldShell label="Given to" id="gh-to" required error={studentsT.error}>
           <Segmented value={to} onChange={setTo} className="w-full" label="Given to"
             options={[{ value: "SECTION", label: `Whole ${section.label}` }, ...(sameClass.length > 1 ? [{ value: "CLASS", label: `All of ${section.className}` }] : []), { value: "STUDENTS", label: "Chosen students" }]} />
         </FieldShell>
-        {to === "CLASS" && <p className="text-[12.5px] text-ink3 -mt-1">Goes to {sameClass.map((s) => s.label).join(", ")}: {sameClass.reduce((a, s) => a + s.students, 0)} students.</p>}
+        {to === "CLASS" && <p className="text-[12.5px] text-ink3 -mt-1"><Words k="Goes to" /> {sameClass.map((s) => s.label).join(", ")}: {sameClass.reduce((a, s) => a + s.students, 0)} <Words k="students." /></p>}
         {to === "STUDENTS" && (
           <fieldset className="rounded-xl border border-line p-2 max-h-56 overflow-y-auto scroll-thin">
-            <legend className="sr-only">Chosen students</legend>
+            <legend className="sr-only"><Words k="Chosen students" /></legend>
             {section.roster.map((st) => (
               <label key={st.id} className="flex items-center gap-2.5 px-2 py-1.5 rounded-lg hover:bg-sunken/60 text-[14px] cursor-pointer">
                 <KeepCheck type="checkbox" name="studentIds" value={st.id} checked={chosen.has(st.id)} className="size-4 accent-[rgb(var(--brand))]"
@@ -173,7 +174,7 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
             ))}
           </fieldset>
         )}
-        {to === "STUDENTS" && <p className="text-[12.5px] text-ink3 -mt-1">{chosen.size} chosen. Others will not see it.</p>}
+        {to === "STUDENTS" && <p className="text-[12.5px] text-ink3 -mt-1">{chosen.size} <Words k="chosen. Others will not see it." /></p>}
         <div className="grid grid-cols-2 gap-3">
           <FieldShell label="Start date" id="gh-start" required error={startT.error}>
             <input id="gh-start" name="startDate" type="date" defaultValue={startT.value} key={startT.key} className={cx(inputCls(startT.error), "h-11 tnum")} />
@@ -185,7 +186,7 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
         {onlineOn && (
           <div className="rounded-xl border border-line px-3.5 py-3 flex items-center gap-3">
             <Switch id="gh-online" on={online} onChange={setOnline} label="Online submission" name="online" />
-            <label htmlFor="gh-online" className="text-[13.5px]"><b className="font-semibold block">Online submission</b><span className="text-ink3 text-[12.5px]">Students with a login hand in a photo or file</span></label>
+            <label htmlFor="gh-online" className="text-[13.5px]"><b className="font-semibold block"><Words k="Online submission" /></b><span className="text-ink3 text-[12.5px]"><Words k="Students with a login hand in a photo or file" /></span></label>
           </div>
         )}
       </div>
@@ -211,13 +212,13 @@ export function EditSheet({ closeHref, hw, files, onlineOn }: {
       <Text name="instructions" label="Instructions" area start={hw.instructions} />
       {files.length > 0 && (
         <fieldset className="flex flex-col gap-1.5">
-          <legend className="text-[13px] font-semibold text-ink2 mb-1">Attached</legend>
+          <legend className="text-[13px] font-semibold text-ink2 mb-1"><Words k="Attached" /></legend>
           {files.map((f) => (
             <label key={f.id} className={cx("flex items-center gap-2.5 rounded-xl border border-line px-3 py-2 text-[13.5px]", remove.has(f.id) && "opacity-50 line-through")}>
               <span className="flex-1 min-w-0 truncate">{f.name}</span>
               <KeepCheck type="checkbox" name="remove" value={f.id} checked={remove.has(f.id)} className="size-4"
                 onChange={(e) => setRemove((x) => { const n = new Set(x); if (e.target.checked) n.add(f.id); else n.delete(f.id); return n; })} />
-              <span className="text-[12.5px] text-ink3">Remove</span>
+              <span className="text-[12.5px] text-ink3"><Words k="Remove" /></span>
             </label>
           ))}
         </fieldset>
@@ -231,7 +232,7 @@ export function EditSheet({ closeHref, hw, files, onlineOn }: {
       {onlineOn && (
         <div className="rounded-xl border border-line px-3.5 py-3 flex items-center gap-3">
           <Switch id="ed-online" on={online} onChange={setOnline} label="Online submission" name="online" />
-          <label htmlFor="ed-online" className="text-[13.5px]"><b className="font-semibold block">Online submission</b><span className="text-ink3 text-[12.5px]">Students with a login hand in a photo or file</span></label>
+          <label htmlFor="ed-online" className="text-[13.5px]"><b className="font-semibold block"><Words k="Online submission" /></b><span className="text-ink3 text-[12.5px]"><Words k="Students with a login hand in a photo or file" /></span></label>
         </div>
       )}
     </SheetForm>
@@ -241,7 +242,7 @@ export function EditSheet({ closeHref, hw, files, onlineOn }: {
 export function ArchiveSheet({ closeHref, id, title }: { closeHref: string; id: string; title: string }) {
   return (
     <SheetForm title={`Archive “${title}”?`} closeHref={closeHref} action={archiveHomeworkAction} submitLabel="Archive homework" pendingText="Archiving…" hidden={{ id }}>
-      <p className="text-[14px] text-ink2">It leaves the lists for students, parents and teachers. Hand-ins and marks are kept, and you can undo it from the message that follows, or find it in History with Archived.</p>
+      <p className="text-[14px] text-ink2"><Words k="It leaves the lists for students, parents and teachers. Hand-ins and marks are kept, and you can undo it from the message that follows, or find it in History with Archived." /></p>
     </SheetForm>
   );
 }
@@ -249,7 +250,7 @@ export function ArchiveSheet({ closeHref, id, title }: { closeHref: string; id: 
 export function ResendSheet({ closeHref, id, title, parents, credits, channel, problem }: { closeHref: string; id: string; title: string; parents: number; credits: number; channel: string; problem: string | null }) {
   return (
     <SheetForm title={`Resend to ${parents} parents?`} closeHref={closeHref} action={resendHomeworkAction} submitLabel={`Send to ${parents} parents`} pendingText="Sending…" hidden={{ id }} submitDisabled={!!problem || parents === 0}>
-      <p className="text-[14px] text-ink2">Only the parents who have not seen “{title}”. By {channel}, with SMS backup. Cost: {credits} credits. A message cannot be unsent.</p>
+      <p className="text-[14px] text-ink2"><Words k="Only the parents who have not seen “" />{title}<Words k="”. By" /> {channel}<Words k=", with SMS backup. Cost:" /> {credits} <Words k="credits. A message cannot be unsent." /></p>
       {problem && <p className="text-[13.5px] text-bad" role="alert">{problem}</p>}
     </SheetForm>
   );

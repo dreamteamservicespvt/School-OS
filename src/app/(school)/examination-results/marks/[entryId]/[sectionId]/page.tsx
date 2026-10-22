@@ -12,6 +12,7 @@ import { examPage, type SearchParams } from "../../../_lib/page";
 import { BackLink } from "../../../_components/page-top";
 import { MarksGrid, type GridStudent } from "../../marks-grid";
 import { LockPaperButton, ReopenButton } from "../../marks-ui";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Marks Entry" };
 
@@ -60,12 +61,12 @@ export default async function PaperPage({ params, searchParams }: { params: Prom
 
   const notes = (
     <>
-      {p.exam.status === "DRAFT" && <Banner tone="warn" title="Marks open once the datesheet is published.">Publish the datesheet of {p.exam.title} first.</Banner>}
-      {!page.writable && <Banner tone="warn" title="This year is closed.">Marks can be seen but not changed.</Banner>}
-      {page.writable && open && checksOnly && <Banner tone="info" title={`${teachers.join(", ") || "The subject teacher"} enters these marks.`}>You can see them here. To hurry them up, use Remind on Marks Entry.</Banner>}
-      {overdue && canEdit && <Banner tone="bad" title={`Marks were due on ${formatDate(due!, tz)}.`}>Enter the rest and submit as soon as you can.</Banner>}
-      {p.paper.status === "SUBMITTED" && <Banner tone="brand" icon={Send} title={p.paper.submittedAt ? `Submitted ${formatDateTime(p.paper.submittedAt, tz)}${name(p.paper.submittedById) ? ` by ${name(p.paper.submittedById)}` : ""}.` : "Submitted."}>A change needs a reason and an approval, and the old mark stays in the history.{page.scope.manage ? " Lock the marks once you have checked them." : ""}</Banner>}
-      {p.paper.status === "LOCKED" && <Banner tone="ok" icon={Lock} title={p.paper.lockedAt ? `Locked ${formatDateTime(p.paper.lockedAt, tz)}.` : "Locked."}>A change needs a reason and an approval, and the old mark stays in the history.</Banner>}
+      {p.exam.status === "DRAFT" && <Banner tone="warn" title="Marks open once the datesheet is published."><Words k="Publish the datesheet of" /> {p.exam.title} <Words k="first." /></Banner>}
+      {!page.writable && <Banner tone="warn" title="This year is closed."><Words k="Marks can be seen but not changed." /></Banner>}
+      {page.writable && open && checksOnly && <Banner tone="info" title={`${teachers.join(", ") || "The subject teacher"} enters these marks.`}><Words k="You can see them here. To hurry them up, use Remind on Marks Entry." /></Banner>}
+      {overdue && canEdit && <Banner tone="bad" title={`Marks were due on ${formatDate(due!, tz)}.`}><Words k="Enter the rest and submit as soon as you can." /></Banner>}
+      {p.paper.status === "SUBMITTED" && <Banner tone="brand" icon={Send} title={p.paper.submittedAt ? `Submitted ${formatDateTime(p.paper.submittedAt, tz)}${name(p.paper.submittedById) ? ` by ${name(p.paper.submittedById)}` : ""}.` : "Submitted."}><Words k="A change needs a reason and an approval, and the old mark stays in the history." />{page.scope.manage ? " Lock the marks once you have checked them." : ""}</Banner>}
+      {p.paper.status === "LOCKED" && <Banner tone="ok" icon={Lock} title={p.paper.lockedAt ? `Locked ${formatDateTime(p.paper.lockedAt, tz)}.` : "Locked."}><Words k="A change needs a reason and an approval, and the old mark stays in the history." /></Banner>}
     </>
   );
 

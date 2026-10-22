@@ -9,6 +9,7 @@ import { Banner } from "@/components/money/kit";
 import { HomeworkHead } from "../_components/homework-head";
 import { homeworkGuard } from "../_lib/page";
 import { GradeBands, OptionalSwitch, SettingsRows, type Row } from "./forms";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Homework Settings" };
 
@@ -70,7 +71,7 @@ export default async function HomeworkSettingsPage() {
         <Card><CardHeader title="Course access" description="Who can see which course" icon={ShieldCheck} /><SettingsRows section="Course access" rows={access} editable={edit} extra={fixed} /></Card>
         <Card><CardHeader title="Display" icon={LayoutGrid} /><SettingsRows section="Display" rows={display} editable={edit} /></Card>
         <Card>
-          <CardHeader title="Homework messages to parents" description="Set in Communication, Message Settings" icon={MessageCircle} action={canMsg ? <ButtonLink href="/communication/settings" size="sm" variant="ghost" iconRight={ArrowRight}>Change</ButtonLink> : undefined} />
+          <CardHeader title="Homework messages to parents" description="Set in Communication, Message Settings" icon={MessageCircle} action={canMsg ? <ButtonLink href="/communication/settings" size="sm" variant="ghost" iconRight={ArrowRight}><Words k="Change" /></ButtonLink> : undefined} />
           <ul className="divide-y divide-line/70 border-t border-line/70">
             {rules.map((r) => (
               <li key={r.key} className="flex items-center gap-3 px-5 py-3.5 text-[14px]">
@@ -88,7 +89,7 @@ export default async function HomeworkSettingsPage() {
         </Card>
         {p.ai && (
           <Banner tone="brand" icon={Sparkles} title="AI teacher assistant is on.">
-            Drafts for homework, feedback and remarks are always shown as suggestions for the teacher to edit. Only the School Admin can switch it off, in Settings, Modules On/Off.
+            <Words k="Drafts for homework, feedback and remarks are always shown as suggestions for the teacher to edit. Only the School Admin can switch it off, in Settings, Modules On/Off." />
           </Banner>
         )}
       </div>

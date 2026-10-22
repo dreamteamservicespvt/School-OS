@@ -14,6 +14,7 @@ import { HomeworkHead } from "../_components/homework-head";
 import { BackLink } from "../_components/bits";
 import { BASE, homeworkGuard, one, qs, UUID, type SearchParams } from "../_lib/page";
 import { BoardSheet, HideSheet, ModMenu, ReplyBox, TopicSheet } from "./sheets";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Discussions" };
 
@@ -64,10 +65,10 @@ export default async function DiscussionsPage({ searchParams }: { searchParams: 
   const here = (extra: Record<string, string | null> = {}) => qs(HREF, { board: data.pick?.id ?? null, ...extra });
   const head = (
     <HomeworkHead page="discussions" pageName="Discussions" sub={sub}
-      viewActions={p.student && data.pick && data.pick.active ? <ButtonLink href={here({ do: "topic" })} scroll={false} variant="primary" icon={MessageSquarePlus}>Ask a question</ButtonLink> : undefined}
+      viewActions={p.student && data.pick && data.pick.active ? <ButtonLink href={here({ do: "topic" })} scroll={false} variant="primary" icon={MessageSquarePlus}><Words k="Ask a question" /></ButtonLink> : undefined}
       actions={<>
-        <ButtonLink href={here({ do: "board" })} scroll={false} variant="secondary" icon={Plus}>New board</ButtonLink>
-        {data.pick?.active && <ButtonLink href={here({ do: "topic" })} scroll={false} variant="primary" icon={MessageSquarePlus}>New topic</ButtonLink>}
+        <ButtonLink href={here({ do: "board" })} scroll={false} variant="secondary" icon={Plus}><Words k="New board" /></ButtonLink>
+        {data.pick?.active && <ButtonLink href={here({ do: "topic" })} scroll={false} variant="primary" icon={MessageSquarePlus}><Words k="New topic" /></ButtonLink>}
       </>} />
   );
 
@@ -76,7 +77,7 @@ export default async function DiscussionsPage({ searchParams }: { searchParams: 
       <div>
         {head}
         <Card><Empty icon={MessagesSquare} title="No boards yet" body={staffPosts ? "Make a board for a class, so students can ask questions." : p.student ? "Your teachers have not made a board for your class yet." : "Teachers have not made boards yet."}
-          action={staffPosts ? <ButtonLink href={here({ do: "board" })} scroll={false} variant="primary" icon={Plus}>New board</ButtonLink> : undefined} /></Card>
+          action={staffPosts ? <ButtonLink href={here({ do: "board" })} scroll={false} variant="primary" icon={Plus}><Words k="New board" /></ButtonLink> : undefined} /></Card>
         {staffPosts && doing === "board" && <BoardSheet closeHref={here({ do: null })} courses={data.courses ?? []} />}
       </div>
     );
@@ -115,9 +116,9 @@ export default async function DiscussionsPage({ searchParams }: { searchParams: 
             <>
               <CardHeader title={b.title} icon={MessagesSquare}
                 description={`${b.audience === "staff" ? "Staff only" : "Staff and students"} · moderated by ${b.ownerName}${b.active ? "" : " · not active"}`}
-                action={canMod ? <ButtonLink href={here({ do: "edit-board" })} scroll={false} size="sm" variant="ghost" icon={Pencil}>Edit board</ButtonLink> : undefined} />
+                action={canMod ? <ButtonLink href={here({ do: "edit-board" })} scroll={false} size="sm" variant="ghost" icon={Pencil}><Words k="Edit board" /></ButtonLink> : undefined} />
               {b.description && <p className="px-5 -mt-2 pb-3 text-[13.5px] text-ink2">{b.description}</p>}
-              {!b.active && <Banner tone="info" icon={Lock} className="mx-4 mb-3">This board is not active. Posts can be read but not added.</Banner>}
+              {!b.active && <Banner tone="info" icon={Lock} className="mx-4 mb-3"><Words k="This board is not active. Posts can be read but not added." /></Banner>}
               {data.topics!.length === 0 ? (
                 <Empty icon={MessagesSquare} title="No topics yet" body={canPost && b.active ? (p.student ? "Ask the first question." : "Start the first topic.") : "Topics show here when someone posts."} />
               ) : (
@@ -128,14 +129,14 @@ export default async function DiscussionsPage({ searchParams }: { searchParams: 
                         <Avatar name={x.authorName} size={36} />
                         {x.hiddenAt && !canMod ? (
                           <div className="min-w-0 flex-1">
-                            <p className="italic text-ink3 text-[14.5px]">Hidden by the teacher · {x.hiddenReason}</p>
+                            <p className="italic text-ink3 text-[14.5px]"><Words k="Hidden by the teacher ·" /> {x.hiddenReason}</p>
                             <p className="text-[12.5px] text-ink3">{x.authorName} · {momentWords(x.createdAt, p.tz)}</p>
                           </div>
                         ) : (
                           <Link href={here({ topic: x.id })} scroll={false} className="min-w-0 flex-1 text-left">
                             <p className="font-semibold text-[14.5px] leading-snug flex items-center gap-1.5 flex-wrap">
                               {x.pinned && <Pin size={14} className="text-brand" aria-label="Pinned" />}{x.locked && <Lock size={13} className="text-ink3" aria-label="Replies locked" />}
-                              {x.hiddenAt ? <span className="italic font-normal text-ink3">Hidden · {x.hiddenReason} · {x.title}</span> : x.title}
+                              {x.hiddenAt ? <span className="italic font-normal text-ink3"><Words k="Hidden ·" /> {x.hiddenReason} · {x.title}</span> : x.title}
                             </p>
                             <p className="text-[12.5px] text-ink3">{x.authorName}{x.authorIsStaff ? " · teacher" : ""} · {momentWords(x.createdAt, p.tz)} · {plural(x.replies, "reply", "replies")}</p>
                           </Link>
@@ -153,8 +154,8 @@ export default async function DiscussionsPage({ searchParams }: { searchParams: 
               <div className="flex items-start gap-3">
                 <Avatar name={t.topic.authorName} size={40} />
                 <div className="min-w-0 flex-1">
-                  <h2 className="font-semibold text-[17px] leading-snug">{t.topic.hiddenAt && !canMod ? <span className="italic font-normal text-ink3">Hidden by the teacher · {t.topic.hiddenReason}</span> : t.topic.title}</h2>
-                  <p className="text-[12.5px] text-ink3">{t.topic.authorName}{t.topic.authorIsStaff && <Pill tone="brand" className="!h-5 !text-[11px] ml-1.5">Teacher</Pill>} · {momentWords(t.topic.createdAt, p.tz)}</p>
+                  <h2 className="font-semibold text-[17px] leading-snug">{t.topic.hiddenAt && !canMod ? <span className="italic font-normal text-ink3"><Words k="Hidden by the teacher ·" /> {t.topic.hiddenReason}</span> : t.topic.title}</h2>
+                  <p className="text-[12.5px] text-ink3">{t.topic.authorName}{t.topic.authorIsStaff && <Pill tone="brand" className="!h-5 !text-[11px] ml-1.5"><Words k="Teacher" /></Pill>} · {momentWords(t.topic.createdAt, p.tz)}</p>
                   {t.topic.body && (!t.topic.hiddenAt || canMod) && <p className="text-[14.5px] text-ink2 mt-2 leading-relaxed whitespace-pre-line">{t.topic.body}</p>}
                 </div>
                 {canMod && <ModMenu id={t.topic.id} pinned={t.topic.pinned} locked={t.topic.locked} hidden={!!t.topic.hiddenAt} hideHref={here({ topic: t.topic.id, do: "hide", id: t.topic.id })} />}
@@ -164,17 +165,17 @@ export default async function DiscussionsPage({ searchParams }: { searchParams: 
                   <li key={r.id} className="flex items-start gap-2.5">
                     <Avatar name={r.authorName} size={30} />
                     <div className="min-w-0 flex-1 rounded-2xl bg-sunken/60 px-3.5 py-2.5">
-                      <p className="text-[13px] font-semibold">{r.authorName}{r.authorIsStaff && <Pill tone="brand" className="!h-5 !text-[11px] ml-1.5">Teacher</Pill>} <span className="text-ink3 font-normal text-[12px]">· {momentWords(r.createdAt, p.tz)}</span></p>
+                      <p className="text-[13px] font-semibold">{r.authorName}{r.authorIsStaff && <Pill tone="brand" className="!h-5 !text-[11px] ml-1.5"><Words k="Teacher" /></Pill>} <span className="text-ink3 font-normal text-[12px]">· {momentWords(r.createdAt, p.tz)}</span></p>
                       {r.hiddenAt
-                        ? <p className="text-[14px] italic text-ink3 mt-0.5">Hidden by the teacher · {r.hiddenReason}{canMod ? ` · ${r.body}` : ""}</p>
+                        ? <p className="text-[14px] italic text-ink3 mt-0.5"><Words k="Hidden by the teacher ·" /> {r.hiddenReason}{canMod ? ` · ${r.body}` : ""}</p>
                         : <p className="text-[14px] text-ink2 mt-0.5 whitespace-pre-line">{r.body}</p>}
                     </div>
                     {canMod && r.authorId !== me && <ModMenu reply id={r.id} pinned={false} locked={false} hidden={!!r.hiddenAt} hideHref={here({ topic: t.topic.id, do: "hide", id: r.id })} />}
                   </li>
                 ))}
-                {t.replies.length === 0 && <li className="text-[13.5px] text-ink3">No replies yet.</li>}
+                {t.replies.length === 0 && <li className="text-[13.5px] text-ink3"><Words k="No replies yet." /></li>}
               </ul>
-              {t.topic.locked ? <Banner tone="info" icon={Lock} className="mt-4">Replies are locked on this topic.</Banner>
+              {t.topic.locked ? <Banner tone="info" icon={Lock} className="mt-4"><Words k="Replies are locked on this topic." /></Banner>
                 : t.topic.hiddenAt ? null
                   : canPost && b.active && (!p.student || b.audience === "all") && <ReplyBox topicId={t.topic.id} student={p.student} />}
             </div>

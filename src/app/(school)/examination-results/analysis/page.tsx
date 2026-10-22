@@ -19,6 +19,7 @@ import { cx } from "@/components/ui/cx";
 import { examPage, one, sectionOptions, withYear, type SearchParams } from "../_lib/page";
 import { examOverlaps, periodQuery } from "../_lib/period";
 import { NoYear, PageTop } from "../_components/page-top";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Exam Analysis" };
 const PATH = "/examination-results/analysis";
@@ -136,7 +137,7 @@ export default async function AnalysisPage({ searchParams }: { searchParams: Sea
   if (!a || a.overview.students === 0) {
     return (
       <>{head}<div className="flex flex-col gap-5">{toolbar}
-        <EmptyState title="No results here yet" Icon={ChartColumn}><p>None of the chosen sections has a worked-out result for {final ? "the final result" : exam!.title}. Results are worked out once marks are entered.</p></EmptyState></div></>
+        <EmptyState title="No results here yet" Icon={ChartColumn}><p><Words k="None of the chosen sections has a worked-out result for" /> {final ? "the final result" : exam!.title}<Words k=". Results are worked out once marks are entered." /></p></EmptyState></div></>
     );
   }
 
@@ -182,10 +183,10 @@ export default async function AnalysisPage({ searchParams }: { searchParams: Sea
         <div className="grid gap-5 lg:gap-6 xl:grid-cols-2">
           <Card>
             <CardHeader title={subjectName ? `${subjectName} by section` : "Subject averages"} description="Below 65% shows in amber" icon={ChartColumn} />
-            <div className="px-5 pb-3">{subjectBars.length ? <HBars rows={subjectBars} lowBelow={65} labelWidth={110} /> : <p className="text-[13px] text-ink3">No marked subjects.</p>}</div>
+            <div className="px-5 pb-3">{subjectBars.length ? <HBars rows={subjectBars} lowBelow={65} labelWidth={110} /> : <p className="text-[13px] text-ink3"><Words k="No marked subjects." /></p>}</div>
             {data.subjects.length > 1 && (
               <div className="flex flex-wrap gap-1.5 px-5 pb-5">
-                <Link href={link({ subject: "" })} className={cx("rounded-lg px-2.5 py-1 text-[12.5px] font-semibold", !subjectId ? "bg-ink text-surface" : "bg-sunken text-ink2 hover:text-ink")}>All</Link>
+                <Link href={link({ subject: "" })} className={cx("rounded-lg px-2.5 py-1 text-[12.5px] font-semibold", !subjectId ? "bg-ink text-surface" : "bg-sunken text-ink2 hover:text-ink")}><Words k="All" /></Link>
                 {[...data.subjects].sort((p, q) => p.subject.localeCompare(q.subject)).map((x) => (
                   <Link key={x.subjectId} href={link({ subject: x.subjectId })} className={cx("rounded-lg px-2.5 py-1 text-[12.5px] font-semibold", subjectId === x.subjectId ? "bg-ink text-surface" : "bg-sunken text-ink2 hover:text-ink")}>{x.subject}</Link>
                 ))}
@@ -196,7 +197,7 @@ export default async function AnalysisPage({ searchParams }: { searchParams: Sea
             <CardHeader title="Sections compared" description="Average percentage" icon={ChartNoAxesColumn} />
             <div className="px-5 pb-2"><Bars data={a.classRows.map((r) => ({ k: r.section.replace(/^Class /, ""), v: Math.round(r.average ?? 0), tone: sectionId === r.sectionId ? "brand" : "info" }))} max={100} ticks={[0, 50, 100]} ariaLabel="Average percentage by section" /></div>
             <ul className="flex flex-wrap gap-x-4 gap-y-1 px-5 pb-5 text-[12.5px] text-ink3">
-              {a.classRows.map((r) => <li key={r.sectionId}><Link href={link({ drill: "section", value: r.sectionId })} className="hover:text-ink hover:underline">{r.section}: pass {pctTxt(r.passPercent)}</Link></li>)}
+              {a.classRows.map((r) => <li key={r.sectionId}><Link href={link({ drill: "section", value: r.sectionId })} className="hover:text-ink hover:underline">{r.section}<Words k=": pass" /> {pctTxt(r.passPercent)}</Link></li>)}
             </ul>
           </Card>
           <Card>
@@ -207,7 +208,7 @@ export default async function AnalysisPage({ searchParams }: { searchParams: Sea
             </ul>
           </Card>
           <Card>
-            <CardHeader title="Toppers" description="Highest percentage" icon={Trophy} action={<Link href={link({ drill: "top" })} className="text-[13px] font-semibold text-brand hover:underline">Top 10</Link>} />
+            <CardHeader title="Toppers" description="Highest percentage" icon={Trophy} action={<Link href={link({ drill: "top" })} className="text-[13px] font-semibold text-brand hover:underline"><Words k="Top 10" /></Link>} />
             <ul className="px-2 pb-2">
               {o.top.map((r, i) => (
                 <li key={r.studentId}>
@@ -242,8 +243,8 @@ export default async function AnalysisPage({ searchParams }: { searchParams: Sea
             ) : (
               <div className="flex flex-col items-center gap-2 px-5 pb-8 pt-4 text-center">
                 <span className="grid size-12 place-items-center rounded-2xl bg-ok/10 text-ok"><TrendingUp size={22} aria-hidden="true" /></span>
-                <p className="font-semibold">Nobody dropped sharply</p>
-                <p className="text-[13px] text-ink3">No student fell 8 points or more in this view.</p>
+                <p className="font-semibold"><Words k="Nobody dropped sharply" /></p>
+                <p className="text-[13px] text-ink3"><Words k="No student fell 8 points or more in this view." /></p>
               </div>
             )}
           </Card>
@@ -251,7 +252,7 @@ export default async function AnalysisPage({ searchParams }: { searchParams: Sea
             <CardHeader title="Student progress" description={data.who ? `${data.who.fullName} across exams` : "One student across exams"} icon={ChartLine}
               action={data.roster.length > 0 ? <Suspense><UrlSelect name="student" label="Student" className="w-44" value={data.who?.id ?? ""} options={data.roster.map((r) => ({ value: r.studentId, label: r.student.fullName }))} /></Suspense> : undefined} />
             <div className="px-5 pb-5">
-              {progress.length === 0 ? <p className="text-[13px] text-ink3">Choose a student to see their results across exams.</p> : (
+              {progress.length === 0 ? <p className="text-[13px] text-ink3"><Words k="Choose a student to see their results across exams." /></p> : (
                 <>
                   {(() => {
                     const last = progress.at(-1)!;
@@ -259,7 +260,7 @@ export default async function AnalysisPage({ searchParams }: { searchParams: Sea
                     return (
                       <div className="mb-3 flex items-baseline gap-2">
                         <p className="font-display text-[26px] font-semibold tnum">{pctTxt(last.percent)}</p>
-                        {prev && last.percent !== null && prev.percent !== null && <p className={cx("text-[13px] font-semibold", last.percent >= prev.percent ? "text-ok" : "text-bad")}>{last.percent >= prev.percent ? "▲" : "▼"} from {pctTxt(prev.percent)} in {prev.exam}</p>}
+                        {prev && last.percent !== null && prev.percent !== null && <p className={cx("text-[13px] font-semibold", last.percent >= prev.percent ? "text-ok" : "text-bad")}>{last.percent >= prev.percent ? "▲" : "▼"} <Words k="from" /> {pctTxt(prev.percent)} <Words k="in" /> {prev.exam}</p>}
                       </div>
                     );
                   })()}
@@ -282,14 +283,14 @@ export default async function AnalysisPage({ searchParams }: { searchParams: Sea
         {data.status && data.status.teachers.length > 0 && (
           <Card className="overflow-hidden">
             <CardHeader title="Marks entry by teacher" description={`${exam!.title} · papers submitted or locked`} icon={ClipboardList} divided
-              action={<Link href={withYear(`/examination-results/marks?exam=${exam!.id}`, page)} className="text-[13px] font-semibold text-brand hover:underline">Marks Entry</Link>} />
+              action={<Link href={withYear(`/examination-results/marks?exam=${exam!.id}`, page)} className="text-[13px] font-semibold text-brand hover:underline"><Words k="Marks Entry" /></Link>} />
             <DataList rows={data.status.teachers} rowKey={(t) => t.teacher} minWidth={520} caption="Marks entry by teacher"
               columns={[
                 { key: "t", label: "Teacher", render: (t) => <span className="font-semibold">{t.teacher}</span> },
                 { key: "d", label: "Submitted", align: "right", render: (t) => `${t.submitted} of ${t.total}` },
-                { key: "p", label: "Pending", align: "right", render: (t) => t.pending ? <span className="font-semibold text-warn">{t.pending}</span> : <span className="text-ok">None</span> },
+                { key: "p", label: "Pending", align: "right", render: (t) => t.pending ? <span className="font-semibold text-warn">{t.pending}</span> : <span className="text-ok"><Words k="None" /></span> },
               ]}
-              mobile={(t) => ({ title: t.teacher, sub: `${t.submitted} of ${t.total} submitted`, right: t.pending ? <Pill tone="warn">{t.pending} pending</Pill> : <Pill tone="ok">Done</Pill> })} />
+              mobile={(t) => ({ title: t.teacher, sub: `${t.submitted} of ${t.total} submitted`, right: t.pending ? <Pill tone="warn">{t.pending} <Words k="pending" /></Pill> : <Pill tone="ok"><Words k="Done" /></Pill> })} />
           </Card>
         )}
       </div>

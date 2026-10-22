@@ -4,6 +4,7 @@ import { ArrowLeft, BookOpen, Calculator, Download, Dumbbell, ExternalLink, File
 import { cx } from "@/components/ui/cx";
 import { TONE_SOFT } from "@/components/money/kit";
 import { subjectLook } from "@/lib/homework/words";
+import { Words } from "@/lib/i18n/client";
 
 const ICONS: Record<string, LucideIcon> = { Calculator, FlaskConical, BookOpen, Languages, Globe, Monitor, Palette, Dumbbell, Music };
 
@@ -57,7 +58,7 @@ export function FileRow({ name, meta, href, kind, remove }: { name: string; meta
       {href && (
         <a href={href} target={external ? "_blank" : undefined} rel={external ? "noopener noreferrer" : undefined}
           className="h-9 px-3 rounded-lg text-[13px] font-semibold text-brand hover:bg-brand/10 inline-flex items-center gap-1.5" aria-label={`Open ${name}`}>
-          {external ? <ExternalLink size={15} aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}Open
+          {external ? <ExternalLink size={15} aria-hidden="true" /> : <Download size={15} aria-hidden="true" />}<Words k="Open" />
         </a>
       )}
       {remove}

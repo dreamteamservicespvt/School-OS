@@ -9,6 +9,7 @@ import { MenuItem, MenuLink, MoreMenu, SelectBar } from "@/components/ui/kit-cli
 import { ActionSheet } from "../_components/sheets";
 import { archiveQuestionAction, makePaperForm, paperStatusAction, saveQuestionForm } from "./actions";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 export type Pair = { value: string; label: string; chapters: { id: string; title: string }[] };
 type Opt = { value: string; label: string };
@@ -37,7 +38,7 @@ export function AddQuestionButton({ pairs, start }: { pairs: Pair[]; start: stri
   const chapters = pairs.find((p) => p.value === pair)?.chapters ?? [];
   return (
     <>
-      <Button variant="secondary" icon={Plus} onClick={() => setOpen(true)}>Add question</Button>
+      <Button variant="secondary" icon={Plus} onClick={() => setOpen(true)}><Words k="Add question" /></Button>
       <ActionSheet open={open} onClose={() => setOpen(false)} title="Add question" sub="It goes into the question bank for the class and subject." confirmLabel="Add to bank" pendingText="Adding…" run={saveQuestionForm} wide>
         <div className="grid gap-4 md:grid-cols-2">
           <F label="Class and subject"><KeepSelect name="pair" value={pair} onChange={(e) => setPair(e.target.value)} className={field}>{pairs.map((p) => <option key={p.value} value={p.value}>{p.label}</option>)}</KeepSelect></F>
@@ -60,7 +61,7 @@ export function AddQuestionButton({ pairs, start }: { pairs: Pair[]; start: stri
             </F>
           )}
           <div className="md:col-span-2">
-            <span className="mb-1.5 block text-[13.5px] font-semibold">Difficulty</span>
+            <span className="mb-1.5 block text-[13.5px] font-semibold"><Words k="Difficulty" /></span>
             <div role="radiogroup" aria-label="Difficulty" className="inline-flex w-full rounded-xl bg-sunken p-1 gap-1">
               {["easy", "medium", "hard"].map((d) => (
                 <button key={d} type="button" role="radio" aria-checked={diff === d} onClick={() => setDiff(d)} className={cx("h-9 flex-1 rounded-lg text-[13px] font-semibold capitalize", diff === d ? "bg-surface text-ink shadow-card" : "text-ink2")}>{d}</button>
@@ -88,7 +89,7 @@ function PaperFields({ pairs, exams, pair, setPair, manual }: { pairs: Pair[]; e
         <>
           <F label="Total marks"><input name="total" type="number" inputMode="numeric" min={1} max={1000} defaultValue={80} required className={cx(field, "tnum")} /></F>
           <fieldset className="md:col-span-2">
-            <legend className="mb-1.5 text-[13.5px] font-semibold">Difficulty mix, % of marks</legend>
+            <legend className="mb-1.5 text-[13.5px] font-semibold"><Words k="Difficulty mix, % of marks" /></legend>
             <div className="grid grid-cols-3 gap-3">
               {([["easy", 30], ["medium", 50], ["hard", 20]] as const).map(([k, v]) => (
                 <label key={k} className="block text-[13px] capitalize text-ink2">{k}<input name={k} type="number" inputMode="numeric" min={0} max={100} defaultValue={v} className={cx(field, "tnum mt-1")} /></label>
@@ -107,7 +108,7 @@ export function MakePaperButton({ pairs, exams, start }: { pairs: Pair[]; exams:
   const [pair, setPair] = useState(start || pairs[0]?.value || "");
   return (
     <>
-      <Button variant="primary" icon={FilePlus2} onClick={() => setOpen(true)}>Make a paper</Button>
+      <Button variant="primary" icon={FilePlus2} onClick={() => setOpen(true)}><Words k="Make a paper" /></Button>
       <ActionSheet open={open} onClose={() => setOpen(false)} title="Make a paper" sub="Questions are picked from the bank to match the total and the difficulty mix. It is saved as a draft."
         confirmLabel="Make paper" pendingText="Picking questions…" run={(fd) => { fd.set("method", "automatic"); return makePaperForm(fd); }} wide>
         <PaperFields pairs={pairs} exams={exams} pair={pair} setPair={setPair} manual={false} />
@@ -122,7 +123,7 @@ export function BankBar({ form, pairs, exams, pair }: { form: string; pairs: Pai
   return (
     <>
       <SelectBar form={form}>
-        {(chosen) => <Button size="sm" variant="primary" icon={FileText} disabled={!pair} onClick={() => setIds(chosen)}>Make a paper from these</Button>}
+        {(chosen) => <Button size="sm" variant="primary" icon={FileText} disabled={!pair} onClick={() => setIds(chosen)}><Words k="Make a paper from these" /></Button>}
       </SelectBar>
       <ActionSheet open={Boolean(ids)} onClose={() => setIds(null)} title={`Make a paper from ${ids?.length ?? 0} questions`} sub={pairs.find((p) => p.value === pair)?.label}
         confirmLabel="Save as draft" pendingText="Saving…" run={(fd) => { fd.set("method", "manual"); for (const id of ids ?? []) fd.append("questionIds", id); return makePaperForm(fd); }} wide>
@@ -138,11 +139,11 @@ export function PaperMenu({ id, title, status, canEdit }: { id: string; title: s
   return (
     <>
       <MoreMenu label={`More actions for ${title}`} size="sm">
-        <MenuLink href={`/examination-results/question-papers/${id}/print`} external icon={<Printer size={17} />}>Print paper</MenuLink>
-        <MenuLink href={`/examination-results/question-papers/${id}/print?answers=1`} external icon={<FileCheck2 size={17} />}>Print with answers</MenuLink>
-        {canEdit && status === "draft" && <MenuItem onSelect={() => setAsk("final")} icon={<FileCheck2 size={17} />}>Mark final</MenuItem>}
-        {canEdit && status === "final" && <MenuItem onSelect={() => setAsk("draft")} icon={<FilePen size={17} />}>Make draft again</MenuItem>}
-        {canEdit && <MenuItem onSelect={() => setAsk("archived")} icon={<Archive size={17} />} tone="bad">Archive</MenuItem>}
+        <MenuLink href={`/examination-results/question-papers/${id}/print`} external icon={<Printer size={17} />}><Words k="Print paper" /></MenuLink>
+        <MenuLink href={`/examination-results/question-papers/${id}/print?answers=1`} external icon={<FileCheck2 size={17} />}><Words k="Print with answers" /></MenuLink>
+        {canEdit && status === "draft" && <MenuItem onSelect={() => setAsk("final")} icon={<FileCheck2 size={17} />}><Words k="Mark final" /></MenuItem>}
+        {canEdit && status === "final" && <MenuItem onSelect={() => setAsk("draft")} icon={<FilePen size={17} />}><Words k="Make draft again" /></MenuItem>}
+        {canEdit && <MenuItem onSelect={() => setAsk("archived")} icon={<Archive size={17} />} tone="bad"><Words k="Archive" /></MenuItem>}
       </MoreMenu>
       {ask && (
         <ActionSheet open onClose={() => setAsk(null)} title={words[ask].t} confirmLabel={words[ask].c} confirmVariant={ask === "archived" ? "danger" : "primary"} run={() => paperStatusAction(id, ask)}>
@@ -160,7 +161,7 @@ export function ArchiveQuestionButton({ id, text }: { id: string; text: string }
       <Button size="sm" variant="ghost" icon={Archive} onClick={() => setOpen(true)} aria-label={`Archive question: ${text.slice(0, 60)}`} className="relative z-[1]" />
       <ActionSheet open={open} onClose={() => setOpen(false)} title="Archive this question?" confirmLabel="Archive" confirmVariant="danger" run={() => archiveQuestionAction(id)}>
         <p className="text-[14px] text-ink2 line-clamp-3">{text}</p>
-        <p className="mt-2 text-[14px] text-ink2">It will not be picked for new papers. Papers that already use it keep it.</p>
+        <p className="mt-2 text-[14px] text-ink2"><Words k="It will not be picked for new papers. Papers that already use it keep it." /></p>
       </ActionSheet>
     </>
   );

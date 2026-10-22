@@ -14,6 +14,7 @@ import type { FormState } from "@/lib/forms";
 import { ActionSheet } from "../_components/sheets";
 import { cancelScheduledAction, publishAction, unpublishAction } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Sec = { id: string; label: string; ready: boolean; problems: string[]; published: boolean; scheduled: string | null; students: number };
 
@@ -48,36 +49,36 @@ export function PublishFlow({ keyName, title, sections, chosen, today, label = "
     <>
       <Button variant="primary" size={size} icon={Send} onClick={start}>{label}</Button>
       <Dialog open={step === 1} onClose={() => setStep(0)} title={`Publish ${title} results`} sub={`${picked.length} ${picked.length === 1 ? "section" : "sections"} · ${n} students`}
-        footer={<><Button variant="ghost" onClick={() => setStep(0)}>Cancel</Button><Button variant="primary" icon={when === "now" ? Send : CalendarClock} onClick={next}>{when === "now" ? "Publish now" : "Set publish date"}</Button></>}>
+        footer={<><Button variant="ghost" onClick={() => setStep(0)}><Words k="Cancel" /></Button><Button variant="primary" icon={when === "now" ? Send : CalendarClock} onClick={next}>{when === "now" ? "Publish now" : "Set publish date"}</Button></>}>
         <div className="flex flex-col gap-4">
           <fieldset className="flex flex-col gap-2">
-            <legend className="text-[13px] font-semibold text-ink2 mb-1.5">Classes</legend>
-            {open.length === 0 && <p className="text-ink3 text-[14px]">Every section is already published or has a publish date.</p>}
+            <legend className="text-[13px] font-semibold text-ink2 mb-1.5"><Words k="Classes" /></legend>
+            {open.length === 0 && <p className="text-ink3 text-[14px]"><Words k="Every section is already published or has a publish date." /></p>}
             {open.map((s) => (
               <label key={s.id} className={cx("flex items-start gap-3 rounded-xl border px-3.5 py-3", s.ready ? "border-line" : "border-bad/30 bg-bad/[.04]")}>
                 <input type="checkbox" checked={picked.includes(s.id)} disabled={!s.ready} onChange={(e) => setPicked((p) => (e.target.checked ? [...p, s.id] : p.filter((x) => x !== s.id)))} className="mt-0.5 size-5 accent-brand" />
                 <span className="text-[14px]">
-                  <b className="font-semibold">{s.label}</b> <span className="text-ink3">· {s.students} students</span>
-                  {s.ready ? <span className="block text-[12.5px] text-ok">All marks are in</span> : <span className="block text-[12.5px] text-bad">{s.problems.join(" ")}</span>}
+                  <b className="font-semibold">{s.label}</b> <span className="text-ink3">· {s.students} <Words k="students" /></span>
+                  {s.ready ? <span className="block text-[12.5px] text-ok"><Words k="All marks are in" /></span> : <span className="block text-[12.5px] text-bad">{s.problems.join(" ")}</span>}
                 </span>
               </label>
             ))}
           </fieldset>
           <div className="flex flex-col gap-1.5">
-            <span className="text-[13px] font-semibold text-ink2">Publish on</span>
+            <span className="text-[13px] font-semibold text-ink2"><Words k="Publish on" /></span>
             <Segmented value={when} onChange={(v) => setWhen(v as "now" | "later")} options={[{ value: "now", label: "Now" }, { value: "later", label: "Date and time" }]} className="w-full" label="Publish on" />
           </div>
           {when === "later" && (
             <div className="grid grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">Date<input type="date" value={date} min={today} onChange={(e) => setDate(e.target.value)} className={cx(inputCls(), "h-11 tnum")} /></label>
-              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">Time
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2"><Words k="Date" /><input type="date" value={date} min={today} onChange={(e) => setDate(e.target.value)} className={cx(inputCls(), "h-11 tnum")} /></label>
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2"><Words k="Time" />
                 <select value={time} onChange={(e) => setTime(e.target.value)} className={cx(inputCls(), "h-11")}>{TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
               </label>
             </div>
           )}
           <div className="rounded-xl border border-line px-3.5 py-3 flex items-center gap-3">
             <Switch id="pb-msg" on={msg} onChange={setMsg} label="Message parents" />
-            <label htmlFor="pb-msg" className="text-[13.5px]"><b className="font-semibold block">Message parents</b><span className="text-ink3 text-[12.5px]">Uses the “Results published” template, one message to each family</span></label>
+            <label htmlFor="pb-msg" className="text-[13.5px]"><b className="font-semibold block"><Words k="Message parents" /></b><span className="text-ink3 text-[12.5px]"><Words k="Uses the “Results published” template, one message to each family" /></span></label>
           </div>
           {problem && <p role="alert" className="rounded-xl bg-bad/10 px-3.5 py-2.5 text-sm text-bad">{problem}</p>}
         </div>
@@ -94,10 +95,10 @@ export function PublishFlow({ keyName, title, sections, chosen, today, label = "
           return asMessage(await publishAction({ ok: false }, fd));
         }}>
         <ul className="flex flex-col gap-2 text-[14px] text-ink2">
-          <li className="flex gap-2"><Award size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />{n} report cards become ready and appear on each guardian’s Parent Link{when === "later" ? " on that day" : ""}.</li>
-          {msg && <li className="flex gap-2"><Send size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />Parents get one message each. A message cannot be unsent.</li>}
-          <li className="flex gap-2"><History size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />The result is kept in the result history. Changing the grade scale later will not change it. The marks of these sections lock.</li>
-          {when === "later" && <li className="flex gap-2"><CalendarClock size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />They publish by themselves then, if every mark is still complete. You can cancel the date until then.</li>}
+          <li className="flex gap-2"><Award size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />{n} <Words k="report cards become ready and appear on each guardian’s Parent Link" />{when === "later" ? " on that day" : ""}.</li>
+          {msg && <li className="flex gap-2"><Send size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" /><Words k="Parents get one message each. A message cannot be unsent." /></li>}
+          <li className="flex gap-2"><History size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" /><Words k="The result is kept in the result history. Changing the grade scale later will not change it. The marks of these sections lock." /></li>
+          {when === "later" && <li className="flex gap-2"><CalendarClock size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" /><Words k="They publish by themselves then, if every mark is still complete. You can cancel the date until then." /></li>}
         </ul>
       </ActionSheet>
     </>
@@ -113,7 +114,7 @@ export function PublishedMenu({ keyName, title, sections, chosen }: { keyName: s
   return (
     <>
       <MoreMenu label={`More actions for ${title}`} size="sm">
-        <MenuItem icon={<EyeOff size={16} />} onSelect={() => { setPicked([chosen]); setWhy(""); setOpen(true); }}>Unpublish</MenuItem>
+        <MenuItem icon={<EyeOff size={16} />} onSelect={() => { setPicked([chosen]); setWhy(""); setOpen(true); }}><Words k="Unpublish" /></MenuItem>
       </MoreMenu>
       <ActionSheet open={open} onClose={() => setOpen(false)} title={`Unpublish ${title} results?`} sub="Report cards come off Parent Link until you publish again. Parents are not messaged again."
         confirmLabel="Unpublish" confirmVariant="danger" confirmIcon={<EyeOff size={16} />} pendingText="Unpublishing…"
@@ -127,7 +128,7 @@ export function PublishedMenu({ keyName, title, sections, chosen }: { keyName: s
         }}>
         {sections.length > 1 && (
           <fieldset className="grid grid-cols-2 sm:grid-cols-3 gap-x-3">
-            <legend className="text-[13px] font-semibold text-ink2 mb-1">Sections</legend>
+            <legend className="text-[13px] font-semibold text-ink2 mb-1"><Words k="Sections" /></legend>
             {sections.map((s) => (
               <label key={s.id} className="flex min-h-10 items-center gap-2.5 text-[14px] text-ink">
                 <KeepCheck type="checkbox" checked={picked.includes(s.id)} onChange={(e) => setPicked((p) => (e.target.checked ? [...p, s.id] : p.filter((x) => x !== s.id)))} className="size-5 accent-brand" />{s.label}
@@ -136,7 +137,7 @@ export function PublishedMenu({ keyName, title, sections, chosen }: { keyName: s
           </fieldset>
         )}
         <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">
-          <span>Reason <span className="text-bad">*</span></span>
+          <span><Words k="Reason" /> <span className="text-bad">*</span></span>
           <textarea value={why} onChange={(e) => setWhy(e.target.value)} rows={3} placeholder="For example: Science marks of 3 students are being corrected" className={cx(inputCls(short), "py-2 font-normal")} />
           <span className={cx("text-[12.5px] font-normal", short ? "text-bad" : "text-ink3")}>{short ? "Write a little more so the history makes sense." : "Kept in the result history"}</span>
         </label>
@@ -148,7 +149,7 @@ export function PublishedMenu({ keyName, title, sections, chosen }: { keyName: s
 export function CancelScheduleButton({ id, when }: { id: string; when: string }) {
   return (
     <ActionSheet trigger={{ label: "Cancel date", size: "sm", variant: "secondary" }} title="Cancel the publish date?" confirmLabel="Cancel publish date" pendingText="Cancelling…" run={() => cancelScheduledAction(id)}>
-      <p className="text-ink2">The results were set to publish on {when}. They stay in draft until you publish them.</p>
+      <p className="text-ink2"><Words k="The results were set to publish on" /> {when}<Words k=". They stay in draft until you publish them." /></p>
     </ActionSheet>
   );
 }
@@ -169,15 +170,15 @@ export function ResultTable({ columns, rows, ranks, examTitle, section, passMark
     <>
       <div className="overflow-x-auto scroll-thin border-t border-line">
         <table className="text-[13.5px] min-w-full">
-          <caption className="sr-only">Class result sheet for {section}. Choose a student to see their marks by subject.</caption>
+          <caption className="sr-only"><Words k="Class result sheet for" /> {section}<Words k=". Choose a student to see their marks by subject." /></caption>
           <thead>
             <tr className="border-b border-line text-ink3 text-[12px]">
-              <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2.5 min-w-[180px]">Student</th>
+              <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2.5 min-w-[180px]"><Words k="Student" /></th>
               {columns.map((c) => <th key={c.id} scope="col" className="font-semibold px-2 py-2.5 text-center whitespace-nowrap" title={`${c.name}${c.gradeOnly ? ", graded" : ` out of ${c.max}`}${c.notIn ? ", marks not submitted" : ""}`}>{c.short}{c.notIn && <span className="text-warn"> •</span>}</th>)}
               {!subjectOnly && (
                 <>
-                  <th scope="col" className="font-semibold px-3 py-2.5 text-right">Total</th><th scope="col" className="font-semibold px-3 py-2.5 text-right">%</th>
-                  <th scope="col" className="font-semibold px-3 py-2.5 text-center">Grade</th>{ranks && <th scope="col" className="font-semibold px-3 py-2.5 text-center">Rank</th>}<th scope="col" className="font-semibold px-4 py-2.5 text-left">Result</th>
+                  <th scope="col" className="font-semibold px-3 py-2.5 text-right"><Words k="Total" /></th><th scope="col" className="font-semibold px-3 py-2.5 text-right">%</th>
+                  <th scope="col" className="font-semibold px-3 py-2.5 text-center"><Words k="Grade" /></th>{ranks && <th scope="col" className="font-semibold px-3 py-2.5 text-center"><Words k="Rank" /></th>}<th scope="col" className="font-semibold px-4 py-2.5 text-left"><Words k="Result" /></th>
                 </>
               )}
             </tr>
@@ -209,13 +210,13 @@ export function ResultTable({ columns, rows, ranks, examTitle, section, passMark
         </table>
       </div>
       <Dialog open={Boolean(one)} onClose={() => setOne(null)} title={one?.name ?? ""} sub={one ? `${section}${one.roll ? ` · roll ${one.roll}` : ""} · ${examTitle}` : undefined}
-        footer={one?.profile ? <ButtonLink href={one.profile} variant="ghost" icon={UserRound}>Open profile</ButtonLink> : undefined}>
+        footer={one?.profile ? <ButtonLink href={one.profile} variant="ghost" icon={UserRound}><Words k="Open profile" /></ButtonLink> : undefined}>
         {one && (
           <div className="flex flex-col gap-4">
             {!subjectOnly && <div className="grid grid-cols-3 gap-2 text-center">
-              <div className="rounded-xl bg-sunken/70 py-2.5"><p className="text-[12px] text-ink3 font-semibold">Total</p><p className="font-display text-[20px] font-semibold tnum">{one.total}</p></div>
-              <div className="rounded-xl bg-sunken/70 py-2.5"><p className="text-[12px] text-ink3 font-semibold">Percent</p><p className="font-display text-[20px] font-semibold tnum">{one.percent}</p></div>
-              <div className="rounded-xl bg-sunken/70 py-2.5"><p className="text-[12px] text-ink3 font-semibold">Grade{ranks ? " · rank" : ""}</p><p className="font-display text-[20px] font-semibold tnum">{one.grade ?? "—"}{ranks && one.rank ? ` · ${one.rank}` : ""}</p></div>
+              <div className="rounded-xl bg-sunken/70 py-2.5"><p className="text-[12px] text-ink3 font-semibold"><Words k="Total" /></p><p className="font-display text-[20px] font-semibold tnum">{one.total}</p></div>
+              <div className="rounded-xl bg-sunken/70 py-2.5"><p className="text-[12px] text-ink3 font-semibold"><Words k="Percent" /></p><p className="font-display text-[20px] font-semibold tnum">{one.percent}</p></div>
+              <div className="rounded-xl bg-sunken/70 py-2.5"><p className="text-[12px] text-ink3 font-semibold"><Words k="Grade" />{ranks ? " · rank" : ""}</p><p className="font-display text-[20px] font-semibold tnum">{one.grade ?? "—"}{ranks && one.rank ? ` · ${one.rank}` : ""}</p></div>
             </div>}
             <HBars labelWidth={110} lowBelow={passMark} unit="%"
               rows={columns.filter((c) => !c.gradeOnly).map((c) => ({ k: c.name, v: one.cells[c.id]?.v ?? 0, label: one.cells[c.id]?.text ? `${one.cells[c.id].text}${/^\d/.test(one.cells[c.id].text) ? `/${c.max}` : ""}` : "—" }))} />

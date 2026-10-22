@@ -11,6 +11,7 @@ import { BackLink, Ring } from "../../_components/bits";
 import { BASE, homeworkGuard, UUID } from "../../_lib/page";
 import { startQuizAction } from "../actions";
 import { TakeQuiz } from "../sheets";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Quiz" };
 
@@ -58,11 +59,11 @@ export default async function QuizPage({ params }: { params: Promise<{ id: strin
           <span className="w-14 h-14 rounded-2xl bg-brand/10 text-brand grid place-items-center" aria-hidden="true"><ListChecks size={26} /></span>
           <h1 className="font-display text-[24px] font-semibold">{z.title}</h1>
           <p className="text-[14px] text-ink3">{st.subject}{st.teacher ? ` · ${st.teacher}` : ""} · {plural(z.questions.length, "question")} · {z.timeLimitMin ? `${z.timeLimitMin} min` : "no time limit"} · {plural(z.attemptsAllowed, "attempt")}</p>
-          {z.closesAt && <p className="text-[13.5px] text-ink2">Closes {momentWords(z.closesAt, p.tz)}</p>}
+          {z.closesAt && <p className="text-[13.5px] text-ink2"><Words k="Closes" /> {momentWords(z.closesAt, p.tz)}</p>}
           <div className="mt-3">{st.canStart
-            ? <ActionButton action={startQuizAction} fields={{ id: z.id }} variant="primary" size="md"><CirclePlay size={16} aria-hidden="true" />Start quiz</ActionButton>
+            ? <ActionButton action={startQuizAction} fields={{ id: z.id }} variant="primary" size="md"><CirclePlay size={16} aria-hidden="true" /><Words k="Start quiz" /></ActionButton>
             : <p className="text-[14px] text-ink3">{st.word === "Scheduled" ? "This quiz has not opened yet." : "This quiz is closed."}</p>}</div>
-          {z.timeLimitMin && st.canStart && <p className="text-[12.5px] text-ink3">The timer starts when you press Start. Answers are handed in when time runs out.</p>}
+          {z.timeLimitMin && st.canStart && <p className="text-[12.5px] text-ink3"><Words k="The timer starts when you press Start. Answers are handed in when time runs out." /></p>}
         </Card>
       </div>
     );
@@ -79,8 +80,8 @@ export default async function QuizPage({ params }: { params: Promise<{ id: strin
         <Ring value={ratio * 100} size={110} stroke={10} tone={ratio >= 0.7 ? "ok" : "warn"}><span className="font-display text-[28px] font-semibold tnum">{last.score ?? 0}<span className="text-[15px] text-ink3">/{last.maxScore}</span></span></Ring>
         <h1 className="font-display text-[24px] font-semibold mt-4">{ratio >= 0.8 ? "Very well done!" : ratio >= 0.5 ? "Good try!" : "Keep practising"}</h1>
         <p className="text-[14px] text-ink3 mt-1">{z.title} · {st.subject}{st.teacher ? ` · ${st.teacher} can see your score` : ""}</p>
-        {last.needsMarking && <p className="text-[13.5px] text-warn mt-1">Your teacher still marks the written answers, so the score can go up.</p>}
-        {st.canStart && <div className="mt-4"><ActionButton action={startQuizAction} fields={{ id: z.id }} variant="secondary" size="md"><CirclePlay size={16} aria-hidden="true" />Try again · {plural(left, "attempt")} left</ActionButton></div>}
+        {last.needsMarking && <p className="text-[13.5px] text-warn mt-1"><Words k="Your teacher still marks the written answers, so the score can go up." /></p>}
+        {st.canStart && <div className="mt-4"><ActionButton action={startQuizAction} fields={{ id: z.id }} variant="secondary" size="md"><CirclePlay size={16} aria-hidden="true" /><Words k="Try again ·" /> {plural(left, "attempt")} <Words k="left" /></ActionButton></div>}
       </Card>
       <Card className="mt-5">
         <CardHeader title="Your answers" description={showAnswers ? "Correct answers are shown because your teacher allowed it" : "Your teacher shows the right answers in class"} icon={ListChecks} />
@@ -98,8 +99,8 @@ export default async function QuizPage({ params }: { params: Promise<{ id: strin
                 <div className="text-[14px]">
                   <p className="font-semibold">{k + 1}. {q.text}</p>
                   <p className="text-ink2">{yours !== null ? `You: ${yours}` : "Not answered"}
-                    {showAnswers && !ok && q.kind !== "SHORT" && q.correctIndex !== null && <span className="text-ok"> · Answer: {q.options[q.correctIndex]}</span>}
-                    {q.kind === "SHORT" && typeof manual[q.id] === "number" && <span className="text-ink3"> · {manual[q.id]} of {q.marks}</span>}
+                    {showAnswers && !ok && q.kind !== "SHORT" && q.correctIndex !== null && <span className="text-ok"> <Words k="· Answer:" /> {q.options[q.correctIndex]}</span>}
+                    {q.kind === "SHORT" && typeof manual[q.id] === "number" && <span className="text-ink3"> · {manual[q.id]} <Words k="of" /> {q.marks}</span>}
                   </p>
                 </div>
               </li>

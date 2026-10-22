@@ -5,6 +5,7 @@ import { ConfirmButton } from "@/components/ui/confirm";
 import { SelectField, TextField } from "@/components/ui/field";
 import { FormDialog, err, v } from "../_components/form-dialog";
 import { bookLabAction, cancelBookingAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 type Booking = { id: string; date: string; periodNo: number; sectionLabel: string | null; staffName: string; purpose: string | null; mine: boolean };
 const fmt = (iso: string) => iso.split("-").reverse().join("-");
@@ -22,7 +23,7 @@ export function LabBookings({ room, today, slots, sections, bookings, canBook, c
   return (
     <section aria-labelledby="lab-h" className="mt-6">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-        <h2 id="lab-h" className="font-semibold">Bookings of {room.name}, next two weeks</h2>
+        <h2 id="lab-h" className="font-semibold"><Words k="Bookings of" /> {room.name}<Words k=", next two weeks" /></h2>
         {canBook && (
           <FormDialog trigger={`Book ${room.name}`} triggerVariant="primary" title={`Book ${room.name}`} action={bookLabAction} submitLabel="Book" hidden={{ roomId: room.id }}>
             {(state) => (
@@ -38,16 +39,16 @@ export function LabBookings({ room, today, slots, sections, bookings, canBook, c
         )}
       </div>
       {bookings.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-line px-4 py-6 text-center text-ink-2">No bookings in the next two weeks.</p>
+        <p className="rounded-xl border border-dashed border-line px-4 py-6 text-center text-ink-2"><Words k="No bookings in the next two weeks." /></p>
       ) : (
         <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
           {bookings.map((b) => (
             <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 text-sm">
-              <span><strong>{fmt(b.date)}, period {b.periodNo}</strong> · {b.sectionLabel ?? "No class"} · {b.staffName}{b.purpose ? ` · ${b.purpose}` : ""}</span>
+              <span><strong>{fmt(b.date)}<Words k=", period" /> {b.periodNo}</strong> · {b.sectionLabel ?? "No class"} · {b.staffName}{b.purpose ? ` · ${b.purpose}` : ""}</span>
               {(b.mine || canCancelAll) && (
                 <ConfirmButton trigger="Cancel" triggerVariant="ghost" triggerClassName="text-danger" title="Cancel this booking?" confirmLabel="Cancel booking" confirmVariant="danger"
                   onConfirm={async () => { const p = await cancelBookingAction(b.id); if (!p) router.refresh(); return p; }}>
-                  {room.name} becomes free for period {b.periodNo} on {fmt(b.date)}.
+                  {room.name} <Words k="becomes free for period" /> {b.periodNo} <Words k="on" /> {fmt(b.date)}.
                 </ConfirmButton>
               )}
             </li>

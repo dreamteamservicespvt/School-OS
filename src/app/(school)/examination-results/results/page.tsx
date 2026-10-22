@@ -26,6 +26,7 @@ import { examOverlaps } from "../_lib/period";
 import { examPage, one, sectionOptions, withYear, type SearchParams } from "../_lib/page";
 import { NoYear, PageTop } from "../_components/page-top";
 import { CancelScheduleButton, PublishFlow, PublishedMenu, ResultTable, type TableCol, type TableRow } from "./results-ui";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Results" };
 const PATH = "/examination-results/results";
@@ -69,10 +70,10 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
     : `Results of your classes: ${sections.map((x) => x.label.replace(/^Class /, "")).join(", ") || "none yet"}. ${s.publish ? "" : "The Exam In-charge or the Principal publishes results."}`;
   const top = (
     <PageTop page={page} href={PATH} sub={sub}>
-      {s.manage && <ButtonLink href={withYear(`${PATH}/moderation`, page)} variant="secondary" icon={ListChecks}>Moderation report</ButtonLink>}
+      {s.manage && <ButtonLink href={withYear(`${PATH}/moderation`, page)} variant="secondary" icon={ListChecks}><Words k="Moderation report" /></ButtonLink>}
     </PageTop>
   );
-  if (sections.length === 0) return (<>{top}<EmptyState title="No sections to show">Results show for the sections you teach. Ask the Exam In-charge if one is missing.</EmptyState></>);
+  if (sections.length === 0) return (<>{top}<EmptyState title="No sections to show"><Words k="Results show for the sections you teach. Ask the Exam In-charge if one is missing." /></EmptyState></>);
 
   // No section chosen: the person's own class, else the first section with a published exam.
   const withExams = sections.filter((x) => exams.some((e) => e.classIds.includes(x.classId)));
@@ -155,24 +156,24 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
       {published && (
         <Banner tone="ok" title={`Published${lastPublished?.publishedAt ? ` ${formatDateTime(lastPublished.publishedAt, tz)}` : ""}${lastPublished && name(lastPublished.createdById) ? ` by ${name(lastPublished.createdById)}` : ""}.`}
           action={s.publish && page.writable ? <PublishedMenu keyName={key} title={final ? "the final" : exam!.title} chosen={sectionId} sections={data.ready.filter((r) => r.published).map((r) => ({ id: r.sectionId, label: r.label }))} /> : undefined}>
-          Report cards are on Parent Link{lastPublished?.messagesSent ? ` and ${plural(lastPublished.messagesSent, "parent")} ${lastPublished.messagesSent === 1 ? "was" : "were"} messaged` : ""}. Kept in the result history; a later grade scale change does not alter it.
+          <Words k="Report cards are on Parent Link" />{lastPublished?.messagesSent ? ` and ${plural(lastPublished.messagesSent, "parent")} ${lastPublished.messagesSent === 1 ? "was" : "were"} messaged` : ""}<Words k=". Kept in the result history; a later grade scale change does not alter it." />
         </Banner>
       )}
       {!published && scheduled && (
         <Banner tone="info" icon={CalendarClock} title={`Set to publish on ${formatDateTime(scheduled.publishOn, tz)}.`} action={s.publish && page.writable ? <CancelScheduleButton id={scheduled.id} when={formatDateTime(scheduled.publishOn, tz)} /> : undefined}>
-          The results publish by themselves then, if every mark is still complete.
+          <Words k="The results publish by themselves then, if every mark is still complete." />
         </Banner>
       )}
       {only && missing.length > 0 && (
-        <Banner tone="warn" title={`Draft. ${missing.map((m) => m.c.name).join(", ")} marks are not all in for ${section.label}.`}>A draft with missing marks cannot be published.</Banner>
+        <Banner tone="warn" title={`Draft. ${missing.map((m) => m.c.name).join(", ")} marks are not all in for ${section.label}.`}><Words k="A draft with missing marks cannot be published." /></Banner>
       )}
       {!only && !published && !scheduled && mine && mine.waiting.length === 0 && mine.problems.length > 0 && (
         <Banner tone="warn" title={`Draft. ${mine.problems[0]}`}>{mine.problems.slice(1).join(" ")}{missing.length ? " A draft with missing marks cannot be published." : ""}</Banner>
       )}
       {!only && !published && !scheduled && mine?.ready && mine.waiting.length === 0 && (
         <Banner tone="info" icon={BadgeCheck} title="Ready to publish."
-          action={s.publish && page.writable ? <PublishFlow size="sm" label="Review and publish" keyName={key} title={final ? "final" : exam!.title} chosen={sectionId} today={today} sections={publishSections} /> : <Pill tone="info">Waiting for the Exam In-charge</Pill>}>
-          All marks are in for {section.label}. Totals, percentages{ranks ? ", ranks" : ""} and grades are worked out.
+          action={s.publish && page.writable ? <PublishFlow size="sm" label="Review and publish" keyName={key} title={final ? "final" : exam!.title} chosen={sectionId} today={today} sections={publishSections} /> : <Pill tone="info"><Words k="Waiting for the Exam In-charge" /></Pill>}>
+          <Words k="All marks are in for" /> {section.label}<Words k=". Totals, percentages" />{ranks ? ", ranks" : ""} <Words k="and grades are worked out." />
         </Banner>
       )}
       {!only && mine && mine.waiting.length > 0 && (
@@ -259,7 +260,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
                     <span className="w-10 h-10 rounded-xl grid place-items-center shrink-0 bg-warn/12 text-warn"><FileClock size={19} aria-hidden="true" /></span>
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-[14.5px]">{c.name}</p>
-                      <p className="text-[12.5px] text-ink3 truncate">{plural(count, "student")} without {c.gradeOnly ? "a grade" : "marks"}</p>
+                      <p className="text-[12.5px] text-ink3 truncate">{plural(count, "student")} <Words k="without" /> {c.gradeOnly ? "a grade" : "marks"}</p>
                     </div>
                     <span className="hidden sm:block shrink-0"><Pill tone={PAPER_STATUS_TONE[st as keyof typeof PAPER_STATUS_TONE] ?? "neutral"}>{PAPER_STATUS_WORDS[st as keyof typeof PAPER_STATUS_WORDS] ?? st}</Pill></span>
                   </>
@@ -294,13 +295,13 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
           ]} />
         )}
 
-        {allRows.length === 0 ? <EmptyState title="No students">There are no students in {section.label}.</EmptyState> : !final ? (
+        {allRows.length === 0 ? <EmptyState title="No students"><Words k="There are no students in" /> {section.label}.</EmptyState> : !final ? (
           <Card className="overflow-hidden">
             <CardHeader title={`${exam!.title} · ${section.label}`} icon={Table}
               description={only ? `Only the subject${tableCols.length === 1 ? "" : "s"} you teach in ${section.label}: ${tableCols.map((c) => c.name).join(", ") || "none"}` : `${data.sheet!.columns.filter((c) => !c.gradeOnly).length ? `Total out of ${showMarks(Math.max(0, ...allRows.map((r) => r.maxTotal)))}` : "Graded subjects"}${ranks ? ` · ${data.settings.tieRule === "dense" ? "same rank for a tie, next rank follows" : "same rank for a tie, next rank skipped"}` : ""}`}
               action={<Pill tone={status.tone} dot>{status.words}</Pill>} />
             {rows.length ? <ResultTable columns={tableCols} rows={tableRows} ranks={ranks} subjectOnly={Boolean(only)} examTitle={exam!.title} section={section.label} passMark={data.settings.passPercentSubject} /> : <ListEmpty />}
-            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum flex flex-wrap gap-x-4">Showing {rows.length} of {allRows.length}<span>AB = absent · ML = medical leave · red = below the pass mark{tableCols.some((c) => c.notIn) ? " · • = marks not submitted" : ""}</span></div>
+            <div className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum flex flex-wrap gap-x-4"><Words k="Showing" /> {rows.length} <Words k="of" /> {allRows.length}<span><Words k="AB = absent · ML = medical leave · red = below the pass mark" />{tableCols.some((c) => c.notIn) ? " · • = marks not submitted" : ""}</span></div>
           </Card>
         ) : (
           <Card className="overflow-hidden">
@@ -313,7 +314,7 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
                   { key: "n", label: "Student", render: (r) => <span className="whitespace-nowrap"><span className="text-ink3 tnum inline-block w-7">{r.rollNo ?? ""}</span><span className="font-medium">{r.name}</span></span> },
                   ...data.fin!.exams.map((e) => ({
                     key: e.id, label: `${e.title}${e.counts && e.weight ? ` · ${e.weight}%` : !e.counts ? " · not counted" : ""}`, align: "right" as const,
-                    render: (r: SheetRow) => { const x = (r as SheetRow & { exams: Record<string, { percent: number | null; complete: boolean; leftOut: boolean } | null> }).exams[e.id]; return x ? (x.leftOut ? <span className="text-ink3">Joined later</span> : x.complete ? showPercent(x.percent) : <span className="text-warn">Incomplete</span>) : <span className="text-ink3">Waiting</span>; },
+                    render: (r: SheetRow) => { const x = (r as SheetRow & { exams: Record<string, { percent: number | null; complete: boolean; leftOut: boolean } | null> }).exams[e.id]; return x ? (x.leftOut ? <span className="text-ink3"><Words k="Joined later" /></span> : x.complete ? showPercent(x.percent) : <span className="text-warn"><Words k="Incomplete" /></span>) : <span className="text-ink3"><Words k="Waiting" /></span>; },
                   })),
                   { key: "f", label: "Final", align: "right", render: (r) => r.complete ? <span className="font-semibold">{showPercent(r.percent)} · {r.grade}</span> : <span className="text-ink3">—</span> },
                   ...(ranks ? [{ key: "rk", label: "Rank", align: "center" as const, render: (r: SheetRow) => r.rank ?? "—" }] : []),
@@ -331,11 +332,11 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
               <Timeline items={data.history.map((h) => ({
                 icon: h.status === "published" ? Send : h.status === "scheduled" ? CalendarClock : h.status === "unpublished" ? EyeOff : CircleX,
                 tone: h.status === "published" ? "ok" as const : h.status === "scheduled" ? "info" as const : h.status === "unpublished" || h.status === "failed" ? "warn" as const : "neutral" as const,
-                what: h.status === "published" ? <>Published{h.messagesSent ? `, ${plural(h.messagesSent, "parent")} messaged` : ""}</>
-                  : h.status === "scheduled" ? <>Set to publish on {formatDateTime(h.publishOn, tz)}</>
-                  : h.status === "cancelled" ? <>Publish date {formatDateTime(h.publishOn, tz)} cancelled</>
-                  : h.status === "failed" ? <>Not published on {formatDateTime(h.publishOn, tz)}: {h.note ?? ""}</>
-                  : <>Unpublished by {name(h.unpublishedById) || "the school"}: “{h.note ?? ""}”</>,
+                what: h.status === "published" ? <><Words k="Published" />{h.messagesSent ? `, ${plural(h.messagesSent, "parent")} messaged` : ""}</>
+                  : h.status === "scheduled" ? <><Words k="Set to publish on" /> {formatDateTime(h.publishOn, tz)}</>
+                  : h.status === "cancelled" ? <><Words k="Publish date" /> {formatDateTime(h.publishOn, tz)} <Words k="cancelled" /></>
+                  : h.status === "failed" ? <><Words k="Not published on" /> {formatDateTime(h.publishOn, tz)}: {h.note ?? ""}</>
+                  : <><Words k="Unpublished by" /> {name(h.unpublishedById) || "the school"}: “{h.note ?? ""}”</>,
                 when: `${formatDateTime(h.unpublishedAt ?? h.publishedAt ?? h.createdAt, tz)} · ${name(h.createdById) || "the school"}`,
               }))} />
             </div>

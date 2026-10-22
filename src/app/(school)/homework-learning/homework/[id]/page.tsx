@@ -16,6 +16,7 @@ import { UrlSearch } from "@/components/money/url-filters";
 import { BackLink, FileRow, SubIcon } from "../../_components/bits";
 import { BASE, homeworkGuard, one, qs, UUID, type SearchParams } from "../../_lib/page";
 import { ArchiveSheet, CardMenu, EditSheet, ResendSheet } from "../../sheets";
+import { Words } from "@/lib/i18n/client";
 
 
 export const metadata = { title: "Homework details" };
@@ -74,7 +75,7 @@ export default async function HomeworkDetailPage({ params, searchParams }: { par
               <h1 className="font-display text-[22px] md:text-[26px] font-semibold tracking-tight leading-tight">{h.title}</h1>
               <Pill tone={h.archivedAt ? "neutral" : HW_TONE[data.status]} dot>{h.archivedAt ? "Archived" : data.status}</Pill>
             </div>
-            <p className="text-[13.5px] text-ink3 mt-0.5">{data.subject} · Class {data.sectionLabel}{data.teacher && ` · ${data.teacher}`} · given {dayDate(h.startDate)} · due {dayDate(h.dueDate)} · out of {h.maxMarks}</p>
+            <p className="text-[13.5px] text-ink3 mt-0.5">{data.subject} <Words k="· Class" /> {data.sectionLabel}{data.teacher && ` · ${data.teacher}`} <Words k="· given" /> {dayDate(h.startDate)} <Words k="· due" /> {dayDate(h.dueDate)} <Words k="· out of" /> {h.maxMarks}</p>
           </div>
           <div className="flex gap-2">
             {subsOpen && <ButtonLink href={`${BASE}/submissions?hw=${h.id}`} variant={p.edits("submissions") ? "primary" : "secondary"} icon={ListChecks}>{checkLabel}</ButtonLink>}
@@ -107,7 +108,7 @@ export default async function HomeworkDetailPage({ params, searchParams }: { par
             <Card className="overflow-hidden">
               <CardHeader title="Seen by parent" icon={Eye}
                 description={data.messaged ? `${seenN} of ${data.students.length} · from WhatsApp read receipts and Parent Link` : "No homework message has gone to parents yet"}
-                action={data.editable && data.messaged && unseen > 0 && !h.archivedAt ? <ButtonLink href={here({ do: "resend" })} scroll={false} size="sm" variant="soft" icon={Send}>Resend to {unseen}</ButtonLink> : undefined} />
+                action={data.editable && data.messaged && unseen > 0 && !h.archivedAt ? <ButtonLink href={here({ do: "resend" })} scroll={false} size="sm" variant="soft" icon={Send}><Words k="Resend to" /> {unseen}</ButtonLink> : undefined} />
               <div className="px-3 pb-2"><UrlSearch id="seen-search" placeholder="Student name" label="Search students" /></div>
               <ul className="px-2 pb-2 max-h-[420px] overflow-y-auto scroll-thin">
                 {rows.map((r) => (
@@ -115,10 +116,10 @@ export default async function HomeworkDetailPage({ params, searchParams }: { par
                     <Avatar name={r.st.name} size={32} />
                     <div className="min-w-0 flex-1"><p className="font-semibold text-[14px] truncate">{r.st.name}</p><p className="text-[12px] text-ink3 truncate">{r.parent || "No parent on record"}</p></div>
                     {r.seen ? <span className="text-right text-[12px] text-ink3 tnum">{momentWords(r.seen.at, p.tz)}<span className="block">{r.seen.via}</span></span>
-                      : <Pill tone={data.messaged ? "warn" : "neutral"}>Not seen</Pill>}
+                      : <Pill tone={data.messaged ? "warn" : "neutral"}><Words k="Not seen" /></Pill>}
                   </li>
                 ))}
-                {rows.length === 0 && <li className="px-3 py-6 text-center text-[13.5px] text-ink3">No student matches.</li>}
+                {rows.length === 0 && <li className="px-3 py-6 text-center text-[13.5px] text-ink3"><Words k="No student matches." /></li>}
               </ul>
             </Card>
           </Col>

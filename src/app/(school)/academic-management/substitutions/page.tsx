@@ -13,6 +13,7 @@ import { PageTop } from "../_components/page-top";
 import { ExportLinks } from "../_components/export-links";
 import { DateParam, ViewSwitch } from "../_components/pickers";
 import { EndCover, MarkAbsentButton, NeedsList, TemporaryTeacherButton, UnmarkAbsent, type Need } from "./substitutions-ui";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Substitutions" };
 const PATH = "/academic-management/substitutions";
@@ -73,9 +74,9 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
         <div className="no-print mb-4 flex flex-wrap items-end gap-3">
           <DateParam current={isoDay(date)} />
           <div className="flex gap-2">
-            <Link href={link(addDays(date, -1))} className={buttonClass("secondary", "md")}>Previous</Link>
-            {!isToday && <Link href={link(page.today)} className={buttonClass("secondary", "md")}>Today</Link>}
-            <Link href={link(addDays(date, 1))} className={buttonClass("secondary", "md")}>Next</Link>
+            <Link href={link(addDays(date, -1))} className={buttonClass("secondary", "md")}><Words k="Previous" /></Link>
+            {!isToday && <Link href={link(page.today)} className={buttonClass("secondary", "md")}><Words k="Today" /></Link>}
+            <Link href={link(addDays(date, 1))} className={buttonClass("secondary", "md")}><Words k="Next" /></Link>
           </div>
         </div>
       )}
@@ -83,11 +84,11 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
       {(view === "needed" || view === "by-teacher") && <h2 className="mb-3 text-lg font-semibold">{isToday ? "Today, " : ""}{DAY_NAMES[weekday(date)]} {formatDate(date)}</h2>}
 
       {view === "needed" && (
-        data.off ? <Alert tone="info" title={data.off.kind === "holiday" ? `Holiday: ${data.off.title}` : `${data.off.title}: no school`}>No periods, so no substitutions.</Alert> : (
+        data.off ? <Alert tone="info" title={data.off.kind === "holiday" ? `Holiday: ${data.off.title}` : `${data.off.title}: no school`}><Words k="No periods, so no substitutions." /></Alert> : (
           <>
             {data.absences.length > 0 && (
               <div className="mb-4 rounded-2xl border border-line bg-surface px-4 py-2">
-                <p className="text-sm font-medium">Marked absent by hand</p>
+                <p className="text-sm font-medium"><Words k="Marked absent by hand" /></p>
                 <ul className="divide-y divide-line">
                   {data.absences.map((a) => (
                     <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-1 text-sm">
@@ -104,7 +105,7 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
               </EmptyState>
             ) : (
               <>
-                {!mineOnly && <p className="mb-3 text-ink-2">{needed ? <><strong className="text-danger">{plural(needed, "period")} still needed</strong> of {rows.length}.</> : `All ${plural(rows.length, "period")} arranged.`}</p>}
+                {!mineOnly && <p className="mb-3 text-ink-2">{needed ? <><strong className="text-danger">{plural(needed, "period")} <Words k="still needed" /></strong> <Words k="of" /> {rows.length}.</> : `All ${plural(rows.length, "period")} arranged.`}</p>}
                 <NeedsList rows={rows} date={isoDay(date)} canArrange={scope.arrange && page.writable !== false} />
               </>
             )}
@@ -114,13 +115,13 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
       )}
 
       {view === "by-teacher" && (
-        data.bySub.length === 0 ? <EmptyState title="No substitutions arranged on this day">Arranged substitutions show here, grouped by the teacher who covers them.</EmptyState> : (
+        data.bySub.length === 0 ? <EmptyState title="No substitutions arranged on this day"><Words k="Arranged substitutions show here, grouped by the teacher who covers them." /></EmptyState> : (
           <ul className="grid gap-3 md:grid-cols-2">
             {data.bySub.map((s) => (
               <li key={s.id} className="rounded-2xl border border-line bg-surface p-4">
                 <h2 className="font-semibold">{s.name} <span className="font-normal text-ink-2">· {plural(s.periods.length, "extra period")}</span></h2>
                 <ol className="mt-2 space-y-1 text-sm">
-                  {s.periods.map((p) => <li key={p.id}><strong>Period {p.periodNo}</strong> ({time12(p.startTime)}) · {p.sectionLabel} · {p.subjectName ?? "Period"} · for {p.absentName} ({reasonWords(p.reason).toLowerCase()})</li>)}
+                  {s.periods.map((p) => <li key={p.id}><strong><Words k="Period" /> {p.periodNo}</strong> ({time12(p.startTime)}) · {p.sectionLabel} · {p.subjectName ?? "Period"} <Words k="· for" /> {p.absentName} ({reasonWords(p.reason).toLowerCase()})</li>)}
                 </ol>
               </li>
             ))}
@@ -130,11 +131,11 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
 
       {view === "load" && (
         <>
-          <p className="mb-3 text-ink-2">Substitutions taken in the week and month of {formatDate(date)}. Helps share extra periods fairly.</p>
-          {data.loads.length === 0 ? <EmptyState title="No teachers yet">Teachers appear here once they are added in Staff &amp; HR.</EmptyState> : (
+          <p className="mb-3 text-ink-2"><Words k="Substitutions taken in the week and month of" /> {formatDate(date)}<Words k=". Helps share extra periods fairly." /></p>
+          {data.loads.length === 0 ? <EmptyState title="No teachers yet"><Words k={"Teachers appear here once they are added in Staff & HR."} /></EmptyState> : (
             <div className="relative overflow-x-auto rounded-2xl border border-line bg-surface">
               <table className="w-full text-left text-sm">
-                <thead className="bg-surface-2"><tr><th scope="col" className="px-4 py-2 font-medium">Teacher</th><th scope="col" className="px-4 py-2 text-right font-medium">This week</th><th scope="col" className="px-4 py-2 text-right font-medium">This month</th></tr></thead>
+                <thead className="bg-surface-2"><tr><th scope="col" className="px-4 py-2 font-medium"><Words k="Teacher" /></th><th scope="col" className="px-4 py-2 text-right font-medium"><Words k="This week" /></th><th scope="col" className="px-4 py-2 text-right font-medium"><Words k="This month" /></th></tr></thead>
                 <tbody>{data.loads.map((l) => <tr key={l.id} className="border-t border-line"><td className="px-4 py-2">{l.name}</td><td className="px-4 py-2 text-right tabular-nums">{l.week}</td><td className="px-4 py-2 text-right tabular-nums">{l.month}</td></tr>)}</tbody>
               </table>
             </div>
@@ -144,11 +145,11 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
       )}
 
       {view === "temporary" && (
-        data.covers.length === 0 ? <EmptyState title="No temporary teachers now">For a longer absence, name a temporary teacher with the button above. They take the absent teacher&apos;s periods for the dates you choose.</EmptyState> : (
+        data.covers.length === 0 ? <EmptyState title="No temporary teachers now"><Words k="For a longer absence, name a temporary teacher with the button above. They take the absent teacher's periods for the dates you choose." /></EmptyState> : (
           <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
             {data.covers.map((c) => (
               <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
-                <span><strong>{data.names.get(c.tempStaffId)}</strong> for {data.names.get(c.absentStaffId)} · {formatDate(c.fromDate)} to {formatDate(c.toDate)}{c.note ? ` · ${c.note}` : ""}</span>
+                <span><strong>{data.names.get(c.tempStaffId)}</strong> <Words k="for" /> {data.names.get(c.absentStaffId)} · {formatDate(c.fromDate)} <Words k="to" /> {formatDate(c.toDate)}{c.note ? ` · ${c.note}` : ""}</span>
                 {page.writable && <EndCover id={c.id} name={data.names.get(c.tempStaffId) ?? "the temporary teacher"} />}
               </li>
             ))}

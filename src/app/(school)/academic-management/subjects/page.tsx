@@ -16,6 +16,7 @@ import { NoYear, PageTop } from "../_components/page-top";
 import { ExportLinks } from "../_components/export-links";
 import { ClassPicker, ViewSwitch } from "../_components/pickers";
 import { AddSubjectButton, CopyMapButton, MapRowActions, MapSubjectButton, OptionButton, RecordChoicesButton, RemoveChoiceButton, SubjectRowActions } from "./subjects-ui";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Subjects" };
 const PATH = "/academic-management/subjects";
@@ -72,13 +73,13 @@ async function SubjectList({ raw, page, canEdit }: P) {
   });
   type Row = (typeof rows)[number];
   const columns: Column<Row>[] = [
-    { key: "name", label: "Subject", sortable: true, phone: "title", cell: (r) => <>{r.name}{r.gradeOnly && <span className="ml-2 text-sm text-ink-2">grade only</span>}</> },
+    { key: "name", label: "Subject", sortable: true, phone: "title", cell: (r) => <>{r.name}{r.gradeOnly && <span className="ml-2 text-sm text-ink-2"><Words k="grade only" /></span>}</> },
     { key: "code", label: "Code", sortable: true, phone: "meta", cell: (r) => r.code },
     { key: "type", label: "Type", sortable: true, phone: "badge", cell: (r) => <Badge tone={r.type === "CORE" ? "neutral" : "brand"}>{subjectTypeLabel(r.type)}</Badge> },
     {
       key: "classes", label: "Classes", phone: "meta", cell: (r) => {
         const names = r.classes.filter((c) => !c.schoolClass.archivedAt).sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder).map((c) => c.schoolClass.name);
-        return names.length === 0 ? <span className="text-ink-2">Not mapped yet</span> : names.length > 4 ? `${names[0]} to ${names[names.length - 1]} (${names.length})` : names.join(", ");
+        return names.length === 0 ? <span className="text-ink-2"><Words k="Not mapped yet" /></span> : names.length > 4 ? `${names[0]} to ${names[names.length - 1]} (${names.length})` : names.join(", ");
       },
     },
   ];
@@ -88,15 +89,15 @@ async function SubjectList({ raw, page, canEdit }: P) {
       <DataTable rows={rows} columns={columns} rowKey={(r) => r.id} total={total} params={params} path={PATH} caption="Subjects"
         actions={canEdit ? (r) => <SubjectRowActions s={{ id: r.id, name: r.name, code: r.code, type: r.type, gradeOnly: r.gradeOnly, archived: Boolean(r.archivedAt) }} /> : undefined}
         empty={params.q || params.filters.type || params.archived
-          ? <EmptyState title="No subjects match">Try another search or remove a filter.</EmptyState>
-          : <EmptyState title="No subjects yet">Add the subjects you teach, such as English, Mathematics and Science, and the classes they are taught in.</EmptyState>} />
+          ? <EmptyState title="No subjects match"><Words k="Try another search or remove a filter." /></EmptyState>
+          : <EmptyState title="No subjects yet"><Words k="Add the subjects you teach, such as English, Mathematics and Science, and the classes they are taught in." /></EmptyState>} />
       <div className="mt-4"><ExportLinks href={`/academic-management/export?kind=subjects${params.q ? `&q=${encodeURIComponent(params.q)}` : ""}${params.filters.type ? `&type=${params.filters.type}` : ""}${page.yearQuery ? `&${page.yearQuery}` : ""}`} label="Subjects" /></div>
     </>
   );
 }
 
 async function ByClass({ raw, page, classes, canEdit }: P & { classes: { id: string; name: string }[] }) {
-  if (classes.length === 0) return <EmptyState title="No classes yet">Add classes in Classes &amp; Sections first.</EmptyState>;
+  if (classes.length === 0) return <EmptyState title="No classes yet"><Words k={"Add classes in Classes & Sections first."} /></EmptyState>;
   const classId = classes.some((c) => c.id === one(raw.class)) ? one(raw.class) : classes[0].id;
   const cls = classes.find((c) => c.id === classId)!;
   const { maps, subjects } = await withSchool(page.current.ctx, async (tx) => ({
@@ -120,7 +121,7 @@ async function ByClass({ raw, page, classes, canEdit }: P & { classes: { id: str
       </div>
       <Card>
         <CardHeader title={`Subjects of ${cls.name}`} description={`${current.length} subjects, ${total} periods a week`} />
-        {current.length === 0 ? <p className="p-5 text-ink-2">No subjects mapped to {cls.name} yet.{canEdit && " Add a subject, or copy another class's subjects here."}</p> : (
+        {current.length === 0 ? <p className="p-5 text-ink-2"><Words k="No subjects mapped to" /> {cls.name} <Words k="yet." />{canEdit && " Add a subject, or copy another class's subjects here."}</p> : (
           <MapTable rows={current} canEdit={canEdit} className={cls.name} today={today} />
         )}
       </Card>
@@ -139,12 +140,12 @@ function MapTable({ rows, canEdit, className, today, ended }: { rows: { id: stri
     <div className="relative overflow-x-auto">
       <table className="w-full text-left text-[15px]">
         <thead className="bg-surface-2 text-sm text-ink-2"><tr>
-          <th scope="col" className="px-4 py-2 font-medium">Subject</th>
-          <th scope="col" className="hidden px-4 py-2 font-medium sm:table-cell">Type</th>
-          <th scope="col" className="px-4 py-2 text-right font-medium">Periods a week</th>
-          <th scope="col" className="px-4 py-2 font-medium">From</th>
-          <th scope="col" className="px-4 py-2 font-medium">To</th>
-          {canEdit && <th scope="col"><span className="sr-only">Actions</span></th>}
+          <th scope="col" className="px-4 py-2 font-medium"><Words k="Subject" /></th>
+          <th scope="col" className="hidden px-4 py-2 font-medium sm:table-cell"><Words k="Type" /></th>
+          <th scope="col" className="px-4 py-2 text-right font-medium"><Words k="Periods a week" /></th>
+          <th scope="col" className="px-4 py-2 font-medium"><Words k="From" /></th>
+          <th scope="col" className="px-4 py-2 font-medium"><Words k="To" /></th>
+          {canEdit && <th scope="col"><span className="sr-only"><Words k="Actions" /></span></th>}
         </tr></thead>
         <tbody className="divide-y divide-line">
           {rows.map((m) => (
@@ -152,8 +153,8 @@ function MapTable({ rows, canEdit, className, today, ended }: { rows: { id: stri
               <td className="px-4 py-2 font-medium">{m.subject.name} <span className="text-sm font-normal text-ink-2">{m.subject.code}</span></td>
               <td className="hidden px-4 py-2 sm:table-cell">{subjectTypeLabel(m.subject.type)}{m.subject.gradeOnly ? ", grade only" : ""}</td>
               <td className="px-4 py-2 text-right tabular-nums">{m.periodsPerWeek}</td>
-              <td className="px-4 py-2">{m.fromDate ? formatDate(m.fromDate) : <span className="text-ink-2">Start of year</span>}</td>
-              <td className="px-4 py-2">{m.toDate ? formatDate(m.toDate) : <span className="text-ink-2">No end</span>}</td>
+              <td className="px-4 py-2">{m.fromDate ? formatDate(m.fromDate) : <span className="text-ink-2"><Words k="Start of year" /></span>}</td>
+              <td className="px-4 py-2">{m.toDate ? formatDate(m.toDate) : <span className="text-ink-2"><Words k="No end" /></span>}</td>
               {canEdit && <td className="px-2 py-1 text-right"><MapRowActions m={{ id: m.id, subject: m.subject.name, periodsPerWeek: m.periodsPerWeek, ended: Boolean(ended) }} className={className} today={today} /></td>}
             </tr>
           ))}
@@ -164,7 +165,7 @@ function MapTable({ rows, canEdit, className, today, ended }: { rows: { id: stri
 }
 
 async function Electives({ raw, page, classes, canEdit }: P & { classes: { id: string; name: string }[] }) {
-  if (classes.length === 0) return <EmptyState title="No classes yet">Add classes in Classes &amp; Sections first.</EmptyState>;
+  if (classes.length === 0) return <EmptyState title="No classes yet"><Words k={"Add classes in Classes & Sections first."} /></EmptyState>;
   const year = page.year!;
   const classId = classes.some((c) => c.id === one(raw.class)) ? one(raw.class) : classes[0].id;
   const cls = classes.find((c) => c.id === classId)!;
@@ -185,7 +186,7 @@ async function Electives({ raw, page, classes, canEdit }: P & { classes: { id: s
         {canEdit && <OptionButton yearId={year.id} classId={classId} subjects={data.subjects} />}
       </div>
       {data.options.length === 0 ? (
-        <EmptyState title={`No choices for ${cls.name} yet`}>Add the optional subjects or languages {cls.name} can choose from, with seats if they are limited.</EmptyState>
+        <EmptyState title={`No choices for ${cls.name} yet`}><Words k="Add the optional subjects or languages" /> {cls.name} <Words k="can choose from, with seats if they are limited." /></EmptyState>
       ) : groups.map((g) => {
         const opts = data.options.filter((o) => o.groupName === g);
         const chosen = new Set(opts.flatMap((o) => o.choices.map((c) => c.studentId)));
@@ -218,7 +219,7 @@ async function Electives({ raw, page, classes, canEdit }: P & { classes: { id: s
                 </div>
               ))}
             </div>
-            {notChosen.length > 0 && <p className="border-t border-line px-5 py-3 text-sm text-ink-2"><strong className="text-ink">Not chosen yet:</strong> {notChosen.slice(0, 12).map((e) => e.student.fullName).join(", ")}{notChosen.length > 12 ? ` and ${notChosen.length - 12} more` : ""}</p>}
+            {notChosen.length > 0 && <p className="border-t border-line px-5 py-3 text-sm text-ink-2"><strong className="text-ink"><Words k="Not chosen yet:" /></strong> {notChosen.slice(0, 12).map((e) => e.student.fullName).join(", ")}{notChosen.length > 12 ? ` and ${notChosen.length - 12} more` : ""}</p>}
           </Card>
         );
       })}

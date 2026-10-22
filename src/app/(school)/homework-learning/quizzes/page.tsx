@@ -21,6 +21,7 @@ import { HomeworkHead } from "../_components/homework-head";
 import { SubIcon, subjectIcon, subjectTone } from "../_components/bits";
 import { BASE, homeworkGuard, homeworkPeriod, localInput, one, qs, UUID, type HomeworkPage, type SearchParams } from "../_lib/page";
 import { ArchiveQuizSheet, CloseQuizButton, MarkShortSheet, OpenQuizButton, QuizSheet, type BankQuestion, type QDraft, type QuizSection } from "./sheets";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Quizzes" };
 
@@ -103,7 +104,7 @@ async function StaffQuizzes({ p, sp }: { p: HomeworkPage; sp: Sp }) {
   return (
     <div>
       <HomeworkHead page="quizzes" pageName="Quizzes" sub={p.own ? "Quizzes for your classes · they mark themselves" : "Quizzes that mark themselves, for practice and class tests"}
-        actions={<ButtonLink href={here({ do: "create" })} scroll={false} variant="primary" icon={Plus}>Create quiz</ButtonLink>} />
+        actions={<ButtonLink href={here({ do: "create" })} scroll={false} variant="primary" icon={Plus}><Words k="Create quiz" /></ButtonLink>} />
       <Card className="overflow-hidden">
         <Toolbar>
           <UrlSearch id="qz-search" placeholder="Search quizzes" label="Search quizzes" />
@@ -119,13 +120,13 @@ async function StaffQuizzes({ p, sp }: { p: HomeworkPage; sp: Sp }) {
         <div className="mt-2 border-t border-line">
           <DataList rows={rows} rowKey={(z) => z.id} rowHref={(z) => here({ open: z.id })} minWidth={860} caption="Quizzes"
             footer={`Showing: ${per.label}${range ? ` · ${range}` : ""} · ${plural(rows.length, "quiz", "quizzes")}`}
-            empty={<Empty icon={ListChecks} title="No quizzes in these dates" body="Pick other dates or another filter." action={editsHere ? <ButtonLink href={here({ do: "create" })} scroll={false} variant="primary" icon={Plus}>Create quiz</ButtonLink> : undefined} />}
+            empty={<Empty icon={ListChecks} title="No quizzes in these dates" body="Pick other dates or another filter." action={editsHere ? <ButtonLink href={here({ do: "create" })} scroll={false} variant="primary" icon={Plus}><Words k="Create quiz" /></ButtonLink> : undefined} />}
             columns={[
               { key: "t", label: "Quiz", render: (z) => <div className="flex items-center gap-3"><SubIcon subject={z.subject} size={34} /><div><p className="font-semibold leading-tight">{z.title}</p><p className="text-[12.5px] text-ink3">{z.subject} · {z.sectionLabel}{!p.own && z.teacher ? ` · ${z.teacher}` : ""}</p></div></div> },
               { key: "q", label: "Questions", align: "right", render: (z) => <span className="tnum">{z.questions}</span> },
               { key: "l", label: "Time limit", nowrap: true, render: (z) => limitWords(z.timeLimitMin) },
               { key: "a", label: "Attempts", align: "right", render: (z) => <span className="tnum">{z.attemptsAllowed}</span> },
-              { key: "k", label: "Taken", render: (z) => <span className="tnum">{z.taken} of {z.students}{z.toMark ? <span className="block text-[12px] text-warn">{z.toMark} to mark</span> : null}</span> },
+              { key: "k", label: "Taken", render: (z) => <span className="tnum">{z.taken} <Words k="of" /> {z.students}{z.toMark ? <span className="block text-[12px] text-warn">{z.toMark} <Words k="to mark" /></span> : null}</span> },
               { key: "v", label: "Average", align: "right", render: (z) => <span className="tnum">{z.avg !== null ? `${z.avg} / ${z.maxScore}` : "—"}</span> },
               { key: "s", label: "Status", render: (z) => <><Pill tone={QUIZ_TONE[z.word]}>{z.word}</Pill><span className="block text-[12px] text-ink3 mt-0.5 whitespace-nowrap">{closesWords(z, p.tz)}</span></> },
             ]}
@@ -137,8 +138,8 @@ async function StaffQuizzes({ p, sp }: { p: HomeworkPage; sp: Sp }) {
         <UrlSheet wide closeHref={here({ open: null })} title={r.quiz.title}
           sub={`${row.subject} · ${row.sectionLabel} · ${plural(row.questions, "question")} · ${limitWords(row.timeLimitMin)} · ${closesWords(row, p.tz)}`}
           footer={<div className="flex flex-wrap justify-end gap-2">
-            {canWorkOpen && <ButtonLink href={here({ open: null, do: "archive", id: r.quiz.id })} scroll={false} variant="ghost">Archive</ButtonLink>}
-            {canWorkOpen && word === "Draft" && <ButtonLink href={here({ open: null, do: "edit", id: r.quiz.id })} scroll={false} icon={Pencil}>Edit</ButtonLink>}
+            {canWorkOpen && <ButtonLink href={here({ open: null, do: "archive", id: r.quiz.id })} scroll={false} variant="ghost"><Words k="Archive" /></ButtonLink>}
+            {canWorkOpen && word === "Draft" && <ButtonLink href={here({ open: null, do: "edit", id: r.quiz.id })} scroll={false} icon={Pencil}><Words k="Edit" /></ButtonLink>}
             {canWorkOpen && word === "Draft" && <OpenQuizButton id={r.quiz.id} label={row.sectionLabel} />}
             {canWorkOpen && (word === "Open" || word === "Scheduled") && <CloseQuizButton id={r.quiz.id} />}
           </div>}>
@@ -147,7 +148,7 @@ async function StaffQuizzes({ p, sp }: { p: HomeworkPage; sp: Sp }) {
           ) : (
             <div className="grid md:grid-cols-2 gap-5">
               <div>
-                <p className="text-[13px] font-semibold text-ink2 mb-2">Correct answers per question</p>
+                <p className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Correct answers per question" /></p>
                 <ul className="flex flex-col gap-1.5" aria-label="Correct answers per question">
                   {r.perQuestion.map((x) => (
                     <li key={x.id} className="flex items-center gap-2 text-[13px]" title={x.text}>
@@ -157,23 +158,23 @@ async function StaffQuizzes({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                     </li>
                   ))}
                 </ul>
-                <p className="text-[12.5px] text-ink3 mt-2">Questions below 50% show in amber. Worth going over in class.</p>
+                <p className="text-[12.5px] text-ink3 mt-2"><Words k="Questions below 50% show in amber. Worth going over in class." /></p>
               </div>
               <div>
-                <p className="text-[13px] font-semibold text-ink2 mb-2">{plural(r.best.size, "student")} · average {row.avg ?? "—"} of {maxScore}</p>
+                <p className="text-[13px] font-semibold text-ink2 mb-2">{plural(r.best.size, "student")} <Words k="· average" /> {row.avg ?? "—"} <Words k="of" /> {maxScore}</p>
                 <ul className="max-h-[320px] overflow-y-auto scroll-thin divide-y divide-line/70">
                   {r.students.filter((st) => r.best.has(st.id)).map((st) => {
                     const a = r.best.get(st.id)!;
                     return (
                       <li key={st.id} className="flex items-center gap-3 py-2">
                         <Avatar name={st.name} size={30} /><span className="flex-1 text-[14px] truncate">{st.name}</span>
-                        {a.needsMarking && canWorkOpen && shorts.length > 0 && <ButtonLink href={here({ mark: a.id })} scroll={false} size="sm" variant="soft">Mark</ButtonLink>}
+                        {a.needsMarking && canWorkOpen && shorts.length > 0 && <ButtonLink href={here({ mark: a.id })} scroll={false} size="sm" variant="soft"><Words k="Mark" /></ButtonLink>}
                         <b className="font-semibold tnum text-[14px]">{a.score ?? "—"} / {maxScore}</b>
                       </li>
                     );
                   })}
                 </ul>
-                {r.students.length > r.best.size && <p className="text-[12.5px] text-ink3 mt-2">{r.students.length - r.best.size} have not taken it.</p>}
+                {r.students.length > r.best.size && <p className="text-[12.5px] text-ink3 mt-2">{r.students.length - r.best.size} <Words k="have not taken it." /></p>}
               </div>
             </div>
           )}
@@ -185,7 +186,7 @@ async function StaffQuizzes({ p, sp }: { p: HomeworkPage; sp: Sp }) {
       )}
       {editsHere && doing === "create" && (data.sections.length
         ? <QuizSheet closeHref={here({ do: null })} sections={data.sections} bank={data.bank} defaults={{ opensAt: localInput(p.now, p.tz), closesAt: localInput(new Date(p.now.getTime() + 7 * DAY), p.tz) }} />
-        : <UrlSheet closeHref={here({ do: null })} title="No classes to set a quiz for"><p className="text-[14px] text-ink2">Quizzes go to your own classes and subjects. Ask the school office to add your teaching allocations for this year.</p></UrlSheet>)}
+        : <UrlSheet closeHref={here({ do: null })} title="No classes to set a quiz for"><p className="text-[14px] text-ink2"><Words k="Quizzes go to your own classes and subjects. Ask the school office to add your teaching allocations for this year." /></p></UrlSheet>)}
       {editsHere && doing === "edit" && data.start && <QuizSheet edit closeHref={here({ do: null, id: null })} sections={data.sections} bank={data.bank} start={data.start} defaults={{ opensAt: "", closesAt: "" }} />}
       {editsHere && doing === "archive" && editId && (() => { const z = data.list.find((x) => x.id === editId); return z && mayWork(s, z, "quizzes") ? <ArchiveQuizSheet closeHref={here({ do: null, id: null })} id={z.id} title={z.title} /> : null; })()}
     </div>
@@ -229,7 +230,7 @@ async function StudentQuizzes({ p, sp }: { p: HomeworkPage; sp: Sp }) {
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-[14.5px]">{z.title}</p>
                       <p className="text-[12.5px] text-ink3">{z.subject} · {plural(z.questions, "question")} · {limitWords(z.timeLimitMin)} · {plural(z.attemptsAllowed, "attempt")}</p>
-                      {z.closesAt && <p className={cx("text-[12.5px] font-semibold", today(z.closesAt) ? "text-warn" : "text-ink3")}>Closes {momentWords(z.closesAt, p.tz)}</p>}
+                      {z.closesAt && <p className={cx("text-[12.5px] font-semibold", today(z.closesAt) ? "text-warn" : "text-ink3")}><Words k="Closes" /> {momentWords(z.closesAt, p.tz)}</p>}
                     </div>
                     <ButtonLink href={`${HREF}/${z.id}`} size="sm" variant="primary" icon={CirclePlay}>{running ? "Carry on" : "Start"}</ButtonLink>
                   </li>

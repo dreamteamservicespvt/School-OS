@@ -3,14 +3,14 @@ import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { readListParams, skipTake } from "@/lib/list";
-import { importKind, importKinds } from "@/lib/importer";
+import { importKind } from "@/lib/importer";
 import { shownFileName } from "@/lib/data-security/imports";
-import { mayImport } from "@/lib/move-in/service";
+import { canBring, mayImport, moveInKinds } from "@/lib/move-in/service";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/list/data-table";
 import { EmptyState } from "@/components/empty-state";
-import { UploadForm } from "./forms";
+import { UploadForm } from "@/components/import/file-forms";
 import { UndoImportButton, AutoRefresh } from "../parts";
 
 export const metadata: Metadata = { title: "Imports · Data Backup & Security" };
@@ -33,7 +33,8 @@ export default async function ImportsPage({ searchParams }: Search) {
     return { rows, total, running, names: new Map(people.map((p) => [p.userLogin.id, p.userLogin.displayName])) };
   });
   // Each kind of record is imported, and undone, only by people who may add it in its own module.
-  const kinds = importKinds().filter((k) => mayImport(current.permissions, k.key, "create", current.modulesOn));
+  // Every file goes through the one import engine (Switching to School OS): headings matched, rows tidied and checked.
+  const kinds = moveInKinds(current.modulesOn).filter((k) => canBring(current.permissions, k.key, current.modulesOn));
   const canImport = may.create && kinds.length > 0;
   const canUndo = (kind: string) => may.archive && mayImport(current.permissions, kind, "archive", current.modulesOn);
   const wanted = typeof sp.kind === "string" && kinds.some((k) => k.key === sp.kind) ? sp.kind : undefined;
@@ -44,20 +45,20 @@ export default async function ImportsPage({ searchParams }: Search) {
       {running > 0 && <AutoRefresh seconds={6} />}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card>
-          <CardHeader title="Import from a spreadsheet" description="Upload, match your columns, check the preview, then import the good rows. Rows with problems are left out and you can download them to fix." />
+          <CardHeader title="Import from a spreadsheet" description="Upload, check the matched columns and every row, fix or leave out the rows with problems, then bring in the rest. Nothing is saved before that." />
           <CardBody>
-            {canImport ? <UploadForm kinds={kinds.map((k) => ({ value: k.key, label: k.label }))} kind={wanted} /> : <p className="text-ink-2">Your role can see import history but not import. Ask your School Admin.</p>}
+            {canImport ? <UploadForm place="settings" kinds={kinds.map((k) => ({ value: k.key, label: k.label }))} kind={wanted} /> : <p className="text-ink-2">Your role can see import history but not import. Ask your School Admin.</p>}
           </CardBody>
         </Card>
         <Card>
-          <CardHeader title="Templates" description="Start from the template so the columns match. Columns with a star must be filled." />
+          <CardHeader title="Ready sheets" description="Excel sheets made for your school, with drop-down lists of your own classes, designations and fee heads. Columns with a star must be filled." />
           <CardBody>
             {kinds.length === 0 ? <p className="text-ink-2">No imports are available yet.</p> : (
               <ul className="divide-y divide-line">
                 {kinds.map((k) => (
                   <li key={k.key} className="flex flex-wrap items-center justify-between gap-2 py-2">
                     <span className="font-medium">{k.label}</span>
-                    <a href={`/settings/data-security/imports/template/${k.key}`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2">Download template (CSV)</a>
+                    <a href={`/settings/data-security/switching/template/${k.key}`} className="inline-flex min-h-11 items-center rounded-lg px-3 font-medium text-brand-text hover:bg-surface-2" download>Download the ready Excel sheet</a>
                   </li>
                 ))}
               </ul>

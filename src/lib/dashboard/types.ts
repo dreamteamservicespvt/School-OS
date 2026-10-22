@@ -105,7 +105,9 @@ export type Panel =
   | { kind: "bars"; title: string; sub: string; icon: DashIcon; rows: BarRow[]; goal?: number; lowBelow?: number; href?: string; linkLabel?: string; empty: string }
   | { kind: "classes-overview"; title: string; sub: string; total: number; classes: { id: string; name: string; total: number; href: string; sections: { id: string; name: string; count: number; href: string }[] }[]; href: string }
   | { kind: "list"; title: string; sub: string; icon: DashIcon; rows: ListRow[]; href?: string; linkLabel?: string; empty: string }
-  | { kind: "my-class"; title: string; sub: string; stats: { label: string; value: string; href?: string }[]; rows: ListRow[]; href: string };
+  | { kind: "my-class"; title: string; sub: string; stats: { label: string; value: string; href?: string }[]; rows: ListRow[]; href: string }
+  /** Today's brief (Principal summary): short lines in sections, each with the list behind it; forecasts marked "Suggestion". */
+  | { kind: "brief"; title: string; sub: string; sections: { heading: string; lines: { text: string; href?: string; suggestion?: boolean; basis?: string }[] }[]; note: string };
 
 export type PanelSlot = "first" | "main" | "side";
 

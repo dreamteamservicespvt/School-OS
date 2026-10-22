@@ -651,7 +651,7 @@ describe("Homework & Learning records stay in their school", () => {
 });
 
 describe("Reports & Analytics records stay in their school", () => {
-  it("school A cannot read, change or add to school B's pins, uses, runs, warning settings, flags, reviews, AI decisions, forecasts, government exports, custom reports, schedules or sends", async () => {
+  it("school A cannot read, change or add to school B's pins, uses, runs, warning settings, flags, reviews, AI decisions, forecasts, management briefs, government exports, custom reports, schedules or sends", async () => {
     const ctxB = { schoolId: b.id, userId: userB.id };
     const x = "00000000-0000-4000-8000-000000000004";
     const ids = await withSchool(ctxB, async (tx) => {
@@ -667,14 +667,16 @@ describe("Reports & Analytics records stay in their school", () => {
       const custom = await tx.customReport.create({ data: { schoolId: b.id, name: "Only in B", area: "students", columns: ["name"], ownerId: userB.id } });
       const sched = await tx.reportSchedule.create({ data: { schoolId: b.id, reportKey: `c:${custom.id}`, reportName: "Only in B", recipientIds: [userB.id], nextAt: new Date("2031-06-09T02:30:00Z"), createdById: userB.id } });
       await tx.reportScheduleSend.create({ data: { schoolId: b.id, scheduleId: sched.id, userId: userB.id, slot: "2031-06-09T02:30" } });
-      return { run: run.id, flag: flag.id, custom: custom.id, sched: sched.id, forecast: forecast.id };
+      const brief = await tx.managementBrief.create({ data: { schoolId: b.id, userLoginId: userB.id, kind: "DAILY", forDate: new Date("2031-06-10"), lines: [{ section: "decide", text: "Only in B" }] } });
+      return { run: run.id, flag: flag.id, custom: custom.id, sched: sched.id, forecast: forecast.id, brief: brief.id };
     });
     await withSchool(ctxA(), async (tx) => {
       const counts = await Promise.all([
         tx.reportPin.count(), tx.reportUse.count(), tx.reportRun.count(), tx.earlyWarningSetting.count({ where: { schoolId: b.id } }), tx.riskFlag.count(), tx.flagReview.count(),
-        tx.aiSignalDecision.count(), tx.governmentExport.count(), tx.customReport.count(), tx.reportSchedule.count(), tx.reportScheduleSend.count(), tx.forecastSignal.count(),
+        tx.aiSignalDecision.count(), tx.governmentExport.count(), tx.customReport.count(), tx.reportSchedule.count(), tx.reportScheduleSend.count(), tx.forecastSignal.count(), tx.managementBrief.count(),
       ]);
-      expect(counts).toEqual(Array(12).fill(0));
+      expect(counts).toEqual(Array(13).fill(0));
+      expect((await tx.managementBrief.updateMany({ where: { id: ids.brief }, data: { sentAt: new Date() } })).count).toBe(0);
       expect((await tx.forecastSignal.updateMany({ where: { id: ids.forecast }, data: { title: "Changed by A" } })).count).toBe(0);
       expect(await tx.riskFlag.findUnique({ where: { id: ids.flag } })).toBeNull();
       expect((await tx.riskFlag.updateMany({ where: { id: ids.flag }, data: { status: "CLOSED" } })).count).toBe(0);
@@ -684,6 +686,7 @@ describe("Reports & Analytics records stay in their school", () => {
     });
     await expect(withSchool(ctxA(), (tx) => tx.flagReview.create({ data: { schoolId: b.id, flagId: ids.flag, decision: "REVIEWED", note: "X", reviewerId: userA.id } }))).rejects.toThrow();
     await expect(withSchool(ctxA(), (tx) => tx.forecastSignal.create({ data: { schoolId: b.id, key: "from-a", area: "fees", title: "X", body: "X", source: "X" } }))).rejects.toThrow();
+    await expect(withSchool(ctxA(), (tx) => tx.managementBrief.create({ data: { schoolId: b.id, userLoginId: userA.id, kind: "DAILY", forDate: new Date("2031-06-10") } }))).rejects.toThrow();
     await expect(withSchool(ctxA(), (tx) => tx.reportSchedule.create({ data: { schoolId: b.id, reportKey: "fe-defaulter", reportName: "X", recipientIds: [userA.id], nextAt: new Date(), createdById: userA.id } }))).rejects.toThrow();
   });
 });

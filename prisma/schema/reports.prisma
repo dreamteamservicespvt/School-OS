@@ -248,7 +248,7 @@ model ForecastSignal {
   schoolId    String    @map("school_id") @db.Uuid
   /// Stable key, e.g. "att-proj:<student>:<month>"; the decision is kept against it.
   key         String
-  /// attendance, marks, fees, students, admissions, staff or finance.
+  /// attendance, marks, fees, students, admissions, staff, finance, academic (syllabus), messages or activity (unusual activity).
   area        String
   /// WATCH or ACT_NOW.
   strength    String    @default("WATCH")
@@ -260,6 +260,10 @@ model ForecastSignal {
   hrefLabel   String?   @map("href_label")
   studentId   String?   @map("student_id") @db.Uuid
   value       Float?
+  /// How much it matters (0 to 100: people or money affected, how soon); Looking ahead shows the most important first.
+  score       Float?
+  /// How sure it is, from how much of the record it rests on: high, medium or low ("based on only 2 tests").
+  certainty   String?
   firstSeenAt DateTime  @default(now()) @map("first_seen_at")
   computedAt  DateTime  @default(now()) @map("computed_at")
   /// When the leaders were told about it (once).
@@ -269,4 +273,30 @@ model ForecastSignal {
   @@unique([schoolId, key])
   @@index([schoolId, archivedAt])
   @@map("forecast_signal")
+}
+
+/// Management Brief: one person's short brief for one morning (01 Dashboard, Principal
+/// summary; 19 Reports & Analytics): what happened yesterday or last week, what may happen
+/// next (the top Looking ahead suggestions) and what waits for a decision, each line with
+/// the list behind it. Worked out by rules from the school's own records, kept so the brief
+/// sent and the one on the Dashboard are the same. Daily on school mornings, weekly on Monday.
+model ManagementBrief {
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  userLoginId    String    @map("user_login_id") @db.Uuid
+  /// DAILY or WEEKLY.
+  kind           String
+  /// The school morning it is for.
+  forDate        DateTime  @map("for_date") @db.Date
+  /// The lines: [{ section, text, href, suggestion }].
+  lines          Json      @default("[]")
+  computedAt     DateTime  @default(now()) @map("computed_at")
+  /// When it was sent (the notification, and copies by the channels the person chose).
+  sentAt         DateTime? @map("sent_at")
+  notificationId String?   @map("notification_id") @db.Uuid
+  archivedAt     DateTime? @map("archived_at")
+
+  @@unique([schoolId, userLoginId, kind, forDate])
+  @@index([schoolId, forDate])
+  @@map("management_brief")
 }

@@ -15,6 +15,7 @@ export const AI_FEATURES = [
   { key: "ai-enquiry-reply", label: "AI auto-reply to enquiries", status: "coming-soon", about: "Suggests replies to admission enquiries; a person sends them." },
   { key: "ai-insights", label: "Student insights and early warnings", status: "ready", about: "Flags students whose attendance, marks or fees need attention." },
   { key: "ai-forecasts", label: "Forecasts", status: "ready", about: "Looking ahead from the school's own records: attendance and marks heading below the line, fees likely to come late, seats likely to stay empty, staff and cash." },
+  { key: "ai-principal-summary", label: "Principal summary", status: "ready", about: "Today's brief for the Principal and School Admin each school morning, and the weekly brief on Monday: what happened, what may need them next and what waits for their decision. Every number is the school's own record, with a link to the list behind it." },
   { key: "ai-teacher-assistant", label: "Teacher assistant", status: "ready", about: "Drafts homework, feedback on submissions and report card remarks for the teacher to edit." },
   { key: "ai-question-papers", label: "AI question papers", status: "hidden", about: "Not built: free tools already do this." },
   { key: "ai-translation", label: "Translation of typed messages", status: "coming-soon", about: "Translates a typed message into each parent's language. The sender sees and can edit each translation; the parent's copy says \"Translated from English\"." },

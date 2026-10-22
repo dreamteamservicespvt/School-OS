@@ -60,15 +60,24 @@ Used by: the Principal and management (analytics, early warnings), the Accountan
 **What the person sees**
 
 - A list of students with **risk signals**, each showing the reason in plain words and the numbers behind it: for example "Attendance 68% this term (threshold 75%)", "Marks fell 18% from FA 1 to FA 2 in Maths and Science", "Fees overdue 95 days".
-- Signal strength: **Watch** or **Act now** (inferred labels), from simple rules set by the school (inferred: rule thresholds come from Attendance Settings, Exam pass rules and Fee overdue days).
+- Signal strength: **Watch** or **Act now** (inferred labels), from simple rules set by the school (inferred: rule thresholds come from Attendance Settings, Exam pass rules and Fee overdue days). **Act now is kept for strong evidence** (added 18 October 2026, so a school where most families owe fees does not see nearly every child as Act now): attendance below the threshold that is falling (the last 30 days lower than the year so far) or more than 10 points below it; below the pass mark in two or more subjects of the latest exam; or concerns in two areas at once (attendance and marks; an open Attendance Flag counts as the attendance one). One subject below the pass mark, a marks drop, or attendance just under the threshold and steady, is Watch. **Fee flags are always Watch**: overdue fees are an accounts matter, followed up from Fee Defaulters, and never make a student Act now on their own.
 - Status of each flag: **New**, **Reviewed**, **Action planned**, **Closed** (with who reviewed it and the note).
 - **AI signals (optional, schools using AI):** dropout risk, predictions (fees, results, attendance), and unusual activity (for example odd fee changes or many attendance edits by one person). Each is labelled "Suggestion", shows what it is based on, and never changes anything by itself.
+- **Looking ahead** (added 18 October 2026): the AI signals in **one view**, most important first (how much it matters, how soon, how sure), never more than two of one area among the first five; then every area with its count (Attendance, Marks, Fees, Students, Admissions, Syllabus, Messages, Staff, Finance, Unusual activity); everything else behind **See all**, each area showing its first three and "and N more". Each suggestion says how sure it is (Fairly sure, Likely, Early sign) and what it is based on.
+  - **May be thinking of leaving** needs combined evidence: attendance falling three months in a row, or many absences with no reason known yet, together with marks or fees; or a family that paid on time before and has stopped paying. A low mark with some fees due is not enough. Signs that count fees are shown only to people with the school's fees.
+  - **A class may do worse** only when its pass % fell 10 points or more between two exams (complete results only), saying how sure it is ("based on only 2 tests").
+  - **Seats next year** count the class below moving up at the school's own continuation rate (last year's students on this year's roll), with approved admissions and open enquiries at the school's own joining rate. Without an earlier year it says so, and warns only if seats would stay empty even if everyone moved up. A class filled only by new admissions is forecast from 120 days before the year starts.
+  - **Cash for the next 8 weeks**, with salary on pay day, only when the cash and bank books can be trusted. Without opening balances, or with the books below zero, one item asks for them instead of predicting a shortfall. Money in the words is in whole rupees.
+  - **Marks needed**: the % a student needs in the exams still to come (by their weight in the final result) to reach the pass mark in each subject.
+  - **Syllabus**: the date a section would finish a subject at the pace taught so far, against the last planned date or the end of the year.
+  - **Message credits**: the day credits run out at the use of the last 30 days, with the messages already scheduled. **Guardians who cannot be reached**: every message to them failed in the last 60 days.
+  - **Unusual activity** (with Student insights on): attendance changes and fee changes (cancelled payments, removed or adjusted dues, refunds, concessions and counter discounts) by one person in two weeks, against that person's own usual over the 8 weeks before, with the usual number shown. One closed as not a concern stays quiet until the number doubles.
 - A class teacher sees only their students; the Principal sees all. Of the AI signals, a class teacher sees the predictions ("Looking ahead") about the students of the sections they are class teacher of, never the fee or cash ones.
-- The same signals appear on the Dashboard (Needs Attention) and on the student's profile.
+- The same signals appear on the Dashboard (Needs Attention) and on the student's profile. The Dashboard card says what it counts, for example "12 students need a closer look: 5 attendance, 4 marks, 3 in two areas" (students with an Act now flag, once each, never fee defaulters), and opens that list.
 
 **Actions**
 
-- **Review a flag** (required before any action): mark Reviewed with a note; plan an action (for example call parent, refer to counsellor, fee follow-up) which creates a Task or a counselling referral (inferred links); or close as "not a concern" with a reason.
+- **Review a flag** (required before any action): mark Reviewed with a note; plan an action (for example call parent, refer to counsellor, fee follow-up) which creates a Task or a counselling referral (inferred links); or close as "not a concern" with a reason. The Task goes to the person who should act: an accountant for a fee follow-up, the class teacher for the others (the reviewer keeps it when they may give tasks only to themselves).
 - Nothing happens to a student from a flag alone: every flag is reviewed by a person before action.
 
 **Form fields: Review**
@@ -189,7 +198,7 @@ Used by: the Principal and management (analytics, early warnings), the Accountan
 
 | To | What |
 |---|---|
-| 01 Dashboard | School-level risk signals; principal summaries (optional) |
+| 01 Dashboard | School-level risk signals; principal summaries (optional): Today's brief |
 | 03 Student Management | Early-warning flags on the profile |
 | Notifications | "Report ready" for background reports; new Act now flags to class teachers (inferred) |
 | 11 Communication | Scheduled report emails |
@@ -239,7 +248,7 @@ This module is the home of all reports. It owns these directly:
 | Notification | Yes | | |
 | Audit Log Entry | Yes (exports, flag reviews) | | |
 
-Other records (inferred): **Report Definition** (catalogue entry), **Report Run** (background job and file), **Custom Report**, **Report Schedule**, **Risk Flag** with **Flag Review**, **Government Export** (version, file, problems).
+Other records (inferred): **Report Definition** (catalogue entry), **Report Run** (background job and file), **Custom Report**, **Report Schedule**, **Risk Flag** with **Flag Review**, **Government Export** (version, file, problems), **Forecast Signal** (one Looking ahead suggestion: area, Watch or Act now, title, the numbers in words, what it is based on, how much it matters and how sure it is, the list it opens) with **AI Signal Decision**, and **Management Brief** (added 18 October 2026: one person's brief for one morning, daily or weekly, with its lines and when it was sent).
 
 ## 9. Done when
 

@@ -1,13 +1,18 @@
 // Reports & Analytics on the Dashboard (19 "Connects to": "01 Dashboard:
-// early warnings and pinned charts"). Leaders see the open Act-now flags they
-// watch; class teachers see their own students' flags that wait for a review;
-// anyone who pinned an Analytics chart sees it under their numbers. Students
-// with an Attendance Flag are counted by the Attendance cards, not here, so
-// each child is counted once.
+// early warnings and pinned charts"; 01 Principal summary). Leaders get
+// Today's brief and the students who need a closer look (Act now: strong signs
+// in attendance or marks, never fees alone); class teachers their own
+// students' flags; anyone who pinned an Analytics chart sees it under their
+// numbers. The Early Warnings card counts students with an Attendance Flag
+// too, so the Attendance "below the threshold" card stays away from people
+// who see Early Warnings: each child is counted once.
 import "server-only";
 
 import { reportAccess } from "../../reports/access";
-import { dashboardWarningStudents, visibleForecasts } from "../../reports/warnings";
+import { ACT_NOW_HREF, aiSignals, dashboardWarnings } from "../../reports/warnings";
+import { closerLookWords } from "../../reports/strength";
+import { lookingAheadView } from "../../reports/looking-ahead";
+import { BRIEF_SECTION_LABEL, briefAllowed, todaysBrief, type BriefSection } from "../../reports/brief";
 import { pinsOf } from "../../reports/pins";
 import { pinnedCharts, type AChart } from "../../reports/analytics";
 import { plural } from "../common";
@@ -16,7 +21,12 @@ import type { DashContext, Panel, Viewer, Widget } from "../types";
 const BASE = "/reports-analytics";
 const access = (v: Viewer) => reportAccess(v);
 
-/** Open Act-now flags (leaders), or flags waiting for this teacher's review. */
+/**
+ * Early Warnings: the students who need a closer look (an open Act now row:
+ * attendance, marks, or both), once each, with what it is about. Fee rows are
+ * never counted: overdue fees are followed up from Fee Defaulters. People who
+ * review also see how many students wait for their review.
+ */
 const earlyWarnings: Widget<"attention"> = {
   id: "reports.early-warnings",
   module: "reports-analytics",
@@ -25,49 +35,71 @@ const earlyWarnings: Widget<"attention"> = {
   allowed: (v) => access(v).warnings.on,
   async load(c: DashContext) {
     const a = access(c.viewer);
-    const n = (await dashboardWarningStudents(c.tx, c.viewer, a)).length;
-    if (!n) return null;
-    if (a.warnings.review === "none") {
+    const w = await dashboardWarnings(c.tx, c.viewer, a);
+    if (!w) return null;
+    const reviews = a.warnings.review !== "none";
+    if (w.look.students) {
       return {
         id: "reports.early-warnings", tone: "bad", icon: "TriangleAlert",
-        title: `Early warnings: ${plural(n, "student")} to act on now`,
-        detail: "From marks and fees, and attendance not flagged in Attendance. Class teachers review; you can remind them.",
-        action: "Open", href: `${BASE}/early-warnings`, value: String(n),
+        title: `Early warnings: ${closerLookWords(w.look)}`,
+        detail: reviews
+          ? `${w.actNowToReview ? `${w.actNowToReview} not reviewed yet. ` : ""}Strong signs only. Nothing happens to a student until you review the flag.`
+          : "Strong signs only, from attendance and marks. Class teachers review; you can remind them. Fees stay in Fee Defaulters.",
+        action: reviews ? "Review" : "Open", href: ACT_NOW_HREF, value: `${w.look.students}:${w.look.attendance}:${w.look.marks}:${w.look.both}`,
       };
     }
-    return {
-      id: "reports.early-warnings", tone: "warn", icon: "TriangleAlert",
-      title: `Early warnings: ${plural(n, "student")} to review`,
-      detail: "Nothing happens to a student until you review the flag.",
-      action: "Review", href: `${BASE}/early-warnings?status=NEW`, value: String(n),
-    };
+    if (reviews && w.toReview) {
+      return {
+        id: "reports.early-warnings", tone: "warn", icon: "TriangleAlert",
+        title: `Early warnings: ${plural(w.toReview, "student")} to review`,
+        detail: "Watch signs, from attendance and marks. Nothing happens to a student until you review the flag.",
+        action: "Review", href: `${BASE}/early-warnings?status=NEW&period=all`, value: String(w.toReview),
+      };
+    }
+    return null;
   },
 };
 
 /**
- * Looking ahead (forecasts.ts): suggestions about what may happen next, for the
- * leaders who have Forecasts on, and for a class teacher about their own students.
+ * Looking ahead (forecasts.ts): suggestions about what may happen next, most
+ * important first, for the leaders who have Forecasts or Student insights on,
+ * and for a class teacher about their own students.
  */
 const lookingAhead: Widget<"attention"> = {
   id: "reports.looking-ahead",
   module: "reports-analytics",
   kind: "attention",
   homes: ["leader", "class-teacher"],
-  allowed: (v) => access(v).ai.forecasts,
+  allowed: (v) => access(v).ai.forecasts || access(v).ai.insights,
   async load(c: DashContext) {
     const a = access(c.viewer);
-    const list = await visibleForecasts(c.tx, c.viewer, a);
-    if (!list.length) return null;
-    const decided = new Set((await c.tx.aiSignalDecision.findMany({ where: { signalKey: { in: list.map((f) => f.key) } }, select: { signalKey: true } })).map((d) => d.signalKey));
-    const open = list.filter((f) => !decided.has(f.key));
+    const open = await aiSignals(c.tx, c.viewer, a);
     if (!open.length) return null;
+    const view = lookingAheadView(open);
     const soon = open.filter((f) => f.strength === "ACT_NOW").length;
     return {
       id: "reports.looking-ahead", tone: soon ? "warn" : "info", icon: "Sparkles",
-      title: `Looking ahead: ${plural(open.length, "thing")} that may need you soon`,
-      detail: `${soon ? `${soon} to act on soon. ` : ""}For example: ${open[0].title}. Suggestions only; you decide.`,
+      title: `Looking ahead: ${plural(open.length, "suggestion")} about what may happen next`,
+      detail: `${soon ? `${soon} to act on soon. ` : ""}Most important: ${view.top[0].title}. Suggestions only; you decide.`,
       action: "See all", href: `${BASE}/early-warnings#looking-ahead`, value: String(open.length),
     };
+  },
+};
+
+/** Today's brief (Principal summary, brief.ts): what happened, what may need you next, what waits for you. */
+const brief: Widget<"panel"> = {
+  id: "reports.brief",
+  module: "reports-analytics",
+  kind: "panel",
+  homes: ["leader"],
+  allowed: (v) => briefAllowed(v),
+  async load(c) {
+    const b = await todaysBrief(c.tx, c.viewer, c.now);
+    const sections = (Object.keys(BRIEF_SECTION_LABEL) as BriefSection[])
+      .map((s) => ({ heading: BRIEF_SECTION_LABEL[s], lines: b.lines.filter((l) => l.section === s).map((l) => ({ text: l.text, href: l.href, suggestion: l.suggestion, basis: l.basis })) }))
+      .filter((s) => s.lines.length);
+    if (!sections.length) return null;
+    return { slot: "first", panel: { kind: "brief", title: b.title, sub: b.period, sections, note: "Every number is from the school's own records, with the list behind it. Lines marked Suggestion are forecasts: nothing changes until a person decides." } };
   },
 };
 
@@ -102,4 +134,4 @@ const pinned: Widget<"panel"> = {
   },
 };
 
-export const REPORTS_WIDGETS: readonly Widget[] = [earlyWarnings, lookingAhead, pinned];
+export const REPORTS_WIDGETS: readonly Widget[] = [brief, earlyWarnings, lookingAhead, pinned];

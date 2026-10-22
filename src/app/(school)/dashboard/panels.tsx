@@ -118,6 +118,31 @@ export function PanelCard({ panel }: { panel: Panel }) {
           )}
         </Card>
       );
+    case "brief":
+      return (
+        <Card id="brief" className="scroll-mt-4">
+          <CardHeader title={panel.title} description={panel.sub} icon={I.Newspaper} />
+          <div className="px-5 pb-4 flex flex-col gap-4">
+            {panel.sections.map((s) => (
+              <section key={s.heading}>
+                <p className="eyebrow text-ink3 mb-1.5">{s.heading}</p>
+                <ul className="flex flex-col gap-1.5">
+                  {s.lines.map((l, i) => (
+                    <li key={i} className="text-[14px] leading-snug flex items-start gap-2">
+                      <span className="min-w-0 flex-1">
+                        {l.href ? <Link href={l.href} className="hover:text-brand hover:underline">{l.text}</Link> : l.text}
+                        {l.basis && <span className="block text-[12px] text-ink3">Based on: {l.basis}</span>}
+                      </span>
+                      {l.suggestion && <Pill tone="brand" className="shrink-0 !h-5 !text-[11px]">Suggestion</Pill>}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            ))}
+            <p className="text-[12px] text-ink3">{panel.note}</p>
+          </div>
+        </Card>
+      );
     case "my-class":
       return (
         <Card>

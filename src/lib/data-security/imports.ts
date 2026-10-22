@@ -17,6 +17,10 @@ export type ImportJob = {
   lines?: number[];
   /** The choices made for rows that may already be on record, by line. */
   decisions?: Record<number, string>;
+  /** The page the person brought the file in from, for the notification when it is done. */
+  link?: string;
+  /** Rows the check left out on purpose before handing the rows over ("No old dues"), counted with the import. */
+  left?: { reason: string; count: number }[];
 };
 
 export async function readUploaded(tx: Tx, fileId: string) {
@@ -44,13 +48,14 @@ export async function runImportJob(tx: Tx, ctx: SchoolContext, payload: ImportJo
   const uploaded = await readUploaded(tx, payload.fileId);
   if (!uploaded) throw new Error("The uploaded file is missing");
   const preview = await previewImport(tx, ctx, kind, uploaded.sheet.rows, payload.match, payload.decisions ?? {}, payload.lines);
-  const batch = await runImport(tx, ctx, kind, `${uploaded.file.fileName.slice(0, 150)}#${payload.fileId}`, preview);
+  const left = (payload.left ?? []).filter((l) => typeof l?.reason === "string" && Number.isInteger(l?.count) && l.count > 0).slice(0, 20);
+  const batch = await runImport(tx, ctx, kind, `${uploaded.file.fileName.slice(0, 150)}#${payload.fileId}`, preview, { left });
   if (ctx.userId) {
     await notify(tx, { schoolId: ctx.schoolId, userId: null }, {
       to: ctx.userId,
       type: "import",
       text: `${kind.label} import finished: ${batch.added} added, ${batch.updated} updated, ${batch.skipped} with problems${batch.skipped ? " (download them from Import history)" : ""}.`,
-      link: "/settings/data-security/imports",
+      link: payload.link && /^\/[a-z0-9/_-]*$/i.test(payload.link) ? payload.link : "/settings/data-security/imports",
     });
   }
   return { batchId: batch.id, added: batch.added, updated: batch.updated, skipped: batch.skipped };

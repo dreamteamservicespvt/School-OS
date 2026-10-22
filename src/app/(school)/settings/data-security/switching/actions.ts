@@ -1,34 +1,26 @@
 "use server";
 
-// Switching to School OS (workflow 15): every change made on the move-in
-// screens. Each checks the person's role on the server, works inside the
-// school's own transaction and explains a refusal in plain words.
+// Switching to School OS (workflow 15): the move-in plan and the go-live
+// check. Each checks the person's role on the server, works inside the
+// school's own transaction and explains a refusal in plain words. The
+// changes made on each file are shared by every import page:
+// src/app/(school)/_imports/file-actions.ts.
 
 import { revalidatePath } from "next/cache";
-import { redirect, unstable_rethrow } from "next/navigation";
+import { unstable_rethrow } from "next/navigation";
 import { requireSettingsAction } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
-import { can } from "@/lib/permissions";
 import type { FormState } from "@/lib/forms";
-import { FileProblem, SHEET_TYPES, saveFile } from "@/lib/files";
-import { undoImport } from "@/lib/importer";
 import { AcademicRuleError } from "@/lib/academic/common";
 import { ParentLinkProblem, sendToFamilies } from "@/lib/parent-link/links";
 import { MessagingProblem } from "@/lib/messaging";
-import {
-  MoveInProblem, acceptAiColumns, addMissingClasses, addMissingOptions, addUpload, aiColumnInput, canBring, canUndo, chooseRow, chooseSheet, fixRow, getFile, goLive, importFile,
-  kindInfo, leaveOut, liveGuardianIds, removeFile, saveExpected, setColumns, setTidy, setValues, undoFix,
-} from "@/lib/move-in/service";
-import { aiReady } from "@/lib/ai";
-import { aiAllowed } from "@/lib/settings/switch-rules";
-import { suggestColumnsByAi, type AiColumnsResult } from "@/lib/ai/smart-import";
+import { MoveInProblem, goLive, liveGuardianIds, saveExpected } from "@/lib/move-in/service";
 
 const BASE = "/settings/data-security/switching";
 const PAGE = "data-security" as const;
-const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
 
-const KNOWN = [MoveInProblem, AcademicRuleError, FileProblem, ParentLinkProblem];
+const KNOWN = [MoveInProblem, AcademicRuleError, ParentLinkProblem];
 function problem(e: unknown): string {
   unstable_rethrow(e);
   if (KNOWN.some((K) => e instanceof K)) return (e as Error).message;
@@ -44,260 +36,7 @@ async function run(fn: () => Promise<unknown>): Promise<string | void> {
   }
 }
 
-/** The person must reach Settings, and be allowed to add (or undo) the records this file holds in their own module. */
-async function forFile(id: string, need: "create" | "archive" = "create") {
-  const { current } = await requireSettingsAction(PAGE, "view");
-  if (!isId(id)) throw new MoveInProblem("This file was not found.");
-  const f = await withSchool(current.ctx, (tx) => getFile(tx, id));
-  if (!f) throw new MoveInProblem("This file was not found. It may have been removed.");
-  if (!(need === "create" ? canBring : canUndo)(current.permissions, f.kind, current.modulesOn)) throw new MoveInProblem(`Your role cannot ${need === "create" ? "add" : "undo"} ${kindInfo(f.kind)?.label.toLowerCase() ?? "these records"}. Ask your School Admin.`);
-  return { current, file: f };
-}
-
-const refresh = (id?: string) => { revalidatePath(BASE); if (id) revalidatePath(`${BASE}/${id}`); };
-
-// ── Upload ─────────────────────────────────────────────────────────────────
-
-export async function uploadAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  const { current } = await requireSettingsAction(PAGE, "view");
-  const kind = String(fd.get("kind") ?? "");
-  const file = fd.get("file");
-  const values = { kind };
-  if (!(file instanceof File) || file.size === 0) return { ok: false, message: "Choose the file to upload.", errors: { file: "Choose the file to upload." }, values };
-  const head = Buffer.from(await file.slice(0, 8).arrayBuffer());
-  if (head.subarray(0, 4).equals(Buffer.from([0xd0, 0xcf, 0x11, 0xe0]))) {
-    const m = "This is an old Excel file (.xls). Open it in Excel and use Save As, Excel Workbook (.xlsx) or CSV, then upload that.";
-    return { ok: false, message: m, errors: { file: m }, values };
-  }
-  if (kind && !kindInfo(kind)) return { ok: false, message: "Choose what the file holds.", errors: { kind: "Choose what the file holds." }, values };
-  let ids: string[] = [];
-  try {
-    ids = await withSchool(current.ctx, async (tx) => {
-      const saved = await saveFile(tx, current.ctx, { file, purpose: "move-in", allowed: SHEET_TYPES });
-      return addUpload(tx, current.ctx, current.permissions, { fileId: saved.id, fileName: file.name, kind: kind || null }, current.modulesOn);
-    }, { timeout: 120_000 });
-  } catch (e) {
-    const m = problem(e);
-    return { ok: false, message: m, errors: { file: m }, values };
-  }
-  if (ids.length > 1) {
-    await flash({ message: `School OS found ${ids.length} sheets with records in ${file.name}. Open each one to check it and bring it in.` });
-    refresh();
-    redirect(BASE);
-  }
-  redirect(`${BASE}/${ids[0]}`);
-}
-
-// ── Working on one file ───────────────────────────────────────────────────
-
-export async function sheetAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  const id = String(fd.get("id") ?? "");
-  const r = await run(async () => {
-    const { current } = await forFile(id);
-    await withSchool(current.ctx, (tx) => chooseSheet(tx, current.ctx, id, {
-      sheetIndex: Number(fd.get("sheetIndex")), headerRow: Number(fd.get("headerRow")), kind: String(fd.get("kind") ?? ""),
-    }, current.permissions), { timeout: 60_000 });
-  });
-  if (r) return { ok: false, message: r };
-  refresh(id);
-  redirect(`${BASE}/${id}?step=columns`);
-}
-
-export async function columnsAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  const id = String(fd.get("id") ?? "");
-  const next = fd.get("next") === "check" ? "check" : "values";
-  const match: Record<string, number[]> = {};
-  for (const [k, v] of fd.entries()) {
-    const m = /^col_([A-Za-z]+)(?:_(\d))?$/.exec(k);
-    if (!m || typeof v !== "string" || v === "") continue;
-    const n = Number(v);
-    if (!Number.isInteger(n)) continue;
-    (match[m[1]] ??= []).push(n);
-  }
-  const r = await run(async () => {
-    const { current } = await forFile(id);
-    await withSchool(current.ctx, (tx) => setColumns(tx, id, match), { timeout: 60_000 });
-  });
-  if (r) return { ok: false, message: r };
-  refresh(id);
-  redirect(`${BASE}/${id}?step=${next}`);
-}
-
-/**
- * Smart Import's AI suggestions for the columns the rules left. Only the headings and what
- * kind of values each column holds are sent; nothing changes until the person ticks and saves.
- */
-export async function aiColumnsAction(id: string): Promise<AiColumnsResult> {
-  try {
-    const { current } = await forFile(id);
-    if (!aiReady(current, "ai-smart-import")) return { ok: false, suggestions: [], message: "The AI assistant is not available for Smart Import here." };
-    // The file is read in a short transaction; the AI service is asked outside it.
-    const input = await withSchool(current.ctx, (tx) => aiColumnInput(tx, id), { timeout: 60_000 });
-    return await suggestColumnsByAi(current.ctx, input);
-  } catch (e) {
-    return { ok: false, suggestions: [], message: problem(e) };
-  }
-}
-
-/** The AI suggestions the person ticked, added to the column match. */
-export async function acceptAiColumnsAction(id: string, picks: { key: string; index: number }[]): Promise<string | void> {
-  const r = await run(async () => {
-    const { current } = await forFile(id);
-    // Only while Smart Import is on for this person: nothing AI-prepared is saved with AI off (00-global.md §2.1 rule 8).
-    if (!aiAllowed(current, "ai-smart-import")) throw new MoveInProblem("Smart Import is off for your role here. Match the columns by hand.");
-    if (!Array.isArray(picks)) throw new MoveInProblem("Tick the matches to use.");
-    await withSchool(current.ctx, (tx) => acceptAiColumns(tx, current.ctx, id, picks.map((p) => ({ key: String(p?.key ?? ""), index: Number(p?.index) }))), { timeout: 60_000 });
-  });
-  if (r) return r;
-  refresh(id);
-}
-
-export async function tidyAction(id: string, on: boolean): Promise<string | void> {
-  const r = await run(async () => {
-    const { current } = await forFile(id);
-    await withSchool(current.ctx, (tx) => setTidy(tx, id, on));
-  });
-  if (r) return r;
-  refresh(id);
-}
-
-export async function valuesAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  const id = String(fd.get("id") ?? "");
-  const column = String(fd.get("column") ?? "");
-  const pairs: Record<string, string> = {};
-  for (const [k, v] of fd.entries()) {
-    const m = /^w_(\d+)$/.exec(k);
-    if (!m || typeof v !== "string") continue;
-    const chosen = fd.get(`v_${m[1]}`);
-    if (typeof chosen === "string") pairs[v] = chosen;
-  }
-  const r = await run(async () => {
-    const { current } = await forFile(id);
-    await withSchool(current.ctx, (tx) => setValues(tx, id, column, pairs));
-  });
-  if (r) return { ok: false, message: r };
-  refresh(id);
-  return { ok: true, message: "Saved. The rows are checked again with your choices." };
-}
-
-export async function addClassesAction(id: string, words: string[]): Promise<string | void> {
-  let added = 0;
-  const r = await run(async () => {
-    const { current } = await forFile(id);
-    if (!can(current.permissions, "academic-management", "create")) throw new MoveInProblem("Your role cannot add classes. Ask your School Admin, or match these to classes that exist.");
-    added = await withSchool(current.ctx, (tx) => addMissingClasses(tx, current.ctx, id, words), { timeout: 60_000 });
-  });
-  if (r) return r;
-  await flash({ message: added ? `${added} ${added === 1 ? "class or section was" : "classes and sections were"} added to this year in Academic Management.` : "Matched to the classes that already exist." });
-  refresh(id);
-}
-
-export async function addOptionsAction(id: string, column: "designation" | "department", words: string[]): Promise<string | void> {
-  let added = 0;
-  const r = await run(async () => {
-    const { current } = await forFile(id);
-    if (column !== "designation" && column !== "department") throw new MoveInProblem("This column cannot be added to.");
-    if (!can(current.permissions, "staff-hr-management", "edit")) throw new MoveInProblem("Your role cannot change HR Settings. Ask your School Admin, or match these to ones that exist.");
-    added = await withSchool(current.ctx, (tx) => addMissingOptions(tx, current.ctx, id, column, words));
-  });
-  if (r) return r;
-  await flash({ message: `${added} ${column === "designation" ? (added === 1 ? "designation" : "designations") : added === 1 ? "department" : "departments"} added to HR Settings.` });
-  refresh(id);
-}
-
-export async function fixRowAction(_prev: FormState, fd: FormData): Promise<FormState> {
-  const id = String(fd.get("id") ?? "");
-  const line = Number(fd.get("line"));
-  const values: Record<string, string> = {};
-  for (const [k, v] of fd.entries()) {
-    const m = /^f_([A-Za-z]+)$/.exec(k);
-    if (m && typeof v === "string") values[m[1]] = v;
-  }
-  const r = await run(async () => {
-    const { current } = await forFile(id);
-    await withSchool(current.ctx, (tx) => fixRow(tx, id, line, values));
-  });
-  if (r) return { ok: false, message: r };
-  refresh(id);
-  return { ok: true, message: `Row ${line} saved and checked again.` };
-}
-
-export async function undoFixAction(id: string, line: number): Promise<string | void> {
-  const r = await run(async () => {
-    const { current } = await forFile(id);
-    await withSchool(current.ctx, (tx) => undoFix(tx, id, line));
-  });
-  if (r) return r;
-  refresh(id);
-}
-
-/** A choice for a row that may already be on record (same student, same family, a new student); "" takes it back. */
-export async function chooseRowAction(id: string, line: number, value: string): Promise<string | void> {
-  const r = await run(async () => {
-    const { current } = await forFile(id);
-    await withSchool(current.ctx, (tx) => chooseRow(tx, current.ctx, id, line, value));
-  });
-  if (r) return r;
-  refresh(id);
-}
-
-export async function leaveOutAction(id: string, lines: number[], out: boolean): Promise<string | void> {
-  const r = await run(async () => {
-    const { current } = await forFile(id);
-    await withSchool(current.ctx, (tx) => leaveOut(tx, id, lines, out));
-  });
-  if (r) return r;
-  refresh(id);
-}
-
-export async function importAction(id: string): Promise<string | void> {
-  let result = { rows: 0, problems: 0 };
-  let label = "";
-  const r = await run(async () => {
-    const { current, file } = await forFile(id);
-    label = kindInfo(file.kind)?.label.toLowerCase() ?? "records";
-    result = await withSchool(current.ctx, (tx) => importFile(tx, current.ctx, id), { timeout: 300_000 });
-  });
-  if (r) return r;
-  await flash({ message: `Bringing in ${result.rows} ${label}. You will get a notification when it is done${result.problems ? `; ${result.problems} ${result.problems === 1 ? "row" : "rows"} with problems stay here to fix` : ""}.` });
-  refresh(id);
-}
-
-export async function removeAction(id: string): Promise<string | void> {
-  const r = await run(async () => {
-    const { current } = await forFile(id);
-    await withSchool(current.ctx, (tx) => removeFile(tx, current.ctx, id));
-  });
-  if (r) return r;
-  await flash({ message: "The file is removed from this list. Nothing it imported was changed." });
-  refresh();
-}
-
-/** Undoes the import a file made, and opens the file again to fix and bring in again (workflow 15, "fix the file, undo and import again"). */
-export async function undoFileImportAction(id: string): Promise<string | void> {
-  let archived = 0;
-  const r = await run(async () => {
-    const { current, file } = await forFile(id, "archive");
-    if (file.status !== "imported" || !file.batchId) throw new MoveInProblem("This file has no import to undo.");
-    await withSchool(current.ctx, async (tx) => {
-      const batch = await tx.importBatch.findUnique({ where: { id: file.batchId! } });
-      if (!batch) throw new MoveInProblem("This import was not found.");
-      if (!batch.undoneAt) {
-        try {
-          await undoImport(tx, current.ctx, batch.id);
-        } catch (e) {
-          if (e instanceof Error && /already undone|cannot be undone/.test(e.message)) throw new MoveInProblem(e.message);
-          throw e;
-        }
-      }
-      archived = batch.added;
-      await tx.moveInFile.update({ where: { id }, data: { status: "open", batchId: null, importFileId: null } });
-    }, { timeout: 120_000 });
-  });
-  if (r) return r;
-  await flash({ message: `Import undone: the ${archived} records it added are archived. The file is open again to fix and bring in.` });
-  refresh(id);
-}
+const refresh = () => { revalidatePath(BASE); };
 
 // ── The go-live check ─────────────────────────────────────────────────────
 

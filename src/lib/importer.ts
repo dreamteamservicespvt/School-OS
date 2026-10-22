@@ -228,7 +228,7 @@ export function rowRefusal(e: unknown): string | null {
  * row is saved on its own (a savepoint): a row that cannot be saved is listed
  * with the reason and the others still go in.
  */
-export async function runImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportKind<T>, fileName: string, preview: Preview<T>) {
+export async function runImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportKind<T>, fileName: string, preview: Preview<T>, opts: { left?: { reason: string; count: number }[] } = {}) {
   const createdIds: string[] = [];
   const updatedRows: UpdatedRow[] = [];
   const bad: BadRow[] = [...preview.bad];
@@ -253,6 +253,10 @@ export async function runImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportKind<
     if (!saved.created && saved.before && saved.after) updatedRows.push({ id: saved.id, before: saved.before, after: saved.after });
   }
   bad.sort((a, b) => a.line - b.line);
+  // Rows left out on purpose, counted here or before the rows were handed over (Switching to School OS checks first).
+  const left = new Map<string, number>();
+  for (const l of [...leftCounts(preview.left ?? []), ...(opts.left ?? [])]) left.set(l.reason, (left.get(l.reason) ?? 0) + l.count);
+  const leftOut = [...left.entries()].map(([reason, count]) => ({ reason, count }));
   const batch = await tx.importBatch.create({
     data: {
       schoolId: ctx.schoolId,
@@ -261,14 +265,14 @@ export async function runImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportKind<
       added: createdIds.length,
       updated,
       skipped: bad.length,
-      leftOut: leftCounts(preview.left ?? []),
+      leftOut,
       createdIds,
       updatedRows: updatedRows as unknown as Prisma.InputJsonValue,
       errorReport: bad.map((b) => ({ line: b.line, row: b.row, problems: b.problems })),
       importedById: ctx.userId,
     },
   });
-  await writeAudit(tx, ctx, { action: "imported", recordType: "Import", recordId: batch.id, after: { kind: kind.key, fileName, added: createdIds.length, updated, skipped: bad.length, leftOut: leftCounts(preview.left ?? []) } });
+  await writeAudit(tx, ctx, { action: "imported", recordType: "Import", recordId: batch.id, after: { kind: kind.key, fileName, added: createdIds.length, updated, skipped: bad.length, leftOut } });
   return batch;
 }
 

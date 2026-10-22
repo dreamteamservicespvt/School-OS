@@ -529,7 +529,7 @@ export async function removeFile(tx: Tx, ctx: SchoolContext, id: string) {
  * that pass the checks now are sent; the import checks them again as it runs,
  * so a row that changed in between is listed with its problem, not imported.
  */
-export async function importFile(tx: Tx, ctx: SchoolContext, id: string) {
+export async function importFile(tx: Tx, ctx: SchoolContext, id: string, opts: { link?: string } = {}) {
   const f = await openFile(tx, id);
   const w = await workOn(tx, ctx, id, { check: true });
   const ready = w.checked!.ready;
@@ -545,7 +545,7 @@ export async function importFile(tx: Tx, ctx: SchoolContext, id: string) {
   // The import job sees the rows with their own lines in the file, and the choices made for them.
   const lines = ready.map((r) => r.line);
   const decisions = Object.fromEntries(Object.entries(decisionsOf(w.choices, w.prepared)).filter(([line]) => lines.includes(Number(line))));
-  await startImport(tx, ctx, { kind: w.kind.key, fileId, match: identity, lines, decisions });
+  await startImport(tx, ctx, { kind: w.kind.key, fileId, match: identity, lines, decisions, ...(opts.link ? { link: opts.link } : {}), ...(w.checked!.left.length ? { left: w.checked!.left } : {}) });
   await tx.moveInFile.update({ where: { id }, data: { status: "importing", importFileId: fileId } });
   // Bringing the file in confirms its column match: the next file with these headings is matched the same way.
   await rememberMapping(tx, ctx, { kind: w.kind.key, headers: w.sheet.rows[f.headerRow - 1] ?? [], match: w.choices.columnMatch, fileName: f.fileName });

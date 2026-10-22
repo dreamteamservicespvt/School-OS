@@ -12,8 +12,8 @@ import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { AutoRefresh } from "../parts";
-import { UploadForm } from "./forms";
-import { RemoveFileButton } from "./parts";
+import { UploadForm } from "@/components/import/file-forms";
+import { RemoveFileButton } from "@/components/import/file-buttons";
 
 export const metadata: Metadata = { title: "Switching to School OS · Data Backup & Security" };
 
@@ -122,7 +122,7 @@ export default async function SwitchingPage({ searchParams }: Search) {
         <Card id="bring-in" className="self-start">
           <CardHeader title="Bring in a file" description="School OS finds the headings, works out what the file holds, matches the columns and tidies dates, phones and names. You check every row before anything is saved." />
           <CardBody>
-            {mine.length ? <UploadForm kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={wantKind && mine.some((k) => k.key === wantKind) ? wantKind : undefined} />
+            {mine.length ? <UploadForm place="settings" kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={wantKind && mine.some((k) => k.key === wantKind) ? wantKind : undefined} />
               : <p className="text-ink-2">Your role can see this page but not add records. Ask your School Admin.</p>}
             <details className="mt-4 text-sm text-ink-2">
               <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">Records on paper?</summary>
@@ -154,7 +154,7 @@ export default async function SwitchingPage({ searchParams }: Search) {
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <FileStatus status={f.status} undone={Boolean(batch?.undoneAt)} />
-                  {f.status !== "importing" && canBring(current.permissions, f.kind, current.modulesOn) && <RemoveFileButton id={f.id} imported={f.status === "imported"} />}
+                  {f.status !== "importing" && canBring(current.permissions, f.kind, current.modulesOn) && <RemoveFileButton place="settings" id={f.id} imported={f.status === "imported"} back={BASE} />}
                   {f.status === "imported" && batch && !batch.undoneAt && canUndo(current.permissions, f.kind, current.modulesOn) && <ButtonLink href={`${BASE}/${f.id}`} size="sm">See result</ButtonLink>}
                   {f.status === "open" && canBring(current.permissions, f.kind, current.modulesOn) && <ButtonLink href={`${BASE}/${f.id}`} size="sm" variant="primary">Continue</ButtonLink>}
                 </div>

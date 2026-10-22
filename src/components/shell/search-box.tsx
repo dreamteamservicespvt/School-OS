@@ -4,7 +4,7 @@
 // students, staff and pages, plus recent and pinned pages and the person's quick actions.
 
 import { usePathname, useRouter } from "next/navigation";
-import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import * as I from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cx } from "@/components/ui/cx";
@@ -13,6 +13,7 @@ import { Kbd } from "@/components/ui/display";
 import type { PageLink } from "./nav-data";
 import type { Quick } from "./nav-config";
 import { readList, recordRecent, storageKey } from "./local-lists";
+import { typedKey } from "./typed-key";
 
 export const OPEN_SEARCH_EVENT = "sos:open-search";
 
@@ -66,12 +67,26 @@ function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => 
   const [found, setFound] = useState<{ q: string; collect: Person[]; students: Person[]; staff: Person[]; parents: Person[]; receipts: Person[]; problem: string | null }>({ q: "", collect: [], students: [], staff: [], parents: [], receipts: [], problem: null });
   const [lists] = useState(() => ({ recent: readList(storageKey(userId, "recent")), pinned: readList(storageKey(userId, "pinned")) }));
   const inp = useRef<HTMLInputElement>(null);
+  const box = useRef<HTMLDivElement>(null);
 
+  // The box takes the keys at once (QA SEARCH-01): focus it before the browser paints, and any
+  // letter pressed while focus is still elsewhere (the search bar just clicked) goes into the box.
+  useLayoutEffect(() => { inp.current?.focus(); }, []);
   useEffect(() => {
-    const t = setTimeout(() => inp.current?.focus(), 40);
+    const t = setTimeout(() => { if (document.activeElement !== inp.current) inp.current?.focus(); }, 40);
     const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const early = (e: KeyboardEvent) => {
+      const ch = typedKey(e);
+      // Only while focus is still outside the palette; inside it, keys do what they normally do.
+      if (!ch || !inp.current || box.current?.contains(document.activeElement)) return;
+      e.preventDefault();
+      setQ((v) => v + ch);
+      setSel(0);
+      inp.current.focus();
+    };
     window.addEventListener("keydown", k);
-    return () => { clearTimeout(t); window.removeEventListener("keydown", k); };
+    window.addEventListener("keydown", early, true);
+    return () => { clearTimeout(t); window.removeEventListener("keydown", k); window.removeEventListener("keydown", early, true); };
   }, [onClose]);
 
   // People come from the server, only those this person may open.
@@ -126,7 +141,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick }: { onClose: () => 
   return (
     <div className="fixed inset-0 z-50 flex justify-center items-start md:pt-[10vh]">
       <div className="absolute inset-0 bg-shade/45 backdrop-blur-[2px] animate-fade" onClick={onClose} aria-hidden="true" />
-      <div role="dialog" aria-modal="true" aria-label="Search"
+      <div ref={box} role="dialog" aria-modal="true" aria-label="Search"
         className="relative w-full h-full md:h-auto md:max-w-2xl bg-surface md:rounded-2xl shadow-pop animate-rise flex flex-col md:max-h-[70vh] md:mx-6">
         <div className="flex items-center gap-3 px-4 h-16 border-b border-line shrink-0">
           {loading ? <I.LoaderCircle size={20} className="text-ink3 animate-spin" aria-hidden="true" /> : <I.Search size={20} className="text-ink3" aria-hidden="true" />}

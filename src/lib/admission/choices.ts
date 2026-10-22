@@ -38,7 +38,7 @@ export async function applicationChoices(tx: Tx, current: Pick<Current, "roles">
 
 export async function enquiryChoices(tx: Tx, ctx: SchoolContext, current: Pick<Current, "roles">, s: Settings, tz: string) {
   const [classes, staff, fields, follow, years, rules, year] = await Promise.all([
-    classList(tx), admissionStaff(tx, ctx), loadCustomFields(tx, "enquiry"), defaultFollowUp(tx, tz), openYears(tx), tx.admissionClassRule.findMany({ select: { classId: true, ownerStaffId: true } }), admissionYear(tx, ctx, s),
+    classList(tx), admissionStaff(tx, ctx), loadCustomFields(tx, "enquiry"), defaultFollowUp(tx, ctx, tz), openYears(tx), tx.admissionClassRule.findMany({ select: { classId: true, ownerStaffId: true } }), admissionYear(tx, ctx, s),
   ]);
   const sources = live(s.sourceList);
   const active = years.find((y) => y.status === "ACTIVE");

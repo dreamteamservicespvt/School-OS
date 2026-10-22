@@ -9,7 +9,7 @@ import { eachDay, isoDay, monthEnd, monthLabel, monthStart } from "../staff/date
 import { BASE, type AttendanceAccess } from "./access";
 import { schoolDays } from "./calendar";
 import { statusList, type StatusInfo } from "./settings";
-import { attendanceSummary, type PersonSummary } from "./summary";
+import { attendanceSummary, placesOf, type PersonSummary } from "./summary";
 import { takeChoices } from "./marks";
 import { classWise } from "./classwise";
 import { flagStatusOf, OPEN_ATTENDANCE_FLAG, type AttendanceFlagStatus } from "./flags";
@@ -21,9 +21,11 @@ export type MonthView = { label: string; month: string; summary: PersonSummary; 
 export async function studentMonth(tx: Tx, ctx: SchoolContext, studentId: string, month: Date, today: Date, campusId?: string | null): Promise<MonthView> {
   const from = monthStart(month);
   const to = monthEnd(month);
+  // The student's own class and campus decide the days off.
+  const place = (await placesOf(tx, [studentId], "student", from, to)).get(studentId);
   const [sum, days] = await Promise.all([
     attendanceSummary(tx, ctx, { studentId, from, to, today, campusId }),
-    schoolDays(tx, ctx, from, to, campusId ?? null),
+    schoolDays(tx, ctx, from, to, place?.campusId ?? campusId ?? null, { classId: place?.classId ?? null }),
   ]);
   const byDay = sum.days.get(studentId) ?? new Map<string, string>();
   const cells = eachDay(from, to).map((d) => {
@@ -37,9 +39,10 @@ export async function studentMonth(tx: Tx, ctx: SchoolContext, studentId: string
 export async function staffMonth(tx: Tx, ctx: SchoolContext, staffId: string, month: Date, today: Date, campusId?: string | null): Promise<MonthView> {
   const from = monthStart(month);
   const to = monthEnd(month);
+  const own = await tx.staff.findFirst({ where: { id: staffId }, select: { campusId: true } });
   const [sum, days] = await Promise.all([
     attendanceSummary(tx, ctx, { staffIds: [staffId], from, to, today, campusId }),
-    schoolDays(tx, ctx, from, to, campusId ?? null),
+    schoolDays(tx, ctx, from, to, own?.campusId ?? campusId ?? null),
   ]);
   const byDay = sum.days.get(staffId) ?? new Map<string, string>();
   const cells = eachDay(from, to).map((d) => {
@@ -147,6 +150,8 @@ export async function attendanceToday(tx: Tx, ctx: SchoolContext, today: Date, o
   const counted = sum("counted");
   return {
     off: info.on ? null : info.title,
+    /** Why there is no school: a holiday, a Sunday or another day off. */
+    offReason: info.on ? null : info.reason,
     students: {
       marked: sum("marked"), present: sum("present"), absent: sum("absent"), leave: sum("leave"), late: sum("late"), total: sum("students"),
       /** Students the % counts: marked, leaving out those on leave. "Present of counted" agrees with the %. */

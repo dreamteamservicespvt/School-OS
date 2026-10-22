@@ -53,7 +53,7 @@ export async function previewStudentLeave(_: FormState<{ text: string; canApprov
     const { access } = await actionContext(current);
     const input = leaveInput(fd);
     const c = await withSchool(current.ctx, (tx) => checkStudentLeave(tx, current.ctx, access, input));
-    const parts = [`${daysText(c.days)} of school (Sundays and holidays not counted)`];
+    const parts = [`${daysText(c.days)} of school (Sundays, holidays and days off not counted)`];
     if (c.quota) parts.push(quotaText(c.quota));
     if (c.overQuota) parts.push(c.settings.quotaOverNeedsApproval ? "This is over the quota, so it goes to the principal in Approvals" : "This is over the quota");
     return { ok: true, data: { text: `${parts.join(" · ")}.`, canApprove: c.mayDecide, warn: c.overQuota } };

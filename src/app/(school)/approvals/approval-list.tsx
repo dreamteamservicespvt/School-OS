@@ -17,6 +17,8 @@ export type ApprovalRow = {
   status: { label: string; tone: BadgeTone }; waitingFor: string | null; decidable: boolean; overdue: boolean;
   /** The asker's job ("Teacher, Science · Class teacher, Class 5 A") and the reason they gave. */
   job: string | null; reason: string | null;
+  /** What the approver needs to see before deciding (the leave balance, the change asked for). */
+  facts?: { label: string; value: string }[];
 };
 
 export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
@@ -83,6 +85,7 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
                 <p className="font-semibold text-[15px] group-hover:text-brand transition">{r.summary}</p>
                 <p className="text-[13px] text-ink2">Asked by {r.askedBy}{r.job ? <span className="text-ink3">, {r.job}</span> : null}</p>
                 {r.reason && <p className="text-[13px] text-ink2 line-clamp-2 mt-0.5">“{r.reason}”</p>}
+                {r.facts?.map((f) => <p key={f.label} className="text-[13px] text-ink2 mt-0.5"><span className="text-ink3">{f.label}:</span> {f.value}</p>)}
                 <p className="text-[12.5px] text-ink3 mt-0.5">{r.typeLabel} · {r.asked}{r.waitingFor ? ` · waiting for ${r.waitingFor}` : ""}</p>
                 <span className="flex flex-wrap items-center gap-1.5 mt-1.5">
                   {r.amount && <span className="font-display font-semibold text-[14px] tnum mr-1">{r.amount}</span>}

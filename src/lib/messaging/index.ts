@@ -61,7 +61,7 @@
 import "server-only";
 
 export { sendMessage, planMessage, recordSend, MessagingProblem, skippedWords, notSentWords, NOT_SENT, MAX_TEXT, type SendInput, type SendResult, type Plan, type PlannedRow, type NotSentRow, type SkipGroup } from "./send";
-export { sendAutomatic, RULES, ruleStates, type AutomaticInput, type AutomaticResult } from "./automatic";
+export { sendAutomatic, RULES, ruleStates, ruleReady, type AutomaticInput, type AutomaticResult, type RuleReady } from "./automatic";
 export { cancelScheduled, retryFailed, applyStatus } from "./deliver";
 export { CHANNELS, CHANNEL_LABEL, type Channel } from "./channels";
 export type { AudienceRule } from "./recipients";

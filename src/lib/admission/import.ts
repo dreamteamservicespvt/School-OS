@@ -165,7 +165,7 @@ defineImport<Row>({
     if (!campus) throw new AdmissionProblem("Add a campus before importing enquiries.");
     const me = ctx.userId ? await tx.staff.findFirst({ where: { userLoginId: ctx.userId, archivedAt: null }, select: { id: true } }) : null;
     const owner = v.ownerStaffId ?? (await pickOwner(tx, ctx, s, { classId: v.classId, adderStaffId: me?.id ?? null, today: todayIn(school.timeZone) }));
-    const nextFollowUpAt = v.followUp ? zonedToInstant(`${v.followUp}T11:00`, school.timeZone) : await defaultFollowUp(tx, school.timeZone);
+    const nextFollowUpAt = v.followUp ? zonedToInstant(`${v.followUp}T11:00`, school.timeZone) : await defaultFollowUp(tx, ctx, school.timeZone, new Date(), campus.id);
     // A brother or sister: linked to the family's first open enquiry (in School OS, or saved from an earlier row),
     // found by the parent's name, so another family with the same phone is never linked.
     const fam = v.sibling ? await tx.enquiry.findMany({ where: { phone: v.phone, archivedAt: null, status: { notIn: [...CLOSED_STATUSES] } }, orderBy: [{ createdAt: "asc" }, { enquiryNo: "asc" }], select: { id: true, childName: true, parentName: true, siblingOfId: true } }) : [];

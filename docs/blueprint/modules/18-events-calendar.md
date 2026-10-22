@@ -18,7 +18,7 @@ Used by: the Principal and office (calendar, holidays, events), teachers and cla
 
 - Month view (and a year list view, inferred), with "Jump to month" and arrows.
 - Each day shows its entries as coloured chips: **Weekend** (grey), **Holiday** (red), **Vacation** (red band), **Exam day** (from published datesheets), **Event** (green), **PTM**, **Admission test**. These are the Calendar Entry types: holiday, vacation, exam day, event, PTM, admission test (decided 9 October 2026); weekends come from Events Settings.
-- Legend: Holiday means attendance is off that day; Event means it shows on the calendar and attendance can still be taken.
+- Legend: Holiday means attendance is off that day; Event means it shows on the calendar and the day stays as it is (a school day, or a weekend or holiday). "Attendance allowed" marks a date a person opened for attendance. Days that are not working days of the campus (Academic Settings) are shaded like weekends.
 - Today highlighted. Filters: entry type, class (exams and PTMs for one class), campus.
 - The year's holiday list as a table (date, name, type).
 
@@ -37,7 +37,7 @@ Used by: the Principal and office (calendar, holidays, events), teachers and cla
 | Name | Yes | | For example "Republic Day", "Annual Function" |
 | Type | Yes | Holiday | Holiday, vacation, exam day, event, PTM, admission test (decided 9 October 2026) |
 | Date (or from and to for a vacation) | Yes | | |
-| Allow attendance on this date | Yes | Off for holidays and vacations, On for events | |
+| Allow attendance on this date | Yes | Off | On a holiday or vacation: attendance stays on that day. On an event, exam day, PTM or admission test: the date becomes a school day even on a Sunday, a day off or in a holiday, for the classes it applies to (changed 18 October 2026: it used to start on for events, so an ordinary event on a Sunday opened attendance; entries typed before were switched off once, with an audit line). |
 | Applies to | No | Whole school | Classes or campuses (inferred) |
 | More details | No | | Description, notify parents (inferred) |
 
@@ -377,7 +377,7 @@ Other records (inferred): **Event Registration**, **Event Attendance**, **Event 
 ## 9. Done when
 
 1. Adding a holiday switches attendance off for that date, and the monthly attendance % no longer counts that day.
-2. A date marked as an event with "allow attendance" on still allows attendance.
+2. A date marked as an event with "allow attendance" on allows attendance, even on a Sunday or in a holiday; an event with it off (the default) leaves the day as it is.
 3. Published exams appear on the calendar on the right dates without being typed.
 4. Staff book a PTM slot for a parent; the slot can't be booked twice; the parent gets a confirmation and a reminder.
 5. During the PTM the teacher sees the student's marks, attendance and homework on one screen and records notes and parent feedback.

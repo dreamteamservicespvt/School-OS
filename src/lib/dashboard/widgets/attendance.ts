@@ -47,8 +47,15 @@ const today = (c: DashContext) => c.memo("attendance-today", () => attendanceTod
 export function choices(c: DashContext): Promise<TakeChoice[]> {
   return c.memo("attendance-choices", async () => takeChoices(c.tx, c.viewer.ctx, await access(c), c.today));
 }
+/** Today by the school's one rule for a school day (src/lib/calendar/school-days.ts), for a campus. */
 function schoolDayOff(c: DashContext, campusId: string | null) {
   return c.memo(`attendance-off:${campusId ?? ""}`, async () => (await schoolDays(c.tx, c.viewer.ctx, c.today, c.today, campusId)).info(c.today));
+}
+/** A day without school on a tile: "Holiday" with its name, or "No school" and why; never counts that read as "nobody came". */
+function offTile(off: { reason: string | null; title: string | null }) {
+  return off.reason === "holiday"
+    ? { big: "Holiday", foot: off.title ?? "Holiday on the School Calendar" }
+    : { big: "No school", foot: off.title ? `${off.title}, not a working day` : undefined };
 }
 /** Students in the class teacher's own sections this year (for "own" reach). */
 function ownStudents(c: DashContext, a: AttendanceAccess) {
@@ -72,7 +79,7 @@ const studentsPresent: Widget<"band"> = {
     // The same class-wise rows as Attendance (the whole-school register) and the daily report.
     const t = await today(c);
     const href = `${BASE}/register`;
-    if (t.off) return { id: "attendance.students-present", label: "Students present", big: "No school", foot: t.off, href };
+    if (t.off) return { id: "attendance.students-present", label: "Students present", ...offTile({ reason: t.offReason, title: t.off }), href };
     const expected = t.students.total;
     if (t.students.marked === 0) return { id: "attendance.students-present", label: "Students present", big: "Not taken", foot: `${plural(t.classes.notMarked, "class", "classes")} not marked yet`, href };
     // The same % as Attendance Reports and the register: present ÷ days counted (leave not counted).
@@ -100,9 +107,10 @@ const staffPresent: Widget<"band"> = {
   async load(c) {
     const a = await access(c);
     if (a.staff !== "all") return null;
-    const off = await schoolDayOff(c, null);
+    // The same rule as Staff Attendance: a holiday or day off says so, it is not "0 present, everyone not in yet".
+    const off = await schoolDayOff(c, a.campusId ?? c.viewer.campusId ?? null);
     const href = `${BASE}/staff`;
-    if (!off.on) return { id: "attendance.staff-present", label: "Staff present", big: "No school", foot: off.title ?? undefined, href };
+    if (!off.on) return { id: "attendance.staff-present", label: "Staff present", ...offTile(off), href };
     const rows = await staffDay(c.tx, c.viewer.ctx, a, c.today);
     const leave = rows.filter((r) => r.onLeave).length;
     const present = rows.filter((r) => r.mark && PRESENT.includes(r.mark.statusKey)).length;
@@ -151,7 +159,7 @@ const mySection: Widget<"band"> = {
     const name = `${section.schoolClass.name} ${section.name}`;
     const href = attendanceTakeHref({ sectionId, periodNo: 0, date: c.today });
     const off = await schoolDayOff(c, section.schoolClass.campusId);
-    if (!off.on) return { id: "attendance.my-section-today", label: name, big: "No school", foot: off.title ?? undefined, href: `${BASE}/register?section=${sectionId}` };
+    if (!off.on) return { id: "attendance.my-section-today", label: name, ...offTile(off), href: `${BASE}/register?section=${sectionId}` };
     const [count, t, s] = await Promise.all([
       // The students Take Attendance lists (on the register today).
       c.tx.enrolment.count({ where: { sectionId, archivedAt: null, status: "STUDYING", student: { archivedAt: null, status: { in: ON_REGISTER_STATUSES } } } }),

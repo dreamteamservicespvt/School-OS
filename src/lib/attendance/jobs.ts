@@ -8,7 +8,7 @@ import { afterAttendanceSaved, lockPastMarks } from "./alerts";
 import { attendanceSettings } from "./settings";
 
 defineJob("attendance-after-save", "Absence messages and attendance flags", async (tx, ctx, payload) => {
-  return afterAttendanceSaved(tx, ctx, { sectionId: String(payload.sectionId), date: String(payload.date) });
+  return afterAttendanceSaved(tx, ctx, { sectionId: String(payload.sectionId), date: String(payload.date), messages: payload.messages !== false });
 });
 
 defineSchedule("attendance-lock", 15, async (tx, ctx, now) => {

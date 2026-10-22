@@ -7,7 +7,7 @@ import type { SchoolContext, Tx } from "../db";
 import { subjectsForClass } from "./subjects";
 
 export { currentYear, chosenYear, isYearClosed, assertYearOpen, assertYearWritable, ClosedYearError, financialYearFor } from "./years";
-export { isHoliday, holidayOn, dayOff, holidaysBetween, examDayOn } from "./calendar";
+export { isHoliday, dayOff, dayOffOf, holidaysBetween, examDayOn } from "./calendar";
 export { periodsForStaffOnDate, periodsForSectionOnDate, effectiveVersion } from "./timetable";
 export { freeTeachersAt, raiseForLeave, releaseForLeave, absentStaffOn } from "./substitutions";
 export { subjectsForClass, mapActiveOn } from "./subjects";

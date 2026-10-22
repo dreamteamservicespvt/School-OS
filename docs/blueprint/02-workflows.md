@@ -399,14 +399,14 @@ flowchart TB
 4. The approver (often the class teacher for short leave, the principal for longer leave) approves or rejects with a reason.
 5. **Automatic:** On approved days, the student shows as "leave" in Take Attendance and in the register. No absence message goes out for those days.
 6. The office tells the parent the decision by message from Communication, if needed.
-7. If those days were already marked absent, the class teacher changes them to leave. After the lock, this is a correction through Approvals.
+7. **Automatic:** If those days were already saved, they become leave when the leave is approved, and the counts and the register change with them. The audit log keeps the marks they had (changed 18 October 2026).
 
 ### What could go wrong
 
 | What could go wrong | How the software prevents it | How it explains it | How people recover |
 |---|---|---|---|
 | The dates overlap an existing leave | Blocked | "Ravi already has leave from 3 to 5 March." | Change the existing leave instead. |
-| Leave is recorded after the day was marked absent | | The register shows the approved leave next to the absence. | Correct the mark. After the lock, a correction goes to Approvals and is logged. |
+| Leave is recorded after the day was marked absent | The saved days become leave when the leave is approved, and the change is logged | The register shows Leave for those days. | Nothing to do. |
 | Leave is approved with the wrong dates | | | Cancel the leave with a reason and record a new one. Both stay on record. |
 
 ### Records created or changed

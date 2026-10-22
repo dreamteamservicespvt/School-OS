@@ -2,7 +2,7 @@
 
 // Attendance Settings forms (05 §6). Each tab saves on its own.
 
-import { CheckboxField, SelectField, TextArea, TextField } from "@/components/ui/field";
+import { CheckboxField, SelectField, TextField } from "@/components/ui/field";
 import { ActionButton, ActionForm, FormDialog, type Action } from "../../staff-hr-management/_components/forms";
 import { toneClass } from "./status";
 
@@ -110,13 +110,8 @@ export function NotificationsForm({ action, v }: { action: Action; v: SettingsVa
       {(f) => (
         <div className="space-y-6">
           <section className="space-y-3">
-            <CheckboxField label="Absence message to parents" name="absenceAlertOn" defaultChecked={v.absenceAlertOn} help="One message per student per day, never for students on approved leave." />
-            <div className="grid gap-4 sm:grid-cols-2">
-              <TextField label="Wait before sending (minutes)" name="absenceDelayMinutes" type="number" min={0} max={240} required defaultValue={f.val("absenceDelayMinutes", String(v.absenceDelayMinutes))} error={f.err("absenceDelayMinutes")} help="A mistake can be fixed before the message goes." />
-              <Checks name="absenceChannels" label="Channels" options={[{ value: "whatsapp", label: "WhatsApp" }, { value: "sms", label: "SMS" }, { value: "app", label: "Parent Link" }]} values={v.absenceChannels} error={f.err("absenceChannels")} />
-            </div>
-            <TextArea label="Message" name="absenceTemplate" rows={3} maxLength={600} defaultValue={f.val("absenceTemplate", v.absenceTemplate)} error={f.err("absenceTemplate")}
-              help="Use {student}, {class}, {date} and {school}. They are filled in for each student." />
+            <CheckboxField label="Absence message to parents" name="absenceAlertOn" defaultChecked={v.absenceAlertOn} help="One message per student per day, never for students on approved leave. Its text and channels are set in Communication." />
+            <TextField label="Wait before sending (minutes)" name="absenceDelayMinutes" type="number" min={0} max={240} required defaultValue={f.val("absenceDelayMinutes", String(v.absenceDelayMinutes))} error={f.err("absenceDelayMinutes")} help="A mistake can be fixed before the message goes." className="sm:max-w-xs" />
           </section>
           <CheckboxField label="Late-arrival message to parents" name="lateAlertOn" defaultChecked={v.lateAlertOn} />
           <section className="space-y-3 border-t border-line pt-5">

@@ -9,6 +9,7 @@ import { needsOn } from "../../academic/substitutions";
 import { allocationActiveOn } from "../../academic/allocation";
 import { mainCampusId } from "../../academic/settings";
 import { CLOSED_TYPES } from "../../academic/calendar";
+import { schoolCalendar } from "../../calendar/school-days";
 import { weekday } from "../../academic/common";
 import { evPageAllowed, evViewer } from "../../events/access";
 import { BUILT_MODULES } from "../../modules";
@@ -294,7 +295,7 @@ const calendarAgenda: Widget<"agenda"> = {
     const evOpen = (page: "events" | "ptm") => calOpen && evPageAllowed(v, page);
     return rows.map((e): AgendaItem => {
       const from = e.startDate < c.today ? c.today : e.startDate;
-      const closed = CLOSED_TYPES.includes(e.type);
+      const closed = CLOSED_TYPES.includes(e.type) && !e.attendanceOn;
       const span = e.startDate.getTime() === e.endDate.getTime() ? shortDate(e.startDate) : `${shortDate(e.startDate)} to ${shortDate(e.endDate)}`;
       return {
         id: `cal:${e.id}`, time: dayWord(from, c.today), title: e.title,
@@ -316,12 +317,14 @@ const nextHoliday: Widget<"band"> = {
   // Every staff member sees the School Calendar (05-roles.md), whatever their Academic Management access.
   async load(c) {
     const h = await c.tx.calendarEntry.findFirst({
-      where: { archivedAt: null, type: { in: CLOSED_TYPES }, endDate: { gte: c.today }, ...(c.viewer.campusId ? { OR: [{ campusId: null }, { campusId: c.viewer.campusId }] } : {}) },
+      where: { archivedAt: null, type: { in: CLOSED_TYPES }, attendanceOn: false, endDate: { gte: c.today }, ...(c.viewer.campusId ? { OR: [{ campusId: null }, { campusId: c.viewer.campusId }] } : {}) },
       orderBy: { startDate: "asc" },
     });
     if (!h) return null;
     const one = h.startDate.getTime() === h.endDate.getTime();
-    const back = addDays(h.endDate, 1);
+    // Back on the next school day (the school's one rule): a holiday ending on a Saturday is back on Monday.
+    const after = await schoolCalendar(c.tx, c.viewer.ctx, addDays(h.endDate, 1), addDays(h.endDate, 21), c.viewer.campusId ?? null);
+    const back = after.working()[0] ?? addDays(h.endDate, 1);
     return { id: "academic.next-holiday", label: "Next holiday", big: h.title, foot: `${one ? shortDate(h.startDate) : `${shortDate(h.startDate)} to ${shortDate(h.endDate)}`} · back ${dayWord(back, c.today) === "Tomorrow" ? "tomorrow" : shortDate(back)}` };
   },
 };

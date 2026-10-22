@@ -7,14 +7,15 @@ import type { SchoolContext, Tx } from "../db";
 import { formatDate } from "../format";
 import { isoDay, monthEnd, monthLabel, monthStart } from "../staff/dates";
 import type { AttendanceAccess } from "./access";
-import { schoolDays } from "./calendar";
+import { offDayMessage, schoolDays } from "./calendar";
+import { loadSchoolCalendar } from "../calendar/school-days";
 import { registerChoices } from "./register";
 import { attendanceSettings, statusList } from "./settings";
 import { attendanceSummary, percentText } from "./summary";
 import { deviceHealth, REJECT_WORDS } from "./devices";
 import { minutesText } from "./time";
 import { classWise } from "./classwise";
-import { ABSENCE_REASONS, absentKeys, FEE_REASON, isReason, reasonChoices, shownReason, SOURCE_WORDS } from "./absence-reasons";
+import { ABSENCE_REASONS, absentKeys, absentReason, DEFAULT_REASON, FEE_REASON, isReason, reasonChoices, shownReason, SOURCE_WORDS } from "./absence-reasons";
 import { FLAG_STATUS_LABEL, flagStatusOf, OPEN_ATTENDANCE_FLAG } from "./flags";
 
 export const REPORTS = [
@@ -95,7 +96,7 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       const rows: ReportRow[] = [];
       const days = await schoolDays(tx, ctx, input.date, input.date, access.campusId);
       const info = days.info(input.date);
-      if (!info.on) return { title: `Daily attendance ${dayText(input.date)}`, filters: `Date ${dayText(input.date)}`, columns: [], rows: [], empty: `${info.title === "Sunday" ? "Sunday" : `Holiday: ${info.title}`}. Attendance is off for ${dayText(input.date)}.` };
+      if (!info.on) return { title: `Daily attendance ${dayText(input.date)}`, filters: `Date ${dayText(input.date)}`, columns: [], rows: [], empty: offDayMessage(info, input.date) };
       // The same per-section rows as the class-wise view and the Dashboard (./classwise.ts), so the numbers agree.
       if (sections.length) {
         const years = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: input.date }, endDate: { gte: input.date }, ...(access.campusId ? { campusId: access.campusId } : {}) }, select: { id: true } });
@@ -195,17 +196,24 @@ export async function runReport(tx: Tx, ctx: SchoolContext, access: AttendanceAc
       const notes = new Map(marks.map((m) => [isoDay(m.date), m]));
       // Absence reasons, when any are recorded ("Fees dispute" shows as Other without the school's fees).
       const withReasons = marks.some((m) => m.absenceReason);
-      const why = (k: string) => { const s = notes.get(k); const r = s ? shownReason(s, access.seesFees) : null; return r ? `${r.label}${r.note ? `: ${r.note}` : ""}` : ""; };
+      const absentStatus = await absentKeys(tx, ctx);
+      const why = (k: string) => {
+        const s = notes.get(k);
+        const st = days.get(k);
+        // An absent day with no reason saved is "Not known yet", as on every other screen.
+        const r = s && st && absentStatus.has(st) ? absentReason(s, access.seesFees) : s ? shownReason(s, access.seesFees) : null;
+        return r ? `${r.label}${r.note ? `: ${r.note}` : ""}` : "";
+      };
       const p = sum.people.get(id)!;
       return {
         title: `Attendance of ${who?.fullName ?? "person"}, ${dayText(input.from)} to ${dayText(input.to)}`, filters: `${who?.fullName ?? ""}, ${dayText(input.from)} to ${dayText(input.to)}`,
         columns: [{ key: "date", label: "Date", phone: "title" }, { key: "status", label: "Status", phone: "badge" }, ...(withReasons ? [{ key: "reason", label: "Reason" }] : []), { key: "late", label: "Minutes late", numeric: true }, { key: "note", label: "Note", phone: "meta" }],
-        rows: sum.workingDates.map((d) => {
+        rows: sum.workingOf(id).map((d) => {
           const k = isoDay(d);
           const st = days.get(k);
           return { date: dayText(d), status: st ? statusName.get(st) ?? st : "Not marked", ...(withReasons ? { reason: why(k) } : {}), late: notes.get(k)?.lateMinutes ?? null, note: notes.get(k)?.note ?? "", _tone: st === "absent" ? "danger" : st === "late" ? "warning" : null };
         }),
-        footer: `${sum.workingDays} working days · ${p.countedDays} counted · present ${p.present} · absent ${p.absent} · late ${p.late} · leave ${p.leave} · ${pct(p.percent)}.`,
+        footer: `${p.workingDays} working days · ${p.countedDays} counted · present ${p.present} · absent ${p.absent} · late ${p.late} · leave ${p.leave} · ${pct(p.percent)}.`,
         empty: "No working days in these dates.",
       };
     }
@@ -362,8 +370,11 @@ async function reasonsReport(tx: Tx, ctx: SchoolContext, access: AttendanceAcces
   const all = await sectionsInReach(tx, access);
   const sections = input.sectionId ? all.filter((s) => s.id === input.sectionId) : all;
   const keys = await absentKeys(tx, ctx);
-  const days = await schoolDays(tx, ctx, from, to, access.campusId);
-  const working = new Set(days.working.map(isoDay));
+  // Each section's own school days (its campus and class).
+  const calendar = await loadSchoolCalendar(tx, ctx, from, to);
+  const placed = await tx.section.findMany({ where: { id: { in: sections.map((s) => s.id) } }, select: { id: true, classId: true, schoolClass: { select: { campusId: true } } } });
+  const workingOf = new Map(placed.map((p) => [p.id, new Set(calendar.campus(p.schoolClass.campusId).working({ classId: p.classId }).map(isoDay))]));
+  const schoolDayCount = calendar.campus(access.campusId).working().length;
   const marks = sections.length ? await tx.attendanceMark.findMany({
     where: { sectionId: { in: sections.map((s) => s.id) }, studentId: { not: null }, date: { gte: from, lte: to }, archivedAt: null, statusKey: { in: [...keys] } },
     orderBy: [{ date: "asc" }, { periodNo: "asc" }],
@@ -372,31 +383,33 @@ async function reasonsReport(tx: Tx, ctx: SchoolContext, access: AttendanceAcces
   // One absent day per student and date: the first reason recorded that day.
   const byDay = new Map<string, (typeof marks)[number]>();
   for (const m of marks) {
-    if (!working.has(isoDay(m.date))) continue;
+    if (!m.sectionId || !workingOf.get(m.sectionId)?.has(isoDay(m.date))) continue;
     const k = `${m.studentId}:${isoDay(m.date)}`;
     const cur = byDay.get(k);
     if (!cur || (!cur.absenceReason && m.absenceReason)) byDay.set(k, m);
   }
-  const daysList = [...byDay.values()].map((m) => ({ ...m, shown: shownReason(m, access.seesFees) }));
+  const daysList = [...byDay.values()].map((m) => ({ ...m, shown: absentReason(m, access.seesFees) }));
   const sectionName = new Map(all.map((s) => [s.id, s.name]));
   const label = `${input.sectionId ? `${sectionName.get(input.sectionId) ?? "Class"}, ` : ""}${input.dates ? `dates ${words}` : `month ${words}`}`;
-  const wanted = input.reason && (input.reason === "none" || reasonChoices(access.seesFees).some((r) => r.key === input.reason)) ? input.reason : null;
+  // "none" (an old link for "Not recorded") is "Not known yet" now: one word for an absence with no reason.
+  const asked = input.reason === "none" ? DEFAULT_REASON : input.reason;
+  const wanted = asked && reasonChoices(access.seesFees).some((r) => r.key === asked) ? asked : null;
   if (wanted) {
-    const list = daysList.filter((d) => (wanted === "none" ? !d.shown : d.shown?.key === wanted));
+    const list = daysList.filter((d) => d.shown.key === wanted);
     const people = new Map((await tx.student.findMany({ where: { id: { in: [...new Set(list.map((d) => d.studentId!))] } }, select: { id: true, fullName: true } })).map((s) => [s.id, s.fullName]));
-    const reasonWord = wanted === "none" ? "Not recorded" : ABSENCE_REASONS.find((r) => r.key === wanted)?.label ?? wanted;
+    const reasonWord = ABSENCE_REASONS.find((r) => r.key === wanted)?.label ?? wanted;
     return {
       title: `Absences: ${reasonWord}, ${words}`, filters: `${label}; reason ${reasonWord}`,
       columns: [{ key: "date", label: "Date", phone: "meta" }, { key: "who", label: "Student", phone: "title" }, { key: "class", label: "Class", phone: "meta" }, { key: "reason", label: "Reason", phone: "badge" }, { key: "note", label: "Note" }, { key: "source", label: "Recorded from" }],
-      rows: list.map((d) => ({ date: dayText(d.date), who: people.get(d.studentId!) ?? "Student", class: sectionName.get(d.sectionId ?? "") ?? "", reason: d.shown?.label ?? "Not recorded", note: d.shown?.note ?? "", source: d.shown?.source ? SOURCE_WORDS[d.shown.source] ?? d.shown.source : "", _tone: !d.shown || d.shown.key === "not-known" ? "warning" : null })),
+      rows: list.map((d) => ({ date: dayText(d.date), who: people.get(d.studentId!) ?? "Student", class: sectionName.get(d.sectionId ?? "") ?? "", reason: d.shown.label, note: d.shown.note ?? "", source: d.shown.source ? SOURCE_WORDS[d.shown.source] ?? d.shown.source : "", _tone: d.shown.key === DEFAULT_REASON ? "warning" : null })),
       footer: `${list.length} absent ${list.length === 1 ? "day" : "days"}.`, empty: "No absences with this reason in these dates.",
     };
   }
   const shownKeys = ABSENCE_REASONS.map((r) => r.key as string).filter((k) => access.seesFees || k !== FEE_REASON);
   const count = (list: typeof daysList) => {
-    const row: ReportRow = { absent: list.length, none: 0 };
+    const row: ReportRow = { absent: list.length };
     for (const k of shownKeys) row[k] = 0;
-    for (const d of list) { const k = d.shown?.key ?? "none"; row[k] = Number(row[k] ?? 0) + 1; }
+    for (const d of list) { const k = d.shown.key; row[k] = Number(row[k] ?? 0) + 1; }
     return row;
   };
   const rows: ReportRow[] = sections.map((s): ReportRow => ({ who: s.name, ...count(daysList.filter((d) => d.sectionId === s.id)) })).filter((r) => Number(r.absent) > 0);
@@ -406,9 +419,8 @@ async function reasonsReport(tx: Tx, ctx: SchoolContext, access: AttendanceAcces
     columns: [
       { key: "who", label: "Class and section", phone: "title" }, { key: "absent", label: "Absent days", numeric: true, phone: "badge" },
       ...shownKeys.map((k) => ({ key: k, label: ABSENCE_REASONS.find((r) => r.key === k)!.label, numeric: true, ...(k === "not-known" ? { phone: "meta" as const } : {}) })),
-      { key: "none", label: "Not recorded", numeric: true },
     ],
-    rows, footer: `${days.working.length} working days. A day absent in several periods counts once.`, empty: "Nobody was absent in these dates.",
+    rows, footer: `${schoolDayCount} working days. A day absent in several periods counts once.`, empty: "Nobody was absent in these dates.",
   };
 }
 

@@ -16,6 +16,7 @@ import { assertYearOpen } from "../academic/years";
 import { subjectsForClass } from "../academic/subjects";
 import { ExamRuleError, overlaps, timeRange, durationWords } from "./common";
 import { examSettings } from "./settings";
+import { loadSchoolCalendar, offDayWords } from "../calendar/school-days";
 import { messageParents } from "./notify-parents";
 
 export type ExamDetails = {
@@ -145,7 +146,7 @@ async function checkRefs(tx: Tx, yearId: string, d: ExamDetails) {
 }
 
 /** Checks each dated row: inside the exam dates, a real time, a duration and maximum marks; subjects of the class. */
-async function checkRows(tx: Tx, d: ExamDetails, rows: ScheduleRow[]) {
+async function checkRows(tx: Tx, ctx: SchoolContext, d: ExamDetails, rows: ScheduleRow[]) {
   const dated = rows.filter((r): r is ScheduleRow & { date: Date } => r.date !== null && d.classIds.includes(r.classId));
   if (dated.length === 0) throw new ExamRuleError("Give a date to at least one subject. Subjects with no date are left out.", "schedule");
   const n = await names(tx, d.classIds, [...new Set(dated.map((r) => r.subjectId))], []);
@@ -165,12 +166,16 @@ async function checkRows(tx: Tx, d: ExamDetails, rows: ScheduleRow[]) {
     if (gradeOnly) r.maxMarks = 0;
     else if (!Number.isInteger(r.maxMarks) || r.maxMarks < 1 || r.maxMarks > 1000) throw new ExamRuleError(`${label}: maximum marks must be a whole number from 1 to 1000.`, "schedule");
     if (r.room && r.room.length > 40) throw new ExamRuleError(`${label}: the room name can be at most 40 characters.`, "schedule");
-    if (weekday(r.date) === 7) throw new ExamRuleError(`${label} is on a Sunday (${formatDate(r.date)}). Choose a school day.`, "schedule");
   }
-  const holidays = await tx.calendarEntry.findMany({ where: { archivedAt: null, type: { in: ["holiday", "vacation"] }, startDate: { lte: d.endDate }, endDate: { gte: d.startDate } } });
+  // A paper only on a school day of its class and campus (the school's one rule: working days, Saturdays off, holidays).
+  const campusOf = new Map((await tx.schoolClass.findMany({ where: { id: { in: d.classIds } }, select: { id: true, campusId: true } })).map((c) => [c.id, c.campusId]));
+  const calendar = await loadSchoolCalendar(tx, ctx, d.startDate, d.endDate);
   for (const r of dated) {
-    const h = holidays.find((x) => x.startDate <= r.date && x.endDate >= r.date);
-    if (h) throw new ExamRuleError(`${n.cls.get(r.classId)} ${n.sub.get(r.subjectId)?.name} is on ${formatDate(r.date)}, which is ${h.title} on the School Calendar. Choose another day.`, "schedule");
+    const info = calendar.campus(campusOf.get(r.classId)).info(r.date, { classId: r.classId });
+    if (info.on) continue;
+    const label = `${n.cls.get(r.classId) ?? "Class"} ${n.sub.get(r.subjectId)?.name ?? "subject"}`;
+    if (info.reason === "holiday") throw new ExamRuleError(`${label} is on ${formatDate(r.date)}, which is ${info.title} on the School Calendar. Choose another day.`, "schedule");
+    throw new ExamRuleError(`${label} is on ${offDayWords(info)} (${formatDate(r.date)})${info.reason === "sunday" ? "" : ", not a working day"}. Choose a school day.`, "schedule");
   }
   const staffIds = [...new Set(dated.map((r) => r.invigilatorId).filter((x): x is string => Boolean(x)))];
   if (staffIds.length) {
@@ -184,7 +189,7 @@ export async function createDatesheet(tx: Tx, ctx: SchoolContext, yearId: string
   await assertYearOpen(tx, yearId);
   checkDetails(d);
   await checkRefs(tx, yearId, d);
-  const dated = await checkRows(tx, d, rows);
+  const dated = await checkRows(tx, ctx, d, rows);
   const clash = await findClash(tx, null, dated);
   if (clash) throw new ExamRuleError(clash, "schedule");
   const settings = await examSettings(tx, ctx);
@@ -231,7 +236,7 @@ export async function updateDatesheet(tx: Tx, ctx: SchoolContext, examId: string
     return { titleOnly: true };
   }
   await checkRefs(tx, exam.academicYearId, d);
-  const dated = await checkRows(tx, d, rows);
+  const dated = await checkRows(tx, ctx, d, rows);
   const clash = await findClash(tx, examId, dated);
   if (clash) throw new ExamRuleError(clash, "schedule");
   const settings = await examSettings(tx, ctx);

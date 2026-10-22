@@ -5,8 +5,9 @@ import { attendancePage } from "@/lib/attendance/page";
 import { BASE } from "@/lib/attendance/access";
 import { ATTENDANCE_FEATURES, COUNTS, statusList, TONES } from "@/lib/attendance/settings";
 import { BellRing, CalendarDays, Clock, CloudOff, ListChecks, Lock, MessageCircle, Palette, Scale, ScanFace, Table2 } from "lucide-react";
-import { formatDate } from "@/lib/format";
-import { fillTemplate } from "@/lib/attendance/alerts";
+import { absenceMessageView } from "@/lib/attendance/notify-parents";
+import { Alert } from "@/components/ui/alert";
+import { ButtonLink } from "@/components/ui/button";
 import { lockState } from "@/lib/attendance/marks";
 import { minutesText, time12 } from "@/lib/attendance/time";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -63,7 +64,9 @@ export default async function SettingsPage({ searchParams }: Props) {
       tx.enrolment.findFirst({ where: { archivedAt: null, academicYearId: access.yearId ?? undefined, student: { archivedAt: null } }, orderBy: { student: { fullName: "asc" } }, select: { sectionId: true, student: { select: { fullName: true } } } }),
     ]);
     const section = sample ? await tx.section.findFirst({ where: { id: sample.sectionId }, select: { name: true, schoolClass: { select: { name: true } } } }) : null;
-    return { statuses, types, quotas, school, sample: sample ? { name: sample.student.fullName, className: section ? `${section.schoolClass.name} ${section.name}` : null } : null };
+    // The message parents really get: Communication's "Absent today" message (one setting, shown here read-only).
+    const message = tab === "alerts" ? await absenceMessageView(tx, current.ctx, { student: sample?.student.fullName ?? "Your child", className: section ? `${section.schoolClass.name} ${section.name}` : "the class", date: today }) : null;
+    return { statuses, types, quotas, school, message, sample: sample ? { name: sample.student.fullName, className: section ? `${section.schoolClass.name} ${section.name}` : null } : null };
   });
   const tones = TONES.map((t) => ({ value: t.value, label: t.label }));
   const counts = COUNTS.map((c) => ({ value: c.value, label: c.label }));
@@ -71,14 +74,8 @@ export default async function SettingsPage({ searchParams }: Props) {
 
   const lock = lockState(s, today, now, tz);
   const lockIn = Math.max(0, Math.round((lock.at.getTime() - now.getTime()) / 60000));
-  const preview = fillTemplate(s.absenceTemplate, {
-    student: data.sample?.name ?? "Your child",
-    class: data.sample?.className ?? "the class",
-    date: formatDate(today, "UTC"),
-    school: data.school?.name ?? "",
-  });
+  const message = data.message;
   const roleName = (r: string) => ROLES.find((x) => x.value === r)?.label ?? r;
-  const channelName: Record<string, string> = { whatsapp: "WhatsApp", sms: "SMS", app: "Parent Link" };
   const countsTone = (c: string) => (c === "present" ? "success" : c === "absent" ? "danger" : c === "half" ? "warning" : "neutral") as "success" | "danger" | "warning" | "neutral";
   const path = `${BASE}/settings`;
 
@@ -164,12 +161,16 @@ export default async function SettingsPage({ searchParams }: Props) {
         {tab === "alerts" && (
           <>
             <Card>
-              <CardHeader icon={MessageCircle} title="Absence message to parents" description="One message per absent student per day. None for approved leave. Sent through Communication." />
-              <div className="border-t border-line/70 px-5 py-4">
-                <p className="eyebrow mb-2 text-ink3">Message parents get</p>
+              <CardHeader icon={MessageCircle} title="Absence message to parents" description="One message per absent student per day. None for approved leave. The text and channels are Communication's “Absent today” message."
+                action={<ButtonLink size="sm" variant="secondary" href="/communication/settings#automatic">Change the message</ButtonLink>} />
+              <div className="border-t border-line/70 px-5 py-4 space-y-3">
+                {message && !message.on && <Alert tone="warning" title="No absence message goes to parents">The “Absent today” message is switched off in Communication, Message Settings.</Alert>}
+                {message?.on && !message.ready && <Alert tone="warning" title="No absence message goes to parents">No channel that can carry it is switched on. Connect WhatsApp or SMS in Settings, Messaging.</Alert>}
+                {s.absenceAlertOn ? null : <Alert tone="info" title="Absence messages are off here">Switch on “Absence message to parents” below to send it after each register.</Alert>}
+                <p className="eyebrow text-ink3">Message parents get</p>
                 <div className="max-w-md rounded-2xl rounded-tl-md bg-ok/10 px-4 py-3 text-[14px] leading-relaxed">
-                  {preview}
-                  <p className="mt-1 text-right text-[11px] text-ink3">{s.absenceChannels.map((c) => channelName[c] ?? c).join(" · ") || "No channel"} · {s.absenceAlertOn ? (s.absenceDelayMinutes ? `after ${minutesText(s.absenceDelayMinutes)}` : "at once") : "Off"}</p>
+                  {message?.text ?? "No template for this message yet. Add one in Communication, Message Templates."}
+                  <p className="mt-1 text-right text-[11px] text-ink3">{message?.channels || "No channel"} · {s.absenceAlertOn && message?.on ? (s.absenceDelayMinutes ? `after ${minutesText(s.absenceDelayMinutes)}` : "at once") : "Off"}</p>
                 </div>
               </div>
             </Card>

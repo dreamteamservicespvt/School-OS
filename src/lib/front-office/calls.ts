@@ -71,7 +71,7 @@ export async function deskEnquiry(tx: Tx, ctx: SchoolContext, current: Pick<Curr
   if (!campus) throw new FrontOfficeProblem("Add a campus in Settings first.");
   const e = await createEnquiry(tx, ctx, v, s, {
     childName, parentName, phone: mobileDigits(input.phone), email: null, classId: input.classId, source: input.source, ownerStaffId: null,
-    nextFollowUpAt: await defaultFollowUp(tx, opts.timeZone, opts.now), nextAction: input.source === "phone" ? "Call back" : "Follow up on the visit",
+    nextFollowUpAt: await defaultFollowUp(tx, ctx, opts.timeZone, opts.now, campus.id), nextAction: input.source === "phone" ? "Call back" : "Follow up on the visit",
     childDob: null, currentSchool: null, referredBy: null, notes: input.note?.trim() || null,
   }, { yearId: year.id, campusId: campus.id, today: todayIso(opts.timeZone, opts.now), force: opts.force, siblingOfId: opts.siblingOfId ?? null, now: opts.now });
   if (opts.visitorEntryId) await tx.visitorEntry.updateMany({ where: { id: opts.visitorEntryId, enquiryId: null }, data: { enquiryId: e.id } });

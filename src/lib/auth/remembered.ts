@@ -48,7 +48,8 @@ export async function rememberDevice(userLoginId: string, device: DeviceInfo, no
   const deviceKey = deviceKeyOf(device.deviceId);
   if (deviceKey) await prisma.trustedDevice.updateMany({ where: { userLoginId, deviceKey, revokedAt: null }, data: { revokedAt: now } });
   await prisma.trustedDevice.create({
-    data: { userLoginId, tokenHash: hashToken(token), deviceKey, userAgent: device.userAgent?.slice(0, 400) ?? null, lastUsedAt: now, expiresAt: new Date(now.getTime() + REMEMBER_MS) },
+    // createdAt from the same clock as a two-step reset (the app's), not the database's, so "remembered before the reset" is exact.
+    data: { userLoginId, tokenHash: hashToken(token), deviceKey, userAgent: device.userAgent?.slice(0, 400) ?? null, createdAt: now, lastUsedAt: now, expiresAt: new Date(now.getTime() + REMEMBER_MS) },
   });
   return token;
 }

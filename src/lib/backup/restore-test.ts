@@ -204,7 +204,7 @@ export async function runRestoreTest(opts: RestoreTestOptions): Promise<RestoreT
     try {
       const details = { schools: result.schools, rows: Object.values(rowsPerSchool).reduce((a, b) => a + b, 0), files: result.files, problems: problems.slice(0, 20), seconds: result.seconds };
       await live.$executeRaw`INSERT INTO backup_run (id, kind, finished_at, location, restore_tested_at, result, details)
-        VALUES (${randomUUID()}::uuid, 'restore-test', now(), ${opts.dump ? path.basename(opts.dump) : "fresh dump"}, now(), ${result.passed ? "passed" : "failed"}, ${JSON.stringify(details)}::jsonb)`;
+        VALUES (${randomUUID()}::uuid, 'restore-test', now() AT TIME ZONE 'UTC', ${opts.dump ? path.basename(opts.dump) : "fresh dump"}, now() AT TIME ZONE 'UTC', ${result.passed ? "passed" : "failed"}, ${JSON.stringify(details)}::jsonb)`;
     } finally {
       await live.$disconnect();
     }

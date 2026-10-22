@@ -29,7 +29,7 @@ import { NO_USAGE, estimatePaise } from "./cost";
 import { minimise, type DeclarableField } from "./minimise";
 import { aiConnected, currentProvider, type AiAnswer, type AiFailure, type AiImage } from "./provider";
 
-export { aiConnected, useAiProvider, type AiProvider, type AiRequest, type AiAnswer } from "./provider";
+export { aiConnected, useAiProvider, type AiProvider, type AiRequest, type AiAnswer, type AiImage } from "./provider";
 
 export type AiReason = AiOff | "not-connected" | "daily-limit" | "restricted-data" | "refused" | AiFailure;
 

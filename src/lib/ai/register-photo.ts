@@ -14,9 +14,8 @@ import "server-only";
 
 import * as z from "zod/v4";
 import type { SchoolContext } from "../db";
-import { aiTask, type AiReason } from "./index";
+import { aiTask, type AiImage, type AiReason } from "./index";
 import { restrictedName } from "./minimise";
-import type { AiImage } from "./provider";
 
 /** Most photos read in one upload, and rows kept from one page. */
 export const MAX_PHOTOS = 5;

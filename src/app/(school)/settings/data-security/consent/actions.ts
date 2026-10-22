@@ -3,10 +3,12 @@
 // Paper forms received, class by class (gap list G42). Recording a parent's
 // signed paper form is Student Management's work (Consent Records live on the
 // guardian there), so the role is checked against Student Management on the
-// server, whichever page the person started from.
+// server, whichever page the person started from, after the Settings page
+// check: the person must be able to open Data Backup & Security, as the page asks.
 
 import { revalidatePath } from "next/cache";
 import { requireAction } from "@/lib/current";
+import { requireSettingsAction } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formValues, type FormState } from "@/lib/forms";
 import { RowProblem } from "@/lib/importer";
@@ -15,8 +17,10 @@ import { sectionInCampus } from "@/lib/campus";
 import "@/lib/import-registry";
 
 const ID = /^[0-9a-f-]{36}$/i;
+const PAGE = "data-security" as const;
 
 export async function paperFormsAction(_prev: FormState, fd: FormData): Promise<FormState> {
+  await requireSettingsAction(PAGE, "view");
   const { current } = await requireAction("student-management", "create");
   const values = formValues(fd);
   const sectionId = values.sectionId ?? "";

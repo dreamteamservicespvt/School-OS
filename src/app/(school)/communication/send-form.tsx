@@ -7,11 +7,13 @@
 import Link from "next/link";
 import { startTransition, useActionState, useEffect, useMemo, useRef, useState } from "react";
 import {
-  Bell, Bookmark, BellOff, CalendarClock, Check, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Clock, Coins, Eye, FileText, GraduationCap,
+  Bell, Bookmark, BellOff, CalendarClock, Check, ChevronLeft, ChevronRight, CircleAlert, CircleCheck, Clock, Coins, Eye, FileText, FlaskConical, GraduationCap,
   LayoutGrid, ListChecks, Lock, Mail, MessageCircle, MessageSquareText, Paperclip, School, Send, Siren, TriangleAlert, User, Users, X, type LucideIcon,
 } from "lucide-react";
 import { checkOrSend, findPeople, livePreview, saveGroup, type SendState } from "./actions";
 import type { SendPreview } from "@/lib/communication/send-form";
+import { blanksFor, strayBlanks, unfitBlankWords, unknownBlankWords, unknownVariables, type BlankAudience } from "@/lib/messaging/blanks";
+import { countWithReason } from "@/lib/messaging/skip-words";
 import { EMERGENCY_EVENT } from "./send-head-actions";
 import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
@@ -174,6 +176,20 @@ export function SendForm({ data }: { data: SendFormData }) {
   const smsBackupTemplates = data.templates.filter((t) => t.channel === "sms" && t.usable && (!typeInfo.category || t.category === typeInfo.category));
   const backupOn = backup && backupOk && backupShown;
   const attachable = channels.includes("whatsapp") || channels.includes("email");
+  // The blanks a typed message can fill for the people chosen (COMM-01, COMM-02).
+  const blankKinds: BlankAudience[] = aud === "staff" ? ["staff"]
+    : aud === "school" || aud === "classes" || aud === "sections" ? who.map((w): BlankAudience => (w === "students" ? "students" : "parents"))
+      : aud === "single" ? [...new Set(people.map((p): BlankAudience => (p.type === "staff" ? "staff" : p.type === "student" ? "students" : "parents")))] : [];
+  const usableBlanks = blanksFor(blankKinds);
+  const blanksHint = `Blanks you can use: ${usableBlanks.map((k) => `{${k}}`).join(", ")}`;
+  const textWords = needsText ? text : "";
+  const strayTyped = [...new Set([...strayBlanks(textWords), ...strayBlanks(title)])];
+  // A blank not on the list ({parent_name}) is named at once, with the one meant; such a message cannot be sent.
+  const blankError = strayTyped.length
+    ? `The message has ${strayTyped.length === 1 ? "a blank" : "blanks"} that cannot be filled: ${strayTyped.join(", ")}. Use blanks from the list, or take out the braces.`
+    : unknownBlankWords([...new Set([...unknownVariables(textWords), ...unknownVariables(title)])], usableBlanks);
+  const blankWarning = blankError ? null : unfitBlankWords(`${textWords} ${title}`, blankKinds);
+  const titleBlankError = blankError && (unknownVariables(title).length || strayBlanks(title).length) && !(unknownVariables(textWords).length || strayBlanks(textWords).length) ? blankError : null;
 
   // The emergency broadcast button at the top of the page.
   useEffect(() => {
@@ -200,10 +216,11 @@ export function SendForm({ data }: { data: SendFormData }) {
     if (needsTitle && !title.trim()) e.title = "Add a title. Email and app notices show it at the top.";
     if (needsText && !text.trim()) e.text = "Type the message, or choose a template.";
     if (text.length > 1000) e.text = `Keep it under 1,000 characters. It has ${fmt(text.length)}.`;
+    if (blankError && !e.text) { if (titleBlankError) e.title ??= blankError; else e.text = blankError; }
     if (when === "later" && !at) e.scheduledAt = "Choose the date and time to send.";
     if (backupOn && !smsBackupTemplates.length) e.backup = "SMS backup needs an SMS template with a DLT template ID for this message type. Add one in Message Templates, or untick SMS backup.";
     return e;
-  }, [aud, classes, sections, who, staffKinds, people, groupId, channels, tpl, needsTitle, title, needsText, text, when, at, backupOn, smsBackupTemplates.length]);
+  }, [aud, classes, sections, who, staffKinds, people, groupId, channels, tpl, needsTitle, title, needsText, text, when, at, backupOn, smsBackupTemplates.length, blankError, titleBlankError]);
   const whoReady = !err.who;
   const live = whoReady ? liveRaw : null;
   const valid = Object.keys(err).length === 0;
@@ -244,12 +261,17 @@ export function SendForm({ data }: { data: SendFormData }) {
   const kindsNow = aud === "staff" ? ["staff"] : aud === "single" || aud === "group" ? [] : who;
   const noun = kindsNow.length === 1 && kindsNow[0] === "parents" ? (n === 1 ? "parent" : "parents") : kindsNow.length === 1 && kindsNow[0] === "staff" ? "staff" : kindsNow.length === 1 && kindsNow[0] === "students" ? (n === 1 ? "student" : "students") : n === 1 ? "person" : "people";
   const free = channels.filter((c) => c === "app" || c === "email");
-  const paidTotal = (live?.cost ?? []).reduce((a, c) => a + c.credits, 0) + (live?.backupCost ?? 0);
+  // Test mode sends nothing and uses no credits (COMM-04).
+  const paidTotal = (live?.cost ?? []).filter((c) => !c.test).reduce((a, c) => a + c.credits, 0) + (live?.backupTest ? 0 : live?.backupCost ?? 0);
+  const testMode = live?.testMode ?? [];
+  const testWords = testMode.length ? `${testMode.join(" and ")} ${testMode.length > 1 ? "are" : "is"} in test mode` : null;
   const available = (channels.includes("whatsapp") ? data.balances.whatsapp : 0) + (channels.includes("sms") || backupOn ? data.balances.sms : 0);
   const skippedTotal = (live?.skipped ?? []).reduce((a, g) => a + g.count, 0);
   const blocked = !live || n === 0 || Boolean(live.creditProblem) || live.problems.length > 0;
   const sample = live?.samples.length ? live.samples[Math.min(pi, live.samples.length - 1)] : null;
-  const sendLabel = emergency ? `Send emergency broadcast to ${fmt(n)}` : when === "now" ? `Send to ${fmt(n)} ${noun}` : `Schedule for ${fmt(n)} ${noun}`;
+  const sendLabel = n === 0 ? "Nobody to send to" : emergency ? `Send emergency broadcast to ${fmt(n)}` : when === "now" ? `Send to ${fmt(n)} ${noun}` : `Schedule for ${fmt(n)} ${noun}`;
+  // A send that cannot go (nobody reached, a blank that cannot be filled, credits short) cannot be pressed; the reason shows below it.
+  const cannotSend = Boolean(live) && whoReady && blocked;
   const serverMessage = state && !state.ok ? state.message : null;
 
   function trySend() {
@@ -496,7 +518,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 ))}
               </div>
 
-              <FieldShell label="Title" id="send-title" required={needsTitle} error={tried ? err.title : undefined}>
+              <FieldShell label="Title" id="send-title" required={needsTitle} error={titleBlankError ?? (tried ? err.title : undefined)}>
                 <input id="send-title" name="title" value={title} maxLength={120} onChange={(e) => { setTitle(e.target.value); touch(); }}
                   aria-invalid={tried && err.title ? true : undefined} className={cx(inputCls(tried && err.title), "h-11")} placeholder="Shown at the top of an email or app notice" />
               </FieldShell>
@@ -514,10 +536,13 @@ export function SendForm({ data }: { data: SendFormData }) {
                 </div>
               ))}
               {needsText && (
-                <FieldShell label={chosen.length ? "Message for the other channels" : "Message"} id="send-text" required error={tried ? err.text : undefined}
-                  help={`${fmt(text.length)} of 1,000 characters · {student_name} and {class} fill in for each parent`}>
+                <FieldShell label={chosen.length ? "Message for the other channels" : "Message"} id="send-text" required error={(blankError && !titleBlankError ? blankError : null) ?? (tried ? err.text : undefined)}
+                  help={`${fmt(text.length)} of 1,000 characters · ${blanksHint}`}>
                   <textarea id="send-text" name="text" rows={5} value={text} maxLength={1000} onChange={(e) => { setText(e.target.value); touch(); }}
-                    aria-invalid={tried && err.text ? true : undefined} className={cx(inputCls(tried && err.text), "py-2.5")} />
+                    aria-invalid={(blankError && !titleBlankError) || (tried && err.text) ? true : undefined} aria-describedby={blankError && !titleBlankError ? "send-text-error" : "send-text-help"}
+                    className={cx(inputCls(Boolean(blankError && !titleBlankError) || (tried && err.text)), "py-2.5")} />
+                  {blankError && !titleBlankError && <p className="text-[12.5px] text-ink3">{fmt(text.length)} of 1,000 characters</p>}
+                  {blankWarning && <p className="text-[12.5px] text-warn flex gap-1.5"><TriangleAlert size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{blankWarning}</p>}
                 </FieldShell>
               )}
 
@@ -573,7 +598,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 {live?.skipped.map((g) => (
                   <li key={g.reason} className={cx("flex gap-2", g.notSent && "text-bad")}>
                     {/opted out/i.test(g.reason) ? <BellOff size={15} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /> : <TriangleAlert size={15} className="text-warn shrink-0 mt-0.5" aria-hidden="true" />}
-                    <span>{fmt(g.count)} {g.reason.charAt(0).toLowerCase() + g.reason.slice(1)}{g.names.length ? ` (${g.names.slice(0, 3).join(", ")}${g.count > 3 ? " and others" : ""})` : ""}</span>
+                    <span>{countWithReason(g.count, g.reason)}{g.names.length ? ` (${g.names.slice(0, 3).join(", ")}${g.count > 3 ? " and others" : ""})` : ""}</span>
                   </li>
                 ))}
                 {!data.full && <li className="flex gap-2"><Lock size={15} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>Limited to {data.scopeLabel}</span></li>}
@@ -583,17 +608,20 @@ export function SendForm({ data }: { data: SendFormData }) {
               <p className="eyebrow text-ink3 mb-2">Message credits</p>
               <ul className="flex flex-col gap-1.5 text-[13.5px] tnum">
                 {(live?.cost ?? []).filter((c) => c.credits > 0).map((c) => (
-                  <li key={c.channel} className="flex justify-between gap-3"><span className="text-ink2">{c.channel}</span><span className="font-semibold">{fmt(c.credits)}</span></li>
+                  <li key={c.channel} className="flex justify-between gap-3"><span className="text-ink2">{c.channel}{c.test ? " · test mode" : ""}</span><span className="font-semibold">{c.test ? "None used" : fmt(c.credits)}</span></li>
                 ))}
-                {(live?.backupCost ?? 0) > 0 && <li className="flex justify-between gap-3"><span className="text-ink2">SMS backup · up to {fmt(live!.backupCost)} SMS</span><span className="font-semibold">up to {fmt(live!.backupCost)}</span></li>}
+                {(live?.backupCost ?? 0) > 0 && <li className="flex justify-between gap-3"><span className="text-ink2">SMS backup · up to {fmt(live!.backupCost)} SMS{live?.backupTest ? " · test mode" : ""}</span><span className="font-semibold">{live?.backupTest ? "None used" : `up to ${fmt(live!.backupCost)}`}</span></li>}
                 {free.length > 0 && <li className="flex justify-between gap-3"><span className="text-ink2">{free.map((c) => CH[c].label).join(" and ")}</span><span className="font-semibold">Free</span></li>}
-                <li className="flex justify-between gap-3 border-t border-line/70 pt-1.5 mt-0.5"><span className="font-semibold">Total</span><span className="font-semibold">{live?.backupCost ? "up to " : ""}{paidTotal ? fmt(paidTotal) : "Free"}</span></li>
+                <li className="flex justify-between gap-3 border-t border-line/70 pt-1.5 mt-0.5"><span className="font-semibold">Total</span><span className="font-semibold">{live?.backupCost && !live.backupTest ? "up to " : ""}{paidTotal ? fmt(paidTotal) : testWords ? "None" : "Free"}</span></li>
               </ul>
               {live && (
                 <p className={cx("mt-2.5 text-[13px] font-semibold flex items-center gap-1.5", live.creditProblem ? "text-bad" : "text-ok")}>
                   {live.creditProblem ? <CircleAlert size={15} aria-hidden="true" /> : <CircleCheck size={15} aria-hidden="true" />}
                   {live.creditProblem ?? (paidTotal ? `Sufficient credits · ${fmt(available)} available` : "No credits needed")}
                 </p>
+              )}
+              {testWords && (
+                <p className="mt-2 text-[13px] text-warn flex gap-1.5"><FlaskConical size={15} className="shrink-0 mt-0.5" aria-hidden="true" /><span>{testWords}: nobody will receive this message, and no credits are used. Connect it in <Link href="/settings/messaging" className="underline">Settings, SMS, WhatsApp &amp; Email</Link> to send for real.</span></p>
               )}
               {live?.creditProblem && <Link href="/settings/messaging" className="mt-1 inline-block text-[13px] font-semibold text-brand underline">Top up credits</Link>}
             </div>
@@ -626,11 +654,12 @@ export function SendForm({ data }: { data: SendFormData }) {
             </div>
             <div className="border-t border-line p-4 flex flex-col gap-2">
               <Button type="submit" variant={emergency ? "danger" : "primary"} size="lg" className="w-full !h-14 !text-[16px]" icon={emergency ? Siren : when === "now" ? Send : CalendarClock}
-                loading={pending} loadingText="Sending" disabled={!data.canSend}>
+                loading={pending} loadingText="Sending" disabled={!data.canSend || cannotSend}>
                 {live && whoReady ? sendLabel : when === "now" ? "Send" : "Schedule"}
               </Button>
               {tried && !valid && <p className="text-[12.5px] text-bad text-center">Fix the marked fields above first.</p>}
-              {tried && valid && blocked && live && <p className="text-[12.5px] text-bad text-center">{live.creditProblem ?? live.problems[0] ?? "Nobody can be reached with these choices."}</p>}
+              {(tried || cannotSend) && valid && blocked && live && <p className="text-[12.5px] text-bad text-center">{live.creditProblem ?? live.problems[0] ?? "Nobody can be reached with these choices."}</p>}
+              {cannotSend && !valid && blankError && <p className="text-[12.5px] text-bad text-center">Fix the blank in the message first.</p>}
               <div className="flex gap-2">
                 <Button variant="ghost" className="flex-1" icon={Bookmark} disabled={!whoReady || aud === "group"} onClick={() => { setGroupName(whoLabel.slice(0, 60)); setGroupOpen(true); }}>Save as group</Button>
                 <Button variant="ghost" className="flex-1" icon={Eye} disabled={!live || live.samples.length < 2} onClick={() => setPi(live ? (pi + 1) % live.samples.length : 0)}>Next person</Button>
@@ -649,10 +678,15 @@ export function SendForm({ data }: { data: SendFormData }) {
           <Button variant={emergency ? "danger" : "primary"} icon={emergency ? Siren : when === "now" ? Send : CalendarClock} loading={pending} loadingText="Sending"
             disabled={emergency && word.trim().toUpperCase() !== "EMERGENCY"} onClick={() => { doSend(); setConfirm(false); }}>{sendLabel}</Button>
         </>}>
+        {testWords && (
+          <Banner tone="warn" icon={FlaskConical} className="mb-3" title={`${testWords}.`}>
+            Nobody will receive this message. It is only recorded in Message History, and no credits are used.
+          </Banner>
+        )}
         <ul className="flex flex-col gap-2.5 text-[14px] pb-1">
           <li className="flex gap-2.5"><Users size={17} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{live?.audienceLabel || whoLabel}{skippedTotal ? `. ${fmt(skippedTotal)} left out.` : "."}</span></li>
           <li className="flex gap-2.5"><Send size={17} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{channels.map((c) => CH[c].label).join(", ")}{live?.backupCost ? ", with SMS backup" : ""}</span></li>
-          <li className="flex gap-2.5"><Coins size={17} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span className="tnum">{paidTotal ? `${live?.backupCost ? "Up to " : ""}${fmt(paidTotal)} credits of ${fmt(available)}` : "No credits needed"}</span></li>
+          <li className="flex gap-2.5"><Coins size={17} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span className="tnum">{paidTotal ? `${live?.backupCost && !live.backupTest ? "Up to " : ""}${fmt(paidTotal)} credits of ${fmt(available)}` : testWords ? "No credits: test mode" : "No credits needed"}</span></li>
           <li className="flex gap-2.5"><Clock size={17} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{when === "now" ? "Now" : at.replace("T", ", ")}</span></li>
           {fileName && <li className="flex gap-2.5"><Paperclip size={17} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" /><span>{fileName}</span></li>}
         </ul>

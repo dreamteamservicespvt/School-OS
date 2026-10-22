@@ -49,6 +49,7 @@ export async function GET(req: Request) {
     { label: "Channel", value: (r) => r.m.channels.map((c) => CHANNEL_LABEL[c as Channel] ?? c).join(", ") },
     { label: "Recipients", value: (r) => r.m.recipientCount },
     { label: "Delivered", value: (r) => r.c.delivered },
+    { label: "Test mode (not sent)", value: (r) => r.c.testMode },
     { label: "Read", value: (r) => r.c.read },
     { label: "Failed", value: (r) => r.c.failed },
     { label: "SMS backup", value: (r) => r.c.backup },

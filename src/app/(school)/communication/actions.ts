@@ -8,7 +8,7 @@ import { flash } from "@/lib/flash";
 import { writeAudit } from "@/lib/audit";
 import { commAction } from "@/lib/communication/access";
 import { previewOf, readAudienceForm, readSendForm, type SendPreview } from "@/lib/communication/send-form";
-import { planMessage, recordSend, MessagingProblem, skippedWords, type SendInput } from "@/lib/messaging/send";
+import { planMessage, recordSend, MessagingProblem, skippedWords, testModeWords, type SendInput } from "@/lib/messaging/send";
 import { describeAudience } from "@/lib/messaging/recipients";
 import { formatDateTime } from "@/lib/format";
 import { DOCUMENT_TYPES, FileProblem, saveFile } from "@/lib/files";
@@ -43,7 +43,7 @@ export async function checkOrSend(_prev: SendState, form: FormData): Promise<Sen
         for (const f of files) attachmentFileIds.push((await saveFile(tx, current.ctx, { file: f, purpose: "message", allowed: DOCUMENT_TYPES, maxImageWidth: 1600 })).id);
       }
       const sent = await recordSend(tx, current.ctx, { ...input, attachmentFileIds, idempotencyKey: String(form.get("sendKey") ?? "") || null }, plan);
-      return { preview, sent };
+      return { preview, sent, plan };
     });
     if (!("sent" in result) || !result.sent) {
       if ("changed" in result && result.changed) return { ok: false, message: "The recipients or cost changed since you checked. Check the new numbers, then send.", preview: result.preview };
@@ -51,10 +51,13 @@ export async function checkOrSend(_prev: SendState, form: FormData): Promise<Sen
     }
     const s = result.sent;
     const skipped = skippedWords(s.skipped);
+    // Test mode sends nothing: the sender is told so, never that parents got it (COMM-04).
+    const testMode = testModeWords(result.plan.testMode);
+    const onlyTest = Boolean(testMode) && result.plan.rows.every((r) => result.plan.testMode.includes(r.channel));
     await flash({
       message: s.scheduled
         ? `Scheduled for ${formatDateTime(input.scheduledAt!, current.school.timeZone)} to ${s.people} ${s.people === 1 ? "person" : "people"}. You can cancel it until then.`
-        : `Sending to ${s.people} ${s.people === 1 ? "person" : "people"}.${skipped ? ` ${skipped}` : ""}`,
+        : `${onlyTest ? "Recorded for" : "Sending to"} ${s.people} ${s.people === 1 ? "person" : "people"}.${skipped ? ` ${skipped}.` : ""}${testMode ? ` ${testMode}.` : ""}`,
       tone: "success",
       link: { href: `/communication/history/${s.messageId}`, label: "See delivery" },
     });

@@ -7,7 +7,7 @@ import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { commAction } from "@/lib/communication/access";
 import { cancelScheduled, retryFailed } from "@/lib/messaging/deliver";
-import { MessagingProblem } from "@/lib/messaging/send";
+import { creditWords, MessagingProblem } from "@/lib/messaging/send";
 import { planResend, resend, type ResendWho } from "@/lib/messaging/resend";
 import { CHANNEL_LABEL, isChannel } from "@/lib/messaging/channels";
 
@@ -50,11 +50,10 @@ export async function previewResend(id: string, who: ResendWho, channel: string)
   try {
     const { current, scope } = await ownMessage(id);
     const plan = await withSchool(current.ctx, (tx) => planResend(tx, current.ctx, id, who, channel, scope));
-    const credits = Object.values(plan.cost).reduce((a, b) => a + (b ?? 0), 0);
     return {
       ok: true,
       people: plan.people,
-      cost: credits ? `${credits} ${channel === "preferred" ? "" : `${CHANNEL_LABEL[channel]} `}credits` : "Free",
+      cost: creditWords(plan, channel === "preferred" ? "" : CHANNEL_LABEL[channel]),
       skipped: plan.skipped.map((g) => `${g.reason}: ${g.count}`),
       problem: plan.problems[0] ?? plan.creditProblem ?? (plan.people === 0 ? "Nobody can be reached on this channel. Choose another channel." : null),
     };

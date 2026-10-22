@@ -55,6 +55,7 @@ export default async function NewApplicationPage({ searchParams }: Search) {
           parentHint={e?.parentName ?? null} cancelHref={e ? `${BASE}/enquiries?id=${e.id}` : `${BASE}/applications`}
           consentVersion={dataText?.version ? `version ${dataText.version}` : null}
           photoConsentAsked={data.texts.some((t) => t.type === PHOTO_CONSENT)}
+          transportOn={current.modulesOn.has("transport-management")} hostelOn={current.modulesOn.has("hostel-management")}
         />
       )}
     </>

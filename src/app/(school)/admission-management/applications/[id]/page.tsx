@@ -220,8 +220,9 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
                 ["Last class", app.previousClass ?? "None"],
                 ["Marks or %", app.previousMarks ?? "None"],
                 ["Second language", prefs.secondLanguage ?? "Not given"],
-                ["Transport", prefs.transportNeeded ? `Needed${prefs.transportStop ? ` · ${prefs.transportStop}` : ""}` : "Not needed"],
-                ["Hostel", prefs.hostelNeeded ? "Needed" : "Not needed"],
+                // Transport and Hostel are optional modules: shown when on, or when a preference was saved.
+                ...(current.modulesOn.has("transport-management") || prefs.transportNeeded ? [["Transport", prefs.transportNeeded ? `Needed${prefs.transportStop ? ` · ${prefs.transportStop}` : ""}` : "Not needed"] as [string, React.ReactNode]] : []),
+                ...(current.modulesOn.has("hostel-management") || prefs.hostelNeeded ? [["Hostel", prefs.hostelNeeded ? "Needed" : "Not needed"] as [string, React.ReactNode]] : []),
                 ...(app.reviewNote ? [["Review note", app.reviewNote] as [string, React.ReactNode]] : []),
               ]} />
             </Card>

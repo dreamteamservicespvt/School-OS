@@ -45,6 +45,9 @@ type Props = {
   consentVersion?: string | null;
   photoConsentAsked?: boolean;
   applicationNo?: string | null;
+  /** Transport and Hostel are optional modules: their switches show only when the school has them on (02 §3 "when those modules are on"). */
+  transportOn?: boolean;
+  hostelOn?: boolean;
 };
 
 const GENDER_OPTIONS = [{ value: "Female", label: "Girl" }, { value: "Male", label: "Boy" }, { value: "Other", label: "Other" }];
@@ -74,6 +77,9 @@ export function ApplicationForm(p: Props) {
   const cls = p.classes.find((c) => c.value === classId);
   const matches = dismissedFor !== state ? state?.data?.matches ?? [] : [];
   const edit = Boolean(p.values.id);
+  // A preference already saved stays shown (and kept) even if the module was switched off since.
+  const showTransport = Boolean(p.transportOn || p.values.transportNeeded);
+  const showHostel = Boolean(p.hostelOn || p.values.hostelNeeded);
   const digits = phone.replace(/\D/g, "").slice(-10);
   const phoneOk = /^[6-9]\d{9}$/.test(digits);
   // A new phone number needs a new code.
@@ -173,13 +179,15 @@ export function ApplicationForm(p: Props) {
         <SubHead>Preferences</SubHead>
         <div className="grid md:grid-cols-2 gap-3">
           <TextField label="Second language" name="secondLanguage" maxLength={40} placeholder="Telugu or Hindi" defaultValue={val("secondLanguage")} />
-          <div className="flex flex-col gap-2.5 rounded-xl border border-line p-3">
-            <div className="flex items-center gap-3 text-[14px]"><Switch on={transport} onChange={setTransport} label="Transport needed" /><span className="font-semibold">Transport needed</span></div>
-            {transport && <input type="hidden" name="transportNeeded" value="on" />}
-            {transport && <input name="transportStop" aria-label="Pick-up place" maxLength={80} placeholder="Pick-up place, e.g. Miyapur X Roads" defaultValue={val("transportStop")} className={cx(inputCls(false), "h-10")} />}
-            <div className="flex items-center gap-3 text-[14px]"><Switch on={hostel} onChange={setHostel} label="Hostel needed" /><span className="font-semibold">Hostel needed</span></div>
-            {hostel && <input type="hidden" name="hostelNeeded" value="on" />}
-          </div>
+          {(showTransport || showHostel) && (
+            <div className="flex flex-col gap-2.5 rounded-xl border border-line p-3">
+              {showTransport && <div className="flex items-center gap-3 text-[14px]"><Switch on={transport} onChange={setTransport} label="Transport needed" /><span className="font-semibold">Transport needed</span></div>}
+              {transport && <input type="hidden" name="transportNeeded" value="on" />}
+              {showTransport && transport && <input name="transportStop" aria-label="Pick-up place" maxLength={80} placeholder="Pick-up place, e.g. Miyapur X Roads" defaultValue={val("transportStop")} className={cx(inputCls(false), "h-10")} />}
+              {showHostel && <div className="flex items-center gap-3 text-[14px]"><Switch on={hostel} onChange={setHostel} label="Hostel needed" /><span className="font-semibold">Hostel needed</span></div>}
+              {hostel && <input type="hidden" name="hostelNeeded" value="on" />}
+            </div>
+          )}
         </div>
 
         <MoreDetails defaultOpen={Boolean(val("email") || val("category") || val("religion") || val("occupation") || err("email") || err("aadhaar"))}>

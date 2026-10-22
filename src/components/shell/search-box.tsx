@@ -14,7 +14,7 @@ import type { PageLink } from "./nav-data";
 import type { Quick } from "./nav-config";
 import { readList, recordRecent, storageKey } from "./local-lists";
 import { typedKey } from "./typed-key";
-import type { QuestionKey } from "@/lib/ask/questions";
+import { askHref, closestQuestions, isQuestionKey, looksLikeQuestion, matchIntent, questionTitle, type QuestionKey } from "@/lib/ask/questions";
 
 export const OPEN_SEARCH_EVENT = "sos:open-search";
 
@@ -69,7 +69,10 @@ export function CommandPalette(props: PaletteProps) {
   return props.open ? <Palette {...props} /> : null;
 }
 
-function Palette({ onClose, userId, pages, shortcuts, quick, questions = [] }: Omit<PaletteProps, "open">) {
+const NO_KEYS: QuestionKey[] = [];
+const NO_LINKS: PageLink[] = [];
+
+function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINKS, askKeys = NO_KEYS }: Omit<PaletteProps, "open">) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [sel, setSel] = useState(0);
@@ -130,6 +133,10 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = [] }: O
       questions.forEach((x) => out.push({ sec: "Questions", label: x.label, href: x.href, icon: I.CircleHelp }));
       return out;
     }
+    // Search by intent (gap list G27): "absent today", "fees due class 5", "late staff" open a ready-made
+    // question with its class and dates filled in, answered from the list itself.
+    const asked = typed.length >= 3 ? matchIntent(typed, askKeys).slice(0, 3) : [];
+    asked.forEach((m) => out.push({ sec: "Questions", label: m.title, href: m.href, icon: I.CircleHelp }));
     // "fee Ravi": Collect Fee for each Ravi, first.
     people.collect.forEach((s) => out.push({ sec: "Collect fee", label: s.name, sub: s.sub, href: s.href, icon: I.IndianRupee }));
     people.students.forEach((s) => out.push({ sec: "Students", label: s.name, sub: s.sub, href: s.href, avatar: s.name }));
@@ -138,8 +145,13 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = [] }: O
     people.receipts.forEach((s) => out.push({ sec: "Receipts", label: s.name, sub: s.sub, href: s.href, icon: I.ReceiptText }));
     quick.filter((x) => matches(x.label, typed)).forEach((x) => out.push({ sec: "Quick actions", label: x.label, sub: x.sub, href: x.href, icon: (I as unknown as Record<string, LucideIcon>)[x.icon] }));
     pages.filter((p) => matches(p.label, typed)).slice(0, 8).forEach((p) => out.push({ sec: "Pages", label: p.label, sub: p.hint ?? "Open", href: p.href, icon: I.FileText }));
+    // A question no ready-made one matches: the closest ones the person may ask.
+    if (!asked.length && askKeys.length && looksLikeQuestion(typed)) {
+      const ready = questions.map((x) => new URLSearchParams(x.href.split("?")[1] ?? "").get("q")).filter(isQuestionKey);
+      closestQuestions(typed, askKeys, ready).forEach((k) => out.push({ sec: "Closest questions", label: questionTitle(k), href: askHref(k), icon: I.CircleHelp }));
+    }
     return out;
-  }, [typed, people, pages, shortcuts, quick, lists, questions]);
+  }, [typed, people, pages, shortcuts, quick, lists, questions, askKeys]);
 
   const choose = useCallback((r: Row) => { onClose(); router.push(r.href); }, [onClose, router]);
   const onKey = (e: React.KeyboardEvent) => {

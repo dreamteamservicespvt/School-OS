@@ -252,14 +252,20 @@ function classIn(words: string[]): string | null {
 /** "₹10,000", "rs 10000", "10k", "1.5 lakh", "10 thousand": whole rupees. A bare number counts from ₹100. */
 function amountIn(text: string): number | null {
   const t = text.toLowerCase().replace(/,/g, "");
-  const m = /(?:₹|rs\.?|inr)\s*(\d+(?:\.\d+)?)\s*(k|thousand|lakh|lakhs|lac|lacs)?|(\d+(?:\.\d+)?)\s*(k|thousand|lakh|lakhs|lac|lacs)\b|(?:more than|above|over|atleast|at least|greater than|>)\s*(\d+(?:\.\d+)?)/.exec(t);
-  if (!m) return null;
-  const num = Number(m[1] ?? m[3] ?? m[5]);
-  const unit = m[2] ?? m[4] ?? "";
-  const mult = unit === "k" || unit === "thousand" ? 1000 : unit.startsWith("la") ? 100_000 : 1;
-  const n = Math.round(num * mult);
-  if (!Number.isFinite(n) || n < (mult > 1 || m[1] ? 1 : 100) || n > 100_000_000) return null;
-  return n;
+  const unitOf = (u: string | undefined) => (u === "k" || u === "thousand" ? 1000 : u?.startsWith("la") ? 100_000 : 1);
+  // A rupee sign or word first, then a number with a unit, then "more than 5000".
+  const tries: [RegExp, number][] = [
+    [/(?:₹|\brs\.?|\binr)\s*(\d+(?:\.\d+)?)\s*(k|thousand|lakh|lakhs|lac|lacs)?/, 1],
+    [/(\d+(?:\.\d+)?)\s*(k|thousand|lakh|lakhs|lac|lacs)\b/, 1],
+    [/(?:more than|above|over|atleast|at least|greater than|>)\s*(\d+(?:\.\d+)?)/, 100],
+  ];
+  for (const [re, least] of tries) {
+    const m = re.exec(t);
+    if (!m) continue;
+    const n = Math.round(Number(m[1]) * unitOf(m[2]));
+    if (Number.isFinite(n) && n >= least && n <= 100_000_000) return n;
+  }
+  return null;
 }
 
 export type IntentMatch = { key: QuestionKey; params: AskParams; score: number; title: string; href: string };
@@ -287,7 +293,7 @@ export function matchIntent(text: string, allowed: readonly QuestionKey[] = QUES
 /** Words that make typed text look like a question rather than a name. */
 export function looksLikeQuestion(text: string) {
   const t = text.trim().toLowerCase();
-  return t.endsWith("?") || /^(who|whom|whose|how|which|what|when|where|show|list|tell|give|kitne|kitna|kaun|kab|kya)\b/.test(t) || wordsOf(t).length >= 4;
+  return t.endsWith("?") || /^(who|whom|whose|how|which|what|when|where|show|list|tell|give|kitne|kitna|kaun|kab|kya)\b/.test(t) || wordsOf(t).length >= 5;
 }
 
 /**

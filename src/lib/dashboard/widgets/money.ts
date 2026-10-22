@@ -220,9 +220,10 @@ const moneyToday: Widget<"panel"> = {
   allowed: finance("day-book"),
   async load(c) {
     const hidden = await payHeads(c);
+    const only = await onCampus(c);
     const [t, waiting, spent, balances, cashAccounts] = await Promise.all([
       tiles(c),
-      onCampus(c).then((only) => c.tx.payment.aggregate({ where: { status: "WAITING", broughtIn: false, ...only }, _sum: { amountPaise: true }, _count: { _all: true } })),
+      c.tx.payment.aggregate({ where: { status: "WAITING", broughtIn: false, ...only }, _sum: { amountPaise: true }, _count: { _all: true } }),
       c.tx.expensePayment.aggregate({ where: { date: c.today, cancelledAt: null, ...(hidden ? { expense: expensesWithoutPay(hidden) } : {}) }, _sum: { amountPaise: true }, _count: { _all: true } }),
       accountBalances(c.tx, c.viewer.ctx),
       c.tx.bankAccount.findMany({ where: { kind: "CASH", archivedAt: null }, select: { id: true } }),

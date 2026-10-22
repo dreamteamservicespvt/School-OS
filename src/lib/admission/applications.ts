@@ -10,7 +10,7 @@ import { writeAudit } from "../audit";
 import { encryptField } from "../crypto";
 import { nextNumber, formatNumber } from "../sequences";
 import { formatDate } from "../format";
-import { assertYearOpen } from "../academic/years";
+import { assertYearOpen, currentEnrolment } from "../academic/years";
 import { requestApproval } from "../approvals";
 import { AdmissionProblem } from "./act";
 import { requireFull, requireOwnCampus, type Viewer } from "./access";
@@ -153,10 +153,11 @@ export async function childDuplicates(tx: Tx, input: { fullName: string; dateOfB
   const students = await tx.student.findMany({
     where: { archivedAt: null, dateOfBirth: input.dateOfBirth, fullName: { equals: input.fullName, mode: "insensitive" }, guardians: { some: { archivedAt: null, guardian: { phone: input.phone } } }, ...campus },
     take: 3,
-    include: { enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1 } },
   });
   for (const st of students) {
-    const sec = st.enrolments[0] ? await tx.section.findUnique({ where: { id: st.enrolments[0].sectionId }, include: { schoolClass: true } }) : null;
+    // The class this year, in the student's own campus's current year.
+    const en = await currentEnrolment(tx, st.id);
+    const sec = en ? await tx.section.findUnique({ where: { id: en.sectionId }, include: { schoolClass: true } }) : null;
     out.push({ kind: "parent", id: st.id, href: `/student-management?q=${encodeURIComponent(st.admissionNo)}`, text: `A student with this name, date of birth and parent phone already exists${sec ? ` in ${sec.schoolClass.name} ${sec.name}` : ""} (admission no. ${st.admissionNo}).` });
   }
   return out;

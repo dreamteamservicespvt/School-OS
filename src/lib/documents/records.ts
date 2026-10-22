@@ -5,6 +5,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { formatDate } from "../format";
+import { currentEnrolment } from "../academic/years";
 import { numberInWords } from "./words";
 import { sampleData, type DocumentData } from "./render";
 import { findDocType } from "./types";
@@ -24,10 +25,11 @@ export function dateInWords(d: Date): string {
 export async function studentRecord(tx: Tx, ctx: SchoolContext, studentId: string, tz = "Asia/Kolkata"): Promise<DocumentData | null> {
   const s = await tx.student.findUnique({
     where: { id: studentId },
-    include: { enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1 }, guardians: { where: { archivedAt: null }, include: { guardian: true }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] } },
+    include: { guardians: { where: { archivedAt: null }, include: { guardian: true }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] } },
   });
   if (!s) return null;
-  const e = s.enrolments[0];
+  // The class this year, in the student's own campus's current year (never "the enrolment made last").
+  const e = await currentEnrolment(tx, s.id);
   const section = e ? await tx.section.findUnique({ where: { id: e.sectionId }, include: { schoolClass: true, academicYear: true } }) : null;
   const father = s.guardians.find((g) => /father/i.test(g.relationship))?.guardian;
   const mother = s.guardians.find((g) => /mother/i.test(g.relationship))?.guardian;

@@ -238,7 +238,7 @@ export async function seedAdmission(school: SeedSchool) {
 
   const classId = (name: string) => base.classes.find((c) => c.name === name)!.id;
   const admissionYear = base.upcoming ?? base.current;
-  const viewer: Viewer = { userId: principalId, see: "all", change: "all", staffId: base.principalStaff, restricted: true, overCapacity: true, roleKeys: ["principal"] };
+  const viewer: Viewer = { userId: principalId, see: "all", change: "all", staffId: base.principalStaff, restricted: true, overCapacity: true, roleKeys: ["principal"], campusId: null };
 
   // Campaign
   const campaignId = school.full ? await withSchool(ctx, async (tx) => (await tx.admissionCampaign.create({

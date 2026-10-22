@@ -20,6 +20,7 @@ import { classShort, shortDate, shownCount } from "@/lib/students/show";
 import { BASE, studentPage } from "../_lib/page";
 import { StudentsHead } from "../_lib/head";
 import { sectionNames } from "../_lib/queries";
+import { currentEnrolments } from "@/lib/academic/years";
 import { decideCertificateAction } from "../_actions/certificates";
 import { certificateTabs } from "./sub-tabs";
 import { studentIdsForFilter } from "@/lib/students/find";
@@ -62,9 +63,11 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
     const mayDecide = new Set<string>();
     for (const a of approvals) if (await canDecide(tx, current.ctx, a)) mayDecide.add(a.id);
     const ids = [...rows, ...waiting].map((r) => r.studentId);
-    const students = await tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, admissionNo: true, enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1, select: { sectionId: true } } } });
-    const names = await sectionNames(tx, students.flatMap((s) => s.enrolments.map((e) => e.sectionId)));
-    const cls = new Map(students.map((s) => { const n = s.enrolments[0] ? names.get(s.enrolments[0].sectionId) : null; return [s.id, n ? classShort(n.className, n.sectionName) : ""]; }));
+    const students = await tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true, admissionNo: true } });
+    // Each student's class this year, in their own campus's current year.
+    const thisYear = await currentEnrolments(tx, students.map((s) => s.id));
+    const names = await sectionNames(tx, [...thisYear.values()].map((e) => e.sectionId));
+    const cls = new Map(students.map((s) => { const e = thisYear.get(s.id); const n = e ? names.get(e.sectionId) : null; return [s.id, n ? classShort(n.className, n.sectionName) : ""]; }));
     return { total, rows, waiting, mayDecide, students, cls, byStatus };
   });
   type Row = (typeof data.rows)[number];

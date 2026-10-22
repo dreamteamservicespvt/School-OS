@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
-import { withSchool } from "@/lib/db";
+import { withSchool, type Tx } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { approvalsFor } from "@/lib/approvals";
 import { staffPage, BASE } from "@/lib/staff/page";
@@ -36,6 +36,11 @@ const STATUS_WORDS: Record<string, { label: string; tone: BadgeTone }> = {
 
 const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : undefined);
 
+/** Ids of the staff matching a filter (Leave Request rows link to staff by id only). */
+async function staffIdsWhere(tx: Tx, where: Prisma.StaffWhereInput) {
+  return (await tx.staff.findMany({ where, select: { id: true } })).map((s) => s.id);
+}
+
 export default async function StaffLeavePage({ searchParams }: Props) {
   const sp = await searchParams;
   const { current, viewer, tz, today } = await staffPage();
@@ -47,7 +52,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
     const roleKeys = current.roles.map((r) => r.key);
     // One campus: only the leave of their campus's staff (and their own) is waiting for them here.
     const campusLeave = viewer.campusId
-      ? { recordId: { in: (await tx.leaveRequest.findMany({ where: { status: "WAITING", archivedAt: null, staff: campusStaffWhere(viewer) }, select: { id: true } })).map((r) => r.id) } }
+      ? { recordId: { in: (await tx.leaveRequest.findMany({ where: { status: "WAITING", archivedAt: null, staffId: { in: await staffIdsWhere(tx, campusStaffWhere(viewer)) } }, select: { id: true } })).map((r) => r.id) } }
       : {};
     const where = await approvalsFor(tx, current.ctx, roleKeys, { type: "staff-leave", ...campusLeave });
     const [waitingForMe, types, rules, me] = await Promise.all([
@@ -203,7 +208,9 @@ export default async function StaffLeavePage({ searchParams }: Props) {
       return { approvals, requests, staff, details, balances };
     });
     const away = await withSchool(current.ctx, async (tx) => {
-      const leaves = await tx.leaveRequest.findMany({ where: { staffId: { not: null }, status: "APPROVED", archivedAt: null, fromDate: { lte: today }, toDate: { gte: today }, staff: { AND: [campusStaffWhere(viewer), hr ? {} : { departmentId: { in: viewer.headOf } }] } }, orderBy: { toDate: "asc" }, take: 20 });
+      // Leave rows link to staff by id only: the staff this person sees (their campus; heads, their departments).
+      const whose = await staffIdsWhere(tx, { AND: [campusStaffWhere(viewer), hr ? {} : { departmentId: { in: viewer.headOf } }] });
+      const leaves = await tx.leaveRequest.findMany({ where: { staffId: { in: whose }, status: "APPROVED", archivedAt: null, fromDate: { lte: today }, toDate: { gte: today } }, orderBy: { toDate: "asc" }, take: 20 });
       const people = await tx.staff.findMany({ where: { id: { in: leaves.map((l) => l.staffId!) } }, select: { id: true, fullName: true, photoFileId: true } });
       return leaves.map((l) => ({ ...l, person: people.find((p) => p.id === l.staffId) }));
     });
@@ -286,10 +293,10 @@ export default async function StaffLeavePage({ searchParams }: Props) {
       const within = range ? dateWhere(range) : null;
       const rows = await tx.leaveRequest.findMany({
         where: {
-          staffId: { not: null }, archivedAt: null, ...(status ? { status: status as "WAITING" } : {}),
+          archivedAt: null, ...(status ? { status: status as "WAITING" } : {}),
           // Leave that touches the chosen dates.
           ...(within ? { fromDate: { lte: within.lte }, toDate: { gte: within.gte } } : {}),
-          staff: { AND: [campusStaffWhere(viewer), q ? { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { staffCode: { contains: q, mode: "insensitive" } }] } : {}] },
+          staffId: { in: await staffIdsWhere(tx, { AND: [campusStaffWhere(viewer), q ? { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { staffCode: { contains: q, mode: "insensitive" } }] } : {}] }) },
         },
         orderBy: { fromDate: "desc" }, take: 100,
       });

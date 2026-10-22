@@ -9,6 +9,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { formatDateTime } from "../format";
+import { currentEnrolments } from "../academic/years";
 import { AdmissionProblem, instantToLocal, zonedToInstant } from "./act";
 import { canWorkOn, enquiryScope, requireFull, requireOwnCampus, type Viewer } from "./access";
 import { CLOSED_STATUSES, SYSTEM_STATUSES, label, live, yearOnCampus, type Settings } from "./settings";
@@ -46,12 +47,14 @@ export async function findDuplicates(tx: Tx, input: { phone?: string | null; ema
     tx.guardian.findMany({
       where: { archivedAt: null, OR: or<Prisma.GuardianWhereInput>({ phone: phone! }, { email: { equals: email!, mode: "insensitive" } }) },
       take: 3,
-      include: { students: { where: { archivedAt: null, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] }, ...campus } }, include: { student: { include: { enrolments: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1 } } } } } },
+      include: { students: { where: { archivedAt: null, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED"] }, ...campus } }, include: { student: true } } },
     }),
     tx.schoolClass.findMany({ select: { id: true, name: true } }),
   ]);
   const cls = (id: string | null | undefined) => classes.find((c) => c.id === id)?.name ?? null;
-  const sections = await tx.section.findMany({ where: { id: { in: guardians.flatMap((g) => g.students.flatMap((s) => s.student.enrolments.map((e) => e.sectionId))) } }, include: { schoolClass: true } });
+  // Each child's class this year, in their own campus's current year.
+  const current = await currentEnrolments(tx, guardians.flatMap((g) => g.students.map((s) => s.studentId)));
+  const sections = await tx.section.findMany({ where: { id: { in: [...current.values()].map((e) => e.sectionId) } }, include: { schoolClass: true } });
   const out: Match[] = [];
   for (const e of enquiries) {
     const c = cls(e.classId);
@@ -62,7 +65,7 @@ export async function findDuplicates(tx: Tx, input: { phone?: string | null; ema
   }
   for (const g of guardians) {
     const kids = g.students.map((sg) => {
-      const en = sg.student.enrolments[0];
+      const en = current.get(sg.studentId);
       const sec = en ? sections.find((s) => s.id === en.sectionId) : null;
       return `${sg.student.firstName}${sec ? `, ${sec.schoolClass.name.replace(/^Class\s+/i, "")} ${sec.name}` : ""}`;
     });

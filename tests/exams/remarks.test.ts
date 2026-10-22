@@ -47,7 +47,7 @@ let late = "";
 let ct = "";
 
 const as = (c: Current) => { who.current = c; };
-const mark = (studentId: string, n: number | null, o: { absent?: boolean; medical?: boolean } = {}) => ({ studentId, parts: o.absent ? {} : { Marks: n }, absent: Boolean(o.absent), medical: Boolean(o.medical), grade: null, remark: null });
+const mark = (studentId: string, n: number | null, o: { absent?: boolean; medical?: boolean } = {}) => ({ studentId, parts: (o.absent ? {} : { Marks: n }) as Record<string, number | null>, absent: Boolean(o.absent), medical: Boolean(o.medical), grade: null, remark: null });
 
 async function exam(title: string, typeName: string, papers: [string, string][]) {
   const typeId = await s.run(async (tx) => (await tx.examType.findFirstOrThrow({ where: { name: typeName } })).id);

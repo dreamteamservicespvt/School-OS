@@ -9,6 +9,8 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { Current } from "@/lib/current";
 
 const who = vi.hoisted(() => ({ current: null as unknown }));
+vi.mock("@/lib/flash", async (original) => ({ ...(await original<typeof import("@/lib/flash")>()), flash: async () => {} }));
+vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
 vi.mock("@/lib/current", async (orig) => {
   const real = await orig<typeof import("@/lib/current")>();
   const { requirePermission } = await import("@/lib/permissions");
@@ -61,7 +63,7 @@ describe("counter permissions on the ledger and at the counter", () => {
   it("refuses an accountant who may collect but not change fees", async () => {
     who.current = await currentFor(f.accountant.id);
     const open = await dues(f.ctx, f.ravi.id);
-    const charge = await addChargeAction(undefined, form({ studentId: f.ravi.id, feeHeadId: f.tuition.id, amount: "500", dueDate: "2026-10-01" }));
+    const charge = await addChargeAction(undefined, form({ studentId: f.ravi.id, feeHeadId: f.tuition.id, amount: "500", dueDate: "2026-10-01", reason: "Lost library book" }));
     expect(charge?.ok).toBe(false);
     expect(charge?.message).toContain("cannot change a student’s fees");
     const add = await adjustAction(undefined, form({ studentId: f.ravi.id, dueId: open[0].id, how: "add", amount: "100", reason: "Extra books" }));
@@ -78,8 +80,8 @@ describe("counter permissions on the ledger and at the counter", () => {
 
   it("lets the role the school chose do it", async () => {
     who.current = await currentFor(f.principal.id);
-    const r = await addChargeAction(undefined, form({ studentId: f.ravi.id, feeHeadId: f.tuition.id, amount: "500", dueDate: "2026-10-01" }));
-    expect(r?.ok).toBe(true);
+    const r = await addChargeAction(undefined, form({ studentId: f.ravi.id, feeHeadId: f.tuition.id, amount: "500", dueDate: "2026-10-01", reason: "Lost library book" }));
+    expect(r).toMatchObject({ ok: true });
     expect((await dues(f.ctx, f.ravi.id)).some((d) => d.amountPaise === R(500))).toBe(true);
   });
 });
@@ -104,14 +106,14 @@ describe("an accountant limited to the North campus", () => {
     const pay = await collectFee(undefined, form({ studentId: f.sita.id, dueId: open[0].id, amount: "6000", mode: "CASH" }));
     expect(pay?.ok).toBe(false);
     expect(pay?.message).toContain("not found");
-    const charge = await addChargeAction(undefined, form({ studentId: f.sita.id, feeHeadId: f.tuition.id, amount: "500", dueDate: "2026-10-01" }));
+    const charge = await addChargeAction(undefined, form({ studentId: f.sita.id, feeHeadId: f.tuition.id, amount: "500", dueDate: "2026-10-01", reason: "Lost library book" }));
     expect(charge?.message).toContain("not found");
   });
 
   it("still works on its own campus's students", async () => {
     who.current = north;
     // The counter permission is the Principal's, so the charge is refused for that reason, not as another campus's student.
-    const charge = await addChargeAction(undefined, form({ studentId: northStudent, feeHeadId: f.tuition.id, amount: "500", dueDate: "2026-10-01" }));
+    const charge = await addChargeAction(undefined, form({ studentId: northStudent, feeHeadId: f.tuition.id, amount: "500", dueDate: "2026-10-01", reason: "Lost library book" }));
     expect(charge?.message).toContain("cannot change a student’s fees");
   });
 });

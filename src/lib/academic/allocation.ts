@@ -208,14 +208,14 @@ export async function teacherWorkloads(tx: Tx, ctx: SchoolContext, yearId: strin
     select: { id: true, fullName: true, designation: true },
   });
   const ids = teachers.map((t) => t.id);
-  const [load, limit, allocations] = await Promise.all([
+  const [load, limitOf, allocations] = await Promise.all([
     workloadFor(tx, ctx, yearId, date, ids),
     limitsFor(tx, ctx, campusId, ids),
     tx.teacherAllocation.findMany({ where: { academicYearId: yearId, staffId: { in: ids }, ...allocationActiveOn(date), section: { archivedAt: null } }, include: { section: { include: { schoolClass: true } }, subject: true } }),
   ]);
   return teachers.map((t) => {
     const mine = allocations.filter((a) => a.staffId === t.id).sort((a, b) => a.section.schoolClass.sortOrder - b.section.schoolClass.sortOrder || a.section.name.localeCompare(b.section.name));
-    const l = limit(t.id);
+    const l = limitOf(t.id);
     return {
       id: t.id, name: t.fullName, designation: t.designation,
       periods: load.get(t.id) ?? 0, limit: l.perWeek,

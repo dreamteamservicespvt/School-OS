@@ -12,6 +12,7 @@ import { applyBulkUpdate, bulkChangeSection, matchPhotos, previewBulkUpdate, sav
 import { generateLogins, loginsCsv } from "@/lib/students/logins";
 import { loadVisibleStudent } from "@/lib/students/access";
 import { campusAllows, sectionCampusId } from "@/lib/campus";
+import { StudentProblem } from "@/lib/students/students";
 import { BULK_FIELDS } from "@/lib/students/labels";
 import { MAX_FILE_BYTES } from "@/lib/files";
 import { BASE, attemptForm, origin, studentAction } from "../_lib/page";

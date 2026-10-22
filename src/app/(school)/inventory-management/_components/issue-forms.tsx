@@ -48,9 +48,11 @@ export function IssueForm({ action, find, items, stockBy, staff, departments, se
   const [charge, setCharge] = useState(true);
   const [returnable, setReturnable] = useState(false);
   const [total, setTotal] = useState(0);
+  const [over, setOver] = useState(0);
   const [priced] = useState(() => Object.fromEntries(items.map((i) => [i.value, Math.round((Number(i.price) || 0) * 100)])));
   return (
-    <InlineForm action={action} pendingText="Issuing…" submit={to === "STUDENT" && charge && total > 0 ? `Issue and add ${rupees(total)} to fees` : "Issue"}>
+    <InlineForm action={action} pendingText="Issuing…" blocked={over > 0}
+      submit={over > 0 ? (over === 1 ? "A quantity is above the stock" : `${over} quantities are above the stock`) : to === "STUDENT" && charge && total > 0 ? `Issue and add ${rupees(total)} to fees` : "Issue"}>
       {(state) => {
         void state;
         return (
@@ -71,7 +73,7 @@ export function IssueForm({ action, find, items, stockBy, staff, departments, se
               </select>
             </div>
             <ItemLines items={items} limit stockAt={(id) => stockBy[id]?.[store] ?? 0} help="A quantity above the stock in this store cannot be issued."
-              unitPaise={priced} onTotal={setTotal} />
+              unitPaise={priced} onTotal={setTotal} onOver={setOver} />
             {to === "STUDENT" && <Toggle name="chargeToFees" title="Charge to the student's fees" sub={charge ? "At each item's price. Shown in Fee Management." : "A free issue: nothing is charged."} on={charge} onChange={setCharge} />}
             <Toggle name="returnable" title="To be returned" sub={returnable ? "Shown as out until it comes back (and in leaving clearance)." : "Given for use; not expected back."} on={returnable} onChange={setReturnable} />
             <SArea name="note" label="Note" maxLength={300} placeholder="Optional" />

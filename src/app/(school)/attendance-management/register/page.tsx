@@ -332,11 +332,14 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
     const messages = isoDay(from) === isoDay(to) ? await absenceMessagesOn(tx, from, cw.sections.map((s) => s.sectionId)) : null;
     return { cw, notMarked, messages };
   });
+  // One class (the Dashboard's "Attendance this week" opens a class's sections this way).
+  const classId = one(sp.class) ?? null;
+  if (data && classId && data.cw.sections.some((x) => x.classId === classId)) data.cw = { ...data.cw, sections: data.cw.sections.filter((x) => x.classId === classId) };
   const groupParam = one(sp.group) ?? "all";
   const group = data?.cw.groups.some((g) => g.key === groupParam) ? groupParam : "all";
   const href = (change: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    const keep: Record<string, string | null> = { period: one(sp.period) ?? null, from: one(sp.from) ?? null, to: one(sp.to) ?? null, sort: one(sp.sort) ?? null, group: group === "all" ? null : group, ...change };
+    const keep: Record<string, string | null> = { period: one(sp.period) ?? null, from: one(sp.from) ?? null, to: one(sp.to) ?? null, sort: one(sp.sort) ?? null, group: group === "all" ? null : group, class: classId, ...change };
     for (const [k, v] of Object.entries(keep)) if (v) p.set(k, v);
     return p.size ? `${BASE}/register?${p}` : `${BASE}/register`;
   };

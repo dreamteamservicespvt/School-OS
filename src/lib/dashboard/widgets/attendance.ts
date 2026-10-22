@@ -257,7 +257,8 @@ const weekByClass: Widget<"panel"> = {
   allowed: fullReach,
   async load(c) {
     if (!c.year) return null;
-    const monday = addDays(c.today, -((c.today.getUTCDay() + 6) % 7));
+    // "This week" as the register's date filter counts it: from the school's first day of the week.
+    const monday = addDays(c.today, -((c.today.getUTCDay() + 7 - (c.viewer.school.weekStart === "sunday" ? 0 : 1)) % 7));
     // The class-wise rows of the week (the same source as Attendance and Reports), added up per class.
     // Each campus's own current year (only theirs for a person limited to one campus).
     const cw = await classWise(c.tx, c.viewer.ctx, { yearId: c.yearIds, from: monday, to: c.today, today: c.today, campusId: c.viewer.campusId ?? null });
@@ -271,11 +272,11 @@ const weekByClass: Widget<"panel"> = {
     }
     const s = await settings(c);
     const rows: BarRow[] = [...byClass.entries()].sort((a, b) => a[1].sort - b[1].sort)
-      .map(([id, r]) => ({ key: id, label: r.label, value: Math.round((r.weight / r.counted) * 100), href: `${BASE}/register?period=thisweek` }));
+      .map(([id, r]) => ({ key: id, label: r.label, value: Math.round((r.weight / r.counted) * 100), href: `${BASE}/register?period=thisweek&class=${id}` }));
     return {
       slot: "main",
       panel: {
-        kind: "bars", title: "Attendance this week", sub: "Students present by class, Monday to today", icon: "UserCheck",
+        kind: "bars", title: "Attendance this week", sub: `Students present by class, ${c.viewer.school.weekStart === "sunday" ? "Sunday" : "Monday"} to today`, icon: "UserCheck",
         rows, goal: 90, lowBelow: s.thresholdPercent, href: `${BASE}/reports?report=trends`, linkLabel: "Attendance Reports",
         empty: "No attendance marked this week yet.",
       },

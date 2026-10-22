@@ -20,9 +20,11 @@ export const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0
  * They see Time Table and Syllabus only (05-roles.md; prototype config.js VIEW_BY_ROLE),
  * so the module's front page takes them to their own time table and the rest to No access.
  */
-export async function academicPage(rawParams: Record<string, string | string[] | undefined>, opts: { notForOwn?: "home" | "no-access" } = {}) {
+export async function academicPage(rawParams: Record<string, string | string[] | undefined>, opts: { notForOwn?: "home" | "no-access"; arrangers?: boolean } = {}) {
   const current = await requirePage("academic-management");
-  if (opts.notForOwn && reachFor(current.permissions, "academic-management", "view") === "own") {
+  // `arrangers`: Office Staff arrange substitutions with own reach (04 §1, src/lib/academic/scope.ts), so that page stays open to them.
+  const arranger = opts.arrangers && reachFor(current.permissions, "academic-management", "edit") === "own" && current.roles.some((r) => r.key === "office-staff");
+  if (opts.notForOwn && !arranger && reachFor(current.permissions, "academic-management", "view") === "own") {
     redirect(opts.notForOwn === "home" ? "/academic-management/time-table/mine" : "/no-access?m=academic-management");
   }
   const today = todayIn(current.school.timeZone);

@@ -11,6 +11,7 @@ import { Pill } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
 import { Col, Split } from "@/components/ui/blocks";
 import { ArchiveButton, DepartmentForm, DesignationForm, FeatureSwitch, GeneralForm, LeaveTypeForm, type LeaveTypeValues } from "./settings-forms";
+import { schoolRoles } from "@/lib/school-roles";
 import {
   archiveDepartment, archiveDesignation, archiveLeaveType, saveDepartment, saveDesignation, saveGeneral, saveLeaveType, toggleFeature,
 } from "./actions";
@@ -37,7 +38,7 @@ export default async function HrSettingsPage() {
       tx.leaveType.findMany({ where: { forWhom: "staff", archivedAt: null }, orderBy: { name: "asc" } }),
       tx.leaveTypeRule.findMany(),
       tx.staff.findMany({ where: { archivedAt: null, status: "ACTIVE" }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } }),
-      tx.role.findMany({ where: { archivedAt: null, isEnabled: true, key: { notIn: ["student", "parent"] } }, orderBy: { name: "asc" } }),
+      schoolRoles(tx, current.ctx, { where: { archivedAt: null, isEnabled: true, key: { notIn: ["student", "parent"] } }, orderBy: { name: "asc" } }),
       tx.staff.groupBy({ by: ["departmentId"], where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, _count: true }),
     ]);
     return { settings, departments, designations, types, rules, staff, roles, counts };

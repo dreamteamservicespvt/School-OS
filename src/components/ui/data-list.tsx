@@ -3,6 +3,7 @@
 // its record through a link that covers the row, and tick boxes for bulk actions
 // belong to a form elsewhere on the page (see InlineBulkBar).
 
+import { Fragment } from "react";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -140,7 +141,8 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href:
               <div className="min-w-0 flex-1">
                 <p className="font-semibold text-[15px] truncate">{m.title}</p>
                 {m.sub && <p className="text-[13px] text-ink3 truncate">{m.sub}</p>}
-                {m.pills && m.pills.filter(Boolean).length > 0 && <div className="flex gap-1.5 mt-1.5 flex-wrap">{m.pills}</div>}
+                {/* Pills come from helpers that often carry no key, so each gets its place as one. */}
+                {m.pills && m.pills.filter(Boolean).length > 0 && <div className="flex gap-1.5 mt-1.5 flex-wrap">{m.pills.filter(Boolean).map((p, i) => <Fragment key={i}>{p}</Fragment>)}</div>}
               </div>
               {m.right && <div className="text-right shrink-0">{m.right}</div>}
               {href && <ChevronRight size={18} className="text-ink3 shrink-0" aria-hidden="true" />}

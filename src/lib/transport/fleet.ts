@@ -19,6 +19,7 @@ import { cancelExpense, recordExpense } from "../finance/expenses";
 import { TransportProblem } from "./problem";
 import { holdsSeat } from "./places";
 import { normalPlate, plateLooksRight, showPlate, paperLabel } from "./words";
+import { schoolRole } from "../school-roles";
 
 /* ---------- Vehicles ---------- */
 
@@ -180,7 +181,7 @@ function checkDriver(input: DriverInput) {
 
 /** The Driver role template, switched on when the first driver gets an app login. */
 async function driverRole(tx: Tx, ctx: SchoolContext) {
-  const role = await tx.role.findFirst({ where: { key: "driver", archivedAt: null } });
+  const role = await schoolRole(tx, ctx, { where: { key: "driver", archivedAt: null } });
   if (!role) throw new TransportProblem("The Driver role was not found. Ask the School Admin to restore it in Settings, Users & Permissions.");
   if (!role.isEnabled) await setTemplateOn(tx, ctx, role.id, true);
   return role;

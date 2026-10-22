@@ -11,6 +11,7 @@ import { DOCUMENT_TYPES, fileLink, saveFile } from "../files";
 import { formatDate } from "../format";
 import { SettingsProblem } from "./common";
 import { DOCUMENT_TYPES_VAULT } from "./profile-rules";
+import { schoolRoles } from "../school-roles";
 
 export type DocVersion = { fileId: string; uploadedAt: string; uploadedById: string | null; fileName: string };
 
@@ -38,10 +39,10 @@ function checkDates(issuedOn: Date | null, expiresOn: Date | null) {
   if (issuedOn && expiresOn && expiresOn <= issuedOn) throw new SettingsProblem("The expiry date must be after the issue date.", "expiresOn");
 }
 
-async function checkRoles(tx: Tx, keys: string[]) {
+async function checkRoles(tx: Tx, ctx: SchoolContext, keys: string[]) {
   const clean = [...new Set(keys)];
   if (clean.length === 0) throw new SettingsProblem("Choose who can see it.", "visibleTo");
-  const roles = await tx.role.findMany({ where: { key: { in: clean }, archivedAt: null }, select: { key: true } });
+  const roles = await schoolRoles(tx, ctx, { where: { key: { in: clean }, archivedAt: null }, select: { key: true } });
   if (roles.length !== clean.length) throw new SettingsProblem("One of the chosen roles was not found.", "visibleTo");
   return clean;
 }
@@ -49,7 +50,7 @@ async function checkRoles(tx: Tx, keys: string[]) {
 export async function uploadDocument(tx: Tx, ctx: SchoolContext, input: NewDocument) {
   if (!DOCUMENT_TYPES_VAULT.includes(input.docType as never)) throw new SettingsProblem("Choose the document type.", "docType");
   checkDates(input.issuedOn, input.expiresOn);
-  const visibleTo = await checkRoles(tx, input.visibleTo);
+  const visibleTo = await checkRoles(tx, ctx, input.visibleTo);
   const file = await saveFile(tx, ctx, { file: input.file, purpose: "school-document", allowed: DOCUMENT_TYPES });
   const version: DocVersion = { fileId: file.id, uploadedAt: new Date().toISOString(), uploadedById: ctx.userId, fileName: file.fileName };
   const doc = await tx.schoolDocument.create({
@@ -107,7 +108,7 @@ export async function editDocument(tx: Tx, ctx: SchoolContext, roleKeys: (string
   const doc = await findDoc(tx, id, roleKeys);
   if (!DOCUMENT_TYPES_VAULT.includes(input.docType as never)) throw new SettingsProblem("Choose the document type.", "docType");
   checkDates(input.issuedOn, input.expiresOn);
-  const visibleTo = await checkRoles(tx, input.visibleTo);
+  const visibleTo = await checkRoles(tx, ctx, input.visibleTo);
   const before = { docType: doc.docType, title: doc.title, issuedOn: doc.issuedOn?.toISOString().slice(0, 10) ?? null, expiresOn: doc.expiresOn?.toISOString().slice(0, 10) ?? null, visibleTo: doc.visibleTo };
   const after = { docType: input.docType, title: input.title, issuedOn: input.issuedOn?.toISOString().slice(0, 10) ?? null, expiresOn: input.expiresOn?.toISOString().slice(0, 10) ?? null, visibleTo };
   if (JSON.stringify(before) === JSON.stringify(after)) return false;

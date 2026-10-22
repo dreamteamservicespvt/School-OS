@@ -14,6 +14,7 @@ import { UserIcon } from "@/components/icons";
 import { filterUsers, schoolUsers, sortUsers, type UserRow } from "@/lib/settings/user-list";
 import { STATE_LABEL, STATE_TONE } from "@/lib/settings/users";
 import { UsersNav } from "./sub-nav";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Users & Permissions" };
 
@@ -25,7 +26,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   const tz = current.school.timeZone;
   const { rows, roles } = await withSchool(current.ctx, async (tx) => ({
     rows: await schoolUsers(tx, current.school.id),
-    roles: await tx.role.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    roles: await schoolRoles(tx, current.ctx, { where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   }));
   const filtered = sortUsers(filterUsers(rows, params.q, params.filters), params.sort, params.dir);
   const { skip, take } = skipTake(params);

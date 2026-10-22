@@ -12,6 +12,7 @@ import { Pill } from "@/components/ui/badge";
 import { EmptyState } from "@/components/empty-state";
 import { AdmissionHead } from "../_components/head";
 import { ClassEdit, ListChips, NumbersButton, OwnerRule, PapersTable, RuleSwitch, StagesList } from "./settings-forms";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Admission Settings" };
 
@@ -38,7 +39,7 @@ export default async function AdmissionSettingsPage() {
       // Class rules are kept per class: a person limited to one campus sees their campus's classes. The rest is school-wide.
       classList(tx, viewer.campusId), classRules(tx), admissionStaff(tx, current.ctx), openYears(tx),
       tx.approvalRule.findFirst({ where: { requestType: "admission", archivedAt: null } }),
-      tx.role.findMany({ where: { key: { not: null } }, select: { key: true, name: true } }),
+      schoolRoles(tx, current.ctx, { where: { key: { not: null } }, select: { key: true, name: true } }),
       year ? tx.application.count({ where: { academicYearId: year.id } }) : 0,
     ]);
     return { classes, rules, staff, years, approvalRule, roles, nextSeq };

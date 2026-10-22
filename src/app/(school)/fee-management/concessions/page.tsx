@@ -25,6 +25,7 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { FeeHead } from "../_components/fee-head";
 import { BASE, feePeriod, feeGuard, one, qs, type SearchParams } from "../_lib/page";
 import { ApproveButton, ArchiveRule, ConcessionSheet, DeclineSheet, MarkRefundedSheet, RefundSheet, RevokeSheet, RuleSheet, RuleSwitch } from "./sheets";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata = { title: "Concessions & Refunds" };
 
@@ -52,7 +53,7 @@ async function decisions(tx: Tx, ctx: SchoolContext, approvalIds: string[]) {
   if (!approvalIds.length) return out;
   const approvals = await tx.approval.findMany({ where: { id: { in: approvalIds } } });
   const users = await tx.userLogin.findMany({ where: { id: { in: approvals.map((a) => a.currentApproverId).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
-  const roles = await tx.role.findMany({ where: { key: { in: approvals.map((a) => a.currentApproverRole).filter((x): x is string => Boolean(x)) } }, select: { key: true, name: true } });
+  const roles = await schoolRoles(tx, ctx, { where: { key: { in: approvals.map((a) => a.currentApproverRole).filter((x): x is string => Boolean(x)) } }, select: { key: true, name: true } });
   for (const a of approvals) {
     const who = (a.currentApproverId && users.find((u) => u.id === a.currentApproverId)?.displayName) || (a.currentApproverRole && roles.find((r) => r.key === a.currentApproverRole)?.name) || "the approver";
     out.set(a.id, { can: await canDecide(tx, ctx, a), waitingFor: who });

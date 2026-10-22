@@ -26,6 +26,7 @@ import { ConfirmSheet } from "../_components/forms";
 import { BASE, one, qs, salaryGuard, salaryPeriod, type SearchParams } from "../_lib/page";
 import { calculateAction, decideRunAction, lockRunAction, removeAdjustmentAction, reversePaymentAction, sendRunAction, takeBackAction } from "./actions";
 import { AdjustmentSheet, OpenMonthSheet, PayRunSheet, TdsSheet } from "./sheets";
+import { schoolRole } from "@/lib/school-roles";
 
 export const metadata = { title: "Generate Salary" };
 
@@ -78,7 +79,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
     if (run?.status === "WAITING" && run.approvalId) {
       const a = await tx.approval.findUnique({ where: { id: run.approvalId } });
       const names = await tx.userLogin.findMany({ where: { id: { in: [run.sentById, a?.currentApproverId].filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
-      const role = a?.currentApproverRole ? await tx.role.findFirst({ where: { key: a.currentApproverRole }, select: { name: true } }) : null;
+      const role = a?.currentApproverRole ? await schoolRole(tx, ctx, { where: { key: a.currentApproverRole }, select: { name: true } }) : null;
       approval = {
         can: Boolean(a && p.can.approve && money && (await canDecide(tx, ctx, a))),
         sentBy: names.find((n) => n.id === run.sentById)?.displayName ?? "the Accountant",

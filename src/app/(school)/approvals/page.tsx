@@ -27,6 +27,7 @@ import { finishesAny, unfinishedApprovals } from "@/lib/approvals-unfinished";
 import { decisionOf } from "@/lib/approval-waiting";
 import { approvalRecordLink } from "@/lib/approval-links";
 import { approvalFacts } from "@/lib/approval-facts";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Approvals" };
 
@@ -71,7 +72,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     const decidable = await decidableIds(tx, current.ctx, rows);
     const ids = [...new Set(rows.flatMap((r) => [r.askedById, r.currentApproverId].filter((x): x is string => Boolean(x))))];
     const people = await tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } });
-    const roles = await tx.role.findMany({ select: { key: true, name: true } });
+    const roles = await schoolRoles(tx, current.ctx, { select: { key: true, name: true } });
     const jobs = await askerJobs(tx, rows.map((r) => r.askedById));
     // Facts only for requests still to decide: what the approver needs to see on the card.
     const facts = await approvalFacts(tx, current.ctx, rows.filter((r) => OPEN_STATUSES.includes(r.status)));

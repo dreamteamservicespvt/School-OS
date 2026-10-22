@@ -12,6 +12,7 @@ import { ActButton, ConfirmAct, LocationField, SegField } from "../_components/f
 import { SettingsSheet } from "../_components/settings-sheet";
 import { setLiveAction } from "../actions";
 import { BASE, addQ, one, trGuard, type SearchParams } from "../_lib/page";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata = { title: "Transport Settings" };
 
@@ -26,7 +27,7 @@ export default async function TransportSettingsPage({ searchParams }: { searchPa
   const edit = p.mode === "full" ? one(sp.edit) : "";
   const s = p.settings;
   const { roles, rules, school } = await withSchool(p.current.ctx, async (tx) => ({
-    roles: await tx.role.findMany({ where: { archivedAt: null, isEnabled: true }, orderBy: { name: "asc" }, select: { key: true, name: true } }),
+    roles: await schoolRoles(tx, p.current.ctx, { where: { archivedAt: null, isEnabled: true }, orderBy: { name: "asc" }, select: { key: true, name: true } }),
     rules: (await ruleStates(tx, p.current.ctx)).filter((r) => r.key.startsWith("bus-")),
     school: await tx.school.findUniqueOrThrow({ where: { id: p.current.ctx.schoolId }, select: { name: true } }),
   }));

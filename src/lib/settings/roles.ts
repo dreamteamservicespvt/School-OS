@@ -12,6 +12,7 @@ import type { AccessLevel, RolePermissions } from "../roles";
 import { SettingsProblem, actorName, alertPermissionChange } from "./common";
 
 import { cleanPermissions, permissionChanges } from "./role-words";
+import { schoolRole, schoolRoles } from "../school-roles";
 export { LEVELS, cleanPermissions, permissionChanges } from "./role-words";
 
 /** How many people hold each role right now (live School Access only). */
@@ -59,7 +60,7 @@ export async function createRole(tx: Tx, ctx: SchoolContext, input: RoleInput) {
   const name = checkName(input.name);
   await nameFree(tx, ctx.schoolId, name);
   const permissions = cleanPermissions(input.permissions);
-  const from = input.copyFromId ? await tx.role.findUnique({ where: { id: input.copyFromId } }) : null;
+  const from = input.copyFromId ? await schoolRole(tx, ctx, { where: { id: input.copyFromId } }) : null;
   const role = await tx.role.create({
     // A key lets approval rules and approvals name the role, like the ready roles.
     data: { schoolId: ctx.schoolId, key: `custom-${randomUUID().slice(0, 8)}`, name, kind: "CUSTOM", isEnabled: true, requiresTwoStep: input.requiresTwoStep, permissions },
@@ -72,7 +73,7 @@ export async function createRole(tx: Tx, ctx: SchoolContext, input: RoleInput) {
 
 /** Saves a role's permissions. Returns the audit entry, which Undo puts back. */
 export async function updateRole(tx: Tx, ctx: SchoolContext, roleId: string, input: RoleInput) {
-  const role = await tx.role.findUnique({ where: { id: roleId } });
+  const role = await schoolRole(tx, ctx, { where: { id: roleId } });
   if (!role || role.archivedAt) throw new SettingsProblem("This role was not found. It may have been archived.");
   const name = role.kind === "CUSTOM" ? checkName(input.name) : role.name;
   if (name !== role.name) await nameFree(tx, ctx.schoolId, name, role.id);
@@ -109,7 +110,7 @@ export async function restoreRoleVersion(tx: Tx, ctx: SchoolContext, auditEntryI
 
 /** Archives a school's own role. Ready roles and templates cannot be archived; a role in use cannot either. */
 export async function archiveRole(tx: Tx, ctx: SchoolContext, roleId: string) {
-  const role = await tx.role.findUnique({ where: { id: roleId } });
+  const role = await schoolRole(tx, ctx, { where: { id: roleId } });
   if (!role || role.archivedAt) throw new SettingsProblem("This role was not found. It may already be archived.");
   if (role.kind !== "CUSTOM") throw new SettingsProblem(`${role.name} is a ${role.kind === "READY" ? "ready role" : "role template"} and cannot be archived. ${role.kind === "TEMPLATE" ? "Switch it off instead." : "Change its permissions instead."}`);
   const used = (await roleUsage(tx, ctx.schoolId)).get(role.id) ?? 0;
@@ -122,7 +123,7 @@ export async function archiveRole(tx: Tx, ctx: SchoolContext, roleId: string) {
 }
 
 export async function restoreRole(tx: Tx, ctx: SchoolContext, roleId: string) {
-  const role = await tx.role.findUnique({ where: { id: roleId } });
+  const role = await schoolRole(tx, ctx, { where: { id: roleId } });
   if (!role || !role.archivedAt) throw new SettingsProblem("This role is not archived.");
   await tx.role.update({ where: { id: role.id }, data: { archivedAt: null } });
   await writeAudit(tx, ctx, { action: "restored", recordType: "Role", recordId: role.id, after: { name: role.name } });
@@ -133,7 +134,7 @@ export async function restoreRole(tx: Tx, ctx: SchoolContext, roleId: string) {
 
 /** Switches a role template on or off. A template in use cannot be switched off. */
 export async function setTemplateOn(tx: Tx, ctx: SchoolContext, roleId: string, on: boolean) {
-  const role = await tx.role.findUnique({ where: { id: roleId } });
+  const role = await schoolRole(tx, ctx, { where: { id: roleId } });
   if (!role || role.archivedAt) throw new SettingsProblem("This role was not found.");
   if (role.kind !== "TEMPLATE") throw new SettingsProblem(`${role.name} is not a role template, so it is always on.`);
   if (role.isEnabled === on) return role;
@@ -166,8 +167,8 @@ export function roleAbout(permissions: Partial<Record<ModuleKey, AccessLevel>>):
 }
 
 /** Roles a person can be given now: not archived, and templates only when switched on. */
-export async function assignableRoles(tx: Tx) {
-  const roles = await tx.role.findMany({ where: { archivedAt: null }, orderBy: [{ kind: "asc" }, { name: "asc" }] });
+export async function assignableRoles(tx: Tx, ctx: SchoolContext) {
+  const roles = await schoolRoles(tx, ctx, { where: { archivedAt: null }, orderBy: [{ kind: "asc" }, { name: "asc" }] });
   return roles
     .filter((r) => r.kind !== "TEMPLATE" || r.isEnabled)
     .map((r) => ({ id: r.id, key: r.key, name: r.name, kind: r.kind as string, twoStep: r.requiresTwoStep, about: roleAbout(r.permissions as Partial<RolePermissions>) }));

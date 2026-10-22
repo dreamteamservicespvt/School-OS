@@ -10,6 +10,7 @@ import { INVITE_VALID_MS } from "../auth/invites";
 import { hashToken, newToken } from "../auth/tokens";
 import { getStudentSettings } from "./settings";
 import { StudentProblem } from "./students";
+import { schoolRole } from "../school-roles";
 
 export type LoginLine = { studentId: string; fullName: string; admissionNo: string; username: string; link: string; isNew: boolean };
 
@@ -25,7 +26,7 @@ export async function generateLogins(tx: Tx, ctx: SchoolContext, studentIds: str
   const settings = await getStudentSettings(tx, ctx);
   if (!settings.studentLoginsOn) throw new StudentProblem("Student logins are switched off (Student Settings, Student logins).");
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId } });
-  const role = await tx.role.findFirst({ where: { key: "student", archivedAt: null } });
+  const role = await schoolRole(tx, ctx, { where: { key: "student", archivedAt: null } });
   if (!role) throw new StudentProblem("The Student role is missing. Ask your School Admin to set it up in Settings, Users & Permissions.");
   if (!role.isEnabled) await tx.role.update({ where: { id: role.id }, data: { isEnabled: true } });
   const lines: LoginLine[] = [];

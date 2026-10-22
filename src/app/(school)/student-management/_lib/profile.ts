@@ -13,6 +13,7 @@ import { pointsTotal } from "@/lib/students/behaviour";
 import { pickupList } from "@/lib/students/guardians";
 import { currentEnrolments, currentYear } from "@/lib/academic/years";
 import type { ResolvedSettings } from "@/lib/students/settings";
+import { schoolRoles } from "@/lib/school-roles";
 
 /** The student row with the parts this person may not see taken out (ProfileView). */
 export function redactStudent<T extends Record<string, unknown> & { customFields: unknown }>(row: T, v: ProfileView): T {
@@ -49,7 +50,7 @@ export async function loadProfile(tx: Tx, current: Current, id: string, can: Stu
     can.seeBehaviour ? tx.behaviourIncidentStudent.count({ where: { studentId: id, incident: { archivedAt: null, ...(yearId ? { academicYearId: yearId } : {}) } } }) : Promise.resolve(0),
     can.seeBehaviour && settings.pointsOn ? pointsTotal(tx, id) : Promise.resolve(null),
     can.seeBehaviour ? tx.behaviourIncidentStudent.findFirst({ where: { studentId: id, incident: { archivedAt: null, kind: "suspension", suspensionTo: { gte: new Date(new Date().toISOString().slice(0, 10)) } } }, include: { incident: true } }) : Promise.resolve(null),
-    tx.role.findMany({ where: { archivedAt: null, isEnabled: true, key: { not: null } }, select: { key: true, name: true }, orderBy: { name: "asc" } }),
+    schoolRoles(tx, current.ctx, { where: { archivedAt: null, isEnabled: true, key: { not: null } }, select: { key: true, name: true }, orderBy: { name: "asc" } }),
     consentRows(tx, current.ctx, { studentIds: [id], consentType: "photo" }).then((r) => r.filter((x) => x.status === "WITHDRAWN").length),
     v.pickup || v.mode === "pickup" ? pickupList(tx, id) : none({ allowed: [], restricted: [] }),
     previousSchoolLocked(tx, id),

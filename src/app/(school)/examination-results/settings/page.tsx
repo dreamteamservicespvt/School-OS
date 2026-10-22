@@ -13,6 +13,7 @@ import { examPage, type SearchParams } from "../_lib/page";
 import { PageTop } from "../_components/page-top";
 import { EXAM_FEATURES, FEATURE_WORDS } from "./features";
 import { AreasList, BoardsEditor, ClassPatternsEditor, CompetencyList, FeatureSwitch, NameList, RulesForm, ScaleEditor, WeightsEditor } from "./settings-ui";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Exam Settings" };
 const PATH = "/examination-results/settings";
@@ -31,7 +32,7 @@ export default async function ExamSettingsPage({ searchParams }: { searchParams:
       tx.examType.findMany({ where: { archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
       tx.markCategory.findMany({ where: { archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
       tx.coScholasticArea.findMany({ where: { archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true, kind: true, grades: true, description: true } }),
-      tx.role.findMany({ where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true, permissions: true } }),
+      schoolRoles(tx, ctx, { where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true, permissions: true } }),
       tx.schoolFeature.findMany({ where: { featureKey: { in: [...EXAM_FEATURES] } }, select: { featureKey: true, isOn: true } }),
       // One campus: the exam pattern of that campus's classes only.
       tx.schoolClass.findMany({ where: { archivedAt: null, ...inCampus(page.current) }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),

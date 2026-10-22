@@ -13,6 +13,7 @@ import { ROLL_ORDERS, WEEK_STARTS, boardDefaults, readPreferences, type Preferen
 import { AI_FEATURES, INTEGRATIONS, SCHOOL_TEMPLATES, aiFeatureReady, aiRolesOf, checkIntegrationFields, httpAllowed, type IntegrationDef } from "./switch-rules";
 import { aiPlatformDailyLimit } from "../ai/config";
 import { AddressRefused, publicFetch } from "../net/public-fetch";
+import { schoolRoles } from "../school-roles";
 
 export * from "./switch-rules";
 
@@ -57,7 +58,7 @@ export async function savePreferences(tx: Tx, ctx: SchoolContext, input: { weekS
 /** The AI assistant on or off, and which roles may use it. With it off, every AI feature is off. */
 export async function saveAssistant(tx: Tx, ctx: SchoolContext, input: { on: boolean; roles: string[]; dailyLimit?: number | null }) {
   const { school, prefs } = await prefsOf(tx, ctx);
-  const roleRows = await tx.role.findMany({ where: { key: { in: input.roles }, archivedAt: null, isEnabled: true }, select: { key: true } });
+  const roleRows = await schoolRoles(tx, ctx, { where: { key: { in: input.roles }, archivedAt: null, isEnabled: true }, select: { key: true } });
   const roles = roleRows.map((r) => r.key!).filter(Boolean);
   if (input.on && roles.length === 0) throw new SettingsProblem("Choose at least one role that may use the AI assistant.", "aiRoles");
   // The school may keep its AI requests below DREAM TEAM's daily limit, never above it.

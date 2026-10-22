@@ -14,6 +14,7 @@ import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
 import { RoleEditor } from "../role-editor";
 import { PutBack, RoleSwitch } from "../role-actions";
+import { schoolRole } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Role" };
 
@@ -29,10 +30,10 @@ export default async function RolePage({ params }: { params: Promise<{ id: strin
   if (!UUID.test(id)) notFound();
   const tz = current.school.timeZone;
   const data = await withSchool(current.ctx, async (tx) => {
-    const role = await tx.role.findUnique({ where: { id } });
+    const role = await schoolRole(tx, current.ctx, { where: { id } });
     if (!role) return null;
     const holders = await tx.schoolAccess.findMany({
-      where: { archivedAt: null, roles: { some: { roleId: id } } },
+      where: { schoolId: current.ctx.schoolId, archivedAt: null, roles: { some: { roleId: id } } },
       select: { userLoginId: true, userLogin: { select: { displayName: true, username: true } } },
     });
     const history = await tx.auditLogEntry.findMany({ where: { recordType: "Role", recordId: id }, orderBy: { at: "desc" }, take: 40 });

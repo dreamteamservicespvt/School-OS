@@ -13,6 +13,7 @@ import { writeAudit } from "../audit";
 import { chargesFor, MessagingProblem, recordSend, type Plan, type PlannedRow } from "../messaging";
 import { creditBalances, creditProblem, creditsFor } from "../messaging/credits";
 import { onChannels, type Channel } from "../messaging/channels";
+import { withCode } from "../messaging/one-time-code";
 import { maskPhone } from "./words";
 
 export type DeskMessage = {
@@ -21,8 +22,11 @@ export type DeskMessage = {
   trigger: "Visitor pass" | "Appointment confirmation" | "Appointment reminder" | "Appointment cancelled" | "Walk-in request number" | "Pickup code" | "Pickup gate pass";
   text: string;
   about: { recordType: string; recordId: string };
-  /** One-time codes: never written to the audit log or the message title. */
-  secret?: boolean;
+  /**
+   * A one-time code: the text has "••••••" where the code goes, and the code goes only to
+   * the provider; it is never in Message History, the audit log or the title (QA SEC-01).
+   */
+  code?: string;
 };
 
 export type DeskSend = { status: "queued" | "skipped"; channel: string; note?: string };
@@ -32,7 +36,8 @@ export async function messageVisitor(tx: Tx, ctx: SchoolContext, msg: DeskMessag
   const channel: Channel | null = on.has("whatsapp") ? "whatsapp" : on.has("sms") ? "sms" : null;
   if (!channel) return { status: "skipped", channel: "whatsapp", note: "No WhatsApp or SMS is set up (Settings, SMS, WhatsApp & Email)" };
   if (!/^[6-9]\d{9}$/.test(msg.to.phone)) return { status: "skipped", channel, note: "No valid mobile number" };
-  const credits = creditsFor(channel, msg.text);
+  // Counted on the words as sent: the code's mask would make an SMS look like Unicode.
+  const credits = creditsFor(channel, msg.code ? withCode(msg.text, msg.code) : msg.text);
   const balances = await creditBalances(tx, ctx);
   const cost = { [channel]: credits } as Partial<Record<Channel, number>>;
   const row: PlannedRow = {
@@ -44,12 +49,13 @@ export async function messageVisitor(tx: Tx, ctx: SchoolContext, msg: DeskMessag
   const plan: Plan = { channels: [channel], rows: [row], people: 1, skipped: [], cost, ...charges, backupCost: 0, balances, creditProblem: creditProblem(charges.charged, balances), problems: [], audienceLabel: msg.to.name, backupTemplateId: null };
   try {
     await recordSend(tx, ctx, {
-      to: {}, channels: [channel], text: msg.secret ? "One-time pickup code" : msg.text, title: msg.trigger,
+      to: {}, channels: [channel], text: msg.code ? "One-time pickup code" : msg.text, title: msg.trigger,
       trigger: msg.trigger, source: { type: msg.about.recordType, id: msg.about.recordId }, audienceLabel: msg.to.name, onNoCredits: "block",
+      oneTimeCode: msg.code ? { code: msg.code, purpose: "pickup" } : null,
     }, plan);
     await writeAudit(tx, ctx, {
       action: "message-sent", recordType: msg.about.recordType, recordId: msg.about.recordId,
-      after: { kind: msg.trigger, channel, to: maskPhone(msg.to.phone), text: msg.secret ? "(one-time code)" : msg.text },
+      after: { kind: msg.trigger, channel, to: maskPhone(msg.to.phone), text: msg.code ? "(one-time code)" : msg.text },
     });
     return { status: "queued", channel };
   } catch (e) {

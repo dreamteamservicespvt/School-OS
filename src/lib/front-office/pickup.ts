@@ -18,6 +18,7 @@ import { inCampus, type CampusLimit } from "../campus";
 import { FrontOfficeProblem } from "./problem";
 import { messageVisitor } from "./notify";
 import { channelInTestMode, logCodeSentBy } from "../dev-codes";
+import { CODE_MASK } from "../messaging/one-time-code";
 import { clockAt, instantOf, localOf, todayIso } from "./time";
 import { maskPhone, NO_PHOTO_CHECKS, PICKUP_REASONS, type NoPhotoCheck } from "./words";
 
@@ -125,8 +126,9 @@ export async function sendPickupCode(tx: Tx, ctx: SchoolContext, studentId: stri
   await tx.pickupCode.update({ where: { id: row.id }, data: { codeHash: hashCode(row.id, code) } });
   const sent = await messageVisitor(tx, ctx, {
     to: { name: link.guardian.name, phone: link.guardian.phone }, trigger: "Pickup code",
-    text: `Code ${code} to collect ${link.student.firstName} from school. Give it only to the front desk. It works for ${CODE_MINUTES} minutes.`,
-    about: { recordType: "Student", recordId: studentId }, secret: true,
+    // The message keeps "••••••"; the code goes only to the provider (QA SEC-01).
+    text: `Code ${CODE_MASK} to collect ${link.student.firstName} from school. Give it only to the front desk. It works for ${CODE_MINUTES} minutes.`,
+    about: { recordType: "Student", recordId: studentId }, code,
   });
   if (sent.status !== "queued") {
     throw new FrontOfficeProblem(`The code could not be sent: ${sent.note ?? "messages are not set up"}. Verify by calling the guardian instead.`);

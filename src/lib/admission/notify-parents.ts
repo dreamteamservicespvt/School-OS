@@ -14,6 +14,7 @@ import { writeAudit } from "../audit";
 import { chargesFor, MessagingProblem, recordSend, type Plan, type PlannedRow } from "../messaging";
 import { creditBalances, creditProblem, creditsFor } from "../messaging/credits";
 import { onChannels, type Channel } from "../messaging/channels";
+import { withCode } from "../messaging/one-time-code";
 
 export type ParentMessage = {
   to: { name: string; phone: string; email?: string | null };
@@ -25,8 +26,11 @@ export type ParentMessage = {
   channel?: "whatsapp" | "sms" | "email";
   /** The record the message is about. */
   about: { recordType: "Enquiry" | "Application" | "Admission Campaign"; recordId: string };
-  /** One-time codes: never written to the audit log or the message title. */
-  secret?: boolean;
+  /**
+   * A one-time code: the text has "••••••" where the code goes, and the code goes only to
+   * the provider; it is never in Message History, the audit log or the title (QA SEC-01).
+   */
+  code?: string;
 };
 
 export type SendResult = { status: "queued" | "skipped"; channel: string; note?: string; messageId?: string };
@@ -51,7 +55,8 @@ export async function messageParent(tx: Tx, ctx: SchoolContext, msg: ParentMessa
   if (!channel) return { status: "skipped", channel: asked, note: "No messaging channel is set up (Settings, SMS, WhatsApp & Email)" };
   if (channel !== "email" && !phoneOk) return { status: "skipped", channel, note: "No valid mobile number" };
   const address = channel === "email" ? msg.to.email! : msg.to.phone;
-  const credits = creditsFor(channel, msg.text);
+  // Counted on the words as sent: the code's mask would make an SMS look like Unicode.
+  const credits = creditsFor(channel, msg.code ? withCode(msg.text, msg.code) : msg.text);
   const balances = await creditBalances(tx, ctx);
   const cost = { [channel]: credits } as Partial<Record<Channel, number>>;
   const row: PlannedRow = {
@@ -64,12 +69,13 @@ export async function messageParent(tx: Tx, ctx: SchoolContext, msg: ParentMessa
   const trigger = TRIGGERS[msg.template] ?? "Admission";
   try {
     const r = await recordSend(tx, ctx, {
-      to: {}, channels: [channel], text: msg.secret ? "One-time code for admission consent" : msg.text, title: trigger,
+      to: {}, channels: [channel], text: msg.code ? "One-time code for admission consent" : msg.text, title: trigger,
       trigger, source: { type: msg.about.recordType, id: msg.about.recordId }, audienceLabel: msg.to.name, onNoCredits: "block",
+      oneTimeCode: msg.code ? { code: msg.code, purpose: "admission-consent" } : null,
     }, plan);
     await writeAudit(tx, ctx, {
       action: "message-to-parent", recordType: msg.about.recordType, recordId: msg.about.recordId,
-      after: { kind: msg.template, channel, to: channel === "email" ? address : `•••••${msg.to.phone.slice(-4)}`, messageId: r.messageId, text: msg.secret ? "(one-time code)" : msg.text },
+      after: { kind: msg.template, channel, to: channel === "email" ? address : `•••••${msg.to.phone.slice(-4)}`, messageId: r.messageId, text: msg.code ? "(one-time code)" : msg.text },
     });
     return { status: "queued", channel, messageId: r.messageId };
   } catch (e) {

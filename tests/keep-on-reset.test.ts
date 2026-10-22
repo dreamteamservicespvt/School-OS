@@ -12,6 +12,12 @@
 //   below as never being inside an action form (URL filters, pickers, screens
 //   that save from a button);
 // - inside a plain <form onSubmit> it is fine: React does not reset those.
+// An uncontrolled tick box (no `checked`) inside a <form action={...}> in the
+// same file goes back to its defaultChecked on the reset, so a refused save
+// loses the parent's tick (QA APPLY-01: the online form's data consent came off
+// after "give the previous school") or puts back one they took off. It must be
+// a KeepCheck held by React, unless its defaultChecked is worked out from the
+// values the save sends back (listed in FROM_VALUES_SENT_BACK).
 import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
@@ -82,7 +88,14 @@ const OUTSIDE_ACTION_FORMS: Record<string, string> = {
   "src/app/(school)/academic-management/settings/settings-ui.tsx#OpenYear": "saves from a button",
 };
 
-type Hit = { where: string; owner: string; kind: "select" | "tick"; form: "action" | "plain" | "none" };
+/** "file#Component": uncontrolled tick boxes here start from the values the refused save sends back. */
+const FROM_VALUES_SENT_BACK: Record<string, string> = {
+  "src/app/(school)/settings/forms-approvals/field-editor.tsx#FieldForm": "defaultChecked from v(\"required\")",
+  "src/app/(school)/settings/school-profile/documents.tsx#DocForm": "defaultChecked from state.values.visibleTo",
+  "src/app/(school)/student-management/new/add-student-form.tsx#AddStudentForm": "defaultChecked from v(\"gender\")",
+};
+
+type Hit = { where: string; owner: string; kind: "select" | "tick" | "loose-tick"; form: "action" | "plain" | "none" };
 
 function walk(dir: string, out: string[] = []) {
   for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -103,14 +116,18 @@ function scan(): Hit[] {
     const visit = (node: ts.Node) => {
       if (ts.isJsxOpeningElement(node) || ts.isJsxSelfClosingElement(node)) {
         const tag = node.tagName.getText();
-        const kind = tag === "select" && attr(node, "value") ? "select" : tag === "input" && attr(node, "checked") ? "tick" : null;
+        const type = attr(node, "type")?.initializer?.getText().replace(/[{}"'`]/g, "");
+        const tickBox = (tag === "input" || tag === "KeepCheck") && (type === "checkbox" || type === "radio");
+        const kind = tag === "select" && attr(node, "value") ? "select" : tag === "input" && attr(node, "checked") ? "tick" : tickBox && !attr(node, "checked") ? "loose-tick" : null;
         if (kind) {
           let form: Hit["form"] = "none";
           let owner = "";
           for (let p: ts.Node | undefined = ts.isJsxOpeningElement(node) ? node.parent.parent : node.parent; p; p = p.parent) {
             if (form === "none" && ts.isJsxElement(p) && p.openingElement.tagName.getText() === "form") {
               const a = attr(p.openingElement, "action");
-              form = a?.initializer && ts.isJsxExpression(a.initializer) ? "action" : "plain";
+              // action={"/path"} or action={`/path`} is an address (a GET form), not a server action.
+              const e = a?.initializer && ts.isJsxExpression(a.initializer) ? a.initializer.expression : undefined;
+              form = e && !ts.isStringLiteral(e) && !ts.isTemplateExpression(e) && !ts.isNoSubstitutionTemplateLiteral(e) ? "action" : "plain";
             }
             const name = ts.isFunctionDeclaration(p) && p.name ? p.name.text : ts.isVariableDeclaration(p) ? p.name.getText() : "";
             if (!owner && /^[A-Z]/.test(name)) owner = name;
@@ -130,18 +147,28 @@ describe("controlled boxes keep their choice after a refused save", () => {
   const hits = scan();
 
   it("finds the controlled boxes (the scan works)", () => {
-    expect(hits.length).toBeGreaterThan(50);
+    expect(hits.filter((h) => h.kind !== "loose-tick").length).toBeGreaterThan(50);
   });
 
   it("uses KeepSelect or KeepCheck for every controlled <select> or tick box that can sit in an action form", () => {
     const bad = hits
+      .filter((h) => h.kind !== "loose-tick")
       .filter((h) => h.form === "action" || (h.form === "none" && !OUTSIDE_ACTION_FORMS[h.owner]))
       .map((h) => `${h.where} (${h.kind === "select" ? "<select value>: use KeepSelect" : "<input checked>: use KeepCheck"})`);
     expect(bad).toEqual([]);
   });
 
+  it("keeps every tick box in an action form after a refused save (KeepCheck, or a start from the values sent back)", () => {
+    const loose = hits.filter((h) => h.kind === "loose-tick" && h.form === "action");
+    expect(loose.length).toBeGreaterThan(0);
+    const bad = loose.filter((h) => !FROM_VALUES_SENT_BACK[h.owner]).map((h) => `${h.where} (uncontrolled tick box: hold it in React state and use KeepCheck)`);
+    expect(bad).toEqual([]);
+  });
+
   it("lists no component that has no controlled box left", () => {
-    const owners = new Set(hits.filter((h) => h.form === "none").map((h) => h.owner));
+    const owners = new Set(hits.filter((h) => h.kind !== "loose-tick" && h.form === "none").map((h) => h.owner));
     expect(Object.keys(OUTSIDE_ACTION_FORMS).filter((k) => !owners.has(k))).toEqual([]);
+    const loose = new Set(hits.filter((h) => h.kind === "loose-tick" && h.form === "action").map((h) => h.owner));
+    expect(Object.keys(FROM_VALUES_SENT_BACK).filter((k) => !loose.has(k))).toEqual([]);
   });
 });

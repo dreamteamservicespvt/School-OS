@@ -17,6 +17,9 @@ and are not covered here.
 | COMM-02 | P3 | Communication (Send Message) | The hint names only {student_name} and {class} | Fixed 9f06901 |
 | COMM-06 | P3 | Communication (Send Message) | "14 has no parent name"; toast without a full stop | Fixed 7e92195 + 9f06901 |
 | COMM-05 | — | Communication (Send Message) | 319 students became 318 with nothing in the audit log | Not a bug (explained) |
+| COMM-07 | P2 | Communication (Message History) | "Resend to 14 unread" offered when all 14 went in Test mode | Fixed 671bfa5 |
+| PL-01 | P2 | Communication (Parent Link) | A newly admitted child shows "Class not set" | Fixed 8c48453 |
+| SEED-01 | P4 | Demo data (Communication) | "Tuesday 4 November" in a demo notice; it is a Wednesday | Fixed c4c87d2 |
 
 ---
 
@@ -115,6 +118,54 @@ and are not covered here.
 - **Verdict:** not a bug. The student left on her last date as the blueprint says; the count went down only when the
   worker first ran, because the worker was not running in the demo before 13:33. On a real install the job runs
   every day. Nothing changed in code.
+
+---
+
+## Round 2 (browser testing, 22-10-2026, afternoon)
+
+Fixes are on branch `wave8/w1`, each proved by a vitest test against `school_os_w1_test`. Screen-only parts were checked
+by reading the code, typecheck and lint; they have not yet been seen again in the browser.
+
+## COMM-07 · P2 · Message History · "Resend to unread" offered for a message that went in Test mode
+- **Steps:** with WhatsApp in Test mode, send a message to 14 parents. Wait until it shows Sent, then open it.
+- **Expected:** no resend. Nobody received the first copy, so nobody "has not read" it; a resend would only be
+  recorded again.
+- **Actual:** "Resend to 14 unread", next to "Test mode 14".
+- **Root cause:** `targets()` in src/lib/messaging/resend.ts counted every recipient at Sent, Delivered or Failed who
+  had not read it, whatever the provider. A test-mode copy is saved with provider "sandbox".
+- **Fix:** 671bfa5. "Unread" now leaves out recipients whose copy went through the Sandbox provider: only people a
+  real channel sent it to, and who have not read it, are counted. The page's count (`unreadCount`) and the server
+  check (`resendInput`) both use this. If asked anyway, the server says "The people who have not read it were sent it
+  in test mode, so nobody received it and there is nothing to resend. Send a new message once the channel is live."
+  "Resend to failed" is not changed.
+  Test: tests/communication/send-checks.test.ts ("Resend to unread (COMM-03, COMM-07)").
+
+## PL-01 · P2 · Parent Link · A newly admitted child shows "Class not set"
+- **Steps:** open the Parent Link (/p/[token]) of Myra Kapoor's guardian. Myra was admitted for 2027-28, Class 3 A, and
+  has no class this year.
+- **Expected:** the child's card says which class she joins. Nothing of this year that does not exist yet is shown.
+- **Actual:** "Class not set" under her name.
+- **Blueprint:** 11-communication.md, Parent Link: the link is created and sent when an admission is approved, and each
+  child's card shows "class and section". A child admitted for next year is the usual first reader. The blueprint does
+  not say what the card shows before the year starts, so "Joining Class 3 A in 2027-28" was chosen. It uses the class
+  and section words used elsewhere on the page, such as "Class 5 B".
+- **Root cause:** `guardianChildren()` (src/lib/parent-link/view.ts) looked only at the current year's enrolment.
+- **Fix:** 8c48453.
+  - New `joiningLabels()` in src/lib/parent-link/view.ts. A child with no class this year but a class in a later year
+    (not closed) of the same campus gets "Joining Class 3 A in 2027-28".
+  - The school's Parent Link list, one link's page and the export (`childrenByGuardian`) use the same words.
+  - The child's class and section stay unset for the sections. So this year's class notices, events, attendance and
+    results are not shown for her; they are not hers. Each section already leaves itself out when it has nothing, so
+    there are no empty boxes.
+  - Fees due reads every open due of any year. The joining fee shows once it is billed.
+  - Test: tests/communication/parent-link.test.ts ("a newly admitted child whose class is next year (PL-01)").
+
+## SEED-01 · P4 · Demo data · "Classes start again on Tuesday 4 November"
+- **Actual:** the demo "Diwali holidays" notice (prisma/seeds/communication.ts) said Tuesday 4 November. 4 November 2026
+  is a Wednesday.
+- **Fix:** c4c87d2. It now says "Wednesday 4 November" (closed Friday 30 October to Tuesday 3 November). Every other
+  weekday-and-date pair in prisma/ and src/ was checked by a script and is right: Saturday 17 October (PTM) and the
+  examples in the app's comments and help text. An existing demo database keeps the old wording until it is seeded again.
 
 ---
 

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
+import { KeepCheck } from "@/components/ui/keep-select";
 import { codeSignInAction, signInAction, type SignInState } from "./actions";
 
 export function SignInForm({ notice, startWithCode }: { notice?: string; startWithCode?: boolean }) {
@@ -14,6 +15,8 @@ export function SignInForm({ notice, startWithCode }: { notice?: string; startWi
   const [codeState, codeAction, codePending] = useActionState<SignInState, FormData>(codeSignInAction, null);
   const [show, setShow] = useState(false);
   const [login, setLogin] = useState("");
+  // Held by React: a wrong password must not tick "Keep me signed in" again after it was taken off.
+  const [remember, setRemember] = useState(true);
   const [missing, setMissing] = useState<{ login?: string; password?: string }>({});
   const current = mode === "password" ? state : codeState;
   const busy = mode === "password" ? pending : codePending;
@@ -62,7 +65,7 @@ export function SignInForm({ notice, startWithCode }: { notice?: string; startWi
       )}
 
       <label className="flex items-center gap-2.5 text-[14px] text-ink2 cursor-pointer select-none">
-        <input type="checkbox" name="remember" defaultChecked className="size-5 rounded-md accent-brand" />
+        <KeepCheck type="checkbox" name="remember" checked={remember} onChange={(e) => setRemember(e.target.checked)} className="size-5 rounded-md accent-brand" />
         Keep me signed in on this device
       </label>
 

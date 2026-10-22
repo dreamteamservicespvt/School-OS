@@ -13,7 +13,7 @@ import { notify } from "../notifications";
 import { formatRupees } from "../format";
 import { hitLimit, limitMessage } from "../rate-limit";
 import { AdmissionProblem, todayIn } from "./act";
-import { admissionYear, campusNames, classList, classRules, live, loadSettings, withCampus } from "./settings";
+import { admissionYear, campusNames, classList, classRules, live, loadSettings, needsPreviousSchool, withCampus } from "./settings";
 import { pickOwner } from "./enquiries";
 import { createApplication, type ApplicationInput } from "./applications";
 import { admissionConsentTexts, recordConsents, startOtp, tryOtp, verifyOtp, DATA_CONSENT } from "./consent";
@@ -52,7 +52,10 @@ export async function publicForm(schoolId: string) {
       classes: open.map((c) => {
         const r = rules.get(c.id);
         // A school with several campuses shows each class with its campus.
-        return { id: c.id, name: withCampus(campus, c.name, c.campusId), fee: s.applicationFeeOn && r?.feePaise ? formatRupees(r.feePaise) : null, minAge: r?.minAge ?? null, maxAge: r?.maxAge ?? null, previousSchool: (r?.documents ?? []).some((d) => d.type === "transfer-certificate") };
+        // previousSchoolNeeded is the rule the send checks (Class 2 and above),
+        // so the form marks "School name" as needed before the parent sends (APPLY-02).
+        const needed = needsPreviousSchool(c, classes.filter((x) => x.campusId === c.campusId));
+        return { id: c.id, name: withCampus(campus, c.name, c.campusId), fee: s.applicationFeeOn && r?.feePaise ? formatRupees(r.feePaise) : null, minAge: r?.minAge ?? null, maxAge: r?.maxAge ?? null, previousSchool: needed || (r?.documents ?? []).some((d) => d.type === "transfer-certificate"), previousSchoolNeeded: needed };
       }),
       consents,
       onlinePayment: pay,

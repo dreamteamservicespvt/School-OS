@@ -5,6 +5,7 @@
 import { useActionState, useState } from "react";
 import { CheckboxField, SelectField, TextArea, TextField } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
+import { KeepCheck } from "@/components/ui/keep-select";
 import { Button, buttonClass } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FormDialog, type Action } from "../_components/forms";
@@ -172,6 +173,8 @@ type Role = { key: string; name: string; lines: string[] };
 export function GiveLoginForm({ staffId, roles, defaultRole, modules, action, suggested }: { staffId: string; roles: Role[]; defaultRole: string | null; modules: { key: string; name: string }[]; action: Action; suggested: string }) {
   const [state, formAction] = useActionState(action, null);
   const [open, setOpen] = useState(false);
+  // Held by React so a refused save keeps the roles ticked.
+  const [roleKeys, setRoleKeys] = useState<string[]>(defaultRole ? [defaultRole] : []);
   if (state?.ok) {
     const data = state.data as { username: string; inviteLink: string };
     return <InviteLink username={data.username} link={data.inviteLink} />;
@@ -186,7 +189,8 @@ export function GiveLoginForm({ staffId, roles, defaultRole, modules, action, su
         <div className="grid gap-2 sm:grid-cols-2">
           {roles.map((r) => (
             <label key={r.key} className="flex items-start gap-3 rounded-lg border border-line p-3">
-              <input type="checkbox" name="roleKeys" value={r.key} defaultChecked={r.key === defaultRole} className="mt-1 size-5 accent-brand" />
+              <KeepCheck type="checkbox" name="roleKeys" value={r.key} checked={roleKeys.includes(r.key)}
+                onChange={(e) => { const on = e.target.checked; setRoleKeys((k) => on ? [...k.filter((x) => x !== r.key), r.key] : k.filter((x) => x !== r.key)); }} className="mt-1 size-5 accent-brand" />
               <span><span className="font-medium">{r.name}</span><span className="block text-xs text-ink-2">{r.lines.slice(0, 3).join(" · ")}{r.lines.length > 3 ? " …" : ""}</span></span>
             </label>
           ))}

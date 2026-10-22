@@ -10,6 +10,37 @@ import { currentYears } from "../academic/years";
 import { childrenOfGuardian } from "../students/guardian-access";
 import type { GuardianView, ParentLinkChild } from "./sections";
 
+/**
+ * "Joining Class 3 A in 2027-28" for each child with no class this year whose
+ * only class is in a later year (a newly admitted child, PL-01). The child has
+ * no attendance, results or class notices of this year yet, so its class and
+ * section stay unset for the page's sections; only the words change.
+ */
+export async function joiningLabels(tx: Tx, ctx: SchoolContext, studentIds: string[], current: { id: string; campusId: string; startDate: Date }[]): Promise<Map<string, string>> {
+  const out = new Map<string, string>();
+  if (!studentIds.length) return out;
+  const later = await tx.academicYear.findMany({
+    where: { schoolId: ctx.schoolId, archivedAt: null, id: { notIn: current.map((y) => y.id) }, status: { not: "CLOSED" } },
+    select: { id: true, name: true, campusId: true, startDate: true },
+  });
+  // A year is "later" when it starts after its campus's current year (or the campus has none yet).
+  const ahead = later.filter((y) => { const c = current.find((x) => x.campusId === y.campusId); return !c || y.startDate > c.startDate; });
+  if (!ahead.length) return out;
+  const rows = await tx.enrolment.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, studentId: { in: studentIds }, academicYearId: { in: ahead.map((y) => y.id) } } });
+  const [classes, sections] = await Promise.all([
+    tx.schoolClass.findMany({ where: { schoolId: ctx.schoolId, id: { in: rows.map((e) => e.classId) } }, select: { id: true, name: true } }),
+    tx.section.findMany({ where: { schoolId: ctx.schoolId, id: { in: rows.map((e) => e.sectionId) } }, select: { id: true, name: true } }),
+  ]);
+  const start = (yearId: string) => ahead.find((y) => y.id === yearId)!.startDate.getTime();
+  for (const e of [...rows].sort((a, b) => start(a.academicYearId) - start(b.academicYearId))) {
+    if (out.has(e.studentId)) continue;
+    const label = `${classes.find((c) => c.id === e.classId)?.name ?? ""} ${sections.find((x) => x.id === e.sectionId)?.name ?? ""}`.trim();
+    const year = ahead.find((y) => y.id === e.academicYearId)!.name;
+    out.set(e.studentId, label ? `Joining ${label} in ${year}` : `Joining in ${year}`);
+  }
+  return out;
+}
+
 export async function guardianChildren(tx: Tx, ctx: SchoolContext, guardianId: string): Promise<{ children: ParentLinkChild[]; academicYearId: string | null; yearOfCampus: Map<string, string> }> {
   const ids = await childrenOfGuardian(tx, ctx, guardianId, { studying: true });
   const students = ids.length ? await tx.student.findMany({ where: { schoolId: ctx.schoolId, id: { in: ids } } }) : [];
@@ -22,6 +53,7 @@ export async function guardianChildren(tx: Tx, ctx: SchoolContext, guardianId: s
     tx.schoolClass.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.classId) } }, select: { id: true, name: true, campusId: true } }),
     tx.section.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.sectionId) } }, select: { id: true, name: true } }),
   ]);
+  const joining = await joiningLabels(tx, ctx, students.filter((s) => !enrolments.some((e) => e.studentId === s.id)).map((s) => s.id), years);
   const children = students
     .map((s) => {
       const mine = enrolments.filter((x) => x.studentId === s.id);
@@ -31,7 +63,7 @@ export async function guardianChildren(tx: Tx, ctx: SchoolContext, guardianId: s
         id: s.id,
         name: s.fullName,
         firstName: s.firstName,
-        classLabel: e ? `${cls?.name ?? ""} ${sections.find((x) => x.id === e.sectionId)?.name ?? ""}`.trim() : "",
+        classLabel: e ? `${cls?.name ?? ""} ${sections.find((x) => x.id === e.sectionId)?.name ?? ""}`.trim() : joining.get(s.id) ?? "",
         sectionId: e?.sectionId ?? null,
         classId: e?.classId ?? null,
         campusId: cls?.campusId ?? s.campusId,

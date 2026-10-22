@@ -3,7 +3,9 @@
 // resignation in progress, a vacancy with applications, an interview and an
 // offer, an appraisal cycle, training and a promotion. HR Settings,
 // designations and leave rules are made on first use from what is on file.
-import { withSchool } from "../../src/lib/db";
+import { withSchool, type SchoolContext } from "../../src/lib/db";
+import { applyLeave, countLeaveDays, leaveSummary, offDaySet } from "../../src/lib/staff/leave";
+import { ensureHrDefaults } from "../../src/lib/staff/settings";
 import type { ModuleSeed } from "./types";
 
 const day = (iso: string) => new Date(`${iso}T00:00:00Z`);
@@ -38,37 +40,46 @@ export const seedStaffHr: ModuleSeed = async (school) => {
     const divya = by("Divya Menon");
     const rajesh = by("Rajesh Gupta");
     const admin = users.admin;
-    const leave = async (s: NonNullable<typeof ravi>, code: string, from: string, to: string, days: number, reason: string, status: "APPROVED" | "WAITING" | "REJECTED", approval: { asker: string; approver?: string; role?: string; onBehalf?: boolean } | null, halfDayPart: string | null = null) => {
+    // Leave is counted the way the app counts it: only school days (no Sundays, days off or
+    // School Calendar holidays), a half day as 0.5. A demo leave never falls on a day without
+    // school (QA SEED-02). A leave still waiting is applied for through the app itself.
+    await ensureHrDefaults(tx, { schoolId, userId: users.principal ?? null });
+    const waiting = async (s: NonNullable<typeof ravi>, code: string, from: string, to: string, reason: string, asker: string, opts: { halfDayPart?: "first" | "second"; onBehalf?: boolean } = {}) => {
+      const as: SchoolContext = { schoolId, userId: asker };
+      return applyLeave(tx, as, { staffId: s.id, leaveTypeId: type(code).id, from: day(from), to: day(to), halfDayPart: opts.halfDayPart ?? null, reason, documentFileId: null, onBehalf: opts.onBehalf ?? false });
+    };
+    // Leave already decided is written as it was decided then, with its days counted the same way.
+    const decided = async (s: NonNullable<typeof ravi>, code: string, from: string, to: string, reason: string, status: "APPROVED" | "REJECTED", asker: string, onBehalf: boolean) => {
       const t = type(code);
+      const rule = await tx.leaveTypeRule.findUnique({ where: { leaveTypeId: t.id } });
+      const days = countLeaveDays(day(from), day(to), await offDaySet(tx, { schoolId, userId: null }, day(from), day(to), s.campusId), { countsHolidays: rule?.countsHolidays ?? false });
+      if (days <= 0) throw new Error(`Demo leave for ${s.fullName} from ${from} to ${to} has no school day in it.`);
       const r = await tx.leaveRequest.create({
         data: {
-          schoolId, academicYearId: school.yearId, staffId: s.id, leaveTypeId: t.id, fromDate: day(from), toDate: day(to), halfDay: Boolean(halfDayPart), days, reason, status,
-          recordedById: approval?.asker ?? null, decidedById: status === "WAITING" ? null : users.principal, decidedAt: status === "WAITING" ? null : day(from),
+          schoolId, academicYearId: school.yearId, staffId: s.id, leaveTypeId: t.id, fromDate: day(from), toDate: day(to), halfDay: false, days, reason, status,
+          recordedById: asker, decidedById: users.principal, decidedAt: day(from),
           decisionReason: status === "REJECTED" ? "Unit tests are on these dates. Please choose the next week." : null,
         },
       });
-      await tx.staffLeaveDetail.create({ data: { leaveRequestId: r.id, schoolId, halfDayPart, onBehalf: approval?.onBehalf ?? false, periodsAffected: s.staffType === "Teaching" ? Math.round(days * 5) : 0 } });
-      if (approval) {
-        const a = await tx.approval.create({
-          data: {
-            schoolId, type: "staff-leave", recordType: "Leave Request", recordId: r.id, askedById: approval.asker, reason,
-            summary: `${t.name}: ${s.fullName}, ${from.split("-").reverse().join("-")}${from !== to ? ` to ${to.split("-").reverse().join("-")}` : ""} (${days} day${days === 1 ? "" : "s"})`,
-            currentApproverId: approval.approver ?? null, currentApproverRole: approval.role ?? null, step: approval.approver ? 0 : 1,
-            status: status === "WAITING" ? "WAITING" : status === "APPROVED" ? "APPROVED" : "REJECTED",
-            decidedById: status === "WAITING" ? null : users.principal, decidedAt: status === "WAITING" ? null : day(from),
-          },
-        });
-        await tx.leaveRequest.update({ where: { id: r.id }, data: { approvalId: a.id } });
-      }
+      await tx.staffLeaveDetail.create({ data: { leaveRequestId: r.id, schoolId, halfDayPart: null, onBehalf, periodsAffected: s.staffType === "Teaching" ? Math.round(days * 5) : 0 } });
+      const a = await tx.approval.create({
+        data: {
+          schoolId, type: "staff-leave", recordType: "Leave Request", recordId: r.id, askedById: asker, reason,
+          summary: leaveSummary(t.name, s.fullName, day(from), day(to), days),
+          currentApproverRole: "principal", step: 1, status, decidedById: users.principal, decidedAt: day(from),
+        },
+      });
+      await tx.leaveRequest.update({ where: { id: r.id }, data: { approvalId: a.id } });
       return r;
     };
     if (ravi && users.teacher) {
-      await leave(ravi, "CL", "2026-07-17", "2026-07-17", 1, "Family function in Vijayawada", "APPROVED", { asker: users.teacher, role: "principal" });
-      await leave(ravi, "CL", "2026-10-21", "2026-10-21", 0.5, "Bank work in the morning", "WAITING", { asker: users.teacher, role: "principal" }, "first");
+      await decided(ravi, "CL", "2026-07-17", "2026-07-17", "Family function in Vijayawada", "APPROVED", users.teacher, false);
+      // A half day on a school day after the Dasara holidays (it was 21-10-2026, a holiday).
+      await waiting(ravi, "CL", "2026-10-28", "2026-10-28", "Bank work in the morning", users.teacher, { halfDayPart: "first" });
     }
-    if (kavitha && admin && ravi?.userLoginId) await leave(kavitha, "CL", "2026-10-15", "2026-10-16", 2, "Sister's wedding", "WAITING", { asker: admin, approver: ravi.userLoginId, onBehalf: true });
-    if (divya && admin) await leave(divya, "SL", "2026-09-07", "2026-09-09", 3, "Viral fever, doctor's note attached", "APPROVED", { asker: admin, role: "principal", onBehalf: true });
-    if (rajesh && admin) await leave(rajesh, "EL", "2026-08-24", "2026-08-28", 5, "Trip to native place", "REJECTED", { asker: admin, role: "principal", onBehalf: true });
+    if (kavitha && admin) await waiting(kavitha, "CL", "2026-10-15", "2026-10-16", "Sister's wedding", admin, { onBehalf: true });
+    if (divya && admin) await decided(divya, "SL", "2026-09-07", "2026-09-09", "Viral fever, doctor's note attached", "APPROVED", admin, true);
+    if (rajesh && admin) await decided(rajesh, "EL", "2026-08-24", "2026-08-28", "Trip to native place", "REJECTED", admin, true);
 
     // Documents: one expired, one expiring this month (core already has some expiring police verifications).
     if (rajesh) await tx.staffDocument.create({ data: { schoolId, staffId: rajesh.id, kind: "Contract", number: "CT-2024-031", issuedOn: day("2024-10-01"), expiresOn: day("2026-09-30"), verified: true } });

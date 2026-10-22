@@ -7,6 +7,7 @@ proved by a vitest test against `school_os_w4_test` where the fix is in the app.
 | ID | Priority | Module | Short title | Status |
 |---|---|---|---|---|
 | LABEL-01 | P3 | Communication (Message History), Settings (Audit Log) | Parent Link and staff invite messages labelled "Emergency broadcast" | Fixed |
+| SEED-02 | P4 | Demo data (Staff & HR, Leave) | A half-day leave on 21-10-2026, a school holiday, counted as 0.5 days | Fixed |
 
 ---
 
@@ -46,4 +47,26 @@ proved by a vitest test against `school_os_w4_test` where the fix is in the app.
     invite are not emergencies, have no sender and log "system-message-sent"; a resend keeps the kind and reaches
     the opted-out father; the People filter leaves them out; a real emergency broadcast is unchanged; the migration
     relabels old Parent Link, existing-families and invite messages once and leaves a real emergency alone.
+- **Status:** Fixed.
+
+## SEED-02 · P4 · Demo data · A half-day leave on a school holiday
+- **Steps:** seed the demo; open Staff & HR › Leave, or Approvals, as the Principal.
+- **Expected:** demo leave falls on school days only, as the app makes sure for leave applied on screen ("These dates
+  are all days without school (Sundays, days off or School Calendar holidays), so no leave is needed.").
+- **Actual:** "Casual Leave: Ravi Teja, 21-10-2026 (0.5 days)", waiting for approval. 21-10-2026 is inside the Dasara
+  holidays (17-10-2026 to 25-10-2026 in the demo School Calendar), so no leave is needed that day.
+- **Root cause:** prisma/seeds/staff-hr.ts wrote Leave Request rows directly with a typed number of days, so none of
+  the app's checks ran (school days, half days, overlap, balance).
+- **Fix:**
+  - A leave still waiting is now applied for through the app itself (`applyLeave()` in src/lib/staff/leave.ts), as
+    the person who asked: the app counts the days from the School Calendar, refuses a day without school, and sends
+    it to the head of department or the Principal as it would on screen. Ravi Teja's half day moves to Wednesday
+    28-10-2026, the first half (a school day after the holidays). Kavitha Nair's leave still waits for Ravi, her
+    head of department.
+  - Leave already decided (approved or rejected in the past) is still written as decided, but its days are counted
+    with the app's own rule (`offDaySet()`, `countLeaveDays()`), and the seed stops with a plain error if a demo leave
+    has no school day in it. Its Approvals line uses the app's own words (`leaveSummary()`).
+  - Checked by seeding `school_os_w4`: Ravi Teja 28-10-2026, 0.5 days, waiting for the Principal; Kavitha Nair
+    15-10-2026 to 16-10-2026, 2 days, waiting for Ravi Teja; the July, August and September leave as before.
+    An existing demo database keeps the old row until it is seeded again.
 - **Status:** Fixed.

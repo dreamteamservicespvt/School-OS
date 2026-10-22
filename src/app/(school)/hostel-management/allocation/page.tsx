@@ -26,8 +26,7 @@ import { Stats, Stack, Toolbar, DataList, Empty, ListRow } from "@/components/mo
 import { clockAt } from "@/lib/front-office/time";
 import { roomGrid } from "@/lib/hostel/rooms";
 import { bedHistory, hostelFeesDue, outNow, residents, studentsInfo, waitingForBed, type Resident } from "@/lib/hostel/allocation";
-import { feePlans, planTotal } from "@/lib/hostel/settings";
-import { currentYear } from "@/lib/academic/years";
+import { currentFeePlans, planTotal } from "@/lib/hostel/settings";
 import { BASE, RESIDENT_STATUS, bedWords, genderFits, plural } from "@/lib/hostel/words";
 import { inScope } from "@/lib/hostel/scope";
 import { HostelHead } from "../_components/head";
@@ -94,13 +93,13 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
     const historyId = idParam(sp.history);
     const grid = wantsAllocate || moveId ? await roomGrid(tx, p.myHostels.map((h) => h.id)) : [];
     const beds: FreeBed[] = grid.flatMap((r) => r.beds.filter((b) => b.state === "free").map((b) => ({ id: b.id, hostelId: r.hostelId, roomNo: r.roomNo, bedNo: b.bedNo, floor: r.floor, roomType: r.roomType })));
-    const year = wantsAllocate ? await currentYear(tx, ctx) : null;
-    const plans = year ? await feePlans(tx, year.id) : [];
+    // Every campus's current year's plans; the sheet offers the student's own campus's.
+    const plans = wantsAllocate ? await currentFeePlans(tx, ctx) : [];
     let startStudent: FoundStudent | null = null;
     const sid = idParam(sp.student);
     if (wantsAllocate && sid) {
       const s = (await studentsInfo(tx, ctx, [sid])).get(sid);
-      if (s) startStudent = { id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: genderFits(s.gender), bed: null, hostelId: null };
+      if (s) startStudent = { id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: genderFits(s.gender), bed: null, hostelId: null, campusId: s.campusId };
     }
     const one_ = async (id: string | null) => {
       if (!id) return null;
@@ -206,9 +205,9 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
 
       {d.wantsAllocate && (
         <AllocateSheet closeHref={href({ allocate: null, student: null, bed: null })} hostels={p.myHostels} beds={d.beds}
-          plans={d.plans.map((x) => ({ id: x.id, name: x.name, hostelId: x.hostelId, roomType: x.roomType, words: `${x.name}${v.seesFees ? ` · ${formatRupees(planTotal(x))} a year` : ""}` }))}
+          plans={d.plans.map((x) => ({ id: x.id, name: x.name, hostelId: x.hostelId, roomType: x.roomType, campusId: x.campusId, words: `${x.name}${x.campusName ? ` (${x.campusName})` : ""}${v.seesFees ? ` · ${formatRupees(planTotal(x))} a year` : ""}` }))}
           start={{ bedId: idParam(sp.bed), hostelId: null, student: d.startStudent }}
-          waiting={d.waiting.map((w) => ({ id: w.id, name: w.name, admissionNo: w.admissionNo, cls: w.classSection ?? "", gender: genderFits(w.gender), bed: null, hostelId: null }))}
+          waiting={d.waiting.map((w) => ({ id: w.id, name: w.name, admissionNo: w.admissionNo, cls: w.classSection ?? "", gender: genderFits(w.gender), bed: null, hostelId: null, campusId: w.campusId }))}
           todayStr={p.todayStr} showFees={v.seesFees} />
       )}
       {d.move && <MoveSheet closeHref={href({ move: null })} allocationId={d.move.allocation.id} name={d.move.student.name} from={bedWords(d.move.roomNo, d.move.bedNo)} beds={d.beds} hostels={p.myHostels} todayStr={p.todayStr} />}

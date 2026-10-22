@@ -10,11 +10,12 @@ import { Building2, FileSpreadsheet, IndianRupee, Pencil, Plus, ShieldCheck, Use
 import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
 import { currentYear } from "@/lib/academic/years";
+import { personCampusId } from "@/lib/campus";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { Empty, Split, Col, Stack } from "@/components/money/kit";
-import { wardensByHostel, feePlans, planTotal } from "@/lib/hostel/settings";
+import { wardensByHostel, currentFeePlans, planTotal } from "@/lib/hostel/settings";
 import { GENDER, minuteValue, paiseToRupees, plural } from "@/lib/hostel/words";
 import { HostelHead } from "../_components/head";
 import { ArchivePlanSheet, CloseHostelSheet, FeePlanSheet, HostelSheet, WardensSheet, type PlanStart } from "../_components/sheets";
@@ -35,10 +36,11 @@ export default async function HostelSettingsPage({ searchParams }: { searchParam
     const ids = p.myHostels.map((h) => h.id);
     const [wardens, year, rooms] = await Promise.all([
       wardensByHostel(tx, ids),
-      currentYear(tx, ctx),
+      // New plans are for the current year of the person's own campus; the list shows every campus's current plans.
+      personCampusId(tx, ctx, current).then((campusId) => currentYear(tx, ctx, campusId)),
       tx.hostelRoom.groupBy({ by: ["hostelId"], where: { hostelId: { in: ids }, archivedAt: null }, _count: { _all: true } }),
     ]);
-    const plans = year ? await feePlans(tx, year.id) : [];
+    const plans = await currentFeePlans(tx, ctx);
     const staff = can.hostels && idParam(sp.wardens) ? await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, select: { id: true, fullName: true, designation: true, userLoginId: true }, orderBy: { fullName: "asc" }, take: 500 }) : [];
     const notes = await tx.hostel.findMany({ where: { id: { in: ids } }, select: { id: true, note: true } });
     return { wardens, year, plans, staff, rooms, notes: new Map(notes.map((n) => [n.id, n.note])) };
@@ -126,7 +128,7 @@ export default async function HostelSettingsPage({ searchParams }: { searchParam
                         <b className="font-semibold text-[14.5px] flex-1 min-w-0">{x.name}</b>
                         {v.seesFees && <b className="tnum font-semibold">{formatRupees(planTotal(x))}<span className="text-[12px] text-ink3 font-normal"> a year</span></b>}
                       </div>
-                      <p className="text-[12.5px] text-ink3">{hostelName(x.hostelId)} · {x.roomType ?? "any room"}{x.includesMess ? " · mess included" : ""}</p>
+                      <p className="text-[12.5px] text-ink3">{x.campusName ? `${x.campusName} · ` : ""}{hostelName(x.hostelId)} · {x.roomType ?? "any room"}{x.includesMess ? " · mess included" : ""}</p>
                       <p className="text-[12.5px] text-ink2">{v.seesFees ? x.installments.map((i) => `${i.label}: ${formatRupees(i.amountPaise)}, due ${formatDate(i.dueDate, "UTC")}`).join(" · ") : plural(x.installments.length, "installment")}</p>
                       {can.feePlans && (
                         <div className="flex gap-3 mt-0.5">

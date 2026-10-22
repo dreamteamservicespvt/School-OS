@@ -12,7 +12,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate, formatRupees } from "../format";
 import { addCharge, removeDue } from "../fees/structure";
-import { currentYear, currentYears } from "../academic/years";
+import { currentYear } from "../academic/years";
 import { enrolmentsOf } from "../front-office/pickup";
 import { HostelProblem } from "./problem";
 import { feePlans, planForRoom, type FeePlan } from "./settings";
@@ -20,17 +20,17 @@ import { BASE, GENDER, bedRoom, bedWords, genderFits, isoOf, type ResidentStatus
 
 const ZERO = BigInt(0);
 
-export type StudentInfo = { id: string; name: string; first: string; admissionNo: string; photoFileId: string | null; gender: string | null; classSection: string | null; sectionId: string | null; status: string };
+export type StudentInfo = { id: string; name: string; first: string; admissionNo: string; photoFileId: string | null; gender: string | null; classSection: string | null; sectionId: string | null; status: string; campusId: string };
 
 /** Names, classes and genders of these students (this year's class and section). */
 export async function studentsInfo(tx: Tx, ctx: SchoolContext, ids: string[]): Promise<Map<string, StudentInfo>> {
   const uniq = [...new Set(ids)];
   if (!uniq.length) return new Map();
   const [rows, enr] = await Promise.all([
-    tx.student.findMany({ where: { id: { in: uniq } }, select: { id: true, fullName: true, firstName: true, admissionNo: true, photoFileId: true, gender: true, status: true } }),
+    tx.student.findMany({ where: { id: { in: uniq } }, select: { id: true, fullName: true, firstName: true, admissionNo: true, photoFileId: true, gender: true, status: true, campusId: true } }),
     enrolmentsOf(tx, ctx, uniq),
   ]);
-  return new Map(rows.map((r) => [r.id, { id: r.id, name: r.fullName, first: r.firstName, admissionNo: r.admissionNo, photoFileId: r.photoFileId, gender: r.gender, classSection: enr.get(r.id)?.label ?? null, sectionId: enr.get(r.id)?.sectionId ?? null, status: r.status }]));
+  return new Map(rows.map((r) => [r.id, { id: r.id, name: r.fullName, first: r.firstName, admissionNo: r.admissionNo, photoFileId: r.photoFileId, gender: r.gender, classSection: enr.get(r.id)?.label ?? null, sectionId: enr.get(r.id)?.sectionId ?? null, status: r.status, campusId: r.campusId }]));
 }
 
 /** The bed a student has now, if any, with its room and hostel. */
@@ -157,10 +157,12 @@ export async function allocate(tx: Tx, ctx: SchoolContext, input: AllocateInput,
 
   let plan: FeePlan | null = null;
   if (input.feePlanId !== "none") {
-    // A hostel fee plan is made for one campus's year; any campus's current year's plan may be chosen.
-    const years = await currentYears(tx, ctx);
-    plan = (await Promise.all(years.map((y) => feePlans(tx, y.id)))).flat().find((p) => p.id === input.feePlanId) ?? null;
-    if (!plan) throw new HostelProblem("Choose the hostel fee plan, or No hostel fees.", "feePlanId");
+    // A hostel fee plan belongs to one campus's year: the student's own campus's current year.
+    plan = (await feePlans(tx, year.id)).find((p) => p.id === input.feePlanId) ?? null;
+    if (!plan) {
+      const elsewhere = await tx.hostelFeePlan.findFirst({ where: { id: input.feePlanId, archivedAt: null }, select: { name: true } });
+      throw new HostelProblem(elsewhere ? `“${elsewhere.name}” is for another campus’s school year. Choose a plan of ${student.firstName}’s campus, or No hostel fees.` : "Choose the hostel fee plan, or No hostel fees.", "feePlanId");
+    }
     if (plan.hostelId && plan.hostelId !== hostel.id) throw new HostelProblem(`“${plan.name}” is for another hostel. Choose the plan for ${hostel.name}.`, "feePlanId");
   }
 

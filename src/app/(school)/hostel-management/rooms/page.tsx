@@ -22,8 +22,7 @@ import { Band, Banner, DL, Empty, Legend, Stack, Toolbar } from "@/components/mo
 import { cx } from "@/components/ui/cx";
 import { roomGrid, occupancy } from "@/lib/hostel/rooms";
 import { studentsInfo, residentStatus, hostelFeesDue } from "@/lib/hostel/allocation";
-import { wardensByHostel, feePlans, planTotal } from "@/lib/hostel/settings";
-import { currentYear } from "@/lib/academic/years";
+import { wardensByHostel, currentFeePlans, planTotal } from "@/lib/hostel/settings";
 import { clockAt } from "@/lib/front-office/time";
 import { BASE, RESIDENT_STATUS, bedWords, plural } from "@/lib/hostel/words";
 import { HostelHead } from "../_components/head";
@@ -69,8 +68,8 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
         opened = { room, bed, alloc, due, plan: planRow ? `${planRow.name}${v.seesFees ? ` · ${formatRupees(planTotal(planRow))} a year` : ""}` : alloc ? "No hostel fees" : null, guardians: links.map((l) => ({ name: l.guardian.name, relationship: l.relationship, phone: l.guardian.phone })) };
       }
     }
-    const year = await currentYear(tx, ctx);
-    const plans = year ? await feePlans(tx, year.id) : [];
+    // Every campus's current year's plans (a school's campuses can start the year on different dates).
+    const plans = await currentFeePlans(tx, ctx);
     const staff = can.hostels && sp.wardens ? await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, select: { id: true, fullName: true, designation: true, userLoginId: true }, orderBy: { fullName: "asc" }, take: 500 }) : [];
     const editRoom = idParam(sp.room) ? grid.find((r) => r.id === one(sp.room)) ?? null : null;
     const closeRoom = idParam(sp.close) ? grid.find((r) => r.id === one(sp.close)) ?? null : null;
@@ -261,7 +260,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
 
       {can.rooms && add === "room" && hostel && (
         <AddRoomSheet closeHref={closeHref} hostels={p.myHostels} startHostel={hostel.id}
-          plans={d.plans.map((x) => ({ hostelId: x.hostelId, roomType: x.roomType, words: `${x.name}${v.seesFees ? `, ${formatRupees(planTotal(x))} a year` : ""}` }))} />
+          plans={d.plans.map((x) => ({ hostelId: x.hostelId, roomType: x.roomType, words: `${x.name}${x.campusName ? ` (${x.campusName})` : ""}${v.seesFees ? `, ${formatRupees(planTotal(x))} a year` : ""}` }))} />
       )}
       {can.rooms && add === "floor" && hostel && <AddFloorSheet closeHref={closeHref} hostelId={hostel.id} hostelName={hostel.name} suggestion={nextFloor} />}
       {can.rooms && d.editRoom && hostel && <EditRoomSheet closeHref={closeHref} room={{ id: d.editRoom.id, roomNo: d.editRoom.roomNo, roomType: d.editRoom.roomType, beds: d.editRoom.beds.length, where: `${hostel.name} · ${d.editRoom.floor} floor` }} />}

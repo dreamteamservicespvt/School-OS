@@ -196,7 +196,7 @@ add("Day Book: today", async () => read(principal, (tx) => dayBookView(tx, { fro
 add("Day Book: this month", async () => read(principal, (tx) => dayBookView(tx, { from: new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), 1)), to: today, classId: null, depositAccountId: null, waiting: false })));
 add("Day Book: the financial year", async () => { const fy = await fyOf(); return read(principal, (tx) => dayBookView(tx, { from: fy.startDate, to: today, classId: null, depositAccountId: null, waiting: false })); });
 
-// Message History (communication/history/page.tsx: its reads, full access).
+// Message History (communication/history/page.tsx: its reads, full access, the whole school).
 add("Message History", async () => {
   const params = readListParams({}, HISTORY_FILTERS);
   const where = historyWhere(principal.ctx, true, params, tz);
@@ -206,9 +206,9 @@ add("Message History", async () => {
       tx.message.findMany({ where, orderBy: { createdAt: "desc" }, ...skipTake(params) }),
       tx.message.count({ where }),
       tx.message.count({ where: { AND: [mine], status: { in: ["SENT", "QUEUED"] } } }),
-      tx.messageRecipient.groupBy({ by: ["status", "provider"], where: { schoolId, isBackup: false, message: mine }, _count: { _all: true } }),
+      tx.messageRecipient.groupBy({ by: ["status", "provider"], where: { schoolId, isBackup: false }, _count: { _all: true } }),
       tx.message.findFirst({ where: mine, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
-      tx.messageRecipient.count({ where: { schoolId, isBackup: false, provider: "sandbox", status: { in: ["SENT", "DELIVERED", "READ"] }, message: mine } }),
+      tx.messageRecipient.count({ where: { schoolId, isBackup: false, provider: "sandbox", status: { in: ["SENT", "DELIVERED", "READ"] } } }),
     ]);
     return { rows, total, sentCount, reach, firstSent, testMode, counts: await countsFor(tx, principal.ctx, rows.map((r) => r.id)), names: await senderNames(tx, rows.map((r) => r.sentById)) };
   });

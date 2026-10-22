@@ -120,14 +120,14 @@ async function history(schoolId: string) {
       await tx.$executeRawUnsafe(`INSERT INTO perf.map_hdue (old, new, k) SELECT id, gen_random_uuid(), 0 FROM student_fee_due WHERE school_id = '${schoolId}' AND academic_year_id = '${y.cur}' AND kind = 'FEE' AND state = 'OPEN' AND amount_paise > 0`);
       const dues = await tx.$executeRawUnsafe(`
         INSERT INTO student_fee_due (id, school_id, student_id, academic_year_id, fee_head_id, kind, label, due_date, amount_paise, concession_paise, adjustment_paise, paid_paise, balance_paise, state, note, created_at, updated_at)
-        SELECT m.new, t.school_id, t.student_id, '${y.prev}', t.fee_head_id, t.kind, t.label, (t.due_date - interval '1 year')::date, t.amount_paise, 0, 0, t.amount_paise, 0, 'OPEN', 'Last year (measuring copy)', t.created_at - interval '1 year', now()
+        SELECT m.new, t.school_id, t.student_id, '${y.prev}', t.fee_head_id, t.kind, t.label, (t.due_date - interval '1 year')::date, t.amount_paise, 0, 0, t.amount_paise, 0, 'OPEN', 'Last year (measuring copy)', t.created_at - interval '1 year', now() AT TIME ZONE 'UTC'
         FROM student_fee_due t JOIN perf.map_hdue m ON m.old = t.id`);
       const pays = await tx.$executeRawUnsafe(`
         INSERT INTO payment (id, school_id, student_id, academic_year_id, amount_paise, mode, paid_at, payment_date, status, source, created_at, updated_at)
         SELECT m.new, t.school_id, t.student_id, '${y.prev}', t.amount_paise,
           (ARRAY['CASH','UPI','UPI','CASH','CHEQUE','BANK_TRANSFER']::"PaymentMode"[])[1 + abs(hashtext(m.new::text)) % 6],
           (t.due_date - interval '1 year' + (abs(hashtext(t.id::text)) % 25) * interval '1 day' + interval '4 hours 30 minutes'),
-          (t.due_date - interval '1 year' + (abs(hashtext(t.id::text)) % 25) * interval '1 day')::date, 'POSTED', 'COUNTER', now(), now()
+          (t.due_date - interval '1 year' + (abs(hashtext(t.id::text)) % 25) * interval '1 day')::date, 'POSTED', 'COUNTER', now() AT TIME ZONE 'UTC', now() AT TIME ZONE 'UTC'
         FROM student_fee_due t JOIN perf.map_hdue m ON m.old = t.id`);
       await tx.$executeRawUnsafe(`
         INSERT INTO payment_allocation (id, school_id, payment_id, due_id, fee_head_id, amount_paise)

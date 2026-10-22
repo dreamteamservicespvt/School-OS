@@ -142,7 +142,9 @@ export async function classTiles(tx: Tx, who: Who, yearId: YearIds) {
   const scope = await studentScope(tx, who, years);
   const rows = await tx.enrolment.groupBy({
     by: ["classId", "sectionId"],
-    where: { academicYearId: { in: years }, archivedAt: null, status: "STUDYING", student: { AND: [scope, { archivedAt: null, status: { in: [...STUDYING] } }] } },
+    // The Student List's class and section filter (studentListWhere): a studying student's enrolment in the class this year,
+    // whatever the enrolment's own status, so a tile and the list it opens count the same students.
+    where: { academicYearId: { in: years }, archivedAt: null, student: { AND: [scope, { archivedAt: null, status: { in: [...STUDYING] } }] } },
     _count: true,
   });
   const sections = await sectionNames(tx, rows.map((r) => r.sectionId));

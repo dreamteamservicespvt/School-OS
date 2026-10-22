@@ -13,8 +13,7 @@ import { ListToolbar } from "@/components/list/list-toolbar";
 import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
 import { InlineBulkBar } from "@/components/ui/list-controls";
 import { cx } from "@/components/ui/cx";
-import { studentScope } from "@/lib/students/access";
-import { consentRows, consentState } from "@/lib/students/consent";
+import { guardianConsentGroups, guardiansInReach } from "@/lib/students/guardian-list";
 import { parentLinkProvider, parentLinkStatus } from "@/lib/students/guardians";
 import { CONSENT_STATUS_LABEL } from "@/lib/students/labels";
 import { phoneShow, classShort } from "@/lib/students/show";
@@ -40,24 +39,9 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
   const f = params.filters;
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const scope = await studentScope(tx, current, yearIds);
-    // Own reach, or one campus: the parents of their students only.
-    const inReach: Prisma.GuardianWhereInput = can.reach === "own" || current.campusId ? { students: { some: { archivedAt: null, student: scope } } } : {};
-    const base: Prisma.GuardianWhereInput = { AND: [{ archivedAt: params.archived ? { not: null } : null }, inReach] };
-
-    // Consent states are read once: for the counts on the chips and tiles, and for the filters.
-    const all = await tx.guardian.findMany({ where: base, select: { id: true } });
-    const allIds = all.map((g) => g.id);
-    const rowsC = await consentRows(tx, current.ctx, { guardianIds: allIds });
-    const byGuardian = new Map<string, { consentType: string; status: string }[]>();
-    for (const r of rowsC) { const list = byGuardian.get(r.guardianId) ?? []; list.push({ consentType: r.consentType, status: r.status }); byGuardian.set(r.guardianId, list); }
-    const state = (id: string, type: string) => consentState(byGuardian.get(id) ?? [], type);
-    const ids = {
-      dataNot: allIds.filter((id) => state(id, "data-processing") !== "GIVEN" && state(id, "data-processing") !== "WITHDRAWN"),
-      dataWithdrawn: allIds.filter((id) => state(id, "data-processing") === "WITHDRAWN"),
-      photoNot: allIds.filter((id) => state(id, "photo") !== "GIVEN"),
-      photoWithdrawn: allIds.filter((id) => state(id, "photo") === "WITHDRAWN"),
-    };
+    // The same reach and consent groups as the Dashboard's Parents and consent cards.
+    const base = await guardiansInReach(tx, current, yearIds, { archived: params.archived });
+    const { allIds, ...ids } = await guardianConsentGroups(tx, current, base);
     const links = provider ? await parentLinkStatus(tx, current.ctx, allIds) : new Map<string, { status: string; lastOpenedAt: Date | null }>();
     const notOpened = allIds.filter((id) => !links.get(id)?.lastOpenedAt);
     const activeLinks = allIds.filter((id) => links.get(id)?.status === "Active").length;

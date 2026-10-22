@@ -95,6 +95,11 @@ export async function drillSchool() {
       n3: await student(n5a, north, "Nisha Patel"),
     };
 
+    // Data consent: given by Aarav's parent, given and then withdrawn by Diya's.
+    const text = await tx.consentText.create({ data: { schoolId: sid, consentType: "data-processing", title: "Data consent", version: 1, text: { en: "We keep your child's data." } } });
+    await tx.consentRecord.create({ data: { schoolId: sid, guardianId: kids.a1.guardianId, studentId: kids.a1.id, consentType: "data-processing", consentTextId: text.id, textVersion: 1, how: "office" } });
+    await tx.consentRecord.create({ data: { schoolId: sid, guardianId: kids.a2.guardianId, studentId: kids.a2.id, consentType: "data-processing", consentTextId: text.id, textVersion: 1, how: "office", withdrawnAt: day("2026-10-01"), withdrawnHow: "office" } });
+
     // Today's attendance: 5 A marked (the student who left is marked too, and must not count), 5 B not marked, North marked.
     await ensureAttendanceDefaults(tx, ctx);
     const mark = (studentId: string, sectionId: string, yearId: string, statusKey: string) => tx.attendanceMark.create({ data: { schoolId: sid, academicYearId: yearId, studentId, sectionId, date: TODAY, statusKey } });

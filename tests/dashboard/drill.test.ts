@@ -19,6 +19,11 @@ import { hiddenPayHeads } from "@/lib/finance/access";
 import { dayBookView } from "@/lib/finance/daybook-view";
 import { expenseRows, NO_FILTER } from "@/lib/finance/expense-list";
 import { formatRupees, formatRupeesShort } from "@/lib/format";
+import { readListParams } from "@/lib/list";
+import { getStudentSettings } from "@/lib/students/settings";
+import { guardianConsentGroups, guardiansInReach } from "@/lib/students/guardian-list";
+import { yearsFor } from "@/lib/academic/years";
+import { LIST_FILTERS, studentListWhere } from "@/app/(school)/student-management/_lib/queries";
 import { drillSchool, NOW, TODAY, day, type DrillSchool } from "./drill-fixture";
 
 let f: DrillSchool;
@@ -171,5 +176,63 @@ describe("money tiles open lists with the same numbers", () => {
     const sum = list.rows.reduce((s, r) => s + r.amountPaise, BigInt(0));
     expect(a.value).toBe(`${list.count}:${sum}`);
     expect(list.count).toBe(3);
+  });
+});
+
+/** The Student List for a link's filters, as the page reads them (each campus's current year). */
+async function studentList(who: Current, href: string) {
+  expect(pathOf(href)).toBe("/student-management");
+  return read(who, async (tx) => {
+    const years = await yearsFor(tx, who.ctx, who.campusId);
+    const settings = await getStudentSettings(tx, who.ctx);
+    const yearStart = years.find((y) => y.campusId === (who.campusId ?? f.main))?.startDate ?? null;
+    return tx.student.count({ where: await studentListWhere(tx, who, readListParams(paramsOf(href), LIST_FILTERS), years.map((y) => y.id), yearStart, settings) });
+  });
+}
+
+/** Parents & Guardians for a link's filters, as the page reads them. */
+async function guardianList(who: Current, href: string) {
+  expect(pathOf(href)).toBe("/student-management/guardians");
+  return read(who, async (tx) => {
+    const years = (await yearsFor(tx, who.ctx, who.campusId)).map((y) => y.id);
+    const g = await guardianConsentGroups(tx, who, await guardiansInReach(tx, who, years));
+    const consent = paramsOf(href).consent;
+    return consent === "not-given" ? g.dataNot.length : consent === "withdrawn" ? g.dataWithdrawn.length : g.allIds.length;
+  });
+}
+
+describe("student tiles open lists with the same numbers", () => {
+  it("students: the Student List shows the same count (the student who left and the archived one are not in either)", async () => {
+    for (const key of ["principal", "northAdmin"] as const) {
+      const tile = band(await home(key), "students.head-count");
+      if (!tile) continue;
+      expect(num(tile.big), key).toBe(await studentList(f.who[key], tile.href!));
+    }
+  });
+
+  it("classes overview: each class and section opens a Student List of that many students", async () => {
+    for (const key of ["principal", "northAdmin"] as const) {
+      const h = await home(key);
+      const panel = [...h.panels.first, ...h.panels.main, ...h.panels.side].find((p) => p.kind === "classes-overview");
+      expect(panel?.kind, key).toBe("classes-overview");
+      if (panel?.kind !== "classes-overview") continue;
+      for (const c of panel.classes) {
+        expect(c.total, `${key} ${c.name}`).toBe(await studentList(f.who[key], c.href));
+        for (const sec of c.sections) expect(sec.count, `${key} ${c.name} ${sec.name}`).toBe(await studentList(f.who[key], sec.href));
+      }
+    }
+  });
+
+  it("parents and data consent: Parents & Guardians shows the same counts (a withdrawn consent is its own group)", async () => {
+    for (const key of ["principal", "northAdmin"] as const) {
+      const h = await home(key);
+      const parents = band(h, "students.parents");
+      if (parents) expect(num(parents.big), key).toBe(await guardianList(f.who[key], parents.href!));
+      const a = card(h, "students.no-consent");
+      expect(a, key).toBeDefined();
+      expect(num(a!.value), key).toBe(await guardianList(f.who[key], a!.href));
+    }
+    // 12 parents in the school: one gave consent, one withdrew it, so 10 have not given it.
+    expect(card(await home("principal"), "students.no-consent")!.value).toBe("10");
   });
 });

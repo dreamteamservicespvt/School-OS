@@ -11,7 +11,7 @@ import { createEnquiry, type EnquiryInput } from "@/lib/admission/enquiries";
 import { createApplication, type ApplicationInput } from "@/lib/admission/applications";
 import { applicationWhere, enquiryWhere, ENQUIRY_FILTERS } from "@/lib/admission/list";
 import { startOtp, tryOtp, verifyOtp, OTP_MAX_TRIES } from "@/lib/admission/consent";
-import { applicationStatus, checkStatusToken, sendFeeLink, submitOnline, statusToken } from "@/lib/admission/public";
+import { applicationStatus, checkStatusToken, publicForm, sendFeeLink, submitOnline, statusToken } from "@/lib/admission/public";
 import { saveList, saveRules } from "@/lib/admission/settings-save";
 import { loadSettings } from "@/lib/admission/settings";
 import { report } from "@/lib/admission/reports";
@@ -173,6 +173,15 @@ describe("the online application form", () => {
     expect(checkStatusToken(t.school.id, r.id, statusToken(t.school.id, "00000000-0000-0000-0000-000000000000"))).toBe(false);
     expect(checkStatusToken(t.school.id, r.id, "")).toBe(false);
     expect((await applicationStatus(t.school.id, r.id))?.applicationNo).toBe(app.applicationNo);
+  });
+
+  it("marks the previous school as needed on the form for the classes the send asks it for (APPLY-02)", async () => {
+    const form = await publicForm(t.school.id);
+    const byId = new Map(form.classes.map((c) => [c.id, c]));
+    expect(byId.get(t.c1)).toMatchObject({ previousSchoolNeeded: false });
+    expect(byId.get(t.c2)).toMatchObject({ previousSchool: true, previousSchoolNeeded: true });
+    const input = applicationInput(t.nextYearId, t.c2, { previousSchool: null }) as ApplicationInput;
+    await expect(withSchool(principal.ctx, (tx) => createApplication(tx, principal.ctx, principal.v, principal.s, input, { campusId: t.campusId, channel: "counter" }))).rejects.toThrow(/For Class 2, give the previous school/);
   });
 
   it("refuses without data consent", async () => {

@@ -12,6 +12,7 @@ import { Card, CardHeader } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { Meter, Ring } from "@/components/ui/display";
 import { StepList } from "./step-list";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Setup checklist" };
 
@@ -39,10 +40,10 @@ export default async function SetupPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-3">
         <div>
           <p className="text-[13px] font-semibold text-ink3">{longDay(todayFor(current.school.timeZone))}</p>
-          <h1 className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight mt-0.5">Welcome, {current.user.displayName.split(" ")[0]}</h1>
-          <p className="text-[15px] text-ink3 mt-1">Let’s get {current.school.name} ready. Most schools finish in a week.</p>
+          <h1 className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight mt-0.5"><Words k="Welcome," /> {current.user.displayName.split(" ")[0]}</h1>
+          <p className="text-[15px] text-ink3 mt-1"><Words k="Let’s get" /> {current.school.name} <Words k="ready. Most schools finish in a week." /></p>
         </div>
-        <ButtonLink href="/dashboard?view=dashboard" variant="secondary">Open the Dashboard</ButtonLink>
+        <ButtonLink href="/dashboard?view=dashboard" variant="secondary"><Words k="Open the Dashboard" /></ButtonLink>
       </div>
 
       <Band label="Setup" items={[
@@ -56,8 +57,8 @@ export default async function SetupPage() {
           <div className="px-5 pt-5 pb-4 flex items-center gap-4">
             <Ring value={pct} size={68} stroke={7}><span className="font-display font-semibold text-[17px] tnum">{p.done}/{p.total}</span></Ring>
             <div className="min-w-0 flex-1">
-              <h2 className="font-semibold text-[16px]">Setup checklist</h2>
-              <p className="text-[13px] text-ink3">{p.done} of {p.total} done. Each step opens the right page. Come back here from the Dashboard.</p>
+              <h2 className="font-semibold text-[16px]"><Words k="Setup checklist" /></h2>
+              <p className="text-[13px] text-ink3">{p.done} <Words k="of" /> {p.total} <Words k="done. Each step opens the right page. Come back here from the Dashboard." /></p>
               <Meter value={pct} tone="brand" className="mt-2.5" />
             </div>
           </div>
@@ -67,10 +68,10 @@ export default async function SetupPage() {
           <Card>
             <CardHeader title="Coming from other software?" icon={FileUp} />
             <div className="px-5 pb-5 flex flex-col gap-3">
-              <p className="text-[14px] text-ink2">Bring students and staff from Excel. Every row is checked before anything is added.</p>
-              {canStudents && <ButtonLink href="/student-management/import" variant="secondary" icon={FileSpreadsheet}>Import students</ButtonLink>}
-              {canStaff && <ButtonLink href="/staff-hr-management/import" variant="secondary" icon={FileSpreadsheet}>Import staff</ButtonLink>}
-              <p className="text-[12.5px] text-ink3">Need help? See <Link href="/settings" className="text-brand font-semibold hover:underline">Settings</Link> for everything set up so far.</p>
+              <p className="text-[14px] text-ink2"><Words k="Bring students and staff from Excel. Every row is checked before anything is added." /></p>
+              {canStudents && <ButtonLink href="/student-management/import" variant="secondary" icon={FileSpreadsheet}><Words k="Import students" /></ButtonLink>}
+              {canStaff && <ButtonLink href="/staff-hr-management/import" variant="secondary" icon={FileSpreadsheet}><Words k="Import staff" /></ButtonLink>}
+              <p className="text-[12.5px] text-ink3"><Words k="Need help? See" /> <Link href="/settings" className="text-brand font-semibold hover:underline"><Words k="Settings" /></Link> <Words k="for everything set up so far." /></p>
             </div>
           </Card>
         )}

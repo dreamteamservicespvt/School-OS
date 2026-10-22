@@ -31,6 +31,7 @@ import { BASE, feeGuard, feePeriod, feeViewOnCampus, one, qs, type SearchParams 
 import { PeriodFilter } from "@/components/list/period-filter";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 import { aiAllowed } from "@/lib/settings/switch-rules";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Fee Dashboard" };
 
@@ -143,8 +144,8 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
         sub={`${longDate} · live as money comes in · updated ${formatTime(new Date(), p.tz)}`}
         viewActions={<ExportButton href={qs(`${BASE}/dashboard/export`, keep)} />}
         actions={p.can.change ? <>
-          <ButtonLink href={`${BASE}/ledger/import`} variant="secondary" icon={FileInput} className="hidden md:inline-flex">Import old dues and receipts</ButtonLink>
-          {p.desk && <ButtonLink href={BASE} variant="primary" icon={IndianRupee}>Collect fee</ButtonLink>}
+          <ButtonLink href={`${BASE}/ledger/import`} variant="secondary" icon={FileInput} className="hidden md:inline-flex"><Words k="Import old dues and receipts" /></ButtonLink>
+          {p.desk && <ButtonLink href={BASE} variant="primary" icon={IndianRupee}><Words k="Collect fee" /></ButtonLink>}
         </> : undefined} />
       <Stack>
         <Band items={[
@@ -157,7 +158,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
         {data.waiting.length > 0 && (
           <Banner tone="warn" title={`${data.waiting.length} ${data.waiting.length === 1 ? "payment waits" : "payments wait"} for verification (${formatRupees(waitingSum)}).`}
             action={<Link href={qs(HREF, { ...keep, pay: data.waiting[0].id })} scroll={false} className={buttonClass("secondary", "sm")}>{p.does("dashboard") ? "Verify" : "See"}</Link>}>
-            Cheques and bank transfers post to the Day Book only after the accountant checks them.
+            <Words k="Cheques and bank transfers post to the Day Book only after the accountant checks them." />
           </Banner>
         )}
 
@@ -170,14 +171,14 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
             <CardHeader title="Monthly collection" description={`Collected against due, ${p.year?.name ?? "this year"} (₹ lakh)`} icon={ChartColumn} />
             <div className="px-5 pb-1 flex items-baseline gap-3 flex-wrap">
               <p className="font-display text-[28px] font-semibold tnum">{formatRupeesShort(collectedSoFar)}</p>
-              <p className="text-[13px] text-ink3">{dueSoFar > BigInt(0) ? <>of {formatRupeesShort(dueSoFar)} due so far · <span className="text-ok font-semibold">{pct(collectedSoFar, dueSoFar)}%</span></> : "Nothing is due yet this year"}</p>
+              <p className="text-[13px] text-ink3">{dueSoFar > BigInt(0) ? <><Words k="of" /> {formatRupeesShort(dueSoFar)} <Words k="due so far ·" /> <span className="text-ok font-semibold">{pct(collectedSoFar, dueSoFar)}%</span></> : "Nothing is due yet this year"}</p>
             </div>
             <div className="px-3 pb-2">
               {trend.length ? <Bars data={trend.map((m) => ({ k: m.label, v: Math.round(lakh(m.collected) * 100) / 100, v2: Math.round(lakh(m.due) * 100) / 100, tip: `${m.label}: ${formatRupees(m.collected)} collected of ${formatRupees(m.due)} due` }))}
                 max={ticks[ticks.length - 1] * 1.15 || 1} ticks={ticks} ariaLabel="Fee collected each month against fees due" />
-                : <p className="px-2 py-10 text-center text-[13px] text-ink3">Set the academic year in Academic Management to see the months.</p>}
+                : <p className="px-2 py-10 text-center text-[13px] text-ink3"><Words k="Set the academic year in Academic Management to see the months." /></p>}
             </div>
-            <div className="px-5 pb-4 flex items-center gap-4 flex-wrap"><Legend items={[["bg-brand", "Collected"], ["bg-ink3/25", "Due"]]} /><span className="ml-auto text-[12.5px] text-ink3">{new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(today)} is still open</span></div>
+            <div className="px-5 pb-4 flex items-center gap-4 flex-wrap"><Legend items={[["bg-brand", "Collected"], ["bg-ink3/25", "Due"]]} /><span className="ml-auto text-[12.5px] text-ink3">{new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(today)} <Words k="is still open" /></span></div>
           </Card>
           <Card>
             <CardHeader title="How parents paid" description={period === "today" ? `Today · ${formatRupees(mTotal)}` : `${new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(today)} so far · ${formatRupeesShort(mTotal)}`} icon={Wallet} />
@@ -199,9 +200,9 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
           <div className="grid lg:grid-cols-2 xl:grid-cols-1 gap-5 lg:gap-6 lg:col-span-2 xl:col-span-1 items-start">
             <Card>
               <CardHeader title="Failed online payments" description="No receipt was made for these" icon={CircleX} action={<Pill tone={failedCount ? "bad" : "ok"}>{failedCount}</Pill>} />
-              {data.failed.started > 0 && <p className="px-5 pb-2 -mt-1 text-[12.5px] text-ink3">{data.failed.started} {data.failed.started === 1 ? "payment was" : "payments were"} opened and not paid in the last 7 days: Razorpay says no money was taken.</p>}
+              {data.failed.started > 0 && <p className="px-5 pb-2 -mt-1 text-[12.5px] text-ink3">{data.failed.started} {data.failed.started === 1 ? "payment was" : "payments were"} <Words k="opened and not paid in the last 7 days: Razorpay says no money was taken." /></p>}
               {failedRows.length === 0 ? (
-                <p className="px-5 pb-5 text-[13.5px] text-ink3">No failed or stuck online payments in the last 7 days.</p>
+                <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No failed or stuck online payments in the last 7 days." /></p>
               ) : (
                 <ul className="px-2 pb-2">
                   {failedRows.map((f) => {
@@ -232,11 +233,11 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
                     {data.unmatched.map((u) => (
                       <li key={u.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
                         <div className="min-w-0 flex-1">
-                          <p className="font-semibold text-[14px] truncate">{u.amountPaise !== null ? formatRupees(u.amountPaise) : "Amount not known"} <span className="text-ink3 font-normal">· not matched to a student</span></p>
+                          <p className="font-semibold text-[14px] truncate">{u.amountPaise !== null ? formatRupees(u.amountPaise) : "Amount not known"} <span className="text-ink3 font-normal"><Words k="· not matched to a student" /></span></p>
                           <p className="text-[12.5px] text-ink3 truncate">{dayWord(u.receivedAt)}{u.payer.contact ? ` · paid from ${u.payer.contact}` : ""}{u.payer.method ? ` · ${METHOD[u.payer.method] ?? u.payer.method}` : ""}</p>
                           <p className="text-[12px] text-ink3 font-mono truncate">{u.gatewayPaymentId}</p>
                         </div>
-                        {u.amountPaise !== null && <ButtonLink href={qs(HREF, { ...keep, match: u.id })} scroll={false} size="sm" variant="soft">Post to a student</ButtonLink>}
+                        {u.amountPaise !== null && <ButtonLink href={qs(HREF, { ...keep, match: u.id })} scroll={false} size="sm" variant="soft"><Words k="Post to a student" /></ButtonLink>}
                       </li>
                     ))}
                     {data.reversals.map((r) => {
@@ -246,11 +247,11 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
                         <li key={r.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
                           <Link href={payHref(r.paymentId)} scroll={false} className="min-w-0 flex-1 text-left">
                             <p className="font-semibold text-[14px] truncate">{s?.fullName ?? "Student"} <span className="text-ink3 font-normal">· {data.stuckClasses.get(r.studentId)?.label ?? ""}</span></p>
-                            <p className="text-[12.5px] text-ink3 truncate">{what} of {formatRupees(r.paymentPaise)} · {dayWord(r.at)}{r.reference ? ` · ${r.reference}` : ""}</p>
-                            <p className="text-[12.5px] text-ink3">The receipt still stands until a person cancels it.</p>
+                            <p className="text-[12.5px] text-ink3 truncate">{what} <Words k="of" /> {formatRupees(r.paymentPaise)} · {dayWord(r.at)}{r.reference ? ` · ${r.reference}` : ""}</p>
+                            <p className="text-[12.5px] text-ink3"><Words k="The receipt still stands until a person cancels it." /></p>
                           </Link>
-                          {r.asked ? <Pill tone="info">Waiting in Approvals</Pill>
-                            : r.partial ? <ButtonLink href={`${BASE}/concessions?do=refund&student=${r.studentId}`} size="sm" variant="soft">Record the refund</ButtonLink>
+                          {r.asked ? <Pill tone="info"><Words k="Waiting in Approvals" /></Pill>
+                            : r.partial ? <ButtonLink href={`${BASE}/concessions?do=refund&student=${r.studentId}`} size="sm" variant="soft"><Words k="Record the refund" /></ButtonLink>
                               : <AskCancelButton transactionId={r.id} />}
                         </li>
                       );
@@ -262,10 +263,10 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
             {data.promises && (
               <Card>
                 <CardHeader title="Promises to pay" description={`Made on calls, with the promised date in ${data.promises.term.label}`} icon={Handshake}
-                  action={p.may("defaulters") ? <ButtonLink href={`${BASE}/defaulters`} size="sm" variant="ghost">Defaulters</ButtonLink> : undefined} />
+                  action={p.may("defaulters") ? <ButtonLink href={`${BASE}/defaulters`} size="sm" variant="ghost"><Words k="Defaulters" /></ButtonLink> : undefined} />
                 <div className="px-5 pb-5">
                   <p className="font-display text-[24px] font-semibold tnum leading-tight">
-                    <span className="text-ok">{data.promises.kept} kept</span> <span className="text-ink3 font-normal">·</span> <span className={data.promises.broken ? "text-bad" : "text-ink3"}>{data.promises.broken} broken</span>
+                    <span className="text-ok">{data.promises.kept} <Words k="kept" /></span> <span className="text-ink3 font-normal">·</span> <span className={data.promises.broken ? "text-bad" : "text-ink3"}>{data.promises.broken} <Words k="broken" /></span>
                   </p>
                   <p className="text-[13px] text-ink3 mt-1">
                     {data.promises.kept + data.promises.broken > 0 ? `${Math.round((data.promises.kept * 100) / (data.promises.kept + data.promises.broken))}% kept · ` : ""}
@@ -279,13 +280,13 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
                 source={data.fc.rate === null
                   ? `Installments due in the next 3 months. No dues fell due from ${formatDate(data.fc.basis.from)} to ${formatDate(data.fc.basis.to)}, so there is nothing yet to learn from`
                   : `Installments due in the next 3 months, and the ${Math.round(data.fc.rate * 100)}% of dues paid from ${formatDate(data.fc.basis.from)} to ${formatDate(data.fc.basis.to)}${data.fc.promises ? `, with ${data.fc.promises} open ${data.fc.promises === 1 ? "promise" : "promises"} to pay counted on the promised dates` : ""}`}
-                actions={<ButtonLink href={`${BASE}/defaulters`} size="sm" variant="secondary" icon={UserX}>See who is overdue</ButtonLink>}>
+                actions={<ButtonLink href={`${BASE}/defaulters`} size="sm" variant="secondary" icon={UserX}><Words k="See who is overdue" /></ButtonLink>}>
                 {data.fc.rate === null
-                  ? <>Due: {data.fc.months.map((m, i) => (
-                    <span key={m.label}>{i > 0 ? (i === data.fc!.months.length - 1 ? " and " : ", ") : ""}<b className="text-ink">{formatRupeesShort(m.due)}</b> in {m.label.split(" ")[0]}</span>
-                  ))}. An estimate of what will come in starts once a month of dues has passed.</>
-                  : <>Expect about {data.fc.months.map((m, i) => (
-                    <span key={m.label}>{i > 0 ? (i === data.fc!.months.length - 1 ? " and " : ", ") : ""}<b className="text-ink">{formatRupeesShort(m.expected ?? m.due)}</b> in {m.label.split(" ")[0]}{i === 0 || m.promised > BigInt(0) ? ` (${[i === 0 ? `${formatRupeesShort(m.due)} due` : null, m.promised > BigInt(0) ? `${formatRupeesShort(m.promised)} promised` : null].filter(Boolean).join(", ")})` : ""}</span>
+                  ? <><Words k="Due:" /> {data.fc.months.map((m, i) => (
+                    <span key={m.label}>{i > 0 ? (i === data.fc!.months.length - 1 ? " and " : ", ") : ""}<b className="text-ink">{formatRupeesShort(m.due)}</b> <Words k="in" /> {m.label.split(" ")[0]}</span>
+                  ))}<Words k=". An estimate of what will come in starts once a month of dues has passed." /></>
+                  : <><Words k="Expect about" /> {data.fc.months.map((m, i) => (
+                    <span key={m.label}>{i > 0 ? (i === data.fc!.months.length - 1 ? " and " : ", ") : ""}<b className="text-ink">{formatRupeesShort(m.expected ?? m.due)}</b> <Words k="in" /> {m.label.split(" ")[0]}{i === 0 || m.promised > BigInt(0) ? ` (${[i === 0 ? `${formatRupeesShort(m.due)} due` : null, m.promised > BigInt(0) ? `${formatRupeesShort(m.promised)} promised` : null].filter(Boolean).join(", ")})` : ""}</span>
                   ))}.</>}
               </Suggestion>
             )}
@@ -310,14 +311,14 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
             </Toolbar>
             <OldSoftwareBanner goLive={p.goLive} from={per.from} to={per.to} what="fee payments" className="mx-4 mb-3" />
             <DataList rows={list.rows} rowKey={(r) => r.id} rowHref={(r) => payHref(r.id)} minWidth={760} caption="Recent payments"
-              footer={<><span className="tnum">Showing {list.rows.length ? (page - 1) * take + 1 : 0}–{(page - 1) * take + list.rows.length} of {list.total} {whenWord} · {formatRupees(list.sum)} {status === "all" || status === "POSTED" ? "posted" : STATUS.find((x) => x.value === status)?.label.toLowerCase()}</span>
+              footer={<><span className="tnum"><Words k="Showing" /> {list.rows.length ? (page - 1) * take + 1 : 0}–{(page - 1) * take + list.rows.length} <Words k="of" /> {list.total} {whenWord} · {formatRupees(list.sum)} {status === "all" || status === "POSTED" ? "posted" : STATUS.find((x) => x.value === status)?.label.toLowerCase()}</span>
                 <span className="flex gap-2">
-                  {page > 1 && <Link className={buttonClass("ghost", "sm")} href={qs(HREF, { ...keep, page: String(page - 1) })} scroll={false}>Newer</Link>}
-                  {page * take < list.total && <Link className={buttonClass("ghost", "sm")} href={qs(HREF, { ...keep, page: String(page + 1) })} scroll={false}>Older</Link>}
+                  {page > 1 && <Link className={buttonClass("ghost", "sm")} href={qs(HREF, { ...keep, page: String(page - 1) })} scroll={false}><Words k="Newer" /></Link>}
+                  {page * take < list.total && <Link className={buttonClass("ghost", "sm")} href={qs(HREF, { ...keep, page: String(page + 1) })} scroll={false}><Words k="Older" /></Link>}
                 </span></>}
               empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="fee payments" /> : <Empty icon={SearchX} title={q || status !== "all" || mode !== "all" ? "No payments match" : `No ${tab === "partial" ? "partial " : ""}payments ${whenWord} yet`}
                 body={q || status !== "all" || mode !== "all" ? "Try another status or mode." : "Payments show here the moment they are collected or arrive online."}
-                action={q || status !== "all" || mode !== "all" ? <Link href={qs(HREF, { kind: keep.kind, ...per.keep })} className={buttonClass("secondary")}>Clear filters</Link> : undefined} />}
+                action={q || status !== "all" || mode !== "all" ? <Link href={qs(HREF, { kind: keep.kind, ...per.keep })} className={buttonClass("secondary")}><Words k="Clear filters" /></Link> : undefined} />}
               rowClass={(r) => r.status === "CANCELLED" && "bg-bad/[.03]"}
               columns={[
                 { key: "t", label: "Time", nowrap: true, render: (r) => <span className="tnum text-ink2">{when === "today" ? formatTime(r.paidAt, p.tz) : `${formatDate(r.paymentDate)} ${formatTime(r.paidAt, p.tz)}`}</span> },

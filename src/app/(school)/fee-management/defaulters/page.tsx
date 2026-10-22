@@ -22,6 +22,7 @@ import { FeeHead } from "../_components/fee-head";
 import { BASE, feeGuard, feePeriod, feeViewOnCampus, one, qs, type SearchParams } from "../_lib/page";
 import { DefaulterList, type DefaulterItem } from "./list";
 import { CallNoteForm } from "./call-note";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Defaulters" };
 
@@ -139,7 +140,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
             footer={`Showing ${list.rows.length} of ${all.rows.length} · ${formatRupees(list.total)} overdue`}
             empty={all.rows.length === 0
               ? <Empty icon={UserCheck} title="Nobody is overdue" body="Every student has paid what has fallen due. Students show here the day after a due date passes." />
-              : <Empty icon={SearchX} title="Nobody on this list" body="No student matches these filters." action={<Link href={HREF} className={buttonClass("secondary")}>Clear filters</Link>} />} />
+              : <Empty icon={SearchX} title="Nobody on this list" body="No student matches these filters." action={<Link href={HREF} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>} />} />
         </Card>
       </Stack>
 
@@ -149,22 +150,22 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
             {h.row ? (
               <div className="rounded-2xl bg-bad/8 px-4 py-3">
                 <p className="font-display text-[22px] font-semibold tnum text-bad leading-tight">{formatRupees(h.row.overduePaise)}</p>
-                <p className="text-[13px] text-ink2">{h.row.heads} · since {formatDate(h.row.oldestDue)} · {h.row.daysOverdue} days</p>
+                <p className="text-[13px] text-ink2">{h.row.heads} <Words k="· since" /> {formatDate(h.row.oldestDue)} · {h.row.daysOverdue} <Words k="days" /></p>
                 {h.row.promise && (h.row.promise.state === "OPEN" || h.row.promise.state === "BROKEN") && (
                   <p className={cx("text-[13px] font-semibold mt-1", h.row.promise.state === "BROKEN" ? "text-bad" : "text-ink")}>
                     {promiseWords(h.row.promise)}{h.row.promise.state === "BROKEN" ? ". Call the family again." : ". Automatic reminders are paused until then."}
                   </p>
                 )}
               </div>
-            ) : <div className="rounded-2xl bg-ok/8 px-4 py-3 text-[14px] text-ok font-semibold">Nothing overdue now.</div>}
+            ) : <div className="rounded-2xl bg-ok/8 px-4 py-3 text-[14px] text-ok font-semibold"><Words k="Nothing overdue now." /></div>}
             <div className="flex gap-2 flex-wrap">
-              {p.desk && <ButtonLink href={`${BASE}/collect/${h.student.id}`} variant="primary" icon={IndianRupee}>Collect fee</ButtonLink>}
-              {canEdit && h.row && <ButtonLink href={qs(HREF, { ...keep, send: "all", q: h.row.admissionNo, class: null, age: null, above: null, rem: null })} scroll={false} variant="secondary" icon={Send}>Send reminder</ButtonLink>}
-              {p.may("ledger") && <ButtonLink href={`${BASE}/ledger/${h.student.id}`} variant="ghost" icon={BookOpen}>Ledger</ButtonLink>}
+              {p.desk && <ButtonLink href={`${BASE}/collect/${h.student.id}`} variant="primary" icon={IndianRupee}><Words k="Collect fee" /></ButtonLink>}
+              {canEdit && h.row && <ButtonLink href={qs(HREF, { ...keep, send: "all", q: h.row.admissionNo, class: null, age: null, above: null, rem: null })} scroll={false} variant="secondary" icon={Send}><Words k="Send reminder" /></ButtonLink>}
+              {p.may("ledger") && <ButtonLink href={`${BASE}/ledger/${h.student.id}`} variant="ghost" icon={BookOpen}><Words k="Ledger" /></ButtonLink>}
             </div>
             <div>
-              <p className="eyebrow text-ink3 mb-2">Reminder history</p>
-              {h.rems.length === 0 ? <p className="text-[14px] text-ink3">No reminder yet.{p.settings.remindersOn ? " The automatic one goes on the days set in Fee Settings." : ""}</p> : (
+              <p className="eyebrow text-ink3 mb-2"><Words k="Reminder history" /></p>
+              {h.rems.length === 0 ? <p className="text-[14px] text-ink3"><Words k="No reminder yet." />{p.settings.remindersOn ? " The automatic one goes on the days set in Fee Settings." : ""}</p> : (
                 <Timeline items={h.rems.map((r) => ({
                   icon: r.automatic ? Zap : r.channel === "sms" ? MessageSquareText : r.channel === "email" ? Mail : MessageCircle,
                   tone: /Failed|Not sent|Skipped/.test(r.deliveryStatus) ? "warn" : r.deliveryStatus.includes("Read") ? "ok" : "info",
@@ -174,8 +175,8 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
               )}
             </div>
             <div>
-              <p className="eyebrow text-ink3 mb-2">Calls</p>
-              {h.calls.length === 0 && <p className="text-[14px] text-ink3 mb-2">No calls noted.</p>}
+              <p className="eyebrow text-ink3 mb-2"><Words k="Calls" /></p>
+              {h.calls.length === 0 && <p className="text-[14px] text-ink3 mb-2"><Words k="No calls noted." /></p>}
               <ul className="flex flex-col gap-2 mb-3">
                 {h.calls.map((c) => (
                   <li key={c.id} className="rounded-xl bg-sunken/70 p-3 text-[14px]">

@@ -17,6 +17,7 @@ import { DataTable, type Column } from "@/components/list/data-table";
 import { EmptyState } from "@/components/empty-state";
 import { cx } from "@/components/ui/cx";
 import { AddTaskButton, TaskDetail } from "./task-parts";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "My Tasks" };
 
@@ -102,7 +103,7 @@ export default async function TasksPage({ searchParams }: Search) {
   return (
     <>
       <PageHead
-        crumbs={<Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-ink"><ArrowLeft size={14} aria-hidden="true" />Dashboard</Link>}
+        crumbs={<Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-ink"><ArrowLeft size={14} aria-hidden="true" /><Words k="Dashboard" /></Link>}
         title="My Tasks"
         sub={access === "full" ? "Tasks for any staff member, with due dates and reminders." : "Your own tasks and the ones given to you, with reminders."}
         actions={<AddTaskButton access={access} people={data.people.map((p) => ({ id: p.id, name: p.name }))} meId={current.user.id} today={today} />}
@@ -165,8 +166,8 @@ export default async function TasksPage({ searchParams }: Search) {
         {r.people.length > 1 && (
           <div className="px-5 pb-5 overflow-x-auto">
             <table className="w-full text-left text-[14px]">
-              <caption className="sr-only">Tasks by person</caption>
-              <thead className="text-[12.5px] text-ink3"><tr><th scope="col" className="py-2 pr-3 font-medium">Person</th><th scope="col" className="py-2 px-3 font-medium text-right">Open</th><th scope="col" className="py-2 px-3 font-medium text-right">Overdue</th><th scope="col" className="py-2 px-3 font-medium text-right">Done</th><th scope="col" className="py-2 pl-3 font-medium text-right">Average days to close</th></tr></thead>
+              <caption className="sr-only"><Words k="Tasks by person" /></caption>
+              <thead className="text-[12.5px] text-ink3"><tr><th scope="col" className="py-2 pr-3 font-medium"><Words k="Person" /></th><th scope="col" className="py-2 px-3 font-medium text-right"><Words k="Open" /></th><th scope="col" className="py-2 px-3 font-medium text-right"><Words k="Overdue" /></th><th scope="col" className="py-2 px-3 font-medium text-right"><Words k="Done" /></th><th scope="col" className="py-2 pl-3 font-medium text-right"><Words k="Average days to close" /></th></tr></thead>
               <tbody className="divide-y divide-line">
                 {r.people.map((p) => (
                   <tr key={p.id}>

@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/badge";
 import type { FormState } from "@/lib/forms";
 import { newLinkForFailed, newLinkForStuck } from "../payments/actions";
+import { Words } from "@/lib/i18n/client";
 
 /** "New link" on a failed or stuck online payment: sends the parent a fresh Razorpay link. */
 export function FailedLinkButton({ kind, id }: { kind: "payment" | "link"; id: string }) {
   const [state, action, pending] = useActionState<FormState<unknown>, FormData>((kind === "payment" ? newLinkForFailed : newLinkForStuck) as never, null);
-  if (state?.ok) return <Pill tone="ok">Link sent</Pill>;
+  if (state?.ok) return <Pill tone="ok"><Words k="Link sent" /></Pill>;
   return (
     <form action={action} className="shrink-0 relative z-10 flex flex-col items-end gap-1 max-w-[180px]">
       <input type="hidden" name={kind === "payment" ? "paymentId" : "linkId"} value={id} />

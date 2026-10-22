@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Pill } from "@/components/ui/badge";
 import type { FormState } from "@/lib/forms";
 import { askCancelReversedAction, postUnmatchedAction } from "../payments/actions";
+import { Words } from "@/lib/i18n/client";
 
 export function MatchSheet({ closeHref, transactionId, amount, when, payer, reference, suggested }: {
   closeHref: string; transactionId: string; amount: string; when: string; payer: string | null; reference: string;
@@ -22,10 +23,10 @@ export function MatchSheet({ closeHref, transactionId, amount, when, payer, refe
   return (
     <SheetForm title={`Post ${amount} to a student`} sub={`Paid on Razorpay on ${when}${payer ? ` by ${payer}` : ""}. It could not be matched to a payment link.`}
       closeHref={closeHref} action={postUnmatchedAction} submitLabel="Post and make the receipt" pendingText="Posting…" hidden={{ transactionId }}>
-      <Alert tone="info">It pays the student’s oldest dues first; anything over is held as advance. The parent gets the receipt message, and the Day Book has it today. Razorpay reference {reference}.</Alert>
+      <Alert tone="info"><Words k="It pays the student’s oldest dues first; anything over is held as advance. The parent gets the receipt message, and the Day Book has it today. Razorpay reference" /> {reference}.</Alert>
       {suggested.length > 0 && (
         <fieldset>
-          <legend className="mb-1 text-[13px] font-semibold text-ink2">Students whose parent paid from this phone</legend>
+          <legend className="mb-1 text-[13px] font-semibold text-ink2"><Words k="Students whose parent paid from this phone" /></legend>
           <ul className="rounded-xl border border-line divide-y divide-line/70 text-[14px]">
             {suggested.map((s) => (
               <li key={s.id}>
@@ -46,7 +47,7 @@ export function MatchSheet({ closeHref, transactionId, amount, when, payer, refe
 /** "Ask to cancel" a payment Razorpay refunded or a bank disputed: it goes to Approvals. */
 export function AskCancelButton({ transactionId }: { transactionId: string }) {
   const [state, action, pending] = useActionState<FormState<unknown>, FormData>(askCancelReversedAction as never, null);
-  if (state?.ok) return <Pill tone="info">Sent for approval</Pill>;
+  if (state?.ok) return <Pill tone="info"><Words k="Sent for approval" /></Pill>;
   return (
     <form action={action} className="shrink-0 relative z-10 flex flex-col items-end gap-1 max-w-[180px]">
       <input type="hidden" name="transactionId" value={transactionId} />

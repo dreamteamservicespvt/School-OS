@@ -17,13 +17,14 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { TaskDialog, type Person } from "../dashboard-client";
 import { archiveTaskAction, commentAction, setTaskStatusAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 export function AddTaskButton({ access, people, meId, today }: { access: "full" | "own"; people: Person[]; meId: string; today: string }) {
   const [open, setOpen] = useState(false);
   const [round, setRound] = useState(0);
   return (
     <>
-      <Button variant="primary" icon={Plus} onClick={() => { setRound((r) => r + 1); setOpen(true); }}>Add task</Button>
+      <Button variant="primary" icon={Plus} onClick={() => { setRound((r) => r + 1); setOpen(true); }}><Words k="Add task" /></Button>
       <TaskDialog key={round} open={open} onClose={() => setOpen(false)} access={access} people={people} meId={meId} today={today} />
     </>
   );
@@ -66,7 +67,7 @@ export function TaskDetail({ task, access, people, meId, today, closeHref }: { t
         </div>
         <Link href={closeHref} aria-label="Close task" className="w-9 h-9 grid place-items-center rounded-lg text-ink3 hover:bg-sunken shrink-0"><X size={18} aria-hidden="true" /></Link>
       </div>
-      {task.archived && <div className="px-5 pb-3"><Alert tone="info">This task is archived.</Alert></div>}
+      {task.archived && <div className="px-5 pb-3"><Alert tone="info"><Words k="This task is archived." /></Alert></div>}
       {problem && <div className="px-5 pb-3"><Alert tone="danger">{problem}</Alert></div>}
       {task.details && <p className="px-5 pb-3 text-[14px] text-ink2 whitespace-pre-line">{task.details}</p>}
       {!task.archived && (
@@ -79,10 +80,10 @@ export function TaskDetail({ task, access, people, meId, today, closeHref }: { t
           </div>
           {task.canEdit && (
             <>
-              <Button size="sm" variant="secondary" icon={Pencil} onClick={() => { setRound((r) => r + 1); setEdit(true); }}>Edit</Button>
-              <ConfirmButton trigger={<><Archive size={15} aria-hidden="true" />Archive</>} triggerVariant="ghost" title="Archive this task?" confirmLabel="Archive"
+              <Button size="sm" variant="secondary" icon={Pencil} onClick={() => { setRound((r) => r + 1); setEdit(true); }}><Words k="Edit" /></Button>
+              <ConfirmButton trigger={<><Archive size={15} aria-hidden="true" /><Words k="Archive" /></>} triggerVariant="ghost" title="Archive this task?" confirmLabel="Archive"
                 onConfirm={async () => { const p = await archiveTaskAction(task.id); if (p) return p; router.push(closeHref); }}>
-                It leaves every list. You can undo for 10 seconds, or find it under Show archived.
+                <Words k="It leaves every list. You can undo for 10 seconds, or find it under Show archived." />
               </ConfirmButton>
             </>
           )}
@@ -90,8 +91,8 @@ export function TaskDetail({ task, access, people, meId, today, closeHref }: { t
       )}
       <div className="border-t border-line/70 px-5 py-4 grid gap-5 lg:grid-cols-2">
         <section aria-labelledby="task-comments">
-          <h3 id="task-comments" className="text-[13px] font-semibold text-ink2 mb-2">Comments</h3>
-          {task.comments.length === 0 ? <p className="text-[13.5px] text-ink3 mb-3">No comments yet.</p> : (
+          <h3 id="task-comments" className="text-[13px] font-semibold text-ink2 mb-2"><Words k="Comments" /></h3>
+          {task.comments.length === 0 ? <p className="text-[13.5px] text-ink3 mb-3"><Words k="No comments yet." /></p> : (
             <ul className="flex flex-col gap-3 mb-3">
               {task.comments.map((c) => (
                 <li key={c.id} className="flex items-start gap-2.5">
@@ -105,12 +106,12 @@ export function TaskDetail({ task, access, people, meId, today, closeHref }: { t
             <form ref={form} action={comment} className="flex flex-col gap-2">
               <input type="hidden" name="id" value={task.id} />
               <TextArea label="Add a comment" name="text" rows={2} maxLength={1000} error={state?.errors?.text ?? (state && !state.ok && !state.errors ? state.message : undefined)} />
-              <div><SubmitButton size="sm" variant="secondary" pendingText="Adding…">Add comment</SubmitButton></div>
+              <div><SubmitButton size="sm" variant="secondary" pendingText="Adding…"><Words k="Add comment" /></SubmitButton></div>
             </form>
           )}
         </section>
         <section aria-labelledby="task-history">
-          <h3 id="task-history" className="text-[13px] font-semibold text-ink2 mb-2">History</h3>
+          <h3 id="task-history" className="text-[13px] font-semibold text-ink2 mb-2"><Words k="History" /></h3>
           <ol className="flex flex-col gap-1.5 text-[13px]">
             {task.history.map((h) => <li key={h.id} className="flex justify-between gap-3"><span className="min-w-0"><span className="capitalize">{h.what}</span> · {h.who}</span><span className="text-ink3 shrink-0 tnum">{h.when}</span></li>)}
           </ol>

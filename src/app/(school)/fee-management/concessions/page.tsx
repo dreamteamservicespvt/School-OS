@@ -26,6 +26,7 @@ import { FeeHead } from "../_components/fee-head";
 import { BASE, feePeriod, feeGuard, one, qs, type SearchParams } from "../_lib/page";
 import { ApproveButton, ArchiveRule, ConcessionSheet, DeclineSheet, MarkRefundedSheet, RefundSheet, RevokeSheet, RuleSheet, RuleSwitch } from "./sheets";
 import { schoolRoles } from "@/lib/school-roles";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Concessions & Refunds" };
 
@@ -179,11 +180,11 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
       return (
         <div className="relative z-10 flex gap-1.5">
           <ApproveButton kind={kind} recordId={r.id} />
-          <Link href={here({ decline: r.id })} scroll={false} className={buttonClass("ghost", "sm")}>Decline</Link>
+          <Link href={here({ decline: r.id })} scroll={false} className={buttonClass("ghost", "sm")}><Words k="Decline" /></Link>
         </div>
       );
     }
-    return <span className="text-[12.5px] text-ink3">Waiting for {d?.waitingFor ?? "approval"}</span>;
+    return <span className="text-[12.5px] text-ink3"><Words k="Waiting for" /> {d?.waitingFor ?? "approval"}</span>;
   };
 
   const conColumns = (rows: ConcessionRow[]) => ({
@@ -194,7 +195,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
     columns: [
       { key: "name", label: "Student", render: (c: ConcessionRow) => <><p className="font-semibold leading-tight">{c.name}</p><p className="text-[12.5px] text-ink3">{[c.classLabel, formatDate(c.createdAt, p.tz)].filter(Boolean).join(" · ")}</p></> },
       { key: "type", label: "Type", nowrap: true, render: (c: ConcessionRow) => c.scholarshipType ?? c.typeLabel },
-      { key: "amt", label: "Amount or %", align: "right" as const, render: (c: ConcessionRow) => <><b className="font-semibold">{c.value}</b>{c.value.endsWith("%") && c.amountPaise > ZERO && <span className="block text-[12px] text-ink3">about {formatRupees(c.amountPaise)}</span>}</> },
+      { key: "amt", label: "Amount or %", align: "right" as const, render: (c: ConcessionRow) => <><b className="font-semibold">{c.value}</b>{c.value.endsWith("%") && c.amountPaise > ZERO && <span className="block text-[12px] text-ink3"><Words k="about" /> {formatRupees(c.amountPaise)}</span>}</> },
       { key: "heads", label: "Fee heads", render: (c: ConcessionRow) => <span className="text-[13px] text-ink2">{c.heads}</span> },
       { key: "reason", label: "Reason", render: (c: ConcessionRow) => <span className="text-[13px] text-ink2 block max-w-[220px]">{c.reason}{c.note && <span className="block text-ink3">{c.note}</span>}</span> },
       { key: "by", label: "Asked by", nowrap: true, render: (c: ConcessionRow) => <span className="text-[13px]">{c.askedBy}</span> },
@@ -215,8 +216,8 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
       <FeeHead pageName="Concessions & Refunds" href={HREF} sub="Discounts, scholarships and refunds, each with a reason and who approved it"
         viewActions={tab !== "bulk" ? <ExportButton href={qs(`${HREF}/export`, { ...keep, tab })} /> : null}
         actions={<>
-          <ButtonLink href={here({ do: "refund" })} scroll={false} variant="secondary" icon={Undo2}>New refund</ButtonLink>
-          <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={BadgePercent}>New concession</ButtonLink>
+          <ButtonLink href={here({ do: "refund" })} scroll={false} variant="secondary" icon={Undo2}><Words k="New refund" /></ButtonLink>
+          <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={BadgePercent}><Words k="New concession" /></ButtonLink>
         </>} />
       <Stack>
         <Stats items={[
@@ -226,7 +227,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
           { label: "Scholarship students", value: String(scholStudents.length), sub: "This year, applied", icon: Award, href: tabHref("scholarships") },
         ]} />
         <Banner tone="info" icon={ShieldCheck} title="Limits from Forms & Approvals:">
-          concessions above {limit} and every refund go to Approvals. Smaller concessions apply at once. Nobody approves their own request.
+          <Words k="concessions above" /> {limit} <Words k="and every refund go to Approvals. Smaller concessions apply at once. Nobody approves their own request." />
         </Banner>
 
         <Card className="overflow-hidden">
@@ -253,8 +254,8 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
             <DataList {...conColumns(data.cons.rows)} caption="Concessions"
               footer={`Showing ${data.cons.rows.length} of ${data.cons.total}${per.range ? ` · asked ${per.words}` : ""}`}
               empty={data.cons.total === 0 && !filtered
-                ? <Empty icon={BadgePercent} title="No concessions yet" body="Discounts, sibling and staff-child concessions and late fee waivers show here with who asked and who approved." action={canEdit ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}>New concession</ButtonLink> : undefined} />
-                : <Empty icon={SearchX} title="No concessions match" body="Try another search, status or date." action={<Link href={tabHref("concessions")} className={buttonClass("secondary")}>Clear filters</Link>} />} />
+                ? <Empty icon={BadgePercent} title="No concessions yet" body="Discounts, sibling and staff-child concessions and late fee waivers show here with who asked and who approved." action={canEdit ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="New concession" /></ButtonLink> : undefined} />
+                : <Empty icon={SearchX} title="No concessions match" body="Try another search, status or date." action={<Link href={tabHref("concessions")} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>} />} />
           )}
 
           {tab === "bulk" && (
@@ -271,7 +272,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
                         <span className="w-10 h-10 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0"><Gift size={18} aria-hidden="true" /></span>
                         <div className="min-w-0 flex-1">
                           {canEdit ? <Link href={here({ rule: r.id })} scroll={false} className="font-semibold text-[14.5px] leading-snug hover:underline">{r.name}</Link> : <p className="font-semibold text-[14.5px] leading-snug">{r.name}</p>}
-                          <p className="text-[12.5px] text-ink3">{r.minInstallments}+ installments together · {percentWord(r.percentBp)} off · {on} · {use ? `used ${use._count._all} ${use._count._all === 1 ? "time" : "times"}, ${formatRupees(use._sum.appliedPaise ?? ZERO)}` : "not used yet"}</p>
+                          <p className="text-[12.5px] text-ink3">{r.minInstallments}<Words k="+ installments together ·" /> {percentWord(r.percentBp)} <Words k="off ·" /> {on} · {use ? `used ${use._count._all} ${use._count._all === 1 ? "time" : "times"}, ${formatRupees(use._sum.appliedPaise ?? ZERO)}` : "not used yet"}</p>
                         </div>
                         {canEdit ? (
                           <div className="flex items-center gap-2 shrink-0">
@@ -284,15 +285,15 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
                   })}
                 </ul>
               )}
-              {canEdit && <div className="px-5 py-4 border-t border-line"><ButtonLink href={here({ rule: "new" })} scroll={false} variant="secondary" icon={Plus}>Add a rule</ButtonLink></div>}
+              {canEdit && <div className="px-5 py-4 border-t border-line"><ButtonLink href={here({ rule: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="Add a rule" /></ButtonLink></div>}
             </div>
           )}
 
           {tab === "scholarships" && data.schol && (
             <div className="grid xl:grid-cols-2 gap-px bg-line/70">
               <div className="bg-surface">
-                <p className="eyebrow text-ink3 px-5 pt-4 pb-1">Scholarship types</p>
-                {data.schol[0].length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3">No scholarships applied this year. Give one with New concession and type Scholarship.</p> : (
+                <p className="eyebrow text-ink3 px-5 pt-4 pb-1"><Words k="Scholarship types" /></p>
+                {data.schol[0].length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No scholarships applied this year. Give one with New concession and type Scholarship." /></p> : (
                   <ul className="px-5 pb-4">
                     {data.schol[0].map((s) => (
                       <li key={s.name} className="flex items-start gap-3 py-2.5 border-t border-line/70 first:border-0">
@@ -305,8 +306,8 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
                 )}
               </div>
               <div className="bg-surface">
-                <p className="eyebrow text-ink3 px-5 pt-4 pb-1">Applications</p>
-                {data.schol[1].rows.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3">No scholarship applications{per.range ? ` ${per.words}` : ""}.</p> : (
+                <p className="eyebrow text-ink3 px-5 pt-4 pb-1"><Words k="Applications" /></p>
+                {data.schol[1].rows.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No scholarship applications" />{per.range ? ` ${per.words}` : ""}.</p> : (
                   <ul className="px-5 pb-4">
                     {data.schol[1].rows.map((a) => (
                       <li key={a.id} className="py-2.5 border-t border-line/70 first:border-0">
@@ -314,8 +315,8 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
                           <Avatar name={a.name} size={36} />
                           <Link href={here({ open: a.id })} scroll={false} className="flex-1 min-w-0">
                             <b className="font-semibold text-[14.5px] block">{a.name} {a.classLabel && <span className="text-ink3 font-normal">· {a.classLabel}</span>}</b>
-                            <span className="text-[12.5px] text-ink3">{a.scholarshipType ?? "Scholarship"} · asks {a.value}{a.value.endsWith("%") && a.amountPaise > ZERO ? ` (about ${formatRupees(a.amountPaise)})` : ""}</span>
-                            {a.documentFileId && <span className="text-[12.5px] text-ink3 flex items-center gap-1 mt-0.5"><Paperclip size={13} aria-hidden="true" />Document attached</span>}
+                            <span className="text-[12.5px] text-ink3">{a.scholarshipType ?? "Scholarship"} <Words k="· asks" /> {a.value}{a.value.endsWith("%") && a.amountPaise > ZERO ? ` (about ${formatRupees(a.amountPaise)})` : ""}</span>
+                            {a.documentFileId && <span className="text-[12.5px] text-ink3 flex items-center gap-1 mt-0.5"><Paperclip size={13} aria-hidden="true" /><Words k="Document attached" /></span>}
                           </Link>
                           <div className="flex flex-col items-end gap-1.5 shrink-0"><Pill tone={status(a.status)[1]}>{status(a.status)[0]}</Pill>{decideCell(a, "concession")}</div>
                         </div>
@@ -332,11 +333,11 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
             <DataList rows={data.refs.rows} rowKey={(r) => r.id} rowHref={(r) => here({ open: r.id })} minWidth={900} caption="Refunds"
               footer={`${data.refs.rows.length} of ${data.refs.total} refunds · never more than was paid`}
               empty={data.refs.total === 0 && !filtered
-                ? <Empty icon={Undo2} title="No refunds" body="A refund comes from one payment and goes to Approvals. Once approved, mark it refunded with the date and reference." action={canEdit ? <ButtonLink href={here({ do: "refund" })} scroll={false} variant="secondary" icon={Undo2}>New refund</ButtonLink> : undefined} />
-                : <Empty icon={SearchX} title="No refunds match" body="Try another search, status or date." action={<Link href={tabHref("refunds")} className={buttonClass("secondary")}>Clear filters</Link>} />}
+                ? <Empty icon={Undo2} title="No refunds" body="A refund comes from one payment and goes to Approvals. Once approved, mark it refunded with the date and reference." action={canEdit ? <ButtonLink href={here({ do: "refund" })} scroll={false} variant="secondary" icon={Undo2}><Words k="New refund" /></ButtonLink> : undefined} />
+                : <Empty icon={SearchX} title="No refunds match" body="Try another search, status or date." action={<Link href={tabHref("refunds")} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>} />}
               columns={[
                 { key: "name", label: "Student", render: (r) => <><p className="font-semibold leading-tight">{r.name}</p><p className="text-[12.5px] text-ink3">{[r.classLabel, formatDate(r.createdAt, p.tz)].filter(Boolean).join(" · ")}</p></> },
-                { key: "rcpt", label: "Payment", render: (r) => <><p className="font-mono text-[12.5px]">{r.receipt}</p><p className="text-[12px] text-ink3">{formatRupees(r.paidPaise)} paid</p></> },
+                { key: "rcpt", label: "Payment", render: (r) => <><p className="font-mono text-[12.5px]">{r.receipt}</p><p className="text-[12px] text-ink3">{formatRupees(r.paidPaise)} <Words k="paid" /></p></> },
                 { key: "amt", label: "Refund", align: "right", render: (r) => <b className="font-semibold">{formatRupees(r.amountPaise)}</b> },
                 { key: "reason", label: "Reason", render: (r) => <span className="text-[13px] text-ink2 block max-w-[240px]">{r.reason}{r.note && <span className="block text-ink3">{r.note}</span>}</span> },
                 { key: "mode", label: "Mode", render: (r) => <span className="text-[13px]">{modeLabel(r.mode)}{r.reference && <span className="block text-[12px] text-ink3 font-mono">{r.reference}</span>}</span> },
@@ -344,7 +345,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
                   <div className="flex flex-col items-start gap-1.5">
                     <Pill tone={status(r.status === "APPROVED" ? "WAITING" : r.status)[1]}>{r.status === "APPROVED" ? "Approved, to pay" : status(r.status)[0]}</Pill>
                     {decideCell(r, "refund")}
-                    {r.status === "APPROVED" && canEdit && <Link href={here({ mark: r.id })} scroll={false} className={`${buttonClass("secondary", "sm")} relative z-10`}>Mark refunded</Link>}
+                    {r.status === "APPROVED" && canEdit && <Link href={here({ mark: r.id })} scroll={false} className={`${buttonClass("secondary", "sm")} relative z-10`}><Words k="Mark refunded" /></Link>}
                   </div>
                 ) },
               ]}
@@ -386,20 +387,20 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
               ]} />
             )}
             <div>
-              <p className="eyebrow text-ink3 mb-1">Reason</p>
+              <p className="eyebrow text-ink3 mb-1"><Words k="Reason" /></p>
               <p className="text-[14px]">{opened.row.reason}</p>
               {opened.row.note && <p className="text-[13px] text-ink3 mt-1">{opened.row.note}</p>}
             </div>
             {opened.kind === "concession" && opened.row.documentFileId && (
-              <a href={fileLink(opened.row.documentFileId, ctx.schoolId)} target="_blank" rel="noreferrer" className={`${buttonClass("secondary")} self-start`}><Paperclip size={16} aria-hidden="true" />Open the document</a>
+              <a href={fileLink(opened.row.documentFileId, ctx.schoolId)} target="_blank" rel="noreferrer" className={`${buttonClass("secondary")} self-start`}><Paperclip size={16} aria-hidden="true" /><Words k="Open the document" /></a>
             )}
             <div className="flex flex-wrap gap-2 items-start">
               {decideCell(opened.row, opened.kind)}
               {canEdit && opened.kind === "concession" && opened.row.status === "APPLIED" && !opened.row.automatic && (
-                <ButtonLink href={here({ revoke: opened.row.id })} scroll={false} variant="danger-outline">Take it off</ButtonLink>
+                <ButtonLink href={here({ revoke: opened.row.id })} scroll={false} variant="danger-outline"><Words k="Take it off" /></ButtonLink>
               )}
-              {canEdit && opened.kind === "refund" && opened.row.status === "APPROVED" && <ButtonLink href={here({ mark: opened.row.id })} scroll={false} variant="primary" icon={ReceiptIndianRupee}>Mark refunded</ButtonLink>}
-              <ButtonLink href={`${BASE}/ledger/${opened.row.studentId}`} variant="ghost" icon={BookOpen}>Ledger</ButtonLink>
+              {canEdit && opened.kind === "refund" && opened.row.status === "APPROVED" && <ButtonLink href={here({ mark: opened.row.id })} scroll={false} variant="primary" icon={ReceiptIndianRupee}><Words k="Mark refunded" /></ButtonLink>}
+              <ButtonLink href={`${BASE}/ledger/${opened.row.studentId}`} variant="ghost" icon={BookOpen}><Words k="Ledger" /></ButtonLink>
             </div>
           </div>
         </UrlSheet>
@@ -415,7 +416,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
         <UrlSheet title={doing === "new" ? "New concession" : "New refund"} sub="First, find the student" closeHref={close}>
           <div className="flex flex-col gap-3">
             <UrlSearch param="sq" id="con-sq" placeholder="Name, admission no. or phone" label="Find a student" autoFocus />
-            {!sq ? <p className="text-[13.5px] text-ink3 px-1">Search by name, admission number or the parent’s mobile number.</p>
+            {!sq ? <p className="text-[13.5px] text-ink3 px-1"><Words k="Search by name, admission number or the parent’s mobile number." /></p>
               : (data.pick ?? []).length === 0 ? <Empty icon={SearchX} title={`No student called “${sq}”`} body="Try the admission number or the parent’s mobile number." /> : (
                 <ul className="-mx-2">
                   {(data.pick ?? []).map((s) => (
@@ -423,7 +424,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
                       <Link href={here({ do: doing, student: s.id })} scroll={false} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken text-left">
                         <Avatar name={s.name} size={40} src={s.photoFileId ? fileLink(s.photoFileId, ctx.schoolId) : null} />
                         <span className="min-w-0 flex-1"><span className="block font-semibold text-[14.5px] truncate">{s.name}</span><span className="block text-[12.5px] text-ink3 truncate">{s.classSection} · <span className="font-mono">{s.admissionNo}</span></span></span>
-                        {s.due > ZERO && <span className="text-[13px] font-semibold tnum text-ink2">{formatRupees(s.due)} due</span>}
+                        {s.due > ZERO && <span className="text-[13px] font-semibold tnum text-ink2">{formatRupees(s.due)} <Words k="due" /></span>}
                       </Link>
                     </li>
                   ))}

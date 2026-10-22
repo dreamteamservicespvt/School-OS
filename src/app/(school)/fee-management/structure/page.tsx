@@ -16,6 +16,7 @@ import { cx } from "@/components/ui/cx";
 import { FeeHead } from "../_components/fee-head";
 import { BASE, feeGuard, one, qs, type SearchParams } from "../_lib/page";
 import { AssignClass, CopySheet, DiscardDraft, HeadSheet, PrepareSheet, PublishSheet, RemoveRow, RestoreSheet, RowSheet, type HeadData } from "./sheets";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Fee Structure" };
 
@@ -80,7 +81,7 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
     return (
       <div>
         <FeeHead pageName="Fee Structure" href={HREF} />
-        <Card><Empty icon={GraduationCap} title="Set up the academic year first" body="Fee structures are made for each class in an academic year. Add the year and classes in Academic Management." action={<Link href="/academic-management" className={buttonClass("secondary")}>Open Academic Management</Link>} /></Card>
+        <Card><Empty icon={GraduationCap} title="Set up the academic year first" body="Fee structures are made for each class in an academic year. Add the year and classes in Academic Management." action={<Link href="/academic-management" className={buttonClass("secondary")}><Words k="Open Academic Management" /></Link>} /></Card>
       </div>
     );
   }
@@ -120,8 +121,8 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
     <div>
       <FeeHead pageName="Fee Structure" href={HREF} sub={sub}
         actions={canManage ? <>
-          <ButtonLink href={here({ head: "new" })} scroll={false} variant="secondary" icon={Plus}>Add fee head</ButtonLink>
-          {isCurrent && data.next && <ButtonLink href={here({ do: "prepare" })} scroll={false} variant="primary" icon={CopyPlus}>Prepare {data.next.name.replace("-", "–")}</ButtonLink>}
+          <ButtonLink href={here({ head: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="Add fee head" /></ButtonLink>
+          {isCurrent && data.next && <ButtonLink href={here({ do: "prepare" })} scroll={false} variant="primary" icon={CopyPlus}><Words k="Prepare" /> {data.next.name.replace("-", "–")}</ButtonLink>}
         </> : null} />
       <Stack>
         {yearTabs.length > 1 && (
@@ -132,7 +133,7 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
         )}
         {started && canManage && (
           <Banner tone="warn" icon={Lock} title={approver ? "Mid-year changes reach parents at once." : "Mid-year changes need the Principal’s approval."}
-            action={data.next && isCurrent ? <ButtonLink size="sm" variant="secondary" href={qs(HREF, { year: data.next.id })}>Change {data.next.name.replace("-", "–")}</ButtonLink> : undefined}>
+            action={data.next && isCurrent ? <ButtonLink size="sm" variant="secondary" href={qs(HREF, { year: data.next.id })}><Words k="Change" /> {data.next.name.replace("-", "–")}</ButtonLink> : undefined}>
             {approver
               ? "Paid rows never change. Your change updates unpaid installments straight away and parents see it in Parent Link. Every change is in the Audit Log. Most changes are better made for next year."
               : "Paid rows never change. Unpaid installments change only after the Principal approves. Most changes are better made for next year."}
@@ -151,8 +152,8 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
                   <div className="flex items-start gap-3">
                     <span className="w-10 h-10 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0"><GraduationCap size={19} aria-hidden="true" /></span>
                     <div className="min-w-0 flex-1">
-                      <p className="font-semibold text-[15px] leading-tight flex items-center gap-2">{c.className}{c.draft && <Pill tone="info" className="!h-5 !text-[11px]">Draft</Pill>}{!c.published && !c.draft && <Pill tone="warn" className="!h-5 !text-[11px]">Not set</Pill>}</p>
-                      <p className="text-[12.5px] text-ink3">{c.students} {c.students === 1 ? "student" : "students"} · {c.setCount} of {c.headCount} heads set{c.withoutPlan && c.published ? ` · ${c.withoutPlan} without fees` : ""}</p>
+                      <p className="font-semibold text-[15px] leading-tight flex items-center gap-2">{c.className}{c.draft && <Pill tone="info" className="!h-5 !text-[11px]"><Words k="Draft" /></Pill>}{!c.published && !c.draft && <Pill tone="warn" className="!h-5 !text-[11px]"><Words k="Not set" /></Pill>}</p>
+                      <p className="text-[12.5px] text-ink3">{c.students} {c.students === 1 ? "student" : "students"} · {c.setCount} <Words k="of" /> {c.headCount} <Words k="heads set" />{c.withoutPlan && c.published ? ` · ${c.withoutPlan} without fees` : ""}</p>
                     </div>
                     <ChevronRight size={18} className="text-ink3 group-hover:translate-x-0.5 transition" aria-hidden="true" />
                   </div>
@@ -162,9 +163,9 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
                         <li key={r.id} className="flex items-center gap-2"><span className="flex-1 min-w-0 truncate text-ink2">{headName(r.feeHeadId)} <span className="text-ink3">· {frequencyLabel(r.frequency)}</span></span><span className="tnum font-medium">{formatRupees(r.totalPaise)}</span></li>
                       ))}
                     </ul>
-                  ) : <p className="mt-3 text-[13.5px] text-ink3">No fees set for {yName} yet.</p>}
+                  ) : <p className="mt-3 text-[13.5px] text-ink3"><Words k="No fees set for" /> {yName} <Words k="yet." /></p>}
                   <div className="mt-3 pt-3 border-t border-line/70 flex items-center justify-between text-[13.5px]">
-                    <span className="text-ink3">Year, per student</span><b className="font-semibold tnum">{formatRupees(yearly)}</b>
+                    <span className="text-ink3"><Words k="Year, per student" /></span><b className="font-semibold tnum">{formatRupees(yearly)}</b>
                   </div>
                 </Link>
               );
@@ -175,27 +176,27 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
         <Split>
           <Card className="overflow-hidden">
             <CardHeader title="Fee heads" description={`${heads.length} ${heads.length === 1 ? "head" : "heads"} · taxable ones show their GST rate`} icon={Tags}
-              action={canManage ? <ButtonLink size="sm" variant="soft" icon={Plus} href={here({ head: "new" })} scroll={false}>Add</ButtonLink> : null} />
+              action={canManage ? <ButtonLink size="sm" variant="soft" icon={Plus} href={here({ head: "new" })} scroll={false}><Words k="Add" /></ButtonLink> : null} />
             <DataList rows={heads} rowKey={(h) => h.id} minWidth={640} caption="Fee heads" rowHref={canManage ? (h) => here({ head: h.id }) : undefined}
               empty={<Empty icon={Tag} title="No fee heads yet" body="Add the fees the school charges, such as Tuition fee and Annual fee." />}
               columns={[
                 { key: "name", label: "Fee head", render: (h) => { const u = headUse(h.id); return <><p className="font-semibold leading-tight">{h.name}</p><p className="text-[12.5px] text-ink3">{headKindLabel(h.kind)} · {u.classes ? `in ${u.classes} ${u.classes === 1 ? "class" : "classes"}` : "not in any class yet"}</p></>; } },
                 { key: "freq", label: "Usually", nowrap: true, render: (h) => <span className="text-[13px] text-ink2">{headUse(h.id).freq}</span> },
-                { key: "gst", label: "GST", render: (h) => h.taxable && h.gstRateBp ? <><Pill tone="info">GST {h.gstRateBp / 100}%</Pill>{h.sacCode && <span className="block text-[12px] text-ink3 mt-0.5">SAC {h.sacCode}</span>}</> : <Pill>Exempt</Pill> },
+                { key: "gst", label: "GST", render: (h) => h.taxable && h.gstRateBp ? <><Pill tone="info"><Words k="GST" /> {h.gstRateBp / 100}%</Pill>{h.sacCode && <span className="block text-[12px] text-ink3 mt-0.5"><Words k="SAC" /> {h.sacCode}</span>}</> : <Pill><Words k="Exempt" /></Pill> },
                 { key: "acct", label: "Bank account", render: (h) => <span className="text-[13px]">{p.features.has("fee-bank-accounts") ? bankName(h.bankAccountId) : "Main bank account"}</span> },
               ]}
-              phone={(h) => ({ title: h.name, sub: `${headUse(h.id).freq} · ${p.features.has("fee-bank-accounts") ? bankName(h.bankAccountId) : headKindLabel(h.kind)}`, icon: h.taxable ? Percent : Tag, iconTone: h.taxable ? "info" : "neutral", right: h.taxable && h.gstRateBp ? <Pill tone="info">GST {h.gstRateBp / 100}%</Pill> : <Pill>Exempt</Pill> })} />
+              phone={(h) => ({ title: h.name, sub: `${headUse(h.id).freq} · ${p.features.has("fee-bank-accounts") ? bankName(h.bankAccountId) : headKindLabel(h.kind)}`, icon: h.taxable ? Percent : Tag, iconTone: h.taxable ? "info" : "neutral", right: h.taxable && h.gstRateBp ? <Pill tone="info"><Words k="GST" /> {h.gstRateBp / 100}%</Pill> : <Pill><Words k="Exempt" /></Pill> })} />
           </Card>
           <Col>
             <Card>
               <CardHeader title="Drafts not published" description="Students’ fees change only when a draft is published" icon={Hourglass} />
-              {drafts.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3">No drafts. Every class shows the version in use.</p> : (
+              {drafts.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No drafts. Every class shows the version in use." /></p> : (
                 <ul className="px-2 pb-2">
                   {drafts.map((c) => (
                     <li key={c.classId}>
                       <Link href={clsHref(c.classId)} scroll={false} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
                         <span className="w-9 h-9 rounded-xl bg-info/10 text-info grid place-items-center shrink-0"><FilePen size={17} aria-hidden="true" /></span>
-                        <span className="min-w-0 flex-1"><b className="block font-semibold text-[14.5px] truncate">{c.className} · version {c.draft!.version}</b><span className="block text-[12.5px] text-ink3">Started {formatDate(c.draft!.createdAt, p.tz)}{who(c.draft!.createdById) ? ` · ${who(c.draft!.createdById)}` : ""}</span></span>
+                        <span className="min-w-0 flex-1"><b className="block font-semibold text-[14.5px] truncate">{c.className} <Words k="· version" /> {c.draft!.version}</b><span className="block text-[12.5px] text-ink3"><Words k="Started" /> {formatDate(c.draft!.createdAt, p.tz)}{who(c.draft!.createdById) ? ` · ${who(c.draft!.createdById)}` : ""}</span></span>
                         <ChevronRight size={17} className="text-ink3" aria-hidden="true" />
                       </Link>
                     </li>
@@ -206,7 +207,7 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
             <Card>
               <CardHeader title="Versions" icon={History} />
               <div className="px-5 pb-1">
-                {data.versions.length === 0 ? <p className="pb-4 text-[13.5px] text-ink3">No versions yet.</p> : (
+                {data.versions.length === 0 ? <p className="pb-4 text-[13.5px] text-ink3"><Words k="No versions yet." /></p> : (
                   <Timeline items={data.versions.slice(0, 6).map((v) => {
                     const cls = cards.find((c) => c.classId === v.classId)?.className ?? "Class";
                     return v.status === "DRAFT"
@@ -222,12 +223,12 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
               <Card>
                 <CardHeader title="Fees by student category" icon={Users} />
                 <ul className="px-5 pb-4 flex flex-col text-[14px]">
-                  {data.categories.length === 0 ? <li className="text-ink3 text-[13.5px]">No students in this year yet.</li> : data.categories.map((c) => {
+                  {data.categories.length === 0 ? <li className="text-ink3 text-[13.5px]"><Words k="No students in this year yet." /></li> : data.categories.map((c) => {
                     const own = data.versions.some((v) => v.category && v.category === c.category && v.status === "PUBLISHED");
                     return (
                       <li key={c.category ?? "none"} className="flex items-start gap-3 py-2 border-t border-line/70 first:border-0">
                         <span className="flex-1 min-w-0"><b className="font-semibold block">{c.category || "No category"}</b><span className="text-[12.5px] text-ink3">{own ? "Own category fees" : "Class fees"}</span></span>
-                        <span className="text-[13px] text-ink2 tnum">{c._count._all} students</span>
+                        <span className="text-[13px] text-ink2 tnum">{c._count._all} <Words k="students" /></span>
                       </li>
                     );
                   })}
@@ -243,8 +244,8 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
           sub={`${sheet.card.students} ${sheet.card.students === 1 ? "student" : "students"} · ${sheet.st.draft ? `draft version ${sheet.st.draft.version}${sheet.st.published ? `, version ${sheet.st.published.version} in use` : ", not published"}` : sheet.st.published ? `version ${sheet.st.published.version} in use` : "no fees set"} · installments add up to each row’s total`}>
           <div className="flex flex-col gap-4">
             {sheet.st.draft && (sheet.waiting
-              ? <Banner tone="warn" icon={Hourglass} title={`Draft version ${sheet.st.draft.version} is waiting for the Principal`}>Sent on {formatDate(sheet.waiting.createdAt, p.tz)}. Students’ fees change only when it is approved. To change it, withdraw the request in Approvals.</Banner>
-              : <Banner tone="info" icon={FilePen} title={`Draft version ${sheet.st.draft.version}`}>Changes here are not on students’ fees until you publish{sheet.needsOk ? " and the Principal approves" : ""}.</Banner>)}
+              ? <Banner tone="warn" icon={Hourglass} title={`Draft version ${sheet.st.draft.version} is waiting for the Principal`}><Words k="Sent on" /> {formatDate(sheet.waiting.createdAt, p.tz)}<Words k=". Students’ fees change only when it is approved. To change it, withdraw the request in Approvals." /></Banner>
+              : <Banner tone="info" icon={FilePen} title={`Draft version ${sheet.st.draft.version}`}><Words k="Changes here are not on students’ fees until you publish" />{sheet.needsOk ? " and the Principal approves" : ""}.</Banner>)}
             {!sheet.shown || sheet.shown.items.length === 0 ? <Empty icon={Tag} title="No fee rows yet" body={canManage ? "Add the fees this class pays, with their installments." : "No fees are set for this class yet."} /> : sheet.shown.items.map((r) => {
               const sum = r.installments.reduce((a, i) => a + i.amountPaise, ZERO);
               return (
@@ -259,31 +260,31 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
                   <div className="flex items-center gap-2 mt-2 flex-wrap">
                     <p className={cx("text-[12.5px] flex items-center gap-1.5 flex-1", sum === r.totalPaise ? "text-ok" : "text-bad")}><CircleCheck size={14} aria-hidden="true" />{sum === r.totalPaise ? `Adds up to ${formatRupees(r.totalPaise)}` : `Installments add up to ${formatRupees(sum)}`}</p>
                     {canManage && !sheet.waiting && <>
-                      <ButtonLink size="sm" variant="ghost" icon={Pencil} scroll={false} href={here({ cls: sheet.card.classId, do: "row", item: r.feeHeadId })}>Change</ButtonLink>
+                      <ButtonLink size="sm" variant="ghost" icon={Pencil} scroll={false} href={here({ cls: sheet.card.classId, do: "row", item: r.feeHeadId })}><Words k="Change" /></ButtonLink>
                       <RemoveRow yearId={year.id} classId={sheet.card.classId} category="" feeHeadId={r.feeHeadId} name={headName(r.feeHeadId)} />
                     </>}
                   </div>
                 </div>
               );
             })}
-            <p className="text-[13px] text-ink3">Transport, hostel and store items are charged from their own modules. A one-off charge for one student is added on the student’s ledger.</p>
+            <p className="text-[13px] text-ink3"><Words k="Transport, hostel and store items are charged from their own modules. A one-off charge for one student is added on the student’s ledger." /></p>
             {(canManage || canAssign) && (
               <div className="flex gap-2 flex-wrap">
-                {canManage && !sheet.waiting && <ButtonLink variant="primary" icon={Plus} scroll={false} href={here({ cls: sheet.card.classId, do: "row" })}>Add fee row</ButtonLink>}
+                {canManage && !sheet.waiting && <ButtonLink variant="primary" icon={Plus} scroll={false} href={here({ cls: sheet.card.classId, do: "row" })}><Words k="Add fee row" /></ButtonLink>}
                 {canManage && !sheet.waiting && sheet.st.draft && sheet.st.draft.items.length > 0 && <ButtonLink variant="secondary" icon={CircleCheck} scroll={false} href={here({ cls: sheet.card.classId, do: "publish" })}>{sheet.needsOk ? `Send version ${sheet.st.draft.version} for approval` : `Publish version ${sheet.st.draft.version}`}</ButtonLink>}
                 {canAssign && !sheet.st.draft && sheet.st.published && sheet.card.withoutPlan > 0 && <AssignClass structureId={sheet.st.published.id} label={`Give fees to ${sheet.card.withoutPlan} ${sheet.card.withoutPlan === 1 ? "student" : "students"}`} />}
-                {canManage && sheet.shown && sheet.shown.items.length > 0 && cards.length > 1 && <ButtonLink variant="ghost" icon={CopyPlus} scroll={false} href={here({ cls: sheet.card.classId, do: "copy" })}>Copy to classes</ButtonLink>}
+                {canManage && sheet.shown && sheet.shown.items.length > 0 && cards.length > 1 && <ButtonLink variant="ghost" icon={CopyPlus} scroll={false} href={here({ cls: sheet.card.classId, do: "copy" })}><Words k="Copy to classes" /></ButtonLink>}
                 {canManage && !sheet.waiting && sheet.st.draft && <DiscardDraft structureId={sheet.st.draft.id} />}
               </div>
             )}
             {sheet.st.versions.filter((v) => v.status === "SUPERSEDED").length > 0 && (
               <div>
-                <p className="eyebrow text-ink3 mb-2">Older versions</p>
+                <p className="eyebrow text-ink3 mb-2"><Words k="Older versions" /></p>
                 <ul className="flex flex-col gap-1.5">
                   {sheet.st.versions.filter((v) => v.status === "SUPERSEDED").map((v) => (
                     <li key={v.id} className="flex items-center gap-3 text-[14px] rounded-xl bg-sunken/60 px-3 py-2">
-                      <span className="flex-1 min-w-0">Version {v.version} · {formatRupees(v.items.reduce((a, i) => a + i.totalPaise, ZERO))} a year{v.effectiveFrom ? ` · from ${formatDate(v.effectiveFrom)}` : ""}</span>
-                      {canManage && !sheet.st.draft && <ButtonLink size="sm" variant="ghost" scroll={false} href={here({ cls: sheet.card.classId, do: "restore", ver: v.id })}>Use again</ButtonLink>}
+                      <span className="flex-1 min-w-0"><Words k="Version" /> {v.version} · {formatRupees(v.items.reduce((a, i) => a + i.totalPaise, ZERO))} <Words k="a year" />{v.effectiveFrom ? ` · from ${formatDate(v.effectiveFrom)}` : ""}</span>
+                      {canManage && !sheet.st.draft && <ButtonLink size="sm" variant="ghost" scroll={false} href={here({ cls: sheet.card.classId, do: "restore", ver: v.id })}><Words k="Use again" /></ButtonLink>}
                     </li>
                   ))}
                 </ul>

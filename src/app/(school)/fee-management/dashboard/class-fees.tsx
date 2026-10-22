@@ -12,6 +12,7 @@ import { Stats, Progress, Toolbar } from "@/components/money/kit";
 import { UrlSelect } from "@/components/money/url-filters";
 import { Chips } from "@/components/ui/chips";
 import { cx } from "@/components/ui/cx";
+import { Words } from "@/lib/i18n/client";
 
 const TXT = { ok: "text-ok", warn: "text-warn", bad: "text-bad" } as const;
 const BG = { ok: "bg-ok/12 text-ok", warn: "bg-warn/12 text-warn", bad: "bg-bad/10 text-bad" } as const;
@@ -57,7 +58,7 @@ export function ClassFees({ data, sort, group, href, classHref, today }: {
           )}
         </Toolbar>
         {list.length === 0 ? (
-          <p className="px-5 pb-5 text-[13.5px] text-ink3">No students with fees yet. Classes show here once fee plans are assigned.</p>
+          <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No students with fees yet. Classes show here once fee plans are assigned." /></p>
         ) : (
           <ul className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2.5 p-3">
             {list.map((s) => {
@@ -75,8 +76,8 @@ export function ClassFees({ data, sort, group, href, classHref, today }: {
                     </span>
                     <Progress value={s.percent} tone={tone} />
                     <span className="grid grid-cols-2 gap-x-3 text-[12.5px]">
-                      <span className="min-w-0"><span className="block text-ink3">Collected</span><span className="block font-semibold tnum truncate">{money(s.paid)}</span></span>
-                      <span className="min-w-0 text-right"><span className="block text-ink3">Pending</span><span className={cx("block font-semibold tnum truncate", s.pending > BigInt(0) ? "text-bad" : "text-ok")}>{s.pending > BigInt(0) ? money(s.pending) : "Nil"}</span></span>
+                      <span className="min-w-0"><span className="block text-ink3"><Words k="Collected" /></span><span className="block font-semibold tnum truncate">{money(s.paid)}</span></span>
+                      <span className="min-w-0 text-right"><span className="block text-ink3"><Words k="Pending" /></span><span className={cx("block font-semibold tnum truncate", s.pending > BigInt(0) ? "text-bad" : "text-ok")}>{s.pending > BigInt(0) ? money(s.pending) : "Nil"}</span></span>
                     </span>
                     <span className="text-[12.5px] text-ink2 truncate">
                       {s.owe ? `${s.owe} of ${s.students} owe${s.overdueStudents ? ` · ${s.overdueStudents} overdue (${money(s.overdue)})` : " · none overdue"}` : `All ${s.students} students paid`}
@@ -87,7 +88,7 @@ export function ClassFees({ data, sort, group, href, classHref, today }: {
             })}
           </ul>
         )}
-        <p className="px-5 pb-4 text-[12.5px] text-ink3">Green is 90% or more collected, amber 80% to 90%, red below 80%. Due so far counts fees falling due in the next 30 days, the same as Pending above.</p>
+        <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="Green is 90% or more collected, amber 80% to 90%, red below 80%. Due so far counts fees falling due in the next 30 days, the same as Pending above." /></p>
       </Card>
     </div>
   );

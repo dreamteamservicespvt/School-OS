@@ -14,6 +14,7 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { DataList, Empty, Stack, Stats, Toolbar } from "@/components/money/kit";
 import { FeeHead } from "../_components/fee-head";
 import { BASE, feePage, feePeriod, one, qs, type SearchParams } from "../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 const ZERO = BigInt(0);
 const HREF = `${BASE}/dashboard`;
@@ -96,7 +97,7 @@ export async function AdmissionFees({ searchParams }: { searchParams: SearchPara
         ]} />
         <Card className="overflow-hidden">
           <CardHeader title="Fee status" description={per.range ? per.range.label : "All dates"} icon={UserPlus}
-            action={<Link href="/admission-management" className={buttonClass("secondary", "sm")}><ArrowRight size={15} aria-hidden="true" />Admissions</Link>} />
+            action={<Link href="/admission-management" className={buttonClass("secondary", "sm")}><ArrowRight size={15} aria-hidden="true" /><Words k="Admissions" /></Link>} />
           <LinkTabs className="px-3" label="Which fee" tabs={[
             { href: qs(HREF, { ...keep, fee: null }), label: "Application fee", count: application.length, on: tab === "application" },
             { href: qs(HREF, { ...keep, fee: "admission" }), label: "Admission fee", count: admission.length, on: tab === "admission" },

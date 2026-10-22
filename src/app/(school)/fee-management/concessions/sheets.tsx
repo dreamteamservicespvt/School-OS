@@ -18,6 +18,7 @@ import type { FormState } from "@/lib/forms";
 import {
   archiveRuleAction, decideAction, markRefundedAction, newConcessionAction, newRefundAction, revokeConcessionAction, saveRuleAction, toggleRuleAction,
 } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 /** Runs a server action from a button; returns the problem in words, if any. */
 async function run(fn: (prev: unknown, fd: FormData) => Promise<FormState<unknown>>, fields: Record<string, string>) {
@@ -75,7 +76,7 @@ export function ConcessionSheet({ closeHref, student, heads, startHead, scholars
         </>
       )}
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Amount or %<span className="text-bad" aria-hidden="true"> *</span></span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Amount or %" /><span className="text-bad" aria-hidden="true"> *</span></span>
         <div className="flex gap-2 items-start">
           <Segmented label="Amount or percent" value={unit} onChange={(v) => setUnit(v as typeof unit)} options={[{ value: "amount", label: "₹" }, { value: "percent", label: "%" }]} />
           <div className="flex-1 min-w-0">
@@ -83,20 +84,20 @@ export function ConcessionSheet({ closeHref, student, heads, startHead, scholars
               : <SText name="value" label="Percent" inputMode="decimal" placeholder="10" className="tnum" />}
           </div>
         </div>
-        <p className="text-[12.5px] text-ink3">Up to {limit} applies at once. Above it, the request goes to Approvals and applies once approved.</p>
+        <p className="text-[12.5px] text-ink3"><Words k="Up to" /> {limit} <Words k="applies at once. Above it, the request goes to Approvals and applies once approved." /></p>
       </div>
       {type !== "LATE_FEE_WAIVER" ? (
         heads.length ? <SChips name="feeHeadId" label="Fee heads" required options={heads} start={startHead ? [startHead] : heads[0] ? [heads[0].value] : []} />
-          : <Alert tone="info">No fee heads yet. Add them in Fee Structure first.</Alert>
-      ) : <p className="text-[13px] text-ink3">Takes off late fees the student has not paid yet.</p>}
+          : <Alert tone="info"><Words k="No fee heads yet. Add them in Fee Structure first." /></Alert>
+      ) : <p className="text-[13px] text-ink3"><Words k="Takes off late fees the student has not paid yet." /></p>}
       <SArea name="reason" label="Reason" required placeholder="Example: father’s job loss, letter attached" help="Printed on the approval and kept in the audit log." />
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Document</span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Document" /></span>
         <label className="inline-flex items-center gap-2 self-start h-10 px-3.5 rounded-xl border border-line text-[14px] font-semibold text-ink2 cursor-pointer hover:bg-sunken focus-within:ring-2 focus-within:ring-brand/40">
           <Paperclip size={16} aria-hidden="true" />{doc ?? "Attach"}
           <input type="file" name="document" accept="image/*,application/pdf" capture="environment" className="sr-only" onChange={(e) => setDoc(e.target.files?.[0]?.name ?? null)} />
         </label>
-        <p className="text-[12.5px] text-ink3">Optional. Photo or PDF.</p>
+        <p className="text-[12.5px] text-ink3"><Words k="Optional. Photo or PDF." /></p>
       </div>
     </SheetForm>
   );
@@ -113,7 +114,7 @@ export function RefundSheet({ closeHref, student, payments, modes }: {
   return (
     <SheetForm title="New refund" sub={`For ${student.name}${student.classLabel ? `, ${student.classLabel}` : ""}. Every refund goes to Approvals.`}
       closeHref={closeHref} action={newRefundAction} submitLabel="Send for approval" pendingText="Sending…" submitDisabled={!payments.length}>
-      {payments.length === 0 ? <Alert tone="info">This student has no payment that can be refunded. Cancelled payments, payments brought in from old software and payments refunded in full are left out.</Alert> : (
+      {payments.length === 0 ? <Alert tone="info"><Words k="This student has no payment that can be refunded. Cancelled payments, payments brought in from old software and payments refunded in full are left out." /></Alert> : (
         <>
           <SSelect name="paymentId" label="Payment" required options={payments} start={pay} onChange={(e) => setPay(e.target.value)} />
           <SMoney key={pay} name="amount" label="Amount" required start={chosen?.maxRupees} help={chosen ? `Not more than ${chosen.max} (paid, minus earlier refunds)` : undefined} />
@@ -148,7 +149,7 @@ export function DeclineSheet({ closeHref, kind, recordId, words }: { closeHref: 
 export function RevokeSheet({ closeHref, concessionId, words }: { closeHref: string; concessionId: string; words: string }) {
   return (
     <SheetForm title="Take off this concession" sub={words} closeHref={closeHref} action={revokeConcessionAction} submitLabel="Take it off" submitVariant="danger" pendingText="Saving…" hidden={{ concessionId }}>
-      <Alert tone="warning">The rows it covered are due again, from what is still unpaid. Payments already made do not change. The record stays with your reason.</Alert>
+      <Alert tone="warning"><Words k="The rows it covered are due again, from what is still unpaid. Payments already made do not change. The record stays with your reason." /></Alert>
       <SArea name="reason" label="Reason" required placeholder="Example: given by mistake to the wrong student" />
     </SheetForm>
   );
@@ -163,7 +164,7 @@ export function ApproveButton({ kind, recordId }: { kind: "concession" | "refund
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="recordId" value={recordId} />
       <input type="hidden" name="decision" value="approve" />
-      <Button type="submit" size="sm" variant="soft" icon={Check} loading={pending}>Approve</Button>
+      <Button type="submit" size="sm" variant="soft" icon={Check} loading={pending}><Words k="Approve" /></Button>
       {state && !state.ok && <span className="text-[12px] text-bad max-w-[200px]" role="alert">{state.message}</span>}
     </form>
   );
@@ -209,7 +210,7 @@ export function ArchiveRule({ ruleId, name }: { ruleId: string; name: string }) 
   return (
     <ConfirmButton trigger="Archive" triggerVariant="ghost" title={`Archive ${name}?`} confirmLabel="Archive rule" confirmVariant="danger"
       onConfirm={() => run(archiveRuleAction, { ruleId })}>
-      It stops applying at Collect Fee. Discounts it already gave stay on the receipts.
+      <Words k="It stops applying at Collect Fee. Discounts it already gave stay on the receipts." />
     </ConfirmButton>
   );
 }

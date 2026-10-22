@@ -15,6 +15,7 @@ import { combineLevels, extraPermissions, roleLines } from "@/lib/staff/role-wor
 import { isoDay, monthStart, monthEnd, eachDay, isoWeekday, monthLabel, addDays } from "@/lib/staff/dates";
 import { exitTypeLabel } from "@/lib/staff/exit";
 import { academicSettings } from "@/lib/academic/settings";
+import { markCounts, staffMarks, todayFact } from "@/lib/staff/profile";
 import { MODULES, type ModuleKey } from "@/lib/modules";
 import type { AccessLevel, RolePermissions } from "@/lib/roles";
 import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
@@ -90,7 +91,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       tx.campus.findUnique({ where: { id: s.campusId }, select: { name: true } }),
       tx.exitCase.findFirst({ where: { staffId: s.id, status: { not: "CANCELLED" } }, orderBy: { createdAt: "desc" } }),
       tx.staffIdCardPrint.count({ where: { staffId: s.id } }),
-      s.userLoginId ? tx.userLogin.findUnique({ where: { id: s.userLoginId }, select: { id: true, username: true, status: true, lastSignInAt: true } }) : null,
+      s.userLoginId ? tx.userLogin.findUnique({ where: { id: s.userLoginId }, select: { id: true, username: true, status: true, lastSignInAt: true, mustChangePassword: true } }) : null,
       tx.leaveRequest.findFirst({ where: { staffId: s.id, status: "APPROVED", fromDate: { lte: today }, toDate: { gte: today }, archivedAt: null } }),
       leaveYearFor(tx, current.ctx, today, s.campusId),
     ]);
@@ -108,7 +109,11 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       classCount = new Set(allocs.map((a) => a.sectionId)).size;
       classTeacher = sections.map((x) => `${x.schoolClass.name} ${x.name}`);
     }
-    return { manager, campus, exit, printed, login, onLeave, balances, periods, classCount, classTeacher };
+    // Today from Staff Attendance and the School Calendar (not a placeholder).
+    const [todayMarks, todayOff] = await Promise.all([staffMarks(tx, current.ctx, s.id, today, today), offDayMap(tx, current.ctx, today, today, s.campusId)]);
+    const off = todayOff.get(isoDay(today));
+    const todayBox = todayFact({ status: s.status, onLeaveUntil: onLeave?.toDate ?? null, offTitle: off ? off.title ?? "Holiday" : null, mark: todayMarks.get(isoDay(today)) ?? null, timeZone: tz });
+    return { manager, campus, exit, printed, login, onLeave, balances, periods, classCount, classTeacher, todayBox };
   });
 
   const first = s.firstName || s.fullName.split(/\s+/)[0];
@@ -117,7 +122,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
   const docsNeed = s.documents.filter((d) => docStatus(d, today) !== "Valid").length;
   const years = Math.floor((today.getTime() - s.joiningDate.getTime()) / (365.25 * 86_400_000));
   const strip: { label: string; icon: LucideIcon; value: React.ReactNode; sub?: React.ReactNode; tone?: "warn" | "bad"; href?: string }[] = [
-    { label: "Today", icon: CalendarDays, value: s.status !== "ACTIVE" ? statusLabel(s.status) : head.onLeave ? "On leave" : "–", sub: head.onLeave && s.status === "ACTIVE" ? `Until ${formatDate(head.onLeave.toDate, tz)}` : s.status === "ACTIVE" ? "Once attendance is taken" : undefined, tone: head.onLeave || s.status !== "ACTIVE" ? "warn" : undefined },
+    { label: "Today", icon: CalendarDays, value: head.todayBox.value, sub: head.todayBox.sub, tone: head.todayBox.tone, href: href("attendance") },
     ...(mainLeave ? [{ label: `${mainLeave.type.name} left`, icon: CalendarCheck, value: `${mainLeave.left} of ${mainLeave.given + mainLeave.adjusted}`, sub: limited.filter((b) => b !== mainLeave).slice(0, 2).map((b) => `${b.type.name.replace(/ leave$/i, "")} ${b.left}`).join(" · ") || undefined, href: href("leave") }] : []),
     ...(teaching ? [
       { label: "Periods a week", icon: Clock, value: `${head.periods} of ${periodLimit}`, sub: `${head.classCount} class${head.classCount === 1 ? "" : "es"}`, tone: head.periods > periodLimit ? "bad" as const : undefined, href: href("workload") },
@@ -167,7 +172,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
               <p className="mt-0.5 text-[13.5px] text-ink3">
                 {s.designation}{s.department ? ` · ${s.department.name}` : ""} · <span className="font-mono text-[12.5px]">{s.staffCode}</span> · <a href={`tel:+91${s.phone}`} className="tnum hover:underline">{s.phone}</a>
               </p>
-              {s.statusReason && s.status !== "ACTIVE" && <p className="mt-1 text-[13px] text-ink2">{statusLabel(s.status)} since {s.statusSince ? formatDate(s.statusSince, tz) : "?"}: {s.statusReason}</p>}
+              {s.statusReason && s.status !== "ACTIVE" && <p className="mt-1 text-[13px] text-ink2">{statusLabel(s.status)}{s.statusSince ? ` since ${formatDate(s.statusSince, tz)}` : ""}: {s.statusReason}</p>}
             </div>
           </div>
           <div className="relative flex flex-wrap gap-2">
@@ -263,7 +268,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     const roleOptions = data.roles.filter((r, i) => data.roles.findIndex((x) => (x.key ?? x.id) === (r.key ?? r.id)) === i).map((r) => ({ key: r.key ?? r.id, name: r.name, lines: roleLines(r.permissions as RolePermissions).map((l) => `${l.module}: ${l.words}`) }));
     const defaultRole = data.designations.find((d) => d.name === s!.designation)?.defaultRoleKey ?? null;
 
-    const loginPill = head.login ? (head.login.status === "ACTIVE" && !data.access?.archivedAt ? <Pill tone="ok">Active</Pill> : head.login.status === "INVITED" ? <Pill tone="warn">Invite not used yet</Pill> : <Pill tone="bad">Switched off</Pill>) : null;
+    const loginPill = head.login ? (head.login.status === "ACTIVE" && !data.access?.archivedAt ? (head.login.mustChangePassword ? <Pill tone="warn">Temporary password, not changed yet</Pill> : <Pill tone="ok">Active</Pill>) : head.login.status === "INVITED" ? <Pill tone="warn">Invite not used yet</Pill> : <Pill tone="bad">Switched off</Pill>) : null;
     const verified = (ok: boolean) => ok ? <Pill tone="ok" className="!h-5 !text-[11px]">Verified</Pill> : <Pill className="!h-5 !text-[11px]">Not verified</Pill>;
 
     return (
@@ -405,7 +410,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
           <CardBody>{data.sections.length ? <p className="font-medium">{data.sections.map((x) => `${x.schoolClass.name} ${x.name}`).join(", ")}</p> : <p className="text-ink-2">Not a class teacher this year.</p>}</CardBody>
         </Card>
         <Card>
-          <CardHeader title="Classes and subjects" description={`From Teacher Allocation, ${data.year.name}`} action={hr ? <ButtonLink size="sm" href="/academic-management">Teacher Allocation</ButtonLink> : undefined} />
+          <CardHeader title="Classes and subjects" description={`From Teacher Allocation, ${data.year.name}`} action={hr ? <ButtonLink size="sm" href="/academic-management/teacher-allocation">Teacher Allocation</ButtonLink> : undefined} />
           <CardBody>
             {data.allocs.length === 0 ? <p className="text-ink-2">No classes given yet. Classes are given in Add Staff step 3 or in Teacher Allocation.</p> : (
               <ul className="divide-y divide-line">
@@ -448,7 +453,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                     <th scope="row" className="p-2 font-medium">{d}</th>
                     {nos.map((n) => {
                       const p = data.periods.find((x) => x.dayOfWeek === i + 1 && x.periodNo === n);
-                      return <td key={n} className="p-2 align-top">{p ? <><span className="font-medium">{p.section.schoolClass.name} {p.section.name}</span><span className="block text-ink-2">{p.subject?.name}</span></> : <span className="text-ink-2">–</span>}</td>;
+                      return <td key={n} className="p-2 align-top">{p ? <><span className="font-medium">{p.section.schoolClass.name} {p.section.name}</span><span className="block text-ink-2">{p.subject?.name}</span></> : <span className="text-ink-2">Free</span>}</td>;
                     })}
                   </tr>
                 ))}
@@ -476,12 +481,13 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     const from = monthStart(m);
     const to = monthEnd(m);
     const data = await withSchool(current.ctx, async (tx) => {
-      const [holidays, leaves] = await Promise.all([
+      const [holidays, leaves, marks] = await Promise.all([
         offDayMap(tx, current.ctx, from, to, s!.campusId),
         tx.leaveRequest.findMany({ where: { staffId: s!.id, status: "APPROVED", archivedAt: null, fromDate: { lte: to }, toDate: { gte: from } } }),
+        staffMarks(tx, current.ctx, s!.id, from, to),
       ]);
       const types = await tx.leaveType.findMany({ where: { id: { in: leaves.map((l) => l.leaveTypeId) } } });
-      return { holidays, leaves, types };
+      return { holidays, leaves, types, marks };
     });
     const prev = isoDay(addDays(from, -1)).slice(0, 7);
     const next = isoDay(addDays(to, 1)).slice(0, 7);
@@ -496,12 +502,15 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       const leave = data.leaves.find((l) => l.fromDate <= d && l.toDate >= d);
       if (!sunday && !holiday) working++;
       if (leave && !sunday && !holiday) leaveDays += leave.halfDay ? 0.5 : 1;
-      const label = sunday ? offDay?.title ?? "Sunday" : holiday ? "Holiday" : leave ? (data.types.find((t) => t.id === leave.leaveTypeId)?.name ?? "Leave") + (leave.halfDay ? " (half)" : "") : d > today ? "" : "Working day";
-      return { d, iso, sunday, holiday, leave: Boolean(leave) && !sunday && !holiday, label };
+      const mark = !sunday && !holiday ? data.marks.get(iso) ?? null : null;
+      const late = mark?.lateMinutes ? `, ${mark.lateMinutes} min late` : "";
+      const label = sunday ? offDay?.title ?? "Sunday" : holiday ? "Holiday" : leave ? (data.types.find((t) => t.id === leave.leaveTypeId)?.name ?? "Leave") + (leave.halfDay ? " (half)" : "") : mark ? `${mark.name}${late}` : d > today ? "" : "Not marked";
+      return { d, iso, sunday, holiday, leave: Boolean(leave) && !sunday && !holiday, label, mark };
     });
+    const counted = markCounts(cells.filter((c) => c.mark && !c.leave).map((c) => c.mark!));
     return (
       <Card>
-        <CardHeader title={`Attendance, ${monthLabel(from)}`} description={`${working} working days · ${daysText(leaveDays)} on leave`}
+        <CardHeader title={`Attendance, ${monthLabel(from)}`} description={`${working} working days · ${daysText(counted.present)} present · ${daysText(counted.absent)} absent · ${counted.late} late mark${counted.late === 1 ? "" : "s"} · ${daysText(leaveDays)} on leave`}
           action={<div className="flex gap-2"><ButtonLink size="sm" href={`${href("attendance")}&month=${prev}`} aria-label="Previous month">‹ Previous</ButtonLink><ButtonLink size="sm" href={`${href("attendance")}&month=${next}`} aria-label="Next month">Next ›</ButtonLink></div>} />
         <CardBody>
           <div className="grid grid-cols-7 gap-1 text-center text-xs text-ink-2" aria-hidden="true">{["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((x) => <span key={x}>{x}</span>)}</div>
@@ -509,13 +518,13 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
             {Array.from({ length: lead }, (_, i) => <li key={`e${i}`} aria-hidden="true" />)}
             {cells.map((c) => (
               <li key={c.iso} title={c.label} aria-label={`${formatDate(c.d, tz)}: ${c.label || "Upcoming"}`}
-                className={`min-h-12 rounded-lg border p-1 text-left text-xs ${c.leave ? "border-warn/40 bg-warn-bg text-warn-text" : c.holiday || c.sunday ? "border-line bg-surface-2 text-ink-2" : "border-line"} ${c.iso === isoDay(today) ? "ring-2 ring-brand" : ""}`}>
+                className={`min-h-12 rounded-lg border p-1 text-left text-xs ${c.leave || c.mark?.statusKey === "late" || c.mark?.counts === "half" ? "border-warn/40 bg-warn-bg text-warn-text" : c.mark?.counts === "absent" ? "border-bad/40 bg-danger-soft text-bad" : c.holiday || c.sunday ? "border-line bg-surface-2 text-ink-2" : "border-line"} ${c.iso === isoDay(today) ? "ring-2 ring-brand" : ""}`}>
                 <span className="font-medium">{c.d.getUTCDate()}</span>
-                <span className="hidden truncate sm:block">{c.leave || c.holiday ? c.label : ""}</span>
+                <span className="hidden truncate sm:block">{c.leave || c.holiday || c.mark ? c.label : ""}</span>
               </li>
             ))}
           </ol>
-          <p className="mt-3 text-sm text-ink-2">Leave and holidays come from Staff Leave and the School Calendar. Present, absent and late marks are added by Staff Attendance in <Link href="/attendance-management" className="text-brand-text underline">Attendance Management</Link>.</p>
+          <p className="mt-3 text-sm text-ink-2">Present, absent and late marks come from Staff Attendance in <Link href="/attendance-management" className="text-brand-text underline">Attendance Management</Link>; leave and holidays from Staff Leave and the School Calendar.</p>
         </CardBody>
       </Card>
     );
@@ -715,8 +724,8 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
               {st ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 px-5 pb-5">
                   <div><p className="text-[12px] text-ink3 font-semibold">Gross</p><p className="text-[18px] font-semibold tnum">{formatRupees(st.grossPaise)}</p></div>
-                  <div><p className="text-[12px] text-ink3 font-semibold">Deductions</p><p className="text-[18px] font-semibold tnum">{last ? formatRupees(last.deductionsPaise) : "—"}</p></div>
-                  <div><p className="text-[12px] text-ink3 font-semibold">Net</p><p className="text-[18px] font-semibold tnum text-ok">{last ? formatRupees(last.netPaise) : "—"}</p></div>
+                  <div><p className="text-[12px] text-ink3 font-semibold">Deductions</p><p className="text-[18px] font-semibold tnum">{last ? formatRupees(last.deductionsPaise) : "Not paid yet"}</p></div>
+                  <div><p className="text-[12px] text-ink3 font-semibold">Net</p><p className="text-[18px] font-semibold tnum text-ok">{last ? formatRupees(last.netPaise) : "Not paid yet"}</p></div>
                 </div>
               ) : <p className="px-5 pb-4 text-[14px] text-ink3">Left out of the monthly salary until one is added.</p>}
               <div className="px-5 pb-5"><ButtonLink variant="secondary" icon={ArrowUpRight} href={`/salary-management/structures?open=${s!.id}`}>Open in Salary Management</ButtonLink></div>

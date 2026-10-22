@@ -17,6 +17,7 @@ import { contactSchema, employmentSchema, personalSchema } from "@/lib/staff/sch
 import { changeStatus, giveLogin, issueInvite, saveEmergencyContacts, StaffProblem, updateRestricted, updateStaffSection } from "@/lib/staff/staff";
 import { hrSettings, STAFF_STATUSES } from "@/lib/staff/settings";
 import { reopenLogin, switchOffLogin } from "@/lib/staff/exit";
+import { inviteSentWords } from "@/lib/settings/invite-message";
 
 type Who = { current: Awaited<ReturnType<typeof requireAction>>["current"]; viewer: Viewer; staffId: string };
 
@@ -175,8 +176,12 @@ export async function giveLoginAction(_: FormState<unknown>, fd: FormData) {
     if (["RESIGNED", "RETIRED", "TERMINATED"].includes(staff.status)) throw new StaffProblem(`${staff.fullName} has left the school.`);
     const settings = await hrSettings(tx, w.current.ctx);
     // One campus: a login given by someone limited to one campus opens that campus only.
-    return giveLogin(tx, w.current.ctx, staff, { roleKeys: fd.getAll("roleKeys").map(String).filter(Boolean), username: str(fd, "username") || null, exceptions, campusId: w.viewer.campusId }, settings.usernameFormat);
-  }, (r) => `Login ${r.username} made. Share the invite link shown on the profile.`);
+    const temporaryPassword = str(fd, "signIn") === "password" ? String(fd.get("temporaryPassword") ?? "") : null;
+    if (temporaryPassword === "") throw new FieldProblem("Type the temporary password, or choose to send an invite link.", "temporaryPassword");
+    return giveLogin(tx, w.current.ctx, staff, { roleKeys: fd.getAll("roleKeys").map(String).filter(Boolean), username: str(fd, "username") || null, exceptions, campusId: w.viewer.campusId, temporaryPassword }, settings.usernameFormat);
+  }, (r) => r.temporary
+    ? `Login ${r.username} made with the temporary password. Give it to them in person: they choose their own password when they first sign in.`
+    : `Login ${r.username} made.${inviteSentWords(r.sent) || " Share the invite link shown on the profile."}`);
 }
 
 /** A new invite link, which also works as "Reset password": the person sets a new password themselves. */
@@ -186,10 +191,10 @@ export async function newSignInLink(_: FormState<unknown>, fd: FormData) {
     if (!staff.userLoginId) throw new StaffProblem(`${staff.fullName} has no login yet.`);
     const login = await tx.userLogin.findUniqueOrThrow({ where: { id: staff.userLoginId } });
     if (login.status === "DISABLED") throw new StaffProblem("This login is switched off. Switch it on first.");
-    const link = await issueInvite(tx, login.id);
-    await writeAudit(tx, w.current.ctx, { action: "invite-link-made", recordType: "User Login", recordId: login.id, after: { by: w.current.user.displayName } });
-    return { link, username: login.username };
-  }, (r) => `New sign-in link made for ${r.username}. It works for 7 days.`);
+    const { link, sent } = await issueInvite(tx, w.current.ctx, login.id);
+    await writeAudit(tx, w.current.ctx, { action: "invite-link-made", recordType: "User Login", recordId: login.id, after: { by: w.current.user.displayName, sentBy: sent.sentBy } });
+    return { link, username: login.username, sent };
+  }, (r) => `New sign-in link made for ${r.username}. It works for 7 days.${inviteSentWords(r.sent)}`);
 }
 
 export async function switchLoginAction(_: FormState<unknown>, fd: FormData) {

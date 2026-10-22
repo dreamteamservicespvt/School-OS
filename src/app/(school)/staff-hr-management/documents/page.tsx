@@ -141,7 +141,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
     const never = data.staff.filter((s) => !data.printed.has(s.id)).length;
     return (
       <Card>
-        <CardHeader title="Print ID cards" icon={Printer} description={`${total} staff · ${never} never printed. Cards print ${BATCH} to a PDF, 8 cards on each A4 sheet, with the design from Settings, Documents & Templates.`} />
+        <CardHeader title="Print ID cards" icon={Printer} description={`${total} staff · ${never} never printed. Cards print ${BATCH} to a PDF, in the school's Staff ID card design from Settings, Document Designs (layout, size, colours, fields and signatures).`} />
         {total === 0 ? <p className="px-5 pb-5 text-ink3">No active staff to print.</p> : (
           <div className="space-y-4 px-5 pb-5">
             <div className="flex flex-wrap gap-2">

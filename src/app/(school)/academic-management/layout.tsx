@@ -1,6 +1,7 @@
 import { Suspense } from "react";
 import { requirePage } from "@/lib/current";
 import { reachFor } from "@/lib/permissions";
+import { arrangesTimetable } from "@/lib/academic/scope";
 import { AcademicTabs, type AcademicTab } from "./_components/academic-tabs";
 
 const BASE = "/academic-management";
@@ -19,7 +20,10 @@ export default async function AcademicLayout({ children }: { children: React.Rea
     { href: `${BASE}/syllabus`, label: "Syllabus & Lesson Plans" },
     ...(manage ? [{ href: `${BASE}/settings`, label: "Academic Settings" }] : []),
   ];
-  const tabs = own ? all.filter((t) => t.href === `${BASE}/time-table` || t.href === `${BASE}/syllabus`) : all;
+  // Office Staff (Own, 05-roles.md) arrange substitutions and keep the Time Table: they see the classes too.
+  const arranger = own && arrangesTimetable(current);
+  const ownTabs = arranger ? [BASE, `${BASE}/time-table`, `${BASE}/substitutions`] : [`${BASE}/time-table`, `${BASE}/syllabus`];
+  const tabs = own ? all.filter((t) => ownTabs.includes(t.href)) : all;
   return (
     <>
       <Suspense fallback={<div className="mb-5 h-11 border-b border-line" />}>

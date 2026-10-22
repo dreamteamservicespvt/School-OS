@@ -137,6 +137,8 @@ model UserLogin {
   lockedUntil       DateTime?       @map("locked_until")
   lastSignInAt      DateTime?       @map("last_sign_in_at")
   passwordChangedAt DateTime?       @map("password_changed_at")
+  /// A temporary password typed by HR (09 Add Staff): the person chooses their own at the first sign-in.
+  mustChangePassword Boolean        @default(false) @map("must_change_password")
   /// Two-step login: a one-time code at sign-in, for roles that need it.
   twoStepResetAt    DateTime?       @map("two_step_reset_at")
   /// Two-step login the person switched on for themselves (roles may also require it).

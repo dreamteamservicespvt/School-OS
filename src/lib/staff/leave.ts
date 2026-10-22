@@ -11,9 +11,10 @@ import { notify } from "../notifications";
 import { requestApproval } from "../approvals";
 import { formatDate } from "../format";
 import { assertYearOpen } from "../academic/years";
+import { academicSettings } from "../academic/settings";
 import { headLoginFor, ensureHrDefaults } from "./settings";
 import { addDays, eachDay, isoDay, isoWeekday } from "./dates";
-import { loginsForCampus } from "./campus-logins";
+import { tellArrangers } from "../academic/arrangers";
 import { schoolCalendar, type SchoolDayInfo } from "../calendar/school-days";
 
 export class LeaveProblem extends Error {
@@ -219,11 +220,18 @@ export async function teacherPeriods(tx: Tx, ctx: SchoolContext, staff: { id: st
   return out;
 }
 
-/** Substitution rows (status Needed) for every period of an approved teacher leave. Safe to run twice. */
+/**
+ * Substitution rows (status Needed) for every period of an approved teacher
+ * leave. Safe to run twice. Nothing is raised when the campus's Academic
+ * Settings switch "Raise substitutions automatically" is off (04 §6): the
+ * office then marks the teacher absent on Substitutions by hand.
+ */
 export async function raiseSubstitutions(tx: Tx, ctx: SchoolContext, leave: Pick<LeaveRequest, "id" | "fromDate" | "toDate">, staff: { id: string; campusId: string }, halfDayPart: string | null) {
+  if (!(await academicSettings(tx, ctx, staff.campusId)).autoSubstitutions) return 0;
   const needs = await teacherPeriods(tx, ctx, staff, leave.fromDate, leave.toDate, halfDayPart);
   if (needs.length === 0) return 0;
-  const existing = await tx.substitution.findMany({ where: { leaveRequestId: leave.id, archivedAt: null }, select: { periodId: true, date: true } });
+  // A period already listed that day (for this leave, or because the teacher was marked absent first) is not listed twice.
+  const existing = await tx.substitution.findMany({ where: { OR: [{ leaveRequestId: leave.id }, { periodId: { in: [...new Set(needs.map((n) => n.periodId))] }, status: { not: "CANCELLED" } }], archivedAt: null }, select: { periodId: true, date: true } });
   const have = new Set(existing.map((e) => `${e.periodId}:${isoDay(e.date)}`));
   const data = needs
     .filter((n) => !have.has(`${n.periodId}:${isoDay(n.date)}`))
@@ -374,19 +382,8 @@ export async function onLeaveDecision(tx: Tx, ctx: SchoolContext, approval: { id
       await absentMarksToLeave(tx, ctx, r, staff.fullName);
       const detail = await tx.staffLeaveDetail.findUnique({ where: { leaveRequestId: r.id } });
       const raised = await raiseSubstitutions(tx, ctx, r, staff, detail?.halfDayPart ?? null);
-      if (raised > 0) {
-        const arrangers = await tx.schoolAccess.findMany({
-          where: { schoolId: ctx.schoolId, archivedAt: null, userLogin: { status: "ACTIVE" }, roles: { some: { role: { key: { in: ["principal", "academic-head", "vice-principal"] }, isEnabled: true } } } },
-          select: { userLoginId: true },
-        });
-        // One campus: those limited to another campus are not told.
-        for (const a of await loginsForCampus(tx, ctx, [...new Set(arrangers.map((x) => x.userLoginId))], staff.campusId)) {
-          await notify(tx, ctx, {
-            to: a, type: "substitution", text: `${raised} period${raised === 1 ? "" : "s"} of ${staff.fullName} need a substitute (leave from ${formatDate(r.fromDate)})`,
-            link: "/academic-management", groupKey: "substitutions-needed", mergedText: (n) => `${n} approved leaves have periods that need substitutes`,
-          });
-        }
-      }
+      // Everyone who arranges substitutions (Full Academic Management, or Office Staff) is told; one campus hears only its own.
+      if (raised > 0) await tellArrangers(tx, ctx, staff.campusId, { date: r.fromDate, text: `${raised} period${raised === 1 ? "" : "s"} of ${staff.fullName} need a substitute (leave from ${formatDate(r.fromDate)})` });
     }
     // The staff member hears the decision even when HR applied for them (decide() tells the requester).
     const asker = (await tx.approval.findUnique({ where: { id: approval.id }, select: { askedById: true } }))?.askedById;

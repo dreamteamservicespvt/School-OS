@@ -1,9 +1,8 @@
-// The offer letter as a PDF, on the school letterhead.
+// The offer letter as a PDF, in the school's Offer letter design (Settings, Document Designs).
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
-import { htmlToPdf } from "@/lib/pdf";
 import { logExport } from "@/lib/exports";
-import { offerLetterHtml } from "@/lib/staff/print";
+import { offerLetter } from "@/lib/staff/print";
 import { UUID_RE } from "@/lib/staff/act";
 
 const text = (t: string, status: number) => new Response(t, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
@@ -18,11 +17,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ offerId
     if (!offer) return text("This offer was not found.", 404);
     const dept = offer.departmentId ? await tx.department.findUnique({ where: { id: offer.departmentId } }) : null;
     await logExport(tx, current.ctx, { title: `Offer letter ${offer.offerNo}`, format: "pdf", filters: offer.application.name, rows: 1 });
-    const html = await offerLetterHtml(tx, current.ctx, {
+    const doc = await offerLetter(tx, current.ctx, {
       name: offer.application.name, offerNo: offer.offerNo, designation: offer.designation, department: dept?.name ?? null, joiningDate: offer.joiningDate,
       monthlyPaise: offer.monthlyPaise, respondBy: offer.respondBy, issuedOn: offer.createdAt, timeZone: current.school.timeZone,
     });
-    const pdf = await htmlToPdf(html);
+    const pdf = await doc.pdf();
     return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="offer-${offer.offerNo.replace(/\//g, "-")}.pdf"`, "Cache-Control": "no-store" } });
   }, { timeout: 60_000 });
 }

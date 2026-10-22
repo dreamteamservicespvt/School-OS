@@ -8,6 +8,7 @@ import { formatDate } from "@/lib/format";
 import { AcademicRuleError, TIME_RE, plural, todayIn } from "@/lib/academic/common";
 import { autoFill, clashFor, copyToYear, discardDraft, makeDraft, publishVersion, removePeriod, savePeriod } from "@/lib/academic/timetable";
 import { bookLab, cancelBooking } from "@/lib/academic/rooms";
+import { replanAfterPublish, replanWords } from "@/lib/academic/substitutions";
 import { academicScope } from "@/lib/academic/scope";
 import { campusAllows } from "@/lib/campus";
 import { act, actSimple, staffInCampus } from "../_lib/server";
@@ -116,9 +117,12 @@ export async function publishAction(_prev: FormState, fd: FormData): Promise<For
   if (!parsed.ok) return parsed.state;
   const d = parsed.data;
   return act("edit", async ({ tx, current }) => {
-    const r = await publishVersion(tx, current.ctx, d.versionId, d.effectiveFrom, todayIn(current.school.timeZone));
-    return { flash: { message: `Published from ${formatDate(r.effectiveFrom)}. ${plural(r.notified, "teacher")} told.` } };
-  }, { formData: fd, yearOf: versionYear(d.versionId), notFound: NO_VERSION, needs: "arrange", revalidate: [PATH, "/"] });
+    const today = todayIn(current.school.timeZone);
+    const r = await publishVersion(tx, current.ctx, d.versionId, d.effectiveFrom, today);
+    // Covers already arranged move to the new Time Table, or are plainly re-planned (G31).
+    const replan = await replanAfterPublish(tx, current.ctx, d.versionId, today);
+    return { flash: { message: `Published from ${formatDate(r.effectiveFrom)}. ${plural(r.notified, "teacher")} told.${replanWords(replan)}` } };
+  }, { formData: fd, yearOf: versionYear(d.versionId), notFound: NO_VERSION, needs: "arrange", revalidate: [PATH, "/", "/academic-management/substitutions"] });
 }
 
 export async function copyAction(_prev: FormState, fd: FormData): Promise<FormState> {

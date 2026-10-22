@@ -8,8 +8,12 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { nextNumber } from "../sequences";
 import { encryptField, maskLast4, decryptField } from "../crypto";
+import { randomUUID } from "node:crypto";
 import { hashToken, newToken } from "../auth/tokens";
 import { INVITE_VALID_MS } from "../auth/invites";
+import { checkNewPassword, hashPassword } from "../auth/password";
+import { inviteTokenFor } from "../parent-link/token";
+import { sendInviteMessage, type InviteSent } from "../settings/invite-message";
 import { assertYearOpen } from "../academic/years";
 import { formatStaffId, hrSettings } from "./settings";
 import { ensureBalances, leaveYearFor } from "./leave";
@@ -100,11 +104,23 @@ export async function freeUsername(tx: Tx, wanted: string) {
   throw new StaffProblem("Could not find a free username. Type one in.", "username");
 }
 
-/** A new invite link (also used as "Reset password"): the person sets their own password. */
-export async function issueInvite(tx: Tx, userLoginId: string, now = new Date()) {
-  const token = newToken();
-  await tx.userLogin.update({ where: { id: userLoginId }, data: { inviteTokenHash: hashToken(token), inviteExpiresAt: new Date(now.getTime() + INVITE_VALID_MS) } });
-  return `/invite/${token}`;
+/** A fresh invite secret for a login: the link's secret is worked out from the login's id and a nonce (src/lib/parent-link/token.ts). */
+function inviteSecret(userLoginId: string) {
+  const nonce = newToken().slice(0, 32);
+  return { nonce, token: inviteTokenFor(userLoginId, nonce) };
+}
+
+/**
+ * A new invite link (also used as "Reset password"): the person sets their own
+ * password. The link is sent to them by WhatsApp or SMS and email as a School
+ * OS system message (src/lib/settings/invite-message.ts); Message History keeps
+ * only a placeholder. The old link stops working.
+ */
+export async function issueInvite(tx: Tx, ctx: SchoolContext, userLoginId: string, now = new Date()): Promise<{ link: string; sent: InviteSent }> {
+  const { nonce, token } = inviteSecret(userLoginId);
+  const login = await tx.userLogin.update({ where: { id: userLoginId }, data: { inviteTokenHash: hashToken(token), inviteExpiresAt: new Date(now.getTime() + INVITE_VALID_MS) } });
+  const sent = await sendInviteMessage(tx, ctx, login, nonce);
+  return { link: `/invite/${token}`, sent };
 }
 
 // ---------------------------------------------------------------- Add Staff
@@ -138,6 +154,13 @@ export type LoginChoice = {
   username: string | null;
   exceptions: Record<string, AccessLevel>;
   campusId: string | null;
+  /**
+   * Instead of an invite: a temporary password HR types and hands over in
+   * person (09 Add Staff step 2). Only its hash is kept; it is never shown
+   * again or sent by message, and the person must choose their own password
+   * at the first sign-in (08 §2).
+   */
+  temporaryPassword?: string | null;
 } | null;
 
 export type AllocationPick = { sectionId: string; subjectId: string };
@@ -205,10 +228,12 @@ async function createWithCode(tx: Tx, ctx: SchoolContext, staffCode: string, d: 
 
   let username: string | null = null;
   let inviteLink: string | null = null;
+  let sent: InviteSent | null = null;
+  let temporary = false;
   let roleNames: string[] = [];
   if (login) {
     const r = await giveLogin(tx, ctx, staff, login, usernameFormat);
-    username = r.username; inviteLink = r.inviteLink; roleNames = r.roleNames;
+    username = r.username; inviteLink = r.inviteLink; sent = r.sent; temporary = r.temporary; roleNames = r.roleNames;
   }
 
   const year = await leaveYearFor(tx, ctx, d.joiningDate > new Date() ? d.joiningDate : new Date(), campusId);
@@ -218,10 +243,15 @@ async function createWithCode(tx: Tx, ctx: SchoolContext, staffCode: string, d: 
     allocated = await saveAllocations(tx, ctx, staff.id, year.id, allocations, d.joiningDate);
   }
   if (year) await ensureBalances(tx, ctx, [staff.id], year.id);
-  return { staff, username, inviteLink, roleNames, allocated };
+  return { staff, username, inviteLink, sent, temporary, roleNames, allocated };
 }
 
-/** Creates the staff login (status Invited) with School Access, roles and personal exceptions, and an invite link. */
+/**
+ * Creates the staff login with School Access, roles and personal exceptions
+ * (09 Add Staff step 2): either Invited, with an invite link sent to them by
+ * message and shown once on screen, or Active with a temporary password they
+ * must change at the first sign-in.
+ */
 export async function giveLogin(tx: Tx, ctx: SchoolContext, staff: Staff, login: NonNullable<LoginChoice>, usernameFormat: string) {
   if (staff.userLoginId) throw new StaffProblem(`${staff.fullName} already has a login.`);
   if (login.roleKeys.length === 0) throw new StaffProblem("Choose at least one role, or skip the login.", "roleKeys");
@@ -237,7 +267,21 @@ export async function giveLogin(tx: Tx, ctx: SchoolContext, staff: Staff, login:
   } else {
     username = await freeUsername(tx, usernameFor(usernameFormat, staff));
   }
-  const user = await tx.userLogin.create({ data: { username, displayName: staff.fullName, phone: staff.phone, email: staff.email, status: "INVITED" } });
+  const temporary = Boolean(login.temporaryPassword);
+  if (temporary) {
+    const bad = checkNewPassword(login.temporaryPassword!);
+    if (bad) throw new StaffProblem(`Temporary password: ${bad}`, "temporaryPassword");
+  }
+  const id = randomUUID();
+  const invite = temporary ? null : inviteSecret(id);
+  const user = await tx.userLogin.create({
+    data: {
+      id, username, displayName: staff.fullName, phone: staff.phone, email: staff.email,
+      ...(invite
+        ? { status: "INVITED" as const, inviteTokenHash: hashToken(invite.token), inviteExpiresAt: new Date(Date.now() + INVITE_VALID_MS) }
+        : { status: "ACTIVE" as const, passwordHash: await hashPassword(login.temporaryPassword!), mustChangePassword: true }),
+    },
+  });
   await tx.schoolAccess.create({
     data: {
       schoolId: ctx.schoolId, userLoginId: user.id, campusId: login.campusId, scope: login.campusId ? "CAMPUS" : "WHOLE_SCHOOL",
@@ -245,12 +289,13 @@ export async function giveLogin(tx: Tx, ctx: SchoolContext, staff: Staff, login:
     },
   });
   await tx.staff.update({ where: { id: staff.id }, data: { userLoginId: user.id } });
-  const inviteLink = await issueInvite(tx, user.id);
+  // The password itself is never written anywhere but as its hash on the login.
   await writeAudit(tx, ctx, {
     action: "login-created", recordType: "User Login", recordId: user.id,
-    after: { staff: staff.fullName, username, roles: roles.map((r) => r.name), exceptions: login.exceptions },
+    after: { staff: staff.fullName, username, roles: roles.map((r) => r.name), exceptions: login.exceptions, signIn: temporary ? "temporary password, to change at first sign-in" : "invite link" },
   });
-  return { userLoginId: user.id, username, inviteLink, roleNames: roles.map((r) => r.name) };
+  const sent = invite ? await sendInviteMessage(tx, ctx, user, invite.nonce) : null;
+  return { userLoginId: user.id, username, inviteLink: invite ? `/invite/${invite.token}` : null, sent, temporary, roleNames: roles.map((r) => r.name) };
 }
 
 /** Teacher Allocation from Add Staff step 3: stays from year to year until changed. Skips pairs already given. */

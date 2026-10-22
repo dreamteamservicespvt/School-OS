@@ -127,7 +127,7 @@ export async function changePassword(_prev: PasswordState, formData: FormData): 
   const now = new Date();
   await prisma.userLogin.update({
     where: { id: user.id },
-    data: { passwordHash: await hashPassword(newPassword), passwordChangedAt: now },
+    data: { passwordHash: await hashPassword(newPassword), passwordChangedAt: now, mustChangePassword: false },
   });
   // Used once: the next change needs the new password.
   if (withoutOld) await prisma.session.update({ where: { id: current.session.id }, data: { signedInWithCode: false } });

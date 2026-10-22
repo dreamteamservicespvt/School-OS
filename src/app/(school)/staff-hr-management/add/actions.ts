@@ -13,6 +13,7 @@ import { createStaff, findDuplicates, type AllocationPick, type Duplicate } from
 import { markHired } from "@/lib/staff/talent";
 import { flash } from "@/lib/flash";
 import { hrSettings } from "@/lib/staff/settings";
+import { inviteSentWords } from "@/lib/settings/invite-message";
 
 const REQUIRED_LABELS: Record<string, string> = {
   email: "Email", dateOfBirth: "Date of birth", gender: "Gender", bloodGroup: "Blood group", address: "Current address", qualification: "Qualifications", aadhaar: "Aadhaar", photo: "Photo",
@@ -43,7 +44,13 @@ export async function checkDetails(_: FormState<{ duplicates: Duplicate[] }>, fd
   return { ok: true, data: { duplicates } };
 }
 
-export type Created = { staffId: string; staffCode: string; name: string; username: string | null; inviteLink: string | null; roles: string[]; allocated: number; phone: string; email: string | null };
+export type Created = {
+  staffId: string; staffCode: string; name: string; username: string | null; inviteLink: string | null; roles: string[]; allocated: number; phone: string; email: string | null;
+  /** How the invite went out by message, in words ("" when it was not sent). */
+  sentWords: string;
+  /** The login starts with a temporary password typed by HR. */
+  temporary: boolean;
+};
 
 /** Create staff: details, login and roles, classes and subjects, saved together. */
 export async function createStaffAction(_: FormState<Created>, fd: FormData): Promise<FormState<Created>> {
@@ -64,6 +71,8 @@ export async function createStaffAction(_: FormState<Created>, fd: FormData): Pr
       if (["full", "view", "own", "none"].includes(v)) exceptions[key] = v as AccessLevel;
     }
     if (giveLogin && roleKeys.length === 0) throw new FieldProblem("Step 2: choose at least one role, or switch off the login.", "roleKeys");
+    const temporaryPassword = giveLogin && str(fd, "signIn") === "password" ? String(fd.get("temporaryPassword") ?? "") : null;
+    if (temporaryPassword === "") throw new FieldProblem("Step 2: type the temporary password, or choose to send an invite link.", "temporaryPassword");
 
     const allocations: AllocationPick[] = fd.getAll("alloc").map(String).map((v) => v.split(":")).filter(([a, b]) => UUID_RE.test(a ?? "") && UUID_RE.test(b ?? "")).map(([sectionId, subjectId]) => ({ sectionId, subjectId }));
     const applicationId = str(fd, "applicationId");
@@ -76,7 +85,7 @@ export async function createStaffAction(_: FormState<Created>, fd: FormData): Pr
         photoFileId = (await saveFile(tx, current.ctx, { file: photo, purpose: "staff-photo", allowed: IMAGE_TYPES, maxImageWidth: 600 })).id;
       }
       const r = await createStaff(tx, current.ctx, { ...d, gender: d.gender ?? null, bloodGroup: d.bloodGroup ?? null, photoFileId },
-        giveLogin ? { roleKeys, username: str(fd, "username") || null, exceptions, campusId: str(fd, "accessCampusId") || null } : null,
+        giveLogin ? { roleKeys, username: str(fd, "username") || null, exceptions, campusId: str(fd, "accessCampusId") || null, temporaryPassword } : null,
         // One campus: the new staff member joins that campus, and a login opens that campus only (src/lib/staff/staff.ts).
         allocations, { allowDuplicate: str(fd, "allowDuplicate") === "on", campusLimit: current.campusId });
       if (UUID_RE.test(applicationId)) await markHired(tx, current.ctx, applicationId, r.staff.id);
@@ -86,7 +95,7 @@ export async function createStaffAction(_: FormState<Created>, fd: FormData): Pr
     return {
       ok: true,
       message: `${result.staff.fullName} added.`,
-      data: { staffId: result.staff.id, staffCode: result.staff.staffCode, name: result.staff.fullName, username: result.username, inviteLink: result.inviteLink, roles: result.roleNames, allocated: result.allocated, phone: result.staff.phone, email: result.staff.email },
+      data: { staffId: result.staff.id, staffCode: result.staff.staffCode, name: result.staff.fullName, username: result.username, inviteLink: result.inviteLink, roles: result.roleNames, allocated: result.allocated, phone: result.staff.phone, email: result.staff.email, sentWords: inviteSentWords(result.sent).trim(), temporary: result.temporary },
     };
   } catch (e) {
     return problemState(e, fd) as FormState<Created>;

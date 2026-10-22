@@ -3,10 +3,9 @@
 import "server-only";
 
 import { redirect } from "next/navigation";
-import { reachFor } from "@/lib/permissions";
 import { requirePage } from "@/lib/current";
 import { withSchool } from "@/lib/db";
-import { academicScope } from "@/lib/academic/scope";
+import { academicScope, ownPageRedirect } from "@/lib/academic/scope";
 import { campusYears, pageYear } from "@/lib/academic/page-campus";
 import { todayIn } from "@/lib/academic/common";
 import { correctionFor } from "./server";
@@ -19,12 +18,14 @@ export const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0
  * `notForOwn`: pages that people who only see their own classes (teachers) do not have.
  * They see Time Table and Syllabus only (05-roles.md; prototype config.js VIEW_BY_ROLE),
  * so the module's front page takes them to their own time table and the rest to No access.
+ * `arrangerOk`: the page is also for people who arrange substitutions and keep the
+ * Time Table on Own reach (the Office Staff template, 05-roles.md): Classes & Sections
+ * (to see) and Substitutions.
  */
-export async function academicPage(rawParams: Record<string, string | string[] | undefined>, opts: { notForOwn?: "home" | "no-access" } = {}) {
+export async function academicPage(rawParams: Record<string, string | string[] | undefined>, opts: { notForOwn?: "home" | "no-access"; arrangerOk?: boolean } = {}) {
   const current = await requirePage("academic-management");
-  if (opts.notForOwn && reachFor(current.permissions, "academic-management", "view") === "own") {
-    redirect(opts.notForOwn === "home" ? "/academic-management/time-table/mine" : "/no-access?m=academic-management");
-  }
+  const away = ownPageRedirect(current, opts);
+  if (away) redirect(away === "home" ? "/academic-management/time-table/mine" : "/no-access?m=academic-management");
   const today = todayIn(current.school.timeZone);
   const asked = one(rawParams.year) || null;
   const base = await withSchool(current.ctx, async (tx) => {

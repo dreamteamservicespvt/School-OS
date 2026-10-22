@@ -33,7 +33,8 @@ export async function saveStaffDay(payload: { date: string; entries: StaffEntry[
     const { access } = await actionContext(current);
     const r = await withSchool(current.ctx, (tx) => saveStaffAttendance(tx, current.ctx, access, { date: new Date(`${payload.date}T00:00:00Z`), entries, now: new Date(), timeZone: current.school.timeZone }), { timeout: 30_000 });
     revalidatePath(BASE, "layout");
-    return { ok: true, message: r.changed ? `Staff attendance saved: ${r.changed} ${r.changed === 1 ? "change" : "changes"}.` : "Saved. Nothing had changed." };
+    const cover = r.periodsToCover ? ` ${r.periodsToCover} ${r.periodsToCover === 1 ? "period needs" : "periods need"} a substitute: they are listed in Substitutions.` : "";
+    return { ok: true, message: r.changed ? `Staff attendance saved: ${r.changed} ${r.changed === 1 ? "change" : "changes"}.${cover}` : "Saved. Nothing had changed." };
   } catch (e) {
     const s = problemState(e);
     return { ok: false, message: s.message ?? "That did not save.", link: (s.data as { link?: { href: string; label: string } } | undefined)?.link };

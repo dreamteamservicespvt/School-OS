@@ -13,9 +13,9 @@ import { attendanceAccess, BASE, type AttendanceAccess } from "../../attendance/
 import { attendanceSettings } from "../../attendance/settings";
 import { attendanceToday } from "../../attendance/integrations";
 import { lockState, takeChoices, type TakeChoice } from "../../attendance/marks";
-import { staffDay } from "../../attendance/staff";
+import { staffDay, staffDayCounts } from "../../attendance/staff";
 import { schoolDays } from "../../attendance/calendar";
-import { classWise } from "../../attendance/classwise";
+import { classWise, registerWhole } from "../../attendance/classwise";
 import { ON_REGISTER_STATUSES } from "../../attendance/on-register";
 import { OPEN_ATTENDANCE_FLAG } from "../../attendance/flags";
 import { reportAccess } from "../../reports/access";
@@ -23,7 +23,6 @@ import { addDays, campusStudents, iso, moduleOpen, n, plural, reach } from "../c
 import type { AttentionItem, BarRow, DashContext, Viewer, Widget } from "../types";
 
 const MODULE = "attendance-management" as const;
-const PRESENT = ["present", "late", "half-day"];
 const fullReach = (v: Viewer) => reach(v, MODULE) === "all";
 
 /**
@@ -41,8 +40,6 @@ function access(c: DashContext): Promise<AttendanceAccess> {
   });
 }
 const settings = (c: DashContext) => c.memo("attendance-settings", () => attendanceSettings(c.tx, c.viewer.ctx));
-/** Today's whole-school numbers, read once per page (from the class-wise rows). */
-const today = (c: DashContext) => c.memo("attendance-today", () => attendanceToday(c.tx, c.viewer.ctx, c.today, { campusId: c.viewer.campusId ?? null }));
 /** The classes and periods this person may take today, with "done". */
 export function choices(c: DashContext): Promise<TakeChoice[]> {
   return c.memo("attendance-choices", async () => takeChoices(c.tx, c.viewer.ctx, await access(c), c.today));
@@ -66,7 +63,12 @@ function ownStudents(c: DashContext, a: AttendanceAccess) {
   });
 }
 
-/** "Students present today": present / expected, with absent and late. */
+/**
+ * "Students present today": present of the students in the sections marked,
+ * with absent and late. The same call as Attendance Register's whole-school
+ * view (registerWhole), so the tile and the list it opens count the same
+ * students, years, campus and school days (gap list G36).
+ */
 const studentsPresent: Widget<"band"> = {
   id: "attendance.students-present",
   module: MODULE,
@@ -75,30 +77,25 @@ const studentsPresent: Widget<"band"> = {
   allowed: fullReach,
   async load(c) {
     const a = await access(c);
-    if (a.students !== "all") return null;
-    // The same class-wise rows as Attendance (the whole-school register) and the daily report.
-    const t = await today(c);
+    if (a.students !== "all" || a.yearIds.length === 0) return null;
+    const cw = await registerWhole(c.tx, c.viewer.ctx, a, c.today, c.today, c.today);
     const href = `${BASE}/register`;
-    if (t.off) return { id: "attendance.students-present", label: "Students present", ...offTile({ reason: t.offReason, title: t.off }), href };
-    const expected = t.students.total;
-    if (t.students.marked === 0) return { id: "attendance.students-present", label: "Students present", big: "Not taken", foot: `${plural(t.classes.notMarked, "class", "classes")} not marked yet`, href };
-    // The same % as Attendance Reports and the register: present ÷ days counted (leave not counted).
-    const pct = t.students.percent;
-    const pctText = pct === null ? "Nobody counted" : `${pct}%`;
-    // Students in a taken class who have no mark (new admissions, for example) are named, not counted as present.
-    const unmarked = t.students.notMarked - t.classes.notMarkedStudents;
+    // No section has school today (a holiday on every campus the person sees, a Sunday...).
+    if (cw.off) return { id: "attendance.students-present", label: "Students present", ...offTile(await schoolDayOff(c, a.campusId ?? null)), href };
+    const t = cw.totals;
+    if (t.markedSections === 0) return { id: "attendance.students-present", label: "Students present", big: "Not taken", foot: `${plural(t.notMarkedSections, "class", "classes")} not marked yet`, href };
+    // The same % as Attendance Register and Attendance Reports: present ÷ days counted (leave not counted).
+    const pctText = t.percent === null ? "Nobody counted" : `${t.percent}%`;
     return {
-      id: "attendance.students-present", label: "Students present", big: n(t.students.present), of: `/ ${n(expected)}`,
-      ring: pct ?? undefined,
-      foot: t.classes.notMarked
-        ? `${pctText} of marked · ${n(t.students.absent)} absent · ${plural(t.classes.notMarked, "class", "classes")} not marked`
-        : `${pctText} · ${n(t.students.absent)} absent, ${n(t.students.late)} late${unmarked > 0 ? ` · ${n(unmarked)} not marked` : ""}`,
+      id: "attendance.students-present", label: "Students present", big: n(t.present), of: `/ ${n(t.markedStudents)}`,
+      ring: t.percent ?? undefined,
+      foot: `${pctText} · ${n(t.absent)} absent, ${n(t.late)} late${t.notMarkedSections ? ` · ${plural(t.notMarkedSections, "class", "classes")} not marked` : ""}`,
       href,
     };
   },
 };
 
-/** "Staff present": present / expected (not on leave), with on leave and not in yet. */
+/** "Staff present": present of all staff that day, with on leave and not in yet; the same counts as Staff Attendance (staffDayCounts). */
 const staffPresent: Widget<"band"> = {
   id: "attendance.staff-present",
   module: MODULE,
@@ -111,15 +108,11 @@ const staffPresent: Widget<"band"> = {
     const off = await schoolDayOff(c, a.campusId ?? c.viewer.campusId ?? null);
     const href = `${BASE}/staff`;
     if (!off.on) return { id: "attendance.staff-present", label: "Staff present", ...offTile(off), href };
-    const rows = await staffDay(c.tx, c.viewer.ctx, a, c.today);
-    const leave = rows.filter((r) => r.onLeave).length;
-    const present = rows.filter((r) => r.mark && PRESENT.includes(r.mark.statusKey)).length;
-    const notIn = rows.filter((r) => !r.mark && !r.onLeave).length;
-    const expected = rows.length - leave;
+    const t = staffDayCounts(await staffDay(c.tx, c.viewer.ctx, a, c.today));
     return {
-      id: "attendance.staff-present", label: "Staff present", big: n(present), of: `/ ${n(expected)}`,
-      ring: expected ? Math.round((present / expected) * 100) : undefined,
-      foot: `${n(leave)} on leave · ${n(notIn)} not in yet`, href,
+      id: "attendance.staff-present", label: "Staff present", big: n(t.present), of: `/ ${n(t.total)}`,
+      ring: t.total ? Math.round((t.present / t.total) * 100) : undefined,
+      foot: `${n(t.leave.length)} on leave · ${n(t.notIn.length)} not in yet`, href,
     };
   },
 };

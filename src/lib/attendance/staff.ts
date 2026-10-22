@@ -66,6 +66,25 @@ export type StaffDayRow = {
 };
 
 /** Today's list: every working staff member with their mark, leave, shift and overtime. */
+/**
+ * The numbers of one day's staff attendance: Staff Attendance's tiles and the
+ * Dashboard's "Staff present" tile, from the same rows (staffDay).
+ */
+export function staffDayCounts(rows: StaffDayRow[]) {
+  const isIn = (r: StaffDayRow) => ["present", "late", "half-day"].includes(r.mark?.statusKey ?? "");
+  const isLate = (r: StaffDayRow) => ["late", "half-day"].includes(r.mark?.statusKey ?? "");
+  const isLeave = (r: StaffDayRow) => r.onLeave || r.mark?.statusKey === "leave";
+  const notIn = (r: StaffDayRow) => !r.mark && !r.onLeave;
+  return {
+    total: rows.length,
+    present: rows.filter(isIn).length,
+    late: rows.filter(isLate),
+    leave: rows.filter(isLeave),
+    notIn: rows.filter(notIn),
+    isIn, isLate, isLeave, notInYet: notIn,
+  };
+}
+
 export async function staffDay(tx: Tx, ctx: SchoolContext, access: AttendanceAccess, date: Date, filters: { q?: string; departmentId?: string; status?: string } = {}): Promise<StaffDayRow[]> {
   if (access.staff === "none") return [];
   const where: Prisma.StaffWhereInput = {

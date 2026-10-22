@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { ArrowLeft, CalendarDays, CalendarX2, ClipboardPen, Users } from "lucide-react";
 import { periodFromSearch } from "@/lib/periods";
 import { periodSetup } from "@/lib/period-setup";
-import { classWise } from "@/lib/attendance/classwise";
+import { registerWhole } from "@/lib/attendance/classwise";
 import { notMarkedOn } from "@/lib/attendance/remind";
 import { absenceMessagesOn, messageCountText } from "@/lib/attendance/alerts";
 import { Banner } from "@/components/ui/banner";
@@ -324,7 +324,8 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
     if (access.yearIds.length === 0) return null;
     // Every campus's current year (each campus has its own); only their campus's sections when limited to one.
     const [cw, notMarked] = await Promise.all([
-      classWise(tx, current.ctx, { yearId: access.yearIds, from, to, today, sectionIds: access.limitSections, campusId: access.campusId }),
+      // The same call as the Dashboard's "Students present" tile.
+      registerWhole(tx, current.ctx, access, from, to, today),
       isToday ? notMarkedOn(tx, current.ctx, access, today, dayStartUtc(isoDay(today), tz)) : Promise.resolve([]),
     ]);
     // One day: what happened to that day's absence messages across these classes (sent, or not and why).

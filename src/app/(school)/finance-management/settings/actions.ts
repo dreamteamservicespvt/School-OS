@@ -4,6 +4,7 @@ import { formatDate } from "@/lib/format";
 import { dateOf, id, needRupees, str, text } from "@/lib/fees/act";
 import { MoneyProblem } from "@/lib/fees/problem";
 import { closeMonth } from "@/lib/finance/accounts";
+import { closeFinancialYear } from "@/lib/finance/year-close";
 import { financeSettings, setFeature } from "@/lib/finance/settings";
 import { addCostCentre, addHead, saveFinanceSettings, saveTallyLedgers, setHeadShown } from "@/lib/finance/settings-save";
 import { FINANCE_FEATURES } from "@/lib/finance/words";
@@ -84,4 +85,12 @@ export async function closeMonthAction(_prev: unknown, fd: FormData) {
     const r = await closeMonth(tx, ctx, new Date(`${m}-01T00:00:00Z`), todayIn(current.school.timeZone));
     return { label: new Intl.DateTimeFormat("en-IN", { month: "long", year: "numeric", timeZone: "UTC" }).format(r.month), waiting: r.waiting };
   }, (r) => `${r.label} closed. Its books are now read only.${r.waiting ? ` ${r.waiting} expenses dated in it still wait for approval.` : ""}`);
+}
+
+/** Close a financial year (07 §6): after the check list, every date in it is read-only. */
+export async function closeYearAction(_prev: unknown, fd: FormData) {
+  return financeAction("edit", fd, async (tx, ctx, _v, current) => {
+    const r = await closeFinancialYear(tx, ctx, id(fd, "yearId", "financial year"), todayIn(current.school.timeZone));
+    return { name: r.fy.name, next: r.next.name, from: r.nextStart };
+  }, (r) => `${r.name} closed. Its books are now read only. ${r.next} opens on ${formatDate(r.from)} with each account's closing balance.`);
 }

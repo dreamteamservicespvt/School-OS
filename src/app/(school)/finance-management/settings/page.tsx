@@ -6,6 +6,7 @@ import { defaultSteps, type RuleStep } from "@/lib/approvals";
 import { ruleNamer } from "@/lib/settings/approval-rules";
 import { FINANCE_FEATURES } from "@/lib/finance/words";
 import { fySpanWords } from "@/lib/finance/years";
+import { yearClosePlan } from "@/lib/finance/year-close";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
@@ -15,7 +16,7 @@ import { cx } from "@/components/ui/cx";
 import { FinanceHead } from "../_components/finance-head";
 import { Line } from "../_components/bits";
 import { BASE, financeManagerPage, one, qs, type SearchParams } from "../_lib/page";
-import { AddHeadSheet, BillsSheet, CloseMonthSheet, CostCentreSheet, FeatureSwitch, HeadChip, TallySheet, YearSheet } from "./sheets";
+import { AddHeadSheet, BillsSheet, CloseMonthSheet, CloseYearSheet, CostCentreSheet, FeatureSwitch, HeadChip, TallySheet, YearSheet } from "./sheets";
 
 export const metadata = { title: "Finance Settings" };
 
@@ -34,6 +35,7 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
   const edit = one(sp.edit);
   const doing = one(sp.do);
   const closing = /^\d{4}-\d{2}$/.test(one(sp.close)) ? one(sp.close) : "";
+  const closingYear = /^[0-9a-f-]{36}$/i.test(one(sp.closeyear)) ? one(sp.closeyear) : "";
   const group = ["INCOME", "EXPENSE"].includes(one(sp.g)) ? one(sp.g) : "all";
 
   const data = await withSchool(ctx, async (tx) => {
@@ -49,7 +51,9 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
       tx.dayBookEntry.groupBy({ by: ["accountHeadId"], where: { financialYearId: p.fy.id, accountHeadId: { not: null }, section: { notIn: ["opening", "transfer"] } }, _sum: { amountPaise: true } }),
     ]);
     const closers = await tx.userLogin.findMany({ where: { id: { in: closes.map((c) => c.closedById).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
-    return { years, closes, heads, centres, accounts, steps: (rule?.steps as RuleStep[] | undefined) ?? defaultSteps("expense"), namer, used, closers };
+    // Close a year: its check list, worked out only when the sheet is open.
+    const yearPlan = closingYear && years.some((y) => y.id === closingYear && y.status === "OPEN") ? await yearClosePlan(tx, ctx, closingYear, p.today, p.payHeads) : null;
+    return { yearPlan, years, closes, heads, centres, accounts, steps: (rule?.steps as RuleStep[] | undefined) ?? defaultSteps("expense"), namer, used, closers };
   });
 
   const s = p.settings;
@@ -99,7 +103,14 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
             <ul className="px-5 pb-4">
               <Line k="The year runs" v={fySpanWords(s.fyStartMonth)} />
               <Line k="Go-live (records start)" v={formatDate(s.goLiveDate)} />
-              {data.years.map((y) => <Line key={y.id} k={`${y.name} · ${formatDate(y.startDate)} to ${formatDate(y.endDate)}`} v={<Pill tone={y.status === "CLOSED" ? "neutral" : "ok"}>{y.status === "CLOSED" ? "Closed" : "Open"}</Pill>} />)}
+              {data.years.map((y) => {
+                return (
+                  <Line key={y.id} k={<>{`${y.name} · ${formatDate(y.startDate)} to ${formatDate(y.endDate)}`}{y.status === "CLOSED" && y.closedAt && <span className="block text-[12px] text-ink3">Closed {formatDate(y.closedAt, p.tz)}</span>}</>}
+                    v={y.status === "CLOSED" ? <Pill tone="neutral"><Lock size={12} aria-hidden="true" />Closed</Pill>
+                      : y.endDate < p.today ? <Link href={here({ closeyear: y.id })} scroll={false} className={buttonClass("secondary", "sm")}>Close year</Link>
+                      : <Pill tone="ok">Open</Pill>} />
+                );
+              })}
               {data.years.at(-1) && s.goLiveDate >= data.years.at(-1)!.startDate && <Line k={`Before ${formatDate(s.goLiveDate)} · before School OS`} v={<Pill tone="neutral">Old software</Pill>} />}
             </ul>
           </Card>
@@ -227,6 +238,12 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
       {edit === "tally" && <TallySheet closeHref={here()} heads={tallyHeads.map((h) => ({ id: h.id, name: h.name, ledger: h.tallyLedger ?? "" }))} />}
       {doing === "head" && <AddHeadSheet closeHref={here()} groups={groupsOf} />}
       {doing === "centre" && <CostCentreSheet closeHref={here()} />}
+      {data.yearPlan && (
+        <CloseYearSheet closeHref={here()} yearId={data.yearPlan.fy.id} name={data.yearPlan.fy.name} canClose={data.yearPlan.canClose}
+          checks={data.yearPlan.checks} nextName={data.yearPlan.nextName} nextStart={formatDate(data.yearPlan.nextStart)}
+          carried={data.yearPlan.carried.map((a) => ({ name: a.name, amount: formatRupees(a.closing) }))}
+          result={`The year's ${data.yearPlan.result.word.toLowerCase()} of ${formatRupees(data.yearPlan.result.amount)} moves to Opening balances.`} />
+      )}
       {closingMonth && <CloseMonthSheet closeHref={here()} month={closingMonth.key} label={closingMonth.label} open={openBefore} />}
     </div>
   );

@@ -165,12 +165,5 @@ export async function closeMonth(tx: Tx, ctx: SchoolContext, month: Date, today:
   return { month: m, waiting };
 }
 
-/** Closes a financial year: read-only from now on (rule 35). */
-export async function closeFinancialYear(tx: Tx, ctx: SchoolContext, fyId: string, today: Date) {
-  const fy = await tx.financialYear.findFirst({ where: { id: fyId } });
-  if (!fy) throw new MoneyProblem("Choose the financial year.");
-  if (fy.status === "CLOSED") throw new MoneyProblem(`${fy.name} is already closed.`);
-  if (fy.endDate >= today) throw new MoneyProblem(`${fy.name} has not ended yet. Close it after ${formatDate(fy.endDate)}.`);
-  await tx.financialYear.update({ where: { id: fy.id }, data: { status: "CLOSED", closedAt: new Date() } });
-  await writeAudit(tx, ctx, { action: "closed-year", recordType: "Financial Year", recordId: fy.id, after: { name: fy.name } });
-}
+/** Closing a financial year, with its check list: see year-close.ts. */
+export { closeFinancialYear } from "./year-close";

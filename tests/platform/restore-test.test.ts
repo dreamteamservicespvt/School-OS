@@ -6,8 +6,9 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { PrismaClient } from "@prisma/client";
 import { prisma, withSchool } from "@/lib/db";
-import { fileStore } from "@/lib/storage";
+import { backupStore, fileStore } from "@/lib/storage";
 import { backupFiles, sha256 } from "@/lib/backup/files";
 import { checkFile, compareCounts } from "@/lib/backup/restore-check";
 import { runRestoreTest, scratchName } from "@/lib/backup/restore-test";
@@ -59,6 +60,26 @@ describe.skipIf(!pgBin)("restore test on a real copy", () => {
     dir = mkdtempSync(path.join(tmpdir(), "school-os-restore-files-"));
     reports = mkdtempSync(path.join(tmpdir(), "school-os-restore-reports-"));
     process.env.BACKUP_FILES_DIR = dir;
+    // Other test files leave schools and files behind, some broken on purpose
+    // (file-backup.test.ts: a missing and a changed file). Start from what a
+    // nightly backup leaves: every live file whose bytes are intact is in this
+    // backup, and one whose bytes are gone or changed is archived, so this file
+    // depends only on its own data whatever ran before it.
+    const store = backupStore()!;
+    // Every school, past row-level security: the admin login lists them, the work is done per school.
+    const onTestDb = new URL(adminUrl);
+    onTestDb.pathname = new URL(process.env.MIGRATION_DATABASE_URL!).pathname;
+    const admin = new PrismaClient({ datasourceUrl: onTestDb.toString() });
+    const schools = await admin.$queryRaw<{ id: string }[]>`SELECT id::text AS id FROM school`.finally(() => admin.$disconnect());
+    for (const { id: schoolId } of schools) {
+      await withSchool({ schoolId, userId: null }, async (tx) => {
+        for (const f of await tx.storedFile.findMany({ where: { archivedAt: null } })) {
+          const body = await fileStore().get(f.storageKey);
+          if (body && (!f.sha256 || f.sha256 === sha256(body))) await store.put(f.storageKey, body, f.contentType, { sha256: sha256(body) });
+          else await tx.storedFile.update({ where: { id: f.id }, data: { archivedAt: new Date() } });
+        }
+      });
+    }
     for (const name of ["Restore A", "Restore B"]) {
       const s = await makeSchool(name);
       const ctx = { schoolId: s.id, userId: null };

@@ -25,17 +25,38 @@ export type AcademicScope = {
   canCorrect: boolean;
 };
 
+/**
+ * Arranges substitutions and keeps the Time Table: full Academic Management,
+ * or the Office Staff template's Own (05-roles.md). Needs no database.
+ */
+export function arrangesTimetable(current: Pick<Current, "permissions" | "roles">): boolean {
+  const change = reachFor(current.permissions, "academic-management", "edit");
+  return change === "all" || (change === "own" && current.roles.some((r) => r.key === "office-staff"));
+}
+
+/**
+ * Where a page sends a person on Own reach (05-roles.md): teachers have their
+ * own Time Table and Syllabus only, so other pages send them home or to No
+ * access. Pages marked `arrangerOk` (Classes & Sections to see, Substitutions)
+ * stay open to the Office Staff template, who arrange substitutions.
+ */
+export function ownPageRedirect(current: Pick<Current, "permissions" | "roles">, opts: { notForOwn?: "home" | "no-access"; arrangerOk?: boolean }): "home" | "no-access" | null {
+  if (!opts.notForOwn || reachFor(current.permissions, "academic-management", "view") !== "own") return null;
+  if (opts.arrangerOk && arrangesTimetable(current)) return null;
+  return opts.notForOwn;
+}
+
 export async function academicScope(tx: Tx, current: Current, yearId: string | null): Promise<AcademicScope> {
   const see = reachFor(current.permissions, "academic-management", "view");
   const change = reachFor(current.permissions, "academic-management", "edit");
   const staff = await staffForUser(tx, current.ctx);
-  const office = current.roles.some((r) => r.key === "office-staff");
+  const office = change === "own" && arrangesTimetable(current);
   const own = see !== "all";
   const allowed = own && !office ? (yearId ? await ownSectionIds(tx, current.ctx, yearId) : []) : null;
   return {
     see: own ? "own" : "all",
     manage: change === "all",
-    arrange: change === "all" || (change === "own" && office),
+    arrange: arrangesTimetable(current),
     staffId: staff?.id ?? null,
     // One campus (05-roles.md): "every section" becomes every section of that campus (all its years).
     sectionIds: await narrowSections(tx, current, allowed),

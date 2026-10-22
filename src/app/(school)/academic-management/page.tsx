@@ -14,7 +14,7 @@ export const metadata: Metadata = { title: "Classes & Sections" };
 
 export default async function ClassesPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
-  const page = await academicPage(raw, { notForOwn: "home" });
+  const page = await academicPage(raw, { notForOwn: "home", arrangerOk: true });
   const { current, year, scope } = page;
   if (!year) return (<><PageTop page={page} title="Classes & Sections" href="/academic-management" /><NoYear page={page} /></>);
   const archived = one(raw.archived) === "1";
@@ -47,7 +47,7 @@ export default async function ClassesPage({ searchParams }: { searchParams: Sear
       <PageTop page={page} title="Classes & Sections" href="/academic-management">
         {canEdit && <AddClassButtons yearId={year.id} classes={data.classes.map((c) => ({ id: c.id, name: c.name }))} levels={[...LEVELS]} boardsOn={boardsOn} schoolBoard={data.schoolBoard} />}
       </PageTop>
-      {scope.see === "own" && <p className="-mt-3 mb-4 text-ink-2">Your classes in {year.name}: the sections you teach or are class teacher of.</p>}
+      {scope.see === "own" && !scope.arrange && <p className="-mt-3 mb-4 text-ink-2">Your classes in {year.name}: the sections you teach or are class teacher of.</p>}
 
       <dl className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[

@@ -140,6 +140,7 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
   "office-staff": [
     q("/student-management/new", "student-management", "Add student", "Name, class and parent phone is enough", "UserPlus"),
     q("/admission-management", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
+    q("/academic-management/substitutions", "academic-management", "Arrange substitute", "Periods with no teacher today", "ArrowRightLeft"),
   ],
   "admission-counsellor": [
     q("/admission-management", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),

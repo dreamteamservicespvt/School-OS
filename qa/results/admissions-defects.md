@@ -8,8 +8,8 @@ been seen again in the browser.
 | ID | Priority | Module | Short title | Status | Fix |
 |---|---|---|---|---|---|
 | ADMIT-01 | P2 | All modules (found in Admission Management) | A refused save clears a drop-down choice ("Class applied for" goes back to "Choose class") | Fixed | 4db3685 |
-| ADMIT-02 | P3 | All modules (shared forms) | After a refused save the problem shows at the top of a long form, off screen | Fixed | d045639 |
-| ADMIT-03 | P2 | Admission Management, Front Office, Parent Link, sign-in | "Code sent … by SMS" while Test mode sent nothing | Fixed | ae1565c |
+| ADMIT-02 | P3 | All modules (shared forms) | After a refused save the problem shows at the top of a long form, off screen | Fixed | d045639, 67d4264 |
+| ADMIT-03 | P2 | Admission Management, Front Office, Parent Link, sign-in | "Code sent … by SMS" while Test mode sent nothing | Fixed | ae1565c, c74265c |
 | ADMIT-04 | P4 | Dashboard | "due mon 19" on the marks card | Fixed | 786339c |
 | ADMIT-05 | P4 | Admission Management | Add enquiry says "Five things now" but asks for seven | Fixed | b24eec7 |
 | ADMIT-06 | P4 | Dashboard / Front Office | Receptionist's "Add visitor" opens the list, not the sheet | Fixed | 41932fc |
@@ -48,6 +48,7 @@ saved.
   - It does not move on the first page load.
   - Used by ErrorSummary (src/components/ui/field.tsx), the Admission FormProblem, the Attendance sheet FormProblem and the "may already have an application" box.
   - The problem box was chosen over the first wrong field because it lists every problem in one place. This is a UI-only fix.
+  - 67d4264 does the same for the other shared one-line problem displays: FormMessage (Academic and many others), the Staff & HR forms, the address-bar sheets (url-sheet), Inventory's InlineForm and the Examination ActionSheet.
 
 ## ADMIT-03 · P2 · Messages · "Code sent" while Test mode sent nothing
 - **Steps:** with Settings, SMS, WhatsApp & Email in Test mode, press "Send one-time code" on New application.
@@ -63,6 +64,7 @@ saved.
     - two-step sign-in code.
   - A code that was really sent now names the channel it went by. It no longer always says "SMS".
   - The console sign-in and invite screens already showed a Test mode note, so they were not changed.
+  - c74265c: parent screens (online admission form, Parent Link new-phone, consent and event consent codes) never show staff words or settings paths. When the code was not sent (Test mode or no channel) they say "We could not send the code just now. Please contact the school office." and the code box stays closed. Only on a tester's computer (where `mayLogCode` allows the server log) does the page add that the code is in the log and go on. A Parent Link code that nobody can read is ended at once, so a reload does not wait for it.
   - Tests: tests/communication/code-test-mode.test.ts (admission, Parent Link, pickup) and tests/platform/dev-codes.test.ts (sign-in).
 
 ## ADMIT-04 · P4 · Dashboard · "due mon 19"

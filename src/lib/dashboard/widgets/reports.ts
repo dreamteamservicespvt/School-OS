@@ -104,11 +104,12 @@ const brief: Widget<"panel"> = {
 };
 
 /** One Dashboard card from a pinned chart: percent bars as bars, anything else as a short list. */
-function panelOf(ch: AChart): Panel {
+/** A pinned chart as a panel; `dates` are the dates it was worked out for, so Analytics opens on the same ones. */
+function panelOf(ch: AChart, dates: { from: string; to: string }): Panel {
   const rows = ch.kind === "hbars" ? (ch.hbars ?? []).map((r) => ({ k: r.k, v: r.v, label: r.label ?? `${r.v}${ch.unit ?? "%"}` }))
     : ch.kind === "bars" ? (ch.bars ?? []).map((r) => ({ k: r.k, v: r.v, label: `${r.v.toLocaleString("en-IN")}${ch.unit ?? ""}` }))
       : [];
-  const href = `${BASE}/analytics?area=${ch.key.split(".")[0]}`;
+  const href = `${BASE}/analytics?area=${ch.key.split(".")[0]}&from=${dates.from}&to=${dates.to}`;
   if (ch.kind === "hbars" && (ch.unit ?? "%") === "%" && (ch.max ?? 100) <= 100) {
     return { kind: "bars", title: ch.title, sub: ch.sub, icon: "BarChart3", rows: rows.slice(0, 12).map((r) => ({ key: r.k, label: r.k, value: r.v })), goal: ch.goal, lowBelow: ch.lowBelow, href, linkLabel: "Analytics", empty: ch.empty ?? "Nothing yet." };
   }
@@ -130,7 +131,7 @@ const pinned: Widget<"panel"> = {
     const range = { period: "acyear" as const, from: iso(from), to: iso(c.today), label: c.year ? `${c.year.name} so far` : "This month" };
     const setup = { timeZone: c.tz, weekStart: (c.viewer.school as { weekStart?: "monday" | "sunday" }).weekStart ?? "monday", calendar: {} };
     const charts = await pinnedCharts(c.tx, c.viewer, keys.slice(0, 4), setup, c.today, range);
-    return charts.filter((ch) => ch.kind === "hbars" || ch.kind === "bars").map((ch) => ({ slot: "main" as const, panel: panelOf(ch) }));
+    return charts.filter((ch) => ch.kind === "hbars" || ch.kind === "bars").map((ch) => ({ slot: "main" as const, panel: panelOf(ch, range) }));
   },
 };
 

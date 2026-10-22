@@ -31,7 +31,9 @@ const mySlip: Widget<"band"> = {
     const slip = await c.tx.payslip.findFirst({ where: { staffId: me.id, run: { status: { in: [...DONE] } } }, orderBy: { month: "desc" }, select: { month: true, status: true } });
     if (!slip) return null;
     const short = `${monthName(slip.month).slice(0, 3)} ${slip.month.getUTCFullYear()}`;
-    return { id: "salary.my-slip", label: "Salary slip", big: short, foot: slip.status === "DOWNLOADED" ? "Downloaded" : "Ready to download", href: `${BASE}/slips?mine=1` };
+    // From the slip's month, so the slip shown is in the list (My Salary Slips keeps to this financial year otherwise).
+    const from = slip.month.toISOString().slice(0, 10);
+    return { id: "salary.my-slip", label: "Salary slip", big: short, foot: slip.status === "DOWNLOADED" ? "Downloaded" : "Ready to download", href: `${BASE}/slips?mine=1&period=custom&from=${from}&to=${c.today.toISOString().slice(0, 10)}` };
   },
 };
 
@@ -93,7 +95,7 @@ const advancesToPay: Widget<"attention"> = {
     const onCampus = c.viewer.campusId ? (await c.tx.staff.findMany({ where: { campusId: c.viewer.campusId }, select: { id: true } })).map((s) => s.id) : null;
     const count = await c.tx.salaryAdvance.count({ where: { status: "APPROVED", ...(onCampus ? { staffId: { in: onCampus } } : {}) } });
     if (!count) return null;
-    return { id: "salary.advances-to-pay", tone: "info", icon: "CreditCard", title: `${plural(count, "advance")} approved, not paid yet`, detail: "Pay it and mark it paid; it goes in the Day Book on that date.", action: "Advances", href: `${BASE}/advances`, value: String(count) };
+    return { id: "salary.advances-to-pay", tone: "info", icon: "CreditCard", title: `${plural(count, "advance")} approved, not paid yet`, detail: "Pay it and mark it paid; it goes in the Day Book on that date.", action: "Advances", href: `${BASE}/advances?show=unpaid`, value: String(count) };
   },
 };
 

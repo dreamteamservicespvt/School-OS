@@ -118,7 +118,8 @@ async function RollView({ p, sp }: { p: P; sp: Raw }) {
   const unexplained = d.sheet.rows.filter((r) => r.mark === "ABSENT").map((r) => r.student.name);
   const classAbsent = rows.filter((r) => r.school).length;
 
-  // The month calendar: both roll calls taken (green), one (amber), none on a past day (red); a dot for absences.
+  // The month calendar: both roll calls taken (green), one (amber), none on a past day (red); a red dot,
+  // explained in the legend, when someone was absent at a roll call that was taken (QA HOSTEL-01).
   const byDay = new Map<string, { m?: (typeof d.month)[number]; n?: (typeof d.month)[number] }>();
   for (const rc of d.month) {
     const k = isoOf(rc.date);
@@ -189,7 +190,7 @@ async function RollView({ p, sp }: { p: P; sp: Raw }) {
               <div className="px-5 pb-4 flex flex-col gap-3">
                 <MonthSelect value={monthStr} min={minMonth < monthStr ? minMonth : monthStr} max={p.todayStr.slice(0, 7)} />
                 <MonthGrid year={yy} month0={mm - 1} cell={cell} today={monthStr === p.todayStr.slice(0, 7) ? Number(p.todayStr.slice(8)) : null} compact />
-                <Legend items={[["bg-ok", "Both taken"], ["bg-warn", "One taken"], ["bg-bad", "Missed"]]} />
+                <Legend items={[["bg-ok", "Both taken"], ["bg-warn", "One taken"], ["bg-bad", "Missed"]]} dots={[["bg-bad", "Someone absent"]]} />
               </div>
             </Card>
           </Col>

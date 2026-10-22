@@ -133,10 +133,12 @@ export function HBars({ rows, labelWidth = 72, valueWidth = 92 }: { rows: { key:
   );
 }
 
-export function Legend({ items }: { items: [string, string][] }) {
+/** Colour keys for a calendar; `dots` explains the small dots some days carry (MonthGrid's dot). */
+export function Legend({ items, dots = [] }: { items: [string, string][]; dots?: [string, string][] }) {
   return (
     <div className="flex gap-4 flex-wrap text-[12.5px] text-ink2">
       {items.map(([cls, l]) => <span key={l} className="flex items-center gap-1.5"><span className={cx("w-2.5 h-2.5 rounded-sm", cls)} aria-hidden="true" />{l}</span>)}
+      {dots.map(([cls, l]) => <span key={l} className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 grid place-items-center" aria-hidden="true"><span className={cx("w-1.5 h-1.5 rounded-full", cls)} /></span>{l}</span>)}
     </div>
   );
 }

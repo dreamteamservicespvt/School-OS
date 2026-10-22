@@ -6,6 +6,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import type { Channel } from "./channels";
 import { appUrl } from "../parent-link/token";
+import { STRAY, VARIABLES, variablesIn } from "./blanks";
 
 export const TEMPLATE_CATEGORIES = [
   { key: "fees", label: "Fees" },
@@ -23,45 +24,10 @@ export const TEMPLATE_CATEGORIES = [
 
 export const categoryLabel = (key: string) => TEMPLATE_CATEGORIES.find((c) => c.key === key)?.label ?? key;
 
-/** The blanks a person can insert, with an example used in previews. */
-export const VARIABLES: { key: string; label: string; sample: string }[] = [
-  { key: "student_name", label: "Student name", sample: "Ravi Kumar" },
-  { key: "class", label: "Class and section", sample: "Class 5 A" },
-  { key: "admission_no", label: "Admission number", sample: "SPS/2024/00123" },
-  { key: "guardian_name", label: "Parent name", sample: "Srinivas Kumar" },
-  { key: "staff_name", label: "Staff name", sample: "Meena Iyer" },
-  { key: "school_name", label: "School name", sample: "Sunrise Public School" },
-  { key: "school_phone", label: "School phone", sample: "9876500001" },
-  { key: "date", label: "Date", sample: "09-10-2026" },
-  { key: "due_amount", label: "Due amount", sample: "₹12,500" },
-  { key: "due_date", label: "Due date", sample: "15-10-2026" },
-  { key: "receipt_number", label: "Receipt number", sample: "SPS/2026/00456" },
-  { key: "paid_amount", label: "Paid amount", sample: "₹12,500" },
-  { key: "payment_date", label: "Payment date", sample: "09-10-2026" },
-  { key: "exam_name", label: "Exam name", sample: "Half Yearly Exam" },
-  { key: "title", label: "Notice title", sample: "Diwali holidays" },
-  { key: "ticket_number", label: "Ticket number", sample: "Q-00012" },
-  { key: "code", label: "One-time code", sample: "482913" },
-  { key: "link", label: "Link", sample: "https://app.schoolos.in/p/…" },
-  { key: "message", label: "Message text", sample: "School will close at 12:30 PM today." },
-];
-
-export const VARIABLE_KEYS = new Set(VARIABLES.map((v) => v.key));
+export { VARIABLES, VARIABLE_KEYS, variablesIn, unknownVariables, strayBlanks } from "./blanks";
 export const sampleValues = Object.fromEntries(VARIABLES.map((v) => [v.key, v.sample]));
 
 const BLANK = /\{([a-z_]+)\}/g;
-
-/** The blanks used in a text, in the order they first appear (this order is used for WhatsApp's {{1}}, {{2}}...). */
-export function variablesIn(text: string): string[] {
-  const seen: string[] = [];
-  for (const m of text.matchAll(BLANK)) if (!seen.includes(m[1])) seen.push(m[1]);
-  return seen;
-}
-
-/** Blanks that are not on the list, so the person can fix a typing mistake. */
-export function unknownVariables(text: string): string[] {
-  return variablesIn(text).filter((v) => !VARIABLE_KEYS.has(v));
-}
 
 export type Rendered = { ok: true; text: string } | { ok: false; missing: string[] };
 
@@ -72,8 +38,6 @@ export function render(text: string, values: Record<string, string | null | unde
   return { ok: true, text: text.replace(BLANK, (_, k: string) => String(values[k])) };
 }
 
-const STRAY = /\{+[^{}\n]{0,40}\}+/g;
-
 /**
  * Braces still in a filled-in text: a mistyped blank ({Student Name}), a
  * doubled one ({{diary}}) or a brace without its pair. Such a text never
@@ -82,13 +46,6 @@ const STRAY = /\{+[^{}\n]{0,40}\}+/g;
 export function strayBraces(text: string): string[] {
   const found = [...new Set(text.match(STRAY) ?? [])];
   if (!found.length && /[{}]/.test(text)) found.push(text.includes("{") ? "{" : "}");
-  return found;
-}
-
-/** Braces in a text before it is filled that are not a blank: {Student Name}, {{diary}}, a "{" without its pair. */
-export function strayBlanks(text: string): string[] {
-  const found = [...new Set((text.match(STRAY) ?? []).filter((m) => !/^\{[a-z_]+\}$/.test(m)))];
-  if (!found.length && /[{}]/.test(text.replace(STRAY, ""))) found.push(text.replace(STRAY, "").includes("{") ? "{" : "}");
   return found;
 }
 

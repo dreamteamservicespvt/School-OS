@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Prisma } from "@prisma/client";
-import { CheckCheck, CircleAlert, Coins, Eye, Info, MessageSquareText, Users } from "lucide-react";
+import { CheckCheck, CircleAlert, Coins, Eye, FlaskConical, Info, MessageSquareText, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref } from "@/lib/list";
@@ -12,7 +12,8 @@ import { retryableFailures } from "@/lib/messaging/deliver";
 import { NOT_SENT } from "@/lib/messaging/send";
 import { RULES } from "@/lib/messaging/automatic";
 import { withHiddenLinks } from "@/lib/parent-link/token";
-import { countsFor, DELIVERY_LABEL, MESSAGE_STATUS_LABEL, senderNames } from "@/lib/communication/history";
+import { countsFor, DELIVERY_LABEL, inTestMode, MESSAGE_STATUS_LABEL, senderNames } from "@/lib/communication/history";
+import { unreadCount } from "@/lib/messaging/resend";
 import { EmptyState } from "@/components/empty-state";
 import { Pill, type PillTone } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -53,7 +54,10 @@ export default async function MessagePage({ params, searchParams }: Props) {
     const where: Prisma.MessageRecipientWhereInput = {
       messageId: m.id,
       ...(list.q ? { OR: [{ name: { contains: list.q, mode: "insensitive" } }, { description: { contains: list.q, mode: "insensitive" } }, { address: { contains: list.q } }] } : {}),
-      ...(list.filters.status === "backup" ? { isBackup: true } : list.filters.status ? { status: list.filters.status as Prisma.EnumDeliveryStatusFilter["equals"] } : {}),
+      // Test mode is its own status here: recorded, never delivered (COMM-04).
+      ...(list.filters.status === "backup" ? { isBackup: true }
+        : list.filters.status === "test" ? { provider: "sandbox", status: { in: ["SENT", "DELIVERED", "READ"] } }
+          : list.filters.status ? { status: list.filters.status as Prisma.EnumDeliveryStatusFilter["equals"], ...(["SENT", "DELIVERED", "READ"].includes(list.filters.status) ? { NOT: { provider: "sandbox" } } : {}) } : {}),
       ...(list.filters.channel ? { channel: list.filters.channel } : {}),
     };
     const [rows, total] = await Promise.all([
@@ -62,7 +66,8 @@ export default async function MessagePage({ params, searchParams }: Props) {
     ]);
     const counts = (await countsFor(tx, current.ctx, [m.id])).get(m.id)!;
     const retry = await retryableFailures(tx, current.ctx, m.id);
-    const unread = await tx.messageRecipient.count({ where: { messageId: m.id, isBackup: false, status: { notIn: ["READ"] } } });
+    // Resend to unread: only once the message has finished going, to people it went to who have not read it (COMM-03).
+    const unread = await unreadCount(tx, current.ctx, m.id);
     const names = await senderNames(tx, [m.sentById, m.cancelledById]);
     const resendOf = m.resendOfId ? await tx.message.findUnique({ where: { id: m.resendOfId }, select: { id: true, title: true, audienceLabel: true } }) : null;
     const on = [...(await onChannels(tx, current.ctx))];
@@ -77,14 +82,15 @@ export default async function MessagePage({ params, searchParams }: Props) {
 
   const pct = (a: number) => (counts.total ? `${Math.round((a / counts.total) * 100)}%` : "");
   const sample = data.rows.find((r) => !r.isBackup) ?? data.rows[0];
-  const statusCount = (st: string) => st === "backup" ? counts.backup : st === "FAILED" ? counts.failed : st === "READ" ? counts.read : st === "QUEUED" ? counts.queued : 0;
+  const statusCount = (st: string) => st === "backup" ? counts.backup : st === "test" ? counts.testMode : st === "FAILED" ? counts.failed : st === "READ" ? counts.read : st === "QUEUED" ? counts.queued : 0;
   type R = (typeof data.rows)[number];
   const personKey = (r: R) => r.guardianId ? `guardian:${r.guardianId}` : r.studentId && r.recipientType === "student" ? `student:${r.studentId}` : r.staffId ? `staff:${r.staffId}` : null;
   const when = (r: R) => r.readAt ? formatDateTime(r.readAt, tz) : r.deliveredAt ? formatDateTime(r.deliveredAt, tz) : r.sentAt ? formatDateTime(r.sentAt, tz) : r.failedAt ? formatDateTime(r.failedAt, tz) : "Waiting to go";
   // "Not sent": no channel could carry it to this person (the reason says why); resend once a channel can.
   const notSent = (r: R) => r.status === "FAILED" && Boolean(r.failReason?.startsWith(NOT_SENT));
-  const statusWord = (r: R) => (r.isBackup ? "Sent by SMS backup" : notSent(r) ? "Not sent" : DELIVERY_LABEL[r.status]);
-  const why = (r: R) => r.status === "FAILED" ? (notSent(r) ? r.failReason!.slice(NOT_SENT.length) : r.failReason ?? "Failed") : r.isBackup && r.backupReason ? r.backupReason : r.provider === "sandbox" ? "Test mode: not really sent" : null;
+  const statusWord = (r: R) => (inTestMode(r) ? (r.isBackup ? "SMS backup · test mode" : "Test mode") : r.isBackup ? "Sent by SMS backup" : notSent(r) ? "Not sent" : DELIVERY_LABEL[r.status]);
+  const tone = (r: R): PillTone => (inTestMode(r) ? "warn" : TONE[r.status]);
+  const why = (r: R) => r.status === "FAILED" ? (notSent(r) ? r.failReason!.slice(NOT_SENT.length) : r.failReason ?? "Failed") : inTestMode(r) ? "Only recorded; nobody received it" : r.isBackup && r.backupReason ? r.backupReason : null;
   const senderName = sender.replace(/^Rule: /, "");
   const details: [string, React.ReactNode][] = [["To", m.audienceLabel], ["Status", MESSAGE_STATUS_LABEL[m.status]]];
   if (m.trigger) details.push(["Why", m.trigger]);
@@ -101,7 +107,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
           <MessageActions id={m.id} canCancel={m.status === "SCHEDULED"}
             scheduledWords={m.scheduledAt ? `It was going to ${m.recipientCount} people on ${formatDateTime(m.scheduledAt, tz)}.` : null}
             retryable={m.status === "CANCELLED" ? 0 : data.retry.rows.length} overLimit={data.retry.overLimit} retryLimit={data.retry.retryLimit}
-            unread={sent ? data.unread : 0} failed={sent ? counts.failed : 0} notSent={sent ? data.retry.notSent : 0}
+            unread={data.unread} failed={sent ? counts.failed : 0} notSent={sent ? data.retry.notSent : 0}
             channels={(["whatsapp", "sms", "email", "app"] as Channel[]).filter((c) => data.on.includes(c))} labels={CHANNEL_LABEL} />
         ) : m.status === "CANCELLED" ? <Pill tone="neutral">Cancelled · not sent</Pill> : null} />
 
@@ -109,7 +115,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
         {m.status === "SCHEDULED" && m.scheduledAt && <Banner tone="info" title={`Scheduled for ${formatDateTime(m.scheduledAt, tz)}.`}>Nobody has received it yet. You can cancel it until it goes.</Banner>}
         {m.status === "CANCELLED" && <Banner tone="warn" title="Cancelled.">{m.cancelledAt ? `On ${formatDateTime(m.cancelledAt, tz)}` : ""}{m.cancelledById ? ` by ${data.names.get(m.cancelledById) ?? "staff"}` : ""}. Nobody got it, and no credits were used.</Banner>}
         {m.isEmergency && <Banner tone="bad" title="Emergency broadcast.">Sent also to parents who opted out.</Banner>}
-        {data.rows.some((r) => r.provider === "sandbox") && <Banner tone="warn" title="Test mode: not really sent.">The channel is in test mode in Settings, SMS, WhatsApp &amp; Email, so the people marked &ldquo;Test mode&rdquo; below did not receive this message. It is only recorded.</Banner>}
+        {counts.testMode > 0 && <Banner tone="warn" title="Test mode: not really sent.">The channel is in test mode in Settings, SMS, WhatsApp &amp; Email, so the {counts.testMode.toLocaleString("en-IN")} {counts.testMode === 1 ? "person" : "people"} marked &ldquo;Test mode&rdquo; below did not receive this message. It is only recorded.</Banner>}
         {skipped.length > 0 && (
           <Banner tone="warn" title={`${skipped.reduce((n, x) => n + x.count, 0)} left out when it was sent:`}>
             {skipped.map((x) => `${x.reason} ${x.count}${x.names?.length ? ` (${x.names.slice(0, 4).join(", ")}${x.count > 4 ? " and others" : ""})` : ""}`).join("; ")}.
@@ -117,10 +123,11 @@ export default async function MessagePage({ params, searchParams }: Props) {
         )}
         <Stats items={[
           { label: "Recipients", value: counts.total.toLocaleString("en-IN"), icon: Users },
-          { label: "Delivered", value: counts.delivered.toLocaleString("en-IN"), tone: "ok", icon: CheckCheck, sub: pct(counts.delivered) },
+          ...(counts.testMode ? [{ label: "Test mode", value: counts.testMode.toLocaleString("en-IN"), tone: "warn" as const, icon: FlaskConical, sub: "Recorded, not sent" }] : []),
+          ...(!counts.testMode || counts.delivered ? [{ label: "Delivered", value: counts.delivered.toLocaleString("en-IN"), tone: "ok" as const, icon: CheckCheck, sub: pct(counts.delivered) }] : []),
           { label: "Read", value: counts.read.toLocaleString("en-IN"), icon: Eye, sub: pct(counts.read) },
           { label: "Failed", value: counts.failed.toLocaleString("en-IN"), tone: counts.failed ? "bad" : undefined, icon: CircleAlert, sub: counts.backup ? `${counts.backup} also sent by SMS backup` : counts.failed ? "Retry or resend by another channel" : "None" },
-          { label: "Credits", value: m.creditCost ? m.creditCost.toLocaleString("en-IN") : "Free", icon: Coins, sub: m.smsBackup ? "Includes SMS backup" : undefined },
+          { label: "Credits", value: m.creditCost ? m.creditCost.toLocaleString("en-IN") : counts.testMode ? "None" : "Free", icon: Coins, sub: counts.testMode && !m.creditCost ? "Test mode uses no credits" : m.smsBackup ? "Includes SMS backup" : undefined },
         ]} />
         <Split side={340}>
           <Card className="overflow-hidden min-w-0">
@@ -128,7 +135,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
               <UrlSearch placeholder="Name or number" />
               <UrlSelect param="status" label="Status" className="md:w-52" options={[
                 { value: "", label: `Everyone · ${counts.total}` },
-                ...[["READ", "Read"], ["DELIVERED", "Delivered"], ["SENT", "Sent"], ["backup", "Sent by SMS backup"], ["FAILED", "Failed"], ["QUEUED", "Queued"]]
+                ...[["READ", "Read"], ["DELIVERED", "Delivered"], ["SENT", "Sent"], ["test", "Test mode"], ["backup", "Sent by SMS backup"], ["FAILED", "Failed"], ["QUEUED", "Queued"]]
                   .filter(([v]) => v === "DELIVERED" || v === "SENT" || statusCount(v) > 0).map(([v, l]) => ({ value: v, label: statusCount(v) ? `${l} · ${statusCount(v)}` : l })),
               ]} />
               {m.channels.length > 1 && <UrlSelect param="channel" label="Channel" className="md:w-40" options={[{ value: "", label: "All channels" }, ...m.channels.map((c) => ({ value: c, label: CHANNEL_LABEL[c as Channel] ?? c }))]} />}
@@ -144,10 +151,10 @@ export default async function MessagePage({ params, searchParams }: Props) {
               columns={[
                 { key: "name", label: "Recipient", render: (r) => <div className="flex items-center gap-2.5"><Avatar name={r.name} size={32} /><div className="min-w-0"><p className="font-semibold leading-tight truncate">{r.name}</p><p className="text-[12.5px] text-ink3 truncate">{r.description ?? r.address}</p></div></div> },
                 { key: "ch", label: "Channel", render: (r) => <span className="text-[13px]">{CHANNEL_LABEL[r.channel as Channel] ?? r.channel}</span> },
-                { key: "st", label: "Status", render: (r) => <div><Pill tone={TONE[r.status]} dot>{statusWord(r)}</Pill>{why(r) && <p className="text-[12px] text-ink3 mt-0.5">{why(r)}</p>}</div> },
+                { key: "st", label: "Status", render: (r) => <div><Pill tone={tone(r)} dot>{statusWord(r)}</Pill>{why(r) && <p className="text-[12px] text-ink3 mt-0.5">{why(r)}</p>}</div> },
                 { key: "t", label: "Time", align: "right", nowrap: true, render: (r) => <span className="text-[13px]">{when(r)}</span> },
               ]}
-              mobile={(r) => ({ title: r.name, sub: why(r) ?? r.description ?? r.address, avatar: r.name, right: <Pill tone={TONE[r.status]} className="!h-[22px] !text-[11.5px]">{r.isBackup ? "SMS backup" : notSent(r) ? "Not sent" : DELIVERY_LABEL[r.status]}</Pill> })}
+              mobile={(r) => ({ title: r.name, sub: why(r) ?? r.description ?? r.address, avatar: r.name, right: <Pill tone={tone(r)} className="!h-[22px] !text-[11.5px]">{inTestMode(r) ? "Test mode" : r.isBackup ? "SMS backup" : notSent(r) ? "Not sent" : DELIVERY_LABEL[r.status]}</Pill> })}
             />
           </Card>
           <Col>

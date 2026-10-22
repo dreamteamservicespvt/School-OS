@@ -34,18 +34,23 @@ export function historyWhere(ctx: SchoolContext, full: boolean, p: ListParams, t
   return { AND: and };
 }
 
-export type Counts = { total: number; delivered: number; read: number; failed: number; queued: number; backup: number };
+/** testMode: recorded in test mode, so nobody received it; never counted as delivered (COMM-04). */
+export type Counts = { total: number; delivered: number; read: number; failed: number; queued: number; backup: number; testMode: number };
 
-/** Delivered counts include read; each person counted once per channel row. */
+/** A recipient whose message went to the test-mode provider: recorded, not sent. */
+export const inTestMode = (r: { provider: string | null; status: string }) => r.provider === "sandbox" && r.status !== "FAILED" && r.status !== "QUEUED" && r.status !== "SENDING";
+
+/** Delivered counts include read; each person counted once per channel row. Test mode is counted on its own. */
 export async function countsFor(tx: Tx, ctx: SchoolContext, messageIds: string[]): Promise<Map<string, Counts>> {
-  const rows = await tx.messageRecipient.groupBy({ by: ["messageId", "status", "isBackup"], where: { schoolId: ctx.schoolId, messageId: { in: messageIds } }, _count: { _all: true } });
+  const rows = await tx.messageRecipient.groupBy({ by: ["messageId", "status", "isBackup", "provider"], where: { schoolId: ctx.schoolId, messageId: { in: messageIds } }, _count: { _all: true } });
   const out = new Map<string, Counts>();
-  for (const id of messageIds) out.set(id, { total: 0, delivered: 0, read: 0, failed: 0, queued: 0, backup: 0 });
+  for (const id of messageIds) out.set(id, { total: 0, delivered: 0, read: 0, failed: 0, queued: 0, backup: 0, testMode: 0 });
   for (const r of rows) {
     const c = out.get(r.messageId)!;
     const n = r._count._all;
     if (r.isBackup) { c.backup += n; continue; }
     c.total += n;
+    if (inTestMode(r)) { c.testMode += n; continue; }
     if (r.status === "DELIVERED" || r.status === "READ") c.delivered += n;
     if (r.status === "READ") c.read += n;
     if (r.status === "FAILED") c.failed += n;

@@ -7,7 +7,7 @@ import { commPage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { RULES } from "@/lib/messaging/automatic";
-import { countsFor, DELIVERY_LABEL, HISTORY_FILTERS, historyWhere, senderNames } from "@/lib/communication/history";
+import { countsFor, DELIVERY_LABEL, HISTORY_FILTERS, historyWhere, inTestMode, senderNames } from "@/lib/communication/history";
 import { Card } from "@/components/ui/card";
 import { Stats } from "@/components/ui/stats";
 import { Toolbar } from "@/components/ui/toolbar";
@@ -44,10 +44,10 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
       tx.message.findMany({ where, orderBy: { createdAt: params.sort === "date" && params.dir === "asc" ? "asc" : "desc" }, ...skipTake(params) }),
       tx.message.count({ where }),
       tx.message.count({ where: { ...mineOnly, status: { in: ["SENT", "QUEUED"] } } }),
-      tx.messageRecipient.groupBy({ by: ["status"], where: { schoolId: current.ctx.schoolId, isBackup: false, message: mineOnly }, _count: { _all: true } }),
+      tx.messageRecipient.groupBy({ by: ["status", "provider"], where: { schoolId: current.ctx.schoolId, isBackup: false, message: mineOnly }, _count: { _all: true } }),
       tx.message.findFirst({ where: mineOnly, orderBy: { createdAt: "asc" }, select: { createdAt: true } }),
-      // Test mode (no provider connected yet): recorded as Delivered, but nothing reached anyone.
-      tx.messageRecipient.count({ where: { schoolId: current.ctx.schoolId, isBackup: false, provider: "sandbox", message: mineOnly } }),
+      // Test mode (no provider connected yet): only recorded, nothing reached anyone, so never counted as delivered.
+      tx.messageRecipient.count({ where: { schoolId: current.ctx.schoolId, isBackup: false, provider: "sandbox", status: { in: ["SENT", "DELIVERED", "READ"] }, message: mineOnly } }),
     ]);
     // "One person": everyone this sender has messaged, found by name; then their messages, newest first.
     const who = typeof sp.who === "string" ? sp.who.trim().slice(0, 60) : "";
@@ -72,7 +72,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
     return { rows, total, sentCount, reach, firstSent, testMode, people, timeline, counts: await countsFor(tx, current.ctx, rows.map((r) => r.id)), names: await senderNames(tx, rows.map((r) => r.sentById)) };
   });
 
-  const by = (s: string) => data.reach.find((r) => r.status === s)?._count._all ?? 0;
+  const by = (s: string) => data.reach.filter((r) => r.status === s && !inTestMode(r)).reduce((a, r) => a + r._count._all, 0);
   const reached = data.reach.reduce((a, r) => a + r._count._all, 0);
   const delivered = by("DELIVERED") + by("READ");
   const read = by("READ");
@@ -91,13 +91,13 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
         <Stats items={[
           { label: "Messages sent", value: data.sentCount.toLocaleString("en-IN"), sub: data.firstSent ? `Since ${formatDate(data.firstSent.createdAt, tz)}` : "None yet", icon: Send },
           { label: "People reached", value: reached.toLocaleString("en-IN"), sub: "One line per person", icon: Users },
-          { label: "Delivered", value: pct(delivered, reached), sub: data.testMode ? `${delivered.toLocaleString("en-IN")} people, ${data.testMode.toLocaleString("en-IN")} in test mode` : `${delivered.toLocaleString("en-IN")} people`, tone: "ok", icon: CheckCheck },
+          { label: "Delivered", value: pct(delivered, reached), sub: data.testMode ? `${delivered.toLocaleString("en-IN")} people; ${data.testMode.toLocaleString("en-IN")} only recorded in test mode` : `${delivered.toLocaleString("en-IN")} people`, tone: "ok", icon: CheckCheck },
           { label: "Read", value: reached ? `${Math.round((read / reached) * 100)}%` : "–", sub: `${read.toLocaleString("en-IN")} people`, icon: Eye },
           { label: "Failed", value: failed.toLocaleString("en-IN"), sub: `Retry up to ${retryLimit} times`, tone: failed ? "bad" : undefined, icon: CircleAlert, href: failed ? "/communication/history?status=failed" : undefined },
         ]} />
         {data.testMode > 0 && (
           <Alert tone="warning" title="Some messages were sent in test mode">
-            {data.testMode.toLocaleString("en-IN")} {data.testMode === 1 ? "message was" : "messages were"} only recorded, because the channel is in test mode in Settings, SMS, WhatsApp &amp; Email. Nobody received them, though they count as Delivered here. Open a message to see which.
+            {data.testMode.toLocaleString("en-IN")} {data.testMode === 1 ? "message was" : "messages were"} only recorded, because the channel is in test mode in Settings, SMS, WhatsApp &amp; Email. Nobody received them, so they are not counted as delivered. Open a message to see which.
           </Alert>
         )}
         <Card className="overflow-hidden">
@@ -167,7 +167,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
                 { key: "title", label: "Message", render: (m) => <div className="max-w-[260px]"><p className="font-semibold leading-snug truncate">{m.title ?? m.trigger ?? m.body.slice(0, 60)}</p><p className="text-[12.5px] text-ink3 flex items-center gap-1 truncate">{m.ruleKey && <Zap size={12} aria-hidden="true" />}{sender(m)}</p></div> },
                 { key: "ch", label: "Channel", render: (m) => <ChannelPills channels={m.channels} backup={m.smsBackup} /> },
                 { key: "n", label: "To", align: "right", render: (m) => m.recipientCount.toLocaleString("en-IN") },
-                { key: "del", label: "Delivered", align: "right", render: (m) => m.status === "SCHEDULED" ? <Pill tone="info">Scheduled</Pill> : m.status === "CANCELLED" ? <Pill tone="neutral">Cancelled</Pill> : <span className="text-ok font-semibold">{(data.counts.get(m.id)?.delivered ?? 0).toLocaleString("en-IN")}</span> },
+                { key: "del", label: "Delivered", align: "right", render: (m) => m.status === "SCHEDULED" ? <Pill tone="info">Scheduled</Pill> : m.status === "CANCELLED" ? <Pill tone="neutral">Cancelled</Pill> : (data.counts.get(m.id)?.testMode ?? 0) > 0 && !data.counts.get(m.id)?.delivered ? <Pill tone="warn">Test mode</Pill> : <span className="text-ok font-semibold">{(data.counts.get(m.id)?.delivered ?? 0).toLocaleString("en-IN")}</span> },
                 { key: "read", label: "Read", align: "right", render: (m) => (m.status === "SCHEDULED" || m.status === "CANCELLED" ? "–" : (data.counts.get(m.id)?.read ?? 0).toLocaleString("en-IN")) },
                 { key: "fail", label: "Failed", align: "right", render: (m) => { const f = data.counts.get(m.id)?.failed ?? 0; return f ? <span className="text-bad font-semibold">{f}</span> : <span className="text-ink3">0</span>; } },
                 { key: "cost", label: "Credits", align: "right", render: (m) => (m.creditCost ? m.creditCost.toLocaleString("en-IN") : "Free") },
@@ -181,7 +181,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
                   icon: Ic, iconTone: c?.failed ? "bad" : "ok",
                   pills: m.status === "SCHEDULED"
                     ? [<Pill key="s" tone="info" className="!h-[22px] !text-[11.5px]">Scheduled · {m.recipientCount}</Pill>]
-                    : [<Pill key="d" tone="ok" className="!h-[22px] !text-[11.5px]">{c?.delivered ?? 0} of {m.recipientCount} delivered</Pill>, c?.failed ? <Pill key="f" tone="bad" className="!h-[22px] !text-[11.5px]">{c.failed} failed</Pill> : null],
+                    : [c?.testMode && !c.delivered ? <Pill key="d" tone="warn" className="!h-[22px] !text-[11.5px]">Test mode · not sent</Pill> : <Pill key="d" tone="ok" className="!h-[22px] !text-[11.5px]">{c?.delivered ?? 0} of {m.recipientCount} delivered</Pill>, c?.failed ? <Pill key="f" tone="bad" className="!h-[22px] !text-[11.5px]">{c.failed} failed</Pill> : null],
                 };
               }}
             />

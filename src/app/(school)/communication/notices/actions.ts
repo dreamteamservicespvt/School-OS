@@ -12,7 +12,7 @@ import { commAction, commOfficeAction } from "@/lib/communication/access";
 import { localToUtc } from "@/lib/communication/time";
 import { archiveNotice, checkNoticeScope, markRead, NoticeProblem, NOTICE_CHANNELS, noticeResendInput, remindUnacknowledged, saveNotice, CRITICAL_WORD, type NoticeChannel, type NoticeInput } from "@/lib/communication/notices";
 import { DOCUMENT_TYPES, FileProblem, saveFile } from "@/lib/files";
-import { planMessage, sendMessage, MessagingProblem } from "@/lib/messaging/send";
+import { creditWords, planMessage, sendMessage, MessagingProblem } from "@/lib/messaging/send";
 import { requireAction } from "@/lib/current";
 
 export type NoticeState = { ok: boolean; message?: string; errors?: Record<string, string>; needsCritical?: boolean } | null;
@@ -132,8 +132,7 @@ export async function previewNoticeResend(id: string, channel: "whatsapp" | "sms
   const { current, scope } = await commOfficeAction("create");
   try {
     const plan = await withSchool(current.ctx, async (tx) => planMessage(tx, current.ctx, { ...(await noticeResendInput(tx, current.ctx, id, channel)), scope }));
-    const credits = Object.values(plan.cost).reduce((a, b) => a + (b ?? 0), 0);
-    return { ok: true, people: plan.people, cost: credits ? `${credits} credits` : "Free", skipped: plan.skipped.map((g) => `${g.reason}: ${g.count}`), problem: plan.problems[0] ?? plan.creditProblem ?? null };
+    return { ok: true, people: plan.people, cost: creditWords(plan), skipped: plan.skipped.map((g) => `${g.reason}: ${g.count}`), problem: plan.problems[0] ?? plan.creditProblem ?? null };
   } catch (e) {
     if (e instanceof NoticeProblem || e instanceof MessagingProblem) return { ok: false, message: e.message };
     throw e;

@@ -100,13 +100,14 @@ const COMMUNICATION: ReportEntry[] = [
       const range = rc.f.range ? momentWhere(rc.f.range, rc.tz) : { gte: rc.f.from, lt: rc.f.to };
       const list = await rc.tx.messageRecipient.groupBy({ by: ["status", "channel"], where: { queuedAt: range }, _count: { _all: true } });
       // Month by month needs the dates; read only what is needed.
-      const rows0 = await rc.tx.messageRecipient.findMany({ where: { queuedAt: range }, select: { queuedAt: true, status: true } });
+      const rows0 = await rc.tx.messageRecipient.findMany({ where: { queuedAt: range }, select: { queuedAt: true, status: true, provider: true } });
       const by = new Map<string, { sent: number; delivered: number; read: number; failed: number; waiting: number }>();
       for (const r of rows0) {
         const k = r.queuedAt.toISOString().slice(0, 7);
         const v = by.get(k) ?? { sent: 0, delivered: 0, read: 0, failed: 0, waiting: 0 };
         v.sent++;
-        if (r.status === "DELIVERED" || r.status === "READ") v.delivered++;
+        // Test mode only records a message: nobody received it, so it is not delivered (COMM-04).
+        if ((r.status === "DELIVERED" || r.status === "READ") && r.provider !== "sandbox") v.delivered++;
         if (r.status === "READ") v.read++;
         if (r.status === "FAILED") v.failed++;
         if (r.status === "QUEUED" || r.status === "SENDING") v.waiting++;

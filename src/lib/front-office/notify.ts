@@ -10,7 +10,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { MessagingProblem, recordSend, type Plan, type PlannedRow } from "../messaging";
+import { chargesFor, MessagingProblem, recordSend, type Plan, type PlannedRow } from "../messaging";
 import { creditBalances, creditProblem, creditsFor } from "../messaging/credits";
 import { onChannels, type Channel } from "../messaging/channels";
 import { maskPhone } from "./words";
@@ -40,7 +40,8 @@ export async function messageVisitor(tx: Tx, ctx: SchoolContext, msg: DeskMessag
     candidate: { key: `visitor:${msg.to.phone}`, type: "visitor" as unknown as "guardian", id: msg.about.recordId, name: msg.to.name, description: `Front Office: ${msg.about.recordType.toLowerCase()}`, phone: msg.to.phone, email: null, userLoginId: null, language: "en", optedOut: false, students: [], inScope: true },
     rowKey: `visitor:${msg.to.phone}:${channel}`, studentId: null, channel, address: msg.to.phone, language: "en", version: null, title: null, text: msg.text, values: {}, credits,
   };
-  const plan: Plan = { channels: [channel], rows: [row], people: 1, skipped: [], cost, backupCost: 0, balances, creditProblem: creditProblem(cost, balances), problems: [], audienceLabel: msg.to.name, backupTemplateId: null };
+  const charges = await chargesFor(tx, ctx, cost);
+  const plan: Plan = { channels: [channel], rows: [row], people: 1, skipped: [], cost, ...charges, backupCost: 0, balances, creditProblem: creditProblem(charges.charged, balances), problems: [], audienceLabel: msg.to.name, backupTemplateId: null };
   try {
     await recordSend(tx, ctx, {
       to: {}, channels: [channel], text: msg.secret ? "One-time pickup code" : msg.text, title: msg.trigger,

@@ -12,6 +12,7 @@ import { Check, ChevronDown, CircleAlert } from "lucide-react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button, type ButtonSize, type ButtonVariant } from "@/components/ui/button";
 import { ErrorSummary, FieldShell, inputCls } from "@/components/ui/field";
+import { ProblemInView } from "@/components/ui/problem-in-view";
 import { Segmented, type SegOption } from "@/components/ui/controls";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
@@ -37,10 +38,12 @@ export function FormProblem({ state }: { state: FormState<unknown> }) {
   const link = (state.data as { link?: { href: string; label: string } } | undefined)?.link;
   if (state.errors && Object.keys(state.errors).length > 1) return <ErrorSummary errors={state.errors} />;
   return (
-    <div role="alert" className="rounded-xl bg-bad/10 px-3.5 py-3 text-[14px] text-bad flex items-start gap-2">
-      <CircleAlert size={17} className="shrink-0 mt-0.5" aria-hidden="true" />
-      <p className="flex-1">{state.message}{link && <> <Link href={link.href} className="font-semibold underline">{link.label}</Link></>}</p>
-    </div>
+    <ProblemInView token={state}>
+      <div role="alert" className="rounded-xl bg-bad/10 px-3.5 py-3 text-[14px] text-bad flex items-start gap-2">
+        <CircleAlert size={17} className="shrink-0 mt-0.5" aria-hidden="true" />
+        <p className="flex-1">{state.message}{link && <> <Link href={link.href} className="font-semibold underline">{link.label}</Link></>}</p>
+      </div>
+    </ProblemInView>
   );
 }
 

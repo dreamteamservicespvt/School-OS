@@ -16,6 +16,7 @@ import { Banner } from "@/components/ui/chips";
 import { Checkbox, Switch } from "@/components/ui/controls";
 import { FieldShell, inputCls, SelectField, TextArea, TextField, type Option } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
+import { ProblemInView } from "@/components/ui/problem-in-view";
 import { CustomFieldInputs } from "@/components/custom-fields";
 import type { CustomFieldDef, CustomValues } from "@/lib/custom-field-rules";
 import { FormProblem, MoreDetails, PhoneField, SegField, SubHead, Submit } from "../_components/forms";
@@ -99,7 +100,7 @@ export function ApplicationForm(p: Props) {
       {force && <input type="hidden" name="force" value="1" />}
       {matches.length === 0 && <FormProblem state={state} />}
       {matches.length > 0 && (
-        <div role="alert" className="rounded-2xl bg-warn/10 p-4">
+        <ProblemInView token={state}><div role="alert" className="rounded-2xl bg-warn/10 p-4">
           <p className="font-semibold flex items-center gap-2"><CircleAlert size={17} className="text-warn" aria-hidden="true" />This child may already have an application</p>
           <ul className="mt-2 space-y-1 text-[14px] text-ink2">{matches.map((m) => <li key={`${m.kind}-${m.id}`}>{m.text}</li>)}</ul>
           <div className="mt-3 flex flex-wrap gap-2">
@@ -107,7 +108,7 @@ export function ApplicationForm(p: Props) {
             <Button size="sm" variant="secondary" onClick={() => { setForce(true); setDismissedFor(state); setTimeout(() => formRef.current?.requestSubmit(), 0); }}>Save anyway</Button>
             <Button size="sm" variant="ghost" onClick={() => setDismissedFor(state)}>Cancel</Button>
           </div>
-        </div>
+        </div></ProblemInView>
       )}
 
       <Card className="p-4 md:p-6 flex flex-col gap-4">

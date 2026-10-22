@@ -5,6 +5,7 @@ import { useId } from "react";
 import { CircleAlert } from "lucide-react";
 import { cx } from "./cx";
 import { KeepSelect } from "./keep-select";
+import { ProblemInView } from "./problem-in-view";
 
 /** The shared look of a text box, select or text area. */
 export const inputCls = (error?: unknown) => cx(
@@ -83,14 +84,16 @@ export function CheckboxField({ label, name, help, className = "", ...rest }: { 
   );
 }
 
-/** One error summary at the top when there are several (P7). */
+/** One error summary at the top when there are several (P7). It brings itself into view when a save is refused. */
 export function ErrorSummary({ errors }: { errors?: Record<string, string> }) {
   const list = Object.values(errors ?? {});
   if (list.length < 2) return null;
   return (
-    <div role="alert" className="rounded-xl bg-bad/10 p-3.5 text-sm text-bad">
-      <p className="font-semibold flex items-center gap-2"><CircleAlert size={16} aria-hidden="true" />Please fix {list.length} things before saving:</p>
-      <ul className="mt-1 list-disc pl-10">{list.map((e) => <li key={e}>{e}</li>)}</ul>
-    </div>
+    <ProblemInView token={errors}>
+      <div role="alert" className="rounded-xl bg-bad/10 p-3.5 text-sm text-bad">
+        <p className="font-semibold flex items-center gap-2"><CircleAlert size={16} aria-hidden="true" />Please fix {list.length} things before saving:</p>
+        <ul className="mt-1 list-disc pl-10">{list.map((e) => <li key={e}>{e}</li>)}</ul>
+      </div>
+    </ProblemInView>
   );
 }

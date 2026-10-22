@@ -1,6 +1,6 @@
 // Everything the Student Profile shows from this module, read once, within
 // what the person may see (restricted fields masked, private notes hidden).
-import { consentRows } from "@/lib/students/consent";
+import { apaarConsentOf, consentRows } from "@/lib/students/consent";
 import "server-only";
 
 import type { Tx } from "@/lib/db";
@@ -90,6 +90,8 @@ export async function loadProfile(tx: Tx, current: Current, id: string, can: Stu
     try { return { ...t, value: decryptField(row.valueEnc) }; } catch { return { ...t, value: maskLast4(row.last4) }; }
   });
 
+  // APAAR consent sits with the APAAR ID, in the restricted box (03 §1), for those who see identifiers.
+  const apaarConsent = v.personal && (can.seeRestricted || !can.lookupOnly) ? await apaarConsentOf(tx, current.ctx, id) : null;
   const extra = (student.customFields ?? {}) as Record<string, string | null>;
   const docKinds = new Set(docs.filter((d) => !d.guardianId).map((d) => d.kind));
   const requiredDone = settings.requiredDocuments.filter((k) => docKinds.has(k)).length;
@@ -111,6 +113,8 @@ export async function loadProfile(tx: Tx, current: Current, id: string, can: Stu
     previous,
     previousLocked: lockedYear,
     identifiers: v.personal ? idValues : [],
+    /** APAAR consent: a parent's consent for the child, its own purpose (gap list G42). */
+    apaarConsent,
     notes: notes.filter((n) => noteVisible(n, current)),
     roles: roles.filter((r, i): r is { key: string; name: string } => Boolean(r.key) && roles.findIndex((x) => x.key === r.key) === i),
     customFields: v.personal ? customFields.filter((f) => f.visibility !== "restricted" || can.seeRestricted) : [],

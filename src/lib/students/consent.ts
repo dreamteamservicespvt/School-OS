@@ -71,7 +71,10 @@ export async function consentRows(tx: Tx, ctx: SchoolContext, where: { guardianI
  * Sends a consent request to the chosen guardians, through Parent Link, for each
  * consent type. Guardians who have already given it for every child are left out.
  */
-export async function requestConsent(tx: Tx, ctx: SchoolContext, guardianIds: string[], types: string[] = CONSENT_TYPES.map((t) => t.key)) {
+export async function requestConsent(tx: Tx, ctx: SchoolContext, guardianIds: string[], chosen?: string[]) {
+  // Not chosen: every consent the school asks for (a type with a current text).
+  const types = chosen ?? (await tx.consentText.findMany({ where: { schoolId: ctx.schoolId, isCurrent: true, consentType: { in: CONSENT_TYPES.map((t) => t.key) } }, select: { consentType: true }, distinct: ["consentType"] })).map((t) => t.consentType);
+  if (!types.length) throw new StudentProblem("There is no consent text yet. Add one in Settings, Data Backup & Security.");
   let requested = 0;
   let alreadyGiven = 0;
   const reached = new Set<string>();
@@ -137,4 +140,26 @@ export function consentState(records: { consentType: string; status: string }[],
 export async function photoConsentStands(tx: Tx, ctx: SchoolContext, studentId: string) {
   const rows = (await consentRows(tx, ctx, { studentIds: [studentId], consentType: "photo" })).filter((r) => r.status !== "REQUESTED");
   return rows.length > 0 && rows.every((r) => r.status === "GIVEN");
+}
+
+export type ApaarConsent = { state: ConsentState; guardianName: string | null; on: Date | null; how: string | null };
+
+/**
+ * APAAR consent for one child (gap list G42; 03 §1 Identifiers): its own
+ * purpose, never bundled with data consent. A guardian's consent for a minor:
+ * it stands while any parent on record (not one with a custody restriction)
+ * has given it. Otherwise the latest answer: withdrawn, refused on a paper
+ * form, asked in Parent Link, or not given.
+ */
+export async function apaarConsentOf(tx: Tx, ctx: SchoolContext, studentId: string): Promise<ApaarConsent> {
+  const links = await tx.studentGuardian.findMany({ where: { studentId, ...OPEN_LINK, guardian: { archivedAt: null } }, select: { guardianId: true, guardian: { select: { name: true } } } });
+  if (!links.length) return { state: "NONE", guardianName: null, on: null, how: null };
+  const rows = await consentRows(tx, ctx, { studentIds: [studentId], consentType: "apaar", guardianIds: links.map((l) => l.guardianId) });
+  const name = (g: string) => links.find((l) => l.guardianId === g)?.guardian.name ?? null;
+  const pick = (st: ConsentState) => rows.find((r) => r.status === st);
+  for (const st of ["GIVEN", "WITHDRAWN", "REFUSED", "REQUESTED"] as const) {
+    const r = pick(st);
+    if (r) return { state: st, guardianName: name(r.guardianId), on: st === "WITHDRAWN" ? r.withdrawnOn : r.givenOn, how: r.method };
+  }
+  return { state: "NONE", guardianName: null, on: null, how: null };
 }

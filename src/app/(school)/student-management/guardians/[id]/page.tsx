@@ -230,7 +230,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                 })}
                 {manage && (
                   <ConfirmAction action={consentRequestAction} fields={{ ids: id }} trigger={<><Send size={16} aria-hidden="true" />Send consent request</>} triggerVariant="soft" title="Send a consent request?" confirmLabel={`Send to ${g.name}`}>
-                    Through Parent Link to {g.name}, for data and photo consent for each child. They agree with a one-time code to +91 {phoneShow(g.phone)}. Consents already given are left as they are.
+                    Through Parent Link to {g.name}, for each consent the school asks for (data, photo, APAAR), for each child. They agree with a one-time code to +91 {phoneShow(g.phone)}. Consents already given are left as they are.
                   </ConfirmAction>
                 )}
               </ul>

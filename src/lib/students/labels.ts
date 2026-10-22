@@ -110,6 +110,8 @@ export const DECISION_LABEL = { PROMOTE: "Promote", DETAIN: "Detain", LEAVING: "
 export const CONSENT_TYPES: { key: string; label: string }[] = [
   { key: "data-processing", label: "Data consent" },
   { key: "photo", label: "Photo consent" },
+  // Its own purpose (gap list G42): a parent's consent for the child's APAAR ID, never bundled with data consent.
+  { key: "apaar", label: "APAAR consent" },
 ];
 /** How a consent was given, in plain words. */
 export const consentHowWords = (how: string | null | undefined) =>

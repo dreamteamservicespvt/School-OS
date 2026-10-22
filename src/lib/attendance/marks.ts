@@ -375,7 +375,7 @@ export async function saveClassAttendance(tx: Tx, ctx: SchoolContext, access: At
   for (const c of changes.filter((x) => before.has(x.studentId))) {
     const data = { statusKey: c.statusKey, note: c.note ?? null, method: "register", markedById: ctx.userId, markedAt: input.now, takenAt, leaveRequestId: c.leaveRequestId, ...reasonOf(c.studentId) };
     const k = JSON.stringify(data);
-    const group = sameChange.get(k) ?? { ids: [], data };
+    const group = sameChange.get(k) ?? { ids: [] as string[], data };
     group.ids.push(before.get(c.studentId)!.id);
     sameChange.set(k, group);
   }

@@ -50,9 +50,9 @@ const { findStudents: findFeeStudents, mostOverdue } = await import("../src/lib/
 const { studentLedger } = await import("../src/lib/fees/ledger");
 const feeDefaulters = await import("../src/lib/fees/defaulters");
 // The page reads the whole list and its filtered one (defaulterLists; one at a time before it existed, to compare versions).
-const defaulterLists: typeof feeDefaulters.defaulterLists = "defaulterLists" in feeDefaulters
-  ? feeDefaulters.defaulterLists
-  : (tx, ctx, v, day, fs) => Promise.all(fs.map((f) => (feeDefaulters as unknown as { defaulters: typeof feeDefaulters.defaulters }).defaulters(tx, ctx, v, day, f)));
+const feeModule = feeDefaulters as Partial<typeof feeDefaulters> & Pick<typeof feeDefaulters, "defaulters">;
+const defaulterLists: typeof feeDefaulters.defaulterLists = feeModule.defaulterLists
+  ?? ((tx, ctx, v, day, fs) => Promise.all(fs.map((f) => feeModule.defaulters(tx, ctx, v, day, f))));
 const { feeTiles, monthlyTrend, forecast, recentPayments } = await import("../src/lib/fees/dashboard");
 const { attendanceAccess } = await import("../src/lib/attendance/access");
 const { registerMonth } = await import("../src/lib/attendance/register");
@@ -191,7 +191,7 @@ add("Attendance: save a class again, all changed", resave(() => "late"), true);
 add("Attendance: every report", async () => {
   const a = await aa(principal);
   const features = await read(principal, (tx) => attendanceFeatures(tx, principal.ctx));
-  const keys = reportsFor(a, features);
+  const keys = reportsFor(a, features).map((r) => r.key);
   const out: unknown[] = [];
   for (const k of keys) {
     const input = readReportInput((x) => (x === "report" ? k : null), today, keys);

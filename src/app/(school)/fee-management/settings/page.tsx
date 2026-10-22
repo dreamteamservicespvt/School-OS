@@ -5,6 +5,7 @@ import { defaultSteps, requestLabel, type RuleStep } from "@/lib/approvals";
 import { formatRupees } from "@/lib/format";
 import { financialYearOf } from "@/lib/finance/years";
 import { nextReceiptPreview, REMINDER_DAY_CHOICES } from "@/lib/fees/settings-save";
+import { reminderSettingsPreview } from "@/lib/fees/reminder-preview";
 import { ageingLabel, COUNTER_PERMISSIONS, FEE_FEATURES, PAYMENT_MODES, percentWord } from "@/lib/fees/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
@@ -12,6 +13,7 @@ import { buttonClass } from "@/components/ui/button";
 import { Col, SimpleTable } from "@/components/money/kit";
 import { cx } from "@/components/ui/cx";
 import { FeeHead } from "../_components/fee-head";
+import type { ReminderSettingsPreview } from "@/lib/fees/reminder-preview";
 import { BASE, feeManagerPage, one, type SearchParams } from "../_lib/page";
 import { schoolRoles } from "@/lib/school-roles";
 import {
@@ -48,6 +50,39 @@ function SetCard({ title, sub, icon, edit, rows, children, action }: { title: st
   );
 }
 
+/** "What a parent gets": one real family's automatic reminder today, exactly as it goes, with links shown as words. */
+function ReminderPreview({ r, remindersOn }: { r: ReminderSettingsPreview; remindersOn: boolean }) {
+  const left = [
+    r.today.left.promise && `${r.today.left.promise} with a promise to pay`,
+    r.today.left.waiting && `${r.today.left.waiting} with a payment waiting for verification`,
+    r.today.left.belowMin && `${r.today.left.belowMin} owing less than the smallest amount`,
+    r.today.left.done && `${r.today.left.done} already reminded today`,
+  ].filter(Boolean);
+  const families = (n: number) => `${n} ${n === 1 ? "family" : "families"}`;
+  return (
+    <section aria-labelledby="reminder-preview" className="rounded-xl border border-line p-4 flex flex-col gap-3">
+      <h3 id="reminder-preview" className="font-semibold text-[14px]">What a parent gets</h3>
+      {r.stops.map((x) => <p key={x} className="text-[13.5px] text-warn-text">{x}</p>)}
+      {r.sample ? (
+        <>
+          <p className="text-[12.5px] text-ink3">To {r.sample.parent}{r.sample.students.length ? `, about ${r.sample.students.join(" and ")}` : ""} · {r.sample.channel}{r.sample.dueWords ? ` · ${r.sample.dueWords}` : ""}</p>
+          <p className="whitespace-pre-wrap break-words rounded-xl bg-sunken px-3.5 py-3 text-[14px] leading-relaxed">{r.sample.text}</p>
+          <p className="text-[12.5px] text-ink3">How to pay in this message: {r.sample.way}. Links show here as words; each parent gets their own.</p>
+        </>
+      ) : <p className="text-[13.5px] text-ink3">Nobody owes anything now, so there is no message to show.</p>}
+      {r.warnings.map((x) => <p key={x} className="text-[13.5px] text-bad">{x}</p>)}
+      <p className="text-[12.5px] text-ink3">{r.online}</p>
+      {remindersOn && (
+        <p className="text-[12.5px] text-ink3">
+          {r.today.quiet ? "Today the school is closed: today's reminders go on the next school day." : `Today: ${families(r.today.families)} get a reminder.`}
+          {left.length ? ` Left out: ${left.join(", ")}.` : ""}
+        </p>
+      )}
+      <p className="text-[12.5px] text-ink3">Change the words in <Link href="/communication/templates" className="text-brand font-semibold">Message Templates</Link>.</p>
+    </section>
+  );
+}
+
 /** Fee Settings (06 §6, mod-fees.jsx FeeSettings): late fee, reminders, receipts, gateways and bank accounts. Every change is logged. */
 export default async function FeeSettingsPage({ searchParams }: { searchParams: SearchParams }) {
   const p = await feeManagerPage();
@@ -58,6 +93,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
 
   const data = await withSchool(ctx, async (tx) => {
     const fy = await financialYearOf(tx, ctx, p.today);
+    const reminder = await reminderSettingsPreview(tx, ctx, p.today);
     const [next, heads, gateways, classes, accounts, roles, rules] = await Promise.all([
       nextReceiptPreview(tx, ctx, fy.name),
       tx.feeHead.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, taxable: true, gstRateBp: true, lateFeeApplies: true, bankAccountId: true, systemKey: true } }),
@@ -67,7 +103,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
       schoolRoles(tx, ctx, { where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true } }),
       tx.approvalRule.findMany({ where: { requestType: { in: ["concession", "refund", "payment-cancellation", "scholarship", "payment-verification"] }, archivedAt: null } }),
     ]);
-    return { fy, next, heads, gateways, classes, accounts, roles, rules };
+    return { fy, next, heads, gateways, classes, accounts, roles, rules, reminder };
   });
 
   const roleName = new Map(data.roles.map((r) => [r.key!, r.name]));
@@ -119,6 +155,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
                 })}
               </div>
               <p className="text-[13px] text-ink3">{CHANNEL[s.reminderChannel] ?? s.reminderChannel} · {s.reminderMinPaise > BigInt(0) ? `only when ${formatRupees(s.reminderMinPaise)} or more is owed` : "any amount owed"} · {s.reminderQuietDays ? "not on days the school is closed" : "every day, holidays too"}</p>
+              <ReminderPreview r={data.reminder} remindersOn={s.remindersOn} />
             </div>
           </SetCard>
 

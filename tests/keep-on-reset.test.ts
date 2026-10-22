@@ -30,6 +30,8 @@ const src = path.join(root, "src");
 const OUTSIDE_ACTION_FORMS: Record<string, string> = {
   // Filters and pickers that change the address, not a form.
   "src/components/ui/url-filters.tsx#UrlSelect": "URL filter",
+  // The language choice on pages with no sign-in: saved at once on change, never inside a form.
+  "src/components/language-picker.tsx#LanguagePicker": "language choice",
   "src/components/ui/url-controls.tsx#UrlSelect": "URL filter",
   "src/components/ui/list-controls.tsx#UrlSelect": "URL filter",
   "src/components/ui/list-controls.tsx#UrlToggle": "URL filter",

@@ -10,12 +10,13 @@ import { PermissionDeniedError } from "../permissions";
 import { ownSectionIds } from "../people";
 import { yearsFor } from "../academic/years";
 import type { ResolvedSettings } from "./settings";
+import { seesHighlyRestricted, seesRestricted, type SensitiveRole } from "../sensitive";
 
 /** The parts of the signed-in person this module needs (Current satisfies it). */
 export type Who = {
   ctx: SchoolContext;
   permissions: PermissionMap;
-  roles: { key: string | null }[];
+  roles: SensitiveRole[];
   /** The campus their access is limited to ("One campus" in Users & Permissions); null for the whole school. */
   campusId?: string | null;
 };
@@ -26,8 +27,8 @@ export type Who = {
  * Gate Security...) opens Student Management only to look a student up.
  */
 const ACADEMIC_VIEW_ROLES = new Set(["academic-head", "exam-in-charge", "vice-principal"]);
-/** Roles that see the restricted fields (Aadhaar and other identifiers) in full. */
-const RESTRICTED_ROLES = new Set(["school-admin", "principal"]);
+/** Roles that see the restricted fields (Aadhaar and other identifiers) in full, unless the school set the role's sensitive fields (src/lib/sensitive.ts). */
+const RESTRICTED_ROLES = ["school-admin", "principal"];
 /** The only role that reads confidential counselling notes (05-roles.md, Counsellor). */
 export const COUNSELLOR_ROLE = "counsellor";
 
@@ -137,17 +138,18 @@ export function abilities(who: Who, settings?: Pick<ResolvedSettings, "counselli
   const lookupOnly = reach !== "none" && change === "none" && !roleKeys.some((k) => ACADEMIC_VIEW_ROLES.has(k));
   const manage = change === "all";
   const pv = profileView(roleKeys, manage, lookupOnly);
-  const counsellingAllowed = Boolean(settings?.counsellingOn) && (roleKeys.includes(COUNSELLOR_ROLE) || roleKeys.some((k) => settings?.counsellingRoles.includes(k)));
+  // Counselling is highly restricted: the roles Student Settings gives it, unless the school set the role below that.
+  const counsellingAllowed = Boolean(settings?.counsellingOn) && seesHighlyRestricted(who.roles, (k) => k === COUNSELLOR_ROLE || Boolean(settings?.counsellingRoles.includes(k)));
   return {
     reach,
     manage,
     contribute: change !== "none",
     lookupOnly,
-    seeRestricted: roleKeys.some((k) => RESTRICTED_ROLES.has(k)),
+    seeRestricted: seesRestricted(who.roles, RESTRICTED_ROLES),
     seeBehaviour: reach !== "none" && !lookupOnly && (pv.tabs === null || pv.tabs.includes("behaviour")),
     seeDocuments: reach !== "none" && !lookupOnly && (pv.tabs === null || pv.tabs.includes("documents")),
     seeCounselling: counsellingAllowed,
-    seeCounsellingNotes: Boolean(settings?.counsellingOn) && roleKeys.includes(COUNSELLOR_ROLE),
+    seeCounsellingNotes: Boolean(settings?.counsellingOn) && seesHighlyRestricted(who.roles, (k) => k === COUNSELLOR_ROLE),
     // Exporting the list is for people who see every student; "own" roles (teachers) do not export (05-roles).
     exportList: reach === "all",
     view: pv,

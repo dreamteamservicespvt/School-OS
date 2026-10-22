@@ -13,6 +13,7 @@ import { SettingsProblem, actorName, alertPermissionChange } from "./common";
 
 import { cleanPermissions, permissionChanges } from "./role-words";
 import { schoolRole, schoolRoles } from "../school-roles";
+import { isSensitiveLevel, levelsForRole, mostForRole, SENSITIVE_WORDS, type SensitiveLevel } from "../sensitive";
 export { LEVELS, cleanPermissions, permissionChanges } from "./role-words";
 
 /** How many people hold each role right now (live School Access only). */
@@ -53,7 +54,24 @@ function guardSchoolAdmin(role: { key: string | null }, permissions: RolePermiss
   }
 }
 
-export type RoleInput = { name: string; permissions: Record<string, unknown>; requiresTwoStep: boolean; copyFromId?: string | null };
+export type RoleInput = {
+  name: string; permissions: Record<string, unknown>; requiresTwoStep: boolean; copyFromId?: string | null;
+  /** Sensitive fields the role may see; null: as before (module by module); undefined: unchanged. */
+  sensitiveFields?: SensitiveLevel | null;
+};
+
+/** A level within what 05-roles.md allows this role (src/lib/sensitive.ts), or a plain-words refusal. */
+function checkSensitive(role: { key: string | null; kind: string; name: string }, level: SensitiveLevel | null | undefined) {
+  if (level === undefined || level === null) return level;
+  if (!isSensitiveLevel(level)) throw new SettingsProblem("Choose which sensitive fields this role may see.", "sensitiveFields");
+  if (!levelsForRole(role).includes(level)) {
+    throw new SettingsProblem(`The ${role.name} role can see at most ${SENSITIVE_WORDS[mostForRole(role)].label.toLowerCase()} fields.`, "sensitiveFields");
+  }
+  return level;
+}
+
+/** "Sensitive fields: Restricted" or "as before", for alerts. */
+const sensitiveName = (level: string | null) => (level && isSensitiveLevel(level) ? SENSITIVE_WORDS[level].label.toLowerCase() : "as set for each module");
 
 /** Creates a school's own role, usually by copying an existing one. */
 export async function createRole(tx: Tx, ctx: SchoolContext, input: RoleInput) {
@@ -61,11 +79,12 @@ export async function createRole(tx: Tx, ctx: SchoolContext, input: RoleInput) {
   await nameFree(tx, ctx.schoolId, name);
   const permissions = cleanPermissions(input.permissions);
   const from = input.copyFromId ? await schoolRole(tx, ctx, { where: { id: input.copyFromId } }) : null;
+  const sensitiveFields = checkSensitive({ key: null, kind: "CUSTOM", name }, input.sensitiveFields) ?? null;
   const role = await tx.role.create({
     // A key lets approval rules and approvals name the role, like the ready roles.
-    data: { schoolId: ctx.schoolId, key: `custom-${randomUUID().slice(0, 8)}`, name, kind: "CUSTOM", isEnabled: true, requiresTwoStep: input.requiresTwoStep, permissions },
+    data: { schoolId: ctx.schoolId, key: `custom-${randomUUID().slice(0, 8)}`, name, kind: "CUSTOM", isEnabled: true, requiresTwoStep: input.requiresTwoStep, sensitiveFields, permissions },
   });
-  await writeAudit(tx, ctx, { action: "created", recordType: "Role", recordId: role.id, after: { name, permissions, requiresTwoStep: input.requiresTwoStep, copiedFrom: from?.name ?? null } });
+  await writeAudit(tx, ctx, { action: "created", recordType: "Role", recordId: role.id, after: { name, permissions, requiresTwoStep: input.requiresTwoStep, sensitiveFields, copiedFrom: from?.name ?? null } });
   const who = await actorName(tx, ctx);
   await alertPermissionChange(tx, ctx, `${who} created the role ${name}${from ? ` by copying ${from.name}` : ""}.`, `/settings/users/roles/${role.id}`);
   return role;
@@ -82,19 +101,22 @@ export async function updateRole(tx: Tx, ctx: SchoolContext, roleId: string, inp
   const before = role.permissions as RolePermissions;
   const changes = permissionChanges(name, before, permissions);
   const twoStepChanged = role.requiresTwoStep !== input.requiresTwoStep;
-  if (changes.length === 0 && name === role.name && !twoStepChanged) return null;
+  const sensitiveFields = input.sensitiveFields === undefined ? role.sensitiveFields : checkSensitive(role, input.sensitiveFields) ?? null;
+  const sensitiveChanged = sensitiveFields !== role.sensitiveFields;
+  if (changes.length === 0 && name === role.name && !twoStepChanged && !sensitiveChanged) return null;
 
-  await tx.role.update({ where: { id: role.id }, data: { name, permissions, requiresTwoStep: input.requiresTwoStep } });
+  await tx.role.update({ where: { id: role.id }, data: { name, permissions, requiresTwoStep: input.requiresTwoStep, sensitiveFields } });
   const entry = await writeAudit(tx, ctx, {
     action: "changed-permissions",
     recordType: "Role",
     recordId: role.id,
-    before: { name: role.name, permissions: before, requiresTwoStep: role.requiresTwoStep } as Prisma.InputJsonValue,
-    after: { name, permissions, requiresTwoStep: input.requiresTwoStep } as Prisma.InputJsonValue,
+    before: { name: role.name, permissions: before, requiresTwoStep: role.requiresTwoStep, sensitiveFields: role.sensitiveFields } as Prisma.InputJsonValue,
+    after: { name, permissions, requiresTwoStep: input.requiresTwoStep, sensitiveFields } as Prisma.InputJsonValue,
   });
   const who = await actorName(tx, ctx);
   const words = [...changes];
   if (twoStepChanged) words.push(`${name} role ${input.requiresTwoStep ? "now needs" : "no longer needs"} two-step login`);
+  if (sensitiveChanged) words.push(`${name} role now sees sensitive fields: ${sensitiveName(sensitiveFields)}`);
   if (name !== role.name) words.unshift(`${role.name} role is now called ${name}`);
   await alertPermissionChange(tx, ctx, `${who} changed a role: ${words.slice(0, 3).join("; ")}${words.length > 3 ? `; and ${words.length - 3} more` : ""}.`, `/settings/users/roles/${role.id}`);
   return entry;
@@ -104,8 +126,10 @@ export async function updateRole(tx: Tx, ctx: SchoolContext, roleId: string, inp
 export async function restoreRoleVersion(tx: Tx, ctx: SchoolContext, auditEntryId: string) {
   const entry = await tx.auditLogEntry.findUnique({ where: { id: auditEntryId } });
   if (!entry || entry.recordType !== "Role" || entry.action !== "changed-permissions" || !entry.recordId) throw new SettingsProblem("This change cannot be put back.");
-  const before = entry.before as { name: string; permissions: RolePermissions; requiresTwoStep: boolean };
-  return updateRole(tx, ctx, entry.recordId, { name: before.name, permissions: before.permissions, requiresTwoStep: before.requiresTwoStep });
+  const before = entry.before as { name: string; permissions: RolePermissions; requiresTwoStep: boolean; sensitiveFields?: string | null };
+  // Entries from before sensitive fields were kept leave them as they are now.
+  const sensitiveFields = before.sensitiveFields === undefined ? undefined : isSensitiveLevel(before.sensitiveFields) ? before.sensitiveFields : null;
+  return updateRole(tx, ctx, entry.recordId, { name: before.name, permissions: before.permissions, requiresTwoStep: before.requiresTwoStep, sensitiveFields });
 }
 
 /** Archives a school's own role. Ready roles and templates cannot be archived; a role in use cannot either. */

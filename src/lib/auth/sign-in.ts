@@ -13,6 +13,7 @@ import { codeChannels, needsTwoStep, startChallenge, type Deliver, type SignInPu
 import { isRememberedDevice } from "./remembered";
 import { securityAlert } from "./security-alert";
 import { startFirstChange } from "./invites";
+import { passwordExpired, passwordRulesForLogin } from "./password-rules";
 
 /** Wrong passwords before the login is locked (inferred). */
 export const MAX_FAILED_ATTEMPTS = 5;
@@ -115,6 +116,11 @@ export async function signIn(usernameInput: string, password: string, device: De
   // A temporary password from the school (09 Add Staff) only opens the page to choose their own (08 §2).
   if (user.mustChangePassword) {
     return { ok: false, message: "Choose your own password to finish signing in.", firstChange: await startFirstChange(user.id, now) };
+  }
+  // A password older than the school allows (Password Policy expiry): a new one first, on the same page (08 §2).
+  const rules = await passwordRulesForLogin(user.id);
+  if (passwordExpired(user, rules, now)) {
+    return { ok: false, message: `Your password is older than ${rules.expiryDays} days. Choose a new one to finish signing in.`, firstChange: await startFirstChange(user.id, now) };
   }
   let remembered = false;
   if (await needsTwoStepInAny(user.id, schools)) {

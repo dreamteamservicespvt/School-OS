@@ -15,6 +15,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { RoleEditor } from "../role-editor";
 import { PutBack, RoleSwitch } from "../role-actions";
 import { schoolRole } from "@/lib/school-roles";
+import { sensitiveChoices, sensitiveLabel } from "@/lib/sensitive";
 
 export const metadata: Metadata = { title: "Role" };
 
@@ -22,7 +23,7 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const KIND = { READY: "Ready role", TEMPLATE: "Role template", CUSTOM: "Your own role" } as const;
 const WORDS: Record<string, string> = { created: "Created", "changed-permissions": "Changed", archived: "Archived", restored: "Restored", "switched-on": "Switched on", "switched-off": "Switched off", "put-back": "Put back" };
 
-type Version = { name?: string; permissions?: Partial<RolePermissions>; requiresTwoStep?: boolean };
+type Version = { name?: string; permissions?: Partial<RolePermissions>; requiresTwoStep?: boolean; sensitiveFields?: string | null };
 
 export default async function RolePage({ params }: { params: Promise<{ id: string }> }) {
   const { current, may } = await requireSettingsPage("users");
@@ -66,6 +67,7 @@ export default async function RolePage({ params }: { params: Promise<{ id: strin
           <CardHeader title="Permissions" description={people.size ? `${people.size} ${people.size === 1 ? "person has" : "people have"} this role. Changes apply to all of them.` : "Nobody has this role yet."} />
           <CardBody>
             <RoleEditor id={id} name={role.name} kind={role.kind} permissions={role.permissions as Partial<RolePermissions>} requiresTwoStep={role.requiresTwoStep}
+              sensitiveFields={role.sensitiveFields ?? ""} sensitiveOptions={sensitiveChoices(role)}
               copyFromId={null} modules={MODULES.map((m) => ({ key: m.key, name: m.name }))} people={people.size} readOnly={!mayEdit} cancelHref="/settings/users/roles" />
           </CardBody>
         </Card>
@@ -96,6 +98,7 @@ export default async function RolePage({ params }: { params: Promise<{ id: strin
                         ...(before.name && after.name && before.name !== after.name ? [`Renamed from ${before.name} to ${after.name}`] : []),
                         ...permissionChanges(after.name ?? role.name, before.permissions ?? {}, after.permissions ?? {}),
                         ...(before.requiresTwoStep !== undefined && before.requiresTwoStep !== after.requiresTwoStep ? [`Two-step login ${after.requiresTwoStep ? "turned on" : "turned off"}`] : []),
+                        ...(after.sensitiveFields !== undefined && (before.sensitiveFields ?? null) !== (after.sensitiveFields ?? null) ? [`Sensitive fields: ${sensitiveLabel(before.sensitiveFields)} to ${sensitiveLabel(after.sensitiveFields)}`] : []),
                       ]
                     : [];
                   const when = formatDateTime(h.at, tz);

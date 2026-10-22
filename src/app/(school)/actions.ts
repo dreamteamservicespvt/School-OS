@@ -5,12 +5,13 @@ import { redirect } from "next/navigation";
 import { prisma, withSchool } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
-import { checkNewPassword, hashPassword, verifyPassword } from "@/lib/auth/password";
+import { hashPassword, verifyPassword } from "@/lib/auth/password";
+import { keepOldPassword, newPasswordProblem } from "@/lib/auth/password-rules";
 import { mayResetWithoutOld, revokeAllSessions, revokeSession, setSessionSchool } from "@/lib/auth/sessions";
 import { securityAlert } from "@/lib/auth/security-alert";
 import { formatDateTime } from "@/lib/format";
 import { schoolsFor } from "@/lib/auth/access";
-import { clearSessionCookie, deviceInfo, requireCurrent } from "@/lib/current";
+import { clearSessionCookie, deviceInfo, getCurrent, requireCurrent } from "@/lib/current";
 import { cookies } from "next/headers";
 import { forgetDevice, REMEMBERED_COOKIE } from "@/lib/auth/remembered";
 import { ACCENT_COOKIE, SIZE_COOKIE, THEME_COOKIE, cleanAccent, cleanTextSize, cleanTheme } from "@/lib/theme";
@@ -122,11 +123,13 @@ export async function changePassword(_prev: PasswordState, formData: FormData): 
   if (!withoutOld && (!user.passwordHash || !(await verifyPassword(user.passwordHash, oldPassword)))) {
     return { ok: false, message: "Your current password is not right. Check it and try again." };
   }
-  const problem = checkNewPassword(newPassword);
-  if (problem) return { ok: false, message: `New password: ${problem}` };
   if (newPassword !== confirm) return { ok: false, message: "The two new passwords are not the same. Type them again." };
+  // The school's password rules (the strictest of the person's schools) and their earlier passwords.
+  const problem = await newPasswordProblem(user.id, newPassword);
+  if (problem) return { ok: false, message: `New password: ${problem}` };
 
   const now = new Date();
+  await keepOldPassword(user.id, user.passwordHash, now);
   await prisma.userLogin.update({
     where: { id: user.id },
     data: { passwordHash: await hashPassword(newPassword), passwordChangedAt: now, mustChangePassword: false },
@@ -187,4 +190,14 @@ export async function setScreenLanguage(formData: FormData) {
   // The sign-in page and pages with no sign-in on this browser follow the choice too.
   (await cookies()).set(LANG_COOKIE, personLanguage({ language }, current.school), { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
   revalidatePath("/", "layout");
+}
+
+/**
+ * Keeps this sign-in going while the person is busy on a page without
+ * opening another (a long form): the browser asks now and then after they
+ * typed or tapped (components/shell/away-watch.tsx). Reading the session on
+ * the server counts as use. False when the sign-in has already ended.
+ */
+export async function keepSignedIn(): Promise<boolean> {
+  return Boolean(await getCurrent());
 }

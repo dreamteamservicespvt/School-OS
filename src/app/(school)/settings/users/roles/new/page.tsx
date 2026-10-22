@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { RoleEditor } from "../role-editor";
 import { schoolRole, schoolRoles } from "@/lib/school-roles";
+import { sensitiveChoices } from "@/lib/sensitive";
 
 export const metadata: Metadata = { title: "Create a role" };
 
@@ -35,6 +36,7 @@ export default async function NewRolePage({ searchParams }: { searchParams: Prom
         <CardBody>
           <RoleEditor key={from?.id ?? "blank"} id={null} name={from ? `${from.name} (copy)` : ""} kind="CUSTOM"
             permissions={(from?.permissions as Partial<RolePermissions>) ?? { dashboard: "own" }} requiresTwoStep={from?.requiresTwoStep ?? false}
+            sensitiveFields={from?.sensitiveFields ?? ""} sensitiveOptions={sensitiveChoices({ key: null, kind: "CUSTOM" })}
             copyFromId={from?.id ?? null} modules={MODULES.map((m) => ({ key: m.key, name: m.name }))} people={0} readOnly={false} cancelHref="/settings/users/roles" />
         </CardBody>
       </Card>

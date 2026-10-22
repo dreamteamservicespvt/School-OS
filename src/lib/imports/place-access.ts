@@ -61,7 +61,7 @@ export async function placeRefusal(current: Current, place: ImportPlace, kind: s
       // HR's own work: Staff & HR full, for bringing in and for Undo alike.
       if (reachFor(current.permissions, "staff-hr-management", "create") !== "all") return new HrOnlyError(kind === "staff" ? "importing staff" : "this").message;
       // Pay details are restricted fields (PAN, bank account): only the roles that may see them in full (09 §1).
-      if (kind === "staff-pay-details" && !canSeeRestricted(current.roles.map((r) => r.key))) return "Only HR, the Principal or the School Admin can bring in pay details. They are restricted.";
+      if (kind === "staff-pay-details" && !canSeeRestricted(current.roles)) return "Only HR, the Principal or the School Admin can bring in pay details. They are restricted.";
       return null;
     case "enquiries": {
       // The admission team's work (Admission Management full), for bringing in and for Undo alike.

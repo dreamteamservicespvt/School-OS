@@ -8,13 +8,13 @@ import { cx } from "@/components/ui/cx";
 import { changePassword, type PasswordState } from "../actions";
 
 /** `withoutOld`: the person just signed in with a one-time code, so the old password is not asked for. */
-export function PasswordForm({ withoutOld = false }: { withoutOld?: boolean }) {
+export function PasswordForm({ withoutOld = false, minLength = 8, rulesWords }: { withoutOld?: boolean; /** The school's shortest password (Password Policy). */ minLength?: number; rulesWords?: string }) {
   const [state, action, pending] = useActionState<PasswordState, FormData>(changePassword, null);
   const [show, setShow] = useState(false);
   const [pw, setPw] = useState("");
   const [again, setAgain] = useState("");
   const rules = [
-    { ok: pw.length >= 8, text: "8 or more characters" },
+    { ok: pw.length >= minLength, text: `${minLength} or more characters` },
     { ok: /[a-z]/i.test(pw), text: "A letter" },
     { ok: /\d/.test(pw), text: "A number" },
   ];
@@ -23,6 +23,7 @@ export function PasswordForm({ withoutOld = false }: { withoutOld?: boolean }) {
   return (
     <form action={action} className="flex flex-col gap-4">
       {state && <p role="alert" className="rounded-xl bg-bad/10 px-3.5 py-2.5 text-sm text-bad">{state.message}</p>}
+      {rulesWords && <p className="text-sm text-ink2">{rulesWords}</p>}
       {withoutOld ? (
         <p className="rounded-xl bg-sunken px-3.5 py-2.5 text-sm text-ink2">You signed in with a one-time code, so your old password is not needed. Choose a new one.</p>
       ) : (

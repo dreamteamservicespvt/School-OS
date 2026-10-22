@@ -200,6 +200,9 @@ model Role {
   kind            RoleKind  @default(CUSTOM)
   isEnabled       Boolean   @default(true) @map("is_enabled")
   requiresTwoStep Boolean   @default(false) @map("requires_two_step")
+  /// Sensitive fields the role may see: "normal", "restricted" or "highly-restricted"
+  /// (src/lib/sensitive.ts). Null: as before, set module by module (gap list G45).
+  sensitiveFields String?   @map("sensitive_fields")
   permissions     Json
   createdAt       DateTime  @default(now()) @map("created_at")
   updatedAt       DateTime  @updatedAt @map("updated_at")

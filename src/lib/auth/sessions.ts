@@ -4,13 +4,13 @@
 import { prisma } from "../db";
 import { deviceKeyOf, hashToken, newToken } from "./tokens";
 import { forgetAllDevices } from "./remembered";
+import { sessionEnds, sessionRulesFor, TIMED_OUT_REASONS, type SessionRules, type TimeOut } from "./session-rules";
 
 export { deviceKeyOf };
 
-/** A session ends after this long without use (inferred until Settings sets time-outs). */
-export const SESSION_IDLE_MS = 7 * 24 * 60 * 60 * 1000;
-/** lastUsedAt is refreshed at most this often, to keep page loads light. */
+/** lastUsedAt is refreshed at most this often, to keep page loads light (more often for short time-outs). */
 const TOUCH_EVERY_MS = 5 * 60 * 1000;
+const touchEvery = (idleMinutes: number) => Math.min(TOUCH_EVERY_MS, (idleMinutes * 60_000) / 5);
 
 /**
  * The browser a request comes from. `deviceId` is the browser's own random id
@@ -20,17 +20,20 @@ export type DeviceInfo = { userAgent?: string | null; ipAddress?: string | null;
 
 export async function createSession(userLoginId: string, schoolId: string | null, device: DeviceInfo, now = new Date(), opts: { signedInWithCode?: boolean } = {}) {
   const token = newToken();
+  const rules = await sessionRulesFor(schoolId, now.getTime());
+  const userAgent = device.userAgent?.slice(0, 400) ?? null;
   const session = await prisma.session.create({
     data: {
       userLoginId,
       tokenHash: hashToken(token),
       schoolId,
-      userAgent: device.userAgent?.slice(0, 400) ?? null,
+      userAgent,
       ipAddress: device.ipAddress ?? null,
       deviceKey: deviceKeyOf(device.deviceId),
       signedInWithCode: opts.signedInWithCode ?? false,
+      createdAt: now,
       lastUsedAt: now,
-      expiresAt: new Date(now.getTime() + SESSION_IDLE_MS),
+      expiresAt: sessionEnds({ userAgent, createdAt: now, lastUsedAt: now }, rules).at,
     },
   });
   return { token, session };
@@ -44,23 +47,56 @@ export function mayResetWithoutOld(session: { signedInWithCode?: boolean | null;
   return Boolean(session.signedInWithCode && session.createdAt && now.getTime() - session.createdAt.getTime() < NEW_PASSWORD_AFTER_CODE_MS);
 }
 
-/** Finds a live session for a cookie token, or null. Disabled logins have no live sessions. */
+/**
+ * Finds a live session for a cookie token, or null. Disabled logins have no
+ * live sessions. The school's session rules are applied here, on the server,
+ * to every request: a session not used for longer than the school allows, or
+ * older than its longest sign-in, ends now (with the reason, for the sign-in
+ * page). A remembered device is not forgotten by it.
+ */
 export async function findSession(token: string | undefined | null, now = new Date()) {
   if (!token) return null;
   const session = await prisma.session.findUnique({
     where: { tokenHash: hashToken(token) },
     include: { userLogin: true },
   });
-  if (!session || session.revokedAt || session.expiresAt <= now) return null;
+  if (!session || session.revokedAt) return null;
   if (session.userLogin.status !== "ACTIVE" || session.userLogin.archivedAt) return null;
 
-  if (now.getTime() - session.lastUsedAt.getTime() > TOUCH_EVERY_MS) {
+  // The school's rules as they are now decide, so a changed rule applies at once (expiresAt only mirrors them).
+  const rules = await sessionRulesFor(session.schoolId, now.getTime());
+  const end = sessionEnds(session, rules);
+  if (end.at <= now) {
+    await prisma.session.updateMany({ where: { id: session.id, revokedAt: null }, data: { revokedAt: now, revokedReason: TIMED_OUT_REASONS[end.why] } });
+    return null;
+  }
+  if (now.getTime() - session.lastUsedAt.getTime() > touchEvery(end.idleMinutes)) {
     await prisma.session.update({
       where: { id: session.id },
-      data: { lastUsedAt: now, expiresAt: new Date(now.getTime() + SESSION_IDLE_MS) },
+      data: { lastUsedAt: now, expiresAt: sessionEnds({ ...session, lastUsedAt: now }, rules).at },
     });
   }
   return session;
+}
+
+export type SignedOutBy = { why: TimeOut; minutes: number };
+
+/**
+ * Why the session behind this cookie ended by itself, for "You were signed out
+ * because you were away": time without use, or the longest sign-in. Null when
+ * it is live, was signed out by a person, or is unknown.
+ */
+export async function whySignedOut(token: string | undefined | null, now = new Date()): Promise<SignedOutBy | null> {
+  if (!token) return null;
+  const session = await prisma.session.findUnique({ where: { tokenHash: hashToken(token) } });
+  if (!session) return null;
+  const rules: SessionRules = await sessionRulesFor(session.schoolId, now.getTime());
+  const end = sessionEnds(session, rules);
+  const why = session.revokedAt
+    ? (Object.entries(TIMED_OUT_REASONS).find(([, words]) => words === session.revokedReason)?.[0] as TimeOut | undefined)
+    : end.at <= now ? end.why : undefined;
+  if (!why) return null;
+  return { why, minutes: why === "too-long" ? rules.maxSession ?? end.idleMinutes : end.idleMinutes };
 }
 
 export async function revokeSession(sessionId: string, userLoginId: string, reason: string) {

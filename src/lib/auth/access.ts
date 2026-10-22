@@ -7,6 +7,7 @@ import { withSchool, withUser } from "../db";
 import { applyExceptions, combineRoles, narrowToOwn, type PermissionMap } from "../permissions";
 import { MODULES, type ModuleKey } from "../modules";
 import type { AccessLevel, RolePermissions } from "../roles";
+import { isSensitiveLevel, type SensitiveLevel } from "../sensitive";
 
 export type SchoolChoice = { id: string; name: string; code: string; logoUrl: string | null };
 
@@ -39,7 +40,7 @@ export type SchoolAccessView = {
   /** Set by DREAM TEAM in the console. Suspended or Closed: the school is paused (see /paused). */
   schoolStatus: "TRIAL" | "ACTIVE" | "SUSPENDED" | "CLOSED";
   /** Each role with its own levels (the Settings copy of 05-roles.md), for who does the desk work (src/lib/duty.ts). */
-  roles: { key: string | null; name: string; permissions?: RolePermissions }[];
+  roles: { key: string | null; name: string; permissions?: RolePermissions; /** Sensitive fields the school set for the role (src/lib/sensitive.ts); null: as before. */ sensitive?: SensitiveLevel | null }[];
   permissions: PermissionMap;
   modulesOn: Set<ModuleKey>;
   features: Set<string>;
@@ -119,7 +120,7 @@ export async function accessIn(userLoginId: string, schoolId: string): Promise<S
     return {
       school: { id: school.id, name: school.name, code: school.code, logoUrl: school.logoUrl, timeZone: school.timeZone, accent: readPreferences(school.preferences).schoolAccent ?? null, weekStart: readPreferences(school.preferences).weekStart === "sunday" ? "sunday" : "monday", languages: school.languages, defaultLanguage: school.defaultLanguage },
       schoolStatus: school.status,
-      roles: roles.map((r) => ({ key: r.key, name: r.name, permissions: r.permissions as RolePermissions })),
+      roles: roles.map((r) => ({ key: r.key, name: r.name, permissions: r.permissions as RolePermissions, sensitive: isSensitiveLevel(r.sensitiveFields) ? r.sensitiveFields : null })),
       permissions: applyExceptions(
         scope === "OWN" ? narrowToOwn(combined) : combined,
         accesses.map((a) => a.exceptions as Record<string, AccessLevel>),

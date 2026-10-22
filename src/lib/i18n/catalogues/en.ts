@@ -1059,6 +1059,20 @@ export const EN = [
   "Switch modules on or off, AI features and integrations.",
   "Backups, imports, exports, the audit log, privacy and consent.",
   "Settings pages",
+  // Sign-in rules (gap list G45): src/lib/auth/session-rules.ts, src/lib/auth/password-rules.ts
+  "{n} minute",
+  "{n} minutes",
+  "{n} hour",
+  "{n} hours",
+  "{n} day",
+  "{n} days",
+  "You were signed out because you were away for {time}. Sign in again to carry on.",
+  "You were signed out because you were away for a while. Sign in again to carry on.",
+  "You were signed out because your school ends every sign-in after {time}. Sign in again to carry on.",
+  "You were signed out because your school ends every sign-in after a set time. Sign in again to carry on.",
+  "At least {n} characters, with a letter and a number; not a common password.",
+  "At least {n} characters, with a letter and a number; not a common password; not the one you have now.",
+  "At least {n} characters, with a letter and a number; not a common password; not one of your last {count}.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

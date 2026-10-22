@@ -7,7 +7,8 @@ import "server-only";
 import { randomInt, timingSafeEqual } from "node:crypto";
 import type { SchoolInvite } from "@prisma/client";
 import { prisma, withConsole } from "../db";
-import { checkNewPassword, hashPassword } from "../auth/password";
+import { hashPassword } from "../auth/password";
+import { keepOldPassword, newPasswordProblem } from "../auth/password-rules";
 import { hashToken, newToken } from "../auth/tokens";
 import { createSession, revokeAllSessions, type DeviceInfo } from "../auth/sessions";
 import { hitLimit, limitMessage } from "../rate-limit";
@@ -78,7 +79,8 @@ export async function finishSchoolInvite(token: string, code: string, password: 
     await withConsole((tx) => tx.schoolInvite.update({ where: { id: inv.id }, data: { codeAttempts: { increment: 1 } } }));
     return { ok: false, message: "That code is not right. Check the SMS and type it again.", field: "code" };
   }
-  const bad = checkNewPassword(password);
+  // The school's password rules (the strictest of the login's schools), and on a reset its earlier passwords.
+  const bad = await newPasswordProblem(inv.userLoginId, password);
   if (bad) return { ok: false, message: bad, field: "password" };
   const passwordHash = await hashPassword(password);
 
@@ -88,6 +90,7 @@ export async function finishSchoolInvite(token: string, code: string, password: 
 
   const login = await prisma.userLogin.findUnique({ where: { id: inv.userLoginId } });
   if (!login || login.archivedAt || login.status === "DISABLED") return { ok: false, message: "This login was switched off. Ask DREAM TEAM for help.", restart: true };
+  await keepOldPassword(login.id, login.passwordHash, now);
   await prisma.userLogin.update({
     where: { id: login.id },
     data: { passwordHash, status: "ACTIVE", passwordChangedAt: now, failedAttempts: 0, lockedUntil: null, inviteTokenHash: null, inviteExpiresAt: null },

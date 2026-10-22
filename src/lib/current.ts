@@ -7,7 +7,7 @@ import type { Session, UserLogin } from "@prisma/client";
 import { clientIp } from "@/lib/client-ip";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { findSession } from "./auth/sessions";
+import { findSession, whySignedOut } from "./auth/sessions";
 import { newToken } from "./auth/tokens";
 import { accessIn, schoolsFor, supportAccessView } from "./auth/access";
 import { menuModules, PermissionDeniedError, reachFor, requirePermission, type Action } from "./permissions";
@@ -155,8 +155,11 @@ export async function requireCurrent(opts: { paused?: "admin" | "any" } = {}): P
   const current = await getCurrent();
   if (!current) {
     // A support browser whose access ended (time up, ended by either side, or signed out of the console).
-    if ((await cookies()).get(SUPPORT_COOKIE)?.value) redirect("/support/left");
-    redirect("/sign-in");
+    const jar = await cookies();
+    if (jar.get(SUPPORT_COOKIE)?.value) redirect("/support/left");
+    // A sign-in that ended by itself (the school's session rules) says so on the sign-in page.
+    const ended = await whySignedOut(jar.get(SESSION_COOKIE)?.value).catch(() => null);
+    redirect(ended ? `/sign-in?signedOut=${ended.why}&m=${ended.minutes}` : "/sign-in");
   }
   if (isPaused(current) && opts.paused !== "any" && !(opts.paused === "admin" && pausedAdmin(current))) redirect("/paused");
   return current;

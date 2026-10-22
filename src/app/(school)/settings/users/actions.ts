@@ -10,6 +10,9 @@ import { schoolsFor } from "@/lib/auth/access";
 import { changeAccess, disableUser, enableUser, inviteUser, linkRecord, resendInvite, resetTwoStep, setExceptions, updateDetails } from "@/lib/settings/users";
 import { archiveRole, createRole, restoreRole, restoreRoleVersion, setTemplateOn, updateRole } from "@/lib/settings/roles";
 import { asFormState, runSettings } from "../run";
+import { forgetSessionRules, saveSessionRules } from "@/lib/auth/session-rules";
+import { savePasswordRules } from "@/lib/auth/password-rules";
+import type { SensitiveLevel } from "@/lib/sensitive";
 
 const PAGE = "users" as const;
 import { inviteSentWords } from "@/lib/settings/invite-message";
@@ -153,7 +156,12 @@ function grid(fd: FormData) {
 
 export async function saveRoleAction(_: FormState, fd: FormData): Promise<FormState> {
   const id = String(fd.get("id") ?? "");
-  const input = { name: String(fd.get("name") ?? ""), permissions: grid(fd), requiresTwoStep: fd.get("requiresTwoStep") === "on", copyFromId: String(fd.get("copyFromId") ?? "") || null };
+  // Sensitive fields: "" is "as before" (each module's own rule); checked against what 05-roles.md allows the role on the server.
+  const sensitive = fd.get("sensitiveFields");
+  const input = {
+    name: String(fd.get("name") ?? ""), permissions: grid(fd), requiresTwoStep: fd.get("requiresTwoStep") === "on", copyFromId: String(fd.get("copyFromId") ?? "") || null,
+    sensitiveFields: sensitive === null ? undefined : sensitive === "" ? null : (String(sensitive) as SensitiveLevel),
+  };
   const values = formValues(fd);
   if (id) {
     const r = await runSettings(PAGE, "edit", (tx, current) => updateRole(tx, current.ctx, id, input));
@@ -187,4 +195,31 @@ export async function putBackRoleAction(auditId: string, roleId: string): Promis
   if (!r.ok) return r.message;
   await flash({ message: r.data ? "Put back as it was before that change. Every School Admin was told." : "The role is already like that." });
   revalidatePath(`${USERS}/roles/${roleId}`);
+}
+
+// ------------------------------------------------- Password and session rules
+
+/** Saves the school's session rules (time without use, longest sign-in). Checked again on the server and in the database. */
+export async function saveSessionRulesAction(_: FormState, fd: FormData): Promise<FormState> {
+  const values = formValues(fd);
+  const max = String(fd.get("maxSession") ?? "none");
+  const input = { idleComputer: Number(fd.get("idleComputer")), idlePhone: Number(fd.get("idlePhone")), maxSession: max === "none" ? null : Number(max) };
+  const r = await runSettings(PAGE, "edit", (tx, current) => saveSessionRules(tx, current.ctx, input));
+  if (!r.ok) return asFormState(r, values, "");
+  forgetSessionRules(r.current.school.id);
+  if (!r.data) return { ok: true, message: "Nothing changed." };
+  revalidatePath(`${USERS}/sign-in-rules`);
+  return { ok: true, message: "Session rules saved. They apply to every signed-in device from its next page." };
+}
+
+/** Saves the school's password rules (shortest password, earlier passwords, expiry). They apply the next time anyone sets a password. */
+export async function savePasswordRulesAction(_: FormState, fd: FormData): Promise<FormState> {
+  const values = formValues(fd);
+  const expiry = String(fd.get("expiryDays") ?? "never");
+  const input = { minLength: Number(fd.get("minLength")), history: Number(fd.get("history")), expiryDays: expiry === "never" ? null : Number(expiry) };
+  const r = await runSettings(PAGE, "edit", (tx, current) => savePasswordRules(tx, current.ctx, input));
+  if (!r.ok) return asFormState(r, values, "");
+  if (!r.data) return { ok: true, message: "Nothing changed." };
+  revalidatePath(`${USERS}/sign-in-rules`);
+  return { ok: true, message: "Password rules saved. They apply the next time anyone sets a password. Nobody is signed out." };
 }

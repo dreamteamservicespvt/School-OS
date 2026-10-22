@@ -98,13 +98,13 @@ function ContactForm({ kind, current }: { kind: "phone" | "email"; current: stri
   );
 }
 
-export function PasswordButton({ withoutOld = false }: { withoutOld?: boolean }) {
+export function PasswordButton({ withoutOld = false, minLength, rulesWords }: { withoutOld?: boolean; minLength?: number; rulesWords?: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
       <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>{withoutOld ? "Set a new password" : "Change password"}</Button>
       <Dialog open={open} onClose={() => setOpen(false)} title={withoutOld ? "Set a new password" : "Change password"} sub="Your other devices will be signed out.">
-        <PasswordForm withoutOld={withoutOld} />
+        <PasswordForm withoutOld={withoutOld} minLength={minLength} rulesWords={rulesWords} />
       </Dialog>
     </>
   );

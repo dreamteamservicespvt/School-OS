@@ -2,7 +2,8 @@
 // types or knows a school user's password (08-platform-security.md §2).
 
 import { prisma } from "../db";
-import { checkNewPassword, hashPassword, verifyPassword } from "./password";
+import { hashPassword, verifyPassword } from "./password";
+import { keepOldPassword, newPasswordProblem } from "./password-rules";
 import { hashToken, newToken } from "./tokens";
 
 /** How long an invite link works (inferred: 7 days). */
@@ -44,11 +45,14 @@ export type AcceptResult = { ok: true; userLoginId: string; username: string } |
 export async function acceptInvite(token: string, password: string, now = new Date()): Promise<AcceptResult> {
   const user = await findInvite(token, now);
   if (!user) return { ok: false, message: "This invite link has expired or was already used. Ask your School Admin for a new one." };
-  const problem = checkNewPassword(password);
-  if (problem) return { ok: false, message: problem };
-  if (user.mustChangePassword && user.passwordHash && (await verifyPassword(user.passwordHash, password))) {
-    return { ok: false, message: "Choose a new password, not the temporary one your school gave you." };
+  // A temporary password from the school, or one that expired (password-rules.ts), is never chosen again.
+  if (user.passwordHash && (await verifyPassword(user.passwordHash, password))) {
+    return { ok: false, message: user.mustChangePassword ? "Choose a new password, not the temporary one your school gave you." : "Choose a new password, not the one you have now." };
   }
+  // The school's password rules (the strictest of the person's schools) and their earlier passwords.
+  const problem = await newPasswordProblem(user.id, password);
+  if (problem) return { ok: false, message: problem };
+  await keepOldPassword(user.id, user.passwordHash, now);
   await prisma.userLogin.update({
     where: { id: user.id },
     data: {

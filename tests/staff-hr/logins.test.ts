@@ -11,6 +11,7 @@ import { signIn } from "@/lib/auth/sign-in";
 import { encryptSecrets } from "@/lib/messaging/channels";
 import { invitePlaceholderFor } from "@/lib/parent-link/token";
 import { createStaff, issueInvite, type StaffDetails } from "@/lib/staff/staff";
+import { savePasswordRules } from "@/lib/auth/password-rules";
 import { d, makeHrSchool } from "./fixture";
 import { noSleep } from "../helpers";
 
@@ -65,7 +66,7 @@ describe("making a staff login sends the invite (G33 a)", () => {
 });
 
 describe("a temporary password, changed at the first sign-in (G33 b)", () => {
-  const TEMP = "Welcome-2026";
+  const TEMP = "Kite-river-2026";
 
   it("keeps only its hash, sends nothing, and writes no password to the Audit Log", async () => {
     const r = await withSchool(as(f.admin.id), (tx) => createStaff(tx, as(f.admin.id), details({ fullName: "Divya Nair", phone: "9123400053" }), { roleKeys: ["teacher"], username: "divya.nair", exceptions: {}, campusId: null, temporaryPassword: TEMP }, []));
@@ -101,5 +102,15 @@ describe("a temporary password, changed at the first sign-in (G33 b)", () => {
 
   it("a weak temporary password is refused with the rule", async () => {
     await expect(withSchool(as(f.admin.id), (tx) => createStaff(tx, as(f.admin.id), details({ fullName: "Short Pass", phone: "9123400054" }), { roleKeys: ["teacher"], username: null, exceptions: {}, campusId: null, temporaryPassword: "abc" }, []))).rejects.toThrow("Temporary password: Use at least 8 characters.");
+  });
+
+  it("a temporary password follows the school's password rules: its shortest length, and never a common password (gap list G45)", async () => {
+    const make = (name: string, phone: string, temporaryPassword: string) =>
+      withSchool(as(f.admin.id), (tx) => createStaff(tx, as(f.admin.id), details({ fullName: name, phone }), { roleKeys: ["teacher"], username: null, exceptions: {}, campusId: null, temporaryPassword }, []));
+    await expect(make("Common Pass", "9123400055", "Welcome@2026")).rejects.toThrow("Temporary password: This password is too common");
+    await withSchool(as(f.admin.id), (tx) => savePasswordRules(tx, as(f.admin.id), { minLength: 14, history: 0, expiryDays: null }));
+    await expect(make("Twelve Long", "9123400056", "Kite-river-1")).rejects.toThrow("Temporary password: Use at least 14 characters.");
+    await expect(make("Long Enough", "9123400057", "Kite-river-2026")).resolves.toBeTruthy();
+    await withSchool(as(f.admin.id), (tx) => savePasswordRules(tx, as(f.admin.id), { minLength: 8, history: 0, expiryDays: null }));
   });
 });

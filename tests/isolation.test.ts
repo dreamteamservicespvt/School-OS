@@ -75,6 +75,15 @@ describe("a user of school A cannot read school B", () => {
     });
   });
 
+  it("sees only school A's password and session rules (Password Policy, gap list G45)", async () => {
+    await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.passwordPolicy.create({ data: { schoolId: b.id, idleMinutesComputer: 30 } }));
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.passwordPolicy.findMany()).toEqual([]);
+      expect((await tx.passwordPolicy.updateMany({ where: { schoolId: b.id }, data: { idleMinutesComputer: 5 } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.passwordPolicy.create({ data: { schoolId: b.id, idleMinutesComputer: 60 } }))).rejects.toThrow();
+  });
+
   it("cannot open a school B record even by its exact id", async () => {
     await withSchool(ctxA(), async (tx) => {
       expect(await tx.school.findUnique({ where: { id: b.id } })).toBeNull();

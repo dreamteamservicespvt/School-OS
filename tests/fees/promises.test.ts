@@ -12,7 +12,7 @@ import { combineRoles } from "@/lib/permissions";
 import { addDays, todayIn } from "@/lib/staff/dates";
 import { requireFeeStaff, type FeeViewer } from "@/lib/fees/access";
 import { addCallNote, callOrder, defaulters } from "@/lib/fees/defaulters";
-import { automaticReminders } from "@/lib/fees/reminders";
+import { automaticReminders, reminderOnceKey } from "@/lib/fees/reminders";
 import { forecast } from "@/lib/fees/dashboard";
 import {
   currentPromise, PROMISE_FEATURE, PROMISE_MAX_DAYS, pausedByPromise, promiseOutcome, promiseSummary, promiseWords,
@@ -153,16 +153,15 @@ describe("automatic reminders pause until the promised date", () => {
     await note(g, g.ravi.id, addDays(D, 5), null, "", D);
     const sent = await withSchool(job(g), (tx) => automaticReminders(tx, job(g), D));
     expect(sent.sent).toBeGreaterThan(0);
-    const key = (id: string, offset: number) => `auto:${id}:${D.toISOString().slice(0, 10)}:${offset}`;
     const once = (k: string) => withSchool(g.ctx, (tx) => tx.feeReminder.count({ where: { onceKey: k } }));
-    expect(await once(key(g.sita.id, 0))).toBe(1);
-    expect(await once(key(g.ravi.id, 0))).toBe(0);
+    expect(await once(reminderOnceKey(g.sita.id, D))).toBe(1);
+    expect(await once(reminderOnceKey(g.ravi.id, D))).toBe(0);
 
     // 7 days later the date has passed with nothing paid: the job marks it broken first, then reminds Ravi.
     const later = addDays(D, 7);
     expect(await withSchool(job(g), (tx) => settlePromises(tx, job(g), later))).toEqual({ kept: 0, broken: 1 });
     await withSchool(job(g), (tx) => automaticReminders(tx, job(g), later));
-    expect(await once(key(g.ravi.id, 7))).toBe(1);
+    expect(await once(reminderOnceKey(g.ravi.id, later))).toBe(1);
   });
 });
 

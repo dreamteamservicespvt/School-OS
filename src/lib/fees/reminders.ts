@@ -12,14 +12,17 @@ import { writeAudit } from "../audit";
 import { formatDate, formatRupees } from "../format";
 import { addDays } from "../staff/dates";
 import { currentEnrolments } from "../academic/years";
-import { appUrl } from "../parent-link/token";
+import { withHiddenLinks } from "../parent-link/token";
 import { MoneyProblem } from "./problem";
 import { openDues } from "./dues";
-import { feeSettings, gatewayFor } from "./settings";
+import { feeSettings, gatewayFor, type FeeSettings } from "./settings";
 import { feeMessageInput, planMessage, sendAutomatic, sendMessage } from "./notify-parents";
-import { createPaymentLink, payPath } from "./online";
+import { payPlan, type PayPlan } from "./reminder-pay";
+import { ruleReady, ruleStates } from "../messaging/automatic";
 import { pausedByPromise } from "./promises";
 import { REMINDER_CHANNELS, TEMPLATE_VARIABLES } from "./words";
+import { movingIn } from "../move-in/live";
+import { schoolCalendar } from "../calendar/school-days";
 
 const ZERO = BigInt(0);
 type ReminderChannel = (typeof REMINDER_CHANNELS)[number]["value"];
@@ -109,8 +112,13 @@ async function checkInput(tx: Tx, ctx: SchoolContext, input: ReminderInput) {
   return { channel, templateId: null, text: checkTemplate(input.text ?? "") };
 }
 
-function valuesFor(r: Planned, link: string) {
-  return { due_amount: formatRupees(r.due), due_date: formatDate(r.dueDate), link };
+function valuesFor(r: Planned, pay: PayPlan) {
+  return { due_amount: formatRupees(r.due), due_date: formatDate(r.dueDate), ...pay.perStudent[r.studentId] };
+}
+
+/** The message blanks of each family: the amount and date, and how this guardian pays this child (./reminder-pay.ts). */
+function blanksOf(out: Planned[], pay: PayPlan) {
+  return { perStudent: Object.fromEntries(out.map((r) => [r.studentId, valuesFor(r, pay)])), perGuardianStudent: pay.perGuardianStudent };
 }
 
 export type ReminderPreview = {
@@ -138,10 +146,10 @@ export async function previewReminders(tx: Tx, ctx: SchoolContext, input: Remind
   const linkAvailable = p.out.length > 0 && Boolean(await gatewayFor(tx, ctx, p.out[0].classId));
   const students = new Set(input.studentIds).size;
   if (!p.out.length) return { students, recipients: 0, messages: 0, skipped: [], skippedNothingDue: p.nothing, cost: 0, creditProblem: null, problems: [], sample: null, sampleFor: null, linkAvailable };
-  const link = input.includeLink && linkAvailable ? `${appUrl()}/pay/…` : "the school office";
+  const pay = await payPlan(tx, ctx, p.out, { online: input.includeLink, makeLinks: false, allGuardians: false });
   const plan = await planMessage(tx, ctx, feeMessageInput({
     studentIds: p.out.map((r) => r.studentId), channel: c.channel, templateId: c.templateId, text: c.text,
-    perStudent: Object.fromEntries(p.out.map((r) => [r.studentId, valuesFor(r, link)])), trigger: "Fee reminder", scheduledAt: input.scheduledAt ?? null,
+    ...blanksOf(p.out, pay), trigger: "Fee reminder", scheduledAt: input.scheduledAt ?? null,
   }));
   // The sample is the message of the first student on the list who gets one, named with its own parent.
   const order = new Map(input.studentIds.map((id, i) => [id, i]));
@@ -156,7 +164,7 @@ export async function previewReminders(tx: Tx, ctx: SchoolContext, input: Remind
     cost: plan.cost[c.channel] ?? 0,
     creditProblem: plan.creditProblem,
     problems: plan.problems,
-    sample: first?.text ?? null,
+    sample: first ? withHiddenLinks(first.text) : null,
     sampleFor: first ? { parent: first.candidate.name, students: (first.students ?? []).map((s) => s.name) } : null,
     linkAvailable,
   };
@@ -167,19 +175,11 @@ export async function sendReminders(tx: Tx, ctx: SchoolContext, input: ReminderI
   const c = await checkInput(tx, ctx, input);
   const p = await whoOwes(tx, input.studentIds, input.today);
   if (!p.out.length) throw new MoneyProblem("None of these students owe anything now. Nothing was sent.");
-  const links = new Map<string, string>();
-  for (const r of p.out) {
-    let link = "the school office";
-    if (input.includeLink && (await gatewayFor(tx, ctx, r.classId))) {
-      const made = await createPaymentLink(tx, ctx, { studentId: r.studentId, dueIds: r.dueIds, source: "LINK", channel: c.channel });
-      link = `${appUrl()}${payPath(ctx.schoolId, made.token)}`;
-    }
-    links.set(r.studentId, link);
-  }
+  // Each guardian's own Parent Link, or a payment link that works for 7 days, or the school office (./reminder-pay.ts).
+  const pay = await payPlan(tx, ctx, p.out, { online: input.includeLink, makeLinks: true, allGuardians: false });
   const send = feeMessageInput({
     studentIds: p.out.map((r) => r.studentId), channel: c.channel, templateId: c.templateId, text: c.text,
-    perStudent: Object.fromEntries(p.out.map((r) => [r.studentId, valuesFor(r, links.get(r.studentId)!)])),
-    trigger: "Fee reminder", scheduledAt: input.scheduledAt ?? null,
+    ...blanksOf(p.out, pay), trigger: "Fee reminder", scheduledAt: input.scheduledAt ?? null,
   });
   const plan = await planMessage(tx, ctx, send);
   if (plan.problems.length) throw new MoneyProblem(plan.problems[0]);
@@ -203,50 +203,129 @@ export async function sendReminders(tx: Tx, ctx: SchoolContext, input: ReminderI
   return { sent: plan.people, students: reached.size, skipped: plan.skipped, skippedNothingDue: p.nothing, scheduled: result.scheduled, messageId: result.messageId };
 }
 
+/** With quiet days on, how far back a closed stretch (a vacation) is looked at when the school opens again. */
+export const QUIET_CARRY_DAYS = 60;
+
+const iso = (d: Date) => d.toISOString().slice(0, 10);
+
 /**
- * A7: the scheduled reminders for today. For each day in Fee Settings (for
- * example 3 days before, on the day, 7 days after) the parents of students
- * with an unpaid row due on that day get one reminder, only once. The rule's
- * on/off switch, channels and template are in Communication, Message Settings
- * (rule "Fee reminder"). A family with an open Promise to Pay dated today or
- * later is skipped: their reminders pause until the promised date.
+ * The days whose reminders go today. Normally only today. With "Not on days
+ * the school is closed" on: nothing on a closed day (null), and on a school
+ * day also the closed days just before it, whose reminders were held.
  */
-export async function automaticReminders(tx: Tx, ctx: SchoolContext, today: Date) {
-  const s = await feeSettings(tx, ctx);
-  if (!s.remindersOn) return { sent: 0 };
-  let sent = 0;
-  for (const offset of s.reminderDays) {
-    const dueDate = addDays(today, -offset);
-    const day = dueDate.toISOString().slice(0, 10);
-    const rows = await tx.studentFeeDue.findMany({ where: { state: "OPEN", balancePaise: { gt: 0 }, kind: { in: ["FEE", "CHARGE", "LATE_FEE"] }, dueDate }, select: { studentId: true } });
-    let studentIds = [...new Set(rows.map((r) => r.studentId))];
-    const onceKey = (id: string) => `auto:${id}:${day}:${offset}`;
-    const done = new Set((await tx.feeReminder.findMany({ where: { onceKey: { in: studentIds.map(onceKey) } }, select: { onceKey: true } })).map((r) => r.onceKey));
-    studentIds = studentIds.filter((id) => !done.has(onceKey(id)));
-    const paused = await pausedByPromise(tx, ctx, studentIds, today);
-    studentIds = studentIds.filter((id) => !paused.has(id));
-    if (!studentIds.length) continue;
-    const p = await whoOwes(tx, studentIds, today);
-    if (!p.out.length) continue;
-    const r = await sendAutomatic(tx, ctx, {
-      rule: "fee-due",
-      event: { key: `fee-due:${day}:${offset}`, label: `Fee due on ${formatDate(dueDate)}` },
-      to: { guardiansOf: p.out.map((x) => x.studentId) },
-      perStudent: Object.fromEntries(p.out.map((x) => [x.studentId, valuesFor(x, "your Parent Link")])),
-      source: null,
-    });
-    if (r.status === "off" || r.status === "no-channel") return { sent, status: r.status };
-    if (r.status !== "sent") continue;
-    sent += r.result.people;
-    await tx.feeReminder.createMany({
-      data: p.out.map((x) => ({
-        schoolId: ctx.schoolId, studentId: x.studentId, dueId: x.dueIds[0] ?? null, onceKey: onceKey(x.studentId), channel: "automatic", template: "fee-due",
-        text: `Fee reminder for ${formatRupees(x.due)} due on ${formatDate(x.dueDate)}`, amountPaise: x.due, status: "queued", automatic: true, messageId: r.result.messageId,
-      })),
-      skipDuplicates: true,
-    });
+export function coveredDays(today: Date, quiet: boolean, isOpen: (d: Date) => boolean, maxBack = QUIET_CARRY_DAYS): Date[] | null {
+  if (!quiet) return [today];
+  if (!isOpen(today)) return null;
+  const out = [today];
+  for (let i = 1; i <= maxBack; i++) {
+    const d = addDays(today, -i);
+    if (isOpen(d)) break;
+    out.push(d);
   }
-  return { sent };
+  return out;
+}
+
+/** The once-a-day key of a family's automatic reminder: a student gets at most one a day. */
+export const reminderOnceKey = (studentId: string, day: Date) => `auto:${studentId}:on:${iso(day)}`;
+/** The key reminders had before 22 October 2026 (one per installment due date and reminder day); still honoured. */
+const oldOnceKey = (studentId: string, dueDate: Date, offset: number) => `auto:${studentId}:${iso(dueDate)}:${offset}`;
+
+export type ReminderDay = {
+  /** On a closed day with quiet days on, nothing goes. */
+  quiet: boolean;
+  /** The days whose reminder days are counted today (today, and closed days just before it). */
+  covered: Date[];
+  /** Families who get a reminder, with what it is about. */
+  out: Planned[];
+  /** Left out, in counts: an open Promise to Pay, a payment waiting for verification, less than the smallest amount, or already reminded today. */
+  left: { promise: number; waiting: number; belowMin: number; done: number };
+};
+
+/**
+ * Who gets an automatic fee reminder today (A7), following Fee Settings: the
+ * days before and after the due date, quiet days and the smallest amount.
+ * A student with an unpaid row whose due date is one of the reminder days
+ * from a covered day gets one reminder about everything they owe now, at most
+ * once a day. Never for rows already paid or settled (only open balances
+ * count), nor while an open Promise to Pay or a payment waiting for
+ * verification stands. Saves nothing.
+ */
+export async function remindersDueOn(tx: Tx, ctx: SchoolContext, s: Pick<FeeSettings, "reminderDays" | "reminderQuietDays" | "reminderMinPaise">, today: Date): Promise<ReminderDay> {
+  const left = { promise: 0, waiting: 0, belowMin: 0, done: 0 };
+  let covered: Date[] | null = [today];
+  if (s.reminderQuietDays) {
+    const cal = await schoolCalendar(tx, ctx, addDays(today, -QUIET_CARRY_DAYS), today, null);
+    covered = coveredDays(today, true, (d) => cal.info(d).on);
+  }
+  if (!covered) return { quiet: true, covered: [], out: [], left };
+  const offsets = [...new Set(s.reminderDays)];
+  const hitsOf = new Map<string, { dueDate: Date; offset: number }[]>();
+  const want = new Map<string, number[]>();
+  for (const c of covered) for (const o of offsets) { const k = iso(addDays(c, -o)); want.set(k, [...(want.get(k) ?? []), o]); }
+  if (want.size) {
+    const rows = await tx.studentFeeDue.findMany({
+      where: { state: "OPEN", balancePaise: { gt: 0 }, kind: { in: ["FEE", "CHARGE", "LATE_FEE"] }, dueDate: { in: [...want.keys()].map((k) => new Date(`${k}T00:00:00Z`)) } },
+      select: { studentId: true, dueDate: true },
+    });
+    for (const r of rows) for (const o of want.get(iso(r.dueDate)) ?? []) hitsOf.set(r.studentId, [...(hitsOf.get(r.studentId) ?? []), { dueDate: r.dueDate, offset: o }]);
+  }
+  let ids = [...hitsOf.keys()];
+  if (!ids.length) return { quiet: false, covered, out: [], left };
+  // Already reminded today, or (before 22 October 2026) already reminded for that row and day.
+  const keys = ids.flatMap((id) => [reminderOnceKey(id, today), ...hitsOf.get(id)!.map((h) => oldOnceKey(id, h.dueDate, h.offset))]);
+  const done = new Set((await tx.feeReminder.findMany({ where: { onceKey: { in: keys } }, select: { studentId: true } })).map((r) => r.studentId));
+  left.done = done.size;
+  ids = ids.filter((id) => !done.has(id));
+  const paused = await pausedByPromise(tx, ctx, ids, today);
+  left.promise = ids.filter((id) => paused.has(id)).length;
+  ids = ids.filter((id) => !paused.has(id));
+  // The family has paid and the school is checking it (a cheque or transfer waiting for verification): no reminder.
+  const waiting = new Set((await tx.payment.findMany({ where: { studentId: { in: ids }, status: "WAITING" }, select: { studentId: true } })).map((p) => p.studentId));
+  left.waiting = waiting.size;
+  ids = ids.filter((id) => !waiting.has(id));
+  const p = await whoOwes(tx, ids, today);
+  const out = p.out.filter((x) => x.due >= s.reminderMinPaise && x.due > ZERO);
+  left.belowMin = p.out.length - out.length;
+  return { quiet: false, covered, out, left };
+}
+
+export type AutomaticReminderResult = { sent: number; status: "sent" | "off" | "held" | "quiet" | "nobody" | "rule-off" | "no-channel" | "not-sent" | "duplicate" };
+
+/**
+ * A7: today's automatic fee reminders, as set in Fee Settings: on or off,
+ * the days before and after the due date, the channel (Message Settings' rule
+ * "Fee reminder" uses it), the smallest amount and quiet days. A school still
+ * moving in sends none (workflow 15, step 10). Each family gets one message a
+ * day at most, and each is logged in its reminder history.
+ */
+export async function automaticReminders(tx: Tx, ctx: SchoolContext, today: Date): Promise<AutomaticReminderResult> {
+  const s = await feeSettings(tx, ctx);
+  if (!s.remindersOn || !s.reminderDays.length) return { sent: 0, status: "off" };
+  if (await movingIn(tx, ctx)) return { sent: 0, status: "held" };
+  const day = await remindersDueOn(tx, ctx, s, today);
+  if (day.quiet) return { sent: 0, status: "quiet" };
+  if (!day.out.length) return { sent: 0, status: "nobody" };
+  // No payment links are made while the rule is off in Message Settings.
+  if (!(await ruleReady(tx, ctx, "fee-due")).on) return { sent: 0, status: "rule-off" };
+  const allGuardians = (await ruleStates(tx, ctx)).find((r) => r.key === "fee-due")?.sendTo === "all";
+  const pay = await payPlan(tx, ctx, day.out, { online: true, makeLinks: true, allGuardians });
+  const r = await sendAutomatic(tx, ctx, {
+    rule: "fee-due",
+    event: { key: `fee-due:${iso(today)}`, label: `Fee reminders of ${formatDate(today)}` },
+    to: { guardiansOf: day.out.map((x) => x.studentId) },
+    ...blanksOf(day.out, pay),
+    source: null,
+  });
+  if (r.status === "off") return { sent: 0, status: "rule-off" };
+  if (r.status !== "sent") return { sent: 0, status: r.status };
+  await tx.feeReminder.createMany({
+    data: day.out.map((x) => ({
+      schoolId: ctx.schoolId, studentId: x.studentId, dueId: x.dueIds[0] ?? null, onceKey: reminderOnceKey(x.studentId, today), channel: "automatic", template: "fee-due",
+      text: `Fee reminder for ${formatRupees(x.due)} due on ${formatDate(x.dueDate)}`, amountPaise: x.due, status: "queued", automatic: true, messageId: r.result.messageId,
+    })),
+    skipDuplicates: true,
+  });
+  return { sent: r.result.people, status: "sent" };
 }
 
 const RECIPIENT_STATUS: Record<string, string> = { QUEUED: "Waiting", SENDING: "Sending", SENT: "Sent", DELIVERED: "Delivered", READ: "Read", FAILED: "Failed" };
@@ -259,6 +338,7 @@ export async function reminderHistory(tx: Tx, studentId: string) {
   return rows.map((r) => {
     const mine = recipients.filter((x) => x.messageId === r.messageId);
     const status = !r.messageId ? (r.status === "skipped" ? "Skipped" : "Not sent") : mine.length ? [...new Set(mine.map((m) => RECIPIENT_STATUS[m.status] ?? m.status))].join(", ") : r.status === "scheduled" ? "Scheduled" : "Waiting";
-    return { ...r, deliveryStatus: status, channels: [...new Set(mine.map((m) => m.channel))] };
+    // Never a link that opens a Parent Link or pays: placeholders show as words.
+    return { ...r, text: withHiddenLinks(r.text), deliveryStatus: status, channels: [...new Set(mine.map((m) => m.channel))] };
   });
 }

@@ -24,6 +24,8 @@ export type RuleDef = {
   defaultOn: boolean;
   /** Settings for timing shown on the rule, e.g. the time of day. */
   timingFields?: { key: string; label: string; kind: "time" | "days"; default: string }[];
+  /** The channel is chosen on another page, not here (fee reminders: Fee Settings). */
+  channelsFrom?: "fee-settings";
 };
 
 // Transport rules (pickup, drop, arriving) belong to Transport Management and
@@ -32,7 +34,7 @@ export type RuleDef = {
 export const RULES: RuleDef[] = [
   { key: "absence", label: "Absent today", when: "A student is marked absent", module: "Attendance Management", audience: "parents", messageType: "attendance", defaultChannels: ["whatsapp"], defaultOn: true },
   { key: "late", label: "Late arrival", when: "A student is marked late", module: "Attendance Management", audience: "parents", messageType: "attendance", defaultChannels: ["whatsapp"], defaultOn: false },
-  { key: "fee-due", label: "Fee reminder", when: "A fee due date comes (on the reminder days set in Fee Management)", module: "Fee Management", audience: "parents", messageType: "fee", defaultChannels: ["whatsapp"], defaultOn: true },
+  { key: "fee-due", label: "Fee reminder", when: "A fee due date comes (on the reminder days set in Fee Management)", module: "Fee Management", audience: "parents", messageType: "fee", defaultChannels: ["whatsapp"], defaultOn: true, channelsFrom: "fee-settings" },
   { key: "fee-paid", label: "Fee received", when: "A fee payment is received", module: "Fee Management", audience: "parents", messageType: "fee", defaultChannels: ["whatsapp"], defaultOn: true },
   { key: "exam-reminder", label: "Exam reminder", when: "A datesheet is published, and before exams", module: "Examination & Results", audience: "parents", messageType: "general", defaultChannels: ["whatsapp"], defaultOn: true,
     timingFields: [{ key: "daysBefore", label: "Days before the first exam", kind: "days", default: "3" }] },
@@ -61,9 +63,12 @@ export type RuleState = RuleDef & { isOn: boolean; channels: Channel[]; template
 export async function ruleStates(tx: Tx, ctx: SchoolContext): Promise<RuleState[]> {
   const rows = await tx.automaticMessageRule.findMany({ where: { schoolId: ctx.schoolId } });
   const templates = await tx.template.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, key: { in: RULES.map((r) => r.key) } }, select: { id: true, key: true, channel: true }, orderBy: { createdAt: "asc" } });
+  // Fee reminders go by the channel chosen in Fee Settings (06 §6, gap list G11), so the two pages never disagree.
+  const feeChannel = (await tx.feeSetting.findUnique({ where: { schoolId: ctx.schoolId }, select: { reminderChannel: true } }))?.reminderChannel ?? null;
   return RULES.map((def) => {
     const row = rows.find((r) => r.key === def.key);
-    const channels = (row?.channels.length ? row.channels : def.defaultChannels) as Channel[];
+    const fixed = def.channelsFrom === "fee-settings" && feeChannel ? [feeChannel] : null;
+    const channels = (fixed ?? (row?.channels.length ? row.channels : def.defaultChannels)) as Channel[];
     const templateIds: Partial<Record<Channel, string>> = {};
     for (const t of templates) if (t.key === def.key && !templateIds[t.channel as Channel]) templateIds[t.channel as Channel] = t.id;
     const timing = Object.fromEntries((def.timingFields ?? []).map((t) => [t.key, t.default]));
@@ -117,6 +122,8 @@ export type AutomaticInput = {
   to: AudienceRule;
   values?: Record<string, string>;
   perStudent?: Record<string, Record<string, string>>;
+  /** Blanks for one guardian about one child, keyed "guardianId:studentId". */
+  perGuardianStudent?: Record<string, Record<string, string>>;
   source?: { type: string; id: string } | null;
   /** A person asked for this copy now (for example "Send the receipt again"): it goes even while the school is moving in. */
   byHand?: boolean;
@@ -148,42 +155,10 @@ export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: Automatic
   const state = (await ruleStates(tx, ctx)).find((r) => r.key === def.key)!;
   if (!state.isOn) return { status: "off", duplicates: 0 };
 
-  const on = await onChannels(tx, ctx);
-  const parents = def.audience === "parents";
-  // Parents have no app: a parents' rule saved with "app" (Homework set used to be) uses the other channels.
-  const order: Channel[] = parents ? ["whatsapp", "sms", "email"] : ["app", "whatsapp", "sms", "email"];
-  const templates: Partial<Record<Channel, string>> = {};
-  for (const c of new Set<Channel>([...state.channels, ...order])) {
-    const id = state.templateIds[c] ?? (await templateByKey(tx, ctx, def.key, c))?.id;
-    if (id) templates[c] = id;
-  }
-  const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true } });
-  const smsReady = Boolean(school.smsDltEntityId && school.smsSenderHeader);
-  const channels = state.channels.filter((c) => on.has(c) && templates[c] && !(c === "app" && parents) && (c !== "sms" || smsReady));
-  // WhatsApp and SMS are always tried for parents, so the reason names them; other channels only with a template.
-  const fallback = order.filter((c) => !channels.includes(c) && (templates[c] || (parents && (c === "whatsapp" || c === "sms"))));
-
   const logged = await tx.automationLog.findMany({ where: { schoolId: ctx.schoolId, ruleKey: def.key, eventKey: input.event.key, outcome: { in: ["sent", "no-credits", "not-sent"] } }, select: { recipientKey: true, outcome: true } });
   const done = new Set(logged.filter((r) => r.outcome !== "not-sent").map((r) => r.recipientKey));
   const notSentBefore = new Set(logged.filter((r) => r.outcome === "not-sent").map((r) => r.recipientKey));
-  const settings = await messageSettings(tx, ctx);
-  const backupOn = def.messageType !== "general" && settings.smsBackup[def.messageType as BackupType]?.on;
-  const send: SendInput = {
-    to: { ...input.to, allGuardians: input.to.allGuardians ?? state.sendTo === "all" },
-    channels,
-    fallback,
-    templates,
-    values: input.values,
-    perStudent: input.perStudent,
-    messageType: def.messageType,
-    smsBackup: Boolean(backupOn),
-    ruleKey: def.key,
-    trigger: input.event.label,
-    source: input.source ?? null,
-    onNoCredits: "fail",
-    onNobody: "record",
-    exclude: (key) => done.has(key) || [...done].some((d) => d.startsWith(`${key}:`)),
-  };
+  const send = await automaticSend(tx, ctx, def, state, input, (key) => done.has(key) || [...done].some((d) => d.startsWith(`${key}:`)));
   const plan = await planMessage(tx, ctx, send);
   const duplicates = done.size;
   if (plan.problems.length) {
@@ -210,6 +185,55 @@ export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: Automatic
   for (const r of notSent) await logLines(tx, ctx, def.key, input.event, [{ key: r.rowKey, name: r.candidate.name }], "not-sent", r.reason, result.messageId);
   if (plan.rows.length === 0) return { status: "not-sent", result, reason, duplicates };
   return { status: "sent", result, duplicates };
+}
+
+/** The message a rule sends for an event: its channels, the next ones to try, templates and SMS backup. */
+async function automaticSend(tx: Tx, ctx: SchoolContext, def: RuleDef, state: RuleState, input: AutomaticInput, exclude?: (key: string) => boolean): Promise<SendInput> {
+  const on = await onChannels(tx, ctx);
+  const parents = def.audience === "parents";
+  // Parents have no app: a parents' rule saved with "app" (Homework set used to be) uses the other channels.
+  const order: Channel[] = parents ? ["whatsapp", "sms", "email"] : ["app", "whatsapp", "sms", "email"];
+  const templates: Partial<Record<Channel, string>> = {};
+  for (const c of new Set<Channel>([...state.channels, ...order])) {
+    const id = state.templateIds[c] ?? (await templateByKey(tx, ctx, def.key, c))?.id;
+    if (id) templates[c] = id;
+  }
+  const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true } });
+  const smsReady = Boolean(school.smsDltEntityId && school.smsSenderHeader);
+  const channels = state.channels.filter((c) => on.has(c) && templates[c] && !(c === "app" && parents) && (c !== "sms" || smsReady));
+  // WhatsApp and SMS are always tried for parents, so the reason names them; other channels only with a template.
+  const fallback = order.filter((c) => !channels.includes(c) && (templates[c] || (parents && (c === "whatsapp" || c === "sms"))));
+  const settings = await messageSettings(tx, ctx);
+  const backupOn = def.messageType !== "general" && settings.smsBackup[def.messageType as BackupType]?.on;
+  return {
+    to: { ...input.to, allGuardians: input.to.allGuardians ?? state.sendTo === "all" },
+    channels,
+    fallback,
+    templates,
+    values: input.values,
+    perStudent: input.perStudent,
+    perGuardianStudent: input.perGuardianStudent,
+    messageType: def.messageType,
+    smsBackup: Boolean(backupOn),
+    ruleKey: def.key,
+    trigger: input.event.label,
+    source: input.source ?? null,
+    onNoCredits: "fail",
+    onNobody: "record",
+    exclude,
+  };
+}
+
+/**
+ * What a rule's message would be, worked out exactly as sendAutomatic does but
+ * saving and sending nothing, even while the rule is off or the school is
+ * still moving in (for previews such as Fee Settings' "What a parent gets").
+ */
+export async function previewAutomatic(tx: Tx, ctx: SchoolContext, input: AutomaticInput) {
+  const def = ruleDef(input.rule);
+  if (!def) throw new Error(`Unknown automatic message rule: ${input.rule}`);
+  const state = (await ruleStates(tx, ctx)).find((r) => r.key === def.key)!;
+  return planMessage(tx, ctx, await automaticSend(tx, ctx, def, state, input));
 }
 
 async function logLines(tx: Tx, ctx: SchoolContext, ruleKey: string, event: { key: string; label: string }, people: { key: string; name: string }[], outcome: string, note: string | null, messageId: string | null) {

@@ -54,6 +54,8 @@ export type SendInput = {
   perStudent?: Record<string, Record<string, string>>;
   /** Blanks for one guardian or staff member (e.g. their own Parent Link), by their id. */
   perPerson?: Record<string, Record<string, string>>;
+  /** Blanks for one guardian about one child, keyed "guardianId:studentId" (e.g. that guardian's own way to pay that child's fees). */
+  perGuardianStudent?: Record<string, Record<string, string>>;
   messageType?: "general" | BackupType;
   /** Fee, attendance and result messages: also send by SMS if not delivered or read in time. */
   smsBackup?: boolean;
@@ -473,6 +475,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
         ...(input.values ?? {}),
         ...(studentId ? input.perStudent![studentId] : c.students.length === 1 && input.perStudent?.[c.students[0].id] ? input.perStudent[c.students[0].id] : {}),
         ...(input.perPerson?.[c.id] ?? {}),
+        ...(input.perGuardianStudent?.[`${c.id}:${studentId ?? (c.students.length === 1 ? c.students[0].id : "")}`] ?? {}),
         // The code itself is never in a stored text or blank: only the mask is.
         ...(input.oneTimeCode ? { code: CODE_MASK } : {}),
       };

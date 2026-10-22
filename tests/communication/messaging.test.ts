@@ -78,7 +78,7 @@ describe("template checks", () => {
     const wa = await templateId(s.ctx, "fee-due", "whatsapp");
     const plan = await withSchool(s.ctx, (tx) => planMessage(tx, s.ctx, {
       to: { guardiansOf: [s.ravi.id, s.priya.id, s.kiran.id] }, channels: ["whatsapp"], templates: { whatsapp: wa },
-      perStudent: { [s.ravi.id]: { due_amount: "₹12,500", due_date: "15-10-2026" } },
+      perStudent: { [s.ravi.id]: { due_amount: "₹12,500", due_date: "15-10-2026", how_to_pay: "Please pay at the school office." } },
     }));
     expect(plan.rows).toHaveLength(1);
     expect(plan.rows[0].text).toContain("₹12,500");
@@ -196,9 +196,9 @@ describe("automatic messages", () => {
   it("SMS backup sends a failed WhatsApp fee message by SMS, once", async () => {
     await addDlt(s.ctx, "fee-due");
     await withSchool(s.ctx, (tx) => updateSettings(tx, s.ctx, (x) => ({ ...x, smsBackup: { ...x.smsBackup, fee: { on: true, waitMinutes: 120 } } })));
-    const plan = await withSchool(s.ctx, async (tx) => planMessage(tx, s.ctx, { to: { guardiansOf: [s.ravi.id] }, channels: ["whatsapp"], templates: { whatsapp: (await tx.template.findFirstOrThrow({ where: { key: "fee-due", channel: "whatsapp" } })).id }, perStudent: { [s.ravi.id]: { due_amount: "₹500", due_date: "15-10-2026" } }, messageType: "fee", smsBackup: true, ruleKey: "fee-due" }));
+    const plan = await withSchool(s.ctx, async (tx) => planMessage(tx, s.ctx, { to: { guardiansOf: [s.ravi.id] }, channels: ["whatsapp"], templates: { whatsapp: (await tx.template.findFirstOrThrow({ where: { key: "fee-due", channel: "whatsapp" } })).id }, perStudent: { [s.ravi.id]: { due_amount: "₹500", due_date: "15-10-2026", how_to_pay: "Please pay at the school office." } }, messageType: "fee", smsBackup: true, ruleKey: "fee-due" }));
     expect(plan.backupCost).toBe(1);
-    const res = await withSchool(s.ctx, (tx) => sendAutomatic(tx, s.ctx, { rule: "fee-due", event: { key: `fee-due:t1:${s.ravi.id}`, label: "Fee due" }, to: { guardiansOf: [s.ravi.id] }, perStudent: { [s.ravi.id]: { due_amount: "₹500", due_date: "15-10-2026" } } }));
+    const res = await withSchool(s.ctx, (tx) => sendAutomatic(tx, s.ctx, { rule: "fee-due", event: { key: `fee-due:t1:${s.ravi.id}`, label: "Fee due" }, to: { guardiansOf: [s.ravi.id] }, perStudent: { [s.ravi.id]: { due_amount: "₹500", due_date: "15-10-2026", how_to_pay: "Please pay at the school office." } } }));
     expect(res.status).toBe("sent");
     const messageId = res.status === "sent" ? res.result.messageId : "";
     await runAll();

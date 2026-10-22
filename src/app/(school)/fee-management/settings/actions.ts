@@ -36,7 +36,10 @@ export async function lateFeeAction(_prev: unknown, fd: FormData) {
 
 export async function remindersAction(_prev: unknown, fd: FormData) {
   return feeAction("edit", fd, async (tx, ctx) => {
-    await saveReminders(tx, ctx, { on: str(fd, "on") === "on", days: strs(fd, "day").map(Number).filter(Number.isFinite), channel: str(fd, "channel"), template: str(fd, "template") });
+    await saveReminders(tx, ctx, {
+      on: str(fd, "on") === "on", days: strs(fd, "day").map(Number).filter(Number.isFinite), channel: str(fd, "channel"),
+      minPaise: money(fd, "min", "Smallest amount"), quietDays: str(fd, "quietDays") === "on",
+    });
     return true;
   }, () => "Reminder schedule saved. Opted-out parents are always skipped.", { staffOnly: "change Fee Settings" });
 }

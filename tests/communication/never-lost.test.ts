@@ -325,7 +325,7 @@ describe("one message per phone per send", () => {
 
   it("each child's own amount still goes in its own message", async () => {
     const wa = await templateId(s.ctx, "fee-due", "whatsapp");
-    const same = { due_amount: "₹5,000", due_date: "15-10-2026" };
+    const same = { due_amount: "₹5,000", due_date: "15-10-2026", how_to_pay: "Please pay at the school office." };
     const plan = await withSchool(s.ctx, (tx) => planMessage(tx, s.ctx, { to: { guardiansOf: [s.ravi.id, s.sita.id] }, channels: ["whatsapp"], templates: { whatsapp: wa }, perStudent: { [s.ravi.id]: same, [s.sita.id]: same } }));
     expect(plan.rows).toHaveLength(2);
     expect(plan.rows.map((r) => r.studentId).sort()).toEqual([s.ravi.id, s.sita.id].sort());

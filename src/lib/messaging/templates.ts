@@ -58,8 +58,9 @@ export function missingWords(missing: string[]) {
 
 /** SMS parts: 160 characters (153 per part when longer), or 70 (67) with Indian scripts. */
 export function smsParts(raw: string): number {
-  // A Parent Link placeholder is counted as the real link it becomes.
-  const text = raw.replace(/⟦parent-link:[^⟧]+⟧/g, `${appUrl()}/p/${"x".repeat(43)}`).replace(/⟦invite:[^⟧]+⟧/g, `${appUrl()}/invite/${"x".repeat(43)}`);
+  // A Parent Link, invite or payment link placeholder is counted as the real link it becomes.
+  const text = raw.replace(/⟦parent-link:[^⟧]+⟧/g, `${appUrl()}/p/${"x".repeat(43)}`).replace(/⟦invite:[^⟧]+⟧/g, `${appUrl()}/invite/${"x".repeat(43)}`)
+    .replace(/⟦pay-link:[^⟧]+⟧/g, `${appUrl()}/pay/${"x".repeat(36)}/${"x".repeat(43)}`);
   const unicode = /[^\x00-\x7F₹]/.test(text);
   const len = [...text].length;
   const single = unicode ? 70 : 160;
@@ -160,12 +161,13 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
     en: "Dear {guardian_name}, {student_name} ({class}) reached school late today, {date}. - {school_name}",
   } },
   { key: "fee-due", name: "Fee reminder", category: "fees", channel: "whatsapp", texts: {
-    // Says where the details are, not "pay online": online payment may be off for the school or the class.
-    en: "Dear {guardian_name}, a fee of {due_amount} for {student_name} ({class}) is due on {due_date}. The details are on your Parent Link. Please ignore if already paid. - {school_name}",
-    te: "ప్రియమైన {guardian_name}, {student_name} ({class}) ఫీజు {due_amount} {due_date} లోపు చెల్లించాలి. వివరాలు మీ Parent Link లో ఉన్నాయి. - {school_name}",
+    // {how_to_pay} is filled for each parent: their Parent Link with its Pay button, a payment link,
+    // or "Please pay at the school office." when online payment is off (src/lib/fees/reminder-pay.ts).
+    en: "Dear {guardian_name}, a fee of {due_amount} for {student_name} ({class}) is due on {due_date}.\n{how_to_pay}\nPlease ignore if already paid. - {school_name}",
+    te: "ప్రియమైన {guardian_name}, {student_name} ({class}) ఫీజు {due_amount} {due_date} లోపు చెల్లించాలి.\n{how_to_pay}\n- {school_name}",
   } },
   { key: "fee-due", name: "Fee reminder (SMS)", category: "fees", channel: "sms", texts: {
-    en: "Dear Parent, fee of {due_amount} for {student_name} is due on {due_date}. Please ignore if paid. - {school_name}",
+    en: "Dear Parent, fee of {due_amount} for {student_name} is due on {due_date}. {how_to_pay} - {school_name}",
   } },
   { key: "fee-paid", name: "Fee received", category: "fees", channel: "whatsapp", texts: {
     en: "Dear {guardian_name}, we have received {paid_amount} for {student_name} on {payment_date}. Receipt number {receipt_number}. Thank you. - {school_name}",

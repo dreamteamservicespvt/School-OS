@@ -156,8 +156,9 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
   const [channel, setChannel] = useState<"whatsapp" | "sms" | "email">("whatsapp");
   const opts = templates[channel];
   const [tpl, setTpl] = useState(opts[0]?.value ?? OWN);
-  // {link} is the family's payment link, or "the school office" when there is none, so the words never promise online payment that is off.
-  const [text, setText] = useState("Dear {guardian_name}, fees of {due_amount} for {student_name} ({class}) are overdue since {due_date}. Please pay at {link}. - {school_name}");
+  // {how_to_pay} is each parent's own way to pay: their Parent Link, a payment link, or "Please pay at the school office." (src/lib/fees/reminder-pay.ts),
+  // so the words never promise online payment that is off.
+  const [text, setText] = useState("Dear {guardian_name}, fees of {due_amount} for {student_name} ({class}) are overdue since {due_date}. {how_to_pay} - {school_name}");
   const [link, setLink] = useState(gateway);
   const [when, setWhen] = useState("now");
   const [preview, setPreview] = useState<PreviewResult | null>(null);
@@ -218,12 +219,12 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
             options={[...opts, ...(channel === "sms" ? [] : [{ value: OWN, label: "Own wording" }])]} placeholder={opts.length || channel !== "sms" ? undefined : "No approved SMS template"} />
         </div>
         {ownWording && channel !== "sms" && (
-          <TextArea name="text" label="Message" rows={3} value={text} onChange={(e) => setText(e.target.value)} help="You can use {guardian_name}, {student_name}, {class}, {due_amount}, {due_date}, {link} and {school_name}." />
+          <TextArea name="text" label="Message" rows={3} value={text} onChange={(e) => setText(e.target.value)} help="You can use {guardian_name}, {student_name}, {class}, {due_amount}, {due_date}, {how_to_pay}, {link} and {school_name}. {how_to_pay} says how each parent pays." />
         )}
         {channel === "sms" && opts.length === 0 && <Alert tone="warning">SMS needs an approved template. Add one in Communication, Templates (category Fees), or choose WhatsApp.</Alert>}
         <div className="rounded-2xl border border-line divide-y divide-line/70">
           {gateway
-            ? <SettingRow title="Add the payment link" sub="Razorpay link for each family’s exact dues, valid 7 days. Parent Link shows a Pay button too."><Switch on={link} onChange={setLink} label="Add the payment link" /></SettingRow>
+            ? <SettingRow title="Add the payment link" sub="Parents with a Parent Link get it, with its Pay button; others a Razorpay link for their exact dues, valid 7 days. Off: pay at the school office."><Switch on={link} onChange={setLink} label="Add the payment link" /></SettingRow>
             : <SettingRow title="Payment link" sub="Online payment is not set up, so no payment link is added. Gateways are connected in Settings, Payment Gateways." />}
           <SettingRow title="Send" sub={when === "now" ? "Goes out now" : "Goes out tomorrow at 9:00 AM"}><Segmented size="sm" label="When" value={when} onChange={setWhen} options={[{ value: "now", label: "Now" }, { value: "later", label: "Tomorrow 9 AM" }]} /></SettingRow>
         </div>

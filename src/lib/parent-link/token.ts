@@ -59,21 +59,30 @@ export const SURVEY_PLACEHOLDER = /⟦survey:([0-9a-f-]{36}):([0-9a-f-]{36})⟧/
 export const surveyPlaceholderFor = (schoolId: string, inviteId: string) => `⟦survey:${schoolId}:${inviteId}⟧`;
 export const surveyUrl = (schoolId: string, inviteId: string) => `${appUrl()}/s/${schoolId}/${surveyTokenFor(inviteId)}`;
 
+// Fee payment links in reminders (06 §2, gap list G11): the message keeps a placeholder with the
+// school and the Payment Link's id; the secret is worked out with the server key only when the
+// message is handed to the provider, so Message History never holds a link that pays.
+export const PAY_PLACEHOLDER = /⟦pay-link:([0-9a-f-]{36}):([0-9a-f-]{36})⟧/g;
+export const payPlaceholderFor = (schoolId: string, paymentLinkId: string) => `⟦pay-link:${schoolId}:${paymentLinkId}⟧`;
+export const payLinkUrl = (schoolId: string, paymentLinkId: string) => `${appUrl()}/pay/${schoolId}/${payLinkTokenFor(paymentLinkId)}`;
+
 /** Puts the real links in a text, just before it is handed to a provider. */
 export const withRealLinks = (text: string) =>
   text
     .replace(PLACEHOLDER, (_, id: string) => linkUrl(id))
+    .replace(PAY_PLACEHOLDER, (_, school: string, id: string) => payLinkUrl(school, id))
     .replace(INVITE_PLACEHOLDER, (_, id: string, nonce: string) => inviteUrl(id, nonce))
     .replace(SURVEY_PLACEHOLDER, (_, school: string, id: string) => surveyUrl(school, id));
 /** The personal links in a text, as they would be sent (for the server log on a tester's computer). */
 export function linksIn(text: string): { what: string; url: string }[] {
   return [
     ...[...text.matchAll(PLACEHOLDER)].map((m) => ({ what: "Parent Link", url: linkUrl(m[1]) })),
+    ...[...text.matchAll(PAY_PLACEHOLDER)].map((m) => ({ what: "payment link", url: payLinkUrl(m[1], m[2]) })),
     ...[...text.matchAll(INVITE_PLACEHOLDER)].map((m) => ({ what: "invite link", url: inviteUrl(m[1], m[2]) })),
     ...[...text.matchAll(SURVEY_PLACEHOLDER)].map((m) => ({ what: "survey link", url: surveyUrl(m[1], m[2]) })),
   ];
 }
 /** How a text with a link is shown on screen: never the link itself. */
 export const withHiddenLinks = (text: string) =>
-  text.replace(PLACEHOLDER, "[personal Parent Link]").replace(INVITE_PLACEHOLDER, "[personal invite link]").replace(SURVEY_PLACEHOLDER, "[personal survey link]");
+  text.replace(PLACEHOLDER, "[personal Parent Link]").replace(PAY_PLACEHOLDER, "[payment link]").replace(INVITE_PLACEHOLDER, "[personal invite link]").replace(SURVEY_PLACEHOLDER, "[personal survey link]");
 

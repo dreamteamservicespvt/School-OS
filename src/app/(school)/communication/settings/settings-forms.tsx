@@ -42,6 +42,8 @@ export type RuleRowData = {
   key: string; label: string; when: string; module: string; audience: "parents" | "staff"; isOn: boolean; channels: string[]; sendTo: string;
   timing: Record<string, string>; timingFields: { key: string; label: string; kind: "time" | "days" }[];
   templates: { channel: string; label: string; href: string | null; problem: string | null }[];
+  /** The channel is chosen on another page (fee reminders: Fee Settings). */
+  channelsSetIn?: { label: string; href: string } | null;
 };
 
 export function RuleRow({ rule, channels }: { rule: RuleRowData; channels: Opt[] }) {
@@ -69,16 +71,20 @@ export function RuleRow({ rule, channels }: { rule: RuleRowData; channels: Opt[]
       </div>
       {open && (
         <div className="mt-3 space-y-3 rounded-xl bg-sunken/70 p-3">
-          <fieldset>
-            <legend className="mb-1 text-sm font-medium">Channels</legend>
-            <div className="flex flex-wrap gap-x-4">
-              {channels.map((c) => (
-                <label key={c.value} className="flex min-h-11 items-center gap-2">
-                  <input type="checkbox" className={box} checked={chs.includes(c.value)} onChange={(e) => setChs(e.target.checked ? [...chs, c.value] : chs.filter((x) => x !== c.value))} /> {c.label}
-                </label>
-              ))}
-            </div>
-          </fieldset>
+          {rule.channelsSetIn ? (
+            <p className="text-sm"><span className="font-medium">Channel:</span> {chs.map((c) => channels.find((x) => x.value === c)?.label ?? c).join(", ")}, chosen in <a href={rule.channelsSetIn.href} className="text-brand underline">{rule.channelsSetIn.label}</a> with the days it goes.</p>
+          ) : (
+            <fieldset>
+              <legend className="mb-1 text-sm font-medium">Channels</legend>
+              <div className="flex flex-wrap gap-x-4">
+                {channels.map((c) => (
+                  <label key={c.value} className="flex min-h-11 items-center gap-2">
+                    <input type="checkbox" className={box} checked={chs.includes(c.value)} onChange={(e) => setChs(e.target.checked ? [...chs, c.value] : chs.filter((x) => x !== c.value))} /> {c.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
           <div>
             <p className="mb-1 text-sm font-medium">Template</p>
             <ul className="text-sm">

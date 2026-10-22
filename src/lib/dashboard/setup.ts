@@ -6,7 +6,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { currentYear } from "../academic/years";
+import { currentYears } from "../academic/years";
 import { moduleOpen, n, plural } from "./common";
 import type { ModuleKey } from "../modules";
 import type { Viewer } from "./types";
@@ -43,13 +43,16 @@ export type StepState = SetupStep & { done: boolean; doneNote: string | null; sk
 export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "permissions" | "modulesOn">): Promise<StepState[]> {
   // Steps are for the School Admin and Principal; module visibility follows the school, not the person.
   const shown = SETUP_STEPS.filter((s) => moduleOpen({ permissions: v.permissions, modulesOn: v.modulesOn }, s.module));
-  const year = await currentYear(tx, ctx);
+  // Every campus's current year (a school's campuses can start the year on different dates).
+  const years = await currentYears(tx, ctx);
+  const ids = years.map((y) => y.id);
+  const year = years.length ? { name: [...new Set(years.map((y) => y.name))].join(", ") } : null;
   const [school, terms, slots, classes, sections, subjects, staff, staffWithLogin, students, guardians, gateways, channels, links, marks, feeClasses, holidays] = await Promise.all([
     tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true, address: true, logoUrl: true, logoFileId: true, board: true } }),
-    year ? tx.term.count({ where: { academicYearId: year.id, archivedAt: null } }) : 0,
+    ids.length ? tx.term.count({ where: { academicYearId: { in: ids }, archivedAt: null } }) : 0,
     tx.periodSlot.count({ where: { archivedAt: null } }),
-    year ? tx.schoolClass.count({ where: { archivedAt: null, sections: { some: { academicYearId: year.id, archivedAt: null } } } }) : 0,
-    year ? tx.section.count({ where: { academicYearId: year.id, archivedAt: null } }) : 0,
+    ids.length ? tx.schoolClass.count({ where: { archivedAt: null, sections: { some: { academicYearId: { in: ids }, archivedAt: null } } } }) : 0,
+    ids.length ? tx.section.count({ where: { academicYearId: { in: ids }, archivedAt: null } }) : 0,
     tx.subject.count({ where: { archivedAt: null } }),
     tx.staff.count({ where: { archivedAt: null, status: "ACTIVE" } }),
     tx.staff.findMany({ where: { archivedAt: null, status: "ACTIVE", userLoginId: { not: null } }, select: { userLoginId: true } }),
@@ -59,9 +62,9 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
     tx.messagingChannel.findMany({ where: { channel: { in: ["sms", "whatsapp"] }, isOn: true }, select: { channel: true } }),
     tx.parentLink.count({ where: { status: "ACTIVE" } }),
     tx.setupStepStatus.findMany({ where: { archivedAt: null } }),
-    year ? tx.feeStructure.findMany({ where: { academicYearId: year.id, status: "PUBLISHED", archivedAt: null }, select: { classId: true }, distinct: ["classId"] }) : [],
+    ids.length ? tx.feeStructure.findMany({ where: { academicYearId: { in: ids }, status: "PUBLISHED", archivedAt: null }, select: { classId: true }, distinct: ["classId"] }) : [],
     // Holidays and vacations typed in Events & Calendar (Calendar Entry) for this year.
-    year ? tx.calendarEntry.count({ where: { academicYearId: year.id, type: { in: ["holiday", "vacation"] }, archivedAt: null } }) : 0,
+    ids.length ? tx.calendarEntry.count({ where: { academicYearId: { in: ids }, type: { in: ["holiday", "vacation"] }, archivedAt: null } }) : 0,
   ]);
   const signedIn = staffWithLogin.length
     ? await tx.userLogin.count({ where: { id: { in: staffWithLogin.map((s) => s.userLoginId!) }, lastSignInAt: { not: null } } })

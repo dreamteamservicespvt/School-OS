@@ -9,8 +9,7 @@ import type { Metadata } from "next";
 import { ChevronRight, FileBarChart } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatRupees } from "@/lib/format";
-import { currentYear } from "@/lib/academic/years";
-import { sectionsForYear } from "@/lib/academic";
+import { sectionsForCurrentYears } from "@/lib/academic";
 import { cellText } from "@/lib/reports/run";
 import { Card } from "@/components/ui/card";
 import { CardHeader } from "@/components/ui/card";
@@ -40,9 +39,9 @@ export default async function InventoryReportsPage({ searchParams }: { searchPar
   const dated = f.from && f.to ? { gte: f.from, lte: f.to } : undefined;
 
   const d = await withSchool(current.ctx, async (tx) => {
-    const year = await currentYear(tx, current.ctx);
     const [sections, byCat, moves, orders, maint, items, totals, stores, cats, unpaid] = await Promise.all([
-      year ? sectionsForYear(tx, current.ctx, year.id) : Promise.resolve([]),
+      // Each campus's classes, from its own current year.
+      sectionsForCurrentYears(tx, current.ctx, current.campusId),
       valueByCategory(tx),
       movementTotals(tx, f),
       tx.purchaseOrder.aggregate({ where: { status: { notIn: ["CANCELLED", "WAITING"] }, ...(dated ? { date: dated } : {}) }, _sum: { totalPaise: true }, _count: true }),

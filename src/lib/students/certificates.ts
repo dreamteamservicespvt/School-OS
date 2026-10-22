@@ -53,8 +53,10 @@ export async function originalTc(tx: Tx, studentId: string) {
   return tx.certificate.findFirst({ where: { studentId, type: "TC", isDuplicate: false, status: { in: ["APPROVED", "ISSUED"] } } });
 }
 
-async function assignNumber(tx: Tx, ctx: SchoolContext, type: CertificateType) {
-  const year = await currentYear(tx, ctx);
+/** The next certificate number, with the name of the current year of the student's own campus. */
+async function assignNumber(tx: Tx, ctx: SchoolContext, type: CertificateType, studentId: string) {
+  const student = await tx.student.findFirst({ where: { id: studentId }, select: { campusId: true } });
+  const year = await currentYear(tx, ctx, student?.campusId ?? null);
   const yearName = year?.name ?? String(new Date().getUTCFullYear());
   const n = await nextNumber(tx, ctx, `certificate:${type}:${yearName}`);
   return `${CERTIFICATE_SHORT[type].toUpperCase()}/${yearName}/${String(n).padStart(4, "0")}`;
@@ -102,7 +104,7 @@ export async function requestCertificate(tx: Tx, ctx: SchoolContext, input: NewC
       issueDate: input.issueDate,
       signatoryId: input.signatoryId,
       status: approval ? "REQUESTED" : "ISSUED",
-      number: approval ? null : await assignNumber(tx, ctx, input.type),
+      number: approval ? null : await assignNumber(tx, ctx, input.type, student.id),
       isDuplicate,
       duplicateReason: isDuplicate ? input.duplicateReason!.trim() : null,
       originalId,
@@ -139,7 +141,7 @@ export async function certificateDecided(tx: Tx, ctx: SchoolContext, certificate
   const cert = await tx.certificate.findUnique({ where: { id: certificateId } });
   if (!cert || cert.status !== "REQUESTED") return;
   if (approved) {
-    const number = await assignNumber(tx, ctx, cert.type);
+    const number = await assignNumber(tx, ctx, cert.type, cert.studentId);
     await tx.certificate.update({ where: { id: cert.id }, data: { status: "APPROVED", number, approvedById: ctx.userId } });
     await writeAudit(tx, ctx, { action: "approved", recordType: "Certificate", recordId: cert.id, before: { status: "REQUESTED" }, after: { status: "APPROVED", number } });
   } else {

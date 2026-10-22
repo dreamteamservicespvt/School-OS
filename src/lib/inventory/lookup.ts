@@ -5,7 +5,8 @@
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
-import { currentYear, currentYearIds } from "../academic/years";
+import { currentYearIds } from "../academic/years";
+import { sectionsForCurrentYears } from "../academic";
 import { findStudents } from "../students/find";
 import { itemLabel } from "./items";
 import { reorderOf, totalsFor } from "./stock";
@@ -62,13 +63,9 @@ export async function stockByStore(tx: Tx) {
   return out;
 }
 
-/** The sections of this year, as "Class 5 A", for the class pickers. */
+/** The sections of this year, as "Class 5 A", for the class pickers: each campus's from its own current year. */
 export async function sectionOptions(tx: Tx, ctx: SchoolContext) {
-  const year = await currentYear(tx, ctx);
-  const sections = await tx.section.findMany({ where: { archivedAt: null, ...(year ? { academicYearId: year.id } : {}) }, select: { id: true, name: true, classId: true, schoolClass: { select: { name: true, sortOrder: true } } } });
-  return sections
-    .sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name))
-    .map((s) => ({ value: s.id, label: `${s.schoolClass.name} ${s.name}`, classId: s.classId }));
+  return (await sectionsForCurrentYears(tx, ctx)).map((s) => ({ value: s.id, label: s.label, classId: s.classId }));
 }
 
 export async function classOptions(tx: Tx, ctx: SchoolContext) {

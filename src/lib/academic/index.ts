@@ -5,6 +5,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { subjectsForClass } from "./subjects";
+import { currentYears } from "./years";
 
 export { currentYear, chosenYear, isYearClosed, assertYearOpen, assertYearWritable, ClosedYearError, financialYearFor } from "./years";
 export { isHoliday, holidayOn, dayOff, holidaysBetween, examDayOn } from "./calendar";
@@ -29,6 +30,20 @@ export async function sectionsForYear(tx: Tx, ctx: SchoolContext, yearId: string
     id: s.id, name: s.name, label: `${s.schoolClass.name} ${s.name}`, classId: s.classId, className: s.schoolClass.name, board: s.schoolClass.board,
     seats: s.seats, classTeacherId: s.classTeacherId, room: s.room, streamId: s.streamId,
   }));
+}
+
+/**
+ * The sections of every campus's current year (only that campus's when the
+ * person is limited to one), in class order. A school's campuses can start
+ * the year on different dates, so each campus's sections come from its own
+ * year; with more than one campus each label starts with the campus name.
+ */
+export async function sectionsForCurrentYears(tx: Tx, ctx: SchoolContext, limit?: string | null) {
+  const years = await currentYears(tx, ctx, limit ? [limit] : null);
+  const lists = await Promise.all(years.map((y) => sectionsForYear(tx, ctx, y.id)));
+  if (years.length < 2) return lists.flat();
+  const names = new Map((await tx.campus.findMany({ where: { id: { in: years.map((y) => y.campusId) } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]));
+  return years.flatMap((y, i) => lists[i].map((sec) => ({ ...sec, label: `${names.get(y.campusId) ?? ""} · ${sec.label}` })));
 }
 
 /** The subjects taught in a section's class on a date (from the subject map with dates). */

@@ -10,6 +10,7 @@ import { askConsentCode, confirmConsent, requestConsent, requestStatus } from "@
 import { loadGuardianView } from "@/lib/parent-link/view";
 import { loadSections } from "@/lib/parent-link/render";
 import { saveNotice } from "@/lib/communication/notices";
+import { childrenByGuardian } from "@/lib/communication/parent-link-admin";
 import { makeCommSchool } from "./fixture";
 
 let s: Awaited<ReturnType<typeof makeCommSchool>>;
@@ -188,5 +189,42 @@ describe("consent", () => {
     const after = await withSchool(s.ctx, (tx) => tx.consentRecord.findMany({ where: { guardianId: s.father.id, consentType: "photo" } }));
     expect(after).toHaveLength(2);
     expect(after.filter((r) => r.withdrawnAt)).toHaveLength(1);
+  });
+});
+
+describe("a newly admitted child whose class is next year (PL-01)", () => {
+  it("shows 'Joining Class 3 A in 2027-28', no empty sections of this year, and the joining fee once billed", async () => {
+    const ids = await withSchool(s.ctx, async (tx) => {
+      const next = await tx.academicYear.create({ data: { schoolId: s.school.id, campusId: s.school.campus.id, name: "2027-28", startDate: new Date("2027-04-01"), endDate: new Date("2028-03-31"), status: "UPCOMING" } });
+      const cls = await tx.schoolClass.create({ data: { schoolId: s.school.id, campusId: s.school.campus.id, name: "Class 3", sortOrder: 3 } });
+      const sec = await tx.section.create({ data: { schoolId: s.school.id, classId: cls.id, academicYearId: next.id, name: "A" } });
+      const mother = await tx.guardian.create({ data: { schoolId: s.school.id, name: "Neha Kapoor", relationship: "Mother", phone: "9811122233" } });
+      const myra = await tx.student.create({ data: { schoolId: s.school.id, campusId: s.school.campus.id, admissionNo: "NEW-PL01", firstName: "Myra", fullName: "Myra Kapoor" } });
+      await tx.enrolment.create({ data: { schoolId: s.school.id, studentId: myra.id, academicYearId: next.id, classId: cls.id, sectionId: sec.id } });
+      await tx.studentGuardian.create({ data: { schoolId: s.school.id, studentId: myra.id, guardianId: mother.id, relationship: "Mother", isPrimary: true } });
+      const link = await createLink(tx, s.ctx, mother.id);
+      return { next, mother, myra, link };
+    });
+    const view = await withSchool(s.ctx, (tx) => loadGuardianView(tx, s.ctx, { linkId: ids.link.id, guardianId: ids.mother.id, token: "", preview: true }));
+    expect(view!.child.classLabel).toBe("Joining Class 3 A in 2027-28");
+    // This year's class notices, attendance and results are not hers.
+    expect([view!.child.classId, view!.child.sectionId]).toEqual([null, null]);
+    const keys = async () => (await withSchool(s.ctx, (tx) => loadSections(tx, s.ctx, view!))).map((x) => x.def.key);
+    expect(await keys()).not.toEqual(expect.arrayContaining(["attendance"]));
+    expect(await keys()).not.toContain("fees");
+
+    // The joining fee is billed for 2027-28: it shows under Fees due.
+    await withSchool(s.ctx, async (tx) => {
+      const head = await tx.feeHead.create({ data: { schoolId: s.school.id, name: "Admission fee" } });
+      await tx.studentFeeDue.create({ data: { schoolId: s.school.id, studentId: ids.myra.id, academicYearId: ids.next.id, feeHeadId: head.id, label: "Admission fee", dueDate: new Date("2027-04-10"), amountPaise: BigInt(1_500_000), balancePaise: BigInt(1_500_000) } });
+    });
+    expect(await keys()).toContain("fees");
+
+    // The school's Parent Link list says the same.
+    const kids = await withSchool(s.ctx, (tx) => childrenByGuardian(tx, s.ctx, [ids.mother.id]));
+    expect(kids.get(ids.mother.id)?.map((k) => k.classLabel)).toEqual(["Joining Class 3 A in 2027-28"]);
+    // A child in a class this year keeps it.
+    const sita = await withSchool(s.ctx, (tx) => childrenByGuardian(tx, s.ctx, [s.father.id]));
+    expect(sita.get(s.father.id)?.map((k) => k.classLabel).sort()).toEqual(["Class 5 A", "Class 5 B"]);
   });
 });

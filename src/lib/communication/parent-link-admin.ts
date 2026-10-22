@@ -11,6 +11,7 @@ import type { ListParams } from "../list";
 import { currentYears } from "../academic/years";
 import { OPEN_LINK } from "../students/guardian-access";
 import { ParentLinkProblem } from "../parent-link/links";
+import { joiningLabels } from "../parent-link/view";
 
 import { inPeriod, PERIOD_FILTERS } from "./period";
 export const LINK_FILTERS = ["status", "class", "section", "opened", ...PERIOD_FILTERS] as const;
@@ -108,10 +109,12 @@ export async function childrenByGuardian(tx: Tx, ctx: SchoolContext, guardianIds
     tx.schoolClass.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.classId) } }, select: { id: true, name: true } }),
     tx.section.findMany({ where: { schoolId: ctx.schoolId, id: { in: enrolments.map((e) => e.sectionId) } }, select: { id: true, name: true } }),
   ]);
+  // A newly admitted child with a class only next year: "Joining Class 3 A in 2027-28" (PL-01).
+  const joining = await joiningLabels(tx, ctx, [...new Set(links.map((l) => l.studentId))].filter((id) => !enrolments.some((e) => e.studentId === id)), years);
   const map = new Map<string, { id: string; name: string; classLabel: string; restricted: boolean }[]>();
   for (const l of links) {
     const e = enrolments.find((x) => x.studentId === l.studentId);
-    const label = e ? `${classes.find((c) => c.id === e.classId)?.name ?? ""} ${sections.find((s) => s.id === e.sectionId)?.name ?? ""}`.trim() : "";
+    const label = e ? `${classes.find((c) => c.id === e.classId)?.name ?? ""} ${sections.find((s) => s.id === e.sectionId)?.name ?? ""}`.trim() : joining.get(l.studentId) ?? "";
     map.set(l.guardianId, [...(map.get(l.guardianId) ?? []), { id: l.student.id, name: l.student.fullName, classLabel: label, restricted: Boolean(l.restriction) }]);
   }
   return map;

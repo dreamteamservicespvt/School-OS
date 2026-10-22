@@ -15,7 +15,7 @@ import { SalaryHead } from "../_components/salary-head";
 import { ConfirmSheet } from "../_components/forms";
 import { BASE, one, qs, salaryGuard, type SearchParams } from "../_lib/page";
 import { archiveComponentAction } from "./actions";
-import { ComponentSheet, PreferencesSheet, RatesSheet, SlabsSheet, SlipSwitch, StatutorySwitch } from "./sheets";
+import { ComponentSheet, DuesTrackingSheet, PreferencesSheet, RatesSheet, SlabsSheet, SlipSwitch, StatutorySwitch } from "./sheets";
 
 export const metadata = { title: "Salary Settings" };
 
@@ -59,6 +59,13 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
   const archiving = doing === "archive" && UUID.test(one(sp.id)) ? compName.get(one(sp.id)) : null;
   const prefs = data.settings;
   const payDayWord = prefs.payDay === "last-working" ? "Last working day" : `${prefs.payDay} of next month`;
+  // PF, ESI, Professional Tax and TDS to pay: the months a school can track from, its first salary month to next month.
+  const thisMonth = firstOfMonth(p.today);
+  const trackStart = data.first && data.first < thisMonth ? data.first : thisMonth;
+  const trackMonths: { value: string; label: string }[] = [];
+  for (let m = addMonths(thisMonth, 1); m >= trackStart && trackMonths.length < 36; m = addMonths(m, -1)) trackMonths.push({ value: monthKey(m), label: monthName(m) });
+  const duesFrom = prefs.statutoryDuesFrom;
+  const duesWord = !duesFrom ? "Off" : !data.first || duesFrom <= data.first ? "From the first salary month" : `From ${monthName(duesFrom)} salary`;
 
   return (
     <div>
@@ -144,6 +151,11 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
             <DL rows={[["TDS", "Typed in by the Accountant as a monthly amount on each structure. Not worked out by School OS."], ["PF statement", "EPFO ECR text file, each month"], ["ESI statement", "ESIC monthly contribution Excel file"]]} className="!grid-cols-1" />
           </Card>
           <Card>
+            <CardHeader title="Paid to the government" description="PF, ESI, Professional Tax and TDS taken from salary stay to pay until recorded paid" icon={Landmark}
+              action={p.change ? <ButtonLink href={here({ do: "dues" })} scroll={false} size="sm" variant="ghost">Change</ButtonLink> : null} />
+            <DL rows={[["Track what is to pay", duesWord], ["Where", "Each paid month in Generate Salary, and Pending expenses in Finance Reports"]]} className="!grid-cols-1" />
+          </Card>
+          <Card>
             <CardHeader title="Approval steps" description="Stored in Settings, Forms & Approvals" icon={Workflow} />
             <div className="px-5 pb-5 flex flex-col gap-3">
               <div className="flex items-center gap-2 flex-wrap"><Pill tone="brand">Accountant prepares</Pill><ChevronRight size={16} className="text-ink3" aria-hidden="true" /><Pill tone="brand">Principal approves</Pill><ChevronRight size={16} className="text-ink3" aria-hidden="true" /><Pill tone="brand">Accountant marks paid</Pill></div>
@@ -176,6 +188,8 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
         </ConfirmSheet>
       )}
       {doing === "rates" && <RatesSheet closeHref={here()} months={months} now={{ pfEmployeeBp: s.pfEmployeeBp, pfEmployerBp: s.pfEmployerBp, pfCeiling: rupees(s.pfCeilingPaise), esiEmployeeBp: s.esiEmployeeBp, esiEmployerBp: s.esiEmployerBp, esiLimit: rupees(s.esiLimitPaise) }} />}
+      {doing === "dues" && <DuesTrackingSheet closeHref={here()} on={Boolean(duesFrom)} months={trackMonths}
+        start={duesFrom && trackMonths.some((m) => m.value === monthKey(duesFrom)) ? monthKey(duesFrom) : duesFrom ? trackMonths[trackMonths.length - 1]?.value ?? monthKey(thisMonth) : monthKey(thisMonth)} />}
       {doing === "prefs" && <PreferencesSheet closeHref={here()} now={{ payDay: prefs.payDay, lopDays: prefs.lopDays, lateMarks: String(prefs.lateMarksPerHalfDay), overtimeOn: prefs.overtimeOn, overtimeHour: prefs.overtimeHourPaise ? rupees(prefs.overtimeHourPaise) : "", tdsReminder: rupees(prefs.tdsReminderAbovePaise) }} />}
       {doing === "slabs" && <SlabsSheet closeHref={here()} state={s.ptState} rows={data.slabs.map((r) => ({ from: rupees(r.fromPaise), to: r.toPaise === null ? "" : rupees(r.toPaise), tax: rupees(r.taxPaise) }))} />}
     </div>

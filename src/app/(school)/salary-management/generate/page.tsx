@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   Banknote, CalendarPlus, CalendarRange, CalendarX2, Check, Eye, FileDown, FileSpreadsheet, FileWarning, Hourglass, Info, ListChecks, Lock, Plus, Receipt,
-  ReceiptText, SearchX, Send, TriangleAlert, Undo2, Wallet,
+  Landmark, ReceiptText, SearchX, Send, TriangleAlert, Undo2, Wallet,
 } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { canDecide } from "@/lib/approvals";
@@ -24,8 +24,9 @@ import { SalaryHead } from "../_components/salary-head";
 import { FlagPill, MoneyLi, RunPill, RunSteps, WorkRow } from "../_components/bits";
 import { ConfirmSheet } from "../_components/forms";
 import { BASE, one, qs, salaryGuard, salaryPeriod, type SearchParams } from "../_lib/page";
-import { calculateAction, decideRunAction, lockRunAction, removeAdjustmentAction, reversePaymentAction, sendRunAction, takeBackAction } from "./actions";
-import { AdjustmentSheet, OpenMonthSheet, PayRunSheet, TdsSheet } from "./sheets";
+import { cancelStatutoryAction, calculateAction, decideRunAction, lockRunAction, removeAdjustmentAction, reversePaymentAction, sendRunAction, takeBackAction } from "./actions";
+import { AdjustmentSheet, OpenMonthSheet, PayRunSheet, StatutoryPaySheet, TdsSheet } from "./sheets";
+import { STATUTORY_KINDS, STATUTORY_WORDS, duesTrackedFrom, statutoryDues, statutoryPaymentsOf, type StatutoryKind } from "@/lib/salary/statutory-payments";
 import { schoolRole } from "@/lib/school-roles";
 
 export const metadata = { title: "Generate Salary" };
@@ -87,8 +88,12 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
       };
     }
     const users = run ? await tx.userLogin.findMany({ where: { id: { in: [run.approvedById, run.paidById].filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } }) : [];
-    const banks = doing === "pay" ? await tx.bankAccount.findMany({ where: { kind: "BANK", archivedAt: null }, orderBy: [{ isMain: "desc" }, { name: "asc" }], select: { id: true, name: true, isMain: true, accountLast4: true } }) : [];
-    return { settings, runs, run, allRuns, staffNow, missing, lines, staff, adjustments, breakdown, structures, approval, users, banks };
+    // PF, ESI, Professional Tax and TDS of a paid month: what is to pay to the government, and what is recorded paid.
+    const paidRun = run && money && (run.status === "PAID" || run.status === "LOCKED");
+    const govFrom = paidRun ? await duesTrackedFrom(tx) : null;
+    const gov = paidRun && govFrom && run.month >= govFrom ? { dues: await statutoryDues(tx, { runId: run.id, today: p.today }), payments: await statutoryPaymentsOf(tx, run.id) } : null;
+    const banks = doing === "pay" || doing === "gov" ? await tx.bankAccount.findMany({ where: { kind: "BANK", archivedAt: null }, orderBy: [{ isMain: "desc" }, { name: "asc" }], select: { id: true, name: true, isMain: true, accountLast4: true } }) : [];
+    return { settings, runs, run, allRuns, staffNow, missing, lines, staff, adjustments, breakdown, structures, approval, users, banks, gov };
   });
 
   const run = data.run;
@@ -97,6 +102,9 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
   const staffOf = new Map(data.staff.map((s) => [s.id, s]));
   const status = run?.status ?? "OPEN";
   const editable = p.change && run && (status === "OPEN" || status === "CALCULATED");
+  const govLeft = (data.gov?.dues ?? []).reduce((t, d) => t + (d.balance > ZERO ? d.balance : ZERO), ZERO);
+  const govDue = p.change && (STATUTORY_KINDS as readonly string[]).includes(one(sp.kind)) ? data.gov?.dues.find((d) => d.kind === (one(sp.kind) as StatutoryKind)) ?? null : null;
+  const govPay = p.can.edit && UUID.test(one(sp.pay)) ? data.gov?.payments.find((x) => x.id === one(sp.pay)) ?? null : null;
   const payDay = data.settings.payDay === "last-working" ? "the last working day" : `day ${data.settings.payDay}`;
   const campusWord = (n: string) => (/campus$/i.test(n) ? n : `${n} campus`);
   const sub = `${campusWord(campus?.name ?? "Main")} · one salary run a month · pay day is ${payDay}`;
@@ -264,6 +272,47 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                     <MoneyLi sub k="Absent without leave" v={dayNum(included.reduce((s, l) => s + Number(l.absentDays), 0))} />
                     <MoneyLi k="Loss of pay" v={dayNum(lopTotal)} strong />
                   </ul>
+                </Card>
+              )}
+              {data.gov && (
+                <Card>
+                  <CardHeader title="Paid to the government" icon={Landmark}
+                    description={govLeft > ZERO ? `${amt(govLeft)} still to pay from ${monthName(run.month)} salary` : data.gov.dues.length ? `All paid for ${monthName(run.month)}` : `${monthName(run.month)} salary took nothing for the government`} />
+                  {data.gov.dues.length > 0 && (
+                    <ul className="px-5 pb-3 flex flex-col">
+                      {data.gov.dues.map((d) => (
+                        <li key={d.kind} className="flex items-center gap-3 py-2.5 border-t border-line/70 first:border-0 text-[14px]">
+                          <span className="flex-1 min-w-0">
+                            <b className="font-semibold">{d.label}</b> <span className="text-ink3">· {d.payee}</span>
+                            <span className="block text-[12.5px] text-ink3 tnum">
+                              {d.schoolShare > ZERO ? `Staff ${amt(d.staffShare)} + school ${amt(d.schoolShare)}` : STATUTORY_WORDS[d.kind].parts}
+                              {d.paid > ZERO ? ` · paid ${amt(d.paid)}` : ""}{d.balance > ZERO && d.dueDate ? ` · due by ${formatDate(d.dueDate)}` : ""}
+                            </span>
+                          </span>
+                          {d.balance > ZERO ? (
+                            <span className="flex items-center gap-2 shrink-0">
+                              <b className={cx("tnum", d.overdue ? "text-bad" : "text-warn")}>{amt(d.balance)}</b>
+                              {p.change && <Link href={here({ do: "gov", kind: d.kind })} scroll={false} className={buttonClass("secondary", "sm")}>Record paid</Link>}
+                            </span>
+                          ) : <span className="text-[13px] text-ok font-semibold shrink-0">Paid</span>}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {data.gov.payments.length > 0 && (
+                    <div className="px-5 pb-5">
+                      <p className="eyebrow text-ink3 mb-1.5">Payments</p>
+                      <ul className="flex flex-col gap-1.5">
+                        {data.gov.payments.map((x) => (
+                          <li key={x.id} className="text-[13px] flex justify-between items-center gap-2">
+                            <span className={cx("min-w-0", x.cancelledAt && "line-through text-ink3")}>{x.label} · {amt(x.amountPaise)} on {formatDate(x.paidOn)}{x.reference ? ` · ${x.reference}` : ""}</span>
+                            {x.cancelledAt ? <span className="text-[12px] text-ink3 shrink-0" title={x.cancelReason ?? ""}>Cancelled</span>
+                              : p.can.edit && <Link href={here({ do: "gov-cancel", pay: x.id })} scroll={false} className={buttonClass("ghost", "sm")}>Cancel</Link>}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </Card>
               )}
               <Card>
@@ -466,6 +515,16 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
         <PayRunSheet closeHref={here({ do: null })} runId={run.id} title={`Mark ${monthName(run.month)} paid`} net={amt(run.netPaise)} today={p.today.toISOString().slice(0, 10)}
           banks={data.banks.map((b) => ({ value: b.id, label: `${b.name}${b.accountLast4 ? ` · XXXX${b.accountLast4}` : ""}` }))} mainBank={data.banks.find((b) => b.isMain)?.id ?? data.banks[0]?.id ?? ""}
           bankFileHref={`${HREF}/bank-file?run=${run.id}&format=xlsx`} />
+      )}
+      {doing === "gov" && run && govDue && govDue.balance > ZERO && (
+        <StatutoryPaySheet closeHref={here({ do: null, kind: null })} runId={run.id} kind={govDue.kind} title={`${govDue.label} for ${monthName(run.month)} paid`}
+          sub={`${amt(govDue.balance)} to pay to ${govDue.payee}${govDue.dueDate ? `, due by ${formatDate(govDue.dueDate)}` : ""}. It goes into the Day Book on the date paid, under Salaries.`}
+          left={String(Number(govDue.balance) / 100)} today={p.today.toISOString().slice(0, 10)} earliest={run.month.toISOString().slice(0, 10)}
+          banks={data.banks.map((b) => ({ value: b.id, label: `${b.name}${b.accountLast4 ? ` · XXXX${b.accountLast4}` : ""}` }))} mainBank={data.banks.find((b) => b.isMain)?.id ?? data.banks[0]?.id ?? ""} />
+      )}
+      {doing === "gov-cancel" && run && govPay && !govPay.cancelledAt && (
+        <ReasonSheet closeHref={here({ do: null, pay: null })} title={`Cancel this ${govPay.label} payment?`} label="Cancel payment" placeholder="Like: challan entered twice" action={cancelStatutoryAction} hidden={{ paymentId: govPay.id }}
+          sub={`${amt(govPay.amountPaise)} paid on ${formatDate(govPay.paidOn)}. The Day Book entry stays and a reversing entry goes in today. The amount is to pay again.`} />
       )}
       {doing === "lock" && run && status === "PAID" && (
         <ConfirmSheet closeHref={here({ do: null })} title={`Lock ${monthName(run.month)} for good?`} label={`Lock ${monthName(run.month)}`} action={lockRunAction} hidden={{ runId: run.id }}>

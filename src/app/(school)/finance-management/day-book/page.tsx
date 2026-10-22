@@ -21,8 +21,8 @@ import { FinanceHead } from "../_components/finance-head";
 import { Line, ModeCell, Ref, signed } from "../_components/bits";
 import { BASE, financePage, financePeriod, one, qs, type SearchParams } from "../_lib/page";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
-import { feePageAllowedFor } from "@/lib/fees/access";
-import { can } from "@/lib/permissions";
+import { dayBookSourceLink } from "@/lib/finance/source-link";
+import { sourceLinkAccess } from "../_lib/source-link";
 import { closePreview, closesBetween, closesDays, daysToClose, reopensDays } from "@/lib/finance/day-close";
 import { ActButton } from "../_components/forms";
 import { remindCloseAction } from "./actions";
@@ -50,9 +50,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
   const openId = one(sp.e);
   const isToday = from.getTime() === p.today.getTime() && to.getTime() === p.today.getTime();
   const oneDay = from.getTime() === to.getTime();
-  const seesPayments = feePageAllowedFor(p.current, "payments");
-  const seesRefunds = feePageAllowedFor(p.current, "concessions");
-  const seesApplications = can(p.current.permissions, "admission-management", "view");
+  const linkAccess = sourceLinkAccess(p.current);
   // Close the day: the accountant counts and closes; the Principal and School Admin read, remind and may reopen.
   const closer = closesDays(p.current);
   const reopener = reopensDays(p.current);
@@ -136,14 +134,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
     );
   };
 
-  const sourceLink = (r: DayRow): [string, string] | null => {
-    if (r.sourceType.startsWith("payment") && seesPayments) return [r.sourceType === "payment-cancel" ? "Open the cancelled receipt in Fees" : "Open the payment in Fees", `/fee-management/payments/${r.sourceId}`];
-    if (r.sourceType === "refund" && seesRefunds) return ["Open the refund in Fees", `/fee-management/concessions?tab=refunds&open=${r.sourceId}`];
-    if (r.sourceType.startsWith("application-fee") && r.applicationId && seesApplications) return ["Open the application in Admissions", `/admission-management/applications/${r.applicationId}`];
-    if (r.sourceType.startsWith("income")) return ["Open in Income", `${BASE}/income?open=${r.sourceId}`];
-    if (r.sourceType.startsWith("expense")) return ["Open the expense and bill", `${BASE}/expenses?pay=${r.sourceId}`];
-    return null;
-  };
+  const sourceLink = (r: DayRow) => dayBookSourceLink(r, linkAccess);
 
   return (
     <div>

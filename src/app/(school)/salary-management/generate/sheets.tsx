@@ -8,7 +8,7 @@ import { Segmented } from "@/components/ui/controls";
 import { FieldShell, type Option } from "@/components/ui/field";
 import { buttonClass } from "@/components/ui/button";
 import { ProblemLink } from "../_components/forms";
-import { addAdjustmentAction, markPaidAction, openMonthAction, tdsAction } from "./actions";
+import { addAdjustmentAction, markPaidAction, openMonthAction, payStatutoryAction, tdsAction } from "./actions";
 
 /** A choice of a few words, sent as a hidden field. */
 function SegField({ name, label, options, start, onValue }: { name: string; label: string; options: readonly Option[]; start: string; onValue?: (v: string) => void }) {
@@ -57,6 +57,24 @@ export function PayRunSheet({ closeHref, runId, title, net, today, banks, mainBa
       {mode !== "CASH" && <SText name="reference" label={mode === "CHEQUE" ? "Cheque numbers" : "Bank batch reference or UTR"} required className="font-mono" placeholder={mode === "CHEQUE" ? "004581-004584" : "HDFCB26100941"} />}
       {mode !== "CASH" && banks.length > 0 && <SSelect name="accountId" label="From account" options={banks} start={mainBank} />}
       {mode === "BANK_TRANSFER" && <a href={bankFileHref} download className={buttonClass("ghost", "md", "self-start -ml-2")}><FileDown size={17} aria-hidden="true" />Download bank transfer file</a>}
+    </SheetForm>
+  );
+}
+
+const GOV_MODES: Option[] = [{ value: "BANK_TRANSFER", label: "Online or bank" }, { value: "CHEQUE", label: "Cheque" }, { value: "CASH", label: "Cash" }];
+
+/** PF, ESI, Professional Tax or TDS of one paid month, recorded paid to the government. It goes into the Day Book on the date paid. */
+export function StatutoryPaySheet({ closeHref, runId, kind, title, sub, left, today, earliest, banks, mainBank }: {
+  closeHref: string; runId: string; kind: string; title: string; sub: string; left: string; today: string; earliest: string; banks: Option[]; mainBank: string;
+}) {
+  const [mode, setMode] = useState("BANK_TRANSFER");
+  return (
+    <SheetForm title={title} sub={sub} closeHref={closeHref} action={payStatutoryAction} submitLabel="Record paid" pendingText="Saving…" hidden={{ runId, kind }}>
+      <SMoney name="amount" label="Amount paid" required start={left} help="All that is to pay. Change it to record part of it." />
+      <SDate name="date" label="Paid on" required start={today} min={earliest} max={today} />
+      <SegField name="mode" label="How was it paid?" options={GOV_MODES} start="BANK_TRANSFER" onValue={setMode} />
+      {mode !== "CASH" && <SText name="reference" label="Challan or reference number" required className="font-mono" placeholder="Like: TRRN 1234567890123" />}
+      {mode !== "CASH" && banks.length > 0 && <SSelect name="accountId" label="From account" options={banks} start={mainBank} />}
     </SheetForm>
   );
 }

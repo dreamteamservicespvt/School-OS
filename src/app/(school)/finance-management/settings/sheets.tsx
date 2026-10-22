@@ -9,7 +9,9 @@ import { SDate, SMoney, SSelect, SText } from "@/components/ui/sheet-fields";
 import { Segmented, Switch } from "@/components/ui/controls";
 import type { Option } from "@/components/ui/field";
 import type { FormState } from "@/lib/forms";
-import { addHeadAction, billsAction, closeMonthAction, costCentreAction, featureAction, headShownAction, tallyAction, yearAction } from "./actions";
+import Link from "next/link";
+import { CircleAlert, CircleCheck, CircleX } from "lucide-react";
+import { addHeadAction, billsAction, closeMonthAction, closeYearAction, costCentreAction, featureAction, headShownAction, tallyAction, yearAction } from "./actions";
 
 const MONTHS = [{ value: "4", label: "April" }, { value: "1", label: "January" }, { value: "6", label: "June" }];
 const END: Record<string, string> = { "4": "March", "1": "December", "6": "May" };
@@ -87,6 +89,45 @@ export function CloseMonthSheet({ closeHref, month, label, open }: { closeHref: 
     <SheetForm title={`Close ${label}?`} closeHref={closeHref} action={closeMonthAction} submitLabel={`Close ${label}`} pendingText="Closing…" hidden={{ month }}
       sub="After this, nothing dated in the month can be added, changed or cancelled. Mistakes go in as adjustments in an open month.">
       {open.length > 0 && <p className="text-[13.5px] text-warn font-semibold">Close {open.join(", ")} first: months close in order.</p>}
+    </SheetForm>
+  );
+}
+
+export type YearCheckRow = { key: string; tone: "stop" | "look" | "ok"; text: string; href?: string };
+
+const CHECK_ICON = { stop: [CircleX, "text-bad"], look: [CircleAlert, "text-warn"], ok: [CircleCheck, "text-ok"] } as const;
+
+/** Close a financial year: the check list first, then what closing does. Refused on the server while anything stops it. */
+export function CloseYearSheet({ closeHref, yearId, name, checks, carried, result, nextName, nextStart, canClose }: {
+  closeHref: string; yearId: string; name: string; checks: YearCheckRow[]; carried: { name: string; amount: string }[]; result: string; nextName: string; nextStart: string; canClose: boolean;
+}) {
+  return (
+    <SheetForm title={`Close ${name}?`} closeHref={closeHref} action={closeYearAction} submitLabel={`Close ${name}`} pendingText="Closing…" hidden={{ yearId }} submitDisabled={!canClose}
+      sub="Check the list, then close. Closing cannot be undone.">
+      <div>
+        <p className="eyebrow text-ink3 mb-2">Before closing</p>
+        <ul className="flex flex-col gap-2.5">
+          {checks.map((c) => {
+            const [Icon, tone] = CHECK_ICON[c.tone];
+            return (
+              <li key={c.key} className="flex gap-2.5 text-[13.5px] leading-snug">
+                <Icon size={17} className={`shrink-0 mt-0.5 ${tone}`} aria-hidden="true" />
+                <span><span className="sr-only">{c.tone === "stop" ? "Must be done first: " : c.tone === "look" ? "Worth a look: " : "Done: "}</span>{c.text}{c.href && <> <Link href={c.href} className="font-semibold text-brand underline-offset-2 hover:underline">Open</Link></>}</span>
+              </li>
+            );
+          })}
+        </ul>
+      </div>
+      <div>
+        <p className="eyebrow text-ink3 mb-2">What closing does</p>
+        <ul className="flex flex-col gap-2 text-[13.5px] text-ink2 list-disc pl-5">
+          <li>Nothing dated in {name} can be added, changed or cancelled any more: no fee payment, income, expense, salary payment, journal entry or money move. A mistake found later goes in as an adjustment in {nextName}.</li>
+          <li>Each account&apos;s closing balance is its opening balance on {nextStart}{carried.length ? ":" : "."}
+            {carried.length > 0 && <ul className="mt-1 list-none pl-0">{carried.map((a) => <li key={a.name} className="flex justify-between gap-3"><span>{a.name}</span><b className="font-semibold tnum text-ink">{a.amount}</b></li>)}</ul>}
+          </li>
+          <li>Income and expense heads start {nextName} at ₹0. {result}</li>
+        </ul>
+      </div>
     </SheetForm>
   );
 }

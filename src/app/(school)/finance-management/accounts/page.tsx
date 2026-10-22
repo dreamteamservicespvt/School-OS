@@ -1,7 +1,9 @@
-import { ArrowDownToLine, ArrowRight, ArrowUpFromLine, BookOpen, NotebookText, Plus, SearchX, Undo2, Workflow } from "lucide-react";
+import { ArrowDownToLine, ArrowRight, ArrowUpFromLine, BookOpen, Landmark, NotebookText, Plus, SearchX, Undo2, Workflow } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatDateTime, formatRupees } from "@/lib/format";
 import { generalLedger, journalList, ledgerAccounts, payables, receivables } from "@/lib/finance/journals";
+import { statutoryDues } from "@/lib/salary/statutory-payments";
+import { monthName } from "@/lib/salary/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
@@ -48,16 +50,19 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
   const data = await withSchool(ctx, async (tx) => {
     const accounts = await ledgerAccounts(tx, ctx);
     const accKey = accounts.some((a) => a.key === one(sp.acc)) ? one(sp.acc) : accounts.find((a) => a.kind === "CASH")?.key ?? accounts[0]?.key ?? "";
-    const [journals, ledger, pay, recv, heads, focus] = await Promise.all([
+    const [journals, ledger, pay, gov, recv, heads, focus] = await Promise.all([
       tab === "journals" ? journalList(tx, from, to) : null,
       tab === "ledger" && accKey ? generalLedger(tx, ctx, accKey, from, to, p.fy.startDate) : null,
       tab === "payables" ? payables(tx, p.today) : null,
+      // PF, ESI, Professional Tax and TDS taken from salary: only for people who may see staff pay.
+      tab === "payables" && !p.payHeads ? statutoryDues(tx, { open: true, today: p.today }) : null,
       tab === "receivables" ? receivables(tx) : null,
       adding ? tx.accountHead.findMany({ where: { archivedAt: null }, orderBy: [{ kind: "asc" }, { code: "asc" }], select: { id: true, name: true, code: true, kind: true } }) : [],
       openId || reverseId ? tx.journalEntry.findFirst({ where: { id: openId || reverseId }, select: { id: true, date: true } }).then(async (e) => (e ? (await journalList(tx, e.date, e.date)).find((j) => j.id === e.id) ?? null : null)) : null,
     ]);
     const numbers = focus ? await tx.journalEntry.findMany({ where: { id: { in: [focus.reversedById, focus.reversesId].filter((x): x is string => Boolean(x)) } }, select: { id: true, number: true } }) : [];
-    return { accounts, accKey, journals, ledger, pay, recv, heads, focus, numbers };
+    const campuses = gov?.length ? await tx.campus.findMany({ select: { id: true, name: true } }) : [];
+    return { accounts, accKey, journals, ledger, pay, gov, campuses, recv, heads, focus, numbers };
   });
 
   const keep = { ...per.keep, tab: tab === "journals" ? null : tab, q: q || null, acc: tab === "ledger" ? data.accKey : null };
@@ -65,6 +70,8 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
   const tabHref = (t: string) => qs(HREF, { ...per.keep, tab: t === "journals" ? null : t });
   const journals = (data.journals ?? []).filter((j) => !q || j.number.toLowerCase().includes(q) || j.narration.toLowerCase().includes(q) || j.lines.some((l) => l.head.toLowerCase().includes(q)));
   const payTotal = (data.pay ?? []).reduce((s, r) => s + r.balance, ZERO);
+  const govTotal = (data.gov ?? []).reduce((s, r) => s + r.balance, ZERO);
+  const campusOf = (id: string) => (data.campuses.length > 1 ? ` · ${data.campuses.find((c) => c.id === id)?.name ?? ""}` : "");
   const recvTotal = (data.recv ?? []).reduce((s, r) => s + r.amount, ZERO);
   const g = data.ledger;
   const o = data.focus;
@@ -145,6 +152,21 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
                 { key: "a", label: "", render: () => <span className={cx(buttonClass("ghost", "sm"), "pointer-events-none")}><ArrowRight size={15} aria-hidden="true" />Pay</span> },
               ]}
               phone={(r) => ({ title: r.vendor, sub: `${r.number} · due ${r.dueDate ? formatDate(r.dueDate) : "on payment"}`, icon: ArrowUpFromLine, iconTone: r.overdue ? "bad" : "neutral", right: <p className="font-semibold tnum">{formatRupees(r.balance)}</p> })} />
+            {data.gov && <>
+              <div className="border-t border-line mt-2" />
+              <CardHeader title="Taken from salary for the government" description="PF and ESI (staff and school share), Professional Tax and TDS of months marked paid, until recorded paid in Generate Salary" icon={Landmark}
+                action={<Pill tone={govTotal > ZERO ? "warn" : "ok"}>{formatRupees(govTotal)}</Pill>} />
+              <DataList rows={data.gov} rowKey={(r) => `${r.runId}:${r.kind}`} rowHref={(r) => `/salary-management/generate?run=${r.runId}`} minWidth={760} caption="Taken from salary, to pay to the government"
+                empty={<Empty icon={Landmark} title="Nothing to pay to the government" body="PF, ESI, Professional Tax and TDS of each month marked paid show here until they are recorded paid." />}
+                columns={[
+                  { key: "to", label: "To", render: (r) => <><p className="font-semibold leading-tight">{r.label} · {r.payee}</p><p className="text-[12.5px] text-ink3">{monthName(r.month)} salary{campusOf(r.campusId)}</p></> },
+                  { key: "due", label: "Due", nowrap: true, render: (r) => <span className={cx("text-[13.5px]", r.overdue && "text-bad font-semibold")}>{r.dueDate ? formatDate(r.dueDate) : "As the state sets"}{r.overdue && <span className="block text-[12px] font-normal">Overdue</span>}</span> },
+                  { key: "paid", label: "Paid", align: "right", render: (r) => (r.paid > ZERO ? formatRupees(r.paid) : <span className="text-ink3">—</span>) },
+                  { key: "amt", label: "To pay", align: "right", render: (r) => <b className="font-semibold">{formatRupees(r.balance)}</b> },
+                  { key: "a", label: "", render: () => <span className={cx(buttonClass("ghost", "sm"), "pointer-events-none")}><ArrowRight size={15} aria-hidden="true" />Pay</span> },
+                ]}
+                phone={(r) => ({ title: `${r.label} · ${monthName(r.month)}`, sub: `${r.payee}${r.dueDate ? ` · due ${formatDate(r.dueDate)}` : ""}`, icon: Landmark, iconTone: r.overdue ? "bad" : "neutral", right: <p className="font-semibold tnum">{formatRupees(r.balance)}</p> })} />
+            </>}
           </>}
 
           {tab === "receivables" && <>

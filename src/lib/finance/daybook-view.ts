@@ -44,6 +44,12 @@ export type DayRow = {
   sourceId: string;
   /** For an application fee: the application it was paid on. */
   applicationId?: string | null;
+  /** For an expense payment or its cancelling: the expense it paid (the entry's source is the payment). */
+  expenseId?: string | null;
+  /** The cash or bank account the money is in. */
+  accountId?: string | null;
+  /** For a PF, ESI, Professional Tax or TDS payment: the salary month it was taken from. */
+  runId?: string | null;
 };
 
 const SECTION_OF: Record<string, DayRow["source"]> = {
@@ -76,7 +82,7 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
   // Names and numbers for each entry.
   const ids = (type: string) => entries.filter((e) => e.sourceType === type).map((e) => e.sourceId);
   const payIds = [...ids("payment"), ...ids("payment-cancel"), ...waitingPays.map((p) => p.id)];
-  const [receipts, incomes, expensePays, accounts, students, cancelled, appFees] = await Promise.all([
+  const [receipts, incomes, expensePays, accounts, students, cancelled, appFees, statPays] = await Promise.all([
     tx.receipt.findMany({ where: { paymentId: { in: payIds } }, select: { paymentId: true, number: true } }),
     tx.income.findMany({ where: { id: { in: [...ids("income"), ...ids("income-cancel")] } }, select: { id: true, receiptNo: true } }),
     tx.expensePayment.findMany({ where: { id: { in: [...ids("expense-payment"), ...ids("expense-cancel")] } }, select: { id: true, expense: { select: { id: true, number: true } } } }),
@@ -84,6 +90,7 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
     tx.student.findMany({ where: { id: { in: waitingPays.map((p) => p.studentId) } }, select: { id: true, fullName: true } }),
     tx.dayBookEntry.findMany({ where: { reversesEntryId: { in: entries.map((e) => e.id) } }, select: { reversesEntryId: true } }),
     tx.applicationFeePayment.findMany({ where: { id: { in: [...ids("application-fee"), ...ids("application-fee-cancel")] } }, select: { id: true, receiptNo: true, applicationId: true } }),
+    tx.statutoryPayment.findMany({ where: { id: { in: [...ids("statutory-payment"), ...ids("statutory-cancel")] } }, select: { id: true, runId: true } }),
   ]);
   // The class an entry was posted with (its own section), so a promoted student's entry shows the class of that payment's year;
   // entries posted without a section, and payments still waiting, show the class in the payment's year, else this year's.
@@ -113,6 +120,9 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
       account: e.accountId ? acc.get(e.accountId) ?? null : null, depositAccount: e.depositAccountId ? acc.get(e.depositAccountId) ?? null : null,
       note: e.note, waiting: false, cancelled: reversed.has(e.id), studentId: e.studentId, sourceType: e.sourceType, sourceId: e.sourceId,
       applicationId: e.sourceType.startsWith("application-fee") ? appFees.find((x) => x.id === e.sourceId)?.applicationId ?? null : null,
+      expenseId: e.sourceType.startsWith("expense") ? expensePays.find((x) => x.id === e.sourceId)?.expense.id ?? null : null,
+      accountId: e.accountId,
+      runId: e.sourceType.startsWith("statutory") ? statPays.find((x) => x.id === e.sourceId)?.runId ?? null : e.sourceType.startsWith("payroll") ? e.sourceId : null,
     };
   });
   const waitingRows: DayRow[] = waitingPays.map((p) => ({

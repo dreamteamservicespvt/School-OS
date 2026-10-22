@@ -83,7 +83,8 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
   const accountChoices = data.accounts.map((a) => ({ value: a.id, label: a.name, balance: rupees(data.balances.get(a.id) ?? ZERO) }));
   const firstBank = data.accounts.find((a) => a.kind === "BANK" && a.isMain) ?? data.accounts.find((a) => a.kind === "BANK");
   const openBank = data.accounts.find((a) => a.id === data.bookId && a.kind === "BANK") ?? null;
-  const dayBookHref = (id: string, d: Date) => qs(`${BASE}/day-book`, { period: "custom", from: iso(d), to: iso(d), e: id });
+  // An entry opens where it came from: a money move here, anything else through its Day Book link.
+  const entryHref = (id: string) => `${BASE}/day-book/${id}`;
   const t = data.transfer;
 
   return (
@@ -139,7 +140,7 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
             <OldSoftwareBanner goLive={p.goLive} from={from} to={to} what="cash and bank entries" className="mx-4 mb-3" />
             {data.book && data.book.payHidden > 0 && <p className="px-5 pb-2 text-[12.5px] text-ink3">{data.book.payHidden} staff pay {data.book.payHidden === 1 ? "entry is" : "entries are"} not shown to your role. The balances count them.</p>}
             <DataList rows={lines} rowKey={(r) => r.id} minWidth={760} caption={isCash ? "Cash book" : "Bank book"}
-              rowHref={(r) => (r.sourceType === "transfer" ? here({ t: r.sourceId }) : dayBookHref(r.id, r.date))}
+              rowHref={(r) => (r.sourceType === "transfer" || r.sourceType === "transfer-cancel" ? here({ t: r.sourceId }) : entryHref(r.id))}
               footer={to.getTime() < p.today.getTime() ? `Closing ${formatRupees(data.book?.closing ?? ZERO)} is the opening balance of the next day` : `${lines.length} ${lines.length === 1 ? "entry" : "entries"} · closing is live`}
               columns={[
                 { key: "t", label: oneDay ? "Time" : "Date", nowrap: true, render: (r) => <span className="tnum text-ink2">{oneDay ? formatTime(r.postedAt, p.tz) : formatDate(r.date)}</span> },

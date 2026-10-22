@@ -10,6 +10,7 @@ import { setTds } from "@/lib/salary/structures";
 import { adjustmentLabel, monthName, parseMonthKey } from "@/lib/salary/words";
 import { campusAllows } from "@/lib/campus";
 import { assertStaffOnCampus, campusRun } from "@/lib/salary/campus";
+import { cancelStatutoryPayment, payStatutory } from "@/lib/salary/statutory-payments";
 import { salaryAction } from "../_lib/action";
 
 const tz = (c: { school: { timeZone: string } }) => todayIn(c.school.timeZone);
@@ -121,4 +122,31 @@ export async function tdsAction(_prev: unknown, fd: FormData) {
     const s = await tx.staff.findFirst({ where: { id: staffId }, select: { fullName: true } });
     return { who: s?.fullName ?? "", amount: formatRupees(amount) };
   }, (r) => `TDS ${r.amount} a month saved for ${r.who}. On every slip until changed.`);
+}
+
+/** PF, ESI, Professional Tax or TDS of a paid month, recorded paid to the government. */
+export async function payStatutoryAction(_prev: unknown, fd: FormData) {
+  return salaryAction("edit", fd, async (tx, ctx, current) => {
+    const mode = str(fd, "mode");
+    const r = await payStatutory(tx, ctx, {
+      runId: (await campusRun(tx, id(fd, "runId", "salary month"), current)).id,
+      kind: str(fd, "kind"),
+      amountPaise: needRupees(fd, "amount", "Amount"),
+      date: dateOf(fd, "date", "Date paid"),
+      mode,
+      reference: mode === "CASH" ? optionalText(fd, "reference", "Reference", 60) : text(fd, "reference", "Challan or reference number", { min: 3, max: 60 }),
+      accountId: mode === "CASH" ? null : optionalId(fd, "accountId"),
+    });
+    return { what: `${r.label} for ${r.month}`, amount: formatRupees(r.payment.amountPaise), date: formatDate(r.dayBookDate), left: r.left };
+  }, (r) => `${r.what}: ${r.amount} recorded paid and added to the Day Book on ${r.date}.${r.left > BigInt(0) ? ` ${formatRupees(r.left)} is still to pay.` : ""}`);
+}
+
+export async function cancelStatutoryAction(_prev: unknown, fd: FormData) {
+  return salaryAction("archive", fd, async (tx, ctx, current) => {
+    const paymentId = id(fd, "paymentId", "payment");
+    const p = await tx.statutoryPayment.findFirst({ where: { id: paymentId }, select: { runId: true } });
+    if (!p) throw new MoneyProblem("This payment was not found.");
+    await campusRun(tx, p.runId, current);
+    return cancelStatutoryPayment(tx, ctx, paymentId, str(fd, "reason"), tz(current));
+  }, (r) => `${r.label} payment for ${r.month} cancelled. A reversal of ${formatRupees(r.amount)} is in today's Day Book and it is to pay again.`);
 }

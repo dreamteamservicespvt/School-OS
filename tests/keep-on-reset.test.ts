@@ -49,7 +49,6 @@ const OUTSIDE_ACTION_FORMS: Record<string, string> = {
   "src/app/(school)/dashboard/dashboard-client.tsx#RefreshControl": "screen setting, no form",
   "src/app/(school)/settings/school-profile/campuses.tsx#Campuses": "show-archived filter, outside the campus form",
   // Import wizards: steps move on with buttons, not form actions.
-  "src/app/(school)/hostel-management/rooms/import/import-steps.tsx#ImportSteps": "import wizard",
   "src/components/import/ai-column-suggestions.tsx#AiColumnSuggestionCard": "import wizard",
   // Screens that save from a button (startTransition), with no action form.
   "src/app/(school)/communication/settings/settings-forms.tsx#RuleRow": "saves from a button",

@@ -89,3 +89,45 @@ describe("Fee Management, Finance Management and the School Calendar (G15, G16)"
   });
 });
 
+describe("Staff & HR, Admission Management, Library, Inventory and Hostel Import pages (G16)", () => {
+  it("each page keeps its own module's rules", async () => {
+    const admin = await who(f.principal.id);
+    const acc = await who(f.accountant.id);
+    // Staff: HR's work (Staff & HR full); the Accountant cannot.
+    expect(await placeRefusal(admin, PLACES.staff, "staff", "create")).toBeNull();
+    expect(await placeRefusal(acc, PLACES.staff, "staff", "create")).toMatch(/Only HR, the School Admin or the Principal/);
+    // Optional modules switched off for this school: their pages say so.
+    expect(await placeRefusal(admin, PLACES.library, "library-catalogue", "create")).toMatch(/switched off/);
+    expect(await placeRefusal(admin, PLACES["inventory-items"], "inventory-items", "create")).toMatch(/switched off/);
+    // A page brings in only its own kinds.
+    expect(await placeRefusal(admin, PLACES["inventory-items"], "inventory-assets", "create")).not.toBeNull();
+  });
+});
+
+describe("a warden brings rooms into their own hostel only, wherever the file comes in", () => {
+  let h: HostelFixture;
+  beforeAll(async () => {
+    h = await makeHostelSchool("One Engine Hostel School");
+  }, 120_000);
+
+  it("rows for another hostel show a problem; the rest come in on the engine; another hostel's import is not the warden's to undo", async () => {
+    const w: SchoolContext = { schoolId: h.school.id, userId: h.warden.id };
+    const csv = "Hostel,Floor,Room no,Beds\nBoys' Hostel,First,B-21,2\nGirls' Hostel,First,G-21,2\n";
+    const [id] = await upload(w, csv, "rooms.csv", "hostel-rooms");
+    const checked = (await run(w, (tx) => workOn(tx, w, id, { check: true }))).checked!;
+    expect(checked.ready.map((r) => r.values.room)).toEqual(["B-21"]);
+    expect(checked.problems[0].problems).toContain("You work in your own hostel only, not in Girls' Hostel.");
+    await run(w, (tx) => importFile(tx, w, id));
+    await drain(w);
+    expect(await run(w, (tx) => tx.hostelRoom.count({ where: { roomNo: "B-21", archivedAt: null } }))).toBe(1);
+
+    // The School Admin brings in a room in the girls' hostel; the boys' warden cannot undo it.
+    const a: SchoolContext = { schoolId: h.school.id, userId: h.admin.id };
+    const [other] = await upload(a, "Hostel,Floor,Room no\nGirls' Hostel,First,G-22\n", "girls.csv", "hostel-rooms");
+    await run(a, (tx) => importFile(tx, a, other));
+    await drain(a);
+    const batchId = (await run(a, (tx) => tx.moveInFile.findUniqueOrThrow({ where: { id: other } }))).batchId!;
+    await expect(run(w, (tx) => undoImport(tx, w, batchId))).rejects.toThrow("This import added rooms in another hostel. Ask the Principal or School Admin to undo it.");
+    await run(a, (tx) => undoImport(tx, a, batchId));
+  });
+});

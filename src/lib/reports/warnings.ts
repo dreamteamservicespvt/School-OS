@@ -269,7 +269,7 @@ export async function refreshFlags(tx: Tx, ctx: SchoolContext, now = new Date())
   if (fresh.length) await tx.riskFlag.createMany({ data: fresh });
   if (changed.length) {
     await tx.$executeRaw`
-      UPDATE risk_flag AS f SET reason = v.reason, basis = v.basis, strength = v.strength, value = v.value, section_id = v.section_id, updated_at = ${new Date()}
+      UPDATE risk_flag AS f SET reason = v.reason, basis = v.basis, strength = v.strength, value = v.value, section_id = v.section_id, updated_at = (${new Date()}::timestamptz AT TIME ZONE 'UTC')
       FROM jsonb_to_recordset(${JSON.stringify(changed)}::jsonb) AS v(id uuid, reason text, basis text, strength text, value float8, section_id uuid)
       WHERE f.id = v.id`;
   }

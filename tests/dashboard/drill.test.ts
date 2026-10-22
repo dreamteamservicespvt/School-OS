@@ -23,6 +23,12 @@ import { readListParams } from "@/lib/list";
 import { getStudentSettings } from "@/lib/students/settings";
 import { guardianConsentGroups, guardiansInReach } from "@/lib/students/guardian-list";
 import { yearsFor } from "@/lib/academic/years";
+import { viewerFor as admissionViewer, type ViewerSource } from "@/lib/admission/access";
+import { APPLICATION_FILTERS, applicationWhere, ENQUIRY_FILTERS, enquiryWhere } from "@/lib/admission/list";
+import { openYears } from "@/lib/admission/settings";
+import { viewerFor as staffViewer } from "@/lib/staff/access";
+import { STAFF_FILTERS, staffWhere } from "@/lib/staff/list";
+import { approvalsFor } from "@/lib/approvals";
 import { LIST_FILTERS, studentListWhere } from "@/app/(school)/student-management/_lib/queries";
 import { drillSchool, NOW, TODAY, day, type DrillSchool } from "./drill-fixture";
 
@@ -234,5 +240,50 @@ describe("student tiles open lists with the same numbers", () => {
     }
     // 12 parents in the school: one gave consent, one withdrew it, so 10 have not given it.
     expect(card(await home("principal"), "students.no-consent")!.value).toBe("10");
+  });
+});
+
+/** Enquiries or Applications for a link's filters, as those pages read them (the person's campus and its open years). */
+async function admissionList(who: Current, href: string) {
+  return read(who, async (tx) => {
+    const v = await admissionViewer(tx, who.ctx, who as unknown as ViewerSource);
+    const years = (await openYears(tx, v.campusId)).map((y) => y.id);
+    if (pathOf(href) === "/admission-management/enquiries") return tx.enquiry.count({ where: enquiryWhere(readListParams(paramsOf(href), ENQUIRY_FILTERS), v, { yearId: years, timeZone: "Asia/Kolkata", now: NOW }) });
+    expect(pathOf(href)).toBe("/admission-management/applications");
+    return tx.application.count({ where: applicationWhere(readListParams(paramsOf(href), APPLICATION_FILTERS), { yearId: years, timeZone: "Asia/Kolkata", campusId: v.campusId }) });
+  });
+}
+
+describe("admissions, staff and approvals open lists with the same numbers", () => {
+  it("new enquiries, follow-ups and applications waiting: the lists show the same counts, only the person's campus", async () => {
+    for (const key of ["principal", "northAdmin", "receptionist"] as const) {
+      const h = await home(key);
+      const tile = band(h, "admissions.new-enquiries");
+      if (tile) expect(num(tile.big), key).toBe(await admissionList(f.who[key], tile.href!));
+      for (const id of ["admissions.follow-ups-late", "admissions.follow-ups-today", "admissions.pending-applications"]) {
+        const a = card(h, id);
+        if (a) expect(num(a.value), `${key} ${id}`).toBe(await admissionList(f.who[key], a.href));
+      }
+    }
+    expect(num(card(await home("principal"), "admissions.pending-applications")!.value)).toBe(3);
+    expect(num(card(await home("northAdmin"), "admissions.pending-applications")!.value)).toBe(1);
+  });
+
+  it("staff: the Staff List shows the same count (staff on leave, who resigned or are archived are not in it)", async () => {
+    for (const key of ["principal", "northAdmin"] as const) {
+      const tile = band(await home(key), "staff.head-count");
+      if (!tile) continue;
+      const count = await read(f.who[key], async (tx) => tx.staff.count({ where: staffWhere(readListParams(paramsOf(tile.href!), STAFF_FILTERS), await staffViewer(tx, f.who[key].ctx, f.who[key])) }));
+      expect(num(tile.big), key).toBe(count);
+    }
+  });
+
+  it("approvals waiting: Approvals shows the same requests", async () => {
+    const h = await home("principal");
+    const count = await read(f.who.principal, async (tx) => tx.approval.count({ where: await approvalsFor(tx, f.who.principal.ctx, f.who.principal.roles.map((r) => r.key)) }));
+    expect(h.approvals?.count).toBe(count);
+    const tile = band(h, "approvals.waiting");
+    if (tile) expect(num(tile.big)).toBe(count);
+    expect(count).toBe(2);
   });
 });

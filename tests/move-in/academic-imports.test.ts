@@ -118,3 +118,83 @@ describe("Teacher allocation from Excel (G44)", () => {
     expect(await sections()).toEqual({ [s.s6a.id]: null, [s.s5b.id]: null });
   });
 });
+
+describe("Time Table from Excel (G44)", () => {
+  it("the people who keep the Time Table: full Academic Management or the Office Staff template", async () => {
+    const principal = await s.currentFor(s.principal.id);
+    const teacher = await s.currentFor(s.teacherUser.id);
+    await run((tx) => tx.role.updateMany({ where: { schoolId: s.school.id, key: "office-staff" }, data: { isEnabled: true } }));
+    const office = await s.currentFor((await makeUser({ schools: [{ id: s.school.id, roleKeys: ["office-staff"] }] })).id);
+    for (const p of [principal, office]) {
+      expect(await placeRefusal(p, PLACES.academic, "academic-timetable", "create")).toBeNull();
+      expect(await placeRefusal(p, PLACES.academic, "academic-timetable", "archive")).toBeNull();
+    }
+    expect(await placeRefusal(office, PLACES.settings, "academic-timetable", "create")).toBeNull();
+    expect(await placeRefusal(teacher, PLACES.academic, "academic-timetable", "create")).toMatch(/does not arrange the Time Table/);
+    expect(await placeRefusal(teacher, PLACES.settings, "academic-timetable", "create")).not.toBeNull();
+  });
+
+  it("fills the year's draft, never the published Time Table; clashes and periods outside the plan are row problems; Undo puts the draft back", async () => {
+    const [asha, kiran, meera, vikram] = s.staff;
+    const published = () => run((tx) => tx.timetablePeriod.findMany({ where: { versionId: s.version.id, archivedAt: null }, orderBy: [{ sectionId: "asc" }, { dayOfWeek: "asc" }, { periodNo: "asc" }] }));
+    const before = await published();
+    const csv = [
+      "Class,Sec,Day,Period No,Subject,Teacher,Room",
+      "5,A,Mon,1,Maths,,",
+      "5,A,Monday,Period 2,English,Kiran Das,",
+      "5,B,MON,1,Science,Meera Pillai,",
+      "6,A,Mon,1,English,Kiran Das,",
+      "5,B,Monday,2,Maths,Kiran Das,",
+      "5,A,Mon,9,Science,Meera Pillai,",
+      "5,A,Sun,3,Science,Meera Pillai,",
+      "5,A,Mon,1,Science,Meera Pillai,",
+      "6,A,Tue,3,Hindi,,",
+      "5,A,Tue,4,Science,Meera Pillai,Lab",
+      "6,A,Tue,4,Maths,Vikram Shah,Lab",
+    ].join("\n");
+    const [id] = await upload(csv, "timetable.csv", "academic-timetable");
+    const w = await run((tx) => workOn(tx, c, id, { check: true }));
+    expect(w.choices.columnMatch).toMatchObject({ className: [0], sectionName: [1], day: [2], period: [3], subject: [4], teacher: [5], room: [6] });
+    const checked = w.checked!;
+    expect(checked.ready.map((r) => r.line)).toEqual([2, 3, 4, 5, 11]);
+    const problem = (line: number) => problemOf(checked, line)?.problems.join(" ") ?? "";
+    expect(problem(6)).toMatch(/Kiran Das is already in Class 5 A \(row 3\), period 2 on Monday/);
+    expect(problem(7)).toMatch(/Period 9 is not in the school's period plan\. Its periods are 1, 2, 3, 4, 5, 6, 7, 8/);
+    expect(problem(8)).toMatch(/Sunday is not a working day/);
+    expect(problem(9)).toMatch(/Class 5 A, period 1 on Monday is twice in the file/);
+    expect(problem(10)).toMatch(/Subject "Hindi" is not in Subjects/);
+    expect(problem(12)).toMatch(/Room Lab is already booked for Class 5 A \(row 11\), period 4 on Tuesday/);
+
+    const batchId = await bringIn(id);
+    const tb = await run((tx) => tx.importBatch.findUniqueOrThrow({ where: { id: batchId } }));
+    expect(tb).toMatchObject({ added: 1, updated: 4 });
+    // The published Time Table is untouched; the rows are in a draft.
+    expect(await published()).toEqual(before);
+    const draft = await run((tx) => tx.timetableVersion.findFirstOrThrow({ where: { academicYearId: s.year.id, status: "DRAFT", archivedAt: null } }));
+    const cells = async (sectionId: string) => (await run((tx) => tx.timetablePeriod.findMany({ where: { versionId: draft.id, sectionId, archivedAt: null }, orderBy: [{ dayOfWeek: "asc" }, { periodNo: "asc" }] })))
+      .map((p) => `${p.dayOfWeek}:${p.periodNo}:${p.staffId}:${p.room ?? ""}`);
+    // Each class named in the file is replaced; Asha comes from Teacher Allocation for Maths in 5 A.
+    expect(await cells(s.s5a.id)).toEqual([`1:1:${asha.id}:`, `1:2:${kiran.id}:`, `2:4:${meera.id}:Lab`]);
+    expect(await cells(s.s5b.id)).toEqual([`1:1:${meera.id}:`]);
+    expect(await cells(s.s6a.id)).toEqual([`1:1:${kiran.id}:`]);
+    expect(vikram.id).toBeTruthy();
+
+    expect(await run((tx) => undoImport(tx, c, batchId))).toMatchObject({ archived: 1, putBack: 4 });
+    // The draft is the copy of the published Time Table again.
+    const copy = (rows: { sectionId: string; dayOfWeek: number; periodNo: number; staffId: string | null; subjectId: string | null }[]) => rows.map((p) => `${p.sectionId}:${p.dayOfWeek}:${p.periodNo}:${p.staffId}:${p.subjectId}`).sort();
+    expect(copy(await run((tx) => tx.timetablePeriod.findMany({ where: { versionId: draft.id, archivedAt: null } })))).toEqual(copy(before));
+
+    // A draft published since cannot be changed by Undo.
+    // Asha is in 5 B, period 2 on Tuesday, and 5 B is not in this file: that row is not saved, with the reason.
+    const [again] = await upload("Class,Section,Day,Period,Subject,Teacher\n5,A,Wed,5,Science,Meera Pillai\n5,A,Tue,2,Maths,Asha Rao\n", "again.csv", "academic-timetable");
+    expect((await checkOf(again)).ready).toHaveLength(2);
+    const second = await bringIn(again);
+    const kept = await run((tx) => tx.importBatch.findUniqueOrThrow({ where: { id: second } }));
+    expect(kept).toMatchObject({ skipped: 1 });
+    expect(JSON.stringify(kept.errorReport)).toMatch(/Asha Rao is already in Class 5 B, period 2 on Tuesday\. That is in the draft Time Table, in a class this file does not change/);
+    const { publishVersion } = await import("@/lib/academic/timetable");
+    const { todayIn, addDays } = await import("@/lib/academic/common");
+    await run((tx) => publishVersion(tx, c, draft.id, addDays(todayIn(), 1), todayIn()));
+    await expect(run((tx) => undoImport(tx, c, second))).rejects.toThrow(/is published, so this import cannot be undone/);
+  });
+});

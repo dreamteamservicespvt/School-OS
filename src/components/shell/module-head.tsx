@@ -6,6 +6,7 @@ import { cx } from "@/components/ui/cx";
 import { Pill } from "@/components/ui/badge";
 import { Tabs, type Tab } from "@/components/ui/tabs";
 import { isPinned, togglePinned } from "./local-lists";
+import { useT } from "@/lib/i18n/client";
 
 const PINS_CHANGED = "sos:pins-changed";
 function subscribe(onChange: () => void) {
@@ -28,6 +29,7 @@ export function ModuleHead({ title, page: pageIn, pageName, href, userId, sub, a
   access?: "full" | "own" | "view"; /** Same as access ("all" is full). */ reach?: "all" | "own" | "view";
   actions?: React.ReactNode; tabs?: Tab[] | null; tabsLabel?: string;
 }) {
+  const t = useT();
   const page = pageIn ?? pageName ?? title;
   const access = accessIn ?? (reach === "all" ? "full" : reach) ?? "full";
   const pinned = useSyncExternalStore(subscribe, () => isPinned(userId, href), () => false);
@@ -41,21 +43,21 @@ export function ModuleHead({ title, page: pageIn, pageName, href, userId, sub, a
         <div className="min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
             <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">
-              {title}
-              {access === "view" && <Pill tone="neutral" className="align-middle ml-2 !h-6"><Eye size={13} aria-hidden="true" />View only</Pill>}
-              {access === "own" && <Pill tone="brand" className="align-middle ml-2 !h-6"><User size={13} aria-hidden="true" />Only yours</Pill>}
+              {t.any(title)}
+              {access === "view" && <Pill tone="neutral" className="align-middle ml-2 !h-6"><Eye size={13} aria-hidden="true" />{t("View only")}</Pill>}
+              {access === "own" && <Pill tone="brand" className="align-middle ml-2 !h-6"><User size={13} aria-hidden="true" />{t("Only yours")}</Pill>}
             </h1>
             <button type="button" onClick={toggle}
-              aria-pressed={pinned} aria-label={pinned ? `Unpin ${page}` : `Pin ${page} to Search`} title={pinned ? "Pinned to Search" : "Pin to Search"}
+              aria-pressed={pinned} aria-label={pinned ? t("Unpin {page}", { page: t.any(page) }) : t("Pin {page} to Search", { page: t.any(page) })} title={pinned ? t("Pinned to Search") : t("Pin to Search")}
               className={cx("grid size-9 place-items-center rounded-xl transition hover:bg-sunken", pinned ? "text-brand" : "text-ink3")}>
               <Pin size={17} className={pinned ? "fill-current" : ""} aria-hidden="true" />
             </button>
           </div>
-          {sub && <p className="text-ink3 text-[15px] mt-1">{sub}</p>}
+          {sub && <p className="text-ink3 text-[15px] mt-1">{typeof sub === "string" ? t.any(sub) : sub}</p>}
         </div>
         {actions && <div className="flex gap-2 flex-wrap items-center">{actions}</div>}
       </div>
-      {tabs && tabs.length > 1 && <Tabs tabs={tabs} label={tabsLabel ?? `${title} pages`} />}
+      {tabs && tabs.length > 1 && <Tabs tabs={tabs} label={tabsLabel ?? t("{module} pages", { module: t.any(title) })} />}
     </>
   );
 }

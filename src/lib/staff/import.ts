@@ -6,6 +6,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { defineImport, RowProblem } from "../importer";
 import { writeAudit } from "../audit";
+import { worksElsewhere } from "../auth/access";
 import { checkIndianMobile } from "../format";
 import { namesAlike } from "../students/name-match";
 import { checkAadhaar, createStaff, findDuplicates, StaffProblem, type StaffDetails } from "./staff";
@@ -162,8 +163,7 @@ defineImport<Row>({
       if (login && !joined) {
         await tx.schoolAccess.updateMany({ where: { schoolId: ctx.schoolId, userLoginId: login.id, archivedAt: null }, data: { archivedAt: now } });
         // The login the import made goes too, unless it works in another school, so the phone can sign in again after the corrected import.
-        const elsewhere = await tx.schoolAccess.count({ where: { userLoginId: login.id, archivedAt: null } });
-        if (elsewhere === 0) await tx.userLogin.update({ where: { id: login.id }, data: { archivedAt: now } });
+        if (!(await worksElsewhere(login.id, ctx.schoolId))) await tx.userLogin.update({ where: { id: login.id }, data: { archivedAt: now } });
       }
       await writeAudit(tx, ctx, { action: "archived", recordType: "Staff", recordId: s.id, after: { reason: "Import undone", login: login ? (joined ? "kept, unlinked" : "archived") : null } });
     }

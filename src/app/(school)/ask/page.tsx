@@ -9,6 +9,8 @@ import { answerQuestion, logAsk, offeredQuestions, readyMadeFor, SHOW_ROWS, type
 import { isQuestionKey, isWhen, type AskParams, type AskVia } from "@/lib/ask/questions";
 import { linkTitleIn, questionTitleIn } from "@/lib/ask/titles";
 import { getT } from "@/lib/i18n/server";
+import { dayWords } from "@/lib/i18n/dates";
+import type { T } from "@/lib/i18n/t";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
@@ -74,7 +76,7 @@ export default async function AskPage({ searchParams }: Props) {
 
   return (
     <>
-      <PageHeader title={t.lang === "en" ? answer.title : questionTitleIn(t, key, params)} href={`${href}?q=${key}`} userId={current.user.id} pinLabel={questionTitleIn(t, key)} sub={answer.ok ? answer.scope : undefined} />
+      <PageHeader title={t.lang === "en" ? answer.title : questionTitleIn(t, key, params)} href={`${href}?q=${key}`} userId={current.user.id} pinLabel={questionTitleIn(t, key)} sub={answer.ok ? partsIn(t, answer.scope) : undefined} />
       <div className="flex flex-col gap-4">
         {via === "ai" && (
           <p className="rounded-2xl border border-info/30 bg-info/10 px-4 py-3 text-[13.5px]">
@@ -82,7 +84,7 @@ export default async function AskPage({ searchParams }: Props) {
             <Words k="The AI assistant read your words as this question. Check it is what you meant; the answer below is from the school's own records." />
           </p>
         )}
-        {answer.ok ? <Answer a={answer} /> : (
+        {answer.ok ? <Answer a={answer} t={t} /> : (
           <EmptyState title="This question cannot be answered here" Icon={ShieldAlert}
             action={answer.link ? <Link href={answer.link.href} className={buttonClass("secondary", "md")}>{answer.link.label}</Link> : undefined}>
             {answer.problem}
@@ -94,7 +96,7 @@ export default async function AskPage({ searchParams }: Props) {
   );
 }
 
-function Answer({ a }: { a: Extract<AskAnswer, { ok: true }> }) {
+function Answer({ a, t }: { a: Extract<AskAnswer, { ok: true }>; t: T }) {
   const { columns, rows } = a.table;
   const [first, ...rest] = columns;
   return (
@@ -102,7 +104,7 @@ function Answer({ a }: { a: Extract<AskAnswer, { ok: true }> }) {
       <div className="px-5 pt-5 pb-4 flex flex-col gap-2 border-b border-line">
         <p className="flex flex-wrap items-baseline gap-x-2">
           <span className="font-display text-[34px] font-semibold leading-none tracking-tight">{a.big}</span>
-          <span className="text-[15px] text-ink2">{a.bigLabel}</span>
+          <span className="text-[15px] text-ink2">{partsIn(t, a.bigLabel)}</span>
         </p>
         <p className="text-[15px] max-w-3xl" role="status">{a.sentence}</p>
         {a.note && <p className="text-[13px] text-ink3">{a.note}</p>}
@@ -114,7 +116,7 @@ function Answer({ a }: { a: Extract<AskAnswer, { ok: true }> }) {
             {rows.map((r, i) => (
               <li key={i} className="px-5 py-3">
                 <p className="font-semibold text-[14.5px]">{r[first.key]}</p>
-                <p className="text-[13px] text-ink3">{rest.map((c) => r[c.key] && `${c.label}: ${r[c.key]}`).filter(Boolean).join(" · ")}</p>
+                <p className="text-[13px] text-ink3">{rest.map((c) => r[c.key] && `${t.any(c.label)}: ${r[c.key]}`).filter(Boolean).join(" · ")}</p>
               </li>
             ))}
           </ul>
@@ -122,7 +124,7 @@ function Answer({ a }: { a: Extract<AskAnswer, { ok: true }> }) {
             <table className="w-full text-[14px]">
               <thead>
                 <tr className="text-left text-[12.5px] text-ink3">
-                  {columns.map((c) => <th key={c.key} scope="col" className={cx("px-5 py-2.5 font-medium", c.right && "text-right")}>{c.label}</th>)}
+                  {columns.map((c) => <th key={c.key} scope="col" className={cx("px-5 py-2.5 font-medium", c.right && "text-right")}>{t.any(c.label)}</th>)}
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -141,7 +143,7 @@ function Answer({ a }: { a: Extract<AskAnswer, { ok: true }> }) {
       <div className="px-5 py-4 flex flex-wrap items-center gap-3 border-t border-line">
         {a.total > SHOW_ROWS && <p className="text-[13px] text-ink3"><Words k="Showing the first" /> {SHOW_ROWS} <Words k="of" /> {a.total.toLocaleString("en-IN")}.</p>}
         <Link href={a.link.href} prefetch={false} className={cx(buttonClass("secondary", "md"), "ml-auto")}>
-          {a.link.label}<ArrowRight size={16} aria-hidden="true" />
+          {t.any(a.link.label)}<ArrowRight size={16} aria-hidden="true" />
         </Link>
       </div>
     </Card>
@@ -173,4 +175,9 @@ function OtherQuestions({ ready, current }: { ready: { key: string; title: strin
       </ul>
     </Card>
   );
+}
+
+/** An answer's fixed words (a label, "Whole school · Thursday, 22 October") in the screen language; names and numbers stay. */
+function partsIn(t: T, text: string): string {
+  return dayWords(t, text.split(" · ").map((part) => t.any(part)).join(" · "));
 }

@@ -63,8 +63,8 @@ export function RoleEditor({ id, name, kind, permissions, requiresTwoStep, sensi
         </div>
 
         <fieldset>
-          <legend className="mb-1 font-medium">Sensitive fields this role may see</legend>
-          <p className="mb-2 text-sm text-ink-2">Hidden everywhere from a role that may not see them: on screen, in exports, in Search and in AI answers. Only the levels this role may have are offered.</p>
+          <legend className="mb-1 font-medium"><Words k="Sensitive fields this role may see" /></legend>
+          <p className="mb-2 text-sm text-ink-2"><Words k="Hidden everywhere from a role that may not see them: on screen, in exports, in Search and in AI answers. Only the levels this role may have are offered." /></p>
           {state?.errors?.sensitiveFields && <p className="mb-2 text-sm text-danger">{state.errors.sensitiveFields}</p>}
           <div className="grid gap-2 sm:grid-cols-2">
             {sensitiveOptions.map((o) => (
@@ -77,8 +77,8 @@ export function RoleEditor({ id, name, kind, permissions, requiresTwoStep, sensi
         </fieldset>
 
         <fieldset>
-          <legend className="mb-1 font-medium">What this role can do</legend>
-          <p className="mb-2 text-sm text-ink-2">{LEVELS.map((l) => `${l.label}: ${l.words}`).join(". ")}. Opens {reached} of {modules.length} modules.</p>
+          <legend className="mb-1 font-medium"><Words k="What this role can do" /></legend>
+          <p className="mb-2 text-sm text-ink-2">{LEVELS.map((l) => `${l.label}: ${l.words}`).join(". ")}<Words k=". Opens" /> {reached} <Words k="of" /> {modules.length} <Words k="modules." /></p>
           {!readOnly && (
             <div className="mb-2 flex flex-wrap items-center gap-2 text-sm">
               <span className="text-ink-2"><Words k="Set every module to" /></span>

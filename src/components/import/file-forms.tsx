@@ -12,6 +12,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { columnsAction, fixRowAction, sheetAction, uploadAction, uploadPhotosAction, valuesAction } from "@/app/(school)/_imports/file-actions";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 
@@ -26,7 +27,7 @@ export function UploadForm({ place, kinds, kind, guess = true, help, students }:
       <FormMessage state={state} />
       <input type="hidden" name="place" value={place} />
       <div>
-        <label htmlFor="move-in-file" className="mb-1 block text-sm font-medium">File<span className="text-danger" aria-hidden="true"> *</span></label>
+        <label htmlFor="move-in-file" className="mb-1 block text-sm font-medium"><Words k="File" /><span className="text-danger" aria-hidden="true"> *</span></label>
         <input id="move-in-file" name="file" type="file" required accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
           aria-describedby="move-in-file-help" aria-invalid={Boolean(state?.errors?.file)}
           className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:text-ink" />
@@ -45,7 +46,7 @@ export function UploadForm({ place, kinds, kind, guess = true, help, students }:
             defaultChecked={refused ? state?.values?.applyFeePlan === "on" : true} />
         </>
       )}
-      <SubmitButton pendingText="Reading the file…">Upload and check</SubmitButton>
+      <SubmitButton pendingText="Reading the file…"><Words k="Upload and check" /></SubmitButton>
     </form>
   );
 }
@@ -66,7 +67,7 @@ export function PhotoUploadForm({ place, kinds, kind, guess = true, students, re
     return (
       <div className="space-y-2 text-sm">
         <p role="note">{refusal}</p>
-        {sheetHref && <a href={sheetHref} download className="inline-flex min-h-11 items-center font-medium text-brand-text hover:underline">Download the ready Excel sheet</a>}
+        {sheetHref && <a href={sheetHref} download className="inline-flex min-h-11 items-center font-medium text-brand-text hover:underline"><Words k="Download the ready Excel sheet" /></a>}
       </div>
     );
   }
@@ -76,9 +77,9 @@ export function PhotoUploadForm({ place, kinds, kind, guess = true, students, re
     <form action={action} className="space-y-4" noValidate onSubmit={(e) => { if (tooMuch) e.preventDefault(); }}>
       <FormMessage state={state} />
       <input type="hidden" name="place" value={place} />
-      <p className="text-sm text-ink-2">Take a clear photo of each register page, straight from above in good light, or upload a PDF scan. The AI assistant copies each page into rows; you then match the columns and check every row against the photo before anything is saved.</p>
+      <p className="text-sm text-ink-2"><Words k="Take a clear photo of each register page, straight from above in good light, or upload a PDF scan. The AI assistant copies each page into rows; you then match the columns and check every row against the photo before anything is saved." /></p>
       <div>
-        <label htmlFor="move-in-photos" className="mb-1 block text-sm font-medium">Photos of the pages<span className="text-danger" aria-hidden="true"> *</span></label>
+        <label htmlFor="move-in-photos" className="mb-1 block text-sm font-medium"><Words k="Photos of the pages" /><span className="text-danger" aria-hidden="true"> *</span></label>
         <input id="move-in-photos" name="photos" type="file" multiple required accept="image/jpeg,image/png,image/webp,application/pdf"
           aria-describedby="move-in-photos-help" aria-invalid={Boolean(fileError)}
           onChange={(e) => {
@@ -88,7 +89,7 @@ export function PhotoUploadForm({ place, kinds, kind, guess = true, students, re
           }}
           className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:text-ink" />
         {fileError ? <p className="mt-1 text-sm text-danger">{fileError}</p> : (
-          <p id="move-in-photos-help" className="mt-1 text-sm text-ink-2">JPG, PNG or PDF, up to {MAX_PHOTOS} pages at a time, 24 MB together. Only these pictures are sent to the AI service, for reading them, and each request is logged.</p>
+          <p id="move-in-photos-help" className="mt-1 text-sm text-ink-2"><Words k="JPG, PNG or PDF, up to" /> {MAX_PHOTOS} <Words k="pages at a time, 24 MB together. Only these pictures are sent to the AI service, for reading them, and each request is logged." /></p>
         )}
       </div>
       {kinds.length === 1 && !guess ? <input type="hidden" name="kind" value={kinds[0].value} /> : (
@@ -107,7 +108,7 @@ export function PhotoUploadForm({ place, kinds, kind, guess = true, students, re
           help="They are never sent to the AI service. Add them by hand after the records are in." defaultChecked={refused ? state?.values?.privateCovered === "on" : false} aria-invalid={Boolean(state?.errors?.privateCovered)} />
         {state?.errors?.privateCovered && <p className="mt-1 text-sm text-danger">{state.errors.privateCovered}</p>}
       </div>
-      <SubmitButton pendingText="Reading the pages… this can take a minute">Read the pages and check</SubmitButton>
+      <SubmitButton pendingText="Reading the pages… this can take a minute"><Words k="Read the pages and check" /></SubmitButton>
     </form>
   );
 }
@@ -125,7 +126,7 @@ export function SheetForm({ place, id, sheets, sheetIndex, headerRow, headerChoi
         <SelectField label="Headings are in" name="headerRow" options={headerChoices} defaultValue={String(headerRow)} />
         {kinds.length > 1 ? <SelectField label="It holds" name="kind" options={kinds} defaultValue={kind} /> : <input type="hidden" name="kind" value={kind} />}
       </div>
-      <SubmitButton variant="secondary" pendingText="Reading again…">Use these</SubmitButton>
+      <SubmitButton variant="secondary" pendingText="Reading again…"><Words k="Use these" /></SubmitButton>
     </form>
   );
 }
@@ -144,10 +145,10 @@ export function ValuesForm({ place, id, column, rows, children }: { place: strin
             <input type="hidden" name={`w_${i}`} value={r.word} />
             <div>
               <p className="font-medium break-words">&ldquo;{r.label}&rdquo;</p>
-              <p className="text-sm text-ink-2">{r.count} {r.count === 1 ? "row" : "rows"} · row {r.lines.slice(0, 6).join(", ")}{r.lines.length > 6 || r.count > r.lines.length ? "…" : ""}</p>
+              <p className="text-sm text-ink-2">{r.count} {r.count === 1 ? "row" : "rows"} <Words k="· row" /> {r.lines.slice(0, 6).join(", ")}{r.lines.length > 6 || r.count > r.lines.length ? "…" : ""}</p>
             </div>
             <label className="block">
-              <span className="sr-only">Match &ldquo;{r.label}&rdquo; to</span>
+              <span className="sr-only"><Words k="Match “" />{r.label}<Words k="” to" /></span>
               <select name={`v_${i}`} defaultValue={r.chosen} className="h-11 w-full rounded-lg border border-line-strong bg-surface px-2">
                 {r.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
@@ -156,7 +157,7 @@ export function ValuesForm({ place, id, column, rows, children }: { place: strin
         ))}
       </ul>
       <div className="flex flex-wrap items-center gap-2">
-        <SubmitButton pendingText="Saving…">Save matches</SubmitButton>
+        <SubmitButton pendingText="Saving…"><Words k="Save matches" /></SubmitButton>
         {children}
       </div>
     </form>
@@ -178,7 +179,7 @@ export function FixRowForm({ place, id, line, fields }: { place: string; id: str
           <TextField key={f.key} label={f.label} name={`f_${f.key}`} defaultValue={f.value} required={f.required} />
         ))}
       </div>
-      <SubmitButton pendingText="Checking…">Save and check row {String(line)}</SubmitButton>
+      <SubmitButton pendingText="Checking…"><Words k="Save and check row" /> {String(line)}</SubmitButton>
     </form>
   );
 }
@@ -206,15 +207,15 @@ export function ColumnsForm({ place, id, rows, headers, samples }: { place: stri
       <FormMessage state={state} />
       <input type="hidden" name="place" value={place} />
       <input type="hidden" name="id" value={id} />
-      {missing.length > 0 && <p role="status" className="rounded-xl border border-warn/30 bg-warn-bg px-4 py-3 text-sm text-warn-text">Not found in the file yet: {missing.map((m) => m.label).join(", ")}. Choose the column for each, or the rows will show a problem.</p>}
+      {missing.length > 0 && <p role="status" className="rounded-xl border border-warn/30 bg-warn-bg px-4 py-3 text-sm text-warn-text"><Words k="Not found in the file yet:" /> {missing.map((m) => m.label).join(", ")}<Words k=". Choose the column for each, or the rows will show a problem." /></p>}
       {[main, extra].map((group, gi) => group.length === 0 ? null : gi === 1 ? (
         <details key="extra" className="rounded-xl border border-line">
-          <summary className="flex min-h-11 cursor-pointer items-center px-3 font-medium">More columns School OS can keep ({extra.length} not in the file)</summary>
+          <summary className="flex min-h-11 cursor-pointer items-center px-3 font-medium"><Words k="More columns School OS can keep (" />{extra.length} <Words k="not in the file)" /></summary>
           <ul className="divide-y divide-line border-t border-line">{group.map(renderRow)}</ul>
         </details>
       ) : <ul key="main" className="divide-y divide-line rounded-xl border border-line">{group.map(renderRow)}</ul>)}
       <div className="flex flex-wrap gap-2">
-        <SubmitButton pendingText="Saving…" name="next" value="values">Save and continue</SubmitButton>
+        <SubmitButton pendingText="Saving…" name="next" value="values"><Words k="Save and continue" /></SubmitButton>
       </div>
     </form>
   );
@@ -242,7 +243,7 @@ export function ColumnsForm({ place, id, rows, headers, samples }: { place: stri
                     </label>
                   ))}
                 </div>
-                <p className="text-sm text-ink-2 break-words">{sample.length ? <>For example: {sample.map((v, i) => <span key={i}>{i ? ", " : ""}<span className="text-ink">{v}</span></span>)}</> : cols.length ? "This column is empty in the first rows." : "\u00a0"}</p>
+                <p className="text-sm text-ink-2 break-words">{sample.length ? <><Words k="For example:" /> {sample.map((v, i) => <span key={i}>{i ? ", " : ""}<span className="text-ink">{v}</span></span>)}</> : cols.length ? "This column is empty in the first rows." : "\u00a0"}</p>
               </div>
             </li>
           );

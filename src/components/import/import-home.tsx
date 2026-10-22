@@ -21,6 +21,7 @@ import { AutoRefresh } from "@/app/(school)/settings/data-security/parts";
 import { PhotoUploadForm, UploadForm, type StudentChoices } from "./file-forms";
 import { photoRefusal } from "@/lib/move-in/photos";
 import { UndoBatchButton } from "./file-buttons";
+import { Words } from "@/lib/i18n/client";
 
 export async function ImportHome({ current, place, initial, about, students }: {
   current: Current;
@@ -59,29 +60,29 @@ export async function ImportHome({ current, place, initial, about, students }: {
     <div className="flex flex-col gap-5">
       {importing && <AutoRefresh seconds={5} />}
       <section aria-labelledby="ih-step1" className={box}>
-        <h2 id="ih-step1" className="text-[16px] font-semibold">1. Get the ready sheet</h2>
+        <h2 id="ih-step1" className="text-[16px] font-semibold"><Words k="1. Get the ready sheet" /></h2>
         <ul className="mt-2 flex flex-col gap-3">
           {kinds.map((k) => (
             <li key={k.key}>
               {kinds.length > 1 && <p className="font-medium">{k.label}</p>}
-              <p className="text-[14px] text-ink2">{k.about} Columns with * are needed.</p>
-              {k.may && <a href={templateHref(place, k.key)} className={cx(buttonClass("secondary", "sm"), "mt-2")} download>Download the ready Excel sheet{kinds.length > 1 ? `: ${k.label.toLowerCase()}` : ""}</a>}
+              <p className="text-[14px] text-ink2">{k.about} <Words k="Columns with * are needed." /></p>
+              {k.may && <a href={templateHref(place, k.key)} className={cx(buttonClass("secondary", "sm"), "mt-2")} download><Words k="Download the ready Excel sheet" />{kinds.length > 1 ? `: ${k.label.toLowerCase()}` : ""}</a>}
             </li>
           ))}
         </ul>
       </section>
 
       <section aria-labelledby="ih-step2" className={box}>
-        <h2 id="ih-step2" className="text-[16px] font-semibold">2. Upload the file</h2>
-        <p className="mt-1 text-[14px] text-ink2">School OS finds the headings, matches the columns (also when they are written another way) and tidies dates, phones and names. Then you check every row, fix or leave out the ones with problems, and bring in the rest. Nothing is saved before that.</p>
+        <h2 id="ih-step2" className="text-[16px] font-semibold"><Words k="2. Upload the file" /></h2>
+        <p className="mt-1 text-[14px] text-ink2"><Words k="School OS finds the headings, matches the columns (also when they are written another way) and tidies dates, phones and names. Then you check every row, fix or leave out the ones with problems, and bring in the rest. Nothing is saved before that." /></p>
         <div className="mt-3">
           {mine.length ? (
             <UploadForm place={place.key} kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={initial && mine.some((k) => k.key === initial) ? initial : undefined} guess={false} students={students}
               help="Excel (.xlsx) or CSV, up to 10 MB: the ready sheet, your own sheet or an export from your old software." />
-          ) : <p className="text-ink2">Your role can see these imports but not bring records in.</p>}
+          ) : <p className="text-ink2"><Words k="Your role can see these imports but not bring records in." /></p>}
           {mine.length > 0 && (
             <details className="mt-4 rounded-xl border border-line px-4">
-              <summary className="flex min-h-11 cursor-pointer items-center font-medium">Records on paper? Upload photos of the register</summary>
+              <summary className="flex min-h-11 cursor-pointer items-center font-medium"><Words k="Records on paper? Upload photos of the register" /></summary>
               <div className="pb-4 pt-1">
                 <PhotoUploadForm place={place.key} kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={initial && mine.some((k) => k.key === initial) ? initial : undefined} guess={false} students={students}
                   refusal={photoRefusal(current)} sheetHref={templateHref(place, (mine.find((k) => k.key === initial) ?? mine[0]).key)} />
@@ -102,9 +103,9 @@ export async function ImportHome({ current, place, initial, about, students }: {
                 <li key={f.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-[14px]">
                   <span className="min-w-0 break-all">
                     <Link href={fileHref(place, f.id)} className="font-medium text-brand hover:underline">{f.fileName}{(f.sheets as unknown[]).length > 1 && sheet ? ` · ${sheet.name}` : ""}</Link>
-                    <span className="block text-[13px] text-ink3">{k?.label ?? f.kind} · uploaded {formatDateTime(f.createdAt, tz)}{fileBatchIds(f).length ? ` · part brought in${f.waiting ? `, ${f.waiting} ${f.waiting === 1 ? "row" : "rows"} not brought in yet` : ""}` : ""}</span>
+                    <span className="block text-[13px] text-ink3">{k?.label ?? f.kind} <Words k="· uploaded" /> {formatDateTime(f.createdAt, tz)}{fileBatchIds(f).length ? ` · part brought in${f.waiting ? `, ${f.waiting} ${f.waiting === 1 ? "row" : "rows"} not brought in yet` : ""}` : ""}</span>
                   </span>
-                  {f.status === "importing" ? <Pill tone="brand">Importing</Pill> : k?.may && <ButtonLink href={fileHref(place, f.id)} size="sm" variant="primary">Continue</ButtonLink>}
+                  {f.status === "importing" ? <Pill tone="brand"><Words k="Importing" /></Pill> : k?.may && <ButtonLink href={fileHref(place, f.id)} size="sm" variant="primary"><Words k="Continue" /></ButtonLink>}
                 </li>
               );
             })}
@@ -124,11 +125,11 @@ export async function ImportHome({ current, place, initial, about, students }: {
                 <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 px-5 py-3 text-[14px]">
                   <span className="min-w-0 break-all">
                     <span className="font-medium">{k?.label ?? b.kind}</span> · {shownFileName(b.fileName)}
-                    <span className="block text-[13px] text-ink3">{formatDateTime(b.createdAt, tz)} · {b.added} added{b.updated ? `, ${b.updated} updated` : ""}{left ? `, ${left}` : ""}{b.skipped ? `, ${b.skipped} with problems` : ""}</span>
+                    <span className="block text-[13px] text-ink3">{formatDateTime(b.createdAt, tz)} · {b.added} <Words k="added" />{b.updated ? `, ${b.updated} updated` : ""}{left ? `, ${left}` : ""}{b.skipped ? `, ${b.skipped} with problems` : ""}</span>
                   </span>
                   <span className="flex flex-wrap items-center gap-2">
-                    {b.undoneAt && <Pill>Undone</Pill>}
-                    {b.skipped > 0 && k?.may && <a href={errorsHref(place, b.id, b.kind)} className="font-semibold text-brand hover:underline" download>Rows with problems</a>}
+                    {b.undoneAt && <Pill><Words k="Undone" /></Pill>}
+                    {b.skipped > 0 && k?.may && <a href={errorsHref(place, b.id, b.kind)} className="font-semibold text-brand hover:underline" download><Words k="Rows with problems" /></a>}
                     {!b.undoneAt && (b.added > 0 || b.updated > 0) && k?.mayUndo && <UndoBatchButton place={place.key} batchId={b.id} label={k.label} added={b.added || b.updated} one={k.one} many={k.many} />}
                   </span>
                 </li>
@@ -138,7 +139,7 @@ export async function ImportHome({ current, place, initial, about, students }: {
         </Card>
       )}
       {history.length === 0 && files.length === 0 && (
-        <Card><CardBody><p className="text-[14px] text-ink2">Nothing has been brought in here yet. Every import is also listed in Settings, Data Backup &amp; Security, Imports.</p></CardBody></Card>
+        <Card><CardBody><p className="text-[14px] text-ink2"><Words k={"Nothing has been brought in here yet. Every import is also listed in Settings, Data Backup & Security, Imports."} /></p></CardBody></Card>
       )}
     </div>
   );

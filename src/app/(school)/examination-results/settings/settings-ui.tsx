@@ -519,7 +519,7 @@ export function RemarkPhrasesEditor({ bank, canEdit, on }: { bank: PhraseBank; c
     <div className="px-5 pb-5 flex flex-col gap-3">
       <p className="text-[13px] text-ink3">
         {on ? "Used when a class teacher asks for remark suggestions. " : "Used once Remark suggestions is switched on below, or the AI teacher assistant is on. "}
-        The numbers always come from the student&apos;s own records and are shown as the source; only these words change. Words in braces are filled in: {Object.entries(BLANK_WORDS).map(([k, w]) => `{${k}} ${w}`).join(", ")}.
+        <Words k="The numbers always come from the student's own records and are shown as the source; only these words change. Words in braces are filled in:" /> {Object.entries(BLANK_WORDS).map(([k, w]) => `{${k}} ${w}`).join(", ")}.
       </p>
       {PHRASE_KEYS.map((k) => {
         const p = problem(k);
@@ -537,8 +537,8 @@ export function RemarkPhrasesEditor({ bank, canEdit, on }: { bank: PhraseBank; c
       {canEdit && (
         <div className="flex flex-wrap gap-3">
           <Button variant="secondary" icon={Check} disabled={bad} loading={pending} loadingText="Saving"
-            onClick={() => run(() => saveRemarkPhrasesAction(Object.fromEntries(PHRASE_KEYS.map((k) => [k, lines(k)]))), "Remark phrases saved.")}>Save phrases</Button>
-          <Button variant="ghost" onClick={() => { setMsg(null); setVals(Object.fromEntries(PHRASE_KEYS.map((k) => [k, DEFAULT_PHRASES[k].join("\n")]))); }}>Back to the ready-made phrases</Button>
+            onClick={() => run(() => saveRemarkPhrasesAction(Object.fromEntries(PHRASE_KEYS.map((k) => [k, lines(k)]))), "Remark phrases saved.")}><Words k="Save phrases" /></Button>
+          <Button variant="ghost" onClick={() => { setMsg(null); setVals(Object.fromEntries(PHRASE_KEYS.map((k) => [k, DEFAULT_PHRASES[k].join("\n")]))); }}><Words k="Back to the ready-made phrases" /></Button>
         </div>
       )}
     </div>

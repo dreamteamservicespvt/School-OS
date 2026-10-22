@@ -5,6 +5,7 @@ import { fileLink } from "@/lib/files";
 import type { PhotoMeta } from "@/lib/move-in/service";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardHeader } from "@/components/ui/card";
+import { Words } from "@/lib/i18n/client";
 
 export const PHOTO_ROW_WORDS = "Read from a photo — check it";
 
@@ -34,7 +35,7 @@ export function RegisterPhotos({ photos, schoolId }: { photos: PhotoMeta[]; scho
             <li key={p.fileId}>
               <p className="mb-1 text-sm text-ink-2 break-all">{photos.length > 1 ? `Photo ${i + 1}: ` : ""}{p.fileName} · {rows}</p>
               {p.contentType === "application/pdf" ? (
-                <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-text hover:underline">Open the scan (PDF) in a new tab</a>
+                <a href={href} target="_blank" rel="noopener noreferrer" className="inline-flex min-h-11 items-center font-medium text-brand-text hover:underline"><Words k="Open the scan (PDF) in a new tab" /></a>
               ) : (
                 <a href={href} target="_blank" rel="noopener noreferrer" className="block" aria-label={`Open ${p.fileName} full size in a new tab`}>
                   {/* eslint-disable-next-line @next/next/no-img-element -- a private, signed link that expires; not for the image optimiser */}

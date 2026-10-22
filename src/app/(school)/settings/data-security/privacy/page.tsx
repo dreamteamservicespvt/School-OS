@@ -81,26 +81,26 @@ export default async function PrivacyPage({ searchParams }: Search) {
             const lines = entries.map(([k, v]) => `${countWords(k, v.count)} from before ${formatDate(new Date(v.before), tz)}: ${CLEARABLE[k].how.toLowerCase()}`);
             return (
               <div className="space-y-3">
-                <p className="font-medium">Found on {formatDate(data.retention.waiting.runOn, tz)}:</p>
+                <p className="font-medium"><Words k="Found on" /> {formatDate(data.retention.waiting.runOn, tz)}:</p>
                 <ul className="list-disc space-y-1 pl-5">{lines.map((l) => <li key={l}>{l}</li>)}</ul>
-                {canEdit ? <ClearRetentionButton runId={data.retention.waiting.id} total={total} lines={lines} /> : <p className="text-sm text-ink-2">Only the School Admin can clear these.</p>}
+                {canEdit ? <ClearRetentionButton runId={data.retention.waiting.id} total={total} lines={lines} /> : <p className="text-sm text-ink-2"><Words k="Only the School Admin can clear these." /></p>}
               </div>
             );
           })() : (
             <p className="text-ink-2">{data.retention.latest ? `Nothing is past its period. Last checked ${formatDate(data.retention.latest.runOn, tz)}.` : "The first check runs tonight."}</p>
           )}
-          <p className="text-sm text-ink-2">Never cleared here: {NEVER_CLEARED.join("; ")}. One-time codes older than 30 days and full data exports whose link has expired are cleared by themselves.</p>
+          <p className="text-sm text-ink-2"><Words k="Never cleared here:" /> {NEVER_CLEARED.join("; ")}<Words k=". One-time codes older than 30 days and full data exports whose link has expired are cleared by themselves." /></p>
           {data.retention.history.length > 0 && (
             <>
-              <h3 className="pt-2 font-semibold">What was cleared</h3>
+              <h3 className="pt-2 font-semibold"><Words k="What was cleared" /></h3>
               <ul className="divide-y divide-line rounded-xl border border-line">
                 {data.retention.history.map((h) => {
                   const cleared = Object.entries(h.cleared as Counts).map(([k, n]) => countWords(k, n));
                   const auto = Object.entries(h.autoCleared as Counts).map(([k, n]) => `${n} ${(AUTO_WORDS[k] ?? [k, k])[n === 1 ? 0 : 1]}`);
                   return (
                     <li key={h.id} className="p-3">
-                      {cleared.length > 0 && <p><span className="font-medium">{cleared.join(", ")}</span> <span className="text-ink-2">· cleared {h.clearedAt ? formatDateTime(h.clearedAt, tz) : ""}{h.clearedById ? ` by ${data.clearers.get(h.clearedById) ?? "a School Admin"}` : ""}</span></p>}
-                      {auto.length > 0 && <p className="text-sm text-ink-2">{formatDate(h.runOn, tz)}: {auto.join(", ")} cleared by themselves</p>}
+                      {cleared.length > 0 && <p><span className="font-medium">{cleared.join(", ")}</span> <span className="text-ink-2"><Words k="· cleared" /> {h.clearedAt ? formatDateTime(h.clearedAt, tz) : ""}{h.clearedById ? ` by ${data.clearers.get(h.clearedById) ?? "a School Admin"}` : ""}</span></p>}
+                      {auto.length > 0 && <p className="text-sm text-ink-2">{formatDate(h.runOn, tz)}: {auto.join(", ")} <Words k="cleared by themselves" /></p>}
                     </li>
                   );
                 })}

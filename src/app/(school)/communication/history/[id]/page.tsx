@@ -172,7 +172,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
               empty={<EmptyState bare title={filtered ? "Nobody matches" : "Nobody was sent this message"}>{filtered ? "Try another name or status." : "Everyone chosen was left out; see the reasons above."}</EmptyState>}
               columns={[
                 { key: "name", label: "Recipient", render: (r) => <div className="flex items-center gap-2.5"><Avatar name={r.name} size={32} /><div className="min-w-0"><p className="font-semibold leading-tight truncate">{r.name}</p><p className="text-[12.5px] text-ink3 truncate">{r.description ?? r.address}</p></div></div> },
-                { key: "ch", label: "Channel", render: (r) => <span className="text-[13px]">{CHANNEL_LABEL[r.channel as Channel] ?? r.channel}{versionOf(r) && <span className="block text-[12px] text-ink3">{versionOf(r)} version</span>}</span> },
+                { key: "ch", label: "Channel", render: (r) => <span className="text-[13px]">{CHANNEL_LABEL[r.channel as Channel] ?? r.channel}{versionOf(r) && <span className="block text-[12px] text-ink3">{versionOf(r)} <Words k="version" /></span>}</span> },
                 { key: "st", label: "Status", render: (r) => <div><Pill tone={tone(r)} dot>{statusWord(r)}</Pill>{why(r) && <p className="text-[12px] text-ink3 mt-0.5">{why(r)}</p>}</div> },
                 { key: "t", label: "Time", align: "right", nowrap: true, render: (r) => <span className="text-[13px]">{when(r)}</span> },
               ]}
@@ -192,7 +192,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
                 <CardHeader title="Language versions" icon={Languages} description="Translated by the AI service, read and confirmed by the sender before sending" />
                 <ul className="px-5 pb-5 flex flex-col gap-3">
                   <li>
-                    <p className="text-[12.5px] font-semibold text-ink3 mb-1">English, as typed</p>
+                    <p className="text-[12.5px] font-semibold text-ink3 mb-1"><Words k="English, as typed" /></p>
                     <div className="rounded-xl bg-sunken/70 p-3 text-[13.5px] leading-relaxed whitespace-pre-line break-words">
                       {m.title && <p className="font-semibold mb-1">{m.title}</p>}
                       {shownText(m.body, isCode)}
@@ -202,7 +202,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
                     <li key={v.language}>
                       <p className="text-[12.5px] font-semibold text-ink3 mb-1 flex items-center gap-2">
                         {TRANSLATION_LANGUAGE_NAME[v.language as keyof typeof TRANSLATION_LANGUAGE_NAME]} · {langCount(v.language).toLocaleString("en-IN")} {langCount(v.language) === 1 ? "person" : "people"}
-                        {v.edited && <Pill tone="neutral" className="!h-5 !text-[11px]">Changed by the sender</Pill>}
+                        {v.edited && <Pill tone="neutral" className="!h-5 !text-[11px]"><Words k="Changed by the sender" /></Pill>}
                       </p>
                       <div className="rounded-xl bg-sunken/70 p-3 text-[13.5px] leading-relaxed whitespace-pre-line break-words" lang={v.language}>
                         {v.title && <p className="font-semibold mb-1">{v.title}</p>}

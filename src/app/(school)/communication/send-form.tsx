@@ -576,7 +576,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 </div>
               )}
               {!isStaff && (
-                <p className="text-[12.5px] text-ink3">Language: each parent gets a template in their own language when the template has that version; a typed message goes as written{data.translate && needsText ? ", unless you translate it above" : ""}.</p>
+                <p className="text-[12.5px] text-ink3"><Words k="Language: each parent gets a template in their own language when the template has that version; a typed message goes as written" />{data.translate && needsText ? ", unless you translate it above" : ""}.</p>
               )}
             </div>
           </Card>

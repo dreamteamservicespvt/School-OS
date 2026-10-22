@@ -22,6 +22,7 @@ import { WorkRow } from "../_components/bits";
 import { AllTick, BulkBar, RowTick } from "../_components/bulk";
 import { BASE, one, qs, salaryGuard, salaryPeriod, type SearchParams } from "../_lib/page";
 import { ReviseBulkSheet, StructureSheet, type Comp } from "./sheets";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Salary Structures" };
 
@@ -100,8 +101,8 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
     <div>
       <SalaryHead pageName="Salary Structures" href={HREF} sub="Each staff member’s earnings and deductions, with every past version kept"
         actions={<>
-          {p.change && <ButtonLink href={`${HREF}/import`} variant="secondary" icon={Upload} className="hidden md:inline-flex">Import</ButtonLink>}
-          <ButtonLink href={here({ do: "add" })} scroll={false} variant="primary" icon={Plus}>Add structure</ButtonLink>
+          {p.change && <ButtonLink href={`${HREF}/import`} variant="secondary" icon={Upload} className="hidden md:inline-flex"><Words k="Import" /></ButtonLink>}
+          <ButtonLink href={here({ do: "add" })} scroll={false} variant="primary" icon={Plus}><Words k="Add structure" /></ButtonLink>
         </>} />
       <Stack>
         <Stats items={[
@@ -112,8 +113,8 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
         ]} />
         {without.length > 0 && (
           <Banner tone="warn" title={`${without.length === 1 ? without[0].fullName : `${without.length} staff`} ${without.length === 1 ? "has" : "have"} no salary structure.`}
-            action={p.change ? <Link href={here({ do: "add", staff: without[0].id })} scroll={false} className={buttonClass("secondary", "sm")}>Add one</Link> : undefined}>
-            Left out of {monthName(thisMonth)}’s salary until one is added.
+            action={p.change ? <Link href={here({ do: "add", staff: without[0].id })} scroll={false} className={buttonClass("secondary", "sm")}><Words k="Add one" /></Link> : undefined}>
+            <Words k="Left out of" /> {monthName(thisMonth)}<Words k="’s salary until one is added." />
           </Banner>
         )}
         <div>
@@ -129,18 +130,18 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
             {p.change && <BulkBar group="str" items={[{ label: "Revise by a percentage", icon: "revise", set: { do: "revise" } }]} />}
             <DataList rows={rows} rowKey={(s) => s.id} rowHref={(s) => (versions.has(s.id) ? here({ open: s.id }) : p.change ? here({ do: "add", staff: s.id }) : null)} minWidth={820} caption="Salary structures"
               footer={`Showing ${rows.length} of ${data.staff.length} · amounts a month`}
-              empty={<Empty icon={SearchX} title="No staff match" body="Try a different name or department." action={<Link href={HREF} scroll={false} className={buttonClass("secondary")}>Show everyone</Link>} />}
+              empty={<Empty icon={SearchX} title="No staff match" body="Try a different name or department." action={<Link href={HREF} scroll={false} className={buttonClass("secondary")}><Words k="Show everyone" /></Link>} />}
               columns={[
                 ...(p.change ? [{ key: "t", label: "", className: "w-10", render: (s: (typeof rows)[number]) => (versions.has(s.id) ? <RowTick group="str" id={s.id} label={`Tick ${s.fullName}`} /> : null) }] : []),
                 { key: "n", label: "Staff member", render: (s) => <div className="flex items-center gap-3"><Avatar name={s.fullName} size={34} /><div><p className="font-semibold leading-tight">{s.fullName}</p><p className="text-[12px] text-ink3">{s.designation}</p></div></div> },
                 { key: "g", label: "Gross", align: "right", render: (s) => { const c = currentOf(s.id); return c ? formatRupees(c.grossPaise) : "—"; } },
                 { key: "d", label: "Deductions", align: "right", render: (s) => { const c = currentOf(s.id); return c ? formatRupees(figures(c).deductions) : "—"; } },
                 { key: "net", label: "Net", align: "right", render: (s) => { const c = currentOf(s.id); return c ? <b className="font-semibold">{formatRupees(figures(c).net)}</b> : "—"; } },
-                { key: "f", label: "From", nowrap: true, render: (s) => { const c = currentOf(s.id); return c ? formatDate(c.effectiveFrom) : <Pill tone="warn">No structure</Pill>; } },
+                { key: "f", label: "From", nowrap: true, render: (s) => { const c = currentOf(s.id); return c ? formatDate(c.effectiveFrom) : <Pill tone="warn"><Words k="No structure" /></Pill>; } },
                 { key: "v", label: "Version", render: (s) => { const c = currentOf(s.id); return c ? <Pill>v{c.version}</Pill> : null; } },
               ]}
-              phone={(s) => { const c = currentOf(s.id); return { avatar: s.fullName, title: s.fullName, sub: c ? `${s.designation} · net ${formatRupees(figures(c).net)}` : "No salary structure", pills: c ? undefined : <Pill tone="warn" className="!h-[22px] !text-[11.5px]">No structure</Pill> }; }} />
-            {p.change && rows.some((s) => versions.has(s.id)) && <div className="hidden lg:flex items-center gap-2 px-5 py-2 border-t border-line text-[12.5px] text-ink3"><AllTick group="str" />Tick everyone shown</div>}
+              phone={(s) => { const c = currentOf(s.id); return { avatar: s.fullName, title: s.fullName, sub: c ? `${s.designation} · net ${formatRupees(figures(c).net)}` : "No salary structure", pills: c ? undefined : <Pill tone="warn" className="!h-[22px] !text-[11.5px]"><Words k="No structure" /></Pill> }; }} />
+            {p.change && rows.some((s) => versions.has(s.id)) && <div className="hidden lg:flex items-center gap-2 px-5 py-2 border-t border-line text-[12.5px] text-ink3"><AllTick group="str" /><Words k="Tick everyone shown" /></div>}
           </Card>
         </div>
       </Stack>
@@ -154,20 +155,20 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
         return (
           <UrlSheet wide closeHref={here({ open: null })} title={`${open.fullName} · salary structure`} sub={`${open.designation} · v${c.version} from ${formatDate(c.effectiveFrom)} · amounts a month`}
             footer={p.change ? <div className="flex gap-2 justify-end flex-wrap">
-              <ButtonLink href={here({ open: null, do: "add", copy: open.id })} scroll={false} variant="ghost" icon={Copy}>Copy to someone</ButtonLink>
-              <ButtonLink href={here({ open: null, revise: open.id })} scroll={false} variant="primary" icon={TrendingUp}>Revise</ButtonLink>
+              <ButtonLink href={here({ open: null, do: "add", copy: open.id })} scroll={false} variant="ghost" icon={Copy}><Words k="Copy to someone" /></ButtonLink>
+              <ButtonLink href={here({ open: null, revise: open.id })} scroll={false} variant="primary" icon={TrendingUp}><Words k="Revise" /></ButtonLink>
             </div> : undefined}>
             <div className="flex flex-col gap-5">
               <div className="grid md:grid-cols-2 gap-5 text-[14px]">
                 <div>
-                  <p className="eyebrow text-ink3 mb-1">Earnings</p>
+                  <p className="eyebrow text-ink3 mb-1"><Words k="Earnings" /></p>
                   <ul className="divide-y divide-line/70">
                     {f.earnings.map((e) => <WorkRow key={e.name} k={e.name} sub={e.how} v={formatRupees(e.amountPaise)} />)}
                     <WorkRow k="Gross" v={formatRupees(f.fullGross)} tone="font-semibold" />
                   </ul>
                 </div>
                 <div>
-                  <p className="eyebrow text-ink3 mb-1">Deductions</p>
+                  <p className="eyebrow text-ink3 mb-1"><Words k="Deductions" /></p>
                   <ul className="divide-y divide-line/70">
                     <WorkRow k="PF" sub={`Worked out from Salary Settings${open.uan ? ` · UAN ${maskLast4(open.uan)}` : ""}`} v={c.pfApplies ? formatRupees(f.pf) : "—"} />
                     <WorkRow k="ESI" sub={f.esiApplies ? "Wages within the ESI limit" : "Not applicable"} v={f.esi ? formatRupees(f.esi) : "—"} />
@@ -184,7 +185,7 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
                 ["Changed by", `${name(c.createdById)} · ${formatDate(c.createdAt, p.tz)}`],
               ]} />
               <div>
-                <p className="eyebrow text-ink3 mb-2">Versions</p>
+                <p className="eyebrow text-ink3 mb-2"><Words k="Versions" /></p>
                 <Timeline items={vs.map((v, i) => ({ icon: i === vs.length - 1 ? FileText : TrendingUp, tone: v.id === c.id ? "brand" as const : undefined, what: `v${v.version} · ${formatRupees(v.grossPaise)} gross${v.reason ? ` · ${v.reason}` : ""}`, when: `From ${formatDate(v.effectiveFrom)} · by ${name(v.createdById)}` }))} />
               </div>
             </div>

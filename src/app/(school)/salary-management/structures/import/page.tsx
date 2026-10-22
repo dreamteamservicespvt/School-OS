@@ -5,6 +5,7 @@ import { PLACES } from "@/lib/imports/places";
 import { ImportHome } from "@/components/import/import-home";
 import { SalaryHead } from "../../_components/salary-head";
 import { BASE, salaryGuard } from "../../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Import salary · Salary Management" };
 
@@ -19,7 +20,7 @@ export default async function ImportStructuresPage() {
   if (!p.change) redirect(`${BASE}/structures`);
   return (
     <>
-      <SalaryHead pageName="Import salary" href={`${BASE}/structures/import`} sub={<Link href={`${BASE}/structures`} className="font-semibold text-brand hover:underline">Salary Structures</Link>} />
+      <SalaryHead pageName="Import salary" href={`${BASE}/structures/import`} sub={<Link href={`${BASE}/structures`} className="font-semibold text-brand hover:underline"><Words k="Salary Structures" /></Link>} />
       <ImportHome current={p.current} place={PLACES.salary} about={ABOUT} />
     </>
   );

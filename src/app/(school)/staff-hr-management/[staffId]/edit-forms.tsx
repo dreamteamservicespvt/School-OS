@@ -13,6 +13,7 @@ import { SignInChoice } from "../_components/sign-in-choice";
 import type { AccessLevel } from "@/lib/roles";
 import { LEVEL_OPTIONS } from "@/lib/staff/role-words";
 import { Pencil } from "lucide-react";
+import { Words } from "@/lib/i18n/client";
 
 type Option = { value: string; label: string };
 const BLOOD = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((b) => ({ value: b, label: b }));
@@ -28,7 +29,7 @@ export type ProfileValues = {
 
 export function PersonalForm({ v, action, defaultOpen }: { v: ProfileValues; action: Action; defaultOpen?: boolean }) {
   return (
-    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" />Edit</>} triggerSize="sm" triggerVariant="ghost" title="Personal details" action={action} submitLabel="Save personal details" hidden={{ staffId: v.staffId }} defaultOpen={defaultOpen} wide>
+    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" /><Words k="Edit" /></>} triggerSize="sm" triggerVariant="ghost" title="Personal details" action={action} submitLabel="Save personal details" hidden={{ staffId: v.staffId }} defaultOpen={defaultOpen} wide>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Full name" name="fullName" required defaultValue={f.val("fullName", v.fullName)} error={f.err("fullName")} className="sm:col-span-2" />
@@ -47,7 +48,7 @@ export function PersonalForm({ v, action, defaultOpen }: { v: ProfileValues; act
 
 export function ContactForm({ v, action }: { v: ProfileValues; action: Action }) {
   return (
-    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" />Edit</>} triggerSize="sm" triggerVariant="ghost" title="Contact" action={action} submitLabel="Save contact" hidden={{ staffId: v.staffId }}>
+    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" /><Words k="Edit" /></>} triggerSize="sm" triggerVariant="ghost" title="Contact" action={action} submitLabel="Save contact" hidden={{ staffId: v.staffId }}>
       {(f) => (
         <>
           <TextField label="Phone" name="phone" required inputMode="numeric" defaultValue={f.val("phone", v.phone)} error={f.err("phone")} help="10-digit mobile. Changing it clears the verified mark unless you tick it again." />
@@ -63,7 +64,7 @@ export function ContactForm({ v, action }: { v: ProfileValues; action: Action })
 
 export function EmploymentForm({ v, action, designations, departments, staff, campuses, types }: { v: ProfileValues; action: Action; designations: Option[]; departments: Option[]; staff: Option[]; campuses: Option[]; types: string[] }) {
   return (
-    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" />Edit</>} triggerSize="sm" triggerVariant="ghost" title="Employment" action={action} submitLabel="Save employment" hidden={{ staffId: v.staffId }} wide>
+    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" /><Words k="Edit" /></>} triggerSize="sm" triggerVariant="ghost" title="Employment" action={action} submitLabel="Save employment" hidden={{ staffId: v.staffId }} wide>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Staff ID" name="staffCode" required defaultValue={f.val("staffCode", v.staffCode)} error={f.err("staffCode")} help="Unique in the school. It is checked before saving." />
@@ -85,7 +86,7 @@ export function EmergencyForm({ v, action }: { v: ProfileValues; action: Action 
     <FormDialog trigger={<><Pencil size={15} aria-hidden="true" />{v.emergency.length ? "Edit" : "Add"}</>} triggerSize="sm" triggerVariant="ghost" title="Emergency contacts" action={action} submitLabel="Save contacts" hidden={{ staffId: v.staffId }} wide>
       {(f) => (
         <>
-          <p className="text-ink-2">In the order to call them. Leave a row empty to remove it.</p>
+          <p className="text-ink-2"><Words k="In the order to call them. Leave a row empty to remove it." /></p>
           {rows.map((i) => (
             <fieldset key={i} className="grid gap-3 rounded-xl border border-line p-3 sm:grid-cols-3">
               <legend className="px-1 text-sm font-medium">{i === 0 ? "First to call" : i === 1 ? "Second" : "Third"}</legend>
@@ -102,10 +103,10 @@ export function EmergencyForm({ v, action }: { v: ProfileValues; action: Action 
 
 export function RestrictedForm({ v, action }: { v: ProfileValues; action: Action }) {
   return (
-    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" />Edit</>} triggerSize="sm" triggerVariant="ghost" title="Restricted details" action={action} submitLabel="Save restricted details" hidden={{ staffId: v.staffId }} wide>
+    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" /><Words k="Edit" /></>} triggerSize="sm" triggerVariant="ghost" title="Restricted details" action={action} submitLabel="Save restricted details" hidden={{ staffId: v.staffId }} wide>
       {(f) => (
         <>
-          <Alert tone="info">Numbers are stored encrypted. Leave a number empty to keep the one on file. Only the last 4 characters go into the history.</Alert>
+          <Alert tone="info"><Words k="Numbers are stored encrypted. Leave a number empty to keep the one on file. Only the last 4 characters go into the history." /></Alert>
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField label="Aadhaar" name="aadhaar" inputMode="numeric" autoComplete="off" error={f.err("aadhaar")} placeholder="12 digits" />
             <TextField label="PAN" name="pan" autoComplete="off" error={f.err("pan")} placeholder="ABCDE1234F" />
@@ -125,7 +126,7 @@ export type ExtraField = { key: string; label: string; fieldType: string; requir
 
 export function ExtraFieldsForm({ staffId, fields, action }: { staffId: string; fields: ExtraField[]; action: Action }) {
   return (
-    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" />Edit</>} triggerSize="sm" triggerVariant="ghost" title="Extra fields" action={action} submitLabel="Save extra fields" hidden={{ staffId }}>
+    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" /><Words k="Edit" /></>} triggerSize="sm" triggerVariant="ghost" title="Extra fields" action={action} submitLabel="Save extra fields" hidden={{ staffId }}>
       {(f) => (
         <>
           {fields.map((x) => x.fieldType === "yesno" ? (
@@ -146,7 +147,7 @@ export function PhotoForm({ staffId, action, has }: { staffId: string; action: A
     <FormDialog trigger={has ? "Change photo" : "Add photo"} triggerSize="sm" triggerVariant="ghost" title="Photo" action={action} submitLabel="Save photo" hidden={{ staffId }} multipart>
       {(f) => (
         <div>
-          <label htmlFor="photo-input" className="mb-1 block text-sm font-medium">Photo <span className="text-danger" aria-hidden="true">*</span></label>
+          <label htmlFor="photo-input" className="mb-1 block text-sm font-medium"><Words k="Photo" /> <span className="text-danger" aria-hidden="true">*</span></label>
           <input id="photo-input" name="photo" type="file" accept="image/jpeg,image/png" required className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-sm" />
           <p className={`mt-1 text-sm ${f.err("photo") ? "text-danger" : "text-ink-2"}`}>{f.err("photo") ?? "JPG or PNG, up to 2 MB. A passport-style photo prints best on the ID card."}</p>
         </div>
@@ -181,13 +182,13 @@ export function GiveLoginForm({ staffId, roles, defaultRole, modules, action, su
     if (!data.inviteLink) return <Alert tone="success">{state.message}</Alert>;
     return <InviteLink username={data.username} link={data.inviteLink} sentWords={state.message} />;
   }
-  if (!open) return <Button size="sm" onClick={() => setOpen(true)}>Give a login</Button>;
+  if (!open) return <Button size="sm" onClick={() => setOpen(true)}><Words k="Give a login" /></Button>;
   return (
     <form action={formAction} className="space-y-3">
       <input type="hidden" name="staffId" value={staffId} />
       {state?.message && <Alert tone="danger">{state.message}</Alert>}
       <fieldset>
-        <legend className="mb-2 font-medium">Roles</legend>
+        <legend className="mb-2 font-medium"><Words k="Roles" /></legend>
         <div className="grid gap-2 sm:grid-cols-2">
           {roles.map((r) => (
             <label key={r.key} className="flex items-start gap-3 rounded-lg border border-line p-3">
@@ -201,14 +202,14 @@ export function GiveLoginForm({ staffId, roles, defaultRole, modules, action, su
       <TextField label="Username" name="username" placeholder={suggested} help="Leave empty to use the school's format." error={state?.errors?.username} />
       <SignInChoice error={state?.errors?.temporaryPassword} />
       <details className="rounded-xl border border-line p-3">
-        <summary className="cursor-pointer font-medium">Adjust permissions (advanced)</summary>
+        <summary className="cursor-pointer font-medium"><Words k="Adjust permissions (advanced)" /></summary>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {modules.map((m) => <SelectField key={m.key} label={m.name} name={`perm:${m.key}`} defaultValue="" options={LEVEL_OPTIONS as { value: AccessLevel; label: string }[]} placeholder="As the role" />)}
         </div>
       </details>
       <div className="flex gap-2">
-        <Button variant="secondary" onClick={() => setOpen(false)}>Cancel</Button>
-        <SubmitButton pendingText="Making login…">Make login</SubmitButton>
+        <Button variant="secondary" onClick={() => setOpen(false)}><Words k="Cancel" /></Button>
+        <SubmitButton pendingText="Making login…"><Words k="Make login" /></SubmitButton>
       </div>
     </form>
   );
@@ -219,14 +220,14 @@ export function InviteLink({ username, link, sentWords }: { username: string; li
   const full = typeof window !== "undefined" ? `${window.location.origin}${link}` : link;
   return (
     <div className="rounded-xl border border-success/40 bg-success-soft p-4">
-      <p className="font-medium">Sign-in link for {username} (works for 7 days)</p>
+      <p className="font-medium"><Words k="Sign-in link for" /> {username} <Words k="(works for 7 days)" /></p>
       {sentWords && <p className="mt-1 text-sm">{sentWords}</p>}
       <p className="mt-1 break-all text-sm">{full}</p>
       <div className="mt-2 flex flex-wrap gap-2">
         <Button size="sm" variant="secondary" onClick={async () => { await navigator.clipboard.writeText(full); setCopied(true); }}>{copied ? "Copied" : "Copy link"}</Button>
-        <a className={buttonClass("secondary", "sm")} href={`https://wa.me/?text=${encodeURIComponent(`Set your School OS password: ${full} (username ${username})`)}`} target="_blank" rel="noopener noreferrer">Share on WhatsApp</a>
+        <a className={buttonClass("secondary", "sm")} href={`https://wa.me/?text=${encodeURIComponent(`Set your School OS password: ${full} (username ${username})`)}`} target="_blank" rel="noopener noreferrer"><Words k="Share on WhatsApp" /></a>
       </div>
-      <p className="mt-2 text-sm">Shown only now. Make a new one any time.</p>
+      <p className="mt-2 text-sm"><Words k="Shown only now. Make a new one any time." /></p>
     </div>
   );
 }
@@ -240,8 +241,8 @@ export function NewLinkButton({ staffId, action }: { staffId: string; action: Ac
   return (
     <form action={formAction} className="inline-flex flex-col gap-1">
       <input type="hidden" name="staffId" value={staffId} />
-      <SubmitButton variant="secondary" size="sm" pendingText="Making link…">New sign-in link</SubmitButton>
-      <span className="text-xs text-ink-2">Also resets the password: they set a new one.</span>
+      <SubmitButton variant="secondary" size="sm" pendingText="Making link…"><Words k="New sign-in link" /></SubmitButton>
+      <span className="text-xs text-ink-2"><Words k="Also resets the password: they set a new one." /></span>
       {state && !state.ok && <span role="alert" className="text-sm text-danger">{state.message}</span>}
     </form>
   );
@@ -264,13 +265,13 @@ export function SwitchLoginForm({ staffId, on, action }: { staffId: string; on: 
 export function ReprintForm({ staffId }: { staffId: string }) {
   const [reason, setReason] = useState("");
   const [open, setOpen] = useState(false);
-  if (!open) return <Button size="sm" variant="secondary" onClick={() => setOpen(true)}>Print ID card</Button>;
+  if (!open) return <Button size="sm" variant="secondary" onClick={() => setOpen(true)}><Words k="Print ID card" /></Button>;
   return (
     <div className="flex flex-wrap items-end gap-2 rounded-xl border border-line p-3">
       <TextField label="Reason for printing again" name="reason" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="Card lost" />
       <a aria-disabled={reason.trim().length < 3} className={`${buttonClass("primary", "sm")} ${reason.trim().length < 3 ? "pointer-events-none opacity-55" : ""}`}
-        href={`/staff-hr-management/id-cards?staff=${staffId}&reason=${encodeURIComponent(reason)}`} target="_blank" rel="noopener">Print again</a>
-      <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>Cancel</Button>
+        href={`/staff-hr-management/id-cards?staff=${staffId}&reason=${encodeURIComponent(reason)}`} target="_blank" rel="noopener"><Words k="Print again" /></a>
+      <Button size="sm" variant="ghost" onClick={() => setOpen(false)}><Words k="Cancel" /></Button>
     </div>
   );
 }

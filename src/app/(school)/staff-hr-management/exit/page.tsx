@@ -15,6 +15,7 @@ import { Empty, Stats, Toolbar } from "@/components/ui/blocks";
 import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { EXIT_STATUS } from "./exit-status";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Staff Exit" };
 
@@ -59,7 +60,7 @@ export default async function StaffExitPage({ searchParams }: Search) {
   const progress = (e: Row, cls = "") => {
     if (e.status !== "IN_PROGRESS") return <Pill tone={EXIT_STATUS[e.status].tone} className={cls}>{EXIT_STATUS[e.status].label}</Pill>;
     const done = e.handover.filter((h) => h.doneAt).length;
-    return <Pill tone={done === e.handover.length ? "ok" : "warn"} className={cls}>{done} of {e.handover.length} handed</Pill>;
+    return <Pill tone={done === e.handover.length ? "ok" : "warn"} className={cls}>{done} <Words k="of" /> {e.handover.length} <Words k="handed" /></Pill>;
   };
 
   const columns: DataColumn<Row>[] = [
@@ -74,14 +75,14 @@ export default async function StaffExitPage({ searchParams }: Search) {
     } },
     { key: "type", label: "Type", render: (e) => exitTypeLabel(e.type) },
     { key: "last", label: "Last working day", nowrap: true, render: (e) => <span className="tnum">{formatDate(e.lastWorkingDay, tz)}</span> },
-    { key: "clearance", label: "Clearance", render: (e) => e.status === "IN_PROGRESS" ? <span className="tnum">{e.clearance.filter((c) => c.status !== "PENDING").length} of {e.clearance.length} cleared</span> : <span className="text-ink3">–</span> },
+    { key: "clearance", label: "Clearance", render: (e) => e.status === "IN_PROGRESS" ? <span className="tnum">{e.clearance.filter((c) => c.status !== "PENDING").length} <Words k="of" /> {e.clearance.length} <Words k="cleared" /></span> : <span className="text-ink3">–</span> },
     { key: "state", label: "Status", render: (e) => progress(e) },
   ];
 
   return (
     <>
       <StaffHead page="Staff Exit" href={`${BASE}/exit`} sub="Resignations, retirements and terminations: handover, clearance and final settlement"
-        actions={viewer.change === "all" ? <ButtonLink href={`${BASE}/exit/new`} variant="primary" icon={LogOut}>Record exit</ButtonLink> : undefined} />
+        actions={viewer.change === "all" ? <ButtonLink href={`${BASE}/exit/new`} variant="primary" icon={LogOut}><Words k="Record exit" /></ButtonLink> : undefined} />
 
       <Stats label="Staff exits" className="mb-5" items={[
         { label: "Leaving now", icon: UserMinus, value: data.openAll.length, sub: lastDays.length ? `last day${lastDays.length > 1 ? "s" : ""} ${lastDays.join(" and ")}` : "Nobody is leaving" },
@@ -104,7 +105,7 @@ export default async function StaffExitPage({ searchParams }: Search) {
             return { title: s?.fullName ?? "Staff", avatar: s?.fullName ?? "Staff", sub: `${exitTypeLabel(e.type)} · last day ${formatDate(e.lastWorkingDay, tz)}`, pills: [<span key="p" className="contents">{progress(e, cardPill)}</span>] };
           }}
           empty={anyFilter
-            ? <Empty title="No exits match" body="Try a different date, status or name." action={<ButtonLink href={`${BASE}/exit`}>Clear filters</ButtonLink>} />
+            ? <Empty title="No exits match" body="Try a different date, status or name." action={<ButtonLink href={`${BASE}/exit`}><Words k="Clear filters" /></ButtonLink>} />
             : <Empty icon={LogOut} title="No staff exits" body="Record a resignation, retirement or termination here. The classes are handed over, checks cleared, and the login is switched off on the last working day." />} />
       </Card>
     </>

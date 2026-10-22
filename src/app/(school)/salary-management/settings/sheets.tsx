@@ -10,6 +10,7 @@ import { Segmented, Switch } from "@/components/ui/controls";
 import { FieldShell, type Option } from "@/components/ui/field";
 import type { FormState } from "@/lib/forms";
 import { addComponentAction, duesTrackingAction, preferencesAction, ratesAction, slabsAction, slipOptionAction, statutorySwitchAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 type Act = (prev: unknown, fd: FormData) => Promise<FormState<unknown>>;
 
@@ -98,7 +99,7 @@ export function DuesTrackingSheet({ closeHref, on, months, start }: { closeHref:
     <SheetForm title="PF, ESI, Professional Tax and TDS to pay" sub="What salary takes for the government stays money to pay until you record it paid, with the challan number. Paying it puts it in the Day Book."
       closeHref={closeHref} action={duesTrackingAction} submitLabel="Save" pendingText="Saving…" hidden={{ on: v ? "1" : "0" }}>
       <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3">
-        <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block">Track what is to pay</b><span className="block text-[12.5px] text-ink3 mt-0.5">Off: nothing is listed as to pay.</span></div>
+        <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block"><Words k="Track what is to pay" /></b><span className="block text-[12.5px] text-ink3 mt-0.5"><Words k="Off: nothing is listed as to pay." /></span></div>
         <Switch on={v} onChange={setV} label="Track what is to pay" />
       </div>
       {v && <SSelect name="from" label="From the salary of" required options={months} start={start}
@@ -114,7 +115,7 @@ export function PreferencesSheet({ closeHref, now }: { closeHref: string; now: {
       <SSelect name="payDay" label="Pay day" required options={PAY_DAYS} start={now.payDay} />
       <SSelect name="lopDays" label="Days in a month for loss of pay" required options={LOP} start={now.lopDays} />
       <SSelect name="lateMarks" label="Late marks" required options={LATE} start={now.lateMarks} help="From Staff Attendance" />
-      <FieldShell label="Overtime" id="ot-switch"><span className="flex items-center justify-between gap-3 text-[14px]"><span className="text-ink2">Pay extra hours</span><Switch id="ot-switch" on={ot} onChange={setOt} label="Overtime" /></span></FieldShell>
+      <FieldShell label="Overtime" id="ot-switch"><span className="flex items-center justify-between gap-3 text-[14px]"><span className="text-ink2"><Words k="Pay extra hours" /></span><Switch id="ot-switch" on={ot} onChange={setOt} label="Overtime" /></span></FieldShell>
       {ot && <input type="hidden" name="overtimeOn" value="on" />}
       {ot && <SMoney name="overtimeHour" label="Overtime pay an hour" required start={now.overtimeHour} />}
       <SMoney name="tdsReminder" label="TDS reminder above" required start={now.tdsReminder} help="Flags staff with no TDS whose yearly pay is above this" />

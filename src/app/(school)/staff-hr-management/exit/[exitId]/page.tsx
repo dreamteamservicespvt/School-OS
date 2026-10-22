@@ -16,6 +16,7 @@ import { buttonClass } from "@/components/ui/button";
 import { EXIT_STATUS } from "../exit-status";
 import { AddHandoverForm, CancelExitForm, ClearanceForm, CompleteExitButton, HandOverForm, SettlementForm } from "../exit-forms";
 import { addHandoverAction, cancelExitAction, clearanceAction, completeExitAction, handOverAction, settlementAction } from "../actions";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Staff Exit" };
 
@@ -53,10 +54,10 @@ export default async function ExitPage({ params }: Props) {
       <PageHeader title={`${exitTypeLabel(exit.type)}: ${staff.fullName}`} href={`${BASE}/exit/${exit.id}`} userId={current.user.id} />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <Badge tone={EXIT_STATUS[exit.status].tone}>{EXIT_STATUS[exit.status].label}</Badge>
-        <Link href={`${BASE}/${staff.id}`} className="text-brand-text hover:underline">Open profile</Link>
+        <Link href={`${BASE}/${staff.id}`} className="text-brand-text hover:underline"><Words k="Open profile" /></Link>
       </div>
-      {exit.status === "WAITING_APPROVAL" && <Alert tone="warning" className="mb-4">Waiting for the Principal&apos;s approval{data.approval ? ` (asked ${formatDate(data.approval.createdAt, tz)})` : ""}. The handover can start now.</Alert>}
-      {exit.loginDisabledAt && <Alert tone="info" className="mb-4">The login was switched off on {formatDateTime(exit.loginDisabledAt, tz)}. {staff.fullName} now shows as {staff.status.toLowerCase()} in the Staff List.</Alert>}
+      {exit.status === "WAITING_APPROVAL" && <Alert tone="warning" className="mb-4"><Words k="Waiting for the Principal's approval" />{data.approval ? ` (asked ${formatDate(data.approval.createdAt, tz)})` : ""}<Words k=". The handover can start now." /></Alert>}
+      {exit.loginDisabledAt && <Alert tone="info" className="mb-4"><Words k="The login was switched off on" /> {formatDateTime(exit.loginDisabledAt, tz)}. {staff.fullName} <Words k="now shows as" /> {staff.status.toLowerCase()} <Words k="in the Staff List." /></Alert>}
 
       <div className="grid gap-5 lg:grid-cols-2">
         <Card>
@@ -68,7 +69,7 @@ export default async function ExitPage({ params }: Props) {
               <Detail label="Type">{exitTypeLabel(exit.type)}</Detail>
               <Detail label="Date received">{formatDate(exit.receivedOn, tz)}</Detail>
               <Detail label="Last working day">{formatDate(exit.lastWorkingDay, tz)}</Detail>
-              <Detail label="Letter">{exit.letterFileId ? <a href={`${BASE}/files/${exit.letterFileId}`} target="_blank" rel="noopener" className="text-brand-text underline">Open letter</a> : null}</Detail>
+              <Detail label="Letter">{exit.letterFileId ? <a href={`${BASE}/files/${exit.letterFileId}`} target="_blank" rel="noopener" className="text-brand-text underline"><Words k="Open letter" /></a> : null}</Detail>
               <div className="sm:col-span-2"><Detail label="Reason">{exit.reason}</Detail></div>
             </dl>
           </CardBody>
@@ -82,7 +83,7 @@ export default async function ExitPage({ params }: Props) {
             {exit.status !== "WAITING_APPROVAL" && exit.status !== "CANCELLED" && (
               <div>
                 <a className={buttonClass("secondary", "sm")} href={`${BASE}/exit/${exit.id}/letter`} target="_blank" rel="noopener">{exit.experienceLetterNo ? `Experience letter ${exit.experienceLetterNo}` : "Issue experience letter"}</a>
-                <p className="mt-1 text-sm text-ink-2">A PDF on the school letterhead with the Principal&apos;s signature. The number stays the same when printed again.</p>
+                <p className="mt-1 text-sm text-ink-2"><Words k="A PDF on the school letterhead with the Principal's signature. The number stays the same when printed again." /></p>
               </div>
             )}
           </CardBody>
@@ -91,7 +92,7 @@ export default async function ExitPage({ params }: Props) {
         <Card>
           <CardHeader title="Handover" description={`${handed} of ${exit.handover.length} handed over`} action={hr && open ? <AddHandoverForm exitId={exit.id} action={addHandoverAction} /> : undefined} />
           <CardBody>
-            {exit.handover.length === 0 ? <p className="text-ink-2">Nothing to hand over. Add assets, books or files if needed.</p> : (
+            {exit.handover.length === 0 ? <p className="text-ink-2"><Words k="Nothing to hand over. Add assets, books or files if needed." /></p> : (
               <ul className="divide-y divide-line">
                 {exit.handover.map((h) => {
                   const to = data.names.find((n) => n.id === h.toStaffId);
@@ -100,7 +101,7 @@ export default async function ExitPage({ params }: Props) {
                       <span>{h.label}</span>
                       {h.doneAt ? <Badge tone="success">{to ? `To ${to.fullName}` : "Handed over"}</Badge>
                         : hr && open ? <HandOverForm itemId={h.id} label={h.label} teaching={h.kind === "allocation" || h.kind === "class-teacher"} staff={teacherOptions} action={handOverAction} />
-                          : <Badge tone="warning">Not handed over</Badge>}
+                          : <Badge tone="warning"><Words k="Not handed over" /></Badge>}
                     </li>
                   );
                 })}
@@ -130,8 +131,8 @@ export default async function ExitPage({ params }: Props) {
       {hr && open && (
         <div className="mt-5 flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-line bg-surface p-4">
           <div>
-            <p className="font-medium">Finish</p>
-            <p className="text-sm text-ink-2">Complete the exit after the last working day, when everything is handed over and cleared.</p>
+            <p className="font-medium"><Words k="Finish" /></p>
+            <p className="text-sm text-ink-2"><Words k="Complete the exit after the last working day, when everything is handed over and cleared." /></p>
           </div>
           <div className="flex flex-wrap gap-2">
             {!exit.loginDisabledAt && <CancelExitForm exitId={exit.id} action={cancelExitAction} />}

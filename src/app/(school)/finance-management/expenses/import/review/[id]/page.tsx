@@ -5,6 +5,7 @@ import { PLACES } from "@/lib/imports/places";
 import { FileReview } from "@/components/import/file-review";
 import { FinanceHead } from "../../../../_components/finance-head";
 import { BASE, financePage } from "../../../../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Check a file · Import past expenses" };
 
@@ -15,7 +16,7 @@ export default async function ExpenseImportFilePage({ params, searchParams }: { 
   return (
     <>
       <FinanceHead pageName="Import past expenses" href={`${BASE}/expenses/import`}
-        sub={<Link href={`${BASE}/expenses`} className="font-semibold text-brand hover:underline">Expenses</Link>} />
+        sub={<Link href={`${BASE}/expenses`} className="font-semibold text-brand hover:underline"><Words k="Expenses" /></Link>} />
       <FileReview current={p.current} place={PLACES.finance} id={(await params).id} sp={await searchParams} />
     </>
   );

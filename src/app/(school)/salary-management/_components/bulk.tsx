@@ -9,6 +9,7 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Mail, MessageCircle, Printer, TrendingUp, type LucideIcon } from "lucide-react";
 import { buttonClass } from "@/components/ui/button";
+import { Words } from "@/lib/i18n/client";
 
 const ICONS = { revise: TrendingUp, whatsapp: MessageCircle, email: Mail, print: Printer } satisfies Record<string, LucideIcon>;
 type Item = { label: string; icon: keyof typeof ICONS; set?: Record<string, string>; file?: string };
@@ -59,7 +60,7 @@ export function BulkBar({ group, items }: { group: string; items: Item[] }) {
   };
   return (
     <div role="region" aria-label="Bulk actions" className="flex flex-wrap items-center gap-2 border-b border-brand/20 bg-brand/8 px-4 py-2.5 animate-fade">
-      <p className="mr-2 text-[13.5px] font-semibold text-brand" aria-live="polite">{ids.length} selected</p>
+      <p className="mr-2 text-[13.5px] font-semibold text-brand" aria-live="polite">{ids.length} <Words k="selected" /></p>
       {items.map((it) => {
         const Ic = ICONS[it.icon];
         const inner = <><Ic size={15} aria-hidden="true" />{it.label}</>;
@@ -67,7 +68,7 @@ export function BulkBar({ group, items }: { group: string; items: Item[] }) {
           ? <a key={it.label} href={`${it.file}${it.file.includes("?") ? "&" : "?"}ids=${ids.join(",")}`} target="_blank" rel="noopener" className={buttonClass("secondary", "sm")}>{inner}</a>
           : <Link key={it.label} href={href(it.set ?? {})} scroll={false} className={buttonClass("secondary", "sm")}>{inner}</Link>;
       })}
-      <button type="button" className={buttonClass("ghost", "sm")} onClick={clear}>Clear</button>
+      <button type="button" className={buttonClass("ghost", "sm")} onClick={clear}><Words k="Clear" /></button>
     </div>
   );
 }

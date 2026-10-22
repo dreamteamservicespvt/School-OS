@@ -10,6 +10,7 @@ import { inputCls, type Option } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { journalAction } from "./actions";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const num = (s: string) => Number(s.replace(/[^\d.]/g, "")) || 0;
@@ -26,7 +27,7 @@ export function JournalSheet({ closeHref, today, heads }: { closeHref: string; t
     <SheetForm wide title="Journal entry" sub="Debits must equal credits. Posted entries are never edited, only reversed." closeHref={closeHref} action={journalAction} submitLabel="Post entry" pendingText="Posting…">
       <SDate name="date" label="Date" required start={today} max={today} className="max-w-[220px]" />
       <div className="flex flex-col gap-2">
-        <p className="text-[13px] font-semibold text-ink2">Lines</p>
+        <p className="text-[13px] font-semibold text-ink2"><Words k="Lines" /></p>
         {lines.map((l, i) => (
           <div key={l.k} className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_auto_140px_auto] gap-2 items-center">
             <KeepSelect name="lineHead" aria-label={`Account, line ${i + 1}`} value={l.head} onChange={(e) => set(l.k, { head: e.target.value })} className={cx(inputCls(), "h-11")}>
@@ -40,10 +41,10 @@ export function JournalSheet({ closeHref, today, heads }: { closeHref: string; t
               className="w-10 h-10 grid place-items-center rounded-xl text-ink3 hover:bg-sunken disabled:opacity-30"><X size={16} aria-hidden="true" /></button>
           </div>
         ))}
-        <Button type="button" size="sm" variant="ghost" icon={Plus} className="self-start" onClick={() => setLines((ls) => [...ls, { k: Date.now(), head: "", side: "Dr", amt: "" }])}>Add line</Button>
+        <Button type="button" size="sm" variant="ghost" icon={Plus} className="self-start" onClick={() => setLines((ls) => [...ls, { k: Date.now(), head: "", side: "Dr", amt: "" }])}><Words k="Add line" /></Button>
         <div className={cx("rounded-xl px-3.5 py-2.5 text-[13.5px] flex items-center gap-2 tnum", dr === cr && dr ? "bg-ok/10 text-ok" : "bg-sunken text-ink2")}>
           {dr === cr && dr ? <CircleCheck size={16} aria-hidden="true" /> : <Scale size={16} aria-hidden="true" />}
-          <span>Debits <b>{inr(dr)}</b> · Credits <b>{inr(cr)}</b>{dr !== cr && <> · difference {inr(Math.abs(dr - cr))}</>}</span>
+          <span><Words k="Debits" /> <b>{inr(dr)}</b> <Words k="· Credits" /> <b>{inr(cr)}</b>{dr !== cr && <> <Words k="· difference" /> {inr(Math.abs(dr - cr))}</>}</span>
         </div>
         {state?.errors?.lines && <p className="text-[12.5px] text-bad flex items-center gap-1.5" role="alert"><CircleAlert size={14} aria-hidden="true" />{state.errors.lines}</p>}
       </div>

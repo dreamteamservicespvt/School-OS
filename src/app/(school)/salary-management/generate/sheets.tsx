@@ -9,6 +9,7 @@ import { FieldShell, type Option } from "@/components/ui/field";
 import { buttonClass } from "@/components/ui/button";
 import { ProblemLink } from "../_components/forms";
 import { addAdjustmentAction, markPaidAction, openMonthAction, payStatutoryAction, tdsAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 /** A choice of a few words, sent as a hidden field. */
 function SegField({ name, label, options, start, onValue }: { name: string; label: string; options: readonly Option[]; start: string; onValue?: (v: string) => void }) {
@@ -56,7 +57,7 @@ export function PayRunSheet({ closeHref, runId, title, net, today, banks, mainBa
       <SegField name="mode" label="How was it paid?" options={MODES} start="BANK_TRANSFER" onValue={setMode} />
       {mode !== "CASH" && <SText name="reference" label={mode === "CHEQUE" ? "Cheque numbers" : "Bank batch reference or UTR"} required className="font-mono" placeholder={mode === "CHEQUE" ? "004581-004584" : "HDFCB26100941"} />}
       {mode !== "CASH" && banks.length > 0 && <SSelect name="accountId" label="From account" options={banks} start={mainBank} />}
-      {mode === "BANK_TRANSFER" && <a href={bankFileHref} download className={buttonClass("ghost", "md", "self-start -ml-2")}><FileDown size={17} aria-hidden="true" />Download bank transfer file</a>}
+      {mode === "BANK_TRANSFER" && <a href={bankFileHref} download className={buttonClass("ghost", "md", "self-start -ml-2")}><FileDown size={17} aria-hidden="true" /><Words k="Download bank transfer file" /></a>}
     </SheetForm>
   );
 }

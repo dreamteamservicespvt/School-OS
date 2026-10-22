@@ -22,6 +22,7 @@ import { ButtonLink, buttonClass } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { AdjustBalanceForm, ApplyLeaveForm, CancelLeaveForm, CarryForwardForm, DecideButtons } from "./leave-forms";
 import { adjustBalanceAction, applyLeaveAction, cancelLeaveAction, carryForwardAction, decideLeave, previewLeave } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Staff Leave" };
 
@@ -95,7 +96,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
   return (
     <>
       <StaffHead page="Staff Leave" href={`${BASE}/leave`} sub={canHr ? "Leave requests, balances and the leave calendar for every staff member" : "Your leave requests and balances"} actions={apply} />
-      {base.types.length === 0 && <Banner tone="warn" className="mb-4" title="No staff leave types yet.">{canHr ? <Link href={`${BASE}/settings`} className="font-semibold underline">Add them in HR Settings.</Link> : "Ask HR to add them."}</Banner>}
+      {base.types.length === 0 && <Banner tone="warn" className="mb-4" title="No staff leave types yet.">{canHr ? <Link href={`${BASE}/settings`} className="font-semibold underline"><Words k="Add them in HR Settings." /></Link> : "Ask HR to add them."}</Banner>}
       {views.length > 1 && (
         <div className="-mx-4 mb-4 overflow-x-auto px-4 no-scrollbar md:mx-0 md:px-0">
           <SegLinks label="Staff Leave views" value={view} options={views.map((v) => ({ value: v.key, href: v.href, label: <>{v.label}{"count" in v && v.count ? <span className="tnum text-[11.5px] text-warn">{v.count}</span> : null}</> }))} />
@@ -111,7 +112,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
 
   async function Mine() {
     const me = base.me;
-    if (!me) return <EmptyState title="Your login is not linked to a staff record">Ask HR to link it, or to apply leave for you.</EmptyState>;
+    if (!me) return <EmptyState title="Your login is not linked to a staff record"><Words k="Ask HR to link it, or to apply leave for you." /></EmptyState>;
     const data = await withSchool(current.ctx, async (tx) => {
       const year = await leaveYearFor(tx, current.ctx, today, me.campusId);
       const balances = year ? (await balancesFor(tx, current.ctx, [me.id], year.id)).get(me.id) ?? [] : [];
@@ -123,17 +124,17 @@ export default async function StaffLeavePage({ searchParams }: Props) {
         <Card>
           <CardHeader title="My leave balance" description={data.year ? data.year.name : "No academic year is open."} />
           <CardBody>
-            {data.balances.length === 0 ? <p className="text-ink-2">No balance yet.</p> : (
+            {data.balances.length === 0 ? <p className="text-ink-2"><Words k="No balance yet." /></p> : (
               <ul className="grid grid-cols-2 gap-3 lg:grid-cols-4">
                 {data.balances.map((b) => (
                   <li key={b.type.id} className="rounded-2xl border border-line px-4 py-3">
                     <p className="text-[12px] font-semibold text-ink3">{b.type.name}</p>
                     {b.limited ? (
                       <>
-                        <p className="mt-0.5 font-display text-[21px] font-semibold tracking-tight tnum">{b.left}<span className="text-[13px] font-normal text-ink3"> of {b.given + b.adjusted} left</span></p>
-                        <p className="text-[12px] text-ink3">{b.used} used{b.waiting ? ` · ${b.waiting} waiting` : ""}</p>
+                        <p className="mt-0.5 font-display text-[21px] font-semibold tracking-tight tnum">{b.left}<span className="text-[13px] font-normal text-ink3"> <Words k="of" /> {b.given + b.adjusted} <Words k="left" /></span></p>
+                        <p className="text-[12px] text-ink3">{b.used} <Words k="used" />{b.waiting ? ` · ${b.waiting} waiting` : ""}</p>
                       </>
-                    ) : <p className="mt-1 font-semibold">Unpaid, no limit</p>}
+                    ) : <p className="mt-1 font-semibold"><Words k="Unpaid, no limit" /></p>}
                   </li>
                 ))}
               </ul>
@@ -177,11 +178,11 @@ export default async function StaffLeavePage({ searchParams }: Props) {
                         {d && d.periodsAffected > 0 ? ` · ${d.periodsAffected} periods` : ""}
                       </p>
                       <p className="text-[13.5px] text-ink2">“{r.reason}”</p>
-                      {r.decisionReason && r.status !== "APPROVED" && <p className="text-[13px] text-ink3">Note: {r.decisionReason}</p>}
+                      {r.decisionReason && r.status !== "APPROVED" && <p className="text-[13px] text-ink3"><Words k="Note:" /> {r.decisionReason}</p>}
                     </div>
                     <div className="flex flex-wrap items-center justify-end gap-2">
                       <Badge tone={s.tone}>{s.label}</Badge>
-                      {r.documentFileId && <a href={`${BASE}/files/${r.documentFileId}`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center px-2 text-brand-text hover:underline">Document</a>}
+                      {r.documentFileId && <a href={`${BASE}/files/${r.documentFileId}`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center px-2 text-brand-text hover:underline"><Words k="Document" /></a>}
                       {canCancel && <CancelLeaveForm requestId={r.id} action={cancelLeaveAction} started={r.status === "APPROVED" && r.fromDate <= today} />}
                     </div>
                   </li>
@@ -218,14 +219,14 @@ export default async function StaffLeavePage({ searchParams }: Props) {
       <Col>
         <Card>
           <CardHeader title="Away today" icon={CalendarDays} description={`${formatDate(today, tz)} · ${away.length} staff`} />
-          {away.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">Nobody is on leave today.</p> : (
+          {away.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="Nobody is on leave today." /></p> : (
             <ul className="space-y-3 px-5 pb-5">
               {away.map((l) => (
                 <li key={l.id} className="flex items-center gap-3">
                   <Avatar name={l.person?.fullName ?? "Staff"} photoFileId={l.person?.photoFileId ?? null} size={38} />
                   <div className="min-w-0">
                     <p className="font-semibold leading-tight">{l.person ? <Link href={`${BASE}/${l.person.id}?tab=leave`} className="hover:underline">{l.person.fullName}</Link> : "Staff"}</p>
-                    <p className="text-[12.5px] text-ink3">{base.types.find((t) => t.id === l.leaveTypeId)?.name ?? "Leave"} · back after {formatDate(l.toDate, tz)}</p>
+                    <p className="text-[12.5px] text-ink3">{base.types.find((t) => t.id === l.leaveTypeId)?.name ?? "Leave"} <Words k="· back after" /> {formatDate(l.toDate, tz)}</p>
                   </div>
                 </li>
               ))}
@@ -234,9 +235,9 @@ export default async function StaffLeavePage({ searchParams }: Props) {
         </Card>
         {canHr && base.types.length > 0 && (
           <Card className="px-5 py-4">
-            <p className="font-semibold">Someone called in sick?</p>
-            <p className="mt-1 text-[13.5px] text-ink3">Apply on their behalf. It still goes to their approver, and they are told.</p>
-            <ButtonLink href={`${BASE}/leave?view=requests&apply=new`} icon={CalendarPlus} className="mt-3">Apply for someone</ButtonLink>
+            <p className="font-semibold"><Words k="Someone called in sick?" /></p>
+            <p className="mt-1 text-[13.5px] text-ink3"><Words k="Apply on their behalf. It still goes to their approver, and they are told." /></p>
+            <ButtonLink href={`${BASE}/leave?view=requests&apply=new`} icon={CalendarPlus} className="mt-3"><Words k="Apply for someone" /></ButtonLink>
           </Card>
         )}
       </Col>
@@ -250,7 +251,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
     return (
       <Split>
       <Card>
-        <CardHeader title="Waiting for a decision" description="With the balance before this leave" action={<Pill tone="warn">{data.approvals.length} waiting</Pill>} divided />
+        <CardHeader title="Waiting for a decision" description="With the balance before this leave" action={<Pill tone="warn">{data.approvals.length} <Words k="waiting" /></Pill>} divided />
       <ul className="divide-y divide-line">
         {data.approvals.map((a) => {
           const r = data.requests.find((x) => x.approvalId === a.id);
@@ -266,12 +267,12 @@ export default async function StaffLeavePage({ searchParams }: Props) {
                   <p className="text-[12.5px] text-ink3">{formatDate(a.createdAt, tz)}</p>
                 </div>
                 <p className="text-[14px]">{a.summary}</p>
-                {r && <p className="text-[13.5px] text-ink2">“{r.reason}”{r.documentFileId && <> · <a href={`${BASE}/files/${r.documentFileId}`} target="_blank" rel="noopener" className="font-semibold text-brand hover:underline">document</a></>}</p>}
+                {r && <p className="text-[13.5px] text-ink2">“{r.reason}”{r.documentFileId && <> · <a href={`${BASE}/files/${r.documentFileId}`} target="_blank" rel="noopener" className="font-semibold text-brand hover:underline"><Words k="document" /></a></>}</p>}
                 <div className="flex flex-wrap gap-1.5">
-                  {bal?.limited && <Pill>{bal.type.name}: {daysText(bal.left)} left before this</Pill>}
-                  {d && d.periodsAffected > 0 && <Pill tone="warn">{d.periodsAffected} periods need cover</Pill>}
-                  {d?.onBehalf && <Pill tone="info">Applied by HR for them</Pill>}
-                  {a.status === "ESCALATED" && <Pill tone="warn">Moved up: nobody decided in time</Pill>}
+                  {bal?.limited && <Pill>{bal.type.name}: {daysText(bal.left)} <Words k="left before this" /></Pill>}
+                  {d && d.periodsAffected > 0 && <Pill tone="warn">{d.periodsAffected} <Words k="periods need cover" /></Pill>}
+                  {d?.onBehalf && <Pill tone="info"><Words k="Applied by HR for them" /></Pill>}
+                  {a.status === "ESCALATED" && <Pill tone="warn"><Words k="Moved up: nobody decided in time" /></Pill>}
                 </div>
                 <div className="pt-1"><DecideButtons approvalId={a.id} approve={decideLeave} label={s?.fullName ?? "leave"} /></div>
               </div>
@@ -343,23 +344,23 @@ export default async function StaffLeavePage({ searchParams }: Props) {
     return (
       <Card>
         <CardHeader title={`Who is on leave, ${monthLabel(from)}`} description="Approved leave, and leave waiting for a decision (marked)."
-          action={<div className="flex gap-2"><ButtonLink size="sm" href={q(prev)}>‹ Previous</ButtonLink><ButtonLink size="sm" href={q(next)}>Next ›</ButtonLink></div>} />
+          action={<div className="flex gap-2"><ButtonLink size="sm" href={q(prev)}><Words k="‹ Previous" /></ButtonLink><ButtonLink size="sm" href={q(next)}><Words k="Next ›" /></ButtonLink></div>} />
         <CardBody className="space-y-4">
           {data.departments.length > 1 && (
             <form className="flex flex-wrap items-end gap-2" action={`${BASE}/leave`}>
               <input type="hidden" name="view" value="calendar" />
               <input type="hidden" name="month" value={isoDay(from).slice(0, 7)} />
               <div>
-                <label htmlFor="cal-dept" className="mb-1 block text-sm font-medium">Department</label>
+                <label htmlFor="cal-dept" className="mb-1 block text-sm font-medium"><Words k="Department" /></label>
                 <select id="cal-dept" name="department" defaultValue={dept ?? ""} className="min-h-11 rounded-lg border border-line-strong bg-surface px-3">
                   <option value="">{hr ? "All departments" : "My departments"}</option>
                   {data.departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               </div>
-              <button className={buttonClass("secondary")}>Show</button>
+              <button className={buttonClass("secondary")}><Words k="Show" /></button>
             </form>
           )}
-          {busy.length === 0 ? <p className="text-ink-2">Nobody is on leave this month.</p> : (
+          {busy.length === 0 ? <p className="text-ink-2"><Words k="Nobody is on leave this month." /></p> : (
             <ul className="divide-y divide-line">
               {busy.map(({ d, people }) => (
                 <li key={isoDay(d)} className="grid gap-1 py-2 sm:grid-cols-[10rem_1fr]">
@@ -397,7 +398,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
       return { years, names, year: current_, staff, balances };
     });
     const yearLabel = (y: { name: string; campusId: string }) => (data.names.get(y.campusId) ? `${y.name} · ${data.names.get(y.campusId)}` : y.name);
-    if (!data.year) return <EmptyState title="No academic year yet">Balances are kept per academic year. Add one in Academic Management.</EmptyState>;
+    if (!data.year) return <EmptyState title="No academic year yet"><Words k="Balances are kept per academic year. Add one in Academic Management." /></EmptyState>;
     const paid = base.types.filter((t) => t.paid);
     return (
       <Card>
@@ -411,12 +412,12 @@ export default async function StaffLeavePage({ searchParams }: Props) {
           )}
           <div className="relative overflow-x-auto [contain:inline-size]">
             <table className="w-full min-w-[36rem] text-left text-sm">
-              <caption className="sr-only">Leave left for each staff member</caption>
+              <caption className="sr-only"><Words k="Leave left for each staff member" /></caption>
               <thead>
                 <tr className="border-b border-line">
-                  <th scope="col" className="p-2">Staff</th>
+                  <th scope="col" className="p-2"><Words k="Staff" /></th>
                   {paid.map((t) => <th key={t.id} scope="col" className="p-2">{t.name}</th>)}
-                  {canHr && <th scope="col" className="p-2"><span className="sr-only">Actions</span></th>}
+                  {canHr && <th scope="col" className="p-2"><span className="sr-only"><Words k="Actions" /></span></th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
@@ -436,7 +437,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-sm text-ink-2">Shown as days left / days allocated. Days beyond the balance are loss of pay where HR Settings allow it.</p>
+          <p className="mt-3 text-sm text-ink-2"><Words k="Shown as days left / days allocated. Days beyond the balance are loss of pay where HR Settings allow it." /></p>
         </CardBody>
       </Card>
     );

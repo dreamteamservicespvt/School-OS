@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import type { FormState } from "@/lib/forms";
 import { ActionButton, FormDialog, type Action } from "../_components/forms";
 import { CalendarPlus } from "lucide-react";
+import { Words } from "@/lib/i18n/client";
 
 type Option = { value: string; label: string };
 type LeaveTypeOption = Option & { halfDay: boolean; note: string };
@@ -22,7 +23,7 @@ function Preview({ action }: { action: (s: FormState<{ text: string }>, fd: Form
   };
   return (
     <div className="sm:col-span-2" aria-live="polite">
-      <Button variant="ghost" size="sm" onClick={run} loading={pending} loadingText="Checking…">Check days and balance</Button>
+      <Button variant="ghost" size="sm" onClick={run} loading={pending} loadingText="Checking…"><Words k="Check days and balance" /></Button>
       {state && <p className={`mt-1 text-sm ${state.ok ? "text-ink" : "text-danger"}`}>{state.ok ? state.data?.text : state.message}</p>}
     </div>
   );
@@ -54,7 +55,7 @@ export function ApplyLeaveForm({ action, preview, types, staff, fixedStaff, defa
           )}
           <TextArea label="Reason" name="reason" required rows={2} defaultValue={f.val("reason")} error={f.err("reason")} className="sm:col-span-2" />
           <div className="sm:col-span-2">
-            <label htmlFor="leave-doc" className="mb-1 block text-sm font-medium">Document</label>
+            <label htmlFor="leave-doc" className="mb-1 block text-sm font-medium"><Words k="Document" /></label>
             <input id="leave-doc" name="document" type="file" accept="image/jpeg,image/png,application/pdf" className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-sm" aria-describedby="leave-doc-help" />
             <p id="leave-doc-help" className={`mt-1 text-sm ${f.err("document") ? "text-danger" : "text-ink-2"}`}>{f.err("document") ?? "Such as a doctor's note. Needed for some leave types and for long leave."}</p>
           </div>
@@ -68,7 +69,7 @@ export function ApplyLeaveForm({ action, preview, types, staff, fixedStaff, defa
 export function DecideButtons({ approvalId, approve, label }: { approvalId: string; approve: Action; label: string }) {
   return (
     <div className="flex flex-wrap items-start gap-2">
-      <ActionButton action={approve} hidden={{ approvalId, decision: "approve" }} variant="primary" pendingText="Approving…">Approve<span className="sr-only"> {label}</span></ActionButton>
+      <ActionButton action={approve} hidden={{ approvalId, decision: "approve" }} variant="primary" pendingText="Approving…"><Words k="Approve" /><span className="sr-only"> {label}</span></ActionButton>
       <FormDialog trigger="Reject" triggerSize="sm" triggerVariant="danger-outline" title={`Reject: ${label}`} action={approve} submitLabel="Reject" submitVariant="danger" hidden={{ approvalId, decision: "reject" }}>
         {(f) => <TextArea label="Reason" name="note" required rows={3} defaultValue={f.val("note")} error={f.err("note") ?? (f.state && !f.state.ok ? f.state.message : undefined)} help="At least 5 characters. The staff member sees it." />}
       </FormDialog>
@@ -108,7 +109,7 @@ export function CarryForwardForm({ years, action }: { years: Option[]; action: A
     <FormDialog trigger="Carry forward" triggerSize="sm" title="Carry leave forward" action={action} submitLabel="Carry forward">
       {(f) => (
         <>
-          <p className="text-ink-2">Days left at the end of the year move to the next year, for leave types with carry-forward on, up to their maximum. Running it again does not add the days twice.</p>
+          <p className="text-ink-2"><Words k="Days left at the end of the year move to the next year, for leave types with carry-forward on, up to their maximum. Running it again does not add the days twice." /></p>
           <SelectField label="From academic year" name="academicYearId" required options={years} defaultValue={f.val("academicYearId", years[0]?.value)} error={f.err("academicYearId")} />
         </>
       )}

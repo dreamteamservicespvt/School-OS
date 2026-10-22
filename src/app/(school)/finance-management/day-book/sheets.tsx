@@ -10,6 +10,7 @@ import { Banner } from "@/components/money/kit";
 import { ReasonSheet } from "../_components/forms";
 import { Line } from "../_components/bits";
 import { closeDayAction, reopenDayAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 const inr = (paise: number) => `${paise < 0 ? "−" : ""}₹${(Math.abs(paise) / 100).toLocaleString("en-IN", { minimumFractionDigits: paise % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
 const signedInr = (paise: number) => (paise > 0 ? `+${inr(paise)}` : inr(paise));
@@ -30,7 +31,7 @@ export function CloseDaySheet({ closeHref, date, dateWords, expectedPaise, incom
     <SheetForm title={`Close ${dateWords}`} sub="Count the cash in the box. After closing, nothing on this day, or before it, can change." closeHref={closeHref}
       action={closeDayAction} submitLabel="Close the day" pendingText="Closing…" hidden={{ date }} submitDisabled={Boolean(problem)}>
       {problem && <Banner tone="bad" title="This day cannot be closed now.">{problem}</Banner>}
-      {!problem && isToday && <Banner tone="warn">It is {timeNow}. Anything recorded after closing goes into tomorrow’s Day Book.</Banner>}
+      {!problem && isToday && <Banner tone="warn"><Words k="It is" /> {timeNow}<Words k=". Anything recorded after closing goes into tomorrow’s Day Book." /></Banner>}
       <ul className="rounded-2xl border border-line px-4">
         <Line k={`Income · ${entries} ${entries === 1 ? "entry" : "entries"} that day`} v={inr(incomePaise)} />
         <Line k="Expense" v={inr(expensePaise)} />

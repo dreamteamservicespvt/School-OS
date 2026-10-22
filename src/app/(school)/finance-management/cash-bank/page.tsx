@@ -20,6 +20,7 @@ import { cancelTransferAction, removeAccountAction } from "./actions";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { AddAccountSheet, MoveMoneySheet, OpeningSheet } from "./sheets";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Cash & Bank" };
 
@@ -91,8 +92,8 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
     <div>
       <FinanceHead pageName="Cash & Bank" href={HREF} sub={`Cash book and bank book, with opening and closing balance · financial year ${p.fy.name}`}
         actions={p.can.create ? <>
-          <ButtonLink href={here({ do: "account" })} scroll={false} variant="secondary" icon={Plus}>Add bank account</ButtonLink>
-          <ButtonLink href={here({ do: "move" })} scroll={false} variant="primary" icon={ArrowRightLeft}>Move money</ButtonLink>
+          <ButtonLink href={here({ do: "account" })} scroll={false} variant="secondary" icon={Plus}><Words k="Add bank account" /></ButtonLink>
+          <ButtonLink href={here({ do: "move" })} scroll={false} variant="primary" icon={ArrowRightLeft}><Words k="Move money" /></ButtonLink>
         </> : null} />
       <Stack>
         <Stats items={[
@@ -102,8 +103,8 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
 
         {cashBefore > ZERO && data.depositedToday === 0 && p.can.create && data.cash && (
           <Banner tone="info" title={`Cash in the box from before today: ${formatRupees(cashBefore)}.`}
-            action={<Link href={here({ do: "move" })} scroll={false} className={buttonClass("secondary", "sm")}><ArrowRightLeft size={15} aria-hidden="true" />Record deposit</Link>}>
-            When the money is in the bank, record it here so both books stay right.
+            action={<Link href={here({ do: "move" })} scroll={false} className={buttonClass("secondary", "sm")}><ArrowRightLeft size={15} aria-hidden="true" /><Words k="Record deposit" /></Link>}>
+            <Words k="When the money is in the bank, record it here so both books stay right." />
           </Banner>
         )}
 
@@ -113,11 +114,11 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
               action={<div className="flex gap-1.5">
                 {p.can.archive && openBank && !openBank.isMain && (
                   <ConfirmButton trigger="Remove account" triggerVariant="ghost" title={`Remove ${openBank.name}?`} confirmLabel="Remove account" confirmVariant="danger" onConfirm={removeAccountAction.bind(null, openBank.id)}>
-                    It is taken off the list of accounts. Its past entries stay in the books. It must hold ₹0 and no fee head may still pay into it.
+                    <Words k="It is taken off the list of accounts. Its past entries stay in the books. It must hold ₹0 and no fee head may still pay into it." />
                   </ConfirmButton>
                 )}
                 {p.can.export && <ExportButton href={qs(`${HREF}/export`, { ...keep, book: data.bookId ?? null })} size="sm" />}
-                {p.can.export && <a href={qs(`${HREF}/export`, { ...keep, book: data.bookId ?? null, format: "pdf" })} target="_blank" rel="noreferrer" className={cx(buttonClass("ghost", "sm"), "hidden sm:inline-flex")}><Printer size={15} aria-hidden="true" />Print</a>}
+                {p.can.export && <a href={qs(`${HREF}/export`, { ...keep, book: data.bookId ?? null, format: "pdf" })} target="_blank" rel="noreferrer" className={cx(buttonClass("ghost", "sm"), "hidden sm:inline-flex")}><Printer size={15} aria-hidden="true" /><Words k="Print" /></a>}
               </div>} />
             <div className="px-3 pb-3 flex flex-col md:flex-row gap-2.5">
               <nav aria-label="Books" className="overflow-x-auto no-scrollbar">
@@ -138,7 +139,7 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
               ))}
             </div>
             <OldSoftwareBanner goLive={p.goLive} from={from} to={to} what="cash and bank entries" className="mx-4 mb-3" />
-            {data.book && data.book.payHidden > 0 && <p className="px-5 pb-2 text-[12.5px] text-ink3">{data.book.payHidden} staff pay {data.book.payHidden === 1 ? "entry is" : "entries are"} not shown to your role. The balances count them.</p>}
+            {data.book && data.book.payHidden > 0 && <p className="px-5 pb-2 text-[12.5px] text-ink3">{data.book.payHidden} <Words k="staff pay" /> {data.book.payHidden === 1 ? "entry is" : "entries are"} <Words k="not shown to your role. The balances count them." /></p>}
             <DataList rows={lines} rowKey={(r) => r.id} minWidth={760} caption={isCash ? "Cash book" : "Bank book"}
               rowHref={(r) => (r.sourceType === "transfer" || r.sourceType === "transfer-cancel" ? here({ t: r.sourceId }) : entryHref(r.id))}
               footer={to.getTime() < p.today.getTime() ? `Closing ${formatRupees(data.book?.closing ?? ZERO)} is the opening balance of the next day` : `${lines.length} ${lines.length === 1 ? "entry" : "entries"} · closing is live`}
@@ -164,7 +165,7 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
                 <Line k={`Card · ${card?._count._all ?? 0} ${card?._count._all === 1 ? "payment" : "payments"}`} v={formatRupees(card?._sum.amountPaise ?? ZERO)} />
                 <Line k={`Waiting for verification · ${data.waiting._count._all}`} v={formatRupees(data.waiting._sum.amountPaise ?? ZERO)} tone={data.waiting._count._all ? "warn" : undefined} />
               </ul>
-              <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3">Razorpay settles into the bank the next working day, less its charges. Payments waiting for verification are not counted until a person checks them.</p>
+              <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3"><Words k="Razorpay settles into the bank the next working day, less its charges. Payments waiting for verification are not counted until a person checks them." /></p>
             </Card>
             <Card>
               <CardHeader title="Opening balances" description={goLive ? `Set at go-live, ${formatDate(goLive)}` : "Not set yet"} icon={Flag}
@@ -172,17 +173,17 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
               <ul className="px-5 pb-3">
                 {data.accounts.map((a) => {
                   const ob = data.openings.find((o) => o.accountId === a.id);
-                  return <Line key={a.id} k={a.name} v={ob ? <>{formatRupees(ob.amountPaise)}{ob.approvalId && pending.has(ob.approvalId) && ob.pendingPaise !== null && <span className="block text-[12px] text-warn font-semibold">→ {formatRupees(ob.pendingPaise)} waiting</span>}</> : <span className="text-ink3 font-normal">Not set</span>} />;
+                  return <Line key={a.id} k={a.name} v={ob ? <>{formatRupees(ob.amountPaise)}{ob.approvalId && pending.has(ob.approvalId) && ob.pendingPaise !== null && <span className="block text-[12px] text-warn font-semibold">→ {formatRupees(ob.pendingPaise)} <Words k="waiting" /></span>}</> : <span className="text-ink3 font-normal"><Words k="Not set" /></span>} />;
                 })}
               </ul>
-              <p className="px-5 pb-4 text-[12.5px] text-ink3 flex gap-1.5"><ShieldCheck size={14} className="shrink-0 mt-0.5" aria-hidden="true" />Set once. A change later needs approval, and every book from the opening date follows it.</p>
+              <p className="px-5 pb-4 text-[12.5px] text-ink3 flex gap-1.5"><ShieldCheck size={14} className="shrink-0 mt-0.5" aria-hidden="true" /><Words k="Set once. A change later needs approval, and every book from the opening date follows it." /></p>
             </Card>
             <Card>
               <CardHeader title="Financial year" icon={CalendarRange} />
               <ul className="px-5 pb-4">
-                {data.years.map((y) => <Line key={y.id} k={y.name.replace("-", "–")} v={y.status === "CLOSED" ? <Pill tone="neutral">Closed{y.closedAt ? ` ${formatDate(y.closedAt, p.tz)}` : ""}</Pill> : <Pill tone="ok">Open · {formatDate(y.startDate)} to {formatDate(y.endDate)}</Pill>} />)}
+                {data.years.map((y) => <Line key={y.id} k={y.name.replace("-", "–")} v={y.status === "CLOSED" ? <Pill tone="neutral"><Words k="Closed" />{y.closedAt ? ` ${formatDate(y.closedAt, p.tz)}` : ""}</Pill> : <Pill tone="ok"><Words k="Open ·" /> {formatDate(y.startDate)} <Words k="to" /> {formatDate(y.endDate)}</Pill>} />)}
               </ul>
-              <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3">The opening balance of a new year is the closing balance of the last one, carried over by itself.</p>
+              <p className="px-5 pb-4 -mt-1 text-[12.5px] text-ink3"><Words k="The opening balance of a new year is the closing balance of the last one, carried over by itself." /></p>
             </Card>
           </Col>
         </Split>
@@ -204,14 +205,14 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
       )}
       {t && !cancelling && (
         <UrlSheet title={`Money moved · ${formatRupees(t.amountPaise)}`} sub={`${name(t.fromAccountId)} to ${name(t.toAccountId)} · ${formatDate(t.date)}`} closeHref={here()}
-          footer={!t.cancelledAt && p.can.archive ? <ButtonLink href={here({ t: t.id, cancel: "1" })} scroll={false} variant="danger-soft">Cancel move</ButtonLink> : undefined}>
+          footer={!t.cancelledAt && p.can.archive ? <ButtonLink href={here({ t: t.id, cancel: "1" })} scroll={false} variant="danger-soft"><Words k="Cancel move" /></ButtonLink> : undefined}>
           <div className="grid grid-cols-2 gap-x-5 gap-y-3.5">
             <Mini k="From" v={name(t.fromAccountId)} /><Mini k="To" v={name(t.toAccountId)} />
             <Mini k="Amount" v={<b className="font-semibold">{formatRupees(t.amountPaise)}</b>} /><Mini k="Reference" v={<Ref v={t.reference} />} />
             <Mini k="Date" v={formatDate(t.date)} /><Mini k="Recorded" v={formatDateTime(t.createdAt, p.tz)} />
           </div>
           {t.cancelledAt && <Banner tone="bad" className="mt-4" title={`Cancelled on ${formatDate(t.cancelledAt, p.tz)}.`}>{t.cancelReason}</Banner>}
-          <p className="mt-4 text-[12.5px] text-ink3">Not income or expense: the money only changed place. Both books show it.</p>
+          <p className="mt-4 text-[12.5px] text-ink3"><Words k="Not income or expense: the money only changed place. Both books show it." /></p>
         </UrlSheet>
       )}
       {t && cancelling && !t.cancelledAt && (

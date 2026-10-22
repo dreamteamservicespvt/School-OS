@@ -21,6 +21,7 @@ import { BASE, financeFeaturePage, financePeriod, one, qs, type SearchParams } f
 import { reverseJournalAction } from "./actions";
 import { JournalSheet } from "./sheets";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Accounts" };
 
@@ -82,7 +83,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
     <div>
       <FinanceHead pageName="Accounts" href={HREF} sub="Journal entries, ledger, money to pay and money to receive · for full accounts"
         viewActions={p.can.export && (tab === "journals" || tab === "ledger") ? <ExportButton href={qs(`${HREF}/export`, keep)} /> : null}
-        actions={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={Plus}>Journal entry</ButtonLink> : null} />
+        actions={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={Plus}><Words k="Journal entry" /></ButtonLink> : null} />
       <Stack>
         <Card className="overflow-hidden">
           <LinkTabs className="px-3" label="Accounts" tabs={[
@@ -102,7 +103,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
             <DataList rows={journals} rowKey={(j) => j.id} rowHref={(j) => here({ open: j.id })} minWidth={860} caption="Journal entries"
               footer={`Showing ${journals.length} of ${data.journals?.length ?? 0}`}
               empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="journal entries" /> : (data.journals?.length ?? 0) === 0
-                ? <Empty icon={NotebookText} title="No journal entries in these dates" body="Use a journal entry to move an amount between heads, for example depreciation or a head corrected." action={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}>Journal entry</ButtonLink> : undefined} />
+                ? <Empty icon={NotebookText} title="No journal entries in these dates" body="Use a journal entry to move an amount between heads, for example depreciation or a head corrected." action={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="Journal entry" /></ButtonLink> : undefined} />
                 : <Empty icon={SearchX} title="No entries match" body="Try another number, narration or account." />}
               columns={[
                 { key: "d", label: "Date", nowrap: true, render: (j) => <><p className="tnum">{formatDate(j.date)}</p><p className="font-mono text-[12px] text-ink3">{j.number}</p></> },
@@ -110,7 +111,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
                 { key: "cr", label: "Credited", render: (j) => <span className="text-[13px] text-ink2">{j.lines.filter((l) => l.creditPaise > ZERO).map((l) => l.head).join(", ")}</span> },
                 { key: "amt", label: "Amount", align: "right", render: (j) => <b className={cx("font-semibold", j.reversedById && "line-through text-ink3")}>{formatRupees(j.amount)}</b> },
                 { key: "narr", label: "Narration", render: (j) => <span className="text-[13px] text-ink2">{j.narration}</span> },
-                { key: "by", label: "Made by", render: (j) => <><span className="text-[13px]">{j.createdBy}</span>{j.reversedById && <Pill tone="bad" className="!h-5 !text-[11px] ml-1">Reversed</Pill>}</> },
+                { key: "by", label: "Made by", render: (j) => <><span className="text-[13px]">{j.createdBy}</span>{j.reversedById && <Pill tone="bad" className="!h-5 !text-[11px] ml-1"><Words k="Reversed" /></Pill>}</> },
               ]}
               phone={(j) => ({ title: j.narration, sub: `${j.number} · ${formatDate(j.date)}`, icon: NotebookText, right: <p className={cx("font-semibold tnum", j.reversedById && "line-through text-ink3")}>{formatRupees(j.amount)}</p> })} />
           </>}
@@ -135,7 +136,7 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
                     { key: "bal", label: "Balance", align: "right", render: (r) => <b className="font-semibold">{drcr(r.balance, g.debitNature)}</b> },
                   ]}
                   phone={(r) => ({ title: r.narration, sub: `${formatDate(r.date)} · ${r.ref}`, icon: r.debit > ZERO ? ArrowDownToLine : ArrowUpFromLine, right: <><p className="font-semibold tnum">{formatRupees(r.debit > ZERO ? r.debit : r.credit)}</p><p className="text-[12px] text-ink3 tnum">{drcr(r.balance, g.debitNature)}</p></> })} />
-                <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3">Opening balance on {formatDate(from)}: {drcr(g.opening, g.debitNature)}. Every account together is in Finance Reports, Trial balance.</p>
+                <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3"><Words k="Opening balance on" /> {formatDate(from)}: {drcr(g.opening, g.debitNature)}<Words k=". Every account together is in Finance Reports, Trial balance." /></p>
               </>
             ) : <Empty icon={BookOpen} title="Choose an account" />}
           </>}
@@ -146,10 +147,10 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
               empty={<Empty icon={ArrowUpFromLine} title="Nothing to pay" body="Approved expenses and vendor bills not yet paid show here." />}
               columns={[
                 { key: "to", label: "To", render: (r) => <><p className="font-semibold leading-tight">{r.vendor}</p><p className="text-[12.5px] text-ink3">{r.billNo ? `Bill ${r.billNo} · ` : ""}{r.number}{r.status === "WAITING" ? " · waiting for approval" : ""}</p></> },
-                { key: "due", label: "Due", nowrap: true, render: (r) => <span className={cx("text-[13.5px]", r.overdue && "text-bad font-semibold")}>{r.dueDate ? formatDate(r.dueDate) : "On payment"}{r.overdue && <span className="block text-[12px] font-normal">Overdue</span>}</span> },
+                { key: "due", label: "Due", nowrap: true, render: (r) => <span className={cx("text-[13.5px]", r.overdue && "text-bad font-semibold")}>{r.dueDate ? formatDate(r.dueDate) : "On payment"}{r.overdue && <span className="block text-[12px] font-normal"><Words k="Overdue" /></span>}</span> },
                 { key: "paid", label: "Paid", align: "right", render: (r) => (r.paid > ZERO ? formatRupees(r.paid) : <span className="text-ink3">—</span>) },
                 { key: "amt", label: "To pay", align: "right", render: (r) => <b className="font-semibold">{formatRupees(r.balance)}</b> },
-                { key: "a", label: "", render: () => <span className={cx(buttonClass("ghost", "sm"), "pointer-events-none")}><ArrowRight size={15} aria-hidden="true" />Pay</span> },
+                { key: "a", label: "", render: () => <span className={cx(buttonClass("ghost", "sm"), "pointer-events-none")}><ArrowRight size={15} aria-hidden="true" /><Words k="Pay" /></span> },
               ]}
               phone={(r) => ({ title: r.vendor, sub: `${r.number} · due ${r.dueDate ? formatDate(r.dueDate) : "on payment"}`, icon: ArrowUpFromLine, iconTone: r.overdue ? "bad" : "neutral", right: <p className="font-semibold tnum">{formatRupees(r.balance)}</p> })} />
             {data.gov && <>
@@ -159,11 +160,11 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
               <DataList rows={data.gov} rowKey={(r) => `${r.runId}:${r.kind}`} rowHref={(r) => `/salary-management/generate?run=${r.runId}`} minWidth={760} caption="Taken from salary, to pay to the government"
                 empty={<Empty icon={Landmark} title="Nothing to pay to the government" body="PF, ESI, Professional Tax and TDS of each month marked paid show here until they are recorded paid." />}
                 columns={[
-                  { key: "to", label: "To", render: (r) => <><p className="font-semibold leading-tight">{r.label} · {r.payee}</p><p className="text-[12.5px] text-ink3">{monthName(r.month)} salary{campusOf(r.campusId)}</p></> },
-                  { key: "due", label: "Due", nowrap: true, render: (r) => <span className={cx("text-[13.5px]", r.overdue && "text-bad font-semibold")}>{r.dueDate ? formatDate(r.dueDate) : "As the state sets"}{r.overdue && <span className="block text-[12px] font-normal">Overdue</span>}</span> },
+                  { key: "to", label: "To", render: (r) => <><p className="font-semibold leading-tight">{r.label} · {r.payee}</p><p className="text-[12.5px] text-ink3">{monthName(r.month)} <Words k="salary" />{campusOf(r.campusId)}</p></> },
+                  { key: "due", label: "Due", nowrap: true, render: (r) => <span className={cx("text-[13.5px]", r.overdue && "text-bad font-semibold")}>{r.dueDate ? formatDate(r.dueDate) : "As the state sets"}{r.overdue && <span className="block text-[12px] font-normal"><Words k="Overdue" /></span>}</span> },
                   { key: "paid", label: "Paid", align: "right", render: (r) => (r.paid > ZERO ? formatRupees(r.paid) : <span className="text-ink3">—</span>) },
                   { key: "amt", label: "To pay", align: "right", render: (r) => <b className="font-semibold">{formatRupees(r.balance)}</b> },
-                  { key: "a", label: "", render: () => <span className={cx(buttonClass("ghost", "sm"), "pointer-events-none")}><ArrowRight size={15} aria-hidden="true" />Pay</span> },
+                  { key: "a", label: "", render: () => <span className={cx(buttonClass("ghost", "sm"), "pointer-events-none")}><ArrowRight size={15} aria-hidden="true" /><Words k="Pay" /></span> },
                 ]}
                 phone={(r) => ({ title: `${r.label} · ${monthName(r.month)}`, sub: `${r.payee}${r.dueDate ? ` · due ${formatDate(r.dueDate)}` : ""}`, icon: Landmark, iconTone: r.overdue ? "bad" : "neutral", right: <p className="font-semibold tnum">{formatRupees(r.balance)}</p> })} />
             </>}
@@ -186,14 +187,14 @@ export default async function AccountsPage({ searchParams }: { searchParams: Sea
       {adding && <JournalSheet closeHref={here()} today={p.today.toISOString().slice(0, 10)} heads={data.heads.map((h) => ({ value: h.id, label: `${h.name} · ${h.code}` }))} />}
       {openId && o && (
         <UrlSheet wide title={`${o.number} · ${formatRupees(o.amount)}`} sub={`${formatDate(o.date)} · ${o.createdBy} · ${formatDateTime(o.createdAt, p.tz)}`} closeHref={here()}
-          footer={p.can.archive && !o.reversedById && !o.reversesId ? <ButtonLink href={here({ reverse: o.id })} scroll={false} variant="danger-soft" icon={Undo2}>Reverse entry</ButtonLink> : undefined}>
+          footer={p.can.archive && !o.reversedById && !o.reversesId ? <ButtonLink href={here({ reverse: o.id })} scroll={false} variant="danger-soft" icon={Undo2}><Words k="Reverse entry" /></ButtonLink> : undefined}>
           <p className="text-[14px] text-ink2 mb-3">{o.narration}</p>
           <SimpleTable minWidth={420} rowKey={(l) => l.id} caption="Lines" rows={o.lines}
             cols={[{ label: "Account", render: (l) => l.head }, { label: "Debit", right: true, render: (l) => (l.debitPaise > ZERO ? formatRupees(l.debitPaise) : "") }, { label: "Credit", right: true, render: (l) => (l.creditPaise > ZERO ? formatRupees(l.creditPaise) : "") }]}
             foot={["Total", formatRupees(o.lines.reduce((s, l) => s + l.debitPaise, ZERO)), formatRupees(o.lines.reduce((s, l) => s + l.creditPaise, ZERO))]} />
-          {o.reversedById && <Banner tone="bad" className="mt-4" title={`Reversed by ${numberOf(o.reversedById)}.`}>Both entries stay in the books.</Banner>}
-          {o.reversesId && <Banner tone="info" className="mt-4" title={`This reverses ${numberOf(o.reversesId)}.`}>The original is not changed.</Banner>}
-          <p className="mt-4 text-[12.5px] text-ink3 flex gap-1.5"><Workflow size={14} className="shrink-0 mt-0.5" aria-hidden="true" />Fees, income, expenses and salary post to the ledger by themselves. Put their mistakes right at the source.</p>
+          {o.reversedById && <Banner tone="bad" className="mt-4" title={`Reversed by ${numberOf(o.reversedById)}.`}><Words k="Both entries stay in the books." /></Banner>}
+          {o.reversesId && <Banner tone="info" className="mt-4" title={`This reverses ${numberOf(o.reversesId)}.`}><Words k="The original is not changed." /></Banner>}
+          <p className="mt-4 text-[12.5px] text-ink3 flex gap-1.5"><Workflow size={14} className="shrink-0 mt-0.5" aria-hidden="true" /><Words k="Fees, income, expenses and salary post to the ledger by themselves. Put their mistakes right at the source." /></p>
         </UrlSheet>
       )}
       {openId && !o && <UrlSheet title="Not found" closeHref={here()}><Empty icon={SearchX} title="This journal entry was not found" /></UrlSheet>}

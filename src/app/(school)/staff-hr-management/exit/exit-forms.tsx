@@ -2,6 +2,7 @@
 
 import { SelectField, TextArea, TextField } from "@/components/ui/field";
 import { ActionButton, ActionForm, FormDialog, type Action } from "../_components/forms";
+import { Words } from "@/lib/i18n/client";
 
 type Option = { value: string; label: string };
 
@@ -17,7 +18,7 @@ export function NewExitForm({ action, staff, fixedStaff, today }: { action: Acti
           <TextField label="Last working day" name="lastWorkingDay" type="date" required defaultValue={f.val("lastWorkingDay")} error={f.err("lastWorkingDay")} help="The login is switched off at the end of this day." />
           <TextArea label="Reason" name="reason" required rows={3} defaultValue={f.val("reason")} error={f.err("reason")} className="sm:col-span-2" />
           <div className="sm:col-span-2">
-            <label htmlFor="exit-letter" className="mb-1 block text-sm font-medium">Letter</label>
+            <label htmlFor="exit-letter" className="mb-1 block text-sm font-medium"><Words k="Letter" /></label>
             <input id="exit-letter" name="letter" type="file" accept="image/jpeg,image/png,application/pdf" className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-sm" />
             <p className={`mt-1 text-sm ${f.err("letter") ? "text-danger" : "text-ink-2"}`}>{f.err("letter") ?? "Optional. The resignation letter, PDF or photo."}</p>
           </div>
@@ -28,13 +29,13 @@ export function NewExitForm({ action, staff, fixedStaff, today }: { action: Acti
 }
 
 export function HandOverForm({ itemId, label, teaching, staff, action }: { itemId: string; label: string; teaching: boolean; staff: Option[]; action: Action }) {
-  if (!teaching) return <ActionButton action={action} hidden={{ itemId }}>Mark handed over<span className="sr-only">: {label}</span></ActionButton>;
+  if (!teaching) return <ActionButton action={action} hidden={{ itemId }}><Words k="Mark handed over" /><span className="sr-only">: {label}</span></ActionButton>;
   return (
     <FormDialog trigger="Hand over" triggerSize="sm" title={`Hand over: ${label}`} action={action} submitLabel="Hand over" hidden={{ itemId }}>
       {(f) => (
         <>
           <SelectField label="Who takes it over" name="toStaffId" required options={staff} placeholder="Choose a teacher" defaultValue={f.val("toStaffId")} error={f.err("toStaffId")} />
-          <p className="text-sm text-ink-2">Teacher Allocation and the Time Table periods move to them from the last working day. They are told.</p>
+          <p className="text-sm text-ink-2"><Words k="Teacher Allocation and the Time Table periods move to them from the last working day. They are told." /></p>
         </>
       )}
     </FormDialog>
@@ -88,7 +89,7 @@ export function CancelExitForm({ exitId, action }: { exitId: string; action: Act
     <FormDialog trigger="Cancel exit" triggerSize="sm" triggerVariant="danger-outline" title="Cancel this exit" action={action} submitLabel="Cancel exit" submitVariant="danger" hidden={{ exitId }}>
       {(f) => (
         <>
-          <p className="text-ink-2">Use this if the resignation is withdrawn. Items already handed over stay with the new teacher.</p>
+          <p className="text-ink-2"><Words k="Use this if the resignation is withdrawn. Items already handed over stay with the new teacher." /></p>
           <TextArea label="Reason" name="reason" required rows={2} defaultValue={f.val("reason")} error={f.err("reason")} />
         </>
       )}
@@ -97,5 +98,5 @@ export function CancelExitForm({ exitId, action }: { exitId: string; action: Act
 }
 
 export function CompleteExitButton({ exitId, action }: { exitId: string; action: Action }) {
-  return <ActionButton action={action} hidden={{ exitId }} variant="primary" size="md">Complete exit</ActionButton>;
+  return <ActionButton action={action} hidden={{ exitId }} variant="primary" size="md"><Words k="Complete exit" /></ActionButton>;
 }

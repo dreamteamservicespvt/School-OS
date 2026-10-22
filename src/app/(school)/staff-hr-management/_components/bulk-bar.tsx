@@ -10,6 +10,7 @@ import { ArrowRightLeft, IdCard, Send } from "lucide-react";
 import { FormDialog, type Action } from "./forms";
 import { CheckboxField, SelectField, TextArea } from "@/components/ui/field";
 import { buttonClass } from "@/components/ui/button";
+import { Words } from "@/lib/i18n/client";
 
 export const STAFF_BULK_FORM = "staff-bulk";
 const ROWS = `input[data-bulk-row][form="${STAFF_BULK_FORM}"]`;
@@ -56,8 +57,8 @@ export function BulkBar({ departments, changeDepartment, message, copyChannels =
   const n = ids.length;
   return (
     <div role="region" aria-label="Bulk actions" className="flex flex-wrap items-center gap-2 border-b border-brand/20 bg-brand/8 px-4 py-2.5 animate-fade">
-      <p className="mr-2 text-[13.5px] font-semibold text-brand" aria-live="polite">{n} selected</p>
-      <FormDialog trigger={<><Send size={15} aria-hidden="true" />Send message</>} triggerSize="sm" title={`Send a message to ${n} staff`} action={wrap(message)} submitLabel={`Send to ${n} staff`} onSaved={clear}>
+      <p className="mr-2 text-[13.5px] font-semibold text-brand" aria-live="polite">{n} <Words k="selected" /></p>
+      <FormDialog trigger={<><Send size={15} aria-hidden="true" /><Words k="Send message" /></>} triggerSize="sm" title={`Send a message to ${n} staff`} action={wrap(message)} submitLabel={`Send to ${n} staff`} onSaved={clear}>
         {(f) => (
           <>
             <SendKey />
@@ -65,7 +66,7 @@ export function BulkBar({ departments, changeDepartment, message, copyChannels =
               help="Staff with a login get it in School OS straight away. Messages cannot be unsent." />
             {copyChannels.length > 0 && (
               <fieldset className="flex flex-col gap-1">
-                <legend className="text-[13px] font-semibold text-ink2">Also send to their phones</legend>
+                <legend className="text-[13px] font-semibold text-ink2"><Words k="Also send to their phones" /></legend>
                 {copyChannels.map((c) => (
                   <CheckboxField key={c.value} label={`By ${c.label}`} name="channels" value={c.value} defaultChecked={f.state?.values?.channels === c.value} />
                 ))}
@@ -75,16 +76,16 @@ export function BulkBar({ departments, changeDepartment, message, copyChannels =
           </>
         )}
       </FormDialog>
-      <a className={buttonClass("secondary", "sm")} href={`/staff-hr-management/id-cards?ids=${ids.join(",")}`} target="_blank" rel="noopener"><IdCard size={15} aria-hidden="true" />Print ID cards</a>
-      <FormDialog trigger={<><ArrowRightLeft size={15} aria-hidden="true" />Change department</>} triggerSize="sm" title={`Change department for ${n} staff`} action={wrap(changeDepartment)} submitLabel="Change department" onSaved={clear}>
+      <a className={buttonClass("secondary", "sm")} href={`/staff-hr-management/id-cards?ids=${ids.join(",")}`} target="_blank" rel="noopener"><IdCard size={15} aria-hidden="true" /><Words k="Print ID cards" /></a>
+      <FormDialog trigger={<><ArrowRightLeft size={15} aria-hidden="true" /><Words k="Change department" /></>} triggerSize="sm" title={`Change department for ${n} staff`} action={wrap(changeDepartment)} submitLabel="Change department" onSaved={clear}>
         {(f) => (
           <>
-            <p className="text-ink2">Leave approvals follow the new department head from today. Written to each record&apos;s history.</p>
+            <p className="text-ink2"><Words k="Leave approvals follow the new department head from today. Written to each record's history." /></p>
             <SelectField label="New department" name="departmentId" options={[{ value: "none", label: "No department" }, ...departments]} placeholder="Choose" required error={f.err("departmentId")} />
           </>
         )}
       </FormDialog>
-      <button type="button" className={buttonClass("ghost", "sm")} onClick={clear}>Clear</button>
+      <button type="button" className={buttonClass("ghost", "sm")} onClick={clear}><Words k="Clear" /></button>
     </div>
   );
 }

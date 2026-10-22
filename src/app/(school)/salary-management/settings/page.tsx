@@ -16,6 +16,7 @@ import { ConfirmSheet } from "../_components/forms";
 import { BASE, one, qs, salaryGuard, type SearchParams } from "../_lib/page";
 import { archiveComponentAction } from "./actions";
 import { ComponentSheet, DuesTrackingSheet, PreferencesSheet, RatesSheet, SlabsSheet, SlipSwitch, StatutorySwitch } from "./sheets";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Salary Settings" };
 
@@ -73,12 +74,12 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
       <div className="grid xl:grid-cols-2 gap-5 lg:gap-6 items-start">
         <Col className="[&>*]:min-w-0">
           <Card>
-            <CardHeader title="Salary components" description="Earnings and deductions used in structures" icon={Layers} action={p.change ? <ButtonLink href={here({ do: "component" })} scroll={false} size="sm" variant="soft" icon={Plus}>Add</ButtonLink> : null} />
+            <CardHeader title="Salary components" description="Earnings and deductions used in structures" icon={Layers} action={p.change ? <ButtonLink href={here({ do: "component" })} scroll={false} size="sm" variant="soft" icon={Plus}><Words k="Add" /></ButtonLink> : null} />
             <ul className="divide-y divide-line/70 border-t border-line/70">
               {data.comps.map((c) => (
                 <li key={c.id} className="flex items-center gap-3 px-5 py-2.5">
                   <div className="min-w-0 flex-1"><p className="font-semibold text-[14px]">{c.name}</p><p className="text-[12.5px] text-ink3">{how(c)}</p></div>
-                  {c.taxable && c.kind === "EARNING" && <Pill className="!h-5 !text-[11px] hidden sm:inline-flex">Taxable</Pill>}
+                  {c.taxable && c.kind === "EARNING" && <Pill className="!h-5 !text-[11px] hidden sm:inline-flex"><Words k="Taxable" /></Pill>}
                   <Pill tone={c.kind === "EARNING" ? "ok" : "warn"}>{c.kind === "EARNING" ? "Earning" : "Deduction"}</Pill>
                   {p.change && !c.systemKey && <Link href={here({ do: "archive", id: c.id })} scroll={false} aria-label={`Archive ${c.name}`} className="grid size-8 place-items-center rounded-lg text-ink3 hover:bg-sunken"><Archive size={16} aria-hidden="true" /></Link>}
                 </li>
@@ -116,7 +117,7 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
                 ["Late marks", "From Staff Attendance", prefs.lateMarksPerHalfDay ? `${prefs.lateMarksPerHalfDay} late = ½ day` : "Off"],
                 ["Overtime", "Paid extra periods or hours", prefs.overtimeOn ? `${formatRupees(prefs.overtimeHourPaise)} an hour` : "Off"],
                 ["TDS reminder above", "Flags staff with no TDS whose yearly pay is above this", formatRupees(prefs.tdsReminderAbovePaise)],
-              ] as const).map(([t, sub, v]) => <SettingRow key={t} title={t} sub={sub}><span className="flex items-center gap-2"><span className="text-[14px] font-semibold text-ink2">{v}</span>{p.change && <ButtonLink href={here({ do: "prefs" })} scroll={false} size="sm" variant="ghost">Change</ButtonLink>}</span></SettingRow>)}
+              ] as const).map(([t, sub, v]) => <SettingRow key={t} title={t} sub={sub}><span className="flex items-center gap-2"><span className="text-[14px] font-semibold text-ink2">{v}</span>{p.change && <ButtonLink href={here({ do: "prefs" })} scroll={false} size="sm" variant="ghost"><Words k="Change" /></ButtonLink>}</span></SettingRow>)}
             </div>
           </Card>
         </Col>
@@ -129,7 +130,7 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
               <div className="px-5 py-3.5 grid grid-cols-2 sm:grid-cols-4 gap-3 text-[13px]">
                 {([["PF employee", pct(s.pfEmployeeBp)], ["PF employer", pct(s.pfEmployerBp)], ["PF wage ceiling", formatRupees(s.pfCeilingPaise)], ["PF wages", "Basic pay"], ["ESI employee", pct(s.esiEmployeeBp)], ["ESI employer", pct(s.esiEmployerBp)], ["ESI wage limit", formatRupees(s.esiLimitPaise)], ["From", `${monthShort(fromShown)} ${fromShown.getUTCFullYear()}`]] as const).map(([k, v]) => <div key={k}><p className="text-[11.5px] text-ink3 font-semibold">{k}</p><p className="font-semibold tnum">{v}</p></div>)}
               </div>
-              {p.change && <div className="px-5 py-3"><ButtonLink href={here({ do: "rates" })} scroll={false} size="sm" variant="secondary" icon={Pencil}>Change rates</ButtonLink></div>}
+              {p.change && <div className="px-5 py-3"><ButtonLink href={here({ do: "rates" })} scroll={false} size="sm" variant="secondary" icon={Pencil}><Words k="Change rates" /></ButtonLink></div>}
             </div>
           </Card>
           <Card>
@@ -137,14 +138,14 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
             {s.ptOn ? (
               <>
                 <table className="w-full text-[14px]">
-                  <thead><tr className="text-[12px] text-ink3 text-left border-y border-line"><th className="px-5 py-2.5 font-semibold">Salary in the month</th><th className="px-5 py-2.5 font-semibold text-right">Tax a month</th></tr></thead>
+                  <thead><tr className="text-[12px] text-ink3 text-left border-y border-line"><th className="px-5 py-2.5 font-semibold"><Words k="Salary in the month" /></th><th className="px-5 py-2.5 font-semibold text-right"><Words k="Tax a month" /></th></tr></thead>
                   <tbody className="tnum">
                     {data.slabs.map((r, i) => <tr key={r.id} className="border-b border-line/70 last:border-0"><td className="px-5 py-2.5">{slabWord(r.fromPaise, r.toPaise, i)}</td><td className="px-5 py-2.5 text-right font-semibold">{r.taxPaise === BigInt(0) ? "Nil" : formatRupees(r.taxPaise)}</td></tr>)}
                   </tbody>
                 </table>
-                {p.change && <div className="px-5 py-3 border-t border-line/70"><ButtonLink href={here({ do: "slabs" })} scroll={false} size="sm" variant="ghost" icon={Pencil}>Change the table</ButtonLink></div>}
+                {p.change && <div className="px-5 py-3 border-t border-line/70"><ButtonLink href={here({ do: "slabs" })} scroll={false} size="sm" variant="ghost" icon={Pencil}><Words k="Change the table" /></ButtonLink></div>}
               </>
-            ) : <p className="px-5 pb-5 text-[14px] text-ink3">Off. No Professional Tax is taken from salaries.</p>}
+            ) : <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="Off. No Professional Tax is taken from salaries." /></p>}
           </Card>
           <Card>
             <CardHeader title="TDS and statements" icon={FileDown} />
@@ -152,15 +153,15 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
           </Card>
           <Card>
             <CardHeader title="Paid to the government" description="PF, ESI, Professional Tax and TDS taken from salary stay to pay until recorded paid" icon={Landmark}
-              action={p.change ? <ButtonLink href={here({ do: "dues" })} scroll={false} size="sm" variant="ghost">Change</ButtonLink> : null} />
+              action={p.change ? <ButtonLink href={here({ do: "dues" })} scroll={false} size="sm" variant="ghost"><Words k="Change" /></ButtonLink> : null} />
             <DL rows={[["Track what is to pay", duesWord], ["Where", "Each paid month in Generate Salary, and Pending expenses in Finance Reports"]]} className="!grid-cols-1" />
           </Card>
           <Card>
             <CardHeader title="Approval steps" description="Stored in Settings, Forms & Approvals" icon={Workflow} />
             <div className="px-5 pb-5 flex flex-col gap-3">
-              <div className="flex items-center gap-2 flex-wrap"><Pill tone="brand">Accountant prepares</Pill><ChevronRight size={16} className="text-ink3" aria-hidden="true" /><Pill tone="brand">Principal approves</Pill><ChevronRight size={16} className="text-ink3" aria-hidden="true" /><Pill tone="brand">Accountant marks paid</Pill></div>
-              <p className="text-[13px] text-ink3">Advances and loans: Principal approves. Nobody approves a run they sent; it goes to the School Admin instead.</p>
-              {settingsEdit && <Link href="/settings/forms-approvals" className={cx(buttonClass("secondary", "sm"), "self-start")}><ArrowUpRight size={15} aria-hidden="true" />Change in Forms &amp; Approvals</Link>}
+              <div className="flex items-center gap-2 flex-wrap"><Pill tone="brand"><Words k="Accountant prepares" /></Pill><ChevronRight size={16} className="text-ink3" aria-hidden="true" /><Pill tone="brand"><Words k="Principal approves" /></Pill><ChevronRight size={16} className="text-ink3" aria-hidden="true" /><Pill tone="brand"><Words k="Accountant marks paid" /></Pill></div>
+              <p className="text-[13px] text-ink3"><Words k="Advances and loans: Principal approves. Nobody approves a run they sent; it goes to the School Admin instead." /></p>
+              {settingsEdit && <Link href="/settings/forms-approvals" className={cx(buttonClass("secondary", "sm"), "self-start")}><ArrowUpRight size={15} aria-hidden="true" /><Words k={"Change in Forms & Approvals"} /></Link>}
             </div>
           </Card>
           <Card>
@@ -174,7 +175,7 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
             </div>
             {settingsEdit && (
               <div className="px-5 py-4 border-t border-line/70">
-                <Link href="/settings/document-designs/salary-slip" className={cx(buttonClass("secondary", "sm"), "self-start")}><ArrowUpRight size={15} aria-hidden="true" />Change the slip design</Link>
+                <Link href="/settings/document-designs/salary-slip" className={cx(buttonClass("secondary", "sm"), "self-start")}><ArrowUpRight size={15} aria-hidden="true" /><Words k="Change the slip design" /></Link>
               </div>
             )}
           </Card>
@@ -184,7 +185,7 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
       {doing === "component" && <ComponentSheet closeHref={here()} />}
       {archiving && (
         <ConfirmSheet closeHref={here()} title={`Archive ${archiving.name}?`} label="Archive component" action={archiveComponentAction} hidden={{ componentId: archiving.id }} danger>
-          <p className="text-[14px] text-ink2">New structures cannot use it. Structures and salaries that already have it keep it, and it stays in the audit log.</p>
+          <p className="text-[14px] text-ink2"><Words k="New structures cannot use it. Structures and salaries that already have it keep it, and it stays in the audit log." /></p>
         </ConfirmSheet>
       )}
       {doing === "rates" && <RatesSheet closeHref={here()} months={months} now={{ pfEmployeeBp: s.pfEmployeeBp, pfEmployerBp: s.pfEmployerBp, pfCeiling: rupees(s.pfCeilingPaise), esiEmployeeBp: s.esiEmployeeBp, esiEmployerBp: s.esiEmployerBp, esiLimit: rupees(s.esiLimitPaise) }} />}

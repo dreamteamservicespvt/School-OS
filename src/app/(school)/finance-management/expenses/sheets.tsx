@@ -10,6 +10,7 @@ import type { Option } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { WarnCheck } from "../_components/forms";
 import { attachBillAction, changeExpenseAction, payExpenseAction, recordBillAction, recordExpenseAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 const MODES = [{ value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "BANK_TRANSFER", label: "Bank transfer" }, { value: "CHEQUE", label: "Cheque" }];
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
@@ -39,7 +40,7 @@ function BillPicker({ required, help }: { required?: boolean; help: string }) {
   const t = useTyped("bill");
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[13px] font-semibold text-ink2">Bill photo or file{required && <span className="text-bad" aria-hidden="true"> *</span>}</span>
+      <span className="text-[13px] font-semibold text-ink2"><Words k="Bill photo or file" />{required && <span className="text-bad" aria-hidden="true"> *</span>}</span>
       {name ? (
         <div className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5">
           <span className="w-10 h-10 rounded-lg bg-ok/10 text-ok grid place-items-center"><FileImage size={19} aria-hidden="true" /></span>
@@ -48,11 +49,11 @@ function BillPicker({ required, help }: { required?: boolean; help: string }) {
       ) : null}
       <div className={cx("grid grid-cols-2 gap-2", name && "hidden")}>
         <label className="inline-flex items-center justify-center gap-2 h-11 rounded-xl border border-line bg-surface text-[14px] font-semibold text-ink2 cursor-pointer hover:bg-sunken focus-within:ring-2 focus-within:ring-brand/40">
-          <Camera size={16} aria-hidden="true" />Take photo
+          <Camera size={16} aria-hidden="true" /><Words k="Take photo" />
           <input type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => { const f = e.target.files?.[0]; if (f) { const main = document.getElementById("exp-bill") as HTMLInputElement | null; if (main) { main.files = e.target.files; } setName(f.name); } }} />
         </label>
         <label className="inline-flex items-center justify-center gap-2 h-11 rounded-xl border border-line bg-surface text-[14px] font-semibold text-ink2 cursor-pointer hover:bg-sunken focus-within:ring-2 focus-within:ring-brand/40">
-          <Upload size={16} aria-hidden="true" />Choose file
+          <Upload size={16} aria-hidden="true" /><Words k="Choose file" />
           <input id="exp-bill" type="file" name="bill" accept="image/*,application/pdf" className="sr-only" onChange={(e) => setName(e.target.files?.[0]?.name ?? null)} />
         </label>
       </div>
@@ -65,14 +66,14 @@ function ModeFields({ prefix, mode, setMode, cash, banks, mainBank, cashInHand, 
   return (
     <>
       <div className="flex flex-col gap-1.5">
-        <span className="text-[13px] font-semibold text-ink2">Mode<span className="text-bad" aria-hidden="true"> *</span></span>
+        <span className="text-[13px] font-semibold text-ink2"><Words k="Mode" /><span className="text-bad" aria-hidden="true"> *</span></span>
         <Segmented label="Mode" value={mode} onChange={setMode} className="w-full" options={MODES} />
       </div>
       {mode !== "CASH" && <SText name="reference" label="Reference" required placeholder={mode === "CHEQUE" ? "Cheque 118204" : "UTR SBIN2262…"} maxLength={60} id={`${prefix}-ref`} />}
       {mode === "CASH"
         ? (amount > cashInHand
-          ? <Alert tone="danger" title={`Cash in hand is ${inr(cashInHand)}. This payment is ${inr(amount)}.`}>Pay from the bank, or record the cash received first.</Alert>
-          : <p className="text-[13px] text-ink3 -mt-1">From the office cash box · {inr(cashInHand)} in hand now</p>)
+          ? <Alert tone="danger" title={`Cash in hand is ${inr(cashInHand)}. This payment is ${inr(amount)}.`}><Words k="Pay from the bank, or record the cash received first." /></Alert>
+          : <p className="text-[13px] text-ink3 -mt-1"><Words k="From the office cash box ·" /> {inr(cashInHand)} <Words k="in hand now" /></p>)
         : <SSelect key={mode} name="accountId" label="Paid from" required options={banks} start={mainBank} />}
       {mode === "CASH" && cash[0] && <input type="hidden" name="accountId" value={cash[0].value} />}
     </>
@@ -108,12 +109,12 @@ export function RecordExpenseSheet(p: ExpenseFormData) {
       <SText name="vendorName" label="Vendor" placeholder="Example: Sri Sai Stationers" list="re-vendors" maxLength={120} help="Pick one, or type a new name to add it" />
       <datalist id="re-vendors">{p.vendors.map((v) => <option key={v} value={v} />)}</datalist>
       {who ? (
-        <Alert tone="info" title={`Above ${inr(p.atOnce)}: it waits for ${who}.`}>It cannot be marked paid until approved. You will be told when it is decided.</Alert>
+        <Alert tone="info" title={`Above ${inr(p.atOnce)}: it waits for ${who}.`}><Words k="It cannot be marked paid until approved. You will be told when it is decided." /></Alert>
       ) : (
         <>
           <div className="flex items-center gap-3 rounded-xl bg-sunken/70 px-3.5 py-3">
             <Switch id="re-paid" on={paid} label="Paid now" onChange={setPaid} />
-            <label htmlFor="re-paid" className="text-[14px]"><b className="font-semibold">Paid now</b><span className="block text-[12.5px] text-ink3">{paid ? "Goes into the Day Book on this date" : "Saved as approved; mark it paid later"}</span></label>
+            <label htmlFor="re-paid" className="text-[14px]"><b className="font-semibold"><Words k="Paid now" /></b><span className="block text-[12.5px] text-ink3">{paid ? "Goes into the Day Book on this date" : "Saved as approved; mark it paid later"}</span></label>
           </div>
           {paid && <ModeFields prefix="re" mode={mode} setMode={setMode} cash={p.cash} banks={p.banks} mainBank={p.mainBank} cashInHand={p.cashInHand} amount={amt} />}
         </>
@@ -193,7 +194,7 @@ export function AttachBillSheet({ closeHref, expenseId, sub }: { closeHref: stri
   return (
     <SheetForm title="Add bill" sub={sub} closeHref={closeHref} action={attachBillAction} submitLabel="Attach bill" pendingText="Uploading…" hidden={{ expenseId }}>
       <BillPicker required help="A photo (JPG or PNG) or a PDF, up to 10 MB" />
-      <p className="text-[12.5px] text-ink3 flex gap-1.5"><Paperclip size={14} className="mt-0.5 shrink-0" aria-hidden="true" />Kept with the expense. Anyone who can see the expense can open it.</p>
+      <p className="text-[12.5px] text-ink3 flex gap-1.5"><Paperclip size={14} className="mt-0.5 shrink-0" aria-hidden="true" /><Words k="Kept with the expense. Anyone who can see the expense can open it." /></p>
     </SheetForm>
   );
 }

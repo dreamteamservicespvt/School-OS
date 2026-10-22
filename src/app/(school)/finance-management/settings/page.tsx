@@ -17,6 +17,7 @@ import { FinanceHead } from "../_components/finance-head";
 import { Line } from "../_components/bits";
 import { BASE, financeManagerPage, one, qs, type SearchParams } from "../_lib/page";
 import { AddHeadSheet, BillsSheet, CloseMonthSheet, CloseYearSheet, CostCentreSheet, FeatureSwitch, HeadChip, TallySheet, YearSheet } from "./sheets";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Finance Settings" };
 
@@ -58,7 +59,7 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
 
   const s = p.settings;
   const here = (extra: Record<string, string | null> = {}) => qs(HREF, { g: group === "all" ? null : group, ...extra });
-  const change = (key: string) => <Link href={here({ edit: key })} scroll={false} className={cx(buttonClass("ghost", "sm"), "shrink-0")}>Change</Link>;
+  const change = (key: string) => <Link href={here({ edit: key })} scroll={false} className={cx(buttonClass("ghost", "sm"), "shrink-0")}><Words k="Change" /></Link>;
 
   // Month close: every month of this financial year that has ended.
   const months: { key: string; label: string; closed: { on: Date; by: string } | null; ended: boolean }[] = [];
@@ -105,26 +106,26 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
               <Line k="Go-live (records start)" v={formatDate(s.goLiveDate)} />
               {data.years.map((y) => {
                 return (
-                  <Line key={y.id} k={<>{`${y.name} · ${formatDate(y.startDate)} to ${formatDate(y.endDate)}`}{y.status === "CLOSED" && y.closedAt && <span className="block text-[12px] text-ink3">Closed {formatDate(y.closedAt, p.tz)}</span>}</>}
-                    v={y.status === "CLOSED" ? <Pill tone="neutral"><Lock size={12} aria-hidden="true" />Closed</Pill>
-                      : y.endDate < p.today ? <Link href={here({ closeyear: y.id })} scroll={false} className={buttonClass("secondary", "sm")}>Close year</Link>
-                      : <Pill tone="ok">Open</Pill>} />
+                  <Line key={y.id} k={<>{`${y.name} · ${formatDate(y.startDate)} to ${formatDate(y.endDate)}`}{y.status === "CLOSED" && y.closedAt && <span className="block text-[12px] text-ink3"><Words k="Closed" /> {formatDate(y.closedAt, p.tz)}</span>}</>}
+                    v={y.status === "CLOSED" ? <Pill tone="neutral"><Lock size={12} aria-hidden="true" /><Words k="Closed" /></Pill>
+                      : y.endDate < p.today ? <Link href={here({ closeyear: y.id })} scroll={false} className={buttonClass("secondary", "sm")}><Words k="Close year" /></Link>
+                      : <Pill tone="ok"><Words k="Open" /></Pill>} />
                 );
               })}
-              {data.years.at(-1) && s.goLiveDate >= data.years.at(-1)!.startDate && <Line k={`Before ${formatDate(s.goLiveDate)} · before School OS`} v={<Pill tone="neutral">Old software</Pill>} />}
+              {data.years.at(-1) && s.goLiveDate >= data.years.at(-1)!.startDate && <Line k={`Before ${formatDate(s.goLiveDate)} · before School OS`} v={<Pill tone="neutral"><Words k="Old software" /></Pill>} />}
             </ul>
           </Card>
 
           <Card>
             <CardHeader title="Month close" description="A closed month cannot change. Mistakes go in as adjustments in an open month." icon={Lock} />
             <ul className="px-5 pb-4">
-              {months.length === 0 && <li className="py-2.5 text-[13.5px] text-ink3">No month of {p.fy.name} has ended yet.</li>}
+              {months.length === 0 && <li className="py-2.5 text-[13.5px] text-ink3"><Words k="No month of" /> {p.fy.name} <Words k="has ended yet." /></li>}
               {months.map((m) => (
                 <li key={m.key} className="flex items-center justify-between gap-3 py-2.5 border-t border-line/70 first:border-0 text-[14px]">
-                  <span>{m.label}{m.closed && <span className="block text-[12px] text-ink3">Closed {formatDate(m.closed.on, p.tz)}{m.closed.by ? ` by ${m.closed.by}` : ""}</span>}</span>
-                  {m.closed ? <Pill tone="neutral"><Lock size={12} aria-hidden="true" />Closed</Pill>
-                    : m.ended ? <Link href={here({ close: m.key })} scroll={false} className={buttonClass("secondary", "sm")}>Close month</Link>
-                    : <Pill tone="info">Open</Pill>}
+                  <span>{m.label}{m.closed && <span className="block text-[12px] text-ink3"><Words k="Closed" /> {formatDate(m.closed.on, p.tz)}{m.closed.by ? ` by ${m.closed.by}` : ""}</span>}</span>
+                  {m.closed ? <Pill tone="neutral"><Lock size={12} aria-hidden="true" /><Words k="Closed" /></Pill>
+                    : m.ended ? <Link href={here({ close: m.key })} scroll={false} className={buttonClass("secondary", "sm")}><Words k="Close month" /></Link>
+                    : <Pill tone="info"><Words k="Open" /></Pill>}
                 </li>
               ))}
             </ul>
@@ -132,7 +133,7 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
 
           <Card className="overflow-hidden">
             <CardHeader title="Chart of accounts" description={`${live.length} heads with codes · used on income, expenses and reports`} icon={ListTree}
-              action={<Link href={here({ do: "head" })} scroll={false} className={buttonClass("soft", "sm")}><Plus size={15} aria-hidden="true" />Add head</Link>} />
+              action={<Link href={here({ do: "head" })} scroll={false} className={buttonClass("soft", "sm")}><Plus size={15} aria-hidden="true" /><Words k="Add head" /></Link>} />
             <div className="px-3 pb-3 overflow-x-auto no-scrollbar">
               <UrlSegmented param="g" fallback="all" label="Heads" size="sm" className="w-max" options={[{ value: "all", label: "All" }, { value: "INCOME", label: "Income" }, { value: "EXPENSE", label: "Expense" }]} />
             </div>
@@ -147,7 +148,7 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
                         <li key={h.id} className="flex items-center gap-3 py-2 text-[14px]">
                           <span className="font-mono text-[12.5px] text-ink3 w-10 shrink-0">{h.code}</span>
                           <span className="flex-1 min-w-0 truncate">{h.name}</span>
-                          {h.systemKey ? <Pill tone="info" className="!h-5 !text-[11px]">From {h.systemKey === "fees" ? "Fees" : h.systemKey === "salary" ? "Salary" : "Refunds"}</Pill>
+                          {h.systemKey ? <Pill tone="info" className="!h-5 !text-[11px]"><Words k="From" /> {h.systemKey === "fees" ? "Fees" : h.systemKey === "salary" ? "Salary" : "Refunds"}</Pill>
                             : <span className="text-[12px] text-ink3 tnum">{usedBy.get(h.id) ? formatRupees(usedBy.get(h.id)!) : "—"}</span>}
                         </li>
                       ))}
@@ -169,19 +170,19 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
 
           <Card>
             <CardHeader title="Approval limits" description="Who approves is stored in Settings, Forms & Approvals" icon={ShieldCheck}
-              action={<Link href="/settings/forms-approvals" className={cx(buttonClass("ghost", "sm"), "shrink-0")}><ExternalLink size={15} aria-hidden="true" />Change</Link>} />
+              action={<Link href="/settings/forms-approvals" className={cx(buttonClass("ghost", "sm"), "shrink-0")}><ExternalLink size={15} aria-hidden="true" /><Words k="Change" /></Link>} />
             <ul className="px-5 pb-4">
-              {ladder.map((l) => <Line key={l.k} k={l.k} v={l.who ? <Pill tone="info">{l.who}</Pill> : <Pill tone="ok">Approved at once</Pill>} />)}
-              <Line k="Change to an opening balance" v={<Pill tone="info">Principal</Pill>} />
+              {ladder.map((l) => <Line key={l.k} k={l.k} v={l.who ? <Pill tone="info">{l.who}</Pill> : <Pill tone="ok"><Words k="Approved at once" /></Pill>} />)}
+              <Line k="Change to an opening balance" v={<Pill tone="info"><Words k="Principal" /></Pill>} />
             </ul>
           </Card>
 
           <Card>
             <CardHeader title="Bills and cash" icon={ReceiptText} action={change("bills")} />
             <ul className="px-5 pb-4">
-              <Line k={<>Bill photo needed above<span className="block text-[12px] text-ink3">Expenses cannot be paid without it</span></>} v={formatRupees(s.billRequiredAbove)} />
+              <Line k={<><Words k="Bill photo needed above" /><span className="block text-[12px] text-ink3"><Words k="Expenses cannot be paid without it" /></span></>} v={formatRupees(s.billRequiredAbove)} />
               <Line k="Approved at once up to" v={formatRupees(s.expenseApproveUpTo)} />
-              <Line k="Warn before cash in hand goes below zero" v={<Pill tone="ok">On</Pill>} />
+              <Line k="Warn before cash in hand goes below zero" v={<Pill tone="ok"><Words k="On" /></Pill>} />
               <Line k="Income receipt numbers" v={<span className="font-mono text-[13px]">{s.incomeReceiptPrefix}…</span>} />
               <Line k="Journal entry numbers" v={<span className="font-mono text-[13px]">{s.journalPrefix}…</span>} />
             </ul>
@@ -193,16 +194,16 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
             {featureOn("finance-cost-centres") ? (
               <div className="px-5 pb-5 flex flex-wrap gap-2 items-center">
                 {data.centres.map((c) => <span key={c.id} className="inline-flex items-center h-8 px-3 rounded-full bg-sunken text-[13px] font-semibold">{c.name}</span>)}
-                {data.centres.length === 0 && <span className="text-[13.5px] text-ink3">No departments yet.</span>}
-                <Link href={here({ do: "centre" })} scroll={false} className={buttonClass("ghost", "sm")}><Plus size={15} aria-hidden="true" />Add</Link>
+                {data.centres.length === 0 && <span className="text-[13.5px] text-ink3"><Words k="No departments yet." /></span>}
+                <Link href={here({ do: "centre" })} scroll={false} className={buttonClass("ghost", "sm")}><Plus size={15} aria-hidden="true" /><Words k="Add" /></Link>
               </div>
-            ) : <p className="px-5 pb-4 text-[13.5px] text-ink3">Off. Expenses are not tagged to a department.</p>}
+            ) : <p className="px-5 pb-4 text-[13.5px] text-ink3"><Words k="Off. Expenses are not tagged to a department." /></p>}
           </Card>
 
           <Card>
-            <CardHeader title="Cash and bank accounts" icon={Landmark} action={<Link href={`${BASE}/cash-bank`} className={cx(buttonClass("ghost", "sm"), "shrink-0")}><ArrowRight size={15} aria-hidden="true" />Cash & Bank</Link>} />
+            <CardHeader title="Cash and bank accounts" icon={Landmark} action={<Link href={`${BASE}/cash-bank`} className={cx(buttonClass("ghost", "sm"), "shrink-0")}><ArrowRight size={15} aria-hidden="true" /><Words k={"Cash & Bank"} /></Link>} />
             <ul className="px-5 pb-4">
-              {data.accounts.map((a) => <Line key={a.id} k={<><b className="font-semibold text-ink">{a.name}</b><span className="block text-[12px] text-ink3">{a.kind === "CASH" ? "Cash kept at school" : [a.bankName, a.accountLast4 && `··${a.accountLast4}`].filter(Boolean).join(" · ")}</span></>} v={a.isMain ? <Pill tone="brand">Main</Pill> : ""} />)}
+              {data.accounts.map((a) => <Line key={a.id} k={<><b className="font-semibold text-ink">{a.name}</b><span className="block text-[12px] text-ink3">{a.kind === "CASH" ? "Cash kept at school" : [a.bankName, a.accountLast4 && `··${a.accountLast4}`].filter(Boolean).join(" · ")}</span></>} v={a.isMain ? <Pill tone="brand"><Words k="Main" /></Pill> : ""} />)}
             </ul>
           </Card>
 
@@ -222,13 +223,13 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
             {featureOn("finance-tally") ? (
               <div className="px-5 pb-5 flex flex-col gap-3">
                 <ul>{tallyHeads.filter((h) => h.tallyLedger).slice(0, 6).map((h) => <Line key={h.id} k={h.name} v={<span className="font-mono text-[12.5px]">{h.tallyLedger}</span>} />)}</ul>
-                <p className="text-[12.5px] text-ink3">{matched} of {tallyHeads.length} heads have a Tally ledger name · the others use their own name</p>
+                <p className="text-[12.5px] text-ink3">{matched} <Words k="of" /> {tallyHeads.length} <Words k="heads have a Tally ledger name · the others use their own name" /></p>
                 <div className="flex gap-2 flex-wrap">
-                  <Link href={here({ edit: "tally" })} scroll={false} className={buttonClass("secondary", "sm")}>Ledger names</Link>
-                  <Link href={`${BASE}/reports`} className={buttonClass("ghost", "sm")}><ArrowRight size={15} aria-hidden="true" />Download vouchers</Link>
+                  <Link href={here({ edit: "tally" })} scroll={false} className={buttonClass("secondary", "sm")}><Words k="Ledger names" /></Link>
+                  <Link href={`${BASE}/reports`} className={buttonClass("ghost", "sm")}><ArrowRight size={15} aria-hidden="true" /><Words k="Download vouchers" /></Link>
                 </div>
               </div>
-            ) : <p className="px-5 pb-4 text-[13.5px] text-ink3">Off. The school does not use outside accounting software.</p>}
+            ) : <p className="px-5 pb-4 text-[13.5px] text-ink3"><Words k="Off. The school does not use outside accounting software." /></p>}
           </Card>
         </Col>
       </div>

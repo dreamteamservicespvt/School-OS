@@ -3,12 +3,13 @@
 import { CheckboxField, SelectField, TextArea, TextField } from "@/components/ui/field";
 import { ActionButton, FormDialog, type Action } from "../_components/forms";
 import { Plus } from "lucide-react";
+import { Words } from "@/lib/i18n/client";
 
 type Option = { value: string; label: string };
 
 export function VacancyForm({ action, designations, departments }: { action: Action; designations: Option[]; departments: Option[] }) {
   return (
-    <FormDialog trigger={<><Plus size={17} aria-hidden="true" />Open a vacancy</>} triggerVariant="primary" title="Open a vacancy" action={action} submitLabel="Open vacancy">
+    <FormDialog trigger={<><Plus size={17} aria-hidden="true" /><Words k="Open a vacancy" /></>} triggerVariant="primary" title="Open a vacancy" action={action} submitLabel="Open vacancy">
       {(f) => (
         <>
           <SelectField label="Post" name="designation" required options={designations} placeholder="Choose" defaultValue={f.val("designation")} error={f.err("designation")} />
@@ -32,7 +33,7 @@ export function StatusSelectForm({ trigger, title, hidden, options, current, act
 
 export function ApplicationForm({ action, vacancyId, vacancy }: { action: Action; vacancyId: string; vacancy: string }) {
   return (
-    <FormDialog trigger={<><Plus size={15} aria-hidden="true" />Add application</>} triggerSize="sm" title={`Application for ${vacancy}`} action={action} submitLabel="Add application" hidden={{ vacancyId }} multipart wide>
+    <FormDialog trigger={<><Plus size={15} aria-hidden="true" /><Words k="Add application" /></>} triggerSize="sm" title={`Application for ${vacancy}`} action={action} submitLabel="Add application" hidden={{ vacancyId }} multipart wide>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Name" name="name" required defaultValue={f.val("name")} error={f.err("name")} />
@@ -41,7 +42,7 @@ export function ApplicationForm({ action, vacancyId, vacancy }: { action: Action
           <TextField label="Experience (years)" name="experienceYears" inputMode="numeric" defaultValue={f.val("experienceYears")} error={f.err("experienceYears")} />
           <TextField label="Qualifications" name="qualification" defaultValue={f.val("qualification")} error={f.err("qualification")} className="sm:col-span-2" />
           <div className="sm:col-span-2">
-            <label htmlFor="resume" className="mb-1 block text-sm font-medium">Resume</label>
+            <label htmlFor="resume" className="mb-1 block text-sm font-medium"><Words k="Resume" /></label>
             <input id="resume" name="resume" type="file" accept="image/jpeg,image/png,application/pdf" className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-sm" />
             {f.err("resume") && <p className="mt-1 text-sm text-danger">{f.err("resume")}</p>}
           </div>
@@ -61,7 +62,7 @@ export function InterviewForm({ action, applicationId, name, staff }: { action: 
           <TextField label="Length (minutes)" name="minutes" inputMode="numeric" defaultValue={f.val("minutes", "30")} error={f.err("minutes")} />
           <TextField label="Place" name="place" defaultValue={f.val("place")} error={f.err("place")} placeholder="Principal's office" className="sm:col-span-2" />
           <fieldset className="sm:col-span-2">
-            <legend className="mb-1 text-sm font-medium">Interviewers <span className="text-danger" aria-hidden="true">*</span></legend>
+            <legend className="mb-1 text-sm font-medium"><Words k="Interviewers" /> <span className="text-danger" aria-hidden="true">*</span></legend>
             {f.err("interviewerIds") && <p className="mb-1 text-sm text-danger">{f.err("interviewerIds")}</p>}
             <div className="grid max-h-56 gap-1 overflow-y-auto rounded-lg border border-line p-2 sm:grid-cols-2">
               {staff.map((s) => <CheckboxField key={s.value} label={s.label} name="interviewerIds" value={s.value} />)}
@@ -104,7 +105,7 @@ export function OfferForm({ action, applicationId, name, designation, designatio
 
 export function CycleForm({ action, years, today }: { action: Action; years: Option[]; today: string }) {
   return (
-    <FormDialog trigger={<><Plus size={17} aria-hidden="true" />Start appraisal</>} triggerVariant="primary" title="Start an appraisal cycle" action={action} submitLabel="Start" wide>
+    <FormDialog trigger={<><Plus size={17} aria-hidden="true" /><Words k="Start appraisal" /></>} triggerVariant="primary" title="Start an appraisal cycle" action={action} submitLabel="Start" wide>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Name" name="name" required defaultValue={f.val("name")} error={f.err("name")} placeholder="Appraisal 2026-27" />
@@ -139,12 +140,12 @@ export function ReviewForm({ action, appraisalId, by, name, criteria, earlier }:
 }
 
 export function CloseCycleButton({ action, cycleId }: { action: Action; cycleId: string }) {
-  return <ActionButton action={action} hidden={{ cycleId }}>Close cycle</ActionButton>;
+  return <ActionButton action={action} hidden={{ cycleId }}><Words k="Close cycle" /></ActionButton>;
 }
 
 export function TrainingForm({ action, staff, today }: { action: Action; staff: Option[]; today: string }) {
   return (
-    <FormDialog trigger={<><Plus size={17} aria-hidden="true" />Add training</>} triggerVariant="primary" title="Add training" action={action} submitLabel="Add" multipart wide>
+    <FormDialog trigger={<><Plus size={17} aria-hidden="true" /><Words k="Add training" /></>} triggerVariant="primary" title="Add training" action={action} submitLabel="Add" multipart wide>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <SelectField label="Staff member" name="staffId" required options={staff} placeholder="Choose" defaultValue={f.val("staffId")} error={f.err("staffId")} className="sm:col-span-2" />
@@ -154,7 +155,7 @@ export function TrainingForm({ action, staff, today }: { action: Action; staff: 
           <TextField label="To date" name="toDate" type="date" required defaultValue={f.val("toDate", today)} error={f.err("toDate")} />
           <TextField label="Hours" name="hours" inputMode="decimal" required defaultValue={f.val("hours")} error={f.err("hours")} />
           <div>
-            <label htmlFor="cert" className="mb-1 block text-sm font-medium">Certificate</label>
+            <label htmlFor="cert" className="mb-1 block text-sm font-medium"><Words k="Certificate" /></label>
             <input id="cert" name="certificate" type="file" accept="image/jpeg,image/png,application/pdf" className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-sm" />
           </div>
         </div>
@@ -165,7 +166,7 @@ export function TrainingForm({ action, staff, today }: { action: Action; staff: 
 
 export function PromotionForm({ action, staff, designations, departments, today }: { action: Action; staff: Option[]; designations: Option[]; departments: Option[]; today: string }) {
   return (
-    <FormDialog trigger={<><Plus size={17} aria-hidden="true" />Record promotion</>} triggerVariant="primary" title="Record promotion" action={action} submitLabel="Save">
+    <FormDialog trigger={<><Plus size={17} aria-hidden="true" /><Words k="Record promotion" /></>} triggerVariant="primary" title="Record promotion" action={action} submitLabel="Save">
       {(f) => (
         <>
           <SelectField label="Staff member" name="staffId" required options={staff} placeholder="Choose" defaultValue={f.val("staffId")} error={f.err("staffId")} />

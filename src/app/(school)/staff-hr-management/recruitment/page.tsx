@@ -24,6 +24,7 @@ import {
 import {
   applicationAction, applicationStatusAction, closeCycleAction, cycleAction, interviewAction, offerAction, offerStatusAction, outcomeAction, promotionAction, reviewAction, trainingAction, vacancyAction, vacancyStatusAction,
 } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Recruitment & Appraisal" };
 
@@ -136,12 +137,12 @@ export default async function RecruitmentPage({ searchParams }: Props) {
                           className={cx("flex items-center gap-3 rounded-xl border px-3 py-3 transition", on ? "border-brand/30 bg-brand/5" : "border-transparent hover:bg-sunken/60")}>
                           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-brand/10 text-brand"><Briefcase size={19} aria-hidden="true" /></span>
                           <span className="min-w-0 flex-1">
-                            <span className="block font-semibold">{v.designation} · {v.openings} post{v.openings === 1 ? "" : "s"}</span>
+                            <span className="block font-semibold">{v.designation} · {v.openings} <Words k="post" />{v.openings === 1 ? "" : "s"}</span>
                             <span className="block truncate text-[13px] text-ink3">{[v.details, v.closingDate ? `closes ${formatDate(v.closingDate, tz)}` : null].filter(Boolean).join(" · ") || "No closing date"}</span>
                           </span>
                           <span className="flex shrink-0 flex-col items-end gap-1">
                             <Pill tone={VACANCY_TONE[v.status]}>{label(VACANCY_STATUSES, v.status)}</Pill>
-                            <span className="text-[12.5px] text-ink3 tnum">{v.applications.length} applied</span>
+                            <span className="text-[12.5px] text-ink3 tnum">{v.applications.length} <Words k="applied" /></span>
                           </span>
                         </Link>
                       </li>
@@ -155,7 +156,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
           <Col>
             <Card className="overflow-hidden">
               <CardHeader title="Interview schedule" icon={CalendarClock} description="Interviewers are never double-booked" />
-              {upcoming.length === 0 && offersOut.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3">No interviews scheduled and no offers waiting.</p> : (
+              {upcoming.length === 0 && offersOut.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No interviews scheduled and no offers waiting." /></p> : (
                 <ol className="space-y-4 px-5 pb-5">
                   {upcoming.slice(0, 8).map((i) => (
                     <li key={i.id} className="flex gap-3">
@@ -171,12 +172,12 @@ export default async function RecruitmentPage({ searchParams }: Props) {
                     <li key={o.id} className="flex gap-3">
                       <span className="grid size-9 shrink-0 place-items-center rounded-full bg-warn/12 text-warn"><FileSignature size={17} aria-hidden="true" /></span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[14px] font-semibold leading-snug">Offer to {o.application.name} · {o.designation}{o.monthlyPaise !== null ? ` · ${formatRupees(o.monthlyPaise)} a month` : ""}</p>
-                        <p className="text-[12.5px] text-ink3">{o.offerNo} · joining {formatDate(o.joiningDate, tz)}{o.respondBy ? ` · reply by ${formatDate(o.respondBy, tz)}` : ""}</p>
+                        <p className="text-[14px] font-semibold leading-snug"><Words k="Offer to" /> {o.application.name} · {o.designation}{o.monthlyPaise !== null ? ` · ${formatRupees(o.monthlyPaise)} a month` : ""}</p>
+                        <p className="text-[12.5px] text-ink3">{o.offerNo} <Words k="· joining" /> {formatDate(o.joiningDate, tz)}{o.respondBy ? ` · reply by ${formatDate(o.respondBy, tz)}` : ""}</p>
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          <a className={buttonClass("secondary", "sm")} href={`${BASE}/recruitment/offers/${o.id}`} target="_blank" rel="noopener">Offer letter</a>
+                          <a className={buttonClass("secondary", "sm")} href={`${BASE}/recruitment/offers/${o.id}`} target="_blank" rel="noopener"><Words k="Offer letter" /></a>
                           {canHr && <StatusSelectForm trigger="Reply" title={`Offer ${o.offerNo}`} hidden={{ offerId: o.id }} options={OFFER_STATUSES.filter((s) => s.value !== "MADE")} current="ACCEPTED" action={offerStatusAction} />}
-                          {canAdd && o.application.status !== "HIRED" && <ButtonLink size="sm" variant="primary" href={`${BASE}/add?application=${o.applicationId}`}>Add as staff</ButtonLink>}
+                          {canAdd && o.application.status !== "HIRED" && <ButtonLink size="sm" variant="primary" href={`${BASE}/add?application=${o.applicationId}`}><Words k="Add as staff" /></ButtonLink>}
                         </div>
                       </div>
                     </li>
@@ -193,7 +194,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
                       <span className="min-w-0"><span className="block truncate font-semibold">{o.application.name}</span><span className="block text-[12.5px] text-ink3">{o.designation} · {o.offerNo}</span></span>
                       <span className="flex shrink-0 items-center gap-1.5">
                         <Pill tone={OFFER_TONE[o.status]}>{label(OFFER_STATUSES, o.status)}</Pill>
-                        {canAdd && o.status === "ACCEPTED" && o.application.status !== "HIRED" && <ButtonLink size="sm" variant="primary" href={`${BASE}/add?application=${o.applicationId}`}>Add as staff</ButtonLink>}
+                        {canAdd && o.status === "ACCEPTED" && o.application.status !== "HIRED" && <ButtonLink size="sm" variant="primary" href={`${BASE}/add?application=${o.applicationId}`}><Words k="Add as staff" /></ButtonLink>}
                       </span>
                     </li>
                   ))}
@@ -216,7 +217,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
               <StatusSelectForm trigger="Vacancy status" title={`${v.designation} vacancy`} hidden={{ vacancyId: v.id }} options={VACANCY_STATUSES} current={v.status} action={vacancyStatusAction} />
             </div>
           ) : undefined} />
-        {v.applications.length === 0 ? <p className="px-5 py-4 text-[14px] text-ink3">No applications yet.</p> : (
+        {v.applications.length === 0 ? <p className="px-5 py-4 text-[14px] text-ink3"><Words k="No applications yet." /></p> : (
           <ul className="divide-y divide-line">
             {v.applications.map((a) => {
               const offer = a.offers[0];
@@ -232,13 +233,13 @@ export default async function RecruitmentPage({ searchParams }: Props) {
                   </div>
                   <div className="flex flex-wrap items-center justify-end gap-1.5">
                     <Pill tone={APP_TONE[a.status]}>{label(APPLICATION_STATUSES, a.status)}</Pill>
-                    {a.resumeFileId && <a href={`${BASE}/files/${a.resumeFileId}`} target="_blank" rel="noopener" className={buttonClass("ghost", "sm")}>Resume</a>}
-                    {a.status === "HIRED" && a.hiredStaffId && <ButtonLink size="sm" href={`${BASE}/${a.hiredStaffId}`}>Profile</ButtonLink>}
+                    {a.resumeFileId && <a href={`${BASE}/files/${a.resumeFileId}`} target="_blank" rel="noopener" className={buttonClass("ghost", "sm")}><Words k="Resume" /></a>}
+                    {a.status === "HIRED" && a.hiredStaffId && <ButtonLink size="sm" href={`${BASE}/${a.hiredStaffId}`}><Words k="Profile" /></ButtonLink>}
                     {canHr && !closed && (
                       <>
                         <InterviewForm action={interviewAction} applicationId={a.id} name={a.name} staff={staffOptions} />
                         {(!offer || offer.status !== "MADE") && a.status !== "OFFERED" && <OfferForm action={offerAction} applicationId={a.id} name={a.name} designation={v.designation} designations={lists.designations} departments={lists.departments} />}
-                        {canAdd && offer && (offer.status === "MADE" || offer.status === "ACCEPTED") && <ButtonLink size="sm" variant="primary" href={`${BASE}/add?application=${a.id}`}>Add as staff</ButtonLink>}
+                        {canAdd && offer && (offer.status === "MADE" || offer.status === "ACCEPTED") && <ButtonLink size="sm" variant="primary" href={`${BASE}/add?application=${a.id}`}><Words k="Add as staff" /></ButtonLink>}
                         <StatusSelectForm trigger="Status" title={a.name} hidden={{ applicationId: a.id }} options={APPLICATION_STATUSES.filter((s) => s.value !== "HIRED")} current={a.status} action={applicationStatusAction} />
                       </>
                     )}
@@ -278,7 +279,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
       ) },
       { key: "reviewer", label: "Reviewer", render: (a) => who(a.reviewerId)?.fullName ?? "HR" },
       { key: "stage", label: "Stage", render: (a) => stage(a.status) },
-      { key: "rating", label: "Rating", align: "right", render: (a) => a.finalRating !== null ? <span className="font-semibold tnum">{Number(a.finalRating).toFixed(1)}<span className="font-normal text-ink3"> of 5</span></span> : <span className="text-ink3">–</span> },
+      { key: "rating", label: "Rating", align: "right", render: (a) => a.finalRating !== null ? <span className="font-semibold tnum">{Number(a.finalRating).toFixed(1)}<span className="font-normal text-ink3"> <Words k="of 5" /></span></span> : <span className="text-ink3">–</span> },
     ];
 
     return (
@@ -305,7 +306,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
                       {mine && (
                         <li className="flex flex-wrap items-center gap-3 px-5 py-3">
                           <div className="min-w-0 flex-1">
-                            <p className="font-semibold">My appraisal</p>
+                            <p className="font-semibold"><Words k="My appraisal" /></p>
                             <p className="text-[13px] text-ink3">{mine.status === "SELF_REVIEW" ? "Your self review is next." : mine.status === "MANAGER_REVIEW" ? `Waiting for ${who(mine.reviewerId)?.fullName ?? "HR"} to review.` : `Final rating ${Number(mine.finalRating).toFixed(1)} of 5.`}</p>
                             {mine.status === "DONE" && mine.managerComment && <p className="mt-1 text-[13.5px] text-ink2">“{mine.managerComment}”</p>}
                           </div>
@@ -316,7 +317,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
                       {toReview.map((a) => (
                         <li key={a.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                           <Avatar name={who(a.staffId)?.fullName ?? "Staff"} photoFileId={who(a.staffId)?.photoFileId ?? null} size={38} />
-                          <div className="min-w-0 flex-1"><p className="font-semibold">{who(a.staffId)?.fullName}</p><p className="text-[13px] text-ink3">{who(a.staffId)?.designation} · waiting for your review</p></div>
+                          <div className="min-w-0 flex-1"><p className="font-semibold">{who(a.staffId)?.fullName}</p><p className="text-[13px] text-ink3">{who(a.staffId)?.designation} <Words k="· waiting for your review" /></p></div>
                           {data.cycle!.status === "OPEN" && <ReviewForm action={reviewAction} appraisalId={a.id} by="manager" name={who(a.staffId)?.fullName ?? ""} criteria={data.cycle!.criteria} earlier={a.selfRatings as Record<string, number>} />}
                         </li>
                       ))}
@@ -362,7 +363,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
       { key: "course", label: "Course", render: (t) => <><p className="leading-tight">{t.course}</p>{t.provider && <p className="text-[12.5px] text-ink3">{t.provider}</p>}</> },
       { key: "dates", label: "Dates", nowrap: true, render: (t) => <span className="tnum">{formatDate(t.fromDate, tz)}</span> },
       { key: "hours", label: "Hours", align: "right", render: (t) => <span className="font-semibold tnum">{Number(t.hours)}</span> },
-      { key: "cert", label: <span className="sr-only">Certificate</span>, align: "right", render: (t) => t.certificateFileId ? <a href={`${BASE}/files/${t.certificateFileId}`} target="_blank" rel="noopener" className={cx(buttonClass("ghost", "sm"), "relative z-[1]")}>Certificate</a> : null },
+      { key: "cert", label: <span className="sr-only"><Words k="Certificate" /></span>, align: "right", render: (t) => t.certificateFileId ? <a href={`${BASE}/files/${t.certificateFileId}`} target="_blank" rel="noopener" className={cx(buttonClass("ghost", "sm"), "relative z-[1]")}><Words k="Certificate" /></a> : null },
     ];
     return (
       <>
@@ -396,7 +397,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
                   <p className="font-semibold"><Link href={`${BASE}/${p.staffId}`} className="hover:underline">{nameOf(p.staffId) || "Staff"}</Link></p>
                   <p className="text-[13px] text-ink3">{p.fromDesignation} → <span className="font-semibold text-ink">{p.toDesignation}</span> · {p.reason}</p>
                 </div>
-                <span className="shrink-0 text-[13px] text-ink3 tnum">from {formatDate(p.effectiveFrom, tz)}</span>
+                <span className="shrink-0 text-[13px] text-ink3 tnum"><Words k="from" /> {formatDate(p.effectiveFrom, tz)}</span>
               </li>
             ))}
           </ul>

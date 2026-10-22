@@ -3,8 +3,9 @@
 // admission fee for new students), payments at the counter since go-live
 // (full, partial, UPI and cash) so the Fee Dashboard, ledgers and Defaulters
 // have real data; other income and paid expenses in the Day Book, one bigger
-// expense waiting for approval; and a Vice Principal login to try the
-// Finance View (no staff pay, no Accounts).
+// expense waiting for approval; a sibling discount and a refund waiting in
+// Approvals; and a Vice Principal login to try the Finance View (no staff
+// pay, no Accounts).
 import { prisma, withSchool, type SchoolContext } from "../../src/lib/db";
 import { hashPassword } from "../../src/lib/auth/password";
 import { ensureFeeDefaults } from "../../src/lib/fees/settings";
@@ -12,6 +13,8 @@ import { ensureFinanceDefaults, mainBankAccount } from "../../src/lib/finance/se
 import { saveFeeHead, openDraft, saveFeeRow, publishStructure, assignToClass } from "../../src/lib/fees/structure";
 import { defaultSchedule } from "../../src/lib/fees/schedule";
 import { collectPayment } from "../../src/lib/fees/collect";
+import { giveConcession } from "../../src/lib/fees/concessions";
+import { requestRefund } from "../../src/lib/fees/refunds";
 import { recordIncome } from "../../src/lib/finance/income";
 import { recordExpense, saveVendor } from "../../src/lib/finance/expenses";
 import type { SeedSchool } from "./types";
@@ -125,5 +128,28 @@ export async function seedFeesFinance(school: SeedSchool) {
     await tx.financeSetting.update({ where: { schoolId: ctx.schoolId }, data: { billRequiredAbove: R(100000) } });
     await expense(dayAt(150), "Electricity", 18450, "Electricity bill for September", power.id, "BANK_TRANSFER");
     await tx.financeSetting.update({ where: { schoolId: ctx.schoolId }, data: { billRequiredAbove: R(2000) } });
+  }, { timeout: 60_000 });
+
+  // Requests in Approvals, made the way the app makes them so each points at a real record (QA SEED-03).
+  await withSchool(ctx, async (tx) => {
+    // A sibling discount above the concession limit (₹1,000): waits for the Principal.
+    const tuition = await tx.feeHead.findFirstOrThrow({ where: { name: "Tuition fee", archivedAt: null } });
+    const links = await tx.studentGuardian.findMany({ where: { isPrimary: true, archivedAt: null, student: { status: "ACTIVE" } }, select: { guardianId: true, studentId: true }, orderBy: { studentId: "asc" } });
+    const children = new Map<string, string[]>();
+    for (const l of links) children.set(l.guardianId, [...(children.get(l.guardianId) ?? []), l.studentId]);
+    for (const ids of children.values()) {
+      if (ids.length < 2) continue;
+      const open = await tx.studentFeeDue.count({ where: { studentId: ids[1], feeHeadId: tuition.id, state: "OPEN", balancePaise: { gt: R(6000) } } });
+      if (!open) continue;
+      const elder = await tx.student.findUniqueOrThrow({ where: { id: ids[0] }, select: { fullName: true } });
+      await giveConcession(tx, ctx, { studentId: ids[1], type: "SIBLING", mode: "amount", amountPaise: R(6000), percentBp: 0, feeHeadIds: [tuition.id], periodFrom: null, periodTo: null, reason: `Sibling discount: ${elder.fullName} also studies here.` });
+      break;
+    }
+    // A refund asked by the School Admin, up to ₹5,000: waits for the Accountant.
+    if (school.users.admin) {
+      const admin: SchoolContext = { schoolId: school.schoolId, userId: school.users.admin };
+      const paid = await tx.payment.findFirst({ where: { status: "POSTED", broughtIn: false, amountPaise: { gte: R(3500) } }, orderBy: [{ paymentDate: "desc" }, { id: "asc" }] });
+      if (paid) await requestRefund(tx, admin, { paymentId: paid.id, amountPaise: R(3500), reason: "Annual charges were paid twice, at the counter and by UPI.", mode: "BANK_TRANSFER" });
+    }
   }, { timeout: 60_000 });
 }

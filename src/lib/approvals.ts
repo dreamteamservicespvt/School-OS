@@ -10,6 +10,7 @@ import { writeAudit } from "./audit";
 import { notify } from "./notifications";
 import { formatRupees } from "./format";
 import { approvalOffCampus, approvalsOnCampus } from "./approval-campus";
+import { missingRecordWords } from "./approval-records";
 
 export const REQUEST_TYPES = [
   { key: "student-leave", label: "Student leave" },
@@ -343,6 +344,13 @@ export async function decide(tx: Tx, ctx: SchoolContext, approvalId: string, dec
   const followUp = await followUpFor(approval.type);
   if (!followUp) throw new DecisionProblem(`School OS cannot act on this request yet (${requestLabel(approval.type)}), so nothing was changed. Please tell DREAM TEAM support.`);
 
+  // A request whose record cannot be found cannot move anything on (QA SEED-03): it is
+  // not approved or sent back as if it had worked. Rejecting or withdrawing it only takes it off the list.
+  const missing = await missingRecordWords(tx, approval);
+  if (missing && (decision === "approve" || decision === "ask-change")) {
+    throw new DecisionProblem(`The ${missing} this request is about cannot be found in School OS, so it cannot be ${decision === "approve" ? "approved" : "sent back for a change"}, and nothing was changed. Reject it with a reason to take it off the list.`);
+  }
+
   const status: ApprovalStatus = decision === "approve" ? "APPROVED" : decision === "withdraw" ? "WITHDRAWN" : "REJECTED";
   const history = [...((approval.history as object[]) ?? []), { at: new Date().toISOString(), by: ctx.userId, action: decision, note }];
   // Only one decision can win, even if two people press at the same moment.
@@ -352,7 +360,7 @@ export async function decide(tx: Tx, ctx: SchoolContext, approvalId: string, dec
   });
   if (changed.count === 0) throw new DecisionProblem("This request was already decided.");
 
-  await followUp(tx, ctx, approval, decision, note);
+  if (!missing) await followUp(tx, ctx, approval, decision, note);
 
   // The related notifications are done for everyone who received them (§4 rule 5).
   await tx.notification.updateMany({ where: { link: `/approvals/${approval.id}`, doneAt: null }, data: { doneAt: new Date() } });

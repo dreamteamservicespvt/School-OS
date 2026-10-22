@@ -8,6 +8,7 @@ proved by a vitest test against `school_os_w4_test` where the fix is in the app.
 |---|---|---|---|---|
 | LABEL-01 | P3 | Communication (Message History), Settings (Audit Log) | Parent Link and staff invite messages labelled "Emergency broadcast" | Fixed |
 | SEED-02 | P4 | Demo data (Staff & HR, Leave) | A half-day leave on 21-10-2026, a school holiday, counted as 0.5 days | Fixed |
+| SEED-03 | P3 | Demo data, Approvals | Demo requests point at no record; approving one says the person was told | Fixed |
 
 ---
 
@@ -70,3 +71,43 @@ proved by a vitest test against `school_os_w4_test` where the fix is in the app.
     15-10-2026 to 16-10-2026, 2 days, waiting for Ravi Teja; the July, August and September leave as before.
     An existing demo database keeps the old row until it is seeded again.
 - **Status:** Fixed.
+
+## SEED-03 · P3 · Demo data, Approvals · Demo requests point at no record; approving one says the person was told
+- **Steps:** seed the demo; as the Principal open Approvals and approve "Casual leave, Ravi Teja, 2 days".
+- **Expected:** every demo request is about a real record, and the decision moves that record on (00-global.md
+  §3.4). If a request's record cannot be found, the approver is told plainly and nothing changes (P7).
+- **Actual:** "Approved. The person who asked has been told." Nothing moved: the request had record type "Staff
+  Leave" (the app uses "Leave Request") and a made-up record id. Checked on a freshly seeded `school_os_w4` with a
+  query over every request: six demo requests pointed at no record, all from prisma/seeds/settings.ts: "Lab
+  chemicals for Class 10 practicals" and "Printer cartridges for the office" (Expense), "Refund of bus fee, Aarav
+  Reddy (Class 6 A)" (record type "Fee Payment"), "Sibling discount for Diya Sharma (Class 2 B)" (record type
+  "Student"), "Casual leave, Ravi Teja, 2 days" (record type "Staff Leave") and "Bonafide certificate, Sai Kiran
+  (Class 9 C)". The other 52 demo requests were real.
+- **Root cause:** the Settings seed wrote Approval rows directly with `recordId: randomUUID()`. `decide()` in
+  src/lib/approvals.ts ran the request type's follow-up, which found nothing to move and said nothing, then marked
+  the request decided and told the person who asked.
+- **Fix:**
+  - Seed: the six made-up requests are gone. The demo's requests are made by each module's seed through the app,
+    so each points at a real record. prisma/seeds/fees-finance.ts now also asks, through the app, for a sibling
+    discount of ₹6,000 (above the ₹1,000 concession limit, so it waits for the Principal) and a ₹3,500 refund
+    asked by the School Admin (waits for the Accountant), so Approvals still shows a concession and a refund.
+    Staff leave and expenses already had real requests.
+  - App: new src/lib/approval-records.ts lists, for each record type a module asks Approvals about, how to find
+    the record. `decide()` asks it first. When the record cannot be found, the request is not approved and not sent
+    back for a change: "The leave request this request is about cannot be found in School OS, so it cannot be
+    approved, and nothing was changed. Reject it with a reason to take it off the list." Nobody is told and nothing
+    is written. Rejecting (or withdrawing) still works and runs no follow-up. Bulk approve leaves such a request out
+    with the same reason. The two names the old demo seed used ("Staff Leave", "Fee Payment") are listed too, so a
+    demo database seeded before this fix refuses them the same way.
+  - Test: tests/approval-missing-record.test.ts (7 tests): approve and ask for a change are refused with the plain
+    reason and change nothing; the old "Staff Leave" row is refused; reject works and tells the person who asked;
+    bulk approve skips it with the reason; a record that is there is found; a source scan fails if a module asks
+    Approvals about a record type the list does not know.
+  - Checked by seeding `school_os_w4` again: the same query finds no request without its record; the new requests
+    read "Sibling of ₹6,000 for Aanya Gupta" (waiting for the Principal) and "Refund ₹3,500 to Pranav Yadav from
+    receipt SPS/2026-27/00120" (waiting for the Accountant).
+- **Noticed, not changed:** a sibling concession's request reads "Sibling of ₹6,000 for …": the app names the
+  concession by its type ("Sibling"), the same on screen for any sibling concession. "Sibling discount of ₹6,000"
+  would read better; it is left for the Fee Management owner.
+- **Status:** Fixed. An existing demo database keeps its six old rows until it is seeded again; the app now refuses
+  to approve them.

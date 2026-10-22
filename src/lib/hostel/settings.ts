@@ -262,6 +262,27 @@ export async function currentFeePlans(tx: Tx, ctx: SchoolContext) {
   return lists.flat();
 }
 
+/**
+ * The fee plans of every year still open for new beds (this year's and the
+ * upcoming year's of each campus; closed years left out), each with its
+ * year: a student admitted for next year gets next year's plan, and a
+ * continuing boarder next year's plan when the year rolls over.
+ */
+export async function openFeePlans(tx: Tx, ctx: SchoolContext) {
+  const years = await openYears(tx, ctx);
+  const campusIds = [...new Set(years.map((y) => y.campusId))];
+  const names = campusIds.length > 1
+    ? new Map((await tx.campus.findMany({ where: { id: { in: campusIds } }, select: { id: true, name: true } })).map((c) => [c.id, c.name]))
+    : null;
+  const lists = await Promise.all(years.map(async (y) => (await feePlans(tx, y.id)).map((p) => ({ ...p, campusId: y.campusId, campusName: names?.get(y.campusId) ?? null, yearName: y.name }))));
+  return lists.flat();
+}
+
+/** The school years not closed, oldest first (hostel fee plans can be set for each). */
+export function openYears(tx: Tx, ctx: SchoolContext, campusId?: string | null) {
+  return tx.academicYear.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: { not: "CLOSED" }, ...(campusId ? { campusId } : {}) }, orderBy: { startDate: "asc" } });
+}
+
 /** The plan for a bed: the one for this hostel and room type, else this hostel, else this room type, else every hostel. */
 export function planForRoom(plans: FeePlan[], hostelId: string, roomType: string | null): FeePlan | null {
   const score = (p: FeePlan) => {

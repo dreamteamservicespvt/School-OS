@@ -8,7 +8,9 @@
 
 import { useActionState, useEffect, useId, useMemo, useRef, useState, useTransition } from "react";
 import { ArrowRightLeft, BellRing, Check, CircleX, LogIn, LogOut, Search, Send, Undo2, X, type LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { Button, Spinner, type ButtonVariant } from "@/components/ui/button";
+import { ConfirmButton } from "@/components/ui/confirm";
 import { Segmented, type SegOption } from "@/components/ui/controls";
 import { inputCls } from "@/components/ui/field";
 import { useTyped } from "@/components/ui/url-sheet";
@@ -117,6 +119,24 @@ export function StudentFind({ name, label, mode, multiple = false, required = tr
       )}
       {t.error ? <p id={`${id}-err`} className="text-[12.5px] text-bad">{t.error}</p> : help ? <p id={`${id}-help`} className="text-[12.5px] text-ink3">{help}</p> : null}
     </fieldset>
+  );
+}
+
+/** A risky action: says exactly what will happen, then runs the server action (P4). */
+export function ConfirmAct({ action, fields, trigger, triggerVariant = "secondary", title, children, confirmLabel, danger }: { action: Act; fields: Record<string, string>; trigger: React.ReactNode; triggerVariant?: ButtonVariant; title: string; children: React.ReactNode; confirmLabel: string; danger?: boolean }) {
+  const router = useRouter();
+  const [, start] = useTransition();
+  return (
+    <ConfirmButton trigger={trigger} triggerVariant={triggerVariant} title={title} confirmLabel={confirmLabel} confirmVariant={danger ? "danger" : "primary"}
+      onConfirm={async () => {
+        const fd = new FormData();
+        for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+        const r = await action(null, fd);
+        if (!r?.ok) return r?.message ?? "That did not work. Nothing was changed.";
+        start(() => router.refresh());
+      }}>
+      {children}
+    </ConfirmButton>
   );
 }
 

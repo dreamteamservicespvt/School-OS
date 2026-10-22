@@ -12,17 +12,21 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate, formatRupees } from "../format";
 import { addCharge, removeDue } from "../fees/structure";
-import { currentYear } from "../academic/years";
 import { enrolmentsOf } from "../front-office/pickup";
+import { STUDYING } from "../students/labels";
 import { HostelProblem } from "./problem";
 import { feePlans, planForRoom, type FeePlan } from "./settings";
-import { BASE, GENDER, bedRoom, bedWords, genderFits, isoOf, type ResidentStatus } from "./words";
+import { BASE, GENDER, bedRoom, bedWords, bedYearOf, genderFits, isoOf, type BedYear, type ResidentStatus } from "./words";
 
 const ZERO = BigInt(0);
 
 export type StudentInfo = { id: string; name: string; first: string; admissionNo: string; photoFileId: string | null; gender: string | null; classSection: string | null; sectionId: string | null; status: string; campusId: string };
 
-/** Names, classes and genders of these students (this year's class and section). */
+/**
+ * Names, classes and genders of these students: this year's class and
+ * section, or, for a student admitted for a later year (no class this year
+ * yet), that year's class with the year's name.
+ */
 export async function studentsInfo(tx: Tx, ctx: SchoolContext, ids: string[]): Promise<Map<string, StudentInfo>> {
   const uniq = [...new Set(ids)];
   if (!uniq.length) return new Map();
@@ -30,7 +34,50 @@ export async function studentsInfo(tx: Tx, ctx: SchoolContext, ids: string[]): P
     tx.student.findMany({ where: { id: { in: uniq } }, select: { id: true, fullName: true, firstName: true, admissionNo: true, photoFileId: true, gender: true, status: true, campusId: true } }),
     enrolmentsOf(tx, ctx, uniq),
   ]);
-  return new Map(rows.map((r) => [r.id, { id: r.id, name: r.fullName, first: r.firstName, admissionNo: r.admissionNo, photoFileId: r.photoFileId, gender: r.gender, classSection: enr.get(r.id)?.label ?? null, sectionId: enr.get(r.id)?.sectionId ?? null, status: r.status, campusId: r.campusId }]));
+  const later = await laterClasses(tx, uniq.filter((id) => !enr.has(id)));
+  return new Map(rows.map((r) => {
+    const now = enr.get(r.id);
+    const next = later.get(r.id);
+    return [r.id, { id: r.id, name: r.fullName, first: r.firstName, admissionNo: r.admissionNo, photoFileId: r.photoFileId, gender: r.gender, classSection: now?.label ?? next?.label ?? null, sectionId: now?.sectionId ?? next?.sectionId ?? null, status: r.status, campusId: r.campusId }];
+  }));
+}
+
+/** The class of students with no class this year in the first later (Upcoming) year they have one: "1 A, 2027-28". */
+async function laterClasses(tx: Tx, ids: string[]) {
+  const out = new Map<string, { label: string; sectionId: string }>();
+  if (!ids.length) return out;
+  const years = await tx.academicYear.findMany({ where: { status: "UPCOMING", archivedAt: null }, orderBy: { startDate: "asc" }, select: { id: true, name: true } });
+  if (!years.length) return out;
+  const rows = await tx.enrolment.findMany({ where: { studentId: { in: ids }, archivedAt: null, status: { not: "LEFT" }, academicYearId: { in: years.map((y) => y.id) } }, select: { studentId: true, sectionId: true, academicYearId: true } });
+  const sections = await tx.section.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.sectionId))] } }, select: { id: true, name: true, schoolClass: { select: { name: true } } } });
+  for (const y of years) {
+    for (const r of rows.filter((x) => x.academicYearId === y.id)) {
+      const sec = sections.find((x) => x.id === r.sectionId);
+      if (out.has(r.studentId) || !sec) continue;
+      out.set(r.studentId, { label: `${sec.schoolClass.name.replace(/^Class\s+/i, "")} ${sec.name}, ${y.name}`, sectionId: sec.id });
+    }
+  }
+  return out;
+}
+
+/**
+ * The school years each student has a class in (not left, year not closed),
+ * for choosing the year a bed belongs to (words.ts bedYearOf): this year's,
+ * and next year's for a student promoted or admitted for next year.
+ */
+export async function bedYears(tx: Tx, ids: string[]): Promise<Map<string, BedYear[]>> {
+  const out = new Map<string, BedYear[]>(ids.map((id) => [id, []]));
+  if (!ids.length) return out;
+  const rows = await tx.enrolment.findMany({ where: { studentId: { in: [...new Set(ids)] }, archivedAt: null, status: { not: "LEFT" } }, select: { studentId: true, academicYearId: true } });
+  const years = await tx.academicYear.findMany({ where: { id: { in: [...new Set(rows.map((r) => r.academicYearId))] }, status: { not: "CLOSED" }, archivedAt: null } });
+  for (const r of rows) {
+    const y = years.find((x) => x.id === r.academicYearId);
+    const list = out.get(r.studentId)!;
+    if (!y || list.some((x) => x.id === y.id)) continue;
+    list.push({ id: y.id, name: y.name, start: isoOf(y.startDate), end: isoOf(y.endDate) });
+  }
+  for (const list of out.values()) list.sort((a, b) => a.start.localeCompare(b.start));
+  return out;
 }
 
 /** The bed a student has now, if any, with its room and hostel. */
@@ -69,7 +116,7 @@ function assertGender(hostel: { gender: "BOYS" | "GIRLS" }, student: { gender: s
  * covers `from` and every later one (or, after a move, only those due after
  * `from`). Each becomes a row of the student's fees in Fee Management.
  */
-async function addFees(tx: Tx, ctx: SchoolContext, a: BedAllocation, plan: FeePlan, from: Date, opts: { onlyAfter?: boolean } = {}) {
+export async function addHostelFees(tx: Tx, ctx: SchoolContext, a: BedAllocation, plan: FeePlan, from: Date, opts: { onlyAfter?: boolean } = {}) {
   const list = plan.installments;
   const firstLater = list.findIndex((i) => i.dueDate.getTime() > from.getTime());
   const start = opts.onlyAfter ? (firstLater < 0 ? list.length : firstLater) : Math.max(0, (firstLater < 0 ? list.length : firstLater) - 1);
@@ -140,28 +187,46 @@ export async function hostelFeesDue(tx: Tx, studentId: string, onOrBefore: Date)
 
 export type AllocateInput = { studentId: string; bedId: string; startDate: Date; checkedIn: boolean; feePlanId: string | "none"; note: string | null };
 
-export async function allocate(tx: Tx, ctx: SchoolContext, input: AllocateInput, opts: { now: Date; assertHostel: (hostelId: string | null) => void }) {
+/**
+ * Gives a student a free bed. Any studying student can have one: a student
+ * admitted today, or admitted for next year (their class only in next year),
+ * whose bed then starts on the day they join. The bed belongs to the school
+ * year of the student's class on its first night (bedYearOf), and the hostel
+ * fee plan must be that year's. `today` (the school's day): a bed starting
+ * later cannot be "checked in now".
+ */
+export async function allocate(tx: Tx, ctx: SchoolContext, input: AllocateInput, opts: { now: Date; today?: Date; assertHostel: (hostelId: string | null) => void }) {
   const student = await tx.student.findFirst({ where: { id: input.studentId, archivedAt: null } });
   if (!student) throw new HostelProblem("Choose the student.", "studentId");
-  if (student.status !== "ACTIVE") throw new HostelProblem(`${student.fullName} is not studying at the school now.`, "studentId");
+  if (!(STUDYING as readonly string[]).includes(student.status)) throw new HostelProblem(`${student.fullName} is not studying at the school now.`, "studentId");
   const has = await activeBedOf(tx, student.id);
   if (has) throw new HostelProblem(`${student.firstName} already has ${has.short}`, "studentId", { href: `${BASE}/allocation?move=${has.allocation.id}`, label: "Move instead" });
   const { bed, room, hostel } = await freeBed(tx, input.bedId);
   opts.assertHostel(hostel.id);
   assertGender(hostel, student);
-  // The student's own campus's current year (a school's campuses can start the year on different dates).
-  const year = await currentYear(tx, ctx, student.campusId);
-  if (!year) throw new HostelProblem("Set up this academic year first (Academic Management).");
-  const enrolled = await tx.enrolment.findFirst({ where: { studentId: student.id, academicYearId: year.id, archivedAt: null } });
-  if (!enrolled) throw new HostelProblem(`${student.fullName} is not in a class this year. Add them to a class first.`, "studentId");
+  // The year of the student's class on the bed's first night (campuses start the year on different dates; a new student may be admitted for next year).
+  const years = (await bedYears(tx, [student.id])).get(student.id) ?? [];
+  if (!years.length) throw new HostelProblem(`${student.fullName} is not in a class. Add them to a class first.`, "studentId");
+  const by = bedYearOf(years, isoOf(input.startDate));
+  if (!by) throw new HostelProblem(`${student.firstName}'s class is for ${years.map((y) => y.name).join(" and ")}. Give the bed from a day in ${years.length === 1 ? "that year" : "those years"}, or promote ${student.firstName} first.`, "startDate");
+  const year = await tx.academicYear.findUniqueOrThrow({ where: { id: by.id } });
+  if (input.checkedIn && opts.today && input.startDate.getTime() > opts.today.getTime()) {
+    throw new HostelProblem(`The bed starts on ${formatDate(input.startDate, "UTC")}. Turn off “Checked in now” and check ${student.firstName} in on arrival.`, "startDate");
+  }
 
   let plan: FeePlan | null = null;
   if (input.feePlanId !== "none") {
-    // A hostel fee plan belongs to one campus's year: the student's own campus's current year.
+    // A hostel fee plan belongs to one campus's year: the year the bed belongs to.
     plan = (await feePlans(tx, year.id)).find((p) => p.id === input.feePlanId) ?? null;
     if (!plan) {
-      const elsewhere = await tx.hostelFeePlan.findFirst({ where: { id: input.feePlanId, archivedAt: null }, select: { name: true } });
-      throw new HostelProblem(elsewhere ? `“${elsewhere.name}” is for another campus’s school year. Choose a plan of ${student.firstName}’s campus, or No hostel fees.` : "Choose the hostel fee plan, or No hostel fees.", "feePlanId");
+      const elsewhere = await tx.hostelFeePlan.findFirst({ where: { id: input.feePlanId, archivedAt: null }, select: { name: true, academicYearId: true } });
+      const other = elsewhere ? await tx.academicYear.findUnique({ where: { id: elsewhere.academicYearId }, select: { name: true, campusId: true } }) : null;
+      throw new HostelProblem(
+        !elsewhere ? "Choose the hostel fee plan, or No hostel fees."
+          : other && other.campusId !== year.campusId ? `“${elsewhere.name}” is for another campus’s school year. Choose a plan of ${student.firstName}’s campus, or No hostel fees.`
+            : `“${elsewhere.name}” is for ${other?.name ?? "another year"}, and this bed is for ${year.name}. Choose a ${year.name} plan, or No hostel fees.`,
+        "feePlanId",
+      );
     }
     if (plan.hostelId && plan.hostelId !== hostel.id) throw new HostelProblem(`“${plan.name}” is for another hostel. Choose the plan for ${hostel.name}.`, "feePlanId");
   }
@@ -173,7 +238,7 @@ export async function allocate(tx: Tx, ctx: SchoolContext, input: AllocateInput,
       feePlanId: plan?.id ?? null, note: input.note, createdById: ctx.userId,
     },
   });
-  const fees = plan ? await addFees(tx, ctx, a, plan, input.startDate) : { total: ZERO, rows: 0 };
+  const fees = plan ? await addHostelFees(tx, ctx, a, plan, input.startDate) : { total: ZERO, rows: 0 };
   const where = bedWords(room.roomNo, bed.bedNo);
   await writeAudit(tx, ctx, {
     action: "allocated", recordType: "Bed Allocation", recordId: a.id,
@@ -225,7 +290,7 @@ export async function moveBed(tx: Tx, ctx: SchoolContext, input: MoveInput, opts
   let feeChange: { stopped: bigint; added: bigint } | null = null;
   if (newPlan && oldPlan && newPlan.id !== oldPlan.id) {
     const s = await stopFees(tx, ctx, a.studentId, input.date, `Moved to ${bedWords(room.roomNo, bed.bedNo)} (${newPlan.name})`);
-    const add = await addFees(tx, ctx, next, newPlan, input.date, { onlyAfter: true });
+    const add = await addHostelFees(tx, ctx, next, newPlan, input.date, { onlyAfter: true });
     feeChange = { stopped: s.stopped, added: add.total };
   }
   const from = bedWords(oldRoom.roomNo, oldBed.bedNo);
@@ -253,6 +318,23 @@ export async function checkOut(tx: Tx, ctx: SchoolContext, input: CheckOutInput,
   const where = bedWords(room.roomNo, bed.bedNo);
   await writeAudit(tx, ctx, { action: "checked-out", recordType: "Bed Allocation", recordId: a.id, before: { bed: where }, after: { student: student.fullName, date: isoOf(input.date), reason: input.reason.trim(), feesStopped: formatRupees(fees.stopped), feesKept: formatRupees(fees.kept), dueAtCheckout: formatRupees(dueBefore) } });
   return { name: student.fullName, first: student.firstName, where, fees, dueBefore };
+}
+
+/**
+ * The student left the school (Leaving & Alumni completed on the last date)
+ * while still holding a bed, because the hostel check was waived: the bed is
+ * freed on the last date and the hostel fees due after it stop, so a student
+ * who left is never charged again. Fees already due or paid stay.
+ */
+export async function releaseOnLeaving(tx: Tx, ctx: SchoolContext, studentId: string, lastDate: Date, reason: string) {
+  const a = await tx.bedAllocation.findFirst({ where: { studentId, status: "ACTIVE" } });
+  if (!a) return null;
+  const date = lastDate.getTime() < a.startDate.getTime() ? a.startDate : lastDate;
+  const why = `Left the school: ${reason}`.slice(0, 200);
+  await tx.bedAllocation.update({ where: { id: a.id }, data: { status: "CHECKED_OUT", endDate: date, endedAt: new Date(), endedById: ctx.userId, endReason: why } });
+  const fees = await stopFees(tx, ctx, studentId, date, why);
+  await writeAudit(tx, ctx, { action: "checked-out", recordType: "Bed Allocation", recordId: a.id, after: { date: isoOf(date), reason: why, feesStopped: formatRupees(fees.stopped), feesKept: formatRupees(fees.kept) } });
+  return fees;
 }
 
 /* ---------- Residents ---------- */
@@ -304,16 +386,29 @@ export async function residents(tx: Tx, ctx: SchoolContext, where: Prisma.BedAll
 
 /**
  * Waiting for a bed (inferred): students admitted with "hostel needed" in
- * their admission preferences who have never had a bed.
+ * their admission preferences who have never had a bed, including students
+ * admitted for next year (status Admitted until they join). Each shows the
+ * application it was asked on, when, the day the student joins and the years
+ * of their class, so the warden can give the bed from the right day.
  */
 export async function waitingForBed(tx: Tx, ctx: SchoolContext) {
-  const apps = await tx.application.findMany({ where: { preferences: { path: ["hostelNeeded"], equals: true } }, select: { id: true, createdAt: true } });
+  const apps = await tx.application.findMany({ where: { preferences: { path: ["hostelNeeded"], equals: true }, studentId: { not: null } }, select: { id: true, applicationNo: true, createdAt: true } });
   if (!apps.length) return [];
-  const students = await tx.student.findMany({ where: { applicationId: { in: apps.map((a) => a.id) }, status: "ACTIVE", archivedAt: null }, select: { id: true, applicationId: true } });
+  const students = await tx.student.findMany({ where: { applicationId: { in: apps.map((a) => a.id) }, status: { in: [...STUDYING] }, archivedAt: null }, select: { id: true, applicationId: true, joiningDate: true } });
   const had = new Set((await tx.bedAllocation.findMany({ where: { studentId: { in: students.map((s) => s.id) } }, select: { studentId: true } })).map((r) => r.studentId));
   const left = students.filter((s) => !had.has(s.id));
-  const info = await studentsInfo(tx, ctx, left.map((s) => s.id));
-  return left.map((s) => ({ ...info.get(s.id)!, askedAt: apps.find((a) => a.id === s.applicationId)?.createdAt ?? null })).filter((s) => s.id).sort((a, b) => a.name.localeCompare(b.name));
+  const [info, years] = await Promise.all([studentsInfo(tx, ctx, left.map((s) => s.id)), bedYears(tx, left.map((s) => s.id))]);
+  return left.filter((s) => info.has(s.id)).map((s) => {
+    const app = apps.find((a) => a.id === s.applicationId);
+    return { ...info.get(s.id)!, askedAt: app?.createdAt ?? null, applicationNo: app?.applicationNo ?? null, joins: s.joiningDate, years: years.get(s.id) ?? [] };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** The "hostel needed" asked on a student's admission application, if any (for the hostel tab of the profile). */
+export async function hostelAsked(tx: Tx, studentId: string) {
+  const s = await tx.student.findFirst({ where: { id: studentId }, select: { applicationId: true } });
+  if (!s?.applicationId) return null;
+  return tx.application.findFirst({ where: { id: s.applicationId, preferences: { path: ["hostelNeeded"], equals: true } }, select: { applicationNo: true, createdAt: true } });
 }
 
 /** A student's beds over time (newest first), for the bed history. */

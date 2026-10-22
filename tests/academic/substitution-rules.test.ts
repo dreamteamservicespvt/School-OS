@@ -4,7 +4,8 @@
 // marked absent in Staff Attendance raises the periods needing cover.
 import { describe, expect, it } from "vitest";
 import { academicScope, arrangesTimetable, ownPageRedirect } from "@/lib/academic/scope";
-import { markAbsent, needsOn } from "@/lib/academic/substitutions";
+import { assignSubstitute, markAbsent, needsOn, replanAfterPublish, replanWords } from "@/lib/academic/substitutions";
+import { makeDraft, publishVersion } from "@/lib/academic/timetable";
 import { raiseSubstitutions } from "@/lib/staff/leave";
 import { makeUser } from "../helpers";
 import { academicSchool, d } from "./fixture";
@@ -71,5 +72,49 @@ describe("the Academic Settings switch 'Raise substitutions automatically' (04 ย
     expect(await s.run((tx) => raiseSubstitutions(tx, s.ctx, leave, { id: s.staff[1].id, campusId: s.campusId }, null))).toBe(2);
     expect((await s.run((tx) => needsOn(tx, s.ctx, s.campusId, tuesday))).rows.map((x) => x.reason)).toEqual(["leave", "leave"]);
     await expect(s.run((tx) => markAbsent(tx, s.ctx, { staffId: s.staff[1].id, date: tuesday, note: null }))).rejects.toThrow(/already marked away on 17-11-2026 \(leave\)/);
+  });
+});
+
+describe("republishing a Time Table keeps or plainly re-plans the covers (04 ยง2 Publish)", () => {
+  it("moves covers to the new Time Table, frees a substitute who now has a class, and cancels covers whose period changed hands", async () => {
+    const s = await academicSchool();
+    const [mon, tue] = [d("2026-11-23"), d("2026-11-24")];
+    const asha = s.staff[0], meera = s.staff[2], vikram = s.staff[3];
+    const leave = await approvedLeave(s, asha.id, mon, tue);
+    expect(await s.run((tx) => raiseSubstitutions(tx, s.ctx, leave, { id: asha.id, campusId: s.campusId }, null))).toBe(4);
+    const arrange = async (date: Date, periodNo: number, substituteId: string) => {
+      const row = (await s.run((tx) => needsOn(tx, s.ctx, s.campusId, date))).rows.find((r) => r.periodNo === periodNo)!;
+      await s.run((tx) => assignSubstitute(tx, s.ctx, { campusId: s.campusId, date, periodIds: [row.id], substituteId, note: null }));
+    };
+    await arrange(mon, 1, vikram.id); // 5 A maths
+    await arrange(mon, 2, meera.id); // 5 B maths
+    await arrange(tue, 1, vikram.id); // 5 A maths; 5 B on Tuesday stays Needed
+
+    // A new Time Table from Monday: on Mondays Vikram takes 6 A in period 1 and 5 B maths in period 2; Meera moves to 6 A period 2.
+    const draft = await s.run(async (tx) => {
+      const { version } = await makeDraft(tx, s.ctx, s.year.id, s.campusId, d("2026-11-20"));
+      const set = (sectionId: string, periodNo: number, data: { staffId: string; subjectId: string }) => tx.timetablePeriod.updateMany({ where: { versionId: version.id, sectionId, dayOfWeek: 1, periodNo }, data });
+      await set(s.s6a.id, 1, { staffId: vikram.id, subjectId: s.subjects.MAT });
+      await set(s.s6a.id, 2, { staffId: meera.id, subjectId: s.subjects.SCI });
+      await set(s.s5b.id, 2, { staffId: vikram.id, subjectId: s.subjects.MAT });
+      return version;
+    });
+    const result = await s.run(async (tx) => {
+      await publishVersion(tx, s.ctx, draft.id, mon, d("2026-11-20"));
+      return replanAfterPublish(tx, s.ctx, draft.id, d("2026-11-20"));
+    });
+    expect(result).toEqual({ moved: 2, needAgain: 1, cancelled: 1, raised: 0 });
+    expect(replanWords(result)).toBe(" Substitutions: 2 substitutions moved to the new Time Table; 1 period needs a new substitute (the substitute now has a class then); 1 substitution cancelled because the absent teacher no longer has that period.");
+
+    // Nothing from the new Time Table's date onwards still points at the old one.
+    const live = await s.run((tx) => tx.substitution.findMany({ where: { date: { gte: mon }, status: { not: "CANCELLED" }, archivedAt: null }, include: { period: true } }));
+    expect(live.every((r) => r.period.versionId === draft.id)).toBe(true);
+    const monday = await s.run((tx) => needsOn(tx, s.ctx, s.campusId, mon));
+    expect(monday.rows.map((r) => `${r.periodNo} ${r.sectionLabel} ${r.absentName} ${r.substitution?.status}`)).toEqual(["1 Class 5 A Asha Rao NEEDED"]);
+    const tuesday = await s.run((tx) => needsOn(tx, s.ctx, s.campusId, tue));
+    expect(tuesday.rows.map((r) => `${r.periodNo} ${r.sectionLabel} ${r.substitution?.status} ${r.substitution?.substituteName ?? "-"}`)).toEqual(["1 Class 5 A ARRANGED Vikram Shah", "2 Class 5 B NEEDED -"]);
+    // Meera's cover of 5 B on Monday is cancelled with the reason.
+    const cancelled = await s.run((tx) => tx.substitution.findFirst({ where: { date: mon, substituteStaffId: meera.id } }));
+    expect(cancelled).toMatchObject({ status: "CANCELLED", note: "The new Time Table changed this period" });
   });
 });

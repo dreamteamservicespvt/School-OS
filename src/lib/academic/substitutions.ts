@@ -13,6 +13,7 @@ import { dayOff } from "./calendar";
 import { effectiveVersion, type PeriodCell } from "./timetable";
 import { academicSettings } from "./settings";
 import { allocationActiveOn } from "./allocation";
+import { raiseSubstitutions } from "../staff/leave";
 
 const REASON_WORDS: Record<string, string> = { leave: "Leave", absent: "Absent", temporary: "Temporary teacher" };
 export const reasonWords = (r: string) => REASON_WORDS[r] ?? r;
@@ -354,4 +355,110 @@ export async function substituteTimetable(tx: Tx, ctx: SchoolContext, campusId: 
     bySub.set(r.substitution.substituteId, e);
   }
   return [...bySub.entries()].map(([id, v]) => ({ id, ...v })).sort((a, b) => a.name.localeCompare(b.name));
+}
+
+export type Replan = { moved: number; needAgain: number; cancelled: number; raised: number };
+
+/**
+ * After a Time Table is published (04 §2 Publish), the substitutions from its
+ * effective date onwards still point at the old version's periods. Each is
+ * moved to the same period (class, day, period number) of the Time Table in
+ * force on its date when the absent teacher still teaches it there; the
+ * substitute stays when they are still free, otherwise the period is Needed
+ * again and they are told. A cover whose period the absent teacher no longer
+ * has is cancelled, and the substitute told. Then the away teachers' periods
+ * in the new Time Table are listed (leave as the Academic Settings switch
+ * says, marked absences and temporary teachers). Nothing is left pointing at
+ * a Time Table that is not in force.
+ */
+export async function replanAfterPublish(tx: Tx, ctx: SchoolContext, versionId: string, today: Date): Promise<Replan> {
+  const version = await tx.timetableVersion.findUniqueOrThrow({ where: { id: versionId } });
+  const year = await tx.academicYear.findUniqueOrThrow({ where: { id: version.academicYearId } });
+  const from = version.effectiveFrom && version.effectiveFrom > today ? version.effectiveFrom : today;
+  const out: Replan = { moved: 0, needAgain: 0, cancelled: 0, raised: 0 };
+  if (from > year.endDate) return out;
+  const campusId = version.campusId;
+  const rows = await tx.substitution.findMany({
+    where: { schoolId: ctx.schoolId, archivedAt: null, status: { not: "CANCELLED" }, date: { gte: from, lte: year.endDate }, period: { section: { schoolClass: { campusId } } } },
+    include: { period: { include: { section: { include: { schoolClass: true } } } } },
+    orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+  });
+  const inForce = new Map<string, string | null>();
+  const tell = async (substituteId: string | null, text: string) => {
+    if (!substituteId) return;
+    const sub = await tx.staff.findUnique({ where: { id: substituteId }, select: { userLoginId: true } });
+    if (sub?.userLoginId) await notify(tx, ctx, { to: sub.userLoginId, type: "substitution", text, link: "/academic-management/time-table/mine" });
+  };
+  for (const r of rows) {
+    const key = r.date.toISOString().slice(0, 10);
+    if (!inForce.has(key)) inForce.set(key, (await effectiveVersion(tx, ctx, campusId, r.date))?.id ?? null);
+    const now = inForce.get(key);
+    if (!now || r.period.versionId === now) continue;
+    const where = `${r.period.section.schoolClass.name} ${r.period.section.name}, period ${r.period.periodNo} on ${formatDate(r.date)}`;
+    const match = await tx.timetablePeriod.findFirst({ where: { versionId: now, sectionId: r.period.sectionId, dayOfWeek: r.period.dayOfWeek, periodNo: r.period.periodNo, staffId: r.absentStaffId, isBreak: false, archivedAt: null } });
+    const taken = match ? await tx.substitution.findFirst({ where: { date: r.date, periodId: match.id, archivedAt: null, status: { not: "CANCELLED" }, id: { not: r.id } } }) : null;
+    if (!match || taken) {
+      await tx.substitution.update({ where: { id: r.id }, data: { status: "CANCELLED", note: "The new Time Table changed this period" } });
+      if (r.status === "ARRANGED") await tell(r.substituteStaffId, `Cover no longer needed: ${where}. The new Time Table changed this period.`);
+      out.cancelled++;
+      continue;
+    }
+    // The substitute keeps the cover when the new Time Table leaves them free then.
+    const busy = r.substituteStaffId
+      ? Boolean(await tx.timetablePeriod.findFirst({ where: { versionId: now, dayOfWeek: r.period.dayOfWeek, periodNo: r.period.periodNo, staffId: r.substituteStaffId, archivedAt: null } }))
+      : false;
+    await tx.substitution.update({ where: { id: r.id }, data: { periodId: match.id, ...(busy ? { substituteStaffId: null, status: "NEEDED" as const } : {}) } });
+    if (busy) {
+      await tell(r.substituteStaffId, `You no longer cover ${where}: the new Time Table gives you a class then.`);
+      out.needAgain++;
+    } else out.moved++;
+  }
+  // The away teachers' periods in the new Time Table that are not listed yet.
+  const settings = await academicSettings(tx, ctx, campusId);
+  const [leaves, absences, covers] = await Promise.all([
+    settings.autoSubstitutions
+      ? tx.leaveRequest.findMany({ where: { schoolId: ctx.schoolId, staffId: { not: null }, status: "APPROVED", archivedAt: null, toDate: { gte: from }, fromDate: { lte: year.endDate } } })
+      : Promise.resolve([]),
+    tx.staffAbsence.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, date: { gte: from, lte: year.endDate } } }),
+    tx.temporaryCover.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, toDate: { gte: from }, fromDate: { lte: year.endDate } } }),
+  ]);
+  const staffIds = [...new Set([...leaves.map((l) => l.staffId!), ...absences.map((a) => a.staffId), ...covers.map((c) => c.absentStaffId)])];
+  const onCampus = new Map((await tx.staff.findMany({ where: { id: { in: staffIds }, campusId }, select: { id: true, campusId: true } })).map((x) => [x.id, x]));
+  for (const l of leaves) {
+    const st = onCampus.get(l.staffId!);
+    if (!st) continue;
+    const detail = await tx.staffLeaveDetail.findUnique({ where: { leaveRequestId: l.id }, select: { halfDayPart: true } });
+    out.raised += await raiseSubstitutions(tx, ctx, { id: l.id, fromDate: l.fromDate < from ? from : l.fromDate, toDate: l.toDate }, st, detail?.halfDayPart ?? null);
+  }
+  for (const a of absences) if (onCampus.has(a.staffId)) out.raised += await raiseFor(tx, ctx, a.staffId, campusId, [a.date], { reason: "absent" });
+  for (const c of covers) {
+    if (!onCampus.has(c.absentStaffId)) continue;
+    for (const date of daysBetween(c.fromDate < from ? from : c.fromDate, c.toDate)) {
+      if (await dayOff(tx, ctx, date, campusId)) continue;
+      const v = await effectiveVersion(tx, ctx, campusId, date);
+      if (!v) continue;
+      const periods = await tx.timetablePeriod.findMany({ where: { versionId: v.id, staffId: c.absentStaffId, dayOfWeek: weekday(date), archivedAt: null, isBreak: false } });
+      for (const p of periods) {
+        if (await tx.substitution.findFirst({ where: { date, periodId: p.id, archivedAt: null, status: { not: "CANCELLED" } } })) continue;
+        const free = (await freeTeachersAt(tx, ctx, campusId, date, p.periodNo)).some((f) => f.id === c.tempStaffId);
+        await tx.substitution.create({ data: { schoolId: ctx.schoolId, date, periodId: p.id, absentStaffId: c.absentStaffId, createdById: ctx.userId, reason: "temporary", coverId: c.id, ...(free ? { substituteStaffId: c.tempStaffId, status: "ARRANGED" as const } : { status: "NEEDED" as const }) } });
+        out.raised++;
+      }
+    }
+  }
+  if (out.moved + out.needAgain + out.cancelled + out.raised > 0) {
+    await writeAudit(tx, ctx, { action: "replanned", recordType: "Substitution", recordId: versionId, after: { from: from.toISOString().slice(0, 10), ...out } });
+  }
+  return out;
+}
+
+/** The re-plan in plain words for the publish message, or "" when nothing changed. */
+export function replanWords(r: Replan): string {
+  const parts = [
+    r.moved && `${plural(r.moved, "substitution")} moved to the new Time Table`,
+    r.needAgain && `${plural(r.needAgain, "period")} need${r.needAgain === 1 ? "s" : ""} a new substitute (the substitute now has a class then)`,
+    r.cancelled && `${plural(r.cancelled, "substitution")} cancelled because the absent teacher no longer has that period`,
+    r.raised && `${plural(r.raised, "more period")} of teachers who are away listed as Needed`,
+  ].filter(Boolean);
+  return parts.length ? ` Substitutions: ${parts.join("; ")}.` : "";
 }

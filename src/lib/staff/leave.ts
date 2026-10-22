@@ -230,7 +230,8 @@ export async function raiseSubstitutions(tx: Tx, ctx: SchoolContext, leave: Pick
   if (!(await academicSettings(tx, ctx, staff.campusId)).autoSubstitutions) return 0;
   const needs = await teacherPeriods(tx, ctx, staff, leave.fromDate, leave.toDate, halfDayPart);
   if (needs.length === 0) return 0;
-  const existing = await tx.substitution.findMany({ where: { leaveRequestId: leave.id, archivedAt: null }, select: { periodId: true, date: true } });
+  // A period already listed that day (for this leave, or because the teacher was marked absent first) is not listed twice.
+  const existing = await tx.substitution.findMany({ where: { OR: [{ leaveRequestId: leave.id }, { periodId: { in: [...new Set(needs.map((n) => n.periodId))] }, status: { not: "CANCELLED" } }], archivedAt: null }, select: { periodId: true, date: true } });
   const have = new Set(existing.map((e) => `${e.periodId}:${isoDay(e.date)}`));
   const data = needs
     .filter((n) => !have.has(`${n.periodId}:${isoDay(n.date)}`))

@@ -120,7 +120,7 @@ export async function makeReportCardsPdf(tx: Tx, ctx: SchoolContext, payload: { 
 }
 
 defineSchedule("exam-results-publish", 10, (tx, ctx, now) => publishDue(tx, ctx, now));
-defineSchedule("exam-reminders", 60, async (tx, ctx, now) => sendExamReminders(tx, ctx, await schoolToday(tx, ctx.schoolId, now)));
+defineSchedule("exam-reminders", 60, async (tx, ctx, now) => sendExamReminders(tx, ctx, await schoolToday(tx, ctx.schoolId, now)), { heldWhileMovingIn: true });
 defineSchedule("exam-marks-due", 6 * 60, async (tx, ctx, now) => remindMarksDue(tx, ctx, await schoolToday(tx, ctx.schoolId, now)));
 defineJob("exams:report-cards-pdf", "Report cards PDF", async (tx, ctx, payload) => {
   const r = await makeReportCardsPdf(tx, ctx, payload as { sectionId: string; period: string; studentIds: string[] });

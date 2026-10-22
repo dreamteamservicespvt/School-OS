@@ -88,6 +88,11 @@ export default async function SwitchingPage({ searchParams }: Search) {
           You can still bring in records you missed. <Link href={`${BASE}/check`} className="font-medium underline">See the go-live summary</Link>
         </Alert>
       )}
+      {!live && summary.plan && (
+        <Alert tone="info" className="mb-5" title="Your school is moving in.">
+          Automatic messages to parents, fee reminders and late fees wait until the Principal presses Go live on the <Link href={`${BASE}/check`} className="font-medium underline">go-live check</Link>. Messages sent by hand still go.
+        </Alert>
+      )}
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <Card>
           <CardHeader title="Your move to School OS" description="Bring in what your old software, Excel sheets or registers hold, in this order. You can start on any day of the year." />
@@ -112,7 +117,7 @@ export default async function SwitchingPage({ searchParams }: Search) {
               ))}
               <Step n={steps.length + 2} title="Check and go live" done={Boolean(live)}
                 status={live ? `Live since ${formatDate(summary.plan!.goLiveDate ?? live, tz)}` : "Compare the totals with your old software, then go live"}
-                about="Students per class, staff and parents, beside what your old software says. The Principal confirms going live.">
+                about="Students per class, staff, parents and the money brought in, beside what your old software says. The Principal confirms going live, and automatic messages and late fees start.">
                 <ButtonLink href={`${BASE}/check`} size="sm" variant={live ? "secondary" : "primary"}>Open the go-live check</ButtonLink>
               </Step>
             </ol>

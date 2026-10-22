@@ -155,6 +155,8 @@ export async function resendReceipt(_prev: unknown, fd: FormData) {
       to: { guardiansOf: [p.studentId] },
       perStudent: { [p.studentId]: { paid_amount: formatRupees(p.amountPaise), payment_date: formatDate(p.paymentDate), receipt_number: receipt.number } },
       source: { type: "Payment", id: p.id },
+      // A person asked for this copy: it goes even while the school is moving in.
+      byHand: true,
     });
     if (r.status === "off") throw new MoneyProblem("The \"Fee received\" message is switched off. Switch it on in Communication, Message Settings.", undefined, { href: "/communication/settings", label: "Open Message Settings" });
     if (r.status === "no-channel") throw new MoneyProblem("No messaging channel is set up. Set up WhatsApp or SMS in Settings.", undefined, { href: "/settings", label: "Open Settings" });

@@ -21,16 +21,17 @@ async function schoolToday(tx: Tx, schoolId: string, now: Date) {
 }
 
 // Late fees first, then reminders, so a reminder shows the late fee too.
+// Neither runs for a school still moving in (workflow 15, step 10): they start on go-live.
 defineSchedule("fee-late-fees", 6 * 60, async (tx, ctx, now) => {
   await addLateFees(tx, ctx, await schoolToday(tx, ctx.schoolId, now));
-});
+}, { heldWhileMovingIn: true });
 
 // Promises to Pay whose date has passed are marked first, so a broken one gets its reminders again.
 defineSchedule("fee-reminders", 6 * 60, async (tx, ctx, now) => {
   const today = await schoolToday(tx, ctx.schoolId, now);
   await settlePromises(tx, ctx, today);
   await automaticReminders(tx, ctx, today);
-});
+}, { heldWhileMovingIn: true });
 
 defineSchedule("fee-advance", 24 * 60, async (tx, ctx, now) => {
   const today = await schoolToday(tx, ctx.schoolId, now);

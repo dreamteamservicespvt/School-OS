@@ -7,6 +7,7 @@ import type { Prisma } from "@prisma/client";
 import { prisma, withSchool, type SchoolContext, type Tx } from "./db";
 import { notify } from "./notifications";
 import { isTestCopy } from "./test-copy-env";
+import { HELD_UNTIL_LIVE, movingIn } from "./move-in/live";
 
 export const MAX_ATTEMPTS = 3;
 
@@ -108,12 +109,17 @@ async function runOne(jobId: string, schoolId: string) {
 type Schedule = { name: string; everyMinutes: number; run: (tx: Tx, ctx: SchoolContext, now: Date) => Promise<unknown> };
 const schedules: Schedule[] = [];
 
-/** Work that runs on a timer for every school, such as escalations and reminders. Work that waits on another service gets the long transaction. */
-export function defineSchedule(name: string, everyMinutes: number, run: Schedule["run"], opts: { ownTransaction?: boolean } = {}) {
+/**
+ * Work that runs on a timer for every school, such as escalations and reminders. Work that waits on another service gets the long transaction.
+ * heldWhileMovingIn: work that exists to message parents or add charges does not run for a school still moving in
+ * (workflow 15, step 10: automations start on go-live; move-in/live.ts).
+ */
+export function defineSchedule(name: string, everyMinutes: number, run: Schedule["run"], opts: { ownTransaction?: boolean; heldWhileMovingIn?: boolean } = {}) {
   schedules.push({ name, everyMinutes, run });
   defineJob(`schedule:${name}`, name, async (tx, ctx) => {
+    if (opts.heldWhileMovingIn && (await movingIn(tx, ctx))) return { held: HELD_UNTIL_LIVE };
     await run(tx, ctx, new Date());
-  }, opts);
+  }, { ownTransaction: opts.ownTransaction });
 }
 
 /** Queues each schedule once per time slot per school; the key makes repeats harmless. */

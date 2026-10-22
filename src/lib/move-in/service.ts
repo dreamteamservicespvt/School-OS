@@ -30,6 +30,8 @@ import { cleanCsv, prepareSheet, rowsForImport, type Choices, type Prepared } fr
 import type { Lookups } from "./lookups";
 import { markRecalled, mergeRemembered, recallMapping, rememberMapping, type Recalled } from "./memory";
 import { aiConfirmedNote } from "../ai/audit";
+import { alignGoLive } from "../finance/settings-save";
+import { keptMoney, MONEY_KEYS, moneyTotals, type MoneyExpected } from "./money";
 
 export class MoveInProblem extends Error {
   constructor(message: string, public field?: string) { super(message); }
@@ -578,10 +580,21 @@ export async function getPlan(tx: Tx, ctx: SchoolContext) {
   return tx.moveInPlan.findUnique({ where: { schoolId: ctx.schoolId } });
 }
 
-export type Expected = { students?: number | null; staff?: number | null; guardians?: number | null };
+/** What the old software says: counts, and money as whole paise in text. */
+export type Expected = { students?: number | null; staff?: number | null; guardians?: number | null } & MoneyExpected;
 
 export async function saveExpected(tx: Tx, ctx: SchoolContext, input: { oldSoftware: string | null; expected: Expected; goLiveDate: Date | null }) {
   const before = await getPlan(tx, ctx);
+  // The go-live date is also the first day of finance records (one date, entered once).
+  if (input.goLiveDate && !before?.wentLiveAt) {
+    const why = await alignGoLive(tx, ctx, input.goLiveDate);
+    if (why) throw new MoveInProblem(why, "goLiveDate");
+  }
+  // Money lines left out of the form (the person may not see fees or finance) keep what was saved.
+  const prev = (before?.expected ?? {}) as Expected;
+  const expected: Expected = { ...input.expected };
+  for (const k of MONEY_KEYS) if (expected[k] === undefined && prev[k] !== undefined) expected[k] = prev[k];
+  input = { ...input, expected };
   const data = { oldSoftware: input.oldSoftware, expected: input.expected as Prisma.InputJsonValue, goLiveDate: input.goLiveDate };
   await tx.moveInPlan.upsert({ where: { schoolId: ctx.schoolId }, create: { schoolId: ctx.schoolId, ...data }, update: data });
   await writeAudit(tx, ctx, { action: before ? "changed" : "created", recordType: "Move-in Plan", recordId: ctx.schoolId, before: before ? { oldSoftware: before.oldSoftware, expected: before.expected, goLiveDate: before.goLiveDate } : undefined, after: { oldSoftware: input.oldSoftware, expected: input.expected, goLiveDate: input.goLiveDate } });
@@ -617,6 +630,9 @@ export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
   const sharedPhones = phonesOfDifferentFamilies(guardians);
   const overFull = [...classMap.values()].flatMap((c) => c.sections.filter((s) => s.students > s.seats).map((s) => `${c.name} ${s.name}`));
   const expected = (plan?.expected ?? {}) as Expected;
+  // The money, as of the go-live date typed here (or the day the school went live).
+  const goLiveDay = plan?.goLiveDate ?? (plan?.wentLiveAt ? new Date(`${plan.wentLiveAt.toISOString().slice(0, 10)}T00:00:00Z`) : null);
+  const money = await moneyTotals(tx, ctx, goLiveDay);
   return {
     year: year ? { id: year.id, name: year.name } : null,
     classes: [...classMap.values()],
@@ -627,6 +643,7 @@ export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
     departments,
     checks: { noRoll, staffNoLogin, sharedPhones, overFull, openFiles, problemBatches },
     expected,
+    money,
     plan,
   };
 }
@@ -682,11 +699,15 @@ export async function goLive(tx: Tx, ctx: SchoolContext) {
   if (stop.length) throw new MoveInProblem(stop[0]);
   if (s.plan?.wentLiveAt) throw new MoveInProblem("Your school is already live on School OS.");
   const today = new Date(new Date().toISOString().slice(0, 10) + "T00:00:00Z");
-  const kept = { students: s.students, staff: s.staff, guardians: s.guardians, families: s.families, classes: s.classes.map((c) => ({ name: c.name, sections: c.sections.map((x) => ({ name: x.name, students: x.students })) })), expected: s.expected };
+  const day = s.plan?.goLiveDate ?? today;
+  // Finance records start the same day, where Finance Settings allows it (else the check keeps saying so).
+  await alignGoLive(tx, ctx, day);
+  const money = s.money.goLive ? s.money : await moneyTotals(tx, ctx, day);
+  const kept = { students: s.students, staff: s.staff, guardians: s.guardians, families: s.families, classes: s.classes.map((c) => ({ name: c.name, sections: c.sections.map((x) => ({ name: x.name, students: x.students })) })), expected: s.expected, money: keptMoney(money) };
   await tx.moveInPlan.upsert({
     where: { schoolId: ctx.schoolId },
-    create: { schoolId: ctx.schoolId, goLiveDate: today, wentLiveAt: new Date(), wentLiveById: ctx.userId, liveSummary: kept },
-    update: { goLiveDate: s.plan?.goLiveDate ?? today, wentLiveAt: new Date(), wentLiveById: ctx.userId, liveSummary: kept },
+    create: { schoolId: ctx.schoolId, goLiveDate: day, wentLiveAt: new Date(), wentLiveById: ctx.userId, liveSummary: kept },
+    update: { goLiveDate: day, wentLiveAt: new Date(), wentLiveById: ctx.userId, liveSummary: kept },
   });
   await writeAudit(tx, ctx, { action: "went-live", recordType: "Move-in Plan", recordId: ctx.schoolId, after: kept });
   return s;

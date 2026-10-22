@@ -201,7 +201,8 @@ export function givenWords(made: { sectionLabel: string; students: number; notif
   const toParents = parents.includes("sent") ? " Parents were messaged."
     : parents.includes("no-channel") || parents.includes("not-sent") ? " Parents were not messaged: no channel can carry it yet (see Communication, Message History)."
       : parents.includes("off") ? " Parents were not messaged: the Homework set message is off (Communication, Message Settings)."
-        : "";
+        : parents.includes("held") ? " Parents were not messaged: automatic messages to parents start when the school goes live on School OS."
+          : "";
   return `Homework sent to ${made.map((m) => m.sectionLabel).join(", ")} (${plural(students, "student")}).${told}${toParents}`;
 }
 

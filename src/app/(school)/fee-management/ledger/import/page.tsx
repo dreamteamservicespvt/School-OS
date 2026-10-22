@@ -2,6 +2,10 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { ModuleImportPage } from "@/components/import/module-import-page";
+import { Card, CardBody, CardHeader } from "@/components/ui/card";
+import { withSchool } from "@/lib/db";
+import { beforeGoLiveView } from "@/lib/fees/before-go-live";
+import { BeforeGoLivePanel } from "./before-go-live";
 import { FeeHead } from "../../_components/fee-head";
 import { BASE, feeGuard, one, type SearchParams } from "../../_lib/page";
 
@@ -20,12 +24,20 @@ export default async function FeeImportPage({ searchParams }: { searchParams: Se
   const p = await feeGuard("ledger");
   if (!p.can.change) redirect(`${BASE}/ledger`);
   const sp = await searchParams;
+  // A school that moved in part way through the year: the plan's months before go-live (workflow 15; G14).
+  const before = await withSchool(p.current.ctx, (tx) => beforeGoLiveView(tx, p.current.ctx));
   return (
     <>
       <FeeHead pageName="Import old dues and receipts" href={`${BASE}/ledger/import`}
         sub={<>Moving from old software or registers: set this year&apos;s fee structures first, then bring in old dues, then this year&apos;s receipts. <Link href={`${BASE}/ledger`} className="font-semibold text-brand hover:underline">Student Fee Ledger</Link></>} />
       <ModuleImportPage current={p.current} keys={["fee-old-dues", "fee-past-receipts"]} initial={one(sp.kind)} base={`${BASE}/ledger/import`} about={ABOUT}
         doneHref={`${BASE}/ledger`} doneLabel="Open Student Fee Ledger" />
+      {before && (
+        <Card className="mt-5">
+          <CardHeader title="Fees due before go-live" description="Months the old software kept. They are never billed twice." />
+          <CardBody><BeforeGoLivePanel view={before} canSettle={p.can.change && p.can.counter("edit-student-fees")} /></CardBody>
+        </Card>
+      )}
     </>
   );
 }

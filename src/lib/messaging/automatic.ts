@@ -9,6 +9,7 @@ import { planMessage, recordSend, type SendInput, type SendResult } from "./send
 import { messageSettings, type BackupType } from "./settings";
 import { ensureReadyTemplates, templateByKey } from "./templates";
 import type { AudienceRule } from "./recipients";
+import { HELD_UNTIL_LIVE, movingIn } from "../move-in/live";
 
 export type RuleDef = {
   key: string;
@@ -79,6 +80,8 @@ export type RuleReady = {
   /** Those channels, in the rule's order. */
   channels: Channel[];
   label: string;
+  /** A parents' rule while the school is still moving in: nothing goes until go-live. */
+  held?: boolean;
 };
 
 /**
@@ -91,6 +94,7 @@ export async function ruleReady(tx: Tx, ctx: SchoolContext, key: string): Promis
   if (!def) throw new Error(`Unknown automatic message rule: ${key}`);
   const state = (await ruleStates(tx, ctx)).find((r) => r.key === def.key)!;
   if (!state.isOn) return { on: false, ready: false, channels: [], label: def.label };
+  if (def.audience === "parents" && (await movingIn(tx, ctx))) return { on: true, ready: false, channels: [], label: def.label, held: true };
   const on = await onChannels(tx, ctx);
   const parents = def.audience === "parents";
   const order: Channel[] = parents ? ["whatsapp", "sms", "email"] : ["app", "whatsapp", "sms", "email"];
@@ -114,13 +118,17 @@ export type AutomaticInput = {
   values?: Record<string, string>;
   perStudent?: Record<string, Record<string, string>>;
   source?: { type: string; id: string } | null;
+  /** A person asked for this copy now (for example "Send the receipt again"): it goes even while the school is moving in. */
+  byHand?: boolean;
 };
 
 export type AutomaticResult =
   | { status: "sent"; result: SendResult; duplicates: number }
   /** No channel could carry it to anyone: kept in Message History as Not sent (result), once per event and person. */
   | { status: "not-sent"; result: SendResult | null; reason: string; duplicates: number }
-  | { status: "off" | "nobody" | "duplicate" | "no-channel"; duplicates: number };
+  | { status: "off" | "nobody" | "duplicate" | "no-channel"; duplicates: number }
+  /** The school is still moving in: automatic messages to parents start on go-live (workflow 15, step 10). */
+  | { status: "held"; reason: string; duplicates: number };
 
 /**
  * Sends one automatic message, if its rule is on. People already sent this
@@ -134,6 +142,8 @@ export type AutomaticResult =
 export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: AutomaticInput): Promise<AutomaticResult> {
   const def = ruleDef(input.rule);
   if (!def) throw new Error(`Unknown automatic message rule: ${input.rule}`);
+  // Nothing reaches a parent by itself before the school goes live; messages to staff carry on.
+  if (def.audience === "parents" && !input.byHand && (await movingIn(tx, ctx))) return { status: "held", reason: HELD_UNTIL_LIVE, duplicates: 0 };
   await ensureReadyTemplates(tx, ctx);
   const state = (await ruleStates(tx, ctx)).find((r) => r.key === def.key)!;
   if (!state.isOn) return { status: "off", duplicates: 0 };

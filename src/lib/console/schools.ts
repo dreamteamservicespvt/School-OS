@@ -327,6 +327,8 @@ export async function addSchool(actor: ConsoleActor, input: AddSchoolInput, now 
     await buildSchool(tx, ctx, {
       code, name, board: input.board, address: city, city, state: input.state, schoolType: input.schoolType, phone: showMobileOrLand(phone),
       email: input.email ?? undefined, groupId: groupId ?? undefined, status: input.startAs, trialEndsOn: trialEndsOn ?? undefined, optionalOn,
+      // Every school starts by moving in (workflow 15): automations wait for Go live.
+      movingIn: true,
     });
     const role = await tx.role.findFirstOrThrow({ where: { schoolId, key: input.adminRole } });
     const got = await adminLogin(tx, existing, { name: input.adminName.trim(), mobile, email: input.adminEmail });

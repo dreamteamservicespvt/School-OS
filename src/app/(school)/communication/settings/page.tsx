@@ -7,6 +7,7 @@ import { formatDate, formatDateTime } from "@/lib/format";
 import { CHANNELS, CHANNEL_LABEL, channelSetups, whatsappIsLive, type Channel } from "@/lib/messaging/channels";
 import { creditBalances } from "@/lib/messaging/credits";
 import { ruleStates } from "@/lib/messaging/automatic";
+import { HELD_WORDS, movingIn } from "@/lib/move-in/live";
 import { BACKUP_TYPES, BACKUP_TYPE_LABEL, messageSettings, QUERY_TYPES } from "@/lib/messaging/settings";
 import { ensureReadyTemplates, templateByKey } from "@/lib/messaging/templates";
 import { OPT_OUT_WAYS } from "@/lib/messaging/optout";
@@ -52,11 +53,13 @@ export default async function MessageSettingsPage() {
       tx.schoolFeature.findMany({ where: { schoolId: ctx.schoolId, featureKey: { in: COMM_FEATURE_LIST.map((f) => f.key) } } }),
       tx.automationLog.findMany({ where: { schoolId: ctx.schoolId }, orderBy: { createdAt: "desc" }, take: 6 }),
     ]);
+    // Workflow 15, step 10: while the school is moving in, rules to parents wait for go-live.
+    const held = await movingIn(tx, ctx);
     const records = await tx.optOutRecord.findMany({ where: { schoolId: ctx.schoolId, guardianId: { in: optedOut.map((g) => g.id) }, action: "opted-out" }, orderBy: { createdAt: "desc" } });
     const versions = await tx.templateVersion.findMany({ where: { schoolId: ctx.schoolId, isCurrent: true, templateId: { in: rules.flatMap((r) => Object.values(r.templateIds)).filter(Boolean) as string[] } }, select: { templateId: true, dltTemplateId: true, whatsappStatus: true, template: { select: { name: true } } } });
     const plTemplate = await templateByKey(tx, ctx, "parent-link", "whatsapp");
     const creators = await tx.userLogin.findMany({ where: { id: { in: groups.map((g) => g.createdById).filter(Boolean) as string[] } }, select: { id: true, displayName: true } });
-    return { rules, settings, owners, topics, optedOut, records, versions, plTemplateId: plTemplate?.id ?? null, groups, creators, balances, used, setups, school, roles, features, runs };
+    return { rules, settings, owners, topics, optedOut, records, versions, plTemplateId: plTemplate?.id ?? null, groups, creators, balances, used, setups, school, roles, features, runs, held };
   });
   const channels = CHANNELS.map((c) => ({ value: c, label: CHANNEL_LABEL[c] }));
   const s = data.settings;
@@ -179,6 +182,7 @@ export default async function MessageSettingsPage() {
 
         <Card id="automatic" className="scroll-mt-20">
           <CardHeader title="Automatic messages" description="When this happens, send this. Each rule sends once per event per person, never twice. Parents who opted out are skipped." icon={Zap} />
+          {data.held && <p className="mx-5 mb-3 rounded-lg bg-surface-2 px-3 py-2 text-[13.5px]">{HELD_WORDS} <Link href="/settings/data-security/switching/check" className="font-semibold text-brand hover:underline">Open the go-live check</Link></p>}
           {groupsOfRules.map((g) => (
             <div key={g.title} className="border-t border-line/70">
               <p className="eyebrow text-ink3 px-5 pt-3">{g.title}</p>

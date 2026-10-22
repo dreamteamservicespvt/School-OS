@@ -57,4 +57,4 @@ export async function sendBirthdayWishes(tx: Tx, ctx: SchoolContext, now = new D
   return sent;
 }
 
-defineSchedule("birthday-wishes", 15, (tx, ctx, now) => sendBirthdayWishes(tx, ctx, now));
+defineSchedule("birthday-wishes", 15, (tx, ctx, now) => sendBirthdayWishes(tx, ctx, now), { heldWhileMovingIn: true });

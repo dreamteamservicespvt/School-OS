@@ -25,9 +25,9 @@ async function schoolToday(tx: Tx, schoolId: string, now: Date) {
 defineSchedule("library-reminders", 24 * 60, async (tx, ctx, now) => {
   if (!(await libraryOn(tx))) return;
   await dailyReminders(tx, ctx, await schoolToday(tx, ctx.schoolId, now));
-});
+}, { heldWhileMovingIn: true });
 
 defineSchedule("library-fee-fines", 6 * 60, async (tx, ctx) => {
   if (!(await libraryOn(tx))) return;
   await syncFeeFines(tx, ctx);
-});
+}, { heldWhileMovingIn: true });

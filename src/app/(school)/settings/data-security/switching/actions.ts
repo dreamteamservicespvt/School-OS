@@ -23,6 +23,9 @@ import {
 import { aiReady } from "@/lib/ai";
 import { aiAllowed } from "@/lib/settings/switch-rules";
 import { suggestColumnsByAi, type AiColumnsResult } from "@/lib/ai/smart-import";
+import { parseRupees } from "@/lib/fees/act";
+import { MoneyProblem } from "@/lib/fees/problem";
+import { MONEY_KEYS, type MoneyExpected } from "@/lib/move-in/money";
 
 const BASE = "/settings/data-security/switching";
 const PAGE = "data-security" as const;
@@ -312,14 +315,33 @@ export async function expectedAction(_prev: FormState, fd: FormData): Promise<Fo
   const { current } = await requireSettingsAction(PAGE, "edit");
   const values = Object.fromEntries([...fd.entries()].filter(([, v]) => typeof v === "string")) as Record<string, string>;
   const errors: Record<string, string> = {};
-  const expected = { students: count(fd.get("students")), staff: count(fd.get("staff")), guardians: count(fd.get("guardians")) };
-  for (const [k, v] of Object.entries(expected)) if (Number.isNaN(v)) errors[k] = "Write a whole number, like 318.";
+  const counts = { students: count(fd.get("students")), staff: count(fd.get("staff")), guardians: count(fd.get("guardians")) };
+  for (const [k, v] of Object.entries(counts)) if (Number.isNaN(v)) errors[k] = "Write a whole number, like 318.";
+  // Money from the old software, in rupees as it shows them ("14,82,300"); kept as whole paise.
+  const money: MoneyExpected = {};
+  for (const key of MONEY_KEYS) {
+    // A line this person may not see is not on their form: it keeps what was saved.
+    if (!fd.has(key)) continue;
+    try {
+      const p = parseRupees(String(fd.get(key) ?? ""), "This", key);
+      money[key] = p === null ? null : String(p);
+    } catch (e) {
+      if (!(e instanceof MoneyProblem)) throw e;
+      errors[key] = "Write an amount in rupees, like 1482300 or 14,82,300.";
+    }
+  }
+  const expected = { ...counts, ...money };
   const oldSoftware = String(fd.get("oldSoftware") ?? "").trim().slice(0, 100) || null;
   const rawDate = String(fd.get("goLiveDate") ?? "");
   const goLiveDate = rawDate ? new Date(`${rawDate}T00:00:00Z`) : null;
   if (rawDate && (!goLiveDate || Number.isNaN(goLiveDate.getTime()))) errors.goLiveDate = "Choose a real date.";
   if (Object.keys(errors).length) return { ok: false, message: "Check the numbers marked below.", errors, values };
-  await withSchool(current.ctx, (tx) => saveExpected(tx, current.ctx, { oldSoftware, expected, goLiveDate }));
+  try {
+    await withSchool(current.ctx, (tx) => saveExpected(tx, current.ctx, { oldSoftware, expected, goLiveDate }));
+  } catch (e) {
+    if (e instanceof MoveInProblem && e.field) return { ok: false, message: "Check the field marked below.", errors: { [e.field]: e.message }, values };
+    throw e;
+  }
   refresh();
   revalidatePath(`${BASE}/check`);
   return { ok: true, message: "Saved. The numbers are compared below." };

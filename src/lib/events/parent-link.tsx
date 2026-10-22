@@ -20,6 +20,7 @@ import { consentForms, forCampus } from "./consent";
 import { albumUrl } from "./settings";
 import { CLOSING, clock, dayOf, isoOf, longDay, timeSpan } from "./words";
 import { makeT } from "../i18n/server";
+import { dayWords } from "../i18n/dates";
 
 type Data = {
   consents: EventConsentCardData[];
@@ -83,6 +84,9 @@ registerSection<Data>({
   description: "The child's PTM slot, coming events and holidays, and shared photos",
   order: 60,
   load: async (tx, ctx, view) => {
+    const t = makeT(view.lang);
+    // Dates in words in the parent's language ("गुरुवार, 22 अक्टूबर"); numbers stay as they are.
+    const day = (iso: string) => dayWords(t, longDay(iso));
     const now = new Date();
     const todayIso = new Intl.DateTimeFormat("en-CA", { timeZone: view.timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
     const today = dayOf(todayIso);
@@ -112,13 +116,13 @@ registerSection<Data>({
     const guardian = asks.length ? await tx.guardian.findUnique({ where: { id: view.guardianId }, select: { phone: true } }) : null;
     const consents: EventConsentCardData[] = asks.map(({ e, answer }) => ({
       eventId: e.id, studentId: childId, child: view.child.firstName, name: e.name, answer,
-      when: [longDay(isoOf(e.date)), timeSpan(e.startMin, e.endMin), e.audienceLabel, e.feePaise ? formatRupees(e.feePaise) : null].filter(Boolean).join(" · "),
+      when: [day(isoOf(e.date)), timeSpan(e.startMin, e.endMin), e.audienceLabel, e.feePaise ? formatRupees(e.feePaise) : null].filter(Boolean).join(" · "),
       details: [
         ...(e.venue ? [e.venue] : []),
         ...(e.description ? [e.description] : []),
-        e.feePaise ? `${formatRupees(e.feePaise)} is added to ${view.child.firstName}’s fees when you say yes. Pay it here like any fee.` : "There is no fee.",
+        e.feePaise ? t("{amount} is added to {child}’s fees when you say yes. Pay it here like any fee.", { amount: formatRupees(e.feePaise), child: view.child.firstName }) : t("There is no fee."),
       ],
-      replyBy: e.consentBy ? longDay(isoOf(e.consentBy)) : null,
+      replyBy: e.consentBy ? day(isoOf(e.consentBy)) : null,
       open: !e.consentBy || isoOf(e.consentBy) >= todayIso,
     }));
 
@@ -134,15 +138,15 @@ registerSection<Data>({
     });
 
     const data: Data = {
-      consents, ptmCards, maskedPhone: guardian?.phone ? maskPhone(guardian.phone) : "your registered mobile",
+      consents, ptmCards, maskedPhone: guardian?.phone ? maskPhone(guardian.phone) : t("your registered mobile"),
       ptm: slots.map((s) => ({
-        id: s.id, when: `${longDay(isoOf(s.ptm.date))}, ${clock(s.startMin)}`,
-        teacher: staff.find((x) => x.id === s.staffId)?.fullName ?? "the teacher",
+        id: s.id, when: `${day(isoOf(s.ptm.date))}, ${clock(s.startMin)}`,
+        teacher: staff.find((x) => x.id === s.staffId)?.fullName ?? t("the teacher"),
         label: labels.find((l) => l.ptmId === s.ptmId && l.staffId === s.staffId)?.label ?? "Teacher", venue: s.ptm.venue,
       })),
-      events: events.filter((e) => !asks.some((a) => a.e.id === e.id)).map((e) => ({ id: e.id, name: e.name, when: `${longDay(isoOf(e.date))}, ${timeSpan(e.startMin, e.endMin)}`, venue: e.venue, registered: reg.has(e.id), fee: e.feePaise ? formatRupees(e.feePaise) : null })),
-      holidays: visible.map((h) => ({ id: h.id, title: h.title, when: isoOf(h.startDate) === isoOf(h.endDate) ? longDay(isoOf(h.startDate)) : `${longDay(isoOf(h.startDate))} to ${longDay(isoOf(h.endDate))}` })),
-      albums: albums.map((a) => ({ id: a.id, name: a.name, when: longDay(isoOf(a.date)), url: albumUrl(a.schoolId, a.id, a.shareVersion) })),
+      events: events.filter((e) => !asks.some((a) => a.e.id === e.id)).map((e) => ({ id: e.id, name: e.name, when: `${day(isoOf(e.date))}, ${timeSpan(e.startMin, e.endMin)}`, venue: e.venue, registered: reg.has(e.id), fee: e.feePaise ? formatRupees(e.feePaise) : null })),
+      holidays: visible.map((h) => ({ id: h.id, title: h.title, when: isoOf(h.startDate) === isoOf(h.endDate) ? day(isoOf(h.startDate)) : t("{from} to {to}", { from: day(isoOf(h.startDate)), to: day(isoOf(h.endDate)) }) })),
+      albums: albums.map((a) => ({ id: a.id, name: a.name, when: day(isoOf(a.date)), url: albumUrl(a.schoolId, a.id, a.shareVersion) })),
     };
     if (!data.consents.length && !data.ptmCards.length && !data.ptm.length && !data.events.length && !data.holidays.length && !data.albums.length) return null;
     return data;

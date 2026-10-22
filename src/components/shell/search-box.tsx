@@ -15,8 +15,10 @@ import type { Quick } from "./nav-config";
 import { readList, recordRecent, storageKey } from "./local-lists";
 import { typedKey } from "./typed-key";
 import { askInWords } from "@/app/(school)/ask/actions";
-import { askHref, closestQuestions, isQuestionKey, looksLikeQuestion, matchIntent, questionTitle, type QuestionKey } from "@/lib/ask/questions";
+import { askHref, closestQuestions, isQuestionKey, looksLikeQuestion, matchIntent, type QuestionKey } from "@/lib/ask/questions";
+import { linkTitleIn, questionTitleIn } from "@/lib/ask/titles";
 import { useT } from "@/lib/i18n/client";
+import { screenMessage } from "@/lib/i18n/messages";
 
 export const OPEN_SEARCH_EVENT = "sos:open-search";
 
@@ -151,13 +153,13 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
       lists.recent.filter((r) => !lists.pinned.some((p) => p.href === r.href)).slice(0, 5).forEach((p) => out.push({ sec: t("Recent"), label: t.any(p.label), href: p.href, icon: I.Clock }));
       shortcuts.filter((s) => !quick.some((x) => x.label === s.label)).forEach((s) => out.push({ sec: t("Shortcuts"), label: t.any(s.label), href: s.href, icon: I.CornerDownRight }));
       // Below the shortcuts: questions for the person's role, each answered from its own list (00-global.md §2).
-      questions.forEach((x) => out.push({ sec: "Questions", label: x.label, href: x.href, icon: I.CircleHelp }));
+      questions.forEach((x) => out.push({ sec: t("Questions"), label: linkTitleIn(t, x.href, x.label), href: x.href, icon: I.CircleHelp }));
       return out;
     }
     // Search by intent (gap list G27): "absent today", "fees due class 5", "late staff" open a ready-made
     // question with its class and dates filled in, answered from the list itself.
     const asked = typed.length >= 3 ? matchIntent(typed, askKeys).slice(0, 3) : [];
-    asked.forEach((m) => out.push({ sec: "Questions", label: m.title, href: m.href, icon: I.CircleHelp }));
+    asked.forEach((m) => out.push({ sec: t("Questions"), label: questionTitleIn(t, m.key, m.params), href: m.href, icon: I.CircleHelp }));
     // "fee Ravi": Collect Fee for each Ravi, first.
     // A label is found by its English words or by its words in the person's language.
     const found = (label: string) => matches(label, typed) || (t.lang !== "en" && matchesOwn(t.any(label), typed));
@@ -170,9 +172,9 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
     pages.filter((p) => found(p.label)).slice(0, 8).forEach((p) => out.push({ sec: t("Pages"), label: t.any(p.label), sub: p.hint ? t.any(p.hint) : t("Open"), href: p.href, icon: I.FileText }));
     // A question no ready-made one matches: the closest ones the person may ask.
     if (!asked.length && askKeys.length && looksLikeQuestion(typed)) {
-      if (ai) out.unshift({ sec: "Ask School OS", label: `Ask: “${typed}”`, sub: "The AI assistant picks the question; the answer comes from your school's lists", href: "#ask", icon: I.Sparkles, run: () => void askAi(typed) });
+      if (ai) out.unshift({ sec: t("Ask School OS"), label: t("Ask: “{text}”", { text: typed }), sub: t("The AI assistant picks the question; the answer comes from your school's lists"), href: "#ask", icon: I.Sparkles, run: () => void askAi(typed) });
       const ready = questions.map((x) => new URLSearchParams(x.href.split("?")[1] ?? "").get("q")).filter(isQuestionKey);
-      closestQuestions(typed, askKeys, ready).forEach((k) => out.push({ sec: "Closest questions", label: questionTitle(k), href: askHref(k), icon: I.CircleHelp }));
+      closestQuestions(typed, askKeys, ready).forEach((k) => out.push({ sec: t("Closest questions"), label: questionTitleIn(t, k), href: askHref(k), icon: I.CircleHelp }));
     }
     return out;
   }, [typed, people, pages, shortcuts, quick, lists, questions, askKeys, ai, askAi, t]);
@@ -204,7 +206,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
         </div>
         <div id="cmdk-list" role="listbox" aria-label={t("Search results")} className="overflow-y-auto scroll-thin p-2 flex-1">
           {problem && <p role="alert" className="mx-3 my-2 rounded-xl bg-bad/10 px-3.5 py-2.5 text-sm text-bad">{problem}</p>}
-          {askNote?.problem && <p role="alert" className="mx-3 my-2 rounded-xl bg-sunken px-3.5 py-2.5 text-sm text-ink2">{askNote.problem}</p>}
+          {askNote?.problem && <p role="alert" className="mx-3 my-2 rounded-xl bg-sunken px-3.5 py-2.5 text-sm text-ink2">{screenMessage(t, askNote.problem)}</p>}
           {typed.length >= 2 && !loading && results.length === 0 && !problem && (
             <div className="text-center py-12 px-6">
               <p className="font-semibold">{t("Nothing found for “{text}”", { text: typed })}</p>

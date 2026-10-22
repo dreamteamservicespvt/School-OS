@@ -2324,7 +2324,9 @@ export const EN = [
   "Attendance in {month}",
   "Colour legend",
   // src/components/attendance/month-select.tsx
+  "Earlier month",
   "Month",
+  "Later month",
   // src/components/auth/auth-frame.tsx
   "Your whole school, in one calm place.",
   "Attendance, fees, students and parents. Everything you need today is on the first screen.",
@@ -2483,6 +2485,9 @@ export const EN = [
   "Shortcuts",
   "Receipts",
   "Pages",
+  "Ask: “{text}”",
+  "The AI assistant picks the question; the answer comes from your school's lists",
+  "Closest questions",
   "Search a student, parent, staff member, receipt or page",
   "Search results",
   "Nothing found for “{text}”",
@@ -2512,6 +2517,30 @@ export const EN = [
   "Please fix {n} things before saving:",
   // src/components/ui/toast.tsx
   "Undo",
+  // src/lib/ask/titles.ts
+  "Class {n}",
+  "Who was absent yesterday in {class}?",
+  "Who was absent yesterday?",
+  "Who is absent today in {class}?",
+  "Who is absent today?",
+  "Who has been absent several days in a row in {class}?",
+  "Who has been absent several days in a row?",
+  "Who is below the attendance line in {class}?",
+  "Who is below the attendance line?",
+  "Which classes have not taken attendance today?",
+  "Which staff came late {when}?",
+  "Which staff are absent {when}?",
+  "Which staff are on leave {when}?",
+  "How much fee was collected {when} in {class}?",
+  "How much fee was collected {when}?",
+  "Who owes {amount} or more in {class}?",
+  "Who owes {amount} or more?",
+  "Who has fees overdue in {class}?",
+  "Who has fees overdue?",
+  "Who is below the pass mark in {class}?",
+  "Which classes have marks below the pass mark?",
+  "Whose birthday is today?",
+  "Whose birthday is coming up this week?",
   // src/lib/attendance/parent-link.tsx
   "Today’s attendance can still change until {time}.",
   // src/lib/events/parent-link.tsx
@@ -2521,9 +2550,13 @@ export const EN = [
   "Fee {amount}, in Fees due",
   "school closed",
   "Photos: {name}",
+  "{amount} is added to {child}’s fees when you say yes. Pay it here like any fee.",
+  "There is no fee.",
+  "your registered mobile",
+  "the teacher",
+  "{from} to {to}",
   // src/lib/exams/parent-link-sections.tsx
   "Exams for {name}",
-  "{from} to {to}",
   "out of {n}",
   "Report cards",
   "published {date}",
@@ -6276,6 +6309,12 @@ export const EN = [
   "Invite link",
   "Welcome to School OS",
   "Principal / Owner",
+  // Ask and dates in words
+  "today",
+  "yesterday",
+  "last week",
+  "this month",
+  "last month",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

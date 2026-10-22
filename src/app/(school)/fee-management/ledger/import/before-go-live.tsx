@@ -10,13 +10,16 @@ import { ConfirmButton } from "@/components/ui/confirm";
 import { settleBeforeGoLiveAction, undoSettleBeforeGoLiveAction } from "./actions";
 
 import type { BeforeGoLiveView } from "@/lib/fees/before-go-live";
+import { GO_LIVE_FORM_ANCHOR, goLiveDateHint, type GoLiveDatePlace } from "@/lib/fees/go-live-date-hint";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
-export function BeforeGoLivePanel({ view, canSettle }: { view: BeforeGoLiveView; canSettle: boolean }) {
+export function BeforeGoLivePanel({ view, canSettle, place = { on: "fee-import" } }: { view: BeforeGoLiveView; canSettle: boolean; place?: GoLiveDatePlace }) {
   const router = useRouter();
   if (!view.goLive) {
-    return <p className="text-ink-2">Type the go-live date on the go-live check (Settings, Data Backup &amp; Security, Switching to School OS) to see the fees due before it.</p>;
+    // On the go-live check the date is typed on the same page; elsewhere, by its path in Settings.
+    const hint = goLiveDateHint(place);
+    return <p className="text-ink-2">{hint.before}{hint.here && <a href={`#${GO_LIVE_FORM_ANCHOR}`} className="font-medium text-brand-text underline">{hint.here}</a>}{hint.after}</p>;
   }
   const { owed, withOldDues: both, settled } = view;
   const run = async (action: (prev: null, fd: FormData) => Promise<{ ok: boolean; message?: string } | null>, scope?: string) => {

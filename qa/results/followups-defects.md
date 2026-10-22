@@ -214,3 +214,22 @@ were checked by reading the code, typecheck and lint.
   update settles and undoes as before; the plain-words counts. tests/move-in/service.test.ts and
   tests/move-in/one-engine.test.ts now expect a file with a row left out to stay part brought in.
 - **Status:** Fixed.
+
+## GOLIVE-01 · P4 · Settings › Switching to School OS › Go-live check · "Fees due before go-live" sends the person to the page they are on
+- **Steps:** Settings › Data Backup & Security › Switching to School OS › Go-live check, with no go-live date typed
+  yet, as a person who sees fees.
+- **Expected:** the card points at the Go-live date field on the same page.
+- **Actual:** the card "Fees due before go-live" said "Type the go-live date on the go-live check (Settings, Data
+  Backup & Security, Switching to School OS) to see the fees due before it." while the person was on that page.
+- **Root cause:** `BeforeGoLivePanel` (src/app/(school)/fee-management/ledger/import/before-go-live.tsx, from gap
+  list G14) is shared by Fee Management › Import old dues and receipts and the go-live check, and had one sentence
+  for both.
+- **Fix:** the panel is told where it is. New src/lib/fees/go-live-date-hint.ts gives the words: on the go-live check
+  "Type the go-live date under What your old software says on this page to see the fees due before it.", with "What
+  your old software says" a link to that card (the card that holds the Go-live date field, now `id="old-software"`).
+  A person who cannot type it there reads "The Principal or School Admin types the go-live date under What your old
+  software says on this page; then the fees due before it show here." Fee Management's Import page keeps the path to
+  the go-live check.
+- **Test:** tests/fees/before-go-live.test.ts, "where to type the go-live date" (1 test): the go-live check's words
+  name the card on this page and not the Settings path; the Fee Management words keep the path.
+- **Status:** Fixed.

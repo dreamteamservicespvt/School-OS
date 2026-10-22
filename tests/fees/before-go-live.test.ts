@@ -97,3 +97,15 @@ describe("late fees after a mid-year start", () => {
     expect(late.map((l) => rupees(l.amountPaise))).toEqual([50, 50, 50]);
   });
 });
+
+describe("where to type the go-live date (QA GOLIVE-01)", () => {
+  it("points at the field on the same page on the go-live check, and at the go-live check elsewhere", async () => {
+    const { goLiveDateHint } = await import("@/lib/fees/go-live-date-hint");
+    const words = (h: ReturnType<typeof goLiveDateHint>) => `${h.before}${h.here ?? ""}${h.after}`;
+    const check = goLiveDateHint({ on: "go-live-check", canType: true });
+    expect(words(check)).toBe("Type the go-live date under What your old software says on this page to see the fees due before it.");
+    expect(words(check)).not.toMatch(/Settings/);
+    expect(words(goLiveDateHint({ on: "go-live-check", canType: false }))).toMatch(/^The Principal or School Admin types the go-live date under What your old software says on this page/);
+    expect(words(goLiveDateHint({ on: "fee-import" }))).toBe("Type the go-live date on the go-live check (Settings, Data Backup & Security, Switching to School OS) to see the fees due before it.");
+  });
+});

@@ -179,6 +179,32 @@ model RetentionRule {
   @@map("retention_rule")
 }
 
+/// One day's retention check (08-platform-security.md §12): the records past
+/// their period, listed for the School Admin's approval, and what was cleared.
+/// Nothing is deleted: personal details are blanked and the record stays.
+model RetentionRun {
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  /// The day the check ran; one row per school per day.
+  runOn       DateTime  @map("run_on") @db.Date
+  /// Past their period, waiting for a yes: { "visitor-entries": { count, before } }.
+  due         Json      @default("{}")
+  /// Working rows cleared without asking: { "one-time-codes": 3, "export-files": 1 }.
+  autoCleared Json      @default("{}") @map("auto_cleared")
+  /// waiting (records listed), cleared (approved and done), nothing-due, or replaced (a newer check listed them again).
+  status      String    @default("nothing-due")
+  /// What the approval cleared: { "visitor-entries": 12 }.
+  cleared     Json      @default("{}")
+  clearedAt   DateTime? @map("cleared_at")
+  clearedById String?   @map("cleared_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+
+  @@unique([schoolId, runOn])
+  @@index([schoolId, createdAt])
+  @@map("retention_run")
+}
+
 /// A request to delete a person's data. Nothing is removed until it is approved.
 model DeletionRequest {
   id          String    @id @default(uuid()) @db.Uuid

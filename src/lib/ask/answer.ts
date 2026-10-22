@@ -10,7 +10,8 @@
 // attendance not taken yet or an exam with no results is said in words.
 import "server-only";
 
-import type { Tx } from "../db";
+import type { SchoolContext, Tx } from "../db";
+import { writeAudit } from "../audit";
 import type { Viewer } from "../dashboard/types";
 import { formatDate, formatRupees, formatTime } from "../format";
 import { yearsFor } from "../academic/years";
@@ -32,7 +33,7 @@ import { readFilters, type PeriodSetupLike } from "../reports/filters";
 import { cellText, reachSections, ReportProblem, runEntry } from "../reports/run";
 import type { Row, Table } from "../reports/types";
 import { loadWidgetsIn, widgetsOpenTo } from "../dashboard/compose";
-import { askHref, classKey, classWords, cleanParams, QUESTION_KEYS, questionTitle, readClass, type AskParams, type AskWhen, type QuestionKey } from "./questions";
+import { askHref, classKey, classWords, cleanParams, QUESTION_KEYS, questionTitle, readClass, type AskParams, type AskVia, type AskWhen, type QuestionKey } from "./questions";
 
 export type AskColumn = { key: string; label: string; right?: boolean };
 export type AskTable = { columns: AskColumn[]; rows: Record<string, string>[] };
@@ -452,4 +453,33 @@ export async function answerQuestion(tx: Tx, who: Viewer, key: QuestionKey, para
     if (e instanceof Error && e.name === "NotYoursError") return refuse(base, OWN_ONLY);
     throw e;
   }
+}
+
+/** How the Audit Log marks a question the AI picked from the person's own words. */
+export const AI_PICKED_NOTE = "question picked by AI from the person's words";
+
+/**
+ * Every Ask question goes in the Audit Log (00-global.md §2.1 rule 6): who
+ * asked which question, with its class, day and amount, how it was reached
+ * (a ready-made question, the word table or the AI), and how many rows the
+ * answer had. Never the words typed and never a value from the answer, so no
+ * name, phone or amount owed reaches the log.
+ */
+export async function logAsk(tx: Tx, ctx: SchoolContext, entry: { key: QuestionKey | null; params?: AskParams; via: AskVia; outcome: "answered" | "refused" | "not-understood"; rows?: number | null }) {
+  const p = entry.key ? cleanParams(entry.key, entry.params ?? {}) : {};
+  return writeAudit(tx, ctx, {
+    action: "ask",
+    recordType: "Ask",
+    after: {
+      question: entry.key ? questionTitle(entry.key, p) : null,
+      key: entry.key,
+      class: p.cls ?? null,
+      when: p.when ?? null,
+      amount: p.amount ?? null,
+      via: entry.via,
+      outcome: entry.outcome,
+      rows: entry.rows ?? null,
+    },
+    actorNote: entry.via === "ai" ? AI_PICKED_NOTE : null,
+  });
 }

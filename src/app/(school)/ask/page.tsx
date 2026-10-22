@@ -5,7 +5,7 @@ import { requireCurrent } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { periodSetup } from "@/lib/period-setup";
 import { aiAllowed } from "@/lib/settings/switch-rules";
-import { answerQuestion, offeredQuestions, readyMadeFor, SHOW_ROWS, type AskAnswer } from "@/lib/ask/answer";
+import { answerQuestion, logAsk, offeredQuestions, readyMadeFor, SHOW_ROWS, type AskAnswer } from "@/lib/ask/answer";
 import { isQuestionKey, isWhen, questionTitle, type AskParams, type AskVia } from "@/lib/ask/questions";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -60,7 +60,12 @@ export default async function AskPage({ searchParams }: Props) {
 
   const params = readAsk(sp);
   const setup = await periodSetup(current);
-  const answer = await withSchool(current.ctx, (tx) => answerQuestion(tx, current, key, params, { now: new Date(), setup }));
+  const answer = await withSchool(current.ctx, async (tx) => {
+    const a = await answerQuestion(tx, current, key, params, { now: new Date(), setup });
+    // Who asked what, never the rows (00-global.md §2.1 rule 6), with the answer it was given.
+    await logAsk(tx, current.ctx, { key, params, via, outcome: a.ok ? "answered" : "refused", rows: a.ok ? a.total : null });
+    return a;
+  });
 
   return (
     <>
@@ -130,7 +135,7 @@ function Answer({ a }: { a: Extract<AskAnswer, { ok: true }> }) {
       )}
       <div className="px-5 py-4 flex flex-wrap items-center gap-3 border-t border-line">
         {a.total > SHOW_ROWS && <p className="text-[13px] text-ink3">Showing the first {SHOW_ROWS} of {a.total.toLocaleString("en-IN")}.</p>}
-        <Link href={a.link.href} className={cx(buttonClass("secondary", "md"), "ml-auto")}>
+        <Link href={a.link.href} prefetch={false} className={cx(buttonClass("secondary", "md"), "ml-auto")}>
           {a.link.label}<ArrowRight size={16} aria-hidden="true" />
         </Link>
       </div>
@@ -153,7 +158,7 @@ function OtherQuestions({ ready, current }: { ready: { key: string; title: strin
       <ul className="px-3 pb-3 flex flex-col">
         {list.map((r) => (
           <li key={r.href}>
-            <Link href={r.href} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14.5px] hover:bg-sunken">
+            <Link href={r.href} prefetch={false} className="flex items-center gap-3 rounded-xl px-3 py-2.5 text-[14.5px] hover:bg-sunken">
               <CircleHelp size={17} className="text-ink3 shrink-0" aria-hidden="true" />
               <span className="flex-1">{r.title}</span>
               <ArrowRight size={15} className="text-ink3" aria-hidden="true" />

@@ -19,7 +19,7 @@ import { runEntry, viewerOf } from "@/lib/reports/run";
 import type { ReportViewer } from "@/lib/reports/types";
 import { todayFor } from "@/lib/periods";
 import { formatRupees } from "@/lib/format";
-import { answerQuestion, offeredQuestions, readyMadeFor, type AskAnswer } from "@/lib/ask/answer";
+import { AI_PICKED_NOTE, answerQuestion, logAsk, offeredQuestions, readyMadeFor, type AskAnswer } from "@/lib/ask/answer";
 import { makeUser } from "../helpers";
 import { collect, dues, makeFeeSchool, R, type FeeSchool } from "../fees/fixture";
 import { accessFor, as, at, d, makeAttendanceSchool, TZ, type Fixture } from "../attendance/fixture";
@@ -285,5 +285,26 @@ describe("ready-made questions per role", () => {
     const teacher = readyMadeFor(await viewer(att.school.id, att.teacherA.id));
     expect(teacher.map((q) => q.key)).toEqual(["absent-today", "absent-streak", "below-attendance", "below-pass", "birthdays"]);
     expect(teacher.every((q) => q.href.startsWith("/ask?q="))).toBe(true);
+  });
+});
+
+describe("every Ask question is logged", () => {
+  it("writes who asked which question, how and how many rows: never a name, a value or the words typed", async () => {
+    const teacherA = await viewer(att.school.id, att.teacherA.id);
+    await withSchool(teacherA.ctx, async (tx) => {
+      const a = await answerQuestion(tx, teacherA, "absent-today", { cls: "5a" }, clock);
+      await logAsk(tx, teacherA.ctx, { key: "absent-today", params: { cls: "5a" }, via: "words", outcome: a.ok ? "answered" : "refused", rows: a.ok ? a.total : null });
+    });
+    const e = await withSchool(teacherA.ctx, (tx) => tx.auditLogEntry.findFirstOrThrow({ where: { action: "ask", userLoginId: att.teacherA.id }, orderBy: { at: "desc" } }));
+    expect(e.recordType).toBe("Ask");
+    expect(e.after).toEqual({ question: "Who is absent today in Class 5 A?", key: "absent-today", class: "5 A", when: "today", amount: null, via: "words", outcome: "answered", rows: 2 });
+    expect(JSON.stringify(e)).not.toMatch(/Aarav|Diya|ADM-0/);
+    expect(e.actorNote).toBeNull();
+
+    // A question the AI could not place is logged too, marked as the AI's, without the words.
+    await withSchool(teacherA.ctx, (tx) => logAsk(tx, teacherA.ctx, { key: null, via: "ai", outcome: "not-understood" }));
+    const n = await withSchool(teacherA.ctx, (tx) => tx.auditLogEntry.findFirstOrThrow({ where: { action: "ask", userLoginId: att.teacherA.id }, orderBy: { at: "desc" } }));
+    expect(n.actorNote).toBe(AI_PICKED_NOTE);
+    expect(n.after).toMatchObject({ question: null, via: "ai", outcome: "not-understood" });
   });
 });

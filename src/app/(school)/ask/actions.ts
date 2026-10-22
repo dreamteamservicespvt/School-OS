@@ -1,9 +1,10 @@
 "use server";
 
 import { requireCurrent } from "@/lib/current";
+import { withSchool } from "@/lib/db";
 import { hitLimit } from "@/lib/rate-limit";
 import { aiAllowed } from "@/lib/settings/switch-rules";
-import { offeredQuestions, readyMadeFor } from "@/lib/ask/answer";
+import { logAsk, offeredQuestions, readyMadeFor } from "@/lib/ask/answer";
 import { aiPickQuestion } from "@/lib/ask/ai";
 import { askHref, closestQuestions, matchIntent, questionTitle } from "@/lib/ask/questions";
 
@@ -32,5 +33,7 @@ export async function askInWords(text: string): Promise<AskInWordsResult> {
   if (!(await hitLimit(`ask-ai:${current.user.id}`, 20, 60)).ok) return { problem: "Too many questions in a minute. Wait a moment, or pick one of these.", closest: closest() };
   const pick = await aiPickQuestion(current.ctx, words, offered);
   if (pick.ok) return { href: askHref(pick.key, pick.params, "ai") };
+  // Asked, but not understood: logged too (never the words).
+  await withSchool(current.ctx, (tx) => logAsk(tx, current.ctx, { key: null, via: "ai", outcome: "not-understood" }));
   return { problem: pick.words, closest: closest() };
 }

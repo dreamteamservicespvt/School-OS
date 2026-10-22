@@ -136,7 +136,7 @@ export default async function DataSecurityPage() {
         </Card>
 
         <Card>
-          <CardHeader title="Security alerts" description="Unusual sign-ins and large exports in the last 30 days." />
+          <CardHeader title="Security alerts" description="Unusual sign-ins, locked pickup code checks and large exports in the last 30 days." />
           <CardBody>
             {data.alerts.length === 0 ? (
               <p className="text-ink-2">Nothing unusual in the last 30 days.</p>

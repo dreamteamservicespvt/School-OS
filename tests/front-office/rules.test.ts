@@ -8,7 +8,8 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { checkOutVisitor, checkPass, registerVisitor, returningVisitor, visitorStatus, type RegisterInput } from "@/lib/front-office/visitors";
-import { pickupStudent, releaseStudent, refusedPickup } from "@/lib/front-office/pickup";
+import { pickupStudent, releaseStudent, refusedPickup, type Released } from "@/lib/front-office/pickup";
+import { KeptRefusal } from "@/lib/front-office/problem";
 import { bookAppointment, dayPlan, setAppointmentStatus } from "@/lib/front-office/appointments";
 import { deskEnquiry, logCall } from "@/lib/front-office/calls";
 import { addWalkIn } from "@/lib/front-office/desk";
@@ -22,6 +23,8 @@ const visitor = (over: Partial<RegisterInput> = {}): RegisterInput => ({
   idProofType: null, idProofNo: null, vehicleNo: null, ...over,
 });
 const TODAY = "2026-10-14";
+/** A release that went through (a wrong code would come back as a KeptRefusal). */
+const released = (r: Released | KeptRefusal) => { if (r instanceof KeptRefusal) throw new Error(r.message); return r; };
 
 describe("Front Office rules", () => {
   let f: FoFixture;
@@ -117,7 +120,7 @@ describe("Front Office rules", () => {
     await expect(withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: true, reason: "" }, { timeZone: TZ, codeCheck: false }))).rejects.toThrow("Choose a reason.");
     await expect(withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: true, reason: "Unwell" }, { timeZone: TZ, codeCheck: true }))).rejects.toThrow("Enter the 4-digit code the guardian received.");
     await expect(withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, code: "1234", photoMatch: true, reason: "Unwell" }, { timeZone: TZ, codeCheck: true }))).rejects.toThrow(/code has expired or was not sent/);
-    const r = await withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: true, reason: "Doctor visit" }, { timeZone: TZ, codeCheck: false }));
+    const r = released(await withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: true, reason: "Doctor visit" }, { timeZone: TZ, codeCheck: false })));
     expect(r.pass).toMatchObject({ kind: "PICKUP", guardianId: f.father.id, collectorName: "Rajesh Sharma", collectorRelation: "Father", verification: "photo", reason: "Doctor visit", status: "ISSUED", sectionLabel: "1 A" });
     expect(r.pass.passNo).toMatch(/^GP-\d{4}-\d{4}$/);
     const audit = await withSchool(desk(), (tx) => tx.auditLogEntry.findFirst({ where: { recordType: "Gate Pass", recordId: r.pass.id } }));
@@ -149,7 +152,7 @@ describe("Front Office rules", () => {
       .rejects.toThrow("No photo of Mohan on record. Check their ID proof, or call a registered parent or guardian.");
     // With the school's code check on, the code is still needed after the ID proof.
     await expect(withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: false, otherCheck: "call" }, { timeZone: TZ, codeCheck: true }))).rejects.toThrow("Enter the 4-digit code the guardian received.");
-    const r = await withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: false, otherCheck: "id-proof" }, { timeZone: TZ, codeCheck: false }));
+    const r = released(await withSchool(desk(), (tx) => releaseStudent(tx, desk(), { ...base, photoMatch: false, otherCheck: "id-proof" }, { timeZone: TZ, codeCheck: false })));
     expect(r.pass).toMatchObject({ kind: "PICKUP", collectorName: "Mohan Pillai", verification: "ID proof" });
   });
 

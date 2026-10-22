@@ -5,8 +5,8 @@
 // Gate Pass of kind Pickup that Gate Security checks before the child leaves.
 import "server-only";
 
-import { createHash, randomInt } from "node:crypto";
-import type { Prisma } from "@prisma/client";
+import { createHash, randomInt, timingSafeEqual } from "node:crypto";
+import type { GatePass, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
@@ -15,7 +15,8 @@ import { currentYearIds } from "../academic/years";
 import { isSchoolDay } from "../calendar/school-days";
 import { findStudents } from "../students/find";
 import { inCampus, type CampusLimit } from "../campus";
-import { FrontOfficeProblem } from "./problem";
+import { FrontOfficeProblem, KeptRefusal } from "./problem";
+import { loginsWithRole } from "./people";
 import { messageVisitor } from "./notify";
 import { channelInTestMode, logCodeSentBy } from "../dev-codes";
 import { CODE_MASK } from "../messaging/one-time-code";
@@ -115,14 +116,62 @@ export async function pickupStudent(tx: Tx, ctx: SchoolContext, studentId: strin
 const hashCode = (id: string, code: string) => createHash("sha256").update(`${id}:${code}`).digest("hex");
 const CODE_MINUTES = 10;
 
+// Guessing a 4-digit code (gap list G04). Each code takes a few wrong tries.
+// Every wrong code is kept (Pickup Code Try) and written to the audit log, in
+// the same transaction, even though the child is not released. Too many wrong
+// codes in an hour for one student (whoever typed them), or typed by one person
+// at the desk (whichever students), lock code checks for an hour: no code is
+// checked, so even the right one is refused until the lock ends. The Principal
+// and School Admins are told at once, and it shows in Security alerts.
+
+/** Wrong tries one code takes before it stops working. */
+export const PICKUP_CODE_TRIES = 5;
+/** Wrong codes in PICKUP_WINDOW_MS that lock code checks, for one student or for one person at the desk (inferred). */
+export const PICKUP_WRONG_LIMIT = 10;
+export const PICKUP_WINDOW_MS = 60 * 60_000;
+/** How long a lock lasts (inferred: 1 hour). */
+export const PICKUP_LOCK_MS = 60 * 60_000;
+
+export type PickupCodeLock = { by: "student" | "person"; until: Date };
+
+/** Whether code checks are locked now for this student, or for this person at the desk; the later end when both. */
+export async function pickupCodeLock(tx: Tx, studentId: string, userId: string | null, now = new Date()): Promise<PickupCodeLock | null> {
+  const rows = await tx.pickupCodeTry.findMany({
+    where: { OR: [{ studentId, studentLockedUntil: { gt: now } }, ...(userId ? [{ enteredById: userId, personLockedUntil: { gt: now } }] : [])] },
+    select: { studentId: true, enteredById: true, studentLockedUntil: true, personLockedUntil: true },
+  });
+  let lock: PickupCodeLock | null = null;
+  for (const r of rows) {
+    const found: PickupCodeLock[] = [];
+    if (r.studentId === studentId && r.studentLockedUntil && r.studentLockedUntil > now) found.push({ by: "student", until: r.studentLockedUntil });
+    if (userId && r.enteredById === userId && r.personLockedUntil && r.personLockedUntil > now) found.push({ by: "person", until: r.personLockedUntil });
+    for (const f of found) if (!lock || f.until > lock.until) lock = f;
+  }
+  return lock;
+}
+
+/** Plain words for a lock, for the desk. */
+export function pickupLockWords(lock: PickupCodeLock, first: string, timeZone: string) {
+  const until = clockAt(lock.until, timeZone);
+  return lock.by === "student"
+    ? `Code checks for ${first} are locked until ${until} after ${PICKUP_WRONG_LIMIT} wrong codes in an hour. Even the right code is not accepted before then. The Principal and School Admins have been told.`
+    : `Your code checks are locked until ${until} after ${PICKUP_WRONG_LIMIT} wrong pickup codes in an hour. Even the right code is not accepted before then. The Principal and School Admins have been told.`;
+}
+
 /** Sends a one-time 4-digit code to the guardian's registered mobile (kept only as a hash). */
 export async function sendPickupCode(tx: Tx, ctx: SchoolContext, studentId: string, guardianId: string, now = new Date()) {
   const link = await tx.studentGuardian.findFirst({ where: { studentId, guardianId, archivedAt: null }, include: { guardian: true, student: { select: { firstName: true } } } });
   if (!link || !link.canPickUp || link.restriction?.trim()) throw new FrontOfficeProblem("This person is not on the student’s pickup list. Call a registered guardian.");
+  // While code checks are locked, no new code goes out: it could not be checked.
+  const lock = await pickupCodeLock(tx, studentId, ctx.userId, now);
+  if (lock) {
+    const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { timeZone: true } });
+    throw new FrontOfficeProblem(pickupLockWords(lock, link.student.firstName, school?.timeZone ?? "Asia/Kolkata"));
+  }
   const recent = await tx.pickupCode.count({ where: { studentId, guardianId, createdAt: { gte: new Date(now.getTime() - CODE_MINUTES * 60_000) } } });
   if (recent >= 3) throw new FrontOfficeProblem("Three codes were already sent in the last 10 minutes. Wait a little, or verify by calling the guardian.");
   const code = String(randomInt(0, 10_000)).padStart(4, "0");
-  const row = await tx.pickupCode.create({ data: { schoolId: ctx.schoolId, studentId, guardianId, codeHash: "pending", expiresAt: new Date(now.getTime() + CODE_MINUTES * 60_000) } });
+  const row = await tx.pickupCode.create({ data: { schoolId: ctx.schoolId, studentId, guardianId, codeHash: "pending", createdAt: now, expiresAt: new Date(now.getTime() + CODE_MINUTES * 60_000) } });
   await tx.pickupCode.update({ where: { id: row.id }, data: { codeHash: hashCode(row.id, code) } });
   const sent = await messageVisitor(tx, ctx, {
     to: { name: link.guardian.name, phone: link.guardian.phone }, trigger: "Pickup code",
@@ -139,22 +188,76 @@ export async function sendPickupCode(tx: Tx, ctx: SchoolContext, studentId: stri
   return { to: maskPhone(link.guardian.phone), channel: sent.channel, testMode: await channelInTestMode(tx, ctx, sent.channel), inLog };
 }
 
-async function checkCode(tx: Tx, studentId: string, guardianId: string, code: string, now: Date) {
-  if (!/^\d{4}$/.test(code)) throw new FrontOfficeProblem("Enter the 4-digit code the guardian received.", "code");
+/**
+ * Checks the code the person collecting reads out. A right code is used up and
+ * gives null. A wrong one is counted on the code, kept as a Pickup Code Try and
+ * written to the audit log, and may start a lock; the words for the desk come
+ * back to be returned as a KeptRefusal, so all of that is saved.
+ */
+async function checkCode(tx: Tx, ctx: SchoolContext, who: PickupWho, code: string, timeZone: string, now: Date): Promise<string | null> {
+  const { studentId, guardianId } = who;
+  const lock = await pickupCodeLock(tx, studentId, ctx.userId, now);
+  if (lock) {
+    await writeAudit(tx, ctx, { action: "pickup-code-refused-locked", recordType: "Student", recordId: studentId, after: { guardianId, lockedFor: lock.by, lockedUntil: lock.until.toISOString() } });
+    return pickupLockWords(lock, who.first, timeZone);
+  }
   const row = await tx.pickupCode.findFirst({ where: { studentId, guardianId, usedAt: null, expiresAt: { gt: now } }, orderBy: { createdAt: "desc" } });
   if (!row) throw new FrontOfficeProblem("The code has expired or was not sent. Send a new code.", "code");
-  if (row.attempts >= 5) throw new FrontOfficeProblem("Too many wrong codes. Send a new code, or call the guardian.", "code");
-  if (row.codeHash !== hashCode(row.id, code)) {
-    await tx.pickupCode.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } });
-    throw new FrontOfficeProblem("That code is not right. Ask them to read it again.", "code");
+  if (row.attempts >= PICKUP_CODE_TRIES) throw new FrontOfficeProblem("Too many wrong codes. Send a new code, or call the guardian.", "code");
+  const stored = Buffer.from(row.codeHash);
+  const typed = Buffer.from(hashCode(row.id, code));
+  if (stored.length === typed.length && timingSafeEqual(stored, typed)) {
+    // Used once only: marking it used succeeds for just one request.
+    const claimed = await tx.pickupCode.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: now } });
+    if (claimed.count !== 1) throw new FrontOfficeProblem("This code was already used. Send a new code.", "code");
+    return null;
   }
-  await tx.pickupCode.update({ where: { id: row.id }, data: { usedAt: now } });
+
+  // A wrong code: counted on the code in one statement, so two tries at once cannot both slip through.
+  const counted = await tx.pickupCode.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } });
+  const since = new Date(now.getTime() - PICKUP_WINDOW_MS);
+  const [forStudent, byPerson] = await Promise.all([
+    tx.pickupCodeTry.count({ where: { studentId, at: { gt: since } } }),
+    ctx.userId ? tx.pickupCodeTry.count({ where: { enteredById: ctx.userId, at: { gt: since } } }) : Promise.resolve(0),
+  ]);
+  const until = new Date(now.getTime() + PICKUP_LOCK_MS);
+  const lockStudent = forStudent + 1 >= PICKUP_WRONG_LIMIT;
+  const lockPerson = Boolean(ctx.userId) && byPerson + 1 >= PICKUP_WRONG_LIMIT;
+  await tx.pickupCodeTry.create({
+    data: { schoolId: ctx.schoolId, studentId, guardianId, pickupCodeId: row.id, enteredById: ctx.userId, at: now, studentLockedUntil: lockStudent ? until : null, personLockedUntil: lockPerson ? until : null },
+  });
+  const left = Math.max(0, PICKUP_CODE_TRIES - counted.attempts);
+  await writeAudit(tx, ctx, { action: "pickup-code-wrong", recordType: "Student", recordId: studentId, after: { guardianId, triesLeftOnCode: left, wrongForStudentInHour: forStudent + 1, ...(ctx.userId ? { wrongByPersonInHour: byPerson + 1 } : {}) } });
+  if (lockStudent || lockPerson) {
+    const lockFor: PickupCodeLock["by"] = lockStudent ? "student" : "person";
+    await writeAudit(tx, ctx, { action: "pickup-code-locked", recordType: "Student", recordId: studentId, after: { guardianId, lockedFor: lockStudent && lockPerson ? "student and person" : lockFor, lockedUntil: until.toISOString(), wrongCodes: PICKUP_WRONG_LIMIT } });
+    await tellLeaders(tx, ctx, who, { lockStudent, until, timeZone, now });
+    return pickupLockWords({ by: lockFor, until }, who.first, timeZone);
+  }
+  if (left <= 0) return `That code is not right, and after ${PICKUP_CODE_TRIES} wrong tries it no longer works. Send a new code, or call the guardian.`;
+  return `That code is not right. Ask them to read it again. ${left} more ${left === 1 ? "try" : "tries"} for this code.`;
+}
+
+type PickupWho = { studentId: string; first: string; name: string; classSection: string | null; guardianId: string };
+
+/** The Principal and every School Admin are told when code checks lock, with who typed the wrong codes; it opens Security alerts. */
+async function tellLeaders(tx: Tx, ctx: SchoolContext, who: PickupWho, opts: { lockStudent: boolean; until: Date; timeZone: string; now: Date }) {
+  const typedBy = ctx.userId ? (await tx.userLogin.findUnique({ where: { id: ctx.userId }, select: { displayName: true } }))?.displayName ?? null : null;
+  const student = `${who.name}${who.classSection ? ` (${who.classSection})` : ""}`;
+  const until = clockAt(opts.until, opts.timeZone);
+  const what = opts.lockStudent
+    ? `Pickup code checks for ${student} are locked until ${until} after ${PICKUP_WRONG_LIMIT} wrong codes in an hour${typedBy ? `, the last typed by ${typedBy}` : ""}.`
+    : `${typedBy ?? "A person at the desk"} typed ${PICKUP_WRONG_LIMIT} wrong pickup codes in an hour, the last for ${student}. Their code checks are locked until ${until}.`;
+  const to = new Set([...(await loginsWithRole(tx, ctx, "principal")), ...(await loginsWithRole(tx, ctx, "school-admin"))]);
+  for (const person of to) {
+    await notify(tx, ctx, { to: person, type: "security", text: `${what} Check with the front desk that the right person is collecting.`, link: "/settings/data-security" }, opts.now);
+  }
 }
 
 export type ReleaseInput = { studentId: string; guardianId: string; photoMatch: boolean; otherCheck?: NoPhotoCheck | null; code: string | null; reason: string; otherReason: string | null; minute: number | null };
 
 /** Releases a student to a person on the approved list and makes the Pickup gate pass (16 Done when 3, 4, 12). */
-export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseInput, opts: { timeZone: string; codeCheck: boolean; now?: Date }) {
+export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseInput, opts: { timeZone: string; codeCheck: boolean; now?: Date }): Promise<Released | KeptRefusal> {
   const now = opts.now ?? new Date();
   const day = todayIso(opts.timeZone, now);
   const today = new Date(`${day}T00:00:00Z`);
@@ -174,7 +277,9 @@ export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseI
     if (!input.otherCheck) throw new FrontOfficeProblem(`No photo of ${first} on record. Check their ID proof, or call a registered parent or guardian.`, "photoMatch");
     checks.push(NO_PHOTO_CHECKS[input.otherCheck]);
   }
-  if (opts.codeCheck) await checkCode(tx, input.studentId, input.guardianId, (input.code ?? "").trim(), now);
+  // The code's form first; the code itself is checked last, once everything else is right.
+  const code = (input.code ?? "").trim();
+  if (opts.codeCheck && !/^\d{4}$/.test(code)) throw new FrontOfficeProblem("Enter the 4-digit code the guardian received.", "code");
   let reason = input.reason;
   if (!(PICKUP_REASONS as readonly string[]).includes(reason)) throw new FrontOfficeProblem("Choose a reason.", "reason");
   if (reason === "Other") {
@@ -189,6 +294,10 @@ export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseI
   }
   const open = await tx.gatePass.findFirst({ where: { studentId: input.studentId, kind: "PICKUP", status: "ISSUED", archivedAt: null, timeOut: { gte: instantOf(day, 0, opts.timeZone) } } });
   if (open) throw new FrontOfficeProblem(`${info.student.first} already has gate pass ${open.passNo} waiting at the gate.`);
+  if (opts.codeCheck) {
+    const refused = await checkCode(tx, ctx, { studentId: input.studentId, first: info.student.first, name: info.student.name, classSection: info.student.classSection, guardianId: person.guardianId }, code, opts.timeZone, now);
+    if (refused) return new KeptRefusal(refused, "code");
+  }
   const passNo = formatNumber(`GP-${day.slice(0, 4)}-`, await nextNumber(tx, ctx, `gate-pass-${day.slice(0, 4)}`), 4);
   if (opts.codeCheck) checks.push("code");
   const verification = checks.join(", ");
@@ -212,6 +321,12 @@ export async function releaseStudent(tx: Tx, ctx: SchoolContext, input: ReleaseI
   });
   return { pass, student: info.student, person, classTeacher: info.classTeacher };
 }
+export type Released = {
+  pass: GatePass;
+  student: NonNullable<Awaited<ReturnType<typeof pickupStudent>>>["student"];
+  person: PickupPerson;
+  classTeacher: string | null;
+};
 
 /** Gate Security lets the child out on a checked pass: recorded in the gate log. */
 export async function letOut(tx: Tx, ctx: SchoolContext, gatePassId: string, opts: { timeZone: string; now?: Date }) {

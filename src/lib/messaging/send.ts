@@ -24,6 +24,7 @@ import { blanksFor, unknownBlankWords, type BlankAudience } from "./blanks";
 import { inTestMode } from "./providers";
 import { countWithReason } from "./skip-words";
 import { BACKUP_TYPES, type BackupType } from "./settings";
+import { CODE_MASK, codeSenderWords, hasCode, ONE_TIME_CODE, sealCode, withCode, type OneTimeCode } from "./one-time-code";
 
 export const MAX_TEXT = 1000;
 export const DELIVER_JOB = "messaging:deliver";
@@ -59,6 +60,12 @@ export type SendInput = {
   backupTemplateId?: string | null;
   /** Emergency broadcasts reach people who opted out. */
   emergency?: boolean;
+  /**
+   * A one-time code (QA SEC-01): the {code} blank is kept as "••••••" and the code goes
+   * only to the provider. A required system message: it reaches people who opted out,
+   * is never resent, has no sender and is not an emergency broadcast (./one-time-code.ts).
+   */
+  oneTimeCode?: OneTimeCode | null;
   scheduledAt?: Date | null;
   /** How far the sender may reach. Software-made messages reach the whole school. */
   scope?: Scope;
@@ -443,7 +450,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   for (const c of candidates) {
     if (input.exclude?.(c.key)) continue;
     if (!c.inScope) { addSkip(skipped, "Outside your classes", c.name, c.key); continue; }
-    if (c.optedOut && !input.emergency) { addSkip(skipped, "Opted out of messages", c.name, c.key); continue; }
+    if (c.optedOut && !input.emergency && !input.oneTimeCode) { addSkip(skipped, "Opted out of messages", c.name, c.key); continue; }
     const kind = c.type === "guardian" ? "guardian" : "staff";
     // One message per student when each student has their own values (fee due, absent today).
     const split = c.type === "guardian" && input.perStudent ? c.students.filter((s) => input.perStudent![s.id]) : null;
@@ -459,6 +466,8 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
         ...(input.values ?? {}),
         ...(studentId ? input.perStudent![studentId] : c.students.length === 1 && input.perStudent?.[c.students[0].id] ? input.perStudent[c.students[0].id] : {}),
         ...(input.perPerson?.[c.id] ?? {}),
+        // The code itself is never in a stored text or blank: only the mask is.
+        ...(input.oneTimeCode ? { code: CODE_MASK } : {}),
       };
       const rowKey = studentId ? `${c.key}:${studentId}` : c.key;
       const whys: string[] = [];
@@ -514,7 +523,8 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
           title: t && t.ok ? t.text : rowTitle,
           text: f.text,
           values: f.values,
-          credits: creditsFor(ch, f.text),
+          // Counted on the words as sent: the mask would make an SMS look like Unicode.
+          credits: creditsFor(ch, input.oneTimeCode ? withCode(f.text, input.oneTimeCode.code) : f.text),
           source: src,
         };
       };
@@ -633,8 +643,15 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
   if (short && (input.onNoCredits ?? "block") === "block") throw new MessagingProblem(short);
   const failForCredits = Boolean(short);
 
+  const code = input.oneTimeCode ?? null;
+  // Guard (QA SEC-01): a one-time code is never written into a message, whoever built the plan.
+  if (code) {
+    const stored = [input.text ?? "", input.title ?? "", ...plan.rows.flatMap((r) => [r.text, r.title ?? "", JSON.stringify(r.values)]), ...notSent.flatMap((n) => [n.text, JSON.stringify(n.values)])];
+    if (stored.some((t) => hasCode(t, code.code))) throw new Error("A one-time code must never be stored in a message. Put CODE_MASK in the text and pass the code as oneTimeCode.");
+  }
+
   const now = new Date();
-  const scheduled = sending && Boolean(input.scheduledAt && input.scheduledAt.getTime() > now.getTime() + 30_000);
+  const scheduled = sending && !code && Boolean(input.scheduledAt && input.scheduledAt.getTime() > now.getTime() + 30_000);
   const first = plan.rows[0];
   const message = await tx.message.create({
     data: {
@@ -651,11 +668,12 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
       creditCost: Object.values(plan.charged).reduce((a, b) => a + (b ?? 0), 0),
       status: !sending ? "SENT" : scheduled ? "SCHEDULED" : "QUEUED",
       sentAt: sending ? null : now,
-      isEmergency: Boolean(input.emergency),
-      messageType: input.messageType ?? "general",
+      isEmergency: Boolean(input.emergency) && !code,
+      messageType: code ? ONE_TIME_CODE : input.messageType ?? "general",
       smsBackup: Boolean(plan.backupTemplateId),
       backupTemplateId: plan.backupTemplateId,
-      sentById: input.ruleKey ? null : ctx.userId,
+      // A code is sent by School OS, not by the person who asked for it.
+      sentById: input.ruleKey || code ? null : ctx.userId,
       ruleKey: input.ruleKey ?? null,
       trigger: input.trigger ?? null,
       sourceType: input.source?.type ?? null,
@@ -691,6 +709,8 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
           templateVersionId: r.version?.id ?? null,
           values: r.values,
           text: r.text,
+          // Only until the delivery job hands it to the provider.
+          sealedCode: code && !noCredits ? sealCode(code.code) : null,
           status: noCredits ? "FAILED" as const : "QUEUED" as const,
           failReason: noCredits ? "Not enough credits when it was sent. Top up and retry." : null,
           failedAt: noCredits ? now : null,
@@ -724,11 +744,13 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
   }
   if (sending) await enqueue(tx, ctx, DELIVER_JOB, `deliver:${message.id}:0:0`, { messageId: message.id, round: "0", chunk: 0 }, scheduled ? input.scheduledAt! : now);
   await writeAudit(tx, ctx, {
-    action: scheduled ? "scheduled-message" : input.emergency ? "sent-emergency-broadcast" : "sent-message",
+    action: code ? "one-time-code-sent" : scheduled ? "scheduled-message" : input.emergency ? "sent-emergency-broadcast" : "sent-message",
     recordType: "Message",
     recordId: message.id,
-    actorNote: input.ruleKey ? `Automatic rule: ${input.ruleKey}` : null,
-    after: { to: plan.audienceLabel, people: plan.people, notSent: notSent.length, channels: plan.channels, credits: message.creditCost, scheduledAt: scheduled ? input.scheduledAt!.toISOString() : null },
+    actorNote: input.ruleKey ? `Automatic rule: ${input.ruleKey}` : code ? codeSenderWords(code.purpose) : null,
+    after: code
+      ? { purpose: input.trigger ?? code.purpose, to: plan.audienceLabel, channels: plan.channels, credits: message.creditCost, code: "hidden" }
+      : { to: plan.audienceLabel, people: plan.people, notSent: notSent.length, channels: plan.channels, credits: message.creditCost, scheduledAt: scheduled ? input.scheduledAt!.toISOString() : null },
   });
   return { messageId: message.id, queued: plan.rows.length, people: plan.people, skipped: plan.skipped, cost: plan.charged, scheduled, repeated: false, notSent: notSent.length };
 }

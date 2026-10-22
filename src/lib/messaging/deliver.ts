@@ -21,6 +21,7 @@ import { messageSettings, type BackupType } from "./settings";
 import { currentVersions, render } from "./templates";
 import { linksIn, withRealLinks } from "../parent-link/token";
 import { logTestModeLink, testModeCarriesCodes } from "../dev-codes";
+import { CODE_EXPIRED, CODE_NOT_RESENT, CODE_SEND_WINDOW_MS, isCodeMessage, unsealCode, withCode } from "./one-time-code";
 
 /** Stop starting new sends after this long, so a job always finishes within its transaction time. */
 const RUN_BUDGET_MS = 6_000;
@@ -34,7 +35,7 @@ const RANK: Record<DeliveryStatus, number> = { QUEUED: 0, SENDING: 1, SENT: 2, D
 type HistoryLine = { at: string; status: string; note?: string | null };
 const historyWith = (h: unknown, line: HistoryLine) => [...((Array.isArray(h) ? h : []) as HistoryLine[]), line].slice(-30) as unknown as Prisma.InputJsonValue;
 
-type Claimed = Prisma.MessageRecipientGetPayload<{ include: { message: { select: { title: true; attachmentFileIds: true } } } }>;
+type Claimed = Prisma.MessageRecipientGetPayload<{ include: { message: { select: { title: true; attachmentFileIds: true; messageType: true } } } }>;
 
 type Context = {
   providers: Partial<Record<ProviderChannel, Provider>>;
@@ -53,17 +54,18 @@ async function loadContext(ctx: SchoolContext): Promise<Context> {
   });
 }
 
-async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context): Promise<Outgoing> {
+/** code: a one-time code, put in only now, for the provider (QA SEC-01). */
+async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context, code: string | null): Promise<Outgoing> {
   let v = r.templateVersionId ? c.versions.get(r.templateVersionId) : undefined;
   if (r.templateVersionId && !v) {
     const row = await tx.templateVersion.findUnique({ where: { id: r.templateVersionId }, select: { whatsappName: true, whatsappStatus: true, variables: true, dltTemplateId: true } });
     if (row) { v = row; c.versions.set(r.templateVersionId, row); }
   }
   const values = (r.values ?? {}) as Record<string, string>;
-  const out: Outgoing = { channel: r.channel as Outgoing["channel"], to: r.address, text: withRealLinks(r.text), subject: r.message.title };
+  const out: Outgoing = { channel: r.channel as Outgoing["channel"], to: r.address, text: withCode(withRealLinks(r.text), code), subject: r.message.title };
   if (r.channel === "sms") Object.assign(out, { dltTemplateId: v?.dltTemplateId ?? null, dltEntityId: c.dlt.entityId, senderHeader: c.dlt.header });
   if (r.channel === "whatsapp" && v?.whatsappStatus === "APPROVED" && v.whatsappName) {
-    out.whatsappTemplate = { name: v.whatsappName, language: r.language, params: v.variables.map((k) => withRealLinks(values[k] ?? "")) };
+    out.whatsappTemplate = { name: v.whatsappName, language: r.language, params: v.variables.map((k) => withCode(withRealLinks(values[k] ?? ""), code)) };
   }
   if (r.channel === "email" && r.message.attachmentFileIds.length) {
     let files = c.attachments.get(r.messageId);
@@ -123,20 +125,28 @@ export async function deliverMessage(tx: Tx, ctx: SchoolContext, payload: { mess
   while (Date.now() - started < RUN_BUDGET_MS) {
     // 1. Claim a batch and save the claim before calling anyone.
     const batch = await withSchool(ctx, async (t) => {
-      const rows = await t.messageRecipient.findMany({ where: { messageId: msg.id, status: "QUEUED" }, take: BATCH, orderBy: { queuedAt: "asc" }, include: { message: { select: { title: true, attachmentFileIds: true } } } });
+      const rows = await t.messageRecipient.findMany({ where: { messageId: msg.id, status: "QUEUED" }, take: BATCH, orderBy: { queuedAt: "asc" }, include: { message: { select: { title: true, attachmentFileIds: true, messageType: true } } } });
       const now = new Date();
       const mine: Claimed[] = [];
       for (const r of rows) {
-        const got = await t.messageRecipient.updateMany({ where: { id: r.id, status: "QUEUED" }, data: { status: "SENDING", lockedAt: now, attempts: { increment: 1 } } });
+        // A one-time code is cleared as it is picked up: it goes to the provider once, and is never kept (QA SEC-01).
+        const got = await t.messageRecipient.updateMany({ where: { id: r.id, status: "QUEUED" }, data: { status: "SENDING", lockedAt: now, attempts: { increment: 1 }, sealedCode: null } });
         if (got.count === 1) mine.push(r);
       }
       return mine;
     });
     if (batch.length === 0) break;
 
-    // 2. Call the providers, outside any transaction.
-    const prepared = await withSchool(ctx, async (t) => Promise.all(batch.map(async (r) => ({ r, out: r.channel === "app" ? null : await outgoingFor(t, ctx, r, c) }))));
-    const results = await inPool(prepared, IN_FLIGHT, async ({ r, out }): Promise<SendResult> => {
+    // 2. Call the providers, outside any transaction. A one-time code that was already
+    // picked up once, or is older than its 10 minutes, is not sent: the person asks for a new one.
+    const prepared = await withSchool(ctx, async (t) => Promise.all(batch.map(async (r) => {
+      const isCode = isCodeMessage(r.message);
+      const code = isCode ? unsealCode(r.sealedCode) : null;
+      const refuse = !isCode ? null : !code ? CODE_NOT_RESENT : Date.now() - r.queuedAt.getTime() > CODE_SEND_WINDOW_MS ? CODE_EXPIRED : null;
+      return { r, isCode, refuse, out: r.channel === "app" || refuse ? null : await outgoingFor(t, ctx, r, c, code) };
+    })));
+    const results = await inPool(prepared, IN_FLIGHT, async ({ r, out, refuse }): Promise<SendResult> => {
+      if (refuse) return { ok: false, retryable: false, reason: refuse };
       if (!out) return { ok: true, providerMessageId: `app-${r.id}`, status: "DELIVERED" };
       const provider = c.providers[r.channel as ProviderChannel];
       if (!provider) return { ok: false, retryable: false, reason: `${CHANNEL_LABEL[r.channel as Channel] ?? r.channel} is not connected.` };
@@ -153,7 +163,7 @@ export async function deliverMessage(tx: Tx, ctx: SchoolContext, payload: { mess
     await withSchool(ctx, async (t) => {
       const now = new Date();
       for (let i = 0; i < prepared.length; i++) {
-        const { r } = prepared[i];
+        const { r, isCode } = prepared[i];
         const res = results[i];
         if (res.ok) {
           sent++;
@@ -183,7 +193,7 @@ export async function deliverMessage(tx: Tx, ctx: SchoolContext, payload: { mess
               link: "/messages",
             });
           }
-        } else if (res.retryable && r.attempts < 3) {
+        } else if (res.retryable && r.attempts < 3 && !isCode) {
           await t.messageRecipient.update({ where: { id: r.id }, data: { status: "QUEUED", lockedAt: null, failReason: res.reason, history: historyWith(r.history, { at: now.toISOString(), status: "QUEUED", note: res.reason }) } });
         } else {
           failed++;
@@ -293,6 +303,9 @@ export async function cancelScheduled(tx: Tx, ctx: SchoolContext, messageId: str
  */
 export async function retryableFailures(tx: Tx, ctx: SchoolContext, messageId: string) {
   const { retryLimit } = await messageSettings(tx, ctx);
+  // A one-time code is never sent again (QA SEC-01).
+  const m = await tx.message.findUnique({ where: { id: messageId }, select: { messageType: true } });
+  if (m && isCodeMessage(m)) return { retryLimit, rows: [], overLimit: 0, notSent: 0 };
   const rows = await tx.messageRecipient.findMany({ where: { messageId, status: "FAILED", NOT: [{ failReason: CANCELLED_REASON }, { failReason: { startsWith: NOT_SENT } }] } });
   const notSent = await tx.messageRecipient.count({ where: { messageId, status: "FAILED", failReason: { startsWith: NOT_SENT } } });
   return { retryLimit, rows: rows.filter((r) => r.attempts <= retryLimit), overLimit: rows.filter((r) => r.attempts > retryLimit).length, notSent };
@@ -302,6 +315,7 @@ export async function retryableFailures(tx: Tx, ctx: SchoolContext, messageId: s
 export async function retryFailed(tx: Tx, ctx: SchoolContext, messageId: string) {
   const msg = await tx.message.findUnique({ where: { id: messageId } });
   if (!msg || msg.status === "CANCELLED") throw new MessagingProblem("This message was cancelled, so it cannot be retried.");
+  if (isCodeMessage(msg)) throw new MessagingProblem(CODE_NOT_RESENT);
   const { rows, retryLimit } = await retryableFailures(tx, ctx, messageId);
   if (rows.length === 0) throw new MessagingProblem(`Nothing to retry. Failed messages can be retried up to ${retryLimit} times (Message Settings). People who were not sent it can be resent by another channel.`);
   // A channel in test mode sends nothing and uses no credits.

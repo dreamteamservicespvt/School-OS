@@ -37,7 +37,7 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
     const [history, kids, records, requests, setups, newer] = await Promise.all([
       linkHistory(tx, ctx, ids),
       childrenByGuardian(tx, ctx, [guardian.id], campusId),
-      tx.consentRecord.findMany({ where: { schoolId: ctx.schoolId, guardianId: guardian.id }, orderBy: { givenAt: "desc" } }),
+      tx.consentRecord.findMany({ where: { schoolId: ctx.schoolId, guardianId: guardian.id, archivedAt: null }, orderBy: { givenAt: "desc" } }),
       tx.consentRequest.findMany({ where: { schoolId: ctx.schoolId, guardianIds: { has: guardian.id } }, orderBy: { createdAt: "desc" } }),
       channelSetups(tx, ctx),
       link.replacedById ? tx.parentLink.findFirst({ where: { id: link.replacedById }, select: { id: true } }) : null,
@@ -110,7 +110,7 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
                 ))}
                 {data.records.map((c) => (
                   <li key={c.id} className="flex items-center justify-between gap-3 rounded-xl border border-line px-3 py-2.5">
-                    <span>{title(c.consentTextId)?.title ?? consentTypeLabel(c.consentType)} v{c.textVersion} · {data.students.find((s) => s.id === c.studentId)?.fullName ?? "Child"}<span className="block text-[12.5px] text-ink3">{c.withdrawnAt ? `Withdrawn ${formatDateTime(c.withdrawnAt, tz)}` : `Given ${formatDateTime(c.givenAt, tz)} · ${c.how}`}</span></span>
+                    <span>{title(c.consentTextId)?.title ?? consentTypeLabel(c.consentType)} v{c.textVersion} · {data.students.find((s) => s.id === c.studentId)?.fullName ?? "Child"}<span className="block text-[12.5px] text-ink3">{c.refused ? `Refused on a paper form dated ${formatDate(c.givenAt, "UTC")}` : c.withdrawnAt ? `Withdrawn ${formatDateTime(c.withdrawnAt, tz)}` : c.how === "paper-form" ? `Given on a paper form dated ${formatDate(c.givenAt, "UTC")}` : `Given ${formatDateTime(c.givenAt, tz)} · ${c.how}`}</span></span>
                     <Pill tone={c.withdrawnAt ? "neutral" : "ok"}>{c.withdrawnAt ? "Withdrawn" : "Given"}</Pill>
                   </li>
                 ))}

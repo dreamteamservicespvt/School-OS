@@ -511,12 +511,18 @@ model ConsentRecord {
   consentTextId String    @map("consent_text_id") @db.Uuid
   textVersion   Int       @map("text_version")
   givenAt       DateTime  @default(now()) @map("given_at")
-  /// admission-form, parent-link or office.
+  /// admission-form, parent-link, office or paper-form (a signed paper form the office recorded; gap list G42).
   how           String
   parentLinkId  String?   @map("parent_link_id") @db.Uuid
   withdrawnAt   DateTime? @map("withdrawn_at")
   withdrawnHow  String?   @map("withdrawn_how")
+  /// The guardian said no on a paper form: kept as an answer, never a consent (withdrawnAt is the same day, so it never stands).
+  refused       Boolean   @default(false)
   createdById   String?   @map("created_by_id") @db.Uuid
+  /// When the record was made (empty for records made before 23 October 2026). For a paper form, givenAt is the date on the form.
+  createdAt     DateTime? @default(now()) @map("created_at")
+  /// Undo of a paper-form import: the record is kept, archived, and no longer counts.
+  archivedAt    DateTime? @map("archived_at")
 
   @@index([schoolId, guardianId, consentType])
   @@index([schoolId, studentId, consentType])

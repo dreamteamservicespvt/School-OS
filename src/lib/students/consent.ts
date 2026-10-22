@@ -13,8 +13,9 @@ import { StudentProblem } from "./students";
 import { CONSENT_TYPES } from "./labels";
 import { OPEN_LINK } from "./guardian-access";
 
-export type ConsentState = "GIVEN" | "WITHDRAWN" | "REQUESTED" | "NONE";
-export type ConsentRow = { guardianId: string; studentId: string; consentType: string; status: Exclude<ConsentState, "NONE">; consentTextId: string | null; version: number | null; givenOn: Date | null; method: string | null; withdrawnOn: Date | null; withdrawnNote: string | null };
+/** REFUSED: the guardian said no on a paper form (gap list G42); they can still agree later in Parent Link. */
+export type ConsentState = "GIVEN" | "WITHDRAWN" | "REFUSED" | "REQUESTED" | "NONE";
+export type ConsentRow = { guardianId: string; studentId: string; consentType: string; status: Exclude<ConsentState, "NONE">; consentTextId: string | null; version: number | null; givenOn: Date | null; method: string | null; withdrawnOn: Date | null; withdrawnNote: string | null; recordedById?: string | null; recordedOn?: Date | null };
 
 async function currentText(tx: Tx, ctx: SchoolContext, consentType: string) {
   return tx.consentText.findFirst({ where: { schoolId: ctx.schoolId, consentType, isCurrent: true }, orderBy: { version: "desc" } });
@@ -29,6 +30,7 @@ export async function consentRows(tx: Tx, ctx: SchoolContext, where: { guardianI
   const records = await tx.consentRecord.findMany({
     where: {
       schoolId: ctx.schoolId,
+      archivedAt: null,
       ...(where.guardianIds ? { guardianId: { in: where.guardianIds } } : {}),
       ...(where.studentIds ? { studentId: { in: where.studentIds } } : {}),
       ...(where.consentType ? { consentType: where.consentType } : {}),
@@ -41,9 +43,10 @@ export async function consentRows(tx: Tx, ctx: SchoolContext, where: { guardianI
     if (out.has(key)) continue;
     out.set(key, {
       guardianId: r.guardianId, studentId: r.studentId, consentType: r.consentType,
-      status: r.withdrawnAt ? "WITHDRAWN" : "GIVEN",
+      status: r.refused ? "REFUSED" : r.withdrawnAt ? "WITHDRAWN" : "GIVEN",
       consentTextId: r.consentTextId, version: r.textVersion, givenOn: r.givenAt, method: r.how,
-      withdrawnOn: r.withdrawnAt, withdrawnNote: r.withdrawnHow,
+      withdrawnOn: r.refused ? null : r.withdrawnAt, withdrawnNote: r.refused ? null : r.withdrawnHow,
+      recordedById: r.createdById, recordedOn: r.createdAt,
     });
   }
   const requests = await tx.consentRequest.findMany({
@@ -124,6 +127,7 @@ export function consentState(records: { consentType: string; status: string }[],
   const mine = records.filter((r) => r.consentType === consentType);
   if (mine.length === 0) return "NONE";
   if (mine.some((r) => r.status === "WITHDRAWN")) return "WITHDRAWN";
+  if (mine.some((r) => r.status === "REFUSED")) return "REFUSED";
   if (mine.every((r) => r.status === "GIVEN")) return "GIVEN";
   if (mine.some((r) => r.status === "REQUESTED")) return "REQUESTED";
   return "NONE";

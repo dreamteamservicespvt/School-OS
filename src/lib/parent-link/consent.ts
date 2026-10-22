@@ -121,16 +121,19 @@ async function notifyConsent(tx: Tx, ctx: SchoolContext, requestId: string, guar
 /** Given, waiting and withdrawn for one request. */
 export async function requestStatus(tx: Tx, ctx: SchoolContext, requestId: string) {
   const req = await tx.consentRequest.findFirstOrThrow({ where: { id: requestId, schoolId: ctx.schoolId } });
-  const records = await tx.consentRecord.findMany({ where: { schoolId: ctx.schoolId, consentType: req.consentType, guardianId: { in: req.guardianIds } }, orderBy: { givenAt: "desc" } });
+  const records = await tx.consentRecord.findMany({ where: { schoolId: ctx.schoolId, consentType: req.consentType, guardianId: { in: req.guardianIds }, archivedAt: null }, orderBy: { givenAt: "desc" } });
   const given = new Set<string>();
   const withdrawn = new Set<string>();
+  const refused = new Set<string>();
   for (const g of req.guardianIds) {
     const mine = records.filter((r) => r.guardianId === g);
     if (mine.some((r) => !r.withdrawnAt)) given.add(g);
-    else if (mine.some((r) => r.withdrawnAt && r.withdrawnHow !== "replaced by a newer version")) withdrawn.add(g);
+    // A "no" on a paper form counts as answered only when it came after the request was sent.
+    else if (mine.some((r) => r.refused && r.givenAt >= req.createdAt)) refused.add(g);
+    else if (mine.some((r) => r.withdrawnAt && !r.refused && r.withdrawnHow !== "replaced by a newer version")) withdrawn.add(g);
   }
-  const waiting = req.guardianIds.filter((g) => !given.has(g) && !withdrawn.has(g));
-  return { request: req, given: [...given], withdrawn: [...withdrawn], waiting };
+  const waiting = req.guardianIds.filter((g) => !given.has(g) && !withdrawn.has(g) && !refused.has(g));
+  return { request: req, given: [...given], withdrawn: [...withdrawn], refused: [...refused], waiting };
 }
 
 /**

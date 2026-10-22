@@ -19,7 +19,7 @@ import { ActionForm, FormArea, FormSelect } from "@/components/students/action-f
 import { ActionButton, ConfirmAction } from "@/components/students/confirm-action";
 import { consentState } from "@/lib/students/consent";
 import { parentLinkProvider } from "@/lib/students/guardians";
-import { CONSENT_STATUS_LABEL, CONSENT_TYPES, RESULT_LABEL, STATUS_LABEL, STATUS_TONE, languageLabel } from "@/lib/students/labels";
+import { CONSENT_STATUS_LABEL, CONSENT_TYPES, consentHowWords, RESULT_LABEL, STATUS_LABEL, STATUS_TONE, languageLabel } from "@/lib/students/labels";
 import { classShort, phoneShow } from "@/lib/students/show";
 import { BASE, studentPage } from "../../_lib/page";
 import { consentRequestAction, parentLinkAction, removeGuardianPhoto, setPrimaryAction, uploadGuardianPhoto, withdrawConsentAction } from "../../_actions/guardians";
@@ -30,7 +30,7 @@ import { loadParent360 } from "../load";
 
 export const metadata: Metadata = { title: "Parent" };
 
-const TONE = { GIVEN: "ok", WITHDRAWN: "bad", REQUESTED: "warn", NONE: "warn" } as const;
+const TONE = { GIVEN: "ok", WITHDRAWN: "bad", REFUSED: "bad", REQUESTED: "warn", NONE: "warn" } as const;
 const stateWord = (s: keyof typeof TONE) => s === "NONE" ? "Not given" : CONSENT_STATUS_LABEL[s];
 
 export default async function Parent360({ params }: { params: Promise<{ id: string }> }) {
@@ -210,19 +210,20 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
 
           <Col>
             <Card>
-              <CardHeader title="Consent records" description="DPDP Act 2023 · given by the parent, never by staff" icon={ShieldCheck} />
+              <CardHeader title="Consent records" description="DPDP Act 2023 · given by the parent: in Parent Link, on the application form or on a signed paper form" icon={ShieldCheck} />
               <ul className="px-5 pb-4 flex flex-col gap-3">
                 {CONSENT_TYPES.map((t) => {
                   const st = consentState(data.consents, t.key);
                   const rows = data.consents.filter((c) => c.consentType === t.key);
                   const latest = rows[0];
                   const text = latest ? data.texts.find((x) => x.id === latest.consentTextId) : null;
-                  const detail = st === "GIVEN" && latest?.givenOn ? `${latest.version ? `${text?.title ?? "Version"} v${latest.version} · ` : ""}${formatDate(latest.givenOn, tz)} · ${latest.method === "parent-link" ? "Parent Link" : "Application form"}`
+                  const detail = st === "GIVEN" && latest?.givenOn ? `${latest.version ? `${text?.title ?? "Version"} v${latest.version} · ` : ""}${formatDate(latest.givenOn, tz)} · ${consentHowWords(latest.method)}`
+                    : st === "REFUSED" && latest?.givenOn ? `Said no on a paper form dated ${formatDate(latest.givenOn, "UTC")}. They can still agree in Parent Link.`
                     : st === "WITHDRAWN" && latest?.withdrawnOn ? `Withdrawn ${formatDate(latest.withdrawnOn, tz)}${latest.withdrawnNote ? ` · ${latest.withdrawnNote}` : ""}`
                       : st === "REQUESTED" ? "Asked in Parent Link, waiting for the parent" : "Consent request not answered yet";
                   return (
                     <li key={t.key} className="flex items-start gap-3">
-                      <span className={cx("w-9 h-9 rounded-xl grid place-items-center shrink-0", st === "GIVEN" ? "bg-ok/10 text-ok" : st === "WITHDRAWN" ? "bg-bad/10 text-bad" : "bg-warn/12 text-warn")} aria-hidden="true">{st === "GIVEN" ? <ShieldCheck size={17} /> : <ShieldAlert size={17} />}</span>
+                      <span className={cx("w-9 h-9 rounded-xl grid place-items-center shrink-0", st === "GIVEN" ? "bg-ok/10 text-ok" : st === "WITHDRAWN" || st === "REFUSED" ? "bg-bad/10 text-bad" : "bg-warn/12 text-warn")} aria-hidden="true">{st === "GIVEN" ? <ShieldCheck size={17} /> : <ShieldAlert size={17} />}</span>
                       <div className="min-w-0"><p className="font-semibold text-[14px]">{t.label}: {stateWord(st)}</p><p className="text-[12.5px] text-ink3">{detail}</p></div>
                     </li>
                   );
@@ -240,7 +241,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                     {data.consents.map((c) => (
                       <li key={`${c.studentId}:${c.consentType}`} className="py-2 flex items-center justify-between gap-3 text-[13px]">
                         <span className="min-w-0"><b className="font-semibold">{childName(c.studentId)}</b> · {CONSENT_TYPES.find((t) => t.key === c.consentType)?.label ?? c.consentType}
-                          <span className="block text-ink3 text-[12px]">{c.status === "GIVEN" && c.givenOn ? formatDateTime(c.givenOn, tz) : c.status === "WITHDRAWN" && c.withdrawnOn ? `Withdrawn ${formatDate(c.withdrawnOn, tz)}` : c.status === "REQUESTED" ? "Waiting for the parent" : ""}</span>
+                          <span className="block text-ink3 text-[12px]">{c.status === "GIVEN" && c.givenOn ? (c.method === "paper-form" ? `Paper form dated ${formatDate(c.givenOn, "UTC")}` : formatDateTime(c.givenOn, tz)) : c.status === "WITHDRAWN" && c.withdrawnOn ? `Withdrawn ${formatDate(c.withdrawnOn, tz)}` : c.status === "REFUSED" && c.givenOn ? `Refused on a paper form dated ${formatDate(c.givenOn, "UTC")}` : c.status === "REQUESTED" ? "Waiting for the parent" : ""}</span>
                         </span>
                         <Pill tone={TONE[c.status]}>{CONSENT_STATUS_LABEL[c.status]}</Pill>
                       </li>

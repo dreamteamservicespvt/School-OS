@@ -111,7 +111,10 @@ export const CONSENT_TYPES: { key: string; label: string }[] = [
   { key: "data-processing", label: "Data consent" },
   { key: "photo", label: "Photo consent" },
 ];
-export const CONSENT_STATUS_LABEL = { REQUESTED: "Requested", GIVEN: "Given", WITHDRAWN: "Withdrawn", NONE: "Not given" } as const;
+/** How a consent was given, in plain words. */
+export const consentHowWords = (how: string | null | undefined) =>
+  how === "parent-link" ? "Parent Link" : how === "paper-form" ? "Paper form, recorded by the office" : how === "office" ? "Office" : "Application form";
+export const CONSENT_STATUS_LABEL = { REQUESTED: "Requested", GIVEN: "Given", WITHDRAWN: "Withdrawn", REFUSED: "Refused", NONE: "Not given" } as const;
 
 export const CAREER_KINDS: { key: string; label: string }[] = [
   { key: "note", label: "Career counselling note" },

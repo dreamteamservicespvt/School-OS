@@ -263,6 +263,18 @@ add("Fee reminders: a reminder day, switched on", async () => {
   });
 }, true);
 
+// Looking ahead (forecasts and insights) switched on, worked out now (rolled back).
+add("Looking ahead: forecasts and insights switched on", async () => {
+  const { refreshForecasts } = await import("../src/lib/reports/forecasts");
+  const job = { ...principal, ctx: { schoolId, userId: null } } as Current;
+  return rolledBack(job, async (tx) => {
+    for (const featureKey of ["ai-assistant", "ai-forecasts", "ai-insights"]) {
+      await tx.schoolFeature.upsert({ where: { schoolId_featureKey: { schoolId, featureKey } }, create: { schoolId, featureKey, isOn: true }, update: { isOn: true } });
+    }
+    return refreshForecasts(tx, job.ctx, NOW, { force: true });
+  });
+}, true);
+
 // Background schedules for this school (each rolled back). They run with the
 // usual 15 second limit for one transaction, so one slower than that fails.
 if (process.env.SCHEDULES !== "0") {

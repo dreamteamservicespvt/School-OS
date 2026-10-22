@@ -6,12 +6,13 @@
 // first sign-in. The typed password is never shown again (08 §2).
 import { useState } from "react";
 import { TextField } from "@/components/ui/field";
+import { KeepCheck } from "@/components/ui/keep-select";
 
 export function SignInChoice({ error }: { error?: string }) {
   const [how, setHow] = useState<"invite" | "password">("invite");
   const option = (value: "invite" | "password", label: string, sub: string) => (
     <label className={`flex items-start gap-3 rounded-xl border p-3 ${how === value ? "border-brand bg-brand-soft/40" : "border-line"}`}>
-      <input type="radio" name="signIn" value={value} checked={how === value} onChange={() => setHow(value)} className="mt-1 size-5 accent-brand" />
+      <KeepCheck type="radio" name="signIn" value={value} checked={how === value} onChange={() => setHow(value)} className="mt-1 size-5 accent-brand" />
       <span><span className="font-medium">{label}</span><span className="block text-sm text-ink-2">{sub}</span></span>
     </label>
   );

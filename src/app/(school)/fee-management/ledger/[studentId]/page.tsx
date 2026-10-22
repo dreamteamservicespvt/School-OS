@@ -35,6 +35,7 @@ import { toSheet } from "../../_lib/pay-sheet";
 import { BASE, feeGuard, feePeriod, one, qs, type SearchParams } from "../../_lib/page";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { AdjustSheet, AssignSheet, CertificateSheet, ChargeSheet, InvoiceSheet, OldDuesSheet, ResendInvoice } from "./sheets";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Student Fee Ledger" };
 
@@ -156,8 +157,8 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
     <div>
       <FeeHead pageName="Student Fee Ledger" href={`${BASE}/ledger`} sub="Each student’s fees, payments, balance and receipts. Nothing here is ever deleted."
         actions={<>
-          {canEdit && <ButtonLink href={here({ do: "invoice" })} scroll={false} variant="secondary" icon={FileText} className="hidden md:inline-flex">Fee invoice</ButtonLink>}
-          {p.desk && <ButtonLink href={`${BASE}/collect/${studentId}`} variant="primary" icon={IndianRupee}>Collect fee</ButtonLink>}
+          {canEdit && <ButtonLink href={here({ do: "invoice" })} scroll={false} variant="secondary" icon={FileText} className="hidden md:inline-flex"><Words k="Fee invoice" /></ButtonLink>}
+          {p.desk && <ButtonLink href={`${BASE}/collect/${studentId}`} variant="primary" icon={IndianRupee}><Words k="Collect fee" /></ButtonLink>}
         </>} />
 
       <Stack>
@@ -167,7 +168,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <Link href={`/student-management/${card.id}`} className="font-display font-semibold text-[19px] leading-tight hover:underline text-left">{card.name}</Link>
-                {L.overdue > ZERO ? <Pill tone="bad">{formatRupees(L.overdue)} overdue</Pill> : balance > ZERO ? <Pill tone="warn">{formatRupees(balance)} due</Pill> : <Pill tone="ok">No dues</Pill>}
+                {L.overdue > ZERO ? <Pill tone="bad">{formatRupees(L.overdue)} <Words k="overdue" /></Pill> : balance > ZERO ? <Pill tone="warn">{formatRupees(balance)} <Words k="due" /></Pill> : <Pill tone="ok"><Words k="No dues" /></Pill>}
                 {data.promise && (p.may("defaulters")
                   ? <Link href={`${BASE}/defaulters?who=${studentId}`}><Pill tone={data.promise.state === "BROKEN" ? "bad" : "info"}>{promiseWords(data.promise)}</Pill></Link>
                   : <Pill tone={data.promise.state === "BROKEN" ? "bad" : "info"}>{promiseWords(data.promise)}</Pill>)}
@@ -178,21 +179,21 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
               </p>
             </div>
             <div className="hidden sm:block"><Ring value={pct(L.paidTotal, L.yearTotal)} size={60} stroke={7}><span className="text-[12.5px] font-bold tnum">{pct(L.paidTotal, L.yearTotal)}%</span></Ring></div>
-            <ButtonLink href={here({ do: "pick" })} scroll={false} variant="secondary" icon={ArrowRightLeft}><span className="hidden md:inline">Change student</span><span className="md:hidden">Change</span></ButtonLink>
+            <ButtonLink href={here({ do: "pick" })} scroll={false} variant="secondary" icon={ArrowRightLeft}><span className="hidden md:inline"><Words k="Change student" /></span><span className="md:hidden"><Words k="Change" /></span></ButtonLink>
           </div>
           <div className="grid grid-cols-3 lg:grid-cols-4 gap-px bg-line/70 border-t border-line/70">
             {[...heads.slice(0, 3), ...Array.from({ length: Math.max(0, 3 - heads.length) }, () => null)].map((h, i) => h ? (
               <div key={h.head} className="bg-surface px-3 md:px-5 py-3 min-w-0">
                 <p className="text-[12px] text-ink3 font-semibold truncate">{h.head}</p>
                 <p className="text-[14px] md:text-[15px] font-semibold tnum mt-0.5 truncate">{formatRupees(h.paid)}</p>
-                <p className="text-[12px] text-ink3 tnum truncate">of {formatRupees(h.total)}</p>
+                <p className="text-[12px] text-ink3 tnum truncate"><Words k="of" /> {formatRupees(h.total)}</p>
                 <Progress className="mt-1.5" value={pct(h.paid, h.total)} tone={h.paid >= h.total ? "ok" : "brand"} />
               </div>
             ) : <div key={`x${i}`} className="bg-surface" />)}
             <div className="bg-surface px-4 md:px-5 py-3 min-w-0 col-span-3 lg:col-span-1">
-              <p className="text-[12px] text-ink3 font-semibold">Year total · paid · balance now</p>
+              <p className="text-[12px] text-ink3 font-semibold"><Words k="Year total · paid · balance now" /></p>
               <p className="text-[15px] font-semibold tnum mt-0.5">{formatRupees(L.yearTotal)} · <span className="text-ok">{formatRupees(L.paidTotal)}</span> · <span className={balance > ZERO ? "text-bad" : "text-ok"}>{formatRupees(balance)}</span></p>
-              <p className="text-[12px] text-ink3">Balance includes late fees and dues raised so far</p>
+              <p className="text-[12px] text-ink3"><Words k="Balance includes late fees and dues raised so far" /></p>
             </div>
           </div>
         </Card>
@@ -217,32 +218,32 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
                 <>
                   <div className="hidden lg:block overflow-x-auto scroll-thin">
                     <table className="w-full text-[14px] min-w-[760px]">
-                      <caption className="sr-only">Statement with running balance</caption>
+                      <caption className="sr-only"><Words k="Statement with running balance" /></caption>
                       <thead><tr className="text-[12px] text-ink3 text-left border-y border-line">
-                        <th scope="col" className="pl-5 pr-3 py-2.5 font-semibold">Date</th><th scope="col" className="px-3 py-2.5 font-semibold">Entry</th><th scope="col" className="px-3 py-2.5 font-semibold">Reference</th>
-                        <th scope="col" className="px-3 py-2.5 font-semibold text-right">Charged</th><th scope="col" className="px-3 py-2.5 font-semibold text-right">Paid or reduced</th><th scope="col" className="pl-3 pr-5 py-2.5 font-semibold text-right">Balance</th>
+                        <th scope="col" className="pl-5 pr-3 py-2.5 font-semibold"><Words k="Date" /></th><th scope="col" className="px-3 py-2.5 font-semibold"><Words k="Entry" /></th><th scope="col" className="px-3 py-2.5 font-semibold"><Words k="Reference" /></th>
+                        <th scope="col" className="px-3 py-2.5 font-semibold text-right"><Words k="Charged" /></th><th scope="col" className="px-3 py-2.5 font-semibold text-right"><Words k="Paid or reduced" /></th><th scope="col" className="pl-3 pr-5 py-2.5 font-semibold text-right"><Words k="Balance" /></th>
                       </tr></thead>
                       <tbody>
                         {forward !== null && (
                           <tr className="border-b border-line/70 bg-sunken/40">
                             <td className="pl-5 pr-3 py-2.5 tnum whitespace-nowrap text-ink2">{dshort(per.from!)}</td>
-                            <td className="px-3 py-2.5 font-semibold" colSpan={4}>Balance brought forward</td>
+                            <td className="px-3 py-2.5 font-semibold" colSpan={4}><Words k="Balance brought forward" /></td>
                             <td className="pl-3 pr-5 py-2.5 text-right tnum font-semibold">{formatRupees(forward)}</td>
                           </tr>
                         )}
                         {entries.map((e) => <StatementRow key={e.key} e={e} href={e.paymentId ? payHref(e.paymentId) : null} tz={p.tz} />)}
                       </tbody>
                       <tfoot><tr className="border-t-2 border-line font-semibold">
-                        <td className="pl-5 py-3" colSpan={3}>Balance on {formatDate(endDay)}</td>
+                        <td className="pl-5 py-3" colSpan={3}><Words k="Balance on" /> {formatDate(endDay)}</td>
                         <td className="px-3 text-right tnum">{formatRupees(sumDebit)}</td><td className="px-3 text-right tnum">{formatRupees(sumCredit)}</td>
                         <td className={cx("pl-3 pr-5 text-right tnum", endBalance > ZERO && "text-bad")}>{formatRupees(endBalance)}</td>
                       </tr></tfoot>
                     </table>
                   </div>
                   <ul className="lg:hidden divide-y divide-line/70 border-t border-line">
-                    {forward !== null && <li className="flex justify-between px-4 py-3 text-[14px] bg-sunken/40"><span className="font-semibold">Brought forward · {dshort(per.from!)}</span><span className="tnum font-semibold">{formatRupees(forward)}</span></li>}
+                    {forward !== null && <li className="flex justify-between px-4 py-3 text-[14px] bg-sunken/40"><span className="font-semibold"><Words k="Brought forward ·" /> {dshort(per.from!)}</span><span className="tnum font-semibold">{formatRupees(forward)}</span></li>}
                     {entries.map((e) => <StatementItem key={e.key} e={e} href={e.paymentId ? payHref(e.paymentId) : null} />)}
-                    <li className="flex justify-between px-4 py-3 font-semibold text-[14.5px]"><span>Balance on {dshort(endDay)}</span><span className={cx("tnum", endBalance > ZERO && "text-bad")}>{formatRupees(endBalance)}</span></li>
+                    <li className="flex justify-between px-4 py-3 font-semibold text-[14.5px]"><span><Words k="Balance on" /> {dshort(endDay)}</span><span className={cx("tnum", endBalance > ZERO && "text-bad")}>{formatRupees(endBalance)}</span></li>
                   </ul>
                 </>
               )}
@@ -256,9 +257,9 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
               <DataList rows={installments} rowKey={(r) => r.id} minWidth={640} caption="Fees and installments"
                 rowClass={(r) => r.status === "Removed" && "opacity-60"}
                 footer={`${installments.filter((r) => r.status === "Paid").length} of ${installments.filter((r) => r.status !== "Removed").length} installments paid · Year total ${formatRupees(L.yearTotal)}`}
-                empty={<Empty icon={FileText} title="No fees yet" body={`${first} has no fee plan for this year.`} action={canAssignFees ? <ButtonLink href={here({ do: "assign" })} scroll={false} variant="primary" icon={Plus}>Assign fee plan</ButtonLink> : undefined} />}
+                empty={<Empty icon={FileText} title="No fees yet" body={`${first} has no fee plan for this year.`} action={canAssignFees ? <ButtonLink href={here({ do: "assign" })} scroll={false} variant="primary" icon={Plus}><Words k="Assign fee plan" /></ButtonLink> : undefined} />}
                 columns={[
-                  { key: "head", label: "Fee head", render: (r) => <><p className="font-semibold leading-tight">{r.head}{r.broughtIn && <Pill tone="neutral" className="ml-2 !h-5 !text-[11px]">Brought in</Pill>}</p><p className="text-[12.5px] text-ink3">{r.label}</p></> },
+                  { key: "head", label: "Fee head", render: (r) => <><p className="font-semibold leading-tight">{r.head}{r.broughtIn && <Pill tone="neutral" className="ml-2 !h-5 !text-[11px]"><Words k="Brought in" /></Pill>}</p><p className="text-[12.5px] text-ink3">{r.label}</p></> },
                   { key: "due", label: "Due date", nowrap: true, render: (r) => <span className="tnum">{formatDate(r.dueDate)}</span> },
                   { key: "amount", label: "Amount", align: "right", render: (r) => formatRupees(r.amount) },
                   { key: "paid", label: "Paid", align: "right", render: (r) => (r.paid > ZERO ? formatRupees(r.paid) : "—") },
@@ -307,11 +308,11 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
                   { key: "paid", label: "Paid", align: "right", render: (r) => formatRupees(r.amount) },
                   { key: "left", label: "Balance on the row", align: "right", render: (r) => r.leftOnRows > ZERO ? <span className="text-bad font-semibold">{formatRupees(r.leftOnRows)}</span> : <span className="text-ok font-semibold">{formatRupees(ZERO)}</span> },
                   { key: "d", label: "Recorded", nowrap: true, render: (r) => formatDate(r.date) },
-                  { key: "set", label: "Settled", render: (r) => r.leftOnRows > ZERO ? <Pill tone="warn">Not yet</Pill> : <Pill tone="ok">Settled</Pill> },
+                  { key: "set", label: "Settled", render: (r) => r.leftOnRows > ZERO ? <Pill tone="warn"><Words k="Not yet" /></Pill> : <Pill tone="ok"><Words k="Settled" /></Pill> },
                 ]}
                 phone={(r) => ({
                   title: r.heads, sub: `${r.receiptNo ?? "—"} · ${dshort(r.date)} · ${formatRupees(r.amount)} paid`, icon: Split, iconTone: r.leftOnRows > ZERO ? "warn" : "ok",
-                  right: r.leftOnRows > ZERO ? <span className="text-bad font-semibold tnum">{formatRupees(r.leftOnRows)} left</span> : <Pill tone="ok" className="!h-5 !text-[11px]">Settled</Pill>,
+                  right: r.leftOnRows > ZERO ? <span className="text-bad font-semibold tnum">{formatRupees(r.leftOnRows)} <Words k="left" /></span> : <Pill tone="ok" className="!h-5 !text-[11px]"><Words k="Settled" /></Pill>,
                 })} />
             </Card>
           )}
@@ -319,7 +320,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
           {tab === "invoices" && (
             <Card>
               <CardHeader title="Fee invoices" description="Made for what is due, each with its own number. Sent with a Razorpay link."
-                action={canEdit ? <ButtonLink size="sm" variant="ghost" icon={Plus} scroll={false} href={here({ do: "invoice" })}>New invoice</ButtonLink> : null} />
+                action={canEdit ? <ButtonLink size="sm" variant="ghost" icon={Plus} scroll={false} href={here({ do: "invoice" })}><Words k="New invoice" /></ButtonLink> : null} />
               {invoices.length === 0 && certificates.length === 0 ? (
                 <Empty icon={FileText} title="No invoices yet" body={`Make a fee invoice for what ${first} owes now. It goes to the parent with a link to pay.`} />
               ) : (
@@ -340,7 +341,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
                       <span className="w-10 h-10 rounded-xl bg-brand/10 text-brand grid place-items-center shrink-0"><Award size={18} aria-hidden="true" /></span>
                       <a href={`${BASE}/documents/${c.id}`} target="_blank" rel="noreferrer" className="min-w-0 flex-1">
                         <p className="font-semibold text-[14px] truncate"><span className="font-mono text-[12.5px]">{c.number}</span> · {formatDate(c.date)}</p>
-                        <p className="text-[12.5px] text-ink3 truncate">Fee certificate · financial year {c.year}</p>
+                        <p className="text-[12.5px] text-ink3 truncate"><Words k="Fee certificate · financial year" /> {c.year}</p>
                       </a>
                       <span className="font-semibold tnum shrink-0">{formatRupees(c.total)}</span>
                     </li>
@@ -353,7 +354,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
           {tab === "adjust" && (
             <Card>
               <CardHeader title="Adjustments" description="Concessions, late fees, reversals and old dues, each with its reason and who approved it"
-                action={canAdjust ? <ButtonLink size="sm" variant="ghost" icon={Scale} scroll={false} href={here({ do: "adjust" })}>Adjust an amount</ButtonLink> : null} />
+                action={canAdjust ? <ButtonLink size="sm" variant="ghost" icon={Scale} scroll={false} href={here({ do: "adjust" })}><Words k="Adjust an amount" /></ButtonLink> : null} />
               {adjustments.length === 0 ? <Empty icon={Scale} title="No adjustments" body={`${first} has no concessions, late fees or corrections.`} /> : (
                 <ul className="px-5 pb-3">
                   {adjustments.map((e) => {
@@ -382,7 +383,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
               {L.comingUp.slice(0, 12).map((r) => (
                 <li key={r.id} className="flex items-center gap-3 py-2 border-t border-line/70 first:border-0 text-[14px]">
                   <span className="flex-1 min-w-0"><b className="font-semibold">{r.head}</b> <span className="text-ink3">· {r.label}</span></span>
-                  <span className="text-ink3 tnum">Due {dshort(r.dueDate)}</span>
+                  <span className="text-ink3 tnum"><Words k="Due" /> {dshort(r.dueDate)}</span>
                   <span className="font-semibold tnum w-24 text-right">{formatRupees(r.amount)}</span>
                 </li>
               ))}
@@ -403,7 +404,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
                     <Link href={`${BASE}/ledger/${s.id}`} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken text-left">
                       <Avatar name={s.name} size={40} src={s.photoFileId ? fileLink(s.photoFileId, p.current.ctx.schoolId) : null} />
                       <span className="min-w-0 flex-1"><span className="block font-semibold text-[14.5px] truncate">{s.name}</span><span className="block text-[12.5px] text-ink3 truncate">{s.classSection} · <span className="font-mono">{s.admissionNo}</span></span></span>
-                      {s.due > ZERO ? <span className={cx("text-[13px] font-semibold tnum", s.overdue ? "text-bad" : "text-warn")}>{formatRupees(s.due)}</span> : <Pill tone="ok">No dues</Pill>}
+                      {s.due > ZERO ? <span className={cx("text-[13px] font-semibold tnum", s.overdue ? "text-bad" : "text-warn")}>{formatRupees(s.due)}</span> : <Pill tone="ok"><Words k="No dues" /></Pill>}
                     </Link>
                   </li>
                 ))}
@@ -458,7 +459,7 @@ function StatementRow({ e, href, tz }: { e: LedgerEntry; href: string | null; tz
         {href && <Link href={href} scroll={false} className="absolute inset-0" aria-label={`Open ${e.ref ?? "payment"}`} />}
         <p className="font-semibold leading-tight flex items-center gap-2 flex-wrap">
           <span className={cx(isCx && "line-through text-ink3")}>{e.title}</span>
-          {isCx ? <Pill tone="bad" className="!h-5 !text-[11px]">Cancelled</Pill> : e.waiting ? <Pill tone="warn" className="!h-5 !text-[11px]">To verify</Pill> : e.broughtIn ? <Pill tone="neutral" className="!h-5 !text-[11px]">Brought in</Pill> : <Pill tone={tone} className="!h-5 !text-[11px]">{label}</Pill>}
+          {isCx ? <Pill tone="bad" className="!h-5 !text-[11px]"><Words k="Cancelled" /></Pill> : e.waiting ? <Pill tone="warn" className="!h-5 !text-[11px]"><Words k="To verify" /></Pill> : e.broughtIn ? <Pill tone="neutral" className="!h-5 !text-[11px]"><Words k="Brought in" /></Pill> : <Pill tone={tone} className="!h-5 !text-[11px]">{label}</Pill>}
         </p>
         <p className="text-[12.5px] text-ink3">{isCx ? `${e.cancelled!.reason} · cancelled ${formatDate(e.cancelled!.when, tz)} · stays on record` : e.sub}</p>
       </td>
@@ -483,7 +484,7 @@ function StatementItem({ e, href }: { e: LedgerEntry; href: string | null }) {
       </div>
       <div className="text-right shrink-0">
         <p className={cx("font-semibold tnum text-[14px]", e.credit > ZERO && "text-ok", off && "line-through !text-ink3")}>{e.debit > ZERO ? `+${formatRupees(e.debit)}` : e.credit > ZERO ? `−${formatRupees(e.credit)}` : formatRupees(ZERO)}</p>
-        <p className="text-[12px] text-ink3 tnum">Bal. {formatRupees(e.balance)}</p>
+        <p className="text-[12px] text-ink3 tnum"><Words k="Bal." /> {formatRupees(e.balance)}</p>
       </div>
     </>
   );

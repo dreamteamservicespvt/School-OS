@@ -11,6 +11,7 @@ import { Pill } from "@/components/ui/badge";
 import { Banner, Empty } from "@/components/money/kit";
 import { BASE, feeGuard } from "../../../_lib/page";
 import { ApplicantFeeForm } from "./applicant-form";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Collect Fee" };
 
@@ -38,8 +39,8 @@ export default async function ApplicantFeePage({ params }: { params: Promise<{ a
   return (
     <div>
       <div className="flex items-center justify-between gap-3 mb-4">
-        <Link href={BASE} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink h-8 px-1 -ml-1 rounded-lg"><ArrowLeft size={17} aria-hidden="true" />Collect fee</Link>
-        <span className="text-[13px] text-ink3 hidden md:inline">Collecting as {p.current.user.displayName}</span>
+        <Link href={BASE} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink h-8 px-1 -ml-1 rounded-lg"><ArrowLeft size={17} aria-hidden="true" /><Words k="Collect fee" /></Link>
+        <span className="text-[13px] text-ink3 hidden md:inline"><Words k="Collecting as" /> {p.current.user.displayName}</span>
       </div>
       <div className="grid gap-4 lg:grid-cols-[1fr_380px] items-start">
         <div className="flex flex-col gap-4 min-w-0">
@@ -48,14 +49,14 @@ export default async function ApplicantFeePage({ params }: { params: Promise<{ a
               <Avatar name={a.name} size={48} />
               <div className="min-w-0 flex-1">
                 <p className="font-display font-semibold text-[18px] truncate">{a.name}</p>
-                <p className="text-[13.5px] text-ink3 truncate">Application {a.applicationNo} · {a.className} (applied for){a.parent ? ` · ${a.parent}` : ""}</p>
+                <p className="text-[13.5px] text-ink3 truncate"><Words k="Application" /> {a.applicationNo} · {a.className} <Words k="(applied for)" />{a.parent ? ` · ${a.parent}` : ""}</p>
               </div>
               <Pill tone={st.tone}>{st.label}</Pill>
             </div>
             <p className="mt-3 text-[14px] text-ink2">
-              Application fee {formatRupees(a.status.duePaise)}. Paid {formatRupees(a.status.paidPaise)}{a.leftPaise > BigInt(0) ? `, ${formatRupees(a.leftPaise)} left` : ""}.
+              <Words k="Application fee" /> {formatRupees(a.status.duePaise)}<Words k=". Paid" /> {formatRupees(a.status.paidPaise)}{a.leftPaise > BigInt(0) ? `, ${formatRupees(a.leftPaise)} left` : ""}.
             </p>
-            <p className="mt-1 text-[13px] text-ink3">Not a student yet, so this fee stays on the application with its own receipts. It goes into the Day Book under Other fee types, Application fee.{a.admitted ? " Now admitted: the student’s other fees are collected from their own Collect Fee page." : ""}</p>
+            <p className="mt-1 text-[13px] text-ink3"><Words k="Not a student yet, so this fee stays on the application with its own receipts. It goes into the Day Book under Other fee types, Application fee." />{a.admitted ? " Now admitted: the student’s other fees are collected from their own Collect Fee page." : ""}</p>
           </Card>
           <Card className="overflow-hidden">
             <CardHeader title="Payments" description="Payments are never deleted. A cancelled one stays with its receipt number." icon={ReceiptText} />
@@ -71,7 +72,7 @@ export default async function ApplicantFeePage({ params }: { params: Promise<{ a
                     </div>
                     <Pill tone={PAY[x.status].tone}>{PAY[x.status].label}</Pill>
                     {x.status === "CONFIRMED" && x.receiptNo && (
-                      <Link href={`${BASE}/collect/application/${a.id}/receipt/${x.id}`} target="_blank" className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand hover:underline"><Printer size={14} aria-hidden="true" />Receipt</Link>
+                      <Link href={`${BASE}/collect/application/${a.id}/receipt/${x.id}`} target="_blank" className="inline-flex items-center gap-1 text-[13px] font-semibold text-brand hover:underline"><Printer size={14} aria-hidden="true" /><Words k="Receipt" /></Link>
                     )}
                   </li>
                 ))}
@@ -86,7 +87,7 @@ export default async function ApplicantFeePage({ params }: { params: Promise<{ a
           ) : (
             <Banner tone={a.closed ? "warn" : "ok"}>{a.closed ? "This application is closed, so no fee can be taken." : a.status.key === "waiting" ? "Waiting for payment confirmation from Razorpay. The receipt is made when it is confirmed." : "Nothing is due on this application."}</Banner>
           )}
-          <p className="mt-3 text-[12.5px] text-ink3">To cancel a receipt, the Principal or School Admin opens the application in Admission Management.</p>
+          <p className="mt-3 text-[12.5px] text-ink3"><Words k="To cancel a receipt, the Principal or School Admin opens the application in Admission Management." /></p>
         </Card>
       </div>
     </div>

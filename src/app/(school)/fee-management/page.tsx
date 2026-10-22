@@ -14,6 +14,7 @@ import { UrlSearch } from "@/components/money/url-filters";
 import { cx } from "@/components/ui/cx";
 import { FeeHead } from "./_components/fee-head";
 import { BASE, feePage, one, type SearchParams } from "./_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Collect Fee" };
 
@@ -37,7 +38,7 @@ export default async function CollectFeePage({ searchParams }: { searchParams: S
           {q && list.length === 0 && applicants.length === 0 ? (
             <Empty icon={SearchX} title={`No student called “${q}”`} body="Try the admission number or the parent’s mobile number." />
           ) : q && list.length === 0 ? (
-            <p className="text-[14px] text-ink3 px-5 py-4">No student found for “{q}”. The applicants found are below.</p>
+            <p className="text-[14px] text-ink3 px-5 py-4"><Words k="No student found for “" />{q}<Words k="”. The applicants found are below." /></p>
           ) : !q && list.length === 0 ? (
             <Empty icon={UserRoundSearch} title="Nobody is overdue" body="Search above to find any student and collect their fees." />
           ) : (
@@ -51,7 +52,7 @@ export default async function CollectFeePage({ searchParams }: { searchParams: S
         </Card>
         {applicants.length > 0 && (
           <Card className="mt-4 overflow-hidden">
-            <p className="eyebrow text-ink3 px-5 pt-4 pb-1">Applicants, for the application fee</p>
+            <p className="eyebrow text-ink3 px-5 pt-4 pb-1"><Words k="Applicants, for the application fee" /></p>
             <ul className="p-2">
               {applicants.map((a) => <ApplicantRow key={a.id} a={a} />)}
             </ul>
@@ -70,11 +71,11 @@ function ApplicantRow({ a }: { a: FoundApplicant }) {
         <span className="w-[42px] h-[42px] rounded-full bg-brand/10 text-brand grid place-items-center shrink-0"><UserPlus size={19} aria-hidden="true" /></span>
         <div className="min-w-0 flex-1">
           <p className="font-semibold text-[15px] truncate">{a.name}</p>
-          <p className="text-[13px] text-ink3 truncate">Application {a.applicationNo} · {a.className}{a.parent ? ` · ${a.parent}` : ""}</p>
+          <p className="text-[13px] text-ink3 truncate"><Words k="Application" /> {a.applicationNo} · {a.className}{a.parent ? ` · ${a.parent}` : ""}</p>
         </div>
-        {a.status.key === "paid" ? <Pill tone="ok">Paid</Pill>
-          : a.status.key === "waiting" ? <Pill tone="info">Waiting</Pill>
-            : <span className="text-right"><span className="block font-semibold tnum">{formatRupees(left > BigInt(0) ? left : BigInt(0))}</span><span className="text-[12px] font-semibold text-warn">Application fee</span></span>}
+        {a.status.key === "paid" ? <Pill tone="ok"><Words k="Paid" /></Pill>
+          : a.status.key === "waiting" ? <Pill tone="info"><Words k="Waiting" /></Pill>
+            : <span className="text-right"><span className="block font-semibold tnum">{formatRupees(left > BigInt(0) ? left : BigInt(0))}</span><span className="text-[12px] font-semibold text-warn"><Words k="Application fee" /></span></span>}
         <ChevronRight size={18} className="text-ink3 group-hover:translate-x-0.5 transition" aria-hidden="true" />
       </Link>
     </li>
@@ -92,7 +93,7 @@ function StudentRow({ s, schoolId }: { s: FoundStudent; schoolId: string }) {
         </div>
         {s.due > BigInt(0)
           ? <span className="text-right"><span className="block font-semibold tnum">{formatRupees(s.due)}</span><span className={cx("text-[12px] font-semibold", s.overdue ? "text-bad" : "text-warn")}>{s.overdue ? "Overdue" : "Due"}</span></span>
-          : <Pill tone="ok">No dues</Pill>}
+          : <Pill tone="ok"><Words k="No dues" /></Pill>}
         <ChevronRight size={18} className="text-ink3 group-hover:translate-x-0.5 transition" aria-hidden="true" />
       </Link>
     </li>

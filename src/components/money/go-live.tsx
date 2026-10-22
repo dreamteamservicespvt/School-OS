@@ -4,6 +4,7 @@ import { Archive } from "lucide-react";
 import { formatDate } from "@/lib/format";
 import { goLiveOverlap } from "@/lib/finance/go-live";
 import { Banner, Empty } from "./kit";
+import { Words } from "@/lib/i18n/client";
 
 /** Before go-live: the empty state that says where the records are. */
 export function OldSoftwareEmpty({ goLive, what = "records" }: { goLive: Date; what?: string }) {
@@ -18,7 +19,7 @@ export function OldSoftwareBanner({ goLive, from, to, what = "records", classNam
   if (!from || goLiveOverlap(goLive, from, to) !== "partly") return null;
   return (
     <Banner tone="info" icon={Archive} title={`${what[0].toUpperCase()}${what.slice(1)} start on ${formatDate(goLive)}.`} className={className}>
-      Days before that are kept in the old software.
+      <Words k="Days before that are kept in the old software." />
     </Banner>
   );
 }

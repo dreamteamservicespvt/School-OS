@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { cx } from "@/components/ui/cx";
+import { Words } from "@/lib/i18n/client";
 
 export type Tone = "ok" | "warn" | "bad" | "info" | "brand" | "neutral";
 
@@ -96,10 +97,10 @@ export function Suggestion({ title = "Suggestion", children, source, actions, ai
       <div className="px-5 pt-4 pb-1 flex items-center gap-2">
         <Mark size={16} className="text-brand" aria-hidden="true" />
         <p className="font-semibold text-[14.5px]">{title}</p>
-        <Pill tone="brand" className="!h-5 !text-[11px] ml-auto">Suggestion</Pill>
+        <Pill tone="brand" className="!h-5 !text-[11px] ml-auto"><Words k="Suggestion" /></Pill>
       </div>
       <div className="px-5 pb-4 text-[14px] leading-relaxed text-ink2">{children}</div>
-      {source && <p className="px-5 pb-3 text-[12px] text-ink3">Based on: {source}</p>}
+      {source && <p className="px-5 pb-3 text-[12px] text-ink3"><Words k="Based on:" /> {source}</p>}
       {actions && <div className="px-5 pb-4 flex gap-2 flex-wrap">{actions}</div>}
     </Card>
   );
@@ -294,7 +295,7 @@ export function DataList<R>({ columns, rows, rowKey, rowHref, phone, empty, foot
           <thead>
             <tr className="text-[12px] text-ink3 font-semibold border-b border-line">
               {columns.map((c, i) => <th key={c.key} scope="col" className={cx("px-3 py-3 font-semibold whitespace-nowrap", i === 0 && "pl-5", i === columns.length - 1 && !rowHref && "pr-5", c.align === "right" && "text-right")}>{c.label}</th>)}
-              {rowHref && <th className="w-8"><span className="sr-only">Open</span></th>}
+              {rowHref && <th className="w-8"><span className="sr-only"><Words k="Open" /></span></th>}
             </tr>
           </thead>
           <tbody>

@@ -5,6 +5,7 @@ import { PLACES } from "@/lib/imports/places";
 import { FileReview } from "@/components/import/file-review";
 import { FeeHead } from "../../../../_components/fee-head";
 import { BASE, feeGuard, type SearchParams } from "../../../../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Check a file · Import old dues and receipts" };
 
@@ -15,7 +16,7 @@ export default async function FeeImportFilePage({ params, searchParams }: { para
   return (
     <>
       <FeeHead pageName="Import old dues and receipts" href={`${BASE}/ledger/import`}
-        sub={<Link href={`${BASE}/ledger`} className="font-semibold text-brand hover:underline">Student Fee Ledger</Link>} />
+        sub={<Link href={`${BASE}/ledger`} className="font-semibold text-brand hover:underline"><Words k="Student Fee Ledger" /></Link>} />
       <FileReview current={p.current} place={PLACES.fees} id={(await params).id} sp={await searchParams} />
     </>
   );

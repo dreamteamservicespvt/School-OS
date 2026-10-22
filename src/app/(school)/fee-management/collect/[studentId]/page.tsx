@@ -14,6 +14,7 @@ import { Ring } from "@/components/ui/display";
 import { pct } from "../../_components/bits";
 import { BASE, feeGuard } from "../../_lib/page";
 import { CollectForm, type DueRow } from "./collect-form";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata = { title: "Collect Fee" };
 
@@ -66,8 +67,8 @@ export default async function CollectPage({ params }: { params: Promise<{ studen
   return (
     <div>
       <div className="flex items-center justify-between gap-3 mb-4">
-        <Link href={BASE} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink h-8 px-1 -ml-1 rounded-lg"><ArrowLeft size={17} aria-hidden="true" />Collect fee</Link>
-        <span className="text-[13px] text-ink3 hidden md:inline">Collecting as {p.current.user.displayName}</span>
+        <Link href={BASE} className="inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-ink2 hover:text-ink h-8 px-1 -ml-1 rounded-lg"><ArrowLeft size={17} aria-hidden="true" /><Words k="Collect fee" /></Link>
+        <span className="text-[13px] text-ink3 hidden md:inline"><Words k="Collecting as" /> {p.current.user.displayName}</span>
       </div>
       <CollectForm
         studentId={card.id}
@@ -90,10 +91,10 @@ export default async function CollectPage({ params }: { params: Promise<{ studen
               <Link href={`/student-management/${card.id}`} className="font-display font-semibold text-[19px] leading-tight hover:underline">{card.name}</Link>
               <p className="text-[13px] text-ink3 truncate">{card.classSection}{card.rollNo != null ? ` · Roll ${card.rollNo}` : ""}<span className="hidden md:inline">{card.fatherName ? ` · ${card.fatherName}` : ""}{card.primaryGuardian?.phone ? <> · <span className="tnum">{card.primaryGuardian.phone}</span></> : null}</span></p>
               <div className="flex gap-x-4 gap-y-0.5 mt-2 text-[13px] tnum flex-wrap">
-                <span><span className="text-ink3">Year </span><b className="font-semibold">{formatRupees(totals.total)}</b></span>
-                <span><span className="text-ink3">Paid </span><b className="font-semibold text-ok">{formatRupees(totals.paid)}</b></span>
-                <span><span className="text-ink3">Left this year </span><b className="font-semibold text-bad">{formatRupees(totals.balance)}</b></span>
-                {advance > BigInt(0) && <span><span className="text-ink3">Advance held </span><b className="font-semibold text-info">{formatRupees(advance)}</b></span>}
+                <span><span className="text-ink3"><Words k="Year" /> </span><b className="font-semibold">{formatRupees(totals.total)}</b></span>
+                <span><span className="text-ink3"><Words k="Paid" /> </span><b className="font-semibold text-ok">{formatRupees(totals.paid)}</b></span>
+                <span><span className="text-ink3"><Words k="Left this year" /> </span><b className="font-semibold text-bad">{formatRupees(totals.balance)}</b></span>
+                {advance > BigInt(0) && <span><span className="text-ink3"><Words k="Advance held" /> </span><b className="font-semibold text-info">{formatRupees(advance)}</b></span>}
               </div>
             </div>
             <div className="hidden sm:block"><Ring value={paidPct} size={64} stroke={7}><span className="text-[13px] font-bold tnum">{paidPct}%</span></Ring></div>

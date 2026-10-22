@@ -9,6 +9,7 @@ import { beforeGoLiveView } from "@/lib/fees/before-go-live";
 import { BeforeGoLivePanel } from "./before-go-live";
 import { FeeHead } from "../../_components/fee-head";
 import { BASE, feeGuard, one, type SearchParams } from "../../_lib/page";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Import old dues and receipts · Fee Management" };
 
@@ -31,7 +32,7 @@ export default async function FeeImportPage({ searchParams }: { searchParams: Se
   return (
     <>
       <FeeHead pageName="Import old dues and receipts" href={`${BASE}/ledger/import`}
-        sub={<>Moving from old software or registers: set this year&apos;s fee structures first, then bring in old dues, then this year&apos;s receipts. <Link href={`${BASE}/ledger`} className="font-semibold text-brand hover:underline">Student Fee Ledger</Link></>} />
+        sub={<><Words k="Moving from old software or registers: set this year's fee structures first, then bring in old dues, then this year's receipts." /> <Link href={`${BASE}/ledger`} className="font-semibold text-brand hover:underline"><Words k="Student Fee Ledger" /></Link></>} />
       <ImportHome current={p.current} place={PLACES.fees} initial={one(sp.kind)} about={ABOUT} />
       {before && (
         <Card className="mt-5">

@@ -56,7 +56,8 @@ export type DefaulterRow = {
   heads: string;
 };
 
-export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, today: Date, f: DefaulterFilter = {}) {
+/** Every student with overdue fees for one search and fee head, before the other filters (see defaulterLists). */
+async function defaulterBase(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, today: Date, f: Pick<DefaulterFilter, "q" | "feeHeadId">) {
   const settings = await feeSettings(tx, ctx);
   const where: Prisma.StudentFeeDueWhereInput = {
     state: "OPEN",
@@ -89,28 +90,27 @@ export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, 
   const ids = [...byStudent.keys()];
   // Each student's class in their own campus's current year.
   const classes = await classOfStudents(tx, ids, viewer.yearIds);
-  const guardians = await tx.studentGuardian.findMany({ where: { studentId: { in: ids }, ...OPEN_LINK }, include: { guardian: true }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] });
-  const reminders = await tx.feeReminder.groupBy({ by: ["studentId"], where: { studentId: { in: ids } }, _count: { _all: true }, _max: { sentAt: true } });
-  const notes = await tx.feeCallNote.findMany({ where: { studentId: { in: ids }, promisedOn: { not: null } }, orderBy: { createdAt: "desc" } });
+  // The first parent in this order is the one shown; only what the list shows is read.
+  const guardians = await tx.studentGuardian.findMany({ where: { studentId: { in: ids }, ...OPEN_LINK }, select: { studentId: true, guardian: { select: { name: true, phone: true, optedOut: true } } }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }] });
+  const parentOf = new Map<string, (typeof guardians)[number]["guardian"]>();
+  for (const g of guardians) if (!parentOf.has(g.studentId)) parentOf.set(g.studentId, g.guardian);
+  const reminders = new Map((await tx.feeReminder.groupBy({ by: ["studentId"], where: { studentId: { in: ids } }, _count: { _all: true }, _max: { sentAt: true } })).map((r) => [r.studentId, r]));
+  // The latest call note with a promised date (newest first).
+  const promisedOn = new Map<string, Date | null>();
+  for (const n of await tx.feeCallNote.findMany({ where: { studentId: { in: ids }, promisedOn: { not: null } }, orderBy: { createdAt: "desc" }, select: { studentId: true, promisedOn: true } })) {
+    if (!promisedOn.has(n.studentId)) promisedOn.set(n.studentId, n.promisedOn);
+  }
   const promises = await promisesOf(tx, ctx, ids, today);
   const rows: DefaulterRow[] = [];
   for (const s of students) {
     const info = byStudent.get(s.id);
     if (!info) continue;
     const c = classes.get(s.id);
-    if (f.classId && c?.classId !== f.classId) continue;
-    if (f.sectionId && c?.sectionId !== f.sectionId) continue;
-    if (f.amountAbove && info.overdue < f.amountAbove) continue;
-    if (f.oldestFrom && info.oldest < f.oldestFrom) continue;
-    if (f.oldestTo && info.oldest > f.oldestTo) continue;
     const days = Math.floor((today.getTime() - info.oldest.getTime()) / DAY_MS);
     const group = ageingGroupOf(settings.ageing, days);
     const index = group ? settings.ageing.indexOf(group) : -1;
-    if (f.ageing !== null && f.ageing !== undefined && f.ageing !== index) continue;
-    const r = reminders.find((x) => x.studentId === s.id);
-    if (f.reminded === "yes" && !r) continue;
-    if (f.reminded === "no" && r) continue;
-    const g = guardians.find((x) => x.studentId === s.id)?.guardian ?? null;
+    const r = reminders.get(s.id);
+    const g = parentOf.get(s.id) ?? null;
     rows.push({
       studentId: s.id,
       name: s.fullName,
@@ -129,13 +129,27 @@ export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, 
       ageingIndex: index,
       lastReminder: r?._max.sentAt ?? null,
       reminders: r?._count._all ?? 0,
-      promisedOn: notes.find((n) => n.studentId === s.id)?.promisedOn ?? null,
+      promisedOn: promisedOn.get(s.id) ?? null,
       promise: promises.get(s.id) ?? null,
       heads: [...info.heads].join(", "),
     });
   }
   // The call list order: a broken promise first (call them again), then the longest overdue; families with an open promise last.
   rows.sort((a, b) => callOrder(a) - callOrder(b) || b.daysOverdue - a.daysOverdue || Number(b.overduePaise - a.overduePaise));
+  return { rows, ageing: settings.ageing };
+}
+
+/** The rows that pass the list's own filters, with totals by class and by ageing group. */
+async function pickDefaulters(tx: Tx, base: Awaited<ReturnType<typeof defaulterBase>>, f: DefaulterFilter) {
+  const rows = base.rows.filter((r) =>
+    !(f.classId && r.classId !== f.classId) &&
+    !(f.sectionId && r.sectionId !== f.sectionId) &&
+    !(f.amountAbove && r.overduePaise < f.amountAbove) &&
+    !(f.oldestFrom && r.oldestDue < f.oldestFrom) &&
+    !(f.oldestTo && r.oldestDue > f.oldestTo) &&
+    !(f.ageing !== null && f.ageing !== undefined && f.ageing !== r.ageingIndex) &&
+    !(f.reminded === "yes" && !r.reminders) &&
+    !(f.reminded === "no" && r.reminders));
   // Totals by class, and by ageing group.
   const byClass = new Map<string, { classId: string | null; className: string; amount: bigint; students: number }>();
   for (const r of rows) {
@@ -145,11 +159,32 @@ export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, 
     cur.students++;
     byClass.set(k, cur);
   }
-  const classOrder = await tx.schoolClass.findMany({ where: { id: { in: [...byClass.values()].map((c) => c.classId).filter((x): x is string => Boolean(x)) } }, select: { id: true, sortOrder: true } });
-  const classTotals = [...byClass.values()].sort((a, b) => (classOrder.find((c) => c.id === a.classId)?.sortOrder ?? 999) - (classOrder.find((c) => c.id === b.classId)?.sortOrder ?? 999));
-  const ageingTotals = settings.ageing.map((g, i) => ({ index: i, label: ageingLabel(g), amount: rows.filter((r) => r.ageingIndex === i).reduce((s, r) => s + r.overduePaise, ZERO), students: rows.filter((r) => r.ageingIndex === i).length }));
+  const classOrder = new Map((await tx.schoolClass.findMany({ where: { id: { in: [...byClass.values()].map((c) => c.classId).filter((x): x is string => Boolean(x)) } }, select: { id: true, sortOrder: true } })).map((c) => [c.id, c.sortOrder]));
+  const orderOf = (id: string | null) => (id ? classOrder.get(id) : undefined) ?? 999;
+  const classTotals = [...byClass.values()].sort((a, b) => orderOf(a.classId) - orderOf(b.classId));
+  const ageingTotals = base.ageing.map((g, i) => ({ index: i, label: ageingLabel(g), amount: rows.filter((r) => r.ageingIndex === i).reduce((s, r) => s + r.overduePaise, ZERO), students: rows.filter((r) => r.ageingIndex === i).length }));
   const total = rows.reduce((s, r) => s + r.overduePaise, ZERO);
-  return { rows, classTotals, ageingTotals, total, ageing: settings.ageing };
+  return { rows, classTotals, ageingTotals, total, ageing: base.ageing };
+}
+
+export async function defaulters(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, today: Date, f: DefaulterFilter = {}) {
+  return pickDefaulters(tx, await defaulterBase(tx, ctx, viewer, today, f), f);
+}
+
+/**
+ * Several lists at once, such as the whole list and the filtered one on the
+ * Defaulters page: lists with the same search and fee head share one read
+ * (G37: a big school's defaulters took seconds to read, and the page read them twice).
+ */
+export async function defaulterLists(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, today: Date, filters: DefaulterFilter[]) {
+  const bases = new Map<string, Promise<Awaited<ReturnType<typeof defaulterBase>>>>();
+  const out: Awaited<ReturnType<typeof defaulters>>[] = [];
+  for (const f of filters) {
+    const k = JSON.stringify([f.q ?? null, f.feeHeadId ?? null]);
+    if (!bases.has(k)) bases.set(k, defaulterBase(tx, ctx, viewer, today, f));
+    out.push(await pickDefaulters(tx, await bases.get(k)!, f));
+  }
+  return out;
 }
 
 /** 0 for a broken promise, 2 for an open one, else 1. */

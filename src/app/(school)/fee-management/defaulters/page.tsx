@@ -4,7 +4,7 @@ import { withSchool } from "@/lib/db";
 import { fileLink } from "@/lib/files";
 import { formatDate, formatDateTime, formatRupees, formatRupeesShort } from "@/lib/format";
 import { canSeeStudent } from "@/lib/fees/access";
-import { defaulters, type DefaulterFilter } from "@/lib/fees/defaulters";
+import { defaulterLists, type DefaulterFilter } from "@/lib/fees/defaulters";
 import { feeTemplates, reminderHistory } from "@/lib/fees/reminders";
 import { gatewayFor } from "@/lib/fees/settings";
 import { parseRupees } from "@/lib/fees/act";
@@ -56,7 +56,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
   };
 
   const data = await withSchool(p.current.ctx, async (tx) => {
-    const [all, list] = await Promise.all([defaulters(tx, p.current.ctx, p.viewer, p.today), defaulters(tx, p.current.ctx, p.viewer, p.today, filter)]);
+    const [all, list] = await defaulterLists(tx, p.current.ctx, p.viewer, p.today, [{}, filter]);
     const photos = await tx.student.findMany({ where: { id: { in: list.rows.map((r) => r.studentId) } }, select: { id: true, photoFileId: true } });
     const templates = canEdit ? await Promise.all((["whatsapp", "sms", "email"] as const).map((c) => feeTemplates(tx, p.current.ctx, c))) : [[], [], []];
     const gateway = canEdit ? Boolean(await gatewayFor(tx, p.current.ctx, null)) : false;

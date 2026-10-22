@@ -11,7 +11,7 @@ import { ALL_ROLE_TEMPLATES } from "@/lib/roles";
 import { combineRoles } from "@/lib/permissions";
 import { addDays, todayIn } from "@/lib/staff/dates";
 import { requireFeeStaff, type FeeViewer } from "@/lib/fees/access";
-import { addCallNote, callOrder, defaulters } from "@/lib/fees/defaulters";
+import { addCallNote, callOrder, defaulterLists, defaulters } from "@/lib/fees/defaulters";
 import { automaticReminders, reminderOnceKey } from "@/lib/fees/reminders";
 import { forecast } from "@/lib/fees/dashboard";
 import {
@@ -133,6 +133,11 @@ describe("kept and broken", () => {
     expect(order.at(-1)).toBe(f.anil.id);
     expect(list.rows[0].promise?.state).toBe("BROKEN");
     expect(list.rows.map(callOrder)).toEqual([...list.rows.map(callOrder)].sort());
+    // The Defaulters page reads the whole list and its filtered one together (G37): the same as one at a time.
+    const filters = [{}, { reminded: "no" as const }, { amountAbove: list.rows[0].overduePaise }, { q: "Sita" }];
+    const together = await withSchool(f.ctx, (tx) => defaulterLists(tx, f.ctx, viewerOf(f), day(4), filters));
+    for (const [i, one] of filters.entries()) expect(together[i]).toEqual(await withSchool(f.ctx, (tx) => defaulters(tx, f.ctx, viewerOf(f), day(4), one)));
+    expect(together[3].rows.map((r) => r.studentId)).toEqual([f.sita.id]);
     // A broken promise no longer pauses reminders.
     expect(await withSchool(f.ctx, (tx) => pausedByPromise(tx, f.ctx, [f.sita.id, f.anil.id], day(4)))).toEqual(new Set([f.anil.id]));
   });

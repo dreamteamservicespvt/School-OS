@@ -48,7 +48,7 @@ const { loadStudentList, LIST_FILTERS } = await import("../src/app/(school)/stud
 const { feeViewer } = await import("../src/lib/fees/access");
 const { findStudents: findFeeStudents, mostOverdue } = await import("../src/lib/fees/find");
 const { studentLedger } = await import("../src/lib/fees/ledger");
-const { defaulters } = await import("../src/lib/fees/defaulters");
+const { defaulterLists } = await import("../src/lib/fees/defaulters");
 const { feeTiles, monthlyTrend, forecast, recentPayments } = await import("../src/lib/fees/dashboard");
 const { attendanceAccess } = await import("../src/lib/attendance/access");
 const { registerMonth } = await import("../src/lib/attendance/register");
@@ -157,7 +157,7 @@ add("Fee Ledger: most overdue", async () => { const v = await fv(); return read(
 add("Fee Ledger: one student", async () => (fixed.owingId ? read(accountant, (tx) => studentLedger(tx, fixed.owingId!, today, tz)) : null));
 add("Defaulters (page: all + filtered)", async () => {
   const v = await fv();
-  return read(accountant, (tx) => Promise.all([defaulters(tx, accountant.ctx, v, today), defaulters(tx, accountant.ctx, v, today, { reminded: "no" })]));
+  return read(accountant, (tx) => defaulterLists(tx, accountant.ctx, v, today, [{}, { reminded: "no" }]));
 });
 add("Fee Dashboard reads", async () => {
   const v = await fv();

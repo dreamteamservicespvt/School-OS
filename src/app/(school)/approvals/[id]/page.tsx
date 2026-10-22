@@ -17,6 +17,7 @@ import { Alert } from "@/components/ui/alert";
 import { Avatar } from "@/components/ui/avatar";
 import * as I from "lucide-react";
 import { DecisionBar } from "./decision-bar";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Request" };
 
@@ -37,7 +38,7 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
     const ids = [...new Set([a.askedById, a.currentApproverId, a.decidedById, ...history.map((h) => h.by)].filter((x): x is string => Boolean(x)))];
     const [people, roles, mayDecide, mayRejectIt, jobs, links, steps] = await Promise.all([
       tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } }),
-      tx.role.findMany({ select: { key: true, name: true } }),
+      schoolRoles(tx, current.ctx, { select: { key: true, name: true } }),
       canDecide(tx, current.ctx, a),
       mayReject(tx, current.ctx, a.type),
       askerJobs(tx, [a.askedById]),

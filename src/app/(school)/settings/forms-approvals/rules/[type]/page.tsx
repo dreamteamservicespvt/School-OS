@@ -9,6 +9,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { DefaultRuleButton } from "../../list-actions";
 import { RuleEditor } from "./rule-editor";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Approval rule" };
 
@@ -28,7 +29,7 @@ export default async function RulePage({ params }: { params: Promise<{ type: str
   if (!t) notFound();
   const { rule, roles, people } = await withSchool(current.ctx, async (tx) => {
     const rules = await rulesInUse(tx, current.school.id);
-    const roles = await tx.role.findMany({ where: { archivedAt: null, isEnabled: true }, orderBy: { name: "asc" } });
+    const roles = await schoolRoles(tx, current.ctx, { where: { archivedAt: null, isEnabled: true }, orderBy: { name: "asc" } });
     const accesses = await tx.schoolAccess.findMany({ where: { archivedAt: null, userLogin: { status: "ACTIVE" } }, select: { userLogin: { select: { id: true, displayName: true } } } });
     const people = [...new Map(accesses.map((a) => [a.userLogin.id, a.userLogin.displayName]))].sort((a, b) => a[1].localeCompare(b[1]));
     return { rule: rules.find((r) => r.type === type)!, roles, people };

@@ -11,6 +11,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import type { ConsoleSchool, Prisma, SchoolInvite, SchoolStatus } from "@prisma/client";
 import { prisma, withConsole, withConsoleSchool, withUser, type Tx } from "../db";
+import { worksElsewhere } from "../auth/access";
 import { buildSchool } from "../schools";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
@@ -491,8 +492,7 @@ export async function cancelInvite(actor: ConsoleActor, schoolId: string, invite
     const login = await tx.userLogin.findUnique({ where: { id: i.userLoginId } });
     if (login && login.status === "INVITED" && !login.passwordHash) {
       await tx.schoolAccess.updateMany({ where: { schoolId, userLoginId: i.userLoginId, archivedAt: null }, data: { archivedAt: now } });
-      const elsewhere = await tx.schoolAccess.count({ where: { userLoginId: i.userLoginId, archivedAt: null } });
-      if (elsewhere === 0) await tx.userLogin.update({ where: { id: i.userLoginId }, data: { archivedAt: now, status: "DISABLED" } });
+      if (!(await worksElsewhere(i.userLoginId, schoolId))) await tx.userLogin.update({ where: { id: i.userLoginId }, data: { archivedAt: now, status: "DISABLED" } });
       await writeAudit(tx, ctx, { action: "admin invite cancelled by DREAM TEAM", recordType: "User Login", recordId: i.userLoginId, before: { status: "INVITED" }, after: { status: "REMOVED", reason: reason.trim() }, actorNote: `DREAM TEAM: ${actor.name}` });
     }
     await logActivity(tx, actor, { type: "invite", school: { id: schoolId, name: card.name }, text: `cancelled the admin invite to ${i.name}, +91 ${maskMobile(i.phone)}. Reason: ${reason.trim()}`, from: "Invited", to: "Cancelled" });
@@ -537,9 +537,9 @@ export async function disableAdmin(actor: ConsoleActor, schoolId: string, userLo
   await withConsoleSchool(schoolId, async (tx) => {
     await tx.schoolAccess.updateMany({ where: { schoolId, userLoginId, archivedAt: null }, data: { archivedAt: now } });
     await tx.schoolInvite.updateMany({ where: { forSchoolId: schoolId, userLoginId, usedAt: null, cancelledAt: null }, data: { cancelledAt: now, cancelReason: "Admin disabled" } });
-    const elsewhere = await tx.schoolAccess.count({ where: { userLoginId, archivedAt: null } });
+    const elsewhere = await worksElsewhere(userLoginId, schoolId);
     let revoked = 0;
-    if (elsewhere === 0) {
+    if (!elsewhere) {
       await tx.userLogin.update({ where: { id: userLoginId }, data: { status: "DISABLED" } });
       revoked = (await tx.session.updateMany({ where: { userLoginId, revokedAt: null }, data: { revokedAt: now, revokedReason: "Disabled by DREAM TEAM" } })).count;
       await forgetAllDevices(tx, userLoginId, { now });

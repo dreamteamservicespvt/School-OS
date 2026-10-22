@@ -7,6 +7,7 @@ import type { RolePermissions } from "@/lib/roles";
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { RoleEditor } from "../role-editor";
+import { schoolRole, schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Create a role" };
 
@@ -16,8 +17,8 @@ export default async function NewRolePage({ searchParams }: { searchParams: Prom
   const { current } = await requireSettingsPage("users", "create");
   const copy = (await searchParams).copy;
   const { from, roles } = await withSchool(current.ctx, async (tx) => ({
-    from: copy && UUID.test(copy) ? await tx.role.findFirst({ where: { id: copy, archivedAt: null } }) : null,
-    roles: await tx.role.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
+    from: copy && UUID.test(copy) ? await schoolRole(tx, current.ctx, { where: { id: copy, archivedAt: null } }) : null,
+    roles: await schoolRoles(tx, current.ctx, { where: { archivedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   }));
   return (
     <>

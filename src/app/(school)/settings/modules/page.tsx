@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { AssistantForm, FeatureSwitch, IntegrationCard, ModuleSwitch, PreferencesForm, TemplatePicker } from "./switch-forms";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Modules On/Off" };
 
@@ -24,7 +25,7 @@ export default async function ModulesPage() {
     modules: await tx.schoolModule.findMany({}),
     features: await tx.schoolFeature.findMany({}),
     integrations: await tx.integration.findMany({}),
-    roles: await tx.role.findMany({ where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true } }),
+    roles: await schoolRoles(tx, current.ctx, { where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true } }),
     usage: await aiUsage(tx, current.ctx),
   }));
   const usage = data.usage;

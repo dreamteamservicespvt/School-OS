@@ -13,6 +13,7 @@ import { Col, SimpleTable } from "@/components/money/kit";
 import { cx } from "@/components/ui/cx";
 import { FeeHead } from "../_components/fee-head";
 import { BASE, feeManagerPage, one, type SearchParams } from "../_lib/page";
+import { schoolRoles } from "@/lib/school-roles";
 import {
   AgeingSheet, CounterSheet, FeatureSwitch, HeadAccountsSheet, LateFeeSheet, NumberingSheet, PaymentsSheet, ReceiptsSheet, RemindersSheet, RoutingSheet, ScholarshipTypesSheet,
 } from "./sheets";
@@ -63,7 +64,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
       tx.paymentGatewayAccount.findMany({ where: { archivedAt: null }, orderBy: { createdAt: "asc" }, select: { id: true, displayName: true, provider: true, environment: true, isActive: true } }),
       tx.schoolClass.findMany({ where: { archivedAt: null }, orderBy: { sortOrder: "asc" }, select: { id: true, name: true } }),
       tx.bankAccount.findMany({ where: { archivedAt: null, kind: "BANK" }, orderBy: [{ isMain: "desc" }, { name: "asc" }], select: { id: true, name: true, bankName: true, accountLast4: true, isMain: true } }),
-      tx.role.findMany({ where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true } }),
+      schoolRoles(tx, ctx, { where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true } }),
       tx.approvalRule.findMany({ where: { requestType: { in: ["concession", "refund", "payment-cancellation", "scholarship", "payment-verification"] }, archivedAt: null } }),
     ]);
     return { fy, next, heads, gateways, classes, accounts, roles, rules };

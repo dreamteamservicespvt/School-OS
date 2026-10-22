@@ -13,7 +13,7 @@ export default async function InvitePage({ searchParams }: { searchParams: Promi
   const { current } = await requireSettingsPage("users", "create");
   const sp = await searchParams;
   const { roles, campuses, staff } = await withSchool(current.ctx, async (tx) => ({
-    roles: await assignableRoles(tx),
+    roles: await assignableRoles(tx, current.ctx),
     campuses: await tx.campus.findMany({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { name: "asc" }], select: { id: true, name: true } }),
     staff: await tx.staff.findMany({
       where: { archivedAt: null, userLoginId: null, status: { in: ["ACTIVE", "ON_LEAVE"] } },

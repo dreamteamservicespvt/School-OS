@@ -13,6 +13,7 @@ import { formatDate } from "../format";
 import { currentYear } from "../academic/years";
 import { hrPeople } from "./access";
 import { forgetAllDevices } from "../auth/remembered";
+import { worksElsewhere } from "../auth/access";
 import { loginsForCampus } from "./campus-logins";
 
 export class ExitProblem extends Error {
@@ -225,8 +226,8 @@ export async function finishLastDay(tx: Tx, ctx: SchoolContext, exitCaseId: stri
   let loginClosed = false;
   if (staff.userLoginId) {
     await tx.schoolAccess.updateMany({ where: { schoolId: ctx.schoolId, userLoginId: staff.userLoginId, archivedAt: null }, data: { archivedAt: new Date() } });
-    const elsewhere = await tx.schoolAccess.count({ where: { userLoginId: staff.userLoginId, archivedAt: null } });
-    if (elsewhere === 0) {
+    const elsewhere = await worksElsewhere(staff.userLoginId, ctx.schoolId);
+    if (!elsewhere) {
       await tx.userLogin.update({ where: { id: staff.userLoginId }, data: { status: "DISABLED", inviteTokenHash: null, inviteExpiresAt: null } });
       await forgetAllDevices(tx, staff.userLoginId);
     }
@@ -309,9 +310,10 @@ export async function switchOffLogin(tx: Tx, ctx: SchoolContext, staffId: string
   if (staff.userLoginId === ctx.userId) throw new ExitProblem("You cannot switch off your own login.");
   const login = await tx.userLogin.findUniqueOrThrow({ where: { id: staff.userLoginId } });
   await tx.schoolAccess.updateMany({ where: { schoolId: ctx.schoolId, userLoginId: login.id, archivedAt: null }, data: { archivedAt: new Date() } });
-  const elsewhere = await tx.schoolAccess.count({ where: { userLoginId: login.id, archivedAt: null } });
-  if (elsewhere === 0) await tx.userLogin.update({ where: { id: login.id }, data: { status: "DISABLED" } });
-  await tx.session.updateMany({ where: { userLoginId: login.id, revokedAt: null }, data: { revokedAt: new Date(), revokedReason: "Login switched off" } });
-  await forgetAllDevices(tx, login.id);
+  // A login that still opens another school keeps working there: only this school's access and sessions close.
+  const elsewhere = await worksElsewhere(login.id, ctx.schoolId);
+  if (!elsewhere) await tx.userLogin.update({ where: { id: login.id }, data: { status: "DISABLED" } });
+  await tx.session.updateMany({ where: { userLoginId: login.id, revokedAt: null, ...(elsewhere ? { schoolId: ctx.schoolId } : {}) }, data: { revokedAt: new Date(), revokedReason: "Login switched off" } });
+  if (!elsewhere) await forgetAllDevices(tx, login.id);
   await writeAudit(tx, ctx, { action: "login-switched-off", recordType: "User Login", recordId: login.id, before: { status: login.status }, after: { reason } });
 }

@@ -13,6 +13,7 @@ import { DetailsForm } from "./details-form";
 import { BoardForm, ComplianceForm, LogoForm, RegionForm } from "./sections";
 import { Campuses } from "./campuses";
 import { Documents, type DocRow } from "./documents";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "School Profile" };
 
@@ -51,7 +52,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
   const data = await withSchool(current.ctx, async (tx) => {
     const school = await tx.school.findUniqueOrThrow({ where: { id: current.school.id }, include: { group: true } });
     const campuses = await tx.campus.findMany({ orderBy: [{ isMain: "desc" }, { name: "asc" }] });
-    const roles = await tx.role.findMany({ where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true } });
+    const roles = await schoolRoles(tx, current.ctx, { where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true } });
     const docs = await tx.schoolDocument.findMany({ orderBy: [{ expiresOn: { sort: "asc", nulls: "last" } }, { title: "asc" }] });
     return { school, campuses, roles, docs, now: new Date().getTime() };
   });

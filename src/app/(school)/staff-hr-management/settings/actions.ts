@@ -9,6 +9,7 @@ import { act, FieldProblem, optionalId, str } from "@/lib/staff/act";
 import { HrOnlyError } from "@/lib/staff/access";
 import { EMPLOYMENT_TYPES, HR_FEATURES, setHrFeature, USERNAME_FORMATS, type HrFeature } from "@/lib/staff/settings";
 import { StaffProblem } from "@/lib/staff/staff";
+import { schoolRole } from "@/lib/school-roles";
 
 type Current = Awaited<ReturnType<typeof requireAction>>["current"];
 
@@ -74,7 +75,7 @@ export async function saveDesignation(_: FormState<unknown>, fd: FormData) {
     const n = name(fd);
     const staffType = str(fd, "staffType") === "Non-teaching" ? "Non-teaching" : "Teaching";
     const roleKey = str(fd, "defaultRoleKey") || null;
-    if (roleKey && !(await tx.role.findFirst({ where: { key: roleKey, archivedAt: null } }))) throw new FieldProblem("Choose a role from the list.", "defaultRoleKey");
+    if (roleKey && !(await schoolRole(tx, c.ctx, { where: { key: roleKey, archivedAt: null } }))) throw new FieldProblem("Choose a role from the list.", "defaultRoleKey");
     const data = { name: n, staffType, defaultDepartmentId: optionalId(fd, "defaultDepartmentId"), defaultRoleKey: roleKey };
     const clash = await tx.designation.findFirst({ where: { name: { equals: n, mode: "insensitive" }, ...(id ? { id: { not: id } } : {}) } });
     if (clash) throw new FieldProblem(`${clash.name} already exists${clash.archivedAt ? " (archived)" : ""}.`, "name");

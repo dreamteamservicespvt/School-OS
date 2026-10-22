@@ -18,6 +18,7 @@ import { BASE, studentPage } from "../_lib/page";
 import { campusPrefixes } from "../_lib/queries";
 import { saveSettingsAction } from "../_actions/settings";
 import { aiAllowed } from "@/lib/settings/switch-rules";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Student Settings" };
 
@@ -71,7 +72,7 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
       sample: await previewAdmissionNo(tx, current.ctx),
       policy: policyYear ? await currentPolicy(tx, policyYear.id) : null,
       history: policyYear ? await tx.promotionPolicy.findMany({ where: { academicYearId: policyYear.id }, orderBy: { version: "desc" }, take: 10 }) : [],
-      roles: await tx.role.findMany({ where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true } }),
+      roles: await schoolRoles(tx, current.ctx, { where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true } }),
       signatories: await tx.signatory.findMany({ where: { archivedAt: null }, orderBy: { title: "asc" } }),
     };
   });

@@ -75,7 +75,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
       tx.session.findMany({ where: { userLoginId: id, revokedAt: null, expiresAt: { gt: new Date() } }, orderBy: { lastUsedAt: "desc" } }),
       tx.staff.findFirst({ where: { userLoginId: id }, select: { id: true, fullName: true, designation: true } }),
       tx.student.findFirst({ where: { userLoginId: id }, select: { id: true, fullName: true } }),
-      assignableRoles(tx),
+      assignableRoles(tx, current.ctx),
       tx.campus.findMany({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { name: "asc" }], select: { id: true, name: true } }),
       tx.staff.findMany({ where: { archivedAt: null, userLoginId: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } }),
       tx.auditLogEntry.findMany({ where: { recordType: "User Login", recordId: id }, orderBy: { at: "desc" }, take: 60 }),

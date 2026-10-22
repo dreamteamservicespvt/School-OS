@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { ExportButton, TwoStepSwitch, AutoRefresh } from "./parts";
 import { REMEMBER_DAYS } from "@/lib/auth/remembered";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Data Backup & Security" };
 
@@ -36,7 +37,7 @@ export default async function DataSecurityPage() {
       const ids = [...new Set([...exports.map((e) => e.requestedById), ...alerts.map((a) => a.userLoginId)].filter((x): x is string => Boolean(x)))];
       const people = ids.length ? await tx.schoolAccess.findMany({ where: { userLoginId: { in: ids } }, select: { userLogin: { select: { id: true, displayName: true } } } }) : [];
       const twoStep = await tx.schoolFeature.findUnique({ where: { schoolId_featureKey: { schoolId: current.ctx.schoolId, featureKey: TWO_STEP_FEATURE } } });
-      const twoStepRoles = await tx.role.findMany({ where: { requiresTwoStep: true, isEnabled: true, archivedAt: null }, select: { name: true } });
+      const twoStepRoles = await schoolRoles(tx, current.ctx, { where: { requiresTwoStep: true, isEnabled: true, archivedAt: null }, select: { name: true } });
       // The people those roles cover, to say who no code can reach yet.
       const sensitive = await tx.schoolAccess.findMany({
         where: { archivedAt: null, userLogin: { status: "ACTIVE", archivedAt: null }, roles: { some: { role: { requiresTwoStep: true, isEnabled: true, archivedAt: null } } } },

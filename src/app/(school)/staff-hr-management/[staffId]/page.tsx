@@ -39,6 +39,7 @@ import {
 import { UploadDocumentForm } from "../documents/upload-form";
 import { removeDocumentAction, uploadDocument } from "../documents/actions";
 import { ConfirmButton } from "@/components/ui/confirm";
+import { schoolRoles } from "@/lib/school-roles";
 
 type Props = { params: Promise<{ staffId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -236,8 +237,8 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
         tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, OR: [campusStaffWhere(viewer), ...(s!.reportingToId ? [{ id: s!.reportingToId }] : [])] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true } }),
         tx.campus.findMany({ where: { archivedAt: null, ...(viewer.campusId ? { id: { in: [viewer.campusId, s!.campusId] } } : {}) } }),
         tx.customField.findMany({ where: { recordType: "staff", archivedAt: null }, orderBy: { sortOrder: "asc" } }),
-        tx.role.findMany({ where: { isEnabled: true, archivedAt: null, key: { not: "student" } }, orderBy: { name: "asc" } }),
-        s!.userLoginId ? tx.schoolAccess.findFirst({ where: { userLoginId: s!.userLoginId }, orderBy: { createdAt: "desc" }, include: { roles: { include: { role: true } } } }) : null,
+        schoolRoles(tx, current.ctx, { where: { isEnabled: true, archivedAt: null, key: { not: "student" } }, orderBy: { name: "asc" } }),
+        s!.userLoginId ? tx.schoolAccess.findFirst({ where: { schoolId: current.ctx.schoolId, userLoginId: s!.userLoginId }, orderBy: { createdAt: "desc" }, include: { roles: { include: { role: true } } } }) : null,
       ]);
       const settings = await hrSettings(tx, current.ctx);
       return { contacts, designations, departments, staff, campuses, fields, roles, access, settings };

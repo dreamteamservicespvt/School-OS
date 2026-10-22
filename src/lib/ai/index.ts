@@ -84,7 +84,7 @@ async function whoFor(tx: Tx, ctx: SchoolContext, feature: string) {
   const [school, features, accesses] = await Promise.all([
     tx.school.findUnique({ where: { id: ctx.schoolId }, select: { preferences: true, timeZone: true } }),
     tx.schoolFeature.findMany({ where: { isOn: true, featureKey: { in: ["ai-assistant", feature] } }, select: { featureKey: true } }),
-    ctx.userId ? tx.schoolAccess.findMany({ where: { userLoginId: ctx.userId, archivedAt: null }, include: { roles: { include: { role: true } } } }) : Promise.resolve([]),
+    ctx.userId ? tx.schoolAccess.findMany({ where: { schoolId: ctx.schoolId, userLoginId: ctx.userId, archivedAt: null }, include: { roles: { include: { role: true } } } }) : Promise.resolve([]),
   ]);
   const prefs = readPreferences(school?.preferences);
   const who: AiWho = {

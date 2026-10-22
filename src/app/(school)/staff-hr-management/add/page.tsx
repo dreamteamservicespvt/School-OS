@@ -16,6 +16,7 @@ import { BackLink } from "@/components/ui/module-head";
 import { PageHeader } from "@/components/shell/page-header";
 import { Wizard, type WizardData } from "./wizard";
 import { checkDetails, createStaffAction } from "./actions";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Add Staff" };
 
@@ -35,7 +36,7 @@ export default async function AddStaffPage({ searchParams }: Search) {
       // One campus: the reporting manager is one of that campus's staff (or the person adding), and the campus is theirs.
       tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, AND: [campusStaffWhere(viewer)] }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } }),
       tx.campus.findMany({ where: { archivedAt: null, ...(current.campusId ? { id: current.campusId } : {}) }, orderBy: [{ isMain: "desc" }, { name: "asc" }] }),
-      tx.role.findMany({ where: { isEnabled: true, archivedAt: null }, orderBy: [{ kind: "asc" }, { name: "asc" }] }),
+      schoolRoles(tx, current.ctx, { where: { isEnabled: true, archivedAt: null }, orderBy: [{ kind: "asc" }, { name: "asc" }] }),
     ]);
     // The campus chosen at first is the person's own; the classes to give are of that campus's year.
     const mine = await personCampusId(tx, current.ctx, current);

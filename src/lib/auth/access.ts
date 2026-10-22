@@ -24,6 +24,16 @@ export async function schoolsFor(userLoginId: string): Promise<SchoolChoice[]> {
   });
 }
 
+/**
+ * Whether this login still opens a school other than `exceptSchoolId`. Inside a
+ * school the database hides the person's other schools, so this reads through
+ * withUser(), as sign-in does. It sees committed rows only: ask about the other
+ * schools, never the one being changed in the open transaction.
+ */
+export async function worksElsewhere(userLoginId: string, exceptSchoolId: string): Promise<boolean> {
+  return (await schoolsFor(userLoginId)).some((s) => s.id !== exceptSchoolId);
+}
+
 export type SchoolAccessView = {
   school: { id: string; name: string; code: string; logoUrl: string | null; timeZone: string; accent: string | null; weekStart: "monday" | "sunday" };
   /** Set by DREAM TEAM in the console. Suspended or Closed: the school is paused (see /paused). */

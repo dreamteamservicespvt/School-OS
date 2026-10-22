@@ -10,6 +10,7 @@ import { formatRupees } from "../format";
 import { MoneyProblem } from "./problem";
 import { feeSettings } from "./settings";
 import { COUNTER_PERMISSIONS, FEE_FEATURES, PAYMENT_MODES, type AgeingGroup, type CounterPermission } from "./words";
+import { schoolRoles } from "../school-roles";
 
 const ZERO = BigInt(0);
 const PREFIX_RE = /^[A-Za-z0-9/\-_{}.]{0,20}$/;
@@ -113,7 +114,7 @@ export async function savePayments(tx: Tx, ctx: SchoolContext, i: { verifyModes:
 }
 
 export async function saveCounter(tx: Tx, ctx: SchoolContext, map: Record<string, string[]>) {
-  const roles = await tx.role.findMany({ where: { archivedAt: null, key: { not: null } }, select: { key: true } });
+  const roles = await schoolRoles(tx, ctx, { where: { archivedAt: null, key: { not: null } }, select: { key: true } });
   const known = new Set(roles.map((r) => r.key!));
   const next = {} as Record<CounterPermission, string[]>;
   for (const p of COUNTER_PERMISSIONS) next[p.key] = [...new Set((map[p.key] ?? []).filter((k) => known.has(k)))];

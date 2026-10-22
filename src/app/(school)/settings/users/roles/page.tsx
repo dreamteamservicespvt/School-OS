@@ -11,6 +11,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { UsersNav } from "../sub-nav";
 import { RoleSwitch } from "./role-actions";
+import { schoolRoles } from "@/lib/school-roles";
 
 export const metadata: Metadata = { title: "Roles" };
 
@@ -20,7 +21,7 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
   const { current, may } = await requireSettingsPage("users");
   const showArchived = (await searchParams).archived === "1";
   const { roles, usage } = await withSchool(current.ctx, async (tx) => ({
-    roles: await tx.role.findMany({ orderBy: [{ name: "asc" }] }),
+    roles: await schoolRoles(tx, current.ctx, { orderBy: [{ name: "asc" }] }),
     usage: await roleUsage(tx, current.school.id),
   }));
   const mayEdit = may.edit;

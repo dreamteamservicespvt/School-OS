@@ -90,18 +90,18 @@ model ConsoleSession {
 
 /// A one-time code for the console's two-step sign-in or a team welcome link.
 model ConsoleCode {
-  id            String    @id @default(uuid()) @db.Uuid
-  userId        String    @map("user_id") @db.Uuid
+  id             String    @id @default(uuid()) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
   /// "sign-in" or "welcome".
-  purpose       String
+  purpose        String
   /// The browser holds this challenge token between the two steps; only its hash is kept.
-  challengeHash String    @unique @map("challenge_hash")
-  codeHash      String    @map("code_hash")
-  sentTo        String    @map("sent_to")
-  attempts      Int       @default(0)
-  expiresAt     DateTime  @map("expires_at")
-  usedAt        DateTime? @map("used_at")
-  createdAt     DateTime  @default(now()) @map("created_at")
+  challengeHash  String    @unique @map("challenge_hash")
+  codeHash       String    @map("code_hash")
+  sentTo         String    @map("sent_to")
+  attempts       Int       @default(0)
+  expiresAt      DateTime  @map("expires_at")
+  usedAt         DateTime? @map("used_at")
+  createdAt      DateTime  @default(now()) @map("created_at")
 
   user SuperAdminUser @relation(fields: [userId], references: [id])
 
@@ -111,13 +111,13 @@ model ConsoleCode {
 
 /// A device that passed the one-time code; it skips the code for 30 days.
 model ConsoleDevice {
-  id        String    @id @default(uuid()) @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
-  tokenHash String    @unique @map("token_hash")
-  userAgent String?   @map("user_agent")
-  createdAt DateTime  @default(now()) @map("created_at")
-  expiresAt DateTime  @map("expires_at")
-  revokedAt DateTime? @map("revoked_at")
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  userAgent  String?   @map("user_agent")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  expiresAt  DateTime  @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
 
   user SuperAdminUser @relation(fields: [userId], references: [id])
 
@@ -156,32 +156,32 @@ model ConsoleSchool {
   firstAdminSignInAt DateTime?    @map("first_admin_sign_in_at")
 
   // Counts only, measured from the school (src/lib/console/measure.ts).
-  activeStudents    Int       @default(0) @map("active_students")
-  staffLogins       Int       @default(0) @map("staff_logins")
-  lastActivityAt    DateTime? @map("last_activity_at")
-  messagesThisMonth Int       @default(0) @map("messages_this_month")
-  creditsWhatsapp   Int       @default(0) @map("credits_whatsapp")
-  creditsSms        Int       @default(0) @map("credits_sms")
-  modulesOn         String[]  @default([]) @map("modules_on")
-  campuses          Int       @default(1)
-  setupDone         Int       @default(0) @map("setup_done")
-  setupTotal        Int       @default(10) @map("setup_total")
+  activeStudents     Int          @default(0) @map("active_students")
+  staffLogins        Int          @default(0) @map("staff_logins")
+  lastActivityAt     DateTime?    @map("last_activity_at")
+  messagesThisMonth  Int          @default(0) @map("messages_this_month")
+  creditsWhatsapp    Int          @default(0) @map("credits_whatsapp")
+  creditsSms         Int          @default(0) @map("credits_sms")
+  modulesOn          String[]     @default([]) @map("modules_on")
+  campuses           Int          @default(1)
+  setupDone          Int          @default(0) @map("setup_done")
+  setupTotal         Int          @default(10) @map("setup_total")
   /// [{ key, label, done }]
-  setupSteps        Json      @default("[]") @map("setup_steps")
-  setupChangedAt    DateTime? @map("setup_changed_at")
+  setupSteps         Json         @default("[]") @map("setup_steps")
+  setupChangedAt     DateTime?    @map("setup_changed_at")
   /// Messages waiting more than 10 minutes, and failed in the last day (System alerts).
-  messagesStuck     Int       @default(0) @map("messages_stuck")
-  messagesFailed    Int       @default(0) @map("messages_failed")
-  jobsFailed        Int       @default(0) @map("jobs_failed")
+  messagesStuck      Int          @default(0) @map("messages_stuck")
+  messagesFailed     Int          @default(0) @map("messages_failed")
+  jobsFailed         Int          @default(0) @map("jobs_failed")
   /// { whatsapp: { sentToday, stuck, failed }, sms: {...}, email: {...} }
-  channelStats      Json      @default("{}") @map("channel_stats")
+  channelStats       Json         @default("{}") @map("channel_stats")
   /// First active School Admin, for the Schools list.
-  adminName         String?   @map("admin_name")
-  adminPhone        String?   @map("admin_phone")
-  adminSignedIn     Boolean   @default(false) @map("admin_signed_in")
-  measuredAt        DateTime? @map("measured_at")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  adminName          String?      @map("admin_name")
+  adminPhone         String?      @map("admin_phone")
+  adminSignedIn      Boolean      @default(false) @map("admin_signed_in")
+  measuredAt         DateTime?    @map("measured_at")
+  createdAt          DateTime     @default(now()) @map("created_at")
+  updatedAt          DateTime     @updatedAt @map("updated_at")
 
   @@index([status])
   @@index([phoneDigits])
@@ -191,32 +191,32 @@ model ConsoleSchool {
 /// School Invite: a login invite (or a login reset) for a school's admin.
 /// The link is stored hashed; it also needs a one-time code sent to the admin's mobile.
 model SchoolInvite {
-  id           String           @id @default(uuid()) @db.Uuid
-  forSchoolId  String           @map("for_school_id") @db.Uuid
-  userLoginId  String           @map("user_login_id") @db.Uuid
-  kind         SchoolInviteKind @default(INVITE)
-  name         String
-  phone        String
-  email        String?
+  id            String           @id @default(uuid()) @db.Uuid
+  forSchoolId   String           @map("for_school_id") @db.Uuid
+  userLoginId   String           @map("user_login_id") @db.Uuid
+  kind          SchoolInviteKind @default(INVITE)
+  name          String
+  phone         String
+  email         String?
   /// "school-admin" or "principal".
-  roleKey      String           @map("role_key")
-  channels     String[]
-  tokenHash    String           @unique @map("token_hash")
-  sentAt       DateTime         @default(now()) @map("sent_at")
-  expiresAt    DateTime         @map("expires_at")
-  openedAt     DateTime?        @map("opened_at")
-  codeHash     String?          @map("code_hash")
-  codeSentAt   DateTime?        @map("code_sent_at")
-  codeAttempts Int              @default(0) @map("code_attempts")
-  codeOkAt     DateTime?        @map("code_ok_at")
-  usedAt       DateTime?        @map("used_at")
-  cancelledAt  DateTime?        @map("cancelled_at")
-  cancelReason String?          @map("cancel_reason")
+  roleKey       String           @map("role_key")
+  channels      String[]
+  tokenHash     String           @unique @map("token_hash")
+  sentAt        DateTime         @default(now()) @map("sent_at")
+  expiresAt     DateTime         @map("expires_at")
+  openedAt      DateTime?        @map("opened_at")
+  codeHash      String?          @map("code_hash")
+  codeSentAt    DateTime?        @map("code_sent_at")
+  codeAttempts  Int              @default(0) @map("code_attempts")
+  codeOkAt      DateTime?        @map("code_ok_at")
+  usedAt        DateTime?        @map("used_at")
+  cancelledAt   DateTime?        @map("cancelled_at")
+  cancelReason  String?          @map("cancel_reason")
   /// A newer link replaced this one (Resend).
-  replacedAt   DateTime?        @map("replaced_at")
-  sentById     String?          @map("sent_by_id") @db.Uuid
-  sentByName   String?          @map("sent_by_name")
-  createdAt    DateTime         @default(now()) @map("created_at")
+  replacedAt    DateTime?        @map("replaced_at")
+  sentById      String?          @map("sent_by_id") @db.Uuid
+  sentByName    String?          @map("sent_by_name")
+  createdAt     DateTime         @default(now()) @map("created_at")
 
   @@index([forSchoolId, createdAt])
   @@index([userLoginId])
@@ -254,38 +254,38 @@ enum SupportAccessStatus {
 /// school login: they look through the school's own wall (withSchool) for that one
 /// school, and can change nothing.
 model SupportAccessRequest {
-  id                   String              @id @default(uuid()) @db.Uuid
-  forSchoolId          String              @map("for_school_id") @db.Uuid
-  schoolName           String              @map("school_name")
+  id              String              @id @default(uuid()) @db.Uuid
+  forSchoolId     String              @map("for_school_id") @db.Uuid
+  schoolName      String              @map("school_name")
   /// The Super Admin User who asked.
-  requestedById        String              @map("requested_by_id") @db.Uuid
-  requestedByName      String              @map("requested_by_name")
-  reason               String
+  requestedById   String              @map("requested_by_id") @db.Uuid
+  requestedByName String              @map("requested_by_name")
+  reason          String
   /// How long, once allowed: 60 (1 hour), 240 (4 hours) or 1440 (1 day).
-  lengthMinutes        Int                 @map("length_minutes")
-  status               SupportAccessStatus @default(WAITING)
+  lengthMinutes   Int                 @map("length_minutes")
+  status          SupportAccessStatus @default(WAITING)
   /// The School Admin or Principal who allowed or declined it.
-  decidedById          String?             @map("decided_by_id") @db.Uuid
-  decidedByName        String?             @map("decided_by_name")
-  decidedAt            DateTime?           @map("decided_at")
-  declineReason        String?             @map("decline_reason")
+  decidedById     String?             @map("decided_by_id") @db.Uuid
+  decidedByName   String?             @map("decided_by_name")
+  decidedAt       DateTime?           @map("decided_at")
+  declineReason   String?             @map("decline_reason")
   /// Start and end of the allowed time.
-  startsAt             DateTime?           @map("starts_at")
-  endsAt               DateTime?           @map("ends_at")
-  endedAt              DateTime?           @map("ended_at")
+  startsAt        DateTime?           @map("starts_at")
+  endsAt          DateTime?           @map("ends_at")
+  endedAt         DateTime?           @map("ended_at")
   /// time (the time given ran out), school (ended from Approvals), support (DREAM TEAM ended it), withdrawn, paused (the school was suspended or closed)
-  endedHow             String?             @map("ended_how")
-  endedByName          String?             @map("ended_by_name")
+  endedHow        String?             @map("ended_how")
+  endedByName     String?             @map("ended_by_name")
   /// A one-time ticket from the console to the school's own web address, hashed; it works for 1 minute.
-  entryTicketHash      String?             @unique @map("entry_ticket_hash")
-  entryTicketExpiresAt DateTime?           @map("entry_ticket_expires_at")
+  entryTicketHash      String?        @unique @map("entry_ticket_hash")
+  entryTicketExpiresAt DateTime?      @map("entry_ticket_expires_at")
   /// The support browser's entry token (its cookie), hashed.
-  entryTokenHash       String?             @unique @map("entry_token_hash")
+  entryTokenHash  String?             @unique @map("entry_token_hash")
   /// The console sign-in it was entered from: signing out of the console ends the entry.
-  entrySessionId       String?             @map("entry_session_id") @db.Uuid
-  enteredAt            DateTime?           @map("entered_at")
-  createdAt            DateTime            @default(now()) @map("created_at")
-  updatedAt            DateTime            @updatedAt @map("updated_at")
+  entrySessionId  String?             @map("entry_session_id") @db.Uuid
+  enteredAt       DateTime?           @map("entered_at")
+  createdAt       DateTime            @default(now()) @map("created_at")
+  updatedAt       DateTime            @updatedAt @map("updated_at")
 
   @@index([forSchoolId, createdAt])
   @@index([status])
@@ -309,23 +309,23 @@ model SchoolNote {
 /// Plan: one price on the price list. A changed price is a new row with a later
 /// "valid from"; renewals use the price valid on their date, never a school mid-year.
 model Plan {
-  id                  String   @id @default(uuid()) @db.Uuid
+  id                   String    @id @default(uuid()) @db.Uuid
   /// essential, complete, hostel, transport
-  key                 String
-  name                String
-  isAddOn             Boolean  @default(false) @map("is_add_on")
+  key                  String
+  name                 String
+  isAddOn              Boolean   @default(false) @map("is_add_on")
   /// per-student (plans), per-school (Hostel), per-bus (Transport)
-  unit                String
-  pricePaise          BigInt   @map("price_paise")
-  minStudents         Int      @default(0) @map("min_students")
+  unit                 String
+  pricePaise           BigInt    @map("price_paise")
+  minStudents          Int       @default(0) @map("min_students")
   /// Price per student above 1,000 students.
-  priceAbove1000Paise BigInt?  @map("price_above_1000_paise")
-  creditsPerStudent   Int      @default(0) @map("credits_per_student")
-  storageGb           Int?     @map("storage_gb")
-  modules             String[] @default([])
-  validFrom           DateTime @map("valid_from") @db.Date
-  createdById         String?  @map("created_by_id") @db.Uuid
-  createdAt           DateTime @default(now()) @map("created_at")
+  priceAbove1000Paise  BigInt?   @map("price_above_1000_paise")
+  creditsPerStudent    Int       @default(0) @map("credits_per_student")
+  storageGb            Int?      @map("storage_gb")
+  modules              String[]  @default([])
+  validFrom            DateTime  @map("valid_from") @db.Date
+  createdById          String?   @map("created_by_id") @db.Uuid
+  createdAt            DateTime  @default(now()) @map("created_at")
 
   @@unique([key, validFrom])
   @@map("plan")
@@ -333,30 +333,30 @@ model Plan {
 
 /// Subscription: what one school pays for.
 model Subscription {
-  id                   String             @id @default(uuid()) @db.Uuid
-  forSchoolId          String             @unique @map("for_school_id") @db.Uuid
-  planKey              String             @map("plan_key")
-  hostel               Boolean            @default(false)
-  buses                Int                @default(0)
-  studentsPaidFor      Int                @map("students_paid_for")
-  pricePerStudentPaise BigInt             @map("price_per_student_paise")
-  discountPercent      Int                @default(0) @map("discount_percent")
+  id                    String             @id @default(uuid()) @db.Uuid
+  forSchoolId           String             @unique @map("for_school_id") @db.Uuid
+  planKey               String             @map("plan_key")
+  hostel                Boolean            @default(false)
+  buses                 Int                @default(0)
+  studentsPaidFor       Int                @map("students_paid_for")
+  pricePerStudentPaise  BigInt             @map("price_per_student_paise")
+  discountPercent       Int                @default(0) @map("discount_percent")
   /// "group" or "founding".
-  discountReason       String?            @map("discount_reason")
-  foundingNumber       Int?               @unique @map("founding_number")
-  priceLockedUntil     DateTime?          @map("price_locked_until") @db.Date
-  startOn              DateTime           @map("start_on") @db.Date
-  renewOn              DateTime           @map("renew_on") @db.Date
+  discountReason        String?            @map("discount_reason")
+  foundingNumber        Int?               @unique @map("founding_number")
+  priceLockedUntil      DateTime?          @map("price_locked_until") @db.Date
+  startOn               DateTime           @map("start_on") @db.Date
+  renewOn               DateTime           @map("renew_on") @db.Date
   /// YEARLY or HALVES.
-  payIn                String             @default("YEARLY") @map("pay_in")
-  status               SubscriptionStatus @default(DUE)
+  payIn                 String             @default("YEARLY") @map("pay_in")
+  status                SubscriptionStatus @default(DUE)
   /// A downgrade waits for the renewal date.
-  nextPlanKey          String?            @map("next_plan_key")
-  nextHostel           Boolean?           @map("next_hostel")
-  sixMonthCheckedAt    DateTime?          @map("six_month_checked_at")
-  remindersSent        String[]           @default([]) @map("reminders_sent")
-  createdAt            DateTime           @default(now()) @map("created_at")
-  updatedAt            DateTime           @updatedAt @map("updated_at")
+  nextPlanKey           String?            @map("next_plan_key")
+  nextHostel            Boolean?           @map("next_hostel")
+  sixMonthCheckedAt     DateTime?          @map("six_month_checked_at")
+  remindersSent         String[]           @default([]) @map("reminders_sent")
+  createdAt             DateTime           @default(now()) @map("created_at")
+  updatedAt             DateTime           @updatedAt @map("updated_at")
 
   @@map("subscription")
 }
@@ -364,38 +364,38 @@ model Subscription {
 /// Platform Invoice: one GST invoice from DREAM TEAM to a school. Never deleted;
 /// a wrong one is cancelled with a reason.
 model PlatformInvoice {
-  id              String                @id @default(uuid()) @db.Uuid
-  number          String                @unique
-  forSchoolId     String                @map("for_school_id") @db.Uuid
-  subscriptionId  String?               @map("subscription_id") @db.Uuid
+  id               String                @id @default(uuid()) @db.Uuid
+  number           String                @unique
+  forSchoolId      String                @map("for_school_id") @db.Uuid
+  subscriptionId   String?               @map("subscription_id") @db.Uuid
   /// NEW, RENEWAL, UPGRADE, TOPUP, SECOND_HALF, CREDITS
-  kind            String
+  kind             String
   /// [{ label, qty, ratePaise, amountPaise }] (paise as strings)
-  items           Json
-  subtotalPaise   BigInt                @map("subtotal_paise")
-  discountPaise   BigInt                @default(0) @map("discount_paise")
-  gstPaise        BigInt                @map("gst_paise")
-  totalPaise      BigInt                @map("total_paise")
-  students        Int?
-  periodFrom      DateTime?             @map("period_from") @db.Date
-  periodTo        DateTime?             @map("period_to") @db.Date
-  issuedOn        DateTime              @map("issued_on") @db.Date
-  dueOn           DateTime              @map("due_on") @db.Date
-  status          PlatformInvoiceStatus @default(UNPAID)
-  sentAt          DateTime?             @map("sent_at")
-  razorpayLinkId  String?               @unique @map("razorpay_link_id")
-  razorpayLinkUrl String?               @map("razorpay_link_url")
-  paidAt          DateTime?             @map("paid_at")
+  items            Json
+  subtotalPaise    BigInt                @map("subtotal_paise")
+  discountPaise    BigInt                @default(0) @map("discount_paise")
+  gstPaise         BigInt                @map("gst_paise")
+  totalPaise       BigInt                @map("total_paise")
+  students         Int?
+  periodFrom       DateTime?             @map("period_from") @db.Date
+  periodTo         DateTime?             @map("period_to") @db.Date
+  issuedOn         DateTime              @map("issued_on") @db.Date
+  dueOn            DateTime              @map("due_on") @db.Date
+  status           PlatformInvoiceStatus @default(UNPAID)
+  sentAt           DateTime?             @map("sent_at")
+  razorpayLinkId   String?               @unique @map("razorpay_link_id")
+  razorpayLinkUrl  String?               @map("razorpay_link_url")
+  paidAt           DateTime?             @map("paid_at")
   /// RAZORPAY, BANK, CHEQUE
-  paidVia         String?               @map("paid_via")
-  paidRef         String?               @map("paid_ref")
-  markedPaidById  String?               @map("marked_paid_by_id") @db.Uuid
-  cancelledAt     DateTime?             @map("cancelled_at")
-  cancelReason    String?               @map("cancel_reason")
-  cancelledById   String?               @map("cancelled_by_id") @db.Uuid
-  createdById     String?               @map("created_by_id") @db.Uuid
-  createdAt       DateTime              @default(now()) @map("created_at")
-  updatedAt       DateTime              @updatedAt @map("updated_at")
+  paidVia          String?               @map("paid_via")
+  paidRef          String?               @map("paid_ref")
+  markedPaidById   String?               @map("marked_paid_by_id") @db.Uuid
+  cancelledAt      DateTime?             @map("cancelled_at")
+  cancelReason     String?               @map("cancel_reason")
+  cancelledById    String?               @map("cancelled_by_id") @db.Uuid
+  createdById      String?               @map("created_by_id") @db.Uuid
+  createdAt        DateTime              @default(now()) @map("created_at")
+  updatedAt        DateTime              @updatedAt @map("updated_at")
 
   @@index([forSchoolId, issuedOn])
   @@index([status])
@@ -438,17 +438,17 @@ model ConsoleActivityEntry {
 /// A message the console sent (invites, codes, invoices, status notices).
 /// Links and codes are never stored.
 model ConsoleMessage {
-  id                String   @id @default(uuid()) @db.Uuid
-  forSchoolId       String?  @map("for_school_id") @db.Uuid
+  id                String    @id @default(uuid()) @db.Uuid
+  forSchoolId       String?   @map("for_school_id") @db.Uuid
   channel           String
   to                String
   purpose           String
   text              String
   /// SENT, TEST (no provider set up), FAILED
   status            String
-  providerMessageId String?  @map("provider_message_id")
-  failReason        String?  @map("fail_reason")
-  createdAt         DateTime @default(now()) @map("created_at")
+  providerMessageId String?   @map("provider_message_id")
+  failReason        String?   @map("fail_reason")
+  createdAt         DateTime  @default(now()) @map("created_at")
 
   @@index([forSchoolId, createdAt])
   @@map("console_message")

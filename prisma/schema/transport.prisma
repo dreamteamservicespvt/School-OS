@@ -50,26 +50,26 @@ model TransportSetting {
 
 /// Transport Vendor: a company the school hires buses or drivers from.
 model TransportVendor {
-  id                 String    @id @default(uuid()) @db.Uuid
-  schoolId           String    @map("school_id") @db.Uuid
-  name               String
-  contactName        String?   @map("contact_name")
-  phone              String?
-  email              String?
-  address            String?
-  gstin              String?
-  bankName           String?   @map("bank_name")
+  id            String    @id @default(uuid()) @db.Uuid
+  schoolId      String    @map("school_id") @db.Uuid
+  name          String
+  contactName   String?   @map("contact_name")
+  phone         String?
+  email         String?
+  address       String?
+  gstin         String?
+  bankName      String?   @map("bank_name")
   /// Encrypted (restricted field); only the last 4 are shown.
-  bankAccountNo      String?   @map("bank_account_no")
-  bankLast4          String?   @map("bank_last4")
-  ifsc               String?
+  bankAccountNo String?   @map("bank_account_no")
+  bankLast4     String?   @map("bank_last4")
+  ifsc          String?
   /// What the school pays the vendor a month, and until when.
-  monthlyChargePaise BigInt?   @map("monthly_charge_paise")
-  contractEnd        DateTime? @map("contract_end") @db.Date
-  createdById        String?   @map("created_by_id") @db.Uuid
-  createdAt          DateTime  @default(now()) @map("created_at")
-  updatedAt          DateTime  @updatedAt @map("updated_at")
-  archivedAt         DateTime? @map("archived_at")
+  monthlyChargePaise BigInt? @map("monthly_charge_paise")
+  contractEnd   DateTime? @map("contract_end") @db.Date
+  createdById   String?   @map("created_by_id") @db.Uuid
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+  archivedAt    DateTime? @map("archived_at")
 
   vehicles Vehicle[]
   drivers  Driver[]
@@ -80,33 +80,33 @@ model TransportVendor {
 
 /// Vehicle: a bus, van or car.
 model Vehicle {
-  id               String    @id @default(uuid()) @db.Uuid
-  schoolId         String    @map("school_id") @db.Uuid
+  id              String    @id @default(uuid()) @db.Uuid
+  schoolId        String    @map("school_id") @db.Uuid
   /// KA01AB1234, kept without spaces and in capitals. Unique in the school.
-  number           String
+  number          String
   /// What the school calls it, e.g. "Bus 4".
-  label            String?
+  label           String?
   /// BUS, VAN or CAR.
-  type             String    @default("BUS")
+  type            String    @default("BUS")
   /// Make and model, e.g. Tata Starbus.
-  model            String?
-  capacity         Int
+  model           String?
+  capacity        Int
   /// OWNED or HIRED.
-  ownership        String    @default("OWNED")
-  vendorId         String?   @map("vendor_id") @db.Uuid
+  ownership       String    @default("OWNED")
+  vendorId        String?   @map("vendor_id") @db.Uuid
   /// ACTIVE, UNDER_REPAIR or INACTIVE.
-  status           String    @default("ACTIVE")
-  gpsDeviceId      String?   @map("gps_device_id")
-  odometerKm       Int?      @map("odometer_km")
+  status          String    @default("ACTIVE")
+  gpsDeviceId     String?   @map("gps_device_id")
+  odometerKm      Int?      @map("odometer_km")
   /// Maintenance schedule: every N km or N days.
-  serviceEveryKm   Int?      @map("service_every_km")
-  serviceEveryDays Int?      @map("service_every_days")
-  lastServiceOn    DateTime? @map("last_service_on") @db.Date
-  lastServiceKm    Int?      @map("last_service_km")
-  createdById      String?   @map("created_by_id") @db.Uuid
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
-  archivedAt       DateTime? @map("archived_at")
+  serviceEveryKm  Int?      @map("service_every_km")
+  serviceEveryDays Int?     @map("service_every_days")
+  lastServiceOn   DateTime? @map("last_service_on") @db.Date
+  lastServiceKm   Int?      @map("last_service_km")
+  createdById     String?   @map("created_by_id") @db.Uuid
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+  archivedAt      DateTime? @map("archived_at")
 
   vendor    TransportVendor?  @relation(fields: [vendorId], references: [id])
   documents VehicleDocument[]
@@ -172,18 +172,18 @@ model Driver {
 
 /// Driver Device: a phone the driver app runs on, with its own key (hashed; shown once).
 model DriverDevice {
-  id             String    @id @default(uuid()) @db.Uuid
-  schoolId       String    @map("school_id") @db.Uuid
-  driverId       String    @map("driver_id") @db.Uuid
-  name           String
-  keyHash        String    @unique @map("key_hash")
-  keyLast4       String    @map("key_last4")
-  lastSeenAt     DateTime? @map("last_seen_at")
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  driverId    String    @map("driver_id") @db.Uuid
+  name        String
+  keyHash     String    @unique @map("key_hash")
+  keyLast4    String    @map("key_last4")
+  lastSeenAt  DateTime? @map("last_seen_at")
   /// Points refused (impossible jumps, old or out-of-order times).
-  rejectedPoints Int       @default(0) @map("rejected_points")
-  createdById    String?   @map("created_by_id") @db.Uuid
-  createdAt      DateTime  @default(now()) @map("created_at")
-  revokedAt      DateTime? @map("revoked_at")
+  rejectedPoints Int    @default(0) @map("rejected_points")
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  revokedAt   DateTime? @map("revoked_at")
 
   driver Driver @relation(fields: [driverId], references: [id])
 
@@ -193,25 +193,25 @@ model DriverDevice {
 
 /// Route: one bus route with its stops in order.
 model Route {
-  id               String    @id @default(uuid()) @db.Uuid
-  schoolId         String    @map("school_id") @db.Uuid
+  id                String    @id @default(uuid()) @db.Uuid
+  schoolId          String    @map("school_id") @db.Uuid
   /// Route 4
-  number           Int
-  name             String
-  vehicleId        String?   @map("vehicle_id") @db.Uuid
-  driverId         String?   @map("driver_id") @db.Uuid
-  attendantId      String?   @map("attendant_id") @db.Uuid
+  number            Int
+  name              String
+  vehicleId         String?   @map("vehicle_id") @db.Uuid
+  driverId          String?   @map("driver_id") @db.Uuid
+  attendantId       String?   @map("attendant_id") @db.Uuid
   /// One fee for the whole route (a month), used by stops with no fee of their own.
-  feeTwoWayPaise   BigInt?   @map("fee_two_way_paise")
-  feeOneWayPaise   BigInt?   @map("fee_one_way_paise")
+  feeTwoWayPaise    BigInt?   @map("fee_two_way_paise")
+  feeOneWayPaise    BigInt?   @map("fee_one_way_paise")
   /// Minutes after midnight the morning trip reaches school.
-  schoolArrivalMin Int?      @map("school_arrival_min")
+  schoolArrivalMin  Int?      @map("school_arrival_min")
   /// Minutes after midnight the evening trip leaves school.
-  eveningDepartMin Int?      @map("evening_depart_min")
-  createdById      String?   @map("created_by_id") @db.Uuid
-  createdAt        DateTime  @default(now()) @map("created_at")
-  updatedAt        DateTime  @updatedAt @map("updated_at")
-  archivedAt       DateTime? @map("archived_at")
+  eveningDepartMin  Int?      @map("evening_depart_min")
+  createdById       String?   @map("created_by_id") @db.Uuid
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  archivedAt        DateTime? @map("archived_at")
 
   vehicle Vehicle? @relation(fields: [vehicleId], references: [id])
   stops   Stop[]
@@ -250,31 +250,31 @@ model Stop {
 
 /// Transport Assignment: a student on a route and stop from a date.
 model TransportAssignment {
-  id              String    @id @default(uuid()) @db.Uuid
-  schoolId        String    @map("school_id") @db.Uuid
-  studentId       String    @map("student_id") @db.Uuid
-  academicYearId  String    @map("academic_year_id") @db.Uuid
-  routeId         String    @map("route_id") @db.Uuid
-  stopId          String    @map("stop_id") @db.Uuid
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  studentId      String    @map("student_id") @db.Uuid
+  academicYearId String    @map("academic_year_id") @db.Uuid
+  routeId        String    @map("route_id") @db.Uuid
+  stopId         String    @map("stop_id") @db.Uuid
   /// TWO_WAY, PICKUP_ONLY or DROP_ONLY.
-  type            String    @default("TWO_WAY")
-  fromDate        DateTime  @map("from_date") @db.Date
+  type           String    @default("TWO_WAY")
+  fromDate       DateTime  @map("from_date") @db.Date
   /// The last day on this route and stop (set when changed or stopped).
-  toDate          DateTime? @map("to_date") @db.Date
+  toDate         DateTime? @map("to_date") @db.Date
   /// ACTIVE, WAITING (for approval), ENDED or CANCELLED.
-  status          String    @default("ACTIVE")
+  status         String    @default("ACTIVE")
   /// The fee a month when given (kept so a later fee change does not rewrite history).
-  monthlyFeePaise BigInt    @map("monthly_fee_paise")
-  busPassNo       String?   @map("bus_pass_no")
+  monthlyFeePaise BigInt   @map("monthly_fee_paise")
+  busPassNo      String?   @map("bus_pass_no")
   /// What this assignment does when approved: ASSIGN, CHANGE (replaces `replacesId`) or STOP.
-  change          String    @default("ASSIGN")
-  replacesId      String?   @map("replaces_id") @db.Uuid
-  approvalId      String?   @map("approval_id") @db.Uuid
-  reason          String?
-  endReason       String?   @map("end_reason")
-  createdById     String?   @map("created_by_id") @db.Uuid
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  change         String    @default("ASSIGN")
+  replacesId     String?   @map("replaces_id") @db.Uuid
+  approvalId     String?   @map("approval_id") @db.Uuid
+  reason         String?
+  endReason      String?   @map("end_reason")
+  createdById    String?   @map("created_by_id") @db.Uuid
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@index([schoolId, studentId])
   @@index([schoolId, routeId, status])
@@ -327,35 +327,35 @@ model TripSchedule {
 
 /// Trip: one run of a route on one day.
 model Trip {
-  id              String    @id @default(uuid()) @db.Uuid
-  schoolId        String    @map("school_id") @db.Uuid
-  routeId         String    @map("route_id") @db.Uuid
+  id             String    @id @default(uuid()) @db.Uuid
+  schoolId       String    @map("school_id") @db.Uuid
+  routeId        String    @map("route_id") @db.Uuid
   /// MORNING or EVENING.
-  kind            String
-  date            DateTime  @db.Date
-  vehicleId       String?   @map("vehicle_id") @db.Uuid
-  driverId        String?   @map("driver_id") @db.Uuid
-  attendantId     String?   @map("attendant_id") @db.Uuid
+  kind           String
+  date           DateTime  @db.Date
+  vehicleId      String?   @map("vehicle_id") @db.Uuid
+  driverId       String?   @map("driver_id") @db.Uuid
+  attendantId    String?   @map("attendant_id") @db.Uuid
   /// Planned start, minutes after midnight.
-  plannedStartMin Int       @map("planned_start_min")
+  plannedStartMin Int      @map("planned_start_min")
   /// SCHEDULED, STARTED, COMPLETED or CANCELLED.
-  status          String    @default("SCHEDULED")
+  status         String    @default("SCHEDULED")
   /// Set when the vehicle or driver was changed for this one day.
-  changedForDay   Boolean   @default(false) @map("changed_for_day")
-  changeNote      String?   @map("change_note")
-  startedAt       DateTime? @map("started_at")
-  endedAt         DateTime? @map("ended_at")
-  startedById     String?   @map("started_by_id") @db.Uuid
-  endedById       String?   @map("ended_by_id") @db.Uuid
-  cancelReason    String?   @map("cancel_reason")
-  lastLat         Float?    @map("last_lat")
-  lastLng         Float?    @map("last_lng")
-  lastSpeedKmh    Float?    @map("last_speed_kmh")
-  lastPointAt     DateTime? @map("last_point_at")
-  pointsAccepted  Int       @default(0) @map("points_accepted")
-  pointsRejected  Int       @default(0) @map("points_rejected")
-  createdAt       DateTime  @default(now()) @map("created_at")
-  updatedAt       DateTime  @updatedAt @map("updated_at")
+  changedForDay  Boolean   @default(false) @map("changed_for_day")
+  changeNote     String?   @map("change_note")
+  startedAt      DateTime? @map("started_at")
+  endedAt        DateTime? @map("ended_at")
+  startedById    String?   @map("started_by_id") @db.Uuid
+  endedById      String?   @map("ended_by_id") @db.Uuid
+  cancelReason   String?   @map("cancel_reason")
+  lastLat        Float?    @map("last_lat")
+  lastLng        Float?    @map("last_lng")
+  lastSpeedKmh   Float?    @map("last_speed_kmh")
+  lastPointAt    DateTime? @map("last_point_at")
+  pointsAccepted Int       @default(0) @map("points_accepted")
+  pointsRejected Int       @default(0) @map("points_rejected")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  updatedAt      DateTime  @updatedAt @map("updated_at")
 
   @@unique([schoolId, routeId, kind, date])
   @@index([schoolId, date])
@@ -382,18 +382,18 @@ model GpsPoint {
 
 /// Trip Stop Event: a stop reached (or missed) on a trip.
 model TripStopEvent {
-  id          String   @id @default(uuid()) @db.Uuid
-  schoolId    String   @map("school_id") @db.Uuid
-  tripId      String   @map("trip_id") @db.Uuid
-  stopId      String   @map("stop_id") @db.Uuid
+  id        String   @id @default(uuid()) @db.Uuid
+  schoolId  String   @map("school_id") @db.Uuid
+  tripId    String   @map("trip_id") @db.Uuid
+  stopId    String   @map("stop_id") @db.Uuid
   /// REACHED or MISSED.
-  status      String   @default("REACHED")
-  at          DateTime
+  status    String   @default("REACHED")
+  at        DateTime
   /// APP (the driver tapped Reached), GEOFENCE or STAFF.
-  source      String   @default("APP")
-  plannedMin  Int?     @map("planned_min")
-  note        String?
-  createdById String?  @map("created_by_id") @db.Uuid
+  source    String   @default("APP")
+  plannedMin Int?    @map("planned_min")
+  note      String?
+  createdById String? @map("created_by_id") @db.Uuid
 
   @@unique([tripId, stopId])
   @@index([schoolId, tripId])
@@ -452,20 +452,20 @@ model TransportAlert {
 
 /// Fuel Log: a fuel fill for a vehicle; it is also a Finance expense.
 model FuelLog {
-  id           String    @id @default(uuid()) @db.Uuid
-  schoolId     String    @map("school_id") @db.Uuid
-  vehicleId    String    @map("vehicle_id") @db.Uuid
-  date         DateTime  @db.Date
-  litres       Decimal?  @db.Decimal(8, 2)
-  amountPaise  BigInt    @map("amount_paise")
-  odometerKm   Int?      @map("odometer_km")
-  billFileId   String?   @map("bill_file_id") @db.Uuid
-  expenseId    String?   @map("expense_id") @db.Uuid
-  note         String?
-  createdById  String?   @map("created_by_id") @db.Uuid
-  createdAt    DateTime  @default(now()) @map("created_at")
-  cancelledAt  DateTime? @map("cancelled_at")
-  cancelReason String?   @map("cancel_reason")
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  vehicleId   String    @map("vehicle_id") @db.Uuid
+  date        DateTime  @db.Date
+  litres      Decimal?  @db.Decimal(8, 2)
+  amountPaise BigInt    @map("amount_paise")
+  odometerKm  Int?      @map("odometer_km")
+  billFileId  String?   @map("bill_file_id") @db.Uuid
+  expenseId   String?   @map("expense_id") @db.Uuid
+  note        String?
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelReason String?  @map("cancel_reason")
 
   @@index([schoolId, vehicleId, date])
   @@map("fuel_log")
@@ -473,21 +473,21 @@ model FuelLog {
 
 /// Maintenance Log: a service or repair of a vehicle; it is also a Finance expense.
 model MaintenanceLog {
-  id           String    @id @default(uuid()) @db.Uuid
-  schoolId     String    @map("school_id") @db.Uuid
-  vehicleId    String    @map("vehicle_id") @db.Uuid
-  date         DateTime  @db.Date
+  id          String    @id @default(uuid()) @db.Uuid
+  schoolId    String    @map("school_id") @db.Uuid
+  vehicleId   String    @map("vehicle_id") @db.Uuid
+  date        DateTime  @db.Date
   /// SERVICE or REPAIR.
-  kind         String    @default("REPAIR")
-  what         String
-  amountPaise  BigInt    @map("amount_paise")
-  odometerKm   Int?      @map("odometer_km")
-  billFileId   String?   @map("bill_file_id") @db.Uuid
-  expenseId    String?   @map("expense_id") @db.Uuid
-  createdById  String?   @map("created_by_id") @db.Uuid
-  createdAt    DateTime  @default(now()) @map("created_at")
-  cancelledAt  DateTime? @map("cancelled_at")
-  cancelReason String?   @map("cancel_reason")
+  kind        String    @default("REPAIR")
+  what        String
+  amountPaise BigInt    @map("amount_paise")
+  odometerKm  Int?      @map("odometer_km")
+  billFileId  String?   @map("bill_file_id") @db.Uuid
+  expenseId   String?   @map("expense_id") @db.Uuid
+  createdById String?   @map("created_by_id") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  cancelledAt DateTime? @map("cancelled_at")
+  cancelReason String?  @map("cancel_reason")
 
   @@index([schoolId, vehicleId, date])
   @@map("maintenance_log")

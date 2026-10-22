@@ -24,9 +24,7 @@ model EventConsent {
   @@map("event_consent")
 }
 
-/**
- * ---------- Co-curricular & Sports ----------
- */
+/* ---------- Co-curricular & Sports ---------- */
 
 /// Achievement: a student's participation or result in an activity or competition. Also on the Student Profile.
 model Achievement {
@@ -267,9 +265,7 @@ model FitnessRecord {
   @@map("fitness_record")
 }
 
-/**
- * ---------- Daily Activities (pre-primary diary) ----------
- */
+/* ---------- Daily Activities (pre-primary diary) ---------- */
 
 /// Daily Activity: an activity assigned to one pre-primary section for one day (snack, nap, colouring...).
 model DailyActivity {

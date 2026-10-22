@@ -11,10 +11,17 @@ import type { AudienceRule, Scope } from "./recipients";
 
 export type ResendWho = "unread" | "failed";
 
-/** Which first-message recipients a resend is for. Unread: everyone not yet at Read. */
+/**
+ * Unread: people whose message went (sent, delivered or failed) and who have
+ * not read it. Someone still Queued has not been sent it yet, so a resend
+ * would give them a second copy (COMM-03).
+ */
+const UNREAD = ["SENT", "DELIVERED", "FAILED"] as const;
+
+/** Which first-message recipients a resend is for. Unread: everyone sent it who is not yet at Read. */
 async function targets(tx: Tx, ctx: SchoolContext, messageId: string, who: ResendWho) {
   const rows = await tx.messageRecipient.findMany({
-    where: { schoolId: ctx.schoolId, messageId, isBackup: false, ...(who === "failed" ? { status: "FAILED" } : { status: { not: "READ" } }) },
+    where: { schoolId: ctx.schoolId, messageId, isBackup: false, ...(who === "failed" ? { status: "FAILED" } : { status: { in: [...UNREAD] } }) },
     select: { recipientType: true, guardianId: true, studentId: true, staffId: true, userLoginId: true, values: true, status: true },
   });
   // Someone who read it on any channel has read it.
@@ -56,6 +63,7 @@ export async function resendInput(tx: Tx, ctx: SchoolContext, messageId: string,
   const m = await tx.message.findFirst({ where: { id: messageId, schoolId: ctx.schoolId } });
   if (!m) throw new MessagingProblem("This message was not found.");
   if (m.status === "SCHEDULED" || m.status === "CANCELLED") throw new MessagingProblem("This message has not been sent, so there is nothing to resend.");
+  if (who === "unread" && m.status !== "SENT") throw new MessagingProblem("This message is still going out. Resend to unread once everyone has been sent it.");
   const t = await targets(tx, ctx, messageId, who);
   if (!t.count) throw new MessagingProblem(who === "failed" ? "Nobody failed. There is nothing to resend." : "Everyone has read this message. There is nothing to resend.");
   const templates: Partial<Record<Channel, string>> = {};
@@ -83,6 +91,13 @@ export async function resendInput(tx: Tx, ctx: SchoolContext, messageId: string,
     audienceLabel: `${who === "failed" ? "Failed" : "Not yet read"} from "${m.title ?? m.audienceLabel}"`,
     resendOfId: m.id,
   };
+}
+
+/** How many people "Resend to unread" would reach: none until the message has finished going (COMM-03). */
+export async function unreadCount(tx: Tx, ctx: SchoolContext, messageId: string) {
+  const m = await tx.message.findFirst({ where: { id: messageId, schoolId: ctx.schoolId }, select: { status: true } });
+  if (m?.status !== "SENT") return 0;
+  return (await targets(tx, ctx, messageId, "unread")).count;
 }
 
 export async function planResend(tx: Tx, ctx: SchoolContext, messageId: string, who: ResendWho, channel: Channel | "preferred", scope: Scope) {

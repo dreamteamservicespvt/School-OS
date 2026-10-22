@@ -13,6 +13,7 @@ import { UUID_RE } from "@/lib/admission/act";
 import { CLOSED_STAGES, movableTo, OPEN_STAGES, stageLabel } from "@/lib/admission/applications";
 import { DOC_STATUS_LABEL, progressOf } from "@/lib/admission/documents";
 import { CANCEL_REASONS, COUNTER_MODES, activeRazorpay, feeStatus, modeLabel } from "@/lib/admission/fee";
+import { feePageAllowedFor } from "@/lib/fees/access";
 import { admissionConsentTexts, DATA_CONSENT } from "@/lib/admission/consent";
 import { outcomeLabel } from "@/lib/admission/tests";
 import { blockers } from "@/lib/admission/convert";
@@ -273,6 +274,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
                     <Pill tone={fee.key === "paid" ? "ok" : fee.key === "due" ? "bad" : fee.key === "waiting" ? "warn" : "neutral"}>{fee.key === "paid" ? "Paid" : fee.key === "due" ? "Not paid" : fee.key === "waiting" ? "Waiting" : "Not needed"}</Pill>
                   </div>
                   <p className="text-[12.5px] text-ink3 mt-1">{!app.feeDuePaise ? "No application fee for this class." : fee.key === "waiting" ? "Waiting for payment confirmation from Razorpay." : `Paid ${formatRupees(fee.paidPaise)} of ${formatRupees(fee.duePaise)}.`}</p>
+                  {app.feeDuePaise && feePageAllowedFor(current, "collect") ? <Link href={`/fee-management/collect/application/${app.id}`} className="mt-1.5 inline-flex text-[13px] font-semibold text-brand hover:underline">Open in Fee Management, Collect Fee</Link> : null}
                   {app.payments.length > 0 && (
                     <ul className="mt-2.5 flex flex-col divide-y divide-line/70">
                       {app.payments.map((pay) => (

@@ -60,10 +60,22 @@ async function remaining(tx: Tx, app: Application) {
   return { st, left: st.duePaise - st.paidPaise };
 }
 
+export type CounterInput = { amountPaise: bigint; mode: string; reference: string | null };
+
 /** Collect the application fee at the counter: confirmed when the money is in hand, with a receipt. */
-export async function recordCounterPayment(tx: Tx, ctx: SchoolContext, v: Viewer, applicationId: string, input: { amountPaise: bigint; mode: string; reference: string | null }) {
+export async function recordCounterPayment(tx: Tx, ctx: SchoolContext, v: Viewer, applicationId: string, input: CounterInput) {
   requireFull(v, "the application fee");
   const app = await loadApplication(tx, applicationId, v);
+  return takeCounterPayment(tx, ctx, app, input, "admission");
+}
+
+/**
+ * The application fee taken at a counter, in Admission Management or in Fee
+ * Management's Collect Fee (02 §2: "opens Fee Management, Collect Fee for
+ * this applicant"). The caller has checked who may take it. One receipt in
+ * the application fee series, posted to the Day Book by Fee Management.
+ */
+export async function takeCounterPayment(tx: Tx, ctx: SchoolContext, app: Application, input: CounterInput, where: "admission" | "fee-management") {
   if (CLOSED_STAGES.includes(app.stage) && app.stage !== "ADMITTED") throw new AdmissionProblem("This application is closed, so no fee can be taken.");
   if (!app.feeDuePaise) throw new AdmissionProblem("No application fee is due for this application (Admission Settings).");
   if (!COUNTER_MODES.some((m) => m.value === input.mode)) throw new AdmissionProblem("Choose how the fee was paid.", "mode");
@@ -75,8 +87,8 @@ export async function recordCounterPayment(tx: Tx, ctx: SchoolContext, v: Viewer
   const receipt = await receiptNo(tx, ctx, app);
   const p = await tx.applicationFeePayment.create({ data: { schoolId: ctx.schoolId, applicationId: app.id, amountPaise: input.amountPaise, mode: input.mode, reference: input.reference, status: "CONFIRMED", receiptNo: receipt, confirmedAt: new Date(), receivedById: ctx.userId } });
   const entry = await postApplicationFee(tx, ctx, p);
-  await activity(tx, ctx, app.id, "fee", `Application fee ${formatRupees(input.amountPaise)} received (${modeLabel(input.mode)}). Receipt ${receipt}. In the Day Book.`);
-  await writeAudit(tx, ctx, { action: "fee-received", recordType: "Application", recordId: app.id, after: { paymentId: p.id, amount: formatRupees(input.amountPaise), mode: input.mode, reference: input.reference, receipt, dayBookEntryId: entry?.id ?? null } });
+  await activity(tx, ctx, app.id, "fee", `Application fee ${formatRupees(input.amountPaise)} received (${modeLabel(input.mode)})${where === "fee-management" ? " at the fee counter" : ""}. Receipt ${receipt}. In the Day Book.`);
+  await writeAudit(tx, ctx, { action: "fee-received", recordType: "Application", recordId: app.id, after: { paymentId: p.id, amount: formatRupees(input.amountPaise), mode: input.mode, reference: input.reference, receipt, dayBookEntryId: entry?.id ?? null, via: where } });
   return p;
 }
 

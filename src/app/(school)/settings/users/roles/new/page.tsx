@@ -8,6 +8,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody } from "@/components/ui/card";
 import { RoleEditor } from "../role-editor";
 import { schoolRole, schoolRoles } from "@/lib/school-roles";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Create a role" };
 
@@ -22,11 +23,11 @@ export default async function NewRolePage({ searchParams }: { searchParams: Prom
   }));
   return (
     <>
-      <Link href="/settings/users/roles" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline">← Roles</Link>
+      <Link href="/settings/users/roles" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline"><Words k="← Roles" /></Link>
       <PageHeader title={from ? `Copy ${from.name}` : "Create a role"} href="/settings/users/roles/new" userId={current.user.id} />
       <nav aria-label="Start from" className="mb-4 flex flex-wrap items-center gap-2 text-sm">
-        <span className="text-ink-2">Start from:</span>
-        <Link href="/settings/users/roles/new" className={`min-h-9 rounded-full border px-3 py-1.5 ${!from ? "border-brand bg-brand-soft" : "border-line"}`}>Nothing</Link>
+        <span className="text-ink-2"><Words k="Start from:" /></span>
+        <Link href="/settings/users/roles/new" className={`min-h-9 rounded-full border px-3 py-1.5 ${!from ? "border-brand bg-brand-soft" : "border-line"}`}><Words k="Nothing" /></Link>
         {roles.map((r) => (
           <Link key={r.id} href={`/settings/users/roles/new?copy=${r.id}`} className={`min-h-9 rounded-full border px-3 py-1.5 ${from?.id === r.id ? "border-brand bg-brand-soft" : "border-line"}`}>{r.name}</Link>
         ))}

@@ -15,6 +15,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
 import { ExportMenu } from "@/components/communication/export-menu";
 import { ChannelCard, CreditsForm, DltForm } from "./channel-forms";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "SMS, WhatsApp & Email" };
 
@@ -46,9 +47,9 @@ export default async function MessagingSettingsPage({ searchParams }: { searchPa
   return (
     <>
       <PageHeader title="SMS, WhatsApp & Email" href="/settings/messaging" userId={current.user.id} />
-      <p className="-mt-3 mb-4 text-ink-2">Connect each channel to a provider. Keys are stored encrypted and never shown again. What each message says is in <Link href="/communication/templates" className="text-brand-text underline">Message Templates</Link>; automatic messages are in <Link href="/communication/settings" className="text-brand-text underline">Message Settings</Link>.</p>
-      {!canEdit && <Alert tone="info" className="mb-4">You can see these settings. The School Admin changes them.</Alert>}
-      {low.map((c) => <Alert key={c} tone="warning" className="mb-4">Only {data.balances[c].toLocaleString("en-IN")} {CHANNEL_LABEL[c]} credits left, below your alert of {data.setups[c].lowCreditAlert.toLocaleString("en-IN")}. Buy more from the provider and add them below.</Alert>)}
+      <p className="-mt-3 mb-4 text-ink-2"><Words k="Connect each channel to a provider. Keys are stored encrypted and never shown again. What each message says is in" /> <Link href="/communication/templates" className="text-brand-text underline"><Words k="Message Templates" /></Link><Words k="; automatic messages are in" /> <Link href="/communication/settings" className="text-brand-text underline"><Words k="Message Settings" /></Link>.</p>
+      {!canEdit && <Alert tone="info" className="mb-4"><Words k="You can see these settings. The School Admin changes them." /></Alert>}
+      {low.map((c) => <Alert key={c} tone="warning" className="mb-4"><Words k="Only" /> {data.balances[c].toLocaleString("en-IN")} {CHANNEL_LABEL[c]} <Words k="credits left, below your alert of" /> {data.setups[c].lowCreditAlert.toLocaleString("en-IN")}<Words k=". Buy more from the provider and add them below." /></Alert>)}
 
       <div className="space-y-5">
         {PROVIDER_CHANNELS.map((c) => {
@@ -67,7 +68,7 @@ export default async function MessagingSettingsPage({ searchParams }: { searchPa
         <Card>
           <CardHeader title="SMS: DLT registration" description="Indian telecom rules: every SMS needs the school's DLT entity ID, an approved sender header, and a DLT template ID on each SMS template." />
           <CardBody>
-            {dltMissing && <Alert tone="warning" className="mb-3">SMS cannot be switched on until both are added.</Alert>}
+            {dltMissing && <Alert tone="warning" className="mb-3"><Words k="SMS cannot be switched on until both are added." /></Alert>}
             <DltForm entityId={data.school.smsDltEntityId ?? ""} header={data.school.smsSenderHeader ?? ""} readOnly={!canEdit} />
           </CardBody>
         </Card>
@@ -78,14 +79,14 @@ export default async function MessagingSettingsPage({ searchParams }: { searchPa
             <dl className="mb-4 grid grid-cols-2 gap-3 sm:max-w-md">
               {(["whatsapp", "sms"] as const).map((c) => (
                 <div key={c} className="rounded-xl bg-surface-2 p-3">
-                  <dt className="text-sm text-ink-2">{CHANNEL_LABEL[c]} credits left</dt>
+                  <dt className="text-sm text-ink-2">{CHANNEL_LABEL[c]} <Words k="credits left" /></dt>
                   <dd className={`text-2xl font-semibold tabular-nums ${data.balances[c] < data.setups[c].lowCreditAlert ? "text-danger" : ""}`}>{data.balances[c].toLocaleString("en-IN")}</dd>
                 </div>
               ))}
             </dl>
             {canEdit && <div className="mb-5"><CreditsForm /></div>}
             <div className="mb-2 flex items-center justify-between gap-2">
-              <h3 className="font-semibold">Credit history</h3>
+              <h3 className="font-semibold"><Words k="Credit history" /></h3>
               {data.total > 0 && <ExportMenu href={listHref("/settings/messaging/credits-export", { ...params, page: 1 }, {})} />}
             </div>
             <ListToolbar placeholder="Search note" showArchived={false} filters={[{ key: "channel", label: "Channel", options: [{ value: "whatsapp", label: "WhatsApp" }, { value: "sms", label: "SMS" }] }]} />
@@ -96,7 +97,7 @@ export default async function MessagingSettingsPage({ searchParams }: { searchPa
               params={params}
               path="/settings/messaging"
               rowKey={(l) => l.id}
-              empty={<p className="rounded-xl border border-dashed border-line-strong p-6 text-center text-ink-2">No credits added or used yet.</p>}
+              empty={<p className="rounded-xl border border-dashed border-line-strong p-6 text-center text-ink-2"><Words k="No credits added or used yet." /></p>}
               columns={[
                 { key: "at", label: "When", phone: "meta", cell: (l) => formatDateTime(l.createdAt, tz) },
                 { key: "channel", label: "Channel", phone: "meta", cell: (l) => (l.channel === "sms" ? "SMS" : "WhatsApp") },

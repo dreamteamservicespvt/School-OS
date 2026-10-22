@@ -14,6 +14,7 @@ import { Alert } from "@/components/ui/alert";
 import { ExportButton, TwoStepSwitch, AutoRefresh } from "./parts";
 import { REMEMBER_DAYS } from "@/lib/auth/remembered";
 import { schoolRoles } from "@/lib/school-roles";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Data Backup & Security" };
 
@@ -59,24 +60,24 @@ export default async function DataSecurityPage() {
 
   return (
     <>
-      <h2 className="sr-only">Overview</h2>
+      <h2 className="sr-only"><Words k="Overview" /></h2>
       {preparing && <AutoRefresh seconds={8} />}
       <div className="grid gap-5 xl:grid-cols-2">
         <Card>
           <CardHeader title="Backups" />
           <CardBody className="space-y-3">
             {backup.at ? (
-              <p className="text-xl font-semibold">Last backup: {backupWords(backup.at, tz)}</p>
+              <p className="text-xl font-semibold"><Words k="Last backup:" /> {backupWords(backup.at, tz)}</p>
             ) : (
               <Alert tone="warning" title="No backup has been recorded on this server yet">
-                On the live service a full copy is made every night and the database is backed up continuously. This server has not recorded one yet; DREAM TEAM sets this up before a school&apos;s real data goes in.
+                <Words k="On the live service a full copy is made every night and the database is backed up continuously. This server has not recorded one yet; DREAM TEAM sets this up before a school's real data goes in." />
               </Alert>
             )}
             <ul className="list-disc space-y-1 pl-5 text-sm text-ink-2">
-              <li>The database is backed up continuously, with a full copy every night; files every night.</li>
-              <li>Copies are kept in a second, separate place in India: any moment of the last 7 days, nightly copies for 30 days, monthly copies for 1 year.</li>
-              <li>A restore is tested every month{backup.restoreTestedAt ? `; the last one passed on ${formatDate(backup.restoreTestedAt, tz)}` : ""}.</li>
-              <li>To bring back your school&apos;s data as it was at a chosen moment, ask DREAM TEAM through Support. Other schools are not touched.</li>
+              <li><Words k="The database is backed up continuously, with a full copy every night; files every night." /></li>
+              <li><Words k="Copies are kept in a second, separate place in India: any moment of the last 7 days, nightly copies for 30 days, monthly copies for 1 year." /></li>
+              <li><Words k="A restore is tested every month" />{backup.restoreTestedAt ? `; the last one passed on ${formatDate(backup.restoreTestedAt, tz)}` : ""}.</li>
+              <li><Words k="To bring back your school's data as it was at a chosen moment, ask DREAM TEAM through Support. Other schools are not touched." /></li>
             </ul>
           </CardBody>
         </Card>
@@ -95,16 +96,16 @@ export default async function DataSecurityPage() {
                     <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 p-3">
                       <div>
                         <p className="font-medium">{formatDateTime(e.createdAt, tz)}</p>
-                        <p className="text-sm text-ink-2">Asked by {e.requestedById ? data.names.get(e.requestedById) ?? "someone" : "School OS"}</p>
+                        <p className="text-sm text-ink-2"><Words k="Asked by" /> {e.requestedById ? data.names.get(e.requestedById) ?? "someone" : "School OS"}</p>
                       </div>
                       {e.status === "ready" && !expired && mine ? (
-                        <a href={`/settings/data-security/exports/${e.id}`} className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-medium text-brand-ink hover:bg-brand-hover">Download ZIP</a>
+                        <a href={`/settings/data-security/exports/${e.id}`} className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 text-sm font-medium text-brand-ink hover:bg-brand-hover"><Words k="Download ZIP" /></a>
                       ) : e.status === "ready" ? (
                         <Badge>{expired ? "Link expired" : "Ready (only for the person who asked)"}</Badge>
                       ) : e.status === "failed" || job === "failed" ? (
-                        <Badge tone="danger">Did not finish. Ask again.</Badge>
+                        <Badge tone="danger"><Words k="Did not finish. Ask again." /></Badge>
                       ) : (
-                        <Badge tone="warning">Preparing…</Badge>
+                        <Badge tone="warning"><Words k="Preparing…" /></Badge>
                       )}
                     </li>
                   );
@@ -118,17 +119,17 @@ export default async function DataSecurityPage() {
           <CardHeader title="Two-step login" description="After the password, a 6-digit one-time code sent to the person's email or phone." />
           <CardBody className="space-y-3">
             <p className="flex flex-wrap items-center gap-2">
-              {data.twoStepOn ? <Badge tone="success">On</Badge> : <Badge>Off</Badge>}
+              {data.twoStepOn ? <Badge tone="success"><Words k="On" /></Badge> : <Badge><Words k="Off" /></Badge>}
               <span className="text-ink-2">
-                {data.twoStepRoles.length ? `Needed for: ${data.twoStepRoles.join(", ")}.` : "No role needs it yet."} Roles are chosen in{" "}
-                <Link href="/settings/users" className="font-medium text-brand-text underline">Users &amp; Permissions</Link>.
+                {data.twoStepRoles.length ? `Needed for: ${data.twoStepRoles.join(", ")}.` : "No role needs it yet."} <Words k="Roles are chosen in" />{" "}
+                <Link href="/settings/users" className="font-medium text-brand-text underline"><Words k={"Users & Permissions"} /></Link>.
               </span>
             </p>
-            <p className="text-sm text-ink-2">After the code, a device is remembered and does not ask again until the person signs out there (or does not use it for {REMEMBER_DAYS} days). On a shared computer they tick &ldquo;Shared computer&rdquo; to be asked every time. If a phone is lost, another School Admin or the Principal resets two-step login in Users &amp; Permissions.</p>
+            <p className="text-sm text-ink-2"><Words k="After the code, a device is remembered and does not ask again until the person signs out there (or does not use it for" /> {REMEMBER_DAYS} <Words k={"days). On a shared computer they tick “Shared computer” to be asked every time. If a phone is lost, another School Admin or the Principal resets two-step login in Users & Permissions."} /></p>
             {unreachable.length > 0 && (
               <Alert tone="warning" title={`No code can reach ${unreachable.length === 1 ? "1 person" : `${unreachable.length} people`} yet`}>
-                {unreachable.map((p) => p.displayName).join(", ")} still sign{unreachable.length === 1 ? "s" : ""} in with the password only, so nobody is locked out. Add a mobile number or email for them in{" "}
-                <Link href="/settings/users" className="font-medium text-brand-text underline">Users &amp; Permissions</Link>, or set up SMS in Communication.
+                {unreachable.map((p) => p.displayName).join(", ")} <Words k="still sign" />{unreachable.length === 1 ? "s" : ""} <Words k="in with the password only, so nobody is locked out. Add a mobile number or email for them in" />{" "}
+                <Link href="/settings/users" className="font-medium text-brand-text underline"><Words k={"Users & Permissions"} /></Link><Words k=", or set up SMS in Communication." />
               </Alert>
             )}
             {canEdit && <TwoStepSwitch on={data.twoStepOn} />}
@@ -139,7 +140,7 @@ export default async function DataSecurityPage() {
           <CardHeader title="Security alerts" description="Unusual sign-ins, locked pickup code checks and large exports in the last 30 days." />
           <CardBody>
             {data.alerts.length === 0 ? (
-              <p className="text-ink-2">Nothing unusual in the last 30 days.</p>
+              <p className="text-ink-2"><Words k="Nothing unusual in the last 30 days." /></p>
             ) : (
               <ul className="space-y-3">
                 {data.alerts.map((a) => (
@@ -156,7 +157,7 @@ export default async function DataSecurityPage() {
                 ))}
               </ul>
             )}
-            <Link href="/settings/data-security/login-history?outcome=failed" className="mt-3 inline-flex min-h-11 items-center font-medium text-brand-text hover:underline">See failed sign-ins</Link>
+            <Link href="/settings/data-security/login-history?outcome=failed" className="mt-3 inline-flex min-h-11 items-center font-medium text-brand-text hover:underline"><Words k="See failed sign-ins" /></Link>
           </CardBody>
         </Card>
       </div>

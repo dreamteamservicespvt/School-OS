@@ -14,6 +14,7 @@ import { BoardForm, ComplianceForm, LogoForm, RegionForm } from "./sections";
 import { Campuses } from "./campuses";
 import { Documents, type DocRow } from "./documents";
 import { schoolRoles } from "@/lib/school-roles";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "School Profile" };
 
@@ -24,7 +25,7 @@ function Facts({ rows, cols = "sm:grid-cols-2" }: { rows: [string, React.ReactNo
       {rows.map(([label, value]) => (
         <div key={label} className="min-w-0">
           <dt className="text-sm text-ink-2">{label}</dt>
-          <dd className="break-words font-medium">{value || <span className="font-normal text-ink-2">Not given</span>}</dd>
+          <dd className="break-words font-medium">{value || <span className="font-normal text-ink-2"><Words k="Not given" /></span>}</dd>
         </div>
       ))}
     </dl>
@@ -101,17 +102,17 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
           </a>
         ))}
       </nav>
-      {!canEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2">You can see the school&apos;s profile here. The School Admin changes it.</p>}
+      {!canEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2"><Words k="You can see the school's profile here. The School Admin changes it." /></p>}
       <div className="space-y-5">
         <Card id="details" className="scroll-mt-20">
           <CardHeader title="School details" description="Shown on screens, receipts, certificates and messages. Each section saves on its own." />
           <CardBody className="space-y-8">
             <section aria-labelledby="logo-title">
-              <h3 id="logo-title" className="mb-3 font-semibold">Logo</h3>
+              <h3 id="logo-title" className="mb-3 font-semibold"><Words k="Logo" /></h3>
               {canEdit ? <LogoForm logoHref={logoHref} /> : logoHref ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoHref} alt="School logo" className="size-28 rounded-xl border border-line object-contain p-2" />
-              ) : <p className="text-ink-2">No logo yet.</p>}
+              ) : <p className="text-ink-2"><Words k="No logo yet." /></p>}
             </section>
             {canEdit ? (
               <DetailsForm logoHref={logoHref} initial={{
@@ -163,7 +164,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
               ]} />
             )}
             <p className="mt-6 border-t border-line pt-4 text-sm text-ink-2">
-              School group: {school.group ? <strong className="text-ink">{school.group.name}</strong> : "this school is not part of a school group"}.
+              <Words k="School group:" /> {school.group ? <strong className="text-ink">{school.group.name}</strong> : "this school is not part of a school group"}.
               {school.group ? " Settings shared by the group are set by DREAM TEAM when the group is set up; this school's own settings above always apply here." : ""}
             </p>
           </CardBody>

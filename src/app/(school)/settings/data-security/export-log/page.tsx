@@ -11,6 +11,7 @@ import { DataTable } from "@/components/list/data-table";
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { EmptyState } from "@/components/empty-state";
 import { Badge } from "@/components/ui/badge";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Export log · Data Backup & Security" };
 
@@ -45,8 +46,8 @@ export default async function ExportLogPage({ searchParams }: Search) {
 
   return (
     <>
-      <h2 className="sr-only">Export log</h2>
-      <p className="mb-4 max-w-prose text-ink-2">Every export and download of school data: who, what, which filters and how many rows. Exports of {MASS_EXPORT_ROWS.toLocaleString("en-IN")} rows or more also show in the security alerts.</p>
+      <h2 className="sr-only"><Words k="Export log" /></h2>
+      <p className="mb-4 max-w-prose text-ink-2"><Words k="Every export and download of school data: who, what, which filters and how many rows. Exports of" /> {MASS_EXPORT_ROWS.toLocaleString("en-IN")} <Words k="rows or more also show in the security alerts." /></p>
       <ListToolbar placeholder="Search by list name" showArchived={false}
         filters={[{ key: "person", label: "Person", options: data.people.map((p) => ({ value: p.id, label: p.displayName })) }]} />
       <DataTable
@@ -60,14 +61,14 @@ export default async function ExportLogPage({ searchParams }: Search) {
           { key: "when", label: "When", phone: "title", cell: (r) => formatDateTime(r.at, tz) },
           { key: "who", label: "Person", phone: "meta", cell: (r) => (r.userLoginId ? names.get(r.userLoginId) ?? "A person no longer at this school" : "School OS") },
           { key: "what", label: "What", phone: "meta", cell: (r) => whatWords(r.action, (r.after ?? {}) as ExportAfter) },
-          { key: "filters", label: "Filters", cell: (r) => ((r.after ?? {}) as ExportAfter).filters || <span className="text-ink-2">none</span> },
-          { key: "rows", label: "Rows", phone: "badge", cell: (r) => { const n = ((r.after ?? {}) as ExportAfter).rows; return n === undefined ? "" : <Badge tone={n >= MASS_EXPORT_ROWS ? "warning" : "neutral"}>{n.toLocaleString("en-IN")} rows</Badge>; } },
+          { key: "filters", label: "Filters", cell: (r) => ((r.after ?? {}) as ExportAfter).filters || <span className="text-ink-2"><Words k="none" /></span> },
+          { key: "rows", label: "Rows", phone: "badge", cell: (r) => { const n = ((r.after ?? {}) as ExportAfter).rows; return n === undefined ? "" : <Badge tone={n >= MASS_EXPORT_ROWS ? "warning" : "neutral"}>{n.toLocaleString("en-IN")} <Words k="rows" /></Badge>; } },
           { key: "device", label: "Device", cell: (r) => (r.device ? describeDevice(r.device) : "") },
         ]}
         empty={filtered ? (
-          <EmptyState title="Nothing matches these filters"><Link href="/settings/data-security/export-log" className="font-medium text-brand-text underline">Clear the filters</Link></EmptyState>
+          <EmptyState title="Nothing matches these filters"><Link href="/settings/data-security/export-log" className="font-medium text-brand-text underline"><Words k="Clear the filters" /></Link></EmptyState>
         ) : (
-          <EmptyState title="Nothing has been exported yet">Each export of a list or report, and each full data export, will be listed here.</EmptyState>
+          <EmptyState title="Nothing has been exported yet"><Words k="Each export of a list or report, and each full data export, will be listed here." /></EmptyState>
         )}
       />
     </>

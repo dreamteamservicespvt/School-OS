@@ -9,6 +9,7 @@ import { ChevronRight, Circle, CircleCheck, Info, Lightbulb, SearchX, Sparkles, 
 import { Card } from "./card";
 import { Pill } from "./badge";
 import { cx } from "./cx";
+import { tx } from "@/lib/i18n/tx";
 
 export type Tone = "ok" | "warn" | "bad" | "info" | "brand";
 export const TONE_TEXT: Record<Tone, string> = { ok: "text-ok", warn: "text-warn", bad: "text-bad", info: "text-info", brand: "text-brand" };
@@ -28,9 +29,9 @@ export function Stats({ items, className }: { items: StatItem[]; className?: str
           const Ic = m.icon;
           const inner = (
             <>
-              <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5 truncate">{Ic && <Ic size={14} className="shrink-0" aria-hidden="true" />}{m.label}</p>
+              <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5 truncate">{Ic && <Ic size={14} className="shrink-0" aria-hidden="true" />}{tx(m.label)}</p>
               <p className={cx("font-semibold text-[19px] md:text-[21px] tnum mt-0.5 font-display tracking-tight leading-tight truncate", m.tone && TONE_TEXT[m.tone])}>{m.value}</p>
-              {m.sub && <p className="text-[12px] text-ink3 truncate">{m.sub}</p>}
+              {m.sub && <p className="text-[12px] text-ink3 truncate">{tx(m.sub)}</p>}
             </>
           );
           const cls = cx("block bg-surface text-left px-4 md:px-5 py-3.5 min-w-0", n === 5 && i === 4 && "col-span-2 xl:col-span-1", n === 3 && i === 2 && "col-span-2 md:col-span-1");
@@ -62,9 +63,9 @@ export function Band({ items, className, label }: { items: BandItem[]; className
         {items.slice(0, 4).map((m, i) => {
           const inner = (
             <>
-              <p className="text-[12.5px] md:text-[13px] font-semibold opacity-80 flex items-center gap-1">{m.label}{m.href && <ChevronRight size={14} className="opacity-60" aria-hidden="true" />}</p>
+              <p className="text-[12.5px] md:text-[13px] font-semibold opacity-80 flex items-center gap-1">{tx(m.label)}{m.href && <ChevronRight size={14} className="opacity-60" aria-hidden="true" />}</p>
               <p className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight tnum mt-1 truncate">{m.big}</p>
-              {m.foot && <p className="text-[12px] md:text-[13px] opacity-75 mt-0.5 truncate">{m.foot}</p>}
+              {m.foot && <p className="text-[12px] md:text-[13px] opacity-75 mt-0.5 truncate">{tx(m.foot)}</p>}
             </>
           );
           const cls = cx("block text-left p-4 md:p-6 min-w-0 border-white/15", BAND_CELL[n][i]);
@@ -95,7 +96,7 @@ export function Chips({ value, options, className, label }: { value: string; opt
             <Link key={o.value} href={o.href} aria-current={on ? "true" : undefined} scroll={false}
               className={cx("h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2",
                 on ? "bg-ink text-bg border-ink" : "bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink")}>
-              {o.label}{o.count != null && <span className={cx("text-[11.5px] tnum", on ? "opacity-70" : "text-ink3")}>{o.count}</span>}
+              {tx(o.label)}{o.count != null && <span className={cx("text-[11.5px] tnum", on ? "opacity-70" : "text-ink3")}>{o.count}</span>}
             </Link>
           );
         })}
@@ -131,7 +132,7 @@ export function DataList<Row>({ columns, rows, rowKey, href, mobile, empty, foot
           <thead>
             <tr className="text-[12px] text-ink3 font-semibold border-b border-line">
               {select && <th scope="col" className="pl-4 pr-2 py-3 w-10"><input type="checkbox" data-bulk-all aria-label="Choose every row" className="size-5 rounded-md accent-brand cursor-pointer" /></th>}
-              {columns.map((c, i) => <th key={c.key} scope="col" className={cx("px-3 py-3 font-semibold whitespace-nowrap", i === 0 && !select && "pl-5", i === columns.length - 1 && !href && "pr-5", c.align === "right" && "text-right", c.align === "center" && "text-center")}>{c.label}</th>)}
+              {columns.map((c, i) => <th key={c.key} scope="col" className={cx("px-3 py-3 font-semibold whitespace-nowrap", i === 0 && !select && "pl-5", i === columns.length - 1 && !href && "pr-5", c.align === "right" && "text-right", c.align === "center" && "text-center")}>{tx(c.label)}</th>)}
               {href && <th className="w-8"><span className="sr-only">Open</span></th>}
             </tr>
           </thead>
@@ -191,8 +192,8 @@ export function ListEmpty({ title = "Nothing matches", body = "Try a different s
   return (
     <div className="flex flex-col items-center text-center px-6 py-14 gap-3">
       <span className="w-14 h-14 rounded-2xl bg-sunken text-ink3 grid place-items-center" aria-hidden="true"><Ic size={26} /></span>
-      <h3 className="font-semibold text-[15px]">{title}</h3>
-      {body && <div className="text-sm text-ink3 max-w-sm">{body}</div>}
+      <h3 className="font-semibold text-[15px]">{tx(title)}</h3>
+      {body && <div className="text-sm text-ink3 max-w-sm">{tx(body)}</div>}
       {action}
     </div>
   );
@@ -203,8 +204,8 @@ export function SettingRow({ title, sub, children, htmlFor }: { title: React.Rea
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
       <label htmlFor={htmlFor} className="min-w-0 flex-1 text-[14px]">
-        <b className="font-semibold block">{title}</b>
-        {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{sub}</span>}
+        <b className="font-semibold block">{tx(title)}</b>
+        {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{tx(sub)}</span>}
       </label>
       {children && <div className="shrink-0">{children}</div>}
     </div>
@@ -220,7 +221,7 @@ export function Banner({ tone = "info", icon, title, children, action, className
   return (
     <div role={tone === "bad" ? "alert" : "status"} className={cx("rounded-2xl px-4 py-3 flex flex-wrap md:flex-nowrap items-start md:items-center gap-3 text-[14px]", BANNER[tone], className)}>
       <Ic size={19} className={cx("shrink-0 mt-0.5 md:mt-0", TONE_TEXT[tone])} aria-hidden="true" />
-      <p className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{title} </b>}{children}</p>
+      <p className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{tx(title)} </b>}{tx(children)}</p>
       {action && <div className="shrink-0 flex gap-2 flex-wrap pl-8 md:pl-0">{action}</div>}
     </div>
   );
@@ -234,10 +235,10 @@ export function Suggestion({ title = "Suggestion", children, source, actions, ai
     <Card className="border-brand/25 bg-brand/[.03]">
       <div className="px-5 pt-4 pb-1 flex items-center gap-2">
         <Mark size={16} className="text-brand" aria-hidden="true" />
-        <p className="font-semibold text-[14.5px]">{title}</p>
+        <p className="font-semibold text-[14.5px]">{tx(title)}</p>
         <Pill tone="brand" className="!h-5 !text-[11px] ml-auto">Suggestion</Pill>
       </div>
-      <div className="px-5 pb-4 text-[14px] leading-relaxed text-ink2">{children}</div>
+      <div className="px-5 pb-4 text-[14px] leading-relaxed text-ink2">{tx(children)}</div>
       {source && <p className="px-5 pb-3 text-[12px] text-ink3">Based on: {source}</p>}
       {actions && <div className="px-5 pb-4 flex gap-2 flex-wrap">{actions}</div>}
     </Card>
@@ -311,7 +312,7 @@ export function Bars({ data, max, height = 170, unit = "", ariaLabel = "Chart", 
 export function Legend({ items }: { items: [string, string][] }) {
   return (
     <div className="flex gap-4 flex-wrap text-[12.5px] text-ink2">
-      {items.map(([cls, l]) => <span key={l} className="flex items-center gap-1.5"><span className={cx("w-2.5 h-2.5 rounded-sm", cls)} aria-hidden="true" />{l}</span>)}
+      {items.map(([cls, l]) => <span key={l} className="flex items-center gap-1.5"><span className={cx("w-2.5 h-2.5 rounded-sm", cls)} aria-hidden="true" />{tx(l)}</span>)}
     </div>
   );
 }
@@ -322,7 +323,7 @@ export function DL({ rows, cols = 2, className }: { rows: [string, React.ReactNo
     <dl className={cx("grid gap-x-6 gap-y-3.5 px-5 pb-5", cols === 2 && "sm:grid-cols-2", cols === 3 && "sm:grid-cols-2 xl:grid-cols-3", className)}>
       {rows.map(([k, v]) => (
         <div key={k} className="min-w-0">
-          <dt className="text-[12px] text-ink3 font-semibold">{k}</dt>
+          <dt className="text-[12px] text-ink3 font-semibold">{tx(k)}</dt>
           <dd className="text-[14.5px] mt-0.5 break-words">{v}</dd>
         </div>
       ))}

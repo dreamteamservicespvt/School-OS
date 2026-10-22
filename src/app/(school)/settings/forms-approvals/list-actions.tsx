@@ -9,13 +9,14 @@ import { ActionButton } from "../action-button";
 import {
   archiveFieldAction, archiveFormAction, createFormAction, defaultRuleAction, formDetailsAction, moveFieldAction, moveFormFieldAction, publishFormAction, removeFormFieldAction,
 } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export function MoveButtons({ id, formId, first, last, label }: { id: string; formId?: string; first: boolean; last: boolean; label: string }) {
   const move = (d: "up" | "down") => (formId ? moveFormFieldAction(formId, id, d) : moveFieldAction(id, d));
   return (
     <span className="inline-flex gap-1">
-      {!first && <ActionButton variant="ghost" label={<><span aria-hidden="true">↑</span><span className="sr-only">Move {label} up</span></>} run={() => move("up")} />}
-      {!last && <ActionButton variant="ghost" label={<><span aria-hidden="true">↓</span><span className="sr-only">Move {label} down</span></>} run={() => move("down")} />}
+      {!first && <ActionButton variant="ghost" label={<><span aria-hidden="true">↑</span><span className="sr-only"><Words k="Move" /> {label} <Words k="up" /></span></>} run={() => move("up")} />}
+      {!last && <ActionButton variant="ghost" label={<><span aria-hidden="true">↓</span><span className="sr-only"><Words k="Move" /> {label} <Words k="down" /></span></>} run={() => move("down")} />}
     </span>
   );
 }
@@ -24,7 +25,7 @@ export function ArchiveFieldButton({ id, label, archived }: { id: string; label:
   if (archived) return <ActionButton label="Restore" pendingLabel="Restoring…" run={() => archiveFieldAction(id, false)} />;
   return (
     <ConfirmButton trigger="Archive" triggerVariant="ghost" title={`Archive ${label}?`} confirmLabel={`Archive ${label}`} onConfirm={() => archiveFieldAction(id, true)}>
-      {label} no longer shows on forms. Answers already given are kept, and you can restore the field later.
+      {label} <Words k="no longer shows on forms. Answers already given are kept, and you can restore the field later." />
     </ConfirmButton>
   );
 }
@@ -32,7 +33,7 @@ export function ArchiveFieldButton({ id, label, archived }: { id: string; label:
 export function RemoveFormFieldButton({ formId, fieldKey, label }: { formId: string; fieldKey: string; label: string }) {
   return (
     <ConfirmButton trigger="Remove" triggerVariant="ghost" title={`Remove ${label}?`} confirmLabel={`Remove ${label}`} onConfirm={() => removeFormFieldAction(formId, fieldKey)}>
-      The field leaves this draft. Answers to versions already published are kept.
+      <Words k="The field leaves this draft. Answers to versions already published are kept." />
     </ConfirmButton>
   );
 }
@@ -40,7 +41,7 @@ export function RemoveFormFieldButton({ formId, fieldKey, label }: { formId: str
 export function PublishButton({ formId, name, fields }: { formId: string; name: string; fields: number }) {
   return (
     <ConfirmButton trigger="Publish" triggerVariant="primary" title={`Publish ${name}?`} confirmLabel={`Publish ${name}`} onConfirm={() => publishFormAction(formId)}>
-      The form with its {fields} field{fields === 1 ? "" : "s"} becomes the version people fill in. Answers already given stay with the version they were given on.
+      <Words k="The form with its" /> {fields} <Words k="field" />{fields === 1 ? "" : "s"} <Words k="becomes the version people fill in. Answers already given stay with the version they were given on." />
     </ConfirmButton>
   );
 }
@@ -49,7 +50,7 @@ export function ArchiveFormButton({ formId, name, archived }: { formId: string; 
   if (archived) return <ActionButton label="Restore" pendingLabel="Restoring…" run={() => archiveFormAction(formId, false)} />;
   return (
     <ConfirmButton trigger="Archive" triggerVariant="ghost" title={`Archive ${name}?`} confirmLabel={`Archive ${name}`} onConfirm={() => archiveFormAction(formId, true)}>
-      Nobody can fill in {name} any more. Answers already given are kept. You can restore it later.
+      <Words k="Nobody can fill in" /> {name} <Words k="any more. Answers already given are kept. You can restore it later." />
     </ConfirmButton>
   );
 }
@@ -57,7 +58,7 @@ export function ArchiveFormButton({ formId, name, archived }: { formId: string; 
 export function DefaultRuleButton({ type, label }: { type: string; label: string }) {
   return (
     <ConfirmButton trigger="Use the default rule" triggerVariant="ghost" title={`Use the default rule for ${label}?`} confirmLabel="Use the default rule" onConfirm={() => defaultRuleAction(type)}>
-      Your school&apos;s rule for {label} is set aside and the default is used for new requests. Requests already waiting keep their approver.
+      <Words k="Your school's rule for" /> {label} <Words k="is set aside and the default is used for new requests. Requests already waiting keep their approver." />
     </ConfirmButton>
   );
 }

@@ -4,6 +4,7 @@ import { useEffect, useId, useRef } from "react";
 import { X } from "lucide-react";
 import { cx } from "./cx";
 import { useT } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 
 /** Dialog on a computer, bottom sheet on a phone (design/ui-prototype/src/ui.jsx Sheet). */
 export const sheetCls = (wide?: boolean) => cx(
@@ -20,8 +21,8 @@ export function SheetHead({ titleId, title, sub, onClose }: { titleId: string; t
       <div className="md:hidden mx-auto mt-2.5 w-10 h-1.5 rounded-full bg-line" aria-hidden="true" />
       <div className="flex items-start justify-between gap-3 px-5 pt-4 pb-3">
         <div className="min-w-0">
-          <h2 id={titleId} className="font-display font-semibold text-lg leading-tight">{title}</h2>
-          {sub && <p className="text-sm text-ink3 mt-1">{sub}</p>}
+          <h2 id={titleId} className="font-display font-semibold text-lg leading-tight">{tx(title)}</h2>
+          {sub && <p className="text-sm text-ink3 mt-1">{tx(sub)}</p>}
         </div>
         <button type="button" onClick={onClose} aria-label={t("Close")} title={t("Close")}
           className="inline-flex items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0 size-9">

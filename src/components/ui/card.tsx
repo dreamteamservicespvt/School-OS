@@ -1,5 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import { cx } from "./cx";
+import { tx } from "@/lib/i18n/tx";
+import { Words } from "@/lib/i18n/client";
 
 // White work surfaces on the tinted canvas (design/ui-prototype/src/ui.jsx).
 export function Card({ children, className = "", as: Tag = "section", ...rest }: { children: React.ReactNode; className?: string; as?: "section" | "div" | "article" | "aside" } & React.HTMLAttributes<HTMLElement>) {
@@ -14,8 +16,8 @@ export function CardHeader({ title, description, action, id, icon: Icon, divided
       <div className="min-w-[min(100%,13rem)] flex-1 flex items-center gap-2.5">
         {Icon && <span className="w-8 h-8 rounded-lg bg-brand/10 text-brand grid place-items-center shrink-0"><Icon size={17} aria-hidden="true" /></span>}
         <div className="min-w-0">
-          <h2 id={id} className="font-semibold text-[15px] leading-tight">{title}</h2>
-          {description && <p className="text-[13px] text-ink3 mt-0.5">{description}</p>}
+          <h2 id={id} className="font-semibold text-[15px] leading-tight">{tx(title)}</h2>
+          {description && <p className="text-[13px] text-ink3 mt-0.5">{tx(description)}</p>}
         </div>
       </div>
       {action && <div className="ml-auto max-w-full min-w-0 flex flex-wrap justify-end gap-2 [&>div]:flex-wrap [&>div]:justify-end">{action}</div>}
@@ -31,8 +33,8 @@ export function CardBody({ children, className = "" }: { children: React.ReactNo
 export function Detail({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="min-w-0">
-      <dt className="text-[12.5px] text-ink3">{label}</dt>
-      <dd className="text-[14.5px] font-medium break-words mt-0.5">{children ?? <span className="text-ink3 font-normal">Not added</span>}</dd>
+      <dt className="text-[12.5px] text-ink3">{tx(label)}</dt>
+      <dd className="text-[14.5px] font-medium break-words mt-0.5">{children ?? <span className="text-ink3 font-normal"><Words k="Not added" /></span>}</dd>
     </div>
   );
 }

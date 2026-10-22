@@ -11,6 +11,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DesignEditor } from "./editor";
 import { UseVersionButton } from "./use-version";
+import { Words } from "@/lib/i18n/client";
 
 type Params = { params: Promise<{ type: string }> };
 
@@ -39,14 +40,14 @@ export default async function DesignPage({ params }: Params) {
 
   return (
     <>
-      <nav aria-label="Breadcrumb" className="mb-2 text-sm"><Link href="/settings/document-designs" className="text-brand-text hover:underline">Document Designs</Link></nav>
+      <nav aria-label="Breadcrumb" className="mb-2 text-sm"><Link href="/settings/document-designs" className="text-brand-text hover:underline"><Words k="Document Designs" /></Link></nav>
       <PageHeader title={t.label} href={`/settings/document-designs/${t.key}`} userId={current.user.id}>
         <div className="flex flex-wrap items-center gap-2 text-sm text-ink-2">
-          {design.version ? <Badge tone="brand">Version {design.version}</Badge> : <Badge>Ready design</Badge>}
-          <span>Printed by {t.usedBy}</span>
+          {design.version ? <Badge tone="brand"><Words k="Version" /> {design.version}</Badge> : <Badge><Words k="Ready design" /></Badge>}
+          <span><Words k="Printed by" /> {t.usedBy}</span>
         </div>
       </PageHeader>
-      {!canEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2">You can see this design and preview it with real records. The School Admin changes it.</p>}
+      {!canEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2"><Words k="You can see this design and preview it with real records. The School Admin changes it." /></p>}
       <DesignEditor type={t} fields={allFields(t)} initial={{ base: design.base, options: design.options }}
         signatories={signatories.map((s) => ({ id: s.id, name: s.name, title: s.title }))} canEdit={canEdit} recordKinds={[...recordKinds]} />
 
@@ -54,13 +55,13 @@ export default async function DesignPage({ params }: Params) {
         <CardHeader title="Versions" description="Every save is kept. Use an earlier version again at any time; it is saved as a new version." />
         <CardBody>
           {versions.length === 0 ? (
-            <p className="text-ink-2">Not changed yet. Documents use the ready Classic design until you save.</p>
+            <p className="text-ink-2"><Words k="Not changed yet. Documents use the ready Classic design until you save." /></p>
           ) : (
             <ul className="divide-y divide-line">
               {versions.map((v) => (
                 <li key={v.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div>
-                    <p className="font-medium">Version {v.version} · {BASES.find((b) => b.key === v.base)?.label ?? v.base} {v.isCurrent && <Badge tone="success" className="ml-1">In use</Badge>}</p>
+                    <p className="font-medium"><Words k="Version" /> {v.version} · {BASES.find((b) => b.key === v.base)?.label ?? v.base} {v.isCurrent && <Badge tone="success" className="ml-1"><Words k="In use" /></Badge>}</p>
                     <p className="text-sm text-ink-2">{v.createdById ? names.get(v.createdById) ?? "Someone" : "School OS"} · {formatDateTime(v.createdAt, tz)}</p>
                   </div>
                   {!v.isCurrent && canEdit && <UseVersionButton docType={t.key} version={v.version} />}

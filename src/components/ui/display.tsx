@@ -1,4 +1,5 @@
 import { cx } from "./cx";
+import { tx } from "@/lib/i18n/tx";
 
 // Display parts of the approved design that need no browser code.
 
@@ -42,8 +43,8 @@ export function PageHead({ title, sub, actions, crumbs, className }: { title: Re
     <div className={cx("flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5", className)}>
       <div className="min-w-0">
         {crumbs && <div className="text-[13px] text-ink3 mb-1 flex items-center gap-1.5 flex-wrap">{crumbs}</div>}
-        <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">{title}</h1>
-        {sub && <p className="text-ink3 text-[15px] mt-1">{sub}</p>}
+        <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">{tx(title)}</h1>
+        {sub && <p className="text-ink3 text-[15px] mt-1">{tx(sub)}</p>}
       </div>
       {actions && <div className="flex gap-2 flex-wrap">{actions}</div>}
     </div>
@@ -55,9 +56,9 @@ export function Stat({ label, value, sub, tone }: { label: React.ReactNode; valu
   const t = tone ? { ok: "text-ok", warn: "text-warn", bad: "text-bad", brand: "text-brand" }[tone] : "";
   return (
     <div className="bg-surface rounded-2xl border border-line/70 shadow-card px-4 py-3.5 min-w-0">
-      <p className="text-[13px] text-ink3 font-medium truncate">{label}</p>
+      <p className="text-[13px] text-ink3 font-medium truncate">{tx(label)}</p>
       <p className={cx("font-display text-[26px] font-semibold tnum leading-tight mt-1", t)}>{value}</p>
-      {sub && <p className="text-[12.5px] text-ink3 mt-0.5 truncate">{sub}</p>}
+      {sub && <p className="text-[12.5px] text-ink3 mt-0.5 truncate">{tx(sub)}</p>}
     </div>
   );
 }

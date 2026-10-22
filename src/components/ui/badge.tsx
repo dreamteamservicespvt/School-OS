@@ -1,4 +1,5 @@
 import { cx } from "./cx";
+import { tx } from "@/lib/i18n/tx";
 
 export type PillTone = "ok" | "warn" | "bad" | "info" | "brand" | "neutral";
 /** Older tone names, kept so every screen uses the same pills. */
@@ -22,7 +23,7 @@ export function Pill({ tone = "neutral", dot, children, className = "" }: { tone
   return (
     <span className={cx(!hidden && "inline-flex", "items-center gap-1.5 h-6 px-2.5 rounded-full text-xs font-semibold whitespace-nowrap", TONE[t], className)}>
       {dot && <span className="w-1.5 h-1.5 rounded-full bg-current" aria-hidden="true" />}
-      {children}
+      {tx(children)}
     </span>
   );
 }

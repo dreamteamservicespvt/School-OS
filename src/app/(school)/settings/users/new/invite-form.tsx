@@ -9,6 +9,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { checkIndianMobile } from "@/lib/format";
 import { inviteAction } from "../actions";
 import { AccessFields, type CampusOption, type RoleOption } from "../access-fields";
+import { Words } from "@/lib/i18n/client";
 
 type StaffOption = { id: string; name: string; phone: string; email: string | null; designation: string };
 
@@ -47,16 +48,16 @@ export function InviteForm({ roles, campuses, staff, defaultRoleId, defaultStaff
       <div className="max-w-2xl space-y-4">
         <Alert tone="success" title={`${state.data.name} is invited`}>
           {state.data.sentBy.length
-            ? <>The invite link was sent to {state.data.name} by {state.data.sentBy.join(" and ")}. You can also copy it below and give it to them yourself. </>
-            : <>Send this link to {state.data.name} by WhatsApp, SMS or email. </>}
-          They open it to choose their own password; nobody else ever sees it. The link works once, for 7 days.
+            ? <><Words k="The invite link was sent to" /> {state.data.name} <Words k="by" /> {state.data.sentBy.join(" and ")}<Words k=". You can also copy it below and give it to them yourself." /> </>
+            : <><Words k="Send this link to" /> {state.data.name} <Words k="by WhatsApp, SMS or email." /> </>}
+          <Words k="They open it to choose their own password; nobody else ever sees it. The link works once, for 7 days." />
           {state.data.sentNote && <span className="mt-1 block">{state.data.sentNote}</span>}
         </Alert>
         <CopyLink path={state.data.link} />
         <div className="flex flex-wrap gap-2">
-          <ButtonLink href={`/settings/users/${state.data.userId}`} variant="primary">Open {state.data.name}</ButtonLink>
-          <Button variant="secondary" onClick={() => window.location.reload()}>Invite another person</Button>
-          <ButtonLink href="/settings/users">Back to Users</ButtonLink>
+          <ButtonLink href={`/settings/users/${state.data.userId}`} variant="primary"><Words k="Open" /> {state.data.name}</ButtonLink>
+          <Button variant="secondary" onClick={() => window.location.reload()}><Words k="Invite another person" /></Button>
+          <ButtonLink href="/settings/users"><Words k="Back to Users" /></ButtonLink>
         </div>
       </div>
     );
@@ -94,8 +95,8 @@ export function InviteForm({ roles, campuses, staff, defaultRoleId, defaultStaff
       </div>
       <AccessFields roles={roles} campuses={campuses} roleIds={v("roleIds") ? v("roleIds").split(",") : [defaultRoleId].filter(Boolean)} scope={v("scope", "WHOLE_SCHOOL")} campusId={v("campusId")} errors={state?.errors} />
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-5">
-        <SubmitButton pendingText="Inviting…">Send invite</SubmitButton>
-        <Link href="/settings/users" className="min-h-11 rounded-lg px-3 py-2.5 font-medium text-ink-2 hover:bg-surface-2">Cancel</Link>
+        <SubmitButton pendingText="Inviting…"><Words k="Send invite" /></SubmitButton>
+        <Link href="/settings/users" className="min-h-11 rounded-lg px-3 py-2.5 font-medium text-ink-2 hover:bg-surface-2"><Words k="Cancel" /></Link>
       </div>
     </form>
   );

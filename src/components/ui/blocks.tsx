@@ -10,6 +10,7 @@ import { cx } from "./cx";
 import { Card } from "./card";
 import { Pill } from "./badge";
 import { Avatar } from "./avatar";
+import { tx } from "@/lib/i18n/tx";
 
 export type Tone = "ok" | "warn" | "bad" | "info" | "brand" | "neutral";
 export const TONE_TEXT: Record<string, string> = { ok: "text-ok", warn: "text-warn", bad: "text-bad", info: "text-info", brand: "text-brand", neutral: "" };
@@ -27,9 +28,9 @@ export function Stats({ items, className, label = "Summary" }: { items: StatItem
           const Ic = m.icon;
           const body = (
             <>
-              <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5 truncate">{Ic && <Ic size={14} className="shrink-0" aria-hidden="true" />}{m.label}</p>
+              <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5 truncate">{Ic && <Ic size={14} className="shrink-0" aria-hidden="true" />}{tx(m.label)}</p>
               <p className={cx("font-semibold text-[19px] md:text-[21px] tnum mt-0.5 font-display tracking-tight leading-tight truncate", m.tone && TONE_TEXT[m.tone])}>{m.value}</p>
-              {m.sub && <p className="text-[12px] text-ink3 truncate">{m.sub}</p>}
+              {m.sub && <p className="text-[12px] text-ink3 truncate">{tx(m.sub)}</p>}
             </>
           );
           const cls = cx("bg-surface text-left px-4 md:px-5 py-3.5 min-w-0 block", n === 5 && i === 4 && "col-span-2 xl:col-span-1", n === 3 && i === 2 && "col-span-2 md:col-span-1");
@@ -55,7 +56,7 @@ export function Chips({ value, options, className, label }: { value: string; opt
               <Link href={o.href} scroll={false} aria-current={on ? "true" : undefined}
                 className={cx("h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2",
                   on ? "bg-ink text-bg border-ink" : "bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink")}>
-                {o.label}
+                {tx(o.label)}
                 {o.count != null && <span className={cx("text-[11.5px] tnum", on ? "opacity-70" : "text-ink3")}>{o.count.toLocaleString("en-IN")}</span>}
               </Link>
             </li>
@@ -77,7 +78,7 @@ export function SegLinks({ value, options, size = "md", className, label }: { va
             className={cx("inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition whitespace-nowrap flex-1",
               size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-[13px]",
               on ? "bg-surface text-ink shadow-card" : "text-ink2 hover:text-ink")}>
-            {o.label}
+            {tx(o.label)}
           </Link>
         );
       })}
@@ -98,8 +99,8 @@ export function Row({ avatar, avatarSrc, icon: Ic, iconTone = "neutral", title, 
     <>
       {avatar ? <Avatar name={avatar} src={avatarSrc} size={38} /> : Ic ? <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT[iconTone])}><Ic size={19} aria-hidden="true" /></span> : null}
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-[14.5px] leading-snug truncate">{title}</p>
-        {sub && <p className="text-[12.5px] text-ink3 truncate">{sub}</p>}
+        <p className="font-semibold text-[14.5px] leading-snug truncate">{tx(title)}</p>
+        {sub && <p className="text-[12.5px] text-ink3 truncate">{tx(sub)}</p>}
       </div>
       {right && <div className="shrink-0 text-right">{right}</div>}
     </>
@@ -114,8 +115,8 @@ export function SettingRow({ title, sub, children, htmlFor }: { title: React.Rea
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
       <Label htmlFor={htmlFor} className="min-w-0 flex-1 text-[14px]">
-        <b className="font-semibold block">{title}</b>
-        {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{sub}</span>}
+        <b className="font-semibold block">{tx(title)}</b>
+        {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{tx(sub)}</span>}
       </Label>
       {children != null && <div className="shrink-0">{children}</div>}
     </div>
@@ -130,7 +131,7 @@ export function Banner({ tone = "info", icon, title, children, action, className
   return (
     <div role={tone === "bad" || tone === "warn" ? "alert" : undefined} className={cx("rounded-2xl px-4 py-3 flex flex-wrap md:flex-nowrap items-start md:items-center gap-3 text-[14px]", BANNER[tone], className)}>
       <Ic size={19} className={cx("shrink-0 mt-0.5 md:mt-0", TONE_TEXT[tone])} aria-hidden="true" />
-      <div className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{title} </b>}{children}</div>
+      <div className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{tx(title)} </b>}{tx(children)}</div>
       {action && <div className="shrink-0 flex gap-2 flex-wrap pl-8 md:pl-0">{action}</div>}
     </div>
   );
@@ -144,10 +145,10 @@ export function Suggestion({ title = "Suggestion", children, source, actions, ai
     <Card className="border-brand/25 bg-brand/[.03]">
       <div className="px-5 pt-4 pb-1 flex items-center gap-2">
         <Mark size={16} className="text-brand" aria-hidden="true" />
-        <p className="font-semibold text-[14.5px]">{title}</p>
+        <p className="font-semibold text-[14.5px]">{tx(title)}</p>
         <Pill tone="brand" className="!h-5 !text-[11px] ml-auto">Suggestion</Pill>
       </div>
-      <div className="px-5 pb-4 text-[14px] leading-relaxed text-ink2">{children}</div>
+      <div className="px-5 pb-4 text-[14px] leading-relaxed text-ink2">{tx(children)}</div>
       {source && <p className="px-5 pb-3 text-[12px] text-ink3">Based on: {source}</p>}
       {actions && <div className="px-5 pb-4 flex gap-2 flex-wrap">{actions}</div>}
     </Card>
@@ -185,7 +186,7 @@ export function DL({ rows, cols = 2, className }: { rows: [string, React.ReactNo
     <dl className={cx("grid gap-x-6 gap-y-3.5 px-5 pb-5", cols === 2 && "sm:grid-cols-2", cols === 3 && "sm:grid-cols-2 xl:grid-cols-3", className)}>
       {rows.map(([k, v]) => (
         <div key={k} className="min-w-0">
-          <dt className="text-[12px] text-ink3 font-semibold">{k}</dt>
+          <dt className="text-[12px] text-ink3 font-semibold">{tx(k)}</dt>
           <dd className="text-[14.5px] mt-0.5 break-words">{v ?? <span className="text-ink3">Not added</span>}</dd>
         </div>
       ))}
@@ -245,8 +246,8 @@ export function Empty({ icon: Icon = SearchX, title, body, action }: { icon?: Lu
   return (
     <div className="flex flex-col items-center text-center px-6 py-14 gap-3">
       <span className="w-14 h-14 rounded-2xl bg-sunken text-ink3 grid place-items-center" aria-hidden="true"><Icon size={26} /></span>
-      <h2 className="font-semibold text-[15px]">{title}</h2>
-      {body && <div className="text-sm text-ink3 max-w-sm">{body}</div>}
+      <h2 className="font-semibold text-[15px]">{tx(title)}</h2>
+      {body && <div className="text-sm text-ink3 max-w-sm">{tx(body)}</div>}
       {action}
     </div>
   );

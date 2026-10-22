@@ -9,6 +9,7 @@ import { FormMessage } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { archive, removeLinkedAccount, restore, saveLinkedAccount, switchGateway, testSaved, type TestState } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 export function CopyButton({ text, label = "Copy" }: { text: string; label?: string }) {
   const [copied, setCopied] = useState(false);
@@ -51,7 +52,7 @@ export function TestSavedButton({ id }: { id: string }) {
     <div className="space-y-3">
       <form action={action}>
         <input type="hidden" name="id" value={id} />
-        <Button type="submit" variant="secondary" loading={pending} loadingText="Testing…">Test connection</Button>
+        <Button type="submit" variant="secondary" loading={pending} loadingText="Testing…"><Words k="Test connection" /></Button>
       </form>
       {state && <TestResult result={state} />}
     </div>
@@ -60,7 +61,7 @@ export function TestSavedButton({ id }: { id: string }) {
 
 export function SwitchGateway({ id, name, on, tested }: { id: string; name: string; on: boolean; tested: boolean }) {
   if (!on && !tested) {
-    return <p className="text-sm text-ink-2">Switch on becomes available after a test passes.</p>;
+    return <p className="text-sm text-ink-2"><Words k="Switch on becomes available after a test passes." /></p>;
   }
   return (
     <ConfirmButton
@@ -82,7 +83,7 @@ export function ArchiveGateway({ id, name }: { id: string; name: string }) {
   return (
     <ConfirmButton trigger="Archive" triggerVariant="danger-outline" title={`Archive ${name}?`} confirmLabel={`Archive ${name}`} confirmVariant="danger" typeToConfirm={name}
       onConfirm={() => archive(id, name)}>
-      The gateway is switched off and hidden. Payments already made through it keep their record. You can restore it later.
+      <Words k="The gateway is switched off and hidden. Payments already made through it keep their record. You can restore it later." />
     </ConfirmButton>
   );
 }
@@ -92,7 +93,7 @@ export function RestoreGateway({ id }: { id: string }) {
   const [problem, setProblem] = useState<string | null>(null);
   return (
     <div>
-      <Button variant="secondary" loading={busy} onClick={async () => { setBusy(true); const p = await restore(id); if (p) setProblem(p); setBusy(false); }}>Restore</Button>
+      <Button variant="secondary" loading={busy} onClick={async () => { setBusy(true); const p = await restore(id); if (p) setProblem(p); setBusy(false); }}><Words k="Restore" /></Button>
       {problem && <p role="alert" className="mt-2 text-sm text-danger">{problem}</p>}
     </div>
   );
@@ -115,7 +116,7 @@ export function LinkedAccountForm({ gatewayId }: { gatewayId: string }) {
         <TextField label="Razorpay linked account ID" name="linkedAccountId" required defaultValue={v.linkedAccountId} error={e.linkedAccountId} className="sm:col-span-2" spellCheck={false}
           placeholder="acc_XXXXXXXXXXXXXX" help="From Razorpay, Route, Linked Accounts, after Razorpay has verified the bank account." />
       </div>
-      <div className="flex justify-end"><SubmitButton pendingText="Adding…">Add bank account</SubmitButton></div>
+      <div className="flex justify-end"><SubmitButton pendingText="Adding…"><Words k="Add bank account" /></SubmitButton></div>
     </form>
   );
 }
@@ -125,7 +126,7 @@ export function RemoveLinkedAccount({ gatewayId, id, label }: { gatewayId: strin
   return (
     <ConfirmButton trigger="Archive" triggerVariant="ghost" title={`Archive ${label}?`} confirmLabel={`Archive ${label}`} confirmVariant="danger"
       onConfirm={async () => { const p = await removeLinkedAccount(gatewayId, id); if (!p) router.refresh(); return p; }}>
-      Online payments will no longer be split into {label}. Fee heads linked to it will need another account in Fee Settings. Payments already made keep their account.
+      <Words k="Online payments will no longer be split into" /> {label}<Words k=". Fee heads linked to it will need another account in Fee Settings. Payments already made keep their account." />
     </ConfirmButton>
   );
 }

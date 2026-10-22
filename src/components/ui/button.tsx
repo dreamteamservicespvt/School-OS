@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { cx } from "./cx";
+import { tx } from "@/lib/i18n/tx";
 
 export type ButtonVariant = "primary" | "secondary" | "soft" | "ghost" | "danger" | "danger-soft" | "danger-outline";
 export type ButtonSize = "sm" | "md" | "lg";
@@ -42,7 +43,7 @@ export function Button({ variant = "primary", size = "md", icon: Icon, iconRight
   return (
     <button type={type} className={buttonClass(variant, size, className)} disabled={disabled || loading} aria-busy={loading || undefined} {...rest}>
       {loading ? <Spinner /> : Icon && <Icon size={iconSize(size)} strokeWidth={2.2} aria-hidden="true" />}
-      {loading && loadingText ? loadingText : children}
+      {loading && loadingText ? tx(loadingText) : tx(children)}
       {IconR && <IconR size={16} strokeWidth={2.2} aria-hidden="true" />}
     </button>
   );
@@ -52,7 +53,7 @@ export function ButtonLink({ href, variant = "secondary", size = "md", icon: Ico
   return (
     <Link href={href} className={buttonClass(variant, size, className)} {...rest}>
       {Icon && <Icon size={iconSize(size)} strokeWidth={2.2} aria-hidden="true" />}
-      {children}
+      {tx(children)}
       {IconR && <IconR size={16} strokeWidth={2.2} aria-hidden="true" />}
     </Link>
   );

@@ -15,6 +15,7 @@ import { filterUsers, schoolUsers, sortUsers, type UserRow } from "@/lib/setting
 import { STATE_LABEL, STATE_TONE } from "@/lib/settings/users";
 import { UsersNav } from "./sub-nav";
 import { schoolRoles } from "@/lib/school-roles";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Users & Permissions" };
 
@@ -37,8 +38,8 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   const columns: Column<UserRow>[] = [
     { key: "name", label: "Name", sortable: true, phone: "title", cell: (r) => r.name },
     { key: "username", label: "Username", sortable: true, phone: "meta", cell: (r) => r.username },
-    { key: "belongsTo", label: "Belongs to", cell: (r) => r.belongsTo ?? <span className="text-ink-2">Not linked</span> },
-    { key: "roles", label: "Roles", phone: "meta", cell: (r) => r.roles.map((x) => x.name).join(", ") || <span className="text-ink-2">No role</span> },
+    { key: "belongsTo", label: "Belongs to", cell: (r) => r.belongsTo ?? <span className="text-ink-2"><Words k="Not linked" /></span> },
+    { key: "roles", label: "Roles", phone: "meta", cell: (r) => r.roles.map((x) => x.name).join(", ") || <span className="text-ink-2"><Words k="No role" /></span> },
     { key: "scope", label: "Scope", cell: (r) => (r.campus ? `${r.scope}: ${r.campus}` : r.scope) + (r.exceptions ? ` · ${r.exceptions} exception${r.exceptions === 1 ? "" : "s"}` : "") },
     { key: "status", label: "Status", sortable: true, phone: "badge", cell: (r) => <Badge tone={STATE_TONE[r.state]}>{STATE_LABEL[r.state]}</Badge> },
     { key: "lastSignIn", label: "Last sign-in", sortable: true, phone: "meta", cell: (r) => (r.lastSignInAt ? formatDateTime(r.lastSignInAt, tz) : "Never") },
@@ -50,12 +51,12 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader title="Users & Permissions" href="/settings/users" userId={current.user.id}>
-        {may.create && <ButtonLink href="/settings/users/new" variant="primary">Invite a user</ButtonLink>}
+        {may.create && <ButtonLink href="/settings/users/new" variant="primary"><Words k="Invite a user" /></ButtonLink>}
       </PageHeader>
       <UsersNav active="users" />
-      {may.readOnly && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2">You can see logins and roles here. The School Admin invites people and changes roles.</p>}
+      {may.readOnly && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2"><Words k="You can see logins and roles here. The School Admin invites people and changes roles." /></p>}
       <p className="mb-4 text-sm text-ink-2">
-        {counts.ACTIVE} active · {counts.INVITED} invited · {counts.DISABLED} disabled. Most staff get their login from <Link href="/staff-hr-management/add" className="font-medium text-brand-text underline">Add Staff</Link> in Staff &amp; HR. Everyone else is invited here.
+        {counts.ACTIVE} <Words k="active ·" /> {counts.INVITED} <Words k="invited ·" /> {counts.DISABLED} <Words k="disabled. Most staff get their login from" /> <Link href="/staff-hr-management/add" className="font-medium text-brand-text underline"><Words k="Add Staff" /></Link> <Words k={"in Staff & HR. Everyone else is invited here."} />
       </p>
       <ListToolbar placeholder="Search name, username, phone or email" filters={[
         { key: "status", label: "Status", options: [{ value: "ACTIVE", label: "Active" }, { value: "INVITED", label: "Invited" }, { value: "DISABLED", label: "Disabled" }] },
@@ -73,11 +74,11 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
         empty={rows.length === 0 ? (
           <EmptyState title="No logins yet" icon={<UserIcon className="size-6" />}>
             {may.create ? "Invite the people who will use School OS." : "The School Admin invites the people who will use School OS."}
-            {may.create && <div className="mt-4"><ButtonLink href="/settings/users/new" variant="primary">Invite a user</ButtonLink></div>}
+            {may.create && <div className="mt-4"><ButtonLink href="/settings/users/new" variant="primary"><Words k="Invite a user" /></ButtonLink></div>}
           </EmptyState>
         ) : (
           <EmptyState title="Nobody matches these filters">
-            Change the search or <Link href="/settings/users" className="font-medium text-brand-text underline">reset the filters</Link>.
+            <Words k="Change the search or" /> <Link href="/settings/users" className="font-medium text-brand-text underline"><Words k="reset the filters" /></Link>.
           </EmptyState>
         )} />
     </>

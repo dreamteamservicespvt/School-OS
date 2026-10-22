@@ -6,6 +6,8 @@ import { CircleAlert } from "lucide-react";
 import { cx } from "./cx";
 import { KeepSelect } from "./keep-select";
 import { ProblemInView } from "./problem-in-view";
+import { tx } from "@/lib/i18n/tx";
+import { OptionList, Words } from "@/lib/i18n/client";
 
 /** The shared look of a text box, select or text area. */
 export const inputCls = (error?: unknown) => cx(
@@ -19,14 +21,14 @@ export function FieldShell({ label, id, help, error, required, className = "", c
   return (
     <div className={cx("flex flex-col gap-1.5", className)}>
       <label htmlFor={id} className="text-[13px] font-semibold text-ink2">
-        {label}
+        {tx(label)}
         {required && <span className="text-bad" aria-hidden="true"> *</span>}
       </label>
       {children}
       {error ? (
-        <p id={`${id}-error`} className="text-[12.5px] text-bad flex items-center gap-1.5"><CircleAlert size={14} aria-hidden="true" className="shrink-0" />{error}</p>
+        <p id={`${id}-error`} className="text-[12.5px] text-bad flex items-center gap-1.5"><CircleAlert size={14} aria-hidden="true" className="shrink-0" />{tx(error)}</p>
       ) : help ? (
-        <p id={`${id}-help`} className="text-[12.5px] text-ink3">{help}</p>
+        <p id={`${id}-help`} className="text-[12.5px] text-ink3">{tx(help)}</p>
       ) : null}
     </div>
   );
@@ -64,8 +66,7 @@ export function SelectField({ label, name, help, error, required, className, opt
     <FieldShell label={label} id={id} help={help} error={error} required={required} className={className}>
       <KeepSelect id={id} name={name} required={required} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, help)}
         className={cx(inputCls(error), "h-11 pr-9")} {...rest}>
-        {placeholder !== undefined && <option value="">{placeholder}</option>}
-        {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+        <OptionList options={options} placeholder={placeholder} />
       </KeepSelect>
     </FieldShell>
   );
@@ -77,8 +78,8 @@ export function CheckboxField({ label, name, help, className = "", ...rest }: { 
     <div className={cx("flex items-start gap-3", className)}>
       <input id={id} type="checkbox" name={name} className="mt-0.5 size-5 shrink-0 rounded-md accent-brand" aria-describedby={help ? `${id}-help` : undefined} {...rest} />
       <div>
-        <label htmlFor={id} className="text-[14.5px] font-semibold">{label}</label>
-        {help && <p id={`${id}-help`} className="text-[13px] text-ink3">{help}</p>}
+        <label htmlFor={id} className="text-[14.5px] font-semibold">{tx(label)}</label>
+        {help && <p id={`${id}-help`} className="text-[13px] text-ink3">{tx(help)}</p>}
       </div>
     </div>
   );
@@ -91,8 +92,8 @@ export function ErrorSummary({ errors }: { errors?: Record<string, string> }) {
   return (
     <ProblemInView token={errors}>
       <div role="alert" className="rounded-xl bg-bad/10 p-3.5 text-sm text-bad">
-        <p className="font-semibold flex items-center gap-2"><CircleAlert size={16} aria-hidden="true" />Please fix {list.length} things before saving:</p>
-        <ul className="mt-1 list-disc pl-10">{list.map((e) => <li key={e}>{e}</li>)}</ul>
+        <p className="font-semibold flex items-center gap-2"><CircleAlert size={16} aria-hidden="true" /><Words k="Please fix {n} things before saving:" vars={{ n: list.length }} /></p>
+        <ul className="mt-1 list-disc pl-10">{list.map((e) => <li key={e}>{tx(e)}</li>)}</ul>
       </div>
     </ProblemInView>
   );

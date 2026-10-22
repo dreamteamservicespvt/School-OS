@@ -1,6 +1,7 @@
 import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { cx } from "./cx";
 import { ProblemInView } from "./problem-in-view";
+import { tx } from "@/lib/i18n/tx";
 
 type Tone = "info" | "success" | "warning" | "danger";
 
@@ -19,8 +20,8 @@ export function Alert({ tone = "info", title, children, className = "", action }
     <div role={tone === "danger" ? "alert" : "status"} className={cx("flex flex-wrap items-start gap-3 rounded-2xl px-4 py-3.5 text-sm", TONES[tone], className)}>
       <I size={19} className={cx("shrink-0 mt-px", ICON_TONE[tone])} aria-hidden="true" />
       <div className="min-w-0 flex-1">
-        {title && <p className="font-semibold text-[14.5px]">{title}</p>}
-        {children && <div className={cx("text-ink2", title && "mt-0.5")}>{children}</div>}
+        {title && <p className="font-semibold text-[14.5px]">{tx(title)}</p>}
+        {children && <div className={cx("text-ink2", title && "mt-0.5")}>{tx(children)}</div>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
     </div>

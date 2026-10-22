@@ -9,6 +9,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { FIELD_TYPES, checkFieldDefinition, type CustomFieldDef } from "@/lib/custom-field-rules";
 import { fieldAction, formFieldAction } from "./actions";
+import { Words } from "@/lib/i18n/client";
 
 type Props = {
   mode: "record" | "form";
@@ -67,7 +68,7 @@ function FieldForm({ mode, owner, others, field, onDone }: Omit<Props, "trigger"
       )}
       <label className="flex min-h-11 items-center gap-3">
         <input type="checkbox" name="required" defaultChecked={v("required", field?.required ? "on" : "") === "on"} className="size-5 accent-brand" />
-        <span>Required <span className="text-sm text-ink-2">(only when the field is shown)</span></span>
+        <span><Words k="Required" /> <span className="text-sm text-ink-2"><Words k="(only when the field is shown)" /></span></span>
       </label>
       {mode === "record" ? (
         <SelectField label="Visible to" name="visibility" required defaultValue={v("visibility", field?.visibility ?? "everyone")}
@@ -76,9 +77,9 @@ function FieldForm({ mode, owner, others, field, onDone }: Omit<Props, "trigger"
         <TextField label="Help text" name="help" maxLength={200} defaultValue={v("help", field?.help ?? "")} error={errors.help} help="Shown under the field. Optional." />
       )}
       <fieldset className="rounded-xl border border-line p-3">
-        <legend className="px-1 text-sm font-medium">Show only when (optional)</legend>
+        <legend className="px-1 text-sm font-medium"><Words k="Show only when (optional)" /></legend>
         {parents.length === 0 ? (
-          <p className="text-sm text-ink-2">Add a choice or yes-or-no field first; then this field can show only for one of its answers.</p>
+          <p className="text-sm text-ink-2"><Words k="Add a choice or yes-or-no field first; then this field can show only for one of its answers." /></p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             <SelectField label="Another field" name="showWhenField" value={showField} onChange={(e) => { setShowField(e.target.value); setShowValue(""); }}
@@ -92,7 +93,7 @@ function FieldForm({ mode, owner, others, field, onDone }: Omit<Props, "trigger"
         )}
       </fieldset>
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-        <Button variant="secondary" onClick={onDone}>Cancel</Button>
+        <Button variant="secondary" onClick={onDone}><Words k="Cancel" /></Button>
         <SubmitButton pendingText="Saving…">{field ? "Save field" : "Add field"}</SubmitButton>
       </div>
     </form>

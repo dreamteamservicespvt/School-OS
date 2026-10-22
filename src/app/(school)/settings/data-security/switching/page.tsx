@@ -17,6 +17,7 @@ import { UploadForm } from "@/components/import/file-forms";
 import { OWN_RULES, PLACES } from "@/lib/imports/places";
 import { placeRefusal } from "@/lib/imports/place-access";
 import { RemoveFileButton } from "@/components/import/file-buttons";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Switching to School OS · Data Backup & Security" };
 
@@ -100,16 +101,16 @@ export default async function SwitchingPage({ searchParams }: Search) {
 
   return (
     <>
-      <h2 className="sr-only">Switching to School OS</h2>
+      <h2 className="sr-only"><Words k="Switching to School OS" /></h2>
       {importing && <AutoRefresh seconds={5} />}
       {live && (
         <Alert tone="success" className="mb-5" title={`Your school went live on School OS on ${formatDate(summary.plan!.goLiveDate ?? live, tz)}.`}>
-          You can still bring in records you missed. <Link href={`${BASE}/check`} className="font-medium underline">See the go-live summary</Link>
+          <Words k="You can still bring in records you missed." /> <Link href={`${BASE}/check`} className="font-medium underline"><Words k="See the go-live summary" /></Link>
         </Alert>
       )}
       {!live && summary.plan && (
         <Alert tone="info" className="mb-5" title="Your school is moving in.">
-          Automatic messages to parents, fee reminders and late fees wait until the Principal presses Go live on the <Link href={`${BASE}/check`} className="font-medium underline">go-live check</Link>. Messages sent by hand still go.
+          <Words k="Automatic messages to parents, fee reminders and late fees wait until the Principal presses Go live on the" /> <Link href={`${BASE}/check`} className="font-medium underline"><Words k="go-live check" /></Link><Words k=". Messages sent by hand still go." />
         </Alert>
       )}
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
@@ -125,9 +126,9 @@ export default async function SwitchingPage({ searchParams }: Search) {
               {steps.map(({ kind: k, screen: s }, i) => k ? (
                 <Step key={k.key} n={i + 2} title={k.label} done={(have[k.key] ?? 0) > 0}
                   status={have[k.key] !== undefined ? `${have[k.key]} in School OS` : undefined} about={k.about}>
-                  {mayBring(k.key) && <ButtonLink href={`${BASE}?kind=${k.key}#bring-in`} size="sm">Bring in</ButtonLink>}
-                  {!refused.has(k.key) && <a href={`${BASE}/template/${k.key}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-brand-text hover:bg-surface-2">Ready Excel sheet</a>}
-                  {MODULE_PAGE[k.key] && <span className="text-sm text-ink-2">Also on {findModule(k.module)?.name ?? "its module"}, for the person who does it.</span>}
+                  {mayBring(k.key) && <ButtonLink href={`${BASE}?kind=${k.key}#bring-in`} size="sm"><Words k="Bring in" /></ButtonLink>}
+                  {!refused.has(k.key) && <a href={`${BASE}/template/${k.key}`} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-brand-text hover:bg-surface-2"><Words k="Ready Excel sheet" /></a>}
+                  {MODULE_PAGE[k.key] && <span className="text-sm text-ink-2"><Words k="Also on" /> {findModule(k.module)?.name ?? "its module"}<Words k=", for the person who does it." /></span>}
                 </Step>
               ) : s && (
                 <Step key={s.key} n={i + 2} title={s.title} done={(have[s.key] ?? 0) > 0} about={s.about}>
@@ -137,7 +138,7 @@ export default async function SwitchingPage({ searchParams }: Search) {
               <Step n={steps.length + 2} title="Check and go live" done={Boolean(live)}
                 status={live ? `Live since ${formatDate(summary.plan!.goLiveDate ?? live, tz)}` : "Compare the totals with your old software, then go live"}
                 about="Students per class, staff, parents and the money brought in, beside what your old software says. The Principal confirms going live, and automatic messages and late fees start.">
-                <ButtonLink href={`${BASE}/check`} size="sm" variant={live ? "secondary" : "primary"}>Open the go-live check</ButtonLink>
+                <ButtonLink href={`${BASE}/check`} size="sm" variant={live ? "secondary" : "primary"}><Words k="Open the go-live check" /></ButtonLink>
               </Step>
             </ol>
           </CardBody>
@@ -147,23 +148,23 @@ export default async function SwitchingPage({ searchParams }: Search) {
           <CardHeader title="Bring in a file" description="School OS finds the headings, works out what the file holds, matches the columns and tidies dates, phones and names. You check every row before anything is saved." />
           <CardBody>
             {mine.length ? <UploadForm place="settings" kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={wantKind && mine.some((k) => k.key === wantKind) ? wantKind : undefined} />
-              : <p className="text-ink-2">Your role can see this page but not add records. Ask your School Admin.</p>}
+              : <p className="text-ink-2"><Words k="Your role can see this page but not add records. Ask your School Admin." /></p>}
             <details className="mt-4 text-sm text-ink-2">
-              <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">Records on paper?</summary>
-              <p>Download the ready Excel sheet next to each step. It has drop-down lists of your own classes, sections and designations, so typing from the register is quick and the rows are right the first time.</p>
+              <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink"><Words k="Records on paper?" /></summary>
+              <p><Words k="Download the ready Excel sheet next to each step. It has drop-down lists of your own classes, sections and designations, so typing from the register is quick and the rows are right the first time." /></p>
             </details>
             <details className="text-sm text-ink-2">
-              <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink">Old Excel file (.xls)?</summary>
-              <p>Open it in Excel and use Save As, Excel Workbook (.xlsx), then upload that.</p>
+              <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink"><Words k="Old Excel file (.xls)?" /></summary>
+              <p><Words k="Open it in Excel and use Save As, Excel Workbook (.xlsx), then upload that." /></p>
             </details>
           </CardBody>
         </Card>
       </div>
 
-      <h2 className="mb-3 mt-8 text-lg font-semibold">Files</h2>
-      {importing && <p className="mb-3 text-ink-2" role="status">An import is running now. This page updates by itself.</p>}
+      <h2 className="mb-3 mt-8 text-lg font-semibold"><Words k="Files" /></h2>
+      {importing && <p className="mb-3 text-ink-2" role="status"><Words k="An import is running now. This page updates by itself." /></p>}
       {files.length === 0 ? (
-        <EmptyState title="No files yet">Upload your first file above. Staff usually come first, then students and parents.</EmptyState>
+        <EmptyState title="No files yet"><Words k="Upload your first file above. Staff usually come first, then students and parents." /></EmptyState>
       ) : (
         <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
           {files.map((f) => {
@@ -176,20 +177,20 @@ export default async function SwitchingPage({ searchParams }: Search) {
               <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <div className="min-w-0">
                   <Link href={`${BASE}/${f.id}`} className="font-medium text-brand-text underline-offset-2 hover:underline break-all">{f.fileName}{(f.sheets as unknown[]).length > 1 && sheet ? ` · ${sheet.name}` : ""}</Link>
-                  <p className="text-sm text-ink-2">{label} · uploaded {formatDateTime(f.createdAt, tz)}{part.length ? ` · ${added} added` : ""}{f.status === "open" && part.length && f.waiting ? ` · ${f.waiting} ${f.waiting === 1 ? "row" : "rows"} not brought in yet` : ""}</p>
+                  <p className="text-sm text-ink-2">{label} <Words k="· uploaded" /> {formatDateTime(f.createdAt, tz)}{part.length ? ` · ${added} added` : ""}{f.status === "open" && part.length && f.waiting ? ` · ${f.waiting} ${f.waiting === 1 ? "row" : "rows"} not brought in yet` : ""}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <FileStatus status={f.status} undone={Boolean(batch?.undoneAt)} part={part.length > 0} />
                   {f.status !== "importing" && mayBring(f.kind) && <RemoveFileButton place="settings" id={f.id} imported={f.status === "imported" || part.length > 0} back={BASE} />}
-                  {f.status === "imported" && batch && !batch.undoneAt && mayUndo(f.kind) && <ButtonLink href={`${BASE}/${f.id}`} size="sm">See result</ButtonLink>}
-                  {f.status === "open" && mayBring(f.kind) && <ButtonLink href={`${BASE}/${f.id}`} size="sm" variant="primary">Continue</ButtonLink>}
+                  {f.status === "imported" && batch && !batch.undoneAt && mayUndo(f.kind) && <ButtonLink href={`${BASE}/${f.id}`} size="sm"><Words k="See result" /></ButtonLink>}
+                  {f.status === "open" && mayBring(f.kind) && <ButtonLink href={`${BASE}/${f.id}`} size="sm" variant="primary"><Words k="Continue" /></ButtonLink>}
                 </div>
               </li>
             );
           })}
         </ul>
       )}
-      {!can(current.permissions, "settings", "edit") && <p className="mt-4 text-sm text-ink-2">The Principal or School Admin confirms going live.</p>}
+      {!can(current.permissions, "settings", "edit") && <p className="mt-4 text-sm text-ink-2"><Words k="The Principal or School Admin confirms going live." /></p>}
     </>
   );
 }
@@ -209,7 +210,7 @@ function Step({ n, title, done, status, about, children }: { n: number; title: s
 }
 
 function FileStatus({ status, undone, part }: { status: string; undone: boolean; part: boolean }) {
-  if (status === "importing") return <Badge tone="brand">Importing</Badge>;
-  if (status === "imported") return undone ? <Badge>Undone</Badge> : <Badge tone="success">Imported</Badge>;
+  if (status === "importing") return <Badge tone="brand"><Words k="Importing" /></Badge>;
+  if (status === "imported") return undone ? <Badge><Words k="Undone" /></Badge> : <Badge tone="success"><Words k="Imported" /></Badge>;
   return <Badge tone="warning">{part ? "Part brought in" : "Being checked"}</Badge>;
 }

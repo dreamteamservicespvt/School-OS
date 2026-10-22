@@ -11,6 +11,7 @@ import { cx } from "./cx";
 import { Avatar } from "./avatar";
 import { TONE_SOFT, type Tone } from "./blocks";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 
 export type DataColumn<Row> = {
   key: string;
@@ -94,7 +95,7 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href:
               {columns.map((c, i) => (
                 <th key={c.key} scope="col" aria-sort={c.sorted ? (c.sorted === "asc" ? "ascending" : "descending") : undefined}
                   className={cx("px-3 py-3 font-semibold whitespace-nowrap", i === 0 && !select && "pl-5", i === columns.length - 1 && !rowHref && "pr-5", c.align === "right" && "text-right")}>
-                  {c.sortHref ? <Link href={c.sortHref} scroll={false} className="inline-flex items-center gap-1 hover:text-ink">{c.label}<span aria-hidden="true" className="text-[10px]">{c.sorted === "asc" ? "▲" : c.sorted === "desc" ? "▼" : ""}</span></Link> : c.label}
+                  {c.sortHref ? <Link href={c.sortHref} scroll={false} className="inline-flex items-center gap-1 hover:text-ink">{tx(c.label)}<span aria-hidden="true" className="text-[10px]">{c.sorted === "asc" ? "▲" : c.sorted === "desc" ? "▼" : ""}</span></Link> : tx(c.label)}
                 </th>
               ))}
               {rowHref && <th scope="col" className="w-10"><span className="sr-only"><Words k="Open" /></span></th>}

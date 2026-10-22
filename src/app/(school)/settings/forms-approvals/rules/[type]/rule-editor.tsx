@@ -10,6 +10,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { ruleSummary, type StepDraft } from "@/lib/settings/approval-rule-words";
 import { saveRuleAction } from "../../actions";
 import { KeepSelect } from "@/components/ui/keep-select";
+import { Words } from "@/lib/i18n/client";
 
 type Option = { value: string; label: string };
 type Step = { approver: string; upTo: string };
@@ -78,16 +79,16 @@ export function RuleEditor({ type, label, steps: start, escalateAfterDays, roles
         {steps.map((s, i) => (
           <li key={i} className={`rounded-xl border p-4 ${errors[`step${i}`] ? "border-danger" : "border-line"}`}>
             <div className="mb-3 flex items-center justify-between gap-2">
-              <p className="font-medium">Step {i + 1}</p>
+              <p className="font-medium"><Words k="Step" /> {i + 1}</p>
               <div className="flex gap-1">
-                {i > 0 && <Button size="sm" variant="ghost" onClick={() => { const n = [...steps]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; setSteps(n); }}><span aria-hidden="true">↑</span><span className="sr-only">Move step {i + 1} up</span></Button>}
-                {i < steps.length - 1 && <Button size="sm" variant="ghost" onClick={() => { const n = [...steps]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; setSteps(n); }}><span aria-hidden="true">↓</span><span className="sr-only">Move step {i + 1} down</span></Button>}
-                {steps.length > 1 && <Button size="sm" variant="ghost" onClick={() => { setSteps(steps.filter((_, k) => k !== i)); setChecked({}); }}>Remove</Button>}
+                {i > 0 && <Button size="sm" variant="ghost" onClick={() => { const n = [...steps]; [n[i - 1], n[i]] = [n[i], n[i - 1]]; setSteps(n); }}><span aria-hidden="true">↑</span><span className="sr-only"><Words k="Move step" /> {i + 1} <Words k="up" /></span></Button>}
+                {i < steps.length - 1 && <Button size="sm" variant="ghost" onClick={() => { const n = [...steps]; [n[i + 1], n[i]] = [n[i], n[i + 1]]; setSteps(n); }}><span aria-hidden="true">↓</span><span className="sr-only"><Words k="Move step" /> {i + 1} <Words k="down" /></span></Button>}
+                {steps.length > 1 && <Button size="sm" variant="ghost" onClick={() => { setSteps(steps.filter((_, k) => k !== i)); setChecked({}); }}><Words k="Remove" /></Button>}
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label htmlFor={`approver${i}`} className="mb-1 block text-sm font-medium">Who approves <span className="text-danger" aria-hidden="true">*</span></label>
+                <label htmlFor={`approver${i}`} className="mb-1 block text-sm font-medium"><Words k="Who approves" /> <span className="text-danger" aria-hidden="true">*</span></label>
                 <KeepSelect id={`approver${i}`} name={`approver${i}`} value={s.approver} onChange={(e) => set(i, { approver: e.target.value })} className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3">
                   <option value="">Choose</option>
                   <optgroup label="A role (anyone with it)">{roles.map((r) => <option key={r.value} value={r.value}>{r.label}</option>)}</optgroup>
@@ -102,14 +103,14 @@ export function RuleEditor({ type, label, steps: start, escalateAfterDays, roles
         ))}
       </ol>
       {errors.steps && <p className="text-sm text-danger">{errors.steps}</p>}
-      {steps.length < MAX_STEPS && <Button variant="secondary" onClick={() => setSteps([...steps, { approver: "", upTo: "" }])}>Add a step</Button>}
+      {steps.length < MAX_STEPS && <Button variant="secondary" onClick={() => setSteps([...steps, { approver: "", upTo: "" }])}><Words k="Add a step" /></Button>}
 
       <TextField label="Escalate after (working days)" name="escalateAfterDays" required inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} className="max-w-xs"
         error={errors.escalateAfterDays} help="If nobody decides in time, the request moves to the next step, or to the Principal." />
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
-        <SubmitButton pendingText="Saving…">Save rule</SubmitButton>
-        <Link href="/settings/forms-approvals" className="min-h-11 rounded-lg px-3 py-2.5 font-medium text-ink-2 hover:bg-surface-2">Cancel</Link>
+        <SubmitButton pendingText="Saving…"><Words k="Save rule" /></SubmitButton>
+        <Link href="/settings/forms-approvals" className="min-h-11 rounded-lg px-3 py-2.5 font-medium text-ink-2 hover:bg-surface-2"><Words k="Cancel" /></Link>
       </div>
     </form>
   );

@@ -14,6 +14,7 @@ import { EmptyState } from "@/components/empty-state";
 import { CustomFieldInputs } from "@/components/custom-fields";
 import { FieldEditor } from "./field-editor";
 import { ArchiveFieldButton, ArchiveFormButton, FormDetailsForm, MoveButtons } from "./list-actions";
+import { Words } from "@/lib/i18n/client";
 
 export const metadata: Metadata = { title: "Forms & Approvals" };
 
@@ -62,11 +63,11 @@ export default async function FormsApprovalsPage({ searchParams }: { searchParam
             {data.rules.map((r) => (
               <li key={r.type} className="flex flex-wrap items-start justify-between gap-3 border-t border-line px-5 py-3 first:border-t-0">
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium">{r.label} {r.custom ? <Badge tone="brand">Your rule</Badge> : <Badge>Default</Badge>}</p>
+                  <p className="font-medium">{r.label} {r.custom ? <Badge tone="brand"><Words k="Your rule" /></Badge> : <Badge><Words k="Default" /></Badge>}</p>
                   <p className="text-sm text-ink-2">{r.summary}</p>
-                  {r.updatedAt && <p className="text-xs text-ink-2">Changed {formatDate(r.updatedAt, tz)}</p>}
+                  {r.updatedAt && <p className="text-xs text-ink-2"><Words k="Changed" /> {formatDate(r.updatedAt, tz)}</p>}
                 </div>
-                {mayEdit && <ButtonLink size="sm" href={`/settings/forms-approvals/rules/${r.type}`}>Edit</ButtonLink>}
+                {mayEdit && <ButtonLink size="sm" href={`/settings/forms-approvals/rules/${r.type}`}><Words k="Edit" /></ButtonLink>}
               </li>
             ))}
           </ul>
@@ -91,13 +92,13 @@ export default async function FormsApprovalsPage({ searchParams }: { searchParam
               <CardHeader title={`Extra fields on ${label}`} description="They show at the end of the record's form and on its profile. Archiving a field keeps every answer already given."
                 action={mayCreate && <FieldEditor mode="record" owner={record} others={data.fields} trigger="Add a field" triggerVariant="primary" />} />
               {live.length === 0 ? (
-                <div className="p-5"><EmptyState title={`No extra fields on ${label} yet`}>Add one for anything your school records that the standard form does not have, like a house or a bus pass number.</EmptyState></div>
+                <div className="p-5"><EmptyState title={`No extra fields on ${label} yet`}><Words k="Add one for anything your school records that the standard form does not have, like a house or a bus pass number." /></EmptyState></div>
               ) : (
                 <ol>
                   {live.map((f, i) => (
                     <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3 first:border-t-0">
                       <div className="min-w-0 flex-1">
-                        <p className="font-medium">{f.label} {f.required && <Badge>Required</Badge>} {f.visibility === "restricted" && <Badge tone="warning">Restricted</Badge>}</p>
+                        <p className="font-medium">{f.label} {f.required && <Badge><Words k="Required" /></Badge>} {f.visibility === "restricted" && <Badge tone="warning"><Words k="Restricted" /></Badge>}</p>
                         <p className="text-sm text-ink-2">{FIELD_TYPES.find((t) => t.value === f.fieldType)?.label}{f.choices.length ? `: ${f.choices.join(", ")}` : ""}{f.showWhen ? ` · ${showWhenWords(f, data.fields)}` : ""}</p>
                       </div>
                       {mayEdit && (
@@ -120,7 +121,7 @@ export default async function FormsApprovalsPage({ searchParams }: { searchParam
             )}
             {archived.length > 0 && (showArchived ? (
               <Card>
-                <CardHeader title="Archived fields" description="Not shown on forms. Answers already given are kept." action={<Link href={`${tabHref("fields")}&record=${record}`} className="text-sm font-medium text-brand-text underline">Hide</Link>} />
+                <CardHeader title="Archived fields" description="Not shown on forms. Answers already given are kept." action={<Link href={`${tabHref("fields")}&record=${record}`} className="text-sm font-medium text-brand-text underline"><Words k="Hide" /></Link>} />
                 <ul>
                   {archived.map((f) => (
                     <li key={f.id} className="flex flex-wrap items-center justify-between gap-3 border-t border-line px-5 py-3 first:border-t-0">
@@ -131,7 +132,7 @@ export default async function FormsApprovalsPage({ searchParams }: { searchParam
                 </ul>
               </Card>
             ) : (
-              <Link href={`${tabHref("fields")}&record=${record}&archived=1`} className="inline-flex min-h-11 items-center text-sm font-medium text-brand-text underline">Show {archived.length} archived field{archived.length === 1 ? "" : "s"}</Link>
+              <Link href={`${tabHref("fields")}&record=${record}&archived=1`} className="inline-flex min-h-11 items-center text-sm font-medium text-brand-text underline"><Words k="Show" /> {archived.length} <Words k="archived field" />{archived.length === 1 ? "" : "s"}</Link>
             ))}
           </div>
         );
@@ -145,7 +146,7 @@ export default async function FormsApprovalsPage({ searchParams }: { searchParam
             <Card>
               <CardHeader title="Custom forms" description="Forms your school designs itself, such as an appraisal or a consent form." />
               {live.length === 0 ? (
-                <div className="p-5"><EmptyState title="No custom forms yet">Create one below, add its fields, preview it, and publish.</EmptyState></div>
+                <div className="p-5"><EmptyState title="No custom forms yet"><Words k="Create one below, add its fields, preview it, and publish." /></EmptyState></div>
               ) : (
                 <ul>
                   {live.map((f) => (
@@ -153,7 +154,7 @@ export default async function FormsApprovalsPage({ searchParams }: { searchParam
                       <div className="min-w-0 flex-1">
                         <Link href={`/settings/forms-approvals/forms/${f.id}`} className="font-medium text-brand-text hover:underline">{f.name}</Link>{" "}
                         <Badge tone={f.status === "published" ? "success" : "warning"}>{f.status === "published" ? `Published, version ${f.version}` : f.version ? `Draft changes (version ${f.version} in use)` : "Draft"}</Badge>
-                        <p className="text-sm text-ink-2">{formFields(f.fields).length} field{formFields(f.fields).length === 1 ? "" : "s"}{f.description ? ` · ${f.description}` : ""}</p>
+                        <p className="text-sm text-ink-2">{formFields(f.fields).length} <Words k="field" />{formFields(f.fields).length === 1 ? "" : "s"}{f.description ? ` · ${f.description}` : ""}</p>
                       </div>
                       <ButtonLink size="sm" href={`/settings/forms-approvals/forms/${f.id}`}>{mayEdit ? "Open builder" : "Open"}</ButtonLink>
                     </li>

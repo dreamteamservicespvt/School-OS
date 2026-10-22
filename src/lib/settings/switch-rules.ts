@@ -10,7 +10,7 @@ import { publicUrlProblem } from "../net/public-address";
  * - hidden: decided not to build (AI question papers, gap list 17 October 2026). The key is kept, never shown.
  */
 export const AI_FEATURES = [
-  { key: "ai-ask-do", label: "Ask and Do", status: "coming-soon", about: "Questions in plain words, and actions prepared as a filled form a person checks. Includes ready-made questions per role." },
+  { key: "ai-ask-do", label: "Ask and Do", status: "ready", about: "Questions in your own words. Ready-made questions per role and typed words such as \"absent today\" or \"fees due class 5\" work without AI. With this on, when the words match no ready-made question, the AI service picks the closest one from the words only; the answer always comes from the school's own lists. Preparing actions as a filled form (Do) is not built yet." },
   { key: "ai-smart-import", label: "Smart Import", status: "ready", about: "When importing a spreadsheet, suggests which column is which and likely fixes (dates, phone numbers, class names). With the AI service connected, it also suggests columns the rules could not match, from the headings only. You tick each suggestion before it is used." },
   { key: "ai-enquiry-reply", label: "AI auto-reply to enquiries", status: "coming-soon", about: "Suggests replies to admission enquiries; a person sends them." },
   { key: "ai-insights", label: "Student insights and early warnings", status: "ready", about: "Flags students whose attendance, marks or fees need attention." },

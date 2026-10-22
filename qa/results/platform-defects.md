@@ -26,6 +26,7 @@ Where a part of a finding comes from reading the code, the entry says so.
 | PLATFORM-17 | P4 | App shell | Not-found pages answer HTTP 200 | 8fd7f5e |
 | PLATFORM-18 | P4 | Dashboard | Transport papers alert says "and 1 more and 1 more" | f184e44 |
 | PLATFORM-19 | n/a (environment) | Background jobs | No job worker runs in the QA environment | not fixed: environment |
+| SEC-01 | P0 | Security (Communication, one-time codes) | Message History shows real, still-valid one-time codes | f353a6f, cd73ffc, 88e5d57, b27e4c4 |
 
 ---
 
@@ -193,3 +194,20 @@ Where a part of a finding comes from reading the code, the entry says so.
   - 486 `messaging:deliver` jobs and 22 `attendance-after-save` jobs are queued.
   - Every in-app message stays QUEUED, so Messages is empty for everyone.
 - **Not fixed:** this is the environment, not the code. Messages delivery was BLOCKED.
+
+## SEC-01 · P0 · Security (Communication, one-time codes) · Message History shows real, still-valid one-time codes
+- **Steps:**
+  1. As Lakshmi Rao (two-step login on, SMS set up), sign in and stop at the code box.
+  2. As the Principal or School Admin, open Communication › Message History.
+- **Expected:** A one-time code is never shown to anyone but the person it went to, and is stored only as a hash (08-platform-security.md; `src/lib/auth/two-step.ts`).
+- **Actual (base):**
+  - The list showed "Sign-in code (two-step login) · Lakshmi Rao · SMS". Opening it showed "The message: 981016 is your School OS sign-in code for Sunrise Public School…", the real code, still valid. Anyone who can open Message History could pass someone else's two-step login.
+  - The code was saved in plain text on the Message Recipient row (its text and its `code` blank). From reading the code: the same for the code confirming a new mobile number, Parent Link codes (new phone, consent forms, event consent), the admission consent code and the pickup code. Parent Link codes were hidden on the page once really sent, but not in the row or in Test mode; the others were shown as sent.
+  - The message was marked as an emergency (to reach people who opted out), so the page said "Emergency broadcast. Sent also to parents who opted out.", the Audit Log recorded the person signing in as "sent-emergency-broadcast", and the page said "Sent by Lakshmi Rao".
+- **Fix:**
+  - f353a6f. `src/lib/messaging/one-time-code.ts`: a sender hands the code to Communication as `oneTimeCode` (never in the text). The text and blanks keep "••••••". The code rides on the recipient encrypted (`sealed_code`) only until the delivery job picks the recipient up; the job clears it at that moment and puts the code in only for the provider. A code is never retried, resent or sent after its 10 minutes ("One-time codes are never sent again. The person asks for a new code."). A guard refuses to save any message whose text or blanks hold the code. The message has Message Type "one-time-code": it still reaches people who opted out, but `is_emergency` is off, nobody is its sender, and the Audit Log says "one-time-code-sent" with what it was for, the actor note "School OS (sign-in)" and `code: hidden`. Migration `20261022120000_one_time_codes_hidden` hides the codes already saved (text, blanks and body), takes off the emergency mark and the sender, and writes one Audit Log line ("one-time-code-hidden") per message. Running it again changes nothing.
+  - cd73ffc. Two-step and new-mobile codes, Parent Link codes (so consent and event consent too), the admission consent code and the pickup code all go this way. Console codes already kept only a masked copy and do not go through school messaging.
+  - 88e5d57. Message History: such a message says "One-time code (hidden)", hides any code-like number even in an old row, shows no emergency banner and offers no retry or resend. The list and the export name the sender "School OS (sign-in)", "School OS (new mobile number)", "School OS (Parent Link)", "School OS (admission consent)" or "School OS (pickup code)". The row stays in Message History for delivery checks and credits (the blueprint does not say; plain choice).
+  - On a tester's computer codes are still read from the server log (`src/lib/dev-codes.ts`), not from Message History.
+- **Verified:** b27e4c4. `tests/communication/one-time-codes.test.ts` (13 tests): for each kind of code no message, recipient or Audit Log line holds the code; the provider gets the real code and nothing of it is left afterwards; retry, resend to failed or unread, and a code put back in the queue are refused; a late code is not sent; an opted-out parent still gets a Parent Link code; the Message History export holds no code and names School OS; the guard refuses a code in the text; the migration hides old codes once and leaves other messages alone. Existing tests that read a code from the message text now read it from the server log.
+- **Status:** Fixed.

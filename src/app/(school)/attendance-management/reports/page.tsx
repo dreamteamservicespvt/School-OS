@@ -5,6 +5,8 @@ import type { LucideIcon } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { isoDay } from "@/lib/staff/dates";
 import { attendancePage, onCampusFromPage } from "@/lib/attendance/page";
+import { backToThisYear, withYearDates } from "@/lib/academic/view-year";
+import { ViewYearStrip } from "@/components/view-year-strip";
 import { BASE, sectionLimit } from "@/lib/attendance/access";
 import { registerChoices } from "@/lib/attendance/register";
 import { attendanceToday } from "@/lib/attendance/integrations";
@@ -50,13 +52,15 @@ const num = (v: string | number | null | undefined) => (typeof v === "number" ? 
 export default async function ReportsPage({ searchParams }: Props) {
   const sp = await searchParams;
   const page = await attendancePage();
-  const { current, features, today } = page;
+  const { current, features } = page;
   // One campus chosen on the Dashboard (?campus=): that campus's sections only, as the card counted them.
-  const { access } = await onCampusFromPage(page, sp.campus);
+  // Another year (?year=): that year's sections and dates, as at its last day when it is over (gap list G36).
+  const { access, view } = await onCampusFromPage(page, sp.campus, sp.year);
+  const today = view?.asOf ?? page.today;
   const list = reportsFor(access, features as Set<string>);
   const get = (k: string) => (typeof sp[k] === "string" ? (sp[k] as string) : null);
   const dates = await periodSetup(current);
-  const range = periodFromSearch(sp, { ...dates, prefix: "d", fallback: "thismonth" });
+  const range = periodFromSearch(withYearDates(sp, view, "d"), { ...dates, prefix: "d", fallback: "thismonth" });
   const input = withDates(readReportInput(get, today, list.map((r) => r.key as ReportKey)), range);
   const r = input.report;
   const info = list.find((x) => x.key === r);
@@ -94,7 +98,7 @@ export default async function ReportsPage({ searchParams }: Props) {
     }
   }, { timeout: 60_000 });
 
-  const go = (key: string) => `${PATH}?report=${key}`;
+  const go = (key: string) => `${PATH}?report=${key}${view ? `&year=${view.id}` : ""}`;
   const ex = new URLSearchParams();
   for (const [k, v] of Object.entries(sp)) if (typeof v === "string" && k !== "format") ex.set(k, v);
   ex.set("report", r);
@@ -107,6 +111,7 @@ export default async function ReportsPage({ searchParams }: Props) {
   return (
     <>
       <AttHead access={access} features={features} userId={current.user.id} href={PATH} sub={sub} />
+      <ViewYearStrip year={view} back={backToThisYear(PATH, sp)} />
       {list.length === 0 ? (
         <EmptyState title="No reports for your role" Icon={FileText}><Words k="Attendance reports are for teachers of a class, HR, the School Admin and the Principal." /></EmptyState>
       ) : (

@@ -13,6 +13,8 @@ import { dayStartUtc } from "@/lib/periods";
 import { ClassWiseView, NotMarkedCard } from "../_components/class-wise";
 import { withSchool } from "@/lib/db";
 import { attendancePage, onCampusFromPage } from "@/lib/attendance/page";
+import { backToThisYear, readViewYear } from "@/lib/academic/view-year";
+import { ViewYearStrip } from "@/components/view-year-strip";
 import { BASE, sectionLimit } from "@/lib/attendance/access";
 import { readMonth, registerChoices, registerMonth, registerYears } from "@/lib/attendance/register";
 import { clampMonth } from "@/lib/attendance/calendar-months";
@@ -51,7 +53,9 @@ export default async function RegisterPage({ searchParams }: Props) {
   if (access.pages.register === "hidden") redirect(`${BASE}/reports`);
   // People who see every section open on the whole school, class by class; a tile opens one section's register.
   if (access.classWise && !one(sp.section)) return <WholeSchool sp={sp} />;
-  const asked = readMonth(one(sp.month)) ?? monthStart(today);
+  // Another year (?year=, from the Dashboard): its last month when it is over, and nothing can be changed (gap list G36).
+  const yearView = one(sp.year) ? await withSchool(current.ctx, (tx) => readViewYear(tx, current.ctx, current, one(sp.year), today)) : null;
+  const asked = readMonth(one(sp.month)) ?? monthStart(yearView ? yearView.asOf : today);
   const view = one(sp.view) === "student" ? "student" : "class";
   const statusFilter = one(sp.status) ?? "";
 
@@ -87,12 +91,12 @@ export default async function RegisterPage({ searchParams }: Props) {
   const byKey = new Map(statuses.map((s) => [s.key, s]));
   const qs = (change: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    const base: Record<string, string | null> = { section: one(sp.section) ?? null, month: one(sp.month) ?? null, view: view === "student" ? "student" : null, student: one(sp.student) ?? null, status: statusFilter || null, ...change };
+    const base: Record<string, string | null> = { section: one(sp.section) ?? null, month: one(sp.month) ?? null, view: view === "student" ? "student" : null, student: one(sp.student) ?? null, status: statusFilter || null, year: yearView?.id ?? null, ...change };
     for (const [k, v] of Object.entries(base)) if (v) p.set(k, v);
     return p.size ? `${BASE}/register?${p}` : `${BASE}/register`;
   };
   // The School Admin reads the register; the Principal and Vice Principal may still correct a mark (prototype attendance.jsx).
-  const canChange = access.change !== "none" && access.pages.register === "full";
+  const canChange = access.change !== "none" && access.pages.register === "full" && !yearView?.past;
   const cellHref = (studentId: string, iso: string) => {
     if (!canChange || !data.section || !data.year || !access.yearIds.includes(data.year.id)) return null;
     const d = new Date(`${iso}T00:00:00Z`);
@@ -109,9 +113,10 @@ export default async function RegisterPage({ searchParams }: Props) {
       <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register`} sub={sub}
         actions={<>
           {/* Starting part way through the year (workflow 15): the totals from the old register. */}
-          {access.full && access.see === "all" && <ButtonLink href={`${BASE}/import`} variant="ghost" icon={Upload}><Words k="Import attendance so far" /></ButtonLink>}
+          {access.full && access.see === "all" && !yearView?.past && <ButtonLink href={`${BASE}/import`} variant="ghost" icon={Upload}><Words k="Import attendance so far" /></ButtonLink>}
           {exportHref && view === "class" ? <ExportMenu href={exportHref} print /> : null}
         </>} />
+      <ViewYearStrip year={yearView} back={backToThisYear(`${BASE}/register`, sp)} />
 
       {data.sections.length === 0 ? (
         <EmptyState title="No classes to show" Icon={Users}>
@@ -323,11 +328,13 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
   const p = await attendancePage();
   const { current, features, settings, tz, today, now } = p;
   // One campus chosen on the Dashboard (?campus=): its sections only, as the card counted them.
-  const { access } = await onCampusFromPage(p, sp.campus);
+  // Another year (?year=, from the Dashboard): that year's sections, on its last day when it is over (gap list G36).
+  const { access, view: yearView } = await onCampusFromPage(p, sp.campus, sp.year);
+  const asOf = yearView?.asOf ?? today;
   const dates = await periodSetup(current);
-  const range = periodFromSearch(sp, { ...dates, fallback: "today" });
-  const from = range ? new Date(`${range.from}T00:00:00Z`) : today;
-  const to = range ? new Date(`${range.to}T00:00:00Z`) : today;
+  const range = periodFromSearch(yearView && !one(sp.period) && !one(sp.from) ? { ...sp, period: "custom", from: isoDay(asOf), to: isoDay(asOf) } : sp, { ...dates, fallback: "today" });
+  const from = range ? new Date(`${range.from}T00:00:00Z`) : asOf;
+  const to = range ? new Date(`${range.to}T00:00:00Z`) : asOf;
   const isToday = isoDay(from) === isoDay(today) && isoDay(to) === isoDay(today);
   const sort = one(sp.sort) === "class" ? "class" : "low";
   const lock = lockState(settings, today, now, tz);
@@ -337,7 +344,7 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
     // Every campus's current year (each campus has its own); only their campus's sections when limited to one.
     const [cw, notMarked] = await Promise.all([
       // The same call as the Dashboard's "Students present" tile.
-      registerWhole(tx, current.ctx, access, from, to, today),
+      registerWhole(tx, current.ctx, access, from, to, yearView ? asOf : today),
       isToday ? notMarkedOn(tx, current.ctx, access, today, dayStartUtc(isoDay(today), tz)) : Promise.resolve([]),
     ]);
     // One day: what happened to that day's absence messages across these classes (sent, or not and why).
@@ -351,7 +358,7 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
   const group = data?.cw.groups.some((g) => g.key === groupParam) ? groupParam : "all";
   const href = (change: Record<string, string | null>) => {
     const p = new URLSearchParams();
-    const keep: Record<string, string | null> = { period: one(sp.period) ?? null, from: one(sp.from) ?? null, to: one(sp.to) ?? null, sort: one(sp.sort) ?? null, group: group === "all" ? null : group, class: classId, campus: one(sp.campus) ?? null, ...change };
+    const keep: Record<string, string | null> = { period: one(sp.period) ?? null, from: one(sp.from) ?? null, to: one(sp.to) ?? null, sort: one(sp.sort) ?? null, group: group === "all" ? null : group, class: classId, campus: one(sp.campus) ?? null, year: yearView?.id ?? null, ...change };
     for (const [k, v] of Object.entries(keep)) if (v) p.set(k, v);
     return p.size ? `${BASE}/register?${p}` : `${BASE}/register`;
   };
@@ -363,6 +370,7 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
   return (
     <>
       <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register`} sub={sub} />
+      <ViewYearStrip year={yearView} back={backToThisYear(`${BASE}/register`, sp)} />
       {!data ? (
         <EmptyState title="No academic year running now" Icon={CalendarDays}><Words k="Attendance shows here once the academic year has started and its sections are set up in Academic Management." /></EmptyState>
       ) : data.cw.sections.length === 0 ? (

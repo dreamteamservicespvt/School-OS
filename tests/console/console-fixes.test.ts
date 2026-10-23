@@ -5,7 +5,7 @@
 // - adding an admin again after they were disabled (or their invite cancelled) gives them a working invite;
 // - the billing day carries on past a school it cannot finish, and never makes a year invoice twice;
 // - an invite that was opened but never finished shows in Needs attention.
-import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 const jar = new Map<string, string>();
 vi.mock("next/headers", () => ({
@@ -18,7 +18,7 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
 
-import { randomUUID } from "node:crypto";
+import { createHmac, randomUUID } from "node:crypto";
 import type { SuperAdminUser } from "@prisma/client";
 import { prisma, withConsole, withConsoleSchool } from "@/lib/db";
 import { hashToken, newToken } from "@/lib/auth/tokens";
@@ -265,5 +265,83 @@ describe("console WhatsApp messages", () => {
     expect(notDeliveredWords([{ channel: "whatsapp", status: "SENT", failReason: null }, { channel: "sms", status: "FAILED", failReason: "x" }])).toBeNull();
     expect(notDeliveredWords([{ channel: "whatsapp", status: "TEST", failReason: null }])).toMatch(/^Not sent: no WhatsApp or SMS is set up/);
     expect(notDeliveredWords([{ channel: "whatsapp", status: "FAILED", failReason: "Number not on WhatsApp." }])).toBe("Not sent: WhatsApp did not go, Number not on WhatsApp.");
+    expect(notDeliveredWords([{ channel: "whatsapp", status: "DELIVERED", failReason: null }])).toBeNull();
+    expect(notDeliveredWords([{ channel: "whatsapp", status: "READ", failReason: null }])).toBeNull();
+  });
+});
+
+describe("Meta's delivery reports for console WhatsApp messages", () => {
+  const SECRET = "console-app-secret-123";
+  const signed = (body: string) => `sha256=${createHmac("sha256", SECRET).update(body).digest("hex")}`;
+  const report = (id: string, status: string, errors?: { code: number; title: string }[]) =>
+    JSON.stringify({ object: "whatsapp_business_account", entry: [{ id: "waba", changes: [{ field: "messages", value: { messaging_product: "whatsapp", statuses: [{ id, status, timestamp: "1790000000", recipient_id: "919876500001", ...(errors ? { errors } : {}) }] } }] }] });
+  const message = (providerMessageId: string) => withConsole((tx) => tx.consoleMessage.create({ data: { channel: "whatsapp", to: "9876500001", purpose: "invite", text: "invite", status: "SENT", providerMessageId } }));
+  const row = (id: string) => withConsole((tx) => tx.consoleMessage.findUniqueOrThrow({ where: { id } }));
+
+  beforeEach(() => {
+    vi.stubEnv("CONSOLE_WHATSAPP_APP_SECRET", SECRET);
+    vi.stubEnv("CONSOLE_WHATSAPP_VERIFY_TOKEN", "verify-me-please");
+  });
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("moves a message to Delivered, then Read, and a late failure does not undo it", async () => {
+    const { handleConsoleWhatsappWebhook } = await import("@/lib/console/whatsapp-webhook");
+    const wamid = `wamid.${randomUUID()}`;
+    const m = await message(wamid);
+    for (const [s, expected] of [["delivered", "DELIVERED"], ["sent", "DELIVERED"], ["read", "READ"], ["delivered", "READ"], ["failed", "READ"]] as const) {
+      const body = report(wamid, s, s === "failed" ? [{ code: 131026, title: "Undeliverable" }] : undefined);
+      expect((await handleConsoleWhatsappWebhook(body, signed(body))).status).toBe(200);
+      expect((await row(m.id)).status).toBe(expected);
+    }
+    expect((await row(m.id)).failReason).toBeNull();
+  });
+
+  it("an invite Meta accepted but could not deliver shows Meta's reason on the school's page", async () => {
+    const { POST } = await import("@/app/api/v1/console/whatsapp/route");
+    const { notDeliveredWords } = await import("@/lib/console/outbox");
+    const wamid = `wamid.${randomUUID()}`;
+    const m = await message(wamid);
+    const body = report(wamid, "failed", [{ code: 131049, title: "This message was not delivered to maintain healthy ecosystem engagement." }]);
+    const res = await POST(new Request("http://localhost/api/v1/console/whatsapp", { method: "POST", body, headers: { "x-hub-signature-256": signed(body) } }));
+    expect(res.status).toBe(200);
+    const after = await row(m.id);
+    expect(after.status).toBe("FAILED");
+    expect(notDeliveredWords([after])).toBe("Not sent: WhatsApp did not go, WhatsApp held this message back to protect the parent from too many messages.");
+    // An error code the console does not know keeps Meta's own words.
+    const other = await message(`wamid.${randomUUID()}`);
+    const odd = report(other.providerMessageId!, "failed", [{ code: 999999, title: "Something new" }]);
+    await handleConsoleWhatsappWebhookFor(odd);
+    expect((await row(other.id)).failReason).toBe("WhatsApp did not send it: Something new.");
+  });
+
+  async function handleConsoleWhatsappWebhookFor(body: string) {
+    const { handleConsoleWhatsappWebhook } = await import("@/lib/console/whatsapp-webhook");
+    return handleConsoleWhatsappWebhook(body, signed(body));
+  }
+
+  it("refuses a report without the right signature, and ignores messages it does not know", async () => {
+    const { handleConsoleWhatsappWebhook } = await import("@/lib/console/whatsapp-webhook");
+    const wamid = `wamid.${randomUUID()}`;
+    const m = await message(wamid);
+    const body = report(wamid, "failed", [{ code: 131026, title: "x" }]);
+    expect((await handleConsoleWhatsappWebhook(body, null)).status).toBe(401);
+    expect((await handleConsoleWhatsappWebhook(body, `sha256=${createHmac("sha256", "wrong").update(body).digest("hex")}`)).status).toBe(401);
+    expect((await row(m.id)).status).toBe("SENT");
+    expect((await handleConsoleWhatsappWebhookFor(report(`wamid.${randomUUID()}`, "read"))).status).toBe(200);
+    expect((await handleConsoleWhatsappWebhook("not json", signed("not json"))).status).toBe(400);
+    vi.stubEnv("CONSOLE_WHATSAPP_APP_SECRET", "");
+    expect((await handleConsoleWhatsappWebhook(body, signed(body))).status).toBe(404);
+    expect((await row(m.id)).status).toBe("SENT");
+  });
+
+  it("answers Meta's one-time check only with the verify token", async () => {
+    const { GET } = await import("@/app/api/v1/console/whatsapp/route");
+    const check = (token: string) => GET(new Request(`http://localhost/api/v1/console/whatsapp?hub.mode=subscribe&hub.verify_token=${token}&hub.challenge=4242`));
+    const ok = await check("verify-me-please");
+    expect(ok.status).toBe(200);
+    expect(await ok.text()).toBe("4242");
+    expect((await check("guess")).status).toBe(403);
+    vi.stubEnv("CONSOLE_WHATSAPP_VERIFY_TOKEN", "");
+    expect((await check("verify-me-please")).status).toBe(404);
   });
 });

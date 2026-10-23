@@ -444,7 +444,7 @@ model ConsoleMessage {
   to                String
   purpose           String
   text              String
-  /// SENT, TEST (no provider set up), FAILED
+  /// SENT, TEST (no provider set up), FAILED; WhatsApp then DELIVERED or READ (Meta's reports)
   status            String
   providerMessageId String?   @map("provider_message_id")
   failReason        String?   @map("fail_reason")

@@ -168,7 +168,8 @@ type MessageRow = { channel: string; status: string; failReason: string | null }
  * school's page: null when they went, otherwise why the person has nothing.
  */
 export function notDeliveredWords(rows: MessageRow[]): string | null {
-  if (rows.length === 0 || rows.some((r) => r.status === "SENT")) return null;
+  // SENT until Meta's report comes in (whatsapp-webhook.ts), then DELIVERED, READ or FAILED.
+  if (rows.length === 0 || rows.some((r) => r.status === "SENT" || r.status === "DELIVERED" || r.status === "READ")) return null;
   if (rows.every((r) => r.status === "TEST")) return "Not sent: no WhatsApp or SMS is set up on this server, so the message went to the server log.";
   const failed = rows.find((r) => r.status === "FAILED");
   const name = CHANNEL_LABEL[failed?.channel as ConsoleChannel] ?? "The message";

@@ -58,3 +58,35 @@ The Super Admin console is at `/console/sign-in` with the mobile number
 `9849012345` and the same password. The test copy has no SMS or email, so the
 code page shows the 6-digit code itself (the owner's choice); real deployments
 never show or log codes.
+
+## Console WhatsApp delivery reports (one time)
+
+Meta can accept a console WhatsApp message (an invite, a reset, a code) and
+still not deliver it. Its delivery reports mark each message Delivered, Read
+or Failed with Meta's reason, and the school's page in the console shows the
+reason under the invite. Without these steps a message stays "sent".
+
+1. Make a verify token (any long random text):
+   `node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"`.
+2. In [Meta for Developers](https://developers.facebook.com/apps), open the app
+   that owns DREAM TEAM's WhatsApp number (the one whose token is
+   `CONSOLE_WHATSAPP_ACCESS_TOKEN`). **App settings → Basic → App secret → Show**,
+   and copy it.
+3. In Vercel, **Settings → Environment Variables** (Production), add
+   `CONSOLE_WHATSAPP_APP_SECRET` (the app secret) and
+   `CONSOLE_WHATSAPP_VERIFY_TOKEN` (the token from step 1), then redeploy.
+   Until both are set the address answers 404.
+4. Back in the app: **WhatsApp → Configuration → Webhook → Edit**.
+   Callback URL: `https://<the site>/api/v1/console/whatsapp`; Verify token:
+   the token from step 1. **Verify and save** (Meta calls the address once and
+   School OS answers only with the right token).
+5. Under **Webhook fields**, subscribe to **messages** (it carries the
+   statuses).
+6. The app must be in **Live** mode (top of the app dashboard): an app in
+   Development mode gets only Meta's test calls, never real reports.
+7. Check: send an invite from the console. Within a minute the
+   `console_message` row moves from SENT to DELIVERED or READ, or to FAILED
+   with Meta's reason, which the school's page then shows.
+
+A Meta app has one WhatsApp callback address. If DREAM TEAM's app is also used
+for something else, that has to move to its own app first.

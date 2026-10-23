@@ -3,7 +3,7 @@
 // fileLink() from src/lib/files.ts; this route checks the signature and the
 // time, then sends the file from the school's private storage.
 import { withSchool } from "@/lib/db";
-import { checkFileLink } from "@/lib/files";
+import { FILE_LINK_MS, checkFileLink } from "@/lib/files";
 import { fileStore } from "@/lib/storage";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -33,8 +33,14 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       : problem(403, "This file link is not valid. Go back to the page and open the file again.");
   }
 
-  const file = await withSchool({ schoolId, userId: null }, (tx) => tx.storedFile.findUnique({ where: { id } }));
-  if (!file || file.archivedAt) return problem(404, "This file was not found. It may have been replaced or archived.");
+  // A link that lasts longer than an in-app one is a sharing link from the document vault (1 to 30 days).
+  // It stops working while its document is archived; the school's own pages still open archived files.
+  const shared = Number(expires) - Date.now() > FILE_LINK_MS;
+  const [file, withdrawn] = await withSchool({ schoolId, userId: null }, (tx) => Promise.all([
+    tx.storedFile.findUnique({ where: { id } }),
+    shared ? tx.schoolDocument.findFirst({ where: { archivedAt: { not: null }, versions: { array_contains: [{ fileId: id }] } }, select: { id: true } }) : null,
+  ]));
+  if (!file || file.archivedAt || withdrawn) return problem(404, "This file was not found. It may have been replaced or archived.");
   const body = await fileStore().get(file.storageKey);
   if (!body) return problem(404, "This file could not be found in storage. Upload it again.");
 

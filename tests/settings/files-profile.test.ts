@@ -5,7 +5,7 @@ import { FILE_LINK_MS, checkFileLink, fileLink } from "@/lib/files";
 import { GET } from "@/app/api/v1/files/[id]/route";
 import { checkGstin } from "@/lib/settings/profile-rules";
 import { addCampus, archiveCampus, makeMainCampus, saveBoard } from "@/lib/settings/school-profile";
-import { expiryState, remindExpiringDocuments, shareDocument, uploadDocument, uploadVersion } from "@/lib/settings/vault";
+import { expiryState, remindExpiringDocuments, setDocumentArchived, shareDocument, uploadDocument, uploadVersion } from "@/lib/settings/vault";
 import { canSwitchOn, connectIntegration, setModuleOn, testIntegration, INTEGRATIONS, OPTIONAL_MODULES } from "@/lib/settings/switches";
 import { BUILT_MODULES } from "@/lib/modules";
 import { makeSchool, makeUser } from "../helpers";
@@ -87,6 +87,19 @@ describe("the document vault", () => {
     const p = parts(share.link);
     expect(checkFileLink(p.id, p.s, p.e, p.t, t + 6 * 86_400_000)).toEqual({ ok: true });
     expect(checkFileLink(p.id, p.s, p.e, p.t, t + 8 * 86_400_000)).toEqual({ ok: false, reason: "expired" });
+  });
+
+  it("a sharing link stops working once the document is archived, and works again when it is restored", async () => {
+    const doc = await withSchool(ctx(), (tx) => uploadDocument(tx, ctx(), { docType: "NOC", title: "Fire safety NOC", issuedOn: null, expiresOn: null, visibleTo: ["school-admin"], file: PDF }));
+    const share = await withSchool(ctx(), (tx) => shareDocument(tx, ctx(), ["school-admin"], doc.id, 7));
+    const open = () => GET(new Request(`http://x${share.link}`), { params: Promise.resolve({ id: parts(share.link).id }) });
+    expect((await open()).status).toBe(200);
+    await withSchool(ctx(), (tx) => setDocumentArchived(tx, ctx(), ["school-admin"], doc.id, true));
+    const gone = await open();
+    expect(gone.status).toBe(404);
+    expect(await gone.text()).toMatch(/archived/);
+    await withSchool(ctx(), (tx) => setDocumentArchived(tx, ctx(), ["school-admin"], doc.id, false));
+    expect((await open()).status).toBe(200);
   });
 });
 

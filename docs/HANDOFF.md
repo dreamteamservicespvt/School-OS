@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-10-23 (evening)
+Last updated: 2026-10-23 22:30 IST
 
 ## State
 - Console WhatsApp delivery reports are live: `/api/v1/console/whatsapp`
@@ -29,18 +29,15 @@ Last updated: 2026-10-23 (evening)
    9652733668); test school "DTS Test School" (DTS-HYD-001) on live, never touch Chaitanya English.
    1b/1c pushed: sign-in pages fit phones (90e0bd1e); console counts 16 core modules (8ee0ad04, live
    since 13:19 UTC). "Modules on 16" not read on live (needs the owner's sign-in code).
-1d. DONE locally 2026-10-23 evening, NOT pushed (branch claude/project-thread-cesreq): phone audit,
-   full report docs/qa/2026-10-23-phone-audit.md. Commits 619fad65, ec0b101f, ed591591 + the
-   uncommitted/last commit for broken student links, banner/rooms wrapping, tests/route-links.test.ts.
-   Root fixes: PageLock (src/components/ui/page-lock.tsx), 16px boxes on phones, `.grid` base column,
-   one dropdown chevron (all in src/app/globals.css). Research: docs/research/school-owner-pain-points.md.
-2. NEXT: user OKs push to main (Vercel deploys live). Before pushing: full `npx vitest run` green.
-3. NEXT: about 160 pages (mostly module front pages) were never read cleanly by the crawler (it moved on
-   before hydration; the dev server also restarted at its memory limit). Re-check them on a production
-   build with ONE worker: C:/Users/chala/tools/school-os-probe/crawl.js (NOFOLLOW=1, seeds = those URLs).
-4. Decisions for the user (list in docs/qa/2026-10-23-phone-audit.md "Needs your decision"):
-   settlement matching, refund-needed list, receipt link in fee message, privacy notice (DPDP),
-   scheduled backups, attendance offline default, resend Parent Link on mobile change, timed tests.
+1d. DONE and LIVE 2026-10-23 22:27 IST (main 46a3b2e0, Vercel Production success): phone audit of 890
+   school + 14 console pages, 20 fixes; report docs/qa/2026-10-23-phone-audit.md; research
+   docs/research/school-owner-pain-points.md. Also built: Parent Link resent on a guardian's new mobile
+   (tick box), "Paid twice" online payments flagged to the fee desk. Tests 2,161/2,161, lint 0 errors.
+2. Offline attendance stays opt-in (blueprint says optional). Decided, not a gap.
+3. Waiting on the user (see report "Decisions taken"): Razorpay settlement matching (needs live account
+   access), privacy notice text (lawyer; English + Telugu), where to store scheduled backups, receipt link
+   in the fee message (Meta template re-approval on the WhatsApp account shared with the gym), timed tests.
+4. Not checked on live: pages behind the owner's console sign-in code ("Modules on 16").
 5. Meta webhook belongs to the gym (dreamteamfit). User's rule: never touch it or gym Vercel
    without permission. /api/v1/console/whatsapp is unused. Gym WhatsApp token left as is.
 

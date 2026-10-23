@@ -1,0 +1,13 @@
+import { anon, BASE, note, squeeze, lastConsoleCode } from "./h.mjs";
+import { close } from "../../lib.mjs";
+const [login, pw] = process.argv.slice(2);
+const page = await anon({ width: 1280, height: 800 });
+await page.goto(`${BASE}/sign-in`, { waitUntil: "domcontentloaded" });
+await page.getByLabel(/username|mobile|login/i).first().fill(login);
+await page.getByLabel(/password/i).first().fill(pw);
+await page.getByRole("button", { name: "Sign in", exact: true }).click();
+await page.waitForTimeout(4000);
+note("URL", page.url(), "TEXT", squeeze(await page.locator("body").innerText()).slice(0, 600));
+await page.screenshot({ path: `${process.env.QA_OUT}/shots/signin-${login}.png` });
+note("log code:", lastConsoleCode(process.env.QA_SERVER_LOG));
+await close();

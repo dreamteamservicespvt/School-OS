@@ -1,0 +1,15 @@
+import { as, visit, text, report, shot, VIEWPORTS, sleep } from "./h.mjs";
+import { close } from "../../lib.mjs";
+const p = await as("principal", VIEWPORTS[process.env.VP ?? "laptop1280"]);
+await visit(p, "/examination-results/datesheet/new", 1500);
+console.log((await text(p, 2000)));
+await p.getByRole("radio", { name: /Single class/ }).click().catch(() => p.getByText("Single class").click());
+await sleep(500);
+await p.locator("#ds-classes").getByRole("button", { name: "5", exact: true }).click();
+await sleep(1200);
+console.log("\nafter class:", (await text(p, 5000)));
+console.log("exam types:", await p.getByLabel("Exam type").locator("option").allInnerTexts());
+console.log("terms:", await p.getByLabel("Term").locator("option").allInnerTexts());
+await report(p, "ds new");
+await shot(p, `ds-new-${process.env.VP ?? "laptop1280"}`, true);
+await close();

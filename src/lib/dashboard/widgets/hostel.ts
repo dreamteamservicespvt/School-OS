@@ -6,12 +6,11 @@
 // switched on and open to the person (the registry checks the module).
 import "server-only";
 
-import type { Prisma } from "@prisma/client";
 import { hostelCan, hostelViewer } from "../../hostel/access";
 import { myHostelIds, type Mine } from "../../hostel/scope";
 import { hostelSettings } from "../../hostel/settings";
 import { occupancy } from "../../hostel/rooms";
-import { studentsInfo } from "../../hostel/allocation";
+import { residentViewWhere, studentsInfo } from "../../hostel/allocation";
 import { clockAt } from "../../front-office/time";
 import { BASE, minuteWords } from "../../hostel/words";
 import { n, plural } from "../common";
@@ -22,7 +21,6 @@ const worker = (v: Viewer) => hostelCan(viewerOf(v)).rollcall;
 const reads = (v: Viewer) => viewerOf(v).pages.rollcall !== "hidden";
 
 const mineOf = (c: DashContext) => c.memo<Mine>("hostel.mine", () => myHostelIds(c.tx, c.viewer.ctx, viewerOf(c.viewer)));
-const scoped = (mine: Mine): Prisma.BedAllocationWhereInput => (mine === null ? {} : { hostelId: { in: mine } });
 
 /** Residents in the hostel now, and out on passes. */
 const residentsBand: Widget<"band"> = {
@@ -34,11 +32,12 @@ const residentsBand: Widget<"band"> = {
   async load(c) {
     const mine = await mineOf(c);
     if (mine && !mine.length) return null;
-    const [living, out] = await Promise.all([
-      c.tx.bedAllocation.count({ where: { status: "ACTIVE", checkedInAt: { not: null }, ...scoped(mine) } }),
-      c.tx.gatePass.count({ where: { kind: "HOSTEL_OUTING", status: "OUT", archivedAt: null, ...(mine ? { hostelId: { in: mine } } : {}) } }),
+    // Allocation's own views "In the hostel now" and "Away now" (residentViewWhere, gap list G36).
+    const [inNow, out] = await Promise.all([
+      residentViewWhere(c.tx, "in", mine).then((where) => c.tx.bedAllocation.count({ where })),
+      residentViewWhere(c.tx, "away", mine).then((where) => c.tx.bedAllocation.count({ where })),
     ]);
-    return { id: "hostel.residents", label: "In the hostel now", big: n(living - out), of: `/ ${n(living)}`, foot: out ? `${plural(out, "student")} out on passes` : "Everyone is in", href: `${BASE}/allocation` };
+    return { id: "hostel.residents", label: "In the hostel now", big: n(inNow), of: `/ ${n(inNow + out)}`, foot: out ? `${plural(out, "student")} away now` : "Everyone is in", href: `${BASE}/allocation?show=${out && !inNow ? "away" : "in"}` };
   },
 };
 
@@ -76,12 +75,13 @@ const rollCallMissing: Widget<"attention"> = {
     if (!missing.length) return null;
     const work = worker(c.viewer);
     const word = session === "NIGHT" ? "Night" : "Morning";
-    return {
-      id: `hostel.rollcall-missing.${session}`, tone: "warn", icon: "ListChecks",
-      title: `${word} roll call not taken: ${missing.map((h) => h.name).join(", ")}`,
+    // One card per hostel, each opening that hostel's roll call (gap list G36: one link cannot open several hostels).
+    return missing.map((h) => ({
+      id: `hostel.rollcall-missing.${session}:${h.id}`, tone: "warn" as const, icon: "ListChecks" as const,
+      title: `${word} roll call not taken: ${h.name}`,
       detail: work ? `It was due at ${minuteWords(session === "NIGHT" ? s.nightRollMinute : s.morningRollMinute)}.` : "Remind the warden from the roll call page.",
-      action: work ? "Take roll call" : "Remind", href: `${BASE}?hostel=${missing[0].id}&session=${session.toLowerCase()}`, value: `${c.today.toISOString().slice(0, 10)}:${missing.length}`,
-    };
+      action: work ? "Take roll call" : "Remind", href: `${BASE}?hostel=${h.id}&session=${session.toLowerCase()}`, value: c.today.toISOString().slice(0, 10),
+    }));
   },
 };
 

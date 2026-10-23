@@ -26,7 +26,7 @@ import { Banner, Stats, Stack, Toolbar, DataList, Empty, ListRow } from "@/compo
 import { carryOverRows } from "@/lib/hostel/carry";
 import { clockAt } from "@/lib/front-office/time";
 import { roomGrid } from "@/lib/hostel/rooms";
-import { bedHistory, bedYears, hostelFeesDue, outNow, residents, studentsInfo, waitingForBed, type Resident } from "@/lib/hostel/allocation";
+import { bedHistory, bedYears, hostelFeesDue, residentViewWhere, residents, studentsInfo, waitingForBed, type Resident } from "@/lib/hostel/allocation";
 import { openFeePlans, planTotal } from "@/lib/hostel/settings";
 import { BASE, RESIDENT_STATUS, bedWords, genderFits, isoOf, plural } from "@/lib/hostel/words";
 import { inScope } from "@/lib/hostel/scope";
@@ -46,6 +46,7 @@ export async function generateMetadata(): Promise<Metadata> {
 const VIEWS = [
   { value: "", label: "Everyone with a bed" },
   { value: "arriving", label: "Not arrived" },
+  { value: "in", label: "In the hostel now" },
   { value: "away", label: "Away now" },
   { value: "out", label: "Checked out" },
 ] as const;
@@ -64,25 +65,27 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
 
   const d = await withSchool(ctx, async (tx) => {
     const base: Prisma.BedAllocationWhereInput = { hostelId: { in: scopeIds } };
-    const away = await outNow(tx);
-    const awayIds = [...away.keys()];
     let nameIds: string[] | null = null;
     if (params.q) {
       nameIds = await studentIdsForFilter(tx, params.q);
     }
+    // The same views the Dashboard's "In the hostel now" counts (residentViewWhere, gap list G36).
+    const [all, arrivingW, inW, awayW] = await Promise.all((["", "arriving", "in", "away"] as const).map((x) => residentViewWhere(tx, x, scopeIds)));
     const byView: Record<string, Prisma.BedAllocationWhereInput> = {
-      "": { status: "ACTIVE" },
-      arriving: { status: "ACTIVE", checkedInAt: null },
-      away: { status: "ACTIVE", studentId: { in: awayIds } },
+      "": all,
+      arriving: arrivingW,
+      in: inW,
+      away: awayW,
       out: { status: "CHECKED_OUT", ...(per.range ? { endDate: dateWhere(per.range) } : {}) },
     };
     const where: Prisma.BedAllocationWhereInput = { ...base, ...byView[show], ...(nameIds ? { AND: [{ studentId: { in: nameIds } }] } : {}) };
-    const [total, rows, active, arriving, awayCount, outCount] = await Promise.all([
+    const [total, rows, active, arriving, inCount, awayCount, outCount] = await Promise.all([
       tx.bedAllocation.count({ where }),
       residents(tx, ctx, where, p.now, skipTake(params)),
-      tx.bedAllocation.count({ where: { ...base, status: "ACTIVE" } }),
-      tx.bedAllocation.count({ where: { ...base, status: "ACTIVE", checkedInAt: null } }),
-      tx.bedAllocation.count({ where: { ...base, status: "ACTIVE", studentId: { in: awayIds } } }),
+      tx.bedAllocation.count({ where: all }),
+      tx.bedAllocation.count({ where: arrivingW }),
+      tx.bedAllocation.count({ where: inW }),
+      tx.bedAllocation.count({ where: awayW }),
       tx.bedAllocation.count({ where: { ...base, ...byView.out } }),
     ]);
     const dues = new Map<string, bigint>();
@@ -130,7 +133,7 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
     // A new year is open: boarders whose bed is still on last year wait to be carried over.
     const carry = await carryOverRows(tx, mine);
     const carryInfo = can.allocate && one(sp.carry) === "1" && carry.length ? await studentsInfo(tx, ctx, carry.map((r) => r.allocation.studentId)) : new Map<string, never>();
-    return { total, rows, active, arriving, awayCount, outCount, dues, waiting, beds, plans, startStudent, move, checkout, checkoutDue, history, wantsAllocate, carry, carryInfo };
+    return { total, rows, active, arriving, inCount, awayCount, outCount, dues, waiting, beds, plans, startStudent, move, checkout, checkoutDue, history, wantsAllocate, carry, carryInfo };
   });
 
   const base = `${BASE}/allocation`;
@@ -148,7 +151,7 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
     return bits.length ? <span className="flex items-center gap-3 justify-end flex-wrap">{bits}</span> : null;
   };
 
-  const counts: Record<string, number> = { "": d.active, arriving: d.arriving, away: d.awayCount, out: d.outCount };
+  const counts: Record<string, number> = { "": d.active, arriving: d.arriving, in: d.inCount, away: d.awayCount, out: d.outCount };
   const carryTo = d.carry[0]?.toYear ?? null;
   const carryFrom = d.carry[0]?.fromYear ?? null;
   const carryItems: CarryItem[] = d.carry.map((r) => ({
@@ -187,7 +190,7 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
             </div>
           </Toolbar>
           <DataList rows={d.rows} rowKey={(r) => r.allocation.id} minWidth={v.seesFees ? 1040 : 920} caption="Hostel residents"
-            empty={<Empty icon={params.q ? Search : BedDouble} title={params.q ? "No resident matches" : show === "out" ? "Nobody checked out in these dates" : show === "away" ? "Everyone is in the hostel" : show === "arriving" ? "Everyone has arrived" : "No residents yet"}
+            empty={<Empty icon={params.q ? Search : BedDouble} title={params.q ? "No resident matches" : show === "out" ? "Nobody checked out in these dates" : show === "away" ? "Everyone is in the hostel" : show === "in" ? "Nobody is in the hostel now" : show === "arriving" ? "Everyone has arrived" : "No residents yet"}
               body={params.q ? "Try another name, or clear the search." : show === "" && can.allocate ? "Give the first bed to a student waiting for one." : undefined}
               action={show === "" && !params.q && can.allocate ? <ButtonLink href={href({ allocate: "1" })} variant="primary" icon={UserPlus} scroll={false}><Words k="Give a bed" /></ButtonLink> : undefined} />}
             columns={[

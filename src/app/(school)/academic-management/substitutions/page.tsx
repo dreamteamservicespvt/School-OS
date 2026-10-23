@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
-import { needsOn, substitutionLoads, substituteTimetable, reasonWords } from "@/lib/academic/substitutions";
+import { needsOn, periodsCoveredOn, substitutionLoads, substituteTimetable, reasonWords } from "@/lib/academic/substitutions";
 import { inCampus } from "@/lib/campus";
 import { DAY_NAMES, addDays, isoDay, parseDay, plural, time12, weekday } from "@/lib/academic/common";
 import { EmptyState } from "@/components/empty-state";
@@ -37,6 +37,8 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
 
   const data = await withSchool(ctx, async (tx) => {
     const needs = await needsOn(tx, ctx, page.campusId, date);
+    // The day's periods with a teacher, the same numbers as the Dashboard's "Periods covered today" (gap list G36).
+    const covered = mineOnly ? null : await periodsCoveredOn(tx, ctx, page.campusId, date, needs);
     let rows = needs.rows;
     if (mineOnly) rows = rows.filter((r) => r.absentStaffId === scope.staffId || r.substitution?.substituteId === scope.staffId);
     // One campus: that campus's teachers, absences and temporary teachers only.
@@ -51,7 +53,7 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
     }
     const covers = view === "temporary" ? await tx.temporaryCover.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, toDate: { gte: page.today }, ...(campusStaff ? { absentStaffId: campusStaff } : {}) }, orderBy: { fromDate: "asc" } }) : [];
     const names = new Map((await tx.staff.findMany({ where: { id: { in: [...absences.map((a) => a.staffId), ...covers.flatMap((c) => [c.absentStaffId, c.tempStaffId])] } }, select: { id: true, fullName: true } })).map((s) => [s.id, s.fullName]));
-    return { off: needs.off, rows, teachers, absences, bySub, loads, covers, names };
+    return { off: needs.off, covered, rows, teachers, absences, bySub, loads, covers, names };
   });
 
   const link = (d: Date) => { const p = new URLSearchParams(); p.set("date", isoDay(d)); if (view !== "needed") p.set("view", view); return `${PATH}?${p}`; };
@@ -101,6 +103,9 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
                   ))}
                 </ul>
               </div>
+            )}
+            {data.covered && (
+              <p className="mb-3 text-ink-2"><Words k="Periods covered:" /> <strong className="tnum">{data.covered.covered}</strong> <Words k="of" /> {data.covered.total}</p>
             )}
             {rows.length === 0 ? (
               <EmptyState title={mineOnly ? "Nothing for you on this day" : "No substitutions needed"}>

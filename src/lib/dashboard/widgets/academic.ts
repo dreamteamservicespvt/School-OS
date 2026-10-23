@@ -4,14 +4,13 @@
 import "server-only";
 
 import type { SyllabusItem, SyllabusProgressEntry } from "@prisma/client";
-import { periodsForStaffOnDate, effectiveVersion } from "../../academic/timetable";
-import { needsOn } from "../../academic/substitutions";
+import { periodsForStaffOnDate } from "../../academic/timetable";
+import { needsOn, periodsCoveredOn } from "../../academic/substitutions";
 import { allocationActiveOn } from "../../academic/allocation";
 import { mainCampusId } from "../../academic/settings";
 import { personCampusId } from "../../campus";
 import { CLOSED_TYPES } from "../../academic/calendar";
 import { schoolCalendar } from "../../calendar/school-days";
-import { weekday } from "../../academic/common";
 import { evPageAllowed, evViewer } from "../../events/access";
 import { BUILT_MODULES } from "../../modules";
 import { addDays, clock, dayWord, hasRole, minutesOf, moduleOpen, myStaff, plural, reach, shortDate, someNames } from "../common";
@@ -185,12 +184,10 @@ const periodsCovered: Widget<"band"> = {
   allowed: (v) => arranges(v),
   async load(c) {
     const needs = await needsToday(c);
-    if (needs.off) return null;
-    const version = await effectiveVersion(c.tx, c.viewer.ctx, needs.campusId, c.today);
-    if (!version) return null;
-    const total = await c.tx.timetablePeriod.count({ where: { versionId: version.id, dayOfWeek: weekday(c.today), archivedAt: null, isBreak: false, staffId: { not: null } } });
-    if (!total) return null;
-    return { id: "academic.periods-covered", label: "Periods covered today", big: String(total - needs.open.length), of: `/ ${total}`, foot: needs.open.length ? `${plural(needs.open.length, "substitution")} still open` : "Every period has a teacher", href: SUBS };
+    // Substitutions shows the same "periods covered" line for the day (periodsCoveredOn, gap list G36).
+    const p = await periodsCoveredOn(c.tx, c.viewer.ctx, needs.campusId, c.today, { off: needs.off, rows: needs.all });
+    if (!p) return null;
+    return { id: "academic.periods-covered", label: "Periods covered today", big: String(p.covered), of: `/ ${p.total}`, foot: p.open ? `${plural(p.open, "substitution")} still open` : "Every period has a teacher", href: SUBS };
   },
 };
 

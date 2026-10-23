@@ -53,6 +53,23 @@ export type NeedRow = PeriodCell & {
   substitution: { id: string; status: string; substituteId: string | null; substituteName: string | null; note: string | null } | null;
 };
 
+/**
+ * The day's teaching periods and how many have a teacher: every timetabled period with a
+ * teacher, less those of an absent teacher with no substitute arranged yet. The Dashboard's
+ * "Periods covered today" and Substitutions' own line use it, so both show the same numbers
+ * (gap list G36). Null on a day off or with no Time Table.
+ */
+export async function periodsCoveredOn(tx: Tx, ctx: SchoolContext, campusId: string, date: Date, needs?: Awaited<ReturnType<typeof needsOn>>) {
+  const n = needs ?? (await needsOn(tx, ctx, campusId, date));
+  if (n.off) return null;
+  const version = await effectiveVersion(tx, ctx, campusId, date);
+  if (!version) return null;
+  const total = await tx.timetablePeriod.count({ where: { versionId: version.id, dayOfWeek: weekday(date), archivedAt: null, isBreak: false, staffId: { not: null } } });
+  if (!total) return null;
+  const open = n.rows.filter((r) => r.substitution?.status !== "ARRANGED").length;
+  return { total, open, covered: total - open };
+}
+
 /** The periods needing a substitute on a date, with what is arranged (Done when 6). */
 export async function needsOn(tx: Tx, ctx: SchoolContext, campusId: string, date: Date): Promise<{ off: Awaited<ReturnType<typeof dayOff>>; rows: NeedRow[] }> {
   const off = await dayOff(tx, ctx, date, campusId);

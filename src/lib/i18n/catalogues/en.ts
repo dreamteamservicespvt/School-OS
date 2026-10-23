@@ -14672,6 +14672,8 @@ export const EN = [
   "{n} birthdays today, among the students, parents and staff your Dashboard shows.",
   "{n} birthday in the next 7 days, among the students, parents and staff your Dashboard shows.",
   "{n} birthdays in the next 7 days, among the students, parents and staff your Dashboard shows.",
+  // src/app/pay/[schoolId]/[token]/page.tsx: the tab title
+  "Pay school fees",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

@@ -7,9 +7,12 @@ import { AuthFrame } from "@/components/auth/auth-frame";
 import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
 import { CodeForm } from "./form";
-import { getT } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "One-time code" };
+/** The tab title in the same language as the page (the browser's choice, else English). */
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("One-time code") };
+}
 
 export default async function SignInCodePage() {
   if (await getCurrent()) redirect("/dashboard");

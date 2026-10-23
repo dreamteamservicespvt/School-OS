@@ -10,14 +10,19 @@ import { formatDate } from "@/lib/format";
 import { PhoneCard, PhoneNotice, PhoneShell } from "@/components/parent-link/phone-shell";
 import { AnswerForm } from "./answer-form";
 import { I18nProvider, Words } from "@/lib/i18n/client";
-import { catalogueFor, getT, schoolPageLanguage } from "@/lib/i18n/server";
+import { catalogueFor, getT, schoolPageLanguage, titleIn } from "@/lib/i18n/server";
 import { screenMessage } from "@/lib/i18n/messages";
 import type { T } from "@/lib/i18n/t";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Survey", robots: { index: false, follow: false }, referrer: "no-referrer" };
-
 const uuid = /^[0-9a-f-]{36}$/;
+
+/** The tab title in the same language as the page. */
+export async function generateMetadata({ params }: { params: Promise<{ schoolId: string; token: string }> }): Promise<Metadata> {
+  const { schoolId } = await params;
+  const t = uuid.test(schoolId) ? (await schoolPageLanguage(schoolId)).t : await getT();
+  return { title: titleIn(t, "Survey"), robots: { index: false, follow: false }, referrer: "no-referrer" };
+}
 
 /** In the school's language for this browser (the parent's or staff member's choice, else the school's default). */
 export default async function SurveyAnswerPage({ params }: { params: Promise<{ schoolId: string; token: string }> }) {

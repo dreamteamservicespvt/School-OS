@@ -7,7 +7,7 @@ import path from "node:path";
 import { beforeAll, describe, expect, it } from "vitest";
 import { prisma, withSchool } from "@/lib/db";
 import { EN } from "@/lib/i18n/catalogues/en";
-import { CATALOGUES, makeT, personLanguage } from "@/lib/i18n/server";
+import { CATALOGUES, makeT, personLanguage, titleIn } from "@/lib/i18n/server";
 import { blanksOf, englishOf, fill, translator } from "@/lib/i18n/t";
 import { SCREEN_LANGUAGES, cleanLang, pickLanguage, schoolLanguages } from "@/lib/i18n/languages";
 import { screenMessage } from "@/lib/i18n/messages";
@@ -125,6 +125,16 @@ describe("the translator", () => {
     expect(sat).toContain(te("Second Saturday"));
     expect(screenMessage(hi, "Holiday: Diwali. Attendance is off for 20-10-2026.")).toBe(hi("Holiday: {title}. Attendance is off for {date}.", { title: "Diwali", date: "20-10-2026" }));
     expect(screenMessage(hi, "11-10-2026 is a Sunday. Attendance is off for this date.")).not.toContain("Sunday");
+  });
+
+  it("gives the pages with no sign-in a tab title in their own language", () => {
+    const titles = ["Apply for admission", "Your application", "Pay school fees", "Survey", "Photos", "Parent Link", "Check a certificate", "Set your password", "Sign in", "One-time code"];
+    for (const title of titles) {
+      expect(titleIn(makeT("en"), title)).toBe(title);
+      for (const lang of ["hi", "te"] as const) expect(titleIn(makeT(lang), title), `${lang}: ${title}`).not.toBe(title);
+      // A language without the words shows the English title, never a blank or a key.
+      expect(titleIn(translator("ta", {}), title)).toBe(title);
+    }
   });
 
   it("writes Ask's answer sentences whole in each language, numbers and names filled in", () => {

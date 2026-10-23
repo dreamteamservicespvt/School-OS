@@ -14,14 +14,19 @@ import { albumToken } from "@/lib/events/settings";
 import { isoOf, longDay } from "@/lib/events/words";
 import { PhoneCard, PhoneNotice, PhoneShell } from "@/components/parent-link/phone-shell";
 import { I18nProvider, Words } from "@/lib/i18n/client";
-import { catalogueFor, getT, schoolPageLanguage } from "@/lib/i18n/server";
+import { catalogueFor, getT, schoolPageLanguage, titleIn } from "@/lib/i18n/server";
 import { screenMessage } from "@/lib/i18n/messages";
 import type { T } from "@/lib/i18n/t";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Photos", robots: { index: false, follow: false }, referrer: "no-referrer" };
-
 const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/** The tab title in the same language as the page. */
+export async function generateMetadata({ params }: { params: Promise<{ schoolId: string }> }): Promise<Metadata> {
+  const { schoolId } = await params;
+  const t = uuid.test(schoolId) ? (await schoolPageLanguage(schoolId)).t : await getT();
+  return { title: titleIn(t, "Photos"), robots: { index: false, follow: false }, referrer: "no-referrer" };
+}
 
 function sameToken(a: string, b: string) {
   const x = Buffer.from(a);

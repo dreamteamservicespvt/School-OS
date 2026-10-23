@@ -5,9 +5,12 @@ import { AuthFrame } from "@/components/auth/auth-frame";
 import { ButtonLink } from "@/components/ui/button";
 import { InviteForm } from "./form";
 import { Words } from "@/lib/i18n/client";
-import { getT } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Set your password" };
+/** The tab title in the same language as the page (the browser's choice, else English). */
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Set your password") };
+}
 
 export default async function InvitePage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ first?: string }> }) {
   const { token } = await params;

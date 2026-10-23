@@ -14137,4 +14137,5 @@ export const hi: Catalogue = {
   "{n} birthdays today, among the students, parents and staff your Dashboard shows.": "आज {n} जन्मदिन हैं, आपके डैशबोर्ड पर दिखने वाले विद्यार्थियों, अभिभावकों और स्टाफ़ में।",
   "{n} birthday in the next 7 days, among the students, parents and staff your Dashboard shows.": "अगले 7 दिनों में {n} जन्मदिन है, आपके डैशबोर्ड पर दिखने वाले विद्यार्थियों, अभिभावकों और स्टाफ़ में।",
   "{n} birthdays in the next 7 days, among the students, parents and staff your Dashboard shows.": "अगले 7 दिनों में {n} जन्मदिन हैं, आपके डैशबोर्ड पर दिखने वाले विद्यार्थियों, अभिभावकों और स्टाफ़ में।",
+  "Pay school fees": "स्कूल फ़ीस भरें",
 };

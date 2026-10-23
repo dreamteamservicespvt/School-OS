@@ -6,7 +6,7 @@
 import "server-only";
 
 import { libCan, libViewer } from "../../library/access";
-import { overdueWhere } from "../../library/desk";
+import { overdueAsAt, overdueWhere } from "../../library/desk";
 import { librarySettings } from "../../library/settings";
 import { membersOf } from "../../library/members";
 import { BASE } from "../../library/words";
@@ -74,7 +74,9 @@ const longOverdue: Widget<"attention"> = {
   allowed: watches,
   async load(c) {
     // The overdue report's own rule, opened with the same "more than 7 days late" (gap list G36).
-    const count = await c.tx.bookIssue.count({ where: overdueWhere(c.today, 7) });
+    // A year that is over: the books late on its last day, as the report reads ?year= (gap list G36).
+    const past = Boolean(c.filters.yearId && c.year && (c.year.status === "CLOSED" || c.year.endDate <= c.today));
+    const count = await c.tx.bookIssue.count({ where: past ? overdueAsAt(c.today, 7) : overdueWhere(c.today, 7) });
     if (!count) return null;
     const desk = deskWorker(c.viewer);
     const report = viewerOf(c.viewer).pages.reports !== "hidden";

@@ -22,6 +22,8 @@ import { formatDate } from "@/lib/format";
 import { LibHead } from "../_components/head";
 import { BASE, libGuard, libPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { readReportFilter } from "../_lib/reports";
+import { backToThisYear, readViewYear, withYearDates } from "@/lib/academic/view-year";
+import { ViewYearStrip } from "@/components/view-year-strip";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
@@ -32,11 +34,16 @@ const SHOW = 100;
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export default async function LibraryReportsPage({ searchParams }: { searchParams: SearchParams }) {
-  const sp = await searchParams;
+  const raw = await searchParams;
   const p = await libGuard("reports");
-  const { current, can, tz, today } = p;
+  const { current, can, tz } = p;
+  // Another year (?year=, from the Dashboard): its dates, and overdue books as they stood on its last day (gap list G36).
+  const view = raw.year ? await withSchool(current.ctx, (tx) => readViewYear(tx, current.ctx, current, raw.year, p.today)) : null;
+  const today = view?.asOf ?? p.today;
+  const sp = withYearDates(raw, view);
   const per = libPeriod(sp, p.dates, "acyear");
-  const r = readReportFilter((k) => one(sp[k]), per.range, today);
+  const r0 = readReportFilter((k) => one(sp[k]), per.range, today);
+  const r = view?.past ? { ...r0, f: { ...r0.f, asAt: true }, forReport: (x: Parameters<typeof r0.forReport>[0]) => ({ ...r0.forReport(x), asAt: true }) } : r0;
   const f = r.f;
 
   const d = await withSchool(current.ctx, async (tx) => {
@@ -44,13 +51,13 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
       // Each campus's classes, from its own current year.
       sectionsForCurrentYears(tx, current.ctx, current.campusId),
       tx.bookIssue.count({ where: { ...(f.from && f.to ? { issuedOn: { gte: f.from, lte: f.to } } : {}), ...(f.sectionIds ? { sectionId: { in: f.sectionIds } } : {}) } }),
-      overdueCount(tx, today, { sectionIds: f.sectionIds }),
+      overdueCount(tx, today, { sectionIds: f.sectionIds, asAt: f.asAt }),
       fineTotals(tx, current.ctx, f),
       issuedByMonth(tx, f),
       issuedByClass(tx, f),
       popularBooks(tx, f, 5),
       categoriesRead(tx, f),
-      overdueBuckets(tx, today),
+      overdueBuckets(tx, today, f.asAt),
       copiesByStatus(tx),
       r.report?.key === "lib-stock" ? stockSessions(tx, f) : Promise.resolve([]),
     ]);
@@ -58,7 +65,7 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
     return { sections, issued, overdue, fines, byMonth, byClass, popular, cats, buckets, copies, sessions, table };
   }, { timeout: 60_000 });
 
-  const keep = { ...per.keep, sec: r.sec || null };
+  const keep = { ...per.keep, sec: r.sec || null, year: view?.id ?? null };
   const reportHref = (key: string | null) => `${qs(`${BASE}/reports`, { ...keep, r: key })}${key ? "#report" : ""}`;
   const exportHref = r.report ? qs(`${BASE}/reports/export`, { ...keep, r: r.report.key, session: r.session || null, late: r.late ? String(r.late) : null }) : "";
   const maxClass = Math.max(1, ...d.byClass.map((x) => x.value));
@@ -68,6 +75,7 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
   return (
     <>
       <LibHead pageName="Library Reports" href={`${BASE}/reports`} mode={p.mode} />
+      <ViewYearStrip year={view} back={backToThisYear(`${BASE}/reports`, raw)} />
       <Stack>
         <div className="flex gap-2 flex-wrap">
           <PeriodFilter {...p.dates} fallback="acyear" />

@@ -69,6 +69,17 @@ export function lateFine(s: Pick<LibrarySettings, "finePerDayPaise" | "maxFinePa
  */
 export const overdueWhere = (today: Date, lateMoreThan = 0) => ({ returnedAt: null, dueOn: { lt: new Date(today.getTime() - lateMoreThan * 86_400_000) } });
 
+/**
+ * Overdue as it stood at the end of a day in the past (the last day of a year
+ * that is over, gap list G36): issued by then, late by then, and not yet
+ * returned by then (still out, or brought back later).
+ */
+export const overdueAsAt = (day: Date, lateMoreThan = 0) => ({
+  issuedOn: { lte: day },
+  dueOn: { lt: new Date(day.getTime() - lateMoreThan * 86_400_000) },
+  OR: [{ returnedAt: null }, { returnedAt: { gte: new Date(day.getTime() + 86_400_000) } }],
+});
+
 /* ---------- The queue ---------- */
 
 /** Members waiting for a book, in the school's queue order (first come first served, or staff first). */

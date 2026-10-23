@@ -41,10 +41,12 @@ const earlyWarnings: Widget<"attention"> = {
     if (w.look.students) {
       return {
         id: "reports.early-warnings", tone: "bad", icon: "TriangleAlert",
-        title: `Early warnings: ${closerLookWords(w.look)}`,
+        // The card counts students, once each, from attendance and marks (never fees alone, the owner's rule); the list
+        // it opens shows every Act now flag, so its words say what is counted (gap list G36).
+        title: `Early warnings: ${closerLookWords(w.look)} (students counted once, from attendance and marks)`,
         detail: reviews
-          ? `${w.actNowToReview ? `${w.actNowToReview} not reviewed yet. ` : ""}Strong signs only. Nothing happens to a student until you review the flag.`
-          : "Strong signs only, from attendance and marks. Class teachers review; you can remind them. Fees stay in Fee Defaulters.",
+          ? `${w.actNowToReview ? `${w.actNowToReview} not reviewed yet. ` : ""}Strong signs only. The list shows each Act now flag, fee flags too. Nothing happens to a student until you review the flag.`
+          : "Strong signs only. The list shows each Act now flag; fees stay in Fee Defaulters. Class teachers review; you can remind them.",
         action: reviews ? "Review" : "Open", href: ACT_NOW_HREF, value: `${w.look.students}:${w.look.attendance}:${w.look.marks}:${w.look.both}`,
       };
     }

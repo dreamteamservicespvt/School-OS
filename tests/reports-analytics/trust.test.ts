@@ -259,7 +259,7 @@ describe("Strong evidence only", () => {
   it("says on the Dashboard what the number is, and the list it opens has the same students", async () => {
     const h = await home(f.school.id, f.principal.id, NOW);
     const card = h.attention.find((x) => x.id === "reports.early-warnings")!;
-    expect(card.title).toBe("Early warnings: 2 students need a closer look: 1 marks, 1 in two areas");
+    expect(card.title).toBe("Early warnings: 2 students need a closer look: 1 marks, 1 in two areas (students counted once, from attendance and marks)");
     expect(card.href).toBe("/reports-analytics/early-warnings?strength=ACT_NOW&period=all");
     const principal = await viewer(f.school.id, f.principal.id);
     const { list } = await withSchool(principal.ctx, (tx) => listFlags(tx, principal, reportAccess(principal), { status: "open", area: "all", q: "", raisedFrom: null, raisedTo: null, strength: "ACT_NOW" }));

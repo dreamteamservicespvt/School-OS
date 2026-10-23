@@ -7,6 +7,8 @@
 // (08-platform-security.md §3):
 //   CONSOLE_WHATSAPP_APP_SECRET    the Meta app's secret; it signs every report.
 //   CONSOLE_WHATSAPP_VERIFY_TOKEN  any long random text, typed again in Meta once.
+//   CONSOLE_WHATSAPP_FORWARD_URL   optional: another site's webhook on the same
+//                                  Meta app, which gets every report as well.
 // Nothing is read before the signature matches, and status only moves forward.
 import "server-only";
 
@@ -60,8 +62,7 @@ export async function handleConsoleWhatsappWebhook(rawBody: string, signature: s
     return { status: 400 };
   }
   const reports = parseMetaWebhook(body).statuses.filter((s) => s.id && META[s.status]);
-  if (reports.length === 0) return { status: 200, body: "ok" };
-  await withConsole(async (tx) => {
+  if (reports.length > 0) await withConsole(async (tx) => {
     for (const s of reports) {
       const reported = META[s.status];
       const row = await tx.consoleMessage.findFirst({ where: { channel: "whatsapp", providerMessageId: s.id }, select: { id: true, status: true } });
@@ -72,5 +73,23 @@ export async function handleConsoleWhatsappWebhook(rawBody: string, signature: s
       await tx.consoleMessage.update({ where: { id: row.id }, data: { status, failReason } });
     }
   }, { timeout: 30_000 });
+  // A Meta app has one callback address. When DREAM TEAM's app also serves
+  // another site, every report goes on to it unchanged (same body, same
+  // signature). If that fails Meta is told to retry, as it would be without us;
+  // the statuses above are safe to apply twice.
+  if (!(await forward(rawBody, signature ?? ""))) return { status: 502 };
   return { status: 200, body: "ok" };
+}
+
+async function forward(rawBody: string, signature: string): Promise<boolean> {
+  const to = env("CONSOLE_WHATSAPP_FORWARD_URL");
+  if (!to?.startsWith("https://")) return true;
+  try {
+    const res = await fetch(to, { method: "POST", body: rawBody, headers: { "Content-Type": "application/json", "X-Hub-Signature-256": signature }, signal: AbortSignal.timeout(8_000) });
+    if (res.ok) return true;
+    console.warn(JSON.stringify({ level: "warn", event: "console-whatsapp-forward-refused", status: res.status }));
+  } catch (e) {
+    console.warn(JSON.stringify({ level: "warn", event: "console-whatsapp-forward-failed", reason: e instanceof Error ? e.message.slice(0, 160) : "unknown" }));
+  }
+  return false;
 }

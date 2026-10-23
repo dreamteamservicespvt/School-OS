@@ -334,6 +334,36 @@ describe("Meta's delivery reports for console WhatsApp messages", () => {
     expect((await row(m.id)).status).toBe("SENT");
   });
 
+  it("passes every report on, unchanged, to the other site on the same Meta app, and asks Meta to retry when that fails", async () => {
+    const { handleConsoleWhatsappWebhook } = await import("@/lib/console/whatsapp-webhook");
+    vi.stubEnv("CONSOLE_WHATSAPP_FORWARD_URL", "https://other.example/api/whatsapp/webhook");
+    const wamid = `wamid.${randomUUID()}`;
+    const m = await message(wamid);
+    const body = report(wamid, "delivered");
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("ok"));
+    try {
+      expect((await handleConsoleWhatsappWebhook(body, signed(body))).status).toBe(200);
+      expect((await row(m.id)).status).toBe("DELIVERED");
+      const [url, init] = fetchSpy.mock.calls[0];
+      expect(url).toBe("https://other.example/api/whatsapp/webhook");
+      expect(init?.body).toBe(body);
+      expect((init?.headers as Record<string, string>)["X-Hub-Signature-256"]).toBe(signed(body));
+      // An incoming message for the other site, with no statuses at all, still goes on.
+      const incoming = JSON.stringify({ entry: [{ changes: [{ value: { messages: [{ from: "919876500001", id: "wamid.in", type: "text", text: { body: "hi" } }] } }] }] });
+      expect((await handleConsoleWhatsappWebhook(incoming, signed(incoming))).status).toBe(200);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      // A refused signature goes nowhere.
+      expect((await handleConsoleWhatsappWebhook(body, "sha256=bad")).status).toBe(401);
+      expect(fetchSpy).toHaveBeenCalledTimes(2);
+      fetchSpy.mockResolvedValue(new Response("down", { status: 500 }));
+      expect((await handleConsoleWhatsappWebhook(body, signed(body))).status).toBe(502);
+      fetchSpy.mockRejectedValue(new Error("timeout"));
+      expect((await handleConsoleWhatsappWebhook(body, signed(body))).status).toBe(502);
+    } finally {
+      fetchSpy.mockRestore();
+    }
+  });
+
   it("answers Meta's one-time check only with the verify token", async () => {
     const { GET } = await import("@/app/api/v1/console/whatsapp/route");
     const check = (token: string) => GET(new Request(`http://localhost/api/v1/console/whatsapp?hub.mode=subscribe&hub.verify_token=${token}&hub.challenge=4242`));

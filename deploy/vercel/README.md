@@ -88,5 +88,7 @@ reason under the invite. Without these steps a message stays "sent".
    `console_message` row moves from SENT to DELIVERED or READ, or to FAILED
    with Meta's reason, which the school's page then shows.
 
-A Meta app has one WhatsApp callback address. If DREAM TEAM's app is also used
-for something else, that has to move to its own app first.
+A Meta app has one WhatsApp callback address. DREAM TEAM's app (Dream Team
+Posting) also serves Dream Team Fit, so before step 4 set
+`CONSOLE_WHATSAPP_FORWARD_URL=https://dreamteamfit.vercel.app/api/whatsapp/webhook`:
+School OS passes every report on to it unchanged, with Meta's signature.

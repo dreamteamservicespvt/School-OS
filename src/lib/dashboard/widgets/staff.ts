@@ -6,7 +6,7 @@ import "server-only";
 import { approvalsFor } from "../../approvals";
 import { hrFeaturesOn, hrSettings } from "../../staff/settings";
 import { viewerFor, type ViewerSource } from "../../staff/access";
-import { campusStaffWhere, onRollWhere, STAFF_FILTERS, staffWhere } from "../../staff/list";
+import { allLeaveWhere, campusStaffWhere, onRollWhere, STAFF_FILTERS, staffWhere } from "../../staff/list";
 import { readListParams } from "../../list";
 import { docStatus } from "../../staff/documents";
 import { balancesFor, leaveYearFor, onLeaveOn } from "../../staff/leave";
@@ -24,11 +24,12 @@ const campus = async (c: DashContext) => campusStaffWhere(await staffViewer(c));
 /** Approved leave covering today, read once. */
 function onLeaveToday(c: DashContext) {
   return c.memo("on-leave-today", async () => {
+    // Staff Leave's "All leave", approved, touching the day: the list the card opens (gap list G36).
     const rows = await c.tx.leaveRequest.findMany({
-      where: { status: "APPROVED", archivedAt: null, staffId: { not: null }, fromDate: { lte: c.today }, toDate: { gte: c.today } },
+      where: await allLeaveWhere(c.tx, await staffViewer(c), { status: "APPROVED", within: { gte: c.today, lte: c.today }, q: "" }),
       orderBy: { fromDate: "asc" },
     });
-    const staff = await c.tx.staff.findMany({ where: { id: { in: rows.map((r) => r.staffId!) }, archivedAt: null, AND: [await campus(c)] }, select: { id: true, fullName: true, designation: true, staffCode: true } });
+    const staff = await c.tx.staff.findMany({ where: { id: { in: rows.map((r) => r.staffId!) } }, select: { id: true, fullName: true, designation: true, staffCode: true } });
     const types = new Map((await c.tx.leaveType.findMany({ where: { id: { in: rows.map((r) => r.leaveTypeId) } }, select: { id: true, name: true } })).map((t) => [t.id, t.name]));
     return rows.flatMap((r) => {
       const s = staff.find((x) => x.id === r.staffId);
@@ -70,7 +71,7 @@ const staffAway: Widget<"panel"> = {
       id: s.id, avatar: s.fullName, title: s.fullName, sub: `${s.designation} · ${s.type}${s.halfDay ? ", half day" : ""}`,
       href: `${BASE}/${s.id}`, right: s.until.getTime() === c.today.getTime() ? "Today" : `Until ${shortDate(s.until)}`, rightTone: "info",
     }));
-    return { slot: "side", panel: { kind: "list", title: "Staff on leave today", sub: away.length ? `${plural(away.length, "person", "people")} · from approved leave` : "From approved leave", icon: "Users", rows, href: `${BASE}/leave?view=calendar`, linkLabel: "Calendar", empty: "Everyone is in today." } };
+    return { slot: "side", panel: { kind: "list", title: "Staff on leave today", sub: away.length ? `${plural(away.length, "person", "people")} · from approved leave` : "From approved leave", icon: "Users", rows, href: `${BASE}/leave?view=all&status=APPROVED&period=today`, linkLabel: "Leave today", empty: "Everyone is in today." } };
   },
 };
 

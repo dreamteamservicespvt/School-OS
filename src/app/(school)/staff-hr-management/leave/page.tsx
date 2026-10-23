@@ -8,7 +8,7 @@ import { staffPage, BASE } from "@/lib/staff/page";
 import { balancesFor, calendarLabel, daysText, leaveYearFor } from "@/lib/staff/leave";
 import { addDays, eachDay, isoDay, monthEnd, monthLabel, monthStart } from "@/lib/staff/dates";
 import { offDayMap } from "@/lib/staff/leave";
-import { campusStaffWhere, offCampus } from "@/lib/staff/list";
+import { allLeaveWhere, campusStaffWhere, offCampus } from "@/lib/staff/list";
 import { personCampusId } from "@/lib/campus";
 import { StaffHead } from "../_components/head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
@@ -295,13 +295,9 @@ export default async function StaffLeavePage({ searchParams }: Props) {
     const q = (one(sp.q) ?? "").trim().slice(0, 80);
     const data = await withSchool(current.ctx, async (tx) => {
       const within = range ? dateWhere(range) : null;
+      // The Dashboard's "Staff on leave today" counts the same requests (allLeaveWhere, gap list G36).
       const rows = await tx.leaveRequest.findMany({
-        where: {
-          archivedAt: null, ...(status ? { status: status as "WAITING" } : {}),
-          // Leave that touches the chosen dates.
-          ...(within ? { fromDate: { lte: within.lte }, toDate: { gte: within.gte } } : {}),
-          staffId: { in: await staffIdsWhere(tx, { AND: [campusStaffWhere(viewer), q ? { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { staffCode: { contains: q, mode: "insensitive" } }] } : {}] }) },
-        },
+        where: await allLeaveWhere(tx, viewer, { status: status ?? null, within, q }),
         orderBy: { fromDate: "desc" }, take: 100,
       });
       const staff = await tx.staff.findMany({ where: { id: { in: rows.map((r) => r.staffId!) } }, select: { id: true, fullName: true } });

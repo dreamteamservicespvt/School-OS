@@ -10,7 +10,7 @@ import { formatDateTime } from "@/lib/format";
 import { plural, wordList } from "@/lib/academic/common";
 import { examKey, finalKey, PAPER_STATUS_TONE, PAPER_STATUS_WORDS, showMarks, showPercent } from "@/lib/exams/common";
 import { examSettings } from "@/lib/exams/settings";
-import { bandsFor, finalSheet, readiness, resultSheet, type SheetRow } from "@/lib/exams/results";
+import { bandsFor, finalSheet, isWeakResult, readiness, resultSheet, type SheetRow } from "@/lib/exams/results";
 import { resultSubjects, teachesPaper } from "@/lib/exams/scope";
 import { sectionStudents } from "@/lib/exams/roster";
 import type { Band } from "@/lib/exams/grades";
@@ -134,7 +134,9 @@ export default async function ResultsPage({ searchParams }: { searchParams: Sear
   const title = final ? `final result ${year.name}` : exam!.title;
   const ranks = data.settings.ranksOn;
   const allRows: SheetRow[] = final ? data.fin!.rows : data.sheet!.rows;
-  const rows = allRows.filter((r) => !q || r.name.toLowerCase().includes(q) || String(r.rollNo ?? "") === q);
+  // ?weak=1: below 50% or not passing, as the Dashboard's card counts them (isWeakResult, gap list G36).
+  const weak = !only && one(raw.weak) === "1";
+  const rows = allRows.filter((r) => (!q || r.name.toLowerCase().includes(q) || String(r.rollNo ?? "") === q) && (!weak || (r.complete && isWeakResult(r))));
   const name = (id: string | null) => data.people.find((p) => p.id === id)?.displayName ?? "";
   const complete = allRows.filter((r) => r.complete);
   const pct = complete.map((r) => r.percent ?? 0);

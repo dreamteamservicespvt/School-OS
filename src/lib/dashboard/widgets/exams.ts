@@ -6,9 +6,10 @@
 import "server-only";
 
 import { examScope, resultSubjects, type ExamScope } from "../../exams/scope";
-import { papersFor } from "../../exams/marks";
+import { marksDueSoon, papersFor } from "../../exams/marks";
 import { classRange } from "../../exams/common";
 import { addDays, dayWord, dueWord, n, plural, someNames } from "../common";
+import { isWeakResult } from "../../exams/results";
 import type { AgendaItem, AttentionItem, BarRow, DashContext, Widget } from "../types";
 
 const BASE = "/examination-results";
@@ -107,7 +108,7 @@ const marksDue: Widget<"attention"> = {
     if (!v || (v.scope.office && !v.scope.manage)) return null;
     // A teacher with no sections given has no papers; papersFor already keeps to teachesPaper().
     const papers = (await papersFor(c.tx, c.viewer.ctx, v.scope, v.yearId, { counts: false }))
-      .filter((p) => p.status !== "SUBMITTED" && p.status !== "LOCKED" && p.date <= c.today && (!p.due || p.due <= addDays(c.today, 3)));
+      .filter((p) => marksDueSoon(p, c.today));
     if (!papers.length) return null;
     const late = papers.filter((p) => p.due && p.due < c.today);
     const exams = [...new Set(papers.map((p) => p.examId))];
@@ -121,7 +122,8 @@ const marksDue: Widget<"attention"> = {
         : `${plural(papers.length, "paper")} ${own ? "of yours " : ""}waiting for marks`,
       detail: someNames(papers.map((p) => `${p.subjectName} ${p.sectionLabel}`), 3) + (due ? ` · ${dueWord(due, c.today)}` : ""),
       action: own ? "Enter marks" : "See papers",
-      href: `${BASE}/marks${exams.length === 1 ? `?exam=${exams[0]}` : ""}`, value: `${papers.length}:${late.length}`,
+      // Marks Entry's "Due soon" (marksDueSoon), every exam unless there is only one (gap list G36).
+      href: `${BASE}/marks?status=due&exam=${exams.length === 1 ? exams[0] : "all"}`, value: `${papers.length}:${late.length}`,
     };
   },
 };
@@ -179,21 +181,29 @@ const weakStudents: Widget<"attention"> = {
     if (!v || !v.scope.results) return null;
     const latest = await wholeResults(c, v);
     if (!latest) return null;
-    const weak = latest.results.filter((r) => r.outcome !== "Pass" || (r.percent ?? 0) < 50);
+    const weak = latest.results.filter(isWeakResult);
     if (!weak.length) return null;
-    const names = await c.tx.student.findMany({ where: { id: { in: weak.slice(0, 3).map((r) => r.studentId) } }, select: { fullName: true } });
     const sections = [...new Set(weak.map((r) => r.sectionId))];
-    const where = sections.length === 1 ? ` in ${v.sections.find((s) => s.id === sections[0])?.label ?? "your class"}` : "";
-    return {
-      id: "exams.weak-students", tone: "bad", icon: "TrendingDown",
-      title: `${plural(weak.length, "student")}${where} below 50% or not passing in ${latest.exam.title}`,
-      detail: weak.length > 3 ? `${names.map((s) => s.fullName).join(", ")} and ${n(weak.length - 3)} more` : someNames(names.map((s) => s.fullName)),
-      action: "See students",
-      href: v.scope.analysis
-        ? `${BASE}/analysis?exam=${latest.exam.id}${sections.length === 1 && v.scope.sectionIds !== null ? `&scope=s:${sections[0]}` : ""}&drill=help`
-        : `${BASE}/results?exam=${latest.exam.id}${sections.length === 1 ? `&section=${sections[0]}` : ""}`,
-      value: String(weak.length),
-    } satisfies AttentionItem;
+    const label = (id: string) => v.sections.find((s) => s.id === id)?.label ?? "your class";
+    const card = async (rows: typeof weak, id: string, where: string | null, href: string): Promise<AttentionItem> => {
+      const names = await c.tx.student.findMany({ where: { id: { in: rows.slice(0, 3).map((r) => r.studentId) } }, select: { fullName: true } });
+      return {
+        id, tone: "bad", icon: "TrendingDown",
+        title: `${plural(rows.length, "student")}${where ? ` in ${where}` : ""} below 50% or not passing in ${latest.exam.title}`,
+        detail: rows.length > 3 ? `${names.map((s) => s.fullName).join(", ")} and ${n(rows.length - 3)} more` : someNames(names.map((s) => s.fullName)),
+        action: "See students", href, value: String(rows.length),
+      };
+    };
+    // With Analysis: one card opening its "need help" list.
+    if (v.scope.analysis) {
+      return card(weak, "exams.weak-students", sections.length === 1 ? label(sections[0]) : null,
+        `${BASE}/analysis?exam=${latest.exam.id}${sections.length === 1 && v.scope.sectionIds !== null ? `&scope=s:${sections[0]}` : ""}&drill=help`);
+    }
+    // Results only: Results shows one class at a time, so one card per class, each opening that class's
+    // "below 50% or not passing" list (?weak=1, isWeakResult): exactly the students counted (gap list G36).
+    const sorted = sections.map((id) => ({ id, label: label(id) })).sort((x, y) => x.label.localeCompare(y.label, "en", { numeric: true }));
+    return Promise.all(sorted.map((sec) => card(weak.filter((r) => r.sectionId === sec.id), sections.length > 1 ? `exams.weak-students:${sec.id}` : "exams.weak-students", sec.label,
+      `${BASE}/results?exam=${latest.exam.id}&section=${sec.id}&weak=1`)));
   },
 };
 

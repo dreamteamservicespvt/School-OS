@@ -6,7 +6,7 @@ import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { countsFor, DELIVERY_LABEL, HISTORY_FILTERS, historyWhere, inTestMode, messageCampusWhere, recipientCampusWhere, senderNames, senderWords } from "@/lib/communication/history";
+import { countsFor, DELIVERY_LABEL, HISTORY_FILTERS, historyWhereIn, inTestMode, messageCampusWhere, recipientCampusWhere, senderNames, senderWords } from "@/lib/communication/history";
 import { Card } from "@/components/ui/card";
 import { Stats } from "@/components/ui/stats";
 import { Toolbar } from "@/components/ui/toolbar";
@@ -39,13 +39,13 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
   const mode = sp.mode === "person" ? "person" : "all";
   const params = readListParams(sp, HISTORY_FILTERS);
   const tz = current.school.timeZone;
-  const where = historyWhere(current.ctx, access.full, params, tz);
   const mineOnly: Prisma.MessageWhereInput = { schoolId: current.ctx.schoolId, ...(access.full ? {} : { sentById: current.ctx.userId }) };
 
   const data = await withSchool(current.ctx, async (tx) => {
     // A person limited to one campus sees the messages about their campus (and the people of it) only.
     const campus = await messageCampusWhere(tx, current.ctx, access.scope.campusId);
     const ofCampus = await recipientCampusWhere(tx, current.ctx, access.scope.campusId);
+    const where = await historyWhereIn(tx, current.ctx, access.full, params, tz);
     const listWhere: Prisma.MessageWhereInput = { AND: [where, campus] };
     const mine: Prisma.MessageWhereInput = { AND: [mineOnly, campus] };
     // The people reached: every recipient is of a message of this school, so with full access and the whole school
@@ -118,7 +118,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
               <>
                 <UrlSearch placeholder="Title, message or sender" className="min-w-[14rem]" />
                 <UrlSelect param="channel" label="Channel" className="md:w-44" options={[{ value: "", label: "All channels" }, { value: "whatsapp", label: "WhatsApp" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }, { value: "app", label: "App notice" }]} />
-                <UrlSelect param="status" label="Status" className="md:w-40" options={[{ value: "", label: "Any status" }, { value: "failed", label: "Has failed" }, { value: "SCHEDULED", label: "Scheduled" }, { value: "QUEUED", label: "Sending" }, { value: "SENT", label: "Sent" }, { value: "CANCELLED", label: "Cancelled" }]} />
+                <UrlSelect param="status" label="Status" className="md:w-40" options={[{ value: "", label: "Any status" }, { value: "failed", label: "Has failed" }, { value: "not-delivered", label: "Not delivered" }, { value: "SCHEDULED", label: "Scheduled" }, { value: "QUEUED", label: "Sending" }, { value: "SENT", label: "Sent" }, { value: "CANCELLED", label: "Cancelled" }]} />
                 {access.full && <UrlSelect param="sender" label="Sent by" className="md:w-44" options={[{ value: "", label: "Anyone" }, { value: "me", label: "Me" }, { value: "people", label: "People" }, { value: "rules", label: "Automatic rules" }, { value: "notices", label: "Notices" }]} />}
                 <PeriodFilter timeZone={tz} />
                 {data.total > 0 && <ExportMenu href={exportHref} />}

@@ -171,6 +171,37 @@ export function workWhere(s: HomeworkScope): { OR?: ScopeClause[]; sectionId?: {
   return { OR: or.length ? or : [{ sectionId: NONE }], ...campusClause(s) };
 }
 
+/** Submissions waiting for marks: handed in (on time or late), not yet checked. */
+export const TO_CHECK_STATUSES = ["SUBMITTED", "LATE"] as const;
+
+/**
+ * Homework of this person's work (their classes and subjects; every class with full reach) with
+ * work waiting to be checked: the Dashboard's "homework to check" and "piling up" cards count
+ * these, and Homework lists them with ?check=1 (gap list G36).
+ */
+export function toCheckWhere(s: HomeworkScope) {
+  return { archivedAt: null, academicYearId: inYears(s), ...workWhere(s), submissions: { some: { archivedAt: null, status: { in: [...TO_CHECK_STATUSES] } } } };
+}
+
+/** Teachers with this many pieces or more to check are "piling up" on the leaders' Dashboard and in Homework's ?check=piling. */
+export const PILING_UP = 10;
+
+/** The homework of toCheckWhere() with how many pieces wait in each. */
+export async function workToCheck(tx: Tx, s: HomeworkScope) {
+  const rows = await tx.homework.findMany({
+    where: toCheckWhere(s),
+    select: { id: true, title: true, dueDate: true, teacherId: true, _count: { select: { submissions: { where: { archivedAt: null, status: { in: [...TO_CHECK_STATUSES] } } } } } },
+  });
+  return rows.map((r) => ({ id: r.id, title: r.title, dueDate: r.dueDate, teacherId: r.teacherId, pieces: r._count.submissions }));
+}
+
+/** Teachers with PILING_UP or more pieces to check, most first: teacher id and pieces. */
+export function pilingUp(work: { teacherId: string | null; pieces: number }[]) {
+  const per = new Map<string, number>();
+  for (const h of work) if (h.teacherId) per.set(h.teacherId, (per.get(h.teacherId) ?? 0) + h.pieces);
+  return [...per.entries()].filter(([, n]) => n >= PILING_UP).sort((a, b) => b[1] - a[1]);
+}
+
 export function requireWork(s: HomeworkScope, rec: { sectionId: string; subjectId: string; teacherId?: string | null }, what = "this", page: HomeworkPageKey = "homework") {
   if (s.modes[page] === "view") throw new HomeworkProblem(`Your role reads ${what} but does not change it. The subject teacher does this work.`);
   if (!mayWork(s, rec, page)) throw new HomeworkProblem(`Only the teacher of this class and subject can change ${what}.`);

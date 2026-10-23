@@ -6,13 +6,14 @@
 import "server-only";
 
 import { dayStartUtc } from "../../periods";
-import { homeworkScope, inYears, listWhere, workWhere, type HomeworkScope } from "../../homework/scope";
+import { homeworkScope, inYears, PILING_UP, pilingUp, workToCheck, type HomeworkScope } from "../../homework/scope";
+import { homeworkDoneBySection } from "../../homework/progress";
+import { pct } from "../../homework/words";
 import { homeworkFeatures } from "../../homework/settings";
 import { plural, someNames } from "../common";
 import type { AgendaItem, AttentionItem, BarRow, DashContext, Widget } from "../types";
 
 const BASE = "/homework-learning";
-const TO_CHECK = ["SUBMITTED", "LATE"] as const;
 const DAY = 86_400_000;
 
 /** The person's homework reach today, once per Dashboard. Null when the year has not started. */
@@ -27,7 +28,7 @@ function scopeOf(c: DashContext): Promise<HomeworkScope | null> {
   });
 }
 
-/** Work handed in and waiting for the person's marks: their own classes and subjects. */
+/** Work handed in and waiting for the person's marks: their own classes and subjects (Homework, ?check=1). */
 const toCheck: Widget<"attention"> = {
   id: "homework.to-check",
   module: "homework-learning",
@@ -36,30 +37,23 @@ const toCheck: Widget<"attention"> = {
   async load(c) {
     const s = await scopeOf(c);
     if (!s || s.level === "student" || s.modes.submissions !== "edit") return null;
-    const rows = await c.tx.submission.findMany({
-      where: { archivedAt: null, status: { in: [...TO_CHECK] }, homework: { archivedAt: null, academicYearId: inYears(s), ...workWhere(s) } },
-      select: { homework: { select: { id: true, title: true, dueDate: true } } },
-    });
-    if (!rows.length) return null;
-    const byHw = new Map<string, { title: string; n: number; due: Date }>();
-    for (const r of rows) {
-      const h = byHw.get(r.homework.id) ?? { title: r.homework.title, n: 0, due: r.homework.dueDate };
-      h.n++;
-      byHw.set(r.homework.id, h);
-    }
-    const oldest = [...byHw.values()].sort((a, b) => a.due.getTime() - b.due.getTime());
-    const late = oldest.filter((h) => h.due.getTime() < c.today.getTime() - 3 * DAY).length;
+    // Homework's own "work to check" list (workToCheck, gap list G36).
+    const work = await workToCheck(c.tx, s);
+    const pieces = work.reduce((a, h) => a + h.pieces, 0);
+    if (!pieces) return null;
+    const oldest = [...work].sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime());
+    const late = oldest.filter((h) => h.dueDate.getTime() < c.today.getTime() - 3 * DAY).length;
     return {
       id: "homework.to-check", tone: late ? "bad" : "warn", icon: "BookOpenCheck",
-      title: `${plural(rows.length, "piece")} of homework to check`,
-      detail: someNames(oldest.map((h) => `${h.title} (${h.n})`), 3),
-      action: "Check work", href: `${BASE}/submissions`, value: String(rows.length),
+      title: `${plural(pieces, "piece")} of homework to check`,
+      detail: someNames(oldest.map((h) => `${h.title} (${h.pieces})`), 3),
+      action: "Check work", href: `${BASE}?check=1`, value: String(pieces),
     } satisfies AttentionItem;
   },
 };
 
 /** For the people who watch homework: teachers with 10 or more pieces waiting to be checked (Remind on Homework). */
-const pilingUp: Widget<"attention"> = {
+const pilingUpCard: Widget<"attention"> = {
   id: "homework.piling-up",
   module: "homework-learning",
   kind: "attention",
@@ -67,26 +61,28 @@ const pilingUp: Widget<"attention"> = {
   async load(c) {
     const s = await scopeOf(c);
     if (!s || s.level !== "full" || !s.modes.homework) return null;
-    const waiting = await c.tx.homework.findMany({
-      where: { archivedAt: null, ...listWhere(s), teacherId: { not: null }, submissions: { some: { archivedAt: null, status: { in: [...TO_CHECK] } } } },
-      select: { teacherId: true, _count: { select: { submissions: { where: { archivedAt: null, status: { in: [...TO_CHECK] } } } } } },
-    });
-    const per = new Map<string, number>();
-    for (const h of waiting) per.set(h.teacherId!, (per.get(h.teacherId!) ?? 0) + h._count.submissions);
-    const many = [...per.entries()].filter(([, n]) => n >= 10).sort((a, b) => b[1] - a[1]);
+    // Homework's ?check=piling lists these teachers' work (pilingUp, gap list G36).
+    const many = pilingUp(await workToCheck(c.tx, s));
     if (!many.length) return null;
     const staff = await c.tx.staff.findMany({ where: { id: { in: many.slice(0, 3).map(([id]) => id) } }, select: { id: true, fullName: true } });
     const name = new Map(staff.map((x) => [x.id, x.fullName]));
     return {
       id: "homework.piling-up", tone: "warn", icon: "BookOpenCheck",
-      title: `${plural(many.length, "teacher")} with 10 or more pieces of homework to check`,
+      title: `${plural(many.length, "teacher")} with ${PILING_UP} or more pieces of homework to check`,
       detail: someNames(many.slice(0, 3).map(([id, n]) => `${name.get(id) ?? "Teacher"} (${n})`), 3),
-      action: "See and remind", href: BASE, value: many.map(([id, n]) => `${id.slice(0, 6)}${n}`).join(","),
+      action: "See and remind", href: `${BASE}?check=piling`, value: many.map(([id, n]) => `${id.slice(0, 6)}${n}`).join(","),
     } satisfies AttentionItem;
   },
 };
 
-/** Homework due in the last 7 days: the share handed in, by class (full reach) or by the person's sections. */
+/** How many sections the leaders' "Homework handed in" shows: the lowest first. */
+const HANDED_IN_ROWS = 8;
+
+/**
+ * Homework of the last 7 days: the share handed in for each section, Learning Progress's own
+ * "Homework done" for that section and dates (homeworkDoneBySection), so each bar opens the
+ * class on the same number (gap list G36). Full reach: the sections with the lowest share.
+ */
 const handedIn: Widget<"panel"> = {
   id: "homework.handed-in",
   module: "homework-learning",
@@ -95,34 +91,26 @@ const handedIn: Widget<"panel"> = {
   async load(c) {
     const s = await scopeOf(c);
     if (!s || s.level === "student" || !s.modes["learning-progress"]) return null;
-    const from = new Date(c.today.getTime() - 7 * DAY);
+    const from = new Date(c.today.getTime() - 6 * DAY);
     // Full reach: every section (of their campus, when limited to one); a class teacher: their own.
-    const sectionIds = s.level === "full" ? s.campusSections : s.ctSections;
-    if (sectionIds && !sectionIds.length) return null;
-    const hws = await c.tx.homework.findMany({
-      where: { archivedAt: null, academicYearId: inYears(s), dueDate: { gte: from, lt: c.today }, ...(sectionIds ? { sectionId: { in: sectionIds } } : {}) },
-      select: { sectionId: true, classId: true, submissions: { where: { archivedAt: null, status: { not: "EXCUSED" } }, select: { status: true } } },
+    const ids = s.level === "full" ? s.campusSections : s.ctSections;
+    if (ids && !ids.length) return null;
+    const sections = await c.tx.section.findMany({ where: { academicYearId: inYears(s), archivedAt: null, ...(ids ? { id: { in: ids } } : {}) }, include: { schoolClass: { select: { name: true, sortOrder: true } } } });
+    const share = await homeworkDoneBySection(c.tx, sections.map((x) => x.id), from, c.today);
+    const range = `period=custom&from=${from.toISOString().slice(0, 10)}&to=${c.today.toISOString().slice(0, 10)}`;
+    const all = sections.filter((x) => (share.get(x.id)?.given ?? 0) > 0).map((x) => {
+      const g = share.get(x.id)!;
+      return { key: x.id, label: `${x.schoolClass.name} ${x.name}`, value: pct(g.done, g.given), sort: x.schoolClass.sortOrder, href: `${BASE}/learning-progress?section=${x.id}&${range}` };
     });
-    if (!hws.length) return null;
-    const sections = await c.tx.section.findMany({ where: { id: { in: [...new Set(hws.map((h) => h.sectionId))] } }, include: { schoolClass: { select: { name: true, sortOrder: true } } } });
-    const byClass = sectionIds === null;
-    const groups = new Map<string, { label: string; sort: number; done: number; all: number; href: string }>();
-    for (const h of hws) {
-      const sec = sections.find((x) => x.id === h.sectionId);
-      if (!sec) continue;
-      const key = byClass ? h.classId : h.sectionId;
-      const g = groups.get(key) ?? { label: byClass ? sec.schoolClass.name : `${sec.schoolClass.name} ${sec.name}`, sort: sec.schoolClass.sortOrder, done: 0, all: 0, href: `${BASE}/learning-progress?section=${sec.id}&period=last7` };
-      g.all += h.submissions.length;
-      g.done += h.submissions.filter((x) => x.status === "SUBMITTED" || x.status === "LATE" || x.status === "GRADED").length;
-      groups.set(key, g);
-    }
-    const rows: BarRow[] = [...groups.entries()].filter(([, g]) => g.all > 0).sort((a, b) => a[1].sort - b[1].sort || a[1].label.localeCompare(b[1].label))
-      .map(([key, g]) => ({ key, label: g.label, value: Math.round((g.done / g.all) * 100), href: g.href }));
-    if (!rows.length) return null;
-    const done = [...groups.values()].reduce((n, g) => n + g.done, 0), all = [...groups.values()].reduce((n, g) => n + g.all, 0);
+    if (!all.length) return null;
+    const many = s.level === "full" && all.length > HANDED_IN_ROWS;
+    const rows: BarRow[] = (many ? [...all].sort((a, b) => a.value - b.value).slice(0, HANDED_IN_ROWS) : all)
+      .sort((a, b) => a.sort - b.sort || a.label.localeCompare(b.label, "en", { numeric: true }))
+      .map((r) => ({ key: r.key, label: r.label, value: r.value, href: r.href }));
+    const done = [...share.values()].reduce((n, g) => n + g.done, 0), given = [...share.values()].reduce((n, g) => n + g.given, 0);
     return {
       slot: "side",
-      panel: { kind: "bars", title: "Homework handed in", icon: "BookOpenCheck", sub: `Due in the last 7 days · ${Math.round((done / all) * 100)}% overall`, rows, goal: 90, lowBelow: 75, href: `${BASE}/learning-progress`, linkLabel: "Learning Progress", empty: "" },
+      panel: { kind: "bars", title: "Homework handed in", icon: "BookOpenCheck", sub: `Homework of the last 7 days · ${pct(done, given)}% overall${many ? ` · the ${HANDED_IN_ROWS} lowest of ${all.length} sections` : ""}`, rows, goal: 90, lowBelow: 75, href: `${BASE}/learning-progress?${range}`, linkLabel: "Learning Progress", empty: "" },
     };
   },
 };
@@ -150,4 +138,4 @@ const onlineToday: Widget<"agenda"> = {
   },
 };
 
-export const HOMEWORK_WIDGETS: Widget[] = [toCheck, pilingUp, handedIn, onlineToday] as Widget[];
+export const HOMEWORK_WIDGETS: Widget[] = [toCheck, pilingUpCard, handedIn, onlineToday] as Widget[];

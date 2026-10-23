@@ -78,6 +78,35 @@ export async function classProgress(tx: Tx, s: HomeworkScope, sectionId: string,
   };
 }
 
+/**
+ * "Homework done" of Learning Progress for many sections at once: handed in out of given, for the
+ * students studying in each section, homework set in the dates (and up to today when no dates),
+ * excused work left out; every subject. Learning Progress's own number for one section
+ * (classProgress, all subjects) is the same, so the Dashboard's "Homework handed in" bars open
+ * that page on the same share (gap list G36).
+ */
+export async function homeworkDoneBySection(tx: Tx, sectionIds: string[], from: Date, to: Date) {
+  const out = new Map<string, { done: number; given: number }>();
+  if (!sectionIds.length) return out;
+  const sections = await tx.section.findMany({ where: { id: { in: sectionIds } }, select: { id: true, academicYearId: true } });
+  const [roster, homework] = await Promise.all([
+    tx.enrolment.findMany({ where: { OR: sections.map((x) => ({ sectionId: x.id, academicYearId: x.academicYearId })), archivedAt: null, status: "STUDYING", student: { archivedAt: null } }, select: { studentId: true, sectionId: true } }),
+    tx.homework.findMany({ where: { sectionId: { in: sectionIds }, archivedAt: null, startDate: { lte: to }, dueDate: { gte: from } }, select: { id: true, sectionId: true } }),
+  ]);
+  const subs = homework.length ? await tx.submission.findMany({ where: { homeworkId: { in: homework.map((h) => h.id) }, archivedAt: null, status: { not: "EXCUSED" } }, select: { studentId: true, homeworkId: true, status: true } }) : [];
+  const sectionOf = new Map(homework.map((h) => [h.id, h.sectionId]));
+  const onRoll = new Set(roster.map((r) => `${r.sectionId}:${r.studentId}`));
+  for (const x of subs) {
+    const sec = sectionOf.get(x.homeworkId)!;
+    if (!onRoll.has(`${sec}:${x.studentId}`)) continue;
+    const g = out.get(sec) ?? { done: 0, given: 0 };
+    g.given++;
+    if ((HANDED_IN as readonly string[]).includes(x.status)) g.done++;
+    out.set(sec, g);
+  }
+  return out;
+}
+
 /** How many of these submissions were handed in (Submitted, Late or Graded). Excused work is left out before counting. */
 const handedIn = (subs: { status: string }[]) => subs.filter((x) => (HANDED_IN as readonly string[]).includes(x.status)).length;
 

@@ -7,7 +7,7 @@
 model AcademicSettings {
   schoolId            String   @map("school_id") @db.Uuid
   campusId            String   @map("campus_id") @db.Uuid
-  /// "HH:MM" 24-hour.
+  /// "HH:MM" 24-hour. 
   dayStart            String   @default("08:30") @map("day_start")
   dayEnd              String   @default("15:00") @map("day_end")
   /// 1 = Monday ... 7 = Sunday.

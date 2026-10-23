@@ -7,7 +7,9 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { Spinner } from "@/components/ui/button";
 import { Button } from "@/components/ui/button";
-import { TextArea } from "@/components/ui/field";
+import { TextArea, inputCls } from "@/components/ui/field";
+import { ChevronDown } from "lucide-react";
+import { cx } from "@/components/ui/cx";
 import { FormDialog, err, v } from "./form-dialog";
 import { startCorrection, stopCorrection } from "../actions";
 import { Words } from "@/lib/i18n/client";
@@ -26,7 +28,9 @@ export function YearPicker({ years, current, defaultId }: { years: YearOption[];
   return (
     <label className="flex items-center gap-2 text-sm">
       <span className="text-ink-2"><Words k="Academic year" /></span>
-      <select value={current ?? ""} className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-[15px]"
+      <span className="relative">
+      {/* The same look as every other dropdown (UrlSelect), not the browser's own. */}
+      <select value={current ?? ""} className={cx(inputCls(false), "h-11 !w-auto appearance-none pr-10 cursor-pointer")}
         onChange={(e) => {
           const next = new URLSearchParams(sp.toString());
           const chosen = years.find((y) => y.id === e.target.value);
@@ -36,6 +40,8 @@ export function YearPicker({ years, current, defaultId }: { years: YearOption[];
         }}>
         {years.map((y) => <option key={y.id} value={y.id}>{y.name} ({STATUS_WORDS[y.status] ?? y.status.toLowerCase()})</option>)}
       </select>
+      <ChevronDown size={16} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
+      </span>
       {pending && <Spinner className="size-4 text-ink-2" />}
     </label>
   );

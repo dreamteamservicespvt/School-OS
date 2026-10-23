@@ -66,7 +66,7 @@ export async function ImportHome({ current, place, initial, about, students }: {
             <li key={k.key}>
               {kinds.length > 1 && <p className="font-medium">{k.label}</p>}
               <p className="text-[14px] text-ink2">{k.about} <Words k="Columns with * are needed." /></p>
-              {k.may && <a href={templateHref(place, k.key)} className={cx(buttonClass("secondary", "sm"), "mt-2")} download><Words k="Download the ready Excel sheet" />{kinds.length > 1 ? `: ${k.label.toLowerCase()}` : ""}</a>}
+              {k.may && <a href={templateHref(place, k.key)} className={cx(buttonClass("secondary", "sm"), "mt-2 !h-auto min-h-8 py-1.5 !whitespace-normal text-left max-w-full")} download><Words k="Download the ready Excel sheet" />{kinds.length > 1 ? `: ${k.label.toLowerCase()}` : ""}</a>}
             </li>
           ))}
         </ul>

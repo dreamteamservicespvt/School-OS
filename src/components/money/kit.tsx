@@ -31,7 +31,7 @@ export function Stats({ items, className }: { items: StatItem[]; className?: str
             <>
               <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5 truncate">{Ic && <Ic size={14} className="shrink-0" aria-hidden="true" />}{m.label}</p>
               <p className={cx("font-semibold text-[19px] md:text-[21px] tnum mt-0.5 font-display tracking-tight leading-tight truncate", m.tone ? TONE_TEXT[m.tone] : "")}>{m.value}</p>
-              {m.sub && <p className="text-[12px] text-ink3 truncate">{m.sub}</p>}
+              {m.sub && <p className="text-[12px] text-ink3 line-clamp-2">{m.sub}</p>}
             </>
           );
           const cls = cx("block bg-surface text-left px-4 md:px-5 py-3.5 min-w-0", m.href && "hover:bg-sunken/60 transition", m.active && "bg-brand/5", n === 5 && i === 4 && "col-span-2 xl:col-span-1");
@@ -62,7 +62,7 @@ export function Band({ items, className }: { items: BandItem[]; className?: stri
             <>
               <p className="text-[12.5px] md:text-[13px] font-semibold opacity-80 flex items-center gap-1">{m.label}{m.href && <ChevronRight size={14} className="opacity-60" aria-hidden="true" />}</p>
               <p className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight tnum mt-1 truncate">{m.big}</p>
-              {m.foot && <p className="text-[12px] md:text-[13px] opacity-75 mt-0.5 truncate">{m.foot}</p>}
+              {m.foot && <p className="text-[12px] md:text-[13px] opacity-75 mt-0.5 line-clamp-2">{m.foot}</p>}
             </>
           );
           const cls = cx("block text-left p-4 md:p-6 min-w-0 border-white/15", m.href && "hover:bg-white/[.07] transition", BAND_CELL[n][i]);

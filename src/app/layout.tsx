@@ -4,6 +4,7 @@ import { cookies } from "next/headers";
 import { ACCENT_COOKIE, SIZE_COOKIE, THEME_COOKIE, cleanAccent, cleanTextSize, cleanTheme } from "@/lib/theme";
 import { Suspense } from "react";
 import { ScrollHints } from "@/components/ui/scroll-hints";
+import { PageLock } from "@/components/ui/page-lock";
 import { LANG_COOKIE, cleanLang } from "@/lib/i18n/languages";
 import "./globals.css";
 
@@ -59,6 +60,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         {children}
         {/* Sideways-scrolling rows on every page: selected item in view, fades, scrollbar on computers. */}
         <Suspense fallback={null}><ScrollHints /></Suspense>
+        {/* The page behind an open sheet, dialog or menu stays still. */}
+        <PageLock />
       </body>
     </html>
   );

@@ -251,7 +251,7 @@ function NotifPanel({ open, onClose, notes }: { open: boolean; onClose: () => vo
   return (
     <div className="fixed inset-0 z-50">
       <div className="absolute inset-0 bg-shade/35 md:bg-transparent animate-fade" onClick={onClose} aria-hidden="true" />
-      <div role="dialog" aria-label="Notifications"
+      <div role="dialog" aria-modal="true" aria-label="Notifications"
         className="absolute inset-x-0 bottom-0 md:bottom-auto md:left-auto md:right-4 md:top-[68px] md:w-[400px] bg-surface rounded-t-3xl md:rounded-2xl shadow-pop border border-line animate-sheet max-h-[85dvh] flex flex-col">
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
           <div>
@@ -300,7 +300,7 @@ function ProfileMenu({ open, onClose, person, theme }: { open: boolean; onClose:
   };
   const row = "w-full flex items-center gap-3 px-3 h-11 rounded-xl hover:bg-sunken text-[14px] font-medium text-left";
   return (
-    <div className="fixed inset-0 z-50">
+    <div className="fixed inset-0 z-50" data-scroll-lock>
       <div className="absolute inset-0 bg-shade/35 md:bg-transparent animate-fade" onClick={onClose} aria-hidden="true" />
       <div role="menu" aria-label="Your profile" className="absolute inset-x-0 bottom-0 md:bottom-auto md:left-auto md:right-4 md:top-[68px] md:w-[340px] bg-surface rounded-t-3xl md:rounded-2xl shadow-pop border border-line animate-sheet p-2" style={{ paddingBottom: "calc(0.5rem + env(safe-area-inset-bottom, 0px))" }}>
         <div className="flex items-center gap-3 p-3">

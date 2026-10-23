@@ -126,6 +126,28 @@ body {
   /* Long words and pasted links break instead of making the page wider than the screen. */
   overflow-wrap: break-word;
 }
+/* While a sheet, dialog or menu is open the page behind it stays still (src/components/ui/page-lock.tsx
+   sets data-locked). "gutter": a computer's scrollbar keeps its room, so the page does not shift. */
+html[data-locked] { overflow: hidden; overscroll-behavior: none; }
+html[data-locked="gutter"] { scrollbar-gutter: stable; }
+/* Scrolling inside a panel stops at its ends instead of running on to the page. */
+dialog, :is(dialog, [aria-modal="true"], [data-scroll-lock]) :is(.overflow-y-auto, .overflow-auto) { overscroll-behavior: contain; }
+/* A grid that sets no columns of its own (phones, before "lg:grid-cols-2" starts) had one "auto"
+   column, which grows to the widest thing inside it: the Admission reports cards made the page
+   529 px wide on a 360 px phone, and the sign-in pages 440 px (90e0bd1e). One column that may
+   shrink instead; any grid-cols-* or inline grid-template-columns still wins (base layer). */
+@layer base {
+  .grid { grid-template-columns: minmax(0, 1fr); }
+}
+/* An iPhone zooms the whole page in when a box with text under 16px is tapped, and leaves it
+   zoomed. On phones and touch screens every text box and dropdown is at least 16px. Unlayered,
+   so it wins over the text-[15px] / text-sm utilities on each field; fields drawn larger on
+   purpose (amounts, codes, marks) keep their size. */
+@media (max-width: 767px), (pointer: coarse) {
+  :is(input:not([type="checkbox"], [type="radio"], [type="range"], [type="file"], [type="color"], [type="submit"], [type="button"]), select, textarea):not([class*="text-lg"], [class*="text-xl"], [class*="text-2xl"], [class*="text-3xl"],[class*="text-[17"], [class*="text-[18"], [class*="text-[19"], [class*="text-[2"], [class*="text-[3"]) {
+    font-size: max(16px, 1em);
+  }
+}
 h1, h2, h3 { text-wrap: balance; }
 /* A hidden column label ("Open", "Actions") is absolutely placed by sr-only, so inside a
    table that scrolls sideways it escaped the scroll box and widened the whole page

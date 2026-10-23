@@ -54,7 +54,7 @@ export function Band({ items, label, className }: { items: BandCell[]; label: st
                 <p className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight tnum mt-1 truncate">
                   {m.big}{m.of && <span className="text-[0.55em] opacity-70 font-medium"> {m.of}</span>}
                 </p>
-                {m.foot && <p className="text-[12px] md:text-[13px] opacity-75 mt-0.5 truncate">{m.foot}</p>}
+                {m.foot && <p className="text-[12px] md:text-[13px] opacity-75 mt-0.5 line-clamp-2">{m.foot}</p>}
               </div>
               {m.ring != null && <HeroRing value={m.ring} />}
             </>

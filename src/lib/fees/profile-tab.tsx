@@ -7,6 +7,7 @@ import "server-only";
 import Link from "next/link";
 import { withSchool } from "../db";
 import { can } from "../permissions";
+import { pageMode } from "../duty";
 import { formatDate, formatRupees } from "../format";
 import { registerProfileTab, type ProfileTabArgs } from "../students/profile-tabs";
 import { admissionOnly, admissionOnlyFor, canSeeStudent, feeViewer } from "./access";
@@ -21,7 +22,10 @@ async function load({ current, studentId }: ProfileTabArgs) {
   return withSchool(current.ctx, async (tx) => {
     const viewer = await feeViewer(tx, current.ctx, current);
     if (admissionOnly(viewer) || !(await canSeeStudent(tx, viewer, studentId))) return null;
-    return { tab: await studentFeeTab(tx, current.ctx, studentId), canCollect: viewer.change === "all" && can(current.permissions, "fee-management", "create") };
+    return { tab: await studentFeeTab(tx, current.ctx, studentId), canCollect: viewer.change === "all" && can(current.permissions, "fee-management", "create")
+      // The same desk rule as the fee pages (feePage().desk): a Principal or School Admin reads fees but
+      // does not sit at the counter, and "Collect fee" here sent them back to the Fee Dashboard unexplained.
+      && pageMode(current, "fee-management", "collect") === "full" };
   });
 }
 
@@ -50,7 +54,7 @@ registerProfileTab({
   today: async (args) => {
     const data = await load(args);
     if (!data || data.tab.overduePaise <= ZERO) return [];
-    return [{ label: "Fees overdue", value: formatRupees(data.tab.overduePaise), tone: "danger", href: data.tab.collectLink }];
+    return [{ label: "Fees overdue", value: formatRupees(data.tab.overduePaise), tone: "danger", href: data.canCollect ? data.tab.collectLink : data.tab.ledgerLink }];
   },
   headerActions: async (args) => {
     const data = await load(args);

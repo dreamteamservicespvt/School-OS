@@ -30,7 +30,7 @@ export function Stats({ items, className, label = "Summary" }: { items: StatItem
             <>
               <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5 truncate">{Ic && <Ic size={14} className="shrink-0" aria-hidden="true" />}{tx(m.label)}</p>
               <p className={cx("font-semibold text-[19px] md:text-[21px] tnum mt-0.5 font-display tracking-tight leading-tight truncate", m.tone && TONE_TEXT[m.tone])}>{m.value}</p>
-              {m.sub && <p className="text-[12px] text-ink3 truncate">{tx(m.sub)}</p>}
+              {m.sub && <p className="text-[12px] text-ink3 line-clamp-2">{tx(m.sub)}</p>}
             </>
           );
           const cls = cx("bg-surface text-left px-4 md:px-5 py-3.5 min-w-0 block", n === 5 && i === 4 && "col-span-2 xl:col-span-1", n === 3 && i === 2 && "col-span-2 md:col-span-1");

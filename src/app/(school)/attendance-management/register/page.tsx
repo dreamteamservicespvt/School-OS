@@ -364,7 +364,7 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
   };
   const t = data?.cw.totals;
   const sub = !data || !t ? "No academic year running now"
-    : isToday ? `Whole school · today · ${t.markedSections} of ${t.sections} sections marked`
+    : isToday ? (data.cw.off ? `Whole school · today · no school (${data.cw.off === "Sunday" ? "Sunday" : data.cw.off})` : `Whole school · today · ${t.markedSections} of ${t.sections} sections marked`)
       : `Whole school · ${range?.label ?? "these dates"}`;
 
   return (

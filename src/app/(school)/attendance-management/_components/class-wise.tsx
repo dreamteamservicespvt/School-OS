@@ -76,7 +76,10 @@ export function ClassWiseView({ cw, sort, group, href, period, today }: {
         { label: "Absent", value: n(sum("absent")), sub: "Parents get a message", icon: UserX, tone: sum("absent") ? "bad" : undefined },
         { label: "Late", value: n(sum("late")), sub: "Counted as present", icon: Clock },
         { label: "On leave", value: n(sum("leave")), sub: "Not counted in the %", icon: CalendarDays },
-        { label: "Sections marked", value: `${marked.length} of ${shown.length}`, sub: shown.length - marked.length ? `${shown.length - marked.length} not marked yet` : "All marked", icon: ListChecks, tone: shown.length - marked.length ? "warn" : "ok" },
+        // A holiday or Sunday has nothing to mark: "20 not marked yet" in amber was a false alarm.
+        cw.off
+          ? { label: "Sections marked", value: "No school", sub: cw.off === "Sunday" ? "Sunday" : cw.off === "Not started" ? "This date has not come yet" : cw.off, icon: ListChecks }
+          : { label: "Sections marked", value: `${marked.length} of ${shown.length}`, sub: shown.length - marked.length ? `${shown.length - marked.length} not marked yet` : "All marked", icon: ListChecks, tone: shown.length - marked.length ? "warn" : "ok" },
       ] : [
         { label: "Average attendance", value: percentText(avg), sub: `${cw.sections[0]?.days ?? 0} school days`, icon: UserCheck },
         { label: "Student-days absent", value: n(sum("absent")), sub: "Across these sections", icon: UserX },

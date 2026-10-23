@@ -5,6 +5,7 @@
 import Link from "next/link";
 import { UrlDate, UrlSelect } from "@/components/ui/url-controls";
 import { Words } from "@/lib/i18n/client";
+import { PhoneFilters } from "./phone-filters";
 
 export function DashFilterBar({ campuses, dates, today, years, classes, showing }: {
   campuses: { id: string; name: string }[];
@@ -22,6 +23,7 @@ export function DashFilterBar({ campuses, dates, today, years, classes, showing 
   const current = years.find((y) => y.current)?.id ?? "";
   return (
     <div className="flex flex-col sm:flex-row sm:items-center gap-2 flex-wrap">
+      <PhoneFilters summary={showing}>
       {campuses.length > 0 && (
         <UrlSelect param="campus" label="Campus" className="sm:w-56"
           options={[{ value: "", label: "All campuses" }, ...campuses.map((c) => ({ value: c.id, label: c.name }))]} />
@@ -41,6 +43,7 @@ export function DashFilterBar({ campuses, dates, today, years, classes, showing 
         <UrlSelect param="class" label="Class" className="sm:w-44"
           options={[{ value: "", label: "All classes" }, ...classes.map((c) => ({ value: c.id, label: c.name }))]} />
       )}
+      </PhoneFilters>
       {showing && (
         <p className="text-[13px] text-ink2">
           <Words k="Showing" /> {showing}<Words k=". Each number opens its list with the same filter." />{" "}

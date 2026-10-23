@@ -63,12 +63,17 @@ export async function withSchool<T>(ctx: SchoolContext, work: (tx: Tx) => Promis
   );
 }
 
-export async function withUser<T>(userId: string, work: (tx: Tx) => Promise<T>): Promise<T> {
+export async function withUser<T>(userId: string, work: (tx: Tx) => Promise<T>, opts: WorkOptions = {}): Promise<T> {
   const id = checkId(userId, "User");
-  return prisma.$transaction(async (tx) => {
-    await tx.$executeRaw`SELECT set_config('app.school_id', '', true), set_config('app.user_id', ${id}, true)`;
-    return work(tx);
-  });
+  // Same limits as withSchool: Prisma's own 5 s gave up on a busy server (the Marks page
+  // failed with "Transaction already closed ... 12783 ms passed" while many pages loaded).
+  return prisma.$transaction(
+    async (tx) => {
+      await tx.$executeRaw`SELECT set_config('app.school_id', '', true), set_config('app.user_id', ${id}, true)`;
+      return work(tx);
+    },
+    { timeout: opts.timeout ?? 15_000, maxWait: 10_000 },
+  );
 }
 
 // ---------------------------------------------------------------------------

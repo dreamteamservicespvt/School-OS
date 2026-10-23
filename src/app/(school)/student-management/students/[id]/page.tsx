@@ -160,8 +160,10 @@ export default async function StudentProfilePage({ params, searchParams }: { par
         </div>
         {n > 0 && (
           <div className={cx("grid border-t border-line gap-px bg-line/70", stripCols)}>
-            {strip.map((m) => {
+            {strip.map((m, i) => {
               const Ic = iconFor(m.label);
+              // Five tiles in rows of two (phone) or three (tablet) left an empty grey cell: the last one fills it.
+              const span = n === 5 && i === 4 ? "col-span-2 xl:col-span-1" : "";
               const tone = m.tone ? TONE[m.tone] : undefined;
               const body = (
                 <>
@@ -171,8 +173,8 @@ export default async function StudentProfilePage({ params, searchParams }: { par
                 </>
               );
               return m.href
-                ? <Link key={m.label} href={m.href} scroll={false} className="bg-surface text-left px-4 md:px-5 py-3.5 hover:bg-sunken/60 transition">{body}</Link>
-                : <div key={m.label} className="bg-surface text-left px-4 md:px-5 py-3.5">{body}</div>;
+                ? <Link key={m.label} href={m.href} scroll={false} className={cx("bg-surface text-left px-4 md:px-5 py-3.5 hover:bg-sunken/60 transition", span)}>{body}</Link>
+                : <div key={m.label} className={cx("bg-surface text-left px-4 md:px-5 py-3.5", span)}>{body}</div>;
             })}
           </div>
         )}

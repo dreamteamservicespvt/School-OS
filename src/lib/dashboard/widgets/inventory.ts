@@ -8,8 +8,8 @@ import "server-only";
 import { invCan, invViewer } from "../../inventory/access";
 import { lowStockItems } from "../../inventory/stock";
 import { inventorySettings } from "../../inventory/settings";
-import { billsWithState } from "../../inventory/purchases";
-import { BASE, PRIORITY, billState, qtyWords } from "../../inventory/words";
+import { billDueSoon, billsWithState } from "../../inventory/purchases";
+import { BASE, PRIORITY, qtyWords } from "../../inventory/words";
 import { formatRupees } from "../../format";
 import { iso, n, plural, shortDate } from "../common";
 import type { ListRow, Viewer, Widget } from "../types";
@@ -136,8 +136,8 @@ const billsDue: Widget<"attention"> = {
   homes: ["accountant", "store"],
   allowed: sees("purchases"),
   async load(c) {
-    const soon = new Date(c.today.getTime() + 7 * 86_400_000);
-    const bills = (await billsWithState(c.tx)).filter((b) => b.expense && ["UNPAID", "PART_PAID"].includes(billState(b.expense)) && b.bill.dueDate && b.bill.dueDate <= soon);
+    // The Bills tab's "Due within 7 days" (billDueSoon, gap list G36).
+    const bills = (await billsWithState(c.tx)).filter((b) => billDueSoon(b, c.today));
     if (!bills.length) return null;
     const left = bills.reduce((a, b) => a + (b.expense!.amountPaise - b.expense!.paidPaise), BigInt(0));
     const late = bills.filter((b) => b.bill.dueDate! < c.today).length;
@@ -146,7 +146,7 @@ const billsDue: Widget<"attention"> = {
       id: "inventory.bills-due", tone: late ? "bad" : "warn", icon: "CreditCard",
       title: `${plural(bills.length, "vendor bill")} due: ${formatRupees(left)}`,
       detail: late ? `${plural(late, "bill")} past the due date.` : "Due within a week.",
-      action: pays ? "Pay" : "Review", href: `${BASE}/purchases?tab=bills&status=unpaid`, value: `${bills.length}:${left}`,
+      action: pays ? "Pay" : "Review", href: `${BASE}/purchases?tab=bills&status=due7`, value: `${bills.length}:${left}`,
     };
   },
 };

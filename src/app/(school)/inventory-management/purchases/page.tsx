@@ -99,7 +99,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
       const where = { ...(range ? { date: range } : {}), ...(vendorF ? { order: { vendorId: vendorF } } : {}), ...(q ? { number: { contains: q, mode: "insensitive" as const } } : {}) };
       [total, receipts] = await Promise.all([tx.goodsReceipt.count({ where }), tx.goodsReceipt.findMany({ where, orderBy: [{ date: "desc" }, { createdAt: "desc" }], skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE, include: { lines: true, order: true } })]);
     } else if (tab === "bills") {
-      bills = await billsList(tx, readBillsFilter((k) => one(sp[k]), per.range));
+      bills = await billsList(tx, readBillsFilter((k) => one(sp[k]), per.range, today));
       total = bills.length;
       bills = bills.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
     }
@@ -161,7 +161,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
     requests: [{ value: "", label: "All" }, ...Object.entries(REQUEST_STATUS).map(([value, v]) => ({ value, label: v.label }))],
     orders: [{ value: "", label: "All" }, { value: "open", label: "To receive" }, ...Object.entries(ORDER_STATUS).map(([value, v]) => ({ value, label: v.label }))],
     receipts: [],
-    bills: [{ value: "", label: "All" }, { value: "unpaid", label: "Unpaid" }, { value: "waiting", label: "Waiting approval" }, { value: "paid", label: "Paid" }, { value: "cancelled", label: "Cancelled" }],
+    bills: [{ value: "", label: "All" }, { value: "unpaid", label: "Unpaid" }, { value: "due7", label: "Due within 7 days" }, { value: "waiting", label: "Waiting approval" }, { value: "paid", label: "Paid" }, { value: "cancelled", label: "Cancelled" }],
     vendors: [{ value: "", label: "Active" }, { value: "archived", label: "Archived" }],
   };
   const pager = d.total > PAGE_SIZE ? <Pager page={page} pageSize={PAGE_SIZE} total={d.total} prevHref={here({ page: page > 2 ? String(page - 1) : null })} nextHref={here({ page: String(page + 1) })} /> : null;
@@ -185,7 +185,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
             <div className="flex gap-2 flex-wrap">
               {statusChips[tab].length > 0 && <UrlSelect param="status" label="Status" value={status} options={statusChips[tab]} />}
               {["orders", "receipts", "bills"].includes(tab) && <UrlSelect param="vendor" label="Vendor" options={[{ value: "", label: "All vendors" }, ...d.vendors]} className="max-w-[220px]" />}
-              {tab !== "vendors" && <PeriodFilter {...p.dates} fallback="finyear" />}
+              {tab !== "vendors" && !(tab === "bills" && status === "due7") && <PeriodFilter {...p.dates} fallback="finyear" />}
               {can.export && <ExportButton href={exportHref} />}
               {tab === "vendors" && (can.purchase || can.pay) && <ButtonLink href={here({ editvendor: "new" })} icon={Plus} scroll={false}><Words k="Add vendor" /></ButtonLink>}
               {tab === "bills" && can.purchase && <ButtonLink href={here({ bill: "new" })} icon={Plus} scroll={false}><Words k="Record bill" /></ButtonLink>}

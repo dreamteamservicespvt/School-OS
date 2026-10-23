@@ -27,7 +27,9 @@ import { AskCancelButton, MatchSheet } from "./online-check";
 import { AdmissionFees } from "./admission-fees";
 import { ClassFees, FEE_SORTS } from "./class-fees";
 import { toSheet } from "../_lib/pay-sheet";
-import { BASE, feeGuard, feePeriod, feeViewOnCampus, one, qs, type SearchParams } from "../_lib/page";
+import { BASE, feeGuard, feePeriod, feeViewOnCampus, feeYearView, one, qs, type SearchParams } from "../_lib/page";
+import { backToThisYear, withYearDates } from "@/lib/academic/view-year";
+import { ViewYearStrip } from "@/components/view-year-strip";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 import { aiAllowed } from "@/lib/settings/switch-rules";
@@ -53,11 +55,13 @@ const METHOD: Record<string, string> = { upi: "UPI", card: "Card", netbanking: "
 
 /** Fee Dashboard (06 §2, mod-fees.jsx): money as it comes in today, what is pending and overdue. */
 export default async function FeeDashboardPage({ searchParams }: { searchParams: SearchParams }) {
-  const p = await feeGuard("dashboard");
-  if (p.level === "admission") return <AdmissionFees searchParams={searchParams} />;
-  const sp = await searchParams;
+  const p0 = await feeGuard("dashboard");
+  if (p0.level === "admission") return <AdmissionFees searchParams={searchParams} />;
+  const raw = await searchParams;
   // One campus chosen on the Dashboard (?campus=): that campus's students' money only, as the card counted it.
-  const viewer = await feeViewOnCampus(p, sp.campus);
+  // Another year (?year=): that year's fees, as at its last day when it is over, read-only (gap list G36).
+  const { p, viewer, view } = await feeYearView(p0, await feeViewOnCampus(p0, raw.campus), raw.year);
+  const sp = withYearDates(raw, view);
   // "all": full and partial payments together (the Dashboard's money tiles open this, so the list holds every payment they count).
   const tab = one(sp.kind) === "partial" ? "partial" : one(sp.kind) === "all" ? "all" : "full";
   const status = STATUS.some((s) => s.value === one(sp.status)) ? one(sp.status) : "all";
@@ -125,7 +129,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
   const mMax = methods.reduce((a, m) => (m.amount > a ? m.amount : a), BigInt(0));
   const mTotal = methods.reduce((a, m) => a + m.amount, BigInt(0));
   const waitingSum = data.waiting.reduce((a, w) => a + w.amountPaise, BigInt(0));
-  const keep = { campus: one(sp.campus) || null, kind: tab === "full" ? null : tab, status: status === "all" ? null : status, mode: mode === "all" ? null : mode, ...per.keep, how: period === "month" ? "month" : null, q: q || null };
+  const keep = { campus: one(sp.campus) || null, year: view?.id ?? null, kind: tab === "full" ? null : tab, status: status === "all" ? null : status, mode: mode === "all" ? null : mode, ...per.keep, how: period === "month" ? "month" : null, q: q || null };
   const here = qs(HREF, keep);
   const payHref = (id: string) => qs(HREF, { ...keep, page: page > 1 ? String(page) : null, pay: id });
   const fullCount = data.counts[0].total;
@@ -150,6 +154,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
           <ButtonLink href={`${BASE}/ledger/import`} variant="secondary" icon={FileInput} className="hidden md:inline-flex"><Words k="Import old dues and receipts" /></ButtonLink>
           {p.desk && <ButtonLink href={BASE} variant="primary" icon={IndianRupee}><Words k="Collect fee" /></ButtonLink>}
         </> : undefined} />
+      <ViewYearStrip year={view} back={backToThisYear(HREF, raw)} />
       <Stack>
         <Band items={[
           { label: "Collected today", big: formatRupees(tiles.today.amount), foot: `${tiles.today.count} ${tiles.today.count === 1 ? "payment" : "payments"} · ${data.upiToday} by UPI`, href: `${HREF}#recent` },

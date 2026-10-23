@@ -19,7 +19,9 @@ import { ExportButton } from "@/components/ui/export-button";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { cx } from "@/components/ui/cx";
 import { FeeHead } from "../_components/fee-head";
-import { BASE, feeGuard, feePeriod, feeViewOnCampus, one, qs, type SearchParams } from "../_lib/page";
+import { BASE, feeGuard, feePeriod, feeViewOnCampus, feeYearView, one, qs, type SearchParams } from "../_lib/page";
+import { backToThisYear } from "@/lib/academic/view-year";
+import { ViewYearStrip } from "@/components/view-year-strip";
 import { DefaulterList, type DefaulterItem } from "./list";
 import { CallNoteForm } from "./call-note";
 import { Words } from "@/lib/i18n/client";
@@ -36,10 +38,11 @@ const STAT_TONES: Tone[] = ["neutral", "warn", "bad", "bad"];
 
 /** Defaulters (06 §2, mod-fees.jsx): who owes past the due date, how long, and the reminders already sent. */
 export default async function DefaultersPage({ searchParams }: { searchParams: SearchParams }) {
-  const p = await feeGuard("defaulters");
+  const p0 = await feeGuard("defaulters");
   const sp = await searchParams;
   // One campus chosen on the Dashboard (?campus=): that campus's students only, as the card counted them.
-  const viewer = await feeViewOnCampus(p, sp.campus);
+  // Another year (?year=): fees fallen due by its last day and still owed, its classes; read-only when it is over (gap list G36).
+  const { p, viewer, view } = await feeYearView(p0, await feeViewOnCampus(p0, sp.campus), sp.year);
   const canEdit = p.does("defaulters");
   const promisesOn = p.features.has(PROMISE_FEATURE);
   const q = one(sp.q).trim().slice(0, 80);
@@ -80,7 +83,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
   });
 
   const { all, list } = data;
-  const keep = { campus: one(sp.campus) || null, q: q || null, class: filter.classId, section: filter.sectionId ?? null, age: filter.ageing !== null ? String(filter.ageing) : null, above: above || null, rem: rem || null, ...per.keep };
+  const keep = { campus: one(sp.campus) || null, year: view?.id ?? null, q: q || null, class: filter.classId, section: filter.sectionId ?? null, age: filter.ageing !== null ? String(filter.ageing) : null, above: above || null, rem: rem || null, ...per.keep };
   const here = (extra: Record<string, string | null> = {}) => qs(HREF, { ...keep, ...extra });
   const filtered = Boolean(q || filter.classId || filter.ageing !== null || above || rem || per.range);
   const over30 = all.rows.filter((r) => r.daysOverdue > 30).length;
@@ -111,7 +114,8 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
       <FeeHead pageName="Defaulters" href={HREF}
         sub={all.rows.length ? `${all.rows.length} ${all.rows.length === 1 ? "student owes" : "students owe"} ${formatRupees(all.total)} past the due date · ${over30} more than 30 days late` : "Nobody owes fees past the due date"}
         viewActions={<ExportButton href={qs(`${HREF}/export`, keep)} />}
-        actions={list.rows.length ? <ButtonLink href={here({ send: "all" })} scroll={false} variant="primary" icon={Send}>{filtered ? `Send reminder to ${list.rows.length}` : `Send reminder to all ${list.rows.length}`}</ButtonLink> : null} />
+        actions={list.rows.length && !view?.past ? <ButtonLink href={here({ send: "all" })} scroll={false} variant="primary" icon={Send}>{filtered ? `Send reminder to ${list.rows.length}` : `Send reminder to all ${list.rows.length}`}</ButtonLink> : null} />
+      <ViewYearStrip year={view} back={backToThisYear(HREF, sp)} />
       <Stack>
         <Stats items={all.ageingTotals.map((g, i) => ({
           label: g.label, value: formatRupees(g.amount), sub: `${g.students} ${g.students === 1 ? "student" : "students"}${filter.ageing === g.index ? " · showing" : ""}`,

@@ -103,7 +103,8 @@ export type ListRow = { id: string; title: string; sub: string; avatar?: string;
 export type Panel =
   | { kind: "classes-today"; title: string; sub: string; rows: ClassToday[]; timetableHref: string; off: string | null }
   | { kind: "bars"; title: string; sub: string; icon: DashIcon; rows: BarRow[]; goal?: number; lowBelow?: number; href?: string; linkLabel?: string; empty: string }
-  | { kind: "classes-overview"; title: string; sub: string; total: number; classes: { id: string; name: string; total: number; href: string; sections: { id: string; name: string; count: number; href: string }[] }[]; href: string }
+  /** unplaced: studying students not yet in a section this year, so the classes add up to the Students number. */
+  | { kind: "classes-overview"; title: string; sub: string; total: number; classes: { id: string; name: string; total: number; href: string; sections: { id: string; name: string; count: number; href: string }[] }[]; href: string; unplaced?: { count: number; href: string } }
   | { kind: "list"; title: string; sub: string; icon: DashIcon; rows: ListRow[]; href?: string; linkLabel?: string; empty: string }
   | { kind: "my-class"; title: string; sub: string; stats: { label: string; value: string; href?: string }[]; rows: ListRow[]; href: string }
   /** Today's brief (Principal summary): short lines in sections, each with the list behind it; forecasts marked "Suggestion". */
@@ -127,8 +128,11 @@ export type DashContext = {
   yearIds: string[];
   /** Read once and shared between loaders. */
   memo: <T>(key: string, fn: () => Promise<T>) => Promise<T>;
-  /** The Dashboard's filters (./filters.ts): the campus chosen (the viewer is already narrowed to it) and the day. */
-  filters: { campusId: string | null; date: Date | null };
+  /**
+   * The Dashboard's filters (./filters.ts): the campus chosen (the viewer is already narrowed to it), the last day
+   * (`today` is already moved to it), the first day of a range, the year (`year` and `yearIds` are already it) and the class.
+   */
+  filters: { campusId: string | null; date: Date | null; from?: Date | null; yearId?: string | null; classId?: string | null };
 };
 
 export type WidgetKind = "band" | "attention" | "agenda" | "birthdays" | "panel";

@@ -35,7 +35,9 @@ Last updated: 2026-10-23 (evening)
    Root fixes: PageLock (src/components/ui/page-lock.tsx), 16px boxes on phones, `.grid` base column,
    one dropdown chevron (all in src/app/globals.css). Research: docs/research/school-owner-pain-points.md.
 2. NEXT: user OKs push to main (Vercel deploys live). Before pushing: full `npx vitest run` green.
-3. NEXT: re-check the ~269 pages the first crawl skipped (see Gotchas: probe tool).
+3. NEXT: about 160 pages (mostly module front pages) were never read cleanly by the crawler (it moved on
+   before hydration; the dev server also restarted at its memory limit). Re-check them on a production
+   build with ONE worker: C:/Users/chala/tools/school-os-probe/crawl.js (NOFOLLOW=1, seeds = those URLs).
 4. Decisions for the user (list in docs/qa/2026-10-23-phone-audit.md "Needs your decision"):
    settlement matching, refund-needed list, receipt link in fee message, privacy notice (DPDP),
    scheduled backups, attendance offline default, resend Parent Link on mobile change, timed tests.
@@ -49,7 +51,7 @@ Last updated: 2026-10-23 (evening)
 - Never touch the Meta webhook or the gym's Vercel without the user's permission (user, 2026-10-23).
 - Claude must not type secrets into web forms; put them on the clipboard for the user.
 - Auto mode blocks `git push` to main; the user approves pushes in default mode.
-- Phone probe (playwright-core in session scratchpad, gone next chat): rebuild in a scratch folder,
+- Phone probe scripts: C:/Users/chala/tools/school-os-probe (run `npm i` there for playwright-core;
   Chrome at C:/Program Files/Google/Chrome/Application/chrome.exe. Admin sign-in code is in
   C:/Users/chala/tools/app.log ("[dev] one-time code"). Wait ~2 s after load before leaving a page,
   or the app router's history update looks like "interrupted by another navigation".

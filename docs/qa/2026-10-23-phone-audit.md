@@ -5,8 +5,9 @@ What was tested, what was fixed, and what needs a decision. Local only: nothing 
 ## How it was tested
 - A script signed in as the demo School Admin and the console Owner, opened every page it could reach
   (seeded from every route, then every link found) on a phone screen, 360 and 390 px, light and dark.
-- Production build: 626 school pages and 14 console pages checked fully. 269 more pages are re-checked
-  (the first pass moved on before the page finished starting, which only the test script saw).
+- 702 school pages and 14 console pages checked fully (production build plus re-checks on the dev server).
+  About 160 pages, mostly module front pages, were not read cleanly by the script (it moved on before
+  the page finished starting); they are listed as not checked, not as passed.
 - Per page: wider than the screen, text boxes under 16 px (iPhone zoom), server errors, browser
   console errors, white boxes in dark mode, empty cells in tile grids.
 - Screenshots of the main screens reviewed by eye: Dashboard, Students, Student Profile, Fees,

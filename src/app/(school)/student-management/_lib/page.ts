@@ -58,13 +58,17 @@ export const studentPage = cache(async () => {
  * the Dashboard's filter, src/lib/campus.ts narrowToCampus): that campus's
  * students and its year. Never wider than the person's own limit.
  */
-export async function studentPageOnCampus(raw: string | string[] | undefined) {
+export async function studentPageOnCampus(raw: string | string[] | undefined, rawYear?: string | string[] | undefined) {
   const p = await studentPage();
-  if (!raw) return p;
+  const yearId = Array.isArray(rawYear) ? rawYear[0] : rawYear;
+  if (!raw && !yearId) return p;
   return withSchool(p.current.ctx, async (tx) => {
-    const current = await narrowToCampus(tx, p.current, raw);
-    if (current === p.current) return p;
-    return { ...p, current, ...(await pageYears(tx, current)) };
+    const current = raw ? await narrowToCampus(tx, p.current, raw) : p.current;
+    const base = current === p.current ? p : { ...p, current, ...(await pageYears(tx, current)) };
+    // A year chosen on the Dashboard (?year=, gap list G36): that year of a campus the person sees, as the card counted it.
+    if (!yearId || !/^[0-9a-f-]{36}$/i.test(yearId)) return base;
+    const y = await tx.academicYear.findFirst({ where: { id: yearId, archivedAt: null, ...(current.campusId ? { campusId: current.campusId } : {}) } });
+    return y ? { ...base, year: y, years: [y], yearIds: [y.id], otherYear: y.id !== base.year?.id } : base;
   });
 }
 

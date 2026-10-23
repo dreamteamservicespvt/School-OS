@@ -35,7 +35,9 @@ const studentsBand: Widget<"band"> = {
   homes: ["leader", "office"],
   allowed: (v) => abilities(v).reach === "all",
   async load(c) {
-    const [total, fresh] = await Promise.all([studentCount(c), c.year ? studentCount(c, { new: "1" }) : Promise.resolve(0)]);
+    // One class chosen on the Dashboard: the Student List's own class filter (the link carries ?class=).
+    const cls: Record<string, string> = c.filters.classId ? { class: c.filters.classId } : {};
+    const [total, fresh] = await Promise.all([studentCount(c, cls), c.year ? studentCount(c, { ...cls, new: "1" }) : Promise.resolve(0)]);
     const sections = c.yearIds.length ? await c.tx.section.count({ where: { academicYearId: { in: c.yearIds }, archivedAt: null } }) : 0;
     return { id: "students.head-count", label: "Students", big: n(total), foot: [sections ? `${plural(sections, "section")}` : null, fresh ? `${n(fresh)} joined this year` : null].filter(Boolean).join(" · ") || "Studying now", href: BASE };
   },
@@ -89,14 +91,19 @@ const classesOverview: Widget<"panel"> = {
   allowed: (v) => abilities(v).reach === "all",
   async load(c) {
     if (!c.yearIds.length) return null;
-    const tiles = await classTiles(c.tx, c.viewer, c.yearIds);
-    if (!tiles.length) return null;
+    const [all, unplacedAll] = await Promise.all([classTiles(c.tx, c.viewer, c.yearIds), studentCount(c, { section: "none" })]);
+    // One class chosen on the Dashboard: that class alone (students not yet in a section have no class).
+    const tiles = c.filters.classId ? all.filter((t) => t.id === c.filters.classId) : all;
+    const unplaced = c.filters.classId ? 0 : unplacedAll;
+    if (!tiles.length && !unplaced) return null;
     const total = tiles.reduce((s, t) => s + t.total, 0);
+    // Students not yet in a section are shown too, so the classes and they add up to the Students number (gap list G36).
     return {
       slot: "main",
       panel: {
-        kind: "classes-overview", title: "Classes overview", sub: `${n(total)} students studying in ${plural(tiles.reduce((s, t) => s + t.sections.length, 0), "section")}`, total, href: BASE,
+        kind: "classes-overview", title: "Classes overview", sub: `${n(total)} students studying in ${plural(tiles.reduce((s, t) => s + t.sections.length, 0), "section")}${unplaced ? ` · ${n(unplaced)} not yet in a section` : ""}`, total, href: BASE,
         classes: tiles.map((t) => ({ id: t.id, name: t.name, total: t.total, href: `${BASE}?class=${t.id}`, sections: t.sections.map((s) => ({ ...s, href: `${BASE}?class=${t.id}&section=${s.id}` })) })),
+        ...(unplaced ? { unplaced: { count: unplaced, href: `${BASE}?section=none` } } : {}),
       },
     };
   },

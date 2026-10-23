@@ -78,8 +78,17 @@ const studentsPresent: Widget<"band"> = {
   async load(c) {
     const a = await access(c);
     if (a.students !== "all" || a.yearIds.length === 0) return null;
-    const cw = await registerWhole(c.tx, c.viewer.ctx, a, c.today, c.today, c.today);
+    // Dates chosen on the Dashboard (from–to): the register's own totals for those days, opened on the same dates.
+    const from = c.filters.from ?? null;
+    const cw = await registerWhole(c.tx, c.viewer.ctx, a, from ?? c.today, c.today, c.today);
     const href = `${BASE}/register`;
+    if (from && !cw.off) {
+      const t = cw.totals;
+      return {
+        id: "attendance.students-present", label: "Student attendance", big: t.percent === null ? "Not taken" : `${t.percent}%`,
+        ring: t.percent ?? undefined, foot: `${n(t.present)} present, ${n(t.absent)} absent, ${n(t.late)} late · these dates`, href,
+      };
+    }
     // No section has school today (a holiday on every campus the person sees, a Sunday...).
     if (cw.off) return { id: "attendance.students-present", label: "Students present", ...offTile(await schoolDayOff(c, a.campusId ?? null)), href };
     const t = cw.totals;

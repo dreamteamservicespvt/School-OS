@@ -136,6 +136,12 @@ async function yearIn(tx: Tx, viewer: Viewer): Promise<DashContext["year"]> {
   return y ? { id: y.id, name: y.name, startDate: y.startDate, endDate: y.endDate, status: y.status, campusId: y.campusId } : null;
 }
 
+/** A year chosen in the Dashboard's filters (one campus's year). */
+async function yearById(tx: Tx, id: string): Promise<DashContext["year"]> {
+  const y = await tx.academicYear.findFirst({ where: { id, archivedAt: null } });
+  return y ? { id: y.id, name: y.name, startDate: y.startDate, endDate: y.endDate, status: y.status, campusId: y.campusId } : null;
+}
+
 /** The current year of every campus the person sees (one each), for numbers about every student. */
 async function yearIdsIn(tx: Tx, viewer: Viewer, year: DashContext["year"]): Promise<string[]> {
   const ids = (await yearsFor(tx, viewer.ctx, viewer.campusId ?? null)).map((y) => y.id);
@@ -163,8 +169,10 @@ async function runLanes(viewer: Viewer, base: Omit<DashContext, "tx" | "memo" | 
     while (bundle) {
       try {
         await withSchool(viewer.ctx, async (tx) => {
-          const year = await yearIn(tx, viewer);
-          const c: DashContext = { ...base, tx, year, yearIds: await yearIdsIn(tx, viewer, year), memo: memoFor() };
+          // A year chosen in the filters: that year alone (gap list G36, Done when 8).
+          const chosen = base.filters.yearId ? await yearById(tx, base.filters.yearId) : null;
+          const year = chosen ?? await yearIn(tx, viewer);
+          const c: DashContext = { ...base, tx, year, yearIds: chosen ? [chosen.id] : await yearIdsIn(tx, viewer, year), memo: memoFor() };
           for (; bundle; bundle = queue.shift(), at = 0) {
             while (at < bundle.length) {
               const job = bundle[at++];
@@ -260,9 +268,17 @@ export async function buildHome(person: Viewer, opts: { now?: Date; widgets?: re
   // One campus chosen: every card counts that campus only, as if the person were limited to it (never wider than their own limit).
   const viewer: Viewer = opts.filters?.campusId ? { ...person, campusId: opts.filters.campusId } : person;
   const homes = homesFor(viewer);
-  // Another day: only on the control centre, whose numbers are about the school's day; a teacher's home stays on today.
-  const day = isLeader(homes) ? opts.filters?.date ?? null : null;
-  const filters: DashFilters = { campusId: opts.filters?.campusId ?? null, date: day };
+  // Another day, a range of days, a year and a class: only on the control centre, whose numbers are about the
+  // school; a teacher's home stays on today and their own classes.
+  const lead = isLeader(homes);
+  const day = lead ? opts.filters?.date ?? null : null;
+  const filters: DashFilters = {
+    campusId: opts.filters?.campusId ?? null, date: day,
+    from: lead && day ? opts.filters?.from ?? null : null,
+    yearId: lead ? opts.filters?.yearId ?? null : null,
+    pastYear: lead ? opts.filters?.pastYear ?? null : null,
+    classId: lead ? opts.filters?.classId ?? null : null,
+  };
   const today = day ?? todayFor(tz, now);
   const list = widgetsFor(viewer, homes, opts.widgets, opts.built);
   const leader = isLeader(homes);
@@ -302,7 +318,7 @@ export async function buildHome(person: Viewer, opts: { now?: Date; widgets?: re
 
   const queue: Job[][] = [...bundlesOf(list.map((w, i) => widgetJob(w, i, results, failedIds))), [seenJob], [approvalJob], [taskJob], [dayJob]];
   // A past day is over: every period of it has ended.
-  await runLanes(viewer, { viewer, homes, today, now, tz, minuteNow: day ? 24 * 60 : minuteIn(tz, now), filters }, queue, opts.lanes);
+  await runLanes(viewer, { viewer, homes, today, now, tz, minuteNow: day && day < todayFor(tz, now) ? 24 * 60 : minuteIn(tz, now), filters }, queue, opts.lanes);
   if (errors.length) throw errors[0];
 
   const out: Collected = { band: [], attention: [], agenda: [], birthdays: [], panel: [] };

@@ -14051,4 +14051,5 @@ export const hi: Catalogue = {
   "Leave today": "आज की छुट्टी",
   "Student attendance": "छात्र उपस्थिति",
   "Fees collected": "जमा हुई फ़ीस",
+  "This list shows that year, as the Dashboard counted it.": "यह सूची उस वर्ष को दिखाती है, जैसे डैशबोर्ड ने उसे गिना।",
 };

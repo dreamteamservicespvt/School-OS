@@ -14051,4 +14051,5 @@ export const te: Catalogue = {
   "Leave today": "ఈరోజు సెలవు",
   "Student attendance": "విద్యార్థుల హాజరు",
   "Fees collected": "వసూలైన ఫీజు",
+  "This list shows that year, as the Dashboard counted it.": "ఈ జాబితా ఆ సంవత్సరాన్ని చూపుతుంది, డాష్‌బోర్డ్ లెక్కించినట్లే.",
 };

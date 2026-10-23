@@ -14585,6 +14585,8 @@ export const EN = [
   "Leave today",
   "Student attendance",
   "Fees collected",
+  // Lists opened for another year from the Dashboard (gap list G36 follow-up)
+  "This list shows that year, as the Dashboard counted it.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

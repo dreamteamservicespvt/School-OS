@@ -334,31 +334,37 @@ describe("Meta's delivery reports for console WhatsApp messages", () => {
     expect((await row(m.id)).status).toBe("SENT");
   });
 
-  it("passes every report on, unchanged, to the other site on the same Meta app, and asks Meta to retry when that fails", async () => {
-    const { handleConsoleWhatsappWebhook } = await import("@/lib/console/whatsapp-webhook");
-    vi.stubEnv("CONSOLE_WHATSAPP_FORWARD_URL", "https://other.example/api/whatsapp/webhook");
+  it("hands every call to the gym's site first, exactly as Meta sent it, and Meta gets the gym's answer", async () => {
+    const { POST } = await import("@/app/api/v1/console/whatsapp/route");
+    vi.stubEnv("CONSOLE_WHATSAPP_FORWARD_URL", "https://gym.example/api/whatsapp/webhook");
+    const post = (body: string, sig: string | null) =>
+      POST(new Request("http://localhost/api/v1/console/whatsapp", { method: "POST", body, headers: { "content-type": "application/json", ...(sig ? { "x-hub-signature-256": sig } : {}) } }));
     const wamid = `wamid.${randomUUID()}`;
     const m = await message(wamid);
     const body = report(wamid, "delivered");
-    const fetchSpy = vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response("ok"));
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(async () => new Response("EVENT_RECEIVED"));
     try {
-      expect((await handleConsoleWhatsappWebhook(body, signed(body))).status).toBe(200);
+      const res = await post(body, signed(body));
+      expect(res.status).toBe(200);
+      expect(await res.text()).toBe("EVENT_RECEIVED");
       expect((await row(m.id)).status).toBe("DELIVERED");
       const [url, init] = fetchSpy.mock.calls[0];
-      expect(url).toBe("https://other.example/api/whatsapp/webhook");
+      expect(url).toBe("https://gym.example/api/whatsapp/webhook");
       expect(init?.body).toBe(body);
-      expect((init?.headers as Record<string, string>)["X-Hub-Signature-256"]).toBe(signed(body));
-      // An incoming message for the other site, with no statuses at all, still goes on.
+      expect((init?.headers as Record<string, string>)["x-hub-signature-256"]).toBe(signed(body));
+      // The gym gets calls School OS itself refuses or has nothing to do with.
       const incoming = JSON.stringify({ entry: [{ changes: [{ value: { messages: [{ from: "919876500001", id: "wamid.in", type: "text", text: { body: "hi" } }] } }] }] });
-      expect((await handleConsoleWhatsappWebhook(incoming, signed(incoming))).status).toBe(200);
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
-      // A refused signature goes nowhere.
-      expect((await handleConsoleWhatsappWebhook(body, "sha256=bad")).status).toBe(401);
-      expect(fetchSpy).toHaveBeenCalledTimes(2);
-      fetchSpy.mockResolvedValue(new Response("down", { status: 500 }));
-      expect((await handleConsoleWhatsappWebhook(body, signed(body))).status).toBe(502);
-      fetchSpy.mockRejectedValue(new Error("timeout"));
-      expect((await handleConsoleWhatsappWebhook(body, signed(body))).status).toBe(502);
+      expect((await post(incoming, signed(incoming))).status).toBe(200);
+      expect((await post(body, null)).status).toBe(200);
+      expect((await post("not json", signed("not json"))).status).toBe(200);
+      vi.stubEnv("CONSOLE_WHATSAPP_APP_SECRET", "");
+      expect((await post(body, signed(body))).status).toBe(200);
+      expect(fetchSpy).toHaveBeenCalledTimes(5);
+      // The gym's own answer goes back to Meta, so Meta retries when the gym is down.
+      fetchSpy.mockImplementation(async () => new Response("down", { status: 500 }));
+      expect((await post(body, signed(body))).status).toBe(500);
+      fetchSpy.mockImplementation(async () => { throw new Error("timeout"); });
+      expect((await post(body, signed(body))).status).toBe(502);
     } finally {
       fetchSpy.mockRestore();
     }

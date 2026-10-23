@@ -73,23 +73,33 @@ export async function handleConsoleWhatsappWebhook(rawBody: string, signature: s
       await tx.consoleMessage.update({ where: { id: row.id }, data: { status, failReason } });
     }
   }, { timeout: 30_000 });
-  // A Meta app has one callback address. When DREAM TEAM's app also serves
-  // another site, every report goes on to it unchanged (same body, same
-  // signature). If that fails Meta is told to retry, as it would be without us;
-  // the statuses above are safe to apply twice.
-  if (!(await forward(rawBody, signature ?? ""))) return { status: 502 };
   return { status: 200, body: "ok" };
 }
 
-async function forward(rawBody: string, signature: string): Promise<boolean> {
+const PASSED_HEADERS = ["content-type", "x-hub-signature-256", "x-hub-signature", "user-agent"];
+
+/**
+ * A Meta app has one callback address, and DREAM TEAM's app belongs to the
+ * gym's site (CONSOLE_WHATSAPP_FORWARD_URL). Every call goes to it first,
+ * exactly as Meta sent it, whatever School OS makes of it, and the gym's
+ * answer is the answer Meta gets: the gym works as if Meta called it directly.
+ * Null when there is nowhere to pass it on to.
+ */
+export async function passOn(rawBody: string, headers: Headers): Promise<ConsoleWebhookOutcome | null> {
   const to = env("CONSOLE_WHATSAPP_FORWARD_URL");
-  if (!to?.startsWith("https://")) return true;
-  try {
-    const res = await fetch(to, { method: "POST", body: rawBody, headers: { "Content-Type": "application/json", "X-Hub-Signature-256": signature }, signal: AbortSignal.timeout(8_000) });
-    if (res.ok) return true;
-    console.warn(JSON.stringify({ level: "warn", event: "console-whatsapp-forward-refused", status: res.status }));
-  } catch (e) {
-    console.warn(JSON.stringify({ level: "warn", event: "console-whatsapp-forward-failed", reason: e instanceof Error ? e.message.slice(0, 160) : "unknown" }));
+  if (!to?.startsWith("https://")) return null;
+  const sent: Record<string, string> = {};
+  for (const h of PASSED_HEADERS) {
+    const v = headers.get(h);
+    if (v) sent[h] = v;
   }
-  return false;
+  try {
+    const res = await fetch(to, { method: "POST", body: rawBody, headers: sent, signal: AbortSignal.timeout(8_000) });
+    if (!res.ok) console.warn(JSON.stringify({ level: "warn", event: "console-whatsapp-pass-on-refused", status: res.status }));
+    return { status: res.status, body: (await res.text().catch(() => "")).slice(0, 1000) };
+  } catch (e) {
+    console.warn(JSON.stringify({ level: "warn", event: "console-whatsapp-pass-on-failed", reason: e instanceof Error ? e.message.slice(0, 160) : "unknown" }));
+    // Meta tries again later, as it would if the gym's site were down.
+    return { status: 502 };
+  }
 }

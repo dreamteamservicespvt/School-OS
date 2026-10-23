@@ -249,7 +249,7 @@ function fill(src: Source, values: Record<string, string>, schoolName: string): 
 /** Blanks that differ only by whom a message names; rows to one phone that differ only in these become one message. */
 const NAME_KEYS = ["student_name", "class", "admission_no", "guardian_name", "staff_name"] as const;
 /** Blanks that belong to one child (an amount, a receipt, a personal link): such messages are never joined for brothers and sisters. */
-const OWN_KEYS = new Set(["due_amount", "due_date", "paid_amount", "payment_date", "receipt_number", "link", "code", "ticket_number"]);
+const OWN_KEYS = new Set(["due_amount", "due_date", "paid_amount", "payment_date", "receipt_number", "receipt_link", "link", "code", "ticket_number"]);
 
 /**
  * One message per phone (or email or login) per send. Rows to the same

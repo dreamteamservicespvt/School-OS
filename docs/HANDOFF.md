@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-10-23 23:00 IST
+Last updated: 2026-10-23 23:59 IST
 
 ## State
 - Console WhatsApp delivery reports are live: `/api/v1/console/whatsapp`
@@ -25,19 +25,24 @@ Last updated: 2026-10-23 23:00 IST
   https://school-os-beta.vercel.app/i/{{1}} (if APP_URL changes, the templates must be redone).
 
 ## Next steps
-1. DONE 2026-10-23 (earlier): console WhatsApp templates set on Vercel and tested (invite reached
-   9652733668); test school "DTS Test School" (DTS-HYD-001) on live, never touch Chaitanya English.
-   1b/1c pushed: sign-in pages fit phones (90e0bd1e); console counts 16 core modules (8ee0ad04, live
-   since 13:19 UTC). "Modules on 16" not read on live (needs the owner's sign-in code).
-1d. DONE and LIVE 2026-10-23 22:27 IST (main 46a3b2e0, Vercel Production success): phone audit of 890
-   school + 14 console pages, 20 fixes; report docs/qa/2026-10-23-phone-audit.md; research
-   docs/research/school-owner-pain-points.md. Also built: Parent Link resent on a guardian's new mobile
-   (tick box), "Paid twice" online payments flagged to the fee desk. Tests 2,161/2,161, lint 0 errors.
+1. DONE 2026-10-23: console WhatsApp templates live; phone audit live on main 46a3b2e0 (report
+   docs/qa/2026-10-23-phone-audit.md). Test school "DTS Test School" (DTS-HYD-001); never touch Chaitanya English.
 2. Offline attendance stays opt-in (blueprint says optional). Decided, not a gap.
 3. DECIDED by the user 2026-10-23 (build in this order, one at a time, brainstorm → plan → build):
-   a. Receipt link: add a NEW WhatsApp template `sos_fee_receipt` (Utility, "Open receipt" URL button to
-      the public receipt, src/app/pay/[schoolId]/[token]/receipt) and submit to Meta. Never edit or delete
-      the gym's templates or webhook. SMS text unchanged (would need new DLT approval).
+   a. Receipt link: CODE DONE 2026-10-23 night (local commit, not pushed). Every posted payment (cash too)
+      has a secret address /r/<key> (src/app/r/[key]/route.ts, token.ts receiptKeyFor) that opens the
+      parent copy PDF. The "Fee received" WhatsApp ready text ends "Open your receipt: {receipt_link}";
+      on an approved template that line becomes an "Open receipt" URL button (blanks.ts whatsappParts,
+      whatsapp.ts templateComponents; deliver.ts fills the button). Schools still on the untouched old
+      text, never sent to WhatsApp, get it by migration 20261024000000_fee_paid_receipt_link. Also fixed:
+      WhatsApp texts that end on a blank get a full stop when sent for approval (Meta refuses them).
+      Tests: tests/fees/receipt-link.test.ts, never-lost.test.ts (button filled). SMS text unchanged (DLT).
+      LEFT FOR THE USER: `sos_fee_receipt` is NOT yet on Meta. The local .env no longer has
+      WHATSAPP_ACCESS_TOKEN, and 6 Chrome profiles are connected (Claude may not pick one). Either put the
+      token back in .env and run `python scripts/wa-templates.py create scripts/whatsapp/sos_fee_receipt.json`,
+      or pick the SRINU-dts browser for Claude. Note: schools send from their OWN WhatsApp account; each
+      school's "Fee received" template is sent for approval from Message Templates (it now includes the
+      button). sos_fee_receipt only serves a school that sends through the shared Dream Team number.
    b. Backups: nightly encrypted copy to Cloudflare R2 (user chose R2 knowing it does not promise India;
       blueprint "in India" was inferred). Adapt scripts/backup.sh (aws CLI with --endpoint-url for R2)
       and run it nightly from GitHub Actions. User must create: Cloudflare R2 bucket + S3 API token,

@@ -177,7 +177,7 @@ export async function submitForApproval(tx: Tx, ctx: SchoolContext, versionId: s
     note = "Test mode: approved straight away.";
   } else {
     const r = await submitWhatsappTemplate({ config: setup.config, secrets: await channelSecrets(tx, ctx, "whatsapp") }, {
-      name, language: v.language, category: "UTILITY", body: v.body, variables: v.variables,
+      name, language: v.language, category: "UTILITY", body: v.body,
     });
     if (!r.ok) throw new TemplateProblem(r.reason);
     status = r.status === "APPROVED" || r.status === "REJECTED" ? r.status : "PENDING";

@@ -18,6 +18,7 @@ export const VARIABLES: { key: string; label: string; sample: string }[] = [
   { key: "receipt_number", label: "Receipt number", sample: "SPS/2026/00456" },
   { key: "paid_amount", label: "Paid amount", sample: "₹12,500" },
   { key: "payment_date", label: "Payment date", sample: "09-10-2026" },
+  { key: "receipt_link", label: "Receipt link", sample: "https://app.schoolos.in/r/…" },
   { key: "exam_name", label: "Exam name", sample: "Half Yearly Exam" },
   { key: "title", label: "Notice title", sample: "Diwali holidays" },
   { key: "ticket_number", label: "Ticket number", sample: "Q-00012" },
@@ -37,6 +38,27 @@ export function variablesIn(text: string): string[] {
   const seen: string[] = [];
   for (const m of text.matchAll(BLANK)) if (!seen.includes(m[1])) seen.push(m[1]);
   return seen;
+}
+
+/**
+ * Blanks WhatsApp carries as a button, not in the words: an approved template
+ * may hold a link only in a URL button. Its words are the button's label.
+ */
+export const BUTTON_BLANKS: Record<string, string> = { receipt_link: "Open receipt" };
+
+/**
+ * What a WhatsApp template is sent to WhatsApp as (and later filled in the
+ * same order): the text without the lines that hold a button blank, its blanks
+ * (WhatsApp's {{1}}, {{2}}...) and the button, if any. WhatsApp refuses a text
+ * that ends with a blank, so such a text gets a full stop.
+ */
+export function whatsappParts(body: string): { text: string; variables: string[]; button: { blank: string; label: string } | null } {
+  const lines = body.split("\n");
+  const blank = Object.keys(BUTTON_BLANKS).find((k) => body.includes(`{${k}}`)) ?? null;
+  const kept = blank ? lines.filter((l) => !Object.keys(BUTTON_BLANKS).some((k) => l.includes(`{${k}}`))) : lines;
+  let text = kept.join("\n").trimEnd();
+  if (/\{[a-z_]+\}$/.test(text)) text += ".";
+  return { text, variables: variablesIn(text), button: blank ? { blank, label: BUTTON_BLANKS[blank] } : null };
 }
 
 /** Blanks that are not on the list, so the person can fix a typing mistake. */

@@ -1,0 +1,18 @@
+{
+  "name": "sos_fee_receipt",
+  "language": "en",
+  "category": "UTILITY",
+  "components": [
+    {
+      "type": "BODY",
+      "text": "Dear {{1}}, we have received {{2}} for {{3}} on {{4}}. Receipt number {{5}}. Thank you. - {{6}}.",
+      "example": { "body_text": [["Srinivas Kumar", "₹6,000", "Ravi Kumar", "23-10-2026", "DTS/2026-27/00001", "DTS Test School"]] }
+    },
+    {
+      "type": "BUTTONS",
+      "buttons": [
+        { "type": "URL", "text": "Open receipt", "url": "https://school-os-beta.vercel.app/r/{{1}}", "example": ["https://school-os-beta.vercel.app/r/0f5e7a1c2b3d4e5f60718293a4b5c6d71a2b3c4d5e6f708192a3b4c5d6e7f809Xk3fQ9pLm2Rt7Vw8Yz1aBc"] }
+      ]
+    }
+  ]
+}

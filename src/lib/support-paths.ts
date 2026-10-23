@@ -22,7 +22,7 @@ const FILE_LAST = new Set([
 ]);
 /** The last two parts, where the last word alone is also a page somewhere else. */
 const FILE_LAST_TWO = new Set(["certificates/preview", "cocurricular/certificates", "staff-hr-management/id-cards"]);
-/** Words followed by one file's id at the end: /files/<id>, /runs/<id>, /receipt/<payment>. */
+/** Words followed by one file's id at the end: /files/<id>, /runs/<id>, /receipt/<payment> */
 const FILE_PARENT = new Set(["file", "files", "documents", "runs", "exports", "offers", "template", "errors", "pass", "letter", "certificate", "receipt", "fees"]);
 
 /**
@@ -35,6 +35,8 @@ export function isFileAddress(pathname: string): boolean {
   const parts = pathname.split("?")[0].split("/").filter(Boolean);
   if (parts.length === 0) return false;
   if (FILE_LAST.has(parts[parts.length - 1])) return true;
+  // A parent's receipt link, /r/<receipt key> (src/app/r/[key]).
+  if (parts.length === 2 && parts[0] === "r") return true;
   return parts.length >= 2 && (FILE_PARENT.has(parts[parts.length - 2]) || FILE_LAST_TWO.has(parts.slice(-2).join("/")));
 }
 

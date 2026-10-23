@@ -213,7 +213,7 @@ describe("WhatsApp (Meta Cloud API) details typed in SMS, WhatsApp & Email", () 
     try {
       const msg = { channel: "whatsapp" as const, to: "9848012345", text: "Hello" };
       expect(await whatsappProvider({ config: { phoneNumberId: "../me" }, secrets: { accessToken: "t" } }).send(msg)).toMatchObject({ ok: false, retryable: false, reason: expect.stringMatching(/only numbers/) });
-      expect(await submitWhatsappTemplate({ config: { businessAccountId: "1/../2" }, secrets: { accessToken: "t" } }, { name: "x", language: "en", category: "UTILITY", body: "Hi", variables: [] })).toMatchObject({ ok: false });
+      expect(await submitWhatsappTemplate({ config: { businessAccountId: "1/../2" }, secrets: { accessToken: "t" } }, { name: "x", language: "en", category: "UTILITY", body: "Hi" })).toMatchObject({ ok: false });
       expect(await listWhatsappTemplates({ config: { businessAccountId: "x" }, secrets: { accessToken: "t" } })).toBeNull();
       expect(calls).toEqual([]);
       // A real account: the first page is read, the link to the metadata address is not followed.

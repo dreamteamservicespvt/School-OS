@@ -8,6 +8,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { sendAutomatic, sendMessage, planMessage, MessagingProblem, type SendInput } from "../messaging";
 import { formatDate, formatRupees } from "../format";
+import { receiptPlaceholderFor } from "../parent-link/token";
 
 /** A1: the parent's "Fee received" message. Never stops the payment: a messaging setup problem is only logged. */
 export async function sendFeePaid(tx: Tx, ctx: SchoolContext, p: { paymentId: string; studentId: string; amountPaise: bigint; date: Date; receiptNo: string }) {
@@ -16,7 +17,7 @@ export async function sendFeePaid(tx: Tx, ctx: SchoolContext, p: { paymentId: st
       rule: "fee-paid",
       event: { key: `fee-paid:${p.paymentId}`, label: `Fee received, receipt ${p.receiptNo}` },
       to: { guardiansOf: [p.studentId] },
-      perStudent: { [p.studentId]: { paid_amount: formatRupees(p.amountPaise), payment_date: formatDate(p.date), receipt_number: p.receiptNo } },
+      perStudent: { [p.studentId]: { paid_amount: formatRupees(p.amountPaise), payment_date: formatDate(p.date), receipt_number: p.receiptNo, receipt_link: receiptPlaceholderFor(ctx.schoolId, p.paymentId) } },
       source: { type: "Payment", id: p.paymentId },
     });
   } catch (e) {

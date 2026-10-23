@@ -24,6 +24,7 @@ import { accessIn } from "@/lib/auth/access";
 import { buildHome } from "@/lib/dashboard/compose";
 import type { Current } from "@/lib/current";
 import { addDlt, makeCommSchool, templateId } from "./fixture";
+import { receiptKeyFor, receiptPlaceholderFor } from "@/lib/parent-link/token";
 
 type School = Awaited<ReturnType<typeof makeCommSchool>>;
 
@@ -184,6 +185,24 @@ describe("a real WhatsApp account: only approved templates", () => {
     const row = await withSchool(s.ctx, (tx) => tx.messageRecipient.findFirstOrThrow({ where: { messageId: r.result.messageId } }));
     expect(row).toMatchObject({ channel: "whatsapp", status: "SENT" });
     expect(sent.at(-1)!.body).toMatchObject({ type: "template", template: { name: "absent_today_1" } });
+  });
+
+  it("the Fee received template fills its Open receipt button, not the words, with the receipt's address", async () => {
+    stubWhatsapp();
+    await approve(s, "fee-paid", "fee_received_1");
+    const paymentId = randomUUID();
+    const r = await withSchool(s.ctx, (tx) => sendAutomatic(tx, s.ctx, {
+      rule: "fee-paid", event: { key: `fee-paid:${paymentId}`, label: "Fee received, receipt R-9" }, to: { guardiansOf: [s.ravi.id] },
+      perStudent: { [s.ravi.id]: { paid_amount: "₹6,000", payment_date: "10-10-2026", receipt_number: "R-9", receipt_link: receiptPlaceholderFor(s.school.id, paymentId) } },
+    }));
+    expect(r.status).toBe("sent");
+    if (r.status !== "sent") return;
+    await withSchool(s.ctx, (tx) => deliverMessage(tx, s.ctx, { messageId: r.result.messageId, round: "0", chunk: 0 }));
+    const template = sent.at(-1)!.body.template as { name: string; components: { type: string; sub_type?: string; parameters: { text: string }[] }[] };
+    expect(template.name).toBe("fee_received_1");
+    const body = template.components.find((c) => c.type === "body")!.parameters.map((p) => p.text);
+    expect(body).toEqual(["Srinivas Kumar", "₹6,000", "Ravi Kumar", "10-10-2026", "R-9", s.school.name]);
+    expect(template.components.find((c) => c.type === "button")).toMatchObject({ sub_type: "url", parameters: [{ text: receiptKeyFor(s.school.id, paymentId) }] });
   });
 
   it("typed words ride the approved General announcement template, never plain text", async () => {

@@ -19,7 +19,8 @@ import { CANCELLED_REASON, DELIVER_JOB, MessagingProblem, NOT_SENT } from "./sen
 export { CANCELLED_REASON };
 import { messageSettings, type BackupType } from "./settings";
 import { currentVersions, render } from "./templates";
-import { linksIn, withRealLinks } from "../parent-link/token";
+import { linksIn, receiptKeyIn, withRealLinks } from "../parent-link/token";
+import { whatsappParts } from "./blanks";
 import { logTestModeLink, testModeCarriesCodes } from "../dev-codes";
 import { CODE_EXPIRED, CODE_NOT_RESENT, CODE_SEND_WINDOW_MS, isCodeMessage, unsealCode, withCode } from "./one-time-code";
 
@@ -40,7 +41,7 @@ type Claimed = Prisma.MessageRecipientGetPayload<{ include: { message: { select:
 type Context = {
   providers: Partial<Record<ProviderChannel, Provider>>;
   dlt: { entityId: string | null; header: string | null };
-  versions: Map<string, { whatsappName: string | null; whatsappStatus: string | null; variables: string[]; dltTemplateId: string | null }>;
+  versions: Map<string, { whatsappName: string | null; whatsappStatus: string | null; body: string; dltTemplateId: string | null }>;
   attachments: Map<string, { filename: string; content: Buffer; contentType: string }[]>;
 };
 
@@ -58,14 +59,17 @@ async function loadContext(ctx: SchoolContext): Promise<Context> {
 async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context, code: string | null): Promise<Outgoing> {
   let v = r.templateVersionId ? c.versions.get(r.templateVersionId) : undefined;
   if (r.templateVersionId && !v) {
-    const row = await tx.templateVersion.findUnique({ where: { id: r.templateVersionId }, select: { whatsappName: true, whatsappStatus: true, variables: true, dltTemplateId: true } });
+    const row = await tx.templateVersion.findUnique({ where: { id: r.templateVersionId }, select: { whatsappName: true, whatsappStatus: true, body: true, dltTemplateId: true } });
     if (row) { v = row; c.versions.set(r.templateVersionId, row); }
   }
   const values = (r.values ?? {}) as Record<string, string>;
   const out: Outgoing = { channel: r.channel as Outgoing["channel"], to: r.address, text: withCode(withRealLinks(r.text), code), subject: r.message.title };
   if (r.channel === "sms") Object.assign(out, { dltTemplateId: v?.dltTemplateId ?? null, dltEntityId: c.dlt.entityId, senderHeader: c.dlt.header });
   if (r.channel === "whatsapp" && v?.whatsappStatus === "APPROVED" && v.whatsappName) {
-    out.whatsappTemplate = { name: v.whatsappName, language: r.language, params: v.variables.map((k) => withCode(withRealLinks(values[k] ?? ""), code)) };
+    // The same parts the template was approved with: blanks in order, and the "Open receipt" button's end of address.
+    const parts = whatsappParts(v.body);
+    const button = parts.button ? receiptKeyIn(values[parts.button.blank] ?? "") : null;
+    out.whatsappTemplate = { name: v.whatsappName, language: r.language, params: parts.variables.map((k) => withCode(withRealLinks(values[k] ?? ""), code)), ...(button ? { buttonParam: button } : {}) };
   }
   if (r.channel === "email" && r.message.attachmentFileIds.length) {
     let files = c.attachments.get(r.messageId);

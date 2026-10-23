@@ -16,6 +16,7 @@ import { withSchool, type Tx } from "@/lib/db";
 import { canSeeStudent, feeViewer, type FeeViewer } from "@/lib/fees/access";
 import { counterAllowed, feeSettings } from "@/lib/fees/settings";
 import { feeAction } from "../../_lib/action";
+import { receiptPlaceholderFor } from "@/lib/parent-link/token";
 
 const ZERO = BigInt(0);
 
@@ -153,7 +154,7 @@ export async function resendReceipt(_prev: unknown, fd: FormData) {
       rule: "fee-paid",
       event: { key: `fee-paid:${p.id}:again:${Date.now()}`, label: `Receipt ${receipt.number} sent again` },
       to: { guardiansOf: [p.studentId] },
-      perStudent: { [p.studentId]: { paid_amount: formatRupees(p.amountPaise), payment_date: formatDate(p.paymentDate), receipt_number: receipt.number } },
+      perStudent: { [p.studentId]: { paid_amount: formatRupees(p.amountPaise), payment_date: formatDate(p.paymentDate), receipt_number: receipt.number, receipt_link: receiptPlaceholderFor(ctx.schoolId, p.id) } },
       source: { type: "Payment", id: p.id },
       // A person asked for this copy: it goes even while the school is moving in.
       byHand: true,

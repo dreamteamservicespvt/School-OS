@@ -1,6 +1,6 @@
 // The Parent Link's secret, worked out from the link's id with a server key
 // (HMAC). It is never stored; the database keeps only its hash (rule 31).
-import { createHash, createHmac } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 
 function secret(): Buffer {
   const raw = process.env.PARENT_LINK_SECRET ?? process.env.FIELD_ENCRYPTION_KEY;
@@ -66,13 +66,42 @@ export const PAY_PLACEHOLDER = /⟦pay-link:([0-9a-f-]{36}):([0-9a-f-]{36})⟧/g
 export const payPlaceholderFor = (schoolId: string, paymentLinkId: string) => `⟦pay-link:${schoolId}:${paymentLinkId}⟧`;
 export const payLinkUrl = (schoolId: string, paymentLinkId: string) => `${appUrl()}/pay/${schoolId}/${payLinkTokenFor(paymentLinkId)}`;
 
+// Receipt links in the "Fee received" message (HANDOFF 3a): one for every posted payment, cash
+// too, made the same way. The address is a single part, the school's id without dashes, the
+// payment's id without dashes and the secret, so it fits the end of WhatsApp's "Open receipt"
+// button (https://…/r/{{1}}).
+export const RECEIPT_PLACEHOLDER = /⟦receipt:([0-9a-f-]{36}):([0-9a-f-]{36})⟧/g;
+export const receiptPlaceholderFor = (schoolId: string, paymentId: string) => `⟦receipt:${schoolId}:${paymentId}⟧`;
+const receiptSecret = (schoolId: string, paymentId: string) => createHmac("sha256", secret()).update(`receipt:${schoolId}:${paymentId}`).digest("base64url").slice(0, 22);
+/** The end of a receipt's address, after /r/. */
+export const receiptKeyFor = (schoolId: string, paymentId: string) => `${schoolId.replace(/-/g, "")}${paymentId.replace(/-/g, "")}${receiptSecret(schoolId, paymentId)}`;
+export const receiptUrl = (schoolId: string, paymentId: string) => `${appUrl()}/r/${receiptKeyFor(schoolId, paymentId)}`;
+const RECEIPT_KEY = /^([0-9a-f]{32})([0-9a-f]{32})([A-Za-z0-9_-]{22})$/;
+const asUuid = (hex: string) => `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+/** The school and payment a receipt address is for, or null when it is not a real one. */
+export function readReceiptKey(key: string): { schoolId: string; paymentId: string } | null {
+  const m = RECEIPT_KEY.exec(key);
+  if (!m) return null;
+  const schoolId = asUuid(m[1]);
+  const paymentId = asUuid(m[2]);
+  const want = Buffer.from(receiptSecret(schoolId, paymentId));
+  const got = Buffer.from(m[3]);
+  return want.length === got.length && timingSafeEqual(want, got) ? { schoolId, paymentId } : null;
+}
+
 /** Puts the real links in a text, just before it is handed to a provider. */
 export const withRealLinks = (text: string) =>
   text
     .replace(PLACEHOLDER, (_, id: string) => linkUrl(id))
     .replace(PAY_PLACEHOLDER, (_, school: string, id: string) => payLinkUrl(school, id))
     .replace(INVITE_PLACEHOLDER, (_, id: string, nonce: string) => inviteUrl(id, nonce))
-    .replace(SURVEY_PLACEHOLDER, (_, school: string, id: string) => surveyUrl(school, id));
+    .replace(SURVEY_PLACEHOLDER, (_, school: string, id: string) => surveyUrl(school, id))
+    .replace(RECEIPT_PLACEHOLDER, (_, school: string, id: string) => receiptUrl(school, id));
+/** The end of the receipt address in a text (for WhatsApp's "Open receipt" button), or null. */
+export function receiptKeyIn(text: string): string | null {
+  const m = [...text.matchAll(RECEIPT_PLACEHOLDER)][0];
+  return m ? receiptKeyFor(m[1], m[2]) : null;
+}
 /** The personal links in a text, as they would be sent (for the server log on a tester's computer). */
 export function linksIn(text: string): { what: string; url: string }[] {
   return [
@@ -80,9 +109,10 @@ export function linksIn(text: string): { what: string; url: string }[] {
     ...[...text.matchAll(PAY_PLACEHOLDER)].map((m) => ({ what: "payment link", url: payLinkUrl(m[1], m[2]) })),
     ...[...text.matchAll(INVITE_PLACEHOLDER)].map((m) => ({ what: "invite link", url: inviteUrl(m[1], m[2]) })),
     ...[...text.matchAll(SURVEY_PLACEHOLDER)].map((m) => ({ what: "survey link", url: surveyUrl(m[1], m[2]) })),
+    ...[...text.matchAll(RECEIPT_PLACEHOLDER)].map((m) => ({ what: "receipt link", url: receiptUrl(m[1], m[2]) })),
   ];
 }
 /** How a text with a link is shown on screen: never the link itself. */
 export const withHiddenLinks = (text: string) =>
-  text.replace(PLACEHOLDER, "[personal Parent Link]").replace(PAY_PLACEHOLDER, "[payment link]").replace(INVITE_PLACEHOLDER, "[personal invite link]").replace(SURVEY_PLACEHOLDER, "[personal survey link]");
+  text.replace(PLACEHOLDER, "[personal Parent Link]").replace(PAY_PLACEHOLDER, "[payment link]").replace(INVITE_PLACEHOLDER, "[personal invite link]").replace(SURVEY_PLACEHOLDER, "[personal survey link]").replace(RECEIPT_PLACEHOLDER, "[receipt link]");
 

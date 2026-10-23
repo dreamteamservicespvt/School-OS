@@ -4,6 +4,8 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
 import type { Outgoing, Provider, ProviderConfig, SendResult } from "./types";
 import { networkFailure, postJson } from "./types";
+import { whatsappParts } from "../blanks";
+import { appUrl } from "../../parent-link/token";
 
 /** Meta retires each Graph API version about two years after it comes out, so the version is a setting. */
 export const GRAPH_VERSION = /^v\d+\.\d+$/.test(process.env.WHATSAPP_GRAPH_API_VERSION ?? "") ? process.env.WHATSAPP_GRAPH_API_VERSION! : "v23.0";
@@ -82,12 +84,26 @@ export function whatsappProvider({ config, secrets }: ProviderConfig): Provider 
   };
 }
 
-/** Sends a template to WhatsApp for approval. Blanks become {{1}}, {{2}}... in the order they appear. */
-export async function submitWhatsappTemplate(p: ProviderConfig, t: { name: string; language: string; category: "UTILITY" | "MARKETING" | "AUTHENTICATION"; body: string; variables: string[] }) {
+/**
+ * The components WhatsApp is asked to approve: the words, blanks becoming
+ * {{1}}, {{2}}... in the order they appear, and a link button such as "Open
+ * receipt" (https://…/r/{{1}}) when the text has a button blank.
+ */
+export function templateComponents(body: string) {
+  const parts = whatsappParts(body);
+  let text = parts.text;
+  parts.variables.forEach((v, i) => { text = text.split(`{${v}}`).join(`{{${i + 1}}}`); });
+  const components: Record<string, unknown>[] = [{ type: "BODY", text, ...(parts.variables.length ? { example: { body_text: [parts.variables.map((v) => `sample ${v.replace(/_/g, " ")}`)] } } : {}) }];
+  if (parts.button) {
+    components.push({ type: "BUTTONS", buttons: [{ type: "URL", text: parts.button.label, url: `${appUrl()}/r/{{1}}`, example: [`${appUrl()}/r/${"0".repeat(64)}SampleReceiptKey123456`] }] });
+  }
+  return components;
+}
+
+/** Sends a template to WhatsApp for approval (see templateComponents). */
+export async function submitWhatsappTemplate(p: ProviderConfig, t: { name: string; language: string; category: "UTILITY" | "MARKETING" | "AUTHENTICATION"; body: string }) {
   if (!p.config.businessAccountId || !p.secrets.accessToken) return { ok: false as const, reason: "Add the WhatsApp Business account ID and access token in Settings, SMS, WhatsApp & Email first." };
   if (!META_ID.test(p.config.businessAccountId)) return { ok: false as const, reason: "The WhatsApp Business account ID has only numbers. Check it in Settings, SMS, WhatsApp & Email." };
-  let text = t.body;
-  t.variables.forEach((v, i) => { text = text.split(`{${v}}`).join(`{{${i + 1}}}`); });
   try {
     const res = await postJson(
       `${GRAPH}/${encodeURIComponent(p.config.businessAccountId)}/message_templates`,
@@ -95,7 +111,7 @@ export async function submitWhatsappTemplate(p: ProviderConfig, t: { name: strin
         name: t.name,
         language: t.language,
         category: t.category,
-        components: [{ type: "BODY", text, ...(t.variables.length ? { example: { body_text: [t.variables.map((v) => `sample ${v.replace(/_/g, " ")}`)] } } : {}) }],
+        components: templateComponents(t.body),
       },
       { Authorization: `Bearer ${p.secrets.accessToken}` },
       8000,

@@ -60,7 +60,7 @@ export function missingWords(missing: string[]) {
 export function smsParts(raw: string): number {
   // A Parent Link, invite or payment link placeholder is counted as the real link it becomes.
   const text = raw.replace(/⟦parent-link:[^⟧]+⟧/g, `${appUrl()}/p/${"x".repeat(43)}`).replace(/⟦invite:[^⟧]+⟧/g, `${appUrl()}/invite/${"x".repeat(43)}`)
-    .replace(/⟦pay-link:[^⟧]+⟧/g, `${appUrl()}/pay/${"x".repeat(36)}/${"x".repeat(43)}`);
+    .replace(/⟦pay-link:[^⟧]+⟧/g, `${appUrl()}/pay/${"x".repeat(36)}/${"x".repeat(43)}`).replace(/⟦receipt:[^⟧]+⟧/g, `${appUrl()}/r/${"x".repeat(86)}`);
   const unicode = /[^\x00-\x7F₹]/.test(text);
   const len = [...text].length;
   const single = unicode ? 70 : 160;
@@ -170,7 +170,9 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
     en: "Dear Parent, fee of {due_amount} for {student_name} is due on {due_date}. {how_to_pay} - {school_name}",
   } },
   { key: "fee-paid", name: "Fee received", category: "fees", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, we have received {paid_amount} for {student_name} on {payment_date}. Receipt number {receipt_number}. Thank you. - {school_name}",
+    // The last line becomes WhatsApp's "Open receipt" button on an approved template (blanks.ts, whatsappParts);
+    // schools made before it get it by prisma/schema/migrations/*_fee_paid_receipt_link.
+    en: "Dear {guardian_name}, we have received {paid_amount} for {student_name} on {payment_date}. Receipt number {receipt_number}. Thank you. - {school_name}\nOpen your receipt: {receipt_link}",
   } },
   { key: "fee-paid", name: "Fee received (SMS)", category: "fees", channel: "sms", texts: {
     en: "Received {paid_amount} for {student_name} on {payment_date}. Receipt {receipt_number}. Thank you. - {school_name}",

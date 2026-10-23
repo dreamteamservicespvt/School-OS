@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-10-23 22:30 IST
+Last updated: 2026-10-23 23:00 IST
 
 ## State
 - Console WhatsApp delivery reports are live: `/api/v1/console/whatsapp`
@@ -34,9 +34,22 @@ Last updated: 2026-10-23 22:30 IST
    docs/research/school-owner-pain-points.md. Also built: Parent Link resent on a guardian's new mobile
    (tick box), "Paid twice" online payments flagged to the fee desk. Tests 2,161/2,161, lint 0 errors.
 2. Offline attendance stays opt-in (blueprint says optional). Decided, not a gap.
-3. Waiting on the user (see report "Decisions taken"): Razorpay settlement matching (needs live account
-   access), privacy notice text (lawyer; English + Telugu), where to store scheduled backups, receipt link
-   in the fee message (Meta template re-approval on the WhatsApp account shared with the gym), timed tests.
+3. DECIDED by the user 2026-10-23 (build in this order, one at a time, brainstorm → plan → build):
+   a. Receipt link: add a NEW WhatsApp template `sos_fee_receipt` (Utility, "Open receipt" URL button to
+      the public receipt, src/app/pay/[schoolId]/[token]/receipt) and submit to Meta. Never edit or delete
+      the gym's templates or webhook. SMS text unchanged (would need new DLT approval).
+   b. Backups: nightly encrypted copy to Cloudflare R2 (user chose R2 knowing it does not promise India;
+      blueprint "in India" was inferred). Adapt scripts/backup.sh (aws CLI with --endpoint-url for R2)
+      and run it nightly from GitHub Actions. User must create: Cloudflare R2 bucket + S3 API token,
+      a GPG key for BACKUP_GPG_RECIPIENT, a BYPASSRLS backup login on Neon; secrets go in GitHub
+      Actions secrets, never in git. Also schedule scripts/restore-test.ts monthly.
+   c. Settlement matching: build now against Razorpay's documented Settlements API, shipped switched off
+      per school (School Feature); unmatched lines listed. Test on a live account later, when a school
+      takes online payments (user then gives read-only keys).
+   d. Privacy notice: Claude drafts plain English from the DPDP Act + 08-platform-security.md consent
+      rules, marked DRAFT for the user's lawyer; Telugu only from the lawyer/translator, never invented.
+      Screen stays switched off until approved text is in.
+   Still open: timed tests (parent pays on a slow phone < 60 s; teacher marks 40 students < 60 s).
 4. Not checked on live: pages behind the owner's console sign-in code ("Modules on 16").
 5. Meta webhook belongs to the gym (dreamteamfit). User's rule: never touch it or gym Vercel
    without permission. /api/v1/console/whatsapp is unused. Gym WhatsApp token left as is.

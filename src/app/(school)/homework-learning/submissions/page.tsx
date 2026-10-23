@@ -195,7 +195,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
           <Thread submissionId={r.sub.id} canReply={canEdit}
             items={data.comments!.map((c) => ({ id: c.id, who: c.fromStudent ? r.st.name : c.authorName, when: momentWords(c.createdAt, p.tz), text: c.body, fromStudent: c.fromStudent, hidden: c.hiddenAt ? c.hiddenReason ?? "Hidden" : null }))} />
         ) : null;
-        const profile = p.current.permissions["student-management"]?.see !== "none" ? <ButtonLink href={`/student-management/${r.st.id}`} variant="ghost" size="sm" icon={User}><Words k="Profile" /></ButtonLink> : null;
+        const profile = p.current.permissions["student-management"]?.see !== "none" ? <ButtonLink href={`/student-management/students/${r.st.id}`} variant="ghost" size="sm" icon={User}><Words k="Profile" /></ButtonLink> : null;
         const sub = `Roll ${r.st.rollNo ?? "—"} · ${hw.title}`;
         if (canEdit) {
           return (

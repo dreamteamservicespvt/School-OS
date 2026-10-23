@@ -177,7 +177,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
             <Avatar name={card.name} size={56} src={card.photoFileId ? fileLink(card.photoFileId, p.current.ctx.schoolId) : null} />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <Link href={`/student-management/${card.id}`} className="font-display font-semibold text-[19px] leading-tight hover:underline text-left">{card.name}</Link>
+                <Link href={`/student-management/students/${card.id}`} className="font-display font-semibold text-[19px] leading-tight hover:underline text-left">{card.name}</Link>
                 {L.overdue > ZERO ? <Pill tone="bad">{formatRupees(L.overdue)} <Words k="overdue" /></Pill> : balance > ZERO ? <Pill tone="warn">{formatRupees(balance)} <Words k="due" /></Pill> : <Pill tone="ok"><Words k="No dues" /></Pill>}
                 {data.promise && (p.may("defaulters")
                   ? <Link href={`${BASE}/defaulters?who=${studentId}`}><Pill tone={data.promise.state === "BROKEN" ? "bad" : "info"}>{promiseWords(data.promise)}</Pill></Link>

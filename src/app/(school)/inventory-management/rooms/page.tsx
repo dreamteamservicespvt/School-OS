@@ -112,12 +112,12 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
   ];
 
   const actions = can.rooms ? (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       <ButtonLink href={here({ open: "place" })} variant="secondary" icon={Building2} scroll={false}><Words k="Add place" /></ButtonLink>
       <ButtonLink href={here({ open: "raise" })} variant="primary" icon={Plus} scroll={false}><Words k="Raise request" /></ButtonLink>
     </div>
   ) : (
-    <div className="flex gap-2">
+    <div className="flex flex-wrap gap-2">
       {can.remind && openTotal > 0 && <ActButton action={remindStoreAction} fields={{ what: "maintenance" }} label="Remind store keeper" icon="bell" size="md" />}
       <ButtonLink href={`${BASE}/report-problem`} variant="primary" icon={Megaphone}><Words k="Report a problem" /></ButtonLink>
     </div>

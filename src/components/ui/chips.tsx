@@ -67,7 +67,7 @@ export function Banner({ tone = "info", icon, title, children, action, className
     <div role={tone === "bad" ? "alert" : undefined} className={cx("rounded-2xl px-4 py-3 flex flex-wrap md:flex-nowrap items-start md:items-center gap-3 text-[14px]", BANNER[tone], className)}>
       <Ic size={19} className={cx("shrink-0 mt-0.5 md:mt-0", TONE_TEXT[tone])} aria-hidden="true" />
       <p className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{tx(title)} </b>}{tx(children)}</p>
-      {action && <div className="shrink-0 flex gap-2 flex-wrap pl-8 md:pl-0">{action}</div>}
+      {action && <div className="max-w-full md:shrink-0 flex gap-2 flex-wrap pl-8 md:pl-0">{action}</div>}
     </div>
   );
 }

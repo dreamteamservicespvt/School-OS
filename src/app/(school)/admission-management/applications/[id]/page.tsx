@@ -156,7 +156,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
         </Card>
 
         {app.stage === "ADMITTED" && (
-          <Banner tone="ok" title={data.student ? `Admitted as ${data.student.admissionNo}.` : "Admitted."} action={data.student ? <ButtonLink size="sm" variant="secondary" href={`/student-management/${data.student.id}`}><Words k="Open student" /></ButtonLink> : undefined}>
+          <Banner tone="ok" title={data.student ? `Admitted as ${data.student.admissionNo}.` : "Admitted."} action={data.student ? <ButtonLink size="sm" variant="secondary" href={`/student-management/students/${data.student.id}`}><Words k="Open student" /></ButtonLink> : undefined}>
             <Words k="The student record, parents and Parent Link were made" /> {app.decidedAt ? `on ${formatDate(app.decidedAt, tz)}` : "at admission"}.
           </Banner>
         )}

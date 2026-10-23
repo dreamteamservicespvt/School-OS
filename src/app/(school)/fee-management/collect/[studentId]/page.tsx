@@ -91,7 +91,7 @@ export default async function CollectPage({ params }: { params: Promise<{ studen
           <Card className="p-4 md:p-5 flex items-center gap-4">
             <Avatar name={card.name} size={56} src={card.photoFileId ? fileLink(card.photoFileId, p.current.ctx.schoolId) : null} />
             <div className="min-w-0 flex-1">
-              <Link href={`/student-management/${card.id}`} className="font-display font-semibold text-[19px] leading-tight hover:underline">{card.name}</Link>
+              <Link href={`/student-management/students/${card.id}`} className="font-display font-semibold text-[19px] leading-tight hover:underline">{card.name}</Link>
               <p className="text-[13px] text-ink3 truncate">{card.classSection}{card.rollNo != null ? ` · Roll ${card.rollNo}` : ""}<span className="hidden md:inline">{card.fatherName ? ` · ${card.fatherName}` : ""}{card.primaryGuardian?.phone ? <> · <span className="tnum">{card.primaryGuardian.phone}</span></> : null}</span></p>
               <div className="flex gap-x-4 gap-y-0.5 mt-2 text-[13px] tnum flex-wrap">
                 <span><span className="text-ink3"><Words k="Year" /> </span><b className="font-semibold">{formatRupees(totals.total)}</b></span>

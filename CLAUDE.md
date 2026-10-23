@@ -1,4 +1,5 @@
 # School OS
+Read docs/PROJECT-CONTEXT.md first: where the project stands, open work and how the owner likes to work.
 The product blueprint is in docs/blueprint/. Read docs/blueprint/README.md before any work.
 Build one module at a time, in the order in docs/blueprint/06-build-order.md.
 Module names, page names and record names must match the blueprint exactly.

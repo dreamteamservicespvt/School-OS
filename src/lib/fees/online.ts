@@ -64,7 +64,7 @@ export async function linkForOrder(tx: Tx, ctx: SchoolContext, orderId: string |
 }
 
 /** People who look after online fee payments: the Accountants (the same people told about each online payment). */
-async function feeDesk(tx: Tx, ctx: SchoolContext) {
+export async function feeDesk(tx: Tx, ctx: SchoolContext) {
   const people = await tx.schoolAccess.findMany({
     where: { schoolId: ctx.schoolId, archivedAt: null, userLogin: { status: "ACTIVE" }, roles: { some: { role: { key: "accountant", isEnabled: true, archivedAt: null } } } },
     select: { userLoginId: true },
@@ -326,6 +326,8 @@ export async function confirmGatewayPayment(
   const waited = await alreadyPosted();
   if (waited) return waited;
   const existing = await tx.payment.findFirst({ where: { gatewayPaymentId: input.gatewayPaymentId } });
+  // Read again under the lock: a link another payment already paid (two tabs, or paying again later).
+  const paidTwice = Boolean((await tx.paymentLink.findUnique({ where: { id: link.id }, select: { paymentId: true } }))?.paymentId);
   const order = found?.order ?? null;
   const amount = input.amountPaise !== null ? BigInt(input.amountPaise) : order?.amountPaise ?? link.amountPaise;
   // The money taken is what is posted; a difference from the order is noted for the office.
@@ -356,7 +358,8 @@ export async function confirmGatewayPayment(
     gatewayPaymentId: input.gatewayPaymentId,
     gatewayOrderId: input.orderId,
     paymentLinkId: link.id,
-    note: link.channel === "matched" ? "Online payment, matched to the student by hand" : link.source === "PARENT_LINK" ? "Paid from Parent Link" : "Paid by payment link",
+    note: paidTwice ? "Paid twice: this payment link was already paid. The extra is held as advance; refund it from Concessions & Refunds if the parent asks."
+      : link.channel === "matched" ? "Online payment, matched to the student by hand" : link.source === "PARENT_LINK" ? "Paid from Parent Link" : "Paid by payment link",
   };
   // A failed attempt with this id is replaced by its confirmation (it cannot be edited, so a new record is kept).
   const payment = existing
@@ -378,6 +381,16 @@ export async function confirmGatewayPayment(
   await log("posted", payment.id);
   const card = await studentCard(tx, ctx, link.studentId);
   await notifyOnlinePayment(tx, ctx, payment, card?.name ?? "a student", link.source);
+  if (paidTwice) {
+    // Kept quietly as advance, a parent's double payment was easy to miss (docs/research/school-owner-pain-points.md, P0 item 3).
+    for (const to of await feeDesk(tx, ctx)) {
+      await notify(tx, ctx, {
+        to, type: "fee-online", link: `/fee-management/payments/${payment.id}`, groupKey: `fee-paid-twice-${payment.id}`,
+        text: `${card?.name ?? "A student"}'s fees were paid twice online: ${formatRupees(payment.amountPaise)} more came in on a link that was already paid. It is held as advance. Refund it from Concessions & Refunds if the parent asks.`,
+      });
+    }
+    await log("paid-twice", payment.id);
+  }
   return { paymentId: payment.id, receiptNo: posted.receiptNo, created: true };
 }
 

@@ -9,7 +9,7 @@ import "@/lib/fees/handlers";
 import { cancelPayment } from "@/lib/fees/cancel";
 import { requestRefund, markRefunded } from "@/lib/fees/refunds";
 import { giveConcession } from "@/lib/fees/concessions";
-import { createPaymentLink, confirmGatewayPayment, recordGatewayFailure } from "@/lib/fees/online";
+import { createPaymentLink, confirmGatewayPayment, feeDesk, recordGatewayFailure } from "@/lib/fees/online";
 import { saveFeeRow, openDraft } from "@/lib/fees/structure";
 import { checkSchedule } from "@/lib/fees/schedule";
 import { MoneyProblem, MoneyWarning } from "@/lib/fees/problem";
@@ -243,6 +243,29 @@ describe("online payments (A8)", () => {
     expect(failed?.status).toBe("FAILED");
     expect(await withSchool(f.ctx, (tx) => tx.receipt.count({ where: { paymentId: failed!.id } }))).toBe(0);
     expect(await dayBook(failed!.id)).toHaveLength(0);
+  });
+});
+
+describe("a link paid twice (two tabs, or paying again later)", () => {
+  it("posts the second payment as advance, says so on the payment, and tells the fee desk", async () => {
+    const gw = await withSchool(f.ctx, (tx) => tx.paymentGatewayAccount.create({ data: { schoolId: f.school.id, displayName: "Razorpay twice", provider: "razorpay", environment: "test", isActive: true, secretsEnc: "unused" } }));
+    const s = await freshStudent();
+    const open = await dues(f.ctx, s);
+    const made = await withSchool(f.ctx, (tx) => createPaymentLink(tx, f.ctx, { studentId: s, dueIds: [open[0].id], source: "PARENT_LINK" }));
+    await withSchool(f.ctx, (tx) => tx.paymentLink.update({ where: { id: made.link.id }, data: { gatewayOrderId: "order_twice_1" } }));
+    // Razorpay's webhook runs as nobody in the school, so the accountant is told (nobody is told about their own action).
+    const gateway = { schoolId: f.ctx.schoolId, userId: null };
+    const pay = (id: string) => withSchool(gateway, (tx) => confirmGatewayPayment(tx, gateway, { gatewayAccountId: gw.id, gatewayPaymentId: id, orderId: "order_twice_1", amountPaise: 600000, event: "payment.captured" }));
+    const first = await pay("pay_twice_1");
+    const second = await pay("pay_twice_2");
+    expect(second.created).toBe(true);
+    const [p1, p2] = await withSchool(f.ctx, (tx) => Promise.all([first, second].map((r) => tx.payment.findUniqueOrThrow({ where: { id: r.paymentId! } }))));
+    expect(p1.note).not.toMatch(/Paid twice/);
+    expect(p2.note).toMatch(/^Paid twice/);
+    expect(p2.advancePaise).toBe(BigInt(600000));
+    const desk = await withSchool(f.ctx, (tx) => feeDesk(tx, f.ctx));
+    const told = await withSchool(f.ctx, (tx) => tx.notification.count({ where: { type: "fee-online", text: { contains: "paid twice online" } } }));
+    expect(told).toBe(desk.length);
   });
 });
 

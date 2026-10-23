@@ -139,6 +139,25 @@ dialog, :is(dialog, [aria-modal="true"], [data-scroll-lock]) :is(.overflow-y-aut
 @layer base {
   .grid { grid-template-columns: minmax(0, 1fr); }
 }
+/* Every plain dropdown gets the same chevron as UrlSelect's (ChevronDown, 16px, 14px from the edge)
+   instead of the browser's own arrow, which differed by phone and by page. Dropdowns that draw their
+   own icon say appearance-none and are left alone. */
+select:where(:not([multiple], [size], .appearance-none)) {
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23606e69' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.875rem center;
+  background-size: 16px;
+  padding-right: 2.5rem;
+}
+:root[data-theme="dark"] select:where(:not([multiple], [size], .appearance-none)) {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23828f8b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) {
+  :root[data-theme="system"] select:where(:not([multiple], [size], .appearance-none)) {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23828f8b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  }
+}
 /* An iPhone zooms the whole page in when a box with text under 16px is tapped, and leaves it
    zoomed. On phones and touch screens every text box and dropdown is at least 16px. Unlayered,
    so it wins over the text-[15px] / text-sm utilities on each field; fields drawn larger on

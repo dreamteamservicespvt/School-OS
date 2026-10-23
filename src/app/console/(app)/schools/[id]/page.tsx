@@ -9,6 +9,7 @@ import { requireConsole } from "@/lib/console/current";
 import { withConsole } from "@/lib/db";
 import { schoolAdmins } from "@/lib/console/measure";
 import { BOARDS, SCHOOL_TYPES, STATES, inviteState, listGroups, MOVES } from "@/lib/console/schools";
+import { notDeliveredWords } from "@/lib/console/outbox";
 import { addDays, GRACE_DAYS, istDay, monthsLeft, PLAN_LABEL, priceList, SUB_STATUS_LABEL, CREDIT_PACKS, groupDiscountFor, quoteYear } from "@/lib/console/billing";
 import { maskMobile, tenDigits, showMobile } from "@/lib/console/activity";
 import { nextStep } from "@/lib/console/dashboard";
@@ -64,7 +65,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
   const data = await withConsole(async (tx) => {
     const card = await tx.consoleSchool.findUnique({ where: { id } });
     if (!card) return null;
-    const [sub, invoices, history, notes, invites, log, list] = await Promise.all([
+    const [sub, invoices, history, notes, invites, log, list, sends] = await Promise.all([
       tx.subscription.findUnique({ where: { forSchoolId: id } }),
       tx.platformInvoice.findMany({ where: { forSchoolId: id }, orderBy: [{ issuedOn: "desc" }, { number: "desc" }], take: 20 }),
       tx.schoolStatusChange.findMany({ where: { forSchoolId: id }, orderBy: { createdAt: "desc" }, take: 20 }),
@@ -72,12 +73,13 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
       tx.schoolInvite.findMany({ where: { forSchoolId: id }, orderBy: { sentAt: "desc" } }),
       tx.consoleActivityEntry.findMany({ where: { forSchoolId: id }, orderBy: { at: "desc" }, take: 8 }),
       priceList(tx, today),
+      tx.consoleMessage.findMany({ where: { forSchoolId: id, purpose: { in: ["invite", "reset"] } }, select: { channel: true, to: true, status: true, failReason: true, createdAt: true } }),
     ]);
     const groupSize = card.groupId ? await tx.consoleSchool.count({ where: { groupId: card.groupId, status: { in: ["TRIAL", "ACTIVE", "SUSPENDED"] } } }) : 0;
-    return { card, sub, invoices, history, notes, invites, log, list, groupSize };
+    return { card, sub, invoices, history, notes, invites, log, list, sends, groupSize };
   });
   if (!data) notFound();
-  const { card: s, sub, invoices, history, notes, invites, log, list } = data;
+  const { card: s, sub, invoices, history, notes, invites, log, list, sends } = data;
   const [admins, supportRows] = await Promise.all([schoolAdmins(id), supportRequests({ schoolId: id, take: 5 }, now)]);
   const supportOpen = supportRows.find((r) => r.status === "WAITING" || r.live) ?? null;
 
@@ -91,7 +93,11 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
       : status === "Disabled" ? "Cannot sign in to this school"
       : inv ? `${inv.kind === "RESET" ? "Reset link" : "Invite"} sent ${ago(inv.sentAt, now)}${inv.sentByName ? ` by ${inv.sentByName}` : ""} · ${st === "expired" ? "link expired" : st === "opened" ? "opened, not finished" : `link works until ${formatDate(inv.expiresAt)}`}`
       : "No invite on record";
-    return { ...a, status, note, invite: inv && (st === "sent" || st === "opened" || st === "expired") ? inv : null };
+    // The messages that carried this invite: sent to its number within a minute of it.
+    const notSent = inv && (st === "sent" || st === "opened")
+      ? notDeliveredWords(sends.filter((m) => m.to === inv.phone.replace(/\D/g, "").slice(-10) && Math.abs(m.createdAt.getTime() - inv.sentAt.getTime()) < 60_000))
+      : null;
+    return { ...a, status, note, notSent, invite: inv && (st === "sent" || st === "opened" || st === "expired") ? inv : null };
   });
   const actives = people.filter((p) => p.status === "Active");
   const primary = actives.find((p) => p.roleKey === "school-admin") ?? actives[0] ?? people.find((p) => p.status !== "Disabled") ?? null;
@@ -346,6 +352,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
                         <p className="font-semibold text-[14.5px] leading-tight flex items-center gap-2 flex-wrap">{a.name}<Pill tone={ADMIN_TONE[a.status]} className="!h-5 !text-[11px]">{ADMIN_LABEL[a.status]}</Pill></p>
                         <p className="text-[12.5px] text-ink3 tnum mt-0.5 break-words">{a.roleKey === "principal" ? "Principal / Owner" : "School Admin"} · +91 {maskMobile(a.phone)}{a.email ? ` · ${a.email}` : ""}</p>
                         <p className="text-[12.5px] text-ink3">{a.note}</p>
+                        {a.notSent && <p className="text-[12.5px] text-bad font-medium mt-0.5">{a.notSent} Fix the messaging, then use Resend invite.</p>}
                         {last && live && c.can("disable") && <p className="text-[12px] text-ink3 flex items-center gap-1 mt-0.5"><Lock size={12} className="shrink-0" aria-hidden="true" />The last active admin cannot be disabled</p>}
                       </div>
                     </div>

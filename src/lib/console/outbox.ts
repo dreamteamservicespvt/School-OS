@@ -100,11 +100,14 @@ async function sendOne(m: ConsoleOutgoing): Promise<SendResult | "test"> {
     });
   }
   const template = env(`CONSOLE_WHATSAPP_TEMPLATE_${key}`);
+  // The console always writes first, so WhatsApp takes only an approved template:
+  // a typed message is accepted by Meta and then quietly dropped (error 131047).
+  if (!template) return { ok: false, retryable: false, reason: `no approved WhatsApp template is set for this message (CONSOLE_WHATSAPP_TEMPLATE_${key}).` };
   return whatsappProvider({ config: { phoneNumberId: env("CONSOLE_WHATSAPP_PHONE_NUMBER_ID") ?? "" }, secrets: { accessToken: env("CONSOLE_WHATSAPP_ACCESS_TOKEN") ?? "" } }).send({
     channel: "whatsapp",
     to: m.to,
     text: m.text,
-    whatsappTemplate: template ? { name: template, language: env("CONSOLE_WHATSAPP_LANGUAGE") ?? "en", params: m.templateParams ?? [], buttonParam: m.buttonParam } : null,
+    whatsappTemplate: { name: template, language: env("CONSOLE_WHATSAPP_LANGUAGE") ?? "en", params: m.templateParams ?? [], buttonParam: m.buttonParam },
   });
 }
 
@@ -156,4 +159,18 @@ export function deliveredWords(list: Delivered[]): string {
   if (list.every((d) => d.status === "TEST")) words += " (test mode: no message provider is set up, so it went to the server log)";
   if (failed.length) words += `${words ? ". " : ""}${join([...new Set(failed.map((d) => CHANNEL_LABEL[d.channel]))])} did not go: ${failed[0].reason ?? "the provider refused it"}`;
   return words.trim();
+}
+
+type MessageRow = { channel: string; status: string; failReason: string | null };
+
+/**
+ * What became of the messages that carried one invite, for its line on the
+ * school's page: null when they went, otherwise why the person has nothing.
+ */
+export function notDeliveredWords(rows: MessageRow[]): string | null {
+  if (rows.length === 0 || rows.some((r) => r.status === "SENT")) return null;
+  if (rows.every((r) => r.status === "TEST")) return "Not sent: no WhatsApp or SMS is set up on this server, so the message went to the server log.";
+  const failed = rows.find((r) => r.status === "FAILED");
+  const name = CHANNEL_LABEL[failed?.channel as ConsoleChannel] ?? "The message";
+  return `Not sent: ${name} did not go, ${failed?.failReason ?? "the provider refused it."}`;
 }

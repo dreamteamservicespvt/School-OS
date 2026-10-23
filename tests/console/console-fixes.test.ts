@@ -240,3 +240,30 @@ describe("Needs attention", () => {
     expect(b?.detail).toMatch(/password never set/);
   });
 });
+
+describe("console WhatsApp messages", () => {
+  it("are not sent without an approved template, and say why", async () => {
+    const { deliver } = await import("@/lib/console/outbox");
+    vi.stubEnv("CONSOLE_WHATSAPP_PHONE_NUMBER_ID", "1234567890");
+    vi.stubEnv("CONSOLE_WHATSAPP_ACCESS_TOKEN", "test-token");
+    vi.stubEnv("CONSOLE_WHATSAPP_TEMPLATE_INVITE", "");
+    const fetchSpy = vi.spyOn(globalThis, "fetch");
+    try {
+      const [d] = await deliver([{ channel: "whatsapp", to: "9876500001", purpose: "invite", text: "hi", safeText: "hi" }]);
+      expect(d.status).toBe("FAILED");
+      expect(d.reason).toContain("CONSOLE_WHATSAPP_TEMPLATE_INVITE");
+      expect(fetchSpy).not.toHaveBeenCalled();
+    } finally {
+      fetchSpy.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  });
+
+  it("an invite that did not reach the phone says so on the school's page", async () => {
+    const { notDeliveredWords } = await import("@/lib/console/outbox");
+    expect(notDeliveredWords([])).toBeNull();
+    expect(notDeliveredWords([{ channel: "whatsapp", status: "SENT", failReason: null }, { channel: "sms", status: "FAILED", failReason: "x" }])).toBeNull();
+    expect(notDeliveredWords([{ channel: "whatsapp", status: "TEST", failReason: null }])).toMatch(/^Not sent: no WhatsApp or SMS is set up/);
+    expect(notDeliveredWords([{ channel: "whatsapp", status: "FAILED", failReason: "Number not on WhatsApp." }])).toBe("Not sent: WhatsApp did not go, Number not on WhatsApp.");
+  });
+});

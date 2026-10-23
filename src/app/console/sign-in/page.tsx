@@ -29,9 +29,9 @@ export default async function ConsoleSignInPage({ searchParams }: { searchParams
       <p className="text-[13px] font-semibold text-brand">DREAM TEAM SERVICES only</p>
       <h1 className="font-display text-[30px] font-semibold tracking-tight leading-tight mt-1">Console sign in</h1>
       <p className="text-ink3 mt-1.5 text-[15px]">This is a separate sign-in from the schools’ sign-in page. School logins never work here.</p>
-      <div className="mt-4 flex items-center gap-2.5 rounded-xl bg-sunken px-3.5 py-2.5 text-[13.5px]">
-        <Lock size={16} className="text-ok shrink-0" aria-hidden="true" />
-        <span className="min-w-0 flex-1 truncate"><b className="font-semibold">{host}/console</b>{schoolsHost && <span className="text-ink3"> · schools use {schoolsHost}/sign-in</span>}</span>
+      <div className="mt-4 flex items-start gap-2.5 rounded-xl bg-sunken px-3.5 py-2.5 text-[13.5px]">
+        <Lock size={16} className="text-ok shrink-0 mt-0.5" aria-hidden="true" />
+        <span className="min-w-0 flex-1 [overflow-wrap:anywhere]"><b className="font-semibold">{host}/console</b>{schoolsHost && <span className="block text-ink3 text-[12.5px]">Schools use {schoolsHost}/sign-in</span>}</span>
       </div>
       <StepDots step={step} />
       {step === 1 ? (

@@ -33,7 +33,7 @@ export function PasswordStep({ notice }: { notice?: string }) {
       <FieldShell label="Mobile number or email" id="login" error={errors.login}>
         <input id="login" name="login" autoComplete="username" autoCapitalize="none" spellCheck={false} defaultValue={state?.login ?? ""}
           onChange={() => setMissing({})} aria-invalid={errors.login ? true : undefined} aria-describedby={errors.login ? "login-error" : undefined}
-          placeholder="98490 12345 or name@dreamteamservices.in" className={cx(inputCls(errors.login), "h-11")} />
+          placeholder="98490 12345 or your email" className={cx(inputCls(errors.login), "h-11")} />
       </FieldShell>
       <FieldShell label="Password" id="password" error={errors.password}>
         <div className="relative">

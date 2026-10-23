@@ -16,7 +16,7 @@ export async function AuthFrame({ eyebrow, title, sub, pickLanguage, children }:
   const t = makeT(lang);
   return (
     <I18nProvider lang={lang} dict={catalogueFor(lang)}>
-    <div className="min-h-dvh grid lg:grid-cols-[1.05fr_1fr] bg-surface">
+    <div className="min-h-dvh grid grid-cols-1 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] bg-surface">
       <div className="hidden lg:flex relative overflow-hidden bg-brand text-brandink p-10 flex-col">
         <div className="absolute inset-0 dotgrid opacity-60" aria-hidden="true" />
         <div className="absolute -left-24 -bottom-40 w-[520px] h-[520px] rounded-full border-[56px] border-white/[.07]" aria-hidden="true" />
@@ -43,7 +43,7 @@ export async function AuthFrame({ eyebrow, title, sub, pickLanguage, children }:
         </ul>
       </div>
 
-      <main className="flex flex-col px-5 py-8 md:px-12 min-h-dvh">
+      <main className="flex flex-col px-5 py-8 md:px-12 min-h-dvh min-w-0">
         <div className="flex items-center gap-3">
           <span className="flex items-center gap-3 lg:hidden"><Logo size={40} /><span className="font-display font-semibold text-lg">School OS</span></span>
           {pickLanguage && <LanguagePicker value={lang} choices={SCREEN_LANGUAGES} className="ml-auto" />}

@@ -4,7 +4,7 @@ import { Skel } from "@/components/ui/skeleton";
 /** The sign-in, welcome and invite pages: brand panel and the form. */
 export function FrameSkeleton() {
   return (
-    <div aria-busy="true" aria-label="Loading" className="min-h-dvh grid lg:grid-cols-[1.05fr_1fr] bg-surface animate-fade">
+    <div aria-busy="true" aria-label="Loading" className="min-h-dvh grid grid-cols-1 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] bg-surface animate-fade">
       <div className="hidden lg:block bg-brand" />
       <div className="flex flex-col px-5 py-8 md:px-12">
         <div className="my-auto w-full max-w-[400px] mx-auto py-10 space-y-4">

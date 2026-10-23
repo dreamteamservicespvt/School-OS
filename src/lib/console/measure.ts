@@ -11,7 +11,7 @@ import { creditBalances } from "../messaging/credits";
 import { setupSteps } from "../dashboard/setup";
 import { combineRoles } from "../permissions";
 import { ALL_ROLE_TEMPLATES } from "../roles";
-import type { ModuleKey } from "../modules";
+import { MODULES, type ModuleKey } from "../modules";
 
 /** Roles that count as a school's admin in the console: both can create the school's other logins. */
 export const ADMIN_ROLE_KEYS = ["school-admin", "principal"] as const;
@@ -114,7 +114,8 @@ export async function measureSchool(schoolId: string, now = new Date()) {
         messagesThisMonth,
         creditsWhatsapp: credits.whatsapp,
         creditsSms: credits.sms,
-        modulesOn: [...modulesOn],
+        // Core modules are always on and have no School Module row; only optional ones do.
+        modulesOn: [...MODULES.filter((m) => !m.optional).map((m) => m.key), ...modulesOn],
         campuses,
         setup: steps.map((s) => ({ key: s.key, label: s.label, done: s.done, optional: Boolean(s.optional), skipped: s.skipped })),
         messagesStuck,

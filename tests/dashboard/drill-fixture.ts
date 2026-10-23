@@ -179,7 +179,98 @@ export async function drillSchool() {
     for (const summary of ["Discount for Aarav", "Refund for Diya"]) {
       await tx.approval.create({ data: { schoolId: sid, type: "fee-discount", recordType: "Student", recordId: kids.a1.id, summary, askedById: users.accountant, currentApproverRole: "principal" } });
     }
-    return { main, north, mainYear, northYear, mainClass, northClass, m5a, m5b, n5a, st, kids, head, fyNow, fyLast };
+    // A closed year before this one on the main campus (the Dashboard's year filter).
+    const pastYear = await tx.academicYear.create({ data: { schoolId: sid, campusId: main, name: "2025-26", startDate: day("2025-04-01"), endDate: day("2026-03-31"), status: "CLOSED" } });
+    // A student studying with no class yet this year (the Classes overview shows "not yet in a section").
+    const unplaced = await tx.student.create({ data: { schoolId: sid, campusId: main, admissionNo: `D-U-${randomUUID().slice(0, 4)}`, firstName: "Uma", lastName: "Unplaced", fullName: "Uma Unplaced", status: "ACTIVE", joiningDate: day("2026-10-01") } });
+    return { main, north, mainYear, northYear, mainClass, northClass, m5a, m5b, n5a, st, kids, head, fyNow, fyLast, pastYear, unplaced };
+  });
+
+  // The optional modules' cards (gap list G36): messages, library, hostel, store, leave and homework.
+  const more = await run(async (tx) => {
+    const { main, mainYear, mainClass, m5a, m5b, st, kids, fyNow, fyLast } = made;
+    for (const moduleKey of ["library-management", "hostel-management", "inventory-management", "homework-learning"]) {
+      await tx.schoolModule.upsert({ where: { schoolId_moduleKey: { schoolId: sid, moduleKey } }, create: { schoolId: sid, moduleKey, isOn: true }, update: { isOn: true } });
+    }
+    const hour = 3_600_000;
+
+    // Messages: two not delivered this week (three people), one failed three weeks ago, one cancelled on purpose.
+    const message = (title: string, at: Date) => tx.message.create({ data: { schoolId: sid, title, body: title, audienceLabel: "Parents", status: "SENT", channels: ["sms"], createdAt: at } });
+    const person = (messageId: string, name: string, status: "FAILED" | "DELIVERED", failedAt: Date | null, failReason: string | null = null) => tx.messageRecipient.create({ data: {
+      schoolId: sid, messageId, recipientType: "guardian", name, channel: "sms", address: nextPhone(), text: "Hello", status, failedAt, failReason,
+    } });
+    const m1 = await message("Fee reminder", new Date(NOW.getTime() - 48 * hour));
+    await person(m1.id, "Parent A", "FAILED", new Date(NOW.getTime() - 24 * hour), "Number not reachable");
+    await person(m1.id, "Parent B", "DELIVERED", null);
+    const m2 = await message("Holiday notice", new Date(NOW.getTime() - 20 * 24 * hour));
+    await person(m2.id, "Parent C", "FAILED", new Date(NOW.getTime() - 20 * 24 * hour), "Number not reachable");
+    const m3 = await message("Cancelled one", new Date(NOW.getTime() - 72 * hour));
+    await person(m3.id, "Parent D", "FAILED", new Date(NOW.getTime() - 72 * hour), "Cancelled before it was sent.");
+    const m4 = await message("PTM invite", new Date(NOW.getTime() - 24 * hour));
+    await person(m4.id, "Parent E", "FAILED", new Date(NOW.getTime() - 20 * hour), "Not sent: no channel could carry it");
+    await person(m4.id, "Parent F", "FAILED", new Date(NOW.getTime() - 20 * hour), "Number not reachable");
+
+    // Library: books 10 and 8 days late (more than a week), one 3 days late.
+    const book = await tx.book.create({ data: { schoolId: sid, title: "Wings of Fire", authorText: "A. P. J. Abdul Kalam" } });
+    const issue = async (n: number, student: { id: string }, dueDaysAgo: number) => {
+      const copy = await tx.bookCopy.create({ data: { schoolId: sid, bookId: book.id, accessionNo: `ACC-${n}`, barcode: `BC-${n}-${randomUUID().slice(0, 4)}`, status: "ISSUED" } });
+      await tx.bookIssue.create({ data: { schoolId: sid, copyId: copy.id, bookId: book.id, memberKind: "STUDENT", studentId: student.id, sectionId: m5a.id, issuedOn: new Date(TODAY.getTime() - (dueDaysAgo + 14) * 86_400_000), dueOn: new Date(TODAY.getTime() - dueDaysAgo * 86_400_000) } });
+    };
+    await issue(1, kids.a1, 10);
+    await issue(2, kids.a2, 8);
+    await issue(3, kids.a3, 3);
+
+    // Hostel: two hostels; in the first one boarder is in, one is out on an outing pass, one has not arrived; one boarder in the second.
+    const hostel = async (name: string, gender: "BOYS" | "GIRLS", beds: number) => {
+      const h = await tx.hostel.create({ data: { schoolId: sid, name, gender } });
+      const room = await tx.hostelRoom.create({ data: { schoolId: sid, hostelId: h.id, floor: "Ground", roomNo: `${name[0]}-1` } });
+      const list = [];
+      for (let b = 1; b <= beds; b++) list.push(await tx.hostelBed.create({ data: { schoolId: sid, hostelId: h.id, roomId: room.id, bedNo: b } }));
+      return { h, room, beds: list };
+    };
+    const boys = await hostel("Boys' Hostel", "BOYS", 3);
+    const girls = await hostel("Girls' Hostel", "GIRLS", 1);
+    const bed = (x: Awaited<ReturnType<typeof hostel>>, i: number, student: { id: string }, checkedIn: boolean) => tx.bedAllocation.create({ data: {
+      schoolId: sid, studentId: student.id, hostelId: x.h.id, roomId: x.room.id, bedId: x.beds[i].id, academicYearId: mainYear.id, startDate: day("2026-06-10"), status: "ACTIVE", checkedInAt: checkedIn ? day("2026-06-10") : null,
+    } });
+    await bed(boys, 0, kids.a1, true);
+    await bed(boys, 1, kids.a3, true);
+    await bed(boys, 2, kids.b2, false);
+    await bed(girls, 0, kids.a2, true);
+    await tx.gatePass.create({ data: { schoolId: sid, passNo: `GP-${randomUUID().slice(0, 6)}`, kind: "HOSTEL_OUTING", studentId: kids.a3.id, reason: "Family visit", timeOut: new Date(NOW.getTime() - 2 * hour), status: "OUT", outingType: "OUTING", fromAt: new Date(NOW.getTime() - 2 * hour), toAt: new Date(NOW.getTime() + 4 * hour), hostelId: boys.h.id, collectorName: "Father" } });
+
+    // Store: vendor bills due in 3 days, in 20 days, 5 days ago (billed last financial year), and one paid.
+    const vendor = await tx.vendor.create({ data: { schoolId: sid, name: "Sri Stationers" } });
+    const expHead = await tx.accountHead.findFirstOrThrow({ where: { kind: "EXPENSE", systemKey: null }, orderBy: { code: "asc" } });
+    let billNo = 0;
+    const bill = async (fy: string, billDate: string, dueInDays: number, amount: number, paid: number) => {
+      const e = await tx.expense.create({ data: { schoolId: sid, financialYearId: fy, number: `EXP-B${++billNo}`, date: day(billDate), accountHeadId: expHead.id, amountPaise: R(amount), paidPaise: R(paid), status: "APPROVED", note: "Vendor bill" } });
+      await tx.purchaseInvoice.create({ data: { schoolId: sid, vendorId: vendor.id, billNo: `INV-${billNo}`, billDate: day(billDate), dueDate: new Date(TODAY.getTime() + dueInDays * 86_400_000), amountPaise: R(amount), expenseId: e.id } });
+    };
+    await bill(fyNow.id, "2026-10-01", 3, 1000, 0);
+    await bill(fyNow.id, "2026-10-05", 20, 2000, 0);
+    await bill(fyLast.id, "2026-03-01", -5, 3000, 500);
+    await bill(fyNow.id, "2026-10-02", 2, 4000, 4000);
+
+    // Leave: Mohan on approved leave today; Kamala's request still waiting.
+    const casual = await tx.leaveType.create({ data: { schoolId: sid, forWhom: "staff", name: "Casual leave", code: "CL" } });
+    await tx.leaveRequest.create({ data: { schoolId: sid, leaveTypeId: casual.id, staffId: st.mainOther.id, fromDate: day("2026-10-11"), toDate: day("2026-10-13"), days: 3, reason: "Wedding", status: "APPROVED" } });
+    await tx.leaveRequest.create({ data: { schoolId: sid, leaveTypeId: casual.id, staffId: st.teacher.id, fromDate: TODAY, toDate: TODAY, days: 1, reason: "Doctor", status: "WAITING" } });
+
+    // Homework: Kamala's in 5 A (two pieces to check); Mohan's four in 5 B (twelve pieces: piling up).
+    const subject = await tx.subject.create({ data: { schoolId: sid, name: "English", code: "ENG" } });
+    const homework = (section: { id: string }, teacherId: string, title: string) => tx.homework.create({ data: {
+      schoolId: sid, academicYearId: mainYear.id, sectionId: section.id, classId: mainClass.id, subjectId: subject.id, teacherId, title, startDate: day("2026-10-07"), dueDate: day("2026-10-10"),
+    } });
+    const hw1 = await homework(m5a, st.teacher.id, "Essay: my village");
+    for (const [k, status] of [[kids.a1, "SUBMITTED"], [kids.a2, "LATE"], [kids.a3, "ASSIGNED"], [kids.a4, "GRADED"]] as const) {
+      await tx.submission.create({ data: { schoolId: sid, homeworkId: hw1.id, studentId: k.id, status } });
+    }
+    for (let i = 1; i <= 4; i++) {
+      const hw = await homework(m5b, st.mainOther.id, `Grammar sheet ${i}`);
+      for (const k of [kids.b1, kids.b2, kids.b3]) await tx.submission.create({ data: { schoolId: sid, homeworkId: hw.id, studentId: k.id, status: "SUBMITTED" } });
+    }
+    return { boys: boys.h, girls: girls.h, main };
   });
 
   const currentFor = async (userId: string): Promise<Current> => {
@@ -187,7 +278,7 @@ export async function drillSchool() {
     return { ...access!, ctx: { schoolId: sid, userId }, user: { id: userId, displayName: "Test" }, menu: [], schools: [], session: null, support: null } as unknown as Current;
   };
   const who = Object.fromEntries(await Promise.all(Object.entries(users).map(async ([k, id]) => [k, await currentFor(id)]))) as Record<keyof typeof users, Current>;
-  return { school, ctx, users, who, run, ...made };
+  return { school, ctx, users, who, run, ...made, ...more };
 }
 
 export type DrillSchool = Awaited<ReturnType<typeof drillSchool>>;

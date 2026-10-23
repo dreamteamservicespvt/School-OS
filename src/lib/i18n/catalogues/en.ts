@@ -14570,6 +14570,21 @@ export const EN = [
   "staff absent",
   "staff came late",
   "staff on leave",
+  // Dashboard filters and the lists its cards open (gap list G36)
+  "Not yet in a section",
+  "Periods covered:",
+  "Show all homework",
+  "This list shows the students of that year, as the Dashboard counted them.",
+  "Back to this year",
+  "You are viewing {year}",
+  "This year is over, so its numbers are shown as they stood at its end and nothing can be changed from here.",
+  "Nobody is in the hostel now",
+  "Due within 7 days",
+  "Due soon",
+  "Not delivered",
+  "Leave today",
+  "Student attendance",
+  "Fees collected",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

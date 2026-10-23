@@ -8,6 +8,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { buildHome } from "@/lib/dashboard/compose";
 import { dueWord } from "@/lib/dashboard/common";
 import type { Panel } from "@/lib/dashboard/types";
+import { isWeakResult, resultSheet } from "@/lib/exams/results";
 import type { Current } from "@/lib/current";
 import { academicSchool, d } from "../academic/fixture";
 import { makeUser } from "../helpers";
@@ -71,7 +72,7 @@ describe("exams.marks-due", () => {
     expect(a?.detail).toContain("Mathematics Class 5 A");
     expect(a?.detail).toContain("Mathematics Class 5 B");
     expect(a?.detail).not.toMatch(/English|Class 6/);
-    expect(a?.href).toBe(`/examination-results/marks?exam=${examId}`);
+    expect(a?.href).toBe(`/examination-results/marks?status=due&exam=${examId}`);
   });
 
   it("a class teacher enters marks only for papers given to them, not every paper of their class", async () => {
@@ -130,7 +131,10 @@ describe("exams.weak-students", () => {
     const a = att(await buildHome(classTeacher, { now: NOW }), "exams.weak-students");
     expect(a?.value).toBe("1");
     expect(a?.title).toBe("1 student in Class 5 B below 50% or not passing in Half-yearly");
-    expect(a?.href).toBe(`/examination-results/results?exam=${examId}&section=${f.s5b.id}`);
+    expect(a?.href).toBe(`/examination-results/results?exam=${examId}&section=${f.s5b.id}&weak=1`);
+    // Results with ?weak=1 lists exactly the students counted (isWeakResult on the class's result sheet; gap list G36).
+    const rows = ((await f.run((tx) => resultSheet(tx, classTeacher.ctx, examId, f.s5b.id, null)))?.rows ?? []).filter((r) => r.complete && isWeakResult(r));
+    expect(rows.length).toBe(Number(a?.value));
   });
 
   it("the Principal counts this school's students only", async () => {

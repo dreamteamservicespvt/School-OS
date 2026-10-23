@@ -5,6 +5,7 @@ import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import type { ListParams } from "../list";
 import { inPeriod, PERIOD_FILTERS } from "./period";
+import { CANCELLED_REASON } from "../messaging/send";
 import { RULES } from "../messaging/automatic";
 import { codeSender, isCodeMessage, ONE_TIME_CODE } from "../messaging/one-time-code";
 import { SYSTEM_MESSAGES, systemPurposeOf, systemSenderWords } from "../messaging/system-message";
@@ -14,14 +15,37 @@ export const HISTORY_FILTERS = ["channel", "status", "sender", "rule", "person",
 export const MESSAGE_STATUS_LABEL: Record<string, string> = { SCHEDULED: "Scheduled", QUEUED: "Sending", SENT: "Sent", CANCELLED: "Cancelled" };
 export const DELIVERY_LABEL: Record<string, string> = { QUEUED: "Queued", SENDING: "Queued", SENT: "Sent", DELIVERED: "Delivered", READ: "Read", FAILED: "Failed" };
 
-/** Teachers and office staff with their own scope see what they sent; full access sees everything. */
-export function historyWhere(ctx: SchoolContext, full: boolean, p: ListParams, timeZone: string): Prisma.MessageWhereInput {
+/**
+ * People a message did not reach: refused by the provider, or not sent because no channel could
+ * carry it, failed in the dates given (null: any time). A failure cancelled on purpose is left out,
+ * and so are the failed people of a message already resent to them. The Dashboard's "not
+ * delivered this week" counts these, and Message History lists their messages with status
+ * "Not delivered" and the same dates (gap list G36).
+ */
+export async function notDeliveredWhere(tx: Tx, when: { gte: Date; lt: Date } | null): Promise<Prisma.MessageRecipientWhereInput> {
+  const resent = await tx.message.findMany({ where: { ...(when ? { createdAt: { gte: when.gte } } : {}), resendOfId: { not: null }, trigger: { startsWith: "Resend to failed" } }, select: { resendOfId: true } });
+  return { isBackup: false, status: "FAILED", ...(when ? { failedAt: when } : {}), NOT: { failReason: CANCELLED_REASON }, messageId: { notIn: resent.map((r) => r.resendOfId!) } };
+}
+
+/** historyWhere() with the "Not delivered" status worked out (it reads which messages were resent). */
+export async function historyWhereIn(tx: Tx, ctx: SchoolContext, full: boolean, p: ListParams, timeZone: string): Promise<Prisma.MessageWhereInput> {
+  const nd = p.filters.status === "not-delivered" ? await notDeliveredWhere(tx, inPeriod(p.filters, timeZone)) : undefined;
+  return historyWhere(ctx, full, p, timeZone, nd);
+}
+
+/**
+ * Teachers and office staff with their own scope see what they sent; full access sees everything.
+ * `notDelivered`: for status "not-delivered" (historyWhereIn), the people not reached; the dates
+ * are then when they failed, not when the message was made.
+ */
+export function historyWhere(ctx: SchoolContext, full: boolean, p: ListParams, timeZone: string, notDelivered?: Prisma.MessageRecipientWhereInput): Prisma.MessageWhereInput {
   const f = p.filters;
   const and: Prisma.MessageWhereInput[] = [{ schoolId: ctx.schoolId }];
   if (!full) and.push({ sentById: ctx.userId });
   if (p.q) and.push({ OR: [{ title: { contains: p.q, mode: "insensitive" } }, { body: { contains: p.q, mode: "insensitive" } }, { audienceLabel: { contains: p.q, mode: "insensitive" } }, { trigger: { contains: p.q, mode: "insensitive" } }] });
   if (f.channel) and.push({ channels: { has: f.channel } });
-  if (f.status === "failed") and.push({ recipients: { some: { status: "FAILED" } } });
+  if (f.status === "not-delivered") and.push({ recipients: { some: notDelivered ?? { status: "FAILED" } } });
+  else if (f.status === "failed") and.push({ recipients: { some: { status: "FAILED" } } });
   else if (f.status) and.push({ status: f.status as Prisma.EnumMessageStatusFilter["equals"] });
   if (f.sender === "me") and.push({ sentById: ctx.userId });
   if (f.sender === "rules") and.push({ ruleKey: { not: null } });
@@ -29,7 +53,7 @@ export function historyWhere(ctx: SchoolContext, full: boolean, p: ListParams, t
   if (f.sender === "people") and.push({ ruleKey: null, sourceType: null, messageType: { notIn: [ONE_TIME_CODE, ...Object.keys(SYSTEM_MESSAGES)] } });
   if (f.sender === "notices") and.push({ sourceType: "Notice" });
   if (f.rule) and.push({ ruleKey: f.rule });
-  const when = inPeriod(f, timeZone);
+  const when = f.status === "not-delivered" ? null : inPeriod(f, timeZone);
   if (when) and.push({ createdAt: when });
   if (f.person && /^(guardian|student|staff):[0-9a-f-]{36}$/.test(f.person)) {
     const [type, id] = f.person.split(":");

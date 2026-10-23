@@ -70,7 +70,7 @@ export function PanelCard({ panel, t }: { panel: Panel; t: T }) {
       return (
         <Card>
           <CardHeader title={t.any(panel.title)} description={sub} icon={I.GraduationCap} action={<OpenLink href={panel.href}>{t("Students")}</OpenLink>} />
-          {panel.classes.length === 0 ? (
+          {panel.classes.length === 0 && !panel.unplaced ? (
             <p className="px-5 pb-5 text-[13.5px] text-ink3">{t("No classes with students yet this year.")}</p>
           ) : (
             <ul className="px-4 pb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
@@ -91,6 +91,14 @@ export function PanelCard({ panel, t }: { panel: Panel; t: T }) {
                   )}
                 </li>
               ))}
+              {panel.unplaced && (
+                <li className="rounded-xl border border-dashed border-line p-3 min-w-0">
+                  <Link href={panel.unplaced.href} className="flex items-baseline justify-between gap-2 group">
+                    <span className="font-semibold text-[14px] group-hover:text-brand">{t("Not yet in a section")}</span>
+                    <span className="font-display font-semibold text-[18px] tnum">{panel.unplaced.count.toLocaleString("en-IN")}</span>
+                  </Link>
+                </li>
+              )}
             </ul>
           )}
         </Card>

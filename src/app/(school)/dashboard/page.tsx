@@ -18,6 +18,7 @@ import { DashFilterBar } from "./filter-bar";
 import { Band } from "@/components/ui/band";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
+import { Alert } from "@/components/ui/alert";
 import { PanelCard, TodayCard } from "./panels";
 import { ApprovalsCard, AttentionCard, RefreshControl, TasksCard } from "./dashboard-client";
 import { getT, pageTitle } from "@/lib/i18n/server";
@@ -55,7 +56,7 @@ export default async function DashboardPage({ searchParams }: Search) {
   const setup = setupFirst ? withSchool(current.ctx, (tx) => setupSteps(tx, current.ctx, current)) : null;
   const access = taskAccess(current);
   // The filters (01 §2 Controls): a campus within the person's limit, and a past day; the cards and their links follow them.
-  const { filters, campuses } = await withSchool(current.ctx, (tx) => readDashFilters(tx, current.ctx, current, sp, todayFor(tz, now)));
+  const { filters, campuses, years, classes } = await withSchool(current.ctx, (tx) => readDashFilters(tx, current.ctx, current, sp, todayFor(tz, now)));
   const page = Promise.all([
     buildHome(current, { now, filters }),
     withSchool(current.ctx, (tx) => assignable(tx, { ctx: current.ctx, access })),
@@ -110,8 +111,22 @@ export default async function DashboardPage({ searchParams }: Search) {
       </div>
 
       {(campuses.length > 1 || home.leader) && (
-        <DashFilterBar campuses={campuses.length > 1 ? campuses : []} day={home.leader ? home.filters.date?.toISOString().slice(0, 10) ?? "" : null} today={today}
-          showing={[home.filters.campusId ? campuses.find((c) => c.id === home.filters.campusId)?.name : null, home.filters.date ? formatDate(home.filters.date, "UTC") : null].filter((x): x is string => Boolean(x)).join(" · ")} />
+        <DashFilterBar campuses={campuses.length > 1 ? campuses : []} today={today}
+          dates={home.leader ? { from: home.filters.from?.toISOString().slice(0, 10) ?? "", to: home.filters.date?.toISOString().slice(0, 10) ?? "" } : null}
+          years={home.leader ? years : []} classes={home.leader ? classes : []}
+          showing={[
+            home.filters.campusId ? campuses.find((c) => c.id === home.filters.campusId)?.name : null,
+            home.filters.yearId ? years.find((y) => y.id === home.filters.yearId)?.name : null,
+            home.filters.from ? `${formatDate(home.filters.from, "UTC")} – ${formatDate(home.filters.date!, "UTC")}` : home.filters.date ? formatDate(home.filters.date, "UTC") : null,
+            home.filters.classId ? classes.find((c) => c.id === home.filters.classId)?.name : null,
+          ].filter((x): x is string => Boolean(x)).join(" · ")} />
+      )}
+
+      {home.filters.pastYear && (
+        <Alert tone="warning" title={t("You are viewing {year}", { year: home.filters.pastYear.name })}>
+          {t("This year is over, so its numbers are shown as they stood at its end and nothing can be changed from here.")}{" "}
+          <Link href="/dashboard?view=dashboard" className="font-semibold underline">{t("Back to this year")}</Link>
+        </Alert>
       )}
 
       {first.length > 0 && <div className="md:hidden flex flex-col gap-5">{first.map((p, i) => <PanelCard key={i} panel={p} t={t} />)}</div>}

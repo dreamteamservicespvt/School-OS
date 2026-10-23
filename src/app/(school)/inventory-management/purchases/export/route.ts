@@ -50,7 +50,7 @@ export async function GET(req: Request) {
       columns = [col("Date", "date"), col("Number", "number"), col("Order", "order"), col("Vendor", "vendor"), col("Items", "items"), col("More than ordered", "extra")];
     } else if (tab === "bills") {
       title = "Vendor bills";
-      const list = await billsList(tx, readBillsFilter(x.get, range));
+      const list = await billsList(tx, readBillsFilter(x.get, range, x.today));
       rows = list.map((b) => { const st = b.expense ? billState(b.expense) : "CANCELLED"; return { date: day(b.bill.billDate), billNo: b.bill.billNo, vendor: vendors.get(b.bill.vendorId) ?? "", amount: formatRupees(b.bill.amountPaise), paid: b.expense ? formatRupees(b.expense.paidPaise) : "", due: day(b.bill.dueDate), expense: b.expense?.number ?? "", status: BILL_STATUS[st].label }; });
       columns = [col("Bill date", "date"), col("Bill number", "billNo"), col("Vendor", "vendor"), col("Amount", "amount"), col("Paid", "paid"), col("Due", "due"), col("Finance expense", "expense"), col("Status", "status")];
     } else {

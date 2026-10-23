@@ -27,7 +27,7 @@ import { payExpense, recordExpense, submitExpense, cancelExpense, type PayInput 
 import { InventoryProblem } from "./problem";
 import { inventorySettings } from "./settings";
 import { move } from "./stock";
-import { BASE, plural, qtyWords } from "./words";
+import { BASE, billState, plural, qtyWords } from "./words";
 
 const ZERO = BigInt(0);
 const day = (d: Date) => formatDate(d, "UTC");
@@ -350,6 +350,20 @@ export async function billsWithState(tx: Tx, where: { orderId?: string; vendorId
   const exps = await tx.expense.findMany({ where: { id: { in: bills.map((b) => b.expenseId) } }, select: { id: true, number: true, status: true, amountPaise: true, paidPaise: true, approvalId: true, billFileId: true } });
   const byId = new Map(exps.map((e) => [e.id, e]));
   return bills.map((b) => ({ bill: b, expense: byId.get(b.expenseId) ?? null }));
+}
+
+/** "Due within 7 days": the days the Dashboard's bills card and the Bills tab's choice look ahead. */
+export const BILLS_DUE_DAYS = 7;
+
+/**
+ * An unpaid or part-paid bill due within the days given, or already past its due date: the
+ * Dashboard's "vendor bills due" card counts these, and the Bills tab's "Due within 7 days"
+ * lists them, whatever the bill date (gap list G36).
+ */
+export function billDueSoon(b: { bill: { dueDate: Date | null }; expense: { status: string; amountPaise: bigint; paidPaise: bigint } | null }, today: Date, days = BILLS_DUE_DAYS) {
+  if (!b.expense || !b.bill.dueDate) return false;
+  const st = billState(b.expense);
+  return (st === "UNPAID" || st === "PART_PAID") && b.bill.dueDate.getTime() <= today.getTime() + days * 86_400_000;
 }
 
 /** Words for a finished receipt, for the toast. */

@@ -110,7 +110,7 @@ describe("Attendance is flagged once", () => {
     for (const who of [f.principal.id, f.teacherA.id]) {
       const h = await home(who);
       const card = h.attention.find((x) => x.id === "reports.early-warnings");
-      expect(card, who).toMatchObject({ title: "Early warnings: 1 student needs a closer look: 1 attendance", href: "/reports-analytics/early-warnings?strength=ACT_NOW&period=all" });
+      expect(card, who).toMatchObject({ title: "Early warnings: 1 student needs a closer look: 1 attendance (students counted once, from attendance and marks)", href: "/reports-analytics/early-warnings?strength=ACT_NOW&period=all" });
       expect(h.attention.some((x) => x.id === "attendance.below-threshold"), who).toBe(false);
     }
   });

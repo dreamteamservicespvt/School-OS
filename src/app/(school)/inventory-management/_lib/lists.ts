@@ -9,7 +9,7 @@ import type { SchoolContext, Tx } from "@/lib/db";
 import { canDecide } from "@/lib/approvals";
 import { dateWhere, momentWhere, type DayRange } from "@/lib/periods";
 import { reorderOf } from "@/lib/inventory/stock";
-import { billsWithState } from "@/lib/inventory/purchases";
+import { billDueSoon, billsWithState } from "@/lib/inventory/purchases";
 import { placeNames } from "@/lib/inventory/assets";
 import { billState, stockState, type MoveKind, type StockState } from "@/lib/inventory/words";
 import { studentIdsForFilter } from "@/lib/students/find";
@@ -177,13 +177,18 @@ export function ordersWhere(f: OrdersFilter): Prisma.PurchaseOrderWhereInput {
   return { ...(status ? { status } : {}), ...(f.vendor ? { vendorId: f.vendor } : {}), ...(f.q ? { number: { contains: f.q, mode: "insensitive" } } : {}), ...(f.range ? { date: dateWhere(f.range) } : {}) };
 }
 
-export type BillsFilter = { status: string; vendor: string; range: DayRange | null };
-export const readBillsFilter = (get: Get, range: DayRange | null): BillsFilter => ({ status: get("status"), vendor: uuid(get("vendor")), range });
+/** today: for "due7" (due within 7 days or past due, the Dashboard's card), which ignores the bill dates. */
+export type BillsFilter = { status: string; vendor: string; range: DayRange | null; today?: Date };
+export const readBillsFilter = (get: Get, range: DayRange | null, today?: Date): BillsFilter => {
+  const status = get("status");
+  return { status, vendor: uuid(get("vendor")), range: status === "due7" ? null : range, today };
+};
 
 export async function billsList(tx: Tx, f: BillsFilter) {
   const all = await billsWithState(tx, { vendorId: f.vendor || undefined, from: f.range ? new Date(`${f.range.from}T00:00:00Z`) : undefined, to: f.range ? new Date(`${f.range.to}T00:00:00Z`) : undefined });
   return all.filter((b) => {
     const st = b.expense ? billState(b.expense) : "CANCELLED";
+    if (f.status === "due7") return f.today ? billDueSoon(b, f.today) : st === "UNPAID" || st === "PART_PAID";
     if (f.status === "unpaid") return st === "UNPAID" || st === "PART_PAID";
     if (f.status === "waiting") return st === "WAITING";
     if (f.status === "paid") return st === "PAID";

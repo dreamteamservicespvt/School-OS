@@ -3,6 +3,7 @@
 import "server-only";
 
 import type { Prisma, StaffStatus } from "@prisma/client";
+import type { Tx } from "../db";
 import type { ListParams } from "../list";
 import { orderByFor } from "../list";
 import type { Viewer } from "./access";
@@ -20,6 +21,22 @@ const NOBODY = "00000000-0000-0000-0000-000000000000";
  */
 export function campusStaffWhere(v: Pick<Viewer, "campusId" | "staffId">): Prisma.StaffWhereInput {
   return v.campusId ? { OR: [{ campusId: v.campusId }, { id: v.staffId ?? NOBODY }] } : {};
+}
+
+/**
+ * Staff Leave, "All leave": requests of a status that touch the dates given, of the staff the
+ * viewer sees (their campus), found by name or staff ID. The Dashboard's "Staff on leave today"
+ * lists the same requests (approved, touching the day) and opens this list (gap list G36).
+ */
+export async function allLeaveWhere(tx: Tx, v: Pick<Viewer, "campusId" | "staffId">, f: { status: string | null; within: { gte: Date; lte: Date } | null; q: string }): Promise<Prisma.LeaveRequestWhereInput> {
+  const q = f.q.trim();
+  const staff = await tx.staff.findMany({ where: { AND: [campusStaffWhere(v), q ? { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { staffCode: { contains: q, mode: "insensitive" } }] } : {}] }, select: { id: true } });
+  return {
+    archivedAt: null, ...(f.status ? { status: f.status as Prisma.LeaveRequestWhereInput["status"] } : {}),
+    // Leave that touches the chosen dates.
+    ...(f.within ? { fromDate: { lte: f.within.lte }, toDate: { gte: f.within.gte } } : {}),
+    staffId: { in: staff.map((s) => s.id) },
+  };
 }
 
 /** For records that hold only a staffId: the staff ids the viewer may see (their campus and their own record), or null for the whole school. */

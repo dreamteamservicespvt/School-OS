@@ -7,7 +7,9 @@ import { readListParams } from "../../list";
 import { queryWhere } from "../../communication/queries";
 import { QUERY_FILTERS, queryListWhere } from "../../communication/query-list";
 import { channelSetups } from "../../messaging/channels";
-import { CANCELLED_REASON, NOT_SENT } from "../../messaging/send";
+import { NOT_SENT } from "../../messaging/send";
+import { notDeliveredWhere } from "../../communication/history";
+import { momentWhere, periodRange } from "../../periods";
 import { creditBalances } from "../../messaging/credits";
 import { n, plural, reach, someNames } from "../common";
 import type { AttentionItem, DashContext, Widget } from "../types";
@@ -85,21 +87,26 @@ const newMessages: Widget<"band"> = {
 };
 
 /**
- * Messages not delivered in the last 7 days (G07): refused by the provider,
- * or not sent because no channel could carry them (also automatic messages,
- * which have no sender to tell). Retried ones leave the count; so do the
- * failed people of a message already resent to them.
+ * People not reached in the last 7 days, today included (G07): refused by the
+ * provider, or not sent because no channel could carry them (also automatic
+ * messages, which have no sender to tell). Retried ones leave the count; so do
+ * the failed people of a message already resent to them. `messages` is how
+ * many messages they are in: Message History's "Not delivered" for the same
+ * days lists those messages (notDeliveredWhere, gap list G36).
  */
-export async function notDeliveredCount(tx: DashContext["tx"], now: Date) {
-  const since = new Date(now.getTime() - 7 * 86_400_000);
-  const resent = await tx.message.findMany({ where: { createdAt: { gte: since }, resendOfId: { not: null }, trigger: { startsWith: "Resend to failed" } }, select: { resendOfId: true } });
-  const base = { isBackup: false, status: "FAILED" as const, failedAt: { gte: since }, NOT: { failReason: CANCELLED_REASON }, messageId: { notIn: resent.map((r) => r.resendOfId!) } };
-  const [count, notSent] = await Promise.all([
+export async function notDeliveredCount(tx: DashContext["tx"], now: Date, timeZone = "Asia/Kolkata") {
+  const range = periodRange({ period: NOT_DELIVERED_PERIOD }, { timeZone, now })!;
+  const base = await notDeliveredWhere(tx, momentWhere(range, timeZone));
+  const [count, notSent, messages] = await Promise.all([
     tx.messageRecipient.count({ where: base }),
-    tx.messageRecipient.count({ where: { ...base, failReason: { startsWith: NOT_SENT } } }),
+    tx.messageRecipient.count({ where: { AND: [base, { failReason: { startsWith: NOT_SENT } }] } }),
+    tx.message.count({ where: { recipients: { some: base } } }),
   ]);
-  return { count, notSent };
+  return { count, notSent, messages, range };
 }
+
+/** The days the card counts: the last 7, as Message History's date filter names them. */
+const NOT_DELIVERED_PERIOD = "last7";
 
 const notDelivered: Widget<"attention"> = {
   id: "communication.not-delivered",
@@ -108,13 +115,13 @@ const notDelivered: Widget<"attention"> = {
   homes: ["leader"],
   allowed: (v) => reach(v, "communication") === "all",
   async load(c) {
-    const { count, notSent } = await notDeliveredCount(c.tx, c.now);
+    const { count, notSent, messages, range } = await notDeliveredCount(c.tx, c.now, c.tz);
     if (!count) return null;
     return {
       id: "communication.not-delivered", tone: "bad", icon: "Send",
-      title: `${plural(count, "message")} not delivered this week`,
+      title: `${plural(messages, "message")} not delivered to ${plural(count, "person", "people")} in the last 7 days`,
       detail: notSent ? `${n(notSent)} not sent: no channel could carry ${notSent === 1 ? "it" : "them"} · retry or resend` : "Retry, or resend by another channel",
-      action: "Retry", href: "/communication/history?status=failed", value: String(count),
+      action: "Retry", href: `/communication/history?status=not-delivered&period=custom&from=${range.from}&to=${range.to}`, value: `${messages}:${count}`,
     };
   },
 };

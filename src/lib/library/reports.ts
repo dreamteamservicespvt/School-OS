@@ -26,6 +26,8 @@ export type LibFilter = {
   sectionIds: string[] | null;
   /** Report-specific choice (stock check session). */
   session?: string | null;
+  /** Overdue report: only books more than this many days late (the Dashboard's card); 0 or left out for every overdue book. */
+  lateMoreThan?: number;
 };
 
 const ZERO = BigInt(0);
@@ -77,7 +79,8 @@ export async function issuedReport(tx: Tx, ctx: SchoolContext, f: LibFilter): Pr
 
 export async function overdueReport(tx: Tx, ctx: SchoolContext, f: LibFilter): Promise<Table> {
   const s = await librarySettings(tx, ctx);
-  const issues = await tx.bookIssue.findMany({ where: { ...overdueWhere(f.today), ...sectionWhere(f) }, orderBy: { dueOn: "asc" }, include: { copy: { select: { accessionNo: true, book: { select: { title: true } } } } } });
+  const late = f.lateMoreThan ?? 0;
+  const issues = await tx.bookIssue.findMany({ where: { ...overdueWhere(f.today, late), ...sectionWhere(f) }, orderBy: { dueOn: "asc" }, include: { copy: { select: { accessionNo: true, book: { select: { title: true } } } } } });
   const members = await membersFor(tx, ctx, issues);
   const secs = await sectionLabels(tx, issues.map((i) => i.sectionId));
   const rows: Row[] = issues.map((i) => {
@@ -87,7 +90,9 @@ export async function overdueReport(tx: Tx, ctx: SchoolContext, f: LibFilter): P
   });
   const t: Table = {
     columns: [{ key: "member", label: "Member" }, { key: "card", label: "Card no." }, { key: "cls", label: "Class" }, { key: "book", label: "Book" }, { key: "accession", label: "Accession" }, { key: "issued", label: "Issued", kind: "date" }, { key: "due", label: "Due", kind: "date" }, { key: "days", label: "Days overdue", kind: "number" }, { key: "fine", label: "Fine so far", kind: "money" }, { key: "reminded", label: "Last reminded", kind: "date" }],
-    rows, empty: "No books are overdue.", note: `${rows.length} book${rows.length === 1 ? "" : "s"} overdue today: the same count as Issue & Return.`,
+    rows, empty: "No books are overdue.", note: late
+      ? `${rows.length} book${rows.length === 1 ? "" : "s"} more than ${late} days late: the same count as the Dashboard.`
+      : `${rows.length} book${rows.length === 1 ? "" : "s"} overdue today: the same count as Issue & Return.`,
     links: [{ label: "Remind from Issue & Return", href: `${BASE}?list=overdue` }],
   };
   if (rows.length) t.totals = { member: "Total", card: null, cls: null, book: null, accession: null, issued: null, due: null, days: null, fine: rows.reduce<bigint>((a, r) => a + (r.fine as bigint), ZERO), reminded: null };

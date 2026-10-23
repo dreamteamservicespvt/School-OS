@@ -350,6 +350,25 @@ export async function outNow(tx: Tx, studentIds?: string[]) {
   return new Map(rows.map((p) => [p.studentId, p]));
 }
 
+/** The Allocation page's resident views; "in" (in the hostel now) is also the Dashboard's number. */
+export const RESIDENT_VIEWS = ["", "arriving", "in", "away", "out"] as const;
+export type ResidentView = (typeof RESIDENT_VIEWS)[number];
+
+/**
+ * The beds counted by each resident view, for the hostels given (null for every hostel): the
+ * Allocation page lists them and the Dashboard's "In the hostel now" counts them, so the card
+ * opens exactly the students it counted (gap list G36). "in" and "away" are of students who
+ * have checked in: in the hostel, or out on an outing or leave pass now (residentStatus).
+ * "out" (checked out) takes its dates from the page.
+ */
+export async function residentViewWhere(tx: Tx, view: Exclude<ResidentView, "out">, hostelIds: string[] | null): Promise<Prisma.BedAllocationWhereInput> {
+  const base: Prisma.BedAllocationWhereInput = { status: "ACTIVE", ...(hostelIds ? { hostelId: { in: hostelIds } } : {}) };
+  if (view === "") return base;
+  if (view === "arriving") return { ...base, checkedInAt: null };
+  const awayIds = [...(await outNow(tx)).keys()];
+  return { ...base, checkedInAt: { not: null }, studentId: view === "in" ? { notIn: awayIds } : { in: awayIds } };
+}
+
 export function residentStatus(a: Pick<BedAllocation, "status" | "checkedInAt">, pass: { outingType: string | null; toAt: Date | null } | undefined, now: Date): ResidentStatus {
   if (a.status !== "ACTIVE") return "OUT";
   if (!a.checkedInAt) return "NOT_ARRIVED";

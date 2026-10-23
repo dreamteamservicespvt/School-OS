@@ -31,6 +31,19 @@ import { viewerFor as staffViewer } from "@/lib/staff/access";
 import { STAFF_FILTERS, staffWhere } from "@/lib/staff/list";
 import { approvalsFor } from "@/lib/approvals";
 import { LIST_FILTERS, studentListWhere } from "@/app/(school)/student-management/_lib/queries";
+import { loadWidgetsIn } from "@/lib/dashboard/compose";
+import { readDashFilters } from "@/lib/dashboard/filters";
+import { HISTORY_FILTERS, historyWhereIn } from "@/lib/communication/history";
+import { notDeliveredCount } from "@/lib/dashboard/widgets/communication";
+import { readReportFilter } from "@/app/(school)/library-management/_lib/reports";
+import { residentViewWhere, type ResidentView } from "@/lib/hostel/allocation";
+import { billsList, readBillsFilter } from "@/app/(school)/inventory-management/_lib/lists";
+import { allLeaveWhere } from "@/lib/staff/list";
+import { dateWhere, periodRange } from "@/lib/periods";
+import { homeworkScope, pilingUp, workToCheck } from "@/lib/homework/scope";
+import { listHomework } from "@/lib/homework/homework";
+import { classProgress } from "@/lib/homework/progress";
+import type { AttentionItem, BandItem, Panel } from "@/lib/dashboard/types";
 import { drillSchool, NOW, TODAY, day, type DrillSchool } from "./drill-fixture";
 
 let f: DrillSchool;
@@ -350,5 +363,172 @@ describe("the Dashboard's filters reach every card and the lists they open", () 
     // A teacher's home stays on today.
     const t = await buildHome(f.who.classTeacher, { now: NOW, filters: { campusId: null, date: day("2026-10-10") } });
     expect(t.filters.date).toBeNull();
+  });
+});
+
+/** Cards of the optional modules, loaded as the person's Dashboard loads them (their homes, module on, allowed). */
+async function cards<K extends "attention" | "band" | "panel">(who: Current, kind: K, ids: string[]) {
+  return read(who, (tx) => loadWidgetsIn(tx, who, kind, ids, NOW));
+}
+const getOf = (href: string) => (k: string) => paramsOf(href)[k] ?? "";
+
+describe("cards that used to count differently from their lists (gap list G36)", () => {
+  it("messages not delivered: Message History's \"Not delivered\" for the same 7 days lists the messages counted (old, cancelled and resent ones left out)", async () => {
+    const a = card(await home("principal"), "communication.not-delivered")!;
+    expect(paramsOf(a.href)).toMatchObject({ status: "not-delivered", period: "custom", from: "2026-10-06", to: "2026-10-12" });
+    const list = await read(f.who.principal, async (tx) => tx.message.count({ where: await historyWhereIn(tx, f.who.principal.ctx, true, readListParams(paramsOf(a.href), HISTORY_FILTERS), "Asia/Kolkata") }));
+    const counted = await read(f.who.principal, (tx) => notDeliveredCount(tx, NOW, "Asia/Kolkata"));
+    expect(list).toBe(counted.messages);
+    expect(a.value).toBe(`${list}:${counted.count}`);
+    // "Fee reminder" (one person) and "PTM invite" (two): two messages, three people.
+    expect(counted).toMatchObject({ messages: 2, count: 3, notSent: 1 });
+  });
+
+  it("library books more than a week late: the overdue report it opens (late=7) lists the same books", async () => {
+    const [a] = await cards(f.who.principal, "attention", ["library.long-overdue"]) as AttentionItem[];
+    expect(pathOf(a.href)).toBe("/library-management/reports");
+    const r = readReportFilter(getOf(a.href), null, TODAY);
+    expect(r.late).toBe(7);
+    const rows = (await read(f.who.principal, (tx) => r.report!.run(tx, f.who.principal.ctx, r.forReport(r.report!)))).rows;
+    expect(num(a.value)).toBe(rows.length);
+    expect(rows.length).toBe(2);
+  });
+
+  it("in the hostel now: Allocation's \"In the hostel now\" lists the same boarders, and roll calls missing in two hostels give a card each", async () => {
+    const [b] = await cards(f.who.principal, "band", ["hostel.residents"]) as BandItem[];
+    const show = paramsOf(b.href!).show as ResidentView;
+    expect(show).toBe("in");
+    const hostels = await read(f.who.principal, (tx) => tx.hostel.findMany({ where: { archivedAt: null }, select: { id: true } }));
+    const count = (view: Exclude<ResidentView, "out">) => read(f.who.principal, async (tx) => tx.bedAllocation.count({ where: await residentViewWhere(tx, view, hostels.map((h) => h.id)) }));
+    expect(num(b.big)).toBe(await count("in"));
+    expect(num(b.of!)).toBe((await count("in")) + (await count("away")));
+    expect(b.big).toBe("2");
+    const roll = await cards(f.who.principal, "attention", ["hostel.rollcall-missing"]) as AttentionItem[];
+    if (roll.length) {
+      expect(roll.map((x) => paramsOf(x.href).hostel).sort()).toEqual([f.boys.id, f.girls.id].sort());
+      expect(new Set(roll.map((x) => x.id)).size).toBe(roll.length);
+    }
+  });
+
+  it("vendor bills due: the Bills tab's \"Due within 7 days\" lists the same bills, whatever their bill date", async () => {
+    const [a] = await cards(f.who.accountant, "attention", ["inventory.bills-due"]) as AttentionItem[];
+    expect(paramsOf(a.href)).toMatchObject({ tab: "bills", status: "due7" });
+    const finYear = periodRange({ period: "finyear" }, { timeZone: "Asia/Kolkata", now: NOW });
+    const list = await read(f.who.accountant, (tx) => billsList(tx, readBillsFilter(getOf(a.href), finYear, TODAY)));
+    expect(a.value.split(":")[0]).toBe(String(list.length));
+    expect(list.length).toBe(2);
+  });
+
+  it("staff on leave today: the panel opens Staff Leave, all leave, approved, today, with the same people", async () => {
+    const h = await home("principal");
+    const panel = [...h.panels.first, ...h.panels.main, ...h.panels.side].find((p) => p.kind === "list" && p.title === "Staff on leave today") as Extract<Panel, { kind: "list" }> | undefined;
+    expect(panel).toBeDefined();
+    expect(paramsOf(panel!.href!)).toMatchObject({ view: "all", status: "APPROVED", period: "today" });
+    const range = periodRange({ period: "today" }, { timeZone: "Asia/Kolkata", now: NOW })!;
+    const count = await read(f.who.principal, async (tx) => tx.leaveRequest.count({ where: await allLeaveWhere(tx, { campusId: null, staffId: null }, { status: "APPROVED", within: dateWhere(range), q: "" }) }));
+    expect(panel!.rows.length).toBe(count);
+    expect(count).toBe(1);
+  });
+
+  it("homework to check and piling up: Homework's ?check= lists the same work, and its pieces add up to the card", async () => {
+    const [mine] = await cards(f.who.classTeacher, "attention", ["homework.to-check"]) as AttentionItem[];
+    expect(paramsOf(mine.href).check).toBe("1");
+    const own = await read(f.who.classTeacher, async (tx) => {
+      const s = await homeworkScope(tx, f.who.classTeacher, TODAY);
+      const work = await workToCheck(tx, s);
+      const { all } = await listHomework(tx, s, TODAY);
+      return { work, all };
+    });
+    const ids = new Set(own.work.map((w) => w.id));
+    expect(num(mine.value)).toBe(own.all.filter((r) => ids.has(r.id)).reduce((n, r) => n + r.counts.toCheck, 0));
+    expect(mine.value).toBe("2");
+
+    const [piling] = await cards(f.who.principal, "attention", ["homework.piling-up"]) as AttentionItem[];
+    expect(paramsOf(piling.href).check).toBe("piling");
+    const many = await read(f.who.principal, async (tx) => pilingUp(await workToCheck(tx, await homeworkScope(tx, f.who.principal, TODAY))));
+    expect(many.map(([id]) => id)).toEqual([f.st.mainOther.id]);
+    expect(piling.title).toContain("1 teacher");
+  });
+
+  it("homework handed in: each section's bar is Learning Progress's \"Homework done\" for that section and dates", async () => {
+    const [p] = await cards(f.who.principal, "panel", ["homework.handed-in"]) as { slot: string; panel: Panel }[];
+    expect(p.panel.kind).toBe("bars");
+    if (p.panel.kind !== "bars") return;
+    expect(p.panel.rows.length).toBeGreaterThan(0);
+    for (const row of p.panel.rows) {
+      const sp = paramsOf(row.href!);
+      const lp = await read(f.who.principal, async (tx) => classProgress(tx, await homeworkScope(tx, f.who.principal, TODAY), sp.section, null, day(sp.from), day(sp.to), TODAY));
+      expect(row.value, row.label).toBe(lp!.totals.donePct);
+    }
+    // 5 A: three of four handed in (75%); 5 B: all twelve (100%).
+    expect(p.panel.rows.map((r) => r.value).sort()).toEqual([100, 75]);
+  });
+
+  it("classes overview: the classes and \"not yet in a section\" add up to the Students number", async () => {
+    const h = await home("principal");
+    const panel = [...h.panels.first, ...h.panels.main, ...h.panels.side].find((p) => p.kind === "classes-overview");
+    if (panel?.kind !== "classes-overview") throw new Error("no classes overview");
+    expect(panel.unplaced?.count).toBe(1);
+    expect(panel.unplaced!.count).toBe(await studentList(f.who.principal, panel.unplaced!.href));
+    const students = band(h, "students.head-count");
+    if (students) expect(panel.classes.reduce((n, c) => n + c.total, 0) + panel.unplaced!.count).toBe(num(students.big));
+  });
+});
+
+describe("the date range, year and class filters reach the cards and the lists they open (gap list G36)", () => {
+  it("a range of days: fees collected and student attendance count those days, and their lists open on the same dates", async () => {
+    const h = await buildHome(f.who.principal, { now: NOW, filters: { campusId: null, date: TODAY, from: day("2026-10-10") } });
+    expect(h.failed).toEqual([]);
+    const fees = band(h, "fees.collected-today")!;
+    expect(paramsOf(fees.href!)).toMatchObject({ period: "custom", from: "2026-10-10", to: "2026-10-12" });
+    const list = await feeList(f.who.principal, fees.href!);
+    expect(fees.big).toBe(formatRupeesShort(list.sum));
+    // Today's ₹13,000 and ₹4,000 on 10 October.
+    expect(list.total).toBe(4);
+    const present = band(h, "attendance.students-present")!;
+    expect(paramsOf(present.href!)).toMatchObject({ period: "custom", from: "2026-10-10", to: "2026-10-12" });
+    const totals = await read(f.who.principal, async (tx) => {
+      const settings = await attendanceSettings(tx, f.who.principal.ctx);
+      const access = await attendanceAccess(tx, f.who.principal.ctx, f.who.principal, settings.lockOverrideRoles);
+      return (await registerWhole(tx, f.who.principal.ctx, access, day("2026-10-10"), TODAY, TODAY)).totals;
+    });
+    expect(present.big).toBe(totals.percent === null ? "Not taken" : `${totals.percent}%`);
+  });
+
+  it("the page address gives the filters: a past year ends the dates at its last day, and a from after the to is dropped", async () => {
+    const r = await read(f.who.principal, (tx) => readDashFilters(tx, f.who.principal.ctx, f.who.principal, { year: f.pastYear.id, from: "2026-03-01", to: "2026-10-01" }, TODAY));
+    expect(r.filters.pastYear).toEqual({ id: f.pastYear.id, name: "2025-26" });
+    expect(r.filters.date).toEqual(day("2026-03-31"));
+    expect(r.filters.from).toEqual(day("2026-03-01"));
+    expect(r.years.map((y) => y.name)).toEqual(["2026-27", "2025-26"]);
+    const odd = await read(f.who.principal, (tx) => readDashFilters(tx, f.who.principal.ctx, f.who.principal, { from: "2026-10-12", to: "2026-10-05" }, TODAY));
+    expect(odd.filters.from).toBeNull();
+    expect(odd.filters.date).toEqual(day("2026-10-05"));
+    const current = await read(f.who.principal, (tx) => readDashFilters(tx, f.who.principal.ctx, f.who.principal, { year: f.mainYear.id }, TODAY));
+    expect(current.filters.yearId).toBeNull();
+  });
+
+  it("a past year: the Students card counts that year and its link carries ?year=", async () => {
+    const h = await buildHome(f.who.principal, { now: NOW, filters: { campusId: null, date: day("2026-03-31"), yearId: f.pastYear.id, pastYear: { id: f.pastYear.id, name: "2025-26" } } });
+    expect(h.filters.pastYear?.name).toBe("2025-26");
+    const students = band(h, "students.head-count");
+    if (students) {
+      expect(paramsOf(students.href!).year).toBe(f.pastYear.id);
+      const count = await read(f.who.principal, async (tx) => tx.student.count({ where: await studentListWhere(tx, f.who.principal, readListParams(paramsOf(students.href!), LIST_FILTERS), [f.pastYear.id], f.pastYear.startDate, await getStudentSettings(tx, f.who.principal.ctx)) }));
+      expect(num(students.big)).toBe(count);
+    }
+  });
+
+  it("one class: the Students card and the Classes overview count that class, and the Student List opens on it", async () => {
+    const h = await buildHome(f.who.principal, { now: NOW, filters: { campusId: null, date: null, classId: f.mainClass.id } });
+    const students = band(h, "students.head-count");
+    if (students) {
+      expect(paramsOf(students.href!).class).toBe(f.mainClass.id);
+      expect(num(students.big)).toBe(await studentList(f.who.principal, students.href!));
+    }
+    const panel = [...h.panels.first, ...h.panels.main, ...h.panels.side].find((p) => p.kind === "classes-overview");
+    if (panel?.kind !== "classes-overview") throw new Error("no classes overview");
+    expect(panel.classes.map((c) => c.id)).toEqual([f.mainClass.id]);
+    expect(panel.unplaced).toBeUndefined();
   });
 });

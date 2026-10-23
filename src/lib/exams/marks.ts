@@ -327,6 +327,18 @@ export type PaperRow = {
 const BY_LABEL = new Intl.Collator(undefined, { numeric: true });
 
 /** The papers a person enters marks for (their own allocations), or every paper for full reach. */
+/** Days ahead the Dashboard's "waiting for marks" card and Marks Entry's "Due soon" look. */
+export const MARKS_DUE_DAYS = 3;
+
+/**
+ * A paper still waiting for marks whose exam day has come and whose marks are due within
+ * MARKS_DUE_DAYS or late: the Dashboard's "papers waiting for marks" card counts these, and
+ * Marks Entry lists them with status "Due soon" (gap list G36).
+ */
+export function marksDueSoon(p: { status: string; date: Date; due: Date | null }, today: Date) {
+  return p.status !== "SUBMITTED" && p.status !== "LOCKED" && p.date <= today && (!p.due || p.due.getTime() <= today.getTime() + MARKS_DUE_DAYS * 86_400_000);
+}
+
 /**
  * `counts: false` leaves out what each paper's marks and teachers are (done, of, waiting, teachers come back
  * empty): for the Dashboard, which shows only which papers wait for marks (G37: it read every mark of the year).

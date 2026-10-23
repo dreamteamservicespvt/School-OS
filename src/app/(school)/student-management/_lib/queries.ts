@@ -73,7 +73,9 @@ export async function studentListWhere(tx: Tx, who: Who, params: ListParams, yea
   else if ((STUDENT_STATUSES as readonly string[]).includes(status)) and.push({ status: status as StudentStatusKey });
   // "all" adds nothing.
   const enrol: Prisma.EnrolmentWhereInput = { archivedAt: null, ...(years.length ? { academicYearId: { in: years } } : {}) };
-  if (f.section && /^[0-9a-f-]{36}$/i.test(f.section)) and.push({ enrolments: { some: { ...enrol, sectionId: f.section } } });
+  // "none": studying with no class this year yet; the Dashboard's Classes overview shows them so its totals add up to the head count (gap list G36).
+  if (f.section === "none") and.push({ enrolments: { none: enrol } });
+  else if (f.section && /^[0-9a-f-]{36}$/i.test(f.section)) and.push({ enrolments: { some: { ...enrol, sectionId: f.section } } });
   else if (f.class && /^[0-9a-f-]{36}$/i.test(f.class)) and.push({ enrolments: { some: { ...enrol, classId: f.class } } });
   if (f.gender) and.push({ gender: f.gender });
   if (f.category) and.push({ category: f.category });

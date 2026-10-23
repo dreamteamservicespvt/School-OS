@@ -9,7 +9,7 @@ import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { dateWhere, periodFromSearch } from "@/lib/periods";
 import { plural } from "@/lib/academic/common";
-import { papersFor, type PaperRow } from "@/lib/exams/marks";
+import { marksDueSoon, papersFor, type PaperRow } from "@/lib/exams/marks";
 import { PAPER_STATUS_TONE, PAPER_STATUS_WORDS } from "@/lib/exams/common";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
@@ -49,7 +49,8 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
   const q = one(raw.q).trim();
   const examParam = one(raw.exam);
   const sectionId = one(raw.section);
-  const status = (STATUSES as readonly string[]).includes(one(raw.status)) ? one(raw.status) : "";
+  // "due": waiting for marks, due within 3 days or late (the Dashboard's card, marksDueSoon; gap list G36).
+  const status = (STATUSES as readonly string[]).includes(one(raw.status)) || one(raw.status) === "due" ? one(raw.status) : "";
   const pageNo = Math.max(1, Number(one(raw.page)) || 1);
 
   const { rows: all, exams } = await withSchool(page.current.ctx, async (tx) => ({
@@ -61,7 +62,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
   const examId = examParam === "all" ? "" : exams.some((e) => e.id === examParam) ? examParam : page.scope.manage ? (pendingExam ?? exams[0])?.id ?? "" : "";
   const inRange = all.filter((r) => (!examId || r.examId === examId) && (!within || (r.date >= within.gte && r.date <= within.lte)) && (!sectionId || r.sectionId === sectionId));
   const count = (s: string) => inRange.filter((r) => r.status === s).length;
-  const rows = status ? inRange.filter((r) => r.status === status) : inRange;
+  const rows = status === "due" ? inRange.filter((r) => marksDueSoon(r, page.today)) : status ? inRange.filter((r) => r.status === status) : inRange;
   const open = (r: PaperRow) => r.status === "NOT_STARTED" || r.status === "IN_PROGRESS";
   const overdue = (r: PaperRow) => Boolean(r.due && r.due < page.today && open(r));
   const href = (r: PaperRow) => withYear(`${PATH}/${r.entryId}/${r.sectionId}`, page);
@@ -177,7 +178,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
           </Toolbar>
           {inRange.length > 0 && (
             <div className="px-3 py-3 border-b border-line">
-              <Chips label="Status" value={status} options={[{ value: "", label: "All", count: inRange.length, href: link({ status: "" }) }, ...STATUSES.map((s) => ({ value: s, label: PAPER_STATUS_WORDS[s], count: count(s), href: link({ status: s }) }))]} />
+              <Chips label="Status" value={status} options={[{ value: "", label: "All", count: inRange.length, href: link({ status: "" }) }, ...STATUSES.map((s) => ({ value: s, label: PAPER_STATUS_WORDS[s], count: count(s), href: link({ status: s }) })), { value: "due", label: "Due soon", count: inRange.filter((r) => marksDueSoon(r, page.today)).length, href: link({ status: "due" }) }]} />
             </div>
           )}
           {page.writable && shown.some(open) && <RemindBar form="mk-papers" />}

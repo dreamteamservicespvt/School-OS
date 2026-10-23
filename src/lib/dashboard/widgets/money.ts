@@ -57,6 +57,11 @@ const collectedToday: Widget<"band"> = {
   homes: ["leader", "accountant"],
   allowed: feeDetails("dashboard"),
   async load(c) {
+    // Dates chosen on the Dashboard (from–to): Recent payments' own total for those days, the list the card opens.
+    if (c.filters.from) {
+      const list = await recentPayments(c.tx, await fees(c), { from: c.filters.from, to: c.today, status: "POSTED", partial: null }, 0);
+      return { id: "fees.collected-today", label: "Fees collected", big: formatRupeesShort(list.sum), foot: list.total ? `${plural(list.total, "payment")} · these dates` : "No payments on these dates", href: COLLECTED_TODAY };
+    }
     const t = (await tiles(c)).today;
     const upi = await c.tx.payment.count({ where: { status: "POSTED", broughtIn: false, paymentDate: c.today, mode: "UPI", ...(await onCampus(c)) } });
     return {

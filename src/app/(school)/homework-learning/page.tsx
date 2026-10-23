@@ -7,7 +7,7 @@ import { formatTime } from "@/lib/format";
 import { listHomework, bandTotals, nextClassDay, nextWorkingDay, sectionStudents, type HomeworkRow } from "@/lib/homework/homework";
 import { byTeacher, loadByDay } from "@/lib/homework/overview";
 import { handInState } from "@/lib/homework/submissions";
-import { mayWork, workSections, workSubjects } from "@/lib/homework/scope";
+import { mayWork, PILING_UP, pilingUp, workSections, workSubjects, workToCheck } from "@/lib/homework/scope";
 import { dayDate, gradeFor, HW_TONE, momentWords, pct, plural, quizWord, sessionWord, shortDay } from "@/lib/homework/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
@@ -72,6 +72,9 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
   const editsHere = p.edits("homework");
   const doing = editsHere ? one(sp.do) : "";
   const target = UUID.test(one(sp.id)) ? one(sp.id) : "";
+  // ?check=1: the work waiting to be checked, whatever the dates; ?check=piling (full reach): of the teachers
+  // with 10 or more pieces waiting. The Dashboard's cards count exactly these (workToCheck, gap list G36).
+  const check = one(sp.check) === "1" ? "mine" : one(sp.check) === "piling" && s.level === "full" ? "piling" : null;
 
   const data = await withSchool(p.current.ctx, async (tx) => {
     const [{ all }, archived] = await Promise.all([listHomework(tx, s, p.today), tab === "archived" ? listHomework(tx, s, p.today, { archived: true }) : null]);
@@ -81,13 +84,20 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
     const give = doing === "give" ? await giveSections(tx, p) : null;
     const editing = doing === "edit" && target ? await tx.homework.findFirst({ where: { id: target, archivedAt: null }, include: { attachments: { where: { archivedAt: null } } } }) : null;
     const archiving = doing === "archive" && target ? all.find((r) => r.id === target) ?? null : null;
-    return { all, inP, archived: archived?.rows.filter(inPeriod) ?? [], overview, give, editing, archiving };
+    let checkIds: Map<string, number> | null = null;
+    if (check) {
+      const work = await workToCheck(tx, s);
+      const piling = check === "piling" ? new Set(pilingUp(work).map(([id]) => id)) : null;
+      checkIds = new Map(work.filter((h) => !piling || (h.teacherId && piling.has(h.teacherId))).map((h) => [h.id, h.pieces]));
+    }
+    return { all, inP, archived: archived?.rows.filter(inPeriod) ?? [], overview, give, editing, archiving, checkIds };
   });
 
   const { inP } = data;
   const cur = inP.filter((r) => r.status === "Current");
   const hist = inP.filter((r) => r.status !== "Current");
-  const base = tab === "archived" ? data.archived : tab === "history" ? hist : cur;
+  const checkIds = data.checkIds;
+  const base = checkIds ? data.all.filter((r) => checkIds.has(r.id)).sort((a, b) => a.dueDate.getTime() - b.dueDate.getTime()) : tab === "archived" ? data.archived : tab === "history" ? hist : cur;
   const rows = base
     .filter((r) => !sectionF || r.sectionId === sectionF)
     .filter((r) => !subjectF || r.subjectId === subjectF)
@@ -96,7 +106,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
   const mine = s.level === "own";
   // A teacher's own band counts their own homework; a class teacher also reads other subjects of their class.
   const t = bandTotals(mine ? cur.filter((r) => mayWork(s, r)) : cur);
-  const keep = { ...per.keep, q: q || null, section: sectionF || null, subject: subjectF || null, view: one(sp.view) || null, tab: tab === "current" ? null : tab };
+  const keep = { ...per.keep, q: q || null, section: sectionF || null, subject: subjectF || null, view: one(sp.view) || null, tab: tab === "current" ? null : tab, check: check ? one(sp.check) : null };
   const here = (extra: Record<string, string | null> = {}) => qs(BASE, { ...keep, ...extra });
   const sectionOpts = [...new Map(data.all.map((r) => [r.sectionId, r.sectionLabel])).entries()].sort((a, b) => a[1].localeCompare(b[1], "en", { numeric: true }));
   const subjectOpts = [...new Map(data.all.map((r) => [r.subjectId, r.subject])).entries()].sort((a, b) => a[1].localeCompare(b[1]));
@@ -104,7 +114,10 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
   const checkLabel = (r: HomeworkRow) => (p.edits("submissions") && mayWork(s, r, "submissions") ? "Check work" : "Who handed in");
   const isToday = (d: Date) => d.getTime() === p.today.getTime();
   const range = per.range ? rangeWords(per.range.from, per.range.to) : "";
-  const showing = `Showing: ${per.label}${range ? ` · ${range}` : ""} · ${plural(rows.length, "homework", "homework")}`;
+  const pieces = checkIds ? rows.reduce((a, r) => a + (checkIds.get(r.id) ?? 0), 0) : 0;
+  const showing = checkIds
+    ? `Showing: work to check${check === "piling" ? ` of teachers with ${PILING_UP} or more pieces` : ""} · ${plural(pieces, "piece")} in ${plural(rows.length, "homework", "homework")}`
+    : `Showing: ${per.label}${range ? ` · ${range}` : ""} · ${plural(rows.length, "homework", "homework")}`;
   const subjectsTaught = [...new Set(data.all.filter((r) => mayWork(s, r)).map((r) => r.subject))];
   const classesTaught = [...new Set(s.pairs.map((x) => data.all.find((r) => r.sectionId === x.sectionId)?.sectionLabel).filter(Boolean))];
   const sub = mine
@@ -139,6 +152,12 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
             <UrlSegmented param="view" fallback={p.settings.listView === "list" ? "list" : "cards"} className="hidden md:inline-flex" label="Show as"
               options={[{ value: "cards", label: <><LayoutGrid size={15} aria-hidden="true" /><Words k="Cards" /></> }, { value: "list", label: <><Rows3 size={15} aria-hidden="true" /><Words k="List" /></> }]} />
           </Toolbar>
+          {checkIds && (
+            <p className="px-4 pt-3 text-[13.5px] text-ink2">
+              <b className="font-semibold">{showing.replace(/^Showing: /, "")}</b>{" "}
+              <Link href={BASE} className="font-semibold text-brand hover:underline"><Words k="Show all homework" /></Link>
+            </p>
+          )}
           <div className="flex flex-wrap items-center justify-between gap-3 px-3 pt-3">
             <UrlSegmented param="tab" fallback="current" label="Which homework"
               options={[{ value: "current", label: `Current · ${cur.length}` }, { value: "history", label: `History · ${hist.length}` }, ...(tab === "archived" || editsHere ? [{ value: "archived", label: "Archived" }] : [])]} />

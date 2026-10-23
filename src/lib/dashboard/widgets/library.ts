@@ -73,15 +73,16 @@ const longOverdue: Widget<"attention"> = {
   homes: ["librarian", "leader"],
   allowed: watches,
   async load(c) {
-    const weekAgo = new Date(c.today.getTime() - 7 * 86_400_000);
-    const count = await c.tx.bookIssue.count({ where: { returnedAt: null, dueOn: { lt: weekAgo } } });
+    // The overdue report's own rule, opened with the same "more than 7 days late" (gap list G36).
+    const count = await c.tx.bookIssue.count({ where: overdueWhere(c.today, 7) });
     if (!count) return null;
     const desk = deskWorker(c.viewer);
+    const report = viewerOf(c.viewer).pages.reports !== "hidden";
     return {
       id: "library.long-overdue", tone: "warn", icon: "BookOpenCheck",
       title: `${plural(count, "library book")} more than a week late`,
       detail: desk ? "Send reminders to the parents and staff from the desk." : "Ask the librarian to follow up with the members.",
-      action: desk ? "Remind" : "Review", href: `${BASE}?list=overdue`, value: String(count),
+      action: desk ? "Remind" : "Review", href: report ? `${BASE}/reports?r=lib-overdue&late=7#report` : `${BASE}?list=overdue`, value: String(count),
     };
   },
 };

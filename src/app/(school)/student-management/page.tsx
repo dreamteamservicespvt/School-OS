@@ -36,7 +36,10 @@ const STEP = 25;
 export default async function StudentListPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const raw = await searchParams;
   // One campus chosen on the Dashboard (?campus=): that campus's students and year, as the card counted them.
-  const { current, settings, year, years, yearIds, can: ab, tz } = await studentPageOnCampus(raw.campus);
+  const pg = await studentPageOnCampus(raw.campus, raw.year);
+  const { current, settings, year, years, yearIds, can: ab, tz } = pg;
+  // Another year chosen on the Dashboard: the list of that year, read-only words on top (P18).
+  const otherYear = "otherYear" in pg && pg.otherYear ? year : null;
   const params = readListParams(raw, LIST_FILTERS);
   const shownCount = Math.min(500, Math.max(STEP, Number.parseInt(String(raw.n ?? ""), 10) || STEP));
   // Each student's class is in their own campus's current year (two campuses can start the year on different dates).
@@ -151,6 +154,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
           ]} />}
         </>} />
 
+      {otherYear && <Banner tone="warn" className="mb-4" title={`You are viewing ${otherYear.name}.`}><Words k="This list shows the students of that year, as the Dashboard counted them." /> <Link className="font-semibold underline" href="/student-management"><Words k="Back to this year" /></Link></Banner>}
       {!year && <Banner tone="warn" className="mb-4" title="No academic year is open."><Words k="Students have no class until the year is opened in" /> <Link className="font-semibold underline" href="/academic-management"><Words k="Academic Management" /></Link>.</Banner>}
 
       {data.tiles.length > 0 && (

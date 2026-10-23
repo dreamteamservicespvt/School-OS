@@ -181,9 +181,26 @@ export async function drillSchool() {
     }
     // A closed year before this one on the main campus (the Dashboard's year filter).
     const pastYear = await tx.academicYear.create({ data: { schoolId: sid, campusId: main, name: "2025-26", startDate: day("2025-04-01"), endDate: day("2026-03-31"), status: "CLOSED" } });
+    // Its last day, 31 March 2026 (a Tuesday): Aarav, Diya and Ishaan in last year's 5 A (promoted since), two marked
+    // present and one absent; two fees paid that day and one the day before; enquiries for that year, one in its last week.
+    const pastSection = await tx.section.create({ data: { schoolId: sid, classId: mainClass.id, academicYearId: pastYear.id, name: "A", seats: 40 } });
+    const lastDay = day("2026-03-31");
+    for (const [k, statusKey] of [[kids.a1, "present"], [kids.a2, "absent"], [kids.a3, "present"]] as const) {
+      await tx.enrolment.create({ data: { schoolId: sid, studentId: k.id, academicYearId: pastYear.id, classId: mainClass.id, sectionId: pastSection.id, status: "PROMOTED" } });
+      await tx.attendanceMark.create({ data: { schoolId: sid, academicYearId: pastYear.id, studentId: k.id, sectionId: pastSection.id, date: lastDay, statusKey } });
+    }
+    await pay(kids.a1, pastYear.id, 3000, { paymentDate: lastDay, paidAt: lastDay });
+    await pay(kids.a2, pastYear.id, 1000, { paymentDate: lastDay, paidAt: lastDay, isPartial: true, mode: "UPI" });
+    await pay(kids.a3, pastYear.id, 2500, { paymentDate: day("2026-03-30"), paidAt: day("2026-03-30") });
+    for (const [child, created] of [["Pari Past", "2026-03-28T05:00:00Z"], ["Old Past", "2026-02-10T05:00:00Z"]] as const) {
+      await tx.enquiry.create({ data: {
+        schoolId: sid, campusId: main, academicYearId: pastYear.id, childName: child, parentName: `Parent of ${child}`, phone: nextPhone(), source: "walk-in", firstSource: "walk-in",
+        createdAt: new Date(created),
+      } });
+    }
     // A student studying with no class yet this year (the Classes overview shows "not yet in a section").
     const unplaced = await tx.student.create({ data: { schoolId: sid, campusId: main, admissionNo: `D-U-${randomUUID().slice(0, 4)}`, firstName: "Uma", lastName: "Unplaced", fullName: "Uma Unplaced", status: "ACTIVE", joiningDate: day("2026-10-01") } });
-    return { main, north, mainYear, northYear, mainClass, northClass, m5a, m5b, n5a, st, kids, head, fyNow, fyLast, pastYear, unplaced };
+    return { main, north, mainYear, northYear, mainClass, northClass, m5a, m5b, n5a, st, kids, head, fyNow, fyLast, pastYear, pastSection, unplaced };
   });
 
   // The optional modules' cards (gap list G36): messages, library, hostel, store, leave and homework.

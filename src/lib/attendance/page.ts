@@ -7,7 +7,7 @@ import { requirePage, type Current } from "../current";
 import { withSchool } from "../db";
 import type { Action } from "../permissions";
 import { todayIn } from "../staff/dates";
-import { attendanceAccess, MODULE, type AttendanceAccess } from "./access";
+import { attendanceAccess, inYear, MODULE, type AttendanceAccess } from "./access";
 import { narrowToCampus } from "../campus";
 import { readViewYear, type ViewYear } from "../academic/view-year";
 import { attendanceFeatures, attendanceSettings } from "./settings";
@@ -38,16 +38,6 @@ export async function onCampusFromPage(p: { current: Current; access: Attendance
     const view = rawYear ? await readViewYear(tx, current.ctx, current, rawYear, p.today) : null;
     return { current, access: inYear(access, view), view };
   });
-}
-
-/**
- * Another year chosen on the Dashboard (?year=, src/lib/academic/view-year.ts):
- * the person's reach in that year's sections; a year that is over is read-only
- * (no marks, corrections or leave from it).
- */
-export function inYear(access: AttendanceAccess, view: ViewYear | null): AttendanceAccess {
-  if (!view) return access;
-  return { ...access, yearId: view.id, yearIds: [view.id], ...(view.past ? { change: "none" as const, lockOverride: false } : {}) };
 }
 
 /** For server actions: what the person may do, and the school's settings. */

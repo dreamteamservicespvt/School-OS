@@ -8,7 +8,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import type { Current } from "@/lib/current";
 import { buildHome, type Home } from "@/lib/dashboard/compose";
-import { attendanceAccess } from "@/lib/attendance/access";
+import { attendanceAccess, inYear } from "@/lib/attendance/access";
+import { readViewYear, viewNow } from "@/lib/academic/view-year";
 import { attendanceSettings } from "@/lib/attendance/settings";
 import { registerWhole } from "@/lib/attendance/classwise";
 import { staffDay, staffDayCounts } from "@/lib/attendance/staff";
@@ -26,7 +27,7 @@ import { guardianConsentGroups, guardiansInReach } from "@/lib/students/guardian
 import { yearsFor } from "@/lib/academic/years";
 import { viewerFor as admissionViewer, type ViewerSource } from "@/lib/admission/access";
 import { APPLICATION_FILTERS, applicationWhere, ENQUIRY_FILTERS, enquiryWhere } from "@/lib/admission/list";
-import { openYears } from "@/lib/admission/settings";
+import { listYears, openYears } from "@/lib/admission/settings";
 import { viewerFor as staffViewer } from "@/lib/staff/access";
 import { STAFF_FILTERS, staffWhere } from "@/lib/staff/list";
 import { approvalsFor } from "@/lib/approvals";
@@ -530,5 +531,80 @@ describe("the date range, year and class filters reach the cards and the lists t
     if (panel?.kind !== "classes-overview") throw new Error("no classes overview");
     expect(panel.classes.map((c) => c.id)).toEqual([f.mainClass.id]);
     expect(panel.unplaced).toBeUndefined();
+  });
+});
+
+describe("a past year: the cards count that year, and the lists they open read ?year= the same way (gap list G36 follow-up)", () => {
+  const past = () => ({ campusId: null, date: day("2026-03-31"), yearId: f.pastYear.id, pastYear: { id: f.pastYear.id, name: "2025-26" } });
+  let h: Home;
+  beforeAll(async () => {
+    h = await buildHome(f.who.principal, { now: NOW, filters: past() });
+  }, 120_000);
+  /** The year a list reads from its link, as every list reads it (src/lib/academic/view-year.ts). */
+  const viewOf = (who: Current, href: string) => read(who, (tx) => readViewYear(tx, who.ctx, who, paramsOf(href).year, TODAY));
+
+  it("the year in a link is taken only when it is a year of the person's campus that is not the current one", async () => {
+    expect(h.failed).toEqual([]);
+    const v = await viewOf(f.who.principal, `/fee-management/dashboard?year=${f.pastYear.id}`);
+    expect(v).toMatchObject({ id: f.pastYear.id, past: true, asOf: day("2026-03-31") });
+    // The current year is the default (no strip); another campus's year is not taken for a person limited to North.
+    expect(await viewOf(f.who.principal, `/x?year=${f.mainYear.id}`)).toBeNull();
+    expect(await viewOf(f.who.northAccountant, `/x?year=${f.pastYear.id}`)).toBeNull();
+    expect(await viewOf(f.who.principal, "/x?year=not-a-year")).toBeNull();
+  });
+
+  it("fees collected: the payments of that year's last day, and Fee Dashboard read with ?year= lists the same payments and amount", async () => {
+    const tile = band(h, "fees.collected-today")!;
+    const sp = paramsOf(tile.href!);
+    expect(sp).toMatchObject({ year: f.pastYear.id, period: "custom", from: "2026-03-31", to: "2026-03-31", kind: "all", status: "POSTED" });
+    const view = (await viewOf(f.who.principal, tile.href!))!;
+    const list = await read(f.who.principal, async (tx) => {
+      const v = await feeViewer(tx, f.who.principal.ctx, f.who.principal);
+      return recentPayments(tx, { ...v, yearId: view.id, yearIds: [view.id] }, { from: day(sp.from), to: day(sp.to), status: sp.status, partial: null }, 0);
+    });
+    // ₹3,000 and ₹1,000 (partial) on 31 March; the ₹2,500 of 30 March is another day.
+    expect(list.total).toBe(2);
+    expect(tile.big).toBe(formatRupeesShort(list.sum));
+    expect(list.sum).toBe(BigInt(400000));
+  });
+
+  it("student attendance: that year's sections on its last day, and the Register read with ?year= shows the same present of the same students", async () => {
+    const tile = band(h, "attendance.students-present")!;
+    const sp = paramsOf(tile.href!);
+    expect(sp).toMatchObject({ year: f.pastYear.id, period: "custom", from: "2026-03-31", to: "2026-03-31" });
+    const view = (await viewOf(f.who.principal, tile.href!))!;
+    const totals = await read(f.who.principal, async (tx) => {
+      const settings = await attendanceSettings(tx, f.who.principal.ctx);
+      const access = inYear(await attendanceAccess(tx, f.who.principal.ctx, f.who.principal, settings.lockOverrideRoles), view);
+      expect(access.change).toBe("none");
+      return (await registerWhole(tx, f.who.principal.ctx, access, day(sp.from), day(sp.to), view.asOf)).totals;
+    });
+    expect(totals.present).toBe(2);
+    expect(totals.absent).toBe(1);
+    expect(num(tile.big)).toBe(totals.present);
+    expect(tile.of).toBe(`/ ${totals.markedStudents}`);
+  });
+
+  it("new enquiries: that year's enquiries of its last week, and Enquiries read with ?year= counts the same", async () => {
+    const tile = band(h, "admissions.new-enquiries")!;
+    expect(paramsOf(tile.href!).year).toBe(f.pastYear.id);
+    const view = (await viewOf(f.who.principal, tile.href!))!;
+    const count = await read(f.who.principal, async (tx) => {
+      const v = await admissionViewer(tx, f.who.principal.ctx, f.who.principal as unknown as ViewerSource);
+      const years = (await listYears(tx, v.campusId, view)).map((y) => y.id);
+      return tx.enquiry.count({ where: enquiryWhere(readListParams(paramsOf(tile.href!), ENQUIRY_FILTERS), v, { yearId: years, timeZone: "Asia/Kolkata", now: viewNow(view, NOW) }) });
+    });
+    // Pari (28 March) only: the February enquiry is older, and this year's enquiries are another year.
+    expect(count).toBe(1);
+    expect(num(tile.big)).toBe(count);
+  });
+
+  it("the cards' links to the other lists that read the year carry it too", async () => {
+    const links = [...h.band.map((b) => b.href), ...h.attention.map((a) => a.href)].filter((x): x is string => Boolean(x));
+    const reading = ["/fee-management/dashboard", "/fee-management/defaulters", "/fee-management/reports", "/attendance-management/register", "/attendance-management/reports",
+      "/admission-management/enquiries", "/admission-management/applications", "/library-management/reports", "/staff-hr-management/leave"];
+    const some = links.filter((l) => reading.some((r) => pathOf(l) === r || pathOf(l).startsWith(`${r}/`)));
+    expect(some.length).toBeGreaterThan(2);
+    for (const l of some) expect(paramsOf(l).year, l).toBe(f.pastYear.id);
   });
 });

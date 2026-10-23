@@ -1,6 +1,7 @@
 // The guardian's Parent Link page (no login). Shows only this guardian's own
 // children; every open is checked on the server and logged (rule 31).
 import type { Metadata } from "next";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { withSchool } from "@/lib/db";
 import { deviceInfo } from "@/lib/current";
@@ -13,14 +14,33 @@ import { VerifyPhone } from "@/components/parent-link/verify-phone";
 import { PhoneNotice, PhoneShell } from "@/components/parent-link/phone-shell";
 import { Link2Off, PowerOff, UserX } from "lucide-react";
 import { parentLinkLanguage } from "@/lib/parent-link/language";
-import { browserLanguage, catalogueFor, makeT } from "@/lib/i18n/server";
+import { browserLanguage, catalogueFor, makeT, titleIn } from "@/lib/i18n/server";
 import { I18nProvider } from "@/lib/i18n/client";
 import { LanguagePicker } from "@/components/language-picker";
 import type { Lang } from "@/lib/i18n/languages";
 import type { T } from "@/lib/i18n/t";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Parent Link", robots: { index: false, follow: false }, referrer: "no-referrer" };
+
+/**
+ * Once per request, for the page and its tab title alike: the rate limit, the link and its
+ * language (this phone's choice, the guardian's language, the school's default). Before the link
+ * is known, or when it is not real: the language chosen on this phone, or English.
+ */
+const openGate = cache(async (token: string) => {
+  const device = await deviceInfo();
+  const browser = makeT((await browserLanguage()) ?? "en");
+  const limited = await hitLimit(`pl-open:ip:${device.ipAddress ?? "unknown"}`, 60, 600);
+  const found = limited.ok ? await findLink(token) : null;
+  const l = found ? await parentLinkLanguage(found) : null;
+  return { device, limited, found, t: l ? makeT(l.lang) : browser, choices: l?.choices ?? ([] as Lang[]) };
+});
+
+/** The tab title in the same language as the page. */
+export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
+  const { t } = await openGate((await params).token);
+  return { title: titleIn(t, "Parent Link"), robots: { index: false, follow: false }, referrer: "no-referrer" };
+}
 
 function Notice({ title, icon, children }: { title: string; icon?: React.ReactNode; children: React.ReactNode }) {
   return <PhoneNotice title={title} icon={icon}>{children}</PhoneNotice>;
@@ -40,20 +60,9 @@ function Shell({ schoolName, children, hello, name, t, choices }: { schoolName?:
 export default async function ParentLinkPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ child?: string; month?: string }> }) {
   const { token } = await params;
   const { child, month } = await searchParams;
-  const device = await deviceInfo();
-  // Before the link is known: the language chosen on this phone, or English.
-  let t = makeT((await browserLanguage()) ?? "en");
-  let choices: Lang[] = [];
-
-  const limited = await hitLimit(`pl-open:ip:${device.ipAddress ?? "unknown"}`, 60, 600);
+  const { device, limited, found, t, choices } = await openGate(token);
   if (!limited.ok) return <Shell t={t} choices={choices}><Notice title={t("Please wait a moment")}>{limitMessage(limited)}</Notice></Shell>;
 
-  const found = await findLink(token);
-  if (found) {
-    const l = await parentLinkLanguage(found);
-    t = makeT(l.lang);
-    choices = l.choices;
-  }
   const key = found ? (await cookies()).get(deviceCookieName(found.linkId))?.value ?? null : null;
   const state = found ? await openLink(token, key, device) : { state: "invalid" as const };
 

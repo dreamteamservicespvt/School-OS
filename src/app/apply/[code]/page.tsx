@@ -8,10 +8,15 @@ import { RELATIONS } from "@/lib/admission/applications";
 import { UUID_RE } from "@/lib/admission/act";
 import { ApplyForm } from "./apply-form";
 import { ApplyNotice, ApplyShell } from "./shell";
-import { schoolPageLanguage } from "@/lib/i18n/server";
+import { getT, schoolPageLanguage, titleIn } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Apply for admission", robots: { index: false, follow: false }, referrer: "no-referrer" };
+/** The tab title in the page's own language: the school's, as this browser chose it. */
+export async function generateMetadata({ params }: { params: Promise<{ code: string }> }): Promise<Metadata> {
+  const school = await schoolByCode(decodeURIComponent((await params).code));
+  const t = school ? (await schoolPageLanguage(school.id)).t : await getT();
+  return { title: titleIn(t, "Apply for admission"), robots: { index: false, follow: false }, referrer: "no-referrer" };
+}
 
 export default async function ApplyPage({ params, searchParams }: { params: Promise<{ code: string }>; searchParams: Promise<{ class?: string }> }) {
   const { code } = await params;

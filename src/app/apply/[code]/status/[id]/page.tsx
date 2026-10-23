@@ -12,10 +12,15 @@ import { Pill } from "@/components/ui/badge";
 import { cx } from "@/components/ui/cx";
 import { ApplyNotice, ApplyShell } from "../../shell";
 import { PayButton } from "./pay-button";
-import { schoolPageLanguage } from "@/lib/i18n/server";
+import { getT, schoolPageLanguage, titleIn } from "@/lib/i18n/server";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Your application", robots: { index: false, follow: false }, referrer: "no-referrer" };
+/** The tab title in the page's own language: the school's, as this browser chose it. */
+export async function generateMetadata({ params }: { params: Promise<{ code: string; id: string }> }): Promise<Metadata> {
+  const school = await schoolByCode(decodeURIComponent((await params).code));
+  const t = school ? (await schoolPageLanguage(school.id)).t : await getT();
+  return { title: titleIn(t, "Your application"), robots: { index: false, follow: false }, referrer: "no-referrer" };
+}
 
 const STEPS = ["Received", "Papers checked", "Decision", "Admitted"] as const;
 const WHERE: Record<string, { step: number; words: string; tone: "info" | "ok" | "warn" | "bad" | "neutral" }> = {

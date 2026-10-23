@@ -33,6 +33,8 @@ import { readFilters, type PeriodSetupLike } from "../reports/filters";
 import { cellText, reachSections, ReportProblem, runEntry } from "../reports/run";
 import type { Row, Table } from "../reports/types";
 import { loadWidgetsIn, widgetsOpenTo } from "../dashboard/compose";
+import { englishT, type MessageKey, type T } from "../i18n/t";
+import { screenMessage } from "../i18n/messages";
 import { askHref, classKey, classWords, cleanParams, QUESTION_KEYS, questionTitle, readClass, type AskParams, type AskVia, type AskWhen, type QuestionKey } from "./questions";
 
 export type AskColumn = { key: string; label: string; right?: boolean };
@@ -64,7 +66,7 @@ export type AskClock = { now: Date; setup: PeriodSetupLike };
 export const SHOW_ROWS = 50;
 const BIRTHDAY_WIDGETS = ["students.birthdays", "staff.birthdays"] as const;
 
-const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;
+const num = (n: number) => n.toLocaleString("en-IN");
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 const day = (d: Date) => formatDate(d, "UTC");
 const back = (d: Date, n: number) => new Date(d.getTime() - n * 86_400_000);
@@ -172,10 +174,24 @@ async function findClass(tx: Tx, who: Viewer, words: string): Promise<ClassPick 
 
 /* ---------- Answers ---------- */
 
-type Ctx = { tx: Tx; who: Viewer; key: QuestionKey; p: AskParams; title: string; today: Date; clock: AskClock; cls: ClassPick | null };
+type Ctx = { tx: Tx; who: Viewer; key: QuestionKey; p: AskParams; title: string; today: Date; clock: AskClock; cls: ClassPick | null; t: T };
 
-const refuse = (c: Pick<Ctx, "key" | "title">, problem: string, link: AskLink | null = null): AskAnswer => ({ ok: false, key: c.key, title: c.title, problem, link });
+/** A refusal in the screen's language (English stays word for word). */
+const refuse = (c: Pick<Ctx, "key" | "title" | "t">, problem: string, link: AskLink | null = null): AskAnswer => ({ ok: false, key: c.key, title: c.title, problem: screenMessage(c.t, problem), link });
 const OWN_ONLY = "You can see your own classes only. Ask about one of your classes, or leave the class out.";
+
+/*
+ * The plain sentence under each answer is a whole sentence from the catalogue with its
+ * {blanks} filled, one key for each form (one or many, with or without a class), so each
+ * language keeps its own word order. In English the words are exactly the ones on screen.
+ */
+
+/** "Class 5 A" as a class in the screen's language; "UKG B" stays as the school writes it. */
+const classIn = (t: T, label: string) => (label.startsWith("Class ") ? t("Class {n}", { n: label.slice(6) }) : label);
+/** Up to six "{n} in {class}" items, then "and more". */
+const listIn = (t: T, items: string[], more: boolean) => (more ? t("{list} and more", { list: items.join(", ") }) : items.join(", "));
+/** One or many: the key for exactly one, else the key for any other count (0 counts as many). */
+const pick = (n: number, one: MessageKey, many: MessageKey) => (n === 1 ? one : many);
 
 function tableOf(t: Table, keys: string[], rows: Row[] = t.rows): AskTable {
   const cols = keys.map((k) => t.columns.find((c) => c.key === k)).filter((c): c is NonNullable<typeof c> => Boolean(c));
@@ -233,25 +249,33 @@ async function absentToday(c: Ctx): Promise<AskAnswer> {
   const link = { href: reasonsOn ? qs("/attendance-management/register/absences", { date: iso(date), section: c.cls?.sectionId }) : qs("/attendance-management/register", { section: c.cls?.sectionId }), label: reasonsOn ? "Open the Absent list" : "Open the Attendance Register" };
   const scope = [c.cls ? c.cls.label : reach === "all" ? "Whole school" : "Your classes only", day(date)].join(" · ");
   const today = await attendanceToday(c.tx, c.who.ctx, date, { sectionIds: sections, campusId: access.campusLimit });
+  const t = c.t;
+  const cls = c.cls ? classIn(t, c.cls.label) : null;
   if (today.off) {
     const info = (await schoolDays(c.tx, c.who.ctx, date, date, access.campusId)).info(date);
-    return { ok: true, key: c.key, title: c.title, big: "No school", bigLabel: day(date), sentence: info.on ? `${day(date)} is not a school day.` : offDayMessage(info, date), scope, table: { columns: [], rows: [] }, total: 0, link, note: null };
+    return { ok: true, key: c.key, title: c.title, big: t("No school"), bigLabel: day(date), sentence: info.on ? t("{date} is not a school day.", { date: day(date) }) : screenMessage(t, offDayMessage(info, date)), scope, table: { columns: [], rows: [] }, total: 0, link, note: null };
   }
   if (today.students.marked === 0) {
-    return { ok: true, key: c.key, title: c.title, big: "Not taken", bigLabel: "attendance", sentence: `Attendance for ${day(date)} has not been taken yet${c.cls ? ` in ${c.cls.label}` : ""}, so nobody can be counted absent.`, scope, table: { columns: [], rows: [] }, total: 0, link, note: null };
+    const sentence = cls
+      ? t("Attendance for {date} has not been taken yet in {class}, so nobody can be counted absent.", { date: day(date), class: cls })
+      : t("Attendance for {date} has not been taken yet, so nobody can be counted absent.", { date: day(date) });
+    return { ok: true, key: c.key, title: c.title, big: t("Not taken"), bigLabel: "attendance", sentence, scope, table: { columns: [], rows: [] }, total: 0, link, note: null };
   }
   const all = await absentList(c.tx, c.who.ctx, access, { date, sectionId: c.cls?.sectionId ?? null });
   const rows = sections ? all.filter((r) => r.sectionId && sections!.includes(r.sectionId)) : all;
   const byClass = new Map<string, number>();
   for (const r of rows) byClass.set(r.className, (byClass.get(r.className) ?? 0) + 1);
   const notTaken = today.classes.notMarked;
-  const sentence = rows.length
-    ? `${plural(rows.length, "student is", "students are")} absent on ${day(date)}${byClass.size > 1 ? `: ${[...byClass].slice(0, 6).map(([k, n]) => `${n} in ${k}`).join(", ")}${byClass.size > 6 ? " and more" : ""}` : byClass.size === 1 ? ` in ${[...byClass.keys()][0]}` : ""}.`
-    : `Nobody is marked absent on ${day(date)}${c.cls ? ` in ${c.cls.label}` : ""}.`;
+  const on = { n: num(rows.length), date: day(date) };
+  const sentence = !rows.length
+    ? cls ? t("Nobody is marked absent on {date} in {class}.", { date: on.date, class: cls }) : t("Nobody is marked absent on {date}.", { date: on.date })
+    : byClass.size > 1
+      ? t("{n} students are absent on {date}: {list}.", { ...on, list: listIn(t, [...byClass].slice(0, 6).map(([k, n]) => t("{n} in {class}", { n, class: k })), byClass.size > 6) })
+      : t(pick(rows.length, "{n} student is absent on {date} in {class}.", "{n} students are absent on {date} in {class}."), { ...on, class: [...byClass.keys()][0] });
   const withReason = rows.some((r) => r.reason);
   return {
     ok: true, key: c.key, title: c.title, big: rows.length.toLocaleString("en-IN"), bigLabel: rows.length === 1 ? "student absent" : "students absent",
-    sentence: notTaken ? `${sentence} ${plural(notTaken, "class has", "classes have")} not taken attendance yet, so the number may still go up.` : sentence,
+    sentence: notTaken ? `${sentence} ${t(pick(notTaken, "{n} class has not taken attendance yet, so the number may still go up.", "{n} classes have not taken attendance yet, so the number may still go up."), { n: num(notTaken) })}` : sentence,
     scope,
     table: {
       columns: [{ key: "name", label: "Student" }, { key: "cls", label: "Class" }, { key: "roll", label: "Roll no.", right: true }, { key: "how", label: "Absent" }, ...(withReason ? [{ key: "reason", label: "Reason" }] : []), { key: "leave", label: "Leave" }],
@@ -273,13 +297,27 @@ async function absentStreak(c: Ctx): Promise<AskAnswer> {
   return {
     ok: true, key: c.key, title: c.title, big: n.toLocaleString("en-IN"), bigLabel: n === 1 ? "student" : "students",
     sentence: n
-      ? `${plural(n, "student has", "students have")} been absent ${settings.chronicDays} or more school days in a row and the flag is still open. Call the parents; the flag goes when they are marked present.`
-      : `Nobody has been absent ${settings.chronicDays} school days in a row${c.cls ? ` in ${c.cls.label}` : ""}.`,
+      ? c.t(pick(n, "{n} student has been absent {days} or more school days in a row and the flag is still open. Call the parents; the flag goes when they are marked present.", "{n} students have been absent {days} or more school days in a row and the flag is still open. Call the parents; the flag goes when they are marked present."), { n: num(n), days: settings.chronicDays })
+      : c.cls
+        ? c.t("Nobody has been absent {days} school days in a row in {class}.", { days: settings.chronicDays, class: classIn(c.t, c.cls.label) })
+        : c.t("Nobody has been absent {days} school days in a row.", { days: settings.chronicDays }),
     scope: [c.cls?.label ?? (own(c.who) ? "Your classes only" : "Whole school"), `${settings.chronicDays} days in a row (Attendance Settings)`].join(" · "),
     table: tableOf(t, ["who", "class", "value", "since", "review"], rows), total: rows.length,
     link: reportLink("at-chronic", {}), note: null,
   };
 }
+
+/** Students below the attendance line: one or many, with or without a class, and none, one or more close to it. */
+const BELOW_LINE = {
+  one: {
+    all: ["{n} student is below {pct}% attendance this year.", "{n} student is below {pct}% attendance this year; {m} more is close to it.", "{n} student is below {pct}% attendance this year; {m} more are close to it."],
+    cls: ["{n} student is below {pct}% attendance this year in {class}.", "{n} student is below {pct}% attendance this year in {class}; {m} more is close to it.", "{n} student is below {pct}% attendance this year in {class}; {m} more are close to it."],
+  },
+  many: {
+    all: ["{n} students are below {pct}% attendance this year.", "{n} students are below {pct}% attendance this year; {m} more is close to it.", "{n} students are below {pct}% attendance this year; {m} more are close to it."],
+    cls: ["{n} students are below {pct}% attendance this year in {class}.", "{n} students are below {pct}% attendance this year in {class}; {m} more is close to it.", "{n} students are below {pct}% attendance this year in {class}; {m} more are close to it."],
+  },
+} as const satisfies Record<"one" | "many", Record<"all" | "cls", readonly [MessageKey, MessageKey, MessageKey]>>;
 
 async function belowAttendance(c: Ctx): Promise<AskAnswer> {
   const { settings } = await attendanceFor(c);
@@ -289,25 +327,31 @@ async function belowAttendance(c: Ctx): Promise<AskAnswer> {
   const close = t.rows.length - below.length;
   return {
     ok: true, key: c.key, title: c.title, big: below.length.toLocaleString("en-IN"), bigLabel: below.length === 1 ? "student below the line" : "students below the line",
-    sentence: `${plural(below.length, "student is", "students are")} below ${settings.thresholdPercent}% attendance this year${c.cls ? ` in ${c.cls.label}` : ""}${close ? `; ${plural(close, "more is", "more are")} close to it` : ""}.`,
+    sentence: c.t(BELOW_LINE[below.length === 1 ? "one" : "many"][c.cls ? "cls" : "all"][close === 0 ? 0 : close === 1 ? 1 : 2], { n: num(below.length), pct: settings.thresholdPercent, class: c.cls ? classIn(c.t, c.cls.label) : null, m: num(close) }),
     scope: [c.cls?.label ?? (own(c.who) ? "Your classes only" : "Whole school"), f.year?.name ?? null, `Threshold ${settings.thresholdPercent}% (Attendance Settings)`].filter(Boolean).join(" · "),
     table: tableOf(t, ["name", "cls", "percent", "absent", "teacher"], below), total: below.length,
     link: reportLink("at-low", classParams(c)), note: null,
   };
 }
 
+/** Classes with students not marked today: one or many, and none, one or more with no attendance at all. */
+const NOT_MARKED = {
+  one: ["{n} class has students without a mark today.", "{n} class has students without a mark today; {m} class has not taken attendance at all.", "{n} class has students without a mark today; {m} classes have not taken attendance at all."],
+  many: ["{n} classes have students without a mark today.", "{n} classes have students without a mark today; {m} class has not taken attendance at all.", "{n} classes have students without a mark today; {m} classes have not taken attendance at all."],
+} as const satisfies Record<"one" | "many", readonly [MessageKey, MessageKey, MessageKey]>;
+
 async function notMarked(c: Ctx): Promise<AskAnswer> {
   const { t } = await catalogue(c, "at-daily", { period: "custom", from: iso(c.today), to: iso(c.today) });
   if (!t.rows.length && t.empty) {
-    return { ok: true, key: c.key, title: c.title, big: "No school", bigLabel: day(c.today), sentence: t.empty, scope: day(c.today), table: { columns: [], rows: [] }, total: 0, link: reportLink("at-daily", { period: "today" }), note: null };
+    return { ok: true, key: c.key, title: c.title, big: c.t("No school"), bigLabel: day(c.today), sentence: screenMessage(c.t, t.empty), scope: day(c.today), table: { columns: [], rows: [] }, total: 0, link: reportLink("at-daily", { period: "today" }), note: null };
   }
   const rows = t.rows.filter((r) => typeof r.notMarked === "number" && r.notMarked > 0);
   const whole = rows.filter((r) => r.notMarked === r.roll).length;
   return {
     ok: true, key: c.key, title: c.title, big: rows.length.toLocaleString("en-IN"), bigLabel: rows.length === 1 ? "class not finished" : "classes not finished",
     sentence: rows.length
-      ? `${plural(rows.length, "class has", "classes have")} students without a mark today${whole ? `; ${plural(whole, "class has", "classes have")} not taken attendance at all` : ""}.`
-      : "Every class has taken attendance today.",
+      ? c.t(NOT_MARKED[rows.length === 1 ? "one" : "many"][whole === 0 ? 0 : whole === 1 ? 1 : 2], { n: num(rows.length), m: num(whole) })
+      : c.t("Every class has taken attendance today."),
     scope: [own(c.who) ? "Your classes only" : "Whole school", day(c.today)].join(" · "),
     table: tableOf(t, ["cls", "roll", "notMarked", "present", "absent"], rows), total: rows.length,
     link: reportLink("at-daily", { period: "today" }), note: null,
@@ -326,9 +370,11 @@ async function belowPass(c: Ctx): Promise<AskAnswer> {
     ok: true, key: c.key, title: c.title,
     big: (asClasses ? classes.length : t.rows.length).toLocaleString("en-IN"),
     bigLabel: asClasses ? "classes" : t.rows.length === 1 ? "student below the pass mark" : "students below the pass mark",
-    sentence: t.rows.length
-      ? `${plural(t.rows.length, "student is", "students are")} below the pass mark in at least one subject in ${exam}${classes.length > 1 ? `, in ${plural(classes.length, "class", "classes")}: ${classes.slice(0, 6).map(([k, n]) => `${k} (${n})`).join(", ")}${classes.length > 6 ? " and more" : ""}` : classes.length === 1 ? `, all in ${classes[0][0]}` : ""}.`
-      : `Nobody is below the pass mark in ${exam}${c.cls ? ` in ${c.cls.label}` : ""}.`,
+    sentence: !t.rows.length
+      ? c.cls ? c.t("Nobody is below the pass mark in {exam} in {class}.", { exam, class: classIn(c.t, c.cls.label) }) : c.t("Nobody is below the pass mark in {exam}.", { exam })
+      : classes.length > 1
+        ? c.t("{n} students are below the pass mark in at least one subject in {exam}, in {k} classes: {list}.", { n: num(t.rows.length), exam, k: num(classes.length), list: listIn(c.t, classes.slice(0, 6).map(([k, n]) => `${k} (${n})`), classes.length > 6) })
+        : c.t(pick(t.rows.length, "{n} student is below the pass mark in at least one subject in {exam}, all in {class}.", "{n} students are below the pass mark in at least one subject in {exam}, all in {class}."), { n: num(t.rows.length), exam, class: classes[0][0] }),
     scope: [c.cls?.label ?? (own(c.who) ? "Your classes and subjects only" : "Whole school"), exam].filter(Boolean).join(" · "),
     table: tableOf(t, ["name", "cls", "subjects", "lowest", "overall"]), total: t.rows.length,
     link: reportLink("ex-below", classParams(c)), note: t.note ?? null,
@@ -341,11 +387,16 @@ async function feesCollected(c: Ctx): Promise<AskAnswer> {
   const { t, f } = await catalogue(c, "fe-receipts", { period: "custom", from: r.from, to: r.to, ...classParams(c) });
   if (!t.rows.length && t.empty && !t.columns.length) return refuse(c, t.empty);
   const amount = typeof t.totals?.amount === "bigint" ? t.totals.amount : t.rows.reduce((s, x) => s + (typeof x.amount === "bigint" ? x.amount : BigInt(0)), BigInt(0));
-  const words = `${r.label.toLowerCase()} (${f.range ? `${day(f.from)} to ${day(f.to)}` : day(c.today)})`;
+  const words = { when: c.t.any(r.label.toLowerCase()), dates: f.range ? c.t("{from} to {to}", { from: day(f.from), to: day(f.to) }) : day(c.today) };
+  const n = t.rows.length;
   const feeReports = feePageAllowedFor(c.who, "reports") && pageMode(c.who, "fee-management", "reports") !== "hidden";
   return {
-    ok: true, key: c.key, title: c.title, big: formatRupees(amount), bigLabel: `from ${plural(t.rows.length, "payment")}`,
-    sentence: t.rows.length ? `${formatRupees(amount)} was collected ${words}${c.cls ? ` from ${c.cls.label}` : ""}, in ${plural(t.rows.length, "payment")}. Cancelled payments are not counted.` : `No fee was collected ${words}${c.cls ? ` from ${c.cls.label}` : ""}.`,
+    ok: true, key: c.key, title: c.title, big: formatRupees(amount), bigLabel: c.t(pick(n, "from {n} payment", "from {n} payments"), { n: num(n) }),
+    sentence: n
+      ? c.cls
+        ? c.t(pick(n, "{amount} was collected {when} ({dates}) from {class}, in {n} payment. Cancelled payments are not counted.", "{amount} was collected {when} ({dates}) from {class}, in {n} payments. Cancelled payments are not counted."), { amount: formatRupees(amount), ...words, class: classIn(c.t, c.cls.label), n: num(n) })
+        : c.t(pick(n, "{amount} was collected {when} ({dates}), in {n} payment. Cancelled payments are not counted.", "{amount} was collected {when} ({dates}), in {n} payments. Cancelled payments are not counted."), { amount: formatRupees(amount), ...words, n: num(n) })
+      : c.cls ? c.t("No fee was collected {when} ({dates}) from {class}.", { ...words, class: classIn(c.t, c.cls.label) }) : c.t("No fee was collected {when} ({dates}).", words),
     scope: [c.cls?.label ?? "Whole school", `${day(f.from)} to ${day(f.to)}`, f.fy ? `Financial year ${f.fy.name}` : null].filter(Boolean).join(" · "),
     table: tableOf(t, ["date", "receipt", "student", "class", "mode", "amount"]), total: t.rows.length,
     link: feeReports
@@ -355,6 +406,28 @@ async function feesCollected(c: Ctx): Promise<AskAnswer> {
   };
 }
 
+/** Fees overdue: nobody, one or many students, with or without a smallest amount and a class. */
+const OVERDUE = {
+  none: {
+    "any-all": "Nobody has fees overdue.",
+    "any-cls": "Nobody has fees overdue in {class}.",
+    "each-all": "Nobody has fees overdue ({amount} or more each).",
+    "each-cls": "Nobody has fees overdue ({amount} or more each) in {class}.",
+  },
+  one: {
+    "any-all": "{n} student has {total} overdue. Fees not yet due are not counted.",
+    "any-cls": "{n} student has {total} overdue in {class}. Fees not yet due are not counted.",
+    "each-all": "{n} student has {total} overdue ({amount} or more each). Fees not yet due are not counted.",
+    "each-cls": "{n} student has {total} overdue ({amount} or more each) in {class}. Fees not yet due are not counted.",
+  },
+  many: {
+    "any-all": "{n} students have {total} overdue. Fees not yet due are not counted.",
+    "any-cls": "{n} students have {total} overdue in {class}. Fees not yet due are not counted.",
+    "each-all": "{n} students have {total} overdue ({amount} or more each). Fees not yet due are not counted.",
+    "each-cls": "{n} students have {total} overdue ({amount} or more each) in {class}. Fees not yet due are not counted.",
+  },
+} as const satisfies Record<"none" | "one" | "many", Record<"any-all" | "any-cls" | "each-all" | "each-cls", MessageKey>>;
+
 async function feesOverdue(c: Ctx): Promise<AskAnswer> {
   if (!defaultersOpen(c.who)) return refuse(c, "Fee defaulters are not part of your role.");
   const viewer = await feeViewer(c.tx, c.who.ctx, c.who as unknown as Parameters<typeof feeViewer>[2]);
@@ -363,12 +436,11 @@ async function feesOverdue(c: Ctx): Promise<AskAnswer> {
   const list = await defaulters(c.tx, c.who.ctx, viewer, c.today, { classId: c.cls?.sectionId ? null : c.cls?.classId ?? null, sectionId: c.cls?.sectionId ?? null, amountAbove: amount ? BigInt(amount) * BigInt(100) : null });
   const rows = list.rows;
   const total = list.total;
-  const each = amount ? ` (₹${amount.toLocaleString("en-IN")} or more each)` : "";
+  const vars = { n: num(rows.length), total: formatRupees(total), amount: amount ? `₹${amount.toLocaleString("en-IN")}` : null, class: c.cls ? classIn(c.t, c.cls.label) : null };
+  const form = `${amount ? "each" : "any"}-${c.cls ? "cls" : "all"}` as const;
   return {
     ok: true, key: c.key, title: c.title, big: rows.length.toLocaleString("en-IN"), bigLabel: rows.length === 1 ? "student" : "students",
-    sentence: rows.length
-      ? `${plural(rows.length, "student has", "students have")} ${formatRupees(total)} overdue${each}${c.cls ? ` in ${c.cls.label}` : ""}. Fees not yet due are not counted.`
-      : `Nobody has fees overdue${each}${c.cls ? ` in ${c.cls.label}` : ""}.`,
+    sentence: c.t(OVERDUE[rows.length === 0 ? "none" : rows.length === 1 ? "one" : "many"][form], vars),
     scope: [c.cls?.label ?? (viewer.sectionIds ? "Your classes only" : "Whole school"), `As on ${day(c.today)}`].join(" · "),
     table: {
       columns: [{ key: "name", label: "Student" }, { key: "cls", label: "Class" }, { key: "overdue", label: "Overdue", right: true }, { key: "days", label: "Days overdue", right: true }, { key: "heads", label: "Fee heads" }],
@@ -380,10 +452,10 @@ async function feesOverdue(c: Ctx): Promise<AskAnswer> {
   };
 }
 
-const STAFF_STATUS: Partial<Record<QuestionKey, { status: string; label: string; none: string }>> = {
-  "late-staff": { status: "late", label: "came late", none: "Nobody came late" },
-  "staff-absent": { status: "absent", label: "absent", none: "Nobody is marked absent" },
-  "staff-on-leave": { status: "leave", label: "on leave", none: "Nobody is on leave" },
+const STAFF_STATUS: Partial<Record<QuestionKey, { status: string; label: string; one: MessageKey; many: MessageKey; none: MessageKey }>> = {
+  "late-staff": { status: "late", label: "came late", one: "{n} staff member came late on {date}.", many: "{n} staff came late on {date}.", none: "Nobody came late on {date}." },
+  "staff-absent": { status: "absent", label: "absent", one: "{n} staff member absent on {date}.", many: "{n} staff absent on {date}.", none: "Nobody is marked absent on {date}." },
+  "staff-on-leave": { status: "leave", label: "on leave", one: "{n} staff member on leave on {date}.", many: "{n} staff on leave on {date}.", none: "Nobody is on leave on {date}." },
 };
 
 async function staffToday(c: Ctx): Promise<AskAnswer> {
@@ -394,13 +466,13 @@ async function staffToday(c: Ctx): Promise<AskAnswer> {
   const link = { href: qs("/attendance-management/staff", { date: iso(date), status: s.status }), label: "Open Staff Attendance" };
   const scope = [access.campusLimit ? "Your campus" : "All staff", day(date)].join(" · ");
   const info = (await schoolDays(c.tx, c.who.ctx, date, date, access.campusId)).info(date);
-  if (!info.on && s.status !== "leave") return { ok: true, key: c.key, title: c.title, big: "No school", bigLabel: day(date), sentence: offDayMessage(info, date), scope, table: { columns: [], rows: [] }, total: 0, link, note: null };
+  if (!info.on && s.status !== "leave") return { ok: true, key: c.key, title: c.title, big: c.t("No school"), bigLabel: day(date), sentence: screenMessage(c.t, offDayMessage(info, date)), scope, table: { columns: [], rows: [] }, total: 0, link, note: null };
   const rows = await staffDay(c.tx, c.who.ctx, access, date, { status: s.status });
   const tz = c.who.school.timeZone;
   const late = s.status === "late";
   return {
     ok: true, key: c.key, title: c.title, big: rows.length.toLocaleString("en-IN"), bigLabel: `${rows.length === 1 ? "staff member" : "staff"} ${s.label}`,
-    sentence: rows.length ? `${plural(rows.length, "staff member", "staff")} ${s.label} on ${day(date)}.` : `${s.none} on ${day(date)}.`,
+    sentence: c.t(rows.length === 0 ? s.none : rows.length === 1 ? s.one : s.many, { n: num(rows.length), date: day(date) }),
     scope,
     table: {
       columns: [{ key: "name", label: "Staff" }, { key: "code", label: "Staff ID" }, { key: "role", label: "Designation" }, ...(late ? [{ key: "in", label: "In at" }, { key: "late", label: "Late by", right: true }] : [])],
@@ -416,7 +488,14 @@ async function birthdays(c: Ctx): Promise<AskAnswer> {
   const rows = todayOnly ? all.filter((b) => b.sort === c.today.getTime()) : all;
   return {
     ok: true, key: c.key, title: c.title, big: rows.length.toLocaleString("en-IN"), bigLabel: rows.length === 1 ? "birthday" : "birthdays",
-    sentence: rows.length ? `${plural(rows.length, "birthday")} ${todayOnly ? "today" : "in the next 7 days"}, among the students, parents and staff your Dashboard shows.` : `No birthday ${todayOnly ? "today" : "in the next 7 days"} among the people your Dashboard shows.`,
+    sentence: c.t(
+      !rows.length
+        ? todayOnly ? "No birthday today among the people your Dashboard shows." : "No birthday in the next 7 days among the people your Dashboard shows."
+        : todayOnly
+          ? pick(rows.length, "{n} birthday today, among the students, parents and staff your Dashboard shows.", "{n} birthdays today, among the students, parents and staff your Dashboard shows.")
+          : pick(rows.length, "{n} birthday in the next 7 days, among the students, parents and staff your Dashboard shows.", "{n} birthdays in the next 7 days, among the students, parents and staff your Dashboard shows."),
+      { n: num(rows.length) },
+    ),
     scope: todayOnly ? day(c.today) : `${day(c.today)} to ${day(new Date(c.today.getTime() + 6 * 86_400_000))}`,
     table: { columns: [{ key: "name", label: "Name" }, { key: "when", label: "When" }], rows: rows.slice(0, SHOW_ROWS).map((b) => ({ name: b.name, when: b.when })) },
     total: rows.length, link: { href: "/dashboard", label: "Open the Dashboard" }, note: null,
@@ -434,16 +513,17 @@ const ANSWER: Record<QuestionKey, (c: Ctx) => Promise<AskAnswer>> = {
  * with their reach. A question they may not ask, or a class outside their
  * reach, is refused in plain words; nothing about other classes is said.
  */
-export async function answerQuestion(tx: Tx, who: Viewer, key: QuestionKey, params: AskParams, clock: AskClock): Promise<AskAnswer> {
+export async function answerQuestion(tx: Tx, who: Viewer, key: QuestionKey, params: AskParams, clock: AskClock, t: T = englishT): Promise<AskAnswer> {
   const p = cleanParams(key, params);
   const title = questionTitle(key, p);
   const today = todayFor(clock.setup.timeZone, clock.now);
-  const base = { tx, who, key, p, title, today, clock, cls: null as ClassPick | null };
+  const base = { tx, who, key, p, title, today, clock, cls: null as ClassPick | null, t };
   if (!OFFER[key](who)) return refuse(base, "This question is about a list your role does not open. Ask your School Admin if you need it (Settings, Users & Permissions).");
   if (p.cls) {
     const found = await findClass(tx, who, p.cls);
-    if (found === "none") return refuse(base, `There is no ${classWords(p.cls)} in this year's classes. Check the class, or leave it out.`);
-    if (found === "two-campuses") return refuse(base, `${classWords(p.cls)} is in more than one campus. Open the full list and choose the campus there.`);
+    const named = classIn(t, classWords(p.cls));
+    if (found === "none") return refuse(base, t("There is no {class} in this year's classes. Check the class, or leave it out.", { class: named }));
+    if (found === "two-campuses") return refuse(base, t("{class} is in more than one campus. Open the full list and choose the campus there.", { class: named }));
     base.cls = found;
   }
   try {

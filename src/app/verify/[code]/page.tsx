@@ -4,9 +4,12 @@ import { prisma } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { CERTIFICATE_LABEL } from "@/lib/students/labels";
 import { I18nProvider, Words } from "@/lib/i18n/client";
-import { catalogueFor, getT } from "@/lib/i18n/server";
+import { catalogueFor, getT, pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Check a certificate", robots: { index: false, follow: false } };
+/** The tab title in the same language as the page (the browser's choice, else English). */
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Check a certificate"), robots: { index: false, follow: false } };
+}
 export const dynamic = "force-dynamic";
 
 type Found = { cert_number: string | null; cert_type: string; issue_date: Date; cert_status: string; is_duplicate: boolean; school_name: string };

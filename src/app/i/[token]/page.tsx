@@ -7,9 +7,12 @@ import { AuthFrame } from "@/components/auth/auth-frame";
 import { ButtonLink } from "@/components/ui/button";
 import { SchoolInviteForm } from "./form";
 import { Words } from "@/lib/i18n/client";
-import { getT } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Set your password", robots: { index: false, follow: false } };
+/** The tab title in the same language as the page (the browser's choice, else English). */
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Set your password"), robots: { index: false, follow: false } };
+}
 export const dynamic = "force-dynamic";
 
 const GONE: Record<string, [string, string]> = {

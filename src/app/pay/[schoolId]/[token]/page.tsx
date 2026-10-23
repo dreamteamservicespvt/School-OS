@@ -10,15 +10,25 @@ import { payPageData } from "@/lib/fees/online";
 import { buttonClass } from "@/components/ui/button";
 import { PayButton } from "./pay-button";
 import { I18nProvider } from "@/lib/i18n/client";
-import { browserLanguage, catalogueFor, makeT, schoolPageLanguage } from "@/lib/i18n/server";
+import { browserLanguage, catalogueFor, makeT, schoolPageLanguage, titleIn } from "@/lib/i18n/server";
 import { LanguagePicker } from "@/components/language-picker";
 import type { Lang } from "@/lib/i18n/languages";
 import type { T } from "@/lib/i18n/t";
 
 export const dynamic = "force-dynamic";
-export const metadata: Metadata = { title: "Pay school fees", robots: { index: false, follow: false }, referrer: "no-referrer" };
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The tab title in the page's language: the school's, as this browser chose it, for a well-formed
+ * link; else this browser's choice. Worked out from the address alone, so the title never tells
+ * whether a link is real.
+ */
+export async function generateMetadata({ params }: { params: Promise<{ schoolId: string; token: string }> }): Promise<Metadata> {
+  const { schoolId, token } = await params;
+  const t = UUID.test(schoolId) && /^[A-Za-z0-9_-]{20,64}$/.test(token) ? (await schoolPageLanguage(schoolId)).t : makeT((await browserLanguage()) ?? "en");
+  return { title: titleIn(t, "Pay school fees"), robots: { index: false, follow: false }, referrer: "no-referrer" };
+}
 
 /** In the parent's chosen language among the school's languages. */
 function Shell({ school, children, t, choices = [] }: { school?: string; children: React.ReactNode; t: T; choices?: Lang[] }) {

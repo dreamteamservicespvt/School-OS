@@ -4,9 +4,12 @@ import { getCurrent } from "@/lib/current";
 import { AuthFrame } from "@/components/auth/auth-frame";
 import { SignInForm } from "./form";
 import { timedOutWords } from "@/lib/auth/session-rules";
-import { getT } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
-export const metadata: Metadata = { title: "Sign in" };
+/** The tab title in the same language as the page (the browser's choice, else English). */
+export async function generateMetadata(): Promise<Metadata> {
+  return { title: await pageTitle("Sign in") };
+}
 
 export default async function SignInPage({ searchParams }: { searchParams: Promise<{ signedOut?: string; welcome?: string; code?: string; m?: string }> }) {
   if (await getCurrent()) redirect("/dashboard");

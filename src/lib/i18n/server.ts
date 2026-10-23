@@ -70,11 +70,16 @@ export async function getT(): Promise<T> {
  * it, else each " · " part ("Import books · Library Management"). English stays as written.
  */
 export async function pageTitle(text: string): Promise<string> {
-  const lang = await screenLanguage();
-  if (lang === "en") return text;
-  const t = makeT(lang);
-  const dict = catalogueFor(lang);
-  if (dict[text]) return t.any(text);
+  return titleIn(makeT(await screenLanguage()), text);
+}
+
+/**
+ * A browser-tab title in a page's own language, for pages with no sign-in that choose their
+ * language themselves (a school's default, this browser's choice, a guardian's language).
+ */
+export function titleIn(t: T, text: string): string {
+  if (t.lang === "en") return text;
+  if (catalogueFor(t.lang)[text]) return t.any(text);
   return text.split(" · ").map((part) => t.any(part)).join(" · ");
 }
 
@@ -83,9 +88,12 @@ export async function rememberLanguage(lang: Lang) {
   (await cookies()).set(LANG_COOKIE, lang, { path: "/", maxAge: 60 * 60 * 24 * 365, sameSite: "lax" });
 }
 
-/** The language of a school's public page (the admission form, its status page): this browser's choice, else the school's default. */
-export async function schoolPageLanguage(schoolId: string): Promise<{ lang: Lang; choices: Lang[]; t: T }> {
+/**
+ * The language of a school's public page (the admission form, its status page): this browser's
+ * choice, else the school's default. Read once per request, so the page and its tab title agree.
+ */
+export const schoolPageLanguage = cache(async (schoolId: string): Promise<{ lang: Lang; choices: Lang[]; t: T }> => {
   const school = await withSchool({ schoolId, userId: null }, (tx) => tx.school.findUnique({ where: { id: schoolId }, select: { languages: true, defaultLanguage: true } }));
   const { lang, choices } = await publicLanguage(school ?? { languages: ["en"], defaultLanguage: "en" });
   return { lang, choices, t: makeT(lang) };
-}
+});

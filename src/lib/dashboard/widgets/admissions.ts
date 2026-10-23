@@ -8,7 +8,7 @@ import "server-only";
 import { readListParams } from "../../list";
 import { viewerFor, type ViewerSource, type Viewer as AdmissionViewer } from "../../admission/access";
 import { applicationWhere, enquiryWhere, ENQUIRY_FILTERS, APPLICATION_FILTERS } from "../../admission/list";
-import { openYears } from "../../admission/settings";
+import { listYears } from "../../admission/settings";
 import { n, plural, someNames } from "../common";
 import type { DashContext, Widget } from "../types";
 
@@ -19,15 +19,23 @@ function admissionView(c: DashContext): Promise<{ v: AdmissionViewer; yearIds: s
   return c.memo("admission-view", async () => {
     // The person's campus limit too, as the Enquiries and Applications lists read it (gap list G36).
     const source = { permissions: c.viewer.permissions, roles: c.viewer.roles, user: c.viewer.user, campusId: c.viewer.campusId ?? null } as unknown as ViewerSource;
-    const [v, years] = await Promise.all([viewerFor(c.tx, c.viewer.ctx, source), openYears(c.tx, c.viewer.campusId ?? null)]);
+    // A year chosen in the filters: that year alone, as the lists read ?year= (listYears, gap list G36).
+    const [v, years] = await Promise.all([viewerFor(c.tx, c.viewer.ctx, source), listYears(c.tx, c.viewer.campusId ?? null, c.filters.yearId && c.year ? c.year : null)]);
     return { v, yearIds: years.length ? years.map((y) => y.id) : [NONE] };
   });
 }
 
+/** "Now" in a year that is over: noon (UTC) on its last day, as the lists read it (src/lib/academic/view-year.ts viewNow). */
+function yearNow(c: DashContext): Date {
+  const y = c.filters.yearId ? c.year : null;
+  return y && (y.status === "CLOSED" || y.endDate < todayOf(c)) ? new Date(y.endDate.getTime() + 12 * 3_600_000) : c.now;
+}
+const todayOf = (c: DashContext) => new Date(`${c.now.toISOString().slice(0, 10)}T00:00:00Z`);
+
 /** The Enquiries list's own filter for these search params. */
 async function enquiries(c: DashContext, filters: Record<string, string>) {
   const { v, yearIds } = await admissionView(c);
-  return enquiryWhere(readListParams(filters, ENQUIRY_FILTERS), v, { yearId: yearIds, timeZone: c.tz, now: c.now });
+  return enquiryWhere(readListParams(filters, ENQUIRY_FILTERS), v, { yearId: yearIds, timeZone: c.tz, now: yearNow(c) });
 }
 
 const newEnquiries: Widget<"band"> = {

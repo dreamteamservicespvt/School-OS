@@ -4,12 +4,14 @@ import { withSchool } from "@/lib/db";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate } from "@/lib/format";
 import { periodFromSearch } from "@/lib/periods";
-import { fullPage, viewerOnCampus, BASE } from "@/lib/admission/page";
+import { admissionViewYear, fullPage, viewerOnCampus, BASE } from "@/lib/admission/page";
+import { backToThisYear } from "@/lib/academic/view-year";
+import { ViewYearStrip } from "@/components/view-year-strip";
 import { APPLICATION_FILTERS, applicationOrder, applicationWhere } from "@/lib/admission/list";
 import { OPEN_STAGES, STAGES } from "@/lib/admission/applications";
 import { progressOf } from "@/lib/admission/documents";
 import { feeStatus } from "@/lib/admission/fee";
-import { admissionYears, campusNames, classList, classRules, openYears, stageOn, withCampus } from "@/lib/admission/settings";
+import { admissionYears, campusNames, classList, classRules, listYears, stageOn, withCampus } from "@/lib/admission/settings";
 import { applicationScope } from "@/lib/admission/access";
 import { names } from "@/lib/admission/choices";
 import { phoneWords, whenWords } from "@/lib/admission/words";
@@ -45,6 +47,8 @@ export default async function ApplicationsPage({ searchParams }: Search) {
   const raw = await searchParams;
   // One campus chosen on the Dashboard (?campus=): that campus's applications, as the card counted them.
   const viewer = await viewerOnCampus(page, raw.campus);
+  // Another year (?year=, from the Dashboard): its applications alone, read-only when it is over (gap list G36).
+  const yearView = await admissionViewYear(page, viewer, raw.year);
   const params = readListParams(raw, APPLICATION_FILTERS);
   const range = periodFromSearch(raw, { timeZone: tz });
   const now = new Date();
@@ -52,7 +56,7 @@ export default async function ApplicationsPage({ searchParams }: Search) {
   const data = await withSchool(current.ctx, async (tx) => {
     // Every open year of each campus the person sees (only their campus's when limited to one).
     const limit = viewer.campusId;
-    const [years, admitting, classRows, campus] = await Promise.all([openYears(tx, limit), admissionYears(tx, current.ctx, settings, limit), classList(tx, limit), campusNames(tx, limit)]);
+    const [years, admitting, classRows, campus] = await Promise.all([listYears(tx, limit, yearView), admissionYears(tx, current.ctx, settings, limit), classList(tx, limit), campusNames(tx, limit)]);
     const yearIds = years.length ? years.map((y) => y.id) : [NONE];
     const where = applicationWhere(params, { yearId: yearIds, range, timeZone: tz, campusId: limit });
     // Counts for the chips and the numbers on top ignore the stage chosen, so each chip shows its own size.
@@ -96,7 +100,7 @@ export default async function ApplicationsPage({ searchParams }: Search) {
   };
   const classes = [...data.classOptions].sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
   const filtered = Boolean(params.q || Object.keys(params.filters).length || params.archived);
-  const canAdd = viewer.change === "all" && data.years.length > 0;
+  const canAdd = viewer.change === "all" && data.years.length > 0 && !yearView?.past;
 
   const testWords = (r: Row) => {
     const t = r.tests[0];
@@ -157,7 +161,7 @@ export default async function ApplicationsPage({ searchParams }: Search) {
 
   const actions = (
     <>
-      {settings.onlineOn && <OnlineLinkButton code={current.school.code} classes={classes} schoolName={current.school.name} feeOn={fee} yearName={year?.name ?? ""} />}
+      {settings.onlineOn && !yearView && <OnlineLinkButton code={current.school.code} classes={classes} schoolName={current.school.name} feeOn={fee} yearName={year?.name ?? ""} />}
       {canAdd && <ButtonLink href={`${PATH}/new`} variant="primary" icon={FilePlus2}><Words k="New application" /></ButtonLink>}
     </>
   );
@@ -165,6 +169,7 @@ export default async function ApplicationsPage({ searchParams }: Search) {
   return (
     <>
       <AdmissionHead href={PATH} sub="Admission forms filled at the counter or online, with previous school, marks and application fee" actions={actions} />
+      <ViewYearStrip year={yearView} back={backToThisYear(PATH, raw)} />
       <div className="flex flex-col gap-4">
         <Stats items={[
           { label: "Applications this year", value: data.totalYear, sub: midYear && year ? `${year.name} and mid-year` : year?.name ?? "", icon: FileText },
@@ -179,7 +184,7 @@ export default async function ApplicationsPage({ searchParams }: Search) {
           <div className="flex flex-col gap-2.5 p-3 md:p-4 border-b border-line/70">
             <div className="flex flex-col md:flex-row gap-2.5 md:items-center">
               <UrlSearch placeholder="Child, application number or phone" />
-              {yearOptions.length > 2 && <UrlSegmented param="year" label="Admission year" options={yearOptions} />}
+              {!yearView && yearOptions.length > 2 && <UrlSegmented param="year" label="Admission year" options={yearOptions} />}
               <ExportMenu href={listHref(`${PATH}/export`, params, { page: null })} />
             </div>
             <div className="grid grid-cols-2 md:flex md:flex-wrap gap-2">

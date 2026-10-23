@@ -217,6 +217,15 @@ export async function openYears(tx: Tx, campusId?: string | null) {
   return tx.academicYear.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "UPCOMING"] }, ...(campusId ? { campusId } : {}) }, orderBy: { startDate: "asc" } });
 }
 
+/**
+ * The years an Enquiries or Applications list shows: a year chosen on the
+ * Dashboard (?year=, src/lib/academic/view-year.ts), else every open year of the
+ * campus (or of every campus). The Dashboard's admission cards count the same years.
+ */
+export async function listYears(tx: Tx, campusId: string | null, view: { id: string } | null) {
+  return view ? tx.academicYear.findMany({ where: { id: view.id } }) : openYears(tx, campusId);
+}
+
 /** Classes in order (only the campus's when one is given). */
 export async function classList(tx: Tx, campusId?: string | null) {
   return tx.schoolClass.findMany({ where: { archivedAt: null, ...(campusId ? { campusId } : {}) }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, sortOrder: true, campusId: true } });

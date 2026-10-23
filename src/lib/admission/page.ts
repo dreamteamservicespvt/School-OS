@@ -12,6 +12,7 @@ import type { Action } from "../permissions";
 import { viewerFor, type Viewer } from "./access";
 import { admissionYear, loadSettings } from "./settings";
 import { todayIn } from "./act";
+import { readViewYear, type ViewYear } from "../academic/view-year";
 
 export const MODULE = "admission-management" as const;
 export const BASE = "/admission-management";
@@ -52,3 +53,14 @@ export async function viewerOnCampus(p: { current: Awaited<ReturnType<typeof adm
   const who = await withSchool(p.current.ctx, (tx) => narrowToCampus(tx, p.current, raw));
   return who.campusId === p.viewer.campusId ? p.viewer : { ...p.viewer, campusId: who.campusId ?? null };
 }
+
+/**
+ * Another academic year chosen on the Dashboard (?year=, src/lib/academic/view-year.ts)
+ * for the person's campus: Enquiries and Applications of that year alone, as at its
+ * last day when it is over, read-only. Null for the open years (the default).
+ */
+export async function admissionViewYear(p: { current: Awaited<ReturnType<typeof admissionPage>>["current"]; today: string }, viewer: Viewer, raw: string | string[] | undefined): Promise<ViewYear | null> {
+  if (!raw) return null;
+  return withSchool(p.current.ctx, (tx) => readViewYear(tx, p.current.ctx, viewer, raw, new Date(`${p.today}T00:00:00Z`)));
+}
+

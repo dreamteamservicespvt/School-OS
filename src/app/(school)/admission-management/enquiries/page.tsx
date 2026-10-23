@@ -4,11 +4,13 @@ import { withSchool } from "@/lib/db";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { can } from "@/lib/permissions";
-import { admissionPage, viewerOnCampus, BASE } from "@/lib/admission/page";
+import { admissionPage, admissionViewYear, viewerOnCampus, BASE } from "@/lib/admission/page";
+import { backToThisYear, viewNow } from "@/lib/academic/view-year";
+import { ViewYearStrip } from "@/components/view-year-strip";
 import { UUID_RE, instantToLocal, zonedToInstant } from "@/lib/admission/act";
 import { ENQUIRY_FILTERS, enquiryOrder, enquiryWhere } from "@/lib/admission/list";
 import { enquiryScope, canWorkOn } from "@/lib/admission/access";
-import { CLOSED_STATUSES, admissionYears, label, live, openYears } from "@/lib/admission/settings";
+import { CLOSED_STATUSES, admissionYears, label, listYears, live } from "@/lib/admission/settings";
 import { enquiryChoices, names } from "@/lib/admission/choices";
 import { enquiryTemplates } from "@/lib/admission/enquiries";
 import { seatsFor } from "@/lib/admission/seats";
@@ -43,13 +45,17 @@ const PATH = `${BASE}/enquiries`;
 
 export default async function EnquiriesPage({ searchParams }: Search) {
   const page = await admissionPage();
-  const { current, settings, year, tz, today } = page;
+  const { current, settings, year, tz } = page;
   const raw = await searchParams;
   // One campus chosen on the Dashboard (?campus=): that campus's enquiries, as the card counted them.
   const viewer = await viewerOnCampus(page, raw.campus);
+  // Another year (?year=): its enquiries alone, as at its last day when it is over, read-only (gap list G36).
+  const yearView = await admissionViewYear(page, viewer, raw.year);
+  const shut = Boolean(yearView?.past);
+  const today = yearView ? yearView.asOf.toISOString().slice(0, 10) : page.today;
   const params = readListParams(raw, ENQUIRY_FILTERS);
   const openId = typeof raw.id === "string" && UUID_RE.test(raw.id) ? raw.id : null;
-  const now = new Date();
+  const now = viewNow(yearView, new Date());
   const own = viewer.see !== "all";
   const dayStart = zonedToInstant(`${today}T00:00`, tz);
   const dayEnd = new Date(dayStart.getTime() + 86_400_000);
@@ -57,7 +63,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
 
   const data = await withSchool(current.ctx, async (tx) => {
     // Every open year of each campus the person sees (only theirs when limited to one campus).
-    const [years, admitting] = await Promise.all([openYears(tx, viewer.campusId), admissionYears(tx, current.ctx, settings, viewer.campusId)]);
+    const [years, admitting] = await Promise.all([listYears(tx, viewer.campusId, yearView), admissionYears(tx, current.ctx, settings, viewer.campusId)]);
     const yearIds = years.map((y) => y.id);
     const where = enquiryWhere(params, viewer, { yearId: yearIds.length ? yearIds : ["00000000-0000-0000-0000-000000000000"], timeZone: tz, now, range });
     const base = { AND: [enquiryScope(viewer)], archivedAt: null, academicYearId: { in: yearIds } };
@@ -86,7 +92,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
         include: { campaign: { select: { name: true } }, activities: { orderBy: { at: "desc" } }, applications: { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 1, select: { id: true } } },
       });
       if (e) {
-        canWork = canWorkOn(viewer, e) && !e.archivedAt;
+        canWork = canWorkOn(viewer, e) && !e.archivedAt && !shut;
         const users = await tx.userLogin.findMany({ where: { id: { in: [...new Set([e.createdById, ...e.activities.map((a) => a.byId)].filter((x): x is string => Boolean(x)))] } }, select: { id: true, displayName: true } });
         const who = (id: string | null) => users.find((u) => u.id === id)?.displayName ?? null;
         const seat = e.classId ? (await seatsFor(tx, e.academicYearId, [e.classId])).get(e.classId) : undefined;
@@ -126,8 +132,8 @@ export default async function EnquiriesPage({ searchParams }: Search) {
   };
   const yearsText = data.years.length > 1 && year ? `${year.name} and mid-year ${data.years.find((y) => y.status === "ACTIVE" && y.id !== year.id && y.campusId === year.campusId)?.name ?? ""}`.trim() : year?.name ?? "";
   const sub = own ? `Only the enquiries you added or own · ${counts.all} ${counts.all === 1 ? "enquiry" : "enquiries"}` : `${counts.openCount} open enquiries · ${yearsText}`;
-  const canAdd = viewer.change !== "none" && data.years.length > 0;
-  const full = viewer.change === "all" && !own;
+  const canAdd = viewer.change !== "none" && data.years.length > 0 && !shut;
+  const full = viewer.change === "all" && !own && !shut;
   const selectable = full;
   const narrow = Boolean(panel);
   const filtered = Boolean(params.q || Object.keys(params.filters).filter((k) => k !== "view").length);
@@ -203,6 +209,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
   return (
     <>
       <AdmissionHead href={PATH} sub={sub} actions={actions} />
+      <ViewYearStrip year={yearView} back={backToThisYear(PATH, raw)} />
         <div className={cx("grid gap-5 lg:gap-6 items-start", panel && "xl:grid-cols-[minmax(0,1fr)_420px]")}>
           <div className={cx("min-w-0 flex-col gap-4", panel ? "hidden xl:flex" : "flex")}>
             <Chips value={quick} options={quickOpts} />

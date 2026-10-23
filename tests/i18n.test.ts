@@ -116,6 +116,27 @@ describe("the translator", () => {
     expect(screenMessage(te, "Something the catalogue does not have.")).toBe("Something the catalogue does not have.");
     expect(screenMessage(makeT("en"), "Mobile number is needed.")).toBe("Mobile number is needed.");
   });
+
+  it("says a day with no attendance in the screen's language, with the date and the day's name", () => {
+    const hi = makeT("hi");
+    const te = makeT("te");
+    const sat = screenMessage(te, "10-10-2026 is a second Saturday, not a working day. Attendance is off for this date.");
+    expect(sat).toContain("10-10-2026");
+    expect(sat).toContain(te("Second Saturday"));
+    expect(screenMessage(hi, "Holiday: Diwali. Attendance is off for 20-10-2026.")).toBe(hi("Holiday: {title}. Attendance is off for {date}.", { title: "Diwali", date: "20-10-2026" }));
+    expect(screenMessage(hi, "11-10-2026 is a Sunday. Attendance is off for this date.")).not.toContain("Sunday");
+  });
+
+  it("writes Ask's answer sentences whole in each language, numbers and names filled in", () => {
+    const vars = { n: "3", date: "09-10-2026", list: "2 in Class 5 A, 1 in Class 5 B" };
+    expect(makeT("en")("{n} students are absent on {date}: {list}.", vars)).toBe("3 students are absent on 09-10-2026: 2 in Class 5 A, 1 in Class 5 B.");
+    for (const lang of ["hi", "te"] as const) {
+      const said = makeT(lang)("{n} students are absent on {date}: {list}.", vars);
+      expect(said).not.toContain("students are absent");
+      expect(said).toContain("09-10-2026");
+      expect(said).toContain(vars.list);
+    }
+  });
 });
 
 describe("which language a screen uses", () => {

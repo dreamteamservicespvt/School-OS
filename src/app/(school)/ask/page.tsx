@@ -68,7 +68,7 @@ export default async function AskPage({ searchParams }: Props) {
   const params = readAsk(sp);
   const setup = await periodSetup(current);
   const answer = await withSchool(current.ctx, async (tx) => {
-    const a = await answerQuestion(tx, current, key, params, { now: new Date(), setup });
+    const a = await answerQuestion(tx, current, key, params, { now: new Date(), setup }, t);
     // Who asked what, never the rows (00-global.md §2.1 rule 6), with the answer it was given.
     await logAsk(tx, current.ctx, { key, params, via, outcome: a.ok ? "answered" : "refused", rows: a.ok ? a.total : null });
     return a;

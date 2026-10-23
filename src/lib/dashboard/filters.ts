@@ -91,7 +91,14 @@ const iso = (d: Date) => d.toISOString().slice(0, 10);
 const RANGE_LISTS = ["/attendance-management/register", "/fee-management/dashboard", "/finance-management/day-book"];
 const DAY_LISTS = ["/attendance-management/staff", "/academic-management/substitutions"];
 /** Lists that read ?year= (a year other than the current one). */
-const YEAR_LISTS = ["/student-management", "/examination-results", "/academic-management"];
+const YEAR_LISTS = [
+  "/student-management", "/examination-results", "/academic-management",
+  // Read with src/lib/academic/view-year.ts (gap list G36 follow-up).
+  "/fee-management/dashboard", "/fee-management/ledger", "/fee-management/defaulters", "/fee-management/reports",
+  "/attendance-management/register", "/attendance-management/reports",
+  "/admission-management/enquiries", "/admission-management/applications",
+  "/library-management/reports", "/staff-hr-management/leave",
+];
 
 const anyFilter = (f: DashFilters) => Boolean(f.campusId || f.date || f.from || f.yearId || f.classId);
 

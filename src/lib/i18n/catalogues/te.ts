@@ -14138,4 +14138,5 @@ export const te: Catalogue = {
   "{n} birthday in the next 7 days, among the students, parents and staff your Dashboard shows.": "రాబోయే 7 రోజుల్లో {n} పుట్టినరోజు, మీ డాష్‌బోర్డ్ చూపే విద్యార్థులు, తల్లిదండ్రులు మరియు సిబ్బందిలో.",
   "{n} birthdays in the next 7 days, among the students, parents and staff your Dashboard shows.": "రాబోయే 7 రోజుల్లో {n} పుట్టినరోజులు, మీ డాష్‌బోర్డ్ చూపే విద్యార్థులు, తల్లిదండ్రులు మరియు సిబ్బందిలో.",
   "Pay school fees": "పాఠశాల ఫీజు చెల్లించండి",
+  "This list shows that year, as the Dashboard counted it.": "ఈ జాబితా ఆ సంవత్సరాన్ని చూపుతుంది, డాష్‌బోర్డ్ లెక్కించినట్లే.",
 };

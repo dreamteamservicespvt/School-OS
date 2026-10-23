@@ -9,6 +9,7 @@
 // students, staff, devices and QR. The limit is in campusLimit, limitSections
 // and limitStaff; every "everyone" below means everyone on that campus.
 import "server-only";
+import type { ViewYear } from "../academic/view-year";
 
 import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
@@ -222,4 +223,14 @@ export class NotYoursError extends AttendanceProblem {
     super(`You can only work with your own classes. Ask the principal if you need ${what}.`);
     this.name = "NotYoursError";
   }
+}
+
+/**
+ * Another year chosen on the Dashboard (?year=, src/lib/academic/view-year.ts):
+ * the person's reach in that year's sections; a year that is over is read-only
+ * (no marks, corrections or leave from it).
+ */
+export function inYear(access: AttendanceAccess, view: ViewYear | null): AttendanceAccess {
+  if (!view) return access;
+  return { ...access, yearId: view.id, yearIds: [view.id], ...(view.past ? { change: "none" as const, lockOverride: false } : {}) };
 }

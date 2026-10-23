@@ -17,7 +17,9 @@ import { ExportButton } from "@/components/ui/export-button";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { ReportsFrame } from "@/components/list/reports-frame";
 import { FeeHead } from "../_components/fee-head";
-import { BASE, feeGuard, one, qs, type SearchParams } from "../_lib/page";
+import { BASE, feeGuard, feeYearView, one, qs, type SearchParams } from "../_lib/page";
+import { backToThisYear } from "@/lib/academic/view-year";
+import { ViewYearStrip } from "@/components/view-year-strip";
 import { OldSoftwareBanner, OldSoftwareEmpty, allBeforeGoLive } from "@/components/money/go-live";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -49,8 +51,10 @@ const LOOK: Record<string, { group: string; sub: string; icon: LucideIcon }> = {
 
 /** Fee Reports (06 §7, mod-fees.jsx FeeReports): each report with its filters, a total line, export and print. */
 export default async function FeeReportsPage({ searchParams }: { searchParams: SearchParams }) {
-  const p = await feeGuard("reports");
+  const p0 = await feeGuard("reports");
   const sp = await searchParams;
+  // Another year (?year=, from the Dashboard): its dates and classes, as at its last day when it is over (gap list G36).
+  const { p, view } = await feeYearView(p0, p0.viewer, sp.year);
   const def = findFeeReport(one(sp.r)) ?? FEE_REPORTS[0];
   const { f, range } = reportFilter(sp, { ...p.dates, today: p.today, yearStart: p.year?.startDate ?? null });
   const has = (k: ReportFilterKey) => def.filters.includes(k);
@@ -69,10 +73,10 @@ export default async function FeeReportsPage({ searchParams }: { searchParams: S
   });
 
   const keep: Record<string, string | null> = {
-    period: one(sp.period) || null, from: one(sp.from) || null, to: one(sp.to) || null,
+    period: one(sp.period) || null, from: one(sp.from) || null, to: one(sp.to) || null, year: view?.id ?? null,
     class: f.classId, head: f.feeHeadId, mode: f.mode, by: f.collectorId, group: has("group") && f.group !== "month" ? f.group : null,
   };
-  const links = FEE_REPORTS.map((r) => ({ key: r.key, name: r.label, href: qs(HREF, { r: r.key, period: keep.period, from: keep.from, to: keep.to }), ...(LOOK[r.key] ?? { group: "More", sub: r.about }) }));
+  const links = FEE_REPORTS.map((r) => ({ key: r.key, name: r.label, href: qs(HREF, { r: r.key, period: keep.period, from: keep.from, to: keep.to, year: keep.year }), ...(LOOK[r.key] ?? { group: "More", sub: r.about }) }));
   const exportHref = qs(`${HREF}/export`, { r: def.key, ...keep });
   const r = data.result;
   const datesWords = has("dates") ? (range ? range.label : `${formatDate(f.from)} to ${formatDate(f.to)}`) : `As on ${formatDate(p.today)}`;
@@ -83,6 +87,7 @@ export default async function FeeReportsPage({ searchParams }: { searchParams: S
   return (
     <div>
       <FeeHead pageName="Fee Reports" href={HREF} sub={`${p.year?.name ?? "This year"} · ${datesWords}`} />
+      <ViewYearStrip year={view} back={backToThisYear(HREF, sp)} />
       <ReportsFrame reports={links} active={def.key}>
         {r.chart && r.chart.length > 0 && chartMax > BigInt(0) && (
           <Card>

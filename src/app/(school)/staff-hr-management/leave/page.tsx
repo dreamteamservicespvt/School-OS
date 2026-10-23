@@ -9,7 +9,9 @@ import { balancesFor, calendarLabel, daysText, leaveYearFor } from "@/lib/staff/
 import { addDays, eachDay, isoDay, monthEnd, monthLabel, monthStart } from "@/lib/staff/dates";
 import { offDayMap } from "@/lib/staff/leave";
 import { allLeaveWhere, campusStaffWhere, offCampus } from "@/lib/staff/list";
-import { personCampusId } from "@/lib/campus";
+import { narrowToCampus, personCampusId } from "@/lib/campus";
+import { backToThisYear, readViewYear, withYearDates } from "@/lib/academic/view-year";
+import { ViewYearStrip } from "@/components/view-year-strip";
 import { StaffHead } from "../_components/head";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge, Pill, type BadgeTone } from "@/components/ui/badge";
@@ -51,6 +53,11 @@ export default async function StaffLeavePage({ searchParams }: Props) {
   const hr = viewer.see === "all";
   const canHr = viewer.change === "all";
   const calendarAllowed = hr || viewer.headOf.length > 0;
+  // Another year (?year=, from the Dashboard): All leave opens on its dates; a year that is over is read-only (gap list G36).
+  const yearView = one(sp.year)
+    ? await withSchool(current.ctx, async (tx) => readViewYear(tx, current.ctx, await narrowToCampus(tx, { ...current, campusId: viewer.campusId ?? current.campusId }, sp.campus), sp.year, today))
+    : null;
+  const shut = Boolean(yearView?.past);
 
   const base = await withSchool(current.ctx, async (tx) => {
     const roleKeys = current.roles.map((r) => r.key);
@@ -89,7 +96,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
     const notes = [t.paid ? `${Number(t.daysPerYear)} days a year` : "Unpaid", rule?.documentRequired ? "needs a document" : t.needsDocAfter !== null ? `document after ${t.needsDocAfter} days` : null, rule?.lossOfPay ? "extra days are loss of pay" : null].filter(Boolean);
     return { value: t.id, label: t.name, halfDay: rule?.halfDayAllowed ?? true, note: notes.join(", ") };
   });
-  const canApply = Boolean(viewer.staffId) || canHr;
+  const canApply = (Boolean(viewer.staffId) || canHr) && !shut;
   const apply = canApply && base.types.length > 0 ? (
     <ApplyLeaveForm action={applyLeaveAction} preview={previewLeave} types={typeOptions} today={isoDay(today)}
       staff={canHr ? staffOptions.filter((s) => s.id !== viewer.staffId).map((s) => ({ value: s.id, label: `${s.fullName} (${s.staffCode})` })) : null}
@@ -99,6 +106,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
   return (
     <>
       <StaffHead page="Staff Leave" href={`${BASE}/leave`} sub={canHr ? "Leave requests, balances and the leave calendar for every staff member" : "Your leave requests and balances"} actions={apply} />
+      <ViewYearStrip year={yearView} back={backToThisYear(`${BASE}/leave`, sp)} />
       {base.types.length === 0 && <Banner tone="warn" className="mb-4" title="No staff leave types yet.">{canHr ? <Link href={`${BASE}/settings`} className="font-semibold underline"><Words k="Add them in HR Settings." /></Link> : "Ask HR to add them."}</Banner>}
       {views.length > 1 && (
         <div className="-mx-4 mb-4 overflow-x-auto px-4 no-scrollbar md:mx-0 md:px-0">
@@ -144,7 +152,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
             )}
           </CardBody>
         </Card>
-        <RequestList title="My requests" rows={data.requests.map((r) => ({ ...r, staffName: null }))} cancellable />
+        <RequestList title="My requests" rows={data.requests.map((r) => ({ ...r, staffName: null }))} cancellable={!shut} />
       </div>
     );
   }
@@ -291,7 +299,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
 
   async function All() {
     const status = ["WAITING", "APPROVED", "REJECTED", "CANCELLED"].find((x) => x === one(sp.status));
-    const range = periodFromSearch(sp, { timeZone: tz });
+    const range = periodFromSearch(withYearDates(sp, yearView), { timeZone: tz });
     const q = (one(sp.q) ?? "").trim().slice(0, 80);
     const data = await withSchool(current.ctx, async (tx) => {
       const within = range ? dateWhere(range) : null;
@@ -311,7 +319,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
               filters={[{ key: "status", label: "Status", allLabel: "Every status", options: Object.entries(STATUS_WORDS).map(([k, v]) => ({ value: k, label: v.label })) }]} />
           </Toolbar>
         </Card>
-        <RequestList title={status ? `${STATUS_WORDS[status].label} leave` : "All staff leave"} rows={data} cancellable empty="No leave matches." />
+        <RequestList title={status ? `${STATUS_WORDS[status].label} leave` : "All staff leave"} rows={data} cancellable={!shut} empty="No leave matches." />
       </div>
     );
   }

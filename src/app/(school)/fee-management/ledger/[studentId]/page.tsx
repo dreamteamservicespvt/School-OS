@@ -32,7 +32,9 @@ import { FeeHead } from "../../_components/fee-head";
 import { ModeIcon, PayPill, modeWord, pct } from "../../_components/bits";
 import { CancelSheet, PaymentSheet } from "../../_components/payment-sheet";
 import { toSheet } from "../../_lib/pay-sheet";
-import { BASE, feeGuard, feePeriod, one, qs, type SearchParams } from "../../_lib/page";
+import { BASE, feeGuard, feePeriod, feeYearView, one, qs, type SearchParams } from "../../_lib/page";
+import { backToThisYear, withYearDates } from "@/lib/academic/view-year";
+import { ViewYearStrip } from "@/components/view-year-strip";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { AdjustSheet, AssignSheet, CertificateSheet, ChargeSheet, InvoiceSheet, OldDuesSheet, ResendInvoice } from "./sheets";
 import { Words } from "@/lib/i18n/client";
@@ -64,8 +66,11 @@ const dshort = (d: Date) => new Intl.DateTimeFormat("en-IN", { day: "numeric", m
 export default async function LedgerPage({ params, searchParams }: { params: Promise<{ studentId: string }>; searchParams: SearchParams }) {
   const { studentId } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(studentId)) notFound();
-  const p = await feeGuard("ledger");
-  const sp = await searchParams;
+  const p0 = await feeGuard("ledger");
+  const raw = await searchParams;
+  // Another year (?year=, from the Dashboard): that year's fees card and dates; read-only when it is over (gap list G36).
+  const { p, view } = await feeYearView(p0, p0.viewer, raw.year);
+  const sp = withYearDates(raw, view);
   const tab = TABS.some(([k]) => k === one(sp.tab)) ? one(sp.tab) : "statement";
   const doing = (DO as readonly string[]).includes(one(sp.do)) ? one(sp.do) : "";
   const payId = one(sp.pay);
@@ -78,8 +83,9 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
   const data = await withSchool(p.current.ctx, async (tx) => {
     if (!(await canSeeStudent(tx, p.viewer, studentId))) return null;
-    // "This year" for this student is their own campus's current year.
-    const year = await studentYear(tx, p.current.ctx, studentId);
+    // "This year" for this student is their own campus's current year (or the year chosen, when it is their campus's).
+    const own = await studentYear(tx, p.current.ctx, studentId);
+    const year = view && p.year && own?.campusId === view.campusId ? p.year : own;
     const card = await studentCard(tx, p.current.ctx, studentId, year?.id);
     if (!card) return null;
     const ledger = await studentLedger(tx, studentId, p.today, p.tz);
@@ -120,7 +126,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
   const { card, ledger: L } = data;
   const per = feePeriod(sp, p.dates, null);
-  const here = (extra: Record<string, string | null> = {}) => qs(`${BASE}/ledger/${studentId}`, { tab: tab === "statement" ? null : tab, ...per.keep, ...extra });
+  const here = (extra: Record<string, string | null> = {}) => qs(`${BASE}/ledger/${studentId}`, { tab: tab === "statement" ? null : tab, year: view?.id ?? null, ...per.keep, ...extra });
   const close = here();
   const first = card.name.split(" ")[0];
   const balance = L.balanceNow;
@@ -163,6 +169,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
           {canEdit && <ButtonLink href={here({ do: "invoice" })} scroll={false} variant="secondary" icon={FileText} className="hidden md:inline-flex"><Words k="Fee invoice" /></ButtonLink>}
           {p.desk && <ButtonLink href={`${BASE}/collect/${studentId}`} variant="primary" icon={IndianRupee}><Words k="Collect fee" /></ButtonLink>}
         </>} />
+      <ViewYearStrip year={view} back={backToThisYear(`${BASE}/ledger/${studentId}`, raw)} />
 
       <Stack>
         <Card className="overflow-hidden">
@@ -203,7 +210,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
         <div className="flex items-center gap-2 flex-wrap">
           <LinkTabs className="flex-1 min-w-0" label="Ledger views" tabs={TABS.map(([k, label]) => ({
-            href: qs(`${BASE}/ledger/${studentId}`, { tab: k === "statement" ? null : k, ...per.keep }),
+            href: qs(`${BASE}/ledger/${studentId}`, { tab: k === "statement" ? null : k, year: view?.id ?? null, ...per.keep }),
             label,
             on: tab === k,
             count: k === "fees" ? installments.length : k === "payments" ? receipts.length : k === "partial" ? partial.length : k === "adjust" ? adjustments.length : null,

@@ -36,7 +36,9 @@ export function attendanceTakeHref(period: { sectionId: string; periodNo: number
 function access(c: DashContext): Promise<AttendanceAccess> {
   return c.memo("attendance-access", async () => {
     const settings = await attendanceSettings(c.tx, c.viewer.ctx);
-    return attendanceAccess(c.tx, c.viewer.ctx, c.viewer, settings.lockOverrideRoles);
+    const a = await attendanceAccess(c.tx, c.viewer.ctx, c.viewer, settings.lockOverrideRoles);
+    // A year chosen in the filters: that year's sections, as Attendance reads ?year= (src/lib/attendance/page.ts inYear, gap list G36).
+    return c.filters.yearId && c.year ? { ...a, yearId: c.year.id, yearIds: [c.year.id] } : a;
   });
 }
 const settings = (c: DashContext) => c.memo("attendance-settings", () => attendanceSettings(c.tx, c.viewer.ctx));

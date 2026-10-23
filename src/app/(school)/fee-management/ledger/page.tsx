@@ -13,7 +13,9 @@ import { Empty } from "@/components/money/kit";
 import { UrlSearch } from "@/components/money/url-filters";
 import { cx } from "@/components/ui/cx";
 import { FeeHead } from "../_components/fee-head";
-import { BASE, feeGuard, one, type SearchParams } from "../_lib/page";
+import { BASE, feeGuard, feeYearView, one, type SearchParams } from "../_lib/page";
+import { backToThisYear } from "@/lib/academic/view-year";
+import { ViewYearStrip } from "@/components/view-year-strip";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
@@ -23,7 +25,7 @@ export async function generateMetadata() {
 
 /** Student Fee Ledger without a student chosen: find one (mod-fees.jsx StudentPicker). */
 export default async function LedgerIndexPage({ searchParams }: { searchParams: SearchParams }) {
-  const p = await feeGuard("ledger");
+  const p0 = await feeGuard("ledger");
   const sp = await searchParams;
   const student = one(sp.student);
   if (/^[0-9a-f-]{36}$/i.test(student)) {
@@ -31,6 +33,8 @@ export default async function LedgerIndexPage({ searchParams }: { searchParams: 
     for (const [k, v] of Object.entries(sp)) if (k !== "student" && typeof v === "string") rest.set(k, v);
     redirect(`${BASE}/ledger/${student}${rest.size ? `?${rest}` : ""}`);
   }
+  // Another year (?year=, from the Dashboard): its classes, read-only when it is over (gap list G36).
+  const { p, view } = await feeYearView(p0, p0.viewer, sp.year);
   const q = one(sp.q).trim().slice(0, 80);
   const own = p.viewer.see === "own";
   const list = await withSchool(p.current.ctx, (tx) => (q ? findStudents(tx, p.viewer, q, p.today, 20) : mostOverdue(tx, p.viewer, p.today, own ? 40 : 10)));
@@ -38,6 +42,7 @@ export default async function LedgerIndexPage({ searchParams }: { searchParams: 
     <div>
       <FeeHead pageName="Student Fee Ledger" href={`${BASE}/ledger`} sub={own ? "Fee status of the students in your classes." : "Each student’s fees, payments, balance and receipts. Nothing here is ever deleted."}
         actions={p.can.change ? <ButtonLink href={`${BASE}/ledger/import`} variant="secondary" icon={FileInput}><Words k="Import old dues and receipts" /></ButtonLink> : undefined} />
+      <ViewYearStrip year={view} back={backToThisYear(`${BASE}/ledger`, sp)} />
       <div className="max-w-3xl">
         <UrlSearch big id="ledger-search" placeholder="Name, admission no. or parent phone" autoFocus label="Find a student" />
         <Card className="mt-4 overflow-hidden">
@@ -50,7 +55,7 @@ export default async function LedgerIndexPage({ searchParams }: { searchParams: 
               <ul className="p-2">
                 {list.map((s) => (
                   <li key={s.id}>
-                    <Link href={`${BASE}/ledger/${s.id}`} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken text-left">
+                    <Link href={`${BASE}/ledger/${s.id}${view ? `?year=${view.id}` : ""}`} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken text-left">
                       <Avatar name={s.name} size={42} src={s.photoFileId ? fileLink(s.photoFileId, p.current.ctx.schoolId) : null} />
                       <span className="min-w-0 flex-1">
                         <span className="block font-semibold text-[15px] truncate">{s.name}</span>

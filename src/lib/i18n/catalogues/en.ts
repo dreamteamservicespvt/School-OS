@@ -14674,6 +14674,8 @@ export const EN = [
   "{n} birthdays in the next 7 days, among the students, parents and staff your Dashboard shows.",
   // src/app/pay/[schoolId]/[token]/page.tsx: the tab title
   "Pay school fees",
+  // Lists opened for another year from the Dashboard (gap list G36 follow-up)
+  "This list shows that year, as the Dashboard counted it.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

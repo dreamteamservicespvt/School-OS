@@ -7,8 +7,9 @@ import { requirePage, type Current } from "../current";
 import { withSchool } from "../db";
 import type { Action } from "../permissions";
 import { todayIn } from "../staff/dates";
-import { attendanceAccess, MODULE, type AttendanceAccess } from "./access";
+import { attendanceAccess, inYear, MODULE, type AttendanceAccess } from "./access";
 import { narrowToCampus } from "../campus";
+import { readViewYear, type ViewYear } from "../academic/view-year";
 import { attendanceFeatures, attendanceSettings } from "./settings";
 
 export const attendancePage = cache(async (action: Action = "view") => {
@@ -29,12 +30,13 @@ export const attendancePage = cache(async (action: Action = "view") => {
  * The person and their reach narrowed to a campus chosen in the page address
  * (?campus=, from the Dashboard's filter; src/lib/campus.ts narrowToCampus).
  */
-export async function onCampusFromPage(p: { current: Current; access: AttendanceAccess; settings: { lockOverrideRoles: string[] } }, raw: string | string[] | undefined) {
-  if (!raw) return { current: p.current, access: p.access };
+export async function onCampusFromPage(p: { current: Current; access: AttendanceAccess; settings: { lockOverrideRoles: string[] }; today: Date }, raw: string | string[] | undefined, rawYear?: string | string[] | undefined): Promise<{ current: Current; access: AttendanceAccess; view: ViewYear | null }> {
+  if (!raw && !rawYear) return { current: p.current, access: p.access, view: null };
   return withSchool(p.current.ctx, async (tx) => {
-    const current = await narrowToCampus(tx, p.current, raw);
-    if (current === p.current) return { current, access: p.access };
-    return { current, access: await attendanceAccess(tx, current.ctx, current, p.settings.lockOverrideRoles) };
+    const current = raw ? await narrowToCampus(tx, p.current, raw) : p.current;
+    const access = current === p.current ? p.access : await attendanceAccess(tx, current.ctx, current, p.settings.lockOverrideRoles);
+    const view = rawYear ? await readViewYear(tx, current.ctx, current, rawYear, p.today) : null;
+    return { current, access: inYear(access, view), view };
   });
 }
 

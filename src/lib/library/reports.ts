@@ -11,7 +11,7 @@ import type { SchoolContext, Tx } from "../db";
 import type { Row, Table } from "../reports/types";
 import { librarySettings } from "./settings";
 import { membersOf, type Member } from "./members";
-import { overdueWhere, lateFine, daysBetween } from "./desk";
+import { overdueAsAt, overdueWhere, lateFine, daysBetween } from "./desk";
 import { syncFeeFines } from "./fines";
 import { copyCounts, shelfOf } from "./catalogue";
 import { showIsbn } from "./isbn";
@@ -28,6 +28,8 @@ export type LibFilter = {
   session?: string | null;
   /** Overdue report: only books more than this many days late (the Dashboard's card); 0 or left out for every overdue book. */
   lateMoreThan?: number;
+  /** A year that is over (?year=): overdue as it stood at the end of `today`, its last day (desk.ts overdueAsAt). */
+  asAt?: boolean;
 };
 
 const ZERO = BigInt(0);
@@ -50,8 +52,8 @@ async function sectionLabels(tx: Tx, ids: (string | null)[]) {
 const sectionWhere = (f: LibFilter): Prisma.BookIssueWhereInput => (f.sectionIds ? { sectionId: { in: f.sectionIds } } : {});
 
 /** The overdue count on a day: the same number on the desk, the dashboard and the reports. */
-export async function overdueCount(tx: Tx, today: Date, f?: Pick<LibFilter, "sectionIds">) {
-  return tx.bookIssue.count({ where: { ...overdueWhere(today), ...(f ? sectionWhere(f as LibFilter) : {}) } });
+export async function overdueCount(tx: Tx, today: Date, f?: Pick<LibFilter, "sectionIds" | "asAt">) {
+  return tx.bookIssue.count({ where: { ...(f?.asAt ? overdueAsAt(today) : overdueWhere(today)), ...(f ? sectionWhere(f as LibFilter) : {}) } });
 }
 
 /* ---------- Books issued ---------- */
@@ -80,7 +82,7 @@ export async function issuedReport(tx: Tx, ctx: SchoolContext, f: LibFilter): Pr
 export async function overdueReport(tx: Tx, ctx: SchoolContext, f: LibFilter): Promise<Table> {
   const s = await librarySettings(tx, ctx);
   const late = f.lateMoreThan ?? 0;
-  const issues = await tx.bookIssue.findMany({ where: { ...overdueWhere(f.today, late), ...sectionWhere(f) }, orderBy: { dueOn: "asc" }, include: { copy: { select: { accessionNo: true, book: { select: { title: true } } } } } });
+  const issues = await tx.bookIssue.findMany({ where: { ...(f.asAt ? overdueAsAt(f.today, late) : overdueWhere(f.today, late)), ...sectionWhere(f) }, orderBy: { dueOn: "asc" }, include: { copy: { select: { accessionNo: true, book: { select: { title: true } } } } } });
   const members = await membersFor(tx, ctx, issues);
   const secs = await sectionLabels(tx, issues.map((i) => i.sectionId));
   const rows: Row[] = issues.map((i) => {
@@ -100,8 +102,8 @@ export async function overdueReport(tx: Tx, ctx: SchoolContext, f: LibFilter): P
 }
 
 /** Overdue books in buckets of days late (Library Reports, and the Principal's overdue watch). */
-export async function overdueBuckets(tx: Tx, today: Date) {
-  const rows = await tx.bookIssue.findMany({ where: overdueWhere(today), select: { dueOn: true } });
+export async function overdueBuckets(tx: Tx, today: Date, asAt = false) {
+  const rows = await tx.bookIssue.findMany({ where: asAt ? overdueAsAt(today) : overdueWhere(today), select: { dueOn: true } });
   const b = [{ key: "1-7", label: "1–7 days", value: 0 }, { key: "8-14", label: "8–14 days", value: 0 }, { key: "15-30", label: "15–30 days", value: 0 }, { key: "30+", label: "Over 30", value: 0 }];
   for (const r of rows) {
     const d = daysBetween(r.dueOn, today);

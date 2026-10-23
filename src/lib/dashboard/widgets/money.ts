@@ -31,7 +31,11 @@ const ZERO = BigInt(0);
 const DAY = 86_400_000;
 
 function fees(c: DashContext): Promise<FeeViewer> {
-  return c.memo("fee-viewer", () => feeViewer(c.tx, c.viewer.ctx, c.viewer as unknown as Parameters<typeof feeViewer>[2]));
+  return c.memo("fee-viewer", async () => {
+    const v = await feeViewer(c.tx, c.viewer.ctx, c.viewer as unknown as Parameters<typeof feeViewer>[2]);
+    // A year chosen in the filters: that year's fees and classes, as Fee Management reads ?year= (feeYearView, gap list G36).
+    return c.filters.yearId && c.year ? { ...v, yearId: c.year.id, yearIds: [c.year.id] } : v;
+  });
 }
 
 /** Sits at the fee counter: may collect, and collecting is their desk work. */

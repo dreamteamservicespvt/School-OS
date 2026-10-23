@@ -10,7 +10,8 @@ import { withSchool } from "@/lib/db";
 import { currentYear } from "@/lib/academic/years";
 import { narrowToCampus, personCampusId } from "@/lib/campus";
 import { todayIn } from "@/lib/staff/dates";
-import { admissionOnly as isAdmissionOnly, feeLevel, feePageAllowed, feeViewer, type FeePageKey } from "@/lib/fees/access";
+import { admissionOnly as isAdmissionOnly, feeLevel, feePageAllowed, feeViewer, type FeePageKey, type FeeViewer } from "@/lib/fees/access";
+import { readViewYear, type ViewYear } from "@/lib/academic/view-year";
 import { counterAllowed, feeFeaturesOn, feeSettings } from "@/lib/fees/settings";
 import { ensureFinanceDefaults } from "@/lib/finance/settings";
 import { periodFromSearch, type PeriodKey } from "@/lib/periods";
@@ -94,6 +95,32 @@ export async function feeViewOnCampus(p: Awaited<ReturnType<typeof feePage>>, ra
     const who = await narrowToCampus(tx, p.current, raw);
     return who === p.current ? p.viewer : feeViewer(tx, who.ctx, who);
   });
+}
+
+/**
+ * Another academic year chosen on the Dashboard (?year=, src/lib/academic/view-year.ts):
+ * the page and the fee view as that year. "This year" is that year (its fees, its
+ * classes), "today" is its last day when it is over, and a year that is over is
+ * read-only: nobody collects, cancels, verifies or reminds from it. With no
+ * ?year= (or one that is not allowed), the page as it is.
+ */
+export async function feeYearView(p: Awaited<ReturnType<typeof feePage>>, viewer: FeeViewer, raw: string | string[] | undefined): Promise<{ p: Awaited<ReturnType<typeof feePage>>; viewer: FeeViewer; view: ViewYear | null }> {
+  if (!raw) return { p, viewer, view: null };
+  const found = await withSchool(p.current.ctx, async (tx) => {
+    const view = await readViewYear(tx, p.current.ctx, viewer, raw, p.today);
+    return view ? { view, year: await tx.academicYear.findUniqueOrThrow({ where: { id: view.id } }) } : null;
+  });
+  if (!found) return { p, viewer, view: null };
+  const { view, year } = found;
+  const shut = view.past;
+  return {
+    view,
+    viewer: { ...viewer, yearId: view.id, yearIds: [view.id] },
+    p: {
+      ...p, year, today: view.asOf, viewer: { ...p.viewer, yearId: view.id, yearIds: [view.id] },
+      ...(shut ? { can: { ...p.can, change: false, counter: () => false }, reach: p.reach === "all" ? "view" as const : p.reach, does: () => false, desk: false } : {}),
+    },
+  };
 }
 
 /** Fee Settings: full Fee Management only. */

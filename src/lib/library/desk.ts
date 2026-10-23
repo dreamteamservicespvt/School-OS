@@ -62,8 +62,12 @@ export function lateFine(s: Pick<LibrarySettings, "finePerDayPaise" | "maxFinePa
   return { lateDays, chargeable, amountPaise };
 }
 
-/** Open issues that are overdue on a day: the one count the desk, the dashboard and the reports all use. */
-export const overdueWhere = (today: Date) => ({ returnedAt: null, dueOn: { lt: today } });
+/**
+ * Open issues that are overdue on a day: the one count the desk, the dashboard and the reports all use.
+ * `lateMoreThan` days keeps only books more than that many days late (the Dashboard's "more than a week late"
+ * card and the overdue report it opens, gap list G36).
+ */
+export const overdueWhere = (today: Date, lateMoreThan = 0) => ({ returnedAt: null, dueOn: { lt: new Date(today.getTime() - lateMoreThan * 86_400_000) } });
 
 /* ---------- The queue ---------- */
 

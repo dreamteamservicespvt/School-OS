@@ -60,7 +60,7 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
 
   const keep = { ...per.keep, sec: r.sec || null };
   const reportHref = (key: string | null) => `${qs(`${BASE}/reports`, { ...keep, r: key })}${key ? "#report" : ""}`;
-  const exportHref = r.report ? qs(`${BASE}/reports/export`, { ...keep, r: r.report.key, session: r.session || null }) : "";
+  const exportHref = r.report ? qs(`${BASE}/reports/export`, { ...keep, r: r.report.key, session: r.session || null, late: r.late ? String(r.late) : null }) : "";
   const maxClass = Math.max(1, ...d.byClass.map((x) => x.value));
   const maxCat = Math.max(1, ...d.cats.map((x) => x.times));
   const t = d.table;
@@ -137,7 +137,7 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
 
         {r.report && t && (
           <Card id="report">
-            <CardHeader title={r.report.name} description={`${r.report.dated ? per.label : "As on today"}${r.report.byClass && r.sec ? ` · ${d.sections.find((x) => x.id === r.sec)?.label ?? ""}` : ""} · ${t.rows.length.toLocaleString("en-IN")} row${t.rows.length === 1 ? "" : "s"}`} divided
+            <CardHeader title={r.report.name} description={`${r.report.dated ? per.label : "As on today"}${r.late ? ` · more than ${r.late} days late` : ""}${r.report.byClass && r.sec ? ` · ${d.sections.find((x) => x.id === r.sec)?.label ?? ""}` : ""} · ${t.rows.length.toLocaleString("en-IN")} row${t.rows.length === 1 ? "" : "s"}`} divided
               action={<div className="flex gap-2 items-center">
                 {r.report.key === "lib-stock" && d.sessions.length > 0 && <UrlSelect param="session" label="Stock check" options={[{ value: "", label: "Every check" }, ...d.sessions.map((x) => ({ value: x.id, label: `${x.name} (${formatDate(x.startedAt, tz)})` }))]} />}
                 {can.export && <ExportButton href={exportHref} size="sm" always />}

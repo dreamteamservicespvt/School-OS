@@ -15,8 +15,11 @@ export function readReportFilter(get: (k: string) => string, range: DayRange | n
   const sec = UUID.test(get("sec")) ? get("sec") : "";
   const session = UUID.test(get("session")) ? get("session") : "";
   const report = LIBRARY_REPORT_LIST.find((r) => r.key === get("r")) ?? null;
-  const f: LibFilter = { from: range ? day(range.from) : null, to: range ? day(range.to) : null, today, sectionIds: sec ? [sec] : null, session: session || null };
+  // "More than N days late" on the overdue report (the Dashboard's card opens it with late=7, gap list G36).
+  const lateN = /^\d{1,3}$/.test(get("late")) ? Number(get("late")) : 0;
+  const late = report?.key === "lib-overdue" && lateN > 0 ? lateN : 0;
+  const f: LibFilter = { from: range ? day(range.from) : null, to: range ? day(range.to) : null, today, sectionIds: sec ? [sec] : null, session: session || null, lateMoreThan: late };
   /** The filter for one report: undated reports ignore the dates, and only class reports take the class. */
   const forReport = (r: NonNullable<ReportPick>): LibFilter => ({ ...f, from: r.dated ? f.from : null, to: r.dated ? f.to : null, sectionIds: r.byClass ? f.sectionIds : null });
-  return { sec, session, report, f, forReport };
+  return { sec, session, late, report, f, forReport };
 }

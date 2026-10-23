@@ -5,9 +5,9 @@ What was tested, what was fixed, and what needs a decision. Local only: nothing 
 ## How it was tested
 - A script signed in as the demo School Admin and the console Owner, opened every page it could reach
   (seeded from every route, then every link found) on a phone screen, 360 and 390 px, light and dark.
-- 702 school pages and 14 console pages checked fully (production build plus re-checks on the dev server).
-  About 160 pages, mostly module front pages, were not read cleanly by the script (it moved on before
-  the page finished starting); they are listed as not checked, not as passed.
+- 890 school pages and 14 console pages checked fully (production build; the last 193 with one browser so
+  each page finished starting). Not loadable as pages: 5 Excel template downloads and uploaded files.
+- Dark mode: the only white boxes are paper previews (document designs, letterhead, salary slip), on purpose.
 - Per page: wider than the screen, text boxes under 16 px (iPhone zoom), server errors, browser
   console errors, white boxes in dark mode, empty cells in tile grids.
 - Screenshots of the main screens reviewed by eye: Dashboard, Students, Student Profile, Fees,
@@ -37,7 +37,17 @@ Research: docs/research/school-owner-pain-points.md (17 themes, 47 checks). The 
 6 met (4 better than asked: school data walls, payment never lost, no silent edits, support access logged),
 7 partly met, 1 missing, 2 need a timed test.
 
-## Needs your decision (new features or settings; not built)
+## Decisions taken (the user left them to Claude, 23 Oct evening)
+- Built: changing a guardian's mobile sends Parent Link to the new number in the same save (a tick box, on
+  by default; a school with no WhatsApp/SMS still saves the number). Tests in tests/students/guardian-phone.test.ts.
+- Not changed: offline attendance stays off until a school switches it on. The blueprint calls it
+  "optional, schools with poor internet" (modules attendance, line 33), and the blueprint wins.
+- Next to build: the "Paid twice: refund needed" list (plan first, per the blueprint).
+- Waiting on the user: settlement matching (live Razorpay account to test with), privacy notice (a lawyer's
+  text; no invented legal Telugu), scheduled backups (where to store them), receipt link (Meta re-approval
+  on the WhatsApp account shared with the gym).
+
+## Originally listed for decision
 1. Bank settlement matching (missing): daily Razorpay settlements matched to receipts, with unmatched lines.
 2. "Paid twice: refund needed" list on the Fee Dashboard (today a second payment is kept as advance).
 3. Receipt link inside the fee-paid WhatsApp/SMS (the WhatsApp template must be re-approved by Meta).

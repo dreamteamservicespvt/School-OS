@@ -63,7 +63,8 @@ export async function createGuardian(tx: Tx, ctx: SchoolContext, input: Guardian
   return g;
 }
 
-export async function updateGuardian(tx: Tx, ctx: SchoolContext, guardianId: string, input: GuardianInput) {
+/** `sendLinkToNewPhone`: when the mobile changes and the parent already has Parent Link, send it to the new number now. */
+export async function updateGuardian(tx: Tx, ctx: SchoolContext, guardianId: string, input: GuardianInput, opts: { sendLinkToNewPhone?: boolean } = {}) {
   const before = await tx.guardian.findFirst({ where: { id: guardianId, archivedAt: null } });
   if (!before) throw new StudentProblem("This parent was not found.");
   const after = await tx.guardian.update({
@@ -84,6 +85,10 @@ export async function updateGuardian(tx: Tx, ctx: SchoolContext, guardianId: str
     const links = await tx.parentLink.findMany({ where: { guardianId, status: "ACTIVE" }, select: { id: true } });
     const ended = links.length ? await tx.parentLinkDevice.updateMany({ where: { parentLinkId: { in: links.map((l) => l.id) }, revokedAt: null }, data: { revokedAt: new Date() } }) : { count: 0 };
     if (ended.count) await writeAudit(tx, ctx, { action: "phones-signed-out", recordType: "Parent Link", recordId: links[0].id, after: { reason: "Guardian changed mobile", phones: ended.count } });
+    // The most common reason a parent cannot open Parent Link: the number changed and the link stayed
+    // on the old phone. One save fixes both (docs/research/school-owner-pain-points.md, P0 item 12).
+    // A school with no WhatsApp or SMS on still saves the new number; nothing is sent.
+    if (opts.sendLinkToNewPhone && links.length && parentLink) await parentLink.resendIfPossible(tx, ctx, guardianId);
   }
   if (changed.length) {
     await writeAudit(tx, ctx, {
@@ -234,6 +239,8 @@ export type ParentLinkProvider = {
   resend: (tx: Tx, ctx: SchoolContext, guardianId: string) => Promise<string>;
   /** Stops the old link at once and issues a new one. */
   revoke: (tx: Tx, ctx: SchoolContext, guardianId: string) => Promise<string>;
+  /** Sends the guardian's active link again when a channel can carry it; null (nothing sent) when none can. */
+  resendIfPossible: (tx: Tx, ctx: SchoolContext, guardianId: string) => Promise<string | null>;
 };
 let parentLink: ParentLinkProvider | null = null;
 /** Communication registers Parent Link here when it is built; the guardian screens then show Resend and Revoke. */

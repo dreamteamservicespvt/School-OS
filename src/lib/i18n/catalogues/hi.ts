@@ -3541,6 +3541,8 @@ export const hi: Catalogue = {
   "Primary contact": "मुख्य संपर्क",
   "Custody restriction": "अभिरक्षा प्रतिबंध",
   "Opted out of messages": "संदेशों से मना किया",
+  "If the phone changes, send Parent Link to the new number": "फ़ोन नंबर बदलने पर पेरेंट लिंक नए नंबर पर भेजें",
+  "Phones that opened Parent Link before must confirm again with a code to the new number.": "जिन फ़ोन ने पहले पेरेंट लिंक खोला था, उन्हें नए नंबर पर आए कोड से फिर पुष्टि करनी होगी।",
   "Do not release to this person.": "इस व्यक्ति को न सौंपें।",
   "Make primary": "मुख्य बनाएँ",
   "will no longer be linked to": "अब इनसे नहीं जुड़े रहेंगे:",

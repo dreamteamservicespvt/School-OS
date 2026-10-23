@@ -3541,6 +3541,8 @@ export const te: Catalogue = {
   "Primary contact": "ప్రధాన సంప్రదింపు",
   "Custody restriction": "కస్టడీ పరిమితి",
   "Opted out of messages": "సందేశాలు వద్దన్నారు",
+  "If the phone changes, send Parent Link to the new number": "ఫోన్ నంబర్ మారితే, పేరెంట్ లింక్‌ను కొత్త నంబర్‌కు పంపండి",
+  "Phones that opened Parent Link before must confirm again with a code to the new number.": "ఇంతకు ముందు పేరెంట్ లింక్ తెరిచిన ఫోన్లు కొత్త నంబర్‌కు వచ్చే కోడ్‌తో మళ్లీ నిర్ధారించాలి.",
   "Do not release to this person.": "ఈ వ్యక్తికి అప్పగించవద్దు.",
   "Make primary": "ప్రధానంగా చేయండి",
   "will no longer be linked to": "ఇక వీరితో కలపబడి ఉండరు:",

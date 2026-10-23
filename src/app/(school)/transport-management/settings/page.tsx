@@ -83,7 +83,7 @@ export default async function TransportSettingsPage({ searchParams }: { searchPa
           <div className="px-5 pb-5 flex flex-col gap-1">
             {rules.map((r) => <SettingRow key={r.key} title={r.label} sub={r.when}><Pill tone={r.isOn ? "ok" : "neutral"} dot>{r.isOn ? "On" : "Off"}</Pill></SettingRow>)}
             <SettingRow title="‘Bus arriving’ goes" sub="Once per student per trip">{`${s.arrivingMinutes} minutes before the stop`}</SettingRow>
-            {canComm && <ButtonLink className="mt-2 self-start" size="sm" href="/communication/settings">Switch on, and the templates, in Message Settings</ButtonLink>}
+            {canComm && <ButtonLink className="mt-2 self-start max-w-full !h-auto min-h-8 py-1.5 !whitespace-normal text-left" size="sm" href="/communication/settings">Switch on, and the templates, in Message Settings</ButtonLink>}
           </div>
         </Card>
 

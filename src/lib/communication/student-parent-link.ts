@@ -7,6 +7,7 @@ import "server-only";
 import type { SchoolContext, Tx } from "../db";
 import { registerParentLink, type ParentLinkProvider, type ParentLinkState } from "../students/guardians";
 import { createAndSend, maskPhone, ParentLinkProblem, reissueLink, resendLink } from "../parent-link/links";
+import { MessagingProblem } from "../messaging/send";
 
 // Problems (ParentLinkProblem, MessagingProblem) are plain sentences; Student
 // Management's actions show them as they are.
@@ -45,6 +46,19 @@ export const parentLinkProvider: ParentLinkProvider = {
     if (active) await resendLink(tx, ctx, active.id);
     else await createAndSend(tx, ctx, guardianId);
     return to;
+  },
+
+  async resendIfPossible(tx, ctx, guardianId) {
+    const active = await tx.parentLink.findFirst({ where: { schoolId: ctx.schoolId, guardianId, status: "ACTIVE" } });
+    if (!active) return null;
+    try {
+      await resendLink(tx, ctx, active.id);
+    } catch (e) {
+      // No channel can carry it (switched off, no template, no credits), as sendLinksOnAdmission does.
+      if (e instanceof ParentLinkProblem || e instanceof MessagingProblem) return null;
+      throw e;
+    }
+    return guardianPhone(tx, ctx, guardianId);
   },
 
   /** Stops the old link at once and sends a new one. A parent with no link simply gets one. */

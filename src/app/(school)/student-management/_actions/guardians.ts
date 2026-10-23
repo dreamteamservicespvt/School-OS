@@ -148,6 +148,7 @@ const guardianSchema = z.object({
   restricted: checkbox(),
   restriction: optionalText("Restriction note", 500),
   addAnyway: checkbox(),
+  sendLink: checkbox(),
 });
 
 export type GuardianFormData = { matches?: { id: string; name: string; children: string[] }[] };
@@ -158,7 +159,7 @@ export async function saveGuardianAction(guardianId: string | null, studentId: s
   const parsed = parseForm(guardianSchema, fd);
   if (!parsed.ok) return parsed.state;
   const values = formValues(fd);
-  const { emergency, restricted, restriction, addAnyway, ...input } = parsed.data;
+  const { emergency, restricted, restriction, addAnyway, sendLink, ...input } = parsed.data;
   if (restricted && !can.seeRestricted) return { ok: false, message: "Only the School Admin or Principal can set a custody or access restriction.", errors: { restricted: "Only the School Admin or Principal can set this." }, values };
   if (restricted && !restriction) return { ok: false, message: "Write the restriction note.", errors: { restriction: "Write the restriction note." }, values };
   let savedId = guardianId;
@@ -166,7 +167,7 @@ export async function saveGuardianAction(guardianId: string | null, studentId: s
     await withSchool(current.ctx, async (tx) => {
       if (guardianId) {
         await visibleGuardian(tx, current, guardianId);
-        await updateGuardian(tx, current.ctx, guardianId, input);
+        await updateGuardian(tx, current.ctx, guardianId, input, { sendLinkToNewPhone: sendLink });
         return;
       }
       if (studentId) await loadVisibleStudent(tx, current, studentId);

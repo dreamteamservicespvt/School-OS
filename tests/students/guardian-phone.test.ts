@@ -6,6 +6,9 @@ import { setGuardianPhoto, updateGuardian } from "@/lib/students/guardians";
 import { randomUUID } from "node:crypto";
 import { createLink, confirmedDevice, hashToken, newDeviceKey } from "@/lib/parent-link/links";
 import { addStudent, studentSchool } from "./fixtures";
+// Registers Parent Link with Student Management, as the app does.
+import "@/lib/communication/student-parent-link";
+import { makeCommSchool } from "../communication/fixture";
 
 let s: Awaited<ReturnType<typeof studentSchool>>;
 beforeAll(async () => {
@@ -34,6 +37,37 @@ describe("guardian phone change", () => {
     expect(link.status).toBe("ACTIVE");
     const log = await withSchool(s.ctx, (tx) => tx.auditLogEntry.findFirst({ where: { recordType: "Parent Link", recordId: linkId, action: "phones-signed-out" } }));
     expect(log?.after).toMatchObject({ reason: "Guardian changed mobile", phones: 1 });
+  });
+
+  it("a school with no WhatsApp or SMS still saves the new mobile when the send box is ticked", async () => {
+    const { student } = await addStudent(s.ctx, s.s5a, { guardianPhone: "9876544441", guardianName: "Demo No Channel" });
+    const { guardianId, linkId } = await withSchool(s.ctx, async (tx) => {
+      const sg = await tx.studentGuardian.findFirstOrThrow({ where: { studentId: student.id } });
+      return { guardianId: sg.guardianId, linkId: (await createLink(tx, s.ctx, sg.guardianId)).id };
+    });
+    const g = await withSchool(s.ctx, (tx) => updateGuardian(tx, s.ctx, guardianId, { name: "Demo No Channel", relationship: "Father", phone: "9876544442" }, { sendLinkToNewPhone: true }));
+    expect(g.phone).toBe("9876544442");
+    expect((await withSchool(s.ctx, (tx) => tx.parentLink.findUniqueOrThrow({ where: { id: linkId } }))).lastSentAt).toBeNull();
+  });
+
+  it("sends Parent Link to the new number in the same save when asked, and only then", async () => {
+    const c = await makeCommSchool();
+    const linkId = await withSchool(c.ctx, async (tx) => (await createLink(tx, c.ctx, c.father.id)).id);
+    const sentAt = () => withSchool(c.ctx, (tx) => tx.parentLink.findUniqueOrThrow({ where: { id: linkId } })).then((l) => l.lastSentAt?.getTime() ?? null);
+    const g = await withSchool(c.ctx, (tx) => tx.guardian.findUniqueOrThrow({ where: { id: c.father.id } }));
+    const base = { name: g.name, relationship: g.relationship };
+    const first = await sentAt();
+    // Phone changed, box not ticked: nothing is sent.
+    await withSchool(c.ctx, (tx) => updateGuardian(tx, c.ctx, c.father.id, { ...base, phone: "9876544452" }));
+    expect(await sentAt()).toBe(first);
+    // Ticked, phone unchanged: nothing is sent.
+    await withSchool(c.ctx, (tx) => updateGuardian(tx, c.ctx, c.father.id, { ...base, phone: "9876544452", occupation: "Driver" }, { sendLinkToNewPhone: true }));
+    expect(await sentAt()).toBe(first);
+    // Phone changed and ticked: the link goes out again, to the new number.
+    await withSchool(c.ctx, (tx) => updateGuardian(tx, c.ctx, c.father.id, { ...base, phone: "9876544453" }, { sendLinkToNewPhone: true }));
+    expect(await sentAt()).not.toBe(first);
+    const to = await withSchool(c.ctx, (tx) => tx.messageRecipient.count({ where: { guardianId: c.father.id, address: { contains: "9876544453" } } }));
+    expect(to).toBeGreaterThan(0);
   });
 
   it("keeps a guardian's photo for the pickup check, with each change in the audit log (QA FO-01)", async () => {

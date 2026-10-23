@@ -23,6 +23,7 @@ export function GuardianForm({ action, g, studentId, canRestrict, cancelHref }: 
         <FormSelect name="relationship" label="Relation" required options={RELATIONS.map((r) => ({ value: r, label: r }))} defaultValue={g?.relationship ?? "Father"} />
         <FormText name="name" label="Full name" required defaultValue={g?.name} autoComplete="off" />
         <FormText name="phone" label="Phone" required type="tel" inputMode="numeric" defaultValue={g?.phone} help="+91. Used for messages and the one-time code for Parent Link." />
+        {g && <FormCheck name="sendLink" label="If the phone changes, send Parent Link to the new number" defaultChecked help="Phones that opened Parent Link before must confirm again with a code to the new number." />}
         <FormText name="altPhone" label="Other phone" type="tel" inputMode="numeric" defaultValue={g?.altPhone} />
         <FormText name="email" label="Email" type="email" defaultValue={g?.email} />
         <FormText name="occupation" label="Occupation" defaultValue={g?.occupation} />

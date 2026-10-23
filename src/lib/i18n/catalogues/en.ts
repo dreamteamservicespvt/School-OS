@@ -4349,6 +4349,8 @@ export const EN = [
   "Primary contact",
   "Custody restriction",
   "Opted out of messages",
+  "If the phone changes, send Parent Link to the new number",
+  "Phones that opened Parent Link before must confirm again with a code to the new number.",
   "Do not release to this person.",
   "Make primary",
   "will no longer be linked to",

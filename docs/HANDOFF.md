@@ -6,6 +6,9 @@ Last updated: 2026-10-26 15:00 IST
 - 2026-10-26: the repo MOVED to D:\Projects\School-OS (was C:\Users\chala\Desktop\School-OS);
   the outside worktree School-OS-picker moved to D:\Projects\School-OS-picker; .claude\worktrees\w*
   moved with the repo and were relinked with `git worktree repair`. Open VS Code at D:\Projects\School-OS.
+  After the move: npm ci done on D: (26 min). NOT yet confirmed on D:: npm run build, npm test, npm run dev
+  (the run was cut off when the chat closed). Worktree node_modules/.next were damaged by the copy (caches):
+  run npm ci inside a worktree before using it. School-OS-picker qa/e2e/teaching/21*-perms.mjs still name the old C: path.
   Commit 64f895d7 "a" (made 14:52 from VS Code, not by Claude) holds the UNFINISHED "move payment
   gateways and other connections to the console" + date-input work (chat 75c280ec ended before its
   helpers and typecheck finished): check it, then reword/split it before pushing. School-OS-picker

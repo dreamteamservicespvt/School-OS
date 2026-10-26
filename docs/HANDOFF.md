@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-10-23 23:59 IST
+Last updated: 2026-10-26 13:00 IST
 
 ## State
 - Console WhatsApp delivery reports are live: `/api/v1/console/whatsapp`
@@ -37,17 +37,30 @@ Last updated: 2026-10-23 23:59 IST
       text, never sent to WhatsApp, get it by migration 20261024000000_fee_paid_receipt_link. Also fixed:
       WhatsApp texts that end on a blank get a full stop when sent for approval (Meta refuses them).
       Tests: tests/fees/receipt-link.test.ts, never-lost.test.ts (button filled). SMS text unchanged (DLT).
-      LEFT FOR THE USER: `sos_fee_receipt` is NOT yet on Meta. The local .env no longer has
-      WHATSAPP_ACCESS_TOKEN, and 6 Chrome profiles are connected (Claude may not pick one). Either put the
-      token back in .env and run `python scripts/wa-templates.py create scripts/whatsapp/sos_fee_receipt.json`,
-      or pick the SRINU-dts browser for Claude. Note: schools send from their OWN WhatsApp account; each
-      school's "Fee received" template is sent for approval from Message Templates (it now includes the
-      button). sos_fee_receipt only serves a school that sends through the shared Dream Team number.
+      2026-10-26: sos_fee_receipt SUBMITTED via WhatsApp Manager (SRINU-dts browser), Utility, "In review".
+      Meta's form refused the old words (blank at the end, even with a full stop; too many blanks for the
+      length), so the ready text became "Dear {guardian_name}, {school_name} has received {paid_amount} for
+      {student_name} on {payment_date}. Your receipt number is {receipt_number}. Thank you for your payment."
+      (commit 4f54086f; same migration edited, it was never pushed). Check approval: WhatsApp Manager list.
+   a2. FOUND 2026-10-26, waits on the user's OK: most of the 31 ready WhatsApp texts (templates.ts
+      READY_TEMPLATES) end with "- {school_name}" and Meta's form refuses them ("Variables can't be at the
+      start or end"); several short ones also get "too many variables for its length" (Arrived late, Bus x3,
+      General announcement, Message to staff, Admission welcome, New notice, Telugu Absent/Fee reminder).
+      blanks.ts whatsappParts' "add a full stop" fix does NOT satisfy Meta. Fix = reword so no text starts or
+      ends with a blank and has enough words; migration for untouched NOT_SUBMITTED versions, like 3a.
    b. Backups: nightly encrypted copy to Cloudflare R2 (user chose R2 knowing it does not promise India;
       blueprint "in India" was inferred). Adapt scripts/backup.sh (aws CLI with --endpoint-url for R2)
       and run it nightly from GitHub Actions. User must create: Cloudflare R2 bucket + S3 API token,
       a GPG key for BACKUP_GPG_RECIPIENT, a BYPASSRLS backup login on Neon; secrets go in GitHub
       Actions secrets, never in git. Also schedule scripts/restore-test.ts monthly.
+      Brainstorm findings 2026-10-26: file copies already support R2 (storage.ts backupStore, BACKUP_S3_* with
+      an r2.cloudflarestorage.com endpoint; worker schedule:file-backup runs via the 5-minute job tick), so
+      files need only Vercel env vars on School OS's own project. Retention (nightly 30 d, monthly 1 y) can be
+      R2 lifecycle rules on nightly/ and monthly/ prefixes. restore-test restores into <db>_restore_test on
+      the SAME server as RESTORE_ADMIN_URL and records into the live backup_run, so a CI run needs the GPG
+      private key + a Neon login with CREATEDB + BYPASSRLS. OPEN QUESTION to the user: may the GPG private
+      key live in GitHub secrets (fully automatic monthly restore test), or stay offline on the user's PC
+      (monthly test run by hand)?
    c. Settlement matching: build now against Razorpay's documented Settlements API, shipped switched off
       per school (School Feature); unmatched lines listed. Test on a live account later, when a school
       takes online payments (user then gives read-only keys).

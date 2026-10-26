@@ -1,8 +1,13 @@
 # School OS handoff
 
-Last updated: 2026-10-26 15:00 IST
+Last updated: 2026-10-26 16:50 IST
 
 ## State
+- 2026-10-26 16:50: `npm run dev` WORKS on D: (http://localhost:3000 -> /sign-in, HTTP 200). D: is a spinning
+  HDD (C: is the SSD), so the first compile of each page takes ~5 min, then seconds. The copied
+  .next/dev cache (14.6 GB) hung the dev server forever; it was moved to .next/dev-old-broken (safe to
+  delete). If dev hangs again with no "Compiling" line: stop it, move .next/dev aside, restart.
+  Consider moving the repo back to the SSD (user to decide). PostgreSQL bin is tools/pg16/pgsql/bin.
 - 2026-10-26: the repo MOVED to D:\Projects\School-OS (was C:\Users\chala\Desktop\School-OS);
   the outside worktree School-OS-picker moved to D:\Projects\School-OS-picker; .claude\worktrees\w*
   moved with the repo and were relinked with `git worktree repair`. Open VS Code at D:\Projects\School-OS.

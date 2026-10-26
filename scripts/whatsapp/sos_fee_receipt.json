@@ -5,8 +5,8 @@
   "components": [
     {
       "type": "BODY",
-      "text": "Dear {{1}}, we have received {{2}} for {{3}} on {{4}}. Receipt number {{5}}. Thank you. - {{6}}.",
-      "example": { "body_text": [["Srinivas Kumar", "₹6,000", "Ravi Kumar", "23-10-2026", "DTS/2026-27/00001", "DTS Test School"]] }
+      "text": "Dear {{1}}, {{2}} has received {{3}} for {{4}} on {{5}}. Your receipt number is {{6}}. Thank you for your payment.",
+      "example": { "body_text": [["Srinivas Kumar", "DTS Test School", "₹6,000", "Ravi Kumar", "23-10-2026", "DTS/2026-27/00001"]] }
     },
     {
       "type": "BUTTONS",

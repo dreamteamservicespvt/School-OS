@@ -55,11 +55,11 @@ describe("the receipt address", () => {
 describe("the WhatsApp template", () => {
   it("goes to WhatsApp without the link line, with an Open receipt button", () => {
     const parts = whatsappParts(READY);
-    expect(parts.text).toBe(`${OLD}.`);
-    expect(parts.variables).toEqual(["guardian_name", "paid_amount", "student_name", "payment_date", "receipt_number", "school_name"]);
+    expect(parts.text).toBe(READY.split("\n")[0]);
+    expect(parts.variables).toEqual(["guardian_name", "school_name", "paid_amount", "student_name", "payment_date", "receipt_number"]);
     expect(parts.button).toEqual({ blank: "receipt_link", label: "Open receipt" });
     const [body, buttons] = templateComponents(READY) as [{ text: string }, { buttons: { type: string; text: string; url: string; example: string[] }[] }];
-    expect(body.text).toBe("Dear {{1}}, we have received {{2}} for {{3}} on {{4}}. Receipt number {{5}}. Thank you. - {{6}}.");
+    expect(body.text).toBe("Dear {{1}}, {{2}} has received {{3}} for {{4}} on {{5}}. Your receipt number is {{6}}. Thank you for your payment.");
     expect(buttons.buttons).toEqual([{ type: "URL", text: "Open receipt", url: `${appUrl()}/r/{{1}}`, example: [expect.stringMatching(new RegExp(`^${appUrl()}/r/[0-9A-Za-z]{86}$`))] }]);
   });
 
@@ -144,7 +144,7 @@ describe("ready Fee received templates of schools made before", () => {
   it("get the receipt link as a new version where the words are still the ready ones", async () => {
     const wa = (await versions(untouched)).filter((v) => v.template.channel === "whatsapp");
     expect(wa.map((v) => [v.version, v.isCurrent, v.body])).toEqual([[1, false, OLD], [2, true, READY]]);
-    expect(wa[1].variables).toEqual(["guardian_name", "paid_amount", "student_name", "payment_date", "receipt_number", "school_name", "receipt_link"]);
+    expect(wa[1].variables).toEqual(["guardian_name", "school_name", "paid_amount", "student_name", "payment_date", "receipt_number", "receipt_link"]);
     // The SMS words are registered on the DLT portal, so they stay.
     expect((await versions(untouched)).filter((v) => v.template.channel === "sms").every((v) => !v.body.includes("{receipt_link}"))).toBe(true);
   });

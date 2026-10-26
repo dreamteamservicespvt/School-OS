@@ -35,8 +35,8 @@ WITH old AS (
 )
 INSERT INTO "template_version" ("id", "school_id", "template_id", "language", "version", "is_current", "subject", "body", "variables", "whatsapp_status", "created_at")
 SELECT gen_random_uuid(), old."school_id", old."template_id", old."language", old."next", true, old."subject",
-       E'Dear {guardian_name}, we have received {paid_amount} for {student_name} on {payment_date}. Receipt number {receipt_number}. Thank you. - {school_name}\nOpen your receipt: {receipt_link}',
-       ARRAY['guardian_name', 'paid_amount', 'student_name', 'payment_date', 'receipt_number', 'school_name', 'receipt_link'], old."whatsapp_status", now()
+       E'Dear {guardian_name}, {school_name} has received {paid_amount} for {student_name} on {payment_date}. Your receipt number is {receipt_number}. Thank you for your payment.\nOpen your receipt: {receipt_link}',
+       ARRAY['guardian_name', 'school_name', 'paid_amount', 'student_name', 'payment_date', 'receipt_number', 'receipt_link'], old."whatsapp_status", now()
   FROM old;
 
 ALTER TABLE "template" FORCE ROW LEVEL SECURITY;

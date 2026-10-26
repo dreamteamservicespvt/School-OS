@@ -201,7 +201,7 @@ describe("a real WhatsApp account: only approved templates", () => {
     const template = sent.at(-1)!.body.template as { name: string; components: { type: string; sub_type?: string; parameters: { text: string }[] }[] };
     expect(template.name).toBe("fee_received_1");
     const body = template.components.find((c) => c.type === "body")!.parameters.map((p) => p.text);
-    expect(body).toEqual(["Srinivas Kumar", "₹6,000", "Ravi Kumar", "10-10-2026", "R-9", s.school.name]);
+    expect(body).toEqual(["Srinivas Kumar", s.school.name, "₹6,000", "Ravi Kumar", "10-10-2026", "R-9"]);
     expect(template.components.find((c) => c.type === "button")).toMatchObject({ sub_type: "url", parameters: [{ text: receiptKeyFor(s.school.id, paymentId) }] });
   });
 

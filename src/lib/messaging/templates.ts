@@ -172,7 +172,7 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
   { key: "fee-paid", name: "Fee received", category: "fees", channel: "whatsapp", texts: {
     // The last line becomes WhatsApp's "Open receipt" button on an approved template (blanks.ts, whatsappParts);
     // schools made before it get it by prisma/schema/migrations/*_fee_paid_receipt_link.
-    en: "Dear {guardian_name}, we have received {paid_amount} for {student_name} on {payment_date}. Receipt number {receipt_number}. Thank you. - {school_name}\nOpen your receipt: {receipt_link}",
+    en: "Dear {guardian_name}, {school_name} has received {paid_amount} for {student_name} on {payment_date}. Your receipt number is {receipt_number}. Thank you for your payment.\nOpen your receipt: {receipt_link}",
   } },
   { key: "fee-paid", name: "Fee received (SMS)", category: "fees", channel: "sms", texts: {
     en: "Received {paid_amount} for {student_name} on {payment_date}. Receipt {receipt_number}. Thank you. - {school_name}",

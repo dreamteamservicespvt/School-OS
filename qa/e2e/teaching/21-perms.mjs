@@ -2,7 +2,7 @@
 // attendance, register, absent list, marks and homework by URL and by crafted server calls; the Class Teacher opening fees.
 import { as, visit, text, VIEWPORTS, sql, sleep, shot, SUNRISE } from "./h.mjs";
 import { close } from "../../lib.mjs";
-process.env.QA_MANIFEST = "C:/Users/chala/Desktop/School-OS/.next/server/server-reference-manifest.json";
+process.env.QA_MANIFEST = "D:/Projects/School-OS/.next/server/server-reference-manifest.json";
 const { callAction, callFormAction } = await import("../../academics/action.mjs");
 
 const S5A = "b07ca58e-2716-4729-ab56-3cdf783e5598", S5B = "107d3acf-e40c-45f6-bcaf-3ee1e1ec3e9c";

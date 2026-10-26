@@ -1,7 +1,7 @@
 // The class teacher of 5 B (subjectteacher) opens / saves Mathematics marks for his own class (he teaches Science, not Maths).
 import { as, visit, text, VIEWPORTS, sql, SUNRISE } from "./h.mjs";
 import { close } from "../../lib.mjs";
-process.env.QA_MANIFEST = "C:/Users/chala/Desktop/School-OS/.next/server/server-reference-manifest.json";
+process.env.QA_MANIFEST = "D:/Projects/School-OS/.next/server/server-reference-manifest.json";
 const { callAction } = await import("../../academics/action.mjs");
 const S5B = "58f4061b-667b-40fd-ae40-e7e07bdfc185", ENTRY = "31218111-601c-49d2-b3b9-c8cbdf28bd7c";
 const st = await as("subjectteacher", VIEWPORTS.phone390);

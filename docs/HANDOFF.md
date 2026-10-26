@@ -6,9 +6,10 @@ Last updated: 2026-10-26 15:00 IST
 - 2026-10-26: the repo MOVED to D:\Projects\School-OS (was C:\Users\chala\Desktop\School-OS);
   the outside worktree School-OS-picker moved to D:\Projects\School-OS-picker; .claude\worktrees\w*
   moved with the repo and were relinked with `git worktree repair`. Open VS Code at D:\Projects\School-OS.
-  UNCOMMITTED on purpose: 116 changes in the main repo are the unfinished "move payment gateways and
-  other connections to the console" + date-input work (chat 75c280ec ended before its helpers and
-  typecheck finished); School-OS-picker holds 43 unfinished date-input changes. Check both before committing.
+  Commit 64f895d7 "a" (made 14:52 from VS Code, not by Claude) holds the UNFINISHED "move payment
+  gateways and other connections to the console" + date-input work (chat 75c280ec ended before its
+  helpers and typecheck finished): check it, then reword/split it before pushing. School-OS-picker
+  still holds 43 uncommitted date-input changes.
 - 2026-10-26: wording fix 37f4e39e is LIVE on main as cherry-pick 93f2b660 (user chose to push only it;
   typecheck, lint 0 errors, 67 tests passed; Vercel deploy success 07:55 UTC). Live My profile check as
   School Admin NOT done: the user skipped it (the SRINU-dts Chrome autofills srinu@gmail.com, the console

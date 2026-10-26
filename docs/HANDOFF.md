@@ -1,9 +1,16 @@
 # School OS handoff
 
-Last updated: 2026-10-26 13:15 IST
+Last updated: 2026-10-26 13:35 IST
 
 ## State
-- 2026-10-26: 37f4e39e (local, not pushed) - no message tells a School Admin or Principal to
+- 2026-10-26: wording fix 37f4e39e is LIVE on main as cherry-pick 93f2b660 (user chose to push only it;
+  typecheck, lint 0 errors, 67 tests passed; Vercel deploy success 07:55 UTC). Live My profile check as
+  School Admin NOT done: the user skipped it (the SRINU-dts Chrome autofills srinu@gmail.com, the console
+  Owner, which the school sign-in rejects; the school admin is 9652733668, one-time code). Receipt-link
+  commits (103b40bd..8a9400dc) are still NOT on main; when pushing them, rebase this branch on
+  origin/main (git drops 37f4e39e as already applied). gh CLI is not installed; read Vercel status with
+  the GitHub API + `git credential fill` token.
+- 37f4e39e - no message tells a School Admin or Principal to
   "ask the School Admin/Principal". Rule for new messages: say where it is done and who can
   ("Set it in X (the School Admin can)"), or pick the words with the reader's permissions;
   sign-in/invite words stay the same for everyone ("...or DREAM TEAM support"). SMS is set up in

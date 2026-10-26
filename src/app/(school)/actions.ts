@@ -148,7 +148,7 @@ export async function changePassword(_prev: PasswordState, formData: FormData): 
     const school = await tx.school.findUnique({ where: { id: current.ctx.schoolId }, select: { timeZone: true } });
     return securityAlert(tx, current.ctx.schoolId, user.id, {
       subject: "Your School OS password was changed",
-      text: `Your School OS password was changed on ${formatDateTime(now, school?.timeZone)}${others > 0 ? ` and ${others} other device${others === 1 ? " was" : "s were"} signed out` : ""}. Not you? Tell your School Admin at once.`,
+      text: `Your School OS password was changed on ${formatDateTime(now, school?.timeZone)}${others > 0 ? ` and ${others} other device${others === 1 ? " was" : "s were"} signed out` : ""}. Not you? Tell your School Admin or DREAM TEAM support at once.`,
       link: "/profile#password",
     });
   });

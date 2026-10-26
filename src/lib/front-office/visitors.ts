@@ -283,7 +283,7 @@ export async function remindDeskAboutPass(tx: Tx, ctx: SchoolContext, id: string
   if (v.timeOut) throw new FrontOfficeProblem(`${v.name} was already checked out at ${clockAt(v.timeOut, opts.timeZone)}.`);
   if (visitorStatus(v, now) !== "Expired") throw new FrontOfficeProblem(`Pass ${v.passNo} has not expired yet.`);
   const to = deskLogins.filter((x) => x !== ctx.userId);
-  if (!to.length) throw new FrontOfficeProblem("Nobody at the front desk has a login to remind. Ask the School Admin to add the Receptionist.");
+  if (!to.length) throw new FrontOfficeProblem("Nobody else at the front desk has a login to remind. Give the Receptionist a login in Settings, Users & Permissions (the School Admin can).");
   for (const login of to) {
     await notify(tx, ctx, { to: login, type: "visitor-pass-open", text: `Close pass ${v.passNo} (${v.name}) with the right time: it expired at ${clockAt(v.passExpiresAt, opts.timeZone)} without a check-out.`, link: `/front-office/visitors?status=Expired&out=${v.id}` }, now);
   }

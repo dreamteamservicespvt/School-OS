@@ -27,7 +27,7 @@ export async function generateLogins(tx: Tx, ctx: SchoolContext, studentIds: str
   if (!settings.studentLoginsOn) throw new StudentProblem("Student logins are switched off (Student Settings, Student logins).");
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId } });
   const role = await schoolRole(tx, ctx, { where: { key: "student", archivedAt: null } });
-  if (!role) throw new StudentProblem("The Student role is missing. Ask your School Admin to set it up in Settings, Users & Permissions.");
+  if (!role) throw new StudentProblem("The Student role is missing. Set it up in Settings, Users & Permissions (the School Admin can).");
   if (!role.isEnabled) await tx.role.update({ where: { id: role.id }, data: { isEnabled: true } });
   const lines: LoginLine[] = [];
   for (const id of studentIds) {

@@ -127,12 +127,18 @@ function unreachableWords(to: { email: string | null; phone: string | null }) {
 
 /**
  * What the person can do so codes reach them, for My profile: add a mobile
- * number or email (a code confirms it), or ask for SMS to be set up.
+ * number or email (a code confirms it), or get SMS set up. `setsUpSms`: the
+ * person may change Settings, SMS, WhatsApp & Email, so they are told to do it,
+ * never to ask the School Admin (a School Admin was, 2026-10-26).
  */
-export function twoStepHelp(user: { email: string | null; phone: string | null }): string {
+export function twoStepHelp(user: { email: string | null; phone: string | null }, setsUpSms = false): string {
   if (!user.email && !user.phone) return "Add your mobile number or email with Edit details at the top of this page. A one-time code confirms it, and from then on the sign-in code goes there.";
-  if (!user.email) return "Add your email with Edit details at the top of this page, or ask your School Admin to set up SMS (Settings, Communication), so the sign-in code can reach you.";
-  return "Ask your School Admin to set up SMS (Settings, Communication), or DREAM TEAM to set up email, so the sign-in code can reach you.";
+  if (!user.email) return setsUpSms
+    ? "Add your email with Edit details at the top of this page, or set up SMS in Settings, SMS, WhatsApp & Email, so the sign-in code can reach you."
+    : "Add your email with Edit details at the top of this page, or ask your School Admin to set up SMS (Settings, SMS, WhatsApp & Email), so the sign-in code can reach you.";
+  return setsUpSms
+    ? "Set up SMS in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM to set up email, so the sign-in code can reach you."
+    : "Ask your School Admin to set up SMS (Settings, SMS, WhatsApp & Email), or DREAM TEAM to set up email, so the sign-in code can reach you.";
 }
 
 /**
@@ -281,7 +287,7 @@ export async function startContactChange(
     ? (await prisma.userLogin.findMany({ where: { id: { not: userLoginId }, archivedAt: null, phone: { endsWith: digits.slice(-4) } }, select: { phone: true } }))
         .some((u) => (u.phone ?? "").replace(/\D/g, "").endsWith(digits))
     : (await prisma.userLogin.count({ where: { id: { not: userLoginId }, archivedAt: null, email: { equals: value, mode: "insensitive" } } })) > 0;
-  if (taken) return { ok: false, message: `Another login already uses this ${kind === "phone" ? "mobile number" : "email"}. Ask your School Admin.` };
+  if (taken) return { ok: false, message: `Another login already uses this ${kind === "phone" ? "mobile number" : "email"}, and one can sign in only one login. Use another, or take it off the other login first in Settings, Users & Permissions (a School Admin can).` };
   const limit = await hitLimit(`contact-change:send:${userLoginId}`, MAX_SENDS, 900, now);
   if (!limit.ok) return { ok: false, message: limitMessage(limit) };
 

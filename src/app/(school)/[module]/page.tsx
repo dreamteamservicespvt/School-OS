@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { settingsMay } from "@/lib/settings/page-access";
 import { notFound } from "next/navigation";
 import { requireCurrent } from "@/lib/current";
 import { BUILT_MODULES, findModule, MODULES } from "@/lib/modules";
@@ -36,7 +37,7 @@ export default async function ModulePage({ params }: Params) {
   if (mod.optional && !current.modulesOn.has(mod.key)) {
     return (
       <EmptyState title={`${mod.name} is switched off for ${current.school.name}`}>
-        Your School Admin can switch it on in Settings, Modules On/Off. Nothing is lost while it is off.
+        {settingsMay(current, "modules").edit ? "Switch it on in Settings, Modules On/Off." : "Your School Admin can switch it on in Settings, Modules On/Off."} Nothing is lost while it is off.
       </EmptyState>
     );
   }

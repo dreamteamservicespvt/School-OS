@@ -38,7 +38,7 @@ export default function SchoolError({ error, reset }: { error: Error & { digest?
         <span className="w-14 h-14 rounded-2xl bg-bad/10 text-bad grid place-items-center" aria-hidden="true"><I.TriangleAlert size={26} /></span>
         <h1 className="font-semibold text-[15px]">{t("This page could not open")}</h1>
         <p className="text-sm text-ink3 max-w-sm">
-          {t("Something went wrong on our side while loading it. Nothing you saved was lost. Try again; if it keeps happening, tell your School Admin.")}
+          {t("Something went wrong on our side while loading it. Nothing you saved was lost. Try again; if it keeps happening, tell your School Admin or DREAM TEAM support.")}
           {error.digest ? <> {t("Reference:")} <span className="font-mono text-ink2">{error.digest}</span></> : null}
         </p>
         <div className="mt-2 flex flex-wrap justify-center gap-2">

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { settingsMay } from "@/lib/settings/page-access";
 import * as I from "lucide-react";
 import { requireCurrent, type Current } from "@/lib/current";
 import { findModule, type ModuleKey } from "@/lib/modules";
@@ -37,7 +38,7 @@ export default async function NoAccess({ searchParams }: { searchParams: Promise
   const pages = hasModule && key ? await usablePages(key, current) : [];
   const words = noAccessWords({
     name: mod?.name ?? "This page", schoolName: current.school.name, roles: current.roles.map((r) => r.name).join(" and ") || "your role",
-    off: Boolean(off), hasModule, pages: pages.map((p) => p.label),
+    off: Boolean(off), hasModule, pages: pages.map((p) => p.label), turnsOn: settingsMay(current, "modules").edit,
   });
   return (
     <div className="max-w-xl mx-auto mt-4 md:mt-10">

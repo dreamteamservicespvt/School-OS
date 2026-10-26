@@ -59,7 +59,7 @@ type Who = {
 };
 
 const NONE = "00000000-0000-0000-0000-000000000000";
-const NO_YEAR = "There is no academic year yet. Ask your School Admin to set one up in Academic Management.";
+const NO_YEAR = "There is no academic year yet. Create it in Academic Management, Academic Settings (the Principal or School Admin can).";
 const CLOSED = "This academic year is closed, so its homework can only be read.";
 
 type YearRow = { id: string; status: string };

@@ -7,6 +7,7 @@ import { requireCurrent } from "@/lib/current";
 import { prisma, withSchool } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { reachFor } from "@/lib/permissions";
+import { settingsMay } from "@/lib/settings/page-access";
 import { BUILT_MODULES, type ModuleKey } from "@/lib/modules";
 import { codeChannels, roleNeedsTwoStep, twoStepHelp } from "@/lib/auth/two-step";
 import { mayResetWithoutOld } from "@/lib/auth/sessions";
@@ -80,7 +81,8 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const twoStepOn = mustTwoStep || u.twoStepChosen;
   // Two-step login is needed but no code can reach this person yet: say how to fix it.
   const reach = twoStepOn ? await codeChannels(u, current.school.id) : null;
-  const cannotReach = reach && !reach.email && !reach.phone ? twoStepHelp(u) : null;
+  const setsUpSms = settingsMay(current, "messaging").edit;
+  const cannotReach = reach && !reach.email && !reach.phone ? twoStepHelp(u, setsUpSms) : null;
   const can = (m: ModuleKey) => reachFor(current.permissions, m, "view") !== "none";
   const kinds = NOTE_KINDS.filter((k) => !k.module || can(k.module as ModuleKey));
   const roleNames = current.roles.map((r) => r.name);
@@ -103,7 +105,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       <div className="flex flex-col gap-5 lg:gap-6">
         {twoStepOn && params.twoStep === "add" && (
           <Alert tone="warning" title="Your role needs two-step login, but no one-time code can reach you yet">
-            <Words k="You signed in with your password only this time." /> {cannotReach ?? "The sign-in code could not be sent (for example, the school's SMS has no credits left). Ask your School Admin."}
+            <Words k="You signed in with your password only this time." /> {cannotReach ?? (setsUpSms
+              ? "The sign-in code could not be sent (for example, the school's SMS has no credits left). Check SMS in Settings, SMS, WhatsApp & Email."
+              : "The sign-in code could not be sent (for example, the school's SMS has no credits left). Ask your School Admin.")}
           </Alert>
         )}
         {withoutOld && params.newPassword === "1" && (

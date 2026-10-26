@@ -93,7 +93,7 @@ export async function collectPayment(tx: Tx, ctx: SchoolContext, who: Collector,
 
   if (paidAt.getTime() > now.getTime() + 5 * 60 * 1000) throw new MoneyProblem("Payment date cannot be in the future.", "paidAt");
   if (paymentDate.getTime() !== today.getTime() && !counterAllowed(settings, who.roleKeys, "change-payment-date")) {
-    throw new MoneyProblem("Changing the payment date needs the \"change payment date\" permission. Ask the accountant.", "paidAt");
+    throw new MoneyProblem("Your role may not change the payment date. Fee Settings, Counter permissions says who may.", "paidAt");
   }
   const closed = await lastClosedDay(tx, ctx);
   if (closed && paymentDate <= closed) throw new MoneyProblem(`Payment date cannot be before ${formatDate(addDays(closed, 1))} (books closed).`, "paidAt");

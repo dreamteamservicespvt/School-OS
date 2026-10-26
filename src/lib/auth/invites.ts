@@ -44,7 +44,7 @@ export type AcceptResult = { ok: true; userLoginId: string; username: string } |
 
 export async function acceptInvite(token: string, password: string, now = new Date()): Promise<AcceptResult> {
   const user = await findInvite(token, now);
-  if (!user) return { ok: false, message: "This invite link has expired or was already used. Ask your School Admin for a new one." };
+  if (!user) return { ok: false, message: "This invite link has expired or was already used. Ask the person who sent it for a new one." };
   // A temporary password from the school, or one that expired (password-rules.ts), is never chosen again.
   if (user.passwordHash && (await verifyPassword(user.passwordHash, password))) {
     return { ok: false, message: user.mustChangePassword ? "Choose a new password, not the temporary one your school gave you." : "Choose a new password, not the one you have now." };

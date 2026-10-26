@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { can } from "@/lib/permissions";
 import Link from "next/link";
 import { withSchool } from "@/lib/db";
 import { allocationActiveOn, limitsFor } from "@/lib/academic/allocation";
@@ -197,7 +198,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
         )
       ) : view === "teacher" ? (
         !data.staffId ? (
-          <EmptyState title="No teacher record"><Words k={"Your login is not linked to a staff record. Ask the office to link it in Staff & HR."} /></EmptyState>
+          <EmptyState title="No teacher record">{can(page.current.permissions, "staff-hr-management", "create") ? <Words k="Your login is not linked to a staff record. To link it, bring yourself in with Import staff in Staff & HR, using the name and mobile number on your login." /> : <Words k={"Your login is not linked to a staff record. Ask the office to link it in Staff & HR."} />}</EmptyState>
         ) : (
           <>
             <div className="no-print mb-3 flex flex-wrap items-end justify-between gap-3">

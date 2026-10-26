@@ -182,7 +182,7 @@ function checkDriver(input: DriverInput) {
 /** The Driver role template, switched on when the first driver gets an app login. */
 async function driverRole(tx: Tx, ctx: SchoolContext) {
   const role = await schoolRole(tx, ctx, { where: { key: "driver", archivedAt: null } });
-  if (!role) throw new TransportProblem("The Driver role was not found. Ask the School Admin to restore it in Settings, Users & Permissions.");
+  if (!role) throw new TransportProblem("The Driver role was not found. Restore it in Settings, Users & Permissions (the School Admin can).");
   if (!role.isEnabled) await setTemplateOn(tx, ctx, role.id, true);
   return role;
 }
@@ -343,7 +343,7 @@ export async function recordCost(tx: Tx, ctx: SchoolContext, input: CostInput, t
   await ensureFinanceDefaults(tx, ctx);
   const headName = input.kind === "FUEL" ? "Transport fuel" : "Vehicle repairs";
   const head = await tx.accountHead.findFirst({ where: { kind: "EXPENSE", archivedAt: null, name: headName } }) ?? await tx.accountHead.findFirst({ where: { kind: "EXPENSE", archivedAt: null, groupName: "Transport" } });
-  if (!head) throw new TransportProblem(`Finance has no "${headName}" expense head. Ask the Accountant to add it.`);
+  if (!head) throw new TransportProblem(`Finance has no "${headName}" expense head. Add it in Finance Management, Settings (the Accountant can).`);
   const what = input.kind === "FUEL" ? [input.litres ? `${input.litres} L` : null, input.what].filter(Boolean).join(" · ") || "Fuel" : input.what!.trim();
   const note = `${v.label ?? showPlate(v.number)}: ${what}${input.odometerKm != null ? ` · odometer ${input.odometerKm.toLocaleString("en-IN")} km` : ""}`;
   const exp = await recordExpense(tx, ctx, { date: input.date, accountHeadId: head.id, amountPaise: input.amountPaise, vendorId: null, costCentreId: null, billFileId: bill?.id ?? null, note, isVendorBill: false, billNo: null, billDueDate: null, duplicateReason: null }, null);

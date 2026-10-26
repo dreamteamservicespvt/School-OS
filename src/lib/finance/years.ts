@@ -103,7 +103,7 @@ export async function assertDayOpen(tx: Tx, ctx: SchoolContext, date: Date, fiel
   const through = await dayClosedThrough(tx, ctx);
   if (!through || date > through) return;
   if (date >= (await schoolToday(tx, ctx))) return;
-  throw new MoneyProblem(`The Day Book is closed up to ${formatDate(through)}, so ${formatDate(date)} cannot change. Choose a later date, or ask the Principal to reopen the day.`, field);
+  throw new MoneyProblem(`The Day Book is closed up to ${formatDate(through)}, so ${formatDate(date)} cannot change. Choose a later date, or have the day reopened in the Day Book (the Principal or School Admin can).`, field);
 }
 
 /** The date a Day Book entry goes on: the date itself, or the day after the Day Book is closed through. */

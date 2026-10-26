@@ -330,6 +330,6 @@ describe("a sign-in from a new device", () => {
     fd.set("confirmPassword", "Changed-now#44");
     expect(await changePassword(null, fd)).toMatchObject({ ok: true });
     const notes = await securityNotes(school.id, teacher.id);
-    expect(notes.map((n) => n.text)).toEqual([expect.stringMatching(/^Your School OS password was changed on .*Not you\? Tell your School Admin at once\./)]);
+    expect(notes.map((n) => n.text)).toEqual([expect.stringMatching(/^Your School OS password was changed on .*Not you\? Tell your School Admin or DREAM TEAM support at once\./)]);
   });
 });

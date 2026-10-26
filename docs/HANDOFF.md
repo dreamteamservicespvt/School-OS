@@ -1,8 +1,13 @@
 # School OS handoff
 
-Last updated: 2026-10-26 13:00 IST
+Last updated: 2026-10-26 13:15 IST
 
 ## State
+- 2026-10-26: 37f4e39e (local, not pushed) - no message tells a School Admin or Principal to
+  "ask the School Admin/Principal". Rule for new messages: say where it is done and who can
+  ("Set it in X (the School Admin can)"), or pick the words with the reader's permissions;
+  sign-in/invite words stay the same for everyone ("...or DREAM TEAM support"). SMS is set up in
+  Settings, SMS, WhatsApp & Email (there is no "Settings, Communication").
 - Console WhatsApp delivery reports are live: `/api/v1/console/whatsapp`
   (src/lib/console/whatsapp-webhook.ts, route in src/app/api/v1/console/whatsapp/).
   Commits dbea600c, 57b93624, 98cf79b4 on main (Vercel builds main).

@@ -1,14 +1,18 @@
 # School OS handoff
 
-Last updated: 2026-10-26 19:30 IST
+Last updated: 2026-10-26 (split of commit a)
 
 ## State
+- 2026-10-26: commit "a" (64f895d7) + fix 837c103a were SPLIT into 717324e7 "New date input: one
+  picker for every date and time box" and c1d20cb4 "Connections move to the console"; the handoff
+  commits were replayed on top (final tree identical to the old tip 30d550f2, kept as branch
+  backup/before-split-a). origin still has the old 64f895d7, so the next push of this branch needs
+  --force-with-lease: ask the user first. NOT pushed.
 - 2026-10-26 19:30: post-move checks DONE on D: with commit "a" + fix 837c103a: typecheck 0 errors
   (needs NODE_OPTIONS=--max-old-space-size=8192, OOMs at 4 GB), lint 0 errors, npm test 2246/2246
   passed (252 files), npm run build passed. 837c103a fixed what "a" left: date-input popover lint
   (React Compiler), Settings messaging PAGE check, 3 tests updated for gateways moving to the console.
-  Commit "a" is now COMPLETE but still named "a": reword it (and maybe split connections vs date input)
-  before any push; ask the user. Never run two vitest runs at once (they share the test DB and break
+  (Since split into two named commits, see the line above.) Never run two vitest runs at once (they share the test DB and break
   each other). PostgreSQL stops when a session closes: restart with pg_ctl before tests.
 - 2026-10-26 16:50: `npm run dev` WORKS on D: (http://localhost:3000 -> /sign-in, HTTP 200). D: is a spinning
   HDD (C: is the SSD), so the first compile of each page takes ~5 min, then seconds. The copied
@@ -21,8 +25,7 @@ Last updated: 2026-10-26 19:30 IST
   After the move: npm ci done on D: (26 min); build, tests and dev now confirmed (see above). Worktree node_modules/.next were damaged by the copy (caches):
   run npm ci inside a worktree before using it. School-OS-picker qa/e2e/teaching/21*-perms.mjs still name the old C: path.
   Commit 64f895d7 "a" (made 14:52 from VS Code, not by Claude) holds the UNFINISHED "move payment
-  gateways and other connections to the console" + date-input work; finished by 837c103a (see above),
-  still to reword/split before pushing. School-OS-picker
+  gateways and other connections to the console" + date-input work; finished by 837c103a, now split (see top). School-OS-picker
   still holds 43 uncommitted date-input changes.
 - 2026-10-26: wording fix 37f4e39e is LIVE on main as cherry-pick 93f2b660 (user chose to push only it;
   typecheck, lint 0 errors, 67 tests passed; Vercel deploy success 07:55 UTC). Live My profile check as

@@ -3711,6 +3711,24 @@ export const EN = [
   "· account ending",
   "Add a bank account",
   "Full history with old and new values",
+  // Settings, Payment Gateways (read-only) and the messages that send the school to DREAM TEAM for a gateway
+  "DREAM TEAM connects the school’s payment gateway (Razorpay first) and tests it. To connect a gateway or change one, tell DREAM TEAM support.",
+  "Which class or fee head uses which gateway is set in Fee Management, Fee Settings.",
+  "Parents cannot pay online yet. DREAM TEAM switches a gateway on after its test passes. Tell DREAM TEAM support if you are waiting for this.",
+  "Parents can pay at the counter in cash, UPI or cheque from day one. To take fees online, tell DREAM TEAM support: DREAM TEAM connects the school’s Razorpay account for you.",
+  "Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support. Then you can send links.",
+  "Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support.",
+  "Online payment is not set up, so the invoice is made without a payment link. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support.",
+  "Online payment is not set up, so no payment link is added. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support.",
+  "No gateway connected yet. Parents cannot pay online until DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support. See what is connected in",
+  "No payment gateway is connected yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support.",
+  "No payment gateway is switched on. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support.",
+  "Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support. Until then, collect the fee at the counter.",
+  "One of the gateways was not found. It may have been archived. Refresh the page and choose again, or tell DREAM TEAM support.",
+  "DREAM TEAM connects the gateways; you choose which classes use them",
+  "DREAM TEAM connects the gateways; you choose which classes use them.",
+  "Razorpay splits online payments into these accounts. Fee Settings chooses which fee head goes to which account.",
+  "See which payment gateways DREAM TEAM has connected, and their status.",
   // src/app/(school)/settings/school-profile/campuses.tsx
   "Main campus",
   "will appear again in campus choices across School OS.",
@@ -4857,6 +4875,22 @@ export const EN = [
   "Next page",
   // src/components/ui/field.tsx
   "Please fix {n} things before saving:",
+  // src/components/ui/date-input.tsx
+  "Open calendar",
+  "Choose a date",
+  "Choose a month",
+  "Choose a year",
+  "Previous month",
+  "Next month",
+  "Previous year",
+  "Choose a time",
+  "Open the list of times",
+  "Pick a date on or after {date}.",
+  "Pick a date on or before {date}.",
+  "Type the date as DD-MM-YYYY, for example 14-05-2012.",
+  "Pick a time from {time}.",
+  "Pick a time up to {time}.",
+  "Type the time like 9:30 AM.",
   // src/components/ui/toast.tsx
   "Undo",
   // src/lib/ask/titles.ts
@@ -14683,6 +14717,30 @@ export const EN = [
   "Pay school fees",
   // Lists opened for another year from the Dashboard (gap list G36 follow-up)
   "This list shows that year, as the Dashboard counted it.",
+  // Settings, Modules On/Off: integrations are status only; DREAM TEAM connects them from the console
+  "DREAM TEAM connects these for your school, so nobody here needs a key, password or address. This shows what is connected.",
+  "A connection failed its last check. Tell DREAM TEAM support so they can fix it.",
+  "To connect a new one or change one, tell DREAM TEAM support.",
+  // DREAM TEAM sets up connections (2026-10-26)
+  "DREAM TEAM connects WhatsApp, SMS and email for your school, registers your SMS sender, and adds message credits. Here you switch each channel on or off. What each message says is in",
+  ". To buy more, tell DREAM TEAM support.",
+  "Not added yet. SMS can be switched on once DREAM TEAM adds the school's DLT registration.",
+  "Connected by DREAM TEAM. To change the account or number, tell DREAM TEAM support.",
+  "Not connected yet. DREAM TEAM connects it for you; until then messages are only recorded, nothing is sent.",
+  "Added by DREAM TEAM. If you change this text, it needs a new ID, which DREAM TEAM adds.",
+  "DREAM TEAM registers this text on the DLT portal and adds its ID. SMS from it waits until then.",
+  "No SMS can be sent from them until DREAM TEAM adds the ID.",
+  "This SMS template cannot send SMS yet. DREAM TEAM registers the text on the DLT portal and adds its ID.",
+  "A template sent for approval is approved straight away. Once DREAM TEAM connects WhatsApp, it goes to WhatsApp for real.",
+  "Channels that are off are switched on in",
+  "Getting more credits",
+  "only recorded, because the channel is in test mode: DREAM TEAM has not connected it for real yet. Nobody received them, so they are not counted as delivered. Open a message to see which.",
+  "The channel is in test mode (DREAM TEAM has not connected it for real yet), so the",
+  ". DREAM TEAM connects the school’s email; it is switched on in Settings, SMS, WhatsApp & Email.",
+  "No channel that can carry it is switched on. Switch WhatsApp or SMS on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect one.",
+  ", or switch SMS on in Settings, SMS, WhatsApp & Email.",
+  // DREAM TEAM sets up connections (2026-10-26)
+  "Switch WhatsApp, SMS and email on or off, and see credits. DREAM TEAM connects them.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

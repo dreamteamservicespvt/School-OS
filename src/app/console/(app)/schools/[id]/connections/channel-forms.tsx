@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { addCreditsAction, saveChannelAction, saveDltAction, testChannelAction, type ChannelState } from "./actions";
+import { addCreditsAction, saveChannelAction, saveDltAction, saveSmsDltIdAction, testChannelAction, type ChannelState } from "./actions";
 import { Words } from "@/lib/i18n/client";
 
 const input = "h-11 w-full rounded-lg border bg-surface px-3";
@@ -20,6 +20,7 @@ function Toggle({ on, onChange, label }: { on: boolean; onChange: (v: boolean) =
 }
 
 export type ChannelCardData = {
+  schoolId: string;
   channel: "whatsapp" | "sms" | "email";
   label: string;
   provider: string;
@@ -62,7 +63,7 @@ export function ChannelCard({ data, readOnly = false }: { data: ChannelCardData;
     if (live && provider === "sandbox") out.live = "Choose a real provider to send for real.";
     if (Object.keys(out).length) { setState({ ok: false, errors: out, message: Object.keys(out).length === 1 ? Object.values(out)[0] : `Please fix ${Object.keys(out).length} things before saving.` }); return; }
     start(async () => {
-      const r = await saveChannelAction(data.channel, { provider, live, isOn, config, secrets, lowCreditAlert: Number(alert) });
+      const r = await saveChannelAction(data.schoolId, data.channel, { provider, live, isOn, config, secrets, lowCreditAlert: Number(alert) });
       setState(r);
       if (r?.ok) { setSecrets({}); router.refresh(); }
     });
@@ -120,7 +121,7 @@ export function ChannelCard({ data, readOnly = false }: { data: ChannelCardData;
         <div className="mt-4 rounded-xl bg-surface-2 p-3 text-sm">
           <p className="font-medium"><Words k="Delivery report address" /></p>
           <p className="mt-1 break-all font-mono">{data.webhook}</p>
-          <p className="mt-1 text-ink-2">{data.channel === "whatsapp" ? "Add this as the webhook in Meta, with your webhook verify token, and subscribe to messages." : "Give this to MSG91 for delivery reports, with your delivery report key in place of <key>."}</p>
+          <p className="mt-1 text-ink-2">{data.channel === "whatsapp" ? "Add this as the webhook in Meta, with the webhook verify token above, and subscribe to messages." : "Give this to MSG91 for delivery reports, with the delivery report key above in place of <key>."}</p>
         </div>
       )}
       {state && !state.ok && state.message && !Object.keys(state.errors ?? {}).length && <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{state.message}</p>}
@@ -130,7 +131,7 @@ export function ChannelCard({ data, readOnly = false }: { data: ChannelCardData;
           <label className="text-sm font-medium"><Words k="Send a test to" />
             <input value={testTo} onChange={(e) => setTestTo(e.target.value)} inputMode={data.channel === "email" ? "email" : "numeric"} placeholder={data.channel === "email" ? "you@school.in" : "Your mobile"} className={`${input} mt-1 w-56 border-line-strong`} />
           </label>
-          <Button variant="secondary" loading={testing} loadingText="Sending" onClick={() => startTest(async () => { setTest(await testChannelAction(data.channel, testTo)); router.refresh(); })}><Words k="Send test" /></Button>
+          <Button variant="secondary" loading={testing} loadingText="Sending" onClick={() => startTest(async () => { setTest(await testChannelAction(data.schoolId, data.channel, testTo)); router.refresh(); })}><Words k="Send test" /></Button>
         </div>
       </div>}
       {test ? <p role="status" className={`mt-2 text-sm ${test.ok ? "text-success" : "text-danger"}`}>{test.message}</p> : data.lastTest && (
@@ -140,7 +141,7 @@ export function ChannelCard({ data, readOnly = false }: { data: ChannelCardData;
   );
 }
 
-export function DltForm({ entityId, header, readOnly = false }: { entityId: string; header: string; readOnly?: boolean }) {
+export function DltForm({ schoolId, entityId, header, readOnly = false }: { schoolId: string; entityId: string; header: string; readOnly?: boolean }) {
   const router = useRouter();
   const [e, setE] = useState(entityId);
   const [h, setH] = useState(header);
@@ -169,13 +170,13 @@ export function DltForm({ entityId, header, readOnly = false }: { entityId: stri
       {msg && <p role="alert" className="rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{msg}</p>}
       <Button loading={pending} loadingText="Saving" onClick={() => {
         if (h && h.length !== 6) { setMsg("The sender header is exactly 6 letters, for example SUNSPS."); return; }
-        start(async () => { const m = await saveDltAction(e, h); setMsg(m ?? null); if (!m) router.refresh(); });
+        start(async () => { const m = await saveDltAction(schoolId, e, h); setMsg(m ?? null); if (!m) router.refresh(); });
       }}><Words k="Save DLT details" /></Button>
     </div>
   );
 }
 
-export function CreditsForm() {
+export function CreditsForm({ schoolId }: { schoolId: string }) {
   const router = useRouter();
   const [channel, setChannel] = useState("whatsapp");
   const [amount, setAmount] = useState("");
@@ -200,8 +201,28 @@ export function CreditsForm() {
         const n = Number(amount);
         if (!Number.isInteger(n) || n === 0) { setMsg("Enter a whole number of credits. Use a minus number to correct a mistake."); return; }
         if (note.trim().length < 3) { setMsg("Write a note, for example the invoice number."); return; }
-        start(async () => { const m = await addCreditsAction(channel, n, note); setMsg(m ?? null); if (!m) { setAmount(""); setNote(""); router.refresh(); } });
+        start(async () => { const m = await addCreditsAction(schoolId, channel, n, note); setMsg(m ?? null); if (!m) { setAmount(""); setNote(""); router.refresh(); } });
       }}><Words k="Add credits" /></Button>
+      {msg && <p role="alert" className="w-full text-sm text-danger">{msg}</p>}
+    </div>
+  );
+}
+
+/** One SMS text's DLT template ID, as registered on the DLT portal for that exact text. */
+export function SmsDltIdForm({ schoolId, versionId, value, label }: { schoolId: string; versionId: string; value: string; label: string }) {
+  const router = useRouter();
+  const [v, setV] = useState(value);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  return (
+    <div className="flex flex-wrap items-end gap-2">
+      <label className="min-w-56 flex-1 text-sm font-medium">DLT template ID
+        <input value={v} onChange={(e) => setV(e.target.value.trim())} maxLength={40} aria-label={`DLT template ID for ${label}`} className={`${input} mt-1 border-line-strong font-mono`} />
+      </label>
+      <Button variant="secondary" loading={pending} loadingText="Saving" disabled={v === value} onClick={() => {
+        if (v && !/^[A-Za-z0-9]{6,40}$/.test(v)) { setMsg("The DLT template ID can have only letters and numbers, as shown on the DLT portal."); return; }
+        start(async () => { const m = await saveSmsDltIdAction(schoolId, versionId, v); setMsg(m ?? null); if (!m) router.refresh(); });
+      }}>Save</Button>
       {msg && <p role="alert" className="w-full text-sm text-danger">{msg}</p>}
     </div>
   );

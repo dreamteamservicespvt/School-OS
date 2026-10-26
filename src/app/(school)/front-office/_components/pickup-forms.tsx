@@ -22,6 +22,7 @@ import { PICKUP_REASONS, type NoPhotoCheck } from "@/lib/front-office/words";
 import { refusedAction, releaseAction, sendCodeAction } from "../actions";
 import { useCanScanQr } from "./fields";
 import { Words } from "@/lib/i18n/client";
+import { TimeInput } from "@/components/ui/date-input";
 
 /**
  * "Scan ID card": reads the QR on the student's ID card (school code and
@@ -259,7 +260,7 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
           </FieldShell>
           <div className="grid grid-cols-2 gap-3">
             <FieldShell label="Time" id="rl-time" required error={err.time}>
-              <input id="rl-time" name="time" type="time" defaultValue={state?.values?.time ?? nowHHMM} className={cx(inputCls(err.time), "h-11 tnum")} />
+              <TimeInput id="rl-time" name="time" defaultValue={state?.values?.time ?? nowHHMM} className={cx(inputCls(err.time), "h-11 tnum")} />
             </FieldShell>
             <FieldShell label="Released by" id="rl-by">
               <input id="rl-by" value={releasedBy} readOnly className={cx(inputCls(false), "h-11 bg-sunken/60")} />

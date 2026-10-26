@@ -9,7 +9,7 @@ import { INTEGRATIONS, OPTIONAL_MODULES, SCHOOL_TEMPLATES, SHOWN_AI_FEATURES, ai
 import { PageHeader } from "@/components/shell/page-header";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { AssistantForm, FeatureSwitch, IntegrationCard, ModuleSwitch, PreferencesForm, TemplatePicker } from "./switch-forms";
+import { AssistantForm, FeatureSwitch, ModuleSwitch, PreferencesForm, TemplatePicker } from "./switch-forms";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -28,7 +28,8 @@ export default async function ModulesPage() {
     school: await tx.school.findUniqueOrThrow({ where: { id: current.school.id }, select: { preferences: true } }),
     modules: await tx.schoolModule.findMany({}),
     features: await tx.schoolFeature.findMany({}),
-    integrations: await tx.integration.findMany({}),
+    // Status only: the details and keys are DREAM TEAM's, set from the console.
+    integrations: await tx.integration.findMany({ select: { key: true, status: true, lastCheckAt: true } }),
     roles: await schoolRoles(tx, current.ctx, { where: { archivedAt: null, isEnabled: true, key: { not: null } }, orderBy: { name: "asc" }, select: { key: true, name: true } }),
     usage: await aiUsage(tx, current.ctx),
   }));
@@ -110,18 +111,28 @@ export default async function ModulesPage() {
         </Card>
 
         <Card>
-          <CardHeader id="integrations" title="Integrations" description={`${data.integrations.filter((i) => i.status === "connected").length} connected · ${data.integrations.filter((i) => i.status === "error").length} with an error. Keys are stored encrypted and never shown again.`} />
+          <CardHeader id="integrations" title="Integrations" description="DREAM TEAM connects these for your school, so nobody here needs a key, password or address. This shows what is connected." />
           <CardBody>
-            {data.integrations.some((i) => i.status === "error") && <p className="mb-3 text-sm"><Badge tone="danger"><Words k="Error" /></Badge> <span className="text-ink-2"><Words k="An integration failed its last test. Open it to fix the details." /></span></p>}
+            {data.integrations.some((i) => i.status === "error") && <p className="mb-3 text-sm"><Badge tone="danger"><Words k="Error" /></Badge> <span className="text-ink-2"><Words k="A connection failed its last check. Tell DREAM TEAM support so they can fix it." /></span></p>}
             <ul className="grid gap-3 md:grid-cols-2">
               {INTEGRATIONS.map((def) => {
                 const row = data.integrations.find((i) => i.key === def.key);
+                const status = row?.status ?? "not-connected";
                 return (
-                  <IntegrationCard key={def.key} def={def} status={row?.status ?? "not-connected"} config={(row?.config ?? {}) as Record<string, string>} hasSecrets={Boolean(row?.secretsEnc)}
-                    lastCheck={row?.lastCheckAt ? formatDateTime(row.lastCheckAt, tz) : null} lastError={row?.lastError ?? null} mayEdit={mayEdit} />
+                  <li key={def.key} className="flex flex-col gap-2 rounded-xl border border-line p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="font-medium">{def.name}</p>
+                        <p className="text-sm text-ink-2">{def.about}</p>
+                      </div>
+                      {status === "connected" ? <Badge tone="success"><Words k="Connected" /></Badge> : status === "error" ? <Badge tone="danger"><Words k="Error" /></Badge> : <Badge><Words k="Not connected" /></Badge>}
+                    </div>
+                    {row?.lastCheckAt && <p className="text-xs text-ink-2"><Words k="Last checked" /> {formatDateTime(row.lastCheckAt, tz)}</p>}
+                  </li>
                 );
               })}
             </ul>
+            <p className="mt-4 text-sm text-ink-2"><Words k="To connect a new one or change one, tell DREAM TEAM support." /></p>
           </CardBody>
         </Card>
       </div>

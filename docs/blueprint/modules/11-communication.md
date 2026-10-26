@@ -195,7 +195,7 @@ Each send is one Message to many people. Every person in it is one Message Recip
 - **Template check:** a message cannot be sent if a variable has no value for a recipient; those recipients are listed and skipped (or the send is blocked for a single recipient).
 - Each save makes a new version; messages sent keep the version they used.
 - WhatsApp templates: submit for WhatsApp approval through the connected provider and track the status (inferred); approved templates are locked.
-- **SMS templates and DLT:** every SMS template stores the DLT template ID the school registered on the telecom DLT portal. An SMS can only be sent from a template with a DLT template ID; an SMS template without one can be saved as a draft but not used (decided 9 October 2026). The school's DLT entity ID and sender header are in Settings, SMS, WhatsApp & Email.
+- **SMS templates and DLT:** every SMS template stores the DLT template ID the school registered on the telecom DLT portal. An SMS can only be sent from a template with a DLT template ID; an SMS template without one can be saved as a draft but not used (decided 9 October 2026). The school's DLT entity ID and sender header are in Settings, SMS, WhatsApp & Email. DREAM TEAM adds these and each template's DLT template ID in the console (`07-super-admin.md` §3.8, decided 26 October 2026); the school's template form shows the ID read-only, and a changed SMS text waits for a new one.
 
 **Form fields:** name, category, channel, language, text with variables, DLT template ID (required before an SMS template can be used; letters and numbers only, inferred).
 

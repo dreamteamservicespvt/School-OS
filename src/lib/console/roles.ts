@@ -5,7 +5,7 @@ import type { ConsoleRole } from "@prisma/client";
 
 export const CONSOLE_ROLES: Record<ConsoleRole, { label: string; does: string }> = {
   OWNER: { label: "Owner", does: "Everything, including the Team page, closing a school, discounts and marking a bank transfer or cheque as paid." },
-  ONBOARDING: { label: "Onboarding", does: "Adds schools, creates and resends School Admin invites, sees setup progress, starts trials. Cannot close a school." },
+  ONBOARDING: { label: "Onboarding", does: "Adds schools, creates and resends School Admin invites, sees setup progress, starts trials, and connects each school's WhatsApp, SMS, email and payment gateways. Cannot close a school." },
   SUPPORT: { label: "Support", does: "Sees schools and their admins, resends invites, resets an admin’s login, asks a school for support access. Cannot add or close schools." },
 };
 
@@ -45,13 +45,15 @@ export type ConsoleAction =
   /** Change the price list. */
   | "prices"
   /** Ask a school for support access, open its School Master once it allows, and end it. */
-  | "support";
+  | "support"
+  /** Set up a school's connections: SMS, WhatsApp and email providers, DLT IDs, message credits, payment gateways and other connections. */
+  | "connect";
 
-const ALL: ConsoleAction[] = ["add", "invite", "reset", "disable", "edit", "activate", "status", "plan", "invoice", "markPaid", "approve", "discount", "team", "group", "topup", "prices", "support"];
+const ALL: ConsoleAction[] = ["add", "invite", "reset", "disable", "edit", "activate", "status", "plan", "invoice", "markPaid", "approve", "discount", "team", "group", "topup", "prices", "support", "connect"];
 
 export const CONSOLE_CAN: Record<ConsoleRole, ConsoleAction[]> = {
   OWNER: ALL,
-  ONBOARDING: ["add", "invite", "edit", "activate", "plan", "invoice", "group", "topup"],
+  ONBOARDING: ["add", "invite", "edit", "activate", "plan", "invoice", "group", "topup", "connect"],
   SUPPORT: ["invite", "reset", "disable", "support"],
 };
 

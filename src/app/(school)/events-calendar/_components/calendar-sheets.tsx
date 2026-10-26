@@ -15,6 +15,7 @@ import { addEntryAction, copyHolidaysAction, removeEntryAction } from "../action
 import { WarningConfirm } from "./bits";
 import { KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 type Opt = { value: string; label: string };
 const TYPE_OPTIONS: Opt[] = [
@@ -103,8 +104,8 @@ function CopyRow({ r }: { r: { id: string; title: string; type: string; from: st
       </label>
       {on && <input type="hidden" name="pick" value={r.id} />}
       <div className={cx("flex gap-2", !on && "opacity-40 pointer-events-none")}>
-        <input type="date" name={`from_${r.id}`} defaultValue={r.from} aria-label={`First day of ${r.title}`} className={cx(inputCls(false), "h-10 tnum w-[150px]")} />
-        {r.type === "vacation" && <input type="date" name={`to_${r.id}`} defaultValue={r.to} aria-label={`Last day of ${r.title}`} className={cx(inputCls(false), "h-10 tnum w-[150px]")} />}
+        <DateInput name={`from_${r.id}`} defaultValue={r.from} aria-label={`First day of ${r.title}`} className={cx(inputCls(false), "h-10 tnum w-[150px]")} />
+        {r.type === "vacation" && <DateInput name={`to_${r.id}`} defaultValue={r.to} aria-label={`Last day of ${r.title}`} className={cx(inputCls(false), "h-10 tnum w-[150px]")} />}
       </div>
     </li>
   );

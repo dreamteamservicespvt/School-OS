@@ -69,6 +69,7 @@ The owner asked Claude to decide these on 9 October 2026, after the gap review (
 | Groups of schools | **A Group record is added now,** and one login can work in several schools. Group screens come later. |
 | Phone apps | **Staff use the installable web app.** Transport comes with a **small Android driver app.** A native parent app comes with the full parent app. |
 | When do salary and expenses reach the Day Book? | **When they are marked paid,** because that is when money leaves. |
+| Who sets up SMS, WhatsApp, email, payment gateways and other connections? | **DREAM TEAM, in the console** (decided by the owner 26 October 2026; `07-super-admin.md` §3.8). Schools never type keys, provider IDs or DLT IDs; their Settings shows the status and lets them switch message channels on or off. |
 | Is the Super Admin console part of the plan? | **Yes.** DREAM TEAM's own console for adding schools, their first admin login, plans and billing, and support access only with the school's Allow. See `07-super-admin.md`. |
 
 ## Not included

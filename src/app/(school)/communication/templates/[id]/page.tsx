@@ -88,8 +88,8 @@ export default async function TemplatePage({ params, searchParams }: { params: P
 
       <div className="flex flex-col gap-5 lg:gap-6">
         {t.archivedAt && <Banner tone="info" title={`Archived on ${formatDateTime(t.archivedAt, tz)}.`}><Words k="It cannot be chosen for new messages." /></Banner>}
-        {missingDlt && <Banner tone="bad" title="No DLT template ID."><Words k="This SMS template cannot be used to send SMS. Add the ID from the DLT portal with Edit." /></Banner>}
-        {isWa && data.provider === "sandbox" && <Banner tone="info" title="WhatsApp is in test mode."><Words k="A template sent for approval is approved straight away. Connect WhatsApp in Settings to send it to WhatsApp for real." /></Banner>}
+        {missingDlt && <Banner tone="bad" title="No DLT template ID."><Words k="This SMS template cannot send SMS yet. DREAM TEAM registers the text on the DLT portal and adds its ID." /></Banner>}
+        {isWa && data.provider === "sandbox" && <Banner tone="info" title="WhatsApp is in test mode."><Words k="A template sent for approval is approved straight away. Once DREAM TEAM connects WhatsApp, it goes to WhatsApp for real." /></Banner>}
         {v?.whatsappStatus === "REJECTED" && <Banner tone="warn" title="WhatsApp rejected this text.">{v.whatsappNote ? `“${v.whatsappNote}” ` : ""}<Words k="Change the wording with Edit and send it again." /></Banner>}
         <Split side={340}>
           <Card className="min-w-0">

@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useActionState, useState } from "react";
+import { startTransition, useActionState, useMemo, useState } from "react";
 import { saveGateway, testDetails, type TestState } from "./actions";
 import type { FormState } from "@/lib/forms";
 import { ErrorSummary, SelectField, TextField } from "@/components/ui/field";
@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { CopyButton, TestResult } from "./parts";
 import { KeepCheck } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
 
 export type ProviderInfo = {
   key: string;
@@ -22,6 +21,7 @@ export type ProviderInfo = {
 };
 
 type Props = {
+  schoolId: string;
   mode: "new" | "edit";
   id: string;
   providers: ProviderInfo[];
@@ -30,9 +30,11 @@ type Props = {
   webhookBase: string;
 };
 
-export function GatewayForm({ mode, id, providers, saved, webhookBase }: Props) {
-  const [state, action] = useActionState<FormState, FormData>(saveGateway, null);
-  const [test, testAction, testing] = useActionState<TestState, FormData>(testDetails, null);
+export function GatewayForm({ schoolId, mode, id, providers, saved, webhookBase }: Props) {
+  const save = useMemo(() => saveGateway.bind(null, schoolId), [schoolId]);
+  const check = useMemo(() => testDetails.bind(null, schoolId), [schoolId]);
+  const [state, action] = useActionState<FormState, FormData>(save, null);
+  const [test, testAction, testing] = useActionState<TestState, FormData>(check, null);
   const v = state?.values ?? {};
   const [provider, setProvider] = useState(v.provider ?? saved?.provider ?? "razorpay");
   const p = providers.find((x) => x.key === provider);
@@ -68,7 +70,7 @@ export function GatewayForm({ mode, id, providers, saved, webhookBase }: Props) 
             options={providers.map((x) => ({ value: x.key, label: `${x.name} (${x.typeWords})` }))} />
         ) : (
           <div>
-            <p className="mb-1 text-sm font-medium"><Words k="Provider" /></p>
+            <p className="mb-1 text-sm font-medium">Provider</p>
             <p className="flex h-11 items-center font-medium">{p?.name}</p>
           </div>
         )}
@@ -78,7 +80,7 @@ export function GatewayForm({ mode, id, providers, saved, webhookBase }: Props) 
       </div>
 
       <fieldset>
-        <legend className="mb-2 text-sm font-medium"><Words k="Environment" /> <span className="text-danger" aria-hidden="true">*</span></legend>
+        <legend className="mb-2 text-sm font-medium">Environment <span className="text-danger" aria-hidden="true">*</span></legend>
         <div className="grid gap-2 sm:grid-cols-2">
           {(["test", "live"] as const).map((env) => (
             <label key={env} className={`flex min-h-11 cursor-pointer items-start gap-3 rounded-xl border p-3 ${environment === env ? "border-brand bg-brand-soft" : "border-line-strong"}`}>
@@ -115,12 +117,12 @@ export function GatewayForm({ mode, id, providers, saved, webhookBase }: Props) 
           )}
           {p.hasWebhook && (
             <div>
-              <p className="mb-1 text-sm font-medium"><Words k="Webhook address" /></p>
+              <p className="mb-1 text-sm font-medium">Webhook address</p>
               <div className="flex flex-wrap items-center gap-2">
                 <code className="min-w-0 flex-1 break-all rounded-lg bg-surface-2 px-3 py-2.5 text-sm">{webhook}</code>
                 <CopyButton text={webhook} />
               </div>
-              <p className="mt-1 text-sm text-ink-2"><Words k="Add this address in" /> {p.name} <Words k="so payments it confirms reach School OS. It is filled for you and cannot be changed." /></p>
+              <p className="mt-1 text-sm text-ink-2">Add this address in {p.name}’s dashboard so payments it confirms reach School OS. It is filled for you and cannot be changed.</p>
             </div>
           )}
         </div>
@@ -132,7 +134,7 @@ export function GatewayForm({ mode, id, providers, saved, webhookBase }: Props) 
 
       {needsConfirm && (
         <TextField label={`Type ${confirmWord} to confirm`} name="confirm" required autoComplete="off" error={errors.confirm}
-          help={mode === "edit" ? "Changing gateway details affects how parents pay. The name confirms it is the right gateway." : "Live mode takes real money from parents."} />
+          help={mode === "edit" ? "Changing gateway details affects how the school's parents pay. The name confirms it is the right gateway." : "Live mode takes real money from the school's parents."} />
       )}
 
       <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
@@ -140,11 +142,11 @@ export function GatewayForm({ mode, id, providers, saved, webhookBase }: Props) 
             would have to type the keys again before saving. */}
         <Button variant="secondary" loading={testing} loadingText="Testing…"
           onClick={(e) => { const fd = new FormData(e.currentTarget.form ?? undefined); startTransition(() => testAction(fd)); }}>
-          <Words k="Test these details" />
+          Test these details
         </Button>
         <SubmitButton pendingText="Saving…">{mode === "new" ? "Add gateway" : "Save changes"}</SubmitButton>
       </div>
-      <p className="text-sm text-ink-2"><Words k="A new gateway starts switched off. Switch it on after a test passes." /></p>
+      <p className="text-sm text-ink-2">A new gateway starts switched off. Switch it on after a test passes.</p>
     </form>
   );
 }

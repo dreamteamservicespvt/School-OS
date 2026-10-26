@@ -18,6 +18,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 export type Action = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 
@@ -192,7 +193,7 @@ export function WhenField({ name, label, defaultValue, error, required, timeLabe
   return (
     <div className="grid grid-cols-2 gap-3">
       <FieldShell label={label} id={`${id}-d`} error={error} required={required}>
-        <input id={`${id}-d`} type="date" value={date} min={min} onChange={(e) => setDate(e.target.value)} aria-invalid={error ? true : undefined} className={cx(inputCls(error), "h-11 tnum")} />
+        <DateInput id={`${id}-d`} value={date} min={min} onChange={(e) => setDate(e.target.value)} aria-invalid={error ? true : undefined} className={cx(inputCls(error), "h-11 tnum")} />
       </FieldShell>
       <FieldShell label={timeLabel} id={`${id}-t`} required={required}>
         <KeepSelect id={`${id}-t`} value={time} onChange={(e) => setTime(e.target.value)} className={cx(inputCls(false), "h-11 pr-9")}>

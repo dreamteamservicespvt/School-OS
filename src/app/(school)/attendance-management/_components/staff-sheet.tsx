@@ -14,6 +14,7 @@ import { SearchIcon } from "@/components/icons";
 import { saveStaffDay } from "../staff/actions";
 import { toneClass, type StatusView } from "./status";
 import { Words } from "@/lib/i18n/client";
+import { TimeInput } from "@/components/ui/date-input";
 
 export type StaffSheetRow = {
   id: string; name: string; code: string; designation: string; department: string | null; shift: string | null; start: string;
@@ -147,11 +148,11 @@ export function StaffSheet(p: Props) {
                     </select>
                   )}
                   <label className="text-xs text-ink-2"><Words k="In" />
-                    <input type="time" value={e?.inTime ?? ""} disabled={lock} onChange={(ev) => change(r.id, { inTime: ev.target.value })}
+                    <TimeInput value={e?.inTime ?? ""} disabled={lock} onChange={(ev) => change(r.id, { inTime: ev.target.value })}
                       className="mt-0.5 block h-11 w-28 rounded-lg border border-line-strong bg-surface px-2 text-sm text-ink" />
                   </label>
                   <label className="text-xs text-ink-2"><Words k="Out" />
-                    <input type="time" value={e?.outTime ?? ""} disabled={lock} onChange={(ev) => change(r.id, { outTime: ev.target.value })}
+                    <TimeInput value={e?.outTime ?? ""} disabled={lock} onChange={(ev) => change(r.id, { outTime: ev.target.value })}
                       className="mt-0.5 block h-11 w-28 rounded-lg border border-line-strong bg-surface px-2 text-sm text-ink" />
                   </label>
                   {lock && p.canEdit && r.statusKey && (

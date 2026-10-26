@@ -6,6 +6,7 @@ import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { Spinner } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 
 function useParam() {
   const router = useRouter();
@@ -54,7 +55,7 @@ export function DateParam({ name = "date", label = "Date", current }: { name?: s
     <label className="flex flex-col gap-1 text-sm">
       <span className="font-medium">{label}</span>
       <span className="flex items-center gap-2">
-        <input type="date" value={current} onChange={(e) => e.target.value && set({ [name]: e.target.value })} className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-[15px]" />
+        <DateInput value={current} onChange={(e) => e.target.value && set({ [name]: e.target.value })} className="h-11 rounded-lg border border-line-strong bg-surface px-3 text-[15px]" />
         {pending && <Spinner className="size-4 text-ink-2" />}
       </span>
     </label>

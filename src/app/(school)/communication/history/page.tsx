@@ -108,7 +108,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
         ]} />
         {data.testMode > 0 && (
           <Alert tone="warning" title="Some messages were sent in test mode">
-            {data.testMode.toLocaleString("en-IN")} {data.testMode === 1 ? "message was" : "messages were"} <Words k={"only recorded, because the channel is in test mode in Settings, SMS, WhatsApp & Email. Nobody received them, so they are not counted as delivered. Open a message to see which."} />
+            {data.testMode.toLocaleString("en-IN")} {data.testMode === 1 ? "message was" : "messages were"} <Words k={"only recorded, because the channel is in test mode: DREAM TEAM has not connected it for real yet. Nobody received them, so they are not counted as delivered. Open a message to see which."} />
           </Alert>
         )}
         <Card className="overflow-hidden">

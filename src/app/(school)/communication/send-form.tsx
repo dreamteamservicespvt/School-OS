@@ -27,6 +27,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Split, Col } from "@/components/ui/split";
 import { cx } from "@/components/ui/cx";
 import { Words } from "@/lib/i18n/client";
+import { DateTimeInput } from "@/components/ui/date-input";
 
 type Channel = "whatsapp" | "sms" | "email" | "app";
 export type Person = { type: "guardian" | "student" | "staff" | "parentsOf"; id: string; name: string; detail: string };
@@ -223,7 +224,7 @@ export function SendForm({ data }: { data: SendFormData }) {
     if (text.length > 1000) e.text = `Keep it under 1,000 characters. It has ${fmt(text.length)}.`;
     if (blankError && !e.text) { if (titleBlankError) e.title ??= blankError; else e.text = blankError; }
     if (when === "later" && !at) e.scheduledAt = "Choose the date and time to send.";
-    if (backupOn && !smsBackupTemplates.length) e.backup = "SMS backup needs an SMS template with a DLT template ID for this message type. Add one in Message Templates, or untick SMS backup.";
+    if (backupOn && !smsBackupTemplates.length) e.backup = "SMS backup needs an SMS template with a DLT template ID for this message type. DREAM TEAM adds DLT IDs; untick SMS backup for now.";
     if (trBlock && needsText) e.translations = trBlock;
     return e;
   }, [aud, classes, sections, who, staffKinds, people, groupId, channels, tpl, needsTitle, title, needsText, text, when, at, backupOn, smsBackupTemplates.length, blankError, titleBlankError, trBlock]);
@@ -477,8 +478,8 @@ export function SendForm({ data }: { data: SendFormData }) {
                   })}
                 </div>
                 {tried && <Problem text={err.channels} className="mt-1.5" />}
-                {data.on.length < 4 && <p className="text-[12.5px] text-ink3 mt-1.5"><Words k="Channels that are not connected are switched on in" /> <Link href="/settings/messaging" className="underline"><Words k={"Settings, SMS, WhatsApp & Email"} /></Link>.</p>}
-                {channels.includes("sms") && !data.smsReady && <Problem className="mt-1.5" text="Add your DLT entity ID and sender header in Settings, SMS, WhatsApp & Email before sending SMS." />}
+                {data.on.length < 4 && <p className="text-[12.5px] text-ink3 mt-1.5"><Words k="Channels that are off are switched on in" /> <Link href="/settings/messaging" className="underline"><Words k={"Settings, SMS, WhatsApp & Email"} /></Link>.</p>}
+                {channels.includes("sms") && !data.smsReady && <Problem className="mt-1.5" text="SMS can be sent once DREAM TEAM adds the school’s DLT registration. Please tell DREAM TEAM support." />}
               </div>
 
               {backupShown && (
@@ -589,7 +590,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 options={[{ value: "now", label: "Send now", icon: Send }, { value: "later", label: "Schedule", icon: CalendarClock }]} />
               {when === "later" && (
                 <FieldShell label="Date and time" id="send-scheduledAt" required className="max-w-xs" error={tried ? err.scheduledAt : undefined} help="Within the next 90 days">
-                  <input id="send-scheduledAt" type="datetime-local" name="scheduledAt" value={at} onChange={(e) => { setAt(e.target.value); touch(); }} className={cx(inputCls(tried && err.scheduledAt), "h-11 tnum")} />
+                  <DateTimeInput id="send-scheduledAt" name="scheduledAt" value={at} onChange={(e) => { setAt(e.target.value); touch(); }} className={cx(inputCls(tried && err.scheduledAt), "h-11 tnum")} />
                 </FieldShell>
               )}
             </div>
@@ -636,7 +637,7 @@ export function SendForm({ data }: { data: SendFormData }) {
               {testWords && (
                 <p className="mt-2 text-[13px] text-warn flex gap-1.5"><FlaskConical size={15} className="shrink-0 mt-0.5" aria-hidden="true" /><span>{testWords}<Words k=": nobody will receive this message, and no credits are used. Connect it in" /> <Link href="/settings/messaging" className="underline"><Words k={"Settings, SMS, WhatsApp & Email"} /></Link> <Words k="to send for real." /></span></p>
               )}
-              {live?.creditProblem && <Link href="/settings/messaging" className="mt-1 inline-block text-[13px] font-semibold text-brand underline"><Words k="Top up credits" /></Link>}
+              {live?.creditProblem && <Link href="/settings/messaging" className="mt-1 inline-block text-[13px] font-semibold text-brand underline"><Words k="Getting more credits" /></Link>}
             </div>
             {/* Preview as one real person sees it */}
             <div className="border-t border-line px-5 py-4 bg-sunken/40">

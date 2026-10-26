@@ -13,6 +13,7 @@ import { Segmented } from "@/components/ui/controls";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { Words } from "@/lib/i18n/client";
+import { DateTimeInput } from "@/components/ui/date-input";
 
 type Opt = { value: string; label: string; group?: string };
 const field = cx(inputCls(), "h-11 pr-9");
@@ -85,7 +86,7 @@ export function FamiliesForm({ who: whoOpts, channels }: { who: Opt[]; channels:
             <Segmented value={channel} onChange={change(setChannel)} options={channels} className="w-full" label="Channel" />
           </FieldShell>
           <FieldShell label="Send at" id="f-at" help="Leave blank to send now">
-            <input id="f-at" type="datetime-local" value={sendAt} onChange={(e) => change(setSendAt)(e.target.value)} className={cx(inputCls(), "h-11 tnum")} />
+            <DateTimeInput id="f-at" value={sendAt} onChange={(e) => change(setSendAt)(e.target.value)} className={cx(inputCls(), "h-11 tnum")} />
           </FieldShell>
         </div>
       </Card>

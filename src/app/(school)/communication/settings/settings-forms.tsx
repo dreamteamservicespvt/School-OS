@@ -11,6 +11,7 @@ import {
   saveQueryRulesAction, saveRuleAction, saveTopicAction, setCommFeatureAction,
 } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { TimeInput } from "@/components/ui/date-input";
 
 type Opt = { value: string; label: string };
 const box = "size-5 accent-brand";
@@ -104,7 +105,9 @@ export function RuleRow({ rule, channels }: { rule: RuleRowData; channels: Opt[]
           )}
           {rule.timingFields.map((f) => (
             <label key={f.key} className="block text-sm font-medium">{f.label}
-              <input type={f.kind === "time" ? "time" : "number"} min={0} max={30} value={timing[f.key] ?? ""} onChange={(e) => setTiming({ ...timing, [f.key]: e.target.value })} className={`${input} mt-1 block w-40`} />
+              {f.kind === "time"
+                ? <TimeInput value={timing[f.key] ?? ""} onChange={(e) => setTiming({ ...timing, [f.key]: e.target.value })} wrapperClassName="mt-1 w-40" className={`${input} block w-full`} />
+                : <input type="number" min={0} max={30} value={timing[f.key] ?? ""} onChange={(e) => setTiming({ ...timing, [f.key]: e.target.value })} className={`${input} mt-1 block w-40`} />}
             </label>
           ))}
           <Problem msg={msg} />

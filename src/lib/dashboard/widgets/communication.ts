@@ -142,8 +142,8 @@ const settingsAlerts: Widget<"attention"> = {
     ]);
     for (const g of gateways) out.push({
       id: `settings.gateway-test:${g.displayName}`, tone: "bad", icon: "CreditCard",
-      title: `Payment gateway test failed: ${g.displayName}`, detail: g.lastTestNote ?? "Parents cannot pay online until it works",
-      action: "Fix", href: "/settings/payment-gateways", value: "failed",
+      title: `Payment gateway test failed: ${g.displayName}`, detail: `${g.lastTestNote ?? "Parents cannot pay online until it works."} DREAM TEAM fixes gateways: tell DREAM TEAM support.`,
+      action: "Open", href: "/settings/payment-gateways", value: "failed",
     });
     for (const ch of ["whatsapp", "sms"] as const) {
       const s = channels[ch];

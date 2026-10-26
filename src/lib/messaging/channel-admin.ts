@@ -1,6 +1,8 @@
-// Settings, SMS, WhatsApp & Email: connect each channel to a provider (keys
-// stored encrypted, never shown again), send a test message to yourself,
-// the DLT entity ID and sender header, and message credits.
+// A school's SMS, WhatsApp and email connections. DREAM TEAM connects each
+// channel to a provider from the console (keys stored encrypted, never shown
+// again), sends a test, and sets the DLT entity ID, sender header and credits
+// (07-super-admin.md §3.8). The school itself only switches a connected channel
+// on or off and sets its low-credit alert (saveChannelChoices).
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
@@ -82,6 +84,31 @@ export async function saveChannel(tx: Tx, ctx: SchoolContext, channel: ProviderC
     before: { channel, provider: before.provider, isOn: before.isOn, environment: before.environment, config: before.config },
     after: { channel, provider: input.provider, isOn: input.isOn, environment: data.environment, config, keysChanged: changedSecrets },
   });
+}
+
+export type ChannelChoices = { isOn: boolean; lowCreditAlert: number };
+
+/**
+ * The school's own choices in Settings, SMS, WhatsApp & Email: a channel on or
+ * off, and the low-credit alert. Returns errors by field key; saves when none.
+ */
+export async function saveChannelChoices(tx: Tx, ctx: SchoolContext, channel: ProviderChannel, input: ChannelChoices): Promise<Record<string, string>> {
+  const e: Record<string, string> = {};
+  const before = (await channelSetups(tx, ctx))[channel];
+  if (!Number.isInteger(input.lowCreditAlert) || input.lowCreditAlert < 0 || input.lowCreditAlert > 100000) e.lowCreditAlert = "Enter a number of credits from 0 to 100000.";
+  if (channel === "sms" && input.isOn) {
+    const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true } });
+    if (!school.smsDltEntityId || !school.smsSenderHeader) e.isOn = "SMS can be switched on once DREAM TEAM has added the school's DLT registration. Please tell DREAM TEAM support.";
+  }
+  if (Object.keys(e).length) return e;
+  const data = { isOn: input.isOn, lowCreditAlert: input.lowCreditAlert, updatedById: ctx.userId };
+  await tx.messagingChannel.upsert({ where: { schoolId_channel: { schoolId: ctx.schoolId, channel } }, create: { schoolId: ctx.schoolId, channel, provider: before.provider, ...data }, update: data });
+  await writeAudit(tx, ctx, {
+    action: "changed", recordType: "Messaging Channel", recordId: null,
+    before: { channel, isOn: before.isOn, lowCreditAlert: before.lowCreditAlert },
+    after: { channel, isOn: input.isOn, lowCreditAlert: input.lowCreditAlert },
+  });
+  return {};
 }
 
 /** Sends one test message to the person themself, straight through the provider, and records the result. */

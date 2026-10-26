@@ -19,6 +19,7 @@ import { checkOutAction, gateEntryAction, lookupVisitor, registerVisitorAction }
 import { CameraBox, PhoneBox, SegField, useCanScanQr } from "./fields";
 import { KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { TimeInput } from "@/components/ui/date-input";
 
 export type MeetChoice = { id: string; name: string; role: string; now: string; tone: "ok" | "warn" | "bad" };
 const TONE = { ok: "text-ok", warn: "text-warn", bad: "text-bad" } as const;
@@ -148,7 +149,7 @@ function TimeField({ start }: { start: string }) {
   useEffect(() => { shared = t.value; listeners.forEach((l) => l(t.value)); }, [t.value]);
   return (
     <FieldShell label="Time out" id="co-time" error={t.error}>
-      <input key={t.key} id="co-time" type="time" name="timeOut" defaultValue={t.value} required className={cx(inputCls(t.error), "h-11 tnum")}
+      <TimeInput key={t.key} id="co-time" name="timeOut" defaultValue={t.value} required className={cx(inputCls(t.error), "h-11 tnum")}
         onChange={(e) => { shared = e.target.value; listeners.forEach((l) => l(e.target.value)); }} />
     </FieldShell>
   );

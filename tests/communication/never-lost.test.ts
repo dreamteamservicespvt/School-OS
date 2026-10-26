@@ -384,7 +384,7 @@ describe("the sender hears when some of it was not delivered", () => {
     await runAll(s);
     const row = await withSchool(ctx, (tx) => tx.messageRecipient.findFirstOrThrow({ where: { messageId: r.messageId } }));
     expect(row).toMatchObject({ channel: "sms", status: "FAILED" });
-    expect(row.failReason).toMatch(/MSG91 auth key is missing/);
+    expect(row.failReason).toMatch(/SMS is not fully connected/);
     const note = await withSchool(ctx, (tx) => tx.notification.findFirstOrThrow({ where: { userLoginId: s.principal.id, type: "message-failed" } }));
     expect(note.text).toMatch(/^1 of 1 not delivered/);
     expect(note.link).toBe(`/communication/history/${r.messageId}`);

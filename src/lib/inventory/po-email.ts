@@ -31,7 +31,7 @@ export async function emailPurchaseOrder(ctx: SchoolContext, orderId: string, to
   }, { timeout: 60_000 });
   const { po, to, setup, secrets } = prep;
   if (!setup.isOn) throw new InventoryProblem("Email is switched off for this school (Settings, Messaging). Download the PDF and send it yourself.");
-  if (setup.environment !== "live") throw new InventoryProblem("School email is in test mode, so nothing would reach the vendor. Download the PDF and send it yourself, or switch email to live in Settings, SMS, WhatsApp & Email (the School Admin can).");
+  if (setup.environment !== "live") throw new InventoryProblem("School email is in test mode, so nothing would reach the vendor. Download the PDF and send it yourself, or ask DREAM TEAM support to connect the school’s email.");
   const pdf = await po.doc.pdf();
   const result = await providerFor(setup, secrets).send({
     channel: "email", to, subject: `Purchase order ${po.order.number} from ${schoolName}`,

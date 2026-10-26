@@ -16,6 +16,7 @@ import {
   AHEAD_GROUP, PERIOD_GROUPS, MONTH_NAMES, dayCount, periodAvailable, periodLabel, periodRange, rangeWords, todayFor,
   type PeriodKey, type SchoolCalendar,
 } from "@/lib/periods";
+import { DateInput } from "@/components/ui/date-input";
 
 export type PeriodFilterProps = {
   timeZone?: string;
@@ -174,12 +175,12 @@ export function PeriodFilter({
             <div className="grid grid-cols-2 gap-3">
               <div className="flex flex-col gap-1.5">
                 <label htmlFor={`${id}-from`} className="text-[13px] font-semibold text-ink2">From</label>
-                <input id={`${id}-from`} type="date" value={from} min={first} max={max} onChange={(e) => setFrom(e.target.value)}
+                <DateInput id={`${id}-from`} value={from} min={first} max={max} onChange={(e) => setFrom(e.target.value)}
                   aria-invalid={Boolean(tried && err)} aria-describedby={tried && err ? `${id}-err` : undefined} className={cx(inputCls(Boolean(tried && err)), "h-11")} />
               </div>
               <div className="flex flex-col gap-1.5">
                 <label htmlFor={`${id}-to`} className="text-[13px] font-semibold text-ink2">To</label>
-                <input id={`${id}-to`} type="date" value={to} min={first} max={max} onChange={(e) => setTo(e.target.value)}
+                <DateInput id={`${id}-to`} value={to} min={first} max={max} onChange={(e) => setTo(e.target.value)}
                   aria-invalid={Boolean(tried && err)} aria-describedby={tried && err ? `${id}-err` : undefined} className={cx(inputCls(Boolean(tried && err)), "h-11")} />
               </div>
             </div>

@@ -371,7 +371,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   for (const ch of primary) {
     if (!on.has(ch)) problem(`${CHANNEL_LABEL[ch]} is switched off. Switch it on in Settings, SMS, WhatsApp & Email, or choose another channel.`);
   }
-  if (primary.includes("sms") && !smsReady) problem("Add your DLT entity ID and sender header in Settings, SMS, WhatsApp & Email before sending SMS.");
+  if (primary.includes("sms") && !smsReady) problem("SMS can be sent once DREAM TEAM adds the school’s DLT registration. Please tell DREAM TEAM support.");
 
   // Templates chosen for each channel; SMS only from a template with a DLT template ID (rule 34).
   const chosen = new Map<Channel, { name: string; versions: UsableVersion[] }>();
@@ -386,7 +386,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
     let versions = await currentVersions(tx, ctx, t.id);
     if (ch === "sms") {
       versions = versions.filter((v) => v.dltTemplateId);
-      if (versions.length === 0 && primary.includes(ch)) problem(`"${t.name}" has no DLT template ID. Add it in Message Templates.`);
+      if (versions.length === 0 && primary.includes(ch)) problem(`"${t.name}" has no DLT template ID yet. DREAM TEAM adds it.`);
     }
     chosen.set(ch, { name: t.name, versions });
   }
@@ -770,7 +770,7 @@ export async function recordSend(tx: Tx, ctx: SchoolContext, input: SendInput, p
           // Only until the delivery job hands it to the provider.
           sealedCode: code && !noCredits ? sealCode(code.code) : null,
           status: noCredits ? "FAILED" as const : "QUEUED" as const,
-          failReason: noCredits ? "Not enough credits when it was sent. Top up and retry." : null,
+          failReason: noCredits ? "Not enough credits when it was sent. Buy more from DREAM TEAM support, then retry." : null,
           failedAt: noCredits ? now : null,
           credits: noCredits || testMode ? 0 : r.credits,
           history: [{ at, status: noCredits ? "FAILED" : "QUEUED", note: noCredits ? "Not enough credits" : scheduled ? "Scheduled" : null }],

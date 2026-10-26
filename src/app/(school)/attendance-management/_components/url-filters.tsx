@@ -6,6 +6,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useTransition } from "react";
 import { Spinner } from "@/components/ui/button";
+import { DateInput } from "@/components/ui/date-input";
 
 export type UrlField =
   | { name: string; label: string; type: "select"; value: string; options: { value: string; label: string }[]; allLabel?: string }
@@ -42,8 +43,13 @@ export function UrlFilters({ fields, reset = [], children }: {
               {f.options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           ) : (
-            <input type={f.type} value={f.value} min={f.min} max={f.max} onChange={(e) => { if (e.target.value) go(f.name, e.target.value); }}
-              className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-[15px] sm:w-44" />
+            f.type === "date" ? (
+              <DateInput value={f.value} min={f.min} max={f.max} onChange={(e) => { if (e.target.value) go(f.name, e.target.value); }}
+                wrapperClassName="sm:w-44" className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-[15px]" />
+            ) : (
+              <input type={f.type} value={f.value} min={f.min} max={f.max} onChange={(e) => { if (e.target.value) go(f.name, e.target.value); }}
+                className="h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-[15px] sm:w-44" />
+            )
           )}
         </label>
       ))}

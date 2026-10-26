@@ -23,6 +23,7 @@ import { appointmentStatusAction, remindAction } from "../actions";
 import { BASE, UUID, addQ, foGuard, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { DateInput } from "@/components/ui/date-input";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Appointments") };
@@ -105,7 +106,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
                 <form action={HREF} className="flex items-center gap-2">
                   {keep.staff && <input type="hidden" name="staff" value={keep.staff} />}
                   <label htmlFor="ap-day" className="sr-only"><Words k="Another day" /></label>
-                  <input id="ap-day" name="day" type="date" defaultValue={dayIso} className="h-9 rounded-xl border border-line bg-surface px-2.5 text-[13px] tnum" />
+                  <DateInput id="ap-day" name="day" defaultValue={dayIso} className="h-9 rounded-xl border border-line bg-surface px-2.5 text-[13px] tnum" />
                   <button type="submit" className="h-9 px-3 rounded-xl border border-line text-[13px] font-semibold hover:bg-sunken"><Words k="Show" /></button>
                 </form>
                 {data.staff.length > 5 && <UrlSelect id="ap-staff" param="staff" label="Someone else" className="w-full sm:w-60 [&_select]:h-9 [&_select]:text-[13px]" options={data.staff.map((s) => ({ value: s.id, label: `${s.fullName} · ${s.designation}` }))} />}

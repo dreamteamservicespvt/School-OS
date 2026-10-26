@@ -17,6 +17,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import type { IssueDone, ReturnDone } from "../actions";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 type IssueAct = (p: FormState<IssueDone>, fd: FormData) => Promise<FormState<IssueDone>>;
 type ReturnAct = (p: FormState<ReturnDone>, fd: FormData) => Promise<FormState<ReturnDone>>;
@@ -36,7 +37,7 @@ export function IssueForm({ action, memberKey, copyId, title, defaultDue, minDue
       <input type="hidden" name="copyId" value={copyId} />
       <div className="flex flex-col gap-1.5">
         <label htmlFor="issue-due" className="text-[13px] font-semibold text-ink2"><Words k="Due date" /> <span className="text-bad" aria-hidden="true">*</span></label>
-        <input id="issue-due" name="dueOn" type="date" value={due} min={minDue} onChange={(e) => setDue(e.target.value)} required
+        <DateInput id="issue-due" name="dueOn" value={due} min={minDue} onChange={(e) => setDue(e.target.value)} required
           aria-invalid={err("dueOn") ? true : undefined} aria-describedby="issue-due-help" className={cx(inputCls(err("dueOn")), "h-11 tnum")} />
         <p id="issue-due-help" className={cx("text-[12.5px]", err("dueOn") ? "text-bad" : "text-ink3")}>{err("dueOn") ?? dueHint}</p>
       </div>

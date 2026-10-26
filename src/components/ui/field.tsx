@@ -5,6 +5,7 @@ import { useId } from "react";
 import { CircleAlert } from "lucide-react";
 import { cx } from "./cx";
 import { KeepSelect } from "./keep-select";
+import { PICKER_TYPES, PickerInput, type PickerProps } from "./date-input";
 import { ProblemInView } from "./problem-in-view";
 import { tx } from "@/lib/i18n/tx";
 import { OptionList, Words } from "@/lib/i18n/client";
@@ -40,10 +41,19 @@ function describedBy(id: string, error?: string, help?: React.ReactNode) {
 
 export function TextField({ label, name, help, error, required, className, ...rest }: FieldShell & Omit<React.InputHTMLAttributes<HTMLInputElement>, "name">) {
   const id = `${useId()}-${name}`;
+  const { type, ...box } = rest;
   return (
     <FieldShell label={label} id={id} help={help} error={error} required={required} className={className}>
-      <input id={id} name={name} required={required} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, help)}
-        className={cx(inputCls(error), "h-11")} {...rest} />
+      {type && PICKER_TYPES.has(type) ? (
+        // Dates and times use the shared picker; a date of birth opens on the years.
+        <PickerInput type={type as "date" | "time" | "datetime-local"} id={id} name={name} required={required}
+          aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, help)}
+          className={cx(inputCls(error), "h-11")} {...box as PickerProps}
+          pickYearFirst={/birth/i.test(`${label} ${name}`)} weekdayHint={!/birth/i.test(`${label} ${name}`)} />
+      ) : (
+        <input id={id} name={name} required={required} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, help)}
+          className={cx(inputCls(error), "h-11")} {...rest} />
+      )}
     </FieldShell>
   );
 }

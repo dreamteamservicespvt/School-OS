@@ -23,6 +23,7 @@ import {
 } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 export type HeadData = { id: string; name: string; kind: string; taxable: boolean; gstRate: string; sacCode: string; bankAccountId: string; lateFeeApplies: boolean; system: boolean };
 
@@ -111,7 +112,7 @@ export function RowSheet({ closeHref, yearId, classId, category, className, head
           {inst.map((x, i) => (
             <li key={i} className="grid grid-cols-[1.2fr_1fr_0.9fr_auto] gap-2 items-center">
               <input aria-label={`Installment ${i + 1} name`} name="instLabel" value={x.label} onChange={(e) => set(i, "label", e.target.value)} className={cx(inputCls(), "h-10")} />
-              <input aria-label={`Installment ${i + 1} due date`} name="instDue" type="date" value={x.due} onChange={(e) => set(i, "due", e.target.value)} className={cx(inputCls(), "h-10 tnum")} />
+              <DateInput aria-label={`Installment ${i + 1} due date`} name="instDue" value={x.due} onChange={(e) => set(i, "due", e.target.value)} className={cx(inputCls(), "h-10 tnum")} />
               <input aria-label={`Installment ${i + 1} amount`} name="instAmount" inputMode="decimal" value={x.amount} onChange={(e) => set(i, "amount", e.target.value)} className={cx(inputCls(), "h-10 tnum")} />
               <IconButton icon={Trash2} label={`Remove installment ${i + 1}`} size={36} disabled={inst.length === 1} onClick={() => setInst(inst.filter((_, j) => j !== i))} />
             </li>

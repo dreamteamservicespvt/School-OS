@@ -34,8 +34,8 @@ function clean(raw: unknown): TemplateInput | null {
     texts: texts.map((t) => {
       const x = (t ?? {}) as Record<string, unknown>;
       const subject = String(x.subject ?? "").trim();
-      const dlt = String(x.dltTemplateId ?? "").trim();
-      return { language: String(x.language ?? ""), subject: channel === "email" || channel === "app" ? subject || null : null, body: String(x.body ?? "").replace(/\r\n/g, "\n").trim(), dltTemplateId: channel === "sms" ? dlt || null : null };
+      // DREAM TEAM adds DLT template IDs in the console, never here: undefined keeps the saved one while the text is unchanged.
+      return { language: String(x.language ?? ""), subject: channel === "email" || channel === "app" ? subject || null : null, body: String(x.body ?? "").replace(/\r\n/g, "\n").trim(), dltTemplateId: channel === "sms" ? undefined : null };
     }),
   };
 }
@@ -54,14 +54,19 @@ export async function saveTemplateAction(id: string | null, raw: unknown): Promi
   if (Object.keys(errors).length) return { ok: false, errors, message: Object.keys(errors).length === 1 ? Object.values(errors)[0] : `Please fix ${Object.keys(errors).length} things before saving.` };
   let saved;
   try {
-    saved = await withSchool(access.current.ctx, (tx) => saveTemplate(tx, access.current.ctx, id && uuid.test(id) ? id : null, input));
+    const ctx = access.current.ctx;
+    saved = await withSchool(ctx, async (tx) => {
+      const r = await saveTemplate(tx, ctx, id && uuid.test(id) ? id : null, input);
+      const noDlt = input.channel === "sms" && (await tx.templateVersion.count({ where: { schoolId: ctx.schoolId, templateId: r.id, isCurrent: true, dltTemplateId: null } })) > 0;
+      return { ...r, noDlt };
+    });
   } catch (e) {
     if (e instanceof TemplateProblem) return { ok: false, message: e.message };
     throw e;
   }
-  const noDlt = input.channel === "sms" && input.texts.some((t) => !t.dltTemplateId);
+  const noDlt = saved.noDlt;
   await flash({
-    message: saved.changed.length ? `Template saved.${id ? " A new version was made for each changed language; messages already sent keep theirs." : ""}${noDlt ? " It cannot be used until each language has a DLT template ID." : ""}` : "Nothing changed in the text, so no new version was made.",
+    message: saved.changed.length ? `Template saved.${id ? " A new version was made for each changed language; messages already sent keep theirs." : ""}${noDlt ? " DREAM TEAM registers the new text on the DLT portal and adds its DLT template ID; SMS waits until then." : ""}` : "Nothing changed in the text, so no new version was made.",
     tone: noDlt ? "info" : "success",
   });
   revalidatePath("/communication/templates");

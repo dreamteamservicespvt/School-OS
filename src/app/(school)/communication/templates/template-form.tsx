@@ -1,7 +1,8 @@
 "use client";
 
 // Add or edit a Message Template: text in each language, blanks inserted from
-// a list, the DLT template ID for SMS, and a live preview with sample data.
+// a list, and a live preview with sample data. DREAM TEAM adds the DLT
+// template ID of each SMS text in the console; this form only shows it.
 import { useRef, useState, useTransition } from "react";
 import { saveTemplateAction, type TemplateState } from "./actions";
 import { Check, FileText, Languages, Lock, Plus } from "lucide-react";
@@ -86,7 +87,6 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
         if (bad.length) out[`body:${t.language}`] = `Unknown blank ${[...new Set(bad)].map((b) => `{${b}}`).join(", ")}. Insert blanks from the list.`;
       }
       if (channel === "email" && !t.subject.trim()) out[`subject:${t.language}`] = "Email templates need a subject.";
-      if (channel === "sms" && t.dltTemplateId && !/^[A-Za-z0-9]{6,40}$/.test(t.dltTemplateId.trim())) out[`dlt:${t.language}`] = "The DLT template ID can have only letters and numbers, as shown on the DLT portal.";
     }
     return out;
   }
@@ -103,7 +103,7 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
       return;
     }
     start(async () => {
-      const r = await saveTemplateAction(data.id, { name, category, channel, texts: texts.map(({ language, subject, body, dltTemplateId }) => ({ language, subject, body, dltTemplateId })) });
+      const r = await saveTemplateAction(data.id, { name, category, channel, texts: texts.map(({ language, subject, body }) => ({ language, subject, body })) });
       if (r) setState(r);
     });
   }
@@ -115,7 +115,7 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
     <form onSubmit={submit} noValidate className="flex flex-col gap-5 lg:gap-6">
       {state && !state.ok && state.message && <Banner tone="bad" title={state.message} />}
       <Card>
-        <CardHeader title="About the template" icon={FileText} description={data.id ? "A saved template keeps its channel" : "SMS templates need the DLT template ID registered on the telecom DLT portal"} />
+        <CardHeader title="About the template" icon={FileText} description={data.id ? "A saved template keeps its channel" : "DREAM TEAM registers SMS texts on the telecom DLT portal for you"} />
         <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-3 gap-3">
           <FieldShell label="Name" id="t-name" required error={err("name")}>
             <input id="t-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-invalid={err("name") ? true : undefined}
@@ -128,7 +128,7 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
             </select>
           </FieldShell>
           <FieldShell label="Channel" id="t-channel" required error={err("channel")}
-            help={data.id ? undefined : channel === "sms" ? "Needs a DLT template ID before it can be used." : channel === "whatsapp" ? "Send it for WhatsApp approval after saving." : undefined}>
+            help={data.id ? undefined : channel === "sms" ? "DREAM TEAM adds its DLT template ID before it can send SMS." : channel === "whatsapp" ? "Send it for WhatsApp approval after saving." : undefined}>
             <select id="t-channel" value={channel} disabled={Boolean(data.id)} onChange={(e) => setChannel(e.target.value)} className={cx(inputCls(), "h-11 pr-9 disabled:bg-sunken")}>
               {data.channels.map((c) => <option key={c.key} value={c.key}>{c.label}</option>)}
             </select>
@@ -179,10 +179,12 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
                   </div>
                 )}
                 {channel === "sms" && (
-                  <FieldShell label="DLT template ID" id="t-dlt" error={err(`dlt:${cur.language}`)} help="From the telecom DLT portal, for this exact text. Without it the template is saved as a draft and cannot send SMS.">
-                    <input id="t-dlt" value={cur.dltTemplateId} onChange={(e) => patch(cur.language, { dltTemplateId: e.target.value.trim() })} maxLength={40} autoComplete="off"
-                      placeholder="1107161765432109876" className={cx(inputCls(err(`dlt:${cur.language}`)), "h-11 font-mono")} />
-                  </FieldShell>
+                  <div className="rounded-xl bg-sunken/70 p-3 text-[13.5px]">
+                    <p className="font-semibold"><Words k="DLT template ID" /></p>
+                    {cur.dltTemplateId
+                      ? <p className="mt-0.5"><span className="font-mono">{cur.dltTemplateId}</span> · <span className="text-ink2"><Words k="Added by DREAM TEAM. If you change this text, it needs a new ID, which DREAM TEAM adds." /></span></p>
+                      : <p className="mt-0.5 text-ink2"><Words k="DREAM TEAM registers this text on the DLT portal and adds its ID. SMS from it waits until then." /></p>}
+                  </div>
                 )}
               </div>
               <div>

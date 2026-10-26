@@ -23,7 +23,7 @@ export const supportNote = (name: string) => `DREAM TEAM support (${name})`;
 
 export async function writeAudit(tx: Tx, ctx: SchoolContext, entry: AuditInput) {
   // Whatever is written while DREAM TEAM looks inside the school carries their name, never a school login.
-  const support = ctx.support ? supportNote(ctx.support.name) : ctx.userId === SUPPORT_LOGIN_ID ? "DREAM TEAM support" : null;
+  const support = ctx.support ? supportNote(ctx.support.name) : ctx.console ? `DREAM TEAM: ${ctx.console.name}` : ctx.userId === SUPPORT_LOGIN_ID ? "DREAM TEAM support" : null;
   return tx.auditLogEntry.create({
     data: {
       schoolId: ctx.schoolId,

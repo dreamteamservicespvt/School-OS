@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { BadgeCheck, BellOff, Check, Coins, History, Link2, MessageSquareText, Plus, ShieldCheck, ToggleRight, Users, Zap } from "lucide-react";
+import { BadgeCheck, BellOff, Check, Coins, History, Link2, MessageSquareText, ShieldCheck, ToggleRight, Users, Zap } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { commOfficePage } from "@/lib/communication/access";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -98,7 +98,7 @@ export default async function MessageSettingsPage() {
   const senders: [string, string | null, string][] = [
     ["WhatsApp Business number", data.setups.whatsapp.config.displayNumber || null, data.setups.whatsapp.isOn ? (data.setups.whatsapp.environment === "live" ? "Connected" : "Connected in test mode") : "Not switched on"],
     ["SMS sender header", data.school.smsSenderHeader, data.setups.sms.isOn ? "Registered on the DLT portal" : "SMS is not switched on"],
-    ["DLT entity ID", data.school.smsDltEntityId, "From the telecom DLT portal"],
+    ["DLT entity ID", data.school.smsDltEntityId, "Added by DREAM TEAM from the telecom DLT portal"],
     ["Email sender", data.setups.email.config.fromAddress || null, data.setups.email.isOn ? "Sends from this address" : "Email is not switched on"],
     ["Reply-to phone", data.school.phone, "Shown at the end of Parent Link"],
   ];
@@ -119,13 +119,13 @@ export default async function MessageSettingsPage() {
   return (
     <>
       <CommHead access={access} page="Message Settings" href="/communication/settings"
-        sub="Credits, sender IDs, SMS backup, who may message whom, and the automatic messages."
+        sub="Credits, the senders parents see, SMS backup, who may message whom, and the automatic messages."
         actions={<ButtonLink href="/communication/settings/log" variant="secondary" icon={History}><Words k="Automation log" /></ButtonLink>} />
       <div className="flex flex-col gap-5 lg:gap-6">
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-6 items-start">
           <Card>
             <CardHeader title="Message credits" description="1 credit per WhatsApp message or SMS part. Email and app notices are free." icon={Coins}
-              action={<ButtonLink href="/settings/messaging" size="sm" variant="primary" icon={Plus}><Words k="Top up" /></ButtonLink>} />
+              action={<ButtonLink href="/settings/messaging" size="sm" variant="secondary"><Words k="Credit history" /></ButtonLink>} />
             <div className="px-5 pb-5 flex flex-col gap-4">
               <div className="flex items-end gap-3 flex-wrap">
                 <p className="font-display text-[34px] font-semibold tnum leading-none">{totalLeft.toLocaleString("en-IN")}</p>
@@ -136,7 +136,7 @@ export default async function MessageSettingsPage() {
             </div>
           </Card>
           <Card>
-            <CardHeader title="Sender IDs and DLT" description="What parents see as the sender" icon={BadgeCheck}
+            <CardHeader title="Senders and DLT" description="What parents see as the sender. DREAM TEAM sets these up." icon={BadgeCheck}
               action={<ButtonLink href="/settings/messaging" size="sm" variant="ghost"><Words k="Connections" /></ButtonLink>} />
             <div className="divide-y divide-line/70 border-t border-line/70">
               {senders.map(([t, v, sub]) => (

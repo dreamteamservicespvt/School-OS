@@ -9,6 +9,7 @@ import { ChevronDown } from "lucide-react";
 import { Spinner } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import { inputCls } from "@/components/ui/field";
+import { DateInput } from "@/components/ui/date-input";
 
 export type PickerChoice = { value: string; label: string };
 
@@ -39,7 +40,7 @@ export function SheetPicker({ choices, value, date, maxDate, minDate, classLabel
           <ChevronDown size={16} className="absolute right-3 top-1/2 -translate-y-1/2 text-ink3 pointer-events-none" aria-hidden="true" />
         </div>
       )}
-      <input type="date" aria-label="Date" value={date} max={maxDate} min={minDate} required
+      <DateInput aria-label="Date" value={date} max={maxDate} min={minDate} required
         onChange={(e) => { if (e.target.value) go({ date: e.target.value }); }}
         className={cx(inputCls(false), "h-10 w-40 text-[14px] font-semibold tnum")} />
       {pending && <Spinner className="text-ink3" />}

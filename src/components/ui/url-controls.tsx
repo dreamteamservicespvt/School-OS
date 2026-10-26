@@ -12,6 +12,7 @@ import { Dialog } from "./dialog";
 import { cx } from "./cx";
 import { inputCls } from "./field";
 import { useT } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 function useUrl() {
   const router = useRouter();
@@ -54,7 +55,7 @@ export function UrlDate({ param = "date", label, value, max, className }: { para
   const { go, pending } = useUrl();
   return (
     <div className={cx("relative", className)}>
-      <input type="date" value={value} max={max} aria-label={label} disabled={pending}
+      <DateInput value={value} max={max} aria-label={label} disabled={pending}
         onChange={(e) => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) go({ [param]: e.target.value }); }}
         className={cx(inputCls(false), "h-11 tnum")} />
     </div>

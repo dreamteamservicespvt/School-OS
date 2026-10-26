@@ -14,6 +14,7 @@ import { RemindButton as SharedRemind } from "@/components/remind-button";
 import { archiveHomeworkAction, draftHomeworkAction, editHomeworkAction, giveHomeworkAction, remindTeacherAction, resendHomeworkAction, submitWorkAction } from "./actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 export type DueChoice = { date: string; words: string };
 export type GiveSection = {
@@ -149,7 +150,7 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
         <Segmented value={due} onChange={(v) => setDue(v as typeof due)} className="w-full" label="Due"
           options={[{ value: "next", label: "Next class" }, { value: "tomorrow", label: "Tomorrow" }, { value: "pick", label: "Pick a date" }]} />
         {due === "pick"
-          ? <input id="gh-due" type="date" value={picked} min={today} onChange={(e) => setPicked(e.target.value)} aria-invalid={typedPick.error ? true : undefined} className={cx(inputCls(typedPick.error), "h-11 tnum mt-1")} />
+          ? <DateInput id="gh-due" value={picked} min={today} onChange={(e) => setPicked(e.target.value)} aria-invalid={typedPick.error ? true : undefined} className={cx(inputCls(typedPick.error), "h-11 tnum mt-1")} />
           : <p className="text-[12.5px] text-ink3">{due === "next" ? `Next ${subject.name} class: ${subject.next.words}` : `${section.tomorrow.words}, 11:59 PM`}</p>}
       </FieldShell>
 
@@ -177,7 +178,7 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
         {to === "STUDENTS" && <p className="text-[12.5px] text-ink3 -mt-1">{chosen.size} <Words k="chosen. Others will not see it." /></p>}
         <div className="grid grid-cols-2 gap-3">
           <FieldShell label="Start date" id="gh-start" required error={startT.error}>
-            <input id="gh-start" name="startDate" type="date" defaultValue={startT.value} key={startT.key} className={cx(inputCls(startT.error), "h-11 tnum")} />
+            <DateInput id="gh-start" name="startDate" defaultValue={startT.value} key={startT.key} className={cx(inputCls(startT.error), "h-11 tnum")} />
           </FieldShell>
           <FieldShell label="Maximum marks" id="gh-max" error={maxT.error}>
             <input id="gh-max" name="maxMarks" inputMode="numeric" defaultValue={maxT.value} key={maxT.key} className={cx(inputCls(maxT.error), "h-11 tnum")} />
@@ -225,8 +226,8 @@ export function EditSheet({ closeHref, hw, files, onlineOn }: {
       )}
       <AttachPicker />
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-        <FieldShell label="Start date" id="ed-start" required error={startT.error}><input id="ed-start" name="startDate" type="date" defaultValue={startT.value} key={startT.key} className={cx(inputCls(startT.error), "h-11 tnum")} /></FieldShell>
-        <FieldShell label="Due date" id="ed-due" required error={dueT.error}><input id="ed-due" name="dueDate" type="date" defaultValue={dueT.value} key={dueT.key} className={cx(inputCls(dueT.error), "h-11 tnum")} /></FieldShell>
+        <FieldShell label="Start date" id="ed-start" required error={startT.error}><DateInput id="ed-start" name="startDate" defaultValue={startT.value} key={startT.key} className={cx(inputCls(startT.error), "h-11 tnum")} /></FieldShell>
+        <FieldShell label="Due date" id="ed-due" required error={dueT.error}><DateInput id="ed-due" name="dueDate" defaultValue={dueT.value} key={dueT.key} className={cx(inputCls(dueT.error), "h-11 tnum")} /></FieldShell>
         <FieldShell label="Maximum marks" id="ed-max" error={maxT.error}><input id="ed-max" name="maxMarks" inputMode="numeric" defaultValue={maxT.value} key={maxT.key} className={cx(inputCls(maxT.error), "h-11 tnum")} /></FieldShell>
       </div>
       {onlineOn && (

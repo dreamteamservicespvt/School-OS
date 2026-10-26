@@ -106,6 +106,8 @@ A school's first School Admin is made by DREAM TEAM in the Super Admin console (
 
 ### Payment Gateways
 
+> **Changed 26 October 2026 (the owner):** DREAM TEAM adds, tests and edits gateways in the console (`07-super-admin.md` §3.8). This page shows the school its gateways, their status, mode and last test, read-only. The actions and form below are what the console does.
+
 **Purpose:** connect Razorpay, PhonePe, Easebuzz and others, and test the connection.
 
 **What the person sees**
@@ -137,6 +139,8 @@ A school's first School Admin is made by DREAM TEAM in the Super Admin console (
 Decided **D1**: Razorpay is the first gateway connected.
 
 ### SMS, WhatsApp & Email
+
+> **Changed 26 October 2026 (the owner):** DREAM TEAM connects the providers, adds the DLT entity ID, sender header, SMS template DLT IDs and credits in the console (`07-super-admin.md` §3.8). The school sees each channel's status, credits and history, switches each channel on or off and sets the low-credit alert. It never types a key, ID or address.
 
 **Purpose:** connect SMS, WhatsApp and email, see message credits, and turn each one on or off.
 

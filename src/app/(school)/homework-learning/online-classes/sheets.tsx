@@ -15,6 +15,7 @@ import { Text } from "../sheets";
 import { attendanceAction, cancelClassAction, materialAction, recordingAction, scheduleClassAction } from "./actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { DateTimeInput } from "@/components/ui/date-input";
 
 export type OcSection = { id: string; label: string; subjects: { id: string; name: string }[] };
 
@@ -44,7 +45,7 @@ export function ScheduleSheet({ closeHref, sections, start }: { closeHref: strin
       </div>
       <Text name="title" label="Title" placeholder="Half Yearly revision: geometry" help="Optional. Left empty, it is the subject and class." />
       <div className="grid grid-cols-2 gap-3">
-        <FieldShell label="Date and time" id="oc-when" required error={when.error}><input id="oc-when" name="startsAt" type="datetime-local" defaultValue={when.value} key={when.key} className={cx(inputCls(when.error), "h-11 tnum")} /></FieldShell>
+        <FieldShell label="Date and time" id="oc-when" required error={when.error}><DateTimeInput id="oc-when" name="startsAt" defaultValue={when.value} key={when.key} className={cx(inputCls(when.error), "h-11 tnum")} /></FieldShell>
         <FieldShell label="Length" id="oc-len" required error={len.error}>
           <select id="oc-len" name="lengthMin" defaultValue={len.value} key={len.key} className={cx(inputCls(len.error), "h-11")}>{[30, 40, 45, 60, 90].map((m) => <option key={m} value={m}>{m} min</option>)}</select>
         </FieldShell>

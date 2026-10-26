@@ -19,6 +19,7 @@ import type { FormState } from "@/lib/forms";
 import { ActionSheet, FormProblem, QuickChips, type Action } from "./sheet-form";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 type Found = { id: string; label: string; detail: string };
 type PreviewState = FormState<{ text: string; canApprove: boolean; warn: boolean }>;
@@ -141,10 +142,10 @@ export function RecordLeaveButton({ action, preview, find, types, today, placeho
             </FieldShell>
             <div className="grid grid-cols-2 gap-3">
               <FieldShell label="From" id="rl-from" required error={f.err("from")}>
-                <input id="rl-from" name="from" type="date" value={from} onChange={(e) => { if (to === from) setTo(e.target.value); setFrom(e.target.value); }} className={cx(inputCls(f.err("from")), "h-11 tnum")} />
+                <DateInput id="rl-from" name="from" value={from} onChange={(e) => { if (to === from) setTo(e.target.value); setFrom(e.target.value); }} className={cx(inputCls(f.err("from")), "h-11 tnum")} />
               </FieldShell>
               <FieldShell label="To" id="rl-to" required error={f.err("to")}>
-                <input id="rl-to" name="to" type="date" value={half ? from : to} disabled={half} min={from} onChange={(e) => setTo(e.target.value)} className={cx(inputCls(f.err("to")), "h-11 tnum disabled:opacity-60")} />
+                <DateInput id="rl-to" name="to" value={half ? from : to} disabled={half} min={from} onChange={(e) => setTo(e.target.value)} className={cx(inputCls(f.err("to")), "h-11 tnum disabled:opacity-60")} />
               </FieldShell>
             </div>
             <LivePreview preview={preview} tick={tick} onResult={(s) => setCanApprove(Boolean(s?.ok && s.data?.canApprove))} />

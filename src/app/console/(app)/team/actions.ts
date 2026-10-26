@@ -1,6 +1,6 @@
 "use server";
 
-// Team actions (07-super-admin.md §3.6). Owner only, checked on the server;
+// Team actions (07-super-admin.md §3.8). Owner only, checked on the server;
 // each one writes an Activity Log line.
 
 import { changeTeamRole, disableTeamMember, inviteTeamMember, resendTeamInvite } from "@/lib/console/team";

@@ -13,6 +13,7 @@ import { ActionButton } from "@/components/students/confirm-action";
 import { gradeFor, scoreProblem, type GradeBand } from "@/lib/homework/words";
 import { acceptLateAction, bulkCompleteAction, commentAction, draftFeedbackAction, excuseAction, gradeAction, hideCommentAction, remindParentsAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 export type ThreadItem = { id: string; who: string; when: string; text: string; fromStudent: boolean; hidden: string | null };
 
@@ -119,7 +120,7 @@ export function GradeSheet({ closeHref, id, name, sub, max, bands, showGrade, st
             <Switch id="gr-resub" on={resub} onChange={setResub} label="Allow hand in again" name="resubmit" />
             <label htmlFor="gr-resub" className="text-[13.5px] flex-1"><b className="font-semibold block"><Words k="Allow hand in again" /></b><span className="text-ink3 text-[12.5px]"><Words k="Only for this student" />{resub ? "" : `, until ${resubmitDefault.words}`}</span></label>
           </div>
-          {resub && <FieldShell label="Hand in again until" id="gr-until"><input id="gr-until" name="resubmitUntil" type="date" defaultValue={untilT.value} key={untilT.key} className={cx(inputCls(), "h-11 tnum")} /></FieldShell>}
+          {resub && <FieldShell label="Hand in again until" id="gr-until"><DateInput id="gr-until" name="resubmitUntil" defaultValue={untilT.value} key={untilT.key} className={cx(inputCls(), "h-11 tnum")} /></FieldShell>}
         </div>
       </div>
     </SheetForm>

@@ -14,6 +14,7 @@ import { FormSheet, WhenField } from "../_components/forms";
 import { addToTestAction, cancelInterviewAction, freeSlotsAction, outcomeAction, scheduleInterviewAction, scheduleTestAction, scoresAction } from "./actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 export type Applicant = { id: string; name: string; meta: string };
 
@@ -93,7 +94,7 @@ export function ScheduleInterviewButton({ applicants, staff, defaultInterviewer,
                 </KeepSelect>
               </FieldShell>
               <FieldShell label="Day" id="si-d" required>
-                <input id="si-d" type="date" min={today} value={day} onChange={(e) => setDay(e.target.value)} className={cx(inputCls(false), "h-11 tnum")} />
+                <DateInput id="si-d" min={today} value={day} onChange={(e) => setDay(e.target.value)} className={cx(inputCls(false), "h-11 tnum")} />
               </FieldShell>
             </div>
             <FieldShell label="Slot" id="si-s" required error={f.err("slot")} help={loading ? "Finding free slots…" : slots && slots.length === 0 ? "No free slot that day. Choose another day or interviewer." : "Booked slots are not shown"}>

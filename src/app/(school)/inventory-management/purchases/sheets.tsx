@@ -15,6 +15,7 @@ import { cx } from "@/components/ui/cx";
 import { ItemLines, type ItemPick, type LineStart } from "../_components/client";
 import { billAction, cancelBillAction, cancelRequestAction, closeOrderAction, emailOrderAction, orderAction, payBillAction, receiveAction, requestAction, saveVendorAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 type Opt = { value: string; label: string };
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -135,7 +136,7 @@ export function ReceiveSheet({ closeHref, orderId, number, lines, stores, store,
               {l.tracksExpiry && n > 0 && (
                 <div className="grid grid-cols-2 gap-2">
                   <input name={`batch-${l.id}`} placeholder="Batch" defaultValue={typed?.[`batch-${l.id}`] ?? ""} maxLength={40} aria-label={`Batch: ${l.name}`} className={cx(inputCls(undefined), "h-10")} />
-                  <input name={`exp-${l.id}`} type="date" defaultValue={typed?.[`exp-${l.id}`] ?? ""} aria-label={`Expiry date: ${l.name}`} className={cx(inputCls(state?.errors?.[`exp-${l.id}`]), "h-10")} />
+                  <DateInput name={`exp-${l.id}`} defaultValue={typed?.[`exp-${l.id}`] ?? ""} aria-label={`Expiry date: ${l.name}`} className={cx(inputCls(state?.errors?.[`exp-${l.id}`]), "h-10")} />
                 </div>
               )}
               {err && <p className="text-[12.5px] text-bad">{err}</p>}

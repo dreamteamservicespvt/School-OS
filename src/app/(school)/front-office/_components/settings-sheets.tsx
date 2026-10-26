@@ -16,6 +16,7 @@ import { FRONT_OFFICE_FEATURES } from "@/lib/front-office/words";
 import { listAddAction, listRemoveAction, settingsAction } from "../actions";
 import { SegField } from "./fields";
 import { Words } from "@/lib/i18n/client";
+import { TimeInput } from "@/components/ui/date-input";
 
 type Settings = { photoRequired: boolean; idProofRequired: boolean; pickupCodeCheck: boolean; passExpiry: string | null; slotMinutes: number };
 
@@ -43,7 +44,7 @@ function ExpiryFields({ passExpiry, dayEnd }: { passExpiry: string | null; dayEn
         options={[{ value: "end", label: `End of school day (${dayEnd})` }, { value: "set", label: "At a set time" }]} />
       {m === "set" && (
         <FieldShell label="Expiry time" id="st-exp" error={t.error}>
-          <input key={t.key} id="st-exp" type="time" name="passExpiry" defaultValue={t.value} className={cx(inputCls(t.error), "h-11 tnum")} />
+          <TimeInput key={t.key} id="st-exp" name="passExpiry" defaultValue={t.value} className={cx(inputCls(t.error), "h-11 tnum")} />
         </FieldShell>
       )}
     </>

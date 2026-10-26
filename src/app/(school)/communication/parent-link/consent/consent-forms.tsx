@@ -9,6 +9,7 @@ import { Banner } from "@/components/ui/banner";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 type Opt = { value: string; label: string; group?: string };
 
@@ -63,7 +64,7 @@ export function ConsentRequestForm({ texts, who: whoOpts, defaultReplyBy, minDat
         </select>
       </FieldShell>
       <FieldShell label="Reply by" id="c-reply" error={err("replyBy")} help="Reminders stop after this date">
-        <input id="c-reply" type="date" min={minDate} value={replyBy} onChange={(e) => { setReplyBy(e.target.value); reset(); }} className={cx(inputCls(err("replyBy")), "h-11 tnum")} />
+        <DateInput id="c-reply" min={minDate} value={replyBy} onChange={(e) => { setReplyBy(e.target.value); reset(); }} className={cx(inputCls(err("replyBy")), "h-11 tnum")} />
       </FieldShell>
       {p && (
         <p className="text-[13.5px] text-ink2 tnum rounded-xl bg-sunken/70 px-3.5 py-2.5">

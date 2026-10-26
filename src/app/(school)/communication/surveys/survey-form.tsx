@@ -13,6 +13,7 @@ import { FieldShell, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { audienceCountAction, saveSurveyAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 type Q = { key: number; kind: string; text: string; options: string[]; required: boolean };
 export type SurveyFormData = {
@@ -130,7 +131,7 @@ export function SurveyForm({ data }: { data: SurveyFormData }) {
               </select>
             </FieldShell>
             <FieldShell label="Closes on" id="sv-close" help="Leave empty for 7 days after sending">
-              <input id="sv-close" type="date" value={closesOn} min={data.minDate} onChange={(e) => setClosesOn(e.target.value)} className={cx(inputCls(), "h-11 tnum")} />
+              <DateInput id="sv-close" value={closesOn} min={data.minDate} onChange={(e) => setClosesOn(e.target.value)} className={cx(inputCls(), "h-11 tnum")} />
             </FieldShell>
           </div>
           <div className="flex items-center justify-between gap-4 rounded-xl border border-line px-4 py-3">

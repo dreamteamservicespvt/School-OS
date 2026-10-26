@@ -23,6 +23,7 @@ import { DUE_WORD } from "../../_components/bits";
 import { askDiscountApproval, collectFee, qrPaid, resendReceipt, sendLink, showQr, type Collected, type QrLink } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { DateInput, DateTimeInput } from "@/components/ui/date-input";
 
 export type DueRow = { id: string; head: string; label: string; due: string; net: number; paid: number; balance: number; status: DueStatus; lateFee: boolean };
 
@@ -223,7 +224,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                 </FieldShell>
               </div>
               <FieldShell label="Cheque date" required id="chq-date" error={serverErr("chequeDate")}>
-                <input id="chq-date" name="chequeDate" type="date" value={chq.date} onChange={(e) => setChq({ ...chq, date: e.target.value })} className={cx(inputCls(serverErr("chequeDate")), "h-11 tnum")} />
+                <DateInput id="chq-date" name="chequeDate" value={chq.date} onChange={(e) => setChq({ ...chq, date: e.target.value })} className={cx(inputCls(serverErr("chequeDate")), "h-11 tnum")} />
               </FieldShell>
             </>
           )}
@@ -260,7 +261,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
               )}
               {counter.changeDate && (
                 <FieldShell label="Paid on" id="pay-when" error={serverErr("paidAt")} help="Leave empty for now. Never before a closed day.">
-                  <input id="pay-when" name="paidAt" type="datetime-local" max={`${today}T23:59`} className={cx(inputCls(serverErr("paidAt")), "h-11 tnum")} />
+                  <DateTimeInput id="pay-when" name="paidAt" max={`${today}T23:59`} className={cx(inputCls(serverErr("paidAt")), "h-11 tnum")} />
                 </FieldShell>
               )}
               <FieldShell label="Note" id="pay-note" help="On the office copy of the receipt">

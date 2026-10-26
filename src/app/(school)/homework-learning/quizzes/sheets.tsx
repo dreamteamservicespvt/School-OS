@@ -17,6 +17,7 @@ import { Text } from "../sheets";
 import { archiveQuizAction, closeQuizAction, createQuizAction, markShortAction, openQuizAction, submitQuizAction } from "./actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { DateTimeInput } from "@/components/ui/date-input";
 
 export type QKind = "CHOICE" | "TRUE_FALSE" | "SHORT";
 export type QDraft = { kind: QKind; text: string; options: string[]; correctIndex: number | null; marks: number };
@@ -151,8 +152,8 @@ export function QuizSheet({ closeHref, sections, bank, start, defaults, edit }: 
         {qT.error && <p className="text-[12.5px] text-bad" role="alert">{qT.error}</p>}
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
-        <FieldShell label="Opens" id="cq-open" error={opensT.error} help="Default: now"><input id="cq-open" name="opensAt" type="datetime-local" defaultValue={opensT.value} key={opensT.key} className={cx(inputCls(opensT.error), "h-11 tnum")} /></FieldShell>
-        <FieldShell label="Closes" id="cq-close" error={closesT.error} help="Default: 7 days later"><input id="cq-close" name="closesAt" type="datetime-local" defaultValue={closesT.value} key={closesT.key} className={cx(inputCls(closesT.error), "h-11 tnum")} /></FieldShell>
+        <FieldShell label="Opens" id="cq-open" error={opensT.error} help="Default: now"><DateTimeInput id="cq-open" name="opensAt" defaultValue={opensT.value} key={opensT.key} className={cx(inputCls(opensT.error), "h-11 tnum")} /></FieldShell>
+        <FieldShell label="Closes" id="cq-close" error={closesT.error} help="Default: 7 days later"><DateTimeInput id="cq-close" name="closesAt" defaultValue={closesT.value} key={closesT.key} className={cx(inputCls(closesT.error), "h-11 tnum")} /></FieldShell>
         <FieldShell label="Time limit" id="cq-time" error={limitT.error}>
           <select id="cq-time" name="timeLimit" defaultValue={limitT.value} key={limitT.key} disabled={kept} className={cx(inputCls(limitT.error), "h-11")}>
             <option value="none">None</option>{[5, 10, 15, 20, 30, 45, 60].map((m) => <option key={m} value={m}>{m} min</option>)}

@@ -9,6 +9,7 @@
 import { useId, useMemo, useState } from "react";
 import { type CustomFieldDef, type CustomValues, checkOne, isFieldShown, valueAsText } from "@/lib/custom-field-rules";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
+import { DateInput } from "@/components/ui/date-input";
 
 const control = "w-full rounded-lg border bg-surface px-3 text-base text-ink placeholder:text-ink-2/70";
 
@@ -105,8 +106,11 @@ export function CustomFieldInputs({ fields, values, errors = {}, fileLinks = {},
               </>
             );
           } else {
-            input = (
-              <input {...common} type={f.fieldType === "date" ? "date" : "text"} inputMode={f.fieldType === "number" ? "decimal" : undefined}
+            input = f.fieldType === "date" ? (
+              <DateInput {...common} value={typed[f.key] ?? ""} required={f.required}
+                onChange={(e) => set(f.key, e.target.value)} className={`${control} h-11 ${border}`} />
+            ) : (
+              <input {...common} type="text" inputMode={f.fieldType === "number" ? "decimal" : undefined}
                 value={typed[f.key] ?? ""} required={f.required} maxLength={f.fieldType === "text" ? 500 : undefined}
                 onChange={(e) => set(f.key, e.target.value)} className={`${control} h-11 ${border}`} />
             );

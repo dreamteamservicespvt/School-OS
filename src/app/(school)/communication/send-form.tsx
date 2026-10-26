@@ -27,6 +27,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Split, Col } from "@/components/ui/split";
 import { cx } from "@/components/ui/cx";
 import { Words } from "@/lib/i18n/client";
+import { DateTimeInput } from "@/components/ui/date-input";
 
 type Channel = "whatsapp" | "sms" | "email" | "app";
 export type Person = { type: "guardian" | "student" | "staff" | "parentsOf"; id: string; name: string; detail: string };
@@ -589,7 +590,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 options={[{ value: "now", label: "Send now", icon: Send }, { value: "later", label: "Schedule", icon: CalendarClock }]} />
               {when === "later" && (
                 <FieldShell label="Date and time" id="send-scheduledAt" required className="max-w-xs" error={tried ? err.scheduledAt : undefined} help="Within the next 90 days">
-                  <input id="send-scheduledAt" type="datetime-local" name="scheduledAt" value={at} onChange={(e) => { setAt(e.target.value); touch(); }} className={cx(inputCls(tried && err.scheduledAt), "h-11 tnum")} />
+                  <DateTimeInput id="send-scheduledAt" name="scheduledAt" value={at} onChange={(e) => { setAt(e.target.value); touch(); }} className={cx(inputCls(tried && err.scheduledAt), "h-11 tnum")} />
                 </FieldShell>
               )}
             </div>

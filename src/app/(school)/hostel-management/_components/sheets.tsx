@@ -23,6 +23,7 @@ import {
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 import { bedStartFor, bedYearOf } from "@/lib/hostel/words";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 type Opt = { value: string; label: string };
 const RELATIONS = ["Father", "Mother", "Uncle", "Aunt", "Grandfather", "Grandmother", "Brother", "Sister", "Local guardian", "Other"];
@@ -248,7 +249,7 @@ export function AllocateSheet({ closeHref, hostels, beds, plans: allPlans, start
       <div className="grid sm:grid-cols-2 gap-3">
         <FieldShell label="Check-in date" id="al-start" required error={fStart.error ?? (student?.years?.length && !bedYear ? `${student.name.split(" ")[0]}'s class is for ${student.years.map((y) => y.name).join(" and ")}. Choose a day in that year.` : undefined)}
           help={bedYear ? `The first night. The bed and its fees are for ${bedYear.name}${future ? "; it waits for the student till then" : ""}.` : undefined}>
-          <input id="al-start" type="date" name="startDate" value={startIso} onChange={(e) => { setStartIso(e.target.value); setPlanId(null); }} aria-invalid={fStart.error ? true : undefined} className={cx(inputCls(fStart.error), "h-11")} />
+          <DateInput id="al-start" name="startDate" value={startIso} onChange={(e) => { setStartIso(e.target.value); setPlanId(null); }} aria-invalid={fStart.error ? true : undefined} className={cx(inputCls(fStart.error), "h-11")} />
         </FieldShell>
         <FieldShell label="Fee plan" id="al-plan" required error={fPlan.error} help={auto && plan === auto.id ? "Set by the hostel and room type." : undefined}>
           <KeepSelect id="al-plan" name="feePlanId" value={plan} onChange={(e) => setPlanId(e.target.value)} aria-invalid={fPlan.error ? true : undefined} className={cx(inputCls(fPlan.error), "h-11")}>
@@ -668,7 +669,7 @@ export function FeePlanSheet({ closeHref, hostels, start, yearName, yearId }: { 
             <label className="sr-only" htmlFor={`in-l-${i}`}><Words k="Installment" /> {i + 1} <Words k="name" /></label>
             <input id={`in-l-${i}`} name="instLabel" value={r.label} onChange={(e) => set(i, "label", e.target.value)} placeholder="Quarter 1" className={cx(inputCls(), "h-10")} />
             <label className="sr-only" htmlFor={`in-d-${i}`}><Words k="Installment" /> {i + 1} <Words k="due date" /></label>
-            <input id={`in-d-${i}`} name="instDue" type="date" value={r.due} onChange={(e) => set(i, "due", e.target.value)} className={cx(inputCls(), "h-10")} />
+            <DateInput id={`in-d-${i}`} name="instDue" value={r.due} onChange={(e) => set(i, "due", e.target.value)} className={cx(inputCls(), "h-10")} />
             <label className="sr-only" htmlFor={`in-a-${i}`}><Words k="Installment" /> {i + 1} <Words k="amount in rupees" /></label>
             <input id={`in-a-${i}`} name="instAmount" inputMode="decimal" value={r.amount} onChange={(e) => set(i, "amount", e.target.value)} placeholder="₹ 24000" className={cx(inputCls(), "h-10 tnum text-right")} />
             {rows.length > 1 ? <button type="button" onClick={() => setRows((x) => x.filter((_, j) => j !== i))} className="text-[13px] font-semibold text-bad hover:underline px-1"><Words k="Remove" /></button> : <span />}

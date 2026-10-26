@@ -16,6 +16,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { saveMealsAction, saveMessagesAction, saveRulesAction, saveTimingsAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
+import { TimeInput } from "@/components/ui/date-input";
 
 type Act = (p: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 
@@ -76,7 +77,7 @@ const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 function Time({ name, label, start, readOnly, err }: { name: string; label: string; start: string; readOnly: boolean; err?: string }) {
   return (
     <span className="flex flex-col gap-1">
-      <input id={`hs-${name}`} name={name} type="time" defaultValue={start} disabled={readOnly} aria-label={label} aria-invalid={err ? true : undefined} className={cx(inputCls(err), "h-10 w-[132px] tnum")} />
+      <TimeInput id={`hs-${name}`} name={name} defaultValue={start} disabled={readOnly} aria-label={label} aria-invalid={err ? true : undefined} className={cx(inputCls(err), "h-10 w-[132px] tnum")} />
       {err && <span className="text-[12px] text-bad">{err}</span>}
     </span>
   );

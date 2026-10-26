@@ -25,6 +25,7 @@ import { RouteMessageSheet } from "./_components/route-sheets";
 import { remindAction } from "./actions";
 import { BASE, UUID, addQ, one, qs, trGuard, type SearchParams } from "./_lib/page";
 import { pageTitle } from "@/lib/i18n/server";
+import { DateInput } from "@/components/ui/date-input";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Live Tracking") };
@@ -247,7 +248,7 @@ export default async function LivePage({ searchParams }: { searchParams: SearchP
               </select>
             </label>
             <label className="flex flex-col gap-1 text-[13px] font-semibold text-ink2">Date
-              <input type="date" name="rd" defaultValue={one(sp.rd)} max={p.todayStr} className="h-11 rounded-xl border border-line bg-surface px-3 text-[15px] font-normal text-ink" />
+              <DateInput name="rd" defaultValue={one(sp.rd)} max={p.todayStr} className="h-11 rounded-xl border border-line bg-surface px-3 text-[15px] font-normal text-ink" />
             </label>
             <button type="submit" className="h-11 px-4 rounded-xl bg-brand text-brandink font-semibold">Show trips</button>
           </form>

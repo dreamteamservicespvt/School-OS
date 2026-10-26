@@ -22,6 +22,7 @@ import { saveDatesheet } from "./actions";
 import type { FormData as Data, FormRow } from "./form-data";
 import { KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 const PATTERNS = [{ value: "PERCENTAGE", label: "Percentage" }, { value: "GRADING", label: "Grading" }, { value: "CGPA", label: "CGPA" }];
 const DURATIONS = [30, 45, 60, 75, 90, 105, 120, 150, 180, 210, 240].map((m) => ({ value: String(m), label: m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}` }));
@@ -362,7 +363,7 @@ function ScheduleRows({ rows, label, gradeOnly, staff, onChange, dis, showRoom, 
                 <Fragment key={`${r.classId}-${r.subjectId}`}>
                   <tr className={cx(!e && "border-b border-line/70")}>
                     <th scope="row" className={cx("pr-2 py-2 text-left font-semibold whitespace-nowrap", !r.date && "text-ink3")}>{label(r)}</th>
-                    <td className="px-1 py-2"><input type="date" aria-label={`${label(r)} exam date`} aria-invalid={e ? true : undefined} disabled={dis} value={r.date} onChange={(ev) => onChange(r, { date: ev.target.value })} className={cx(cell(e), "!w-[138px] tnum")} /></td>
+                    <td className="px-1 py-2"><DateInput aria-label={`${label(r)} exam date`} aria-invalid={e ? true : undefined} disabled={dis} value={r.date} onChange={(ev) => onChange(r, { date: ev.target.value })} className={cx(cell(e), "!w-[138px] tnum")} /></td>
                     <td className="px-1 py-2">
                       <KeepSelect aria-label={`${label(r)} start time`} disabled={dis} value={r.startTime} onChange={(ev) => onChange(r, { startTime: ev.target.value })} className={cx(cell(), "!w-[104px]")}>
                         {timeOptions(r.startTime).map((t) => <option key={t} value={t}>{time12(t)}</option>)}
@@ -409,7 +410,7 @@ function ScheduleRows({ rows, label, gradeOnly, staff, onChange, dis, showRoom, 
             <li key={`${r.classId}-${r.subjectId}`} className={cx("rounded-2xl border p-3", e ? "border-bad/50" : "border-line")}>
               <p className="mb-2 font-semibold text-[14.5px]">{label(r)} {!r.date && <span className="text-[12.5px] font-normal text-ink3"><Words k="· left out until dated" /></span>}</p>
               <div className="grid grid-cols-2 gap-2">
-                <label className="col-span-2 flex flex-col gap-1 text-[12px] font-semibold text-ink3"><Words k="Exam date" /><input type="date" disabled={dis} value={r.date} onChange={(ev) => onChange(r, { date: ev.target.value })} className={cx(cell(e), "!h-11")} /></label>
+                <label className="col-span-2 flex flex-col gap-1 text-[12px] font-semibold text-ink3"><Words k="Exam date" /><DateInput disabled={dis} value={r.date} onChange={(ev) => onChange(r, { date: ev.target.value })} className={cx(cell(e), "!h-11")} /></label>
                 <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3"><Words k="Start time" />
                   <KeepSelect disabled={dis} value={r.startTime} onChange={(ev) => onChange(r, { startTime: ev.target.value })} className={cx(cell(), "!h-11")}>{timeOptions(r.startTime).map((t) => <option key={t} value={t}>{time12(t)}</option>)}</KeepSelect>
                 </label>

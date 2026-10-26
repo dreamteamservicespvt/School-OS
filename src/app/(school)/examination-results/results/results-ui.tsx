@@ -15,6 +15,7 @@ import { ActionSheet } from "../_components/sheets";
 import { cancelScheduledAction, publishAction, unpublishAction } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 type Sec = { id: string; label: string; ready: boolean; problems: string[]; published: boolean; scheduled: string | null; students: number };
 
@@ -70,7 +71,7 @@ export function PublishFlow({ keyName, title, sections, chosen, today, label = "
           </div>
           {when === "later" && (
             <div className="grid grid-cols-2 gap-3">
-              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2"><Words k="Date" /><input type="date" value={date} min={today} onChange={(e) => setDate(e.target.value)} className={cx(inputCls(), "h-11 tnum")} /></label>
+              <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2"><Words k="Date" /><DateInput value={date} min={today} onChange={(e) => setDate(e.target.value)} className={cx(inputCls(), "h-11 tnum")} /></label>
               <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2"><Words k="Time" />
                 <select value={time} onChange={(e) => setTime(e.target.value)} className={cx(inputCls(), "h-11")}>{TIMES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
               </label>

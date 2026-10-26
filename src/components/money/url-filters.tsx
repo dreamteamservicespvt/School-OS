@@ -12,6 +12,7 @@ import { Segmented, Switch, type SegOption } from "@/components/ui/controls";
 import { Spinner } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import { Words, useT } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 function useSetParam() {
   const router = useRouter();
@@ -94,11 +95,11 @@ export function UrlDates({ from, to, className }: { from: string; to: string; cl
     <div className={cx("grid grid-cols-2 gap-2.5", className)}>
       <label className="relative">
         <span className="sr-only"><Words k="From" /></span>
-        <input type="date" defaultValue={from} onChange={(e) => e.target.value && set({ from: e.target.value })} className={cx(inputCls(false), "tnum")} aria-label={tr.any("From")} />
+        <DateInput defaultValue={from} onChange={(e) => e.target.value && set({ from: e.target.value })} className={cx(inputCls(false), "tnum")} aria-label={tr.any("From")} />
       </label>
       <label className="relative">
         <span className="sr-only"><Words k="To" /></span>
-        <input type="date" defaultValue={to} onChange={(e) => e.target.value && set({ to: e.target.value })} className={cx(inputCls(false), "tnum")} aria-label={tr.any("To")} />
+        <DateInput defaultValue={to} onChange={(e) => e.target.value && set({ to: e.target.value })} className={cx(inputCls(false), "tnum")} aria-label={tr.any("To")} />
       </label>
     </div>
   );

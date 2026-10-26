@@ -10,6 +10,7 @@ import { inputCls } from "@/components/ui/field";
 import { PhoneCard, PhoneNotice } from "@/components/parent-link/phone-shell";
 import { submitSurveyAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { DateInput } from "@/components/ui/date-input";
 
 type Q = { id: string; kind: string; text: string; options: string[]; required: boolean };
 const RATING_WORDS = ["", "Very poor", "Poor", "Okay", "Good", "Very good"];
@@ -77,7 +78,7 @@ export function AnswerForm({ schoolId, token, questions }: { schoolId: string; t
               <textarea aria-labelledby={`ql-${q.id}`} value={v} maxLength={1000} rows={3} onChange={(e) => set(q.id, e.target.value)} className={cx(inputCls(bad), "mt-3 h-auto py-2.5 resize-y")} placeholder="Write here" />
             )}
             {q.kind === "date" && (
-              <input type="date" aria-labelledby={`ql-${q.id}`} value={v} onChange={(e) => set(q.id, e.target.value)} className={cx(inputCls(bad), "mt-3 h-12 tnum")} />
+              <DateInput aria-labelledby={`ql-${q.id}`} value={v} onChange={(e) => set(q.id, e.target.value)} className={cx(inputCls(bad), "mt-3 h-12 tnum")} />
             )}
             {bad && <p className="text-[12.5px] text-bad mt-2"><Words k="Please answer this question." /></p>}
           </PhoneCard>

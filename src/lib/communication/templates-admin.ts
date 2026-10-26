@@ -56,7 +56,12 @@ export async function ruleTemplateIds(tx: Tx, ctx: SchoolContext) {
   return map;
 }
 
-export type TemplateText = { language: string; subject: string | null; body: string; dltTemplateId: string | null };
+/**
+ * dltTemplateId: undefined from the school's own form, which never sets it (DREAM TEAM
+ * adds DLT IDs in the console): the current ID is kept while the text is unchanged,
+ * and a changed text has none until DREAM TEAM registers it.
+ */
+export type TemplateText = { language: string; subject: string | null; body: string; dltTemplateId?: string | null };
 export type TemplateInput = { name: string; category: string; channel: Channel; texts: TemplateText[] };
 
 /** Checks a template form; returns errors by field name (texts by "body:<language>"). */
@@ -106,18 +111,20 @@ export async function saveTemplate(tx: Tx, ctx: SchoolContext, id: string | null
     const current = await tx.templateVersion.findMany({ where: { schoolId: ctx.schoolId, templateId: id, isCurrent: true } });
     for (const text of input.texts) {
       const now = current.find((v) => v.language === text.language);
-      if (now && now.body === text.body && SAME(now.subject, text.subject) && SAME(now.dltTemplateId, text.dltTemplateId)) continue;
+      const sameText = Boolean(now && now.body === text.body && SAME(now.subject, text.subject));
+      const dltTemplateId = text.dltTemplateId !== undefined ? text.dltTemplateId : sameText ? now!.dltTemplateId : null;
+      if (now && sameText && SAME(now.dltTemplateId, dltTemplateId)) continue;
       if (now && now.whatsappStatus === "APPROVED" && (now.body !== text.body || !SAME(now.subject, text.subject))) {
         throw new TemplateProblem(`The ${LANGUAGES.find((l) => l.code === text.language)?.label ?? text.language} text is approved by WhatsApp and locked. Make a new template to change the wording.`);
       }
       const last = await tx.templateVersion.findFirst({ where: { templateId: id, language: text.language }, orderBy: { version: "desc" }, select: { version: true } });
       if (now) await tx.templateVersion.update({ where: { id: now.id }, data: { isCurrent: false } });
-      const keepWhatsapp = now && now.body === text.body && SAME(now.subject, text.subject);
+      const keepWhatsapp = now && sameText;
       await tx.templateVersion.create({
         data: {
           schoolId: ctx.schoolId, templateId: id, language: text.language, version: (last?.version ?? 0) + 1,
           subject: text.subject, body: text.body, variables: variablesIn(text.body),
-          dltTemplateId: input.channel === "sms" ? text.dltTemplateId : null,
+          dltTemplateId: input.channel === "sms" ? dltTemplateId : null,
           whatsappName: keepWhatsapp ? now.whatsappName : null,
           whatsappStatus: input.channel === "whatsapp" ? (keepWhatsapp ? now.whatsappStatus : "NOT_SUBMITTED") : null,
           whatsappNote: keepWhatsapp ? now.whatsappNote : null,
@@ -133,7 +140,7 @@ export async function saveTemplate(tx: Tx, ctx: SchoolContext, id: string | null
         schoolId: ctx.schoolId, name: input.name, category: input.category, channel: input.channel, createdById: ctx.userId,
         versions: { create: input.texts.map((text) => ({
           schoolId: ctx.schoolId, language: text.language, version: 1, subject: text.subject, body: text.body, variables: variablesIn(text.body),
-          dltTemplateId: input.channel === "sms" ? text.dltTemplateId : null,
+          dltTemplateId: input.channel === "sms" ? text.dltTemplateId ?? null : null,
           whatsappStatus: input.channel === "whatsapp" ? "NOT_SUBMITTED" : null, createdById: ctx.userId,
         })) },
       },
@@ -143,6 +150,30 @@ export async function saveTemplate(tx: Tx, ctx: SchoolContext, id: string | null
     await writeAudit(tx, ctx, { action: "created", recordType: "Template", recordId: t.id, actorNote: `Template "${input.name}" added (${input.channel})`, after: { name: input.name, category: input.category, channel: input.channel, languages: changed } });
   }
   return { id: templateId!, changed };
+}
+
+/**
+ * DREAM TEAM sets the DLT template ID of one SMS text from the console, as
+ * registered on the DLT portal for that exact text. Like any change, it makes a
+ * new version; the old one stays for messages already sent.
+ */
+export async function setSmsDltId(tx: Tx, ctx: SchoolContext, versionId: string, dltTemplateId: string) {
+  const v = await tx.templateVersion.findFirst({ where: { id: versionId, schoolId: ctx.schoolId, isCurrent: true }, include: { template: { select: { id: true, name: true, channel: true, archivedAt: true } } } });
+  if (!v || v.template.channel !== "sms" || v.template.archivedAt) throw new TemplateProblem("This SMS template was not found. It may have been changed or archived; refresh the page.");
+  const dlt = dltTemplateId.trim() || null;
+  const problem = checkDltId(dlt ?? "");
+  if (problem) throw new TemplateProblem(problem);
+  if (SAME(v.dltTemplateId, dlt)) return { name: v.template.name, dltTemplateId: dlt };
+  const last = await tx.templateVersion.findFirst({ where: { templateId: v.templateId, language: v.language }, orderBy: { version: "desc" }, select: { version: true } });
+  await tx.templateVersion.update({ where: { id: v.id }, data: { isCurrent: false } });
+  await tx.templateVersion.create({
+    data: {
+      schoolId: ctx.schoolId, templateId: v.templateId, language: v.language, version: (last?.version ?? v.version) + 1,
+      subject: v.subject, body: v.body, variables: v.variables, dltTemplateId: dlt, createdById: ctx.userId,
+    },
+  });
+  await writeAudit(tx, ctx, { action: "changed", recordType: "Template", recordId: v.templateId, actorNote: `DLT template ID ${dlt ? "set" : "removed"} on "${v.template.name}" (${v.language})`, before: { dltTemplateId: v.dltTemplateId }, after: { dltTemplateId: dlt } });
+  return { name: v.template.name, dltTemplateId: dlt };
 }
 
 /** Archives a template. Automatic rules then fall back to another template with the same key, or skip. */

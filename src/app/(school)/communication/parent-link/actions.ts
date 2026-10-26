@@ -72,7 +72,7 @@ export async function previewFamilies(form: FormData): Promise<FamiliesPreview> 
       if (!channel || !setups[channel].isOn) return { ok: false as const, message: "Neither WhatsApp nor SMS is switched on, so links cannot be sent. Switch one on in Settings, SMS, WhatsApp & Email." };
       const t = await templateByKey(tx, ctx, "parent-link", channel);
       const v = t ? await tx.templateVersion.findFirst({ where: { templateId: t.id, isCurrent: true }, orderBy: { language: "asc" } }) : null;
-      if (channel === "sms" && !v?.dltTemplateId) return { ok: false as const, message: "The Parent Link SMS template has no DLT template ID. Add it in Message Templates, or send by WhatsApp." };
+      if (channel === "sms" && !v?.dltTemplateId) return { ok: false as const, message: "The Parent Link SMS template has no DLT template ID yet; DREAM TEAM adds it. Send by WhatsApp for now." };
       const per = creditsFor(channel, (v?.body ?? "").replace("{link}", "https://x.in/p/" + "x".repeat(43)));
       const balances = await creditBalances(tx, ctx);
       return { ok: true as const, label: await whoLabel(tx, ctx.schoolId, who, access.scope.campusId), total: all.length, todo: todo.length, alreadyHave: all.length - todo.length, channel, credits: per * todo.length, balance: balances[channel], scheduled: scheduledAt ? at : null };

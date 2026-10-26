@@ -28,6 +28,12 @@ export type SchoolContext = {
    * Login here (userId is null), and every Audit Log line carries their name.
    */
   support?: { requestId: string; name: string } | null;
+  /**
+   * Set while a DREAM TEAM person sets up the school's technical connections
+   * from the console (07-super-admin.md §3.8): messaging providers, payment
+   * gateways and other connections. userId is null; Audit Log lines carry their name.
+   */
+  console?: { name: string } | null;
 };
 
 /**

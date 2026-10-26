@@ -226,7 +226,7 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
         <div className="rounded-2xl border border-line divide-y divide-line/70">
           {gateway
             ? <SettingRow title="Add the payment link" sub="Parents with a Parent Link get it, with its Pay button; others a Razorpay link for their exact dues, valid 7 days. Off: pay at the school office."><Switch on={link} onChange={setLink} label="Add the payment link" /></SettingRow>
-            : <SettingRow title="Payment link" sub="Online payment is not set up, so no payment link is added. Gateways are connected in Settings, Payment Gateways." />}
+            : <SettingRow title="Payment link" sub="Online payment is not set up, so no payment link is added. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support." />}
           <SettingRow title="Send" sub={when === "now" ? "Goes out now" : "Goes out tomorrow at 9:00 AM"}><Segmented size="sm" label="When" value={when} onChange={setWhen} options={[{ value: "now", label: "Now" }, { value: "later", label: "Tomorrow 9 AM" }]} /></SettingRow>
         </div>
         <div>

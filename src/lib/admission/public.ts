@@ -182,7 +182,7 @@ export async function sendFeeLink(tx: Tx, ctx: SchoolContext, v: Viewer, applica
   if (!app) throw new AdmissionProblem("This application was not found.");
   const st = feeStatus(app, app.payments);
   if (st.key === "not-needed" || st.key === "paid") throw new AdmissionProblem("Nothing is due on this application.");
-  if (!(await activeRazorpay(tx))) throw new AdmissionProblem("Online payment is not set up yet. Connect Razorpay in Settings, Payment Gateways, or collect the fee at the counter.");
+  if (!(await activeRazorpay(tx))) throw new AdmissionProblem("Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support. Until then, collect the fee at the counter.");
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true, code: true } });
   const name = app.fatherName ?? app.motherName ?? app.guardianName ?? "Parent";
   const link = `${appUrl()}${statusPath(school.code, ctx.schoolId, app.id)}`;

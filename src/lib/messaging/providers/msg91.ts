@@ -9,8 +9,8 @@ export function msg91Provider({ config, secrets }: ProviderConfig): Provider {
   return {
     key: "msg91",
     async send(msg: Outgoing): Promise<SendResult> {
-      if (!secrets.authKey) return { ok: false, retryable: false, reason: "The MSG91 auth key is missing. Add it in Settings, SMS, WhatsApp & Email." };
-      if (!msg.dltTemplateId) return { ok: false, retryable: false, reason: "This SMS template has no DLT template ID. Add it in Message Templates." };
+      if (!secrets.authKey) return { ok: false, retryable: false, reason: "SMS is not fully connected. Please tell DREAM TEAM support." };
+      if (!msg.dltTemplateId) return { ok: false, retryable: false, reason: "This SMS template has no DLT template ID yet. DREAM TEAM adds it." };
       const sender = msg.senderHeader || config.senderId;
       if (!sender) return { ok: false, retryable: false, reason: "The SMS sender header is missing. Add it in Settings, SMS, WhatsApp & Email." };
       try {

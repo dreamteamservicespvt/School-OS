@@ -44,7 +44,7 @@ async function payFeesEn(token: string, form: FormData): Promise<PayState> {
   try {
     path = await withSchool(g.ctx, async (tx) => (await startParentLinkPayment(tx, g.ctx, g.guardianId, studentId, dueIds)).payPath);
   } catch (e) {
-    if (e instanceof MoneyProblem) return { ok: false, message: e.message.includes("Payment Gateways") ? "Online payment is not available right now. Please pay at the school office." : e.message };
+    if (e instanceof MoneyProblem) return { ok: false, message: e.code === "no-gateway" ? "Online payment is not available right now. Please pay at the school office." : e.message };
     throw e;
   }
   redirect(path);

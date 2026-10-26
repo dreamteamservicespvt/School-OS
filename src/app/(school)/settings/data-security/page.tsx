@@ -158,7 +158,7 @@ export default async function DataSecurityPage() {
             {unreachable.length > 0 && (
               <Alert tone="warning" title={`No code can reach ${unreachable.length === 1 ? "1 person" : `${unreachable.length} people`} yet`}>
                 {unreachable.map((p) => p.displayName).join(", ")} <Words k="still sign" />{unreachable.length === 1 ? "s" : ""} <Words k="in with the password only, so nobody is locked out. Add a mobile number or email for them in" />{" "}
-                <Link href="/settings/users" className="font-medium text-brand-text underline"><Words k={"Users & Permissions"} /></Link><Words k=", or set up SMS in Communication." />
+                <Link href="/settings/users" className="font-medium text-brand-text underline"><Words k={"Users & Permissions"} /></Link><Words k=", or switch SMS on in Settings, SMS, WhatsApp & Email." />
               </Alert>
             )}
             {canEdit && <TwoStepSwitch on={data.twoStepOn} />}

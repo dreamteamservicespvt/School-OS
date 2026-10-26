@@ -197,7 +197,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                 </button>
               ))}
               <button type="submit" formAction={qrAction} data-plain="1" disabled={!gateway || selTotal === 0 || qrBusy}
-                title={gateway ? "A QR the parent scans with any UPI app" : "Connect Razorpay in Settings, Payment Gateways"}
+                title={gateway ? "A QR the parent scans with any UPI app" : "Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support."}
                 className="h-[58px] rounded-xl border border-dashed border-line flex flex-col items-center justify-center gap-1 text-[12.5px] font-semibold text-ink2 hover:border-brand hover:text-brand disabled:opacity-50 disabled:pointer-events-none">
                 {qrBusy ? <LoaderCircle size={18} className="animate-spin" aria-hidden="true" /> : <QrCode size={18} aria-hidden="true" />}<Words k="Show QR" />
               </button>
@@ -290,7 +290,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
             {busy ? "Saving payment…" : `Collect ${inr(Number.isNaN(amt) ? 0 : amt)}`}
           </Button>
           <Button type="submit" formAction={linkAction} data-plain="1" variant="ghost" className="w-full" icon={Send} loading={linkBusy} disabled={selTotal === 0 || !gateway}
-            title={gateway ? undefined : "Connect Razorpay in Settings, Payment Gateways"}><Words k="Send payment link instead" /></Button>
+            title={gateway ? undefined : "Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support."}><Words k="Send payment link instead" /></Button>
         </div>
       </Card>
     </form>

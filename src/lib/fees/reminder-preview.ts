@@ -64,7 +64,7 @@ export async function reminderSettingsPreview(tx: Tx, ctx: SchoolContext, today:
   const linkOn = (await messageSettings(tx, ctx)).parentLink.on;
   const online = gateway
     ? `Online payment is set up (${gateway.displayName}). Parents with a Parent Link pay there${linkOn ? "" : " (Parent Link is off now)"}; others get a payment link that works for 7 days.`
-    : "Online payment is not set up, so reminders say to pay at the school office. Connect Razorpay in Settings, Payment Gateways.";
+    : "Online payment is not set up, so reminders say to pay at the school office. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support.";
 
   const warnings: string[] = [];
   let sample: ReminderSettingsPreview["sample"] = null;

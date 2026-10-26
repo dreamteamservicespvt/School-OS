@@ -31,7 +31,7 @@ export function creditProblem(needs: Partial<Record<Channel, number>>, have: Rec
     const n = needs[c] ?? 0;
     if (n > have[c]) lines.push(`${c === "sms" ? "SMS" : "WhatsApp"} needs ${n.toLocaleString("en-IN")} credits. You have ${have[c].toLocaleString("en-IN")}.`);
   }
-  return lines.length ? `${lines.join(" ")} Top up in Settings, SMS, WhatsApp & Email, or send by app only.` : null;
+  return lines.length ? `${lines.join(" ")} Buy more from DREAM TEAM support, or send by app only.` : null;
 }
 
 export async function spendCredits(tx: Tx, ctx: SchoolContext, channel: Channel, amount: number, note: string, messageId: string | null) {

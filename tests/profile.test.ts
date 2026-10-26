@@ -75,12 +75,12 @@ describe("two-step login I choose", () => {
   });
 
   // The School Admin's own profile told them to "ask your School Admin" (2026-10-26).
-  it("tells a person who may set up SMS to do it, and only others to ask the School Admin", () => {
+  it("tells a person who may switch SMS on to do it, and only others to ask the School Admin", () => {
     for (const contact of [{ email: "a@b.in", phone: "9876543210" }, { email: null, phone: "9876543210" }]) {
       const mine = twoStepHelp(contact, true);
       expect(mine).toContain("Settings, SMS, WhatsApp & Email");
       expect(mine).not.toMatch(/school admin/i);
-      expect(twoStepHelp(contact, false)).toMatch(/ask your School Admin to set up SMS/i);
+      expect(twoStepHelp(contact, false)).toMatch(/ask your School Admin to switch SMS on/i);
     }
   });
 });

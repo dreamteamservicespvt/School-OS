@@ -109,7 +109,7 @@ export async function saveAgeing(tx: Tx, ctx: SchoolContext, ends: number[]) {
 export async function saveRouting(tx: Tx, ctx: SchoolContext, i: { default: string | null; byClass: Record<string, string> }) {
   const ids = [...new Set([i.default, ...Object.values(i.byClass)].filter((x): x is string => Boolean(x)))];
   const found = ids.length ? await tx.paymentGatewayAccount.count({ where: { id: { in: ids }, archivedAt: null } }) : 0;
-  if (found !== ids.length) throw new MoneyProblem("One of the gateways was not found. Connect it in Settings, Payment Gateways first.");
+  if (found !== ids.length) throw new MoneyProblem("One of the gateways was not found. It may have been archived. Refresh the page and choose again, or tell DREAM TEAM support.");
   const s = await feeSettings(tx, ctx);
   await save(tx, ctx, "gateway for each class", { gatewayRouting: { default: i.default, byClass: i.byClass } as Prisma.InputJsonValue }, { routing: s.routing });
 }

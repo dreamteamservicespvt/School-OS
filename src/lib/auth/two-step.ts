@@ -134,11 +134,11 @@ function unreachableWords(to: { email: string | null; phone: string | null }) {
 export function twoStepHelp(user: { email: string | null; phone: string | null }, setsUpSms = false): string {
   if (!user.email && !user.phone) return "Add your mobile number or email with Edit details at the top of this page. A one-time code confirms it, and from then on the sign-in code goes there.";
   if (!user.email) return setsUpSms
-    ? "Add your email with Edit details at the top of this page, or set up SMS in Settings, SMS, WhatsApp & Email, so the sign-in code can reach you."
-    : "Add your email with Edit details at the top of this page, or ask your School Admin to set up SMS (Settings, SMS, WhatsApp & Email), so the sign-in code can reach you.";
+    ? "Add your email with Edit details at the top of this page, or switch SMS on in Settings, SMS, WhatsApp & Email, so the sign-in code can reach you."
+    : "Add your email with Edit details at the top of this page, or ask your School Admin to switch SMS on (Settings, SMS, WhatsApp & Email), so the sign-in code can reach you.";
   return setsUpSms
-    ? "Set up SMS in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM to set up email, so the sign-in code can reach you."
-    : "Ask your School Admin to set up SMS (Settings, SMS, WhatsApp & Email), or DREAM TEAM to set up email, so the sign-in code can reach you.";
+    ? "Switch SMS on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM to set up email, so the sign-in code can reach you."
+    : "Ask your School Admin to switch SMS on (Settings, SMS, WhatsApp & Email), or DREAM TEAM to set up email, so the sign-in code can reach you.";
 }
 
 /**

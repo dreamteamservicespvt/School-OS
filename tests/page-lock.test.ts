@@ -46,8 +46,10 @@ describe("an open panel keeps the page behind it still", () => {
         const near = lines.slice(i, i + 4).join("\n");
         if (!/aria-modal="true"|data-scroll-lock/.test(near)) unseen.push(`${f}:${i + 1}`);
       });
-      // A <div role="dialog"> must say it is modal, or the lock cannot see it.
-      for (const m of text.matchAll(/role="dialog"[^>]*>/g)) if (!/aria-modal="true"/.test(m[0])) unseen.push(`${f}: ${m[0].slice(0, 60)}`);
+      // A <div role="dialog"> must say it is modal, or the lock cannot see it. A popover
+      // anchored to its field (the date picker) covers nothing and closes on Tab or a
+      // click away, so it stays non-modal and the page may scroll under it.
+      for (const m of text.matchAll(/<\w+[^<>]*role="dialog"[^>]*>/g)) if (!/aria-modal="true"|popover=/.test(m[0])) unseen.push(`${f}: ${m[0].slice(0, 60)}`);
       // A native <dialog> must open with showModal() (show() would leave the page free).
       if (/\.show\(\)/.test(text) && /<dialog/.test(text)) unseen.push(`${f}: dialog.show()`);
     }

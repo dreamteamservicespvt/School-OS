@@ -25,6 +25,7 @@ export const ACTIVITY_TYPES = {
   details: "Details",
   signin: "Console sign-in",
   support: "Support access",
+  connect: "Connections",
   export: "Export",
   system: "System",
 } as const;

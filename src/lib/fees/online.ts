@@ -101,7 +101,7 @@ export async function createPaymentLink(
   const amount = chosen.reduce((s, d) => s + d.balancePaise, ZERO);
   if (amount < BigInt(100)) throw new MoneyProblem("An online payment must be at least ₹1.", "dueIds");
   const gateway = await gatewayFor(tx, ctx, card.classId);
-  if (!gateway) throw new MoneyProblem("No payment gateway is switched on. Connect Razorpay in Settings, Payment Gateways.", undefined, { href: "/settings/payment-gateways", label: "Open Payment Gateways" });
+  if (!gateway) throw Object.assign(new MoneyProblem("No payment gateway is switched on. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support.", undefined, { href: "/settings/payment-gateways", label: "Open Payment Gateways" }), { code: "no-gateway" });
   const guardianId = input.guardianId ?? card.primaryGuardian?.id ?? null;
   if (input.reuseOpen && guardianId) {
     const rows = chosen.map((d) => d.id).sort().join(",");

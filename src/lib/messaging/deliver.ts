@@ -329,7 +329,7 @@ export async function retryFailed(tx: Tx, ctx: SchoolContext, messageId: string)
   for (const r of rows) if (PAID_CHANNELS.has(r.channel as Channel) && cost(r)) needs[r.channel] = (needs[r.channel] ?? 0) + cost(r);
   const have = await creditBalances(tx, ctx);
   for (const [ch, n] of Object.entries(needs)) {
-    if (n > have[ch as "sms" | "whatsapp"]) throw new MessagingProblem(`Retrying needs ${n} ${ch === "sms" ? "SMS" : "WhatsApp"} credits. You have ${have[ch as "sms" | "whatsapp"]}. Top up in Settings, SMS, WhatsApp & Email.`);
+    if (n > have[ch as "sms" | "whatsapp"]) throw new MessagingProblem(`Retrying needs ${n} ${ch === "sms" ? "SMS" : "WhatsApp"} credits. You have ${have[ch as "sms" | "whatsapp"]}. Buy more from DREAM TEAM support.`);
   }
   const now = new Date();
   for (const r of rows) {

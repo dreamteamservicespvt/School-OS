@@ -147,7 +147,7 @@ function ScheduleFields({ start, reports, presets, people }: { start: ScheduleSt
         {chosen.map((id) => <input key={id} type="hidden" name="recipientIds" value={id} />)}
         {toError ? <p className="text-[12.5px] text-bad" role="alert">{toError}</p> : <p className="text-[12.5px] text-ink3"><Words k="Only staff who may see this data can receive it" /></p>}
       </fieldset>
-      <p className="text-[12.5px] text-ink3"><Words k="Sends" /> {when}<Words k={". Email is set up in Settings, SMS, WhatsApp & Email."} /></p>
+      <p className="text-[12.5px] text-ink3"><Words k="Sends" /> {when}<Words k={". DREAM TEAM connects the school’s email; it is switched on in Settings, SMS, WhatsApp & Email."} /></p>
     </>
   );
 }

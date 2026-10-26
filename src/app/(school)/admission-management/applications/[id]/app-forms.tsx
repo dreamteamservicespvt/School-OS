@@ -81,7 +81,7 @@ export function AppActions({ id, name, applicationNo, parent, moves, canReview, 
                     <span className="flex-1"><b className="font-semibold text-[14px] block"><Words k="Send a Razorpay payment link" /></b><span className="text-[12.5px] text-ink3"><Words k="To +91" /> {fee.phone}<Words k=". UPI, card or net banking. The receipt is made only after Razorpay confirms." /></span></span>
                   </div>
                 ) : (
-                  <p className="text-[13px] text-ink3 rounded-xl bg-sunken px-3.5 py-3"><Words k="Online payment is not set up. Connect Razorpay in Settings, Payment Gateways, to send links." /></p>
+                  <p className="text-[13px] text-ink3 rounded-xl bg-sunken px-3.5 py-3"><Words k="Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support. Then you can send links." /></p>
                 )}
                 <button type="button" onClick={() => setSheet("counter")} className="flex items-center gap-3 rounded-xl border border-line p-3.5 text-left hover:bg-sunken/60 transition">
                   <span className="w-10 h-10 rounded-xl bg-sunken grid place-items-center shrink-0"><Banknote size={18} aria-hidden="true" /></span>

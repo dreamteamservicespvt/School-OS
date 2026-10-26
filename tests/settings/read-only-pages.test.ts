@@ -151,8 +151,9 @@ describe("every Settings change goes through the page check", () => {
       }
     };
     walk(root);
-    // 10 since paper consent forms (G42): data-security/consent/actions.ts.
-    expect(files.length).toBe(10);
+    // 10 since paper consent forms (G42): data-security/consent/actions.ts; 9 since payment
+    // gateways are set up from the console (07-super-admin.md §3.8), not in Settings.
+    expect(files.length).toBe(9);
     for (const f of files) {
       const src = readFileSync(f, "utf8");
       // Another module's check may follow the page check (G42: recording paper consent forms is Student Management's work).

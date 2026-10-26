@@ -3,10 +3,11 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import {
   Archive, ArchiveRestore, Award, Building2, ChartColumn, Check, CirclePause, CirclePlay, DoorOpen, EyeOff, Flag, GraduationCap, History, Hourglass, KeyRound, Layers, LayoutGrid, LifeBuoy, ListChecks, Lock, LogIn,
-  MessageCircle, Network, Pencil, Phone, ReceiptIndianRupee, Send, Smartphone, StickyNote, Trash2, UserPlus, UserX, BadgePercent,
+  MessageCircle, Network, Pencil, Phone, Plug, ReceiptIndianRupee, Send, Smartphone, StickyNote, Trash2, UserPlus, UserX, BadgePercent,
 } from "lucide-react";
 import { requireConsole } from "@/lib/console/current";
-import { withConsole } from "@/lib/db";
+import { withConsole, withConsoleSchool } from "@/lib/db";
+import { CHANNEL_LABEL, PROVIDER_CHANNELS } from "@/lib/messaging/channels";
 import { schoolAdmins } from "@/lib/console/measure";
 import { BOARDS, SCHOOL_TYPES, STATES, inviteState, listGroups, MOVES } from "@/lib/console/schools";
 import { notDeliveredWords } from "@/lib/console/outbox";
@@ -82,6 +83,14 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
   const { card: s, sub, invoices, history, notes, invites, log, list, sends } = data;
   const [admins, supportRows] = await Promise.all([schoolAdmins(id), supportRequests({ schoolId: id, take: 5 }, now)]);
   const supportOpen = supportRows.find((r) => r.status === "WAITING" || r.live) ?? null;
+  // What DREAM TEAM has connected for the school (07-super-admin.md §3.8); never a key.
+  const conn = c.can("connect") ? await withConsoleSchool(id, async (tx) => {
+    const [channels, gateways] = await Promise.all([
+      tx.messagingChannel.findMany({ where: { schoolId: id }, select: { channel: true, provider: true, isOn: true, environment: true } }),
+      tx.paymentGatewayAccount.count({ where: { schoolId: id, archivedAt: null, isActive: true } }),
+    ]);
+    return { channels, gateways };
+  }) : null;
 
   // Each admin's state, with the invite the console sent them.
   const people = admins.map((a) => {
@@ -126,6 +135,7 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
   if (s.status === "ACTIVE" && c.can("invoice")) head.push(<Link key="inv" href={to("invoice")} scroll={false} className={buttonClass(head.length ? "secondary" : "primary", "md", "flex-1 lg:flex-none")}><Send size={17} aria-hidden="true" />Send invoice</Link>);
   const menu: React.ReactNode[] = [
     <MenuLink key="note" href="#sa-note" icon={<StickyNote size={17} />}>Add a note</MenuLink>,
+    ...(c.can("connect") && s.status !== "CLOSED" ? [<MenuLink key="connect" href={`/console/schools/${id}/connections`} icon={<Plug size={17} />}>Connections: WhatsApp, SMS, email, payments</MenuLink>] : []),
     ...(c.can("group") && live ? [<MenuLink key="group" href={to("group")} icon={<Network size={17} />}>Set the school’s Group</MenuLink>] : []),
     ...(c.can("plan") && sub && live ? [<MenuLink key="plan" href={to("plan")} icon={<Layers size={17} />}>Change plan</MenuLink>] : []),
     ...(c.can("plan") && !sub && open ? [<MenuLink key="choose" href={to("choose")} icon={<Layers size={17} />}>Choose plan</MenuLink>] : []),
@@ -338,6 +348,20 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
 
       <Split side={380} className="mt-5">
         <Col>
+          {conn && live && (
+            <Card>
+              <CardHeader title="Connections" description="DREAM TEAM sets these up; the school only switches message channels on or off" icon={Plug}
+                action={<Link href={`${base}/connections`} className={buttonClass("soft", "sm")}>Set up</Link>} />
+              <ul className="px-5 pb-4 grid gap-1.5 text-[14px]">
+                {PROVIDER_CHANNELS.map((ch) => {
+                  const r = conn.channels.find((x) => x.channel === ch);
+                  const words = !r || r.provider === "sandbox" ? "Not connected" : r.environment !== "live" ? "Connected, test mode" : r.isOn ? "Connected, on" : "Connected, switched off";
+                  return <li key={ch} className="flex justify-between gap-3"><span>{CHANNEL_LABEL[ch]}</span><span className="text-ink2">{words}</span></li>;
+                })}
+                <li className="flex justify-between gap-3"><span>Payment gateways</span><span className="text-ink2">{conn.gateways ? `${conn.gateways} switched on` : "None switched on"}</span></li>
+              </ul>
+            </Card>
+          )}
           <Card>
             <CardHeader title="School Admin logins" description={`${actives.length} active · DREAM TEAM never sees or sets a password`} icon={KeyRound}
               action={c.can("invite") && live ? <Link href={to("admin")} scroll={false} className={buttonClass("soft", "sm")}><UserPlus size={15} aria-hidden="true" />Add<span className="hidden sm:inline">&nbsp;another School Admin</span></Link> : null} />

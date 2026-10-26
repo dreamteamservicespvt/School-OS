@@ -92,8 +92,8 @@ export function AgeingSheet({ closeHref, ends }: C & { ends: string }) {
 
 export function RoutingSheet({ closeHref, gateways, classes, s }: C & { gateways: Option[]; classes: Option[]; s: { default: string; byClass: Record<string, string> } }) {
   return (
-    <SheetForm title="Payment gateway for each class" sub="Gateways are connected in Settings, Payment Gateways." closeHref={closeHref} action={routingAction} submitLabel="Save" pendingText="Saving…" submitDisabled={!gateways.length}>
-      {!gateways.length ? <Alert tone="info"><Words k="No payment gateway is connected yet. Connect Razorpay in Settings, Payment Gateways." /></Alert> : (
+    <SheetForm title="Payment gateway for each class" sub="DREAM TEAM connects the gateways; you choose which classes use them." closeHref={closeHref} action={routingAction} submitLabel="Save" pendingText="Saving…" submitDisabled={!gateways.length}>
+      {!gateways.length ? <Alert tone="info"><Words k="No payment gateway is connected yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support." /></Alert> : (
         <>
           <SSelect name="default" label="Every class" start={s.default} options={gateways} placeholder="The first switched-on Razorpay" />
           {classes.map((c) => <SSelect key={c.value} name={`class:${c.value}`} label={c.label} start={s.byClass[c.value] ?? ""} options={gateways} placeholder="Same as every class" />)}

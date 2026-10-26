@@ -65,7 +65,6 @@ const RULES: Rule[] = [
   rule("library-management/books/:id", (tx, [id]) => tx.book.findFirst({ where: { id }, ...sel }), ["export", "import", "labels"]),
   rule("library-management/fines/stock/:id", (tx, [id]) => tx.stockCheckSession.findFirst({ where: { id }, ...sel })),
   rule("settings/forms-approvals/forms/:id", (tx, [id]) => tx.customForm.findFirst({ where: { id }, ...sel })),
-  rule("settings/payment-gateways/:id", (tx, [id]) => tx.paymentGatewayAccount.findFirst({ where: { id }, ...sel }), ["new"]),
   rule("staff-hr-management/:staffId", (tx, [id]) => tx.staff.findFirst({ where: { id }, ...sel }), ["add", "documents", "exit", "export", "files", "id-cards", "import", "leave", "recruitment", "settings"]),
   rule("staff-hr-management/exit/:exitId", (tx, [id]) => tx.exitCase.findFirst({ where: { id }, ...sel }), ["new"]),
   rule("student-management/behaviour/:id", (tx, [id]) => tx.behaviourIncident.findFirst({ where: { id }, ...sel }), ["career", "counselling", "new"]),

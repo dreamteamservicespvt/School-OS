@@ -169,7 +169,7 @@ export default async function SettingsPage({ searchParams }: Props) {
                 action={<ButtonLink size="sm" variant="secondary" href="/communication/settings#automatic"><Words k="Change the message" /></ButtonLink>} />
               <div className="border-t border-line/70 px-5 py-4 space-y-3">
                 {message && !message.on && <Alert tone="warning" title="No absence message goes to parents"><Words k="The “Absent today” message is switched off in Communication, Message Settings." /></Alert>}
-                {message?.on && !message.ready && <Alert tone="warning" title="No absence message goes to parents"><Words k="No channel that can carry it is switched on. Connect WhatsApp or SMS in Settings, Messaging." /></Alert>}
+                {message?.on && !message.ready && <Alert tone="warning" title="No absence message goes to parents"><Words k="No channel that can carry it is switched on. Switch WhatsApp or SMS on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect one." /></Alert>}
                 {s.absenceAlertOn ? null : <Alert tone="info" title="Absence messages are off here"><Words k="Switch on “Absence message to parents” below to send it after each register." /></Alert>}
                 <p className="eyebrow text-ink3"><Words k="Message parents get" /></p>
                 <div className="max-w-md rounded-2xl rounded-tl-md bg-ok/10 px-4 py-3 text-[14px] leading-relaxed">

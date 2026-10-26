@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { SelectField, TextArea, TextField } from "@/components/ui/field";
+import { SelectField, TextField } from "@/components/ui/field";
 import { Alert, FormMessage } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -9,9 +9,8 @@ import { ConfirmButton } from "@/components/ui/confirm";
 import { Dialog } from "@/components/ui/dialog";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { ActionButton } from "../action-button";
-import { INTEGRATION_STATUS, checkIntegrationFields, type IntegrationDef } from "@/lib/settings/switch-rules";
 import {
-  applyTemplateAction, assistantAction, connectAction, disconnectAction, featureAction, moduleAction, preferencesAction, previewTemplateAction, retestAction, type PreviewState,
+  applyTemplateAction, assistantAction, featureAction, moduleAction, preferencesAction, previewTemplateAction, type PreviewState,
 } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
@@ -170,66 +169,5 @@ export function AssistantForm({ on, roles, chosen, mayEdit, dailyLimit, platform
       )}
       {mayEdit && <SubmitButton variant="secondary" pendingText="Saving…"><Words k="Save AI assistant" /></SubmitButton>}
     </form>
-  );
-}
-
-export function IntegrationCard({ def, status, config, hasSecrets, lastCheck, lastError, mayEdit }: {
-  def: IntegrationDef; status: string; config: Record<string, string>; hasSecrets: boolean; lastCheck: string | null; lastError: string | null; mayEdit: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const [state, action] = useActionState(connectAction, null);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-  const st = INTEGRATION_STATUS[status] ?? INTEGRATION_STATUS["not-connected"];
-  const connected = status !== "not-connected";
-  const shown = { ...errors, ...(state?.errors ?? {}) };
-  return (
-    <li className="flex flex-col gap-3 rounded-xl border border-line p-4">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <p className="font-medium">{def.name}</p>
-          <p className="text-sm text-ink-2">{def.about}</p>
-        </div>
-        <Badge tone={st.tone}>{st.label}</Badge>
-      </div>
-      {lastCheck && <p className="text-xs text-ink-2"><Words k="Last checked" /> {lastCheck}{status === "error" && lastError ? `: ${lastError}` : ""}</p>}
-      {mayEdit && (
-        <div className="flex flex-wrap gap-2">
-          <Button size="sm" variant={connected ? "secondary" : "primary"} onClick={() => setOpen(true)}>{connected ? "Change details" : "Connect"}</Button>
-          {connected && <ActionButton label="Test" pendingLabel="Testing…" run={() => retestAction(def.key)} />}
-          {connected && (
-            <ConfirmButton trigger="Disconnect" triggerVariant="ghost" title={`Disconnect ${def.name}?`} confirmLabel={`Disconnect ${def.name}`} confirmVariant="danger" onConfirm={() => disconnectAction(def.key)}>
-              <Words k="School OS stops using" /> {def.name}<Words k=". The saved details and keys are removed; you will need them again to reconnect." />
-            </ConfirmButton>
-          )}
-        </div>
-      )}
-      <Dialog open={open} onClose={() => setOpen(false)} title={`${connected ? "Change" : "Connect"} ${def.name}`}>
-        <form action={action} className="space-y-4" noValidate onSubmit={(e) => {
-          const fd = new FormData(e.currentTarget);
-          const found = checkIntegrationFields(def, Object.fromEntries(def.fields.map((f) => [f.key, String(fd.get(f.key) ?? "")])), { secretsKept: hasSecrets });
-          setErrors(found);
-          if (Object.keys(found).length) e.preventDefault();
-        }}>
-          <input type="hidden" name="key" value={def.key} />
-          <FormMessage state={state} />
-          {def.fields.map((f) => {
-            const common = { label: f.label, name: f.key, required: f.required, error: shown[f.key], placeholder: f.placeholder };
-            if (f.type === "secret" && f.key === "serviceKey") {
-              return <TextArea key={f.key} {...common} rows={4} autoComplete="off" spellCheck={false} help={hasSecrets ? "A key is saved. Leave blank to keep it." : f.help} required={f.required && !hasSecrets} />;
-            }
-            return (
-              <TextField key={f.key} {...common} type={f.type === "secret" ? "password" : f.type === "email" ? "email" : f.type === "url" ? "url" : "text"}
-                autoComplete={f.type === "secret" ? "new-password" : "off"} defaultValue={f.type === "secret" ? "" : state?.values?.[f.key] ?? config[f.key] ?? ""}
-                help={f.type === "secret" && hasSecrets ? "Saved. Leave blank to keep it." : f.help} required={f.required && !(f.type === "secret" && hasSecrets)} />
-            );
-          })}
-          <p className="text-sm text-ink-2"><Words k="Saving tests the details straight away." /></p>
-          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
-            <Button variant="secondary" onClick={() => setOpen(false)}><Words k="Close" /></Button>
-            <SubmitButton pendingText="Saving and testing…"><Words k="Save and test" /></SubmitButton>
-          </div>
-        </form>
-      </Dialog>
-    </li>
   );
 }

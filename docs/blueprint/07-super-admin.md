@@ -42,7 +42,7 @@ These are people in DREAM TEAM SERVICES, not school staff. The owner can change 
 | Role | What they do | What they can do here |
 |---|---|---|
 | **Owner** | Runs DREAM TEAM SERVICES. | Everything, including the Team page, closing a school, discounts and marking a bank transfer or cheque as paid. |
-| **Onboarding** | Signs up new schools and gets them started. | Add schools, create and resend School Admin invites, see setup progress, start trials. Cannot close a school. |
+| **Onboarding** | Signs up new schools and gets them started. | Add schools, create and resend School Admin invites, see setup progress, start trials, and set up each school's Connections (section 3.8). Cannot close a school. |
 | **Support** | Helps schools that are stuck. | See schools and their admins, resend invites, reset an admin's login, ask a school for support access. Cannot add or close schools. |
 
 Every Super Admin user signs in with a password and a one-time code on their phone, every time on a new device (two-step login is always on here).
@@ -109,7 +109,7 @@ The menu has six items. Version 1 needs all six before the first school is sold.
 - **Notes:** short notes the team writes, such as "Principal prefers calls after 4 PM." Visible only inside DREAM TEAM.
 - **Plan and billing** (section 3.5): plan and add-ons, students paid for against active students today, price per student, any discount (group or founding school), renewal date, credits left, invoices with paid or unpaid.
 
-**Actions:** edit details (before first sign-in), add another School Admin, resend or cancel an invite, reset an admin's login, disable an admin, change status, add a note, request support access, change plan, send an invoice, set the school's Group.
+**Actions:** open the school's Connections (section 3.8), edit details (before first sign-in), add another School Admin, resend or cancel an invite, reset an admin's login, disable an admin, change status, add a note, request support access, change plan, send an invoice, set the school's Group.
 
 **Restore this school's data to a moment** (Owner only): used when the school asks in writing, for example after a wrong bulk import it cannot undo. Brings back only this school's data as it was at the chosen moment, without touching other schools (`08-platform-security.md` §4). The school's admins are told before and after, and both steps go in the Activity Log.
 
@@ -162,6 +162,23 @@ As built (gap G35, inferred): support access is for looking only. The support us
 
 - List: name, phone, email, role, status, last sign-in.
 - Actions: add a team member (invite by link, as for school admins), change role, disable. The last active Owner cannot be disabled.
+
+### 3.8 Connections (decided 26 October 2026)
+
+**Purpose:** DREAM TEAM sets up every technical connection a school needs. Schools never type a key, secret, provider ID, server address or webhook, because their staff do not know them.
+
+**What the person sees** (Owner and Onboarding; opened from one school's page)
+
+- **SMS, WhatsApp & Email:** for each channel, the provider (WhatsApp Business through Meta, MSG91, an email server, or test mode), its IDs and keys (encrypted, never shown again, only the last 4 characters), test mode or sending for real, on or off, the delivery report address to give the provider, and **Send test**.
+- **SMS: DLT registration:** the school's DLT entity ID and sender header. SMS cannot be switched on without both.
+- **Message credits:** credits left per channel; add credits by hand with a note, or correct a mistake with a minus number. Credits on a paid credits invoice are added by themselves (section 3.5).
+- **SMS template DLT IDs:** every current SMS text of the school, exactly as written, with its DLT template ID. A text without one cannot be sent. When the school changes a text, the new text needs a new ID.
+- **Payment gateways:** the school's own Razorpay account (and later others): add, test, switch on or off, edit keys, archive, and the bank accounts Razorpay splits payments into. Typing the gateway's name confirms live mode and key changes.
+- **Other connections:** Google or Microsoft account, Tally, printers, CCTV, an outside learning platform, devices and webhooks: connect, change details, test, disconnect.
+
+**What the school sees instead:** in Settings, SMS, WhatsApp & Email, each channel's status (connected by DREAM TEAM or not yet, test mode or for real, the number or sender parents see, last test), credits and their history, and the DLT details read-only. The school switches each message channel on or off and sets its low-credit alert. Settings, Payment Gateways and the connections in Settings, Modules On/Off show status only. Which classes or fee heads use which gateway stays a school choice in Fee Management, Fee Settings. Every screen that used to send the school to type these says "DREAM TEAM connects it; tell DREAM TEAM support".
+
+**Rules:** every change is written in the school's own Audit Log as "DREAM TEAM: <name>" and in the console's Activity Log. The console sees only these connection records of the school, never its students, fees or staff.
 
 ### 3.7 Activity Log
 
@@ -400,6 +417,7 @@ The owner asked for these to be decided on 9 October 2026. Each took the recomme
 | How does the school admin get the login? | **An invite link on WhatsApp and SMS.** The admin confirms a one-time code and sets their own password. DREAM TEAM never knows it. |
 | May DREAM TEAM look inside a school's data? | **Only when the school taps Allow,** for a set time, with every action recorded in the school's own audit log (section 3.4). |
 | How do people sign in? | **One sign-in page for every school,** with the mobile number as username. People who work in several schools of a group pick the school with the School switcher. |
+| Who connects a school's SMS, WhatsApp, email, payment gateways and other connections? | **DREAM TEAM, from the console** (section 3.8; the owner, 26 October 2026: schools do not know these details). The school only sees the status and switches message channels on or off. |
 | Who uses the console? | **Owner, Onboarding and Support** (section 2). Until DREAM TEAM has more people, one person can hold the Owner role alone. |
 | When is it built? | **Before the first school is sold:** Add School, the invite and the school statuses at the end of Stage 2; Plans & Billing before the first trial ends (30 days later). (inferred from the build order) |
 

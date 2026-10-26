@@ -65,7 +65,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
         {data.noDlt > 0 && params.filters.status !== "dlt-missing" && (
           <Banner tone="warn" title={`${data.noDlt} SMS ${data.noDlt === 1 ? "template has" : "templates have"} no DLT template ID.`}
             action={<ButtonLink href="/communication/templates?status=dlt-missing" size="sm" variant="secondary"><Words k="Show them" /></ButtonLink>}>
-            <Words k="They can be saved, but no SMS can be sent from them." />
+            <Words k="No SMS can be sent from them until DREAM TEAM adds the ID." />
           </Banner>
         )}
         <Card className="overflow-hidden min-w-0">

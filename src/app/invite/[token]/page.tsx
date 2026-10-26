@@ -20,7 +20,7 @@ export default async function InvitePage({ params, searchParams }: { params: Pro
   const t = await getT();
   if (!user) {
     return (
-      <AuthFrame eyebrow="Invite link" title="This link has expired" sub="Invite links work once, for 7 days. Ask your School Admin to send you a new one.">
+      <AuthFrame eyebrow="Invite link" title="This link has expired" sub="Invite links work once, for 7 days. Ask the person who sent it for a new one.">
         <ButtonLink href="/sign-in" variant="primary" size="lg" className="w-full"><Words k="Go to sign in" /></ButtonLink>
       </AuthFrame>
     );

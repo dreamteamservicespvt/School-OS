@@ -199,7 +199,12 @@ export async function requestApproval(tx: Tx, ctx: SchoolContext, req: NewReques
   if (!route) {
     const people = (await holders(tx, ctx.schoolId, { approverRole: "principal" })).filter(notSelf);
     const admins = people.length ? people : (await holders(tx, ctx.schoolId, { approverRole: "school-admin" })).filter(notSelf);
-    if (admins.length === 0) throw new Error("Nobody else can approve this yet. Ask your School Admin to add a Principal (Settings, Users & Permissions).");
+    if (admins.length === 0) {
+      // Often the person asking is the school's only School Admin: tell them to add the approver, not to ask themselves.
+      throw new Error(await holdsRole(tx, ctx, "school-admin")
+        ? "Nobody else can approve this yet. Add a Principal or another School Admin in Settings, Users & Permissions."
+        : "Nobody else can approve this yet. Ask your School Admin to add a Principal (Settings, Users & Permissions).");
+    }
     route = { role: people.length ? "principal" : "school-admin", user: null, people: admins };
     index = steps.length;
   }

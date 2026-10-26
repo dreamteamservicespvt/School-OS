@@ -112,7 +112,8 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
           action={<Link href={`${BASE}/register`} className={buttonClass("secondary", "md")}><Words k="Open the register" /></Link>}>
           {periodWise
             ? "Your Time Table has no periods for you on this date. If you are covering a class, ask for the substitution to be arranged."
-            : "Daily attendance is taken by the class teacher. You are not class teacher of any section this year. Ask the principal if you need a class."}
+            : access.admin ? "There are no sections to take this year. Add classes and sections in Academic Management."
+              : "Daily attendance is taken by the class teacher. You are not class teacher of any section this year. Ask the principal if you need a class."}
         </EmptyState>
       ) : sheet.students.length === 0 ? (
         <EmptyState title={`No students in ${sheet.section.name}`} Icon={Users}

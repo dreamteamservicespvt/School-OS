@@ -2,7 +2,7 @@
 // and a person may switch on two-step login for themselves (00-global.md §1.4).
 import { beforeAll, describe, expect, it } from "vitest";
 import { prisma } from "@/lib/db";
-import { cleanMobile, confirmContactChange, needsTwoStep, startContactChange, verifyChallenge } from "@/lib/auth/two-step";
+import { cleanMobile, confirmContactChange, needsTwoStep, startContactChange, twoStepHelp, verifyChallenge } from "@/lib/auth/two-step";
 import { readNotePrefs, channelsForType } from "@/lib/notification-kinds";
 import { makeSchool, makeUser } from "./helpers";
 
@@ -72,6 +72,16 @@ describe("two-step login I choose", () => {
     expect(await needsTwoStep(user.id, school.id)).toBe(false);
     await prisma.userLogin.update({ where: { id: user.id }, data: { twoStepChosen: true } });
     expect(await needsTwoStep(user.id, school.id)).toBe(true);
+  });
+
+  // The School Admin's own profile told them to "ask your School Admin" (2026-10-26).
+  it("tells a person who may set up SMS to do it, and only others to ask the School Admin", () => {
+    for (const contact of [{ email: "a@b.in", phone: "9876543210" }, { email: null, phone: "9876543210" }]) {
+      const mine = twoStepHelp(contact, true);
+      expect(mine).toContain("Settings, SMS, WhatsApp & Email");
+      expect(mine).not.toMatch(/school admin/i);
+      expect(twoStepHelp(contact, false)).toMatch(/ask your School Admin to set up SMS/i);
+    }
   });
 });
 

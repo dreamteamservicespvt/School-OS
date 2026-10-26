@@ -48,7 +48,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
       <>
         <PageTop page={page} href={PATH} />
         <EmptyState title="No report cards for you" Icon={Award}>
-          <p><Words k="Report cards are written by the class teacher of each section. You are not a class teacher this year. Ask the Principal if this is wrong." /></p>
+          <p>{s.manage ? <Words k="There are no sections this year yet. Add classes and sections in Academic Management." /> : <Words k="Report cards are written by the class teacher of each section. You are not a class teacher this year. Ask the Principal if this is wrong." />}</p>
         </EmptyState>
       </>
     );

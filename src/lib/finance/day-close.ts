@@ -155,7 +155,7 @@ export async function reopenDay(tx: Tx, ctx: SchoolContext, closeId: string, rea
   const why = reason.trim().replace(/\s+/g, " ");
   if (opts.undo) {
     if (close.closedById !== ctx.userId) throw new MoneyProblem("Only the person who closed the day can undo it.");
-    if (Date.now() - close.closedAt.getTime() > 2 * 60_000) throw new MoneyProblem("It is too late to undo. Ask the Principal to reopen the day.");
+    if (Date.now() - close.closedAt.getTime() > 2 * 60_000) throw new MoneyProblem("It is too late to undo. Someone else reopens the day: the Principal or the School Admin.");
   } else {
     if (close.closedById && close.closedById === ctx.userId) throw new MoneyProblem("You closed this day, so someone else reopens it: the Principal or the School Admin.");
     if (why.length < 5) throw new MoneyProblem("Say why the day is reopened, in a few words.", "reason");

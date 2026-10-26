@@ -16,6 +16,11 @@ describe("no-access words", () => {
     expect(w.body).toBe("The School Admin can switch it on in Settings, Modules On/Off. Nothing is lost while it is off.");
   });
 
+  it("tells a person who may switch modules on to do it, not to ask the School Admin", () => {
+    const w = noAccessWords({ ...base, roles: "School Admin", off: true, hasModule: true, turnsOn: true });
+    expect(w.body).toBe("Switch it on in Settings, Modules On/Off. Nothing is lost while it is off.");
+  });
+
   it("keeps the words for a module not in the person's menu", () => {
     const w = noAccessWords({ ...base, roles: "Teacher", off: false, hasModule: false });
     expect(w.kind).toBe("not-in-menu");

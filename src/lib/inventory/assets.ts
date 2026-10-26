@@ -185,7 +185,7 @@ export async function addRepair(tx: Tx, ctx: SchoolContext, input: { assetId: st
 async function repairHead(tx: Tx, ctx: SchoolContext) {
   await ensureFinanceDefaults(tx, ctx);
   const h = (await tx.accountHead.findFirst({ where: { kind: "EXPENSE", archivedAt: null, name: "Repairs and maintenance" } })) ?? (await tx.accountHead.findFirst({ where: { kind: "EXPENSE", archivedAt: null, name: "Miscellaneous" } }));
-  if (!h) throw new InventoryProblem("Finance has no expense head for repairs. Ask the Accountant to add one.");
+  if (!h) throw new InventoryProblem("Finance has no expense head for repairs. Add one in Finance Management, Settings (the Accountant can).");
   return h.id;
 }
 

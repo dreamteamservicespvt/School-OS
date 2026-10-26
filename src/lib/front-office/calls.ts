@@ -66,7 +66,7 @@ export async function deskEnquiry(tx: Tx, ctx: SchoolContext, current: Pick<Curr
   const v = await viewerFor(tx, ctx, current);
   const s = await loadSettings(tx, ctx);
   const year = await admissionYear(tx, ctx, s);
-  if (!year) throw new FrontOfficeProblem("Admissions have no open year. Ask the School Admin to set the admission year in Admission Management.");
+  if (!year) throw new FrontOfficeProblem("Admissions have no open year. Set the admission year in Admission Management, Settings (the School Admin can).");
   const campus = await tx.campus.findFirst({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }], select: { id: true } });
   if (!campus) throw new FrontOfficeProblem("Add a campus in Settings first.");
   const e = await createEnquiry(tx, ctx, v, s, {
@@ -130,7 +130,7 @@ export async function logCall(tx: Tx, ctx: SchoolContext, current: Pick<Current,
     await ensureTopics(tx, ctx);
     const topic = await tx.queryTopic.findFirst({ where: { name: "Other", archivedAt: null } });
     const handler = topic?.defaultOwnerId || topic?.defaultDepartmentId ? null : await handlerFor(tx, ctx, "Office");
-    if (!topic?.defaultOwnerId && !topic?.defaultDepartmentId && !handler) throw new FrontOfficeProblem("Nobody can own the query yet. Ask the School Admin to set a default owner in Communication, Feedback & Queries.");
+    if (!topic?.defaultOwnerId && !topic?.defaultDepartmentId && !handler) throw new FrontOfficeProblem("Nobody can own the query yet. Set a default owner in Communication, Feedback & Queries (the School Admin can).");
     const r = await logQuery(tx, ctx, {
       fromType: known?.guardianId ? "guardian" : "other", fromId: known?.guardianId ?? null, fromName: known?.guardianId ? null : name, fromPhone: known?.guardianId ? null : phone,
       aboutStudentId: null, type: "complaint", topicId: topic?.id ?? null, details: note, priority: "normal", ownerId: handler?.loginId ?? null, departmentId: null, cameBy: "phone",

@@ -36,7 +36,7 @@ async function placeOf(tx: Tx, ctx: SchoolContext, choice: PlaceChoice, assertHo
     const found = await hostelRoom(tx, hostel);
     if (found) return found.id;
     const campus = await tx.campus.findFirst({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }] });
-    if (!campus) throw new HostelProblem("The school has no campus yet. Ask the School Admin.", "placeId");
+    if (!campus) throw new HostelProblem("The school has no campus yet. Add it in Settings, School Profile (the School Admin can).", "placeId");
     // A place of the same name archived earlier comes back rather than clashing with it.
     const old = await tx.room.findFirst({ where: { campusId: campus.id, name: hostel.name.trim(), archivedAt: { not: null } } });
     const room = old

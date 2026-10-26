@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { can } from "@/lib/permissions";
 import Link from "next/link";
 import type { Prisma } from "@prisma/client";
 import { withSchool, type Tx } from "@/lib/db";
@@ -123,7 +124,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
 
   async function Mine() {
     const me = base.me;
-    if (!me) return <EmptyState title="Your login is not linked to a staff record"><Words k="Ask HR to link it, or to apply leave for you." /></EmptyState>;
+    if (!me) return <EmptyState title="Your login is not linked to a staff record">{can(current.permissions, "staff-hr-management", "create") ? <Words k="To link it, bring yourself in with Import staff in Staff & HR, using the name and mobile number on your login." /> : <Words k="Ask HR to link it, or to apply leave for you." />}</EmptyState>;
     const data = await withSchool(current.ctx, async (tx) => {
       const year = await leaveYearFor(tx, current.ctx, today, me.campusId);
       const balances = year ? (await balancesFor(tx, current.ctx, [me.id], year.id)).get(me.id) ?? [] : [];

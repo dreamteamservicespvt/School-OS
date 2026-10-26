@@ -269,7 +269,7 @@ async function headFor(tx: Tx, ctx: SchoolContext, order: (PurchaseOrder & { lin
   if (s.defaultExpenseHeadId && (await tx.accountHead.findFirst({ where: { id: s.defaultExpenseHeadId, kind: "EXPENSE", archivedAt: null } }))) return s.defaultExpenseHeadId;
   await ensureFinanceDefaults(tx, ctx);
   const misc = await tx.accountHead.findFirst({ where: { kind: "EXPENSE", archivedAt: null, name: "Miscellaneous" } }) ?? (await tx.accountHead.findFirst({ where: { kind: "EXPENSE", archivedAt: null } }));
-  if (!misc) throw new InventoryProblem("Finance has no expense heads yet. Ask the Accountant to set up Finance first.");
+  if (!misc) throw new InventoryProblem("Finance has no expense heads yet. Set up Finance Management first (the Accountant can).");
   return misc.id;
 }
 

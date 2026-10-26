@@ -74,7 +74,7 @@ export async function signIn(usernameInput: string, password: string, device: De
 
   if (user.lockedUntil && user.lockedUntil > now) {
     const minutes = Math.ceil((user.lockedUntil.getTime() - now.getTime()) / 60000);
-    return { ok: false, message: `This login is locked for ${minutes} more minute${minutes === 1 ? "" : "s"} after too many wrong passwords. Try again later, or ask your School Admin.` };
+    return { ok: false, message: `This login is locked for ${minutes} more minute${minutes === 1 ? "" : "s"} after too many wrong passwords. Try again later, or ask your School Admin or DREAM TEAM support.` };
   }
 
   if (user.failedAttempts >= SLOW_DOWN_AFTER) {
@@ -100,12 +100,12 @@ export async function signIn(usernameInput: string, password: string, device: De
   }
 
   if (user.status !== "ACTIVE") {
-    return { ok: false, message: "This login is switched off. Ask your School Admin to switch it on." };
+    return { ok: false, message: "This login is switched off. Ask your School Admin, or DREAM TEAM support, to switch it on." };
   }
 
   const schools = await schoolsFor(user.id);
   if (schools.length === 0) {
-    return { ok: false, message: "Your login is not linked to any school yet. Ask your School Admin to give you access." };
+    return { ok: false, message: "Your login is not linked to any school yet. Ask your School Admin, or DREAM TEAM support, to give you access." };
   }
   const schoolId = schools[0].id;
 
@@ -229,7 +229,7 @@ export async function startSecondStep(userLoginId: string, schoolId: string, dev
   return { kind: "signed-in", token, why: started.message };
 }
 
-const CANNOT_SEND = "We could not send a code to that login. Check what you typed, or ask your School Admin to send you a new invite link.";
+const CANNOT_SEND = "We could not send a code to that login. Check what you typed, or ask your School Admin, or DREAM TEAM support, for a new invite link.";
 /** Said to a person whose role needs two-step login when a code alone cannot sign them in. */
 export const CODE_ALONE_WORDS = "Your role needs your password and a one-time code to sign in, so one code alone is not enough. Signing in with codes needs both an email and a mobile number on your login that codes can reach. If you forgot your password, ask your Principal or another School Admin for a new sign-in link, or call DREAM TEAM support.";
 
@@ -256,7 +256,7 @@ export async function startCodeSignIn(typed: string, device: DeviceInfo, opts: {
     only = "email";
   }
   const started = await startChallenge(user.id, school.id, device, { now, deliver: opts.deliver, purpose: "code-sign-in", only });
-  if (!started.ok) return { ok: false, message: started.unreachable ? `${started.message} Sign in with your password, or ask your School Admin.` : started.message };
+  if (!started.ok) return { ok: false, message: started.unreachable ? `${started.message} Sign in with your password, or ask your School Admin or DREAM TEAM support.` : started.message };
   return { ok: true, token: started.token };
 }
 
@@ -290,7 +290,7 @@ export async function afterRightCode(
   if (v.purpose === "code-sign-in" && (await needsTwoStepInAny(v.userLoginId, await schoolsFor(v.userLoginId)))) {
     const only = v.channel === "sms" ? "email" : "phone";
     const s = await startChallenge(v.userLoginId, v.schoolId, device, { now, deliver: opts.deliver, purpose: "code-sign-in-second", only });
-    if (!s.ok) return { kind: "problem", message: `${s.message} Your role needs a second code ${only === "phone" ? "on your mobile" : "by email"}. Sign in with your password instead, or ask your School Admin.` };
+    if (!s.ok) return { kind: "problem", message: `${s.message} Your role needs a second code ${only === "phone" ? "on your mobile" : "by email"}. Sign in with your password instead, or ask your School Admin or DREAM TEAM support.` };
     return { kind: "second-code", token: s.token, sentTo: s.sentTo };
   }
   const { token } = await completeSignIn(v.userLoginId, v.schoolId, device, now, { byCode: v.purpose !== "sign-in" });

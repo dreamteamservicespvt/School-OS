@@ -143,7 +143,7 @@ export async function checkIn(tx: Tx, ctx: SchoolContext, input: CheckInInput): 
   }
 
   const fence = await tx.geoFence.findUnique({ where: { schoolId_campusId: { schoolId: ctx.schoolId, campusId } } });
-  if (input.method === "mobile" && !fence) return { ok: false, message: "The campus area is not set yet, so mobile check-in cannot work. Ask the School Admin." };
+  if (input.method === "mobile" && !fence) return { ok: false, message: "The campus area is not set yet, so mobile check-in cannot work. Set it in Attendance Management, Devices & QR (the School Admin or Principal can)." };
   const far = fenceCheck(fence, who, input.location);
   if (far) return { ok: false, message: far };
 

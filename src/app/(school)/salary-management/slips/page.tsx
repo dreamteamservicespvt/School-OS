@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { can } from "@/lib/permissions";
 import { redirect } from "next/navigation";
 import { ArrowUpRight, Calculator, Download, Eye, Hourglass, Info, Printer, ReceiptText, SearchX, Send, UserRound } from "lucide-react";
 import { withSchool } from "@/lib/db";
@@ -58,7 +59,7 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
   const per = salaryPeriod(sp, p.dates, "finyear");
   const href = p.level === "own" ? HREF : `${HREF}?mine=1`;
   const head = <SalaryHead pageName="My Salary Slips" href={href} sub="Only your own slips. Nobody else’s salary shows here." />;
-  if (!me) return <div>{head}<Card><Empty icon={UserRound} title="No staff record is linked to your login" body="Salary slips are for staff. Ask the School Admin to link your login to your staff record." /></Card></div>;
+  if (!me) return <div>{head}<Card><Empty icon={UserRound} title="No staff record is linked to your login" body={can(p.current.permissions, "staff-hr-management", "create") ? "Salary slips are for staff. To link your login, bring yourself in with Import staff in Staff & HR, using the name and mobile number on your login." : "Salary slips are for staff. Ask the School Admin to link your login to your staff record."} /></Card></div>;
   const data = await withSchool(p.current.ctx, async (tx) => {
     const settings = await salarySettings(tx, p.current.ctx);
     // Own reach: only this person's slips, filtered at the query.

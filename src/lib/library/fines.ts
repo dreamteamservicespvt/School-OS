@@ -192,6 +192,8 @@ export type CollectInput = { mode: "CASH" | "UPI" | "BANK_TRANSFER" | "CHEQUE"; 
 
 /** Collects a fine at the desk (staff, or students when fines do not go to fees): recorded as income with a receipt. */
 export async function collectAtDesk(tx: Tx, ctx: SchoolContext, fineId: string, input: CollectInput) {
+  // "Collect" sent twice at once: the second waits here, then finds the fine paid (one receipt, one Day Book entry).
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(fineId)) await tx.$queryRaw`SELECT id FROM library_fine WHERE id = ${fineId}::uuid FOR NO KEY UPDATE`;
   const f = await tx.libraryFine.findFirst({ where: { id: fineId } });
   if (!f) throw new LibraryProblem("This fine was not found.");
   if (f.status !== "DUE") throw new LibraryProblem(f.status === "WAITING" ? "This charge is waiting for approval." : "This fine is not due.");

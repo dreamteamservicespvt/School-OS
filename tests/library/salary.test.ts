@@ -148,4 +148,15 @@ describe("a staff member's library fine taken from salary", () => {
     expect(view.modulesOn.has("salary-management")).toBe(false);
     expect(salaryModuleOn(view.modulesOn)).toBe(true);
   });
+
+  // Delivery audit 2026-10-31: "Collect" sent twice at the same moment (double click, two tabs)
+  // took the fine twice: two income receipts and two Day Book entries.
+  it("is collected once when Collect is sent twice at once", async () => {
+    const x = await fineFor("staff", 30);
+    const tries = await Promise.allSettled([1, 2].map(() => withSchool(desk(f), (tx) => collectAtDesk(tx, desk(f), x.id, { mode: "CASH", reference: null, today: TODAY }))));
+    expect(tries.filter((t) => t.status === "fulfilled")).toHaveLength(1);
+    expect(String((tries.find((t) => t.status === "rejected") as PromiseRejectedResult).reason?.message)).toMatch(/not due/);
+    const incomes = await withSchool(acc, (tx) => tx.income.count({ where: { note: { contains: x.fineNo } } }));
+    expect(incomes).toBe(1);
+  });
 });

@@ -13,3 +13,4 @@ test-results/
 storage/
 qa-output/
 restore-reports/
+/tools/

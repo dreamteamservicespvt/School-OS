@@ -79,7 +79,8 @@ export async function switchSchool(formData: FormData) {
   await setSessionSchool(current.session.id, schoolId);
   // Reload the same page for the chosen school (00-global.md §1.3).
   const back = String(formData.get("back") ?? "/dashboard");
-  redirect(back.startsWith("/") && !back.startsWith("//") ? back : "/dashboard");
+  // "/\host" is read by browsers as "//host": only plain paths of this site.
+  redirect(back.startsWith("/") && !back.startsWith("//") && !back.includes("\\") ? back : "/dashboard");
 }
 
 export async function markAllNotificationsRead() {
@@ -103,7 +104,7 @@ export async function openNotification(formData: FormData) {
     : null;
   revalidatePath("/", "layout");
   // Only addresses inside School OS.
-  redirect(note?.link && note.link.startsWith("/") && !note.link.startsWith("//") ? note.link : "/notifications");
+  redirect(note?.link && note.link.startsWith("/") && !note.link.startsWith("//") && !note.link.includes("\\") ? note.link : "/notifications");
 }
 
 export type PasswordState = { ok: boolean; message: string } | null;

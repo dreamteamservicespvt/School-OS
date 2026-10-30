@@ -251,8 +251,8 @@ describe("the application fee sent twice at once", () => {
     const app = await application();
     await signIn(t.counsellor.id);
     const tries = await Promise.all([1, 2].map(() => counterPaymentAction(START, form({ id: app.id, amount: "500", mode: "cash" }))));
-    expect(tries.filter((r) => r.ok)).toHaveLength(1);
-    expect(tries.find((r) => !r.ok)?.message).toMatch(/already paid/);
+    expect(tries.filter((r) => r?.ok)).toHaveLength(1);
+    expect(tries.find((r) => !r?.ok)?.message).toMatch(/already paid/);
     const pays = await run((tx) => tx.applicationFeePayment.findMany({ where: { applicationId: app.id } }));
     expect(pays).toHaveLength(1);
     expect(await entriesOf(pays[0].id)).toHaveLength(1);

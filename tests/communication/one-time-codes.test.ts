@@ -232,7 +232,7 @@ describe("one-time codes are never kept in messaging", () => {
     const t = await templateId(s.ctx, "parent-link-code", "whatsapp");
     const r = await withSchool(s.ctx, (tx) => sendMessage(tx, s.ctx, { to: { guardianIds: [s.father.id] }, channels: ["whatsapp"], templates: { whatsapp: t }, single: true, oneTimeCode: { code: "112233", purpose: "parent-link" } }));
     const rows = await rowsOf(r.messageId);
-    expect(rows.recipients[0].text).toMatch(/^•••••• is your one-time code for Parent Link of Comm School\./);
+    expect(rows.recipients[0].text).toBe("Your one-time code for Parent Link of Comm School is ••••••. It works for 10 minutes. Do not share it with anyone.");
     expect(holds(rows, "112233")).toBe(false);
   });
 

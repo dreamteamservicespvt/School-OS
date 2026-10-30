@@ -12,7 +12,7 @@ export type IconName =
 export const NAV_GROUPS: { group: string | null; items: { key: ModuleKey; label: string; icon: IconName }[] }[] = [
   { group: null, items: [{ key: "dashboard", label: "Dashboard", icon: "LayoutGrid" }] },
   { group: "Daily work", items: [
-    { key: "attendance-management", label: "Attendance", icon: "CalendarCheck2" },
+    { key: "attendance-management", label: "Attendance Management", icon: "CalendarCheck2" },
     { key: "fee-management", label: "Fee Management", icon: "IndianRupee" },
     { key: "student-management", label: "Student Management", icon: "GraduationCap" },
     { key: "admission-management", label: "Admission Management", icon: "UserPlus" },

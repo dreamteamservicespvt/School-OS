@@ -13,7 +13,15 @@ const b = await launch();
 
 /** Visible text whose colour is below 4.5:1 (3:1 for large text) on the nearest solid background. */
 function lowContrast() {
-  const rgb = (s) => (s.match(/[\d.]+/g) ?? []).map(Number);
+  // Any CSS colour (rgb, oklab, color-mix) as [r, g, b, a]: the browser converts it to sRGB for us.
+  const probe = document.createElement("i"); probe.style.display = "none"; document.body.append(probe);
+  const rgb = (s) => {
+    probe.style.color = ""; probe.style.color = `color-mix(in srgb, ${s} 100%, transparent)`;
+    const c = getComputedStyle(probe).color;
+    const n = (c.match(/-?[\d.]+(e-?\d+)?/g) ?? []).map(Number);
+    if (c.startsWith("color(srgb")) return [n[0] * 255, n[1] * 255, n[2] * 255, n[3] ?? 1];
+    return [n[0], n[1], n[2], n[3] ?? 1];
+  };
   const lum = ([r, g, bl]) => { const f = (c) => { c /= 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; }; return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(bl); };
   const bgOf = (el) => { for (let e = el; e; e = e.parentElement) { const c = rgb(getComputedStyle(e).backgroundColor); if (c.length >= 3 && (c[3] ?? 1) > 0.9) return c; } return [255, 255, 255]; };
   const out = [];
@@ -23,7 +31,9 @@ function lowContrast() {
     const r = el.getBoundingClientRect(); const cs = getComputedStyle(el);
     if (!r.width || cs.visibility === "hidden" || Number(cs.opacity) < 0.5 || el.closest("[aria-hidden=true], [disabled], .sr-only")) continue;
     const fg = rgb(cs.color); if ((fg[3] ?? 1) < 0.5) continue;
-    const [l1, l2] = [lum(fg), lum(bgOf(el))].sort((a, z) => z - a);
+    const bg = bgOf(el), al = (fg[3] ?? 1) * Number(cs.opacity);
+    const seen = [0, 1, 2].map((i) => fg[i] * al + bg[i] * (1 - al));
+    const [l1, l2] = [lum(seen), lum(bg)].sort((a, z) => z - a);
     const ratio = (l1 + 0.05) / (l2 + 0.05);
     const size = parseFloat(cs.fontSize), large = size >= 24 || (size >= 18.66 && Number(cs.fontWeight) >= 700);
     if (ratio < (large ? 3 : 4.5)) out.push(`${ratio.toFixed(2)} "${el.innerText.trim().slice(0, 40)}"`);

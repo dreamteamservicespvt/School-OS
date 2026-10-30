@@ -5,7 +5,7 @@ import { cx } from "./cx";
 export type MonthCellTone = "ok" | "bad" | "warn" | "info" | "brand" | "muted" | "none";
 export type MonthCell = { tone?: MonthCellTone; title?: string; dot?: "brand" | "bad" | "warn" | "info" | "ok"; letter?: string };
 
-const C: Record<MonthCellTone, string> = { ok: "bg-ok/15 text-ok", bad: "bg-bad/15 text-bad", warn: "bg-warn/15 text-warn", info: "bg-info/10 text-info", brand: "bg-brand/12 text-brand", muted: "text-ink3/60", none: "text-ink2" };
+const C: Record<MonthCellTone, string> = { ok: "bg-ok/15 text-ok", bad: "bg-bad/15 text-bad", warn: "bg-warn/15 text-warn", info: "bg-info/10 text-info", brand: "bg-brand/12 text-brand", muted: "text-ink3", none: "text-ink2" };
 const DOT = { brand: "bg-brand", bad: "bg-bad", warn: "bg-warn", info: "bg-info", ok: "bg-ok" };
 
 /** year and month0 (0 = January); today is a day of that month to ring, if any. */

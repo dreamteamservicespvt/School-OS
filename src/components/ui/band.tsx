@@ -48,13 +48,13 @@ export function Band({ items, label, className }: { items: BandCell[]; label: st
           const body = (
             <>
               <div className="min-w-0 flex-1">
-                <p className="text-[12.5px] md:text-[13px] font-semibold opacity-80 flex items-center gap-1">
+                <p className="text-[12.5px] md:text-[13px] font-semibold opacity-90 flex items-center gap-1">
                   <span className="truncate">{m.label}</span>{m.href && <ChevronRight size={14} className="opacity-60 shrink-0" aria-hidden="true" />}
                 </p>
                 <p className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight tnum mt-1 truncate">
-                  {m.big}{m.of && <span className="text-[0.55em] opacity-70 font-medium"> {m.of}</span>}
+                  {m.big}{m.of && <span className="text-[0.55em] opacity-90 font-medium"> {m.of}</span>}
                 </p>
-                {m.foot && <p className="text-[12px] md:text-[13px] opacity-75 mt-0.5 line-clamp-2">{m.foot}</p>}
+                {m.foot && <p className="text-[12px] md:text-[13px] opacity-90 mt-0.5 line-clamp-2">{m.foot}</p>}
               </div>
               {m.ring != null && <HeroRing value={m.ring} />}
             </>

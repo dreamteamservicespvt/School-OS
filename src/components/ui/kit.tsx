@@ -63,9 +63,9 @@ export function Band({ items, className, label }: { items: BandItem[]; className
         {items.slice(0, 4).map((m, i) => {
           const inner = (
             <>
-              <p className="text-[12.5px] md:text-[13px] font-semibold opacity-80 flex items-center gap-1">{tx(m.label)}{m.href && <ChevronRight size={14} className="opacity-60" aria-hidden="true" />}</p>
+              <p className="text-[12.5px] md:text-[13px] font-semibold opacity-90 flex items-center gap-1">{tx(m.label)}{m.href && <ChevronRight size={14} className="opacity-60" aria-hidden="true" />}</p>
               <p className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight tnum mt-1 truncate">{m.big}</p>
-              {m.foot && <p className="text-[12px] md:text-[13px] opacity-75 mt-0.5 line-clamp-2">{tx(m.foot)}</p>}
+              {m.foot && <p className="text-[12px] md:text-[13px] opacity-90 mt-0.5 line-clamp-2">{tx(m.foot)}</p>}
             </>
           );
           const cls = cx("block text-left p-4 md:p-6 min-w-0 border-white/15", BAND_CELL[n][i]);
@@ -356,7 +356,7 @@ export function Timeline({ items }: { items: { what: React.ReactNode; when: Reac
 
 /* ---------- Month calendar grid ---------- */
 export type DayCell = { tone?: Tone | "muted" | "none"; title?: string; dot?: Tone };
-const DAY_TONE = { ok: "bg-ok/15 text-ok", bad: "bg-bad/15 text-bad", warn: "bg-warn/15 text-warn", info: "bg-info/10 text-info", brand: "bg-brand/12 text-brand", muted: "text-ink3/60", none: "text-ink2" };
+const DAY_TONE = { ok: "bg-ok/15 text-ok", bad: "bg-bad/15 text-bad", warn: "bg-warn/15 text-warn", info: "bg-info/10 text-info", brand: "bg-brand/12 text-brand", muted: "text-ink3", none: "text-ink2" };
 const DOT = { brand: "bg-brand", bad: "bg-bad", warn: "bg-warn", info: "bg-info", ok: "bg-ok" };
 
 /** One month, Monday first. `month` is 0 to 11. `cells` is keyed by day of the month. */

@@ -56,7 +56,7 @@ export function MonthCalendar({ view, statuses, min, max, param = "month", today
           const st = c.statusKey ? byKey.get(c.statusKey) : undefined;
           const holiday = c.off && c.off !== "Sunday";
           const title = c.off ? t.any(c.off) : c.future ? "" : st ? t.any(st.name) : t("Not marked");
-          const cls = c.off ? (holiday ? "bg-info/10 text-info" : "text-ink3/70") : c.future ? "text-ink3/60" : st ? calendarCell(st) : "border border-dashed border-line text-ink3";
+          const cls = c.off ? (holiday ? "bg-info/10 text-info" : "text-ink3") : c.future ? "text-ink3" : st ? calendarCell(st) : "border border-dashed border-line text-ink3";
           return (
             <div key={c.date} role="gridcell" title={title} aria-label={`${c.day}: ${title || t("Not yet")}`}
               className={cx("rounded-lg flex flex-col items-center justify-center tnum", compact ? "aspect-square text-[12.5px]" : "h-12 sm:h-14", cls, c.date === todayIso && "ring-2 ring-brand/50")}>

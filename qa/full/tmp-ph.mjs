@@ -1,0 +1,10 @@
+import "./h.mjs";
+import { launch } from "../lib.mjs";
+const b = await launch();
+const ctx = await b.newContext({ storageState: "qa-output/full/state/parent-sanjay.json", viewport: { width: 390, height: 844 } });
+const p = await ctx.newPage();
+await p.goto("http://localhost:3000/p/cVoyoCWcLVpneoloLluBfCweirdTv9Ixr6W2rdQtyqk", { waitUntil: "networkidle" }); console.log("URL", p.url()); console.log((await p.locator("body").innerText()).slice(0, 300));
+const t = await p.locator("body").innerText();
+console.log("HOMEWORK SEEN:", t.includes("Self-test: Exercise 5.1"), "| PTM NOTICE:", t.includes("Parent-teacher meeting on 7 November"));
+console.log((t.match(/.{0,120}Exercise 5.1.{0,160}/s)?.[0] ?? "").replace(/\n+/g, " | "));
+await b.close();

@@ -1,0 +1,25 @@
+// Journey E10: the class teacher gives Mathematics homework to 5 A (mistake first), then the parent sees it on Parent Link.
+import { as } from "./look.mjs";
+import { go, mainText, shot, close } from "./h.mjs";
+const TITLE = "Self-test: Exercise 5.1 Decimals, Q1 to Q10";
+const rec = (c, pass, note = "") => console.log(`${pass ? "PASS" : "FAIL"} ${c}${note ? " :: " + note : ""}`);
+const t = await as("teacher");
+await go(t, "/homework-learning?do=give");
+const d = t.getByRole("dialog").last();
+const scope = (await d.count()) ? d : t.locator("main");
+await scope.getByRole("button", { name: "Send to 5 A" }).click();
+await t.waitForTimeout(1500);
+const errs = (await scope.innerText()).match(/[^\n]*(Give|Write|title|required)[^\n]*/gi) ?? [];
+const inv = await t.evaluate(() => [...document.querySelectorAll(":invalid")].map((e) => `${e.name}:${e.validationMessage}`));
+rec("Homework without a title refused", errs.length > 0 || inv.length > 0, `${inv.join(",")} | ${errs.slice(0, 2).join(" / ")}`);
+await t.locator("#f-title").fill(TITLE);
+await t.locator("#f-instructions").fill("Do Q1 to Q10 in the maths notebook. Show working for Q7 to Q10.");
+await scope.getByText("Tomorrow", { exact: true }).click();
+const b = scope.getByRole("button", { name: "Send to 5 A" });
+await b.click(); await b.click({ timeout: 800 }).catch(() => {});
+await t.waitForTimeout(4000);
+const after = await mainText(t, 3000);
+rec("Homework given and listed", after.includes(TITLE), after.replace(/\n+/g, " | ").slice(0, 400));
+await shot(t, "j10-teacher", false);
+console.log("PROBLEMS", t.problems);
+await close();

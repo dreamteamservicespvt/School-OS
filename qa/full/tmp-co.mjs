@@ -1,0 +1,14 @@
+import { as } from "./look.mjs";
+import { go, close, shot } from "./h.mjs";
+const p = await as("reception");
+await go(p, "/front-office/visitors?status=In&out=094b559b-4b9d-4727-9e8f-dcd13c308ff4");
+await p.waitForTimeout(2000);
+const d = p.getByRole("dialog").last();
+console.log("TIME VALUE", JSON.stringify(await d.locator("#co-time").inputValue()));
+await d.getByRole("button", { name: /^Check out at/ }).click();
+await p.waitForTimeout(3000);
+console.log("DIALOG", (await p.getByRole("dialog").last().innerText().catch(() => "(closed)")).replace(/\n+/g, " | "));
+console.log("INVALID", await p.evaluate(() => [...document.querySelectorAll(":invalid")].map((e) => `${e.id}:${e.validationMessage}`)));
+await shot(p, "j9-checkout", false);
+console.log(p.problems);
+await close();

@@ -40,20 +40,20 @@ h1{font-family:var(--display);font-weight:600;font-size:1.7rem;margin:0;text-wra
 </div>
 <script>
 const DATA = {
-  updated: "2026-10-30 16:00 IST",
-  now: "Building a copy on the fast C: drive (SSD); the D: hard disk is too slow for the build",
-  overall: 10, overallLine: "Database and demo data ready. Test scripts written (sign-ins, roles, crawl). Overall % is an estimate.",
+  updated: "2026-10-30 18:50 IST",
+  now: "Opening every page of every module as the Principal (crawl), then other roles",
+  overall: 58, overallLine: "All 10 journeys and Parent Link pass; 9 bugs found, 5 fixed with tests. Overall % is an estimate.",
   rows: [
-    ["Setup: database, seed, build, start", 80, "Running", "3 builds on D: failed: the CSS step (Tailwind) needs 94 s from the cold hard disk and Turbopack gives up. Now installing + building in C:\\Users\\chala\\sos-build (same database, same .env)"],
-    ["Static checks: lint, typecheck, tests", 0, "Waiting", "Runs after the seed"],
-    ["Sign-ins: 3 console, 12 school, invite, Parent Link", 0, "Waiting", "0 of 17 sign-ins tried"],
-    ["Roles: menus and blocked pages (05-roles.md)", 0, "Waiting", "0 of 12 roles checked"],
-    ["School isolation: Sunrise vs Green Valley", 0, "Waiting", ""],
-    ["Journeys: admission to report card to Parent Link", 0, "Waiting", ""],
-    ["Modules: 20 of 20 built modules, every page", 0, "Waiting", "0 of 20 modules done"],
+    ["Setup: database, seed, build, start", 100, "Done", "App served from the SSD copy C:\\Users\\chala\\sos-build (D: hard disk build always times out)"],
+    ["Static checks: lint, typecheck, tests", 15, "Waiting", "Lint re-run needed (first run only failed on tools/ pgAdmin files, now ignored); 2 test files 23/23 pass"],
+    ["Sign-ins: 3 console, 12 school, invite, Parent Link", 100, "Done", "38 of 38 pass; Parent Link: code to the phone, only own child, other child 404, new device 403"],
+    ["Roles: menus and blocked pages (05-roles.md)", 95, "Done", "11 of 11 roles checked, 0 leaks (Vice Principal sees Expenses as View only, no buttons: correct). Menu name re-check waits for the rebuild"],
+    ["School isolation: Sunrise vs Green Valley", 100, "Done", "14 of 14 pass"],
+    ["Journeys: admission to report card to Parent Link", 100, "Done", "10 of 10 pass: admission, attendance, fees, marks + report card, salary, notice, library, leave, front office, homework"],
+    ["Modules: 20 of 20 built modules, every page", 5, "Running", "Principal crawl running; other roles next"],
     ["Light/dark at 390 px and 1440 px", 0, "Waiting", ""],
-    ["Bug fixes (root cause + test)", 0, "Waiting", "1 found, 1 fixed: build traced the whole project (storage.ts line 110)"],
-    ["Report docs/qa/2026-10-30-full-test.md + handoff", 0, "Waiting", ""]
+    ["Bug fixes (root cause + test)", 55, "Running", "9 found, 5 fixed with tests (build tracing, menu name, report card blank page, Parent Link 0 guardians, visitor check-out); 4 small ones open"],
+    ["Report docs/qa/2026-10-30-full-test.md + handoff", 50, "Running", "Journeys, bugs and decisions 7 to 11 written"]
   ],
   you: "Nothing. I decide everything myself and list skipped items (live site, push, money) in the report."
 };

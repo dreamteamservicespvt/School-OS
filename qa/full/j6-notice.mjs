@@ -1,0 +1,23 @@
+// Journey E6: School Admin writes a notice for Class 5 parents and staff; mistakes first; Principal approves; teacher sees it.
+import { as } from "./look.mjs";
+import { go, mainText, shot, close } from "./h.mjs";
+const TITLE = "Self-test: Parent-teacher meeting on 7 November";
+const rec = (c, pass, note = "") => console.log(`${pass ? "PASS" : "FAIL"} ${c}${note ? " :: " + note : ""}`);
+const a = await as("admin");
+await go(a, "/communication/notices/new");
+console.log("ICON BUTTONS", await a.locator("main button").evaluateAll((b) => b.filter((x) => !x.innerText.trim()).map((x) => x.getAttribute("aria-label") ?? x.title ?? "(no name)")));
+await a.getByRole("button", { name: "Send for approval" }).click();
+await a.waitForTimeout(1500);
+const v = await a.evaluate(() => [...document.querySelectorAll("main :invalid")].map((e) => `${e.name}:${e.validationMessage}`));
+const shown = (await mainText(a, 3000)).match(/[^\n]*(required|Write|Give|Add a|Choose|Please)[^\n]*/gi) ?? [];
+rec("Empty notice refused", v.length > 0 || shown.length > 0, `${v.join(", ")} | ${shown.slice(0, 3).join(" / ")}`);
+await a.locator("#n-title").fill(TITLE);
+await a.locator("#n-body").fill("Dear parents, the parent-teacher meeting for Class 5 is on Saturday 7 November from 9:30 AM to 12:30 PM in the school hall. Please bring the report card.");
+await a.getByRole("checkbox", { name: "Staff", exact: true }).check();
+await a.getByRole("checkbox", { name: "Class 5 (all)", exact: true }).check();
+const b = a.getByRole("button", { name: "Send for approval" });
+await b.click(); await b.click({ timeout: 800 }).catch(() => {});
+await a.waitForTimeout(4000);
+console.log("AFTER", (await mainText(a, 700)).replace(/\n+/g, " | "));
+console.log("ADMIN PROBLEMS", a.problems);
+await close();

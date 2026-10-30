@@ -555,7 +555,7 @@ export function SendForm({ data }: { data: SendFormData }) {
 
               {attachable && (
                 <div>
-                  <input ref={fileRef} type="file" name="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="sr-only" id="send-file"
+                  <input ref={fileRef} type="file" name="file" accept="application/pdf,image/jpeg,image/png,image/webp" className="sr-only" id="send-file" tabIndex={-1} aria-hidden="true"
                     onChange={(e) => setFileName(e.target.files?.[0]?.name ?? null)} />
                   {fileName ? (
                     <div className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5">

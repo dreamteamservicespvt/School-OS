@@ -36,6 +36,7 @@ for (const item of items) {
       row.text = st.text.slice(0, 400);
     }
     results.push(row);
+    if (results.length % 10 === 0) saveJson(`crawl-${login}-${vpArg ?? "laptop1280"}.json`, { login, menu: items, pages: results.length, partial: true, bad: [], layout: [], results });
     const links = await page.evaluate(() => [...document.querySelectorAll("main a[href]")].map((a) => a.getAttribute("href")));
     for (const l of links) {
       if (!l || !l.startsWith("/") || SKIP.test(l)) continue;

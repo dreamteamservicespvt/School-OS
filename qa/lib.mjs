@@ -112,7 +112,7 @@ export async function layoutIssues(page) {
       out.push(`page scrolls sideways (${doc.scrollWidth}px > ${window.innerWidth}px)${wide.length ? ": " + wide.join("; ") : ""}`);
     }
     const unlabeled = [...document.querySelectorAll("button, a[href], input:not([type=hidden]), select, textarea")]
-      .filter((el) => { const r = el.getBoundingClientRect(); if (!r.width) return false; const name = el.getAttribute("aria-label") || el.getAttribute("title") || el.innerText?.trim() || (el.id && document.querySelector(`label[for="${el.id}"]`)?.innerText) || el.closest("label")?.innerText || el.getAttribute("placeholder") || el.getAttribute("aria-labelledby"); return !name; })
+      .filter((el) => { const r = el.getBoundingClientRect(); if (!r.width) return false; const shut = el.closest("details:not([open])"); if (shut && !el.closest("summary")) return false; if (el.closest("[aria-hidden=true]") || el.getAttribute("tabindex") === "-1") return false; const name = el.getAttribute("aria-label") || el.getAttribute("title") || el.innerText?.trim() || (el.id && document.querySelector(`label[for="${el.id}"]`)?.textContent?.trim()) || el.closest("label")?.textContent?.trim() || el.getAttribute("placeholder") || el.getAttribute("aria-labelledby"); return !name; })
       .slice(0, 5).map((el) => `${el.tagName.toLowerCase()}[${el.getAttribute("name") ?? el.getAttribute("type") ?? ""}]`);
     if (unlabeled.length) out.push(`controls without a name: ${unlabeled.join(", ")}`);
     return out;

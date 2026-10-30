@@ -150,6 +150,8 @@ export async function checkOutVisitor(tx: Tx, ctx: SchoolContext, id: string, op
   if (opts.leftAtMinute != null) {
     const day = v.visitDate.toISOString().slice(0, 10);
     at = instantOf(day, opts.leftAtMinute, opts.timeZone);
+    // The time out is typed to the minute; leaving in the minute they came in counts from the time in.
+    if (at.getTime() < v.timeIn.getTime() && at.getTime() + 60_000 > v.timeIn.getTime()) at = v.timeIn;
     if (at.getTime() < v.timeIn.getTime()) throw new FrontOfficeProblem(`The time out is before they came in at ${clockAt(v.timeIn, opts.timeZone)}.`, "timeOut");
     if (at.getTime() > now.getTime() + 60_000) throw new FrontOfficeProblem("The time out cannot be later than now.", "timeOut");
   }

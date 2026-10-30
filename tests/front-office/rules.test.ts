@@ -84,6 +84,13 @@ describe("Front Office rules", () => {
     expect(await withSchool(desk(), (tx) => checkPass(tx, "V-9999"))).toMatchObject({ kind: "none" });
   });
 
+  it("checks out a visitor who leaves in the same minute they came in (self-test 2026-10-30)", async () => {
+    const came = new Date(at(TODAY, "10:15").getTime() + 42_000);
+    const r = await withSchool(desk(), (tx) => registerVisitor(tx, desk(), visitor({ phone: "9700000011", name: "Quick Courier", purpose: "Delivery" }), { timeZone: TZ, now: came }));
+    const out = await withSchool(desk(), (tx) => checkOutVisitor(tx, desk(), r.visitor.id, { timeZone: TZ, leftAtMinute: 10 * 60 + 15, now: new Date(came.getTime() + 20_000) }));
+    expect(out.at.toISOString()).toBe(came.toISOString());
+  });
+
   it("follows the school's ID proof policy (Done when 9) and keeps only the last 4 digits readable", async () => {
     const free = await withSchool(desk(), (tx) => registerVisitor(tx, desk(), visitor({ phone: "9700000002", name: "No Id", purpose: "Delivery" }), { timeZone: TZ }));
     expect(free.visitor.idProofNo).toBeNull();

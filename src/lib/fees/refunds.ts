@@ -14,6 +14,9 @@ import { assertBooksOpen, assertNotFuture } from "../finance/years";
 import { MoneyProblem } from "./problem";
 import { lockDues, refreshBalances, studentCard } from "./dues";
 import { modeLabel } from "./words";
+import { lockPayment } from "./cancel";
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const ZERO = BigInt(0);
 
@@ -26,6 +29,8 @@ export async function refundable(tx: Tx, paymentId: string) {
 }
 
 export async function requestRefund(tx: Tx, ctx: SchoolContext, input: { paymentId: string; amountPaise: bigint; reason: string; mode: PaymentMode }) {
+  // Two refund requests at the same moment cannot both take the same refundable amount.
+  if (UUID_RE.test(input.paymentId)) await lockPayment(tx, input.paymentId);
   const p = await tx.payment.findFirst({ where: { id: input.paymentId } });
   if (!p) throw new MoneyProblem("Choose the payment to refund.", "paymentId");
   if (p.broughtIn) throw new MoneyProblem("Payments brought in from old software cannot be refunded here. Record the refund in Finance Management as an expense.", "paymentId");
@@ -68,6 +73,8 @@ export async function decideRefund(tx: Tx, ctx: SchoolContext, refundId: string,
  * an adjustment so those rows stay settled. Posts money out in the Day Book.
  */
 export async function markRefunded(tx: Tx, ctx: SchoolContext, refundId: string, input: { date: Date; reference: string | null; accountId: string | null }) {
+  // "Mark refunded" sent twice at once: the second waits here, then finds it refunded (the dues change once).
+  if (UUID_RE.test(refundId)) await tx.$queryRaw`SELECT id FROM refund WHERE id = ${refundId}::uuid FOR NO KEY UPDATE`;
   const r = await tx.refund.findFirst({ where: { id: refundId } });
   if (!r) throw new MoneyProblem("This refund was not found.");
   if (r.status === "REFUNDED") throw new MoneyProblem("This refund is already marked refunded.");

@@ -1,8 +1,14 @@
-// Delivery audit 2026-10-31: the same counter payment sent twice at the same moment (double click
-// that beats the button, or two tabs) must post once. With open rows the row lock does it; a student
-// who owes nothing (advance only) had no row to lock, so both went through.
+// Delivery audit 2026-10-31: the same money action sent twice at the same moment (double click
+// that beats the button, or two tabs) must happen once. Counter payment: with open rows the row lock
+// did it, but a student who owes nothing (advance only) had no row to lock, so both went through.
+// Cancel and "Mark refunded" read the status before waiting for the rows' lock, so the second one
+// took the money off the student's dues again; two refund requests could both take the same amount.
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
+import { decide } from "@/lib/approvals";
+import "@/lib/fees/handlers";
+import { cancelPayment } from "@/lib/fees/cancel";
+import { markRefunded, requestRefund } from "@/lib/fees/refunds";
 import { collect, dues, feature, makeFeeSchool, R, type FeeSchool } from "./fixture";
 
 let f: FeeSchool;
@@ -36,5 +42,55 @@ describe("one counter payment sent twice at once", () => {
     const advance = (await posted(f.sita.id)).filter((p) => p.amountPaise === R(500));
     expect(advance).toHaveLength(1);
     await feature(f.ctx, "fee-advance", false);
+  });
+});
+
+let seq = 0;
+async function freshStudent() {
+  seq++;
+  return withSchool(f.ctx, async (tx) => {
+    const s = await tx.student.create({ data: { schoolId: f.school.id, campusId: f.school.campus.id, admissionNo: `R${Date.now()}${seq}`, firstName: "Race", fullName: `Race Student ${seq}` } });
+    await tx.enrolment.create({ data: { schoolId: f.school.id, studentId: s.id, academicYearId: f.year.id, classId: f.cls.id, sectionId: f.a.id } });
+    const { assignToStudent } = await import("@/lib/fees/structure");
+    await assignToStudent(tx, f.ctx, s.id, f.structureId, null);
+    return s.id;
+  });
+}
+const due = (id: string) => withSchool(f.ctx, (tx) => tx.studentFeeDue.findUniqueOrThrow({ where: { id } }));
+
+describe("cancels and refunds sent twice at once", () => {
+  it("a payment cancelled twice at once reopens the dues once", async () => {
+    const s = await freshStudent();
+    const open = await dues(f.ctx, s);
+    const r = await collect(f.ctx, { studentId: s, dueIds: [open[0].id], amountPaise: R(6000) });
+    const tries = await Promise.allSettled([1, 2].map(() => withSchool(f.ctx, (tx) => cancelPayment(tx, f.ctx, r.payment.id, { reason: "Wrong student", note: null }))));
+    expect(tries.filter((x) => x.status === "fulfilled")).toHaveLength(1);
+    const d = await due(open[0].id);
+    expect(d.paidPaise).toBe(BigInt(0));
+    expect(d.balancePaise).toBe(open[0].balancePaise);
+  });
+
+  it("two refund requests at once cannot take more than was paid", async () => {
+    const s = await freshStudent();
+    const open = await dues(f.ctx, s);
+    const r = await collect(f.ctx, { studentId: s, dueIds: [open[0].id], amountPaise: R(6000) });
+    const tries = await Promise.allSettled([1, 2].map(() => withSchool(f.ctx, (tx) => requestRefund(tx, f.ctx, { paymentId: r.payment.id, amountPaise: R(4000), reason: "Leaving school", mode: "CASH" }))));
+    expect(tries.filter((x) => x.status === "fulfilled")).toHaveLength(1);
+    expect(String((tries.find((x) => x.status === "rejected") as PromiseRejectedResult).reason?.message)).toMatch(/Maximum refund ₹2,000/);
+  });
+
+  it("\"Mark refunded\" twice at once takes the refund off the dues once", async () => {
+    const s = await freshStudent();
+    const open = await dues(f.ctx, s);
+    const r = await collect(f.ctx, { studentId: s, dueIds: [open[0].id], amountPaise: R(6000) });
+    const refund = await withSchool(f.ctx, (tx) => requestRefund(tx, f.ctx, { paymentId: r.payment.id, amountPaise: R(1000), reason: "Leaving school", mode: "CASH" }));
+    const waiting = await withSchool(f.ctx, (tx) => tx.refund.findUniqueOrThrow({ where: { id: refund.id } }));
+    await withSchool(f.pctx, (tx) => decide(tx, f.pctx, waiting.approvalId!, "approve", null));
+    const tries = await Promise.allSettled([1, 2].map(() => withSchool(f.ctx, (tx) => markRefunded(tx, f.ctx, refund.id, { date: r.payment.paymentDate, reference: null, accountId: null }))));
+    expect(tries.filter((x) => x.status === "fulfilled")).toHaveLength(1);
+    const d = await due(open[0].id);
+    expect(d.paidPaise).toBe(R(5000));
+    const out = await withSchool(f.ctx, (tx) => tx.dayBookEntry.findMany({ where: { sourceType: "refund", sourceId: refund.id } }));
+    expect(out).toHaveLength(1);
   });
 });

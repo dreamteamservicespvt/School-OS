@@ -34,6 +34,8 @@ export async function cancelPayment(tx: Tx, ctx: SchoolContext, paymentId: strin
   if (ctx.support) throw new MoneyProblem("DREAM TEAM support access cannot cancel payments. Ask the school’s accountant.");
   if (!input.reason) throw new MoneyProblem("Choose the reason for cancelling.", "reason");
   if (input.reason === "Other" && (!input.note || input.note.length < 5)) throw new MoneyProblem("Say what happened in the note (at least 5 characters).", "note");
+  // One change to a payment at a time: a second "Cancel" sent at the same moment waits here and then finds it cancelled.
+  await lockPayment(tx, paymentId);
   const p = await tx.payment.findFirst({ where: { id: paymentId } });
   if (!p) throw new MoneyProblem("This payment was not found.");
   if (p.broughtIn) throw new MoneyProblem(`Brought in from old software on ${formatDate(p.createdAt)}. Not in the Day Book, so it cannot be cancelled here. Undo the whole import from the import history if it was wrong.`);
@@ -66,8 +68,19 @@ export async function cancelPayment(tx: Tx, ctx: SchoolContext, paymentId: strin
   return { cancelled: true, waiting: false };
 }
 
+/**
+ * Locks a payment row until the transaction ends. NO KEY UPDATE: records that only point at the
+ * payment (allocations from advance, refunds) are not blocked, so it cannot deadlock with them.
+ */
+export async function lockPayment(tx: Tx, paymentId: string) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(paymentId)) return;
+  await tx.$queryRaw`SELECT id FROM payment WHERE id = ${paymentId}::uuid FOR NO KEY UPDATE`;
+}
+
 /** Takes the payment off the student's dues and the Day Book. */
 async function doCancel(tx: Tx, ctx: SchoolContext, paymentId: string, input: CancelInput, today: Date) {
+  // Read under the lock, so the dues are reopened once even when two cancels arrive together.
+  await lockPayment(tx, paymentId);
   const p = await tx.payment.findUniqueOrThrow({ where: { id: paymentId }, include: { allocations: true } });
   if (p.status === "CANCELLED") return;
   const dueIds = p.allocations.map((a) => a.dueId);

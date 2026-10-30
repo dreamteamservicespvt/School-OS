@@ -29,6 +29,7 @@ import { RemindButton } from "./consent/consent-forms";
 import { ResendBar, ShowsCard } from "./link-tools";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { currentYears } from "@/lib/academic/years";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Parent Link") };
@@ -58,7 +59,7 @@ export default async function ParentLinkPage({ searchParams }: { searchParams: S
       linkSummary(tx, ctx, now, campusId),
       messageSettings(tx, ctx),
       tx.schoolClass.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, ...(campusId ? { campusId } : {}) }, select: { id: true, name: true }, orderBy: { sortOrder: "asc" } }),
-      tx.section.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, ...(campusId ? { schoolClass: { campusId } } : {}) }, select: { id: true, name: true, classId: true }, orderBy: { name: "asc" } }),
+      tx.section.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, academicYearId: { in: (await currentYears(tx, ctx, campusId ? [campusId] : null)).map((y) => y.id) }, ...(campusId ? { schoolClass: { campusId } } : {}) }, select: { id: true, name: true, classId: true }, orderBy: { name: "asc" } }),
       tx.auditLogEntry.findMany({ where: { schoolId: ctx.schoolId, recordType: "Parent Link", action: "opened", at: { gte: since }, ...(campusLinks ? { recordId: { in: campusLinks } } : {}) }, select: { recordId: true, at: true }, take: 50_000 }),
       tx.parentLink.count({ where: { schoolId: ctx.schoolId, lastOpenedAt: { not: null }, ...mine } }),
       tx.parentLink.count({ where: { schoolId: ctx.schoolId, lastSentAt: { not: null }, ...mine } }),

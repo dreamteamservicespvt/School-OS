@@ -1,30 +1,29 @@
 # School OS handoff
 
-Last updated: 2026-10-30 23:50 (3a2 WhatsApp ready texts done; nothing pushed)
+Last updated: 2026-10-31 02:00 (final delivery audit done; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
-- FULL SELF-TEST DONE 2026-10-30 (local demo only). Report: docs/qa/2026-10-30-full-test.md (results, 20 decisions,
-  bugs 1-14 + contrast). Progress page: https://claude.ai/artifact/Af8qvniVgGnU215RNjUGHC
-  - Sign-ins 38/38, roles 11/11 (0 leaks), isolation 14/14, journeys E1-E10 + Parent Link PASS.
-  - Crawl of every menu module as 8 roles + 3 console people + driver: ~730 pages, 0 broken, no 5xx.
-  - Light/dark x 390/1440 of all 20 modules: no sideways scroll, no broken page; contrast fixed (cd1d0c00).
-  - 14 bugs found, all fixed with tests and re-checked in the browser after the rebuild (qa/full/recheck.mjs 13/13).
-- Local commits on branch claude/project-thread-cesreq, NOT pushed: ed1887db, 8264ff1a, 9ea584ac, a23ccc43,
-  72bb9446, cd1d0c00 (+ earlier 12eea4d8, 7f203b97, a3b3d5bd, 247b2aaf, 1edef5e5, f51fcf38, b867f867).
-  The user's own uncommitted edits (.vscode/settings.json, CLAUDE.md, next.config.ts, public/push-sw.js) were left alone.
-- Local setup: PostgreSQL 16 in tools/pg16 (data tools/pgdata). App is built and served from the SSD copy
-  C:\Users\chala\sos-build (the D: build always fails: Tailwind worker deadline on the HDD); logs in tools/*.log,
-  one-time codes in tools/app.log.
-- Branch note: origin still has the old commit 64f895d7 "a"; the next push of this branch needs
-  --force-with-lease (ask the user first).
+- FINAL DELIVERY AUDIT 2026-10-31 (local demo only): docs/qa/2026-10-31-delivery-audit.md. Gate YELLOW
+  (ready with known limitations): 16 bugs found and fixed; tests 2,324/2,326 (2 slow-disk timeouts pass alone). Round 1: docs/qa/2026-10-30-full-test.md (14 bugs fixed).
+  - Money: 6 "sent twice at once" races fixed with row locks (counter advance, cancel, refund request,
+    mark refunded, application fee, library fine) + tests; totals agree in ledger, receipts, Day Book,
+    dashboards, Ask and Parent Link (SQL + screens).
+  - Security: actions replayed as other roles all refused; automation log download was open to every role
+    (fixed); "/\host" redirect fixed. Layout: 6 sideways-scroll bugs at 320/1024 px fixed.
+  - Demo data: round 1's "Self-test:" homework/notice cleaned (scripts/demo-cleanup.sql); DB restored from
+    C:\Users\chala\sos-snap\school_os-2026-10-30-clean.dump after the probes.
+- Local commits on branch claude/project-thread-cesreq, NOT pushed (audit commits 2150019b..HEAD).
+  The user's own uncommitted edits (.vscode/settings.json, CLAUDE.md, next.config.ts, public/push-sw.js) left alone.
+- Local setup: PostgreSQL 16 in tools/pg16 (data tools/pgdata; superuser `postgres` trust on localhost).
+  App built and served from the SSD copy C:\Users\chala\sos-build (D: builds fail); logs tools/*.log.
+- Branch note: origin still has the old commit 64f895d7 "a"; the next push needs --force-with-lease (ask first).
 
 ## Next steps
-0. AUTONOMOUS QA ROUND 2 (user, 2026-10-30, asleep, "do not ask me anything"): follow
-   docs/qa/MISSION-autonomous-qa.md. Write results to docs/qa/2026-10-31-qa-round-2.md (statuses PASS/FAIL/
-   BLOCKED/NOT IMPLEMENTED/NEEDS EXTERNAL SERVICE/NEEDS PRODUCT DECISION), fix safe bugs with tests, local
-   commits only. Build/serve from C:\Users\chala\sos-build (see "How to run things locally"); check port 3000
-   with Get-CimInstance Win32_Process (netstat may not show the old next start).
+0. DEMO MORNING (31-10): the demo data is dated 30-10, so "today" cards start empty. For fresh data, reseed
+   after ~9:30 AM IST (a seed earlier puts today's attendance in the future): stop the app, drop/recreate the
+   public schema, `npx prisma migrate deploy`, `npx prisma db seed` (round 1 decision 2: export only the two
+   DB URLs; .env line 26 breaks `source`), start the app. Before the live school: set FILE_LINK_SECRET.
 1. Self-test decisions settled by Claude 2026-10-30 (user said "decide yourself"): 16 keep the owner's rule, only
    the Principal rejects an admission (approver can approve or ask for a change); 17 Visitors table fits at 1440 px
    (side panel 300 px, vehicle under the name; qa/full/visitors-fit.mjs). Push only when the user says so.

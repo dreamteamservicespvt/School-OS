@@ -6,6 +6,7 @@ import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DataList } from "@/components/ui/data-list";
+import { DataList as MoneyList } from "@/components/money/kit";
 
 type Row = { id: string; name: string };
 const rows: Row[] = [{ id: "a1", name: "Akshara Pillai" }, { id: "b2", name: "Bhavya Bhat" }];
@@ -44,3 +45,18 @@ describe("buttons and links on a phone card that opens", () => {
     expect(phone).toContain("Decline");
   });
 });
+
+describe("the same on the money pages' list (Fees, Finance, Salary)", () => {
+  it("never puts a link inside the card's link", () => {
+    const html = renderToStaticMarkup(createElement(MoneyList<Row>, {
+      rows, rowKey: (r) => r.id, caption: "Concessions", rowHref: (r) => `/x/${r.id}`,
+      columns: [{ key: "n", label: "Student", render: (r) => r.name }],
+      phone: (r) => ({ title: r.name, pills: createElement("a", { href: `/x/${r.id}?decline=1` }, "Decline") }),
+    }));
+    const phone = html.slice(html.indexOf("<ul"));
+    const tags = [...phone.matchAll(/<a[\s>]|<\/a>/g)].map((m) => (m[0] === "</a>" ? "</a>" : "<a"));
+    for (let i = 0; i < tags.length; i += 2) expect([tags[i], tags[i + 1]]).toEqual(["<a", "</a>"]);
+    expect(phone).toContain('aria-label="Bhavya Bhat"');
+  });
+});
+

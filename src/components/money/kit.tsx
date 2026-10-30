@@ -338,9 +338,11 @@ export function DataList<R>({ columns, rows, rowKey, rowHref, phone, empty, foot
             </>
           );
           return (
-            <li key={rowKey(r)}>
-              {href ? <Link href={href} scroll={false} className="w-full flex items-center gap-3 px-4 py-3 text-left active:bg-sunken">{body}</Link>
-                : <div className="flex items-center gap-3 px-4 py-3">{body}</div>}
+            <li key={rowKey(r)} className={cx("relative", href && "active:bg-sunken")}>
+              {/* The card's link lies over it, so a button in a pill (Approve, Decline) is never inside a link (React #418). */}
+              {href && <Link href={href} scroll={false} aria-label={typeof m.title === "string" ? m.title : "Open"}
+                className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand" />}
+              <div className="flex items-center gap-3 px-4 py-3">{body}</div>
             </li>
           );
         })}

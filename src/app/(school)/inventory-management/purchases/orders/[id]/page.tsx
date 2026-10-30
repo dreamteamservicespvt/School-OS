@@ -21,7 +21,7 @@ import { locationOptions } from "@/lib/inventory/lookup";
 import { BILL_STATUS, ORDER_STATUS, billState } from "@/lib/inventory/words";
 import { InvHead } from "../../../_components/head";
 import { DecideBox } from "../../../_components/decide";
-import { BASE, invGuard, one, qs, UUID, type SearchParams } from "../../../_lib/page";
+import { BASE, hrefOpen, invGuard, one, qs, UUID, type SearchParams } from "../../../_lib/page";
 import { decidable, whoNames } from "../../../_lib/lists";
 import { decideAction } from "../../../actions";
 import { CloseOrderSheet, EmailOrderSheet, ReceiveSheet } from "../../sheets";
@@ -39,6 +39,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
   if (!UUID.test(id)) notFound();
   const sp = await searchParams;
   const p = await invGuard("purchases");
+  const itemsOpen = hrefOpen(p.v, `${BASE}/items`);
   const { current, can, todayStr, tz } = p;
   const open = can.purchase ? one(sp.open) : "";
 
@@ -95,7 +96,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
             <Card>
               <CardHeader title="Items" description={`${st.label}${o.expectedOn ? ` · expected ${day(o.expectedOn)}` : ""}`} divided action={<Pill tone={st.tone}>{st.label}</Pill>} />
               <SimpleTable caption="Order lines" rows={o.lines} rowKey={(l) => l.id} minWidth={560} cols={[
-                { label: "Item", render: (l) => { const it = d.items.get(l.itemId); return it ? <Link className="font-semibold hover:underline" href={`${BASE}/items/${it.id}`}>{itemLabel(it)}</Link> : "Item"; } },
+                { label: "Item", render: (l) => { const it = d.items.get(l.itemId); return it ? (itemsOpen ? <Link className="font-semibold hover:underline" href={`${BASE}/items/${it.id}`}>{itemLabel(it)}</Link> : itemLabel(it)) : "Item"; } },
                 { label: "Ordered", right: true, render: (l) => l.qty },
                 { label: "Received", right: true, render: (l) => <span className={l.receivedQty >= l.qty ? "text-ok font-semibold" : l.receivedQty ? "text-warn font-semibold" : "text-ink3"}>{l.receivedQty}</span> },
                 { label: "Rate", right: true, nowrap: true, render: (l) => formatRupees(l.unitPricePaise) },

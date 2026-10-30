@@ -59,6 +59,18 @@ export function invViewer(current: Source): InvViewer {
 
 export const pageOpen = (v: Pick<InvViewer, "pages">, p: InvPage) => v.pages[p] !== "hidden";
 
+/** The page an Inventory address belongs to: "/inventory-management/items/<id>" is items, the module's own address Issue Stock. */
+export function pageOfHref(href: string): InvPage | null {
+  const path = href.split(/[?#]/)[0];
+  if (path !== "/inventory-management" && !path.startsWith("/inventory-management/")) return null;
+  const seg = path.slice("/inventory-management/".length).split("/")[0];
+  if (!seg) return "issue";
+  return (INV_PAGES as readonly string[]).includes(seg) ? (seg as InvPage) : null;
+}
+
+/** Can this person open an Inventory address? Links to pages they cannot open are left out, so none ends on "no access". */
+export const hrefOpen = (v: Pick<InvViewer, "pages">, href: string) => { const p = pageOfHref(href); return !p || pageOpen(v, p); };
+
 /** What each person may do, so buttons a role cannot use are hidden (and the server refuses them). */
 export function invCan(v: InvViewer) {
   const full = (p: InvPage) => v.change === "all" && v.pages[p] === "full";

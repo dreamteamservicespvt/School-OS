@@ -78,7 +78,7 @@ export default async function AlumniPage({ searchParams }: { searchParams: Promi
       <StudentsHead page="Leaving & Alumni" href={path} sub="Records of past students, donations, mentors and the job board"
         actions={<ButtonLink href={`${path}/jobs`} icon={Briefcase}><Words k="Job board" /></ButtonLink>}
         subTabs={await leavingTabs()} subLabel="Leaving & Alumni" />
-      <div className="grid gap-4 xl:grid-cols-[1fr_22rem]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_22rem]">
         <div>
           <ListToolbar placeholder="Search by name, career or college"
             filters={[

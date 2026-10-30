@@ -12,6 +12,7 @@ import { periodSetup, type PeriodSetup } from "@/lib/period-setup";
 import { dateWhere, periodFromSearch, type DayRange, type PeriodKey } from "@/lib/periods";
 import { todayDate, todayIso } from "@/lib/front-office/time";
 import { invCan, invViewer, landingPage, pageOpen, type InvPage } from "@/lib/inventory/access";
+export { hrefOpen } from "@/lib/inventory/access";
 import { inventorySettings } from "@/lib/inventory/settings";
 import { BASE, MODULE } from "@/lib/inventory/words";
 

@@ -35,8 +35,19 @@ export type CalItem = {
 
 const sourceOf = (s: string | null): CalItem["source"] => (!s ? null : s.startsWith("exam:") ? "datesheet" : s.startsWith("event:") ? "event" : s.startsWith("ptm:") ? "ptm" : s.startsWith("admission") ? "admission" : null);
 
-/** Calendar entries that touch the dates, with the time and place of events and PTMs. */
-export async function calendarItems(tx: Tx, ctx: SchoolContext, from: string, to: string, opts: { campusId?: string | null; classId?: string | null } = {}): Promise<CalItem[]> {
+type CalOpts = {
+  campusId?: string | null; classId?: string | null;
+  /** Which events link to their page: the Accountant opens only events with a fee ("paid"). */
+  eventLinks?: "all" | "paid" | "none";
+  /** False when the person cannot open the PTM page. */
+  ptmLinks?: boolean;
+};
+
+/**
+ * Calendar entries that touch the dates, with the time and place of events and PTMs.
+ * An entry links to its event or PTM only when the person can open that page.
+ */
+export async function calendarItems(tx: Tx, ctx: SchoolContext, from: string, to: string, opts: CalOpts = {}): Promise<CalItem[]> {
   const where: Prisma.CalendarEntryWhereInput = {
     schoolId: ctx.schoolId, archivedAt: null, startDate: { lte: dayOf(to) }, endDate: { gte: dayOf(from) },
     ...(opts.campusId ? { OR: [{ campusId: null }, { campusId: opts.campusId }] } : {}),
@@ -45,7 +56,7 @@ export async function calendarItems(tx: Tx, ctx: SchoolContext, from: string, to
   const eventIds = rows.map((r) => r.source?.startsWith("event:") ? r.source.slice(6) : null).filter((x): x is string => Boolean(x));
   const ptmIds = rows.map((r) => r.source?.startsWith("ptm:") ? r.source.slice(4) : null).filter((x): x is string => Boolean(x));
   const [events, ptms, closedYears] = await Promise.all([
-    eventIds.length ? tx.event.findMany({ where: { id: { in: eventIds } }, select: { id: true, startMin: true, endMin: true, venue: true } }) : [],
+    eventIds.length ? tx.event.findMany({ where: { id: { in: eventIds } }, select: { id: true, startMin: true, endMin: true, venue: true, feePaise: true } }) : [],
     ptmIds.length ? tx.ptm.findMany({ where: { id: { in: ptmIds } }, select: { id: true, startMin: true, endMin: true, venue: true } }) : [],
     tx.academicYear.findMany({ where: { status: "CLOSED" }, select: { id: true } }),
   ]);
@@ -60,7 +71,8 @@ export async function calendarItems(tx: Tx, ctx: SchoolContext, from: string, to
     out.push({
       id: r.id, type: isEntryType(r.type) ? r.type : "event", title: r.title, from: isoOf(r.startDate), to: isoOf(r.endDate),
       attendanceOn: r.attendanceOn, campusId: r.campusId, classIds: r.classIds, details: r.details, source: src,
-      href: ev ? `/events-calendar/events/${ev.id}` : ptm ? `/events-calendar/ptm?day=${ptm.id}` : null,
+      href: ev && (opts.eventLinks ?? "all") !== "none" && (opts.eventLinks !== "paid" || (ev.feePaise ?? BigInt(0)) > BigInt(0)) ? `/events-calendar/events/${ev.id}`
+        : ptm && opts.ptmLinks !== false ? `/events-calendar/ptm?day=${ptm.id}` : null,
       time: timed ? (ev ? clock(timed.startMin) : timeSpan(timed.startMin, timed.endMin)) : null,
       where: timed?.venue ?? null,
       removable: !r.source && !closed.has(r.academicYearId),

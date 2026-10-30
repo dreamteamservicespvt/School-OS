@@ -22,7 +22,7 @@ import { INVENTORY_REPORT_LIST, movementTotals, valueByCategory } from "@/lib/in
 import { totalsFor, reorderOf } from "@/lib/inventory/stock";
 import { MOVE_KIND, stockState } from "@/lib/inventory/words";
 import { InvHead } from "../_components/head";
-import { BASE, invGuard, invPeriod, one, qs, type SearchParams } from "../_lib/page";
+import { BASE, hrefOpen, invGuard, invPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { readReportFilter, STORE_REPORTS } from "../_lib/reports";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -135,9 +135,9 @@ export default async function InventoryReportsPage({ searchParams }: { searchPar
               </>
             ) : <Empty icon={FileBarChart} title={t.empty ?? "Nothing matches"} />}
             {t.note && <p className="px-5 py-3 border-t border-line text-[13px] text-ink2">{t.note}</p>}
-            {t.links && t.links.length > 0 && (
+            {t.links && t.links.some((l) => hrefOpen(p.v, l.href)) && (
               <div className="px-5 py-3 border-t border-line flex gap-4 flex-wrap text-[13.5px]">
-                {t.links.map((l) => <Link key={l.href} href={l.href} className="font-semibold text-brand hover:underline">{l.label}</Link>)}
+                {t.links.filter((l) => hrefOpen(p.v, l.href)).map((l) => <Link key={l.href} href={l.href} className="font-semibold text-brand hover:underline">{l.label}</Link>)}
               </div>
             )}
           </Card>

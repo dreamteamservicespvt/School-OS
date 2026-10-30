@@ -68,7 +68,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
   const yearOnScreen = data.years.find((y) => isoOf(y.startDate) <= mid && isoOf(y.endDate) >= mid) ?? data.years.find((y) => y.id === p.year?.id) ?? null;
 
   const out = await withSchool(ctx, async (tx) => {
-    const opts = { campusId: campusId || null, classId: classId || null };
+    // Entries link only to pages this person can open (the Accountant: events with a fee).
+    const opts = { campusId: campusId || null, classId: classId || null, eventLinks: !p.may("events") ? "none" as const : p.accountant ? "paid" as const : "all" as const, ptmLinks: p.may("ptm") };
     const [monthItems, coming, listItems, holidays, copyRows, days] = await Promise.all([
       calendarItems(tx, ctx, monthStart(month), monthEnd(month), opts),
       calendarItems(tx, ctx, p.today, addDaysIso(p.today, 180), opts),

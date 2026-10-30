@@ -8,7 +8,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import type { ListParams } from "../list";
 import { CHANNELS, channelSecrets, channelSetups, type Channel } from "../messaging/channels";
-import { checkDltId, LANGUAGES, TEMPLATE_CATEGORIES, unknownVariables, variablesIn } from "../messaging/templates";
+import { checkDltId, LANGUAGES, TEMPLATE_CATEGORIES, unknownVariables, variablesIn, whatsappProblems } from "../messaging/templates";
 import { RULES } from "../messaging/automatic";
 import { listWhatsappTemplates, submitWhatsappTemplate, whatsappTemplateStatus } from "../messaging/providers/whatsapp";
 
@@ -199,6 +199,8 @@ export async function submitForApproval(tx: Tx, ctx: SchoolContext, versionId: s
   const v = await tx.templateVersion.findFirst({ where: { id: versionId, schoolId: ctx.schoolId, isCurrent: true }, include: { template: true } });
   if (!v || v.template.channel !== "whatsapp") throw new TemplateProblem("Only the current version of a WhatsApp template can be sent for approval.");
   if (v.whatsappStatus === "APPROVED" || v.whatsappStatus === "PENDING") throw new TemplateProblem(v.whatsappStatus === "APPROVED" ? "This text is already approved." : "This text is already waiting for WhatsApp's answer.");
+  const problems = whatsappProblems(v.body);
+  if (problems.length) throw new TemplateProblem(`WhatsApp would refuse these words. ${problems.join(" ")} Edit the template, then send it again.`);
   const setup = (await channelSetups(tx, ctx)).whatsapp;
   const name = whatsappNameFor(v.template.name, v.templateId);
   let status: string;

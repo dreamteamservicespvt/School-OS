@@ -213,14 +213,16 @@ describe("a real WhatsApp account: only approved templates", () => {
     expect(before.skipped[0].reason).toMatch(/a typed WhatsApp message goes only in the "General announcement" template, which WhatsApp has not approved yet/);
     await approve(s, "general", "general_announcement_1");
     const plan = await withSchool(s.ctx, (tx) => planMessage(tx, s.ctx, input));
-    expect(plan.rows[0].text).toBe(`Dear Srinivas Kumar, school closes at noon today. - ${s.school.name}`);
+    expect(plan.rows[0].text).toBe(`Dear Srinivas Kumar, here is a message from ${s.school.name}:
+school closes at noon today.
+Please contact the school office if you have any questions.`);
     expect(plan.rows[0].values.message).toBe("school closes at noon today.");
     const r = await withSchool(s.ctx, (tx) => sendMessage(tx, s.ctx, input));
     await withSchool(s.ctx, (tx) => deliverMessage(tx, s.ctx, { messageId: r.messageId, round: "0", chunk: 0 }));
     const body = sent.at(-1)!.body as { type: string; template: { name: string; components: { parameters: { text: string }[] }[] } };
     expect(body.type).toBe("template");
     expect(body.template.name).toBe("general_announcement_1");
-    expect(body.template.components[0].parameters.map((p) => p.text)).toEqual(["Srinivas Kumar", "school closes at noon today.", s.school.name]);
+    expect(body.template.components[0].parameters.map((p) => p.text)).toEqual(["Srinivas Kumar", s.school.name, "school closes at noon today."]);
   });
 });
 

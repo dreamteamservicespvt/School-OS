@@ -34,10 +34,17 @@ describe("message templates", () => {
   });
 
   it("locks approved WhatsApp text", async () => {
-    const { id } = await withSchool(s.ctx, (tx) => saveTemplate(tx, s.ctx, null, { name: "Locked one", category: "general", channel: "whatsapp", texts: [{ language: "en", subject: null, body: "Hello {guardian_name}", dltTemplateId: null }] }));
+    const { id } = await withSchool(s.ctx, (tx) => saveTemplate(tx, s.ctx, null, { name: "Locked one", category: "general", channel: "whatsapp", texts: [{ language: "en", subject: null, body: "Hello {guardian_name}, the school is closed today.", dltTemplateId: null }] }));
     const v = await withSchool(s.ctx, (tx) => tx.templateVersion.findFirstOrThrow({ where: { templateId: id, isCurrent: true } }));
     expect(await withSchool(s.ctx, (tx) => submitForApproval(tx, s.ctx, v.id))).toBe("APPROVED"); // test mode
     await expect(withSchool(s.ctx, (tx) => saveTemplate(tx, s.ctx, id, { name: "Locked one", category: "general", channel: "whatsapp", texts: [{ language: "en", subject: null, body: "Hi {guardian_name}", dltTemplateId: null }] }))).rejects.toBeInstanceOf(TemplateProblem);
+  });
+
+  it("will not send WhatsApp words Meta refuses, and says what to change", async () => {
+    const { id } = await withSchool(s.ctx, (tx) => saveTemplate(tx, s.ctx, null, { name: "Ends with a blank", category: "general", channel: "whatsapp", texts: [{ language: "en", subject: null, body: "Dear {guardian_name}, {message} - {school_name}", dltTemplateId: null }] }));
+    const v = await withSchool(s.ctx, (tx) => tx.templateVersion.findFirstOrThrow({ where: { templateId: id, isCurrent: true } }));
+    await expect(withSchool(s.ctx, (tx) => submitForApproval(tx, s.ctx, v.id))).rejects.toThrow(/WhatsApp would refuse these words\. End the text with words/);
+    expect((await withSchool(s.ctx, (tx) => tx.templateVersion.findUniqueOrThrow({ where: { id: v.id } }))).whatsappStatus).toBe("NOT_SUBMITTED");
   });
 
   it("an SMS template without a DLT ID is saved but cannot be used; adding the ID makes it usable", async () => {

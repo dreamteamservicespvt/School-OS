@@ -61,6 +61,34 @@ export function whatsappParts(body: string): { text: string; variables: string[]
   return { text, variables: variablesIn(text), button: blank ? { blank, label: BUTTON_BLANKS[blank] } : null };
 }
 
+/** Words in a text besides its blanks, in any script ("Dear", "ప్రియమైన", "10"). */
+function wordCount(text: string) {
+  return text.replace(BLANK, " ").split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+}
+
+/**
+ * Why WhatsApp (Meta) would refuse a template's words, in plain words; empty
+ * when it would take them. Meta refuses a text that starts or ends with a
+ * blank ("Variables can't be at the start or end"; a full stop after it is not
+ * enough), two blanks with only a space between them, and a text with too many
+ * blanks for its length. School OS asks for 2 words per blank, and 2 more.
+ */
+export function whatsappProblems(body: string): string[] {
+  const lines = body.split("\n").filter((l) => !Object.keys(BUTTON_BLANKS).some((k) => l.includes(`{${k}}`)));
+  const text = lines.join("\n").trim();
+  const blanks = [...text.matchAll(BLANK)].length;
+  if (!blanks) return [];
+  const out: string[] = [];
+  const edge = /[\s\p{P}\p{S}]*/u.source;
+  if (new RegExp(`^${edge}\\{[a-z_]+\\}`, "u").test(text)) out.push("Start the text with words, not a blank.");
+  if (new RegExp(`\\{[a-z_]+\\}${edge}$`, "u").test(text)) out.push("End the text with words, not a blank (a full stop is not enough).");
+  const glued = text.match(/\{[a-z_]+\}\s*\{[a-z_]+\}/);
+  if (glued) out.push(`Put a word between the blanks in "${glued[0]}".`);
+  const need = blanks * 2 + 2;
+  if (wordCount(text) < need) out.push(`Too many blanks for its length: write at least ${need} words besides the ${blanks} blank${blanks === 1 ? "" : "s"}.`);
+  return out;
+}
+
 /** Blanks that are not on the list, so the person can fix a typing mistake. */
 export function unknownVariables(text: string): string[] {
   return variablesIn(text).filter((v) => !VARIABLE_KEYS.has(v));

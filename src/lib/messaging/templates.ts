@@ -24,7 +24,7 @@ export const TEMPLATE_CATEGORIES = [
 
 export const categoryLabel = (key: string) => TEMPLATE_CATEGORIES.find((c) => c.key === key)?.label ?? key;
 
-export { VARIABLES, VARIABLE_KEYS, variablesIn, unknownVariables, strayBlanks } from "./blanks";
+export { VARIABLES, VARIABLE_KEYS, variablesIn, unknownVariables, strayBlanks, whatsappProblems } from "./blanks";
 export const sampleValues = Object.fromEntries(VARIABLES.map((v) => [v.key, v.sample]));
 
 const BLANK = /\{([a-z_]+)\}/g;
@@ -150,21 +150,21 @@ type ReadyTemplate = { key: string; name: string; category: string; channel: Cha
  */
 export const READY_TEMPLATES: ReadyTemplate[] = [
   { key: "absence", name: "Absent today", category: "attendance", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {student_name} ({class}) is absent from school today, {date}. If this is not expected, please call the school on {school_phone}. - {school_name}",
-    hi: "प्रिय {guardian_name}, {student_name} ({class}) आज {date} को स्कूल में अनुपस्थित है। कृपया {school_phone} पर स्कूल से संपर्क करें। - {school_name}",
-    te: "ప్రియమైన {guardian_name}, {student_name} ({class}) ఈరోజు {date} పాఠశాలకు హాజరు కాలేదు. దయచేసి {school_phone} కు కాల్ చేయండి. - {school_name}",
+    en: "Dear {guardian_name}, {student_name} of {class} is absent from school today, {date}. If this is not expected, please call {school_name} on {school_phone}. We hope all is well.",
+    hi: "प्रिय {guardian_name}, आज {date} को {student_name} स्कूल नहीं आए। अगर आपको इसकी जानकारी नहीं है, तो कृपया {school_name} को {school_phone} पर फ़ोन करें। धन्यवाद।",
+    te: "ప్రియమైన {guardian_name}, ఈరోజు {date} న {student_name} పాఠశాలకు హాజరు కాలేదు. ఇది మీకు తెలియకపోతే, దయచేసి {school_name} కు {school_phone} నంబరులో కాల్ చేయండి. ధన్యవాదాలు.",
   } },
   { key: "absence", name: "Absent today (SMS)", category: "attendance", channel: "sms", texts: {
     en: "Dear Parent, {student_name} of {class} is absent today {date}. Please contact the school. - {school_name}",
   } },
   { key: "late", name: "Arrived late", category: "attendance", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {student_name} ({class}) reached school late today, {date}. - {school_name}",
+    en: "Dear {guardian_name}, {student_name} of {class} reached school late today, {date}. Please help your child be on time tomorrow. Thank you, {school_name} team.",
   } },
   { key: "fee-due", name: "Fee reminder", category: "fees", channel: "whatsapp", texts: {
     // {how_to_pay} is filled for each parent: their Parent Link with its Pay button, a payment link,
     // or "Please pay at the school office." when online payment is off (src/lib/fees/reminder-pay.ts).
-    en: "Dear {guardian_name}, a fee of {due_amount} for {student_name} ({class}) is due on {due_date}.\n{how_to_pay}\nPlease ignore if already paid. - {school_name}",
-    te: "ప్రియమైన {guardian_name}, {student_name} ({class}) ఫీజు {due_amount} {due_date} లోపు చెల్లించాలి.\n{how_to_pay}\n- {school_name}",
+    en: "Dear {guardian_name}, a fee of {due_amount} for {student_name} of {class} is due on {due_date}. Here is how to pay:\n{how_to_pay}\nPlease ignore this message if you have already paid. Thank you, {school_name} office.",
+    te: "ప్రియమైన {guardian_name}, {student_name} యొక్క ఫీజు {due_amount} ను {due_date} లోపు చెల్లించాలి. ఎలా చెల్లించాలో ఇక్కడ ఉంది:\n{how_to_pay}\nఇప్పటికే చెల్లించి ఉంటే, ఈ సందేశాన్ని పట్టించుకోవద్దు. ధన్యవాదాలు, {school_name} కార్యాలయం.",
   } },
   { key: "fee-due", name: "Fee reminder (SMS)", category: "fees", channel: "sms", texts: {
     en: "Dear Parent, fee of {due_amount} for {student_name} is due on {due_date}. {how_to_pay} - {school_name}",
@@ -178,39 +178,39 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
     en: "Received {paid_amount} for {student_name} on {payment_date}. Receipt {receipt_number}. Thank you. - {school_name}",
   } },
   { key: "exam-reminder", name: "Exam reminder", category: "exam", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {exam_name} for {student_name} ({class}) starts on {date}. The datesheet is on your Parent Link. - {school_name}",
+    en: "Dear {guardian_name}, {exam_name} for {student_name} of {class} starts on {date}. The datesheet is on your Parent Link; please check it. All the best from the {school_name} team!",
   } },
   { key: "result", name: "Results published", category: "exam", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, the results of {exam_name} for {student_name} are ready. See the report card on your Parent Link. - {school_name}",
+    en: "Dear {guardian_name}, the results of {exam_name} for {student_name} are ready. See the report card on your Parent Link. Thank you, {school_name} team.",
   } },
   { key: "result", name: "Results published (SMS)", category: "exam", channel: "sms", texts: {
     en: "Results of {exam_name} for {student_name} are ready. See your Parent Link. - {school_name}",
   } },
   { key: "ptm", name: "PTM reminder", category: "events", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, the parent-teacher meeting for {class} is on {date}. Please attend. - {school_name}",
+    en: "Dear {guardian_name}, the parent-teacher meeting for {class} is on {date}. Please attend to hear how your child is doing. Thank you, {school_name} team.",
   } },
   { key: "bus-pickup", name: "Picked up by the bus", category: "transport", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {message} - {school_name}",
+    en: "Dear {guardian_name}, here is a bus update from {school_name}:\n{message}\nThis message was sent automatically by the school transport team.",
   } },
   { key: "bus-drop", name: "Dropped by the bus", category: "transport", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {message} - {school_name}",
+    en: "Dear {guardian_name}, here is a bus update from {school_name}:\n{message}\nThis message was sent automatically by the school transport team.",
   } },
   { key: "bus-arriving", name: "Bus arriving", category: "transport", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {message} - {school_name}",
+    en: "Dear {guardian_name}, here is a bus update from {school_name}:\n{message}\nThis message was sent automatically by the school transport team.",
   } },
   { key: "homework-set", name: "Homework set", category: "homework", channel: "app", subject: "New homework", texts: {
     en: "New homework for {class}: {message}",
   } },
   // Parents have no app: the "Homework set" rule reaches them on WhatsApp (17 Done when 10).
   { key: "homework-set", name: "Homework set", category: "homework", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, new homework for {class}: {message} - {school_name}",
+    en: "Dear {guardian_name}, new homework has been set for {class}:\n{message}\nPlease help your child finish it on time. Thank you, {school_name} team.",
   } },
   { key: "homework-pending", name: "Homework pending", category: "homework", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {student_name} has not yet submitted homework due on {date}. - {school_name}",
+    en: "Dear {guardian_name}, {student_name} has not yet submitted the homework due on {date}. Please help your child finish it soon. Thank you, {school_name} team.",
   } },
   { key: "birthday-student", name: "Birthday wishes (student)", category: "general", channel: "whatsapp", texts: {
     en: "Happy birthday, {student_name}! Everyone at {school_name} wishes you a wonderful year ahead.",
-    te: "పుట్టినరోజు శుభాకాంక్షలు, {student_name}! {school_name} తరఫున మీకు శుభాకాంక్షలు.",
+    te: "ప్రియమైన {student_name}, పుట్టినరోజు శుభాకాంక్షలు! {school_name} తరఫున మీకు హృదయపూర్వక శుభాకాంక్షలు. ఈ సంవత్సరం మీకు ఆనందంగా గడవాలని కోరుకుంటున్నాము.",
   } },
   { key: "birthday-staff", name: "Birthday wishes (staff)", category: "staff", channel: "whatsapp", texts: {
     en: "Happy birthday, {staff_name}! Thank you for all you do for {school_name}. Have a lovely day.",
@@ -219,7 +219,7 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
     en: "Dear {staff_name}, your salary slip is ready. Open it in My profile.",
   } },
   { key: "admission-welcome", name: "Admission welcome", category: "admission", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, welcome to {school_name}! {student_name} is admitted to {class} with admission number {admission_no}.",
+    en: "Dear {guardian_name}, welcome to {school_name}! We are happy to tell you that {student_name} is admitted to {class}. The admission number is {admission_no}; please keep it for your records.",
   } },
   { key: "parent-link", name: "Parent Link", category: "parent-link", channel: "whatsapp", texts: {
     en: "Dear {guardian_name}, this is your personal Parent Link from {school_name}. See fees, attendance and notices for your children: {link} Please do not share it.",
@@ -233,16 +233,16 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
     en: "{code} is your one-time code for Parent Link of {school_name}. It works for 10 minutes. Do not share it.",
   } },
   { key: "parent-link-code", name: "Parent Link code", category: "parent-link", channel: "whatsapp", texts: {
-    en: "{code} is your one-time code for Parent Link of {school_name}. It works for 10 minutes. Do not share it with anyone.",
+    en: "Your one-time code for Parent Link of {school_name} is {code}. It works for 10 minutes. Do not share it with anyone.",
   } },
   { key: "consent-request", name: "Consent request", category: "parent-link", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {school_name} asks for your consent: {title}. Please open your Parent Link to read it and agree. - {school_name}",
+    en: "Dear {guardian_name}, {school_name} asks for your consent: {title}. Please open your Parent Link to read it and agree. Thank you.",
   } },
   { key: "query-number", name: "Query received", category: "queries", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, we have noted your {message}. Your ticket number is {ticket_number}. We will get back to you soon. - {school_name}",
+    en: "Dear {guardian_name}, we have noted your {message}. Your ticket number is {ticket_number}. We will get back to you soon. Thank you, {school_name} team.",
   } },
   { key: "query-rating", name: "Query rating request", category: "queries", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, your ticket {ticket_number} is closed. How happy are you with our help? Reply with a number from 1 (not happy) to 5 (very happy). - {school_name}",
+    en: "Dear {guardian_name}, your ticket {ticket_number} is closed. How happy are you with our help? Reply with a number from 1 (not happy) to 5 (very happy). Thank you, {school_name} team.",
   } },
   { key: "staff-invite", name: "Staff invite", category: "staff", channel: "whatsapp", texts: {
     en: "Dear {staff_name}, you are invited to School OS at {school_name}. Open this link to choose your password: {link} It works once, for 7 days. Please do not share it.",
@@ -257,25 +257,25 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
     en: "{code} is your School OS sign-in code for {school_name}. It works for 10 minutes. Do not share it.",
   } },
   { key: "staff-message", name: "Message to staff", category: "staff", channel: "whatsapp", texts: {
-    en: "Dear {staff_name}, {message} - {school_name}",
+    en: "Dear {staff_name}, here is a message from {school_name}:\n{message}\nPlease contact the school office if you have any questions.",
   } },
   { key: "staff-message", name: "Message to staff (SMS)", category: "staff", channel: "sms", texts: {
     en: "Dear {staff_name}, {message} - {school_name}",
   } },
   { key: "behaviour-note", name: "Behaviour note", category: "general", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, this is to let you know about {student_name} ({class}): {title} on {date}. Please contact the class teacher if you would like to know more. - {school_name}",
+    en: "Dear {guardian_name}, this is to let you know about {student_name} of {class}: {title} on {date}. Please contact the class teacher if you would like to know more. Thank you, {school_name} team.",
   } },
   { key: "behaviour-note", name: "Behaviour note (SMS)", category: "general", channel: "sms", texts: {
     en: "Dear Parent, about {student_name} ({class}): {title} on {date}. Please contact the class teacher. - {school_name}",
   } },
   { key: "notice", name: "New notice", category: "general", channel: "whatsapp", texts: {
-    en: "{school_name}: {title}. {message}",
+    en: "Dear Parent, there is a new notice from {school_name}: {title}.\nDetails: {message}\nYou can also read this notice on your Parent Link.",
   } },
   { key: "notice", name: "New notice (SMS)", category: "general", channel: "sms", texts: {
     en: "{school_name}: New notice: {title}. Please see your Parent Link.",
   } },
   { key: "general", name: "General announcement", category: "general", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {message} - {school_name}",
+    en: "Dear {guardian_name}, here is a message from {school_name}:\n{message}\nPlease contact the school office if you have any questions.",
   } },
   { key: "general", name: "General announcement (SMS)", category: "general", channel: "sms", texts: {
     en: "Dear Parent, {message} - {school_name}",

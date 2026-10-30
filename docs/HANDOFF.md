@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-10-30 22:45 (self-test decisions 16-17 settled by Claude; nothing pushed)
+Last updated: 2026-10-30 23:50 (3a2 WhatsApp ready texts done; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
@@ -20,18 +20,23 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
   --force-with-lease (ask the user first).
 
 ## Next steps
+0. AUTONOMOUS QA ROUND 2 (user, 2026-10-30, asleep, "do not ask me anything"): follow
+   docs/qa/MISSION-autonomous-qa.md. Write results to docs/qa/2026-10-31-qa-round-2.md (statuses PASS/FAIL/
+   BLOCKED/NOT IMPLEMENTED/NEEDS EXTERNAL SERVICE/NEEDS PRODUCT DECISION), fix safe bugs with tests, local
+   commits only. Build/serve from C:\Users\chala\sos-build (see "How to run things locally"); check port 3000
+   with Get-CimInstance Win32_Process (netstat may not show the old next start).
 1. Self-test decisions settled by Claude 2026-10-30 (user said "decide yourself"): 16 keep the owner's rule, only
    the Principal rejects an admission (approver can approve or ask for a change); 17 Visitors table fits at 1440 px
    (side panel 300 px, vehicle under the name; qa/full/visitors-fit.mjs). Push only when the user says so.
 2. Not done in the self-test: online payment through Razorpay (no keys locally); timed tests (parent pays on a
    slow phone < 60 s; teacher marks 40 students < 60 s).
 3. DECIDED by the user 2026-10-23, build one at a time (brainstorm -> plan -> build); details in the archive file:
-   a2. FOUND 2026-10-26, waits on the user's OK: most of the 31 ready WhatsApp texts (templates.ts
-      READY_TEMPLATES) end with "- {school_name}" and Meta's form refuses them ("Variables can't be at the
-      start or end"); several short ones also get "too many variables for its length" (Arrived late, Bus x3,
-      General announcement, Message to staff, Admission welcome, New notice, Telugu Absent/Fee reminder).
-      blanks.ts whatsappParts' "add a full stop" fix does NOT satisfy Meta. Fix = reword so no text starts or
-      ends with a blank and has enough words; migration for untouched NOT_SUBMITTED versions, like 3a.
+   a2. DONE 2026-10-30 (user: "complete everything"): ready WhatsApp texts reworded so none starts/ends with a
+      blank, no two blanks sit with only a space between, and >= 2 words per blank + 2 (whatsappProblems in
+      blanks.ts; tests/communication/whatsapp-ready.test.ts). Migration 20261030000000_whatsapp_ready_texts
+      gives untouched NOT_SUBMITTED texts a new version (demo: 30 updated). Submit for approval now refuses
+      such words and the template page says what to change. Not yet confirmed on Meta itself: the first real
+      submission will tell whether Meta's length rule is stricter than ours. fee-paid kept its 3a words.
    b. Backups: nightly encrypted copy to Cloudflare R2 (user chose R2 knowing it does not promise India;
       blueprint "in India" was inferred). Adapt scripts/backup.sh (aws CLI with --endpoint-url for R2)
       and run it nightly from GitHub Actions. User must create: Cloudflare R2 bucket + S3 API token,

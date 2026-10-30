@@ -5,7 +5,7 @@ import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { formatDateTime } from "@/lib/format";
 import { channelSetups } from "@/lib/messaging/channels";
-import { categoryLabel, languageLabel, render, sampleValues, smsParts, variableLabel } from "@/lib/messaging/templates";
+import { categoryLabel, languageLabel, render, sampleValues, smsParts, variableLabel, whatsappProblems } from "@/lib/messaging/templates";
 import { ruleTemplateIds, usedBy, WHATSAPP_STATUS_LABEL } from "@/lib/communication/templates-admin";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill, type PillTone } from "@/components/ui/badge";
@@ -15,7 +15,7 @@ import { BackLink, Col, DL, RecordHead, Split } from "@/components/ui/split";
 import { UrlSegmented } from "@/components/ui/url-filters";
 import { ChannelPills } from "../../_components/channel-pills";
 import { ApprovalButton, ArchiveTemplate, RefreshApproval } from "./template-actions";
-import { Words } from "@/lib/i18n/client";
+import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -55,6 +55,7 @@ export default async function TemplatePage({ params, searchParams }: { params: P
   const isWa = t.channel === "whatsapp";
   const missingDlt = isSms && currentVersions.some((x) => !x.dltTemplateId);
   const wa = v?.whatsappStatus ?? "NOT_SUBMITTED";
+  const waProblems = isWa && v ? whatsappProblems(v.body) : [];
   const preview = v ? render(v.body, sampleValues) : null;
   const usedIn = (vid: string) => { const n = data.uses.get(vid) ?? 0; return `${n.toLocaleString("en-IN")} message${n === 1 ? "" : "s"}`; };
   const maxVersion = Math.max(1, ...currentVersions.map((x) => x.version));
@@ -111,9 +112,12 @@ export default async function TemplatePage({ params, searchParams }: { params: P
                   <p className="eyebrow text-ink3 mb-1.5"><Words k="Preview with sample details" /></p>
                   <div className="rounded-2xl rounded-tl-md bg-surface border border-line p-3.5 shadow-card text-[14px] leading-relaxed whitespace-pre-line break-words">{preview?.ok ? preview.text : v.body}</div>
                 </div>
+                {isWa && (wa === "NOT_SUBMITTED" || wa === "REJECTED") && waProblems.length > 0 && (
+                  <Banner tone="warn" title="WhatsApp would refuse these words."><ul className="list-disc pl-5">{waProblems.map((m) => <li key={m}><Any text={m} /></li>)}</ul></Banner>
+                )}
                 {(isWa && access.full && !t.archivedAt) && (
                   <div className="flex gap-2 flex-wrap">
-                    {(wa === "NOT_SUBMITTED" || wa === "REJECTED") && <ApprovalButton versionId={v.id} />}
+                    {(wa === "NOT_SUBMITTED" || wa === "REJECTED") && (waProblems.length ? null : <ApprovalButton versionId={v.id} />)}
                     {anyPending && <RefreshApproval id={t.id} />}
                   </div>
                 )}

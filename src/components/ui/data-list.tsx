@@ -159,11 +159,15 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href:
             );
           }
           return (
-            <li key={rowKey(r)} className="relative flex items-center has-[:checked]:bg-brand/5">
-              {select && selectOnPhone && <span className="pl-4 grid place-items-center">{tick(r)}</span>}
-              {href
-                ? <Link href={href} scroll={scroll} className="w-full min-w-0 flex items-center gap-3 px-4 py-3 text-left active:bg-sunken">{body}</Link>
-                : <div className="w-full min-w-0 flex items-center gap-3 px-4 py-3">{body}</div>}
+            <li key={rowKey(r)} className={cx("relative flex items-center has-[:checked]:bg-brand/5", href && "active:bg-sunken")}>
+              {select && selectOnPhone && <span className="relative z-10 pl-4 grid place-items-center">{tick(r)}</span>}
+              {/* The card's link lies over it, as on a table row, so a button or link in a pill (Approve,
+                  Decline) is never inside the card's link: a link in a link broke the page (React #418). */}
+              {href && (
+                <Link href={href} scroll={scroll} aria-label={rowLabel?.(r) ?? (typeof m.title === "string" ? m.title : "Open")}
+                  className="absolute inset-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand" />
+              )}
+              <div className="w-full min-w-0 flex items-center gap-3 px-4 py-3">{body}</div>
             </li>
           );
         })}

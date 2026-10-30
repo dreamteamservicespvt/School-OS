@@ -60,9 +60,9 @@ export function Band({ items, className }: { items: BandItem[]; className?: stri
         {items.slice(0, 4).map((m, i) => {
           const inner = (
             <>
-              <p className="text-[12.5px] md:text-[13px] font-semibold opacity-80 flex items-center gap-1">{m.label}{m.href && <ChevronRight size={14} className="opacity-60" aria-hidden="true" />}</p>
+              <p className="text-[12.5px] md:text-[13px] font-semibold opacity-90 flex items-center gap-1">{m.label}{m.href && <ChevronRight size={14} className="opacity-60" aria-hidden="true" />}</p>
               <p className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight tnum mt-1 truncate">{m.big}</p>
-              {m.foot && <p className="text-[12px] md:text-[13px] opacity-75 mt-0.5 line-clamp-2">{m.foot}</p>}
+              {m.foot && <p className="text-[12px] md:text-[13px] opacity-90 mt-0.5 line-clamp-2">{m.foot}</p>}
             </>
           );
           const cls = cx("block text-left p-4 md:p-6 min-w-0 border-white/15", m.href && "hover:bg-white/[.07] transition", BAND_CELL[n][i]);

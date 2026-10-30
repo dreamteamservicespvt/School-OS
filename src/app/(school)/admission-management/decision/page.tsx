@@ -167,7 +167,7 @@ export default async function DecisionPage({ searchParams }: Search) {
                       <Link href={`${BASE}/applications/${a.id}`} className="font-semibold text-[16px] leading-tight hover:underline">{a.fullName}</Link>
                       <p className="text-[13px] text-ink3">{n.classes.get(a.classId) ?? ""} · {yl(a.academicYearId)} · <span className="font-mono text-[12px]">{a.applicationNo}</span>{a.category ? ` · Category: ${a.category}` : ""}</p>
                     </div>
-                    {approval && <Pill tone="info" className="shrink-0 hidden sm:inline-flex"><Words k="With the Principal" /></Pill>}
+                    {approval && <Pill tone="info" className="shrink-0 hidden sm:inline-flex"><Words k="Waiting for approval" /></Pill>}
                   </div>
                   <ul className="grid md:grid-cols-2 gap-x-4 gap-y-2">
                     {facts(a).map(([Ic, t, tone]) => (

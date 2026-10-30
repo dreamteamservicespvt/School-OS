@@ -1,7 +1,7 @@
 // Typed dates and times in the date and time boxes (src/components/ui/date-input.tsx):
 // DD-MM-YYYY and 12-hour times on screen (00-global.md P17), YYYY-MM-DD and HH:MM to the form.
 import { describe, expect, it } from "vitest";
-import { addDays, addMonths, maskDate, monthCells, parseDateText, parseTimeText, showDate, showTime, timeChoices } from "@/lib/date-text";
+import { addDays, addMonths, maskDate, missingDay, monthCells, parseDateText, parseTimeText, showDate, showTime, timeChoices } from "@/lib/date-text";
 
 const today = "2026-10-26";
 
@@ -41,6 +41,23 @@ describe("parseDateText", () => {
   it("puts a two-digit year in this century unless that is more than 10 years ahead", () => {
     expect(parseDateText("1-1-36", today)).toBe("2036-01-01");
     expect(parseDateText("1-1-37", today)).toBe("1937-01-01");
+  });
+});
+
+// Self-test bug 2 (2026-10-30): 31-02-2026 was answered "Type the date as DD-MM-YYYY",
+// though it was typed that way; the box now says the day does not exist.
+describe("missingDay", () => {
+  it.each([
+    ["31-02-2026", { d: 31, m0: 1, y: 2026 }],
+    ["29-02-2026", { d: 29, m0: 1, y: 2026 }],
+    ["31/04/27", { d: 31, m0: 3, y: 2027 }],
+    ["30 Feb 2028", { d: 30, m0: 1, y: 2028 }],
+  ])("finds the day that does not exist in %s", (text, want) => {
+    expect(missingDay(text, today)).toEqual(want);
+  });
+
+  it.each(["29-02-2028", "14-05-2012", "hello", "14-13-2012", "00-05-2012", "14-05-201", ""])("is null for %s", (text) => {
+    expect(missingDay(text, today)).toBeNull();
   });
 });
 

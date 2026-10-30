@@ -54,7 +54,7 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
     const people = manager && shown.length ? await tx.userLogin.findMany({ where: { id: { in: shown } }, select: { id: true, displayName: true }, orderBy: { displayName: "asc" } }) : [];
     const guardianIds = manager && n.status !== "DRAFT" ? await guardiansOnCampus(tx, await audienceGuardianIds(tx, current.ctx, a), campusId) : [];
     const views = manager ? await tx.noticeGuardianView.findMany({ where: { noticeId: n.id } }) : [];
-    const guardians = guardianIds.length ? await tx.guardian.findMany({ where: { id: { in: guardianIds.slice(0, 2000) } }, select: { id: true, name: true, relationship: true }, orderBy: { name: "asc" } }) : [];
+    const guardians = guardianIds.length ? await tx.guardian.findMany({ where: { id: { in: guardianIds.slice(0, 2000) } }, select: { id: true, name: true, relationship: true, students: { where: { archivedAt: null }, select: { student: { select: { fullName: true } } } } }, orderBy: { name: "asc" } }) : [];
     const files = n.attachmentFileIds.length ? await tx.storedFile.findMany({ where: { id: { in: n.attachmentFileIds } }, select: { id: true, fileName: true } }) : [];
     const setups = await channelSetups(tx, current.ctx);
     const author = n.createdById ? await tx.userLogin.findUnique({ where: { id: n.createdById }, select: { displayName: true } }) : null;
@@ -64,6 +64,9 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
   const { n } = data;
   const ackBy = new Map(data.acks.map((x) => [x.userLoginId, x]));
   const seenBy = new Map(data.views.map((v) => [v.guardianId, v]));
+  // Two parents can share a name: each row says whose parent it is ("Mother of Kabir Sharma").
+  const childrenOf = (g: (typeof data.guardians)[number]) =>
+    g.students.length ? `${g.relationship} of ${g.students.map((x) => x.student.fullName).join(", ")}` : g.relationship;
   const notRead = data.people.filter((p) => !ackBy.get(p.id)?.[n.askAck ? "acknowledgedAt" : "readAt"]);
   const unseen = data.guardians.filter((g) => !seenBy.has(g.id)).length;
   const channels = (["whatsapp", "sms", "email"] as const).filter((c) => data.setups[c].isOn);
@@ -136,7 +139,7 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
                     return (
                       <li key={g.id} className="flex items-center gap-3 px-4 md:px-5 py-2.5">
                         <Avatar name={g.name} size={32} />
-                        <div className="min-w-0 flex-1"><p className="text-[14px] font-semibold truncate">{g.name}</p><p className="text-[12px] text-ink3 truncate">{g.relationship}</p></div>
+                        <div className="min-w-0 flex-1"><p className="text-[14px] font-semibold truncate">{g.name}</p><p className="text-[12px] text-ink3 truncate">{childrenOf(g)}</p></div>
                         {v ? <span className="text-right text-[12.5px] tnum"><span className="block font-semibold">{formatDateTime(v.firstSeenAt, tz)}</span><span className="text-ink3">{v.via === "whatsapp" ? "WhatsApp read" : "Parent Link"}</span></span> : <Pill tone="warn"><Words k="Not seen" /></Pill>}
                       </li>
                     );

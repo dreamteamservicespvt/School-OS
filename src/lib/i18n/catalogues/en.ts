@@ -434,7 +434,6 @@ export const EN = [
   "The application goes back to approved. Nothing is deleted; the history keeps both steps.",
   // src/app/(school)/admission-management/decision/page.tsx
   "Decisions waiting in Approvals are made there by the approver. Once approved, you confirm the admission when the family accepts.",
-  "With the Principal",
   "Sent by",
   ". Also waiting in Approvals.",
   "Open in Approvals",
@@ -4888,6 +4887,7 @@ export const EN = [
   "Pick a date on or after {date}.",
   "Pick a date on or before {date}.",
   "Type the date as DD-MM-YYYY, for example 14-05-2012.",
+  "{month} {year} has no day {day}. Check the day.",
   "Pick a time from {time}.",
   "Pick a time up to {time}.",
   "Type the time like 9:30 AM.",

@@ -78,33 +78,53 @@ function checked(y: number | null, m0: number, d: number): string | null {
   return isoOf(y, m0, d);
 }
 
+type Read = { y: number | null; m0: number; d: number };
+
+/** The year, month and day in typed text, before checking that the day exists. */
+function readDate(s: string, today: string): Read | null {
+  const thisYear = Number(today.slice(0, 4));
+  let m = /^(\d{1,2})[-/. ](\d{1,2})(?:[-/. ](\d{2}|\d{4}))?$/.exec(s);
+  if (m) return { y: m[3] ? fullYear(m[3], today) : thisYear, m0: Number(m[2]) - 1, d: Number(m[1]) };
+
+  m = /^(\d{2})(\d{2})(\d{2}|\d{4})$/.exec(s);
+  if (m) return { y: fullYear(m[3], today), m0: Number(m[2]) - 1, d: Number(m[1]) };
+
+  m = /^(\d{1,2})(?:st|nd|rd|th)? ?-? ?([a-z]+\.?) ?-? ?(\d{2}|\d{4})?$/.exec(s);
+  if (m) return { y: m[3] ? fullYear(m[3], today) : thisYear, m0: monthFromWord(m[2]), d: Number(m[1]) };
+
+  m = /^([a-z]+\.?) (\d{1,2})(?:st|nd|rd|th)?(?: (\d{2}|\d{4}))?$/.exec(s);
+  if (m) return { y: m[3] ? fullYear(m[3], today) : thisYear, m0: monthFromWord(m[1]), d: Number(m[2]) };
+
+  return null;
+}
+
+const tidy = (text: string) => text.trim().toLowerCase().replace(/,/g, " ").replace(/\s+/g, " ");
+
 /**
  * A date typed in any common way, as YYYY-MM-DD: "14-05-2012", "14/5/12", "14052012",
  * "14 May 2012", "May 14 2012", "14-5" (this year), "today". "" for an empty box, null
  * when it is not a real date. `today` is YYYY-MM-DD in the school's time zone.
  */
 export function parseDateText(text: string, today: string): string | null {
-  const s = text.trim().toLowerCase().replace(/,/g, " ").replace(/\s+/g, " ");
+  const s = tidy(text);
   if (!s) return "";
   if (s === "today") return today;
   if (s === "tomorrow") return addDays(today, 1);
   if (s === "yesterday") return addDays(today, -1);
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return isoParts(s) ? s : null;
-  const thisYear = Number(today.slice(0, 4));
+  const r = readDate(s, today);
+  return r && checked(r.y, r.m0, r.d);
+}
 
-  let m = /^(\d{1,2})[-/. ](\d{1,2})(?:[-/. ](\d{2}|\d{4}))?$/.exec(s);
-  if (m) return checked(m[3] ? fullYear(m[3], today) : thisYear, Number(m[2]) - 1, Number(m[1]));
-
-  m = /^(\d{2})(\d{2})(\d{2}|\d{4})$/.exec(s);
-  if (m) return checked(fullYear(m[3], today), Number(m[2]) - 1, Number(m[1]));
-
-  m = /^(\d{1,2})(?:st|nd|rd|th)? ?-? ?([a-z]+\.?) ?-? ?(\d{2}|\d{4})?$/.exec(s);
-  if (m) return checked(m[3] ? fullYear(m[3], today) : thisYear, monthFromWord(m[2]), Number(m[1]));
-
-  m = /^([a-z]+\.?) (\d{1,2})(?:st|nd|rd|th)?(?: (\d{2}|\d{4}))?$/.exec(s);
-  if (m) return checked(m[3] ? fullYear(m[3], today) : thisYear, monthFromWord(m[1]), Number(m[2]));
-
-  return null;
+/**
+ * When the text is a clear day, month and year but that month has no such day
+ * ("31-02-2026", "30 Feb 2027"), the day, month and year as numbers, so the box can say
+ * so rather than ask for the format again. Else null.
+ */
+export function missingDay(text: string, today: string): { d: number; m0: number; y: number } | null {
+  const r = readDate(tidy(text), today);
+  if (!r || r.y === null || r.y < 1 || r.m0 < 0 || r.m0 > 11 || r.d < 1 || r.d <= daysIn(r.y, r.m0)) return null;
+  return { d: r.d, m0: r.m0, y: r.y };
 }
 
 /**

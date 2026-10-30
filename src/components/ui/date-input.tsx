@@ -19,7 +19,7 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock } from "luc
 import { cx } from "./cx";
 import { useT } from "@/lib/i18n/client";
 import {
-  addDays, addMonths, daysIn, isoOf, isoParts, maskDate, monthCells, parseDateText, parseTimeText,
+  addDays, addMonths, daysIn, isoOf, isoParts, maskDate, missingDay, monthCells, parseDateText, parseTimeText,
   showDate, showTime, timeChoices, todayIn, weekdayOf,
 } from "@/lib/date-text";
 
@@ -181,7 +181,13 @@ export function DateInput(props: DateProps) {
     held, show: showDate, parse: (s) => parseDateText(s, today),
     check: (v) => (min && v < min ? tooEarly : max && v > max ? tooLate : ""), commitValue: set,
   });
-  const message = typed.bad === "unreadable" ? t.any("Type the date as DD-MM-YYYY, for example 14-05-2012.") : typed.bad;
+  const noDay = typed.bad === "unreadable" && typed.draft !== null ? missingDay(typed.draft, today) : null;
+  const message = noDay
+    ? t.any("{month} {year} has no day {day}. Check the day.", {
+      day: noDay.d, year: noDay.y,
+      month: new Intl.DateTimeFormat(locale(t.lang), { month: "long", timeZone: "UTC" }).format(Date.UTC(2000, noDay.m0, 1)),
+    })
+    : typed.bad === "unreadable" ? t.any("Type the date as DD-MM-YYYY, for example 14-05-2012.") : typed.bad;
 
   useEffect(() => { field.current?.setCustomValidity(message); }, [message]);
 

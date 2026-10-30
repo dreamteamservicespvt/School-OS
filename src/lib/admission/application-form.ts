@@ -6,6 +6,7 @@ import "server-only";
 import { collector, dateOf, emailOf, id, maybe, mobileOf, need, str } from "./act";
 import { CATEGORIES } from "./settings";
 import { GENDERS, RELATIONS, type ApplicationInput } from "./applications";
+import { DATA_CONSENT } from "./consent";
 
 /** `extra` adds the caller's own checks (consent, the sender's name) to the same list. */
 export function readApplicationForm(fd: FormData, opts: { restricted: boolean; extra?: (c: ReturnType<typeof collector>) => void }): ApplicationInput {
@@ -65,4 +66,14 @@ export function readApplicationForm(fd: FormData, opts: { restricted: boolean; e
   opts.extra?.(c);
   c.done();
   return input;
+}
+
+/**
+ * A new application at the counter needs the data consent, confirmed by the code. It is
+ * listed with the form's other problems, so the person is not sent back a second time.
+ */
+export function counterConsent(fd: FormData) {
+  return (c: ReturnType<typeof collector>) => {
+    if (str(fd, `consent_${DATA_CONSENT}`) !== "on") c.add("code", "The guardian must agree to the data consent, confirmed with the one-time code, before the form is saved.");
+  };
 }

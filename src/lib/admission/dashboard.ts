@@ -126,7 +126,7 @@ export async function pipeline(tx: Tx, s: Settings, v: Viewer, f: Filters, names
         if (c.key === "docs") meta = `${p.requiredVerified} of ${p.required} verified`;
         if (c.key === "test") meta = r.tests[0] ? (r.tests[0].marks !== null ? `Scored ${Number(r.tests[0].marks)} of ${r.tests[0].test.maxMarks}` : "Test booked") : "No test booked";
         if (c.key === "int") meta = r.interviews[0] ? "Interview booked" : "No interview booked";
-        if (c.key === "appr") meta = r.stage === "APPROVED" ? "Approved · confirm admission" : r.approvalId ? "With the Principal" : "Ready for decision";
+        if (c.key === "appr") meta = r.stage === "APPROVED" ? "Approved · confirm admission" : r.approvalId ? "Waiting for approval" : "Ready for decision";
         if (c.key === "done") meta = r.applicationNo;
         return { id: r.id, name: r.fullName, cls: cls(r.classId), meta, href: `/admission-management/applications/${r.id}` };
       }),

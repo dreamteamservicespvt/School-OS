@@ -167,6 +167,12 @@ function signatures(sigs: SignatoryView[]) {
     </div>`).join("")}</div>`;
 }
 
+/** The code and signature row; nothing when it would be empty, as its top margin alone can push a full page onto a blank second one. */
+function endRow(...parts: string[]) {
+  const inner = parts.join("");
+  return inner ? `<div class="endrow">${inner}</div>` : "";
+}
+
 function codeBlock(input: RenderInput, values: Record<string, string>, data: DocumentData, size = "22mm") {
   const text = data.verifyText ?? (input.type.codeField ? values[input.type.codeField] : "");
   const out: string[] = [];
@@ -211,7 +217,7 @@ function moneyPage(input: RenderInput, data: DocumentData, values: Record<string
     ${table}
     <p class="words">${esc(values.amount_in_words ?? "")}</p>
     ${options.body ? `<div class="body small">${paragraphs(mergeText(options.body, values))}</div>` : ""}
-    <div class="endrow">${codeBlock(input, values, data, "18mm")}${signatures(input.signatories)}</div>
+    ${endRow(codeBlock(input, values, data, "18mm"), signatures(input.signatories))}
     ${options.footer ? `<footer class="foot">${mergeText(options.footer, values)}</footer>` : ""}`;
 }
 
@@ -226,7 +232,7 @@ function letterPage(input: RenderInput, data: DocumentData, values: Record<strin
     ${options.title ? `<h1 class="title underline">${mergeText(options.title, values)}</h1>` : ""}
     <div class="body">${paragraphs(mergeText(options.body, values))}</div>
     ${table}
-    <div class="endrow">${codeBlock(input, values, data)}${signatures(input.signatories)}</div>
+    ${endRow(codeBlock(input, values, data), signatures(input.signatories))}
     ${options.footer ? `<footer class="foot">${mergeText(options.footer, values)}</footer>` : ""}`;
 }
 
@@ -280,7 +286,7 @@ function tablePage(input: RenderInput, data: DocumentData, values: Record<string
     ${summary}
     ${extra}
     ${options.body ? `<div class="body small">${paragraphs(mergeText(options.body, values))}</div>` : ""}
-    <div class="endrow">${codeBlock(input, values, data, "18mm")}${lines ? `<div class="sigs">${lines}</div>` : ""}${signatures(input.signatories)}</div>
+    ${endRow(codeBlock(input, values, data, "18mm"), lines ? `<div class="sigs">${lines}</div>` : "", signatures(input.signatories))}
     ${options.footer ? `<footer class="foot">${mergeText(options.footer, values)}</footer>` : ""}`;
 }
 
@@ -289,6 +295,9 @@ export function pageSize(input: Pick<RenderInput, "type" | "options">) {
   if (input.type.family === "card") return { format: "A4" as const, margin: "10mm" };
   return { format: input.options.paper, margin: input.options.paper === "A5" ? "8mm" : "12mm" };
 }
+
+/** Report cards are meant to print one per page: tighter rows and gaps than other documents. */
+const REPORT_FIT = ".lines th,.lines td{padding:1.2mm 2.5mm} .chips{margin:2.5mm 0} h2.sub{margin:3mm 0 1mm}";
 
 export function renderHtml(input: RenderInput): string {
   const { type, options, branding, assets } = input;
@@ -354,6 +363,7 @@ export function renderHtml(input: RenderInput): string {
     .cardinfo{flex:1;min-width:0}.cname{font-weight:700;font-size:9pt;margin-bottom:.8mm;color:var(--accent)}
     .cf span{color:#555}.cardbar{padding:0 2.5mm}.cardbar .bar{width:100%}
     .cardfoot{display:flex;justify-content:space-between;gap:2mm;padding:1mm 2.5mm;border-top:1px solid var(--accent);font-size:6pt;color:#333}
+    ${type.family === "report" ? REPORT_FIT : ""}
   </style></head><body>${pages.join("")}</body></html>`;
 }
 

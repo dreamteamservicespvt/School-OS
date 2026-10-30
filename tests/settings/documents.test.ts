@@ -56,6 +56,16 @@ describe("rendering", () => {
     expect(s).toContain("₹46,000");
   });
 
+  it("leaves out an empty signature row, whose top margin pushed a full report card onto a blank second page", () => {
+    for (const t of DOC_TYPES.filter((x) => x.family !== "card")) {
+      const options = { ...defaultOptions(t), showQr: false, showBarcode: false };
+      const html = renderHtml({ type: t, base: "classic", options, branding, signatories: [], assets: { logo: null, background: null, images: new Map() }, records: [{ ...sampleData(t), signLines: [] }] });
+      expect(html, t.key).not.toContain('<div class="endrow"></div>');
+      const signed = renderHtml({ type: t, base: "classic", options, branding, signatories: [{ name: "Lakshmi Rao", title: "Principal", image: null }], assets: { logo: null, background: null, images: new Map() }, records: [sampleData(t)] });
+      expect(signed, t.key).toContain('<div class="endrow">');
+    }
+  });
+
   it("writes amounts the Indian way", () => {
     expect(numberInWords(1234567)).toBe("Twelve Lakh Thirty Four Thousand Five Hundred Sixty Seven");
     expect(numberInWords(25_00_00_000)).toBe("Twenty Five Crore");

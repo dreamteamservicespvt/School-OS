@@ -1,8 +1,15 @@
 # School OS handoff
 
-Last updated: 2026-10-26 (split of commit a)
+Last updated: 2026-10-30 (full self-test planned)
 
 ## State
+- 2026-10-30: the repo is now at D:\all\Projects\School-OS (moved again). tools/pg16 (local PostgreSQL)
+  is NOT there and pg_ctl is not on PATH: local DB must be found or reinstalled, then
+  `npm run db:setup` + seed (prisma/seed.ts) before the app or tests run. Dev server was not running.
+- Demo logins (local only, all use DEMO_PASSWORD from .env): school /sign-in usernames principal, admin,
+  accountant, teacher, subjectteacher, reception, transport, librarian, warden, store, viceprincipal,
+  newteacher (invite link printed by the seed); console /console/sign-in mobiles 9849012345 Owner,
+  9849023456 Onboarding, 9849034567 Support (code in server log). Parents: Parent Link (/p/...), no password.
 - 2026-10-26: commit "a" (64f895d7) + fix 837c103a were SPLIT into 717324e7 "New date input: one
   picker for every date and time box" and c1d20cb4 "Connections move to the console"; the handoff
   commits were replayed on top (final tree identical to the old tip 30d550f2, kept as branch
@@ -61,6 +68,11 @@ Last updated: 2026-10-26 (split of commit a)
   https://school-os-beta.vercel.app/i/{{1}} (if APP_URL changes, the templates must be redone).
 
 ## Next steps
+0. NEXT (user, 2026-10-30): FULL SELF-TEST of everything on the LOCAL demo, by Claude alone: every login
+   above, every module in docs/blueprint/06-build-order.md / BUILT_MODULES (src/lib/modules.ts), every
+   page, button, form, permission (05-roles.md: each role sees only what it should, View cannot change),
+   school isolation (Sunrise vs Green Valley), console, Parent Link, invite flow, light/dark, 390/1440 px.
+   Write results to docs/qa/2026-10-30-full-test.md; fix confirmed bugs with tests. Never test on live.
 1. DONE 2026-10-23: console WhatsApp templates live; phone audit live on main 46a3b2e0 (report
    docs/qa/2026-10-23-phone-audit.md). Test school "DTS Test School" (DTS-HYD-001); never touch Chaitanya English.
 2. Offline attendance stays opt-in (blueprint says optional). Decided, not a gap.

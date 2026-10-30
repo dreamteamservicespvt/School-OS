@@ -155,12 +155,11 @@ async function guardiansFor(tx: Tx, ctx: SchoolContext, students: Enrolled[], al
   for (const l of links) byStudent.set(l.studentId, [...(byStudent.get(l.studentId) ?? []), l]);
   const out = new Map<string, Candidate>();
   for (const st of students) {
-    let chosen = byStudent.get(st.id) ?? [];
+    // The primary guardian first, then by emergency order: when two guardians share one number, the
+    // message greets the primary one (the database returns the links in no fixed order).
+    let chosen = [...(byStudent.get(st.id) ?? [])].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary) || (a.emergencyOrder ?? 99) - (b.emergencyOrder ?? 99));
     if (onlyGuardianIds) chosen = chosen.filter((l) => onlyGuardianIds.has(l.guardian.id));
-    else if (!all) {
-      const main = [...chosen].sort((a, b) => Number(b.isPrimary) - Number(a.isPrimary) || (a.emergencyOrder ?? 99) - (b.emergencyOrder ?? 99))[0];
-      chosen = main ? [main] : [];
-    }
+    else if (!all) chosen = chosen.slice(0, 1);
     for (const l of chosen) {
       const g = l.guardian;
       const c = out.get(g.id) ?? {

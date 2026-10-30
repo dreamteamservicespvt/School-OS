@@ -105,6 +105,11 @@ export async function collectPayment(tx: Tx, ctx: SchoolContext, who: Collector,
   const card = await studentCard(tx, ctx, input.studentId);
   if (!card) throw new MoneyProblem("This student was not found.");
 
+  // One counter payment at a time per student: the same payment sent twice at once (a double click
+  // that beats the button, two tabs) waits here and then meets the duplicate check. The rows' lock
+  // below does not cover a student who owes nothing (an advance), so the student is locked too.
+  // NO KEY UPDATE: it does not block other money records that only point at the student (no deadlock with a gateway confirmation).
+  await tx.$queryRaw`SELECT id FROM student WHERE id = ${input.studentId}::uuid FOR NO KEY UPDATE`;
   const before = await openDues(tx, input.studentId);
   await lockDues(tx, before.map((d) => d.id));
   let open = await openDues(tx, input.studentId);

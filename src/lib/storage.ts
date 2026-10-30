@@ -107,6 +107,6 @@ export function backupStore(): Store | null {
   }
   const dir = process.env.BACKUP_FILES_DIR;
   if (!dir) return null;
-  if (path.resolve(dir) === path.resolve(process.env.STORAGE_DIR ?? "storage")) throw new Error("BACKUP_FILES_DIR must be a different folder from STORAGE_DIR");
+  if (path.resolve(/*turbopackIgnore: true*/ dir) === path.resolve(/*turbopackIgnore: true*/ process.env.STORAGE_DIR ?? "storage")) throw new Error("BACKUP_FILES_DIR must be a different folder from STORAGE_DIR");
   return localStore(dir);
 }

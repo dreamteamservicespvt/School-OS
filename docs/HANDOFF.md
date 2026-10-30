@@ -1,8 +1,17 @@
 # School OS handoff
 
-Last updated: 2026-10-30 (full self-test planned)
+Last updated: 2026-10-30 19:00 (full self-test: journeys done, crawl next)
 
 ## State
+- 2026-10-30 19:00 SELF-TEST, chat 2 stopped (chat long). DONE: roles 11/11 (0 leaks), journeys E1-E10 + B6 Parent Link
+  all PASS (details, decisions 7-11, bugs 5-9 in docs/qa/2026-10-30-full-test.md). Fixed with tests, local commits:
+  247b2aaf report cards printed a blank 2nd page; 1edef5e5 Parent Link "Who" listed every year's sections (0 guardians);
+  f51fcf38 visitor check-out in the same minute refused. b867f867 = report + scripts. The RUNNING app on :3000 is
+  the OLD build (before 7f203b97, 247b2aaf, 1edef5e5, f51fcf38): rebuild before re-checking those in the browser.
+  A principal crawl was started at 18:50 (qa-output/full/crawl-principal.log); it may die with the chat, so rerun
+  it. Demo data made: Kabir Sharma (Class 5 A, 89f4d170-...) paid Rs 15,000 + 1,000, marked absent 30-10; his
+  father's Parent Link is in tools/app.log ("xxxxxx5414"), browser state qa-output/full/state/parent-sanjay.json;
+  Diya Patel admitted (SPS/2026/0323); October salary approved; homework + PTM notice for Class 5.
 - 2026-10-30 17:00 SELF-TEST continues in a new chat. Results so far + bugs + decisions:
   docs/qa/2026-10-30-full-test.md. App is served from the SSD copy C:\Users\chala\sos-build (the D: build
   always fails: Tailwind worker deadline on the HDD). Rebuild after a fix: robocopy D: -> C: (command in
@@ -86,13 +95,15 @@ Last updated: 2026-10-30 (full self-test planned)
   https://school-os-beta.vercel.app/i/{{1}} (if APP_URL changes, the templates must be redone).
 
 ## Next steps
-0. IN PROGRESS (see State 17:00 and docs/qa/2026-10-30-full-test.md). Order of what is left:
-   (1) read qa-output/full/roles-all.json (11 roles; rerun `npx tsx qa/full/roles.mts` if missing);
-   (2) finish E1 with qa/full/j1d-review-admit.mjs (Move to Documents, decision by principal, admit, section);
-   (3) journeys E2-E10 + B6 Parent Link; (4) crawl every module: `node qa/full/crawl.mjs principal 40` then
-   other roles; (5) light/dark x 390/1440 screenshots; (6) fix bugs 2 and 4 with tests, rebuild, re-check
-   bug 3 in the browser; (7) lint, typecheck (NODE_OPTIONS=--max-old-space-size=8192), npm test (one run);
-   (8) update the report, progress page https://claude.ai/artifact/Af8qvniVgGnU215RNjUGHC, this file.
+0. IN PROGRESS (see State 19:00 and docs/qa/2026-10-30-full-test.md). Left, in order:
+   (4) crawl every module: `node qa/full/crawl.mjs principal 40`, then accountant, teacher, librarian, reception,
+   transport, warden, store (one at a time); F21 console pages, F22 driver page;
+   (5) light/dark x 390/1440 screenshots of key screens (qa/lib.mjs VIEWPORTS, look.mjs as());
+   (6) open bugs 2 (31-02 date words), 4 (consent missing from "Please fix"), 5 ("With the Principal" label),
+   7 (parent listed twice in "Seen by parents"): fix with tests; then robocopy D: -> C:\Users\chala\sos-build and
+   rebuild (report decision 3); re-check bugs 3, 6, 8, 9 in the browser;
+   (7) lint, typecheck (NODE_OPTIONS=--max-old-space-size=8192), npm test (one run);
+   (8) update report, progress page https://claude.ai/artifact/Af8qvniVgGnU215RNjUGHC, this file.
    Original brief (user, 2026-10-30): FULL SELF-TEST of everything on the LOCAL demo, by Claude alone: every login
    above, every module in docs/blueprint/06-build-order.md / BUILT_MODULES (src/lib/modules.ts), every
    page, button, form, permission (05-roles.md: each role sees only what it should, View cannot change),

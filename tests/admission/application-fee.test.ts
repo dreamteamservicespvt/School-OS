@@ -243,3 +243,18 @@ describe("the Accountant takes the application fee in Fee Management, Collect Fe
     expect((await run((tx) => findApplicants(tx, feeViewerOf(accountant.id), app.applicationNo)))[0].status.key).toBe("paid");
   });
 });
+
+// Delivery audit 2026-10-31: the counter's "Take fee" sent twice at the same moment (double click,
+// two tabs) took the application fee twice: two receipts and two Day Book entries.
+describe("the application fee sent twice at once", () => {
+  it("is taken once", async () => {
+    const app = await application();
+    await signIn(t.counsellor.id);
+    const tries = await Promise.all([1, 2].map(() => counterPaymentAction(START, form({ id: app.id, amount: "500", mode: "cash" }))));
+    expect(tries.filter((r) => r.ok)).toHaveLength(1);
+    expect(tries.find((r) => !r.ok)?.message).toMatch(/already paid/);
+    const pays = await run((tx) => tx.applicationFeePayment.findMany({ where: { applicationId: app.id } }));
+    expect(pays).toHaveLength(1);
+    expect(await entriesOf(pays[0].id)).toHaveLength(1);
+  });
+});

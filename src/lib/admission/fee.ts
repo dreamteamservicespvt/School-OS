@@ -80,6 +80,9 @@ export async function takeCounterPayment(tx: Tx, ctx: SchoolContext, app: Applic
   if (!app.feeDuePaise) throw new AdmissionProblem("No application fee is due for this application (Admission Settings).");
   if (!COUNTER_MODES.some((m) => m.value === input.mode)) throw new AdmissionProblem("Choose how the fee was paid.", "mode");
   if (input.mode !== "cash" && (!input.reference || input.reference.length < 4)) throw new AdmissionProblem(`Give the ${input.mode === "cheque" ? "cheque number" : "transaction reference"}, so the payment can be matched later.`, "reference");
+  // One counter payment per application at a time: the same fee sent twice at once (double click,
+  // two tabs) waits here, then sees it paid. NO KEY UPDATE does not block records that point at it.
+  await tx.$queryRaw`SELECT id FROM application WHERE id = ${app.id}::uuid FOR NO KEY UPDATE`;
   const { left } = await remaining(tx, app);
   if (left <= BigInt(0)) throw new AdmissionProblem("The application fee is already paid.");
   if (input.amountPaise <= BigInt(0)) throw new AdmissionProblem("Amount must be more than ₹0.", "amount");

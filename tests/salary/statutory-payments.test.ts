@@ -116,3 +116,14 @@ describe("PF, ESI, Professional Tax and TDS to pay", () => {
     expect((await dues()).find((x) => x.kind === "TDS")!.balance).toBe(R(1000));
   });
 });
+
+// Delivery audit 2026-10-31: "Record paid" sent twice at the same moment (double click, two tabs)
+// recorded the TDS twice: both read the same amount left before either was saved.
+describe("the same government payment sent twice at once", () => {
+  it("is recorded once", async () => {
+    const tries = await Promise.allSettled([pay("TDS", 1000), pay("TDS", 1000)]);
+    expect(tries.filter((x) => x.status === "fulfilled")).toHaveLength(1);
+    expect(String((tries.find((x) => x.status === "rejected") as PromiseRejectedResult).reason?.message)).toMatch(/already paid in full/);
+    expect(await withSchool(acc(), (tx) => tx.statutoryPayment.count({ where: { runId, kind: "TDS", cancelledAt: null } }))).toBe(1);
+  });
+});

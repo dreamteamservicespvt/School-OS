@@ -131,6 +131,8 @@ export async function payStatutory(tx: Tx, ctx: SchoolContext, input: StatutoryP
   if (!(STATUTORY_KINDS as readonly string[]).includes(input.kind)) throw new MoneyProblem("Choose what is being paid: PF, ESI, Professional Tax or TDS.", "kind");
   const kind = input.kind as StatutoryKind;
   const words = STATUTORY_WORDS[kind];
+  // One payment for a month at a time: the same payment sent twice at once waits here, then sees it paid.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(input.runId)) await tx.$queryRaw`SELECT id FROM payroll_run WHERE id = ${input.runId}::uuid FOR NO KEY UPDATE`;
   const run = await tx.payrollRun.findFirst({ where: { id: input.runId } });
   if (!run) throw new MoneyProblem("This salary month was not found.");
   const month = monthName(run.month);

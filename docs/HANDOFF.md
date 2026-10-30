@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-10-30 21:00 (full self-test finished on the local demo)
+Last updated: 2026-10-30 22:45 (self-test decisions 16-17 settled by Claude; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
@@ -20,9 +20,9 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
   --force-with-lease (ask the user first).
 
 ## Next steps
-1. User to decide (from the self-test report): bug 5 second half (only the Principal may reject an admission, so an
-   application the Principal sent cannot be rejected by its approver); Front Office Visitors table needs a sideways
-   scroll at 1440 px (decision 17). Then push when the user says so.
+1. Self-test decisions settled by Claude 2026-10-30 (user said "decide yourself"): 16 keep the owner's rule, only
+   the Principal rejects an admission (approver can approve or ask for a change); 17 Visitors table fits at 1440 px
+   (side panel 300 px, vehicle under the name; qa/full/visitors-fit.mjs). Push only when the user says so.
 2. Not done in the self-test: online payment through Razorpay (no keys locally); timed tests (parent pays on a
    slow phone < 60 s; teacher marks 40 students < 60 s).
 3. DECIDED by the user 2026-10-23, build one at a time (brainstorm -> plan -> build); details in the archive file:

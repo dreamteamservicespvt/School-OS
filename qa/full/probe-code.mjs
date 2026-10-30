@@ -1,0 +1,28 @@
+// Wrong two-step code, then the right one: what the screen says at each step.
+import { newPage, go, mainText, shot, logSize, waitLog, close, PASSWORD } from "./h.mjs";
+const q = await newPage();
+await go(q, "/sign-in");
+await q.locator("#username").pressSequentially("accountant", { delay: 10 });
+await q.locator("#password").pressSequentially(PASSWORD, { delay: 5 });
+const from = logSize();
+await q.getByRole("button", { name: "Sign in", exact: true }).click();
+await q.waitForURL((u) => u.pathname.startsWith("/sign-in/code"), { timeout: 60000 });
+const m = await waitLog(from, /\[dev\] one-time code[^\n]*: (\d{4,6})/);
+const wrong = String((Number(m[1]) + 1) % 1000000).padStart(6, "0");
+await q.locator("#code").pressSequentially(wrong, { delay: 20 });
+console.log("BTN visible after typing:", await q.getByRole("button", { name: /Verify and sign in/ }).isVisible());
+await q.getByRole("button", { name: /Verify and sign in/ }).click().catch((e) => console.log("click err", e.message.slice(0, 80)));
+await q.waitForTimeout(3000);
+console.log("AFTER WRONG:", q.url(), "\n", (await mainText(q, 700)).replace(/\n/g, " | "));
+await shot(q, "code-after-wrong", false);
+console.log("code field value:", await q.locator("#code").inputValue());
+const from2 = logSize();
+await q.locator("#code").fill("");
+await q.locator("#code").pressSequentially(m[1], { delay: 20 });
+await q.getByRole("button", { name: /Verify and sign in/ }).click().catch((e) => console.log("click err", e.message.slice(0, 80)));
+await q.waitForTimeout(5000);
+console.log("AFTER RIGHT:", q.url(), "\n", (await mainText(q, 500)).replace(/\n/g, " | "));
+console.log("new code sent meanwhile?", !!(await waitLog(from2, /one-time code/, 1000)));
+await shot(q, "code-after-right", false);
+console.log("problems", q.problems);
+await close();

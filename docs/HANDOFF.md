@@ -3,6 +3,24 @@
 Last updated: 2026-10-30 (full self-test planned)
 
 ## State
+- 2026-10-30 17:00 SELF-TEST continues in a new chat. Results so far + bugs + decisions:
+  docs/qa/2026-10-30-full-test.md. App is served from the SSD copy C:\Users\chala\sos-build (the D: build
+  always fails: Tailwind worker deadline on the HDD). Rebuild after a fix: robocopy D: -> C: (command in
+  the report, decision 3) then Start-Process D:\Git\bin\bash.exe build-and-start.sh -WorkingDirectory
+  C:\Users\chala\sos-build (stop the old `next start` on :3000 first; logs still go to D:\...\tools\*.log).
+  Local commits this run: 12eea4d8 (build tracing), 7f203b97 (menu name + test), a3b3d5bd (ignores).
+  Run scripts with `MSYS_NO_PATHCONV=1` when a path argument starts with "/". Sessions are cached in
+  qa-output/full/state/<login>.json (look.mjs/peek.mjs reuse them). Demo records made: ENQ-0042 Aarav Reddy
+  -> APP/2027/0019 (id 5e12364b-7b24-4a6f-af59-799825c1f6ea), fee paid, reviewed.
+- 2026-10-30 14:15 SELF-TEST IN PROGRESS (Next step 0). Local PostgreSQL 16.10 now in the repo: tools/pg16
+  (extracted from C:/Users/chala/tools/pg16.zip), data in tools/pgdata (fresh, superuser postgres, trust,
+  localhost only), /tools/ is gitignored. db:setup + migrations + seed DONE (seed 21 min). Start DB detached:
+  `powershell -c "Start-Process -WindowStyle Hidden -FilePath 'D:\all\Projects\School-OS\tools\pg16\pgsql\bin\pg_ctl.exe' -ArgumentList '-D','D:\all\Projects\School-OS\tools\pgdata','-l','D:\all\Projects\School-OS\tools\pg.log','start'"`.
+  Build + serve detached: Start-Process D:\Git\bin\bash.exe tools/build-and-start.sh (logs tools/build.log,
+  tools/app.log; one-time codes are in app.log). Background tasks of a Claude session die with it; use Start-Process.
+  .env line 26 is a bare value, so `npm run db:setup` must be run from tools/ with DB_*_PASSWORD exported.
+  Test scripts: qa/full/ (h.mjs helpers, signins.mjs, roles.mts, crawl.mjs, look.mjs). Report:
+  docs/qa/2026-10-30-full-test.md (checklist written). Progress page: https://claude.ai/artifact/Af8qvniVgGnU215RNjUGHC
 - 2026-10-30: the repo is now at D:\all\Projects\School-OS (moved again). tools/pg16 (local PostgreSQL)
   is NOT there and pg_ctl is not on PATH: local DB must be found or reinstalled, then
   `npm run db:setup` + seed (prisma/seed.ts) before the app or tests run. Dev server was not running.
@@ -68,7 +86,14 @@ Last updated: 2026-10-30 (full self-test planned)
   https://school-os-beta.vercel.app/i/{{1}} (if APP_URL changes, the templates must be redone).
 
 ## Next steps
-0. NEXT (user, 2026-10-30): FULL SELF-TEST of everything on the LOCAL demo, by Claude alone: every login
+0. IN PROGRESS (see State 17:00 and docs/qa/2026-10-30-full-test.md). Order of what is left:
+   (1) read qa-output/full/roles-all.json (11 roles; rerun `npx tsx qa/full/roles.mts` if missing);
+   (2) finish E1 with qa/full/j1d-review-admit.mjs (Move to Documents, decision by principal, admit, section);
+   (3) journeys E2-E10 + B6 Parent Link; (4) crawl every module: `node qa/full/crawl.mjs principal 40` then
+   other roles; (5) light/dark x 390/1440 screenshots; (6) fix bugs 2 and 4 with tests, rebuild, re-check
+   bug 3 in the browser; (7) lint, typecheck (NODE_OPTIONS=--max-old-space-size=8192), npm test (one run);
+   (8) update the report, progress page https://claude.ai/artifact/Af8qvniVgGnU215RNjUGHC, this file.
+   Original brief (user, 2026-10-30): FULL SELF-TEST of everything on the LOCAL demo, by Claude alone: every login
    above, every module in docs/blueprint/06-build-order.md / BUILT_MODULES (src/lib/modules.ts), every
    page, button, form, permission (05-roles.md: each role sees only what it should, View cannot change),
    school isolation (Sunrise vs Green Valley), console, Parent Link, invite flow, light/dark, 390/1440 px.

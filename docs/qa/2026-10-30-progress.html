@@ -1,0 +1,69 @@
+<title>School OS Self-Test</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one narrow column; a headline bar, then one row per piece of work. */
+:root{--bg:#f6f7f4;--card:#ffffff;--fg:#1d2420;--muted:#5d6a62;--line:#dfe4df;--accent:#2f6b4f;--track:#e6ebe6;
+--done:#2f6b4f;--run:#2a5d9f;--check:#8a5a00;--wait:#7a7f7c;--fail:#a3322a;
+--display:"Fraunces",Georgia,serif;--body:"Public Sans",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#121614;--card:#1a201d;--fg:#e6ece8;--muted:#9aa8a0;--line:#2b3430;--accent:#6fbf96;--track:#26302b;--done:#6fbf96;--run:#7fb0ef;--check:#e0b25a;--wait:#9aa3a0;--fail:#ef8a80;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#121614;--card:#1a201d;--fg:#e6ece8;--muted:#9aa8a0;--line:#2b3430;--accent:#6fbf96;--track:#26302b;--done:#6fbf96;--run:#7fb0ef;--check:#e0b25a;--wait:#9aa3a0;--fail:#ef8a80;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.45}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 48px;display:flex;flex-direction:column;gap:20px}
+h1{font-family:var(--display);font-weight:600;font-size:1.7rem;margin:0;text-wrap:balance}
+.now{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.now b{color:var(--accent)}
+.stamp{color:var(--muted);font-size:.85rem;font-family:var(--mono)}
+.main{display:flex;flex-direction:column;gap:8px}
+.big{height:22px;background:var(--track);border-radius:11px;overflow:hidden}
+.big>i{display:block;height:100%;background:var(--accent)}
+.bignum{font-family:var(--display);font-size:2rem;font-variant-numeric:tabular-nums}
+.rows{display:flex;flex-direction:column;border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(90px,1fr) 88px;gap:6px 14px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
+.row .name{font-weight:600;min-width:0}
+.row .line{grid-column:1/-1;color:var(--muted);font-size:.9rem;min-width:0}
+.bar{height:8px;background:var(--track);border-radius:4px;overflow:hidden;position:relative}
+.bar>i{display:block;height:100%;background:var(--accent)}
+.pct{font-family:var(--mono);font-size:.78rem;color:var(--muted)}
+.tag{justify-self:end;font-size:.75rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;padding:2px 8px;border-radius:999px;border:1px solid currentColor}
+.Done{color:var(--done)}.Running{color:var(--run)}.Checking{color:var(--check)}.Waiting{color:var(--wait)}.Failed{color:var(--fail)}
+.you{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+@media (max-width:520px){.row{grid-template-columns:minmax(0,1fr) 80px}.row .barcell{grid-column:1/-1;order:3}}
+</style>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Public+Sans:wght@400;600;700&family=JetBrains+Mono&display=swap">
+<div class="wrap">
+  <h1>School OS full self-test, local demo</h1>
+  <div class="now" id="now"></div>
+  <section class="main"><div class="bignum" id="bignum"></div><div class="big"><i id="bigbar"></i></div><div id="bigline"></div></section>
+  <section class="rows" id="rows"></section>
+  <div class="you" id="you"></div>
+  <div class="stamp" id="stamp"></div>
+</div>
+<script>
+const DATA = {
+  updated: "2026-10-30 16:00 IST",
+  now: "Building a copy on the fast C: drive (SSD); the D: hard disk is too slow for the build",
+  overall: 10, overallLine: "Database and demo data ready. Test scripts written (sign-ins, roles, crawl). Overall % is an estimate.",
+  rows: [
+    ["Setup: database, seed, build, start", 80, "Running", "3 builds on D: failed: the CSS step (Tailwind) needs 94 s from the cold hard disk and Turbopack gives up. Now installing + building in C:\\Users\\chala\\sos-build (same database, same .env)"],
+    ["Static checks: lint, typecheck, tests", 0, "Waiting", "Runs after the seed"],
+    ["Sign-ins: 3 console, 12 school, invite, Parent Link", 0, "Waiting", "0 of 17 sign-ins tried"],
+    ["Roles: menus and blocked pages (05-roles.md)", 0, "Waiting", "0 of 12 roles checked"],
+    ["School isolation: Sunrise vs Green Valley", 0, "Waiting", ""],
+    ["Journeys: admission to report card to Parent Link", 0, "Waiting", ""],
+    ["Modules: 20 of 20 built modules, every page", 0, "Waiting", "0 of 20 modules done"],
+    ["Light/dark at 390 px and 1440 px", 0, "Waiting", ""],
+    ["Bug fixes (root cause + test)", 0, "Waiting", "1 found, 1 fixed: build traced the whole project (storage.ts line 110)"],
+    ["Report docs/qa/2026-10-30-full-test.md + handoff", 0, "Waiting", ""]
+  ],
+  you: "Nothing. I decide everything myself and list skipped items (live site, push, money) in the report."
+};
+const $ = (id) => document.getElementById(id);
+$("now").innerHTML = "<b>Now doing:</b> " + DATA.now;
+$("bignum").textContent = DATA.overall + " / 100";
+$("bigbar").style.width = DATA.overall + "%";
+$("bigline").textContent = DATA.overallLine;
+$("rows").innerHTML = DATA.rows.map(([n, p, s, l]) =>
+  `<div class="row"><div class="name">${n}</div><div class="barcell"><div class="bar"><i style="width:${p}%"></i></div><span class="pct">${p} / 100</span></div><span class="tag ${s}">${s}</span>${l ? `<div class="line">${l}</div>` : ""}</div>`).join("");
+$("you").innerHTML = "<b>Waiting on you:</b> " + DATA.you;
+$("stamp").textContent = "Last updated " + DATA.updated;
+</script>

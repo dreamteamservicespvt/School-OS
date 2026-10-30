@@ -1,7 +1,8 @@
-// Delivery audit 2026-10-31: Message Settings' automation log and Message Templates are office
-// pages (Principal and School Admin, commOfficePage), but their downloads only asked for the
-// Communication "export" action, so a teacher or the Transport In-charge downloaded the whole
-// school's automation log (every parent messaged, every fee receipt number) by opening the address.
+// Delivery audit 2026-10-31: Message Settings' automation log is an office page (Principal and
+// School Admin, commOfficePage), but its download only asked for the Communication "export"
+// action, so a teacher or the Transport In-charge downloaded the whole school's automation log
+// (every parent messaged, every fee receipt number) by opening the address. Message Templates
+// stays readable (and downloadable) by everyone who may open Communication, as its page is.
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { Current } from "@/lib/current";
 
@@ -36,10 +37,10 @@ async function as(userId: string, name: string) {
 }
 
 describe("office-only Communication downloads", () => {
-  it("are refused to a teacher", async () => {
+  it("refuse the automation log to a teacher; templates stay readable, as on their page", async () => {
     await as(s.teacher.id, "Teacher Person");
     expect((await logExport(new Request("http://localhost/communication/settings/log/export?format=csv"))).status).toBe(403);
-    expect((await templatesExport(new Request("http://localhost/communication/templates/export?format=csv"))).status).toBe(403);
+    expect((await templatesExport(new Request("http://localhost/communication/templates/export?format=csv"))).status).toBe(200);
   });
 
   it("still work for the Principal", async () => {

@@ -88,7 +88,7 @@ export function SettingsForm({ start, readOnly }: { start: SettingsStart; readOn
       {state && !state.ok && <Alert tone="danger">{state.message}</Alert>}
       <Card>
         <CardHeader title="Borrowing limits and loan days" description="Books at a time and days per loan. A category's own loan days come first." divided />
-        <div className="overflow-x-auto scroll-thin">
+        <div className="relative overflow-x-auto scroll-thin">
           <table className="w-full text-[14px] min-w-[420px]">
             <caption className="sr-only"><Words k="Borrowing limits by member type" /></caption>
             <thead><tr className="text-[12px] text-ink3 border-b border-line text-left"><th scope="col" className="px-5 py-2.5 font-semibold"><Words k="Members" /></th><th scope="col" className="px-3 py-2.5 font-semibold"><Words k="Books at a time" /></th><th scope="col" className="px-3 py-2.5 font-semibold"><Words k="Loan days" /></th></tr></thead>

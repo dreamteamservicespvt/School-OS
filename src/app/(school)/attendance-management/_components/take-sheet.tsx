@@ -299,7 +299,7 @@ export function TakeSheet(p: Props) {
       {/* Save bar */}
       {!readOnly && (
         <div className="sticky bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-0 z-20 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-3 bg-gradient-to-t from-bg via-bg to-bg/0">
-          <Button variant="primary" size="lg" className="w-full !h-14 !text-[16px] shadow-pop" icon={savedNow ? Check : Save} loading={pending} onClick={save} disabled={savedNow}>
+          <Button variant="primary" size="lg" className="w-full !h-14 !text-[16px] !whitespace-normal !leading-tight text-center shadow-pop" icon={savedNow ? Check : Save} loading={pending} onClick={save} disabled={savedNow}>
             {saveLabel}
           </Button>
         </div>

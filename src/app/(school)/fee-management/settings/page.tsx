@@ -259,7 +259,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
                 [s.cancelPastApproval ? "Cancel a payment older than today" : requestLabel("payment-cancellation"), approverOf("payment-cancellation")],
                 ...(features.has("fee-verification") ? [[requestLabel("payment-verification"), approverOf("payment-verification")]] : []),
               ].map(([k, v]) => (
-                <li key={k} className="flex items-center justify-between gap-3 py-2 border-t border-line/70 first:border-0"><span>{k}</span><Pill tone="info">{v}</Pill></li>
+                <li key={k} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 py-2 border-t border-line/70 first:border-0"><span>{k}</span><Pill tone="info">{v}</Pill></li>
               ))}
             </ul>
           </SetCard>

@@ -139,9 +139,9 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
     <>
       <AdmissionHead href={BASE} sub={sub} actions={actions} />
       <div className="flex flex-col gap-5 lg:gap-6">
-        <div className="flex flex-col lg:flex-row gap-2.5 lg:items-center">
+        <div className="flex flex-col lg:flex-row lg:flex-wrap gap-2.5 lg:items-center">
           {yearOptions.length > 1 && thisYear ? <UrlSegmented param="year" label="Admission year" options={yearOptions} value={thisYear.id} /> : <p className="text-[14px] font-semibold text-ink2"><Words k="Admission year" /> {thisYear?.name ?? yl(undefined)}</p>}
-          <div className="grid grid-cols-2 lg:flex gap-2 lg:ml-auto">
+          <div className="grid grid-cols-2 lg:flex lg:flex-wrap lg:justify-end gap-2 lg:ml-auto min-w-0">
             <PeriodFilter timeZone={tz} allLabel="Any date" className="col-span-2 lg:col-span-1" />
             <UrlSelect param="class" label="Class" allLabel="All classes" options={data.choices.classes} className="lg:w-40" />
             <UrlSelect param="source" label="Source" allLabel="All sources" options={data.choices.sources} className="lg:w-40" />

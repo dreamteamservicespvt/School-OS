@@ -217,7 +217,8 @@ export function SettingRow({ title, sub, children, htmlFor }: { title: React.Rea
         <b className="font-semibold block">{title}</b>
         {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{sub}</span>}
       </Label>
-      {children && <div className="shrink-0">{children}</div>}
+      {/* At most 60% of the row, so a long value wraps instead of pushing the page sideways on a 320 px phone. */}
+      {children && <div className="shrink-0 max-w-[60%] text-right break-words">{children}</div>}
     </div>
   );
 }

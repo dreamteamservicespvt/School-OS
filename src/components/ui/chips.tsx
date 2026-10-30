@@ -37,7 +37,8 @@ export function Chips({ value, options, className, label = "Quick filters" }: { 
 /** Tabs inside a page, kept in the page address (?tab=). Same look as the module tabs. */
 export function LinkTabs({ value, tabs, className, label = "Views" }: { value: string; tabs: { id: string; label: string; count?: number; href: string }[]; className?: string; label?: string }) {
   return (
-    <nav aria-label={label} className={className}>
+    // max-w-full: with "self-start" the nav would grow to its tabs and push a 320 px page sideways instead of scrolling.
+    <nav aria-label={label} className={cx("max-w-full", className)}>
       <ul className="flex gap-1 overflow-x-auto no-scrollbar border-b border-line">
         {tabs.map((t) => {
           const on = value === t.id;

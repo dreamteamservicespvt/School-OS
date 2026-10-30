@@ -3,7 +3,7 @@ import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportColumn, type ExportFormat } from "@/lib/exports";
 import { readListParams } from "@/lib/list";
 import { formatDateTime } from "@/lib/format";
-import { PermissionDeniedError } from "@/lib/permissions";
+import { PermissionDeniedError, reachFor } from "@/lib/permissions";
 import { ruleDef } from "@/lib/messaging/automatic";
 import { LOG_FILTERS, logWhere, OUTCOME_LABEL } from "@/lib/communication/automation-log";
 import type { AutomationLog } from "@prisma/client";
@@ -19,6 +19,9 @@ export async function GET(req: Request) {
     if (e instanceof PermissionDeniedError) return new Response("You do not have permission to export the automation log.", { status: 403 });
     throw e;
   }
+  // Office work (11-communication.md), as on its page (commOfficePage): the log names every parent
+  // messaged and every receipt, so someone with their own scope only must not download it either.
+  if (reachFor(current.permissions, "communication", "create") !== "all") return new Response("Only the Principal and School Admin can export the automation log.", { status: 403 });
   const url = new URL(req.url);
   const params = readListParams(Object.fromEntries(url.searchParams), LOG_FILTERS);
   const format = (["csv", "xlsx", "pdf"].includes(url.searchParams.get("format") ?? "") ? url.searchParams.get("format") : "xlsx") as ExportFormat;

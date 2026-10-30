@@ -3,7 +3,7 @@ import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportColumn, type ExportFormat } from "@/lib/exports";
 import { readListParams } from "@/lib/list";
 import { formatDate } from "@/lib/format";
-import { PermissionDeniedError } from "@/lib/permissions";
+import { PermissionDeniedError, reachFor } from "@/lib/permissions";
 import { CHANNEL_LABEL, type Channel } from "@/lib/messaging/channels";
 import { categoryLabel, languageLabel } from "@/lib/messaging/templates";
 import { ruleTemplateIds, TEMPLATE_FILTERS, templateWhere, usedBy, WHATSAPP_STATUS_LABEL } from "@/lib/communication/templates-admin";
@@ -19,6 +19,9 @@ export async function GET(req: Request) {
     if (e instanceof PermissionDeniedError) return new Response("You do not have permission to export templates.", { status: 403 });
     throw e;
   }
+  // Office work (11-communication.md), as on its page (commOfficePage): someone with their own scope
+  // only cannot open Message Templates, so they cannot download them either.
+  if (reachFor(current.permissions, "communication", "create") !== "all") return new Response("Only the Principal and School Admin can export templates.", { status: 403 });
   const url = new URL(req.url);
   const params = readListParams(Object.fromEntries(url.searchParams), TEMPLATE_FILTERS);
   const format = (["csv", "xlsx", "pdf"].includes(url.searchParams.get("format") ?? "") ? url.searchParams.get("format") : "xlsx") as ExportFormat;

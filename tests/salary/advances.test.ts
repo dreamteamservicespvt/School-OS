@@ -72,3 +72,28 @@ describe("an advance from asking to closing", () => {
     });
   });
 });
+
+// Security audit run-2, lead L4: each advance step read the status and then
+// wrote, so the same press twice at once (two tabs, a double click) did it
+// twice: two cash receipts in the Day Book for one closing, or the advance
+// paid out twice. Each step now waits for the advance's row lock first.
+describe("an advance step pressed twice at once happens once", () => {
+  let f: SalaryFixture;
+  const today = d("2026-10-13");
+  beforeAll(async () => { f = await makeSalarySchool("Salary Advance Twice School"); });
+
+  it("pays out once and closes once, with one Day Book entry each", async () => {
+    const acc = as(f, f.accountant.id);
+    const pr = as(f, f.principal.id);
+    const a = await withSchool(acc, (tx) => giveAdvance(tx, acc, { staffId: f.staffB.id, type: "ADVANCE", amountPaise: R(6000), installmentPaise: R(2000), startMonth: d("2026-11-01"), reason: "Festival" }));
+    await withSchool(pr, (tx) => decide(tx, pr, a.approvalId!, "approve", null));
+    const twice = (fn: () => Promise<unknown>) => Promise.allSettled([fn(), fn()]);
+    const paid = await twice(() => withSchool(acc, (tx) => payAdvance(tx, acc, a.id, { date: d("2026-10-09"), mode: "CASH", reference: null, accountId: null, today })));
+    expect(paid.filter((x) => x.status === "fulfilled")).toHaveLength(1);
+    const closed = await twice(() => withSchool(acc, (tx) => closeRepaidInCash(tx, acc, a.id, { date: today, reason: "Repaid in cash", today })));
+    expect(closed.filter((x) => x.status === "fulfilled")).toHaveLength(1);
+    const book = await withSchool(acc, (tx) => tx.dayBookEntry.findMany({ where: { sourceType: "salary-advance", sourceId: a.id }, select: { direction: true, amountPaise: true } }));
+    expect(book.filter((e) => e.direction === "OUT")).toHaveLength(1);
+    expect(book.filter((e) => e.direction === "IN").map((e) => e.amountPaise)).toEqual([R(6000)]);
+  });
+});

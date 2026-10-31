@@ -24,7 +24,14 @@ const push = (h: Prisma.JsonValue, item: Omit<HistoryItem, "at">) => [...((h as 
 
 export const balanceOf = (a: { amountPaise: bigint; recoveredPaise: bigint }) => (a.amountPaise > a.recoveredPaise ? a.amountPaise - a.recoveredPaise : ZERO);
 
+/**
+ * The advance, read under its row lock: each step checks the status and then
+ * writes (pays out, closes, pauses), so the same press twice at once (two tabs,
+ * a double click) waits here and then finds the step already done.
+ */
 async function getAdvance(tx: Tx, id: string) {
+  if (!/^[0-9a-f-]{36}$/i.test(id)) throw new MoneyProblem("This advance was not found.");
+  await tx.$queryRaw`SELECT id FROM salary_advance WHERE id = ${id}::uuid FOR UPDATE`;
   const a = await tx.salaryAdvance.findFirst({ where: { id } });
   if (!a) throw new MoneyProblem("This advance was not found.");
   return a;

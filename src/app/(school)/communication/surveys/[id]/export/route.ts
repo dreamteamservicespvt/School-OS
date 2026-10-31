@@ -4,7 +4,7 @@ import { formatDate } from "@/lib/format";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { commOfficeAction, OfficeOnly } from "@/lib/communication/access";
 import { COMM_FEATURES } from "@/lib/communication/features";
-import { surveyResults, type Answers } from "@/lib/communication/surveys";
+import { loadSurvey, surveyResults, type Answers } from "@/lib/communication/surveys";
 
 export const dynamic = "force-dynamic";
 
@@ -23,7 +23,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const url = new URL(req.url);
   const format = (["csv", "xlsx", "pdf"].includes(url.searchParams.get("format") ?? "") ? url.searchParams.get("format") : "xlsx") as ExportFormat;
   const data = await withSchool(current.ctx, async (tx) => {
-    const survey = await tx.survey.findFirst({ where: { id, schoolId: current.ctx.schoolId, archivedAt: null } });
+    // A person limited to one campus exports their campus's surveys only, as on the survey's page.
+    const survey = await loadSurvey(tx, current.ctx, id, current.campusId);
     if (!survey) return null;
     const r = await surveyResults(tx, current.ctx, id);
     await logExport(tx, current.ctx, { title: `Survey answers ${survey.number}`, format, filters: survey.title, rows: r.responses.length });

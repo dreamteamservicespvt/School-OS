@@ -96,3 +96,40 @@ describe("Settings, Imports: the rows an import left out keep the kind's own mod
     expect((await run((tx) => tx.importBatch.findUniqueOrThrow({ where: { id } }))).undoneAt).toBeNull();
   }, 120_000);
 });
+
+describe("Survey answers export keeps to the person's campus (run-3)", () => {
+  // A person limited to one campus sees and works on their campus's surveys
+  // only (loadSurvey): a whole-school survey or another campus's shows the
+  // answers, with names, of parents and staff they may not reach.
+  let campusA = "";
+  let campusB = "";
+  const surveys: Record<"a" | "b" | "school", string> = { a: "", b: "", school: "" };
+  beforeAll(async () => {
+    campusA = school.campus.id;
+    campusB = (await run((tx) => tx.campus.create({ data: { schoolId: school.id, name: "South Campus" } }))).id;
+    await run((tx) => tx.schoolFeature.create({ data: { schoolId: school.id, featureKey: "surveys", isOn: true } }));
+    const make = (n: string, audienceValue: string) => run((tx) => tx.survey.create({ data: { schoolId: school.id, number: n, title: `Survey ${n}`, audienceKind: "parents", audienceValue, audienceLabel: "Parents", status: "OPEN" } }));
+    surveys.a = (await make("SV-A", `parents@${campusA}`)).id;
+    surveys.b = (await make("SV-B", `parents@${campusB}`)).id;
+    surveys.school = (await make("SV-ALL", "parents")).id;
+  });
+  const exportAs = async (campusId: string | null, id: string) => {
+    who.current = { ...cur.admin, campusId, features: new Set([...cur.admin.features, "surveys"]) };
+    const { GET } = await import("@/app/(school)/communication/surveys/[id]/export/route");
+    const res = await GET(new Request(`http://school.test/communication/surveys/${id}/export?format=csv`), { params: Promise.resolve({ id }) });
+    return res.status;
+  };
+
+  it("exports the person's own campus survey", async () => {
+    expect(await exportAs(campusA, surveys.a)).toBe(200);
+  }, 120_000);
+
+  it("exports any survey for the whole school", async () => {
+    expect(await exportAs(null, surveys.b)).toBe(200);
+  }, 120_000);
+
+  it("is not found for another campus's survey or a whole-school one", async () => {
+    expect(await exportAs(campusA, surveys.b)).toBe(404);
+    expect(await exportAs(campusA, surveys.school)).toBe(404);
+  }, 120_000);
+});

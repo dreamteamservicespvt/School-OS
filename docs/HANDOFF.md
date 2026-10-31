@@ -17,7 +17,8 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
   vendor) pressed twice, at once or within 15 min, now ask first (advisory lock + check; expense needs a
   reason, income "Save it again"; other modules' own entries not asked; tests/finance/typed-twice.test.ts)
   (945e53b4). Slow-disk test limits raised. Owner's 4 uncommitted files reviewed: whitespace only.
-  Demo reseed scripted for 09:32 (backup C:\Users\chala\sos-snap\school_os-2026-10-31-before-reseed.dump).
+  Demo reseeded 09:40 (backup C:\Users\chala\sos-snap\school_os-2026-10-31-before-reseed.dump): today 261/271
+  present, ₹36k from 30 payments; recheck-audit 11/11; app serving from the SSD copy on :3000.
 - Local commits on branch claude/project-thread-cesreq, NOT pushed (audit commits 2150019b..HEAD).
   The user's own uncommitted edits (.vscode/settings.json, CLAUDE.md, next.config.ts, public/push-sw.js) left alone.
 - Local setup: PostgreSQL 16 in tools/pg16 (data tools/pgdata; superuser `postgres` trust on localhost).

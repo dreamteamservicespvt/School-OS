@@ -212,3 +212,9 @@ Last updated: 2026-10-30 19:00 (full self-test: journeys done, crawl next)
       private key + a Neon login with CREATEDB + BYPASSRLS. OPEN QUESTION to the user: may the GPG private
       key live in GitHub secrets (fully automatic monthly restore test), or stay offline on the user's PC
       (monthly test run by hand)?
+
+
+## Moved from HANDOFF.md on 2026-10-31
+- Earlier 2026-10-31: delivery audit (docs/qa/2026-10-31-delivery-audit.md, gate YELLOW, 16 fixed), morning
+  clean-up (lint clean, typed-twice income/expense), light code audit (docs/qa/2026-10-31-code-audit.md: CSP,
+  nodemailer). Demo reseeded 09:40; details in docs/archive/HANDOFF-until-2026-10-30.md.

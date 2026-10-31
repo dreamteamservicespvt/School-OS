@@ -1,19 +1,26 @@
 # School OS handoff
 
-Last updated: 2026-10-31 13:45 (security audit run-2 done; no code changed; nothing pushed)
+Last updated: 2026-10-31 15:10 (security fixes 6 of 13 committed; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
+- SECURITY FIXES 2026-10-31 (Next step S), test-first, one local commit each. DONE (6):
+  24d258d3 Settings 'Own' reach only reads (run-2 medium; page-access.ts, settings/undo.ts, profile colour).
+  e6cf0439 approval limits only Principal/School Admin (run-2 medium; requireLimitsOwner in fees/settings-save.ts:
+  Payments + Counter cards, fee-verification switch, Finance bills limits; screens read-only; hi/te words).
+  5e130a15 console invoice paid once (run-1; applyPayment claims UNPAID row; race test proved the bug).
+  76cbe0de Checkout posts only captured payments (run-1; isCaptured in payments/razorpay.ts, fees + admission).
+  71713af9 WhatsApp webhook bound to the school's phone_number_id (run-1; sandbox unchanged).
+  846b8802 support look-only also checked in the app (run-1; proxy stamps support requests, src/lib/support-stamp.ts,
+  getCurrent refuses support without the stamp). Not yet run: full `npm test` and `npm run build` (do after fix 13).
+  Live progress page: https://claude.ai/artifact/Pg7TgQ9NG3uW3GFFNM5E8K (source docs/qa/security-fixes-progress.html).
 - SECURITY AUDIT run-1 (quick): docs/qa/2026-10-31-security-audit.md, ~/security-audit-skill/School-OS/run-1.
-  2 confirmed FIXED (notice Undo, two-step SMS). 4 NEEDS VALIDATION open: console invoice paid twice (no lock,
-  src/lib/console/billing.ts), Checkout posts authorized-not-captured (fees/online.ts + admission/fee.ts),
-  WhatsApp webhook not bound to phone_number_id (messaging/webhooks.ts), support look-only only in proxy.ts.
-  Claude's advice 2026-10-31: fix all 4 now (small, safe whatever the owner facts); WAITING for the user's yes.
+  All 4 leads now fixed (above).
 - SECURITY AUDIT run-2 (standard, scoped to run-1's 9 deferred units, 15 agents, source-only):
   docs/qa/2026-10-31-security-audit-run-2.md; run ~/security-audit-skill/School-OS/run-2 (findings.json,
   coverage-ledger.json, NEEDS-VALIDATION.md, FINDINGS-DETAIL.md; tools/run2*.cjs rebuild prompts/reports;
   validators need `node -r tools/win-nofollow-shim.cjs`). 16 records, all passed Phase 3 + Phase 5:
-  9 CONFIRMED, NOT FIXED: medium x2 = Settings 'Own' reach acts as full Settings change, can make itself
+  9 CONFIRMED (2 mediums FIXED above, 7 lows open): medium x2 = Settings 'Own' reach acts as full Settings change, can make itself
   School Admin (src/lib/settings/page-access.ts); Accountant can edit the approval limits that restrain it
   (fee/finance settings actions). Low x7 = One-campus limit ignored (events, certificate detail page, Parent
   Link preview, government return files, document-design preview + privacy person export, student import
@@ -23,20 +30,20 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
   Coverage still partial: critic deferred 8 in-scope gaps (about 27 action files, 47 of 82 id pages, print
   routes, fee counter collect, import undo for all kinds, events activity paths, optional-module actions)
   and 3 out-of-scope gaps (document-design actions, non-id layout pages, forms-approvals etc. actions).
-- Earlier 2026-10-31: delivery audit (docs/qa/2026-10-31-delivery-audit.md, gate YELLOW, 16 fixed), morning
-  clean-up (lint clean, typed-twice income/expense), light code audit (docs/qa/2026-10-31-code-audit.md: CSP,
-  nodemailer). Demo reseeded 09:40; details in docs/archive/HANDOFF-until-2026-10-30.md.
 - Local commits on branch claude/project-thread-cesreq, NOT pushed (audit commits 2150019b..HEAD).
   The user's own uncommitted edits (.vscode/settings.json, CLAUDE.md, next.config.ts, public/push-sw.js) left alone.
+- Tests: one vitest run at a time; a file takes 3-7 min here; long runs go to the background.
 - Local setup: PostgreSQL 16 in tools/pg16 (data tools/pgdata; superuser `postgres` trust on localhost).
   App built and served from the SSD copy C:\Users\chala\sos-build (D: builds fail); logs tools/*.log.
 - Branch note: origin still has the old commit 64f895d7 "a"; the next push needs --force-with-lease (ask first).
 
 ## Next steps
-S. SECURITY: (1) after the user's yes, fix run-1's 4 leads (fix list in the run-1 State line; TDD, one
-   commit each). (2) Fix run-2's 9 confirmed findings, the two mediums first; the smallest fix for each is in
-   docs/qa/2026-10-31-security-audit-run-2.md section 4. One shared helper for "One campus" (campusAllows /
-   campus filter in loaders) closes most of the low ones. (3) Owner/local checks for run-2's 7 leads
+S. SECURITY: (1) DONE. (2) mediums DONE; 7 lows left, one commit each, test-first, smallest fix per
+   docs/qa/2026-10-31-security-audit-run-2.md section 4. Reuse src/lib/campus.ts (campusAllows, assertCampus,
+   inCampus, OtherCampusError). Order: competency levels roster (report-cards.ts saveCompetencyLevels), certificate
+   detail page, Parent Link preview, government files (pastExports + file route), document preview + person export,
+   student import undo, then Events (biggest: carry current.campusId into EvWork, events.ts/calendar.ts lookups).
+   Then run full `npm test` once and `npm run build` on the SSD copy. (3) Owner/local checks for run-2's 7 leads
    (run-2/NEEDS-VALIDATION.md). (4) Later: run-3 over run-2's deferred ledger units (treat run-2 as prior).
 0. DEMO DAY: to refresh "today" on another day, reseed after ~9:30 AM IST (earlier puts today's attendance in
    the future). Script used on 31-10 (backup, drop/recreate schema, migrate, seed, copy to SSD, build):

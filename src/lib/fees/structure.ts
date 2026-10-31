@@ -13,7 +13,7 @@ import { MoneyProblem } from "./problem";
 import { checkSchedule, defaultSchedule, splitTotal, type InstallmentDraft } from "./schedule";
 import { lockDues, refreshBalances } from "./dues";
 import { monthLabel } from "../staff/dates";
-import { ensureFeeDefaults } from "./settings";
+import { ensureFeeDefaults, feeSettings } from "./settings";
 import { requestApproval } from "../approvals";
 
 // ---------------------------------------------------------------- fee heads
@@ -458,7 +458,7 @@ async function planRepublish(tx: Tx, s: { academicYearId: string; classId: strin
   const olds = await tx.studentFeeDue.findMany({ where, orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }] });
   // The fee a row stands for now: its amount plus the changes earlier versions put on it (not
   // the school's own adjustments, which stay). A paid row an earlier version did not change keeps its amount.
-  const revisions = await tx.feeAdjustment.groupBy({ by: ["dueId"], where: { dueId: { in: olds.map((o) => o.id) }, reason: { startsWith: REVISION } }, _sum: { amountPaise: true } });
+  const revisions = await tx.feeAdjustment.groupBy({ by: ["dueId"], where: { dueId: { in: olds.map((o) => o.id) }, reason: { startsWith: REVISION }, status: "APPLIED" }, _sum: { amountPaise: true } });
   const revisedBy = new Map(revisions.map((r) => [r.dueId, r._sum.amountPaise ?? ZERO]));
   const base = (d: StudentFeeDue) => d.amountPaise + (revisedBy.get(d.id) ?? ZERO);
   // A concession waiting in Approvals for chosen rows keeps those rows, so it still finds them when approved.
@@ -786,17 +786,76 @@ export async function addCharge(tx: Tx, ctx: SchoolContext, input: { studentId: 
   return due;
 }
 
-/** Changes one row's amount by an adjustment with a reason (never by editing a payment). */
-export async function adjustDue(tx: Tx, ctx: SchoolContext, dueId: string, amountPaise: bigint, reason: string) {
+/**
+ * Changes one row's amount by an adjustment with a reason (never by editing a
+ * payment). A reduction above the school's concession limit lowers what the
+ * family owes just as a concession does, so it goes to Approvals the same way
+ * (a "Discount or concession" request, the same approvers) and is made on the
+ * row only once approved (security audit run-2, lead L1). Nobody approves
+ * their own request: a Principal's own large reduction goes to someone else.
+ */
+export async function adjustDue(tx: Tx, ctx: SchoolContext, dueId: string, amountPaise: bigint, reason: string): Promise<{ waiting: boolean }> {
   if (reason.trim().length < 5) throw new MoneyProblem("Give a reason of at least 5 characters.", "reason");
   if (amountPaise === BigInt(0)) throw new MoneyProblem("Enter how much to add or reduce.", "amount");
   const d = await tx.studentFeeDue.findFirst({ where: { id: dueId, state: "OPEN" } });
   if (!d) throw new MoneyProblem("This row was not found.");
   if (d.balancePaise + amountPaise < BigInt(0)) throw new MoneyProblem(`The most this row can be reduced by is ${formatRupees(d.balancePaise)}.`, "amount");
-  await tx.feeAdjustment.create({ data: { schoolId: ctx.schoolId, studentId: d.studentId, dueId, amountPaise, reason: reason.trim(), createdById: ctx.userId } });
+  const settings = await feeSettings(tx, ctx);
+  if (amountPaise < BigInt(0) && -amountPaise > settings.concessionLimitPaise) {
+    const student = await tx.student.findFirst({ where: { id: d.studentId }, select: { fullName: true } });
+    const adj = await tx.feeAdjustment.create({ data: { schoolId: ctx.schoolId, studentId: d.studentId, dueId, amountPaise, reason: reason.trim(), createdById: ctx.userId, status: "WAITING" } });
+    await writeAudit(tx, ctx, { action: "created", recordType: "Fee Adjustment", recordId: adj.id, after: { row: d.label, change: formatRupees(amountPaise), reason, waiting: "above the concession limit, sent for approval" } });
+    const approval = await requestApproval(tx, ctx, {
+      type: "concession",
+      recordType: "Fee Adjustment",
+      recordId: adj.id,
+      summary: `Fee reduced by ${formatRupees(-amountPaise)} for ${student?.fullName ?? "a student"} (${d.label})`,
+      amountPaise: -amountPaise,
+      reason: reason.trim(),
+    });
+    await tx.feeAdjustment.update({ where: { id: adj.id }, data: { approvalId: approval.id } });
+    return { waiting: true };
+  }
+  await tx.feeAdjustment.create({ data: { schoolId: ctx.schoolId, studentId: d.studentId, dueId, amountPaise, reason: reason.trim(), createdById: ctx.userId, decidedById: ctx.userId } });
   await tx.studentFeeDue.update({ where: { id: dueId }, data: { adjustmentPaise: { increment: amountPaise } } });
   await refreshBalances(tx, [dueId]);
   await writeAudit(tx, ctx, { action: "adjusted", recordType: "Student Fee Due", recordId: dueId, before: { balance: formatRupees(d.balancePaise) }, after: { change: formatRupees(amountPaise), reason } });
+  return { waiting: false };
+}
+
+/**
+ * What happens when Approvals decides a reduction above the limit. Approved:
+ * it is made on the row now, by no more than is still unpaid (the row may have
+ * been paid while it waited), with the approver recorded. Anything else: the
+ * row stays as it was. Made once, even when decided twice at the same moment.
+ */
+export async function decideAdjustment(tx: Tx, ctx: SchoolContext, adjustmentId: string, decision: string, note: string | null) {
+  const a = await tx.feeAdjustment.findFirst({ where: { id: adjustmentId } });
+  if (!a || a.status !== "WAITING") return;
+  if (decision !== "approve") {
+    const done = await tx.feeAdjustment.updateMany({ where: { id: a.id, status: "WAITING" }, data: { status: "REJECTED", decidedById: ctx.userId } });
+    if (done.count === 1) await writeAudit(tx, ctx, { action: decision === "withdraw" ? "withdrawn" : "rejected", recordType: "Fee Adjustment", recordId: a.id, after: { note } });
+    return;
+  }
+  await lockDues(tx, [a.dueId]);
+  const d = await tx.studentFeeDue.findFirst({ where: { id: a.dueId } });
+  const wanted = -a.amountPaise;
+  const left = d && d.state === "OPEN" ? d.balancePaise : BigInt(0);
+  const take = wanted < left ? wanted : left;
+  const done = await tx.feeAdjustment.updateMany({
+    where: { id: a.id, status: "WAITING" },
+    data: take > BigInt(0) ? { status: "APPLIED", decidedById: ctx.userId, amountPaise: -take } : { status: "REJECTED", decidedById: ctx.userId },
+  });
+  if (done.count !== 1) return;
+  if (take > BigInt(0)) {
+    await tx.studentFeeDue.update({ where: { id: a.dueId }, data: { adjustmentPaise: { increment: -take } } });
+    await refreshBalances(tx, [a.dueId]);
+  }
+  await writeAudit(tx, ctx, {
+    action: take > BigInt(0) ? "applied" : "not-applied", recordType: "Fee Adjustment", recordId: a.id,
+    before: { balance: formatRupees(left) },
+    after: { asked: formatRupees(wanted), made: formatRupees(take), ...(take < wanted ? { why: take > BigInt(0) ? "only this much was still unpaid" : "nothing was left to pay on the row" } : {}) },
+  });
 }
 
 /** Class cards for Fee Structure: each class's published rows, draft and "5 of 18 set". */

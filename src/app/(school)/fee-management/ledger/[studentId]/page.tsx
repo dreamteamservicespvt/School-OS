@@ -469,7 +469,7 @@ function StatementRow({ e, href, tz }: { e: LedgerEntry; href: string | null; tz
         {href && <Link href={href} scroll={false} className="absolute inset-0" aria-label={`Open ${e.ref ?? "payment"}`} />}
         <p className="font-semibold leading-tight flex items-center gap-2 flex-wrap">
           <span className={cx(isCx && "line-through text-ink3")}>{e.title}</span>
-          {isCx ? <Pill tone="bad" className="!h-5 !text-[11px]"><Words k="Cancelled" /></Pill> : e.waiting ? <Pill tone="warn" className="!h-5 !text-[11px]"><Words k="To verify" /></Pill> : e.broughtIn ? <Pill tone="neutral" className="!h-5 !text-[11px]"><Words k="Brought in" /></Pill> : <Pill tone={tone} className="!h-5 !text-[11px]">{label}</Pill>}
+          {isCx ? <Pill tone="bad" className="!h-5 !text-[11px]"><Words k="Cancelled" /></Pill> : e.waiting ? <Pill tone="warn" className="!h-5 !text-[11px]">{e.kind === "adjust" ? <Words k="Waiting for approval" /> : <Words k="To verify" />}</Pill> : e.broughtIn ? <Pill tone="neutral" className="!h-5 !text-[11px]"><Words k="Brought in" /></Pill> : <Pill tone={tone} className="!h-5 !text-[11px]">{label}</Pill>}
         </p>
         <p className="text-[12.5px] text-ink3">{isCx ? `${e.cancelled!.reason} · cancelled ${formatDate(e.cancelled!.when, tz)} · stays on record` : e.sub}</p>
       </td>
@@ -490,7 +490,7 @@ function StatementItem({ e, href }: { e: LedgerEntry; href: string | null }) {
       <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT[isCx ? "bad" : tone])}><Ic size={18} aria-hidden="true" /></span>
       <div className="min-w-0 flex-1">
         <p className={cx("font-semibold text-[14.5px] leading-snug", isCx && "line-through text-ink3")}>{e.title}</p>
-        <p className="text-[12.5px] text-ink3">{dshort(e.date)} · {isCx ? `Cancelled: ${e.cancelled!.reason}` : e.waiting ? "Waiting for verification" : e.ref || label}</p>
+        <p className="text-[12.5px] text-ink3">{dshort(e.date)} · {isCx ? `Cancelled: ${e.cancelled!.reason}` : e.waiting ? (e.kind === "adjust" ? "Waiting for approval" : "Waiting for verification") : e.ref || label}</p>
       </div>
       <div className="text-right shrink-0">
         <p className={cx("font-semibold tnum text-[14px]", e.credit > ZERO && "text-ok", off && "line-through !text-ink3")}>{e.debit > ZERO ? `+${formatRupees(e.debit)}` : e.credit > ZERO ? `−${formatRupees(e.credit)}` : formatRupees(ZERO)}</p>

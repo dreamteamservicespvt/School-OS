@@ -20,6 +20,7 @@ const RESOLVERS: Record<string, (tx: Tx, ids: string[]) => Promise<Map<string, s
   "Payroll Run": async (tx, ids) => new Map((await tx.payrollRun.findMany({ where: { id: { in: ids } }, select: { id: true, campusId: true } })).map((r) => [r.id, r.campusId])),
   Certificate: (tx, ids) => viaStudents(tx, tx.certificate.findMany({ where: { id: { in: ids } }, select: { id: true, studentId: true } })),
   Concession: (tx, ids) => viaStudents(tx, tx.concession.findMany({ where: { id: { in: ids } }, select: { id: true, studentId: true } })),
+  "Fee Adjustment": (tx, ids) => viaStudents(tx, tx.feeAdjustment.findMany({ where: { id: { in: ids } }, select: { id: true, studentId: true } })),
   Payment: (tx, ids) => viaStudents(tx, tx.payment.findMany({ where: { id: { in: ids } }, select: { id: true, studentId: true } })),
   Refund: (tx, ids) => viaStudents(tx, tx.refund.findMany({ where: { id: { in: ids } }, select: { id: true, studentId: true } })),
   "Transport Assignment": (tx, ids) => viaStudents(tx, tx.transportAssignment.findMany({ where: { id: { in: ids } }, select: { id: true, studentId: true } })),

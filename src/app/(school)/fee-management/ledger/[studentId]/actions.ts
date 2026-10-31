@@ -63,7 +63,9 @@ export async function adjustAction(_prev: unknown, fd: FormData) {
     }
     if (how !== "add" && how !== "reduce") throw new MoneyProblem("Choose what to do with the row.", "how");
     const amount = needRupees(fd, "amount", "Amount");
-    await adjustDue(tx, ctx, dueId, how === "add" ? amount : -amount, reason);
+    const r = await adjustDue(tx, ctx, dueId, how === "add" ? amount : -amount, reason);
+    // Above the concession limit a reduction waits for approval, like a concession (run-2 lead L1).
+    if (r.waiting) return { message: `Sent for approval: reducing ${due.label} by ${formatRupees(amount)} is above the limit. The fee changes once approved.`, tone: "info" as const, link: { href: "/approvals", label: "Open Approvals" } };
     return `${due.label}: ${how === "add" ? "added" : "reduced by"} ${formatRupees(amount)}. The adjustment is on the ledger with the reason.`;
   }, (m) => m, { staffOnly: "adjust fees" });
 }

@@ -49,7 +49,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ studentI
   const columns: ExportColumn<LedgerEntry>[] = [
     { label: "Date", value: (e) => formatDate(e.date) },
     { label: "Entry", value: (e) => e.title },
-    { label: "Kind", value: (e) => (e.cancelled ? "Cancelled" : e.waiting ? "Waiting for verification" : KIND[e.kind] ?? e.kind) },
+    { label: "Kind", value: (e) => (e.cancelled ? "Cancelled" : e.waiting ? (e.kind === "adjust" ? "Waiting for approval" : "Waiting for verification") : KIND[e.kind] ?? e.kind) },
     { label: "Details", value: (e) => (e.cancelled ? `${e.cancelled.reason} (cancelled ${formatDate(e.cancelled.when, tz)})` : e.sub) },
     { label: "Reference", value: (e) => e.ref ?? "" },
     { label: "Charged", value: (e) => (e.debit > BigInt(0) ? formatRupees(e.debit) : "") },

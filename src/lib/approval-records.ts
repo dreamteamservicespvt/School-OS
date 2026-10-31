@@ -30,6 +30,7 @@ const KINDS: Record<string, Kind> = {
   "Deletion Request": { words: "data deletion request", find: (tx, id) => tx.deletionRequest.findUnique({ where: { id }, select: ID }) },
   "Exit Case": { words: "staff exit", find: (tx, id) => tx.exitCase.findUnique({ where: { id }, select: ID }) },
   Expense: { words: "expense", find: (tx, id) => tx.expense.findUnique({ where: { id }, select: ID }) },
+  "Fee Adjustment": { words: "fee adjustment", find: (tx, id) => tx.feeAdjustment.findUnique({ where: { id }, select: ID }) },
   "Fee Structure": { words: "fee structure", find: (tx, id) => tx.feeStructure.findUnique({ where: { id }, select: ID }) },
   "Gate Pass": { words: "outing pass", find: (tx, id) => tx.gatePass.findUnique({ where: { id }, select: ID }) },
   "Leave Request": { words: "leave request", find: (tx, id) => tx.leaveRequest.findUnique({ where: { id }, select: ID }) },

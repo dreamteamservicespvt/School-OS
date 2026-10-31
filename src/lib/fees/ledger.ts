@@ -76,7 +76,7 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
     tx.feeDocument.findMany({ where: { studentId, kind: "certificate" }, orderBy: { createdAt: "desc" } }),
   ]);
   const headIds = [...new Set([...dues.map((d) => d.feeHeadId), ...payments.flatMap((p) => p.allocations.map((a) => a.feeHeadId))])];
-  const userIds = [...new Set([...adjustments.map((a) => a.createdById), ...conLines.map((l) => l.concession.decidedById ?? l.concession.requestedById), ...dues.map((d) => d.removedById)].filter((x): x is string => Boolean(x)))];
+  const userIds = [...new Set([...adjustments.flatMap((a) => [a.createdById, a.decidedById]),...conLines.map((l) => l.concession.decidedById ?? l.concession.requestedById), ...dues.map((d) => d.removedById)].filter((x): x is string => Boolean(x)))];
   const [heads, receipts, users] = await Promise.all([
     tx.feeHead.findMany({ where: { id: { in: headIds } }, select: { id: true, name: true } }),
     tx.receipt.findMany({ where: { paymentId: { in: payments.map((p) => p.id) } }, select: { paymentId: true, number: true } }),
@@ -152,11 +152,16 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
 
   for (const a of adjustments) {
     if (!shownIds.has(a.dueId)) continue;
+    // Not approved: nothing changed on the row.
+    if (a.status === "REJECTED") continue;
     if (a.reason.startsWith("Refunded: ") && refundTakes.has(a.reason.slice("Refunded: ".length))) continue;
-    const by = who(a.createdById);
+    const waiting = a.status === "WAITING";
+    const asked = who(a.createdById);
+    const approved = who(a.decidedById);
+    const by = waiting ? `${asked ? `asked by ${asked} · ` : ""}Waiting for approval` : approved && approved !== asked ? `${asked ?? "Someone"}, approved by ${approved}` : asked;
     entries.push({
       ...base, key: `adj:${a.id}`, kind: "adjust", date: dayOf(a.createdAt, tz), title: `Adjustment · ${rowName(a.dueId)}`,
-      sub: `${a.reason}${by ? ` · ${by}` : ""}`, ref: null, debit: a.amountPaise > ZERO ? a.amountPaise : ZERO, credit: a.amountPaise < ZERO ? -a.amountPaise : ZERO, balance: ZERO, order: 1,
+      sub: `${a.reason}${by ? ` · ${by}` : ""}`, ref: null, debit: a.amountPaise > ZERO ? a.amountPaise : ZERO, credit: a.amountPaise < ZERO ? -a.amountPaise : ZERO, balance: ZERO, order: 1, waiting,
     });
   }
 

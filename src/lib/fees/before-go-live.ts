@@ -71,7 +71,7 @@ const owedOf = (rows: { studentId: string; balancePaise: bigint }[]): Owed => ({
 /** Net settle adjustment per row (negative while settled and not undone). */
 async function settledByRow(tx: Tx) {
   const adj = await tx.feeAdjustment.findMany({
-    where: { OR: [{ reason: { startsWith: SETTLED_REASON } }, { reason: { startsWith: SETTLED_UNDONE } }] },
+    where: { status: "APPLIED", OR: [{ reason: { startsWith: SETTLED_REASON } }, { reason: { startsWith: SETTLED_UNDONE } }] },
     select: { dueId: true, studentId: true, amountPaise: true },
   });
   const net = new Map<string, { studentId: string; paise: bigint }>();

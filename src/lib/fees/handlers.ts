@@ -10,10 +10,13 @@ import { requestIds, type StillWaiting } from "../approval-waiting";
 import { decideConcession } from "./concessions";
 import { decideRefund } from "./refunds";
 import { decideCancellation, decideVerification } from "./cancel";
-import { decideStructureChange } from "./structure";
+import { decideAdjustment, decideStructureChange } from "./structure";
+
+/** A fee row reduced by Adjust above the concession limit is asked for as a concession (the same approvers), about its Fee Adjustment. */
+const ADJUSTMENT = "Fee Adjustment";
 
 export const followUps = {
-  concession: (tx, ctx, a, decision, note) => decideConcession(tx, ctx, a.recordId, decision, note),
+  concession: (tx, ctx, a, decision, note) => (a.recordType === ADJUSTMENT ? decideAdjustment(tx, ctx, a.recordId, decision, note) : decideConcession(tx, ctx, a.recordId, decision, note)),
   scholarship: (tx, ctx, a, decision, note) => decideConcession(tx, ctx, a.recordId, decision, note),
   refund: (tx, ctx, a, decision, note) => decideRefund(tx, ctx, a.recordId, decision, note),
   "payment-cancellation": (tx, ctx, a, decision, note) => decideCancellation(tx, ctx, a.recordId, decision, note),
@@ -25,7 +28,7 @@ const concessionsWaiting = async (tx: Tx) => requestIds(await tx.concession.find
 
 /** Decided requests whose record still waits on them: their follow-up never ran (Approvals, "Approved, but not finished"). */
 export const unfinished = {
-  concession: concessionsWaiting,
+  concession: async (tx) => [...(await concessionsWaiting(tx)), ...requestIds(await tx.feeAdjustment.findMany({ where: { status: "WAITING", approvalId: { not: null } }, select: { approvalId: true } }))],
   scholarship: concessionsWaiting,
   refund: async (tx) => requestIds(await tx.refund.findMany({ where: { status: "WAITING", approvalId: { not: null } }, select: { approvalId: true } })),
   "payment-cancellation": async (tx) => requestIds((await tx.payment.findMany({ where: { status: "POSTED", cancelApprovalId: { not: null } }, select: { cancelApprovalId: true } })).map((p) => ({ approvalId: p.cancelApprovalId }))),
@@ -40,7 +43,8 @@ export const unfinished = {
 } satisfies Partial<Record<AskableType, StillWaiting>>;
 
 export const approvalLinks = {
-  concession: (a) => ({ href: `/fee-management/concessions?open=${a.recordId}`, label: "Open the concession" }),
+  // A reduction by Adjust has no page of its own: the summary names the student and the row.
+  concession: (a) => (a.recordType === ADJUSTMENT ? null : { href: `/fee-management/concessions?open=${a.recordId}`, label: "Open the concession" }),
   scholarship: (a) => ({ href: `/fee-management/concessions?tab=scholarships&open=${a.recordId}`, label: "Open the scholarship" }),
   refund: (a) => ({ href: `/fee-management/concessions?tab=refunds&open=${a.recordId}`, label: "Open the refund" }),
   "payment-cancellation": (a) => ({ href: `/fee-management/payments/${a.recordId}`, label: "Open the payment" }),

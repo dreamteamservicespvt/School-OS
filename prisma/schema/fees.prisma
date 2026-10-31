@@ -297,6 +297,11 @@ model FeeAdjustment {
   amountPaise BigInt   @map("amount_paise")
   reason      String
   createdById String?  @map("created_by_id") @db.Uuid
+  /// A reduction above the concession limit waits in Approvals (WAITING) and is made on the row only once approved (APPLIED); REJECTED when not approved. Everything else is APPLIED at once.
+  status      ConcessionStatus @default(APPLIED)
+  approvalId  String?  @map("approval_id") @db.Uuid
+  /// Who approved it: the approver in Approvals, or the person who made it when it applied at once.
+  decidedById String?  @map("decided_by_id") @db.Uuid
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([schoolId, studentId])

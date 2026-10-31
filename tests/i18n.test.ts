@@ -117,6 +117,20 @@ describe("the translator", () => {
     expect(screenMessage(makeT("en"), "Mobile number is needed.")).toBe("Mobile number is needed.");
   });
 
+  it("says the One-campus refusals in Hindi and Telugu", () => {
+    const refusals = [
+      ...["record", "import", "event", "calendar entry", "PTM", "PTM slot", "volunteer", "album", "photo", "student", "achievement", "class", "activity"].map((w) => `This ${w} was not found, or is on another campus.`),
+      "Choose students of your own campus.",
+      "Choose classes of your own campus.",
+      ...["Houses", "House points", "Houses for the whole school", "Clubs", "Sports teams", "Clubs and teams", "Fixtures"].map((w) => `${w} are for every campus, so only someone who works for the whole school can change them.`),
+      ...["club", "team"].map((k) => `This ${k} has members of another campus, so only someone who works for the whole school records its attendance.`),
+    ];
+    for (const [lang, campus] of [["hi", "कैंपस"], ["te", "క్యాంపస్"]] as const) {
+      const t = makeT(lang);
+      for (const m of refusals) expect(screenMessage(t, m), `${lang}: ${m}`).toContain(campus);
+    }
+  });
+
   it("says a day with no attendance in the screen's language, with the date and the day's name", () => {
     const hi = makeT("hi");
     const te = makeT("te");

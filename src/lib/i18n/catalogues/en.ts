@@ -14747,6 +14747,31 @@ export const EN = [
   // Approval limits are the Principal's or School Admin's (security audit run-2)
   "Set by the Principal or the School Admin",
   "Only the Principal or the School Admin changes these limits.",
+  // One-campus refusals (src/lib/campus.ts OtherCampusError, src/lib/events/campus.ts)
+  "This record was not found, or is on another campus.",
+  "This import was not found, or is on another campus.",
+  "This event was not found, or is on another campus.",
+  "This calendar entry was not found, or is on another campus.",
+  "This PTM was not found, or is on another campus.",
+  "This PTM slot was not found, or is on another campus.",
+  "This volunteer was not found, or is on another campus.",
+  "This album was not found, or is on another campus.",
+  "This photo was not found, or is on another campus.",
+  "This student was not found, or is on another campus.",
+  "This achievement was not found, or is on another campus.",
+  "This class was not found, or is on another campus.",
+  "This activity was not found, or is on another campus.",
+  "Choose students of your own campus.",
+  "Choose classes of your own campus.",
+  "Houses are for every campus, so only someone who works for the whole school can change them.",
+  "House points are for every campus, so only someone who works for the whole school can change them.",
+  "Houses for the whole school are for every campus, so only someone who works for the whole school can change them.",
+  "Clubs are for every campus, so only someone who works for the whole school can change them.",
+  "Sports teams are for every campus, so only someone who works for the whole school can change them.",
+  "Clubs and teams are for every campus, so only someone who works for the whole school can change them.",
+  "Fixtures are for every campus, so only someone who works for the whole school can change them.",
+  "This club has members of another campus, so only someone who works for the whole school records its attendance.",
+  "This team has members of another campus, so only someone who works for the whole school records its attendance.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

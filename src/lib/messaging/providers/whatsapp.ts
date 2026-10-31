@@ -177,12 +177,18 @@ export type MetaStatus = { id: string; status: string; timestamp?: string; error
 export type MetaIncoming = { from: string; id: string; timestamp?: string; type: string; text?: { body: string }; button?: { text: string } };
 
 /** Pulls status updates and incoming messages out of a webhook body. */
-export function parseMetaWebhook(body: unknown): { statuses: MetaStatus[]; incoming: (MetaIncoming & { name?: string })[] } {
+/**
+ * The statuses and messages in a Meta webhook. With `phoneNumberId`, only the
+ * changes for that WhatsApp number count: schools on the same Meta app share
+ * its app secret, so the signature alone does not say which school an event is for.
+ */
+export function parseMetaWebhook(body: unknown, phoneNumberId?: string): { statuses: MetaStatus[]; incoming: (MetaIncoming & { name?: string })[] } {
   const statuses: MetaStatus[] = [];
   const incoming: (MetaIncoming & { name?: string })[] = [];
-  const entries = (body as { entry?: { changes?: { value?: { statuses?: MetaStatus[]; messages?: MetaIncoming[]; contacts?: { wa_id: string; profile?: { name?: string } }[] } }[] }[] })?.entry ?? [];
+  const entries = (body as { entry?: { changes?: { value?: { metadata?: { phone_number_id?: string }; statuses?: MetaStatus[]; messages?: MetaIncoming[]; contacts?: { wa_id: string; profile?: { name?: string } }[] } }[] }[] })?.entry ?? [];
   for (const e of entries) {
     for (const ch of e.changes ?? []) {
+      if (phoneNumberId !== undefined && (!phoneNumberId || ch.value?.metadata?.phone_number_id !== phoneNumberId)) continue;
       for (const s of ch.value?.statuses ?? []) statuses.push(s);
       for (const m of ch.value?.messages ?? []) incoming.push({ ...m, name: ch.value?.contacts?.find((c) => c.wa_id === m.from)?.profile?.name });
     }

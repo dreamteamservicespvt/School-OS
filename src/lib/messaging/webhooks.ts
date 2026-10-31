@@ -6,7 +6,7 @@ import "server-only";
 
 import { timingSafeEqual } from "node:crypto";
 import { withSchool, type SchoolContext } from "../db";
-import { channelSecrets } from "./channels";
+import { channelSecrets, channelSetups } from "./channels";
 import { applyStatus } from "./deliver";
 import { optOutByPhone } from "./optout";
 import { applyChatStatus, recordIncoming } from "../communication/inbox";
@@ -42,15 +42,18 @@ export async function verifyWhatsappSubscription(schoolId: string, params: URLSe
 export async function handleWhatsappWebhook(schoolId: string, rawBody: string, signature: string | null): Promise<WebhookOutcome> {
   if (!UUID.test(schoolId)) return { status: 404 };
   const ctx: SchoolContext = { schoolId, userId: null };
-  const secrets = await withSchool(ctx, (tx) => channelSecrets(tx, ctx, "whatsapp")).catch(() => ({} as Record<string, string>));
+  const { secrets, setup } = await withSchool(ctx, async (tx) => ({ secrets: await channelSecrets(tx, ctx, "whatsapp"), setup: (await channelSetups(tx, ctx)).whatsapp }))
+    .catch(() => ({ secrets: {} as Record<string, string>, setup: null }));
   if (!secrets.appSecret || !verifyMetaSignature(rawBody, signature, secrets.appSecret)) return { status: 401 };
+  // Only events for this school's own WhatsApp number (test mode has no real number).
+  const ownNumber = setup?.provider === "sandbox" ? undefined : (setup?.config.phoneNumberId ?? "");
   let body: unknown;
   try {
     body = JSON.parse(rawBody);
   } catch {
     return { status: 400 };
   }
-  const { statuses, incoming } = parseMetaWebhook(body);
+  const { statuses, incoming } = parseMetaWebhook(body, ownNumber);
   await withSchool(ctx, async (tx) => {
     for (const s of statuses) {
       const at = s.timestamp ? new Date(Number(s.timestamp) * 1000) : new Date();

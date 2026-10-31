@@ -43,6 +43,7 @@ import { ConfirmButton } from "@/components/ui/confirm";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { isTopRole, managesUsers } from "@/lib/staff/login-ceiling";
 
 type Props = { params: Promise<{ staffId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -269,7 +270,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     const exceptions = (data.access?.exceptions ?? {}) as Record<string, AccessLevel>;
     const base = combineLevels(accessRoles.map((r) => r.permissions as RolePermissions));
     const extras = extraPermissions(base, exceptions);
-    const roleOptions = data.roles.filter((r, i) => data.roles.findIndex((x) => (x.key ?? x.id) === (r.key ?? r.id)) === i).map((r) => ({ key: r.key ?? r.id, name: r.name, lines: roleLines(r.permissions as RolePermissions).map((l) => `${l.module}: ${l.words}`) }));
+    const roleOptions = data.roles.filter((r, i) => (managesUsers(current) || !isTopRole(r)) && data.roles.findIndex((x) => (x.key ?? x.id) === (r.key ?? r.id)) === i).map((r) => ({ key: r.key ?? r.id, name: r.name, lines: roleLines(r.permissions as RolePermissions).map((l) => `${l.module}: ${l.words}`) }));
     const defaultRole = data.designations.find((d) => d.name === s!.designation)?.defaultRoleKey ?? null;
 
     const loginPill = head.login ? (head.login.status === "ACTIVE" && !data.access?.archivedAt ? (head.login.mustChangePassword ? <Pill tone="warn"><Words k="Temporary password, not changed yet" /></Pill> : <Pill tone="ok"><Words k="Active" /></Pill>) : head.login.status === "INVITED" ? <Pill tone="warn"><Words k="Invite not used yet" /></Pill> : <Pill tone="bad"><Words k="Switched off" /></Pill>) : null;

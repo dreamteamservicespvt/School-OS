@@ -14232,4 +14232,8 @@ export const hi: Catalogue = {
   "Fixtures are for every campus, so only someone who works for the whole school can change them.": "मैच हर कैंपस के लिए हैं, इसलिए इन्हें केवल पूरे स्कूल के लिए काम करने वाला व्यक्ति बदल सकता है।",
   "This club has members of another campus, so only someone who works for the whole school records its attendance.": "इस क्लब में दूसरे कैंपस के सदस्य हैं, इसलिए इसकी उपस्थिति केवल पूरे स्कूल के लिए काम करने वाला व्यक्ति दर्ज करता है।",
   "This team has members of another campus, so only someone who works for the whole school records its attendance.": "इस टीम में दूसरे कैंपस के सदस्य हैं, इसलिए इसकी उपस्थिति केवल पूरे स्कूल के लिए काम करने वाला व्यक्ति दर्ज करता है।",
+  "Only someone who can change Settings, Users & Permissions can give the School Admin or Principal role. Ask your School Admin.": "स्कूल एडमिन या प्रिंसिपल की भूमिका केवल वही दे सकता है जो सेटिंग्स, यूज़र और अनुमतियाँ बदल सकता है। अपने स्कूल एडमिन से कहें।",
+  "Only someone who can change Settings, Users & Permissions can give access to Settings. Ask your School Admin.": "सेटिंग्स की पहुँच केवल वही दे सकता है जो सेटिंग्स, यूज़र और अनुमतियाँ बदल सकता है। अपने स्कूल एडमिन से कहें।",
+  "You can give a login only the access you have yourself. Ask your School Admin for more in Settings, Users & Permissions.": "आप किसी लॉगिन को केवल उतनी ही पहुँच दे सकते हैं जितनी आपके पास खुद है। इससे ज़्यादा के लिए अपने स्कूल एडमिन से सेटिंग्स, यूज़र और अनुमतियाँ में कहें।",
+  "Only someone who can change Settings, Users & Permissions can make a sign-in link for a School Admin or Principal login.": "स्कूल एडमिन या प्रिंसिपल के लॉगिन के लिए साइन-इन लिंक केवल वही बना सकता है जो सेटिंग्स, यूज़र और अनुमतियाँ बदल सकता है।",
 };

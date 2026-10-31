@@ -20,6 +20,7 @@ import { assertYearOpen } from "../academic/years";
 import { formatStaffId, hrSettings } from "./settings";
 import { ensureBalances, leaveYearFor } from "./leave";
 import type { AccessLevel } from "../roles";
+import { granterOf, loginGrantRefusal } from "./login-ceiling";
 
 export class StaffProblem extends Error {
   constructor(message: string, public field?: string, public link?: { href: string; label: string }) {
@@ -259,6 +260,9 @@ export async function giveLogin(tx: Tx, ctx: SchoolContext, staff: Staff, login:
   if (login.roleKeys.length === 0) throw new StaffProblem("Choose at least one role, or skip the login.", "roleKeys");
   const roles = await tx.role.findMany({ where: { schoolId: ctx.schoolId, key: { in: login.roleKeys }, isEnabled: true, archivedAt: null } });
   if (roles.length !== new Set(login.roleKeys).size) throw new StaffProblem("One of the chosen roles is switched off. Choose from the list.", "roleKeys");
+  // School Admin and Principal logins, Settings access and access above the giver's own come from Settings, Users & Permissions (run-2 lead L5).
+  const refused = loginGrantRefusal(await granterOf(tx, ctx), roles, login.exceptions);
+  if (refused) throw new StaffProblem(refused.message, refused.field);
   let username: string;
   if (login.username) {
     const u = login.username.trim().toLowerCase();

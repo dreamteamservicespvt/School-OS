@@ -14773,6 +14773,11 @@ export const EN = [
   "Fixtures are for every campus, so only someone who works for the whole school can change them.",
   "This club has members of another campus, so only someone who works for the whole school records its attendance.",
   "This team has members of another campus, so only someone who works for the whole school records its attendance.",
+  // Logins given from Staff & HR (security audit run-2, lead L5)
+  "Only someone who can change Settings, Users & Permissions can give the School Admin or Principal role. Ask your School Admin.",
+  "Only someone who can change Settings, Users & Permissions can give access to Settings. Ask your School Admin.",
+  "You can give a login only the access you have yourself. Ask your School Admin for more in Settings, Users & Permissions.",
+  "Only someone who can change Settings, Users & Permissions can make a sign-in link for a School Admin or Principal login.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

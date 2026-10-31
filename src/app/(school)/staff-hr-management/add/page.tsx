@@ -18,6 +18,7 @@ import { Wizard, type WizardData } from "./wizard";
 import { checkDetails, createStaffAction } from "./actions";
 import { schoolRoles } from "@/lib/school-roles";
 import { pageTitle } from "@/lib/i18n/server";
+import { isTopRole, managesUsers } from "@/lib/staff/login-ceiling";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Add Staff") };
@@ -67,7 +68,7 @@ export default async function AddStaffPage({ searchParams }: Search) {
       staff: staff.map((s) => ({ value: s.id, label: `${s.fullName} (${s.designation})` })),
       campuses: campuses.map((c) => ({ value: c.id, label: c.name })),
       campusId: campusId ?? "",
-      roles: roles.filter((r, i) => r.key !== "student" && roles.findIndex((x) => (x.key ?? x.id) === (r.key ?? r.id)) === i).map((r) => {
+      roles: roles.filter((r, i) => r.key !== "student" && (managesUsers(current) || !isTopRole(r)) && roles.findIndex((x) => (x.key ?? x.id) === (r.key ?? r.id)) === i).map((r) => {
         const perms = r.permissions as RolePermissions;
         return { key: r.key ?? r.id, name: r.name, perms: perms as Record<string, AccessLevel>, lines: roleLines(perms).map((l) => `${l.module}: ${l.words}`) };
       }),

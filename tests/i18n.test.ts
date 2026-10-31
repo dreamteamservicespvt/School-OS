@@ -132,6 +132,14 @@ describe("the translator", () => {
     }
   });
 
+  it("says the Staff & HR login refusals in Hindi and Telugu (run-2 lead L5)", async () => {
+    const { LOGIN_CEILING_WORDS } = await import("@/lib/staff/login-ceiling");
+    for (const [lang, words] of [["hi", "सेटिंग्स"], ["te", "సెట్టింగ్‌లు"]] as const) {
+      const t = makeT(lang);
+      for (const m of Object.values(LOGIN_CEILING_WORDS)) expect(screenMessage(t, m), `${lang}: ${m}`).toContain(words);
+    }
+  });
+
   it("says a day with no attendance in the screen's language, with the date and the day's name", () => {
     const hi = makeT("hi");
     const te = makeT("te");

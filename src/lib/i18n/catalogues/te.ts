@@ -14232,4 +14232,8 @@ export const te: Catalogue = {
   "Fixtures are for every campus, so only someone who works for the whole school can change them.": "మ్యాచ్‌లు అన్ని క్యాంపస్‌లవి, కాబట్టి మొత్తం స్కూల్ కోసం పనిచేసేవారు మాత్రమే వాటిని మార్చగలరు.",
   "This club has members of another campus, so only someone who works for the whole school records its attendance.": "ఈ క్లబ్‌లో వేరే క్యాంపస్ సభ్యులు ఉన్నారు, కాబట్టి దీని హాజరును మొత్తం స్కూల్ కోసం పనిచేసేవారు మాత్రమే నమోదు చేస్తారు.",
   "This team has members of another campus, so only someone who works for the whole school records its attendance.": "ఈ జట్టులో వేరే క్యాంపస్ సభ్యులు ఉన్నారు, కాబట్టి దీని హాజరును మొత్తం స్కూల్ కోసం పనిచేసేవారు మాత్రమే నమోదు చేస్తారు.",
+  "Only someone who can change Settings, Users & Permissions can give the School Admin or Principal role. Ask your School Admin.": "స్కూల్ అడ్మిన్ లేదా ప్రిన్సిపాల్ పాత్రను సెట్టింగ్‌లు, యూజర్లు & అనుమతులు మార్చగలవారు మాత్రమే ఇవ్వగలరు. మీ స్కూల్ అడ్మిన్‌ను అడగండి.",
+  "Only someone who can change Settings, Users & Permissions can give access to Settings. Ask your School Admin.": "సెట్టింగ్‌లకు ప్రవేశాన్ని సెట్టింగ్‌లు, యూజర్లు & అనుమతులు మార్చగలవారు మాత్రమే ఇవ్వగలరు. మీ స్కూల్ అడ్మిన్‌ను అడగండి.",
+  "You can give a login only the access you have yourself. Ask your School Admin for more in Settings, Users & Permissions.": "మీకు ఉన్న ప్రవేశాన్ని మాత్రమే మీరు ఒక లాగిన్‌కు ఇవ్వగలరు. ఎక్కువ కావాలంటే సెట్టింగ్‌లు, యూజర్లు & అనుమతులలో మీ స్కూల్ అడ్మిన్‌ను అడగండి.",
+  "Only someone who can change Settings, Users & Permissions can make a sign-in link for a School Admin or Principal login.": "స్కూల్ అడ్మిన్ లేదా ప్రిన్సిపాల్ లాగిన్ కోసం సైన్-ఇన్ లింక్‌ను సెట్టింగ్‌లు, యూజర్లు & అనుమతులు మార్చగలవారు మాత్రమే తయారు చేయగలరు.",
 };

@@ -19,7 +19,7 @@ import { invCan, invViewer } from "../inventory/access";
 import { hostelCan, hostelViewer } from "../hostel/access";
 import { salaryLevel } from "../salary/access";
 import { arrangesTimetable } from "../academic/scope";
-import { importPlace, OWN_RULES, PLACES, placeHolds, type ImportPlace } from "./places";
+import { importPlace, MODULE_ONLY, OWN_RULES, PLACES, placeHolds, type ImportPlace } from "./places";
 
 type Need = "create" | "archive";
 
@@ -107,6 +107,25 @@ export async function placeRefusal(current: Current, place: ImportPlace, kind: s
         ? null : "Only people with full Academic Management (the Principal, the Vice Principal or the School Admin) can bring these in.";
   }
 }
+
+/**
+ * Settings, Data Backup & Security, Imports: why this person may not have an
+ * import of this kind there (its rows with problems, which hold the file's own
+ * cells, Aadhaar numbers too, or its Undo), or null when they may. A kind with
+ * a narrower rule on its own module page keeps it here (security audit run-3).
+ */
+export async function settingsImportRefusal(current: Current, kind: string, need: Need): Promise<string | null> {
+  if (Object.hasOwn(OWN_RULES, kind)) return placeRefusal(current, PLACES.settings, kind, need);
+  if (Object.hasOwn(MODULE_ONLY, kind)) {
+    const place = PLACES[MODULE_ONLY[kind]];
+    // UDISE+ files of before are read by the Students import now: its rule.
+    return placeRefusal(current, place, placeHolds(place, kind) ? kind : place.kinds?.[0] ?? kind, need);
+  }
+  return null;
+}
+
+/** Every kind whose import in Settings keeps its own module page's rule. */
+export const STRICT_IN_SETTINGS = [...Object.keys(OWN_RULES), ...Object.keys(MODULE_ONLY)];
 
 /** The kinds this person may bring in at this place, for its upload and its Bring in buttons. */
 export async function bringable(current: Current, place: ImportPlace, keys: readonly string[]): Promise<Set<string>> {

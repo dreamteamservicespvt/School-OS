@@ -11,6 +11,7 @@ import { DOCUMENT_TYPES, FileProblem, saveFile } from "@/lib/files";
 import { undoImport } from "@/lib/importer";
 import { requestDataExport, WHOLE_SCHOOL_EXPORT } from "@/lib/data-security/data-export";
 import { mayImport } from "@/lib/move-in/service";
+import { settingsImportRefusal } from "@/lib/imports/place-access";
 import { PrivacyProblem, personTypesFor, requestDeletion, setRetention, DELETION_PARTS, type DeletionPart } from "@/lib/data-security/privacy";
 import { ConsentProblem, saveConsentText } from "@/lib/data-security/consent";
 import { TWO_STEP_FEATURE } from "@/lib/data-security/alerts";
@@ -50,10 +51,13 @@ export async function undoImportAction(batchId: string): Promise<string | void> 
   const { current } = await requireSettingsAction(PAGE, "archive");
   if (!/^[0-9a-f-]{36}$/i.test(batchId)) return "This import was not found.";
   try {
+    // A kind with a narrower rule on its own module page (students, staff, pay details...) keeps it here.
+    const kind = (await withSchool(current.ctx, (tx) => tx.importBatch.findUnique({ where: { id: batchId }, select: { kind: true } })))?.kind;
+    if (kind && await settingsImportRefusal(current, kind, "archive")) throw new Error("This import cannot be undone by your role. Ask your School Admin.");
     await withSchool(current.ctx, async (tx) => {
       const batch = await tx.importBatch.findUnique({ where: { id: batchId }, select: { kind: true } });
       if (!batch) throw new Error("This import cannot be undone: it was not found.");
-      if (!mayImport(current.permissions, batch.kind, "archive", current.modulesOn)) throw new Error("This import cannot be undone by your role. Ask your School Admin.");
+      if (!mayImport(current.permissions, batch.kind, "archive", current.modulesOn) || batch.kind !== kind) throw new Error("This import cannot be undone by your role. Ask your School Admin.");
       await undoImport(tx, current.ctx, batchId);
     }, { timeout: 60_000 });
   } catch (e) {

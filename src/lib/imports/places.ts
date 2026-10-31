@@ -62,6 +62,26 @@ export const OWN_RULES: Record<string, PlaceKey> = {
   "academic-timetable": "academic",
   // The syllabus: full Academic Management, as for setting up the curriculum.
   "academic-syllabus": "academic",
+  // Students and paper consents, whose rows hold Aadhaar numbers and parents' details: full Student
+  // Management, as on Import students (05-roles.md; security audit run-3).
+  students: "students",
+  "consent-paper-forms": "students",
+  // Staff: HR's work (full Staff & HR), as on Import staff.
+  staff: "staff",
+  // Enquiries: the admission team's work (full Admission Management), as on Import enquiries.
+  "admission-enquiries": "enquiries",
+};
+
+/**
+ * Kinds brought in only on their module's own page, never listed for
+ * Switching to School OS. Their imports still show in Settings, Imports, and
+ * keep that page's rule there: changes to students and UDISE+ files of before
+ * (full Student Management), salary structures (full Salary Management).
+ */
+export const MODULE_ONLY: Record<string, PlaceKey> = {
+  "students-update": "students",
+  "students-udise": "students",
+  "salary-structures": "salary",
 };
 
 export function importPlace(key: unknown): ImportPlace | null {

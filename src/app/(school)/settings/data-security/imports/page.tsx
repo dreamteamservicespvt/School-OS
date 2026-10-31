@@ -7,8 +7,7 @@ import { importKind, importKinds } from "@/lib/importer";
 import { can } from "@/lib/permissions";
 import { shownFileName } from "@/lib/data-security/imports";
 import { canBring, kindModule, mayImport, moveInKinds } from "@/lib/move-in/service";
-import { OWN_RULES, PLACES } from "@/lib/imports/places";
-import { placeRefusal } from "@/lib/imports/place-access";
+import { settingsImportRefusal, STRICT_IN_SETTINGS } from "@/lib/imports/place-access";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/list/data-table";
@@ -32,7 +31,11 @@ export default async function ImportsPage({ searchParams }: Search) {
   // Imports of records the person may not see in their own module (salary details, for example) are not listed.
   // Kinds with a narrower rule on their own page (pay details, for example) keep it here.
   const refused = new Set<string>();
-  for (const k of Object.keys(OWN_RULES)) if (await placeRefusal(current, PLACES.settings, k, "create")) refused.add(k);
+  const undoRefused = new Set<string>();
+  for (const k of STRICT_IN_SETTINGS) {
+    if (await settingsImportRefusal(current, k, "create")) refused.add(k);
+    if (await settingsImportRefusal(current, k, "archive")) undoRefused.add(k);
+  }
   const seen = importKinds().filter((k) => can(current.permissions, kindModule(k.key), "view") && !refused.has(k.key)).map((k) => k.key);
   const { rows, total, running, names } = await withSchool(current.ctx, async (tx) => {
     const [rows, total, running] = await Promise.all([
@@ -48,7 +51,7 @@ export default async function ImportsPage({ searchParams }: Search) {
   // Every file goes through the one import engine (Switching to School OS): headings matched, rows tidied and checked.
   const kinds = moveInKinds(current.modulesOn).filter((k) => canBring(current.permissions, k.key, current.modulesOn) && !refused.has(k.key));
   const canImport = may.create && kinds.length > 0;
-  const canUndo = (kind: string) => may.archive && mayImport(current.permissions, kind, "archive", current.modulesOn);
+  const canUndo = (kind: string) => may.archive && mayImport(current.permissions, kind, "archive", current.modulesOn) && !undoRefused.has(kind);
   const wanted = typeof sp.kind === "string" && kinds.some((k) => k.key === sp.kind) ? sp.kind : undefined;
 
   return (

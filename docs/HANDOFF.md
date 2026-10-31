@@ -38,7 +38,8 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
   kinds, events activity paths, optional-module actions, document-design actions, layout pages).
 - Local commits on branch claude/project-thread-cesreq, NOT pushed (audit commits 2150019b..HEAD).
   The user's own uncommitted edits (.vscode/settings.json, CLAUDE.md, next.config.ts, public/push-sw.js) left alone.
-- Tests: one vitest run at a time; a file takes 3-7 min here; full suite ~42 min; long runs go to the background.
+- Tests: one vitest run at a time ON THE WHOLE LAPTOP (every run drops and rebuilds school_os_test; check for
+  another node vitest process first, e.g. another chat); a file takes 3-7 min here; full suite ~42 min; long runs go to the background.
 - Local setup: PostgreSQL 16 in tools/pg16 (data tools/pgdata; superuser `postgres` trust on localhost).
   App built and served from the SSD copy C:\Users\chala\sos-build (D: builds fail); logs tools/*.log.
 - Branch note: origin still has the old commit 64f895d7 "a"; the next push needs --force-with-lease (ask first).
@@ -46,8 +47,9 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
 ## Next steps
 S. SECURITY follow-ups: (1) run-2's 7 NEEDS VALIDATION leads (~/security-audit-skill/School-OS/run-2/NEEDS-VALIDATION.md).
    DONE: L6 66e588c9, L3 d6631937 (tests/run2-leads.test.ts), L2 26da6612, L4 b6d2ef2a (pay-out was doubled too),
-   L5 alert part 872cfc13. Full suite + SSD build after them NOT yet confirmed (run cut when the chat
-   ended 00:35): re-run both. OWNER DECISIONS (not
+   L5 alert part 872cfc13. Full suite + SSD build after them NOT yet confirmed: the 00:26 run broke in
+   global setup (P1014, schema dropped mid-migrate) because ANOTHER vitest run (tests/fees/new-student-plan,
+   not started by this chat) used school_os_test at the same time; re-run both. OWNER DECISIONS (not
    built): L1 adjust reduction above concession limit -> approval?; L5 may HR grant roles above its own?;
    L7 one-campus Settings holder: full export / privacy search / deletion kept to campus?
    (2) DONE, and its Events pages leftover too: commit 06632769 (evYears in src/lib/events/campus.ts;

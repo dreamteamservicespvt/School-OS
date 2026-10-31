@@ -8533,7 +8533,7 @@ export const hi: Catalogue = {
   "A student here is no longer in this section. Reload the page.": "यहाँ का एक विद्यार्थी अब इस सेक्शन में नहीं है। पेज फिर से लोड करें।",
   "Only the Principal writes principal remarks.": "प्रधानाचार्य की टिप्पणियाँ सिर्फ़ प्रधानाचार्य लिखते हैं।",
   "A student or area here was changed. Reload the page.": "यहाँ का एक विद्यार्थी या क्षेत्र बदला गया। पेज फिर से लोड करें।",
-  "A competency here was changed. Reload the page.": "यहाँ की एक योग्यता बदली गई। पेज फिर से लोड करें।",
+  "A student or competency here was changed. Reload the page.": "यहाँ का एक विद्यार्थी या योग्यता बदली गई। पेज फिर से लोड करें।",
   "Final %": "अंतिम %",
   "There are no report cards to print.": "छापने के लिए कोई रिपोर्ट कार्ड नहीं।",
   "Whole year (final result)": "पूरा साल (अंतिम परिणाम)",

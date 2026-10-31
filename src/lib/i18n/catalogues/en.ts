@@ -10310,7 +10310,7 @@ export const EN = [
   "A student here is no longer in this section. Reload the page.",
   "Only the Principal writes principal remarks.",
   "A student or area here was changed. Reload the page.",
-  "A competency here was changed. Reload the page.",
+  "A student or competency here was changed. Reload the page.",
   "Final %",
   "There are no report cards to print.",
   "Whole year (final result)",

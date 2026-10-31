@@ -245,16 +245,18 @@ export async function saveCompetencyLevels(tx: Tx, ctx: SchoolContext, scope: Ex
   if (!writesReportCards(scope, input.sectionId)) throw new ExamRuleError(`Only the class teacher of ${section.label}, the Exam In-charge or the Principal can enter competency levels.`);
   const option = await findPeriod(tx, section.academicYearId, section.classId, input.period);
   if (!option) throw new ExamRuleError("Choose the exam or term first.");
-  const comps = await tx.competency.findMany({ where: { archivedAt: null } });
+  const [students, comps] = await Promise.all([sectionStudents(tx, [input.sectionId], section.academicYearId), tx.competency.findMany({ where: { archivedAt: null } })]);
   let n = 0;
   for (const row of input.rows) {
+    // Only students of this section: the right to write report cards is for this section's roster.
+    const st = students.find((s) => s.studentId === row.studentId);
     const c = comps.find((x) => x.id === row.competencyId);
-    if (!c) throw new ExamRuleError("A competency here was changed. Reload the page.");
+    if (!st || !c) throw new ExamRuleError("A student or competency here was changed. Reload the page.");
     if (row.level && !c.levels.includes(row.level)) throw new ExamRuleError(`Levels for ${c.name} are ${c.levels.join(", ")}.`);
-    const where = { schoolId_studentId_competencyId_period: { schoolId: ctx.schoolId, studentId: row.studentId, competencyId: c.id, period: option.key } };
+    const where = { schoolId_studentId_competencyId_period: { schoolId: ctx.schoolId, studentId: st.studentId, competencyId: c.id, period: option.key } };
     const before = await tx.competencyLevel.findUnique({ where });
     if ((before?.level ?? "") === (row.level ?? "")) continue;
-    await tx.competencyLevel.upsert({ where, create: { schoolId: ctx.schoolId, academicYearId: section.academicYearId, period: option.key, studentId: row.studentId, competencyId: c.id, level: row.level ?? "", enteredById: ctx.userId }, update: { level: row.level ?? "", enteredById: ctx.userId } });
+    await tx.competencyLevel.upsert({ where, create: { schoolId: ctx.schoolId, academicYearId: section.academicYearId, period: option.key, studentId: st.studentId, competencyId: c.id, level: row.level ?? "", enteredById: ctx.userId }, update: { level: row.level ?? "", enteredById: ctx.userId } });
     n++;
   }
   if (n) await writeAudit(tx, ctx, { action: "competency-levels", recordType: "Competency Level", recordId: `${input.sectionId}:${option.key}`, after: { section: section.label, count: n } });

@@ -8533,7 +8533,7 @@ export const te: Catalogue = {
   "A student here is no longer in this section. Reload the page.": "ఇక్కడి ఒక విద్యార్థి ఇక ఈ సెక్షన్‌లో లేరు. పేజీ రీలోడ్ చేయండి.",
   "Only the Principal writes principal remarks.": "ప్రిన్సిపాల్ వ్యాఖ్యలు ప్రిన్సిపాల్ మాత్రమే రాస్తారు.",
   "A student or area here was changed. Reload the page.": "ఇక్కడి ఒక విద్యార్థి లేదా రంగం మారింది. పేజీ రీలోడ్ చేయండి.",
-  "A competency here was changed. Reload the page.": "ఇక్కడి ఒక సామర్థ్యం మారింది. పేజీ రీలోడ్ చేయండి.",
+  "A student or competency here was changed. Reload the page.": "ఇక్కడి ఒక విద్యార్థి లేదా సామర్థ్యం మారింది. పేజీ రీలోడ్ చేయండి.",
   "Final %": "తుది %",
   "There are no report cards to print.": "ప్రింట్ చేయడానికి రిపోర్ట్ కార్డులు లేవు.",
   "Whole year (final result)": "మొత్తం సంవత్సరం (తుది ఫలితం)",

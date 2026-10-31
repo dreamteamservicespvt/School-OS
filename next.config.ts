@@ -7,6 +7,9 @@ const securityHeaders = [
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "Referrer-Policy", value: "same-origin" },
   { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=(self)" },
+  // No script rules here (Next.js runs inline scripts); these close what needs none:
+  // a planted <base> tag re-pointing links, plugins, and other sites framing a page.
+  { key: "Content-Security-Policy", value: "base-uri 'self'; object-src 'none'; frame-ancestors 'none'" },
 ];
 
 const nextConfig: NextConfig = {

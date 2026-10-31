@@ -273,9 +273,16 @@ async function paymentReactivates(tx: Tx, card: { id: string; status: string }, 
 }
 
 /** Marks an invoice paid and does what paying does: credits, status, reactivation. */
+/**
+ * Claims the invoice while it is still Unpaid, in this transaction: a second
+ * confirmation arriving at the same moment (a repeated webhook, or the Owner
+ * marking it paid) waits for the row and then finds it Paid. Returns false
+ * when someone else already paid it, and nothing is added.
+ */
 async function applyPayment(tx: Tx, actor: ConsoleActor, inv: PlatformInvoice, paid: { via: "RAZORPAY" | "BANK" | "CHEQUE"; ref: string | null; at: Date }) {
+  const claimed = await tx.platformInvoice.updateMany({ where: { id: inv.id, status: "UNPAID" }, data: { status: "PAID", paidAt: paid.at, paidVia: paid.via, paidRef: paid.ref, markedPaidById: paid.via === "RAZORPAY" ? null : actor.id } });
+  if (claimed.count === 0) return false;
   const card = await tx.consoleSchool.findUniqueOrThrow({ where: { id: inv.forSchoolId } });
-  await tx.platformInvoice.update({ where: { id: inv.id }, data: { status: "PAID", paidAt: paid.at, paidVia: paid.via, paidRef: paid.ref, markedPaidById: paid.via === "RAZORPAY" ? null : actor.id } });
   const ctx = { schoolId: inv.forSchoolId, userId: null };
   // Message credits that come with a year (or a credit pack) are added when it is paid.
   let credits = 0;
@@ -313,6 +320,7 @@ async function applyPayment(tx: Tx, actor: ConsoleActor, inv: PlatformInvoice, p
     await logActivity(tx, SYSTEM_ACTOR, { type: "status", school: { id: card.id, name: card.name }, text: `${card.name} became Active when invoice ${inv.number} was paid.`, from: STATUS_LABEL[card.status], to: "Active" });
   }
   await refreshBilling(tx, inv.forSchoolId, paid.at);
+  return true;
 }
 
 /** Owner only: a bank transfer or cheque, with the reference number. */
@@ -324,7 +332,8 @@ export async function markPaid(actor: ConsoleActor, invoiceId: string, input: { 
   if (!inv) throw new ConsoleProblem("This invoice was not found.");
   if (inv.status !== "UNPAID") throw new ConsoleProblem(`This invoice is ${inv.status === "PAID" ? "already paid" : inv.status === "WAITING" ? "waiting for the Owner's OK; send it first" : "cancelled"}.`);
   const before = await getCard(inv.forSchoolId);
-  await withConsoleSchool(inv.forSchoolId, (tx) => applyPayment(tx, actor, inv, { via: input.via, ref: `${input.via === "CHEQUE" ? "Cheque" : "UTR"} ${ref}`, at: input.receivedOn }));
+  const applied = await withConsoleSchool(inv.forSchoolId, (tx) => applyPayment(tx, actor, inv, { via: input.via, ref: `${input.via === "CHEQUE" ? "Cheque" : "UTR"} ${ref}`, at: input.receivedOn }));
+  if (!applied) throw new ConsoleProblem("This invoice was paid a moment ago. Refresh the page.");
   const after = await getCard(inv.forSchoolId);
   return { number: inv.number, reactivated: before?.status === "SUSPENDED" && after?.status === "ACTIVE" };
 }
@@ -336,12 +345,13 @@ export async function paidByRazorpay(linkId: string, paymentId: string | null, a
   if (inv.status === "PAID") return { ok: true as const, already: true };
   if (inv.status !== "UNPAID") return { ok: false as const, reason: `invoice ${inv.status.toLowerCase()}` };
   if (BigInt(amountPaise) !== inv.totalPaise) return { ok: false as const, reason: "amount differs" };
-  await withConsoleSchool(inv.forSchoolId, async (tx) => {
-    await applyPayment(tx, SYSTEM_ACTOR, inv, { via: "RAZORPAY", ref: paymentId, at: now });
+  const applied = await withConsoleSchool(inv.forSchoolId, async (tx) => {
+    if (!(await applyPayment(tx, SYSTEM_ACTOR, inv, { via: "RAZORPAY", ref: paymentId, at: now }))) return false;
     const card = await tx.consoleSchool.findUnique({ where: { id: inv.forSchoolId }, select: { name: true } });
     await notifyTeam(tx, { roles: ["OWNER"], text: `${card?.name ?? "A school"} paid invoice ${inv.number}, ${formatRupees(inv.totalPaise)}, by Razorpay.`, link: "/console/billing", tone: "ok" });
+    return true;
   });
-  return { ok: true as const, already: false };
+  return { ok: true as const, already: !applied };
 }
 
 /** Owner only: a wrong invoice is cancelled with a reason, never deleted. Its link stops working. */

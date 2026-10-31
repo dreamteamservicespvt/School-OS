@@ -10,7 +10,7 @@ import type { Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { HomeworkProblem } from "./access";
-import { inYears, onCampus, requireDesk, requireYearOpen, shortSection, type HomeworkScope } from "./scope";
+import { inYears, onCampus, requireDesk, requireStaff, requireYearOpen, shortSection, type HomeworkScope } from "./scope";
 
 export const HIDE_REASONS = ["Not about the subject", "Unkind words", "Personal details shared", "Answers to a test"] as const;
 
@@ -42,6 +42,8 @@ function checkBoard(input: BoardInput) {
 }
 
 export async function createBoard(tx: Tx, s: HomeworkScope, input: BoardInput) {
+  // Students post topics and replies on boards; making a board is staff work (17 §2).
+  requireStaff(s);
   requireDesk(s, "discussions");
   // A board for a class belongs to the class's own year (each campus has its own); a board for no class, to the person's own year.
   requireYearOpen(s, input.sectionId ? undefined : s.yearId);

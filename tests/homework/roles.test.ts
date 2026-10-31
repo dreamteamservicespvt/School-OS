@@ -31,6 +31,7 @@ import { homeworkScope, mayRead, type HomeworkScope } from "@/lib/homework/scope
 import { giveHomework, homeworkDetail, listHomework, type GiveInput } from "@/lib/homework/homework";
 import { gradeSubmission } from "@/lib/homework/submissions";
 import { createQuiz } from "@/lib/homework/quizzes";
+import { createBoard, type BoardInput } from "@/lib/homework/discussions";
 import { remindTeacher } from "@/lib/homework/overview";
 import { homeworkSettings } from "@/lib/homework/settings";
 import { optionalPageAction, saveSettingsAction } from "@/app/(school)/homework-learning/settings/actions";
@@ -204,5 +205,14 @@ describe("a student sees only their own work", () => {
     expect(teacherView!.subs.length).toBe(3);
     const studentView = await asScope(people.student, (tx, s) => homeworkDetail(tx, s, id, today));
     expect(studentView!.subs.map((x) => x.studentId)).toEqual([students5a[0]]);
+  });
+
+  it("cannot create a Discussions board, for the whole school or their own class (security audit run-3)", async () => {
+    const board = (sectionId: string | null): BoardInput => ({ title: "Free chat", sectionId, subjectId: null, description: null, audience: "all", active: true, visible: true });
+    const before = await f.run((tx) => tx.discussionBoard.count());
+    for (const sectionId of [null, f.s5a.id]) {
+      await expect(asScope(people.student, (tx, s) => createBoard(tx, s, board(sectionId)))).rejects.toThrow("Only teachers can do this.");
+    }
+    expect(await f.run((tx) => tx.discussionBoard.count())).toBe(before);
   });
 });

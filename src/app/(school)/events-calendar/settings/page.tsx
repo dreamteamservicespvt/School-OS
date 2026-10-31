@@ -33,11 +33,11 @@ export default async function EventsSettingsPage({ searchParams }: { searchParam
   const houseId = UUID.test(one(sp.id)) ? one(sp.id) : "";
   const d = await withSchool(p.current.ctx, async (tx) => {
     const [houses, clubs, teams] = await Promise.all([
-      p.year ? leaderboard(tx, p.year.id) : tx.house.findMany({ where: { archivedAt: null }, orderBy: { sortOrder: "asc" } }).then((h) => h.map((x) => ({ ...x, points: 0, students: 0, captain: null as string | null }))),
+      leaderboard(tx, p.schoolYearIds),
       tx.club.count({ where: { archivedAt: null } }),
       tx.sportsTeam.count({ where: { archivedAt: null } }),
     ]);
-    const students = doing === "house" && p.year ? await pickStudents(tx, p.year.id) : [];
+    const students = doing === "house" && p.yearIds.length ? await pickStudents(tx, p.yearIds) : [];
     return { houses: [...houses].sort((a, b) => a.sortOrder - b.sortOrder), clubs, teams, students };
   });
   const editing = doing === "house" && houseId ? d.houses.find((h) => h.id === houseId) : undefined;

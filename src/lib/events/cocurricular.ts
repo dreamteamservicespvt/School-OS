@@ -333,14 +333,15 @@ export async function addHousePoints(tx: Tx, ctx: SchoolContext, houseId: string
 }
 
 /** The leaderboard: each house's points this year, students and captain, highest first. */
-export async function leaderboard(tx: Tx, yearId: string) {
+/** The houses' points and members in the years (every campus's, for the whole school), most points first. */
+export async function leaderboard(tx: Tx, yearIds: string[]) {
   const houses = await tx.house.findMany({ where: { archivedAt: null }, orderBy: { sortOrder: "asc" } });
   const [pts, members] = await Promise.all([
-    tx.housePointsEntry.groupBy({ by: ["houseId"], where: { academicYearId: yearId }, _sum: { points: true } }),
-    tx.houseMember.groupBy({ by: ["houseId"], where: { academicYearId: yearId, archivedAt: null }, _count: { _all: true } }),
+    tx.housePointsEntry.groupBy({ by: ["houseId"], where: { academicYearId: { in: yearIds } }, _sum: { points: true } }),
+    tx.houseMember.groupBy({ by: ["houseId"], where: { academicYearId: { in: yearIds }, archivedAt: null }, _count: { _all: true } }),
   ]);
   const captains = await tx.student.findMany({ where: { id: { in: houses.map((h) => h.captainStudentId).filter((x): x is string => Boolean(x)) } }, select: { id: true, fullName: true } });
-  const places = await placesOf(tx, captains.map((c) => c.id), yearId);
+  const places = await placesOf(tx, captains.map((c) => c.id), yearIds);
   return houses.map((h) => {
     const c = captains.find((x) => x.id === h.captainStudentId);
     return { ...h, points: pts.find((p) => p.houseId === h.id)?._sum.points ?? 0, students: members.find((m) => m.houseId === h.id)?._count._all ?? 0, captain: c ? `${c.fullName}${places.get(c.id) ? `, ${places.get(c.id)!.label.replace(/^Class /, "")}` : ""}` : null };

@@ -26,6 +26,7 @@ import {
 } from "../_components/co-sheets";
 import { archiveGroupAction, certificatesAction, removeMemberAction } from "../activity-actions";
 import { achievementList, pickStudents, staffOptions } from "../_lib/co";
+import { evCampusWhere } from "@/lib/events/campus";
 import { BASE, UUID, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { DayText, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -76,59 +77,62 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
   const doing = canEdit ? one(sp.do) : "";
   const pick = UUID.test(one(sp.id)) ? one(sp.id) : "";
   const tickIds = one(sp.ids).split(",").filter((x) => UUID.test(x)).slice(0, 300);
-  const year = p.year;
+  // Each campus's year today (only theirs for a person kept to one campus); lists by date keep to their campus's years.
+  const { yearIds, seeYearIds: see } = p;
+  const year = yearIds.length > 0;
+  const seeWhere = see ? { academicYearId: { in: see } } : {};
 
   const d = await withSchool(ctx, async (tx) => {
     const needStudents = ["add", "points-assign", "credit", "members", "fitness", "captain"].includes(doing) && year;
-    const students = needStudents ? await pickStudents(tx, year.id) : [];
+    const students = needStudents ? await pickStudents(tx, yearIds) : [];
     const staff = ["club", "team"].includes(doing) ? await staffOptions(tx) : [];
     const teamsAll = await tx.sportsTeam.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" } });
 
     if (tab === "ach") {
-      const rows = await achievementList(tx, range, { level, q });
-      const yearRows = year ? await tx.achievement.findMany({ where: { archivedAt: null, academicYearId: year.id }, select: { kind: true, studentId: true } }) : [];
+      const rows = await achievementList(tx, range, { level, q, yearIds: see });
+      const yearRows = year ? await tx.achievement.findMany({ where: { archivedAt: null, academicYearId: { in: yearIds } }, select: { kind: true, studentId: true } }) : [];
       const kinds = new Map<string, Set<string>>();
       for (const r of yearRows) kinds.set(r.kind, (kinds.get(r.kind) ?? new Set()).add(r.studentId));
-      const events = doing === "add" ? await tx.event.findMany({ where: { archivedAt: null, cancelledAt: null, date: { lte: new Date(`${p.today}T00:00:00Z`) } }, orderBy: { date: "desc" }, take: 30, select: { id: true, name: true } }) : [];
-      const issue = doing === "issue" && tickIds.length ? await achievementList(tx, range, { ids: tickIds }) : [];
-      const archive = doing === "archive" && pick ? (await achievementList(tx, range, { ids: [pick] }))[0] : null;
+      const events = doing === "add" ? await tx.event.findMany({ where: { ...(await evCampusWhere(tx, p.current)), archivedAt: null, cancelledAt: null, date: { lte: new Date(`${p.today}T00:00:00Z`) } }, orderBy: { date: "desc" }, take: 30, select: { id: true, name: true } }) : [];
+      const issue = doing === "issue" && tickIds.length ? await achievementList(tx, range, { ids: tickIds, yearIds: see }) : [];
+      const archive = doing === "archive" && pick ? (await achievementList(tx, range, { ids: [pick], yearIds: see }))[0] ?? null : null;
       return { kind: "ach" as const, students, rows, taking: [...kinds].map(([k, v]) => ({ k, v: v.size })).sort((a, b) => b.v - a.v).slice(0, 8), events, issue, archive, teamsAll };
     }
     if (tab === "houses") {
-      const board = year ? await leaderboard(tx, year.id) : [];
-      const log = year ? await tx.housePointsEntry.findMany({ where: { academicYearId: year.id, date: dateWhere(range) }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 30 }) : [];
+      const board = await leaderboard(tx, p.schoolYearIds);
+      const log = year ? await tx.housePointsEntry.findMany({ where: { academicYearId: { in: yearIds }, date: dateWhere(range) }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 30 }) : [];
       const givers = await tx.userLogin.findMany({ where: { id: { in: [...new Set(log.map((l) => l.givenById).filter((x): x is string => Boolean(x)))] } }, select: { id: true, displayName: true } });
-      const studying = year ? await tx.enrolment.count({ where: { academicYearId: year.id, archivedAt: null, status: "STUDYING" } }) : 0;
-      const housed = year ? await tx.houseMember.count({ where: { academicYearId: year.id, archivedAt: null } }) : 0;
+      const studying = year ? await tx.enrolment.count({ where: { academicYearId: { in: yearIds }, archivedAt: null, status: "STUDYING" } }) : 0;
+      const housed = year ? await tx.houseMember.count({ where: { academicYearId: { in: yearIds }, archivedAt: null } }) : 0;
       return { kind: "houses" as const, students, board, log, givers: new Map(givers.map((x) => [x.id, x.displayName])), without: Math.max(0, studying - housed) };
     }
     if (tab === "clubs") {
       const clubs = await tx.club.findMany({ where: { archivedAt: null }, orderBy: { name: "asc" } });
-      const counts = year ? await tx.clubMember.groupBy({ by: ["clubId"], where: { academicYearId: year.id, archivedAt: null }, _count: { _all: true } }) : [];
+      const counts = year ? await tx.clubMember.groupBy({ by: ["clubId"], where: { academicYearId: { in: yearIds }, archivedAt: null }, _count: { _all: true } }) : [];
       const inCharge = await tx.staff.findMany({ where: { id: { in: clubs.map((c) => c.inChargeId).filter((x): x is string => Boolean(x)) } }, select: { id: true, fullName: true } });
       const meetings = await tx.clubMeeting.findMany({ where: { date: dateWhere(range), clubId: { in: clubs.map((c) => c.id) } }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 40 });
       const open = g ? clubs.find((c) => c.id === g) ?? null : null;
-      const members = open && year ? await pickStudents(tx, year.id, await membersOf(tx, "club", open.id, year.id)) : [];
+      const members = open && year ? await pickStudents(tx, yearIds, await membersOf(tx, "club", open.id, yearIds)) : [];
       const sheetGroup = ["members", "session", "club"].includes(doing) && pick ? clubs.find((c) => c.id === pick) ?? null : null;
-      const sheetMembers = sheetGroup && year && doing === "session" ? await pickStudents(tx, year.id, await membersOf(tx, "club", sheetGroup.id, year.id)) : [];
+      const sheetMembers = sheetGroup && year && doing === "session" ? await pickStudents(tx, yearIds, await membersOf(tx, "club", sheetGroup.id, yearIds)) : [];
       return { kind: "clubs" as const, students, staff, clubs, counts: new Map(counts.map((c) => [c.clubId, c._count._all])), inCharge: new Map(inCharge.map((x) => [x.id, x.fullName])), meetings, open, members, sheetGroup, sheetMembers };
     }
     // Sports
     const teams = teamsAll;
-    const counts = year ? await tx.teamMember.groupBy({ by: ["teamId"], where: { academicYearId: year.id, archivedAt: null }, _count: { _all: true } }) : [];
+    const counts = year ? await tx.teamMember.groupBy({ by: ["teamId"], where: { academicYearId: { in: yearIds }, archivedAt: null }, _count: { _all: true } }) : [];
     const coaches = await tx.staff.findMany({ where: { id: { in: teams.map((t) => t.coachId).filter((x): x is string => Boolean(x)) } }, select: { id: true, fullName: true } });
     const fixtures = await tx.fixture.findMany({ where: { archivedAt: null, date: dateWhere(range) }, orderBy: [{ date: "asc" }, { startMin: "asc" }], take: 60 });
     const sessions = await tx.trainingSession.findMany({ where: { date: dateWhere(range) }, orderBy: [{ date: "asc" }, { createdAt: "asc" }] });
     const todays = sessions.filter((x) => isoOf(x.date) === p.today);
-    const fitness = await tx.fitnessRecord.findMany({ where: { date: dateWhere(range) }, orderBy: { date: "desc" }, take: 3000 });
-    const fitPlaces = year ? await placesOf(tx, [...new Set(fitness.map((f) => f.studentId))], year.id) : new Map();
-    const classSizes = year ? await tx.enrolment.groupBy({ by: ["classId"], where: { academicYearId: year.id, archivedAt: null, status: "STUDYING" }, _count: { _all: true } }) : [];
-    const recent = await tx.fitnessRecord.findMany({ orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 6 });
+    const fitness = await tx.fitnessRecord.findMany({ where: { ...seeWhere, date: dateWhere(range) }, orderBy: { date: "desc" }, take: 3000 });
+    const fitPlaces = year ? await placesOf(tx, [...new Set(fitness.map((f) => f.studentId))], yearIds) : new Map();
+    const classSizes = year ? await tx.enrolment.groupBy({ by: ["classId"], where: { academicYearId: { in: yearIds }, archivedAt: null, status: "STUDYING" }, _count: { _all: true } }) : [];
+    const recent = await tx.fitnessRecord.findMany({ where: seeWhere, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 6 });
     const recentNames = await tx.student.findMany({ where: { id: { in: recent.map((r) => r.studentId) } }, select: { id: true, fullName: true } });
     const open = g ? teams.find((t) => t.id === g) ?? null : null;
-    const members = open && year ? await pickStudents(tx, year.id, await membersOf(tx, "team", open.id, year.id)) : [];
+    const members = open && year ? await pickStudents(tx, yearIds, await membersOf(tx, "team", open.id, yearIds)) : [];
     const sheetGroup = ["members", "session", "team"].includes(doing) && pick ? teams.find((t) => t.id === pick) ?? null : null;
-    const sheetMembers = sheetGroup && year && doing === "session" ? await pickStudents(tx, year.id, await membersOf(tx, "team", sheetGroup.id, year.id)) : [];
+    const sheetMembers = sheetGroup && year && doing === "session" ? await pickStudents(tx, yearIds, await membersOf(tx, "team", sheetGroup.id, yearIds)) : [];
     const resultFor = doing === "result" && pick ? fixtures.find((f) => f.id === pick) ?? (await tx.fixture.findFirst({ where: { id: pick, archivedAt: null } })) : null;
     return {
       kind: "sports" as const, students, staff, teams, counts: new Map(counts.map((c) => [c.teamId, c._count._all])), coaches: new Map(coaches.map((x) => [x.id, x.fullName])),

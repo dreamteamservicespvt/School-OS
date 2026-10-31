@@ -93,7 +93,7 @@ describe("Co-curricular & Sports, Daily Activities and consent", () => {
     await expect(withSchool(p, (tx) => addHousePoints(tx, p, red.id, 10, "", TODAY))).rejects.toThrow(/reason/);
     await withSchool(p, (tx) => addHousePoints(tx, p, red.id, 50, "Inter-house quiz, winners", TODAY));
     await withSchool(p, (tx) => addHousePoints(tx, p, red.id, -10, "Late to assembly", TODAY));
-    const board = await withSchool(p, (tx) => leaderboard(tx, f.yearId));
+    const board = await withSchool(p, (tx) => leaderboard(tx, [f.yearId]));
     expect(board[0].name).toBe("Tagore House");
     expect(board[0].points).toBe(40);
     const turn = await withSchool(p, (tx) => assignHouses(tx, p, { mode: "turn" }, TODAY));

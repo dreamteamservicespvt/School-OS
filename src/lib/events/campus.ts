@@ -26,6 +26,25 @@ export async function evCampus(tx: Tx, limit: CampusLimit | null | undefined): P
   return (await tx.campus.count({ where: { archivedAt: null } })) > 1 ? limit.campusId : null;
 }
 
+/**
+ * The school years a page works in on a day: each campus's year that day (the
+ * newest, when two of a campus's years overlap), or only the year of the campus
+ * the person is kept to. Campuses may run their years on different dates, so
+ * one year found by date alone is one campus's, whichever is listed first.
+ */
+export async function evYears(tx: Tx, iso: string, limit: CampusLimit | null | undefined) {
+  const mine = await evCampus(tx, limit);
+  const d = new Date(`${iso}T00:00:00Z`);
+  const live = mine ? [mine] : (await tx.campus.findMany({ where: { archivedAt: null }, select: { id: true } })).map((c) => c.id);
+  const rows = await tx.academicYear.findMany({
+    where: { archivedAt: null, startDate: { lte: d }, endDate: { gte: d }, campusId: { in: live } },
+    orderBy: { startDate: "desc" },
+  });
+  const byCampus = new Map<string, (typeof rows)[number]>();
+  for (const y of rows) if (!byCampus.has(y.campusId)) byCampus.set(y.campusId, y);
+  return [...byCampus.values()];
+}
+
 /** The one campus of these classes, or null when there are none or they span campuses. */
 async function classesCampus(tx: Tx, classIds: string[]): Promise<string | null> {
   if (!classIds.length) return null;

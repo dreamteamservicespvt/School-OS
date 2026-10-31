@@ -50,7 +50,7 @@ export function activityIcon(type: string, label: string) {
 /** An answer that needs the parent's attention (shown amber). */
 export const needsCare = (v: string) => /not|few|little|stayed|rested|watched|half/i.test(v);
 
-export type PreSection = { id: string; label: string; classId: string; className: string; sort: number; teacherId: string | null; teacher: string | null; teacherLogin: string | null; students: number };
+export type PreSection = { id: string; yearId: string; label: string; classId: string; className: string; sort: number; teacherId: string | null; teacher: string | null; teacherLogin: string | null; students: number };
 
 /** The pre-primary sections of a year, in class order, with their class teacher and number of children. */
 export async function preSections(tx: Tx, yearId: string): Promise<PreSection[]> {
@@ -65,8 +65,23 @@ export async function preSections(tx: Tx, yearId: string): Promise<PreSection[]>
   ]);
   return sections.map((s) => {
     const t = teachers.find((x) => x.id === s.classTeacherId);
-    return { id: s.id, label: `${s.schoolClass.name} ${s.name}`, classId: s.classId, className: s.schoolClass.name, sort: s.schoolClass.sortOrder, teacherId: s.classTeacherId, teacher: t?.fullName ?? null, teacherLogin: t?.userLoginId ?? null, students: counts.find((c) => c.sectionId === s.id)?._count._all ?? 0 };
+    return { id: s.id, yearId, label: `${s.schoolClass.name} ${s.name}`, classId: s.classId, className: s.schoolClass.name, sort: s.schoolClass.sortOrder, teacherId: s.classTeacherId, teacher: t?.fullName ?? null, teacherLogin: t?.userLoginId ?? null, students: counts.find((c) => c.sectionId === s.id)?._count._all ?? 0 };
   }).sort((a, b) => b.sort - a.sort || a.label.localeCompare(b.label));
+}
+
+/**
+ * The pre-primary sections of several years (each campus's this year). With
+ * more than one, each class is named with its campus: both may have a UKG A.
+ */
+export async function preSectionsIn(tx: Tx, yearIds: string[]): Promise<PreSection[]> {
+  const lists = await Promise.all(yearIds.map((y) => preSections(tx, y)));
+  if (yearIds.length < 2) return lists.flat();
+  const years = await tx.academicYear.findMany({ where: { id: { in: yearIds } }, select: { id: true, campusId: true } });
+  const campuses = await tx.campus.findMany({ where: { id: { in: years.map((y) => y.campusId) } }, select: { id: true, name: true } });
+  const campusOf = new Map(years.map((y) => [y.id, campuses.find((c) => c.id === y.campusId)?.name]));
+  return lists.flat()
+    .map((s) => ({ ...s, label: campusOf.get(s.yearId) ? `${s.label}, ${campusOf.get(s.yearId)}` : s.label }))
+    .sort((a, b) => b.sort - a.sort || a.label.localeCompare(b.label));
 }
 
 /** The pre-primary sections this person is the class teacher of (they write those diaries). */
@@ -240,14 +255,14 @@ export type ClassProgress = PreSection & { present: number; absent: number; due:
  * teacher has logged for every child present; what is missing; whether the
  * diary went out and whether a reminder was already sent.
  */
-export async function todayProgress(tx: Tx, ctx: SchoolContext, yearId: string, today: string, nowMin: number): Promise<ClassProgress[]> {
-  const secs = await preSections(tx, yearId);
+export async function todayProgress(tx: Tx, ctx: SchoolContext, yearIds: string | string[], today: string, nowMin: number): Promise<ClassProgress[]> {
+  const secs = typeof yearIds === "string" ? await preSections(tx, yearIds) : await preSectionsIn(tx, yearIds);
   const ids = secs.map((s) => s.id);
   const [acts, away, sends, kids, reminders] = await Promise.all([
     dayActivities(tx, ids, today),
     absentOn(tx, ids, today),
     tx.diarySend.findMany({ where: { sectionId: { in: ids }, date: dayOf(today) }, orderBy: { sentAt: "desc" } }),
-    tx.enrolment.findMany({ where: { sectionId: { in: ids }, academicYearId: yearId, archivedAt: null, status: "STUDYING" }, select: { sectionId: true, studentId: true } }),
+    tx.enrolment.findMany({ where: { sectionId: { in: ids }, academicYearId: { in: [...new Set(secs.map((x) => x.yearId))] }, archivedAt: null, status: "STUDYING" }, select: { sectionId: true, studentId: true } }),
     tx.notification.findMany({ where: { groupKey: { in: ids.map((id) => `daily-remind:${id}:${today}`) } }, select: { groupKey: true } }),
   ]);
   return secs.map((s) => {

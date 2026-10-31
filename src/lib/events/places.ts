@@ -7,10 +7,12 @@ import { sectionLabel } from "../people";
 
 export type Place = { classId: string; sectionId: string; className: string; sectionName: string; label: string; classSort: number; rollNo: number | null };
 
-export async function placesOf(tx: Tx, studentIds: string[], academicYearId: string): Promise<Map<string, Place>> {
+/** Each student's place in the year, or in any of the years (each campus's: a student studies in one of them). */
+export async function placesOf(tx: Tx, studentIds: string[], academicYearId: string | string[]): Promise<Map<string, Place>> {
   const out = new Map<string, Place>();
   if (!studentIds.length) return out;
-  const enrol = await tx.enrolment.findMany({ where: { studentId: { in: studentIds }, academicYearId, archivedAt: null }, select: { studentId: true, classId: true, sectionId: true, rollNo: true } });
+  const year = typeof academicYearId === "string" ? academicYearId : { in: academicYearId };
+  const enrol = await tx.enrolment.findMany({ where: { studentId: { in: studentIds }, academicYearId: year, archivedAt: null }, select: { studentId: true, classId: true, sectionId: true, rollNo: true } });
   const sections = await tx.section.findMany({ where: { id: { in: [...new Set(enrol.map((e) => e.sectionId))] } }, select: { id: true, name: true, schoolClass: { select: { name: true, sortOrder: true } } } });
   const byId = new Map(sections.map((s) => [s.id, s]));
   for (const e of enrol) {

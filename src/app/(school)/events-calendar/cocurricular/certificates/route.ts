@@ -11,6 +11,7 @@ import { certificateKind } from "@/lib/events/cocurricular";
 import { dmy, isoOf } from "@/lib/events/words";
 import { plain } from "../../_lib/export";
 import { achievementList } from "../../_lib/co";
+import { campusYearIds } from "@/lib/academic/page-campus";
 
 export const dynamic = "force-dynamic";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -30,7 +31,8 @@ export async function GET(req: Request) {
   const kindWanted = url.searchParams.get("kind");
   if (!ids.length) return plain("Tick the achievements to print.", 400);
   return withSchool(current.ctx, async (tx) => {
-    const all = (await achievementList(tx, null, { ids })).filter((a) => a.certificateNo);
+    // A person kept to one campus prints only their campus's certificates.
+    const all = (await achievementList(tx, null, { ids, yearIds: await campusYearIds(tx, current.ctx, current) })).filter((a) => a.certificateNo);
     if (!all.length) return plain("None of these has a certificate yet. Issue the certificates first.", 404);
     const kinds = [...new Set(all.map((a) => certificateKind(a)))];
     if (kinds.length > 1 && !kinds.includes(kindWanted as never)) {

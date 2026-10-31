@@ -6,6 +6,7 @@ import { eventsSettings } from "@/lib/events/settings";
 import { isoOf, longDay } from "@/lib/events/words";
 import { evExport, plain, rangeWords } from "../../_lib/export";
 import { achievementList, type AchievementRow } from "../../_lib/co";
+import { campusYearIds } from "@/lib/academic/page-campus";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,8 @@ export async function GET(req: Request) {
   const filters = [rangeWords(range), level ? `Level: ${level}` : "", q ? `Search: ${q}` : ""].filter(Boolean).join(" · ");
   const r = await withSchool(x.current.ctx, async (tx) => {
     const s = await eventsSettings(tx, x.current.ctx);
-    const rows = await achievementList(tx, range, { level: level || "all", q });
+    // A person kept to one campus exports their campus's, as on screen.
+    const rows = await achievementList(tx, range, { level: level || "all", q, yearIds: await campusYearIds(tx, x.current.ctx, x.current) });
     await logExport(tx, x.current.ctx, { title, format: x.format, filters, rows: rows.length });
     return { rows, creditsOn: s.creditsOn };
   });

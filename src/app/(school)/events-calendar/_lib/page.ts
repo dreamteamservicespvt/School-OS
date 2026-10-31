@@ -1,7 +1,12 @@
 // What every Events & Calendar page starts with: the signed-in person,
 // checked on the server, their Events level (Full, Event Payments, Own or
 // View) and what it lets them do, today in the school's time zone, the Events
-// Settings and the date filter setup.
+// Settings and the date filter setup. Each campus runs its own school years:
+// `years` are the years the person works in today (every campus's, or their
+// own campus's when kept to one), `schoolYears` every campus's (for the house
+// totals: houses are for every campus), `year` their own campus's (for one-year
+// work such as copying last year's holidays), and `seeYearIds` every year of
+// the campus they are kept to (null for the whole school), for lists by date.
 import "server-only";
 
 import { cache } from "react";
@@ -16,7 +21,10 @@ import { staffForUser } from "@/lib/people";
 import { localNow } from "@/lib/events/jobs";
 import { BASE } from "@/lib/events/words";
 import { pageMode } from "@/lib/duty";
-import { preSections } from "@/lib/events/daily";
+import { preSectionsIn } from "@/lib/events/daily";
+import { evYears } from "@/lib/events/campus";
+import { personCampusId } from "@/lib/campus";
+import { campusYearIds } from "@/lib/academic/page-campus";
 
 export { BASE };
 export const MODULE = "events-calendar" as const;
@@ -30,16 +38,21 @@ export const evPage = cache(async () => {
   const [dates, data] = await Promise.all([
     periodSetup(current),
     withSchool(current.ctx, async (tx) => {
-      const [settings, me, year, campuses] = await Promise.all([
+      const [settings, me, years, schoolYears, own, seeYearIds, campuses] = await Promise.all([
         eventsSettings(tx, current.ctx),
         staffForUser(tx, current.ctx),
-        tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lte: new Date(`${today}T00:00:00Z`) }, endDate: { gte: new Date(`${today}T00:00:00Z`) } } }),
+        evYears(tx, today, current),
+        evYears(tx, today, null),
+        personCampusId(tx, current.ctx, current),
+        campusYearIds(tx, current.ctx, current),
         tx.campus.findMany({ where: { archivedAt: null }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
       ]);
+      const year = years.find((y) => y.campusId === own) ?? years[0] ?? null;
+      const yearIds = years.map((y) => y.id);
       // Daily Activities: the pre-primary sections this year, and those this person is the class teacher of.
-      const pre = year && settings.dailyOn ? await preSections(tx, year.id) : [];
+      const pre = settings.dailyOn ? await preSectionsIn(tx, yearIds) : [];
       const preMine = me ? pre.filter((s) => s.teacherId === me.id) : [];
-      return { settings, me, year, campuses, pre, preMine };
+      return { settings, me, year, years, yearIds, schoolYearIds: schoolYears.map((y) => y.id), seeYearIds, campuses, pre, preMine };
     }),
   ]);
   // src/lib/duty.ts narrows the screens for the Principal, School Admin and VP:

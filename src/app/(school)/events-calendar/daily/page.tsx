@@ -40,7 +40,6 @@ export default async function DailyPage({ searchParams }: { searchParams: Search
   const p = await evGuard("daily");
   const sp = await searchParams;
   const ctx = p.current.ctx;
-  const year = p.year!;
   const writer = p.preMine.length > 0;
   const sections = writer ? p.preMine : p.pre;
   const sectionId = sections.some((s) => s.id === one(sp.section)) ? one(sp.section) : sections[0].id;
@@ -55,12 +54,12 @@ export default async function DailyPage({ searchParams }: { searchParams: Search
 
   const d = await withSchool(ctx, async (tx) => {
     const [kids, acts, away, sent, filled, progress] = await Promise.all([
-      childrenOf(tx, sectionId, year.id),
+      childrenOf(tx, sectionId, sec.yearId),
       dayActivities(tx, [sectionId], today),
       absentOn(tx, [sectionId], today),
       diariesSent(tx, [sectionId], range.from, range.to),
       filledIn(tx, sections.map((s) => s.id), range.from, range.to),
-      !writer && p.can.dailyRemind ? todayProgress(tx, ctx, year.id, today, now) : Promise.resolve([]),
+      !writer && p.can.dailyRemind ? todayProgress(tx, ctx, p.yearIds, today, now) : Promise.resolve([]),
     ]);
     return { kids, acts, absent: away.get(sectionId) ?? new Set<string>(), sent, filled, progress };
   });

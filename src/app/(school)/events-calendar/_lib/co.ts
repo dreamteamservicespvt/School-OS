@@ -8,10 +8,14 @@ import { placeOrder, placesOf } from "@/lib/events/places";
 
 export const LEVELS_ALL = "all";
 
-/** Achievements in the dates, for a level and a search, with each student's name, class and credits. */
-export async function achievementList(tx: Tx, range: DayRange | null, opts: { level?: string; q?: string; ids?: string[] } = {}) {
+/**
+ * Achievements in the dates, for a level and a search, with each student's
+ * name, class and credits. `yearIds`: only those of these years (a person kept
+ * to one campus sees their campus's: src/lib/academic/page-campus.ts campusYearIds).
+ */
+export async function achievementList(tx: Tx, range: DayRange | null, opts: { level?: string; q?: string; ids?: string[]; yearIds?: string[] | null } = {}) {
   const rows = await tx.achievement.findMany({
-    where: { archivedAt: null, ...(opts.ids ? { id: { in: opts.ids } } : range ? { date: dateWhere(range) } : {}), ...(opts.level && opts.level !== LEVELS_ALL ? { level: opts.level } : {}) },
+    where: { archivedAt: null, ...(opts.yearIds ? { academicYearId: { in: opts.yearIds } } : {}), ...(opts.ids ? { id: { in: opts.ids } } : range ? { date: dateWhere(range) } : {}), ...(opts.level && opts.level !== LEVELS_ALL ? { level: opts.level } : {}) },
     orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 2000,
   });
   const studentIds = [...new Set(rows.map((r) => r.studentId))];
@@ -37,13 +41,13 @@ export async function achievementList(tx: Tx, range: DayRange | null, opts: { le
 }
 export type AchievementRow = Awaited<ReturnType<typeof achievementList>>[number];
 
-/** Students studying this year, for the pickers: name and class, in class and roll order. */
-export async function pickStudents(tx: Tx, yearId: string, only?: string[]) {
-  const enrol = await tx.enrolment.findMany({ where: { academicYearId: yearId, archivedAt: null, status: "STUDYING", ...(only ? { studentId: { in: only } } : {}) }, select: { studentId: true } });
+/** Students studying in the years (each campus's this year), for the pickers: name and class, in class and roll order. */
+export async function pickStudents(tx: Tx, yearIds: string[], only?: string[]) {
+  const enrol = await tx.enrolment.findMany({ where: { academicYearId: { in: yearIds }, archivedAt: null, status: "STUDYING", ...(only ? { studentId: { in: only } } : {}) }, select: { studentId: true } });
   const ids = enrol.map((e) => e.studentId);
   const [students, places] = await Promise.all([
     tx.student.findMany({ where: { id: { in: ids }, archivedAt: null }, select: { id: true, fullName: true } }),
-    placesOf(tx, ids, yearId),
+    placesOf(tx, ids, yearIds),
   ]);
   return students
     .sort((a, b) => placeOrder(places.get(a.id), places.get(b.id)) || a.fullName.localeCompare(b.fullName))

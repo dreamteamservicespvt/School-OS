@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireSettingsAction } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { findStudents } from "@/lib/students/find";
+import { inCampus } from "@/lib/campus";
 import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
 import { FileProblem, IMAGE_TYPES, saveFile } from "@/lib/files";
@@ -38,7 +39,7 @@ export async function previewDesign(docType: string, base: string, optionsJson: 
   if (record && current.permissions[record.kind === "student" ? "student-management" : "staff-hr-management"].see !== "all") record = null;
   try {
     const html = await withSchool(current.ctx, async (tx) => {
-      const data = await recordData(tx, current.ctx, t.key, record, current.school.timeZone);
+      const data = await recordData(tx, current.ctx, t.key, record, current.school.timeZone, current);
       return (await renderDocument(tx, current.ctx, t.key, t.family === "card" ? [data, data] : data, { design: { base: base as BaseKey, options: parsed.data } })).html;
     });
     return { ok: true, html };
@@ -60,12 +61,12 @@ export async function findRecords(kind: "student" | "staff", q: string): Promise
     if (kind === "student") {
       // Typed: the one student search (any status). Empty: the first few by name.
       const rows = text
-        ? (await findStudents(tx, text, { scope: {}, yearId: null, statuses: "any", byParent: false, take: 8 })).map((h) => ({ id: h.id, fullName: h.name, admissionNo: h.admissionNo }))
-        : await tx.student.findMany({ where: { archivedAt: null }, orderBy: { fullName: "asc" }, take: 8, select: { id: true, fullName: true, admissionNo: true } });
+        ? (await findStudents(tx, text, { scope: inCampus(current), yearId: null, statuses: "any", byParent: false, take: 8 })).map((h) => ({ id: h.id, fullName: h.name, admissionNo: h.admissionNo }))
+        : await tx.student.findMany({ where: { archivedAt: null, ...inCampus(current) }, orderBy: { fullName: "asc" }, take: 8, select: { id: true, fullName: true, admissionNo: true } });
       return rows.map((r) => ({ kind, id: r.id, label: `${r.fullName} (${r.admissionNo})` }));
     }
     const rows = await tx.staff.findMany({
-      where: { archivedAt: null, ...(text ? { OR: [{ fullName: { contains: text, mode: "insensitive" } }, { staffCode: { contains: text, mode: "insensitive" } }] } : {}) },
+      where: { archivedAt: null, ...inCampus(current), ...(text ? { OR: [{ fullName: { contains: text, mode: "insensitive" } }, { staffCode: { contains: text, mode: "insensitive" } }] } : {}) },
       orderBy: { fullName: "asc" }, take: 8, select: { id: true, fullName: true, staffCode: true, designation: true },
     });
     return rows.map((r) => ({ kind, id: r.id, label: `${r.fullName}, ${r.designation} (${r.staffCode})` }));

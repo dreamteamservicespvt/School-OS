@@ -9,6 +9,7 @@ import { currentEnrolment } from "../academic/years";
 import { numberInWords } from "./words";
 import { sampleData, type DocumentData } from "./render";
 import { findDocType } from "./types";
+import { campusAllows, type CampusLimit } from "../campus";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -81,12 +82,13 @@ export async function staffRecord(tx: Tx, _ctx: SchoolContext, staffId: string, 
 }
 
 /** Sample values, with a real record's values on top when one is chosen. */
-export async function recordData(tx: Tx, ctx: SchoolContext, docType: string, record: RecordRef, tz: string) {
+export async function recordData(tx: Tx, ctx: SchoolContext, docType: string, record: RecordRef, tz: string, limit?: CampusLimit | null) {
   const t = findDocType(docType)!;
   const sample = sampleData(t);
   if (!record || !UUID.test(record.id)) return sample;
   const real = record.kind === "student" ? await studentRecord(tx, ctx, record.id, tz) : await staffRecord(tx, ctx, record.id, tz);
-  if (!real) return sample;
+  // A person limited to one campus previews only that campus's records; any other shows sample data.
+  if (!real || !campusAllows(limit, real.campusId)) return sample;
   const fields = { ...sample.fields } as Record<string, unknown>;
   for (const [k, v] of Object.entries(real.fields)) if (v !== "" && v !== null && v !== undefined) fields[k] = v;
   return { ...sample, ...real, fields: fields as typeof sample.fields };

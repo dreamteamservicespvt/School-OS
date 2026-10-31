@@ -36,6 +36,7 @@ import { accessIn } from "@/lib/auth/access";
 import { examScope } from "@/lib/exams/scope";
 import { saveCompetencyLevels } from "@/lib/exams/report-cards";
 import { pastExports } from "@/lib/reports/government";
+import { recordData } from "@/lib/documents/records";
 import { makeSchool, makeUser } from "./helpers";
 import { addStudent } from "./students/fixtures";
 
@@ -216,5 +217,51 @@ describe("government return files keep to the viewer's campus", () => {
     expect(await download(cur.northAdmin, ids.north)).toBe(307);
     expect(await download(cur.northAdmin, ids.main)).toBe(404);
     expect(await download(cur.northAdmin, ids.whole)).toBe(404);
+  });
+});
+
+describe("document preview and person export keep to the viewer's campus", () => {
+  let mainStaff: string;
+  let mainGuardian: string;
+  beforeAll(async () => {
+    ({ mainStaff, mainGuardian } = await run(async (tx) => ({
+      mainStaff: (await tx.staff.create({ data: { schoolId: school.id, campusId: main.campusId, staffCode: `S-${randomUUID().slice(0, 6)}`, firstName: "Meena", lastName: "Main", fullName: "Meena Main", phone: "9876500011", designation: "Teacher", staffType: "Teaching", joiningDate: day("2020-06-01") } })).id,
+      mainGuardian: (await tx.studentGuardian.findFirstOrThrow({ where: { studentId: main.studentId } })).guardianId,
+    })));
+  });
+
+  const exportOf = async (as: Current, type: string, id: string) => {
+    who.current = as;
+    const { GET } = await import("@/app/(school)/settings/data-security/privacy/person-export/route");
+    return (await GET(new Request(`http://school.test/settings/data-security/privacy/person-export?type=${type}&id=${id}`))).status;
+  };
+
+  it("exports a person of the viewer's campus, and anyone to a whole-school viewer", async () => {
+    expect(await exportOf(cur.northAdmin, "student", north.studentId)).toBe(200);
+    expect(await exportOf(cur.admin, "student", main.studentId)).toBe(200);
+    expect(await exportOf(cur.admin, "staff", mainStaff)).toBe(200);
+  });
+
+  it("does not export another campus's student, guardian or staff member", async () => {
+    expect(await exportOf(cur.northAdmin, "student", main.studentId)).toBe(404);
+    expect(await exportOf(cur.northAdmin, "guardian", mainGuardian)).toBe(404);
+    expect(await exportOf(cur.northAdmin, "staff", mainStaff)).toBe(404);
+  });
+
+  it("previews a design with sample data, not another campus's record", async () => {
+    const name = async (as: Current, id: string) => (await run((tx) => recordData(tx, as.ctx, "transfer-certificate", { kind: "student", id }, "Asia/Kolkata", as))).fields.student_name;
+    expect(await name(cur.admin, main.studentId)).toBe("Mohan Kumar");
+    expect(await name(cur.northAdmin, north.studentId)).toBe("Neha Kumar");
+    expect(await name(cur.northAdmin, main.studentId)).not.toBe("Mohan Kumar");
+  });
+
+  it("finds only the viewer's campus's records to preview with", async () => {
+    const { findRecords } = await import("@/app/(school)/settings/document-designs/actions");
+    who.current = cur.northAdmin;
+    const students = (await findRecords("student", "Kumar")).map((h) => h.id);
+    expect(students).toContain(north.studentId);
+    expect(students).not.toContain(main.studentId);
+    expect((await findRecords("staff", "Meena")).map((h) => h.id)).not.toContain(mainStaff);
+    expect((await findRecords("student", "")).map((h) => h.id)).not.toContain(main.studentId);
   });
 });

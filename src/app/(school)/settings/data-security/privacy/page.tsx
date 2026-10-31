@@ -4,7 +4,8 @@ import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { findStudents } from "@/lib/students/find";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { DELETION_PARTS, personTypesFor, retentionRules, type PersonType } from "@/lib/data-security/privacy";
+import { DELETION_PARTS, personInCampus, personTypesFor, retentionRules, type PersonType } from "@/lib/data-security/privacy";
+import { inCampus } from "@/lib/campus";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ClearRetentionButton, DeletionForm, RetentionForm } from "./forms";
@@ -50,15 +51,17 @@ export default async function PrivacyPage({ searchParams }: Search) {
     if (type && q.length >= 2) {
       const contains = { contains: q, mode: "insensitive" as const };
       // Students: the one student search, every status, archived records too.
-      if (type === "student") found = (await findStudents(tx, q, { scope: {}, yearId: null, statuses: "any", archived: "include", byParent: false, take: 10 })).map((s) => ({ id: s.id, name: s.name, detail: `Admission no. ${s.admissionNo}` }));
-      else if (type === "guardian") found = (await tx.guardian.findMany({ where: { OR: [{ name: contains }, { phone: { contains: q } }] }, take: 10, orderBy: { name: "asc" }, select: { id: true, name: true, phone: true } })).map((g) => ({ id: g.id, name: g.name, detail: g.phone ? `Phone ending ${g.phone.slice(-4)}` : "" }));
-      else found = (await tx.staff.findMany({ where: { OR: [{ fullName: contains }, { staffCode: contains }] }, take: 10, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } })).map((s) => ({ id: s.id, name: s.fullName, detail: `Staff ID ${s.staffCode}` }));
+      if (type === "student") found = (await findStudents(tx, q, { scope: inCampus(current), yearId: null, statuses: "any", archived: "include", byParent: false, take: 10 })).map((s) => ({ id: s.id, name: s.name, detail: `Admission no. ${s.admissionNo}` }));
+      else if (type === "guardian") found = (await tx.guardian.findMany({ where: { OR: [{ name: contains }, { phone: { contains: q } }], ...personInCampus("guardian", current) }, take: 10, orderBy: { name: "asc" }, select: { id: true, name: true, phone: true } })).map((g) => ({ id: g.id, name: g.name, detail: g.phone ? `Phone ending ${g.phone.slice(-4)}` : "" }));
+      else found = (await tx.staff.findMany({ where: { OR: [{ fullName: contains }, { staffCode: contains }], ...inCampus(current) }, take: 10, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, staffCode: true } })).map((s) => ({ id: s.id, name: s.fullName, detail: `Staff ID ${s.staffCode}` }));
     }
     let chosen: { id: string; name: string } | null = null;
     if (type && personId) {
-      if (type === "student") chosen = await tx.student.findUnique({ where: { id: personId }, select: { id: true, fullName: true } }).then((s) => (s ? { id: s.id, name: s.fullName } : null));
-      else if (type === "guardian") chosen = await tx.guardian.findUnique({ where: { id: personId }, select: { id: true, name: true } });
-      else chosen = await tx.staff.findUnique({ where: { id: personId }, select: { id: true, fullName: true } }).then((s) => (s ? { id: s.id, name: s.fullName } : null));
+      // Only people this person may find (their campus's, when limited to one).
+      const where = { id: personId, ...personInCampus(type, current) };
+      if (type === "student") chosen = await tx.student.findFirst({ where, select: { id: true, fullName: true } }).then((s) => (s ? { id: s.id, name: s.fullName } : null));
+      else if (type === "guardian") chosen = await tx.guardian.findFirst({ where, select: { id: true, name: true } });
+      else chosen = await tx.staff.findFirst({ where, select: { id: true, fullName: true } }).then((s) => (s ? { id: s.id, name: s.fullName } : null));
     }
     return { rules, requests, found, chosen, retention, clearers };
   });

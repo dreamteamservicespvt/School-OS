@@ -32,7 +32,7 @@ async function make(request: Request, ctx: Ctx, override: { base: BaseKey; optio
   if (record && current.permissions[record.kind === "student" ? "student-management" : "staff-hr-management"].see !== "all") record = null;
   try {
     const pdf = await withSchool(current.ctx, async (tx) => {
-      const data = await recordData(tx, current.ctx, t.key, record, current.school.timeZone);
+      const data = await recordData(tx, current.ctx, t.key, record, current.school.timeZone, current);
       const doc = await renderDocument(tx, current.ctx, t.key, t.family === "card" ? [data, data, data, data] : data, { design });
       return { body: await doc.pdf(), name: doc.fileName };
     }, { timeout: 60_000 });

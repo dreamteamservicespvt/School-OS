@@ -11,6 +11,7 @@ import { requestApproval, type AskableType, type FollowUp } from "../approvals";
 import { requestIds, type StillWaiting } from "../approval-waiting";
 import { notify } from "../notifications";
 import type { PermissionMap } from "../permissions";
+import type { CampusLimit } from "../campus";
 
 // Retention (08-platform-security.md §12): defaults the school can change.
 
@@ -88,15 +89,16 @@ export type DeletionInput = {
   proofFileId: string | null;
 };
 
-async function personName(tx: Tx, type: DeletionInput["personType"], id: string) {
-  if (type === "student") return (await tx.student.findUnique({ where: { id }, select: { fullName: true, admissionNo: true } }).then((s) => (s ? `${s.fullName} (${s.admissionNo})` : null)));
-  if (type === "guardian") return (await tx.guardian.findUnique({ where: { id }, select: { name: true } }))?.name ?? null;
-  return (await tx.staff.findUnique({ where: { id }, select: { fullName: true, staffCode: true } }).then((s) => (s ? `${s.fullName} (${s.staffCode})` : null)));
+async function personName(tx: Tx, type: DeletionInput["personType"], id: string, limit?: CampusLimit | null) {
+  const where = { id, ...personInCampus(type, limit) };
+  if (type === "student") return (await tx.student.findFirst({ where, select: { fullName: true, admissionNo: true } }).then((s) => (s ? `${s.fullName} (${s.admissionNo})` : null)));
+  if (type === "guardian") return (await tx.guardian.findFirst({ where, select: { name: true } }))?.name ?? null;
+  return (await tx.staff.findFirst({ where, select: { fullName: true, staffCode: true } }).then((s) => (s ? `${s.fullName} (${s.staffCode})` : null)));
 }
 
 /** Records the request and sends it to Approvals. Nothing is removed until it is approved. */
-export async function requestDeletion(tx: Tx, ctx: SchoolContext, input: DeletionInput) {
-  const name = await personName(tx, input.personType, input.personId);
+export async function requestDeletion(tx: Tx, ctx: SchoolContext, input: DeletionInput, limit?: CampusLimit | null) {
+  const name = await personName(tx, input.personType, input.personId, limit);
   if (!name) throw new PrivacyProblem("Choose the person whose data should be removed.", "personId");
   const reason = input.reason.trim();
   if (reason.length < 5) throw new PrivacyProblem("Give the reason in a few words, so the approver knows why.", "reason");
@@ -187,10 +189,20 @@ export const unfinished = {
 
 // One person's data on request.
 
-export async function personData(tx: Tx, type: DeletionInput["personType"], id: string) {
+/**
+ * People a person limited to one campus may find, export or ask to remove:
+ * students and staff of that campus, and guardians with a child there.
+ */
+export function personInCampus(type: DeletionInput["personType"], limit: CampusLimit | null | undefined) {
+  if (!limit?.campusId) return {};
+  return type === "guardian" ? { students: { some: { student: { campusId: limit.campusId } } } } : { campusId: limit.campusId };
+}
+
+export async function personData(tx: Tx, type: DeletionInput["personType"], id: string, limit?: CampusLimit | null) {
+  const where = { id, ...personInCampus(type, limit) };
   const strip = <T extends Record<string, unknown>>(row: T | null) => (row ? Object.fromEntries(Object.entries(row).filter(([k]) => !/(Enc|Hash)$/.test(k) && k !== "schoolId")) : null);
   if (type === "student") {
-    const student = await tx.student.findUnique({ where: { id }, include: { enrolments: true, guardians: { include: { guardian: true } } } });
+    const student = await tx.student.findFirst({ where, include: { enrolments: true, guardians: { include: { guardian: true } } } });
     if (!student) return null;
     const { enrolments, guardians, ...rest } = student;
     return {
@@ -203,12 +215,12 @@ export async function personData(tx: Tx, type: DeletionInput["personType"], id: 
     };
   }
   if (type === "guardian") {
-    const g = await tx.guardian.findUnique({ where: { id }, include: { students: { include: { student: { select: { fullName: true, admissionNo: true } } } } } });
+    const g = await tx.guardian.findFirst({ where, include: { students: { include: { student: { select: { fullName: true, admissionNo: true } } } } } });
     if (!g) return null;
     const { students, ...rest } = g;
     return { name: g.name, sections: { guardian: [strip(rest)], children: students.map((s) => ({ relationship: s.relationship, student: s.student.fullName, admissionNo: s.student.admissionNo })) } };
   }
-  const s = await tx.staff.findUnique({ where: { id }, include: { documents: true, department: true } });
+  const s = await tx.staff.findFirst({ where, include: { documents: true, department: true } });
   if (!s) return null;
   const { documents, department, ...rest } = s;
   return { name: s.fullName, sections: { staff: [{ ...strip(rest), department: department?.name ?? null }], documents: documents.map((d) => strip(d)) } };

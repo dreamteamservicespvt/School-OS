@@ -31,7 +31,7 @@ export async function GET(request: Request) {
   if (!personTypesFor(current.permissions).includes(type)) return new Response("Your role cannot see these records.", { status: 403 });
   if (!/^[0-9a-f-]{36}$/i.test(id)) return new Response("This person was not found.", { status: 404 });
   const out = await withSchool(current.ctx, async (tx) => {
-    const data = await personData(tx, type, id);
+    const data = await personData(tx, type, id, current);
     if (!data) return null;
     const entries = Object.entries(data.sections).map(([name, rows]) => ({ name: `${name}.csv`, data: Buffer.from(toCsv(rows as Record<string, unknown>[]), "utf8") }));
     entries.unshift({ name: "READ-ME.txt", data: Buffer.from(`Personal data held by ${current.school.name} about ${data.name}.\r\nPrepared ${new Date().toISOString()}. Dates are in UTC.\r\nEncrypted ID numbers (such as Aadhaar) are not included; the school office can show them on request.\r\n`, "utf8") });

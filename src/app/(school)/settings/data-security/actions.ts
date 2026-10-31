@@ -105,7 +105,7 @@ export async function requestDeletionAction(_prev: FormState, fd: FormData): Pro
     await withSchool(current.ctx, async (tx) => {
       let proofFileId: string | null = null;
       if (proof instanceof File && proof.size > 0) proofFileId = (await saveFile(tx, current.ctx, { file: proof, purpose: "deletion-proof", allowed: DOCUMENT_TYPES })).id;
-      await requestDeletion(tx, current.ctx, { personType, personId: values.personId ?? "", scope: all ? "all" : parts, reason: values.reason ?? "", askedBy: values.askedBy ?? "", proofFileId });
+      await requestDeletion(tx, current.ctx, { personType, personId: values.personId ?? "", scope: all ? "all" : parts, reason: values.reason ?? "", askedBy: values.askedBy ?? "", proofFileId }, current);
     });
   } catch (e) {
     if (e instanceof PrivacyProblem || e instanceof FileProblem || e instanceof DecisionProblem) {

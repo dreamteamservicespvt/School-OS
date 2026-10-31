@@ -78,12 +78,15 @@ export async function guardianChildren(tx: Tx, ctx: SchoolContext, guardianId: s
   return { children, academicYearId: main?.id ?? null, yearOfCampus: new Map(years.map((y) => [y.campusId, y.id])) };
 }
 
-export async function loadGuardianView(tx: Tx, ctx: SchoolContext, input: { linkId: string; guardianId: string; childId?: string | null; token: string; preview: boolean; lang?: Lang | null }): Promise<GuardianView | null> {
+export async function loadGuardianView(tx: Tx, ctx: SchoolContext, input: { linkId: string; guardianId: string; childId?: string | null; token: string; preview: boolean; lang?: Lang | null; campusId?: string | null }): Promise<GuardianView | null> {
   const [school, guardian] = await Promise.all([
     tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true, timeZone: true, languages: true, defaultLanguage: true } }),
     tx.guardian.findFirstOrThrow({ where: { id: input.guardianId, schoolId: ctx.schoolId }, select: { name: true, language: true } }),
   ]);
-  const { children, academicYearId, yearOfCampus } = await guardianChildren(tx, ctx, input.guardianId);
+  const all = await guardianChildren(tx, ctx, input.guardianId);
+  const { academicYearId, yearOfCampus } = all;
+  // A staff preview by a person limited to one campus shows only that campus's children.
+  const children = input.campusId ? all.children.filter((c) => c.campusId === input.campusId) : all.children;
   if (!children.length) return null;
   // A child id from the address that is not this guardian's own is ignored.
   const child = children.find((c) => c.id === input.childId) ?? children[0];

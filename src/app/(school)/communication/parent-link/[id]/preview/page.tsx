@@ -5,6 +5,7 @@ import { commPage } from "@/lib/communication/access";
 import { linkCampusWhere } from "@/lib/communication/parent-link-admin";
 import { loadGuardianView } from "@/lib/parent-link/view";
 import { loadSections } from "@/lib/parent-link/render";
+import { inCampus } from "@/lib/campus";
 import { GuardianPage } from "@/components/parent-link/guardian-page";
 import { Banner } from "@/components/ui/banner";
 import { BackLink, RecordHead } from "@/components/ui/split";
@@ -27,10 +28,10 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
     // Another campus's guardian's link is not found for a person limited to one campus.
     const link = await tx.parentLink.findFirst({ where: { id, schoolId: current.ctx.schoolId, ...(await linkCampusWhere(tx, current.ctx, access.scope.campusId)) } });
     if (!link) return null;
-    const view = await loadGuardianView(tx, current.ctx, { linkId: link.id, guardianId: link.guardianId, childId: typeof child === "string" ? child : null, token: "", preview: true });
+    const view = await loadGuardianView(tx, current.ctx, { linkId: link.id, guardianId: link.guardianId, childId: typeof child === "string" ? child : null, token: "", preview: true, campusId: access.scope.campusId });
     const school = await tx.school.findUniqueOrThrow({ where: { id: current.ctx.schoolId }, select: { phone: true } });
     // Children left off this guardian's page because of a custody or access restriction.
-    const restricted = await tx.studentGuardian.findMany({ where: { schoolId: current.ctx.schoolId, guardianId: link.guardianId, archivedAt: null, restriction: { not: null }, student: { archivedAt: null } }, select: { student: { select: { fullName: true } } } });
+    const restricted = await tx.studentGuardian.findMany({ where: { schoolId: current.ctx.schoolId, guardianId: link.guardianId, archivedAt: null, restriction: { not: null }, student: { archivedAt: null, ...inCampus(access.scope) } }, select: { student: { select: { fullName: true } } } });
     return { link, view, restricted: restricted.map((r) => r.student.fullName), sections: view ? await loadSections(tx, current.ctx, { ...view, month: typeof month === "string" ? month : null }) : [], phone: school.phone };
   });
   if (!data) notFound();

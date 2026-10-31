@@ -141,3 +141,50 @@ describe("certificate detail page keeps to the viewer's campus", () => {
     await expect(open(cur.northAdmin, await certFor(main.studentId))).rejects.toThrow("NOT_FOUND");
   });
 });
+
+describe("Parent Link preview keeps to the viewer's campus", () => {
+  let linkId: string;
+  let mainSibling: string;
+  beforeAll(async () => {
+    const guardianId = await run(async (tx) => (await tx.studentGuardian.findFirstOrThrow({ where: { studentId: north.studentId } })).guardianId);
+    mainSibling = (await addStudent(ctx, main.sectionId, { fullName: "Meera Kumar", applyFeePlan: false, linkGuardianId: guardianId })).student.id;
+    const restricted = (await addStudent(ctx, main.sectionId, { fullName: "Manoj Kumar", applyFeePlan: false, linkGuardianId: guardianId })).student.id;
+    linkId = await run(async (tx) => {
+      await tx.studentGuardian.updateMany({ where: { studentId: restricted, guardianId }, data: { restriction: "Court order" } });
+      return (await tx.parentLink.create({ data: { schoolId: school.id, guardianId, tokenHash: randomUUID(), tokenHint: "abcd" } })).id;
+    });
+  });
+
+  // The page's element tree, unrendered: the guardian view it shows and the custody banner's words.
+  const propsIn = (node: unknown, out: Record<string, unknown>[] = []): Record<string, unknown>[] => {
+    if (Array.isArray(node)) node.forEach((n) => propsIn(n, out));
+    else if (node && typeof node === "object" && "props" in node) {
+      const p = (node as { props: Record<string, unknown> }).props;
+      out.push(p);
+      propsIn(p.children, out);
+    }
+    return out;
+  };
+  const preview = async (as: Current, child?: string) => {
+    who.current = as;
+    const { default: Page } = await import("@/app/(school)/communication/parent-link/[id]/preview/page");
+    const props = propsIn(await Page({ params: Promise.resolve({ id: linkId }), searchParams: Promise.resolve({ child }) }));
+    const view = props.find((p) => p.view)?.view as { children: { id: string }[]; child: { id: string } } | undefined;
+    const banner = props.find((p) => p.title === "Custody restriction.");
+    return { childIds: view?.children.map((c) => c.id) ?? [], shown: view?.child.id, restricted: JSON.stringify(banner?.children ?? "") };
+  };
+
+  it("shows a whole-school viewer every child and the restricted one", async () => {
+    const p = await preview(cur.admin, mainSibling);
+    expect(p.childIds.sort()).toEqual([north.studentId, mainSibling].sort());
+    expect(p.shown).toBe(mainSibling);
+    expect(p.restricted).toContain("Manoj Kumar");
+  });
+
+  it("shows a campus-limited viewer only their campus's children, even when another is asked for", async () => {
+    const p = await preview(cur.northAdmin, mainSibling);
+    expect(p.childIds).toEqual([north.studentId]);
+    expect(p.shown).toBe(north.studentId);
+    expect(p.restricted).not.toContain("Manoj Kumar");
+  });
+});

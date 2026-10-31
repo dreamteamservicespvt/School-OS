@@ -3,16 +3,22 @@
 // A record for every campus reaches the other campus's families too, so it is
 // changed only by someone who works for the whole school. New records they
 // make are for their own campus. A school with one campus has nothing to keep
-// apart: its records have no campus and nothing here applies.
+// apart: its records have no campus and nothing here applies. Houses, clubs,
+// teams and fixtures have no campus: they are the whole school's, like a
+// record for every campus. Achievements, credits, fitness tests and diaries
+// belong to the campus of their student or class.
 import "server-only";
 
 import type { Tx } from "../db";
 import type { CampusLimit } from "../campus";
 import { EventsProblem } from "./problem";
 
-export type EvRecord = "event" | "entry" | "ptm" | "slot" | "volunteer" | "album" | "media";
+export type EvRecord = "event" | "entry" | "ptm" | "slot" | "volunteer" | "album" | "media" | "student" | "achievement" | "section" | "activity";
 
-const WORD: Record<EvRecord, string> = { event: "event", entry: "calendar entry", ptm: "PTM", slot: "PTM slot", volunteer: "volunteer", album: "album", media: "photo" };
+const WORD: Record<EvRecord, string> = {
+  event: "event", entry: "calendar entry", ptm: "PTM", slot: "PTM slot", volunteer: "volunteer", album: "album", media: "photo",
+  student: "student", achievement: "achievement", section: "class", activity: "activity",
+};
 
 /** The campus the person is kept to here: their limit, only when the school has more than one campus. */
 export async function evCampus(tx: Tx, limit: CampusLimit | null | undefined): Promise<string | null> {
@@ -55,6 +61,18 @@ async function campusOf(tx: Tx, kind: EvRecord, id: string): Promise<string | nu
       const m = await tx.mediaItem.findFirst({ where: { id }, select: { albumId: true } });
       return m ? campusOf(tx, "album", m.albumId) : undefined;
     }
+    case "student":
+      return (await tx.student.findFirst({ where: { id }, select: { campusId: true } }))?.campusId;
+    case "achievement": {
+      const a = await tx.achievement.findFirst({ where: { id }, select: { studentId: true } });
+      return a ? campusOf(tx, "student", a.studentId) : undefined;
+    }
+    case "section":
+      return (await tx.section.findFirst({ where: { id }, select: { schoolClass: { select: { campusId: true } } } }))?.schoolClass.campusId;
+    case "activity": {
+      const a = await tx.dailyActivity.findFirst({ where: { id }, select: { sectionId: true } });
+      return a ? campusOf(tx, "section", a.sectionId) : undefined;
+    }
   }
 }
 
@@ -76,6 +94,30 @@ export async function assertEvClasses(tx: Tx, limit: CampusLimit | null | undefi
   if (!mine || !classIds.length) return;
   const other = await tx.schoolClass.count({ where: { id: { in: classIds }, campusId: { not: mine } } });
   if (other) throw new EventsProblem("Choose classes of your own campus.", "classIds");
+}
+
+/** Refuses students of another campus for a person kept to one campus. */
+export async function assertEvStudents(tx: Tx, limit: CampusLimit | null | undefined, studentIds: string[]) {
+  const mine = await evCampus(tx, limit);
+  if (!mine || !studentIds.length) return;
+  const other = await tx.student.count({ where: { id: { in: studentIds }, campusId: { not: mine } } });
+  if (other) throw new EventsProblem("Choose students of your own campus.", "studentIds");
+}
+
+/** Houses, clubs, teams and fixtures are for every campus: a person kept to one campus does not change them. */
+export async function assertEvWholeSchool(tx: Tx, limit: CampusLimit | null | undefined, what: string) {
+  if (await evCampus(tx, limit)) throw new EventsProblem(`${what} are for every campus, so only someone who works for the whole school can change them.`);
+}
+
+/** A club's or team's attendance is for a person kept to one campus only when every member is of that campus. */
+export async function assertEvGroup(tx: Tx, limit: CampusLimit | null | undefined, kind: "club" | "team", groupId: string) {
+  const mine = await evCampus(tx, limit);
+  if (!mine) return;
+  const members = kind === "club"
+    ? await tx.clubMember.findMany({ where: { clubId: groupId, archivedAt: null }, select: { studentId: true } })
+    : await tx.teamMember.findMany({ where: { teamId: groupId, archivedAt: null }, select: { studentId: true } });
+  const other = await tx.student.count({ where: { id: { in: members.map((m) => m.studentId) }, campusId: { not: mine } } });
+  if (other) throw new EventsProblem(`This ${kind} has members of another campus, so only someone who works for the whole school records its attendance.`);
 }
 
 /** Records a person kept to one campus sees: every campus's and their own. */

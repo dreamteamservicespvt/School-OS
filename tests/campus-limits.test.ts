@@ -362,3 +362,78 @@ describe("Events & Calendar keep to the viewer's campus", () => {
     expect((await act("cancelPtmAction", { ptmId: ptm.id, reason: "Clashes with the exams" })).message).toMatch(/another campus/);
   });
 });
+
+describe("Events activities (houses, clubs, teams, achievements, diary) keep to the viewer's campus", () => {
+  const form = (fields: Record<string, string | string[]>) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries(fields)) for (const x of [v].flat()) fd.append(k, x);
+    return fd;
+  };
+  const act = async (name: string, fields: Record<string, string | string[]>, as = cur.northAdmin) => {
+    who.current = as;
+    const actions = await import("@/app/(school)/events-calendar/activity-actions");
+    const fn = (actions as unknown as Record<string, (s: unknown, fd: FormData) => Promise<{ ok: boolean; message?: string }>>)[name];
+    return fn(null, form(fields));
+  };
+  const achievement = (studentId: string, yearId: string) => run(async (tx) => (await tx.achievement.create({ data: { schoolId: school.id, academicYearId: yearId, studentId, activity: "Inter-school quiz", kind: "Quiz", date: day("2026-07-10") } })).id);
+  const archivedAt = (id: string) => run(async (tx) => (await tx.achievement.findUniqueOrThrow({ where: { id } })).archivedAt);
+
+  it("takes the viewer's own campus's achievement off the record", async () => {
+    const id = await achievement(north.studentId, north.yearId);
+    const r = await act("archiveAchievementAction", { achievementId: id, reason: "Entered by mistake" });
+    expect(r.message).not.toMatch(/another campus/);
+    expect(await archivedAt(id)).not.toBeNull();
+  });
+
+  it("refuses to take off, or print a certificate for, another campus's achievement", async () => {
+    const id = await achievement(main.studentId, main.yearId);
+    expect((await act("archiveAchievementAction", { achievementId: id, reason: "Entered by mistake" })).message).toMatch(/another campus/);
+    expect((await act("certificatesAction", { achievementIds: id })).message).toMatch(/another campus/);
+    expect(await archivedAt(id)).toBeNull();
+    expect(await run(async (tx) => (await tx.achievement.findUniqueOrThrow({ where: { id } })).certificateNo)).toBeNull();
+  });
+
+  it("refuses achievements, credits and fitness tests for another campus's student", async () => {
+    expect((await act("achievementAction", { studentIds: [north.studentId, main.studentId], activity: "Inter-school quiz", kind: "Quiz", level: "School", result: "won", date: "2026-07-10" })).message).toMatch(/your own campus/);
+    expect((await act("creditCorrectionAction", { studentId: main.studentId, points: "5", reason: "Missed last term" })).message).toMatch(/another campus/);
+    expect((await act("fitnessAction", { studentId: main.studentId, date: "2026-07-10", heightCm: "130" })).message).toMatch(/another campus/);
+  });
+
+  it("refuses changes to houses, clubs and teams, which are for every campus", async () => {
+    const [house, club] = await run(async (tx) => [
+      await tx.house.create({ data: { schoolId: school.id, name: "Red House" } }),
+      await tx.club.create({ data: { schoolId: school.id, name: "Science Club" } }),
+    ]);
+    expect((await act("houseAction", { houseId: house.id, name: "Blue House", colour: "info" })).message).toMatch(/every campus/);
+    expect((await act("housePointsAction", { houseId: house.id, points: "10", reason: "Won the relay" })).message).toMatch(/every campus/);
+    expect((await act("assignHousesAction", { mode: "turn" })).message).toMatch(/every campus/);
+    expect((await act("clubAction", { clubId: club.id, name: "Maths Club" })).message).toMatch(/every campus/);
+    expect((await act("teamAction", { name: "Under-14 Football", sport: "Football" })).message).toMatch(/every campus/);
+    expect((await act("archiveGroupAction", { kind: "club", groupId: club.id })).message).toMatch(/every campus/);
+    const after = await run(async (tx) => [await tx.house.findUniqueOrThrow({ where: { id: house.id } }), await tx.club.findUniqueOrThrow({ where: { id: club.id } })] as const);
+    expect(after[0].name).toBe("Red House");
+    expect(after[1].name).toBe("Science Club");
+    expect(after[1].archivedAt).toBeNull();
+  });
+
+  it("refuses to add or take off another campus's student in a club, or move them into a house", async () => {
+    const [house, club] = await run(async (tx) => [
+      await tx.house.create({ data: { schoolId: school.id, name: "Green House" } }),
+      await tx.club.create({ data: { schoolId: school.id, name: "Art Club" } }),
+    ]);
+    await run((tx) => tx.clubMember.create({ data: { schoolId: school.id, academicYearId: main.yearId, clubId: club.id, studentId: main.studentId } }));
+    expect((await act("membersAction", { kind: "club", groupId: club.id, studentIds: main.studentId })).message).toMatch(/your own campus/);
+    expect((await act("removeMemberAction", { kind: "club", groupId: club.id, studentId: main.studentId })).message).toMatch(/another campus/);
+    expect((await act("sessionAction", { kind: "club", groupId: club.id, date: "2026-07-10", present: main.studentId })).message).toMatch(/another campus/);
+    expect((await act("assignHousesAction", { mode: "hand", houseId: house.id, studentIds: main.studentId })).message).toMatch(/your own campus/);
+    expect(await run((tx) => tx.clubMember.count({ where: { clubId: club.id, archivedAt: null } }))).toBe(1);
+  });
+
+  it("refuses a diary reminder for another campus's class", async () => {
+    const sectionId = await run(async (tx) => {
+      const cls = await tx.schoolClass.create({ data: { schoolId: school.id, campusId: main.campusId, name: "LKG", level: "Pre-primary", sortOrder: 0 } });
+      return (await tx.section.create({ data: { schoolId: school.id, classId: cls.id, academicYearId: main.yearId, name: "A", seats: 30 } })).id;
+    });
+    expect((await act("remindDiaryAction", { sectionId })).message).toMatch(/another campus/);
+  });
+});

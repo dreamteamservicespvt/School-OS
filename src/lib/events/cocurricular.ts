@@ -11,6 +11,7 @@ import type { Achievement, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { assertYearOpen } from "../academic/years";
+import { personCampusId } from "../campus";
 import { formatNumber, nextNumber } from "../sequences";
 import { sendMessage, MessagingProblem } from "../messaging";
 
@@ -46,18 +47,61 @@ export const GROUNDS = [
 
 const clean = (v: string) => v.trim().replace(/\s+/g, " ");
 
-/** The school year a date falls in (open for changes). */
-export async function yearOf(tx: Tx, iso: string, field = "date") {
-  const y = await tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lte: dayOf(iso) }, endDate: { gte: dayOf(iso) } } });
+/**
+ * The campus's school year a date falls in (open for changes). Each campus
+ * has its own years, and two campuses' years can overlap, so the date alone
+ * does not say which year.
+ */
+export async function yearOf(tx: Tx, iso: string, campusId: string, field = "date") {
+  const y = await tx.academicYear.findFirst({ where: { campusId, archivedAt: null, startDate: { lte: dayOf(iso) }, endDate: { gte: dayOf(iso) } }, orderBy: { startDate: "desc" } });
   if (!y) throw new EventsProblem("Pick a date inside the school year.", field);
   await assertYearOpen(tx, y.id);
   return y;
+}
+
+type Year = Awaited<ReturnType<typeof yearOf>>;
+
+/** Each student's year on a date: their own campus's (open for changes), by student id. */
+async function studentYears(tx: Tx, iso: string, studentIds: string[], field = "date") {
+  const rows = await tx.student.findMany({ where: { id: { in: studentIds } }, select: { id: true, campusId: true } });
+  const byCampus = new Map<string, Year>();
+  const out = new Map<string, Year>();
+  for (const r of rows) {
+    if (!byCampus.has(r.campusId)) byCampus.set(r.campusId, await yearOf(tx, iso, r.campusId, field));
+    out.set(r.id, byCampus.get(r.campusId)!);
+  }
+  return out;
+}
+
+async function studentYear(tx: Tx, iso: string, studentId: string, field = "date") {
+  const y = (await studentYears(tx, iso, [studentId], field)).get(studentId);
+  if (!y) throw new EventsProblem("Choose the student.", "studentId");
+  return y;
+}
+
+/**
+ * Every campus's open year a date falls in: houses, clubs, teams and fixtures
+ * are for every campus, and each student belongs in their own campus's year.
+ */
+async function yearsOn(tx: Tx, iso: string, field = "date") {
+  const all = await tx.academicYear.findMany({ where: { archivedAt: null, startDate: { lte: dayOf(iso) }, endDate: { gte: dayOf(iso) } }, orderBy: { startDate: "asc" } });
+  if (!all.length) throw new EventsProblem("Pick a date inside the school year.", field);
+  const open = all.filter((y) => y.status !== "CLOSED");
+  if (!open.length) await assertYearOpen(tx, all[0].id);
+  return open;
 }
 
 /** Students studying this year among these ids. */
 async function studying(tx: Tx, yearId: string, studentIds: string[]) {
   if (!studentIds.length) return new Set<string>();
   const rows = await tx.enrolment.findMany({ where: { studentId: { in: studentIds }, academicYearId: yearId, archivedAt: null, status: "STUDYING" }, select: { studentId: true } });
+  return new Set(rows.map((r) => r.studentId));
+}
+
+/** Students studying in their own year (studentYears) among these. */
+async function studyingIn(tx: Tx, years: Map<string, Year>) {
+  if (!years.size) return new Set<string>();
+  const rows = await tx.enrolment.findMany({ where: { OR: [...years].map(([studentId, y]) => ({ studentId, academicYearId: y.id })), archivedAt: null, status: "STUDYING" }, select: { studentId: true } });
   return new Set(rows.map((r) => r.studentId));
 }
 
@@ -93,8 +137,8 @@ export async function recordAchievements(tx: Tx, ctx: SchoolContext, input: Achi
   const wanted = [...new Set(input.studentIds)];
   if (!wanted.length) throw new EventsProblem("Choose the students.", "studentIds");
   if (wanted.length > 300) throw new EventsProblem("Record at most 300 students at once.", "studentIds");
-  const year = await yearOf(tx, input.date);
-  const ok = await studying(tx, year.id, wanted);
+  const years = await studentYears(tx, input.date, wanted);
+  const ok = await studyingIn(tx, years);
   const missing = wanted.filter((x) => !ok.has(x));
   if (missing.length) throw new EventsProblem(missing.length === wanted.length ? "These students are not studying in the school in that year." : `${missing.length} of the chosen students were not studying in that year. Take them off and try again.`, "studentIds");
   if (input.teamId && !(await tx.sportsTeam.findFirst({ where: { id: input.teamId, archivedAt: null } }))) throw new EventsProblem("This team was not found.", "teamId");
@@ -103,12 +147,12 @@ export async function recordAchievements(tx: Tx, ctx: SchoolContext, input: Achi
   for (const studentId of wanted) {
     const a = await tx.achievement.create({
       data: {
-        schoolId: ctx.schoolId, academicYearId: year.id, studentId, activity, kind: input.kind, level: input.level, position: position ?? (input.won ? null : "Took part"), won: input.won,
+        schoolId: ctx.schoolId, academicYearId: years.get(studentId)!.id, studentId, activity, kind: input.kind, level: input.level, position: position ?? (input.won ? null : "Took part"), won: input.won,
         date: dayOf(input.date), eventId: input.eventId ?? null, teamId: input.teamId ?? null, createdById: ctx.userId,
       },
     });
     if (credits > 0) {
-      await tx.activityCreditEntry.create({ data: { schoolId: ctx.schoolId, academicYearId: year.id, studentId, achievementId: a.id, points: credits, reason: `${activity} (${input.level.toLowerCase()} level${input.won ? ", result" : ", taking part"})`, date: dayOf(input.date), givenById: ctx.userId } });
+      await tx.activityCreditEntry.create({ data: { schoolId: ctx.schoolId, academicYearId: years.get(studentId)!.id, studentId, achievementId: a.id, points: credits, reason: `${activity} (${input.level.toLowerCase()} level${input.won ? ", result" : ", taking part"})`, date: dayOf(input.date), givenById: ctx.userId } });
     }
     made.push(a);
   }
@@ -177,7 +221,7 @@ export async function correctCredits(tx: Tx, ctx: SchoolContext, studentId: stri
   if (why.length < 5) throw new EventsProblem("Give a reason, in a few words.", "reason");
   const s = await eventsSettings(tx, ctx);
   if (!s.creditsOn) throw new EventsProblem("Activity credits are off. Switch them on in Events Settings.");
-  const year = await yearOf(tx, today);
+  const year = await studentYear(tx, today, studentId);
   if (!(await studying(tx, year.id, [studentId])).size) throw new EventsProblem("This student is not studying in the school this year.", "studentId");
   const total = (await creditTotals(tx, [studentId], year.id)).get(studentId) ?? 0;
   if (total + points < 0) throw new EventsProblem(`The student has ${total} credits. You can take away at most ${total}.`, "points");
@@ -228,20 +272,26 @@ export async function housesOf(tx: Tx, yearId: string, studentIds?: string[]) {
  * chosen students to one house (the old place is kept, archived).
  */
 export async function assignHouses(tx: Tx, ctx: SchoolContext, input: { mode: "turn" } | { mode: "hand"; houseId: string; studentIds: string[] }, today: string) {
-  const year = await yearOf(tx, today);
   const houses = await tx.house.findMany({ where: { archivedAt: null }, orderBy: { sortOrder: "asc" } });
   if (!houses.length) throw new EventsProblem("Add the houses first, in Events Settings.", undefined, { href: "/events-calendar/settings", label: "Open Events Settings" });
-  const current = await housesOf(tx, year.id);
   if (input.mode === "turn") {
-    const enrol = await tx.enrolment.findMany({ where: { academicYearId: year.id, archivedAt: null, status: "STUDYING" }, select: { studentId: true } });
-    const todo = enrol.map((e) => e.studentId).filter((s) => !current.has(s));
+    // Houses are for every campus: each campus's students, in their own campus's year.
+    const current = new Map<string, string>();
+    const todo: { studentId: string; yearId: string }[] = [];
+    for (const year of await yearsOn(tx, today)) {
+      const have = await housesOf(tx, year.id);
+      for (const [studentId, houseId] of have) current.set(studentId, houseId);
+      const enrol = await tx.enrolment.findMany({ where: { academicYearId: year.id, archivedAt: null, status: "STUDYING" }, select: { studentId: true } });
+      const ids = enrol.map((e) => e.studentId).filter((s) => !have.has(s));
+      const places = await placesOf(tx, ids, year.id);
+      ids.sort((a, b) => placeOrder(places.get(a), places.get(b)));
+      todo.push(...ids.map((studentId) => ({ studentId, yearId: year.id })));
+    }
     if (!todo.length) throw new EventsProblem("Every student already has a house this year.");
-    const places = await placesOf(tx, todo, year.id);
-    todo.sort((a, b) => placeOrder(places.get(a), places.get(b)));
     // Start with the house that has fewest students, so houses stay even.
     const counts = houses.map((h) => [...current.values()].filter((x) => x === h.id).length);
     let i = counts.indexOf(Math.min(...counts));
-    await tx.houseMember.createMany({ data: todo.map((studentId) => ({ schoolId: ctx.schoolId, academicYearId: year.id, houseId: houses[i++ % houses.length].id, studentId, assignedById: ctx.userId })) });
+    await tx.houseMember.createMany({ data: todo.map((t) => ({ schoolId: ctx.schoolId, academicYearId: t.yearId, houseId: houses[i++ % houses.length].id, studentId: t.studentId, assignedById: ctx.userId })) });
     await writeAudit(tx, ctx, { action: "houses-assigned", recordType: "House", recordId: houses[0].id, after: { students: todo.length, how: "in turn by class and roll" } });
     return { assigned: todo.length, house: null };
   }
@@ -249,11 +299,17 @@ export async function assignHouses(tx: Tx, ctx: SchoolContext, input: { mode: "t
   if (!house) throw new EventsProblem("Choose the house.", "houseId");
   const wanted = [...new Set(input.studentIds)];
   if (!wanted.length) throw new EventsProblem("Choose the students.", "studentIds");
-  const ok = await studying(tx, year.id, wanted);
+  const years = await studentYears(tx, today, wanted);
+  const ok = await studyingIn(tx, years);
+  const current = new Map<string, string>();
+  for (const yearId of new Set([...years.values()].map((y) => y.id))) {
+    for (const [studentId, houseId] of await housesOf(tx, yearId, wanted)) if (years.get(studentId)?.id === yearId) current.set(studentId, houseId);
+  }
   const moving = wanted.filter((s) => ok.has(s) && current.get(s) !== house.id);
   if (!moving.length) throw new EventsProblem(`These students are already in ${house.name}.`, "studentIds");
-  await tx.houseMember.updateMany({ where: { academicYearId: year.id, studentId: { in: moving }, archivedAt: null }, data: { archivedAt: new Date() } });
-  await tx.houseMember.createMany({ data: moving.map((studentId) => ({ schoolId: ctx.schoolId, academicYearId: year.id, houseId: house.id, studentId, assignedById: ctx.userId })) });
+  const at = (studentId: string) => ({ studentId, academicYearId: years.get(studentId)!.id });
+  await tx.houseMember.updateMany({ where: { OR: moving.map(at), archivedAt: null }, data: { archivedAt: new Date() } });
+  await tx.houseMember.createMany({ data: moving.map((studentId) => ({ schoolId: ctx.schoolId, ...at(studentId), houseId: house.id, assignedById: ctx.userId })) });
   await writeAudit(tx, ctx, { action: "houses-assigned", recordType: "House", recordId: house.id, after: { students: moving.length, how: "by hand" } });
   return { assigned: moving.length, house };
 }
@@ -267,7 +323,10 @@ export async function addHousePoints(tx: Tx, ctx: SchoolContext, houseId: string
   if (why.length > 160) throw new EventsProblem("The reason can be at most 160 characters.", "reason");
   const house = await tx.house.findFirst({ where: { id: houseId, archivedAt: null } });
   if (!house) throw new EventsProblem("Choose the house.", "houseId");
-  const year = await yearOf(tx, today);
+  // Points go in the year of the giver's own campus, the year their Houses page starts on.
+  const campusId = await personCampusId(tx, ctx, null);
+  if (!campusId) throw new EventsProblem("Pick a date inside the school year.");
+  const year = await yearOf(tx, today, campusId);
   const e = await tx.housePointsEntry.create({ data: { schoolId: ctx.schoolId, academicYearId: year.id, houseId, points, reason: why, date: dayOf(today), givenById: ctx.userId } });
   await writeAudit(tx, ctx, { action: "points", recordType: "House", recordId: houseId, after: { house: house.name, points, reason: why } });
   return { entry: e, house };
@@ -345,11 +404,12 @@ export async function archiveGroup(tx: Tx, ctx: SchoolContext, kind: "club" | "t
   return t.name;
 }
 
-/** Current members (student ids) of a club or team this year. */
-export async function membersOf(tx: Tx, kind: "club" | "team", groupId: string, yearId: string) {
+/** Current members (student ids) of a club or team this year (or these years: one per campus). */
+export async function membersOf(tx: Tx, kind: "club" | "team", groupId: string, yearIds: string | string[]) {
+  const academicYearId = { in: [yearIds].flat() };
   const rows = kind === "club"
-    ? await tx.clubMember.findMany({ where: { clubId: groupId, academicYearId: yearId, archivedAt: null }, select: { studentId: true } })
-    : await tx.teamMember.findMany({ where: { teamId: groupId, academicYearId: yearId, archivedAt: null }, select: { studentId: true } });
+    ? await tx.clubMember.findMany({ where: { clubId: groupId, academicYearId, archivedAt: null }, select: { studentId: true } })
+    : await tx.teamMember.findMany({ where: { teamId: groupId, academicYearId, archivedAt: null }, select: { studentId: true } });
   return rows.map((r) => r.studentId);
 }
 
@@ -361,14 +421,14 @@ async function groupName(tx: Tx, kind: "club" | "team", id: string) {
 
 export async function addMembers(tx: Tx, ctx: SchoolContext, kind: "club" | "team", groupId: string, studentIds: string[], today: string) {
   const name = await groupName(tx, kind, groupId);
-  const year = await yearOf(tx, today);
   const wanted = [...new Set(studentIds)];
   if (!wanted.length) throw new EventsProblem("Choose the students.", "studentIds");
-  const ok = await studying(tx, year.id, wanted);
-  const have = new Set(await membersOf(tx, kind, groupId, year.id));
+  const years = await studentYears(tx, today, wanted);
+  const ok = await studyingIn(tx, years);
+  const have = new Set(await membersOf(tx, kind, groupId, [...new Set([...years.values()].map((y) => y.id))]));
   const add = wanted.filter((s) => ok.has(s) && !have.has(s));
   if (!add.length) throw new EventsProblem("These students are already members.", "studentIds");
-  const data = add.map((studentId) => ({ schoolId: ctx.schoolId, academicYearId: year.id, studentId, addedById: ctx.userId }));
+  const data = add.map((studentId) => ({ schoolId: ctx.schoolId, academicYearId: years.get(studentId)!.id, studentId, addedById: ctx.userId }));
   if (kind === "club") await tx.clubMember.createMany({ data: data.map((d) => ({ ...d, clubId: groupId })) });
   else await tx.teamMember.createMany({ data: data.map((d) => ({ ...d, teamId: groupId })) });
   await writeAudit(tx, ctx, { action: "members-added", recordType: kind === "club" ? "Club" : "Sports Team", recordId: groupId, after: { students: add.length } });
@@ -377,7 +437,7 @@ export async function addMembers(tx: Tx, ctx: SchoolContext, kind: "club" | "tea
 
 export async function removeMember(tx: Tx, ctx: SchoolContext, kind: "club" | "team", groupId: string, studentId: string, today: string) {
   const name = await groupName(tx, kind, groupId);
-  const year = await yearOf(tx, today);
+  const year = await studentYear(tx, today, studentId);
   const where = { academicYearId: year.id, studentId, archivedAt: null };
   const n = kind === "club"
     ? (await tx.clubMember.updateMany({ where: { ...where, clubId: groupId }, data: { archivedAt: new Date() } })).count
@@ -391,8 +451,8 @@ export async function removeMember(tx: Tx, ctx: SchoolContext, kind: "club" | "t
 export async function recordSession(tx: Tx, ctx: SchoolContext, kind: "club" | "team", groupId: string, input: { date: string; presentIds: string[]; topic?: string | null; startMin?: number | null; venue?: string | null }, today: string) {
   const name = await groupName(tx, kind, groupId);
   if (input.date > today) throw new EventsProblem("Attendance is marked on the day or after it.", "date");
-  const year = await yearOf(tx, input.date);
-  const members = await membersOf(tx, kind, groupId, year.id);
+  // Members of every campus, each in their own campus's year.
+  const members = await membersOf(tx, kind, groupId, (await yearsOn(tx, input.date)).map((y) => y.id));
   if (!members.length) throw new EventsProblem(`${name} has no members yet. Add members first.`);
   const present = [...new Set(input.presentIds)].filter((s) => members.includes(s));
   if (kind === "club") {
@@ -420,7 +480,7 @@ export async function saveFixture(tx: Tx, ctx: SchoolContext, input: { id?: stri
   if (title.length < 3 || title.length > 120) throw new EventsProblem("Say who is playing, like “Under-17 Football vs Delhi Public School”.", "title");
   if (!GROUNDS.some((g) => g.value === input.ground)) throw new EventsProblem("Choose home or away.", "ground");
   if (input.teamId && !(await tx.sportsTeam.findFirst({ where: { id: input.teamId, archivedAt: null } }))) throw new EventsProblem("Choose the team.", "teamId");
-  await yearOf(tx, input.date);
+  await yearsOn(tx, input.date);
   const data = { teamId: input.teamId, title, date: dayOf(input.date), startMin: input.startMin, venue: input.venue ? clean(input.venue).slice(0, 80) : null, ground: input.ground };
   if (input.id) {
     const before = await tx.fixture.findFirst({ where: { id: input.id, archivedAt: null } });
@@ -449,7 +509,7 @@ export type FitnessInput = { studentId: string; date: string; heightCm: number |
 
 export async function recordFitness(tx: Tx, ctx: SchoolContext, input: FitnessInput, today: string) {
   if (input.date > today) throw new EventsProblem("The test date cannot be in the future.", "date");
-  const year = await yearOf(tx, input.date);
+  const year = await studentYear(tx, input.date, input.studentId);
   if (!(await studying(tx, year.id, [input.studentId])).size) throw new EventsProblem("Choose a student studying this year.", "studentId");
   const range = (v: number | null, lo: number, hi: number, field: string, words: string) => {
     if (v != null && (Number.isNaN(v) || v < lo || v > hi)) throw new EventsProblem(words, field);

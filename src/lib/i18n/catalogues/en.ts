@@ -14763,6 +14763,7 @@ export const EN = [
   "This activity was not found, or is on another campus.",
   "Choose students of your own campus.",
   "Choose classes of your own campus.",
+  "A PTM is for one campus. Choose classes of one campus.",
   "Houses are for every campus, so only someone who works for the whole school can change them.",
   "House points are for every campus, so only someone who works for the whole school can change them.",
   "Houses for the whole school are for every campus, so only someone who works for the whole school can change them.",

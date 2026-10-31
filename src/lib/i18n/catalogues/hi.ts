@@ -14222,6 +14222,7 @@ export const hi: Catalogue = {
   "This activity was not found, or is on another campus.": "यह गतिविधि नहीं मिली, या दूसरे कैंपस की है।",
   "Choose students of your own campus.": "अपने ही कैंपस के विद्यार्थी चुनें।",
   "Choose classes of your own campus.": "अपने ही कैंपस की कक्षाएँ चुनें।",
+  "A PTM is for one campus. Choose classes of one campus.": "एक PTM एक ही कैंपस के लिए होता है। एक ही कैंपस की कक्षाएँ चुनें।",
   "Houses are for every campus, so only someone who works for the whole school can change them.": "हाउस हर कैंपस के लिए हैं, इसलिए इन्हें केवल पूरे स्कूल के लिए काम करने वाला व्यक्ति बदल सकता है।",
   "House points are for every campus, so only someone who works for the whole school can change them.": "हाउस अंक हर कैंपस के लिए हैं, इसलिए इन्हें केवल पूरे स्कूल के लिए काम करने वाला व्यक्ति बदल सकता है।",
   "Houses for the whole school are for every campus, so only someone who works for the whole school can change them.": "पूरे स्कूल के हाउस हर कैंपस के लिए हैं, इसलिए इन्हें केवल पूरे स्कूल के लिए काम करने वाला व्यक्ति बदल सकता है।",

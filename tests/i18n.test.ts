@@ -122,6 +122,7 @@ describe("the translator", () => {
       ...["record", "import", "event", "calendar entry", "PTM", "PTM slot", "volunteer", "album", "photo", "student", "achievement", "class", "activity"].map((w) => `This ${w} was not found, or is on another campus.`),
       "Choose students of your own campus.",
       "Choose classes of your own campus.",
+      "A PTM is for one campus. Choose classes of one campus.",
       ...["Houses", "House points", "Houses for the whole school", "Clubs", "Sports teams", "Clubs and teams", "Fixtures"].map((w) => `${w} are for every campus, so only someone who works for the whole school can change them.`),
       ...["club", "team"].map((k) => `This ${k} has members of another campus, so only someone who works for the whole school records its attendance.`),
     ];

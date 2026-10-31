@@ -9,7 +9,7 @@ import "server-only";
 import type { Ptm, PtmSlot } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { assertYearOpen } from "../academic/years";
+import { yearOf } from "./cocurricular";
 import { attendanceSummary } from "../attendance/summary";
 import { homeworkDone } from "../homework/progress";
 import { notSentWords, ruleStates, sendAutomatic, sendMessage } from "../messaging";
@@ -54,10 +54,12 @@ function sectionsWords(labels: string[]) {
 
 export async function planPtm(tx: Tx, ctx: SchoolContext, input: PlanInput, today: string) {
   if (input.date < today) throw new EventsProblem("Pick today or a later date.", "date");
-  const year = await tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lte: dayOf(input.date) }, endDate: { gte: dayOf(input.date) } } });
-  if (!year) throw new EventsProblem("Pick a date inside the school year.", "date");
-  await assertYearOpen(tx, year.id);
   if (!input.classIds.length) throw new EventsProblem("Choose the classes.", "classIds");
+  const classes = await tx.schoolClass.findMany({ where: { id: { in: input.classIds }, archivedAt: null }, select: { id: true, name: true, sortOrder: true, campusId: true }, orderBy: { sortOrder: "asc" } });
+  if (classes.length !== input.classIds.length) throw new EventsProblem("Some of these classes were not found.", "classIds");
+  // One PTM is in one year, and each campus has its own years.
+  if (new Set(classes.map((c) => c.campusId)).size > 1) throw new EventsProblem("A PTM is for one campus. Choose classes of one campus.", "classIds");
+  const year = await yearOf(tx, input.date, classes[0].campusId);
   if (!SLOT_LENGTHS.includes(input.slotMinutes)) throw new EventsProblem("Slot length is 5, 10, 15 or 20 minutes.", "slotMinutes");
   if (input.endMin <= input.startMin) throw new EventsProblem("The end time is before the start time.", "endTime");
   if (input.endMin - input.startMin < input.slotMinutes) throw new EventsProblem("The time window is shorter than one slot.", "endTime");
@@ -69,8 +71,6 @@ export async function planPtm(tx: Tx, ctx: SchoolContext, input: PlanInput, toda
     if (input.breakStartMin <= input.startMin || input.breakEndMin >= input.endMin) throw new EventsProblem("The break must be inside the time window, with slots before and after it.", "breakStart");
   }
   if ((input.endMin - input.startMin) / input.slotMinutes > MAX_SLOTS_PER_TEACHER) throw new EventsProblem(`That makes more than ${MAX_SLOTS_PER_TEACHER} slots per teacher. Use a shorter window or longer slots.`, "endTime");
-  const classes = await tx.schoolClass.findMany({ where: { id: { in: input.classIds }, archivedAt: null }, select: { id: true, name: true, sortOrder: true, campusId: true }, orderBy: { sortOrder: "asc" } });
-  if (classes.length !== input.classIds.length) throw new EventsProblem("Some of these classes were not found.", "classIds");
   // A school day for every class chosen, on its own campus.
   for (const c of classes) {
     const off = await notWorkingDay(tx, ctx, input.date, c.campusId, { classId: c.id });

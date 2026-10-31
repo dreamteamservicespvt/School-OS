@@ -14222,6 +14222,7 @@ export const te: Catalogue = {
   "This activity was not found, or is on another campus.": "ఈ కార్యకలాపం కనబడలేదు, లేదా వేరే క్యాంపస్‌ది.",
   "Choose students of your own campus.": "మీ సొంత క్యాంపస్ విద్యార్థులనే ఎంచుకోండి.",
   "Choose classes of your own campus.": "మీ సొంత క్యాంపస్ తరగతులనే ఎంచుకోండి.",
+  "A PTM is for one campus. Choose classes of one campus.": "ఒక PTM ఒకే క్యాంపస్‌కు. ఒకే క్యాంపస్ తరగతులను ఎంచుకోండి.",
   "Houses are for every campus, so only someone who works for the whole school can change them.": "హౌస్‌లు అన్ని క్యాంపస్‌లవి, కాబట్టి మొత్తం స్కూల్ కోసం పనిచేసేవారు మాత్రమే వాటిని మార్చగలరు.",
   "House points are for every campus, so only someone who works for the whole school can change them.": "హౌస్ పాయింట్లు అన్ని క్యాంపస్‌లవి, కాబట్టి మొత్తం స్కూల్ కోసం పనిచేసేవారు మాత్రమే వాటిని మార్చగలరు.",
   "Houses for the whole school are for every campus, so only someone who works for the whole school can change them.": "మొత్తం స్కూల్ హౌస్‌లు అన్ని క్యాంపస్‌లవి, కాబట్టి మొత్తం స్కూల్ కోసం పనిచేసేవారు మాత్రమే వాటిని మార్చగలరు.",

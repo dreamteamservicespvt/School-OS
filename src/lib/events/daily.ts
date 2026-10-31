@@ -118,6 +118,13 @@ export async function dayActivities(tx: Tx, sectionIds: string[], iso: string) {
 
 export type AssignInput = { sectionId: string; type: string; label: string; startMin: number; dates: string[] };
 
+/** The campus of a section's class: its diary is kept in that campus's year. */
+async function campusOfSection(tx: Tx, sectionId: string) {
+  const s = await tx.section.findFirst({ where: { id: sectionId }, select: { schoolClass: { select: { campusId: true } } } });
+  if (!s) throw new EventsProblem("This is not a pre-primary class this year. The daily diary is kept for Nursery to UKG.");
+  return s.schoolClass.campusId;
+}
+
 /** Assigns an activity to a class for a day or several days (working days only). */
 export async function assignActivity(tx: Tx, ctx: SchoolContext, input: AssignInput, today: string) {
   const s = await eventsSettings(tx, ctx);
@@ -128,9 +135,9 @@ export async function assignActivity(tx: Tx, ctx: SchoolContext, input: AssignIn
   const dates = [...new Set(input.dates)].sort();
   if (!dates.length) throw new EventsProblem("Choose the days.", "days");
   if (dates[0] < today) throw new EventsProblem("Pick today or a later day.", "days");
-  const year = await yearOf(tx, dates[0], "days");
+  const campusId = await campusOfSection(tx, input.sectionId);
+  const year = await yearOf(tx, dates[0], campusId, "days");
   const sec = await assertDiaryTeacher(tx, ctx, input.sectionId, year.id);
-  const campusId = (await tx.schoolClass.findUnique({ where: { id: sec.classId }, select: { campusId: true } }))?.campusId ?? null;
   const made: DailyActivity[] = [];
   const skipped: string[] = [];
   for (const iso of dates) {
@@ -195,7 +202,7 @@ export const diaryText = (teacher: string, section: string) => `{diary} – ${te
 
 /** Sends the day's diary to the parents: each parent gets only their own child's day. */
 export async function sendDiary(tx: Tx, ctx: SchoolContext, sectionId: string, today: string) {
-  const year = await yearOf(tx, today);
+  const year = await yearOf(tx, today, await campusOfSection(tx, sectionId));
   const sec = await assertDiaryTeacher(tx, ctx, sectionId, year.id);
   const acts = await dayActivities(tx, [sectionId], today);
   if (!acts.length) throw new EventsProblem("Nothing is assigned for today. Assign activities first.");
@@ -259,7 +266,7 @@ export async function todayProgress(tx: Tx, ctx: SchoolContext, yearId: string, 
 
 /** Reminds a pre-primary class teacher whose diary is behind (the Principal, School Admin and VP do this). */
 export async function remindTeacher(tx: Tx, ctx: SchoolContext, sectionId: string, today: string, nowMin: number) {
-  const year = await yearOf(tx, today);
+  const year = await yearOf(tx, today, await campusOfSection(tx, sectionId));
   const all = await todayProgress(tx, ctx, year.id, today, nowMin);
   const p = all.find((x) => x.id === sectionId);
   if (!p) throw new EventsProblem("This is not a pre-primary class this year.");

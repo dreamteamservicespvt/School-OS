@@ -1,0 +1,52 @@
+<title>School OS Security Follow-ups</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one narrow column, a work log read top to bottom */
+:root {
+  --bg: #f6f7f9; --card: #ffffff; --fg: #1b2130; --muted: #5d6578; --line: #dfe3ea;
+  --bar: #e6e9ef; --accent: #2f5bd3; --done: #1f8a4c; --run: #2f5bd3; --check: #a86400; --wait: #6b7280;
+  --font: "IBM Plex Sans", system-ui, sans-serif; --mono: "IBM Plex Mono", ui-monospace, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #12151c; --card: #1a1f29; --fg: #e7eaf0; --muted: #9aa3b5; --line: #2a3140;
+  --bar: #2a3140; --accent: #7a9cff; --done: #4cc382; --run: #7a9cff; --check: #e0a54a; --wait: #9aa3b5; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #12151c; --card: #1a1f29; --fg: #e7eaf0; --muted: #9aa3b5; --line: #2a3140;
+  --bar: #2a3140; --accent: #7a9cff; --done: #4cc382; --run: #7a9cff; --check: #e0a54a; --wait: #9aa3b5; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font-family: var(--font); font-size: 15px; line-height: 1.5; }
+.wrap { max-width: 760px; margin: 0 auto; padding-block: 24px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 20px; }
+.now { font-size: 16px; } .now b { color: var(--accent); }
+h1 { font-size: 22px; margin: 0; text-wrap: balance; }
+.main { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 16px; display: grid; gap: 8px; }
+.bar { height: 10px; background: var(--bar); border-radius: 99px; overflow: hidden; }
+.bar.big { height: 18px; }
+.bar > i { display: block; height: 100%; background: var(--accent); border-radius: 99px; }
+.pct { font-family: var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); font-size: 13px; }
+.rows { display: grid; gap: 0; background: var(--card); border: 1px solid var(--line); border-radius: 10px; }
+.row { display: grid; grid-template-columns: 1fr 120px 86px; gap: 6px 14px; align-items: center; padding: 12px 16px; border-top: 1px solid var(--line); }
+.row:first-child { border-top: 0; }
+.row .name { font-weight: 600; min-width: 0; }
+.row .line { grid-column: 1 / -1; color: var(--muted); font-size: 13.5px; min-width: 0; }
+.tag { font-size: 12px; font-weight: 600; text-align: center; padding: 2px 8px; border-radius: 99px; border: 1px solid currentColor; }
+.Done { color: var(--done); } .Running { color: var(--run); } .Checking { color: var(--check); } .Waiting { color: var(--wait); }
+.row .bar > i.Done { background: var(--done); }
+.wait { color: var(--muted); }
+.sev { font-family: var(--mono); font-size: 12px; color: var(--muted); font-weight: 400; }
+@media (max-width: 480px) { .row { grid-template-columns: 1fr 80px; } .row .bar { grid-column: 1 / -1; grid-row: 2; } .row .line { grid-row: 3; } }
+</style>
+<div class="wrap">
+  <div class="now">Now doing: <b>All done: 3 of 3 fixed and committed</b></div>
+  <h1>School OS security follow-ups (HANDOFF Next step S 2)</h1>
+  <div class="main">
+    <div class="bar big"><i style="width:100%"></i></div>
+    <div><span class="pct">3 of 3 fixed</span> · each one test-first with its own local commit; nothing pushed</div>
+  </div>
+  <div class="rows">
+    <div class="row"><div class="name">1. Events activity actions ignore One-campus</div><div class="bar"><i class="Done" style="width:100%"></i></div><span class="tag Done">Done</span><div class="line">Commit 390f0848. Houses, clubs, teams, fixtures: whole-school staff only. Achievements, credits, fitness, members, diary: own campus only. 6 new tests (5 failed before the fix); 7 of 7 old activity tests pass.</div></div>
+    <div class="row"><div class="name">2. Import undo: campus check for the other import kinds</div><div class="bar"><i class="Done" style="width:100%"></i></div><span class="tag Done">Done</span><div class="line">Commit 2eb2bf76. 13 more import kinds check the campus before undo; 6 school-wide kinds have no campus. 4 new tests (all red before); 63 of 63 old import tests pass.</div></div>
+    <div class="row"><div class="name">3. Campus refusal words in Hindi and Telugu</div><div class="bar"><i class="Done" style="width:100%"></i></div><span class="tag Done">Done</span><div class="line">Commit b278abdd. 24 refusal sentences in English, Hindi and Telugu; i18n tests 22 of 22 pass. Whole campus-limits file 34 of 34.</div></div>
+  </div>
+  <div class="wait"><b>Waiting on you:</b> a Hindi/Telugu speaker should check the 24 new sentences; say when to push (needs --force-with-lease).</div>
+</div>

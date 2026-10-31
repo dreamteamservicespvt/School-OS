@@ -6,6 +6,7 @@ import "server-only";
 import type { Prisma, Staff, StaffStatus } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
+import { actorName, alertPermissionChange } from "../settings/common";
 import { nextNumber } from "../sequences";
 import { encryptField, maskLast4, decryptField } from "../crypto";
 import { randomUUID } from "node:crypto";
@@ -296,6 +297,9 @@ export async function giveLogin(tx: Tx, ctx: SchoolContext, staff: Staff, login:
     action: "login-created", recordType: "User Login", recordId: user.id,
     after: { staff: staff.fullName, username, roles: roles.map((r) => r.name), exceptions: login.exceptions, signIn: temporary ? "temporary password, to change at first sign-in" : "invite link" },
   });
+  // As in Settings, Users & Permissions (20-settings.md): every change of roles or exceptions tells every School Admin.
+  const extra = Object.keys(login.exceptions).length;
+  await alertPermissionChange(tx, ctx, `${await actorName(tx, ctx)} gave ${staff.fullName} a login with the ${roles.map((r) => r.name).join(", ")} role${roles.length > 1 ? "s" : ""}${extra ? ` and ${extra} exception${extra > 1 ? "s" : ""}` : ""}.`, `/settings/users/${user.id}`);
   const sent = invite ? await sendInviteMessage(tx, ctx, user, invite.nonce) : null;
   return { userLoginId: user.id, username, inviteLink: invite ? `/invite/${invite.token}` : null, sent, temporary, roleNames: roles.map((r) => r.name) };
 }

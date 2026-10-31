@@ -114,3 +114,19 @@ describe("a temporary password, changed at the first sign-in (G33 b)", () => {
     await withSchool(as(f.admin.id), (tx) => savePasswordRules(tx, as(f.admin.id), { minLength: 8, history: 0, expiryDays: null }));
   });
 });
+
+// Security audit run-2, lead L5: a login given from Staff & HR (Add Staff or
+// Give login) carries roles and exceptions like one made in Settings, Users &
+// Permissions, and 20-settings.md says every change of roles, permissions or
+// exceptions tells every School Admin. Staff & HR told no one.
+describe("a login given from Staff & HR tells every School Admin", () => {
+  it("names the person, the roles and who gave them", async () => {
+    const by = as(f.principal.id);
+    await withSchool(by, (tx) => createStaff(tx, by, details({ fullName: "Arjun Mehta", phone: "9123400069" }), { roleKeys: ["school-admin"], username: null, exceptions: {}, campusId: null }, []));
+    const told = await withSchool(as(f.admin.id), (tx) => tx.notification.findMany({ where: { userLoginId: f.admin.id, type: "security", text: { contains: "Arjun Mehta" } } }));
+    expect(told).toHaveLength(1);
+    expect(told[0].text).toContain("Arjun Mehta");
+    expect(told[0].text).toContain("School Admin");
+    expect(told[0].text).toContain("Principal Person");
+  });
+});

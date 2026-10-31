@@ -50,7 +50,7 @@ await visit(ct, "/attendance-management/register");
 const reg = await text(ct, 1500);
 await done(ct);
 if (dPresent) {
-  const [_, p, tot, pc, ab] = dPresent;
+  const [, p, tot, pc, ab] = dPresent;
   const ok = Number(p) === presentLike && Number(ab) === (marks.absent ?? 0) && pc === pct;
   record({ area: A, role: "Principal", check: "Dashboard 'Students present' agrees with today's Grade 5 A register (after corrections)", status: ok ? "PASS" : "FAIL", note: `Dashboard: ${p}/${tot}, ${pc}% of marked, ${ab} absent. Register of active students: present ${marks.present ?? 0} + late ${marks.late ?? 0} = ${presentLike}, absent ${marks.absent ?? 0}, leave ${marks.leave ?? 0} → ${pct}% of ${activeMarked} marked. All saved marks incl. non-active students: ${JSON.stringify(marksAll)}. Register header: ${reg.split("\n")[1] ?? ""}` });
 } else record({ area: A, role: "Principal", check: "Dashboard shows Students present", status: "FAIL", note: d.slice(0, 300) });

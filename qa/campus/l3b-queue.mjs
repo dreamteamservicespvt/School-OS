@@ -1,9 +1,8 @@
 // Library: reservation queue, renew while someone waits, return to the queue, and what the desk says after a success.
-import { asUser, go, close, result, sleep, mainText, shot } from "./util.mjs";
+import { asUser, go, close, result, sleep, shot } from "./util.mjs";
 const M = "Library Management", P = "Issue & Return", R = "Librarian";
 const page = await asUser("cems.librarian");
 const said = async () => (await page.evaluate(() => [...document.querySelectorAll("[role=status],[role=alert]")].map((e) => e.innerText.trim()).filter(Boolean).join(" | ")).catch(() => "")).replace(/\s+/g, " ");
-const text = async () => (await mainText(page, 2500)).replace(/\s+/g, " ");
 async function waitSaid(re, n = 25) { for (let i = 0; i < n; i++) { await sleep(800); const s = await said(); if (re.test(s)) return s; } return await said(); }
 const rec = (action, expected, actual, ok, extra = {}) => result({ module: M, page: P, action, role: R, expected, actual: actual.slice(0, 600), status: ok ? "PASS" : "FAIL", ...extra });
 

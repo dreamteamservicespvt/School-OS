@@ -1,6 +1,6 @@
 // Regression re-test of the fixed PLATFORM defects, through the screens.
 //   QA_OUT=qa-output/regression node qa/regression/platform.mjs [ID ...]
-import { as, open, settle, mainText, shot, close, layoutIssues, squeeze, rec, check, BASE, VIEWPORTS } from "./_lib.mjs";
+import { as, open, settle, mainText, shot, close, squeeze, check, BASE, VIEWPORTS } from "./_lib.mjs";
 
 const only = process.argv.slice(2);
 const want = (id) => !only.length || only.includes(id);
@@ -96,7 +96,7 @@ if (want("PLATFORM-07")) await check({ id: "PLATFORM-07", area: A, role: "cems.s
     await p.locator("#confirmPassword").fill("QaNewPass#2026zz");
     const prev = await p.locator("form [role=alert]").innerText().catch(() => "");
     await p.locator("form").filter({ has: p.locator("#currentPassword") }).getByRole("button", { name: "Change password" }).click();
-    await p.waitForFunction((pv) => { const a = document.querySelector("form [role=alert]"); return a && (a.dataset.n = (Number(a.dataset.n || 0) + 1)) && true; }, prev, { timeout: 15000 }).catch(() => {});
+    await p.waitForFunction(() => { const a = document.querySelector("form [role=alert]"); return a && (a.dataset.n = (Number(a.dataset.n || 0) + 1)) && true; }, prev, { timeout: 15000 }).catch(() => {});
     await p.waitForTimeout(1800);
     const msg = squeeze(await p.locator("form [role=alert], [role=status]").allInnerTexts().then((a) => a.join(" | ")).catch(() => ""));
     said.push(`${i}: ${msg.slice(0, 110)}`);

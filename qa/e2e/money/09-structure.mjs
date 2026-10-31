@@ -1,7 +1,7 @@
 // Fee Structure: a fee head, and a mid-year change for Class 3 with paid and part-paid students.
 //   node qa/e2e/money/09-structure.mjs <step>
 // steps: pay | head | open | draft | publish
-import { as, visit, text, shot, sql, one, layoutIssues, VIEWPORTS, BASE, note, squeeze } from "./h.mjs";
+import { as, visit, text, shot, sql, VIEWPORTS, BASE, note, squeeze } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const step = process.argv[2];
@@ -70,7 +70,7 @@ if (step === "draft") {
   note("ROW SHEET:", squeeze(await dlg().innerText()).slice(0, 900));
   await dlg().locator("input[name=total]").fill("36000");
   await page.waitForTimeout(600);
-  const inst = await dlg().locator("li").allInnerTexts();
+  await dlg().locator("li").allInnerTexts();
   const vals = await dlg().locator("input[name=instAmount]").evaluateAll((els) => els.map((e) => e.value));
   const dues = await dlg().locator("input[name=instDue]").evaluateAll((els) => els.map((e) => e.value));
   note("INSTALLMENTS after total 36000:", JSON.stringify(vals), JSON.stringify(dues), squeeze(await dlg().innerText()).match(/Adds up to[^.]*|Installments add up to[^.]*\.[^.]*\./)?.[0]);

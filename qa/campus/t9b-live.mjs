@@ -1,11 +1,10 @@
 // Transport: settings validation, live tracking on, live map, delay message to parents (no channel),
 // emergency from the driver, end trip (missed stop), reports.
-import { asUser, go, mainText, close, result, sleep, shot, VIEWPORTS } from "./util.mjs";
-import { submit, said, openSheet } from "./util2.mjs";
+import { asUser, go, mainText, close, result, sleep, VIEWPORTS } from "./util.mjs";
+import { said, openSheet } from "./util2.mjs";
 const M = "Transport Management", R = "Transport In-charge";
 const NORTH = "5c05a200-cb2c-468a-a2ac-749e1ba50cdc";
 const page = await asUser("cems.transport");
-const D = (k) => page.locator(`dialog[open] [name=${k}]`);
 let s, t;
 
 // Delay message to Route 2's parents: no WhatsApp/SMS account exists.

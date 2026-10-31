@@ -1,6 +1,6 @@
 // Helpers for the money e2e testers (Fee, Finance, Salary) on Windows.
 // Sessions are cached per login; SQL is read-only through the local psql.
-import { launch, PASSWORD, BASE, OUT, VIEWPORTS, mainText, layoutIssues, shot, lastConsoleCode } from "../../lib.mjs";
+import { launch, BASE, OUT, VIEWPORTS, mainText, layoutIssues, shot, lastConsoleCode } from "../../lib.mjs";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { execFileSync } from "node:child_process";

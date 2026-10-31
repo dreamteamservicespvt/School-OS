@@ -1,7 +1,6 @@
 // Regression re-test of the fixed PEOPLE defects, through the screens.
 //   QA_OUT=qa-output/regression node qa/regression/people.mjs [ID ...]
 import { as, open, settle, mainText, shot, close, squeeze, rec, check, BASE } from "./_lib.mjs";
-import { writeFileSync } from "node:fs";
 
 const only = process.argv.slice(2);
 const want = (id) => !only.length || only.includes(id);

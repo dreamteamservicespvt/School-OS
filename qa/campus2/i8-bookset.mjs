@@ -1,5 +1,5 @@
 // Inventory: make a book set (1 item refused, 2 items fine) and issue it to a student with the price added to fees.
-import { asUser, go, mainText, close, record, openDialog, send, said, sleep } from "./util.mjs";
+import { asUser, go, close, record, openDialog, send, said, sleep } from "./util.mjs";
 const M = "Inventory Management", R = "Store Keeper";
 const rec = (pg, action, expected, actual, status, defect) => record({ module: M, page: pg, action, role: R, expected, actual, status, ...(defect ? { defect } : {}) });
 const page = await asUser("cems.store");

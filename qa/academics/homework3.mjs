@@ -2,15 +2,13 @@
 // (11 of 10 refused, then 9 of 10 Complete); Lasya Boddu has not handed in and shows as pending;
 // Pranav sees his score; crafted give-homework calls (past due, another teacher's subject).
 import { writeFileSync } from "node:fs";
-import { mainText, shot, close } from "../lib.mjs";
-import { res, login, open, messages, sleep, sql, uuidOf } from "./r.mjs";
+import { mainText, close } from "../lib.mjs";
+import { res, login, open, sql, uuidOf } from "./r.mjs";
 import { callFormAction } from "./action.mjs";
 
 const M = "Homework & Learning";
 const G5A = "949e25d2-78bc-48aa-a6b6-7fd678175201";
-const hwId = "11905cb2-1364-485a-b471-19bf724a6cd8";
 const F = "src/app/(school)/homework-learning/actions.ts";
-const FS = "src/app/(school)/homework-learning/submissions/actions.ts";
 const maths = uuidOf(sql("select id from subject where name='Mathematics' and archived_at is null limit 1;"));
 const msg = (r) => r.text.match(/"message":"[^"]*"/)?.[0] ?? r.text.replace(/\s+/g, " ").slice(-200);
 // a tiny valid PNG

@@ -1,5 +1,5 @@
 // Saanvi Sharma: a concession above the counter limit goes to the Principal, who approves it.
-import { as, visit, shot, sql, SCHOOL_A, result, mainText } from "./m.mjs";
+import { as, visit, sql, result } from "./m.mjs";
 import { close } from "../lib.mjs";
 import { STU, money, rs } from "./collect-lib.mjs";
 
@@ -29,7 +29,7 @@ if (step === "ask") {
     const r = await give(page, u, v, "Demo QA validation check");
     result({ module: M, page: P, action: `New concession with ${why}`, role: "accountant", expected: "Refused in plain words", actual: r.open ? `refused: ${r.text}` : `saved: ${JSON.stringify(cons())}`, status: r.open && cons().length === n ? "PASS" : "FAIL" });
   }
-  const r = await give(page, "amount", "5000", "Demo QA: merit concession for Saanvi, letter from parent on file.");
+  await give(page, "amount", "5000", "Demo QA: merit concession for Saanvi, letter from parent on file.");
   const c = cons();
   result({ module: M, page: P, action: "Concession ₹5,000 for Saanvi Sharma (above the ₹1,000 limit)", role: "accountant", expected: "Saved as waiting for the Principal; dues not changed yet", actual: `${JSON.stringify(c)} balance=${rs(money(STU.saanvi).balancePaise)}`, status: c.at(-1)?.[1] === "WAITING" && money(STU.saanvi).balancePaise === 3000000 ? "PASS" : "FAIL" });
   await close();

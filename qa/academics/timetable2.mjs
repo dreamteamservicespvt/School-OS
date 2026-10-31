@@ -1,7 +1,6 @@
 // Time Table: clash checks when editing by hand, publish with validation, teacher view, permissions.
-import { mainText, shot, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
+import { close } from "../lib.mjs";
 import { res, login, open, messages, sleep } from "./r.mjs";
-import { callAction, callFormAction } from "./action.mjs";
 
 const M = "Academic Management", P = "Time Table", R = "Principal";
 const G5A = "949e25d2-78bc-48aa-a6b6-7fd678175201";

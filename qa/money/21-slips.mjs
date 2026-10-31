@@ -1,5 +1,5 @@
 // Salary slips: PDF download (Accountant), who may open whose slip, and sending without a WhatsApp account.
-import { as, visit, sql, SCHOOL_A, result, BASE, mainText, shot } from "./m.mjs";
+import { as, visit, sql, SCHOOL_A, result, BASE, shot } from "./m.mjs";
 import { close } from "../lib.mjs";
 import { writeFileSync } from "node:fs";
 

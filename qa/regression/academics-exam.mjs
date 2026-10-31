@@ -2,7 +2,7 @@
 // medical leave) and ACADEMICS-13 (results can be published from the screen), with a new Demo exam:
 // "Demo QA Regression Exam <tag>", Grade 5, Mathematics only.
 //   QA_OUT=qa-output/regression node qa/regression/academics-exam.mjs [step]
-import { as, open, settle, mainText, shot, close, squeeze, rec, check, BASE } from "./_lib.mjs";
+import { as, open, settle, mainText, shot, close, squeeze, check } from "./_lib.mjs";
 import { writeFileSync, readFileSync, existsSync } from "node:fs";
 
 const A = "academics";

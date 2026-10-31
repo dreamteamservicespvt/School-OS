@@ -1,6 +1,6 @@
 // A payment dated yesterday, then cancelled: it should wait for the Principal's approval.
 //   node qa/e2e/money/05-past-cancel.mjs collect|cancel|approve
-import { as, visit, text, shot, sql, one, note, squeeze, BASE } from "./h.mjs";
+import { as, visit, text, shot, sql, note, squeeze, BASE } from "./h.mjs";
 import { close } from "../../lib.mjs";
 const STUDENT = "5323a56e-27dd-4d83-a914-3e95790b75a7";
 const step = process.argv[2];

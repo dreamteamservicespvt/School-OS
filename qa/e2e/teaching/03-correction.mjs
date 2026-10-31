@@ -1,6 +1,6 @@
 // After the lock: the class teacher asks for a correction on a phone (Akshara Pillai, 16 Oct, Present -> Absent);
 // mistakes first (nothing chosen, short reason); the principal approves in Approvals; the register changes, audit keeps the original.
-import { as, visit, text, report, shot, VIEWPORTS, sql, one, sleep, messages, SUNRISE } from "./h.mjs";
+import { as, visit, text, report, shot, VIEWPORTS, sql, sleep, messages, SUNRISE } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const SEC = "b07ca58e-2716-4729-ab56-3cdf783e5598";

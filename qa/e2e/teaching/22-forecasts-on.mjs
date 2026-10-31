@@ -1,6 +1,6 @@
 // The Principal switches on AI "Forecasts" and "Student insights and early warnings" (Settings, Modules, AI features)
 // so Early Warnings shows "Looking ahead".
-import { as, visit, text, VIEWPORTS, sql, sleep, messages, SUNRISE, shot } from "./h.mjs";
+import { as, visit, VIEWPORTS, sql, sleep, messages, SUNRISE, shot } from "./h.mjs";
 import { close, BASE } from "../../lib.mjs";
 
 const p = await as(process.env.WHO ?? "admin", VIEWPORTS.laptop1280);

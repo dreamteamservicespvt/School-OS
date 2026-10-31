@@ -1,6 +1,6 @@
 // Workflow 9 steps 4 to 8: the student (Bhavya Bhat) hands in a photo on a phone; the teacher opens Submissions &
 // Grading, gives a score above the maximum (refused), then a real score and feedback; bulk "Complete" with preview and undo.
-import { as, visit, text, report, shot, VIEWPORTS, sql, sleep, messages, SUNRISE, OUT } from "./h.mjs";
+import { as, visit, text, report, shot, VIEWPORTS, sql, sleep, messages, OUT } from "./h.mjs";
 import { close } from "../../lib.mjs";
 import path from "node:path";
 

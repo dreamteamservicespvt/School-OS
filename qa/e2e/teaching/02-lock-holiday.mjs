@@ -1,5 +1,5 @@
 // Take Attendance on a locked past day, a holiday, a Sunday, a future day; as the class teacher on a phone.
-import { as, visit, text, report, shot, VIEWPORTS, sql, sleep, messages } from "./h.mjs";
+import { as, visit, text, report, shot, VIEWPORTS, sql } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const SEC = "b07ca58e-2716-4729-ab56-3cdf783e5598"; // Class 5 A 2026-27

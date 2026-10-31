@@ -7,7 +7,6 @@ const D = "2026-10-28";
 const who = process.env.WHO ?? "admin";
 const a = await as(who, VIEWPORTS.phone390);
 await visit(a, `/academic-management/substitutions?date=${D}`, 1500);
-const p2 = a.locator("li, div").filter({ hasText: /^Period 2/ }).filter({ has: a.getByRole("button", { name: /Assign substitute/ }) }).last();
 await a.getByRole("button", { name: /Assign substitute/ }).first().click(); await sleep(1500);
 let dlg = a.getByRole("dialog");
 console.log("assign dialog:", (await dlg.innerText()).replace(/\s+/g, " ").slice(0, 1500));

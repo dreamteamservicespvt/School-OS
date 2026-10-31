@@ -1,5 +1,5 @@
 // Classes & Sections: add / edit / archive one DEMO class through the screen, with validation.
-import { asUser, go, mainText, shot, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
+import { asUser, go, mainText, shot, close } from "../lib.mjs";
 import { res, messages, sleep } from "./r.mjs";
 
 const M = "Academic Management", P = "Classes & Sections";

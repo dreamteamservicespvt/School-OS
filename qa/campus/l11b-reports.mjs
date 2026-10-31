@@ -4,12 +4,10 @@ import { capture, replay } from "./actions.mjs";
 const M = "Library Management", R = "Librarian";
 const rec = (pg, action, role, expected, actual, ok, st) => result({ module: M, page: pg, action, role, expected, actual: String(actual).slice(0, 600), status: st ?? (ok ? "PASS" : "FAIL") });
 const page = await asUser("cems.librarian");
-const SESSION = process.argv[2];
 
-let t;
 // 2. Reports and export.
 await go(page, "/library-management/reports"); await sleep(1500); /* report row already recorded */
-t = (await mainText(page, 1500)).replace(/\s+/g, " ");
+await mainText(page, 1500);
 const base = page.url().replace(/\/reports.*/, "");
 for (const path of ["/history/export", "/fines/export", "/books/export", "/members/export", "/reports/export"]) {
   const exp = await page.request.get(base + path, { timeout: 180_000 }).catch((e) => ({ status: () => 0, headers: () => ({}), text: async () => String(e).slice(0, 100) }));

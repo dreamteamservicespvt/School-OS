@@ -1,7 +1,7 @@
 // Staff leave decisions and edge cases: self approval, wrong approver, approve, duplicate approval,
 // reject, already rejected, cancelled request, send back, balance, notification.
-import { mainText, shot, close } from "../lib.mjs";
-import { res, login, open, messages, sleep, sql, uuidOf } from "./r.mjs";
+import { mainText, close } from "../lib.mjs";
+import { res, login, open, messages, sleep, sql } from "./r.mjs";
 import { callFormAction } from "./action.mjs";
 
 const M = "Staff & HR Management", P = "Staff Leave (decisions)";

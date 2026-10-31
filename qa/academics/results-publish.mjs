@@ -9,7 +9,6 @@ const M = "Examination & Results", P = "Results";
 const G5A = "949e25d2-78bc-48aa-a6b6-7fd678175201";
 const F = "src/app/(school)/examination-results/results/actions.ts";
 const exam = uuidOf(sql("select id from exam where title='Demo Unit Test 2 (QA)';"));
-const g5b = uuidOf(sql("select x.id from section x join school_class c on c.id=x.class_id where c.name='Grade 5' and x.name='B' and x.academic_year_id='151ceaef-b5c1-4c94-a994-6eee097806af';"));
 const url = `/examination-results/results?exam=${exam}&section=${G5A}`;
 const msg = (r) => r.text.match(/"message":"[^"]*"/)?.[0] ?? r.text.replace(/\s+/g, " ").slice(-200);
 

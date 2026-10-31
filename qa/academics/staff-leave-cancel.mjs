@@ -1,14 +1,12 @@
 // Staff leave: a cancelled request cannot be approved; "Ask for a change" (send back) and resubmission.
 import { mainText, close } from "../lib.mjs";
-import { res, login, open, messages, sleep, sql, uuidOf } from "./r.mjs";
+import { res, login, open, messages, sleep, sql } from "./r.mjs";
 import { callFormAction } from "./action.mjs";
 
 const M = "Staff & HR Management", P = "Staff Leave (decisions)";
 const F = "src/app/(school)/staff-hr-management/leave/actions.ts";
 const msgOf = (r) => (r.text.match(/"message":"[^"]*"/)?.[0] ?? r.text.replace(/\s+/g, " ").slice(-200));
 const teacher = await login("cems.teacher");
-const leaveTypes = sql("select id, name from leave_type where for_whom='staff';");
-const CL = uuidOf(leaveTypes.split("\n").find((l) => l.includes("Casual")));
 
 async function applyUI(date, reason) {
   await open(teacher, "/staff-hr-management/leave");

@@ -12,10 +12,8 @@ await p.getByRole("button", { name: "Go" }).click(); await p.waitForTimeout(3000
 await p.locator("#scan-copy").fill("00516");
 const go2 = p.getByRole("button", { name: "Go" }).last();
 await go2.click(); await p.waitForTimeout(2500);
-let d = p.getByRole("dialog").last();
 const txt = await mainText(p, 2000);
 console.log("AFTER SCAN:", txt.replace(/\n+/g, " | ").match(/Kabir.{0,500}/s)?.[0]);
-const issue = p.getByRole("button", { name: /^Issue/ }).first();
 console.log("ISSUE BUTTONS", await p.getByRole("button", { name: /Issue/ }).allInnerTexts());
 await close();
 // (appended) issue, then return twice: the new copy and an overdue one.

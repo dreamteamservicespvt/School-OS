@@ -12,7 +12,7 @@ for (const u of urls) {
       const r = await p.context().request.get(BASE + u, { maxRedirects: 0, timeout: 120000 });
       const b = await r.text();
       line = `${r.status()} ${Date.now() - s}ms ${Math.round(b.length / 1024)}KB`;
-    } catch (e) { line = `ERR ${Date.now() - s}ms`; }
+    } catch { line = `ERR ${Date.now() - s}ms`; }
     times.push(line);
   }
   console.log(u, "|", times.join(" | "));

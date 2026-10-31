@@ -39,7 +39,7 @@ await step("markout", async () => {
 await step("approve", async () => {
   // The warden raised it; the Principal decides in Approvals (own requests cannot be approved by oneself).
   const pp = await asUser("cems.warden");
-  await go(pp, "/approvals"); let t = await mainText(pp, 3000);
+  await go(pp, "/approvals"); await mainText(pp, 3000);
   let who = "Hostel Warden";
   let card = pp.locator("main div, main li, main article").filter({ hasText: "Varun" }).filter({ has: pp.getByRole("button", { name: "Approve" }) }).last();
   if (!(await card.count())) { await pp.context().close(); who = "Principal"; }

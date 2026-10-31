@@ -2,7 +2,7 @@
 // (validation, permissions, notify without a channel, remove), an event with registration and
 // seats, PTM planning and slot booking, and a gallery album.
 import { mainText, shot, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
-import { res, login, open, sleep, sql, uuidOf } from "./r.mjs";
+import { res, login, open, sql, uuidOf } from "./r.mjs";
 import { callFormAction } from "./action.mjs";
 
 const M = "Events & Calendar";

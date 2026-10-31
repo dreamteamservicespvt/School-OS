@@ -1,5 +1,5 @@
 // Duplicate enquiry warning (same phone as an open enquiry).
-import { asUser, go, close, VIEWPORTS, mainText, shot } from "../lib.mjs";
+import { asUser, go, close, VIEWPORTS, shot } from "../lib.mjs";
 import { res } from "./res.mjs";
 
 const page = await asUser("cems.admissions", VIEWPORTS.laptop1280);

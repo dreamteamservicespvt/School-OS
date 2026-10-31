@@ -2,7 +2,7 @@
 // (11 of 10 refused, then 9 of 10 Complete); Lasya Boddu has not handed in and shows as pending;
 // Pranav sees his score; crafted give-homework calls (past due, another teacher's subject).
 import { writeFileSync } from "node:fs";
-import { mainText, shot, close } from "../lib.mjs";
+import { mainText, close } from "../lib.mjs";
 import { res, login, open, messages, sleep, sql, uuidOf } from "./r.mjs";
 import { callFormAction } from "./action.mjs";
 

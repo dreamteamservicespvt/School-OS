@@ -1,7 +1,7 @@
 // Homework: the class teacher (Maths, Grade 5 A) gives "Demo: Maths Exercise 4.3" with an empty
 // title first (refused), then for real (due 20-10-2026, out of 10, online submission). Crafted
 // calls: a past due date, and the Science teacher giving Maths homework to 5 A.
-import { mainText, shot, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
+import { shot, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
 import { res, login, open, messages, sleep, sql, uuidOf } from "./r.mjs";
 import { callFormAction } from "./action.mjs";
 

@@ -1,8 +1,8 @@
 // The Principal decides the attendance corrections: approves the real ones, does not approve the
 // ones for a future day, Sunday, holiday, outside the year and the subject teacher's. Class teacher
 // cannot approve; a decided correction cannot be decided twice.
-import { mainText, close } from "../lib.mjs";
-import { res, login, open, messages, sleep, sql, uuidsOf } from "./r.mjs";
+import { close } from "../lib.mjs";
+import { res, login, open, messages, sleep, sql } from "./r.mjs";
 import { callFormAction } from "./action.mjs";
 
 const M = "Attendance Management", P = "Attendance Register (corrections)", R = "Principal";

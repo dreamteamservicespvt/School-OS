@@ -2,13 +2,9 @@
 import { mainText, shot, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
 import { res, login, open, messages, sleep } from "./r.mjs";
 import { callAction, callFormAction } from "./action.mjs";
-import { execFileSync } from "node:child_process";
 
-const Q = "/tmp/claude-0/-home-claude-school-os/3895b89f-1549-5376-9f0c-be97139fc4ec/scratchpad/a3/q.sh";
-const sql = (s) => execFileSync(Q, ["CEMS", s]).toString();
 const M = "Academic Management", P = "Time Table", R = "Principal";
 const F = "src/app/(school)/academic-management/time-table/actions.ts";
-const uuidOf = (s) => s.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/)?.[0];
 
 const page = await login("cems.principal");
 // Past date through a crafted call

@@ -1,6 +1,6 @@
 // Signs in to the Super Admin console (password, then the code from the server log)
 // and saves the session to qa-output/console-state.json for later scripts.
-import { newPage, go, mainText, close, OUT, PASSWORD, BASE } from "./lib.mjs";
+import { newPage, go, mainText, close, OUT, PASSWORD } from "./lib.mjs";
 import { readFileSync } from "node:fs";
 const phone = process.argv[2] ?? "9849023456";
 const page = await newPage();

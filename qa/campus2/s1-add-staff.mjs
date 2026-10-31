@@ -40,7 +40,7 @@ await step("dob", async () => {
 });
 await step("long", async () => {
   await fresh(); const long = "QA Demo " + "Verylongname".repeat(12);
-  await base(); await F("fullName").evaluate((e, v) => { e.removeAttribute("maxlength"); e.value = ""; }, long); await F("fullName").fill(long);
+  await base(); await F("fullName").evaluate((e) => { e.removeAttribute("maxlength"); e.value = ""; }, long); await F("fullName").fill(long);
   const r = await next(); rec(`Full name of ${long.length} letters (maxlength removed)`, "Refused: at most 120 characters", r.s, !r.step2 && /120|long|at most/i.test(r.s) ? "PASS" : "FAIL");
   await fresh(); await base("12345 !!!"); const r2 = await next(); rec("Full name '12345 !!!' (no letters)", "Refused: must have letters", r2.s, !r2.step2 && /letters/i.test(r2.s) ? "PASS" : "FAIL");
 });
@@ -64,7 +64,6 @@ await step("good", async () => {
   let r = await next(); rec(`Step 1 for QA Demo Staff ${stamp}, phone ${phone}, Support Staff`, "Moves to step 2 (what they can open)", r.s || "on step 2", r.step2 ? "PASS" : "FAIL");
   const t = await mainText(page, 3000); console.log(t.slice(0, 1200));
   const gl = page.locator("main [name=giveLogin]"); if (await gl.count() && await gl.isChecked()) await gl.uncheck().catch(() => {});
-  const cr = page.locator("main").getByRole("button", { name: /Create staff|Skip and create staff/ }).first();
   const nx = page.locator("main").getByRole("button", { name: "Next", exact: true });
   if (await nx.isVisible().catch(() => false)) { await nx.click(); await sleep(1500); }
   await page.locator("main").getByRole("button", { name: /Create staff|Skip and create staff/ }).filter({ visible: true }).first().click(); await sleep(4000);

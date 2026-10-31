@@ -1,6 +1,6 @@
 // Teacher grades on a phone: Bhavya's hand-in (score 25 of 20 refused, then 16 + feedback); bulk Complete with preview
 // for three students who showed their notebooks in class; Undo.
-import { as, visit, text, report, shot, VIEWPORTS, sql, sleep, messages } from "./h.mjs";
+import { as, visit, report, shot, VIEWPORTS, sql, sleep, messages } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const HW = "dd2720d9-0ad1-474d-aba3-322cf1c40a6f";

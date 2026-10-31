@@ -1,6 +1,6 @@
 // Workflow 8 steps 9 and 12 on a phone: the class teacher asks for suggested remarks (AI, "Suggestion"), keeps one,
 // writes one, saves; the attendance on the report card vs the register; the report card PDF downloads.
-import { as, visit, text, report, shot, VIEWPORTS, sql, sleep, messages, OUT } from "./h.mjs";
+import { as, visit, text, report, shot, VIEWPORTS, sleep, messages, OUT } from "./h.mjs";
 import { close, BASE } from "../../lib.mjs";
 import { writeFileSync } from "node:fs";
 import path from "node:path";

@@ -1,6 +1,6 @@
 // Workflow 9 on a phone as the Mathematics teacher: Give homework (mistakes: empty title, past due date, start after
 // due, maximum 0 / letters), send; check the due date it fills ("Next class") against the Dasara holidays.
-import { as, visit, text, report, shot, VIEWPORTS, sql, sleep, messages, SUNRISE } from "./h.mjs";
+import { as, visit, report, shot, VIEWPORTS, sql, sleep, messages, SUNRISE } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const TITLE = process.env.TITLE ?? "QA: Exercise 5.1 Decimals, Q1-Q6";

@@ -1,5 +1,5 @@
 // node qa/platform/look.mjs <login> <url> [viewport]  — like qa/explore.mjs, with the platform sign-in helper.
-import { go, mainText, layoutIssues, close, VIEWPORTS, shot } from "../lib.mjs";
+import { mainText, layoutIssues, close, VIEWPORTS, shot } from "../lib.mjs";
 import { as } from "./util.mjs";
 const [login, url, vp = "laptop1280"] = process.argv.slice(2);
 const p = await as(login, VIEWPORTS[vp]);

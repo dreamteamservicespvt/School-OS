@@ -7,7 +7,6 @@ import { callAction } from "./action.mjs";
 
 const M = "Examination & Results", P = "Marks Entry", R = "Class Teacher (Maths)";
 const G5A = "949e25d2-78bc-48aa-a6b6-7fd678175201";
-const BASEURL = process.env.QA_URL ?? "http://localhost:3000";
 const maths = uuidOf(sql("select d.id from datesheet_entry d join exam e on e.id=d.exam_id join subject s on s.id=d.subject_id where e.title='Demo Unit Test 2 (QA)' and s.name='Mathematics';"));
 const subjectEntry = (name) => uuidOf(sql(`select d.id from datesheet_entry d join exam e on e.id=d.exam_id join subject s on s.id=d.subject_id where e.title='Demo Unit Test 2 (QA)' and s.name='${name}';`));
 const page = await login("cems.classteacher");

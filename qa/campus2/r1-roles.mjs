@@ -1,6 +1,6 @@
 // Role isolation for Inventory, Hostel and Staff & HR: Teacher and Accountant through the menu and by direct URL
 // (pages and the sheets that change things), and School B's admin opening CEMS record URLs.
-import { asUser, go, mainText, close, record, opens, sleep } from "./util.mjs";
+import { asUser, go, mainText, close, record, opens } from "./util.mjs";
 const rec = (module, page, action, role, expected, actual, status, defect) => record({ module, page, action, role, expected, actual, status, ...(defect ? { defect } : {}) });
 // Collect CEMS record links as the people who own them.
 const ids = {};

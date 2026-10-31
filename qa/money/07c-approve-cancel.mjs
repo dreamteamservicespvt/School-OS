@@ -1,5 +1,5 @@
 // Principal approves cancelling Ananya's June payment: reversal posts today, June stays as it was.
-import { as, sql, SCHOOL_A, result } from "./m.mjs";
+import { as, sql, result } from "./m.mjs";
 import { close } from "../lib.mjs";
 import { money, STU, rs } from "./collect-lib.mjs";
 import { findApproval, decide } from "./approve-lib.mjs";

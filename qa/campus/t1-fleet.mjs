@@ -1,6 +1,6 @@
 // Transport: vehicles (validation, add, edit), drivers and attendants.
 import { asUser, go, mainText, close, result, sleep, shot } from "./util.mjs";
-import { submit, fillL, clickB, said } from "./util2.mjs";
+import { submit, clickB } from "./util2.mjs";
 const M = "Transport Management", P = "Vehicles & Drivers", R = "Transport In-charge";
 const page = await asUser("cems.transport");
 const V = "/transport-management/vehicles";

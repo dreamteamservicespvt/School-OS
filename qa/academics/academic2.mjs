@@ -2,7 +2,7 @@
 // Academic Head: Subjects (add, validation, duplicate code, edit, archive), Teacher Allocation
 // (assign, validation, end), Syllabus (add, validation, archive); Teacher refused; Vice Principal
 // and Academic Head views; Settings page; 375px.
-import { mainText, shot, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
+import { mainText, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
 import { res, login, open, sql, uuidOf } from "./r.mjs";
 import { callAction, callFormAction } from "./action.mjs";
 

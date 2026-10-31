@@ -1,6 +1,6 @@
 // Hostel: the School Admin adds a boys' and a girls' hostel and makes Demo Satyavathi Kella (cems.warden) the warden;
 // the warden adds rooms (validation, duplicate room number) and blocks a bed.
-import { asUser, go, mainText, close, record, openDialog, send, said, sleep } from "./util.mjs";
+import { asUser, go, mainText, close, record, openDialog, send } from "./util.mjs";
 const M = "Hostel Management", P = "Rooms & Beds";
 const rec = (role, action, expected, actual, status, defect) => record({ module: M, page: P, action, role, expected, actual, status, ...(defect ? { defect } : {}) });
 const ONLY = process.env.ONLY?.split(",");
@@ -9,7 +9,6 @@ async function hostelId(page, name) {
   return page.evaluate((n) => { for (const a of document.querySelectorAll("main a[href*='hostel=']")) if (a.innerText.includes(n)) return new URL(a.href).searchParams.get("hostel"); return null; }, name);
 }
 const step = async (name, fn) => { if (ONLY && !ONLY.some((o) => name.includes(o))) return; try { await fn(); } catch (e) { console.log("ERR", name, e.message.split("\n")[0]); } };
-const btn = async (page) => (await page.locator("dialog[open] button[type=submit]").last().innerText()).trim();
 const D = (page, k) => page.locator(`dialog[open] [name="${k}"]`).first();
 
 await step("hostels", async () => {
@@ -25,10 +24,8 @@ await step("hostels", async () => {
   }
   // Wardens.
   await go(page, "/hostel-management/rooms"); const t = await mainText(page, 4000);
-  for (const name of ["QA Demo Boys Hostel", "QA Demo Girls Hostel"]) {
-    const href = await page.evaluate((n) => [...document.querySelectorAll("main a[href*='wardens=']")].map((a) => a.getAttribute("href")), name);
-    console.log("warden links", href);
-  }
+  const href = await page.evaluate(() => [...document.querySelectorAll("main a[href*='wardens=']")].map((a) => a.getAttribute("href")));
+  console.log("warden links", href);
   console.log(t.slice(0, 800));
   await page.context().close();
 });

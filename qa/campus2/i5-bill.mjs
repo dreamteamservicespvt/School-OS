@@ -1,6 +1,6 @@
 // Inventory: Store Keeper records the vendor's bill (and a duplicate bill number); the Accountant pays it
 // and the payment shows in the Finance Day Book.
-import { asUser, go, mainText, close, record, send, said, sleep } from "./util.mjs";
+import { asUser, go, mainText, close, record, send, sleep } from "./util.mjs";
 const M = "Inventory Management", P = "Purchases & Vendors";
 const rec = (role, action, expected, actual, status, defect) => record({ module: M, page: P, action, role, expected, actual, status, ...(defect ? { defect } : {}) });
 const D = (page, k) => page.locator(`dialog[open] [name="${k}"]`).first();

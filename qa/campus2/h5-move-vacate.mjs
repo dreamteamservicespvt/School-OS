@@ -1,6 +1,6 @@
 // Hostel: move Demo Varun Teja to another bed, block the bed he left (repair), then check him out (vacate);
 // the bed becomes free.
-import { asUser, go, mainText, close, record, send, said, sleep } from "./util.mjs";
+import { asUser, go, mainText, close, record, send, sleep } from "./util.mjs";
 const M = "Hostel Management", R = "Hostel Warden";
 const rec = (pg, action, expected, actual, status, defect) => record({ module: M, page: pg, action, role: R, expected, actual, status, ...(defect ? { defect } : {}) });
 const page = await asUser("cems.warden");
@@ -24,7 +24,7 @@ await step("move", async () => {
   rec("Allocation", `Move Demo Varun Teja from B-101 to B-102${process.env.REALLOCATE ? " (bed and reason filled before pressing Move)" : ""}`, "Moved; history kept", (r0.open ? `first try: ${r0.s} → ` : "") + r.s, !r.open && /moved|B-102/i.test(r.s) ? "PASS" : "FAIL");
 });
 await step("block", async () => {
-  await go(page, "/hostel-management/rooms"); const t = await mainText(page, 4000);
+  await go(page, "/hostel-management/rooms"); await mainText(page, 4000);
   const h = await page.evaluate(() => [...document.querySelectorAll("main a[href*='bed=']")].map((a) => ({ h: a.getAttribute("href"), t: a.innerText })).find((x) => /B-101/.test(x.t) || true)?.h);
   console.log("bed links", await page.evaluate(() => [...document.querySelectorAll("main a[href*='bed=']")].map((a) => a.innerText.replace(/\n/g, " ")).slice(0, 6)));
   await go(page, h.replace("bed=", "block=")); await page.waitForSelector("dialog[open]", { timeout: 10000 });

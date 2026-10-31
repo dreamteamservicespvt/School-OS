@@ -1,6 +1,6 @@
 // Journey E6: School Admin writes a notice for Class 5 parents and staff; mistakes first; Principal approves; teacher sees it.
 import { as } from "./look.mjs";
-import { go, mainText, shot, close } from "./h.mjs";
+import { go, mainText, close } from "./h.mjs";
 const TITLE = "Self-test: Parent-teacher meeting on 7 November";
 const rec = (c, pass, note = "") => console.log(`${pass ? "PASS" : "FAIL"} ${c}${note ? " :: " + note : ""}`);
 const a = await as("admin");

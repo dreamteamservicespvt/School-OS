@@ -1,5 +1,5 @@
 // Time Table: start a draft, make it automatically, check clashes, publish, and see it as a teacher.
-import { mainText, shot, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
+import { mainText, shot, close } from "../lib.mjs";
 import { res, login, open, messages, sleep } from "./r.mjs";
 
 const M = "Academic Management", P = "Time Table", R = "Principal";

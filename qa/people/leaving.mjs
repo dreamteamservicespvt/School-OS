@@ -46,7 +46,7 @@ res({ module: M, page: "Leaving & Alumni", action: "Issue TC button while cleara
 // Try the certificate form directly
 await go(page, `/student-management/certificates/new?student=${SID}&type=TC`);
 await page.waitForTimeout(1500);
-const c0 = await txt("main");
+await txt("main");
 const submit = page.locator("main button[type=submit]").last();
 if (await submit.count() && await submit.isEnabled()) { await submit.click(); await page.waitForTimeout(2500); }
 const c1 = await txt("main");

@@ -8,8 +8,6 @@ const D = "2026-10-18";
 if (!process.env.SKIP_ON) {
   const p = await as("principal", VIEWPORTS.phone390);
   await visit(p, "/attendance-management/settings", 1200);
-  const row = p.locator("li, div").filter({ hasText: /^Absence reasons/ }).last();
-  const btn = p.getByRole("button", { name: /Switch on/ }).filter({ hasText: /Switch on/ });
   // find the Switch on next to "Absence reasons"
   const block = p.locator(":is(li,div)").filter({ hasText: "Absence reasons" }).filter({ has: p.getByRole("button", { name: /Switch (on|off)/ }) });
   const n = await block.count();

@@ -1,5 +1,5 @@
 // Transport: routes and stops (validation, three synthetic routes, stops in order).
-import { asUser, go, mainText, close, result, sleep, shot } from "./util.mjs";
+import { asUser, go, mainText, close, result, shot } from "./util.mjs";
 import { submit, clickB, openSheet } from "./util2.mjs";
 const M = "Transport Management", P = "Routes & Stops", R = "Transport In-charge";
 const B = "/transport-management/routes";

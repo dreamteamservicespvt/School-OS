@@ -1,7 +1,7 @@
 // Workflow 2, fee collection at the counter, as the Sunrise Accountant.
 //   node qa/e2e/money/01-counter.mjs <step> [viewport] [studentId]
 // steps: search | mistakes | pay | double | back | receipt | after | cancel
-import { as, visit, text, shot, sql, one, layoutIssues, VIEWPORTS, rs, SUNRISE, BASE, note } from "./h.mjs";
+import { as, visit, text, shot, sql, one, layoutIssues, VIEWPORTS, rs, BASE, note } from "./h.mjs";
 import { close } from "../../lib.mjs";
 import { writeFileSync, existsSync, readFileSync } from "node:fs";
 import path from "node:path";

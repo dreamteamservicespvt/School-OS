@@ -13,7 +13,7 @@ const libSees = await lib.locator("tr", { hasText: "LF-0022" }).getByRole("butto
 rec("Fines & Stock Check", "Approve button on LF-0022 (₹849 lost book charge)", "Librarian", "Hidden: the Principal decides", libSees ? "Approve shown" : "No Approve button", libSees ? "FAIL" : "PASS");
 
 const pr = await asUser("principal");
-const cap = await capture(pr, "/library-management/fines?status=WAITING", { submit: "Approve", fill: async (p) => { await sleep(1500); } });
+const cap = await capture(pr, "/library-management/fines?status=WAITING", { submit: "Approve", fill: async () => { await sleep(1500); } });
 if (!cap) { console.log("no capture"); } else {
   const r = await replay(lib, cap);
   const refused = /someone else|not allowed|cannot|only/i.test(r.msg) && !/Approved:/i.test(r.msg);

@@ -2,7 +2,7 @@
 // cannot be published. The Exam In-charge sends the paper back; the class teacher adds the mark and
 // sets Aditya Kumar to ML; resubmits; the Exam In-charge locks the exam. Then a locked mark is
 // changed only through moderation with approval.
-import { mainText, shot, close } from "../lib.mjs";
+import { shot, close } from "../lib.mjs";
 import { res, login, open, messages, sleep, sql, uuidOf } from "./r.mjs";
 
 const M = "Examination & Results", P = "Marks verification";

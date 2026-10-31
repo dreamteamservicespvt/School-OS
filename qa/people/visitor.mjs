@@ -1,5 +1,5 @@
 // Front Office: visitor check-in -> pass -> check at the gate -> check-out (cems.reception and cems.gate).
-import { go, close, shot, VIEWPORTS, layoutIssues } from "../lib.mjs";
+import { go, close, shot } from "../lib.mjs";
 import { as } from "./session.mjs";
 import { res } from "./res.mjs";
 

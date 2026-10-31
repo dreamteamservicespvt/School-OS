@@ -2,7 +2,7 @@
 // to make them, and checks the database did not change.
 //   node qa/platform/replay.mjs
 import { execFileSync } from "node:child_process";
-import { appendFileSync, mkdirSync } from "node:fs";
+import { mkdirSync } from "node:fs";
 import { close } from "../lib.mjs";
 import { as } from "./util.mjs";
 import { callAction, words } from "./action-call.mjs";

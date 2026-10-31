@@ -1,5 +1,5 @@
 // Who may open the money pages. node qa/e2e/money/18-permissions.mjs <login> [viewport]
-import { as, visit, text, shot, BASE, note, VIEWPORTS } from "./h.mjs";
+import { as, visit, text, BASE, note, VIEWPORTS } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const [login, vp = "laptop1280"] = process.argv.slice(2);

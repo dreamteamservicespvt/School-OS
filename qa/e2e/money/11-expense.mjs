@@ -1,7 +1,7 @@
 // Workflow 13, expense entry, as the Accountant; the Principal approves the big one.
 //   node qa/e2e/money/11-expense.mjs <step> [viewport]
 // steps: mistakes | small | dup | big | pay | daybook | reports
-import { as, visit, text, shot, sql, one, layoutIssues, VIEWPORTS, BASE, note, squeeze, SUNRISE } from "./h.mjs";
+import { as, visit, text, shot, sql, one, layoutIssues, VIEWPORTS, note, squeeze, SUNRISE } from "./h.mjs";
 import { close } from "../../lib.mjs";
 import { writeFileSync, existsSync } from "node:fs";
 import path from "node:path";

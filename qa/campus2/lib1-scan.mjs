@@ -2,7 +2,7 @@
 import { asUser, go, mainText, close, record, said, sleep } from "./util.mjs";
 const p = await asUser("cems.librarian");
 try {
-  await go(p, "/library-management/fines?view=stock"); const t = await mainText(p, 2000);
+  await go(p, "/library-management/fines?view=stock"); await mainText(p, 2000);
   let href = await p.evaluate(() => [...document.querySelectorAll("main a")].filter((a) => /Continue scanning/.test(a.innerText)).map((a) => a.getAttribute("href"))[0]);
   let started = false;
   if (!href) {

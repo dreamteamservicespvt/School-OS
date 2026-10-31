@@ -1,5 +1,5 @@
 // Can the teacher mark several students Complete at once on a phone, a tablet and a laptop?
-import { as, visit, VIEWPORTS, sleep, shot, text, messages, sql } from "./h.mjs";
+import { as, visit, VIEWPORTS, sleep, shot, messages, sql } from "./h.mjs";
 import { close } from "../../lib.mjs";
 const HW = "dd2720d9-0ad1-474d-aba3-322cf1c40a6f";
 for (const vp of ["phone390", "tablet768", "laptop1280"]) {

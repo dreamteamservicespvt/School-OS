@@ -13,7 +13,6 @@ async function tag(page, phrase, btn) {
 }
 const p = await as("principal", VIEWPORTS.phone390);
 await visit(p, "/reports-analytics/early-warnings", 2000);
-const sec = p.locator("section, div").filter({ hasText: /^Looking ahead/ }).first();
 await report(p, "ew principal phone");
 await shot(p, "ahead-principal-phone", true);
 console.log("item:", await tag(p, "Harini Mishra (Class 1 A) may", "Add for review"));

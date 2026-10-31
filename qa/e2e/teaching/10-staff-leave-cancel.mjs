@@ -1,6 +1,6 @@
 // Workflow 7 step 10: the teacher cancels the approved leave on a phone; the balance comes back and the
 // substitutions for those periods are released; the substitute's day no longer shows the extra periods.
-import { as, visit, text, report, shot, VIEWPORTS, sql, sleep, messages, SUNRISE } from "./h.mjs";
+import { as, visit, text, report, shot, VIEWPORTS, sql, sleep, messages } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const ME = "eb875a8c-e843-4289-b29c-a4d1a3f681ed";

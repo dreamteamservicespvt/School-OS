@@ -1,7 +1,7 @@
 // Checks the homework fixes on the dev build (QA_URL=http://localhost:3103): the student is sent to
 // his own homework from the details link; giving homework says only what really happened.
 import { close } from "../lib.mjs";
-import { res, login, open, messages, sleep, sql, uuidOf } from "./r.mjs";
+import { res, login, open, messages, sleep, sql } from "./r.mjs";
 
 const M = "Homework & Learning";
 const hwId = "11905cb2-1364-485a-b471-19bf724a6cd8";

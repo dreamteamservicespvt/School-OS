@@ -67,7 +67,7 @@ let rt = await text(pr, 4000);
 await shot(pr, "week-02-attendance-report-week");
 const row = rt.split("\n").find((l) => /^Grade 5 A\t/.test(l)) ?? "";
 const cells = row.split("\t");
-const [_, onRoll, P, Ab, L, Lv, pct] = cells.length === 7 ? cells : [cells[0], cells[1], cells[3], cells[4], cells[5], cells[6], cells[7]];
+const [, , P, Ab] = cells.length === 7 ? cells : [cells[0], cells[1], cells[3], cells[4], cells[5], cells[6], cells[7]];
 const expP = (wk.present ?? 0) + (wk.late ?? 0);
 record({ area: A, role: "Principal", check: "Reports & Analytics 'Daily attendance' for This week (Grade 5 A) agrees with the register", status: Number(Ab) === (wk.absent ?? 0) && (Number(P) === expP || Number(P) === (wk.present ?? 0)) ? "PASS" : "FAIL", note: `report row: "${row.replace(/\t/g, " | ")}" (${rt.match(/Showing:[^\n]*/)?.[0] ?? ""}); register of active students Mon-Fri: present ${wk.present ?? 0}, late ${wk.late ?? 0}, absent ${wk.absent ?? 0}, leave ${wk.leave ?? 0}; all saved marks incl. transferred student: ${JSON.stringify(wkAll)}` });
 // The same report for today only, compared with the register and the Dashboard.

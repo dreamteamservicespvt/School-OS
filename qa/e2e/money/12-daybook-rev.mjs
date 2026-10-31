@@ -1,5 +1,5 @@
 // Day Book: the Refunds and reversals section, and the Close today button.
-import { as, visit, text, shot, note, squeeze } from "./h.mjs";
+import { as, visit, text, note } from "./h.mjs";
 import { close } from "../../lib.mjs";
 const page = await as(process.env.LOGIN ?? "accountant");
 await visit(page, "/finance-management/day-book", 2500);

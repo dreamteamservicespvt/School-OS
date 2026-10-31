@@ -1,6 +1,6 @@
 // Permissions: a Teacher (subjectteacher = Prakash Kulkarni, class teacher of 5 B, Science in 6-10) opening Class 5 A's
 // attendance, register, absent list, marks and homework by URL and by crafted server calls; the Class Teacher opening fees.
-import { as, visit, text, VIEWPORTS, sql, sleep, shot, SUNRISE } from "./h.mjs";
+import { as, visit, text, VIEWPORTS, sql, shot, SUNRISE } from "./h.mjs";
 import { close } from "../../lib.mjs";
 process.env.QA_MANIFEST = "D:/Projects/School-OS/.next/server/server-reference-manifest.json";
 const { callAction, callFormAction } = await import("../../academics/action.mjs");

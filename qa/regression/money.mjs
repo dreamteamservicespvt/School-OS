@@ -1,7 +1,7 @@
 // Regression re-test of the other fixed MONEY defects, through the screens.
 //   QA_OUT=qa-output/regression node qa/regression/money.mjs [ID ...]
-import { as, open, settle, mainText, shot, close, squeeze, rec, check, BASE, VIEWPORTS } from "./_lib.mjs";
-import { writeFileSync, existsSync } from "node:fs";
+import { as, open, settle, mainText, shot, close, squeeze, check, BASE, VIEWPORTS } from "./_lib.mjs";
+import { writeFileSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 
 const only = process.argv.slice(2);
@@ -61,7 +61,7 @@ if (want("MONEY-05")) await check({ id: "MONEY-05", area: A, role: "cems.admin",
 if (want("MONEY-08")) await check({ id: "MONEY-08", area: A, role: "cems.accountant", check: "Finance Settings: Close August 2026 while July 2026 is open is refused; August stays open" }, async (set) => {
   const p = set(await as("cems.accountant"));
   await open(p, "/finance-management/settings");
-  const before = squeeze(await mainText(p, 6000));
+  await mainText(p, 6000);
   const links = await p.locator("main a[href*='close=']").evaluateAll((as) => as.map((a) => a.getAttribute("href")));
   if (!links.some((h) => h.endsWith("2026-07")) || !links.some((h) => h.endsWith("2026-08"))) return { status: "BLOCKED", note: `July and August are not both open: close links ${links.join(", ")}` };
   await open(p, "/finance-management/settings?close=2026-08");

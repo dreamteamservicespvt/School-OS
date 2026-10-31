@@ -1,6 +1,6 @@
 // Hostel: the warden gives beds — a boy to the boys' hostel, the same boy again (blocked), a girl to the boys' hostel
 // (refused), the girl to the girls' hostel; blocks a bed for repair.
-import { asUser, go, mainText, close, record, openDialog, send, said, sleep } from "./util.mjs";
+import { asUser, go, mainText, close, record, openDialog, send, sleep } from "./util.mjs";
 const M = "Hostel Management", R = "Hostel Warden";
 const rec = (pg, action, expected, actual, status, defect) => record({ module: M, page: pg, action, role: R, expected, actual, status, ...(defect ? { defect } : {}) });
 const ONLY = process.env.ONLY?.split(",");

@@ -1,6 +1,6 @@
 // CEMS (new school, no salary yet): add two structures, open September 2026, calculate, send.
 //   node qa/e2e/money/16-cems-salary.mjs <step>   steps: structures | open | send | pay
-import { as, visit, text, shot, sql, one, VIEWPORTS, BASE, note, squeeze, CEMS } from "./h.mjs";
+import { as, visit, text, shot, sql, VIEWPORTS, note, squeeze, CEMS } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const step = process.argv[2];

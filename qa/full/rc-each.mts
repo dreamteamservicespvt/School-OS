@@ -9,7 +9,7 @@ const b = await chromium.launch({ executablePath: "C:/Program Files/Google/Chrom
 const p = await b.newPage({ viewport: { width: 703, height: 1032 } });
 await p.emulateMedia({ media: "print" });
 for (const id of ids) {
-  const doc = await withSchool(ctx, (tx) => renderReportCards(tx, ctx, [{ studentId: id, sectionId }], period), { timeout: 120_000 }).catch((e) => null);
+  const doc = await withSchool(ctx, (tx) => renderReportCards(tx, ctx, [{ studentId: id, sectionId }], period), { timeout: 120_000 }).catch(() => null);
   if (!doc) continue;
   await p.setContent(doc.html);
   const h = await p.evaluate(() => (document.querySelector(".page")!.getBoundingClientRect().height / (96 / 25.4)).toFixed(1));

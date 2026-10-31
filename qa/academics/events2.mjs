@@ -3,7 +3,7 @@
 // PTM on 31-10-2026 for Grade 5: plan (validation, weekend/holiday refused), class teacher books
 // Sahithi's slot, double booking refused, Teacher cannot plan; gallery album.
 import { mainText, shot, close } from "../lib.mjs";
-import { res, login, open, sleep, sql, uuidOf } from "./r.mjs";
+import { res, login, open, sql, uuidOf } from "./r.mjs";
 import { callFormAction } from "./action.mjs";
 
 const M = "Events & Calendar";

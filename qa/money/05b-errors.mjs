@@ -1,5 +1,5 @@
 // What a person sees when Collect Fee refuses (field errors are not alerts).
-import { as, shot, mainText } from "./m.mjs";
+import { as, shot } from "./m.mjs";
 import { close } from "../lib.mjs";
 import { collect, STU } from "./collect-lib.mjs";
 const page = await as("cems.accountant");

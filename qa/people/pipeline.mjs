@@ -2,7 +2,6 @@
 //   STEP=review|menu|move:<label> node qa/people/pipeline.mjs
 import { go, close, shot } from "../lib.mjs";
 import { as } from "./session.mjs";
-import { res } from "./res.mjs";
 
 const APP = "a25642f3-48be-41db-8808-d722783b7f58";
 const LOGIN = process.env.LOGIN ?? "cems.admissions";

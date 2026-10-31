@@ -2,7 +2,7 @@
 // stay closed. The parent's own Parent Link needs a one-time code sent to the guardian's
 // phone, so it is checked through the staff preview only.
 //   node qa/simulations/roles.mjs
-import { as, visit, text, shot, record, done, close, sql, SCHOOL_A } from "./sim-lib.mjs";
+import { as, visit, text, shot, record, done, close, sql } from "./sim-lib.mjs";
 
 const A = "sim-role";
 const ROLES = [

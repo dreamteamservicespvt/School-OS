@@ -1,5 +1,5 @@
 // The class teacher of 5 B (subjectteacher) opens / saves Mathematics marks for his own class (he teaches Science, not Maths).
-import { as, visit, text, VIEWPORTS, sql, SUNRISE } from "./h.mjs";
+import { as, visit, text, VIEWPORTS, sql } from "./h.mjs";
 import { close } from "../../lib.mjs";
 process.env.QA_MANIFEST = "D:/Projects/School-OS/.next/server/server-reference-manifest.json";
 const { callAction } = await import("../../academics/action.mjs");

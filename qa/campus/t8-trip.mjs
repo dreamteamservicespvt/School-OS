@@ -1,6 +1,6 @@
 // Transport: remove a stop, a student on the bus today, then the driver runs the morning trip on /driver.
 import { asUser, go, mainText, close, result, sleep, shot, VIEWPORTS, layoutIssues } from "./util.mjs";
-import { submit, said, openSheet, clickB } from "./util2.mjs";
+import { submit, said, openSheet } from "./util2.mjs";
 const M = "Transport Management", R = "Transport In-charge";
 const NORTH = "5c05a200-cb2c-468a-a2ac-749e1ba50cdc";
 const page = await asUser("cems.transport");

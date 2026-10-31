@@ -1,6 +1,6 @@
 // Workflow 3 with no gateway connected: what the office and the parent see; nothing half-posted.
 //   node qa/e2e/money/03-online.mjs
-import { as, anon, visit, text, shot, sql, one, layoutIssues, VIEWPORTS, BASE, note, squeeze, SUNRISE } from "./h.mjs";
+import { as, anon, visit, text, shot, one, VIEWPORTS, BASE, note, squeeze, SUNRISE } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const STUDENT = "5323a56e-27dd-4d83-a914-3e95790b75a7";

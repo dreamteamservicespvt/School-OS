@@ -1,6 +1,6 @@
 // Locked attendance: the class teacher asks for corrections for 14 and 15 Oct (Diya Patel absent,
 // everyone else present), the Principal approves; validation and refusals on the server.
-import { mainText, shot, close } from "../lib.mjs";
+import { mainText, close } from "../lib.mjs";
 import { res, login, open, messages, sleep, sql, uuidOf } from "./r.mjs";
 import { callFormAction } from "./action.mjs";
 

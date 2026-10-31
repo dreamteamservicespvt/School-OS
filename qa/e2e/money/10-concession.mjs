@@ -1,6 +1,6 @@
 // Concessions: one under the ₹1,000 limit (applies at once), one above it (Approvals).
 //   node qa/e2e/money/10-concession.mjs <step>   steps: small | big | check
-import { as, visit, text, shot, sql, one, VIEWPORTS, BASE, note, squeeze } from "./h.mjs";
+import { as, visit, text, shot, sql, VIEWPORTS, note, squeeze } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const step = process.argv[2];

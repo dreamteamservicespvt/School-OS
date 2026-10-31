@@ -1,5 +1,5 @@
 // Staff leave: cems.teacher applies (validation, preview with balance and periods), then edge cases.
-import { mainText, shot, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
+import { shot, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
 import { res, login, open, messages, sleep, sql } from "./r.mjs";
 
 const M = "Staff & HR Management", P = "Staff Leave", R = "Teacher";

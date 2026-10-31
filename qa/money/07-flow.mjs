@@ -1,5 +1,5 @@
 // The fee counter end to end, as the accountant, with database checks after each step.
-import { as, visit, shot, sql, SCHOOL_A, result, mainText, BASE } from "./m.mjs";
+import { as, visit, shot, sql, SCHOOL_A, result, mainText } from "./m.mjs";
 import { close, launch } from "../lib.mjs";
 import { collect, readOutcome, money, STU, rs } from "./collect-lib.mjs";
 

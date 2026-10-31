@@ -1,6 +1,6 @@
 // Regression re-test of MONEY-06 (change a sent-back expense) and MONEY-01 (pay twice from two tabs),
 // through the Expenses screens.  QA_OUT=qa-output/regression node qa/regression/money-expense.mjs
-import { as, open, settle, mainText, shot, close, squeeze, rec, check, page, BASE } from "./_lib.mjs";
+import { as, open, mainText, shot, close, squeeze, check } from "./_lib.mjs";
 
 const A = "money";
 const tag = String(Date.now()).slice(-5);
@@ -17,7 +17,6 @@ async function openExpense(p) {
   return id;
 }
 let id, number;
-let ready = false;
 
 await check({ id: "MONEY-06", area: A, role: "cems.accountant + cems.principal", check: "An expense sent back by the Principal can be changed (Change) and sent again" }, async (set) => {
   const acc = set(await as("cems.accountant"));
@@ -55,7 +54,7 @@ await check({ id: "MONEY-06", area: A, role: "cems.accountant + cems.principal",
   const a2 = set(await as("cems.accountant"));
   await open(a2, `/finance-management/expenses?open=${id}`);
   const sd = a2.getByRole("dialog").last();
-  const s1 = await sheetText(a2);
+  await sheetText(a2);
   const btns = (await sd.getByRole("link").allInnerTexts()).concat(await sd.getByRole("button").allInnerTexts()).map(squeeze).filter(Boolean);
   const change = sd.getByRole("link", { name: /^Change/ });
   if (!(await change.count())) return { status: "FAIL", note: `${number} sent back ("${backMsg.slice(0, 100)}"); sheet offers only: ${btns.join(", ")}`, shot: await shot(a2, "MONEY-06-no-change", false) };

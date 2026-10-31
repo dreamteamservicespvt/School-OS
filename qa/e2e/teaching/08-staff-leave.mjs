@@ -1,6 +1,6 @@
 // Workflow 7 on a phone: the subject teacher (Prakash Kulkarni) applies for leave; mistakes (too many days,
 // overlap); the principal sees the periods needing cover in Approvals and approves; balance, Staff Attendance.
-import { as, visit, text, report, shot, VIEWPORTS, sql, sleep, messages, SUNRISE } from "./h.mjs";
+import { as, visit, text, report, shot, VIEWPORTS, sql, sleep, messages } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const ME = "eb875a8c-e843-4289-b29c-a4d1a3f681ed";

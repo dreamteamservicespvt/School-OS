@@ -6,7 +6,6 @@ import { newPage, close, shot, BASE, VIEWPORTS } from "../lib.mjs";
 import { res } from "./res.mjs";
 
 const [kavya] = JSON.parse(readFileSync(process.argv[2], "utf8").trim().split("\n").pop());
-const SAI_STUDENT = "03c597aa-cb4d-439e-b50d-10a4848c51c8";
 const M = "Communication", P = "Parent Link (guardian page)", R = "Parent (no login)";
 const page = await newPage(VIEWPORTS.phone375);
 await page.context().addCookies([{ name: kavya.cookie, value: kavya.key, domain: new URL(BASE).hostname, path: "/p" }]);

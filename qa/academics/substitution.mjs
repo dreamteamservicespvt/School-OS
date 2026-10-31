@@ -1,6 +1,6 @@
 // Substitutions for Demo Pavan Seela's approved leave (26 Oct): assign on screen; busy teacher and the
 // absent teacher refused on the server; the substitute sees the extra period; a Teacher cannot arrange.
-import { mainText, shot, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
+import { shot, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
 import { res, login, open, messages, sleep, sql, uuidOf } from "./r.mjs";
 import { callFormAction } from "./action.mjs";
 

@@ -1,7 +1,7 @@
 // Workflow 5 on a phone: Class Teacher (teacher, Sunrise, Class 5 A) opens Take Attendance from
 // the home screen, marks all present, two absent and one late with a note, saves; saves again;
 // checks the database has one mark per student and the absence alerts are queued once.
-import { as, visit, text, report, shot, VIEWPORTS, sql, one, sleep, messages, finding, SUNRISE } from "./h.mjs";
+import { as, visit, text, report, shot, VIEWPORTS, sql, one, sleep, messages, SUNRISE } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const SEC = "b07ca58e-2716-4729-ab56-3cdf783e5598"; // Class 5 A 2026-27

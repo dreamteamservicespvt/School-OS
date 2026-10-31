@@ -7,7 +7,7 @@ import { res, login, open, messages, sleep, sql, uuidOf } from "./r.mjs";
 const M = "Examination & Results", P = "Report Cards (Parent Link)";
 const guardians = { "Sahithi Gorle": ["11379fe5-f845-41a1-b2a7-0ee47b146bc5", "Sanjay Gorle"], "Karthik Pydi": ["8b68daff-c705-480d-a9d3-5ec344079e3c", "Mahesh Pydi"] };
 const ad = await login("cems.admin");
-for (const [child, [gid, gname]] of Object.entries(guardians)) {
+for (const [, [gid, gname]] of Object.entries(guardians)) {
   await open(ad, `/student-management/guardians/${gid}`);
   await ad.locator("button", { hasText: "Resend Parent Link" }).first().click();
   await sleep(700);

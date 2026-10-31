@@ -1,5 +1,5 @@
 // Exam: the Exam In-charge creates a Grade 5 datesheet (Mathematics, Science, English), with validation, then publishes it.
-import { mainText, shot, close, layoutIssues, VIEWPORTS } from "../lib.mjs";
+import { mainText, shot, close } from "../lib.mjs";
 import { res, login, open, messages, sleep, sql } from "./r.mjs";
 
 const M = "Examination & Results", P = "Datesheet", R = "Exam In-charge";

@@ -1,6 +1,6 @@
 // CEMS (no fee heads yet): first fee head and Grade 5's first fee structure.
 //   node qa/e2e/money/17-cems-fees.mjs <step>   steps: head | row | publish
-import { as, visit, text, shot, sql, one, VIEWPORTS, BASE, note, squeeze, CEMS } from "./h.mjs";
+import { as, visit, shot, sql, one, VIEWPORTS, BASE, note, squeeze, CEMS } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const step = process.argv[2];

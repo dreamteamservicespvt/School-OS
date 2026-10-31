@@ -1,5 +1,5 @@
 // Teacher marks Tanvi ML on the sent-back paper with the number keys and submits again (phone).
-import { as, visit, text, VIEWPORTS, sleep, messages, shot } from "./h.mjs";
+import { as, visit, text, VIEWPORTS, sleep, messages } from "./h.mjs";
 import { close } from "../../lib.mjs";
 const MARKS = "/examination-results/marks/31218111-601c-49d2-b3b9-c8cbdf28bd7c/b07ca58e-2716-4729-ab56-3cdf783e5598";
 const t = await as("teacher", VIEWPORTS.phone390);

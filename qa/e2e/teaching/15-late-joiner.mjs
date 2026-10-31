@@ -1,6 +1,6 @@
 // A student joins Class 5 A after the Class Test marks were submitted (gap list G23): the School Admin adds
 // the student; Marks Entry shows "Joined late"; the results show "Joined after this exam".
-import { as, visit, text, report, shot, VIEWPORTS, sql, sleep, messages, SUNRISE } from "./h.mjs";
+import { as, visit, text, report, shot, VIEWPORTS, sql, sleep, messages } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const NAME = "Tanvi Latejoin";

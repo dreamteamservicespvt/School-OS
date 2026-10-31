@@ -1,6 +1,6 @@
 // Student Leave: the class teacher records medical leave for Aditya Kumar (Grade 5 A), with validation;
 // a student of another class cannot be chosen; a Teacher who is not class teacher cannot record it.
-import { mainText, shot, close } from "../lib.mjs";
+import { shot, close } from "../lib.mjs";
 import { res, login, open, messages, sleep, sql } from "./r.mjs";
 
 const M = "Attendance Management", P = "Student Leave", R = "Class Teacher";
@@ -29,7 +29,7 @@ async function save(dlg) {
 
 let dlg = await openForm();
 // a student of another class (Grade 6) should not be offered
-const other = await pick(dlg, "Grade 6");
+await pick(dlg, "Grade 6");
 const g6name = sql("select s.full_name from student s join enrolment e on e.student_id=s.id join section x on x.id=e.section_id join school_class c on c.id=x.class_id where c.name='Grade 6' and e.archived_at is null limit 1;").split("\n")[2].trim();
 const opts6 = await pick(dlg, g6name);
 res(M, P, `Search a Grade 6 student (${g6name})`, R, "Not offered: only own class", JSON.stringify(opts6).slice(0, 200), opts6.length === 0 || !opts6.some((o) => o.includes(g6name)) ? "PASS" : "FAIL");

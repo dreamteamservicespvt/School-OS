@@ -37,7 +37,7 @@ async function submitHead(name, kind) {
 for (const h of heads) {
   const exists = sql(`select count(*) from fee_head where school_id='${SCHOOL_A}' and name='${h.name}' and archived_at is null`)[0][0];
   if (exists !== "0") { console.log("exists", h.name); continue; }
-  const r = await submitHead(h.name, h.kind);
+  await submitHead(h.name, h.kind);
   const n = sql(`select count(*) from fee_head where school_id='${SCHOOL_A}' and name='${h.name}'`)[0][0];
   result({ module: M, page: P, action: `Add fee head ${h.name}`, role: "accountant", expected: "Head saved once", actual: `rows=${n}`, status: n === "1" ? "PASS" : "FAIL" });
 }
@@ -49,7 +49,7 @@ for (const h of heads) {
 }
 // Very long / unicode
 {
-  const r = await submitHead("x".repeat(200), null);
+  await submitHead("x".repeat(200), null);
   const n = sql(`select count(*) from fee_head where school_id='${SCHOOL_A}' and length(name)>80`)[0][0];
   result({ module: M, page: P, action: "Add fee head with 200-char name", role: "accountant", expected: "Limited to 80 characters", actual: `rows over 80=${n}`, status: n === "0" ? "PASS" : "FAIL" });
 }

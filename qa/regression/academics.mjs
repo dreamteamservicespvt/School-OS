@@ -1,6 +1,6 @@
 // Regression re-test of the other fixed ACADEMICS defects.
 //   QA_OUT=qa-output/regression node qa/regression/academics.mjs [ID ...]
-import { as, open, settle, mainText, shot, close, squeeze, rec, check, BASE } from "./_lib.mjs";
+import { as, open, mainText, shot, close, squeeze, check, BASE } from "./_lib.mjs";
 import { callFormAction } from "../academics/action.mjs";
 
 const only = process.argv.slice(2);

@@ -1,7 +1,7 @@
 // Regression re-test of the campus fixes (Transport CAMPUS-01, 02, 04 to 08; Library CAMPUS-11;
 // Library and Hostel reports on a phone), through the screens.
 //   QA_OUT=qa-output/regression node qa/regression/campus.mjs [ID ...]
-import { as, open, settle, mainText, shot, close, squeeze, rec, check, layoutIssues, BASE, VIEWPORTS } from "./_lib.mjs";
+import { as, open, mainText, shot, close, squeeze, check, layoutIssues, BASE, VIEWPORTS } from "./_lib.mjs";
 
 const only = process.argv.slice(2);
 const want = (id) => !only.length || only.includes(id);

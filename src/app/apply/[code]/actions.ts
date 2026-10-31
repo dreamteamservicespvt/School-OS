@@ -4,7 +4,7 @@
 // from its code again and is rate-limited by address (08-platform-security.md §7).
 import { redirect } from "next/navigation";
 import { deviceInfo } from "@/lib/current";
-import { formValues, type FormState } from "@/lib/forms";
+import type { FormState } from "@/lib/forms";
 import { checkMobile, need, problemState, str } from "@/lib/admission/act";
 import { readApplicationForm } from "@/lib/admission/application-form";
 import { DATA_CONSENT, otpSentParentWords } from "@/lib/admission/consent";

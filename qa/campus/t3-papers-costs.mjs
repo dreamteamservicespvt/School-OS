@@ -1,5 +1,5 @@
 // Transport: vehicle papers, fuel and repair costs (to Finance), vendors, edit and archive a vehicle.
-import { asUser, go, mainText, close, result, sleep, shot } from "./util.mjs";
+import { asUser, go, mainText, close, result, shot } from "./util.mjs";
 import { submit, clickB, openSheet } from "./util2.mjs";
 import { writeFileSync, mkdirSync } from "node:fs";
 const M = "Transport Management", P = "Vehicles & Drivers", R = "Transport In-charge";

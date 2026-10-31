@@ -8,7 +8,6 @@ const A = "sim-month";
 const ONLY = process.argv[2] ?? "dues,att,salary,close";
 const on = (k) => ONLY.split(",").includes(k);
 const G5A = "949e25d2-78bc-48aa-a6b6-7fd678175201";
-const rs = (s) => Number(String(s ?? "").replace(/[₹,\s]/g, ""));
 
 // ---------- Dues and reminders ----------
 if (on("dues")) {
@@ -55,7 +54,7 @@ if (on("att")) {
   const rows = t.split("\n").filter((l) => /\tGrade 5 A\t/.test(l)).map((l) => l.split("\t"));
   const mism = [];
   for (const r of rows) {
-    const [name, , , days, P, Ab, L, Lv] = r;
+    const [name, , , , P, Ab, L, Lv] = r;
     const db = Object.fromEntries(sql(`select m.status_key, count(*) from attendance_mark m join student s on s.id=m.student_id where m.section_id='${G5A}' and s.first_name||' '||s.last_name='${name.replace(/'/g, "''")}' and m.date between '2026-10-01' and '2026-10-31' and m.archived_at is null and m.period_no=0 group by 1`).map(([k, n]) => [k, Number(n)]));
     const p = (db.present ?? 0) + (db.late ?? 0);
     if (Number(P) !== p || Number(Ab) !== (db.absent ?? 0) || Number(L) !== (db.late ?? 0) || Number(Lv) !== (db.leave ?? 0)) mism.push(`${name}: report P${P} A${Ab} L${L} Lv${Lv} vs saved P${p} A${db.absent ?? 0} L${db.late ?? 0} Lv${db.leave ?? 0}`);

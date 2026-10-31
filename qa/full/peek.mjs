@@ -1,7 +1,7 @@
 // Opens a page as someone, clicks the named buttons in order, prints the screen and its form.
 //   MSYS_NO_PATHCONV=1 node qa/full/peek.mjs <login> <path> ["Button name" ...]
-import { as, controls } from "./look.mjs";
-import { go, mainText, shot, close } from "./h.mjs";
+import { as } from "./look.mjs";
+import { go, shot, close } from "./h.mjs";
 const [login, url, ...clicks] = process.argv.slice(2);
 const p = await as(login);
 await go(p, url);

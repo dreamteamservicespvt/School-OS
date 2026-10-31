@@ -1,7 +1,7 @@
 // Workflow 10, the monthly salary run, Sunrise October 2026 (Accountant runs, Principal approves).
 //   node qa/e2e/money/13-salary.mjs <step>
 // steps: look | line | adjust | twice | send | approve | slips | pay | mine
-import { as, visit, text, shot, sql, one, layoutIssues, VIEWPORTS, BASE, note, squeeze, SUNRISE } from "./h.mjs";
+import { as, visit, text, shot, sql, one, VIEWPORTS, BASE, note, squeeze, SUNRISE } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const step = process.argv[2];

@@ -16,7 +16,7 @@
 // Nagababu (Director) and Kesava (Principal).
 // EVERYTHING ELSE IS SYNTHETIC DEMO DATA: staff, phone numbers, sections,
 // subjects, periods, fees, buses and the hostel (the website states no hostel).
-import { prisma, withSchool, type Tx } from "../src/lib/db";
+import { prisma, withSchool } from "../src/lib/db";
 import { createSchool } from "../src/lib/schools";
 import { hashPassword } from "../src/lib/auth/password";
 import { nextNumber, formatNumber } from "../src/lib/sequences";

@@ -1,7 +1,7 @@
 // Refund: ask (accountant) → Approvals (principal) → Mark refunded (accountant) → Day Book OUT. Twice-click safe.
-import { as, visit, shot, sql, SCHOOL_A, result } from "./m.mjs";
+import { as, visit, shot, sql, result } from "./m.mjs";
 import { close, launch } from "../lib.mjs";
-import { money, STU, rs } from "./collect-lib.mjs";
+import { money, STU } from "./collect-lib.mjs";
 import { findApproval, decide } from "./approve-lib.mjs";
 
 const M = "Fee Management", P = "Concessions & Refunds";

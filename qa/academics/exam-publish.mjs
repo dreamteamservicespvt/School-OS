@@ -1,5 +1,5 @@
 // Exam: a Teacher cannot publish; the Exam In-charge publishes the datesheet (parents told: simulated, no channel).
-import { mainText, shot, close } from "../lib.mjs";
+import { shot, close } from "../lib.mjs";
 import { res, login, open, messages, sleep, sql, uuidOf } from "./r.mjs";
 import { callAction } from "./action.mjs";
 

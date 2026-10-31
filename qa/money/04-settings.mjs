@@ -1,5 +1,5 @@
 // Fee Settings as the accountant: late fee rule (with bad inputs first) and advance payments.
-import { as, visit, mainText, shot, sql, SCHOOL_A, result } from "./m.mjs";
+import { as, visit, shot, sql, SCHOOL_A, result } from "./m.mjs";
 import { close } from "../lib.mjs";
 
 const M = "Fee Management", P = "Fee Settings";

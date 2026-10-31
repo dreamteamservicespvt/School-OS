@@ -1,6 +1,6 @@
 // Transport: drivers and attendants, vehicle edit/archive, papers, fuel and repair costs.
-import { asUser, go, mainText, close, result, sleep, shot } from "./util.mjs";
-import { submit, clickB, said, openSheet } from "./util2.mjs";
+import { asUser, go, mainText, close, result, shot } from "./util.mjs";
+import { submit, clickB, openSheet } from "./util2.mjs";
 const M = "Transport Management", P = "Vehicles & Drivers", R = "Transport In-charge";
 const page = await asUser("cems.transport");
 const V = "/transport-management/vehicles";

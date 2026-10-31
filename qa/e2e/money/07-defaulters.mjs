@@ -1,7 +1,7 @@
 // Workflow 4: Defaulters, a call note with a Promise to Pay, a reminder by hand, the bulk preview.
 //   node qa/e2e/money/07-defaulters.mjs <step> [viewport]
 // steps: list | note | switch | promise | after | remind | bulk
-import { as, visit, text, shot, sql, one, layoutIssues, VIEWPORTS, BASE, note, squeeze } from "./h.mjs";
+import { as, visit, text, shot, sql, one, layoutIssues, VIEWPORTS, note, squeeze } from "./h.mjs";
 import { close } from "../../lib.mjs";
 
 const step = process.argv[2] ?? "list";

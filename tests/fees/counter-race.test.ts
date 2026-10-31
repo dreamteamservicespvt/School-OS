@@ -9,6 +9,7 @@ import { decide } from "@/lib/approvals";
 import "@/lib/fees/handlers";
 import { cancelPayment } from "@/lib/fees/cancel";
 import { markRefunded, requestRefund } from "@/lib/fees/refunds";
+import { giveConcession, revokeConcession } from "@/lib/fees/concessions";
 import { collect, dues, feature, makeFeeSchool, R, type FeeSchool } from "./fixture";
 
 let f: FeeSchool;
@@ -92,5 +93,23 @@ describe("cancels and refunds sent twice at once", () => {
     expect(d.paidPaise).toBe(R(5000));
     const out = await withSchool(f.ctx, (tx) => tx.dayBookEntry.findMany({ where: { sourceType: "refund", sourceId: refund.id } }));
     expect(out).toHaveLength(1);
+  });
+});
+
+// Security audit run-2, lead L2: "Take it off" pressed twice at once took the
+// concession off the student's rows twice (the status was read before the
+// rows' lock), so the family was charged more than the fee.
+describe("one concession taken off twice at once", () => {
+  it("is taken off once, and the rows go back to the full fee", async () => {
+    const owed = async () => (await dues(f.ctx, f.anil.id)).reduce((t, d) => t + d.balancePaise, BigInt(0));
+    const before = await owed();
+    const given = await withSchool(f.ctx, (tx) => giveConcession(tx, f.ctx, { studentId: f.anil.id, type: "DISCOUNT", mode: "amount", amountPaise: R(500), percentBp: 0, feeHeadIds: [f.tuition.id], periodFrom: null, periodTo: null, reason: "Sibling in school" }));
+    expect(given.waiting).toBe(false);
+    expect(await owed()).toBe(before - R(500));
+    const r = await Promise.allSettled([1, 2].map(() => withSchool(f.ctx, (tx) => revokeConcession(tx, f.ctx, given.concession.id, "Given by mistake"))));
+    expect(r.filter((x) => x.status === "fulfilled")).toHaveLength(1);
+    expect(await owed()).toBe(before);
+    const rows = await withSchool(f.ctx, (tx) => tx.studentFeeDue.findMany({ where: { studentId: f.anil.id }, select: { concessionPaise: true } }));
+    expect(rows.every((d) => d.concessionPaise >= BigInt(0))).toBe(true);
   });
 });

@@ -212,11 +212,14 @@ export async function revokeConcession(tx: Tx, ctx: SchoolContext, concessionId:
   if (c.status !== "APPLIED") throw new MoneyProblem("Only an applied concession can be taken off.");
   await assertYearOpen(tx, c.academicYearId);
   await lockDues(tx, c.lines.map((l) => l.dueId));
+  // Taken off only while still applied, checked under the lock: the same press
+  // twice at once (two tabs, a double click) takes it off the rows once.
+  const taken = await tx.concession.updateMany({ where: { id: c.id, status: "APPLIED" }, data: { status: "REJECTED", decisionNote: `Taken off: ${reason.trim()}`, archivedAt: new Date() } });
+  if (taken.count !== 1) throw new MoneyProblem("Only an applied concession can be taken off.");
   for (const l of c.lines) {
     await tx.studentFeeDue.update({ where: { id: l.dueId }, data: { concessionPaise: { decrement: l.amountPaise } } });
   }
   await refreshBalances(tx, c.lines.map((l) => l.dueId));
-  await tx.concession.update({ where: { id: c.id }, data: { status: "REJECTED", decisionNote: `Taken off: ${reason.trim()}`, archivedAt: new Date() } });
   await writeAudit(tx, ctx, { action: "taken-off", recordType: "Concession", recordId: c.id, before: { applied: formatRupees(c.appliedPaise) }, after: { reason } });
 }
 

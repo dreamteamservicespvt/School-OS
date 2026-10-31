@@ -45,16 +45,19 @@ export async function startExitAction(_: FormState<unknown>, fd: FormData): Prom
     if (!EXIT_TYPES.some((t) => t.value === type)) throw new FieldProblem("Choose resignation, retirement or termination.", "type");
     const input = { staffId: id(fd, "staffId", "staff member"), type, receivedOn: dateOf(fd, "receivedOn", "Date received"), lastWorkingDay: dateOf(fd, "lastWorkingDay", "Last working day"), reason: str(fd, "reason").slice(0, 1000) };
     const letter = file(fd, "letter");
+    let keptOpen = false;
     const exit = await withSchool(current.ctx, async (tx) => {
       // One campus: only their campus's staff can be chosen.
       if (current.campusId && offCampus(await viewerFor(tx, current.ctx, current), input.staffId)) throw new ExitProblem("Choose the staff member who is leaving.", "staffId");
       const letterFileId = letter ? (await saveFile(tx, current.ctx, { file: letter, purpose: "exit-letter", allowed: DOCUMENT_TYPES, maxImageWidth: 1600 })).id : null;
       const e = await startExit(tx, current.ctx, { ...input, letterFileId });
       // A last working day already past closes the login straight away.
-      if (e.status === "IN_PROGRESS" && e.lastWorkingDay <= todayIn(current.school.timeZone)) await finishLastDay(tx, current.ctx, e.id);
+      if (e.status === "IN_PROGRESS" && e.lastWorkingDay <= todayIn(current.school.timeZone)) keptOpen = (await finishLastDay(tx, current.ctx, e.id)) === "kept-open";
       return e;
     }, { timeout: 30_000 });
-    await flash({ message: exit.status === "WAITING_APPROVAL" ? "Exit recorded. It is waiting for the Principal's approval." : "Resignation recorded. Hand over the classes and clear the checks below." });
+    await flash({ message: exit.status === "WAITING_APPROVAL" ? "Exit recorded. It is waiting for the Principal's approval."
+      : keptOpen ? "Resignation recorded. The login stays open: this is the only School Admin. Add another School Admin in Settings, Users & Permissions; the login then closes."
+      : "Resignation recorded. Hand over the classes and clear the checks below." });
     to = `/staff-hr-management/exit/${exit.id}`;
   } catch (e) {
     return problemState(e, fd);

@@ -13,6 +13,8 @@ import { accessIn } from "@/lib/auth/access";
 import { requirePermission } from "@/lib/permissions";
 import { createStaff, type StaffDetails } from "@/lib/staff/staff";
 import { LOGIN_CEILING_WORDS } from "@/lib/staff/login-ceiling";
+import { closeLoginsOnLastDay, startExit } from "@/lib/staff/exit";
+import { activeSchoolAdminIds } from "@/lib/settings/common";
 import { makeUser } from "../helpers";
 import { d, makeHrSchool } from "./fixture";
 
@@ -125,5 +127,61 @@ describe("L5: Staff & HR gives only what Settings, Users & Permissions would let
     as(f.admin);
     const r = await profile.newSignInLink({ ok: false, message: "" }, form({ staffId: f.principalStaff.id }));
     expect(r?.ok, r?.message).toBe(true);
+  }, 120_000);
+});
+
+describe("Security audit run-3: an exit recorded in Staff & HR never closes a top login on its own", () => {
+  // Recording a resignation with a past last working day closes the leaver's
+  // login at once. Someone who cannot change Settings, Users & Permissions may
+  // not close a School Admin's or Principal's login that way; and no exit, nor
+  // the daily last-day job, closes the school's last School Admin.
+  const exitForm = (staffId: string) => form({ staffId, type: "RESIGNATION", receivedOn: "2026-10-01", lastWorkingDay: "2026-10-02", reason: "Moving to another city" });
+  const exits = (staffId: string) => withSchool(sys(), (tx) => tx.exitCase.count({ where: { staffId } }));
+
+  it("refuses HR recording the Principal's exit; the Principal's login stays open", async () => {
+    as(hr);
+    const { startExitAction } = await import("@/app/(school)/staff-hr-management/exit/actions");
+    const r = await startExitAction({ ok: false, message: "" }, exitForm(f.principalStaff.id));
+    expect(r?.ok).toBe(false);
+    expect(r?.message).toBe(LOGIN_CEILING_WORDS.exit);
+    expect(await exits(f.principalStaff.id)).toBe(0);
+    const login = await withSchool(sys(), (tx) => tx.userLogin.findUniqueOrThrow({ where: { id: f.principal.id } }));
+    expect(login.status).toBe("ACTIVE");
+  }, 120_000);
+
+  it("refuses HR recording the exit of a login with a Settings exception, but not a teacher's", async () => {
+    const s = await newStaff("Settings Helper");
+    const login = await makeUser({ schools: [{ id: f.school.id, roleKeys: ["teacher"] }], name: "Settings Helper" });
+    await withSchool(sys(), async (tx) => {
+      await tx.staff.update({ where: { id: s.id }, data: { userLoginId: login.id } });
+      await tx.schoolAccess.updateMany({ where: { userLoginId: login.id }, data: { exceptions: { settings: "view" } } });
+    });
+    const ctx = { schoolId: f.school.id, userId: hr.id };
+    const exit = (staffId: string) => withSchool(ctx, (tx) => startExit(tx, ctx, { staffId, type: "RESIGNATION", receivedOn: d("2026-10-01"), lastWorkingDay: d("2027-03-31"), reason: "Moving to another city", letterFileId: null }));
+    await expect(exit(s.id)).rejects.toThrow(LOGIN_CEILING_WORDS.exit);
+    const teacher = await newStaff("Leaving Teacher");
+    await expect(exit(teacher.id)).resolves.toMatchObject({ status: "IN_PROGRESS" });
+  }, 120_000);
+
+  it("keeps the last School Admin's login open on the last day, tells them, and closes it once another School Admin is there", async () => {
+    // The fixture's School Admin is the school's only active one.
+    expect(await withSchool(sys(), (tx) => activeSchoolAdminIds(tx, f.school.id))).toEqual([f.admin.id]);
+    const adminStaff = await newStaff("Admin Person");
+    await withSchool(sys(), (tx) => tx.staff.update({ where: { id: adminStaff.id }, data: { userLoginId: f.admin.id } }));
+    const pctx = { schoolId: f.school.id, userId: f.principal.id };
+    await withSchool(pctx, (tx) => startExit(tx, pctx, { staffId: adminStaff.id, type: "RESIGNATION", receivedOn: d("2026-10-01"), lastWorkingDay: d("2026-10-02"), reason: "Moving to another city", letterFileId: null }));
+
+    expect(await withSchool(sys(), (tx) => closeLoginsOnLastDay(tx, sys(), d("2026-10-03")))).toBe(0);
+    await withSchool(sys(), async (tx) => {
+      expect((await tx.userLogin.findUniqueOrThrow({ where: { id: f.admin.id } })).status).toBe("ACTIVE");
+      expect(await tx.schoolAccess.count({ where: { userLoginId: f.admin.id, archivedAt: null } })).toBe(1);
+      expect((await tx.staff.findUniqueOrThrow({ where: { id: adminStaff.id } })).status).toBe("ACTIVE");
+      const told = await tx.notification.findFirst({ where: { userLoginId: f.admin.id, type: "staff-exit" } });
+      expect(told?.text).toContain("only School Admin");
+    });
+
+    await makeUser({ schools: [{ id: f.school.id, roleKeys: ["school-admin"] }], name: "New Admin" });
+    expect(await withSchool(sys(), (tx) => closeLoginsOnLastDay(tx, sys(), d("2026-10-03")))).toBe(1);
+    expect((await withSchool(sys(), (tx) => tx.userLogin.findUniqueOrThrow({ where: { id: f.admin.id } }))).status).toBe("DISABLED");
   }, 120_000);
 });

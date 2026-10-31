@@ -14237,4 +14237,5 @@ export const te: Catalogue = {
   "You can give a login only the access you have yourself. Ask your School Admin for more in Settings, Users & Permissions.": "మీకు ఉన్న ప్రవేశాన్ని మాత్రమే మీరు ఒక లాగిన్‌కు ఇవ్వగలరు. ఎక్కువ కావాలంటే సెట్టింగ్‌లు, యూజర్లు & అనుమతులలో మీ స్కూల్ అడ్మిన్‌ను అడగండి.",
   "Only someone who can change Settings, Users & Permissions can make a sign-in link for a School Admin or Principal login.": "స్కూల్ అడ్మిన్ లేదా ప్రిన్సిపాల్ లాగిన్ కోసం సైన్-ఇన్ లింక్‌ను సెట్టింగ్‌లు, యూజర్లు & అనుమతులు మార్చగలవారు మాత్రమే తయారు చేయగలరు.",
   "Only someone who works for the whole school can export all school data.": "స్కూల్ డేటా అంతటినీ మొత్తం స్కూల్ కోసం పనిచేసేవారు మాత్రమే ఎగుమతి చేయగలరు.",
+  "Only someone who can change Settings, Users & Permissions can record the exit of a School Admin, a Principal or anyone with access to Settings. Ask your School Admin.": "స్కూల్ అడ్మిన్, ప్రిన్సిపాల్ లేదా సెట్టింగ్‌లకు ప్రవేశం ఉన్న ఎవరి నిష్క్రమణనైనా సెట్టింగ్‌లు, యూజర్లు & అనుమతులు మార్చగలవారు మాత్రమే నమోదు చేయగలరు. మీ స్కూల్ అడ్మిన్‌ను అడగండి.",
 };

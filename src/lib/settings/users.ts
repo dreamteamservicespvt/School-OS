@@ -19,7 +19,7 @@ import { sendInviteMessage, type InviteSent } from "./invite-message";
 import { INVITE_VALID_MS } from "../auth/invites";
 import { MODULE_KEYS, MODULES } from "../modules";
 import type { AccessLevel } from "../roles";
-import { SettingsProblem, activeSchoolAdminIds, actorName, alertPermissionChange } from "./common";
+import { SettingsProblem, activeSchoolAdminIds, actorName, alertPermissionChange, isLastSchoolAdmin } from "./common";
 import { forgetAllDevices } from "../auth/remembered";
 
 export const SCOPES: { value: AccessScope; label: string; help: string }[] = [
@@ -90,8 +90,7 @@ async function checkScope(tx: Tx, scope: AccessScope, campusId: string | null) {
 /** Would this person stop being an active School Admin, leaving none? Then it is refused. */
 async function keepOneAdmin(tx: Tx, schoolId: string, userLoginId: string, stillAdmin: boolean) {
   if (stillAdmin) return;
-  const admins = await activeSchoolAdminIds(tx, schoolId);
-  if (admins.includes(userLoginId) && admins.length <= 1) {
+  if (await isLastSchoolAdmin(tx, schoolId, userLoginId)) {
     throw new SettingsProblem("At least one School Admin must remain. Add another School Admin first.");
   }
 }

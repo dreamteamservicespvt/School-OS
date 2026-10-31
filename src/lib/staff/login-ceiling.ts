@@ -8,7 +8,9 @@
 //   - give a personal exception for Settings, or one above what they hold
 //     themselves in that module;
 //   - make a new sign-in link ("Reset password") for a login that holds one of
-//     those roles they do not hold themselves.
+//     those roles they do not hold themselves;
+//   - record the exit of a login that holds one of those roles or a Settings
+//     exception, which closes that login on the last working day (run-3).
 // Someone with Settings "edit" (the School Admin, the Principal) is not limited
 // here, and Settings, Users & Permissions works as before.
 import "server-only";
@@ -23,6 +25,8 @@ export const LOGIN_CEILING_WORDS = {
   settings: "Only someone who can change Settings, Users & Permissions can give access to Settings. Ask your School Admin.",
   above: "You can give a login only the access you have yourself. Ask your School Admin for more in Settings, Users & Permissions.",
   link: "Only someone who can change Settings, Users & Permissions can make a sign-in link for a School Admin or Principal login.",
+  // Security audit run-3: recording an exit closes the leaver's login on the last working day.
+  exit: "Only someone who can change Settings, Users & Permissions can record the exit of a School Admin, a Principal or anyone with access to Settings. Ask your School Admin.",
 } as const;
 
 /** Roles that only Settings, Users & Permissions gives. */
@@ -80,4 +84,22 @@ export function signInLinkRefusal(g: Granter, targetRoles: RoleLike[]): string |
   if (managesUsers(g)) return null;
   const mine = new Set(g.roleKeys);
   return targetRoles.some((r) => isTopRole(r) && !(r.key && mine.has(r.key))) ? LOGIN_CEILING_WORDS.link : null;
+}
+
+/** The roles and personal exceptions a login holds in this school (its live access here), read in the same transaction. */
+export async function heldHere(tx: Tx, ctx: SchoolContext, userLoginId: string): Promise<{ roles: RoleLike[]; exceptions: Record<string, AccessLevel>[] }> {
+  const accesses = await tx.schoolAccess.findMany({
+    where: { schoolId: ctx.schoolId, userLoginId, archivedAt: null },
+    select: { exceptions: true, roles: { select: { role: { select: { key: true, permissions: true } } } } },
+  });
+  return { roles: accesses.flatMap((a) => a.roles.map((r) => r.role)), exceptions: accesses.map((a) => (a.exceptions ?? {}) as Record<string, AccessLevel>) };
+}
+
+/** A personal exception that opens Settings, given in Settings, Users & Permissions. */
+const opensSettings = (exceptions: Record<string, AccessLevel>[]) => exceptions.some((ex) => Boolean(ex?.settings) && ex.settings !== "none");
+
+/** Why this person may not record the exit of a login holding these, which closes it; null when they may. */
+export function exitRefusal(g: Granter, held: { roles: RoleLike[]; exceptions: Record<string, AccessLevel>[] }): string | null {
+  if (managesUsers(g)) return null;
+  return held.roles.some(isTopRole) || opensSettings(held.exceptions) ? LOGIN_CEILING_WORDS.exit : null;
 }

@@ -14237,4 +14237,5 @@ export const hi: Catalogue = {
   "You can give a login only the access you have yourself. Ask your School Admin for more in Settings, Users & Permissions.": "आप किसी लॉगिन को केवल उतनी ही पहुँच दे सकते हैं जितनी आपके पास खुद है। इससे ज़्यादा के लिए अपने स्कूल एडमिन से सेटिंग्स, यूज़र और अनुमतियाँ में कहें।",
   "Only someone who can change Settings, Users & Permissions can make a sign-in link for a School Admin or Principal login.": "स्कूल एडमिन या प्रिंसिपल के लॉगिन के लिए साइन-इन लिंक केवल वही बना सकता है जो सेटिंग्स, यूज़र और अनुमतियाँ बदल सकता है।",
   "Only someone who works for the whole school can export all school data.": "स्कूल का सारा डेटा केवल पूरे स्कूल के लिए काम करने वाला व्यक्ति एक्सपोर्ट कर सकता है।",
+  "Only someone who can change Settings, Users & Permissions can record the exit of a School Admin, a Principal or anyone with access to Settings. Ask your School Admin.": "स्कूल एडमिन, प्रिंसिपल या सेटिंग्स की पहुँच वाले किसी भी व्यक्ति का जाना केवल वही दर्ज कर सकता है जो सेटिंग्स, यूज़र और अनुमतियाँ बदल सकता है। अपने स्कूल एडमिन से कहें।",
 };

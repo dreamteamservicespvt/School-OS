@@ -15,6 +15,8 @@ import { hrPeople } from "./access";
 import { forgetAllDevices } from "../auth/remembered";
 import { worksElsewhere } from "../auth/access";
 import { loginsForCampus } from "./campus-logins";
+import { exitRefusal, granterOf, heldHere } from "./login-ceiling";
+import { activeSchoolAdminIds, isLastSchoolAdmin } from "../settings/common";
 
 export class ExitProblem extends Error {
   constructor(message: string, public field?: string) {
@@ -51,6 +53,12 @@ export async function startExit(tx: Tx, ctx: SchoolContext, input: NewExit) {
   if (open) throw new ExitProblem(`${staff.fullName} already has an exit in progress. Open it to continue.`, "staffId");
   if (input.lastWorkingDay < input.receivedOn) throw new ExitProblem("Last working day is before the date received. Check the dates.", "lastWorkingDay");
   if (input.reason.trim().length < 3) throw new ExitProblem("Reason is needed.", "reason");
+  // The exit closes the leaver's login on the last working day: a School Admin's, a Principal's or a
+  // Settings login only by someone who can change Settings, Users & Permissions (security audit run-3).
+  if (staff.userLoginId) {
+    const refused = exitRefusal(await granterOf(tx, ctx), await heldHere(tx, ctx, staff.userLoginId));
+    if (refused) throw new ExitProblem(refused, "staffId");
+  }
 
   const needsApproval = input.type !== "RESIGNATION";
   const exit = await tx.exitCase.create({
@@ -213,14 +221,29 @@ export async function sendSettlement(tx: Tx, ctx: SchoolContext, exitCaseId: str
  */
 export async function closeLoginsOnLastDay(tx: Tx, ctx: SchoolContext, today: Date) {
   const due = await tx.exitCase.findMany({ where: { schoolId: ctx.schoolId, status: "IN_PROGRESS", loginDisabledAt: null, lastWorkingDay: { lte: today } } });
-  for (const exit of due) await finishLastDay(tx, ctx, exit.id);
-  return due.length;
+  let closed = 0;
+  for (const exit of due) if ((await finishLastDay(tx, ctx, exit.id)) === "closed") closed++;
+  return closed;
 }
 
-export async function finishLastDay(tx: Tx, ctx: SchoolContext, exitCaseId: string) {
+/**
+ * The last working day: the staff member has left and their login here is
+ * closed. The school's only School Admin is never closed this way (at least
+ * one must remain, as in Settings, Users & Permissions): the exit waits, the
+ * School Admin is told, and the next last-day check closes it once another
+ * School Admin is there.
+ */
+export async function finishLastDay(tx: Tx, ctx: SchoolContext, exitCaseId: string): Promise<"closed" | "kept-open" | "done-before"> {
   const exit = await tx.exitCase.findFirstOrThrow({ where: { id: exitCaseId } });
-  if (exit.loginDisabledAt) return;
+  if (exit.loginDisabledAt) return "done-before";
   const staff = await tx.staff.findUniqueOrThrow({ where: { id: exit.staffId } });
+  if (staff.userLoginId && (await isLastSchoolAdmin(tx, ctx.schoolId, staff.userLoginId))) {
+    const text = `Your last working day was ${formatDate(exit.lastWorkingDay)}, but your login stays open: you are the only School Admin. Add another School Admin in Settings, Users & Permissions; your login then closes.`;
+    for (const to of await activeSchoolAdminIds(tx, ctx.schoolId)) {
+      await notify(tx, ctx, { to, type: "staff-exit", text, link: `/staff-hr-management/exit/${exit.id}`, groupKey: `exit-last-admin:${exit.id}`, mergedText: () => text });
+    }
+    return "kept-open";
+  }
   const status = EXIT_TYPES.find((t) => t.value === exit.type)!.status;
   await tx.staff.update({ where: { id: staff.id }, data: { status, leavingDate: exit.lastWorkingDay, leavingReason: exit.reason, statusSince: exit.lastWorkingDay, statusReason: exitTypeLabel(exit.type) } });
   let loginClosed = false;
@@ -242,6 +265,7 @@ export async function finishLastDay(tx: Tx, ctx: SchoolContext, exitCaseId: stri
   for (const p of await loginsForCampus(tx, ctx, await hrPeople(tx, ctx), staff.campusId)) {
     await notify(tx, ctx, { to: p, type: "staff-exit", text: `${staff.fullName}'s last working day was ${formatDate(exit.lastWorkingDay)}. Their login is now closed.`, link: `/staff-hr-management/exit/${exit.id}` });
   }
+  return "closed";
 }
 
 export async function onExitDecision(tx: Tx, ctx: SchoolContext, approval: { id: string; recordId: string }, decision: string, note: string | null) {

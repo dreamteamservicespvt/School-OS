@@ -27,6 +27,12 @@ export async function activeSchoolAdminIds(tx: Tx, schoolId: string): Promise<st
   return [...new Set(rows.map((r) => r.userLoginId))];
 }
 
+/** Is this login the school's only active School Admin? Then it must not be closed (at least one must remain). */
+export async function isLastSchoolAdmin(tx: Tx, schoolId: string, userLoginId: string) {
+  const admins = await activeSchoolAdminIds(tx, schoolId);
+  return admins.includes(userLoginId) && admins.length <= 1;
+}
+
 /** Display names for logins, by id. User Login is not a school record, so this reads it directly. */
 export async function loginNames(tx: Tx, ids: (string | null | undefined)[]): Promise<Map<string, string>> {
   const clean = [...new Set(ids.filter((x): x is string => Boolean(x)))];

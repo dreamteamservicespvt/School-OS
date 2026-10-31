@@ -14780,6 +14780,8 @@ export const EN = [
   "Only someone who can change Settings, Users & Permissions can make a sign-in link for a School Admin or Principal login.",
   // The full data export is for the whole school (security audit run-2, lead L7)
   "Only someone who works for the whole school can export all school data.",
+  // A top login's exit is recorded only by someone who manages users (security audit run-3)
+  "Only someone who can change Settings, Users & Permissions can record the exit of a School Admin, a Principal or anyone with access to Settings. Ask your School Admin.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

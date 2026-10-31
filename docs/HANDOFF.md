@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-10-31 22:50 (13 security fixes + 5 follow-ups committed, last 06632769; nothing pushed)
+Last updated: 2026-11-01 00:35 (security fixes, follow-ups and 5 run-2 leads committed, last 872cfc13; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
@@ -44,7 +44,12 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
 - Branch note: origin still has the old commit 64f895d7 "a"; the next push needs --force-with-lease (ask first).
 
 ## Next steps
-S. SECURITY follow-ups: (1) Owner/local checks for run-2's 7 NEEDS VALIDATION leads (run-2/NEEDS-VALIDATION.md).
+S. SECURITY follow-ups: (1) run-2's 7 NEEDS VALIDATION leads (~/security-audit-skill/School-OS/run-2/NEEDS-VALIDATION.md).
+   DONE: L6 66e588c9, L3 d6631937 (tests/run2-leads.test.ts), L2 26da6612, L4 b6d2ef2a (pay-out was doubled too),
+   L5 alert part 872cfc13. Full suite + SSD build after them NOT yet confirmed (run cut when the chat
+   ended 00:35): re-run both. OWNER DECISIONS (not
+   built): L1 adjust reduction above concession limit -> approval?; L5 may HR grant roles above its own?;
+   L7 one-campus Settings holder: full export / privacy search / deletion kept to campus?
    (2) DONE, and its Events pages leftover too: commit 06632769 (evYears in src/lib/events/campus.ts;
    Co-curricular, Daily, Settings work in each campus's year; achievements, fitness, export and certificate
    print keep to a One-campus person's campus; tests/events-calendar/campus-pages.test.ts 5 of 5 red before).

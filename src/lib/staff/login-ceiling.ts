@@ -8,7 +8,8 @@
 //   - give a personal exception for Settings, or one above what they hold
 //     themselves in that module;
 //   - make a new sign-in link ("Reset password") for a login that holds one of
-//     those roles they do not hold themselves;
+//     those roles they do not hold themselves, a personal exception they could
+//     not give, or access in another school (it is one login for every school; run-3);
 //   - record the exit of a login that holds one of those roles or a Settings
 //     exception, which closes that login on the last working day (run-3).
 // Someone with Settings "edit" (the School Admin, the Principal) is not limited
@@ -27,6 +28,9 @@ export const LOGIN_CEILING_WORDS = {
   link: "Only someone who can change Settings, Users & Permissions can make a sign-in link for a School Admin or Principal login.",
   // Security audit run-3: recording an exit closes the leaver's login on the last working day.
   exit: "Only someone who can change Settings, Users & Permissions can record the exit of a School Admin, a Principal or anyone with access to Settings. Ask your School Admin.",
+  // Security audit run-3 (the L5 leftover; owner decision taken overnight as the safest choice, to confirm).
+  linkAbove: "Only someone who can change Settings, Users & Permissions can make a sign-in link for a login with access to Settings or more access than yours. Ask your School Admin.",
+  linkElsewhere: "This login also opens another school. Only someone who can change Settings, Users & Permissions can make a sign-in link for it. Ask your School Admin.",
 } as const;
 
 /** Roles that only Settings, Users & Permissions gives. */
@@ -79,11 +83,19 @@ export function loginGrantRefusal(g: Granter, roles: RoleLike[], exceptions: Rec
   return null;
 }
 
-/** Why this person may not make a new sign-in link for a login holding these roles; null when they may. */
-export function signInLinkRefusal(g: Granter, targetRoles: RoleLike[]): string | null {
+/**
+ * Why this person may not make a new sign-in link for a login holding these
+ * roles and exceptions here, or opening another school too; null when they may.
+ */
+export function signInLinkRefusal(g: Granter, targetRoles: RoleLike[], target: { exceptions?: Record<string, AccessLevel>[]; elsewhere?: boolean } = {}): string | null {
   if (managesUsers(g)) return null;
   const mine = new Set(g.roleKeys);
-  return targetRoles.some((r) => isTopRole(r) && !(r.key && mine.has(r.key))) ? LOGIN_CEILING_WORDS.link : null;
+  if (targetRoles.some((r) => isTopRole(r) && !(r.key && mine.has(r.key)))) return LOGIN_CEILING_WORDS.link;
+  // An exception Staff & HR could not give (Settings, or above the person's own) was given in Settings.
+  if ((target.exceptions ?? []).some((ex) => loginGrantRefusal(g, [], ex ?? {}))) return LOGIN_CEILING_WORDS.linkAbove;
+  // The new password would open the other school too, whose people this school cannot see.
+  if (target.elsewhere) return LOGIN_CEILING_WORDS.linkElsewhere;
+  return null;
 }
 
 /** The roles and personal exceptions a login holds in this school (its live access here), read in the same transaction. */

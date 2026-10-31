@@ -13,9 +13,9 @@ import { accessIn } from "@/lib/auth/access";
 import { requirePermission } from "@/lib/permissions";
 import { createStaff, type StaffDetails } from "@/lib/staff/staff";
 import { LOGIN_CEILING_WORDS } from "@/lib/staff/login-ceiling";
-import { closeLoginsOnLastDay, startExit } from "@/lib/staff/exit";
+import { closeLoginsOnLastDay, startExit, switchOffLogin } from "@/lib/staff/exit";
 import { activeSchoolAdminIds } from "@/lib/settings/common";
-import { makeUser } from "../helpers";
+import { makeSchool, makeUser } from "../helpers";
 import { d, makeHrSchool } from "./fixture";
 
 const who = vi.hoisted(() => ({ userId: "", schoolId: "" }));
@@ -126,6 +126,69 @@ describe("L5: Staff & HR gives only what Settings, Users & Permissions would let
   it("lets the School Admin make a new sign-in link for the Principal", async () => {
     as(f.admin);
     const r = await profile.newSignInLink({ ok: false, message: "" }, form({ staffId: f.principalStaff.id }));
+    expect(r?.ok, r?.message).toBe(true);
+  }, 120_000);
+});
+
+describe("Security audit run-3: Staff & HR makes no sign-in link for a login above its own (L5 leftover; owner decision taken overnight, to confirm)", () => {
+  // "Reset password" sets a new password for the one login a person uses in
+  // every school. Someone who cannot change Settings, Users & Permissions may
+  // not make it for a login with a personal exception they could not give
+  // (Settings, or above their own), nor for a login that also opens another
+  // school, even when it is switched off here.
+  let sister: Awaited<ReturnType<typeof makeSchool>>;
+  beforeAll(async () => { sister = await makeSchool("Sister School"); }, 120_000);
+
+  /** A staff record here with a Teacher login, maybe with exceptions here, maybe School Admin in the sister school. */
+  async function withLogin(name: string, o: { exceptions?: Record<string, string>; adminInSister?: boolean }) {
+    const s = await newStaff(name);
+    const login = await makeUser({ schools: [{ id: f.school.id, roleKeys: ["teacher"] }, ...(o.adminInSister ? [{ id: sister.id, roleKeys: ["school-admin"] }] : [])], name });
+    await withSchool(sys(), async (tx) => {
+      await tx.staff.update({ where: { id: s.id }, data: { userLoginId: login.id } });
+      if (o.exceptions) await tx.schoolAccess.updateMany({ where: { userLoginId: login.id }, data: { exceptions: o.exceptions } });
+    });
+    return { staff: s, login };
+  }
+  const link = (staffId: string) => profile.newSignInLink({ ok: false, message: "" }, form({ staffId }));
+  const hashOf = async (id: string) => (await withSchool(sys(), (tx) => tx.userLogin.findUniqueOrThrow({ where: { id } }))).inviteTokenHash;
+
+  it("refuses HR a link for a login with a Settings exception, or one above HR's own", async () => {
+    as(hr);
+    for (const exceptions of [{ settings: "view" }, { "fee-management": "full" }] as Record<string, string>[]) {
+      const { staff, login } = await withLogin(`Excepted ${Object.keys(exceptions)[0]}`, { exceptions });
+      const r = await link(staff.id);
+      expect(r?.ok, JSON.stringify(exceptions)).toBe(false);
+      expect(r?.message).toBe(LOGIN_CEILING_WORDS.linkAbove);
+      expect(JSON.stringify(r)).not.toContain("/invite/");
+      expect(await hashOf(login.id)).toBeNull();
+    }
+  }, 120_000);
+
+  it("lets HR make a link for a login whose exceptions are within HR's own", async () => {
+    as(hr);
+    const { staff } = await withLogin("Narrow Teacher", { exceptions: { "attendance-management": "own", "fee-management": "none" } });
+    const r = await link(staff.id);
+    expect(r?.ok, r?.message).toBe(true);
+  }, 120_000);
+
+  it("refuses HR a link for a login that also opens another school, also once switched off here", async () => {
+    as(hr);
+    const { staff, login } = await withLogin("Sister Admin", { adminInSister: true });
+    const r = await link(staff.id);
+    expect(r?.ok).toBe(false);
+    expect(r?.message).toBe(LOGIN_CEILING_WORDS.linkElsewhere);
+    const actx = { schoolId: f.school.id, userId: f.admin.id };
+    await withSchool(actx, (tx) => switchOffLogin(tx, actx, staff.id, "Works at the sister school now"));
+    const off = await link(staff.id);
+    expect(off?.ok).toBe(false);
+    expect(off?.message).toBe(LOGIN_CEILING_WORDS.linkElsewhere);
+    expect(await hashOf(login.id)).toBeNull();
+  }, 120_000);
+
+  it("lets the School Admin make those links", async () => {
+    as(f.admin);
+    const { staff } = await withLogin("Admin Made Link", { exceptions: { settings: "view" } });
+    const r = await link(staff.id);
     expect(r?.ok, r?.message).toBe(true);
   }, 120_000);
 });

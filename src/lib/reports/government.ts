@@ -15,6 +15,7 @@ import { readPreferences } from "../settings/profile-rules";
 import { fileStore } from "../storage";
 import { makeZip } from "../zip";
 import { currentYear } from "../academic/years";
+import { inCampus, type CampusLimit } from "../campus";
 
 export class GovProblem extends Error {}
 
@@ -256,9 +257,9 @@ export async function exportReturn(tx: Tx, ctx: SchoolContext, c: Check, opts: {
   return { export: g, file };
 }
 
-/** Past exports, newest first, in the dates chosen. */
-export async function pastExports(tx: Tx, range: { gte: Date; lt: Date } | null) {
-  const list = await tx.governmentExport.findMany({ where: range ? { createdAt: range } : {}, orderBy: { createdAt: "desc" }, take: 200 });
+/** Past exports, newest first, in the dates chosen; a person limited to one campus sees only that campus's (not whole-school ones). */
+export async function pastExports(tx: Tx, range: { gte: Date; lt: Date } | null, limit?: CampusLimit | null) {
+  const list = await tx.governmentExport.findMany({ where: { ...(range ? { createdAt: range } : {}), ...inCampus(limit) }, orderBy: { createdAt: "desc" }, take: 200 });
   const people = new Map((await tx.userLogin.findMany({ where: { id: { in: [...new Set(list.map((x) => x.exportedById))] } }, select: { id: true, displayName: true } })).map((u) => [u.id, u.displayName]));
   return list.map((x) => ({ ...x, by: people.get(x.exportedById) ?? "Someone", note: x.anyway ? `Exported anyway, ${plural(x.problems, "problem")} in a separate file` : `${plural(x.rows, "row")}, no problems` }));
 }

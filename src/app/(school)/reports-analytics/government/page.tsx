@@ -39,7 +39,7 @@ export default async function GovernmentPage({ searchParams }: { searchParams: S
     const [check, codes, past] = await Promise.all([
       checking && c.year ? checkReturn(tx, p.current.ctx, c.ret, c.version, c.year, c.campus) : null,
       codesCard(tx, p.current.ctx, c.year?.id ?? null),
-      pastExports(tx, range ? momentWhere(range, p.tz) : null),
+      pastExports(tx, range ? momentWhere(range, p.tz) : null, p.current),
     ]);
     return { ...c, check, codes, past };
   }, { timeout: 60_000 });

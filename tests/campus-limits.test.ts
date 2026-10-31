@@ -35,6 +35,7 @@ import { withSchool, type SchoolContext, type Tx } from "@/lib/db";
 import { accessIn } from "@/lib/auth/access";
 import { examScope } from "@/lib/exams/scope";
 import { saveCompetencyLevels } from "@/lib/exams/report-cards";
+import { pastExports } from "@/lib/reports/government";
 import { makeSchool, makeUser } from "./helpers";
 import { addStudent } from "./students/fixtures";
 
@@ -186,5 +187,34 @@ describe("Parent Link preview keeps to the viewer's campus", () => {
     expect(p.childIds).toEqual([north.studentId]);
     expect(p.shown).toBe(north.studentId);
     expect(p.restricted).not.toContain("Manoj Kumar");
+  });
+});
+
+describe("government return files keep to the viewer's campus", () => {
+  const ids: Record<"north" | "main" | "whole", string> = { north: "", main: "", whole: "" };
+  beforeAll(async () => {
+    await run(async (tx) => {
+      for (const [k, campusId] of [["north", north.campusId], ["main", main.campusId], ["whole", null]] as const) {
+        ids[k] = (await tx.governmentExport.create({ data: { schoolId: school.id, returnKey: "udise", title: "UDISE+", version: "2026", academicYearId: north.yearId, campusId, rows: 1, fileId: randomUUID(), exportedById: users.admin } })).id;
+      }
+    });
+  });
+  const download = async (as: Current, id: string) => {
+    who.current = as;
+    const { GET } = await import("@/app/(school)/reports-analytics/government/file/[id]/route");
+    return (await GET(new Request(`http://school.test/reports-analytics/government/file/${id}`), { params: Promise.resolve({ id }) })).status;
+  };
+
+  it("lists every export to a whole-school viewer, and only the viewer's campus's to a campus-limited one", async () => {
+    const listed = async (as: Current) => (await run((tx) => pastExports(tx, null, as))).map((x) => x.id).filter((id) => Object.values(ids).includes(id)).sort();
+    expect(await listed(cur.admin)).toEqual(Object.values(ids).sort());
+    expect(await listed(cur.northAdmin)).toEqual([ids.north]);
+  });
+
+  it("downloads only the viewer's campus's files", async () => {
+    expect(await download(cur.admin, ids.main)).toBe(307);
+    expect(await download(cur.northAdmin, ids.north)).toBe(307);
+    expect(await download(cur.northAdmin, ids.main)).toBe(404);
+    expect(await download(cur.northAdmin, ids.whole)).toBe(404);
   });
 });

@@ -1,6 +1,7 @@
 // Downloads a past government export again: the same file as was made then.
 import { NextResponse } from "next/server";
 import { requireAction } from "@/lib/current";
+import { inCampus } from "@/lib/campus";
 import { withSchool } from "@/lib/db";
 import { fileLink } from "@/lib/files";
 import { PermissionDeniedError } from "@/lib/permissions";
@@ -21,7 +22,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     throw e;
   }
   if (!reportAccess(current).pages.government) return plain("Government Reports are not open to your role.", 403);
-  const g = await withSchool(current.ctx, (tx) => tx.governmentExport.findFirst({ where: { id }, select: { fileId: true, problemFileId: true } }));
+  // A person limited to one campus gets only that campus's exports, not whole-school ones.
+  const g = await withSchool(current.ctx, (tx) => tx.governmentExport.findFirst({ where: { id, ...inCampus(current) }, select: { fileId: true, problemFileId: true } }));
   const which = new URL(req.url).searchParams.get("which") === "problems" ? g?.problemFileId : g?.fileId;
   if (!which) return plain("This export was not found. It may belong to another school.", 404);
   return NextResponse.redirect(new URL(fileLink(which, current.ctx.schoolId), req.url));

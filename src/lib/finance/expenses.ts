@@ -69,9 +69,21 @@ async function checkExpense(tx: Tx, ctx: SchoolContext, input: ExpenseInput, sel
  * when asked); above the limit it goes to Approvals. Returns the expense, a
  * budget warning when it takes a head over 80% or 100%, and what happened.
  */
-export async function recordExpense(tx: Tx, ctx: SchoolContext, input: ExpenseInput, payNow: PayInput | null, opts: { draft?: boolean } = {}) {
+export async function recordExpense(tx: Tx, ctx: SchoolContext, input: ExpenseInput, payNow: PayInput | null, opts: { draft?: boolean; typed?: boolean } = {}) {
   await assertNotFuture(tx, ctx, input.date, "date", input.isVendorBill ? "The bill date" : "The expense date");
+  // Sent twice at once: the second waits here, then meets the duplicate warnings.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`expense:${ctx.schoolId}`}))`;
   const head = await checkExpense(tx, ctx, input);
+  // Typed on Record expense without a vendor and saved again by mistake (a double click, two tabs,
+  // the same bill typed twice): the same head, amount and date recorded in the last 15 minutes.
+  // Other modules record their own expenses (mess, fuel, purchases) and are not asked.
+  if (opts.typed && !input.vendorId && !input.duplicateReason) {
+    const dup = await tx.expense.findFirst({
+      where: { accountHeadId: head.id, amountPaise: input.amountPaise, date: input.date, status: { not: "CANCELLED" }, createdAt: { gte: new Date(Date.now() - 15 * 60_000) } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (dup) throw new MoneyWarning(`${formatRupees(input.amountPaise)} for ${head.name} on ${formatDate(input.date)} was recorded a few minutes ago as ${dup.number}. Save it again?`, "billNo", { href: `/finance-management/expenses/${dup.id}`, label: "Open existing" });
+  }
   const fy = await financialYearOf(tx, ctx, input.date);
   if (fy.status === "CLOSED") await assertBooksOpen(tx, ctx, input.date, "date");
   const n = await nextNumber(tx, ctx, `expense:${fy.name}`);

@@ -18,6 +18,7 @@ export async function recordIncomeAction(_prev: unknown, fd: FormData) {
       date: dateOf(fd, "date", "Date"), accountHeadId: id(fd, "accountHeadId", "income head"), amountPaise: amount,
       receivedFrom: text(fd, "receivedFrom", "Received from", { min: 2, max: 120 }), vendorId: null, mode,
       reference: mode === "CASH" ? null : optionalText(fd, "reference", "Reference", 80), accountId: optionalId(fd, "accountId"), note: optionalText(fd, "note", "Note", 500),
+      confirmDuplicate: str(fd, "confirmDuplicate") === "on",
     }, post);
     return { post, no: r.receiptNo, amount: formatRupees(r.amountPaise), date: formatDate(r.date), moved: dayBookMoved(r) };
   }, (r) => (r.post ? `${r.no} posted · ${r.amount}. ${dayBookWords(r)} Print the receipt from the entry.` : `Saved as draft · ${r.amount}. Not in the Day Book until you post it.`));

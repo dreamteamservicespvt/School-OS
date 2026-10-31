@@ -10,13 +10,20 @@ import { nextNumber, formatNumber } from "../sequences";
 import { htmlToPdf, esc } from "../pdf";
 import { rupeesInWords } from "../documents/words";
 import { dataUri } from "../documents";
-import { MoneyProblem } from "../fees/problem";
+import { MoneyProblem, MoneyWarning } from "../fees/problem";
 import { postToDayBook, reverseSource } from "./daybook";
 import { accountForMode, financeSettings } from "./settings";
 import { assertBooksOpen, assertNotFuture, financialYearOf } from "./years";
 import { financeModeLabel } from "./words";
 
-export type IncomeInput = { date: Date; accountHeadId: string; amountPaise: bigint; receivedFrom: string; vendorId: string | null; mode: string; reference: string | null; accountId: string | null; note: string | null };
+export type IncomeInput = {
+  date: Date; accountHeadId: string; amountPaise: bigint; receivedFrom: string; vendorId: string | null; mode: string; reference: string | null; accountId: string | null; note: string | null;
+  /**
+   * Typed on Record income: false asks before saving the same income again, true is the person's
+   * "Save it again". Other modules record their own income (fines, asset sales) and leave it out.
+   */
+  confirmDuplicate?: boolean;
+};
 
 async function check(tx: Tx, input: IncomeInput) {
   if (input.amountPaise <= BigInt(0)) throw new MoneyProblem("Amount must be more than ₹0.", "amount");
@@ -32,6 +39,16 @@ async function check(tx: Tx, input: IncomeInput) {
 export async function recordIncome(tx: Tx, ctx: SchoolContext, input: IncomeInput, postNow: boolean) {
   await assertNotFuture(tx, ctx, input.date, "date", "The date received");
   const head = await check(tx, input);
+  // Sent twice at once or saved again by mistake: the second waits here, then finds the first
+  // (same head, amount, date and payer in the last 15 minutes) and asks before saving again.
+  await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${`income:${ctx.schoolId}`}))`;
+  if (input.confirmDuplicate === false) {
+    const same = await tx.income.findFirst({
+      where: { accountHeadId: head.id, amountPaise: input.amountPaise, date: input.date, receivedFrom: { equals: input.receivedFrom.trim(), mode: "insensitive" }, status: { not: "CANCELLED" }, createdAt: { gte: new Date(Date.now() - 15 * 60_000) } },
+      orderBy: { createdAt: "desc" },
+    });
+    if (same) throw new MoneyWarning(`${formatRupees(input.amountPaise)} from ${same.receivedFrom} on ${formatDate(input.date)} was recorded a few minutes ago${same.receiptNo ? ` as ${same.receiptNo}` : ""}. Save it again?`, "amount");
+  }
   const fy = postNow ? await assertBooksOpen(tx, ctx, input.date) : await financialYearOf(tx, ctx, input.date);
   const accountId = await accountForMode(tx, ctx, input.mode, input.accountId);
   const income = await tx.income.create({

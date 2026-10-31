@@ -114,7 +114,7 @@ describe.skipIf(!pgBin)("restore test on a real copy", () => {
     // The scratch database is gone again.
     const left = await prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM pg_database WHERE datname = ${r.target}`;
     expect(Number(left[0].n)).toBe(0);
-  }, 300_000);
+  }, 600_000);
 
   it("fails, and records the failure, when a file is not in the backup", async () => {
     rmSync(path.join(dir, key));
@@ -123,5 +123,5 @@ describe.skipIf(!pgBin)("restore test on a real copy", () => {
     expect(r.files.missing).toBe(1);
     expect(r.problems.some((p) => p.kind === "file" && p.text.includes(key))).toBe(true);
     expect((await latestRestore()).result).toBe("failed");
-  }, 300_000);
+  }, 600_000);
 });

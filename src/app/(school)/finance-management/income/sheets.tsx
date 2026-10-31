@@ -6,6 +6,7 @@ import { SArea, SDate, SMoney, SSelect, SText } from "@/components/ui/sheet-fiel
 import { Segmented, Switch } from "@/components/ui/controls";
 import type { Option } from "@/components/ui/field";
 import { recordIncomeAction } from "./actions";
+import { WarnCheck } from "../_components/forms";
 import { Words } from "@/lib/i18n/client";
 
 const MODES = [{ value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "BANK_TRANSFER", label: "Bank transfer" }, { value: "CHEQUE", label: "Cheque" }];
@@ -35,6 +36,7 @@ export function RecordIncomeSheet({ closeHref, today, heads, payers, cash, banks
       <SSelect key={mode} name="accountId" label="Into" required options={accounts} start={mode === "CASH" ? accounts[0]?.value : mainBank}
         help={mode === "CASH" ? "Cash goes into the office cash box" : "The main bank account unless you choose another"} />
       <SArea name="note" label="Note" placeholder="Optional" />
+      <WarnCheck field="amount" name="confirmDuplicate" title="Save it again" sub="It is a second payment, not the same one twice." />
       <div className="flex items-center gap-3 rounded-xl bg-sunken/70 px-3.5 py-3">
         <Switch id="ri-post" on={post} label="Post now" onChange={setPost} />
         <label htmlFor="ri-post" className="text-[14px]"><b className="font-semibold"><Words k="Post now" /></b><span className="block text-[12.5px] text-ink3">{post ? "Goes into the Day Book straight away" : "Kept as a draft, for example until a cheque clears"}</span></label>

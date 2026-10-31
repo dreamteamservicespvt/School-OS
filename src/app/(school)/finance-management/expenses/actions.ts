@@ -52,7 +52,7 @@ export async function recordExpenseAction(_prev: unknown, fd: FormData) {
       note: text(fd, "what", "What was it for", { min: 3, max: 200 }),
       isVendorBill: false, billNo: null, billDueDate: null,
       duplicateReason: optionalText(fd, "duplicateReason", "Reason", 300),
-    }, str(fd, "paid") === "on" ? payOf(fd, date) : null);
+    }, str(fd, "paid") === "on" ? payOf(fd, date) : null, { typed: true });
     // The Day Book date, which is the next open day when the typed date was already closed.
     const booked = "dayBookDate" in r && r.dayBookDate ? r.dayBookDate : date;
     const moved = booked.getTime() !== date.getTime();

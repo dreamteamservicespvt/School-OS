@@ -137,5 +137,6 @@ describe("other times written by SQL", () => {
       });
     }
     expect(bad).toEqual([]);
-  });
+  // Reads every source file: on the D: hard disk, with the rest of the suite running, it can take over 20 s.
+  }, 120_000);
 });

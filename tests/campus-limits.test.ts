@@ -591,3 +591,52 @@ describe("Data Backup & Security keeps to the viewer's campus (run-2 lead L7)", 
     expect(await res.text()).toBe(WHOLE_SCHOOL_EXPORT);
   }, 120_000);
 });
+
+describe("guardian merge search keeps to the viewer's campus (run-3)", () => {
+  // The search lists parents with their phone and their children's names, so
+  // a person limited to one campus finds only parents of that campus's
+  // students, and sees only those children, as on the parent's own page.
+  let keepId = "";
+  beforeAll(async () => {
+    await run(async (tx) => {
+      const g = (name: string, phone: string) => tx.guardian.create({ data: { schoolId: school.id, name, relationship: "Mother", phone } });
+      const link = (guardianId: string, studentId: string) => tx.studentGuardian.create({ data: { schoolId: school.id, guardianId, studentId, relationship: "Mother" } });
+      const keep = await g("Lakshmi Devi", "9876500001");
+      await link(keep.id, north.studentId);
+      keepId = keep.id;
+      await link((await g("Lakshmi Main", "9876500002")).id, main.studentId);
+      const both = await g("Lakshmi Both", "9876500003");
+      await link(both.id, north.studentB);
+      await link(both.id, main.studentId);
+    });
+  });
+  type Option = { label: string; help: string };
+  const optionsIn = (node: unknown): Option[] | null => {
+    if (!node || typeof node !== "object") return null;
+    if (Array.isArray(node)) {
+      for (const n of node) { const o = optionsIn(n); if (o) return o; }
+      return null;
+    }
+    const props = (node as { props?: { name?: string; options?: Option[]; children?: unknown } }).props;
+    if (!props) return null;
+    if (props.name === "mergeId") return props.options ?? [];
+    return optionsIn(props.children);
+  };
+  const search = async (as: Current, q: string) => {
+    who.current = as;
+    const { default: Page } = await import("@/app/(school)/student-management/guardians/[id]/merge/page");
+    return optionsIn(await Page({ params: Promise.resolve({ id: keepId }), searchParams: Promise.resolve({ q }) })) ?? [];
+  };
+
+  it("finds every campus's parents for a whole-school viewer", async () => {
+    const found = await search(cur.admin, "Lakshmi");
+    expect(found.map((o) => o.label).sort()).toEqual(["Lakshmi Both (Mother)", "Lakshmi Main (Mother)"]);
+  }, 120_000);
+
+  it("finds only the viewer's campus's parents, with only that campus's children", async () => {
+    const found = await search(cur.northAdmin, "Lakshmi");
+    expect(found.map((o) => o.label)).toEqual(["Lakshmi Both (Mother)"]);
+    expect(found[0].help).toContain("Nikhil Rao");
+    expect(found[0].help).not.toContain("Mohan Kumar");
+  }, 120_000);
+});

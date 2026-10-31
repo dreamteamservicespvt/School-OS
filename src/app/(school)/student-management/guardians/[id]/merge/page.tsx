@@ -11,6 +11,7 @@ import { ActionForm, FormChoice } from "@/components/students/action-form";
 import { BASE, studentPage } from "../../../_lib/page";
 import { mergeAction } from "../../../_actions/guardians";
 import { visibleGuardianFor } from "../../load";
+import { abilities, studentScope } from "@/lib/students/access";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
@@ -32,9 +33,13 @@ export default async function MergeGuardianPage({ params, searchParams }: { para
     const where = q.length >= 3
       ? { OR: [{ name: { contains: q, mode: "insensitive" as const } }, ...(digits.length >= 4 ? [{ phone: { contains: digits } }, { altPhone: { contains: digits } }] : [])] }
       : { OR: [{ phone: keep.phone }, { name: { equals: keep.name, mode: "insensitive" as const } }] };
+    // Only parents of students the person may see, with only those children, as visibleGuardianFor and
+    // the parent's page: a "One campus" login finds its campus's parents only.
+    const all = abilities(current).reach === "all" && !current.campusId;
+    const scope = all ? {} : await studentScope(tx, current);
     const found = await tx.guardian.findMany({
-      where: { AND: [where, { archivedAt: null, id: { not: id } }] },
-      include: { students: { where: { archivedAt: null }, include: { student: { select: { fullName: true } } } } },
+      where: { AND: [where, { archivedAt: null, id: { not: id } }, ...(all ? [] : [{ students: { some: { archivedAt: null, student: scope } } }])] },
+      include: { students: { where: { archivedAt: null, ...(all ? {} : { student: scope }) }, include: { student: { select: { fullName: true } } } } },
       take: 20,
     });
     return { keep, found };

@@ -24,6 +24,12 @@ vi.mock("@/lib/current", async (orig) => {
     },
   };
 });
+vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined, set: () => {}, delete: () => {} }), headers: async () => new Headers({ host: "school.test" }) }));
+vi.mock("next/navigation", () => ({
+  redirect: (url: string) => { throw new Error(`REDIRECT ${url}`); },
+  notFound: () => { throw new Error("NOT_FOUND"); },
+}));
+vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
 
 import { withSchool, type SchoolContext, type Tx } from "@/lib/db";
 import { accessIn } from "@/lib/auth/access";
@@ -112,5 +118,26 @@ describe("competency levels are bound to the section's roster", () => {
 
   it("refuses a made-up student id", async () => {
     await expect(save(randomUUID())).rejects.toThrow(/Reload the page/);
+  });
+});
+
+describe("certificate detail page keeps to the viewer's campus", () => {
+  const certFor = (studentId: string) => run(async (tx) => (await tx.certificate.create({ data: { schoolId: school.id, studentId, type: "BONAFIDE", issueDate: day("2026-10-01"), verifyCode: randomUUID().slice(0, 12) } })).id);
+  const open = async (as: Current, id: string) => {
+    who.current = as;
+    const { default: Page } = await import("@/app/(school)/student-management/certificates/[id]/page");
+    return Page({ params: Promise.resolve({ id }) });
+  };
+
+  it("shows a certificate of the viewer's own campus", async () => {
+    await expect(open(cur.northAdmin, await certFor(north.studentId))).resolves.toBeTruthy();
+  });
+
+  it("shows any campus's certificate to a whole-school viewer", async () => {
+    await expect(open(cur.admin, await certFor(main.studentId))).resolves.toBeTruthy();
+  });
+
+  it("is not found for a certificate of another campus", async () => {
+    await expect(open(cur.northAdmin, await certFor(main.studentId))).rejects.toThrow("NOT_FOUND");
   });
 });

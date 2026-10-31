@@ -14,6 +14,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { ActionButton, ConfirmAction } from "@/components/students/confirm-action";
 import { CERTIFICATE_LABEL, CERT_STATUS_LABEL, CERT_STATUS_TONE } from "@/lib/students/labels";
 import { certificateData, certificateHtml, printContext } from "@/lib/students/certificates";
+import { studentScope } from "@/lib/students/access";
 import { BASE, origin, studentPage } from "../../_lib/page";
 import { cancelCertificateAction, decideCertificateAction, issueCertificateAction } from "../../_actions/certificates";
 import { Words } from "@/lib/i18n/client";
@@ -27,16 +28,18 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function CertificatePage({ params }: { params: Promise<{ id: string }> }) {
   const { current, settings, can, tz } = await studentPage();
   const { id } = await params;
-  if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
+  // The layout's rule again (a page is also reached without its layout), and only students this person may see.
+  if (!/^[0-9a-f-]{36}$/i.test(id) || can.reach !== "all" || can.lookupOnly) notFound();
   const data = await withSchool(current.ctx, async (tx) => {
     const cert = await tx.certificate.findUnique({ where: { id } });
     if (!cert) return null;
     const [student, approval, signatory, people] = await Promise.all([
-      tx.student.findUnique({ where: { id: cert.studentId }, select: { id: true, fullName: true, admissionNo: true } }),
+      tx.student.findFirst({ where: { AND: [{ id: cert.studentId }, await studentScope(tx, current)] }, select: { id: true, fullName: true, admissionNo: true } }),
       cert.approvalId ? tx.approval.findUnique({ where: { id: cert.approvalId } }) : null,
       cert.signatoryId ? tx.signatory.findUnique({ where: { id: cert.signatoryId } }) : null,
       tx.userLogin.findMany({ where: { id: { in: [cert.requestedById, cert.issuedById, cert.approvedById].filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } }),
     ]);
+    if (!student) return null;
     const mayDecide = approval && cert.status === "REQUESTED" ? await canDecide(tx, current.ctx, approval) : false;
     // The page as printed: the saved details once issued; before that, filled from the record now.
     const issued = cert.status === "ISSUED" || cert.status === "CANCELLED";

@@ -9,7 +9,7 @@ import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
 import { DOCUMENT_TYPES, FileProblem, saveFile } from "@/lib/files";
 import { undoImport } from "@/lib/importer";
-import { requestDataExport } from "@/lib/data-security/data-export";
+import { requestDataExport, WHOLE_SCHOOL_EXPORT } from "@/lib/data-security/data-export";
 import { mayImport } from "@/lib/move-in/service";
 import { PrivacyProblem, personTypesFor, requestDeletion, setRetention, DELETION_PARTS, type DeletionPart } from "@/lib/data-security/privacy";
 import { ConsentProblem, saveConsentText } from "@/lib/data-security/consent";
@@ -22,7 +22,9 @@ const PAGE = "data-security" as const;
 
 export async function requestExportAction(): Promise<string | void> {
   const { current } = await requireSettingsAction(PAGE, "export");
-  const { already } = await withSchool(current.ctx, (tx) => requestDataExport(tx, current.ctx, current.permissions));
+  // Every campus's records: only someone who works for the whole school (run-2 lead L7).
+  if (current.campusId) return WHOLE_SCHOOL_EXPORT;
+  const { already } = await withSchool(current.ctx, (tx) => requestDataExport(tx, current.ctx, current.permissions, current.campusId));
   await flash({ message: already ? "Your full data export is already being prepared. You will get a notification when it is ready." : "Preparing your full data export. You will get a notification with the download link when it is ready, usually within a few minutes." });
   revalidatePath(BASE);
 }

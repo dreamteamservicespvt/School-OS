@@ -5,7 +5,7 @@ import { withSchool } from "@/lib/db";
 import { writeAudit } from "@/lib/audit";
 import { can } from "@/lib/permissions";
 import { fileStore } from "@/lib/storage";
-import { exportExpired, EXPORT_LINK_HOURS } from "@/lib/data-security/data-export";
+import { exportExpired, EXPORT_LINK_HOURS, WHOLE_SCHOOL_EXPORT } from "@/lib/data-security/data-export";
 
 export const dynamic = "force-dynamic";
 
@@ -17,6 +17,8 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   const current = await getCurrent();
   if (!current) return plain("Sign in first.", 401);
   if (!can(current.permissions, "settings", "export")) return plain("Your role does not allow this. Ask your School Admin.", 403);
+  // A login limited to one campus never gets every campus's records (run-2 lead L7), even from an export asked for before.
+  if (current.campusId) return plain(WHOLE_SCHOOL_EXPORT, 403);
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return plain("This export was not found.", 404);
   const found = await withSchool(current.ctx, async (tx) => {

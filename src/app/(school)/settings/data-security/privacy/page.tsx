@@ -46,7 +46,19 @@ export default async function PrivacyPage({ searchParams }: Search) {
     const rules = await retentionRules(tx);
     const retention = await retentionOverview(tx);
     const clearers = await loginNames(tx, retention.history.map((h) => h.clearedById));
-    const requests = await tx.deletionRequest.findMany({ orderBy: { createdAt: "desc" }, take: 30 });
+    // One campus: only the requests about people of that campus (run-2 lead L7).
+    const asked = await tx.deletionRequest.findMany({ orderBy: { createdAt: "desc" }, take: current.campusId ? 300 : 30 });
+    let requests = asked;
+    if (current.campusId) {
+      const ids = (t: string) => asked.filter((r) => r.personType === t).map((r) => r.personId).filter((x) => UUID.test(x));
+      const [students, guardians, staff] = await Promise.all([
+        tx.student.findMany({ where: { id: { in: ids("student") }, ...personInCampus("student", current) }, select: { id: true } }),
+        tx.guardian.findMany({ where: { id: { in: ids("guardian") }, ...personInCampus("guardian", current) }, select: { id: true } }),
+        tx.staff.findMany({ where: { id: { in: ids("staff") }, ...personInCampus("staff", current) }, select: { id: true } }),
+      ]);
+      const mine = new Set([...students, ...guardians, ...staff].map((p) => p.id));
+      requests = asked.filter((r) => mine.has(r.personId)).slice(0, 30);
+    }
     let found: { id: string; name: string; detail: string }[] = [];
     if (type && q.length >= 2) {
       const contains = { contains: q, mode: "insensitive" as const };

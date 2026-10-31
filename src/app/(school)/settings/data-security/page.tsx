@@ -114,7 +114,7 @@ export default async function DataSecurityPage() {
         <Card id="export">
           <CardHeader title="Export all school data" description={`A ZIP with one spreadsheet (CSV) for each kind of record you may see. It is prepared in the background; the download link works for ${EXPORT_LINK_HOURS} hours.`} />
           <CardBody className="space-y-4">
-            {canExport && <ExportButton disabled={preparing} />}
+            {canExport && (current.campusId ? <p className="text-ink-2"><Words k="Only someone who works for the whole school can export all school data." /></p> : <ExportButton disabled={preparing} />)}
             {data.exports.length > 0 && (
               <ul className="divide-y divide-line rounded-xl border border-line">
                 {data.exports.map((e) => {

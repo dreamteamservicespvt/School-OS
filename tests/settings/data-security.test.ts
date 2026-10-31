@@ -104,9 +104,9 @@ describe("full data export", () => {
     expect(models).toContain("Department");
     expect(models).not.toContain("BackgroundJob");
 
-    const { row, already } = await withSchool(ctx, (tx) => requestDataExport(tx, ctx, access!.permissions));
+    const { row, already } = await withSchool(ctx, (tx) => requestDataExport(tx, ctx, access!.permissions, access!.campusId));
     expect(already).toBe(false);
-    const second = await withSchool(ctx, (tx) => requestDataExport(tx, ctx, access!.permissions));
+    const second = await withSchool(ctx, (tx) => requestDataExport(tx, ctx, access!.permissions, access!.campusId));
     expect(second.already).toBe(true);
 
     const job = await withSchool(ctx, (tx) => tx.backgroundJob.findFirstOrThrow({ where: { idempotencyKey: `data-export:${row.id}` } }));

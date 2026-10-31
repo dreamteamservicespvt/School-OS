@@ -126,6 +126,9 @@ describe("the translator", () => {
       ...["Houses", "House points", "Houses for the whole school", "Clubs", "Sports teams", "Clubs and teams", "Fixtures"].map((w) => `${w} are for every campus, so only someone who works for the whole school can change them.`),
       ...["club", "team"].map((k) => `This ${k} has members of another campus, so only someone who works for the whole school records its attendance.`),
     ];
+    // "Export all school data" is for the whole school (run-2 lead L7).
+    expect(screenMessage(makeT("hi"), "Only someone who works for the whole school can export all school data.")).toContain("पूरे स्कूल");
+    expect(screenMessage(makeT("te"), "Only someone who works for the whole school can export all school data.")).toContain("మొత్తం స్కూల్");
     for (const [lang, campus] of [["hi", "कैंपस"], ["te", "క్యాంపస్"]] as const) {
       const t = makeT(lang);
       for (const m of refusals) expect(screenMessage(t, m), `${lang}: ${m}`).toContain(campus);

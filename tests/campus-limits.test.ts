@@ -487,3 +487,107 @@ describe("import undo keeps to the viewer's campus for every kind of import", ()
     await expect(undo(await batch("calendar-holidays", [entry.id]))).rejects.toThrow(/another campus/);
   });
 });
+
+// Security audit run-2, lead L7: Data Backup & Security for a login limited to
+// one campus. The privacy search, the chosen person, the person export and
+// deletion requests keep to the campus (commit 8777bb36 for most of it; the
+// list of requests here). "Export all school data" is a download of every
+// campus's records (20-settings.md), so (owner decision taken overnight, to
+// confirm) only someone who works for the whole school can ask for it.
+describe("Data Backup & Security keeps to the viewer's campus (run-2 lead L7)", () => {
+  const WHOLE_SCHOOL_EXPORT = "Only someone who works for the whole school can export all school data.";
+  let guardians: { main: string; north: string };
+  beforeAll(async () => {
+    guardians = await run(async (tx) => {
+      const name = async (studentId: string) => (await tx.studentGuardian.findFirstOrThrow({ where: { studentId }, include: { guardian: true } })).guardian.name;
+      await tx.staff.create({ data: { schoolId: school.id, campusId: main.campusId, staffCode: `S-${randomUUID().slice(0, 6)}`, firstName: "Lalitha", lastName: "Clerk", fullName: "Lalitha Main Clerk", phone: "9876500021", designation: "Clerk", staffType: "Non-teaching", joiningDate: day("2020-06-01") } });
+      await tx.staff.create({ data: { schoolId: school.id, campusId: north.campusId, staffCode: `S-${randomUUID().slice(0, 6)}`, firstName: "Lavanya", lastName: "Clerk", fullName: "Lavanya North Clerk", phone: "9876500022", designation: "Clerk", staffType: "Non-teaching", joiningDate: day("2020-06-01") } });
+      return { main: await name(main.studentId), north: await name(north.studentId) };
+    });
+  });
+
+  /** Every piece of text and every prop the page hands to its parts. */
+  function texts(node: unknown, out: string[] = [], seen = new WeakSet<object>()): string[] {
+    if (typeof node === "string" || typeof node === "number") out.push(String(node));
+    else if (node && typeof node === "object" && !seen.has(node)) {
+      seen.add(node);
+      if (Array.isArray(node)) for (const n of node) texts(n, out, seen);
+      else for (const v of Object.values((node as { props?: Record<string, unknown> }).props ?? {})) texts(v, out, seen);
+    }
+    return out;
+  }
+  const privacy = async (as: Current, sp: Record<string, string>) => {
+    who.current = as;
+    const { default: Page } = await import("@/app/(school)/settings/data-security/privacy/page");
+    return texts(await Page({ searchParams: Promise.resolve(sp) })).join("\n");
+  };
+  const deletionForm = (personType: string, personId: string) => {
+    const fd = new FormData();
+    for (const [k, v] of Object.entries({ personType, personId, scopeAll: "all", reason: "The parent asked in writing", askedBy: "Parent" })) fd.set(k, v);
+    return fd;
+  };
+  const ask = async (as: Current, personType: string, personId: string) => {
+    who.current = as;
+    const { requestDeletionAction } = await import("@/app/(school)/settings/data-security/actions");
+    return requestDeletionAction({ ok: false, message: "" }, deletionForm(personType, personId));
+  };
+  const requestsAbout = (personId: string) => run((tx) => tx.deletionRequest.count({ where: { personId } }));
+
+  it("finds only the viewer's campus's students, parents and staff in the privacy search", async () => {
+    const students = await privacy(cur.northAdmin, { type: "student", q: "Kumar" });
+    expect(students).toContain("Neha Kumar");
+    expect(students).not.toContain("Mohan Kumar");
+    const staff = await privacy(cur.northAdmin, { type: "staff", q: "Clerk" });
+    expect(staff).toContain("Lavanya North Clerk");
+    expect(staff).not.toContain("Lalitha Main Clerk");
+    // (The words searched for are shown back on the page, so search by a part both names share.)
+    const parents = await privacy(cur.northAdmin, { type: "guardian", q: "Parent" });
+    expect(parents).toContain(guardians.north);
+    expect(parents).not.toContain(guardians.main);
+    // Choosing another campus's person by address shows nothing of them.
+    expect(await privacy(cur.northAdmin, { type: "student", person: main.studentId })).not.toContain("Mohan Kumar");
+    // The whole-school admin finds both campuses.
+    const whole = await privacy(cur.admin, { type: "student", q: "Kumar" });
+    expect(whole).toContain("Mohan Kumar");
+    expect(whole).toContain("Neha Kumar");
+  }, 120_000);
+
+  it("does not let a one-campus admin ask to remove another campus's person", async () => {
+    const r = await ask(cur.northAdmin, "student", main.studentId);
+    expect(r?.ok).toBe(false);
+    expect(await requestsAbout(main.studentId)).toBe(0);
+    const g = await run(async (tx) => (await tx.studentGuardian.findFirstOrThrow({ where: { studentId: main.studentId } })).guardianId);
+    expect((await ask(cur.northAdmin, "guardian", g))?.ok).toBe(false);
+    expect(await requestsAbout(g)).toBe(0);
+    // Their own campus's student: the request goes to Approvals.
+    await expect(ask(cur.northAdmin, "student", north.studentB)).rejects.toThrow(/REDIRECT/);
+    expect(await requestsAbout(north.studentB)).toBe(1);
+  }, 120_000);
+
+  it("lists only the requests about the viewer's campus's people", async () => {
+    await expect(ask(cur.admin, "student", main.studentId)).rejects.toThrow(/REDIRECT/);
+    const northPage = await privacy(cur.northAdmin, {});
+    expect(northPage).toContain("Nikhil Rao");
+    expect(northPage).not.toContain("Mohan Kumar");
+    expect(await privacy(cur.admin, {})).toContain("Mohan Kumar");
+  }, 120_000);
+
+  it("refuses 'Export all school data' to a login limited to one campus", async () => {
+    const { requestExportAction } = await import("@/app/(school)/settings/data-security/actions");
+    const exportsBy = (userId: string) => run((tx) => tx.dataExport.count({ where: { requestedById: userId } }));
+    who.current = cur.northAdmin;
+    expect(await requestExportAction()).toBe(WHOLE_SCHOOL_EXPORT);
+    expect(await exportsBy(users.northAdmin)).toBe(0);
+    who.current = cur.admin;
+    expect(await requestExportAction()).toBeUndefined();
+    expect(await exportsBy(users.admin)).toBe(1);
+    // An export file is never handed to a login limited to one campus.
+    const row = await run((tx) => tx.dataExport.findFirstOrThrow({ where: { requestedById: users.admin } }));
+    await run((tx) => tx.dataExport.update({ where: { id: row.id }, data: { requestedById: users.northAdmin } }));
+    who.current = cur.northAdmin;
+    const { GET } = await import("@/app/(school)/settings/data-security/exports/[id]/route");
+    const res = await GET(new Request(`http://school.test/settings/data-security/exports/${row.id}`), { params: Promise.resolve({ id: row.id }) });
+    expect(res.status).toBe(403);
+    expect(await res.text()).toBe(WHOLE_SCHOOL_EXPORT);
+  }, 120_000);
+});

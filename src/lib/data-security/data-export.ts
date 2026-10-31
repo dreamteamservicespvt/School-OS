@@ -17,6 +17,14 @@ import type { ModuleKey } from "../modules";
 /** How long the download link works (inferred: 24 hours). */
 export const EXPORT_LINK_HOURS = 24;
 
+/**
+ * "Export all school data" is a download of every campus's records
+ * (20-settings.md), so a login limited to one campus cannot ask for it or
+ * download one (security audit run-2, lead L7; owner decision taken overnight
+ * as the safest choice, to confirm).
+ */
+export const WHOLE_SCHOOL_EXPORT = "Only someone who works for the whole school can export all school data.";
+
 /** Which module's permission lets a person see each kind of record. Anything not listed needs Settings. */
 const MODULE_OF: Record<string, ModuleKey> = {
   Student: "student-management", Enrolment: "student-management", Guardian: "student-management", StudentGuardian: "student-management",
@@ -81,8 +89,9 @@ function csvCell(v: unknown): string {
 const fileNameFor = (model: string) => model.replace(/([a-z0-9])([A-Z])/g, "$1-$2").toLowerCase();
 
 /** Asks for a full export. It is prepared in the background; the same person gets one at a time. */
-export async function requestDataExport(tx: Tx, ctx: SchoolContext, permissions: PermissionMap) {
+export async function requestDataExport(tx: Tx, ctx: SchoolContext, permissions: PermissionMap, campusId: string | null) {
   if (!ctx.userId) throw new Error("A data export needs a person");
+  if (campusId) throw new Error(WHOLE_SCHOOL_EXPORT);
   const running = await tx.dataExport.findFirst({ where: { requestedById: ctx.userId, status: "preparing" }, orderBy: { createdAt: "desc" } });
   if (running) {
     const job = await tx.backgroundJob.findUnique({ where: { schoolId_idempotencyKey: { schoolId: ctx.schoolId, idempotencyKey: `data-export:${running.id}` } } });

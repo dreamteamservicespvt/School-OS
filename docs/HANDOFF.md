@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-10-31 09:05 (morning clean-up round; nothing pushed)
+Last updated: 2026-10-31 10:40 (code audit; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
@@ -19,6 +19,10 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
   (945e53b4). Slow-disk test limits raised. Owner's 4 uncommitted files reviewed: whitespace only.
   Demo reseeded 09:40 (backup C:\Users\chala\sos-snap\school_os-2026-10-31-before-reseed.dump): today 261/271
   present, ₹36k from 30 payments; recheck-audit 11/11; app serving from the SSD copy on :3000.
+- CODE AUDIT 2026-10-31 (light, one reviewer): docs/qa/2026-10-31-code-audit.md. 3 found, 3 fixed (b625e12c):
+  Content-Security-Policy header (+ tests/security-headers.test.ts), nodemailer 10.3.1, re2js. Tests 2,333/2,333.
+  Left: zod 3 -> 4 (own task), firebase/prisma/exceljs advisories not reachable. The full multi-agent
+  `security-audit` (needs ultracode) has still never run on School OS.
 - Local commits on branch claude/project-thread-cesreq, NOT pushed (audit commits 2150019b..HEAD).
   The user's own uncommitted edits (.vscode/settings.json, CLAUDE.md, next.config.ts, public/push-sw.js) left alone.
 - Local setup: PostgreSQL 16 in tools/pg16 (data tools/pgdata; superuser `postgres` trust on localhost).

@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-01 00:35 (security fixes, follow-ups and 5 run-2 leads committed, last 872cfc13; nothing pushed)
+Last updated: 2026-11-01 02:35 (suite 2416/2417 + hang fix 2aeabc78, SSD build passed; L1, L5 roles, L7 being built overnight; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
@@ -47,11 +47,14 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
 ## Next steps
 S. SECURITY follow-ups: (1) run-2's 7 NEEDS VALIDATION leads (~/security-audit-skill/School-OS/run-2/NEEDS-VALIDATION.md).
    DONE: L6 66e588c9, L3 d6631937 (tests/run2-leads.test.ts), L2 26da6612, L4 b6d2ef2a (pay-out was doubled too),
-   L5 alert part 872cfc13. Full suite + SSD build after them NOT yet confirmed: the 00:26 run broke in
-   global setup (P1014, schema dropped mid-migrate) because ANOTHER vitest run (tests/fees/new-student-plan,
-   not started by this chat) used school_os_test at the same time; re-run both. OWNER DECISIONS (not
-   built): L1 adjust reduction above concession limit -> approval?; L5 may HR grant roles above its own?;
-   L7 one-campus Settings holder: full export / privacy search / deletion kept to campus?
+   L5 alert part 872cfc13. Full suite after them (01:03-02:07, tools/full-test.log): 269 of 270 files,
+   2416 of 2417; the 1 was a hang, not a wrong result ("Mark refunded" twice in tests/fees/counter-race:
+   decide() loads approval-handlers on first use inside its 15 s transaction), fixed 2aeabc78 by importing
+   it first like other tests (6 of 6). SSD build after them passed (02:33); app on :3000 again.
+   OWNER DECISIONS: the user said overnight "don't ask, complete everything", so Claude builds the SAFEST
+   choice, own commits, for the owner to confirm or revert: L1 reduce-adjustment above the concession
+   limit -> Principal approval; L5 HR without Settings rights cannot give School Admin/Principal roles,
+   Settings exceptions, or sign-in links for those logins; L7 "Export all school data" whole-school only.
    (2) DONE, and its Events pages leftover too: commit 06632769 (evYears in src/lib/events/campus.ts;
    Co-curricular, Daily, Settings work in each campus's year; achievements, fitness, export and certificate
    print keep to a One-campus person's campus; tests/events-calendar/campus-pages.test.ts 5 of 5 red before).

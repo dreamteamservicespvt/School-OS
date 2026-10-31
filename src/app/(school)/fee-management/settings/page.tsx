@@ -4,7 +4,7 @@ import { withSchool } from "@/lib/db";
 import { defaultSteps, requestLabel, type RuleStep } from "@/lib/approvals";
 import { formatRupees } from "@/lib/format";
 import { financialYearOf } from "@/lib/finance/years";
-import { nextReceiptPreview, REMINDER_DAY_CHOICES } from "@/lib/fees/settings-save";
+import { mayChangeLimits, nextReceiptPreview, REMINDER_DAY_CHOICES } from "@/lib/fees/settings-save";
 import { reminderSettingsPreview } from "@/lib/fees/reminder-preview";
 import { ageingLabel, COUNTER_PERMISSIONS, FEE_FEATURES, PAYMENT_MODES, percentWord } from "@/lib/fees/words";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -94,6 +94,9 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
   const edit = one(sp.edit);
   const s = p.settings;
   const ctx = p.current.ctx;
+  // Approval limits restrain the Accountant: only the Principal or the School Admin changes them.
+  const limitsOwner = mayChangeLimits(p.current.permissions);
+  const ownerOnly = limitsOwner ? undefined : "Set by the Principal or the School Admin";
 
   const data = await withSchool(ctx, async (tx) => {
     const fy = await financialYearOf(tx, ctx, p.today);
@@ -189,7 +192,9 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
               {FEE_FEATURES.map((f) => (
                 <li key={f.key} className="flex items-center justify-between gap-3 py-2.5 border-t border-line/70 first:border-0">
                   <span className="min-w-0"><span className="font-medium block">{f.label}</span><span className="block text-[12.5px] text-ink3">{f.about}</span></span>
-                  <FeatureSwitch featureKey={f.key} on={features.has(f.key)} label={f.label} />
+                  {f.key === "fee-verification" && !limitsOwner
+                    ? <Pill tone={features.has(f.key) ? "ok" : "neutral"}>{features.has(f.key) ? "On" : "Off"}</Pill>
+                    : <FeatureSwitch featureKey={f.key} on={features.has(f.key)} label={f.label} />}
                 </li>
               ))}
             </ul>
@@ -215,7 +220,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
             )}
           </Card>
 
-          <SetCard title="Payments" icon={Wallet} edit="payments" rows={[
+          <SetCard title="Payments" sub={ownerOnly} icon={Wallet} edit={limitsOwner ? "payments" : undefined} rows={[
             { title: "Concessions apply at once up to", value: formatRupees(s.concessionLimitPaise) },
             { title: "Allow advance payments", sub: "Paying more than the current dues", on: features.has("fee-advance") },
             { title: "Verify before posting", sub: features.has("fee-verification") && s.verifyModes.length ? `${s.verifyModes.map((m) => PAYMENT_MODES.find((x) => x.value === m)?.label ?? m).join(", ")} wait for the accountant` : "Payments post at once", on: features.has("fee-verification") && s.verifyModes.length > 0 },
@@ -241,7 +246,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
             ) : <p className="px-5 pb-4 text-[13.5px] text-ink3"><Words k="All fees go to" /> {mainAccount ? accName.get(mainAccount.id) : "the main bank account"}.</p>}
           </SetCard>
 
-          <SetCard title="Counter permissions" sub="Who may do each thing at the fee counter" icon={KeyRound} edit="counter">
+          <SetCard title="Counter permissions" sub={ownerOnly ?? "Who may do each thing at the fee counter"} icon={KeyRound} edit={limitsOwner ? "counter" : undefined}>
             <ul className="px-5 pb-4 flex flex-col text-[14px]">
               {COUNTER_PERMISSIONS.map((c) => (
                 <li key={c.key} className="flex items-start justify-between gap-3 py-2 border-t border-line/70 first:border-0"><span className="font-medium">{c.label}</span><span className="text-[12.5px] text-ink3 text-right">{counterWords(c.key)}</span></li>
@@ -282,8 +287,8 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
       {edit === "numbers" && <NumberingSheet closeHref={close} s={{ taxInvoicePrefix: s.taxInvoicePrefix, invoicePrefix: s.invoicePrefix, certificatePrefix: s.certificatePrefix }} />}
       {edit === "ageing" && <AgeingSheet closeHref={close} ends={s.ageing.filter((g) => g.to !== null).map((g) => g.to).join(", ")} />}
       {edit === "gateway" && <RoutingSheet closeHref={close} gateways={gwOptions} classes={classOptions} s={{ default: s.routing.default ?? "", byClass: s.routing.byClass }} />}
-      {edit === "payments" && <PaymentsSheet closeHref={close} verifyOn={features.has("fee-verification")} modes={PAYMENT_MODES.filter((m) => m.value !== "GATEWAY").map((m) => ({ value: m.value, label: m.label }))} s={{ verifyModes: s.verifyModes, limit: rupees(s.concessionLimitPaise), cancelPast: s.cancelPastApproval }} />}
-      {edit === "counter" && <CounterSheet closeHref={close} roles={data.roles.map((r) => ({ value: r.key!, label: r.name }))} perms={COUNTER_PERMISSIONS.map((c) => ({ key: c.key, label: c.label, roles: s.counter[c.key] ?? [] }))} />}
+      {edit === "payments" && limitsOwner && <PaymentsSheet closeHref={close} verifyOn={features.has("fee-verification")} modes={PAYMENT_MODES.filter((m) => m.value !== "GATEWAY").map((m) => ({ value: m.value, label: m.label }))} s={{ verifyModes: s.verifyModes, limit: rupees(s.concessionLimitPaise), cancelPast: s.cancelPastApproval }} />}
+      {edit === "counter" && limitsOwner && <CounterSheet closeHref={close} roles={data.roles.map((r) => ({ value: r.key!, label: r.name }))} perms={COUNTER_PERMISSIONS.map((c) => ({ key: c.key, label: c.label, roles: s.counter[c.key] ?? [] }))} />}
       {edit === "accounts" && features.has("fee-bank-accounts") && (
         <HeadAccountsSheet closeHref={close} accounts={data.accounts.map((a) => ({ value: a.id, label: accName.get(a.id)! }))} heads={data.heads.filter((h) => h.systemKey !== "old-dues").map((h) => ({ id: h.id, name: h.name, accountId: h.bankAccountId ?? "" }))} />
       )}

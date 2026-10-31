@@ -29,11 +29,21 @@ export function YearSheet({ closeHref, start, goLive }: { closeHref: string; sta
   );
 }
 
-export function BillsSheet({ closeHref, billAbove, atOnce, incomePrefix, journalPrefix }: { closeHref: string; billAbove: string; atOnce: string; incomePrefix: string; journalPrefix: string }) {
+/** The two limits restrain the Accountant: only the Principal or the School Admin changes them (limitsLocked shows them as text). */
+export function BillsSheet({ closeHref, billAbove, atOnce, incomePrefix, journalPrefix, limitsLocked }: { closeHref: string; billAbove: string; atOnce: string; incomePrefix: string; journalPrefix: string; limitsLocked: boolean }) {
   return (
-    <SheetForm title="Bills and cash" sub="Limits for recording expenses, and numbering" closeHref={closeHref} action={billsAction} submitLabel="Save" pendingText="Saving…">
-      <SMoney name="billRequiredAbove" label="Bill photo needed above" required start={billAbove} help="Expenses above this cannot be paid without a photo of the bill." />
-      <SMoney name="expenseApproveUpTo" label="Approved at once up to" required start={atOnce} help="Bigger expenses go to Approvals. Who approves is set in Settings, Forms & Approvals." />
+    <SheetForm title="Bills and cash" sub="Limits for recording expenses, and numbering" closeHref={closeHref} action={billsAction} submitLabel="Save" pendingText="Saving…"
+      hidden={limitsLocked ? { billRequiredAbove: billAbove, expenseApproveUpTo: atOnce } : undefined}>
+      {limitsLocked ? (
+        <p className="text-[13.5px] text-ink2">
+          <Words k="Bill photo needed above" /> ₹{billAbove} · <Words k="Approved at once up to" /> ₹{atOnce}. <Words k="Only the Principal or the School Admin changes these limits." />
+        </p>
+      ) : (
+        <>
+          <SMoney name="billRequiredAbove" label="Bill photo needed above" required start={billAbove} help="Expenses above this cannot be paid without a photo of the bill." />
+          <SMoney name="expenseApproveUpTo" label="Approved at once up to" required start={atOnce} help="Bigger expenses go to Approvals. Who approves is set in Settings, Forms & Approvals." />
+        </>
+      )}
       <div className="grid grid-cols-2 gap-3">
         <SText name="incomeReceiptPrefix" label="Income receipt prefix" required start={incomePrefix} maxLength={12} className="font-mono" />
         <SText name="journalPrefix" label="Journal entry prefix" required start={journalPrefix} maxLength={12} className="font-mono" />

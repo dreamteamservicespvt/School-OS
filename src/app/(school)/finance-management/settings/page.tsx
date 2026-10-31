@@ -5,6 +5,7 @@ import { formatDate, formatRupees } from "@/lib/format";
 import { defaultSteps, type RuleStep } from "@/lib/approvals";
 import { ruleNamer } from "@/lib/settings/approval-rules";
 import { FINANCE_FEATURES } from "@/lib/finance/words";
+import { mayChangeLimits } from "@/lib/fees/settings-save";
 import { fySpanWords } from "@/lib/finance/years";
 import { yearClosePlan } from "@/lib/finance/year-close";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -238,7 +239,7 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
       </div>
 
       {edit === "year" && <YearSheet closeHref={here()} start={String(s.fyStartMonth)} goLive={iso(s.goLiveDate)} />}
-      {edit === "bills" && <BillsSheet closeHref={here()} billAbove={rupees(s.billRequiredAbove)} atOnce={rupees(s.expenseApproveUpTo)} incomePrefix={s.incomeReceiptPrefix} journalPrefix={s.journalPrefix} />}
+      {edit === "bills" && <BillsSheet closeHref={here()} limitsLocked={!mayChangeLimits(p.current.permissions)} billAbove={rupees(s.billRequiredAbove)} atOnce={rupees(s.expenseApproveUpTo)} incomePrefix={s.incomeReceiptPrefix} journalPrefix={s.journalPrefix} />}
       {edit === "tally" && <TallySheet closeHref={here()} heads={tallyHeads.map((h) => ({ id: h.id, name: h.name, ledger: h.tallyLedger ?? "" }))} />}
       {doing === "head" && <AddHeadSheet closeHref={here()} groups={groupsOf} />}
       {doing === "centre" && <CostCentreSheet closeHref={here()} />}

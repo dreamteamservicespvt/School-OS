@@ -4,7 +4,7 @@ import { MoneyProblem } from "@/lib/fees/problem";
 import { optionalText, parseRupees, str, strs } from "@/lib/fees/act";
 import { COUNTER_PERMISSIONS } from "@/lib/fees/words";
 import {
-  saveAgeing, saveCounter, saveHeadAccounts, saveLateFee, saveNumbering, savePayments, saveReceipts, saveReminders, saveRouting, saveScholarshipTypes, setFeeFeature,
+  requireLimitsOwner, saveAgeing, saveCounter, saveHeadAccounts, saveLateFee, saveNumbering, savePayments, saveReceipts, saveReminders, saveRouting, saveScholarshipTypes, setFeeFeature,
 } from "@/lib/fees/settings-save";
 import { feeAction } from "../_lib/action";
 
@@ -87,14 +87,16 @@ export async function routingAction(_prev: unknown, fd: FormData) {
 }
 
 export async function paymentsAction(_prev: unknown, fd: FormData) {
-  return feeAction("edit", fd, async (tx, ctx) => {
+  return feeAction("edit", fd, async (tx, ctx, _viewer, current) => {
+    requireLimitsOwner(current.permissions);
     await savePayments(tx, ctx, { verifyModes: strs(fd, "verifyMode"), concessionLimitPaise: money(fd, "limit", "Limit"), cancelPastApproval: str(fd, "cancelPast") === "on" });
     return true;
   }, () => "Payment settings saved.", { staffOnly: "change Fee Settings" });
 }
 
 export async function counterAction(_prev: unknown, fd: FormData) {
-  return feeAction("edit", fd, async (tx, ctx) => {
+  return feeAction("edit", fd, async (tx, ctx, _viewer, current) => {
+    requireLimitsOwner(current.permissions);
     const map: Record<string, string[]> = {};
     for (const p of COUNTER_PERMISSIONS) map[p.key] = strs(fd, p.key);
     await saveCounter(tx, ctx, map);
@@ -123,8 +125,10 @@ export async function scholarshipTypesAction(_prev: unknown, fd: FormData) {
 }
 
 export async function featureAction(_prev: unknown, fd: FormData) {
-  return feeAction("edit", fd, async (tx, ctx) => {
+  return feeAction("edit", fd, async (tx, ctx, _viewer, current) => {
     const on = str(fd, "on") === "1";
+    // Verify before posting is an approval step on the Accountant's own payments.
+    if (str(fd, "key") === "fee-verification") requireLimitsOwner(current.permissions);
     await setFeeFeature(tx, ctx, str(fd, "key"), on);
     return on;
   }, (on) => (on ? "Switched on for this school." : "Switched off. Records already made stay."), { staffOnly: "change Fee Settings" });

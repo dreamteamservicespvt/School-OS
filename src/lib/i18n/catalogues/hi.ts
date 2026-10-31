@@ -14204,4 +14204,6 @@ export const hi: Catalogue = {
   "No channel that can carry it is switched on. Switch WhatsApp or SMS on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect one.": "इसे भेज सकने वाला कोई चैनल चालू नहीं है। सेटिंग्स, SMS, WhatsApp और ईमेल में WhatsApp या SMS चालू करें, या कोई जोड़ने के लिए DREAM TEAM सहायता से कहें।",
   ", or switch SMS on in Settings, SMS, WhatsApp & Email.": ", या सेटिंग्स, SMS, WhatsApp और ईमेल में SMS चालू करें।",
   "Switch WhatsApp, SMS and email on or off, and see credits. DREAM TEAM connects them.": "WhatsApp, SMS और ईमेल चालू या बंद करें, और क्रेडिट देखें। DREAM TEAM इन्हें जोड़ती है।",
+  "Set by the Principal or the School Admin": "प्रिंसिपल या स्कूल एडमिन तय करते हैं",
+  "Only the Principal or the School Admin changes these limits.": "ये सीमाएँ केवल प्रिंसिपल या स्कूल एडमिन बदल सकते हैं।",
 };

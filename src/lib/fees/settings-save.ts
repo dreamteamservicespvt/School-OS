@@ -11,6 +11,7 @@ import { MoneyProblem } from "./problem";
 import { feeSettings } from "./settings";
 import { COUNTER_PERMISSIONS, FEE_FEATURES, PAYMENT_MODES, type AgeingGroup, type CounterPermission } from "./words";
 import { schoolRoles } from "../school-roles";
+import { reachFor, type PermissionMap } from "../permissions";
 
 const ZERO = BigInt(0);
 const PREFIX_RE = /^[A-Za-z0-9/\-_{}.]{0,20}$/;
@@ -23,6 +24,20 @@ async function save(tx: Tx, ctx: SchoolContext, what: string, data: Prisma.FeeSe
 
 function jsonable(d: Record<string, unknown>) {
   return Object.fromEntries(Object.entries(d).map(([k, v]) => [k, typeof v === "bigint" ? formatRupees(v) : v]));
+}
+
+/**
+ * Approval limits (the concession limit, cancel-past approval, verify before
+ * posting, counter permissions, and Finance's expense limits) restrain the
+ * Accountant, so only someone with Settings change reach "all" (the Principal
+ * or the School Admin) changes them (security audit run-2).
+ */
+export const LIMITS_OWNER_ONLY = "Only the Principal or the School Admin changes approval limits. Ask them to change this.";
+export function mayChangeLimits(permissions: PermissionMap) {
+  return reachFor(permissions, "settings", "edit") === "all";
+}
+export function requireLimitsOwner(permissions: PermissionMap) {
+  if (!mayChangeLimits(permissions)) throw new MoneyProblem(LIMITS_OWNER_ONLY);
 }
 
 export type LateFeeInput = { on: boolean; type: "flat" | "per-day" | "percent"; amountPaise: bigint; percentBp: number; graceDays: number; maxPaise: bigint | null; headIds: string[] };

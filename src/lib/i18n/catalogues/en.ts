@@ -14744,6 +14744,9 @@ export const EN = [
   ", or switch SMS on in Settings, SMS, WhatsApp & Email.",
   // DREAM TEAM sets up connections (2026-10-26)
   "Switch WhatsApp, SMS and email on or off, and see credits. DREAM TEAM connects them.",
+  // Approval limits are the Principal's or School Admin's (security audit run-2)
+  "Set by the Principal or the School Admin",
+  "Only the Principal or the School Admin changes these limits.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

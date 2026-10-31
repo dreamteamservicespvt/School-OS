@@ -8,6 +8,7 @@ import { closeFinancialYear } from "@/lib/finance/year-close";
 import { financeSettings, setFeature } from "@/lib/finance/settings";
 import { addCostCentre, addHead, saveFinanceSettings, saveTallyLedgers, setHeadShown } from "@/lib/finance/settings-save";
 import { FINANCE_FEATURES } from "@/lib/finance/words";
+import { requireLimitsOwner } from "@/lib/fees/settings-save";
 import { MONTH_NAMES } from "@/lib/finance/years";
 import { todayIn } from "@/lib/staff/dates";
 import { financeAction } from "../_lib/action";
@@ -25,12 +26,16 @@ export async function yearAction(_prev: unknown, fd: FormData) {
 
 /** Bills and cash: the bill photo limit, the approved-at-once limit and the numbering. */
 export async function billsAction(_prev: unknown, fd: FormData) {
-  return financeAction("edit", fd, async (tx, ctx) => {
+  return financeAction("edit", fd, async (tx, ctx, _viewer, current) => {
     const s = await financeSettings(tx, ctx);
+    const billRequiredAbove = needRupees(fd, "billRequiredAbove", "Bill photo needed above", { allowZero: true });
+    const expenseApproveUpTo = needRupees(fd, "expenseApproveUpTo", "Approved at once up to", { allowZero: true });
+    // The two limits are approval limits; the prefixes stay the Accountant's.
+    if (billRequiredAbove !== s.billRequiredAbove || expenseApproveUpTo !== s.expenseApproveUpTo) requireLimitsOwner(current.permissions);
     await saveFinanceSettings(tx, ctx, {
       ...s,
-      billRequiredAbove: needRupees(fd, "billRequiredAbove", "Bill photo needed above", { allowZero: true }),
-      expenseApproveUpTo: needRupees(fd, "expenseApproveUpTo", "Approved at once up to", { allowZero: true }),
+      billRequiredAbove,
+      expenseApproveUpTo,
       incomeReceiptPrefix: str(fd, "incomeReceiptPrefix").toUpperCase(),
       journalPrefix: str(fd, "journalPrefix").toUpperCase(),
     });

@@ -15,6 +15,7 @@ import { MODULES, type ModuleKey } from "./modules";
 import { SUPPORT_LOGIN_ID, type SchoolContext } from "./db";
 import { findSupportEntry, logSupportLook, logSupportRefused, supportContext, type SupportEntry } from "./console/support-entry";
 import { SUPPORT_COOKIE, SUPPORT_PATH_HEADER } from "./support-paths";
+import { SUPPORT_CHECKED_HEADER, supportStampOk } from "./support-stamp";
 
 export const SESSION_COOKIE = "sos_session";
 
@@ -111,6 +112,8 @@ export const getCurrent = cache(async () => {
   const jar = await cookies();
   const supportToken = jar.get(SUPPORT_COOKIE)?.value;
   if (supportToken) {
+    // Only a request the proxy checked for the look-only rule acts as support (src/lib/support-stamp.ts).
+    if (!supportStampOk((await headers()).get(SUPPORT_CHECKED_HEADER))) return null;
     const entry = await findSupportEntry(supportToken);
     if (entry) return supportCurrent(entry);
     // An ended support entry is never anyone's session; requireCurrent sends the browser to /support/left.

@@ -38,6 +38,7 @@ import { abilities } from "@/lib/students/access";
 import { canSeeRestricted, viewerFor } from "@/lib/staff/access";
 import { logExport } from "@/lib/exports";
 import { SUPPORT_COOKIE, SUPPORT_PATH_HEADER, supportRefusal } from "@/lib/support-paths";
+import { SUPPORT_CHECKED_HEADER, supportStamp } from "@/lib/support-stamp";
 import { proxy } from "@/proxy";
 import { endSupportAction, requestSupportAction, withdrawSupportAction } from "@/app/console/(app)/support/actions";
 import { answerSupportAction, decideAction, endSupportNowAction } from "@/app/(school)/approvals/actions";
@@ -94,6 +95,8 @@ async function openSupport(by: SuperAdminUser, s: School = school, minutes = 60)
   expect(claimed).not.toBeNull();
   jar.clear();
   jar.set(SUPPORT_COOKIE, claimed!.token);
+  // What src/proxy.ts adds to every support request it checked.
+  head.set(SUPPORT_CHECKED_HEADER, supportStamp()!);
   return { id: asked.id, token: claimed!.token, sessionId };
 }
 
@@ -424,6 +427,28 @@ describe("a support browser can only look (src/proxy.ts)", () => {
     expect(proxy(req("/console/support", "POST", { "next-action": "abc" })).status).toBe(200);
     // Without the support cookie nothing is refused.
     expect(proxy(new NextRequest("http://localhost/fee-management/collect", { method: "POST", headers: { "next-action": "abc" } })).status).toBe(200);
+  });
+});
+
+describe("the app checks the support browser too (security audit run-1)", () => {
+  it("refuses a support browser whose request the proxy did not check, so a skipped proxy fails closed", async () => {
+    const s = await openSupport(team.SUPPORT);
+    expect((await getCurrent())?.support?.requestId).toBe(s.id);
+    head.delete(SUPPORT_CHECKED_HEADER);
+    expect(await getCurrent()).toBeNull();
+    await expect(requireCurrent()).rejects.toThrow("REDIRECT /support/left");
+    await expect(requireAction("fee-management", "edit")).rejects.toThrow("REDIRECT /support/left");
+    // A header the browser makes up itself is not the proxy's.
+    head.set(SUPPORT_CHECKED_HEADER, "1");
+    expect(await getCurrent()).toBeNull();
+  });
+
+  it("the proxy stamps the support requests it checked, and drops a stamp sent by anyone else", () => {
+    const page = proxy(new NextRequest("http://localhost/fee-management/structure", { headers: { cookie: `${SUPPORT_COOKIE}=${newToken()}` } }));
+    expect(page.headers.get(`x-middleware-request-${SUPPORT_CHECKED_HEADER}`)).toBe(supportStamp());
+    const forged = proxy(new NextRequest("http://localhost/fee-management/structure", { headers: { [SUPPORT_CHECKED_HEADER]: supportStamp()! } }));
+    expect(forged.headers.get(`x-middleware-request-${SUPPORT_CHECKED_HEADER}`)).toBeNull();
+    expect(forged.headers.get("x-middleware-override-headers")?.split(",") ?? []).not.toContain(SUPPORT_CHECKED_HEADER);
   });
 });
 

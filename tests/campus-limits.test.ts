@@ -136,7 +136,7 @@ describe("certificate detail page keeps to the viewer's campus", () => {
 
   it("shows a certificate of the viewer's own campus", async () => {
     await expect(open(cur.northAdmin, await certFor(north.studentId))).resolves.toBeTruthy();
-  });
+  }, 120_000); // The first open loads the page's code, which takes a while on a busy machine.
 
   it("shows any campus's certificate to a whole-school viewer", async () => {
     await expect(open(cur.admin, await certFor(main.studentId))).resolves.toBeTruthy();

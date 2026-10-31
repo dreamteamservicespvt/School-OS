@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-10-31 19:30 (13 security fixes + 3 follow-ups committed; nothing pushed)
+Last updated: 2026-10-31 20:30 (13 security fixes + 4 follow-ups committed; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
@@ -20,8 +20,16 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
   One-campus (houses, clubs, teams, fixtures = whole-school staff only; achievements, credits, fitness, members,
   diary = own campus; club/team attendance only when every member is theirs); 2eb2bf76 campusOf on 13 more import
   kinds (school-wide kinds without a campus: departments, expenses, hostel rooms, store items/assets, library
-  books; a test lists them); b278abdd the campus refusal words in en/hi/te. Checks: campus-limits 34/34,
-  activities 7/7, 9 import-undo files 63/63, i18n 22/22, typecheck + lint clean. Full suite and build NOT re-run.
+  books; a test lists them); b278abdd the campus refusal words in en/hi/te; b40e89b8 Co-curricular, Daily
+  Activities and PTM use the campus's year (yearOf takes a campus: a student's own campus, a class's campus,
+  every campus's open year for houses-in-turn/club-team attendance/fixtures, the giver's campus for house points;
+  a PTM takes classes of one campus). tests/events-calendar/campus-year.test.ts: 6 of 7 fail on old code.
+  Checks: campus-limits 34/34, activities + campus-year + campus + ptm-parent + i18n 52/52, typecheck + lint
+  clean, build on the SSD copy passed (19:35). Full suite: the first run was cut off at 19:50 (chat closed;
+  PostgreSQL stopped too, start it: tools/pg16/pgsql/bin/pg_ctl.exe -D tools/pgdata -l tools/pg.log start).
+  Its 2 failures were 20 s time limits on this slow drive (route-links; first certificate-page open in
+  campus-limits), now 120 s like the other slow tests.
+  Full re-run 21:55 (tools/full-test.log): 268 of 268 files, 2394 of 2394 tests passed, 24 min. Next step S 2 is done.
   Progress page: https://claude.ai/artifact/WLFSJBnAUfaFK714chXmXP (docs/qa/security-followups-progress.html).
 - SECURITY AUDITS: run-1 docs/qa/2026-10-31-security-audit.md; run-2 docs/qa/2026-10-31-security-audit-run-2.md
   (run dir ~/security-audit-skill/School-OS/run-2: findings.json, coverage-ledger.json, NEEDS-VALIDATION.md;
@@ -37,11 +45,10 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
 
 ## Next steps
 S. SECURITY follow-ups: (1) Owner/local checks for run-2's 7 NEEDS VALIDATION leads (run-2/NEEDS-VALIDATION.md).
-   (2) DONE except: planPtm (and yearOf in src/lib/events/cocurricular.ts, used by achievements, credits,
-   members, fitness, diary reminders) picks the year by date, not by the campus, so in a 2-campus school with
-   overlapping years it can pick the other campus's year. The co-curricular / daily pages were not narrowed
-   to the campus (only their actions); add to run-3. Hindi/Telugu words were written by Claude: have a native
-   speaker check them. (3) Run-3 over run-2's deferred
+   (2) DONE. Left for run-3: the Events pages (_lib/page.ts, co-curricular, daily, settings leaderboard)
+   still pick "this year" by date, not the viewer's campus, and are not narrowed to the campus (only their
+   actions are). Hindi/Telugu words were written by Claude: have a native speaker check them (25 now).
+   (3) Run-3 over run-2's deferred
    ledger units (treat run-2 as prior). (4) Push only when the user asks (needs --force-with-lease).
 0. DEMO DAY: to refresh "today" on another day, reseed after ~9:30 AM IST (earlier puts today's attendance in
    the future). Script used on 31-10 (backup, drop/recreate schema, migrate, seed, copy to SSD, build):

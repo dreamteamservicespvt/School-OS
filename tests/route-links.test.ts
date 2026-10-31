@@ -52,5 +52,5 @@ describe("links to a record's page lead to a page that exists", () => {
       }
     }
     expect(broken).toEqual([]);
-  });
+  }, 120_000); // Reading every file under src takes over 20 s on a slow drive.
 });

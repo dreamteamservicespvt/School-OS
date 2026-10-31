@@ -37,16 +37,17 @@ h1 { font-size: 22px; margin: 0; text-wrap: balance; }
 @media (max-width: 480px) { .row { grid-template-columns: 1fr 80px; } .row .bar { grid-column: 1 / -1; grid-row: 2; } .row .line { grid-row: 3; } }
 </style>
 <div class="wrap">
-  <div class="now">Now doing: <b>All done: 3 of 3 fixed and committed</b></div>
+  <div class="now">Now doing: <b>All done: full suite passed (2394 of 2394 tests); committed locally</b></div>
   <h1>School OS security follow-ups (HANDOFF Next step S 2)</h1>
   <div class="main">
     <div class="bar big"><i style="width:100%"></i></div>
-    <div><span class="pct">3 of 3 fixed</span> · each one test-first with its own local commit; nothing pushed</div>
+    <div><span class="pct">4 of 4 fixed and committed; full suite 2394 of 2394 passed</span> · each one test-first with its own local commit; nothing pushed</div>
   </div>
   <div class="rows">
     <div class="row"><div class="name">1. Events activity actions ignore One-campus</div><div class="bar"><i class="Done" style="width:100%"></i></div><span class="tag Done">Done</span><div class="line">Commit 390f0848. Houses, clubs, teams, fixtures: whole-school staff only. Achievements, credits, fitness, members, diary: own campus only. 6 new tests (5 failed before the fix); 7 of 7 old activity tests pass.</div></div>
     <div class="row"><div class="name">2. Import undo: campus check for the other import kinds</div><div class="bar"><i class="Done" style="width:100%"></i></div><span class="tag Done">Done</span><div class="line">Commit 2eb2bf76. 13 more import kinds check the campus before undo; 6 school-wide kinds have no campus. 4 new tests (all red before); 63 of 63 old import tests pass.</div></div>
     <div class="row"><div class="name">3. Campus refusal words in Hindi and Telugu</div><div class="bar"><i class="Done" style="width:100%"></i></div><span class="tag Done">Done</span><div class="line">Commit b278abdd. 24 refusal sentences in English, Hindi and Telugu; i18n tests 22 of 22 pass. Whole campus-limits file 34 of 34.</div></div>
+    <div class="row"><div class="name">4. Co-curricular, Daily Activities and PTM use the campus's year</div><div class="bar"><i class="Done" style="width:100%"></i></div><span class="tag Done">Done</span><div class="line">Commit b40e89b8. New test: 7 checks; on the old code 6 of 7 fail. Each student's own campus year, each class's campus year, every campus for clubs, teams and houses; a PTM takes classes of one campus. 52 of 52 related tests pass; typecheck and lint are clean; the SSD build passed. First full run stopped at 19:50 (chat closed) after 2 failures, both 20 s time limits on a slow drive, not wrong results: route-links (reads every src file) and the first certificate-page open in campus-limits. Both now have 120 s, like the repo's other slow tests. Full re-run 21:55: 268 of 268 files, 2394 of 2394 tests passed.</div></div>
   </div>
   <div class="wait"><b>Waiting on you:</b> a Hindi/Telugu speaker should check the 24 new sentences; say when to push (needs --force-with-lease).</div>
 </div>

@@ -55,7 +55,7 @@ export async function undoImportAction(batchId: string): Promise<string | void> 
       await undoImport(tx, current.ctx, batchId);
     }, { timeout: 60_000 });
   } catch (e) {
-    return e instanceof Error && /already undone|cannot be undone/.test(e.message) ? e.message : "The import could not be undone. Nothing was changed. Try again.";
+    return e instanceof Error && /already undone|cannot be undone|another campus/.test(e.message) ? e.message : "The import could not be undone. Nothing was changed. Try again.";
   }
   revalidatePath(`${BASE}/imports`);
 }

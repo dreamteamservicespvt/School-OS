@@ -87,7 +87,7 @@ export async function studentAction(action: Action, opts: { manage?: boolean } =
 export function problem(e: unknown, values?: Record<string, string>): NonNullable<FormState> {
   if (e instanceof StudentProblem) return { ok: false, message: e.message, errors: e.field ? { [e.field]: e.message } : undefined, values };
   if (e instanceof PermissionDeniedError || e instanceof ClosedYearError || e instanceof FileProblem || e instanceof DecisionProblem || e instanceof ParentLinkProblem || e instanceof MessagingProblem) return { ok: false, message: e.message, values };
-  if (e instanceof Error && e.name === "StudentNotFound") return { ok: false, message: e.message, values };
+  if (e instanceof Error && (e.name === "StudentNotFound" || e.name === "OtherCampusError")) return { ok: false, message: e.message, values };
   console.error(e);
   return { ok: false, message: "That did not save because of a problem on our side. Nothing was changed. Please try again.", values };
 }

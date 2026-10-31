@@ -9,6 +9,8 @@ import { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "./db";
 import { writeAudit } from "./audit";
 import { reopenAfterUndo } from "./move-in/batches";
+import { campusAllows, OtherCampusError } from "./campus";
+import { campusLimitOf } from "./staff/campus-logins";
 
 export type ImportColumn = { key: string; label: string; required?: boolean; example?: string; help?: string; aliases?: string[] };
 
@@ -62,6 +64,8 @@ export type ImportKind<T> = {
   undo: (tx: Tx, ctx: SchoolContext, ids: string[]) => Promise<void>;
   /** Puts back the values an import changed; returns how many records were put back. */
   revert?: (tx: Tx, ctx: SchoolContext, rows: UpdatedRow[]) => Promise<number>;
+  /** The campus of each record an import created or changed (by id), so a person limited to one campus undoes only that campus's imports. */
+  campusOf?: (tx: Tx, ids: string[]) => Promise<(string | null)[]>;
   /**
    * The same import with the choices made with the upload (kept with the file
    * and handed to the import job), such as Student Management's section for
@@ -221,8 +225,11 @@ export async function undoImport(tx: Tx, ctx: SchoolContext, batchId: string) {
   const kind = kinds.get(batch.kind);
   if (!kind) throw new Error("This import cannot be undone.");
   const created = batch.createdIds as string[];
-  if (created.length) await kind.undo(tx, ctx, created);
   const changed = (batch.updatedRows ?? []) as unknown as UpdatedRow[];
+  // One campus (00-global.md §5): an import that touched another campus's records is not this person's to undo.
+  const limit = kind.campusOf ? await campusLimitOf(tx, ctx) : null;
+  if (limit && (await kind.campusOf!(tx, [...created, ...changed.map((r) => r.id)])).some((c) => !campusAllows({ campusId: limit }, c))) throw new OtherCampusError("import");
+  if (created.length) await kind.undo(tx, ctx, created);
   const putBack = changed.length && kind.revert ? await kind.revert(tx, ctx, changed) : 0;
   await tx.importBatch.update({ where: { id: batchId }, data: { undoneAt: new Date(), undoneById: ctx.userId } });
   // The rows it brought in go back to the file they came from, wherever the Undo was pressed, so they can be fixed and brought in again (workflow 15).

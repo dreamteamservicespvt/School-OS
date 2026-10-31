@@ -5,6 +5,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { defineImport, RowProblem } from "../importer";
+import { staffCampuses } from "../campus";
 import { writeAudit } from "../audit";
 import { worksElsewhere } from "../auth/access";
 import { checkIndianMobile } from "../format";
@@ -152,6 +153,7 @@ defineImport<Row>({
       throw e;
     }
   },
+  campusOf: staffCampuses,
   async undo(tx, ctx, ids) {
     const staff = await tx.staff.findMany({ where: { id: { in: ids }, archivedAt: null } });
     const now = new Date();

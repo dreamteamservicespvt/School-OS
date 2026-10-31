@@ -14,7 +14,7 @@ import type { SchoolContext, Tx } from "../db";
 import { defineImport, RowProblem, type ImportColumn, type ImportKind, type RowChoice, type RowResult } from "../importer";
 import { writeAudit } from "../audit";
 import { currentYear } from "../academic/years";
-import { personCampusId } from "../campus";
+import { personCampusId, studentCampuses } from "../campus";
 import { campusLimitOf } from "../staff/campus-logins";
 import { checkIndianMobile } from "../format";
 import { createStudent, admissionHolder, admissionNoTaken, findDuplicates, nextRollNo, seatsLeft, StudentProblem, DuplicateFound, type DuplicateMatch } from "./students";
@@ -445,6 +445,7 @@ function makeKind(key: string, label: string, columns: ImportColumn[], opts: Imp
     async undo(tx, ctx, ids) {
       await undoStudents(tx, ctx, ids);
     },
+    campusOf: studentCampuses,
 
     // A row chosen as "same student: update" is put back the way the students-update import puts it back.
     revert: (tx, ctx, rows) => studentUpdateImport.revert!(tx, ctx, rows),

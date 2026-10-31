@@ -349,7 +349,7 @@ export async function undoFileImportAction(placeKey: string, id: string, batchId
           archived = u.archived;
           putBack = u.putBack;
         } catch (e) {
-          if (e instanceof Error && e.constructor === Error) throw new MoveInProblem(e.message);
+          if (e instanceof Error && (e.constructor === Error || e.name === "OtherCampusError")) throw new MoveInProblem(e.message);
           throw e;
         }
       }
@@ -384,7 +384,7 @@ export async function undoBatchAction(placeKey: string, batchId: string): Promis
         archived = u.archived;
         putBack = u.putBack;
       } catch (e) {
-        if (e instanceof Error && e.constructor === Error) throw new MoveInProblem(e.message);
+        if (e instanceof Error && (e.constructor === Error || e.name === "OtherCampusError")) throw new MoveInProblem(e.message);
         throw e;
       }
       words = wordsFor(batch.kind, kindInfo(batch.kind)?.label ?? "records");

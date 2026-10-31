@@ -8,6 +8,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { defineImport, type ImportColumn, type ImportKind, type UpdatedRow } from "../importer";
+import { studentCampuses } from "../campus";
 import { writeAudit } from "../audit";
 import { checkIndianMobile, formatDate } from "../format";
 import { splitName } from "./students";
@@ -155,6 +156,7 @@ const kind: ImportKind<StudentUpdate> = {
     return { id: v.studentId, created: false, before: { ...v.before, guardianId: v.guardianId }, after: { ...v.after, guardianId: v.guardianId } };
   },
 
+  campusOf: studentCampuses,
   async undo() {
     // This import creates nothing; its changes are put back by revert.
   },

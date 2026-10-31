@@ -28,6 +28,7 @@ vi.mock("next/headers", () => ({ cookies: async () => ({ get: () => undefined, s
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => { throw new Error(`REDIRECT ${url}`); },
   notFound: () => { throw new Error("NOT_FOUND"); },
+  unstable_rethrow: () => {},
 }));
 vi.mock("next/cache", () => ({ revalidatePath: () => {}, revalidateTag: () => {} }));
 
@@ -263,5 +264,31 @@ describe("document preview and person export keep to the viewer's campus", () =>
     expect(students).not.toContain(main.studentId);
     expect((await findRecords("staff", "Meena")).map((h) => h.id)).not.toContain(mainStaff);
     expect((await findRecords("student", "")).map((h) => h.id)).not.toContain(main.studentId);
+  });
+});
+
+describe("student import undo keeps to the viewer's campus", () => {
+  const batchOf = (studentId: string) => run(async (tx) => (await tx.importBatch.create({ data: { schoolId: school.id, kind: "students", fileName: "students.csv", createdIds: [studentId], importedById: users.admin } })).id);
+  const undo = async (as: Current, id: string) => {
+    who.current = as;
+    const { undoImportAction } = await import("@/app/(school)/student-management/_actions/import");
+    const fd = new FormData();
+    fd.set("id", id);
+    return undoImportAction(fd);
+  };
+  const archived = (studentId: string) => run(async (tx) => (await tx.student.findUniqueOrThrow({ where: { id: studentId } })).archivedAt);
+
+  it("undoes an import of the viewer's own campus", async () => {
+    const s = (await addStudent(ctx, north.sectionId, { fullName: "Naina Imported", applyFeePlan: false })).student.id;
+    expect(await undo(cur.northAdmin, await batchOf(s))).toBeUndefined();
+    expect(await archived(s)).not.toBeNull();
+  });
+
+  it("refuses an import of another campus's students", async () => {
+    const s = (await addStudent(ctx, main.sectionId, { fullName: "Madhu Imported", applyFeePlan: false })).student.id;
+    const id = await batchOf(s);
+    expect(await undo(cur.northAdmin, id)).toMatch(/not found, or is on another campus/);
+    expect(await archived(s)).toBeNull();
+    expect(await run(async (tx) => (await tx.importBatch.findUniqueOrThrow({ where: { id } })).undoneAt)).toBeNull();
   });
 });

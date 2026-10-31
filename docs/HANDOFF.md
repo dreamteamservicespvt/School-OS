@@ -1,20 +1,28 @@
 # School OS handoff
 
-Last updated: 2026-10-31 12:00 (security audit run-1 + 2 fixes; nothing pushed)
+Last updated: 2026-10-31 13:45 (security audit run-2 done; no code changed; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
-- SECURITY AUDIT 2026-10-31 (security-audit skill, quick profile, 8 agents, source-only): report
-  docs/qa/2026-10-31-security-audit.md; full run ~/security-audit-skill/School-OS/run-1 (findings.json,
-  coverage-ledger.json, NEEDS-VALIDATION.md; tools/ there rebuild prompts and validate). 2 confirmed, both FIXED:
-  notice-archive Undo republished any archived notice past approval (medium; src/lib/communication/undo.ts),
-  two-step sign-in skipped when a set-up SMS send failed, e.g. no credits (low; src/lib/auth/two-step*.ts).
-  4 NEEDS VALIDATION, not fixed (owner facts): WhatsApp webhook not bound to the school's number (shared Meta
-  app?), pay-link Checkout posts an authorized-not-captured payment (Razorpay auto-capture?), console invoice
-  paid twice by overlapping confirmations (no row lock), support-cookie parse in proxy vs app (Next.js).
-  Partial pass: the critic left 9 areas deferred (about 95 action files, about 140 download/print routes,
-  82 id pages, users & roles editing, switched-off modules, DB definer functions, data-security actions,
-  POST routes without Origin check, money actions). 27 hardening notes in the report.
+- SECURITY AUDIT run-1 (quick): docs/qa/2026-10-31-security-audit.md, ~/security-audit-skill/School-OS/run-1.
+  2 confirmed FIXED (notice Undo, two-step SMS). 4 NEEDS VALIDATION open: console invoice paid twice (no lock,
+  src/lib/console/billing.ts), Checkout posts authorized-not-captured (fees/online.ts + admission/fee.ts),
+  WhatsApp webhook not bound to phone_number_id (messaging/webhooks.ts), support look-only only in proxy.ts.
+  Claude's advice 2026-10-31: fix all 4 now (small, safe whatever the owner facts); WAITING for the user's yes.
+- SECURITY AUDIT run-2 (standard, scoped to run-1's 9 deferred units, 15 agents, source-only):
+  docs/qa/2026-10-31-security-audit-run-2.md; run ~/security-audit-skill/School-OS/run-2 (findings.json,
+  coverage-ledger.json, NEEDS-VALIDATION.md, FINDINGS-DETAIL.md; tools/run2*.cjs rebuild prompts/reports;
+  validators need `node -r tools/win-nofollow-shim.cjs`). 16 records, all passed Phase 3 + Phase 5:
+  9 CONFIRMED, NOT FIXED: medium x2 = Settings 'Own' reach acts as full Settings change, can make itself
+  School Admin (src/lib/settings/page-access.ts); Accountant can edit the approval limits that restrain it
+  (fee/finance settings actions). Low x7 = One-campus limit ignored (events, certificate detail page, Parent
+  Link preview, government return files, document-design preview + privacy person export, student import
+  undo) and competency levels not bound to the section roster. 7 NEEDS VALIDATION (Staff & HR login grant of
+  any role, concession revoke race, salary advance cash double post, fee adjustment bypasses concession limit,
+  legacy import-errors route, layout-only page gates, data-security campus scope).
+  Coverage still partial: critic deferred 8 in-scope gaps (about 27 action files, 47 of 82 id pages, print
+  routes, fee counter collect, import undo for all kinds, events activity paths, optional-module actions)
+  and 3 out-of-scope gaps (document-design actions, non-id layout pages, forms-approvals etc. actions).
 - Earlier 2026-10-31: delivery audit (docs/qa/2026-10-31-delivery-audit.md, gate YELLOW, 16 fixed), morning
   clean-up (lint clean, typed-twice income/expense), light code audit (docs/qa/2026-10-31-code-audit.md: CSP,
   nodemailer). Demo reseeded 09:40; details in docs/archive/HANDOFF-until-2026-10-30.md.
@@ -25,10 +33,11 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
 - Branch note: origin still has the old commit 64f895d7 "a"; the next push needs --force-with-lease (ask first).
 
 ## Next steps
-S. SECURITY (from the 2026-10-31 audit): (1) owner answers for the 4 NEEDS VALIDATION leads in
-   ~/security-audit-skill/School-OS/run-1/NEEDS-VALIDATION.md, or say "fix them anyway" (all have small source
-   fixes); (2) a standard-profile security-audit run-2 over the 9 deferred ledger units (needs ultracode;
-   read run-1/coverage-ledger.json first, treat run-1 as the prior run); (3) the report's hardening notes.
+S. SECURITY: (1) after the user's yes, fix run-1's 4 leads (fix list in the run-1 State line; TDD, one
+   commit each). (2) Fix run-2's 9 confirmed findings, the two mediums first; the smallest fix for each is in
+   docs/qa/2026-10-31-security-audit-run-2.md section 4. One shared helper for "One campus" (campusAllows /
+   campus filter in loaders) closes most of the low ones. (3) Owner/local checks for run-2's 7 leads
+   (run-2/NEEDS-VALIDATION.md). (4) Later: run-3 over run-2's deferred ledger units (treat run-2 as prior).
 0. DEMO DAY: to refresh "today" on another day, reseed after ~9:30 AM IST (earlier puts today's attendance in
    the future). Script used on 31-10 (backup, drop/recreate schema, migrate, seed, copy to SSD, build):
    docs/qa/reseed-demo.sh, then start with tools/start-only.sh. Before the live school: set FILE_LINK_SECRET.

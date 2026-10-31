@@ -7,6 +7,8 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
 import { decide } from "@/lib/approvals";
 import "@/lib/fees/handlers";
+// Loaded before the first decision, so loading every module's follow-ups never eats the decision's transaction time.
+import "@/lib/approval-handlers";
 import { cancelPayment } from "@/lib/fees/cancel";
 import { markRefunded, requestRefund } from "@/lib/fees/refunds";
 import { giveConcession, revokeConcession } from "@/lib/fees/concessions";

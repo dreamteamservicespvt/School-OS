@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-01 02:35 (suite 2416/2417 + hang fix 2aeabc78, SSD build passed; L1, L5 roles, L7 built; suite 2434/2434 + build passed; audit run-3 running; nothing pushed)
+Last updated: 2026-11-01 02:35 (suite 2416/2417 + hang fix 2aeabc78, SSD build passed; L1, L5 roles, L7 built; suite 2434/2434 + build passed; run-3 done, batch A fixed, batch B running; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
@@ -61,6 +61,12 @@ S. SECURITY follow-ups: (1) run-2's 7 NEEDS VALIDATION leads (~/security-audit-s
    272 of 272 files, 2434 of 2434 tests; SSD build passed 03:50 (the SSD copy's own Prisma client was stale
    after the new migration; build-and-start.sh now runs prisma generate first). Local demo DB migrated
    (backup C:\Users\chala\sos-snap\school_os-2026-11-01-before-l1-migration.dump).
+   (3) AUDIT RUN-3 DONE 04:30 (quick, scoped, 15 agents; ~/security-audit-skill/School-OS/run-3; owner
+   summary docs/qa/2026-11-01-security-audit-run-3.md): 8 confirmed (1 medium, 7 low), 5 questions.
+   Batch A fixed 838fc27e..af55ae2e (tests/run3-findings.test.ts, login-ceiling, campus-limits, homework/roles).
+   Batch B (Events actions/pages, Hostel/Library/Transport campus, past-receipts undo race, guardian merge
+   of shared parents) in progress. Owner questions left: Adjust "remove" a whole fee row; bulk discount rule
+   up to 50% with no approval; which campus an import batch belongs to; confirm the overnight L1/L5/L7 choices.
    (2) DONE, and its Events pages leftover too: commit 06632769 (evYears in src/lib/events/campus.ts;
    Co-curricular, Daily, Settings work in each campus's year; achievements, fitness, export and certificate
    print keep to a One-campus person's campus; tests/events-calendar/campus-pages.test.ts 5 of 5 red before).

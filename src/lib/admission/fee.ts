@@ -17,7 +17,7 @@ import { assertBooksOpen } from "../finance/years";
 import { postApplicationFee, reverseApplicationFee } from "../fees/application-fee";
 import { nextNumber, formatNumber } from "../sequences";
 import { razorpayCredentials } from "../payments/gateways";
-import { createOrder, verifyPaymentSignature, type RazorpayCredentials } from "../payments/razorpay";
+import { createOrder, isCaptured, verifyPaymentSignature, type RazorpayCredentials } from "../payments/razorpay";
 import type { GatewayEvent } from "../payments/events";
 import { AdmissionProblem } from "./act";
 import { applicationScope, requireFull, type Viewer } from "./access";
@@ -166,13 +166,17 @@ async function confirmPending(tx: Tx, ctx: SchoolContext, orderId: string, payme
 }
 
 /** After Checkout: trusted only when Razorpay's signature for this order and payment matches. */
-export async function confirmCheckout(tx: Tx, ctx: SchoolContext, input: { orderId: string; paymentId: string; signature: string }) {
+export async function confirmCheckout(tx: Tx, ctx: SchoolContext, input: { orderId: string; paymentId: string; signature: string }, deps: { fetchImpl?: typeof fetch } = {}) {
   const p = await tx.applicationFeePayment.findFirst({ where: { gatewayOrderId: input.orderId } });
   if (!p || !p.gatewayAccountId) throw new AdmissionProblem("This payment was not found. If money was taken, the school will match it when Razorpay confirms.");
   const creds = await razorpayCredentials(tx, p.gatewayAccountId);
   if (!creds || !verifyPaymentSignature({ orderId: input.orderId, paymentId: input.paymentId, signature: input.signature }, creds.keySecret)) {
     await writeAudit(tx, ctx, { action: "fee-signature-refused", recordType: "Application", recordId: p.applicationId, after: { orderId: input.orderId } });
     throw new AdmissionProblem("Waiting for payment confirmation. The payment could not be checked yet; the receipt will be made as soon as Razorpay confirms it.");
+  }
+  // Authorized is not paid: the payment.captured webhook confirms it when the money is captured.
+  if (!(await isCaptured(creds, input.paymentId, input.orderId, deps.fetchImpl))) {
+    throw new AdmissionProblem("Waiting for payment confirmation. The receipt will be made as soon as Razorpay confirms the money is received.");
   }
   return confirmPending(tx, ctx, input.orderId, input.paymentId, "checkout");
 }

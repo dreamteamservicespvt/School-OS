@@ -22,7 +22,9 @@ import { createSession } from "@/lib/auth/sessions";
 import type { FormState } from "@/lib/forms";
 import { withSchool, type SchoolContext } from "@/lib/db";
 import { createApplication, type ApplicationInput } from "@/lib/admission/applications";
-import { onAdmissionGatewayEvent, cancelPayment } from "@/lib/admission/fee";
+import { onAdmissionGatewayEvent, cancelPayment, confirmCheckout } from "@/lib/admission/fee";
+import { encryptField } from "@/lib/crypto";
+import { hmacHex } from "@/lib/payments/razorpay";
 import { cashAccount, ensureFinanceDefaults, mainBankAccount } from "@/lib/finance/settings";
 import { dayBookTotals } from "@/lib/finance/daybook";
 import { dayBookView } from "@/lib/finance/daybook-view";
@@ -113,6 +115,25 @@ describe("the application fee reaches the Day Book (G21)", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]).toMatchObject({ mode: "GATEWAY", amountPaise: BigInt(50000), section: "other-fees" });
     expect((await run((tx) => tx.applicationFeePayment.findUniqueOrThrow({ where: { id: pending.id } }))).status).toBe("CONFIRMED");
+  });
+});
+
+describe("the online application fee after Checkout (security audit run-1)", () => {
+  it("is confirmed only once Razorpay says the money is captured, not just authorized", async () => {
+    const keySecret = "admission-test-secret";
+    const gw = await run((tx) => tx.paymentGatewayAccount.create({ data: { schoolId: t.school.id, displayName: "Razorpay test", provider: "razorpay", environment: "test", isActive: true, secretsEnc: encryptField(JSON.stringify({ keyId: "rzp_test_Admission12", keySecret })) } }));
+    const app = await application();
+    const orderId = `order_Adm${Date.now()}`;
+    const paymentId = `pay_Adm${Date.now()}`;
+    const pending = await run((tx) => tx.applicationFeePayment.create({ data: { schoolId: t.school.id, applicationId: app.id, amountPaise: BigInt(50000), mode: "online", status: "PENDING", gatewayAccountId: gw.id, gatewayOrderId: orderId } }));
+    const input = { orderId, paymentId, signature: hmacHex(`${orderId}|${paymentId}`, keySecret) };
+    const razorpay = (status: string) => (async () => new Response(JSON.stringify({ id: paymentId, order_id: orderId, amount: 50000, currency: "INR", status, created_at: 0 }), { status: 200 })) as unknown as typeof fetch;
+    await expect(run((tx) => confirmCheckout(tx, sys, input, { fetchImpl: razorpay("authorized") }))).rejects.toThrow(/Waiting for payment confirmation/);
+    expect((await run((tx) => tx.applicationFeePayment.findUniqueOrThrow({ where: { id: pending.id } }))).status).toBe("PENDING");
+    expect(await entriesOf(pending.id)).toEqual([]);
+    const r = await run((tx) => confirmCheckout(tx, sys, input, { fetchImpl: razorpay("captured") }));
+    expect(r?.confirmedNow).toBe(true);
+    expect(await entriesOf(pending.id)).toHaveLength(1);
   });
 });
 

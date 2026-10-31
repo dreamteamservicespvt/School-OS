@@ -138,6 +138,22 @@ export async function fetchPayment(creds: RazorpayCredentials, paymentId: string
   return call<RazorpayPayment>(creds, "GET", `/v1/payments/${paymentId}`, undefined, fetchImpl);
 }
 
+/**
+ * Checkout's signature proves the payment was authorized, not that the money
+ * was captured: an authorized payment can still be released by the bank if
+ * the school's account does not capture it. Posting waits until Razorpay says
+ * this payment on this order is captured (or the payment.captured webhook
+ * arrives). Any doubt, including Razorpay not answering, means not yet.
+ */
+export async function isCaptured(creds: RazorpayCredentials, paymentId: string, orderId: string, fetchImpl?: FetchLike) {
+  try {
+    const p = await fetchPayment(creds, paymentId, fetchImpl);
+    return p.status === "captured" && p.order_id === orderId;
+  } catch {
+    return false;
+  }
+}
+
 /** Every payment attempt on one order (the reconcile job: was money taken that School OS never heard about?). */
 export async function fetchOrderPayments(creds: RazorpayCredentials, orderId: string, fetchImpl?: FetchLike) {
   if (!/^order_[A-Za-z0-9]+$/.test(orderId)) throw new RazorpayProblem("That does not look like a Razorpay order ID (it starts with order_).", "refused");

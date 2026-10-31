@@ -13,7 +13,7 @@ import { writeAudit } from "../audit";
 import { formatDate, formatRupees } from "../format";
 import { notify } from "../notifications";
 import { requestApproval } from "../approvals";
-import { createOrder, fetchOrderPayments, notesOf, RazorpayProblem, verifyPaymentSignature, type RazorpayCredentials } from "../payments/razorpay";
+import { createOrder, fetchOrderPayments, isCaptured, notesOf, RazorpayProblem, verifyPaymentSignature, type RazorpayCredentials } from "../payments/razorpay";
 import { linkedAccountFor, razorpayCredentials } from "../payments/gateways";
 import { addDays, DAY_MS, todayIn } from "../staff/dates";
 import { MoneyProblem } from "./problem";
@@ -259,7 +259,7 @@ export async function startCheckout(tx: Tx, ctx: SchoolContext, token: string, d
 }
 
 /** After Checkout: checks the signature, then posts the payment (once). */
-export async function confirmCheckout(tx: Tx, ctx: SchoolContext, token: string, input: { paymentId: string; orderId: string; signature: string }, deps: { creds?: RazorpayCredentials } = {}) {
+export async function confirmCheckout(tx: Tx, ctx: SchoolContext, token: string, input: { paymentId: string; orderId: string; signature: string }, deps: { creds?: RazorpayCredentials; fetchImpl?: typeof fetch } = {}) {
   const link = await linkByToken(tx, token);
   // Any order made for this link counts, not only the newest one.
   const order = link ? await tx.paymentLinkOrder.findFirst({ where: { paymentLinkId: link.id, gatewayOrderId: input.orderId } }) : null;
@@ -267,6 +267,11 @@ export async function confirmCheckout(tx: Tx, ctx: SchoolContext, token: string,
   const creds = deps.creds ?? (await razorpayCredentials(tx, link.gatewayAccountId));
   if (!creds || !verifyPaymentSignature({ orderId: input.orderId, paymentId: input.paymentId, signature: input.signature }, creds.keySecret)) {
     await writeAudit(tx, ctx, { action: "checkout-refused", recordType: "Payment Link", recordId: link.id, after: { reason: "Signature did not match", paymentId: input.paymentId } });
+    throw new MoneyProblem("Waiting for the gateway to confirm. If money was taken, the receipt appears here once Razorpay confirms it.");
+  }
+  // Authorized is not paid: the payment.captured webhook posts it when the money is captured.
+  if (!(await isCaptured(creds, input.paymentId, input.orderId, deps.fetchImpl))) {
+    await writeAudit(tx, ctx, { action: "checkout-not-captured", recordType: "Payment Link", recordId: link.id, after: { paymentId: input.paymentId } });
     throw new MoneyProblem("Waiting for the gateway to confirm. If money was taken, the receipt appears here once Razorpay confirms it.");
   }
   // The amount is the order's (what Checkout charged), so the reconciliation log has it too.

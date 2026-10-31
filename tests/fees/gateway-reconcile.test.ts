@@ -159,12 +159,33 @@ describe("matching an online payment to its link", () => {
       await tx.paymentLink.update({ where: { id: made.link.id }, data: { gatewayOrderId: "order_SitaNew1" } });
     });
     const signature = hmacHex("order_SitaOld1|pay_SitaOld1", CREDS.keySecret);
-    const r = await withSchool(f.ctx, (tx) => confirmCheckout(tx, f.ctx, made.token, { paymentId: "pay_SitaOld1", orderId: "order_SitaOld1", signature }, { creds: CREDS }));
+    const fetchImpl = fakeRazorpay({ "GET /v1/payments/pay_SitaOld1": { id: "pay_SitaOld1", order_id: "order_SitaOld1", amount: Number(R(6000)), currency: "INR", status: "captured", created_at: 0 } });
+    const r = await withSchool(f.ctx, (tx) => confirmCheckout(tx, f.ctx, made.token, { paymentId: "pay_SitaOld1", orderId: "order_SitaOld1", signature }, { creds: CREDS, fetchImpl }));
     expect(r.created).toBe(true);
     const log = await withSchool(f.ctx, (tx) => tx.gatewayTransaction.findFirstOrThrow({ where: { gatewayPaymentId: "pay_SitaOld1" } }));
     expect(log).toMatchObject({ event: "checkout.verified", outcome: "posted", amountPaise: R(6000) });
     // An order that is not this link's is still refused.
     await expect(withSchool(f.ctx, (tx) => confirmCheckout(tx, f.ctx, made.token, { paymentId: "pay_Other1", orderId: "order_NotMine1", signature: hmacHex("order_NotMine1|pay_Other1", CREDS.keySecret) }, { creds: CREDS }))).rejects.toThrow(/could not be matched/);
+  });
+
+  it("posts Checkout's confirmation only once Razorpay says the money is captured, not just authorized (security audit run-1)", async () => {
+    // Its own school: the other tests here pay these students' fees.
+    const g = await makeFeeSchool();
+    await gatewayIn(g);
+    const rows = await dues(g.ctx, g.ravi.id);
+    const made = await withSchool(g.ctx, (tx) => createPaymentLink(tx, g.ctx, { studentId: g.ravi.id, dueIds: [rows[0].id], source: "LINK" }));
+    await withSchool(g.ctx, (tx) => tx.paymentLink.update({ where: { id: made.link.id }, data: { gatewayOrderId: "order_Cap1", amountPaise: R(6000) } }));
+    const input = { paymentId: "pay_Cap1", orderId: "order_Cap1", signature: hmacHex("order_Cap1|pay_Cap1", CREDS.keySecret) };
+    const payment = (status: string) => fakeRazorpay({ "GET /v1/payments/pay_Cap1": { id: "pay_Cap1", order_id: "order_Cap1", amount: Number(R(6000)), currency: "INR", status, created_at: 0 } });
+    // Authorized only: the bank may still release it, so nothing is posted yet.
+    await expect(withSchool(g.ctx, (tx) => confirmCheckout(tx, g.ctx, made.token, input, { creds: CREDS, fetchImpl: payment("authorized") }))).rejects.toThrow(/Waiting for the gateway/);
+    expect((await postedFor(g, "pay_Cap1")).posted).toHaveLength(0);
+    // Razorpay cannot be reached: also wait for the webhook.
+    await expect(withSchool(g.ctx, (tx) => confirmCheckout(tx, g.ctx, made.token, input, { creds: CREDS, fetchImpl: fakeRazorpay({ "GET /v1/payments/pay_Cap1": 500 }) }))).rejects.toThrow(/Waiting for the gateway/);
+    expect((await postedFor(g, "pay_Cap1")).posted).toHaveLength(0);
+    const r = await withSchool(g.ctx, (tx) => confirmCheckout(tx, g.ctx, made.token, input, { creds: CREDS, fetchImpl: payment("captured") }));
+    expect(r.created).toBe(true);
+    expect((await postedFor(g, "pay_Cap1")).posted).toHaveLength(1);
   });
 
   it("matches an order School OS never saw by the link reference in its notes, only for this school", async () => {

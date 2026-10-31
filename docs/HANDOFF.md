@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-10-31 02:00 (final delivery audit done; nothing pushed)
+Last updated: 2026-10-31 09:05 (morning clean-up round; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
@@ -13,6 +13,11 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
     (fixed); "/\host" redirect fixed. Layout: 6 sideways-scroll bugs at 320/1024 px fixed.
   - Demo data: round 1's "Self-test:" homework/notice cleaned (scripts/demo-cleanup.sql); DB restored from
     C:\Users\chala\sos-snap\school_os-2026-10-30-clean.dump after the probes.
+- MORNING CLEAN-UP 2026-10-31: lint 0 errors 0 warnings (f0d38b44). Record income / Record expense (no
+  vendor) pressed twice, at once or within 15 min, now ask first (advisory lock + check; expense needs a
+  reason, income "Save it again"; other modules' own entries not asked; tests/finance/typed-twice.test.ts)
+  (945e53b4). Slow-disk test limits raised. Owner's 4 uncommitted files reviewed: whitespace only.
+  Demo reseed scripted for 09:32 (backup C:\Users\chala\sos-snap\school_os-2026-10-31-before-reseed.dump).
 - Local commits on branch claude/project-thread-cesreq, NOT pushed (audit commits 2150019b..HEAD).
   The user's own uncommitted edits (.vscode/settings.json, CLAUDE.md, next.config.ts, public/push-sw.js) left alone.
 - Local setup: PostgreSQL 16 in tools/pg16 (data tools/pgdata; superuser `postgres` trust on localhost).
@@ -20,10 +25,9 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
 - Branch note: origin still has the old commit 64f895d7 "a"; the next push needs --force-with-lease (ask first).
 
 ## Next steps
-0. DEMO MORNING (31-10): the demo data is dated 30-10, so "today" cards start empty. For fresh data, reseed
-   after ~9:30 AM IST (a seed earlier puts today's attendance in the future): stop the app, drop/recreate the
-   public schema, `npx prisma migrate deploy`, `npx prisma db seed` (round 1 decision 2: export only the two
-   DB URLs; .env line 26 breaks `source`), start the app. Before the live school: set FILE_LINK_SECRET.
+0. DEMO DAY: to refresh "today" on another day, reseed after ~9:30 AM IST (earlier puts today's attendance in
+   the future). Script used on 31-10 (backup, drop/recreate schema, migrate, seed, copy to SSD, build):
+   docs/qa/reseed-demo.sh, then start with tools/start-only.sh. Before the live school: set FILE_LINK_SECRET.
 1. Self-test decisions settled by Claude 2026-10-30 (user said "decide yourself"): 16 keep the owner's rule, only
    the Principal rejects an admission (approver can approve or ask for a change); 17 Visitors table fits at 1440 px
    (side panel 300 px, vehicle under the name; qa/full/visitors-fit.mjs). Push only when the user says so.

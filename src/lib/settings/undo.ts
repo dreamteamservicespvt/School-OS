@@ -4,10 +4,11 @@ import "server-only";
 
 import { registerUndo } from "../undo";
 import { withSchool } from "../db";
-import { requirePermission } from "../permissions";
+import { PermissionDeniedError, requirePermission } from "../permissions";
 import { restoreRoleVersion } from "./roles";
 
 registerUndo("role-permissions", async (current, auditEntryId) => {
-  requirePermission(current.permissions, "settings", "edit");
+  // Settings 'own' only reads (page-access.ts): undoing a role change needs reach "all".
+  if (requirePermission(current.permissions, "settings", "edit") !== "all") throw new PermissionDeniedError("settings");
   await withSchool(current.ctx, (tx) => restoreRoleVersion(tx, current.ctx, auditEntryId));
 });

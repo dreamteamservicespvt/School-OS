@@ -120,7 +120,9 @@ export async function forgetRemembered(formData: FormData) {
 
 /** School Admin: one colour for everyone in the school, or let each person choose. */
 export async function setSchoolColour(accent: string | null): Promise<Result> {
-  const { current } = await requireAction("settings", "edit");
+  const { current, reach } = await requireAction("settings", "edit");
+  // Settings 'own' only reads (src/lib/settings/page-access.ts).
+  if (reach !== "all") return { ok: false, message: "Only the School Admin sets one colour for everyone." };
   const next = accent && ACCENTS.some((a) => a.key === accent) ? accent : null;
   await withSchool(current.ctx, async (tx) => {
     const school = await tx.school.findUniqueOrThrow({ where: { id: current.school.id } });

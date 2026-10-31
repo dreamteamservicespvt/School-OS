@@ -10,12 +10,17 @@
 // Data Backup & Security) only leave the Settings tabs, as everywhere else in
 // duty.ts: links from setup steps and alerts still lead there, and in a
 // paused school the Principal downloads the school's data from there.
+//
+// Settings "own" reach (a custom role set to Own, or any Settings role under
+// the scope "Own records only") reads Settings but never changes it: Settings
+// records belong to the whole school, so changes need change reach "all"
+// (security audit run-2: an Own login could make itself School Admin).
 import "server-only";
 
 import { redirect } from "next/navigation";
 import { requireAction, requirePage, type Current } from "../current";
 import { pageMode, type PageMode } from "../duty";
-import { can, PermissionDeniedError, type Action } from "../permissions";
+import { can, PermissionDeniedError, reachFor, type Action } from "../permissions";
 import { SETTINGS_PAGES } from "../settings-pages";
 
 export type SettingsPageKey = "school-profile" | "users" | "payment-gateways" | "messaging" | "document-designs" | "forms-approvals" | "modules" | "data-security";
@@ -32,9 +37,9 @@ export function settingsMode(person: Person, page: SettingsPageKey): PageMode {
 /** What the person may do on the page: the role's Settings level, narrowed by the page mode. */
 export function settingsMay(person: Person, page: SettingsPageKey) {
   const full = settingsMode(person, page) !== "view";
-  const c = (a: Action) => can(person.permissions, "settings", a);
+  const c = (a: Action) => reachFor(person.permissions, "settings", a) === "all";
   const edit = full && c("edit");
-  return { edit, create: full && c("create"), archive: full && c("archive"), export: c("export"), readOnly: !edit };
+  return { edit, create: full && c("create"), archive: full && c("archive"), export: can(person.permissions, "settings", "export"), readOnly: !edit };
 }
 
 /** Reading (and exporting) is all a read-only page allows. */
@@ -42,7 +47,8 @@ const READS: readonly Action[] = ["view", "export", "print"];
 
 /** Why the person may not do this on the page, in plain words, or null when they may. */
 export function settingsRefusal(person: Person, page: SettingsPageKey, action: Action): string | null {
-  if (settingsMode(person, page) === "view" && !READS.includes(action)) return `You can read ${label(page)} but not change it. The School Admin makes changes here.`;
+  if (READS.includes(action)) return null;
+  if (settingsMode(person, page) === "view" || reachFor(person.permissions, "settings", action) === "own") return `You can read ${label(page)} but not change it. The School Admin makes changes here.`;
   return null;
 }
 
@@ -71,6 +77,6 @@ export async function requireSettingsAction(page: SettingsPageKey, action: Actio
 export async function requireSettingsPage(page: SettingsPageKey, action: Action = "view") {
   const current = await requirePage("settings", action);
   const mode = settingsMode(current, page);
-  if (mode === "view" && !READS.includes(action)) redirect(`/settings/${page}`);
+  if (settingsRefusal(current, page, action)) redirect(`/settings/${page}`);
   return { current, mode, may: settingsMay(current, page) };
 }

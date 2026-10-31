@@ -16,6 +16,7 @@ import { AlbumSheet } from "../_components/gallery-sheets";
 import { BASE, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { DayText, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { evAlbumWhere, evCampusWhere } from "@/lib/events/campus";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Gallery") };
@@ -37,7 +38,7 @@ export default async function GalleryPage({ searchParams }: { searchParams: Sear
   const doing = p.can.gallery ? one(sp.do) : "";
 
   const d = await withSchool(ctx, async (tx) => {
-    const albums = await tx.album.findMany({ where: { date: dateWhere(range), ...(f === "all" ? {} : { status: f }) }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 200 });
+    const albums = await tx.album.findMany({ where: { date: dateWhere(range), ...(f === "all" ? {} : { status: f }), ...(await evAlbumWhere(tx, p.current)) }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 200 });
     const items = albums.length ? await tx.mediaItem.findMany({ where: { albumId: { in: albums.map((a) => a.id) }, archivedAt: null }, select: { id: true, albumId: true, kind: true, noStudents: true, tags: { where: { archivedAt: null }, select: { studentId: true } } } }) : [];
     const consented = await consentedStudents(tx, ctx, items.flatMap((i) => i.tags.map((t) => t.studentId)));
     const events = await tx.event.findMany({ where: { archivedAt: null, id: { in: albums.map((a) => a.eventId).filter((x): x is string => Boolean(x)) } }, select: { id: true, name: true, type: true } });
@@ -45,7 +46,7 @@ export default async function GalleryPage({ searchParams }: { searchParams: Sear
     // Students in published albums without photo consent (the banner).
     const pub = new Set(albums.filter((a) => a.status === "PUBLISHED").map((a) => a.id));
     const missing = new Set(items.filter((i) => pub.has(i.albumId)).flatMap((i) => i.tags.map((t) => t.studentId)).filter((s) => !consented.has(s)));
-    const sheetEvents = doing === "new" ? await tx.event.findMany({ where: { archivedAt: null, cancelledAt: null, date: { lte: new Date(`${p.today}T00:00:00Z`) } }, orderBy: { date: "desc" }, take: 40, select: { id: true, name: true, date: true } }) : [];
+    const sheetEvents = doing === "new" ? await tx.event.findMany({ where: { archivedAt: null, cancelledAt: null, date: { lte: new Date(`${p.today}T00:00:00Z`) }, ...(await evCampusWhere(tx, p.current)) }, orderBy: { date: "desc" }, take: 40, select: { id: true, name: true, date: true } }) : [];
     const classes = doing === "new" ? await tx.schoolClass.findMany({ where: { archivedAt: null }, select: { id: true, name: true }, orderBy: { sortOrder: "asc" } }) : [];
     return { albums, items, consented, events, words, missing: missing.size, sheetEvents, classes };
   });

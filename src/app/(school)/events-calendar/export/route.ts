@@ -13,7 +13,7 @@ export async function GET(req: Request) {
   const x = await evExport(req);
   if (x instanceof Response) return x;
   if (!x.v.level) return plain("You do not have permission to export the School Calendar.", 403);
-  const campus = UUID.test(x.get("campus")) ? x.get("campus") : null;
+  const campus = x.current.campusId || (UUID.test(x.get("campus")) ? x.get("campus") : null);
   const school = x.current.school.name;
   const by = x.current.user.displayName;
 

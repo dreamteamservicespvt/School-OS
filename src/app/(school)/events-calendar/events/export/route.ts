@@ -8,6 +8,7 @@ import { eventMoney, eventStatus } from "@/lib/events/events";
 import { EVENT_STATUS, isoOf, longDay, timeSpan } from "@/lib/events/words";
 import { evPageAllowed } from "@/lib/events/access";
 import { evExport, plain, rangeWords } from "../../_lib/export";
+import { evCampusWhere } from "@/lib/events/campus";
 
 export const dynamic = "force-dynamic";
 const ZERO = BigInt(0);
@@ -23,7 +24,7 @@ export async function GET(req: Request) {
   const title = acc ? "Event payments" : "Events";
   const filters = [rangeWords(range), f === "up" ? "Coming up" : f === "done" ? "Done" : f === "cancel" ? "Cancelled" : "", q ? `Search: ${q}` : ""].filter(Boolean).join(" · ");
   const r = await withSchool(x.current.ctx, async (tx) => {
-    const all = await tx.event.findMany({ where: { archivedAt: null, date: dateWhere(range), ...(acc ? { feePaise: { gt: ZERO } } : {}) }, orderBy: [{ date: "asc" }, { startMin: "asc" }], take: 5000 });
+    const all = await tx.event.findMany({ where: { archivedAt: null, date: dateWhere(range), ...(acc ? { feePaise: { gt: ZERO } } : {}), ...(await evCampusWhere(tx, x.current)) }, orderBy: [{ date: "asc" }, { startMin: "asc" }], take: 5000 });
     const rows = all.filter((e) => {
       const st = eventStatus(e, x.today);
       if (q && !`${e.name} ${e.type} ${e.venue ?? ""} ${e.audienceLabel}`.toLowerCase().includes(q)) return false;

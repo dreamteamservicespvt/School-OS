@@ -23,6 +23,7 @@ import { cancelBookingAction, queueAction, summaryAction } from "../actions";
 import { BASE, UUID, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { evPtmWhere } from "@/lib/events/campus";
 
 export async function generateMetadata() {
   return { title: await pageTitle("PTM") };
@@ -45,7 +46,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
   const meId = p.me?.id ?? null;
 
   const d = await withSchool(ctx, async (tx) => {
-    const ptms = await tx.ptm.findMany({ where: { archivedAt: null, date: dateWhere(range) }, orderBy: { date: "asc" } });
+    const ptms = await tx.ptm.findMany({ where: { archivedAt: null, date: dateWhere(range), ...(await evPtmWhere(tx, p.current)) }, orderBy: { date: "asc" } });
     const ids = ptms.map((x) => x.id);
     const [totals, booked, met, mine] = ids.length ? await Promise.all([
       tx.ptmSlot.groupBy({ by: ["ptmId"], where: { ptmId: { in: ids } }, _count: { _all: true } }),

@@ -38,6 +38,8 @@ import { examScope } from "@/lib/exams/scope";
 import { saveCompetencyLevels } from "@/lib/exams/report-cards";
 import { pastExports } from "@/lib/reports/government";
 import { recordData } from "@/lib/documents/records";
+import { createEvent, type EventInput } from "@/lib/events/events";
+import { addEntry } from "@/lib/events/calendar";
 import { makeSchool, makeUser } from "./helpers";
 import { addStudent } from "./students/fixtures";
 
@@ -290,5 +292,73 @@ describe("student import undo keeps to the viewer's campus", () => {
     expect(await undo(cur.northAdmin, id)).toMatch(/not found, or is on another campus/);
     expect(await archived(s)).toBeNull();
     expect(await run(async (tx) => (await tx.importBatch.findUniqueOrThrow({ where: { id } })).undoneAt)).toBeNull();
+  });
+});
+
+describe("Events & Calendar keep to the viewer's campus", () => {
+  const DAY = 86_400_000;
+  const soon = (days: number) => new Date(Date.now() + days * DAY).toISOString().slice(0, 10);
+  const input = (name: string, campusId: string | null): EventInput => ({
+    name, type: "Celebration", date: soon(10), startMin: 600, endMin: 720, venue: null, audienceKind: "school", classIds: [],
+    registrationOn: false, seats: null, feePaise: null, reminder: "none", description: null, campusId,
+  });
+  const make = (name: string, campusId: string | null) => run(async (tx) => (await createEvent(tx, ctx, input(name, campusId))).id);
+  const form = (fields: Record<string, string>) => { const fd = new FormData(); for (const [k, v] of Object.entries(fields)) fd.set(k, v); return fd; };
+  const act = async (name: string, fields: Record<string, string>) => {
+    who.current = cur.northAdmin;
+    const actions = await import("@/app/(school)/events-calendar/actions");
+    const fn = (actions as unknown as Record<string, (s: unknown, fd: FormData) => Promise<{ ok: boolean; message?: string }>>)[name];
+    return fn(null, form(fields));
+  };
+  const statusOf = (id: string) => run(async (tx) => (await tx.event.findUniqueOrThrow({ where: { id } })).status);
+
+  it("cancels an event of the viewer's own campus", async () => {
+    const id = await make("North Sports Day", north.campusId);
+    const r = await act("cancelEventAction", { eventId: id, reason: "Heavy rain is expected" });
+    expect(r.ok).toBe(true);
+    expect(await statusOf(id)).toBe("CANCELLED");
+  });
+
+  it("refuses to cancel another campus's event, or an event for every campus", async () => {
+    for (const campusId of [main.campusId, null]) {
+      const id = await make(`Main Day ${campusId ?? "all"}`, campusId);
+      const r = await act("cancelEventAction", { eventId: id, reason: "Heavy rain is expected" });
+      expect(r.ok).toBe(false);
+      expect(r.message).toMatch(/not found, or is on another campus/);
+      expect(await statusOf(id)).not.toBe("CANCELLED");
+    }
+  });
+
+  it("refuses to remind about, or register for, another campus's event", async () => {
+    const id = await make("Main Annual Day", main.campusId);
+    expect((await act("remindAction", { eventId: id })).message).toMatch(/another campus/);
+    expect((await act("registerAction", { eventId: id, studentIds: main.studentId })).message).toMatch(/another campus/);
+  });
+
+  it("makes a new event for the viewer's own campus, whatever campus is asked for", async () => {
+    const r = await act("saveEventAction", { name: "North Quiz", type: "Celebration", date: soon(12), startTime: "10:00", campusId: main.campusId, audienceKind: "school", reminder: "none" });
+    expect(r.ok).toBe(true);
+    const made = await run((tx) => tx.event.findFirstOrThrow({ where: { name: "North Quiz" } }));
+    expect(made.campusId).toBe(north.campusId);
+  });
+
+  it("refuses to remove another campus's calendar entry", async () => {
+    const entry = await run((tx) => addEntry(tx, ctx, { title: "Main Founders Day", type: "holiday", from: soon(20), to: null, attendanceOn: false, campusId: main.campusId, classIds: [], details: null }, { confirm: true, today: soon(0) }));
+    expect((await act("removeEntryAction", { entryId: entry.id })).message).toMatch(/another campus/);
+    expect(await run(async (tx) => (await tx.calendarEntry.findUniqueOrThrow({ where: { id: entry.id } })).archivedAt)).toBeNull();
+  });
+
+  it("opens the viewer's campus's events and every-campus events, not another campus's", async () => {
+    who.current = cur.northAdmin;
+    const { default: Page } = await import("@/app/(school)/events-calendar/events/[id]/page");
+    const open = async (id: string) => Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve({}) } as never);
+    await expect(open(await make("North Fair", north.campusId))).resolves.toBeTruthy();
+    await expect(open(await make("Whole Fair", null))).resolves.toBeTruthy();
+    await expect(open(await make("Main Fair", main.campusId))).rejects.toThrow("NOT_FOUND");
+  });
+
+  it("refuses to cancel another campus's PTM", async () => {
+    const ptm = await run((tx) => tx.ptm.create({ data: { schoolId: school.id, academicYearId: main.yearId, date: new Date(`${soon(15)}T00:00:00Z`), classIds: [main.classId], classesLabel: "Class 5", startMin: 600, endMin: 720, slotMinutes: 10 } }));
+    expect((await act("cancelPtmAction", { ptmId: ptm.id, reason: "Clashes with the exams" })).message).toMatch(/another campus/);
   });
 });

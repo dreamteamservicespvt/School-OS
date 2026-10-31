@@ -5,7 +5,7 @@
 // inside the school's walls and writes the audit log in the same transaction.
 
 import type { FormState } from "@/lib/forms";
-import { evAction, need, str, id, ids, maybe, dateIso, checked, EventsProblem, UUID_RE } from "@/lib/events/act";
+import { evAction, need, str, id, ids, maybe, dateIso, checked, EventsProblem, UUID_RE, type EvWork } from "@/lib/events/act";
 import { addEntry, removeEntry } from "@/lib/events/calendar";
 import { addVolunteer, assignSeats, cancelEvent, createEvent, markAttendance, messageAudience, registerStudents, removeVolunteer, updateEvent, withdrawStudent, type EventInput } from "@/lib/events/events";
 import { bookSlot, cancelBooking, cancelPtm, markArrived, planPtm, saveNotes, sendSummary, setQueue } from "@/lib/events/ptm";
@@ -13,6 +13,7 @@ import { archiveAlbum, askConsent, createAlbum, newShareLink, publishAlbum, remo
 import { changeList, LIST_WORDS, renewFeed, saveCredits, saveEventsSettings } from "@/lib/events/settings";
 import { recordConsent, remindConsent } from "@/lib/events/consent";
 import { localNow } from "@/lib/events/jobs";
+import { assertEvCampus, assertEvClasses, evCampus, type EvRecord } from "@/lib/events/campus";
 import { parseRupees } from "@/lib/fees/act";
 import { sendMessage } from "@/lib/messaging";
 import { tellSafely, toldWords, type Told } from "@/lib/events/tell";
@@ -31,6 +32,12 @@ const time = (fd: FormData, key: string, label: string, required = true) => {
   return m;
 };
 const count = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+/** The record named in the form, refused when it is another campus's (src/lib/events/campus.ts). */
+const here = async (w: EvWork, kind: EvRecord, fd: FormData, key: string, what: string) => {
+  const v = id(fd, key, what);
+  await assertEvCampus(w.tx, w.current, kind, v);
+  return v;
+};
 
 /* ---------- School Calendar ---------- */
 
@@ -42,9 +49,12 @@ export async function addEntryAction(_: S, fd: FormData): Promise<S> {
     const from = dateIso(fd, "from", "Date")!;
     const to = type === "vacation" ? dateIso(fd, "to", "Last day") : null;
     const applies = str(fd, "applies");
-    const campusId = UUID_RE.test(applies.replace(/^campus:/, "")) && applies.startsWith("campus:") ? applies.slice(7) : null;
+    // A person kept to one campus adds entries for that campus only.
+    const mine = await evCampus(w.tx, w.current);
+    const campusId = mine ?? (UUID_RE.test(applies.replace(/^campus:/, "")) && applies.startsWith("campus:") ? applies.slice(7) : null);
     const classIds = applies === "classes" ? ids(fd, "classIds") : [];
     if (applies === "classes" && !classIds.length) throw new EventsProblem("Choose the classes.", "classIds");
+    await assertEvClasses(w.tx, w.current, classIds);
     const entry = await addEntry(w.tx, w.ctx, { title: str(fd, "title"), type, from, to, attendanceOn: checked(fd, "attendanceOn"), campusId, classIds, details: maybe(fd, "details", "Description", 500) }, { confirm: str(fd, "confirm") === "attendance-taken", today: today(w.tz) });
     let told: Told | null = null;
     if (checked(fd, "notify")) {
@@ -53,7 +63,7 @@ export async function addEntryAction(_: S, fd: FormData): Promise<S> {
       const closes = !entry.attendanceOn && (type === "holiday" || type === "vacation");
       // Telling parents never blocks adding the entry (ACADEMICS-21).
       told = await tellSafely(() => sendMessage(w.tx, w.ctx, {
-        to: classIds.length ? { kinds: ["parents"], classIds } : { kinds: ["parents"] }, channels: "preferred",
+        to: classIds.length ? { kinds: ["parents"], classIds } : { kinds: ["parents"], ...(entry.campusId ? { campusIds: [entry.campusId] } : {}) }, channels: "preferred",
         text: `Dear Parent, ${entry.title} on ${when}.${closes ? " The school is closed." : ""} - ${school}`,
         title: entry.title, trigger: `Calendar: ${entry.title}`, source: { type: "Calendar Entry", id: entry.id },
       }));
@@ -68,7 +78,7 @@ export async function addEntryAction(_: S, fd: FormData): Promise<S> {
 export async function removeEntryAction(_: S, fd: FormData): Promise<S> {
   return evAction("archive", fd, async (w) => {
     need(w.can.calendar, "change the School Calendar");
-    return removeEntry(w.tx, w.ctx, id(fd, "entryId", "entry"));
+    return removeEntry(w.tx, w.ctx, await here(w, "entry", fd, "entryId", "entry"));
   }, (e) => ({
     message: e.attendanceOn || !["holiday", "vacation"].includes(e.type) ? `${e.title} removed from the calendar.` : `${e.title} removed. Attendance will be needed for ${dmy(e.startDate.toISOString().slice(0, 10))}${e.endDate > e.startDate ? ` to ${dmy(e.endDate.toISOString().slice(0, 10))}` : ""}.`,
     undo: { kind: "ev-entry-remove", id: e.id },
@@ -82,11 +92,12 @@ export async function copyHolidaysAction(_: S, fd: FormData): Promise<S> {
     const picks = ids(fd, "pick");
     if (!picks.length) throw new EventsProblem("Tick the holidays to copy.", "pick");
     const old = await w.tx.calendarEntry.findMany({ where: { id: { in: picks } } });
+    const mine = await evCampus(w.tx, w.current);
     let added = 0;
     for (const o of old) {
       const from = dateIso(fd, `from_${o.id}`, `First day of ${o.title}`)!;
       const to = o.type === "vacation" ? dateIso(fd, `to_${o.id}`, `Last day of ${o.title}`) : null;
-      await addEntry(w.tx, w.ctx, { title: o.title, type: o.type, from, to, attendanceOn: o.attendanceOn, campusId: o.campusId, details: o.details }, { confirm: true, today: today(w.tz) });
+      await addEntry(w.tx, w.ctx, { title: o.title, type: o.type, from, to, attendanceOn: o.attendanceOn, campusId: mine ?? o.campusId, details: o.details }, { confirm: true, today: today(w.tz) });
       added++;
     }
     return added;
@@ -118,7 +129,12 @@ export async function saveEventAction(_: S, fd: FormData): Promise<S> {
     const input = eventInput(fd);
     const confirm = str(fd, "confirm") === "venue-clash";
     const eventId = str(fd, "eventId");
+    // A person kept to one campus plans events for that campus only.
+    const mine = await evCampus(w.tx, w.current);
+    if (mine) input.campusId = mine;
+    await assertEvClasses(w.tx, w.current, input.classIds);
     if (eventId) {
+      await assertEvCampus(w.tx, w.current, "event", eventId);
       const r = await updateEvent(w.tx, w.ctx, eventId, input, { confirm, today: today(w.tz) });
       const told = r.moved && checked(fd, "tell") ? await tellSafely(() => messageAudience(w.tx, w.ctx, r.event, "changed")) : null;
       return { event: r.event, created: false, told };
@@ -132,35 +148,35 @@ export async function saveEventAction(_: S, fd: FormData): Promise<S> {
 export async function cancelEventAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.events, "cancel events");
-    return cancelEvent(w.tx, w.ctx, id(fd, "eventId", "event"), str(fd, "reason"), checked(fd, "tell"), today(w.tz));
+    return cancelEvent(w.tx, w.ctx, await here(w, "event", fd, "eventId", "event"), str(fd, "reason"), checked(fd, "tell"), today(w.tz));
   }, (r) => `${r.event.name} cancelled.${r.told?.problem ? toldWords(r.told) : r.told?.people ? ` ${count(r.told.people, "person", "people")} told.` : ""}${r.removed ? ` ${count(r.removed, "unpaid fee")} removed.` : ""}${r.refunds ? ` ${count(r.refunds, "refund")} sent to Approvals.` : ""}`);
 }
 
 export async function registerAction(_: S, fd: FormData): Promise<S> {
   return evAction("create", fd, async (w) => {
     need(w.can.events, "register students");
-    return registerStudents(w.tx, w.ctx, id(fd, "eventId", "event"), ids(fd, "studentIds"), today(w.tz));
+    return registerStudents(w.tx, w.ctx, await here(w, "event", fd, "eventId", "event"), ids(fd, "studentIds"), today(w.tz));
   }, (r) => `${count(r.added, "student")} registered for ${r.event.name}.${r.charged > BigInt(0) ? " The fee is added to their fees." : ""}${r.skipped ? ` ${r.skipped} left out (already registered or not in the audience).` : ""}`);
 }
 
 export async function withdrawAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.events, "withdraw students");
-    return withdrawStudent(w.tx, w.ctx, id(fd, "eventId", "event"), id(fd, "studentId", "student"), today(w.tz));
+    return withdrawStudent(w.tx, w.ctx, await here(w, "event", fd, "eventId", "event"), id(fd, "studentId", "student"), today(w.tz));
   }, (r) => `${r.name} withdrawn.${r.removed ? " The unpaid fee is removed." : ""}${r.refunds ? " The paid fee goes to Approvals for a refund." : ""}`);
 }
 
 export async function attendanceAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.events, "mark event attendance");
-    return markAttendance(w.tx, w.ctx, id(fd, "eventId", "event"), ids(fd, "present"), today(w.tz));
+    return markAttendance(w.tx, w.ctx, await here(w, "event", fd, "eventId", "event"), ids(fd, "present"), today(w.tz));
   }, (r) => `Attendance saved: ${r.present} of ${r.of} present.`);
 }
 
 export async function seatsAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.events, "assign seats");
-    return assignSeats(w.tx, w.ctx, id(fd, "eventId", "event"), Number(str(fd, "perRow")));
+    return assignSeats(w.tx, w.ctx, await here(w, "event", fd, "eventId", "event"), Number(str(fd, "perRow")));
   }, (r) => `${count(r.seated, "seat")} given in ${count(r.rows, "row")}, in class and roll order.`);
 }
 
@@ -169,21 +185,21 @@ export async function volunteerAction(_: S, fd: FormData): Promise<S> {
     need(w.can.events, "add volunteers");
     const kind = str(fd, "kind") || "staff";
     const personId = UUID_RE.test(str(fd, "personId")) ? str(fd, "personId") : null;
-    return addVolunteer(w.tx, w.ctx, id(fd, "eventId", "event"), { kind, personId, name: str(fd, "name"), duty: str(fd, "duty") });
+    return addVolunteer(w.tx, w.ctx, await here(w, "event", fd, "eventId", "event"), { kind, personId, name: str(fd, "name"), duty: str(fd, "duty") });
   }, (v) => `${v.name} added as a volunteer: ${v.duty}.`);
 }
 
 export async function removeVolunteerAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.events, "change volunteers");
-    return removeVolunteer(w.tx, w.ctx, id(fd, "volunteerId", "volunteer"));
+    return removeVolunteer(w.tx, w.ctx, await here(w, "volunteer", fd, "volunteerId", "volunteer"));
   }, (v) => `${v.name} is no longer a volunteer.`);
 }
 
 export async function remindAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.events, "send reminders");
-    const e = await w.tx.event.findFirst({ where: { id: id(fd, "eventId", "event"), archivedAt: null } });
+    const e = await w.tx.event.findFirst({ where: { id: await here(w, "event", fd, "eventId", "event"), archivedAt: null } });
     if (!e || e.status === "CANCELLED") throw new EventsProblem("This event was not found, or it is cancelled.");
     if (e.date.toISOString().slice(0, 10) < today(w.tz)) throw new EventsProblem("This event is over.");
     return messageAudience(w.tx, w.ctx, e, "reminder");
@@ -195,6 +211,7 @@ export async function remindAction(_: S, fd: FormData): Promise<S> {
 export async function planPtmAction(_: S, fd: FormData): Promise<S> {
   return evAction("create", fd, async (w) => {
     need(w.can.ptmPlan, "plan PTMs");
+    await assertEvClasses(w.tx, w.current, ids(fd, "classIds"));
     return planPtm(w.tx, w.ctx, {
       date: dateIso(fd, "date", "Date")!, classIds: ids(fd, "classIds"), startMin: time(fd, "startTime", "start time")!, endMin: time(fd, "endTime", "end time")!,
       slotMinutes: Number(str(fd, "slotMinutes")) || 10, venue: maybe(fd, "venue", "Venue", 80), subjectTeachers: checked(fd, "subjectTeachers"),
@@ -206,21 +223,21 @@ export async function planPtmAction(_: S, fd: FormData): Promise<S> {
 export async function cancelPtmAction(_: S, fd: FormData): Promise<S> {
   return evAction("archive", fd, async (w) => {
     need(w.can.ptmPlan, "cancel PTMs");
-    return cancelPtm(w.tx, w.ctx, id(fd, "ptmId", "PTM"), str(fd, "reason"), today(w.tz));
+    return cancelPtm(w.tx, w.ctx, await here(w, "ptm", fd, "ptmId", "PTM"), str(fd, "reason"), today(w.tz));
   }, (r) => `PTM cancelled.${toldWords(r.told)}`);
 }
 
 export async function bookSlotAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.ptmBook, "book PTM slots");
-    return bookSlot(w.tx, w.ctx, id(fd, "slotId", "slot"), id(fd, "studentId", "student"), today(w.tz), { own: w.can.own });
+    return bookSlot(w.tx, w.ctx, await here(w, "slot", fd, "slotId", "slot"), id(fd, "studentId", "student"), today(w.tz), { own: w.can.own });
   }, (r) => `Booked: ${r.teacher} at ${r.time} for ${r.student.firstName}'s parent.${r.messaged ? " They get a confirmation now and a reminder before the day." : ""}`);
 }
 
 export async function cancelBookingAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.ptmBook, "change PTM bookings");
-    return cancelBooking(w.tx, w.ctx, id(fd, "slotId", "slot"), today(w.tz), { own: w.can.own });
+    return cancelBooking(w.tx, w.ctx, await here(w, "slot", fd, "slotId", "slot"), today(w.tz), { own: w.can.own });
   }, (r) => `The ${r.time} slot is free again.`);
 }
 
@@ -228,7 +245,7 @@ export async function arrivedAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.ptmNotes, "mark parents arrived");
     const arrived = str(fd, "arrived") !== "no";
-    await markArrived(w.tx, w.ctx, id(fd, "slotId", "slot"), arrived, today(w.tz), { own: w.can.own });
+    await markArrived(w.tx, w.ctx, await here(w, "slot", fd, "slotId", "slot"), arrived, today(w.tz), { own: w.can.own });
     return arrived;
   }, (a) => (a ? "Marked: parent arrived." : "Arrival taken back."));
 }
@@ -236,7 +253,7 @@ export async function arrivedAction(_: S, fd: FormData): Promise<S> {
 export async function notesAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.ptmNotes, "record PTM notes");
-    return saveNotes(w.tx, w.ctx, id(fd, "slotId", "slot"), {
+    return saveNotes(w.tx, w.ctx, await here(w, "slot", fd, "slotId", "slot"), {
       remarks: maybe(fd, "remarks", "Teacher remarks", 1000), feedback: maybe(fd, "feedback", "Parent feedback", 1000), followUp: maybe(fd, "followUp", "Follow-up actions", 300), arrived: checked(fd, "arrived"),
     }, today(w.tz), { own: w.can.own });
   }, (r) => `Notes saved for ${r.student.fullName}. They are on the student's profile, Activities tab.`);
@@ -246,7 +263,7 @@ export async function queueAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.ptmPlan, "run the waiting queue");
     const open = str(fd, "open") !== "no";
-    await setQueue(w.tx, w.ctx, id(fd, "ptmId", "PTM"), open, today(w.tz));
+    await setQueue(w.tx, w.ctx, await here(w, "ptm", fd, "ptmId", "PTM"), open, today(w.tz));
     return open;
   }, (o) => (o ? "Waiting queue opened. Parents are called by slot time." : "Waiting queue closed."));
 }
@@ -254,20 +271,35 @@ export async function queueAction(_: S, fd: FormData): Promise<S> {
 export async function summaryAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.ptmPlan, "send the PTM summary");
-    return sendSummary(w.tx, w.ctx, id(fd, "ptmId", "PTM"), today(w.tz));
+    return sendSummary(w.tx, w.ctx, await here(w, "ptm", fd, "ptmId", "PTM"), today(w.tz));
   }, (r) => `PTM summary sent to ${count(r.people, "parent")} who did not come.${r.missed ? ` ${r.missed}` : ""}`);
 }
 
 /* ---------- Gallery ---------- */
+
+/**
+ * An album made or opened up by a person kept to one campus stays that
+ * campus's: its event or its classes are on that campus. Showing an album to
+ * everyone in the school is for the whole-school team.
+ */
+async function albumOnCampus(w: EvWork, eventId: string | null, visibleTo: string, classIds: string[]) {
+  if (!(await evCampus(w.tx, w.current))) return;
+  await assertEvClasses(w.tx, w.current, classIds);
+  if (visibleTo === "EVERYONE" || (!eventId && !classIds.length)) throw new EventsProblem("Choose an event or the classes of your campus for this album.", eventId ? "visibleTo" : "eventId");
+}
 
 export async function saveAlbumAction(_: S, fd: FormData): Promise<S> {
   return evAction("create", fd, async (w) => {
     need(w.can.gallery, "make albums");
     const eventId = UUID_RE.test(str(fd, "eventId")) ? str(fd, "eventId") : null;
     const albumId = str(fd, "albumId");
+    if (albumId) await assertEvCampus(w.tx, w.current, "album", albumId);
+    if (eventId) await assertEvCampus(w.tx, w.current, "event", eventId);
     if (albumId) return { album: await renameAlbum(w.tx, w.ctx, albumId, { name: str(fd, "name"), date: dateIso(fd, "date", "Date")!, eventId }), created: false };
     const visibleTo = str(fd, "visibleTo") || "STAFF";
-    return { album: await createAlbum(w.tx, w.ctx, { name: str(fd, "name"), eventId, date: dateIso(fd, "date", "Date")!, visibleTo, classIds: visibleTo === "CLASSES" ? ids(fd, "classIds") : [], consentRule: str(fd, "consentRule") || "OUT" }), created: true };
+    const classIds = visibleTo === "CLASSES" ? ids(fd, "classIds") : [];
+    await albumOnCampus(w, eventId, visibleTo, classIds);
+    return { album: await createAlbum(w.tx, w.ctx, { name: str(fd, "name"), eventId, date: dateIso(fd, "date", "Date")!, visibleTo, classIds, consentRule: str(fd, "consentRule") || "OUT" }), created: true };
   }, (r) => r.created
     ? { message: `Album “${r.album.name}” made. Visible to staff only until you publish it.`, link: { href: `/events-calendar/gallery/${r.album.id}`, label: "Open" } }
     : `${r.album.name} saved.`);
@@ -277,35 +309,39 @@ export async function albumAccessAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.gallery, "change albums");
     const visibleTo = str(fd, "visibleTo");
-    return setAlbumAccess(w.tx, w.ctx, id(fd, "albumId", "album"), { visibleTo, classIds: visibleTo === "CLASSES" ? ids(fd, "classIds") : [], consentRule: str(fd, "consentRule") });
+    const albumId = await here(w, "album", fd, "albumId", "album");
+    const classIds = visibleTo === "CLASSES" ? ids(fd, "classIds") : [];
+    const album = await w.tx.album.findFirst({ where: { id: albumId }, select: { eventId: true } });
+    await albumOnCampus(w, album?.eventId ?? null, visibleTo, classIds);
+    return setAlbumAccess(w.tx, w.ctx, albumId, { visibleTo, classIds, consentRule: str(fd, "consentRule") });
   }, (a) => `Saved: ${a.visibleTo === "STAFF" ? "visible to staff only" : a.visibleTo === "CLASSES" ? "visible to parents of the chosen classes" : "visible to everyone"}; students without photo consent are ${a.consentRule === "BLUR" ? "blurred" : "left out"}.`);
 }
 
 export async function publishAlbumAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.gallery, "publish albums");
-    return publishAlbum(w.tx, w.ctx, id(fd, "albumId", "album"), checked(fd, "staffOnly"));
+    return publishAlbum(w.tx, w.ctx, await here(w, "album", fd, "albumId", "album"), checked(fd, "staffOnly"));
   }, (a) => `${a.name} published.${a.visibleTo === "STAFF" ? " Visible to staff only." : " Untagged photos stay staff only."}`);
 }
 
 export async function archiveAlbumAction(_: S, fd: FormData): Promise<S> {
   return evAction("archive", fd, async (w) => {
     need(w.can.gallery, "archive albums");
-    return archiveAlbum(w.tx, w.ctx, id(fd, "albumId", "album"));
+    return archiveAlbum(w.tx, w.ctx, await here(w, "album", fd, "albumId", "album"));
   }, (r) => ({ message: `${r.album.name} archived. Hidden from parents; staff can still see it.`, undo: { kind: "ev-album-archive", id: `${r.album.id}~${r.was}` } }));
 }
 
 export async function shareAlbumAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.gallery, "share albums");
-    return shareAlbum(w.tx, w.ctx, id(fd, "albumId", "album"));
+    return shareAlbum(w.tx, w.ctx, await here(w, "album", fd, "albumId", "album"));
   }, (r) => `Album link sent to ${count(r.people, "parent")}.${r.missed ? ` ${r.missed}` : ""} Photo consent is checked for every photo when they open it.`);
 }
 
 export async function newLinkAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.gallery, "change album links");
-    return newShareLink(w.tx, w.ctx, id(fd, "albumId", "album"));
+    return newShareLink(w.tx, w.ctx, await here(w, "album", fd, "albumId", "album"));
   }, () => "New album link made. The old link no longer works.");
 }
 
@@ -315,21 +351,21 @@ export async function tagAction(_: S, fd: FormData): Promise<S> {
     const noStudents = str(fd, "noStudents") === "yes";
     const num = (k: string) => { const v = str(fd, k); return v === "" ? null : Number(v); };
     const tags = ids(fd, "studentIds").map((s) => ({ studentId: s, x: num(`x_${s}`), y: num(`y_${s}`) }));
-    return tagMedia(w.tx, w.ctx, id(fd, "mediaId", "photo"), tags, noStudents);
+    return tagMedia(w.tx, w.ctx, await here(w, "media", fd, "mediaId", "photo"), tags, noStudents);
   }, (r) => (r.tagged ? `${count(r.tagged, "student")} tagged.${r.missing ? ` ${r.missing} without photo consent.` : " All have photo consent."}` : "Marked as no students."));
 }
 
 export async function removeMediaAction(_: S, fd: FormData): Promise<S> {
   return evAction("archive", fd, async (w) => {
     need(w.can.gallery, "remove photos");
-    return removeMedia(w.tx, w.ctx, id(fd, "mediaId", "photo"));
+    return removeMedia(w.tx, w.ctx, await here(w, "media", fd, "mediaId", "photo"));
   }, (m) => ({ message: m.kind === "VIDEO" ? "Video removed from the album." : "Photo removed from the album.", undo: { kind: "ev-media-remove", id: m.id } }));
 }
 
 export async function askConsentAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.gallery, "ask for photo consent");
-    return askConsent(w.tx, w.ctx, id(fd, "albumId", "album"));
+    return askConsent(w.tx, w.ctx, await here(w, "album", fd, "albumId", "album"));
   }, (r) => `Photo consent asked for ${count(r.students, "student")}, on Parent Link.`);
 }
 
@@ -391,9 +427,10 @@ export async function officeConsentAction(_: S, fd: FormData): Promise<S> {
     const answer = str(fd, "answer") === "DECLINED" ? "DECLINED" : "GIVEN";
     const studentIds = ids(fd, "studentIds");
     if (!studentIds.length) throw new EventsProblem("Choose the students.", "studentIds");
+    const eventId = await here(w, "event", fd, "eventId", "event");
     let changed = 0;
     for (const studentId of studentIds) {
-      const r = await recordConsent(w.tx, w.ctx, { eventId: id(fd, "eventId", "event"), studentId, answer, guardianId: null, how: "office" }, today(w.tz));
+      const r = await recordConsent(w.tx, w.ctx, { eventId, studentId, answer, guardianId: null, how: "office" }, today(w.tz));
       if (r.changed) changed++;
     }
     return { changed, answer };
@@ -403,7 +440,7 @@ export async function officeConsentAction(_: S, fd: FormData): Promise<S> {
 export async function remindConsentAction(_: S, fd: FormData): Promise<S> {
   return evAction("edit", fd, async (w) => {
     need(w.can.events, "send reminders");
-    return remindConsent(w.tx, w.ctx, id(fd, "eventId", "event"), today(w.tz));
+    return remindConsent(w.tx, w.ctx, await here(w, "event", fd, "eventId", "event"), today(w.tz));
   }, (r) => `Reminder sent to ${count(r.people, "parent")} waiting for consent.${r.missed ? ` ${r.missed}` : ""} Track it in Message History.`);
 }
 

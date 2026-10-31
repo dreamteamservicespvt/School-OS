@@ -56,7 +56,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
   const selRaw = one(sp.d);
   const sel = /^\d{4}-\d{2}-\d{2}$/.test(selRaw) && ym(selRaw) === month ? selRaw : ym(p.today) === month ? p.today : monthStart(month);
   const classId = data.classes.some((c) => c.id === one(sp.class)) ? one(sp.class) : "";
-  const campusId = p.campuses.length > 1 && p.campuses.some((c) => c.id === one(sp.campus)) ? one(sp.campus) : "";
+  // A person limited to one campus sees that campus (and entries for every campus), whatever is asked for.
+  const campusId = (p.campuses.length > 1 ? p.current.campusId : null) || (p.campuses.length > 1 && p.campuses.some((c) => c.id === one(sp.campus)) ? one(sp.campus) : "");
   const vp = evPeriod(sp, p.dates, "acyear");
   const range = vp.range!;
   const keep = { m: month, d: sel, type: type === "all" ? null : type, class: classId || null, campus: campusId || null, view: view === "list" ? "list" : null, ...(view === "list" ? vp.keep : {}) };
@@ -126,7 +127,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
             <ButtonLink href={here({ m: ym(p.today), d: p.today })} variant="ghost" className="ml-1" scroll={false}><Words k="Today" /></ButtonLink>
           </div>
           <div className="flex-1" />
-          {p.campuses.length > 1 && (
+          {p.campuses.length > 1 && !p.current.campusId && (
             <JumpSelect id="cal-campus" label="Campus" value={campusId || "all"} className="lg:w-44"
               options={[{ value: "all", label: "All campuses", href: here({ campus: null }) }, ...p.campuses.map((c) => ({ value: c.id, label: c.name, href: here({ campus: c.id }) }))]} />
           )}

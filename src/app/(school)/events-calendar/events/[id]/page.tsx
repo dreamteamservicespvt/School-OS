@@ -23,6 +23,7 @@ import { remindConsentAction, removeVolunteerAction, withdrawAction } from "../.
 import { BASE, UUID, evGuard, one, qs, type SearchParams } from "../../_lib/page";
 import { DayText, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { evCampusWhere } from "@/lib/events/campus";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Event") };
@@ -42,7 +43,8 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const HREF = `${BASE}/events/${id}`;
 
   const d = await withSchool(ctx, async (tx) => {
-    const e = await tx.event.findFirst({ where: { id, archivedAt: null } });
+    // Another campus's event is not found for a person limited to one campus.
+    const e = await tx.event.findFirst({ where: { id, archivedAt: null, ...(await evCampusWhere(tx, p.current)) } });
     if (!e) return null;
     const regs = await tx.eventRegistration.findMany({ where: { eventId: id, withdrawnAt: null }, orderBy: { createdAt: "asc" } });
     const students = await tx.student.findMany({ where: { id: { in: regs.map((r) => r.studentId) } }, select: { id: true, fullName: true } });

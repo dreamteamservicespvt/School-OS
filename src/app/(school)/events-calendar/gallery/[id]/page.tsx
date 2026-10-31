@@ -19,6 +19,7 @@ import { archiveAlbumAction, askConsentAction, newLinkAction, publishAlbumAction
 import { BASE, UUID, evGuard, one, qs, type SearchParams } from "../../_lib/page";
 import { DayText, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { evSees } from "@/lib/events/campus";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Album") };
@@ -37,8 +38,9 @@ export default async function AlbumPage({ params, searchParams }: { params: Prom
   const mediaParam = UUID.test(one(sp.media)) ? one(sp.media) : null;
 
   const d = await withSchool(ctx, async (tx) => {
+    // Another campus's album is not found for a person limited to one campus.
     const a = await tx.album.findFirst({ where: { id } });
-    if (!a) return null;
+    if (!a || !(await evSees(tx, p.current, "album", id))) return null;
     const items = await tx.mediaItem.findMany({ where: { albumId: id, archivedAt: null }, include: { tags: { where: { archivedAt: null } } }, orderBy: { createdAt: "asc" } });
     const tagged = [...new Set(items.flatMap((i) => i.tags.map((t) => t.studentId)))];
     const consented = await consentedStudents(tx, ctx, tagged);

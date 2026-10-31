@@ -169,3 +169,36 @@ Last updated: 2026-10-30 19:00 (full self-test: journeys done, crawl next)
   or the app router's history update looks like "interrupted by another navigation".
 - Local console login: QA Test Owner, mobile 9000000101 (local DB only); its password is not saved.
 - `npm run build` locally needs NODE_OPTIONS=--max-old-space-size=6144.
+
+
+## Moved from HANDOFF.md on 2026-10-31 (security audit day)
+
+- FINAL DELIVERY AUDIT 2026-10-31 (local demo only): docs/qa/2026-10-31-delivery-audit.md. Gate YELLOW
+  (ready with known limitations): 16 bugs found and fixed; tests 2,324/2,326 (2 slow-disk timeouts pass alone). Round 1: docs/qa/2026-10-30-full-test.md (14 bugs fixed).
+  - Money: 6 "sent twice at once" races fixed with row locks (counter advance, cancel, refund request,
+    mark refunded, application fee, library fine) + tests; totals agree in ledger, receipts, Day Book,
+    dashboards, Ask and Parent Link (SQL + screens).
+  - Security: actions replayed as other roles all refused; automation log download was open to every role
+    (fixed); "/\host" redirect fixed. Layout: 6 sideways-scroll bugs at 320/1024 px fixed.
+  - Demo data: round 1's "Self-test:" homework/notice cleaned (scripts/demo-cleanup.sql); DB restored from
+    C:\Users\chala\sos-snap\school_os-2026-10-30-clean.dump after the probes.
+- MORNING CLEAN-UP 2026-10-31: lint 0 errors 0 warnings (f0d38b44). Record income / Record expense (no
+  vendor) pressed twice, at once or within 15 min, now ask first (advisory lock + check; expense needs a
+  reason, income "Save it again"; other modules' own entries not asked; tests/finance/typed-twice.test.ts)
+  (945e53b4). Slow-disk test limits raised. Owner's 4 uncommitted files reviewed: whitespace only.
+  Demo reseeded 09:40 (backup C:\Users\chala\sos-snap\school_os-2026-10-31-before-reseed.dump): today 261/271
+  present, ₹36k from 30 payments; recheck-audit 11/11; app serving from the SSD copy on :3000.
+- CODE AUDIT 2026-10-31 (light, one reviewer): docs/qa/2026-10-31-code-audit.md. 3 found, 3 fixed (b625e12c):
+  Content-Security-Policy header (+ tests/security-headers.test.ts), nodemailer 10.3.1, re2js. Tests 2,333/2,333.
+  Left: zod 3 -> 4 (own task), firebase/prisma/exceljs advisories not reachable. The full multi-agent
+  `security-audit` (needs ultracode) has still never run on School OS.
+
+1. Self-test decisions settled by Claude 2026-10-30 (user said "decide yourself"): 16 keep the owner's rule, only
+   the Principal rejects an admission (approver can approve or ask for a change); 17 Visitors table fits at 1440 px
+   (side panel 300 px, vehicle under the name; qa/full/visitors-fit.mjs). Push only when the user says so.
+   a2. DONE 2026-10-30 (user: "complete everything"): ready WhatsApp texts reworded so none starts/ends with a
+      blank, no two blanks sit with only a space between, and >= 2 words per blank + 2 (whatsappProblems in
+      blanks.ts; tests/communication/whatsapp-ready.test.ts). Migration 20261030000000_whatsapp_ready_texts
+      gives untouched NOT_SUBMITTED texts a new version (demo: 30 updated). Submit for approval now refuses
+      such words and the template page says what to change. Not yet confirmed on Meta itself: the first real
+      submission will tell whether Meta's length rule is stricter than ours. fee-paid kept its 3a words.

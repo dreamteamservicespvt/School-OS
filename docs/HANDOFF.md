@@ -1,28 +1,23 @@
 # School OS handoff
 
-Last updated: 2026-10-31 10:40 (code audit; nothing pushed)
+Last updated: 2026-10-31 12:00 (security audit run-1 + 2 fixes; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
-- FINAL DELIVERY AUDIT 2026-10-31 (local demo only): docs/qa/2026-10-31-delivery-audit.md. Gate YELLOW
-  (ready with known limitations): 16 bugs found and fixed; tests 2,324/2,326 (2 slow-disk timeouts pass alone). Round 1: docs/qa/2026-10-30-full-test.md (14 bugs fixed).
-  - Money: 6 "sent twice at once" races fixed with row locks (counter advance, cancel, refund request,
-    mark refunded, application fee, library fine) + tests; totals agree in ledger, receipts, Day Book,
-    dashboards, Ask and Parent Link (SQL + screens).
-  - Security: actions replayed as other roles all refused; automation log download was open to every role
-    (fixed); "/\host" redirect fixed. Layout: 6 sideways-scroll bugs at 320/1024 px fixed.
-  - Demo data: round 1's "Self-test:" homework/notice cleaned (scripts/demo-cleanup.sql); DB restored from
-    C:\Users\chala\sos-snap\school_os-2026-10-30-clean.dump after the probes.
-- MORNING CLEAN-UP 2026-10-31: lint 0 errors 0 warnings (f0d38b44). Record income / Record expense (no
-  vendor) pressed twice, at once or within 15 min, now ask first (advisory lock + check; expense needs a
-  reason, income "Save it again"; other modules' own entries not asked; tests/finance/typed-twice.test.ts)
-  (945e53b4). Slow-disk test limits raised. Owner's 4 uncommitted files reviewed: whitespace only.
-  Demo reseeded 09:40 (backup C:\Users\chala\sos-snap\school_os-2026-10-31-before-reseed.dump): today 261/271
-  present, ₹36k from 30 payments; recheck-audit 11/11; app serving from the SSD copy on :3000.
-- CODE AUDIT 2026-10-31 (light, one reviewer): docs/qa/2026-10-31-code-audit.md. 3 found, 3 fixed (b625e12c):
-  Content-Security-Policy header (+ tests/security-headers.test.ts), nodemailer 10.3.1, re2js. Tests 2,333/2,333.
-  Left: zod 3 -> 4 (own task), firebase/prisma/exceljs advisories not reachable. The full multi-agent
-  `security-audit` (needs ultracode) has still never run on School OS.
+- SECURITY AUDIT 2026-10-31 (security-audit skill, quick profile, 8 agents, source-only): report
+  docs/qa/2026-10-31-security-audit.md; full run ~/security-audit-skill/School-OS/run-1 (findings.json,
+  coverage-ledger.json, NEEDS-VALIDATION.md; tools/ there rebuild prompts and validate). 2 confirmed, both FIXED:
+  notice-archive Undo republished any archived notice past approval (medium; src/lib/communication/undo.ts),
+  two-step sign-in skipped when a set-up SMS send failed, e.g. no credits (low; src/lib/auth/two-step*.ts).
+  4 NEEDS VALIDATION, not fixed (owner facts): WhatsApp webhook not bound to the school's number (shared Meta
+  app?), pay-link Checkout posts an authorized-not-captured payment (Razorpay auto-capture?), console invoice
+  paid twice by overlapping confirmations (no row lock), support-cookie parse in proxy vs app (Next.js).
+  Partial pass: the critic left 9 areas deferred (about 95 action files, about 140 download/print routes,
+  82 id pages, users & roles editing, switched-off modules, DB definer functions, data-security actions,
+  POST routes without Origin check, money actions). 27 hardening notes in the report.
+- Earlier 2026-10-31: delivery audit (docs/qa/2026-10-31-delivery-audit.md, gate YELLOW, 16 fixed), morning
+  clean-up (lint clean, typed-twice income/expense), light code audit (docs/qa/2026-10-31-code-audit.md: CSP,
+  nodemailer). Demo reseeded 09:40; details in docs/archive/HANDOFF-until-2026-10-30.md.
 - Local commits on branch claude/project-thread-cesreq, NOT pushed (audit commits 2150019b..HEAD).
   The user's own uncommitted edits (.vscode/settings.json, CLAUDE.md, next.config.ts, public/push-sw.js) left alone.
 - Local setup: PostgreSQL 16 in tools/pg16 (data tools/pgdata; superuser `postgres` trust on localhost).
@@ -30,21 +25,16 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
 - Branch note: origin still has the old commit 64f895d7 "a"; the next push needs --force-with-lease (ask first).
 
 ## Next steps
+S. SECURITY (from the 2026-10-31 audit): (1) owner answers for the 4 NEEDS VALIDATION leads in
+   ~/security-audit-skill/School-OS/run-1/NEEDS-VALIDATION.md, or say "fix them anyway" (all have small source
+   fixes); (2) a standard-profile security-audit run-2 over the 9 deferred ledger units (needs ultracode;
+   read run-1/coverage-ledger.json first, treat run-1 as the prior run); (3) the report's hardening notes.
 0. DEMO DAY: to refresh "today" on another day, reseed after ~9:30 AM IST (earlier puts today's attendance in
    the future). Script used on 31-10 (backup, drop/recreate schema, migrate, seed, copy to SSD, build):
    docs/qa/reseed-demo.sh, then start with tools/start-only.sh. Before the live school: set FILE_LINK_SECRET.
-1. Self-test decisions settled by Claude 2026-10-30 (user said "decide yourself"): 16 keep the owner's rule, only
-   the Principal rejects an admission (approver can approve or ask for a change); 17 Visitors table fits at 1440 px
-   (side panel 300 px, vehicle under the name; qa/full/visitors-fit.mjs). Push only when the user says so.
 2. Not done in the self-test: online payment through Razorpay (no keys locally); timed tests (parent pays on a
    slow phone < 60 s; teacher marks 40 students < 60 s).
 3. DECIDED by the user 2026-10-23, build one at a time (brainstorm -> plan -> build); details in the archive file:
-   a2. DONE 2026-10-30 (user: "complete everything"): ready WhatsApp texts reworded so none starts/ends with a
-      blank, no two blanks sit with only a space between, and >= 2 words per blank + 2 (whatsappProblems in
-      blanks.ts; tests/communication/whatsapp-ready.test.ts). Migration 20261030000000_whatsapp_ready_texts
-      gives untouched NOT_SUBMITTED texts a new version (demo: 30 updated). Submit for approval now refuses
-      such words and the template page says what to change. Not yet confirmed on Meta itself: the first real
-      submission will tell whether Meta's length rule is stricter than ours. fee-paid kept its 3a words.
    b. Backups: nightly encrypted copy to Cloudflare R2 (user chose R2 knowing it does not promise India;
       blueprint "in India" was inferred). Adapt scripts/backup.sh (aws CLI with --endpoint-url for R2)
       and run it nightly from GitHub Actions. User must create: Cloudflare R2 bucket + S3 API token,

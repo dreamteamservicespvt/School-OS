@@ -106,12 +106,16 @@ export async function deliverCodeTo(to: CodeTo, code: string, purpose: CodePurpo
       mailProblem = "The code could not be sent by email just now. Please try again in a minute.";
     }
   }
+  let smsProblem: string | null = null;
   if (to.phone && to.schoolId && to.userLoginId) {
     const sms = await sendCodeBySms({ schoolId: to.schoolId, userLoginId: to.userLoginId, phone: to.phone, code, key: to.key ?? null, purpose });
     // Test mode only records the SMS (allowed for codes on a tester's computer only): say so, not "sent to" the phone (QA ADMIT-03).
     if (sms.sent) return { channel: "sms", sentTo: sms.testMode ? `the server log (Test mode, not sent to ${maskPhone(to.phone)} by SMS)` : maskPhone(to.phone) };
+    smsProblem = sms.problem ?? null;
   }
   if (mailProblem) return { problem: mailProblem };
+  // SMS was tried and failed: a passing fault, so the person waits for the code instead of signing in without it.
+  if (smsProblem) return { problem: smsProblem };
   if (mayLogCode("none")) {
     logOneTimeCode({ to: to.phone ?? to.email, purpose: CODE_PURPOSE_WORDS[purpose] ?? purpose, code, carriedBy: "none" });
     return { channel: "log", sentTo: "the server log (email is not set up on this computer)" };

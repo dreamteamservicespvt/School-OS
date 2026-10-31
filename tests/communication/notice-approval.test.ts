@@ -154,6 +154,29 @@ describe("a class teacher's notice to their section's parents", () => {
     expect((await notice(own)).status).toBe("ARCHIVED");
     expect((await notice(principals)).status).toBe("DRAFT");
   });
+
+  it("Undo of an archive brings back only the status the notice had, and only for the person who archived it", async () => {
+    const { archiveNoticeAction } = await import("@/app/(school)/communication/notices/actions");
+    const { undoChange } = await import("@/app/(school)/undo-action");
+    await signIn(s.principal.id);
+    const principals = savedId(await save({ title: "Principal's, archived", intent: "draft" }));
+    expect(await archiveNoticeAction(principals)).toBeUndefined();
+    await signIn(s.teacher.id);
+    const own = savedId(await save({ title: "Undo draft", intent: "draft" }));
+    expect(await archiveNoticeAction(own)).toBeUndefined();
+
+    // A changed undo key cannot publish a draft past the approval rule.
+    await undoChange("notice-archive", `${own}:PUBLISHED`);
+    expect((await notice(own)).status).toBe("DRAFT");
+    // Another person's archived notice stays archived.
+    await undoChange("notice-archive", `${principals}:PUBLISHED`);
+    expect((await notice(principals)).status).toBe("ARCHIVED");
+    // Not even the Principal can undo what the teacher archived.
+    expect(await archiveNoticeAction(own)).toBeUndefined();
+    await signIn(s.principal.id);
+    await undoChange("notice-archive", `${own}:DRAFT`);
+    expect((await notice(own)).status).toBe("ARCHIVED");
+  });
 });
 
 describe("the rule applies to everyone except those who approve notices", () => {

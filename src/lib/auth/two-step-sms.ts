@@ -33,7 +33,7 @@ export async function signInSmsTemplate(tx: Tx, ctx: SchoolContext): Promise<str
   return ready ? t.id : null;
 }
 
-export async function sendCodeBySms(input: { schoolId: string; userLoginId: string; phone: string; code: string; key: string | null; purpose?: string }): Promise<{ sent: boolean; messageId?: string; testMode?: boolean }> {
+export async function sendCodeBySms(input: { schoolId: string; userLoginId: string; phone: string; code: string; key: string | null; purpose?: string }): Promise<{ sent: boolean; problem?: string; messageId?: string; testMode?: boolean }> {
   const ctx: SchoolContext = { schoolId: input.schoolId, userId: input.userLoginId };
   try {
     return await withSchool(ctx, async (tx) => {
@@ -59,8 +59,9 @@ export async function sendCodeBySms(input: { schoolId: string; userLoginId: stri
       return { sent: true, messageId: r.messageId, testMode };
     });
   } catch (e) {
-    // No credits, no number on the login, or a template problem: the code goes by email instead.
-    if (e instanceof MessagingProblem) return { sent: false };
+    // SMS is set up but this send failed (no credits, a template or provider problem): a passing
+    // fault, never "no code can reach them", so two-step is not skipped (security audit 2026-10-31).
+    if (e instanceof MessagingProblem) return { sent: false, problem: "The sign-in code could not be sent by SMS just now. Try again later, or ask your School Admin or DREAM TEAM support to check the school's SMS." };
     throw e;
   }
 }

@@ -6,6 +6,8 @@ import "server-only";
 import type { Current } from "./current";
 
 export const UNDO_WINDOW_MS = 10_000;
+/** How long the server still accepts an Undo the toast offered, allowing for a slow phone or network. */
+export const UNDO_GRACE_MS = UNDO_WINDOW_MS + 20_000;
 
 type UndoHandler = (current: Current, id: string) => Promise<void>;
 const handlers = new Map<string, UndoHandler>();

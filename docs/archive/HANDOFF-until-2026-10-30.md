@@ -202,3 +202,13 @@ Last updated: 2026-10-30 19:00 (full self-test: journeys done, crawl next)
       gives untouched NOT_SUBMITTED texts a new version (demo: 30 updated). Submit for approval now refuses
       such words and the template page says what to change. Not yet confirmed on Meta itself: the first real
       submission will tell whether Meta's length rule is stricter than ours. fee-paid kept its 3a words.
+
+## Backups brainstorm (moved from HANDOFF.md 2026-10-31)
+      Brainstorm findings 2026-10-26: file copies already support R2 (storage.ts backupStore, BACKUP_S3_* with
+      an r2.cloudflarestorage.com endpoint; worker schedule:file-backup runs via the 5-minute job tick), so
+      files need only Vercel env vars on School OS's own project. Retention (nightly 30 d, monthly 1 y) can be
+      R2 lifecycle rules on nightly/ and monthly/ prefixes. restore-test restores into <db>_restore_test on
+      the SAME server as RESTORE_ADMIN_URL and records into the live backup_run, so a CI run needs the GPG
+      private key + a Neon login with CREATEDB + BYPASSRLS. OPEN QUESTION to the user: may the GPG private
+      key live in GitHub secrets (fully automatic monthly restore test), or stay offline on the user's PC
+      (monthly test run by hand)?

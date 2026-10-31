@@ -49,14 +49,7 @@ S. SECURITY: (1) after the user's yes, fix run-1's 4 leads (fix list in the run-
       and run it nightly from GitHub Actions. User must create: Cloudflare R2 bucket + S3 API token,
       a GPG key for BACKUP_GPG_RECIPIENT, a BYPASSRLS backup login on Neon; secrets go in GitHub
       Actions secrets, never in git. Also schedule scripts/restore-test.ts monthly.
-      Brainstorm findings 2026-10-26: file copies already support R2 (storage.ts backupStore, BACKUP_S3_* with
-      an r2.cloudflarestorage.com endpoint; worker schedule:file-backup runs via the 5-minute job tick), so
-      files need only Vercel env vars on School OS's own project. Retention (nightly 30 d, monthly 1 y) can be
-      R2 lifecycle rules on nightly/ and monthly/ prefixes. restore-test restores into <db>_restore_test on
-      the SAME server as RESTORE_ADMIN_URL and records into the live backup_run, so a CI run needs the GPG
-      private key + a Neon login with CREATEDB + BYPASSRLS. OPEN QUESTION to the user: may the GPG private
-      key live in GitHub secrets (fully automatic monthly restore test), or stay offline on the user's PC
-      (monthly test run by hand)?
+      Brainstorm findings 2026-10-26 + open GPG-key question: docs/archive/HANDOFF-until-2026-10-30.md ("Backups brainstorm").
    c. Settlement matching: build now against Razorpay's documented Settlements API, shipped switched off
       per school (School Feature); unmatched lines listed. Test on a live account later, when a school
       takes online payments (user then gives read-only keys).

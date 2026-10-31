@@ -15,6 +15,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { defineImport, type ImportKind } from "../importer";
+import { studentCampuses } from "../campus";
 import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { campusLimitOf } from "../staff/campus-logins";
@@ -121,6 +122,7 @@ function makeKind(): ImportKind<Row> {
       await writeAudit(tx, ctx, { action: "brought-in", recordType: "Opening Attendance", recordId: row.id, after: { student: v.name, from: shown(v.fromDate), upTo: shown(v.upTo), daysMet: v.met, daysPresent: v.present } });
       return { id: row.id, created: true };
     },
+    campusOf: async (tx, ids) => studentCampuses(tx, (await tx.openingAttendance.findMany({ where: { id: { in: ids } }, select: { studentId: true } })).map((r) => r.studentId)),
     async undo(tx, ctx, ids) {
       const { count } = await tx.openingAttendance.updateMany({ where: { id: { in: ids }, archivedAt: null }, data: { archivedAt: new Date() } });
       await writeAudit(tx, ctx, { action: "archived", recordType: "Opening Attendance", recordId: null, after: { reason: "Import undone", students: count } });

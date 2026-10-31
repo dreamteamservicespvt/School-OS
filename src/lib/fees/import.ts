@@ -8,6 +8,7 @@ import "server-only";
 import type { PaymentMode } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { defineImport } from "../importer";
+import { studentCampuses } from "../campus";
 import { writeAudit } from "../audit";
 import { parseDateText } from "../staff/import";
 import { parseRupees } from "./act";
@@ -110,6 +111,7 @@ defineImport<OldDue>({
     });
     return { id: due.id, created: true };
   },
+  campusOf: async (tx, ids) => studentCampuses(tx, (await tx.studentFeeDue.findMany({ where: { id: { in: ids } }, select: { studentId: true } })).map((d) => d.studentId)),
   async undo(tx, ctx, ids) {
     const dues = await tx.studentFeeDue.findMany({ where: { id: { in: ids } } });
     for (const d of dues) {
@@ -191,6 +193,7 @@ defineImport<PastReceipt>({
     await allocateBroughtIn(tx, ctx, p.id, v);
     return { id: p.id, created: true };
   },
+  campusOf: async (tx, ids) => studentCampuses(tx, (await tx.payment.findMany({ where: { id: { in: ids } }, select: { studentId: true } })).map((p) => p.studentId)),
   async undo(tx, ctx, ids) {
     for (const id of ids) {
       const p = await tx.payment.findFirst({ where: { id, broughtIn: true } });

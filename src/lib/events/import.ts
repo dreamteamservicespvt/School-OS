@@ -63,6 +63,8 @@ defineImport<Row>({
       throw err;
     }
   },
+  // A holiday for every campus is not one campus's to undo (as in src/lib/events/campus.ts).
+  campusOf: async (tx, ids) => (await tx.calendarEntry.findMany({ where: { id: { in: ids } }, select: { campusId: true } })).map((e) => e.campusId ?? "every campus"),
   undo: async (tx, ctx, ids) => {
     await tx.calendarEntry.updateMany({ where: { id: { in: ids }, source: null }, data: { archivedAt: new Date(), updatedById: ctx.userId } });
   },

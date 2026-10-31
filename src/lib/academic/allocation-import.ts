@@ -17,6 +17,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { defineImport, RowProblem, type ImportKind, type RowChoice, type UpdatedRow } from "../importer";
+import { sectionCampuses } from "../campus";
 import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { movingIn } from "../move-in/live";
@@ -200,6 +201,8 @@ function makeKind(): ImportKind<Row> {
       if (allocationId && !before.ended.length && !before.classTeacher) return { id: allocationId, created: true };
       return { id: allocationId ?? v.sectionId, created: false, before: before as unknown as Record<string, unknown>, after: { allocationId, classTeacherId: v.classTeacher ? v.staffId : null, sectionId: v.sectionId } };
     },
+    // A row that only changed the class teacher is kept under the section's id.
+    campusOf: async (tx, ids) => sectionCampuses(tx, [...(await tx.teacherAllocation.findMany({ where: { id: { in: ids } }, select: { sectionId: true } })).map((a) => a.sectionId), ...ids]),
     async undo(tx, ctx, ids) {
       const live = await tx.teacherAllocation.findMany({ where: { id: { in: ids }, archivedAt: null }, select: { id: true } });
       if (live.length) await tx.teacherAllocation.updateMany({ where: { id: { in: live.map((a) => a.id) } }, data: { archivedAt: new Date() } });

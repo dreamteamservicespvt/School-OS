@@ -60,6 +60,16 @@ export async function staffCampuses(tx: Tx, ids: string[]): Promise<string[]> {
   return (await tx.staff.findMany({ where: { id: { in: ids } }, select: { campusId: true } })).map((s) => s.campusId);
 }
 
+/** The campus of each section, through its class (for import undo). */
+export async function sectionCampuses(tx: Tx, ids: string[]): Promise<string[]> {
+  return (await tx.section.findMany({ where: { id: { in: ids } }, select: { schoolClass: { select: { campusId: true } } } })).map((s) => s.schoolClass.campusId);
+}
+
+/** The campus of each class (for import undo). */
+export async function classCampuses(tx: Tx, ids: string[]): Promise<string[]> {
+  return (await tx.schoolClass.findMany({ where: { id: { in: ids } }, select: { campusId: true } })).map((c) => c.campusId);
+}
+
 /** The campus of a section (through its class), or null when the section does not exist. */
 export async function sectionCampusId(tx: Tx, sectionId: string): Promise<string | null> {
   const s = await tx.section.findFirst({ where: { id: sectionId }, select: { schoolClass: { select: { campusId: true } } } });

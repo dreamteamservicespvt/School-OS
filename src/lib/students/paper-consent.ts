@@ -16,6 +16,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { defineImport, RowProblem, runImport, type ImportKind, type RowChoice } from "../importer";
+import { studentCampuses } from "../campus";
 import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { campusLimitOf } from "../staff/campus-logins";
@@ -244,6 +245,7 @@ function makeKind(): ImportKind<PaperConsent> {
       const row = await savePaperConsent(tx, ctx, v);
       return { id: row.id, created: true };
     },
+    campusOf: async (tx, ids) => studentCampuses(tx, (await tx.consentRecord.findMany({ where: { id: { in: ids } }, select: { studentId: true } })).map((r) => r.studentId)),
     undo: undoPaperConsents,
   };
 }

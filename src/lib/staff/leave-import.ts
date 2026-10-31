@@ -17,6 +17,7 @@ import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { defineImport, RowProblem, type ImportKind, type UpdatedRow } from "../importer";
+import { staffCampuses, studentCampuses } from "../campus";
 import { writeAudit } from "../audit";
 import { isYearClosed } from "../academic/years";
 import { moveInGoLive } from "../move-in/live";
@@ -116,6 +117,11 @@ function makeKind(): ImportKind<Row> {
       await tx.leaveBalance.update({ where: { id: balance.id }, data: { adjustments: [...adjustments, adj] as unknown as Prisma.InputJsonValue } });
       await writeAudit(tx, ctx, { action: "leave-balance-adjusted", recordType: "Leave Balance", recordId: balance.id, before: { adjustments: adjustments.length }, after: { staff: v.staffName, leaveType: v.typeName, ...adj } as unknown as Prisma.InputJsonValue });
       return { id: balance.id, created: false, before: { ref }, after: { ref, days, staff: v.staffName, leaveType: v.typeName } };
+    },
+    async campusOf(tx, ids) {
+      const balances = await tx.leaveBalance.findMany({ where: { id: { in: ids } }, select: { staffId: true, studentId: true } });
+      const of = (key: "staffId" | "studentId") => balances.map((b) => b[key]).filter((x): x is string => Boolean(x));
+      return [...(await staffCampuses(tx, of("staffId"))), ...(await studentCampuses(tx, of("studentId")))];
     },
     async undo() {
       // Nothing is created: each row adds an adjustment to a balance, taken back by revert below.

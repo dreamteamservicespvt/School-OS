@@ -437,3 +437,53 @@ describe("Events activities (houses, clubs, teams, achievements, diary) keep to 
     expect((await act("remindDiaryAction", { sectionId })).message).toMatch(/another campus/);
   });
 });
+
+describe("import undo keeps to the viewer's campus for every kind of import", () => {
+  // Records with no campus (departments, expenses, hostel rooms, store items
+  // and assets, library books) belong to the whole school.
+  const SCHOOL_WIDE = ["departments", "finance-past-expenses", "hostel-rooms", "inventory-assets", "inventory-items", "library-catalogue"];
+  const asNorth = <T>(fn: (tx: Tx, c: SchoolContext) => Promise<T>) => {
+    const c = { schoolId: school.id, userId: users.northAdmin };
+    return withSchool(c, (tx) => fn(tx, c), { timeout: 60_000 });
+  };
+  const batch = (kind: string, createdIds: string[]) => run(async (tx) => (await tx.importBatch.create({ data: { schoolId: school.id, kind, fileName: `${kind}.csv`, createdIds, importedById: users.admin } })).id);
+  const undo = async (id: string) => {
+    const { undoImport } = await import("@/lib/importer");
+    return asNorth((tx, c) => undoImport(tx, c, id));
+  };
+
+  it("asks every kind whose records have a campus for that campus", async () => {
+    await import("@/lib/import-registry");
+    const { importKinds } = await import("@/lib/importer");
+    expect(importKinds().filter((k) => !k.campusOf).map((k) => k.key).sort()).toEqual(SCHOOL_WIDE);
+  });
+
+  it("finds a teacher allocation's campus through its section, also when only the class teacher changed", async () => {
+    await import("@/lib/import-registry");
+    const { importKind } = await import("@/lib/importer");
+    const kind = importKind("academic-allocations")!;
+    expect(await run((tx) => kind.campusOf!(tx, [main.sectionId]))).toEqual([main.campusId]);
+  });
+
+  it("refuses to undo another campus's enquiries or attendance so far, and undoes the viewer's own", async () => {
+    await import("@/lib/import-registry");
+    const [enquiry, mainAtt, northAtt] = await run(async (tx) => [
+      await tx.enquiry.create({ data: { schoolId: school.id, campusId: main.campusId, academicYearId: main.yearId, childName: "Mira", parentName: "Ravi", phone: "9876500001", source: "Walk-in", firstSource: "Walk-in" } }),
+      await tx.openingAttendance.create({ data: { schoolId: school.id, academicYearId: main.yearId, studentId: main.studentId, fromDate: day("2026-04-01"), upTo: day("2026-06-30"), daysMet: 60, daysPresent: 55 } }),
+      await tx.openingAttendance.create({ data: { schoolId: school.id, academicYearId: north.yearId, studentId: north.studentId, fromDate: day("2026-06-01"), upTo: day("2026-06-30"), daysMet: 20, daysPresent: 18 } }),
+    ]);
+    await expect(undo(await batch("admission-enquiries", [enquiry.id]))).rejects.toThrow(/another campus/);
+    await expect(undo(await batch("attendance-so-far", [mainAtt.id]))).rejects.toThrow(/another campus/);
+    await expect(undo(await batch("attendance-so-far", [northAtt.id]))).resolves.toBeDefined();
+    const after = await run(async (tx) => [await tx.enquiry.findUniqueOrThrow({ where: { id: enquiry.id } }), await tx.openingAttendance.findUniqueOrThrow({ where: { id: mainAtt.id } }), await tx.openingAttendance.findUniqueOrThrow({ where: { id: northAtt.id } })] as const);
+    expect(after[0].archivedAt).toBeNull();
+    expect(after[1].archivedAt).toBeNull();
+    expect(after[2].archivedAt).not.toBeNull();
+  });
+
+  it("refuses to undo holidays for every campus", async () => {
+    await import("@/lib/import-registry");
+    const entry = await run((tx) => tx.calendarEntry.create({ data: { schoolId: school.id, academicYearId: main.yearId, title: "Diwali", type: "holiday", startDate: day("2026-11-08"), endDate: day("2026-11-08"), campusId: null } }));
+    await expect(undo(await batch("calendar-holidays", [entry.id]))).rejects.toThrow(/another campus/);
+  });
+});

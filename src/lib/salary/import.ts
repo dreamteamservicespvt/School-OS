@@ -11,6 +11,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { defineImport, RowProblem, type ImportColumn, type ImportKind } from "../importer";
+import { staffCampuses } from "../campus";
 import { writeAudit } from "../audit";
 import { parseRupees } from "../fees/act";
 import { MoneyProblem } from "../fees/problem";
@@ -109,6 +110,7 @@ function makeKind(opts: Options): ImportKind<Row> {
         throw e;
       }
     },
+    campusOf: async (tx, ids) => staffCampuses(tx, (await tx.salaryStructure.findMany({ where: { id: { in: ids } }, select: { staffId: true } })).map((r) => r.staffId)),
     async undo(tx, ctx, ids) {
       const used = await tx.payrollLine.count({ where: { structureId: { in: ids } } });
       if (used) throw new Error("Salary has been worked out with some of these structures. Undo is no longer possible; revise the structures one by one.");

@@ -16,6 +16,7 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { defineImport, type ImportKind } from "../importer";
+import { staffCampuses } from "../campus";
 import { writeAudit } from "../audit";
 import { formatRupees } from "../format";
 import { parseRupees } from "../fees/act";
@@ -150,6 +151,7 @@ function makeKind(): ImportKind<Row> {
       });
       return { id: row.id, created: true };
     },
+    campusOf: async (tx, ids) => staffCampuses(tx, (await tx.salaryToDate.findMany({ where: { id: { in: ids } }, select: { staffId: true } })).map((r) => r.staffId)),
     async undo(tx, ctx, ids) {
       const { count } = await tx.salaryToDate.updateMany({ where: { id: { in: ids }, archivedAt: null }, data: { archivedAt: new Date() } });
       await writeAudit(tx, ctx, { action: "archived", recordType: "Salary to Date", recordId: null, after: { reason: "Import undone", staff: count } });

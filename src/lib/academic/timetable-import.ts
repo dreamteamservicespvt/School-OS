@@ -23,6 +23,7 @@ import "server-only";
 import type { PeriodSlot } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { defineImport, RowProblem, type ImportKind, type RowChoice, type UpdatedRow } from "../importer";
+import { sectionCampuses } from "../campus";
 import { writeAudit } from "../audit";
 import { plain } from "../move-in/tidy";
 import { AcademicRuleError, DAY_NAMES, todayIn } from "./common";
@@ -203,6 +204,7 @@ function makeKind(): ImportKind<Row> {
       if (!existing && !before.cleared.length && !versionCreated) return { id: period.id, created: true };
       return { id: period.id, created: false, before: before as unknown as Record<string, unknown>, after: { periodId: period.id } };
     },
+    campusOf: async (tx, ids) => sectionCampuses(tx, (await tx.timetablePeriod.findMany({ where: { id: { in: ids } }, select: { sectionId: true } })).map((p) => p.sectionId)),
     async undo(tx, ctx, ids) {
       const periods = await tx.timetablePeriod.findMany({ where: { id: { in: ids } }, select: { id: true, versionId: true, archivedAt: true } });
       const drafts = await stillDraft(tx, periods.map((p) => p.versionId));

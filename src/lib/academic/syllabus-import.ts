@@ -16,6 +16,7 @@ import "server-only";
 import type { SyllabusItemKind } from "@prisma/client";
 import type { Tx } from "../db";
 import { defineImport, RowProblem, type ImportKind } from "../importer";
+import { classCampuses } from "../campus";
 import { writeAudit } from "../audit";
 import { formatDate } from "../format";
 import { readDate } from "../move-in/tidy";
@@ -199,6 +200,7 @@ function makeKind(): ImportKind<Row> {
       // The first item this row added: Undo archives it with what is under it.
       return { id: mine[0], created: true };
     },
+    campusOf: async (tx, ids) => classCampuses(tx, (await tx.syllabusItem.findMany({ where: { id: { in: ids } }, select: { classId: true } })).map((i) => i.classId)),
     async undo(tx, ctx, ids) {
       const all = new Set<string>();
       let level = await tx.syllabusItem.findMany({ where: { id: { in: ids }, archivedAt: null }, select: { id: true } });

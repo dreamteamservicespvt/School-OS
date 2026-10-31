@@ -217,6 +217,7 @@ defineImport<Row>({
     await writeAudit(tx, ctx, { action: "imported", recordType: "Enquiry", recordId: e.id, after: { childName: e.childName, phone: e.phone, status: e.status, owner, siblingOfId: e.siblingOfId } });
     return { id: e.id, created: true };
   },
+  campusOf: async (tx, ids) => (await tx.enquiry.findMany({ where: { id: { in: ids } }, select: { campusId: true } })).map((e) => e.campusId),
   async undo(tx, ctx, ids) {
     const now = new Date();
     for (const id of ids) {

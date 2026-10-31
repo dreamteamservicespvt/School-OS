@@ -15,6 +15,7 @@ import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import { defineImport, type ImportKind, type UpdatedRow } from "../importer";
+import { staffCampuses } from "../campus";
 import { writeAudit } from "../audit";
 import { decryptField, encryptField, maskLast4 } from "../crypto";
 import { campusLimitOf } from "./campus-logins";
@@ -131,6 +132,7 @@ function makeKind(): ImportKind<Row> {
       await writeAudit(tx, ctx, { action: "changed-restricted", recordType: "Staff", recordId: v.staffId, after: { changed: v.changed, from: "Import of staff pay details" } });
       return { id: v.staffId, created: false, before: was, after: now };
     },
+    campusOf: staffCampuses,
     async undo() {
       // Nothing is created: each row changes a Staff record, put back by revert below.
     },

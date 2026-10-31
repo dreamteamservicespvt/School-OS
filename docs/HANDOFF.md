@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-10-31 20:30 (13 security fixes + 4 follow-ups committed; nothing pushed)
+Last updated: 2026-10-31 22:50 (13 security fixes + 5 follow-ups committed, last 06632769; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
@@ -45,9 +45,11 @@ Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templat
 
 ## Next steps
 S. SECURITY follow-ups: (1) Owner/local checks for run-2's 7 NEEDS VALIDATION leads (run-2/NEEDS-VALIDATION.md).
-   (2) DONE. Left for run-3: the Events pages (_lib/page.ts, co-curricular, daily, settings leaderboard)
-   still pick "this year" by date, not the viewer's campus, and are not narrowed to the campus (only their
-   actions are). Hindi/Telugu words were written by Claude: have a native speaker check them (25 now).
+   (2) DONE, and its Events pages leftover too: commit 06632769 (evYears in src/lib/events/campus.ts;
+   Co-curricular, Daily, Settings work in each campus's year; achievements, fitness, export and certificate
+   print keep to a One-campus person's campus; tests/events-calendar/campus-pages.test.ts 5 of 5 red before).
+   Full suite after it (22:51, tools/full-test.log): 269 of 269 files, 2399 of 2399 tests passed. SSD build after it passed (23:30); app served again on :3000. Leftover DONE.
+   Hindi/Telugu words were written by Claude: have a native speaker check them (25 now).
    (3) Run-3 over run-2's deferred
    ledger units (treat run-2 as prior). (4) Push only when the user asks (needs --force-with-lease).
 0. DEMO DAY: to refresh "today" on another day, reseed after ~9:30 AM IST (earlier puts today's attendance in

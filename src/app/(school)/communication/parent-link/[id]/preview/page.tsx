@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
-import { commPage } from "@/lib/communication/access";
+import { commOfficePage } from "@/lib/communication/access";
 import { linkCampusWhere } from "@/lib/communication/parent-link-admin";
 import { loadGuardianView } from "@/lib/parent-link/view";
 import { loadSections } from "@/lib/parent-link/render";
@@ -22,7 +22,7 @@ export default async function PreviewPage({ params, searchParams }: { params: Pr
   const { id } = await params;
   const { child, month } = await searchParams;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const access = await commPage();
+  const access = await commOfficePage();
   const { current } = access;
   const data = await withSchool(current.ctx, async (tx) => {
     // Another campus's guardian's link is not found for a person limited to one campus.

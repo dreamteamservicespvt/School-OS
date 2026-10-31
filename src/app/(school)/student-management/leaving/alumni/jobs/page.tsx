@@ -9,7 +9,7 @@ import { Briefcase, MapPin, Plus } from "lucide-react";
 import { Empty, Split } from "@/components/ui/blocks";
 import { ActionForm, FormArea, FormText } from "@/components/students/action-form";
 import { ConfirmAction } from "@/components/students/confirm-action";
-import { BASE, studentPage } from "../../../_lib/page";
+import { BASE, leavingPage } from "../../../_lib/page";
 import { archiveJobAction, postJobAction } from "../../../_actions/leaving";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** Alumni job board: job posts shared with alumni. */
 export default async function JobBoardPage() {
-  const { current, settings, can, tz } = await studentPage();
+  const { current, settings, can, tz } = await leavingPage();
   if (!settings.alumniOn) redirect(`${BASE}/leaving`);
   const jobs = await withSchool(current.ctx, (tx) => tx.jobPost.findMany({ where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 100 }));
   return (

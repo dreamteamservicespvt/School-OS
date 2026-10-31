@@ -13,7 +13,7 @@ import { ListToolbar } from "@/components/list/list-toolbar";
 import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
 import { isCleared } from "@/lib/students/leaving";
 import { shortDate, shownCount } from "@/lib/students/show";
-import { BASE, studentPage } from "../_lib/page";
+import { BASE, leavingPage } from "../_lib/page";
 import { visibleStudentIds } from "@/lib/students/access";
 import { StudentsHead } from "../_lib/head";
 import { CERT_LABEL, CHECK_LABEL, LEAVING_TYPE_LABEL, studentFacts, tcFor } from "./load";
@@ -32,7 +32,7 @@ const CHECK_PILL = { CLEAR: "ok", PENDING: "bad", WAIVER_ASKED: "warn", WAIVED: 
 
 /** Students in the leaving process: reason, last date, clearance per check, TC status. */
 export default async function LeavingPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, can, tz } = await studentPage();
+  const { current, can, tz } = await leavingPage();
   const raw = await searchParams;
   const params = readListParams(raw, FILTERS);
   const take = shownCount(raw, STEP);

@@ -12,7 +12,7 @@ import { Empty, ListFooter, Toolbar } from "@/components/ui/blocks";
 import { ListToolbar } from "@/components/list/list-toolbar";
 import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
 import { shortDate, shownCount } from "@/lib/students/show";
-import { BASE, studentPage } from "../../_lib/page";
+import { BASE, leavingPage } from "../../_lib/page";
 import { visibleStudentIds } from "@/lib/students/access";
 import { StudentsHead } from "../../_lib/head";
 import { CERT_LABEL, LEAVING_TYPE_LABEL, studentFacts, tcFor } from "../load";
@@ -30,7 +30,7 @@ const STEP = 25;
 
 /** Students who have left (and, with the filter, leaving requests that were cancelled). The records stay. */
 export default async function LeftPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, tz } = await studentPage();
+  const { current, tz } = await leavingPage();
   const raw = await searchParams;
   const params = readListParams(raw, FILTERS);
   const take = shownCount(raw, STEP);

@@ -3,7 +3,7 @@
 import "server-only";
 
 import { cache } from "react";
-import { unstable_rethrow } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { requireAction, requirePage } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { appOrigin } from "@/lib/origin";
@@ -52,6 +52,24 @@ export const studentPage = cache(async () => {
   }));
   return { current, settings, year, years, yearIds, can: abilities(current, settings), tz: current.school.timeZone };
 });
+
+// Certificates & ID Cards and Leaving & Alumni are for whole-school Student
+// Management (03 §2). Every page of theirs calls its gate, not only the
+// folder's layout: a page can be asked for without its layout running.
+
+/** Certificates & ID Cards: whole-school reach, not a lookup-only role. */
+export async function certificatesPage() {
+  const p = await studentPage();
+  if (p.can.reach !== "all" || p.can.lookupOnly) redirect(BASE);
+  return p;
+}
+
+/** Leaving & Alumni: whole-school reach. */
+export async function leavingPage() {
+  const p = await studentPage();
+  if (p.can.reach !== "all") redirect(BASE);
+  return p;
+}
 
 /**
  * studentPage narrowed to a campus chosen in the page address (?campus=, from

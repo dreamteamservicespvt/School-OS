@@ -16,7 +16,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ConfirmAction } from "@/components/students/confirm-action";
 import { ActionForm, FormSelect, FormText } from "@/components/students/action-form";
 import { StudentPicker } from "@/components/students/student-picker";
-import { BASE, studentPage } from "../../_lib/page";
+import { BASE, leavingPage } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { visibleStudentIds } from "@/lib/students/access";
 import { linkMentorAction, markAlumniAction } from "../../_actions/leaving";
@@ -32,7 +32,7 @@ const FILTERS = ["year", "mentor"] as const;
 
 /** Alumni (optional): records of past students, donations, mentors and the job board. */
 export default async function AlumniPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, settings, yearIds, can } = await studentPage();
+  const { current, settings, yearIds, can } = await leavingPage();
   if (!settings.alumniOn) redirect(`${BASE}/leaving`);
   const params = readListParams(await searchParams, FILTERS);
   const path = `${BASE}/leaving/alumni`;

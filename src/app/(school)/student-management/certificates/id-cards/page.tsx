@@ -13,7 +13,7 @@ import { ActionForm, FormText, ResultLink } from "@/components/students/action-f
 import { StudentPicker } from "@/components/students/student-picker";
 import { ID_BATCH_SIZE, idCardsHtml, sectionCards } from "@/lib/students/id-cards";
 import { StudentProblem } from "@/lib/students/students";
-import { BASE, studentPage } from "../../_lib/page";
+import { BASE, certificatesPage } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { visibleStudentIds } from "@/lib/students/access";
 import { campusAllows } from "@/lib/campus";
@@ -29,7 +29,7 @@ const isId = (v?: string) => Boolean(v && /^[0-9a-f-]{36}$/i.test(v));
 
 /** ID cards (03 §2): class tiles; per class the total, batches of up to 50, missing photos, a single-card preview and batch PDFs; replacements and RFID. */
 export default async function IdCardsPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
-  const { current, settings, yearIds, can, tz } = await studentPage();
+  const { current, settings, yearIds, can, tz } = await certificatesPage();
   const sp = await searchParams;
   const path = `${BASE}/certificates/id-cards`;
   const data = await withSchool(current.ctx, async (tx) => {

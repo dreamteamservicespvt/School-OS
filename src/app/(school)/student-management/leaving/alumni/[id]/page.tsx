@@ -9,7 +9,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Col, DL, Row, Split } from "@/components/ui/blocks";
 import { ButtonLink } from "@/components/ui/button";
 import { ActionForm, FormArea, FormCheck, FormText } from "@/components/students/action-form";
-import { BASE, studentPage, todayIso } from "../../../_lib/page";
+import { BASE, leavingPage, todayIso } from "../../../_lib/page";
 import { campusAllows } from "@/lib/campus";
 import { addDonationAction, saveAlumniAction } from "../../../_actions/leaving";
 import { Words } from "@/lib/i18n/client";
@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** One alumnus: contact, career, higher education, achievements, donations and the students they mentor. */
 export default async function AlumniRecordPage({ params }: { params: Promise<{ id: string }> }) {
-  const { current, settings, can, tz } = await studentPage();
+  const { current, settings, can, tz } = await leavingPage();
   if (!settings.alumniOn) redirect(`${BASE}/leaving`);
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();

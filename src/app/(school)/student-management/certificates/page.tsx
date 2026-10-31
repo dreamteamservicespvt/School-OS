@@ -17,7 +17,7 @@ import { DataList, cardPill, type DataColumn } from "@/components/ui/data-list";
 import { ConfirmAction } from "@/components/students/confirm-action";
 import { CERTIFICATE_LABEL, CERT_STATUS_LABEL, CERT_STATUS_TONE } from "@/lib/students/labels";
 import { classShort, shortDate, shownCount } from "@/lib/students/show";
-import { BASE, studentPage } from "../_lib/page";
+import { BASE, certificatesPage } from "../_lib/page";
 import { StudentsHead } from "../_lib/head";
 import { sectionNames } from "../_lib/queries";
 import { currentEnrolments } from "@/lib/academic/years";
@@ -38,7 +38,7 @@ const STATUSES = Object.keys(CERT_STATUS_LABEL) as CertificateStatus[];
 
 /** Certificates issued and requested: number, type, student, date, status; requests waiting for approval on top. */
 export default async function CertificatesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const { current, settings, can, tz, year, yearIds } = await studentPage();
+  const { current, settings, can, tz, year, yearIds } = await certificatesPage();
   const raw = await searchParams;
   const params = readListParams(raw, FILTERS);
   const take = shownCount(raw, STEP);

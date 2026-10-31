@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Ban, ChartColumn, Eye, EyeOff, FileSignature, Link2, Plus, Send, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
-import { commPage } from "@/lib/communication/access";
+import { commOfficePage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { childrenByGuardian, LINK_FILTERS, linkCampusWhere, linkListWhere, linkSummary } from "@/lib/communication/parent-link-admin";
@@ -39,7 +39,7 @@ type Search = Promise<Record<string, string | string[] | undefined>>;
 const DAY = 86400_000;
 
 export default async function ParentLinkPage({ searchParams }: { searchParams: Search }) {
-  const access = await commPage();
+  const access = await commOfficePage();
   const { current } = access;
   const tz = current.school.timeZone;
   const params = readListParams(await searchParams, LINK_FILTERS);

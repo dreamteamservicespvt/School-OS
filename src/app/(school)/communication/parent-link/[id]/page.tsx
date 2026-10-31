@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
-import { commPage } from "@/lib/communication/access";
+import { commOfficePage } from "@/lib/communication/access";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { childrenByGuardian, guardianLinkIds, linkCampusWhere, linkHistory } from "@/lib/communication/parent-link-admin";
 import { maskPhone, REVOKE_REASONS } from "@/lib/parent-link/links";
@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function LinkPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
-  const access = await commPage();
+  const access = await commOfficePage();
   const { current } = access;
   const tz = current.school.timeZone;
   const now = new Date();

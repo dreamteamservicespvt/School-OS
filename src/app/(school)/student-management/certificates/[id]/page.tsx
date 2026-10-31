@@ -15,7 +15,7 @@ import { ActionButton, ConfirmAction } from "@/components/students/confirm-actio
 import { CERTIFICATE_LABEL, CERT_STATUS_LABEL, CERT_STATUS_TONE } from "@/lib/students/labels";
 import { certificateData, certificateHtml, printContext } from "@/lib/students/certificates";
 import { studentScope } from "@/lib/students/access";
-import { BASE, origin, studentPage } from "../../_lib/page";
+import { BASE, origin, certificatesPage } from "../../_lib/page";
 import { cancelCertificateAction, decideCertificateAction, issueCertificateAction } from "../../_actions/certificates";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** One certificate: its status, the printed page, and the next step (approve, issue, print, cancel). */
 export default async function CertificatePage({ params }: { params: Promise<{ id: string }> }) {
-  const { current, settings, can, tz } = await studentPage();
+  const { current, settings, can, tz } = await certificatesPage();
   const { id } = await params;
   // The layout's rule again (a page is also reached without its layout), and only students this person may see.
   if (!/^[0-9a-f-]{36}$/i.test(id) || can.reach !== "all" || can.lookupOnly) notFound();

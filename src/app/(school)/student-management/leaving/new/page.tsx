@@ -8,7 +8,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { ActionForm, FormChoice, FormFieldError, FormSelect, FormText } from "@/components/students/action-form";
 import { StudentPicker } from "@/components/students/student-picker";
 import { loadVisibleStudent } from "@/lib/students/access";
-import { BASE, studentPage, todayIso } from "../../_lib/page";
+import { BASE, leavingPage, todayIso } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { startLeavingAction } from "../../_actions/leaving";
 import { Words } from "@/lib/i18n/client";
@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** Start leaving (03 §2): transfer or withdrawal with reason, last date, destination school and documents. */
 export default async function StartLeavingPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {
-  const { current, settings, yearIds, can, tz } = await studentPage();
+  const { current, settings, yearIds, can, tz } = await leavingPage();
   if (!can.manage) redirect(`${BASE}/leaving`);
   const sp = await searchParams;
   const data = await withSchool(current.ctx, async (tx) => {

@@ -15,7 +15,7 @@ import { cx } from "@/components/ui/cx";
 import { ButtonLink } from "@/components/ui/button";
 import { ActionButton, ConfirmAction } from "@/components/students/confirm-action";
 import { blockMessage, isCleared } from "@/lib/students/leaving";
-import { BASE, studentPage, todayIso } from "../../_lib/page";
+import { BASE, leavingPage, todayIso } from "../../_lib/page";
 import { campusAllows } from "@/lib/campus";
 import { askWaiverAction, cancelLeavingAction, completeLeavingAction, refreshClearanceAction } from "../../_actions/leaving";
 import { CERT_LABEL, CHECK_LABEL, CHECK_TONE, LEAVING_TYPE_LABEL, studentFacts } from "../load";
@@ -32,7 +32,7 @@ const STATUS = { IN_PROGRESS: { label: "In progress", tone: "warning" }, LEFT: {
 
 /** One leaving request: clearance checks with a way to settle each, waiver through Approvals, TC, mark as left, cancel. */
 export default async function LeavingRequestPage({ params }: { params: Promise<{ id: string }> }) {
-  const { current, can, tz } = await studentPage();
+  const { current, can, tz } = await leavingPage();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) notFound();
   const data = await withSchool(current.ctx, async (tx) => {

@@ -848,3 +848,41 @@ describe("Hostel roll call, beds, reports and Dashboard keep to the person's cam
   }, 120_000);
 });
 
+// ---------- Run-3 leftovers, item 2: Transport Dashboard fee coverage ----------
+
+describe("The Transport Dashboard's fee coverage counts the person's campus's students only (run-3 follow-up)", () => {
+  let inCharge: Current;
+  beforeAll(async () => {
+    const sid = school.id;
+    await switchOn("transport-management", "transport-in-charge");
+    const user = (await makeUser({ schools: [{ id: sid, roleKeys: ["transport-in-charge"] }], name: "Main Fee Transport" })).id;
+    const riders = [(await addStudent(ctx, main.sectionId, { fullName: "Mukund Feeless", applyFeePlan: false })).student.id, (await addStudent(ctx, north.sectionId, { fullName: "Nanda Feeless", applyFeePlan: false })).student.id];
+    const { addRoute, addStop } = await import("@/lib/transport/routes");
+    const { assignStudents } = await import("@/lib/transport/places");
+    await run(async (tx) => {
+      await tx.schoolAccess.updateMany({ where: { schoolId: sid, userLoginId: user }, data: { scope: "CAMPUS", campusId: main.campusId } });
+      const r = await addRoute(tx, ctx, { name: "Fort Road", vehicleId: null, driverId: null, attendantId: null, feeTwoWayPaise: BigInt(150000), feeOneWayPaise: BigInt(100000), schoolArrivalMin: 500, eveningDepartMin: 930 });
+      const stop = await addStop(tx, ctx, r.id, { name: "Fort Gate", before: null, pickupMin: 440, dropMin: null, lat: 17.48, lng: 78.47, feeTwoWayPaise: null, feeOneWayPaise: null });
+      await assignStudents(tx, ctx, { studentIds: riders, routeId: r.id, stopId: stop.id, type: "TWO_WAY", fromDate: day(todayIst()), reason: null }, day(todayIst()));
+      // Both riders' transport fee rows were taken off in Fee Management: on a bus with no transport fee.
+      const heads = await tx.feeHead.findMany({ where: { kind: "transport" }, select: { id: true } });
+      await tx.studentFeeDue.updateMany({ where: { studentId: { in: riders }, feeHeadId: { in: heads.map((h) => h.id) } }, data: { state: "REMOVED" } });
+    });
+    inCharge = await currentFor(user);
+  }, 240_000);
+
+  it("the no-fee card counts the in-charge's own campus's riders, the whole school's for everyone else", async () => {
+    const { loadWidgetsIn } = await import("@/lib/dashboard/compose");
+    const { feeCoverage } = await import("@/lib/transport/places");
+    const { campusStudentIds } = await import("@/lib/campus");
+    const [all, mine] = await run(async (tx) => [(await feeCoverage(tx, day(todayIst()))).noFee.length, (await feeCoverage(tx, day(todayIst()), await campusStudentIds(tx, { campusId: main.campusId }))).noFee.length]);
+    expect(mine).toBeGreaterThan(0);
+    expect(mine).toBeLessThan(all);
+    const card = async (as: Current) => (await run((tx) => loadWidgetsIn(tx, as, "attention", ["transport.no-fee"])))[0]?.title ?? "";
+    const words = (k: number) => `${k} ${k === 1 ? "student" : "students"} on a bus with no transport fee`;
+    // Read again: the whole-school admin's modules were read before Transport was switched on.
+    expect(await card(await currentFor(users.admin))).toBe(words(all));
+    expect(await card(inCharge)).toBe(words(mine));
+  }, 120_000);
+});
+

@@ -11,6 +11,7 @@ import { trCan, trViewer } from "../../transport/access";
 import { liveStatus, BASE, showPlate, tripKind, vehicleName } from "../../transport/words";
 import { transportSettings } from "../../transport/settings";
 import { feeCoverage, onBusOn } from "../../transport/places";
+import { campusStudentIds } from "../../campus";
 import { minutesLate } from "../../transport/views";
 import { addDays, n, plural, someNames } from "../common";
 import type { DashContext, ListRow, Viewer, Widget } from "../types";
@@ -113,7 +114,9 @@ const noFee: Widget<"attention"> = {
   homes: HOMES,
   allowed: seesAll,
   async load(c) {
-    const cov = await feeCoverage(c.tx, c.today);
+    // One campus (the person's limit, or the campus chosen on the Dashboard): that campus's students only,
+    // as Student Transport's "No fee" list shows them.
+    const cov = await feeCoverage(c.tx, c.today, await campusStudentIds(c.tx, c.viewer));
     if (!cov.noFee.length) return null;
     return {
       id: "transport.no-fee", tone: "warn", icon: "CreditCard",

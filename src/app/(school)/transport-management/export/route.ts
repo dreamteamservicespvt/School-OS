@@ -2,6 +2,7 @@
 // filters as on screen (search, route, dates). Export is checked on the
 // server, with the person's Transport page rules; every export is logged.
 import { withSchool } from "@/lib/db";
+import { campusStudentIds } from "@/lib/campus";
 import { buildExport, exportResponse, logExport, type ExportColumn, type ExportFormat } from "@/lib/exports";
 import { formatDate, formatRupees } from "@/lib/format";
 import { periodFromSearch, type DayRange, type PeriodKey } from "@/lib/periods";
@@ -115,7 +116,7 @@ export async function GET(req: Request) {
       const range = period(null);
       const show = (["all", "one-way", "no-fee", "future"] as const).find((x) => x === get("show")) ?? "all";
       const routeId = UUID_RE.test(get("route")) ? get("route") : null;
-      const rows = await placesView(tx, today, { routeId, show, q, range } satisfies PlaceFilter);
+      const rows = await placesView(tx, today, { routeId, show, q, range } satisfies PlaceFilter, await campusStudentIds(tx, current));
       type R = (typeof rows)[number];
       const filters = [range ? `Started ${rangeWords(range)}` : "", routeId && rows[0] ? `Route ${rows[0].route.number}` : "", show !== "all" ? ({ "one-way": "One-way", "no-fee": "No fee added", future: "Starting later" } as const)[show] : "", q ? `Search: ${q}` : ""].filter(Boolean).join(" · ");
       return done<R>("Students using transport", filters, [

@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   let out;
   try {
     out = await withSchool(who.current.ctx, async (tx) => {
-      const r = await busPasses(tx, who.current.ctx, ids);
+      const r = await busPasses(tx, who.current.ctx, ids, who.current);
       await logExport(tx, who.current.ctx, { title: "Bus passes", format: "pdf", filters: r.count === 1 ? String(r.first.student_name) : `${r.count} students`, rows: r.count });
       return r;
     }, { timeout: 120_000 });

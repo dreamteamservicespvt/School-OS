@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { BadgeIndianRupee, Bus, CalendarClock, Clock, Plus, Printer, SearchX, TriangleAlert, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { campusStudentIds } from "@/lib/campus";
 import { formatDate, formatRupees } from "@/lib/format";
 import { placesView, type PlaceFilter } from "@/lib/transport/views";
 import { feeCoverage, needsApproval, holdsSeat } from "@/lib/transport/places";
@@ -45,20 +46,24 @@ export default async function StudentTransportPage({ searchParams }: { searchPar
 
   const data = await withSchool(p.current.ctx, async (tx) => {
     const filter: PlaceFilter = { routeId, show, q, range: period.range };
+    // One campus: that campus's students only (routes and seats stay the whole school's).
+    const ours = await campusStudentIds(tx, p.current);
+    const mine = ours ? { studentId: { in: ours } } : {};
     const [rows, all, coverage, options, waiting] = await Promise.all([
-      placesView(tx, p.today, filter),
-      placesView(tx, p.today, { routeId: null, show: "all", q: "", range: null }),
-      feeCoverage(tx, p.today),
+      placesView(tx, p.today, filter, ours),
+      placesView(tx, p.today, { routeId: null, show: "all", q: "", range: null }, ours),
+      feeCoverage(tx, p.today, ours),
       placeOptions(tx, p.today),
-      tx.transportAssignment.findMany({ where: { status: "WAITING" }, orderBy: { createdAt: "asc" }, take: 50 }),
+      tx.transportAssignment.findMany({ where: { status: "WAITING", ...mine }, orderBy: { createdAt: "asc" }, take: 50 }),
     ]);
     const cardIds = [...coverage.noFee.map((x) => x.studentId), ...coverage.noStop.map((x) => x.studentId), ...waiting.map((w) => w.studentId)];
     const cards = await studentCards(tx, cardIds);
-    const assign = can.students && doing === "assign" ? await assignCandidates(tx, p.current.ctx, p.today, { sectionId: UUID.test(one(sp.sec)) ? one(sp.sec) : null, q: one(sp.find), studentId: UUID.test(one(sp.student)) ? one(sp.student) : null }) : null;
-    const picked = (doing === "change" || doing === "stop") && pickIds.length ? await tx.transportAssignment.findMany({ where: { id: { in: pickIds }, ...holdsSeat(p.today) } }) : [];
+    const assign = can.students && doing === "assign" ? await assignCandidates(tx, p.current.ctx, p.today, { sectionId: UUID.test(one(sp.sec)) ? one(sp.sec) : null, q: one(sp.find), studentId: UUID.test(one(sp.student)) ? one(sp.student) : null }, p.current) : null;
+    const picked = (doing === "change" || doing === "stop") && pickIds.length ? await tx.transportAssignment.findMany({ where: { id: { in: pickIds }, ...holdsSeat(p.today), ...mine } }) : [];
     const pickedCards = picked.length ? await studentCards(tx, picked.map((x) => x.studentId)) : new Map();
     // A new academic year is open: last year's bus places wait to be carried over.
-    const carry = await carryOverRows(tx);
+    const keep = ours ? new Set(ours) : null;
+    const carry = (await carryOverRows(tx)).filter((r) => !keep || keep.has(r.place.studentId));
     const carryCards = can.students && doing === "carry" && carry.length ? await studentCards(tx, carry.map((r) => r.place.studentId)) : new Map<string, never>();
     return { rows, all, coverage, options, waiting, cards, assign, picked, pickedCards, carry, carryCards };
   });

@@ -290,13 +290,15 @@ export type Coverage = {
   noStop: { studentId: string; openPaise: bigint; label: string }[];
 };
 
-export async function feeCoverage(tx: Tx, today: Date): Promise<Coverage> {
-  const places = await tx.transportAssignment.findMany({ where: onBusOn(today), select: { id: true, studentId: true, routeId: true, stopId: true, academicYearId: true, monthlyFeePaise: true } });
+/** The fee check; one campus: that campus's students only (ours: the ids of the person's campus's students, null for the whole school). */
+export async function feeCoverage(tx: Tx, today: Date, ours: string[] | null = null): Promise<Coverage> {
+  const mine = ours ? { studentId: { in: ours } } : {};
+  const places = await tx.transportAssignment.findMany({ where: { ...onBusOn(today), ...mine }, select: { id: true, studentId: true, routeId: true, stopId: true, academicYearId: true, monthlyFeePaise: true } });
   const studying = await tx.student.findMany({ where: { id: { in: places.map((p) => p.studentId) }, archivedAt: null, status: { in: [...STUDYING] } }, select: { id: true } });
   const live = places.filter((p) => studying.some((s) => s.id === p.studentId));
   const heads = await tx.feeHead.findMany({ where: { kind: "transport" }, select: { id: true } });
   const headIds = heads.map((h) => h.id);
-  const dues = headIds.length ? await tx.studentFeeDue.findMany({ where: { feeHeadId: { in: headIds }, state: "OPEN" }, select: { studentId: true, academicYearId: true, balancePaise: true, dueDate: true, label: true } }) : [];
+  const dues = headIds.length ? await tx.studentFeeDue.findMany({ where: { feeHeadId: { in: headIds }, state: "OPEN", ...mine }, select: { studentId: true, academicYearId: true, balancePaise: true, dueDate: true, label: true } }) : [];
   const noFee = live.filter((p) => !dues.some((d) => d.studentId === p.studentId && d.academicYearId === p.academicYearId))
     .map((p) => ({ assignmentId: p.id, studentId: p.studentId, routeId: p.routeId, stopId: p.stopId, monthlyPaise: p.monthlyFeePaise }));
   // The reverse check: transport fee rows due from this month on, for students with no place now or later.

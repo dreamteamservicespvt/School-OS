@@ -506,7 +506,10 @@ export async function markStopAction(_: S, fd: FormData): Promise<S> {
 export async function markBoardingAction(_: S, fd: FormData): Promise<S> {
   return trAction("edit", fd, async (w) => {
     need(w.can.trips, "mark boarding");
-    return markBoarding(w.tx, w.ctx, id(fd, "tripId", "trip"), id(fd, "studentId", "student"), str(fd, "status"), { userId: w.ctx.userId, source: "STAFF" }, w.now, w.tz);
+    const studentId = id(fd, "studentId", "student");
+    // Buses are the whole school's; a person kept to one campus marks that campus's students only.
+    await assertPlacesCampus(w.tx, w.current, { studentIds: [studentId] });
+    return markBoarding(w.tx, w.ctx, id(fd, "tripId", "trip"), studentId, str(fd, "status"), { userId: w.ctx.userId, source: "STAFF" }, w.now, w.tz);
   }, (e) => (e.status === "BOARDED" ? "Marked boarded" : e.status === "DROPPED" ? "Marked dropped" : "Marked not boarded"));
 }
 

@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/format";
 import { currentYear } from "@/lib/academic/years";
 import { STUDYING } from "@/lib/students/labels";
 import { studentIdsMatching } from "@/lib/students/find";
+import { inCampus, type CampusLimit } from "@/lib/campus";
 import { holdsSeat, routeSeats } from "@/lib/transport/places";
 import { clockOf, rupeesShort, showPlate, vehicleType } from "@/lib/transport/words";
 
@@ -48,23 +49,24 @@ export type PlaceOption = Awaited<ReturnType<typeof placeOptions>>[number];
 /**
  * Students who can be given a stop: studying, in this year's classes, with no
  * place on a bus now or waiting. One class at a time (bulk by class), or a
- * name search, or the one student opened from their profile.
+ * name search, or the one student opened from their profile. A person kept to
+ * one campus (`limit`) picks from that campus's students, in its own year.
  */
-export async function assignCandidates(tx: Tx, ctx: SchoolContext, today: Date, f: { sectionId: string | null; q: string; studentId: string | null }) {
-  const year = await currentYear(tx, ctx);
+export async function assignCandidates(tx: Tx, ctx: SchoolContext, today: Date, f: { sectionId: string | null; q: string; studentId: string | null }, limit?: CampusLimit | null) {
+  const year = await currentYear(tx, ctx, limit?.campusId);
   if (!year) return { sections: [], students: [], year: null };
   const sections = await tx.section.findMany({ where: { academicYearId: year.id, archivedAt: null }, include: { schoolClass: { select: { name: true, sortOrder: true } } } });
   sections.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name));
   const label = (s: (typeof sections)[number]) => `${s.schoolClass.name} ${s.name}`;
   const q = f.q.trim();
   // A name search is the one student search (one letter wrong allowed, admission or roll number), best match first.
-  const found = !f.studentId && q.length >= 2 ? await studentIdsMatching(tx, q, { scope: {}, yearId: year.id, byParent: false }) : null;
+  const found = !f.studentId && q.length >= 2 ? await studentIdsMatching(tx, q, { scope: inCampus(limit), yearId: year.id, byParent: false }) : null;
   const studentWhere = f.studentId ? { id: f.studentId } : found ? { id: { in: found } } : null;
   const order = new Map((found ?? []).map((id, i) => [id, i]));
   const options = sections.map((s) => ({ value: s.id, label: label(s) }));
   if (!f.sectionId && !studentWhere) return { sections: options, students: [], year };
   const enr = await tx.enrolment.findMany({
-    where: { academicYearId: year.id, archivedAt: null, ...(f.sectionId && !studentWhere ? { sectionId: f.sectionId } : {}), student: { archivedAt: null, status: { in: [...STUDYING] }, ...(studentWhere ?? {}) } },
+    where: { academicYearId: year.id, archivedAt: null, ...(f.sectionId && !studentWhere ? { sectionId: f.sectionId } : {}), student: { archivedAt: null, status: { in: [...STUDYING] }, ...inCampus(limit), ...(studentWhere ?? {}) } },
     include: { student: { select: { id: true, fullName: true, admissionNo: true } } }, orderBy: [{ rollNo: "asc" }], take: 300,
   });
   const taken = new Set((await tx.transportAssignment.findMany({ where: { studentId: { in: enr.map((e) => e.studentId) }, OR: [holdsSeat(today), { status: "WAITING" }] }, select: { studentId: true } })).map((a) => a.studentId));

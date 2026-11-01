@@ -38,18 +38,20 @@ export async function routesView(tx: Tx, today: Date, q = "") {
 
 export type RouteRow = Awaited<ReturnType<typeof routesView>>["rows"][number];
 
-/** One route: its stops in order with the students at each. */
-export async function routeDetail(tx: Tx, routeId: string, today: Date) {
+/** One route: its stops in order with the students at each; one campus: that campus's students only (ours: the ids of the person's campus's students, null for the whole school). */
+export async function routeDetail(tx: Tx, routeId: string, today: Date, ours: string[] | null = null) {
   const route = await tx.route.findFirst({ where: { id: routeId }, include: { vehicle: true, stops: { where: { archivedAt: null }, orderBy: { seq: "asc" } } } });
   if (!route) return null;
   const places = await tx.transportAssignment.findMany({ where: { routeId, ...holdsSeat(today) }, select: { id: true, studentId: true, stopId: true, type: true, fromDate: true } });
   const cards = await studentCards(tx, places.map((p) => p.studentId));
   const live = places.filter((p) => cards.get(p.studentId)?.studying);
+  // Routes are the whole school's: the seats used count every campus; the names are the person's campus's.
+  const keep = ours ? new Set(ours) : null;
   const crew = await tx.driver.findMany({ where: { id: { in: [route.driverId, route.attendantId].filter((x): x is string => Boolean(x)) } } });
   return {
     route, vehicle: route.vehicle, stops: route.stops,
     driver: crew.find((c) => c.id === route.driverId) ?? null, attendant: crew.find((c) => c.id === route.attendantId) ?? null,
-    students: live.map((p) => ({ ...p, card: cards.get(p.studentId)! })).sort((a, b) => a.card.classSort - b.card.classSort || a.card.name.localeCompare(b.card.name)),
+    students: live.filter((p) => !keep || keep.has(p.studentId)).map((p) => ({ ...p, card: cards.get(p.studentId)! })).sort((a, b) => a.card.classSort - b.card.classSort || a.card.name.localeCompare(b.card.name)),
     used: new Set(live.map((p) => p.studentId)).size,
   };
 }
@@ -114,9 +116,9 @@ export async function costsView(tx: Tx, range: DayRange | null, kind: "all" | "F
 
 export type PlaceFilter = { routeId: string | null; show: "all" | "one-way" | "no-fee" | "future"; q: string; range: DayRange | null };
 
-/** Students with a place on a bus now or from a later date, with whether the transport fee is on their fees. */
-export async function placesView(tx: Tx, today: Date, f: PlaceFilter) {
-  const where: Prisma.TransportAssignmentWhereInput = { ...holdsSeat(today), ...(f.routeId ? { routeId: f.routeId } : {}), ...(f.range ? { fromDate: dateWhere(f.range) } : {}) };
+/** Students with a place on a bus now or from a later date, with whether the transport fee is on their fees; one campus: that campus's students only (ours: the ids of the person's campus's students, null for the whole school). */
+export async function placesView(tx: Tx, today: Date, f: PlaceFilter, ours: string[] | null = null) {
+  const where: Prisma.TransportAssignmentWhereInput = { ...holdsSeat(today), ...(ours ? { studentId: { in: ours } } : {}), ...(f.routeId ? { routeId: f.routeId } : {}), ...(f.range ? { fromDate: dateWhere(f.range) } : {}) };
   const places = await tx.transportAssignment.findMany({ where, orderBy: { fromDate: "desc" }, take: 3000 });
   const cards = await studentCards(tx, places.map((p) => p.studentId));
   const [routes, stops, charges] = await Promise.all([

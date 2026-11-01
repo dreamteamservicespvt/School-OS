@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Archive, ArrowLeft, IndianRupee, ListOrdered, MapPin, MapPinned, Pencil, Plus, School, Send, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { campusStudentIds } from "@/lib/campus";
 import { formatRupees } from "@/lib/format";
 import { routeDetail, routeParents } from "@/lib/transport/views";
 import { eveningTimes } from "@/lib/transport/routes";
@@ -37,7 +38,7 @@ export default async function RoutePage({ params, searchParams }: { params: Prom
   const doing = one(sp.do);
   const editStopId = UUID.test(one(sp.stop)) ? one(sp.stop) : null;
   const data = await withSchool(p.current.ctx, async (tx) => {
-    const d = await routeDetail(tx, id, p.today);
+    const d = await routeDetail(tx, id, p.today, await campusStudentIds(tx, p.current));
     if (!d) return null;
     const school = await tx.school.findUniqueOrThrow({ where: { id: p.current.ctx.schoolId }, select: { name: true } });
     const options = p.can.routes && doing === "edit" ? await crewOptions(tx, id) : null;

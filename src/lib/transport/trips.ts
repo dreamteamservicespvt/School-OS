@@ -437,7 +437,8 @@ export async function ownTrip(tx: Tx, driverId: string, tripId: string, day: Dat
 }
 
 /** Everything the driver app shows for one trip: stops in order with students at each, reached and boarded. */
-export async function tripSheet(tx: Tx, trip: Trip) {
+/** A trip with its stops and the students at each; one campus: that campus's students only (ours: the ids of the person's campus's students, null for the whole school). */
+export async function tripSheet(tx: Tx, trip: Trip, ours: string[] | null = null) {
   const [route, stops, events, boarding, vehicle] = await Promise.all([
     tx.route.findFirstOrThrow({ where: { id: trip.routeId } }),
     tx.stop.findMany({ where: { routeId: trip.routeId, archivedAt: null }, orderBy: { seq: "asc" } }),
@@ -445,7 +446,8 @@ export async function tripSheet(tx: Tx, trip: Trip) {
     tx.boardingEvent.findMany({ where: { tripId: trip.id } }),
     trip.vehicleId ? tx.vehicle.findFirst({ where: { id: trip.vehicleId } }) : Promise.resolve(null),
   ]);
-  const places = await riders(tx, trip.routeId, trip.kind, trip.date);
+  const keep = ours ? new Set(ours) : null;
+  const places = (await riders(tx, trip.routeId, trip.kind, trip.date)).filter((p) => !keep || keep.has(p.studentId));
   const students = await tx.student.findMany({ where: { id: { in: places.map((p) => p.studentId) } }, select: { id: true, fullName: true } });
   const ordered = trip.kind === "MORNING" ? stops : [...stops].reverse();
   return {

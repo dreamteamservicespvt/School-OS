@@ -561,3 +561,90 @@ describe("Hostel incidents, outings and visitors keep to the person's campus (ru
     expect(visitFile).not.toContain("Murali Uncle");
   }, 240_000);
 });
+
+describe("Transport lists, pickers and bus roll call keep to the person's campus (run-3 follow-up)", () => {
+  // Routes and buses are the whole school's; each student on them is of their
+  // own campus. The in-charge here is kept to Main campus, so North's students
+  // are the other campus's.
+  const R = { main: "Murugan Rider", north: "Naresh Rider", mainWalker: "Mallesh Walker", northWalker: "Nagaraju Walker" };
+  let inCharge: Current;
+  const ids = { main: "", north: "", mainWalker: "", northWalker: "" };
+  let routeId = "";
+  let tripId = "";
+  let northPlace = "";
+  beforeAll(async () => {
+    const sid = school.id;
+    await switchOn("transport-management", "transport-in-charge");
+    const user = (await makeUser({ schools: [{ id: sid, roleKeys: ["transport-in-charge"] }], name: "Main Transport" })).id;
+    ids.main = (await addStudent(ctx, main.sectionId, { fullName: R.main, applyFeePlan: false })).student.id;
+    ids.north = (await addStudent(ctx, north.sectionId, { fullName: R.north, applyFeePlan: false })).student.id;
+    ids.mainWalker = (await addStudent(ctx, main.sectionId, { fullName: R.mainWalker, applyFeePlan: false })).student.id;
+    ids.northWalker = (await addStudent(ctx, north.sectionId, { fullName: R.northWalker, applyFeePlan: false })).student.id;
+    const { addRoute, addStop } = await import("@/lib/transport/routes");
+    const { assignStudents } = await import("@/lib/transport/places");
+    ({ routeId, tripId, northPlace } = await run(async (tx) => {
+      await tx.schoolAccess.updateMany({ where: { schoolId: sid, userLoginId: user }, data: { scope: "CAMPUS", campusId: main.campusId } });
+      const r = await addRoute(tx, ctx, { name: "Lake Road", vehicleId: null, driverId: null, attendantId: null, feeTwoWayPaise: BigInt(150000), feeOneWayPaise: BigInt(100000), schoolArrivalMin: 500, eveningDepartMin: 930 });
+      const stop = await addStop(tx, ctx, r.id, { name: "Temple Stop", before: null, pickupMin: 440, dropMin: null, lat: 17.47, lng: 78.46, feeTwoWayPaise: null, feeOneWayPaise: null });
+      const placed = await assignStudents(tx, ctx, { studentIds: [ids.main, ids.north], routeId: r.id, stopId: stop.id, type: "TWO_WAY", fromDate: day(todayIst()), reason: null }, day(todayIst()));
+      const trip = await tx.trip.create({ data: { schoolId: sid, routeId: r.id, kind: "MORNING", date: day(todayIst()), plannedStartMin: 440, status: "STARTED", startedAt: new Date() } });
+      return { routeId: r.id, tripId: trip.id, northPlace: placed.placed.find((p) => p.studentId === ids.north)!.assignmentId };
+    }));
+    inCharge = await currentFor(user);
+  }, 240_000);
+
+  it("Student Transport lists the in-charge's own campus's students only", async () => {
+    who.current = inCharge;
+    const { default: Page } = await import("@/app/(school)/transport-management/students/page");
+    const shown = textOf(await Page({ searchParams: Promise.resolve({}) } as never));
+    expect(shown).toContain(R.main);
+    expect(shown).not.toContain(R.north);
+  }, 120_000);
+
+  it("the Give transport picker finds the in-charge's own campus's students only, in their campus's year", async () => {
+    who.current = inCharge;
+    const { default: Page } = await import("@/app/(school)/transport-management/students/page");
+    const shown = textOf(await Page({ searchParams: Promise.resolve({ do: "assign", find: "Walker" }) } as never));
+    expect(shown).toContain(R.mainWalker);
+    expect(shown).not.toContain(R.northWalker);
+  }, 120_000);
+
+  it("a route's stops and a trip's roll call list the in-charge's own campus's students only", async () => {
+    who.current = inCharge;
+    const { default: RoutePage } = await import("@/app/(school)/transport-management/routes/[id]/page");
+    const route = textOf(await RoutePage({ params: Promise.resolve({ id: routeId }), searchParams: Promise.resolve({}) } as never));
+    expect(route).toContain(R.main);
+    expect(route).not.toContain(R.north);
+    const { default: TripsPage } = await import("@/app/(school)/transport-management/trips/page");
+    const trip = textOf(await TripsPage({ searchParams: Promise.resolve({ trip: tripId }) } as never));
+    expect(trip).toContain(R.main);
+    expect(trip).not.toContain(R.north);
+  }, 120_000);
+
+  it("the students export holds the in-charge's own campus's students only", async () => {
+    who.current = inCharge;
+    const { GET } = await import("@/app/(school)/transport-management/export/route");
+    const res = await GET(new Request("http://school.test/transport-management/export?list=students&format=csv"));
+    expect(res.status).toBe(200);
+    const file = await res.text();
+    expect(file).toContain(R.main);
+    expect(file).not.toContain(R.north);
+  }, 120_000);
+
+  it("bus roll call refuses another campus's student, marks the in-charge's own campus's", async () => {
+    who.current = inCharge;
+    const actions = (await import("@/app/(school)/transport-management/actions")) as unknown as Record<string, (s: unknown, fd: FormData) => Promise<{ ok: boolean; message?: string }>>;
+    const mark = (studentId: string) => actions.markBoardingAction(null, form({ tripId, studentId, status: "BOARDED" }));
+    const r = await mark(ids.north);
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/not found, or is on another campus/);
+    expect(await run((tx) => tx.boardingEvent.count({ where: { tripId, studentId: ids.north } }))).toBe(0);
+    expect((await mark(ids.main)).ok).toBe(true);
+  }, 120_000);
+
+  it("bus passes are not printed for another campus's student", async () => {
+    const { busPasses } = await import("@/lib/transport/pass");
+    const print = busPasses as unknown as (tx: Tx, c: SchoolContext, ids: string[], limit: Current) => Promise<unknown>;
+    await expect(run((tx) => print(tx, ctx, [northPlace], inCharge))).rejects.toThrow(/not found, or is on another campus/);
+  }, 120_000);
+});

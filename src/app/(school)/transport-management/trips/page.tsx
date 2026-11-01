@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CalendarClock, CalendarDays, History, Moon, Pencil, Repeat, Smartphone, Sun, XCircle } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { campusStudentIds } from "@/lib/campus";
 import { formatDate } from "@/lib/format";
 import { dateWhere } from "@/lib/periods";
 import { driverOf, ensureTrips, plannedTrips, tripSheet } from "@/lib/transport/trips";
@@ -64,7 +65,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Search
     if (openTrip) {
       const t = await tx.trip.findFirst({ where: { id: openTrip, ...mine } });
       if (t) {
-        const s = await tripSheet(tx, t);
+        const s = await tripSheet(tx, t, await campusStudentIds(tx, p.current));
         const drv = t.driverId ? await tx.driver.findFirst({ where: { id: t.driverId }, select: { name: true } }) : null;
         sheet = { s, driver: drv?.name ?? null };
       }

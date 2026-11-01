@@ -8,7 +8,9 @@ import { OPEN_LINK } from "../students/guardian-access";
 import { renderDocument } from "../documents";
 import { currentDesign } from "../documents/designs";
 import { formatDate } from "../format";
+import type { CampusLimit } from "../campus";
 import { TransportProblem } from "./problem";
+import { assertPlacesCampus } from "./places";
 import { studentCards } from "./people";
 import { eveningTimes } from "./routes";
 import { assignType, clockOf } from "./words";
@@ -16,8 +18,9 @@ import { assignType, clockOf } from "./words";
 export const BUS_PASS_DOC = "bus-pass";
 const PER_PAGE = 8;
 
-/** Passes for students' places on a bus (now or from a later date). At most 200 at a time. */
-export async function busPasses(tx: Tx, ctx: SchoolContext, assignmentIds: string[]) {
+/** Passes for students' places on a bus (now or from a later date). At most 200 at a time; one campus: that campus's students only (`limit`). */
+export async function busPasses(tx: Tx, ctx: SchoolContext, assignmentIds: string[], limit?: CampusLimit | null) {
+  await assertPlacesCampus(tx, limit, { assignmentIds: assignmentIds.slice(0, 200) });
   const places = await tx.transportAssignment.findMany({ where: { id: { in: assignmentIds.slice(0, 200) }, status: "ACTIVE" }, orderBy: { createdAt: "asc" } });
   if (!places.length) throw new TransportProblem("Choose students who have a place on a bus.");
   const [cards, routes, stops, years, guardians] = await Promise.all([

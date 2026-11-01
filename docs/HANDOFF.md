@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-01 02:35 (suite 2416/2417 + hang fix 2aeabc78, SSD build passed; L1, L5 roles, L7 built; suite 2434/2434 + build passed; run-3 done, batch A fixed, batch B running; nothing pushed)
+Last updated: 2026-11-01 02:35 (suite 2416/2417 + hang fix 2aeabc78, SSD build passed; L1, L5 roles, L7 built; suite 2434/2434 + build passed; run-3 done, batches A-C fixed, batch D running; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
@@ -64,8 +64,14 @@ S. SECURITY follow-ups: (1) run-2's 7 NEEDS VALIDATION leads (~/security-audit-s
    (3) AUDIT RUN-3 DONE 04:30 (quick, scoped, 15 agents; ~/security-audit-skill/School-OS/run-3; owner
    summary docs/qa/2026-11-01-security-audit-run-3.md): 8 confirmed (1 medium, 7 low), 5 questions.
    Batch A fixed 838fc27e..af55ae2e (tests/run3-findings.test.ts, login-ceiling, campus-limits, homework/roles).
-   Batch B (Events actions/pages, Hostel/Library/Transport campus, past-receipts undo race, guardian merge
-   of shared parents) in progress. Owner questions left: Adjust "remove" a whole fee row; bulk discount rule
+   Batch B 30b1fe70..3a17a70b (Events actions/pages, Hostel/Library/Transport actions, past-receipts import
+   undo twice at once = REAL double, now locked, guardian merge of shared parents). Batch C 817948a2,
+   9e9e0be5, 566e68b7 (Hostel incidents/outings/visitors, Transport lists/pickers/roll call, event fee
+   totals). Batch D (Hostel roll call/rooms/reports/widgets, Transport widget + route message to own
+   campus only (safest choice), Events register year, Transport picker year) in progress; tests in
+   tests/run3-campus.test.ts. DESIGN NOTE for the owner: every batch found more One-campus gaps because the
+   campus is filtered by hand in each query; propose one shared campus-scoped read layer (or campus RLS)
+   instead of more patches. Owner questions left: Adjust "remove" a whole fee row; bulk discount rule
    up to 50% with no approval; which campus an import batch belongs to; confirm the overnight L1/L5/L7 choices.
    (2) DONE, and its Events pages leftover too: commit 06632769 (evYears in src/lib/events/campus.ts;
    Co-curricular, Daily, Settings work in each campus's year; achievements, fitness, export and certificate

@@ -27,10 +27,15 @@ export async function consentAudience(tx: Tx, e: Event) {
   return rows.map((r) => r.studentId);
 }
 
-/** Given, waiting and declined for one event. */
-export async function consentCounts(tx: Tx, e: Event) {
-  const audience = await consentAudience(tx, e);
-  const answers = await tx.eventConsent.findMany({ where: { eventId: e.id } });
+/** Given, waiting and declined for one event; of one campus's students only, for a person kept to that campus. */
+export async function consentCounts(tx: Tx, e: Event, campusId?: string | null) {
+  let audience = await consentAudience(tx, e);
+  let answers = await tx.eventConsent.findMany({ where: { eventId: e.id } });
+  if (campusId) {
+    const keep = new Set((await tx.student.findMany({ where: { id: { in: [...new Set([...audience, ...answers.map((a) => a.studentId)])] }, campusId }, select: { id: true } })).map((s) => s.id));
+    audience = audience.filter((s) => keep.has(s));
+    answers = answers.filter((a) => keep.has(a.studentId));
+  }
   const given = answers.filter((a) => a.answer === "GIVEN").length;
   const declined = answers.filter((a) => a.answer === "DECLINED").length;
   const answered = new Set(answers.map((a) => a.studentId));

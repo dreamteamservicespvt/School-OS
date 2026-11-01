@@ -197,3 +197,72 @@ describe("Events actions keep the students and staff they name to the person's c
     expect(shown).not.toContain(NAMES.main.staff);
   }, 120_000);
 });
+
+describe("Event and album pages list only the person's own campus's students (run-3, low)", () => {
+  // An event or album for every campus opens for a person kept to one campus,
+  // but its student lists (registrations, fee by student, consent, the
+  // Register and Tag sheets) are of their campus only.
+  let wholeEvent = "";
+  let consentEvent = "";
+  let openEvent = "";
+  const albumPage = async (id: string, sp: Record<string, string>, as = cur.northAdmin) => {
+    who.current = as;
+    const { default: Page } = await import("@/app/(school)/events-calendar/gallery/[id]/page");
+    return textOf(await Page({ params: Promise.resolve({ id }), searchParams: Promise.resolve(sp) } as never));
+  };
+  const photoIn = (number: string, eventId: string | null) => run(async (tx) => {
+    const album = await tx.album.create({ data: { schoolId: school.id, number, name: `Album ${number}`, eventId, date: day(soon(10)) } });
+    const media = await tx.mediaItem.create({ data: { schoolId: school.id, albumId: album.id, fileId: north.studentId } });
+    return { albumId: album.id, mediaId: media.id };
+  });
+  beforeAll(async () => {
+    wholeEvent = await makeEvent("Annual Day", null);
+    await run((tx) => registerStudents(tx, ctx, wholeEvent, [main.studentId, north.studentId], soon(0)));
+    consentEvent = await makeEvent("Zoo trip", null, { consentOn: true });
+    openEvent = await makeEvent("Science Fair", null);
+  }, 120_000);
+
+  it("the registrations of an event for every campus are the person's campus's only", async () => {
+    const shown = await eventPage(wholeEvent);
+    expect(shown).toContain(north.studentId);
+    expect(shown).not.toContain(main.studentId);
+    const all = await eventPage(wholeEvent, {}, cur.admin);
+    expect(all).toContain(north.studentId);
+    expect(all).toContain(main.studentId);
+  }, 120_000);
+
+  it("the Consent tab lists and counts the person's campus's students only", async () => {
+    const shown = await eventPage(consentEvent, { tab: "con" });
+    expect(shown).toContain(NAMES.north.student);
+    expect(shown).not.toContain(NAMES.main.student);
+    expect(shown).toContain("1 students · 0 given · 1 waiting · 0 declined");
+    expect(await eventPage(consentEvent, { tab: "con" }, cur.admin)).toContain("2 students · 0 given · 2 waiting · 0 declined");
+  }, 120_000);
+
+  it("the Register sheet of an event for every campus lists the person's campus's students only", async () => {
+    const shown = await eventPage(openEvent, { do: "register" }, cur.admin);
+    expect(shown).toContain(NAMES.main.student);
+    expect(shown).toContain(NAMES.north.student);
+    const mine = await eventPage(openEvent, { do: "register" });
+    expect(mine).toContain(NAMES.north.student);
+    expect(mine).not.toContain(NAMES.main.student);
+  }, 120_000);
+
+  it("the Tag sheet of an album with no event works in each campus's year, and the person's campus's only", async () => {
+    // Both campuses' years cover the album's date: a year found by date alone is one campus's.
+    const { albumId, mediaId } = await photoIn("AL-W-1", null);
+    const all = await albumPage(albumId, { do: "tag", media: mediaId }, cur.admin);
+    expect(all).toContain(NAMES.main.student);
+    expect(all).toContain(NAMES.north.student);
+    const mine = await albumPage(albumId, { do: "tag", media: mediaId });
+    expect(mine).toContain(NAMES.north.student);
+    expect(mine).not.toContain(NAMES.main.student);
+  }, 120_000);
+
+  it("the Tag sheet of an every-campus event's album lists the person's campus's registered students only", async () => {
+    const { albumId, mediaId } = await photoIn("AL-W-2", wholeEvent);
+    const mine = await albumPage(albumId, { do: "tag", media: mediaId });
+    expect(mine).toContain(NAMES.north.student);
+    expect(mine).not.toContain(NAMES.main.student);
+  }, 120_000);
+});

@@ -430,12 +430,19 @@ export async function removeVolunteer(tx: Tx, ctx: SchoolContext, volunteerId: s
 export type EventMoney = { charged: bigint; collected: bigint; due: bigint; dueStudents: number; paidStudents: number; refunded: bigint };
 
 /** Each event's fee money, from its Student Fee Due rows and the refunds asked for it. */
-export async function eventMoney(tx: Tx, events: Pick<Event, "id" | "number">[]): Promise<Map<string, EventMoney>> {
+/** Each event's fee money; of one campus's students only when a campus is given (a person kept to it). */
+export async function eventMoney(tx: Tx, events: Pick<Event, "id" | "number">[], campusId?: string | null): Promise<Map<string, EventMoney>> {
   const out = new Map<string, EventMoney>();
   if (!events.length) return out;
-  const regs = await tx.eventRegistration.findMany({ where: { eventId: { in: events.map((e) => e.id) }, dueId: { not: null } }, select: { eventId: true, dueId: true } });
+  let regs = await tx.eventRegistration.findMany({ where: { eventId: { in: events.map((e) => e.id) }, dueId: { not: null } }, select: { eventId: true, dueId: true, studentId: true } });
+  let campusStudents: string[] | null = null;
+  if (campusId) {
+    campusStudents = (await tx.student.findMany({ where: { id: { in: [...new Set(regs.map((r) => r.studentId))] }, campusId }, select: { id: true } })).map((s) => s.id);
+    const keep = new Set(campusStudents);
+    regs = regs.filter((r) => keep.has(r.studentId));
+  }
   const dues = regs.length ? await tx.studentFeeDue.findMany({ where: { id: { in: regs.map((r) => r.dueId!) } }, select: { id: true, amountPaise: true, paidPaise: true, balancePaise: true, state: true } }) : [];
-  const refunds = await tx.refund.findMany({ where: { status: { in: ["WAITING", "APPROVED", "REFUNDED"] }, OR: events.map((e) => ({ reason: { contains: `[${e.number}]` } })) }, select: { amountPaise: true, reason: true, status: true } });
+  const refunds = await tx.refund.findMany({ where: { status: { in: ["WAITING", "APPROVED", "REFUNDED"] }, OR: events.map((e) => ({ reason: { contains: `[${e.number}]` } })), ...(campusStudents ? { studentId: { in: campusStudents } } : {}) }, select: { amountPaise: true, reason: true, status: true } });
   for (const e of events) {
     const mine = new Set(regs.filter((r) => r.eventId === e.id).map((r) => r.dueId));
     const ds = dues.filter((d) => mine.has(d.id));

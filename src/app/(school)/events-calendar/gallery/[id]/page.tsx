@@ -19,7 +19,7 @@ import { archiveAlbumAction, askConsentAction, newLinkAction, publishAlbumAction
 import { BASE, UUID, evGuard, one, qs, type SearchParams } from "../../_lib/page";
 import { DayText, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
-import { evSees } from "@/lib/events/campus";
+import { evCampus, evSees, evYears } from "@/lib/events/campus";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Album") };
@@ -47,21 +47,26 @@ export default async function AlbumPage({ params, searchParams }: { params: Prom
     const ev = a.eventId ? await tx.event.findFirst({ where: { id: a.eventId }, select: { id: true, name: true, type: true } }) : null;
     const words = await audienceWords(tx, a);
     const classes = await tx.schoolClass.findMany({ where: { archivedAt: null }, select: { id: true, name: true }, orderBy: { sortOrder: "asc" } });
-    const year = (await tx.academicYear.findFirst({ where: { archivedAt: null, startDate: { lte: a.date }, endDate: { gte: a.date } } })) ?? p.year;
-    // The tag sheet: the event's registered students, else the students of the album's classes, else the school.
+    // Each campus's year on the album's day (one found by date alone is one campus's), or only the person's campus's.
+    const yearIds = (await evYears(tx, isoOf(a.date), p.current)).map((y) => y.id);
+    if (!yearIds.length && p.year) yearIds.push(p.year.id);
+    const mine = await evCampus(tx, p.current);
+    // The tag sheet: the event's registered students, else the students of the album's classes, else the school;
+    // for a person kept to one campus, that campus's students only.
     let picks: TagPick[] = [];
     const media = mediaParam ? items.find((i) => i.id === mediaParam) ?? null : null;
-    if (doing === "tag" && media && year) {
+    if (doing === "tag" && media && yearIds.length) {
       const regs = a.eventId ? await tx.eventRegistration.findMany({ where: { eventId: a.eventId, withdrawnAt: null }, select: { studentId: true } }) : [];
       let ids = regs.map((r) => r.studentId);
       if (!ids.length) {
-        const enrol = await tx.enrolment.findMany({ where: { academicYearId: year.id, archivedAt: null, status: "STUDYING", ...(a.visibleTo === "CLASSES" && a.classIds.length ? { classId: { in: a.classIds } } : {}) }, select: { studentId: true } });
+        const enrol = await tx.enrolment.findMany({ where: { academicYearId: { in: yearIds }, archivedAt: null, status: "STUDYING", ...(a.visibleTo === "CLASSES" && a.classIds.length ? { classId: { in: a.classIds } } : {}) }, select: { studentId: true } });
         ids = enrol.map((e) => e.studentId);
       }
       ids = [...new Set([...media.tags.map((t) => t.studentId), ...ids])];
+      if (mine) ids = (await tx.student.findMany({ where: { id: { in: ids }, campusId: mine }, select: { id: true } })).map((s) => s.id);
       const [students, places, ok] = await Promise.all([
         tx.student.findMany({ where: { id: { in: ids } }, select: { id: true, fullName: true } }),
-        placesOf(tx, ids, year.id),
+        placesOf(tx, ids, yearIds),
         consentedStudents(tx, ctx, ids),
       ]);
       picks = students.map((s) => {

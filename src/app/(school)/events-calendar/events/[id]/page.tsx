@@ -46,21 +46,26 @@ export default async function EventPage({ params, searchParams }: { params: Prom
     // Another campus's event is not found for a person limited to one campus.
     const e = await tx.event.findFirst({ where: { id, archivedAt: null, ...(await evCampusWhere(tx, p.current)) } });
     if (!e) return null;
-    const regs = await tx.eventRegistration.findMany({ where: { eventId: id, withdrawnAt: null }, orderBy: { createdAt: "asc" } });
-    const students = await tx.student.findMany({ where: { id: { in: regs.map((r) => r.studentId) } }, select: { id: true, fullName: true } });
-    const places = await placesOf(tx, regs.map((r) => r.studentId), e.academicYearId);
+    // An event for every campus opens for a person kept to one campus, but its students are their campus's only.
+    const mine = await evCampus(tx, p.current);
+    const years = await eventYearIds(tx, e);
+    const allRegs = await tx.eventRegistration.findMany({ where: { eventId: id, withdrawnAt: null }, orderBy: { createdAt: "asc" } });
+    const students = await tx.student.findMany({ where: { id: { in: allRegs.map((r) => r.studentId) }, ...(mine ? { campusId: mine } : {}) }, select: { id: true, fullName: true } });
+    const shown = new Set(students.map((s) => s.id));
+    const regs = allRegs.filter((r) => shown.has(r.studentId));
+    const places = await placesOf(tx, regs.map((r) => r.studentId), years);
     const fees = await feeStates(tx, regs.map((r) => r.dueId).filter((x): x is string => Boolean(x)));
-    const money = e.feePaise ? (await eventMoney(tx, [e])).get(e.id) ?? null : null;
+    const money = e.feePaise ? (await eventMoney(tx, [e], mine)).get(e.id) ?? null : null;
     const [volunteers, reminders, creator] = await Promise.all([
       tx.eventVolunteer.findMany({ where: { eventId: id, archivedAt: null }, orderBy: { createdAt: "asc" } }),
       tx.eventReminder.findMany({ where: { eventId: id }, orderBy: { sentAt: "desc" } }),
       e.createdById ? tx.userLogin.findFirst({ where: { id: e.createdById }, select: { displayName: true } }) : null,
     ]);
     // Parent consent (trips and outings): every student of the audience, with their answer.
-    const consent = e.consentOn && !acc ? await consentCounts(tx, e) : null;
+    const consent = e.consentOn && !acc ? await consentCounts(tx, e, mine) : null;
     const consentStudents = consent ? await tx.student.findMany({ where: { id: { in: [...consent.waitingIds, ...consent.answers.map((a) => a.studentId)] } }, select: { id: true, fullName: true } }) : [];
-    const consentPlaces = consent ? await placesOf(tx, consentStudents.map((x) => x.id), e.academicYearId) : new Map();
-    return { e, regs, students, places, fees, money, volunteers, reminders, creator, consent, consentStudents, consentPlaces };
+    const consentPlaces = consent ? await placesOf(tx, consentStudents.map((x) => x.id), years) : new Map();
+    return { e, mine, years, regs, students, places, fees, money, volunteers, reminders, creator, consent, consentStudents, consentPlaces };
   });
   if (!d) notFound();
   const e = d.e;
@@ -102,15 +107,14 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       if (e.audienceKind === "alumni") ids = (await tx.student.findMany({ where: alumniWhere(e), select: { id: true }, take: 2000 })).map((s) => s.id);
       else ids = (await tx.enrolment.findMany({ where: { academicYearId: { in: await eventYearIds(tx, e) }, archivedAt: null, status: "STUDYING", ...(e.audienceKind === "classes" ? { classId: { in: e.classIds } } : {}) }, select: { studentId: true }, take: 4000 })).map((x) => x.studentId);
       const ok = await eligible(tx, e, ids);
-      const st = await tx.student.findMany({ where: { id: { in: [...ok] } }, select: { id: true, fullName: true } });
-      const pl = await placesOf(tx, st.map((s) => s.id), e.academicYearId);
+      const st = await tx.student.findMany({ where: { id: { in: [...ok] }, ...(d.mine ? { campusId: d.mine } : {}) }, select: { id: true, fullName: true } });
+      const pl = await placesOf(tx, st.map((s) => s.id), d.years);
       const active = new Set(d.regs.map((r) => r.studentId));
       return { pick: st.sort((a, b) => placeOrder(pl.get(a.id), pl.get(b.id))).map((s) => ({ id: s.id, name: s.fullName, place: pl.get(s.id)?.label ?? "Alumni", registered: active.has(s.id) })) };
     }
     if (doing === "volunteer") {
       // A person kept to one campus picks that campus's staff only.
-      const mine = await evCampus(tx, p.current);
-      const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, ...(mine ? { campusId: mine } : {}) }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" }, take: 1000 });
+      const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, ...(d.mine ? { campusId: d.mine } : {}) }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" }, take: 1000 });
       return { staff };
     }
     if (doing === "consent" && d.consent) return { consentPick: consentRows.map((r) => ({ id: r.id, name: r.name, place: r.place.replace(/^Class /, "") })) };

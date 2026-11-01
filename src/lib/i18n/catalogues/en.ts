@@ -14762,6 +14762,7 @@ export const EN = [
   "This class was not found, or is on another campus.",
   "This activity was not found, or is on another campus.",
   "This staff member was not found, or is on another campus.",
+  "One of these parents also has a child on another campus, so only someone who works for the whole school can merge them.",
   "Choose students of your own campus.",
   "Choose classes of your own campus.",
   "A PTM is for one campus. Choose classes of one campus.",

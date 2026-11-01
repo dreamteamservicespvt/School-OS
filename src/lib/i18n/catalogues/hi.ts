@@ -14221,6 +14221,7 @@ export const hi: Catalogue = {
   "This class was not found, or is on another campus.": "यह कक्षा नहीं मिली, या दूसरे कैंपस की है।",
   "This activity was not found, or is on another campus.": "यह गतिविधि नहीं मिली, या दूसरे कैंपस की है।",
   "This staff member was not found, or is on another campus.": "यह स्टाफ़ सदस्य नहीं मिला, या दूसरे कैंपस का है।",
+  "One of these parents also has a child on another campus, so only someone who works for the whole school can merge them.": "इनमें से एक अभिभावक का बच्चा दूसरे कैंपस में भी है, इसलिए इन्हें केवल पूरे स्कूल के लिए काम करने वाला व्यक्ति मिला सकता है।",
   "Choose students of your own campus.": "अपने ही कैंपस के विद्यार्थी चुनें।",
   "Choose classes of your own campus.": "अपने ही कैंपस की कक्षाएँ चुनें।",
   "A PTM is for one campus. Choose classes of one campus.": "एक PTM एक ही कैंपस के लिए होता है। एक ही कैंपस की कक्षाएँ चुनें।",

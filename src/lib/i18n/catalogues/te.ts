@@ -14221,6 +14221,7 @@ export const te: Catalogue = {
   "This class was not found, or is on another campus.": "ఈ తరగతి కనబడలేదు, లేదా వేరే క్యాంపస్‌ది.",
   "This activity was not found, or is on another campus.": "ఈ కార్యకలాపం కనబడలేదు, లేదా వేరే క్యాంపస్‌ది.",
   "This staff member was not found, or is on another campus.": "ఈ సిబ్బంది సభ్యులు కనబడలేదు, లేదా వేరే క్యాంపస్‌వారు.",
+  "One of these parents also has a child on another campus, so only someone who works for the whole school can merge them.": "వీరిలో ఒక తల్లిదండ్రులకు వేరే క్యాంపస్‌లో కూడా పిల్లలు ఉన్నారు, కాబట్టి మొత్తం స్కూల్ కోసం పనిచేసేవారు మాత్రమే వీరిని కలపగలరు.",
   "Choose students of your own campus.": "మీ సొంత క్యాంపస్ విద్యార్థులనే ఎంచుకోండి.",
   "Choose classes of your own campus.": "మీ సొంత క్యాంపస్ తరగతులనే ఎంచుకోండి.",
   "A PTM is for one campus. Choose classes of one campus.": "ఒక PTM ఒకే క్యాంపస్‌కు. ఒకే క్యాంపస్ తరగతులను ఎంచుకోండి.",

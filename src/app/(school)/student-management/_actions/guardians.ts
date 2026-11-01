@@ -20,6 +20,7 @@ import { studentScope } from "@/lib/students/access";
 import { BASE, attempt, attemptForm, studentAction } from "../_lib/page";
 
 const profile = (id: string) => `${BASE}/students/${id}`;
+const MERGE_OTHER_CAMPUS = "One of these parents also has a child on another campus, so only someone who works for the whole school can merge them.";
 const isId = (v: unknown): v is string => typeof v === "string" && /^[0-9a-f-]{36}$/i.test(v);
 
 /** A link the person may change: its student must be one they can see. */
@@ -223,6 +224,12 @@ export async function mergeAction(keepId: string, _prev: FormState, fd: FormData
     await withSchool(current.ctx, async (tx) => {
       await visibleGuardian(tx, current, keepId);
       await visibleGuardian(tx, current, mergeId);
+      // A merge moves every child of the merged record and changes the kept one, so a person kept
+      // to one campus merges only parents whose children are all on that campus.
+      if (current.campusId) {
+        const away = await tx.studentGuardian.count({ where: { guardianId: { in: [keepId, mergeId] }, archivedAt: null, student: { archivedAt: null, campusId: { not: current.campusId } } } });
+        if (away) throw new StudentProblem(MERGE_OTHER_CAMPUS);
+      }
       moved = await mergeGuardians(tx, current.ctx, keepId, mergeId);
     });
   });

@@ -361,3 +361,56 @@ describe("Hostel, Library and Transport refuse another campus's student or staff
     expect(ok.ok).toBe(true);
   }, 120_000);
 });
+
+describe("Merging parent records keeps to the viewer's campus (run-3 side note)", () => {
+  // A parent can have children on two campuses. Merging moves every child of
+  // the merged record and archives it, so a person kept to one campus would
+  // change the other campus's children's parent records. They merge only
+  // parents whose children are all on their campus.
+  let northB = "";
+  const parent = (name: string, phone: string, children: string[]) => run(async (tx) => {
+    const g = await tx.guardian.create({ data: { schoolId: school.id, name, relationship: "Mother", phone } });
+    for (const studentId of children) await tx.studentGuardian.create({ data: { schoolId: school.id, guardianId: g.id, studentId, relationship: "Mother" } });
+    return g.id;
+  });
+  const merge = async (keepId: string, mergeId: string, as = cur.northAdmin) => {
+    who.current = as;
+    const { mergeAction } = await import("@/app/(school)/student-management/_actions/guardians");
+    try {
+      return await mergeAction(keepId, { ok: false } as never, form({ mergeId }));
+    } catch (e) {
+      return { ok: true, message: String((e as Error).message) };
+    }
+  };
+  const archived = (id: string) => run(async (tx) => (await tx.guardian.findUniqueOrThrow({ where: { id } })).archivedAt);
+  beforeAll(async () => {
+    northB = await run(async (tx) => (await tx.student.create({ data: { schoolId: school.id, campusId: north.campusId, admissionNo: "N-B", firstName: "Nikhil", lastName: "Rao", fullName: "Nikhil Rao", status: "ACTIVE" } })).id);
+  });
+
+  it("refuses to merge a parent who also has a child on another campus, either way round", async () => {
+    const keep = await parent("Kavya Devi", "9876500401", [north.studentId]);
+    const shared = await parent("Kavya D", "9876500402", [northB, main.studentId]);
+    for (const [k, m] of [[keep, shared], [shared, keep]]) {
+      const r = await merge(k, m);
+      expect(r?.ok).toBe(false);
+      expect(r?.message).toMatch(/another campus/);
+    }
+    expect(await archived(shared)).toBeNull();
+    expect(await archived(keep)).toBeNull();
+    expect(await run((tx) => tx.studentGuardian.count({ where: { guardianId: shared, studentId: main.studentId, archivedAt: null } }))).toBe(1);
+  }, 120_000);
+
+  it("merges two parents whose children are all on the viewer's campus", async () => {
+    const keep = await parent("Latha Devi", "9876500403", [north.studentId]);
+    const other = await parent("Latha D", "9876500404", [northB]);
+    expect((await merge(keep, other))?.message).toMatch(/REDIRECT/);
+    expect(await archived(other)).not.toBeNull();
+  }, 120_000);
+
+  it("lets someone who works for the whole school merge a parent with children on two campuses", async () => {
+    const keep = await parent("Meera Devi", "9876500405", [north.studentId]);
+    const shared = await parent("Meera D", "9876500406", [northB, main.studentId]);
+    expect((await merge(keep, shared, cur.admin))?.message).toMatch(/REDIRECT/);
+    expect(await archived(shared)).not.toBeNull();
+  }, 120_000);
+});

@@ -1,13 +1,15 @@
 // The residents list with the filters on screen (who is shown, hostel,
 // search, and the dates for checked-out students). Hostel fees due only for
-// people with Fee Management; a warden's file holds their own hostel.
+// people with Fee Management; a warden's file holds their own hostel, and a
+// person kept to one campus that campus's students.
 import type { Prisma } from "@prisma/client";
 import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportColumn } from "@/lib/exports";
 import { formatDate, formatRupees } from "@/lib/format";
 import { dateWhere } from "@/lib/periods";
 import { clockAt } from "@/lib/front-office/time";
-import { hostelFeesDue, outNow, residents, type Resident } from "@/lib/hostel/allocation";
+import { bedsOfCampus, hostelFeesDue, outNow, residents, type Resident } from "@/lib/hostel/allocation";
+import { campusStudentIds } from "@/lib/campus";
 import { UUID_RE } from "@/lib/hostel/act";
 import { RESIDENT_STATUS } from "@/lib/hostel/words";
 import { hostelRoute, rangeWords } from "../../_lib/route";
@@ -32,7 +34,9 @@ export async function GET(req: Request) {
       "": { status: "ACTIVE" }, arriving: { status: "ACTIVE", checkedInAt: null }, away: { status: "ACTIVE", studentId: { in: away } },
       out: { status: "CHECKED_OUT", ...(range ? { endDate: dateWhere(range) } : {}) },
     };
-    const rows = await residents(tx, x.current.ctx, { hostelId: { in: ids }, ...byView[show], ...(nameIds ? { AND: [{ studentId: { in: nameIds } }] } : {}) }, x.now, { take: 5000 });
+    // One campus: the beds of that campus's students only.
+    const ours = bedsOfCampus(await campusStudentIds(tx, x.current));
+    const rows = await residents(tx, x.current.ctx, { AND: [{ hostelId: { in: ids } }, byView[show], ours, ...(nameIds ? [{ studentId: { in: nameIds } }] : [])] }, x.now, { take: 5000 });
     const dues = new Map<string, bigint>();
     if (x.v.seesFees) for (const a of rows) if (a.allocation.status === "ACTIVE") dues.set(a.student.id, await hostelFeesDue(tx, a.student.id, x.today));
     const filters = [SHOWN[show], one ? `Hostel: ${one.name}` : x.mine !== null ? `Hostel: ${all.map((h) => h.name).join(", ")}` : "", q ? `Search: ${q}` : "", show === "out" ? rangeWords(range) : ""].filter(Boolean).join(" · ");

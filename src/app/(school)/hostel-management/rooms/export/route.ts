@@ -2,9 +2,10 @@
 // blocked (with the reason). A warden exports their own hostel only.
 import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportColumn } from "@/lib/exports";
-import { inScope } from "@/lib/hostel/scope";
+import { inScope, shownStudents } from "@/lib/hostel/scope";
 import { roomGrid } from "@/lib/hostel/rooms";
 import { studentsInfo } from "@/lib/hostel/allocation";
+import { campusStudentIds } from "@/lib/campus";
 import { UUID_RE } from "@/lib/hostel/act";
 import { hostelRoute, plain } from "../../_lib/route";
 
@@ -21,7 +22,8 @@ export async function GET(req: Request) {
     const hostel = (UUID_RE.test(want) ? hostels.find((h) => h.id === want) : null) ?? hostels[0];
     if (!hostel || !inScope(x.mine, hostel.id)) return null;
     const grid = await roomGrid(tx, [hostel.id]);
-    const info = await studentsInfo(tx, x.current.ctx, grid.flatMap((rm) => rm.beds.map((b) => b.studentId).filter((s): s is string => Boolean(s))));
+    // One campus: every bed, with only that campus's students named.
+    const info = await studentsInfo(tx, x.current.ctx, shownStudents(grid.flatMap((rm) => rm.beds.map((b) => b.studentId).filter((s): s is string => Boolean(s))), await campusStudentIds(tx, x.current)));
     const rows: Row[] = grid.flatMap((rm) => rm.beds.map((b) => {
       const s = b.studentId ? info.get(b.studentId) : null;
       return { floor: rm.floor, room: rm.roomNo, type: rm.roomType ?? "", bed: b.bedNo, state: b.state === "taken" ? "Taken" : b.state === "blocked" ? "Blocked" : "Free", student: s?.name ?? "", admissionNo: s?.admissionNo ?? "", cls: s?.classSection ?? "", reason: b.state === "blocked" ? b.blockedReason ?? "" : "" };

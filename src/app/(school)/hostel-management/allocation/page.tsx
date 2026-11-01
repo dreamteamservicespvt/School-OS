@@ -26,10 +26,11 @@ import { Banner, Stats, Stack, Toolbar, DataList, Empty, ListRow } from "@/compo
 import { carryOverRows } from "@/lib/hostel/carry";
 import { clockAt } from "@/lib/front-office/time";
 import { roomGrid } from "@/lib/hostel/rooms";
-import { bedHistory, bedYears, hostelFeesDue, residentViewWhere, residents, studentsInfo, waitingForBed, type Resident } from "@/lib/hostel/allocation";
+import { bedHistory, bedYears, bedsOfCampus, hostelFeesDue, residentViewWhere, residents, studentsInfo, waitingForBed, type Resident } from "@/lib/hostel/allocation";
 import { openFeePlans, planTotal } from "@/lib/hostel/settings";
 import { BASE, RESIDENT_STATUS, bedWords, genderFits, isoOf, plural } from "@/lib/hostel/words";
 import { inScope } from "@/lib/hostel/scope";
+import { campusAllows, campusStudentIds } from "@/lib/campus";
 import { HostelHead } from "../_components/head";
 import { ActButton } from "../_components/client";
 import { AllocateSheet, CarrySheet, CheckoutSheet, MoveSheet, type CarryItem, type FreeBed } from "../_components/sheets";
@@ -65,20 +66,24 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
 
   const d = await withSchool(ctx, async (tx) => {
     const base: Prisma.BedAllocationWhereInput = { hostelId: { in: scopeIds } };
+    // One campus: the beds of that campus's students only (the hostels stay the whole school's).
+    const ours = await campusStudentIds(tx, current);
+    const keep = ours ? new Set(ours) : null;
+    const isOurs = (studentId: string) => !keep || keep.has(studentId);
     let nameIds: string[] | null = null;
     if (params.q) {
       nameIds = await studentIdsForFilter(tx, params.q);
     }
     // The same views the Dashboard's "In the hostel now" counts (residentViewWhere, gap list G36).
-    const [all, arrivingW, inW, awayW] = await Promise.all((["", "arriving", "in", "away"] as const).map((x) => residentViewWhere(tx, x, scopeIds)));
+    const [all, arrivingW, inW, awayW] = await Promise.all((["", "arriving", "in", "away"] as const).map((x) => residentViewWhere(tx, x, scopeIds, ours)));
     const byView: Record<string, Prisma.BedAllocationWhereInput> = {
       "": all,
       arriving: arrivingW,
       in: inW,
       away: awayW,
-      out: { status: "CHECKED_OUT", ...(per.range ? { endDate: dateWhere(per.range) } : {}) },
+      out: { status: "CHECKED_OUT", ...(per.range ? { endDate: dateWhere(per.range) } : {}), ...bedsOfCampus(ours) },
     };
-    const where: Prisma.BedAllocationWhereInput = { ...base, ...byView[show], ...(nameIds ? { AND: [{ studentId: { in: nameIds } }] } : {}) };
+    const where: Prisma.BedAllocationWhereInput = { AND: [base, byView[show], ...(nameIds ? [{ studentId: { in: nameIds } }] : [])] };
     const [total, rows, active, arriving, inCount, awayCount, outCount] = await Promise.all([
       tx.bedAllocation.count({ where }),
       residents(tx, ctx, where, p.now, skipTake(params)),
@@ -86,14 +91,14 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
       tx.bedAllocation.count({ where: arrivingW }),
       tx.bedAllocation.count({ where: inW }),
       tx.bedAllocation.count({ where: awayW }),
-      tx.bedAllocation.count({ where: { ...base, ...byView.out } }),
+      tx.bedAllocation.count({ where: { AND: [base, byView.out] } }),
     ]);
     const dues = new Map<string, bigint>();
     if (v.seesFees) for (const r of rows) if (r.allocation.status === "ACTIVE") dues.set(r.student.id, await hostelFeesDue(tx, r.student.id, p.today));
     const waitingAll = await waitingForBed(tx, ctx);
     const genders = new Set(p.myHostels.map((h) => h.gender));
     // A warden sees those who fit their hostel; a student whose gender is not on record shows to every warden.
-    const waiting = waitingAll.filter((w) => mine === null || !genderFits(w.gender) || genders.has(genderFits(w.gender)!));
+    const waiting = waitingAll.filter((w) => campusAllows(current, w.campusId) && (mine === null || !genderFits(w.gender) || genders.has(genderFits(w.gender)!)));
 
     // Sheets
     const wantsAllocate = can.allocate && one(sp.allocate) === "1";
@@ -109,12 +114,12 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
     if (wantsAllocate && sid) {
       const s = (await studentsInfo(tx, ctx, [sid])).get(sid);
       const [years, st] = await Promise.all([bedYears(tx, [sid]), tx.student.findUnique({ where: { id: sid }, select: { joiningDate: true } })]);
-      if (s) startStudent = { id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: genderFits(s.gender), bed: null, hostelId: null, campusId: s.campusId, years: years.get(sid) ?? [], joins: st?.joiningDate ? isoOf(st.joiningDate) : null };
+      if (s && campusAllows(current, s.campusId)) startStudent = { id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: genderFits(s.gender), bed: null, hostelId: null, campusId: s.campusId, years: years.get(sid) ?? [], joins: st?.joiningDate ? isoOf(st.joiningDate) : null };
     }
     const one_ = async (id: string | null) => {
       if (!id) return null;
       const a = await tx.bedAllocation.findFirst({ where: { id, status: "ACTIVE" } });
-      if (!a || !inScope(mine, a.hostelId)) return null;
+      if (!a || !inScope(mine, a.hostelId) || !isOurs(a.studentId)) return null;
       const [r] = await residents(tx, ctx, { id: a.id }, p.now);
       return r ?? null;
     };
@@ -125,13 +130,13 @@ export default async function AllocationPage({ searchParams }: { searchParams: S
     if (historyId) {
       const rowsH = await bedHistory(tx, historyId);
       const own = rowsH.filter((r) => inScope(mine, r.hostelId));
-      if (own.length) {
+      if (own.length && isOurs(historyId)) {
         const s = (await studentsInfo(tx, ctx, [historyId])).get(historyId);
         if (s) history = { student: { id: s.id, name: s.name, cls: s.classSection }, rows: own };
       }
     }
     // A new year is open: boarders whose bed is still on last year wait to be carried over.
-    const carry = await carryOverRows(tx, mine);
+    const carry = (await carryOverRows(tx, mine)).filter((r) => isOurs(r.allocation.studentId));
     const carryInfo = can.allocate && one(sp.carry) === "1" && carry.length ? await studentsInfo(tx, ctx, carry.map((r) => r.allocation.studentId)) : new Map<string, never>();
     return { total, rows, active, arriving, inCount, awayCount, outCount, dues, waiting, beds, plans, startStudent, move, checkout, checkoutDue, history, wantsAllocate, carry, carryInfo };
   });

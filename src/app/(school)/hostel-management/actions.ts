@@ -296,7 +296,7 @@ export async function saveRollCallAction(_p: S, fd: FormData): Promise<S> {
     const hostelId = id(fd, "hostelId", "hostel");
     assertHostel(w.mine, hostelId);
     const session = str(fd, "session") === "NIGHT" ? "NIGHT" : "MORNING";
-    return saveRollCall(w.tx, w.ctx, { hostelId, date: isoDate(fd, "date", "Date")!, session, absentIds: ids(fd, "absent") }, { now: w.now, tz: w.tz, today: w.today });
+    return saveRollCall(w.tx, w.ctx, { hostelId, date: isoDate(fd, "date", "Date")!, session, absentIds: ids(fd, "absent") }, { now: w.now, tz: w.tz, today: w.today, limit: w.current });
   }, (r) => ({
     message: `${r.hostel.name}: roll call saved. ${r.present} present, ${r.absent} absent${r.away ? `, ${r.away} away on passes` : ""}.${r.alerted ? ` The warden${r.alerted > 1 ? "s and the Principal were" : " was"} alerted.` : ""}`,
     tone: r.absent && r.alerted ? "danger" : undefined,

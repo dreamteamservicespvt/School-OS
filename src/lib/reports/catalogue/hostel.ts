@@ -6,6 +6,7 @@ import "server-only";
 
 import { HOSTEL_REPORT_LIST } from "../../hostel/reports";
 import { hostelViewer } from "../../hostel/access";
+import { campusStudentIds } from "../../campus";
 import type { ReportEntry } from "../types";
 
 export const HOSTEL_REPORTS: ReportEntry[] = HOSTEL_REPORT_LIST.map((r) => ({
@@ -21,6 +22,8 @@ export const HOSTEL_REPORTS: ReportEntry[] = HOSTEL_REPORT_LIST.map((r) => ({
     return !hostelViewer({ permissions: who.permissions, roles: who.roles, user: { id: "" } }).wardenOnly;
   },
   async run(rc) {
-    return r.run(rc.tx, rc.ctx, { from: rc.f.range ? rc.f.from : null, to: rc.f.range ? rc.f.to : null, today: rc.f.today, hostelIds: null, tz: rc.tz, now: new Date() });
+    // One campus (the person's limit, or the campus chosen): that campus's students only.
+    const students = await campusStudentIds(rc.tx, { campusId: rc.f.campusId ?? rc.who.campusId ?? null });
+    return r.run(rc.tx, rc.ctx, { from: rc.f.range ? rc.f.from : null, to: rc.f.range ? rc.f.to : null, today: rc.f.today, hostelIds: null, tz: rc.tz, now: new Date(), students });
   },
 }));

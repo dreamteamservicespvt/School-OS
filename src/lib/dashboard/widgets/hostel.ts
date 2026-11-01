@@ -2,12 +2,14 @@
 // operations panel", inferred; the approved design's warden home). The
 // warden sees their own hostel: who is in, who is out, tonight's roll call and
 // late returns. The leaders see every hostel's occupancy, missing roll calls
-// (with Remind) and late returns. Widgets show only when the hostel is built,
+// (with Remind) and late returns. A person kept to one campus counts and sees
+// that campus's students only; beds and occupancy stay the whole school's. Widgets show only when the hostel is built,
 // switched on and open to the person (the registry checks the module).
 import "server-only";
 
 import { hostelCan, hostelViewer } from "../../hostel/access";
 import { myHostelIds, type Mine } from "../../hostel/scope";
+import { campusStudentIds } from "../../campus";
 import { hostelSettings } from "../../hostel/settings";
 import { occupancy } from "../../hostel/rooms";
 import { residentViewWhere, studentsInfo } from "../../hostel/allocation";
@@ -21,6 +23,9 @@ const worker = (v: Viewer) => hostelCan(viewerOf(v)).rollcall;
 const reads = (v: Viewer) => viewerOf(v).pages.rollcall !== "hidden";
 
 const mineOf = (c: DashContext) => c.memo<Mine>("hostel.mine", () => myHostelIds(c.tx, c.viewer.ctx, viewerOf(c.viewer)));
+/** One campus (the person's limit, or the campus chosen on the Dashboard): that campus's students' ids; null for the whole school. */
+const oursOf = (c: DashContext) => c.memo<string[] | null>("hostel.ours", () => campusStudentIds(c.tx, c.viewer));
+const ofOurs = (ours: string[] | null) => (ours ? { studentId: { in: ours } } : {});
 
 /** Residents in the hostel now, and out on passes. */
 const residentsBand: Widget<"band"> = {
@@ -32,10 +37,11 @@ const residentsBand: Widget<"band"> = {
   async load(c) {
     const mine = await mineOf(c);
     if (mine && !mine.length) return null;
+    const ours = await oursOf(c);
     // Allocation's own views "In the hostel now" and "Away now" (residentViewWhere, gap list G36).
     const [inNow, out] = await Promise.all([
-      residentViewWhere(c.tx, "in", mine).then((where) => c.tx.bedAllocation.count({ where })),
-      residentViewWhere(c.tx, "away", mine).then((where) => c.tx.bedAllocation.count({ where })),
+      residentViewWhere(c.tx, "in", mine, ours).then((where) => c.tx.bedAllocation.count({ where })),
+      residentViewWhere(c.tx, "away", mine, ours).then((where) => c.tx.bedAllocation.count({ where })),
     ]);
     return { id: "hostel.residents", label: "In the hostel now", big: n(inNow), of: `/ ${n(inNow + out)}`, foot: out ? `${plural(out, "student")} away now` : "Everyone is in", href: `${BASE}/allocation?show=${out && !inNow ? "away" : "in"}` };
   },
@@ -70,7 +76,7 @@ const rollCallMissing: Widget<"attention"> = {
     const hostels = await c.tx.hostel.findMany({ where: { archivedAt: null, ...(mine ? { id: { in: mine } } : {}) }, select: { id: true, name: true } });
     if (!hostels.length) return null;
     const done = await c.tx.rollCall.findMany({ where: { date: c.today, session, hostelId: { in: hostels.map((h) => h.id) } }, select: { hostelId: true } });
-    const living = await c.tx.bedAllocation.groupBy({ by: ["hostelId"], where: { status: "ACTIVE", checkedInAt: { not: null }, hostelId: { in: hostels.map((h) => h.id) } }, _count: { _all: true } });
+    const living = await c.tx.bedAllocation.groupBy({ by: ["hostelId"], where: { status: "ACTIVE", checkedInAt: { not: null }, hostelId: { in: hostels.map((h) => h.id) }, ...ofOurs(await oursOf(c)) }, _count: { _all: true } });
     const missing = hostels.filter((h) => !done.some((d) => d.hostelId === h.id) && living.some((l) => l.hostelId === h.id));
     if (!missing.length) return null;
     const work = worker(c.viewer);
@@ -94,7 +100,7 @@ const lateReturns: Widget<"attention"> = {
   allowed: reads,
   async load(c) {
     const mine = await mineOf(c);
-    const where = { kind: "HOSTEL_OUTING" as const, status: "OUT" as const, archivedAt: null, toAt: { lt: c.now }, ...(mine ? { hostelId: { in: mine } } : {}) };
+    const where = { kind: "HOSTEL_OUTING" as const, status: "OUT" as const, archivedAt: null, toAt: { lt: c.now }, ...(mine ? { hostelId: { in: mine } } : {}), ...ofOurs(await oursOf(c)) };
     // Every late student, as Outings lists them with status Late (the first few are named).
     const [late, count] = await Promise.all([c.tx.gatePass.findMany({ where, orderBy: { toAt: "asc" }, take: 20 }), c.tx.gatePass.count({ where })]);
     if (!late.length) return null;
@@ -118,7 +124,7 @@ const outNowPanel: Widget<"panel"> = {
   allowed: worker,
   async load(c) {
     const mine = await mineOf(c);
-    const rows = await c.tx.gatePass.findMany({ where: { kind: "HOSTEL_OUTING", status: { in: ["OUT", "APPROVED"] }, archivedAt: null, ...(mine ? { hostelId: { in: mine } } : {}) }, orderBy: { toAt: "asc" }, take: 8 });
+    const rows = await c.tx.gatePass.findMany({ where: { kind: "HOSTEL_OUTING", status: { in: ["OUT", "APPROVED"] }, archivedAt: null, ...(mine ? { hostelId: { in: mine } } : {}), ...ofOurs(await oursOf(c)) }, orderBy: { toAt: "asc" }, take: 8 });
     const info = await studentsInfo(c.tx, c.viewer.ctx, rows.map((p) => p.studentId));
     const list: ListRow[] = rows.map((p) => {
       const s = info.get(p.studentId);

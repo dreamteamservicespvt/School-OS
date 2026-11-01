@@ -358,14 +358,21 @@ export const RESIDENT_VIEWS = ["", "arriving", "in", "away", "out"] as const;
 export type ResidentView = (typeof RESIDENT_VIEWS)[number];
 
 /**
+ * One campus (`ours`: the ids of the person's campus's students, null for the
+ * whole school): the beds of that campus's students only. Hostels are the
+ * whole school's; the students in their beds are each of their own campus.
+ */
+export const bedsOfCampus = (ours: string[] | null | undefined): Prisma.BedAllocationWhereInput => (ours ? { AND: [{ studentId: { in: ours } }] } : {});
+
+/**
  * The beds counted by each resident view, for the hostels given (null for every hostel): the
  * Allocation page lists them and the Dashboard's "In the hostel now" counts them, so the card
  * opens exactly the students it counted (gap list G36). "in" and "away" are of students who
  * have checked in: in the hostel, or out on an outing or leave pass now (residentStatus).
- * "out" (checked out) takes its dates from the page.
+ * "out" (checked out) takes its dates from the page. `ours`: one campus's students (bedsOfCampus).
  */
-export async function residentViewWhere(tx: Tx, view: Exclude<ResidentView, "out">, hostelIds: string[] | null): Promise<Prisma.BedAllocationWhereInput> {
-  const base: Prisma.BedAllocationWhereInput = { status: "ACTIVE", ...(hostelIds ? { hostelId: { in: hostelIds } } : {}) };
+export async function residentViewWhere(tx: Tx, view: Exclude<ResidentView, "out">, hostelIds: string[] | null, ours: string[] | null = null): Promise<Prisma.BedAllocationWhereInput> {
+  const base: Prisma.BedAllocationWhereInput = { status: "ACTIVE", ...(hostelIds ? { hostelId: { in: hostelIds } } : {}), ...bedsOfCampus(ours) };
   if (view === "") return base;
   if (view === "arriving") return { ...base, checkedInAt: null };
   const awayIds = [...(await outNow(tx)).keys()];

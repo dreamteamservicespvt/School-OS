@@ -9,6 +9,7 @@ import "server-only";
 import type { RollCallMarkKind, RollCallSession } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
+import { anyOtherCampus, campusStudentIds, type CampusLimit } from "../campus";
 import { formatDate } from "../format";
 import { instantOf } from "../front-office/time";
 import { studentsInfo, type StudentInfo } from "./allocation";
@@ -33,9 +34,11 @@ async function rollMoment(tx: Tx, ctx: SchoolContext, date: Date, session: RollC
 /**
  * The roll call sheet of one hostel on one day and session: the students
  * living there then (checked in), each with the saved mark, or the start
- * mark (Present, or On outing / On leave when out on a pass).
+ * mark (Present, or On outing / On leave when out on a pass). One campus
+ * (`ours`: the ids of the person's campus's students, null for the whole
+ * school): that campus's boarders only (20-settings.md, scope "One campus").
  */
-export async function rollSheet(tx: Tx, ctx: SchoolContext, hostelId: string, date: Date, session: RollCallSession, tz: string, now: Date) {
+export async function rollSheet(tx: Tx, ctx: SchoolContext, hostelId: string, date: Date, session: RollCallSession, tz: string, now: Date, ours: string[] | null = null) {
   const at = await rollMoment(tx, ctx, date, session, tz, now);
   const saved = await tx.rollCall.findUnique({ where: { hostelId_date_session: { hostelId, date, session } }, include: { marks: true } });
   const allocs = await tx.bedAllocation.findMany({
@@ -47,7 +50,8 @@ export async function rollSheet(tx: Tx, ctx: SchoolContext, hostelId: string, da
     const had = byStudent.get(a.studentId);
     if (!had || a.startDate > had.startDate) byStudent.set(a.studentId, a);
   }
-  const ids = [...byStudent.keys(), ...(saved?.marks.map((m) => m.studentId) ?? [])];
+  const keep = ours ? new Set(ours) : null;
+  const ids = [...byStudent.keys(), ...(saved?.marks.map((m) => m.studentId) ?? [])].filter((id) => !keep || keep.has(id));
   const [info, rooms, beds, passes] = await Promise.all([
     studentsInfo(tx, ctx, ids),
     tx.hostelRoom.findMany({ where: { id: { in: [...byStudent.values()].map((a) => a.roomId) } }, select: { id: true, roomNo: true, floor: true } }),
@@ -72,13 +76,18 @@ export async function rollSheet(tx: Tx, ctx: SchoolContext, hostelId: string, da
 
 export type SaveRollInput = { hostelId: string; date: Date; session: RollCallSession; absentIds: string[] };
 
-/** Saves a roll call (or changes a saved one). Absent at night and not on a pass alerts the warden and the Principal at once. */
-export async function saveRollCall(tx: Tx, ctx: SchoolContext, input: SaveRollInput, opts: { now: Date; tz: string; today: Date }) {
+/**
+ * Saves a roll call (or changes a saved one). Absent at night and not on a pass alerts the warden and the Principal at once.
+ * A person kept to one campus (`limit`) marks that campus's boarders only; the other campus's keep the marks they had.
+ */
+export async function saveRollCall(tx: Tx, ctx: SchoolContext, input: SaveRollInput, opts: { now: Date; tz: string; today: Date; limit?: CampusLimit | null }) {
   if (input.date.getTime() > opts.today.getTime()) throw new HostelProblem("Roll call cannot be taken for a day that has not come yet.", "date");
   if (input.date.getTime() < opts.today.getTime() - 7 * 86_400_000) throw new HostelProblem("Roll calls older than 7 days cannot be changed.", "date");
   const hostel = await tx.hostel.findFirst({ where: { id: input.hostelId, archivedAt: null } });
   if (!hostel) throw new HostelProblem("Choose a hostel.", "hostelId");
-  const sheet = await rollSheet(tx, ctx, hostel.id, input.date, input.session, opts.tz, opts.now);
+  if (await anyOtherCampus(tx, opts.limit, input.absentIds)) throw new HostelProblem("This student was not found, or is on another campus.");
+  const ours = await campusStudentIds(tx, opts.limit);
+  const sheet = await rollSheet(tx, ctx, hostel.id, input.date, input.session, opts.tz, opts.now, ours);
   if (!sheet.rows.length) throw new HostelProblem(`Nobody lived in ${hostel.name} at that time, so there is no roll call to take.`);
   const absent = new Set(input.absentIds);
   const unknown = [...absent].filter((id) => !sheet.rows.some((r) => r.student.id === id));
@@ -86,8 +95,12 @@ export async function saveRollCall(tx: Tx, ctx: SchoolContext, input: SaveRollIn
   const before = new Set(sheet.saved?.marks.filter((m) => m.mark === "ABSENT").map((m) => m.studentId) ?? []);
 
   const marks = sheet.rows.map((r) => ({ studentId: r.student.id, mark: (r.away ? r.away.mark : absent.has(r.student.id) ? "ABSENT" : "PRESENT") as RollCallMarkKind, gatePassId: r.away?.passId ?? null }));
-  const count = (k: RollCallMarkKind) => marks.filter((m) => m.mark === k).length;
-  const data = { takenById: ctx.userId, takenAt: opts.now, presentCount: count("PRESENT"), absentCount: count("ABSENT"), awayCount: count("OUTING") + count("LEAVE") };
+  // The roll call's totals are the hostel's: the other campus's saved marks count as they are.
+  const shown = new Set(marks.map((m) => m.studentId));
+  const all = [...marks.map((m) => m.mark), ...(sheet.saved?.marks.filter((m) => !shown.has(m.studentId)).map((m) => m.mark) ?? [])];
+  const count = (list: RollCallMarkKind[], k: RollCallMarkKind) => list.filter((m) => m === k).length;
+  const data = { takenById: ctx.userId, takenAt: opts.now, presentCount: count(all, "PRESENT"), absentCount: count(all, "ABSENT"), awayCount: count(all, "OUTING") + count(all, "LEAVE") };
+  const mine = marks.map((m) => m.mark);
   const rc = sheet.saved
     ? await tx.rollCall.update({ where: { id: sheet.saved.id }, data })
     : await tx.rollCall.create({ data: { schoolId: ctx.schoolId, hostelId: hostel.id, date: input.date, session: input.session, ...data } });
@@ -117,7 +130,7 @@ export async function saveRollCall(tx: Tx, ctx: SchoolContext, input: SaveRollIn
     });
     await tx.rollCall.update({ where: { id: rc.id }, data: { alertedAt: opts.now } });
   }
-  return { rollCall: rc, hostel, present: data.presentCount, absent: data.absentCount, away: data.awayCount, alerted, absentees: absentees.map((r) => r.student.name) };
+  return { rollCall: rc, hostel, present: count(mine, "PRESENT"), absent: count(mine, "ABSENT"), away: count(mine, "OUTING") + count(mine, "LEAVE"), alerted, absentees: absentees.map((r) => r.student.name) };
 }
 
 /** A leader's reminder to the hostel's wardens that a roll call is not taken yet. */

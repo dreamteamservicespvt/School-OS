@@ -11,6 +11,7 @@ import { formatDate } from "@/lib/format";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { hostelViewer, pageOpen } from "@/lib/hostel/access";
 import { myHostelIds, inScope } from "@/lib/hostel/scope";
+import { anyOtherCampus } from "@/lib/campus";
 import { hostelSettings, wardensByHostel } from "@/lib/hostel/settings";
 import { studentsInfo } from "@/lib/hostel/allocation";
 import { UUID_RE } from "@/lib/hostel/act";
@@ -35,7 +36,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return withSchool(current.ctx, async (tx) => {
     const mine = await myHostelIds(tx, current.ctx, v);
     const a = await tx.bedAllocation.findFirst({ where: { id } });
-    if (!a || !inScope(mine, a.hostelId)) return plain("This allocation was not found.", 404);
+    // Another campus's student's bed is not found for a person kept to one campus.
+    if (!a || !inScope(mine, a.hostelId) || (await anyOtherCampus(tx, current, [a.studentId]))) return plain("This allocation was not found.", 404);
     const [info, hostel, room, bed, s, wardens, guardian] = await Promise.all([
       studentsInfo(tx, current.ctx, [a.studentId]),
       tx.hostel.findFirst({ where: { id: a.hostelId } }),

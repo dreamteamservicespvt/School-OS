@@ -79,7 +79,8 @@ async function RollView({ p, sp }: { p: P; sp: Raw }) {
   const per = hostelPeriod(sp, p.dates, "last7", "h");
 
   const d = hostel ? await withSchool(ctx, async (tx) => {
-    const sheet = await rollSheet(tx, ctx, hostel.id, date, session, tz, p.now);
+    // One campus: the person's campus's boarders only.
+    const sheet = await rollSheet(tx, ctx, hostel.id, date, session, tz, p.now, await campusStudentIds(tx, current));
     const ids = sheet.rows.map((r) => r.student.id);
     // The class register of the same day (Attendance Management), to compare.
     const [marks, statuses] = await Promise.all([
@@ -120,8 +121,9 @@ async function RollView({ p, sp }: { p: P; sp: Raw }) {
     };
   });
   const saved = d.sheet.saved;
-  const absentNow = saved ? saved.absentCount : 0;
   const unexplained = d.sheet.rows.filter((r) => r.mark === "ABSENT").map((r) => r.student.name);
+  // The absences on this person's sheet (a person kept to one campus does not see the other campus's).
+  const absentNow = saved ? unexplained.length : 0;
   const classAbsent = rows.filter((r) => r.school).length;
 
   // The month calendar: both roll calls taken (green), one (amber), none on a past day (red); a red dot,

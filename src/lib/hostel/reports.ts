@@ -4,7 +4,8 @@
 // and mess head counts and expenses by month. Each report is one function
 // returning a Table, so the Hostel Reports page, its files and the Reports &
 // Analytics catalogue show the same rows. A warden's reports hold their own
-// hostel only (hostelIds).
+// hostel only (hostelIds); a person kept to one campus sees that campus's
+// students only (students). Rooms, beds and the mess stay the whole school's.
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
@@ -13,6 +14,7 @@ import { clockAt, localOf } from "../front-office/time";
 import { dayStartUtc } from "../periods";
 import { maskPhone } from "../front-office/words";
 import { studentsInfo } from "./allocation";
+import { incidentCampusWhere } from "./scope";
 import { occupancy, roomGrid } from "./rooms";
 import { minutesLate, shownStatus } from "./outings";
 import { BASE, INCIDENT_TYPE, OUTING_TYPE, PASS_STATUS, SESSION, isoOf, lateWords, type IncidentType, type OutingType } from "./words";
@@ -28,6 +30,8 @@ export type HostelFilter = {
   now: Date;
   /** Show visitors' phone numbers in full (otherwise masked). */
   phones?: boolean;
+  /** One campus: the ids of that campus's students (campusStudentIds); null or left out for the whole school. */
+  students?: string[] | null;
 };
 
 const ZERO = BigInt(0);
@@ -35,6 +39,7 @@ const dateRange = (f: HostelFilter) => (f.from && f.to ? { gte: f.from, lte: f.t
 /** Timestamps inside the chosen days, in the school's time zone. */
 const momentRange = (f: HostelFilter) => (f.from && f.to ? { gte: dayStartUtc(isoOf(f.from), f.tz), lt: dayStartUtc(isoOf(new Date(f.to.getTime() + 86_400_000)), f.tz) } : undefined);
 const hostelWhere = (f: HostelFilter) => (f.hostelIds ? { hostelId: { in: f.hostelIds } } : {});
+const studentWhere = (f: HostelFilter) => (f.students ? { studentId: { in: f.students } } : {});
 const monthOf = (d: Date, tz?: string) => (tz ? localOf(d, tz).slice(0, 7) : d.toISOString().slice(0, 7));
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const monthWords = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
@@ -67,7 +72,7 @@ export async function occupancyReport(tx: Tx, _ctx: SchoolContext, f: HostelFilt
 
 export async function absencesReport(tx: Tx, ctx: SchoolContext, f: HostelFilter): Promise<Table> {
   const marks = await tx.rollCallMark.findMany({
-    where: { mark: "ABSENT", rollCall: { date: dateRange(f), ...hostelWhere(f) } },
+    where: { mark: "ABSENT", ...studentWhere(f), rollCall: { date: dateRange(f), ...hostelWhere(f) } },
     include: { rollCall: { select: { date: true, session: true, hostelId: true, takenAt: true } } }, take: 5000,
   });
   marks.sort((a, b) => b.rollCall.date.getTime() - a.rollCall.date.getTime() || a.rollCall.session.localeCompare(b.rollCall.session));
@@ -88,7 +93,7 @@ export async function absencesReport(tx: Tx, ctx: SchoolContext, f: HostelFilter
 /* ---------- Roll call against school attendance ---------- */
 
 export async function attendanceReport(tx: Tx, ctx: SchoolContext, f: HostelFilter): Promise<Table> {
-  const calls = await tx.rollCall.findMany({ where: { session: "MORNING", date: dateRange(f), ...hostelWhere(f) }, include: { marks: { where: { mark: "PRESENT" }, select: { studentId: true } } }, orderBy: { date: "desc" }, take: 400 });
+  const calls = await tx.rollCall.findMany({ where: { session: "MORNING", date: dateRange(f), ...hostelWhere(f) }, include: { marks: { where: { mark: "PRESENT", ...studentWhere(f) }, select: { studentId: true } } }, orderBy: { date: "desc" }, take: 400 });
   const ids = [...new Set(calls.flatMap((c) => c.marks.map((m) => m.studentId)))];
   const [schoolMarks, statuses, names, info] = await Promise.all([
     ids.length ? tx.attendanceMark.findMany({ where: { studentId: { in: ids }, periodNo: 0, archivedAt: null, date: { in: [...new Set(calls.map((c) => c.date.getTime()))].map((t) => new Date(t)) } }, select: { studentId: true, date: true, statusKey: true } }) : [],
@@ -109,7 +114,7 @@ export async function attendanceReport(tx: Tx, ctx: SchoolContext, f: HostelFilt
       if (k === "absent") missing.push(info.get(m.studentId)?.name ?? "");
       else inClass++;
     }
-    return { date: c.date, hostel: names.get(c.hostelId) ?? "", rollcall: c.presentCount, inClass, absentInClass: missing.length, notMarked, who: missing.slice(0, 6).join(", ") + (missing.length > 6 ? ` and ${missing.length - 6} more` : "") };
+    return { date: c.date, hostel: names.get(c.hostelId) ?? "", rollcall: f.students ? c.marks.length : c.presentCount, inClass, absentInClass: missing.length, notMarked, who: missing.slice(0, 6).join(", ") + (missing.length > 6 ? ` and ${missing.length - 6} more` : "") };
   });
   return {
     columns: [{ key: "date", label: "Date", kind: "date" }, { key: "hostel", label: "Hostel" }, { key: "rollcall", label: "Present at morning roll call", kind: "number" }, { key: "inClass", label: "Present in class", kind: "number" }, { key: "absentInClass", label: "In the hostel, absent in class", kind: "number" }, { key: "notMarked", label: "Class register not taken", kind: "number" }, { key: "who", label: "Absent in class" }],
@@ -120,7 +125,7 @@ export async function attendanceReport(tx: Tx, ctx: SchoolContext, f: HostelFilt
 /* ---------- Outings ---------- */
 
 export async function outingsReport(tx: Tx, ctx: SchoolContext, f: HostelFilter): Promise<Table> {
-  const passes = await tx.gatePass.findMany({ where: { kind: "HOSTEL_OUTING", archivedAt: null, fromAt: momentRange(f), ...hostelWhere(f) }, orderBy: { fromAt: "desc" }, take: 5000 });
+  const passes = await tx.gatePass.findMany({ where: { kind: "HOSTEL_OUTING", archivedAt: null, fromAt: momentRange(f), ...hostelWhere(f), ...studentWhere(f) }, orderBy: { fromAt: "desc" }, take: 5000 });
   const [info, names] = await Promise.all([studentsInfo(tx, ctx, passes.map((p) => p.studentId)), hostelNames(tx)]);
   let late = 0;
   const rows: Row[] = passes.map((p) => {
@@ -142,7 +147,7 @@ export async function outingsReport(tx: Tx, ctx: SchoolContext, f: HostelFilter)
 }
 
 export async function outingsByMonthReport(tx: Tx, ctx: SchoolContext, f: HostelFilter): Promise<Table> {
-  const passes = await tx.gatePass.findMany({ where: { kind: "HOSTEL_OUTING", archivedAt: null, fromAt: momentRange(f), status: { in: ["OUT", "RETURNED"] }, ...hostelWhere(f) }, select: { studentId: true, fromAt: true, toAt: true, returnedAt: true, outingType: true, status: true } });
+  const passes = await tx.gatePass.findMany({ where: { kind: "HOSTEL_OUTING", archivedAt: null, fromAt: momentRange(f), status: { in: ["OUT", "RETURNED"] }, ...hostelWhere(f), ...studentWhere(f) }, select: { studentId: true, fromAt: true, toAt: true, returnedAt: true, outingType: true, status: true } });
   const info = await studentsInfo(tx, ctx, passes.map((p) => p.studentId));
   const key = (p: (typeof passes)[number]) => `${monthOf(p.fromAt!, f.tz)}|${p.studentId}`;
   const map = new Map<string, { month: string; studentId: string; outings: number; leaves: number; late: number }>();
@@ -167,7 +172,7 @@ export async function outingsByMonthReport(tx: Tx, ctx: SchoolContext, f: Hostel
 /* ---------- Incidents ---------- */
 
 export async function incidentsReport(tx: Tx, _ctx: SchoolContext, f: HostelFilter): Promise<Table> {
-  const rows0 = await tx.hostelIncident.findMany({ where: { archivedAt: null, at: momentRange(f), ...hostelWhere(f) }, select: { at: true, type: true } });
+  const rows0 = await tx.hostelIncident.findMany({ where: { archivedAt: null, at: momentRange(f), ...hostelWhere(f), ...incidentCampusWhere(f.students ?? null) }, select: { at: true, type: true } });
   const map = new Map<string, Record<IncidentType, number>>();
   for (const r of rows0) {
     const m = monthOf(r.at, f.tz);
@@ -187,7 +192,7 @@ export async function incidentsReport(tx: Tx, _ctx: SchoolContext, f: HostelFilt
 /* ---------- Visitors ---------- */
 
 export async function visitorsReport(tx: Tx, ctx: SchoolContext, f: HostelFilter): Promise<Table> {
-  const rows0 = await tx.visitorEntry.findMany({ where: { archivedAt: null, meetStudentId: { not: null }, visitDate: dateRange(f), ...hostelWhere(f) }, orderBy: { timeIn: "desc" }, take: 5000 });
+  const rows0 = await tx.visitorEntry.findMany({ where: { archivedAt: null, meetStudentId: f.students ? { in: f.students } : { not: null }, visitDate: dateRange(f), ...hostelWhere(f) }, orderBy: { timeIn: "desc" }, take: 5000 });
   const [info, names] = await Promise.all([studentsInfo(tx, ctx, rows0.map((r) => r.meetStudentId!)), hostelNames(tx)]);
   const rows: Row[] = rows0.map((v) => ({
     date: v.visitDate, visitor: v.name, relation: v.relation ?? "", phone: f.phones ? v.phone : maskPhone(v.phone), student: info.get(v.meetStudentId!)?.name ?? "", hostel: v.hostelId ? names.get(v.hostelId) ?? "" : "",

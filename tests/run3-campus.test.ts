@@ -699,3 +699,152 @@ describe("Event fee totals keep to the person's campus (run-3 follow-up)", () =>
     expect(await card(cur.northAdmin)).toBe(`Event fees due: ${formatRupees(BigInt(50000))} from 1 student`);
   }, 120_000);
 });
+
+// ---------- Run-3 leftovers, item 1: Hostel roll call, beds, reports and Dashboard ----------
+
+const fileOf = async (path: string, mod: () => Promise<{ GET: (req: Request) => Promise<Response> }>) => {
+  const res = await (await mod()).GET(new Request(`http://school.test${path}`));
+  expect(res.status).toBe(200);
+  return res.text();
+};
+
+describe("Hostel roll call, beds, reports and Dashboard keep to the person's campus (run-3 follow-up)", () => {
+  // Hostels and rooms are the whole school's, so one hostel holds boarders of
+  // both campuses. The warden here is kept to North: the Main boarder is not on
+  // their roll call sheet, their saving never marks him, and no bed, residents
+  // list, report or Dashboard card names him. Rooms and beds still show.
+  const B = { main: "Mahesh Sleeper", north: "Nithin Sleeper" };
+  let warden: Current;
+  let hostelId = "";
+  let mainId = "";
+  let northId = "";
+  let mainBed = "";
+  let mainAlloc = "";
+  let northAlloc = "";
+  const hostelAct = async (name: string, fields: Record<string, string | string[]>) => {
+    who.current = warden;
+    const actions = (await import("@/app/(school)/hostel-management/actions")) as unknown as Record<string, (s: unknown, fd: FormData) => Promise<{ ok: boolean; message?: string }>>;
+    return actions[name](null, form(fields));
+  };
+  beforeAll(async () => {
+    const sid = school.id;
+    await switchOn("hostel-management", "hostel-warden");
+    const user = (await makeUser({ schools: [{ id: sid, roleKeys: ["hostel-warden"] }], name: "North Hill Warden" })).id;
+    mainId = (await addStudent(ctx, main.sectionId, { fullName: B.main, gender: "Male", applyFeePlan: false })).student.id;
+    northId = (await addStudent(ctx, north.sectionId, { fullName: B.north, gender: "Male", applyFeePlan: false })).student.id;
+    const { addHostel, setWardens } = await import("@/lib/hostel/settings");
+    const { addRoom } = await import("@/lib/hostel/rooms");
+    const { allocate } = await import("@/lib/hostel/allocation");
+    const { recordVisitor } = await import("@/lib/hostel/visitors");
+    const { saveRollCall } = await import("@/lib/hostel/rollcall");
+    ({ hostelId, mainBed, mainAlloc, northAlloc } = await run(async (tx) => {
+      await tx.schoolAccess.updateMany({ where: { schoolId: sid, userLoginId: user }, data: { scope: "CAMPUS", campusId: north.campusId } });
+      const staff = await tx.staff.create({ data: { schoolId: sid, campusId: north.campusId, staffCode: "N-W3", firstName: "Nalini", lastName: "Warden", fullName: "Nalini Warden", phone: "9876500305", designation: "Hostel Warden", joiningDate: day("2020-06-01"), userLoginId: user } });
+      const h = await addHostel(tx, ctx, { name: "Hill Top Hostel", gender: "BOYS", floors: ["Ground"], note: null });
+      await addRoom(tx, ctx, { hostelId: h.id, floor: "Ground", roomNo: "T-1", beds: 2, roomType: "Non-AC" });
+      await setWardens(tx, ctx, h.id, [{ staffId: staff.id, title: "Warden" }], day(todayIst()));
+      const beds = await tx.hostelBed.findMany({ where: { room: { hostelId: h.id } }, orderBy: { bedNo: "asc" } });
+      // Checked in two days ago, so both are on today's roll calls whatever the time.
+      const open = { now: new Date(Date.now() - 2 * DAY), today: day(todayIst()), assertHostel: () => {} };
+      const m = await allocate(tx, ctx, { studentId: mainId, bedId: beds[0].id, startDate: day(todayIst()), checkedIn: true, feePlanId: "none", note: null }, open);
+      const nn = await allocate(tx, ctx, { studentId: northId, bedId: beds[1].id, startDate: day(todayIst()), checkedIn: true, feePlanId: "none", note: null }, open);
+      const now = new Date();
+      for (const [studentId, passNo, collectorName] of [[mainId, "GP-LO-0001", "Mohan Uncle"], [northId, "GP-LO-0002", "Nanda Uncle"]]) {
+        await tx.gatePass.create({ data: { schoolId: sid, passNo, kind: "HOSTEL_OUTING", studentId, reason: "Family function", timeOut: now, collectorName, collectorRelation: "Uncle", collectorPhone: "9876500415", status: "APPROVED", outingType: "OUTING", fromAt: now, toAt: new Date(now.getTime() + 4 * 3_600_000), hostelId: h.id } });
+      }
+      await recordVisitor(tx, ctx, { studentId: mainId, guardianId: null, name: "Madan Visitor", relation: "Uncle", phone: "9876500416", wardenApproved: true, note: null }, { now, tz: TZ, assertHostel: () => {} });
+      await recordVisitor(tx, ctx, { studentId: northId, guardianId: null, name: "Narayan Visitor", relation: "Uncle", phone: "9876500417", wardenApproved: true, note: null }, { now, tz: TZ, assertHostel: () => {} });
+      // Someone who works for the whole school marks the Main boarder absent at morning roll call.
+      await saveRollCall(tx, ctx, { hostelId: h.id, date: day(todayIst()), session: "MORNING", absentIds: [mainId] }, { now, tz: TZ, today: day(todayIst()) });
+      return { hostelId: h.id, mainBed: beds[0].id, mainAlloc: m.allocation.id, northAlloc: nn.allocation.id };
+    }));
+    warden = await currentFor(user);
+  }, 240_000);
+
+  it("the roll call sheet lists the warden's own campus's boarders only, and saving marks only them", async () => {
+    who.current = warden;
+    const { default: RollCall } = await import("@/app/(school)/hostel-management/page");
+    const sheet = await pageText(RollCall, { session: "morning" });
+    expect(sheet).toContain(B.north);
+    expect(sheet).not.toContain(B.main);
+    const save = (absent: string) => hostelAct("saveRollCallAction", { hostelId, date: todayIst(), session: "MORNING", absent });
+    const r = await save(mainId);
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/not found, or is on another campus/);
+    const ok = await save(northId);
+    expect(ok.message).toContain("0 present, 1 absent");
+    const marks = await run(async (tx) => {
+      const rc = await tx.rollCall.findFirstOrThrow({ where: { hostelId, date: day(todayIst()), session: "MORNING" } });
+      return tx.rollCallMark.findMany({ where: { rollCallId: rc.id } });
+    });
+    // The other campus's boarder keeps the mark the whole-school person gave him.
+    expect(marks.find((m) => m.studentId === mainId)?.mark).toBe("ABSENT");
+    expect(marks.find((m) => m.studentId === northId)?.mark).toBe("ABSENT");
+  }, 120_000);
+
+  it("the roll call history file names the warden's own campus's absent boarders only", async () => {
+    who.current = warden;
+    const file = await fileOf(`/hostel-management/rollcall/export?format=csv&hostel=${hostelId}`, () => import("@/app/(school)/hostel-management/rollcall/export/route"));
+    expect(file).toContain(B.north);
+    expect(file).not.toContain(B.main);
+  }, 120_000);
+
+  it("Rooms & Beds shows every room but names the warden's own campus's boarders only", async () => {
+    who.current = warden;
+    const { default: Rooms } = await import("@/app/(school)/hostel-management/rooms/page");
+    const grid = textOf(await Rooms({ searchParams: Promise.resolve({}) } as never));
+    expect(grid).toContain("T-1");
+    expect(grid).toContain(B.north);
+    expect(grid).not.toContain(B.main);
+    const opened = textOf(await Rooms({ searchParams: Promise.resolve({ bed: mainBed }) } as never));
+    expect(opened).not.toContain(B.main);
+    expect(opened).not.toContain("This bed is free.");
+    const file = await fileOf(`/hostel-management/rooms/export?format=csv&hostel=${hostelId}`, () => import("@/app/(school)/hostel-management/rooms/export/route"));
+    expect(file).toContain(B.north);
+    expect(file).not.toContain(B.main);
+  }, 120_000);
+
+  it("Allocation, its file and the allocation letter hold the warden's own campus's boarders only", async () => {
+    who.current = warden;
+    const { default: Allocation } = await import("@/app/(school)/hostel-management/allocation/page");
+    const list = textOf(await Allocation({ searchParams: Promise.resolve({}) } as never));
+    expect(list).toContain(B.north);
+    expect(list).not.toContain(B.main);
+    const file = await fileOf("/hostel-management/allocation/export?format=csv", () => import("@/app/(school)/hostel-management/allocation/export/route"));
+    expect(file).toContain(B.north);
+    expect(file).not.toContain(B.main);
+    const { GET } = await import("@/app/(school)/hostel-management/allocation/letter/[id]/route");
+    const letter = (id: string) => GET(new Request("http://school.test/letter"), { params: Promise.resolve({ id }) });
+    expect((await letter(mainAlloc)).status).toBe(404);
+    expect((await letter(northAlloc)).status).toBe(200);
+  }, 120_000);
+
+  it("Hostel Reports and their files name the person's own campus's students only", async () => {
+    // Read again: North Admin's modules were read before Hostel Management was switched on.
+    who.current = await currentFor(users.northAdmin);
+    const { default: Reports } = await import("@/app/(school)/hostel-management/reports/page");
+    const report = async (r: string) => textOf(await Reports({ searchParams: Promise.resolve({ r }) } as never));
+    const absences = await report("hostel-absences");
+    expect(absences).toContain(B.north);
+    expect(absences).not.toContain(B.main);
+    const outings = await report("hostel-outings");
+    expect(outings).toContain("Nanda Uncle");
+    expect(outings).not.toContain("Mohan Uncle");
+    const visitors = await report("hostel-visitors");
+    expect(visitors).toContain("Narayan Visitor");
+    expect(visitors).not.toContain("Madan Visitor");
+    const file = await fileOf("/hostel-management/reports/export?format=csv&r=hostel-visitors", () => import("@/app/(school)/hostel-management/reports/export/route"));
+    expect(file).toContain("Narayan Visitor");
+    expect(file).not.toContain("Madan Visitor");
+  }, 240_000);
+
+  it("the hostel Dashboard cards count and name the warden's own campus's boarders only", async () => {
+    const { loadWidgetsIn } = await import("@/lib/dashboard/compose");
+    const panel = textOf(await run((tx) => loadWidgetsIn(tx, warden, "panel", ["hostel.out-now"])));
+    expect(panel).toContain(B.north);
+    expect(panel).not.toContain(B.main);
+    const [band] = await run((tx) => loadWidgetsIn(tx, warden, "band", ["hostel.residents"]));
+    expect(band?.of).toBe("/ 1");
+  }, 120_000);
+});
+

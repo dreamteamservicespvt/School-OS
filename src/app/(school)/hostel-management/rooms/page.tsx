@@ -22,6 +22,7 @@ import { Band, Banner, DL, Empty, Legend, Stack, Toolbar } from "@/components/mo
 import { cx } from "@/components/ui/cx";
 import { roomGrid, occupancy } from "@/lib/hostel/rooms";
 import { studentsInfo, residentStatus, hostelFeesDue } from "@/lib/hostel/allocation";
+import { campusStudentIds } from "@/lib/campus";
 import { wardensByHostel, currentFeePlans, planTotal } from "@/lib/hostel/settings";
 import { clockAt } from "@/lib/front-office/time";
 import { BASE, RESIDENT_STATUS, bedWords, plural } from "@/lib/hostel/words";
@@ -53,7 +54,10 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
     const occ = await occupancy(tx);
     const wardens = await wardensByHostel(tx);
     const grid = hostel ? await roomGrid(tx, [hostel.id]) : [];
-    const taken = grid.flatMap((r) => r.beds.filter((b) => b.studentId).map((b) => b.studentId!));
+    // One campus: every room and bed shows, but only that campus's students are named in them.
+    const ours = await campusStudentIds(tx, current);
+    const keep = ours ? new Set(ours) : null;
+    const taken = grid.flatMap((r) => r.beds.filter((b) => b.studentId).map((b) => b.studentId!)).filter((id) => !keep || keep.has(id));
     const [info, passes] = await Promise.all([
       studentsInfo(tx, ctx, taken),
       taken.length ? tx.gatePass.findMany({ where: { kind: "HOSTEL_OUTING", status: "OUT", archivedAt: null, studentId: { in: taken } } }) : [],
@@ -64,7 +68,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
     if (bedId) {
       const room = grid.find((r) => r.beds.some((b) => b.id === bedId));
       const bed = room?.beds.find((b) => b.id === bedId);
-      if (room && bed) {
+      if (room && bed && (!bed.studentId || !keep || keep.has(bed.studentId))) {
         const alloc = bed.allocationId ? await tx.bedAllocation.findFirst({ where: { id: bed.allocationId } }) : null;
         const due = alloc && v.seesFees ? await hostelFeesDue(tx, alloc.studentId, p.today) : BigInt(0);
         const planRow = alloc?.feePlanId ? await tx.hostelFeePlan.findFirst({ where: { id: alloc.feePlanId }, include: { installments: { where: { archivedAt: null } } } }) : null;
@@ -165,6 +169,15 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
                                     {rm.beds.map((b) => {
                                       const s = b.studentId ? d.info.get(b.studentId) : null;
                                       const aw = b.studentId ? away.get(b.studentId) : undefined;
+                                      // Another campus's student's bed: taken, without the name, and not opened here.
+                                      if (b.studentId && !s) {
+                                        return (
+                                          <div key={b.id} aria-label={`Room ${rm.roomNo}, Bed ${b.bedNo}: taken`} className="rounded-xl px-2.5 py-2 text-left min-w-0 border bg-sunken/60 border-line block">
+                                            <span className="block text-[11px] font-semibold text-ink3"><Words k="Bed" /> {b.bedNo}</span>
+                                            <span className="block text-[13px] font-semibold truncate text-ink2"><Words k="Taken" /></span>
+                                          </div>
+                                        );
+                                      }
                                       return (
                                         <Link key={b.id} href={here({ bed: b.id })} scroll={false} aria-label={`Room ${rm.roomNo}, Bed ${b.bedNo}: ${s ? s.name : b.state === "blocked" ? "blocked" : "free"}`}
                                           className={cx("rounded-xl px-2.5 py-2 text-left min-w-0 border transition block",

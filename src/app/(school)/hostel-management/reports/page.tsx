@@ -18,6 +18,8 @@ import { Empty, HBars, SimpleTable, Stack, Stats } from "@/components/money/kit"
 import { cx } from "@/components/ui/cx";
 import { occupancy } from "@/lib/hostel/rooms";
 import { HOSTEL_REPORT_LIST } from "@/lib/hostel/reports";
+import { campusStudentIds } from "@/lib/campus";
+import { incidentCampusWhere } from "@/lib/hostel/scope";
 import { isoOf } from "@/lib/hostel/words";
 import { HostelHead } from "../_components/head";
 import { BASE, hostelGuard, hostelPeriod, one, qs, type SearchParams } from "../_lib/page";
@@ -43,15 +45,20 @@ export default async function HostelReportsPage({ searchParams }: { searchParams
   const d = await withSchool(ctx, async (tx) => {
     const day = per.range ? { date: dateWhere(per.range) } : {};
     const moment = per.range ? momentWhere(per.range, tz) : undefined;
+    // One campus: the numbers and reports are of that campus's students (rooms and beds stay the whole school's).
+    const students = await campusStudentIds(tx, current);
+    const ofStudents = students ? { studentId: { in: students } } : {};
     const [occ, rolls, outings, late, incidents] = await Promise.all([
       occupancy(tx, hostelIds ?? undefined),
-      tx.rollCall.findMany({ where: { ...scope, ...day }, select: { date: true, session: true, absentCount: true } }),
-      tx.gatePass.count({ where: { kind: "HOSTEL_OUTING", archivedAt: null, status: { in: ["OUT", "RETURNED"] }, ...scope, ...(moment ? { fromAt: moment } : {}) } }),
-      tx.gatePass.findMany({ where: { kind: "HOSTEL_OUTING", archivedAt: null, status: { in: ["OUT", "RETURNED"] }, ...scope, ...(moment ? { fromAt: moment } : {}) }, select: { toAt: true, returnedAt: true, status: true } }),
-      tx.hostelIncident.count({ where: { archivedAt: null, ...scope, ...(moment ? { at: moment } : {}) } }),
+      students
+        ? tx.rollCallMark.findMany({ where: { mark: "ABSENT", ...ofStudents, rollCall: { ...scope, ...day } }, select: { rollCall: { select: { date: true } } } }).then((ms) => ms.map((m) => ({ date: m.rollCall.date, absentCount: 1 })))
+        : tx.rollCall.findMany({ where: { ...scope, ...day }, select: { date: true, absentCount: true } }),
+      tx.gatePass.count({ where: { kind: "HOSTEL_OUTING", archivedAt: null, status: { in: ["OUT", "RETURNED"] }, ...scope, ...ofStudents, ...(moment ? { fromAt: moment } : {}) } }),
+      tx.gatePass.findMany({ where: { kind: "HOSTEL_OUTING", archivedAt: null, status: { in: ["OUT", "RETURNED"] }, ...scope, ...ofStudents, ...(moment ? { fromAt: moment } : {}) }, select: { toAt: true, returnedAt: true, status: true } }),
+      tx.hostelIncident.count({ where: { archivedAt: null, ...scope, ...incidentCampusWhere(students), ...(moment ? { at: moment } : {}) } }),
     ]);
     const lateCount = late.filter((x) => x.toAt && (x.returnedAt ?? (x.status === "OUT" ? p.now : null)) && ((x.returnedAt ?? p.now).getTime() > x.toAt.getTime())).length;
-    const table = report ? await report.run(tx, ctx, { from: per.range ? new Date(`${per.range.from}T00:00:00Z`) : null, to: per.range ? new Date(`${per.range.to}T00:00:00Z`) : null, today: p.today, hostelIds, tz, now: p.now, phones: can.outings }) : null;
+    const table = report ? await report.run(tx, ctx, { from: per.range ? new Date(`${per.range.from}T00:00:00Z`) : null, to: per.range ? new Date(`${per.range.to}T00:00:00Z`) : null, today: p.today, hostelIds, tz, now: p.now, phones: can.outings, students }) : null;
     return { occ, rolls, outings, lateCount, incidents, table };
   }, { timeout: 60_000 });
 

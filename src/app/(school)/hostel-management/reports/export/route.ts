@@ -6,6 +6,7 @@ import { exportResponse, logExport } from "@/lib/exports";
 import { reportFile } from "@/lib/reports/run";
 import { HOSTEL_REPORTS } from "@/lib/reports/catalogue/hostel";
 import { HOSTEL_REPORT_LIST } from "@/lib/hostel/reports";
+import { campusStudentIds } from "@/lib/campus";
 import { hostelRoute, plain, rangeWords } from "../../_lib/route";
 
 export const dynamic = "force-dynamic";
@@ -18,7 +19,7 @@ export async function GET(req: Request) {
   const entry = HOSTEL_REPORTS.find((e) => e.key === report.key)!;
   const range = await x.range("thismonth");
   const out = await withSchool(x.current.ctx, async (tx) => {
-    const t = await report.run(tx, x.current.ctx, { from: range ? new Date(`${range.from}T00:00:00Z`) : null, to: range ? new Date(`${range.to}T00:00:00Z`) : null, today: x.today, hostelIds: x.mine, tz: x.tz, now: x.now, phones: x.can.outings });
+    const t = await report.run(tx, x.current.ctx, { from: range ? new Date(`${range.from}T00:00:00Z`) : null, to: range ? new Date(`${range.to}T00:00:00Z`) : null, today: x.today, hostelIds: x.mine, tz: x.tz, now: x.now, phones: x.can.outings, students: await campusStudentIds(tx, x.current) });
     const names = x.mine === null ? "" : (await tx.hostel.findMany({ where: { id: { in: x.mine } }, select: { name: true } })).map((h) => h.name).join(", ");
     const filters = [report.dated ? rangeWords(range) : "As on today", names ? `Hostel: ${names}` : ""].filter(Boolean).join(" · ");
     await logExport(tx, x.current.ctx, { title: report.name, format: x.format, filters, rows: t.rows.length });

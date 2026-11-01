@@ -1,12 +1,14 @@
 // The roll call history of one hostel for the dates on screen: each morning
 // and night roll call with present, absent (named) and away. A warden
-// exports their own hostel only.
+// exports their own hostel only; a person kept to one campus sees only that
+// campus's absent students named.
 import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportColumn } from "@/lib/exports";
 import { formatDate } from "@/lib/format";
 import { clockAt } from "@/lib/front-office/time";
 import { studentsInfo } from "@/lib/hostel/allocation";
-import { inScope } from "@/lib/hostel/scope";
+import { inScope, shownStudents } from "@/lib/hostel/scope";
+import { campusStudentIds } from "@/lib/campus";
 import { UUID_RE } from "@/lib/hostel/act";
 import { SESSION, type RollSession } from "@/lib/hostel/words";
 import { hostelRoute, plain, rangeWords } from "../../_lib/route";
@@ -26,7 +28,8 @@ export async function GET(req: Request) {
     if (!hostel) return null;
     const calls = await tx.rollCall.findMany({ where: { hostelId, ...(range ? { date: { gte: new Date(`${range.from}T00:00:00Z`), lte: new Date(`${range.to}T00:00:00Z`) } } : {}) }, orderBy: [{ date: "desc" }, { session: "desc" }], include: { marks: { where: { mark: "ABSENT" }, select: { studentId: true } } } });
     const [info, people] = await Promise.all([
-      studentsInfo(tx, x.current.ctx, calls.flatMap((c) => c.marks.map((m) => m.studentId))),
+      // One campus: only that campus's absent students are named.
+      studentsInfo(tx, x.current.ctx, shownStudents(calls.flatMap((c) => c.marks.map((m) => m.studentId)), await campusStudentIds(tx, x.current))),
       tx.userLogin.findMany({ where: { id: { in: calls.map((c) => c.takenById).filter((v): v is string => Boolean(v)) } }, select: { id: true, displayName: true } }),
     ]);
     const rows: Row[] = calls.map((c) => ({ date: c.date, session: SESSION[c.session as RollSession], present: c.presentCount, absent: c.absentCount, away: c.awayCount, names: c.marks.map((m) => info.get(m.studentId)?.name ?? "").filter(Boolean).join(", "), by: people.find((u) => u.id === c.takenById)?.displayName ?? "", at: c.takenAt }));

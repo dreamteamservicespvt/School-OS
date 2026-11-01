@@ -50,6 +50,23 @@ export function assertCampus(limit: CampusLimit | null | undefined, campusId: st
   if (!campusAllows(limit, campusId)) throw new OtherCampusError(what);
 }
 
+/**
+ * The ids of the person's campus's students, for records that hold a student
+ * id with no link to the student (hostel incidents, passes and visits, bus
+ * places); null for the whole school.
+ */
+export async function campusStudentIds(tx: Tx, limit: CampusLimit | null | undefined): Promise<string[] | null> {
+  if (!limit?.campusId) return null;
+  return (await tx.student.findMany({ where: { campusId: limit.campusId }, select: { id: true } })).map((s) => s.id);
+}
+
+/** Is any of these students on another campus than the person's? Never for the whole school. */
+export async function anyOtherCampus(tx: Tx, limit: CampusLimit | null | undefined, studentIds: (string | null | undefined)[]): Promise<boolean> {
+  const ids = [...new Set(studentIds.filter((x): x is string => Boolean(x)))];
+  if (!limit?.campusId || !ids.length) return false;
+  return (await tx.student.count({ where: { id: { in: ids }, campusId: { not: limit.campusId } } })) > 0;
+}
+
 /** The campus of each student (for import undo). */
 export async function studentCampuses(tx: Tx, ids: string[]): Promise<string[]> {
   return (await tx.student.findMany({ where: { id: { in: ids } }, select: { campusId: true } })).map((s) => s.campusId);

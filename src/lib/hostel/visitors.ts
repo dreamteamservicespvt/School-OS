@@ -8,11 +8,13 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
+import { anyOtherCampus, type CampusLimit } from "../campus";
 import { checkIndianMobile } from "../format";
 import { formatNumber, nextNumber } from "../sequences";
 import { clockAt, instantOf, localOf, minuteNow } from "../front-office/time";
 import { activeBedOf, studentsInfo } from "./allocation";
 import { HostelProblem } from "./problem";
+import { assertResidentsCampus } from "./scope";
 import { hostelSettings } from "./settings";
 import { WEEKDAYS, minuteWords } from "./words";
 
@@ -41,8 +43,10 @@ export function visitingWords(s: { visitingDays: number[]; visitingFromMinute: n
   return `${days}, ${minuteWords(s.visitingFromMinute)} to ${minuteWords(s.visitingToMinute)}`;
 }
 
-export async function recordVisitor(tx: Tx, ctx: SchoolContext, input: VisitorInput, opts: { now: Date; tz: string; assertHostel: (hostelId: string | null) => void }) {
+export async function recordVisitor(tx: Tx, ctx: SchoolContext, input: VisitorInput, opts: { now: Date; tz: string; assertHostel: (hostelId: string | null) => void; limit?: CampusLimit | null }) {
   if (!input.studentId) throw new HostelProblem("Choose the student the visitor has come to meet.", "studentId");
+  // A person kept to one campus signs in visitors of that campus's students only.
+  await assertResidentsCampus(tx, opts.limit, { studentIds: [input.studentId] });
   const bed = await activeBedOf(tx, input.studentId);
   if (!bed) throw new HostelProblem("Choose a student who lives in the hostel.", "studentId");
   opts.assertHostel(bed.hostel.id);
@@ -96,9 +100,9 @@ export async function recordVisitor(tx: Tx, ctx: SchoolContext, input: VisitorIn
   return { visitor: v, student, onList, inHours };
 }
 
-export async function visitorOut(tx: Tx, ctx: SchoolContext, visitorId: string, opts: { now: Date; tz: string; assertHostel: (hostelId: string | null) => void }) {
+export async function visitorOut(tx: Tx, ctx: SchoolContext, visitorId: string, opts: { now: Date; tz: string; assertHostel: (hostelId: string | null) => void; limit?: CampusLimit | null }) {
   const v = await tx.visitorEntry.findFirst({ where: { id: visitorId, archivedAt: null, meetStudentId: { not: null } } });
-  if (!v) throw new HostelProblem("This visit was not found.");
+  if (!v || (await anyOtherCampus(tx, opts.limit, [v.meetStudentId]))) throw new HostelProblem("This visit was not found.");
   opts.assertHostel(v.hostelId);
   if (v.timeOut) throw new HostelProblem(`${v.name} already left at ${clockAt(v.timeOut, opts.tz)}.`);
   await tx.visitorEntry.update({ where: { id: v.id }, data: { timeOut: opts.now, checkedOutById: ctx.userId } });

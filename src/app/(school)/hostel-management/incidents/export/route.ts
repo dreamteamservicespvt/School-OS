@@ -7,6 +7,8 @@ import { formatDate } from "@/lib/format";
 import { momentWhere } from "@/lib/periods";
 import { clockAt } from "@/lib/front-office/time";
 import { studentsInfo } from "@/lib/hostel/allocation";
+import { campusStudentIds } from "@/lib/campus";
+import { incidentCampusWhere, shownStudents } from "@/lib/hostel/scope";
 import { INCIDENT_TYPE, type IncidentType } from "@/lib/hostel/words";
 import { MAINT_STATUS } from "@/lib/inventory/words";
 import { hostelRoute, rangeWords } from "../../_lib/route";
@@ -24,13 +26,14 @@ export async function GET(req: Request) {
   const range = await x.range("thismonth");
   const r = await withSchool(x.current.ctx, async (tx) => {
     const nameIds = q ? await studentIdsForFilter(tx, q) : [];
+    const ours = await campusStudentIds(tx, x.current);
     const where: Prisma.HostelIncidentWhereInput = {
-      archivedAt: null, ...(x.mine === null ? {} : { hostelId: { in: x.mine } }), ...(range ? { at: momentWhere(range, x.tz) } : {}), ...(type ? { type } : {}),
+      archivedAt: null, ...(x.mine === null ? {} : { hostelId: { in: x.mine } }), ...incidentCampusWhere(ours), ...(range ? { at: momentWhere(range, x.tz) } : {}), ...(type ? { type } : {}),
       ...(q ? { OR: [{ incidentNo: { contains: q, mode: "insensitive" } }, { description: { contains: q, mode: "insensitive" } }, { place: { contains: q, mode: "insensitive" } }, ...(nameIds.length ? [{ studentIds: { hasSome: nameIds } }] : [])] } : {}),
     };
     const list = await tx.hostelIncident.findMany({ where, orderBy: [{ at: "desc" }, { id: "asc" }], take: 5000 });
     const [info, people, hostels] = await Promise.all([
-      studentsInfo(tx, x.current.ctx, list.flatMap((i) => i.studentIds)),
+      studentsInfo(tx, x.current.ctx, shownStudents(list.flatMap((i) => i.studentIds), ours)),
       tx.userLogin.findMany({ where: { id: { in: list.map((i) => i.recordedById).filter((v): v is string => Boolean(v)) } }, select: { id: true, displayName: true } }),
       tx.hostel.findMany({ select: { id: true, name: true } }),
     ]);

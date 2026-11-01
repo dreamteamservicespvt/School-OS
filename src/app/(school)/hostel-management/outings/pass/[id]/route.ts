@@ -4,6 +4,7 @@
 // who handle outings, and only in their own hostel.
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
+import { anyOtherCampus } from "@/lib/campus";
 import { logExport } from "@/lib/exports";
 import { formatDate } from "@/lib/format";
 import { appOrigin } from "@/lib/origin";
@@ -41,7 +42,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   return withSchool(current.ctx, async (tx) => {
     const mine = await myHostelIds(tx, current.ctx, v);
     const g = await tx.gatePass.findFirst({ where: outingWhere({ id }) });
-    if (!g || !inScope(mine, g.hostelId)) return plain("This pass was not found.", 404);
+    if (!g || !inScope(mine, g.hostelId) || (await anyOtherCampus(tx, current, [g.studentId]))) return plain("This pass was not found.", 404);
     if (g.status !== "APPROVED" && g.status !== "OUT") return plain(`Pass ${g.passNo} is not approved for going out, so it cannot be printed.`, 409);
     const [student, approver, bed] = await Promise.all([
       tx.student.findFirst({ where: { id: g.studentId }, select: { fullName: true, admissionNo: true } }),

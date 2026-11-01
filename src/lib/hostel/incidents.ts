@@ -7,12 +7,14 @@ import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
+import type { CampusLimit } from "../campus";
 import { formatNumber, nextNumber } from "../sequences";
 import { localOf } from "../front-office/time";
 import { reportIncident } from "../students/behaviour";
 import { activeBedOf, studentsInfo } from "./allocation";
 import { messageParents } from "./messages";
 import { HostelProblem } from "./problem";
+import { assertResidentsCampus } from "./scope";
 import { hostelSettings } from "./settings";
 import { INCIDENT_TYPE, type IncidentType } from "./words";
 
@@ -36,7 +38,7 @@ function behaviourDay(at: Date, tz: string, now: Date) {
   return local.getTime() > utcToday.getTime() ? utcToday : local;
 }
 
-export async function recordIncident(tx: Tx, ctx: SchoolContext, input: IncidentInput, opts: { now: Date; tz: string; assertHostel: (hostelId: string | null) => void; mayAddBehaviour: boolean }) {
+export async function recordIncident(tx: Tx, ctx: SchoolContext, input: IncidentInput, opts: { now: Date; tz: string; assertHostel: (hostelId: string | null) => void; mayAddBehaviour: boolean; limit?: CampusLimit | null }) {
   const description = input.description.trim();
   if (description.length < 3) throw new HostelProblem("Write what happened, in a few words.", "description");
   if (description.length > 2000) throw new HostelProblem("What happened can be at most 2,000 characters.", "description");
@@ -46,6 +48,8 @@ export async function recordIncident(tx: Tx, ctx: SchoolContext, input: Incident
   if (input.type === "MAINTENANCE" && !input.place?.trim() && !ids.length) throw new HostelProblem("Say where: the room or place, such as Room B-12, ceiling fan.", "place");
   if (input.type !== "MAINTENANCE" && !ids.length) throw new HostelProblem("Choose the student or students.", "studentIds");
   if (ids.length > 20) throw new HostelProblem("At most 20 students on one incident.", "studentIds");
+  // A person kept to one campus records incidents of that campus's students only.
+  await assertResidentsCampus(tx, opts.limit, { studentIds: ids }, "studentIds");
 
   let hostelId = input.hostelId;
   for (const id of ids) {

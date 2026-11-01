@@ -12,6 +12,7 @@ import "server-only";
 import type { GatePass, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
+import { anyOtherCampus, type CampusLimit } from "../campus";
 import { checkIndianMobile, formatDate } from "../format";
 import { formatNumber, nextNumber } from "../sequences";
 import { requestApproval, type Decision } from "../approvals";
@@ -19,6 +20,7 @@ import { clockAt, localOf } from "../front-office/time";
 import { activeBedOf, studentsInfo } from "./allocation";
 import { alertStaff, messageParents } from "./messages";
 import { HostelProblem } from "./problem";
+import { assertResidentsCampus } from "./scope";
 import { hostelSettings, wardenLogins } from "./settings";
 import { BASE, OUTING_TYPE, lateWords, type OutingType, type PassStatus } from "./words";
 
@@ -47,7 +49,9 @@ export type PassInput = {
   reason: string;
 };
 
-export async function requestPass(tx: Tx, ctx: SchoolContext, input: PassInput, opts: { now: Date; tz: string; assertHostel: (hostelId: string | null) => void }) {
+export async function requestPass(tx: Tx, ctx: SchoolContext, input: PassInput, opts: { now: Date; tz: string; assertHostel: (hostelId: string | null) => void; limit?: CampusLimit | null }) {
+  // A person kept to one campus makes passes for that campus's students only.
+  await assertResidentsCampus(tx, opts.limit, { studentIds: [input.studentId] });
   const bed = await activeBedOf(tx, input.studentId);
   if (!bed) throw new HostelProblem("Choose a student who lives in the hostel.", "studentId");
   opts.assertHostel(bed.hostel.id);
@@ -123,15 +127,16 @@ export function passWhen(p: Pick<GatePass, "fromAt" | "toAt">, tz: string) {
   return d1 === d2 ? `${day(d1)}, ${clockAt(p.fromAt, tz)} to ${clockAt(p.toAt, tz)}` : `${day(d1)} ${clockAt(p.fromAt, tz)} to ${day(d2)} ${clockAt(p.toAt, tz)}`;
 }
 
-async function passFor(tx: Tx, passId: string) {
+/** The pass; another campus's student's pass is not found for a person kept to one campus (`limit`). */
+async function passFor(tx: Tx, passId: string, limit?: CampusLimit | null) {
   const p = await tx.gatePass.findFirst({ where: { id: passId, kind: "HOSTEL_OUTING", archivedAt: null } });
-  if (!p) throw new HostelProblem("This pass was not found.");
+  if (!p || (await anyOtherCampus(tx, limit, [p.studentId]))) throw new HostelProblem("This pass was not found.");
   return p;
 }
 
 /** Marks a student out on an approved pass (never before approval). */
-export async function markOut(tx: Tx, ctx: SchoolContext, passId: string, opts: { now: Date; tz: string; assertHostel: (hostelId: string | null) => void }) {
-  const p = await passFor(tx, passId);
+export async function markOut(tx: Tx, ctx: SchoolContext, passId: string, opts: { now: Date; tz: string; assertHostel: (hostelId: string | null) => void; limit?: CampusLimit | null }) {
+  const p = await passFor(tx, passId, opts.limit);
   opts.assertHostel(p.hostelId);
   if (p.status === "WAITING") throw new HostelProblem("Outing waiting for approval");
   if (p.status === "REJECTED" || p.status === "CANCELLED") throw new HostelProblem(`Pass ${p.passNo} was ${p.status === "REJECTED" ? "not approved" : "cancelled"}. Make a new pass if needed.`);
@@ -151,8 +156,8 @@ export async function markOut(tx: Tx, ctx: SchoolContext, passId: string, opts: 
 }
 
 /** Marks a student back. A late return is noted (the alert has gone already). */
-export async function markReturned(tx: Tx, ctx: SchoolContext, passId: string, opts: { now: Date; tz: string; assertHostel: (hostelId: string | null) => void }) {
-  const p = await passFor(tx, passId);
+export async function markReturned(tx: Tx, ctx: SchoolContext, passId: string, opts: { now: Date; tz: string; assertHostel: (hostelId: string | null) => void; limit?: CampusLimit | null }) {
+  const p = await passFor(tx, passId, opts.limit);
   opts.assertHostel(p.hostelId);
   if (p.status !== "OUT") throw new HostelProblem(p.status === "RETURNED" ? "Already marked returned." : "The student was not marked out on this pass.");
   const student = (await studentsInfo(tx, ctx, [p.studentId])).get(p.studentId)!;
@@ -166,8 +171,8 @@ export async function markReturned(tx: Tx, ctx: SchoolContext, passId: string, o
 }
 
 /** Cancels an approved pass that was not used (the student did not go). */
-export async function cancelPass(tx: Tx, ctx: SchoolContext, passId: string, reason: string, assertHostelOf: (hostelId: string | null) => void) {
-  const p = await passFor(tx, passId);
+export async function cancelPass(tx: Tx, ctx: SchoolContext, passId: string, reason: string, assertHostelOf: (hostelId: string | null) => void, limit?: CampusLimit | null) {
+  const p = await passFor(tx, passId, limit);
   assertHostelOf(p.hostelId);
   if (reason.trim().length < 3) throw new HostelProblem("Say why the pass is cancelled.", "reason");
   if (p.status !== "APPROVED") throw new HostelProblem(p.status === "WAITING" ? "This pass is still waiting for approval. The approver can reject it, or the person who asked can withdraw it in Approvals." : "Only an approved pass not used yet can be cancelled.");

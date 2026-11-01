@@ -4,7 +4,9 @@
 // only"). Everyone else who opens the module sees every hostel.
 import "server-only";
 
+import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
+import { anyOtherCampus, type CampusLimit } from "../campus";
 import { staffForUser } from "../people";
 import type { HostelViewer } from "./access";
 import { HostelProblem } from "./problem";
@@ -31,4 +33,31 @@ export const hostelWhere = (mine: Mine) => (mine === null ? {} : { hostelId: { i
 /** Refuses work in a hostel that is not the person's. */
 export function assertHostel(mine: Mine, hostelId: string | null | undefined) {
   if (!inScope(mine, hostelId)) throw new HostelProblem("This is not your hostel. A warden works in their own hostel only; ask that hostel's warden.");
+}
+
+/**
+ * Hostels are the whole school's, but a person kept to one campus works with
+ * that campus's students only (20-settings.md, scope "One campus"): another
+ * campus's student, or their bed, is not found.
+ */
+export async function assertResidentsCampus(tx: Tx, limit: CampusLimit | null | undefined, ids: { studentIds?: string[]; allocationIds?: string[] }, field = "studentId") {
+  if (!limit?.campusId) return;
+  const ofBeds = ids.allocationIds?.length ? (await tx.bedAllocation.findMany({ where: { id: { in: ids.allocationIds } }, select: { studentId: true } })).map((a) => a.studentId) : [];
+  if (await anyOtherCampus(tx, limit, [...(ids.studentIds ?? []), ...ofBeds])) throw new HostelProblem("This student was not found, or is on another campus.", field);
+}
+
+/**
+ * One campus (`ours`: the ids of the person's campus's students, null for the
+ * whole school): incidents with one of those students, or with no student at
+ * all (a maintenance incident about a room belongs to the hostel).
+ */
+export function incidentCampusWhere(ours: string[] | null): Prisma.HostelIncidentWhereInput {
+  return ours ? { AND: [{ OR: [{ studentIds: { isEmpty: true } }, { studentIds: { hasSome: ours } }] }] } : {};
+}
+
+/** The students of an incident the person may see by name: their campus's only (`ours`), or all for the whole school. */
+export function shownStudents(ids: string[], ours: string[] | null) {
+  if (!ours) return ids;
+  const keep = new Set(ours);
+  return ids.filter((id) => keep.has(id));
 }

@@ -27,6 +27,7 @@ import { Banner, DL, DataList, Empty, Stack, Stats, Toolbar } from "@/components
 import { clockAt } from "@/lib/front-office/time";
 import { maskPhone, showPhone } from "@/lib/front-office/words";
 import { activeBedOf, studentsInfo } from "@/lib/hostel/allocation";
+import { campusAllows, campusStudentIds } from "@/lib/campus";
 import { minutesLate, outingWhere, passWhen, shownStatus } from "@/lib/hostel/outings";
 import { authorisedList, visitingWords } from "@/lib/hostel/visitors";
 import { OUTING_TYPE, PASS_STATUS, genderFits, lateWords, minuteValue, minuteWords, plural, type OutingType, type PassStatus } from "@/lib/hostel/words";
@@ -61,7 +62,7 @@ async function startFor(tx: Parameters<Parameters<typeof withSchool>[1]>[0], p: 
   const bed = await activeBedOf(tx, sid);
   if (!bed || (p.mine !== null && !p.mine.includes(bed.hostel.id))) return { student: null, guardians: null };
   const s = (await studentsInfo(tx, p.current.ctx, [sid])).get(sid);
-  if (!s) return { student: null, guardians: null };
+  if (!s || !campusAllows(p.current, s.campusId)) return { student: null, guardians: null };
   const list = await authorisedList(tx, sid);
   return {
     student: { id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: genderFits(s.gender), bed: bed.words, hostelId: bed.hostel.id },
@@ -75,10 +76,12 @@ async function PassesView({ p, sp }: { p: P; sp: Raw }) {
   const params = readListParams(sp, ["status", "period", "from", "to"]);
   const status = (STATUSES.find((x) => x && x === one(sp.status)) ?? "") as PassStatus | "";
   const per = hostelPeriod(sp, p.dates, "last30");
-  const scope = mine === null ? {} : { hostelId: { in: mine } };
   const pick = (k: string) => idParam(sp[k]);
 
   const d = await withSchool(ctx, async (tx) => {
+    // A warden's own hostels; one campus: that campus's students' passes only.
+    const ours = await campusStudentIds(tx, current);
+    const scope: Prisma.GatePassWhereInput = { ...(mine === null ? {} : { hostelId: { in: mine } }), ...(ours ? { studentId: { in: ours } } : {}) };
     let nameIds: string[] | null = null;
     if (params.q) nameIds = await studentIdsForFilter(tx, params.q);
     const dated: Prisma.GatePassWhereInput = per.range ? { fromAt: momentWhere(per.range, tz) } : {};
@@ -248,11 +251,14 @@ async function VisitorsView({ p, sp }: { p: P; sp: Raw }) {
   const params = readListParams(sp, ["view", "period", "from", "to", "inside"]);
   const per = hostelPeriod(sp, p.dates, "last7");
   const inside = one(sp.inside) === "1";
-  const scope: Prisma.VisitorEntryWhereInput = { archivedAt: null, meetStudentId: { not: null }, ...(mine === null ? {} : { hostelId: { in: mine } }) };
+  const hostelScope: Prisma.VisitorEntryWhereInput = { archivedAt: null, meetStudentId: { not: null }, ...(mine === null ? {} : { hostelId: { in: mine } }) };
   const weekday = new Date(`${p.todayStr}T00:00:00Z`).getUTCDay();
   const inHours = s.visitingDays.includes(weekday) && p.minute >= s.visitingFromMinute && p.minute < s.visitingToMinute;
 
   const d = await withSchool(ctx, async (tx) => {
+    // One campus: the visitors of that campus's students only.
+    const ours = await campusStudentIds(tx, current);
+    const scope: Prisma.VisitorEntryWhereInput = { ...hostelScope, ...(ours ? { meetStudentId: { in: ours } } : {}) };
     let nameIds: string[] | null = null;
     if (params.q) nameIds = await studentIdsForFilter(tx, params.q);
     const dated: Prisma.VisitorEntryWhereInput = per.range ? { timeIn: momentWhere(per.range, tz) } : {};

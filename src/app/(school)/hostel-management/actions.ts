@@ -12,11 +12,11 @@ import { DOCUMENT_TYPES, IMAGE_TYPES, saveFile } from "@/lib/files";
 import { instantOf } from "@/lib/front-office/time";
 import { currentYear, currentYears } from "@/lib/academic/years";
 import { findStudents } from "@/lib/students/find";
-import { inCampus, personCampusId } from "@/lib/campus";
+import { anyOtherCampus, inCampus, personCampusId } from "@/lib/campus";
 import {
   hostelAction, inHostel, need, str, id, optionalId, ids, text, maybe, int, money, isoDate, minute, on, HostelProblem, UUID_RE, type HostelWork,
 } from "@/lib/hostel/act";
-import { assertHostel } from "@/lib/hostel/scope";
+import { assertHostel, assertResidentsCampus } from "@/lib/hostel/scope";
 import {
   addFloor, addHostel, archiveFeePlan, closeHostel, openYears, saveFeePlan, saveMeals, saveMessages, saveRules, saveTimings, setWardens, updateHostel, type InstallmentInput,
 } from "@/lib/hostel/settings";
@@ -110,6 +110,7 @@ export async function guardiansAction(studentId: string): Promise<GuardianChoice
       if (!(w.can.outings || w.can.allocate)) return [];
       const a = await w.tx.bedAllocation.findFirst({ where: { studentId, status: "ACTIVE" }, select: { hostelId: true } });
       if (!a || (w.mine !== null && !w.mine.includes(a.hostelId))) return [];
+      if (await anyOtherCampus(w.tx, w.current, [studentId])) return [];
       const list = await authorisedList(w.tx, studentId);
       return list.map((g) => ({ guardianId: g.guardianId, name: g.name, relation: g.relation, phone: g.phone, allowed: g.allowed, restriction: g.restriction }));
     });
@@ -233,14 +234,18 @@ export async function checkInAction(_p: S, fd: FormData): Promise<S> {
     need(w.can.allocate, "check students in");
     const date = str(fd, "date") ? moment(fd, w, "date", "time", "Check-in") : w.now;
     if (date.getTime() > w.now.getTime() + 5 * 60_000) throw new HostelProblem("Check-in cannot be in the future.", "time");
-    return checkIn(w.tx, w.ctx, id(fd, "allocationId", "student"), date, inMine(w));
+    const allocationId = id(fd, "allocationId", "student");
+    await assertResidentsCampus(w.tx, w.current, { allocationIds: [allocationId] });
+    return checkIn(w.tx, w.ctx, allocationId, date, inMine(w));
   }, (r) => `${r.name} checked in.`);
 }
 
 export async function moveAction(_p: S, fd: FormData): Promise<S> {
   return hostelAction("edit", fd, async (w) => {
     need(w.can.allocate, "move students");
-    const r = await moveBed(w.tx, w.ctx, { allocationId: id(fd, "allocationId", "student"), bedId: id(fd, "bedId", "bed"), date: isoDate(fd, "date", "Move date")!, reason: text(fd, "reason", "Reason", { min: 3, max: 200 }) }, { now: w.now, assertHostel: inMine(w) });
+    const allocationId = id(fd, "allocationId", "student");
+    await assertResidentsCampus(w.tx, w.current, { allocationIds: [allocationId] });
+    const r = await moveBed(w.tx, w.ctx, { allocationId, bedId: id(fd, "bedId", "bed"), date: isoDate(fd, "date", "Move date")!, reason: text(fd, "reason", "Reason", { min: 3, max: 200 }) }, { now: w.now, assertHostel: inMine(w) });
     return { ...r, fee: r.feeChange && w.can.seeFees ? `Hostel fees changed: ${formatRupees(r.feeChange.stopped)} stopped, ${formatRupees(r.feeChange.added)} added.` : r.feeChange ? "Hostel fees changed to the new room's plan." : "" };
   }, (r) => `${r.name} moved from ${r.from} to ${r.to}. ${r.fee}`.trim());
 }
@@ -250,7 +255,9 @@ export async function checkoutAction(_p: S, fd: FormData): Promise<S> {
     need(w.can.allocate, "check students out");
     const date = isoDate(fd, "date", "Check-out date")!;
     if (date.getTime() > w.today.getTime() + 30 * 86_400_000) throw new HostelProblem("Check-out can be at most 30 days ahead.", "date");
-    const r = await checkOut(w.tx, w.ctx, { allocationId: id(fd, "allocationId", "student"), date, reason: text(fd, "reason", "Reason", { min: 3, max: 200 }) }, { now: w.now, assertHostel: inMine(w) });
+    const allocationId = id(fd, "allocationId", "student");
+    await assertResidentsCampus(w.tx, w.current, { allocationIds: [allocationId] });
+    const r = await checkOut(w.tx, w.ctx, { allocationId, date, reason: text(fd, "reason", "Reason", { min: 3, max: 200 }) }, { now: w.now, assertHostel: inMine(w) });
     const fees = !r.fees.stoppedRows ? "" : w.can.seeFees ? ` ${formatRupees(r.fees.stopped)} of later hostel fees stopped.` : " Later hostel fees stopped.";
     const due = r.dueBefore > BigInt(0) ? (w.can.seeFees ? ` ${formatRupees(r.dueBefore)} hostel fees still due: collect them in Fee Management.` : " Hostel fees are still due; the office collects them.") : "";
     return `${r.name} checked out. ${r.where} is free now.${fees}${due}`;
@@ -261,7 +268,9 @@ export async function checkoutAction(_p: S, fd: FormData): Promise<S> {
 export async function carryOverAction(_p: S, fd: FormData): Promise<S> {
   return hostelAction("edit", fd, async (w) => {
     need(w.can.allocate, "carry boarders over");
-    return carryOver(w.tx, w.ctx, ids(fd, "allocationIds"), w.mine);
+    const allocationIds = ids(fd, "allocationIds");
+    await assertResidentsCampus(w.tx, w.current, { allocationIds });
+    return carryOver(w.tx, w.ctx, allocationIds, w.mine);
   }, (r) => [
     `${plural(r.carried, "boarder")} carried over to ${r.year}, keeping ${r.carried === 1 ? "their bed" : "their beds"}.`,
     r.feeRows ? (`${r.year} hostel fees added (${plural(r.feeRows, "row")})`) + "." : null,
@@ -273,7 +282,9 @@ export async function carryOverAction(_p: S, fd: FormData): Promise<S> {
 export async function yearEndCheckoutAction(_p: S, fd: FormData): Promise<S> {
   return hostelAction("edit", fd, async (w) => {
     need(w.can.allocate, "check students out");
-    return checkOutAtYearEnd(w.tx, w.ctx, ids(fd, "allocationIds"), w.mine, w.now);
+    const allocationIds = ids(fd, "allocationIds");
+    await assertResidentsCampus(w.tx, w.current, { allocationIds });
+    return checkOutAtYearEnd(w.tx, w.ctx, allocationIds, w.mine, w.now);
   }, (r) => `${plural(r.done, "boarder")} checked out at year end. Nothing of ${r.year} is charged.${r.skipped.length ? ` Not done: ${r.skipped.map((s) => `${s.name} (${s.why})`).join("; ")}` : ""}`);
 }
 
@@ -327,7 +338,7 @@ export async function recordIncidentAction(_p: S, fd: FormData): Promise<S> {
     const r = await recordIncident(w.tx, w.ctx, {
       type, studentIds: ids(fd, "studentIds"), hostelId: optionalId(fd, "hostelId"), place: maybe(fd, "place", "Place", 120), description: text(fd, "description", "What happened", { min: 3, max: 2000 }),
       at, actionTaken: maybe(fd, "actionTaken", "Action taken", 1000), informParent: on(fd, "informParent"), behaviourTypeKey: type === "DISCIPLINE" && behaviour ? behaviour : null,
-    }, { now: w.now, tz: w.tz, assertHostel: inMine(w), mayAddBehaviour });
+    }, { now: w.now, tz: w.tz, assertHostel: inMine(w), mayAddBehaviour, limit: w.current });
     // A maintenance incident can raise the Inventory maintenance request in the same step.
     let request: string | null = null;
     if (type === "MAINTENANCE" && on(fd, "raiseRequest") && w.current.modulesOn.has(INVENTORY)) {
@@ -370,7 +381,7 @@ export async function requestPassAction(_p: S, fd: FormData): Promise<S> {
       studentId: id(fd, "studentId", "student"), outingType: type, fromAt, toAt, guardianId,
       withName: guardianId ? null : maybe(fd, "withName", "Name", 80), withRelation: guardianId ? null : maybe(fd, "withRelation", "Relation", 30), withPhone: guardianId ? null : maybe(fd, "withPhone", "Phone", 20),
       reason: text(fd, "reason", "Reason", { min: 3, max: 200 }),
-    }, { now: w.now, tz: w.tz, assertHostel: inMine(w) });
+    }, { now: w.now, tz: w.tz, assertHostel: inMine(w), limit: w.current });
     return { passNo: r.pass.passNo, name: r.name, approver: r.approver, type: OUTING_TYPE[type].label };
   }, (r) => `${r.type} pass ${r.passNo} for ${r.name} sent to ${r.approver} for approval.`);
 }
@@ -392,21 +403,21 @@ export async function decidePassAction(_p: S, fd: FormData): Promise<S> {
 export async function markOutAction(_p: S, fd: FormData): Promise<S> {
   return hostelAction("edit", fd, async (w) => {
     need(w.can.outings, "mark students out");
-    return markOut(w.tx, w.ctx, id(fd, "passId", "pass"), { now: w.now, tz: w.tz, assertHostel: inMine(w) });
+    return markOut(w.tx, w.ctx, id(fd, "passId", "pass"), { now: w.now, tz: w.tz, assertHostel: inMine(w), limit: w.current });
   }, (r) => `${r.name} marked out on pass ${r.passNo}.${r.told ? " The parents were told." : ""}`);
 }
 
 export async function markReturnedAction(_p: S, fd: FormData): Promise<S> {
   return hostelAction("edit", fd, async (w) => {
     need(w.can.outings, "mark students returned");
-    return markReturned(w.tx, w.ctx, id(fd, "passId", "pass"), { now: w.now, tz: w.tz, assertHostel: inMine(w) });
+    return markReturned(w.tx, w.ctx, id(fd, "passId", "pass"), { now: w.now, tz: w.tz, assertHostel: inMine(w), limit: w.current });
   }, (r) => `${r.name} is back in the hostel${r.late ? `, ${r.late >= 60 ? `${Math.floor(r.late / 60)} h ${r.late % 60} min` : `${r.late} min`} late` : ""}.`);
 }
 
 export async function cancelPassAction(_p: S, fd: FormData): Promise<S> {
   return hostelAction("edit", fd, async (w) => {
     need(w.can.outings, "cancel passes");
-    return cancelPass(w.tx, w.ctx, id(fd, "passId", "pass"), text(fd, "reason", "Reason", { min: 3, max: 200 }), inMine(w));
+    return cancelPass(w.tx, w.ctx, id(fd, "passId", "pass"), text(fd, "reason", "Reason", { min: 3, max: 200 }), inMine(w), w.current);
   }, (r) => `Pass ${r.passNo} cancelled.`);
 }
 
@@ -418,7 +429,7 @@ export async function recordVisitorAction(_p: S, fd: FormData): Promise<S> {
       studentId: str(fd, "studentId") ? id(fd, "studentId", "student") : "", guardianId,
       name: guardianId ? null : maybe(fd, "name", "Visitor's name", 80), relation: guardianId ? null : maybe(fd, "relation", "Relation", 30), phone: guardianId ? null : maybe(fd, "phone", "Phone", 20),
       wardenApproved: on(fd, "wardenApproved"), note: maybe(fd, "note", "Note", 200),
-    }, { now: w.now, tz: w.tz, assertHostel: inMine(w) });
+    }, { now: w.now, tz: w.tz, assertHostel: inMine(w), limit: w.current });
     return { name: r.visitor.name, student: r.student.first, passNo: r.visitor.passNo };
   }, (r) => `${r.name} signed in to meet ${r.student}. Visitor pass ${r.passNo}.`);
 }
@@ -426,7 +437,7 @@ export async function recordVisitorAction(_p: S, fd: FormData): Promise<S> {
 export async function visitorOutAction(_p: S, fd: FormData): Promise<S> {
   return hostelAction("edit", fd, async (w) => {
     need(w.can.outings, "sign visitors out");
-    return visitorOut(w.tx, w.ctx, id(fd, "visitorId", "visitor"), { now: w.now, tz: w.tz, assertHostel: inMine(w) });
+    return visitorOut(w.tx, w.ctx, id(fd, "visitorId", "visitor"), { now: w.now, tz: w.tz, assertHostel: inMine(w), limit: w.current });
   }, (r) => `${r.name} signed out.`);
 }
 

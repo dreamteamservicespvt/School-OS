@@ -9,6 +9,7 @@ import { momentWhere } from "@/lib/periods";
 import { clockAt } from "@/lib/front-office/time";
 import { maskPhone, showPhone } from "@/lib/front-office/words";
 import { studentsInfo } from "@/lib/hostel/allocation";
+import { campusStudentIds } from "@/lib/campus";
 import { minutesLate, outingWhere, passWhen, shownStatus } from "@/lib/hostel/outings";
 import { OUTING_TYPE, PASS_STATUS, lateWords, type OutingType, type PassStatus } from "@/lib/hostel/words";
 import { hostelRoute, rangeWords } from "../../_lib/route";
@@ -28,8 +29,10 @@ export async function GET(req: Request) {
     const range = inside ? null : await x.range("last7");
     const r = await withSchool(x.current.ctx, async (tx) => {
       const nameIds = q ? await studentIdsForFilter(tx, q) : [];
+      // One campus: the visitors of that campus's students only.
+      const ours = await campusStudentIds(tx, x.current);
       const where: Prisma.VisitorEntryWhereInput = {
-        archivedAt: null, meetStudentId: { not: null }, ...scope, ...(inside ? { timeOut: null } : range ? { timeIn: momentWhere(range, x.tz) } : {}),
+        archivedAt: null, meetStudentId: ours ? { in: ours } : { not: null }, ...scope, ...(inside ? { timeOut: null } : range ? { timeIn: momentWhere(range, x.tz) } : {}),
         ...(q ? { OR: [{ name: { contains: q, mode: "insensitive" } }, { passNo: { contains: q, mode: "insensitive" } }, ...(nameIds.length ? [{ meetStudentId: { in: nameIds } }] : [])] } : {}),
       };
       const rows = await tx.visitorEntry.findMany({ where, orderBy: [{ timeIn: "desc" }, { id: "asc" }], take: 5000 });
@@ -57,9 +60,11 @@ export async function GET(req: Request) {
   const range = live ? null : await x.range("last30");
   const r = await withSchool(x.current.ctx, async (tx) => {
     const nameIds = q ? await studentIdsForFilter(tx, q) : [];
+    // One campus: that campus's students' passes only.
+    const ours = await campusStudentIds(tx, x.current);
     const byStatus: Prisma.GatePassWhereInput = status === "LATE" ? { status: "OUT", toAt: { lt: x.now } } : status === "OUT" ? { status: "OUT", toAt: { gte: x.now } } : status ? { status } : {};
     const where = outingWhere({
-      ...scope, ...byStatus, ...(range ? { fromAt: momentWhere(range, x.tz) } : {}),
+      ...scope, ...(ours ? { studentId: { in: ours } } : {}), ...byStatus, ...(range ? { fromAt: momentWhere(range, x.tz) } : {}),
       ...(q ? { OR: [{ passNo: { contains: q, mode: "insensitive" } }, { collectorName: { contains: q, mode: "insensitive" } }, ...(nameIds.length ? [{ studentId: { in: nameIds } }] : [])] } : {}),
     });
     const rows = await tx.gatePass.findMany({ where, orderBy: [{ fromAt: "desc" }, { id: "asc" }], take: 5000 });

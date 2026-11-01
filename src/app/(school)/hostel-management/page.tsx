@@ -27,6 +27,8 @@ import { Banner, DataList, Empty, Legend, Split, Col, Stack, Toolbar } from "@/c
 import { clockAt } from "@/lib/front-office/time";
 import { getStudentSettings } from "@/lib/students/settings";
 import { studentsInfo } from "@/lib/hostel/allocation";
+import { campusAllows, campusStudentIds } from "@/lib/campus";
+import { incidentCampusWhere, shownStudents } from "@/lib/hostel/scope";
 import { defaultSession, rollHistory, rollHref, rollSheet } from "@/lib/hostel/rollcall";
 import { INCIDENT_TYPE, SESSION, isoOf, minuteWords, plural, type IncidentType, type RollSession } from "@/lib/hostel/words";
 import { HostelHead } from "./_components/head";
@@ -236,7 +238,9 @@ async function IncidentsView({ p, sp }: { p: P; sp: Raw }) {
   const d = await withSchool(ctx, async (tx) => {
     let nameIds: string[] | null = null;
     if (params.q) nameIds = await studentIdsForFilter(tx, params.q);
-    const scope: Prisma.HostelIncidentWhereInput = { archivedAt: null, ...(mine === null ? {} : { hostelId: { in: mine } }) };
+    // One campus: the incidents of the person's campus's students (and those about a room), with only their names.
+    const ours = await campusStudentIds(tx, current);
+    const scope: Prisma.HostelIncidentWhereInput = { archivedAt: null, ...(mine === null ? {} : { hostelId: { in: mine } }), ...incidentCampusWhere(ours) };
     const dated: Prisma.HostelIncidentWhereInput = { ...scope, ...(per.range ? { at: momentWhere(per.range, tz) } : {}) };
     const where: Prisma.HostelIncidentWhereInput = {
       ...dated, ...(type ? { type } : {}),
@@ -248,7 +252,7 @@ async function IncidentsView({ p, sp }: { p: P; sp: Raw }) {
       tx.hostelIncident.groupBy({ by: ["type"], where: dated, _count: { _all: true } }),
     ]);
     const [info, people, hostels] = await Promise.all([
-      studentsInfo(tx, ctx, rows.flatMap((r) => r.studentIds)),
+      studentsInfo(tx, ctx, shownStudents(rows.flatMap((r) => r.studentIds), ours)),
       tx.userLogin.findMany({ where: { id: { in: rows.map((r) => r.recordedById).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } }),
       tx.hostel.findMany({ select: { id: true, name: true } }),
     ]);
@@ -257,7 +261,7 @@ async function IncidentsView({ p, sp }: { p: P; sp: Raw }) {
     const sid = idParam(sp.student);
     if (sid && one(sp.incident) === "1") {
       const s = (await studentsInfo(tx, ctx, [sid])).get(sid);
-      if (s) start = [{ id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: null, bed: null, hostelId: null }];
+      if (s && campusAllows(current, s.campusId)) start = [{ id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.classSection ?? "", gender: null, bed: null, hostelId: null }];
     }
     // Maintenance requests raised in Inventory Management from these incidents.
     const requestIds = rows.map((r) => r.maintenanceRequestId).filter((x): x is string => Boolean(x));
@@ -270,7 +274,7 @@ async function IncidentsView({ p, sp }: { p: P; sp: Raw }) {
         others: (await roomOptions(tx)).filter((o) => !mineNames.has(o.label.trim().toLowerCase())),
       };
     }
-    const raiseFor = raiseId ? await tx.hostelIncident.findFirst({ where: { id: raiseId, type: "MAINTENANCE", maintenanceRequestId: null, archivedAt: null, ...(mine === null ? {} : { hostelId: { in: mine } }) } }) : null;
+    const raiseFor = raiseId ? await tx.hostelIncident.findFirst({ where: { id: raiseId, type: "MAINTENANCE", maintenanceRequestId: null, archivedAt: null, ...(mine === null ? {} : { hostelId: { in: mine } }), ...incidentCampusWhere(ours) } }) : null;
     return { total, rows, byType, info, people: new Map(people.map((x) => [x.id, x.displayName])), hostels: new Map(hostels.map((h) => [h.id, h.name])), behaviour, start, requests: new Map(requests.map((r) => [r.id, r])), places, raiseFor };
   });
 

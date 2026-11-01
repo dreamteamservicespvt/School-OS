@@ -414,3 +414,150 @@ describe("Merging parent records keeps to the viewer's campus (run-3 side note)"
     expect(await archived(shared)).not.toBeNull();
   }, 120_000);
 });
+
+// ---------- Run-3 follow-up: the leftovers batch B found ----------
+
+const TZ = "Asia/Kolkata";
+/** The school's clock (India) `plusMin` minutes from now: [date, "HH:MM"]. */
+const istAt = (plusMin = 0) => { const s = new Date(Date.now() + (330 + plusMin) * 60_000).toISOString(); return [s.slice(0, 10), s.slice(11, 16)] as const; };
+const todayIst = () => istAt()[0];
+/** A page that hands its work to one server component (Roll Call -> IncidentsView): that component's tree. */
+async function pageText(Page: (props: never) => unknown, sp: Record<string, string> = {}) {
+  const el = (await Page({ searchParams: Promise.resolve(sp) } as never)) as { type?: unknown; props?: unknown } | null;
+  const inner = el && typeof el.type === "function" ? await (el.type as (p: unknown) => unknown)(el.props) : el;
+  return textOf(inner);
+}
+const switchOn = (moduleKey: string, roleKey: string) => run(async (tx) => {
+  await tx.role.updateMany({ where: { key: roleKey }, data: { isEnabled: true } });
+  await tx.schoolModule.upsert({ where: { schoolId_moduleKey: { schoolId: school.id, moduleKey } }, create: { schoolId: school.id, moduleKey, isOn: true }, update: { isOn: true } });
+});
+
+describe("Hostel incidents, outings and visitors keep to the person's campus (run-3 follow-up)", () => {
+  // Hostels are the whole school's, so another campus's student can live in a
+  // hostel that a warden kept to one campus works in (someone who works for
+  // the whole school gave the bed). For that warden the student is not found:
+  // in the incident, pass and visitor forms, in the work on a pass, a visit or
+  // a bed, and in the lists and their exports.
+  const B = { main: "Manohar Boarder", north: "Nikhil Boarder" };
+  let warden: Current;
+  let mainBoarder = "";
+  let northBoarder = "";
+  let mainPass = "";
+  let mainVisit = "";
+  let mainBed = "";
+  const hostelAct = async (name: string, fields: Record<string, string | string[]>) => {
+    who.current = warden;
+    const actions = (await import("@/app/(school)/hostel-management/actions")) as unknown as Record<string, (s: unknown, fd: FormData) => Promise<{ ok: boolean; message?: string }>>;
+    return actions[name](null, form(fields));
+  };
+  beforeAll(async () => {
+    const sid = school.id;
+    await switchOn("hostel-management", "hostel-warden");
+    const user = (await makeUser({ schools: [{ id: sid, roleKeys: ["hostel-warden"] }], name: "North Warden" })).id;
+    mainBoarder = (await addStudent(ctx, main.sectionId, { fullName: B.main, gender: "Male", applyFeePlan: false })).student.id;
+    northBoarder = (await addStudent(ctx, north.sectionId, { fullName: B.north, gender: "Male", applyFeePlan: false })).student.id;
+    const { addHostel, setWardens } = await import("@/lib/hostel/settings");
+    const { addRoom } = await import("@/lib/hostel/rooms");
+    const { allocate } = await import("@/lib/hostel/allocation");
+    const { recordIncident } = await import("@/lib/hostel/incidents");
+    const { recordVisitor } = await import("@/lib/hostel/visitors");
+    ({ mainPass, mainVisit, mainBed } = await run(async (tx) => {
+      await tx.schoolAccess.updateMany({ where: { schoolId: sid, userLoginId: user }, data: { scope: "CAMPUS", campusId: north.campusId } });
+      const staff = await tx.staff.create({ data: { schoolId: sid, campusId: north.campusId, staffCode: "N-W2", firstName: "Nirmala", lastName: "Warden", fullName: "Nirmala Warden", phone: "9876500304", designation: "Hostel Warden", joiningDate: day("2020-06-01"), userLoginId: user } });
+      const h = await addHostel(tx, ctx, { name: "Lake View Hostel", gender: "BOYS", floors: ["Ground"], note: null });
+      await addRoom(tx, ctx, { hostelId: h.id, floor: "Ground", roomNo: "L-1", beds: 2, roomType: "Non-AC" });
+      await setWardens(tx, ctx, h.id, [{ staffId: staff.id, title: "Warden" }], day(todayIst()));
+      const beds = await tx.hostelBed.findMany({ where: { room: { hostelId: h.id } }, orderBy: { bedNo: "asc" } });
+      const now = new Date();
+      const open = { now, today: day(todayIst()), assertHostel: () => {} };
+      const bed = await allocate(tx, ctx, { studentId: mainBoarder, bedId: beds[0].id, startDate: day(todayIst()), checkedIn: true, feePlanId: "none", note: null }, open);
+      await allocate(tx, ctx, { studentId: northBoarder, bedId: beds[1].id, startDate: day(todayIst()), checkedIn: true, feePlanId: "none", note: null }, open);
+      await recordIncident(tx, ctx, { type: "MEDICAL", studentIds: [mainBoarder], hostelId: null, place: null, description: "Fever at night", at: new Date(now.getTime() - 10 * 60_000), actionTaken: null, informParent: false, behaviourTypeKey: null }, { now, tz: TZ, assertHostel: () => {}, mayAddBehaviour: false });
+      const visit = await recordVisitor(tx, ctx, { studentId: mainBoarder, guardianId: null, name: "Murali Uncle", relation: "Uncle", phone: "9876500412", wardenApproved: true, note: null }, { now, tz: TZ, assertHostel: () => {} });
+      const pass = await tx.gatePass.create({ data: { schoolId: sid, passNo: "GP-FU-0001", kind: "HOSTEL_OUTING", studentId: mainBoarder, reason: "Dentist", timeOut: now, collectorName: "Murali Uncle", collectorRelation: "Uncle", collectorPhone: "9876500412", status: "APPROVED", outingType: "LEAVE", fromAt: now, toAt: new Date(now.getTime() + 86_400_000), hostelId: h.id } });
+      return { mainPass: pass.id, mainVisit: visit.visitor.id, mainBed: bed.allocation.id };
+    }));
+    warden = await currentFor(user);
+  }, 240_000);
+
+  it("refuses an incident for another campus's student, records one for the warden's own campus's", async () => {
+    const [date, time] = istAt(-5);
+    const add = (studentId: string) => hostelAct("recordIncidentAction", { type: "MEDICAL", studentIds: studentId, date, time, description: "Hurt his knee at play" });
+    const r = await add(mainBoarder);
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/not found, or is on another campus/);
+    expect(await run((tx) => tx.hostelIncident.count({ where: { studentIds: { has: mainBoarder } } }))).toBe(1);
+    expect((await add(northBoarder)).ok).toBe(true);
+  }, 120_000);
+
+  it("refuses an outing pass for another campus's student, makes one for the warden's own campus's", async () => {
+    const [fromDate, fromTime] = istAt(30);
+    const [toDate, toTime] = istAt(30 + 24 * 60);
+    const ask = (studentId: string) => hostelAct("requestPassAction", { studentId, outingType: "LEAVE", fromDate, fromTime, toDate, toTime, guardianId: "other", withName: "Ramesh Uncle", withRelation: "Uncle", withPhone: "9876500413", reason: "Family function" });
+    const r = await ask(mainBoarder);
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/not found, or is on another campus/);
+    expect(await run((tx) => tx.gatePass.count({ where: { studentId: mainBoarder } }))).toBe(1);
+    const ok = await ask(northBoarder);
+    expect(ok.message).toContain(B.north);
+  }, 120_000);
+
+  it("refuses a visitor for another campus's student, signs one in for the warden's own campus's", async () => {
+    const sign = (studentId: string) => hostelAct("recordVisitorAction", { studentId, guardianId: "other", name: "Suresh Visitor", relation: "Uncle", phone: "9876500414", wardenApproved: "1" });
+    const r = await sign(mainBoarder);
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/not found, or is on another campus/);
+    expect(await run((tx) => tx.visitorEntry.count({ where: { meetStudentId: mainBoarder } }))).toBe(1);
+    expect((await sign(northBoarder)).ok).toBe(true);
+  }, 120_000);
+
+  it("another campus's student's pass and visit are not found: not marked out, cancelled or signed out", async () => {
+    expect((await hostelAct("markOutAction", { passId: mainPass })).message).toBe("This pass was not found.");
+    expect((await hostelAct("cancelPassAction", { passId: mainPass, reason: "Not going now" })).message).toBe("This pass was not found.");
+    expect((await run((tx) => tx.gatePass.findUniqueOrThrow({ where: { id: mainPass } }))).status).toBe("APPROVED");
+    expect((await hostelAct("visitorOutAction", { visitorId: mainVisit })).message).toBe("This visit was not found.");
+    expect((await run((tx) => tx.visitorEntry.findUniqueOrThrow({ where: { id: mainVisit } }))).timeOut).toBeNull();
+  }, 120_000);
+
+  it("refuses to check out another campus's student, and shows no guardians of theirs", async () => {
+    const r = await hostelAct("checkoutAction", { allocationId: mainBed, date: todayIst(), reason: "Going home" });
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/not found, or is on another campus/);
+    expect((await run((tx) => tx.bedAllocation.findUniqueOrThrow({ where: { id: mainBed } }))).status).toBe("ACTIVE");
+    who.current = warden;
+    const { guardiansAction } = await import("@/app/(school)/hostel-management/actions");
+    expect(await guardiansAction(mainBoarder)).toEqual([]);
+    expect((await guardiansAction(northBoarder)).length).toBeGreaterThan(0);
+  }, 120_000);
+
+  it("the incident log, outing passes and visitor log, and their exports, show the warden's own campus's students only", async () => {
+    who.current = warden;
+    const { default: RollCall } = await import("@/app/(school)/hostel-management/page");
+    const { default: Outings } = await import("@/app/(school)/hostel-management/outings/page");
+    // The lists name the students in their cells; what was written on each row tells them apart here.
+    const incidents = await pageText(RollCall, { view: "incidents" });
+    expect(incidents).toContain("Hurt his knee at play");
+    expect(incidents).not.toContain("Fever at night");
+    const passes = await pageText(Outings);
+    expect(passes).toContain("Ramesh Uncle");
+    expect(passes).not.toContain("GP-FU-0001");
+    expect(passes).not.toContain("Murali Uncle");
+    const visitors = await pageText(Outings, { view: "visitors" });
+    expect(visitors).toContain("Suresh Visitor");
+    expect(visitors).not.toContain("Murali Uncle");
+    const csv = async (path: string, mod: () => Promise<{ GET: (req: Request) => Promise<Response> }>) => {
+      const res = await (await mod()).GET(new Request(`http://school.test${path}`));
+      expect(res.status).toBe(200);
+      return res.text();
+    };
+    const incidentFile = await csv("/hostel-management/incidents/export?format=csv", () => import("@/app/(school)/hostel-management/incidents/export/route"));
+    expect(incidentFile).toContain(B.north);
+    expect(incidentFile).not.toContain(B.main);
+    const passFile = await csv("/hostel-management/outings/export?format=csv", () => import("@/app/(school)/hostel-management/outings/export/route"));
+    expect(passFile).toContain(B.north);
+    expect(passFile).not.toContain(B.main);
+    const visitFile = await csv("/hostel-management/outings/export?format=csv&view=visitors", () => import("@/app/(school)/hostel-management/outings/export/route"));
+    expect(visitFile).toContain("Suresh Visitor");
+    expect(visitFile).not.toContain("Murali Uncle");
+  }, 240_000);
+});

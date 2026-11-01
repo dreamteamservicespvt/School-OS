@@ -220,6 +220,9 @@ export async function runImport<T>(tx: Tx, ctx: SchoolContext, kind: ImportKind<
 }
 
 export async function undoImport(tx: Tx, ctx: SchoolContext, batchId: string) {
+  // Undo pressed twice at once (a double click, two tabs, two people): the second waits here for the
+  // first, then finds the import already undone, so money it put back (past receipts) goes back once.
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(batchId)) await tx.$queryRaw`SELECT id FROM import_batch WHERE id = ${batchId}::uuid FOR NO KEY UPDATE`;
   const batch = await tx.importBatch.findUnique({ where: { id: batchId } });
   if (!batch || batch.undoneAt) throw new Error("This import was already undone.");
   const kind = kinds.get(batch.kind);

@@ -1,7 +1,7 @@
 // Switching to School OS (workflow 15): old dues and past receipts brought in
 // from the old software, and undoing an import of students safely.
 import { beforeAll, describe, expect, it } from "vitest";
-import { withSchool } from "@/lib/db";
+import { prisma, withSchool } from "@/lib/db";
 import { importKind, previewImport, runImport, undoImport } from "@/lib/importer";
 import "@/lib/fees/import";
 import { undoStudents } from "@/lib/students/import";
@@ -77,4 +77,46 @@ describe("undoing an import of students", () => {
     expect(s.archivedAt).not.toBeNull();
     expect(await withSchool(f.ctx, (tx) => tx.studentFeeDue.count({ where: { studentId: f.sita.id, state: "OPEN" } }))).toBe(0);
   });
+});
+
+describe("undoing a past receipts import twice at the same moment (audit run-3)", () => {
+  // A double click, two tabs or two staff members: the paid amount goes back
+  // on the family's dues once, never twice.
+  it("puts the dues back once; the second Undo finds it already undone", async () => {
+    const before = (await dues(f.ctx, f.ravi.id)).map((d) => [d.id, d.paidPaise, d.balancePaise]);
+    const r = await bringIn("fee-past-receipts", [[f.ravi.admissionNo, "OLD-31", "16-07-2026", "3000", "Cash", ""]], RECEIPT_COLS);
+    expect(r.preview.bad).toEqual([]);
+    const id = r.batch!.id;
+    const both = await Promise.allSettled([1, 2].map(() => withSchool(f.ctx, (tx) => undoImport(tx, f.ctx, id))));
+    expect(both.filter((x) => x.status === "fulfilled")).toHaveLength(1);
+    expect(String((both.find((x) => x.status === "rejected") as PromiseRejectedResult).reason?.message)).toMatch(/already undone/);
+    expect((await dues(f.ctx, f.ravi.id)).map((d) => [d.id, d.paidPaise, d.balancePaise])).toEqual(before);
+    expect(await withSchool(f.ctx, (tx) => tx.auditLogEntry.count({ where: { recordId: id, action: "import-undone" } }))).toBe(1);
+  });
+
+  it("puts the dues back once when the second Undo starts before the first has finished", async () => {
+    // Two clicks a moment apart are timing; this holds the first Undo open
+    // until the second is waiting on the fee rows, so they always overlap.
+    const before = (await dues(f.ctx, f.ravi.id)).map((d) => [d.id, d.paidPaise, d.balancePaise]);
+    const r = await bringIn("fee-past-receipts", [[f.ravi.admissionNo, "OLD-32", "17-07-2026", "4000", "Cash", ""]], RECEIPT_COLS);
+    const id = r.batch!.id;
+    let release!: () => void;
+    const held = new Promise<void>((ok) => { release = ok; });
+    let firstDone!: () => void;
+    const undone = new Promise<void>((ok) => { firstDone = ok; });
+    const first = withSchool(f.ctx, async (tx) => { const x = await undoImport(tx, f.ctx, id); firstDone(); await held; return x; }, { timeout: 60_000 });
+    await undone;
+    const second = withSchool(f.ctx, (tx) => undoImport(tx, f.ctx, id), { timeout: 60_000 });
+    // Wait until the second is blocked by the first (a lock it has not got yet), then let the first finish.
+    for (let i = 0; i < 100; i++) {
+      const [{ n }] = await prisma.$queryRaw<{ n: bigint }[]>`SELECT count(*) AS n FROM pg_locks WHERE NOT granted`;
+      if (n > BigInt(0)) break;
+      await new Promise((ok) => setTimeout(ok, 100));
+    }
+    release();
+    const both = await Promise.allSettled([first, second]);
+    expect(both.map((x) => x.status)).toEqual(["fulfilled", "rejected"]);
+    expect(String((both[1] as PromiseRejectedResult).reason?.message)).toMatch(/already undone/);
+    expect((await dues(f.ctx, f.ravi.id)).map((d) => [d.id, d.paidPaise, d.balancePaise])).toEqual(before);
+  }, 120_000);
 });

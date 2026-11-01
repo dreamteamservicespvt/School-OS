@@ -37,6 +37,7 @@ import { accessIn } from "@/lib/auth/access";
 import { createEvent, registerStudents, type EventInput } from "@/lib/events/events";
 import { makeSchool, makeUser } from "./helpers";
 import { addStudent } from "./students/fixtures";
+import { formatRupees } from "@/lib/format";
 
 const day = (s: string) => new Date(`${s}T00:00:00Z`);
 const DAY = 86_400_000;
@@ -646,5 +647,55 @@ describe("Transport lists, pickers and bus roll call keep to the person's campus
     const { busPasses } = await import("@/lib/transport/pass");
     const print = busPasses as unknown as (tx: Tx, c: SchoolContext, ids: string[], limit: Current) => Promise<unknown>;
     await expect(run((tx) => print(tx, ctx, [northPlace], inCharge))).rejects.toThrow(/not found, or is on another campus/);
+  }, 120_000);
+});
+
+describe("Event fee totals keep to the person's campus (run-3 follow-up)", () => {
+  // An event for every campus opens for a person kept to one campus; its fee
+  // totals (collected, due, refunded) are their campus's students' only, on the
+  // Events list, in its export and on the Dashboard, as on the event's page.
+  let feeEvent = "";
+  const both = () => formatRupees(BigInt(100000));
+  beforeAll(async () => {
+    feeEvent = await makeEvent("Sports Day", null, { feePaise: BigInt(50000) });
+    // Each student's fee row in their own campus's year, as Register gives it
+    // (registerStudents itself charges in the event's one year, not each campus's).
+    const { addCharge } = await import("@/lib/fees/structure");
+    await run(async (tx) => {
+      const e = await tx.event.findUniqueOrThrow({ where: { id: feeEvent } });
+      for (const s of [main, north]) {
+        const due = await addCharge(tx, ctx, { studentId: s.studentId, feeHeadId: e.feeHeadId!, amountPaise: e.feePaise!, dueDate: e.date, label: e.name, reason: `Event fee ${e.number}`, academicYearId: s.yearId });
+        await tx.eventRegistration.create({ data: { schoolId: school.id, eventId: e.id, studentId: s.studentId, dueId: due.id, registeredById: ctx.userId } });
+      }
+    });
+  }, 120_000);
+
+  it("the Events list adds up the fees of the person's own campus's students only", async () => {
+    const list = async (as: Current) => {
+      who.current = as;
+      const { default: Page } = await import("@/app/(school)/events-calendar/events/page");
+      return textOf(await Page({ searchParams: Promise.resolve({}) } as never));
+    };
+    expect(await list(cur.admin)).toContain(both());
+    expect(await list(cur.northAdmin)).not.toContain(both());
+  }, 120_000);
+
+  it("the events export adds up the fees of the person's own campus's students only", async () => {
+    const file = async (as: Current) => {
+      who.current = as;
+      const { GET } = await import("@/app/(school)/events-calendar/events/export/route");
+      const res = await GET(new Request("http://school.test/events-calendar/events/export?format=csv"));
+      expect(res.status).toBe(200);
+      return res.text();
+    };
+    expect(await file(cur.admin)).toContain(both());
+    expect(await file(cur.northAdmin)).not.toContain(both());
+  }, 120_000);
+
+  it("the Dashboard's Event fees due counts the person's own campus's students only", async () => {
+    const { loadWidgetsIn } = await import("@/lib/dashboard/compose");
+    const card = async (as: Current) => (await run((tx) => loadWidgetsIn(tx, as, "attention", ["events.fees-due"])))[0]?.title ?? "";
+    expect(await card(cur.admin)).toBe(`Event fees due: ${both()} from 2 students`);
+    expect(await card(cur.northAdmin)).toBe(`Event fees due: ${formatRupees(BigInt(50000))} from 1 student`);
   }, 120_000);
 });

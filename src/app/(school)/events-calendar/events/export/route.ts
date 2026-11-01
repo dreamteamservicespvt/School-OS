@@ -8,7 +8,7 @@ import { eventMoney, eventStatus } from "@/lib/events/events";
 import { EVENT_STATUS, isoOf, longDay, timeSpan } from "@/lib/events/words";
 import { evPageAllowed } from "@/lib/events/access";
 import { evExport, plain, rangeWords } from "../../_lib/export";
-import { evCampusWhere } from "@/lib/events/campus";
+import { evCampus, evCampusWhere } from "@/lib/events/campus";
 
 export const dynamic = "force-dynamic";
 const ZERO = BigInt(0);
@@ -31,7 +31,8 @@ export async function GET(req: Request) {
       return f === "up" ? ["PLANNED", "OPEN"].includes(st) : f === "done" ? st === "DONE" : f === "cancel" ? st === "CANCELLED" : true;
     });
     const regs = rows.length ? await tx.eventRegistration.groupBy({ by: ["eventId"], where: { eventId: { in: rows.map((e) => e.id) }, withdrawnAt: null }, _count: { _all: true } }) : [];
-    const money = await eventMoney(tx, rows.filter((e) => e.feePaise));
+    // One campus: an event for every campus counts that campus's students' fees only.
+    const money = await eventMoney(tx, rows.filter((e) => e.feePaise), await evCampus(tx, x.current));
     await logExport(tx, x.current.ctx, { title, format: x.format, filters, rows: rows.length });
     return { rows, regs: new Map(regs.map((g) => [g.eventId, g._count._all])), money };
   });

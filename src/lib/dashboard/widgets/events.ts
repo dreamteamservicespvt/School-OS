@@ -49,9 +49,12 @@ const feesDue: Widget<"attention"> = {
   homes: ["accountant", "leader"],
   allowed: (v) => evCan(ev(v)).money,
   async load(c) {
-    const events = await c.tx.event.findMany({ where: { archivedAt: null, cancelledAt: null, feePaise: { gt: ZERO }, date: { gte: c.today } }, select: { id: true, number: true, name: true, date: true } });
+    // One campus (the person's limit, or the campus chosen on the Dashboard): that campus's
+    // events and those for every campus, counting that campus's students' fees only.
+    const campusId = c.viewer.campusId ?? null;
+    const events = await c.tx.event.findMany({ where: { archivedAt: null, cancelledAt: null, feePaise: { gt: ZERO }, date: { gte: c.today }, ...(campusId ? { OR: [{ campusId: null }, { campusId }] } : {}) }, select: { id: true, number: true, name: true, date: true } });
     if (!events.length) return null;
-    const money = await eventMoney(c.tx, events);
+    const money = await eventMoney(c.tx, events, campusId);
     let due = ZERO;
     let students = 0;
     for (const m of money.values()) { due += m.due; students += m.dueStudents; }

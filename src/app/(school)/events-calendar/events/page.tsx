@@ -19,7 +19,7 @@ import { EventSheet } from "../_components/event-sheets";
 import { BASE, evGuard, evPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { DayText, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
-import { evCampusWhere } from "@/lib/events/campus";
+import { evCampus, evCampusWhere } from "@/lib/events/campus";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Events") };
@@ -47,7 +47,8 @@ export default async function EventsPage({ searchParams }: { searchParams: Searc
     const base: Prisma.EventWhereInput = { archivedAt: null, date: dateWhere(range), ...(acc ? { feePaise: { gt: ZERO } } : {}), ...(await evCampusWhere(tx, p.current)) };
     const all = await tx.event.findMany({ where: base, orderBy: [{ date: "asc" }, { startMin: "asc" }], take: 500 });
     const regs = all.length ? await tx.eventRegistration.groupBy({ by: ["eventId"], where: { eventId: { in: all.map((e) => e.id) }, withdrawnAt: null }, _count: { _all: true } }) : [];
-    const money = await eventMoney(tx, all.filter((e) => e.feePaise));
+    // One campus: an event for every campus counts that campus's students' fees only.
+    const money = await eventMoney(tx, all.filter((e) => e.feePaise), await evCampus(tx, p.current));
     const classes = doing === "create" ? await tx.schoolClass.findMany({ where: { archivedAt: null }, select: { id: true, name: true }, orderBy: { sortOrder: "asc" } }) : [];
     return { all, regs: new Map(regs.map((r) => [r.eventId, r._count._all])), money, classes };
   });

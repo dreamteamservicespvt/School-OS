@@ -18,6 +18,7 @@ import { ensureFeeDefaults } from "../fees/settings";
 import { MessagingProblem, notSentWords, sendMessage, type AudienceRule } from "../messaging";
 import { EventsProblem, EventsWarning } from "./problem";
 import { eventsSettings } from "./settings";
+import { evYears } from "./campus";
 import { syncSourceEntry } from "./calendar";
 import { tellSafely } from "./tell";
 import { placeOrder, placesOf } from "./places";
@@ -288,12 +289,18 @@ export async function registerStudents(tx: Tx, ctx: SchoolContext, eventId: stri
     const left = Math.max(0, e.seats - active);
     throw new EventsProblem(left ? `Only ${left} ${left === 1 ? "seat is" : "seats are"} left. Choose ${left} or fewer students.` : "All seats are taken.", "studentIds");
   }
+  // An event for every campus: each student's fee row is in their own campus's year on the event's day
+  // (campuses run their years on different dates; the event's one year is one campus's).
+  const fee = Boolean(e.feePaise && e.feePaise > ZERO && e.feeHeadId);
+  const yearOfCampus = fee && !e.campusId ? new Map((await evYears(tx, isoOf(e.date), null)).map((y) => [y.campusId, y.id])) : null;
+  const campusOfStudent = yearOfCampus ? new Map((await tx.student.findMany({ where: { id: { in: toAdd } }, select: { id: true, campusId: true } })).map((s) => [s.id, s.campusId])) : null;
   let added = 0;
   let charged = ZERO;
   for (const studentId of toAdd) {
     let dueId: string | null = null;
-    if (e.feePaise && e.feePaise > ZERO && e.feeHeadId) {
-      const due = await addCharge(tx, ctx, { studentId, feeHeadId: e.feeHeadId, amountPaise: e.feePaise, dueDate: e.date, label: e.name, reason: `Event fee ${e.number}`, academicYearId: e.academicYearId });
+    if (fee && e.feePaise && e.feeHeadId) {
+      const yearId = yearOfCampus?.get(campusOfStudent?.get(studentId) ?? "") ?? e.academicYearId;
+      const due = await addCharge(tx, ctx, { studentId, feeHeadId: e.feeHeadId, amountPaise: e.feePaise, dueDate: e.date, label: e.name, reason: `Event fee ${e.number}`, academicYearId: yearId });
       dueId = due.id;
       charged += e.feePaise;
     }

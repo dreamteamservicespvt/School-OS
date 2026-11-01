@@ -658,8 +658,7 @@ describe("Event fee totals keep to the person's campus (run-3 follow-up)", () =>
   const both = () => formatRupees(BigInt(100000));
   beforeAll(async () => {
     feeEvent = await makeEvent("Sports Day", null, { feePaise: BigInt(50000) });
-    // Each student's fee row in their own campus's year, as Register gives it
-    // (registerStudents itself charges in the event's one year, not each campus's).
+    // Each student's fee row in their own campus's year, as Register gives it.
     const { addCharge } = await import("@/lib/fees/structure");
     await run(async (tx) => {
       const e = await tx.event.findUniqueOrThrow({ where: { id: feeEvent } });
@@ -925,6 +924,23 @@ describe("A route message from a person kept to one campus reaches that campus's
     const r = await actions.messageRouteAction(null, form({ routeId, kind: "message", text: "The bus leaves ten minutes early tomorrow.", confirmed: "yes" }));
     // No channel is connected in tests, so nothing goes out; the answer counts the parents it was for.
     expect(r.message).toBe("Nobody would get this message. Not sent: WhatsApp, SMS and email are not connected (1).");
+  }, 120_000);
+});
+
+// ---------- Run-3 leftovers, item 4: an every-campus event's fee year ----------
+
+describe("An event for every campus charges each student in their own campus's year (run-3 follow-up)", () => {
+  it("registers students of both campuses, each fee row in their own campus's year", async () => {
+    // Main's year starts in April and North's in June: the event's one year is one campus's.
+    const ev = await makeEvent("Founders Day", null, { feePaise: BigInt(30000) });
+    const r = await run((tx) => registerStudents(tx, ctx, ev, [main.studentId, north.studentId], soon(0)));
+    expect(r.added).toBe(2);
+    const dues = await run(async (tx) => {
+      const regs = await tx.eventRegistration.findMany({ where: { eventId: ev, withdrawnAt: null }, select: { dueId: true } });
+      return tx.studentFeeDue.findMany({ where: { id: { in: regs.map((x) => x.dueId).filter((x): x is string => Boolean(x)) } }, select: { studentId: true, academicYearId: true } });
+    });
+    expect(dues.find((d) => d.studentId === main.studentId)?.academicYearId).toBe(main.yearId);
+    expect(dues.find((d) => d.studentId === north.studentId)?.academicYearId).toBe(north.yearId);
   }, 120_000);
 });
 

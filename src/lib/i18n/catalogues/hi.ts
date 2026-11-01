@@ -14220,6 +14220,7 @@ export const hi: Catalogue = {
   "This achievement was not found, or is on another campus.": "यह उपलब्धि नहीं मिली, या दूसरे कैंपस की है।",
   "This class was not found, or is on another campus.": "यह कक्षा नहीं मिली, या दूसरे कैंपस की है।",
   "This activity was not found, or is on another campus.": "यह गतिविधि नहीं मिली, या दूसरे कैंपस की है।",
+  "This staff member was not found, or is on another campus.": "यह स्टाफ़ सदस्य नहीं मिला, या दूसरे कैंपस का है।",
   "Choose students of your own campus.": "अपने ही कैंपस के विद्यार्थी चुनें।",
   "Choose classes of your own campus.": "अपने ही कैंपस की कक्षाएँ चुनें।",
   "A PTM is for one campus. Choose classes of one campus.": "एक PTM एक ही कैंपस के लिए होता है। एक ही कैंपस की कक्षाएँ चुनें।",

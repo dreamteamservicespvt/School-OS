@@ -3,7 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { ArrowLeft, Armchair, BellRing, CheckCheck, ClipboardList, HandHeart, Hourglass, IndianRupee, ListChecks, Pencil, Plus, Send, ShieldCheck, UserPlus, Users, X } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDateTime, formatRupees } from "@/lib/format";
-import { audienceRule, eligible, eventMoney, eventStatus, eventYearIds, feeStates } from "@/lib/events/events";
+import { alumniWhere, audienceRule, eligible, eventMoney, eventStatus, eventYearIds, feeStates } from "@/lib/events/events";
 import { placeOrder, placesOf } from "@/lib/events/places";
 import { consentCounts } from "@/lib/events/consent";
 import { Ring } from "@/components/ui/display";
@@ -23,7 +23,7 @@ import { remindConsentAction, removeVolunteerAction, withdrawAction } from "../.
 import { BASE, UUID, evGuard, one, qs, type SearchParams } from "../../_lib/page";
 import { DayText, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
-import { evCampusWhere } from "@/lib/events/campus";
+import { evCampus, evCampusWhere } from "@/lib/events/campus";
 
 export async function generateMetadata() {
   return { title: await pageTitle("Event") };
@@ -99,7 +99,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
   const extra = await withSchool(ctx, async (tx) => {
     if (doing === "register") {
       let ids: string[] = [];
-      if (e.audienceKind === "alumni") ids = (await tx.student.findMany({ where: { archivedAt: null, status: { in: ["ALUMNI", "GRADUATED"] } }, select: { id: true }, take: 2000 })).map((s) => s.id);
+      if (e.audienceKind === "alumni") ids = (await tx.student.findMany({ where: alumniWhere(e), select: { id: true }, take: 2000 })).map((s) => s.id);
       else ids = (await tx.enrolment.findMany({ where: { academicYearId: { in: await eventYearIds(tx, e) }, archivedAt: null, status: "STUDYING", ...(e.audienceKind === "classes" ? { classId: { in: e.classIds } } : {}) }, select: { studentId: true }, take: 4000 })).map((x) => x.studentId);
       const ok = await eligible(tx, e, ids);
       const st = await tx.student.findMany({ where: { id: { in: [...ok] } }, select: { id: true, fullName: true } });
@@ -108,7 +108,9 @@ export default async function EventPage({ params, searchParams }: { params: Prom
       return { pick: st.sort((a, b) => placeOrder(pl.get(a.id), pl.get(b.id))).map((s) => ({ id: s.id, name: s.fullName, place: pl.get(s.id)?.label ?? "Alumni", registered: active.has(s.id) })) };
     }
     if (doing === "volunteer") {
-      const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" }, take: 1000 });
+      // A person kept to one campus picks that campus's staff only.
+      const mine = await evCampus(tx, p.current);
+      const staff = await tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, ...(mine ? { campusId: mine } : {}) }, select: { id: true, fullName: true }, orderBy: { fullName: "asc" }, take: 1000 });
       return { staff };
     }
     if (doing === "consent" && d.consent) return { consentPick: consentRows.map((r) => ({ id: r.id, name: r.name, place: r.place.replace(/^Class /, "") })) };

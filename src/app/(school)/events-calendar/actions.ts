@@ -13,7 +13,7 @@ import { archiveAlbum, askConsent, createAlbum, newShareLink, publishAlbum, remo
 import { changeList, LIST_WORDS, renewFeed, saveCredits, saveEventsSettings } from "@/lib/events/settings";
 import { recordConsent, remindConsent } from "@/lib/events/consent";
 import { localNow } from "@/lib/events/jobs";
-import { assertEvCampus, assertEvClasses, evCampus, type EvRecord } from "@/lib/events/campus";
+import { assertEvCampus, assertEvClasses, assertEvStudents, evCampus, type EvRecord } from "@/lib/events/campus";
 import { parseRupees } from "@/lib/fees/act";
 import { sendMessage } from "@/lib/messaging";
 import { tellSafely, toldWords, type Told } from "@/lib/events/tell";
@@ -155,7 +155,10 @@ export async function cancelEventAction(_: S, fd: FormData): Promise<S> {
 export async function registerAction(_: S, fd: FormData): Promise<S> {
   return evAction("create", fd, async (w) => {
     need(w.can.events, "register students");
-    return registerStudents(w.tx, w.ctx, await here(w, "event", fd, "eventId", "event"), ids(fd, "studentIds"), today(w.tz));
+    const eventId = await here(w, "event", fd, "eventId", "event");
+    const studentIds = ids(fd, "studentIds");
+    await assertEvStudents(w.tx, w.current, studentIds);
+    return registerStudents(w.tx, w.ctx, eventId, studentIds, today(w.tz));
   }, (r) => `${count(r.added, "student")} registered for ${r.event.name}.${r.charged > BigInt(0) ? " The fee is added to their fees." : ""}${r.skipped ? ` ${r.skipped} left out (already registered or not in the audience).` : ""}`);
 }
 
@@ -185,7 +188,10 @@ export async function volunteerAction(_: S, fd: FormData): Promise<S> {
     need(w.can.events, "add volunteers");
     const kind = str(fd, "kind") || "staff";
     const personId = UUID_RE.test(str(fd, "personId")) ? str(fd, "personId") : null;
-    return addVolunteer(w.tx, w.ctx, await here(w, "event", fd, "eventId", "event"), { kind, personId, name: str(fd, "name"), duty: str(fd, "duty") });
+    const eventId = await here(w, "event", fd, "eventId", "event");
+    // The volunteer's name is read from their record: another campus's student or staff member is not found.
+    if (personId && (kind === "student" || kind === "staff")) await assertEvCampus(w.tx, w.current, kind, personId);
+    return addVolunteer(w.tx, w.ctx, eventId, { kind, personId, name: str(fd, "name"), duty: str(fd, "duty") });
   }, (v) => `${v.name} added as a volunteer: ${v.duty}.`);
 }
 
@@ -351,7 +357,9 @@ export async function tagAction(_: S, fd: FormData): Promise<S> {
     const noStudents = str(fd, "noStudents") === "yes";
     const num = (k: string) => { const v = str(fd, k); return v === "" ? null : Number(v); };
     const tags = ids(fd, "studentIds").map((s) => ({ studentId: s, x: num(`x_${s}`), y: num(`y_${s}`) }));
-    return tagMedia(w.tx, w.ctx, await here(w, "media", fd, "mediaId", "photo"), tags, noStudents);
+    const mediaId = await here(w, "media", fd, "mediaId", "photo");
+    await assertEvStudents(w.tx, w.current, tags.map((t) => t.studentId));
+    return tagMedia(w.tx, w.ctx, mediaId, tags, noStudents);
   }, (r) => (r.tagged ? `${count(r.tagged, "student")} tagged.${r.missing ? ` ${r.missing} without photo consent.` : " All have photo consent."}` : "Marked as no students."));
 }
 

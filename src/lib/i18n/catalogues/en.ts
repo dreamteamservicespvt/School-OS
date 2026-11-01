@@ -14761,6 +14761,7 @@ export const EN = [
   "This achievement was not found, or is on another campus.",
   "This class was not found, or is on another campus.",
   "This activity was not found, or is on another campus.",
+  "This staff member was not found, or is on another campus.",
   "Choose students of your own campus.",
   "Choose classes of your own campus.",
   "A PTM is for one campus. Choose classes of one campus.",

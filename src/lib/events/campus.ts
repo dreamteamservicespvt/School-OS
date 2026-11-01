@@ -13,11 +13,11 @@ import type { Tx } from "../db";
 import type { CampusLimit } from "../campus";
 import { EventsProblem } from "./problem";
 
-export type EvRecord = "event" | "entry" | "ptm" | "slot" | "volunteer" | "album" | "media" | "student" | "achievement" | "section" | "activity";
+export type EvRecord = "event" | "entry" | "ptm" | "slot" | "volunteer" | "album" | "media" | "student" | "staff" | "achievement" | "section" | "activity";
 
 const WORD: Record<EvRecord, string> = {
   event: "event", entry: "calendar entry", ptm: "PTM", slot: "PTM slot", volunteer: "volunteer", album: "album", media: "photo",
-  student: "student", achievement: "achievement", section: "class", activity: "activity",
+  student: "student", staff: "staff member", achievement: "achievement", section: "class", activity: "activity",
 };
 
 /** The campus the person is kept to here: their limit, only when the school has more than one campus. */
@@ -82,6 +82,8 @@ async function campusOf(tx: Tx, kind: EvRecord, id: string): Promise<string | nu
     }
     case "student":
       return (await tx.student.findFirst({ where: { id }, select: { campusId: true } }))?.campusId;
+    case "staff":
+      return (await tx.staff.findFirst({ where: { id }, select: { campusId: true } }))?.campusId;
     case "achievement": {
       const a = await tx.achievement.findFirst({ where: { id }, select: { studentId: true } });
       return a ? campusOf(tx, "student", a.studentId) : undefined;

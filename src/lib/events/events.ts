@@ -255,10 +255,15 @@ async function loadOpen(tx: Tx, eventId: string, today: string) {
   return e;
 }
 
+/** The alumni an alumni event is for: the school's, or its campus's for one campus's event. */
+export function alumniWhere(e: Pick<Event, "campusId">) {
+  return { archivedAt: null, status: { in: ["ALUMNI" as const, "GRADUATED" as const] }, ...(e.campusId ? { campusId: e.campusId } : {}) };
+}
+
 /** Students who may register: the audience's classes this year (or alumni for an alumni event). */
 export async function eligible(tx: Tx, e: Event, studentIds: string[]) {
   if (e.audienceKind === "alumni") {
-    const rows = await tx.student.findMany({ where: { id: { in: studentIds }, archivedAt: null, status: { in: ["ALUMNI", "GRADUATED"] } }, select: { id: true } });
+    const rows = await tx.student.findMany({ where: { id: { in: studentIds }, ...alumniWhere(e) }, select: { id: true } });
     return new Set(rows.map((r) => r.id));
   }
   const rows = await tx.enrolment.findMany({
@@ -275,7 +280,7 @@ export async function registerStudents(tx: Tx, ctx: SchoolContext, eventId: stri
   if (!wanted.length) throw new EventsProblem("Choose the students to register.", "studentIds");
   const ok = await eligible(tx, e, wanted);
   const outside = wanted.filter((s) => !ok.has(s));
-  if (outside.length === wanted.length) throw new EventsProblem(e.audienceKind === "alumni" ? "These students are not alumni of the school." : `These students are not in ${e.audienceLabel}.`, "studentIds");
+  if (outside.length === wanted.length) throw new EventsProblem(e.audienceKind === "alumni" && !e.campusId ? "These students are not alumni of the school." : `These students are not in ${e.audienceLabel}.`, "studentIds");
   const existing = await tx.eventRegistration.findMany({ where: { eventId, studentId: { in: wanted } } });
   const active = await tx.eventRegistration.count({ where: { eventId, withdrawnAt: null } });
   const toAdd = wanted.filter((s) => ok.has(s) && !existing.some((x) => x.studentId === s && !x.withdrawnAt));

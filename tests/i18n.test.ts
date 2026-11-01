@@ -119,7 +119,7 @@ describe("the translator", () => {
 
   it("says the One-campus refusals in Hindi and Telugu", () => {
     const refusals = [
-      ...["record", "import", "event", "calendar entry", "PTM", "PTM slot", "volunteer", "album", "photo", "student", "achievement", "class", "activity"].map((w) => `This ${w} was not found, or is on another campus.`),
+      ...["record", "import", "event", "calendar entry", "PTM", "PTM slot", "volunteer", "album", "photo", "student", "staff member", "achievement", "class", "activity"].map((w) => `This ${w} was not found, or is on another campus.`),
       "Choose students of your own campus.",
       "Choose classes of your own campus.",
       "A PTM is for one campus. Choose classes of one campus.",

@@ -219,12 +219,15 @@ export async function liveView(tx: Tx, today: Date, kind: "MORNING" | "EVENING")
   });
 }
 
-/** Parents (each student's main parent) of the students on each route today: the number a route message goes to. */
-export async function routeParents(tx: Tx, today: Date) {
+/**
+ * Parents (each student's main parent) of the students on each route today: the number a route message goes to.
+ * One campus (`ours`: its students' ids, null for the whole school): the parents of that campus's students only.
+ */
+export async function routeParents(tx: Tx, today: Date, ours: string[] | null = null) {
   const routes = await tx.route.findMany({ where: { archivedAt: null }, select: { id: true, number: true, name: true }, orderBy: { number: "asc" } });
   const out: { id: string; number: number; name: string; label: string; students: number; parents: number }[] = [];
   for (const r of routes) {
-    const students = await routeStudents(tx, r.id, today);
+    const students = await routeStudents(tx, r.id, today, ours);
     const links = students.length ? await tx.studentGuardian.findMany({ where: { studentId: { in: students }, ...OPEN_LINK }, select: { studentId: true, guardianId: true, isPrimary: true } }) : [];
     const chosen = new Set<string>();
     for (const s of students) {

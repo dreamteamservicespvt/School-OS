@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/format";
 import { etas } from "@/lib/transport/geo";
 import { ensureTrips } from "@/lib/transport/trips";
 import { alertsView, liveView, routeParents } from "@/lib/transport/views";
+import { campusStudentIds } from "@/lib/campus";
 import { breakdownText, delayText, emergencyText } from "@/lib/transport/messages";
 import { ALERT_KINDS, LIVE_TONE, clockOf, liveStatus, plural, showPlate, tripKind } from "@/lib/transport/words";
 import { clockAt } from "@/lib/front-office/time";
@@ -58,7 +59,8 @@ export default async function LivePage({ searchParams }: { searchParams: SearchP
       tx.route.findMany({ where: { archivedAt: null }, orderBy: { number: "asc" }, include: { stops: { where: { archivedAt: null }, orderBy: { seq: "asc" } } } }),
     ]);
     const drivers = await tx.driver.findMany({ where: { id: { in: rows.map((r) => r.t.driverId).filter((x): x is string => Boolean(x)) } }, select: { id: true, licenceExpiry: true } });
-    const parents = msg ? await routeParents(tx, p.today) : null;
+    // One campus: the parents of that campus's students on each route (the message goes to them only).
+    const parents = msg ? await routeParents(tx, p.today, await campusStudentIds(tx, p.current)) : null;
     let replay = null;
     if (replayId) {
       const t = await tx.trip.findFirst({ where: { id: replayId } });

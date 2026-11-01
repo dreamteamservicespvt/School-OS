@@ -10,6 +10,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { sendAutomatic } from "../messaging/automatic";
 import { sendMessage, MessagingProblem } from "../messaging/send";
+import { campusStudentIds, type CampusLimit } from "../campus";
 import { TransportProblem } from "./problem";
 import { onBusOn } from "./places";
 import { studyingIds } from "./people";
@@ -24,8 +25,8 @@ export async function riders(tx: Tx, routeId: string, kind: string, day: Date, s
 }
 
 /** Students on a route now (either way), for messages to the route's parents. */
-export async function routeStudents(tx: Tx, routeId: string, day: Date) {
-  const places = await tx.transportAssignment.findMany({ where: { ...onBusOn(day), routeId }, select: { studentId: true } });
+export async function routeStudents(tx: Tx, routeId: string, day: Date, ours: string[] | null = null) {
+  const places = await tx.transportAssignment.findMany({ where: { ...onBusOn(day), routeId, ...(ours ? { studentId: { in: ours } } : {}) }, select: { studentId: true } });
   const studying = await studyingIds(tx, places.map((p) => p.studentId));
   return [...new Set(places.map((p) => p.studentId))].filter((id) => studying.has(id));
 }
@@ -92,16 +93,21 @@ export type RouteMessage = { routeId: string; text: string; kind: "delay" | "eme
 /**
  * A message to the parents of one route, sent only after a person confirms
  * ("Send to 38 parents"; 12 §5 Emergency message sent by mistake). An
- * emergency also reaches parents who opted out of messages.
+ * emergency also reaches parents who opted out of messages. A person kept to
+ * one campus (`limit`) messages the parents of that campus's students on the
+ * route only (20-settings.md, scope "One campus"; the safest reading, taken
+ * overnight 2026-11-01, for the owner to confirm).
  */
-export async function messageRoute(tx: Tx, ctx: SchoolContext, m: RouteMessage, today: Date) {
+export async function messageRoute(tx: Tx, ctx: SchoolContext, m: RouteMessage, today: Date, limit: CampusLimit | null = null) {
   const text = m.text.trim();
   if (text.length < 10) throw new TransportProblem("Write the message (at least 10 characters).", "text");
   if (text.length > 600) throw new TransportProblem("Keep the message under 600 characters.", "text");
   const route = await tx.route.findFirst({ where: { id: m.routeId } });
   if (!route) throw new TransportProblem("Choose a route.", "routeId");
-  const students = await routeStudents(tx, route.id, today);
+  const students = await routeStudents(tx, route.id, today, await campusStudentIds(tx, limit));
   if (!students.length) throw new TransportProblem(`Route ${route.number} has no students now, so there is nobody to message.`);
+  // Each campus's message about the same alert or delay is its own: one campus's never stops the other's.
+  const once = (key: string) => (limit?.campusId ? `${key}:${limit.campusId}` : key);
   try {
     const r = await sendMessage(tx, ctx, {
       to: { guardiansOf: students },
@@ -113,7 +119,7 @@ export async function messageRoute(tx: Tx, ctx: SchoolContext, m: RouteMessage, 
       audienceLabel: `Parents of Route ${route.number} · ${route.name}`,
       trigger: m.kind === "emergency" ? "Transport emergency" : m.kind === "delay" ? "Bus delay" : "Message to a route",
       source: m.alertId ? { type: "Transport Alert", id: m.alertId } : m.tripId ? { type: "Trip", id: m.tripId } : { type: "Route", id: route.id },
-      idempotencyKey: m.alertId ? `transport-alert:${m.alertId}` : m.kind === "delay" && m.tripId ? `transport-delay:${m.tripId}` : null,
+      idempotencyKey: m.alertId ? once(`transport-alert:${m.alertId}`) : m.kind === "delay" && m.tripId ? once(`transport-delay:${m.tripId}`) : null,
     });
     if (m.alertId) await tx.transportAlert.updateMany({ where: { id: m.alertId }, data: { messageId: r.messageId } });
     await writeAudit(tx, ctx, { action: `route-${m.kind}-message`, recordType: "Route", recordId: route.id, after: { people: r.people, students: students.length, text, repeated: r.repeated } });

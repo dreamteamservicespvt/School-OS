@@ -886,3 +886,45 @@ describe("The Transport Dashboard's fee coverage counts the person's campus's st
   }, 120_000);
 });
 
+// ---------- Run-3 leftovers, item 3: Transport route message ----------
+
+describe("A route message from a person kept to one campus reaches that campus's parents only (run-3 follow-up)", () => {
+  // Owner decision taken overnight as the safest choice, to confirm: a route
+  // carries both campuses' students; the Main in-charge's message goes to the
+  // parents of Main's students on it, never to North's.
+  let inCharge: Current;
+  let routeId = "";
+  beforeAll(async () => {
+    const sid = school.id;
+    await switchOn("transport-management", "transport-in-charge");
+    const user = (await makeUser({ schools: [{ id: sid, roleKeys: ["transport-in-charge"] }], name: "Main Message Transport" })).id;
+    const riders = [(await addStudent(ctx, main.sectionId, { fullName: "Mani Messaged", applyFeePlan: false })).student.id, (await addStudent(ctx, north.sectionId, { fullName: "Navya Messaged", applyFeePlan: false })).student.id];
+    const { addRoute, addStop } = await import("@/lib/transport/routes");
+    const { assignStudents } = await import("@/lib/transport/places");
+    routeId = await run(async (tx) => {
+      await tx.schoolAccess.updateMany({ where: { schoolId: sid, userLoginId: user }, data: { scope: "CAMPUS", campusId: main.campusId } });
+      const r = await addRoute(tx, ctx, { name: "River Road", vehicleId: null, driverId: null, attendantId: null, feeTwoWayPaise: BigInt(150000), feeOneWayPaise: BigInt(100000), schoolArrivalMin: 500, eveningDepartMin: 930 });
+      const stop = await addStop(tx, ctx, r.id, { name: "River Bridge", before: null, pickupMin: 440, dropMin: null, lat: 17.49, lng: 78.48, feeTwoWayPaise: null, feeOneWayPaise: null });
+      await assignStudents(tx, ctx, { studentIds: riders, routeId: r.id, stopId: stop.id, type: "TWO_WAY", fromDate: day(todayIst()), reason: null }, day(todayIst()));
+      return r.id;
+    });
+    inCharge = await currentFor(user);
+  }, 240_000);
+
+  it("the Message a route sheet counts the in-charge's own campus's parents on the route", async () => {
+    const { routeParents } = await import("@/lib/transport/views");
+    const { campusStudentIds } = await import("@/lib/campus");
+    const row = async (as: Current) => (await run(async (tx) => routeParents(tx, day(todayIst()), await campusStudentIds(tx, as)))).find((r) => r.id === routeId);
+    expect(await row(cur.admin)).toMatchObject({ students: 2, parents: 2 });
+    expect(await row(inCharge)).toMatchObject({ students: 1, parents: 1 });
+  }, 120_000);
+
+  it("the in-charge's message is for the parents of their own campus's students on the route only", async () => {
+    who.current = inCharge;
+    const actions = (await import("@/app/(school)/transport-management/actions")) as unknown as Record<string, (s: unknown, fd: FormData) => Promise<{ ok: boolean; message?: string }>>;
+    const r = await actions.messageRouteAction(null, form({ routeId, kind: "message", text: "The bus leaves ten minutes early tomorrow.", confirmed: "yes" }));
+    // No channel is connected in tests, so nothing goes out; the answer counts the parents it was for.
+    expect(r.message).toBe("Nobody would get this message. Not sent: WhatsApp, SMS and email are not connected (1).");
+  }, 120_000);
+});
+

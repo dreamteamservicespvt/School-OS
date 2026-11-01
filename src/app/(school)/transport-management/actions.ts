@@ -528,7 +528,7 @@ export async function messageRouteAction(_: S, fd: FormData): Promise<S> {
     const kind = (["delay", "emergency", "message"] as const).find((k) => k === str(fd, "kind")) ?? "message";
     need(kind === "emergency" ? w.can.emergencyMessage : w.can.live, kind === "emergency" ? "send the emergency message" : "message a route's parents");
     if (str(fd, "confirmed") !== "yes") throw new TransportProblem("Confirm the message before it is sent.");
-    return messageRoute(w.tx, w.ctx, { routeId: id(fd, "routeId", "route"), text: str(fd, "text"), kind, alertId: optionalId(fd, "alertId"), tripId: optionalId(fd, "tripId") }, w.today);
+    return messageRoute(w.tx, w.ctx, { routeId: id(fd, "routeId", "route"), text: str(fd, "text"), kind, alertId: optionalId(fd, "alertId"), tripId: optionalId(fd, "tripId") }, w.today, w.current);
   }, (r) => (r.repeated ? say("This message was already sent", "It was not sent twice.") : say(`Sent to ${plural(r.people, "parent")} of Route ${r.route.number}`, r.skipped.length ? `${r.skipped.reduce((s, g) => s + g.count, 0)} could not be reached. See Message History.` : "See Message History for delivery.")));
 }
 

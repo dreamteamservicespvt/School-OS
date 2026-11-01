@@ -38,11 +38,12 @@ export default async function RoutePage({ params, searchParams }: { params: Prom
   const doing = one(sp.do);
   const editStopId = UUID.test(one(sp.stop)) ? one(sp.stop) : null;
   const data = await withSchool(p.current.ctx, async (tx) => {
-    const d = await routeDetail(tx, id, p.today, await campusStudentIds(tx, p.current));
+    const ours = await campusStudentIds(tx, p.current);
+    const d = await routeDetail(tx, id, p.today, ours);
     if (!d) return null;
     const school = await tx.school.findUniqueOrThrow({ where: { id: p.current.ctx.schoolId }, select: { name: true } });
     const options = p.can.routes && doing === "edit" ? await crewOptions(tx, id) : null;
-    const parents = p.can.live && doing === "message" ? await routeParents(tx, p.today) : null;
+    const parents = p.can.live && doing === "message" ? await routeParents(tx, p.today, ours) : null;
     return { ...d, school, options, parents };
   });
   if (!data) notFound();

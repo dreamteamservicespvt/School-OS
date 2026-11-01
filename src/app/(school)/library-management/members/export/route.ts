@@ -15,7 +15,7 @@ export async function GET(req: Request) {
   const title = f.tab === "staff" ? "Library members: staff" : f.tab === "blocked" ? "Library members: blocked" : "Library members: students";
   const r = await withSchool(x.current.ctx, async (tx) => {
     const s = await librarySettings(tx, x.current.ctx);
-    const { rows } = await memberRows(tx, x.current.ctx, s, f, x.today, null);
+    const { rows } = await memberRows(tx, x.current.ctx, s, f, x.today, null, x.current);
     const sec = f.sec ? await tx.section.findFirst({ where: { id: f.sec }, select: { name: true, schoolClass: { select: { name: true } } } }) : null;
     const filters = [sec ? `Class: ${sec.schoolClass.name} ${sec.name}` : "", f.q ? `Search: ${f.q}` : ""].filter(Boolean).join(" · ");
     await logExport(tx, x.current.ctx, { title, format: x.format, filters, rows: rows.length });

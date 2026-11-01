@@ -70,7 +70,8 @@ type StudentRow = { id: string; fullName: string; firstName: string; admissionNo
 type StaffRow = { id: string; fullName: string; firstName: string; staffCode: string; photoFileId: string | null; status: string; archivedAt: Date | null; designation: string; departmentId: string | null; userLoginId: string | null };
 
 /** Builds members for many students and staff at once (lists, reports). */
-export async function membersOf(tx: Tx, ctx: SchoolContext, s: LibrarySettings, ids: { studentIds?: string[]; staffIds?: string[] }): Promise<Map<string, Member>> {
+/** The members with these ids; another campus's are left out for a person kept to one campus (`limit`). */
+export async function membersOf(tx: Tx, ctx: SchoolContext, s: LibrarySettings, ids: { studentIds?: string[]; staffIds?: string[] }, limit?: CampusLimit | null): Promise<Map<string, Member>> {
   const studentIds = [...new Set(ids.studentIds ?? [])];
   const staffIds = [...new Set(ids.staffIds ?? [])];
   const out = new Map<string, Member>();
@@ -78,8 +79,8 @@ export async function membersOf(tx: Tx, ctx: SchoolContext, s: LibrarySettings, 
   // Each student's class in their own campus's current year.
   const yearIds = studentIds.length ? await currentYearIds(tx, ctx) : [];
   const [students, staff, overrides] = await Promise.all([
-    studentIds.length ? tx.student.findMany({ where: { id: { in: studentIds } }, select: { id: true, fullName: true, firstName: true, admissionNo: true, photoFileId: true, status: true, archivedAt: true } }) : Promise.resolve([] as StudentRow[]),
-    staffIds.length ? tx.staff.findMany({ where: { id: { in: staffIds } }, select: { id: true, fullName: true, firstName: true, staffCode: true, photoFileId: true, status: true, archivedAt: true, designation: true, departmentId: true, userLoginId: true } }) : Promise.resolve([] as StaffRow[]),
+    studentIds.length ? tx.student.findMany({ where: { id: { in: studentIds }, ...inCampus(limit) }, select: { id: true, fullName: true, firstName: true, admissionNo: true, photoFileId: true, status: true, archivedAt: true } }) : Promise.resolve([] as StudentRow[]),
+    staffIds.length ? tx.staff.findMany({ where: { id: { in: staffIds }, ...inCampus(limit) }, select: { id: true, fullName: true, firstName: true, staffCode: true, photoFileId: true, status: true, archivedAt: true, designation: true, departmentId: true, userLoginId: true } }) : Promise.resolve([] as StaffRow[]),
     tx.libraryMember.findMany({ where: { OR: [...(studentIds.length ? [{ studentId: { in: studentIds } }] : []), ...(staffIds.length ? [{ staffId: { in: staffIds } }] : [])] } }),
   ]);
   const enrol = yearIds.length && students.length
@@ -120,10 +121,11 @@ export async function membersOf(tx: Tx, ctx: SchoolContext, s: LibrarySettings, 
   return out;
 }
 
-export async function memberByKey(tx: Tx, ctx: SchoolContext, s: LibrarySettings, key: string | null | undefined): Promise<Member | null> {
+/** The member on a key (S:<student id> or T:<staff id>); another campus's is not found for a person kept to one campus. */
+export async function memberByKey(tx: Tx, ctx: SchoolContext, s: LibrarySettings, key: string | null | undefined, limit?: CampusLimit | null): Promise<Member | null> {
   const k = parseMemberKey(key);
   if (!k) return null;
-  const map = await membersOf(tx, ctx, s, k.kind === "STUDENT" ? { studentIds: [k.id] } : { staffIds: [k.id] });
+  const map = await membersOf(tx, ctx, s, k.kind === "STUDENT" ? { studentIds: [k.id] } : { staffIds: [k.id] }, limit);
   return map.values().next().value ?? null;
 }
 
@@ -131,15 +133,15 @@ export async function memberByKey(tx: Tx, ctx: SchoolContext, s: LibrarySettings
  * The member on a scanned card or a typed number: the admission number, the
  * staff code, or the ID card's QR ("SCHOOLCODE:number").
  */
-export async function memberByCode(tx: Tx, ctx: SchoolContext, s: LibrarySettings, raw: string): Promise<Member | null> {
+export async function memberByCode(tx: Tx, ctx: SchoolContext, s: LibrarySettings, raw: string, limit?: CampusLimit | null): Promise<Member | null> {
   let code = raw.trim();
   if (!code) return null;
   const qr = /^([^:\s]+):(.+)$/.exec(code);
   if (qr) code = qr[2].trim();
-  const student = await tx.student.findFirst({ where: { admissionNo: { equals: code, mode: "insensitive" }, archivedAt: null }, select: { id: true } });
-  if (student) return memberByKey(tx, ctx, s, `S:${student.id}`);
-  const staff = await tx.staff.findFirst({ where: { staffCode: { equals: code, mode: "insensitive" }, archivedAt: null }, select: { id: true } });
-  if (staff) return memberByKey(tx, ctx, s, `T:${staff.id}`);
+  const student = await tx.student.findFirst({ where: { admissionNo: { equals: code, mode: "insensitive" }, archivedAt: null, ...inCampus(limit) }, select: { id: true } });
+  if (student) return memberByKey(tx, ctx, s, `S:${student.id}`, limit);
+  const staff = await tx.staff.findFirst({ where: { staffCode: { equals: code, mode: "insensitive" }, archivedAt: null, ...inCampus(limit) }, select: { id: true } });
+  if (staff) return memberByKey(tx, ctx, s, `T:${staff.id}`, limit);
   return null;
 }
 

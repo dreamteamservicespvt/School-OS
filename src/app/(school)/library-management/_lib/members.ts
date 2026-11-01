@@ -7,6 +7,7 @@ import "server-only";
 import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "@/lib/db";
 import { currentYearIds } from "@/lib/academic/years";
+import { inCampus, type CampusLimit } from "@/lib/campus";
 import { ACTIVE_STAFF, ACTIVE_STUDENT, membersOf, type Member } from "@/lib/library/members";
 import type { LibrarySettings } from "@/lib/library/settings";
 import { studentIdsForFilter } from "@/lib/students/find";
@@ -22,38 +23,59 @@ export function readMembersFilter(get: (k: string) => string): MembersFilter {
   return { tab: t === "staff" || t === "blocked" ? t : "students", q: get("q").trim().slice(0, 80), sec: UUID.test(get("sec")) ? get("sec") : "" };
 }
 
-/** One page of members (or all of them for an export when take is null). */
-export async function memberRows(tx: Tx, ctx: SchoolContext, s: LibrarySettings, f: MembersFilter, today: Date, page: { skip: number; take: number } | null) {
+/** Blocked members, of the person's campus only when they are kept to one. */
+async function blockedRows(tx: Tx, limit: CampusLimit | null | undefined) {
+  const rows = await tx.libraryMember.findMany({ where: { blockedAt: { not: null } }, orderBy: { blockedAt: "desc" } });
+  if (!limit?.campusId) return rows;
+  const ids = <T extends string | null>(xs: T[]) => xs.filter((x): x is NonNullable<T> => Boolean(x));
+  const [st, sf] = await Promise.all([
+    tx.student.findMany({ where: { id: { in: ids(rows.map((r) => r.studentId)) }, campusId: limit.campusId }, select: { id: true } }),
+    tx.staff.findMany({ where: { id: { in: ids(rows.map((r) => r.staffId)) }, campusId: limit.campusId }, select: { id: true } }),
+  ]);
+  const keep = new Set([...st, ...sf].map((x) => x.id));
+  return rows.filter((r) => keep.has(r.studentId ?? r.staffId ?? ""));
+}
+
+/** How many members are blocked (of the person's campus when they are kept to one). */
+export async function blockedCount(tx: Tx, limit: CampusLimit | null | undefined) {
+  return limit?.campusId ? (await blockedRows(tx, limit)).length : tx.libraryMember.count({ where: { blockedAt: { not: null } } });
+}
+
+/**
+ * One page of members (or all of them for an export when take is null). A
+ * person kept to one campus (`limit`) sees that campus's students and staff only.
+ */
+export async function memberRows(tx: Tx, ctx: SchoolContext, s: LibrarySettings, f: MembersFilter, today: Date, page: { skip: number; take: number } | null, limit?: CampusLimit | null) {
   let total = 0;
   let studentIds: string[] = [];
   let staffIds: string[] = [];
   const q = f.q;
   const pg = { skip: page?.skip ?? 0, take: page?.take ?? 20000 };
   if (f.tab === "students") {
-    // Students of every campus, each in their own campus's current year.
+    // Students of every campus (or the person's own), each in their own campus's current year.
     const yearIds = await currentYearIds(tx, ctx);
     if (yearIds.length) {
       const where: Prisma.EnrolmentWhereInput = {
         academicYearId: { in: yearIds }, archivedAt: null, ...(f.sec ? { sectionId: f.sec } : {}),
-        student: { archivedAt: null, status: { in: [...ACTIVE_STUDENT] }, ...(q ? { id: { in: await studentIdsForFilter(tx, q) } } : {}) },
+        student: { archivedAt: null, status: { in: [...ACTIVE_STUDENT] }, ...inCampus(limit), ...(q ? { id: { in: await studentIdsForFilter(tx, q) } } : {}) },
       };
       total = await tx.enrolment.count({ where });
       const rows = await tx.enrolment.findMany({ where, orderBy: [{ student: { fullName: "asc" } }, { id: "asc" }], select: { studentId: true }, ...pg });
       studentIds = rows.map((r) => r.studentId);
     }
   } else if (f.tab === "staff") {
-    const where: Prisma.StaffWhereInput = { archivedAt: null, status: { in: [...ACTIVE_STAFF] }, ...(q ? { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { staffCode: { contains: q, mode: "insensitive" } }] } : {}) };
+    const where: Prisma.StaffWhereInput = { archivedAt: null, status: { in: [...ACTIVE_STAFF] }, ...inCampus(limit), ...(q ? { OR: [{ fullName: { contains: q, mode: "insensitive" } }, { staffCode: { contains: q, mode: "insensitive" } }] } : {}) };
     total = await tx.staff.count({ where });
     const rows = await tx.staff.findMany({ where, orderBy: [{ fullName: "asc" }, { id: "asc" }], select: { id: true }, ...pg });
     staffIds = rows.map((r) => r.id);
   } else {
-    const where: Prisma.LibraryMemberWhereInput = { blockedAt: { not: null } };
-    total = await tx.libraryMember.count({ where });
-    const rows = await tx.libraryMember.findMany({ where, orderBy: { blockedAt: "desc" }, ...pg });
+    const all = await blockedRows(tx, limit);
+    total = all.length;
+    const rows = all.slice(pg.skip, pg.skip + pg.take);
     studentIds = rows.map((r) => r.studentId).filter((x): x is string => Boolean(x));
     staffIds = rows.map((r) => r.staffId).filter((x): x is string => Boolean(x));
   }
-  const map = await membersOf(tx, ctx, s, { studentIds, staffIds });
+  const map = await membersOf(tx, ctx, s, { studentIds, staffIds }, limit);
   const keys = [...studentIds.map((id) => `S:${id}`), ...staffIds.map((id) => `T:${id}`)];
   let members = keys.map((k) => map.get(k)).filter((m): m is Member => Boolean(m));
   if (f.tab === "blocked" && q) members = members.filter((m) => `${m.name} ${m.cardNo}`.toLowerCase().includes(q.toLowerCase()));

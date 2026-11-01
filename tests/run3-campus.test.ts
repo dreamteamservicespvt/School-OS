@@ -266,3 +266,98 @@ describe("Event and album pages list only the person's own campus's students (ru
     expect(mine).not.toContain(NAMES.main.student);
   }, 120_000);
 });
+
+describe("Hostel, Library and Transport refuse another campus's student or staff member (run-3, low)", () => {
+  // Hostels, books and routes are the whole school's; the person named on a
+  // bed, a library card or a bus place is narrowed to the person's campus.
+  let northStaff: { hostel: Current; library: Current; transport: Current };
+  let bedId = "";
+  let route: { id: string; stopId: string };
+  const today = () => new Date(Date.now() + 330 * 60_000).toISOString().slice(0, 10);
+  const MODS = {
+    hostel: () => import("@/app/(school)/hostel-management/actions"),
+    library: () => import("@/app/(school)/library-management/actions"),
+    transport: () => import("@/app/(school)/transport-management/actions"),
+  };
+  const call = async (mod: keyof typeof MODS, name: string, fields: Record<string, string | string[]>, as: Current) => {
+    who.current = as;
+    const actions = (await MODS[mod]()) as unknown as Record<string, (s: unknown, fd: FormData) => Promise<{ ok: boolean; message?: string }>>;
+    return actions[name](null, form(fields));
+  };
+  beforeAll(async () => {
+    const sid = school.id;
+    await run(async (tx) => {
+      await tx.role.updateMany({ where: { key: { in: ["hostel-warden", "librarian", "transport-in-charge"] } }, data: { isEnabled: true } });
+      for (const moduleKey of ["hostel-management", "library-management", "transport-management"]) {
+        await tx.schoolModule.upsert({ where: { schoolId_moduleKey: { schoolId: sid, moduleKey } }, create: { schoolId: sid, moduleKey, isOn: true }, update: { isOn: true } });
+      }
+    });
+    const made: Record<string, string> = {};
+    for (const [k, role] of [["hostel", "hostel-warden"], ["library", "librarian"], ["transport", "transport-in-charge"]] as const) {
+      made[k] = (await makeUser({ schools: [{ id: sid, roleKeys: [role] }], name: `North ${k}` })).id;
+    }
+    const { addHostel, setWardens } = await import("@/lib/hostel/settings");
+    const { addRoom } = await import("@/lib/hostel/rooms");
+    const { addRoute, addStop } = await import("@/lib/transport/routes");
+    ({ bedId, route } = await run(async (tx) => {
+      await tx.schoolAccess.updateMany({ where: { schoolId: sid, userLoginId: { in: Object.values(made) } }, data: { scope: "CAMPUS", campusId: north.campusId } });
+      const wardenStaff = await tx.staff.create({ data: { schoolId: sid, campusId: north.campusId, staffCode: "N-W1", firstName: "Nagesh", lastName: "Warden", fullName: "Nagesh Warden", phone: "9876500303", designation: "Hostel Warden", joiningDate: day("2020-06-01"), userLoginId: made.hostel } });
+      const hostel = await addHostel(tx, ctx, { name: "School Hostel", gender: "BOYS", floors: ["Ground"], note: null });
+      for (const id of [main.studentId, north.studentId]) await tx.student.update({ where: { id }, data: { gender: "Male" } });
+      await addRoom(tx, ctx, { hostelId: hostel.id, floor: "Ground", roomNo: "H-1", beds: 2, roomType: "Non-AC" });
+      await setWardens(tx, ctx, hostel.id, [{ staffId: wardenStaff.id, title: "Warden" }], day(today()));
+      const bed = await tx.hostelBed.findFirstOrThrow({ where: { room: { hostelId: hostel.id } }, orderBy: { bedNo: "asc" } });
+      const r = await addRoute(tx, ctx, { name: "Main Road", vehicleId: null, driverId: null, attendantId: null, feeTwoWayPaise: BigInt(150000), feeOneWayPaise: BigInt(100000), schoolArrivalMin: 500, eveningDepartMin: 930 });
+      const stop = await addStop(tx, ctx, r.id, { name: "Clock Tower", before: null, pickupMin: 440, dropMin: null, lat: 17.46, lng: 78.45, feeTwoWayPaise: null, feeOneWayPaise: null });
+      return { bedId: bed.id, route: { id: r.id, stopId: stop.id } };
+    }));
+    northStaff = { hostel: await currentFor(made.hostel), library: await currentFor(made.library), transport: await currentFor(made.transport) };
+  }, 240_000);
+
+  it("Hostel: refuses a bed for another campus's student, gives one to the warden's own campus's", async () => {
+    const give = (studentId: string) => call("hostel", "allocateAction", { studentId, bedId, startDate: today(), feePlanId: "none" }, northStaff.hostel);
+    const r = await give(main.studentId);
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/not found, or is on another campus/);
+    expect(await run((tx) => tx.bedAllocation.count({ where: { studentId: main.studentId } }))).toBe(0);
+    const ok = await give(north.studentId);
+    expect(ok.message).toContain(NAMES.north.student);
+    expect(await run((tx) => tx.bedAllocation.count({ where: { studentId: north.studentId } }))).toBe(1);
+  }, 120_000);
+
+  it("Library: refuses to block another campus's student or staff member, blocks the librarian's own campus's", async () => {
+    const block = (member: string) => call("library", "blockAction", { member, blocked: "1", reason: "Lost two books" }, northStaff.library);
+    for (const member of [`S:${main.studentId}`, `T:${main.staffId}`]) {
+      const r = await block(member);
+      expect(r.ok).toBe(false);
+      expect(r.message).not.toMatch(/Madhavi|Mohan/);
+    }
+    expect(await run((tx) => tx.libraryMember.count({ where: { blockedAt: { not: null }, OR: [{ studentId: main.studentId }, { staffId: main.staffId }] } }))).toBe(0);
+    expect((await block(`S:${north.studentId}`)).message).toContain(NAMES.north.student);
+  }, 120_000);
+
+  it("Library: the Members list shows the librarian's own campus's students and staff only", async () => {
+    who.current = northStaff.library;
+    const { default: Page } = await import("@/app/(school)/library-management/members/page");
+    const students = textOf(await Page({ searchParams: Promise.resolve({}) } as never));
+    expect(students).toContain(NAMES.north.student);
+    expect(students).not.toContain(NAMES.main.student);
+    const staff = textOf(await Page({ searchParams: Promise.resolve({ type: "staff" }) } as never));
+    expect(staff).toContain(NAMES.north.staff);
+    expect(staff).not.toContain(NAMES.main.staff);
+  }, 120_000);
+
+  it("Transport: refuses a bus place for, or a change to the place of, another campus's student", async () => {
+    const { assignStudents } = await import("@/lib/transport/places");
+    const place = (await run((tx) => assignStudents(tx, ctx, { studentIds: [main.studentId], routeId: route.id, stopId: route.stopId, type: "TWO_WAY", fromDate: day(today()), reason: null }, day(today())))).placed[0].assignmentId;
+    const r = await call("transport", "assignAction", { studentIds: [north.studentId, main.studentId], routeId: route.id, stopId: route.stopId, type: "TWO_WAY", fromDate: today() }, northStaff.transport);
+    expect(r.ok).toBe(false);
+    expect(r.message).toMatch(/not found, or is on another campus/);
+    expect(await run((tx) => tx.transportAssignment.count({ where: { studentId: north.studentId } }))).toBe(0);
+    const stop = await call("transport", "stopPlaceAction", { assignmentIds: place, lastDate: today(), reason: "Moving house" }, northStaff.transport);
+    expect(stop.message).toMatch(/not found, or is on another campus/);
+    expect((await run((tx) => tx.transportAssignment.findUniqueOrThrow({ where: { id: place } }))).toDate).toBeNull();
+    const ok = await call("transport", "assignAction", { studentIds: north.studentId, routeId: route.id, stopId: route.stopId, type: "TWO_WAY", fromDate: today() }, northStaff.transport);
+    expect(ok.ok).toBe(true);
+  }, 120_000);
+});

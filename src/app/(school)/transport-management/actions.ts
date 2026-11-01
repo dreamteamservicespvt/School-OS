@@ -13,7 +13,7 @@ import { requireCurrent } from "@/lib/current";
 import { bool, clock, date, file, id, ids, inTransport, int, maybe, money, need, num, optionalId, problemState, str, text, trAction, TransportProblem } from "@/lib/transport/act";
 import { addRoute, addStop, archiveRoute, archiveStop, copyForEvening, editRoute, editStop, moveStop, putVehicleOnRoute, restoreRoute, type RouteInput } from "@/lib/transport/routes";
 import { addDriver, addVehicle, appStates, archiveDriver, archiveVehicle, archiveVendor, cancelCost, editDriver, editVehicle, issueDriverKey, recordCost, revokeDriverKey, savePaper, saveVendor, sendAppInvite, setAppLogin, type VehicleInput } from "@/lib/transport/fleet";
-import { addMissingFee, assignStudents, changePlace, stopPlace, keptWords } from "@/lib/transport/places";
+import { addMissingFee, assertPlacesCampus, assignStudents, changePlace, stopPlace, keptWords } from "@/lib/transport/places";
 import { carryOver, endAtYearEnd } from "@/lib/transport/carry";
 import { cancelTrip, changeForDay, closeAlert, endTrip, markBoarding, markStop, remindInCharge, saveSchedule, startTrip } from "@/lib/transport/trips";
 import { messageRoute } from "@/lib/transport/messages";
@@ -359,6 +359,7 @@ export async function assignAction(_: S, fd: FormData): Promise<S> {
     const studentIds = ids(fd, "studentIds");
     if (!studentIds.length) throw new TransportProblem("Pick at least one student.", "studentIds");
     if (studentIds.length > 200) throw new TransportProblem("Pick up to 200 students at a time.", "studentIds");
+    await assertPlacesCampus(w.tx, w.current, { studentIds });
     return assignStudents(w.tx, w.ctx, { studentIds, routeId: id(fd, "routeId", "route"), stopId: id(fd, "stopId", "stop"), type: str(fd, "type") || "TWO_WAY", fromDate: date(fd, "fromDate", "From date")!, reason: maybe(fd, "reason", "Note", 200) }, w.today);
   }, (r) => {
     const fee = r.placed.reduce((s, p) => s + p.fee.totalPaise, BigInt(0));
@@ -372,6 +373,7 @@ export async function changePlaceAction(_: S, fd: FormData): Promise<S> {
     need(w.can.students, "change students' transport");
     const assignmentIds = ids(fd, "assignmentIds");
     if (!assignmentIds.length) throw new TransportProblem("Pick at least one student.");
+    await assertPlacesCampus(w.tx, w.current, { assignmentIds });
     const input = { routeId: id(fd, "routeId", "route"), stopId: id(fd, "stopId", "stop"), type: str(fd, "type") || "TWO_WAY", fromDate: date(fd, "fromDate", "From date")!, reason: text(fd, "reason", "Reason", { min: 3, max: 200 }) };
     let done = 0;
     let waiting = 0;
@@ -391,6 +393,7 @@ export async function stopPlaceAction(_: S, fd: FormData): Promise<S> {
     need(w.can.students, "stop students' transport");
     const assignmentIds = ids(fd, "assignmentIds");
     if (!assignmentIds.length) throw new TransportProblem("Pick at least one student.");
+    await assertPlacesCampus(w.tx, w.current, { assignmentIds });
     const input = { lastDate: date(fd, "lastDate", "Last day on the bus")!, reason: text(fd, "reason", "Reason", { min: 3, max: 200 }) };
     let done = 0;
     let waiting = 0;
@@ -410,7 +413,9 @@ export async function stopPlaceAction(_: S, fd: FormData): Promise<S> {
 export async function carryOverAction(_: S, fd: FormData): Promise<S> {
   return trAction("create", fd, async (w) => {
     need(w.can.students, "carry bus places over");
-    return carryOver(w.tx, w.ctx, ids(fd, "placeIds"));
+    const placeIds = ids(fd, "placeIds");
+    await assertPlacesCampus(w.tx, w.current, { assignmentIds: placeIds });
+    return carryOver(w.tx, w.ctx, placeIds);
   }, (r) => say(`${plural(r.carried, "bus place")} carried over to ${r.year}, with new bus passes`, [
     r.feeRows ? `${formatRupees(r.feePaise)} of ${r.year} transport fees added (${plural(r.feeRows, "row")}).` : null,
     r.skipped.length ? `${plural(r.skipped.length, "place")} left as ${r.skipped.length === 1 ? "it was" : "they were"}: ${r.skipped.slice(0, 3).map((s) => `${s.name} (${s.why})`).join("; ")}${r.skipped.length > 3 ? "…" : ""}` : null,
@@ -421,7 +426,9 @@ export async function carryOverAction(_: S, fd: FormData): Promise<S> {
 export async function endAtYearEndAction(_: S, fd: FormData): Promise<S> {
   return trAction("edit", fd, async (w) => {
     need(w.can.students, "end bus places");
-    return endAtYearEnd(w.tx, w.ctx, ids(fd, "placeIds"));
+    const placeIds = ids(fd, "placeIds");
+    await assertPlacesCampus(w.tx, w.current, { assignmentIds: placeIds });
+    return endAtYearEnd(w.tx, w.ctx, placeIds);
   }, (r) => `${plural(r.ended, "bus place")} ended at year end. ${r.ended === 1 ? "It is" : "They are"} not carried over to ${r.year}.`);
 }
 
@@ -430,6 +437,7 @@ export async function addFeeAction(_: S, fd: FormData): Promise<S> {
     need(w.can.students, "add transport fees");
     const list = ids(fd, "assignmentIds");
     if (!list.length) throw new TransportProblem("Pick at least one student.");
+    await assertPlacesCampus(w.tx, w.current, { assignmentIds: list });
     let total = BigInt(0);
     let rows = 0;
     let had = 0;

@@ -14,6 +14,7 @@ import { formatDate, formatRupees } from "../format";
 import { requestApproval } from "../approvals";
 import { nextNumber } from "../sequences";
 import { STUDYING } from "../students/labels";
+import type { CampusLimit } from "../campus";
 import { TransportProblem } from "./problem";
 import { transportSettings, type TrSettings } from "./settings";
 import { chargePlace, keptWords, removeFeesAfter, yearFor, type ChargeResult, type RemoveResult } from "./fees";
@@ -26,6 +27,20 @@ export const dayBefore = (d: Date) => new Date(d.getTime() - DAY);
 export const holdsSeat = (today: Date): Prisma.TransportAssignmentWhereInput => ({
   status: "ACTIVE", change: { not: "STOP" }, OR: [{ toDate: null }, { toDate: { gte: today } }],
 });
+
+/**
+ * Routes and stops are the whole school's, but a person kept to one campus
+ * gives, changes and stops bus places of that campus's students only
+ * (20-settings.md, scope "One campus"): another campus's student, or their
+ * place, is not found.
+ */
+export async function assertPlacesCampus(tx: Tx, limit: CampusLimit | null | undefined, ids: { studentIds?: string[]; assignmentIds?: string[] }) {
+  if (!limit?.campusId) return;
+  const ofPlaces = ids.assignmentIds?.length ? (await tx.transportAssignment.findMany({ where: { id: { in: ids.assignmentIds } }, select: { studentId: true } })).map((a) => a.studentId) : [];
+  const all = [...new Set([...(ids.studentIds ?? []), ...ofPlaces])];
+  if (!all.length) return;
+  if (await tx.student.count({ where: { id: { in: all }, campusId: { not: limit.campusId } } })) throw new TransportProblem("This student was not found, or is on another campus.", "studentIds");
+}
 
 /** Places in use on one day. */
 export const onBusOn = (day: Date): Prisma.TransportAssignmentWhereInput => ({

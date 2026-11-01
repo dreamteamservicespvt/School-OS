@@ -223,7 +223,7 @@ export async function allocateAction(_p: S, fd: FormData): Promise<S> {
     const r = await allocate(w.tx, w.ctx, {
       studentId, bedId: id(fd, "bedId", "bed"), startDate: isoDate(fd, "startDate", "Check-in date")!, checkedIn: on(fd, "checkedIn"),
       feePlanId: plan === "none" ? "none" : id(fd, "feePlanId", "fee plan"), note: maybe(fd, "note", "Note", 300),
-    }, { now: w.now, today: w.today, assertHostel: inMine(w) });
+    }, { now: w.now, today: w.today, assertHostel: inMine(w), limit: w.current });
     return { name: r.student.fullName, where: r.where, hostel: r.hostel.name, fees: r.fees.rows ? (w.can.seeFees ? `${formatRupees(r.fees.total)} hostel fees added to their fees` : "hostel fees added to their fees") : null, checkedIn: on(fd, "checkedIn") };
   }, (r) => `${r.name} has ${r.where}, ${r.hostel}${r.checkedIn ? ", checked in" : ""}.${r.fees ? ` ${r.fees[0].toUpperCase()}${r.fees.slice(1)}.` : ""}`);
 }

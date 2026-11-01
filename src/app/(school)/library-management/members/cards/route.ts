@@ -25,7 +25,7 @@ export async function GET(req: Request) {
     // The class's own year (each campus has its own school year); staff cards, the person's own campus's year.
     const classYear = f.tab === "students" && f.sec ? (await tx.section.findFirst({ where: { id: f.sec }, select: { academicYear: true } }))?.academicYear ?? null : null;
     const year = classYear ?? await currentYear(tx, x.current.ctx, await personCampusId(tx, x.current.ctx, x.current));
-    const { rows } = await memberRows(tx, x.current.ctx, s, { ...f, q: "" }, x.today, null);
+    const { rows } = await memberRows(tx, x.current.ctx, s, { ...f, q: "" }, x.today, null, x.current);
     const members = rows.filter((m) => m.active).slice(0, 400);
     if (!members.length) return null;
     await tx.libraryCardPrint.createMany({ data: members.map((m) => ({ schoolId: x.current.ctx.schoolId, memberKind: m.kind, studentId: m.studentId, staffId: m.staffId, academicYearId: year?.id ?? null, cardNo: m.cardNo, printedById: x.current.ctx.userId })) });

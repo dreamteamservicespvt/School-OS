@@ -25,7 +25,8 @@ type S<T = unknown> = FormState<T>;
 
 async function memberOf(w: LibWork, fd: FormData, key = "member") {
   const s = await librarySettings(w.tx, w.ctx);
-  const m = await memberByKey(w.tx, w.ctx, s, str(fd, key));
+  // Another campus's student or staff member is not found for a person kept to one campus.
+  const m = await memberByKey(w.tx, w.ctx, s, str(fd, key), w.current);
   if (!m) throw new LibraryProblem("Scan the member's card or search for them first.", key);
   return m;
 }

@@ -14,6 +14,7 @@ import { formatDate, formatRupees } from "../format";
 import { addCharge, removeDue } from "../fees/structure";
 import { enrolmentsOf } from "../front-office/pickup";
 import { STUDYING } from "../students/labels";
+import { campusAllows, type CampusLimit } from "../campus";
 import { HostelProblem } from "./problem";
 import { feePlans, planForRoom, type FeePlan } from "./settings";
 import { BASE, GENDER, bedRoom, bedWords, bedYearOf, genderFits, isoOf, type BedYear, type ResidentStatus } from "./words";
@@ -195,9 +196,11 @@ export type AllocateInput = { studentId: string; bedId: string; startDate: Date;
  * fee plan must be that year's. `today` (the school's day): a bed starting
  * later cannot be "checked in now".
  */
-export async function allocate(tx: Tx, ctx: SchoolContext, input: AllocateInput, opts: { now: Date; today?: Date; assertHostel: (hostelId: string | null) => void }) {
+export async function allocate(tx: Tx, ctx: SchoolContext, input: AllocateInput, opts: { now: Date; today?: Date; assertHostel: (hostelId: string | null) => void; limit?: CampusLimit | null }) {
   const student = await tx.student.findFirst({ where: { id: input.studentId, archivedAt: null } });
   if (!student) throw new HostelProblem("Choose the student.", "studentId");
+  // Hostels are the whole school's; a person kept to one campus gives beds to that campus's students only.
+  if (!campusAllows(opts.limit, student.campusId)) throw new HostelProblem("This student was not found, or is on another campus.", "studentId");
   if (!(STUDYING as readonly string[]).includes(student.status)) throw new HostelProblem(`${student.fullName} is not studying at the school now.`, "studentId");
   const has = await activeBedOf(tx, student.id);
   if (has) throw new HostelProblem(`${student.firstName} already has ${has.short}`, "studentId", { href: `${BASE}/allocation?move=${has.allocation.id}`, label: "Move instead" });

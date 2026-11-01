@@ -134,9 +134,9 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
     let member: Member | null = null;
     let matches: Member[] = [];
     let memberProblem: string | null = null;
-    if (one(sp.member)) member = await memberByKey(tx, ctx, s, one(sp.member));
+    if (one(sp.member)) member = await memberByKey(tx, ctx, s, one(sp.member), current);
     else if (card) {
-      member = await memberByCode(tx, ctx, s, card);
+      member = await memberByCode(tx, ctx, s, card, current);
       if (!member) {
         matches = await searchMembers(tx, ctx, s, card, 8, current);
         if (matches.length === 1) [member] = matches;

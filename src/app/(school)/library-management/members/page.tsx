@@ -27,7 +27,8 @@ import { books as bookWords } from "@/lib/library/words";
 import { LibHead } from "../_components/head";
 import { BlockSheet, LimitSheet } from "../_components/sheets";
 import { BASE, libGuard, one, qs, type SearchParams } from "../_lib/page";
-import { memberRows, readMembersFilter, type MemberRow } from "../_lib/members";
+import { blockedCount, memberRows, readMembersFilter, type MemberRow } from "../_lib/members";
+import { inCampus } from "@/lib/campus";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
@@ -50,12 +51,12 @@ export default async function MembersPage({ searchParams }: { searchParams: Sear
     // Each campus's current year (a school's campuses can start the year on different dates).
     const yearIds = (await yearsFor(tx, current.ctx, current.campusId)).map((y) => y.id);
     const [list, sections, blocked, staffCount, studentCount, sheetMember] = await Promise.all([
-      memberRows(tx, current.ctx, s, f, today, skipTake(params)),
+      memberRows(tx, current.ctx, s, f, today, skipTake(params), current),
       sectionsForCurrentYears(tx, current.ctx, current.campusId),
-      tx.libraryMember.count({ where: { blockedAt: { not: null } } }),
-      tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } } }),
+      blockedCount(tx, current),
+      tx.staff.count({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, ...inCampus(current) } }),
       yearIds.length ? tx.enrolment.count({ where: { academicYearId: { in: yearIds }, archivedAt: null, student: { archivedAt: null, status: { in: ["ACTIVE", "ADMITTED", "PROMOTED"] } } } }) : Promise.resolve(0),
-      blockKey || limitKey ? memberByKey(tx, current.ctx, s, blockKey || limitKey) : Promise.resolve(null),
+      blockKey || limitKey ? memberByKey(tx, current.ctx, s, blockKey || limitKey, current) : Promise.resolve(null),
     ]);
     const out = await tx.bookIssue.count({ where: { returnedAt: null } });
     return { ...list, sections, blocked, staffCount, studentCount, sheetMember, out };

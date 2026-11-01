@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-01 02:35 (suite 2416/2417 + hang fix 2aeabc78, SSD build passed; L1, L5 roles, L7 built; suite 2434/2434 + build passed; run-3 done, batches A-C fixed, batch D running; nothing pushed)
+Last updated: 2026-11-01 08:40 (overnight: all run-2 leads + audit run-3 + 19 run-3 fixes committed; final suite 2503/2503 and SSD build passed; nothing pushed)
 Older history: docs/archive/HANDOFF-until-2026-10-30.md (moves, WhatsApp templates, receipt link, Meta webhook).
 
 ## State
@@ -67,9 +67,13 @@ S. SECURITY follow-ups: (1) run-2's 7 NEEDS VALIDATION leads (~/security-audit-s
    Batch B 30b1fe70..3a17a70b (Events actions/pages, Hostel/Library/Transport actions, past-receipts import
    undo twice at once = REAL double, now locked, guardian merge of shared parents). Batch C 817948a2,
    9e9e0be5, 566e68b7 (Hostel incidents/outings/visitors, Transport lists/pickers/roll call, event fee
-   totals). Batch D (Hostel roll call/rooms/reports/widgets, Transport widget + route message to own
-   campus only (safest choice), Events register year, Transport picker year) in progress; tests in
-   tests/run3-campus.test.ts. DESIGN NOTE for the owner: every batch found more One-campus gaps because the
+   totals). Batch D 3de5dce5..c0fe3222 (Hostel roll call/rooms/
+   allocation/reports/widgets, Transport fee-coverage widget, route message to own campus only (safest
+   choice), every-campus event fee in each student's campus year, Transport picker year); tests in
+   tests/run3-campus.test.ts (45). FINAL CHECK on c0fe3222: full suite 08:14-08:32 274 of 274 files,
+   2503 of 2503 tests; SSD build passed 08:36; app on :3000. Small notes left (numbers only or rare):
+   hostel roll-call history/calendar counts are whole-hostel; Events assignSeats uses the event's one
+   year; an alert sent by both a campus and a whole-school person reaches that campus twice. DESIGN NOTE for the owner: every batch found more One-campus gaps because the
    campus is filtered by hand in each query; propose one shared campus-scoped read layer (or campus RLS)
    instead of more patches. Owner questions left: Adjust "remove" a whole fee row; bulk discount rule
    up to 50% with no approval; which campus an import batch belongs to; confirm the overnight L1/L5/L7 choices.
@@ -77,7 +81,7 @@ S. SECURITY follow-ups: (1) run-2's 7 NEEDS VALIDATION leads (~/security-audit-s
    Co-curricular, Daily, Settings work in each campus's year; achievements, fitness, export and certificate
    print keep to a One-campus person's campus; tests/events-calendar/campus-pages.test.ts 5 of 5 red before).
    Full suite after it (22:51, tools/full-test.log): 269 of 269 files, 2399 of 2399 tests passed. SSD build after it passed (23:30); app served again on :3000. Leftover DONE.
-   Hindi/Telugu words were written by Claude: have a native speaker check them (25 now).
+   Hindi/Telugu words were written by Claude: have a native speaker check them (35 now).
    (3) Run-3 over run-2's deferred
    ledger units (treat run-2 as prior). (4) Push only when the user asks (needs --force-with-lease).
 0. DEMO DAY: to refresh "today" on another day, reseed after ~9:30 AM IST (earlier puts today's attendance in

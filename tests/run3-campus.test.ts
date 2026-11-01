@@ -944,3 +944,30 @@ describe("An event for every campus charges each student in their own campus's y
   }, 120_000);
 });
 
+// ---------- Run-3 leftovers, item 5: the Give transport picker for the whole school ----------
+
+describe("The Give transport picker shows each campus's students in that campus's year (run-3 follow-up)", () => {
+  // Main's year starts in April and North's in June: the newest year of any campus is North's.
+  let inCharge: Current;
+  beforeAll(async () => {
+    await switchOn("transport-management", "transport-in-charge");
+    // A Transport In-charge who works for the whole school.
+    inCharge = await currentFor((await makeUser({ schools: [{ id: school.id, roleKeys: ["transport-in-charge"] }], name: "Whole Transport" })).id);
+    await addStudent(ctx, main.sectionId, { fullName: "Mukesh Picker", applyFeePlan: false });
+    await addStudent(ctx, north.sectionId, { fullName: "Nitin Picker", applyFeePlan: false });
+    // The sheet opens once there is a route to give.
+    const { addRoute, addStop } = await import("@/lib/transport/routes");
+    await run(async (tx) => {
+      const r = await addRoute(tx, ctx, { name: "Hill Road", vehicleId: null, driverId: null, attendantId: null, feeTwoWayPaise: BigInt(150000), feeOneWayPaise: BigInt(100000), schoolArrivalMin: 500, eveningDepartMin: 930 });
+      await addStop(tx, ctx, r.id, { name: "Hill Gate", before: null, pickupMin: 440, dropMin: null, lat: 17.5, lng: 78.49, feeTwoWayPaise: null, feeOneWayPaise: null });
+    });
+  }, 240_000);
+
+  it("finds students of both campuses for someone who works for the whole school", async () => {
+    who.current = inCharge;
+    const { default: Page } = await import("@/app/(school)/transport-management/students/page");
+    const shown = textOf(await Page({ searchParams: Promise.resolve({ do: "assign", find: "Picker" }) } as never));
+    expect(shown).toContain("Mukesh Picker");
+    expect(shown).toContain("Nitin Picker");
+  }, 120_000);
+});

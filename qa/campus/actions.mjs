@@ -12,7 +12,7 @@ export async function capture(page, url, { submit = null, fill = null } = {}) {
       return route.abort();
     }
     return route.continue();
-  });
+  }); 
   await go(page, url);
   if (await page.locator("dialog[open]").count() === 0) await sleep(1500);
   if (fill) await fill(page);

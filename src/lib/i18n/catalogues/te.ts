@@ -2208,7 +2208,10 @@ export const te: Catalogue = {
   "Pick a date on or after {date}.": "{date} లేదా ఆ తర్వాతి తేదీని ఎంచుకోండి.",
   "Pick a date on or before {date}.": "{date} లేదా అంతకు ముందు తేదీని ఎంచుకోండి.",
   "Type the date as DD-MM-YYYY, for example 14-05-2012.": "తేదీని DD-MM-YYYY గా టైప్ చేయండి, ఉదాహరణకు 14-05-2012.",
+<<<<<<< HEAD
   "{month} {year} has no day {day}. Check the day.": "{month} {year}లో {day}వ తేదీ లేదు. తేదీని సరిచూడండి.",
+=======
+>>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
   "Pick a time from {time}.": "{time} లేదా ఆ తర్వాతి సమయాన్ని ఎంచుకోండి.",
   "Pick a time up to {time}.": "{time} వరకు సమయాన్ని ఎంచుకోండి.",
   "Type the time like 9:30 AM.": "సమయాన్ని 9:30 AM లాగా టైప్ చేయండి.",
@@ -14204,6 +14207,7 @@ export const te: Catalogue = {
   "No channel that can carry it is switched on. Switch WhatsApp or SMS on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect one.": "దీన్ని పంపగల ఏ ఛానల్ ఆన్‌లో లేదు. సెట్టింగ్‌లు, SMS, WhatsApp & ఈమెయిల్‌లో WhatsApp లేదా SMS ఆన్ చేయండి, లేదా ఒకటి కలపమని DREAM TEAM సపోర్ట్‌ను అడగండి.",
   ", or switch SMS on in Settings, SMS, WhatsApp & Email.": ", లేదా సెట్టింగ్‌లు, SMS, WhatsApp & ఈమెయిల్‌లో SMS ఆన్ చేయండి.",
   "Switch WhatsApp, SMS and email on or off, and see credits. DREAM TEAM connects them.": "WhatsApp, SMS, ఈమెయిల్‌ను ఆన్ లేదా ఆఫ్ చేయండి, క్రెడిట్‌లు చూడండి. DREAM TEAM వీటిని కలుపుతుంది.",
+<<<<<<< HEAD
   "Set by the Principal or the School Admin": "ప్రిన్సిపాల్ లేదా స్కూల్ అడ్మిన్ సెట్ చేస్తారు",
   "Only the Principal or the School Admin changes these limits.": "ఈ పరిమితులను ప్రిన్సిపాల్ లేదా స్కూల్ అడ్మిన్ మాత్రమే మార్చగలరు.",
   // One-campus refusals (src/lib/campus.ts OtherCampusError, src/lib/events/campus.ts)
@@ -14242,4 +14246,6 @@ export const te: Catalogue = {
   "Only someone who can change Settings, Users & Permissions can record the exit of a School Admin, a Principal or anyone with access to Settings. Ask your School Admin.": "స్కూల్ అడ్మిన్, ప్రిన్సిపాల్ లేదా సెట్టింగ్‌లకు ప్రవేశం ఉన్న ఎవరి నిష్క్రమణనైనా సెట్టింగ్‌లు, యూజర్లు & అనుమతులు మార్చగలవారు మాత్రమే నమోదు చేయగలరు. మీ స్కూల్ అడ్మిన్‌ను అడగండి.",
   "Only someone who can change Settings, Users & Permissions can make a sign-in link for a login with access to Settings or more access than yours. Ask your School Admin.": "సెట్టింగ్‌లకు ప్రవేశం ఉన్న లేదా మీకంటే ఎక్కువ ప్రవేశం ఉన్న లాగిన్ కోసం సైన్-ఇన్ లింక్‌ను సెట్టింగ్‌లు, యూజర్లు & అనుమతులు మార్చగలవారు మాత్రమే తయారు చేయగలరు. మీ స్కూల్ అడ్మిన్‌ను అడగండి.",
   "This login also opens another school. Only someone who can change Settings, Users & Permissions can make a sign-in link for it. Ask your School Admin.": "ఈ లాగిన్ మరో స్కూల్‌ను కూడా తెరుస్తుంది. దీని కోసం సైన్-ఇన్ లింక్‌ను సెట్టింగ్‌లు, యూజర్లు & అనుమతులు మార్చగలవారు మాత్రమే తయారు చేయగలరు. మీ స్కూల్ అడ్మిన్‌ను అడగండి.",
+=======
+>>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
 };

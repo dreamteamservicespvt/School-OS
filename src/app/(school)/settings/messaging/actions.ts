@@ -11,14 +11,21 @@ import { PermissionDeniedError } from "@/lib/permissions";
 import { ChannelProblem, saveChannelChoices } from "@/lib/messaging/channel-admin";
 import { PROVIDER_CHANNELS, type ProviderChannel } from "@/lib/messaging/channels";
 
+<<<<<<< HEAD
 const PAGE = "messaging" as const;
+=======
+>>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
 const PATH = "/settings/messaging";
 export type ChannelState = { ok: boolean; message?: string; errors?: Record<string, string> } | null;
 
 export async function saveChoicesAction(channel: string, isOn: boolean, lowCreditAlert: number): Promise<ChannelState> {
   if (!(PROVIDER_CHANNELS as readonly string[]).includes(channel)) return { ok: false, message: "Unknown channel." };
   try {
+<<<<<<< HEAD
     const { current } = await requireSettingsAction(PAGE, "edit");
+=======
+    const { current } = await requireSettingsAction("messaging", "edit");
+>>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
     const errors = await withSchool(current.ctx, (tx) => saveChannelChoices(tx, current.ctx, channel as ProviderChannel, { isOn: Boolean(isOn), lowCreditAlert: Number(lowCreditAlert) }));
     if (Object.keys(errors).length) return { ok: false, errors, message: Object.values(errors)[0] };
   } catch (e) {

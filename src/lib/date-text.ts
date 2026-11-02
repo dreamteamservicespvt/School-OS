@@ -78,6 +78,7 @@ function checked(y: number | null, m0: number, d: number): string | null {
   return isoOf(y, m0, d);
 }
 
+<<<<<<< HEAD
 type Read = { y: number | null; m0: number; d: number };
 
 /** The year, month and day in typed text, before checking that the day exists. */
@@ -100,18 +101,25 @@ function readDate(s: string, today: string): Read | null {
 
 const tidy = (text: string) => text.trim().toLowerCase().replace(/,/g, " ").replace(/\s+/g, " ");
 
+=======
+>>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
 /**
  * A date typed in any common way, as YYYY-MM-DD: "14-05-2012", "14/5/12", "14052012",
  * "14 May 2012", "May 14 2012", "14-5" (this year), "today". "" for an empty box, null
  * when it is not a real date. `today` is YYYY-MM-DD in the school's time zone.
  */
 export function parseDateText(text: string, today: string): string | null {
+<<<<<<< HEAD
   const s = tidy(text);
+=======
+  const s = text.trim().toLowerCase().replace(/,/g, " ").replace(/\s+/g, " ");
+>>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
   if (!s) return "";
   if (s === "today") return today;
   if (s === "tomorrow") return addDays(today, 1);
   if (s === "yesterday") return addDays(today, -1);
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return isoParts(s) ? s : null;
+<<<<<<< HEAD
   const r = readDate(s, today);
   return r && checked(r.y, r.m0, r.d);
 }
@@ -125,6 +133,23 @@ export function missingDay(text: string, today: string): { d: number; m0: number
   const r = readDate(tidy(text), today);
   if (!r || r.y === null || r.y < 1 || r.m0 < 0 || r.m0 > 11 || r.d < 1 || r.d <= daysIn(r.y, r.m0)) return null;
   return { d: r.d, m0: r.m0, y: r.y };
+=======
+  const thisYear = Number(today.slice(0, 4));
+
+  let m = /^(\d{1,2})[-/. ](\d{1,2})(?:[-/. ](\d{2}|\d{4}))?$/.exec(s);
+  if (m) return checked(m[3] ? fullYear(m[3], today) : thisYear, Number(m[2]) - 1, Number(m[1]));
+
+  m = /^(\d{2})(\d{2})(\d{2}|\d{4})$/.exec(s);
+  if (m) return checked(fullYear(m[3], today), Number(m[2]) - 1, Number(m[1]));
+
+  m = /^(\d{1,2})(?:st|nd|rd|th)? ?-? ?([a-z]+\.?) ?-? ?(\d{2}|\d{4})?$/.exec(s);
+  if (m) return checked(m[3] ? fullYear(m[3], today) : thisYear, monthFromWord(m[2]), Number(m[1]));
+
+  m = /^([a-z]+\.?) (\d{1,2})(?:st|nd|rd|th)?(?: (\d{2}|\d{4}))?$/.exec(s);
+  if (m) return checked(m[3] ? fullYear(m[3], today) : thisYear, monthFromWord(m[1]), Number(m[2]));
+
+  return null;
+>>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
 }
 
 /**

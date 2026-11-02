@@ -8,7 +8,7 @@ Follow docs/blueprint/08-platform-security.md for every module, and its "Rules f
 never put a password, key or secret in the code; keep every school's existing data working
 after each database change; let new features be switched on school by school; test that
 one school can never see another school's data.
-
+ 
 ## How the code keeps those rules
 
 - Technology and layout: docs/decisions/0001-technology.md.

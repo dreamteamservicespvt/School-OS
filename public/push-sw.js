@@ -15,7 +15,7 @@ self.addEventListener("activate", (event) => {
   event.waitUntil(self.clients.claim());
 });
 
-function readAlert(event) {
+function readAlert(event) { 
   let p = {};
   try {
     p = event.data ? event.data.json() : {};

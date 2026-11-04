@@ -1,11 +1,7 @@
 // Typed dates and times in the date and time boxes (src/components/ui/date-input.tsx):
 // DD-MM-YYYY and 12-hour times on screen (00-global.md P17), YYYY-MM-DD and HH:MM to the form.
 import { describe, expect, it } from "vitest";
-<<<<<<< HEAD
 import { addDays, addMonths, maskDate, missingDay, monthCells, parseDateText, parseTimeText, showDate, showTime, timeChoices } from "@/lib/date-text";
-=======
-import { addDays, addMonths, maskDate, monthCells, parseDateText, parseTimeText, showDate, showTime, timeChoices } from "@/lib/date-text";
->>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
 
 const today = "2026-10-26";
 
@@ -48,7 +44,6 @@ describe("parseDateText", () => {
   });
 });
 
-<<<<<<< HEAD
 // Self-test bug 2 (2026-10-30): 31-02-2026 was answered "Type the date as DD-MM-YYYY",
 // though it was typed that way; the box now says the day does not exist.
 describe("missingDay", () => {
@@ -66,8 +61,6 @@ describe("missingDay", () => {
   });
 });
 
-=======
->>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
 describe("maskDate", () => {
   it.each([
     ["1", "1"],

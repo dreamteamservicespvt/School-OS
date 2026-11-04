@@ -19,11 +19,7 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock } from "luc
 import { cx } from "./cx";
 import { useT } from "@/lib/i18n/client";
 import {
-<<<<<<< HEAD
   addDays, addMonths, daysIn, isoOf, isoParts, maskDate, missingDay, monthCells, parseDateText, parseTimeText,
-=======
-  addDays, addMonths, daysIn, isoOf, isoParts, maskDate, monthCells, parseDateText, parseTimeText,
->>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
   showDate, showTime, timeChoices, todayIn, weekdayOf,
 } from "@/lib/date-text";
 
@@ -88,7 +84,6 @@ function useHeld(value: string | undefined, defaultValue: string, hidden: React.
 
 const isShown = (p: HTMLElement) => { try { return p.matches(":popover-open"); } catch { return false; } };
 
-<<<<<<< HEAD
 /** Puts the popover under the field, or above it when there is no room. */
 function placePopover(a: HTMLElement | null, p: HTMLDivElement | null) {
   if (!a || !p) return;
@@ -103,22 +98,6 @@ function placePopover(a: HTMLElement | null, p: HTMLDivElement | null) {
 
 /** Shows the popover in the top layer, under the field (or above it when there is no room), and keeps it there. */
 function usePopover(open: boolean, anchor: React.RefObject<HTMLElement | null>, pop: React.RefObject<HTMLDivElement | null>, close: () => void) {
-=======
-/** Shows the popover in the top layer, under the field (or above it when there is no room), and keeps it there. */
-function usePopover(open: boolean, anchor: React.RefObject<HTMLElement | null>, pop: React.RefObject<HTMLDivElement | null>, close: () => void) {
-  const place = useCallback(() => {
-    const a = anchor.current, p = pop.current;
-    if (!a || !p) return;
-    const r = a.getBoundingClientRect();
-    const w = p.offsetWidth, h = p.offsetHeight, vw = window.innerWidth, vh = window.innerHeight, gap = 6, edge = 8;
-    const left = Math.max(edge, Math.min(r.left, vw - w - edge));
-    let top = r.bottom + gap;
-    if (top + h > vh - edge) top = r.top - gap - h >= edge ? r.top - gap - h : Math.max(edge, vh - h - edge);
-    p.style.left = `${left}px`;
-    p.style.top = `${top}px`;
-  }, [anchor, pop]);
-
->>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
   useLayoutEffect(() => {
     const p = pop.current;
     if (!p) return;
@@ -127,20 +106,12 @@ function usePopover(open: boolean, anchor: React.RefObject<HTMLElement | null>, 
       if (open && !isShown(p)) p.showPopover();
       else if (!open && isShown(p)) p.hidePopover();
     }
-<<<<<<< HEAD
     if (open) placePopover(anchor.current, p);
   }, [open, anchor, pop]);
 
   useEffect(() => {
     if (!open) return;
     const place = () => placePopover(anchor.current, pop.current);
-=======
-    if (open) place();
-  }, [open, place, pop]);
-
-  useEffect(() => {
-    if (!open) return;
->>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
     const away = (e: PointerEvent) => {
       const t = e.target as Node;
       if (!anchor.current?.contains(t) && !pop.current?.contains(t)) close();
@@ -153,12 +124,7 @@ function usePopover(open: boolean, anchor: React.RefObject<HTMLElement | null>, 
       window.removeEventListener("scroll", place, true);
       document.removeEventListener("pointerdown", away, true);
     };
-<<<<<<< HEAD
   }, [open, close, anchor, pop]);
-=======
-  }, [open, place, close, anchor, pop]);
-  return place;
->>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
 }
 
 const popCls = "fixed z-50 empty:hidden m-0 inset-auto p-3 bg-surface text-ink border border-line rounded-2xl shadow-pop overflow-visible "
@@ -215,7 +181,6 @@ export function DateInput(props: DateProps) {
     held, show: showDate, parse: (s) => parseDateText(s, today),
     check: (v) => (min && v < min ? tooEarly : max && v > max ? tooLate : ""), commitValue: set,
   });
-<<<<<<< HEAD
   const noDay = typed.bad === "unreadable" && typed.draft !== null ? missingDay(typed.draft, today) : null;
   const message = noDay
     ? t.any("{month} {year} has no day {day}. Check the day.", {
@@ -227,13 +192,6 @@ export function DateInput(props: DateProps) {
   useEffect(() => { field.current?.setCustomValidity(message); }, [message]);
 
   const close = useCallback(() => setOpen(false), [setOpen]);
-=======
-  const message = typed.bad === "unreadable" ? t.any("Type the date as DD-MM-YYYY, for example 14-05-2012.") : typed.bad;
-
-  useEffect(() => { field.current?.setCustomValidity(message); }, [message]);
-
-  const close = useCallback(() => setOpen(false), []);
->>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
   usePopover(Boolean(open), box, pop, close);
 
   const pick = (v: string) => {

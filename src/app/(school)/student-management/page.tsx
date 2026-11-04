@@ -159,7 +159,8 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
 
       {data.tiles.length > 0 && (
         <Chips label="Students by class" value={f.class ?? "all"} options={[
-          { value: "all", label: data.tiles.length === 1 ? "My class" : "All classes", count: studying, href: href({ class: null, section: null }) },
+          // One class with students: "All" would be the same list under a second name, so only the class chip shows.
+          ...(data.tiles.length === 1 ? [] : [{ value: "all", label: ab.reach === "own" ? "My classes" : "All classes", count: studying, href: href({ class: null, section: null }) }]),
           ...data.tiles.map((t) => ({ value: t.id, label: t.name, count: t.total, href: href({ class: t.id, section: null }) })),
         ]} />
       )}

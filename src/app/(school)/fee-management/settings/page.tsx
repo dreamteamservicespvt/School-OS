@@ -222,8 +222,16 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
 
           <SetCard title="Payments" sub={ownerOnly} icon={Wallet} edit={limitsOwner ? "payments" : undefined} rows={[
             { title: "Concessions apply at once up to", value: formatRupees(s.concessionLimitPaise) },
-            { title: "Allow advance payments", sub: "Paying more than the current dues", on: features.has("fee-advance") },
-            { title: "Verify before posting", sub: features.has("fee-verification") && s.verifyModes.length ? `${s.verifyModes.map((m) => PAYMENT_MODES.find((x) => x.value === m)?.label ?? m).join(", ")} wait for the accountant` : "Payments post at once", on: features.has("fee-verification") && s.verifyModes.length > 0 },
+            { title: "Allow advance payments", sub: "Paying more than the current dues", value: <FeatureSwitch featureKey="fee-advance" on={features.has("fee-advance")} label="Allow advance payments" /> },
+            {
+              title: "Verify before posting",
+              sub: !features.has("fee-verification")
+                ? "Switch this on for the payment modes chosen under Change to wait for the accountant"
+                : s.verifyModes.length ? `${s.verifyModes.map((m) => PAYMENT_MODES.find((x) => x.value === m)?.label ?? m).join(", ")} wait for the accountant` : "On, but no payment mode is chosen yet. Choose them under Change.",
+              value: limitsOwner
+                ? <FeatureSwitch featureKey="fee-verification" on={features.has("fee-verification")} label="Verify before posting" />
+                : <Pill tone={features.has("fee-verification") ? "ok" : "neutral"}>{features.has("fee-verification") ? "On" : "Off"}</Pill>,
+            },
             { title: "Cancelling an older payment needs approval", sub: "Payments from before today", on: s.cancelPastApproval },
             { title: "Payment date can be changed", sub: `Only by ${counterWords("change-payment-date")}, never before a closed day` },
           ]} />

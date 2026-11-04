@@ -55,7 +55,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
 }) {
   const router = useRouter();
   const [state, formAction, busy] = useActionState<FormState<Collected | Problem>, FormData>(collectFee as never, null);
-  const [askState, askAction] = useActionState<FormState<unknown>, FormData>(askDiscountApproval as never, null);
+  const [askState, askAction, askBusy] = useActionState<FormState<unknown>, FormData>(askDiscountApproval as never, null);
   const [linkState, linkAction, linkBusy] = useActionState<FormState<unknown>, FormData>(sendLink as never, null);
   const [qrState, qrAction, qrBusy] = useActionState<FormState<QrLink>, FormData>(showQr as never, null);
   const open = rows.filter((r) => r.status !== "PAID");
@@ -63,14 +63,20 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   const [showPaid, setShowPaid] = useState(false);
   const selTotal = rows.filter((r) => ticked.has(r.id)).reduce((a, r) => a + r.balance, 0);
   const [edited, setEdited] = useState<string | null>(null);
-  const amount = edited ?? (selTotal ? rupeesText(selTotal) : "");
+  const [discount, setDiscount] = useState("");
+  const [waive, setWaive] = useState<Set<string>>(new Set());
+  const discountPaise0 = toPaise(discount) || 0;
+  const waiveTotal0 = rows.filter((r) => waive.has(r.id) && ticked.has(r.id)).reduce((a, r) => a + r.balance, 0);
+  // What is payable after a typed discount or waiver, so the amount and the button follow it until the accountant types an amount.
+  const payable = Math.max(0, selTotal - (Number.isNaN(discountPaise0) ? 0 : discountPaise0) - waiveTotal0);
+  const amount = edited ?? (payable ? rupeesText(payable) : "");
   const [mode, setMode] = useState("CASH");
   const [ref, setRef] = useState("");
   const [chq, setChq] = useState({ no: "", bank: "", date: today });
   const [tried, setTried] = useState(false);
   const [more, setMore] = useState(false);
-  const [discount, setDiscount] = useState("");
-  const [waive, setWaive] = useState<Set<string>>(new Set());
+  const [reason, setReason] = useState("");
+  const [asked, setAsked] = useState(false);
   const [receipt, setReceipt] = useState<Collected | null>(null);
   const [qrOpen, setQrOpen] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
@@ -104,9 +110,16 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
       setEdited(null);
       setRef("");
       setDiscount("");
+      setReason("");
       setWaive(new Set());
       setTried(false);
     }
+    setAsked(false);
+  }
+  const [seenAsk, setSeenAsk] = useState(askState);
+  if (askState !== seenAsk) {
+    setSeenAsk(askState);
+    if (askState?.ok) setAsked(true);
   }
   useEffect(() => { if (state?.ok && dupRef.current) dupRef.current.value = ""; }, [state]);
   const [seenQr, setSeenQr] = useState(qrState);
@@ -178,7 +191,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
           </div>
           {advanceHeld && <p className="text-[12.5px] text-info flex gap-1.5 -mt-2"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{advanceHeld} <Words k="advance is held. It is used for the next installments by itself." /></p>}
           <FieldShell label="Amount received" id="pay-amt" error={(tried && errAmt) || serverErr("amount")}
-            help={extra ? `${inr(extra)} more than the dues. It is held as advance.` : partial ? `Part payment. ${inr(owed - amt)} stays due on the latest row.` : "Change it for a part payment"}>
+            help={discountPaise > 0 && !Number.isNaN(amt) && amt === owed ? `Fees ${inr(selTotal)} − discount ${inr(discountPaise)} = ${inr(owed)}` : extra ? `${inr(extra)} more than the dues${discountPaise > 0 ? " after the discount" : ""}. It is held as advance.` : partial ? `Part payment. ${inr(owed - amt)} stays due on the latest row.` : "Change it for a part payment"}>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[22px] font-semibold text-ink3" aria-hidden="true">₹</span>
               <input id="pay-amt" name="amount" inputMode="decimal" autoComplete="off" value={amount} onChange={(e) => setEdited(e.target.value)} placeholder="0"
@@ -242,7 +255,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                     <input id="pay-disc" name="discount" inputMode="decimal" value={discount} onChange={(e) => { setDiscount(e.target.value); setEdited(null); }} placeholder="₹ 0" className={cx(inputCls(serverErr("discount")), "h-11 tnum")} />
                   </FieldShell>
                   <FieldShell label="Reason" id="pay-disc-why" error={serverErr("discountReason")}>
-                    <input id="pay-disc-why" name="discountReason" className={cx(inputCls(serverErr("discountReason")), "h-11")} placeholder="Example: father’s job loss" />
+                    <input id="pay-disc-why" name="discountReason" value={reason} onChange={(e) => setReason(e.target.value)} className={cx(inputCls(serverErr("discountReason")), "h-11")} placeholder="Example: father’s job loss" />
                   </FieldShell>
                 </div>
               )}
@@ -275,11 +288,14 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
               <Button size="sm" variant="secondary" type="submit" onClick={() => { if (dupRef.current) dupRef.current.value = "1"; }}><Words k="Collect again" /></Button>
             }>{server?.message}</Alert>
           )}
-          {problem?.code === "needs-approval" && (
-            <Alert tone="warning" title="Above your discount limit." action={<Button size="sm" variant="secondary" type="submit" formAction={askAction} data-plain="1"><Words k="Ask for approval" /></Button>}>{server?.message}</Alert>
+          {asked && askState?.ok && (
+            <Alert tone="success" title="Sent to the principal" action={<Link href="/approvals" className={buttonClass("secondary", "sm")}>Open Approvals</Link>}>{askState.message}</Alert>
           )}
-          {askState && !askState.ok && <Alert tone="danger">{askState.message}</Alert>}
-          {server && !problem?.warning && problem?.code !== "needs-approval" && !Object.keys(server.errors ?? {}).length && (
+          {!asked && problem?.code === "needs-approval" && (
+            <Alert tone="warning" title="Above your discount limit." action={<Button size="sm" variant="secondary" type="submit" formAction={askAction} data-plain="1" loading={askBusy}><Words k="Ask for approval" /></Button>}>{server?.message}</Alert>
+          )}
+          {!asked && askState && !askState.ok && <Alert tone="danger">{askState.message}</Alert>}
+          {!asked && server && !problem?.warning && problem?.code !== "needs-approval" && !Object.keys(server.errors ?? {}).length && (
             <Alert tone="danger" action={problem?.link ? <Link href={problem.link.href} className={buttonClass("secondary", "sm")}>{problem.link.label}</Link> : undefined}>{server.message}</Alert>
           )}
           {linkState && !linkState.ok && <Alert tone="danger">{linkState.message}</Alert>}

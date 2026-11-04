@@ -301,7 +301,25 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
         const item = one(sp.item) ? sheet.shown?.items.find((i) => i.feeHeadId === one(sp.item)) ?? null : null;
         const used = new Set((sheet.shown?.items ?? []).map((i) => i.feeHeadId));
         const options = heads.filter((h) => !used.has(h.id) || h.id === item?.feeHeadId).map((h) => ({ value: h.id, label: h.name }));
-        if (!options.length) return null;
+        if (!options.length) {
+          const noHeads = heads.length === 0;
+          return (
+            <UrlSheet closeHref={clsHref(sheet.card.classId)} title={noHeads ? "Add a fee head first" : "Every fee head is already in this class"}
+              sub={sheet.card.className}>
+              <div className="flex flex-col gap-4">
+                <p className="text-[14px] text-ink2" data-testid="no-fee-heads">
+                  {noHeads
+                    ? <Words k="A fee row needs a fee head, such as Tuition or Transport. This school has none yet." />
+                    : <Words k="Each fee head can be used once per class. Add a new fee head to add another row, or change an existing row." />}
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  <ButtonLink variant="primary" icon={Plus} scroll={false} href={here({ head: "new" })}><Words k="Add fee head" /></ButtonLink>
+                  <ButtonLink variant="ghost" scroll={false} href={clsHref(sheet.card.classId)}><Words k="Back" /></ButtonLink>
+                </div>
+              </div>
+            </UrlSheet>
+          );
+        }
         return (
           <RowSheet closeHref={clsHref(sheet.card.classId)} yearId={year.id} classId={sheet.card.classId} category="" className={sheet.card.className} heads={options}
             yearStart={iso(year.startDate)} terms={year.terms.map((t) => ({ name: t.name, startDate: iso(t.startDate) }))} draft={Boolean(sheet.st.draft)} students={sheet.card.students}

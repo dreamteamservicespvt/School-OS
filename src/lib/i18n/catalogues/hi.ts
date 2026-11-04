@@ -2208,10 +2208,7 @@ export const hi: Catalogue = {
   "Pick a date on or after {date}.": "{date} या उसके बाद की तारीख चुनें।",
   "Pick a date on or before {date}.": "{date} या उससे पहले की तारीख चुनें।",
   "Type the date as DD-MM-YYYY, for example 14-05-2012.": "तारीख DD-MM-YYYY में लिखें, जैसे 14-05-2012।",
-<<<<<<< HEAD
   "{month} {year} has no day {day}. Check the day.": "{month} {year} में {day} तारीख नहीं होती। दिन जाँचें।",
-=======
->>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
   "Pick a time from {time}.": "{time} या उसके बाद का समय चुनें।",
   "Pick a time up to {time}.": "{time} तक का समय चुनें।",
   "Type the time like 9:30 AM.": "समय 9:30 AM जैसे लिखें।",
@@ -14207,7 +14204,6 @@ export const hi: Catalogue = {
   "No channel that can carry it is switched on. Switch WhatsApp or SMS on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect one.": "इसे भेज सकने वाला कोई चैनल चालू नहीं है। सेटिंग्स, SMS, WhatsApp और ईमेल में WhatsApp या SMS चालू करें, या कोई जोड़ने के लिए DREAM TEAM सहायता से कहें।",
   ", or switch SMS on in Settings, SMS, WhatsApp & Email.": ", या सेटिंग्स, SMS, WhatsApp और ईमेल में SMS चालू करें।",
   "Switch WhatsApp, SMS and email on or off, and see credits. DREAM TEAM connects them.": "WhatsApp, SMS और ईमेल चालू या बंद करें, और क्रेडिट देखें। DREAM TEAM इन्हें जोड़ती है।",
-<<<<<<< HEAD
   "Set by the Principal or the School Admin": "प्रिंसिपल या स्कूल एडमिन तय करते हैं",
   "Only the Principal or the School Admin changes these limits.": "ये सीमाएँ केवल प्रिंसिपल या स्कूल एडमिन बदल सकते हैं।",
   // One-campus refusals (src/lib/campus.ts OtherCampusError, src/lib/events/campus.ts)
@@ -14246,6 +14242,6 @@ export const hi: Catalogue = {
   "Only someone who can change Settings, Users & Permissions can record the exit of a School Admin, a Principal or anyone with access to Settings. Ask your School Admin.": "स्कूल एडमिन, प्रिंसिपल या सेटिंग्स की पहुँच वाले किसी भी व्यक्ति का जाना केवल वही दर्ज कर सकता है जो सेटिंग्स, यूज़र और अनुमतियाँ बदल सकता है। अपने स्कूल एडमिन से कहें।",
   "Only someone who can change Settings, Users & Permissions can make a sign-in link for a login with access to Settings or more access than yours. Ask your School Admin.": "सेटिंग्स की पहुँच वाले या आपसे ज़्यादा पहुँच वाले लॉगिन के लिए साइन-इन लिंक केवल वही बना सकता है जो सेटिंग्स, यूज़र और अनुमतियाँ बदल सकता है। अपने स्कूल एडमिन से कहें।",
   "This login also opens another school. Only someone who can change Settings, Users & Permissions can make a sign-in link for it. Ask your School Admin.": "यह लॉगिन दूसरा स्कूल भी खोलता है। इसके लिए साइन-इन लिंक केवल वही बना सकता है जो सेटिंग्स, यूज़र और अनुमतियाँ बदल सकता है। अपने स्कूल एडमिन से कहें।",
-=======
->>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
+  "A fee row needs a fee head, such as Tuition or Transport. This school has none yet.": "फीस की एक पंक्ति के लिए फीस मद चाहिए, जैसे ट्यूशन या परिवहन। इस स्कूल में अभी कोई नहीं है।",
+  "Each fee head can be used once per class. Add a new fee head to add another row, or change an existing row.": "हर फीस मद एक कक्षा में एक बार ही लग सकता है। दूसरी पंक्ति जोड़ने के लिए नया फीस मद जोड़ें, या मौजूदा पंक्ति बदलें।",
 };

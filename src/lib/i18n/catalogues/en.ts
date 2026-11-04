@@ -4887,10 +4887,7 @@ export const EN = [
   "Pick a date on or after {date}.",
   "Pick a date on or before {date}.",
   "Type the date as DD-MM-YYYY, for example 14-05-2012.",
-<<<<<<< HEAD
   "{month} {year} has no day {day}. Check the day.",
-=======
->>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
   "Pick a time from {time}.",
   "Pick a time up to {time}.",
   "Type the time like 9:30 AM.",
@@ -14747,7 +14744,6 @@ export const EN = [
   ", or switch SMS on in Settings, SMS, WhatsApp & Email.",
   // DREAM TEAM sets up connections (2026-10-26)
   "Switch WhatsApp, SMS and email on or off, and see credits. DREAM TEAM connects them.",
-<<<<<<< HEAD
   // Approval limits are the Principal's or School Admin's (security audit run-2)
   "Set by the Principal or the School Admin",
   "Only the Principal or the School Admin changes these limits.",
@@ -14790,8 +14786,8 @@ export const EN = [
   "Only someone who can change Settings, Users & Permissions can record the exit of a School Admin, a Principal or anyone with access to Settings. Ask your School Admin.",
   "Only someone who can change Settings, Users & Permissions can make a sign-in link for a login with access to Settings or more access than yours. Ask your School Admin.",
   "This login also opens another school. Only someone who can change Settings, Users & Permissions can make a sign-in link for it. Ask your School Admin.",
-=======
->>>>>>> 64f895d76d792ad2f2c2215b30e9976de7469658
+  "A fee row needs a fee head, such as Tuition or Transport. This school has none yet.",
+  "Each fee head can be used once per class. Add a new fee head to add another row, or change an existing row.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

@@ -114,8 +114,13 @@ export async function concessionHeadChoices(tx: Tx, studentId: string) {
   return { heads: list.map((h) => ({ id: h.id, name: h.name })), startId: start?.id ?? null };
 }
 
+/** A screen's own error sentence must never be saved as a reason (QA issue 31). */
+export const isScreenMessage = (s: string) => /need the principal.s approval|give a reason of at least|ask for approval/i.test(s);
+/** What the lists show for a reason: old rows that hold an error sentence read "No reason given". */
+export const shownReason = (s: string) => (isScreenMessage(s) ? "No reason given" : s);
+
 function checkInput(input: ConcessionInput) {
-  if (input.reason.trim().length < 5) throw new MoneyProblem("Give a reason of at least 5 characters.", "reason");
+  if (input.reason.trim().length < 5 || isScreenMessage(input.reason)) throw new MoneyProblem("Give a reason of at least 5 characters.", "reason");
   if (input.mode === "percent") {
     if (input.percentBp <= 0 || input.percentBp > 10000) throw new MoneyProblem("Percent must be more than 0 and at most 100.", "value");
   } else if (input.amountPaise <= BigInt(0)) {

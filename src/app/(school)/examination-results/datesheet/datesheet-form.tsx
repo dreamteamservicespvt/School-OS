@@ -386,7 +386,7 @@ function ScheduleRows({ rows, label, gradeOnly, staff, onChange, dis, showRoom, 
                       </td>
                     )}
                     <td className="px-1 py-2">
-                      {gradeOnly(r) ? <span className="text-[13px] text-ink3"><Words k="Graded" /></span> : <input inputMode="numeric" aria-label={`${label(r)} maximum marks`} disabled={dis} value={r.maxMarks || ""} onChange={(ev) => onChange(r, { maxMarks: Number(ev.target.value.replace(/\D/g, "")) })} className={cx(cell(), "!w-[64px] tnum text-center")} />}
+                      {gradeOnly(r) ? <span className="text-[13px] text-ink3" title="This subject is set to grades only (Academics, Subjects). Switch that off there to give it marks."><Words k="Graded" /></span> : <input inputMode="numeric" aria-label={`${label(r)} maximum marks`} disabled={dis} value={r.maxMarks || ""} onChange={(ev) => onChange(r, { maxMarks: Number(ev.target.value.replace(/\D/g, "")) })} className={cx(cell(), "!w-[64px] tnum text-center")} />}
                     </td>
                     <td className="px-1 py-2">
                       <KeepSelect aria-label={`${label(r)} pattern`} disabled={dis} value={r.pattern} onChange={(ev) => onChange(r, { pattern: ev.target.value })} className={cx(cell(), "!w-[120px]")}>
@@ -430,7 +430,7 @@ function ScheduleRows({ rows, label, gradeOnly, staff, onChange, dis, showRoom, 
                   </label>
                 )}
                 <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3"><Words k="Max marks" />
-                  {gradeOnly(r) ? <span className="flex h-11 items-center text-[14px] font-normal text-ink3"><Words k="Graded" /></span> : <input inputMode="numeric" disabled={dis} value={r.maxMarks || ""} onChange={(ev) => onChange(r, { maxMarks: Number(ev.target.value.replace(/\D/g, "")) })} className={cx(cell(), "!h-11 tnum")} />}
+                  {gradeOnly(r) ? <span className="flex h-11 items-center text-[14px] font-normal text-ink3" title="This subject is set to grades only (Academics, Subjects). Switch that off there to give it marks."><Words k="Graded" /></span> : <input inputMode="numeric" disabled={dis} value={r.maxMarks || ""} onChange={(ev) => onChange(r, { maxMarks: Number(ev.target.value.replace(/\D/g, "")) })} className={cx(cell(), "!h-11 tnum")} />}
                 </label>
                 <label className="flex flex-col gap-1 text-[12px] font-semibold text-ink3"><Words k="Pattern" />
                   <KeepSelect disabled={dis} value={r.pattern} onChange={(ev) => onChange(r, { pattern: ev.target.value })} className={cx(cell(), "!h-11")}>

@@ -5242,6 +5242,7 @@ export const EN = [
   "Every item is above its reorder level.",
   // Fixed messages from the rules (sign-in, Parent Link, payments)
   "The login or password is wrong. Check both and try again.",
+  "More than one login has this mobile number or email, so it cannot tell which is yours. Sign in with your username instead.",
   "This login has not been set up yet. Open the invite link your school sent you to set your password.",
   "Too many wrong passwords. This login is locked for 15 minutes. Your School Admin has been told.",
   "This login is switched off. Ask your School Admin, or DREAM TEAM support, to switch it on.",

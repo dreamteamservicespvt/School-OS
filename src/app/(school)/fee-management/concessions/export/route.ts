@@ -8,6 +8,7 @@ import { periodSetup } from "@/lib/period-setup";
 import { feePageAllowed, feeStudentFilter, feeViewer } from "@/lib/fees/access";
 import { concessionRows, refundRows, type ConcessionRow, type RefundRow } from "@/lib/fees/concession-list";
 import { modeLabel } from "@/lib/fees/words";
+import { shownReason } from "@/lib/fees/concessions";
 
 export const dynamic = "force-dynamic";
 
@@ -58,7 +59,7 @@ export async function GET(req: Request) {
       { label: "Mode", value: (r) => modeLabel(r.mode) },
       { label: "Reference", value: (r) => r.reference ?? "" },
       { label: "Refunded on", value: (r) => (r.refundedOn ? formatDate(r.refundedOn) : "") },
-      { label: "Reason", value: (r) => r.reason },
+      { label: "Reason", value: (r) => shownReason(r.reason) },
       { label: "Asked by", value: (r) => r.askedBy },
       { label: "Status", value: (r) => C_WORDS[r.status] ?? r.status },
     ];
@@ -73,7 +74,7 @@ export async function GET(req: Request) {
     { label: "Amount or %", value: (r) => r.value },
     { label: "Amount", value: (r) => formatRupees(r.amountPaise) },
     { label: "Fee heads", value: (r) => r.heads },
-    { label: "Reason", value: (r) => r.reason },
+    { label: "Reason", value: (r) => shownReason(r.reason) },
     { label: "Asked by", value: (r) => r.askedBy },
     { label: "Approved by", value: (r) => r.decidedBy ?? "" },
     { label: "Status", value: (r) => C_WORDS[r.status] ?? r.status },

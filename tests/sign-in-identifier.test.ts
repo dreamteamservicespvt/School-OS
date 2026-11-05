@@ -30,6 +30,10 @@ describe("the login a person types", () => {
     const twin = await makeUser({ schools: [], name: "Twin" });
     await prisma.userLogin.update({ where: { id: twin.id }, data: { email: `t.${tag}@school.in` } });
     expect(await findLogin(`t.${tag}@school.in`)).toBeNull();
+    // ...and says so, instead of calling the right password wrong.
+    const told = await signIn(`t.${tag}@school.in`, PASSWORD, device, { sleep: noSleep });
+    expect(told.ok).toBe(false);
+    expect(told.ok ? "" : told.message).toMatch(/Sign in with your username/);
     await prisma.userLogin.update({ where: { id: twin.id }, data: { email: null } });
   });
 

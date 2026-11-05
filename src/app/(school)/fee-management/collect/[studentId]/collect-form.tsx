@@ -96,7 +96,9 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   const partial = amt > 0 && amt < owed;
   const extra = amt > owed && advanceOn ? amt - owed : 0;
 
-  const server = state && !state.ok ? state : null;
+  // A refusal stops showing once the discount it was about changes (QA issue 30).
+  const [hideFor, setHideFor] = useState<unknown>(null);
+  const server = state && !state.ok && hideFor !== state ? state : null;
   const serverErr = (k: string) => server?.errors?.[k];
   const problem = server?.data as Problem | undefined;
 
@@ -252,7 +254,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
               {counter.discount && (
                 <div className="grid grid-cols-[120px_1fr] gap-3">
                   <FieldShell label="Discount" id="pay-disc" error={serverErr("discount")} help={`Up to ${limit}`}>
-                    <input id="pay-disc" name="discount" inputMode="decimal" value={discount} onChange={(e) => { setDiscount(e.target.value); setEdited(null); }} placeholder="₹ 0" className={cx(inputCls(serverErr("discount")), "h-11 tnum")} />
+                    <input id="pay-disc" name="discount" inputMode="decimal" value={discount} onChange={(e) => { setDiscount(e.target.value); setHideFor(state); }} placeholder="₹ 0" className={cx(inputCls(serverErr("discount")), "h-11 tnum")} />
                   </FieldShell>
                   <FieldShell label="Reason" id="pay-disc-why" error={serverErr("discountReason")}>
                     <input id="pay-disc-why" name="discountReason" value={reason} onChange={(e) => setReason(e.target.value)} className={cx(inputCls(serverErr("discountReason")), "h-11")} placeholder="Example: father’s job loss" />
@@ -264,7 +266,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
                   <p className="text-[13px] font-semibold text-ink2"><Words k="Waive the late fee" /></p>
                   {lateTicked.map((r) => (
                     <label key={r.id} className="flex items-center gap-2.5 text-[13.5px]">
-                      <KeepCheck type="checkbox" name="waiveDueId" value={r.id} checked={waive.has(r.id)} onChange={(e) => { setEdited(null); setWaive((x) => { const n = new Set(x); if (e.target.checked) n.add(r.id); else n.delete(r.id); return n; }); }} className="size-4 accent-[rgb(var(--brand))]" />
+                      <KeepCheck type="checkbox" name="waiveDueId" value={r.id} checked={waive.has(r.id)} onChange={(e) => { setHideFor(state); setWaive((x) => { const n = new Set(x); if (e.target.checked) n.add(r.id); else n.delete(r.id); return n; }); }} className="size-4 accent-[rgb(var(--brand))]" />
                       <span className="flex-1">{r.label}</span><span className="tnum font-semibold">{inr(r.balance)}</span>
                     </label>
                   ))}

@@ -7,7 +7,7 @@ import { fileLink } from "@/lib/files";
 import { formatDate, formatRupees } from "@/lib/format";
 import { canSeeStudent, feeStudentFilter } from "@/lib/fees/access";
 import { concessionRows, refundRows, scholarshipTypes, type ConcessionRow, type RefundRow } from "@/lib/fees/concession-list";
-import { concessionHeadChoices } from "@/lib/fees/concessions";
+import { concessionHeadChoices, shownReason } from "@/lib/fees/concessions";
 import { studentCard } from "@/lib/fees/dues";
 import { findStudents } from "@/lib/fees/find";
 import { refundable } from "@/lib/fees/refunds";
@@ -200,7 +200,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
       { key: "type", label: "Type", nowrap: true, render: (c: ConcessionRow) => c.scholarshipType ?? c.typeLabel },
       { key: "amt", label: "Amount or %", align: "right" as const, render: (c: ConcessionRow) => <><b className="font-semibold">{c.value}</b>{c.value.endsWith("%") && c.amountPaise > ZERO && <span className="block text-[12px] text-ink3"><Words k="about" /> {formatRupees(c.amountPaise)}</span>}</> },
       { key: "heads", label: "Fee heads", render: (c: ConcessionRow) => <span className="text-[13px] text-ink2">{c.heads}</span> },
-      { key: "reason", label: "Reason", render: (c: ConcessionRow) => <span className="text-[13px] text-ink2 block max-w-[220px]">{c.reason}{c.note && <span className="block text-ink3">{c.note}</span>}</span> },
+      { key: "reason", label: "Reason", render: (c: ConcessionRow) => <span className="text-[13px] text-ink2 block max-w-[220px]">{shownReason(c.reason)}{c.note && <span className="block text-ink3">{c.note}</span>}</span> },
       { key: "by", label: "Asked by", nowrap: true, render: (c: ConcessionRow) => <span className="text-[13px]">{c.askedBy}</span> },
       { key: "appr", label: "Approved by", render: (c: ConcessionRow) => <span className="text-[13px] text-ink2">{c.decidedBy ?? "—"}</span> },
       { key: "status", label: "Status", render: (c: ConcessionRow) => <div className="flex flex-col items-start gap-1.5"><Pill tone={status(c.status)[1]}>{status(c.status)[0]}</Pill>{decideCell(c, "concession")}</div> },
@@ -342,7 +342,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
                 { key: "name", label: "Student", render: (r) => <><p className="font-semibold leading-tight">{r.name}</p><p className="text-[12.5px] text-ink3">{[r.classLabel, formatDate(r.createdAt, p.tz)].filter(Boolean).join(" · ")}</p></> },
                 { key: "rcpt", label: "Payment", render: (r) => <><p className="font-mono text-[12.5px]">{r.receipt}</p><p className="text-[12px] text-ink3">{formatRupees(r.paidPaise)} <Words k="paid" /></p></> },
                 { key: "amt", label: "Refund", align: "right", render: (r) => <b className="font-semibold">{formatRupees(r.amountPaise)}</b> },
-                { key: "reason", label: "Reason", render: (r) => <span className="text-[13px] text-ink2 block max-w-[240px]">{r.reason}{r.note && <span className="block text-ink3">{r.note}</span>}</span> },
+                { key: "reason", label: "Reason", render: (r) => <span className="text-[13px] text-ink2 block max-w-[240px]">{shownReason(r.reason)}{r.note && <span className="block text-ink3">{r.note}</span>}</span> },
                 { key: "mode", label: "Mode", render: (r) => <span className="text-[13px]">{modeLabel(r.mode)}{r.reference && <span className="block text-[12px] text-ink3 font-mono">{r.reference}</span>}</span> },
                 { key: "status", label: "Status", render: (r) => (
                   <div className="flex flex-col items-start gap-1.5">
@@ -391,7 +391,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
             )}
             <div>
               <p className="eyebrow text-ink3 mb-1"><Words k="Reason" /></p>
-              <p className="text-[14px]">{opened.row.reason}</p>
+              <p className="text-[14px]">{shownReason(opened.row.reason)}</p>
               {opened.row.note && <p className="text-[13px] text-ink3 mt-1">{opened.row.note}</p>}
             </div>
             {opened.kind === "concession" && opened.row.documentFileId && (

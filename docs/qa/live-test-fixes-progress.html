@@ -24,19 +24,19 @@ h1{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)
 </main>
 <script>
 var S={
-now:"Browser check of the Add Staff and Datesheet drafts and the invite words",
-main:30,mainline:"2 of 8 pieces done; 4 more have code written (estimate 30%)",
+now:"Stopped for a new chat (this one is long). Batch 1 committed",
+main:55,mainline:"6 of 8 pieces done or partly done; 7 of the 22 open issues fixed, 1 partly (real counts)",
 rows:[
 ["Rebuild the SSD copy",100,"Done","Build passed; an old server from 17:47 was holding :3000, stopped and restarted"],
 ["Self-test p16-selftest.mjs",100,"Done","8 of 8 passed"],
-["Browser check: drafts and invite words",10,"Running","Add Staff draft, Datesheet draft, invite says sent only when sent"],
-["Fees for new students (issues 12, 15, 16)",60,"Checking","Code done: a past term is due on the joining day, not overdue; the dashboard chart counts the year like the tile. Tests next"],
+["Browser check: drafts and invite words",100,"Done","Add Staff and Datesheet drafts pass; invite said 'sent' in Test mode: fixed, recheck after the next build"],
+["Fees for new students (issues 12, 15, 16)",100,"Done","A past term is due on the joining day; the chart counts the year like the tile. 3 tests pass"],
 ["Refund keeps the fee total (issue 33)",0,"Waiting","Needs your decision (below); money logic untouched"],
-["Medium issues (7, 8, 14, 18, 19, 26)",50,"Running","Done in code: 7 row count, 14 reason, 18 dashboard item, 19 locked buttons. Next: 8, 26"],
-["Low issues (9-11, 13, 17, 20-22, 24, 25, 27, 28, 32, 34, 35)",0,"Waiting","Small wording, counts and form fixes"],
-["Tests, typecheck, lint, commit",0,"Waiting","Focused tests, then one commit"]
+["Medium issues (7, 8, 14, 18, 19, 26)",65,"Waiting","Done: 7, 14, 19; 18 partly. Left: 8, 26 (next chat)"],
+["Low issues (9-11, 13, 17, 20-22, 24, 25, 27, 28, 32, 34, 35)",0,"Waiting","Next chat"],
+["Tests, typecheck, lint, commit",100,"Done","Typecheck clean, lint 0, 128 of 128 focused tests; commits a4a0e677..2ce328f7 (not pushed)"]
 ],
-wait:"Issue 33: should a refund lower only Paid (the family owes it again) or also the year's fee (today's rule)?"
+wait:"Issue 33: should a refund lower only Paid (the family owes it again) or also the year's fee (today's rule)? And: fix the test school's 30 students' old due dates by hand, or leave them?"
 };
 document.getElementById("now").textContent="Now doing: "+S.now;
 document.getElementById("mainbar").style.width=S.main+"%";

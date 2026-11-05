@@ -24,17 +24,17 @@ h1{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)
 </main>
 <script>
 var S={
-now:"Running lint, typecheck and the related tests (slow disk)",
-main:75,mainline:"14 of 17 issues coded or fixed; 11 needs a small build (design written); 33 and 34B wait for you (real counts)",
+now:"Done for this chat. Batch 2 committed (28af9239), not pushed",
+main:85,mainline:"15 of 17 issues fixed or partly fixed; 11 needs a small build (design written); 33 and 34B wait for you (real counts)",
 rows:[
-["Rebuild the SSD copy",100,"Done","Build passed; an old 21:39 server was holding :3000 (netstat did not show it), stopped"],
-["Browser check leftovers-check.mjs",100,"Done","3 of 3 pass; invite now says 'Not sent: WhatsApp is in Test mode'"],
-["Issue 26: datesheet Percentage / Max marks",90,"Checking","A visible note names the grade-only subjects and links to Subjects; saved page says why there are no marks"],
-["Issue 8: import warns early (classes, parent phone)",90,"Checking","Step 1 lists classes not found and required columns that are empty"],
-["Low issues",80,"Checking","Coded: 9, 13, 17 (part), 18, 20, 21, 22, 24, 27, 28, 34A. Already fixed earlier, to recheck: 10, 25, 32. Left: 11 (design written)"],
-["Tests, typecheck, lint, commit",30,"Running","Typecheck clean once; lint and tests running"]
+["Rebuild the SSD copy",100,"Done","Rebuilt twice; the new build is serving on :3000"],
+["Browser check leftovers-check.mjs",100,"Done","3 of 3 pass; invite says 'Not sent: WhatsApp is in Test mode'"],
+["Issue 26: datesheet Percentage / Max marks",100,"Done","Browser: note 'Art, Physical Education: Grades only...' with Open Subjects"],
+["Issue 8: import warns early (classes, parent phone)",100,"Done","Step 1 lists classes not found and needed columns left empty (not browser-tested: needs a sample file)"],
+["Low issues",85,"Done","Fixed: 9, 13, 18, 20, 21, 22, 24, 25, 27, 28, 34A; partly 17. Left: 11 (next batch), 32 recheck by hand"],
+["Tests, typecheck, lint, commit",100,"Done","Typecheck clean, lint 0, 163 of 163 focused tests pass (the i18n one re-run alone after a timeout), browser check 6 of 6; commits 28af9239 + QA"]
 ],
-wait:"Issue 33: refund rule. Issue 34B: should Transport start Off (blueprint says no Transport in v1)?"
+wait:"Issue 33: should a refund lower only Paid, or also the year's fee (today)? Issue 34B: should Transport start Off (blueprint: no Transport in v1)?"
 };
 document.getElementById("now").textContent="Now doing: "+S.now;
 document.getElementById("mainbar").style.width=S.main+"%";

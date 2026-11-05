@@ -306,7 +306,7 @@ export async function sendCode(tx: Tx, ctx: SchoolContext, linkId: string, purpo
   if (testMode && !inLog) await tx.parentLinkCode.update({ where: { id: row.id }, data: { expiresAt: now } });
   await writeAudit(tx, ctx, { action: "code-sent", recordType: "Parent Link", recordId: linkId, after: { purpose, channel } });
   // Test mode only records the message: the page must not say "Code sent" (QA ADMIT-03).
-  return { ...row, channel, testMode, inLog, sentTo: maskPhone(guardian?.phone ?? "") };
+  return { ...row, messageId: sent.messageId, channel, testMode, inLog, sentTo: maskPhone(guardian?.phone ?? "") };
 }
 
 /**

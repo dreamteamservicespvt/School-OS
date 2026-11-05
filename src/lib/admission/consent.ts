@@ -16,6 +16,7 @@ import { activity, loadApplication } from "./applications";
 import { messageParent } from "./notify-parents";
 import { CODE_MASK, withCode } from "../messaging/one-time-code";
 import { channelInTestMode, channelWord, codeNotSentParentWords, codeNotSentWords, logCodeSentBy, PARENT_CODE_NOT_SENT } from "../dev-codes";
+import { codeFailedWords, deliverCodeNow } from "../messaging/code-now";
 
 export const DATA_CONSENT = "data-processing";
 export const PHOTO_CONSENT = "photo";
@@ -70,14 +71,14 @@ export async function startOtp(tx: Tx, ctx: SchoolContext, input: { phone: strin
     if (!(await opts.deliver(input.phone, withCode(text, code)))) throw new AdmissionProblem("The code could not be sent just now. Please try again in a minute.");
     return { sentTo, channel: "sms", testMode: false, inLog: false };
   }
-  const r = await messageParent(tx, ctx, { to: { name: "Parent", phone: input.phone }, template: "admission-consent-code", channel: "sms", text, code, about: input.about ?? { recordType: "Application", recordId: input.purpose } });
+  const r = await messageParent(tx, ctx, { to: { name: "Parent", phone: input.phone }, template: "admission-consent-code", channel: "sms", text, code, values: { school_name: input.schoolName }, about: input.about ?? { recordType: "Application", recordId: input.purpose } });
   // Say why (for example no SMS set up), so the office does not blame the parent's number.
   // A parent (online form) is never shown staff words or settings paths.
   if (r.status !== "queued") throw new AdmissionProblem(opts.forParent ? PARENT_CODE_NOT_SENT : r.status === "skipped" && r.note ? `The code could not be sent. ${r.note}.` : "The code could not be sent to this number.");
   // Test mode only records the message: the screen must not say "Code sent" (QA ADMIT-03).
   const testMode = await channelInTestMode(tx, ctx, r.channel);
   const inLog = await logCodeSentBy(tx, ctx, r.channel, { to: input.phone, purpose: "admission consent", code });
-  return { sentTo, channel: r.channel, testMode, inLog };
+  return { sentTo, channel: r.channel, testMode, inLog, messageId: r.messageId ?? null };
 }
 
 /**
@@ -92,6 +93,20 @@ export function otpSentParentWords(r: { channel: string; testMode: boolean; inLo
 /** What the screen says once startOtp has run: sent, and how, or kept back by Test mode. */
 export function otpSentWords(r: { channel: string; testMode: boolean; inLog: boolean }, to: string): string {
   return r.testMode ? codeNotSentWords({ to, channel: r.channel, inLog: r.inLog }) : `Code sent to ${to} by ${channelWord(r.channel)}. It works for 10 minutes.`;
+}
+
+/**
+ * After the code was queued and the transaction saved: hands it to WhatsApp or
+ * SMS now and says what really happened (messaging/code-now.ts). Before, the
+ * screen said "Code sent" for a code WhatsApp then refused (owner test 2026-11-05).
+ * `forParent`: the online form's words, with no staff words or settings.
+ */
+export async function confirmOtpSent(ctx: SchoolContext, r: { channel: string; testMode: boolean; inLog: boolean; messageId?: string | null }, to: string, forParent = false): Promise<{ ok: boolean; message: string; testMode?: boolean }> {
+  if (r.testMode || !r.messageId) return forParent ? otpSentParentWords(r, to) : { ok: true, message: otpSentWords(r, to), testMode: r.testMode };
+  const out = await deliverCodeNow(ctx, r.messageId);
+  if (out.state === "failed") return { ok: false, message: forParent ? PARENT_CODE_NOT_SENT : codeFailedWords(r.channel, out.reason) };
+  if (out.state === "pending") return { ok: true, message: `The code is on its way to ${to} by ${channelWord(r.channel)}. If it has not come in 2 minutes, tap Send again.` };
+  return forParent ? otpSentParentWords(r, to) : { ok: true, message: otpSentWords(r, to) };
 }
 
 export type OtpResult = { ok: true } | { ok: false; message: string };

@@ -235,6 +235,12 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
   { key: "parent-link-code", name: "Parent Link code", category: "parent-link", channel: "whatsapp", texts: {
     en: "Your one-time code for Parent Link of {school_name} is {code}. It works for 10 minutes. Do not share it with anyone.",
   } },
+  { key: "admission-consent-code", name: "Admission consent code (SMS)", category: "admission", channel: "sms", texts: {
+    en: "{code} is your code to confirm consent for admission at {school_name}. It works for 10 minutes. Do not share it.",
+  } },
+  { key: "admission-consent-code", name: "Admission consent code", category: "admission", channel: "whatsapp", texts: {
+    en: "Your one-time code to confirm consent for admission at {school_name} is {code}. It works for 10 minutes. Do not share it with anyone.",
+  } },
   { key: "consent-request", name: "Consent request", category: "parent-link", channel: "whatsapp", texts: {
     en: "Dear {guardian_name}, {school_name} asks for your consent: {title}. Please open your Parent Link to read it and agree. Thank you.",
   } },

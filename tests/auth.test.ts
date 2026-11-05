@@ -1,7 +1,7 @@
 // Logins and passwords (08-platform-security.md §2).
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { prisma, withSchool } from "@/lib/db";
-import { signIn, MAX_FAILED_ATTEMPTS } from "@/lib/auth/sign-in";
+import { signIn, MAX_FAILED_ATTEMPTS, LOCKED, WRONG_NEAR_LOCK } from "@/lib/auth/sign-in";
 import { findSession, revokeAllSessions } from "@/lib/auth/sessions";
 import { acceptInvite, createInvite, findInvite } from "@/lib/auth/invites";
 import { checkNewPassword } from "@/lib/auth/password";
@@ -59,13 +59,21 @@ describe("signing in", () => {
   it("slows down, then locks for 15 minutes after 5 wrong passwords, and tells the School Admin", async () => {
     const user = await makeUser({ schools: [{ id: school.id, roleKeys: ["teacher"] }], name: "Ravi Teacher" });
     const sleep = vi.fn(noSleep);
-    let last;
-    for (let i = 0; i < MAX_FAILED_ATTEMPTS; i++) last = await signIn(user.username, "Wrong-password-1", device, { sleep });
-    expect(last).toEqual({ ok: false, message: expect.stringContaining("locked for 15 minutes") });
+    const said: string[] = [];
+    for (let i = 0; i < MAX_FAILED_ATTEMPTS; i++) {
+      const r = await signIn(user.username, "Wrong-password-1", device, { sleep });
+      said.push(r.ok ? "" : r.message);
+    }
+    // A warning near the lock, then the lock: no timer on the screen (owner, 2026-11-05).
+    expect(said[3]).toBe(WRONG_NEAR_LOCK);
+    expect(said[4]).toBe(LOCKED);
+    expect(said.join(" ")).not.toMatch(/\d+ (more )?minute|\d+ seconds?/);
+    expect(LOCKED).toContain("Forgot password");
     expect(sleep).toHaveBeenCalled();
 
+    // Locked for 15 minutes on the server, even with the right password.
     const locked = await signIn(user.username, PASSWORD, device, { sleep });
-    expect(locked).toEqual({ ok: false, message: expect.stringContaining("locked for 15 more minutes") });
+    expect(locked).toEqual({ ok: false, message: LOCKED });
 
     const later = await signIn(user.username, PASSWORD, device, { sleep, now: new Date(Date.now() + 16 * 60 * 1000) });
     expect(later.ok).toBe(true);

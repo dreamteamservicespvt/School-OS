@@ -16,6 +16,7 @@ import { ACCESS_WORDS, confirmDevice, deviceCookieName, findLink, hashToken, lin
 import { askConsentCode, confirmConsent } from "@/lib/parent-link/consent";
 import { guardianFor } from "./guardian";
 import { PARENT_CODE_NOT_SENT } from "@/lib/dev-codes";
+import { deliverCodeNow } from "@/lib/messaging/code-now";
 import { parentLinkWords, parentMessage } from "@/lib/parent-link/language";
 
 /** notSent: Test mode kept the code back; the page shows the message instead of "code sent". */
@@ -79,6 +80,8 @@ async function sendDeviceCodeEn(token: string): Promise<GuardianState> {
       const sent = await sendCode(tx, ctx, found.linkId, "device", { keyHash: hashToken(key) });
       return { sent, settings: (await messageSettings(tx, ctx)).parentLink };
     });
+    // "Code sent" only once WhatsApp or SMS really took it (owner test 2026-11-05).
+    if (!pl.sent.testMode && (await deliverCodeNow(ctx, pl.sent.messageId)).state === "failed") return { ok: false, message: PARENT_CODE_NOT_SENT };
     await setDeviceCookie(found.linkId, key, pl.settings.deviceDays);
     return codeStep(codeSentWords(pl.sent, `Code sent. It works for ${pl.settings.codeMinutes} minutes.`));
   } catch (e) {
@@ -133,6 +136,7 @@ async function askConsentEn(token: string, form: FormData): Promise<GuardianStat
   if (!studentIds.length) return { ok: false, message: "Choose your child for this consent." };
   try {
     const sent = await withSchool(g.ctx, (tx) => askConsentCode(tx, g.ctx, g.linkId, g.guardianId, { consentTextId, studentIds, action }));
+    if (!sent.testMode && (await deliverCodeNow(g.ctx, sent.messageId)).state === "failed") return { ok: false, message: PARENT_CODE_NOT_SENT };
     return codeStep(codeSentWords(sent, "Code sent. Type it below to confirm."));
   } catch (e) {
     if (e instanceof ParentLinkProblem) return { ok: false, message: e.message };

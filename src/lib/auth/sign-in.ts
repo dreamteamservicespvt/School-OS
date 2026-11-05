@@ -14,6 +14,8 @@ import { isRememberedDevice } from "./remembered";
 import { securityAlert } from "./security-alert";
 import { startFirstChange } from "./invites";
 import { passwordExpired, passwordRulesForLogin } from "./password-rules";
+import { hitLimit } from "../rate-limit";
+import { noteAdminSignIn } from "../console/admin-sign-in";
 
 /** Wrong passwords before the login is locked (inferred). */
 export const MAX_FAILED_ATTEMPTS = 5;
@@ -32,38 +34,75 @@ export type SignInResult =
   | { ok: false; message: string; twoStep: { userLoginId: string; schoolId: string }; firstChange?: undefined };
 
 const WRONG = "The login or password is wrong. Check both and try again.";
+/** After 3 wrong passwords in a row: a warning, with no countdown on the screen (owner, 2026-11-05). */
+export const WRONG_NEAR_LOCK = "The login or password is wrong. Check both and try again. A few more wrong tries will lock this login. If you are not sure of it, use 'Forgot password' below.";
+/**
+ * Said while the login is locked after too many wrong passwords. The lock itself
+ * stays (08-platform-security.md §2), but the screen shows no timer: the person
+ * is pointed to the one-time code, which still works while the password is locked.
+ */
+export const LOCKED = "Too many wrong passwords, so this login is locked for now. Use 'Forgot password' below to sign in with a one-time code and set a new password, or ask your School Admin.";
+const NOT_SET_UP = "This login has not been set up yet. Open the invite link your school sent you to set your password.";
+
+/** Logins sharing one email or mobile number whose passwords are tried, at most. */
+export const MAX_SHARED_LOGINS = 5;
+/** Sign-in tries on one shared email or mobile number per lock window, at most. */
+const SHARED_TRIES = 10;
 
 /**
  * A login typed as a username, an email or a mobile number. Email and mobile
  * only count when exactly one login has them, so nobody signs in as someone else.
  */
 export async function findLogin(input: string) {
-  return (await lookUpLogin(input)).user;
+  const list = await lookUpLogins(input);
+  return list.length === 1 ? list[0] : null;
 }
 
-/** `shared`: the email or mobile number typed belongs to more than one login, so none was picked. */
-async function lookUpLogin(input: string) {
-  const none = { user: null, shared: false };
+/**
+ * Every live login the typed words can mean: the one with that username, else
+ * every login with that email or mobile number (one number is often on several
+ * logins, for example a school office phone, or test staff sharing phones).
+ */
+async function lookUpLogins(input: string) {
   const typed = input.trim().toLowerCase();
-  if (!typed) return none;
+  if (!typed) return [];
   const byName = await prisma.userLogin.findUnique({ where: { username: typed } });
-  if (byName) return { user: byName, shared: false };
+  // An archived login (a cancelled invite) keeps its username; the person's live login may have the same mobile.
+  if (byName && !byName.archivedAt) return [byName];
   if (typed.includes("@")) {
-    const list = await prisma.userLogin.findMany({ where: { email: { equals: typed, mode: "insensitive" }, archivedAt: null }, take: 2 });
-    return { user: list.length === 1 ? list[0] : null, shared: list.length > 1 };
+    return prisma.userLogin.findMany({ where: { email: { equals: typed, mode: "insensitive" }, archivedAt: null }, orderBy: { createdAt: "asc" }, take: MAX_SHARED_LOGINS + 1 });
   }
   const digits = typed.replace(/\D/g, "");
   if (digits.length >= 10 && digits.length <= 13 && /^[+\d\s()-]+$/.test(typed)) {
     const last10 = digits.slice(-10);
     // Numbers are stored as typed ("+91 98480 12345"), so compare digits only.
-    const near = await prisma.userLogin.findMany({ where: { phone: { endsWith: last10.slice(-4) }, archivedAt: null }, take: 200 });
-    const list = near.filter((u) => (u.phone ?? "").replace(/\D/g, "").endsWith(last10));
-    return { user: list.length === 1 ? list[0] : null, shared: list.length > 1 };
+    const near = await prisma.userLogin.findMany({ where: { phone: { endsWith: last10.slice(-4) }, archivedAt: null }, orderBy: { createdAt: "asc" }, take: 200 });
+    return near.filter((u) => (u.phone ?? "").replace(/\D/g, "").endsWith(last10));
   }
-  return none;
+  return [];
 }
 
-const SHARED = "More than one login has this mobile number or email, so it cannot tell which is yours. Sign in with your username instead.";
+type Login = Awaited<ReturnType<typeof lookUpLogins>>[number];
+
+/**
+ * Several logins share the email or mobile number typed: the password picks
+ * the one. Each is checked the same slow way; exactly one must match, else the
+ * answer is the same "wrong" as for any wrong password, so the screen never
+ * tells that the number is shared (security review 2026-11-05).
+ */
+async function pickByPassword(list: Login[], typed: string, password: string, now: Date): Promise<Login | null> {
+  // Tries on one shared contact are counted, so it cannot be used to guess past each login's own lock.
+  const contact = typed.includes("@") ? typed.trim().toLowerCase() : typed.replace(/\D/g, "").slice(-10);
+  if (!(await hitLimit(`sign-in:shared:${contact}`, SHARED_TRIES, LOCK_MS / 1000, now)).ok) {
+    await burnPasswordCheck(password);
+    return null;
+  }
+  const matches: Login[] = [];
+  for (const u of list.slice(0, MAX_SHARED_LOGINS)) {
+    if (u.passwordHash && (await verifyPassword(u.passwordHash, password))) matches.push(u);
+  }
+  return matches.length === 1 ? matches[0] : null;
+}
 
 type Options = { now?: Date; sleep?: (ms: number) => Promise<void>; /** The browser's remembered-device token, if any (remembered.ts). */ trustedDevice?: string | null };
 const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -71,41 +110,46 @@ const realSleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
 export async function signIn(usernameInput: string, password: string, device: DeviceInfo, opts: Options = {}): Promise<SignInResult> {
   const now = opts.now ?? new Date();
   const sleep = opts.sleep ?? realSleep;
-  const { user, shared } = await lookUpLogin(usernameInput);
-  if (!user || user.archivedAt || !user.passwordHash) {
+  const found = await lookUpLogins(usernameInput);
+  const ready = found.filter((u) => u.passwordHash);
+  if (ready.length === 0) {
     await burnPasswordCheck(password);
-    if (shared) return { ok: false, message: SHARED };
-    if (user?.status === "INVITED") {
-      return { ok: false, message: "This login has not been set up yet. Open the invite link your school sent you to set your password." };
-    }
+    if (found.length === 1 && found[0].status === "INVITED") return { ok: false, message: NOT_SET_UP };
     return { ok: false, message: WRONG };
   }
 
-  if (user.lockedUntil && user.lockedUntil > now) {
-    const minutes = Math.ceil((user.lockedUntil.getTime() - now.getTime()) / 60000);
-    return { ok: false, message: `This login is locked for ${minutes} more minute${minutes === 1 ? "" : "s"} after too many wrong passwords. Try again later, or ask your School Admin or DREAM TEAM support.` };
-  }
+  let user: Login;
+  // Shared by several logins (even if only one has a password yet): no one login's wrong-password count is touched.
+  if (found.length > 1) {
+    const picked = await pickByPassword(ready, usernameInput, password, now);
+    if (!picked) return { ok: false, message: WRONG };
+    if (picked.lockedUntil && picked.lockedUntil > now) return { ok: false, message: LOCKED };
+    user = picked;
+  } else {
+    user = ready[0];
+    if (user.lockedUntil && user.lockedUntil > now) return { ok: false, message: LOCKED };
 
-  if (user.failedAttempts >= SLOW_DOWN_AFTER) {
-    await sleep(Math.min(user.failedAttempts - SLOW_DOWN_AFTER + 1, 4) * 500);
-  }
-
-  const passwordOk = await verifyPassword(user.passwordHash, password);
-
-  if (!passwordOk) {
-    const failedAttempts = user.failedAttempts + 1;
-    const locks = failedAttempts >= MAX_FAILED_ATTEMPTS;
-    await prisma.userLogin.update({
-      where: { id: user.id },
-      data: { failedAttempts: locks ? 0 : failedAttempts, lockedUntil: locks ? new Date(now.getTime() + LOCK_MS) : null },
-    });
-    await reportFailure(user.id, device);
-    if (locks) {
-      await reportLock(user.id, user.displayName, device);
-      return { ok: false, message: "Too many wrong passwords. This login is locked for 15 minutes. Your School Admin has been told." };
+    // A short pause on the server only (at most 2 seconds), never shown as a timer.
+    if (user.failedAttempts >= SLOW_DOWN_AFTER) {
+      await sleep(Math.min(user.failedAttempts - SLOW_DOWN_AFTER + 1, 4) * 500);
     }
-    const left = MAX_FAILED_ATTEMPTS - failedAttempts;
-    return { ok: false, message: left <= 2 ? `${WRONG} ${left} more wrong ${left === 1 ? "try locks" : "tries lock"} this login for 15 minutes.` : WRONG };
+
+    const passwordOk = await verifyPassword(user.passwordHash!, password);
+
+    if (!passwordOk) {
+      const failedAttempts = user.failedAttempts + 1;
+      const locks = failedAttempts >= MAX_FAILED_ATTEMPTS;
+      await prisma.userLogin.update({
+        where: { id: user.id },
+        data: { failedAttempts: locks ? 0 : failedAttempts, lockedUntil: locks ? new Date(now.getTime() + LOCK_MS) : null },
+      });
+      await reportFailure(user.id, device);
+      if (locks) {
+        await reportLock(user.id, user.displayName, device);
+        return { ok: false, message: LOCKED };
+      }
+      return { ok: false, message: MAX_FAILED_ATTEMPTS - failedAttempts <= 2 ? WRONG_NEAR_LOCK : WRONG };
+    }
   }
 
   if (user.status !== "ACTIVE") {
@@ -187,7 +231,8 @@ export type CompleteOptions = {
 export async function completeSignIn(userLoginId: string, schoolId: string, device: DeviceInfo, now = new Date(), opts: CompleteOptions = {}) {
   const earlier = await prisma.session.count({ where: { userLoginId } });
   const isNew = earlier > 0 && !(await knownDevice(userLoginId, device, now));
-  await prisma.userLogin.update({ where: { id: userLoginId }, data: { lastSignInAt: now } });
+  // A code typed instead of the password proves the person: a password lock from wrong tries ends.
+  await prisma.userLogin.update({ where: { id: userLoginId }, data: { lastSignInAt: now, ...(opts.byCode ? { failedAttempts: 0, lockedUntil: null } : {}) } });
   const { token } = await createSession(userLoginId, schoolId, device, now, { signedInWithCode: opts.byCode });
   const ctx = { schoolId, userId: userLoginId };
   const afterSave = await withSchool(ctx, async (tx) => {
@@ -212,6 +257,8 @@ export async function completeSignIn(userLoginId: string, schoolId: string, devi
     });
   });
   if (afterSave) await afterSave();
+  // The console shows at once that the School Admin has signed in (console/admin-sign-in.ts).
+  await noteAdminSignIn(userLoginId, (await schoolsFor(userLoginId)).map((s) => s.id), now);
   return { token };
 }
 
@@ -229,16 +276,17 @@ export type SecondStep =
  * the password, it is written to the audit log and Security alerts, and My
  * profile shows them how to add a mobile number or email.
  */
-export async function startSecondStep(userLoginId: string, schoolId: string, device: DeviceInfo, opts: { now?: Date; deliver?: Deliver } = {}): Promise<SecondStep> {
+export async function startSecondStep(userLoginId: string, schoolId: string, device: DeviceInfo, opts: { now?: Date; deliver?: Deliver; confirmNow?: boolean } = {}): Promise<SecondStep> {
   const now = opts.now ?? new Date();
-  const started = await startChallenge(userLoginId, schoolId, device, { now, deliver: opts.deliver });
+  const started = await startChallenge(userLoginId, schoolId, device, { now, deliver: opts.deliver, confirmNow: opts.confirmNow });
   if (started.ok) return { kind: "code", token: started.token, sentTo: started.sentTo };
   if (!started.unreachable) return { kind: "problem", message: started.message };
   const { token } = await completeSignIn(userLoginId, schoolId, device, now, { withoutTwoStep: started.message });
   return { kind: "signed-in", token, why: started.message };
 }
 
-const CANNOT_SEND = "We could not send a code to that login. Check what you typed, or ask your School Admin, or DREAM TEAM support, for a new invite link.";
+/** Also said when the mobile or email typed is on several logins: the username picks one (the same words, so it never tells which). */
+export const CANNOT_SEND = "We could not send a code to that login. Check what you typed, or type your username instead. If it still does not work, ask your School Admin to send you a new sign-in link.";
 /** Said to a person whose role needs two-step login when a code alone cannot sign them in. */
 export const CODE_ALONE_WORDS = "Your role needs your password and a one-time code to sign in, so one code alone is not enough. Signing in with codes needs both an email and a mobile number on your login that codes can reach. If you forgot your password, ask your Principal or another School Admin for a new sign-in link, or call DREAM TEAM support.";
 
@@ -251,10 +299,11 @@ export type CodeSignInStart = { ok: true; token: string } | { ok: false; message
  * goes to their email and, once it is typed, a second code goes to their
  * mobile (afterRightCode). A login that cannot get both is told how else to get in.
  */
-export async function startCodeSignIn(typed: string, device: DeviceInfo, opts: { now?: Date; deliver?: Deliver; channels?: typeof codeChannels } = {}): Promise<CodeSignInStart> {
+export async function startCodeSignIn(typed: string, device: DeviceInfo, opts: { now?: Date; deliver?: Deliver; channels?: typeof codeChannels; confirmNow?: boolean } = {}): Promise<CodeSignInStart> {
   const now = opts.now ?? new Date();
   const user = await findLogin(typed);
-  const usable = user && user.status === "ACTIVE" && !user.archivedAt && (!user.lockedUntil || user.lockedUntil <= now);
+  // A login locked after wrong passwords may still sign in with a code: that is the way back in the lock message points to.
+  const usable = user && user.status === "ACTIVE" && !user.archivedAt;
   const schools = user && usable ? await schoolsFor(user.id) : [];
   const school = schools[0];
   if (!user || !school || (!user.phone && !user.email)) return { ok: false, message: CANNOT_SEND };
@@ -264,7 +313,7 @@ export async function startCodeSignIn(typed: string, device: DeviceInfo, opts: {
     if (!can.email || !can.phone) return { ok: false, message: CODE_ALONE_WORDS };
     only = "email";
   }
-  const started = await startChallenge(user.id, school.id, device, { now, deliver: opts.deliver, purpose: "code-sign-in", only });
+  const started = await startChallenge(user.id, school.id, device, { now, deliver: opts.deliver, purpose: "code-sign-in", only, confirmNow: opts.confirmNow });
   if (!started.ok) return { ok: false, message: started.unreachable ? `${started.message} Sign in with your password, or ask your School Admin or DREAM TEAM support.` : started.message };
   return { ok: true, token: started.token };
 }
@@ -293,12 +342,12 @@ export type AfterCode =
 export async function afterRightCode(
   v: { userLoginId: string; schoolId: string; purpose: SignInPurpose; channel: string },
   device: DeviceInfo,
-  opts: { now?: Date; deliver?: Deliver } = {},
+  opts: { now?: Date; deliver?: Deliver; confirmNow?: boolean } = {},
 ): Promise<AfterCode> {
   const now = opts.now ?? new Date();
   if (v.purpose === "code-sign-in" && (await needsTwoStepInAny(v.userLoginId, await schoolsFor(v.userLoginId)))) {
     const only = v.channel === "sms" ? "email" : "phone";
-    const s = await startChallenge(v.userLoginId, v.schoolId, device, { now, deliver: opts.deliver, purpose: "code-sign-in-second", only });
+    const s = await startChallenge(v.userLoginId, v.schoolId, device, { now, deliver: opts.deliver, purpose: "code-sign-in-second", only, confirmNow: opts.confirmNow });
     if (!s.ok) return { kind: "problem", message: `${s.message} Your role needs a second code ${only === "phone" ? "on your mobile" : "by email"}. Sign in with your password instead, or ask your School Admin or DREAM TEAM support.` };
     return { kind: "second-code", token: s.token, sentTo: s.sentTo };
   }

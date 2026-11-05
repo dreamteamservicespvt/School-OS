@@ -19,11 +19,15 @@ async function words(): Promise<T> {
   return makeT((await browserLanguage()) ?? "en");
 }
 
-/** "Too many tries…" in the page's language. */
-function waitWords(t: T, r: { retryAfterSeconds: number }) {
-  return r.retryAfterSeconds < 90
-    ? t("Too many tries in a short time. Please wait {n} seconds and try again.", { n: r.retryAfterSeconds })
-    : t("Too many tries in a short time. Please wait {n} minutes and try again.", { n: Math.ceil(r.retryAfterSeconds / 60) });
+/**
+ * "Too many tries…" in the page's language. The limit stays on the server
+ * (08-platform-security.md §7), but the sign-in pages show no countdown
+ * (owner, 2026-11-05): plain words and the way back in.
+ */
+function waitWords(t: T, _r: { retryAfterSeconds: number }, where: "password" | "code" = "code") {
+  return where === "password"
+    ? t("Too many sign-in tries from this device in a short time. Try again a little later, or use 'Forgot password' below.")
+    : t("Too many tries in a short time. Try again a little later.");
 }
 
 export type SignInState = { message: string; username: string } | null;
@@ -57,12 +61,12 @@ export async function signInAction(_prev: SignInState, formData: FormData): Prom
   }
   const device = await signInDevice();
   const limit = await hitLimit(`sign-in:ip:${device.ipAddress ?? "unknown"}`, 30, 600);
-  if (!limit.ok) return { message: waitWords(t, limit), username };
+  if (!limit.ok) return { message: waitWords(t, limit, "password"), username };
   const jar = await cookies();
   const result = await signIn(username, password, device, { trustedDevice: jar.get(REMEMBERED_COOKIE)?.value });
   const remember = formData.get("remember") === "on";
   if (!result.ok && result.twoStep) {
-    const step = await startSecondStep(result.twoStep.userLoginId, result.twoStep.schoolId, device);
+    const step = await startSecondStep(result.twoStep.userLoginId, result.twoStep.schoolId, device, { confirmNow: true });
     if (step.kind === "problem") return { message: t.any(step.message), username };
     if (step.kind === "signed-in") {
       // No code can reach this person yet: signed in, and My profile shows how to fix it.
@@ -94,7 +98,7 @@ export async function codeSignInAction(_prev: SignInState, formData: FormData): 
   const device = await signInDevice();
   const limit = await hitLimit(`code-sign-in:ip:${device.ipAddress ?? "unknown"}`, 10, 600);
   if (!limit.ok) return { message: waitWords(t, limit), username };
-  const started = await startCodeSignIn(username, device);
+  const started = await startCodeSignIn(username, device, { confirmNow: true });
   if (!started.ok) return { message: t.any(started.message), username };
   await keepChallenge(started.token);
   (await cookies()).set(REMEMBER_COOKIE, formData.get("remember") === "on" ? "1" : "0", { httpOnly: true, secure, sameSite: "lax", path: "/sign-in", maxAge: CODE_TTL_MS / 1000 });
@@ -116,7 +120,7 @@ export async function verifyCodeAction(_prev: CodeState, formData: FormData): Pr
     return { message: t.any(result.message), restart: result.restart };
   }
   jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
-  const next = await afterRightCode(result, device);
+  const next = await afterRightCode(result, device, { confirmNow: true });
   if (next.kind === "problem") return { message: t.any(next.message), restart: true };
   if (next.kind === "second-code") {
     // The first code was right; the page now asks for the second one.
@@ -148,7 +152,7 @@ export async function resendCodeAction(): Promise<CodeState> {
   }
   // A new code goes the same way as the one it replaces, for the same step.
   const only = challenge.purpose === "sign-in" ? undefined : challenge.channel === "email" ? "email" : challenge.channel === "sms" ? "phone" : undefined;
-  const started = await startChallenge(challenge.userLoginId, challenge.schoolId, await signInDevice(), { purpose: challenge.purpose, only });
+  const started = await startChallenge(challenge.userLoginId, challenge.schoolId, await signInDevice(), { purpose: challenge.purpose, only, confirmNow: true });
   if (!started.ok) return { message: t.any(started.message) };
   await keepChallenge(started.token);
   return { message: t("A new code was sent to {to}. The earlier code no longer works.", { to: started.sentTo }), sent: true };

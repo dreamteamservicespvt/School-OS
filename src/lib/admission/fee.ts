@@ -20,6 +20,7 @@ import { razorpayCredentials } from "../payments/gateways";
 import { createOrder, isCaptured, verifyPaymentSignature, type RazorpayCredentials } from "../payments/razorpay";
 import type { GatewayEvent } from "../payments/events";
 import { AdmissionProblem } from "./act";
+import { paymentRefProblem } from "../payment-ref";
 import { applicationScope, requireFull, type Viewer } from "./access";
 import { activity, loadApplication, CLOSED_STAGES } from "./applications";
 
@@ -80,6 +81,8 @@ export async function takeCounterPayment(tx: Tx, ctx: SchoolContext, app: Applic
   if (!app.feeDuePaise) throw new AdmissionProblem("No application fee is due for this application (Admission Settings).");
   if (!COUNTER_MODES.some((m) => m.value === input.mode)) throw new AdmissionProblem("Choose how the fee was paid.", "mode");
   if (input.mode !== "cash" && (!input.reference || input.reference.length < 4)) throw new AdmissionProblem(`Give the ${input.mode === "cheque" ? "cheque number" : "transaction reference"}, so the payment can be matched later.`, "reference");
+  const refProblem = paymentRefProblem(input.mode, input.reference);
+  if (refProblem) throw new AdmissionProblem(refProblem, "reference");
   // One counter payment per application at a time: the same fee sent twice at once (double click,
   // two tabs) waits here, then sees it paid. NO KEY UPDATE does not block records that point at it.
   await tx.$queryRaw`SELECT id FROM application WHERE id = ${app.id}::uuid FOR NO KEY UPDATE`;

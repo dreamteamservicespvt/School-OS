@@ -14,7 +14,8 @@ import { createSession, revokeAllSessions, type DeviceInfo } from "../auth/sessi
 import { hitLimit, limitMessage } from "../rate-limit";
 import { logActivity, maskMobile, SYSTEM_ACTOR } from "./activity";
 import { notifyTeam } from "./notify";
-import { codesByWhatsapp, deliver } from "./outbox";
+import { channelIsSetUp, codesByWhatsapp, deliver } from "./outbox";
+import { noteAdminSignIn } from "./admin-sign-in";
 import { inviteState } from "./schools";
 import { logOneTimeCode } from "../dev-codes";
 
@@ -56,10 +57,14 @@ export async function sendSchoolInviteCode(token: string, ip: string | null, now
   await withConsole((tx) => tx.schoolInvite.update({ where: { id: look.invite.id }, data: { codeHash: codeHashOf(look.invite.id, code), codeSentAt: now, codeAttempts: 0, codeOkAt: null } }));
   const text = `${code} is your School OS code for ${look.schoolName}. It works for 10 minutes. Never share it with anyone, including DREAM TEAM.`;
   const safe = text.replace(code, "••••••");
-  const sent = await deliver([codesByWhatsapp()
-    ? { channel: "whatsapp", to: look.invite.phone, purpose: "code", text, safeText: safe, templateParams: [code], buttonParam: code }
-    : { channel: "sms", to: look.invite.phone, purpose: "code", text, safeText: safe, templateParams: [code] }]);
-  if (sent.every((s) => s.status === "FAILED")) return { ok: false as const, message: "The code could not be sent just now. Try again in a minute." };
+  const bySms = { channel: "sms" as const, to: look.invite.phone, purpose: "code" as const, text, safeText: safe, templateParams: [code] };
+  let sent = await deliver([codesByWhatsapp() ? { channel: "whatsapp", to: look.invite.phone, purpose: "code", text, safeText: safe, templateParams: [code], buttonParam: code } : bySms]);
+  // WhatsApp refused it (for example a permission or template problem at Meta): SMS, when DREAM TEAM has it, instead.
+  if (sent.every((s) => s.status === "FAILED") && sent[0]?.channel === "whatsapp" && channelIsSetUp("sms")) sent = await deliver([bySms]);
+  if (sent.every((s) => s.status === "FAILED")) {
+    console.error(JSON.stringify({ level: "error", event: "school-invite-code-failed", invite: look.invite.id, reasons: sent.map((s) => `${s.channel}: ${s.reason ?? ""}`) }));
+    return { ok: false as const, message: `The code could not be sent to +91 ${maskMobile(look.invite.phone)} just now, so nothing reached the phone. Try again in a few minutes. If it still does not come, call DREAM TEAM: they can check the number or send you a new link.` };
+  }
   logOneTimeCode({ to: look.invite.phone, purpose: "school invite", code, carriedBy: sent.every((s) => s.status === "TEST") ? "none" : "real" });
   return { ok: true as const, sentTo: maskMobile(look.invite.phone), by: sent[0]?.channel === "whatsapp" ? "WhatsApp" : "SMS", test: sent.every((s) => s.status === "TEST") };
 }
@@ -103,6 +108,9 @@ export async function finishSchoolInvite(token: string, code: string, password: 
     await notifyTeam(tx, { roles: ["OWNER", "ONBOARDING"], alsoUserId: inv.sentById, text: `${inv.name} ${what} at ${look.schoolName}.`, link: `/console/schools/${inv.forSchoolId}`, tone: "ok" });
   });
   const { token: sessionToken } = await createSession(login.id, inv.forSchoolId, device, now);
+  // This is their first sign-in: it counts as one everywhere (the console's "Signed in", Last sign-in).
+  await prisma.userLogin.update({ where: { id: login.id }, data: { lastSignInAt: now } });
+  await noteAdminSignIn(login.id, [inv.forSchoolId], now);
   return { ok: true, token: sessionToken };
 }
 

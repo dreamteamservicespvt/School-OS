@@ -14,7 +14,8 @@ import { writeAudit } from "../audit";
 import { chargesFor, MessagingProblem, recordSend, type Plan, type PlannedRow } from "../messaging";
 import { creditBalances, creditProblem, creditsFor } from "../messaging/credits";
 import { onChannels, type Channel } from "../messaging/channels";
-import { withCode } from "../messaging/one-time-code";
+import { CODE_MASK, withCode } from "../messaging/one-time-code";
+import { currentVersions, ensureReadyTemplates, isApproved, render, templateByKey, versionFor, type UsableVersion } from "../messaging/templates";
 
 export type ParentMessage = {
   to: { name: string; phone: string; email?: string | null };
@@ -22,6 +23,8 @@ export type ParentMessage = {
   template: string;
   /** The words the family reads, already filled in. */
   text: string;
+  /** Blanks for the school's approved template of the same key (one-time codes), e.g. { school_name }. */
+  values?: Record<string, string>;
   /** The channel asked for; WhatsApp if connected, else SMS, when not given or not set up. */
   channel?: "whatsapp" | "sms" | "email";
   /** The record the message is about. */
@@ -55,14 +58,27 @@ export async function messageParent(tx: Tx, ctx: SchoolContext, msg: ParentMessa
   if (!channel) return { status: "skipped", channel: asked, note: "No messaging channel is set up (Settings, SMS, WhatsApp & Email)" };
   if (channel !== "email" && !phoneOk) return { status: "skipped", channel, note: "No valid mobile number" };
   const address = channel === "email" ? msg.to.email! : msg.to.phone;
+  // A one-time code goes in the school's approved template when it has one (WhatsApp sends
+  // only approved templates to a parent who has not written in the last 24 hours).
+  let version: UsableVersion | null = null;
+  let text = msg.text;
+  if (msg.code && channel !== "email") {
+    await ensureReadyTemplates(tx, ctx);
+    const t = await templateByKey(tx, ctx, msg.template, channel);
+    const v = t ? versionFor(await currentVersions(tx, ctx, t.id), "en", "en") : null;
+    if (v && (channel === "whatsapp" ? isApproved(v) : Boolean(v.dltTemplateId))) {
+      const r = render(v.body, { ...msg.values, code: CODE_MASK });
+      if (r.ok) { version = v; text = r.text; }
+    }
+  }
   // Counted on the words as sent: the code's mask would make an SMS look like Unicode.
-  const credits = creditsFor(channel, msg.code ? withCode(msg.text, msg.code) : msg.text);
+  const credits = creditsFor(channel, msg.code ? withCode(text, msg.code) : text);
   const balances = await creditBalances(tx, ctx);
   const cost = { [channel]: credits } as Partial<Record<Channel, number>>;
   const row: PlannedRow = {
     // An applicant family, addressed by phone: not yet a guardian, student or staff member.
     candidate: { key: `applicant:${address}`, type: "applicant" as unknown as "guardian", id: msg.about.recordId, name: msg.to.name, description: `Admission: ${msg.about.recordType.toLowerCase()}`, phone: msg.to.phone, email: msg.to.email ?? null, userLoginId: null, language: "en", optedOut: false, students: [], inScope: true },
-    rowKey: `applicant:${address}:${channel}`, studentId: null, channel, address, language: "en", version: null, title: null, text: msg.text, values: {}, credits,
+    rowKey: `applicant:${address}:${channel}`, studentId: null, channel, address, language: "en", version, title: null, text, values: version ? { ...msg.values, code: CODE_MASK } : {}, credits,
   };
   const charges = await chargesFor(tx, ctx, cost);
   const plan: Plan = { channels: [channel], rows: [row], people: 1, skipped: [], cost, ...charges, backupCost: 0, balances, creditProblem: creditProblem(charges.charged, balances), problems: [], audienceLabel: msg.to.name, backupTemplateId: null };

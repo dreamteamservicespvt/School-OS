@@ -11,6 +11,7 @@ import { CHANNELS, channelSecrets, channelSetups, type Channel } from "../messag
 import { checkDltId, LANGUAGES, TEMPLATE_CATEGORIES, unknownVariables, variablesIn, whatsappProblems } from "../messaging/templates";
 import { RULES } from "../messaging/automatic";
 import { listWhatsappTemplates, submitWhatsappTemplate, whatsappTemplateStatus } from "../messaging/providers/whatsapp";
+import { isMetaWhatsapp } from "../messaging/dream-team";
 
 export class TemplateProblem extends Error {}
 
@@ -43,6 +44,7 @@ const SYSTEM_USES: Record<string, string> = {
   "parent-link": "Parent Link (sending links)",
   "parent-link-code": "Parent Link (one-time codes)",
   "consent-request": "Consent requests",
+  "admission-consent-code": "Admission consent (one-time codes)",
   "query-number": "Feedback & Queries (ticket number)",
   "query-rating": "Feedback & Queries (rating request)",
   notice: "Notice Board",
@@ -232,7 +234,7 @@ export async function submitForApproval(tx: Tx, ctx: SchoolContext, versionId: s
  */
 export async function syncWhatsappApprovals(tx: Tx, ctx: SchoolContext): Promise<{ changed: number } | null> {
   const setup = (await channelSetups(tx, ctx)).whatsapp;
-  if (setup.provider !== "meta-cloud") return null;
+  if (!isMetaWhatsapp(setup.provider)) return null;
   const known = await listWhatsappTemplates({ config: setup.config, secrets: await channelSecrets(tx, ctx, "whatsapp") });
   if (!known) return null;
   const versions = await tx.templateVersion.findMany({

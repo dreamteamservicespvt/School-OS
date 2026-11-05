@@ -10,7 +10,7 @@ import { counterConsent, readApplicationForm } from "@/lib/admission/application
 import { createApplication, editApplication, moveStage, review, sendBack, STAGES, withdraw } from "@/lib/admission/applications";
 import { DuplicateProblem, type Match } from "@/lib/admission/enquiries";
 import { markOriginalSeen, recordPapersException, rejectDocument, remindMissing, uploadDocument, verifyDocument } from "@/lib/admission/documents";
-import { admissionConsentTexts, confirmConsentAtCounter, counterFormPurpose, DATA_CONSENT, PHOTO_CONSENT, otpSentWords, recordConsents, sendConsentCode, startOtp, tryOtp, verifyOtp } from "@/lib/admission/consent";
+import { admissionConsentTexts, confirmConsentAtCounter, confirmOtpSent, counterFormPurpose, DATA_CONSENT, PHOTO_CONSENT, recordConsents, sendConsentCode, startOtp, tryOtp, verifyOtp } from "@/lib/admission/consent";
 import { applicationScope, requireFull } from "@/lib/admission/access";
 import { cancelPayment, recordCounterPayment } from "@/lib/admission/fee";
 import { sendFeeLink } from "@/lib/admission/public";
@@ -57,9 +57,10 @@ export async function sendFormCodeAction(phone: string): Promise<{ ok: boolean; 
     const to = checkMobile(phone.replace(/\s/g, ""), "phone", "Parent's phone");
     const r = await inSchool("create", async (w) => {
       requireFull(w.v, "new applications");
-      return startOtp(w.tx, w.ctx, { phone: to, purpose: counterFormPurpose(w.ctx.userId), schoolName: w.current.school.name, about: null });
+      return { ...(await startOtp(w.tx, w.ctx, { phone: to, purpose: counterFormPurpose(w.ctx.userId), schoolName: w.current.school.name, about: null })), ctx: w.ctx };
     });
-    return { ok: true, message: otpSentWords(r, `+91 ${to.slice(0, 5)} ${to.slice(5)}`), testMode: r.testMode };
+    // Said only once WhatsApp or SMS really took the code (owner test 2026-11-05).
+    return confirmOtpSent(r.ctx, r, `+91 ${to.slice(0, 5)} ${to.slice(5)}`);
   } catch (err) {
     return { ok: false, message: problemState(err)?.message ?? "The code could not be sent." };
   }
@@ -127,8 +128,17 @@ export async function exceptionAction(_: FormState<unknown>, fd: FormData) {
   return admissionAct("approve", fd, (w) => recordPapersException(w.tx, w.ctx, w.v, id(fd, "id", "application"), str(fd, "reason")), () => "Exception recorded. The admission can be confirmed with papers pending.");
 }
 
-export async function sendCodeAction(_: FormState<unknown>, fd: FormData) {
-  return admissionAct("edit", fd, (w) => sendConsentCode(w.tx, w.ctx, w.v, w.current.school.name, id(fd, "id", "application")), (r) => otpSentWords(r, "the parent's mobile"));
+export async function sendCodeAction(_: FormState<unknown>, fd: FormData): Promise<FormState<unknown>> {
+  try {
+    const r = await inSchool("edit", async (w) => ({ ...(await sendConsentCode(w.tx, w.ctx, w.v, w.current.school.name, id(fd, "id", "application"))), ctx: w.ctx }));
+    // Said only once WhatsApp or SMS really took the code (owner test 2026-11-05).
+    const said = await confirmOtpSent(r.ctx, r, "the parent's mobile");
+    if (said.ok) await flash({ message: said.message });
+    revalidatePath("/", "layout");
+    return { ok: said.ok, message: said.message };
+  } catch (err) {
+    return problemState(err, fd);
+  }
 }
 
 export async function confirmConsentAction(_: FormState<unknown>, fd: FormData) {

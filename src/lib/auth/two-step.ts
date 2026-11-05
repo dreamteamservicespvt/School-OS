@@ -17,6 +17,7 @@ import { hashToken, newToken } from "./tokens";
 import { mailIsSetUp, sendMail } from "./mail";
 import { CODE_PURPOSE_WORDS, sendCodeBySms, signInSmsTemplate } from "./two-step-sms";
 import { logOneTimeCode, mayLogCode } from "../dev-codes";
+import { deliverCodeNow } from "../messaging/code-now";
 import type { DeviceInfo } from "./sessions";
 
 export const TWO_STEP_FEATURE = "two-step-login";
@@ -26,6 +27,9 @@ export const CODE_TTL_MS = 10 * 60 * 1000;
 export const MAX_CODE_TRIES = 5;
 /** Codes sent to one person in 15 minutes, at most. */
 export const MAX_SENDS = 5;
+
+/** The sign-in pages show no countdown (owner, 2026-11-05); the limit itself stays. */
+export const BUSY = "Too many tries in a short time. Try again a little later.";
 
 export const CHALLENGE_COOKIE = "sos_two_step";
 /** "Keep me signed in on this device", carried from the password page to the code page ("0" when unticked). */
@@ -78,7 +82,8 @@ export type CodeTo = {
 };
 /** A code that could not go. `unreachable`: no email or SMS could even be tried for this person (not a passing fault). */
 export type NotSent = { problem: string; unreachable?: boolean };
-export type Deliver = (to: CodeTo, code: string, purpose?: "sign-in" | ContactKind) => Promise<{ channel: string; sentTo: string } | NotSent>;
+/** `messageId`: the queued SMS, which confirmNow hands to the provider at once (messaging/code-now.ts). */
+export type Deliver = (to: CodeTo, code: string, purpose?: "sign-in" | ContactKind) => Promise<{ channel: string; sentTo: string; messageId?: string | null } | NotSent>;
 
 /** What a code is for: signing in, or confirming a new phone or email on My profile. */
 export type CodePurpose = "sign-in" | "change-phone" | "change-email" | (string & {});
@@ -92,7 +97,7 @@ const PURPOSE_WORDS: Record<string, string> = { "sign-in": "sign-in code", "chan
  * (rule 34). On a tester's computer with neither, writes it to the server
  * log only (dev-codes.ts); there every code sent is also written there.
  */
-export async function deliverCodeTo(to: CodeTo, code: string, purpose: CodePurpose = "sign-in"): Promise<{ channel: string; sentTo: string } | NotSent> {
+export async function deliverCodeTo(to: CodeTo, code: string, purpose: CodePurpose = "sign-in"): Promise<{ channel: string; sentTo: string; messageId?: string | null } | NotSent> {
   const what = PURPOSE_WORDS[purpose] ?? "confirmation code";
   let mailProblem: string | null = null;
   if (to.email && mailIsSetUp()) {
@@ -110,7 +115,7 @@ export async function deliverCodeTo(to: CodeTo, code: string, purpose: CodePurpo
   if (to.phone && to.schoolId && to.userLoginId) {
     const sms = await sendCodeBySms({ schoolId: to.schoolId, userLoginId: to.userLoginId, phone: to.phone, code, key: to.key ?? null, purpose });
     // Test mode only records the SMS (allowed for codes on a tester's computer only): say so, not "sent to" the phone (QA ADMIT-03).
-    if (sms.sent) return { channel: "sms", sentTo: sms.testMode ? `the server log (Test mode, not sent to ${maskPhone(to.phone)} by SMS)` : maskPhone(to.phone) };
+    if (sms.sent) return { channel: "sms", sentTo: sms.testMode ? `the server log (Test mode, not sent to ${maskPhone(to.phone)} by SMS)` : maskPhone(to.phone), messageId: sms.messageId ?? null };
     smsProblem = sms.problem ?? null;
   }
   if (mailProblem) return { problem: mailProblem };
@@ -183,12 +188,12 @@ const isSignInPurpose = (p: string): p is SignInPurpose => (SIGN_IN_PURPOSES as 
 /** Makes a new code for this person (ending any earlier one) and sends it; `only` keeps it to the email or the mobile. */
 export async function startChallenge(
   userLoginId: string, schoolId: string, device: DeviceInfo,
-  opts: { now?: Date; deliver?: Deliver; purpose?: SignInPurpose; only?: "email" | "phone" } = {},
+  opts: { now?: Date; deliver?: Deliver; purpose?: SignInPurpose; only?: "email" | "phone"; /** Hand an SMS code to the provider now and say if it failed (the sign-in pages). */ confirmNow?: boolean } = {},
 ): Promise<StartResult> {
   const now = opts.now ?? new Date();
   const purpose = opts.purpose ?? "sign-in";
   const limit = await hitLimit(`two-step:send:${userLoginId}`, MAX_SENDS, 900, now);
-  if (!limit.ok) return { ok: false, message: limitMessage(limit) };
+  if (!limit.ok) return { ok: false, message: BUSY };
   const user = await prisma.userLogin.findUnique({ where: { id: userLoginId }, select: { email: true, phone: true, displayName: true } });
   if (!user) return { ok: false, message: "This login was not found. Sign in again." };
   const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
@@ -196,6 +201,11 @@ export async function startChallenge(
   const to = { email: opts.only === "phone" ? null : user.email, phone: opts.only === "email" ? null : user.phone };
   const sent = await (opts.deliver ?? deliverCode)({ ...to, name: user.displayName, schoolId, userLoginId, key: hashToken(token).slice(0, 40) }, code);
   if ("problem" in sent) return { ok: false, message: sent.problem, unreachable: sent.unreachable };
+  // "We sent a code" only once the SMS provider really took it (owner test 2026-11-05).
+  if (opts.confirmNow && sent.messageId) {
+    const out = await deliverCodeNow({ schoolId, userId: userLoginId }, sent.messageId);
+    if (out.state === "failed") return { ok: false, message: `The sign-in code could not be sent by SMS: ${out.reason}. Try again in a few minutes, or ask your School Admin to set a new password for you.` };
+  }
   await prisma.twoStepChallenge.updateMany({ where: { userLoginId, purpose: { in: [...SIGN_IN_PURPOSES] }, usedAt: null }, data: { usedAt: now } });
   await prisma.twoStepChallenge.create({
     data: {
@@ -230,7 +240,7 @@ export async function verifyChallenge(token: string | null | undefined, typed: s
   if (c.expiresAt <= now) return { ok: false, message: "This code has expired after 10 minutes. Sign in again to get a new one.", restart: true };
   if (c.attempts >= MAX_CODE_TRIES) return { ok: false, message: "Too many wrong codes. Sign in again to get a new one.", restart: true };
   const limit = await hitLimit(`two-step:check:${c.userLoginId}`, 20, 900, now);
-  if (!limit.ok) return { ok: false, message: limitMessage(limit) };
+  if (!limit.ok) return { ok: false, message: BUSY };
   if (!/^\d{6}$/.test(code)) return { ok: false, message: "Type the 6 digits of the code." };
 
   const right = timingSafeEqual(Buffer.from(codeHash(token, code)), Buffer.from(c.codeHash));

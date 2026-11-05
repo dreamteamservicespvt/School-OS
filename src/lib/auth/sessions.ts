@@ -54,7 +54,7 @@ export function mayResetWithoutOld(session: { signedInWithCode?: boolean | null;
  * older than its longest sign-in, ends now (with the reason, for the sign-in
  * page). A remembered device is not forgotten by it.
  */
-export async function findSession(token: string | undefined | null, now = new Date()) {
+export async function findSession(token: string | undefined | null, now = new Date(), opts: { /** false: a background check (the bell's poll) that must not count as the person being here. */ touch?: boolean } = {}) {
   if (!token) return null;
   const session = await prisma.session.findUnique({
     where: { tokenHash: hashToken(token) },
@@ -70,7 +70,7 @@ export async function findSession(token: string | undefined | null, now = new Da
     await prisma.session.updateMany({ where: { id: session.id, revokedAt: null }, data: { revokedAt: now, revokedReason: TIMED_OUT_REASONS[end.why] } });
     return null;
   }
-  if (now.getTime() - session.lastUsedAt.getTime() > touchEvery(end.idleMinutes)) {
+  if (opts.touch !== false && now.getTime() - session.lastUsedAt.getTime() > touchEvery(end.idleMinutes)) {
     await prisma.session.update({
       where: { id: session.id },
       data: { lastUsedAt: now, expiresAt: sessionEnds({ ...session, lastUsedAt: now }, rules).at },

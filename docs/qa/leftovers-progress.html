@@ -24,17 +24,17 @@ h1{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)
 </main>
 <script>
 var S={
-now:"Running typecheck, lint and the related tests",
-main:75,mainline:"5 of 7 pieces done",
+now:"Finished. Committed locally as 8b8f4ab1 (not pushed)",
+main:100,mainline:"7 of 7 pieces done",
 rows:[
 ["(c) Truthful 'sent' on staff invite links",100,"Done","Invite is handed to WhatsApp/SMS/email at once; screen says sent, on its way, or refused (with reason)"],
 ["(d) No countdown on the console sign-in",100,"Done","'Locked for now. Try again later, or ask the Owner.' No minutes shown"],
 ["(e) Drafts on Datesheet and Add Staff",100,"Done","Both keep what was typed; Aadhaar, passwords and photo never kept"],
 ["(b) Hindi and Telugu for new messages",100,"Done","30 new entries in each language: Add Staff step 3, 12-hour time messages, UTR, corrections"],
 ["(a) Trim more screen text",100,"Done","8 of the longest help lines cut (some by half), Hindi and Telugu updated"],
-["Tests, typecheck, lint",20,"Running","Typecheck first, then i18n, staff, settings, console tests"],
-["Local commit",0,"Waiting","No push"]],
-wait:"Nothing yet."};
+["Tests, typecheck, lint",100,"Done","Typecheck and lint clean; 35 test files, 326 of 326 tests passed (new invite test included)"],
+["Local commit",100,"Done","8b8f4ab1, not pushed. Browser check waits for the next local build"]],
+wait:"Push and deploy when you are ready (it needs --force-with-lease)."};
 document.getElementById("now").textContent="Now doing: "+S.now;
 document.getElementById("mainbar").style.width=S.main+"%";
 document.getElementById("mainline").textContent=S.mainline;

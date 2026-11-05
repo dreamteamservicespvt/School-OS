@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-05 night (live-test fixes 7, 12, 14-16, 18, 19 + invite Test-mode words, commit after b25fcdba; 16-note leftovers done; owner's 16-note test PDF fixed; local commits 3c1ed69f..99dc4500 + security follow-up 812f292c; NOT pushed or deployed)
+Last updated: 2026-11-05 late night (live-test batch 2 committed 28af9239; NOT pushed or deployed)
 Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits, live role-play test) and docs/archive/HANDOFF-until-2026-10-30.md.
 
 ## State
@@ -35,11 +35,12 @@ Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits,
    Datesheet drafts PASS; invite said "sent by WhatsApp" in Test mode -> FIXED (confirmInviteSent treats sandbox rows
    as "Not sent: WhatsApp is in Test mode"); needs a rebuild + re-run of leftovers-check.mjs (its check should look
    for "was sent to"). Progress page https://claude.ai/artifact/4enuz9nYz2ruJ37pDr1VqL.
-4. Older open items from the 2026-11-04 live test. DONE 2026-11-05 night (see Status lines in testing-issues.md):
-   7, 12, 14, 15, 16, 19; 18 partly. STILL OPEN: 8, 9, 10, 11, 13, 17, 18 (ask section with role), 20-22, 24-28,
-   32, 34, 35; 33 waits for the owner (refund = adjustment today). Next do 26 (Medium) and 8 (Medium), then the Lows.
-   Older open items from the 2026-11-04 live test (testing-issues.md 7-28, 32-35), e.g. 33 refund lowers fee total (High,
-   owner decision), 15/16 new students "overdue" (High), 12 dashboard fee numbers.
+4. Live-test open items (testing-issues.md Status lines). Batch 1 (a4a0e677): 7, 12, 14-16, 19. Batch 2 (28af9239,
+   2026-11-05 night): 8, 9, 13, 18, 20, 21, 22, 24, 26, 27, 28; parts of 17 and 34. Browser check
+   qa/full/batch2-check.mjs (also checks 10/25-style fixes). STILL OPEN: 11 (logins without a staff record:
+   design in testing-issues.md, build next), 32 recheck by hand, 17 "Staff present" (same root as 11).
+   Owner decisions: 33 refund rule; 34B Transport on by default vs blueprint "no Transport in v1".
+   Progress page https://claude.ai/artifact/PUeXeKtKi1sBvd2RrHfCsC (docs/qa/live-test-batch2-progress.html).
 
 ## How to run things locally
 - Start DB: `powershell -c "Start-Process -WindowStyle Hidden -FilePath 'D:\all\Projects\School-OS\tools\pg16\pgsql\bin\pg_ctl.exe' -ArgumentList '-D','D:\all\Projects\School-OS\tools\pgdata','-l','D:\all\Projects\School-OS\tools\pg.log','start'"`.
@@ -65,6 +66,6 @@ Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits,
   or the app router's history update looks like "interrupted by another navigation".
 - Local console login: QA Test Owner, mobile 9000000101 (local DB only); its password is not saved.
 - `npm run build` locally needs NODE_OPTIONS=--max-old-space-size=6144.
-- Before a rebuild, check :3000 with `netstat -ano | grep LISTENING | grep :3000` (Get-NetTCPConnection missed an old
-  server on 2026-11-05, so the new build could not start). To start the server alone (no build): run
+- Before a rebuild, stop any old server: PowerShell `Get-CimInstance Win32_Process -Filter "Name='node.exe'" | ? { $_.CommandLine -match 'next.*start -p 3000' }`
+  then Stop-Process. Both netstat and Get-NetTCPConnection missed a live old server on 2026-11-05. To start the server alone (no build): run
   `Start-Process -WindowStyle Hidden -FilePath D:/Git/bin/bash.exe -ArgumentList D:/all/Projects/School-OS/qa/full/start-only.sh`.

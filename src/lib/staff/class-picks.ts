@@ -57,7 +57,8 @@ export function stepThreeSummary(o: { classTeacherOf: string | null; pairs: read
   const ct = o.classTeacherOf ? `Class teacher of ${o.classTeacherOf}.` : "Not a class teacher.";
   if (!o.pairs.length) return `${ct} No subjects chosen yet.`;
   const n = o.pairs.length;
-  return `${ct} Teaches ${n} subject${n === 1 ? "" : "s"} across ${sections} section${sections === 1 ? "" : "s"} (one per subject and section).`;
+  if (n === 1) return `${ct} Teaches 1 subject in 1 section.`;
+  return `${ct} Teaches ${n} subjects across ${sections} section${sections === 1 ? "" : "s"} (one per subject and section).`;
 }
 
 /** The server's refusal of a class-teacher section, or null when it can be given. */

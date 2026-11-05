@@ -17,7 +17,7 @@ import { contactSchema, employmentSchema, personalSchema } from "@/lib/staff/sch
 import { changeStatus, giveLogin, issueInvite, saveEmergencyContacts, StaffProblem, updateRestricted, updateStaffSection } from "@/lib/staff/staff";
 import { hrSettings, STAFF_STATUSES } from "@/lib/staff/settings";
 import { reopenLogin, switchOffLogin } from "@/lib/staff/exit";
-import { inviteSentWords } from "@/lib/settings/invite-message";
+import { confirmInviteSent, inviteSentWords, type InviteSent } from "@/lib/settings/invite-message";
 import { granterOf, heldHere, signInLinkRefusal } from "@/lib/staff/login-ceiling";
 import { worksElsewhere } from "@/lib/auth/access";
 
@@ -40,7 +40,10 @@ async function who(fd: FormData, hrOnly: boolean): Promise<Who> {
 async function run<T>(fd: FormData, hrOnly: boolean, work: (w: Who, tx: Tx) => Promise<T>, message: (r: T) => string) {
   return act(fd, async () => {
     const w = await who(fd, hrOnly);
-    return withSchool(w.current.ctx, (tx) => work(w, tx), { timeout: 30_000 });
+    const r = await withSchool(w.current.ctx, (tx) => work(w, tx), { timeout: 30_000 });
+    // An invite says "sent" only once the provider took it, after the change is saved (owner test 2026-11-05).
+    const sent = r && typeof r === "object" && "sent" in r ? (r as { sent: InviteSent | null }).sent : undefined;
+    return sent ? { ...r, sent: await confirmInviteSent(w.current.ctx, sent) } : r;
   }, message);
 }
 

@@ -22,6 +22,8 @@ import { createContext, useContext, useEffect, useMemo, useRef, useState } from 
 import { CircleAlert } from "lucide-react";
 import { firstInOrder, problemMessage, shownProblem } from "@/lib/form-problems";
 import { tx } from "@/lib/i18n/tx";
+import { useT } from "@/lib/i18n/client";
+import { screenMessage } from "@/lib/i18n/messages";
 
 type Box = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
 type Ctx = { shown: (name: string, given?: string) => string | undefined };
@@ -234,8 +236,9 @@ export function ProblemText({ name, given, className }: { name: string; given?: 
  * request): while none is ticked, Save marks the group with `message` and brings
  * it into view like any other bad box. Put it inside the group.
  */
-export function NeedOne({ name, message }: { name: string; message: string }) {
+export function NeedOne({ name, message: english }: { name: string; message: string }) {
   const marker = useRef<HTMLSpanElement>(null);
+  const message = screenMessage(useT(), english);
   useEffect(() => {
     const form = marker.current?.closest("form");
     if (!form) return;

@@ -270,7 +270,7 @@ function SectionDialog({ mode, yearId, classId, className, section, teachers, st
               help={section && section.students > 0 ? `${section.students} students now.` : undefined} />
           </div>
           <SelectField label="Class teacher" name="classTeacherId" defaultValue={v(state, "classTeacherId", section?.classTeacherId)} error={err(state, "classTeacherId")} placeholder="Not set yet" options={teacherOptions}
-            help="A teacher is class teacher of one section only. Those already class teacher of another section are shown but cannot be chosen." />
+            help="One section per class teacher. Teachers who already have a section are shown but cannot be chosen." />
           {streamsOn && <SelectField label="Stream" name="streamId" defaultValue={v(state, "streamId", section?.streamId)} placeholder="No stream" options={streams.map((s) => ({ value: s.id, label: s.name }))} />}
           <TextField label="Room" name="room" defaultValue={v(state, "room", section?.room)} error={err(state, "room")} help="Used by the Time Table room view." />
         </>

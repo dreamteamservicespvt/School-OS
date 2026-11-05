@@ -7,7 +7,8 @@
 // every subject. Subjects with no date are left out. Problems show on their
 // row as you save; every check is made again on the server.
 
-import { Fragment, useActionState, useMemo, useRef, useState } from "react";
+import { Fragment, useActionState, useEffect, useMemo, useRef, useState } from "react";
+import { DraftHint, useStateDraft } from "@/components/ui/form-draft";
 import { Check, CircleAlert, User, Users } from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -54,6 +55,12 @@ export function DatesheetForm({ data }: { data: Data }) {
   const [rows, setRows] = useState<Record<string, FormRow>>(() => Object.fromEntries((exam?.rows ?? []).map((r) => [key(r.classId, r.subjectId), r])));
   const [tried, setTried] = useState(false);
   const summaryRef = useRef<HTMLDivElement>(null);
+  // What was typed comes back after a reload or a mistaken Back; a locked exam keeps no draft (owner test, note 7).
+  const draft = useStateDraft(`Datesheet|${exam?.id ?? "new"}`, { mode, classIds, d, bulk, rows }, (v) => {
+    setMode(v.mode); setClassIds(v.classIds); setD(v.d); setBulk(v.bulk); setRows(v.rows);
+  }, !locked);
+  const resumeDraft = draft.resume;
+  useEffect(() => { if (state && !state.ok) resumeDraft(); }, [state, resumeDraft]);
 
   const chosen = data.classes.filter((c) => classIds.includes(c.id));
   // Every subject row, made with defaults when a class is first chosen.
@@ -168,9 +175,10 @@ export function DatesheetForm({ data }: { data: Data }) {
           // The first bad box comes into view with the cursor in it; the list of problems when no box is marked.
           const form = e.currentTarget;
           requestAnimationFrame(() => { const box = form.querySelector<HTMLElement>("[aria-invalid=true]"); if (box) bringToBox(box); else summaryRef.current?.focus(); });
-        }
+        } else draft.done();
       }}>
       <FormProblems errors={state?.errors}>
+      <DraftHint draft={draft} />
       {exam && <input type="hidden" name="examId" value={exam.id} />}
       <input type="hidden" name="yearId" value={data.yearId} />
       {classIds.map((id) => <input key={id} type="hidden" name="classIds" value={id} />)}

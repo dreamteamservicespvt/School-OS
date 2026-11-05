@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-05 (owner's 16-note test PDF fixed; local commits 3c1ed69f..99dc4500 + security follow-up 812f292c; NOT pushed or deployed)
+Last updated: 2026-11-05 (16-note leftovers done in the commit after aeb6ccba; owner's 16-note test PDF fixed; local commits 3c1ed69f..99dc4500 + security follow-up 812f292c; NOT pushed or deployed)
 Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits, live role-play test) and docs/archive/HANDOFF-until-2026-10-30.md.
 
 ## State
@@ -24,10 +24,13 @@ Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits,
 1. Owner: push + deploy when ready (ask; --force-with-lease). After deploy re-test on school-os-beta: ID card, receipt
    Print/PDF (Vercel function log "PDF: the browser could not start" if not), console Schools "Signed in".
 2. After deploy, each school: Settings > Templates > "Admission consent code" > Send for approval (Meta).
-3. Left open from the 16: (a) note 15 "too much text" was only a partial pass: trim more screens; (b) new step-3 and form
-   messages are English only (add hi/te); (c) staff invite links (src/lib/settings/invite-message.ts) still say "sent"
-   once queued; (d) console's own sign-in still shows "locked for N minutes" (src/lib/console/auth.ts ~123);
-   (e) Datesheet form and Add Staff wizard have no draft keeping.
+3. DONE 2026-11-05 (leftovers of the 16): invites say "sent" only once the provider took it
+   (confirmInviteSent in src/lib/settings/invite-message.ts, used by all 5 invite actions); console lock shows no
+   minutes (CONSOLE_LOCKED); drafts on Datesheet (useStateDraft) and Add Staff (useFormDraft + step-3 picks); 30 hi/te
+   entries for Add Staff step 3 and the new form messages (+2 patterns in src/lib/i18n/messages.ts); 8 longest help
+   lines trimmed. Still English only: the invite "sent/on its way" sentence (it carries channel names). Progress
+   page https://claude.ai/artifact/8NX6aS3fL5CCdWQ4VwrsTE. Not browser-tested yet: re-run qa/full/p16-selftest.mjs
+   after the next local build.
 4. Older open items from the 2026-11-04 live test (testing-issues.md 7-28, 32-35), e.g. 33 refund lowers fee total (High,
    owner decision), 15/16 new students "overdue" (High), 12 dashboard fee numbers.
 

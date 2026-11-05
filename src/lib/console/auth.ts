@@ -99,6 +99,9 @@ async function sendCode(user: SuperAdminUser, purpose: "sign-in" | "welcome", no
   return { ok: true as const, challenge, sentTo: maskMobile(user.phone), test: sent.every((s) => s.status === "TEST") };
 }
 
+/** Said while a console login is locked after too many wrong passwords; the lock ends by itself. */
+export const CONSOLE_LOCKED = "Too many wrong passwords, so this login is locked for now. Try again later, or ask the Owner.";
+
 export type ConsoleSignInResult =
   | { kind: "session"; token: string; user: SuperAdminUser }
   | { kind: "code"; challenge: string; sentTo: string; test: boolean }
@@ -118,10 +121,8 @@ export async function consoleSignIn(phone: string, password: string, device: Dev
     if (user?.status === "INVITED") return { kind: "error", message: "This login is not set up yet. Open the welcome link the Owner sent you." };
     return { kind: "error", message: WRONG };
   }
-  if (user.lockedUntil && user.lockedUntil > now) {
-    const minutes = Math.ceil((user.lockedUntil.getTime() - now.getTime()) / 60000);
-    return { kind: "error", message: `This login is locked for ${minutes} more minute${minutes === 1 ? "" : "s"} after too many wrong passwords.` };
-  }
+  // No countdown on screen, as on the school sign-in (owner test 2026-11-05, note 1).
+  if (user.lockedUntil && user.lockedUntil > now) return { kind: "error", message: CONSOLE_LOCKED };
   if (user.failedAttempts >= 3) await sleep(Math.min(user.failedAttempts - 2, 4) * 500);
   const ok = await verifyPassword(user.passwordHash, password);
   if (!ok) {
@@ -131,9 +132,8 @@ export async function consoleSignIn(phone: string, password: string, device: Dev
       await tx.superAdminUser.update({ where: { id: user.id }, data: { failedAttempts: locks ? 0 : failed, lockedUntil: locks ? new Date(now.getTime() + LOCK_MS) : null } });
       if (locks) await logActivity(tx, { ...actorOf(user, device.ipAddress) }, { type: "signin", text: `${user.name}'s console login was locked for 15 minutes after ${MAX_FAILED} wrong passwords.` });
     });
-    if (locks) return { kind: "error", message: "Too many wrong passwords. This login is locked for 15 minutes." };
-    const left = MAX_FAILED - failed;
-    return { kind: "error", message: left <= 2 ? `${WRONG} ${left} more wrong ${left === 1 ? "try locks" : "tries lock"} this login for 15 minutes.` : WRONG };
+    if (locks) return { kind: "error", message: CONSOLE_LOCKED };
+    return { kind: "error", message: MAX_FAILED - failed <= 2 ? `${WRONG} A few more wrong tries will lock this login.` : WRONG };
   }
   if (user.status !== "ACTIVE") return { kind: "error", message: "This login is switched off. Ask the Owner." };
   await withConsole((tx) => tx.superAdminUser.update({ where: { id: user.id }, data: { failedAttempts: 0, lockedUntil: null } }));

@@ -16,6 +16,10 @@ const PATTERNS: [RegExp, (t: T, m: RegExpExecArray) => string][] = [
   [/^Holiday: (.+)\. Attendance is off for (\d{2}-\d{2}-\d{4})\.$/, (t, m) => t("Holiday: {title}. Attendance is off for {date}.", { title: m[1], date: m[2] })],
   [/^(\d{2}-\d{2}-\d{4}) is a Sunday\. Attendance is off for this date\.$/, (t, m) => t("{date} is a Sunday. Attendance is off for this date.", { date: m[1] })],
   [/^(\d{2}-\d{2}-\d{4}) is a (.+), not a working day\. Attendance is off for this date\.$/, (t, m) => t("{date} is a {day}, not a working day. Attendance is off for this date.", { date: m[1], day: t.any(m[2].charAt(0).toUpperCase() + m[2].slice(1)) })],
+  // Times are typed as 12-hour clock times (owner test 2026-11-05, note 2).
+  [/^Give the (start|end) time like (\d{1,2}:\d{2} [AP]M)\.$/, (t, m) => (m[1] === "start" ? t("Give the start time like {time}.", { time: m[2] }) : t("Give the end time like {time}.", { time: m[2] }))],
+  // Add Staff, step 3 (src/lib/staff/class-picks.ts).
+  [/^Step 3: (.+) already has a class teacher, (.+)\. Choose another section, or change it in Academic Management, Classes & Sections\.$/, (t, m) => t("Step 3: {section} already has a class teacher, {name}. Choose another section, or change it in Academic Management, Classes & Sections.", { section: m[1], name: m[2] })],
 ];
 
 const TESTER = " (On this tester's computer the code is in the server log.)";

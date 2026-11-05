@@ -13,7 +13,7 @@ import { createStaff, findDuplicates, type AllocationPick, type Duplicate } from
 import { markHired } from "@/lib/staff/talent";
 import { flash } from "@/lib/flash";
 import { hrSettings } from "@/lib/staff/settings";
-import { inviteSentWords } from "@/lib/settings/invite-message";
+import { confirmInviteSent, inviteSentWords } from "@/lib/settings/invite-message";
 
 const REQUIRED_LABELS: Record<string, string> = {
   email: "Email", dateOfBirth: "Date of birth", gender: "Gender", bloodGroup: "Blood group", address: "Current address", qualification: "Qualifications", aadhaar: "Aadhaar", photo: "Photo",
@@ -100,7 +100,7 @@ export async function createStaffAction(_: FormState<Created>, fd: FormData): Pr
     return {
       ok: true,
       message: `${result.staff.fullName} added.`,
-      data: { staffId: result.staff.id, staffCode: result.staff.staffCode, name: result.staff.fullName, username: result.username, inviteLink: result.inviteLink, roles: result.roleNames, allocated: result.allocated, classTeacherOf: result.classTeacherOf, phone: result.staff.phone, email: result.staff.email, sentWords: inviteSentWords(result.sent).trim(), temporary: result.temporary },
+      data: { staffId: result.staff.id, staffCode: result.staff.staffCode, name: result.staff.fullName, username: result.username, inviteLink: result.inviteLink, roles: result.roleNames, allocated: result.allocated, classTeacherOf: result.classTeacherOf, phone: result.staff.phone, email: result.staff.email, sentWords: inviteSentWords(await confirmInviteSent(current.ctx, result.sent)).trim(), temporary: result.temporary },
     };
   } catch (e) {
     return problemState(e, fd) as FormState<Created>;

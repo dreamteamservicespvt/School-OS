@@ -51,7 +51,7 @@ export function PunchMethodsForm({ action, v }: { action: Action; v: SettingsVal
           <Checks name="studentMethods" label="Ways to mark students" options={METHODS} values={v.studentMethods} error={f.err("studentMethods")} />
           <Checks name="staffMethods" label="Ways to mark staff" options={METHODS} values={v.staffMethods} error={f.err("staffMethods")}
             help="Device, QR and Mobile switch on Devices & QR. Campus area makes check-ins count only inside the school." />
-          <CheckboxField label="Offline mode for Take Attendance" name="offline" defaultChecked={v.offline} help="For schools with poor internet: attendance is kept on the teacher's phone and sent when online. The first save to arrive wins; a second one becomes a correction request." />
+          <CheckboxField label="Offline mode for Take Attendance" name="offline" defaultChecked={v.offline} help="For poor internet: attendance stays on the teacher's phone and is sent when online. A second save of the same day becomes a correction request." />
           <div className="grid gap-4 sm:grid-cols-2">
             <TextField label="Punches count from" name="punchWindowStart" type="time" required defaultValue={f.val("punchWindowStart", v.punchWindowStart)} error={f.err("punchWindowStart")} />
             <TextField label="Punches count until" name="punchWindowEnd" type="time" required defaultValue={f.val("punchWindowEnd", v.punchWindowEnd)} error={f.err("punchWindowEnd")} />

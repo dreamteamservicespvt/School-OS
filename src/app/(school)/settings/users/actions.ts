@@ -15,7 +15,7 @@ import { savePasswordRules } from "@/lib/auth/password-rules";
 import type { SensitiveLevel } from "@/lib/sensitive";
 
 const PAGE = "users" as const;
-import { inviteSentWords } from "@/lib/settings/invite-message";
+import { confirmInviteSent, inviteSentWords } from "@/lib/settings/invite-message";
 
 const USERS = "/settings/users";
 
@@ -55,10 +55,11 @@ export async function inviteAction(_: InviteState, fd: FormData): Promise<Invite
   );
   if (!r.ok) return asFormState(r, values, "");
   revalidatePath(USERS);
+  const sent = (await confirmInviteSent(r.current.ctx, r.data.sent)) ?? r.data.sent;
   return {
     ok: true,
-    message: `${r.data.login.displayName} is invited.${inviteSentWords(r.data.sent)}`,
-    data: { userId: r.data.login.id, link: `/invite/${r.data.token}`, name: r.data.login.displayName, sentBy: r.data.sent.sentBy, sentNote: r.data.sent.note },
+    message: `${r.data.login.displayName} is invited.${inviteSentWords(sent)}`,
+    data: { userId: r.data.login.id, link: `/invite/${r.data.token}`, name: r.data.login.displayName, sentBy: sent.sentBy, sentNote: inviteSentWords({ ...sent, sentBy: [] }).trim() || null },
   };
 }
 
@@ -68,7 +69,7 @@ export async function resendInviteAction(userId: string): Promise<LinkState> {
   const r = await runSettings(PAGE, "edit", (tx, current) => resendInvite(tx, current.ctx, userId));
   if (!r.ok) return { ok: false, message: r.message };
   revalidatePath(`${USERS}/${userId}`);
-  return { ok: true, message: `A new invite link is ready. The old link no longer works. It works once, for 7 days.${inviteSentWords(r.data.sent)}`, link: `/invite/${r.data.token}` };
+  return { ok: true, message: `A new invite link is ready. The old link no longer works. It works once, for 7 days.${inviteSentWords(await confirmInviteSent(r.current.ctx, r.data.sent))}`, link: `/invite/${r.data.token}` };
 }
 
 export async function accessAction(_: FormState, fd: FormData): Promise<FormState> {

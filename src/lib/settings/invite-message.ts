@@ -6,7 +6,8 @@
 // so an invite never fails because a channel is off.
 import "server-only";
 
-import type { SchoolContext, Tx } from "../db";
+import { withSchool, type SchoolContext, type Tx } from "../db";
+import { deliverMessage } from "../messaging/deliver";
 import { channelSetups, type Channel } from "../messaging/channels";
 import { planMessage, recordSend } from "../messaging/send";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
@@ -19,16 +20,50 @@ const WORD: Record<Channel, string> = { whatsapp: "WhatsApp", sms: "SMS", email:
 export type InviteSent = {
   /** The channels it went by, in words: ["WhatsApp", "email"]. Empty when nothing could be sent. */
   sentBy: string[];
+  /** Channels still waiting for a slow provider (only after confirmInviteSent). */
+  pending?: string[];
   /** Why it was not sent (or not by every channel), in plain words. */
   note: string | null;
   messageId: string | null;
 };
 
-/** Words for the screen: "The link was sent by WhatsApp and email." */
+/** Words for the screen: "The link was sent by WhatsApp and email." Only after confirmInviteSent, which
+ * keeps in sentBy the channels whose provider really took it (owner test 2026-11-05: "sent" when only queued). */
 export function inviteSentWords(sent: InviteSent | null | undefined): string {
   if (!sent) return "";
-  if (sent.sentBy.length) return ` The link was sent to them by ${sent.sentBy.join(" and ")}.${sent.note ? ` ${sent.note}` : ""}`;
-  return sent.note ? ` ${sent.note}` : "";
+  const by = sent.sentBy.length ? ` The link was sent to them by ${sent.sentBy.join(" and ")}.` : "";
+  const going = sent.pending?.length ? ` It is on its way by ${sent.pending.join(" and ")}: check Message History in a minute.` : "";
+  return `${by}${going}${sent.note ? ` ${sent.note}` : ""}`;
+}
+
+const TAKEN = new Set(["SENT", "DELIVERED", "READ"]);
+const WORD_OF: Record<string, string> = WORD;
+
+/** Hands a queued invite to WhatsApp, SMS and email at once (as code-now.ts does for codes) and says
+ * what really happened per channel. Call it after the transaction that queued the invite was saved. */
+export async function confirmInviteSent(ctx: SchoolContext, sent: InviteSent | null | undefined): Promise<InviteSent | null> {
+  if (!sent?.messageId || !sent.sentBy.length) return sent ?? null;
+  const messageId = sent.messageId;
+  const job: SchoolContext = { schoolId: ctx.schoolId, userId: null };
+  try {
+    // Safe to run twice: the queued background job finds it already handed over.
+    await withSchool(job, (tx) => deliverMessage(tx, job, { messageId, round: "now", chunk: 0 }), { timeout: 20_000 });
+  } catch (e) {
+    console.error(JSON.stringify({ level: "error", event: "invite-deliver-now-failed", school: ctx.schoolId, message: messageId, error: e instanceof Error ? e.message : String(e) }));
+  }
+  const rows = await withSchool(job, (tx) => tx.messageRecipient.findMany({ where: { messageId }, select: { channel: true, status: true, failReason: true } }));
+  const sentBy: string[] = [];
+  const pending: string[] = [];
+  const failed: string[] = [];
+  for (const channel of [...new Set(rows.map((r) => r.channel))]) {
+    const mine = rows.filter((r) => r.channel === channel);
+    const word = WORD_OF[channel] ?? channel;
+    if (mine.some((r) => TAKEN.has(r.status))) sentBy.push(word);
+    else if (mine.every((r) => r.status === "FAILED")) failed.push(`${word} did not take it (${(mine.find((r) => r.failReason)?.failReason ?? "the provider refused it").replace(/\.$/, "")})`);
+    else pending.push(word);
+  }
+  const notes = [...(failed.length ? [`${failed.join("; ")}.${sentBy.length || pending.length ? "" : " Copy the link and send it yourself."}`] : []), ...(sent.note ? [sent.note] : [])];
+  return { sentBy, pending, note: notes.join(" ") || null, messageId };
 }
 
 async function smsTemplateReady(tx: Tx, ctx: SchoolContext, templateId: string) {

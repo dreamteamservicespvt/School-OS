@@ -36,7 +36,7 @@ describe("the subjects taught", () => {
   it("says plainly what was chosen", () => {
     expect(stepThreeSummary({ classTeacherOf: "Class 1 A", pairs: ["s1:mat", "s2:mat", "s2:eng"] }))
       .toBe("Class teacher of Class 1 A. Teaches 3 subjects across 2 sections (one per subject and section).");
-    expect(stepThreeSummary({ classTeacherOf: null, pairs: ["s2:mat"] })).toBe("Not a class teacher. Teaches 1 subject across 1 section (one per subject and section).");
+    expect(stepThreeSummary({ classTeacherOf: null, pairs: ["s2:mat"] })).toBe("Not a class teacher. Teaches 1 subject in 1 section.");
     expect(stepThreeSummary({ classTeacherOf: null, pairs: [] })).toBe("Not a class teacher. No subjects chosen yet.");
   });
 });

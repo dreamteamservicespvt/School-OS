@@ -7,7 +7,7 @@
 
 import { useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState, type RefObject } from "react";
 import { History } from "lucide-react";
-import { boxText, draftKey, fingerprint, isPrivateField, readDraft, writeDraft, type DraftValues } from "@/lib/form-draft";
+import { boxText, DRAFT_MAX_AGE_MS, draftKey, fingerprint, isPrivateField, readDraft, writeDraft, type DraftValues } from "@/lib/form-draft";
 import { Words } from "@/lib/i18n/client";
 
 type Field = HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement;
@@ -206,4 +206,69 @@ export function DraftSpot({ name, enabled = true, handle }: { name: string; enab
 /** Marks who the drafts on this page belong to (the school and the person signed in). */
 export function DraftOwner({ id }: { id: string }) {
   return <span hidden data-draft-owner={id} />;
+}
+
+type StateLive<T> = { key: string; base: string; start: T | null; stopped: boolean; ready: boolean };
+
+/**
+ * Drafts for a form whose values live in React state rather than in its boxes (rows that
+ * appear only after a choice, as on the Datesheet). `value` is everything to keep; `apply`
+ * puts a kept value back. Never pass private values (passwords, codes, bank references).
+ * After a save that worked call done(); call resume() when the save came back with a problem.
+ */
+export function useStateDraft<T>(name: string, value: T, apply: (v: T) => void, enabled = true): FormDraft & { resume: () => void } {
+  const [restored, setRestored] = useState(false);
+  const live = useRef<StateLive<T>>({ key: "", base: "", start: null, stopped: false, ready: false });
+  const text = JSON.stringify(value);
+  const applyRef = useRef(apply);
+  const textRef = useRef(text);
+  useEffect(() => { applyRef.current = apply; textRef.current = text; });
+
+  useEffect(() => {
+    const l = live.current;
+    if (!enabled) return;
+    if (!l.ready) {
+      l.ready = true;
+      const owner = document.querySelector<HTMLElement>("[data-draft-owner]")?.dataset.draftOwner;
+      if (!owner) { l.stopped = true; return; }
+      Object.assign(l, { key: draftKey(owner, window.location.pathname + window.location.search, `state|${name}`), base: text, start: value });
+      const raw = store.get(l.key);
+      try {
+        const d = raw ? (JSON.parse(raw) as { base: string; savedAt: number; value: T }) : null;
+        if (d && d.base === l.base && typeof d.savedAt === "number" && Date.now() - d.savedAt <= DRAFT_MAX_AGE_MS && JSON.stringify(d.value) !== l.base) {
+          applyRef.current(d.value);
+          window.setTimeout(() => setRestored(true), 0);
+        } else if (raw) store.remove(l.key);
+      } catch { store.remove(l.key); }
+      return;
+    }
+    if (l.stopped || !l.key) return;
+    if (text === l.base) store.remove(l.key);
+    else store.set(l.key, JSON.stringify({ base: l.base, savedAt: Date.now(), value: JSON.parse(text) as T }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, enabled, name]);
+
+  const done = useCallback(() => {
+    const l = live.current;
+    l.stopped = true;
+    if (l.key) store.remove(l.key);
+    setRestored(false);
+  }, []);
+
+  const resume = useCallback(() => {
+    const l = live.current;
+    if (!l.key || !l.stopped) return;
+    l.stopped = false;
+    // The save did not go through: keep what is on screen again at once.
+    if (textRef.current !== l.base) store.set(l.key, JSON.stringify({ base: l.base, savedAt: Date.now(), value: JSON.parse(textRef.current) as T }));
+  }, []);
+
+  const clear = useCallback(() => {
+    const l = live.current;
+    if (l.key) store.remove(l.key);
+    if (l.start !== null) applyRef.current(l.start);
+    setRestored(false);
+  }, []);
+
+  return useMemo(() => ({ restored, clear, done, resume }), [restored, clear, done, resume]);
 }

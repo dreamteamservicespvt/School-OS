@@ -206,6 +206,7 @@ Owner decisions 2026-11-05: (1) a locked login may still use "Forgot password" (
 - P12 Shared phone/email: the typed password picks the login (no enumeration).
 - P13 Notices reach Admin/Principal/Accountant logins; holidays to staff bells; bell checks every 30 s; sound with On/Off.
 - P14 ShareMenu (WhatsApp, Share, Copy) on 7 kinds of link.
-- P15 Long help lines cut on the busiest forms (partial: more screens can be trimmed).
+- P15 Long help lines cut on the busiest forms; 8 more trimmed in the leftovers pass (parents, guardians, substitutions, DigiLocker, offline attendance, Add Staff, behaviour, class teacher).
+- Leftovers pass: invites "sent" only when the provider took it; console lock without minutes; drafts on Datesheet and Add Staff; hi/te for step 3 and the new form messages.
 - P16 Code screens say truthfully whether the code went; new ready template "Admission consent code" (WhatsApp + SMS) is used once Meta approves it (school: Settings > Templates > send for approval).
 Browser self-test (qa/full/p16-selftest.mjs, local build): 7 of 7 passed.

@@ -218,7 +218,7 @@ export default async function StudentSettingsPage({ searchParams }: { searchPara
               <div className="space-y-3 border-t border-line pt-4">
                 <FormCheck name="qrOn" label="QR code to verify (optional)" help="No personal data in the code; the check shows only number, type, date and Valid." defaultChecked={settings.qrOn} />
                 <FormCheck name="migrationOn" label="Migration certificates (optional)" help="For students moving between boards or states." defaultChecked={settings.migrationOn} />
-                <FormCheck name="digiLockerOn" label="DigiLocker-ready file (optional)" help="Adds a DigiLocker file on Certificates: the issued certificates with their numbers, student details and APAAR ID, in the columns DigiLocker asks for, to upload in the school's DigiLocker Issuer account." defaultChecked={settings.digiLockerOn} />
+                <FormCheck name="digiLockerOn" label="DigiLocker-ready file (optional)" help="Adds a DigiLocker file on Certificates: issued certificates in DigiLocker's columns, to upload to the school's DigiLocker Issuer account." defaultChecked={settings.digiLockerOn} />
               </div>
             </ActionForm>
           </div>

@@ -17,10 +17,11 @@ import { LEVEL_OPTIONS, combineLevels, extraPermissions, levelWords } from "@/li
 import type { ModuleKey } from "@/lib/modules";
 import type { Created } from "./actions";
 import { SignInChoice } from "../_components/sign-in-choice";
-import { Words } from "@/lib/i18n/client";
+import { Any, Words, useT } from "@/lib/i18n/client";
 import { FormProblems, ProblemText, checkBoxes } from "@/components/ui/form-problems";
 import { freePairs, stepThree, stepThreeSummary, type Taken } from "@/lib/staff/class-picks";
 import { ShareMenu } from "@/components/ui/share-menu";
+import { DraftHint, useFormDraft, useStateDraft } from "@/components/ui/form-draft";
 
 type Option = { value: string; label: string };
 export type WizardData = {
@@ -48,12 +49,23 @@ type Create = (prev: FormState<Created>, fd: FormData) => Promise<FormState<Crea
 
 const STEP1_FIELDS = new Set(["fullName", "phone", "designation", "departmentId", "joiningDate", "gender", "email", "photo", "staffCode", "dateOfBirth", "bloodGroup", "aadhaar", "address", "permanentAddress", "qualification", "experienceYears", "employmentType", "reportingToId", "campusId", "phoneVerified", "emailVerified"]);
 
+/** The line under step 3 in the screen's language (the English is stepThreeSummary in src/lib/staff/class-picks.ts). */
+function stepThreeWords(t: ReturnType<typeof useT>, classTeacherOf: string | null, pairs: readonly string[]) {
+  if (t.lang === "en") return stepThreeSummary({ classTeacherOf, pairs });
+  const ct = classTeacherOf ? t("Class teacher of {section}.", { section: classTeacherOf }) : t("Not a class teacher.");
+  const n = pairs.length;
+  const sections = new Set(pairs.map((p) => p.split(":")[0])).size;
+  const rest = !n ? t("No subjects chosen yet.") : n === 1 ? t("Teaches 1 subject in 1 section.") : t("Teaches {n} subjects across {sections} sections (one per subject and section).", { n: String(n), sections: String(sections) });
+  return `${ct} ${rest}`;
+}
+
 function slug(s: string) { return s.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, ""); }
 
 export function Wizard({ data, checkDetails, create }: { data: WizardData; checkDetails: Check; create: Create }) {
   const formRef = useRef<HTMLFormElement>(null);
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [pending, start] = useTransition();
+  const t = useT();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState<{ text: string; link?: { href: string; label: string } } | null>(null);
   const [dups, setDups] = useState<Dup[]>([]);
@@ -79,6 +91,10 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
   const [pairs, setPairs] = useState<string[]>([]);
   const [ctSection, setCtSection] = useState("");
   const [classFilter, setClassFilter] = useState("");
+  // What was typed comes back after a reload or a mistaken Back (owner test, note 7). Aadhaar, passwords and
+  // the photo are never kept (src/lib/form-draft.ts); the class picks of step 3 are kept from their state.
+  const draft = useFormDraft(formRef, "Add staff");
+  const picksDraft = useStateDraft("Add staff picks", { pairs, ctSection }, (v) => { setPairs(v.pairs); setCtSection(v.ctSection); });
 
   const teaching = (des?.staffType ?? "Teaching") === "Teaching";
   const offer = stepThree({ teachingPost: teaching, giveLogin, roleKeys });
@@ -147,7 +163,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
     if (skipClasses) { fd.delete("alloc"); fd.delete("classTeacherSectionId"); }
     start(async () => {
       const res = await create(null, fd);
-      if (res?.ok && res.data) { setDone(res.data); window.scrollTo({ top: 0 }); return; }
+      if (res?.ok && res.data) { draft.done(); picksDraft.done(); setDone(res.data); window.scrollTo({ top: 0 }); return; }
       const errs = res?.errors ?? {};
       setErrors(errs);
       const link = (res?.data as unknown as { link?: { href: string; label: string } } | undefined)?.link;
@@ -163,6 +179,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
   const stepNames = ["Details", "What they can open", "Classes and subjects"];
   return (
     <form ref={formRef} onSubmit={(e) => { e.preventDefault(); if (step < 3) next(); else submit(); }} className="space-y-5">
+      <DraftHint draft={{ restored: draft.restored || picksDraft.restored, clear: () => { draft.clear(); picksDraft.clear(); }, done: () => { draft.done(); picksDraft.done(); } }} />
       <FormProblems errors={errors}>
       <ol className="grid grid-cols-3 gap-2" aria-label="Steps">
         {stepNames.map((n, i) => (
@@ -235,7 +252,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
       <fieldset data-step="2" hidden={step !== 2} className="space-y-4 rounded-2xl border border-line bg-surface p-5">
         <legend className="sr-only"><Words k="Step 2: What they can open" /></legend>
         <CheckboxField name="giveLogin" label="Give a login to School OS" checked={giveLogin} onChange={(e) => setGiveLogin(e.target.checked)}
-          help="They get an invite link to set their own password, or a temporary password you give them. Staff without a login can still be on the Time Table and payroll." />
+          help="An invite link to set their own password, or a temporary password from you. No login is needed for the Time Table or payroll." />
         {giveLogin && (
           <>
             <div>
@@ -293,16 +310,16 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
         ) : (
           <>
             <p className="text-ink-2">{`Classes for ${data.yearName ?? "this year"}: choose the one section they are class teacher of, and tick the subjects they teach in each section. They stay from year to year until changed.`}</p>
-            {offer.notes.length > 0 && <Alert tone="info">{offer.notes.map((n) => <span key={n} className="block">{n}</span>)}</Alert>}
+            {offer.notes.length > 0 && <Alert tone="info">{offer.notes.map((n) => <span key={n} className="block"><Any text={n} /></span>)}</Alert>}
             {offer.classTeacher && (
               <div className="rounded-xl border border-line bg-surface-2 p-4">
                 <p className="font-medium">{"Class teacher"}</p>
-                <p className="mt-1 text-sm text-ink-2">{"The class teacher takes the daily attendance of one section and writes its report card remarks. A teacher is class teacher of one section only; in other classes they teach subjects only."}</p>
+                <p className="mt-1 text-sm text-ink-2"><Words k="The class teacher takes the daily attendance of one section and writes its report card remarks. A teacher is class teacher of one section only; in other classes they teach subjects only." /></p>
                 <label className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-line px-3">
                   <input type="radio" className="size-4 accent-brand" checked={!ctChosen} onChange={() => setCtSection("")} />
-                  {"Not a class teacher"}
+                  <Words k="Not a class teacher" />
                 </label>
-                <p className="mt-2 text-sm font-medium">{ctChosen ? `Chosen: class teacher of ${sectionLabel(ctChosen)}` : "Chosen: not a class teacher"}</p>
+                <p className="mt-2 text-sm font-medium">{ctChosen ? t("Chosen: class teacher of {section}", { section: sectionLabel(ctChosen) }) : t("Chosen: not a class teacher")}</p>
                 <ProblemText name="classTeacherSectionId" given={errors.classTeacherSectionId} />
               </div>
             )}
@@ -326,7 +343,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
                     </div>
                     {offer.classTeacher && (
                       <div className="mt-3" role="radiogroup" aria-label={`Class teacher of a section of ${c.name}`}>
-                        <p className="text-sm font-medium text-ink-2">{"Class teacher of (one section only)"}</p>
+                        <p className="text-sm font-medium text-ink-2"><Words k="Class teacher of (one section only)" /></p>
                         <div className="mt-1 flex flex-wrap gap-2">
                           {c.sections.map((x) => {
                             const other = data.taken.classTeacher[x.id];
@@ -344,7 +361,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
                       <p className="mt-3 text-sm text-ink-2"><Words k="No subjects set for this class." /> <Link href="/academic-management" className="font-medium text-brand-text underline"><Words k="Subjects" /></Link></p>
                     ) : (
                       <div className="mt-3 space-y-2">
-                        <p className="text-sm font-medium text-ink-2">{"Subjects taught (subject teacher)"}</p>
+                        <p className="text-sm font-medium text-ink-2"><Words k="Subjects taught (subject teacher)" /></p>
                         {c.sections.map((x) => (
                           <div key={x.id} className="flex flex-wrap items-center gap-2" role="group" aria-label={`Subjects taught in ${c.name} ${x.name}`}>
                             <span className="w-full text-sm sm:w-auto sm:min-w-20">{`${c.name} ${x.name}`}</span>
@@ -369,7 +386,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
               })}
             </ul>
             {allocs.map((a) => <input key={a} type="hidden" name="alloc" value={a} />)}
-            <p className="text-sm text-ink-2" aria-live="polite">{stepThreeSummary({ classTeacherOf: ctChosen ? sectionLabel(ctChosen) : null, pairs: allocs })}</p>
+            <p className="text-sm text-ink-2" aria-live="polite">{stepThreeWords(t, ctChosen ? sectionLabel(ctChosen) : null, allocs)}</p>
           </>
         )}
         <ProblemText name="allocations" given={errors.allocations} />

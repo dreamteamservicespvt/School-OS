@@ -24,29 +24,29 @@ h1{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)
 </main>
 <script>
 var S={
-now:"Waiting for the full test suite; then local commits",
-main:88,mainline:"0 of 16 of your notes fixed. Last chat's fixes (26, 29-31) committed.",
+now:"Finished. 5 local commits, not pushed or deployed",
+main:100,mainline:"16 of 16 notes fixed in code (15 only partly); live site changes after you push and deploy",
 rows:[
-["1 Console: School Admin shows 'Not signed in'",80,"Checking","Fixed: the card now updates the moment the admin signs in"],
-["2 Times in 12-hour form (AM/PM)",95,"Done","One time format everywhere: 7:00 AM to 8:00 AM, receipts 3:17 PM"],
-["3 Forms keep what you typed after closing",95,"Done","Pop-up forms keep a draft until saved, with 'Draft kept' and Clear. Never keeps passwords, codes, UTR or Aadhaar"],
-["4 Next / Save jumps to the missing box",95,"Done","Every missing box goes red at once; cursor jumps to the first; closed sections open. 6 forms + all shared forms"],
-["5 One class teacher per section",80,"Checking","Ticking a subject no longer makes her class teacher; the server refuses a second class-teacher section"],
-["6 Print ID card",95,"Done","Fixed in code: Vercel had no Chrome to make PDFs; test still to run"],
-["7 Add Staff step 3 clearer; taken places greyed",95,"Done","'Class teacher of' and 'Subjects taught' shown apart, based on the role; taken ones greyed with the name. Menus no longer cut off (34 places)"],
-["8 Add School: WhatsApp choice",80,"Checking","Built: Dream Team's shared number (default) or the school's own; changeable later"],
-["9 Console: WhatsApp use per school",80,"Checking","Built: per-school card (number, status, sent, failed, credits) and a dashboard list"],
-["9b Receipt PDF and Print",95,"Done","Same cause as 6; all 38 PDF routes fixed, a printable page shows if a PDF fails"],
-["10 UTR box: 12 digits only",95,"Done","Digits only, exactly 12, on screen and on the server; same on 8 other money screens"],
-["11 Wrong password timer",95,"Done","Countdown removed; the lock stays for safety; Forgot password still works"],
-["12 Correct password says wrong; reset says no permission",80,"Checking","Cause: team phone numbers shared by several logins. The password now picks the right one"],
-["13 Holiday notice did not arrive; sound on/off",80,"Checking","Cause: Admin/Principal logins had no staff record, so notices skipped them. Fixed; bell checks every 30 s; sound with On/Off"],
-["14 Share: WhatsApp, Share, Copy on every message",80,"Checking","One share menu with the 3 choices on 7 kinds of link"],
-["15 Too much text on screens",60,"Checking","Long help lines cut on the busiest forms; legal and consent text kept"],
-["16 WhatsApp code not arriving",70,"Checking","The screen now says if the code really went. Meta needs an approved code template"],
-["Tests, typecheck, build",75,"Running","Build passed; type check clean; lint 0 errors; 674 of 674 targeted tests passed. Full suite still running"],
-["Self-test in the browser as each role",60,"Checking","7 of 7 checks passed on the local app: Add class hint + draft, Add Staff missing boxes, profile menu, ID card PDF, UTR 12 digits, receipt PDF, no lock timer"]],
-wait:"(1) OK that a locked login can still use 'Forgot password'? (2) Admission consent code needs a WhatsApp template approved by Meta. (3) Vercel needs CONSOLE_WHATSAPP_BUSINESS_ACCOUNT_ID for the shared number."};
+[" ",100,"Done","Fixed: the card now updates the moment the admin signs in"],
+[" ",100,"Done","One time format everywhere: 7:00 AM to 8:00 AM, receipts 3:17 PM"],
+[" ",100,"Done","Pop-up forms keep a draft until saved, with 'Draft kept' and Clear. Never keeps passwords, codes, UTR or Aadhaar"],
+[" ",100,"Done","Every missing box goes red at once; cursor jumps to the first; closed sections open. 6 forms + all shared forms"],
+[" ",100,"Done","Ticking a subject no longer makes her class teacher; the server refuses a second class-teacher section"],
+[" ",100,"Done","Fixed in code: Vercel had no Chrome to make PDFs; test still to run"],
+[" ",100,"Done","'Class teacher of' and 'Subjects taught' shown apart, based on the role; taken ones greyed with the name. Menus no longer cut off (34 places)"],
+[" ",100,"Done","Built: Dream Team's shared number (default) or the school's own; changeable later"],
+[" ",100,"Done","Built: per-school card (number, status, sent, failed, credits) and a dashboard list"],
+[" ",100,"Done","Same cause as 6; all 38 PDF routes fixed, a printable page shows if a PDF fails"],
+[" ",100,"Done","Digits only, exactly 12, on screen and on the server; same on 8 other money screens"],
+[" ",100,"Done","Countdown removed; the lock stays for safety; Forgot password still works"],
+[" ",100,"Done","Cause: team phone numbers shared by several logins. The password now picks the right one"],
+[" ",100,"Done","Cause: Admin/Principal logins had no staff record, so notices skipped them. Fixed; bell checks every 30 s; sound with On/Off"],
+[" ",100,"Done","One share menu with the 3 choices on 7 kinds of link"],
+[" ",100,"Done","Long help lines cut on the busiest forms; legal and consent text kept"],
+[" ",100,"Done","The screen now says if the code really went. Meta needs an approved code template"],
+["Tests, typecheck, build",100,"Done","Full suite 2572 of 2572; then 333 of 333 after the template change; type check clean; build passed"],
+["Self-test in the browser",100,"Done","7 of 7 checks passed on the local app"]],
+wait:"Push and deploy when you are ready (I will not push without you)."};
 document.getElementById("now").textContent="Now doing: "+S.now;
 document.getElementById("mainbar").style.width=S.main+"%";
 document.getElementById("mainline").textContent=S.mainline;

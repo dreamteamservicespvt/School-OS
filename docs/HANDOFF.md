@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-05 (owner's 16-note test PDF fixed; 4 local commits 3c1ed69f..99dc4500; NOT pushed or deployed)
+Last updated: 2026-11-05 (owner's 16-note test PDF fixed; local commits 3c1ed69f..99dc4500 + security follow-up 812f292c; NOT pushed or deployed)
 Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits, live role-play test) and docs/archive/HANDOFF-until-2026-10-30.md.
 
 ## State
@@ -17,6 +17,7 @@ Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits,
 - Owner decisions 2026-11-05: locked login may use Forgot password = OK; admission code template = yes, never touch the
   gym's account; Vercel env already set (code falls back from CONSOLE_WHATSAPP_* to WHATSAPP_*); Meta webhook and
   shared-number setup left as is; holidays always to staff bells and sound on by default = OK.
+- 812f292c security review follow-up: locked logins never tried via a shared phone; PDF/HTML fallback pages have a strict CSP (only the Print script hash may run).
 - Progress page: https://claude.ai/artifact/8C7rnrMh7eYxdeLmk4RPbF (docs/qa/pdf-fixes-progress.html).
 
 ## Next steps

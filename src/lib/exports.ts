@@ -8,7 +8,7 @@ import ExcelJS from "exceljs";
 import type { SchoolContext, Tx } from "./db";
 import { writeAudit } from "./audit";
 import { formatDateTime } from "./format";
-import { esc, htmlToPdf, PdfUnavailableError, pdfFallbackPage } from "./pdf";
+import { esc, FALLBACK_CSP, htmlToPdf, PdfUnavailableError, pdfFallbackPage } from "./pdf";
 
 export type ExportColumn<Row> = { label: string; value: (row: Row) => string | number | null | undefined };
 export type ExportFormat = "csv" | "xlsx" | "pdf";
@@ -95,6 +95,8 @@ export function exportResponse(file: { body: Buffer; type: string; name: string 
       "Content-Type": file.type,
       "Content-Disposition": `${file.type.startsWith("text/html") ? "inline" : "attachment"}; filename="${file.name}"`,
       "Cache-Control": "no-store",
+      // The printable list holds school-typed text: nothing in it may run as script.
+      ...(file.type.startsWith("text/html") ? { "Content-Security-Policy": FALLBACK_CSP, "X-Content-Type-Options": "nosniff" } : {}),
     },
   });
 }

@@ -67,7 +67,12 @@ describe("withPdfErrors", () => {
     expect(res.headers.get("X-PDF-Fallback")).toBe("1");
     const body = await res.text();
     expect(body).toContain("The PDF could not be made just now.");
-    expect(body).toContain('onclick="window.print()"');
+    expect(body).toContain('id="sos-pdf-print"');
+    expect(body).not.toContain("onclick=");
+    // School-typed text in the document can never run as script: only the Print script's hash is allowed.
+    const csp = res.headers.get("Content-Security-Policy") ?? "";
+    expect(csp).toMatch(/default-src 'none'/);
+    expect(csp).toMatch(/script-src 'sha256-[A-Za-z0-9+/=]+'/);
     expect(body).toContain("@media print{.sos-pdf-bar{display:none!important}}");
     expect(body).toContain("Fee receipt R-0001");
     // The note sits inside <body>, before the document.

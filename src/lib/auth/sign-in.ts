@@ -121,9 +121,11 @@ export async function signIn(usernameInput: string, password: string, device: De
   let user: Login;
   // Shared by several logins (even if only one has a password yet): no one login's wrong-password count is touched.
   if (found.length > 1) {
-    const picked = await pickByPassword(ready, usernameInput, password, now);
+    // A locked login is never tried here: its password cannot be guessed through a shared contact,
+    // and the answer is the same plain "wrong" (security review 2026-11-05).
+    const open = ready.filter((u) => !(u.lockedUntil && u.lockedUntil > now));
+    const picked = await pickByPassword(open, usernameInput, password, now);
     if (!picked) return { ok: false, message: WRONG };
-    if (picked.lockedUntil && picked.lockedUntil > now) return { ok: false, message: LOCKED };
     user = picked;
   } else {
     user = ready[0];

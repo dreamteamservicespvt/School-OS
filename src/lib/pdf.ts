@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 // Turns a printable HTML page into a PDF (receipts, certificates, ID cards,
 // report cards, list printouts), using a headless Chromium on the server.
 // CHROMIUM_PATH points at the browser; see docs/DEPLOYMENT.md. On Vercel (and
@@ -161,6 +162,11 @@ export function esc(value: unknown): string {
     .replace(/'/g, "&#39;");
 }
 
+// The only script the fallback page may run (its hash is in FALLBACK_CSP): the document itself
+// holds school-typed text, so nothing else in it may run (security review 2026-11-05).
+const PRINT_SCRIPT = 'document.getElementById("sos-pdf-print").addEventListener("click",function(){window.print()})';
+export const FALLBACK_CSP = `default-src 'none'; img-src data: blob: https:; style-src 'unsafe-inline'; font-src data: https:; script-src 'sha256-${createHash("sha256").update(PRINT_SCRIPT).digest("base64")}'; base-uri 'none'; form-action 'none'; frame-ancestors 'self'`;
+
 const FALLBACK_BAR = `<style>
   .sos-pdf-bar{font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;background:#FFF7E6;color:#3D2A00;border-bottom:1px solid #E8C77A;padding:12px 16px;display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
   .sos-pdf-bar p{margin:0;flex:1 1 260px}
@@ -168,7 +174,7 @@ const FALLBACK_BAR = `<style>
   .sos-pdf-bar button:focus-visible{outline:3px solid #93C5FD;outline-offset:2px}
   @media print{.sos-pdf-bar{display:none!important}}
 </style>
-<div class="sos-pdf-bar" role="status"><p><strong>The PDF could not be made just now.</strong> The document is shown below. Choose Print, then “Save as PDF” to keep a copy, or try the PDF again in a minute.</p><button type="button" onclick="window.print()">Print</button></div>`;
+<div class="sos-pdf-bar" role="status"><p><strong>The PDF could not be made just now.</strong> The document is shown below. Choose Print, then “Save as PDF” to keep a copy, or try the PDF again in a minute.</p><button type="button" id="sos-pdf-print">Print</button></div><script>${PRINT_SCRIPT}</script>`;
 
 /** The document as a printable page, with a bar that explains why and offers Print. */
 export function pdfFallbackPage(html: string): string {
@@ -178,13 +184,13 @@ export function pdfFallbackPage(html: string): string {
 
 const NO_PDF_PAGE = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PDF not ready</title>
 <style>body{font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;margin:0;padding:48px 16px;background:#fff;color:#111}main{max-width:520px;margin:0 auto}h1{font-size:22px;margin:0 0 8px}a{color:#1D4ED8}</style></head>
-<body><main><h1>The PDF could not be made just now</h1><p>Please try again in a minute. If it keeps happening, tell DREAM TEAM support.</p><p><a href="javascript:history.back()">Go back</a></p></main></body></html>`;
+<body><main><h1>The PDF could not be made just now</h1><p>Please try again in a minute. If it keeps happening, tell DREAM TEAM support.</p><p>Use your browser&rsquo;s Back button to return.</p></main></body></html>`;
 
 /** The response for a PDF that could not be made: the printable page, or a plain message. */
 export function pdfUnavailableResponse(e: PdfUnavailableError): Response {
   return new Response(e.html ? pdfFallbackPage(e.html) : NO_PDF_PAGE, {
     status: e.html ? 200 : 503,
-    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store", "X-PDF-Fallback": "1" },
+    headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "private, no-store", "X-PDF-Fallback": "1", "Content-Security-Policy": FALLBACK_CSP, "X-Content-Type-Options": "nosniff" },
   });
 }
 

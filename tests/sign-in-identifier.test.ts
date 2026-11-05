@@ -75,3 +75,17 @@ describe("a mobile number or email on several logins (test staff share phones)",
     expect(r.ok && r.userLoginId).toBe(live.id);
   });
 });
+
+describe("a locked login cannot be guessed through a shared mobile number (security review 2026-11-05)", () => {
+  it("answers the plain wrong words, even with that login's right password, while it is locked", async () => {
+    const shared = `7${String(Date.now()).slice(-9)}`;
+    const locked = await makeUser({ schools: [{ id: schoolId, roleKeys: ["teacher"] }], name: "Locked twin" });
+    const other = await makeUser({ schools: [{ id: schoolId, roleKeys: ["teacher"] }], name: "Open twin" });
+    await prisma.userLogin.update({ where: { id: locked.id }, data: { phone: shared, lockedUntil: new Date(Date.now() + 15 * 60_000) } });
+    await prisma.userLogin.update({ where: { id: other.id }, data: { phone: shared, passwordHash: await hashPassword("Another-pass-123") } });
+    expect(await signIn(shared, PASSWORD, device, { sleep: noSleep })).toEqual({ ok: false, message: WRONG });
+    // The unlocked twin still signs in with their own password.
+    const r = await signIn(shared, "Another-pass-123", device, { sleep: noSleep });
+    expect(r.ok && r.userLoginId).toBe(other.id);
+  });
+});

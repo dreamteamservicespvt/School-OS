@@ -16,7 +16,7 @@ import { localNow } from "@/lib/events/jobs";
 import { assertEvCampus, assertEvClasses, assertEvStudents, evCampus, type EvRecord } from "@/lib/events/campus";
 import { parseRupees } from "@/lib/fees/act";
 import { sendMessage } from "@/lib/messaging";
-import { tellSafely, toldWords, type Told } from "@/lib/events/tell";
+import { tellSafely, tellStaffInApp, toldWords, type Told } from "@/lib/events/tell";
 import { ENTRY_TYPES, dmy, isEntryType, minutesFrom, clock } from "@/lib/events/words";
 
 type S = FormState<unknown>;
@@ -57,10 +57,14 @@ export async function addEntryAction(_: S, fd: FormData): Promise<S> {
     await assertEvClasses(w.tx, w.current, classIds);
     const entry = await addEntry(w.tx, w.ctx, { title: str(fd, "title"), type, from, to, attendanceOn: checked(fd, "attendanceOn"), campusId, classIds, details: maybe(fd, "details", "Description", 500) }, { confirm: str(fd, "confirm") === "attendance-taken", today: today(w.tz) });
     let told: Told | null = null;
+    const when = to && to !== from ? `${dmy(from)} to ${dmy(to)}` : dmy(from);
+    const closes = !entry.attendanceOn && (type === "holiday" || type === "vacation");
+    // Staff see a holiday or vacation in their bell, whether or not parents are told.
+    if (type === "holiday" || type === "vacation") {
+      await tellStaffInApp(w.tx, w.ctx, { id: entry.id, title: entry.title, campusId: entry.campusId ?? null }, `${type === "vacation" ? "Vacation" : "Holiday"}: ${entry.title}, ${when}.${closes ? " The school is closed." : ""}`);
+    }
     if (checked(fd, "notify")) {
       const school = (await w.tx.school.findUnique({ where: { id: w.ctx.schoolId }, select: { name: true } }))?.name ?? "School";
-      const when = to && to !== from ? `${dmy(from)} to ${dmy(to)}` : dmy(from);
-      const closes = !entry.attendanceOn && (type === "holiday" || type === "vacation");
       // Telling parents never blocks adding the entry (ACADEMICS-21).
       told = await tellSafely(() => sendMessage(w.tx, w.ctx, {
         to: classIds.length ? { kinds: ["parents"], classIds } : { kinds: ["parents"], ...(entry.campusId ? { campusIds: [entry.campusId] } : {}) }, channels: "preferred",

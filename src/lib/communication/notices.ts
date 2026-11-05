@@ -143,21 +143,44 @@ async function audienceSectionIds(tx: Tx, ctx: SchoolContext, a: NoticeAudience)
   return rows.map((r) => r.id);
 }
 
+/**
+ * "Staff" in a notice's audience: every login working in the school, not only
+ * those with a Staff record. A School Admin or Principal added from the console
+ * (or a login made in Settings, Users) has no Staff record, and was left out of
+ * "All staff" notices and their bell (testing 2026-11-05). Students' own logins
+ * are not staff; a Staff record that left (archived, or not Active or On leave)
+ * keeps its person out, as before. A login without a Staff record has no
+ * campus, so it gets only notices for every campus.
+ */
+export async function staffSideLogins(tx: Tx, ctx: SchoolContext, a: Pick<NoticeAudience, "roleKeys" | "campusIds">): Promise<string[]> {
+  const access = await tx.schoolAccess.findMany({
+    where: {
+      schoolId: ctx.schoolId, archivedAt: null,
+      userLogin: { archivedAt: null, status: { not: "DISABLED" } },
+      ...(a.roleKeys.length ? { roles: { some: { role: { key: { in: a.roleKeys } } } } } : {}),
+    },
+    select: { userLoginId: true },
+  });
+  const ids = [...new Set(access.map((x) => x.userLoginId))];
+  if (!ids.length) return [];
+  const [students, staff] = await Promise.all([
+    tx.student.findMany({ where: { schoolId: ctx.schoolId, userLoginId: { in: ids } }, select: { userLoginId: true } }),
+    tx.staff.findMany({ where: { schoolId: ctx.schoolId, userLoginId: { in: ids } }, select: { userLoginId: true, archivedAt: true, status: true, campusId: true } }),
+  ]);
+  const isStudent = new Set(students.map((x) => x.userLoginId));
+  return ids.filter((id) => {
+    if (isStudent.has(id)) return false;
+    const rows = staff.filter((x) => x.userLoginId === id);
+    if (!rows.length) return a.campusIds.length === 0;
+    const live = rows.filter((x) => !x.archivedAt && (x.status === "ACTIVE" || x.status === "ON_LEAVE"));
+    return live.some((x) => !a.campusIds.length || a.campusIds.includes(x.campusId));
+  });
+}
+
 /** Logins of the staff and students in the audience (for the board, app notification and read count). */
 export async function audienceLogins(tx: Tx, ctx: SchoolContext, a: NoticeAudience): Promise<string[]> {
   const out = new Set<string>();
-  if (a.staff) {
-    let roleUsers: string[] | null = null;
-    if (a.roleKeys.length) {
-      const acc = await tx.schoolAccess.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, roles: { some: { role: { key: { in: a.roleKeys } } } } }, select: { userLoginId: true } });
-      roleUsers = acc.map((x) => x.userLoginId);
-    }
-    const staff = await tx.staff.findMany({
-      where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, userLoginId: roleUsers ? { in: roleUsers } : { not: null }, ...(a.campusIds.length ? { campusId: { in: a.campusIds } } : {}) },
-      select: { userLoginId: true },
-    });
-    for (const s of staff) if (s.userLoginId) out.add(s.userLoginId);
-  }
+  if (a.staff) for (const id of await staffSideLogins(tx, ctx, a)) out.add(id);
   if (a.students) {
     const sectionIds = await audienceSectionIds(tx, ctx, a);
     const yearIds = await audienceYearIds(tx, ctx, a);
@@ -410,8 +433,11 @@ export async function markSeenByGuardian(tx: Tx, ctx: SchoolContext, noticeId: s
 /** Notices a person with a login sees on the board: Critical first, then High, then Normal. */
 export async function boardFor(tx: Tx, ctx: SchoolContext, userLoginId: string, roleKeys: string[], opts: { all?: boolean } = {}) {
   const notices = await tx.notice.findMany({ where: { schoolId: ctx.schoolId, status: "PUBLISHED" }, orderBy: { publishedAt: "desc" }, take: 300 });
-  const staff = await tx.staff.findFirst({ where: { schoolId: ctx.schoolId, userLoginId, archivedAt: null }, select: { campusId: true } });
+  const staffRows = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, userLoginId }, select: { campusId: true, archivedAt: true } });
   const student = await tx.student.findFirst({ where: { schoolId: ctx.schoolId, userLoginId, archivedAt: null }, select: { id: true, campusId: true } });
+  // A login with no Staff record at all that is not a student (a School Admin or Principal added from the console) is staff too, with no campus (staffSideLogins).
+  const staffRow = staffRows.find((x) => !x.archivedAt) ?? null;
+  const staff: { campusId: string | null } | null = staffRow ?? (staffRows.length || student ? null : { campusId: null });
   let studentSection: { sectionId: string; classId: string; campusId: string } | null = null;
   if (student) {
     // The student's class this year, in their own campus's year.
@@ -427,7 +453,7 @@ export async function boardFor(tx: Tx, ctx: SchoolContext, userLoginId: string, 
       if (opts.all) return true;
       const a = readAudience(n.audience);
       if (n.createdById === userLoginId) return true;
-      if (a.staff && staff && (!a.roleKeys.length || a.roleKeys.some((k) => roleKeys.includes(k))) && (!a.campusIds.length || a.campusIds.includes(staff.campusId))) return true;
+      if (a.staff && staff && (!a.roleKeys.length || a.roleKeys.some((k) => roleKeys.includes(k))) && (!a.campusIds.length || (staff.campusId !== null && a.campusIds.includes(staff.campusId)))) return true;
       if (a.students && studentSection && (!a.campusIds.length || a.campusIds.includes(studentSection.campusId)) && ((!a.sectionIds.length && !a.classIds.length) || a.sectionIds.includes(studentSection.sectionId) || a.classIds.includes(studentSection.classId))) return true;
       return false;
     })

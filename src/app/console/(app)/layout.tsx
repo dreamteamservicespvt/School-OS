@@ -8,6 +8,7 @@ import { THEME_COOKIE, cleanTheme } from "@/lib/theme";
 import { ConsoleShell } from "@/components/console/console-shell";
 import { ConsoleColour } from "@/components/console/console-colour";
 import { Toast } from "@/components/ui/toast";
+import { DraftOwner } from "@/components/ui/form-draft";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = { title: { default: "Console", template: "%s · School OS Console" }, robots: { index: false, follow: false } };
@@ -42,6 +43,7 @@ export default async function ConsoleLayout({ children }: { children: React.Reac
       theme={cleanTheme(jar.get(THEME_COOKIE)?.value)}
     >
       <ConsoleColour />
+      <DraftOwner id={`console:${c.user.id}`} />
       <main id="main" className="w-full max-w-[1400px] mx-auto px-4 md:px-6 xl:px-8 py-5 md:py-7 pb-28 md:pb-10 animate-rise">{children}</main>
       <Toast key={flashed ? JSON.stringify(flashed) : "none"} flash={flashed} />
     </ConsoleShell>

@@ -175,6 +175,9 @@ model ConsoleSchool {
   jobsFailed         Int          @default(0) @map("jobs_failed")
   /// { whatsapp: { sentToday, stuck, failed }, sms: {...}, email: {...} }
   channelStats       Json         @default("{}") @map("channel_stats")
+  /// The school's WhatsApp: which number (DREAM TEAM's shared one or its own), on or off,
+  /// sent today and this month, failed, credits used, the last error (whatsapp-usage.ts).
+  whatsapp           Json         @default("{}") @map("whatsapp")
   /// First active School Admin, for the Schools list.
   adminName          String?      @map("admin_name")
   adminPhone         String?      @map("admin_phone")

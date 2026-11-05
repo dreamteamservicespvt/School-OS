@@ -44,6 +44,8 @@ export type AddSchoolProps = {
   prices: { essential: number; complete: number; hostel: number; min: number };
   help: string | null;
   linkHost: string;
+  /** DREAM TEAM's shared WhatsApp number on this server: set up or not, and the number parents see. */
+  sharedWhatsapp: { ready: boolean; number: string | null };
 };
 
 export function AddSchoolForm(p: AddSchoolProps) {
@@ -55,6 +57,10 @@ export function AddSchoolForm(p: AddSchoolProps) {
     startAs: v("startAs", "TRIAL"), planKey: v("planKey", "essential"),
   }));
   const [ch, setCh] = useState<Set<string>>(new Set(["whatsapp", "sms"]));
+  // WhatsApp for this school: DREAM TEAM's shared number (default) or the school's own. Keys are never sent back after a refused save.
+  const [wa, setWa] = useState(v("whatsapp", "dream-team") === "own" ? "own" : "dream-team");
+  const [waF, setWaF] = useState(() => ({ waPhoneNumberId: v("waPhoneNumberId"), waBusinessAccountId: v("waBusinessAccountId"), waDisplayNumber: v("waDisplayNumber"), waSecret_accessToken: "", waSecret_appSecret: "", waSecret_verifyToken: "" }));
+  const setWaField = (k: keyof typeof waF) => (val: string) => setWaF((x) => ({ ...x, [k]: val }));
   const [mods, setMods] = useState<Set<string>>(new Set());
   const [hostel, setHostel] = useState(false);
   const [tried, setTried] = useState(false);
@@ -98,6 +104,10 @@ export function AddSchoolForm(p: AddSchoolProps) {
     adminMobile: !md ? "Enter their mobile number. It becomes their username." : md.length !== 10 || !/^[6-9]/.test(md) ? "Enter a 10-digit Indian mobile number." : warn?.existing && !sameGroup ? "This number already has a login in another school." : "",
     channels: ch.size === 0 ? "Pick at least one way to send the invite." : "",
     adminEmail: ch.has("email") && !f.adminEmail.trim() ? "Add their email to also send the invite by email." : "",
+    waPhoneNumberId: wa !== "own" ? "" : !waF.waPhoneNumberId.trim() ? "Enter the phone number ID from Meta Business Manager, WhatsApp, API setup." : !/^\d{1,30}$/.test(waF.waPhoneNumberId.trim()) ? "The phone number ID has only numbers." : "",
+    waBusinessAccountId: wa !== "own" ? "" : !waF.waBusinessAccountId.trim() ? "Enter the WhatsApp Business account ID." : !/^\d{1,30}$/.test(waF.waBusinessAccountId.trim()) ? "The WhatsApp Business account ID has only numbers." : "",
+    waDisplayNumber: wa === "own" && waF.waDisplayNumber.trim() && !/^[6-9]\d{9}$/.test(digits(waF.waDisplayNumber)) ? "Enter a 10-digit mobile number." : "",
+    waSecret_accessToken: wa === "own" && !waF.waSecret_accessToken.trim() ? "Enter the permanent access token." : "",
   };
   const show = (k: string) => (tried && err[k]) || server[k] || "";
   const bad = Object.values(err).filter(Boolean).length;
@@ -110,8 +120,9 @@ export function AddSchoolForm(p: AddSchoolProps) {
     [I.LayoutGrid, `${modCount} modules are switched on, with the ${f.board} defaults ready to apply.`],
     [I.KeyRound, sameGroup ? `${f.adminName || "The admin"} already has a login in ${warn?.existing?.groupName ?? "the group"}, so only a School Access entry for this school is added.` : `${f.adminName || "The School Admin"}’s login is made with status Invited, as ${roleWords}.`],
     [I.Send, sameGroup ? "No invite is needed; they sign in as they do now." : `The invite goes out on ${joinAnd(channels) || "the channels chosen"}.`],
+    [I.MessageCircle, wa === "own" ? "WhatsApp is connected to the school’s own number and sends for real. The access token is stored encrypted and is not shown again." : p.sharedWhatsapp.ready ? `WhatsApp sends from DREAM TEAM’s number${p.sharedWhatsapp.number ? ` (${p.sharedWhatsapp.number})` : ""}, using the school’s own message credits.` : "DREAM TEAM’s WhatsApp number is chosen. WhatsApp stays off until the number is set up on the server."],
     [I.School, `The school appears in Schools as ${f.startAs === "TRIAL" ? "Trial" : "Active"}, and in the Activity Log.`],
-  ], [f.name, f.city, f.board, f.adminName, f.startAs, code, modCount, sameGroup, warn, roleWords, channels]);
+  ], [f.name, f.city, f.board, f.adminName, f.startAs, code, modCount, sameGroup, warn, roleWords, channels, wa, p.sharedWhatsapp]);
 
   const field = (k: string) => cx(inputCls(show(k)), "h-11");
 
@@ -119,6 +130,7 @@ export function AddSchoolForm(p: AddSchoolProps) {
     <form id="add-school" action={run} noValidate onSubmit={(e) => { if (!confirm) { e.preventDefault(); setTried(true); if (bad === 0) setConfirm(true); } }}>
       {Object.entries({ ...f, hostel: hostel ? "on" : "" }).map(([k, val]) => (["name", "city", "phone", "email", "approx", "newGroupName", "adminName", "adminMobile", "adminEmail"].includes(k) ? null : <input key={k} type="hidden" name={k} value={val} />))}
       {[...ch].map((c) => <input key={c} type="hidden" name="channels" value={c} />)}
+      <input type="hidden" name="whatsapp" value={wa} />
       {[...mods].map((m) => <input key={m} type="hidden" name="optionalOn" value={m} />)}
       <Split side={380}>
         <Col>
@@ -264,6 +276,46 @@ export function AddSchoolForm(p: AddSchoolProps) {
             </div>
           </Card>
 
+          <Card>
+            <CardHeader title="WhatsApp for this school" description="Which number the school’s WhatsApp messages come from. Can be changed later on the school’s Connections page." icon={I.MessageCircle} />
+            <div className="flex flex-col gap-4 px-5 pb-5">
+              <div className="grid sm:grid-cols-2 gap-2" role="radiogroup" aria-label="WhatsApp for this school" id="ad-wa">
+                {([["dream-team", "DREAM TEAM’s WhatsApp number", I.Users, p.sharedWhatsapp.ready ? `Ready now${p.sharedWhatsapp.number ? `: ${p.sharedWhatsapp.number}` : ""}. Nothing to set up; the school uses its own message credits.` : "Not set up on this server yet, so WhatsApp starts off. Nothing for the school to do."], ["own", "The school’s own WhatsApp number", I.Building2, "The school’s own WhatsApp Business account in Meta. Type its IDs and access token below."]] as const).map(([val, l, Ic, sub]) => {
+                  const on = wa === val;
+                  return (
+                    <button key={val} type="button" role="radio" aria-checked={on} onClick={() => setWa(val)}
+                      className={cx("rounded-2xl border-2 p-3.5 text-left transition flex gap-3", on ? "border-brand bg-brand/5" : "border-line hover:border-ink3/40")}>
+                      <Ic size={19} className={cx("shrink-0 mt-0.5", on ? "text-brand" : "text-ink3")} aria-hidden="true" />
+                      <span className="min-w-0"><span className="block font-semibold text-[14.5px]">{l}</span><span className="block text-[12.5px] text-ink3 leading-snug mt-0.5">{sub}</span></span>
+                    </button>
+                  );
+                })}
+              </div>
+              {wa === "own" && (
+                <div className="grid md:grid-cols-2 gap-4">
+                  <FieldShell label="Phone number ID" required id="ad-wa-pnid" error={show("waPhoneNumberId")} help="From Meta Business Manager, WhatsApp, API setup.">
+                    <input id="ad-wa-pnid" name="waPhoneNumberId" inputMode="numeric" value={waF.waPhoneNumberId} onChange={(e) => setWaField("waPhoneNumberId")(e.target.value.replace(/\D/g, "").slice(0, 30))} className={cx(field("waPhoneNumberId"), "tnum")} autoComplete="off" aria-invalid={show("waPhoneNumberId") ? true : undefined} />
+                  </FieldShell>
+                  <FieldShell label="WhatsApp Business account ID" required id="ad-wa-waba" error={show("waBusinessAccountId")} help="Needed to send the school’s templates for approval.">
+                    <input id="ad-wa-waba" name="waBusinessAccountId" inputMode="numeric" value={waF.waBusinessAccountId} onChange={(e) => setWaField("waBusinessAccountId")(e.target.value.replace(/\D/g, "").slice(0, 30))} className={cx(field("waBusinessAccountId"), "tnum")} autoComplete="off" aria-invalid={show("waBusinessAccountId") ? true : undefined} />
+                  </FieldShell>
+                  <FieldShell label="School WhatsApp number" id="ad-wa-num" error={show("waDisplayNumber")} help="Shown to parents on Parent Link, e.g. 9876543210.">
+                    <input id="ad-wa-num" name="waDisplayNumber" inputMode="numeric" value={waF.waDisplayNumber} onChange={(e) => setWaField("waDisplayNumber")(e.target.value.replace(/[^\d ]/g, "").slice(0, 12))} className={cx(field("waDisplayNumber"), "tnum")} autoComplete="off" aria-invalid={show("waDisplayNumber") ? true : undefined} />
+                  </FieldShell>
+                  <FieldShell label="Permanent access token" required id="ad-wa-token" error={show("waSecret_accessToken")} help="Stored encrypted. It is never shown again.">
+                    <input id="ad-wa-token" name="waSecret_accessToken" type="password" autoComplete="new-password" value={waF.waSecret_accessToken} onChange={(e) => setWaField("waSecret_accessToken")(e.target.value)} className={field("waSecret_accessToken")} aria-invalid={show("waSecret_accessToken") ? true : undefined} />
+                  </FieldShell>
+                  <FieldShell label="App secret" id="ad-wa-appsecret" help="Optional to start sending. Needed for delivered and read ticks and for replies.">
+                    <input id="ad-wa-appsecret" name="waSecret_appSecret" type="password" autoComplete="new-password" value={waF.waSecret_appSecret} onChange={(e) => setWaField("waSecret_appSecret")(e.target.value)} className={field("waSecret_appSecret")} />
+                  </FieldShell>
+                  <FieldShell label="Webhook verify token" id="ad-wa-verify" help="Optional to start sending. Any long random word; type the same word in Meta when you add the webhook address.">
+                    <input id="ad-wa-verify" name="waSecret_verifyToken" type="password" autoComplete="new-password" value={waF.waSecret_verifyToken} onChange={(e) => setWaField("waSecret_verifyToken")(e.target.value)} className={field("waSecret_verifyToken")} />
+                  </FieldShell>
+                </div>
+              )}
+            </div>
+          </Card>
+
           <div className="flex flex-col md:flex-row md:items-center gap-3 md:justify-end">
             {tried && bad > 0 && <p className="text-[13.5px] text-bad flex items-center gap-1.5 md:mr-auto" role="alert"><I.CircleAlert size={16} className="shrink-0" aria-hidden="true" />{bad === 1 ? "1 field needs" : `${bad} fields need`} your attention above.</p>}
             <Link href="/console/schools" className={buttonClass("ghost")}>Cancel</Link>
@@ -296,6 +348,7 @@ export function AddSchoolForm(p: AddSchoolProps) {
           <p>Send to <b className="font-semibold text-ink">{f.adminName.trim()}</b>, +91 {mask(f.adminMobile)}?</p>
           <p>Starts as <b className="font-semibold text-ink">{f.startAs === "TRIAL" ? "Trial" : "Active"}</b>{f.startAs === "TRIAL" ? ": 30 days, everything in Essential, 500 message credits." : ` on ${f.planKey === "complete" ? "Complete" : "Essential"}${hostel ? " with Hostel" : ""}. The first invoice goes out with a Razorpay link.`}</p>
           <p>{code ? <>School code <span className="font-mono text-[12.5px] text-ink">{code}</span> · </> : null}{modCount} modules on{groupName ? ` · ${groupName}` : ""}</p>
+          <p>WhatsApp: <b className="font-semibold text-ink">{wa === "own" ? "the school’s own number" : "DREAM TEAM’s number"}</b>{wa !== "own" && !p.sharedWhatsapp.ready ? " (off until it is set up on the server)" : ""}</p>
         </div>
       </Dialog>
     </form>

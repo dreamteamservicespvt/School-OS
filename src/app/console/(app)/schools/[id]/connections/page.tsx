@@ -10,6 +10,7 @@ import { creditBalances } from "@/lib/messaging/credits";
 import { webhookPath } from "@/lib/messaging/webhooks";
 import { LANGUAGES } from "@/lib/messaging/templates";
 import { appUrl } from "@/lib/parent-link/token";
+import { DREAM_TEAM_PROVIDER, dreamTeamWhatsappConfig, dreamTeamWhatsappReady } from "@/lib/messaging/dream-team";
 import { BackLink } from "@/components/console/bits";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Alert } from "@/components/ui/alert";
@@ -54,6 +55,10 @@ export default async function ConnectionsPage({ params }: { params: Promise<{ id
   const smsTexts = smsTemplates.flatMap((t) => t.versions.map((v) => ({ ...v, name: t.name })));
   const smsWaiting = smsTexts.filter((v) => !v.dltTemplateId).length;
   const lang = (code: string) => LANGUAGES.find((l) => l.code === code)?.label ?? code;
+  const shared = dreamTeamWhatsappConfig();
+  const sharedNote = dreamTeamWhatsappReady()
+    ? `Sends from DREAM TEAM’s own WhatsApp Business number${shared.displayNumber ? ` (${shared.displayNumber})` : ""}, with the school’s own templates and message credits. Nothing to type. Delivered and read ticks come only when DREAM TEAM’s Meta app sends its reports to School OS.${shared.businessAccountId ? "" : " Templates cannot be sent for approval until CONSOLE_WHATSAPP_BUSINESS_ACCOUNT_ID is set on the server."}`
+    : "DREAM TEAM’s WhatsApp number is not set up on this server yet (CONSOLE_WHATSAPP_PHONE_NUMBER_ID and CONSOLE_WHATSAPP_ACCESS_TOKEN). Keep test mode until it is.";
 
   return (
     <div className="space-y-5">
@@ -76,10 +81,13 @@ export default async function ConnectionsPage({ params }: { params: Promise<{ id
           return (
             <ChannelCard key={ch} data={{
               schoolId: id, channel: ch, label: CHANNEL_LABEL[ch], provider: s.provider, providers: PROVIDERS[ch], fields: Object.fromEntries(PROVIDERS[ch].map((p) => [p.key, PROVIDER_FIELDS[p.key] ?? []])),
-              config: s.config, hasSecrets: s.hasSecrets, secretsLast4: s.secretsLast4, isOn: s.isOn, live: s.environment === "live", lowCreditAlert: s.lowCreditAlert,
+              // The shared number's IDs are DREAM TEAM's: never offered as the start of the school's own.
+              config: s.provider === DREAM_TEAM_PROVIDER ? {} : s.config, hasSecrets: s.hasSecrets, secretsLast4: s.secretsLast4, isOn: s.isOn, live: s.environment === "live", lowCreditAlert: s.lowCreditAlert,
               lastTest: s.lastTestAt ? { at: formatDateTime(s.lastTestAt, tz), ok: Boolean(s.lastTestOk), note: s.lastTestNote ?? "" } : null,
               testTo: ch === "email" ? c.user.email ?? "" : c.user.phone.replace(/\D/g, "").slice(-10),
               webhook: ch === "email" ? null : `${base}${webhookPath(ch, id)}${ch === "sms" ? "?key=<key>" : ""}`,
+              providerNotes: ch === "whatsapp" ? { [DREAM_TEAM_PROVIDER]: sharedNote } : undefined,
+              noWebhook: [DREAM_TEAM_PROVIDER],
             }} />
           );
         })}

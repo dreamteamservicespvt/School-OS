@@ -35,6 +35,10 @@ export type ChannelCardData = {
   lastTest: { at: string; ok: boolean; note: string } | null;
   testTo: string;
   webhook: string | null;
+  /** A line about a provider, shown when it is chosen (DREAM TEAM's shared WhatsApp number). */
+  providerNotes?: Record<string, string>;
+  /** Providers that have no webhook address of the school's own. */
+  noWebhook?: string[];
 };
 
 export function ChannelCard({ data, readOnly = false }: { data: ChannelCardData; readOnly?: boolean }) {
@@ -81,6 +85,7 @@ export function ChannelCard({ data, readOnly = false }: { data: ChannelCardData;
         <dl className="grid gap-3 text-sm sm:grid-cols-2">
           <div><dt className="text-ink-2"><Words k="Provider" /></dt><dd className="font-medium">{data.providers.find((p) => p.key === data.provider)?.label ?? data.provider}</dd></div>
           <div><dt className="text-ink-2"><Words k="Sending" /></dt><dd className="font-medium">{data.live ? "For real" : "Test mode"}</dd></div>
+          {data.providerNotes?.[data.provider] && <div className="sm:col-span-2 text-ink-2">{data.providerNotes[data.provider]}</div>}
           {fields.map((f) => (
             <div key={f.key} className="min-w-0"><dt className="text-ink-2">{f.label}</dt><dd className="break-all font-medium">{f.secret ? (data.hasSecrets ? `Saved (ends in ${data.secretsLast4 ?? "••••"})` : "Not saved") : data.config[f.key] || "Not given"}</dd></div>
           ))}
@@ -98,6 +103,7 @@ export function ChannelCard({ data, readOnly = false }: { data: ChannelCardData;
           <label className="mt-2 flex items-center gap-2"><Toggle on={live} onChange={setLive} label="Send for real" /> {live ? "For real: messages reach people and use credits" : "Test mode: messages are recorded, nothing is sent"}</label>
           {err("live") && <p className="mt-1 text-danger">{err("live")}</p>}
         </div>
+        {data.providerNotes?.[provider] && <p className="rounded-xl bg-surface-2 p-3 text-sm text-ink-2 md:col-span-2">{data.providerNotes[provider]}</p>}
         {fields.map((f) => (
           <label key={f.key} className="block text-sm font-medium">{f.label}{f.required && <span className="text-danger" aria-hidden> *</span>}
             {f.secret ? (
@@ -117,7 +123,7 @@ export function ChannelCard({ data, readOnly = false }: { data: ChannelCardData;
         )}
       </div>
       )}
-      {data.webhook && provider !== "sandbox" && (
+      {data.webhook && provider !== "sandbox" && !data.noWebhook?.includes(provider) && (
         <div className="mt-4 rounded-xl bg-surface-2 p-3 text-sm">
           <p className="font-medium"><Words k="Delivery report address" /></p>
           <p className="mt-1 break-all font-mono">{data.webhook}</p>

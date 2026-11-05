@@ -6,6 +6,7 @@ import { addSchool, cityCode, ConsoleProblem, findDuplicates, findExistingLogin,
 import { withConsole } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
+import { readWhatsappChoice } from "@/lib/console/school-whatsapp";
 import { revalidatePath } from "next/cache";
 
 export type AddWarnings = {
@@ -39,7 +40,8 @@ export async function checkAddSchool(input: { name: string; city: string; phone:
 }
 
 export async function addSchoolAction(_p: FormState, fd: FormData): Promise<FormState> {
-  const values = formValues(fd);
+  // Keys typed for the school's own WhatsApp number are never sent back to the browser.
+  const values = Object.fromEntries(Object.entries(formValues(fd)).filter(([k]) => !k.startsWith("waSecret_")));
   let made: { schoolId: string } | null = null;
   try {
     const c = await requireConsoleAction("add");
@@ -58,8 +60,11 @@ export async function addSchoolAction(_p: FormState, fd: FormData): Promise<Form
       planKey: s("planKey") === "complete" ? "complete" : "essential",
       hostel: s("hostel") === "on",
       optionalOn: fd.getAll("optionalOn").map(String),
+      whatsapp: readWhatsappChoice((k) => String(fd.get(k) ?? "")),
     });
-    await flash({ message: `${r.name} added. School code ${r.code}.`, tone: "success" });
+    await flash(r.whatsappProblem
+      ? { message: `${r.name} added. School code ${r.code}. WhatsApp was not connected: ${r.whatsappProblem}`, tone: "danger" }
+      : { message: `${r.name} added. School code ${r.code}.`, tone: "success" });
     revalidatePath("/console", "layout");
     made = { schoolId: r.schoolId };
   } catch (e) {

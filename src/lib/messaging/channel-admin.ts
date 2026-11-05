@@ -11,6 +11,7 @@ import { channelSecrets, channelSetups, encryptSecrets, PROVIDER_FIELDS, PROVIDE
 import { providerFor } from "./providers";
 import { SMTP_PORTS } from "./providers/smtp";
 import { META_ID } from "./providers/whatsapp";
+import { DREAM_TEAM_PROVIDER, dreamTeamWhatsappReady, isMetaWhatsapp } from "./dream-team";
 import { publicHostProblem } from "../net/public-address";
 
 export class ChannelProblem extends Error {}
@@ -57,6 +58,8 @@ export async function checkChannel(tx: Tx, ctx: SchoolContext, channel: Provider
     if (!school.smsDltEntityId || !school.smsSenderHeader) e.isOn = "Add the DLT entity ID and sender header below before switching SMS on.";
   }
   if (input.live && input.provider === "sandbox") e.live = "Choose a real provider to send for real.";
+  // The shared number sends with DREAM TEAM's own IDs and token from the server's environment (dream-team.ts).
+  if (input.live && input.provider === DREAM_TEAM_PROVIDER && !dreamTeamWhatsappReady()) e.live = "DREAM TEAM's WhatsApp number is not set up on this server yet. Keep test mode until it is, or connect the school's own number.";
   return e;
 }
 
@@ -73,7 +76,7 @@ export async function saveChannel(tx: Tx, ctx: SchoolContext, channel: ProviderC
   await tx.messagingChannel.upsert({ where: { schoolId_channel: { schoolId: ctx.schoolId, channel } }, create: { schoolId: ctx.schoolId, channel, ...data }, update: data });
   // A real WhatsApp account connected or changed: template statuses must match
   // what that account really has (test-mode approvals were never sent to it).
-  if (channel === "whatsapp" && input.provider === "meta-cloud") {
+  if (channel === "whatsapp" && isMetaWhatsapp(input.provider)) {
     const { syncWhatsappApprovals } = await import("../communication/templates-admin");
     await syncWhatsappApprovals(tx, ctx);
   }

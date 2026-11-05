@@ -6,12 +6,14 @@ import { sandboxProvider } from "./sandbox";
 import { smtpProvider } from "./smtp";
 import type { Provider } from "./types";
 import { whatsappProvider } from "./whatsapp";
+import { isMetaWhatsapp } from "../dream-team";
 
 export function providerFor(setup: ChannelSetup, secrets: Record<string, string>): Provider {
   if (setup.environment !== "live") return sandboxProvider;
   const p = { config: setup.config, secrets };
   if (setup.channel === "sms" && setup.provider === "msg91") return msg91Provider(p);
-  if (setup.channel === "whatsapp" && setup.provider === "meta-cloud") return whatsappProvider(p);
+  // The school's own number or DREAM TEAM's shared one: channelSetups and channelSecrets already hold the right IDs and token.
+  if (setup.channel === "whatsapp" && isMetaWhatsapp(setup.provider)) return whatsappProvider(p);
   if (setup.channel === "email" && setup.provider === "smtp") return smtpProvider(p);
   return sandboxProvider;
 }

@@ -8,6 +8,7 @@ import { PageHead } from "@/components/ui/display";
 import { BackLink } from "@/components/console/bits";
 import { AddSchoolForm } from "@/components/console/add-school-form";
 import { addSchoolAction, checkAddSchool } from "./actions";
+import { dreamTeamWhatsappConfig, dreamTeamWhatsappReady } from "@/lib/messaging/dream-team";
 
 export const metadata: Metadata = { title: "Add School" };
 
@@ -31,6 +32,7 @@ export default async function AddSchoolPage() {
         prices={{ essential: r(list.essential?.pricePaise), complete: r(list.complete?.pricePaise), hostel: r(list.hostel?.pricePaise), min: list.essential?.minStudents ?? 100 }}
         help={supportPhone()}
         linkHost={appUrl().replace(/^https?:\/\//, "")}
+        sharedWhatsapp={{ ready: dreamTeamWhatsappReady(), number: dreamTeamWhatsappConfig().displayNumber ?? null }}
       />
     </div>
   );

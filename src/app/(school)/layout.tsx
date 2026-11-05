@@ -6,6 +6,7 @@ import { planBanner, schoolPlanState } from "@/lib/console/school-billing";
 import { shellData } from "@/lib/shell-data";
 import { AppShell } from "@/components/shell/app-shell";
 import { RecentPages } from "@/components/shell/search-box";
+import { DraftOwner } from "@/components/ui/form-draft";
 import { SchoolColour } from "@/components/shell/school-colour";
 import { SupportBar } from "@/components/shell/support-bar";
 import { endsWords } from "@/lib/console/support-entry";
@@ -15,6 +16,7 @@ import { undoChange } from "./undo-action";
 import { activeSystemNotices } from "@/lib/errors";
 import { withSchool } from "@/lib/db";
 import { isUnread, notificationPage } from "@/lib/notifications";
+import { soundOn } from "@/lib/notification-kinds";
 import { PAGE_PATH_HEADER, recordMissing } from "@/lib/record-gate";
 import { myPhotoLink } from "@/lib/profile-photo";
 import { currentYear } from "@/lib/academic/years";
@@ -94,9 +96,11 @@ export default async function SchoolLayout({ children }: { children: React.React
       theme={cleanTheme(current.user.theme)}
       support={supportEnds ? { ends: supportEnds } : null}
       ai={aiAllowed(current, "ai-ask-do")}
+      sound={current.support ? null : soundOn(current.user.notificationPrefs)}
     >
       {current.support && supportEnds && <SupportBar schoolName={current.school.name} ends={supportEnds} endsAt={current.support.endsAt.toISOString()} who={current.support.name} />}
       <RecentPages userId={current.user.id} pages={shell.pages} />
+      <DraftOwner id={`${current.school.id}:${current.user.id}${current.support ? ":support" : ""}`} />
       {rules && ends && <AwayWatch idleMs={ends.idleMinutes * 60_000} endsAt={rules.maxSession === null ? null : current.session.createdAt.getTime() + rules.maxSession * 60_000} />}
       <SchoolColour accent={current.school.accent} />
       {notices.map((n) => {

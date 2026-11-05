@@ -14,7 +14,8 @@ import { mayResetWithoutOld } from "@/lib/auth/sessions";
 import { REMEMBER_DAYS, rememberedDevices } from "@/lib/auth/remembered";
 import { Alert } from "@/components/ui/alert";
 import { onChannels } from "@/lib/messaging/channels";
-import { NOTE_KINDS, readNotePrefs, type NoteChannel } from "@/lib/notification-kinds";
+import { NOTE_KINDS, readNotePrefs, soundOn, type NoteChannel } from "@/lib/notification-kinds";
+import { SoundToggle } from "@/components/shell/sound-toggle";
 import { pushOn, pushWebConfig } from "@/lib/push";
 import { PushSwitch } from "./push-switch";
 import { PhotoEditor } from "./photo-editor";
@@ -233,6 +234,10 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               <CardHeader title={t("My notifications")} description={t("Choose how each kind reaches you. Some cannot be switched off.")} icon={I.Bell} />
               <NotePrefsTable kinds={kinds} prefs={readNotePrefs(u.notificationPrefs)} allowed={allowed as NoteChannel[]} phone={u.phone} />
               <PushSwitch config={pushWebConfig()} schoolAllows={allowed.includes("push")} />
+              <div className="border-t border-line px-5 py-4">
+                <p className="text-[13.5px] font-semibold mb-1.5">{t("Notification sound")}</p>
+                <SoundToggle on={soundOn(u.notificationPrefs)} withHelp className="flex-wrap" />
+              </div>
             </Card>
           </div>
 

@@ -50,3 +50,23 @@ export function channelsForType(raw: unknown, type: string): NoteChannel[] {
   const kind = NOTE_KINDS.find((k) => k.types.includes(type));
   return kind ? readNotePrefs(raw)[kind.key] : ["app"];
 }
+
+/**
+ * The bell's sound (My profile and the bell panel): kept with the person's
+ * notification choices as { "_sound": false } when switched off. On unless
+ * switched off. The other choices never read this key.
+ */
+export const SOUND_KEY = "_sound";
+
+export function soundOn(raw: unknown): boolean {
+  const saved = raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, unknown>) : {};
+  return saved[SOUND_KEY] !== false;
+}
+
+/** The person's saved choices with the sound set; every other choice is kept as it is. */
+export function withSound(raw: unknown, on: boolean): Record<string, unknown> {
+  const saved = raw && typeof raw === "object" && !Array.isArray(raw) ? { ...(raw as Record<string, unknown>) } : {};
+  if (on) delete saved[SOUND_KEY];
+  else saved[SOUND_KEY] = false;
+  return saved;
+}

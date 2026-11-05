@@ -15,6 +15,7 @@ import { Band } from "@/components/ui/kit";
 import { Banner, Col, Split, TONE_SOFT } from "@/components/ui/blocks";
 import { cx } from "@/components/ui/cx";
 import { ActivityLine } from "@/components/console/activity-line";
+import { WhatsappSchoolsCard } from "@/components/console/whatsapp-card";
 import { ActSheet, CallSheet } from "@/components/console/sheets";
 import { noteAction, resendInviteAction, sendInvoiceAction, topupAction } from "./schools/actions";
 
@@ -147,6 +148,8 @@ export default async function ConsoleDashboard({ searchParams }: { searchParams:
               {checks.measuredAt && <p className="px-5 pb-4 -mt-1 text-[12px] text-ink3">Schools last counted {formatDate(checks.measuredAt)}. Counts refresh every hour.</p>}
             </Card>
           </div>
+
+          <WhatsappSchoolsCard />
 
           <Card>
             <CardHeader title="Recent activity" description="The last 10 lines of the Activity Log" icon={ScrollText}

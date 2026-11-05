@@ -14,7 +14,7 @@ import { forgetRememberedDevice, REMEMBERED_COOKIE } from "@/lib/auth/remembered
 import { confirmContactChange, roleNeedsTwoStep, startContactChange, type ContactKind } from "@/lib/auth/two-step";
 import { deviceInfo, requireAction, requireCurrent } from "@/lib/current";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
-import { NOTE_CHANNELS, NOTE_KINDS, type NoteChannel } from "@/lib/notification-kinds";
+import { NOTE_CHANNELS, NOTE_KINDS, SOUND_KEY, withSound, type NoteChannel } from "@/lib/notification-kinds";
 import { pushOn } from "@/lib/push";
 import { FileProblem, IMAGE_TYPES, saveFile } from "@/lib/files";
 import { readPreferences } from "@/lib/settings/profile-rules";
@@ -91,14 +91,28 @@ export async function setTwoStep(on: boolean): Promise<Result> {
 
 export async function saveNotePrefs(prefs: Record<string, string[]>): Promise<Result> {
   const current = await requireCurrent();
-  const clean: Record<string, NoteChannel[]> = {};
+  const clean: Record<string, NoteChannel[] | boolean> = {};
   for (const k of NOTE_KINDS) {
     const list = (prefs[k.key] ?? []).filter((c): c is NoteChannel => (NOTE_CHANNELS as readonly string[]).includes(c));
     clean[k.key] = k.locked && !list.includes("app") ? ["app", ...list] : [...new Set(list)];
   }
+  // The bell's sound is kept as it was (setNotificationSound).
+  const saved = current.user.notificationPrefs as Record<string, unknown> | null;
+  if (saved && typeof saved === "object" && saved[SOUND_KEY] === false) clean[SOUND_KEY] = false;
   await prisma.userLogin.update({ where: { id: current.user.id }, data: { notificationPrefs: clean as Prisma.InputJsonValue } });
   revalidatePath("/profile");
   return { ok: true, message: "Saved" };
+}
+
+/** The bell's sound on or off for this person (bell panel and My profile, Notifications). */
+export async function setNotificationSound(on: boolean): Promise<Result> {
+  const current = await requireCurrent();
+  // A DREAM TEAM support person has no login here, so nothing of theirs is saved (07-super-admin.md §3.4).
+  if (current.support) return { ok: false, message: "Nothing is saved during support access." };
+  const row = await prisma.userLogin.findUnique({ where: { id: current.user.id }, select: { notificationPrefs: true } });
+  await prisma.userLogin.update({ where: { id: current.user.id }, data: { notificationPrefs: withSound(row?.notificationPrefs, Boolean(on)) as Prisma.InputJsonValue } });
+  revalidatePath("/", "layout");
+  return { ok: true, message: on ? "Sound on" : "Sound off" };
 }
 
 /** Signs out every other device and forgets every remembered device but this one; this one stays signed in. */

@@ -18,6 +18,8 @@ import { SheetHead } from "@/components/ui/dialog";
 import { markAllNotificationsRead, openNotification, setAppearance, signOut, switchSchool } from "@/app/(school)/actions";
 import { Logo } from "./logo";
 import { useT } from "@/lib/i18n/client";
+import { BellWatch } from "./bell-watch";
+import { SoundToggle } from "./sound-toggle";
 import { NAV_GROUPS, type BarItem, type IconName, type Quick } from "./nav-config";
 import { CommandPalette, OPEN_SEARCH_EVENT } from "./search-box";
 import type { PageLink } from "./nav-data";
@@ -52,6 +54,8 @@ export type ShellProps = {
    * no AI label shows anywhere (00-global.md §2.1 rule 8).
    */
   ai?: boolean;
+  /** The bell's sound is on for this person (My profile, Notifications); a support person has none. */
+  sound?: boolean | null;
   children: React.ReactNode;
 };
 
@@ -350,7 +354,7 @@ function QuickSheet({ open, onClose, quick }: { open: boolean; onClose: () => vo
 }
 
 /* ---------- Notifications ---------- */
-function NotifPanel({ open, onClose, notes, total }: { open: boolean; onClose: () => void; notes: ShellNote[]; total: number }) {
+function NotifPanel({ open, onClose, notes, total, sound }: { open: boolean; onClose: () => void; notes: ShellNote[]; total: number; sound: boolean | null }) {
   const t = useT();
   const ref = useRef<HTMLDivElement>(null);
   useEscape(open, onClose);
@@ -367,13 +371,16 @@ function NotifPanel({ open, onClose, notes, total }: { open: boolean; onClose: (
             <h2 className="font-display font-semibold text-lg">{t("Notifications")}</h2>
             <p className="text-[13px] text-ink3">{unread ? t("{count} new", { count: unread }) : t("You are all caught up")}</p>
           </div>
-          {unread > 0 && (
-            <form action={markAllNotificationsRead}>
-              <button type="submit" className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink">
-                <I.CheckCheck size={15} aria-hidden="true" />{t("Mark all read")}
-              </button>
-            </form>
-          )}
+          <div className="flex items-center gap-1">
+            {sound !== null && <SoundToggle on={sound} />}
+            {unread > 0 && (
+              <form action={markAllNotificationsRead}>
+                <button type="submit" className="inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink">
+                  <I.CheckCheck size={15} aria-hidden="true" />{t("Mark all read")}
+                </button>
+              </form>
+            )}
+          </div>
         </div>
         <ul className="overflow-y-auto scroll-thin px-2 pb-2">
           {notes.length === 0 && <li className="px-3 py-8 text-center text-sm text-ink3">{t("Alerts meant for you, like requests waiting for your approval, appear here.")}</li>}
@@ -489,6 +496,7 @@ function phoneTitle(pathname: string, pages: PageLink[]) {
 
 export function AppShell(props: ShellProps) {
   const { school, schools, year, person, menu, landing, bottom, quick, pages, shortcuts, questions = [], askKeys = [], approvals, canApprove, canMessage, unread, notes, theme, support, children } = props;
+  const sound = props.sound ?? null;
   const ai = props.ai === true;
   const t = useT();
   const pathname = usePathname();
@@ -530,7 +538,8 @@ export function AppShell(props: ShellProps) {
       </div>
       <BottomNav items={bottom} onMore={() => setMore(true)} />
       <CommandPalette open={palette} onClose={() => setPalette(false)} userId={person.id} pages={pages} shortcuts={shortcuts} quick={quick} questions={questions} askKeys={askKeys} ai={ai} />
-      <NotifPanel open={notif} onClose={() => setNotif(false)} notes={notes} total={unread} />
+      <NotifPanel open={notif} onClose={() => setNotif(false)} notes={notes} total={unread} sound={sound} />
+      {sound !== null && <BellWatch unread={unread} sound={sound} />}
       <ProfileMenu open={profile} onClose={() => setProfile(false)} person={person} school={school} schools={schools} theme={theme} onSwitch={() => setSwitchOpen(true)} support={support} />
       <MoreSheet open={more} onClose={() => setMore(false)} menu={menu} landing={landing} />
       <QuickSheet open={quickOpen} onClose={() => setQuickOpen(false)} quick={quick} />

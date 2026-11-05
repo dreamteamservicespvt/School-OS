@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import { flash } from "@/lib/flash";
 import { ConsoleDenied, requireConsoleAction } from "@/lib/console/current";
 import { withConnections } from "@/lib/console/connections";
+import { measureSchool } from "@/lib/console/measure";
 import { addCredits, ChannelProblem, checkChannel, saveChannel, saveDlt, testChannel, type ChannelInput } from "@/lib/messaging/channel-admin";
 import { setSmsDltId, TemplateProblem } from "@/lib/communication/templates-admin";
 import { CHANNEL_LABEL, PROVIDER_CHANNELS, type ProviderChannel } from "@/lib/messaging/channels";
@@ -43,6 +44,8 @@ export async function saveChannelAction(schoolId: string, channel: string, raw: 
     if (e instanceof ChannelProblem) return { ok: false, message: e.message };
     throw e;
   }
+  // The console card (school page, Dashboard "WhatsApp by school") shows the new number and status at once.
+  await measureSchool(schoolId).catch(() => null);
   await flash({ message: "Saved. Keys are stored encrypted and are not shown again.", tone: "success" });
   revalidatePath(path(schoolId));
   return { ok: true };

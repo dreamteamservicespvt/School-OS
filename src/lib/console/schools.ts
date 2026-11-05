@@ -21,6 +21,7 @@ import { MODULES } from "../modules";
 import { logActivity, maskMobile, showMobile, tenDigits, type ConsoleActor } from "./activity";
 import { appUrl, deliver, supportPhone, type ConsoleChannel, type ConsoleOutgoing, type Delivered } from "./outbox";
 import { ADMIN_ROLE_KEYS, measureSchool, schoolAdmins } from "./measure";
+import { connectSchoolWhatsapp, whatsappChoiceProblem, type SchoolWhatsappChoice } from "./school-whatsapp";
 import { forgetAllDevices } from "../auth/remembered";
 
 export class ConsoleProblem extends Error {
@@ -263,9 +264,11 @@ export type AddSchoolInput = {
   planKey: "essential" | "complete";
   hostel: boolean;
   optionalOn: string[];
+  /** WhatsApp for this school: DREAM TEAM's shared number (when left out) or the school's own. */
+  whatsapp?: SchoolWhatsappChoice;
 };
 
-export type AddSchoolResult = { schoolId: string; code: string; name: string; delivered: Delivered[]; sameGroup: string | null; channels: ConsoleChannel[]; inviteId: string | null };
+export type AddSchoolResult = { schoolId: string; code: string; name: string; delivered: Delivered[]; sameGroup: string | null; channels: ConsoleChannel[]; inviteId: string | null; whatsappProblem: string | null };
 
 export async function addSchool(actor: ConsoleActor, input: AddSchoolInput, now = new Date()): Promise<AddSchoolResult> {
   const name = input.name.trim();
@@ -282,6 +285,9 @@ export async function addSchool(actor: ConsoleActor, input: AddSchoolInput, now 
   if (!mobile) throw new ConsoleProblem(input.adminMobile.trim() ? "Enter a 10-digit Indian mobile number." : "Enter their mobile number. It becomes their username.", "adminMobile");
   const channels = cleanChannels(input.channels, input.adminEmail);
   const optionalOn = OPTIONAL_MODULES.map((m) => m.key).filter((k) => input.optionalOn.includes(k));
+  const whatsapp: SchoolWhatsappChoice = input.whatsapp ?? { mode: "dream-team", phoneNumberId: "", businessAccountId: "", displayNumber: "", accessToken: "", appSecret: "", verifyToken: "" };
+  const waProblem = whatsappChoiceProblem(whatsapp);
+  if (waProblem) throw new ConsoleProblem(waProblem.message, waProblem.field);
 
   // A login with this mobile number already: allowed only inside the same Group.
   const existing = await findExistingLogin(mobile);
@@ -368,13 +374,15 @@ export async function addSchool(actor: ConsoleActor, input: AddSchoolInput, now 
     return { code, inviteId, messages };
   });
 
+  // WhatsApp for this school, once the school exists (its own transaction: it may ask Meta for the template list).
+  const whatsappProblem = await connectSchoolWhatsapp(actor, { id: schoolId, name }, whatsapp);
   const delivered = await deliver(result.messages);
   if (input.startAs === "ACTIVE") {
     const { startSubscription } = await import("./billing");
     await startSubscription(actor, schoolId, { planKey: input.planKey, hostel: input.hostel, buses: 0, students: Math.max(input.approxStudents ?? 0, 100), payIn: "YEARLY" }, now);
   }
   await measureSchool(schoolId, now).catch(() => null);
-  return { schoolId, code: result.code, name, delivered, sameGroup, channels, inviteId: result.inviteId };
+  return { schoolId, code: result.code, name, delivered, sameGroup, channels, inviteId: result.inviteId, whatsappProblem };
 }
 
 /** Mobile numbers show as "+91 98480 12345"; a landline keeps its STD code. */

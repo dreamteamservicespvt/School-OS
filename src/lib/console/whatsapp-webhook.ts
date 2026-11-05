@@ -13,7 +13,8 @@
 import "server-only";
 
 import { timingSafeEqual } from "node:crypto";
-import { withConsole } from "../db";
+import { withConsole, withSchool } from "../db";
+import { applyStatus } from "../messaging/deliver";
 import { parseMetaWebhook, verifyMetaSignature, whatsappReason } from "../messaging/providers/whatsapp";
 
 export type ConsoleWebhookOutcome = { status: number; body?: string };
@@ -62,18 +63,52 @@ export async function handleConsoleWhatsappWebhook(rawBody: string, signature: s
     return { status: 400 };
   }
   const reports = parseMetaWebhook(body).statuses.filter((s) => s.id && META[s.status]);
+  const unmatched: typeof reports = [];
   if (reports.length > 0) await withConsole(async (tx) => {
     for (const s of reports) {
       const reported = META[s.status];
       const row = await tx.consoleMessage.findFirst({ where: { channel: "whatsapp", providerMessageId: s.id }, select: { id: true, status: true } });
-      if (!row) continue;
+      if (!row) { unmatched.push(s); continue; }
       const status = nextStatus(row.status, reported);
       if (!status) continue;
       const failReason = status === "FAILED" ? whatsappReason(s.errors?.[0]?.code, s.errors?.[0]?.message ?? s.errors?.[0]?.title).reason : null;
       await tx.consoleMessage.update({ where: { id: row.id }, data: { status, failReason } });
     }
   }, { timeout: 30_000 });
+  await schoolsOnSharedNumber(body, unmatched);
   return { status: 200, body: "ok" };
+}
+
+/**
+ * Reports for messages schools sent from DREAM TEAM's shared number
+ * (dream-team.ts). Only reports for that number count, and each school is
+ * searched inside its own records only (withSchool), so a report can change
+ * only the school message it belongs to.
+ */
+async function schoolsOnSharedNumber(body: unknown, unmatched: { id: string }[]) {
+  const shared = env("CONSOLE_WHATSAPP_PHONE_NUMBER_ID");
+  if (!shared || unmatched.length === 0) return;
+  const ids = new Set(unmatched.map((s) => s.id));
+  const reports = parseMetaWebhook(body, shared).statuses.filter((s) => ids.has(s.id) && META[s.status]);
+  if (reports.length === 0) return;
+  const schools = await withConsole((tx) => tx.consoleSchool.findMany({ where: { status: { not: "CLOSED" }, whatsapp: { path: ["mode"], equals: "dream-team" } }, select: { id: true } }));
+  let left = reports;
+  for (const school of schools) {
+    if (left.length === 0) break;
+    const ctx = { schoolId: school.id, userId: null };
+    const found = await withSchool(ctx, async (tx) => {
+      const rows = await tx.messageRecipient.findMany({ where: { schoolId: school.id, channel: "whatsapp", providerMessageId: { in: left.map((s) => s.id) } }, select: { providerMessageId: true } });
+      const here = new Set(rows.map((r) => r.providerMessageId));
+      for (const s of left) {
+        if (!here.has(s.id)) continue;
+        const at = s.timestamp ? new Date(Number(s.timestamp) * 1000) : new Date();
+        const reason = META[s.status] === "FAILED" ? whatsappReason(s.errors?.[0]?.code, s.errors?.[0]?.message ?? s.errors?.[0]?.title).reason : null;
+        await applyStatus(tx, ctx, s.id, META[s.status], at, reason);
+      }
+      return here;
+    }, { timeout: 30_000 });
+    left = left.filter((s) => !found.has(s.id));
+  }
 }
 
 const PASSED_HEADERS = ["content-type", "x-hub-signature-256", "x-hub-signature", "user-agent"];

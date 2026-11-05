@@ -25,6 +25,7 @@ import { CloseSheetButton, UrlSheet } from "@/components/ui/url-sheet";
 import { cx } from "@/components/ui/cx";
 import { BackLink, SchoolLogo, StatusPill, SUB_TONE } from "@/components/console/bits";
 import { ActivityLine } from "@/components/console/activity-line";
+import { WhatsappCard } from "@/components/console/whatsapp-card";
 import { ActSheet, CallSheet } from "@/components/console/sheets";
 import { NoteForm } from "@/components/console/note-form";
 import { InvoiceRow } from "@/components/console/invoice-row";
@@ -355,13 +356,14 @@ export default async function SchoolPage({ params, searchParams }: { params: Pro
               <ul className="px-5 pb-4 grid gap-1.5 text-[14px]">
                 {PROVIDER_CHANNELS.map((ch) => {
                   const r = conn.channels.find((x) => x.channel === ch);
-                  const words = !r || r.provider === "sandbox" ? "Not connected" : r.environment !== "live" ? "Connected, test mode" : r.isOn ? "Connected, on" : "Connected, switched off";
+                  const words = !r || r.provider === "sandbox" ? "Not connected" : `${r.provider === "dream-team" ? "DREAM TEAM's number" : ch === "whatsapp" ? "Own number" : "Connected"}, ${r.environment !== "live" ? "test mode" : r.isOn ? "on" : "switched off"}`;
                   return <li key={ch} className="flex justify-between gap-3"><span>{CHANNEL_LABEL[ch]}</span><span className="text-ink2">{words}</span></li>;
                 })}
                 <li className="flex justify-between gap-3"><span>Payment gateways</span><span className="text-ink2">{conn.gateways ? `${conn.gateways} switched on` : "None switched on"}</span></li>
               </ul>
             </Card>
           )}
+          <WhatsappCard raw={s.whatsapp} measuredAt={s.measuredAt} connectHref={c.can("connect") && s.status !== "CLOSED" ? `${base}/connections` : null} />
           <Card>
             <CardHeader title="School Admin logins" description={`${actives.length} active · DREAM TEAM never sees or sets a password`} icon={KeyRound}
               action={c.can("invite") && live ? <Link href={to("admin")} scroll={false} className={buttonClass("soft", "sm")}><UserPlus size={15} aria-hidden="true" />Add<span className="hidden sm:inline">&nbsp;another School Admin</span></Link> : null} />

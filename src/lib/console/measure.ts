@@ -6,8 +6,11 @@
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
-import { withConsole, withSchool } from "../db";
+import { withConsole, withSchool, type Tx } from "../db";
 import { creditBalances } from "../messaging/credits";
+import { channelSetups } from "../messaging/channels";
+import { DREAM_TEAM_PROVIDER, dreamTeamWhatsappReady, isMetaWhatsapp } from "../messaging/dream-team";
+import { istStarts, whatsappMode, type WhatsappSummary } from "./whatsapp-usage";
 import { setupSteps } from "../dashboard/setup";
 import { combineRoles } from "../permissions";
 import { ALL_ROLE_TEMPLATES } from "../roles";
@@ -102,6 +105,7 @@ export async function measureSchool(schoolId: string, now = new Date()) {
         else if (r.status === "FAILED") c.failed += r._count;
         else c.sentToday += r._count;
       }
+      const whatsapp = await whatsappSummary(tx, ctx, credits.whatsapp, now);
       const ids = accessRows.map((a) => a.userLoginId);
       const last = ids.length
         ? await tx.userLogin.aggregate({ where: { id: { in: ids } }, _max: { lastSignInAt: true } })
@@ -122,6 +126,7 @@ export async function measureSchool(schoolId: string, now = new Date()) {
         messagesFailed,
         jobsFailed,
         channelStats,
+        whatsapp,
       };
     },
     { timeout: 30_000 },
@@ -157,6 +162,7 @@ export async function measureSchool(schoolId: string, now = new Date()) {
       messagesFailed: m.messagesFailed,
       jobsFailed: m.jobsFailed,
       channelStats: m.channelStats,
+      whatsapp: m.whatsapp,
       adminName: first?.name ?? null,
       adminPhone: first?.phone ?? null,
       adminSignedIn: signedIn.length > 0,
@@ -166,6 +172,41 @@ export async function measureSchool(schoolId: string, now = new Date()) {
     await tx.consoleSchool.update({ where: { id: schoolId }, data });
   });
   return { ...m, admins, setupDone };
+}
+
+/**
+ * The school's WhatsApp for the console: which number, on or off, and how much
+ * it was used today and this month (IST). Counts and the last error only.
+ */
+async function whatsappSummary(tx: Tx, ctx: { schoolId: string; userId: null }, creditsLeft: number, now: Date): Promise<WhatsappSummary> {
+  const setup = (await channelSetups(tx, ctx)).whatsapp;
+  const { day, month } = istStarts(now);
+  const wa = { schoolId: ctx.schoolId, channel: "whatsapp" };
+  const [sentToday, sentMonth, failedToday, failedMonth, used, lastFail, lastSent] = await Promise.all([
+    tx.messageRecipient.count({ where: { ...wa, sentAt: { gte: day } } }),
+    tx.messageRecipient.count({ where: { ...wa, sentAt: { gte: month } } }),
+    tx.messageRecipient.count({ where: { ...wa, status: "FAILED", failedAt: { gte: day } } }),
+    tx.messageRecipient.count({ where: { ...wa, status: "FAILED", failedAt: { gte: month } } }),
+    // Credits spent on messages, less those given back for messages that could not go.
+    tx.creditLedgerEntry.aggregate({ where: { schoolId: ctx.schoolId, channel: "whatsapp", messageId: { not: null }, createdAt: { gte: month } }, _sum: { amount: true } }),
+    tx.messageRecipient.findFirst({ where: { ...wa, status: "FAILED", failReason: { not: null } }, orderBy: { failedAt: { sort: "desc", nulls: "last" } }, select: { failReason: true, failedAt: true } }),
+    tx.messageRecipient.findFirst({ where: { ...wa, sentAt: { not: null } }, orderBy: { sentAt: "desc" }, select: { sentAt: true } }),
+  ]);
+  const meta = isMetaWhatsapp(setup.provider);
+  return {
+    mode: whatsappMode(setup.provider),
+    isOn: setup.isOn,
+    live: setup.environment === "live" && meta,
+    // Only whether a token is saved; the token itself is never read here.
+    ready: setup.provider === DREAM_TEAM_PROVIDER ? dreamTeamWhatsappReady() : meta && Boolean(setup.config.phoneNumberId) && setup.hasSecrets,
+    number: setup.config.displayNumber || null,
+    sentToday, sentMonth, failedToday, failedMonth,
+    creditsUsedMonth: Math.max(0, -(used._sum.amount ?? 0)),
+    creditsLeft,
+    lastError: lastFail?.failReason?.slice(0, 300) ?? null,
+    lastErrorAt: lastFail?.failedAt?.toISOString() ?? null,
+    lastSentAt: lastSent?.sentAt?.toISOString() ?? null,
+  };
 }
 
 /** Re-counts schools whose card is older than maxAgeMs (or never counted). */

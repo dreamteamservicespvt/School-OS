@@ -5,6 +5,7 @@ import "server-only";
 
 import { decryptField, encryptField } from "../crypto";
 import type { SchoolContext, Tx } from "../db";
+import { DREAM_TEAM_PROVIDER, dreamTeamWhatsappConfig, dreamTeamWhatsappSecrets, isMetaWhatsapp } from "./dream-team";
 
 export const CHANNELS = ["whatsapp", "sms", "email", "app"] as const;
 export type Channel = (typeof CHANNELS)[number];
@@ -27,7 +28,8 @@ export function isChannel(v: unknown): v is Channel {
 export const PROVIDERS: Record<ProviderChannel, { key: string; label: string }[]> = {
   whatsapp: [
     { key: "sandbox", label: "Test mode (nothing is sent)" },
-    { key: "meta-cloud", label: "WhatsApp Business (Meta Cloud API)" },
+    { key: DREAM_TEAM_PROVIDER, label: "DREAM TEAM's WhatsApp number (shared)" },
+    { key: "meta-cloud", label: "The school's own WhatsApp Business number" },
   ],
   sms: [
     { key: "sandbox", label: "Test mode (nothing is sent)" },
@@ -42,6 +44,8 @@ export const PROVIDERS: Record<ProviderChannel, { key: string; label: string }[]
 /** The secret and plain fields each provider needs. Secrets are encrypted. */
 export const PROVIDER_FIELDS: Record<string, { key: string; label: string; secret: boolean; help?: string; required: boolean }[]> = {
   sandbox: [],
+  // The shared number's IDs and token are DREAM TEAM's, set in the server's environment (dream-team.ts).
+  [DREAM_TEAM_PROVIDER]: [],
   "meta-cloud": [
     { key: "phoneNumberId", label: "Phone number ID", secret: false, required: true, help: "From Meta Business Manager, WhatsApp, API setup." },
     { key: "businessAccountId", label: "WhatsApp Business account ID", secret: false, required: true, help: "Needed to send templates for WhatsApp approval." },
@@ -92,12 +96,14 @@ export async function channelSetups(tx: Tx, ctx: SchoolContext): Promise<Record<
   const out = {} as Record<ProviderChannel, ChannelSetup>;
   for (const channel of PROVIDER_CHANNELS) {
     const r = rows.find((x) => x.channel === channel);
+    const provider = r?.provider ?? "sandbox";
     out[channel] = {
       channel,
-      provider: r?.provider ?? "sandbox",
+      provider,
       isOn: r?.isOn ?? false,
       environment: r?.environment === "live" ? "live" : "test",
-      config: asConfig(r?.config),
+      // On DREAM TEAM's shared number the IDs come from the server's environment, not the school's row.
+      config: channel === "whatsapp" && provider === DREAM_TEAM_PROVIDER ? dreamTeamWhatsappConfig() : asConfig(r?.config),
       hasSecrets: Boolean(r?.secretsEnc),
       secretsLast4: r?.secretsLast4 ?? null,
       lowCreditAlert: r?.lowCreditAlert ?? 100,
@@ -111,7 +117,8 @@ export async function channelSetups(tx: Tx, ctx: SchoolContext): Promise<Record<
 
 /** The decrypted secrets of a channel, for the provider adapter only. Never sent to a browser. */
 export async function channelSecrets(tx: Tx, ctx: SchoolContext, channel: ProviderChannel): Promise<Record<string, string>> {
-  const r = await tx.messagingChannel.findUnique({ where: { schoolId_channel: { schoolId: ctx.schoolId, channel } }, select: { secretsEnc: true } });
+  const r = await tx.messagingChannel.findUnique({ where: { schoolId_channel: { schoolId: ctx.schoolId, channel } }, select: { secretsEnc: true, provider: true } });
+  if (channel === "whatsapp" && r?.provider === DREAM_TEAM_PROVIDER) return dreamTeamWhatsappSecrets();
   if (!r?.secretsEnc) return {};
   try {
     return asConfig(JSON.parse(decryptField(r.secretsEnc)));
@@ -139,7 +146,7 @@ export async function onChannels(tx: Tx, ctx: SchoolContext): Promise<Set<Channe
  * 24 hours of the parent's own last message. In test mode nothing is sent.
  */
 export function whatsappIsLive(s: Pick<ChannelSetup, "isOn" | "environment" | "provider">) {
-  return s.isOn && s.environment === "live" && s.provider === "meta-cloud";
+  return s.isOn && s.environment === "live" && isMetaWhatsapp(s.provider);
 }
 
 /** The order "preferred" tries for each person: the first channel that can carry the message to them. */

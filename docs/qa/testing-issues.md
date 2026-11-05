@@ -70,7 +70,7 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 - Only the first empty box is flagged; the others are not marked. Fix wanted: mark every missing box in red with a school-style message at once.
 
 ## 11. Staff list does not match the people who can log in (Open, Low, found 2026-11-04)
-- **Status:** OPEN, design proposed: the blueprint says every login belongs to one Staff, Student or Driver record, but logins made by invite (Principal anjali, Admin Saiveni) have none, so they are missing from the Staff list and "Staff present". Proposal: Staff list shows "N people can sign in but have no staff record" with Add Staff that links the existing login (no second login). Needs a small build + tests; next batch
+- **Status:** FIXED 2026-11-06: Staff List shows "N people can sign in but have no staff record" (logins of this school with no Staff, Student or Driver record; Driver/Student-only logins left out) with "Add staff record" per person. Add Staff `?login=<id>` prefills name, phone and email, step 2 says "They already have a login" and links it: no second login, roles unchanged, Audit Log "linkedLogin". Refused: another school's login, a login already linked, a whole-school login for a campus-limited adder, class teacher without the Class Teacher role. The linked login's own phone is not a duplicate. src/lib/staff/link-login.ts, tests/staff-hr/link-login.test.ts (8), browser qa/full/issue11-check.mjs. Not changed: staff code gaps (they come from removed records) and blank departments (set per person or Bulk "Change department"). Once linked, they count in "Staff present" (issue 17)
 - Logins exist for Principal (anjali) and School Admin (Saiveni) but the staff list has only 3 people (KUSUMA, aksha, aswini); staff codes jump ST-001, 003, 006; Department is blank for all; Dashboard says "Staff present 0/3". KUSUMA, a Class Teacher, shows designation "Teacher".
 - **Fix wanted:** decide whether every login should have a staff record; show Department/Designation clearly; explain gaps in staff codes (removed records) or avoid gaps.
 
@@ -104,7 +104,7 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 - **Fix wanted:** same rule as issue 12 (a new admission owes only terms due after joining), plus a warning before "Send reminder to all".
 
 ## 17. Dashboard small confusions (Open, Low, found 2026-11-04)
-- **Status:** PARTLY 2026-11-05 (batch 2): consent line reads "7 of 25 guardians have not given data consent". Staff present counts only staff records (same root as 11). Counts refresh: bell checks every 30 s since 51761836
+- **Status:** PARTLY 2026-11-05 (batch 2): consent line reads "7 of 25 guardians have not given data consent". Staff present counts only staff records: since 2026-11-06 (issue 11) the Staff List offers "Add staff record" for logins without one, and they count once added. Counts refresh: bell checks every 30 s since 51761836
 - "Staff present 0 / 3 · 3 not in yet" ignores the Principal and Admin who are logged in at that moment.
 - "7 guardians have not given data consent" while 32 students exist; unclear if the other 25 are fine or unknown.
 - Dashboard says "Good evening" with the top badge counts changing (approvals bell 1 to none) only after a full reload.
@@ -187,7 +187,7 @@ Done: datesheet created and published as Principal (26-28); KUSUMA Marks Entry (
 - **Fix wanted:** find where the form sends the error message in place of the reason (likely the reason field falling back to the last error text) and reject it on the server too; show "No reason given" for old rows.
 
 ## 32. Refund form stays open after sending, with the amount prefilled again (Open, Low, found 2026-11-04)
-- **Status:** CHECK 2026-11-05: the sheet closes on success in code (SheetForm, close link has no do=refund); recheck by hand
+- **Status:** PASS 2026-11-06 (browser, accountant): after "Send for approval" the sheet closes, the toast says "Refund of ₹1 sent for approval. Once approved, mark it refunded..." with Open Approvals, and the row shows Waiting for Principal. qa/full/issue11-check.mjs
 - After "Send for approval" the dialog stays open showing Amount 4,000 (5,000 minus the 1,000 pending) and an empty Reason; a second press would try a second refund. (It did not duplicate for me: it needs a reason.) Fix wanted: close the dialog and show "Refund sent to the Principal".
 - Good: refund form is plain ("Not more than Rs 5,000 (paid, minus earlier refunds)"), every refund goes to Approvals, and the page counts "1 refund waiting".
 

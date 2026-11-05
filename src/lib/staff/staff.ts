@@ -54,7 +54,7 @@ export function checkBankAccount(v: string): string | null {
 export type Duplicate = { message: string; href: string };
 
 /** Same person added twice (09 §5): phone or email already on a staff record or a login. */
-export async function findDuplicates(tx: Tx, ctx: SchoolContext, input: { phone?: string | null; email?: string | null; excludeStaffId?: string | null }): Promise<Duplicate[]> {
+export async function findDuplicates(tx: Tx, ctx: SchoolContext, input: { phone?: string | null; email?: string | null; excludeStaffId?: string | null; /** The login being linked (Add Staff for a login with no record): its own phone is not a duplicate. */ excludeLoginId?: string | null }): Promise<Duplicate[]> {
   const out: Duplicate[] = [];
   const or: Prisma.StaffWhereInput[] = [];
   if (input.phone) or.push({ phone: input.phone });
@@ -66,7 +66,7 @@ export async function findDuplicates(tx: Tx, ctx: SchoolContext, input: { phone?
     out.push({ message: `This ${what} belongs to ${s.fullName} (${s.designation}).`, href: `/staff-hr-management/${s.id}` });
   }
   if (input.phone && out.length === 0) {
-    const login = await tx.userLogin.findFirst({ where: { phone: { in: [input.phone, `+91${input.phone}`] }, archivedAt: null }, select: { displayName: true, id: true } });
+    const login = await tx.userLogin.findFirst({ where: { phone: { in: [input.phone, `+91${input.phone}`] }, archivedAt: null, ...(input.excludeLoginId ? { id: { not: input.excludeLoginId } } : {}) }, select: { displayName: true, id: true } });
     if (login) {
       const inSchool = await tx.schoolAccess.findFirst({ where: { schoolId: ctx.schoolId, userLoginId: login.id } });
       if (inSchool) out.push({ message: `This phone belongs to the login of ${login.displayName}.`, href: "/settings/users" });
@@ -184,7 +184,7 @@ export function splitName(fullName: string) {
  */
 export async function createStaff(tx: Tx, ctx: SchoolContext, details: StaffDetails, login: LoginChoice, allocations: AllocationPick[], opts: { allowDuplicate?: boolean; campusLimit?: string | null; /** Step 3 "Class teacher of": one section at most (src/lib/staff/class-picks.ts). */ classTeacherSectionId?: string | null; /** An existing login of this school with no staff record, to link instead of making a login (src/lib/staff/link-login.ts). */ linkLoginId?: string | null } = {}) {
   const settings = await hrSettings(tx, ctx);
-  const dups = await findDuplicates(tx, ctx, { phone: details.phone, email: details.email });
+  const dups = await findDuplicates(tx, ctx, { phone: details.phone, email: details.email, excludeLoginId: opts.linkLoginId ?? null });
   if (dups.length && !opts.allowDuplicate) throw new StaffProblem(dups[0].message, "phone", { href: dups[0].href, label: "Open existing" });
   const designation = await tx.designation.findFirst({ where: { schoolId: ctx.schoolId, name: details.designation, archivedAt: null } });
   if (!designation) throw new StaffProblem("Choose a designation from the list (HR Settings).", "designation");

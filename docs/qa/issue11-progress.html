@@ -24,15 +24,15 @@ h1{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)
 </main>
 <script>
 var S={
-now:"Rebuilding the local copy (about 8 minutes) for the browser check",
-main:60,mainline:"4 of 6 steps done (real count)",
+now:"Last rebuild: the notice now folds after 3 names on phones; then the final browser run and commit",
+main:90,mainline:"5 of 6 steps done (real count); browser check 12 of 12 passed on the build before this small change",
 rows:[
 ["Server: list logins with no staff record, link one on Add Staff",100,"Done","No database change needed: Staff already has a login link"],
-["Staff List: 'N people can sign in but have no staff record'",100,"Done","Each name gets 'Add staff record'"],
-["Add Staff: prefilled from the login, step 2 shows the linked login",100,"Done","No second login is made; roles stay as set in Settings"],
-["Tests (link, refusals, other school)",100,"Done","7 new tests pass; 27 related staff tests and the i18n test pass; typecheck clean, lint 0"],
-["Rebuild and browser check",10,"Running","SSD copy rebuild started"],
-["Issue 32: refund form closes after sending (by hand)",0,"Waiting","Recheck in the browser after the rebuild"]
+["Staff List: 'N people can sign in but have no staff record'",100,"Done","Shows 3 names, the rest under 'Show N more'"],
+["Add Staff: prefilled from the login, step 2 shows the linked login",100,"Done","No second login; roles stay; no stale warning after saving"],
+["Tests (link, refusals, other school)",100,"Done","8 new tests pass; related staff and i18n tests pass; typecheck clean, lint 0"],
+["Rebuild and browser check",90,"Running","12 of 12 passed (Naresh Kumar and Meera Joshi linked in the local school); 390 and 1440 screenshots taken"],
+["Issue 32: refund form closes after sending (by hand)",100,"Done","PASS: sheet closes, 'Refund of ₹1 sent for approval', row shows Waiting"]
 ],
 wait:"Still open from before: issue 33 refund rule, 34B Transport on by default."
 };

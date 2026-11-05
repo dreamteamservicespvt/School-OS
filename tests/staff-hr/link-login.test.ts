@@ -6,7 +6,7 @@
 // a record and Driver/Student-only logins can never be linked.
 import { beforeAll, describe, expect, it } from "vitest";
 import { prisma, withSchool } from "@/lib/db";
-import { createStaff, type StaffDetails } from "@/lib/staff/staff";
+import { createStaff, findDuplicates, type StaffDetails } from "@/lib/staff/staff";
 import { linkableLogin, loginsWithoutStaff } from "@/lib/staff/link-login";
 import { d, makeHrSchool } from "./fixture";
 import { makeSchool, makeUser } from "../helpers";
@@ -63,6 +63,17 @@ describe("logins with no staff record (issue 11)", () => {
   it("a class teacher needs the Class Teacher role on the linked login", async () => {
     await expect(withSchool(as(f.principal.id), (tx) => createStaff(tx, as(f.principal.id), details({ phone: "9123400084" }), null, [],
       { linkLoginId: f.admin.id, classTeacherSectionId: f.section.id }))).rejects.toThrow(/has no Class Teacher role/);
+  });
+
+  it("the linked login's own phone is not a duplicate (found in the browser check)", async () => {
+    const desk = await makeUser({ schools: [{ id: f.school.id, roleKeys: ["receptionist"] }], name: "Naresh Kumar" });
+    await prisma.userLogin.update({ where: { id: desk.id }, data: { phone: "9123400086" } });
+    await withSchool(as(f.principal.id), async (tx) => {
+      expect(await findDuplicates(tx, as(f.principal.id), { phone: "9123400086" })).toHaveLength(1);
+      expect(await findDuplicates(tx, as(f.principal.id), { phone: "9123400086", excludeLoginId: desk.id })).toHaveLength(0);
+      const r = await createStaff(tx, as(f.principal.id), details({ fullName: "Naresh Kumar", phone: "9123400086", designation: "Teacher" }), null, [], { linkLoginId: desk.id });
+      expect(r.staff.userLoginId).toBe(desk.id);
+    });
   });
 
   it("Add Staff links the login: no second login, the roles stay, the Audit Log names it, and it leaves the list", async () => {

@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-05 late night (live-test batch 2 committed 28af9239; NOT pushed or deployed)
+Last updated: 2026-11-06 (issue 11 built, 32 passed; NOT pushed or deployed)
 Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits, live role-play test) and docs/archive/HANDOFF-until-2026-10-30.md.
 
 ## State
@@ -37,8 +37,12 @@ Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits,
    for "was sent to"). Progress page https://claude.ai/artifact/4enuz9nYz2ruJ37pDr1VqL.
 4. Live-test open items (testing-issues.md Status lines). Batch 1 (a4a0e677): 7, 12, 14-16, 19. Batch 2 (28af9239,
    2026-11-05 night): 8, 9, 13, 18, 20, 21, 22, 24, 26, 27, 28; parts of 17 and 34. Browser check
-   qa/full/batch2-check.mjs (also checks 10/25-style fixes). STILL OPEN: 11 (logins without a staff record:
-   design in testing-issues.md, build next), 32 recheck by hand, 17 "Staff present" (same root as 11).
+   qa/full/batch2-check.mjs (also checks 10/25-style fixes). 2026-11-06: 11 DONE (Staff List "can sign in but have
+   no staff record" + Add Staff ?login= links the login; src/lib/staff/link-login.ts, 8 tests, browser
+   qa/full/issue11-check.mjs); 32 PASS in the browser; 17 "Staff present" now fixable by adding those records.
+   Progress page https://claude.ai/artifact/A5UYbY7ptTNvq8cwpAoyKS (docs/qa/issue11-progress.html).
+   Local DB note: the seed has two Naresh Kumar logins (frontdesk, reception) with one phone; QA runs left ₹1 test
+   refunds waiting for Hasini Agarwal.
    Owner decisions: 33 refund rule; 34B Transport on by default vs blueprint "no Transport in v1".
    Progress page https://claude.ai/artifact/PUeXeKtKi1sBvd2RrHfCsC (docs/qa/live-test-batch2-progress.html).
 

@@ -72,6 +72,12 @@ export default async function StaffListPage({ searchParams }: Search) {
     return { rows, total, designations, departments, campuses, byDept, roll, teaching, leaveToday, leaveNames: names, copyChannels, noRecord };
   });
   type Row = (typeof data.rows)[number];
+  const noRecordItem = (u: (typeof data.noRecord)[number]) => (
+    <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span><b>{u.displayName}</b> <span className="text-ink-2">({[u.username, ...u.roleNames].join(" · ")})</span></span>
+      <a href={`${BASE}/add?login=${u.id}`} aria-label={`Add staff record for ${u.displayName}`} className="inline-flex min-h-9 items-center font-medium text-brand-text underline"><Words k="Add staff record" /></a>
+    </li>
+  );
   const f = params.filters;
   const href = (change: Record<string, string | null>) => listHref(BASE, { ...params, page: 1 }, { ...change, page: null, n: null });
   const deptCount = new Map(data.byDept.map((d) => [d.departmentId ?? "none", d._count._all]));
@@ -131,14 +137,14 @@ export default async function StaffListPage({ searchParams }: Search) {
         <Alert tone="info" className="mb-4"
           title={data.noRecord.length === 1 ? "1 person can sign in but has no staff record" : `${data.noRecord.length} people can sign in but have no staff record`}>
           <p><Words k="They are not on this list or in the staff counts. Add their staff record; their login stays as it is." /></p>
-          <ul className="mt-2 grid gap-1.5">
-            {data.noRecord.map((u) => (
-              <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span><b>{u.displayName}</b> <span className="text-ink-2">({[u.username, ...u.roleNames].join(" · ")})</span></span>
-                <a href={`${BASE}/add?login=${u.id}`} aria-label={`Add staff record for ${u.displayName}`} className="inline-flex min-h-9 items-center font-medium text-brand-text underline"><Words k="Add staff record" /></a>
-              </li>
-            ))}
-          </ul>
+          {/* Three names show; the rest fold away so a long notice does not push the list down on a phone. */}
+          <ul className="mt-2 grid gap-1.5">{data.noRecord.slice(0, 3).map(noRecordItem)}</ul>
+          {data.noRecord.length > 3 && (
+            <details className="mt-1.5">
+              <summary className="inline-flex min-h-9 cursor-pointer items-center font-medium text-brand-text">{`Show ${data.noRecord.length - 3} more`}</summary>
+              <ul className="mt-1 grid gap-1.5">{data.noRecord.slice(3).map(noRecordItem)}</ul>
+            </details>
+          )}
         </Alert>
       )}
 

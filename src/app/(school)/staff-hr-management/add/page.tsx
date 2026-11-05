@@ -20,7 +20,6 @@ import { schoolRoles } from "@/lib/school-roles";
 import { pageTitle } from "@/lib/i18n/server";
 import { isTopRole, managesUsers } from "@/lib/staff/login-ceiling";
 import { linkableLogin } from "@/lib/staff/link-login";
-import { Alert } from "@/components/ui/alert";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Add Staff") };
@@ -110,7 +109,6 @@ export default async function AddStaffPage({ searchParams }: Search) {
     <>
       <BackLink href={BASE} label="Staff List" />
       <PageHeader title="Add Staff" href={`${BASE}/add`} userId={current.user.id} />
-      {data.linkProblem && <Alert tone="warning" className="mb-4">{data.linkProblem}</Alert>}
       <Wizard
         data={{ ...data, today: isoDay(today), employmentTypes: [...EMPLOYMENT_TYPES], modules: MODULES.map((m) => ({ key: m.key, name: m.name })) }}
         checkDetails={checkDetails}

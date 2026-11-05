@@ -40,7 +40,8 @@ export async function checkDetails(_: FormState<{ duplicates: Duplicate[] }>, fd
   if (missing) return { ok: false, message: Object.values(missing)[0], errors: missing };
   const photo = file(fd, "photo");
   if (photo && photo.size > 2 * 1024 * 1024) return { ok: false, message: `The photo is ${(photo.size / 1024 / 1024).toFixed(1)} MB. Photos can be at most 2 MB.`, errors: { photo: "Photos can be at most 2 MB." } };
-  const duplicates = await withSchool(current.ctx, (tx) => findDuplicates(tx, current.ctx, { phone: parsed.data.phone, email: parsed.data.email }));
+  const linkPick = str(fd, "linkLoginId");
+  const duplicates = await withSchool(current.ctx, (tx) => findDuplicates(tx, current.ctx, { phone: parsed.data.phone, email: parsed.data.email, excludeLoginId: UUID_RE.test(linkPick) ? linkPick : null }));
   return { ok: true, data: { duplicates } };
 }
 

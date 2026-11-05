@@ -39,6 +39,8 @@ export type WizardData = {
   taken: Taken;
   prefill: { applicationId: string; fullName: string; phone: string; email: string; qualification: string; experienceYears: string; designation: string; departmentId: string; joiningDate: string } | null;
   /** A login of this school with no staff record yet (Staff List link): its record is made and linked; no new login. */
+  /** Why the login from the Staff List cannot be linked (already linked, another school...), or null. */
+  linkProblem: string | null;
   linked: { id: string; username: string; displayName: string; phone: string; email: string; roleNames: string[]; roleKeys: string[] } | null;
   today: string;
   employmentTypes: string[];
@@ -180,6 +182,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
     });
   }
 
+  // After saving, the page shows again and the login is now taken: the summary alone is shown, not that warning.
   if (done) return <Summary done={done} onAnother={() => window.location.reload()} />;
 
   const stepNames = ["Details", "What they can open", "Classes and subjects"];
@@ -197,6 +200,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
         ))}
       </ol>
 
+      {data.linkProblem && <Alert tone="warning">{data.linkProblem}</Alert>}
       {message && (
         <Alert tone="danger" action={message.link ? <Link className="font-medium underline" href={message.link.href}>{message.link.label}</Link> : undefined}>{message.text}</Alert>
       )}

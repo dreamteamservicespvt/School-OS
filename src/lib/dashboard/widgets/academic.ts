@@ -176,6 +176,37 @@ const openSubstitutions: Widget<"attention"> = {
   },
 };
 
+/**
+ * Sections with students but no class teacher: their attendance has nobody to take it, and a
+ * Class Teacher login without a section sees "No class to take" (live test 18).
+ */
+const noClassTeacher: Widget<"attention"> = {
+  id: "academic.no-class-teacher",
+  module: "academic-management",
+  kind: "attention",
+  homes: ["leader", "academic-head"],
+  allowed: (v) => reach(v, "academic-management", "edit") === "all",
+  async load(c) {
+    if (!c.yearIds.length) return null;
+    const empty = await c.tx.section.findMany({
+      where: { academicYearId: { in: c.yearIds }, archivedAt: null, classTeacherId: null },
+      select: { id: true, name: true, schoolClass: { select: { name: true, sortOrder: true } } },
+    });
+    if (!empty.length) return null;
+    const used = await c.tx.enrolment.groupBy({ by: ["sectionId"], where: { sectionId: { in: empty.map((x) => x.id) }, archivedAt: null, status: "STUDYING", student: { archivedAt: null } } });
+    const withStudents = new Set(used.map((u) => u.sectionId));
+    const sections = empty.filter((x) => withStudents.has(x.id));
+    if (!sections.length) return null;
+    const names = sections.sort((a, b) => a.schoolClass.sortOrder - b.schoolClass.sortOrder || a.name.localeCompare(b.name)).map((x) => `${x.schoolClass.name} ${x.name}`);
+    return {
+      id: "academic.no-class-teacher", tone: "warn", icon: "Users",
+      title: `${plural(sections.length, "section")} ${sections.length === 1 ? "has" : "have"} no class teacher`,
+      detail: `${someNames(names, 3)}: nobody takes their attendance`,
+      action: "Set", href: "/academic-management", value: String(sections.length),
+    };
+  },
+};
+
 const periodsCovered: Widget<"band"> = {
   id: "academic.periods-covered",
   module: "academic-management",
@@ -332,5 +363,5 @@ const nextHoliday: Widget<"band"> = {
   },
 };
 
-export const ACADEMIC_WIDGETS: Widget[] = [classesBand, periodsCovered, classesCard, mySubstitutions, openSubstitutions, myAgenda, mySyllabus, schoolSyllabus, calendarAgenda, nextHoliday] as Widget[];
+export const ACADEMIC_WIDGETS: Widget[] = [classesBand, periodsCovered, classesCard, mySubstitutions, openSubstitutions, noClassTeacher, myAgenda, mySyllabus, schoolSyllabus, calendarAgenda, nextHoliday] as Widget[];
 

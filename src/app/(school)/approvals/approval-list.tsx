@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { shownReason } from "@/lib/fees/reason-words";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Alert } from "@/components/ui/alert";
@@ -85,7 +86,7 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
               <Link href={`/approvals/${r.id}`} className="min-w-0 flex-1 group">
                 <p className="font-semibold text-[15px] group-hover:text-brand transition">{r.summary}</p>
                 <p className="text-[13px] text-ink2"><Words k="Asked by" /> {r.askedBy}{r.job ? <span className="text-ink3">, {r.job}</span> : null}</p>
-                {r.reason && <p className="text-[13px] text-ink2 line-clamp-2 mt-0.5">“{r.reason}”</p>}
+                {r.reason && <p className="text-[13px] text-ink2 line-clamp-2 mt-0.5">“{shownReason(r.reason)}”</p>}
                 {r.facts?.map((f) => <p key={f.label} className="text-[13px] text-ink2 mt-0.5"><span className="text-ink3">{f.label}:</span> {f.value}</p>)}
                 <p className="text-[12.5px] text-ink3 mt-0.5">{r.typeLabel} · {r.asked}{r.waitingFor ? ` · waiting for ${r.waitingFor}` : ""}</p>
                 <span className="flex flex-wrap items-center gap-1.5 mt-1.5">

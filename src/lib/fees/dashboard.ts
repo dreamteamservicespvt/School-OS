@@ -53,13 +53,19 @@ async function scopedStudentIds(tx: Tx, viewer: FeeViewer) {
  * Collected per month in the academic year against the amount due per month.
  * `only`: the students of the person's campus (feeStudentFilter), when limited to one.
  */
-export async function monthlyTrend(tx: Tx, yearStart: Date, yearEnd: Date, only: OnlyStudents = {}) {
+export async function monthlyTrend(tx: Tx, yearStart: Date, yearEnd: Date, only: OnlyStudents = {}, yearId?: string) {
   const months: { key: string; label: string; start: Date; end: Date }[] = [];
   for (let d = monthStart(yearStart); d <= yearEnd; d = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1))) {
     months.push({ key: d.toISOString().slice(0, 7), label: new Intl.DateTimeFormat("en-IN", { month: "short", timeZone: "UTC" }).format(d), start: d, end: monthEnd(d) });
   }
   const paid = await tx.payment.groupBy({ by: ["paymentDate"], where: { ...only, status: "POSTED", broughtIn: false, paymentDate: { gte: yearStart, lte: yearEnd } }, _sum: { amountPaise: true } });
-  const due = await tx.studentFeeDue.groupBy({ by: ["dueDate"], where: { ...only, state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, dueDate: { gte: yearStart, lte: yearEnd } }, _sum: { amountPaise: true, concessionPaise: true, adjustmentPaise: true } });
+  // With the year given, its rows count by year like the Fee Dashboard's "due so far" (fees/by-class.ts):
+  // a term due before the year's first day (a June fee for a year starting mid-June) lands in the first month,
+  // so the chart never says "nothing due" beside a tile that counts it (live test 15).
+  const dueWhere: Prisma.StudentFeeDueWhereInput = yearId ? { academicYearId: yearId, dueDate: { lte: yearEnd } } : { dueDate: { gte: yearStart, lte: yearEnd } };
+  const dueRaw = await tx.studentFeeDue.groupBy({ by: ["dueDate"], where: { ...only, state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, ...dueWhere }, _sum: { amountPaise: true, concessionPaise: true, adjustmentPaise: true } });
+  const first = months[0]?.start ?? yearStart;
+  const due = dueRaw.map((d) => (d.dueDate < first ? { ...d, dueDate: first } : d));
   return months.map((m) => ({
     label: m.label,
     key: m.key,

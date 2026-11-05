@@ -84,7 +84,11 @@ export async function FileReview({ current, place, id, sp }: Props) {
   const sheetList = file.sheets as { name: string; rows: number }[];
   const sheetName = sheetList.length > 1 ? sheetList[file.sheetIndex]?.name : null;
   const headers = prepared.headers;
-  const allRows = prepared.rows.length + prepared.passed.broughtIn;
+  // Before any column is matched every row looks empty to the checker, so count the file's own
+  // filled rows after the headings then: never "0 rows" for a file that has rows (live test 7).
+  const matchedAny = Object.values(w.choices.columnMatch).some((c) => c.length > 0);
+  const filledInFile = w.sheet.rows.slice(file.headerRow).filter((r) => r.some((c) => String(c ?? "").trim())).length;
+  const allRows = matchedAny ? prepared.rows.length + prepared.passed.broughtIn : filledInFile;
 
   const header = (
     <div className="mb-4 flex flex-wrap items-start justify-between gap-3">

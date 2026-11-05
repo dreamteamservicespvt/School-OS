@@ -170,7 +170,7 @@ const collectionChart: Widget<"panel"> = {
     const end = c.year.endDate < c.today ? c.year.endDate : c.today;
     // Collected so far against due so far, at the end of each month: payments
     // made early or late still count against the dues they paid.
-    const trend = await monthlyTrend(c.tx, c.year.startDate, end, await onCampus(c));
+    const trend = await monthlyTrend(c.tx, c.year.startDate, end, await onCampus(c), c.year.id);
     let paidSoFar = ZERO, dueSoFar = ZERO;
     const months = trend.map((m) => ({ ...m, paidSoFar: (paidSoFar += m.collected), dueSoFar: (dueSoFar += m.due) })).filter((m) => m.dueSoFar > ZERO);
     const pct = (a: bigint, b: bigint) => (b > ZERO ? Math.min(100, Math.round((Number(a) * 100) / Number(b))) : 0);

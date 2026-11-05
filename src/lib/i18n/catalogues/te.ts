@@ -14286,4 +14286,5 @@ export const te: Catalogue = {
   "Step 3: a class teacher takes the daily attendance, so needs a login with the Class Teacher role. Tick Class Teacher in step 2, or choose \"Not a class teacher\".": "దశ 3: క్లాస్ టీచర్ రోజువారీ హాజరు తీసుకుంటారు, కాబట్టి Class Teacher పాత్ర ఉన్న లాగిన్ కావాలి. దశ 2లో Class Teacher టిక్ చేయండి, లేదా \"క్లాస్ టీచర్ కాదు\" ఎంచుకోండి.",
   "Step 3: {section} already has a class teacher, {name}. Choose another section, or change it in Academic Management, Classes & Sections.": "దశ 3: {section}కు ఇప్పటికే క్లాస్ టీచర్ {name} ఉన్నారు. వేరే సెక్షన్ ఎంచుకోండి, లేదా అకడమిక్ నిర్వహణ, తరగతులు & సెక్షన్లలో మార్చండి.",
   "Step 3: the section chosen for class teacher is not in this academic year. Choose again.": "దశ 3: క్లాస్ టీచర్ కోసం ఎంచుకున్న సెక్షన్ ఈ విద్యా సంవత్సరంలో లేదు. మళ్లీ ఎంచుకోండి.",
+  "For other marks such as Half-day or Leave, press and hold a student's button (right-click on a computer).": "హాఫ్-డే లేదా సెలవు వంటి ఇతర గుర్తుల కోసం, విద్యార్థి బటన్‌ను నొక్కి పట్టుకోండి (కంప్యూటర్‌లో రైట్-క్లిక్ చేయండి).",
 };

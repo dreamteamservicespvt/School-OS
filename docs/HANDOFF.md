@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-05 (16-note leftovers done in the commit after aeb6ccba; owner's 16-note test PDF fixed; local commits 3c1ed69f..99dc4500 + security follow-up 812f292c; NOT pushed or deployed)
+Last updated: 2026-11-05 night (live-test fixes 7, 12, 14-16, 18, 19 + invite Test-mode words, commit after b25fcdba; 16-note leftovers done; owner's 16-note test PDF fixed; local commits 3c1ed69f..99dc4500 + security follow-up 812f292c; NOT pushed or deployed)
 Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits, live role-play test) and docs/archive/HANDOFF-until-2026-10-30.md.
 
 ## State
@@ -31,7 +31,14 @@ Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits,
    lines trimmed. Still English only: the invite "sent/on its way" sentence (it carries channel names). Progress
    page https://claude.ai/artifact/8NX6aS3fL5CCdWQ4VwrsTE. Not browser-tested yet: re-run qa/full/p16-selftest.mjs
    after the next local build.
-4. Older open items from the 2026-11-04 live test (testing-issues.md 7-28, 32-35), e.g. 33 refund lowers fee total (High,
+3b. DONE 2026-11-05 night: SSD rebuilt; p16-selftest 8/8; browser check qa/full/leftovers-check.mjs: Add Staff and
+   Datesheet drafts PASS; invite said "sent by WhatsApp" in Test mode -> FIXED (confirmInviteSent treats sandbox rows
+   as "Not sent: WhatsApp is in Test mode"); needs a rebuild + re-run of leftovers-check.mjs (its check should look
+   for "was sent to"). Progress page https://claude.ai/artifact/4enuz9nYz2ruJ37pDr1VqL.
+4. Older open items from the 2026-11-04 live test. DONE 2026-11-05 night (see Status lines in testing-issues.md):
+   7, 12, 14, 15, 16, 19; 18 partly. STILL OPEN: 8, 9, 10, 11, 13, 17, 18 (ask section with role), 20-22, 24-28,
+   32, 34, 35; 33 waits for the owner (refund = adjustment today). Next do 26 (Medium) and 8 (Medium), then the Lows.
+   Older open items from the 2026-11-04 live test (testing-issues.md 7-28, 32-35), e.g. 33 refund lowers fee total (High,
    owner decision), 15/16 new students "overdue" (High), 12 dashboard fee numbers.
 
 ## How to run things locally
@@ -58,3 +65,6 @@ Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits,
   or the app router's history update looks like "interrupted by another navigation".
 - Local console login: QA Test Owner, mobile 9000000101 (local DB only); its password is not saved.
 - `npm run build` locally needs NODE_OPTIONS=--max-old-space-size=6144.
+- Before a rebuild, check :3000 with `netstat -ano | grep LISTENING | grep :3000` (Get-NetTCPConnection missed an old
+  server on 2026-11-05, so the new build could not start). To start the server alone (no build): run
+  `D:\Gitinash.exe` with a script that does `cd /c/Users/chala/sos-build && npx next start -p 3000 > tools/app.log`.

@@ -14,6 +14,8 @@ import { MoneyProblem } from "./problem";
 import { lockDues, refreshBalances } from "./dues";
 import { feeSettings } from "./settings";
 import { concessionTypeLabel, percentWord } from "./words";
+import { isScreenMessage } from "./reason-words";
+export { isScreenMessage, shownReason } from "./reason-words";
 
 export type ConcessionInput = {
   studentId: string;
@@ -113,11 +115,6 @@ export async function concessionHeadChoices(tx: Tx, studentId: string) {
   const start = list.find((h) => h.kind === "tuition") ?? list.find((h) => /tuition/i.test(h.name)) ?? list[0] ?? null;
   return { heads: list.map((h) => ({ id: h.id, name: h.name })), startId: start?.id ?? null };
 }
-
-/** A screen's own error sentence must never be saved as a reason (QA issue 31). */
-export const isScreenMessage = (s: string) => /need the principal.s approval|give a reason of at least|ask for approval/i.test(s);
-/** What the lists show for a reason: old rows that hold an error sentence read "No reason given". */
-export const shownReason = (s: string) => (isScreenMessage(s) ? "No reason given" : s);
 
 function checkInput(input: ConcessionInput) {
   if (input.reason.trim().length < 5 || isScreenMessage(input.reason)) throw new MoneyProblem("Give a reason of at least 5 characters.", "reason");

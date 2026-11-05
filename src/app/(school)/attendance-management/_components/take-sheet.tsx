@@ -73,6 +73,7 @@ export function TakeSheet(p: Props) {
   const [confirmAll, setConfirmAll] = useState(false);
   const [noteFor, setNoteFor] = useState<string | null>(null);
   const [problem, setProblem] = useState<{ text: string; link?: { href: string; label: string } } | null>(null);
+  const lockedProblem = { text: `Locked at ${p.lockText}. To change a mark, use Request a correction.`, link: { href: p.correctionHref, label: "Request a correction" } };
   const [pending, startTransition] = useTransition();
   const clientId = useRef<string>(newClientId());
   const pressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -276,14 +277,15 @@ export function TakeSheet(p: Props) {
                     const sk = byKey.get(k)!;
                     const on = v === k;
                     return (
-                      <button key={k} type="button" role="radio" aria-checked={on} aria-label={sk.name} disabled={readOnly}
-                        onClick={() => { if (longPressed.current) { longPressed.current = false; return; } set(s.id, { statusKey: k }); }}
+                      <button key={k} type="button" role="radio" aria-checked={on} aria-label={sk.name} aria-disabled={readOnly || undefined}
+                        onClick={() => { if (readOnly) { setProblem(lockedProblem); return; } if (longPressed.current) { longPressed.current = false; return; } set(s.id, { statusKey: k }); }}
                         onPointerDown={() => { if (readOnly) return; longPressed.current = false; pressTimer.current = setTimeout(() => { longPressed.current = true; setNoteFor(s.id); }, 550); }}
                         onPointerUp={() => { if (pressTimer.current) clearTimeout(pressTimer.current); }}
                         onPointerLeave={() => { if (pressTimer.current) clearTimeout(pressTimer.current); }}
                         onContextMenu={(e) => { e.preventDefault(); if (!readOnly) setNoteFor(s.id); }}
-                        className={cx("w-10 h-10 md:w-11 md:h-11 rounded-xl border text-[14px] font-bold transition select-none disabled:cursor-not-allowed",
-                          on ? STATUS_ON[sk.tone] ?? STATUS_ON.neutral : "border-line text-ink3 hover:border-ink3/60 hover:text-ink")}>
+                        className={cx("w-10 h-10 md:w-11 md:h-11 rounded-xl border text-[14px] font-bold transition select-none",
+                          on ? STATUS_ON[sk.tone] ?? STATUS_ON.neutral : readOnly ? "border-line/60 text-ink3/50 bg-sunken/50 cursor-not-allowed" : "border-line text-ink3 hover:border-ink3/60 hover:text-ink",
+                          readOnly && on && "cursor-not-allowed")}>
                         {sk.letter}
                       </button>
                     );
@@ -294,6 +296,7 @@ export function TakeSheet(p: Props) {
           );
         })}
       </ul>
+      {!readOnly && extraStatuses.length > 0 && <p className="text-[12.5px] text-ink3 mt-2"><Words k="For other marks such as Half-day or Leave, press and hold a student's button (right-click on a computer)." /></p>}
       {list.length === 0 && <p className="text-center text-ink3 py-10"><Words k="No student called “" />{q}<Words k="” in" /> {p.sectionName}.</p>}
 
       {/* Save bar */}

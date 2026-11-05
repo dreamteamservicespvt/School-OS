@@ -51,6 +51,7 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 - Issue 2 looks fixed for School Admin: the list now shows "All classes 2 / class 1 1 / class 2 1". Still to verify as Class Teacher ("My class") and with a class that has 0 students.
 
 ## 7. Import review page says "0 rows" for a file that has rows (Open, Medium, found 2026-11-04)
+- **Status:** FIXED 2026-11-05: before any column is matched the header counts the file's filled rows (src/components/import/file-review.tsx). No unit test (server page); check by hand
 - **Where:** Student Management → Import → Continue on Dream_Valley_Students_100.csv. Header: "Students · 0 rows", but the "Your file" preview lists rows.
 - **Risk:** an admin thinks the file is empty or the upload failed.
 - **Fix wanted:** show the real row count (100) once the file is read, or "Reading the file…" until then. Add a test.
@@ -70,6 +71,7 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 - **Fix wanted:** decide whether every login should have a staff record; show Department/Designation clearly; explain gaps in staff codes (removed records) or avoid gaps.
 
 ## 12. Students just brought in show "₹20,000 overdue" on the day they join (Open, Medium, found 2026-11-04)
+- **Status:** FIXED 2026-11-05 for new rows: a term whose date has passed is due on the student's joining day (dueDateForStudent in src/lib/fees/structure.ts); the full year is still owed. Test tests/fees/late-joiner.test.ts. Rows made before the fix keep their old dates (owner decision: fix the test school's 30 by hand or leave)
 - **Where:** Student Management → Student List, after importing 30 students (admission date left empty = today). Every new student shows a red "₹20,000 overdue" chip.
 - **Why it matters:** a clerk sees every new child as overdue the minute they are admitted. Probably the class fee plan puts all terms (including ones whose due date already passed) on the student.
 - **Fix wanted:** decide the rule: a new admission should owe only terms still to come, or show earlier terms as "due now" with a clear note; the importer should say what the fee plan will add before bringing students in. Test it.
@@ -80,16 +82,19 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 - **Fix wanted:** the badge should say "Two-step login: not set up yet" (amber) with a button to fix it.
 
 ## 14. Approval shows the system's own sentence as the "Reason given" (Open, Medium, found 2026-11-04)
+- **Status:** FIXED 2026-11-05: Approvals detail and list show "No reason given" for an old error-sentence reason (src/lib/fees/reason-words.ts); new ones are refused since fix 31
 - **Where:** Principal opens "Discount of ₹1,500 for vasundhra". Reason given reads: "Discounts above ₹1,000 need the principal's approval. Ask for approval, then collect once it is approved, or collect without the discount. Reason" (a stray word "Reason" at the end). The accountant's real reason is not shown, so the Principal approves blind.
 - **Fix wanted:** show only what the accountant typed; if empty, say "No reason given". (Request was made before fix 5; re-test with a fresh request from Accountant.)
 - Approve itself worked: button shows "Approving...", then "Approved. The person who asked has been told." Good.
 
 ## 15. Fee numbers on the Principal dashboard contradict each other (Open, High, found 2026-11-04)
+- **Status:** FIXED 2026-11-05: the Fee collection chart counts the year's rows like the tile; a term dated before the year's first day lands in the first month (monthlyTrend yearId). Test tests/fees/late-joiner.test.ts
 - **Where:** Dashboard. Fee collection says "₹35k of ₹8 L due so far · 4%" but right below "No fees have fallen due this year yet." Needs-attention says "₹5,25,000 overdue from 30 students, more than 30 days late".
 - **Why it matters:** the Principal gets three different stories about money.
 - **Fix wanted:** one source of truth for "due so far"; show the same figure in all three places.
 
 ## 16. Brand-new students are "147 days late" (Open, High, found 2026-11-04; same root as issue 12)
+- **Status:** FIXED 2026-11-05 with issue 12 (new admissions are due today, so not on Defaulters). The Send dialog already shows count, cost, preview and "cannot be unsent"
 - **Where:** Fee Management → Defaulters. Students admitted today show oldest due 10-06-2026 and "147 days"; all 30 land in "Over 90 days". The big blue button "Send reminder to all 30" would tell new parents they are almost five months late.
 - **Fix wanted:** same rule as issue 12 (a new admission owes only terms due after joining), plus a warning before "Send reminder to all".
 
@@ -99,10 +104,12 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 - Dashboard says "Good evening" with the top badge counts changing (approvals bell 1 to none) only after a full reload.
 
 ## 18. A Class Teacher with no section is stuck, and the Principal is not told (Open, Medium, found 2026-11-04)
+- **Status:** PARTLY 2026-11-05: Principal/Academic head dashboard item "N sections have no class teacher" (academic.no-class-teacher). Asking for the section when the role is given: not done
 - **Where:** KUSUMA has the role "Class Teacher" but Attendance says "No class to take... Ask the principal". Nothing tells the Principal that a Class Teacher has no section. Fix by hand: Academic Management → Classes & Sections → Edit → Class teacher (easy once found; worked, "class 1 A saved").
 - **Fix wanted:** when a role of Class Teacher is given, ask which section; or show the Principal a "Class teacher not set" item on the dashboard. Class 2 A still has none.
 
 ## 19. Locked attendance: buttons look live, tapping does nothing (Open, Medium, found 2026-11-04)
+- **Status:** FIXED 2026-11-05: locked P/A/L look greyed and a tap says "Locked at 11:00 AM. To change a mark, use Request a correction." with the link; a hint says press and hold for Half-day, Leave and other marks (hi/te added)
 - **Where:** Attendance after 11:00 AM. The yellow lock banner is at the top, but P / A / L buttons still look normal; tapping P changes nothing, no message.
 - **Fix wanted:** grey the buttons out when locked, and if tapped say "Locked at 11:00 AM. Use Request a correction." Also: "L" is Late only; Leave and the other 4 statuses (Half-day, Excused, Leave, Medical) cannot be picked on this screen, so a teacher does not know where to mark "on leave". Show the words, or a "More" choice.
 
@@ -171,6 +178,7 @@ Done: datesheet created and published as Principal (26-28); KUSUMA Marks Entry (
 - Good: refund form is plain ("Not more than Rs 5,000 (paid, minus earlier refunds)"), every refund goes to Approvals, and the page counts "1 refund waiting".
 
 ## 33. Refund marked "paid back" lowers the fee total instead of raising what is left (Open, High, found 2026-11-04, owner decision)
+- **Status:** WAITING on owner 2026-11-05: today a refund is an adjustment (lowers the fee and Paid; blueprint lists refunds under adjustments). Not changed
 - Tarun Prasad (class 1 A): fee 20,000. Paid 5,000 cash. Discount 3,000 approved: Year 17,000, Paid 5,000, Left 12,000 (correct). Then a refund of 1,000 was approved and marked refunded (cash given back): the screen now says Year 16,000, Paid 4,000, Left 12,000. The money went back, but the family still owes 12,000 on a 16,000 fee; it should be Year 17,000, Paid 4,000, Left 13,000 (unless the refund is for an overpayment, which this was not).
 - **Fix wanted:** a refund only reduces Paid. Decide with the owner whether a refund is also allowed when the student has dues (the form could warn "Student still owes Rs 12,000, refund anyway?"). Add a test for Year/Paid/Left after discount + refund.
 - Good, same flow: Principal's Approvals showed both requests with the reason and the asker; approving told the asker; Refunds tab showed "Approved, to pay", then "Mark refunded" with date, reference and account.

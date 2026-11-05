@@ -37,6 +37,8 @@ export function inviteSentWords(sent: InviteSent | null | undefined): string {
 }
 
 const TAKEN = new Set(["SENT", "DELIVERED", "READ"]);
+/** Recorded by Test mode: nobody got it (same rule as inTestMode in communication/history.ts). */
+const inTestMode = (r: { provider: string | null; status: string }) => r.provider === "sandbox" && r.status !== "FAILED" && r.status !== "QUEUED" && r.status !== "SENDING";
 const WORD_OF: Record<string, string> = WORD;
 
 /** Hands a queued invite to WhatsApp, SMS and email at once (as code-now.ts does for codes) and says
@@ -51,18 +53,26 @@ export async function confirmInviteSent(ctx: SchoolContext, sent: InviteSent | n
   } catch (e) {
     console.error(JSON.stringify({ level: "error", event: "invite-deliver-now-failed", school: ctx.schoolId, message: messageId, error: e instanceof Error ? e.message : String(e) }));
   }
-  const rows = await withSchool(job, (tx) => tx.messageRecipient.findMany({ where: { messageId }, select: { channel: true, status: true, failReason: true } }));
+  const rows = await withSchool(job, (tx) => tx.messageRecipient.findMany({ where: { messageId }, select: { channel: true, status: true, failReason: true, provider: true } }));
   const sentBy: string[] = [];
   const pending: string[] = [];
   const failed: string[] = [];
+  const test: string[] = [];
   for (const channel of [...new Set(rows.map((r) => r.channel))]) {
     const mine = rows.filter((r) => r.channel === channel);
     const word = WORD_OF[channel] ?? channel;
-    if (mine.some((r) => TAKEN.has(r.status))) sentBy.push(word);
+    // Test mode records the message as sent but nobody gets it: never "sent" (live check 2026-11-05).
+    if (mine.some((r) => TAKEN.has(r.status) && !inTestMode(r))) sentBy.push(word);
+    else if (mine.some(inTestMode)) test.push(word);
     else if (mine.every((r) => r.status === "FAILED")) failed.push(`${word} did not take it (${(mine.find((r) => r.failReason)?.failReason ?? "the provider refused it").replace(/\.$/, "")})`);
     else pending.push(word);
   }
-  const notes = [...(failed.length ? [`${failed.join("; ")}.${sentBy.length || pending.length ? "" : " Copy the link and send it yourself."}`] : []), ...(sent.note ? [sent.note] : [])];
+  const nothingWent = !sentBy.length && !pending.length;
+  const notes = [
+    ...(failed.length ? [`${failed.join("; ")}.${nothingWent && !test.length ? " Copy the link and send it yourself." : ""}`] : []),
+    ...(test.length ? [`Not sent: ${test.join(" and ")} ${test.length === 1 ? "is" : "are"} in Test mode (Settings, SMS, WhatsApp & Email).${nothingWent ? " Copy the link and send it yourself." : ""}`] : []),
+    ...(sent.note ? [sent.note] : []),
+  ];
   return { sentBy, pending, note: notes.join(" ") || null, messageId };
 }
 

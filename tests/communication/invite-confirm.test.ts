@@ -25,11 +25,16 @@ describe("the invite words follow what really happened", () => {
     const queued = await withSchool(s.ctx, (tx) => sendInviteMessage(tx, s.ctx, { id: s.teacher.id, displayName: "Teacher Person", phone: "9876543277", email: null }, "confirm-invite-nonce-1"));
     expect(queued.sentBy).toEqual(["WhatsApp"]);
     const confirmed = await confirmInviteSent(s.ctx, queued);
-    const rows = await withSchool(s.ctx, (tx) => tx.messageRecipient.findMany({ where: { messageId: queued.messageId! }, select: { status: true, failReason: true } }));
+    const rows = await withSchool(s.ctx, (tx) => tx.messageRecipient.findMany({ where: { messageId: queued.messageId! }, select: { status: true, failReason: true, provider: true } }));
     expect(rows.length).toBe(1);
     // No longer waiting in the queue: the provider was asked while the person waited.
     expect(rows[0].status).not.toBe("QUEUED");
-    if (["SENT", "DELIVERED", "READ"].includes(rows[0].status)) expect(confirmed?.sentBy).toEqual(["WhatsApp"]);
+    if (rows[0].provider === "sandbox" && rows[0].status !== "FAILED") {
+      // Test mode records it as sent but nobody gets it: the screen must not say "sent".
+      expect(confirmed?.sentBy).toEqual([]);
+      expect(confirmed?.note).toContain("Not sent: WhatsApp is in Test mode");
+      expect(confirmed?.note).toContain("Copy the link");
+    } else if (["SENT", "DELIVERED", "READ"].includes(rows[0].status)) expect(confirmed?.sentBy).toEqual(["WhatsApp"]);
     else if (rows[0].status === "FAILED") {
       expect(confirmed?.sentBy).toEqual([]);
       expect(confirmed?.note).toContain("WhatsApp did not take it");

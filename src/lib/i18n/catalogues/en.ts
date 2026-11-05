@@ -14833,6 +14833,7 @@ export const EN = [
   "Step 3: a class teacher takes the daily attendance, so needs a login with the Class Teacher role. Tick Class Teacher in step 2, or choose \"Not a class teacher\".",
   "Step 3: {section} already has a class teacher, {name}. Choose another section, or change it in Academic Management, Classes & Sections.",
   "Step 3: the section chosen for class teacher is not in this academic year. Choose again.",
+  "For other marks such as Half-day or Leave, press and hold a student's button (right-click on a computer).",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

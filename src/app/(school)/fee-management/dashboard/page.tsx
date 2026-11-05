@@ -88,7 +88,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
     const mine = (studentId: string) => !onCampus || onCampus.has(studentId);
     const [tiles, trend, modes, failed, waiting, list, counts, fc, promises] = await Promise.all([
       feeTiles(tx, viewer, today),
-      p.year ? monthlyTrend(tx, p.year.startDate, p.year.endDate, only) : Promise.resolve([]),
+      p.year ? monthlyTrend(tx, p.year.startDate, p.year.endDate, only, p.year.id) : Promise.resolve([]),
       modeBreakdown(tx, period === "today" ? today : monthStart(today), today, only),
       failedOnline(tx, addDays(today, -7), only),
       tx.payment.findMany({ where: { ...only, status: "WAITING" }, orderBy: { paidAt: "asc" }, select: { id: true, amountPaise: true } }),

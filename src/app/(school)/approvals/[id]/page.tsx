@@ -19,6 +19,7 @@ import * as I from "lucide-react";
 import { DecisionBar } from "./decision-bar";
 import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
+import { shownReason } from "@/lib/fees/reason-words";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -103,7 +104,7 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
               {step && <Detail label="Step">{step}</Detail>}
               {facts.map((f) => <Detail key={f.label} label={f.label}>{f.value}</Detail>)}
             </dl>
-            {a.reason && <div className="mt-4 rounded-xl bg-sunken/60 px-4 py-3"><p className="text-[12.5px] text-ink3"><Words k="Reason given" /></p><p className="whitespace-pre-line text-[14.5px] mt-0.5">{a.reason}</p></div>}
+            {a.reason && <div className="mt-4 rounded-xl bg-sunken/60 px-4 py-3"><p className="text-[12.5px] text-ink3"><Words k="Reason given" /></p><p className="whitespace-pre-line text-[14.5px] mt-0.5">{shownReason(a.reason)}</p></div>}
             {record && <p className="mt-4"><Link href={record.href} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand hover:underline"><I.ExternalLink size={16} aria-hidden="true" />{record.label}</Link></p>}
           </CardBody>
         </Card>

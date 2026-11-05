@@ -14286,4 +14286,5 @@ export const hi: Catalogue = {
   "Step 3: a class teacher takes the daily attendance, so needs a login with the Class Teacher role. Tick Class Teacher in step 2, or choose \"Not a class teacher\".": "चरण 3: कक्षा शिक्षक रोज़ की हाज़िरी लेते हैं, इसलिए उन्हें Class Teacher भूमिका वाला लॉगिन चाहिए। चरण 2 में Class Teacher पर टिक करें, या \"कक्षा शिक्षक नहीं\" चुनें।",
   "Step 3: {section} already has a class teacher, {name}. Choose another section, or change it in Academic Management, Classes & Sections.": "चरण 3: {section} के कक्षा शिक्षक पहले से {name} हैं। दूसरा सेक्शन चुनें, या इसे शैक्षणिक प्रबंधन, कक्षाएँ और सेक्शन में बदलें।",
   "Step 3: the section chosen for class teacher is not in this academic year. Choose again.": "चरण 3: कक्षा शिक्षक के लिए चुना गया सेक्शन इस शैक्षणिक वर्ष में नहीं है। फिर से चुनें।",
+  "For other marks such as Half-day or Leave, press and hold a student's button (right-click on a computer).": "हाफ़-डे या छुट्टी जैसे दूसरे निशानों के लिए, छात्र का बटन दबाकर रखें (कंप्यूटर पर राइट-क्लिक करें)।",
 };

@@ -673,14 +673,24 @@ export async function copyStructure(tx: Tx, ctx: SchoolContext, fromId: string, 
 
 type InstallmentRow = { id: string; feeHeadId: string; label: string; amountPaise: bigint; dueDate: Date; structureId: string };
 
+/**
+ * When a student's row falls due: the installment's date, or the day they join
+ * when that is later. A child admitted in November still owes the June term,
+ * but it is due on the day they join, never "147 days late" (live test 12, 16).
+ */
+export function dueDateForStudent(installmentDue: Date, joiningDate: Date | null | undefined): Date {
+  return joiningDate && joiningDate.getTime() > installmentDue.getTime() ? joiningDate : installmentDue;
+}
+
 /** Makes a student's due rows for installments they do not have yet. */
 async function createDues(tx: Tx, ctx: SchoolContext, studentId: string, yearId: string, structureId: string, installments: InstallmentRow[], exceptionReason: string | null = null) {
   if (!installments.length) return 0;
   const existing = await tx.studentFeeDue.findMany({ where: { studentId, installmentId: { in: installments.map((i) => i.id) } }, select: { installmentId: true } });
   const have = new Set(existing.map((e) => e.installmentId));
+  const joined = (await tx.student.findUnique({ where: { id: studentId }, select: { joiningDate: true } }))?.joiningDate ?? null;
   const data: Prisma.StudentFeeDueCreateManyInput[] = installments.filter((i) => !have.has(i.id)).map((i) => ({
     schoolId: ctx.schoolId, studentId, academicYearId: yearId, installmentId: i.id, structureId, feeHeadId: i.feeHeadId, kind: "FEE",
-    label: i.label, dueDate: i.dueDate, amountPaise: i.amountPaise, balancePaise: i.amountPaise, exceptionReason, createdById: ctx.userId,
+    label: i.label, dueDate: dueDateForStudent(i.dueDate, joined), amountPaise: i.amountPaise, balancePaise: i.amountPaise, exceptionReason, createdById: ctx.userId,
   }));
   if (data.length) await tx.studentFeeDue.createMany({ data });
   return data.length;
@@ -702,7 +712,8 @@ export async function hasFeePlan(tx: Tx, studentId: string, yearId: string) {
 
 /**
  * Assigns a published structure to every student of its class this year who
- * has no fee plan yet (all installments, including past ones). Students who
+ * has no fee plan yet (all installments, including past ones; a past one is due on
+ * the day the student joined, see dueDateForStudent). Students who
  * follow another structure of the year are left as they are.
  */
 export async function assignToClass(tx: Tx, ctx: SchoolContext, structureId: string, categoryFeesOn: boolean) {

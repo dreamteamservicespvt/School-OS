@@ -9,7 +9,7 @@ import Link from "next/link";
 import { BedDouble, DoorOpen, History, ListChecks, ReceiptIndianRupee } from "lucide-react";
 import type { Current } from "../current";
 import { withSchool } from "../db";
-import { formatDate, formatRupees } from "../format";
+import { formatDate, formatRupees, formatTime } from "../format";
 import { registerProfileTab, type ProfileTabArgs } from "../students/profile-tabs";
 import { hostelViewer, pageOpen } from "./access";
 import { activeBedOf, bedHistory, hostelAsked, residentStatus } from "./allocation";
@@ -56,7 +56,7 @@ export async function HostelPanel({ current, studentId }: { current: Current; st
             <p className="flex items-center gap-2 flex-wrap"><b className="font-semibold">{d.bed.hostel.name}</b> · {d.bed.words} · {d.bed.room.floor} floor{d.bed.room.roomType ? ` · ${d.bed.room.roomType}` : ""} {st && <Pill tone={st.tone}>{st.label}</Pill>}</p>
             <p className="text-ink3 text-[13px]">Since {formatDate(d.bed.allocation.startDate, "UTC")}{d.bed.allocation.checkedInAt ? `, checked in ${formatDate(d.bed.allocation.checkedInAt, tz)}` : ", not arrived yet"}</p>
             {d.wardens.length > 0 && <p className="text-ink3 text-[13px]">Warden: {d.wardens.map((w) => `${w.name}${w.title !== "Warden" ? ` (${w.title.toLowerCase()})` : ""}`).join(", ")}</p>}
-            {d.out && <p className="text-[13px]">Out on pass {d.out.passNo} with {d.out.collectorName}, back by {d.out.toAt ? formatDate(d.out.toAt, tz) : ""} {d.out.toAt ? new Intl.DateTimeFormat("en-IN", { timeZone: tz, hour: "numeric", minute: "2-digit" }).format(d.out.toAt) : ""}.</p>}
+            {d.out && <p className="text-[13px]">Out on pass {d.out.passNo} with {d.out.collectorName}, back by {d.out.toAt ? formatDate(d.out.toAt, tz) : ""} {d.out.toAt ? formatTime(d.out.toAt, tz) : ""}.</p>}
           </div>
         ) : d.asked && !d.history.length ? (
           <div className="px-5 py-4 flex flex-col gap-1.5 text-[13.5px]">

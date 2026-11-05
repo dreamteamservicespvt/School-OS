@@ -1,6 +1,8 @@
 // Words, tones and small calculations shared by the Homework & Learning
 // screens, exports and tests. No database, so browser code may use them too.
 
+import { formatTime } from "../format";
+
 export type Tone = "ok" | "warn" | "bad" | "info" | "brand" | "neutral";
 
 /** Homework status (17 §2, inferred): Current until the due date, then Past due while work is left to check, then Closed. */
@@ -72,7 +74,7 @@ export function momentWords(at: Date, timeZone: string) {
 
 /** "6:07 PM" in the school's zone. */
 export function clockWords(at: Date, timeZone: string) {
-  return at.toLocaleTimeString("en-IN", { timeZone, hour: "numeric", minute: "2-digit", hour12: true }).toUpperCase();
+  return formatTime(at, timeZone);
 }
 
 export const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;

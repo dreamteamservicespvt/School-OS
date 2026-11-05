@@ -14,6 +14,7 @@ import { assertBooksOpen, assertNotFuture } from "../finance/years";
 import { MoneyProblem } from "./problem";
 import { lockDues, refreshBalances, studentCard } from "./dues";
 import { modeLabel } from "./words";
+import { paymentRefProblem } from "../payment-ref";
 import { lockPayment } from "./cancel";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -80,6 +81,8 @@ export async function markRefunded(tx: Tx, ctx: SchoolContext, refundId: string,
   if (r.status === "REFUNDED") throw new MoneyProblem("This refund is already marked refunded.");
   if (r.status !== "APPROVED") throw new MoneyProblem("A refund can be paid only after it is approved.");
   if (r.mode !== "CASH" && !input.reference) throw new MoneyProblem(`Enter the ${r.mode === "CHEQUE" ? "cheque number" : "transaction or UTR number"}.`, "reference");
+  const refProblem = paymentRefProblem(r.mode, input.reference);
+  if (refProblem) throw new MoneyProblem(refProblem, "reference");
   await assertNotFuture(tx, ctx, input.date, "date", "The date refunded");
   await assertBooksOpen(tx, ctx, input.date, "date");
   const p = await tx.payment.findUniqueOrThrow({ where: { id: r.paymentId }, include: { allocations: { orderBy: { createdAt: "desc" } } } });

@@ -23,6 +23,7 @@ import { advanceHeld, DUE_WINDOW_DAYS, lockDues, openDues, refreshBalances, stud
 import { counterAllowed, featureOn, feeSettings, type FeeSettings } from "./settings";
 import { bulkDiscountFor, recordAppliedLines, spread } from "./concessions";
 import { modeLabel, NEEDS_REFERENCE } from "./words";
+import { paymentRefProblem } from "../payment-ref";
 import { placeOfSupply, taxLines } from "./tax";
 import { sendFeePaid } from "./notify-parents";
 import { settlePromises } from "./promises";
@@ -70,6 +71,8 @@ function checkMode(input: Pick<CollectInput, "mode" | "reference" | "chequeNo" |
   if (counter && input.mode === "GATEWAY") throw new MoneyProblem("Gateway payments come only from the gateway. Send a payment link instead.", "mode");
   if (NEEDS_REFERENCE.includes(input.mode) && !input.reference) throw new MoneyProblem(`Enter the transaction or UTR number for ${modeLabel(input.mode)}.`, "reference");
   if (input.reference && input.reference.length > 60) throw new MoneyProblem("Reference can be at most 60 characters.", "reference");
+  const refProblem = paymentRefProblem(input.mode, input.reference);
+  if (refProblem) throw new MoneyProblem(refProblem, "reference");
   if (input.mode === "CHEQUE") {
     if (!input.chequeNo || !/^\d{6}$/.test(input.chequeNo)) throw new MoneyProblem("Cheque number is 6 digits.", "chequeNo");
     if (!input.chequeBank) throw new MoneyProblem("Enter the bank of the cheque.", "chequeBank");

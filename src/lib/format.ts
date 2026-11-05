@@ -38,6 +38,25 @@ export function formatTime(date: Date, timeZone = "Asia/Kolkata"): string {
     .replace(/\s?(am|pm)$/i, (m) => ` ${m.trim().toUpperCase()}`);
 }
 
+/**
+ * A stored clock time ("07:00", "13:40", "7:05", "21:45:00") shown in 12-hour time:
+ * "7:00 AM", "1:40 PM". The one place that turns "HH:MM" text into screen words.
+ * Anything that is not a clock time comes back unchanged.
+ */
+export function formatClock(hhmm: string | null | undefined): string {
+  const s = hhmm ?? "";
+  const m = /^\s*(\d{1,2}):(\d{2})(?::\d{2})?\s*$/.exec(s);
+  if (!m) return s;
+  const h = Number(m[1]);
+  if (h > 23 || Number(m[2]) > 59) return s;
+  return `${h % 12 === 0 ? 12 : h % 12}:${m[2]} ${h < 12 ? "AM" : "PM"}`;
+}
+
+/** "07:00" and "08:00" as "7:00 AM to 8:00 AM". */
+export function formatClockRange(start: string | null | undefined, end: string | null | undefined): string {
+  return `${formatClock(start)} to ${formatClock(end)}`;
+}
+
 export function formatDateTime(date: Date, timeZone = "Asia/Kolkata"): string {
   return `${formatDate(date, timeZone)}, ${formatTime(date, timeZone)}`;
 }

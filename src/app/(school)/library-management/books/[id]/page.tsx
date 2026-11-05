@@ -13,7 +13,7 @@ import { dateWhere } from "@/lib/periods";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { Button, ButtonLink } from "@/components/ui/button";
-import { inputCls } from "@/components/ui/field";
+import { inputCls } from "@/components/ui/input-style";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { Stats, Split, Col, Stack, DataList, Empty, DL } from "@/components/money/kit";
 import { cx } from "@/components/ui/cx";

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { CalendarDays, Clock, Fingerprint, History, Info, Minus, PencilLine, QrCode, Smartphone, Timer, UserCheck, UserX, Users, ArrowLeft, Building2, X } from "lucide-react";
 import { withSchool } from "@/lib/db";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatTime } from "@/lib/format";
 import { day, eachDay, isoDay, monthEnd, monthLabel, monthStart } from "@/lib/staff/dates";
 import { attendancePage, onCampusFromPage } from "@/lib/attendance/page";
 import { BASE, correctionAllowed, staffAllowed, staffIdLimit, staffLimit } from "@/lib/attendance/access";
@@ -210,8 +210,8 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
         <>
           <Stats items={[
             { label: isToday ? "Today" : dayText(date), value: me.mark ? byKey.get(me.mark.statusKey)?.name ?? me.mark.statusKey : me.onLeave ? "On leave" : "Not marked", icon: UserCheck, tone: me.mark?.statusKey === "present" ? "ok" : me.mark && isLate(me) ? "warn" : undefined },
-            { label: "In", value: me.mark?.inTime ? clockHHMM(me.mark.inTime, tz) : "—", sub: `Starts ${time12(me.shift.startTime)}`, icon: Clock },
-            { label: "Out", value: me.mark?.outTime ? clockHHMM(me.mark.outTime, tz) : "—", icon: Clock },
+            { label: "In", value: me.mark?.inTime ? formatTime(me.mark.inTime, tz) : "—", sub: `Starts ${time12(me.shift.startTime)}`, icon: Clock },
+            { label: "Out", value: me.mark?.outTime ? formatTime(me.mark.outTime, tz) : "—", icon: Clock },
             { label: "Source", value: me.mark ? METHOD_WORDS[me.mark.method] ?? me.mark.method : "—", icon: Fingerprint },
           ]} />
           <Card>
@@ -228,7 +228,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
           { label: "Present", value: `${present} of ${total}`, sub: total ? `${Math.round((present / total) * 1000) / 10}% · ${late.length} of them late` : "No staff", tone: "ok", icon: UserCheck, href: qs({ status: null }) },
           { label: "Late", value: late.length, sub: late.length ? `${lateAvg} min late on average` : "Nobody late", tone: late.length ? "warn" : undefined, icon: Clock, href: qs({ status: "late" }) },
           { label: "On leave", value: leave.length, sub: "Approved in Staff & HR", icon: CalendarDays, href: qs({ status: "leave" }) },
-          { label: isToday ? "Not in yet" : "Not marked", value: missing.length, sub: missing.length ? (isToday ? `No punch by ${new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz }).format(now)}` : "No mark that day") : "Everyone is in", tone: missing.length ? "bad" : "ok", icon: UserX, href: qs({ status: "not-marked" }) },
+          { label: isToday ? "Not in yet" : "Not marked", value: missing.length, sub: missing.length ? (isToday ? `No punch by ${formatTime(now, tz)}` : "No mark that day") : "Everyone is in", tone: missing.length ? "bad" : "ok", icon: UserX, href: qs({ status: "not-marked" }) },
         ]} />
         {!data.info.on && <Banner tone="warn" title={offDayMessage(data.info, date)}><Words k={"If the school opens that day, turn on \"allow attendance\" for the date in the School Calendar."} /></Banner>}
         {tiles.length > 1 && (
@@ -275,10 +275,10 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
               actions={(r) => <RowMenu label={`Actions for ${r.name}`} items={menu(r)} />}
               columns={[
                 { key: "name", label: "Staff", render: (r) => <div className="flex items-center gap-3 min-w-0"><Avatar name={r.name} size={34} /><div className="min-w-0"><p className="font-semibold leading-tight whitespace-nowrap">{r.name}</p><p className="text-[12.5px] text-ink3 truncate">{r.designation} · {r.department ?? "No department"}</p></div></div> },
-                { key: "in", label: "Came in", render: (r) => r.mark?.inTime ? <div className="whitespace-nowrap"><p className="tnum leading-tight">{clockHHMM(r.mark.inTime, tz)}{r.mark.outTime ? <span className="text-ink3"> <Words k="to" /> {clockHHMM(r.mark.outTime, tz)}</span> : null}</p>{source(r)}</div> : <span className="text-ink3">—</span> },
+                { key: "in", label: "Came in", render: (r) => r.mark?.inTime ? <div className="whitespace-nowrap"><p className="tnum leading-tight">{formatTime(r.mark.inTime, tz)}{r.mark.outTime ? <span className="text-ink3"> <Words k="to" /> {formatTime(r.mark.outTime, tz)}</span> : null}</p>{source(r)}</div> : <span className="text-ink3">—</span> },
                 { key: "st", label: "Status", render: (r) => <div>{statusPill(r)}{r.onLeave && r.mark?.statusKey !== "leave" && <p className="text-[11.5px] text-ink3 mt-0.5"><Words k="Approved leave" /></p>}{r.overtimeMinutes > 0 && <p className="text-[11.5px] text-ink3 mt-0.5"><Words k="Overtime" /> {minutesText(r.overtimeMinutes)}</p>}</div> },
               ]}
-              mobile={(r) => ({ avatar: r.name, title: r.name, sub: `${r.designation} · ${r.mark?.inTime ? `in ${clockHHMM(r.mark.inTime, tz)}` : r.onLeave ? "on leave" : "no punch yet"}`, right: statusPill(r) })}
+              mobile={(r) => ({ avatar: r.name, title: r.name, sub: `${r.designation} · ${r.mark?.inTime ? `in ${formatTime(r.mark.inTime, tz)}` : r.onLeave ? "on leave" : "no punch yet"}`, right: statusPill(r) })}
               footer={rows.length > 0 ? <p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing" /> {rows.length} <Words k="of" /> {dc.all}</p> : false}
               empty={<EmptyState bare Icon={Users} title={filtered ? "No staff match" : "No staff yet"}>{filtered ? "Try another name, department or status." : "Staff appear here once they are added in Staff & HR Management."}</EmptyState>} />
           </Card>

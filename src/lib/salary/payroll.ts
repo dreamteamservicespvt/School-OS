@@ -26,6 +26,7 @@ import { fromStored } from "./structures";
 import { attachFinesToRun, finesPaidBySalary, releaseFineAdjustment } from "../library/salary";
 import { addMonths, adjustmentLabel, correctionLabel, daysWord, firstOfMonth, lastOfMonth, monthName, payModeLabel } from "./words";
 import { carryCorrections } from "./corrections";
+import { paymentRefProblem } from "../payment-ref";
 
 const ZERO = BigInt(0);
 const n = (d: Prisma.Decimal | number) => Number(d);
@@ -361,6 +362,8 @@ export async function markPaid(tx: Tx, ctx: SchoolContext, runId: string, input:
   if (run.status !== "APPROVED") throw new MoneyProblem(`${monthName(run.month)} is not approved yet. Salary is paid only after approval.`);
   if (!["BANK_TRANSFER", "CHEQUE", "CASH"].includes(input.mode)) throw new MoneyProblem("Choose how it was paid.", "mode");
   if (input.mode !== "CASH" && !input.reference) throw new MoneyProblem(input.mode === "CHEQUE" ? "Enter the cheque numbers." : "Enter the bank batch or UTR reference.", "reference");
+  const refProblem = paymentRefProblem(input.mode, input.reference);
+  if (refProblem) throw new MoneyProblem(refProblem, "reference");
   if (input.date > input.today) throw new MoneyProblem("The date paid cannot be in the future.", "date");
   if (input.date < run.month) throw new MoneyProblem(`The date paid is before ${monthName(run.month)} began.`, "date");
   await assertBooksOpen(tx, ctx, input.date, "date");

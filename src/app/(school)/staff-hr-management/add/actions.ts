@@ -46,6 +46,8 @@ export async function checkDetails(_: FormState<{ duplicates: Duplicate[] }>, fd
 
 export type Created = {
   staffId: string; staffCode: string; name: string; username: string | null; inviteLink: string | null; roles: string[]; allocated: number; phone: string; email: string | null;
+  /** The section they are class teacher of ("Class 1 A"), or null. */
+  classTeacherOf: string | null;
   /** How the invite went out by message, in words ("" when it was not sent). */
   sentWords: string;
   /** The login starts with a temporary password typed by HR. */
@@ -75,6 +77,9 @@ export async function createStaffAction(_: FormState<Created>, fd: FormData): Pr
     if (temporaryPassword === "") throw new FieldProblem("Step 2: type the temporary password, or choose to send an invite link.", "temporaryPassword");
 
     const allocations: AllocationPick[] = fd.getAll("alloc").map(String).map((v) => v.split(":")).filter(([a, b]) => UUID_RE.test(a ?? "") && UUID_RE.test(b ?? "")).map(([sectionId, subjectId]) => ({ sectionId, subjectId }));
+    // Step 3 "Class teacher of": one section at most, kept apart from the subjects taught.
+    const ctPick = str(fd, "classTeacherSectionId");
+    const classTeacherSectionId = UUID_RE.test(ctPick) ? ctPick : null;
     const applicationId = str(fd, "applicationId");
 
     const result = await withSchool(current.ctx, async (tx) => {
@@ -87,7 +92,7 @@ export async function createStaffAction(_: FormState<Created>, fd: FormData): Pr
       const r = await createStaff(tx, current.ctx, { ...d, gender: d.gender ?? null, bloodGroup: d.bloodGroup ?? null, photoFileId },
         giveLogin ? { roleKeys, username: str(fd, "username") || null, exceptions, campusId: str(fd, "accessCampusId") || null, temporaryPassword } : null,
         // One campus: the new staff member joins that campus, and a login opens that campus only (src/lib/staff/staff.ts).
-        allocations, { allowDuplicate: str(fd, "allowDuplicate") === "on", campusLimit: current.campusId });
+        allocations, { allowDuplicate: str(fd, "allowDuplicate") === "on", campusLimit: current.campusId, classTeacherSectionId });
       if (UUID_RE.test(applicationId)) await markHired(tx, current.ctx, applicationId, r.staff.id);
       return r;
     }, { timeout: 30_000 });
@@ -95,7 +100,7 @@ export async function createStaffAction(_: FormState<Created>, fd: FormData): Pr
     return {
       ok: true,
       message: `${result.staff.fullName} added.`,
-      data: { staffId: result.staff.id, staffCode: result.staff.staffCode, name: result.staff.fullName, username: result.username, inviteLink: result.inviteLink, roles: result.roleNames, allocated: result.allocated, phone: result.staff.phone, email: result.staff.email, sentWords: inviteSentWords(result.sent).trim(), temporary: result.temporary },
+      data: { staffId: result.staff.id, staffCode: result.staff.staffCode, name: result.staff.fullName, username: result.username, inviteLink: result.inviteLink, roles: result.roleNames, allocated: result.allocated, classTeacherOf: result.classTeacherOf, phone: result.staff.phone, email: result.staff.email, sentWords: inviteSentWords(result.sent).trim(), temporary: result.temporary },
     };
   } catch (e) {
     return problemState(e, fd) as FormState<Created>;

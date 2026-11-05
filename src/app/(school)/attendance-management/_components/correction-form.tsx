@@ -8,6 +8,7 @@ import { SelectField, TextArea, TextField } from "@/components/ui/field";
 import { ActionForm, type Action } from "../../staff-hr-management/_components/forms";
 import { toneClass, type StatusView } from "./status";
 import { Words } from "@/lib/i18n/client";
+import { NeedOne, ProblemText } from "@/components/ui/form-problems";
 
 export type CorrectionPerson = { id: string; label: string; current: string | null; checked: boolean };
 
@@ -43,7 +44,8 @@ export function CorrectionForm({ action, hidden, people, statuses, forWhom }: {
                 );
               })}
             </ul>
-            {f.err("people") && <p id="people-error" className="mt-1 text-sm text-danger">{f.err("people")}</p>}
+            <NeedOne name="people" message={forWhom === "staff" ? "Tick the staff member to correct." : "Tick at least one student to correct."} />
+            <span id="people-error"><ProblemText name="people" given={f.err("people")} /></span>
           </fieldset>
           <SelectField label="New status" name="status" required placeholder="Choose the new status" error={f.err("status")} defaultValue={f.val("status") ?? ""}
             options={statuses.map((s) => ({ value: s.key, label: `${s.name} (${s.letter})` }))} />

@@ -6,7 +6,7 @@ import { commPage } from "@/lib/communication/access";
 import { COMM_FEATURES } from "@/lib/communication/features";
 import { canReplyFreely, inboxCampusWhere, inboxWhere, QUICK_REPLIES, type InboxTab } from "@/lib/communication/inbox";
 import { childrenByGuardian } from "@/lib/communication/parent-link-admin";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatTime } from "@/lib/format";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Banner } from "@/components/ui/banner";
@@ -28,11 +28,11 @@ const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : "
 
 function when(d: Date, tz: string, now: Date) {
   const day = (x: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: tz }).format(x);
-  if (day(d) === day(now)) return new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz }).format(d).toUpperCase();
+  if (day(d) === day(now)) return formatTime(d, tz);
   if (day(d) === day(new Date(now.getTime() - 86400_000))) return "Yesterday";
   return new Intl.DateTimeFormat("en-IN", { day: "numeric", month: "short", timeZone: tz }).format(d);
 }
-const clock = (d: Date, tz: string) => new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", hour12: true, timeZone: tz }).format(d).toUpperCase();
+const clock = (d: Date, tz: string) => formatTime(d, tz);
 
 export default async function InboxPage({ searchParams }: { searchParams: Search }) {
   const access = await commPage();

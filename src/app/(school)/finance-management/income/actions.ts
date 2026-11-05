@@ -6,6 +6,7 @@ import { MoneyProblem } from "@/lib/fees/problem";
 import { todayIn } from "@/lib/staff/dates";
 import { cancelIncome, postIncome, recordIncome } from "@/lib/finance/income";
 import { financeAction } from "../_lib/action";
+import { paymentRefProblem } from "@/lib/payment-ref";
 
 /** Record income: posted to the Day Book now, or kept as a draft (for example until a cheque clears). */
 export async function recordIncomeAction(_prev: unknown, fd: FormData) {
@@ -14,6 +15,8 @@ export async function recordIncomeAction(_prev: unknown, fd: FormData) {
     const amount = needRupees(fd, "amount", "Amount");
     if (amount > BigInt(100000000)) throw new MoneyProblem("More than ₹10 lakh: check the amount.", "amount");
     const post = str(fd, "post") === "on";
+    const refProblem = paymentRefProblem(mode, str(fd, "reference"));
+    if (refProblem) throw new MoneyProblem(refProblem, "reference");
     const r = await recordIncome(tx, ctx, {
       date: dateOf(fd, "date", "Date"), accountHeadId: id(fd, "accountHeadId", "income head"), amountPaise: amount,
       receivedFrom: text(fd, "receivedFrom", "Received from", { min: 2, max: 120 }), vendorId: null, mode,

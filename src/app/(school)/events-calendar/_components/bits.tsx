@@ -12,6 +12,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { EvIcon } from "./icons";
 import { Words } from "@/lib/i18n/client";
+import { ShareMenu } from "@/components/ui/share-menu";
 
 /** A select whose choices are page addresses (Jump to month, class, campus). */
 export function JumpSelect({ value, options, label, id, className }: { value: string; options: { value: string; label: string; href: string }[]; label: string; id: string; className?: string }) {
@@ -60,11 +61,7 @@ export function ActButton({ action, fields, label, icon, variant = "secondary", 
   );
 }
 
-/** Copies a link to the clipboard. */
-export function CopyLink({ url, label = "Copy" }: { url: string; label?: string }) {
-  return (
-    <Button size="sm" variant="ghost" onClick={() => { void navigator.clipboard?.writeText(url); }}>
-      <EvIcon name="Copy" size={15} />{label}
-    </Button>
-  );
+/** Shares a link: WhatsApp, the phone's share list, or Copy. */
+export function CopyLink({ url, label }: { url: string; label?: string }) {
+  return <ShareMenu text={url} title={label} />;
 }

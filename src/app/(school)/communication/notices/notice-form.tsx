@@ -2,6 +2,7 @@
 
 // Create or change a notice (11-communication.md, Notice Board form).
 import { startTransition, useActionState, useRef, useState } from "react";
+import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 import { saveNoticeAction, type NoticeState } from "./actions";
 import { Button } from "@/components/ui/button";
 import { Alert } from "@/components/ui/alert";
@@ -48,6 +49,8 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
   const [pressed, setPressed] = useState<"draft" | "publish">("draft");
   const err = (k: string) => errors[k] ?? state?.errors?.[k];
   const approval = (parents && data.needsApproval.parents) || data.needsApproval.all;
+  const formRef = useRef<HTMLFormElement>(null);
+  const draft = useFormDraft(formRef, "Notice");
 
   function check(e: React.FormEvent<HTMLFormElement>) {
     const f = new FormData(e.currentTarget);
@@ -67,12 +70,14 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
     }
     // Sent by hand, so what was typed stays on screen if the server finds a problem (P7).
     f.set("intent", intent.current);
+    draft.done();
     startTransition(() => action(f));
   }
 
   return (
-    <form onSubmit={check} className="space-y-5" noValidate>
+    <form ref={formRef} onSubmit={check} className="space-y-5" noValidate>
       {data.id && <input type="hidden" name="id" value={data.id} />}
+      <DraftHint draft={draft} />
       {keep.map((f) => <input key={f.id} type="hidden" name="keepFiles" value={f.id} />)}
       {state && !state.ok && state.message && <Alert tone="danger">{state.message}</Alert>}
 

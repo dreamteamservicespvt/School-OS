@@ -23,6 +23,8 @@ import { FormProblem, MoreDetails, PhoneField, SegField, SubHead, Submit } from 
 import { checkFormCodeAction, saveApplicationAction, sendFormCodeAction } from "./actions";
 import { KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
+import { FormProblems } from "@/components/ui/form-problems";
 
 export type FormClass = { value: string; label: string; previousSchool: boolean; seatsText: string; full: boolean };
 
@@ -69,9 +71,12 @@ export function ApplicationForm(p: Props) {
   const [busy, start] = useTransition();
   const router = useRouter();
   const formRef = useRef<HTMLFormElement>(null);
+  const draft = useFormDraft(formRef, "Application");
   const done = useRef(false);
   useEffect(() => {
-    if (state?.ok && state.data?.id && !done.current) { done.current = true; router.push(`/admission-management/applications/${state.data.id}`); }
+    if (state?.ok && state.data?.id && !done.current) { done.current = true; draft.done(); router.push(`/admission-management/applications/${state.data.id}`); }
+    // draft.done is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, router]);
   const val = (k: keyof ApplicationValues) => state?.values?.[k] ?? (typeof p.values[k] === "string" ? (p.values[k] as string) : undefined);
   const err = (k: string) => state?.errors?.[k];
@@ -102,6 +107,8 @@ export function ApplicationForm(p: Props) {
 
   return (
     <form ref={formRef} action={formAction} noValidate className="flex flex-col gap-5 max-w-3xl">
+      <FormProblems errors={state?.errors}>
+      <DraftHint draft={draft} />
       {p.values.id && <input type="hidden" name="id" value={p.values.id} />}
       {p.values.enquiryId && <input type="hidden" name="enquiryId" value={p.values.enquiryId} />}
       {force && <input type="hidden" name="force" value="1" />}
@@ -251,6 +258,7 @@ export function ApplicationForm(p: Props) {
         <Link href={p.cancelHref} className={buttonClass("secondary")}><Words k="Cancel" /></Link>
         <Submit busyLabel="Saving…">{edit ? "Save changes" : "Save application"}</Submit>
       </div>
+      </FormProblems>
     </form>
   );
 }

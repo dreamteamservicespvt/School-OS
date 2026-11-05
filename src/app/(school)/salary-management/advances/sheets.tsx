@@ -4,10 +4,11 @@ import { useState } from "react";
 import { CircleCheck, CirclePause, CirclePlay, History, SlidersHorizontal } from "lucide-react";
 import { MoreMenu } from "@/components/money/more-menu";
 import { SheetForm, useTyped } from "@/components/ui/url-sheet";
-import { SArea, SDate, SMoney, SSelect, SText } from "@/components/ui/sheet-fields";
+import { SArea, SDate, SMoney, SSelect } from "@/components/ui/sheet-fields";
 import { Segmented } from "@/components/ui/controls";
 import { FieldShell, type Option } from "@/components/ui/field";
 import { closeCashAction, giveAdvanceAction, installmentAction, payAdvanceAction } from "./actions";
+import { PaymentRefField } from "@/components/ui/payment-ref-field";
 
 const inr = (n: number) => `₹${n.toLocaleString("en-IN")}`;
 
@@ -51,7 +52,7 @@ export function PaySheet({ closeHref, advanceId, title, amount, today, banks, ma
     <SheetForm title={title} sub="It goes into the Day Book as money out on this date." closeHref={closeHref} action={payAdvanceAction} submitLabel={`Mark ${amount} paid`} pendingText="Saving…" hidden={{ advanceId }}>
       <SDate name="date" label="Paid on" required start={today} max={today} />
       <SegField name="mode" label="Mode" options={MODES} start="BANK_TRANSFER" onValue={setMode} />
-      {mode !== "CASH" && <SText name="reference" label="Reference" className="font-mono" placeholder="UTR or cheque number" />}
+      {mode !== "CASH" && <PaymentRefField mode={mode} label="Reference" className="font-mono" placeholder="UTR or cheque number" />}
       {mode !== "CASH" && banks.length > 0 && <SSelect name="accountId" label="From account" options={banks} start={mainBank} />}
     </SheetForm>
   );

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 import { ErrorSummary, SelectField, TextField } from "@/components/ui/field";
 import { Alert, FormMessage } from "@/components/ui/alert";
 import { Button, ButtonLink } from "@/components/ui/button";
@@ -10,6 +11,7 @@ import { checkIndianMobile } from "@/lib/format";
 import { inviteAction } from "../actions";
 import { AccessFields, type CampusOption, type RoleOption } from "../access-fields";
 import { Words } from "@/lib/i18n/client";
+import { ShareMenu } from "@/components/ui/share-menu";
 
 type StaffOption = { id: string; name: string; phone: string; email: string | null; designation: string };
 
@@ -18,15 +20,14 @@ function usernameFrom(name: string) {
 }
 
 export function CopyLink({ path, label = "Invite link" }: { path: string; label?: string }) {
-  const [copied, setCopied] = useState(false);
   const full = `${typeof window === "undefined" ? "" : window.location.origin}${path}`;
   return (
     <div className="space-y-1">
       <label htmlFor="invite-link" className="block text-sm font-medium">{label}</label>
       <div className="flex gap-2">
         <input id="invite-link" readOnly value={full} onFocus={(e) => e.target.select()} className="h-11 min-w-0 flex-1 rounded-lg border border-line-strong bg-surface-2 px-3 font-mono text-sm" />
-        <Button onClick={async () => { await navigator.clipboard.writeText(full); setCopied(true); }}>{copied ? "Copied" : "Copy link"}</Button>
       </div>
+      <ShareMenu text={`Your School OS sign-in link (works for 7 days): ${full}`} copyText={full} title="Your School OS login" />
     </div>
   );
 }
@@ -42,6 +43,10 @@ export function InviteForm({ roles, campuses, staff, defaultRoleId, defaultStaff
   const [touchedUser, setTouchedUser] = useState(false);
   const [staffId, setStaffId] = useState(defaultStaffId);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const draft = useFormDraft(formRef, "Invite");
+  const forget = draft.done;
+  useEffect(() => { if (state?.ok) forget(); }, [state, forget]);
 
   if (state?.ok && state.data) {
     return (
@@ -74,7 +79,8 @@ export function InviteForm({ roles, campuses, staff, defaultRoleId, defaultStaff
   };
 
   return (
-    <form action={action} className="max-w-3xl space-y-6" noValidate>
+    <form ref={formRef} action={action} className="max-w-3xl space-y-6" noValidate>
+      <DraftHint draft={draft} />
       <FormMessage state={state} />
       <ErrorSummary errors={state?.errors} />
       {staff.length > 0 && (

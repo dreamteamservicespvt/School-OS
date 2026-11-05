@@ -32,6 +32,7 @@ import type { FormState } from "@/lib/forms";
 import { ActionSheet } from "../_components/sheets";
 import { readMarksSheet, requestChangeAction, saveMarksAction, submitPaperAction, type ImportedRow } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { formatTime } from "@/lib/format";
 
 export type GridStudent = {
   id: string; name: string; rollNo: number | null; admissionNo: string;
@@ -430,7 +431,7 @@ export function MarksGrid(props: Props) {
               {save.state === "saving" ? <><Spinner size={13} /><Words k="Saving…" /></>
                 : save.state === "offline" || save.state === "error" ? <><CircleAlert size={13} aria-hidden="true" />{save.message}</>
                 : dirty.size ? <><Circle size={8} className="text-warn fill-current" aria-hidden="true" /><Words k="Saved on this device as you type" /></>
-                : <><CircleCheck size={13} className="text-ok" aria-hidden="true" />{save.at ? `All marks saved at ${save.at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" })}` : "Marks save as you type"}</>}
+                : <><CircleCheck size={13} className="text-ok" aria-hidden="true" />{save.at ? `All marks saved at ${formatTime(save.at)}` : "Marks save as you type"}</>}
             </p>
             <Button variant="secondary" icon={Save} className="flex-1 sm:flex-none" onClick={() => void flush()} disabled={!dirty.size}><Words k="Save now" /></Button>
             <Button variant="primary" icon={Send} className="flex-1 sm:flex-none" onClick={trySubmit}><Words k="Submit marks" /></Button>

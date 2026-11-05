@@ -19,6 +19,7 @@ import type { FormState } from "@/lib/forms";
 import { KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
 import { DateInput } from "@/components/ui/date-input";
+import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 
 export type Action = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 
@@ -61,12 +62,16 @@ function Body({ action, hidden, submitLabel, busyLabel, onDone, onCancel, childr
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const done = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const draft = useFormDraft(formRef, submitLabel, submitVariant !== "danger");
+  const forget = draft.done;
   useEffect(() => {
-    if (state?.ok && !done.current) { done.current = true; onDone(state); }
-  }, [state, onDone]);
+    if (state?.ok && !done.current) { done.current = true; forget(); onDone(state); }
+  }, [state, onDone, forget]);
   return (
-    <form action={formAction} noValidate className="flex flex-col gap-4">
+    <form ref={formRef} action={formAction} noValidate className="flex flex-col gap-4">
       {hidden && Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+      <DraftHint draft={draft} />
       <FormProblem state={state} />
       {children(helpers(state, pending))}
       <div className="flex gap-2 justify-end pt-1">

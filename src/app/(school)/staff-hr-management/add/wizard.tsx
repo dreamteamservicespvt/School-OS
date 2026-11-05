@@ -18,6 +18,9 @@ import type { ModuleKey } from "@/lib/modules";
 import type { Created } from "./actions";
 import { SignInChoice } from "../_components/sign-in-choice";
 import { Words } from "@/lib/i18n/client";
+import { FormProblems, ProblemText, checkBoxes } from "@/components/ui/form-problems";
+import { freePairs, stepThree, stepThreeSummary, type Taken } from "@/lib/staff/class-picks";
+import { ShareMenu } from "@/components/ui/share-menu";
 
 type Option = { value: string; label: string };
 export type WizardData = {
@@ -31,6 +34,8 @@ export type WizardData = {
   roles: { key: string; name: string; perms: Record<string, AccessLevel>; lines: string[] }[];
   yearName: string | null;
   classes: { id: string; name: string; sections: { id: string; name: string }[]; subjects: { id: string; name: string }[] }[];
+  /** Who is class teacher of each section, and who teaches each subject and section, now (step 3). */
+  taken: Taken;
   prefill: { applicationId: string; fullName: string; phone: string; email: string; qualification: string; experienceYears: string; designation: string; departmentId: string; joiningDate: string } | null;
   today: string;
   employmentTypes: string[];
@@ -70,10 +75,13 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
   const [exceptions, setExceptions] = useState<Record<string, AccessLevel>>({});
   const [openRole, setOpenRole] = useState<string | null>(null);
 
-  const [picked, setPicked] = useState<Record<string, { sections: string[]; subjects: string[] }>>({});
+  // Step 3: the subjects taught ("sectionId:subjectId") and, apart from them, the one section they are class teacher of.
+  const [pairs, setPairs] = useState<string[]>([]);
+  const [ctSection, setCtSection] = useState("");
   const [classFilter, setClassFilter] = useState("");
 
   const teaching = (des?.staffType ?? "Teaching") === "Teaching";
+  const offer = stepThree({ teachingPost: teaching, giveLogin, roleKeys });
 
   function chooseDesignation(name: string) {
     setDesignation(name);
@@ -93,18 +101,18 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
 
   const base = combineLevels(data.roles.filter((r) => roleKeys.includes(r.key)).map((r) => r.perms as Partial<Record<ModuleKey, AccessLevel>>));
   const extras = extraPermissions(base, exceptions);
-  const allocs = Object.entries(picked).flatMap(([, v]) => v.sections.flatMap((s) => v.subjects.map((sub) => `${s}:${sub}`)));
+  const allocs = offer.subjects ? freePairs(pairs, data.taken) : [];
+  const ctChosen = offer.classTeacher && ctSection && !data.taken.classTeacher[ctSection] ? ctSection : "";
+  const sectionLabel = (id: string) => { for (const c of data.classes) { const x = c.sections.find((y) => y.id === id); if (x) return `${c.name} ${x.name}`; } return null; };
 
   function err(k: string) { return errors[k]; }
 
   function validateStep1(): boolean {
     const form = formRef.current!;
-    const fs = form.querySelector<HTMLFieldSetElement>("fieldset[data-step='1']")!;
-    for (const el of Array.from(fs.elements) as HTMLInputElement[]) {
-      if (typeof el.checkValidity === "function" && !el.checkValidity()) { el.reportValidity(); return false; }
-    }
+    // Every empty or wrong box of step 1 is marked at once, and the first comes into view (<FormProblems>).
+    if (!checkBoxes(form.querySelector("fieldset[data-step='1']"))) return false;
     const phoneProblem = checkIndianMobile(phone);
-    if (phoneProblem) { setErrors({ phone: phoneProblem }); form.querySelector<HTMLInputElement>("[name=phone]")?.focus(); return false; }
+    if (phoneProblem) { setErrors({ phone: phoneProblem }); return false; }
     const photo = form.querySelector<HTMLInputElement>("[name=photo]")?.files?.[0];
     if (photo && photo.size > 2 * 1024 * 1024) { setErrors({ photo: `The photo is ${(photo.size / 1024 / 1024).toFixed(1)} MB. Photos can be at most 2 MB.` }); return false; }
     return true;
@@ -136,7 +144,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
   function submit(skipClasses = false) {
     setMessage(null);
     const fd = new FormData(formRef.current!);
-    if (skipClasses) fd.delete("alloc");
+    if (skipClasses) { fd.delete("alloc"); fd.delete("classTeacherSectionId"); }
     start(async () => {
       const res = await create(null, fd);
       if (res?.ok && res.data) { setDone(res.data); window.scrollTo({ top: 0 }); return; }
@@ -145,6 +153,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
       const link = (res?.data as unknown as { link?: { href: string; label: string } } | undefined)?.link;
       setMessage({ text: res?.message ?? "That did not save. Please try again.", link });
       if (Object.keys(errs).some((k) => STEP1_FIELDS.has(k))) setStep(1);
+      else if (errs.classTeacherSectionId || errs.allocations) setStep(3);
       else if (errs.roleKeys || errs.username) setStep(2);
     });
   }
@@ -154,6 +163,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
   const stepNames = ["Details", "What they can open", "Classes and subjects"];
   return (
     <form ref={formRef} onSubmit={(e) => { e.preventDefault(); if (step < 3) next(); else submit(); }} className="space-y-5">
+      <FormProblems errors={errors}>
       <ol className="grid grid-cols-3 gap-2" aria-label="Steps">
         {stepNames.map((n, i) => (
           <li key={n} aria-current={step === i + 1 ? "step" : undefined}
@@ -282,69 +292,104 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
           <Alert tone="info"><Words k="There are no sections in" /> {data.yearName ?? "the current academic year"} <Words k="yet. Skip this step; classes can be given later in Teacher Allocation." /></Alert>
         ) : (
           <>
-            <p className="text-ink-2"><Words k="Tick the sections and the subjects taught in each class (" />{data.yearName}<Words k="). They stay from year to year until changed." /></p>
+            <p className="text-ink-2">{`Classes for ${data.yearName ?? "this year"}: choose the one section they are class teacher of, and tick the subjects they teach in each section. They stay from year to year until changed.`}</p>
+            {offer.notes.length > 0 && <Alert tone="info">{offer.notes.map((n) => <span key={n} className="block">{n}</span>)}</Alert>}
+            {offer.classTeacher && (
+              <div className="rounded-xl border border-line bg-surface-2 p-4">
+                <p className="font-medium">{"Class teacher"}</p>
+                <p className="mt-1 text-sm text-ink-2">{"The class teacher takes the daily attendance of one section and writes its report card remarks. A teacher is class teacher of one section only; in other classes they teach subjects only."}</p>
+                <label className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-line px-3">
+                  <input type="radio" className="size-4 accent-brand" checked={!ctChosen} onChange={() => setCtSection("")} />
+                  {"Not a class teacher"}
+                </label>
+                <p className="mt-2 text-sm font-medium">{ctChosen ? `Chosen: class teacher of ${sectionLabel(ctChosen)}` : "Chosen: not a class teacher"}</p>
+                <ProblemText name="classTeacherSectionId" given={errors.classTeacherSectionId} />
+              </div>
+            )}
+            <input type="hidden" name="classTeacherSectionId" value={ctChosen} />
             <TextField label="Find a class" name="classSearch" value={classFilter} onChange={(e) => setClassFilter(e.target.value)} placeholder="Class 5" />
             <ul className="space-y-3">
               {data.classes.filter((c) => c.name.toLowerCase().includes(classFilter.trim().toLowerCase())).map((c) => {
-                const sel = picked[c.id] ?? { sections: [], subjects: [] };
-                const set = (v: { sections: string[]; subjects: string[] }) => setPicked((x) => ({ ...x, [c.id]: v }));
-                const toggle = (list: string[], id: string, on: boolean) => (on ? [...list, id] : list.filter((y) => y !== id));
-                const all = sel.sections.length === c.sections.length;
+                const free = c.sections.flatMap((x) => c.subjects.map((sub) => `${x.id}:${sub.id}`)).filter((k) => !data.taken.subject[k]);
+                const all = free.length > 0 && free.every((k) => pairs.includes(k));
+                const tick = (k: string, on: boolean) => setPairs((p) => (on ? [...p, k] : p.filter((y) => y !== k)));
                 return (
                   <li key={c.id} className="rounded-xl border border-line p-4">
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <p className="font-medium">{c.name}</p>
-                      <button type="button" className="min-h-9 text-sm font-medium text-brand-text hover:underline" onClick={() => set({ ...sel, sections: all ? [] : c.sections.map((s) => s.id) })}>
-                        {all ? "Clear sections" : `Select all of ${c.name}`}
-                      </button>
+                      {offer.subjects && free.length > 0 && (
+                        <button type="button" className="min-h-9 text-sm font-medium text-brand-text hover:underline"
+                          onClick={() => setPairs((p) => (all ? p.filter((k) => !free.includes(k)) : [...new Set([...p, ...free])]))}>
+                          {all ? `Clear the subjects in ${c.name}` : `Tick every free subject in ${c.name}`}
+                        </button>
+                      )}
                     </div>
-                    <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label={`${c.name} sections`}>
-                      {c.sections.map((s) => (
-                        <label key={s.id} className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3 ${sel.sections.includes(s.id) ? "border-brand bg-brand-soft" : "border-line"}`}>
-                          <input type="checkbox" className="size-4 accent-brand" checked={sel.sections.includes(s.id)} onChange={(e) => set({ ...sel, sections: toggle(sel.sections, s.id, e.target.checked) })} />
-                          {c.name} {s.name}
-                        </label>
-                      ))}
-                    </div>
-                    {c.subjects.length === 0 ? (
-                      <p className="mt-2 text-sm text-ink-2"><Words k="No subjects set for this class." /> <Link href="/academic-management" className="font-medium text-brand-text underline"><Words k="Subjects" /></Link></p>
-                    ) : (
-                      <div className="mt-2 flex flex-wrap gap-2" role="group" aria-label={`${c.name} subjects`}>
-                        {c.subjects.map((s) => (
-                          <label key={s.id} className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 ${sel.subjects.includes(s.id) ? "border-brand bg-brand-soft" : "border-line"}`}>
-                            <input type="checkbox" className="size-4 accent-brand" checked={sel.subjects.includes(s.id)} onChange={(e) => set({ ...sel, subjects: toggle(sel.subjects, s.id, e.target.checked) })} />
-                            {s.name}
-                          </label>
-                        ))}
+                    {offer.classTeacher && (
+                      <div className="mt-3" role="radiogroup" aria-label={`Class teacher of a section of ${c.name}`}>
+                        <p className="text-sm font-medium text-ink-2">{"Class teacher of (one section only)"}</p>
+                        <div className="mt-1 flex flex-wrap gap-2">
+                          {c.sections.map((x) => {
+                            const other = data.taken.classTeacher[x.id];
+                            return (
+                              <label key={x.id} className={`inline-flex min-h-11 items-center gap-2 rounded-full border px-3 py-1 ${other ? "cursor-not-allowed border-line bg-sunken text-ink3" : ctChosen === x.id ? "border-brand bg-brand-soft" : "border-line"}`}>
+                                <input type="radio" className="size-4 accent-brand" disabled={Boolean(other)} checked={ctChosen === x.id} onChange={() => setCtSection(x.id)} />
+                                <span>{`${c.name} ${x.name}`}{other && <span className="block text-xs">{`Class teacher: ${other}`}</span>}</span>
+                              </label>
+                            );
+                          })}
+                        </div>
                       </div>
                     )}
-                    {sel.sections.length > 0 && sel.subjects.length === 0 && c.subjects.length > 0 && <p className="mt-2 text-sm text-warn-text"><Words k="Tick the subjects taught in" /> {c.name}.</p>}
+                    {offer.subjects && (c.subjects.length === 0 ? (
+                      <p className="mt-3 text-sm text-ink-2"><Words k="No subjects set for this class." /> <Link href="/academic-management" className="font-medium text-brand-text underline"><Words k="Subjects" /></Link></p>
+                    ) : (
+                      <div className="mt-3 space-y-2">
+                        <p className="text-sm font-medium text-ink-2">{"Subjects taught (subject teacher)"}</p>
+                        {c.sections.map((x) => (
+                          <div key={x.id} className="flex flex-wrap items-center gap-2" role="group" aria-label={`Subjects taught in ${c.name} ${x.name}`}>
+                            <span className="w-full text-sm sm:w-auto sm:min-w-20">{`${c.name} ${x.name}`}</span>
+                            {c.subjects.map((sub) => {
+                              const k = `${x.id}:${sub.id}`;
+                              const by = data.taken.subject[k];
+                              const on = !by && pairs.includes(k);
+                              return (
+                                <label key={sub.id} title={by ? `Taught by ${by}. A second (secondary) teacher is set in Teacher Allocation.` : undefined}
+                                  className={`inline-flex min-h-11 items-center gap-2 rounded-lg border px-3 py-1 ${by ? "cursor-not-allowed border-line bg-sunken text-ink3" : on ? "border-brand bg-brand-soft" : "border-line"}`}>
+                                  <input type="checkbox" className="size-4 accent-brand" disabled={Boolean(by)} checked={on} onChange={(e) => tick(k, e.target.checked)} />
+                                  <span>{sub.name}{by && <span className="block text-xs">{`Taught by ${by}`}</span>}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ))}
+                      </div>
+                    ))}
                   </li>
                 );
               })}
             </ul>
             {allocs.map((a) => <input key={a} type="hidden" name="alloc" value={a} />)}
-            <p className="text-sm text-ink-2" aria-live="polite">{allocs.length} <Words k="class and subject pair" />{allocs.length === 1 ? "" : "s"} <Words k="chosen." /></p>
+            <p className="text-sm text-ink-2" aria-live="polite">{stepThreeSummary({ classTeacherOf: ctChosen ? sectionLabel(ctChosen) : null, pairs: allocs })}</p>
           </>
         )}
-        {errors.allocations && <p className="text-sm text-danger" role="alert">{errors.allocations}</p>}
+        <ProblemText name="allocations" given={errors.allocations} />
       </fieldset>
 
       <div className="sticky bottom-16 z-10 flex flex-col-reverse gap-2 rounded-2xl border border-line bg-surface p-3 shadow-card sm:static sm:flex-row sm:justify-between sm:border-0 sm:bg-transparent sm:p-0 sm:shadow-none">
         <div>{step > 1 && <Button variant="secondary" onClick={() => setStep((s) => (s - 1) as 1 | 2)} disabled={pending}><Words k="Back" /></Button>}</div>
         <div className="flex flex-col gap-2 sm:flex-row">
-          {step === 3 && teaching && data.classes.length > 0 && <Button variant="secondary" onClick={() => submit(true)} disabled={pending}><Words k="Skip and create staff" /></Button>}
+          {step === 3 && teaching && data.classes.length > 0 && <Button variant="secondary" data-submit onClick={() => submit(true)} disabled={pending}><Words k="Skip and create staff" /></Button>}
           {step < 3
             ? <Button type="submit" loading={pending} loadingText="Checking…"><Words k="Next" /></Button>
             : <Button type="submit" loading={pending} loadingText="Creating…"><Words k="Create staff" /></Button>}
         </div>
       </div>
+      </FormProblems>
     </form>
   );
 }
 
 function Summary({ done, onAnother }: { done: Created; onAnother: () => void }) {
-  const [copied, setCopied] = useState(false);
   const link = done.inviteLink && typeof window !== "undefined" ? `${window.location.origin}${done.inviteLink}` : null;
   const text = link ? `Welcome to School OS. Set your password and sign in: ${link} (username ${done.username})` : "";
   return (
@@ -358,6 +403,7 @@ function Summary({ done, onAnother }: { done: Created; onAnother: () => void }) 
         <div><dt className="text-sm text-ink-2"><Words k="Login" /></dt><dd className="font-medium">{done.username ?? "No login"}</dd></div>
         <div><dt className="text-sm text-ink-2"><Words k="Roles" /></dt><dd className="font-medium">{done.roles.length ? done.roles.join(", ") : "None"}</dd></div>
         <div><dt className="text-sm text-ink-2"><Words k="Classes and subjects" /></dt><dd className="font-medium">{done.allocated ? `${done.allocated} in Teacher Allocation` : "None"}</dd></div>
+        <div><dt className="text-sm text-ink-2"><Words k="Class teacher" /></dt><dd className="font-medium">{done.classTeacherOf ?? "No"}</dd></div>
       </dl>
       {done.temporary && done.username && (
         <Alert tone="info" title="Temporary password">
@@ -370,9 +416,7 @@ function Summary({ done, onAnother }: { done: Created; onAnother: () => void }) 
           {done.sentWords && <p className="mt-1 text-sm">{done.sentWords}</p>}
           <p className="mt-1 break-all text-sm text-ink-2">{link}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Button size="sm" variant="secondary" onClick={async () => { await navigator.clipboard.writeText(link); setCopied(true); }}>{copied ? "Copied" : "Copy link"}</Button>
-            <a className={buttonClass("secondary", "sm")} href={`https://wa.me/91${done.phone}?text=${encodeURIComponent(text)}`} target="_blank" rel="noopener noreferrer"><Words k="Send on WhatsApp" /></a>
-            <a className={buttonClass("secondary", "sm")} href={`sms:+91${done.phone}?body=${encodeURIComponent(text)}`}><Words k="Send by SMS" /></a>
+            <ShareMenu text={text} phone={done.phone} copyText={link} title="Your School OS login" />
             {done.email && <a className={buttonClass("secondary", "sm")} href={`mailto:${done.email}?subject=${encodeURIComponent("Your School OS login")}&body=${encodeURIComponent(text)}`}><Words k="Send by email" /></a>}
           </div>
           <p className="mt-2 text-sm text-ink-2"><Words k="The link is shown only now. A new one can be made later from the profile (New sign-in link)." /></p>

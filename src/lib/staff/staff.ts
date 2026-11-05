@@ -17,6 +17,8 @@ import { readPasswordRules } from "../auth/password-rules";
 import { inviteTokenFor } from "../parent-link/token";
 import { sendInviteMessage, type InviteSent } from "../settings/invite-message";
 import { assertYearOpen } from "../academic/years";
+import { classTeacherDutyElsewhere, oneClassTeacherMessage } from "../academic/structure";
+import { classTeacherRefusal } from "./class-picks";
 import { formatStaffId, hrSettings } from "./settings";
 import { ensureBalances, leaveYearFor } from "./leave";
 import type { AccessLevel } from "../roles";
@@ -179,7 +181,7 @@ export function splitName(fullName: string) {
  * refused, the reporting manager is one of that campus's staff (or the person
  * adding), and a login made here opens that campus only.
  */
-export async function createStaff(tx: Tx, ctx: SchoolContext, details: StaffDetails, login: LoginChoice, allocations: AllocationPick[], opts: { allowDuplicate?: boolean; campusLimit?: string | null } = {}) {
+export async function createStaff(tx: Tx, ctx: SchoolContext, details: StaffDetails, login: LoginChoice, allocations: AllocationPick[], opts: { allowDuplicate?: boolean; campusLimit?: string | null; /** Step 3 "Class teacher of": one section at most (src/lib/staff/class-picks.ts). */ classTeacherSectionId?: string | null } = {}) {
   const settings = await hrSettings(tx, ctx);
   const dups = await findDuplicates(tx, ctx, { phone: details.phone, email: details.email });
   if (dups.length && !opts.allowDuplicate) throw new StaffProblem(dups[0].message, "phone", { href: dups[0].href, label: "Open existing" });
@@ -207,10 +209,10 @@ export async function createStaff(tx: Tx, ctx: SchoolContext, details: StaffDeta
     do staffCode = formatStaffId(settings.staffIdPrefix, settings.staffIdDigits, await nextNumber(tx, ctx, "staff"));
     while (await tx.staff.findFirst({ where: { schoolId: ctx.schoolId, staffCode }, select: { id: true } }));
   }
-  return createWithCode(tx, ctx, staffCode, details, designation.staffType, campus.id, loginChoice, allocations, settings.usernameFormat);
+  return createWithCode(tx, ctx, staffCode, details, designation.staffType, campus.id, loginChoice, allocations, settings.usernameFormat, opts.classTeacherSectionId ?? null);
 }
 
-async function createWithCode(tx: Tx, ctx: SchoolContext, staffCode: string, d: StaffDetails, staffType: string, campusId: string, login: LoginChoice, allocations: AllocationPick[], usernameFormat: string) {
+async function createWithCode(tx: Tx, ctx: SchoolContext, staffCode: string, d: StaffDetails, staffType: string, campusId: string, login: LoginChoice, allocations: AllocationPick[], usernameFormat: string, classTeacherSectionId: string | null) {
   const name = splitName(d.fullName);
   const staff = await tx.staff.create({
     data: {
@@ -245,8 +247,13 @@ async function createWithCode(tx: Tx, ctx: SchoolContext, staffCode: string, d: 
     if (!year) throw new StaffProblem("There is no current academic year to add classes to. Skip this step or open the year in Academic Management.");
     allocated = await saveAllocations(tx, ctx, staff.id, year.id, allocations, d.joiningDate);
   }
+  let classTeacherOf: string | null = null;
+  if (classTeacherSectionId) {
+    if (!year) throw new StaffProblem("There is no current academic year to make them a class teacher in. Choose \"Not a class teacher\" or open the year in Academic Management.", "classTeacherSectionId");
+    classTeacherOf = await makeClassTeacher(tx, ctx, staff, year.id, classTeacherSectionId, login);
+  }
   if (year) await ensureBalances(tx, ctx, [staff.id], year.id);
-  return { staff, username, inviteLink, sent, temporary, roleNames, allocated };
+  return { staff, username, inviteLink, sent, temporary, roleNames, allocated, classTeacherOf };
 }
 
 /**
@@ -306,6 +313,27 @@ export async function giveLogin(tx: Tx, ctx: SchoolContext, staff: Staff, login:
   await alertPermissionChange(tx, ctx, `${await actorName(tx, ctx)} gave ${staff.fullName} a login with the ${roles.map((r) => r.name).join(", ")} role${roles.length > 1 ? "s" : ""}${extra ? ` and ${extra} exception${extra > 1 ? "s" : ""}` : ""}.`, `/settings/users/${user.id}`);
   const sent = invite ? await sendInviteMessage(tx, ctx, user, invite.nonce) : null;
   return { userLoginId: user.id, username, inviteLink: invite ? `/invite/${invite.token}` : null, sent, temporary, roleNames: roles.map((r) => r.name) };
+}
+
+/**
+ * Add Staff step 3 "Class teacher of" (owner test 2026-11-05): the new person
+ * becomes the class teacher of one section, only with the Class Teacher role and
+ * only of a section that has no class teacher yet (a hand-over is done in
+ * Academic Management, Classes & Sections). Ticking subjects never does this.
+ */
+async function makeClassTeacher(tx: Tx, ctx: SchoolContext, staff: Staff, yearId: string, sectionId: string, login: LoginChoice) {
+  const section = await tx.section.findFirst({ where: { id: sectionId, academicYearId: yearId, archivedAt: null }, include: { schoolClass: { select: { name: true } } } });
+  if (!section) throw new StaffProblem("Step 3: the section chosen for class teacher is not in this academic year. Choose again.", "classTeacherSectionId");
+  const label = `${section.schoolClass.name} ${section.name}`;
+  const current = section.classTeacherId ? (await tx.staff.findFirst({ where: { id: section.classTeacherId }, select: { fullName: true } }))?.fullName ?? "another teacher" : null;
+  const refused = classTeacherRefusal({ giveLogin: Boolean(login), roleKeys: login?.roleKeys ?? [], sectionLabel: label, currentTeacher: current });
+  if (refused) throw new StaffProblem(refused, "classTeacherSectionId");
+  // A new person has no other class: one section is the most they can hold.
+  const other = await classTeacherDutyElsewhere(tx, staff.id, yearId, sectionId);
+  if (other) throw new StaffProblem(oneClassTeacherMessage(staff.fullName, other), "classTeacherSectionId");
+  await tx.section.update({ where: { id: sectionId }, data: { classTeacherId: staff.id, updatedById: ctx.userId } });
+  await writeAudit(tx, ctx, { action: "changed", recordType: "Section", recordId: sectionId, before: { classTeacherId: null }, after: { classTeacherId: staff.id, classTeacher: staff.fullName, section: label, source: "Add Staff" } });
+  return label;
 }
 
 /** Teacher Allocation from Add Staff step 3: stays from year to year until changed. Skips pairs already given. */

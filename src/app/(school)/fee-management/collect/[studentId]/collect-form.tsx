@@ -23,7 +23,9 @@ import { DUE_WORD } from "../../_components/bits";
 import { askDiscountApproval, collectFee, qrPaid, resendReceipt, sendLink, showQr, type Collected, type QrLink } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { FormProblems, bringToBox } from "@/components/ui/form-problems";
 import { DateInput, DateTimeInput } from "@/components/ui/date-input";
+import { UTR_LENGTH, paymentRefProblem, upiTyping } from "@/lib/payment-ref";
 
 export type DueRow = { id: string; head: string; label: string; due: string; net: number; paid: number; balance: number; status: DueStatus; lateFee: boolean };
 
@@ -89,7 +91,8 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   const errAmt = Number.isNaN(amt) ? "Type the amount in rupees, like 4500 or 4500.50." : amt <= 0 ? "Enter an amount" : amt > owed && !advanceOn && owed > 0 ? `More than the ${inr(owed)} ticked. Tick more rows, or advance payment is off for this school.` : "";
   const needRef = NEEDS_REF.includes(mode);
   const refText = ref.trim();
-  const errRef = needRef && !/^[A-Za-z0-9]{6,22}$/.test(refText) ? (refText ? "This doesn’t look like a transaction number. It has 6 to 22 letters or digits." : `Enter the ${mode === "UPI" ? "UPI transaction (UTR) number" : "transaction number"}`) : "";
+  const errRef = needRef && mode === "UPI" ? (!refText ? "Enter the UPI transaction (UTR) number" : paymentRefProblem(mode, refText) ?? "")
+    : needRef && !/^[A-Za-z0-9]{6,22}$/.test(refText) ? (refText ? "This doesn’t look like a transaction number. It has 6 to 22 letters or digits." : `Enter the ${mode === "UPI" ? "UPI transaction (UTR) number" : "transaction number"}`) : "";
   const errChqNo = mode === "CHEQUE" && !/^\d{6}$/.test(chq.no) ? "Cheque number has 6 digits" : "";
   const errChqBank = mode === "CHEQUE" && !chq.bank.trim() ? "Enter the bank name" : "";
   const valid = (selTotal > 0 || (advanceOn && open.length === 0)) && !errAmt && !errRef && !errChqNo && !errChqBank;
@@ -140,12 +143,17 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
     const target = (e.nativeEvent as SubmitEvent).submitter as HTMLButtonElement | null;
     if (target?.dataset.plain) return; // link, QR and approval buttons check on the server only
     setTried(true);
-    if (!valid) e.preventDefault();
+    if (!valid) {
+      e.preventDefault();
+      // Every bad box is marked (tried); the first one comes into view with the cursor in it.
+      requestAnimationFrame(() => { const bad = formRef.current?.querySelector<HTMLElement>("[aria-invalid=true]"); if (bad) bringToBox(bad); });
+    }
   };
 
   return (
     <>
     <form ref={formRef} action={formAction} onSubmit={submit} noValidate className="grid xl:grid-cols-[minmax(0,1fr)_380px] gap-5 items-start">
+      <FormProblems errors={server?.errors}>
       <input type="hidden" name="studentId" value={studentId} />
       {tickedIds.map((id) => <input key={id} type="hidden" name="dueId" value={id} />)}
       <input type="hidden" name="mode" value={mode} />
@@ -205,7 +213,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
             <p className="text-[13px] font-semibold text-ink2 mb-1.5" id="mode-label"><Words k="How is it paid?" /></p>
             <div className="grid grid-cols-3 gap-1.5" role="radiogroup" aria-labelledby="mode-label">
               {MODES.map((m) => (
-                <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} onClick={() => { setMode(m.id); setTried(false); }}
+                <button key={m.id} type="button" role="radio" aria-checked={mode === m.id} onClick={() => { setMode(m.id); setTried(false); if (m.id === "UPI") setRef((r) => upiTyping(r)); }}
                   className={cx("h-[58px] rounded-xl border flex flex-col items-center justify-center gap-1 text-[12.5px] font-semibold transition",
                     mode === m.id ? "border-brand bg-brand/8 text-brand ring-1 ring-brand" : "border-line text-ink2 hover:border-ink3/50")}>
                   <m.icon size={18} aria-hidden="true" />{m.label}
@@ -220,8 +228,10 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
           </div>
           {needRef && (
             <FieldShell label={mode === "UPI" ? "UPI transaction number (UTR)" : "Transaction number"} required id="pay-ref" error={(tried && errRef) || serverErr("reference")}>
-              <input id="pay-ref" name="reference" value={ref} onChange={(e) => setRef(e.target.value)} autoComplete="off"
-                placeholder={mode === "UPI" ? "12-digit UTR, like 428391027714" : mode === "CARD" ? "From the card machine slip" : "UTR from the bank statement"}
+              <input id="pay-ref" name="reference" value={ref} autoComplete="off"
+                onChange={(e) => setRef(mode === "UPI" ? upiTyping(e.target.value) : e.target.value)}
+                inputMode={mode === "UPI" ? "numeric" : undefined} maxLength={mode === "UPI" ? UTR_LENGTH : 22} pattern={mode === "UPI" ? "[0-9]{12}" : undefined}
+                placeholder={mode === "UPI" ? "12 digits, like 428391027714" : mode === "CARD" ? "From the card machine slip" : "UTR from the bank statement"}
                 aria-invalid={Boolean((tried && errRef) || serverErr("reference")) || undefined}
                 className={cx(inputCls((tried && errRef) || serverErr("reference")), "h-11 font-mono")} />
             </FieldShell>
@@ -311,6 +321,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
             title={gateway ? undefined : "Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support."}><Words k="Send payment link instead" /></Button>
         </div>
       </Card>
+      </FormProblems>
     </form>
       {qrOpen && qrState?.ok && qrState.data && (
         <QrSheet qr={qrState.data} father={father} onClose={() => { setQrOpen(false); router.refresh(); }} />

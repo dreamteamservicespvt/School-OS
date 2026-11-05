@@ -1,5 +1,9 @@
+"use client";
+
 // Form fields (00-global.md P3, P7, P16) in the approved design: a label, one line
 // of help, and the error next to the field in plain words. Required fields carry a star.
+// Inside <FormProblems> (./form-problems.tsx) a field also shows the message found when
+// Save or Next is pressed, and drops a message as soon as it holds a good value.
 
 import { useId } from "react";
 import { CircleAlert } from "lucide-react";
@@ -7,20 +11,19 @@ import { cx } from "./cx";
 import { KeepSelect } from "./keep-select";
 import { PICKER_TYPES, PickerInput, type PickerProps } from "./date-input";
 import { ProblemInView } from "./problem-in-view";
+import { useFieldProblem } from "./form-problems";
+import { inputCls } from "./input-style";
 import { tx } from "@/lib/i18n/tx";
 import { OptionList, Words } from "@/lib/i18n/client";
 
-/** The shared look of a text box, select or text area. */
-export const inputCls = (error?: unknown) => cx(
-  "w-full rounded-xl bg-surface border px-3.5 text-[15px] text-ink placeholder:text-ink3 outline-none transition disabled:bg-sunken disabled:text-ink3",
-  error ? "border-bad ring-4 ring-bad/10" : "border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15",
-);
+/** The shared look of a text box, select or text area (./input-style.ts). */
+export { inputCls };
 
 type FieldShell = { label: string; name: string; help?: React.ReactNode; error?: string; required?: boolean; className?: string };
 
-export function FieldShell({ label, id, help, error, required, className = "", children }: Omit<FieldShell, "name"> & { id: string; children: React.ReactNode }) {
+export function FieldShell({ label, id, help, error, required, className = "", children, name }: Omit<FieldShell, "name"> & { id: string; children: React.ReactNode; name?: string }) {
   return (
-    <div className={cx("flex flex-col gap-1.5", className)}>
+    <div data-field={name} className={cx("flex flex-col gap-1.5", className)}>
       <label htmlFor={id} className="text-[13px] font-semibold text-ink2">
         {tx(label)}
         {required && <span className="text-bad" aria-hidden="true"> *</span>}
@@ -39,11 +42,12 @@ function describedBy(id: string, error?: string, help?: React.ReactNode) {
   return error ? `${id}-error` : help ? `${id}-help` : undefined;
 }
 
-export function TextField({ label, name, help, error, required, className, ...rest }: FieldShell & Omit<React.InputHTMLAttributes<HTMLInputElement>, "name">) {
+export function TextField({ label, name, help, error: given, required, className, ...rest }: FieldShell & Omit<React.InputHTMLAttributes<HTMLInputElement>, "name">) {
   const id = `${useId()}-${name}`;
+  const error = useFieldProblem(name, given);
   const { type, ...box } = rest;
   return (
-    <FieldShell label={label} id={id} help={help} error={error} required={required} className={className}>
+    <FieldShell label={label} id={id} name={name} help={help} error={error} required={required} className={className}>
       {type && PICKER_TYPES.has(type) ? (
         // Dates and times use the shared picker; a date of birth opens on the years.
         <PickerInput type={type as "date" | "time" | "datetime-local"} id={id} name={name} required={required}
@@ -58,22 +62,24 @@ export function TextField({ label, name, help, error, required, className, ...re
   );
 }
 
-export function TextArea({ label, name, help, error, required, className, rows = 3, ...rest }: FieldShell & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "name">) {
+export function TextArea({ label, name, help, error: given, required, className, rows = 3, ...rest }: FieldShell & Omit<React.TextareaHTMLAttributes<HTMLTextAreaElement>, "name">) {
   const id = `${useId()}-${name}`;
+  const error = useFieldProblem(name, given);
   return (
-    <FieldShell label={label} id={id} help={help} error={error} required={required} className={className}>
+    <FieldShell label={label} id={id} name={name} help={help} error={error} required={required} className={className}>
       <textarea id={id} name={name} rows={rows} required={required} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, help)}
         className={cx(inputCls(error), "py-2.5")} {...rest} />
     </FieldShell>
   );
 }
 
-export type Option = { value: string; label: string };
+export type Option = { value: string; label: string; /** Shown but cannot be chosen (say why in the label). */ disabled?: boolean };
 
-export function SelectField({ label, name, help, error, required, className, options, placeholder, ...rest }: FieldShell & { options: readonly Option[]; placeholder?: string } & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "name">) {
+export function SelectField({ label, name, help, error: given, required, className, options, placeholder, ...rest }: FieldShell & { options: readonly Option[]; placeholder?: string } & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "name">) {
   const id = `${useId()}-${name}`;
+  const error = useFieldProblem(name, given);
   return (
-    <FieldShell label={label} id={id} help={help} error={error} required={required} className={className}>
+    <FieldShell label={label} id={id} name={name} help={help} error={error} required={required} className={className}>
       <KeepSelect id={id} name={name} required={required} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, help)}
         className={cx(inputCls(error), "h-11 pr-9")} {...rest}>
         <OptionList options={options} placeholder={placeholder} />

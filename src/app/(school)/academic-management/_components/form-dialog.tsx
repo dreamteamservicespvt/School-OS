@@ -3,7 +3,7 @@
 // A button that opens a short form in a dialog (P3). The form keeps what
 // was typed when a check fails (P7) and closes itself when the save works.
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
 import { Dialog } from "@/components/ui/dialog";
 import { Button, type ButtonVariant, type ButtonSize } from "@/components/ui/button";
 import { ErrorSummary } from "@/components/ui/field";
@@ -11,6 +11,7 @@ import { FormMessage } from "@/components/ui/alert";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { FormState } from "@/lib/forms";
 import { Words } from "@/lib/i18n/client";
+import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 
 export type ServerFormAction = (prev: FormState, formData: FormData) => Promise<FormState>;
 
@@ -33,6 +34,8 @@ type Props = {
   onClose?: () => void;
   onDone?: (state: FormState) => void;
   danger?: boolean;
+  /** false: never keep what was typed (the form is kept as a draft until it saves by default). */
+  draft?: boolean;
 };
 
 export function FormDialog(props: Props) {
@@ -54,10 +57,13 @@ export function FormDialog(props: Props) {
   );
 }
 
-function DialogForm({ action, submitLabel, pendingText, hidden, children, onClose, onDone, danger }: Props) {
+function DialogForm({ action, submitLabel, pendingText, hidden, children, onClose, onDone, danger, title, draft: keep = true }: Props) {
   const [state, formAction] = useActionState(action, null);
+  const formRef = useRef<HTMLFormElement>(null);
+  const draft = useFormDraft(formRef, title, keep && !danger);
   useEffect(() => {
     if (state?.ok) {
+      draft.done();
       onDone?.(state);
       onClose?.();
     }
@@ -65,8 +71,9 @@ function DialogForm({ action, submitLabel, pendingText, hidden, children, onClos
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
   return (
-    <form action={formAction} className="space-y-4" noValidate>
+    <form ref={formRef} action={formAction} className="space-y-4" noValidate>
       {Object.entries(hidden ?? {}).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+      <DraftHint draft={draft} />
       {state && !state.ok && (Object.keys(state.errors ?? {}).length > 1 ? <ErrorSummary errors={state.errors} /> : <FormMessage state={state} />)}
       {children(state)}
       <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">

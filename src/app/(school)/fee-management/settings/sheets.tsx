@@ -45,7 +45,7 @@ export function RemindersSheet({ closeHref, s, choices, wordsHref }: C & { s: { 
       <SChips name="day" label="When" options={choices.map((d) => ({ value: String(d), label: DAY_WORDS(d) }))} start={s.days.map(String)} help="A family gets at most one reminder a day, about everything it owes now." />
       <SSelect name="channel" label="Send by" required start={s.channel} options={[{ value: "whatsapp", label: "WhatsApp, SMS if it fails" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }]} />
       <SMoney name="min" label="Only when the family owes at least" start={s.min} help="Empty or 0: any amount gets a reminder." />
-      <SSwitch name="quietDays" title="Not on days the school is closed" sub="Sundays, holidays and vacations on the School Calendar. That day's reminders go on the next school day." start={s.quietDays} />
+      <SSwitch name="quietDays" title="Not on days the school is closed" sub="Reminders due on a holiday go on the next school day." start={s.quietDays} />
       <p className="text-[13px] text-ink3"><Words k="The words are the “Fee reminder” templates in" /> <a href={wordsHref} className="text-brand font-semibold underline"><Words k="Message Templates" /></a><Words k=". The payment link, or how to pay at the school office, is added by itself." /></p>
     </SheetForm>
   );

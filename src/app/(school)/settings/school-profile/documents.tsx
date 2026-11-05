@@ -13,6 +13,7 @@ import { ActionButton } from "../action-button";
 import { DOCUMENT_TYPES_VAULT } from "@/lib/settings/profile-rules";
 import { documentAction, saveDocumentAction, shareDocumentAction, uploadVersionAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { ShareMenu } from "@/components/ui/share-menu";
 
 export type DocRow = {
   id: string;
@@ -120,7 +121,6 @@ function VersionForm({ doc, onDone }: { doc: DocRow; onDone: () => void }) {
 
 function ShareForm({ doc }: { doc: DocRow }) {
   const [state, action] = useActionState(shareDocumentAction, null);
-  const [copied, setCopied] = useState(false);
   const full = state?.link ? `${typeof window === "undefined" ? "" : window.location.origin}${state.link}` : "";
   return (
     <div className="space-y-4">
@@ -135,8 +135,8 @@ function ShareForm({ doc }: { doc: DocRow }) {
           <label htmlFor="share-link" className="block text-sm font-medium"><Words k="Sharing link" /></label>
           <div className="flex gap-2">
             <input id="share-link" readOnly value={full} onFocus={(e) => e.target.select()} className="h-11 min-w-0 flex-1 rounded-lg border border-line-strong bg-surface-2 px-3 font-mono text-sm" />
-            <Button onClick={async () => { await navigator.clipboard.writeText(full); setCopied(true); }}>{copied ? "Copied" : "Copy"}</Button>
           </div>
+          <ShareMenu text={full} title="Document" />
           <p className="text-sm text-ink-2">{state.message}</p>
         </div>
       )}

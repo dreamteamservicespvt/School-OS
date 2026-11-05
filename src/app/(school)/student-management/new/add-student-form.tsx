@@ -1,15 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useEffect, useRef, useState } from "react";
+import { useActionState, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { FormMessage, Alert } from "@/components/ui/alert";
 import { CheckboxField, ErrorSummary, SelectField, TextArea, TextField } from "@/components/ui/field";
+import { FormProblems } from "@/components/ui/form-problems";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { BLOOD_GROUPS, CATEGORIES, GENDERS, RELATIONS } from "@/lib/students/labels";
 import type { FormState } from "@/lib/forms";
 import { addStudent, checkAdmissionNo, parentsForPhone, type AddStudentData } from "../_actions/students";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
+import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 
 type Section = { value: string; label: string; seats: number; filled: number };
 type Parent = { id: string; name: string; relationship: string; children: string[] };
@@ -26,6 +28,10 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
   const [linkId, setLinkId] = useState(v("linkGuardianId"));
   const [admNote, setAdmNote] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+  const draft = useFormDraft(formRef, "Add student");
+  const forget = draft.done;
+  // Before the fresh form (key "done") looks for a draft, so the saved student does not come back.
+  useLayoutEffect(() => { if (state?.ok) forget(); }, [state, forget]);
   const duplicates = (state?.data as AddStudentData | undefined)?.duplicates ?? [];
   const section = sections.find((s) => s.value === sectionId);
   const left = section ? section.seats - section.filled : null;
@@ -46,6 +52,8 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
 
   return (
     <form ref={formRef} action={action} className="space-y-5" key={state?.ok ? "done" : "form"}>
+      <FormProblems errors={state?.errors}>
+      <DraftHint draft={draft} />
       <FormMessage state={state && !duplicates.length ? state : null} />
       <ErrorSummary errors={state?.errors} />
 
@@ -148,6 +156,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
         {!duplicates.length && <SubmitButton pendingText="Adding…"><Words k="Add student" /></SubmitButton>}
         <Link href="/student-management" className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>
       </div>
+      </FormProblems>
     </form>
   );
 }

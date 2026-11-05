@@ -31,7 +31,7 @@ const on = (fd: FormData, k: string) => str(fd, k) === "on";
 const many = (fd: FormData, k: string, allowed: string[]) => [...new Set(fd.getAll(k).map(String).filter((v) => allowed.includes(v)))];
 function time(fd: FormData, k: string, label: string) {
   const v = str(fd, k);
-  if (!HHMM.test(v)) throw new FieldProblem(`${label} must be a time like 08:45.`, k);
+  if (!HHMM.test(v)) throw new FieldProblem(`${label} must be a time like 8:45 AM.`, k);
   return v;
 }
 function int(fd: FormData, k: string, label: string, min: number, max: number) {

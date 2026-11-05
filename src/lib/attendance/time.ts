@@ -1,6 +1,7 @@
 // Clock times in the school's time zone. Settings hold times as "HH:MM"
 // (24-hour) and show them in 12-hour time; dates are date-only (midnight UTC).
 import { isoDay } from "../staff/dates";
+import { formatClock } from "../format";
 
 export const HHMM = /^([01]\d|2[0-3]):([0-5]\d)$/;
 
@@ -12,10 +13,7 @@ export function minutesOf(hhmm: string): number {
 
 /** "11:00" -> "11:00 AM", "13:40" -> "1:40 PM" */
 export function time12(hhmm: string): string {
-  const m = HHMM.exec(hhmm);
-  if (!m) return hhmm;
-  const h = Number(m[1]);
-  return `${h % 12 === 0 ? 12 : h % 12}:${m[2]} ${h < 12 ? "AM" : "PM"}`;
+  return formatClock(hhmm);
 }
 
 /** Offset of the time zone from UTC at an instant, in minutes (India: +330). */

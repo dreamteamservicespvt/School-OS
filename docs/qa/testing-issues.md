@@ -189,3 +189,23 @@ Passed: Principal datesheet publish with a parents' message switch; Marks Entry 
 New problems: 26 to 33, 34, 35 (High: 31 error text saved as discount reason, 33 refund changes fee total; Medium: 26, 29, 30).
 Still not tested: Salary/Finance, Front Office, Events, Reports, phone size, forgotten password, student changes class, double-click on Collect.
 - (add to 28) /attendance and /exams typed by hand give "This page is not here" (real pages are /attendance-management... and /examination-results); a friendly redirect is cheap.
+
+---
+## Owner's test PDF, 2026-11-05 (16 notes) — all FIXED 2026-11-05 (local commits, not deployed)
+Owner decisions 2026-11-05: (1) a locked login may still use "Forgot password" (code sign-in clears the lock) = OK; (2) admission consent code template = add, never touch the gym's account; (3) shared-number env: code also reads WHATSAPP_BUSINESS_ACCOUNT_ID / WHATSAPP_PHONE_NUMBER_ID (CONSOLE_* wins); (4) Meta webhook and shared-number setup left exactly as they are; (5) holidays always go to staff bells, notification sound on by default = OK.
+- P1 Console "Not signed in" for a signed-in School Admin: card updated at sign-in (src/lib/console/admin-sign-in.ts). Old cards flip at the admin's next sign-in.
+- P2 12-hour times everywhere: formatClock/formatClockRange in src/lib/format.ts.
+- P3 Pop-up forms keep a draft until saved (src/components/ui/form-draft.tsx; never passwords/codes/UTR/Aadhaar).
+- P4 Every missing box marked, cursor to the first, closed sections opened (src/components/ui/form-problems.tsx).
+- P5 One class-teacher section per person (server + Add Staff + import + exit handover).
+- P6/P9b ID card, receipts and all 38 PDF routes: Vercel had no Chrome and the launch retried forever. @sparticuz/chromium on serverless, fail fast, printable-page fallback (src/lib/pdf.ts).
+- P7 Add Staff step 3: "Class teacher of" vs "Subjects taught", by role; taken places greyed with the name. "..." menus no longer clipped (src/components/ui/floating.tsx).
+- P8/P9 Console: WhatsApp choice on Add School (DREAM TEAM shared or own), per-school WhatsApp card and dashboard list.
+- P10 UPI reference: exactly 12 digits, screen + server, all money screens.
+- P11 No countdown on wrong passwords; server lock kept.
+- P12 Shared phone/email: the typed password picks the login (no enumeration).
+- P13 Notices reach Admin/Principal/Accountant logins; holidays to staff bells; bell checks every 30 s; sound with On/Off.
+- P14 ShareMenu (WhatsApp, Share, Copy) on 7 kinds of link.
+- P15 Long help lines cut on the busiest forms (partial: more screens can be trimmed).
+- P16 Code screens say truthfully whether the code went; new ready template "Admission consent code" (WhatsApp + SMS) is used once Meta approves it (school: Settings > Templates > send for approval).
+Browser self-test (qa/full/p16-selftest.mjs, local build): 7 of 7 passed.

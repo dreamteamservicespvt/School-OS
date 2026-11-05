@@ -18,6 +18,7 @@ import type { Match } from "@/lib/admission/enquiries";
 import { FormProblem, MoreDetails, PhoneField, SegField, Submit, WhenField } from "../_components/forms";
 import { addEnquiryAction, checkDuplicates, editEnquiryAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 
 export type EnquiryChoices = {
   classes: Option[];
@@ -68,9 +69,12 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
   const [source, setSource] = useState(c.defaultSource);
   const [, start] = useTransition();
   const done = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const draft = useFormDraft(formRef, mode === "add" ? "Add enquiry" : "Edit enquiry");
+  const forget = draft.done;
   useEffect(() => {
-    if (state?.ok && state.data?.id && !done.current) { done.current = true; onDone(state.data.id); }
-  }, [state, onDone]);
+    if (state?.ok && state.data?.id && !done.current) { done.current = true; forget(); onDone(state.data.id); }
+  }, [state, onDone, forget]);
   const matches = typed ?? state?.data?.matches ?? [];
   const val = (k: string, d?: string | null) => state?.values?.[k] ?? d ?? undefined;
   const err = (k: string) => (k === "phone" && state?.data?.matches ? undefined : state?.errors?.[k]);
@@ -90,8 +94,9 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
   const others = c.sources.filter((s) => !segSources.includes(s.value));
   const blockedByMatch = matches.length > 0 && !sibling;
   return (
-    <form action={formAction} noValidate className="flex flex-col gap-4">
+    <form ref={formRef} action={formAction} noValidate className="flex flex-col gap-4">
       {saved && <input type="hidden" name="id" value={saved.id} />}
+      <DraftHint draft={draft} />
       {sibling && <input type="hidden" name="force" value="1" />}
       {sibling && matches.find((m) => m.kind === "enquiry") && <input type="hidden" name="siblingOfId" value={matches.find((m) => m.kind === "enquiry")!.id} />}
       {!state?.data?.matches && <FormProblem state={state} />}

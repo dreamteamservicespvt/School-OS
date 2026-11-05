@@ -25,6 +25,7 @@ import { readDate } from "../move-in/tidy";
 import { addDays, todayIn } from "./common";
 import { allocationActiveOn } from "./allocation";
 import { mapActiveOn } from "./subjects";
+import { classTeacherDutyElsewhere, oneClassTeacherMessage } from "./structure";
 import { handoverTo, importRun, sectionIn, sectionWords, subjectIn, teacherIn, yesNoIn } from "./import-common";
 
 export const ALLOCATION_IMPORT = "academic-allocations";
@@ -122,6 +123,13 @@ function makeKind(): ImportKind<Row> {
         if (seen.has(c) && !seen.has(`${c}:${staff.id}`)) problems.push(`Two class teachers for ${label} in the file. Keep one.`);
         seen.add(c);
         seen.add(`${c}:${staff.id}`);
+        // A teacher is class teacher of one section only (owner test 2026-11-05).
+        const duty = `ctof:${section.yearId}:${staff.id}`;
+        if (seen.has(duty) && !seen.has(`${duty}:${section.id}`)) problems.push(`${staff.fullName} is class teacher of two sections in the file. A teacher is class teacher of one section only. Keep one.`);
+        seen.add(duty);
+        seen.add(`${duty}:${section.id}`);
+        const other = await classTeacherDutyElsewhere(tx, staff.id, section.yearId, section.id);
+        if (other) problems.push(oneClassTeacherMessage(staff.fullName, other));
       }
       if (problems.length) return { ok: false, problems };
 
@@ -187,6 +195,8 @@ function makeKind(): ImportKind<Row> {
         const section = await tx.section.findUniqueOrThrow({ where: { id: v.sectionId }, select: { classTeacherId: true } });
         if (section.classTeacherId !== v.staffId) {
           if (section.classTeacherId && !v.handover) throw new RowProblem(`${v.section} has another class teacher now. Choose to hand over on this row.`);
+          const other = await classTeacherDutyElsewhere(tx, v.staffId, v.yearId, v.sectionId);
+          if (other) throw new RowProblem(oneClassTeacherMessage(v.staffName, other));
           before.classTeacher = { sectionId: v.sectionId, was: section.classTeacherId };
           await tx.section.update({ where: { id: v.sectionId }, data: { classTeacherId: v.staffId, updatedById: ctx.userId } });
         }

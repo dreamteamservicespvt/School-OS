@@ -97,10 +97,10 @@ describe("the application fee reaches the Day Book (G21)", () => {
   it("a UPI payment lands in the main bank account", async () => {
     const app = await application();
     await signIn(t.counsellor.id);
-    expect(await counterPaymentAction(START, form({ id: app.id, amount: "500", mode: "upi", reference: "UPI1234567" }))).toMatchObject({ ok: true });
+    expect(await counterPaymentAction(START, form({ id: app.id, amount: "500", mode: "upi", reference: "428391027714" }))).toMatchObject({ ok: true });
     const pay = await run((tx) => tx.applicationFeePayment.findFirstOrThrow({ where: { applicationId: app.id } }));
     const main = await run((tx) => mainBankAccount(tx, sys));
-    expect(await entriesOf(pay.id)).toEqual([expect.objectContaining({ mode: "UPI", accountId: main.id, depositAccountId: main.id, reference: "UPI1234567" })]);
+    expect(await entriesOf(pay.id)).toEqual([expect.objectContaining({ mode: "UPI", accountId: main.id, depositAccountId: main.id, reference: "428391027714" })]);
   });
 
   it("a Razorpay confirmation posts once, however many times it arrives", async () => {
@@ -214,7 +214,7 @@ describe("the Accountant takes the application fee in Fee Management, Collect Fe
       expect(found.find((a) => a.id === app.id)?.status.key).toBe("due");
     }
     await signIn(accountant.id);
-    const r = await collectApplicationFeeAction(START, form({ applicationId: app.id, amount: "500", mode: "upi", reference: "UPI99887766" }));
+    const r = await collectApplicationFeeAction(START, form({ applicationId: app.id, amount: "500", mode: "upi", reference: "512309874455" }));
     expect(r).toMatchObject({ ok: true, message: expect.stringMatching(/^Application fee ₹500(\.00)? received\. Receipt .+\/AF\//) });
     const pay = await run((tx) => tx.applicationFeePayment.findFirstOrThrow({ where: { applicationId: app.id } }));
     expect(pay).toMatchObject({ status: "CONFIRMED", mode: "upi", amountPaise: BigInt(50000), receivedById: accountant.id });
@@ -235,6 +235,10 @@ describe("the Accountant takes the application fee in Fee Management, Collect Fe
     const app = await application();
     await signIn(accountant.id);
     expect(await collectApplicationFeeAction(START, form({ applicationId: app.id, amount: "500", mode: "upi" }))).toMatchObject({ ok: false, errors: { reference: expect.stringMatching(/transaction reference/) } });
+    // A UPI transaction number (UTR) is 12 digits, numbers only (owner's testing, 2026-11-04).
+    for (const reference of ["UPI1234567", "42839102771", "4283910277145"]) {
+      expect(await collectApplicationFeeAction(START, form({ applicationId: app.id, amount: "500", mode: "upi", reference }))).toMatchObject({ ok: false, errors: { reference: "The UPI transaction number (UTR) has 12 digits, numbers only." } });
+    }
     expect(await collectApplicationFeeAction(START, form({ applicationId: app.id, amount: "900", mode: "cash" }))).toMatchObject({ ok: false, errors: { amount: expect.stringMatching(/^Only ₹500(\.00)? is due/) } });
     expect(await run((tx) => tx.applicationFeePayment.count({ where: { applicationId: app.id } }))).toBe(0);
   });

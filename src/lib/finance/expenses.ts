@@ -16,6 +16,7 @@ import { accountForMode, financeFeaturesOn, financeSettings } from "./settings";
 import { assertBooksOpen, assertNotFuture, financialYearOf } from "./years";
 import { budgetImpact } from "./budgets";
 import { financeModeLabel } from "./words";
+import { paymentRefProblem } from "../payment-ref";
 
 const ZERO = BigInt(0);
 
@@ -178,6 +179,8 @@ export async function payExpense(tx: Tx, ctx: SchoolContext, expenseId: string, 
   if (e.status === "PAID") throw new MoneyProblem("This expense is already paid.");
   if (e.status !== "APPROVED") throw new MoneyProblem("Only an approved expense can be paid.");
   if (input.mode !== "CASH" && !input.reference) throw new MoneyProblem(`Enter the ${input.mode === "CHEQUE" ? "cheque number" : "transaction or UTR number"}.`, "reference");
+  const refProblem = paymentRefProblem(input.mode, input.reference);
+  if (refProblem) throw new MoneyProblem(refProblem, "reference");
   const left = e.amountPaise - e.paidPaise;
   const amount = input.amountPaise ?? left;
   if (amount <= ZERO) throw new MoneyProblem("Amount must be more than ₹0.", "payAmount");

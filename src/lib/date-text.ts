@@ -3,6 +3,8 @@
 // (00-global.md P17). To the form: YYYY-MM-DD and HH:MM, as the browser's own boxes sent.
 // Dates are plain calendar days; nothing here depends on the computer's time zone.
 
+import { formatClock } from "./format";
+
 const MONTHS = ["january", "february", "march", "april", "may", "june", "july", "august", "september", "october", "november", "december"];
 
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -147,10 +149,8 @@ export function maskDate(text: string): string {
 
 /** "21:45" as "9:45 PM". */
 export function showTime(hhmm: string | undefined | null): string {
-  const m = /^(\d{2}):(\d{2})/.exec(hhmm ?? "");
-  if (!m) return "";
-  const h = Number(m[1]);
-  return `${h % 12 || 12}:${m[2]} ${h < 12 ? "AM" : "PM"}`;
+  const m = /^(\d{2}:\d{2})/.exec(hhmm ?? "");
+  return m ? formatClock(m[1]) : "";
 }
 
 /** A time typed as "9:30", "930", "9.30 pm", "21:30" or "9 PM", as HH:MM; "" when empty, null when not a time. */

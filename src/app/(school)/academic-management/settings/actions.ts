@@ -126,8 +126,8 @@ export async function addFinancialYearAction(_prev: FormState, fd: FormData): Pr
 
 export async function saveTimingsAction(_prev: FormState, fd: FormData): Promise<FormState> {
   const parsed = parseForm(z.object({
-    dayStart: z.string().trim().regex(TIME_RE, "Give the start time like 08:30."),
-    dayEnd: z.string().trim().regex(TIME_RE, "Give the end time like 15:00."),
+    dayStart: z.string().trim().regex(TIME_RE, "Give the start time like 8:30 AM."),
+    dayEnd: z.string().trim().regex(TIME_RE, "Give the end time like 3:00 PM."),
     halfDayEnd: z.string().trim().optional().refine((v) => !v || TIME_RE.test(v), "Give the time like 12:30.").transform((v) => v || null),
     maxPeriodsPerDay: int("Periods a day", 1, 12),
     maxPeriodsPerWeek: int("Periods a week", 1, 72),
@@ -149,8 +149,8 @@ const slotSchema = z.object({
   id: z.string().trim().optional().transform((v) => v || undefined),
   label: z.string().trim().min(1, "Give the period a name, like Period 1 or Lunch.").max(40, "The name can be at most 40 characters."),
   number: z.string().trim().optional().transform((v) => (v ? Number(v) : 0)).refine((n) => Number.isInteger(n) && n >= 0 && n <= 20, "The period number must be between 1 and 20."),
-  startTime: z.string().trim().regex(TIME_RE, "Give the start time like 08:45."),
-  endTime: z.string().trim().regex(TIME_RE, "Give the end time like 09:25."),
+  startTime: z.string().trim().regex(TIME_RE, "Give the start time like 8:45 AM."),
+  endTime: z.string().trim().regex(TIME_RE, "Give the end time like 9:25 AM."),
   isBreak: checkbox(),
 });
 

@@ -14,6 +14,7 @@ import type { AccessLevel } from "@/lib/roles";
 import { LEVEL_OPTIONS } from "@/lib/staff/role-words";
 import { Pencil } from "lucide-react";
 import { Words } from "@/lib/i18n/client";
+import { ShareMenu } from "@/components/ui/share-menu";
 
 type Option = { value: string; label: string };
 const BLOOD = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((b) => ({ value: b, label: b }));
@@ -216,7 +217,6 @@ export function GiveLoginForm({ staffId, roles, defaultRole, modules, action, su
 }
 
 export function InviteLink({ username, link, sentWords }: { username: string; link: string; sentWords?: string }) {
-  const [copied, setCopied] = useState(false);
   const full = typeof window !== "undefined" ? `${window.location.origin}${link}` : link;
   return (
     <div className="rounded-xl border border-success/40 bg-success-soft p-4">
@@ -224,8 +224,7 @@ export function InviteLink({ username, link, sentWords }: { username: string; li
       {sentWords && <p className="mt-1 text-sm">{sentWords}</p>}
       <p className="mt-1 break-all text-sm">{full}</p>
       <div className="mt-2 flex flex-wrap gap-2">
-        <Button size="sm" variant="secondary" onClick={async () => { await navigator.clipboard.writeText(full); setCopied(true); }}>{copied ? "Copied" : "Copy link"}</Button>
-        <a className={buttonClass("secondary", "sm")} href={`https://wa.me/?text=${encodeURIComponent(`Set your School OS password: ${full} (username ${username})`)}`} target="_blank" rel="noopener noreferrer"><Words k="Share on WhatsApp" /></a>
+        <ShareMenu text={`Set your School OS password: ${full} (username ${username})`} copyText={full} title="Your School OS login" />
       </div>
       <p className="mt-2 text-sm"><Words k="Shown only now. Make a new one any time." /></p>
     </div>

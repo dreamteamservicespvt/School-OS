@@ -49,6 +49,16 @@ export default async function AddStaffPage({ searchParams }: Search) {
     const sections = year ? await tx.section.findMany({ where: { academicYearId: year.id, archivedAt: null }, include: { schoolClass: true }, orderBy: [{ schoolClass: { sortOrder: "asc" } }, { name: "asc" }] }) : [];
     const classIds = [...new Set(sections.map((s) => s.classId))];
     const subjects = await tx.subjectClass.findMany({ where: { classId: { in: classIds }, archivedAt: null, subject: { archivedAt: null } }, include: { subject: true } });
+    // Step 3 shows who has each section's class-teacher duty and each subject now (src/lib/staff/class-picks.ts).
+    const mains = year ? await tx.teacherAllocation.findMany({
+      where: { academicYearId: year.id, sectionId: { in: sections.map((x) => x.id) }, isMain: true, archivedAt: null, OR: [{ toDate: null }, { toDate: { gte: today } }] },
+      select: { sectionId: true, subjectId: true, staffId: true },
+    }) : [];
+    const people = await tx.staff.findMany({ where: { id: { in: [...new Set([...mains.map((m) => m.staffId), ...sections.map((x) => x.classTeacherId).filter((x): x is string => Boolean(x))])] } }, select: { id: true, fullName: true } });
+    const nameOf = new Map(people.map((x) => [x.id, x.fullName]));
+    const taken: WizardData["taken"] = { classTeacher: {}, subject: {} };
+    for (const x of sections) if (x.classTeacherId) taken.classTeacher[x.id] = nameOf.get(x.classTeacherId) ?? "another teacher";
+    for (const m of mains) taken.subject[`${m.sectionId}:${m.subjectId}`] ??= nameOf.get(m.staffId) ?? "another teacher";
     let prefill: WizardData["prefill"] = null;
     if (applicationId) {
       const app = await tx.jobApplication.findFirst({ where: { id: applicationId, archivedAt: null }, include: { offers: { where: { status: { in: ["MADE", "ACCEPTED"] } }, take: 1 }, vacancy: true } });
@@ -81,6 +91,7 @@ export default async function AddStaffPage({ searchParams }: Search) {
           subjects: subjects.filter((x) => x.classId === id).map((x) => ({ id: x.subjectId, name: x.subject.name })).sort((a, b) => a.name.localeCompare(b.name)),
         };
       }),
+      taken,
       prefill,
     };
   });

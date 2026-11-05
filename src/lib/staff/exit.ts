@@ -11,6 +11,7 @@ import { requestApproval } from "../approvals";
 import { nextNumber, formatNumber } from "../sequences";
 import { formatDate } from "../format";
 import { currentYear } from "../academic/years";
+import { classTeacherDutyElsewhere, oneClassTeacherMessage } from "../academic/structure";
 import { hrPeople } from "./access";
 import { forgetAllDevices } from "../auth/remembered";
 import { worksElsewhere } from "../auth/access";
@@ -140,6 +141,9 @@ export async function handOver(tx: Tx, ctx: SchoolContext, itemId: string, toSta
   } else if (item.kind === "class-teacher" && item.refId) {
     const s = await tx.section.findFirst({ where: { id: item.refId } });
     if (s) {
+      // A teacher is class teacher of one section only (owner test 2026-11-05).
+      const other = await classTeacherDutyElsewhere(tx, to!.id, s.academicYearId, s.id);
+      if (other) throw new ExitProblem(oneClassTeacherMessage(to!.fullName, other), "toStaffId");
       await tx.section.update({ where: { id: s.id }, data: { classTeacherId: to!.id, updatedById: ctx.userId } });
       await writeAudit(tx, ctx, { action: "changed", recordType: "Section", recordId: s.id, before: { classTeacherId: s.classTeacherId }, after: { classTeacherId: to!.id, reason: "Staff exit handover" } });
     }

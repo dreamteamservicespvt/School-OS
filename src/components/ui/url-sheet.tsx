@@ -12,7 +12,9 @@ import { SubmitButton } from "./submit-button";
 import { ErrorSummary } from "./field";
 import { ProblemInView } from "./problem-in-view";
 import { Alert } from "./alert";
+import { DraftHint, useFormDraft } from "./form-draft";
 import type { FormState } from "@/lib/forms";
+import { FormProblems, useFieldProblem } from "./form-problems";
 
 const CloseCtx = createContext<() => void>(() => {});
 /** Closes the sheet this is inside (goes back to the page without the sheet). */
@@ -47,7 +49,7 @@ export const FormResultProvider = ResultCtx.Provider;
  * or goes to `doneHref`. On a problem it stays open, keeps what was typed and
  * shows each problem next to its field.
  */
-export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, submitLabel, pendingText, submitVariant = "primary", children, hidden, extraButtons, submitDisabled }: {
+export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, submitLabel, pendingText, submitVariant = "primary", children, hidden, extraButtons, submitDisabled, draft: keepDraft = true }: {
   title: string;
   sub?: React.ReactNode;
   wide?: boolean;
@@ -61,12 +63,15 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
   hidden?: Record<string, string>;
   extraButtons?: React.ReactNode;
   submitDisabled?: boolean;
+  /** false: never keep what was typed. By default it stays as a draft until a save works. */
+  draft?: boolean;
 }) {
   const router = useRouter();
   const [state, formAction] = useActionState<FormState<T>, FormData>(action, null);
   const ref = useRef<HTMLDialogElement>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const titleId = useId();
+  const draft = useFormDraft(formRef, title, keepDraft && submitVariant !== "danger");
   const close = useCallback(() => router.replace(closeHref, { scroll: false }), [router, closeHref]);
   useEffect(() => {
     const d = ref.current;
@@ -77,13 +82,17 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
   // so a refused form never stays silent.
   const [unseen, setUnseen] = useState<FormState<T>>(null);
   useEffect(() => {
-    if (state?.ok) router.replace(doneHref ?? closeHref, { scroll: false });
-    else if (state) {
+    if (state?.ok) {
+      draft.done();
+      router.replace(doneHref ?? closeHref, { scroll: false });
+    } else if (state) {
       const invalid = formRef.current?.querySelector<HTMLElement>("[aria-invalid=true]");
       invalid?.focus();
       const t = window.setTimeout(() => setUnseen(invalid ? null : state), 0);
       return () => window.clearTimeout(t);
     }
+    // draft.done is stable.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, doneHref, closeHref, router]);
   const fieldErrors = Object.keys(state?.errors ?? {}).length;
   const showMessage = Boolean(state && !state.ok && state.message && (fieldErrors === 0 || unseen === state));
@@ -96,8 +105,10 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
             <SheetHead titleId={titleId} title={title} sub={sub} onClose={close} />
             <div className="overflow-y-auto scroll-thin px-5 pb-5 flex flex-col gap-4">
               {hidden && Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+              <DraftHint draft={draft} />
               <ErrorSummary errors={state?.errors} />
-              {children}
+              {/* Each field's message goes once it holds a good value; the first bad one comes into view. */}
+              <FormProblems errors={state?.errors}>{children}</FormProblems>
               {showMessage && <ProblemInView token={state}><Alert tone="danger">{state?.message}</Alert></ProblemInView>}
             </div>
             <div className="border-t border-line px-5 py-3.5 flex flex-wrap gap-2 justify-end">
@@ -121,5 +132,7 @@ function SheetSubmit({ children, variant, pendingText, disabled }: { children: R
 export function useTyped(name: string, start?: string | number | null) {
   const state = useSheetResult();
   const typed = state && !state.ok ? state.values?.[name] : undefined;
-  return { value: typed ?? (start == null ? "" : String(start)), error: state?.errors?.[name], key: state ? `${name}:${JSON.stringify(state.values?.[name] ?? "")}:${String(state.ok)}` : `${name}:first` };
+  // The message goes as soon as the box is changed to a good value (testing issue 25), not only at the next Save.
+  const error = useFieldProblem(name, state?.errors?.[name]);
+  return { value: typed ?? (start == null ? "" : String(start)), error, key: state ? `${name}:${JSON.stringify(state.values?.[name] ?? "")}:${String(state.ok)}` : `${name}:first` };
 }

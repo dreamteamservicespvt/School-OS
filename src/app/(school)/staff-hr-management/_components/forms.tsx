@@ -13,6 +13,8 @@ import { Alert } from "@/components/ui/alert";
 import { ErrorSummary } from "@/components/ui/field";
 import { ProblemInView } from "@/components/ui/problem-in-view";
 import type { FormState } from "@/lib/forms";
+import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
+import { FormProblems } from "@/components/ui/form-problems";
 
 export type Action = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 
@@ -56,14 +58,19 @@ function Body({ action, hidden, submitLabel, pendingText, onDone, onCancel, canc
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const done = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const draft = useFormDraft(formRef, submitLabel, submitVariant !== "danger");
+  const forget = draft.done;
   useEffect(() => {
-    if (state?.ok && !done.current) { done.current = true; onDone(state); }
-  }, [state, onDone]);
+    if (state?.ok && !done.current) { done.current = true; forget(); onDone(state); }
+  }, [state, onDone, forget]);
   return (
-    <form action={formAction} className="space-y-4" data-multipart={multipart ? "" : undefined}>
+    <form ref={formRef} action={formAction} className="space-y-4" data-multipart={multipart ? "" : undefined}>
       {hidden && Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+      <DraftHint draft={draft} />
       <Message state={state} inline={inlineFields} />
-      {children(helpers(state, pending))}
+      {/* Every bad box marked at once, the first brought into view; a message goes once the box is right. */}
+      <FormProblems errors={state?.errors}>{children(helpers(state, pending))}</FormProblems>
       <div className="flex flex-col-reverse gap-2 border-t border-line pt-4 sm:flex-row sm:justify-end">
         {onCancel && <Button variant="secondary" onClick={onCancel} disabled={pending}>{cancelLabel ?? "Cancel"}</Button>}
         <SubmitButton variant={submitVariant} pendingText={pendingText ?? "Saving…"}>{submitLabel}</SubmitButton>

@@ -8,16 +8,19 @@ import type { LucideIcon } from "lucide-react";
 import { Ellipsis } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
+import { Floating } from "@/components/ui/floating";
 
 export type MenuItem = { icon: LucideIcon; label: string; href: string; tone?: "bad"; download?: boolean };
 
 export function MoreMenu({ items, label = "More actions", size = "md" }: { items: MenuItem[]; label?: string; size?: "sm" | "md" }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
     const key = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    const click = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
+    // The menu is drawn in front of the page (ui/floating.tsx), so a click in it is not inside `ref`.
+    const click = (e: MouseEvent) => { const t = e.target as Node; if (!ref.current?.contains(t) && !panel.current?.contains(t)) setOpen(false); };
     window.addEventListener("keydown", key);
     window.addEventListener("mousedown", click);
     return () => { window.removeEventListener("keydown", key); window.removeEventListener("mousedown", click); };
@@ -27,7 +30,7 @@ export function MoreMenu({ items, label = "More actions", size = "md" }: { items
     <div className="relative" ref={ref}>
       <Button variant="secondary" size={size} icon={Ellipsis} aria-label={label} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)} className="!px-3" />
       {open && (
-        <div role="menu" className="absolute right-0 top-11 z-40 w-64 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
+        <Floating anchor={ref} panel={panel} role="menu" className="w-64 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
           {items.map(({ icon: Ic, label: l, href, tone, download }) => {
             const cls = cx("w-full flex items-center gap-2.5 h-10 px-3 rounded-xl hover:bg-sunken text-[14px] text-left", tone === "bad" && "text-bad");
             const inner = <><Ic size={17} className={tone === "bad" ? "" : "text-ink3"} aria-hidden="true" />{l}</>;
@@ -35,7 +38,7 @@ export function MoreMenu({ items, label = "More actions", size = "md" }: { items
               ? <a key={l} role="menuitem" href={href} className={cls} onClick={() => setOpen(false)}>{inner}</a>
               : <Link key={l} role="menuitem" href={href} scroll={false} className={cls} onClick={() => setOpen(false)}>{inner}</Link>;
           })}
-        </div>
+        </Floating>
       )}
     </div>
   );

@@ -4,7 +4,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarPlus, Check, Copy } from "lucide-react";
+import { CalendarPlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
 import { Switch } from "@/components/ui/controls";
@@ -16,6 +16,7 @@ import { attendanceAction, cancelClassAction, materialAction, recordingAction, s
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
 import { DateTimeInput } from "@/components/ui/date-input";
+import { ShareMenu } from "@/components/ui/share-menu";
 
 export type OcSection = { id: string; label: string; subjects: { id: string; name: string }[] };
 
@@ -134,11 +135,7 @@ export function RecordingBox({ id }: { id: string }) {
   );
 }
 
+/** Shares the class link: WhatsApp, the phone's share list, or Copy. */
 export function CopyLink({ link }: { link: string }) {
-  const [done, setDone] = useState(false);
-  return (
-    <Button size="sm" variant="secondary" icon={done ? Check : Copy} onClick={async () => { try { await navigator.clipboard.writeText(link); setDone(true); setTimeout(() => setDone(false), 2000); } catch { setDone(false); } }}>
-      {done ? "Copied" : "Copy"}
-    </Button>
-  );
+  return <ShareMenu text={link} title="Online class" />;
 }

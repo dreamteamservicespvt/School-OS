@@ -11,6 +11,7 @@ import { ChevronDown, Download, Ellipsis, FileSpreadsheet, FileText, Search, She
 import { Button, Spinner } from "./button";
 import { inputCls } from "./field";
 import { cx } from "./cx";
+import { Floating } from "./floating";
 import { useT } from "@/lib/i18n/client";
 
 function useAddress() {
@@ -73,10 +74,12 @@ export function UrlSelect({ name, options, label, className, value: forced, rese
 export function MoreMenu({ children, label = "More actions", size = "md", align = "right" }: { children: React.ReactNode; label?: string; size?: "sm" | "md"; align?: "left" | "right" }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
+    // The menu is drawn in front of the page (./floating.tsx), so a click in it is not inside `ref`.
     const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node) && !panel.current?.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", close);
@@ -87,10 +90,10 @@ export function MoreMenu({ children, label = "More actions", size = "md", align 
       <Button variant="secondary" size={size} icon={Ellipsis} aria-label={label} title={label} aria-expanded={open} aria-haspopup="menu"
         onClick={(e) => { e.stopPropagation(); setOpen(!open); }} className="!px-3 relative z-[1]" />
       {open && (
-        <div role="menu" onClick={() => setOpen(false)}
-          className={cx("absolute top-11 z-40 w-60 bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise", align === "right" ? "right-0" : "left-0")}>
+        <Floating anchor={ref} panel={panel} align={align} focusFirst="[role=menuitem]" role="menu" onClick={() => setOpen(false)}
+          className="w-60 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
           {children}
-        </div>
+        </Floating>
       )}
     </div>
   );
@@ -161,10 +164,12 @@ export function SelectBar({ form, children }: { form: string; children: (ids: st
 export function ExportMenu({ href, className, label = "Export" }: { href: string; className?: string; label?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (!open) return;
+    // The menu is drawn in front of the page (./floating.tsx), so a click in it is not inside `ref`.
     const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
+      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node) && !panel.current?.contains(e.target as Node)) setOpen(false);
     };
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", close);
@@ -175,11 +180,11 @@ export function ExportMenu({ href, className, label = "Export" }: { href: string
     <div ref={ref} className={cx("relative shrink-0", className)}>
       <Button variant="secondary" icon={Download} aria-expanded={open} aria-haspopup="menu" onClick={() => setOpen(!open)} className="w-full">{label}</Button>
       {open && (
-        <div role="menu" onClick={() => setOpen(false)} className="absolute right-0 top-11 z-40 w-56 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
+        <Floating anchor={ref} panel={panel} role="menu" onClick={() => setOpen(false)} className="w-56 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
           <a role="menuitem" download href={`${href}${join}format=xlsx`} className={itemCls()}><FileSpreadsheet size={17} className="text-ink3" aria-hidden="true" />Excel</a>
           <a role="menuitem" download href={`${href}${join}format=csv`} className={itemCls()}><Sheet size={17} className="text-ink3" aria-hidden="true" />CSV</a>
           <a role="menuitem" download href={`${href}${join}format=pdf`} className={itemCls()}><FileText size={17} className="text-ink3" aria-hidden="true" />PDF</a>
-        </div>
+        </Floating>
       )}
     </div>
   );

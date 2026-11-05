@@ -18,6 +18,7 @@ import {
   reviewAction, sendBackAction, sendCodeAction, sendFeeLinkAction, withdrawAction,
 } from "../actions";
 import { Words } from "@/lib/i18n/client";
+import { upiOnly } from "@/components/ui/payment-ref-field";
 
 const MOVE_ICON: Record<string, typeof FolderOpen> = { REVIEWED: CircleCheck, DOCUMENTS: FolderOpen, TEST_INTERVIEW: ClipboardCheck, DECISION: Hourglass };
 
@@ -96,7 +97,7 @@ export function AppActions({ id, name, applicationNo, parent, moves, canReview, 
               <>
                 <TextField label="Amount (₹)" name="amount" required inputMode="decimal" defaultValue={f.val("amount", fee.amount.replace(/[^\d.]/g, ""))} error={f.err("amount")} className="tnum" />
                 <SelectField label="Paid by" name="mode" required options={fee.modes} defaultValue={f.val("mode", "cash")} error={f.err("mode")} />
-                <TextField label="Reference" name="reference" maxLength={80} defaultValue={f.val("reference")} error={f.err("reference")} help="Cheque number or UPI / card transaction ID. Not needed for cash." />
+                <TextField label="Reference" name="reference" maxLength={80} defaultValue={f.val("reference")} error={f.err("reference")} help="UPI: the 12-digit UTR. Cheque or card: its number. Not for cash." onInput={upiOnly} />
                 <p className="text-[13px] text-ink3"><Words k="A receipt is made only after the money is received." /></p>
               </>
             )}

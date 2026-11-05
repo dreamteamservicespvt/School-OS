@@ -23,6 +23,8 @@ import type { FormData as Data, FormRow } from "./form-data";
 import { KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
 import { DateInput } from "@/components/ui/date-input";
+import { FormProblems, bringToBox } from "@/components/ui/form-problems";
+import { formatClock } from "@/lib/format";
 
 const PATTERNS = [{ value: "PERCENTAGE", label: "Percentage" }, { value: "GRADING", label: "Grading" }, { value: "CGPA", label: "CGPA" }];
 const DURATIONS = [30, 45, 60, 75, 90, 105, 120, 150, 180, 210, 240].map((m) => ({ value: String(m), label: m < 60 ? `${m} min` : `${Math.floor(m / 60)} h${m % 60 ? ` ${m % 60} min` : ""}` }));
@@ -31,7 +33,7 @@ const TIMES = Array.from({ length: 45 }, (_, i) => { const m = 7 * 60 + i * 15; 
 const key = (classId: string, subjectId: string) => `${classId}|${subjectId}`;
 const addDays = (iso: string, n: number) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
 const mins = (t: string) => { const [h, m] = t.split(":").map(Number); return h * 60 + m; };
-const time12 = (t: string) => { if (!/^\d{2}:\d{2}$/.test(t)) return ""; const [h, m] = t.split(":").map(Number); return `${((h + 11) % 12) + 1}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
+const time12 = (t: string) => (/^\d{2}:\d{2}$/.test(t) ? formatClock(t) : "");
 const endOf = (t: string, d: number) => { if (!/^\d{2}:\d{2}$/.test(t)) return ""; const e = mins(t) + d; return `${String(Math.floor(e / 60) % 24).padStart(2, "0")}:${String(e % 60).padStart(2, "0")}`; };
 const showDay = (iso: string) => (iso ? `${iso.slice(8, 10)}-${iso.slice(5, 7)}-${iso.slice(0, 4)}` : "");
 const cell = (bad?: unknown) => cx(inputCls(bad), "!h-10 !text-[14px] !px-2.5");
@@ -161,8 +163,14 @@ export function DatesheetForm({ data }: { data: Data }) {
       onSubmit={(e) => {
         setTried(true);
         const bad = locked ? !d.title.trim() : issueCount > 0;
-        if (bad) { e.preventDefault(); requestAnimationFrame(() => summaryRef.current?.focus()); }
+        if (bad) {
+          e.preventDefault();
+          // The first bad box comes into view with the cursor in it; the list of problems when no box is marked.
+          const form = e.currentTarget;
+          requestAnimationFrame(() => { const box = form.querySelector<HTMLElement>("[aria-invalid=true]"); if (box) bringToBox(box); else summaryRef.current?.focus(); });
+        }
       }}>
+      <FormProblems errors={state?.errors}>
       {exam && <input type="hidden" name="examId" value={exam.id} />}
       <input type="hidden" name="yearId" value={data.yearId} />
       {classIds.map((id) => <input key={id} type="hidden" name="classIds" value={id} />)}
@@ -326,6 +334,7 @@ export function DatesheetForm({ data }: { data: Data }) {
           <SubmitButton pendingText="Saving…"><Check size={17} aria-hidden="true" />{exam ? "Save changes" : "Save as draft"}</SubmitButton>
         </div>
       </Card>
+      </FormProblems>
     </form>
   );
 }

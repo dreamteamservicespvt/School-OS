@@ -23,6 +23,7 @@ import { stopFineFromSalary } from "./salary";
 import { librarySettings, type LibrarySettings } from "./settings";
 import { memberByKey, memberFields, type Member } from "./members";
 import { FINE_REASON } from "./words";
+import { paymentRefProblem } from "../payment-ref";
 
 export const FEE_HEAD_KEY = "library-fine";
 const ZERO = BigInt(0);
@@ -198,6 +199,8 @@ export async function collectAtDesk(tx: Tx, ctx: SchoolContext, fineId: string, 
   if (!f) throw new LibraryProblem("This fine was not found.");
   if (f.status !== "DUE") throw new LibraryProblem(f.status === "WAITING" ? "This charge is waiting for approval." : "This fine is not due.");
   if (f.feeDueId) throw new LibraryProblem("This fine is in the student's fees. It is paid in Fee Management, with the other fees.");
+  const refProblem = paymentRefProblem(input.mode, input.reference);
+  if (refProblem) throw new LibraryProblem(refProblem, "reference");
   if (f.salaryAt) throw new LibraryProblem("This fine is going to be taken from salary. Choose “Collect here instead” first, so it is not taken twice.");
   const s = await librarySettings(tx, ctx);
   const member = await memberByKey(tx, ctx, s, f.studentId ? `S:${f.studentId}` : `T:${f.staffId}`);

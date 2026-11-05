@@ -11,7 +11,7 @@ import { personCampusId } from "../campus";
 import { approvalsFor, requestLabel } from "../approvals";
 import { decidableIds } from "../approvals-inbox";
 import { askerJobs } from "../approval-people";
-import { formatRupees } from "../format";
+import { formatRupees, formatTime } from "../format";
 import { todayFor } from "../periods";
 import { homesFor, isLeader } from "./homes";
 import { carryAll, type DashFilters } from "./filters";
@@ -368,7 +368,7 @@ export async function buildHome(person: Viewer, opts: { now?: Date; widgets?: re
   const dueWords = (d: Date | null) => {
     if (!d) return null;
     const day = todayFor(tz, d);
-    const time = d.toLocaleTimeString("en-IN", { timeZone: tz, hour: "numeric", minute: "2-digit", hour12: true }).toUpperCase();
+    const time = formatTime(d, tz);
     const diff = daysBetween(today, day);
     if (diff < 0) return diff === -1 ? `Was due yesterday, ${time}` : `Was due ${day.getUTCDate()} ${day.toLocaleString("en-GB", { month: "short", timeZone: "UTC" })}`;
     return `${diff === 0 ? "Today" : dayWord(day, today)}, ${time}`;

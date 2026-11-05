@@ -5,7 +5,7 @@ import "server-only";
 import type { PeriodSlot } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
-import { AcademicRuleError, DAY_SHORT, minutes, TIME_RE } from "./common";
+import { AcademicRuleError, DAY_SHORT, minutes, time12, TIME_RE } from "./common";
 
 export type AcademicSettingsView = {
   dayStart: string;
@@ -41,7 +41,7 @@ export async function academicSettings(tx: Tx, ctx: SchoolContext, campusId: str
 }
 
 export async function saveAcademicSettings(tx: Tx, ctx: SchoolContext, campusId: string, input: AcademicSettingsView) {
-  if (!TIME_RE.test(input.dayStart) || !TIME_RE.test(input.dayEnd)) throw new AcademicRuleError("Times must be like 08:30.", "dayStart");
+  if (!TIME_RE.test(input.dayStart) || !TIME_RE.test(input.dayEnd)) throw new AcademicRuleError("Times must be like 8:30 AM.", "dayStart");
   if (minutes(input.dayEnd) <= minutes(input.dayStart)) throw new AcademicRuleError("School must end after it starts.", "dayEnd");
   if (input.workingDays.length === 0) throw new AcademicRuleError("Choose at least one working day.", "workingDays");
   if (input.halfDays.some((d) => !input.workingDays.includes(d))) throw new AcademicRuleError("A half day must also be a working day.", "halfDays");
@@ -74,8 +74,8 @@ export type SlotInput = { label: string; number: number; startTime: string; endT
 
 export async function checkSlot(tx: Tx, ctx: SchoolContext, campusId: string, input: SlotInput, exceptId?: string) {
   if (!input.label.trim()) throw new AcademicRuleError("Give the period a name, like Period 1 or Lunch.", "label");
-  if (!TIME_RE.test(input.startTime)) throw new AcademicRuleError("Start time must be like 08:45.", "startTime");
-  if (!TIME_RE.test(input.endTime)) throw new AcademicRuleError("End time must be like 09:25.", "endTime");
+  if (!TIME_RE.test(input.startTime)) throw new AcademicRuleError("Start time must be like 8:45 AM.", "startTime");
+  if (!TIME_RE.test(input.endTime)) throw new AcademicRuleError("End time must be like 9:25 AM.", "endTime");
   if (minutes(input.endTime) <= minutes(input.startTime)) throw new AcademicRuleError("The period must end after it starts.", "endTime");
   if (input.days.length === 0) throw new AcademicRuleError("Choose the days this period runs.", "days");
   const others = (await periodSlots(tx, ctx, campusId)).filter((s) => s.id !== exceptId);
@@ -83,7 +83,7 @@ export async function checkSlot(tx: Tx, ctx: SchoolContext, campusId: string, in
     const shared = o.days.filter((d) => input.days.includes(d));
     if (!shared.length) continue;
     if (minutes(input.startTime) < minutes(o.endTime) && minutes(input.endTime) > minutes(o.startTime)) {
-      throw new AcademicRuleError(`${input.label} overlaps ${o.label} (${o.startTime} to ${o.endTime}) on ${shared.map((d) => DAY_SHORT[d]).join(", ")}.`, "startTime");
+      throw new AcademicRuleError(`${input.label} overlaps ${o.label} (${time12(o.startTime)} to ${time12(o.endTime)}) on ${shared.map((d) => DAY_SHORT[d]).join(", ")}.`, "startTime");
     }
     if (!input.isBreak && !o.isBreak && o.number === input.number) {
       throw new AcademicRuleError(`Period number ${input.number} is already used by ${o.label}.`, "number");

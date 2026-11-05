@@ -11,6 +11,7 @@ import { cx } from "@/components/ui/cx";
 import { WarnCheck } from "../_components/forms";
 import { attachBillAction, changeExpenseAction, payExpenseAction, recordBillAction, recordExpenseAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { PaymentRefField } from "@/components/ui/payment-ref-field";
 
 const MODES = [{ value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "BANK_TRANSFER", label: "Bank transfer" }, { value: "CHEQUE", label: "Cheque" }];
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
@@ -69,7 +70,7 @@ function ModeFields({ prefix, mode, setMode, cash, banks, mainBank, cashInHand, 
         <span className="text-[13px] font-semibold text-ink2"><Words k="Mode" /><span className="text-bad" aria-hidden="true"> *</span></span>
         <Segmented label="Mode" value={mode} onChange={setMode} className="w-full" options={MODES} />
       </div>
-      {mode !== "CASH" && <SText name="reference" label="Reference" required placeholder={mode === "CHEQUE" ? "Cheque 118204" : "UTR SBIN2262…"} maxLength={60} id={`${prefix}-ref`} />}
+      {mode !== "CASH" && <PaymentRefField mode={mode} label="Reference" required placeholder={mode === "CHEQUE" ? "Cheque 118204" : "UTR SBIN2262…"} maxLength={60} id={`${prefix}-ref`} />}
       {mode === "CASH"
         ? (amount > cashInHand
           ? <Alert tone="danger" title={`Cash in hand is ${inr(cashInHand)}. This payment is ${inr(amount)}.`}><Words k="Pay from the bank, or record the cash received first." /></Alert>

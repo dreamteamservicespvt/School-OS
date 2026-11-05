@@ -9,6 +9,7 @@ import { createContext, useActionState, useContext, useEffect, useRef } from "re
 import { FormMessage } from "@/components/ui/alert";
 import { CheckboxField, ErrorSummary, SelectField, TextArea, TextField, type Option } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 import type { ButtonVariant } from "@/components/ui/button";
 import type { FormState } from "@/lib/forms";
 
@@ -32,13 +33,17 @@ export function ActionForm({ action, children, submitLabel, pendingText, submitV
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(action, null);
   const ref = useRef<HTMLFormElement>(null);
+  const draft = useFormDraft(ref, id ?? submitLabel ?? "form", submitVariant !== "danger");
+  const forget = draft.done;
   useEffect(() => {
+    if (state?.ok) forget();
     if (state?.ok && resetOnSuccess) ref.current?.reset();
     if (state && !state.ok) ref.current?.querySelector<HTMLElement>("[aria-invalid=true]")?.focus();
-  }, [state, resetOnSuccess]);
+  }, [state, resetOnSuccess, forget]);
   return (
     <Ctx.Provider value={state}>
       <form ref={ref} id={id} action={formAction} className={className} noValidate={false}>
+        <DraftHint draft={draft} />
         <FormMessage state={state} />
         <ErrorSummary errors={state?.errors} />
         {children}

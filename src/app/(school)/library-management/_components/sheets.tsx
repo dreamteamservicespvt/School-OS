@@ -17,6 +17,7 @@ import {
   limitAction, markLostAction, saveBookAction, saveCategoryAction, startStockAction, waiveAction, withdrawCopyAction,
 } from "../actions";
 import { Words } from "@/lib/i18n/client";
+import { PaymentRefField } from "@/components/ui/payment-ref-field";
 
 type Opt = { value: string; label: string };
 
@@ -191,7 +192,7 @@ export function CollectSheet({ closeHref, fineId, words }: { closeHref: string; 
   return (
     <SheetForm title="Collect fine" sub={words} closeHref={closeHref} action={collectAction} submitLabel="Collect and give receipt" hidden={{ fineId }}>
       <SegField name="mode" label="Paid by" start="CASH" onChange={setM} options={[{ value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "BANK_TRANSFER", label: "Bank" }, { value: "CHEQUE", label: "Cheque" }]} />
-      {m !== "CASH" && <SText name="reference" label={m === "CHEQUE" ? "Cheque number" : "Transaction or UTR number"} required maxLength={60} className="[&_input]:font-mono" />}
+      {m !== "CASH" && <PaymentRefField mode={m} label={m === "CHEQUE" ? "Cheque number" : "Transaction or UTR number"} required maxLength={60} className="[&_input]:font-mono" />}
       <p className="text-[12.5px] text-ink3"><Words k="Recorded as income in Finance Management with a receipt number." /></p>
     </SheetForm>
   );

@@ -8,7 +8,7 @@ import { clashCheck, effectiveVersion, gridRows, publishedVersionForYear, roomGr
 import { bookingsBetween, roomNames, roomsFor } from "@/lib/academic/rooms";
 import { featureOn } from "@/lib/academic/scope";
 import { inCampus } from "@/lib/campus";
-import { DAY_NAMES, addDays, isoDay, plural, weekday } from "@/lib/academic/common";
+import { DAY_NAMES, addDays, isoDay, plural, time12, weekday } from "@/lib/academic/common";
 import { EmptyState } from "@/components/empty-state";
 import { Alert } from "@/components/ui/alert";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
@@ -245,7 +245,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
               const free = data.teachers.filter((t) => !busy.has(t.id));
               return (
                 <li key={s.number} className="rounded-2xl border border-line bg-surface p-4">
-                  <p className="font-semibold">{s.label} <span className="font-normal text-ink-2">· {s.startTime} <Words k="to" /> {s.endTime} · {plural(free.length, "teacher")} <Words k="free" /></span></p>
+                  <p className="font-semibold">{s.label} <span className="font-normal text-ink-2">· {time12(s.startTime)} <Words k="to" /> {time12(s.endTime)} · {plural(free.length, "teacher")} <Words k="free" /></span></p>
                   {free.length === 0 ? <p className="mt-1 text-sm text-ink-2"><Words k="Every teacher is teaching." /></p> : <p className="mt-1 text-sm">{free.map((t) => t.fullName).join(", ")}</p>}
                 </li>
               );

@@ -32,7 +32,7 @@ export function AddClassButtons({ yearId, classes, levels, boardsOn, schoolBoard
         <FormDialog trigger="Add class" triggerVariant="primary" title="Add a class" action={addClassAction} submitLabel="Add class" pendingText="Adding…" hidden={{ yearId }}>
           {(state) => (
             <>
-              <TextField label="Class name" name="name" required autoFocus defaultValue={v(state, "name")} error={err(state, "name")} help="Any name: Nursery, Class 5, B.Sc 1, or a batch such as 7:00 to 8:00." />
+              <TextField label="Class name" name="name" required autoFocus defaultValue={v(state, "name")} error={err(state, "name")} help="Any name: Nursery, Class 5, B.Sc 1, or a batch such as 7:00 AM to 8:00 AM." />
               <SelectField label="Order" name="position" required defaultValue={v(state, "position", "end")} error={err(state, "position")}
                 options={[{ value: "end", label: "After the last class" }, { value: "start", label: "First" }, ...classes.map((c) => ({ value: c.id, label: `After ${c.name}` }))]} />
               <SelectField label="Level" name="level" defaultValue={v(state, "level")} placeholder="Guess from the name" options={levels.map((l) => ({ value: l, label: l }))} help="Used to group reports." />
@@ -54,7 +54,7 @@ function ManyClassesFields({ state }: { state: Parameters<typeof v>[0] }) {
   return (
     <>
       <TextArea label="Class names" name="names" required rows={5} value={names} onChange={(e) => setNames(e.target.value)} error={err(state, "names")}
-        help="One per line, or a range like Class 1 to Class 10. Classes are added in this order." />
+        help="One per line, or a range like Class 1 to Class 10." />
       <div className="flex flex-wrap gap-2">
         <Button size="sm" variant="ghost" onClick={() => setNames("Nursery\nLKG\nUKG\nClass 1 to Class 10")}><Words k="Nursery to Class 10" /></Button>
         <Button size="sm" variant="ghost" onClick={() => setNames("Nursery\nLKG\nUKG\nClass 1 to Class 12")}><Words k="Nursery to Class 12" /></Button>
@@ -72,7 +72,7 @@ function BoardField({ state, schoolBoard, value }: { state: Parameters<typeof v>
   return (
     <>
       <TextField label="Board" name="board" list="academic-boards" defaultValue={v(state, "board", value)} error={err(state, "board")}
-        placeholder={schoolBoard ? `${schoolBoard} (the school's board)` : "The school's board"} help="Sets the grading scale and report card format in Examination & Results. Leave empty for the school's board." />
+        placeholder={schoolBoard ? `${schoolBoard} (the school's board)` : "The school's board"} help="Sets the grading scale and report card. Leave empty for the school's board." />
       <datalist id="academic-boards">{BOARDS.map((b) => <option key={b} value={b} />)}</datalist>
     </>
   );
@@ -252,7 +252,12 @@ export function ClassesBoard(props: {
 function SectionDialog({ mode, yearId, classId, className, section, teachers, streams, streamsOn, defaultSeats }: {
   mode: "add" | "edit"; yearId: string; classId: string; className: string; section?: Section; teachers: Teacher[]; streams: Option[]; streamsOn: boolean; defaultSeats: number;
 }) {
-  const teacherOptions = teachers.map((t) => ({ value: t.id, label: `${t.name}${t.duties.filter((d) => d !== `${className} ${section?.name}`).length ? `: class teacher of ${t.duties.filter((d) => d !== `${className} ${section?.name}`).join(", ")}` : ""}` }));
+  // A teacher is class teacher of one section only (owner test 2026-11-05): one with another section is shown but cannot be chosen.
+  const teacherOptions = teachers.map((t) => {
+    const elsewhere = t.duties.filter((d) => d !== `${className} ${section?.name}`);
+    const keep = t.id === section?.classTeacherId;
+    return { value: t.id, label: `${t.name}${elsewhere.length ? `: already class teacher of ${elsewhere.join(", ")}` : ""}`, disabled: elsewhere.length > 0 && !keep };
+  });
   return (
     <FormDialog trigger={mode === "add" ? "Add section" : "Edit"} triggerSize="sm" triggerVariant="ghost" triggerLabel={mode === "add" ? `Add a section to ${className}` : `Edit ${className} ${section?.name}`}
       title={mode === "add" ? `Add a section to ${className}` : `Edit ${className} ${section?.name}`} action={saveSectionAction} submitLabel={mode === "add" ? "Add section" : "Save section"}
@@ -265,7 +270,7 @@ function SectionDialog({ mode, yearId, classId, className, section, teachers, st
               help={section && section.students > 0 ? `${section.students} students now.` : undefined} />
           </div>
           <SelectField label="Class teacher" name="classTeacherId" defaultValue={v(state, "classTeacherId", section?.classTeacherId)} error={err(state, "classTeacherId")} placeholder="Not set yet" options={teacherOptions}
-            help="Each teacher's current class-teacher duties are shown next to their name." />
+            help="A teacher is class teacher of one section only. Those already class teacher of another section are shown but cannot be chosen." />
           {streamsOn && <SelectField label="Stream" name="streamId" defaultValue={v(state, "streamId", section?.streamId)} placeholder="No stream" options={streams.map((s) => ({ value: s.id, label: s.name }))} />}
           <TextField label="Room" name="room" defaultValue={v(state, "room", section?.room)} error={err(state, "room")} help="Used by the Time Table room view." />
         </>

@@ -9,21 +9,28 @@ import Link from "next/link";
 import { Ellipsis } from "lucide-react";
 import { cx } from "./cx";
 import { buttonClass, type ButtonSize } from "./button";
+import { Floating } from "./floating";
 
 export type MenuItem = { label: string; href?: string; /** Runs instead of opening a page; only from a browser component. */ onClick?: () => void; icon?: React.ReactNode; /** A file (PDF): opened directly. */ file?: boolean; tone?: "bad" };
 
 export function MoreMenu({ items, label = "More actions", size = "md", className }: { items: MenuItem[]; label?: string; size?: ButtonSize; className?: string }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const id = useId();
   useEffect(() => {
     if (!open) return;
+    // The menu is drawn in front of the page (./floating.tsx), so a click inside it is not inside `ref`.
     const close = (e: MouseEvent | KeyboardEvent) => {
-      if (e instanceof KeyboardEvent ? e.key === "Escape" : !ref.current?.contains(e.target as Node)) setOpen(false);
+      if (e instanceof KeyboardEvent) {
+        if (e.key === "Escape") { setOpen(false); ref.current?.querySelector("button")?.focus(); }
+        return;
+      }
+      const t = e.target as Node;
+      if (!ref.current?.contains(t) && !panel.current?.contains(t)) setOpen(false);
     };
     document.addEventListener("mousedown", close);
     document.addEventListener("keydown", close);
-    ref.current?.querySelector<HTMLElement>("[role=menuitem]")?.focus();
     return () => { document.removeEventListener("mousedown", close); document.removeEventListener("keydown", close); };
   }, [open]);
   if (!items.length) return null;
@@ -35,13 +42,13 @@ export function MoreMenu({ items, label = "More actions", size = "md", className
         <Ellipsis size={size === "sm" ? 15 : 17} aria-hidden="true" />
       </button>
       {open && (
-        <div id={id} role="menu" aria-label={label} className="absolute right-0 top-full mt-1.5 z-40 w-60 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
+        <Floating anchor={ref} panel={panel} focusFirst="[role=menuitem]" id={id} role="menu" aria-label={label} className="w-60 max-w-[calc(100vw-2rem)] bg-surface border border-line rounded-2xl shadow-pop p-1.5 animate-rise">
           {items.map((it) => !it.href
             ? <button key={it.label} type="button" role="menuitem" className={itemCls(it.tone)} onClick={() => { setOpen(false); it.onClick?.(); }}>{it.icon}{it.label}</button>
             : it.file
               ? <a key={it.label} role="menuitem" href={it.href} className={itemCls(it.tone)} onClick={() => setOpen(false)}>{it.icon}{it.label}</a>
               : <Link key={it.label} role="menuitem" href={it.href} className={itemCls(it.tone)} onClick={() => setOpen(false)}>{it.icon}{it.label}</Link>)}
-        </div>
+        </Floating>
       )}
     </div>
   );

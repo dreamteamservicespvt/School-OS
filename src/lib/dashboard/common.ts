@@ -6,6 +6,7 @@ import { reachFor, type Action } from "../permissions";
 import { BUILT_MODULES, MODULES, type ModuleKey } from "../modules";
 import { ownSectionIds, classTeacherSectionIds, staffForUser } from "../people";
 import type { DashContext, Viewer } from "./types";
+import { formatClock } from "../format";
 
 const DAY = 86_400_000;
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -55,10 +56,9 @@ export function dueWord(d: Date, today: Date) {
   return `due ${dayDate(d)}`;
 }
 
-/** "08:45" to "8:45". */
+/** "08:45" to "8:45 AM" (12-hour, src/lib/format.ts). */
 export function clock(hhmm: string) {
-  const [h, m] = hhmm.split(":").map(Number);
-  return `${h % 12 === 0 ? 12 : h % 12}:${String(m).padStart(2, "0")}`;
+  return formatClock(hhmm);
 }
 
 export function minutesOf(hhmm: string) {

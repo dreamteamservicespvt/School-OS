@@ -51,12 +51,12 @@ export function DayText({ text }: { text: string }) {
 }
 
 /** A select's options in the screen's language (an <option> takes only plain words). */
-export function OptionList({ options, placeholder }: { options: readonly { value: string; label: string }[]; placeholder?: string }) {
+export function OptionList({ options, placeholder }: { options: readonly { value: string; label: string; disabled?: boolean }[]; placeholder?: string }) {
   const t = useT();
   return (
     <>
       {placeholder !== undefined && <option value="">{t.any(placeholder)}</option>}
-      {options.map((o) => <option key={o.value} value={o.value}>{t.any(o.label)}</option>)}
+      {options.map((o) => <option key={o.value} value={o.value} disabled={o.disabled || undefined}>{t.any(o.label)}</option>)}
     </>
   );
 }

@@ -28,6 +28,7 @@ import { Split, Col } from "@/components/ui/split";
 import { cx } from "@/components/ui/cx";
 import { Words } from "@/lib/i18n/client";
 import { DateTimeInput } from "@/components/ui/date-input";
+import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 
 type Channel = "whatsapp" | "sms" | "email" | "app";
 export type Person = { type: "guardian" | "student" | "staff" | "parentsOf"; id: string; name: string; detail: string };
@@ -118,10 +119,14 @@ function toggleIn<T>(list: T[], v: T) {
   return list.includes(v) ? list.filter((x) => x !== v) : [...list, v];
 }
 
+/** Form keys that change each time the page opens: not part of the draft's name. */
+const SEND_KEYS = ["sendKey", "fingerprint"];
+
 export function SendForm({ data }: { data: SendFormData }) {
   const formRef = useRef<HTMLFormElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const [state, dispatch, pending] = useActionState<SendState, FormData>(checkOrSend, null);
+  const draft = useFormDraft(formRef, "Send message", true, SEND_KEYS);
   const [groupState, dispatchGroup, groupPending] = useActionState<SendState, FormData>(saveGroup, null);
 
   const audOptions: Aud[] = [
@@ -297,6 +302,7 @@ export function SendForm({ data }: { data: SendFormData }) {
     const fd = new FormData(formRef.current);
     fd.set("intent", "send");
     fd.set("fingerprint", live.fingerprint);
+    draft.done();
     startTransition(() => dispatch(fd));
   }
 
@@ -309,6 +315,7 @@ export function SendForm({ data }: { data: SendFormData }) {
   return (
     <form ref={formRef} onSubmit={(e) => { e.preventDefault(); trySend(); }} noValidate encType="multipart/form-data">
       <input type="hidden" name="sendKey" value={data.sendKey} />
+      <DraftHint draft={draft} />
       {/* Who, as the form fields the server reads. */}
       {(aud === "school" || aud === "classes" || aud === "sections") && who.map((k) => <input key={k} type="hidden" name="kinds" value={k} />)}
       {aud === "classes" && classes.map((id) => <input key={id} type="hidden" name="classIds" value={id} />)}

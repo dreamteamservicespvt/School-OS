@@ -13,7 +13,7 @@ import { setupProgress, setupSteps } from "@/lib/dashboard/setup";
 import { moduleOpen, reach } from "@/lib/dashboard/common";
 import { todayFor } from "@/lib/periods";
 import { readDashFilters } from "@/lib/dashboard/filters";
-import { formatDate } from "@/lib/format";
+import { formatDate, formatTime } from "@/lib/format";
 import { DashFilterBar } from "./filter-bar";
 import { Band } from "@/components/ui/band";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -69,7 +69,7 @@ export default async function DashboardPage({ searchParams }: Search) {
   const [home, people] = await page;
   const quick = quickActionsFor(current, home.approvals !== null);
   const primary = home.leader ? null : quick[0] ?? null;
-  const updated = now.toLocaleTimeString("en-IN", { timeZone: tz, hour: "numeric", minute: "2-digit", hour12: true }).toUpperCase();
+  const updated = formatTime(now, tz);
   const today = todayFor(tz, now).toISOString().slice(0, 10);
   const first = home.panels.first;
   const band = home.band.map((b) => ({ key: b.id, label: t.any(b.label), big: b.big, of: b.of, foot: b.foot ? t.any(b.foot) : b.foot, href: b.href, ring: home.leader ? b.ring : undefined }));

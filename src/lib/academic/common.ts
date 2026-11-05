@@ -1,5 +1,6 @@
 // Small shared pieces for Academic Management: plain-words rule errors,
 // date-only helpers in the school's time zone, and day and time words.
+import { formatClock } from "../format";
 
 /** A rule from 04 Academic Management §5 stopped the change. The message is shown as it is. */
 export class AcademicRuleError extends Error {
@@ -52,10 +53,7 @@ export function daysBetween(from: Date, to: Date): Date[] {
 
 /** "08:45" to "8:45 AM" (P17: 12-hour times). */
 export function time12(hhmm: string): string {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm);
-  if (!m) return hhmm;
-  const h = Number(m[1]);
-  return `${((h + 11) % 12) + 1}:${m[2]} ${h < 12 ? "AM" : "PM"}`;
+  return formatClock(hhmm);
 }
 
 export function minutes(hhmm: string): number {

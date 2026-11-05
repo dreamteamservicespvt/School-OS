@@ -14,6 +14,7 @@ import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { ProblemInView } from "@/components/ui/problem-in-view";
 import { Words } from "@/lib/i18n/client";
+import { DraftSpot, type FormDraft } from "@/components/ui/form-draft";
 
 export type Trigger = { label: React.ReactNode; variant?: ButtonVariant; size?: ButtonSize; icon?: React.ReactNode; className?: string; ariaLabel?: string; disabled?: boolean };
 
@@ -60,6 +61,7 @@ export function ActionSheet({ trigger, open: forced, onClose, title, sub, childr
   const [error, setError] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const open = forced ?? self;
+  const draft = useRef<FormDraft | null>(null);
 
   useEffect(() => {
     const d = ref.current;
@@ -83,6 +85,7 @@ export function ActionSheet({ trigger, open: forced, onClose, title, sub, childr
       try {
         const problem = await run(fd);
         if (problem) { setError(problem); return; }
+        draft.current?.done();
         if (forced === undefined) setSelf(false);
         onClose?.();
         setTyped("");
@@ -101,6 +104,7 @@ export function ActionSheet({ trigger, open: forced, onClose, title, sub, childr
         <div className="flex max-h-[inherit] flex-col">
           <SheetHead titleId={titleId} title={title} sub={sub} onClose={close} />
           <form id={formId} action={submit} noValidate className="overflow-y-auto scroll-thin px-5 pb-5 flex flex-col gap-4 text-[14.5px] text-ink2">
+            {open && <DraftSpot name={title} handle={draft} enabled={confirmVariant !== "danger" && !typeToConfirm} />}
             {open && children}
             {typeToConfirm && (
               <label className="flex flex-col gap-1.5 text-[13px] font-semibold text-ink2">

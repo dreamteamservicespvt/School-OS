@@ -152,7 +152,7 @@ export function isoDate(fd: FormData, key: string, label: string, { required = t
 /** A "HH:MM" time typed in a form, as the minute of the day. */
 export function minute(fd: FormData, key: string, label: string): number {
   const m = parseMinute(str(fd, key));
-  if (m === null) throw new HostelProblem(`${label} is needed, like 18:00.`, key);
+  if (m === null) throw new HostelProblem(`${label} is needed, like 6:00 PM.`, key);
   return m;
 }
 

@@ -155,7 +155,7 @@ export async function saveStaffAttendance(tx: Tx, ctx: SchoolContext, access: At
   const lock = lockState(settings, input.date, input.now, input.timeZone);
   const parseTime = (v: string | null | undefined, label: string) => {
     if (!v) return null;
-    if (!/^\d{2}:\d{2}$/.test(v)) throw new AttendanceProblem(`${label} must be a time like 08:45.`);
+    if (!/^\d{2}:\d{2}$/.test(v)) throw new AttendanceProblem(`${label} must be a time like 8:45 AM.`);
     return instantAt(input.date, v, input.timeZone);
   };
   const changes: { staffId: string; name: string; before: string | null; after: string; inTime: Date | null; outTime: Date | null; late: number | null; note: string | null }[] = [];

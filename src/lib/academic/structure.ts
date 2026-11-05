@@ -146,7 +146,7 @@ export async function addSection(tx: Tx, ctx: SchoolContext, classId: string, ye
   if (clash && !clash.archivedAt) throw new AcademicRuleError(`${cls.name} ${name} already exists.`, "name");
   const seats = input.seats ?? siblings.find((s) => !s.archivedAt)?.seats ?? 40;
   if (seats < 1 || seats > 500) throw new AcademicRuleError("Seats must be between 1 and 500.", "seats");
-  await checkClassTeacher(tx, input.classTeacherId ?? null);
+  await checkClassTeacher(tx, input.classTeacherId ?? null, yearId, clash?.id ?? null);
   const data = { seats, classTeacherId: input.classTeacherId ?? null, streamId: input.streamId ?? null, room: input.room?.trim() || null };
   const section = clash
     ? await tx.section.update({ where: { id: clash.id }, data: { ...data, archivedAt: null, updatedById: ctx.userId } })
@@ -155,11 +155,31 @@ export async function addSection(tx: Tx, ctx: SchoolContext, classId: string, ye
   return { section, label: `${cls.name} ${name}` };
 }
 
-async function checkClassTeacher(tx: Tx, staffId: string | null) {
+async function checkClassTeacher(tx: Tx, staffId: string | null, yearId: string, sectionId: string | null, changed = true) {
   if (!staffId) return;
   const staff = await tx.staff.findFirst({ where: { id: staffId, archivedAt: null } });
   if (!staff) throw new AcademicRuleError("Choose a class teacher from the staff list.", "classTeacherId");
   if (staff.status !== "ACTIVE" && staff.status !== "ON_LEAVE") throw new AcademicRuleError(`${staff.fullName} is no longer working here. Choose another class teacher.`, "classTeacherId");
+  const other = changed ? await classTeacherDutyElsewhere(tx, staffId, yearId, sectionId) : null;
+  if (other) throw new AcademicRuleError(oneClassTeacherMessage(staff.fullName, other), "classTeacherId");
+}
+
+/**
+ * A person is the class teacher of one section at most in a year (owner test
+ * 2026-11-05): the section they are class teacher of other than `sectionId`, as
+ * "Class 1 A", or null. Teaching subjects in other sections is not class-teacher duty.
+ */
+export async function classTeacherDutyElsewhere(tx: Tx, staffId: string, yearId: string, sectionId: string | null) {
+  const other = await tx.section.findFirst({
+    where: { academicYearId: yearId, classTeacherId: staffId, archivedAt: null, ...(sectionId ? { id: { not: sectionId } } : {}) },
+    select: { name: true, schoolClass: { select: { name: true } } },
+  });
+  return other ? `${other.schoolClass.name} ${other.name}` : null;
+}
+
+/** The refusal when a second section is given to a class teacher. */
+export function oneClassTeacherMessage(name: string, section: string) {
+  return `${name} is already the class teacher of ${section}. A teacher is class teacher of one section only: choose another teacher, or first change the class teacher of ${section}.`;
 }
 
 export async function updateSection(tx: Tx, ctx: SchoolContext, sectionId: string, input: SectionInput) {
@@ -170,7 +190,8 @@ export async function updateSection(tx: Tx, ctx: SchoolContext, sectionId: strin
   const clash = await tx.section.findFirst({ where: { classId: section.classId, academicYearId: section.academicYearId, name: { equals: name, mode: "insensitive" }, id: { not: sectionId }, archivedAt: null } });
   if (clash) throw new AcademicRuleError(`${section.schoolClass.name} ${name} already exists.`, "name");
   if (input.seats < 1 || input.seats > 500) throw new AcademicRuleError("Seats must be between 1 and 500.", "seats");
-  await checkClassTeacher(tx, input.classTeacherId);
+  // The one-section rule is checked when the class teacher changes, so a school's earlier data keeps saving.
+  await checkClassTeacher(tx, input.classTeacherId, section.academicYearId, sectionId, input.classTeacherId !== section.classTeacherId);
   const students = await studentsIn(tx, sectionId, section.academicYearId);
   const data = { name, seats: input.seats, classTeacherId: input.classTeacherId, streamId: input.streamId, room: input.room?.trim() || null };
   const updated = await tx.section.update({ where: { id: sectionId }, data: { ...data, updatedById: ctx.userId } });

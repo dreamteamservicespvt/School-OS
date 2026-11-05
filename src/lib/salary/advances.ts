@@ -16,6 +16,7 @@ import { postToDayBook } from "../finance/daybook";
 import { assertBooksOpen } from "../finance/years";
 import { accountForMode, systemHead } from "../finance/settings";
 import { firstOfMonth, monthName, payModeLabel } from "./words";
+import { paymentRefProblem } from "../payment-ref";
 
 const ZERO = BigInt(0);
 
@@ -91,6 +92,8 @@ export async function payAdvance(tx: Tx, ctx: SchoolContext, id: string, input: 
   await assertBooksOpen(tx, ctx, input.date, "date");
   const staff = await tx.staff.findFirst({ where: { id: a.staffId }, select: { fullName: true } });
   const head = await systemHead(tx, ctx, "salary");
+  const refProblem = paymentRefProblem(input.mode, input.reference);
+  if (refProblem) throw new MoneyProblem(refProblem, "reference");
   const accountId = await accountForMode(tx, ctx, input.mode, input.accountId);
   await postToDayBook(tx, ctx, {
     date: input.date, direction: "OUT", amountPaise: a.amountPaise, mode: input.mode, section: "salary-advance", headName: a.type === "LOAN" ? "Staff loan" : "Salary advance",

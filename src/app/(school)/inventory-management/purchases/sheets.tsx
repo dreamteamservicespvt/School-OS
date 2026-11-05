@@ -16,6 +16,7 @@ import { ItemLines, type ItemPick, type LineStart } from "../_components/client"
 import { billAction, cancelBillAction, cancelRequestAction, closeOrderAction, emailOrderAction, orderAction, payBillAction, receiveAction, requestAction, saveVendorAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
 import { DateInput } from "@/components/ui/date-input";
+import { PaymentRefField } from "@/components/ui/payment-ref-field";
 
 type Opt = { value: string; label: string };
 const inr = (n: number) => `₹${n.toLocaleString("en-IN", { maximumFractionDigits: 2 })}`;
@@ -210,7 +211,7 @@ export function PayBillSheet({ closeHref, invoiceId, words, left, today, banks, 
         <Segmented label="Mode" value={mode} onChange={setMode} className="w-full" options={MODES} />
         {m.error && <p className="text-[12.5px] text-bad">{m.error}</p>}
       </div>
-      {mode !== "CASH" && <SText name="reference" label={mode === "CHEQUE" ? "Cheque number" : "Transaction or UTR number"} required maxLength={60} className="[&_input]:font-mono" />}
+      {mode !== "CASH" && <PaymentRefField mode={mode} label={mode === "CHEQUE" ? "Cheque number" : "Transaction or UTR number"} required maxLength={60} className="[&_input]:font-mono" />}
       {mode === "CASH" ? (cashId ? <input type="hidden" name="accountId" value={cashId} /> : null) : <SSelect key={mode} name="accountId" label="Paid from" required options={banks} start={mainBank} />}
       <p className="text-[12.5px] text-ink3"><Words k="The payment goes into the Day Book in Finance Management on the date paid." /></p>
       <Warned />

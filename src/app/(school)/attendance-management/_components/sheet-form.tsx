@@ -16,6 +16,7 @@ import { Banner } from "@/components/ui/banner";
 import { ErrorSummary } from "@/components/ui/field";
 import { ProblemInView } from "@/components/ui/problem-in-view";
 import type { FormState } from "@/lib/forms";
+import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 
 export type Action = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 
@@ -45,14 +46,18 @@ function SheetBody({ action, hidden, submitLabel, submitIcon = Check, submitVari
 }) {
   const [state, formAction, pending] = useActionState(action, null);
   const done = useRef(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const draft = useFormDraft(formRef, submitLabel, submitVariant !== "danger");
+  const forget = draft.done;
   useEffect(() => {
-    if (state?.ok && !done.current) { done.current = true; onDone(state); }
-  }, [state, onDone]);
+    if (state?.ok && !done.current) { done.current = true; forget(); onDone(state); }
+  }, [state, onDone, forget]);
   const f: FormHelpers = { state, pending, err: (k) => state?.errors?.[k], val: (k, fb) => state?.values?.[k] ?? fb ?? undefined };
   const Ic = submitIcon;
   return (
-    <form action={formAction} noValidate className="flex flex-col gap-4">
+    <form ref={formRef} action={formAction} noValidate className="flex flex-col gap-4">
       {hidden && Object.entries(hidden).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
+      <DraftHint draft={draft} />
       <FormProblem state={state} />
       {children(f)}
       <div className="flex gap-2 justify-end pt-1">

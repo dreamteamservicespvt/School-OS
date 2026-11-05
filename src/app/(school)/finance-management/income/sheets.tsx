@@ -8,6 +8,7 @@ import type { Option } from "@/components/ui/field";
 import { recordIncomeAction } from "./actions";
 import { WarnCheck } from "../_components/forms";
 import { Words } from "@/lib/i18n/client";
+import { PaymentRefField } from "@/components/ui/payment-ref-field";
 
 const MODES = [{ value: "CASH", label: "Cash" }, { value: "UPI", label: "UPI" }, { value: "BANK_TRANSFER", label: "Bank transfer" }, { value: "CHEQUE", label: "Cheque" }];
 
@@ -32,7 +33,7 @@ export function RecordIncomeSheet({ closeHref, today, heads, payers, cash, banks
         <span className="text-[13px] font-semibold text-ink2"><Words k="Mode" /><span className="text-bad" aria-hidden="true"> *</span></span>
         <Segmented label="Mode" value={mode} onChange={setMode} className="w-full" options={MODES} />
       </div>
-      {mode !== "CASH" && <SText name="reference" label="Reference" required placeholder={mode === "CHEQUE" ? "Cheque 118204 · Canara Bank" : "UTR 4283…"} maxLength={80} />}
+      {mode !== "CASH" && <PaymentRefField mode={mode} label="Reference" required placeholder={mode === "CHEQUE" ? "Cheque 118204 · Canara Bank" : "UTR 4283…"} maxLength={80} />}
       <SSelect key={mode} name="accountId" label="Into" required options={accounts} start={mode === "CASH" ? accounts[0]?.value : mainBank}
         help={mode === "CASH" ? "Cash goes into the office cash box" : "The main bank account unless you choose another"} />
       <SArea name="note" label="Note" placeholder="Optional" />

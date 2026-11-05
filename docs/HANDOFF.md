@@ -67,4 +67,4 @@ Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits,
 - `npm run build` locally needs NODE_OPTIONS=--max-old-space-size=6144.
 - Before a rebuild, check :3000 with `netstat -ano | grep LISTENING | grep :3000` (Get-NetTCPConnection missed an old
   server on 2026-11-05, so the new build could not start). To start the server alone (no build): run
-  `D:\Gitinash.exe` with a script that does `cd /c/Users/chala/sos-build && npx next start -p 3000 > tools/app.log`.
+  `Start-Process -WindowStyle Hidden -FilePath D:\Gitinash.exe -ArgumentList D:/all/Projects/School-OS/qa/full/start-only.sh`.

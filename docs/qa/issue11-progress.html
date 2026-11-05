@@ -24,17 +24,17 @@ h1{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)
 </main>
 <script>
 var S={
-now:"Last rebuild: the notice now folds after 3 names on phones; then the final browser run and commit",
-main:90,mainline:"5 of 6 steps done (real count); browser check 12 of 12 passed on the build before this small change",
+now:"Done. Issue 11 built and checked, issue 32 passes. Committed, not pushed",
+main:100,mainline:"6 of 6 steps done (real count)",
 rows:[
 ["Server: list logins with no staff record, link one on Add Staff",100,"Done","No database change needed: Staff already has a login link"],
 ["Staff List: 'N people can sign in but have no staff record'",100,"Done","Shows 3 names, the rest under 'Show N more'"],
 ["Add Staff: prefilled from the login, step 2 shows the linked login",100,"Done","No second login; roles stay; no stale warning after saving"],
 ["Tests (link, refusals, other school)",100,"Done","8 new tests pass; related staff and i18n tests pass; typecheck clean, lint 0"],
-["Rebuild and browser check",90,"Running","12 of 12 passed (Naresh Kumar and Meera Joshi linked in the local school); 390 and 1440 screenshots taken"],
+["Rebuild and browser check",100,"Done","Final run 12 of 12 pass on the last build; screenshots 390 and 1440"],
 ["Issue 32: refund form closes after sending (by hand)",100,"Done","PASS: sheet closes, 'Refund of ₹1 sent for approval', row shows Waiting"]
 ],
-wait:"Still open from before: issue 33 refund rule, 34B Transport on by default."
+wait:"Still open from before: issue 33 refund rule, 34B Transport on by default. Push + deploy when you want."
 };
 document.getElementById("now").textContent="Now doing: "+S.now;
 document.getElementById("mainbar").style.width=S.main+"%";

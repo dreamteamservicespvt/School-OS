@@ -42,7 +42,9 @@ Older history: docs/archive/HANDOFF-until-2026-11-04.md (security fixes, audits,
    qa/full/issue11-check.mjs); 32 PASS in the browser; 17 "Staff present" now fixable by adding those records.
    Progress page https://claude.ai/artifact/A5UYbY7ptTNvq8cwpAoyKS (docs/qa/issue11-progress.html).
    Local DB note: the seed has two Naresh Kumar logins (frontdesk, reception) with one phone; QA runs left ₹1 test
-   refunds waiting for Hasini Agarwal.
+   refunds waiting for Hasini Agarwal; browser runs linked Naresh Kumar (frontdesk), Meera Joshi (viceprincipal) and
+   Ramesh Iyer (vp) to new staff records SPS-ST-040..042. Final browser run 12/12 after the last rebuild.
+   Don't run sign-in scripts more than ~3 times in 15 minutes as admin: two-step code sends hit the limit.
    Owner decisions: 33 refund rule; 34B Transport on by default vs blueprint "no Transport in v1".
    Progress page https://claude.ai/artifact/PUeXeKtKi1sBvd2RrHfCsC (docs/qa/live-test-batch2-progress.html).
 

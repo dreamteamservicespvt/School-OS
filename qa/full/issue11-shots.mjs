@@ -3,8 +3,11 @@
 import { asUser, go, shot, close } from "./h.mjs";
 import { VIEWPORTS } from "../lib.mjs";
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+// ONLY=390-light runs one sign-in (each sign-in sends a code; 4 in a row hit the 15-minute limit).
+const only = process.env.ONLY ?? "";
 for (const [vw, v] of [["390", VIEWPORTS.phone390], ["1440", VIEWPORTS.desk1440]]) {
   for (const scheme of ["light", "dark"]) {
+    if (only && only !== `${vw}-${scheme}`) continue;
     const p = await asUser("admin", v, { colorScheme: scheme });
     await p.evaluate((s) => document.documentElement.setAttribute("data-theme", s), scheme).catch(() => {});
     await go(p, "/staff-hr-management");

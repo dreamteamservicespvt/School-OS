@@ -3,7 +3,7 @@
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportColumn, type ExportFormat } from "@/lib/exports";
-import { esc, htmlToPdf } from "@/lib/pdf";
+import { esc, htmlToPdf, withPdfErrors } from "@/lib/pdf";
 import { formatDateTime } from "@/lib/format";
 import { monthStart, todayIn } from "@/lib/staff/dates";
 import { attendanceAccess } from "@/lib/attendance/access";
@@ -14,7 +14,7 @@ import { percentText } from "@/lib/attendance/summary";
 
 const PRINT_COLOURS: Record<string, string> = { success: "#dcfce7", danger: "#fee2e2", warning: "#fef3c7", info: "#e0f2fe", brand: "#e0e7ff", neutral: "#f1f5f9" };
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const { current } = await requireAction("attendance-management", "export");
   const url = new URL(req.url);
   const format = (["csv", "xlsx", "pdf"].includes(url.searchParams.get("format") ?? "") ? url.searchParams.get("format") : "xlsx") as ExportFormat;
@@ -93,3 +93,9 @@ export async function GET(req: Request) {
     return exportResponse(file);
   }, { timeout: 60_000 });
 }
+
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

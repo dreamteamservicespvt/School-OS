@@ -11,8 +11,11 @@ import { hitLimit } from "@/lib/rate-limit";
 import { deviceCookieName, findLink, guardianAccess } from "@/lib/parent-link/links";
 import { isChildOfGuardian } from "@/lib/students/guardian-access";
 import { parentReportCardPdf } from "@/lib/exams/parent-link";
+import { PdfUnavailableError, withPdfErrors } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 function plain(message: string, status: number) {
   return new Response(message, { status, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
@@ -20,7 +23,7 @@ function plain(message: string, status: number) {
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
-export async function GET(request: Request, { params }: { params: Promise<{ token: string }> }) {
+async function handleGET(request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params;
   const url = new URL(request.url);
   const childId = url.searchParams.get("child") ?? "";
@@ -47,7 +50,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
     if (!out) return plain("This report card is not available. Results may not be published yet.", 404);
     return new Response(new Uint8Array(out.body), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${out.fileName}"`, "Cache-Control": "no-store" } });
   } catch (e) {
+    if (e instanceof PdfUnavailableError) throw e; // shown as a printable page (withPdfErrors)
     console.error(JSON.stringify({ level: "error", event: "parent-report-card", error: e instanceof Error ? e.message : String(e) }));
     return plain("The report card could not be made right now. Please try again in a minute.", 503);
   }
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

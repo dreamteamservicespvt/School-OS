@@ -4,7 +4,7 @@
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
-import { htmlToPdf } from "@/lib/pdf";
+import { htmlToPdf, withPdfErrors } from "@/lib/pdf";
 import { logExport } from "@/lib/exports";
 import { academicScope } from "@/lib/academic/scope";
 import { periodSlots, academicSettings } from "@/lib/academic/settings";
@@ -14,7 +14,7 @@ import { publishedVersionForYear, roomGrid, sectionGrid, staffGrid } from "@/lib
 import { timetableHtml, type PrintPage } from "@/lib/academic/timetable-print";
 import { todayIn } from "@/lib/academic/common";
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const url = new URL(req.url);
   const { current } = await requireAction("academic-management", "view");
   const ctx = current.ctx;
@@ -70,3 +70,9 @@ export async function GET(req: Request) {
   }
   return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" } });
 }
+
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

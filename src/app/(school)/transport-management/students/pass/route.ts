@@ -3,16 +3,18 @@
 // people who see Student Transport, checked on the server.
 import { withSchool } from "@/lib/db";
 import { logExport } from "@/lib/exports";
-import { htmlToPdf } from "@/lib/pdf";
+import { htmlToPdf, withPdfErrors } from "@/lib/pdf";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { trPerson, TransportProblem, UUID_RE } from "@/lib/transport/act";
 import { busPasses } from "@/lib/transport/pass";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 const plain = (t: string, status: number) => new Response(t, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   let who;
   try {
     who = await trPerson("print");
@@ -39,3 +41,6 @@ export async function GET(req: Request) {
   const name = out.count === 1 ? `bus-pass-${String(out.first.bus_pass_no).replace(/[^\w-]+/g, "-")}` : `bus-passes-${out.count}`;
   return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${name}.pdf"`, "Cache-Control": "private, no-store" } });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

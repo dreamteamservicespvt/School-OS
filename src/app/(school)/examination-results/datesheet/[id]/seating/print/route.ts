@@ -2,15 +2,17 @@
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { PermissionDeniedError } from "@/lib/permissions";
-import { htmlToPdf } from "@/lib/pdf";
+import { htmlToPdf, PdfUnavailableError, withPdfErrors } from "@/lib/pdf";
 import { examScope, seesYear } from "@/lib/exams/scope";
 import { seatingHtml, seatingPlan, sittings } from "@/lib/exams/seating";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 const plain = (m: string, status: number) => new Response(m, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const sitting = new URL(req.url).searchParams.get("sitting") ?? "";
   if (!/^[0-9a-f-]{36}$/i.test(id)) return plain("This datesheet was not found.", 404);
@@ -34,7 +36,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   try {
     const pdf = await htmlToPdf(out, { format: "A4" });
     return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="seating-${sitting}.pdf"`, "Cache-Control": "no-store" } });
-  } catch {
+  } catch (e) {
+    if (e instanceof PdfUnavailableError) throw e; // shown as a printable page (withPdfErrors)
     return plain("The PDF could not be made right now. Please try again in a minute.", 503);
   }
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

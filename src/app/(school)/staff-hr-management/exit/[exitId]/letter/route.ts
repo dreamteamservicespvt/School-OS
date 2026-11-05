@@ -8,10 +8,11 @@ import { ExitProblem, issueExperienceLetter } from "@/lib/staff/exit";
 import { UUID_RE } from "@/lib/staff/act";
 import { viewerFor } from "@/lib/staff/access";
 import { offCampus } from "@/lib/staff/list";
+import { withPdfErrors } from "@/lib/pdf";
 
 const text = (t: string, status: number) => new Response(t, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
-export async function GET(_req: Request, { params }: { params: Promise<{ exitId: string }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ exitId: string }> }) {
   const { exitId } = await params;
   const { current, reach } = await requireAction("staff-hr-management", "print");
   if (reach !== "all") return text("Only HR can print experience letters.", 403);
@@ -36,3 +37,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ exitId:
     throw e;
   }
 }
+
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

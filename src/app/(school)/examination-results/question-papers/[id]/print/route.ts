@@ -4,17 +4,19 @@
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { PermissionDeniedError } from "@/lib/permissions";
-import { htmlToPdf } from "@/lib/pdf";
+import { htmlToPdf, PdfUnavailableError, withPdfErrors } from "@/lib/pdf";
 import { pageYear } from "@/lib/academic/page-campus";
 import { classInScope, examScope } from "@/lib/exams/scope";
 import { paperHtml, paperView, writesBank } from "@/lib/exams/questions";
 import { writeAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 const plain = (m: string, status: number) => new Response(m, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return plain("This paper was not found.", 404);
   const answers = new URL(req.url).searchParams.get("answers") === "1";
@@ -43,7 +45,11 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const name = `${out.view.paper.title}${answers ? "-answers" : ""}`.replace(/[^\w-]+/g, "-").toLowerCase();
     return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${name}.pdf"`, "Cache-Control": "no-store" } });
   } catch (e) {
+    if (e instanceof PdfUnavailableError) throw e; // shown as a printable page (withPdfErrors)
     console.error(JSON.stringify({ level: "error", event: "question-paper-pdf", error: e instanceof Error ? e.message : String(e) }));
     return plain("The PDF could not be made right now. Please try again in a minute.", 503);
   }
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

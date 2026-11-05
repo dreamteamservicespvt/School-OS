@@ -18,7 +18,7 @@ import { publishedVersionForYear, sectionGrid, staffGrid, versionCells } from "@
 import { needsOn, reasonWords, substitutionLoads } from "@/lib/academic/substitutions";
 import { allocationActiveOn } from "@/lib/academic/allocation";
 import { progressBoard } from "@/lib/academic/syllabus";
-import { DAY_NAMES, isoDay, parseDay, todayIn, weekday } from "@/lib/academic/common";
+import { DAY_NAMES, isoDay, parseDay, time12, todayIn, weekday } from "@/lib/academic/common";
 import type { Current } from "@/lib/current";
 import type { SchoolContext } from "@/lib/db";
 
@@ -114,7 +114,7 @@ async function build(tx: Tx, ctx: SchoolContext, scope: AcademicScope, a: { kind
         const rows = slots.map((s) => {
           const busy = new Set(cells.filter((c) => c.dayOfWeek === dayNo && c.periodNo === s.number && c.staffId).map((c) => c.staffId));
           const free = teachers.filter((t) => !busy.has(t.id));
-          return { Period: s.label, Time: `${s.startTime} to ${s.endTime}`, "Free teachers": free.length, Names: free.map((t) => t.fullName).join(", ") };
+          return { Period: s.label, Time: `${time12(s.startTime)} to ${time12(s.endTime)}`, "Free teachers": free.length, Names: free.map((t) => t.fullName).join(", ") };
         });
         return { title: `Free periods on ${DAY_NAMES[dayNo]}`, filters: version.name, labels: ["Period", "Time", "Free teachers", "Names"], rows };
       }
@@ -133,7 +133,7 @@ async function build(tx: Tx, ctx: SchoolContext, scope: AcademicScope, a: { kind
         cells = await staffGrid(tx, version.id, staffId);
         who = cells[0]?.staffName ?? "Teacher";
       } else return null;
-      const rows = cells.map((c) => ({ Day: DAY_NAMES[c.dayOfWeek], Period: c.isBreak ? c.label ?? "Break" : c.periodNo, Time: `${c.startTime} to ${c.endTime}`, Class: c.sectionLabel, Subject: c.subjectName ?? c.label ?? "", Teacher: c.staffName ?? "", Room: c.room ?? "" }));
+      const rows = cells.map((c) => ({ Day: DAY_NAMES[c.dayOfWeek], Period: c.isBreak ? c.label ?? "Break" : c.periodNo, Time: `${time12(c.startTime)} to ${time12(c.endTime)}`, Class: c.sectionLabel, Subject: c.subjectName ?? c.label ?? "", Teacher: c.staffName ?? "", Room: c.room ?? "" }));
       return { title: `Time Table: ${who}`, filters: version.name, labels: ["Day", "Period", "Time", "Class", "Subject", "Teacher", "Room"], rows };
     }
     case "substitutions": {

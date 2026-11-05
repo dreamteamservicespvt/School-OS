@@ -11,15 +11,18 @@ import { DIRECT_REPORT_LIMIT, findPeriod, renderReportCards } from "@/lib/exams/
 import { periodPublished } from "@/lib/exams/report-status";
 import { sectionInfo } from "@/lib/exams/results";
 import { sectionStudents } from "@/lib/exams/roster";
+import { withPdfErrors } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 
 const plain = (m: string, status: number) => new Response(m, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 const UUID = /^[0-9a-f-]{36}$/i;
 const PERIOD = /^(year|exam:[0-9a-f-]{36}|term:[0-9a-f-]{36})$/i;
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const p = new URL(req.url).searchParams;
   const sectionId = p.get("section") ?? "";
   const period = p.get("period") ?? "";
@@ -62,3 +65,6 @@ export async function GET(req: Request) {
     return plain("The report cards could not be made right now. Please try again in a minute.", 503);
   }
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

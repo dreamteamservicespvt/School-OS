@@ -12,12 +12,15 @@ import { dmy, isoOf } from "@/lib/events/words";
 import { plain } from "../../_lib/export";
 import { achievementList } from "../../_lib/co";
 import { campusYearIds } from "@/lib/academic/page-campus";
+import { withPdfErrors } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   let current;
   try {
     ({ current } = await requireAction("events-calendar", "print"));
@@ -52,3 +55,6 @@ export async function GET(req: Request) {
     return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${kind}s.pdf"`, "Cache-Control": "no-store" } });
   }, { timeout: 60_000 });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

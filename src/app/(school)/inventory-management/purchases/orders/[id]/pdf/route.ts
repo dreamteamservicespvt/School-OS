@@ -4,10 +4,13 @@ import { withSchool } from "@/lib/db";
 import { purchaseOrderDoc } from "@/lib/inventory/documents";
 import { invRoute, plain } from "../../../../_lib/route";
 import { UUID } from "../../../../_lib/page";
+import { withPdfErrors } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const x = await invRoute(req, "purchases", "print");
   if (x instanceof Response) return x;
@@ -20,3 +23,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${po.order.number.replace(/[^A-Za-z0-9-]+/g, "-")}.pdf"`, "Cache-Control": "no-store" },
   });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

@@ -4,10 +4,11 @@ import { withSchool } from "@/lib/db";
 import { logExport } from "@/lib/exports";
 import { offerLetter } from "@/lib/staff/print";
 import { UUID_RE } from "@/lib/staff/act";
+import { withPdfErrors } from "@/lib/pdf";
 
 const text = (t: string, status: number) => new Response(t, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
-export async function GET(_req: Request, { params }: { params: Promise<{ offerId: string }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ offerId: string }> }) {
   const { offerId } = await params;
   const { current, reach } = await requireAction("staff-hr-management", "print");
   if (reach !== "all") return text("Only HR can print offer letters.", 403);
@@ -25,3 +26,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ offerId
     return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="offer-${offer.offerNo.replace(/\//g, "-")}.pdf"`, "Cache-Control": "no-store" } });
   }, { timeout: 60_000 });
 }
+
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

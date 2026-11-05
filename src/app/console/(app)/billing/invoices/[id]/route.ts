@@ -2,12 +2,12 @@
 // DREAM TEAM's GSTIN and address come from the environment, never the code.
 import { requireConsole } from "@/lib/console/current";
 import { withConsole } from "@/lib/db";
-import { esc, htmlToPdf } from "@/lib/pdf";
+import { esc, htmlToPdf, withPdfErrors } from "@/lib/pdf";
 import { formatDate, formatRupees } from "@/lib/format";
 import { GST_PERCENT, INVOICE_KIND_LABEL, itemsOf } from "@/lib/console/billing";
 import { logActivity } from "@/lib/console/activity";
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const c = await requireConsole();
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return new Response("Not found", { status: 404 });
@@ -62,3 +62,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${inv.number.replace(/\//g, "-")}.pdf"`, "Cache-Control": "no-store" },
   });
 }
+
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

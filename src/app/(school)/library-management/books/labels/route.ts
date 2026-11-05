@@ -2,7 +2,7 @@
 // not labelled yet. Labels already used on a sheet can be skipped so a part
 // sheet is not wasted. The copies are marked as labelled.
 import { withSchool } from "@/lib/db";
-import { htmlToPdf } from "@/lib/pdf";
+import { htmlToPdf, withPdfErrors } from "@/lib/pdf";
 import { labelsHtml, LABELS_PER_SHEET } from "@/lib/library/labels";
 import { librarySettings } from "@/lib/library/settings";
 import { markLabelsPrinted, shelfOf } from "@/lib/library/catalogue";
@@ -10,8 +10,10 @@ import { libRoute, plain } from "../../_lib/route";
 import { UUID } from "../../_lib/page";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const x = await libRoute(req, "books", "print");
   if (x instanceof Response) return x;
   if (!x.can.catalogue) return plain("Only the librarian prints book labels.", 403);
@@ -34,3 +36,6 @@ export async function GET(req: Request) {
   const pdf = await htmlToPdf(labelsHtml(out.copies, { schoolName: x.current.school.name, labelType: out.s.labelType, skip }), { format: "A4", margin: "10mm" });
   return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": 'inline; filename="book-labels.pdf"', "Cache-Control": "no-store" } });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

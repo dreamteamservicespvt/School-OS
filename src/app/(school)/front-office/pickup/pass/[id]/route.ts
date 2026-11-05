@@ -6,7 +6,7 @@ import { withSchool } from "@/lib/db";
 import { logExport } from "@/lib/exports";
 import { formatDate } from "@/lib/format";
 import { appOrigin } from "@/lib/origin";
-import { htmlToPdf } from "@/lib/pdf";
+import { htmlToPdf, withPdfErrors } from "@/lib/pdf";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { qrSvg } from "@/lib/students/codes";
 import { foCan, foViewer } from "@/lib/front-office/access";
@@ -16,10 +16,12 @@ import { UUID_RE } from "@/lib/front-office/act";
 import { plain } from "../../../_lib/export";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   let current;
   try {
@@ -69,3 +71,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="gate-pass-${g.passNo}.pdf"`, "Cache-Control": "no-store" } });
   }, { timeout: 60_000 });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

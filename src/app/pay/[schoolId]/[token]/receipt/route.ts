@@ -4,13 +4,16 @@ import { deviceInfo } from "@/lib/current";
 import { hitLimit } from "@/lib/rate-limit";
 import { linkByToken } from "@/lib/fees/online";
 import { renderReceipt } from "@/lib/fees/documents";
+import { withPdfErrors } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const text = (t: string, status: number) => new Response(t, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
-export async function GET(_req: Request, { params }: { params: Promise<{ schoolId: string; token: string }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ schoolId: string; token: string }> }) {
   const { schoolId, token } = await params;
   if (!UUID.test(schoolId)) return text("This receipt was not found.", 404);
   const device = await deviceInfo();
@@ -27,3 +30,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ schoolI
     return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${doc.fileName}"`, "Cache-Control": "private, no-store" } });
   }, { timeout: 60_000 });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

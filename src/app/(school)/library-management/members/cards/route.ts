@@ -3,7 +3,7 @@
 // admission number or staff code (the same as on the ID card), so either
 // card works at the desk. Each print is recorded.
 import { withSchool } from "@/lib/db";
-import { htmlToPdf } from "@/lib/pdf";
+import { htmlToPdf, withPdfErrors } from "@/lib/pdf";
 import { writeAudit } from "@/lib/audit";
 import { currentYear } from "@/lib/academic/years";
 import { personCampusId } from "@/lib/campus";
@@ -13,8 +13,10 @@ import { libRoute, plain } from "../../_lib/route";
 import { memberRows, readMembersFilter } from "../../_lib/members";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const x = await libRoute(req, "members", "print");
   if (x instanceof Response) return x;
   if (!x.can.members) return plain("Only the librarian prints library cards.", 403);
@@ -36,3 +38,6 @@ export async function GET(req: Request) {
   const pdf = await htmlToPdf(html, { format: "A4", margin: "8mm" });
   return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": 'inline; filename="library-cards.pdf"', "Cache-Control": "no-store" } });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

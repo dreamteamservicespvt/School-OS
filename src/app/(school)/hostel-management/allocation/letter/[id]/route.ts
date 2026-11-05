@@ -17,10 +17,13 @@ import { studentsInfo } from "@/lib/hostel/allocation";
 import { UUID_RE } from "@/lib/hostel/act";
 import { MODULE, bedWords } from "@/lib/hostel/words";
 import { plain } from "../../../_lib/route";
+import { withPdfErrors } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   let current;
   try {
@@ -68,3 +71,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="hostel-letter-${letterNo}.pdf"`, "Cache-Control": "no-store" } });
   }, { timeout: 60_000 });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

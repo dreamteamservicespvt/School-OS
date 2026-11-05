@@ -11,7 +11,7 @@ yet: the owner chooses the hosting (decision 0001).
 | Background worker | `npm run worker` | Exactly the same code and settings as the web app. Runs messages, reminders, imports, exports, escalations. Run one or two copies; jobs are claimed safely. |
 | Database | PostgreSQL 16 | Managed service in India (for example AWS RDS ap-south-1, Azure, GCP) with point-in-time recovery switched on. |
 | Files | S3-compatible storage | Private bucket, India region. |
-| Browser for PDFs | Chromium | Receipts, certificates, report cards. Set `CHROMIUM_PATH`. |
+| Browser for PDFs | Chromium | Receipts, certificates, report cards. Set `CHROMIUM_PATH`. On Vercel leave it unset: the browser packed in `@sparticuz/chromium` is used. If no PDF can be made, the document opens as a printable page instead. |
 
 ## First-time setup
 
@@ -30,7 +30,7 @@ yet: the owner chooses the hosting (decision 0001).
 | `FIELD_ENCRYPTION_KEY` | 32 random bytes, base64. Encrypts Aadhaar, bank accounts, gateway and messaging keys. Back it up separately: without it those fields cannot be read. |
 | `FILE_LINK_SECRET` | Random secret that signs the 15-minute file links. |
 | `S3_BUCKET`, `S3_REGION`, `S3_ENDPOINT` (optional; Cloudflare R2 works), `S3_ACCESS_KEY_ID` and `S3_SECRET_ACCESS_KEY` (or `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`) | File storage. Without them files go to `STORAGE_DIR` on local disk (only for one-server setups). |
-| `CHROMIUM_PATH` | Path to the Chromium binary for PDFs. |
+| `CHROMIUM_PATH` | Path to the Chromium binary for PDFs. Not needed on Vercel. |
 | `APP_URL` | The public web address, used in links sent to parents and staff. |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | Email for invites and one-time codes. |
 | `NODE_ENV=production` | Always, on real servers. |

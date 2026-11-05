@@ -13,10 +13,13 @@ import { clockAt, todayDate } from "@/lib/front-office/time";
 import { BASE, showPhone } from "@/lib/front-office/words";
 import { UUID_RE } from "@/lib/front-office/act";
 import { plain } from "../../../_lib/export";
+import { withPdfErrors } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   let current;
   try {
@@ -48,3 +51,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="visitor-pass-${visit.passNo}.pdf"`, "Cache-Control": "no-store" } });
   }, { timeout: 60_000 });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

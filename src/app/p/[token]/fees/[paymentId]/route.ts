@@ -8,8 +8,11 @@ import { ACCESS_WORDS, deviceCookieName, findLink, guardianAccess } from "@/lib/
 import { hitLimit } from "@/lib/rate-limit";
 import { receiptForGuardian, taxInvoiceForGuardian } from "@/lib/fees/parent-link";
 import { MoneyProblem } from "@/lib/fees/problem";
+import { withPdfErrors } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -17,7 +20,7 @@ function plain(status: number, text: string) {
   return new Response(text, { status, headers: { "content-type": "text/plain; charset=utf-8", "cache-control": "no-store" } });
 }
 
-export async function GET(request: Request, { params }: { params: Promise<{ token: string; paymentId: string }> }) {
+async function handleGET(request: Request, { params }: { params: Promise<{ token: string; paymentId: string }> }) {
   const { token, paymentId } = await params;
   const doc = new URL(request.url).searchParams.get("doc") === "tax-invoice" ? "tax-invoice" : "receipt";
   if (!UUID.test(paymentId)) return plain(404, "This receipt was not found.");
@@ -44,3 +47,6 @@ export async function GET(request: Request, { params }: { params: Promise<{ toke
     throw e;
   }
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

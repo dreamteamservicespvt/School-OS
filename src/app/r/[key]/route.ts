@@ -6,12 +6,15 @@ import { deviceInfo } from "@/lib/current";
 import { hitLimit } from "@/lib/rate-limit";
 import { readReceiptKey } from "@/lib/parent-link/token";
 import { renderReceipt } from "@/lib/fees/documents";
+import { withPdfErrors } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 const text = (t: string, status: number) => new Response(t, { status, headers: { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" } });
 
-export async function GET(_req: Request, { params }: { params: Promise<{ key: string }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ key: string }> }) {
   const { key } = await params;
   const device = await deviceInfo();
   const limited = await hitLimit(`receipt-link:ip:${device.ipAddress ?? "unknown"}`, 20, 600);
@@ -28,3 +31,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ key: st
     return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${doc.fileName}"`, "Cache-Control": "private, no-store" } });
   }, { timeout: 60_000 });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

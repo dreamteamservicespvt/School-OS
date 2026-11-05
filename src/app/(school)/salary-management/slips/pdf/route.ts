@@ -4,8 +4,11 @@ import { logExport } from "@/lib/exports";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { salaryLevel } from "@/lib/salary/access";
 import { slipPdf } from "@/lib/salary/slips";
+import { withPdfErrors } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 const UUID = /^[0-9a-f-]{36}$/i;
 
 /**
@@ -13,7 +16,7 @@ const UUID = /^[0-9a-f-]{36}$/i;
  * access get only their own slips (filtered at the query); full Salary
  * Management may print any. Opening your own slip marks it downloaded.
  */
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   let current;
   try {
     ({ current } = await requireAction("salary-management", "view"));
@@ -40,3 +43,6 @@ export async function GET(req: Request) {
     return new Response(new Uint8Array(out.pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${out.fileName}"`, "Cache-Control": "no-store" } });
   }, { timeout: 60_000 });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

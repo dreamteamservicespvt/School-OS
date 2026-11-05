@@ -7,12 +7,15 @@ import { feePageAllowed, feeViewer } from "@/lib/fees/access";
 import { applicantScope } from "@/lib/fees/applicants";
 import { UUID_RE } from "@/lib/fees/act";
 import { applicationFeeReceipt, receiptResponse } from "@/lib/admission/receipt";
+import { withPdfErrors } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 const text = (t: string, status: number) => new Response(t, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
-export async function GET(_req: Request, { params }: { params: Promise<{ applicationId: string; paymentId: string }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ applicationId: string; paymentId: string }> }) {
   const { applicationId, paymentId } = await params;
   let current;
   try {
@@ -30,3 +33,6 @@ export async function GET(_req: Request, { params }: { params: Promise<{ applica
     return receiptResponse(r);
   }, { timeout: 60_000 });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

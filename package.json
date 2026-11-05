@@ -31,6 +31,7 @@
     "@aws-sdk/s3-request-presigner": "3.1148.0",
     "@node-rs/argon2": "2.0.2",
     "@prisma/client": "6.19.3",
+    "@sparticuz/chromium": "141.0.0",
     "exceljs": "4.4.0",
     "firebase": "12.19.0",
     "lucide-react": "0.441.0",

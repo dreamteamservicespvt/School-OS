@@ -14,7 +14,13 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
-  serverExternalPackages: ["@node-rs/argon2"],
+  // The PDF browser (src/lib/pdf.ts) is loaded from node_modules at run time, not bundled.
+  serverExternalPackages: ["@node-rs/argon2", "playwright-core", "@sparticuz/chromium"],
+  // @sparticuz/chromium reads its packed browser from bin/ at run time, and PDFs
+  // read the Indian-script fonts from src/app/fonts; file tracing finds neither.
+  outputFileTracingIncludes: {
+    "/**": ["./node_modules/@sparticuz/chromium/bin/**", "./src/app/fonts/noto-sans-*.woff2"],
+  },
   // Homework hand-ins and study material carry photos and PDFs of up to 10 MB each (17 §6).
   experimental: { serverActions: { bodySizeLimit: "25mb" } },
   async headers() {
@@ -22,5 +28,4 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;  
- 
+export default nextConfig;

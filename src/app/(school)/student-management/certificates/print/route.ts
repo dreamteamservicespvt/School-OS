@@ -1,6 +1,6 @@
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
-import { htmlToPdf } from "@/lib/pdf";
+import { htmlToPdf, withPdfErrors } from "@/lib/pdf";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { getStudentSettings } from "@/lib/students/settings";
 import { abilities, visibleStudentIds } from "@/lib/students/access";
@@ -9,6 +9,8 @@ import { writeAudit } from "@/lib/audit";
 import { origin } from "../../_lib/page";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 const isId = (v: string) => /^[0-9a-f-]{36}$/i.test(v);
 
@@ -33,7 +35,7 @@ function joinPages(pages: string[]) {
 }
 
 /** Certificates as a print-ready PDF (?ids=a,b). Only issued (or cancelled, marked so) certificates print. */
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   let current;
   try {
     ({ current } = await requireAction("student-management", "print"));
@@ -60,3 +62,6 @@ export async function GET(req: Request) {
   const pdf = await htmlToPdf(out.html, { format: "A4", margin: "10mm" });
   return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${out.name}.pdf"`, "Cache-Control": "private, no-store" } });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

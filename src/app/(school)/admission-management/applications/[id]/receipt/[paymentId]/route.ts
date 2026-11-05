@@ -5,10 +5,11 @@ import { withSchool } from "@/lib/db";
 import { applicationScope, viewerFor } from "@/lib/admission/access";
 import { UUID_RE } from "@/lib/admission/act";
 import { applicationFeeReceipt, receiptResponse } from "@/lib/admission/receipt";
+import { withPdfErrors } from "@/lib/pdf";
 
 const text = (t: string, status: number) => new Response(t, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string; paymentId: string }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ id: string; paymentId: string }> }) {
   const { id, paymentId } = await params;
   const { current } = await requireAction("admission-management", "print");
   if (!UUID_RE.test(id) || !UUID_RE.test(paymentId)) return text("This receipt was not found.", 404);
@@ -20,3 +21,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return receiptResponse(r);
   }, { timeout: 60_000 });
 }
+
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

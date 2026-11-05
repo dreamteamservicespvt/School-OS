@@ -8,11 +8,12 @@ import { formatDate } from "@/lib/format";
 import { logExport } from "@/lib/exports";
 import { todayIn } from "@/lib/academic/common";
 import { homeworkScope, mayRead, shortSection } from "@/lib/homework/scope";
+import { withPdfErrors } from "@/lib/pdf";
 
 const text = (t: string, status: number) => new Response(t, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { current } = await requireAction("homework-learning", "print");
   if (!UUID.test(id)) return text("This certificate was not found.", 404);
@@ -42,3 +43,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="certificate-${cert.number.replace(/\//g, "-")}.pdf"`, "Cache-Control": "no-store" } });
   }, { timeout: 60_000 });
 }
+
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

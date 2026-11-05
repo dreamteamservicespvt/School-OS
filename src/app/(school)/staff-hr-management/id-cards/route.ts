@@ -11,12 +11,13 @@ import { staffScope, viewerFor } from "@/lib/staff/access";
 import { STAFF_FILTERS, staffWhere } from "@/lib/staff/list";
 import { staffIdCards } from "@/lib/staff/print";
 import { UUID_RE } from "@/lib/staff/act";
+import { withPdfErrors } from "@/lib/pdf";
 
 const BATCH = 50;
 
 const problem = (text: string, status = 400) => new Response(text, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const { current } = await requireAction("staff-hr-management", "print");
   const url = new URL(req.url);
   const sp = url.searchParams;
@@ -54,3 +55,9 @@ export async function GET(req: Request) {
     });
   }, { timeout: 120_000 });
 }
+
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

@@ -1,7 +1,7 @@
 // QR poster as a PDF to print (05 §2 Devices & QR, P9).
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
-import { htmlToPdf } from "@/lib/pdf";
+import { htmlToPdf, withPdfErrors } from "@/lib/pdf";
 import { appOrigin } from "@/lib/origin";
 import { todayIn } from "@/lib/staff/dates";
 import { UUID_RE } from "@/lib/staff/act";
@@ -10,7 +10,7 @@ import { attendanceSettings } from "@/lib/attendance/settings";
 import { posterData, posterHtml } from "@/lib/attendance/poster";
 import { writeAudit } from "@/lib/audit";
 
-export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { current } = await requireAction("attendance-management", "print");
   if (!UUID_RE.test(id)) return new Response("This QR was not found.", { status: 404 });
@@ -30,3 +30,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   const pdf = await htmlToPdf(html, { format: "A4", margin: "0mm" });
   return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="qr-poster.pdf"`, "Cache-Control": "no-store" } });
 }
+
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

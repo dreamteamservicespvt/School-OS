@@ -7,8 +7,11 @@ import { renderDocument } from "@/lib/documents";
 import { BASES, optionsSchema, type BaseKey } from "@/lib/documents/designs";
 import { recordData, type RecordRef } from "@/lib/documents/records";
 import { findDocType } from "@/lib/documents/types";
+import { PdfUnavailableError, withPdfErrors } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 type Ctx = { params: Promise<{ type: string }> };
 
@@ -40,12 +43,13 @@ async function make(request: Request, ctx: Ctx, override: { base: BaseKey; optio
       headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="preview-${pdf.name}"`, "Cache-Control": "no-store" },
     });
   } catch (e) {
+    if (e instanceof PdfUnavailableError) throw e; // shown as a printable page (withPdfErrors)
     console.error(JSON.stringify({ level: "error", event: "design-pdf", error: e instanceof Error ? e.message : String(e) }));
     return plain("The PDF could not be made right now. Please try again in a minute.", 503);
   }
 }
 
-export async function GET(request: Request, ctx: Ctx) {
+async function handleGET(request: Request, ctx: Ctx) {
   const url = new URL(request.url);
   const student = url.searchParams.get("student");
   const staff = url.searchParams.get("staff");
@@ -53,7 +57,7 @@ export async function GET(request: Request, ctx: Ctx) {
   return make(request, ctx, null, record);
 }
 
-export async function POST(request: Request, ctx: Ctx) {
+async function handlePOST(request: Request, ctx: Ctx) {
   const fd = await request.formData();
   let options: unknown = null;
   try {
@@ -66,3 +70,7 @@ export async function POST(request: Request, ctx: Ctx) {
   const record: RecordRef = (kind === "student" || kind === "staff") && id ? { kind, id } : null;
   return make(request, ctx, { base: String(fd.get("base") ?? "classic") as BaseKey, options }, record);
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);
+export const POST = withPdfErrors(handlePOST);

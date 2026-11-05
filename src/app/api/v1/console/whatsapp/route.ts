@@ -1,5 +1,6 @@
 // Meta calls this with delivery reports for the WhatsApp messages the console
-// sends from DREAM TEAM's own number (src/lib/console/whatsapp-webhook.ts).
+// sends from DREAM TEAM's own number, and for the messages schools send from
+// that shared number (src/lib/console/whatsapp-webhook.ts).
 //   GET:  the one-time check when the address is added in the Meta app.
 //   POST: statuses, signed with CONSOLE_WHATSAPP_APP_SECRET.
 // The Meta app is the gym's: each POST is passed on to the gym's site first and

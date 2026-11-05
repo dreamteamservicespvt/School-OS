@@ -9,11 +9,12 @@ import { logExport } from "@/lib/exports";
 import { applicationScope, viewerFor } from "@/lib/admission/access";
 import { UUID_RE } from "@/lib/admission/act";
 import { parentName } from "@/lib/admission/applications";
+import { withPdfErrors } from "@/lib/pdf";
 
 const text = (t: string, status: number) => new Response(t, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 const ACCEPT_DAYS = 7;
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { current } = await requireAction("admission-management", "print");
   if (!UUID_RE.test(id)) return text("This offer letter was not found.", 404);
@@ -39,3 +40,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="offer-${app.offerLetterNo.replace(/\//g, "-")}.pdf"`, "Cache-Control": "no-store" } });
   }, { timeout: 60_000 });
 }
+
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

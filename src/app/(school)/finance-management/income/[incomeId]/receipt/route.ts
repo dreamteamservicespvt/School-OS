@@ -5,13 +5,16 @@ import { PermissionDeniedError } from "@/lib/permissions";
 import { MoneyProblem } from "@/lib/fees/problem";
 import { UUID_RE } from "@/lib/fees/act";
 import { incomeReceipt } from "@/lib/finance/income";
+import { withPdfErrors } from "@/lib/pdf";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 const text = (t: string, status: number) => new Response(t, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
 /** The receipt for posted income, as a PDF to print (P9). */
-export async function GET(req: Request, { params }: { params: Promise<{ incomeId: string }> }) {
+async function handleGET(req: Request, { params }: { params: Promise<{ incomeId: string }> }) {
   let current;
   try {
     ({ current } = await requireAction("finance-management", "print"));
@@ -36,3 +39,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ incomeId
     throw e;
   }
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

@@ -8,7 +8,7 @@ import ExcelJS from "exceljs";
 import type { SchoolContext, Tx } from "./db";
 import { writeAudit } from "./audit";
 import { formatDateTime } from "./format";
-import { esc, htmlToPdf } from "./pdf";
+import { esc, htmlToPdf, PdfUnavailableError, pdfFallbackPage } from "./pdf";
 
 export type ExportColumn<Row> = { label: string; value: (row: Row) => string | number | null | undefined };
 export type ExportFormat = "csv" | "xlsx" | "pdf";
@@ -72,7 +72,14 @@ export async function buildExport<Row>(format: ExportFormat, columns: ExportColu
   const base = `${meta.title}`.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "-").toLowerCase() || "export";
   if (format === "csv") return { body: toCsv(columns, rows, meta), type: "text/csv; charset=utf-8", name: `${base}.csv` };
   if (format === "xlsx") return { body: await toXlsx(columns, rows, meta), type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", name: `${base}.xlsx` };
-  return { body: await htmlToPdf(listHtml(columns, rows, meta), { landscape: columns.length > 6 }), type: "application/pdf", name: `${base}.pdf` };
+  const html = listHtml(columns, rows, meta);
+  try {
+    return { body: await htmlToPdf(html, { landscape: columns.length > 6 }), type: "application/pdf", name: `${base}.pdf` };
+  } catch (e) {
+    // No PDF could be made: the list opens as a printable page instead (Print, then "Save as PDF").
+    if (e instanceof PdfUnavailableError) return { body: Buffer.from(pdfFallbackPage(html)), type: "text/html; charset=utf-8", name: `${base}.html` };
+    throw e;
+  }
 }
 
 /** The export log (Settings, Data Backup & Security) is the audit log's "exported" lines. */
@@ -86,7 +93,7 @@ export function exportResponse(file: { body: Buffer; type: string; name: string 
   return new Response(new Uint8Array(file.body), {
     headers: {
       "Content-Type": file.type,
-      "Content-Disposition": `attachment; filename="${file.name}"`,
+      "Content-Disposition": `${file.type.startsWith("text/html") ? "inline" : "attachment"}; filename="${file.name}"`,
       "Cache-Control": "no-store",
     },
   });

@@ -4,15 +4,17 @@
 // skipped so a part sheet is not wasted.
 import type { Prisma } from "@prisma/client";
 import { withSchool } from "@/lib/db";
-import { htmlToPdf } from "@/lib/pdf";
+import { htmlToPdf, withPdfErrors } from "@/lib/pdf";
 import { labelsHtml, LABELS_PER_SHEET } from "@/lib/inventory/documents";
 import { placeNames } from "@/lib/inventory/assets";
 import { invRoute, plain } from "../../_lib/route";
 import { UUID } from "../../_lib/page";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const x = await invRoute(req, "assets", "print");
   if (x instanceof Response) return x;
   if (!x.can.assets) return plain("Only the store keeper prints asset tags.", 403);
@@ -34,3 +36,6 @@ export async function GET(req: Request) {
   const pdf = await htmlToPdf(html, { format: "A4", margin: "10mm" });
   return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": 'inline; filename="asset-tags.pdf"', "Cache-Control": "no-store" } });
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

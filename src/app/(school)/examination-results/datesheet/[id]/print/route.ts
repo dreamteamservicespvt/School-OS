@@ -4,16 +4,18 @@ import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { formatDate } from "@/lib/format";
-import { esc, htmlToPdf } from "@/lib/pdf";
+import { esc, htmlToPdf, PdfUnavailableError, withPdfErrors } from "@/lib/pdf";
 import { examDetail } from "@/lib/exams/datesheet";
 import { examScope, seesYear } from "@/lib/exams/scope";
 import { writeAudit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
+// Starting the PDF browser on a fresh server can take several seconds.
+export const maxDuration = 60;
 
 const plain = (m: string, status: number) => new Response(m, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
-export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
+async function handleGET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(id)) return plain("This datesheet was not found.", 404);
   let current;
@@ -51,7 +53,11 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const name = `datesheet-${d.exam.title}`.replace(/[^\w-]+/g, "-").toLowerCase();
     return new Response(new Uint8Array(pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${name}.pdf"`, "Cache-Control": "no-store" } });
   } catch (e) {
+    if (e instanceof PdfUnavailableError) throw e; // shown as a printable page (withPdfErrors)
     console.error(JSON.stringify({ level: "error", event: "datesheet-pdf", error: e instanceof Error ? e.message : String(e) }));
     return plain("The PDF could not be made right now. Please try again in a minute.", 503);
   }
 }
+
+// A PDF that cannot be made shows as a printable page instead (src/lib/pdf.ts).
+export const GET = withPdfErrors(handleGET);

@@ -14298,4 +14298,10 @@ export const hi: Catalogue = {
   "Clear ticks": "टिक हटाएँ",
   "Matched": "मिलान हो गया",
   "Open to check each one against its examples.": "हर एक को उसके उदाहरणों से जाँचने के लिए खोलें।",
+  "This staff record is linked to the login": "यह स्टाफ़ रिकॉर्ड इस लॉगिन से जुड़ा है",
+  "No second login is made. Roles and permissions stay as they are; change them in Settings, Users & Permissions.": "दूसरा लॉगिन नहीं बनता। रोल और अनुमतियाँ जैसी हैं वैसी रहती हैं; इन्हें Settings, Users & Permissions में बदलें।",
+  "They already have a login": "इनका लॉगिन पहले से है",
+  "They are not on this list or in the staff counts. Add their staff record; their login stays as it is.": "ये इस सूची में या स्टाफ़ की गिनती में नहीं हैं। इनका स्टाफ़ रिकॉर्ड जोड़ें; इनका लॉगिन जैसा है वैसा रहेगा।",
+  "Add staff record": "स्टाफ़ रिकॉर्ड जोड़ें",
+  "1 person can sign in but has no staff record": "1 व्यक्ति साइन इन कर सकता है पर उसका स्टाफ़ रिकॉर्ड नहीं है",
 };

@@ -19,6 +19,8 @@ import { checkDetails, createStaffAction } from "./actions";
 import { schoolRoles } from "@/lib/school-roles";
 import { pageTitle } from "@/lib/i18n/server";
 import { isTopRole, managesUsers } from "@/lib/staff/login-ceiling";
+import { linkableLogin } from "@/lib/staff/link-login";
+import { Alert } from "@/components/ui/alert";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Add Staff") };
@@ -31,6 +33,8 @@ export default async function AddStaffPage({ searchParams }: Search) {
   if (pageHidden(current, "staff-hr-management", "add")) redirect(BASE);
   const sp = await searchParams;
   const applicationId = typeof sp.application === "string" && UUID_RE.test(sp.application) ? sp.application : null;
+  // Staff List, "can sign in but have no staff record": make the record for that login (src/lib/staff/link-login.ts).
+  const loginId = typeof sp.login === "string" && UUID_RE.test(sp.login) ? sp.login : null;
 
   const data = await withSchool(current.ctx, async (tx) => {
     const [settings, designations, departments, staff, campuses, roles] = await Promise.all([
@@ -71,7 +75,13 @@ export default async function AddStaffPage({ searchParams }: Search) {
         };
       }
     }
+    const found = loginId ? await linkableLogin(tx, current.ctx, loginId, current.campusId) : null;
+    const linked: WizardData["linked"] = found && typeof found !== "string"
+      ? { id: found.id, username: found.username, displayName: found.displayName, phone: (found.phone ?? "").replace(/\D/g, "").slice(-10), email: found.email ?? "", roleNames: found.roleNames, roleKeys: found.roleKeys }
+      : null;
     return {
+      linkProblem: typeof found === "string" ? found : null,
+      linked,
       usernameFormat: settings.usernameFormat,
       designations: designations.map((d) => ({ name: d.name, staffType: d.staffType, departmentId: d.defaultDepartmentId, roleKey: d.defaultRoleKey })),
       departments: departments.map((d) => ({ value: d.id, label: d.name })),
@@ -100,6 +110,7 @@ export default async function AddStaffPage({ searchParams }: Search) {
     <>
       <BackLink href={BASE} label="Staff List" />
       <PageHeader title="Add Staff" href={`${BASE}/add`} userId={current.user.id} />
+      {data.linkProblem && <Alert tone="warning" className="mb-4">{data.linkProblem}</Alert>}
       <Wizard
         data={{ ...data, today: isoDay(today), employmentTypes: [...EMPLOYMENT_TYPES], modules: MODULES.map((m) => ({ key: m.key, name: m.name })) }}
         checkDetails={checkDetails}

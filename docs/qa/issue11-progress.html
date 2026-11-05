@@ -1,0 +1,45 @@
+<title>School OS Issue 11</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{--bg:#f6f7f9;--fg:#15202b;--mut:#5b6672;--card:#fff;--line:#dde2e8;--bar:#e6eaef;--acc:#1f6f5c;--run:#b26a00;--done:#1f7a3d;--wait:#6b7480}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10161c;--fg:#e8edf2;--mut:#9aa6b2;--card:#18212a;--line:#2a3541;--bar:#2a3541;--acc:#4fc3a1;--run:#f0b04a;--done:#5bd28a;--wait:#9aa6b2;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10161c;--fg:#e8edf2;--mut:#9aa6b2;--card:#18212a;--line:#2a3541;--bar:#2a3541;--acc:#4fc3a1;--run:#f0b04a;--done:#5bd28a;--wait:#9aa6b2;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif;padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:760px;margin:0 auto;display:grid;gap:14px}
+h1{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0}
+.now{font-size:19px;font-weight:600}
+.bar{height:14px;background:var(--bar);border-radius:7px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}
+.big .bar{height:22px}
+.row{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:6px}
+.top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.name{font-weight:600}
+.tag{font-size:12px;font-weight:600}.Done{color:var(--done)}.Running{color:var(--run)}.Checking{color:var(--run)}.Waiting{color:var(--wait)}
+.row p{margin:0;color:var(--mut);font-size:14px}.sm{color:var(--mut);font-size:14px;margin:4px 0 0}
+</style>
+<main>
+<h1>School OS: issue 11 (link logins to staff records) + 32 recheck</h1>
+<div class="now" id="now"></div>
+<div class="big"><div class="bar"><i id="mainbar"></i></div><p class="sm" id="mainline"></p></div>
+<div id="rows" style="display:grid;gap:10px"></div>
+<p class="sm"><b>Waiting on you:</b> <span id="wait"></span></p>
+</main>
+<script>
+var S={
+now:"Rebuilding the local copy (about 8 minutes) for the browser check",
+main:60,mainline:"4 of 6 steps done (real count)",
+rows:[
+["Server: list logins with no staff record, link one on Add Staff",100,"Done","No database change needed: Staff already has a login link"],
+["Staff List: 'N people can sign in but have no staff record'",100,"Done","Each name gets 'Add staff record'"],
+["Add Staff: prefilled from the login, step 2 shows the linked login",100,"Done","No second login is made; roles stay as set in Settings"],
+["Tests (link, refusals, other school)",100,"Done","7 new tests pass; 27 related staff tests and the i18n test pass; typecheck clean, lint 0"],
+["Rebuild and browser check",10,"Running","SSD copy rebuild started"],
+["Issue 32: refund form closes after sending (by hand)",0,"Waiting","Recheck in the browser after the rebuild"]
+],
+wait:"Still open from before: issue 33 refund rule, 34B Transport on by default."
+};
+document.getElementById("now").textContent="Now doing: "+S.now;
+document.getElementById("mainbar").style.width=S.main+"%";
+document.getElementById("mainline").textContent=S.mainline;
+var R=document.getElementById("rows");
+S.rows.forEach(function(r){var d=document.createElement("div");d.className="row";d.innerHTML='<div class="top"><span class="name"></span><span class="tag '+r[2]+'">'+r[2]+'</span></div><div class="bar"><i style="width:'+r[1]+'%"></i></div><p></p>';d.querySelector(".name").textContent=r[0];d.querySelector("p").textContent=r[3];R.appendChild(d);});
+document.getElementById("wait").textContent=S.wait;
+</script>

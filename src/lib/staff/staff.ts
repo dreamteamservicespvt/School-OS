@@ -18,11 +18,12 @@ import { inviteTokenFor } from "../parent-link/token";
 import { sendInviteMessage, type InviteSent } from "../settings/invite-message";
 import { assertYearOpen } from "../academic/years";
 import { classTeacherDutyElsewhere, oneClassTeacherMessage } from "../academic/structure";
-import { classTeacherRefusal } from "./class-picks";
+import { CLASS_TEACHER_ROLE, classTeacherRefusal } from "./class-picks";
 import { formatStaffId, hrSettings } from "./settings";
 import { ensureBalances, leaveYearFor } from "./leave";
 import type { AccessLevel } from "../roles";
 import { granterOf, loginGrantRefusal } from "./login-ceiling";
+import { linkableLogin, type LoginWithoutStaff } from "./link-login";
 
 export class StaffProblem extends Error {
   constructor(message: string, public field?: string, public link?: { href: string; label: string }) {
@@ -181,7 +182,7 @@ export function splitName(fullName: string) {
  * refused, the reporting manager is one of that campus's staff (or the person
  * adding), and a login made here opens that campus only.
  */
-export async function createStaff(tx: Tx, ctx: SchoolContext, details: StaffDetails, login: LoginChoice, allocations: AllocationPick[], opts: { allowDuplicate?: boolean; campusLimit?: string | null; /** Step 3 "Class teacher of": one section at most (src/lib/staff/class-picks.ts). */ classTeacherSectionId?: string | null } = {}) {
+export async function createStaff(tx: Tx, ctx: SchoolContext, details: StaffDetails, login: LoginChoice, allocations: AllocationPick[], opts: { allowDuplicate?: boolean; campusLimit?: string | null; /** Step 3 "Class teacher of": one section at most (src/lib/staff/class-picks.ts). */ classTeacherSectionId?: string | null; /** An existing login of this school with no staff record, to link instead of making a login (src/lib/staff/link-login.ts). */ linkLoginId?: string | null } = {}) {
   const settings = await hrSettings(tx, ctx);
   const dups = await findDuplicates(tx, ctx, { phone: details.phone, email: details.email });
   if (dups.length && !opts.allowDuplicate) throw new StaffProblem(dups[0].message, "phone", { href: dups[0].href, label: "Open existing" });
@@ -201,6 +202,13 @@ export async function createStaff(tx: Tx, ctx: SchoolContext, details: StaffDeta
   if (limit && login?.campusId && login.campusId !== limit) throw new StaffProblem("Choose a campus from the list.", "accessCampusId");
   const loginChoice: LoginChoice = limit && login ? { ...login, campusId: limit } : login;
   if (details.aadhaar) { const p = checkAadhaar(details.aadhaar); if (p) throw new StaffProblem(p, "aadhaar"); }
+  let linked: LoginWithoutStaff | null = null;
+  if (opts.linkLoginId) {
+    if (login) throw new StaffProblem("Step 2: this person already has a login. Switch off \"Give a login\".", "roleKeys");
+    const r = await linkableLogin(tx, ctx, opts.linkLoginId, limit);
+    if (typeof r === "string") throw new StaffProblem(r);
+    linked = r;
+  }
 
   let staffCode: string;
   if (details.staffCode) staffCode = await checkStaffCode(tx, ctx, details.staffCode);
@@ -209,10 +217,10 @@ export async function createStaff(tx: Tx, ctx: SchoolContext, details: StaffDeta
     do staffCode = formatStaffId(settings.staffIdPrefix, settings.staffIdDigits, await nextNumber(tx, ctx, "staff"));
     while (await tx.staff.findFirst({ where: { schoolId: ctx.schoolId, staffCode }, select: { id: true } }));
   }
-  return createWithCode(tx, ctx, staffCode, details, designation.staffType, campus.id, loginChoice, allocations, settings.usernameFormat, opts.classTeacherSectionId ?? null);
+  return createWithCode(tx, ctx, staffCode, details, designation.staffType, campus.id, loginChoice, allocations, settings.usernameFormat, opts.classTeacherSectionId ?? null, linked);
 }
 
-async function createWithCode(tx: Tx, ctx: SchoolContext, staffCode: string, d: StaffDetails, staffType: string, campusId: string, login: LoginChoice, allocations: AllocationPick[], usernameFormat: string, classTeacherSectionId: string | null) {
+async function createWithCode(tx: Tx, ctx: SchoolContext, staffCode: string, d: StaffDetails, staffType: string, campusId: string, login: LoginChoice, allocations: AllocationPick[], usernameFormat: string, classTeacherSectionId: string | null, linked: LoginWithoutStaff | null = null) {
   const name = splitName(d.fullName);
   const staff = await tx.staff.create({
     data: {
@@ -224,18 +232,21 @@ async function createWithCode(tx: Tx, ctx: SchoolContext, staffCode: string, d: 
       aadhaarEnc: d.aadhaar ? encryptField(d.aadhaar.replace(/\s+/g, "")) : null,
       phoneVerified: d.phoneVerified, emailVerified: d.emailVerified, photoFileId: d.photoFileId,
       createdById: ctx.userId, updatedById: ctx.userId, statusSince: d.joiningDate,
+      // A login that already opens this school (made by invite in Settings): linked, no second login.
+      userLoginId: linked?.id ?? null,
     },
   });
   await writeAudit(tx, ctx, {
     action: "created", recordType: "Staff", recordId: staff.id,
-    after: { staffCode, fullName: staff.fullName, designation: staff.designation, phone: staff.phone, joiningDate: d.joiningDate.toISOString().slice(0, 10), aadhaar: d.aadhaar ? maskLast4(d.aadhaar) : null },
+    after: { staffCode, fullName: staff.fullName, designation: staff.designation, phone: staff.phone, joiningDate: d.joiningDate.toISOString().slice(0, 10), aadhaar: d.aadhaar ? maskLast4(d.aadhaar) : null, ...(linked ? { linkedLogin: linked.username } : {}) },
   });
 
   let username: string | null = null;
   let inviteLink: string | null = null;
   let sent: InviteSent | null = null;
   let temporary = false;
-  let roleNames: string[] = [];
+  let roleNames: string[] = linked?.roleNames ?? [];
+  if (linked) username = linked.username;
   if (login) {
     const r = await giveLogin(tx, ctx, staff, login, usernameFormat);
     username = r.username; inviteLink = r.inviteLink; sent = r.sent; temporary = r.temporary; roleNames = r.roleNames;
@@ -250,7 +261,8 @@ async function createWithCode(tx: Tx, ctx: SchoolContext, staffCode: string, d: 
   let classTeacherOf: string | null = null;
   if (classTeacherSectionId) {
     if (!year) throw new StaffProblem("There is no current academic year to make them a class teacher in. Choose \"Not a class teacher\" or open the year in Academic Management.", "classTeacherSectionId");
-    classTeacherOf = await makeClassTeacher(tx, ctx, staff, year.id, classTeacherSectionId, login);
+    if (linked && !linked.roleKeys.includes(CLASS_TEACHER_ROLE)) throw new StaffProblem(`Step 3: a class teacher takes the daily attendance, and ${linked.username}'s login has no Class Teacher role. Add the role in Settings, Users & Permissions, or choose "Not a class teacher".`, "classTeacherSectionId");
+    classTeacherOf = await makeClassTeacher(tx, ctx, staff, year.id, classTeacherSectionId, linked ? { giveLogin: true, roleKeys: linked.roleKeys } : { giveLogin: Boolean(login), roleKeys: login?.roleKeys ?? [] });
   }
   if (year) await ensureBalances(tx, ctx, [staff.id], year.id);
   return { staff, username, inviteLink, sent, temporary, roleNames, allocated, classTeacherOf };
@@ -321,12 +333,12 @@ export async function giveLogin(tx: Tx, ctx: SchoolContext, staff: Staff, login:
  * only of a section that has no class teacher yet (a hand-over is done in
  * Academic Management, Classes & Sections). Ticking subjects never does this.
  */
-async function makeClassTeacher(tx: Tx, ctx: SchoolContext, staff: Staff, yearId: string, sectionId: string, login: LoginChoice) {
+async function makeClassTeacher(tx: Tx, ctx: SchoolContext, staff: Staff, yearId: string, sectionId: string, login: { giveLogin: boolean; roleKeys: readonly string[] }) {
   const section = await tx.section.findFirst({ where: { id: sectionId, academicYearId: yearId, archivedAt: null }, include: { schoolClass: { select: { name: true } } } });
   if (!section) throw new StaffProblem("Step 3: the section chosen for class teacher is not in this academic year. Choose again.", "classTeacherSectionId");
   const label = `${section.schoolClass.name} ${section.name}`;
   const current = section.classTeacherId ? (await tx.staff.findFirst({ where: { id: section.classTeacherId }, select: { fullName: true } }))?.fullName ?? "another teacher" : null;
-  const refused = classTeacherRefusal({ giveLogin: Boolean(login), roleKeys: login?.roleKeys ?? [], sectionLabel: label, currentTeacher: current });
+  const refused = classTeacherRefusal({ ...login, sectionLabel: label, currentTeacher: current });
   if (refused) throw new StaffProblem(refused, "classTeacherSectionId");
   // A new person has no other class: one section is the most they can hold.
   const other = await classTeacherDutyElsewhere(tx, staff.id, yearId, sectionId);

@@ -38,6 +38,8 @@ export type WizardData = {
   /** Who is class teacher of each section, and who teaches each subject and section, now (step 3). */
   taken: Taken;
   prefill: { applicationId: string; fullName: string; phone: string; email: string; qualification: string; experienceYears: string; designation: string; departmentId: string; joiningDate: string } | null;
+  /** A login of this school with no staff record yet (Staff List link): its record is made and linked; no new login. */
+  linked: { id: string; username: string; displayName: string; phone: string; email: string; roleNames: string[]; roleKeys: string[] } | null;
   today: string;
   employmentTypes: string[];
   modules: { key: string; name: string }[];
@@ -73,15 +75,16 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
   const [done, setDone] = useState<Created | null>(null);
 
   const p = data.prefill;
-  const [fullName, setFullName] = useState(p?.fullName ?? "");
-  const [phone, setPhone] = useState(p?.phone ?? "");
+  const linked = data.linked;
+  const [fullName, setFullName] = useState(p?.fullName ?? linked?.displayName ?? "");
+  const [phone, setPhone] = useState(p?.phone ?? linked?.phone ?? "");
   const [designation, setDesignation] = useState(p?.designation ?? data.designations.find((d) => d.name === "Teacher")?.name ?? data.designations[0]?.name ?? "");
   const des = data.designations.find((d) => d.name === designation);
   const [deptTouched, setDeptTouched] = useState(Boolean(p?.departmentId));
   const [departmentId, setDepartmentId] = useState(p?.departmentId ?? des?.departmentId ?? "");
   const [photoName, setPhotoName] = useState<string | null>(null);
 
-  const [giveLogin, setGiveLogin] = useState(true);
+  const [giveLogin, setGiveLogin] = useState(!linked);
   const [rolesTouched, setRolesTouched] = useState(false);
   const [roleKeys, setRoleKeys] = useState<string[]>(des?.roleKey ? [des.roleKey] : []);
   const [exceptions, setExceptions] = useState<Record<string, AccessLevel>>({});
@@ -93,17 +96,20 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
   const [classFilter, setClassFilter] = useState("");
   // What was typed comes back after a reload or a mistaken Back (owner test, note 7). Aadhaar, passwords and
   // the photo are never kept (src/lib/form-draft.ts); the class picks of step 3 are kept from their state.
-  const draft = useFormDraft(formRef, "Add staff");
-  const picksDraft = useStateDraft("Add staff picks", { pairs, ctSection }, (v) => { setPairs(v.pairs); setCtSection(v.ctSection); });
+  // A linked login keeps its own draft, so an earlier Add Staff draft never fills in another person.
+  const draftName = linked ? `Add staff for ${linked.id}` : "Add staff";
+  const draft = useFormDraft(formRef, draftName);
+  const picksDraft = useStateDraft(`${draftName} picks`, { pairs, ctSection }, (v) => { setPairs(v.pairs); setCtSection(v.ctSection); });
 
   const teaching = (des?.staffType ?? "Teaching") === "Teaching";
-  const offer = stepThree({ teachingPost: teaching, giveLogin, roleKeys });
+  // A linked login keeps its roles from Settings, so step 3 follows those roles.
+  const offer = stepThree(linked ? { teachingPost: teaching, giveLogin: true, roleKeys: linked.roleKeys } : { teachingPost: teaching, giveLogin, roleKeys });
 
   function chooseDesignation(name: string) {
     setDesignation(name);
     const d = data.designations.find((x) => x.name === name);
     if (!deptTouched) setDepartmentId(d?.departmentId ?? "");
-    if (!rolesTouched) setRoleKeys(d?.roleKey && data.roles.some((r) => r.key === d.roleKey) ? [d.roleKey] : []);
+    if (!rolesTouched && !linked) setRoleKeys(d?.roleKey && data.roles.some((r) => r.key === d.roleKey) ? [d.roleKey] : []);
   }
 
   const suggestedUsername = useMemo(() => {
@@ -195,6 +201,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
         <Alert tone="danger" action={message.link ? <Link className="font-medium underline" href={message.link.href}>{message.link.label}</Link> : undefined}>{message.text}</Alert>
       )}
       {p && <input type="hidden" name="applicationId" value={p.applicationId} />}
+      {linked && <input type="hidden" name="linkLoginId" value={linked.id} />}
 
       {/* Step 1 */}
       <fieldset data-step="1" hidden={step !== 1} className="space-y-4 rounded-2xl border border-line bg-surface p-5">
@@ -210,7 +217,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
             options={data.departments} placeholder="No department" />
           <TextField label="Joining date" name="joiningDate" type="date" required defaultValue={p?.joiningDate ?? data.today} error={err("joiningDate")} />
           <SelectField label="Gender" name="gender" defaultValue="" options={[{ value: "Female", label: "Female" }, { value: "Male", label: "Male" }, { value: "Other", label: "Other" }]} placeholder="Choose" error={err("gender")} />
-          <TextField label="Email" name="email" type="email" defaultValue={p?.email} error={err("email")} help="Needed for an email invite." autoComplete="off" />
+          <TextField label="Email" name="email" type="email" defaultValue={p?.email ?? linked?.email} error={err("email")} help="Needed for an email invite." autoComplete="off" />
           <div>
             <label htmlFor="photo" className="mb-1 block text-sm font-medium"><Words k="Photo" /></label>
             <input id="photo" name="photo" type="file" accept="image/jpeg,image/png" onChange={(e) => setPhotoName(e.target.files?.[0]?.name ?? null)}
@@ -251,9 +258,15 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
       {/* Step 2 */}
       <fieldset data-step="2" hidden={step !== 2} className="space-y-4 rounded-2xl border border-line bg-surface p-5">
         <legend className="sr-only"><Words k="Step 2: What they can open" /></legend>
+        {linked ? (
+          <Alert tone="info" title="They already have a login">
+            <Words k="This staff record is linked to the login" /> <b>{linked.username}</b>{linked.roleNames.length ? <> ({linked.roleNames.join(", ")})</> : null}. <Words k="No second login is made. Roles and permissions stay as they are; change them in Settings, Users & Permissions." />
+          </Alert>
+        ) : (
         <CheckboxField name="giveLogin" label="Give a login to School OS" checked={giveLogin} onChange={(e) => setGiveLogin(e.target.checked)}
           help="An invite link to set their own password, or a temporary password from you. No login is needed for the Time Table or payroll." />
-        {giveLogin && (
+        )}
+        {giveLogin && !linked && (
           <>
             <div>
               <p className="mb-1 font-medium"><Words k="Roles" /> <span className="text-danger" aria-hidden="true">*</span></p>

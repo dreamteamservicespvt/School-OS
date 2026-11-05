@@ -14298,4 +14298,10 @@ export const te: Catalogue = {
   "Clear ticks": "టిక్‌లు తీసివేయండి",
   "Matched": "సరిపోలింది",
   "Open to check each one against its examples.": "ప్రతిదాన్ని దాని ఉదాహరణలతో పోల్చి చూడటానికి తెరవండి.",
+  "This staff record is linked to the login": "ఈ స్టాఫ్ రికార్డ్ ఈ లాగిన్‌కు కలపబడింది",
+  "No second login is made. Roles and permissions stay as they are; change them in Settings, Users & Permissions.": "రెండో లాగిన్ తయారు కాదు. రోల్స్, అనుమతులు ఇప్పుడు ఉన్నట్టే ఉంటాయి; వాటిని Settings, Users & Permissionsలో మార్చండి.",
+  "They already have a login": "వీరికి ఇప్పటికే లాగిన్ ఉంది",
+  "They are not on this list or in the staff counts. Add their staff record; their login stays as it is.": "వీరు ఈ జాబితాలో గానీ స్టాఫ్ లెక్కల్లో గానీ లేరు. వీరి స్టాఫ్ రికార్డ్ జోడించండి; వీరి లాగిన్ ఇప్పుడు ఉన్నట్టే ఉంటుంది.",
+  "Add staff record": "స్టాఫ్ రికార్డ్ జోడించండి",
+  "1 person can sign in but has no staff record": "1 వ్యక్తి సైన్ ఇన్ చేయగలరు కానీ వారికి స్టాఫ్ రికార్డ్ లేదు",
 };

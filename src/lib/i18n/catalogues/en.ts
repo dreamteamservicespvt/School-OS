@@ -14846,6 +14846,12 @@ export const EN = [
   "Clear ticks",
   "Matched",
   "Open to check each one against its examples.",
+  "This staff record is linked to the login",
+  "No second login is made. Roles and permissions stay as they are; change them in Settings, Users & Permissions.",
+  "They already have a login",
+  "They are not on this list or in the staff counts. Add their staff record; their login stays as it is.",
+  "Add staff record",
+  "1 person can sign in but has no staff record",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

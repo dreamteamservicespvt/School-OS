@@ -21,6 +21,8 @@ import { copyChannelsOn } from "@/lib/staff/staff-message";
 import { CHANNEL_LABEL } from "@/lib/messaging/channels";
 import { bulkChangeDepartment, bulkMessage } from "./actions";
 import { Words } from "@/lib/i18n/client";
+import { Alert } from "@/components/ui/alert";
+import { loginsWithoutStaff } from "@/lib/staff/link-login";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -44,6 +46,10 @@ export default async function StaffListPage({ searchParams }: Search) {
   void _dept;
   const whereAnyDept = staffWhere({ ...params, filters: otherFilters }, viewer);
 
+  const canChange = viewer.change === "all";
+  // Adding staff is office work; the Principal sees and approves (src/lib/duty.ts). 05-roles still allows it on the server.
+  const canAdd = canChange && !pageHidden(current, "staff-hr-management", "add");
+
   const data = await withSchool(current.ctx, async (tx) => {
     // One campus: the counts and the "on leave today" names are of their campus's staff (and their own record).
     const onRoll = onRollWhere(viewer);
@@ -61,12 +67,11 @@ export default async function StaffListPage({ searchParams }: Search) {
     const leaveToday = await onLeaveOn(tx, current.ctx, today, rollIds.map((r) => r.id));
     const names = rollIds.filter((r) => leaveToday.has(r.id)).map((r) => r.fullName.split(/\s+/)[0]);
     const copyChannels = viewer.change === "all" ? await copyChannelsOn(tx, current.ctx) : [];
-    return { rows, total, designations, departments, campuses, byDept, roll, teaching, leaveToday, leaveNames: names, copyChannels };
+    // Live test issue 11: logins made by invite (Principal, School Admin) with no staff record are not on this list.
+    const noRecord = canAdd ? await loginsWithoutStaff(tx, current.ctx, { campusLimit: current.campusId }) : [];
+    return { rows, total, designations, departments, campuses, byDept, roll, teaching, leaveToday, leaveNames: names, copyChannels, noRecord };
   });
   type Row = (typeof data.rows)[number];
-  const canChange = viewer.change === "all";
-  // Adding staff is office work; the Principal sees and approves (src/lib/duty.ts). 05-roles still allows it on the server.
-  const canAdd = canChange && !pageHidden(current, "staff-hr-management", "add");
   const f = params.filters;
   const href = (change: Record<string, string | null>) => listHref(BASE, { ...params, page: 1 }, { ...change, page: null, n: null });
   const deptCount = new Map(data.byDept.map((d) => [d.departmentId ?? "none", d._count._all]));
@@ -121,6 +126,21 @@ export default async function StaffListPage({ searchParams }: Search) {
         { label: "On leave today", value: data.leaveToday.size, sub: data.leaveNames.length ? data.leaveNames.slice(0, 3).join(", ") + (data.leaveNames.length > 3 ? ` and ${data.leaveNames.length - 3} more` : "") : "Nobody", href: `${BASE}/leave`, tone: data.leaveToday.size ? "warn" : undefined },
         { label: "Not in yet", value: "–", sub: "Once staff attendance is taken" },
       ]} />
+
+      {data.noRecord.length > 0 && (
+        <Alert tone="info" className="mb-4"
+          title={data.noRecord.length === 1 ? "1 person can sign in but has no staff record" : `${data.noRecord.length} people can sign in but have no staff record`}>
+          <p><Words k="They are not on this list or in the staff counts. Add their staff record; their login stays as it is." /></p>
+          <ul className="mt-2 grid gap-1.5">
+            {data.noRecord.map((u) => (
+              <li key={u.id} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span><b>{u.displayName}</b> <span className="text-ink-2">({[u.username, ...u.roleNames].join(" · ")})</span></span>
+                <a href={`${BASE}/add?login=${u.id}`} aria-label={`Add staff record for ${u.displayName}`} className="inline-flex min-h-9 items-center font-medium text-brand-text underline"><Words k="Add staff record" /></a>
+              </li>
+            ))}
+          </ul>
+        </Alert>
+      )}
 
       {data.departments.length > 0 && (
         <Chips label="Staff by department" value={f.department ?? "all"} options={[

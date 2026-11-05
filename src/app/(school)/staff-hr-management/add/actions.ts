@@ -81,6 +81,9 @@ export async function createStaffAction(_: FormState<Created>, fd: FormData): Pr
     const ctPick = str(fd, "classTeacherSectionId");
     const classTeacherSectionId = UUID_RE.test(ctPick) ? ctPick : null;
     const applicationId = str(fd, "applicationId");
+    // A login with no staff record yet (Staff List, "can sign in but have no staff record"): linked, no new login.
+    const linkPick = str(fd, "linkLoginId");
+    const linkLoginId = UUID_RE.test(linkPick) ? linkPick : null;
 
     const result = await withSchool(current.ctx, async (tx) => {
       const photo = file(fd, "photo");
@@ -92,7 +95,7 @@ export async function createStaffAction(_: FormState<Created>, fd: FormData): Pr
       const r = await createStaff(tx, current.ctx, { ...d, gender: d.gender ?? null, bloodGroup: d.bloodGroup ?? null, photoFileId },
         giveLogin ? { roleKeys, username: str(fd, "username") || null, exceptions, campusId: str(fd, "accessCampusId") || null, temporaryPassword } : null,
         // One campus: the new staff member joins that campus, and a login opens that campus only (src/lib/staff/staff.ts).
-        allocations, { allowDuplicate: str(fd, "allowDuplicate") === "on", campusLimit: current.campusId, classTeacherSectionId });
+        allocations, { allowDuplicate: str(fd, "allowDuplicate") === "on", campusLimit: current.campusId, classTeacherSectionId, linkLoginId });
       if (UUID_RE.test(applicationId)) await markHired(tx, current.ctx, applicationId, r.staff.id);
       return r;
     }, { timeout: 30_000 });

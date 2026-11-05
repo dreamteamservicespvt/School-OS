@@ -18,6 +18,7 @@ import { Banner, Chips, DataList, ListEmpty, Progress, Stats, Toolbar, TONE_SOFT
 import { ExportMenu, UrlSearch, UrlSelect } from "@/components/ui/kit-client";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { EmptyState } from "@/components/empty-state";
+import { ButtonLink } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import { periodQuery } from "../_lib/period";
 import { examPage, one, withYear, type SearchParams } from "../_lib/page";
@@ -105,7 +106,10 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
           )}
           {groups.length === 0 ? (
             filtered ? <Card><ListEmpty /></Card> : (
-              <EmptyState title="No papers to mark yet" Icon={ClipboardCheck}>
+              <EmptyState title="No papers to mark yet" Icon={ClipboardCheck}
+                action={page.scope.datesheets && page.writable
+                  ? <ButtonLink href="/examination-results/datesheet/new" variant="secondary"><Words k="Add datesheet" /></ButtonLink>
+                  : <ButtonLink href="/examination-results/datesheet" variant="secondary"><Words k="See datesheets" /></ButtonLink>}>
                 <Words k="Papers appear here once a datesheet with your subjects is published. If a subject is missing, ask the Exam In-charge to check Teacher Allocation." />
               </EmptyState>
             )

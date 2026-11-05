@@ -26,6 +26,13 @@ const nextConfig: NextConfig = {
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
+  // Short words people type (live test 28: /exams said "This page is not here").
+  async redirects() {
+    return [
+      { source: "/exams", destination: "/examination-results", permanent: false },
+      { source: "/exams/:path*", destination: "/examination-results", permanent: false },
+    ];
+  },
 };
 
 export default nextConfig;

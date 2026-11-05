@@ -14834,6 +14834,18 @@ export const EN = [
   "Step 3: {section} already has a class teacher, {name}. Choose another section, or change it in Academic Management, Classes & Sections.",
   "Step 3: the section chosen for class teacher is not in this academic year. Choose again.",
   "For other marks such as Half-day or Leave, press and hold a student's button (right-click on a computer).",
+  // live-test fixes batch 2 (26, 8, 13, 20, 24, 28, 9)
+  "Grades only. These subjects are set to grades only in Academic Management, Subjects, so they take a grade, with no Max marks or mark categories. To give them marks, switch grades only off there.",
+  "Grade only, no marks (set in Academic Management, Subjects)",
+  "Open Subjects",
+  "Before you go on: some rows will need fixing.",
+  "Two-step login: not set up yet",
+  "First paper on",
+  "Choose who watches each paper.",
+  "See datesheets",
+  "Clear ticks",
+  "Matched",
+  "Open to check each one against its examples.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

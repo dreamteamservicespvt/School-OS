@@ -35,7 +35,7 @@ await admin.getByRole("button", { name: "Send invite" }).click();
 await admin.waitForLoadState("networkidle").catch(() => {});
 await wait(3000);
 const after = await mainText(admin, 1500);
-const saysSent = /was sent to them by/i.test(after);
+const saysSent = /was sent to/i.test(after);
 const saysWhy = /on its way|not sent|test mode|could not be sent|not be sent|copy the link|share the link/i.test(after);
 ok("Invite does not claim 'sent' in test mode", !saysSent && saysWhy, after.replace(/\n/g, " | ").slice(0, 400));
 await shot(admin, "leftovers-invite");

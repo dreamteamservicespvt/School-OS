@@ -82,7 +82,7 @@ export default async function RoutesPage({ searchParams }: { searchParams: Searc
             })}
             empty={q || show !== "all"
               ? <Empty icon={SearchX} title="No route matches" body={q ? `Nothing matches “${q}”. Try a stop name.` : "No route is nearly full."} action={<ButtonLink href={HREF} variant="secondary">Clear filters</ButtonLink>} />
-              : <Empty icon={RouteIcon} title="No routes yet" body="Add a route, then its stops in order with pickup times and the fee a month." action={p.can.routes ? <ButtonLink href={addQ(sheetHref, { do: "route" })} scroll={false} variant="secondary" icon={Plus}>Add route</ButtonLink> : undefined} />} />
+              : <Empty icon={RouteIcon} title="No routes yet" body={p.can.routes ? "Add a route, then its stops in order with pickup times and the fee a month." : "The Transport In-charge adds routes, with their stops, pickup times and the fee a month. Your role can look at them once they are added."} action={p.can.routes ? <ButtonLink href={addQ(sheetHref, { do: "route" })} scroll={false} variant="secondary" icon={Plus}>Add route</ButtonLink> : undefined} />} />
         </Card>
 
         <div className="grid xl:grid-cols-2 gap-5 lg:gap-6 [&>*]:min-w-0 items-start">

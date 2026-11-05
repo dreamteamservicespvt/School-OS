@@ -3,7 +3,7 @@
 // Correction request (05 §2 Attendance Register): who, the new status and a
 // reason. The people clicked in the register come ticked.
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { SelectField, TextArea, TextField } from "@/components/ui/field";
 import { ActionForm, type Action } from "../../staff-hr-management/_components/forms";
 import { toneClass, type StatusView } from "./status";
@@ -16,6 +16,11 @@ export function CorrectionForm({ action, hidden, people, statuses, forWhom }: {
   action: Action; hidden: Record<string, string>; people: CorrectionPerson[]; statuses: StatusView[]; forWhom: "student" | "staff";
 }) {
   const [q, setQ] = useState("");
+  const list = useRef<HTMLUListElement>(null);
+  // A missed day is the usual mistake: one press ticks everyone listed (live test 20).
+  const tickAll = (on: boolean) => list.current?.querySelectorAll<HTMLInputElement>('input[name="people"]').forEach((b) => {
+    if (b.checked !== on) { b.checked = on; b.dispatchEvent(new Event("change", { bubbles: true })); b.dispatchEvent(new Event("input", { bubbles: true })); }
+  });
   const byKey = useMemo(() => new Map(statuses.map((s) => [s.key, s])), [statuses]);
   const shown = q.trim() ? people.filter((p) => p.label.toLowerCase().includes(q.trim().toLowerCase()) || p.checked) : people;
   return (
@@ -28,7 +33,13 @@ export function CorrectionForm({ action, hidden, people, statuses, forWhom }: {
               <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Find by name" aria-label="Find by name"
                 className="mb-2 h-11 w-full rounded-lg border border-line-strong bg-surface px-3 text-base" />
             )}
-            <ul className="max-h-80 divide-y divide-line overflow-y-auto rounded-xl border border-line">
+            {forWhom === "student" && shown.length > 1 && (
+              <div className="mb-2 flex flex-wrap gap-2">
+                <button type="button" onClick={() => tickAll(true)} className="inline-flex min-h-11 items-center rounded-lg border border-line-strong px-3 text-sm font-medium hover:bg-surface-2"><Words k="Select all" />&nbsp;{shown.length}</button>
+                <button type="button" onClick={() => tickAll(false)} className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm text-ink-2 hover:text-ink"><Words k="Clear ticks" /></button>
+              </div>
+            )}
+            <ul ref={list} className="max-h-80 divide-y divide-line overflow-y-auto rounded-xl border border-line">
               {shown.map((p) => {
                 const st = p.current ? byKey.get(p.current) : undefined;
                 return (

@@ -126,7 +126,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 <div className="flex gap-1.5 mt-1.5 flex-wrap">
                   {roleNames[0] && <Pill tone="brand">{roleNames[0]}</Pill>}
                   {staff && <Pill tone="neutral"><span className="font-mono text-[11.5px]">{staff.staffCode}</span></Pill>}
-                  {twoStepOn && <Pill tone="ok"><I.ShieldCheck size={13} aria-hidden="true" /><Words k="Two-step login on" /></Pill>}
+                  {twoStepOn && !cannotReach && <Pill tone="ok"><I.ShieldCheck size={13} aria-hidden="true" /><Words k="Two-step login on" /></Pill>}
+                  {/* Needed but no code can reach them: never a green "on" (live test 13). */}
+                  {twoStepOn && cannotReach && <a href="#password" className="rounded-full focus-visible:outline-2"><Pill tone="warn"><I.ShieldAlert size={13} aria-hidden="true" /><Words k="Two-step login: not set up yet" /></Pill></a>}
                 </div>
               </div>
             </div>

@@ -55,6 +55,9 @@ export default async function DatesheetDetail({ params, searchParams }: { params
   const { exam, entries } = data;
   const tz = page.current.school.timeZone;
   const status = shownExamStatus(exam, page.today);
+  // Papers nobody is watching (live test 28): asked for on the page, not only shown as "Not set".
+  const noInvigilator = entries.filter((e) => !e.invigilator).length;
+  const firstPaper = entries.reduce<Date | null>((m, e) => (!m || e.date < m ? e.date : m), null);
   const tone = exam.archivedAt ? "bad" : EXAM_STATUS_TONE[status];
   const can = page.scope.datesheets && page.writable && !exam.archivedAt;
   const seatingOn = page.current.features.has("exam-seating");
@@ -102,6 +105,8 @@ export default async function DatesheetDetail({ params, searchParams }: { params
             <div className="flex items-center gap-2 flex-wrap">
               <h1 className="font-display text-[22px] md:text-[26px] font-semibold tracking-tight leading-tight">{title}</h1>
               <Pill tone={tone} dot>{exam.archivedAt ? "Archived" : status}</Pill>
+              {/* The exam period has begun but no paper yet (live test 28): say when the first one is. */}
+              {!exam.archivedAt && status === "Ongoing" && firstPaper && firstPaper > page.today && <span className="text-[13px] text-ink3"><Words k="First paper on" /> {formatDate(firstPaper)}</span>}
             </div>
             <p className="text-[13.5px] text-ink3 mt-0.5">{formatDate(exam.startDate)} <Words k="to" /> {formatDate(exam.endDate)} · {data.typeName} · {data.termName} · {patternLabel(exam.pattern)} · {plural(data.students, "student")} · {note}</p>
           </div>
@@ -123,6 +128,12 @@ export default async function DatesheetDetail({ params, searchParams }: { params
         {exam.archivedAt && <Banner tone="warn" title="Archived."><Words k="This datesheet is not shown to parents or on the School Calendar. Restore it to use it again." /></Banner>}
         {!exam.archivedAt && status === "Draft" && <Banner tone="info" title="Draft."><Words k="Only staff can see it. Publishing puts the papers on the School Calendar and the Time Table, makes admit cards ready and tells parents." /></Banner>}
         {!exam.archivedAt && (status === "Published" || status === "Ongoing") && !data.locked && <Banner tone="ok" title="Published."><Words k="Parents see this datesheet on Parent Link. The exam days are on the School Calendar and in the Time Table, and reminders go to parents the day before each paper." /></Banner>}
+        {can && !exam.archivedAt && exam.status !== "DRAFT" && !data.locked && noInvigilator > 0 && (
+          <Banner tone="warn" title={`${noInvigilator} ${noInvigilator === 1 ? "paper has" : "papers have"} no invigilator.`}
+            action={<ButtonLink href={withYear(`/examination-results/datesheet/${id}/edit`, page)} size="sm" variant="secondary"><Words k="Rooms & invigilators" /></ButtonLink>}>
+            <Words k="Choose who watches each paper." />
+          </Banner>
+        )}
         {!exam.archivedAt && data.locked && <Banner tone="info" title="Results exist for this datesheet."><Words k="Only the title can change now. Ask the Exam In-charge or the Principal for anything else." /></Banner>}
 
         <Split side={340}>
@@ -150,7 +161,7 @@ export default async function DatesheetDetail({ params, searchParams }: { params
                   <li key={x.id} className="flex items-center justify-between gap-3 rounded-xl border border-line pl-3.5 pr-1.5 py-1.5 min-h-12 text-[13.5px]">
                     <span className="min-w-0">
                       <span className="font-semibold truncate block">{x.subjectName}</span>
-                      <span className="text-ink2 tnum text-[12.5px]">{x.gradeOnly ? "Graded" : x.categories.length ? x.categories.map((c) => `${c.name} ${c.max}`).join(" · ") : `Marks ${x.maxMarks}`}</span>
+                      <span className="text-ink2 tnum text-[12.5px]">{x.gradeOnly ? "Grade only, no marks (set in Academic Management, Subjects)" : x.categories.length ? x.categories.map((c) => `${c.name} ${c.max}`).join(" · ") : `Marks ${x.maxMarks}`}</span>
                     </span>
                     {can && !data.locked && !x.gradeOnly && <CategoriesButton entryId={x.id} subject={x.subjectName} maxMarks={x.maxMarks} current={x.categories} names={data.categories} classes={exam.classIds.length} />}
                   </li>

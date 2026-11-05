@@ -161,6 +161,14 @@ export async function FileReview({ current, place, id, sp }: Props) {
     help: c.key === "className" ? "A column with class and section together, like 5-A, fills both." : c.key === "fullName" && PARTS.fullName ? "First, middle and last name in their own columns? Choose them one after another." : c.help,
     cols: w.choices.columnMatch[c.key] ?? [], joinable: c.key === "fullName" || c.key === "address",
   }));
+  // Early warnings on step 1 (live test 8): words the school does not have yet, and required columns left empty.
+  const earlyUnmatched = (["class", "designation", "department"] as const).map((column) => ({
+    column, words: prepared.unmatched.filter((u) => u.column === column).map((u) => u.label),
+  })).filter((g) => g.words.length);
+  const emptyRequired = prepared.rows.length === 0 ? [] : kind.columns
+    .filter((c) => c.required && (w.choices.columnMatch[c.key] ?? []).length)
+    .map((c) => ({ label: c.label, empty: prepared.rows.filter((r) => !(r.values[c.key] ?? "").trim()).length }))
+    .filter((c) => c.empty > 0);
   const missingRequired = kind.columns.filter((c) => c.required && !(w.choices.columnMatch[c.key] ?? []).length);
   // Smart Import's AI suggestions: only for the person it is on for, with the AI service connected, once one heading is matched.
   const matchedKeys = kind.columns.filter((c) => (w.choices.columnMatch[c.key] ?? []).length);
@@ -216,6 +224,22 @@ export async function FileReview({ current, place, id, sp }: Props) {
               {w.remembered && (
                 <Alert title="Matched as last time.">
                   {w.remembered.keys.length} {w.remembered.keys.length === 1 ? "column is" : "columns are"} <Words k="matched the way you confirmed for" /> {w.remembered.source ? `${w.remembered.source} files` : `“${w.remembered.fileName}”`} ({formatDate(w.remembered.updatedAt, tz)}<Words k="). Check each one; change any that is wrong." />
+                </Alert>
+              )}
+              {(earlyUnmatched.length > 0 || emptyRequired.length > 0) && (
+                <Alert tone="warning" title="Before you go on: some rows will need fixing."
+                  action={earlyUnmatched.length > 0 ? <Link className="font-medium underline" href={`${here}?step=values`}><Words k="Match words" /></Link> : undefined}>
+                  <ul className="list-disc space-y-1 pl-5">
+                    {earlyUnmatched.map((g) => (
+                      <li key={g.column}>
+                        {g.column === "class" ? `Classes not found as written in this year's classes: ${g.words.slice(0, 6).join(", ")}${g.words.length > 6 ? ` and ${g.words.length - 6} more` : ""}. In step 2, match each to an existing class, or add the missing classes.`
+                          : `${g.column === "designation" ? "Designations" : "Departments"} not found as written in HR Settings: ${g.words.slice(0, 6).join(", ")}${g.words.length > 6 ? ` and ${g.words.length - 6} more` : ""}. In step 2, match each one or add it.`}
+                      </li>
+                    ))}
+                    {emptyRequired.map((c) => (
+                      <li key={c.label}>{c.empty === prepared.rows.length ? `${c.label} is empty in every row, and it is needed for every ${words.one}. Fill it in the file, or choose the column that holds it below.` : `${c.label} is empty in ${count(c.empty, "row")}, and it is needed for every ${words.one}. Those rows will show a problem.`}</li>
+                    ))}
+                  </ul>
                 </Alert>
               )}
               {aiOffer && <AiColumnSuggestions ask={aiColumnsAction.bind(null, place.key, file.id)} accept={acceptAiColumnsAction.bind(null, place.key, file.id)} />}

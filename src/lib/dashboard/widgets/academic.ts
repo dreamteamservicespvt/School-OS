@@ -363,5 +363,34 @@ const nextHoliday: Widget<"band"> = {
   },
 };
 
-export const ACADEMIC_WIDGETS: Widget[] = [classesBand, periodsCovered, classesCard, mySubstitutions, openSubstitutions, noClassTeacher, myAgenda, mySyllabus, schoolSyllabus, calendarAgenda, nextHoliday] as Widget[];
+/** Class Teachers who are class teacher of no section this year (live test 18): their attendance page is a dead end. */
+const classTeacherNoSection: Widget<"attention"> = {
+  id: "academic.class-teacher-no-section",
+  module: "academic-management",
+  kind: "attention",
+  homes: ["leader", "academic-head"],
+  allowed: (v) => reach(v, "academic-management", "edit") === "all",
+  async load(c) {
+    if (!c.yearIds.length) return null;
+    const access = await c.tx.schoolAccess.findMany({
+      where: { archivedAt: null, userLogin: { status: { not: "DISABLED" } }, roles: { some: { role: { key: "class-teacher", archivedAt: null } } } },
+      select: { userLoginId: true },
+    });
+    if (!access.length) return null;
+    const staff = await c.tx.staff.findMany({ where: { archivedAt: null, userLoginId: { in: access.map((a) => a.userLoginId) } }, select: { id: true, fullName: true } });
+    if (!staff.length) return null;
+    const taken = await c.tx.section.findMany({ where: { academicYearId: { in: c.yearIds }, archivedAt: null, classTeacherId: { in: staff.map((s) => s.id) } }, select: { classTeacherId: true } });
+    const has = new Set(taken.map((t) => t.classTeacherId));
+    const without = staff.filter((s) => !has.has(s.id));
+    if (!without.length) return null;
+    return {
+      id: "academic.class-teacher-no-section", tone: "warn", icon: "Users",
+      title: `${plural(without.length, "Class Teacher")} ${without.length === 1 ? "has" : "have"} no section`,
+      detail: `${someNames(without.map((s) => s.fullName), 3)}: cannot take attendance until a section is theirs (Classes & Sections, Edit, Class teacher)`,
+      action: "Set", href: "/academic-management", value: String(without.length),
+    };
+  },
+};
+
+export const ACADEMIC_WIDGETS: Widget[] = [classesBand, periodsCovered, classesCard, mySubstitutions, openSubstitutions, noClassTeacher, classTeacherNoSection, myAgenda, mySyllabus, schoolSyllabus, calendarAgenda, nextHoliday] as Widget[];
 

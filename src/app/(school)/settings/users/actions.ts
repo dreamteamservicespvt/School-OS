@@ -16,6 +16,7 @@ import type { SensitiveLevel } from "@/lib/sensitive";
 
 const PAGE = "users" as const;
 import { confirmInviteSent, inviteSentWords } from "@/lib/settings/invite-message";
+import { currentYear } from "@/lib/academic/years";
 
 const USERS = "/settings/users";
 
@@ -77,12 +78,21 @@ export async function accessAction(_: FormState, fd: FormData): Promise<FormStat
   const roleIds = fd.getAll("roleIds").map(String);
   const scope = String(fd.get("scope") ?? "") as AccessScope;
   const campusId = String(fd.get("campusId") ?? "") || null;
-  const r = await runSettings(PAGE, "edit", (tx, current) => changeAccess(tx, current.ctx, userId, { roleIds, scope, campusId }));
+  const r = await runSettings(PAGE, "edit", async (tx, current) => {
+    const done = await changeAccess(tx, current.ctx, userId, { roleIds, scope, campusId });
+    // Class Teacher with no section this year (live test 18): say so now, not on their empty attendance page.
+    const isClassTeacher = roleIds.length > 0 && (await tx.role.count({ where: { id: { in: roleIds }, key: "class-teacher" } })) > 0;
+    const staff = isClassTeacher ? await tx.staff.findFirst({ where: { userLoginId: userId, archivedAt: null }, select: { id: true } }) : null;
+    const year = staff ? await currentYear(tx, current.ctx) : null;
+    const noSection = Boolean(staff && year && (await tx.section.count({ where: { academicYearId: year.id, archivedAt: null, classTeacherId: staff.id } })) === 0);
+    return { ...done, noSection };
+  });
   const values = typed(fd);
   if (!r.ok) return asFormState(r, values, "");
   revalidatePath(`${USERS}/${userId}`);
-  if (!r.data.changed) return { ok: true, message: "Nothing changed." };
-  return { ok: true, message: r.data.signedOut > 0 ? `Saved. They were signed out on ${r.data.signedOut} device${r.data.signedOut === 1 ? "" : "s"} and get the new roles when they sign in again. Every School Admin was told.` : "Saved. Every School Admin was told." };
+  const sectionNote = r.data.noSection ? " They are class teacher of no section yet: choose theirs in Academic Management, Classes & Sections, Edit, Class teacher." : "";
+  if (!r.data.changed) return { ok: true, message: `Nothing changed.${sectionNote}` };
+  return { ok: true, message: (r.data.signedOut > 0 ? `Saved. They were signed out on ${r.data.signedOut} device${r.data.signedOut === 1 ? "" : "s"} and get the new roles when they sign in again. Every School Admin was told.` : "Saved. Every School Admin was told.") + sectionNote };
 }
 
 export async function exceptionsAction(_: FormState, fd: FormData): Promise<FormState> {

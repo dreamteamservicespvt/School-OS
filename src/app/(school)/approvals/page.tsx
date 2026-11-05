@@ -45,7 +45,10 @@ const STATUS_FILTER: Record<string, ApprovalStatus[]> = {
 /** One list of every request: waiting for me, asked by me, and all I may see (00-global.md §3). */
 export default async function ApprovalsPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const current = await requireCurrent();
-  const sp = await searchParams;
+  const given = await searchParams;
+  // Old links said ?tab=all (live test 22): read them as ?view=.
+  const TAB_WORDS: Record<string, string> = { waiting: "mine", mine: "mine", asked: "asked", all: "all" };
+  const sp = given.view === undefined && typeof given.tab === "string" && TAB_WORDS[given.tab] ? { ...given, view: TAB_WORDS[given.tab] } : given;
   const params = readListParams(sp, ["view", "type", "status", "period", "from", "to"]);
   const focusSupport = typeof sp.support === "string" ? sp.support : null;
   const roleKeys = current.roles.map((r) => r.key);
@@ -70,7 +73,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     const [rows, total, counts, rules] = await Promise.all([
       tx.approval.findMany({ where, orderBy: [{ status: "asc" }, { createdAt: view === "mine" ? "asc" : "desc" }], skip, take }),
       tx.approval.count({ where }),
-      Promise.all(views.map(async (v) => [v.value, await tx.approval.count({ where: { AND: [await inboxWhere(tx, current.ctx, roleKeys, v.value), { status: { in: OPEN_STATUSES } }] } })] as const)),
+      Promise.all(views.map(async (v) => [v.value, await tx.approval.count({ where: await inboxWhere(tx, current.ctx, roleKeys, v.value) })] as const)),
       rulesInUse(tx, current.school.id),
     ]);
     const decidable = await decidableIds(tx, current.ctx, rows);

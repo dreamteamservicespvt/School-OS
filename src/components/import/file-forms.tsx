@@ -199,8 +199,10 @@ export function ColumnsForm({ place, id, rows, headers, samples }: { place: stri
   });
   const missing = rows.filter((r) => r.required && !(chosen[r.key] ?? []).length);
   const options = headers.map((h, i) => ({ value: String(i), label: h }));
-  // Columns not found and not needed wait in "More columns", so the list stays short.
-  const main = rows.filter((r) => r.required || r.cols.length);
+  // Only what needs a choice is open (live test 9): needed columns not found yet. Matched columns
+  // fold into "Matched" (open it to check the examples); columns not found and not needed wait in "More columns".
+  const main = rows.filter((r) => r.required && !r.cols.length);
+  const matched = rows.filter((r) => r.cols.length);
   const extra = rows.filter((r) => !r.required && !r.cols.length);
   return (
     <form action={action} className="space-y-4">
@@ -208,12 +210,22 @@ export function ColumnsForm({ place, id, rows, headers, samples }: { place: stri
       <input type="hidden" name="place" value={place} />
       <input type="hidden" name="id" value={id} />
       {missing.length > 0 && <p role="status" className="rounded-xl border border-warn/30 bg-warn-bg px-4 py-3 text-sm text-warn-text"><Words k="Not found in the file yet:" /> {missing.map((m) => m.label).join(", ")}<Words k=". Choose the column for each, or the rows will show a problem." /></p>}
-      {[main, extra].map((group, gi) => group.length === 0 ? null : gi === 1 ? (
+      {main.length > 0 && <ul className="divide-y divide-line rounded-xl border border-line">{main.map(renderRow)}</ul>}
+      {matched.length > 0 && (
+        <details className="rounded-xl border border-line" open={matched.length <= 4}>
+          <summary className="flex min-h-11 cursor-pointer flex-wrap items-center gap-x-2 px-3 font-medium">
+            <span className="text-success" aria-hidden="true">✓</span><Words k="Matched" /> ({matched.length})
+            <span className="font-normal text-sm text-ink-2"><Words k="Open to check each one against its examples." /></span>
+          </summary>
+          <ul className="divide-y divide-line border-t border-line">{matched.map(renderRow)}</ul>
+        </details>
+      )}
+      {[extra].map((group) => group.length === 0 ? null : (
         <details key="extra" className="rounded-xl border border-line">
           <summary className="flex min-h-11 cursor-pointer items-center px-3 font-medium"><Words k="More columns School OS can keep (" />{extra.length} <Words k="not in the file)" /></summary>
           <ul className="divide-y divide-line border-t border-line">{group.map(renderRow)}</ul>
         </details>
-      ) : <ul key="main" className="divide-y divide-line rounded-xl border border-line">{group.map(renderRow)}</ul>)}
+      ))}
       <div className="flex flex-wrap gap-2">
         <SubmitButton pendingText="Saving…" name="next" value="values"><Words k="Save and continue" /></SubmitButton>
       </div>
@@ -238,7 +250,7 @@ export function ColumnsForm({ place, id, rows, headers, samples }: { place: stri
                       <KeepSelect name={`col_${r.key}${slot ? `_${slot}` : ""}`} value={cols[slot] !== undefined ? String(cols[slot]) : ""} onChange={(e) => pick(r.key, slot, e.target.value)}
                         className={`h-11 w-full rounded-lg border bg-surface px-2 ${r.required && !cols.length ? "border-danger" : "border-line-strong"}`}>
                         <option value="">{slot === 0 ? "Not in the file" : "Join another column…"}</option>
-                        {options.map((o) => <option key={o.value} value={o.value}>{o.label}{used.has(Number(o.value)) && !cols.includes(Number(o.value)) ? ` (also ${used.get(Number(o.value))})` : ""}</option>)}
+                        {options.map((o) => <option key={o.value} value={o.value}>{o.label}{used.has(Number(o.value)) && !cols.includes(Number(o.value)) ? ` (used for ${used.get(Number(o.value))})` : ""}</option>)}
                       </KeepSelect>
                     </label>
                   ))}

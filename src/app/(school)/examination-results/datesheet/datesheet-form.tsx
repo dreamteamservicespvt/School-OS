@@ -73,6 +73,8 @@ export function DatesheetForm({ data }: { data: Data }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [classIds, rows]);
 
+  // Grade-only subjects (a subject setting) never take Max marks: say so on the page, not only on hover (live test 26).
+  const gradeOnlyNames = [...new Set(chosen.flatMap((c) => c.subjects.filter((s) => s.gradeOnly).map((s) => s.name)))];
   const subjectOf = (classId: string, subjectId: string) => data.classes.find((c) => c.id === classId)?.subjects.find((s) => s.id === subjectId);
   // In Multiple classes, one row per subject sets the date, time, duration and marks for every chosen class that has it.
   const subjectRows = useMemo(() => {
@@ -260,6 +262,12 @@ export function DatesheetForm({ data }: { data: Data }) {
               <p className="rounded-2xl border border-dashed border-line px-4 py-6 text-center text-[14px] text-ink3"><Words k="Choose" /> {mode === "single" ? "a class" : "the classes"} <Words k="above to list their subjects." /></p>
             ) : (
               <>
+                {gradeOnlyNames.length > 0 && d.pattern !== "GRADING" && (
+                  <Banner tone="info" title={`${gradeOnlyNames.join(", ")}:`}
+                    action={<ButtonLink href="/academic-management/subjects" variant="secondary" size="sm"><Words k="Open Subjects" /></ButtonLink>}>
+                    {"Grades only. These subjects are set to grades only in Academic Management, Subjects, so they take a grade, with no Max marks or mark categories. To give them marks, switch grades only off there."}
+                  </Banner>
+                )}
                 {!dis && (
                   <div className="rounded-2xl bg-sunken/60 p-3 flex flex-col gap-2.5">
                     <p className="text-[13px] font-semibold text-ink2"><Words k="Bulk apply · each Apply changes only its own column" /></p>

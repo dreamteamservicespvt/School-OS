@@ -57,16 +57,20 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 - **Fix wanted:** show the real row count (100) once the file is read, or "Reading the file…" until then. Add a test.
 
 ## 8. Import: sample file cannot be imported as it stands, and the page does not warn early (Open, Medium, found 2026-11-04)
+- **Status:** FIXED 2026-11-05 (batch 2): step 1 Match columns warns at once about classes, designations or departments not found as written (match or add them in step 2) and about needed columns that are empty ("Parent's phone is empty in every row, and it is needed for every student"). src/components/import/file-review.tsx
 - The file has classes Nursery, LKG, UKG, Grade 1-5 but the school has only "class 1" and "class 2"; the Parent's phone column is empty ("This column is empty in the first rows") while the phone is required. The admin only learns this at step 3.
 - **Fix wanted:** on step 1 show a plain warning per column: "No class called Nursery in this school: add it in Academic Management first, or map it to an existing class", and "Parent's phone is needed for every student".
 
 ## 9. Import: Match columns page is very long and confusing (Open, Small, found 2026-11-04)
+- **Status:** FIXED 2026-11-05 (batch 2): only needed columns not found stay open; matched ones fold into "✓ Matched (N)" (open when 4 or fewer); the picker says "(used for Full name)" instead of "(also ...)"
 - Every column picker repeats the same 20-item list, and some labels look wrong: "Student Status (also Full name)", "Class" showing alternatives in odd order. A first-time clerk will not know what to choose. Fix wanted: collapse matched columns ("Matched ✓") and open only the ones that need a choice.
 
 ## 10. Add student: empty form shows only the browser's one-line "Please fill out this field." (Open, Small, found 2026-11-04)
+- **Status:** FIXED 2026-11-05 by FormProblems (every bad box red at once, first one brought into view) on Add Student; recheck by hand
 - Only the first empty box is flagged; the others are not marked. Fix wanted: mark every missing box in red with a school-style message at once.
 
 ## 11. Staff list does not match the people who can log in (Open, Low, found 2026-11-04)
+- **Status:** OPEN, design proposed: the blueprint says every login belongs to one Staff, Student or Driver record, but logins made by invite (Principal anjali, Admin Saiveni) have none, so they are missing from the Staff list and "Staff present". Proposal: Staff list shows "N people can sign in but have no staff record" with Add Staff that links the existing login (no second login). Needs a small build + tests; next batch
 - Logins exist for Principal (anjali) and School Admin (Saiveni) but the staff list has only 3 people (KUSUMA, aksha, aswini); staff codes jump ST-001, 003, 006; Department is blank for all; Dashboard says "Staff present 0/3". KUSUMA, a Class Teacher, shows designation "Teacher".
 - **Fix wanted:** decide whether every login should have a staff record; show Department/Designation clearly; explain gaps in staff codes (removed records) or avoid gaps.
 
@@ -77,6 +81,7 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 - **Fix wanted:** decide the rule: a new admission should owe only terms still to come, or show earlier terms as "due now" with a clear note; the importer should say what the fee plan will add before bringing students in. Test it.
 
 ## 13. Principal sees "Two-step login on" and "Not set up" on the same page (Open, Small, found 2026-11-04)
+- **Status:** FIXED 2026-11-05 (batch 2): when no code can reach the person the badge is amber "Two-step login: not set up yet" and jumps to Password and sign-in
 - **Where:** /profile for anjali. The green badge under her name says "Two-step login on"; the section below says "Required for your role, but no code can reach you yet... Not set up".
 - **Why it matters:** the Principal cannot tell whether her account is protected.
 - **Fix wanted:** the badge should say "Two-step login: not set up yet" (amber) with a button to fix it.
@@ -99,12 +104,13 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 - **Fix wanted:** same rule as issue 12 (a new admission owes only terms due after joining), plus a warning before "Send reminder to all".
 
 ## 17. Dashboard small confusions (Open, Low, found 2026-11-04)
+- **Status:** PARTLY 2026-11-05 (batch 2): consent line reads "7 of 25 guardians have not given data consent". Staff present counts only staff records (same root as 11). Counts refresh: bell checks every 30 s since 51761836
 - "Staff present 0 / 3 · 3 not in yet" ignores the Principal and Admin who are logged in at that moment.
 - "7 guardians have not given data consent" while 32 students exist; unclear if the other 25 are fine or unknown.
 - Dashboard says "Good evening" with the top badge counts changing (approvals bell 1 to none) only after a full reload.
 
 ## 18. A Class Teacher with no section is stuck, and the Principal is not told (Open, Medium, found 2026-11-04)
-- **Status:** PARTLY 2026-11-05: Principal/Academic head dashboard item "N sections have no class teacher" (academic.no-class-teacher). Asking for the section when the role is given: not done
+- **Status:** FIXED 2026-11-05 (batch 2): dashboard item "N Class Teachers have no section" (academic.class-teacher-no-section) next to "N sections have no class teacher"; saving the Class Teacher role in Settings, Users says when they have no section and where to set it. Add Staff step 3 already asks
 - **Where:** KUSUMA has the role "Class Teacher" but Attendance says "No class to take... Ask the principal". Nothing tells the Principal that a Class Teacher has no section. Fix by hand: Academic Management → Classes & Sections → Edit → Class teacher (easy once found; worked, "class 1 A saved").
 - **Fix wanted:** when a role of Class Teacher is given, ask which section; or show the Principal a "Class teacher not set" item on the dashboard. Class 2 A still has none.
 
@@ -114,11 +120,13 @@ Browsers: 1 aswini Teacher, 2 anjali Principal, 3 Saiveni School Admin, 4 aksha 
 - **Fix wanted:** grey the buttons out when locked, and if tapped say "Locked at 11:00 AM. Use Request a correction." Also: "L" is Late only; Leave and the other 4 statuses (Half-day, Excused, Leave, Medical) cannot be picked on this screen, so a teacher does not know where to mark "on leave". Show the words, or a "More" choice.
 
 ## 20. Correction form: a missed day means ticking children one by one (Open, Low, found 2026-11-04)
+- **Status:** FIXED 2026-11-05 (batch 2): "Select all N" and "Clear ticks" on the student list; empty boxes are all marked by FormProblems
 - Forgetting to mark is the most common mistake. The form has no "Select all", and when sent empty the browser's one bubble points at "New status", not at the missing children or reason (same as issue 10).
 - **Fix wanted:** add "Select all 16"; mark every missing box.
 - Good: after sending, the page shows the request, "Waiting", Withdraw, and a clear message. Not yet checked: the Principal's approval of it, and whether the register changes after.
 
 ## 21. Academic year says "upcoming" while the school day count is running (Open, Low, found 2026-11-04)
+- **Status:** FIXED 2026-11-05 (batch 2): the year is really "upcoming" (never made active); the dashboard now says "2026-27 is not active yet: open it in Academic Management, Academic Settings, Years" instead of counting school days
 - Classes & Sections shows "2026-27 (upcoming)"; the dashboard says "School day 123 of 261". One of them is wrong or needs explaining.
 
 ## PROGRESS of the live test (2026-11-04, end of session 1)
@@ -130,6 +138,7 @@ Left open for next chat: approve KUSUMA's correction as Principal and check the 
 NOT yet tested (do next, in this order): Class Teacher: marks, homework; Teacher (aswini): own-class limits; Accountant (aksha): fee collect, discount approval, receipt, refund; Fee structure; Salary/Finance; Front Office; Events; Reports; Optional modules (Transport, Library, Hostel, Inventory); phone-size view; permission attempts (Teacher opening Accountant pages); layman mistakes (double-click, empty forms, back button); WhatsApp send to team numbers; forgotten password; student changes class; fee typed wrongly then corrected.
 
 ## 22. Approvals tab counts show 0 while the list has items (Open, Low, found 2026-11-04)
+- **Status:** FIXED 2026-11-05 (batch 2): each tab counts the rows its list shows (decided ones too); ?tab=all / waiting / asked are read as ?view=
 - **Where:** Approvals, after the Principal approved KUSUMA's correction: tabs read "Waiting 0 · Asked by me 0 · All requests 0", but All requests lists 3 items (1 Approved, 1 Approved, 1 Withdrawn). Opened with ?tab=all the page ignores it and shows Waiting (the real link is ?view=all).
 - **Fix wanted:** count the same rows the list shows; accept or redirect old ?tab links.
 
@@ -137,22 +146,26 @@ NOT yet tested (do next, in this order): Class Teacher: marks, homework; Teacher
 - Principal approved; KUSUMA's register then showed 4 Present, 12 Not marked: the correction worked. Note A: the request says "Asked by KUSUMA, Teacher" though the role is Class Teacher + Teacher (show the main role). Note B: the lock banner still says "12 students not marked" correctly; good.
 
 ## 24. Marks Entry is a dead end until a datesheet exists (Open, Low, found 2026-11-04)
+- **Status:** FIXED 2026-11-05 (batch 2): the empty Marks Entry has "Add datesheet" for those who may, else "See datesheets"
 - Class Teacher opens Examination & Results → Marks Entry: "No papers to mark yet... ask the Exam In-charge". Plain words, but no link to where an exam is created, and the Principal is not told that no exam exists. Marks could not be tested; needs Datesheet set up first (do as Principal/Admin next).
 
 ## 25. Give homework: stale error after fixing the title (Open, Low, found 2026-11-04)
+- **Status:** FIXED 2026-11-05 by FormProblems: a box's message goes as soon as it holds a good value; recheck by hand
 - **Where:** Give homework form. Pressing Send empty shows a clear red "Give the homework a title" (good). After typing the title the red message and red border stay until Send is pressed again, so it looks as if the title is still wrong.
 - **Fix wanted:** clear the error as soon as the field has text.
 - Good: Send shows "Sending...", then "Homework sent to 1 A (16 students). Parents were not messaged: automatic messages to parents start when the school goes live." Homework card shows 16 assigned, 0 submitted, due next Telugu class (Fri 6 Nov). Subject picked by itself (TELUGU) for a class teacher with one subject.
 
 ## 26. Datesheet: "Percentage" chosen, but both papers save as "Graded", Max marks never set (Open, Medium, found 2026-11-04)
-- **Status:** PARTLY 2026-11-04: "Graded" comes from the subject's grades-only setting (Academics > Subjects), not the pattern pill; the cell now says so on hover. Mark categories on the saved page still to do
+- **Status:** FIXED 2026-11-05 (batch 2): the form shows a note naming the grade-only subjects (set in Academic Management, Subjects) with "Open Subjects"; the saved page says "Grade only, no marks (set in ...)". Subjects with marks take Max marks (bulk Apply) and Mark categories as before
 - **Where:** Add datesheet (Principal), class 1. I picked Percentage (top pills and each paper's Pattern list) and typed Max marks 80 in the bulk box. After saving, the header says "Percentage" but both papers show "Graded" and Max marks "Graded"; Mark categories (Social, Telugu) also say "Graded" and nothing there can be edited. The Max marks column in the form also said "Graded" before saving, so the form never showed a number to type.
 - **Fix wanted:** when the exam pattern is Percentage, each paper takes a Max marks number (bulk Apply must work) and Mark categories (Theory 80 + Internal 20) must be editable on the saved page. Show clearly which pill is selected (the white pill looked selected for Percentage before I had touched it).
 
 ## 27. Publish dialog: "Message parents now" is ON by default (Open, Low, found 2026-11-04)
+- **Status:** FIXED 2026-11-05 (batch 2): kept ON (blueprint A10: publishing tells parents) but the line now says how many students' families get it and "switch this off to publish without messaging"
 - A layman presses Publish and 16 families get a message that "cannot be unsent". I switched it off for the test. Fix wanted: default OFF, or show the count and a clear confirm line. Also: the dialog's Publish button moved up after the toggle changed, so a quick second click can miss.
 
 ## 28. Small wording and links around exams (Open, Low, found 2026-11-04)
+- **Status:** FIXED 2026-11-05 (batch 2): /exams goes to Examination & Results; an Ongoing datesheet before its first paper says "First paper on <date>"; papers with no invigilator get a warning with "Rooms & invigilators"
 - /exams gives "This page is not here" (no redirect to Examination & Results). The published datesheet starts on 04-11, first paper 09-11, yet the badge reads "Ongoing" before any paper. One invigilator was told, but Social has "Not set" and nothing asks the Principal to set one.
 
 ## SESSION 3 (2026-11-04 night, user away; Claude ran alone)
@@ -174,6 +187,7 @@ Done: datesheet created and published as Principal (26-28); KUSUMA Marks Entry (
 - **Fix wanted:** find where the form sends the error message in place of the reason (likely the reason field falling back to the last error text) and reject it on the server too; show "No reason given" for old rows.
 
 ## 32. Refund form stays open after sending, with the amount prefilled again (Open, Low, found 2026-11-04)
+- **Status:** CHECK 2026-11-05: the sheet closes on success in code (SheetForm, close link has no do=refund); recheck by hand
 - After "Send for approval" the dialog stays open showing Amount 4,000 (5,000 minus the 1,000 pending) and an empty Reason; a second press would try a second refund. (It did not duplicate for me: it needs a reason.) Fix wanted: close the dialog and show "Refund sent to the Principal".
 - Good: refund form is plain ("Not more than Rs 5,000 (paid, minus earlier refunds)"), every refund goes to Approvals, and the page counts "1 refund waiting".
 
@@ -185,6 +199,7 @@ Done: datesheet created and published as Principal (26-28); KUSUMA Marks Entry (
 - Also still true (22): after the Principal approved both requests, tabs read "Waiting 0 · Asked by me 0 · All requests 0".
 
 ## 34. Optional modules and phone size (session 3, 2026-11-04)
+- **Status:** PARTLY 2026-11-05 (batch 2): Note A fixed (Transport empty state says the Transport In-charge adds routes when your role cannot). Note B waits for the owner (Transport on by default vs blueprint "no Transport in v1")
 - Settings, Modules On/Off (School Admin): Transport, Library, Inventory, Hostel are all "On" and open with plain empty states (Library shows "Every book out is within its due date"; Transport "Add a route..."). Note A (Low): the pages carry a "View only" badge for School Admin, and the empty state says "Add a route" with no button, so an Admin does not know who may add. Say "The transport in-charge adds routes" or give Admin the button. Note B (Medium, owner decision): the blueprint says no Transport in version 1, yet Transport is On by default for this school; decide whether to start it Off.
 - Phone size: NOT tested. The Chrome extension could not make the window narrower (it stayed 1536 px after resize_window 390x844). Test by hand on a phone (Fee collect, Marks entry, Attendance are the three screens that matter on a phone).
 

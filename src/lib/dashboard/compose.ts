@@ -225,6 +225,8 @@ async function schoolDayLine(tx: Tx, viewer: Viewer, today: Date, year: DashCont
   if (!year) return null;
   if (today < year.startDate) return `${year.name} starts ${dayWord(year.startDate, today) === "Tomorrow" ? "tomorrow" : `in ${plural(daysBetween(today, year.startDate), "day")}`}`;
   if (today > year.endDate) return `${year.name} has ended`;
+  // Its dates have begun but nobody made it active (live test 21: "upcoming" next to "School day 123").
+  if (year.status === "UPCOMING") return `${year.name} is not active yet: open it in Academic Management, Academic Settings, Years`;
   // The year's own campus: its working days and its days off.
   const cal = await schoolCalendar(tx, viewer.ctx, year.startDate, year.endDate, year.campusId);
   const info = cal.info(today);

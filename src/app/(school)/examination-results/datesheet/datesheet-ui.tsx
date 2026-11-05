@@ -85,7 +85,7 @@ export function PublishSheet({ examId, title, papers, students, firstDay, past =
           </p>
         ) : (
           <SwitchField name="tellParents" label="Message parents now" defaultOn
-            help={past ? `One message to each family about the papers still to come, from ${nextDay}. ${past} ${past === 1 ? "paper is" : "papers are"} already over and left out. A message cannot be unsent.` : "One message to each family. A message cannot be unsent."} />
+            help={`${past ? `One message to the family of each of the ${students} students, about the papers still to come, from ${nextDay}. ${past} ${past === 1 ? "paper is" : "papers are"} already over and left out.` : `One message to the family of each of the ${students} students.`} A message cannot be unsent: switch this off to publish without messaging.`} />
         )}
       </ActionSheet>
     </>

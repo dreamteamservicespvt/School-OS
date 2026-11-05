@@ -76,7 +76,8 @@ const consentAttention: Widget<"attention"> = {
     const can = await canOf(c);
     return {
       id: "students.no-consent", tone: "warn", icon: "BadgeCheck",
-      title: `${plural(g.without, "guardian")} ${g.without === 1 ? "has" : "have"} not given data consent`,
+      // "7 of 25" (live test 17): the reader sees the rest gave consent, not "unknown".
+      title: `${n(g.without)} of ${plural(g.total, "guardian")} ${g.without === 1 ? "has" : "have"} not given data consent`,
       detail: can.manage ? "Send the consent request through Parent Link from the list" : "Of the students you teach · the office sends the request through Parent Link",
       action: "See list", href: `${BASE}/guardians?consent=not-given`, value: String(g.without),
     };

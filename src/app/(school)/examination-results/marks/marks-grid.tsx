@@ -9,6 +9,7 @@
 // A student who joined after the marks were in shows "Joined late"; their
 // marks are added by a request that needs approval, when the school allows it.
 
+import { keypadValue } from "@/lib/exams/keypad";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { MarksPaperStatus } from "@prisma/client";
 import {
@@ -426,8 +427,9 @@ export function MarksGrid(props: Props) {
 
       {canEdit && students.length > 0 && (
         <div className="sticky bottom-16 md:bottom-0 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-3 bg-gradient-to-t from-bg via-bg to-bg/0 z-20">
-          <div className="flex items-center gap-2 bg-surface border border-line rounded-2xl shadow-pop p-2 pl-4" aria-live="polite">
-            <p className={cx("text-[12.5px] flex-1 min-w-0 truncate hidden sm:flex items-center gap-1.5", save.state === "error" ? "text-bad" : save.state === "offline" ? "text-warn" : "text-ink3")}>
+          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-surface border border-line rounded-2xl shadow-pop p-2 pl-4" aria-live="polite">
+            {/* Shown on a phone too, so "Save now" visibly says it saved (self-test B4). */}
+            <p className={cx("text-[12.5px] basis-full sm:basis-auto sm:flex-1 min-w-0 truncate flex items-center gap-1.5", save.state === "error" ? "text-bad" : save.state === "offline" ? "text-warn" : "text-ink3")}>
               {save.state === "saving" ? <><Spinner size={13} /><Words k="Saving…" /></>
                 : save.state === "offline" || save.state === "error" ? <><CircleAlert size={13} aria-hidden="true" />{save.message}</>
                 : dirty.size ? <><Circle size={8} className="text-warn fill-current" aria-hidden="true" /><Words k="Saved on this device as you type" /></>
@@ -500,13 +502,16 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
   const v = r.absent ? code(r) : c ? r.parts[c.name] ?? "" : "";
   const e = canEdit ? problemOf(r) : null;
   const t = totals[s.id];
-  const go = (n: number) => { setI(n); setK(0); };
+  // A box just chosen (or a new student) is "fresh": the first number key replaces the mark in it, like
+  // selecting the text, so correcting 11 to 18 does not give 1118 (self-test B4).
+  const [fresh, setFresh] = useState(true);
+  const go = (n: number) => { setI(n); setK(0); setFresh(true); };
+  const pick = (n: number) => { setK(n); setFresh(true); };
   const press = (key: string) => {
     if (!canEdit || !c) return;
-    if (key === "AB" || key === "ML") return setCell(s.id, c.name, key);
-    if (key === "del") return setCell(s.id, c.name, r.absent ? "" : v.slice(0, -1));
-    if (key === ".5") return r.absent || v.includes(".") ? undefined : setCell(s.id, c.name, `${v || "0"}.5`);
-    setCell(s.id, c.name, r.absent ? key : `${v}${key}`.slice(0, 5));
+    const next = keypadValue(v, key, { fresh, absent: r.absent });
+    setFresh(false);
+    if (next !== undefined) setCell(s.id, c.name, next);
   };
   const shown = r.absent ? code(r) : r.grade;
   return (
@@ -536,11 +541,14 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
                 const xv = r.absent ? code(r) : r.parts[x.name] ?? "";
                 const xBad = !r.absent && xv !== "" && (Number.isNaN(Number(xv)) || Boolean(checkMark(x.name, x.max, Number(xv))));
                 return (
-                  <button key={x.name} type="button" onClick={() => (canEdit ? setK(n) : canRequest && !s.waiting ? onAsk(s) : undefined)} aria-pressed={k === n}
+                  <button key={x.name} type="button" onClick={() => (canEdit ? pick(n) : canRequest && !s.waiting ? onAsk(s) : undefined)} aria-pressed={k === n}
                     className={cx("rounded-2xl border-2 p-3 text-left transition flex items-end justify-between gap-2 [@media(max-height:720px)]:p-2", k === n && canEdit ? "border-brand bg-brand/5" : "border-line")}>
                     <span className="min-w-0">
                       <span className="text-[12px] text-ink3 font-semibold flex items-center gap-1">{!canEdit && <Lock size={11} aria-hidden="true" />}{cats.length === 1 ? "Marks" : x.name} / {x.max}</span>
-                      <span className={cx("block font-display text-[28px] font-semibold tnum leading-tight [@media(max-height:720px)]:text-[24px]", xBad && "text-bad", r.absent && "text-info")} aria-live="polite">{xv || "—"}</span>
+                      <span className={cx("block font-display text-[28px] font-semibold tnum leading-tight [@media(max-height:720px)]:text-[24px]", xBad && "text-bad", r.absent && "text-info")} aria-live="polite">
+                        {/* A chosen box with a mark shows it selected: the next key replaces it. */}
+                        {xv && k === n && fresh && canEdit ? <span className="rounded-md bg-brand/20 px-1 -mx-1">{xv}</span> : xv || "—"}
+                      </span>
                     </span>
                     {/* The grade sits in the box, so the box and keys fit a small screen; never for a mark that is not allowed. */}
                     {cats.length === 1 && t.grade && <span className="text-[13px] text-ink2 shrink-0 pb-1"><Words k="Grade" /> <Pill tone={toneOf(t.grade, bands)} className="!h-5 !text-[11px]">{t.grade}</Pill></span>}

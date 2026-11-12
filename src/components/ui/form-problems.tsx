@@ -164,12 +164,15 @@ export function FormProblems({ errors, children }: { errors?: Record<string, str
     };
     const recheck = (e: Event) => {
       const el = e.target;
-      if (isBox(el) && e.type !== "click") {
-        const n = boxName(el);
-        const was = n ? given.current?.[n] : undefined;
-        if (n && was && el.validity.valid) setChanged((c) => (c.get(n) === was ? c : new Map(c).set(n, was)));
-      }
+      const n = isBox(el) && e.type !== "click" ? boxName(el) : "";
+      const was = n ? given.current?.[n] : undefined;
+      const nowGood = Boolean(n && was && (el as Box).validity.valid);
       // After React has applied the change (a picked date, a tick), drop the messages of boxes now good.
+      // Never set state inside the browser's input event itself: React then put the old text back into a
+      // controlled box (a time box after an error showed "10:00 AM:00 PM", self-test A4).
+      window.setTimeout(() => {
+        if (nowGood) setChanged((c) => (c.get(n) === was ? c : new Map(c).set(n, was!)));
+      }, 0);
       window.setTimeout(() => setFound((f) => {
         let out = f;
         for (const n of Object.keys(f)) {

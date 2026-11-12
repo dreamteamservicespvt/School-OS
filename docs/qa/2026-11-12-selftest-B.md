@@ -157,3 +157,54 @@ attendance run and put back to 11:00 AM straight after.
   and says "Enter the amount"; the attendance "Saved" bar is dark text on the page colour (no faded blue).
 - B8: every ActionForm (Change section and 31 other forms) shows our own message under an empty box, not the
   browser bubble.
+
+## Recheck 17:00 (build with all of today's fixes, started 16:50)
+Scripts: `qa/full/selftest-B-recheck.mjs` (B fixes, 390 px light + dark), `selftest-B-recheck2.mjs` (self-test A,
+Fee Adjust, smoke), `selftest-B-decoy-check.mjs`. Screenshots `qa-output/2026-11-12-B/re-*.png`. Saved sessions only
+(principal and reception reused from self-test A; no new sign-ins).
+
+**Result: 33 PASS, 4 FAIL, 1 not checkable.** (2 of my script's FAILs were wrong locators, and I corrected them from
+the screenshots: B3 and A1, both counted as PASS.)
+
+| Check | Light | Dark |
+|---|---|---|
+| B1 receipt words in Test mode: "Receipt saved. WhatsApp is in Test mode, so the parents were not messaged." (receipts 00350, 00351) | PASS | PASS |
+| B2 "Discount, waiver, date or note" 40px | PASS | PASS |
+| B3 empty amount: dimmed, "Enter the amount" (`re-fee-*-empty.png`) | PASS | PASS |
+| B4 keypad: chosen box 18, keys 1 5 gives 15 (and back to 18); "All marks saved at 4:53 PM" shows on the phone | PASS (2) | PASS (2) |
+| B5 Add note 40px; Saved bar contrast 18.2:1 light / 15.6:1 dark, not faded | PASS (2) | PASS (2) |
+| B6 unknown login goes to the same code page; known and unknown pages read the same | PASS (2) | PASS |
+| B6 wrong code on the decoy says "That code is not right. 4 more tries." | **FAIL** | **FAIL** |
+| B7 5 B register: Ananya "not in this section yet" on 2, 3, 9, 10, 11 Nov (desk) | PASS | |
+| B8 own message on an empty box: Change section, Counselling note, Behaviour incident | PASS (3) | PASS (3) |
+| No sideways scroll on Collect fee | PASS | PASS |
+
+- **B6 wrong code (my regression, Medium): fixed in code, `2066471a`, needs a rebuild to recheck.** On the decoy the
+  wrong-code answer never appeared: the page stayed on "Enter the code" with no message, so the decoy can be told
+  apart from a real login. Cause: the code form was keyed by the whole decoy cookie, which changes with every try, so
+  the form was rebuilt and lost the message. Its key now leaves out the try count.
+- B7, 5 A side: the 5 A November register still lists her, with today's Absent and the earlier days "not marked",
+  like the whole class (the seed has no November marks before today). But the row reads **"Ananya Verma (left)"**,
+  and she has not left the school; she moved to 5 B. **New, Low:** that row should say "moved to 5 B".
+- B8: the Paper consent page's first button is the "Show students" filter (not an ActionForm), so I used Behaviour
+  incident instead.
+
+Self-test A fixes:
+- **A1 Log a call with a follow-up: PASS.** The default follow-up was 12-11-2026, 6:00 PM (the call was at 4:54 PM),
+  and the call saved once (`re-A1-calls.png`).
+- **A4 Event end time: FAIL, now partly fixed (Medium stays).** "End before start" is refused (PASS). After clicking
+  the To box, Ctrl+A and typing "1:00 PM", the box still read "10:00 AM:00 PM". The form now refuses it ("Enter the
+  end time like 10:30.") instead of saving with no end time, which is better. But a person still cannot correct the
+  time by selecting and retyping (`re-A4-event-after.png`).
+- **A13 Salary pre-send check: not checkable.** The Generate Salary page now shows the card "Salary structures 33 of 39
+  · 6 missing · Vani Singh, Ramesh Goud" and 6 "No salary structure" rows. The "Check before sending" list is not on
+  the page, so I think the month is past the send step; I did not send anything.
+
+Fee Adjust "remove" above the limit (accountant, Sahithi Yadav, Annual charges ₹6,000, not approved):
+- **The row shows "Waiting for approval": PASS** (`re-adjust-ledger.png`).
+- **"Sent for approval" message: FAIL.** After saving, the page and sheet text held only "Waiting for approval"; the
+  script did not see a "Sent for approval" message in the 5 seconds after saving.
+
+Smoke: every main-menu page opened without an error screen or a server error:
+- **principal: PASS, 20 of 20.**
+- **accountant: PASS, 9 of 9.**

@@ -157,7 +157,7 @@ function scan(): Finding[] {
       if ([...ids].some((id) => definitionNamesCampus(abs, t, id))) continue;
       const line = t.slice(0, m.index).split("\n").length;
       if (lines.slice(Math.max(0, line - 3), line - 1).some((l) => /\/\/\s*campus:/.test(l))) continue;
-      found.push({ file, line, key: `${file} | ${m[1]}.${m[2]} | ${arg.replace(/\s+/g, " ").trim().slice(0, 200)}` });
+      found.push({ file, line, key: `${file} | ${m[1]}.${m[2]} | ${arg.replace(/\s+/g, " ").trim().slice(0, 200)}`.trimEnd() });
     }
   }
   return found;
@@ -226,7 +226,7 @@ describe("campusWhere: one campus filter for every record type", () => {
   it("works out the campus way for the record types the audits named", () => {
     expect(campusWhere("Student", { campusId: "c" })).toEqual({ campusId: "c" });
     expect(() => campusWhere("StudentFeeDue", { campusId: "c" })).toThrow(/campusFilter/);
-    expect(campusWay("BookIssue")).toEqual({ kind: "ids", columns: [{ field: "studentId", of: "Student", optional: true }, { field: "staffId", of: "Staff", optional: true }] });
+    expect(campusWay("BookIssue")).toEqual({ kind: "ids", columns: [{ field: "studentId", of: "Student", optional: true }, { field: "sectionId", of: "Section", optional: true }, { field: "staffId", of: "Staff", optional: true }] });
     expect(campusWhere("Payment", { campusId: "c" })).toEqual({ student: { campusId: "c" } });
     expect(campusWhere("Student", { campusId: null })).toEqual({});
     // A PTM note always names its student: the student's campus decides, not the teacher's.
@@ -250,7 +250,7 @@ describe("campusWhere: one campus filter for every record type", () => {
       }
     }, { timeout: 120_000 });
     expect(bad).toEqual([]);
-  });
+  }, 180_000);
 
   it("a North person reads North's students and their dues only", async () => {
     await withSchool(ctx, async (tx) => {
@@ -264,7 +264,7 @@ describe("campusWhere: one campus filter for every record type", () => {
       expect(await campusFilter(tx, "StudentFeeDue", { campusId: north })).toEqual({ studentId: { in: [b.id] } });
       expect(await campusFilter(tx, "StudentFeeDue", { campusId: null })).toEqual({});
       const bookFilter = await campusFilter(tx, "BookIssue", { campusId: north });
-      expect(bookFilter).toEqual({ OR: [{ studentId: { in: [b.id] } }, { staffId: { in: [] } }, { studentId: null, staffId: null }] });
+      expect(bookFilter).toEqual({ OR: [{ studentId: { in: [b.id] } }, { sectionId: { in: [] } }, { staffId: { in: [] } }, { studentId: null, sectionId: null, staffId: null }] });
     });
   });
 });

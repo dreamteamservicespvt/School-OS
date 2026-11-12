@@ -71,7 +71,7 @@ src/lib/academic/substitutions.ts | staffAbsence.findMany | { where: { schoolId:
 src/lib/academic/timetable.ts | section.findMany | { where: { academicYearId: from.academicYearId, archivedAt: null } }
 src/lib/academic/timetable.ts | subjectCondition.findMany | { where: { schoolId: ctx.schoolId, archivedAt: null } }
 src/lib/academic/timetable.ts | subjectCondition.findMany | { where: { schoolId: ctx.schoolId, archivedAt: null } }
-src/lib/admission/settings.ts | admissionClassRule.findMany | 
+src/lib/admission/settings.ts | admissionClassRule.findMany |
 src/lib/attendance/devices.ts | devicePunch.groupBy | { by: ["deviceId", "accepted", "rejectReason"], where: { receivedAt: { gte: from, lt: to } }, _count: true }
 src/lib/attendance/reports.ts | overtimeEntry.groupBy | { by: ["staffId"], where: { archivedAt: null, date: { gte: from, lte: to }, ...staffIdLimit(access) }, _sum: { minutes: true }, _count: true }
 src/lib/attendance/reports.ts | staffShiftAssignment.findMany | { where: { archivedAt: null, fromDate: { lte: to } }, orderBy: { fromDate: "desc" }, include: { shift: true } }
@@ -127,7 +127,7 @@ src/lib/fees/concession-list.ts | refund.findMany | { where, orderBy: { createdA
 src/lib/fees/dashboard.ts | payment.groupBy | { by: ["mode"], where: { ...only, status: "POSTED", broughtIn: false, paymentDate: { gte: from, lte: to } }, _sum: { amountPaise: true }, _count: { _all: true } }
 src/lib/fees/dashboard.ts | payment.groupBy | { by: ["paymentDate"], where: { ...only, status: "POSTED", broughtIn: false, paymentDate: { gte: yearStart, lte: yearEnd } }, _sum: { amountPaise: true } }
 src/lib/fees/dashboard.ts | studentFeeDue.aggregate | { where: { ...only, state: "OPEN", balancePaise: { gt: 0 }, dueDate: { gte: start, lte: end } }, _sum: { balancePaise: true } }
-src/lib/fees/dashboard.ts | studentFeeDue.aggregate | { where: { ...only, state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, dueDate: { gte: pastFrom, lte: pastTo } }, _sum: { amountPaise: true, concessionPaise: true, adjustmentPaise: true, paidPaise: true 
+src/lib/fees/dashboard.ts | studentFeeDue.aggregate | { where: { ...only, state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, dueDate: { gte: pastFrom, lte: pastTo } }, _sum: { amountPaise: true, concessionPaise: true, adjustmentPaise: true, paidPaise: true
 src/lib/fees/dashboard.ts | studentFeeDue.groupBy | { by: ["dueDate"], where: { ...only, state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, ...dueWhere }, _sum: { amountPaise: true, concessionPaise: true, adjustmentPaise: true } }
 src/lib/fees/documents.ts | bankAccount.findMany | { where: { kind: "BANK" } }
 src/lib/fees/find.ts | studentFeeDue.groupBy | { by: ["studentId"], where, _min: { dueDate: true }, _sum: { balancePaise: true }, orderBy: [{ _min: { dueDate: "asc" } }], take }

@@ -175,6 +175,7 @@ the screenshots: B3 and A1, both counted as PASS.)
 | B5 Add note 40px; Saved bar contrast 18.2:1 light / 15.6:1 dark, not faded | PASS (2) | PASS (2) |
 | B6 unknown login goes to the same code page; known and unknown pages read the same | PASS (2) | PASS |
 | B6 wrong code on the decoy says "That code is not right. 4 more tries." | **FAIL** | **FAIL** |
+| B6 recheck 18:10 on the 17:46 build (2066471a) | PASS: "4 more tries", then "3 more tries" | |
 | B7 5 B register: Ananya "not in this section yet" on 2, 3, 9, 10, 11 Nov (desk) | PASS | |
 | B8 own message on an empty box: Change section, Counselling note, Behaviour incident | PASS (3) | PASS (3) |
 | No sideways scroll on Collect fee | PASS | PASS |

@@ -8,7 +8,7 @@ import { callLogWhere } from "@/lib/front-office/calls";
 import { requestStatus } from "@/lib/front-office/desk";
 import { staffWithLogins } from "@/lib/front-office/people";
 import { addDaysIso, clockAt, dayMonth, localOf, whenWords } from "@/lib/front-office/time";
-import { CALL_STATUS, REQUEST_STATUS, hhmmOf, maskPhone, showPhone } from "@/lib/front-office/words";
+import { CALL_STATUS, REQUEST_STATUS, followUpStart, maskPhone, showPhone } from "@/lib/front-office/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -192,7 +192,7 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
       {data.fuCall && (
         <FollowUpSheet closeHref={sheetHref} call={{ id: data.fuCall.id, name: data.fuCall.name, note: data.fuCall.note }}
           staff={data.logins.map((s) => ({ value: s.loginId, label: `${s.name} · ${s.role}` }))}
-          start={{ date: p.todayStr, time: hhmmOf(Math.min(23 * 60 + 30, Math.ceil((p.minute + 60) / 30) * 30)), who: data.fuCall.followUpLoginId ?? (data.logins.some((l) => l.loginId === p.current.user.id) ? p.current.user.id : data.logins[0]?.loginId ?? "") }} />
+          start={{ ...followUpStart(p.todayStr, p.minute), who: data.fuCall.followUpLoginId ?? (data.logins.some((l) => l.loginId === p.current.user.id) ? p.current.user.id : data.logins[0]?.loginId ?? "") }} />
       )}
       <CommonSheets sp={sp} href={HREF} keepKeys={["view", "period", "from", "to", "q", "purpose"]} />
     </div>

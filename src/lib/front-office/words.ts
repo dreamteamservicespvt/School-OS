@@ -145,3 +145,16 @@ export function clockOf(min: number) {
 }
 /** Minutes to "HH:MM". */
 export const hhmmOf = (min: number) => `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+
+/**
+ * Where a new follow-up starts: about an hour from now, on the half hour, so the
+ * default is never in the past (a fixed 11:00 was refused for calls after 11 AM).
+ * Late in the evening it moves to 10:00 the next day.
+ */
+export function followUpStart(today: string, minute: number): { date: string; time: string } {
+  const at = Math.ceil((minute + 60) / 30) * 30;
+  if (at <= 23 * 60 + 30) return { date: today, time: hhmmOf(at) };
+  const next = new Date(`${today}T00:00:00Z`);
+  next.setUTCDate(next.getUTCDate() + 1);
+  return { date: next.toISOString().slice(0, 10), time: "10:00" };
+}

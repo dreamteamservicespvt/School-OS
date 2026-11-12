@@ -14,7 +14,7 @@ import { peekRequestNo } from "@/lib/front-office/desk";
 import { visitorScope } from "@/lib/front-office/access";
 import { visitorStatus } from "@/lib/front-office/visitors";
 import { clockAt, dayMonth, localOf, minuteNow, todayIso } from "@/lib/front-office/time";
-import { hhmmOf, maskPhone, showPhone } from "@/lib/front-office/words";
+import { followUpStart, hhmmOf, maskPhone, showPhone } from "@/lib/front-office/words";
 import { fileLink } from "@/lib/files";
 import { UrlSheet } from "@/components/ui/url-sheet";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
@@ -82,7 +82,7 @@ export async function CommonSheets({ sp, href, keepKeys }: { sp: SP; href: strin
           preset={data.enqVisitor ? { name: data.enqVisitor.name, phone: data.enqVisitor.phone, visitorId: data.enqVisitor.id } : null} />
       )}
       {callOpen && data.logins && (
-        <CallSheet closeHref={close} purposes={p.settings.callPurposes} classes={classOpts} today={p.todayStr} admissions={p.current.permissions["admission-management"].see !== "none"}
+        <CallSheet closeHref={close} purposes={p.settings.callPurposes} classes={classOpts} today={p.todayStr} follow={followUpStart(p.todayStr, p.minute)} admissions={p.current.permissions["admission-management"].see !== "none"}
           staff={data.logins.map((s) => ({ value: s.loginId, label: `${s.name} · ${s.role}` }))} defaultWho={data.logins.find((s) => s.loginId === p.current.user.id)?.loginId ?? data.logins[0]?.loginId ?? ""} />
       )}
       {walkOpen && data.nextNo && <WalkInSheet closeHref={close} departments={p.settings.requestDepartments} nextNo={data.nextNo} />}

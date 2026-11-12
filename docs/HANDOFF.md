@@ -1,47 +1,33 @@
 # School OS handoff
 
-Last updated: 2026-11-12 16:30 IST (team-test readiness day). Older: docs/archive/HANDOFF-until-2026-11-11.md (and earlier archives).
+Last updated: 2026-11-12 19:10 IST (team-test readiness day). Older: docs/archive/HANDOFF-until-2026-11-11.md (and earlier archives).
 
 ## State
-- Branch claude/project-thread-cesreq (local, ahead of origin). main = 88aeaa35 = LIVE on school-os-beta since 15:54 IST:
-  everything up to 6306c14d (all fixes to 2026-11-06) + two deploy fixes (next.config tracing, PDF browser fetched at run time).
-- Deploy = push to main; Vercel builds with scripts/vercel-build.ts, which runs `prisma migrate deploy` on the beta DB.
-  Hobby plan: max 12 server functions. Never bundle big files into every function (2026-11-12: the 68 MB Chromium did,
-  two deploys failed). src/lib/pdf.ts now fetches the pinned pack (PACK_URL, v141.0.0) into /tmp on the first PDF.
-  NOT yet verified live: a receipt/ID card PDF on beta (needs a signed-in browser; Chrome "Dream Team Services" was signed out).
-- Today's commits on the branch, NOT yet deployed (deploy 2 waits for the full suite):
-  f6d02b7e/82020db2 issue 33 refund lowers Paid only (statement shows "is to pay again"); 828e9d4a 34B no template switches
-  Transport on; c216aa79 Adjust "remove" above the concession limit -> Approvals (migration 20261112000000_fee_adjustment_removes);
-  23888a79/db3a9699/965de211 shared campusFilter + guard test; self-test A fixes 4f78da07 e910a2e6 b8b52e57 0d74ae01;
-  self-test B fixes 9c02476d 97fd74e0 da9b1f94 7a0e3b51 641ba9dd. Findings: docs/qa/2026-11-12-selftest-A.md and -B.md.
-- Owner decisions taken by Claude 2026-11-12 (user: "complete all this yourself"): 33 refund = money back, fee unchanged;
-  34B Transport off by default, a school may switch it on; Adjust remove follows reduce's limit; campus filter shared layer;
-  old 30 test students keep old due dates (fee rows never rewritten); forgot password same answer for unknown logins
-  (except a two-step role with no phone/email, which keeps its honest message); a month paying the approver's own bonus goes
-  to the School Admin.
+- DEPLOY 2 LIVE: main = 989111c5 on school-os-beta since 18:15 IST (Vercel "Deployment has completed"; /sign-in 200).
+  Holds everything to 2026-11-12: refund rule 33, Transport off 34B, Adjust remove -> Approvals (migration
+  20261112000000_fee_adjustment_removes ran in the Vercel build), shared campusFilter, self-test A/B fixes, B6 decoy fix.
+- After deploy 2, branch only (NOT deployed): 47fc6b86 A4 fix in src/components/ui/form-problems.tsx (state was set inside
+  the input event, so a box showing a server message lost its first key: "10:00 AM:00 PM"). Rechecked on the local
+  rebuild: the event saves with 1:00 PM. tests/form-problems.test.ts 7/7.
+- Settled: the Library campus test was a test mistake (desk shows "Neha, 5 A"), fixed in f32f46f2. Rerun of the open files:
+  17 files, 165/165 (incl. restore-test). B6 recheck PASS ("4 more tries", then "3 more tries").
+- RUNNING (started 19:05): 5 layman test agents; reports to docs/qa/2026-11-12-layman-A.md .. -E.md (A students/academic/
+  attendance, B fees/finance/salary, C exams/homework/comms/parent, D staff/front office/events/transport/hostel,
+  E library/inventory/reports/settings/shell). Scripts in qa/layman/, screenshots in qa-output/layman-<a..e>/.
+- Live receipt PDF NOT checked: Chrome "Dream Team Services" (deviceId 694c21cd) is signed out of beta (7-day timeout).
+  Claude does not type passwords into the live site, so the user signs in once, then Claude checks.
 - Progress page: https://claude.ai/artifact/7WSVY4hW97JfXoJkfRvNUV (docs/qa/team-ready-progress.html).
 
 ## Next steps
-1. Full suite 16:24-17:08: 2633/2637 passed. Fixed since: roles-cross-school (users/actions.ts role count) and
-   campus-guard (Payment test) -> 15/15. STILL OPEN before deploy 2:
-   a) tests/run3-campus.test.ts "Library: the desk's overdue list..." (new test from the campus helper, commits
-      23888a79/db3a9699/965de211): the north librarian's desk text lacks "Neha Kumar". Decide: test renderer not
-      rendering the inner client list, or campusFilter over-filtering the Library desk (real bug). Check in the browser too.
-   b) tests/platform/restore-test.test.ts timed out at 600 s under heavy load: rerun alone.
-   c) Rerun salary/front-office/collect tests on HEAD (the suite ran before 0bef74f3). tsc 0 and eslint clean at 17:00.
-   Then `npx prisma generate`.
-2. Browser recheck 17:00 on the rebuilt :3000 (docs/qa/2026-11-12-selftest-B.md "Recheck 17:00"): 31 pass, 4 fail.
-   Open: B6 wrong-code message after an unknown login (fixed in 2066471a, rebuild + recheck with qa/full/selftest-B-decoy-check.mjs);
-   A4 typing over a selected end time gives "10:00 AM:00 PM" (now refused, not dropped; fix the time box's typing);
-   Adjust "remove" result message not seen by the script (check by eye; the row does show "Waiting for approval");
-   Low: old section's register calls a moved student "(left)" (should say "moved to 5 B"). Smoke 29/29 pages open.
-3. Deploy 2: `git merge origin/main` (its 2 commits only touch next.config.ts and src/lib/pdf.ts, same as the branch), push
-   HEAD to main and the branch; watch Vercel (GitHub commit status); then live check a receipt PDF and sign-in.
-4. Known, not fixed: A3 no warning when a bank payment takes the bank below zero; "Move money" sheet is pre-filled with the
-   whole cash amount (one click = a big deposit; a layman risk); B9 exam tab shows the new section for old exams; B10 no
-   warning when leaving a half-filled Add Student; Adjust sheet text does not yet say "above the limit it waits for approval";
-   Meta template "Admission consent code" to submit per school after deploy.
-5. Team test: docs/qa/test-plan.md + the brief docs/qa/2026-11-12-team-brief.md (to write when deploy 2 is live).
+1. When the 5 layman reports are in: fix every confirmed problem (High first), with tests; tsc + eslint; run the touched
+   test files; rebuild :3000 and recheck each fix in the browser.
+2. Deploy 3: push HEAD to main and the branch; watch the GitHub commit status for Vercel; smoke /sign-in.
+3. Live receipt PDF check on beta once the user has signed in (Principal) in Chrome 694c21cd.
+4. Known, not fixed: A3 no warning when a bank payment takes the bank below zero; "Move money" sheet pre-filled with the
+   whole cash amount; B9 exam tab shows the new section for old exams; B10 no warning when leaving a half-filled Add
+   Student; Adjust sheet does not say "above the limit it waits for approval"; old register says "(left)" for a moved
+   student; Meta template "Admission consent code" to submit per school.
+5. Team test: docs/qa/test-plan.md + write docs/qa/2026-11-12-team-brief.md.
 
 ## How to run things locally
 - DB: `powershell -c "Start-Process -WindowStyle Hidden -FilePath 'D:\all\Projects\School-OS\tools\pg16\pgsql\bin\pg_ctl.exe' -ArgumentList '-D','D:\all\Projects\School-OS\tools\pgdata','-l','D:\all\Projects\School-OS\tools\pg.log','start'"`; wait for pg_isready.
@@ -57,3 +43,7 @@ Last updated: 2026-11-12 16:30 IST (team-test readiness day). Older: docs/archiv
 - Never touch the Meta webhook or the gym's Vercel without permission. Never type secrets into web forms.
 - .env line 26 has an unquoted space, so `bash scripts/setup-db.sh` cannot source it; run its psql steps by hand.
 - Two sign-in scripts per role per 15 min at most (two-step code limit).
+- Restarting :3000: a stop by CommandLine match can miss the old server. Check `Get-Process node` StartTime and that
+  tools/app.log says "Ready", not EADDRINUSE (2026-11-12: a recheck ran against the old 16:42 server). Start with
+  C:/Users/chala/sos-build/start-only.sh via Start-Process (bash -c through -ArgumentList never ran).
+- Leave the DTS studio node processes (C:/DTS/studio) alone: another project.

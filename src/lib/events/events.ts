@@ -22,7 +22,7 @@ import { evYears } from "./campus";
 import { syncSourceEntry } from "./calendar";
 import { tellSafely } from "./tell";
 import { placeOrder, placesOf } from "./places";
-import { AUDIENCE_KINDS, REMINDERS, classesWords, clock, dayOf, dmy, isoOf, longDay, timeSpan } from "./words";
+import { AUDIENCE_KINDS, REMINDERS, classesWords, clock, dayOf, dmy, isoOf, longDay, timeSpan, weekendOf } from "./words";
 
 const ZERO = BigInt(0);
 
@@ -94,9 +94,10 @@ async function eventFeeHead(tx: Tx, ctx: SchoolContext) {
  * The warnings a person can accept with "save anyway". `confirmed` holds the ones already accepted;
  * a new warning sends them back with its own key, so accepting one never undoes another.
  */
-export type EventConfirm = { confirm?: boolean; confirmPast?: boolean };
-const warnKey = (key: "venue-clash" | "past-date", opts: EventConfirm) =>
-  [...(opts.confirm ? ["venue-clash"] : []), ...(opts.confirmPast ? ["past-date"] : []), key].join(",");
+export type EventConfirm = { confirm?: boolean; confirmPast?: boolean; confirmWeekend?: boolean };
+type WarnKey = "venue-clash" | "past-date" | "weekend";
+const warnKey = (keys: WarnKey[], opts: EventConfirm) =>
+  [...(opts.confirm ? ["venue-clash"] : []), ...(opts.confirmPast ? ["past-date"] : []), ...(opts.confirmWeekend ? ["weekend"] : []), ...keys].join(",");
 
 async function checkInput(tx: Tx, ctx: SchoolContext, input: EventInput, opts: EventConfirm & { ignoreId?: string; campusBefore?: string | null; pastFrom?: string | null }) {
   const name = input.name.trim().replace(/\s+/g, " ");
@@ -127,17 +128,25 @@ async function checkInput(tx: Tx, ctx: SchoolContext, input: EventInput, opts: E
   const year = await tx.academicYear.findFirst({ where: { archivedAt: null, ...(campus ? { campusId: campus.id } : {}), startDate: { lte: dayOf(input.date) }, endDate: { gte: dayOf(input.date) } } });
   if (!year) throw new EventsProblem(campus ? `Pick a date inside the school year of ${campus.name}.` : "Pick a date inside the school year.", "date");
   await assertYearOpen(tx, year.id);
-  // A date that has passed: the event is saved as Done at once, so the person is asked first (layman test LD8).
+  // A date that has passed (the event is saved as Done at once) or a weekend: the person is asked once, in
+  // one message, and may save anyway (layman test LD8: a past Sunday was saved without a word).
   // `pastFrom` is today; it is null when the date did not change (editing a past event keeps its date).
-  if (opts.pastFrom && input.date < opts.pastFrom && !opts.confirmPast) {
-    throw new EventsWarning(`${dmy(input.date)} has passed, so the event is saved as Done. Check the date, or save anyway to record a past event.`, warnKey("past-date", opts), "date");
+  if (opts.pastFrom) {
+    const asks: { key: WarnKey; words: string }[] = [];
+    if (input.date < opts.pastFrom && !opts.confirmPast) asks.push({ key: "past-date", words: `${dmy(input.date)} has passed, so the event is saved as Done.` });
+    const weekend = weekendOf(input.date, s);
+    if (weekend && !opts.confirmWeekend) asks.push({ key: "weekend", words: weekend === "Sunday" ? `${dmy(input.date)} is a Sunday, a weekend.` : `${dmy(input.date)} is the ${weekend}, a day off.` });
+    if (asks.length) {
+      const tail = asks.some((a) => a.key === "past-date") ? "Check the date, or save anyway to record a past event." : "Check the date, or save anyway.";
+      throw new EventsWarning(`${asks.map((a) => a.words).join(" ")} ${tail}`, warnKey(asks.map((a) => a.key), opts), "date");
+    }
   }
   // Two events in one venue at once: a warning (18 §5).
   if (input.venue && !opts.confirm) {
     const same = await tx.event.findMany({ where: { archivedAt: null, status: { not: "CANCELLED" }, date: dayOf(input.date), venue: input.venue, ...(opts.ignoreId ? { id: { not: opts.ignoreId } } : {}) } });
     const end = input.endMin ?? input.startMin + 60;
     const clash = same.find((o) => o.startMin < end && (o.endMin ?? o.startMin + 60) > input.startMin);
-    if (clash) throw new EventsWarning(`${input.venue} is booked for the ${clash.name} on ${dmy(input.date)}, ${timeSpan(clash.startMin, clash.endMin)}. Change the venue or time, or save anyway.`, warnKey("venue-clash", opts), "venue");
+    if (clash) throw new EventsWarning(`${input.venue} is booked for the ${clash.name} on ${dmy(input.date)}, ${timeSpan(clash.startMin, clash.endMin)}. Change the venue or time, or save anyway.`, warnKey(["venue-clash"], opts), "venue");
   }
   return { name, year, settings: s, campusId: campus?.id ?? null, campusName: campus?.name ?? null };
 }
@@ -177,7 +186,7 @@ export async function updateEvent(tx: Tx, ctx: SchoolContext, eventId: string, i
   if (!before) throw new EventsProblem("This event was not found.");
   if (before.status === "CANCELLED") throw new EventsProblem("This event is cancelled. Create a new event instead.");
   const { name, year, campusId, campusName } = await checkInput(tx, ctx, input, {
-    confirm: opts.confirm, confirmPast: opts.confirmPast, ignoreId: eventId, campusBefore: before.campusId, pastFrom: isoOf(before.date) === input.date ? null : opts.today,
+    confirm: opts.confirm, confirmPast: opts.confirmPast, confirmWeekend: opts.confirmWeekend, ignoreId: eventId, campusBefore: before.campusId, pastFrom: isoOf(before.date) === input.date ? null : opts.today,
   });
   const fee = input.feePaise && input.feePaise > ZERO ? input.feePaise : null;
   const charged = await tx.eventRegistration.count({ where: { eventId, withdrawnAt: null, dueId: { not: null } } });

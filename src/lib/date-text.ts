@@ -136,17 +136,32 @@ export function missingDay(text: string, today: string): { d: number; m0: number
  * A date pasted year first, as other programs and spreadsheets copy it ("2026-12-31",
  * "2026/12/31", "2026-12-31T10:00", "20261231"), turned round to DD-MM-YYYY; else null.
  * It was cut into "20-26-12" (layman test LE3). Eight digits are read year first only
- * when they are not a real day-month-year date ("20122012" stays 20-12-2012).
+ * when they are not a real day-month-year date ("20122012" stays 20-12-2012). The day
+ * needs both its digits: "2026-12-3" is still being typed, and turning it round then
+ * made the next digit start a new date.
  */
 function yearFirst(text: string): string | null {
   const t = text.trim();
-  let m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T ][\d:.]*(?:Z|[+-]\d{2}:?\d{2})?)?$/.exec(t);
+  let m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{2})(?:[T ][\d:.]*(?:Z|[+-]\d{2}:?\d{2})?)?$/.exec(t);
   if (!m) {
     m = /^((?:19|20)\d{2})(\d{2})(\d{2})$/.exec(t);
     if (!m || checked(Number(t.slice(4)), Number(t.slice(2, 4)) - 1, Number(t.slice(0, 2)))) return null;
     if (!checked(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) return null;
   }
   return `${pad(Number(m[3]))}-${pad(Number(m[2]))}-${m[1]}`;
+}
+
+/**
+ * The date given as the example in "Type the date as DD-MM-YYYY, for example …": one the box
+ * takes. A due date or a leave from today on got a date in 2012 as its example (layman test
+ * LE3), so a box that starts today or later gets one two weeks after its first day.
+ */
+export function exampleDate(min: string, max: string, today: string): string {
+  const classic = "2012-05-14";
+  if (min && min >= today) { const d = addDays(min, 14); return max && d > max ? max : d; }
+  if (min && classic < min) return min;
+  if (max && classic > max) return max;
+  return classic;
 }
 
 /**
@@ -171,6 +186,8 @@ export function typedDate(before: string, raw: string, atEnd: boolean): string {
 export function maskDate(text: string): string {
   const yf = yearFirst(text);
   if (yf) return yf;
+  // Year first, still being typed ("2026-12-3"): left as typed, and read when the box is left.
+  if (/^\d{4}[-/.]/.test(text.trim())) return text;
   if (!/^[\d\-/. ]*$/.test(text)) return text;
   const groups: string[] = [];
   for (let part of text.split(/[-/. ]/)) {

@@ -15,7 +15,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { InlineForm, ItemLines, StudentFinder, type ItemPick, type Student } from "./client";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 type Act = (p: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
@@ -29,13 +29,15 @@ const TO = [
 ] as const;
 
 function Toggle({ name, title, sub, on, onChange }: { name: string; title: string; sub?: string; on: boolean; onChange: (v: boolean) => void }) {
+  // The words come in English; shown in the screen's language (layman test LE8).
+  const tr = useT();
   return (
     <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3">
       <div className="min-w-0 flex-1 text-[14px]">
-        <b className="font-semibold block">{title}</b>
-        {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{sub}</span>}
+        <b className="font-semibold block">{tr.any(title)}</b>
+        {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{tr.any(sub)}</span>}
       </div>
-      <Switch on={on} onChange={onChange} label={title} name={name} />
+      <Switch on={on} onChange={onChange} label={tr.any(title)} name={name} />
     </div>
   );
 }
@@ -52,9 +54,10 @@ export function IssueForm({ action, find, items, stockBy, staff, departments, se
   const [total, setTotal] = useState(0);
   const [over, setOver] = useState(0);
   const [priced] = useState(() => Object.fromEntries(items.map((i) => [i.value, Math.round((Number(i.price) || 0) * 100)])));
+  const tr = useT();
   return (
     <InlineForm action={action} pendingText="Issuing…" blocked={over > 0}
-      submit={over > 0 ? (over === 1 ? "A quantity is above the stock" : `${over} quantities are above the stock`) : to === "STUDENT" && charge && total > 0 ? `Issue and add ${rupees(total)} to fees` : "Issue"}>
+      submit={over > 0 ? tr(over === 1 ? "A quantity is above the stock" : "{n} quantities are above the stock", { n: over }) : to === "STUDENT" && charge && total > 0 ? tr("Issue and add {amount} to fees", { amount: rupees(total) }) : tr("Issue")}>
       {(state) => {
         void state;
         return (
@@ -98,16 +101,17 @@ export function BookSetForm({ action, find, sets, stockBy, stores, mainStore, wi
   const ordered = [...forClass, ...sets.filter((s) => !forClass.includes(s))];
   const set = sets.find((s) => s.value === setId) ?? null;
   const missing = set ? set.lines.filter((l) => (stockBy[l.itemId]?.[store] ?? 0) < l.qty) : [];
+  const tr = useT();
   return (
-    <InlineForm action={action} pendingText="Issuing…" submit={set ? (missing.length && allow ? `Issue without ${missing.length} item${missing.length === 1 ? "" : "s"}` : charge ? `Issue set and add ${rupees(set.pricePaise)} to fees` : "Issue set") : "Issue set"}>
+    <InlineForm action={action} pendingText="Issuing…" submit={set ? (missing.length && allow ? tr(missing.length === 1 ? "Issue without 1 item" : "Issue without {n} items", { n: missing.length }) : charge ? tr("Issue set and add {amount} to fees", { amount: rupees(set.pricePaise) }) : tr("Issue set")) : tr("Issue set")}>
       {() => (
         <>
           <StudentFinder id="set-student" find={find} onPick={(s) => { setStudent(s); if (s?.classId && !setId) { const first = sets.find((x) => x.classIds.includes(s.classId!)); if (first) setSetId(first.value); } }} />
           <div className="flex flex-col gap-1.5">
             <label htmlFor="set-pick" className="text-[13px] font-semibold text-ink2"><Words k="Book set" /> <span className="text-bad" aria-hidden="true">*</span></label>
             <KeepSelect id="set-pick" name="setId" value={setId} onChange={(e) => setSetId(e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
-              <option value="">Choose the set</option>
-              {ordered.map((s) => <option key={s.value} value={s.value}>{s.label}{forClass.includes(s) ? " (for this class)" : ""}</option>)}
+              <option value="">{tr("Choose the set")}</option>
+              {ordered.map((s) => <option key={s.value} value={s.value}>{s.label}{forClass.includes(s) ? ` ${tr("(for this class)")}` : ""}</option>)}
             </KeepSelect>
           </div>
           <div className="flex flex-col gap-1.5">
@@ -117,7 +121,7 @@ export function BookSetForm({ action, find, sets, stockBy, stores, mainStore, wi
             </KeepSelect>
           </div>
           {set && (
-            <ul className="rounded-xl border border-line divide-y divide-line text-[13.5px]" aria-label="Items in the set">
+            <ul className="rounded-xl border border-line divide-y divide-line text-[13.5px]" aria-label={tr("Items in the set")}>
               {set.lines.map((l) => {
                 const have = stockBy[l.itemId]?.[store] ?? 0;
                 const short = have < l.qty;
@@ -126,7 +130,7 @@ export function BookSetForm({ action, find, sets, stockBy, stores, mainStore, wi
                     {short ? <TriangleAlert size={15} aria-hidden="true" /> : <PackageCheck size={15} className="text-ok" aria-hidden="true" />}
                     <span className="flex-1 min-w-0 truncate">{names[l.itemId] ?? l.name}</span>
                     <span className="tnum">{l.qty}</span>
-                    <span className="text-[12px] text-ink3 tnum w-20 text-right">{short ? `only ${have}` : `${have} in stock`}</span>
+                    <span className="text-[12px] text-ink3 tnum w-20 text-right">{short ? tr("only {n}", { n: have }) : tr("{qty} in stock", { qty: have })}</span>
                   </li>
                 );
               })}
@@ -143,7 +147,7 @@ export function BookSetForm({ action, find, sets, stockBy, stores, mainStore, wi
               ) : <p><Words k="Inventory Settings do not allow a set with items missing. Get the stock in first." /></p>}
             </div>
           )}
-          <Toggle name="chargeToFees" title="Charge the set price to the student's fees" sub={charge ? (set ? `${rupees(set.pricePaise)}, shown in Fee Management.` : "The set price, shown in Fee Management.") : "A free issue: nothing is charged."} on={charge} onChange={setCharge} />
+          <Toggle name="chargeToFees" title="Charge the set price to the student's fees" sub={charge ? (set ? tr("{amount}, shown in Fee Management.", { amount: rupees(set.pricePaise) }) : "The set price, shown in Fee Management.") : "A free issue: nothing is charged."} on={charge} onChange={setCharge} />
           <SArea name="note" label="Note" maxLength={300} placeholder="Optional" />
         </>
       )}

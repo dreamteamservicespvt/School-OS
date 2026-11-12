@@ -33,7 +33,7 @@ const one = (v: string | string[] | undefined) => (typeof v === "string" ? v : u
 export default async function TakeAttendancePage({ searchParams }: Props) {
   const sp = await searchParams;
   const { current, access, settings, features, tz, today, now } = await attendancePage();
-  // The Principal, School Admin and Vice Principal do not take a register: Attendance opens on the class-wise view.
+  // The Principal and Vice Principal do not take a register: Attendance opens on the class-wise view (src/lib/duty.ts).
   if (access.students === "none" || access.change === "none" || access.pages.take === "hidden") {
     redirect(access.students !== "none" ? `${BASE}/register` : access.studentLeave !== "none" ? `${BASE}/student-leave` : access.staff !== "none" ? `${BASE}/staff` : `${BASE}/reports`);
   }

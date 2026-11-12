@@ -17,6 +17,7 @@ import { homeworkSettings, lateAfter } from "./settings";
 import { gradeFor, isPastDue, plural, scoreProblem } from "./words";
 import { tellParentsPending } from "./notify-parents";
 import { aiConfirmedNote } from "../ai/audit";
+import { handInFileWords } from "./hand-in-words";
 
 async function homeworkFor(tx: Tx, s: HomeworkScope, homeworkId: string) {
   const hw = await tx.homework.findFirst({ where: { id: homeworkId, archivedAt: null } });
@@ -167,7 +168,7 @@ export async function submitWork(tx: Tx, s: HomeworkScope, homeworkId: string, i
       const stored = await saveFile(tx, s.ctx, { file: f, purpose: "homework-submission", allowed: DOCUMENT_TYPES, maxImageWidth: 1800 });
       ids.push(stored.id);
     } catch (e) {
-      if (e instanceof FileProblem) throw new HomeworkProblem(e.message, "files");
+      if (e instanceof FileProblem) throw new HomeworkProblem(handInFileWords(e.message), "files");
       throw e;
     }
   }

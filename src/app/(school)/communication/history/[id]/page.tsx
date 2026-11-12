@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import type { Prisma } from "@prisma/client";
+import type { DeliveryStatus, Prisma } from "@prisma/client";
 import { CheckCheck, CircleAlert, Coins, Eye, FlaskConical, Info, Languages, MessageSquareText, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
@@ -37,6 +37,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const TONE: Record<string, PillTone> = { QUEUED: "neutral", SENDING: "neutral", SENT: "neutral", DELIVERED: "info", READ: "ok", FAILED: "bad" };
 const PAGE = 50;
+const DELIVERY_STATUSES = ["QUEUED", "SENDING", "SENT", "DELIVERED", "READ", "FAILED"] as const satisfies readonly DeliveryStatus[];
 
 type Props = { params: Promise<{ id: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -64,7 +65,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
       // Test mode is its own status here: recorded, never delivered (COMM-04).
       ...(list.filters.status === "backup" ? { isBackup: true }
         : list.filters.status === "test" ? { provider: "sandbox", status: { in: ["SENT", "DELIVERED", "READ"] } }
-          : list.filters.status ? { status: list.filters.status as Prisma.EnumDeliveryStatusFilter["equals"], ...(["SENT", "DELIVERED", "READ"].includes(list.filters.status) ? { NOT: { provider: "sandbox" } } : {}) } : {}),
+          : list.filters.status && (DELIVERY_STATUSES as readonly string[]).includes(list.filters.status) ? { status: list.filters.status as (typeof DELIVERY_STATUSES)[number], ...(["SENT", "DELIVERED", "READ"].includes(list.filters.status) ? { NOT: { provider: "sandbox" } } : {}) } : {}),
       ...(list.filters.channel ? { channel: list.filters.channel } : {}),
     };
     const [rows, total] = await Promise.all([

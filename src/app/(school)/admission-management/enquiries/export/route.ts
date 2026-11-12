@@ -1,6 +1,6 @@
 // Enquiries export (P8): Excel, CSV or PDF with the filters on screen. People
 // with "own" reach export only their own enquiries.
-import { requireAction } from "@/lib/current";
+import { routeAction } from "@/lib/route-access";
 import { withSchool } from "@/lib/db";
 import { readListParams } from "@/lib/list";
 import { buildExport, exportResponse, logExport } from "@/lib/exports";
@@ -12,7 +12,9 @@ import { names } from "@/lib/admission/choices";
 import { periodFromSearch } from "@/lib/periods";
 
 export async function GET(req: Request) {
-  const { current } = await requireAction("admission-management", "export");
+  const gate = await routeAction("admission-management", "export");
+  if (gate instanceof Response) return gate;
+  const { current } = gate;
   const url = new URL(req.url);
   const format = exportFormatOf(url);
   const params = readListParams(Object.fromEntries(url.searchParams.entries()), ENQUIRY_FILTERS);

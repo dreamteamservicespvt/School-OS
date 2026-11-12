@@ -60,8 +60,9 @@ export type AttendanceAccess = {
   seesFees: boolean;
   /**
    * How the person uses each page (src/lib/duty.ts, owner's prototype changes of
-   * 13 Oct 2026): the Principal, School Admin and Vice Principal never take a
-   * register or record student leave ("hidden"), and read some pages without
+   * 13 Oct 2026): the Principal and Vice Principal never take a register or
+   * record student leave ("hidden"); the School Admin does, as 05-roles.md
+   * gives them Full (owner decision 12 Nov 2026, LA11). They read some pages without
    * filling them in ("view"). View-only roles (Academic Head) see the register
    * and reports only. The server still allows what 05-roles.md gives.
    */

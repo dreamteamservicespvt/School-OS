@@ -1,6 +1,6 @@
 import "server-only";
 
-import type { Prisma } from "@prisma/client";
+import type { NoticePriority, NoticeStatus, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import type { ListParams } from "../list";
 import { noticeOnCampus, readAudience } from "./notices";
@@ -17,15 +17,30 @@ export const NOTICE_GROUPS = {
 } as const;
 export type NoticeGroup = keyof typeof NOTICE_GROUPS;
 
+const NOTICE_STATUSES = ["DRAFT", "WAITING_APPROVAL", "SCHEDULED", "PUBLISHED", "EXPIRED", "ARCHIVED"] as const satisfies readonly NoticeStatus[];
+const NOTICE_PRIORITIES = ["NORMAL", "HIGH", "CRITICAL"] as const satisfies readonly NoticePriority[];
+
+/** A status filter from the address, read loosely ("waiting" means Waiting for approval); anything else is ignored. */
+export function noticeStatusOf(raw: string | undefined): NoticeStatus | null {
+  if (!raw) return null;
+  const up = raw.trim().toUpperCase().replace(/[\s-]+/g, "_");
+  if (up === "WAITING") return "WAITING_APPROVAL";
+  return NOTICE_STATUSES.find((x) => x === up) ?? null;
+}
+
 export function noticeWhere(ctx: SchoolContext, full: boolean, p: ListParams, timeZone = "Asia/Kolkata"): Prisma.NoticeWhereInput {
   const and: Prisma.NoticeWhereInput[] = [{ schoolId: ctx.schoolId }];
   if (!full) and.push({ createdById: ctx.userId });
   if (p.q) and.push({ OR: [{ title: { contains: p.q, mode: "insensitive" } }, { body: { contains: p.q, mode: "insensitive" } }, { audienceLabel: { contains: p.q, mode: "insensitive" } }] });
   const group = p.filters.group as NoticeGroup | undefined;
-  if (p.filters.status) and.push({ status: p.filters.status as Prisma.EnumNoticeStatusFilter["equals"] });
-  else if (group && group in NOTICE_GROUPS) and.push({ status: { in: [...NOTICE_GROUPS[group]] } });
+  // Only a real status or priority is used: "?status=waiting" (a group's name) made the database refuse
+  // the query and the page fail, which the browser showed as React error #441 (QA LC23).
+  const status = noticeStatusOf(p.filters.status);
+  if (status) and.push({ status });
+  else if (group && Object.hasOwn(NOTICE_GROUPS, group)) and.push({ status: { in: [...NOTICE_GROUPS[group]] } });
   else if (!p.archived) and.push({ status: { not: "ARCHIVED" } });
-  if (p.filters.priority) and.push({ priority: p.filters.priority as Prisma.EnumNoticePriorityFilter["equals"] });
+  const priority = NOTICE_PRIORITIES.find((x) => x === p.filters.priority);
+  if (priority) and.push({ priority });
   const when = inPeriod(p.filters, timeZone);
   if (when) and.push({ createdAt: when });
   return { AND: and };

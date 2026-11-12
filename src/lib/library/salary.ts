@@ -13,6 +13,7 @@ import "server-only";
 import type { LibraryFine, PayrollRun } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
+import { englishT, type T } from "../i18n/t";
 import { notify } from "../notifications";
 import { formatRupees } from "../format";
 import { findModule } from "../modules";
@@ -158,7 +159,7 @@ export async function releaseFineAdjustment(tx: Tx, ctx: SchoolContext, adjustme
 }
 
 /** Words for a fine on its way to salary: "From the October 2026 salary" or "From the next salary". */
-export function salaryWords(run: Pick<PayrollRun, "month" | "status"> | null) {
-  if (!run) return "From the next salary";
-  return `From the ${monthWords(run.month)} salary${run.status === "WAITING" ? " (waiting for approval)" : ""}`;
+export function salaryWords(run: Pick<PayrollRun, "month" | "status"> | null, t: T = englishT) {
+  if (!run) return t("From the next salary");
+  return t(run.status === "WAITING" ? "From the {month} salary (waiting for approval)" : "From the {month} salary", { month: monthWords(run.month) });
 }

@@ -14,19 +14,20 @@ import { ButtonLink } from "@/components/ui/button";
 import { Stack } from "@/components/money/kit";
 import { nextCodePreview } from "@/lib/inventory/items";
 import { nextTagPreview } from "@/lib/inventory/assets";
-import { paiseToField, plural } from "@/lib/inventory/words";
+import { paiseToField } from "@/lib/inventory/words";
 import { InvHead } from "../_components/head";
 import { ArchiveCategorySheet, ArchiveLocationSheet, CategorySheet, LocationSheet } from "../_components/sheets";
 import { BASE, invGuard, one, UUID, type SearchParams } from "../_lib/page";
 import { SettingsForm } from "./settings-form";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Inventory Settings · Inventory Management") };
 }
 
 export default async function InventorySettingsPage({ searchParams }: { searchParams: SearchParams }) {
+  const t = await getT();
   const sp = await searchParams;
   const p = await invGuard("settings");
   const { current, settings: s, can, tz } = p;
@@ -56,24 +57,24 @@ export default async function InventorySettingsPage({ searchParams }: { searchPa
 
   return (
     <>
-      <InvHead pageName="Inventory Settings" href={base} mode={p.mode} sub={d.who ? `Last changed by ${d.who.displayName} on ${formatDateTime(s.updatedAt, tz)}` : undefined} />
+      <InvHead pageName="Inventory Settings" href={base} mode={p.mode} sub={d.who ? t("Last changed by {name} on {when}", { name: d.who.displayName, when: formatDateTime(s.updatedAt, tz) }) : undefined} />
       <Stack>
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2 items-start">
           <Card>
-            <CardHeader title="Item categories" icon={FolderTree} description="Each with its reorder level and the Finance head its bills go to." divided
+            <CardHeader title={t("Item categories")} icon={FolderTree} description={t("Each with its reorder level and the Finance head its bills go to.")} divided
               action={can.settings ? <ButtonLink href={`${base}?cat=new`} size="sm" icon={Plus} scroll={false}><Words k="Add category" /></ButtonLink> : undefined} />
             <ul className="divide-y divide-line/70">
               {d.cats.map((c) => (
                 <li key={c.id} className="flex items-center gap-3 px-5 py-3 flex-wrap">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-[14px]">{c.name}</p>
-                    <p className="text-[12.5px] text-ink3">{plural(items(c.id), "item")} · {c.defaultReorderLevel ? `reorder at ${c.defaultReorderLevel}` : "no reorder level"}{c.expenseHeadId ? ` · ${headName.get(c.expenseHeadId) ?? ""}` : ""}</p>
+                    <p className="text-[12.5px] text-ink3">{t(items(c.id) === 1 ? "1 item" : "{n} items", { n: items(c.id) })} · {c.defaultReorderLevel ? t("reorder at {n}", { n: c.defaultReorderLevel }) : t("no reorder level")}{c.expenseHeadId ? ` · ${headName.get(c.expenseHeadId) ?? ""}` : ""}</p>
                   </div>
                   {c.isLab && <Pill tone="info"><Words k="Lab" /></Pill>}
                   {can.settings && (
                     <span className="flex items-center gap-3 text-[13px] font-semibold">
                       <Link href={`${base}?cat=${c.id}`} scroll={false} className="text-brand hover:underline"><Words k="Change" /></Link>
-                      {items(c.id) === 0 && <Link href={`${base}?archcat=${c.id}`} scroll={false} className="text-ink3 hover:underline" aria-label={`Archive ${c.name}`}><Words k="Archive" /></Link>}
+                      {items(c.id) === 0 && <Link href={`${base}?archcat=${c.id}`} scroll={false} className="text-ink3 hover:underline" aria-label={t("Archive {name}", { name: c.name })}><Words k="Archive" /></Link>}
                     </span>
                   )}
                 </li>
@@ -81,20 +82,20 @@ export default async function InventorySettingsPage({ searchParams }: { searchPa
             </ul>
           </Card>
           <Card>
-            <CardHeader title="Stores" icon={Warehouse} description="Where stock is kept. New stock and issues start from the main store." divided
+            <CardHeader title={t("Stores")} icon={Warehouse} description={t("Where stock is kept. New stock and issues start from the main store.")} divided
               action={can.settings ? <ButtonLink href={`${base}?store=new`} size="sm" icon={Plus} scroll={false}><Words k="Add store" /></ButtonLink> : undefined} />
             <ul className="divide-y divide-line/70">
               {d.stores.map((l) => (
                 <li key={l.id} className="flex items-center gap-3 px-5 py-3 flex-wrap">
                   <div className="min-w-0 flex-1">
                     <p className="font-semibold text-[14px]">{l.name}</p>
-                    <p className="text-[12.5px] text-ink3">{held(l.id) ? `Stock of ${plural(held(l.id), "item")}` : "No stock"}</p>
+                    <p className="text-[12.5px] text-ink3">{held(l.id) ? t(held(l.id) === 1 ? "Stock of 1 item" : "Stock of {n} items", { n: held(l.id) }) : t("No stock")}</p>
                   </div>
                   {l.isMain && <Pill tone="brand"><Words k="Main store" /></Pill>}
                   {can.settings && (
                     <span className="flex items-center gap-3 text-[13px] font-semibold">
                       <Link href={`${base}?store=${l.id}`} scroll={false} className="text-brand hover:underline"><Words k="Change" /></Link>
-                      {!l.isMain && held(l.id) === 0 && <Link href={`${base}?archstore=${l.id}`} scroll={false} className="text-ink3 hover:underline" aria-label={`Archive ${l.name}`}><Words k="Archive" /></Link>}
+                      {!l.isMain && held(l.id) === 0 && <Link href={`${base}?archstore=${l.id}`} scroll={false} className="text-ink3 hover:underline" aria-label={t("Archive {name}", { name: l.name })}><Words k="Archive" /></Link>}
                     </span>
                   )}
                 </li>

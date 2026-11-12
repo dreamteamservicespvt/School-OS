@@ -9,7 +9,7 @@ import { redirect } from "next/navigation";
 import type { FormState } from "@/lib/forms";
 import { formatDate, formatRupees } from "@/lib/format";
 import { canDecide, decide } from "@/lib/approvals";
-import { libAction, inLibrary, problemState, need, str, id, optionalId, text, maybe, int, money, isoDate, on, LibraryProblem, type LibWork } from "@/lib/library/act";
+import { libAction, inLibrary, problemState, need, str, id, optionalId, text, maybe, int, money, isoDate, on, LibraryProblem, Problems, type LibWork } from "@/lib/library/act";
 import { memberByKey, setBlocked, setLimit } from "@/lib/library/members";
 import { issueBook, returnBook, renewIssue, reserveBook, cancelReservation, holderWords } from "@/lib/library/desk";
 import { addBook, addCopies, backOnShelf, splitAccessions, updateBook, withdrawCopy, type BookInput } from "@/lib/library/catalogue";
@@ -125,12 +125,14 @@ export async function remindLibrarianAction(_p: S, fd: FormData): Promise<S> {
 
 /* ---------- Books ---------- */
 
-function bookInput(fd: FormData): BookInput {
+/** The book's fields; a field that cannot be read is noted in `p`, so every problem shows at once (layman test LE6). */
+function bookInput(fd: FormData, p: Problems): BookInput {
   const authors = str(fd, "authors").split(/[;\n]/).map((a) => a.trim()).filter(Boolean);
   return {
-    title: text(fd, "title", "Title", { max: 300 }), authors, publisher: maybe(fd, "publisher", "Publisher", 120), isbn: maybe(fd, "isbn", "ISBN", 20),
-    categoryId: optionalId(fd, "categoryId"), subject: maybe(fd, "subject", "Subject", 80), language: maybe(fd, "language", "Language", 40), edition: maybe(fd, "edition", "Edition", 40),
-    pricePaise: money(fd, "price", "Price", { required: false }), shelf: maybe(fd, "shelf", "Shelf location", 30),
+    // An empty or too long title is said by the book check, together with the other problems.
+    title: str(fd, "title").replace(/\s+/g, " "), authors, publisher: p.take(() => maybe(fd, "publisher", "Publisher", 120)), isbn: p.take(() => maybe(fd, "isbn", "ISBN", 20)),
+    categoryId: optionalId(fd, "categoryId"), subject: p.take(() => maybe(fd, "subject", "Subject", 80)), language: p.take(() => maybe(fd, "language", "Language", 40)), edition: p.take(() => maybe(fd, "edition", "Edition", 40)),
+    pricePaise: p.take(() => money(fd, "price", "Price", { required: false })), shelf: p.take(() => maybe(fd, "shelf", "Shelf location", 30)),
   };
 }
 
@@ -140,13 +142,15 @@ export async function saveBookAction(_p: S<{ id: string }>, fd: FormData): Promi
   return libAction("create", fd, async (w) => {
     need(w.can.catalogue, "add or change books");
     const bookId = optionalId(fd, "bookId");
-    const input = bookInput(fd);
+    const found = new Problems();
+    const input = bookInput(fd, found);
     if (bookId) {
-      const b = await updateBook(w.tx, w.ctx, bookId, input);
+      const b = await updateBook(w.tx, w.ctx, bookId, input, found);
       return { id: b.id, title: b.title };
     }
     created = true;
-    const r = await addBook(w.tx, w.ctx, { ...input, copies: int(fd, "copies", "Number of copies", 1), accessions: splitAccessions(str(fd, "accessions")), acquiredOn: w.today });
+    const copies = found.take(() => int(fd, "copies", "Number of copies", 1)) ?? 1;
+    const r = await addBook(w.tx, w.ctx, { ...input, copies, accessions: splitAccessions(str(fd, "accessions")), acquiredOn: w.today }, found);
     range = r.copies.length === 1 ? `accession ${r.copies[0].accessionNo}` : `accessions ${r.copies[0].accessionNo} to ${r.copies[r.copies.length - 1].accessionNo}`;
     return { id: r.book.id, title: r.book.title };
   }, (r) => (created ? { message: `“${r.title}” added with ${range}.`, link: { href: `${BASE}/books/${r.id}?do=labels`, label: "Print labels" } } : `“${r.title}” saved.`));

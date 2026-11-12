@@ -19,7 +19,8 @@ import { cx } from "@/components/ui/cx";
 import { ProblemInView } from "@/components/ui/problem-in-view";
 import type { FormState } from "@/lib/forms";
 import { qtyWords } from "@/lib/inventory/words";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
+import { screenMessage } from "@/lib/i18n/messages";
 
 type Act = (prev: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 const ICONS = { bell: BellRing, check: Check, cancel: CircleX, send: Send, ret: CornerDownLeft, x: X, mail: Mail, archive: Archive, restore: RotateCcw } satisfies Record<string, LucideIcon>;
@@ -28,11 +29,13 @@ export type ActIcon = keyof typeof ICONS;
 /** A button that runs one server action (Remind, Give the rest, Bring back...), with its problem shown in place. */
 export function ActButton({ action, fields, label, icon, variant = "secondary", size = "sm", className, pendingText, ariaLabel }: { action: Act; fields: Record<string, string>; label: React.ReactNode; icon?: ActIcon; variant?: ButtonVariant; size?: "sm" | "md" | "lg"; className?: string; pendingText?: string; ariaLabel?: string }) {
   const [state, run, pending] = useActionState<FormState<unknown>, FormData>(action, null);
+  // Words come in English; shown in the screen's language (layman test LE8).
+  const tr = useT();
   return (
     <form action={run} className={cx("relative z-[1] inline-flex flex-col items-start gap-1", className)}>
       {Object.entries(fields).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
-      <Button type="submit" variant={variant} size={size} icon={icon ? ICONS[icon] : undefined} loading={pending} aria-label={ariaLabel} className={className?.includes("w-full") ? "w-full" : undefined}>{pending && pendingText ? pendingText : label}</Button>
-      {state && !state.ok && <span className="text-[12px] text-bad max-w-[280px]" role="alert">{state.message}</span>}
+      <Button type="submit" variant={variant} size={size} icon={icon ? ICONS[icon] : undefined} loading={pending} aria-label={ariaLabel} className={className?.includes("w-full") ? "w-full" : undefined}>{pending && pendingText ? tr.any(pendingText) : typeof label === "string" ? tr.any(label) : label}</Button>
+      {state && !state.ok && <span className="text-[12px] text-bad max-w-[280px]" role="alert">{screenMessage(tr, state.message)}</span>}
     </form>
   );
 }
@@ -41,12 +44,13 @@ export function ActButton({ action, fields, label, icon, variant = "secondary", 
 export function SegField({ name, label, options, start, onChange, size, help }: { name: string; label: string; options: readonly SegOption[]; start: string; onChange?: (v: string) => void; size?: "sm" | "md"; help?: React.ReactNode }) {
   const t = useTyped(name, start);
   const [v, setV] = useState(t.value || start);
+  const tr = useT();
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[13px] font-semibold text-ink2">{label}</span>
-      <Segmented label={label} value={v} onChange={(x) => { setV(x); onChange?.(x); }} options={options} className="w-full" size={size} />
+      <span className="text-[13px] font-semibold text-ink2">{tr.any(label)}</span>
+      <Segmented label={tr.any(label)} value={v} onChange={(x) => { setV(x); onChange?.(x); }} options={options} className="w-full" size={size} />
       <input type="hidden" name={name} value={v} />
-      {t.error ? <p className="text-[12.5px] text-bad">{t.error}</p> : help ? <p className="text-[12.5px] text-ink3">{help}</p> : null}
+      {t.error ? <p className="text-[12.5px] text-bad">{screenMessage(tr, t.error)}</p> : help ? <p className="text-[12.5px] text-ink3">{typeof help === "string" ? tr.any(help) : help}</p> : null}
     </div>
   );
 }
@@ -72,6 +76,7 @@ export function ItemLines({ items, start = [], price, limit, stockAt, label = "I
 }) {
   const t = useTyped("lines", null);
   const typedIds = useTyped("itemId", null);
+  const tr = useT();
   const first = start.length ? start : Array.from({ length: minRows }, () => ({ itemId: "", qty: "", price: "" }));
   const [rows, setRows] = useState(() => first.map((r, i) => ({ key: i, itemId: r.itemId, qty: r.qty, price: r.price ?? "" })));
   const [next, setNext] = useState(first.length);
@@ -90,7 +95,7 @@ export function ItemLines({ items, start = [], price, limit, stockAt, label = "I
   void typedIds;
   return (
     <fieldset className="flex flex-col gap-2">
-      <legend className="text-[13px] font-semibold text-ink2 mb-1.5">{label} <span className="text-bad" aria-hidden="true">*</span></legend>
+      <legend className="text-[13px] font-semibold text-ink2 mb-1.5">{tr.any(label)} <span className="text-bad" aria-hidden="true">*</span></legend>
       {rows.map((r, i) => {
         const it = byId.get(r.itemId);
         const n = Number(r.qty) || 0;
@@ -101,30 +106,30 @@ export function ItemLines({ items, start = [], price, limit, stockAt, label = "I
             <div className={cx("grid gap-2 items-center", price ? "grid-cols-[1fr_84px_104px_auto]" : "grid-cols-[1fr_96px_auto]")}>
               <label className="sr-only" htmlFor={`line-item-${r.key}`}><Words k="Item on line" /> {i + 1}</label>
               <KeepSelect id={`line-item-${r.key}`} name="itemId" value={r.itemId} onChange={(e) => set(r.key, { itemId: e.target.value })} className={cx(inputCls(t.error), "h-11 min-w-0")}>
-                <option value="">Choose an item</option>
+                <option value="">{tr("Choose an item")}</option>
                 {items.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
               </KeepSelect>
               <label className="sr-only" htmlFor={`line-qty-${r.key}`}><Words k="Quantity on line" /> {i + 1}</label>
-              <input id={`line-qty-${r.key}`} name="qty" inputMode="numeric" value={r.qty} onChange={(e) => set(r.key, { qty: e.target.value.replace(/[^\d]/g, "") })} placeholder="Qty"
+              <input id={`line-qty-${r.key}`} name="qty" inputMode="numeric" value={r.qty} onChange={(e) => set(r.key, { qty: e.target.value.replace(/[^\d]/g, "") })} placeholder={tr("Qty")}
                 aria-invalid={over ? true : undefined} className={cx(inputCls(over ? "x" : undefined), "h-11 tnum text-right")} />
               {price && (
                 <>
                   <label className="sr-only" htmlFor={`line-price-${r.key}`}><Words k="Price per unit on line" /> {i + 1}</label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3 text-[14px]" aria-hidden="true">₹</span>
-                    <input id={`line-price-${r.key}`} name="price" inputMode="decimal" value={r.price} onChange={(e) => set(r.key, { price: e.target.value })} placeholder="Rate" className={cx(inputCls(undefined), "h-11 pl-7 tnum text-right")} />
+                    <input id={`line-price-${r.key}`} name="price" inputMode="decimal" value={r.price} onChange={(e) => set(r.key, { price: e.target.value })} placeholder={tr("Rate")} className={cx(inputCls(undefined), "h-11 pl-7 tnum text-right")} />
                   </div>
                 </>
               )}
-              <button type="button" aria-label={`Remove line ${i + 1}`} disabled={rows.length <= minRows} onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
+              <button type="button" aria-label={tr("Remove line {n}", { n: i + 1 })} disabled={rows.length <= minRows} onClick={() => setRows((rs) => rs.filter((x) => x.key !== r.key))}
                 className="size-11 grid place-items-center rounded-xl text-ink3 hover:bg-sunken hover:text-bad disabled:opacity-30 disabled:hover:bg-transparent">
                 <Trash2 size={17} aria-hidden="true" />
               </button>
             </div>
             {it && (
               <p className={cx("text-[12.5px] px-1", over ? "text-bad font-semibold" : stock <= 0 ? "text-warn" : "text-ink3")}>
-                {over ? `Only ${qty(stock, it.unit)} in this store.` : stock <= 0 ? "None in stock." : `${qty(stock, it.unit)} in stock`}
-                {price && it.lastPrice ? ` · last price ₹${it.lastPrice}` : ""}
+                {over ? tr("Only {qty} in this store.", { qty: qty(stock, it.unit) }) : stock <= 0 ? tr("None in stock.") : tr("{qty} in stock", { qty: qty(stock, it.unit) })}
+                {price && it.lastPrice ? ` · ${tr("last price ₹{price}", { price: it.lastPrice })}` : ""}
               </p>
             )}
           </div>
@@ -134,7 +139,7 @@ export function ItemLines({ items, start = [], price, limit, stockAt, label = "I
         <Button variant="ghost" size="sm" icon={Plus} onClick={() => { setRows((rs) => [...rs, { key: next, itemId: "", qty: "", price: "" }]); setNext((n) => n + 1); }}><Words k="Add a line" /></Button>
         {price && total > 0 && <span className="text-[13.5px] font-semibold tnum"><Words k="Total ₹" />{(total / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}</span>}
       </div>
-      {t.error ? <p className="text-[12.5px] text-bad" role="alert">{t.error}</p> : help ? <p className="text-[12.5px] text-ink3">{help}</p> : null}
+      {t.error ? <p className="text-[12.5px] text-bad" role="alert">{screenMessage(tr, t.error)}</p> : help ? <p className="text-[12.5px] text-ink3">{typeof help === "string" ? tr.any(help) : help}</p> : null}
     </fieldset>
   );
 }
@@ -146,6 +151,7 @@ export type Student = { id: string; name: string; admissionNo: string; cls: stri
 /** Search a student by name or admission number; the chosen one is sent as studentId. */
 export function StudentFinder({ find, start, onPick, id = "student-find" }: { find: (q: string) => Promise<Student[]>; start?: Student | null; onPick?: (s: Student | null) => void; id?: string }) {
   const t = useTyped("studentId", start?.id ?? "");
+  const tr = useT();
   const [picked, setPicked] = useState<Student | null>(start ?? null);
   const [q, setQ] = useState("");
   const [found, setFound] = useState<Student[]>([]);
@@ -177,7 +183,7 @@ export function StudentFinder({ find, start, onPick, id = "student-find" }: { fi
       <label htmlFor={id} className="text-[13px] font-semibold text-ink2"><Words k="Student" /> <span className="text-bad" aria-hidden="true">*</span></label>
       <div className="relative">
         <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
-        <input id={id} value={q} onChange={(e) => search(e.target.value)} placeholder="Name or admission number" autoComplete="off" role="combobox" aria-expanded={found.length > 0} aria-controls={`${id}-list`}
+        <input id={id} value={q} onChange={(e) => search(e.target.value)} placeholder={tr("Name or admission number")} autoComplete="off" role="combobox" aria-expanded={found.length > 0} aria-controls={`${id}-list`}
           aria-invalid={t.error ? true : undefined} className={cx(inputCls(t.error), "h-11 pl-10")} />
       </div>
       {found.length > 0 && (
@@ -192,7 +198,7 @@ export function StudentFinder({ find, start, onPick, id = "student-find" }: { fi
         </ul>
       )}
       {q.trim().length >= 2 && !busy && found.length === 0 && <p className="text-[12.5px] text-ink3"><Words k="No student studying now matches “" />{q.trim()}”.</p>}
-      {t.error ? <p className="text-[12.5px] text-bad">{t.error}</p> : <p className="text-[12.5px] text-ink3"><Words k="Type at least 2 letters." /></p>}
+      {t.error ? <p className="text-[12.5px] text-bad">{screenMessage(tr, t.error)}</p> : <p className="text-[12.5px] text-ink3"><Words k="Type at least 2 letters." /></p>}
     </div>
   );
 }
@@ -204,11 +210,12 @@ export function ScanBox({ href, param, label, placeholder, autoFocus, id }: { hr
   const router = useRouter();
   const [busy, startNav] = useTransition();
   const [problem, setProblem] = useState<string | null>(null);
+  const tr = useT();
   return (
     <form className="flex flex-col gap-1.5" onSubmit={(e) => {
       e.preventDefault();
       const code = String(new FormData(e.currentTarget).get("code") ?? "").trim();
-      if (!code) { setProblem("Scan the tag or type its number."); return; }
+      if (!code) { setProblem(tr("Scan the tag or type its number.")); return; }
       setProblem(null);
       const [path, query = ""] = href.split("?");
       const u = new URLSearchParams(query);
@@ -216,11 +223,11 @@ export function ScanBox({ href, param, label, placeholder, autoFocus, id }: { hr
       startNav(() => router.replace(`${path}?${u.toString()}`, { scroll: false }));
       e.currentTarget.reset();
     }}>
-      <label htmlFor={id} className="text-[13px] font-semibold text-ink2">{label}</label>
+      <label htmlFor={id} className="text-[13px] font-semibold text-ink2">{tr.any(label)}</label>
       <div className="flex gap-2">
         <div className="relative flex-1 min-w-0">
           <ScanLine size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
-          <input id={id} name="code" placeholder={placeholder} autoFocus={autoFocus} autoComplete="off" spellCheck={false} aria-invalid={problem ? true : undefined}
+          <input id={id} name="code" placeholder={tr.any(placeholder)} autoFocus={autoFocus} autoComplete="off" spellCheck={false} aria-invalid={problem ? true : undefined}
             className={cx(inputCls(problem), "h-12 pl-11 font-mono text-[15px]")} />
         </div>
         <Button type="submit" variant="primary" loading={busy} className="h-12"><Words k="Go" /></Button>
@@ -249,6 +256,7 @@ export function InlineForm<T>({ action, children, submit, pendingText, className
     if (result.state?.ok && doneHref) router.replace(doneHref, { scroll: false });
   }, [result, doneHref, router]);
   const link = (state?.data as { link?: { href: string; label: string } } | undefined)?.link;
+  const tr = useT();
   const fieldErrors = Object.keys(state?.errors ?? {}).length;
   return (
     <FormResultProvider value={(state?.ok ? null : state) as FormState<unknown>}>
@@ -257,10 +265,10 @@ export function InlineForm<T>({ action, children, submit, pendingText, className
       <div key={round} className="contents">{children(state, round)}</div>
       {state && !state.ok && state.message && (fieldErrors === 0 || link) && (
         <ProblemInView token={state}><div className="rounded-xl bg-bad/10 text-bad px-3.5 py-2.5 text-[13.5px]" role="alert">
-          {state.message} {link && <Link className="font-semibold underline" href={link.href}>{link.label}</Link>}
+          {screenMessage(tr, state.message)} {link && <Link className="font-semibold underline" href={link.href}>{tr.any(link.label)}</Link>}
         </div></ProblemInView>
       )}
-      <Button type="submit" variant="primary" size="lg" loading={pending} loadingText={pendingText} disabled={blocked} className="w-full">{typeof submit === "function" ? submit(state) : submit}</Button>
+      <Button type="submit" variant="primary" size="lg" loading={pending} loadingText={pendingText ? tr.any(pendingText) : undefined} disabled={blocked} className="w-full">{typeof submit === "function" ? submit(state) : submit}</Button>
     </form>
     </FormResultProvider>
   );

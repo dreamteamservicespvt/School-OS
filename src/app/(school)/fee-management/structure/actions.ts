@@ -6,7 +6,7 @@ import { formatDate, formatRupees } from "@/lib/format";
 import type { FeeViewer } from "@/lib/fees/access";
 import { counterAllowed, featureOn, feeSettings } from "@/lib/fees/settings";
 import { MoneyProblem } from "@/lib/fees/problem";
-import { FREQUENCIES, HEAD_KINDS } from "@/lib/fees/words";
+import { FREQUENCIES, HEAD_KINDS, plural } from "@/lib/fees/words";
 import {
   archiveFeeHead, assignToClass, classStructure, copyStructure, discardDraft, GST_RATES_BP, openDraft, publishStructure, removeFeeRow,
   restorePreviousVersion, saveFeeHead, saveFeeRow, publishNeedsApproval, askToPublish,
@@ -146,7 +146,7 @@ export async function publishAction(_prev: unknown, fd: FormData) {
       assigned = await assignToClass(tx, ctx, structureId, on);
     }
     return { version: r.version, updated: r.impact.students, assigned: assigned.students, asked: false };
-  }, (r) => r.asked ? `Version ${r.version} sent to the Principal for approval. Students’ fees change only when they approve.` : `Version ${r.version} published.${r.updated ? ` ${r.updated} students’ unpaid installments updated.` : ""}${r.assigned ? ` ${r.assigned} students without fees got the plan.` : ""} Paid rows are not changed.`, { staffOnly: "publish fee structures" });
+  }, (r) => r.asked ? `Version ${r.version} sent to the Principal for approval. Students’ fees change only when they approve.` : `Version ${r.version} published.${r.updated ? ` Unpaid installments updated for ${plural(r.updated, "student")}.` : ""}${r.assigned ? ` ${plural(r.assigned, "student")} without fees got the plan.` : ""} Paid rows are not changed.`, { staffOnly: "publish fee structures" });
 }
 
 export async function discardAction(_prev: unknown, fd: FormData) {
@@ -168,7 +168,7 @@ export async function assignClassAction(_prev: unknown, fd: FormData) {
     await structureOnCampus(tx, viewer, structureId);
     const on = await featureOn(tx, ctx, "fee-category-fees");
     return assignToClass(tx, ctx, structureId, on);
-  }, (r) => (r.students ? `Fees assigned to ${r.students} students (${r.rows} rows).` : "Every student of the class already has fees for this year."), { staffOnly: "assign fees" });
+  }, (r) => (r.students ? `Fees assigned to ${plural(r.students, "student")} (${plural(r.rows, "row")}).` : "Every student of the class already has fees for this year."), { staffOnly: "assign fees" });
 }
 
 export async function copyAction(_prev: unknown, fd: FormData) {

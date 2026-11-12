@@ -5,7 +5,7 @@ import { PageHeader } from "@/components/shell/page-header";
 import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody } from "@/components/ui/card";
 import { loadVisibleStudent, StudentNotFound } from "@/lib/students/access";
-import { BASE, studentPage } from "../../_lib/page";
+import { BASE, NO_ACCESS, studentPage } from "../../_lib/page";
 import { saveGuardianAction } from "../../_actions/guardians";
 import { GuardianForm } from "../guardian-form";
 import { Words } from "@/lib/i18n/client";
@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function NewGuardianPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {
   const { current, can } = await studentPage();
-  if (!can.manage) redirect(`${BASE}/guardians`);
+  if (!can.manage) redirect(NO_ACCESS);
   const { student: studentId } = await searchParams;
   let student: { id: string; fullName: string } | null = null;
   if (studentId) {

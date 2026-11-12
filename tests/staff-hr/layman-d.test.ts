@@ -1,7 +1,7 @@
 // Layman test D (docs/qa/2026-11-12-layman-D.md), Staff & HR part:
 // LD3 expired documents count as Expired, LD5 staff age 18 to 80,
 // LD11 appraisal points follow the staff type, LD13 a role without
-// Staff & HR gets a 403 from its file addresses, not a blank 500.
+// Staff & HR (or Admission, Attendance) gets a 403 from its file addresses, not a blank 500.
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import type { Current } from "@/lib/current";
 
@@ -31,6 +31,9 @@ import { saveReview, startCycle } from "@/lib/staff/talent";
 import { pointsOf, STAFF_CRITERIA, TEACHING_CRITERIA } from "@/lib/staff/criteria";
 import { GET as staffExport } from "@/app/(school)/staff-hr-management/export/route";
 import { GET as idCards } from "@/app/(school)/staff-hr-management/id-cards/route";
+import { GET as enquiryExport } from "@/app/(school)/admission-management/enquiries/export/route";
+import { GET as registerExport } from "@/app/(school)/attendance-management/register/export/route";
+import { GET as leaveExport } from "@/app/(school)/attendance-management/student-leave/export/route";
 import { d, makeHrSchool } from "./fixture";
 import { makeUser } from "../helpers";
 
@@ -125,5 +128,14 @@ describe("Staff & HR file addresses for a role without the module (LD13)", () =>
     expect(csv.status).toBe(403);
     expect(await csv.text()).toBe("Your role cannot export from Staff & HR Management.");
     expect((await idCards(new Request("http://localhost/staff-hr-management/id-cards"))).status).toBe(403);
+    // The same for other modules' file addresses the Driver has no part in (src/lib/route-access.ts).
+    for (const res of [
+      await enquiryExport(new Request("http://localhost/admission-management/enquiries/export?format=csv")),
+      await registerExport(new Request("http://localhost/attendance-management/register/export?format=csv")),
+      await leaveExport(new Request("http://localhost/attendance-management/student-leave/export?format=csv")),
+    ]) {
+      expect(res.status).toBe(403);
+      expect(await res.text()).toMatch(/^Your role/);
+    }
   });
 });

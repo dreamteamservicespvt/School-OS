@@ -5,6 +5,7 @@
 // LB4 Admission application fees: their own line in Finance, named on the Collection report.
 // LB5 Staff advances and loans are not salary in Profit and loss.
 // LB8 The Surplus/Shortfall line in plain words. LB10 Months with ₹0 still show.
+// LB1 A concession can never be more than is still to pay, nor above 100%.
 // LB11 A long note wraps on the receipt. A3 A bank payment below zero warns first.
 import { beforeAll, describe, expect, it } from "vitest";
 import { withSchool } from "@/lib/db";
@@ -15,7 +16,10 @@ import { ageingIndexOf } from "@/lib/fees/settings";
 import { plural } from "@/lib/fees/words";
 import { renderReceipt } from "@/lib/fees/documents";
 import type { FeeViewer } from "@/lib/fees/access";
-import { MoneyWarning } from "@/lib/fees/problem";
+import { MoneyProblem, MoneyWarning } from "@/lib/fees/problem";
+import { concessionHeadChoices, giveConcession, type ConcessionInput } from "@/lib/fees/concessions";
+import { mostOff } from "@/lib/fees/concession-max";
+import { concessionRows } from "@/lib/fees/concession-list";
 import { postToDayBook } from "@/lib/finance/daybook";
 import { payExpense, recordExpense } from "@/lib/finance/expenses";
 import { findFinanceReport, type FinanceFilter } from "@/lib/finance/reports";
@@ -157,5 +161,54 @@ describe("receipt PDF (LB11)", () => {
     const doc = await withSchool(f.ctx, (tx) => renderReceipt(tx, f.ctx, r.payment.id, "office"));
     expect(doc.html).toContain("overflow-wrap:anywhere");
     expect(doc.html).toContain("x".repeat(300));
+  });
+});
+
+describe("a concession bigger than what is owed (LB1)", () => {
+  const give = (o: Partial<ConcessionInput>, opts: { amountField?: string } = {}) => withSchool(f.ctx, (tx) => giveConcession(tx, f.ctx, {
+    studentId: f.anil.id, type: "DISCOUNT", mode: "amount", amountPaise: R(50000), percentBp: 0, feeHeadIds: [f.tuition.id], periodFrom: null, periodTo: null, reason: "LB- layman test concession", ...o,
+  }, opts));
+  const refused = (p: Promise<unknown>) => p.then(() => { throw new Error("was accepted"); }, (e: unknown) => e as MoneyProblem);
+
+  it("is refused on the form with the most it can be, and nothing is saved", async () => {
+    // Anil owes the whole year's tuition: ₹24,000 in four quarterly rows.
+    const whole = await refused(give({}));
+    expect(whole).toBeInstanceOf(MoneyProblem);
+    expect(whole.message).toBe("Not more than ₹24,000: that is all that is still to pay on the chosen fee heads in this period.");
+    expect(whole.field).toBe("value");
+    // Rest of this year: only the rows due from today on.
+    const from = new Date("2026-11-12");
+    const open = await withSchool(f.ctx, (tx) => tx.studentFeeDue.findMany({ where: { studentId: f.anil.id, state: "OPEN", dueDate: { gte: from } } }));
+    const left = open.reduce((t, d) => t + d.balancePaise, BigInt(0));
+    const rest = await refused(give({ periodFrom: from, amountPaise: left + R(1) }));
+    expect(rest.message).toBe(`Not more than ${formatRupees(left)}: that is all that is still to pay on the chosen fee heads in this period.`);
+    // A discount asked at the counter on ticked rows: the message is at the Discount box.
+    const rows = await dues(f.ctx, f.anil.id);
+    const counter = await refused(give({ feeHeadIds: [], dueIds: [rows[0].id], amountPaise: rows[0].balancePaise + R(1) }, { amountField: "discount" }));
+    expect(counter.message).toBe(`Not more than ${formatRupees(rows[0].balancePaise)}: that is all that is still to pay on the ticked rows in this period.`);
+    expect(counter.field).toBe("discount");
+    expect(await withSchool(f.ctx, (tx) => tx.concession.count({ where: { studentId: f.anil.id } }))).toBe(0);
+  });
+
+  it("refuses a percent above 100, and takes the whole amount owed when asked exactly", async () => {
+    const pct = await refused(give({ mode: "percent", amountPaise: BigInt(0), percentBp: 15000 }));
+    expect(pct.message).toBe("Percent must be more than 0 and at most 100.");
+    expect(pct.field).toBe("value");
+    const ok = await give({ amountPaise: R(24000) });
+    expect(ok.estimate).toBe(R(24000));
+    const list = await withSchool(f.ctx, (tx) => concessionRows(tx, { timeZone: "Asia/Kolkata", ids: [ok.concession.id] }));
+    expect(list.rows[0].askedPaise).toBe(R(24000));
+    expect(list.rows[0].amountPaise).toBe(R(24000));
+  });
+
+  it("the form works out the same most as the server", async () => {
+    const c = await withSchool(f.ctx, (tx) => concessionHeadChoices(tx, f.sita.id));
+    const owed = (await dues(f.ctx, f.sita.id)).filter((d) => d.kind !== "LATE_FEE").reduce((t, d) => t + d.balancePaise, BigInt(0));
+    expect(mostOff(c.open, { waiver: false, headIds: [f.tuition.id], from: null, to: null })).toBe(Number(owed));
+    expect(mostOff(c.open, { waiver: false, headIds: [], from: null, to: null })).toBe(0);
+    const rows = [{ headId: "h", late: false, due: "2026-07-01", leftPaise: 600000 }, { headId: "h", late: false, due: "2027-01-01", leftPaise: 600000 }, { headId: "h", late: true, due: "2026-07-20", leftPaise: 10000 }];
+    expect(mostOff(rows, { waiver: false, headIds: ["h"], from: "2026-11-12", to: null })).toBe(600000);
+    expect(mostOff(rows, { waiver: false, headIds: ["h"], from: "2026-04-01", to: "2026-09-30" })).toBe(600000);
+    expect(mostOff(rows, { waiver: true, headIds: [], from: null, to: null })).toBe(10000);
   });
 });

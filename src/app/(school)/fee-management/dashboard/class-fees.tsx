@@ -7,6 +7,7 @@ import Link from "next/link";
 import { FileText, Hourglass, IndianRupee, LayoutGrid, TriangleAlert } from "lucide-react";
 import { formatDate, formatRupees, formatRupeesShort } from "@/lib/format";
 import { feeTone, sortFees, type FeeSort, type FeesByClass } from "@/lib/fees/by-class";
+import { plural } from "@/lib/fees/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Stats, Progress, Toolbar } from "@/components/money/kit";
 import { UrlSelect } from "@/components/money/url-filters";
@@ -42,7 +43,7 @@ export function ClassFees({ data, sort, group, href, classHref, today }: {
     <div id="by-class" className="flex flex-col gap-4 scroll-mt-4">
       {/* For all classes these are the band's four numbers again; they show for one class group. */}
       {group !== "all" && <Stats items={[
-        { label: "Due so far", value: money(t.due), sub: `This year's fees due up to ${formatDate(new Date(today.getTime() + 30 * 86_400_000))} · ${t.students.toLocaleString("en-IN")} students`, icon: FileText },
+        { label: "Due so far", value: money(t.due), sub: `This year's fees due up to ${formatDate(new Date(today.getTime() + 30 * 86_400_000))} · ${plural(t.students, "student")}`, icon: FileText },
         { label: "Collected", value: money(t.paid), sub: t.due > BigInt(0) ? `${pct}% of what is due` : "Nothing is due yet", icon: IndianRupee, tone: t.due > BigInt(0) ? "ok" : undefined },
         { label: "Pending, not late", value: money(t.notLate), sub: data.nextDue ? `Next due ${formatDate(data.nextDue)}` : "Nothing falls due in the next 30 days", icon: Hourglass, tone: t.notLate > BigInt(0) ? "warn" : undefined },
         { label: "Overdue", value: money(t.overdue), sub: `${t.overdueStudents} ${t.overdueStudents === 1 ? "student" : "students"} · ${t.over30} over 30 days`, icon: TriangleAlert, tone: t.overdue > BigInt(0) ? "bad" : undefined },
@@ -81,7 +82,7 @@ export function ClassFees({ data, sort, group, href, classHref, today }: {
                       <span className="min-w-0 text-right"><span className="block text-ink3"><Words k="Pending" /></span><span className={cx("block font-semibold tnum truncate", s.pending > BigInt(0) ? "text-bad" : "text-ok")}>{s.pending > BigInt(0) ? money(s.pending) : "Nil"}</span></span>
                     </span>
                     <span className="text-[12.5px] text-ink2 truncate">
-                      {s.owe ? `${s.owe} of ${s.students} owe${s.overdueStudents ? ` · ${s.overdueStudents} overdue (${money(s.overdue)})` : " · none overdue"}` : `All ${s.students} students paid`}
+                      {s.owe ? `${s.owe} of ${s.students} owe${s.overdueStudents ? ` · ${s.overdueStudents} overdue (${money(s.overdue)})` : " · none overdue"}` : s.students === 1 ? "The student has paid" : `All ${s.students} students paid`}
                     </span>
                   </Link>
                 </li>

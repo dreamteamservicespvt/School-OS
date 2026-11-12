@@ -1,6 +1,6 @@
 // Staff Attendance export (P8): a day's list, a month's register, or the
 // month's overtime. Staff with "own" reach export only their own month.
-import { requireAction } from "@/lib/current";
+import { routeAction } from "@/lib/route-access";
 import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportFormat } from "@/lib/exports";
 import { formatDate, formatTime } from "@/lib/format";
@@ -15,7 +15,9 @@ import { dateWhere, periodFromSearch } from "@/lib/periods";
 import { periodSetup } from "@/lib/period-setup";
 
 export async function GET(req: Request) {
-  const { current } = await requireAction("attendance-management", "export");
+  const gate = await routeAction("attendance-management", "export");
+  if (gate instanceof Response) return gate;
+  const { current } = gate;
   const url = new URL(req.url);
   const format = (["csv", "xlsx", "pdf"].includes(url.searchParams.get("format") ?? "") ? url.searchParams.get("format") : "xlsx") as ExportFormat;
   const tz = current.school.timeZone;

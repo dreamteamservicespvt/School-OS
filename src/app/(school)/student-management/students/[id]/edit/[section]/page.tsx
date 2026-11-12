@@ -10,7 +10,7 @@ import { Alert } from "@/components/ui/alert";
 import { ActionForm, FormArea, FormCheck, FormSelect, FormText } from "@/components/students/action-form";
 import { BLOOD_GROUPS, CATEGORIES, GENDERS } from "@/lib/students/labels";
 import { StudentNotFound } from "@/lib/students/access";
-import { BASE, studentPage, todayIso } from "../../../../_lib/page";
+import { BASE, NO_ACCESS, studentPage, todayIso } from "../../../../_lib/page";
 import { loadProfile } from "../../../../_lib/profile";
 import {
   saveContactAction, saveEnrolmentAction, saveExtraFieldsAction, saveIdentifiersAction, savePersonalAction, savePreviousSchoolAction,
@@ -30,8 +30,8 @@ export default async function EditStudentSection({ params }: { params: Promise<{
   const { id, section } = await params;
   if (!TITLES[section]) notFound();
   const { current, settings, year, can, tz } = await studentPage();
-  if (!can.manage) redirect(`${BASE}/students/${id}`);
-  if (section === "identifiers" && !can.seeRestricted) redirect(`${BASE}/students/${id}`);
+  if (!can.manage) redirect(NO_ACCESS);
+  if (section === "identifiers" && !can.seeRestricted) redirect(NO_ACCESS);
   let p;
   try {
     p = await withSchool(current.ctx, (tx) => loadProfile(tx, current, id, can, settings, year?.id ?? null));

@@ -25,7 +25,8 @@ import { readReportFilter, withCampus } from "../_lib/reports";
 import { backToThisYear, readViewYear, withYearDates } from "@/lib/academic/view-year";
 import { ViewYearStrip } from "@/components/view-year-strip";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
+import { dayWords } from "@/lib/i18n/dates";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Library Reports · Library Management") };
@@ -71,7 +72,9 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
   const exportHref = r.report ? qs(`${BASE}/reports/export`, { ...keep, r: r.report.key, session: r.session || null, late: r.late ? String(r.late) : null }) : "";
   const maxClass = Math.max(1, ...d.byClass.map((x) => x.value));
   const maxCat = Math.max(1, ...d.cats.map((x) => x.times));
-  const t = d.table;
+  const tbl = d.table;
+  const t = await getT();
+  const perLabel = t.any(per.label);
 
   return (
     <>
@@ -79,23 +82,23 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
       <ViewYearStrip year={view} back={backToThisYear(`${BASE}/reports`, raw)} />
       <Stack>
         <div className="flex gap-2 flex-wrap">
-          <PeriodFilter {...p.dates} fallback="acyear" />
-          {d.sections.length > 0 && <UrlSelect param="sec" label="Class" options={[{ value: "", label: "All classes and staff" }, ...d.sections.map((x) => ({ value: x.id, label: x.label }))]} />}
+          <PeriodFilter {...p.dates} fallback="acyear" allLabel={t("All dates")} />
+          {d.sections.length > 0 && <UrlSelect param="sec" label={t("Class")} options={[{ value: "", label: t("All classes and staff") }, ...d.sections.map((x) => ({ value: x.id, label: x.label }))]} />}
         </div>
         <Stats items={[
-          { label: "Books issued", value: d.issued.toLocaleString("en-IN"), sub: per.label, href: reportHref("lib-issued") },
-          { label: "Overdue now", value: d.overdue.toLocaleString("en-IN"), tone: d.overdue ? "bad" : undefined, sub: r.sec ? "in this class" : "same as Issue & Return", href: reportHref("lib-overdue") },
-          { label: "Fines collected", value: formatRupees(d.fines.collected.paise), sub: per.label, tone: "ok", href: reportHref("lib-fines") },
-          { label: "Fines due", value: formatRupees(d.fines.due.paise), sub: `${d.fines.waived.count} waived · ${d.fines.waiting.count} waiting`, href: reportHref("lib-fines") },
+          { label: t("Books issued"), value: d.issued.toLocaleString("en-IN"), sub: perLabel, href: reportHref("lib-issued") },
+          { label: t("Overdue now"), value: d.overdue.toLocaleString("en-IN"), tone: d.overdue ? "bad" : undefined, sub: t(r.sec ? "in this class" : "same as Issue & Return"), href: reportHref("lib-overdue") },
+          { label: t("Fines collected"), value: formatRupees(d.fines.collected.paise), sub: perLabel, tone: "ok", href: reportHref("lib-fines") },
+          { label: t("Fines due"), value: formatRupees(d.fines.due.paise), sub: t("{waived} waived · {waiting} waiting", { waived: d.fines.waived.count, waiting: d.fines.waiting.count }), href: reportHref("lib-fines") },
         ]} />
         <div className="grid gap-5 grid-cols-1 lg:grid-cols-2">
           <Card className="p-5">
             <h2 className="font-semibold text-[15px] mb-3"><Words k="Books issued by month" /></h2>
-            {d.byMonth.length ? <BarsChart ariaLabel="Books issued by month" data={d.byMonth.map((m) => ({ k: `${MONTHS[Number(m.month.slice(5, 7)) - 1]} ${m.month.slice(2, 4)}`, v: m.value }))} /> : <p className="text-[13.5px] text-ink3"><Words k="No books issued on these dates." /></p>}
+            {d.byMonth.length ? <BarsChart ariaLabel={t("Books issued by month")} data={d.byMonth.map((m) => ({ k: dayWords(t, `${MONTHS[Number(m.month.slice(5, 7)) - 1]} ${m.month.slice(2, 4)}`), v: m.value }))} /> : <p className="text-[13.5px] text-ink3"><Words k="No books issued on these dates." /></p>}
           </Card>
           <Card className="p-5">
             <h2 className="font-semibold text-[15px] mb-3"><Words k="Books issued by class" /></h2>
-            {d.byClass.length ? <div className="max-h-[220px] overflow-y-auto scroll-thin pr-1"><HBars labelWidth={92} valueWidth={48} rows={d.byClass.map((x) => ({ key: x.key, label: x.label.replace(/^Class\s+/i, ""), value: (x.value / maxClass) * 100, text: x.value.toLocaleString("en-IN") }))} /></div> : <p className="text-[13.5px] text-ink3"><Words k="No books issued on these dates." /></p>}
+            {d.byClass.length ? <div className="max-h-[220px] overflow-y-auto scroll-thin pr-1"><HBars labelWidth={92} valueWidth={48} rows={d.byClass.map((x) => ({ key: x.key, label: t.any(x.label.replace(/^Class\s+/i, "")), value: (x.value / maxClass) * 100, text: x.value.toLocaleString("en-IN") }))} /></div> : <p className="text-[13.5px] text-ink3"><Words k="No books issued on these dates." /></p>}
           </Card>
           <Card>
             <CardHeader title="Most read books" icon={BarChart3} action={<Link href={reportHref("lib-popular")} className="text-[13px] font-semibold text-brand hover:underline"><Words k="All" /></Link>} divided />
@@ -104,7 +107,7 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
                 {d.popular.map((b, i) => (
                   <li key={b.bookId} className="flex items-center gap-3 px-5 py-2.5">
                     <span className="grid place-items-center size-7 rounded-full bg-brand/10 text-brand text-[12.5px] font-semibold tnum shrink-0">{i + 1}</span>
-                    <Link href={`${BASE}/books/${b.bookId}`} className="min-w-0 flex-1"><p className="font-semibold text-[14px] truncate hover:underline">{b.title}</p><p className="text-[12.5px] text-ink3 truncate">{b.author} · {b.category}</p></Link>
+                    <Link href={`${BASE}/books/${b.bookId}`} className="min-w-0 flex-1"><p className="font-semibold text-[14px] truncate hover:underline">{b.title}</p><p className="text-[12.5px] text-ink3 truncate">{b.author} · {t.any(b.category)}</p></Link>
                     <span className="text-[13px] tnum text-ink2 shrink-0">{b.times}×</span>
                   </li>
                 ))}
@@ -117,11 +120,11 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
           </Card>
           <Card className="p-5">
             <h2 className="font-semibold text-[15px] mb-3"><Words k="How late the overdue books are" /></h2>
-            <HBars labelWidth={92} valueWidth={48} rows={d.buckets.map((b) => ({ key: b.key, label: b.label, value: b.value, text: b.value.toLocaleString("en-IN"), tone: b.key === "30+" ? "bad" as const : "warn" as const }))} />
+            <HBars labelWidth={92} valueWidth={48} rows={d.buckets.map((b) => ({ key: b.key, label: t.any(b.label), value: b.value, text: b.value.toLocaleString("en-IN"), tone: b.key === "30+" ? "bad" as const : "warn" as const }))} />
           </Card>
           <Card className="p-5">
             <h2 className="font-semibold text-[15px] mb-3"><Words k="Copies by status" /></h2>
-            <HBars labelWidth={92} valueWidth={56} rows={d.copies.map((c) => ({ key: c.status, label: c.label, value: c.value, text: c.value.toLocaleString("en-IN"), tone: c.status === "AVAILABLE" ? "ok" as const : c.status === "LOST" || c.status === "DAMAGED" ? "warn" as const : "brand" as const }))} />
+            <HBars labelWidth={92} valueWidth={56} rows={d.copies.map((c) => ({ key: c.status, label: t.any(c.label), value: c.value, text: c.value.toLocaleString("en-IN"), tone: c.status === "AVAILABLE" ? "ok" as const : c.status === "LOST" || c.status === "DAMAGED" ? "warn" as const : "brand" as const }))} />
           </Card>
         </div>
 
@@ -134,8 +137,8 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
                 <Link href={reportHref(x.key)} scroll={false} aria-current={r.report?.key === x.key ? "true" : undefined}
                   className={cx("flex items-start gap-3 px-5 py-4 h-full hover:bg-sunken/60 transition", r.report?.key === x.key && "bg-brand/5")}>
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-[14.5px]">{x.name}</p>
-                    <p className="text-[12.5px] text-ink3 mt-0.5">{x.sub}{x.dated ? "" : " (as on today)"}</p>
+                    <p className="font-semibold text-[14.5px]">{t.any(x.name)}</p>
+                    <p className="text-[12.5px] text-ink3 mt-0.5">{t.any(x.sub)}{x.dated ? "" : ` ${t("(as on today)")}`}</p>
                   </div>
                   <ChevronRight size={18} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" />
                 </Link>
@@ -144,22 +147,22 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
           </ul>
         </Card>
 
-        {r.report && t && (
+        {r.report && tbl && (
           <Card id="report">
-            <CardHeader title={r.report.name} description={`${r.report.dated ? per.label : "As on today"}${r.late ? ` · more than ${r.late} days late` : ""}${r.report.byClass && r.sec ? ` · ${d.sections.find((x) => x.id === r.sec)?.label ?? ""}` : ""} · ${t.rows.length.toLocaleString("en-IN")} row${t.rows.length === 1 ? "" : "s"}`} divided
+            <CardHeader title={t.any(r.report.name)} description={`${r.report.dated ? perLabel : t("As on today")}${r.late ? ` · ${t("more than {n} days late", { n: r.late })}` : ""}${r.report.byClass && r.sec ? ` · ${d.sections.find((x) => x.id === r.sec)?.label ?? ""}` : ""} · ${t(tbl.rows.length === 1 ? "1 row" : "{n} rows", { n: tbl.rows.length.toLocaleString("en-IN") })}`} divided
               action={<div className="flex gap-2 items-center">
-                {r.report.key === "lib-stock" && d.sessions.length > 0 && <UrlSelect param="session" label="Stock check" options={[{ value: "", label: "Every check" }, ...d.sessions.map((x) => ({ value: x.id, label: `${x.name} (${formatDate(x.startedAt, tz)})` }))]} />}
-                {can.export && <ExportButton href={exportHref} size="sm" always />}
+                {r.report.key === "lib-stock" && d.sessions.length > 0 && <UrlSelect param="session" label={t("Stock check")} options={[{ value: "", label: t("Every check") }, ...d.sessions.map((x) => ({ value: x.id, label: `${x.name} (${formatDate(x.startedAt, tz)})` }))]} />}
+                {can.export && <ExportButton href={exportHref} size="sm" always label={t("Export")} />}
               </div>} />
-            {t.rows.length ? (
+            {tbl.rows.length ? (
               <>
-                <SimpleTable caption={r.report.name} minWidth={Math.max(560, t.columns.length * 120)} rows={[...t.rows.slice(0, SHOW)]}
-                  cols={t.columns.map((c) => ({ label: c.label, right: c.kind === "number" || c.kind === "money" || c.kind === "percent", render: (row: Record<string, unknown>) => cellText(row[c.key] as never, c.kind) }))}
-                  foot={t.totals && t.rows.length <= SHOW ? t.columns.map((c) => cellText(t.totals![c.key], c.kind)) : undefined} />
-                {t.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing the first" /> {SHOW} <Words k="of" /> {t.rows.length.toLocaleString("en-IN")} <Words k="rows. Export the report for all of them." /></p>}
+                <SimpleTable caption={t.any(r.report.name)} minWidth={Math.max(560, tbl.columns.length * 120)} rows={[...tbl.rows.slice(0, SHOW)]}
+                  cols={tbl.columns.map((c) => ({ label: t.any(c.label), right: c.kind === "number" || c.kind === "money" || c.kind === "percent", render: (row: Record<string, unknown>) => cellText(row[c.key] as never, c.kind) }))}
+                  foot={tbl.totals && tbl.rows.length <= SHOW ? tbl.columns.map((c) => t.any(cellText(tbl.totals![c.key], c.kind))) : undefined} />
+                {tbl.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing the first" /> {SHOW} <Words k="of" /> {tbl.rows.length.toLocaleString("en-IN")} <Words k="rows. Export the report for all of them." /></p>}
               </>
-            ) : <Empty icon={FileBarChart} title={t.empty ?? "Nothing matches"} />}
-            {t.note && <p className="px-5 py-3 border-t border-line text-[13px] text-ink2">{t.note}</p>}
+            ) : <Empty icon={FileBarChart} title={t.any(tbl.empty ?? "Nothing matches")} />}
+            {tbl.note && <p className="px-5 py-3 border-t border-line text-[13px] text-ink2">{t.any(tbl.note)}</p>}
           </Card>
         )}
       </Stack>

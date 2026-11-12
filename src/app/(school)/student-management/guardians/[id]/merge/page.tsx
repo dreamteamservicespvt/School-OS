@@ -8,7 +8,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { buttonClass } from "@/components/ui/button";
 import { ActionForm, FormChoice } from "@/components/students/action-form";
-import { BASE, studentPage } from "../../../_lib/page";
+import { BASE, NO_ACCESS, studentPage } from "../../../_lib/page";
 import { mergeAction } from "../../../_actions/guardians";
 import { visibleGuardianFor } from "../../load";
 import { abilities, studentScope } from "@/lib/students/access";
@@ -23,7 +23,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function MergeGuardianPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ q?: string }> }) {
   const { id } = await params;
   const { current, can } = await studentPage();
-  if (!can.manage) redirect(`${BASE}/guardians/${id}`);
+  if (!can.manage) redirect(NO_ACCESS);
   const q = ((await searchParams).q ?? "").trim().slice(0, 60);
   const data = await withSchool(current.ctx, async (tx) => {
     const keep = await visibleGuardianFor(tx, current, id);

@@ -51,4 +51,14 @@ describe("Excel cells", () => {
     expect(cellKind("Copies", [3, "4", ""]).kind).toBe("number");
     expect(cellValue({ kind: "number", format: "General" }, "007")).toBe("007");
   });
+
+  it("read the app's own minus sign (−₹1,200 from formatRupees) as a negative number", () => {
+    const k = cellKind("Balance", ["−₹1,200", "₹300", "−₹50.50"]);
+    expect(k.kind).toBe("money");
+    expect(["−₹1,200", "₹300", "−₹50.50"].map((t) => cellValue(k, t))).toEqual([-1200, 300, -50.5]);
+    const n = cellKind("Change", ["−5", "12"]);
+    expect(n.kind).toBe("number");
+    expect(cellValue(n, "−5")).toBe(-5);
+    expect(cellValue(cellKind("Change", ["−4.5%", "10%"]), "−4.5%")).toBe(-0.045);
+  });
 });

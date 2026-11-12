@@ -88,7 +88,7 @@ defineImport<Row>({
       const { book } = await addBook(tx, ctx, { title: v.title, authors: v.authors, publisher: v.publisher, isbn: v.isbn, categoryId, subject: v.subject, language: v.language, edition: null, pricePaise: v.pricePaise, shelf: v.shelf, copies: v.copies, accessions: v.accessions });
       return { id: book.id, created: true };
     } catch (err) {
-      if (err instanceof LibraryProblem) throw new RowProblem(`${v.title}: ${err.message}`);
+      if (err instanceof LibraryProblem) throw new RowProblem(`${v.title}: ${err.errors ? Object.values(err.errors).join(" ") : err.message}`);
       throw err;
     }
   },

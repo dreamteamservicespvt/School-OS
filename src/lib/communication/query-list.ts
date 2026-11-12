@@ -1,10 +1,12 @@
 import "server-only";
 
-import type { Prisma, Query } from "@prisma/client";
+import type { Prisma, Query, QueryStatus } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import type { ListParams } from "../list";
 
 import { inPeriod, PERIOD_FILTERS } from "./period";
+const QUERY_STATUSES = ["OPEN", "IN_PROGRESS", "RESOLVED", "CLOSED"] as const satisfies readonly QueryStatus[];
+
 export const QUERY_FILTERS = ["status", "type", "priority", "owner", "overdue", "topic", ...PERIOD_FILTERS] as const;
 
 /** Default status filter: Open and In progress. */
@@ -15,7 +17,8 @@ export function queryListWhere(base: Prisma.QueryWhereInput, ctx: SchoolContext,
   if (!f.status || f.status === "active") and.push({ status: { in: ["OPEN", "IN_PROGRESS"] } });
   else if (f.status === "overdue") and.push({ dueBy: { lt: now }, status: { in: ["OPEN", "IN_PROGRESS"] } });
   else if (f.status === "done") and.push({ status: { in: ["RESOLVED", "CLOSED"] } });
-  else if (f.status !== "all") and.push({ status: f.status as Prisma.EnumQueryStatusFilter["equals"] });
+  // Only a real status: any other word in the address is ignored, never a failed page (QA LC23).
+  else if ((QUERY_STATUSES as readonly string[]).includes(f.status)) and.push({ status: f.status as (typeof QUERY_STATUSES)[number] });
   if (f.type) and.push({ type: f.type });
   if (f.priority) and.push({ priority: f.priority });
   if (f.topic) and.push({ topicId: f.topic });

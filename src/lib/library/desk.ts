@@ -26,7 +26,8 @@ export const daysBetween = (from: Date, to: Date) => Math.round((to.getTime() - 
 const iso = (d: Date) => d.toISOString().slice(0, 10);
 
 /** Who has a copy now, in the words of the rules: "Meena, 7 B". */
-export const holderWords = (m: Pick<Member, "firstName" | "short" | "kind">) => (m.kind === "STAFF" ? `${m.firstName} (staff)` : `${m.firstName}, ${m.short}`);
+/** "Ravi (staff)", "Pooja, 5 A"; with `t`, "(staff)" in the screen's language (layman test LE8). */
+export const holderWords = (m: Pick<Member, "firstName" | "short" | "kind">, t?: import("@/lib/i18n/t").T) => (m.kind === "STAFF" ? (t ? t("{name} (staff)", { name: m.firstName }) : `${m.firstName} (staff)`) : `${m.firstName}, ${m.short}`);
 
 /** Loan days for this member and book: the book's category's, else the member type's. */
 export async function loanDaysFor(tx: Tx, member: Pick<Member, "loanDays">, book: { categoryId: string | null }) {

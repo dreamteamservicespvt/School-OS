@@ -14,6 +14,7 @@ import {
   returnAction, stockInAction, stockOutAction, transferAction,
 } from "../actions";
 import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
+import { ProblemText } from "@/components/ui/form-problems";
 import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
@@ -34,6 +35,7 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
   const [openQty, setOpenQty] = useState<string[]>([]);
   const setAt = (set: React.Dispatch<React.SetStateAction<string[]>>, i: number, v: string) => set((a) => { const b = [...a]; b[i] = v; return b; });
   const reorderHint = categories.find((c) => c.value === catId)?.reorder ?? 0;
+  const qty = useTyped("openQty", null);
   return (
     <SheetForm title={editing ? `Change ${start!.name}` : "Add an item"} sub={editing ? start!.code : "The code is given in sequence unless you type one."} closeHref={closeHref} doneHref={doneHref}
       action={saveItemAction} submitLabel={editing ? "Save" : "Add item"} pendingText="Saving…" hidden={start ? { itemId: start.id } : undefined}>
@@ -42,10 +44,11 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
         <SText name="code" label="Item code" maxLength={24} start={start?.code} placeholder={nextCode} className="[&_input]:font-mono" help={editing ? undefined : `Empty: ${nextCode}`} />
       </div>
       <div className="grid sm:grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1.5">
+        {/* data-field and required: an empty category is marked with the other problems at once, not after the next save (LE6). */}
+        <div className="flex flex-col gap-1.5" data-field="categoryId">
           <label htmlFor="item-cat" className="text-[13px] font-semibold text-ink2"><Words k="Category" /> <span className="text-bad" aria-hidden="true">*</span></label>
           {/* Held by React (not the box's default), so the form reset after a refused save keeps the category and the reorder hint follows it (LE1). */}
-          <KeepSelect id="item-cat" name="categoryId" value={catId} onChange={(e) => { setCatId(e.target.value); if (!editing && labCategories.includes(e.target.value)) setTracks(true); }}
+          <KeepSelect id="item-cat" name="categoryId" required value={catId} onChange={(e) => { setCatId(e.target.value); if (!editing && labCategories.includes(e.target.value)) setTracks(true); }}
             aria-invalid={cat.error ? true : undefined} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px] aria-[invalid=true]:border-bad">
             <option value="">Choose the category</option>
             {categories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
@@ -59,7 +62,8 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
       </div>
       <div className="grid grid-cols-2 gap-3">
         <SText name="reorderLevel" label="Reorder level" type="number" min={0} start={start?.reorderLevel} placeholder={String(reorderHint)} help={`Empty: the category's (${reorderHint}). 0: no alert.`} />
-        <SMoney name="price" label="Price per unit" start={start?.price} help="For stock value and fee charges" />
+        <SMoney name="price" label="Price per unit" start={start?.price} help="For stock value and fee charges"
+          pattern="\s*₹?\s*[0-9,]*(\.[0-9]{0,2})?\s*" title="a number of rupees, like 12.50" />
       </div>
       <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3">
         <div className="min-w-0 flex-1 text-[14px]">
@@ -78,9 +82,12 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
                 {stores.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
               </KeepSelect>
               <label className="sr-only" htmlFor={`open-qty-${i}`}><Words k="Quantity in store" /> {i + 1}</label>
-              <input id={`open-qty-${i}`} name="openQty" inputMode="numeric" placeholder="0" value={openQty[i] ?? ""} onChange={(e) => setAt(setOpenQty, i, e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-right tnum text-[14.5px]" />
+              <input id={`open-qty-${i}`} name="openQty" inputMode="numeric" pattern="\s*[0-9]*\s*" title="a whole number, 0 or more" placeholder="0" value={openQty[i] ?? ""}
+                aria-invalid={qty.error ? true : undefined} onChange={(e) => setAt(setOpenQty, i, e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-right tnum text-[14.5px]" />
             </div>
           ))}
+          {/* The opening stock boxes show their problem here, with the others at once (LE6). */}
+          <ProblemText name="openQty" given={qty.error} />
           {storeRows < stores.length && <button type="button" className="self-start text-[13px] font-semibold text-brand hover:underline" onClick={() => setStoreRows((n) => n + 1)}><Words k="Add stock in another store" /></button>}
           {tracks && (
             <div className="grid grid-cols-2 gap-3 mt-1">

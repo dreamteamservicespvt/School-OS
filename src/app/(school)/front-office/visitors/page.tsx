@@ -150,7 +150,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
           <Split side={300}>
             <Card className="overflow-hidden">
               <Toolbar>
-                <UrlSearch id="vis-search" placeholder={masked ? "Name, vehicle or pass number" : "Name, phone, vehicle or pass number"} />
+                <UrlSearch id="vis-search" placeholder={masked ? "Name, vehicle or pass number" : "Name, phone, vehicle or pass"} />
                 <PeriodFilter {...p.dates} fallback="today" />
                 {p.can.export && <ExportButton href={exportHref} />}
               </Toolbar>

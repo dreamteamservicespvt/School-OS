@@ -10,7 +10,7 @@ import { buttonClass } from "@/components/ui/button";
 import { ActionForm, FormCheck, FormChoice, FormSelect } from "@/components/students/action-form";
 import { loadVisibleStudent, StudentNotFound } from "@/lib/students/access";
 import { RELATIONS } from "@/lib/students/labels";
-import { BASE, studentPage } from "../../_lib/page";
+import { BASE, NO_ACCESS, studentPage } from "../../_lib/page";
 import { linkExistingAction } from "../../_actions/guardians";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
 /** Link a parent already on record (a brother's or sister's) to a student, found by phone or name. */
 export default async function LinkGuardianPage({ searchParams }: { searchParams: Promise<{ student?: string; q?: string; guardian?: string }> }) {
   const { current, can } = await studentPage();
-  if (!can.manage) redirect(`${BASE}/guardians`);
+  if (!can.manage) redirect(NO_ACCESS);
   const sp = await searchParams;
   if (!sp.student) notFound();
   const q = (sp.q ?? "").trim().slice(0, 60);

@@ -1,5 +1,5 @@
 // One Admission Report as Excel, CSV or PDF, with the filters on screen (P8).
-import { requireAction } from "@/lib/current";
+import { routeAction } from "@/lib/route-access";
 import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport } from "@/lib/exports";
 import { viewerFor } from "@/lib/admission/access";
@@ -15,7 +15,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ key: str
   const { key } = await params;
   const meta = REPORTS.find((r) => r.key === key);
   if (!meta) return new Response("This report was not found.", { status: 404 });
-  const { current } = await requireAction("admission-management", "export");
+  const gate = await routeAction("admission-management", "export");
+  if (gate instanceof Response) return gate;
+  const { current } = gate;
   const url = new URL(req.url);
   const format = exportFormatOf(url);
   return withSchool(current.ctx, async (tx) => {

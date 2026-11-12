@@ -1,7 +1,7 @@
 // Message History: one line per send, with delivered, read and failed counts.
 import "server-only";
 
-import type { Prisma } from "@prisma/client";
+import type { MessageStatus, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import type { ListParams } from "../list";
 import { inPeriod, PERIOD_FILTERS } from "./period";
@@ -38,6 +38,8 @@ export async function historyWhereIn(tx: Tx, ctx: SchoolContext, full: boolean, 
  * `notDelivered`: for status "not-delivered" (historyWhereIn), the people not reached; the dates
  * are then when they failed, not when the message was made.
  */
+const MESSAGE_STATUSES = ["SCHEDULED", "QUEUED", "SENT", "CANCELLED"] as const satisfies readonly MessageStatus[];
+
 export function historyWhere(ctx: SchoolContext, full: boolean, p: ListParams, timeZone: string, notDelivered?: Prisma.MessageRecipientWhereInput): Prisma.MessageWhereInput {
   const f = p.filters;
   const and: Prisma.MessageWhereInput[] = [{ schoolId: ctx.schoolId }];
@@ -46,7 +48,8 @@ export function historyWhere(ctx: SchoolContext, full: boolean, p: ListParams, t
   if (f.channel) and.push({ channels: { has: f.channel } });
   if (f.status === "not-delivered") and.push({ recipients: { some: notDelivered ?? { status: "FAILED" } } });
   else if (f.status === "failed") and.push({ recipients: { some: { status: "FAILED" } } });
-  else if (f.status) and.push({ status: f.status as Prisma.EnumMessageStatusFilter["equals"] });
+  // Only a real status: any other word in the address is ignored, never a failed page (QA LC23).
+  else if (f.status && (MESSAGE_STATUSES as readonly string[]).includes(f.status)) and.push({ status: f.status as (typeof MESSAGE_STATUSES)[number] });
   if (f.sender === "me") and.push({ sentById: ctx.userId });
   if (f.sender === "rules") and.push({ ruleKey: { not: null } });
   // People: not School OS's own messages (one-time codes, Parent Links, invites; QA SEC-01, LABEL-01).

@@ -106,15 +106,22 @@ export async function applyConcession(tx: Tx, ctx: SchoolContext, concessionId: 
  */
 export async function concessionHeadChoices(tx: Tx, studentId: string) {
   const enrolment = await currentEnrolment(tx, studentId);
-  const [heads, open] = await Promise.all([
+  const [heads, rows] = await Promise.all([
     tx.feeHead.findMany({ where: { archivedAt: null }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, kind: true } }),
-    tx.studentFeeDue.groupBy({ by: ["feeHeadId"], where: { studentId, state: "OPEN", balancePaise: { gt: 0 }, kind: { in: ["FEE", "CHARGE"] }, ...(enrolment ? { academicYearId: enrolment.academicYearId } : {}) } }),
+    tx.studentFeeDue.findMany({
+      where: { studentId, state: "OPEN", balancePaise: { gt: 0 }, kind: { in: ["FEE", "CHARGE", "LATE_FEE"] }, ...(enrolment ? { academicYearId: enrolment.academicYearId } : {}) },
+      select: { feeHeadId: true, kind: true, dueDate: true, balancePaise: true },
+    }),
   ]);
-  const own = new Set(open.map((o) => o.feeHeadId));
+  const own = new Set(rows.filter((r) => r.kind !== "LATE_FEE").map((o) => o.feeHeadId));
   const list = own.size ? heads.filter((h) => own.has(h.id)) : heads;
   const start = list.find((h) => h.kind === "tuition") ?? list.find((h) => /tuition/i.test(h.name)) ?? list[0] ?? null;
-  return { heads: list.map((h) => ({ id: h.id, name: h.name })), startId: start?.id ?? null };
+  // What is still to pay on each open row, so the form can say the most a concession can be (layman test LB1),
+  // by the same rule as coveredDues: the chosen heads (late fees for a waiver), the period by due date.
+  const open = rows.map((r) => ({ headId: r.feeHeadId, late: r.kind === "LATE_FEE", due: r.dueDate.toISOString().slice(0, 10), leftPaise: Number(r.balancePaise) }));
+  return { heads: list.map((h) => ({ id: h.id, name: h.name })), startId: start?.id ?? null, open };
 }
+
 
 function checkInput(input: ConcessionInput) {
   if (input.reason.trim().length < 5 || isScreenMessage(input.reason)) throw new MoneyProblem("Give a reason of at least 5 characters.", "reason");
@@ -168,7 +175,7 @@ export async function giveConcession(tx: Tx, ctx: SchoolContext, input: Concessi
   // A concession can never be more than is still to pay on what it covers (layman test LB1:
   // ₹50,000 asked on ₹16,899 owed went to the approver as ₹50,000). Said on the form, like a refund's maximum.
   if (input.mode === "amount" && input.amountPaise > estimate) {
-    throw new MoneyProblem(`Not more than ${formatRupees(estimate)}: that is all that is still to pay on the chosen fee heads in this period.`, opts.amountField ?? "value");
+    throw new MoneyProblem(`Not more than ${formatRupees(estimate)}: that is all that is still to pay on ${input.type === "LATE_FEE_WAIVER" ? "late fees" : input.dueIds?.length ? "the ticked rows" : "the chosen fee heads"} in this period.`, opts.amountField ?? "value");
   }
   await tx.concession.update({ where: { id: c.id }, data: { estimatedPaise: estimate } });
   await writeAudit(tx, ctx, {

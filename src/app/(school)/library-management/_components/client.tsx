@@ -14,7 +14,8 @@ import { inputCls } from "@/components/ui/field";
 import { useTyped } from "@/components/ui/url-sheet";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
+import { screenMessage } from "@/lib/i18n/messages";
 
 const noSubscribe = () => () => {};
 /** Whether this browser can read barcodes with the camera (false on the server). */
@@ -29,6 +30,8 @@ export function useCanScan() {
  */
 export function ScanBox({ href, param, label, placeholder, start = "", autoFocus, id, hint }: { href: string; param: string; label: string; placeholder: string; start?: string; autoFocus?: boolean; id: string; hint?: React.ReactNode }) {
   const router = useRouter();
+  // The label, placeholder and hint come in English; shown in the screen's language (layman test LE8).
+  const tr = useT();
   const video = useRef<HTMLVideoElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const [scanning, setScanning] = useState(false);
@@ -37,7 +40,7 @@ export function ScanBox({ href, param, label, placeholder, start = "", autoFocus
   const [busy, startNav] = useTransition();
   const go = (raw: string) => {
     const code = raw.trim();
-    if (!code) { setProblem("Scan the barcode or type the number."); input.current?.focus(); return; }
+    if (!code) { setProblem(tr("Scan the barcode or type the number.")); input.current?.focus(); return; }
     setProblem(null);
     const [path, query = ""] = href.split("?");
     const u = new URLSearchParams(query);
@@ -68,7 +71,7 @@ export function ScanBox({ href, param, label, placeholder, start = "", autoFocus
           await new Promise((r) => setTimeout(r, 250));
         }
       } catch {
-        setProblem("The camera could not be opened. Allow the camera in the browser, or type the number.");
+        setProblem(tr("The camera could not be opened. Allow the camera in the browser, or type the number."));
         setScanning(false);
       }
     })();
@@ -78,15 +81,15 @@ export function ScanBox({ href, param, label, placeholder, start = "", autoFocus
   return (
     <div className="flex flex-col gap-2">
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); go(String(new FormData(e.currentTarget).get("code") ?? "")); }}>
-        <label htmlFor={id} className="sr-only">{label}</label>
+        <label htmlFor={id} className="sr-only">{tr.any(label)}</label>
         <div className="relative flex-1 min-w-0">
           <ScanLine size={18} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
-          <input ref={input} id={id} name="code" defaultValue={start} placeholder={placeholder} autoFocus={autoFocus} autoComplete="off" spellCheck={false}
+          <input ref={input} id={id} name="code" defaultValue={start} placeholder={tr.any(placeholder)} autoFocus={autoFocus} autoComplete="off" spellCheck={false}
             aria-invalid={problem ? true : undefined} aria-describedby={problem ? `${id}-error` : hint ? `${id}-help` : undefined}
             className={cx(inputCls(problem), "h-12 pl-11 font-mono text-[15px]")} />
         </div>
         <Button type="submit" variant="primary" loading={busy} className="h-12"><Words k="Go" /></Button>
-        {canScan && <Button type="button" variant="secondary" icon={Camera} className="h-12" onClick={() => setScanning((s) => !s)} aria-pressed={scanning}><span className="hidden sm:inline">{scanning ? "Stop" : "Camera"}</span><span className="sr-only sm:hidden"><Words k="Use the camera" /></span></Button>}
+        {canScan && <Button type="button" variant="secondary" icon={Camera} className="h-12" onClick={() => setScanning((s) => !s)} aria-pressed={scanning}><span className="hidden sm:inline">{scanning ? tr("Stop") : tr("Camera")}</span><span className="sr-only sm:hidden"><Words k="Use the camera" /></span></Button>}
       </form>
       {scanning && (
         <div className="relative rounded-2xl bg-shade/80 h-44 overflow-hidden">
@@ -95,7 +98,7 @@ export function ScanBox({ href, param, label, placeholder, start = "", autoFocus
           <span className="absolute top-2 left-1/2 -translate-x-1/2 text-[11.5px] font-semibold text-white bg-shade/60 rounded-full px-2 py-0.5"><Words k="Hold the barcode inside the frame" /></span>
         </div>
       )}
-      {problem ? <p id={`${id}-error`} className="text-[12.5px] text-bad" role="alert">{problem}</p> : hint ? <p id={`${id}-help`} className="text-[12.5px] text-ink3">{hint}</p> : null}
+      {problem ? <p id={`${id}-error`} className="text-[12.5px] text-bad" role="alert">{problem}</p> : hint ? <p id={`${id}-help`} className="text-[12.5px] text-ink3">{typeof hint === "string" ? tr.any(hint) : hint}</p> : null}
     </div>
   );
 }
@@ -107,11 +110,12 @@ export type ActIcon = keyof typeof ICONS;
 /** A button that runs one server action (Renew, Remind, Approve...), with its problem shown in place. */
 export function ActButton({ action, fields, label, icon, variant = "secondary", size = "sm", className, pendingText, ariaLabel }: { action: Act; fields: Record<string, string>; label: React.ReactNode; icon?: ActIcon; variant?: ButtonVariant; size?: "sm" | "md" | "lg"; className?: string; pendingText?: string; ariaLabel?: string }) {
   const [state, run, pending] = useActionState<FormState<unknown>, FormData>(action, null);
+  const tr = useT();
   return (
     <form action={run} className={cx("relative z-[1] inline-flex flex-col items-start gap-1", className)}>
       {Object.entries(fields).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
-      <Button type="submit" variant={variant} size={size} icon={icon ? ICONS[icon] : undefined} loading={pending} aria-label={ariaLabel} className={className?.includes("w-full") ? "w-full" : undefined}>{pending && pendingText ? pendingText : label}</Button>
-      {state && !state.ok && <span className="text-[12px] text-bad max-w-[280px]" role="alert">{state.message}</span>}
+      <Button type="submit" variant={variant} size={size} icon={icon ? ICONS[icon] : undefined} loading={pending} aria-label={ariaLabel} className={className?.includes("w-full") ? "w-full" : undefined}>{pending && pendingText ? tr.any(pendingText) : typeof label === "string" ? tr.any(label) : label}</Button>
+      {state && !state.ok && <span className="text-[12px] text-bad max-w-[280px]" role="alert">{screenMessage(tr, state.message)}</span>}
     </form>
   );
 }
@@ -120,12 +124,13 @@ export function ActButton({ action, fields, label, icon, variant = "secondary", 
 export function SegField({ name, label, options, start, onChange, size, help }: { name: string; label: string; options: readonly SegOption[]; start: string; onChange?: (v: string) => void; size?: "sm" | "md"; help?: React.ReactNode }) {
   const t = useTyped(name, start);
   const [v, setV] = useState(t.value || start);
+  const tr = useT();
   return (
     <div className="flex flex-col gap-1.5">
-      <span className="text-[13px] font-semibold text-ink2">{label}</span>
-      <Segmented label={label} value={v} onChange={(x) => { setV(x); onChange?.(x); }} options={options} className="w-full" size={size} />
+      <span className="text-[13px] font-semibold text-ink2">{tr.any(label)}</span>
+      <Segmented label={tr.any(label)} value={v} onChange={(x) => { setV(x); onChange?.(x); }} options={options} className="w-full" size={size} />
       <input type="hidden" name={name} value={v} />
-      {t.error ? <p className="text-[12.5px] text-bad">{t.error}</p> : help ? <p className="text-[12.5px] text-ink3">{help}</p> : null}
+      {t.error ? <p className="text-[12.5px] text-bad">{t.error}</p> : help ? <p className="text-[12.5px] text-ink3">{typeof help === "string" ? tr.any(help) : help}</p> : null}
     </div>
   );
 }

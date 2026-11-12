@@ -9,12 +9,13 @@ import { PermissionDeniedError } from "@/lib/permissions";
 import { dateWhere, momentWhere, periodFromSearch } from "@/lib/periods";
 import { time12 } from "@/lib/academic/common";
 import { pageYear } from "@/lib/academic/page-campus";
-import { PAPER_STATUS_WORDS, classRange, patternLabel, shownExamStatus, showMarks } from "@/lib/exams/common";
+import { PAPER_STATUS_WORDS, classRange, patternLabel, shownExamStatus } from "@/lib/exams/common";
 import { examInScope, examScope, resultSubjects, type ExamScope } from "@/lib/exams/scope";
 import { papersFor, moderationList } from "@/lib/exams/marks";
 import { finalSheet, resultSheet } from "@/lib/exams/results";
 import { analyse } from "@/lib/exams/analysis";
 import { examOverlaps } from "../_lib/period";
+import { resultSheetRows } from "../_lib/result-export";
 import { periodSetup, type PeriodSetup } from "@/lib/period-setup";
 
 type Row = Record<string, string | number | null>;
@@ -119,18 +120,7 @@ async function build(tx: Tx, current: Current, scope: ExamScope, yearId: string,
       if (!UUID.test(examId) || !(await tx.exam.findFirst({ where: { id: examId, ...examInScope(scope) }, select: { id: true } }))) return null;
       const sheet = await resultSheet(tx, current.ctx, examId, sectionId, only);
       if (!sheet) return null;
-      const overall = only === null ? ["Total", "%", "Grade", "Rank", "Result"] : [];
-      const labels = ["Roll", "Student", "Admission no", ...sheet.columns.map((c) => c.gradeOnly ? c.name : `${c.name} (${c.max})`), ...overall, "Status"];
-      const rows = sheet.rows.map((r) => {
-        const row: Row = only === null
-          ? { Roll: r.rollNo, Student: r.name, "Admission no": r.admissionNo, Total: `${showMarks(r.total)} / ${r.maxTotal}`, "%": r.percent, Grade: r.grade ?? "", Rank: r.rank, Result: r.leftOut ? "Joined after this exam" : r.outcome ?? "", Status: r.status === "PUBLISHED" ? "Published" : "Draft" }
-          : { Roll: r.rollNo, Student: r.name, "Admission no": r.admissionNo, Status: r.status === "PUBLISHED" ? "Published" : "Draft" };
-        for (const c of sheet.columns) {
-          const cell = r.cells[c.id];
-          row[c.gradeOnly ? c.name : `${c.name} (${c.max})`] = !cell ? "" : cell.absent ? (cell.medical ? "ML" : "AB") : c.gradeOnly ? cell.grade ?? "" : cell.marks === null ? "" : showMarks(cell.marks);
-        }
-        return row;
-      });
+      const { labels, rows } = resultSheetRows(sheet, only === null);
       return { title: `${sheet.exam.title} · ${sheet.section.label}`, filters: "Class result sheet", labels, rows };
     }
     if (only !== null) return "denied";

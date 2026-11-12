@@ -121,6 +121,8 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
           label: g.label, value: formatRupees(g.amount), sub: `${g.students} ${g.students === 1 ? "student" : "students"}${filter.ageing === g.index ? " · showing" : ""}`,
           tone: STAT_TONES[Math.min(i, STAT_TONES.length - 1)], icon: Hourglass, href: here({ age: filter.ageing === g.index ? null : String(g.index), who: null }), active: filter.ageing === g.index,
         }))} />
+        {/* The same rule as the Outstanding report (layman test LB3), said so the counts add up for the reader. */}
+        {all.rows.length > 0 && <p className="text-[12.5px] text-ink3 -mt-2"><Words k="Each unpaid installment is counted by its own due date, as in the Outstanding report. A student with installments of different ages is in more than one group." /></p>}
 
         {all.classTotals.length > 0 && (
           <Card>

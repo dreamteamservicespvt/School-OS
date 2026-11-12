@@ -1,7 +1,7 @@
 // Typed dates and times in the date and time boxes (src/components/ui/date-input.tsx):
 // DD-MM-YYYY and 12-hour times on screen (00-global.md P17), YYYY-MM-DD and HH:MM to the form.
 import { describe, expect, it } from "vitest";
-import { addDays, addMonths, maskDate, missingDay, monthCells, parseDateText, parseTimeText, showDate, showTime, timeChoices, typedDate } from "@/lib/date-text";
+import { addDays, addMonths, exampleDate, maskDate, missingDay, monthCells, parseDateText, parseTimeText, showDate, showTime, timeChoices, typedDate } from "@/lib/date-text";
 
 const today = "2026-10-26";
 
@@ -77,7 +77,10 @@ describe("maskDate", () => {
     ["14 may", "14 may"],
     // Pasted year first (layman test LE3: "2026-12-31" became "20-26-12").
     ["2026-12-31", "31-12-2026"],
-    ["2026/1/5", "05-01-2026"],
+    ["2026/1/15", "15-01-2026"],
+    // Year first still being typed: left alone until the day has both digits.
+    ["2026/1/5", "2026/1/5"],
+    ["2026-12-3", "2026-12-3"],
     ["2026-12-31T10:30:00Z", "31-12-2026"],
     ["20261231", "31-12-2026"],
     ["20122012", "20-12-2012"],
@@ -107,6 +110,37 @@ describe("typedDate", () => {
 
   it("leaves typing in the middle of the box as it is", () => {
     expect(typedDate("12-11-2026", "12-131-2026", false)).toBe("12-131-2026");
+  });
+
+  it("never reads a year-first date typed key by key as another day (layman test LE3)", () => {
+    let shown = "";
+    for (const ch of "2026-12-31") shown = typedDate(shown, shown + ch, true);
+    // Day-first boxes put the dashes in as digits come: the text is not a date, so the box refuses it.
+    expect(parseDateText(shown, today)).toBeNull();
+    // Pasted whole, it is turned round to the same day.
+    expect(typedDate("", "2026-12-31", true)).toBe("31-12-2026");
+    // Pasted with a one-digit day, it is read when the box is left.
+    expect(parseDateText("2026/1/5", today)).toBe("2026-01-05");
+  });
+
+  it("types a new date over a box that holds one, key by key", () => {
+    let shown = "12-11-2026";
+    for (const ch of "05112026") shown = typedDate(shown, shown + ch, true);
+    expect(shown).toBe("05-11-2026");
+  });
+});
+
+// Layman test LE3: a due date box asked for a date "for example 14-05-2012", a day it refuses.
+describe("exampleDate", () => {
+  it("gives a box that starts today or later an example two weeks after its first day", () => {
+    expect(exampleDate("2026-11-12", "", "2026-11-12")).toBe("2026-11-26");
+    expect(exampleDate("2026-11-20", "2026-11-22", "2026-11-12")).toBe("2026-11-22");
+  });
+  it("keeps the usual example when the box takes it, else a day the box takes", () => {
+    expect(exampleDate("", "", "2026-11-12")).toBe("2012-05-14");
+    expect(exampleDate("", "2026-11-12", "2026-11-12")).toBe("2012-05-14");
+    expect(exampleDate("2026-04-01", "", "2026-11-12")).toBe("2026-04-01");
+    expect(exampleDate("", "2010-01-01", "2026-11-12")).toBe("2010-01-01");
   });
 });
 

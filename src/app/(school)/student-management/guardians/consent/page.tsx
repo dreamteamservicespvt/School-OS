@@ -11,7 +11,7 @@ import { ConfirmAction } from "@/components/students/confirm-action";
 import { consentRows, consentState } from "@/lib/students/consent";
 import { OPEN_LINK } from "@/lib/students/guardian-access";
 import { CONSENT_TYPES } from "@/lib/students/labels";
-import { BASE, studentPage } from "../../_lib/page";
+import { BASE, NO_ACCESS, studentPage } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { consentRequestAction } from "../../_actions/guardians";
 import { Words } from "@/lib/i18n/client";
@@ -27,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
  */
 export default async function ConsentRequestPage({ searchParams }: { searchParams: Promise<{ ids?: string; section?: string; scope?: string }> }) {
   const { current, yearIds, can } = await studentPage();
-  if (!can.manage) redirect(`${BASE}/guardians`);
+  if (!can.manage) redirect(NO_ACCESS);
   const sp = await searchParams;
   const ids = (sp.ids ?? "").split(",").filter((x) => /^[0-9a-f-]{36}$/i.test(x));
   const data = await withSchool(current.ctx, async (tx) => {

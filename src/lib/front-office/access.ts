@@ -1,10 +1,10 @@
 // Who may see and do what in Front Office (05-roles.md, and the approved
 // design's role audit, config.js VIEW_BY_ROLE / OWN / DUTY of 13 Oct 2026).
 // The desk itself (Receptionist, or a school-made role with Full) does the
-// work. The Principal and School Admin have Full in 05-roles.md but do not do
-// desk work (owner's rule of 13 Oct 2026): the Principal reads Visitors and
-// Enquiries & Calls and books appointments; the School Admin reads every page
-// but the Reception Desk. The Vice Principal (View) reads Visitors and
+// work, and so does the School Admin, who has Full in 05-roles.md (owner
+// decision 12 Nov 2026, layman tests LA11/LD6). The Principal has Full but
+// does not do desk work (owner's rule of 13 Oct 2026): the Principal reads
+// Visitors and Enquiries & Calls and books appointments. The Vice Principal (View) reads Visitors and
 // Appointments; Office Staff (View) only Visitors and Pickup; Gate Security
 // (Own) registers visitors, keeps the gate log and checks passes at the gate.
 // Phone numbers are masked for roles without the permission.

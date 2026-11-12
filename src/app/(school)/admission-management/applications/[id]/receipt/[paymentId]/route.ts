@@ -1,6 +1,6 @@
 // The application fee receipt, in the school's fee receipt design. Made only
 // for a confirmed payment (02 §5 "Application fee receipt before payment").
-import { requireAction } from "@/lib/current";
+import { routeAction } from "@/lib/route-access";
 import { withSchool } from "@/lib/db";
 import { applicationScope, viewerFor } from "@/lib/admission/access";
 import { UUID_RE } from "@/lib/admission/act";
@@ -11,7 +11,9 @@ const text = (t: string, status: number) => new Response(t, { status, headers: {
 
 async function handleGET(_req: Request, { params }: { params: Promise<{ id: string; paymentId: string }> }) {
   const { id, paymentId } = await params;
-  const { current } = await requireAction("admission-management", "print");
+  const gate = await routeAction("admission-management", "print");
+  if (gate instanceof Response) return gate;
+  const { current } = gate;
   if (!UUID_RE.test(id) || !UUID_RE.test(paymentId)) return text("This receipt was not found.", 404);
   return withSchool(current.ctx, async (tx) => {
     const v = await viewerFor(tx, current.ctx, current);

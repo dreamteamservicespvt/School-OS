@@ -87,18 +87,12 @@ export function todayFor(timeZone: string, now = new Date()) {
   return new Date(`${f.format(now)}T00:00:00Z`);
 }
 
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 export const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
-/** "12 Oct 2026", or "5 – 12 Oct 2026" for a range. */
+/** "12-10-2026", or "05-10-2026 – 12-10-2026" for a range: dates as DD-MM-YYYY, as on every screen (00-global.md P17; layman test LD7). */
 export function rangeWords(from: string, to: string) {
-  const a = new Date(`${from}T00:00:00Z`), b = new Date(`${to}T00:00:00Z`);
-  const d = (x: Date, year = true) => `${x.getUTCDate()} ${MONTHS[x.getUTCMonth()]}${year ? ` ${x.getUTCFullYear()}` : ""}`;
-  if (from === to) return d(a);
-  if (a.getUTCFullYear() === b.getUTCFullYear()) {
-    return a.getUTCMonth() === b.getUTCMonth() ? `${a.getUTCDate()} – ${d(b)}` : `${d(a, false)} – ${d(b)}`;
-  }
-  return `${d(a)} – ${d(b)}`;
+  const d = (iso: string) => iso.split("-").reverse().join("-");
+  return from === to ? d(from) : `${d(from)} – ${d(to)}`;
 }
 
 /** Days from `from` to `to`, both included. */

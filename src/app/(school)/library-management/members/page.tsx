@@ -23,7 +23,7 @@ import { UrlSearch, UrlSelect } from "@/components/ui/url-controls";
 import { Stats, Stack, Toolbar, DataList, Empty } from "@/components/money/kit";
 import { memberByKey, type Member } from "@/lib/library/members";
 import type { LibrarySettings } from "@/lib/library/settings";
-import { books as bookWords } from "@/lib/library/words";
+import { groupWords } from "@/lib/library/words";
 import { LibHead } from "../_components/head";
 import { BlockSheet, LimitSheet } from "../_components/sheets";
 import { BASE, libGuard, one, qs, type SearchParams } from "../_lib/page";
@@ -31,7 +31,7 @@ import { blockedCount, memberRows, readMembersFilter, type MemberRow } from "../
 import { inCampus } from "@/lib/campus";
 import { campusFilter } from "@/lib/campus-scope";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Members & Cards · Library Management") };
@@ -63,32 +63,33 @@ export default async function MembersPage({ searchParams }: { searchParams: Sear
     return { ...list, sections, blocked, staffCount, studentCount, sheetMember, out };
   });
 
+  const t = await getT();
   const base = `${BASE}/members`;
   const href = (change: Record<string, string | number | null>) => listHref(base, params, { page: null, ...change });
-  const tabHref = (t: string) => listHref(base, { ...params, filters: {}, q: "", page: 1 }, { type: t === "students" ? null : t });
+  const tabHref = (tab: string) => listHref(base, { ...params, filters: {}, q: "", page: 1 }, { type: tab === "students" ? null : tab });
   const exportHref = qs(`${base}/export`, { type: f.tab === "students" ? null : f.tab, q: f.q || null, sec: f.sec || null });
   const sectionName = d.sections.find((x) => x.id === f.sec)?.label;
   const cardsHref = f.tab === "staff" ? `${base}/cards?type=staff` : f.sec ? `${base}/cards?sec=${f.sec}` : null;
 
   const actions = can.members && cardsHref ? (
-    <ButtonLink href={cardsHref} icon={IdCard} target="_blank" prefetch={false}>{f.tab === "staff" ? "Print staff cards" : `Print cards for ${sectionName}`}</ButtonLink>
+    <ButtonLink href={cardsHref} icon={IdCard} target="_blank" prefetch={false}>{f.tab === "staff" ? t("Print staff cards") : t("Print cards for {section}", { section: sectionName ?? "" })}</ButtonLink>
   ) : undefined;
 
   const columns = [
-    { key: "name", label: "Name", render: (m: MemberRow) => (
+    { key: "name", label: t("Name"), render: (m: MemberRow) => (
       <span className="flex items-center gap-2.5 min-w-[180px]"><Avatar name={m.name} src={m.photoFileId ? fileLink(m.photoFileId, current.ctx.schoolId) : null} size={32} /><b className="font-semibold">{m.name}</b></span>
     ) },
-    { key: "type", label: "Type", render: (m: MemberRow) => (m.kind === "STAFF" ? "Staff" : "Student") },
-    { key: "group", label: "Class or department", render: (m: MemberRow) => m.group },
-    { key: "card", label: "Card no.", nowrap: true, render: (m: MemberRow) => <span className="font-mono text-[13px]">{m.cardNo}</span> },
-    { key: "limit", label: "Limit", nowrap: true, render: (m: MemberRow) => <span title={m.limitChanged ? `Changed: ${m.limitChanged.reason}` : undefined}>{bookWords(m.limit)}{m.limitChanged && <span className="text-info"> *</span>}</span> },
-    { key: "out", label: "Books out", align: "right" as const, render: (m: MemberRow) => <span className={m.overdue ? "text-bad font-semibold" : ""}>{m.out}{m.overdue ? ` (${m.overdue} late)` : ""}</span> },
-    { key: "fines", label: "Fines due", align: "right" as const, nowrap: true, render: (m: MemberRow) => (m.finesPaise > BigInt(0) ? <span className="text-warn font-semibold">{formatRupees(m.finesPaise)}</span> : "") },
-    { key: "status", label: "Status", render: (m: MemberRow) => (m.blocked ? <Pill tone="bad"><Words k="Blocked" /></Pill> : m.active ? <Pill tone="ok"><Words k="Active" /></Pill> : <Pill><Words k="Not active" /></Pill>) },
+    { key: "type", label: t("Type"), render: (m: MemberRow) => (m.kind === "STAFF" ? t("Staff") : t("Student")) },
+    { key: "group", label: t("Class or department"), render: (m: MemberRow) => groupWords(t, m.group) },
+    { key: "card", label: t("Card no."), nowrap: true, render: (m: MemberRow) => <span className="font-mono text-[13px]">{m.cardNo}</span> },
+    { key: "limit", label: t("Limit"), nowrap: true, render: (m: MemberRow) => <span title={m.limitChanged ? t("Changed: {reason}", { reason: m.limitChanged.reason }) : undefined}>{t(m.limit === 1 ? "1 book" : "{n} books", { n: m.limit })}{m.limitChanged && <span className="text-info"> *</span>}</span> },
+    { key: "out", label: t("Books out"), align: "right" as const, render: (m: MemberRow) => <span className={m.overdue ? "text-bad font-semibold" : ""}>{m.out}{m.overdue ? ` ${t("({n} late)", { n: m.overdue })}` : ""}</span> },
+    { key: "fines", label: t("Fines due"), align: "right" as const, nowrap: true, render: (m: MemberRow) => (m.finesPaise > BigInt(0) ? <span className="text-warn font-semibold">{formatRupees(m.finesPaise)}</span> : "") },
+    { key: "status", label: t("Status"), render: (m: MemberRow) => (m.blocked ? <Pill tone="bad"><Words k="Blocked" /></Pill> : m.active ? <Pill tone="ok"><Words k="Active" /></Pill> : <Pill><Words k="Not active" /></Pill>) },
     ...(can.members ? [{ key: "act", label: "", render: (m: MemberRow) => (
       <span className="flex gap-3 justify-end text-[13px] font-semibold whitespace-nowrap">
         <Link href={href({ limit: m.key })} scroll={false} className="text-brand hover:underline"><Words k="Limit" /></Link>
-        <Link href={href({ block: m.key })} scroll={false} className={m.blocked ? "text-brand hover:underline" : "text-bad hover:underline"}>{m.blocked ? "Unblock" : "Block"}</Link>
+        <Link href={href({ block: m.key })} scroll={false} className={m.blocked ? "text-brand hover:underline" : "text-bad hover:underline"}>{t(m.blocked ? "Unblock" : "Block")}</Link>
       </span>
     ) }] : []),
   ];
@@ -98,33 +99,33 @@ export default async function MembersPage({ searchParams }: { searchParams: Sear
       <LibHead pageName="Members & Cards" href={base} mode={p.mode} actions={actions} sub="Every student and staff member borrows automatically. Limits come from Library Settings." />
       <Stack>
         <Stats items={[
-          { label: "Students", value: d.studentCount.toLocaleString("en-IN"), href: tabHref("students"), active: f.tab === "students" },
-          { label: "Staff", value: d.staffCount.toLocaleString("en-IN"), href: tabHref("staff"), active: f.tab === "staff" },
-          { label: "Blocked", value: d.blocked.toLocaleString("en-IN"), tone: d.blocked ? "bad" : undefined, href: tabHref("blocked"), active: f.tab === "blocked" },
-          { label: "Books out now", value: d.out.toLocaleString("en-IN") },
+          { label: t("Students"), value: d.studentCount.toLocaleString("en-IN"), href: tabHref("students"), active: f.tab === "students" },
+          { label: t("Staff"), value: d.staffCount.toLocaleString("en-IN"), href: tabHref("staff"), active: f.tab === "staff" },
+          { label: t("Blocked"), value: d.blocked.toLocaleString("en-IN"), tone: d.blocked ? "bad" : undefined, href: tabHref("blocked"), active: f.tab === "blocked" },
+          { label: t("Books out now"), value: d.out.toLocaleString("en-IN") },
         ]} />
         <Card>
           <Toolbar className="md:flex-wrap">
             <SegLinks label="Members" value={f.tab} options={[{ value: "students", label: "Students", href: tabHref("students") }, { value: "staff", label: "Staff", href: tabHref("staff") }, { value: "blocked", label: "Blocked", href: tabHref("blocked") }]} />
-            <UrlSearch placeholder={f.tab === "staff" ? "Search name or staff code" : "Search name or admission number"} label="Search members" className="flex-1 md:min-w-[260px]" id="members-search" />
+            <UrlSearch placeholder={t(f.tab === "staff" ? "Search name or staff code" : "Search name or admission number")} label={t("Search members")} className="flex-1 md:min-w-[260px]" id="members-search" />
             <div className="flex gap-2 flex-wrap">
-              {f.tab === "students" && d.sections.length > 0 && <UrlSelect param="sec" label="Class" options={[{ value: "", label: "All classes" }, ...d.sections.map((x) => ({ value: x.id, label: x.label }))]} />}
-              {can.export && <ExportButton href={exportHref} />}
+              {f.tab === "students" && d.sections.length > 0 && <UrlSelect param="sec" label={t("Class")} options={[{ value: "", label: t("All classes") }, ...d.sections.map((x) => ({ value: x.id, label: x.label }))]} />}
+              {can.export && <ExportButton href={exportHref} label={t("Export")} />}
             </div>
           </Toolbar>
           {can.members && f.tab === "students" && !f.sec && (
             <p className="px-5 py-2.5 text-[13px] text-ink3 border-b border-line flex items-center gap-2"><IdCard size={15} aria-hidden="true" /><Words k="Choose a class to print its library cards. The card number is the admission number, as on the ID card." /></p>
           )}
-          <DataList rows={d.rows} rowKey={(m) => m.key} minWidth={900} caption="Library members"
-            empty={<Empty icon={f.q ? Search : UsersRound} title={f.tab === "blocked" ? "Nobody is blocked" : f.q ? "No members match" : "No members"} body={f.q ? "Try another name or number." : undefined} />}
+          <DataList rows={d.rows} rowKey={(m) => m.key} minWidth={900} caption={t("Library members")}
+            empty={<Empty icon={f.q ? Search : UsersRound} title={t(f.tab === "blocked" ? "Nobody is blocked" : f.q ? "No members match" : "No members")} body={f.q ? t("Try another name or number.") : undefined} />}
             columns={columns}
             phone={(m) => ({
-              title: m.name, sub: `${m.group} · ${m.cardNo}`, avatar: m.name,
+              title: m.name, sub: `${groupWords(t, m.group)} · ${m.cardNo}`, avatar: m.name,
               right: m.blocked ? <Pill tone="bad"><Words k="Blocked" /></Pill> : <span className="text-[12.5px] text-ink3 tnum">{m.out} <Words k="of" /> {m.limit}</span>,
               pills: <>
                 {m.overdue > 0 && <Pill tone="bad">{m.overdue} <Words k="late" /></Pill>}
                 {m.finesPaise > BigInt(0) && <Pill tone="warn">{formatRupees(m.finesPaise)} <Words k="due" /></Pill>}
-                {can.members && <span className="flex gap-3 text-[12.5px] font-semibold"><Link href={href({ limit: m.key })} scroll={false} className="text-brand"><Words k="Limit" /></Link><Link href={href({ block: m.key })} scroll={false} className={m.blocked ? "text-brand" : "text-bad"}>{m.blocked ? "Unblock" : "Block"}</Link></span>}
+                {can.members && <span className="flex gap-3 text-[12.5px] font-semibold"><Link href={href({ limit: m.key })} scroll={false} className="text-brand"><Words k="Limit" /></Link><Link href={href({ block: m.key })} scroll={false} className={m.blocked ? "text-brand" : "text-bad"}>{t(m.blocked ? "Unblock" : "Block")}</Link></span>}
               </>,
             })}
           />

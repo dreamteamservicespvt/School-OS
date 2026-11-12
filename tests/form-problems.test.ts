@@ -2,7 +2,7 @@
 // gone as soon as the box is right (testing issues 10, 20, 25; owner test
 // 2026-11-05 on Add Staff). The browser part is src/components/ui/form-problems.tsx.
 import { describe, expect, it } from "vitest";
-import { cleanLabel, firstInOrder, problemMessage, shownProblem } from "@/lib/form-problems";
+import { cleanLabel, firstInOrder, isSummaryMessage, problemMessage, shownProblem } from "@/lib/form-problems";
 
 describe("the message for a bad box", () => {
   it("says what is missing in the school's words, not the browser's", () => {
@@ -47,5 +47,19 @@ describe("which message a box shows", () => {
   it("brings the first bad box of the page into view, in the page's order", () => {
     expect(firstInOrder(["fullName", "phone", "designation", "aadhaar"], ["aadhaar", "phone"])).toBe("phone");
     expect(firstInOrder(["fullName"], ["allocations"])).toBeNull();
+  });
+});
+
+// Layman tests LE7, LC13: "Please fix 2 things before saving." showed above the summary that says the same.
+describe("the form's own count of problems", () => {
+  it("is known, so it is not shown again above the error summary", () => {
+    expect(isSummaryMessage("Please fix 2 things before saving.")).toBe(true);
+    expect(isSummaryMessage("Please fix 4 things before saving:")).toBe(true);
+    expect(isSummaryMessage("Class 2 already exists in this year. Add a section to it instead.")).toBe(false);
+    expect(isSummaryMessage(undefined)).toBe(false);
+  });
+
+  it("a wrong amount or opening stock is named with how to fix it (layman test LE6)", () => {
+    expect(problemMessage({ patternMismatch: true }, { label: "Price per unit", kind: "text", title: "a number of rupees, like 12.50" })).toBe("Price per unit: a number of rupees, like 12.50.");
   });
 });

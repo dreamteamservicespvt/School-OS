@@ -11,7 +11,7 @@ import { concessionHeadChoices, shownReason } from "@/lib/fees/concessions";
 import { studentCard } from "@/lib/fees/dues";
 import { findStudents } from "@/lib/fees/find";
 import { refundable } from "@/lib/fees/refunds";
-import { modeLabel, percentWord, REFUND_MODES } from "@/lib/fees/words";
+import { modeLabel, percentWord, plural, REFUND_MODES } from "@/lib/fees/words";
 import { Card } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { Pill, type BadgeTone } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { Banner, DataList, DL, Empty, Stack, Stats, Toolbar, type Tone } from "@
 import { LinkTabs } from "@/components/ui/link-tabs";
 import { UrlSearch, UrlSegmented } from "@/components/money/url-filters";
 import { UrlSheet } from "@/components/ui/url-sheet";
+import { Alert } from "@/components/ui/alert";
 import { ExportButton } from "@/components/ui/export-button";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { FeeHead } from "../_components/fee-head";
@@ -334,7 +335,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
 
           {tab === "refunds" && data.refs && (
             <DataList rows={data.refs.rows} rowKey={(r) => r.id} rowHref={(r) => here({ open: r.id })} minWidth={900} caption="Refunds"
-              footer={`${data.refs.rows.length} of ${data.refs.total} refunds · never more than was paid`}
+              footer={`${data.refs.rows.length} of ${plural(data.refs.total, "refund")} · never more than was paid`}
               empty={data.refs.total === 0 && !filtered
                 ? <Empty icon={Undo2} title="No refunds" body="A refund comes from one payment and goes to Approvals. Once approved, mark it refunded with the date and reference." action={canEdit ? <ButtonLink href={here({ do: "refund" })} scroll={false} variant="secondary" icon={Undo2}><Words k="New refund" /></ButtonLink> : undefined} />
                 : <Empty icon={SearchX} title="No refunds match" body="Try another search, status or date." action={<Link href={tabHref("refunds")} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>} />}
@@ -367,6 +368,12 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
       {open && opened && (
         <UrlSheet title={opened.row.name} closeHref={close} sub={opened.kind === "concession" ? `${opened.row.scholarshipType ?? opened.row.typeLabel} · ${opened.row.value}` : `Refund of ${formatRupees(opened.row.amountPaise)} from ${opened.row.receipt}`}>
           <div className="flex flex-col gap-4">
+            {/* Asked for more than is still to pay (a request made before the form refused it, layman test LB1): the approver sees what really comes off. */}
+            {opened.kind === "concession" && opened.row.status === "WAITING" && opened.row.askedPaise !== null && opened.row.askedPaise > opened.row.amountPaise && (
+              <Alert tone="warning">
+                <Words k="Asked for" /> {formatRupees(opened.row.askedPaise)}, <Words k="but only" /> {formatRupees(opened.row.amountPaise)} <Words k="is still to pay on these fee heads in this period. If approved, at most that comes off." />
+              </Alert>
+            )}
             {opened.kind === "concession" ? (
               <DL rows={[
                 ["Status", <Pill key="s" tone={status(opened.row.status)[1]}>{status(opened.row.status)[0]}</Pill>],
@@ -437,7 +444,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
         </UrlSheet>
       )}
       {doing === "new" && chosen && (
-        <ConcessionSheet closeHref={close} student={chosen} heads={(data.choices?.heads ?? data.heads).map((h) => ({ value: h.id, label: h.name }))} startHead={data.choices?.startId ?? null} scholarships={data.scholarshipNames} limit={limit} startType={tab === "scholarships" ? "SCHOLARSHIP" : "DISCOUNT"} />
+        <ConcessionSheet closeHref={close} student={chosen} heads={(data.choices?.heads ?? data.heads).map((h) => ({ value: h.id, label: h.name }))} startHead={data.choices?.startId ?? null} open={data.choices?.open ?? []} today={p.today.toISOString().slice(0, 10)} scholarships={data.scholarshipNames} limit={limit} startType={tab === "scholarships" ? "SCHOLARSHIP" : "DISCOUNT"} />
       )}
       {doing === "refund" && chosen && (
         <RefundSheet closeHref={close} student={chosen} payments={data.payments} modes={REFUND_MODES.map((m) => ({ value: m.value, label: m.label }))} />

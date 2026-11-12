@@ -5,7 +5,7 @@
 // concession off, and the bulk discount rules. Every one is checked again on
 // the server and written to the audit log.
 
-import { useActionState, useState } from "react";
+import { useActionState, useRef, useState } from "react";
 import { Check, Paperclip } from "lucide-react";
 import { SheetForm } from "@/components/ui/url-sheet";
 import { SArea, SChips, SDate, SMoney, SSelect, SSwitch, SText } from "@/components/ui/sheet-fields";
@@ -15,6 +15,8 @@ import { Alert } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import type { Option } from "@/components/ui/field";
 import type { FormState } from "@/lib/forms";
+import { formatRupees } from "@/lib/format";
+import { mostOff, type OpenRow } from "@/lib/fees/concession-max";
 import {
   archiveRuleAction, decideAction, markRefundedAction, newConcessionAction, newRefundAction, revokeConcessionAction, saveRuleAction, toggleRuleAction,
 } from "./actions";
@@ -41,7 +43,7 @@ const PERIODS: Option[] = [
   { value: "range", label: "Choose dates" },
 ];
 
-export function ConcessionSheet({ closeHref, student, heads, startHead, scholarships, limit, startType }: {
+export function ConcessionSheet({ closeHref, student, heads, startHead, scholarships, limit, startType, open, today }: {
   closeHref: string;
   student: { id: string; name: string; classLabel: string };
   /** The student's own fee heads with something left to pay this year. */
@@ -51,11 +53,27 @@ export function ConcessionSheet({ closeHref, student, heads, startHead, scholars
   scholarships: string[];
   limit: string;
   startType: string;
+  /** The student's open rows this year: the most a concession can take off is worked out from them (layman test LB1). */
+  open: OpenRow[];
+  /** The school's today, YYYY-MM-DD: "Rest of this year" covers rows due from today. */
+  today: string;
 }) {
   const [type, setType] = useState(startType);
   const [unit, setUnit] = useState<"amount" | "percent">("amount");
   const [period, setPeriod] = useState("rest");
   const [doc, setDoc] = useState<string | null>(null);
+  const firstHeads = startHead ? [startHead] : heads[0] ? [heads[0].value] : [];
+  const [picked, setPicked] = useState<string[]>(firstHeads);
+  const [range, setRange] = useState<{ from: string | null; to: string | null }>({ from: null, to: null });
+  const [typed, setTyped] = useState("");
+  const chips = useRef<HTMLDivElement>(null);
+  // The ticked heads, read after a chip is pressed (the chips keep their own state).
+  const readPicked = () => requestAnimationFrame(() => setPicked([...(chips.current?.querySelectorAll<HTMLInputElement>('input[name="feeHeadId"]') ?? [])].map((i) => i.value)));
+  const waiver = type === "LATE_FEE_WAIVER";
+  const max = mostOff(open, { waiver, headIds: picked, from: period === "rest" ? today : period === "range" ? range.from : null, to: period === "range" ? range.to : null });
+  const asked = Math.round((Number(typed.replace(/[^\d.]/g, "")) || 0) * 100);
+  const over = unit === "amount" && asked > max;
+  const maxText = formatRupees(max);
   return (
     <SheetForm title="New concession" sub={`Amount or percentage off the fees of ${student.name}${student.classLabel ? `, ${student.classLabel}` : ""}`}
       closeHref={closeHref} action={newConcessionAction} submitLabel="Apply concession" pendingText="Saving…" hidden={{ studentId: student.id, mode: unit }}>
@@ -65,8 +83,8 @@ export function ConcessionSheet({ closeHref, student, heads, startHead, scholars
       </div>
       {period === "range" && (
         <div className="grid grid-cols-2 gap-3">
-          <SDate name="periodFrom" label="From" required />
-          <SDate name="periodTo" label="To" required />
+          <SDate name="periodFrom" label="From" required onChange={(e) => setRange((r) => ({ ...r, from: e.target.value || null }))} />
+          <SDate name="periodTo" label="To" required onChange={(e) => setRange((r) => ({ ...r, to: e.target.value || null }))} />
         </div>
       )}
       {type === "SCHOLARSHIP" && (
@@ -80,14 +98,22 @@ export function ConcessionSheet({ closeHref, student, heads, startHead, scholars
         <div className="flex gap-2 items-start">
           <Segmented label="Amount or percent" value={unit} onChange={(v) => setUnit(v as typeof unit)} options={[{ value: "amount", label: "₹" }, { value: "percent", label: "%" }]} />
           <div className="flex-1 min-w-0">
-            {unit === "amount" ? <SMoney name="value" label="Amount" placeholder="2,000" />
+            {unit === "amount" ? <SMoney name="value" label="Amount" placeholder="2,000" onValue={setTyped} />
               : <SText name="value" label="Percent" inputMode="decimal" placeholder="10" className="tnum" />}
           </div>
         </div>
+        {/* The most it can be, like a refund's maximum (layman test LB1). The server checks it again. */}
+        {unit === "amount" ? (
+          max > 0
+            ? <p className={over ? "text-[12.5px] font-semibold text-bad" : "text-[12.5px] text-ink3"} role={over ? "alert" : undefined}>
+                <Words k="Not more than" /> {maxText}: <Words k={waiver ? "still to pay on late fees in this period." : "still to pay on the ticked fee heads in this period."} />
+              </p>
+            : <p className="text-[12.5px] font-semibold text-bad"><Words k={waiver ? "No late fee is left to pay in this period." : "Nothing is left to pay on the ticked fee heads in this period."} /></p>
+        ) : <p className="text-[12.5px] text-ink3"><Words k="A percent of each installment, at most 100." /></p>}
         <p className="text-[12.5px] text-ink3"><Words k="Up to" /> {limit} <Words k="applies at once. Above it, the request goes to Approvals and applies once approved." /></p>
       </div>
       {type !== "LATE_FEE_WAIVER" ? (
-        heads.length ? <SChips name="feeHeadId" label="Fee heads" required options={heads} start={startHead ? [startHead] : heads[0] ? [heads[0].value] : []} />
+        heads.length ? <div ref={chips} onClick={readPicked}><SChips name="feeHeadId" label="Fee heads" required options={heads} start={firstHeads} /></div>
           : <Alert tone="info"><Words k="No fee heads yet. Add them in Fee Structure first." /></Alert>
       ) : <p className="text-[13px] text-ink3"><Words k="Takes off late fees the student has not paid yet." /></p>}
       <SArea name="reason" label="Reason" required placeholder="Example: father’s job loss, letter attached" help="Printed on the approval and kept in the audit log." />

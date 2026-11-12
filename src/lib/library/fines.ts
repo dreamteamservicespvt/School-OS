@@ -11,6 +11,7 @@ import type { Book, LibraryFine, LibraryFineReason } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { formatDate, formatRupees } from "../format";
+import { englishT, type T } from "../i18n/t";
 import { nextNumber, formatNumber } from "../sequences";
 import { requestApproval } from "../approvals";
 import { addCharge, removeDue } from "../fees/structure";
@@ -250,8 +251,9 @@ export async function correctCharge(tx: Tx, ctx: SchoolContext, fineId: string, 
 }
 
 /** Words for where a fine is paid, as the fines list shows them. */
-export function fineWhere(f: Pick<LibraryFine, "status" | "feeDueId" | "staffId" | "paidHow" | "receiptNo" | "paidAt" | "salaryAt">, tz: string) {
-  if (f.status === "PAID") return f.paidHow === "fees" ? "Paid with fees" : f.paidHow === "salary" ? `Taken from salary${f.paidAt ? ` · ${formatDate(f.paidAt, tz)}` : ""}` : `Paid at the desk${f.receiptNo ? ` · ${f.receiptNo}` : ""}${f.paidAt ? ` · ${formatDate(f.paidAt, tz)}` : ""}`;
-  if (f.status === "DUE") return f.feeDueId ? "Added to fees" : f.salaryAt ? "From the next salary" : f.staffId ? "Collect here or from salary" : "Collect here";
+/** Where a fine is paid or to be paid; with `t` in the screen's language (layman test LE8), else English (exports). */
+export function fineWhere(f: Pick<LibraryFine, "status" | "feeDueId" | "staffId" | "paidHow" | "receiptNo" | "paidAt" | "salaryAt">, tz: string, t: T = englishT) {
+  if (f.status === "PAID") return f.paidHow === "fees" ? t("Paid with fees") : f.paidHow === "salary" ? `${t("Taken from salary")}${f.paidAt ? ` · ${formatDate(f.paidAt, tz)}` : ""}` : `${t("Paid at the desk")}${f.receiptNo ? ` · ${f.receiptNo}` : ""}${f.paidAt ? ` · ${formatDate(f.paidAt, tz)}` : ""}`;
+  if (f.status === "DUE") return t(f.feeDueId ? "Added to fees" : f.salaryAt ? "From the next salary" : f.staffId ? "Collect here or from salary" : "Collect here");
   return "";
 }

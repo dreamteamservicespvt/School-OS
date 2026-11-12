@@ -89,8 +89,8 @@ describe("date periods", () => {
   });
 
   it("say ranges in words", () => {
-    expect(rangeWords("2026-10-12", "2026-10-12")).toBe("12 Oct 2026");
-    expect(rangeWords("2026-09-28", "2026-10-03")).toBe("28 Sep – 3 Oct 2026");
-    expect(rangeWords("2025-12-28", "2026-01-03")).toBe("28 Dec 2025 – 3 Jan 2026");
+    expect(rangeWords("2026-10-12", "2026-10-12")).toBe("12-10-2026");
+    expect(rangeWords("2026-09-28", "2026-10-03")).toBe("28-09-2026 – 03-10-2026");
+    expect(rangeWords("2025-12-28", "2026-01-03")).toBe("28-12-2025 – 03-01-2026");
   });
 });

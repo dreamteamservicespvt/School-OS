@@ -1,6 +1,6 @@
 // Applications export (P8): Excel, CSV or PDF with the filters on screen.
 // Restricted fields (Aadhaar) are never exported.
-import { requireAction } from "@/lib/current";
+import { routeAction } from "@/lib/route-access";
 import { withSchool } from "@/lib/db";
 import { readListParams } from "@/lib/list";
 import { buildExport, exportResponse, logExport } from "@/lib/exports";
@@ -15,7 +15,9 @@ import { feeStatus } from "@/lib/admission/fee";
 import { names } from "@/lib/admission/choices";
 
 export async function GET(req: Request) {
-  const { current } = await requireAction("admission-management", "export");
+  const gate = await routeAction("admission-management", "export");
+  if (gate instanceof Response) return gate;
+  const { current } = gate;
   const url = new URL(req.url);
   const format = exportFormatOf(url);
   const params = readListParams(Object.fromEntries(url.searchParams.entries()), APPLICATION_FILTERS);

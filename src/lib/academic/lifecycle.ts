@@ -242,14 +242,17 @@ export async function yearUsage(tx: Tx, yearId: string): Promise<{ what: string;
       FROM information_schema.columns c
      WHERE c.table_schema = 'public' AND c.column_name = 'academic_year_id'`;
   const out = new Map<string, number>();
-  for (const t of tables) {
-    if (STRUCTURE_TABLES.has(t.table_name) || !/^[a-z_][a-z0-9_]*$/.test(t.table_name)) continue;
-    const rows = await tx.$queryRawUnsafe<{ n: bigint }[]>(
-      `SELECT count(*)::bigint AS n FROM "${t.table_name}" WHERE academic_year_id = $1::uuid${t.has_archived ? " AND archived_at IS NULL" : ""}`,
-      yearId,
-    );
-    const n = Number(rows[0]?.n ?? 0);
-    if (n > 0) out.set(words(t.table_name), (out.get(words(t.table_name)) ?? 0) + n);
+  // One statement for every table (it was one round trip per table, over 50 per year: Academic
+  // Settings took 9 to 30 s to open, layman test LA10). Table names come from the catalogue and
+  // are checked to be plain names before they are put in the text.
+  const parts = tables
+    .filter((t) => !STRUCTURE_TABLES.has(t.table_name) && /^[a-z_][a-z0-9_]*$/.test(t.table_name))
+    .map((t) => `SELECT '${t.table_name}'::text AS t, count(*)::bigint AS n FROM "${t.table_name}" WHERE academic_year_id = $1::uuid${t.has_archived ? " AND archived_at IS NULL" : ""}`);
+  if (!parts.length) return [];
+  const rows = await tx.$queryRawUnsafe<{ t: string; n: bigint }[]>(parts.join(" UNION ALL "), yearId);
+  for (const r of rows) {
+    const n = Number(r.n ?? 0);
+    if (n > 0) out.set(words(r.t), (out.get(words(r.t)) ?? 0) + n);
   }
   return [...out.entries()].map(([what, count]) => ({ what, count })).sort((a, b) => b.count - a.count);
 }

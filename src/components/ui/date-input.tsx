@@ -19,7 +19,7 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock } from "luc
 import { cx } from "./cx";
 import { useT } from "@/lib/i18n/client";
 import {
-  addDays, addMonths, daysIn, isoOf, isoParts, missingDay, monthCells, parseDateText, parseTimeText,
+  addDays, addMonths, daysIn, exampleDate, isoOf, isoParts, missingDay, monthCells, parseDateText, parseTimeText,
   showDate, showTime, timeChoices, todayIn, typedDate, weekdayOf,
 } from "@/lib/date-text";
 
@@ -193,13 +193,17 @@ export function DateInput(props: DateProps) {
   const [held, setHeld, resetProps] = useHeld(value, str(defaultValue), hidden);
   const [open, setOpen] = useState<false | "mouse" | "keys">(false);
   const [touch, setTouch] = useState(false);
+  // The first click into a box holding a date selects it, so typing replaces it (layman test LD2);
+  // a second click places the cursor, as in any box. Tab already selects the whole text.
+  const clickedIn = useRef(false);
   const today = todayIn();
 
   const set = (v: string) => { setHeld(v); emit(hidden.current, v, onChange); };
   const tooEarly = t.any("Pick a date on or after {date}.", { date: showDate(min) });
   const tooLate = t.any("Pick a date on or before {date}.", { date: showDate(max) });
   const typed = useTyped({
-    held, show: showDate, parse: (s) => parseDateText(s, today),
+    // A value that is not a date (text a refused save sent back) shows as it is, so the box and the form agree.
+    held, show: (v) => (isoParts(v.slice(0, 10)) ? showDate(v.slice(0, 10)) : v), parse: (s) => parseDateText(s, today),
     check: (v) => (min && v < min ? tooEarly : max && v > max ? tooLate : ""), commitValue: set,
   });
   const noDay = typed.bad === "unreadable" && typed.draft !== null ? missingDay(typed.draft, today) : null;
@@ -208,7 +212,7 @@ export function DateInput(props: DateProps) {
       day: noDay.d, year: noDay.y,
       month: new Intl.DateTimeFormat(locale(t.lang), { month: "long", timeZone: "UTC" }).format(Date.UTC(2000, noDay.m0, 1)),
     })
-    : typed.bad === "unreadable" ? t.any("Type the date as DD-MM-YYYY, for example 14-05-2012.") : typed.bad;
+    : typed.bad === "unreadable" ? t.any("Type the date as DD-MM-YYYY, for example {date}.", { date: showDate(exampleDate(min, max, today)) }) : typed.bad;
 
   useEffect(() => { field.current?.setCustomValidity(message); }, [message]);
   // Text that is not a date goes to the form as it is, so the save is refused; it was sent empty
@@ -256,7 +260,13 @@ export function DateInput(props: DateProps) {
         onPointerDown={(e) => {
           rest.onPointerDown?.(e);
           setTouch(e.pointerType === "touch");
+          clickedIn.current = document.activeElement !== e.currentTarget;
           if (!locked && e.button === 0) setOpen("mouse");
+        }}
+        onClick={(e) => {
+          rest.onClick?.(e);
+          if (clickedIn.current && !locked && typed.draft === null && e.currentTarget.value) e.currentTarget.select();
+          clickedIn.current = false;
         }}
         onChange={(e) => {
           const end = e.target.selectionStart === e.target.value.length;

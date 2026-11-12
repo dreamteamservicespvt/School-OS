@@ -8,7 +8,7 @@ import { Card, CardBody } from "@/components/ui/card";
 import { EmptyState } from "@/components/empty-state";
 import { previewAdmissionNo, nextRollNo } from "@/lib/students/students";
 import { feePlanApplies } from "@/lib/students/hooks";
-import { BASE, studentPage, todayIso } from "../_lib/page";
+import { BASE, NO_ACCESS, studentPage, todayIso } from "../_lib/page";
 import { sectionOptions } from "../_lib/queries";
 import { AddStudentForm } from "./add-student-form";
 import { Words } from "@/lib/i18n/client";
@@ -20,7 +20,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function AddStudentPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
   const { current, settings, year, yearIds, can, tz } = await studentPage();
-  if (!can.manage) redirect(`/no-access?m=student-management`);
+  if (!can.manage) redirect(NO_ACCESS);
   const sp = await searchParams;
   const data = await withSchool(current.ctx, async (tx) => {
     // Each campus's current year: the class picker lists every campus the person works in, named by campus.

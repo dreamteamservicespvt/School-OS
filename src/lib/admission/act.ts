@@ -125,6 +125,14 @@ export function needName(fd: FormData, key: string, label: string, noLetters: st
   return v;
 }
 
+/** The enquiry Owner filter: names only, with the job title kept where two staff share a name (LA9: "Naresh Kumar" twice). */
+export function ownerFilter(owners: { value: string; label: string }[]) {
+  const bare = (label: string) => label.replace(/ \(.*\)$/, "");
+  const seen = new Map<string, number>();
+  for (const o of owners) seen.set(bare(o.label), (seen.get(bare(o.label)) ?? 0) + 1);
+  return owners.map((o) => ({ value: o.value, label: (seen.get(bare(o.label)) ?? 0) > 1 ? o.label : bare(o.label) }));
+}
+
 export function maybe(fd: FormData, key: string, label: string, max = 500): string | null {
   const v = str(fd, key);
   if (v.length > max) throw new AdmissionProblem(`${label} can be at most ${max} characters.`, key);

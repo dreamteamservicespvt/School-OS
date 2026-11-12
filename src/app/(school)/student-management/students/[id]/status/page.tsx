@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ActionForm, FormArea, FormChoice, FormText } from "@/components/students/action-form";
 import { loadVisibleStudent, StudentNotFound } from "@/lib/students/access";
 import { PROFILE_CHANGES, STATUS_LABEL, STATUS_TONE, type StudentStatusKey } from "@/lib/students/labels";
-import { BASE, studentPage, todayIso } from "../../../_lib/page";
+import { BASE, NO_ACCESS, studentPage, todayIso } from "../../../_lib/page";
 import { changeStatusAction } from "../../../_actions/students";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ChangeStatusPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { current, can, tz } = await studentPage();
-  if (!can.manage) redirect(`${BASE}/students/${id}`);
+  if (!can.manage) redirect(NO_ACCESS);
   let data;
   try {
     data = await withSchool(current.ctx, async (tx) => {

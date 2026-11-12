@@ -27,7 +27,7 @@ import { departmentOf } from "@/lib/inventory/purchases";
 import { vendorsWithDetail } from "@/lib/inventory/vendors";
 import { itemOptions, departmentOptions, locationOptions, vendorOptions } from "@/lib/inventory/lookup";
 import { lowStockItems } from "@/lib/inventory/stock";
-import { BILL_STATUS, ORDER_STATUS, REQUEST_STATUS, billState, paiseToField, plural } from "@/lib/inventory/words";
+import { BILL_STATUS, ORDER_STATUS, REQUEST_STATUS, billState, paiseToField } from "@/lib/inventory/words";
 import { InvHead } from "../_components/head";
 import { ActButton } from "../_components/client";
 import { DecideBox } from "../_components/decide";
@@ -37,7 +37,7 @@ import { decideAction } from "../actions";
 import { archiveVendorAction, restoreVendorAction } from "./actions";
 import { BillSheet, CancelBillSheet, CancelRequestSheet, OrderSheet, PayBillSheet, RequestSheet, VendorSheet, type VendorStart } from "./sheets";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Purchases & Vendors · Inventory Management") };
@@ -50,6 +50,7 @@ const day = (d: Date) => formatDate(d, "UTC");
 const rupees = (p: bigint) => Number(p) / 100;
 
 export default async function PurchasesPage({ searchParams }: { searchParams: SearchParams }) {
+  const t = await getT();
   const sp = await searchParams;
   const p = await invGuard("purchases");
   const { current, can, today, todayStr, settings: s } = p;
@@ -138,16 +139,16 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
 
   const keep = { tab, status: status || null, vendor: vendorF || null, q: q || null, ...per.keep };
   const here = (change: Record<string, string | null>) => addQ(qs(`${BASE}/purchases`, keep), { page: null, ...change });
-  const tabHref = (t: Tab) => qs(`${BASE}/purchases`, { tab: t, ...per.keep });
+  const tabHref = (tab: Tab) => qs(`${BASE}/purchases`, { tab, ...per.keep });
   const deptName = new Map(d.depts.map((x) => [x.value, x.label]));
   const storesOpt = d.stores.map(({ value, label }) => ({ value, label }));
   const main = d.stores.find((x) => x.isMain)?.value ?? d.stores[0]?.value ?? "";
-  const linesWords = (ls: { itemId: string; qty: number }[]) => ls.map((l) => `${d.items.get(l.itemId)?.name ?? "Item"} × ${l.qty}`).join(", ");
+  const linesWords = (ls: { itemId: string; qty: number }[]) => ls.map((l) => `${d.items.get(l.itemId)?.name ?? t("Item")} × ${l.qty}`).join(", ");
 
   const stats: StatItem[] = [
-    { label: "Requests waiting", value: d.waitingReq.toLocaleString("en-IN"), tone: d.waitingReq ? "info" : undefined, href: qs(`${BASE}/purchases`, { tab: "requests", status: "WAITING" }) },
-    { label: "Orders to receive", value: d.openOrders.toLocaleString("en-IN"), sub: d.lateOrders ? `${d.lateOrders} late` : undefined, tone: d.lateOrders ? "warn" : undefined, href: qs(`${BASE}/purchases`, { tab: "orders", status: "open" }) },
-    { label: "Unpaid bills", value: formatRupees(d.unpaid), sub: plural(d.unpaidCount, "bill"), tone: d.unpaidCount ? "warn" : undefined, href: qs(`${BASE}/purchases`, { tab: "bills", status: "unpaid" }) },
+    { label: t("Requests waiting"), value: d.waitingReq.toLocaleString("en-IN"), tone: d.waitingReq ? "info" : undefined, href: qs(`${BASE}/purchases`, { tab: "requests", status: "WAITING" }) },
+    { label: t("Orders to receive"), value: d.openOrders.toLocaleString("en-IN"), sub: d.lateOrders ? t("{n} late", { n: d.lateOrders }) : undefined, tone: d.lateOrders ? "warn" : undefined, href: qs(`${BASE}/purchases`, { tab: "orders", status: "open" }) },
+    { label: t("Unpaid bills"), value: formatRupees(d.unpaid), sub: t(d.unpaidCount === 1 ? "1 bill" : "{n} bills", { n: d.unpaidCount.toLocaleString("en-IN") }), tone: d.unpaidCount ? "warn" : undefined, href: qs(`${BASE}/purchases`, { tab: "bills", status: "unpaid" }) },
   ];
 
   const actions = can.purchase ? (
@@ -158,11 +159,11 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
   ) : can.pay ? <ButtonLink href={here({ bill: "new" })} variant="secondary" icon={Receipt} scroll={false}><Words k="Record bill" /></ButtonLink> : undefined;
 
   const statusChips: Record<Tab, { value: string; label: string }[]> = {
-    requests: [{ value: "", label: "All" }, ...Object.entries(REQUEST_STATUS).map(([value, v]) => ({ value, label: v.label }))],
-    orders: [{ value: "", label: "All" }, { value: "open", label: "To receive" }, ...Object.entries(ORDER_STATUS).map(([value, v]) => ({ value, label: v.label }))],
+    requests: [{ value: "", label: t("All") }, ...Object.entries(REQUEST_STATUS).map(([value, v]) => ({ value, label: v.label }))],
+    orders: [{ value: "", label: t("All") }, { value: "open", label: t("To receive") }, ...Object.entries(ORDER_STATUS).map(([value, v]) => ({ value, label: v.label }))],
     receipts: [],
-    bills: [{ value: "", label: "All" }, { value: "unpaid", label: "Unpaid" }, { value: "due7", label: "Due within 7 days" }, { value: "waiting", label: "Waiting approval" }, { value: "paid", label: "Paid" }, { value: "cancelled", label: "Cancelled" }],
-    vendors: [{ value: "", label: "Active" }, { value: "archived", label: "Archived" }],
+    bills: [{ value: "", label: t("All") }, { value: "unpaid", label: t("Unpaid") }, { value: "due7", label: t("Due within 7 days") }, { value: "waiting", label: t("Waiting approval") }, { value: "paid", label: t("Paid") }, { value: "cancelled", label: t("Cancelled") }],
+    vendors: [{ value: "", label: t("Active") }, { value: "archived", label: t("Archived") }],
   };
   const pager = d.total > PAGE_SIZE ? <Pager page={page} pageSize={PAGE_SIZE} total={d.total} prevHref={here({ page: page > 2 ? String(page - 1) : null })} nextHref={here({ page: String(page + 1) })} /> : null;
   const exportHref = qs(`${BASE}/purchases/export`, keep);
@@ -172,82 +173,82 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
       <InvHead pageName="Purchases & Vendors" href={`${BASE}/purchases`} mode={p.mode} actions={actions} />
       <Stack>
         <Stats items={stats} />
-        <SegLinks label="Purchases tabs" value={tab} options={[
-          { value: "requests", label: "Requests", href: tabHref("requests") },
-          { value: "orders", label: "Purchase orders", href: tabHref("orders") },
-          { value: "receipts", label: "Goods received", href: tabHref("receipts") },
-          { value: "bills", label: "Bills", href: tabHref("bills") },
-          { value: "vendors", label: "Vendors", href: qs(`${BASE}/purchases`, { tab: "vendors" }) },
+        <SegLinks label={t("Purchases tabs")} value={tab} options={[
+          { value: "requests", label: t("Requests"), href: tabHref("requests") },
+          { value: "orders", label: t("Purchase orders"), href: tabHref("orders") },
+          { value: "receipts", label: t("Goods received"), href: tabHref("receipts") },
+          { value: "bills", label: t("Bills"), href: tabHref("bills") },
+          { value: "vendors", label: t("Vendors"), href: qs(`${BASE}/purchases`, { tab: "vendors" }) },
         ]} className="flex w-full max-w-full overflow-x-auto [scrollbar-width:none]" />
         <Card>
           <Toolbar className="md:flex-wrap">
-            {tab !== "bills" && <UrlSearch placeholder={tab === "vendors" ? "Search vendor, phone or GSTIN" : "Search number"} label="Search" className="flex-1 md:min-w-[220px]" id="purchases-search" />}
+            {tab !== "bills" && <UrlSearch placeholder={t(tab === "vendors" ? "Search vendor, phone or GSTIN" : "Search number")} label={t("Search")} className="flex-1 md:min-w-[220px]" id="purchases-search" />}
             <div className="flex gap-2 flex-wrap">
-              {statusChips[tab].length > 0 && <UrlSelect param="status" label="Status" value={status} options={statusChips[tab]} />}
-              {["orders", "receipts", "bills"].includes(tab) && <UrlSelect param="vendor" label="Vendor" options={[{ value: "", label: "All vendors" }, ...d.vendors]} className="max-w-[220px]" />}
-              {tab !== "vendors" && !(tab === "bills" && status === "due7") && <PeriodFilter {...p.dates} fallback="finyear" />}
-              {can.export && <ExportButton href={exportHref} />}
+              {statusChips[tab].length > 0 && <UrlSelect param="status" label={t("Status")} value={status} options={statusChips[tab]} />}
+              {["orders", "receipts", "bills"].includes(tab) && <UrlSelect param="vendor" label={t("Vendor")} options={[{ value: "", label: t("All vendors") }, ...d.vendors]} className="max-w-[220px]" />}
+              {tab !== "vendors" && !(tab === "bills" && status === "due7") && <PeriodFilter {...p.dates} fallback="finyear" allLabel={t("All dates")} />}
+              {can.export && <ExportButton href={exportHref} label={t("Export")} />}
               {tab === "vendors" && (can.purchase || can.pay) && <ButtonLink href={here({ editvendor: "new" })} icon={Plus} scroll={false}><Words k="Add vendor" /></ButtonLink>}
               {tab === "bills" && can.purchase && <ButtonLink href={here({ bill: "new" })} icon={Plus} scroll={false}><Words k="Record bill" /></ButtonLink>}
             </div>
           </Toolbar>
 
           {tab === "requests" && (
-            <DataList rows={d.requests} rowKey={(r) => r.id} rowHref={(r) => here({ request: r.id })} minWidth={860} caption="Purchase requests"
-              empty={<Empty icon={ClipboardList} title="No purchase requests on these dates" body={can.purchase ? "Raise one from here, or from a low-stock alert." : "Requests raised by the store keeper show here."} />}
+            <DataList rows={d.requests} rowKey={(r) => r.id} rowHref={(r) => here({ request: r.id })} minWidth={860} caption={t("Purchase requests")}
+              empty={<Empty icon={ClipboardList} title={t("No purchase requests on these dates")} body={t(can.purchase ? "Raise one from here, or from a low-stock alert." : "Requests raised by the store keeper show here.")} />}
               columns={[
-                { key: "date", label: "Date", nowrap: true, render: (r) => <span className="tnum">{day(r.date)}<span className="block text-[12px] text-ink3 font-mono">{r.number}</span></span> },
-                { key: "items", label: "Items", render: (r) => <span className="block min-w-[200px] text-[13.5px]">{linesWords(r.lines)}</span> },
-                { key: "reason", label: "Reason", render: (r) => <span className="text-[13px] text-ink2">{r.reason}</span> },
-                { key: "dept", label: "Department", render: (r) => (r.departmentId ? deptName.get(r.departmentId) ?? "" : "") },
-                { key: "amount", label: "Estimate", align: "right", nowrap: true, render: (r) => formatRupees(r.estimatePaise) },
-                { key: "status", label: "Status", render: (r) => <span className="flex flex-col items-start gap-1"><Pill tone={REQUEST_STATUS[r.status].tone}>{REQUEST_STATUS[r.status].label}</Pill>{r.approvalId && d.mine.has(r.approvalId) && <span className="text-[12px] font-semibold text-info"><Words k="Waiting for you" /></span>}</span> },
+                { key: "date", label: t("Date"), nowrap: true, render: (r) => <span className="tnum">{day(r.date)}<span className="block text-[12px] text-ink3 font-mono">{r.number}</span></span> },
+                { key: "items", label: t("Items"), render: (r) => <span className="block min-w-[200px] text-[13.5px]">{linesWords(r.lines)}</span> },
+                { key: "reason", label: t("Reason"), render: (r) => <span className="text-[13px] text-ink2">{r.reason}</span> },
+                { key: "dept", label: t("Department"), render: (r) => (r.departmentId ? deptName.get(r.departmentId) ?? "" : "") },
+                { key: "amount", label: t("Estimate"), align: "right", nowrap: true, render: (r) => formatRupees(r.estimatePaise) },
+                { key: "status", label: t("Status"), render: (r) => <span className="flex flex-col items-start gap-1"><Pill tone={REQUEST_STATUS[r.status].tone}>{t.any(REQUEST_STATUS[r.status].label)}</Pill>{r.approvalId && d.mine.has(r.approvalId) && <span className="text-[12px] font-semibold text-info"><Words k="Waiting for you" /></span>}</span> },
               ]}
-              phone={(r) => ({ title: linesWords(r.lines), sub: `${r.number} · ${day(r.date)} · ${formatRupees(r.estimatePaise)}`, icon: ClipboardList, iconTone: "brand", pills: <Pill tone={REQUEST_STATUS[r.status].tone}>{REQUEST_STATUS[r.status].label}</Pill> })}
+              phone={(r) => ({ title: linesWords(r.lines), sub: `${r.number} · ${day(r.date)} · ${formatRupees(r.estimatePaise)}`, icon: ClipboardList, iconTone: "brand", pills: <Pill tone={REQUEST_STATUS[r.status].tone}>{t.any(REQUEST_STATUS[r.status].label)}</Pill> })}
             />
           )}
 
           {tab === "orders" && (
-            <DataList rows={d.orders} rowKey={(o) => o.id} rowHref={(o) => `${BASE}/purchases/orders/${o.id}`} minWidth={860} caption="Purchase orders"
-              empty={<Empty icon={ShoppingCart} title="No purchase orders on these dates" body={can.purchase ? "Make one from an approved request, or for a small purchase." : "Orders made by the store keeper show here."} />}
+            <DataList rows={d.orders} rowKey={(o) => o.id} rowHref={(o) => `${BASE}/purchases/orders/${o.id}`} minWidth={860} caption={t("Purchase orders")}
+              empty={<Empty icon={ShoppingCart} title={t("No purchase orders on these dates")} body={t(can.purchase ? "Make one from an approved request, or for a small purchase." : "Orders made by the store keeper show here.")} />}
               columns={[
-                { key: "date", label: "Date", nowrap: true, render: (o) => <span className="tnum">{day(o.date)}<span className="block text-[12px] text-ink3 font-mono">{o.number}</span></span> },
-                { key: "vendor", label: "Vendor", render: (o) => <b className="font-semibold">{d.vendorName.get(o.vendorId) ?? ""}</b> },
-                { key: "items", label: "Items", render: (o) => <span className="block min-w-[200px] text-[13.5px]">{linesWords(o.lines)}</span> },
-                { key: "amount", label: "Amount", align: "right", nowrap: true, render: (o) => formatRupees(o.totalPaise) },
-                { key: "expected", label: "Expected", nowrap: true, render: (o) => (o.expectedOn ? <span className={o.expectedOn < today && ["SENT", "PART_RECEIVED"].includes(o.status) ? "text-bad font-semibold" : ""}>{day(o.expectedOn)}</span> : "") },
-                { key: "status", label: "Status", render: (o) => <span className="flex flex-col items-start gap-1"><Pill tone={ORDER_STATUS[o.status].tone}>{ORDER_STATUS[o.status].label}</Pill>{o.approvalId && d.mine.has(o.approvalId) && o.status === "WAITING" && <span className="text-[12px] font-semibold text-info"><Words k="Waiting for you" /></span>}</span> },
+                { key: "date", label: t("Date"), nowrap: true, render: (o) => <span className="tnum">{day(o.date)}<span className="block text-[12px] text-ink3 font-mono">{o.number}</span></span> },
+                { key: "vendor", label: t("Vendor"), render: (o) => <b className="font-semibold">{d.vendorName.get(o.vendorId) ?? ""}</b> },
+                { key: "items", label: t("Items"), render: (o) => <span className="block min-w-[200px] text-[13.5px]">{linesWords(o.lines)}</span> },
+                { key: "amount", label: t("Amount"), align: "right", nowrap: true, render: (o) => formatRupees(o.totalPaise) },
+                { key: "expected", label: t("Expected"), nowrap: true, render: (o) => (o.expectedOn ? <span className={o.expectedOn < today && ["SENT", "PART_RECEIVED"].includes(o.status) ? "text-bad font-semibold" : ""}>{day(o.expectedOn)}</span> : "") },
+                { key: "status", label: t("Status"), render: (o) => <span className="flex flex-col items-start gap-1"><Pill tone={ORDER_STATUS[o.status].tone}>{t.any(ORDER_STATUS[o.status].label)}</Pill>{o.approvalId && d.mine.has(o.approvalId) && o.status === "WAITING" && <span className="text-[12px] font-semibold text-info"><Words k="Waiting for you" /></span>}</span> },
               ]}
-              phone={(o) => ({ title: d.vendorName.get(o.vendorId) ?? "", sub: `${o.number} · ${day(o.date)} · ${linesWords(o.lines)}`, right: formatRupees(o.totalPaise), icon: ShoppingCart, iconTone: "brand", pills: <Pill tone={ORDER_STATUS[o.status].tone}>{ORDER_STATUS[o.status].label}</Pill> })}
+              phone={(o) => ({ title: d.vendorName.get(o.vendorId) ?? "", sub: `${o.number} · ${day(o.date)} · ${linesWords(o.lines)}`, right: formatRupees(o.totalPaise), icon: ShoppingCart, iconTone: "brand", pills: <Pill tone={ORDER_STATUS[o.status].tone}>{t.any(ORDER_STATUS[o.status].label)}</Pill> })}
             />
           )}
 
           {tab === "receipts" && (
-            <DataList rows={d.receipts} rowKey={(r) => r.id} rowHref={(r) => `${BASE}/purchases/orders/${r.orderId}`} minWidth={820} caption="Goods received"
-              empty={<Empty icon={Truck} title="No goods received on these dates" body="Receipts are recorded against a purchase order." />}
+            <DataList rows={d.receipts} rowKey={(r) => r.id} rowHref={(r) => `${BASE}/purchases/orders/${r.orderId}`} minWidth={820} caption={t("Goods received")}
+              empty={<Empty icon={Truck} title={t("No goods received on these dates")} body={t("Receipts are recorded against a purchase order.")} />}
               columns={[
-                { key: "date", label: "Date", nowrap: true, render: (r) => <span className="tnum">{day(r.date)}<span className="block text-[12px] text-ink3 font-mono">{r.number}</span></span> },
-                { key: "order", label: "Order", render: (r) => <span className="font-mono text-[13px]">{r.order.number}</span> },
-                { key: "vendor", label: "Vendor", render: (r) => d.vendorName.get(r.order.vendorId) ?? "" },
-                { key: "items", label: "Items", render: (r) => <span className="block min-w-[200px] text-[13.5px]">{linesWords(r.lines)}</span> },
-                { key: "store", label: "Store", render: (r) => d.stores.find((x) => x.value === r.locationId)?.label ?? "" },
-                { key: "by", label: "Received by", render: (r) => d.who.get(r.receivedById ?? "") ?? "" },
+                { key: "date", label: t("Date"), nowrap: true, render: (r) => <span className="tnum">{day(r.date)}<span className="block text-[12px] text-ink3 font-mono">{r.number}</span></span> },
+                { key: "order", label: t("Order"), render: (r) => <span className="font-mono text-[13px]">{r.order.number}</span> },
+                { key: "vendor", label: t("Vendor"), render: (r) => d.vendorName.get(r.order.vendorId) ?? "" },
+                { key: "items", label: t("Items"), render: (r) => <span className="block min-w-[200px] text-[13.5px]">{linesWords(r.lines)}</span> },
+                { key: "store", label: t("Store"), render: (r) => d.stores.find((x) => x.value === r.locationId)?.label ?? "" },
+                { key: "by", label: t("Received by"), render: (r) => d.who.get(r.receivedById ?? "") ?? "" },
               ]}
               phone={(r) => ({ title: linesWords(r.lines), sub: `${r.number} · ${day(r.date)} · ${r.order.number}`, icon: Truck, iconTone: "ok" })}
             />
           )}
 
           {tab === "bills" && (
-            <DataList rows={d.bills} rowKey={(b) => b.bill.id} minWidth={900} caption="Vendor bills"
-              empty={<Empty icon={Receipt} title="No bills on these dates" body={can.purchase ? "Record the vendor's bill when it comes with the goods." : "Bills recorded by the store keeper show here, ready to pay."} />}
+            <DataList rows={d.bills} rowKey={(b) => b.bill.id} minWidth={900} caption={t("Vendor bills")}
+              empty={<Empty icon={Receipt} title={t("No bills on these dates")} body={t(can.purchase ? "Record the vendor's bill when it comes with the goods." : "Bills recorded by the store keeper show here, ready to pay.")} />}
               columns={[
-                { key: "date", label: "Bill date", nowrap: true, render: (b) => <span className="tnum">{day(b.bill.billDate)}<span className="block text-[12px] text-ink3 font-mono">{b.bill.billNo}</span></span> },
-                { key: "vendor", label: "Vendor", render: (b) => <b className="font-semibold">{d.vendorName.get(b.bill.vendorId) ?? ""}</b> },
-                { key: "order", label: "Order", render: (b) => (b.bill.orderId ? <Link className="font-mono text-[13px] text-brand hover:underline" href={`${BASE}/purchases/orders/${b.bill.orderId}`}><Words k="Open order" /></Link> : <span className="text-ink3"><Words k="Direct" /></span>) },
-                { key: "amount", label: "Amount", align: "right", nowrap: true, render: (b) => formatRupees(b.bill.amountPaise) },
-                { key: "left", label: "To pay", align: "right", nowrap: true, render: (b) => (b.expense && b.expense.status !== "CANCELLED" ? formatRupees(b.expense.amountPaise - b.expense.paidPaise) : "") },
-                { key: "due", label: "Due", nowrap: true, render: (b) => (b.bill.dueDate ? <span className={b.bill.dueDate < today && b.expense && b.expense.paidPaise < b.expense.amountPaise ? "text-bad font-semibold" : ""}>{day(b.bill.dueDate)}</span> : "") },
-                { key: "status", label: "Status", render: (b) => { const st = b.expense ? billState(b.expense) : "CANCELLED"; return <Pill tone={BILL_STATUS[st].tone}>{BILL_STATUS[st].label}</Pill>; } },
+                { key: "date", label: t("Bill date"), nowrap: true, render: (b) => <span className="tnum">{day(b.bill.billDate)}<span className="block text-[12px] text-ink3 font-mono">{b.bill.billNo}</span></span> },
+                { key: "vendor", label: t("Vendor"), render: (b) => <b className="font-semibold">{d.vendorName.get(b.bill.vendorId) ?? ""}</b> },
+                { key: "order", label: t("Order"), render: (b) => (b.bill.orderId ? <Link className="font-mono text-[13px] text-brand hover:underline" href={`${BASE}/purchases/orders/${b.bill.orderId}`}><Words k="Open order" /></Link> : <span className="text-ink3"><Words k="Direct" /></span>) },
+                { key: "amount", label: t("Amount"), align: "right", nowrap: true, render: (b) => formatRupees(b.bill.amountPaise) },
+                { key: "left", label: t("To pay"), align: "right", nowrap: true, render: (b) => (b.expense && b.expense.status !== "CANCELLED" ? formatRupees(b.expense.amountPaise - b.expense.paidPaise) : "") },
+                { key: "due", label: t("Due"), nowrap: true, render: (b) => (b.bill.dueDate ? <span className={b.bill.dueDate < today && b.expense && b.expense.paidPaise < b.expense.amountPaise ? "text-bad font-semibold" : ""}>{day(b.bill.dueDate)}</span> : "") },
+                { key: "status", label: t("Status"), render: (b) => { const st = b.expense ? billState(b.expense) : "CANCELLED"; return <Pill tone={BILL_STATUS[st].tone}>{t.any(BILL_STATUS[st].label)}</Pill>; } },
                 { key: "act", label: "", render: (b) => {
                   const st = b.expense ? billState(b.expense) : "CANCELLED";
                   return (
@@ -259,19 +260,19 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
                   );
                 } },
               ]}
-              phone={(b) => { const st = b.expense ? billState(b.expense) : "CANCELLED"; return { title: d.vendorName.get(b.bill.vendorId) ?? "", sub: `Bill ${b.bill.billNo} · ${day(b.bill.billDate)}${b.bill.dueDate ? ` · due ${day(b.bill.dueDate)}` : ""}`, right: formatRupees(b.bill.amountPaise), icon: Receipt, iconTone: "brand", pills: <><Pill tone={BILL_STATUS[st].tone}>{BILL_STATUS[st].label}</Pill>{can.pay && (st === "UNPAID" || st === "PART_PAID") && <Link className="text-[13px] font-semibold text-brand ml-2 relative z-[1]" href={here({ pay: b.bill.id })} scroll={false}><Words k="Pay" /></Link>}</> }; }}
+              phone={(b) => { const st = b.expense ? billState(b.expense) : "CANCELLED"; return { title: d.vendorName.get(b.bill.vendorId) ?? "", sub: `${t("Bill {no}", { no: b.bill.billNo })} · ${day(b.bill.billDate)}${b.bill.dueDate ? ` · ${t("due {date}", { date: day(b.bill.dueDate) })}` : ""}`, right: formatRupees(b.bill.amountPaise), icon: Receipt, iconTone: "brand", pills: <><Pill tone={BILL_STATUS[st].tone}>{t.any(BILL_STATUS[st].label)}</Pill>{can.pay && (st === "UNPAID" || st === "PART_PAID") && <Link className="text-[13px] font-semibold text-brand ml-2 relative z-[1]" href={here({ pay: b.bill.id })} scroll={false}><Words k="Pay" /></Link>}</> }; }}
             />
           )}
 
           {tab === "vendors" && (
-            <DataList rows={d.vendorRows.filter((v) => !q || [v.name, v.phone ?? "", v.gstin ?? ""].some((x) => x.toLowerCase().includes(q.toLowerCase())))} rowKey={(v) => v.id} rowHref={(v) => here({ vendor: v.id })} minWidth={820} caption="Vendors"
-              empty={<Empty icon={Store} title={q ? "No vendors match" : "No vendors yet"} body={can.purchase ? "Add the shops and suppliers the school buys from." : "Vendors are shared with Finance."} />}
+            <DataList rows={d.vendorRows.filter((v) => !q || [v.name, v.phone ?? "", v.gstin ?? ""].some((x) => x.toLowerCase().includes(q.toLowerCase())))} rowKey={(v) => v.id} rowHref={(v) => here({ vendor: v.id })} minWidth={820} caption={t("Vendors")}
+              empty={<Empty icon={Store} title={t(q ? "No vendors match" : "No vendors yet")} body={t(can.purchase ? "Add the shops and suppliers the school buys from." : "Vendors are shared with Finance.")} />}
               columns={[
-                { key: "name", label: "Vendor", render: (v) => <span className="block min-w-[160px]"><b className="font-semibold">{v.name}</b>{v.detail?.contactName && <span className="block text-[12px] text-ink3">{v.detail.contactName}</span>}</span> },
-                { key: "phone", label: "Phone", nowrap: true, render: (v) => v.phone ?? "" },
-                { key: "email", label: "Email", render: (v) => v.detail?.email ?? "" },
-                { key: "gstin", label: "GSTIN", render: (v) => <span className="font-mono text-[13px]">{v.gstin ?? ""}</span> },
-                { key: "items", label: "Items supplied", render: (v) => <span className="text-[13px] text-ink2">{v.detail?.itemsSupplied ?? ""}</span> },
+                { key: "name", label: t("Vendor"), render: (v) => <span className="block min-w-[160px]"><b className="font-semibold">{v.name}</b>{v.detail?.contactName && <span className="block text-[12px] text-ink3">{v.detail.contactName}</span>}</span> },
+                { key: "phone", label: t("Phone"), nowrap: true, render: (v) => v.phone ?? "" },
+                { key: "email", label: t("Email"), render: (v) => v.detail?.email ?? "" },
+                { key: "gstin", label: t("GSTIN"), render: (v) => <span className="font-mono text-[13px]">{v.gstin ?? ""}</span> },
+                { key: "items", label: t("Items supplied"), render: (v) => <span className="text-[13px] text-ink2">{v.detail?.itemsSupplied ?? ""}</span> },
               ]}
               phone={(v) => ({ title: v.name, sub: [v.phone, v.gstin].filter(Boolean).join(" · "), icon: Store, iconTone: "brand" })}
             />
@@ -282,17 +283,17 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
 
       {/* Request detail */}
       {d.req && (
-        <UrlSheet title={`Purchase request ${d.req.number}`} sub={`${day(d.req.date)} · ${REQUEST_STATUS[d.req.status].label}`} closeHref={here({ request: null })}>
+        <UrlSheet title={t("Purchase request {number}", { number: d.req.number })} sub={`${day(d.req.date)} · ${t.any(REQUEST_STATUS[d.req.status].label)}`} closeHref={here({ request: null })}>
           <div className="flex flex-col gap-4">
-            {d.req.approvalId && d.mine.has(d.req.approvalId) && d.req.status === "WAITING" && <DecideBox action={decideAction} approvalId={d.req.approvalId} question={`Approve this request for about ${formatRupees(d.req.estimatePaise)}?`} />}
-            <SimpleTable caption="Items requested" rows={d.req.lines} rowKey={(l) => l.id} minWidth={320} cols={[
-              { label: "Item", render: (l) => { const it = d.reqItems.get(l.itemId); return it ? itemLabel(it) : "Item"; } },
-              { label: "Qty", right: true, render: (l) => l.qty },
-              { label: "Est. rate", right: true, render: (l) => (l.estUnitPaise > ZERO ? formatRupees(l.estUnitPaise) : "") },
+            {d.req.approvalId && d.mine.has(d.req.approvalId) && d.req.status === "WAITING" && <DecideBox action={decideAction} approvalId={d.req.approvalId} question={t("Approve this request for about {amount}?", { amount: formatRupees(d.req.estimatePaise) })} />}
+            <SimpleTable caption={t("Items requested")} rows={d.req.lines} rowKey={(l) => l.id} minWidth={320} cols={[
+              { label: t("Item"), render: (l) => { const it = d.reqItems.get(l.itemId); return it ? itemLabel(it) : "Item"; } },
+              { label: t("Qty"), right: true, render: (l) => l.qty },
+              { label: t("Est. rate"), right: true, render: (l) => (l.estUnitPaise > ZERO ? formatRupees(l.estUnitPaise) : "") },
             ]} foot={["Estimate", "", formatRupees(d.req.estimatePaise)]} />
             <DL cols={2} rows={[
               ["Reason", d.req.reason], ["Needed by", d.req.neededBy ? day(d.req.neededBy) : "Not given"], ["Department", d.req.departmentId ? deptName.get(d.req.departmentId) ?? "" : "None"],
-              ["Status", REQUEST_STATUS[d.req.status].label], ...(d.req.decisionNote ? [["Decision note", d.req.decisionNote] as [string, React.ReactNode]] : []),
+              ["Status", t.any(REQUEST_STATUS[d.req.status].label)], ...(d.req.decisionNote ? [["Decision note", d.req.decisionNote] as [string, React.ReactNode]] : []),
               ...(d.req.orders.length ? [["Order", d.req.orders.map((o) => o.number).join(", ")] as [string, React.ReactNode]] : []),
             ]} />
             {can.purchase && (
@@ -321,8 +322,8 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
               <ButtonLink href={qs(`${BASE}/purchases`, { tab: "orders", vendor: d.vendorOne.id })} variant="ghost"><Words k="Orders" /></ButtonLink>
               <ButtonLink href={qs(`${BASE}/purchases`, { tab: "bills", vendor: d.vendorOne.id })} variant="ghost"><Words k="Bills" /></ButtonLink>
               {can.purchase && (d.vendorOne.archivedAt
-                ? <ActButton action={restoreVendorAction} fields={{ vendorId: d.vendorOne.id }} label="Bring back" icon="restore" size="md" />
-                : <ActButton action={archiveVendorAction} fields={{ vendorId: d.vendorOne.id }} label="Archive" icon="archive" variant="ghost" size="md" />)}
+                ? <ActButton action={restoreVendorAction} fields={{ vendorId: d.vendorOne.id }} label={t("Bring back")} icon="restore" size="md" />
+                : <ActButton action={archiveVendorAction} fields={{ vendorId: d.vendorOne.id }} label={t("Archive")} icon="archive" variant="ghost" size="md" />)}
             </div>
           </div>
         </UrlSheet>

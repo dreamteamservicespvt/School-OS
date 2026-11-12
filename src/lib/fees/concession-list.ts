@@ -47,7 +47,10 @@ export type ConcessionRow = {
   typeLabel: string;
   scholarshipType: string | null;
   value: string;
+  /** What comes off: applied, else the estimate on the rows it covers. */
   amountPaise: bigint;
+  /** The rupee amount asked, for an amount (not a percent) concession. */
+  askedPaise: bigint | null;
   heads: string;
   period: { from: Date | null; to: Date | null };
   reason: string;
@@ -100,6 +103,7 @@ export async function concessionRows(tx: Tx, f: ConcessionFilter, take = 300) {
       scholarshipType: c.scholarshipType,
       value: c.mode === "percent" ? percentWord(c.percentBp) : formatRupees(c.amountPaise),
       amountPaise: c.status === "APPLIED" ? c.appliedPaise : c.estimatedPaise,
+      askedPaise: c.mode === "amount" ? c.amountPaise : null,
       heads: c.type === "LATE_FEE_WAIVER" ? "Late fee" : c.feeHeadIds.length ? c.feeHeadIds.map((h) => headName.get(h) ?? "Fee head").join(", ") : "All fee heads",
       period: { from: c.periodFrom, to: c.periodTo },
       reason: c.reason,

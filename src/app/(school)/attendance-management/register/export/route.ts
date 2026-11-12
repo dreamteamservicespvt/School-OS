@@ -1,6 +1,6 @@
 // Attendance Register export (P8) and printed register (P9): the same marks
 // and totals as on screen (Done when 9). Only sections the person may open.
-import { requireAction } from "@/lib/current";
+import { routeAction } from "@/lib/route-access";
 import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportColumn, type ExportFormat } from "@/lib/exports";
 import { esc, htmlToPdf, withPdfErrors } from "@/lib/pdf";
@@ -15,7 +15,9 @@ import { percentText } from "@/lib/attendance/summary";
 const PRINT_COLOURS: Record<string, string> = { success: "#dcfce7", danger: "#fee2e2", warning: "#fef3c7", info: "#e0f2fe", brand: "#e0e7ff", neutral: "#f1f5f9" };
 
 async function handleGET(req: Request) {
-  const { current } = await requireAction("attendance-management", "export");
+  const gate = await routeAction("attendance-management", "export");
+  if (gate instanceof Response) return gate;
+  const { current } = gate;
   const url = new URL(req.url);
   const format = (["csv", "xlsx", "pdf"].includes(url.searchParams.get("format") ?? "") ? url.searchParams.get("format") : "xlsx") as ExportFormat;
   const tz = current.school.timeZone;

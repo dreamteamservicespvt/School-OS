@@ -25,7 +25,7 @@ import { InvHead } from "../_components/head";
 import { BASE, hrefOpen, invGuard, invPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { readReportFilter, STORE_REPORTS } from "../_lib/reports";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Inventory Reports · Inventory Management") };
@@ -34,6 +34,7 @@ const SHOW = 100;
 const ZERO = BigInt(0);
 
 export default async function InventoryReportsPage({ searchParams }: { searchParams: SearchParams }) {
+  const t = await getT();
   const sp = await searchParams;
   const p = await invGuard("reports");
   const { current, can, today } = p;
@@ -73,25 +74,25 @@ export default async function InventoryReportsPage({ searchParams }: { searchPar
   const maxCat = Math.max(1, ...d.byCat.map((c) => Number(c.value / BigInt(100))));
   const moveRows = d.moves.filter((m) => m.count > 0).sort((a, b) => b.count - a.count);
   const maxMove = Math.max(1, ...moveRows.map((m) => m.count));
-  const t = d.table;
+  const tbl = d.table;
 
   return (
     <>
       <InvHead pageName="Inventory Reports" href={`${BASE}/reports`} mode={p.mode} />
       <Stack>
         <div className="flex gap-2 flex-wrap">
-          <PeriodFilter {...p.dates} fallback="finyear" />
-          {d.sections.length > 0 && r.report?.byClass && <UrlSelect param="sec" label="Class" options={[{ value: "", label: "All classes" }, ...d.sections.map((x) => ({ value: x.id, label: x.label }))]} />}
-          {r.report && STORE_REPORTS.has(r.report.key) && d.stores.length > 1 && <UrlSelect param="store" label="Store" options={[{ value: "", label: "All stores" }, ...d.stores.map((s) => ({ value: s.id, label: s.name }))]} />}
-          {r.report && STORE_REPORTS.has(r.report.key) && <UrlSelect param="cat" label="Category" options={[{ value: "", label: "All categories" }, ...d.cats.map((c) => ({ value: c.id, label: c.name }))]} />}
-          {r.report?.key === "inv-purchases" && <UrlSelect param="group" label="Group by" options={[{ value: "", label: "By vendor" }, { value: "item", label: "By item" }, { value: "month", label: "By month" }]} />}
+          <PeriodFilter {...p.dates} fallback="finyear" allLabel={t("All dates")} />
+          {d.sections.length > 0 && r.report?.byClass && <UrlSelect param="sec" label={t("Class")} options={[{ value: "", label: t("All classes") }, ...d.sections.map((x) => ({ value: x.id, label: x.label }))]} />}
+          {r.report && STORE_REPORTS.has(r.report.key) && d.stores.length > 1 && <UrlSelect param="store" label={t("Store")} options={[{ value: "", label: t("All stores") }, ...d.stores.map((s) => ({ value: s.id, label: s.name }))]} />}
+          {r.report && STORE_REPORTS.has(r.report.key) && <UrlSelect param="cat" label={t("Category")} options={[{ value: "", label: t("All categories") }, ...d.cats.map((c) => ({ value: c.id, label: c.name }))]} />}
+          {r.report?.key === "inv-purchases" && <UrlSelect param="group" label={t("Group by")} options={[{ value: "", label: t("By vendor") }, { value: "item", label: t("By item") }, { value: "month", label: t("By month") }]} />}
         </div>
         <Stats items={[
-          { label: "Stock value", value: formatRupees(value), sub: "As on today", href: reportHref("inv-stock") },
-          { label: "Low stock", value: d.low.toLocaleString("en-IN"), tone: d.low ? "warn" : undefined, sub: "Same as Items & Stock", href: reportHref("inv-low") },
-          { label: "Purchases", value: formatRupees(d.orders._sum.totalPaise ?? ZERO), sub: `${d.orders._count.toLocaleString("en-IN")} orders · ${per.label}`, href: reportHref("inv-purchases") },
-          { label: "Unpaid bills", value: formatRupees(d.unpaid), tone: d.unpaid > ZERO ? "warn" : undefined, sub: "As on today", href: reportHref("inv-unpaid") },
-          { label: "Maintenance cost", value: formatRupees(d.maint._sum.costPaise ?? ZERO), sub: `${d.maint._count.toLocaleString("en-IN")} done · ${per.label}`, href: reportHref("inv-maintenance") },
+          { label: t("Stock value"), value: formatRupees(value), sub: t("As on today"), href: reportHref("inv-stock") },
+          { label: t("Low stock"), value: d.low.toLocaleString("en-IN"), tone: d.low ? "warn" : undefined, sub: t("Same as Items & Stock"), href: reportHref("inv-low") },
+          { label: t("Purchases"), value: formatRupees(d.orders._sum.totalPaise ?? ZERO), sub: `${t(d.orders._count === 1 ? "1 order" : "{n} orders", { n: d.orders._count.toLocaleString("en-IN") })} · ${t.any(per.label)}`, href: reportHref("inv-purchases") },
+          { label: t("Unpaid bills"), value: formatRupees(d.unpaid), tone: d.unpaid > ZERO ? "warn" : undefined, sub: t("As on today"), href: reportHref("inv-unpaid") },
+          { label: t("Maintenance cost"), value: formatRupees(d.maint._sum.costPaise ?? ZERO), sub: `${t("{n} done", { n: d.maint._count.toLocaleString("en-IN") })} · ${t.any(per.label)}`, href: reportHref("inv-maintenance") },
         ]} />
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
           <Card className="p-5">
@@ -99,21 +100,21 @@ export default async function InventoryReportsPage({ searchParams }: { searchPar
             {d.byCat.length ? <HBars labelWidth={110} valueWidth={96} rows={d.byCat.slice(0, 8).map((c) => ({ key: c.id, label: c.name, value: (Number(c.value / BigInt(100)) / maxCat) * 100, text: formatRupees(c.value) }))} /> : <p className="text-[13.5px] text-ink3"><Words k="No stock in hand." /></p>}
           </Card>
           <Card className="p-5">
-            <h2 className="font-semibold text-[15px] mb-3"><Words k="Stock movements ·" /> {per.label}</h2>
-            {moveRows.length ? <HBars labelWidth={110} valueWidth={56} rows={moveRows.map((m) => ({ key: m.kind, label: MOVE_KIND[m.kind].label, value: (m.count / maxMove) * 100, text: m.count.toLocaleString("en-IN"), tone: ["DAMAGED", "LOST", "EXPIRED"].includes(m.kind) ? "bad" as const : "brand" as const }))} /> : <p className="text-[13.5px] text-ink3"><Words k="No stock moved on these dates." /></p>}
+            <h2 className="font-semibold text-[15px] mb-3"><Words k="Stock movements ·" /> {t.any(per.label)}</h2>
+            {moveRows.length ? <HBars labelWidth={110} valueWidth={56} rows={moveRows.map((m) => ({ key: m.kind, label: t.any(MOVE_KIND[m.kind].label), value: (m.count / maxMove) * 100, text: m.count.toLocaleString("en-IN"), tone: ["DAMAGED", "LOST", "EXPIRED"].includes(m.kind) ? "bad" as const : "brand" as const }))} /> : <p className="text-[13.5px] text-ink3"><Words k="No stock moved on these dates." /></p>}
           </Card>
         </div>
 
         <Card>
-          <CardHeader title="Reports" icon={FileBarChart} description="Open a report to see its rows and export it with the filters above." divided />
+          <CardHeader title={t("Reports")} icon={FileBarChart} description={t("Open a report to see its rows and export it with the filters above.")} divided />
           <ul className="grid sm:grid-cols-2 xl:grid-cols-3 gap-px bg-line/70">
             {INVENTORY_REPORT_LIST.map((x, i, all) => (
               <li key={x.key} className={cx("bg-surface", i === all.length - 1 && cx(all.length % 2 === 1 && "sm:col-span-2", all.length % 3 === 1 ? "xl:col-span-3" : all.length % 3 === 2 ? "xl:col-span-2" : "xl:col-span-1"))}>
                 <Link href={reportHref(x.key)} scroll={false} aria-current={r.report?.key === x.key ? "true" : undefined}
                   className={cx("flex items-start gap-3 px-5 py-4 h-full hover:bg-sunken/60 transition", r.report?.key === x.key && "bg-brand/5")}>
                   <div className="min-w-0 flex-1">
-                    <p className="font-semibold text-[14.5px]">{x.name}</p>
-                    <p className="text-[12.5px] text-ink3 mt-0.5">{x.sub}{x.dated ? "" : " (as on today)"}</p>
+                    <p className="font-semibold text-[14.5px]">{t.any(x.name)}</p>
+                    <p className="text-[12.5px] text-ink3 mt-0.5">{t.any(x.sub)}{x.dated ? "" : ` ${t("(as on today)")}`}</p>
                   </div>
                   <ChevronRight size={18} className="text-ink3 shrink-0 mt-0.5" aria-hidden="true" />
                 </Link>
@@ -122,22 +123,22 @@ export default async function InventoryReportsPage({ searchParams }: { searchPar
           </ul>
         </Card>
 
-        {r.report && t && (
+        {r.report && tbl && (
           <Card id="report">
-            <CardHeader title={r.report.name} description={`${r.report.dated ? per.label : "As on today"} · ${t.rows.length.toLocaleString("en-IN")} row${t.rows.length === 1 ? "" : "s"}`} divided
-              action={can.export ? <ExportButton href={exportHref} size="sm" always /> : undefined} />
-            {t.rows.length ? (
+            <CardHeader title={t.any(r.report.name)} description={`${r.report.dated ? t.any(per.label) : t("As on today")} · ${t(tbl.rows.length === 1 ? "1 row" : "{n} rows", { n: tbl.rows.length.toLocaleString("en-IN") })}`} divided
+              action={can.export ? <ExportButton href={exportHref} size="sm" always label={t("Export")} /> : undefined} />
+            {tbl.rows.length ? (
               <>
-                <SimpleTable caption={r.report.name} minWidth={Math.max(560, t.columns.length * 120)} rows={[...t.rows.slice(0, SHOW)]}
-                  cols={t.columns.map((c) => ({ label: c.label, right: c.kind === "number" || c.kind === "money" || c.kind === "percent", render: (row: Record<string, unknown>) => cellText(row[c.key] as never, c.kind) }))}
-                  foot={t.totals && t.rows.length <= SHOW ? t.columns.map((c) => cellText(t.totals![c.key], c.kind)) : undefined} />
-                {t.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing the first" /> {SHOW} <Words k="of" /> {t.rows.length.toLocaleString("en-IN")} <Words k="rows. Export the report for all of them." /></p>}
+                <SimpleTable caption={t.any(r.report.name)} minWidth={Math.max(560, tbl.columns.length * 120)} rows={[...tbl.rows.slice(0, SHOW)]}
+                  cols={tbl.columns.map((c) => ({ label: t.any(c.label), right: c.kind === "number" || c.kind === "money" || c.kind === "percent", render: (row: Record<string, unknown>) => cellText(row[c.key] as never, c.kind) }))}
+                  foot={tbl.totals && tbl.rows.length <= SHOW ? tbl.columns.map((c) => t.any(cellText(tbl.totals![c.key], c.kind))) : undefined} />
+                {tbl.rows.length > SHOW && <p className="px-5 py-3 border-t border-line text-[13px] text-ink3"><Words k="Showing the first" /> {SHOW} <Words k="of" /> {tbl.rows.length.toLocaleString("en-IN")} <Words k="rows. Export the report for all of them." /></p>}
               </>
-            ) : <Empty icon={FileBarChart} title={t.empty ?? "Nothing matches"} />}
-            {t.note && <p className="px-5 py-3 border-t border-line text-[13px] text-ink2">{t.note}</p>}
-            {t.links && t.links.some((l) => hrefOpen(p.v, l.href)) && (
+            ) : <Empty icon={FileBarChart} title={t.any(tbl.empty ?? "Nothing matches")} />}
+            {tbl.note && <p className="px-5 py-3 border-t border-line text-[13px] text-ink2">{t.any(tbl.note)}</p>}
+            {tbl.links && tbl.links.some((l) => hrefOpen(p.v, l.href)) && (
               <div className="px-5 py-3 border-t border-line flex gap-4 flex-wrap text-[13.5px]">
-                {t.links.filter((l) => hrefOpen(p.v, l.href)).map((l) => <Link key={l.href} href={l.href} className="font-semibold text-brand hover:underline">{l.label}</Link>)}
+                {tbl.links.filter((l) => hrefOpen(p.v, l.href)).map((l) => <Link key={l.href} href={l.href} className="font-semibold text-brand hover:underline">{t.any(l.label)}</Link>)}
               </div>
             )}
           </Card>

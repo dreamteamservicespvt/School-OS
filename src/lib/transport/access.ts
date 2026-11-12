@@ -1,8 +1,8 @@
 // Who sees what in Transport Management (05-roles.md column 12, the approved
 // prototype's config.js VIEW, OWN and DUTY):
-//   Full (Transport In-charge): every page, and does the work.
-//   Full but oversees (Principal: reads every page; School Admin: reads every
-//   page and keeps Transport Settings), from src/lib/duty.ts.
+//   Full (Transport In-charge, School Admin): every page, and does the work
+//   (the School Admin as 05-roles.md gives it, owner decision 12 Nov 2026).
+//   Full but oversees (Principal: reads every page), from src/lib/duty.ts.
 //   View (Vice Principal): reads every page except Transport Settings.
 //   Own (Driver): Trips only, today's own trips (and the driver app).
 // Live Tracking shows only when the school has switched live tracking on.

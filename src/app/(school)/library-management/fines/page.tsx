@@ -26,7 +26,7 @@ import { issueMembers } from "@/lib/library/desk";
 import { fineWhere, syncFeeFines } from "@/lib/library/fines";
 import { salaryModuleOn, salaryWords } from "@/lib/library/salary";
 import { openSession } from "@/lib/library/stock";
-import { FINE_REASON, FINE_STATUS, paiseToRupees, plural, type FineReason, type FineStatus } from "@/lib/library/words";
+import { FINE_REASON, FINE_STATUS, groupWords, paiseToRupees, type FineReason, type FineStatus } from "@/lib/library/words";
 import { LibHead } from "../_components/head";
 import { ActButton } from "../_components/client";
 import { CollectSheet, CorrectSheet, RejectChargeSheet, StartStockSheet, StopSalarySheet, ToSalarySheet, WaiveSheet } from "../_components/sheets";
@@ -34,7 +34,7 @@ import { BASE, libGuard, libPeriod, one, qs, UUID, type SearchParams } from "../
 import { finesWhere, readFinesFilter, FINE_TABS } from "../_lib/fines";
 import { decideChargeAction, remindLibrarianAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Fines & Stock Check · Library Management") };
@@ -50,7 +50,7 @@ export default async function FinesPage({ searchParams }: { searchParams: Search
 type P = Awaited<ReturnType<typeof libGuard>>;
 type Raw = Record<string, string | string[] | undefined>;
 
-function Tabs({ view }: { view: "fines" | "stock" }) {
+async function Tabs({ view }: { view: "fines" | "stock" }) {
   return <SegLinks label="Fines or stock check" value={view} options={[{ value: "fines", label: "Fines", href: `${BASE}/fines` }, { value: "stock", label: "Stock check", href: `${BASE}/fines?view=stock` }]} />;
 }
 
@@ -92,9 +92,10 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
     return { total, rows: all, due, waiting, paid, waived, byStatus, members, books: new Map(books.map((b) => [b.id, b.title])), copies: new Map(copies.map((c) => [c.id, c.accessionNo])), deciders, runs: new Map(runs.map((r) => [r.id, r])), extra: Boolean(shown) };
   });
 
+  const t = await getT();
   type Row = (typeof d.rows)[number];
   const who = (r: Row) => d.members.get(r.studentId ? `S:${r.studentId}` : `T:${r.staffId}`) ?? null;
-  const words = (r: Row) => `${formatRupees(r.amountPaise)} · ${FINE_REASON[r.reason as FineReason]} · “${d.books.get(r.bookId) ?? "Book"}”${who(r) ? ` · ${who(r)!.name}` : ""}`;
+  const words = (r: Row) => `${formatRupees(r.amountPaise)} · ${t.any(FINE_REASON[r.reason as FineReason])} · “${d.books.get(r.bookId) ?? t("Book")}”${who(r) ? ` · ${who(r)!.name}` : ""}`;
   const base = `${BASE}/fines`;
   const href = (change: Record<string, string | number | null>) => listHref(base, params, { page: null, ...change });
   const sheetFine = (k: string) => { const id = pick(k); return id ? d.rows.find((r) => r.id === id) ?? null : null; };
@@ -105,7 +106,7 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
   // A staff member's fine can go to their next salary (Salary Management) instead of the desk.
   const salaryOn = salaryModuleOn(current.modulesOn);
   const mayGoToSalary = (r: Row) => can.fines && salaryOn && r.status === "DUE" && Boolean(r.staffId) && !r.feeDueId && !r.salaryAt;
-  const salaryWhere = (r: Row) => salaryWords(r.runId ? d.runs.get(r.runId) ?? null : null);
+  const salaryWhere = (r: Row) => salaryWords(r.runId ? d.runs.get(r.runId) ?? null : null, t);
   const toSalary = (() => { const r = sheetFine("salary"); return r && mayGoToSalary(r) ? r : null; })();
   const stopSalary = (() => { const r = can.fines ? sheetFine("desk") : null; return r && r.status === "DUE" && r.salaryAt ? r : null; })();
   const count = (st: string) => d.byStatus.find((x) => x.status === st)?._count._all ?? 0;
@@ -114,7 +115,7 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
   const acts = (r: Row) => {
     const bits: React.ReactNode[] = [];
     if (r.status === "WAITING" && r.approvalId && d.deciders.has(r.approvalId)) {
-      bits.push(<ActButton key="ok" action={decideChargeAction} fields={{ fineId: r.id, decision: "approve" }} label="Approve" icon="check" variant="primary" />);
+      bits.push(<ActButton key="ok" action={decideChargeAction} fields={{ fineId: r.id, decision: "approve" }} label={t("Approve")} icon="check" variant="primary" />);
       bits.push(<Link key="no" href={href({ reject: r.id })} scroll={false} className="text-[13px] font-semibold text-bad hover:underline"><Words k="Do not approve" /></Link>);
     }
     if (can.fines && r.status === "DUE" && !r.feeDueId && !r.salaryAt) bits.push(<Link key="c" href={href({ collect: r.id })} scroll={false} className="text-[13px] font-semibold text-brand hover:underline"><Words k="Collect" /></Link>);
@@ -125,7 +126,7 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
     return bits.length ? <span className="flex items-center gap-3 justify-end flex-wrap">{bits}</span> : null;
   };
 
-  const leaderActions = can.remind && d.due._count._all > 0 ? <ActButton action={remindLibrarianAction} fields={{ what: "fines" }} label="Remind the librarian" icon="bell" /> : undefined;
+  const leaderActions = can.remind && d.due._count._all > 0 ? <ActButton action={remindLibrarianAction} fields={{ what: "fines" }} label={t("Remind the librarian")} icon="bell" /> : undefined;
 
   return (
     <>
@@ -133,48 +134,48 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
       <Stack>
         <Tabs view="fines" />
         <Stats items={[
-          { label: "Due", value: formatRupees(d.due._sum.amountPaise ?? ZERO), sub: plural(d.due._count._all, "fine"), tone: d.due._count._all ? "warn" : undefined, href: href({ status: null }), active: f.status === "" },
-          { label: "Waiting approval", value: formatRupees(d.waiting._sum.amountPaise ?? ZERO), sub: plural(d.waiting._count._all, "charge"), href: href({ status: "WAITING" }), active: f.status === "WAITING" },
-          { label: "Collected", value: formatRupees(d.paid._sum.amountPaise ?? ZERO), sub: per.label, tone: "ok", href: href({ status: "PAID" }), active: f.status === "PAID" },
-          { label: "Waived", value: formatRupees(d.waived._sum.amountPaise ?? ZERO), sub: per.label, href: href({ status: "WAIVED" }), active: f.status === "WAIVED" },
+          { label: t("Due"), value: formatRupees(d.due._sum.amountPaise ?? ZERO), sub: t(d.due._count._all === 1 ? "1 fine" : "{n} fines", { n: d.due._count._all.toLocaleString("en-IN") }), tone: d.due._count._all ? "warn" : undefined, href: href({ status: null }), active: f.status === "" },
+          { label: t("Waiting approval"), value: formatRupees(d.waiting._sum.amountPaise ?? ZERO), sub: t(d.waiting._count._all === 1 ? "1 charge" : "{n} charges", { n: d.waiting._count._all.toLocaleString("en-IN") }), href: href({ status: "WAITING" }), active: f.status === "WAITING" },
+          { label: t("Collected"), value: formatRupees(d.paid._sum.amountPaise ?? ZERO), sub: t.any(per.label), tone: "ok", href: href({ status: "PAID" }), active: f.status === "PAID" },
+          { label: t("Waived"), value: formatRupees(d.waived._sum.amountPaise ?? ZERO), sub: t.any(per.label), href: href({ status: "WAIVED" }), active: f.status === "WAIVED" },
         ]} />
-        <Chips label="Fine status" value={f.status} options={FINE_TABS.map((t) => ({ value: t.value, label: t.label, count: t.value === "" ? count("DUE") : t.value === "all" ? null : count(t.value), href: href({ status: t.value || null }) }))} />
+        <Chips label="Fine status" value={f.status} options={FINE_TABS.map((tab) => ({ value: tab.value, label: tab.label, count: tab.value === "" ? count("DUE") : tab.value === "all" ? null : count(tab.value), href: href({ status: tab.value || null }) }))} />
         <Card>
           <Toolbar className="md:flex-wrap">
-            <UrlSearch placeholder="Search member, book or fine number" label="Search fines" className="flex-1 md:min-w-[260px]" id="fines-search" />
+            <UrlSearch placeholder={t("Search member, book or fine number")} label={t("Search fines")} className="flex-1 md:min-w-[260px]" id="fines-search" />
             <div className="flex gap-2 flex-wrap">
-              <UrlSelect param="reason" label="Reason" options={[{ value: "", label: "All reasons" }, { value: "LATE", label: "Late" }, { value: "LOST", label: "Lost" }, { value: "DAMAGED", label: "Damaged" }]} />
-              <PeriodFilter {...p.dates} />
-              {can.export && <ExportButton href={exportHref} />}
+              <UrlSelect param="reason" label={t("Reason")} options={[{ value: "", label: t("All reasons") }, { value: "LATE", label: t("Late") }, { value: "LOST", label: t("Lost") }, { value: "DAMAGED", label: t("Damaged") }]} />
+              <PeriodFilter {...p.dates} allLabel={t("All dates")} />
+              {can.export && <ExportButton href={exportHref} label={t("Export")} />}
             </div>
           </Toolbar>
-          <DataList rows={d.rows} rowKey={(r) => r.id} minWidth={980} caption="Library fines"
+          <DataList rows={d.rows} rowKey={(r) => r.id} minWidth={980} caption={t("Library fines")}
             rowClass={(r) => r.id === highlight && "bg-brand/5"}
-            empty={<Empty icon={f.q ? Search : Receipt} title={f.status === "" ? "No fines due" : "No fines match"} body={f.q || per.range ? "Try other dates, or clear the search." : undefined} />}
+            empty={<Empty icon={f.q ? Search : Receipt} title={t(f.status === "" ? "No fines due" : "No fines match")} body={f.q || per.range ? t("Try other dates, or clear the search.") : undefined} />}
             columns={[
-              { key: "no", label: "Fine", nowrap: true, render: (r) => <span className="font-mono text-[13px]">{r.fineNo}</span> },
-              { key: "member", label: "Member", render: (r) => (who(r) ? <span><b className="font-semibold">{who(r)!.name}</b><span className="block text-[12.5px] text-ink3">{who(r)!.group}</span></span> : "—") },
-              { key: "book", label: "Book", render: (r) => <span>{d.books.get(r.bookId) ?? "Book"}<span className="block text-[12.5px] text-ink3 font-mono">{d.copies.get(r.copyId) ?? ""}</span></span> },
-              { key: "reason", label: "Reason", render: (r) => <span>{FINE_REASON[r.reason as FineReason]}{r.lateDays ? <span className="text-ink3"> · {r.lateDays}d</span> : ""}</span> },
-              { key: "amount", label: "Amount", align: "right", nowrap: true, render: (r) => <b className="font-semibold">{formatRupees(r.amountPaise)}</b> },
-              { key: "status", label: "Status", render: (r) => { const st = FINE_STATUS[r.status as FineStatus]; return <span><Pill tone={st.tone}>{st.label}</Pill><span className="block text-[12px] text-ink3 mt-0.5">{r.status === "WAIVED" ? r.waiveReason : r.status === "DUE" && r.salaryAt ? salaryWhere(r) : fineWhere(r, tz)}</span></span>; } },
-              { key: "date", label: "Date", nowrap: true, render: (r) => formatDate(r.createdAt, tz) },
+              { key: "no", label: t("Fine"), nowrap: true, render: (r) => <span className="font-mono text-[13px]">{r.fineNo}</span> },
+              { key: "member", label: t("Member"), render: (r) => (who(r) ? <span><b className="font-semibold">{who(r)!.name}</b><span className="block text-[12.5px] text-ink3">{groupWords(t, who(r)!.group)}</span></span> : "—") },
+              { key: "book", label: t("Book"), render: (r) => <span>{d.books.get(r.bookId) ?? t("Book")}<span className="block text-[12.5px] text-ink3 font-mono">{d.copies.get(r.copyId) ?? ""}</span></span> },
+              { key: "reason", label: t("Reason"), render: (r) => <span>{t.any(FINE_REASON[r.reason as FineReason])}{r.lateDays ? <span className="text-ink3"> · {t(r.lateDays === 1 ? "1 day late" : "{n} days late", { n: r.lateDays })}</span> : ""}</span> },
+              { key: "amount", label: t("Amount"), align: "right", nowrap: true, render: (r) => <b className="font-semibold">{formatRupees(r.amountPaise)}</b> },
+              { key: "status", label: t("Status"), render: (r) => { const st = FINE_STATUS[r.status as FineStatus]; return <span><Pill tone={st.tone}>{st.label}</Pill><span className="block text-[12px] text-ink3 mt-0.5">{r.status === "WAIVED" ? r.waiveReason : r.status === "DUE" && r.salaryAt ? salaryWhere(r) : fineWhere(r, tz, t)}</span></span>; } },
+              { key: "date", label: t("Date"), nowrap: true, render: (r) => formatDate(r.createdAt, tz) },
               { key: "act", label: "", render: acts },
             ]}
             phone={(r) => {
               const st = FINE_STATUS[r.status as FineStatus];
-              return { title: who(r)?.name ?? "Member", sub: `${FINE_REASON[r.reason as FineReason]} · ${d.books.get(r.bookId) ?? "Book"} · ${formatDate(r.createdAt, tz)}`, icon: Receipt, iconTone: st.tone,
+              return { title: who(r)?.name ?? t("Member"), sub: `${t.any(FINE_REASON[r.reason as FineReason])} · ${d.books.get(r.bookId) ?? t("Book")} · ${formatDate(r.createdAt, tz)}`, icon: Receipt, iconTone: st.tone,
                 right: <span className="flex flex-col items-end gap-1"><b className="font-semibold tnum">{formatRupees(r.amountPaise)}</b><Pill tone={st.tone}>{st.label}</Pill></span>,
                 pills: acts(r) ?? undefined };
             }}
           />
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(base, params, { page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(base, params, { page: params.page + 1 })} />}
         </Card>
-        <p className="text-[12.5px] text-ink3"><Words k="Fine rate:" /> {formatRupees(s.finePerDayPaise)} <Words k="a day after" /> {plural(s.graceDays, "day")} <Words k="of grace, at most" /> {formatRupees(s.maxFinePaise)} <Words k="a book. Charges above" /> {formatRupees(s.approvalAbovePaise)} <Words k="need approval." /> {s.finesToFees ? "Students' fines are added to their fees." : "Fines are collected at the library desk."}</p>
+        <p className="text-[12.5px] text-ink3"><Words k="Fine rate:" /> {formatRupees(s.finePerDayPaise)} <Words k="a day after" /> {t(s.graceDays === 1 ? "1 day" : "{n} days", { n: s.graceDays })} <Words k="of grace, at most" /> {formatRupees(s.maxFinePaise)} <Words k="a book. Charges above" /> {formatRupees(s.approvalAbovePaise)} <Words k="need approval." /> {t(s.finesToFees ? "Students' fines are added to their fees." : "Fines are collected at the library desk.")}</p>
       </Stack>
       {waive && <WaiveSheet closeHref={href({ waive: null })} fineId={waive.id} words={words(waive)} inFees={Boolean(waive.feeDueId)} inSalary={Boolean(waive.salaryAt)} />}
       {collect && !collect.salaryAt && <CollectSheet closeHref={href({ collect: null })} fineId={collect.id} words={words(collect)} />}
-      {toSalary && <ToSalarySheet closeHref={href({ salary: null })} fineId={toSalary.id} words={words(toSalary)} name={who(toSalary)?.name ?? "The staff member"} />}
+      {toSalary && <ToSalarySheet closeHref={href({ salary: null })} fineId={toSalary.id} words={words(toSalary)} name={who(toSalary)?.name ?? t("The staff member")} />}
       {stopSalary && <StopSalarySheet closeHref={href({ desk: null })} fineId={stopSalary.id} words={words(stopSalary)} where={salaryWhere(stopSalary)} />}
       {correct && <CorrectSheet closeHref={href({ correct: null })} fineId={correct.id} words={words(correct)} amount={String(paiseToRupees(correct.amountPaise))} />}
       {reject && reject.approvalId && d.deciders.has(reject.approvalId) && <RejectChargeSheet closeHref={href({ reject: null })} fineId={reject.id} words={words(reject)} />}
@@ -192,6 +193,7 @@ async function StockView({ p, sp }: { p: P; sp: Raw }) {
     ]);
     return { sessions, open };
   });
+  const t = await getT();
   const base = `${BASE}/fines`;
   const starting = one(sp.open) === "stock" && can.fines && !d.open;
   const exportHref = qs(`${base}/export`, { view: "stock", ...per.keep });
@@ -206,24 +208,24 @@ async function StockView({ p, sp }: { p: P; sp: Raw }) {
           <div className="flex items-center gap-3 rounded-2xl bg-brand/10 px-4 py-3 text-[14px] flex-wrap">
             <ScanLine size={18} className="text-brand shrink-0" aria-hidden="true" />
             <span className="flex-1 min-w-0"><b className="font-semibold">{d.open.name}</b> <Words k="is open since" /> {formatDateTime(d.open.startedAt, tz)}.</span>
-            <ButtonLink href={`${base}/stock/${d.open.id}`} size="sm" variant="secondary">{can.fines ? "Continue" : "Open"}</ButtonLink>
+            <ButtonLink href={`${base}/stock/${d.open.id}`} size="sm" variant="secondary">{t(can.fines ? "Continue" : "Open")}</ButtonLink>
           </div>
         )}
         <Card>
           <CardHeader title="Stock check sessions" icon={ClipboardCheck} description="Copies expected on the shelves, found, missing and extra." divided
-            action={<div className="flex gap-2"><PeriodFilter {...p.dates} size="sm" />{can.export && <ExportButton href={exportHref} size="sm" />}</div>} />
+            action={<div className="flex gap-2"><PeriodFilter {...p.dates} size="sm" allLabel={t("All dates")} />{can.export && <ExportButton href={exportHref} size="sm" label={t("Export")} />}</div>} />
           <DataList rows={d.sessions} rowKey={(x) => x.id} rowHref={(x) => `${base}/stock/${x.id}`} minWidth={720}
-            empty={<Empty icon={ClipboardCheck} title="No stock checks" body={can.fines ? "Start one to scan every copy on the shelves." : "The librarian runs the stock check."} />}
+            empty={<Empty icon={ClipboardCheck} title={t("No stock checks")} body={t(can.fines ? "Start one to scan every copy on the shelves." : "The librarian runs the stock check.")} />}
             columns={[
-              { key: "name", label: "Stock check", render: (x) => <b className="font-semibold">{x.name}</b> },
-              { key: "date", label: "Date", nowrap: true, render: (x) => formatDate(x.startedAt, tz) },
-              { key: "exp", label: "Expected", align: "right", render: (x) => x.expected ?? "—" },
-              { key: "found", label: "Found", align: "right", render: (x) => (x.found ?? (x.status === "OPEN" ? `${x._count.scans} scanned` : "—")) },
-              { key: "missing", label: "Missing", align: "right", render: (x) => (x.missing != null ? <span className={cx(x.missing ? "text-bad font-semibold" : "")}>{x.missing}</span> : "—") },
-              { key: "extra", label: "Extra", align: "right", render: (x) => x.extra ?? "—" },
-              { key: "status", label: "Status", render: (x) => (x.status === "OPEN" ? <Pill tone="info"><Words k="Open" /></Pill> : x.lostMarkedAt ? <Pill tone="ok"><Words k="Closed, missing marked lost" /></Pill> : <Pill><Words k="Closed" /></Pill>) },
+              { key: "name", label: t("Stock check"), render: (x) => <b className="font-semibold">{x.name}</b> },
+              { key: "date", label: t("Date"), nowrap: true, render: (x) => formatDate(x.startedAt, tz) },
+              { key: "exp", label: t("Expected"), align: "right", render: (x) => x.expected ?? "—" },
+              { key: "found", label: t("Found"), align: "right", render: (x) => (x.found ?? (x.status === "OPEN" ? t("{n} scanned", { n: x._count.scans }) : "—")) },
+              { key: "missing", label: t("Missing"), align: "right", render: (x) => (x.missing != null ? <span className={cx(x.missing ? "text-bad font-semibold" : "")}>{x.missing}</span> : "—") },
+              { key: "extra", label: t("Extra"), align: "right", render: (x) => x.extra ?? "—" },
+              { key: "status", label: t("Status"), render: (x) => (x.status === "OPEN" ? <Pill tone="info"><Words k="Open" /></Pill> : x.lostMarkedAt ? <Pill tone="ok"><Words k="Closed, missing marked lost" /></Pill> : <Pill><Words k="Closed" /></Pill>) },
             ]}
-            phone={(x) => ({ title: x.name, sub: `${formatDate(x.startedAt, tz)}${x.status === "OPEN" ? ` · ${x._count.scans} scanned` : ` · ${x.found ?? 0} found, ${x.missing ?? 0} missing`}`, icon: ClipboardCheck, right: x.status === "OPEN" ? <Pill tone="info"><Words k="Open" /></Pill> : <Pill><Words k="Closed" /></Pill> })}
+            phone={(x) => ({ title: x.name, sub: `${formatDate(x.startedAt, tz)} · ${x.status === "OPEN" ? t("{n} scanned", { n: x._count.scans }) : t("{found} found, {missing} missing", { found: x.found ?? 0, missing: x.missing ?? 0 })}`, icon: ClipboardCheck, right: x.status === "OPEN" ? <Pill tone="info"><Words k="Open" /></Pill> : <Pill><Words k="Closed" /></Pill> })}
           />
         </Card>
       </Stack>

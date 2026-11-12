@@ -133,7 +133,7 @@ export async function saveEventAction(_: S, fd: FormData): Promise<S> {
     const input = eventInput(fd);
     // Warnings already accepted ("venue-clash,past-date"): each is asked once.
     const accepted = str(fd, "confirm").split(",");
-    const warned = { confirm: accepted.includes("venue-clash"), confirmPast: accepted.includes("past-date") };
+    const warned = { confirm: accepted.includes("venue-clash"), confirmPast: accepted.includes("past-date"), confirmWeekend: accepted.includes("weekend") };
     const eventId = str(fd, "eventId");
     // A person kept to one campus plans events for that campus only.
     const mine = await evCampus(w.tx, w.current);

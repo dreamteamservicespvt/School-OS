@@ -336,7 +336,7 @@ describe("Events & Calendar keep to the viewer's campus", () => {
   });
 
   it("makes a new event for the viewer's own campus, whatever campus is asked for", async () => {
-    const r = await act("saveEventAction", { name: "North Quiz", type: "Celebration", date: soon(12), startTime: "10:00", campusId: main.campusId, audienceKind: "school", reminder: "none" });
+    const r = await act("saveEventAction", { name: "North Quiz", type: "Celebration", date: soon(12), startTime: "10:00", campusId: main.campusId, audienceKind: "school", reminder: "none", confirm: "weekend" });
     expect(r.ok).toBe(true);
     const made = await run((tx) => tx.event.findFirstOrThrow({ where: { name: "North Quiz" } }));
     expect(made.campusId).toBe(north.campusId);

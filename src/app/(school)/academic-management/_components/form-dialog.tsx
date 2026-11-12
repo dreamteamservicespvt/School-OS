@@ -58,9 +58,14 @@ export function FormDialog(props: Props) {
 }
 
 function DialogForm({ action, submitLabel, pendingText, hidden, children, onClose, onDone, danger, title, draft: keep = true }: Props) {
-  const [state, formAction] = useActionState(action, null);
+  const [state, formAction, pending] = useActionState(action, null);
   const formRef = useRef<HTMLFormElement>(null);
   const draft = useFormDraft(formRef, title, keep && !danger);
+  // One save at a time (layman test LA2). A second press (a double click) queued a second save of
+  // the same class; React showed only the last answer, "already exists", so the box stayed open
+  // as if the first save had failed. The press is dropped while a save is on its way.
+  const sending = useRef(false);
+  useEffect(() => { if (!pending) sending.current = false; }, [state, pending]);
   useEffect(() => {
     if (state?.ok) {
       draft.done();
@@ -71,7 +76,10 @@ function DialogForm({ action, submitLabel, pendingText, hidden, children, onClos
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state]);
   return (
-    <form ref={formRef} action={formAction} className="space-y-4" noValidate>
+    <form ref={formRef} action={formAction} className="space-y-4" noValidate onSubmit={(e) => {
+      if (sending.current) e.preventDefault();
+      else if (!e.defaultPrevented) sending.current = true;
+    }}>
       {Object.entries(hidden ?? {}).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}
       <DraftHint draft={draft} />
       {state && !state.ok && (Object.keys(state.errors ?? {}).length > 1 ? <ErrorSummary errors={state.errors} /> : <FormMessage state={state} />)}

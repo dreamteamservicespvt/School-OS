@@ -21,18 +21,18 @@ import { libCan, libViewer, type LibCan, type LibViewer } from "./access";
 import { LibraryProblem } from "./problem";
 import { MODULE } from "./words";
 
-export { LibraryProblem } from "./problem";
+export { LibraryProblem, Problems } from "./problem";
 
 export type LibWork = { tx: Tx; ctx: SchoolContext; v: LibViewer; can: LibCan; current: Current; tz: string; today: Date };
 
-type Known = Error & { field?: string; link?: { href: string; label: string } };
+type Known = Error & { field?: string; link?: { href: string; label: string }; errors?: Record<string, string> };
 
 export function problemState(e: unknown, fd?: FormData): NonNullable<FormState<{ link?: { href: string; label: string } }>> {
   const known = [LibraryProblem, PermissionDeniedError, MoneyProblem, MessagingProblem, DecisionProblem, ClosedYearError, FileProblem];
   const values = fd ? formValues(fd) : undefined;
   if (known.some((K) => e instanceof K)) {
     const err = e as Known;
-    return { ok: false, message: err.message, errors: err.field ? { [err.field]: err.message } : undefined, values, data: err.link ? { link: err.link } : undefined };
+    return { ok: false, message: err.message, errors: err.errors ?? (err.field ? { [err.field]: err.message } : undefined), values, data: err.link ? { link: err.link } : undefined };
   }
   if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
     return { ok: false, message: "Someone else saved the same thing a moment ago. Refresh the page to see it, then try again if still needed.", values };

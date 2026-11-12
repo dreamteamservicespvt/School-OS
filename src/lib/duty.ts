@@ -40,7 +40,7 @@ const ATTENDANCE_DESK = ["take", "student-leave"];
 /** A teacher's desk in Homework & Learning: checking work, lessons, quizzes, boards and online classes. */
 const TEACHING_DESK = ["submissions", "study-material", "quizzes", "discussions", "online-classes"];
 
-/** Transport Management's pages (prototype config.js DUTY: the Principal reads them all, the School Admin all but Settings). */
+/** Transport Management's pages (prototype config.js DUTY: the Principal reads them all). */
 const TRANSPORT_PAGES = ["live", "routes", "vehicles", "students", "trips", "reports", "settings"];
 
 /**

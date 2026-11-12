@@ -16,7 +16,8 @@ import { Alert } from "@/components/ui/alert";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { saveSettingsAction } from "../actions";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
+import { screenMessage } from "@/lib/i18n/messages";
 
 export type SettingsStart = {
   rules: { level: string; books: number; loanDays: number }[];
@@ -36,9 +37,11 @@ function useField() {
 
 function Num({ name, label, start: s, suffix, money, min = 0, max, width = "w-24" }: { name: string; label: string; start: string | number; suffix?: string; money?: boolean; min?: number; max?: number; width?: string }) {
   const { readOnly, v, err } = useField();
+  // Labels come in English; shown in the screen's language (layman test LE8).
+  const tr = useT();
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={`set-${name}`} className="sr-only">{label}</label>
+      <label htmlFor={`set-${name}`} className="sr-only">{tr.any(label)}</label>
       <div className="flex items-center gap-2">
         <div className="relative">
           {money && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3 font-semibold text-[14px]" aria-hidden="true">₹</span>}
@@ -46,17 +49,18 @@ function Num({ name, label, start: s, suffix, money, min = 0, max, width = "w-24
             aria-invalid={err(name) ? true : undefined} aria-describedby={err(name) ? `set-${name}-error` : undefined} disabled={readOnly}
             className={cx(inputCls(err(name)), "h-10 tnum text-right", money && "pl-7", width)} />
         </div>
-        {suffix && <span className="text-[13px] text-ink3">{suffix}</span>}
+        {suffix && <span className="text-[13px] text-ink3">{tr.any(suffix)}</span>}
       </div>
-      {err(name) && <p id={`set-${name}-error`} className="text-[12px] text-bad max-w-[220px]">{err(name)}</p>}
+      {err(name) && <p id={`set-${name}-error`} className="text-[12px] text-bad max-w-[220px]">{screenMessage(tr, err(name))}</p>}
     </div>
   );
 }
 
 function Row({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
+  const tr = useT();
   return (
     <div className="flex items-center gap-3 px-5 py-3.5 flex-wrap">
-      <div className="min-w-0 flex-1 text-[14px] basis-[220px]"><b className="font-semibold block">{title}</b>{sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{sub}</span>}</div>
+      <div className="min-w-0 flex-1 text-[14px] basis-[220px]"><b className="font-semibold block">{tr.any(title)}</b>{sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{tr.any(sub)}</span>}</div>
       <div className="min-w-0 max-w-full flex items-center gap-2 flex-wrap">{children}</div>
     </div>
   );
@@ -65,13 +69,15 @@ function Row({ title, sub, children }: { title: string; sub?: string; children: 
 function Toggle({ name, title, sub, start: s }: { name: string; title: string; sub?: string; start: boolean }) {
   const { readOnly, typed } = useField();
   const [on, setOn] = useState(typed ? typed[name] === "on" : s);
-  return <Row title={title} sub={sub}>{readOnly ? <span className="text-[13.5px] text-ink2">{on ? "On" : "Off"}</span> : <Switch on={on} onChange={setOn} label={title} name={name} />}</Row>;
+  const tr = useT();
+  return <Row title={title} sub={sub}>{readOnly ? <span className="text-[13.5px] text-ink2">{tr(on ? "On" : "Off")}</span> : <Switch on={on} onChange={setOn} label={tr.any(title)} name={name} />}</Row>;
 }
 
 function Seg({ name, label, options, start: s }: { name: string; label: string; options: { value: string; label: string }[]; start: string }) {
   const { readOnly, v } = useField();
   const [val, setVal] = useState(v(name, s));
-  return readOnly ? <span className="text-[13.5px] text-ink2">{options.find((o) => o.value === val)?.label}</span> : <><Segmented label={label} value={val} onChange={setVal} options={options} size="sm" /><input type="hidden" name={name} value={val} /></>;
+  const tr = useT();
+  return readOnly ? <span className="text-[13.5px] text-ink2">{tr.any(options.find((o) => o.value === val)?.label ?? "")}</span> : <><Segmented label={tr.any(label)} value={val} onChange={setVal} options={options} size="sm" /><input type="hidden" name={name} value={val} /></>;
 }
 
 export function SettingsForm({ start, readOnly }: { start: SettingsStart; readOnly: boolean }) {
@@ -81,6 +87,7 @@ export function SettingsForm({ start, readOnly }: { start: SettingsStart; readOn
   const v = (k: string, fallback: string | number) => typed?.[k] ?? String(fallback);
   const err = (k: string) => state?.errors?.[k];
   const key = typed ? JSON.stringify(typed).length : 0;
+  const tr = useT();
 
   return (
     <FormCtx.Provider value={ctx}>
@@ -95,9 +102,9 @@ export function SettingsForm({ start, readOnly }: { start: SettingsStart; readOn
             <tbody className="divide-y divide-line/70">
               {start.rules.map((r) => (
                 <tr key={r.level}>
-                  <th scope="row" className="px-5 py-2.5 font-semibold text-left">{r.level} <Words k="classes" /></th>
-                  <td className="px-3 py-2"><Num name={`books-${r.level}`} label={`Books for ${r.level}`} start={r.books} max={30} width="w-20" /></td>
-                  <td className="px-3 py-2"><Num name={`days-${r.level}`} label={`Loan days for ${r.level}`} start={r.loanDays} min={1} max={180} width="w-20" /></td>
+                  <th scope="row" className="px-5 py-2.5 font-semibold text-left">{tr.any(r.level)} <Words k="classes" /></th>
+                  <td className="px-3 py-2"><Num name={`books-${r.level}`} label={tr("Books for {group}", { group: tr.any(r.level) })} start={r.books} max={30} width="w-20" /></td>
+                  <td className="px-3 py-2"><Num name={`days-${r.level}`} label={tr("Loan days for {group}", { group: tr.any(r.level) })} start={r.loanDays} min={1} max={180} width="w-20" /></td>
                 </tr>
               ))}
               <tr>
@@ -138,14 +145,14 @@ export function SettingsForm({ start, readOnly }: { start: SettingsStart; readOn
         <CardHeader title="Labels and accession numbers" divided />
         <div className="divide-y divide-line/70">
           <Row title="Book labels"><Seg name="labelType" label="Label type" start={start.labelType} options={[{ value: "barcode", label: "Barcode" }, { value: "qr", label: "QR code" }, { value: "rfid", label: "RFID" }]} /></Row>
-          <Row title="Accession number format" sub={`The next copy gets ${start.nextPreview}.`}>
+          <Row title="Accession number format" sub={tr("The next copy gets {code}.", { code: start.nextPreview })}>
             <label htmlFor="set-accessionPrefix" className="sr-only"><Words k="Prefix" /></label>
-            <input id="set-accessionPrefix" name="accessionPrefix" defaultValue={v("accessionPrefix", start.accessionPrefix)} maxLength={8} placeholder="Prefix" disabled={readOnly}
+            <input id="set-accessionPrefix" name="accessionPrefix" defaultValue={v("accessionPrefix", start.accessionPrefix)} maxLength={8} placeholder={tr("Prefix")} disabled={readOnly}
               aria-invalid={err("accessionPrefix") ? true : undefined} className={cx(inputCls(err("accessionPrefix")), "h-10 w-24 font-mono")} />
             <Num name="accessionWidth" label="Digits" start={start.accessionWidth} min={1} max={10} suffix="digits" width="w-20" />
           </Row>
           <Row title="Next accession number" sub="Raise it to skip numbers already used on old labels. It cannot go back."><Num name="nextAccession" label="Next accession number" start={start.nextAccession} min={1} width="w-28" /></Row>
-          {err("accessionPrefix") && <p className="px-5 py-2 text-[12.5px] text-bad">{err("accessionPrefix")}</p>}
+          {err("accessionPrefix") && <p className="px-5 py-2 text-[12.5px] text-bad">{screenMessage(tr, err("accessionPrefix"))}</p>}
         </div>
       </Card>
 
@@ -160,7 +167,7 @@ export function SettingsForm({ start, readOnly }: { start: SettingsStart; readOn
 
       {!readOnly && (
         <div className="sticky bottom-20 md:bottom-3 z-10 flex justify-end">
-          <Button type="submit" variant="primary" size="lg" icon={Save} loading={pending} loadingText="Saving…" className="shadow-pop"><Words k="Save settings" /></Button>
+          <Button type="submit" variant="primary" size="lg" icon={Save} loading={pending} loadingText={tr("Saving…")} className="shadow-pop"><Words k="Save settings" /></Button>
         </div>
       )}
     </form>

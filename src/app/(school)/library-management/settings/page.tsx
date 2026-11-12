@@ -20,7 +20,7 @@ import { BASE, libGuard, one, UUID, type SearchParams } from "../_lib/page";
 import { archiveCategoryAction } from "../actions";
 import { SettingsForm } from "./settings-form";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Library Settings · Library Management") };
@@ -40,6 +40,7 @@ export default async function LibrarySettingsPage({ searchParams }: { searchPara
     ]);
     return { cats, counts, preview, next: seq?.nextValue ?? 1, who };
   });
+  const t = await getT();
   const base = `${BASE}/settings`;
   const catParam = one(sp.cat);
   const editing = can.settings ? (catParam === "new" ? "new" : UUID.test(catParam) ? d.cats.find((c) => c.id === catParam) ?? null : null) : null;
@@ -47,7 +48,7 @@ export default async function LibrarySettingsPage({ searchParams }: { searchPara
 
   return (
     <>
-      <LibHead pageName="Library Settings" href={base} mode={p.mode} sub={d.who ? `Last changed by ${d.who.displayName} on ${formatDateTime(s.updatedAt, tz)}` : undefined} />
+      <LibHead pageName="Library Settings" href={base} mode={p.mode} sub={d.who ? t("Last changed by {name} on {when}", { name: d.who.displayName, when: formatDateTime(s.updatedAt, tz) }) : undefined} />
       <Stack>
         <SettingsForm readOnly={!can.settings} start={{
           rules: s.rules, studentBooks: s.studentBooks, studentLoanDays: s.studentLoanDays, staffBooks: s.staffBooks, staffLoanDays: s.staffLoanDays, moveDueOffHolidays: s.moveDueOffHolidays,
@@ -64,13 +65,13 @@ export default async function LibrarySettingsPage({ searchParams }: { searchPara
               <li key={c.id} className="flex items-center gap-3 px-5 py-3 flex-wrap">
                 <div className="min-w-0 flex-1">
                   <p className="font-semibold text-[14px]">{c.name}</p>
-                  <p className="text-[12.5px] text-ink3">{c.shelf ? `Shelf ${c.shelf}` : "No shelf"} · {c.loanDays ? `${c.loanDays} loan days` : "member's loan days"} · {used(c.id)} <Words k="book" />{used(c.id) === 1 ? "" : "s"}</p>
+                  <p className="text-[12.5px] text-ink3">{c.shelf ? t("Shelf {shelf}", { shelf: c.shelf }) : t("No shelf")} · {c.loanDays ? t("{n} loan days", { n: c.loanDays }) : t("member's loan days")} · {t(used(c.id) === 1 ? "1 book" : "{n} books", { n: used(c.id) })}</p>
                 </div>
                 {!c.forLoan && <Pill tone="info"><Words k="Not lent" /></Pill>}
                 {can.settings && (
                   <span className="flex items-center gap-3">
                     <Link href={`${base}?cat=${c.id}`} scroll={false} className="text-[13px] font-semibold text-brand hover:underline"><Words k="Change" /></Link>
-                    {used(c.id) === 0 && <ActButton action={archiveCategoryAction} fields={{ categoryId: c.id }} label="Remove" variant="ghost" ariaLabel={`Remove ${c.name}`} />}
+                    {used(c.id) === 0 && <ActButton action={archiveCategoryAction} fields={{ categoryId: c.id }} label={t("Remove")} variant="ghost" ariaLabel={t("Remove {name}", { name: c.name })} />}
                   </span>
                 )}
               </li>

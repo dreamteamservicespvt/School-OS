@@ -72,7 +72,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
               </li>
             ))}
           </ul>
-          <TextArea name="duplicateReason" label="Reason to save anyway" required rows={2} className="mt-3"
+          <TextArea name="duplicateReason" label="Reason to save anyway" required maxLength={300} rows={2} className="mt-3"
             help="For example: twins, or a different child with the same name. Kept in the history." defaultValue={v("duplicateReason")} error={err("duplicateReason")} />
           <div className="mt-3"><SubmitButton pendingText="Saving…"><Words k="Save anyway" /></SubmitButton></div>
         </Alert>
@@ -133,7 +133,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="sr-only"><Words k="Numbers" /></legend>
-        <TextField name="admissionNo" label="Admission number" autoComplete="off" placeholder={nextAdmissionNo}
+        <TextField name="admissionNo" label="Admission number" maxLength={40} autoComplete="off" placeholder={nextAdmissionNo}
           defaultValue={v("admissionNo")} error={err("admissionNo") ?? admNote ?? undefined}
           onBlur={async (e) => { const r = await checkAdmissionNo(e.target.value); setAdmNote(r.taken); }}
           help={`Leave empty for the next number (${nextAdmissionNo}). Type one only when moving old records.`} />
@@ -148,11 +148,11 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
         <div className="grid gap-4 border-t border-line p-4 sm:grid-cols-2">
           <SelectField name="bloodGroup" label="Blood group" required={req("bloodGroup")} placeholder="Not known" options={BLOOD_GROUPS.map((b) => ({ value: b, label: b }))} defaultValue={v("bloodGroup")} error={err("bloodGroup")} />
           <SelectField name="category" label="Category" required={req("category")} placeholder="Choose" options={CATEGORIES.map((c) => ({ value: c, label: c }))} defaultValue={v("category")} error={err("category")} />
-          <TextField name="religion" label="Religion" required={req("religion")} defaultValue={v("religion")} error={err("religion")} />
-          <TextField name="motherTongue" label="Mother tongue" required={req("motherTongue")} defaultValue={v("motherTongue")} error={err("motherTongue")} />
-          <TextArea name="address" label="Address" required={req("address")} rows={2} className="sm:col-span-2" defaultValue={v("address")} error={err("address")} />
+          <TextField name="religion" label="Religion" required={req("religion")} maxLength={60} defaultValue={v("religion")} error={err("religion")} />
+          <TextField name="motherTongue" label="Mother tongue" required={req("motherTongue")} maxLength={60} defaultValue={v("motherTongue")} error={err("motherTongue")} />
+          <TextArea name="address" label="Address" required={req("address")} maxLength={300} rows={2} className="sm:col-span-2" defaultValue={v("address")} error={err("address")} />
           {showAadhaar && <TextField name="aadhaar" label="Aadhaar number" required={req("aadhaar")} inputMode="numeric" autoComplete="off" defaultValue={v("aadhaar")} error={err("aadhaar")} help="Restricted. Stored encrypted and shown masked." />}
-          <TextField name="previousSchool" label="Previous school" required={req("previousSchool")} className="sm:col-span-2" defaultValue={v("previousSchool")} error={err("previousSchool")} />
+          <TextField name="previousSchool" label="Previous school" required={req("previousSchool")} maxLength={200} className="sm:col-span-2" defaultValue={v("previousSchool")} error={err("previousSchool")} />
           <p className="text-[13.5px] text-ink2 sm:col-span-2"><Words k="Photo, identifiers, emergency contacts and the school's extra fields are added on the Student Profile after saving." /></p>
         </div>
       </details>

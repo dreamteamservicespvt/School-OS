@@ -194,27 +194,34 @@ export type TellAfterGiving = { homeworkId: string; logins: string[]; text: stri
 
 /**
  * After the homework is saved: students with logins get an app notification (17 §2 "Students are
- * notified when homework is set") and parents the "Homework set" message. Each section in its own
- * transaction, so a slow or failing message step never undoes the homework. Fills in `made`.
+ * notified when homework is set") and parents the "Homework set" message. Each step of each section
+ * runs in its own short transaction, so a slow or failing message step (message credits, QA LC2)
+ * never undoes or holds up the homework, and a parents' problem never takes the students' alerts with it.
+ * Fills in `made` with what really happened.
  */
 export async function tellAfterGiving(ctx: SchoolContext, r: { made: { id: string; notified: number; parents: string | null }[]; tell: TellAfterGiving[] }) {
+  const failed = (step: string, homeworkId: string, e: unknown) =>
+    console.error(JSON.stringify({ level: "error", event: "homework-tell-failed", step, homeworkId, error: e instanceof Error ? e.message : String(e) }));
   for (const t of r.tell) {
     const entry = r.made.find((m) => m.id === t.homeworkId);
     if (!entry) continue;
+    if (t.logins.length) {
+      try {
+        await withSchool(ctx, async (tx) => {
+          for (const to of t.logins) await notify(tx, ctx, { to, type: "homework-set", text: t.text, link: "/homework-learning", groupKey: "homework-set", mergedText: (n) => `${n} new homework` });
+        });
+        entry.notified = t.logins.length;
+      } catch (e) {
+        failed("students", t.homeworkId, e);
+        entry.notified = 0;
+        entry.parents = "failed";
+      }
+    }
     try {
-      await withSchool(ctx, async (tx) => {
-        let notified = 0;
-        for (const to of t.logins) {
-          await notify(tx, ctx, { to, type: "homework-set", text: t.text, link: "/homework-learning", groupKey: "homework-set", mergedText: (n) => `${n} new homework` });
-          notified++;
-        }
-        const parents = await tellParentsHomeworkSet(tx, ctx, t.parents);
-        entry.notified = notified;
-        entry.parents = parents;
-      }, { timeout: 60_000 });
+      const parents = await withSchool(ctx, (tx) => tellParentsHomeworkSet(tx, ctx, t.parents), { timeout: 60_000 });
+      if (entry.parents !== "failed") entry.parents = parents;
     } catch (e) {
-      console.error(JSON.stringify({ level: "error", event: "homework-tell-failed", homeworkId: t.homeworkId, error: e instanceof Error ? e.message : String(e) }));
-      entry.notified = 0;
+      failed("parents", t.homeworkId, e);
       entry.parents = "failed";
     }
   }

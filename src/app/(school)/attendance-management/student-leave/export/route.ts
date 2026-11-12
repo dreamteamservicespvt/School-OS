@@ -1,6 +1,6 @@
 // Student Leave export (P8): the same status, class, type, dates and search
 // as the list on screen, and only the students this person may see.
-import { requireAction } from "@/lib/current";
+import { routeAction } from "@/lib/route-access";
 import { withSchool } from "@/lib/db";
 import { buildExport, exportResponse, logExport, type ExportColumn, type ExportFormat } from "@/lib/exports";
 import { formatDate } from "@/lib/format";
@@ -12,7 +12,9 @@ import { STUDENT_LEAVE_STATUS } from "@/lib/attendance/student-leave";
 import { LEAVE_STATUSES, studentLeaveList } from "@/lib/attendance/student-leave-list";
 
 export async function GET(req: Request) {
-  const { current } = await requireAction("attendance-management", "export");
+  const gate = await routeAction("attendance-management", "export");
+  if (gate instanceof Response) return gate;
+  const { current } = gate;
   const url = new URL(req.url);
   const sp = Object.fromEntries(url.searchParams);
   const format = (["csv", "xlsx", "pdf"].includes(sp.format ?? "") ? sp.format : "xlsx") as ExportFormat;

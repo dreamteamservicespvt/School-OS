@@ -41,15 +41,16 @@ export function ModuleHead({ title, page: pageIn, pageName, href, userId, sub, a
     <>
       <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between mb-5">
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap">
-            <h1 className="font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">
+          {/* The pin stays beside the title; a long title wraps under itself, not the pin onto a line of its own (layman test LD12, 390 px). */}
+          <div className="flex items-start gap-1.5">
+            <h1 className="min-w-0 font-display text-[26px] md:text-[30px] font-semibold tracking-tight leading-tight">
               {t.any(title)}
               {access === "view" && <Pill tone="neutral" className="align-middle ml-2 !h-6"><Eye size={13} aria-hidden="true" />{t("View only")}</Pill>}
               {access === "own" && <Pill tone="brand" className="align-middle ml-2 !h-6"><User size={13} aria-hidden="true" />{t("Only yours")}</Pill>}
             </h1>
             <button type="button" onClick={toggle}
               aria-pressed={pinned} aria-label={pinned ? t("Unpin {page}", { page: t.any(page) }) : t("Pin {page} to Search", { page: t.any(page) })} title={pinned ? t("Pinned to Search") : t("Pin to Search")}
-              className={cx("grid size-9 place-items-center rounded-xl transition hover:bg-sunken", pinned ? "text-brand" : "text-ink3")}>
+              className={cx("grid size-9 shrink-0 place-items-center rounded-xl transition hover:bg-sunken", pinned ? "text-brand" : "text-ink3")}>
               <Pin size={17} className={pinned ? "fill-current" : ""} aria-hidden="true" />
             </button>
           </div>

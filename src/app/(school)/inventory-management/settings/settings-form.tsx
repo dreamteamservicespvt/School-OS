@@ -16,7 +16,8 @@ import { Alert } from "@/components/ui/alert";
 import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import { saveSettingsAction } from "../actions";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
+import { screenMessage } from "@/lib/i18n/messages";
 
 export type SettingsStart = {
   itemCodePrefix: string; itemCodeWidth: number; nextItem: string;
@@ -35,9 +36,11 @@ function useField() {
 
 function Num({ name, label, start: s, suffix, money, min = 0, max, width = "w-24" }: { name: string; label: string; start: string | number; suffix?: string; money?: boolean; min?: number; max?: number; width?: string }) {
   const { readOnly, v, err } = useField();
+  // Labels come in English; shown in the screen's language (layman test LE8).
+  const tr = useT();
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={`set-${name}`} className="sr-only">{label}</label>
+      <label htmlFor={`set-${name}`} className="sr-only">{tr.any(label)}</label>
       <div className="flex items-center gap-2">
         <div className="relative">
           {money && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-ink3 font-semibold text-[14px]" aria-hidden="true">₹</span>}
@@ -45,29 +48,31 @@ function Num({ name, label, start: s, suffix, money, min = 0, max, width = "w-24
             aria-invalid={err(name) ? true : undefined} aria-describedby={err(name) ? `set-${name}-error` : undefined} disabled={readOnly}
             className={cx(inputCls(err(name)), "h-10 tnum text-right", money && "pl-7", width)} />
         </div>
-        {suffix && <span className="text-[13px] text-ink3">{suffix}</span>}
+        {suffix && <span className="text-[13px] text-ink3">{tr.any(suffix)}</span>}
       </div>
-      {err(name) && <p id={`set-${name}-error`} className="text-[12px] text-bad max-w-[220px]">{err(name)}</p>}
+      {err(name) && <p id={`set-${name}-error`} className="text-[12px] text-bad max-w-[220px]">{screenMessage(tr, err(name))}</p>}
     </div>
   );
 }
 
 function Txt({ name, label, start: s, width = "w-24", mono, placeholder }: { name: string; label: string; start: string; width?: string; mono?: boolean; placeholder?: string }) {
   const { readOnly, v, err } = useField();
+  const tr = useT();
   return (
     <div className="flex flex-col gap-1">
-      <label htmlFor={`set-${name}`} className="sr-only">{label}</label>
+      <label htmlFor={`set-${name}`} className="sr-only">{tr.any(label)}</label>
       <input id={`set-${name}`} name={name} defaultValue={v(name, s)} maxLength={10} placeholder={placeholder} disabled={readOnly} aria-invalid={err(name) ? true : undefined}
         className={cx(inputCls(err(name)), "h-10 uppercase", mono && "font-mono", width)} />
-      {err(name) && <p className="text-[12px] text-bad max-w-[220px]">{err(name)}</p>}
+      {err(name) && <p className="text-[12px] text-bad max-w-[220px]">{screenMessage(tr, err(name))}</p>}
     </div>
   );
 }
 
 function Row({ title, sub, children }: { title: string; sub?: string; children: React.ReactNode }) {
+  const tr = useT();
   return (
     <div className="flex items-center gap-3 px-5 py-3.5 flex-wrap">
-      <div className="min-w-0 flex-1 text-[14px] basis-[220px]"><b className="font-semibold block">{title}</b>{sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{sub}</span>}</div>
+      <div className="min-w-0 flex-1 text-[14px] basis-[220px]"><b className="font-semibold block">{tr.any(title)}</b>{sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{tr.any(sub)}</span>}</div>
       <div className="min-w-0 max-w-full flex items-center gap-2 flex-wrap">{children}</div>
     </div>
   );
@@ -76,17 +81,19 @@ function Row({ title, sub, children }: { title: string; sub?: string; children: 
 function Toggle({ name, title, sub, start: s }: { name: string; title: string; sub?: string; start: boolean }) {
   const { readOnly, typed } = useField();
   const [on, setOn] = useState(typed ? typed[name] === "on" : s);
-  return <Row title={title} sub={sub}>{readOnly ? <span className="text-[13.5px] text-ink2">{on ? "On" : "Off"}</span> : <Switch on={on} onChange={setOn} label={title} name={name} />}</Row>;
+  const tr = useT();
+  return <Row title={title} sub={sub}>{readOnly ? <span className="text-[13.5px] text-ink2">{tr(on ? "On" : "Off")}</span> : <Switch on={on} onChange={setOn} label={tr.any(title)} name={name} />}</Row>;
 }
 
 function Area({ name, label, start: s, help }: { name: string; label: string; start: string; help: string }) {
   const { readOnly, v, err } = useField();
+  const tr = useT();
   return (
     <div className="px-5 py-3.5 flex flex-col gap-1.5">
-      <label htmlFor={`set-${name}`} className="text-[14px] font-semibold">{label}</label>
+      <label htmlFor={`set-${name}`} className="text-[14px] font-semibold">{tr.any(label)}</label>
       <textarea id={`set-${name}`} name={name} defaultValue={v(name, s)} rows={2} disabled={readOnly} aria-invalid={err(name) ? true : undefined}
         className={cx(inputCls(err(name)), "py-2 min-h-[64px]")} />
-      {err(name) ? <p className="text-[12px] text-bad">{err(name)}</p> : <p className="text-[12.5px] text-ink3">{help}</p>}
+      {err(name) ? <p className="text-[12px] text-bad">{screenMessage(tr, err(name))}</p> : <p className="text-[12.5px] text-ink3">{tr.any(help)}</p>}
     </div>
   );
 }
@@ -99,6 +106,7 @@ export function SettingsForm({ start, readOnly, heads }: { start: SettingsStart;
   const err = (k: string) => state?.errors?.[k];
   const key = typed ? JSON.stringify(typed).length : 0;
   const [method, setMethod] = useState(v("depreciationMethod", start.depreciationMethod));
+  const tr = useT();
 
   return (
     <FormCtx.Provider value={ctx}>
@@ -108,11 +116,11 @@ export function SettingsForm({ start, readOnly, heads }: { start: SettingsStart;
       <Card>
         <CardHeader title="Codes and numbers" divided />
         <div className="divide-y divide-line/70">
-          <Row title="Item codes" sub={`The next item gets ${start.nextItem}.`}>
+          <Row title="Item codes" sub={tr("The next item gets {code}.", { code: start.nextItem })}>
             <Txt name="itemCodePrefix" label="Item code prefix" start={start.itemCodePrefix} mono placeholder="ST-" />
             <Num name="itemCodeWidth" label="Digits in item codes" start={start.itemCodeWidth} min={3} max={8} suffix="digits" width="w-20" />
           </Row>
-          <Row title="Asset tags" sub={`The next asset gets ${start.nextTag}. Printed as a barcode or QR.`}>
+          <Row title="Asset tags" sub={tr("The next asset gets {code}. Printed as a barcode or QR.", { code: start.nextTag })}>
             <Txt name="assetTagPrefix" label="Asset tag prefix" start={start.assetTagPrefix} mono placeholder="AT-" />
             <Num name="assetTagWidth" label="Digits in asset tags" start={start.assetTagWidth} min={3} max={8} suffix="digits" width="w-20" />
           </Row>
@@ -130,7 +138,7 @@ export function SettingsForm({ start, readOnly, heads }: { start: SettingsStart;
           <Row title="Expense head for vendor bills" sub="Used when the item's category has no head of its own.">
             <label htmlFor="set-defaultExpenseHeadId" className="sr-only"><Words k="Expense head for vendor bills" /></label>
             <select id="set-defaultExpenseHeadId" name="defaultExpenseHeadId" defaultValue={v("defaultExpenseHeadId", start.defaultExpenseHeadId)} disabled={readOnly} className={cx(inputCls(err("defaultExpenseHeadId")), "h-10 w-60 max-w-full")}>
-              <option value="">Not set</option>
+              <option value="">{tr("Not set")}</option>
               {heads.map((h) => <option key={h.value} value={h.value}>{h.label}</option>)}
             </select>
           </Row>
@@ -152,16 +160,16 @@ export function SettingsForm({ start, readOnly, heads }: { start: SettingsStart;
         <div className="divide-y divide-line/70">
           <Area name="assetTypes" label="Asset types" start={start.assetTypes.join(", ")} help="Separated by commas. A new type gets a 10% rate until you set one below." />
           <Row title="Depreciation method" sub="Straight line: the same share of the cost each year. Written-down value: the rate on what is left.">
-            {readOnly ? <span className="text-[13.5px] text-ink2">{method === "WDV" ? "Written-down value" : "Straight line"}</span>
-              : <><Segmented label="Depreciation method" value={method} onChange={setMethod} size="sm" options={[{ value: "SLM", label: "Straight line" }, { value: "WDV", label: "Written-down value" }]} /><input type="hidden" name="depreciationMethod" value={method} /></>}
+            {readOnly ? <span className="text-[13.5px] text-ink2">{tr(method === "WDV" ? "Written-down value" : "Straight line")}</span>
+              : <><Segmented label={tr("Depreciation method")} value={method} onChange={setMethod} size="sm" options={[{ value: "SLM", label: "Straight line" }, { value: "WDV", label: "Written-down value" }]} /><input type="hidden" name="depreciationMethod" value={method} /></>}
           </Row>
           <div className="px-5 py-3.5">
             <p className="text-[14px] font-semibold mb-2"><Words k="Rate a year by type" /></p>
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {start.assetTypes.map((t) => (
-                <div key={t} className="flex items-center justify-between gap-2 rounded-xl border border-line px-3 py-2">
-                  <span className="text-[13.5px] min-w-0 truncate">{t}</span>
-                  <Num name={`rate-${t}`} label={`Rate for ${t}`} start={start.rates[t] ?? 10} max={100} suffix="%" width="w-16" />
+              {start.assetTypes.map((type) => (
+                <div key={type} className="flex items-center justify-between gap-2 rounded-xl border border-line px-3 py-2">
+                  <span className="text-[13.5px] min-w-0 truncate">{tr.any(type)}</span>
+                  <Num name={`rate-${type}`} label={tr("Rate for {type}", { type: tr.any(type) })} start={start.rates[type] ?? 10} max={100} suffix="%" width="w-16" />
                 </div>
               ))}
             </div>
@@ -172,7 +180,7 @@ export function SettingsForm({ start, readOnly, heads }: { start: SettingsStart;
 
       {!readOnly && (
         <div className="sticky bottom-20 md:bottom-3 z-10 flex justify-end">
-          <Button type="submit" variant="primary" size="lg" icon={Save} loading={pending} loadingText="Saving…" className="shadow-pop"><Words k="Save settings" /></Button>
+          <Button type="submit" variant="primary" size="lg" icon={Save} loading={pending} loadingText={tr("Saving…")} className="shadow-pop"><Words k="Save settings" /></Button>
         </div>
       )}
     </form>

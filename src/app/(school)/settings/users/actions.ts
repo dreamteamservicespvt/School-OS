@@ -39,9 +39,18 @@ function typed(fd: FormData) {
 export async function inviteAction(_: InviteState, fd: FormData): Promise<InviteState> {
   const values = typed(fd);
   const parsed = parseForm(inviteSchema, fd);
-  if (!parsed.ok) return { ok: false, message: parsed.state.message, errors: parsed.state.errors, values };
-  if (!parsed.data.phone) return { ok: false, message: "Phone is needed, so the person can get their invite link and one-time codes.", errors: { phone: "Phone is needed." }, values };
   const roleIds = fd.getAll("roleIds").map(String);
+  // Every problem at once (layman test LE6): the phone and the roles were named only after the
+  // name and username were right.
+  const errors: Record<string, string> = { ...(parsed.ok ? {} : parsed.state.errors) };
+  if (!errors.phone && !String(fd.get("phone") ?? "").trim()) errors.phone = "Phone is needed.";
+  if (!errors.roleIds && !roleIds.some(Boolean)) errors.roleIds = "Choose at least one role.";
+  const count = Object.keys(errors).length;
+  if (count) {
+    const only = count === 1 && errors.phone === "Phone is needed." ? "Phone is needed, so the person can get their invite link and one-time codes." : Object.values(errors)[0];
+    return { ok: false, message: count === 1 ? only : `Please fix ${count} things before saving.`, errors, values };
+  }
+  if (!parsed.ok || !parsed.data.phone) return { ok: false, message: "Phone is needed, so the person can get their invite link and one-time codes.", errors: { phone: "Phone is needed." }, values };
   const r = await runSettings(PAGE, "create", (tx, current) =>
     inviteUser(tx, current.ctx, {
       displayName: parsed.data.displayName,

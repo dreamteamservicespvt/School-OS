@@ -19,13 +19,12 @@ import { Stats, Stack, Toolbar, DataList, Empty } from "@/components/money/kit";
 import { copyCounts, shelfOf, type CopyCounts } from "@/lib/library/catalogue";
 import { nextAccessionPreview } from "@/lib/library/settings";
 import { showIsbn } from "@/lib/library/isbn";
-import { plural } from "@/lib/library/words";
 import { LibHead } from "../_components/head";
 import { BookSheet } from "../_components/sheets";
 import { BASE, libGuard, libPeriod, one, qs, type SearchParams } from "../_lib/page";
 import { booksWhere, readBooksFilter } from "../_lib/books";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Books · Library Management") };
@@ -61,6 +60,7 @@ export default async function BooksPage({ searchParams }: { searchParams: Search
     return { total, rows, cats, subjects: subjects.map((x) => x.subject!).filter(Boolean), authors: authors.map((a) => a.name), catCounts, copyTotals, unlabelled, next, counts, publishers: new Map(publishers.map((x) => [x.id, x.name])) };
   });
 
+  const t = await getT();
   const catOf = new Map(d.cats.map((c) => [c.id, c]));
   const by = (st: string) => d.copyTotals.find((x) => x.status === st)?._count._all ?? 0;
   const allCopies = d.copyTotals.filter((x) => x.status !== "WITHDRAWN").reduce((a, x) => a + x._count._all, 0);
@@ -71,8 +71,8 @@ export default async function BooksPage({ searchParams }: { searchParams: Search
   const actions = can.catalogue ? (
     <div className="flex gap-2">
       <MoreMenu items={[
-        { label: "Import books", href: `${BASE}/books/import`, icon: <FileUp size={16} aria-hidden="true" /> },
-        ...(d.unlabelled ? [{ label: `Print ${plural(d.unlabelled, "new label")}`, href: `${BASE}/books/labels?unprinted=1`, file: true, icon: <Printer size={16} aria-hidden="true" /> }] : []),
+        { label: t("Import books"), href: `${BASE}/books/import`, icon: <FileUp size={16} aria-hidden="true" /> },
+        ...(d.unlabelled ? [{ label: t(d.unlabelled === 1 ? "Print 1 new label" : "Print {n} new labels", { n: d.unlabelled.toLocaleString("en-IN") }), href: `${BASE}/books/labels?unprinted=1`, file: true, icon: <Printer size={16} aria-hidden="true" /> }] : []),
       ]} />
       <ButtonLink href={addQ(href({}), "open", "add")} variant="primary" icon={BookPlus} scroll={false}><Words k="Add book" /></ButtonLink>
     </div>
@@ -83,16 +83,16 @@ export default async function BooksPage({ searchParams }: { searchParams: Search
       <LibHead pageName="Books" href={`${BASE}/books`} mode={p.mode} actions={actions} />
       <Stack>
         <Stats items={[
-          { label: "Titles", value: booksTotal.toLocaleString("en-IN") },
-          { label: "Copies", value: allCopies.toLocaleString("en-IN") },
-          { label: "On the shelf", value: by("AVAILABLE").toLocaleString("en-IN"), tone: "ok" },
-          { label: "Issued", value: by("ISSUED").toLocaleString("en-IN") },
-          { label: "Lost or damaged", value: (by("LOST") + by("DAMAGED")).toLocaleString("en-IN"), tone: by("LOST") + by("DAMAGED") ? "warn" : undefined },
+          { label: t("Titles"), value: booksTotal.toLocaleString("en-IN") },
+          { label: t("Copies"), value: allCopies.toLocaleString("en-IN") },
+          { label: t("On the shelf"), value: by("AVAILABLE").toLocaleString("en-IN"), tone: "ok" },
+          { label: t("Issued"), value: by("ISSUED").toLocaleString("en-IN") },
+          { label: t("Lost or damaged"), value: (by("LOST") + by("DAMAGED")).toLocaleString("en-IN"), tone: by("LOST") + by("DAMAGED") ? "warn" : undefined },
         ]} />
         {can.catalogue && d.unlabelled > 0 && (
           <div className="flex items-center gap-3 rounded-2xl bg-info/10 px-4 py-3 text-[14px] flex-wrap">
             <Printer size={18} className="text-info shrink-0" aria-hidden="true" />
-            <span className="flex-1 min-w-0">{plural(d.unlabelled, "copy", "copies")} {d.unlabelled === 1 ? "has" : "have"} <Words k="no label yet." /></span>
+            <span className="flex-1 min-w-0">{t(d.unlabelled === 1 ? "1 copy has no label yet." : "{n} copies have no label yet.", { n: d.unlabelled.toLocaleString("en-IN") })}</span>
             <ButtonLink href={`${BASE}/books/labels?unprinted=1`} size="sm" variant="secondary" target="_blank" prefetch={false}><Words k="Print labels" /></ButtonLink>
           </div>
         )}
@@ -103,30 +103,30 @@ export default async function BooksPage({ searchParams }: { searchParams: Search
         ]} />
         <Card>
           <Toolbar className="md:flex-wrap">
-            <UrlSearch placeholder="Search title, author, ISBN or accession number" label="Search books" className="flex-1 md:min-w-[300px]" id="books-search" />
+            <UrlSearch placeholder={t("Search title, author, ISBN or accession number")} label={t("Search books")} className="flex-1 md:min-w-[300px]" id="books-search" />
             <div className="flex gap-2 flex-wrap">
-              {d.subjects.length > 0 && <UrlSelect param="subject" label="Subject" options={[{ value: "", label: "All subjects" }, ...d.subjects.map((x) => ({ value: x, label: x }))]} />}
-              {d.authors.length > 0 && <UrlSelect param="author" label="Author" className="max-w-[220px]" options={[{ value: "", label: "All authors" }, ...d.authors.map((x) => ({ value: x, label: x }))]} />}
+              {d.subjects.length > 0 && <UrlSelect param="subject" label={t("Subject")} options={[{ value: "", label: t("All subjects") }, ...d.subjects.map((x) => ({ value: x, label: x }))]} />}
+              {d.authors.length > 0 && <UrlSelect param="author" label={t("Author")} className="max-w-[220px]" options={[{ value: "", label: t("All authors") }, ...d.authors.map((x) => ({ value: x, label: x }))]} />}
               <SegLinks label="Copies" size="md" value={f.avail ? "1" : ""} options={[{ value: "", label: "All", href: href({ avail: null }) }, { value: "1", label: "Available", href: href({ avail: "1" }) }]} />
-              <PeriodFilter {...p.dates} allLabel="Added: all dates" />
-              {can.export && <ExportButton href={exportHref} />}
+              <PeriodFilter {...p.dates} allLabel={t("Added: all dates")} />
+              {can.export && <ExportButton href={exportHref} label={t("Export")} />}
             </div>
           </Toolbar>
-          <DataList rows={d.rows} rowKey={(b) => b.id} rowHref={(b) => `${BASE}/books/${b.id}`} minWidth={900} caption="Books"
-            empty={<Empty icon={params.q || f.cat || f.subject || f.author || f.avail || per.range ? Search : BookOpen} title={params.q || f.cat || f.subject || f.author || f.avail || per.range ? "No books match" : "No books yet"}
-              body={params.q || f.cat || f.subject || f.author || f.avail || per.range ? "Try another search or clear the filters." : can.catalogue ? "Add the first book, or import the catalogue from a spreadsheet." : "The librarian adds the books."}
+          <DataList rows={d.rows} rowKey={(b) => b.id} rowHref={(b) => `${BASE}/books/${b.id}`} minWidth={900} caption={t("Books")}
+            empty={<Empty icon={params.q || f.cat || f.subject || f.author || f.avail || per.range ? Search : BookOpen} title={t(params.q || f.cat || f.subject || f.author || f.avail || per.range ? "No books match" : "No books yet")}
+              body={t(params.q || f.cat || f.subject || f.author || f.avail || per.range ? "Try another search or clear the filters." : can.catalogue ? "Add the first book, or import the catalogue from a spreadsheet." : "The librarian adds the books.")}
               action={!params.q && can.catalogue ? <ButtonLink href={`${BASE}/books/import`} variant="secondary" icon={FileUp}><Words k="Import books" /></ButtonLink> : undefined} />}
             columns={[
-              { key: "title", label: "Title", render: (b) => <span className="block min-w-[180px]"><b className="font-semibold">{b.title}</b>{b.isbn && <span className="block text-[12px] text-ink3 font-mono">{showIsbn(b.isbn)}</span>}</span> },
-              { key: "author", label: "Author", render: (b) => b.authorText },
-              { key: "publisher", label: "Publisher", render: (b) => (b.publisherId ? d.publishers.get(b.publisherId) ?? "" : "") },
-              { key: "cat", label: "Category", render: (b) => (b.categoryId ? catOf.get(b.categoryId)?.name ?? "" : "") },
-              { key: "subject", label: "Subject", render: (b) => b.subject ?? "" },
-              { key: "copies", label: "Copies", align: "right", render: (b) => (d.counts.get(b.id) ?? ZERO).total },
-              { key: "avail", label: "Available", align: "right", render: (b) => { const c = d.counts.get(b.id) ?? ZERO; return <span className={c.available ? "text-ok font-semibold" : "text-ink3"}>{c.available}</span>; } },
-              { key: "issued", label: "Issued", align: "right", render: (b) => (d.counts.get(b.id) ?? ZERO).issued },
-              { key: "lost", label: "Lost", align: "right", render: (b) => { const c = d.counts.get(b.id) ?? ZERO; return c.lost ? <span className="text-warn">{c.lost}</span> : 0; } },
-              { key: "shelf", label: "Shelf", nowrap: true, render: (b) => shelfOf(b, b.categoryId ? catOf.get(b.categoryId) : null) ?? "" },
+              { key: "title", label: t("Title"), render: (b) => <span className="block min-w-[180px]"><b className="font-semibold">{b.title}</b>{b.isbn && <span className="block text-[12px] text-ink3 font-mono">{showIsbn(b.isbn)}</span>}</span> },
+              { key: "author", label: t("Author"), render: (b) => b.authorText },
+              { key: "publisher", label: t("Publisher"), render: (b) => (b.publisherId ? d.publishers.get(b.publisherId) ?? "" : "") },
+              { key: "cat", label: t("Category"), render: (b) => (b.categoryId ? catOf.get(b.categoryId)?.name ?? "" : "") },
+              { key: "subject", label: t("Subject"), render: (b) => b.subject ?? "" },
+              { key: "copies", label: t("Copies"), align: "right", render: (b) => (d.counts.get(b.id) ?? ZERO).total },
+              { key: "avail", label: t("Available"), align: "right", render: (b) => { const c = d.counts.get(b.id) ?? ZERO; return <span className={c.available ? "text-ok font-semibold" : "text-ink3"}>{c.available}</span>; } },
+              { key: "issued", label: t("Issued"), align: "right", render: (b) => (d.counts.get(b.id) ?? ZERO).issued },
+              { key: "lost", label: t("Lost"), align: "right", render: (b) => { const c = d.counts.get(b.id) ?? ZERO; return c.lost ? <span className="text-warn">{c.lost}</span> : 0; } },
+              { key: "shelf", label: t("Shelf"), nowrap: true, render: (b) => shelfOf(b, b.categoryId ? catOf.get(b.categoryId) : null) ?? "" },
             ]}
             phone={(b) => {
               const c = d.counts.get(b.id) ?? ZERO;
@@ -138,7 +138,7 @@ export default async function BooksPage({ searchParams }: { searchParams: Search
         </Card>
       </Stack>
       {adding && (
-        <BookSheet closeHref={href({ open: null })} categories={d.cats.map((c) => ({ value: c.id, label: c.forLoan ? c.name : `${c.name} (not lent)` }))} start={null} nextAccession={d.next} />
+        <BookSheet closeHref={href({ open: null })} categories={d.cats.map((c) => ({ value: c.id, label: c.forLoan ? c.name : t("{name} (not lent)", { name: c.name }) }))} start={null} nextAccession={d.next} />
       )}
     </>
   );

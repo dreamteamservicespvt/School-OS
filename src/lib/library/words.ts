@@ -82,3 +82,12 @@ export function paiseToRupees(p: bigint | number | null | undefined) {
 
 /** "S:uuid" / "T:uuid": a member in page addresses and forms. */
 export type MemberKey = `S:${string}` | `T:${string}`;
+
+/**
+ * A member's class or department in the screen's language (layman test LE8): "Class 7 B"
+ * becomes "తరగతి 7 B"; a department and designation stay as the school typed them.
+ */
+export function groupWords(t: import("@/lib/i18n/t").T, group: string): string {
+  if (group.startsWith("Class ")) return t("Class {n}", { n: group.slice(6) });
+  return t.any(group);
+}

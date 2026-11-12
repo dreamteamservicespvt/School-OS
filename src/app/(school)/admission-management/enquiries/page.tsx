@@ -7,7 +7,7 @@ import { can } from "@/lib/permissions";
 import { admissionPage, admissionViewYear, viewerOnCampus, BASE } from "@/lib/admission/page";
 import { backToThisYear, viewNow } from "@/lib/academic/view-year";
 import { ViewYearStrip } from "@/components/view-year-strip";
-import { UUID_RE, instantToLocal, zonedToInstant } from "@/lib/admission/act";
+import { UUID_RE, instantToLocal, ownerFilter, zonedToInstant } from "@/lib/admission/act";
 import { ENQUIRY_FILTERS, enquiryOrder, enquiryWhere } from "@/lib/admission/list";
 import { enquiryScope, canWorkOn } from "@/lib/admission/access";
 import { CLOSED_STATUSES, admissionYears, label, listYears, live } from "@/lib/admission/settings";
@@ -246,12 +246,4 @@ export default async function EnquiriesPage({ searchParams }: Search) {
         </div>
     </>
   );
-}
-
-/** The Owner filter: names only, with the job title kept where two staff share a name (LA9: "Naresh Kumar" twice). */
-function ownerFilter(owners: { value: string; label: string }[]) {
-  const bare = (label: string) => label.replace(/ \(.*\)$/, "");
-  const seen = new Map<string, number>();
-  for (const o of owners) seen.set(bare(o.label), (seen.get(bare(o.label)) ?? 0) + 1);
-  return owners.map((o) => ({ value: o.value, label: (seen.get(bare(o.label)) ?? 0) > 1 ? o.label : bare(o.label) }));
 }

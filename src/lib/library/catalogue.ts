@@ -11,7 +11,7 @@ import { writeAudit } from "../audit";
 import { formatRupees } from "../format";
 import { nextNumber } from "../sequences";
 import { cleanIsbn, isbnValid, ISBN_INVALID } from "./isbn";
-import { LibraryProblem } from "./problem";
+import { LibraryProblem, Problems } from "./problem";
 import { ACCESSION_KEY, formatAccession, librarySettings, nextAccessionPreview, type LibrarySettings } from "./settings";
 import { BASE } from "./words";
 
@@ -55,23 +55,34 @@ async function publisherId(tx: Tx, ctx: SchoolContext, raw: string | null) {
   return (await tx.publisher.create({ data: { schoolId: ctx.schoolId, name } })).id;
 }
 
-/** Checks the fields of a book; returns the cleaned ISBN. */
-async function checkBook(tx: Tx, input: BookInput, bookId: string | null) {
-  if (input.title.trim().length < 1) throw new LibraryProblem("Title is needed.", "title");
-  if (input.title.length > 300) throw new LibraryProblem("Title can be at most 300 characters.", "title");
-  if (!input.authors.some((a) => a.trim())) throw new LibraryProblem("Add at least one author.", "authors");
+/**
+ * Checks a book's details and gives back the clean ISBN. Every problem is found
+ * before stopping (layman test LE6), together with those the form already had
+ * (`found`) and the extra checks of a new book (`more`: copies, accession numbers).
+ */
+async function checkBook(tx: Tx, input: BookInput, bookId: string | null, found = new Problems(), more: (() => Promise<unknown>)[] = []) {
+  const p = found;
+  if (!p.has("title")) {
+    if (input.title.trim().length < 1) p.add("title", "Title is needed.");
+    else if (input.title.length > 300) p.add("title", "Title can be at most 300 characters.");
+  }
+  if (!p.has("authors") && !input.authors.some((a) => a.trim())) p.add("authors", "Add at least one author.");
   let isbn: string | null = null;
-  if (input.isbn && input.isbn.trim()) {
-    if (!isbnValid(input.isbn)) throw new LibraryProblem(ISBN_INVALID, "isbn");
-    isbn = cleanIsbn(input.isbn);
-    const dup = await tx.book.findFirst({ where: { isbn, archivedAt: null, ...(bookId ? { id: { not: bookId } } : {}) }, select: { id: true, title: true } });
-    if (dup) throw new LibraryProblem(`This ISBN is already in the library: “${dup.title}”. Add copies to that book instead.`, "isbn", { href: `${BASE}/books/${dup.id}`, label: `Open “${dup.title}”` });
+  if (!p.has("isbn") && input.isbn && input.isbn.trim()) {
+    if (!isbnValid(input.isbn)) p.add("isbn", ISBN_INVALID);
+    else {
+      isbn = cleanIsbn(input.isbn);
+      const dup = await tx.book.findFirst({ where: { isbn, archivedAt: null, ...(bookId ? { id: { not: bookId } } : {}) }, select: { id: true, title: true } });
+      if (dup) p.add("isbn", `This ISBN is already in the library: “${dup.title}”. Add copies to that book instead.`, { href: `${BASE}/books/${dup.id}`, label: `Open “${dup.title}”` });
+    }
   }
   if (input.categoryId) {
     const c = await tx.libraryCategory.findFirst({ where: { id: input.categoryId, archivedAt: null } });
-    if (!c) throw new LibraryProblem("Choose a category from the list.", "categoryId");
+    if (!c) p.add("categoryId", "Choose a category from the list.");
   }
-  if (input.pricePaise !== null && input.pricePaise < BigInt(0)) throw new LibraryProblem("Price cannot be below ₹0.", "price");
+  if (input.pricePaise !== null && input.pricePaise < BigInt(0)) p.add("price", "Price cannot be below ₹0.");
+  for (const run of more) await p.check(run);
+  p.done();
   return isbn;
 }
 
@@ -126,11 +137,16 @@ async function makeCopies(tx: Tx, ctx: SchoolContext, bookId: string, accessions
 }
 
 /** Add a book with its copies (13 Add book). */
-export async function addBook(tx: Tx, ctx: SchoolContext, input: BookInput & { copies: number; accessions?: string[]; acquiredOn?: Date | null }) {
+export async function addBook(tx: Tx, ctx: SchoolContext, input: BookInput & { copies: number; accessions?: string[]; acquiredOn?: Date | null }, found?: Problems) {
   const s = await librarySettings(tx, ctx);
-  const isbn = await checkBook(tx, input, null);
-  if (!Number.isInteger(input.copies) || input.copies < 1 || input.copies > MAX_COPIES) throw new LibraryProblem(`Number of copies must be from 1 to ${MAX_COPIES}.`, "copies");
-  const accessions = await takeAccessions(tx, ctx, s, input.copies, input.accessions ?? []);
+  let accessions: string[] = [];
+  // The copies and accession numbers are checked with the details, so a bad ISBN and an
+  // accession number already in use show together (layman test LE6).
+  const isbn = await checkBook(tx, input, null, found, [async () => {
+    if (found?.has("copies")) return;
+    if (!Number.isInteger(input.copies) || input.copies < 1 || input.copies > MAX_COPIES) throw new LibraryProblem(`Number of copies must be from 1 to ${MAX_COPIES}.`, "copies");
+    accessions = await takeAccessions(tx, ctx, s, input.copies, input.accessions ?? []);
+  }]);
   const book = await tx.book.create({
     data: {
       schoolId: ctx.schoolId, title: input.title.trim(), authorIds: await authorIds(tx, ctx, input.authors), authorText: input.authors.map((a) => a.trim()).filter(Boolean).join(", "),
@@ -143,10 +159,10 @@ export async function addBook(tx: Tx, ctx: SchoolContext, input: BookInput & { c
   return { book, copies };
 }
 
-export async function updateBook(tx: Tx, ctx: SchoolContext, id: string, input: BookInput) {
+export async function updateBook(tx: Tx, ctx: SchoolContext, id: string, input: BookInput, found?: Problems) {
   const before = await tx.book.findFirst({ where: { id, archivedAt: null } });
   if (!before) throw new LibraryProblem("This book was not found.");
-  const isbn = await checkBook(tx, input, id);
+  const isbn = await checkBook(tx, input, id, found);
   const book = await tx.book.update({
     where: { id },
     data: {

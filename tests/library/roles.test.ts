@@ -62,7 +62,8 @@ describe("Library Management by role", () => {
   it("opens only the pages each role works in, full or to read", async () => {
     expect(await modes(f.librarian.id)).toEqual({ issue: "full", books: "full", members: "full", fines: "full", reports: "full", settings: "full" });
     expect(await modes(f.principal.id)).toEqual({ issue: "view", books: "view", members: "hidden", fines: "view", reports: "view", settings: "view" });
-    expect(await modes(f.admin.id)).toEqual({ issue: "view", books: "view", members: "view", fines: "view", reports: "view", settings: "full" });
+    // docs/blueprint/05-roles.md row 13: the School Admin has Full on Library and works every page (owner decision 12-11-2026, LA11/LD6).
+    expect(await modes(f.admin.id)).toEqual({ issue: "full", books: "full", members: "full", fines: "full", reports: "full", settings: "full" });
     expect(await modes(f.vp.id)).toEqual({ issue: "hidden", books: "view", members: "view", fines: "hidden", reports: "view", settings: "hidden" });
     for (const id of [f.teacher.id, f.accountant.id, f.frontdesk.id]) {
       expect(Object.values(await modes(id)).every((m) => m === "hidden")).toBe(true);
@@ -74,13 +75,14 @@ describe("Library Management by role", () => {
     expect(pageOpen((await libFor(f, f.principal.id)).v, "members")).toBe(false);
   });
 
-  it("gives desk work to the Librarian only, and Remind to the leaders", async () => {
+  it("gives desk work to the Librarian and the School Admin (Full), and Remind to the Principal", async () => {
     const lib = (await libFor(f, f.librarian.id)).can;
     expect(lib).toMatchObject({ desk: true, catalogue: true, members: true, fines: true, settings: true, remind: false, export: true });
     const principal = (await libFor(f, f.principal.id)).can;
     expect(principal).toMatchObject({ desk: false, catalogue: false, members: false, fines: false, settings: false, remind: true, export: true });
     const admin = (await libFor(f, f.admin.id)).can;
-    expect(admin).toMatchObject({ desk: false, settings: true, remind: true });
+    // Full on Library (05-roles.md): the School Admin works the desk, so there is nobody to remind (Remind is for leaders who only read).
+    expect(admin).toMatchObject({ desk: true, catalogue: true, members: true, fines: true, settings: true, remind: false });
     const vp = (await libFor(f, f.vp.id)).can;
     expect(vp).toMatchObject({ desk: false, catalogue: false, members: false, fines: false, settings: false, remind: false });
     expect((await libFor(f, f.accountant.id)).can).toMatchObject({ desk: false, export: false });

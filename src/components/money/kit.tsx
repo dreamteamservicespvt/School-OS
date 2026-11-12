@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { cx } from "@/components/ui/cx";
 import { Words } from "@/lib/i18n/client";
+import { tx } from "@/lib/i18n/tx";
 
 export type Tone = "ok" | "warn" | "bad" | "info" | "brand" | "neutral";
 
@@ -29,7 +30,7 @@ export function Stats({ items, className }: { items: StatItem[]; className?: str
           const Ic = m.icon;
           const inner = (
             <>
-              <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5 truncate">{Ic && <Ic size={14} className="shrink-0" aria-hidden="true" />}{m.label}</p>
+              <p className="text-[12px] text-ink3 font-semibold flex items-center gap-1.5 truncate">{Ic && <Ic size={14} className="shrink-0" aria-hidden="true" />}{tx(m.label)}</p>
               <p className={cx("font-semibold text-[19px] md:text-[21px] tnum mt-0.5 font-display tracking-tight leading-tight truncate", m.tone ? TONE_TEXT[m.tone] : "")}>{m.value}</p>
               {m.sub && <p className="text-[12px] text-ink3 line-clamp-2">{m.sub}</p>}
             </>
@@ -60,7 +61,7 @@ export function Band({ items, className }: { items: BandItem[]; className?: stri
         {items.slice(0, 4).map((m, i) => {
           const inner = (
             <>
-              <p className="text-[12.5px] md:text-[13px] font-semibold opacity-90 flex items-center gap-1">{m.label}{m.href && <ChevronRight size={14} className="opacity-60" aria-hidden="true" />}</p>
+              <p className="text-[12.5px] md:text-[13px] font-semibold opacity-90 flex items-center gap-1">{tx(m.label)}{m.href && <ChevronRight size={14} className="opacity-60" aria-hidden="true" />}</p>
               <p className="font-display text-[26px] md:text-[32px] font-semibold tracking-tight leading-tight tnum mt-1 truncate">{m.big}</p>
               {m.foot && <p className="text-[12px] md:text-[13px] opacity-90 mt-0.5 line-clamp-2">{m.foot}</p>}
             </>
@@ -82,7 +83,7 @@ export function Banner({ tone = "info", icon, title, children, action, className
     // On a phone the action goes under the words, so the words keep the full width.
     <div role={tone === "bad" ? "alert" : undefined} className={cx("rounded-2xl px-4 py-3 flex flex-wrap md:flex-nowrap items-start md:items-center gap-3 text-[14px]", BANNER[tone], className)}>
       <Ic size={19} className={cx("shrink-0 mt-0.5 md:mt-0", TONE_TEXT[tone])} aria-hidden="true" />
-      <p className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{title} </b>}{children}</p>
+      <p className="text-ink2 flex-1 min-w-0 basis-[calc(100%-2.5rem)] md:basis-auto">{title && <b className="font-semibold text-ink">{tx(title)} </b>}{children}</p>
       {action && <div className="max-w-full md:shrink-0 flex gap-2 flex-wrap pl-8 md:pl-0">{action}</div>}
     </div>
   );
@@ -96,7 +97,7 @@ export function Suggestion({ title = "Suggestion", children, source, actions, ai
     <Card className="border-brand/25 bg-brand/[.03]">
       <div className="px-5 pt-4 pb-1 flex items-center gap-2">
         <Mark size={16} className="text-brand" aria-hidden="true" />
-        <p className="font-semibold text-[14.5px]">{title}</p>
+        <p className="font-semibold text-[14.5px]">{tx(title)}</p>
         <Pill tone="brand" className="!h-5 !text-[11px] ml-auto"><Words k="Suggestion" /></Pill>
       </div>
       <div className="px-5 pb-4 text-[14px] leading-relaxed text-ink2">{children}</div>
@@ -121,7 +122,7 @@ export function HBars({ rows, labelWidth = 72, valueWidth = 92 }: { rows: { key:
       {rows.map((r) => {
         const inner = (
           <>
-            <span className="text-ink2 font-medium truncate">{r.label}</span>
+            <span className="text-ink2 font-medium truncate">{tx(r.label)}</span>
             <span className="relative h-3 rounded-full bg-sunken overflow-hidden"><span className={cx("absolute inset-y-0 left-0 rounded-full", r.tone === "warn" ? "bg-warn" : r.tone === "bad" ? "bg-bad" : r.tone === "ok" ? "bg-ok" : "bg-brand")} style={{ width: `${(r.value / max) * 100}%` }} /></span>
             <span className="text-right font-semibold tnum">{r.text}</span>
           </>
@@ -214,7 +215,7 @@ export function SettingRow({ title, sub, children, htmlFor }: { title: React.Rea
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
       <Label {...(htmlFor ? { htmlFor } : {})} className="min-w-0 flex-1 text-[14px]">
-        <b className="font-semibold block">{title}</b>
+        <b className="font-semibold block">{tx(title)}</b>
         {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{sub}</span>}
       </Label>
       {/* At most 60% of the row, so a long value wraps instead of pushing the page sideways on a 320 px phone. */}
@@ -230,7 +231,7 @@ export function ListRow({ avatar, icon, iconTone = "neutral", title, sub, right,
     <>
       {avatar ? <Avatar name={avatar} size={38} /> : Ic ? <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT[iconTone])}><Ic size={19} aria-hidden="true" /></span> : null}
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-[14.5px] leading-snug truncate">{title}</p>
+        <p className="font-semibold text-[14.5px] leading-snug truncate">{tx(title)}</p>
         {sub && <p className="text-[12.5px] text-ink3 truncate">{sub}</p>}
       </div>
       {right && <div className="shrink-0 text-right">{right}</div>}
@@ -249,7 +250,7 @@ export function SimpleTable<R>({ cols, rows, foot, minWidth = 560, rowKey, capti
         {caption && <caption className="sr-only">{caption}</caption>}
         <thead>
           <tr className="text-[12px] text-ink3 border-y border-line text-left">
-            {cols.map((c, i) => <th key={c.label + i} scope="col" className={cx("py-2.5 font-semibold whitespace-nowrap", i === 0 ? "pl-5 pr-3 sticky left-0 bg-surface" : "px-3", i === cols.length - 1 && "pr-5", c.right && "text-right")}>{c.label}</th>)}
+            {cols.map((c, i) => <th key={c.label + i} scope="col" className={cx("py-2.5 font-semibold whitespace-nowrap", i === 0 ? "pl-5 pr-3 sticky left-0 bg-surface" : "px-3", i === cols.length - 1 && "pr-5", c.right && "text-right")}>{tx(c.label)}</th>)}
           </tr>
         </thead>
         <tbody>
@@ -295,7 +296,7 @@ export function DataList<R>({ columns, rows, rowKey, rowHref, phone, empty, foot
           {caption && <caption className="sr-only">{caption}</caption>}
           <thead>
             <tr className="text-[12px] text-ink3 font-semibold border-b border-line">
-              {columns.map((c, i) => <th key={c.key} scope="col" className={cx("px-3 py-3 font-semibold whitespace-nowrap", i === 0 && "pl-5", i === columns.length - 1 && !rowHref && "pr-5", c.align === "right" && "text-right")}>{c.label}</th>)}
+              {columns.map((c, i) => <th key={c.key} scope="col" className={cx("px-3 py-3 font-semibold whitespace-nowrap", i === 0 && "pl-5", i === columns.length - 1 && !rowHref && "pr-5", c.align === "right" && "text-right")}>{tx(c.label)}</th>)}
               {rowHref && <th className="w-8"><span className="sr-only"><Words k="Open" /></span></th>}
             </tr>
           </thead>
@@ -330,7 +331,7 @@ export function DataList<R>({ columns, rows, rowKey, rowHref, phone, empty, foot
             <>
               {m.avatar ? <Avatar name={m.avatar} size={42} /> : Ic ? <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT[m.iconTone ?? "neutral"])}><Ic size={19} aria-hidden="true" /></span> : null}
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-[15px] truncate">{m.title}</p>
+                <p className="font-semibold text-[15px] truncate">{tx(m.title)}</p>
                 {m.sub && <p className="text-[13px] text-ink3 truncate">{m.sub}</p>}
                 {m.pills && <div className="flex gap-1.5 mt-1.5 flex-wrap">{m.pills}</div>}
               </div>
@@ -362,7 +363,7 @@ export function Empty({ icon: Icon, title, body, action }: { icon: LucideIcon; t
   return (
     <div className="flex flex-col items-center text-center px-6 py-14 gap-3">
       <span className="w-14 h-14 rounded-2xl bg-sunken text-ink3 grid place-items-center" aria-hidden="true"><Icon size={26} /></span>
-      <h3 className="font-semibold text-[15px]">{title}</h3>
+      <h3 className="font-semibold text-[15px]">{tx(title)}</h3>
       {body && <div className="text-sm text-ink3 max-w-sm">{body}</div>}
       {action}
     </div>

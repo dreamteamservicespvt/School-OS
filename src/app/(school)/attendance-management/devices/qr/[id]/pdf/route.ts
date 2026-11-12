@@ -1,5 +1,5 @@
 // QR poster as a PDF to print (05 §2 Devices & QR, P9).
-import { requireAction } from "@/lib/current";
+import { routeAction } from "@/lib/route-access";
 import { withSchool } from "@/lib/db";
 import { htmlToPdf, withPdfErrors } from "@/lib/pdf";
 import { appOrigin } from "@/lib/origin";
@@ -12,7 +12,9 @@ import { writeAudit } from "@/lib/audit";
 
 async function handleGET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { current } = await requireAction("attendance-management", "print");
+  const gate = await routeAction("attendance-management", "print");
+  if (gate instanceof Response) return gate;
+  const { current } = gate;
   if (!UUID_RE.test(id)) return new Response("This QR was not found.", { status: 404 });
   const theme = new URL(req.url).searchParams.get("theme") ?? "ocean";
   const origin = await appOrigin();

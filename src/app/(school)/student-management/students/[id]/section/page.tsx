@@ -9,7 +9,7 @@ import { EmptyState } from "@/components/empty-state";
 import { ActionForm, FormArea, FormSelect } from "@/components/students/action-form";
 import { loadVisibleStudent, StudentNotFound } from "@/lib/students/access";
 import { currentYear } from "@/lib/academic/years";
-import { BASE, studentPage } from "../../../_lib/page";
+import { BASE, NO_ACCESS, studentPage } from "../../../_lib/page";
 import { sectionOptions } from "../../../_lib/queries";
 import { changeSectionAction, placeInSectionAction } from "../../../_actions/students";
 import { Words } from "@/lib/i18n/client";
@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function ChangeSectionPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { current, can } = await studentPage();
-  if (!can.manage) redirect(`${BASE}/students/${id}`);
+  if (!can.manage) redirect(NO_ACCESS);
   let data;
   try {
     data = await withSchool(current.ctx, async (tx) => {

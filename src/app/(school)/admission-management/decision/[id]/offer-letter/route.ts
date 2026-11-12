@@ -1,7 +1,7 @@
 // The admission offer letter as a PDF, in the school's "Admission offer
 // letter" design (Settings, Document Designs). Only after it is recorded as
 // sent, so every printed letter has its number.
-import { requireAction } from "@/lib/current";
+import { routeAction } from "@/lib/route-access";
 import { withSchool } from "@/lib/db";
 import { renderDocument } from "@/lib/documents";
 import { formatDate } from "@/lib/format";
@@ -16,7 +16,9 @@ const ACCEPT_DAYS = 7;
 
 async function handleGET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const { current } = await requireAction("admission-management", "print");
+  const gate = await routeAction("admission-management", "print");
+  if (gate instanceof Response) return gate;
+  const { current } = gate;
   if (!UUID_RE.test(id)) return text("This offer letter was not found.", 404);
   return withSchool(current.ctx, async (tx) => {
     const v = await viewerFor(tx, current.ctx, current);

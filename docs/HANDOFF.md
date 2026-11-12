@@ -1,8 +1,12 @@
 # School OS handoff
 
-Last updated: 2026-11-12 19:10 IST (team-test readiness day). Older: docs/archive/HANDOFF-until-2026-11-11.md (and earlier archives).
+Last updated: 2026-11-12 23:00 IST (round 2: finishing all 69 layman problems). Older: docs/archive/HANDOFF-until-2026-11-11.md (and earlier archives).
 
 ## State
+- ROUND 2 (started 22:25 IST): d15f298c makes 8816c758 type-check clean (8 errors) + LE2. Migration
+  20261112100000_appraisal_points_by_staff_type applied to the local DB. 5 helpers fixing by area (forms/date boxes;
+  money LB; exams/homework/comms LC; students/staff/desks LA+LD; library/store/exports/i18n LE+LC11), test DBs w3-w6 +
+  school_os_test (w6 made today). Lead: busy-DB LA5/LC3/LE9 (pool 20 / 5 serverless, busy page) + LA10/LD9 re-measure.
 - DEPLOY 2 LIVE: main = 989111c5 on school-os-beta since 18:15 IST (Vercel "Deployment has completed"; /sign-in 200).
   Holds everything to 2026-11-12: refund rule 33, Transport off 34B, Adjust remove -> Approvals (migration
   20261112000000_fee_adjustment_removes ran in the Vercel build), shared campusFilter, self-test A/B fixes, B6 decoy fix.
@@ -43,6 +47,8 @@ Last updated: 2026-11-12 19:10 IST (team-test readiness day). Older: docs/archiv
 - Demo logins local only (DEMO_PASSWORD in .env); browser scripts qa/full/*.mjs; playwright-core in C:/Users/chala/tools/school-os-probe.
 
 ## Gotchas
+- Memory: never run more than ONE full `tsc` (8 GB) plus vitest at once. 2026-11-12 23:16 five helpers did, Windows ran out of
+  commit memory (0xC000012D) and PostgreSQL crashed into a 5+ min recovery (fsync of the data directory).
 - Meta rejects Utility templates mentioning password/login; word them as account status.
 - Never touch the Meta webhook or the gym's Vercel without permission. Never type secrets into web forms.
 - .env line 26 has an unquoted space, so `bash scripts/setup-db.sh` cannot source it; run its psql steps by hand.

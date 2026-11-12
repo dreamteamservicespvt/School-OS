@@ -17,8 +17,9 @@ export const dashIcon = (name: string): LucideIcon => ((I as unknown as Record<s
 const TONE_SOFT = { ok: "bg-ok/10 text-ok", warn: "bg-warn/12 text-warn", bad: "bg-bad/10 text-bad", info: "bg-info/10 text-info", neutral: "bg-sunken text-ink2", brand: "bg-brand/10 text-brand" } as const;
 const PILL_TONE = { ok: "ok", warn: "warn", bad: "bad", info: "info", neutral: "neutral" } as const;
 
+/** A panel's link ("Open", "Time Table", "Class list"): 44 px tall to tap on a phone, without making the heading taller (QA LC22). */
 function OpenLink({ href, children }: { href: string; children: React.ReactNode }) {
-  return <Link href={href} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">{children}</Link>;
+  return <Link href={href} className="inline-flex items-center min-h-11 -my-3 px-2 -mx-2 text-[13px] font-semibold text-brand hover:underline whitespace-nowrap">{children}</Link>;
 }
 
 /** A panel in the person's language: its fixed words come from the catalogue (t.any); names and numbers stay as they are. */
@@ -76,14 +77,14 @@ export function PanelCard({ panel, t }: { panel: Panel; t: T }) {
             <ul className="px-4 pb-4 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2">
               {panel.classes.map((c) => (
                 <li key={c.id} className="rounded-xl bg-sunken/70 p-3 min-w-0">
-                  <Link href={c.href} className="flex items-baseline justify-between gap-2 group">
+                  <Link href={c.href} className="flex items-center min-h-11 -my-1.5 justify-between gap-2 group">
                     <span className="font-semibold text-[14px] truncate group-hover:text-brand">{c.name}</span>
                     <span className="font-display font-semibold text-[18px] tnum">{c.total.toLocaleString("en-IN")}</span>
                   </Link>
                   {c.sections.length > 0 && (
                     <div className="flex flex-wrap gap-1 mt-1.5">
                       {c.sections.map((s) => (
-                        <Link key={s.id} href={s.href} className="text-[11.5px] font-semibold text-ink2 bg-surface rounded-md px-1.5 py-0.5 hover:text-brand tnum" aria-label={t("{section}: {n} students", { section: `${c.name} ${s.name}`, n: s.count })}>
+                        <Link key={s.id} href={s.href} className="inline-flex items-center min-h-11 sm:min-h-0 px-2.5 sm:px-1.5 sm:py-0.5 text-[11.5px] font-semibold text-ink2 bg-surface rounded-md hover:text-brand tnum" aria-label={t("{section}: {n} students", { section: `${c.name} ${s.name}`, n: s.count })}>
                           {s.name} · {s.count}
                         </Link>
                       ))}
@@ -93,7 +94,7 @@ export function PanelCard({ panel, t }: { panel: Panel; t: T }) {
               ))}
               {panel.unplaced && (
                 <li className="rounded-xl border border-dashed border-line p-3 min-w-0">
-                  <Link href={panel.unplaced.href} className="flex items-baseline justify-between gap-2 group">
+                  <Link href={panel.unplaced.href} className="flex items-center min-h-11 -my-1.5 justify-between gap-2 group">
                     <span className="font-semibold text-[14px] group-hover:text-brand">{t("Not yet in a section")}</span>
                     <span className="font-display font-semibold text-[18px] tnum">{panel.unplaced.count.toLocaleString("en-IN")}</span>
                   </Link>

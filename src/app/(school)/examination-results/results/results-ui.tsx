@@ -187,8 +187,9 @@ export function ResultTable({ columns, rows, ranks, examTitle, section, passMark
           <tbody>
             {rows.map((r) => (
               <tr key={r.id} onClick={() => setOne(r)} className="border-b border-line/60 last:border-0 cursor-pointer hover:bg-sunken/60 group">
-                <th scope="row" className="sticky left-0 z-10 bg-surface group-hover:bg-sunken px-4 py-2 whitespace-nowrap text-left font-normal">
-                  <button type="button" onClick={(e) => { e.stopPropagation(); setOne(r); }} className="text-left">
+                <th scope="row" className="sticky left-0 z-10 bg-surface group-hover:bg-sunken px-4 py-0 whitespace-nowrap text-left font-normal">
+                  {/* 44 px tall to tap on a phone (QA LC22). */}
+                  <button type="button" onClick={(e) => { e.stopPropagation(); setOne(r); }} className="flex items-center min-h-11 w-full text-left">
                     <span className="text-ink3 tnum inline-block w-7">{r.roll ?? ""}</span><span className="font-medium">{r.name}</span>
                   </button>
                 </th>

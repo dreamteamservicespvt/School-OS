@@ -37,7 +37,8 @@ export function SMoney({ name, label, help, required, className, start, big, onV
   const t = useTyped(name, start);
   const id = `money-${name}`;
   return (
-    <FieldShell label={label} id={id} help={help} error={t.error} required={required} className={className}>
+    // Named, so a wrong amount is marked here with the form's other problems at once (layman test LE6).
+    <FieldShell label={label} id={id} name={name} help={help} error={t.error} required={required} className={className}>
       <div className="relative">
         <span className={cx("absolute left-3.5 top-1/2 -translate-y-1/2 font-semibold text-ink3", big ? "text-[22px] left-4" : "text-[15px]")} aria-hidden="true">₹</span>
         <input key={t.key} id={id} name={name} inputMode="decimal" autoComplete="off" defaultValue={t.value} aria-invalid={t.error ? true : undefined}

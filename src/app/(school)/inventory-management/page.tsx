@@ -19,7 +19,7 @@ import { PeriodFilter } from "@/components/list/period-filter";
 import { Stats, Split, Col, Stack, Toolbar, DataList, Empty, type StatItem } from "@/components/money/kit";
 import { itemOptions, stockByStore, staffOptions, departmentOptions, sectionOptions, locationOptions } from "@/lib/inventory/lookup";
 import { itemLabel } from "@/lib/inventory/items";
-import { ISSUE_TO, ISSUE_TO_MANY, plural } from "@/lib/inventory/words";
+import { ISSUE_TO, ISSUE_TO_MANY } from "@/lib/inventory/words";
 import { InvHead } from "./_components/head";
 import { ActButton } from "./_components/client";
 import { IssueForm, BookSetForm, type SetPick } from "./_components/issue-forms";
@@ -28,7 +28,7 @@ import { BASE, invGuard, invPeriod, one, qs, addQ, uuidOr, type SearchParams } f
 import { issuesList, readIssuesFilter, recipients } from "./_lib/lists";
 import { findStudentsAction, giveMissingAction, issueAction, issueSetAction, remindStoreAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Issue Stock · Inventory Management") };
@@ -71,50 +71,51 @@ export default async function IssueStockPage({ searchParams }: { searchParams: S
     return { ...list, todayCount, todayStudents, charged: charged._sum.chargePaise ?? ZERO, out: Number(outRows[0]?.n ?? 0), form, ret: ret && retItem ? { line: ret, item: retItem, to: retTo } : null };
   });
 
+  const t = await getT();
   const here = (change: Record<string, string | null>) => addQ(qs(BASE, { counter: counter === "set" ? "set" : null, to: f.to || null, open: f.open ? "1" : null, sets: f.sets ? "1" : null, q: f.q || null, ...per.keep, page: page > 1 ? String(page) : null }), change);
   const exportHref = qs(`${BASE}/issues/export`, { to: f.to || null, open: f.open ? "1" : null, sets: f.sets ? "1" : null, q: f.q || null, ...per.keep });
   const stats: StatItem[] = [
-    { label: "Issued today", value: d.todayCount.toLocaleString("en-IN"), href: addQ(here({}), { period: "today", page: null }) },
-    { label: "To students today", value: d.todayStudents.toLocaleString("en-IN"), href: addQ(here({}), { period: "today", to: "STUDENT", page: null }) },
-    { label: "Charged to fees today", value: formatRupees(d.charged) },
-    { label: "Out, to be returned", value: d.out.toLocaleString("en-IN"), tone: d.out ? "warn" : undefined, href: addQ(here({}), { open: "1", period: "all", page: null }) },
+    { label: t("Issued today"), value: d.todayCount.toLocaleString("en-IN"), href: addQ(here({}), { period: "today", page: null }) },
+    { label: t("To students today"), value: d.todayStudents.toLocaleString("en-IN"), href: addQ(here({}), { period: "today", to: "STUDENT", page: null }) },
+    { label: t("Charged to fees today"), value: formatRupees(d.charged) },
+    { label: t("Out, to be returned"), value: d.out.toLocaleString("en-IN"), tone: d.out ? "warn" : undefined, href: addQ(here({}), { open: "1", period: "all", page: null }) },
   ];
   const names = d.form ? Object.fromEntries(d.form.items.map((i) => [i.value, i.label])) : {};
-  const sets: SetPick[] = d.form ? d.form.sets.map((st) => ({ value: st.id, label: `${st.name} · ${formatRupees(st.pricePaise)}`, classIds: st.classIds, pricePaise: Number(st.pricePaise), lines: st.items.map((x) => ({ itemId: x.itemId, qty: x.qty, name: names[x.itemId] ?? "Item" })) })) : [];
+  const sets: SetPick[] = d.form ? d.form.sets.map((st) => ({ value: st.id, label: `${st.name} · ${formatRupees(st.pricePaise)}`, classIds: st.classIds, pricePaise: Number(st.pricePaise), lines: st.items.map((x) => ({ itemId: x.itemId, qty: x.qty, name: names[x.itemId] ?? t("Item") })) })) : [];
   const main = d.form?.stores.find((x) => x.isMain)?.value ?? d.form?.stores[0]?.value ?? "";
   const filtered = Boolean(f.to || f.open || f.sets || f.q);
 
   const list = (
     <Card>
-      <CardHeader title="Issues" description={per.label} divided />
+      <CardHeader title={t("Issues")} description={t.any(per.label)} divided />
       <Toolbar className="md:flex-wrap">
-        <UrlSearch placeholder="Search issue number, name or item" label="Search issues" className="flex-1 md:min-w-[260px]" id="issues-search" />
+        <UrlSearch placeholder={t("Search issue number, name or item")} label={t("Search issues")} className="flex-1 md:min-w-[260px]" id="issues-search" />
         <div className="flex gap-2 flex-wrap">
-          <UrlSelect param="to" label="Issued to" options={[{ value: "", label: "Everyone" }, ...Object.entries(ISSUE_TO_MANY).map(([value, label]) => ({ value, label }))]} />
+          <UrlSelect param="to" label={t("Issued to")} options={[{ value: "", label: t("Everyone") }, ...Object.entries(ISSUE_TO_MANY).map(([value, label]) => ({ value, label: t.any(label) }))]} />
           <SegLinks label="Show" size="md" value={f.open ? "open" : f.sets ? "sets" : ""} options={[
             { value: "", label: "All", href: here({ open: null, sets: null, page: null }) },
             { value: "open", label: "To return", href: here({ open: "1", sets: null, page: null }) },
             ...(s.bookSetsOn ? [{ value: "sets", label: "Book sets", href: here({ sets: "1", open: null, page: null }) }] : []),
           ]} />
-          <PeriodFilter {...p.dates} fallback={desk ? "today" : "thismonth"} />
-          {can.export && <ExportButton href={exportHref} />}
+          <PeriodFilter {...p.dates} fallback={desk ? "today" : "thismonth"} allLabel={t("All dates")} />
+          {can.export && <ExportButton href={exportHref} label={t("Export")} />}
         </div>
       </Toolbar>
-      <DataList rows={d.rows} rowKey={(r) => r.id} minWidth={980} caption="Issues"
-        empty={<Empty icon={filtered || per.range ? Search : PackageOpen} title={filtered ? "No issues match" : "Nothing issued on these dates"} body={filtered ? "Try another search or clear the filters." : desk ? "Issues made at the counter show here." : "Choose other dates to see earlier issues."} />}
+      <DataList rows={d.rows} rowKey={(r) => r.id} minWidth={980} caption={t("Issues")}
+        empty={<Empty icon={filtered || per.range ? Search : PackageOpen} title={t(filtered ? "No issues match" : "Nothing issued on these dates")} body={t(filtered ? "Try another search or clear the filters." : desk ? "Issues made at the counter show here." : "Choose other dates to see earlier issues.")} />}
         columns={[
-          { key: "date", label: "Date", nowrap: true, render: (r) => <span className="tnum">{day(r.date)}<span className="block text-[12px] text-ink3 font-mono">{r.number}</span></span> },
-          { key: "items", label: "Items", render: (r) => (
+          { key: "date", label: t("Date"), nowrap: true, render: (r) => <span className="tnum">{day(r.date)}<span className="block text-[12px] text-ink3 font-mono">{r.number}</span></span> },
+          { key: "items", label: t("Items"), render: (r) => (
             <span className="block min-w-[200px] text-[13.5px]">
-              {r.bookSetId && <b className="font-semibold block">{d.sets.get(r.bookSetId) ?? "Book set"}</b>}
-              {r.lines.map((l) => { const it = d.items.get(l.itemId); return <span key={l.id} className="block">{it ? itemLabel(it) : "Item"} × {l.qty}</span>; })}
-              {Array.isArray(r.missing) && (r.missing as unknown[]).length > 0 && <Pill tone="warn" className="mt-1">{plural((r.missing as unknown[]).length, "item")} <Words k="to give later" /></Pill>}
+              {r.bookSetId && <b className="font-semibold block">{d.sets.get(r.bookSetId) ?? t("Book set")}</b>}
+              {r.lines.map((l) => { const it = d.items.get(l.itemId); return <span key={l.id} className="block">{it ? itemLabel(it) : t("Item")} × {l.qty}</span>; })}
+              {Array.isArray(r.missing) && (r.missing as unknown[]).length > 0 && <Pill tone="warn" className="mt-1">{t((r.missing as unknown[]).length === 1 ? "1 item to give later" : "{n} items to give later", { n: (r.missing as unknown[]).length })}</Pill>}
             </span>
           ) },
-          { key: "to", label: "Issued to", render: (r) => <span className="block min-w-[150px]">{d.to.get(r.id)}<span className="block text-[12px] text-ink3">{ISSUE_TO[r.toKind]}</span></span> },
-          { key: "charge", label: "Charged", align: "right", nowrap: true, render: (r) => (r.chargePaise > ZERO ? formatRupees(r.chargePaise) : <span className="text-ink3"><Words k="Free" /></span>) },
-          { key: "by", label: "Issued by", render: (r) => d.who.get(r.createdById ?? "") ?? "" },
-          { key: "ret", label: "Returnable", render: (r) => {
+          { key: "to", label: t("Issued to"), render: (r) => <span className="block min-w-[150px]">{d.to.get(r.id)}<span className="block text-[12px] text-ink3">{t.any(ISSUE_TO[r.toKind])}</span></span> },
+          { key: "charge", label: t("Charged"), align: "right", nowrap: true, render: (r) => (r.chargePaise > ZERO ? formatRupees(r.chargePaise) : <span className="text-ink3"><Words k="Free" /></span>) },
+          { key: "by", label: t("Issued by"), render: (r) => d.who.get(r.createdById ?? "") ?? "" },
+          { key: "ret", label: t("Returnable"), render: (r) => {
             if (!r.returnable) return <span className="text-ink3"><Words k="No" /></span>;
             const out = r.lines.reduce((a, l) => a + l.qty - l.returnedQty, 0);
             return out ? <Pill tone="warn">{out} <Words k="out" /></Pill> : <Pill tone="ok"><Words k="Returned" /></Pill>;
@@ -122,9 +123,9 @@ export default async function IssueStockPage({ searchParams }: { searchParams: S
           ...(desk ? [{ key: "act", label: "", render: (r: (typeof d.rows)[number]) => (
             <span className="flex flex-col gap-1 items-start">
               {r.returnable && r.lines.filter((l) => l.returnedQty < l.qty).map((l) => (
-                <a key={l.id} href={here({ ret: l.id })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap"><Words k="Return" /> {d.items.get(l.itemId)?.name ?? "item"}</a>
+                <a key={l.id} href={here({ ret: l.id })} className="text-[13px] font-semibold text-brand hover:underline whitespace-nowrap"><Words k="Return" /> {d.items.get(l.itemId)?.name ?? t("Item")}</a>
               ))}
-              {Array.isArray(r.missing) && (r.missing as unknown[]).length > 0 && <ActButton action={giveMissingAction} fields={{ issueId: r.id }} label="Give the rest" icon="check" />}
+              {Array.isArray(r.missing) && (r.missing as unknown[]).length > 0 && <ActButton action={giveMissingAction} fields={{ issueId: r.id }} label={t("Give the rest")} icon="check" />}
             </span>
           ) }] : []),
         ]}
@@ -132,7 +133,7 @@ export default async function IssueStockPage({ searchParams }: { searchParams: S
           const out = r.lines.reduce((a, l) => a + l.qty - l.returnedQty, 0);
           return {
             title: d.to.get(r.id) ?? "", icon: r.bookSetId ? BookCopy : PackageOpen, iconTone: "brand",
-            sub: `${day(r.date)} · ${r.bookSetId ? d.sets.get(r.bookSetId) ?? "Book set" : r.lines.map((l) => `${d.items.get(l.itemId)?.name ?? "Item"} × ${l.qty}`).join(", ")}`,
+            sub: `${day(r.date)} · ${r.bookSetId ? d.sets.get(r.bookSetId) ?? t("Book set") : r.lines.map((l) => `${d.items.get(l.itemId)?.name ?? t("Item")} × ${l.qty}`).join(", ")}`,
             right: r.chargePaise > ZERO ? formatRupees(r.chargePaise) : undefined,
             pills: r.returnable ? (out ? <Pill tone="warn">{out} <Words k="to return" /></Pill> : <Pill tone="ok"><Words k="Returned" /></Pill>) : undefined,
           };
@@ -145,7 +146,7 @@ export default async function IssueStockPage({ searchParams }: { searchParams: S
   if (!desk || !d.form) {
     return (
       <>
-        <InvHead pageName="Issue Stock" href={BASE} mode={p.mode} actions={can.remind ? <ActButton action={remindStoreAction} fields={{ what: "low" }} label="Remind store keeper" icon="bell" size="md" /> : undefined} />
+        <InvHead pageName="Issue Stock" href={BASE} mode={p.mode} actions={can.remind ? <ActButton action={remindStoreAction} fields={{ what: "low" }} label={t("Remind store keeper")} icon="bell" size="md" /> : undefined} />
         <Stack>
           <Stats items={stats} />
           {list}
@@ -175,7 +176,7 @@ export default async function IssueStockPage({ searchParams }: { searchParams: S
               ) : sets.length ? (
                 <BookSetForm action={issueSetAction} find={findStudentsAction} sets={sets} stockBy={d.form.stockBy} stores={d.form.stores.map(({ value, label }) => ({ value, label }))} mainStore={main} withMissing={s.setsWithMissing} names={names} />
               ) : (
-                <Empty icon={BookCopy} title="No book sets yet" body={can.stock ? "Make a set in Items & Stock, Book sets." : "The store keeper makes the sets."} />
+                <Empty icon={BookCopy} title={t("No book sets yet")} body={t(can.stock ? "Make a set in Items & Stock, Book sets." : "The store keeper makes the sets.")} />
               )}
             </Card>
           </Col>
@@ -183,7 +184,7 @@ export default async function IssueStockPage({ searchParams }: { searchParams: S
       </Stack>
       {d.ret && (
         <ReturnSheet closeHref={here({ ret: null })} lineId={d.ret.line.id} unit={d.ret.item.unit}
-          words={`${itemLabel(d.ret.item)} from ${d.ret.to} (${d.ret.line.issue.number}, ${day(d.ret.line.issue.date)})`} left={d.ret.line.qty - d.ret.line.returnedQty} />
+          words={t("{item} from {to} ({number}, {date})", { item: itemLabel(d.ret.item), to: d.ret.to, number: d.ret.line.issue.number, date: day(d.ret.line.issue.date) })} left={d.ret.line.qty - d.ret.line.returnedQty} />
       )}
     </>
   );

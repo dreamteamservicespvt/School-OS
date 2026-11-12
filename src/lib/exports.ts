@@ -39,9 +39,9 @@ type CellKind = { kind: "text" } | { kind: "number" | "money" | "percent"; forma
 
 /** Columns that hold numbers which are names, not amounts: never added up, and "0042" must keep its zeros. */
 const ID_LABEL = /phone|mobile|whatsapp|aadhaar|aadhar|pin ?code|pincode|account|ifsc|isbn|accession|card|code|\b(no|number|id)\.?$/i;
-const PLAIN = /^-?(?:0|[1-9]\d{0,2}(?:,\d{2,3})+|[1-9]\d{0,8})(?:\.\d+)?$/;
-const MONEY = /^(-?)₹\s?(-?)((?:\d{1,3}(?:,\d{2,3})*|\d+)(?:\.\d+)?)$/;
-const PERCENT = /^(-?\d+(?:\.\d+)?)\s?%$/;
+const PLAIN = /^[-−]?(?:0|[1-9]\d{0,2}(?:,\d{2,3})+|[1-9]\d{0,8})(?:\.\d+)?$/;
+const MONEY = /^([-−]?)₹\s?([-−]?)((?:\d{1,3}(?:,\d{2,3})*|\d+)(?:\.\d+)?)$/;
+const PERCENT = /^([-−]?\d+(?:\.\d+)?)\s?%$/;
 /** Shown for "nothing" in some columns; left as it is, and does not stop the rest being numbers. */
 const BLANK = /^(?:|-|–|—|n\/a)$/i;
 
@@ -89,9 +89,9 @@ export function cellValue(kind: CellKind, v: unknown): string | number {
   }
   if (kind.kind === "percent") {
     const m = PERCENT.exec(t);
-    return m ? Number(m[1]) / 100 : String(v);
+    return m ? Number(m[1].replace("−", "-")) / 100 : String(v);
   }
-  return PLAIN.test(t) ? Number(t.replace(/,/g, "")) : String(v);
+  return PLAIN.test(t) ? Number(t.replace(/,/g, "").replace("−", "-")) : String(v);
 }
 
 export async function toXlsx<Row>(columns: ExportColumn<Row>[], rows: Row[], meta: ExportMeta) {
@@ -126,16 +126,18 @@ export async function toXlsx<Row>(columns: ExportColumn<Row>[], rows: Row[], met
 }
 
 export function listHtml<Row>(columns: ExportColumn<Row>[], rows: Row[], meta: ExportMeta) {
+  // An ID, number or phone stays on one line ("SPS-ST-021" broke after "SPS-ST-" in every row, layman test LD12).
+  const idCol = columns.map((c) => ID_LABEL.test(c.label));
   return `<!doctype html><html><head><meta charset="utf-8"><style>
     body{font-family:Arial,"Noto Sans",sans-serif;font-size:10pt;color:#111}
     h1{font-size:14pt;margin:0}.meta{color:#444;margin:4px 0 12px}
     table{width:100%;border-collapse:collapse}th,td{border:1px solid #bbb;padding:4px 6px;text-align:left;vertical-align:top}
-    th{background:#eef2ff}tr:nth-child(even) td{background:#fafafa}
+    th{background:#eef2ff}tr:nth-child(even) td{background:#fafafa}td.id{white-space:nowrap}
   </style></head><body>
   <h1>${esc(meta.schoolName)}: ${esc(meta.title)}</h1>
   <p class="meta">Filters: ${esc(meta.filters || "none")} · Exported by ${esc(meta.exportedBy)} on ${esc(formatDateTime(new Date(), meta.timeZone))} · ${rows.length} rows</p>
   <table><thead><tr>${columns.map((c) => `<th>${esc(c.label)}</th>`).join("")}</tr></thead>
-  <tbody>${rows.map((r) => `<tr>${columns.map((c) => `<td>${esc(c.value(r))}</td>`).join("")}</tr>`).join("")}</tbody></table>
+  <tbody>${rows.map((r) => `<tr>${columns.map((c, i) => `<td${idCol[i] ? ' class="id"' : ""}>${esc(c.value(r))}</td>`).join("")}</tr>`).join("")}</tbody></table>
   </body></html>`;
 }
 

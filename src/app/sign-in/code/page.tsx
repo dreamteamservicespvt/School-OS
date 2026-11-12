@@ -7,6 +7,7 @@ import { AuthFrame } from "@/components/auth/auth-frame";
 import { Alert } from "@/components/ui/alert";
 import { ButtonLink } from "@/components/ui/button";
 import { CodeForm } from "./form";
+import { CODE_SIGN_IN_SENT_TO, isDecoyToken } from "@/lib/auth/decoy";
 import { getT, pageTitle } from "@/lib/i18n/server";
 
 /** The tab title in the same language as the page (the browser's choice, else English). */
@@ -17,16 +18,22 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function SignInCodePage() {
   if (await getCurrent()) redirect("/dashboard");
   const jar = await cookies();
-  const challenge = await findChallenge(jar.get(CHALLENGE_COOKIE)?.value);
+  const held = jar.get(CHALLENGE_COOKIE)?.value;
+  // An unknown login on "Forgot password?" gets this same page (owner decision 2026-11-12): the first code page
+  // names no contact, for a real login or not, so it cannot tell anyone which logins exist.
+  const decoy = isDecoyToken(held);
+  const challenge = decoy ? null : await findChallenge(held);
   // Unticking "Keep me signed in" on the password page also ticks "Shared computer" here.
   const shared = jar.get(KEEP_SIGNED_IN_COOKIE)?.value === "0";
   const second = challenge?.purpose === "code-sign-in-second";
   const t = await getT();
   return (
     <AuthFrame eyebrow={second ? t("Last step") : t("One more step")} title={second ? t("Enter the second code") : t("Enter the code")} sub={second ? t("The first code was right. Your role needs a second code, on your other contact.") : t("This keeps your school's records safe.")}>
-      {challenge ? (
+      {decoy ? (
+        <CodeForm key={held} sentTo={t.any(CODE_SIGN_IN_SENT_TO)} remembers={false} sharedDefault={shared} />
+      ) : challenge ? (
         // A code typed instead of the password never makes a remembered device, so no choice is shown.
-        <CodeForm key={challenge.id} sentTo={challenge.sentTo} remembers={challenge.purpose !== "code-sign-in"} sharedDefault={shared} />
+        <CodeForm key={challenge.id} sentTo={challenge.purpose === "code-sign-in" ? t.any(CODE_SIGN_IN_SENT_TO) : challenge.sentTo} remembers={challenge.purpose !== "code-sign-in"} sharedDefault={shared} />
       ) : (
         <div className="flex flex-col gap-4">
           <Alert tone="danger">{t("Your sign-in has timed out, or the code was used up. Sign in again to get a new code.")}</Alert>

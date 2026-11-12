@@ -3,7 +3,8 @@
 import { cleanAccent } from "@/lib/theme";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { afterRightCode, signIn, startCodeSignIn, startSecondStep } from "@/lib/auth/sign-in";
+import { afterRightCode, CANNOT_SEND, signIn, startCodeSignIn, startSecondStep } from "@/lib/auth/sign-in";
+import { CODE_SIGN_IN_SENT_TO, decoyAnswer, isDecoyToken, newDecoyToken } from "@/lib/auth/decoy";
 import { CHALLENGE_COOKIE, CODE_TTL_MS, KEEP_SIGNED_IN_COOKIE, findChallenge, startChallenge, verifyChallenge } from "@/lib/auth/two-step";
 import { forgetDevice, rememberDevice, REMEMBERED_COOKIE, REMEMBERED_COOKIE_MAX_AGE } from "@/lib/auth/remembered";
 import { deviceKeyOf } from "@/lib/auth/tokens";
@@ -99,8 +100,10 @@ export async function codeSignInAction(_prev: SignInState, formData: FormData): 
   const limit = await hitLimit(`code-sign-in:ip:${device.ipAddress ?? "unknown"}`, 10, 600);
   if (!limit.ok) return { message: waitWords(t, limit), username };
   const started = await startCodeSignIn(username, device, { confirmNow: true });
-  if (!started.ok) return { message: t.any(started.message), username };
-  await keepChallenge(started.token);
+  // A login that does not exist (or cannot get a code) gets the same code page as a real one, so nobody can
+  // find out which logins exist by trying names (owner decision 2026-11-12, self-test B6). The limit above still counts.
+  if (!started.ok && started.message !== CANNOT_SEND) return { message: t.any(started.message), username };
+  await keepChallenge(started.ok ? started.token : newDecoyToken());
   (await cookies()).set(REMEMBER_COOKIE, formData.get("remember") === "on" ? "1" : "0", { httpOnly: true, secure, sameSite: "lax", path: "/sign-in", maxAge: CODE_TTL_MS / 1000 });
   redirect("/sign-in/code");
 }
@@ -114,6 +117,11 @@ export async function verifyCodeAction(_prev: CodeState, formData: FormData): Pr
   const t = await words();
   const limit = await hitLimit(`two-step:ip:${device.ipAddress ?? "unknown"}`, 30, 600);
   if (!limit.ok) return { message: waitWords(t, limit) };
+  if (isDecoyToken(token)) {
+    const a = decoyAnswer(token, String(formData.get("code") ?? ""));
+    if (a.token) await keepChallenge(a.token); else jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
+    return { message: t.any(a.message), restart: a.restart };
+  }
   const result = await verifyChallenge(token, String(formData.get("code") ?? ""), device);
   if (!result.ok) {
     if (result.restart) jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
@@ -144,8 +152,13 @@ export async function verifyCodeAction(_prev: CodeState, formData: FormData): Pr
 
 export async function resendCodeAction(): Promise<CodeState> {
   const jar = await cookies();
-  const challenge = await findChallenge(jar.get(CHALLENGE_COOKIE)?.value);
   const t = await words();
+  const held = jar.get(CHALLENGE_COOKIE)?.value;
+  if (isDecoyToken(held)) {
+    await keepChallenge(newDecoyToken());
+    return { message: t("A new code was sent to {to}. The earlier code no longer works.", { to: t.any(CODE_SIGN_IN_SENT_TO) }), sent: true };
+  }
+  const challenge = await findChallenge(held);
   if (!challenge?.schoolId) {
     jar.delete({ name: CHALLENGE_COOKIE, path: "/sign-in" });
     return { message: t("Your sign-in has timed out. Sign in again."), restart: true };
@@ -155,5 +168,6 @@ export async function resendCodeAction(): Promise<CodeState> {
   const started = await startChallenge(challenge.userLoginId, challenge.schoolId, await signInDevice(), { purpose: challenge.purpose, only, confirmNow: true });
   if (!started.ok) return { message: t.any(started.message) };
   await keepChallenge(started.token);
-  return { message: t("A new code was sent to {to}. The earlier code no longer works.", { to: started.sentTo }), sent: true };
+  const to = challenge.purpose === "code-sign-in" ? t.any(CODE_SIGN_IN_SENT_TO) : started.sentTo;
+  return { message: t("A new code was sent to {to}. The earlier code no longer works.", { to }), sent: true };
 }

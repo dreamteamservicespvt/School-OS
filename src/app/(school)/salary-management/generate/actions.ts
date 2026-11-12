@@ -7,7 +7,7 @@ import { formatDate, formatRupees } from "@/lib/format";
 import { todayIn } from "@/lib/staff/dates";
 import { addAdjustment, archiveAdjustment, calculateRun, getRun, lockRun, markPaid, openRun, reversePayment, sendForApproval, takeBack } from "@/lib/salary/payroll";
 import { setTds } from "@/lib/salary/structures";
-import { adjustmentLabel, monthName, parseMonthKey } from "@/lib/salary/words";
+import { adjustmentLabel, alsoChangedNote, monthName, parseMonthKey } from "@/lib/salary/words";
 import { campusAllows } from "@/lib/campus";
 import { assertStaffOnCampus, campusRun } from "@/lib/salary/campus";
 import { cancelStatutoryPayment, payStatutory } from "@/lib/salary/statutory-payments";
@@ -45,8 +45,10 @@ export async function addAdjustmentAction(_prev: unknown, fd: FormData) {
     const r = await addAdjustment(tx, ctx, { runId, staffId, type, amountPaise: needRupees(fd, "amount", "Amount"), reason: str(fd, "reason") }, tz(current));
     const line = await tx.payrollLine.findFirst({ where: { runId: r.adj.runId, staffId: r.adj.staffId }, select: { netPaise: true, included: true } });
     const below = line?.included && line.netPaise < BigInt(0) ? ` ${r.staff}’s net pay is now ${formatRupees(line.netPaise)}, below zero: the month cannot be sent for approval until you change it.` : "";
-    return { what: `${adjustmentLabel(type)} of ${formatRupees(r.adj.amountPaise)} added for ${r.staff}`, reason: r.adj.reason, below };
-  }, (r) => `${r.what}. Reason kept with it: “${r.reason}”.${r.below}`);
+    // Self-test A5: say when attendance and leave since the last calculation also moved net pay.
+    const also = alsoChangedNote(r.otherChangePaise, formatDate(tz(current)), formatRupees);
+    return { what: `${adjustmentLabel(type)} of ${formatRupees(r.adj.amountPaise)} added for ${r.staff}`, reason: r.adj.reason, below, also: also ? ` ${also}` : "" };
+  }, (r) => `${r.what}. Reason kept with it: “${r.reason}”.${r.also}${r.below}`);
 }
 
 export async function removeAdjustmentAction(_prev: unknown, fd: FormData) {

@@ -236,6 +236,14 @@ export async function addAdjustment(tx: Tx, ctx: SchoolContext, input: Adjustmen
   const line = await tx.payrollLine.findFirst({ where: { runId: run.id, staffId: input.staffId } });
   const staff = await tx.staff.findFirst({ where: { id: input.staffId }, select: { fullName: true } });
   if (!staff || (line && !line.included && line.flags.includes("No salary structure"))) throw new MoneyProblem(staff ? `${staff.fullName} has no salary structure. Add one first.` : "Choose the staff member.", "staffId");
+  // Working the run out again also brings in attendance and leave since the last calculation. Do that
+  // first, so the screen can say how much of the change is not the adjustment (self-test A5).
+  let otherChangePaise = ZERO;
+  if (run.calculatedAt) {
+    await calculateRun(tx, ctx, run.id, today);
+    const mid = await tx.payrollRun.findUniqueOrThrow({ where: { id: run.id }, select: { netPaise: true } });
+    otherChangePaise = mid.netPaise - run.netPaise;
+  }
   const adj = await tx.payrollAdjustment.create({ data: { schoolId: ctx.schoolId, runId: run.id, staffId: input.staffId, type, amountPaise: input.amountPaise, reason, createdById: ctx.userId } });
   await writeAudit(tx, ctx, { action: "payroll-adjustment-added", recordType: "Payroll Adjustment", recordId: adj.id, after: { month: monthName(run.month), staff: staff.fullName, type: adjustmentLabel(type), amount: formatRupees(input.amountPaise), reason } });
   await calculateRun(tx, ctx, run.id, today);
@@ -281,7 +289,14 @@ export async function sendForApproval(tx: Tx, ctx: SchoolContext, runId: string)
   const negative = await belowZero(tx, run.id);
   if (negative.length) throw new MoneyProblem(`Net pay is below zero for ${belowZeroWords(negative)}. Change or remove the adjustment that takes more than the pay, then send the month for approval.`);
   const left = await tx.payrollLine.count({ where: { runId: run.id, included: false, flags: { has: "No salary structure" } } });
+  // Nobody approves a month that pays themselves an adjustment (bonus, arrears…): it goes to the
+  // next approver, as fee approvals do (owner decision 2026-11-12, self-test A14).
+  const adjusted = await tx.payrollAdjustment.findMany({ where: { runId: run.id, archivedAt: null }, select: { staffId: true } });
+  const adjustedLogins = adjusted.length
+    ? (await tx.staff.findMany({ where: { id: { in: adjusted.map((a) => a.staffId) } }, select: { userLoginId: true } })).map((s) => s.userLoginId)
+    : [];
   const approval = await requestApproval(tx, ctx, {
+    aboutUserIds: adjustedLogins,
     type: "payroll", recordType: "Payroll Run", recordId: run.id, amountPaise: run.netPaise,
     summary: `${monthName(run.month)} salary · ${run.staffCount} staff · net ${formatRupees(run.netPaise)}`,
     reason: left ? `${left} staff left out: no salary structure.` : null,

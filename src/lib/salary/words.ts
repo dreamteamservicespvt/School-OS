@@ -62,3 +62,25 @@ export const dayNum = (n: number) => (n % 1 ? (n === 0.5 ? "½" : n.toFixed(1)) 
 
 /** An adjustment's name with the month it corrects: "Arrears for September 2026". */
 export const correctionLabel = (a: { type: string; forMonth: Date | null }) => `${adjustmentLabel(a.type)}${a.forMonth ? ` for ${monthName(a.forMonth)}` : ""}`;
+
+/**
+ * Everyone the pre-send check must name for "no salary structure" (10 §5): the run's lines that
+ * were left out for it, and staff on the payroll today with no structure who have no line yet
+ * (added after the last calculation). Self-test A13, 2026-11-12: the check said 1 while 6 had none.
+ */
+export function staffWithoutStructure(lines: { staffId: string; flags: string[] }[], missingNow: string[]) {
+  const inRun = new Set(lines.map((l) => l.staffId));
+  const flagged = lines.filter((l) => l.flags.includes("No salary structure")).map((l) => l.staffId);
+  const notYet = missingNow.filter((id) => !inRun.has(id));
+  return { all: [...flagged, ...notYet.filter((id) => !flagged.includes(id))], notYetInRun: notYet };
+}
+
+/**
+ * The note under the totals when saving an adjustment also brought in attendance and leave
+ * (self-test A5): "Net pay also changed by ₹620 because attendance and leave up to 12-11-2026 were brought in."
+ */
+export function alsoChangedNote(otherChangePaise: bigint, upTo: string, rupees: (p: bigint) => string) {
+  if (otherChangePaise === BigInt(0)) return null;
+  const by = otherChangePaise < BigInt(0) ? -otherChangePaise : otherChangePaise;
+  return `Net pay also ${otherChangePaise < BigInt(0) ? "went down" : "went up"} by ${rupees(by)} because attendance and leave up to ${upTo} were brought in.`;
+}

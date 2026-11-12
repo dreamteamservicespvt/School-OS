@@ -9,7 +9,7 @@ import { formatDate, formatDateTime, formatRupees, formatRupeesShort } from "@/l
 import { payrollStaff, runBreakdown, lineDays } from "@/lib/salary/payroll";
 import { salarySettings } from "@/lib/salary/settings";
 import { runsOnCampus } from "@/lib/salary/campus";
-import { addMonths, correctionLabel, dayNum, dayShort, firstOfMonth, lastOfMonth, monthKey, monthName, monthShort } from "@/lib/salary/words";
+import { staffWithoutStructure, addMonths, correctionLabel, dayNum, dayShort, firstOfMonth, lastOfMonth, monthKey, monthName, monthShort } from "@/lib/salary/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Avatar } from "@/components/ui/avatar";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
@@ -76,7 +76,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
     const withStructure = await tx.salaryStructure.findMany({ where: { staffId: { in: staffNow.map((s) => s.id) }, archivedAt: null }, distinct: ["staffId"], select: { staffId: true } });
     const missing = staffNow.filter((s) => !withStructure.some((w) => w.staffId === s.id));
     const lines = run ? await tx.payrollLine.findMany({ where: { runId: run.id } }) : [];
-    const staff = await tx.staff.findMany({ where: { id: { in: lines.map((l) => l.staffId) } }, select: { id: true, fullName: true, staffCode: true, designation: true, joiningDate: true } });
+    const staff = await tx.staff.findMany({ where: { id: { in: [...lines.map((l) => l.staffId), ...missing.map((m) => m.id)] } }, select: { id: true, fullName: true, staffCode: true, designation: true, joiningDate: true } });
     const adjustments = run ? await tx.payrollAdjustment.findMany({ where: { runId: run.id, archivedAt: null }, orderBy: { createdAt: "asc" } }) : [];
     const breakdown = run && money ? await runBreakdown(tx, run.id) : null;
     const structures = await tx.salaryStructure.findMany({ where: { id: { in: lines.map((l) => l.structureId).filter((x): x is string => Boolean(x)) } }, select: { id: true, version: true, effectiveFrom: true, tdsPaise: true } });
@@ -114,7 +114,9 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
   const sub = `${campusWord(campus?.name ?? "Main")} · one salary run a month · pay day is ${payDay}`;
   const userName = (id: string | null) => data.users.find((u) => u.id === id)?.displayName ?? "—";
   const included = data.lines.filter((l) => l.included);
-  const noStructure = data.lines.filter((l) => l.flags.includes("No salary structure"));
+  // Self-test A13: also staff added since the last calculation, who have no line yet.
+  const noStructureNow = staffWithoutStructure(data.lines, data.missing.map((m) => m.id));
+  const noStructure = noStructureNow.all.map((staffId) => ({ staffId }));
   const incomplete = included.filter((l) => l.flags.includes("Attendance not complete"));
   const noTds = included.filter((l) => l.flags.includes("No TDS amount"));
   const lopLines = included.filter((l) => Number(l.lopDays) > 0);
@@ -215,7 +217,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                     {negative.length > 0 && <Check1 icon={TriangleAlert} tone="bad" title={`Net pay below zero for ${negative.length} staff · cannot be sent or approved`}
                       sub={`${negative.slice(0, 3).map((l) => (money ? `${name(l.staffId)} ${amt(l.netPaise)}` : name(l.staffId))).join(", ")}. A correction or one-time deduction is more than the pay. Change or remove the adjustment first.`}
                       action={<ButtonLink href={here({ show: "flag" })} scroll={false} size="sm" variant="secondary"><Words k="Show" /></ButtonLink>} />}
-                    {noStructure.length > 0 && <Check1 icon={FileWarning} tone="warn" title={`${noStructure.length} staff ${noStructure.length === 1 ? "has" : "have"} no salary structure`} sub={`${noStructure.slice(0, 3).map((l) => `${name(l.staffId)}, ${staffOf.get(l.staffId)?.designation}`).join("; ")}${noStructure.length > 3 ? ` and ${noStructure.length - 3} more` : ""}. Left out until a structure exists.`}
+                    {noStructure.length > 0 && <Check1 icon={FileWarning} tone="warn" title={`${noStructure.length} staff ${noStructure.length === 1 ? "has" : "have"} no salary structure`} sub={`${noStructure.slice(0, 3).map((l) => `${name(l.staffId)}, ${staffOf.get(l.staffId)?.designation}`).join("; ")}${noStructure.length > 3 ? ` and ${noStructure.length - 3} more` : ""}. Left out until a structure exists.${noStructureNow.notYetInRun.length ? ` ${noStructureNow.notYetInRun.length} of them ${noStructureNow.notYetInRun.length === 1 ? "was" : "were"} added after the last calculation: Recalculate to bring them in.` : ""}`}
                       action={p.change ? <ButtonLink href={`${BASE}/structures?do=add&staff=${noStructure[0].staffId}`} size="sm" variant="secondary"><Words k="Add" /></ButtonLink> : null} />}
                     {incomplete.length > 0 && <Check1 icon={CalendarX2} tone="warn" title={`Attendance missing for ${incomplete.length} staff`} sub={incomplete.slice(0, 3).map((l) => `${name(l.staffId)} ${l.notMarkedDays} ${l.notMarkedDays === 1 ? "day" : "days"}`).join(", ") + ". Not marked and no leave asked."}
                       action={p.current.permissions["attendance-management"]?.see !== "none" ? <ButtonLink href="/attendance-management/staff" size="sm" variant="secondary"><Words k="Open" /></ButtonLink> : null} />}

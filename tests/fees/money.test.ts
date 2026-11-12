@@ -171,6 +171,14 @@ describe("refunds (rule 9)", () => {
     expect(after.paidPaise).toBe(before.paidPaise - R(4000));
     expect(after.balancePaise).toBe(before.balancePaise + R(4000));
     expect(await withSchool(f.ctx, (tx) => tx.feeAdjustment.count({ where: { dueId: open[0].id } }))).toBe(0);
+    // The statement shows the refund as owed again, and its running balance goes up by it.
+    const { studentLedger } = await import("@/lib/fees/ledger");
+    const led = await withSchool(f.ctx, (tx) => studentLedger(tx, s, new Date(), "Asia/Kolkata"));
+    const line = led.entries.find((e) => e.key === `refund:${refund.id}`)!;
+    expect(line.debit).toBe(R(4000));
+    expect(line.sub).toContain("₹4,000 is to pay again");
+    const i = led.entries.indexOf(line);
+    expect(line.balance - (i > 0 ? led.entries[i - 1].balance : BigInt(0))).toBe(R(4000));
   });
 });
 

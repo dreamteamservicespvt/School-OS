@@ -11,15 +11,17 @@ Last updated: 2026-11-12 19:10 IST (team-test readiness day). Older: docs/archiv
   rebuild: the event saves with 1:00 PM. tests/form-problems.test.ts 7/7.
 - Settled: the Library campus test was a test mistake (desk shows "Neha, 5 A"), fixed in f32f46f2. Rerun of the open files:
   17 files, 165/165 (incl. restore-test). B6 recheck PASS ("4 more tries", then "3 more tries").
-- RUNNING (started 19:05): 5 layman test agents; reports to docs/qa/2026-11-12-layman-A.md .. -E.md (A students/academic/
-  attendance, B fees/finance/salary, C exams/homework/comms/parent, D staff/front office/events/transport/hostel,
-  E library/inventory/reports/settings/shell). Scripts in qa/layman/, screenshots in qa-output/layman-<a..e>/.
+- Layman tests A, B, C, E DONE (docs/qa/2026-11-12-layman-A/B/C/E.md: 56 problems, 2 High). D (staff/front office/events/
+  transport/hostel) still running -> docs/qa/2026-11-12-layman-D.md. Claude fixed LC1 LC4 LC5 LC6 LC24 (79813078).
+  RUNNING since ~20:30: 4 fixer agents, each commits its own files: shared components (LA1 LA2 LA5 LE2 LE3 LE5/LC11 LE6
+  LE7/LC13 LC22 LC23 + DB pool), money (LB1-LB11, A3, Move money, Adjust text), exams/homework/comms (rest of LC + B9),
+  students/library/inventory/settings (rest of LA + LE + B10). Their final reports list fixed/not fixed per ID.
 - Live receipt PDF NOT checked: Chrome "Dream Team Services" (deviceId 694c21cd) is signed out of beta (7-day timeout).
   Claude does not type passwords into the live site, so the user signs in once, then Claude checks.
 - Progress page: https://claude.ai/artifact/7WSVY4hW97JfXoJkfRvNUV (docs/qa/team-ready-progress.html).
 
 ## Next steps
-1. When the 5 layman reports are in: fix every confirmed problem (High first), with tests; tsc + eslint; run the touched
+1. Check each fixer's commits (git log), fix D's report too; fix every confirmed problem (High first), with tests; tsc + eslint; run the touched
    test files; rebuild :3000 and recheck each fix in the browser.
 2. Deploy 3: push HEAD to main and the branch; watch the GitHub commit status for Vercel; smoke /sign-in.
 3. Live receipt PDF check on beta once the user has signed in (Principal) in Chrome 694c21cd.

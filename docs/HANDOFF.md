@@ -1,41 +1,28 @@
 # School OS handoff
 
-Last updated: 2026-11-12 23:00 IST (round 2: finishing all 69 layman problems). Older: docs/archive/HANDOFF-until-2026-11-11.md (and earlier archives).
+Last updated: 2026-11-13 02:00 IST (round 2 done, deploy 3).
 
 ## State
-- ROUND 2 (started 22:25 IST): d15f298c makes 8816c758 type-check clean (8 errors) + LE2. Migration
-  20261112100000_appraisal_points_by_staff_type applied to the local DB. 5 helpers fixing by area (forms/date boxes;
-  money LB; exams/homework/comms LC; students/staff/desks LA+LD; library/store/exports/i18n LE+LC11), test DBs w3-w6 +
-  school_os_test (w6 made today). Lead: busy-DB LA5/LC3/LE9 (pool 20 / 5 serverless, busy page) + LA10/LD9 re-measure.
-- DEPLOY 2 LIVE: main = 989111c5 on school-os-beta since 18:15 IST (Vercel "Deployment has completed"; /sign-in 200).
-  Holds everything to 2026-11-12: refund rule 33, Transport off 34B, Adjust remove -> Approvals (migration
-  20261112000000_fee_adjustment_removes ran in the Vercel build), shared campusFilter, self-test A/B fixes, B6 decoy fix.
-- After deploy 2, branch only (NOT deployed): 47fc6b86 A4 fix in src/components/ui/form-problems.tsx (state was set inside
-  the input event, so a box showing a server message lost its first key: "10:00 AM:00 PM"). Rechecked on the local
-  rebuild: the event saves with 1:00 PM. tests/form-problems.test.ts 7/7.
-- Settled: the Library campus test was a test mistake (desk shows "Neha, 5 A"), fixed in f32f46f2. Rerun of the open files:
-  17 files, 165/165 (incl. restore-test). B6 recheck PASS ("4 more tries", then "3 more tries").
-- Layman tests A-E ALL DONE: docs/qa/2026-11-12-layman-A.md .. -E.md (1,180 checks, 69 problems: 3 High LB1 LC1 LD1).
-  Claude fixed and verified LC1 LC4 LC5 LC6 LC24 (79813078) and A4 (47fc6b86).
-- 5 fixer helpers (shared components, money, exams/homework/comms, students/library/inventory/settings, staff/front
-  office/events/transport/hostel) were STOPPED mid-work when the chat closed. Their partial work is ONE commit 8816c758
-  "WIP: unverified ..." (152 files + new migration 20261112100000_appraisal_points_by_staff_type + new tests + qa/layman
-  scripts). It is NOT type-checked or tested; which IDs it fully fixes is unknown.
-- Live receipt PDF NOT checked: Chrome "Dream Team Services" (deviceId 694c21cd) is signed out of beta (7-day timeout).
-  Claude does not type passwords into the live site, so the user signs in once, then Claude checks.
+- ROUND 2 DONE (13-11-2026, 02:00 IST): all 69 layman problems (docs/qa/2026-11-12-layman-A..E.md) fixed. Commits
+  d15f298c..1f8ccb61 on this branch. Full suite 315 files / 2,744 tests pass; tsc 0; eslint 0 errors (1 old warning
+  tests/platform/pdf.test.ts). Browser recheck on the production build: 14 of 14 (qa/layman/r2-recheck.mjs + r2-recheck2.mjs):
+  LD1, LD3, LB1, LB6, LE4, LA4, LC23, LD10, LD7, LA11/LD6, LA10/LD9 (all pages under 3 s), LE2, LD13, LA8.
+- DEPLOY 3: main pushed to 1f8ccb61 (from 989111c5). Includes migration 20261112100000_appraisal_points_by_staff_type
+  (runs in the Vercel build). Vercel: "Deployment has completed"; live /sign-in 200 (13-11-2026 02:15 IST).
+- Owner decision applied (LA11/LD6): School Admin gets Full on every module, as docs/blueprint/05-roles.md says (no more
+  "View only" or desk narrowing for School Admin: Collect Fee, day close, library desk, front office, hostel, transport,
+  homework). The Principal keeps the oversight view and Remind. Role tests updated to the blueprint.
+- Notable: Academic Settings opened in 9-30 s (53 sequential year-usage queries per open year): now one UNION query.
+  Busy database shows "School OS is busy right now" (pool 20 on one server / 5 per Vercel copy, 20 s wait).
+  Shared kit labels go through tx() (Telugu/Hindi); +156 library/store words. Excel cells are real numbers; empty = blank.
+- Live receipt PDF NOT checked: Chrome "Dream Team Services" (694c21cd) is signed out of beta; Claude does not type passwords.
 - Progress page: https://claude.ai/artifact/7WSVY4hW97JfXoJkfRvNUV (docs/qa/team-ready-progress.html).
 
 ## Next steps
-1. Verify WIP 8816c758: `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit -p .`, `npx eslint src tests`, then run
-   the new/changed tests (git show --stat 8816c758) and `npx prisma migrate deploy` + `npx prisma generate`. Fix what fails.
-2. For every problem ID in the 5 layman reports (except those fixed above), check the code: fixed / partly / not done.
-   Finish the rest. High first (LB1 concession above the fee, LD1 leave dates reset after an error), then Medium, Low.
-   LA11/LD6 owner decision: make screens, badges and Settings follow docs/blueprint/05-roles.md.
-3. Full suite in parallel (node qa/vitest-worker.mjs, see below), tsc 0, eslint clean.
-4. Rebuild :3000 (see below) and recheck each fixed ID in the browser with the qa/layman/*.mjs scripts.
-5. Deploy 3: push HEAD to main and the branch; watch the GitHub commit status (Vercel); smoke /sign-in.
-6. Live receipt PDF check on beta once the user has signed in (Principal) in Chrome 694c21cd.
-7. Team test brief docs/qa/2026-11-12-team-brief.md. Test data left by testers: names start with LA-, LB-, LC-, LD-, LE-.
+1. Live receipt PDF check on beta once the user has signed in (Principal) in Chrome 694c21cd.
+2. Team test brief docs/qa/2026-11-12-team-brief.md. Test data left by testers: names start with LA-, LB-, LC-, LD-, LE-.
+3. Small leftovers (not tester problems): staff leave save still names one problem at a time (LE6 note); LD5 refuses an age
+   under 18 / over 80 instead of a soft warning; generic page titles ("Book") in the browser tab on record pages.
 
 ## How to run things locally
 - DB: `powershell -c "Start-Process -WindowStyle Hidden -FilePath 'D:\all\Projects\School-OS\tools\pg16\pgsql\bin\pg_ctl.exe' -ArgumentList '-D','D:\all\Projects\School-OS\tools\pgdata','-l','D:\all\Projects\School-OS\tools\pg.log','start'"`; wait for pg_isready.
@@ -47,6 +34,8 @@ Last updated: 2026-11-12 23:00 IST (round 2: finishing all 69 layman problems). 
 - Demo logins local only (DEMO_PASSWORD in .env); browser scripts qa/full/*.mjs; playwright-core in C:/Users/chala/tools/school-os-probe.
 
 ## Gotchas
+- Run vitest from PowerShell in D:ll\Projects\School-OS (Git Bash now fails at startup: "reading 'config'").
+- tools/pgdata/postgresql.conf max_locks_per_transaction = 256 (64 ran out when 3 test DBs reset at once).
 - Memory: never run more than ONE full `tsc` (8 GB) plus vitest at once. 2026-11-12 23:16 five helpers did, Windows ran out of
   commit memory (0xC000012D) and PostgreSQL crashed into a 5+ min recovery (fsync of the data directory).
 - Meta rejects Utility templates mentioning password/login; word them as account status.

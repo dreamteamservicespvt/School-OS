@@ -17,6 +17,8 @@ import { canSeeStudent, feeViewer, type FeeViewer } from "@/lib/fees/access";
 import { counterAllowed, feeSettings } from "@/lib/fees/settings";
 import { feeAction } from "../../_lib/action";
 import { receiptPlaceholderFor } from "@/lib/parent-link/token";
+import { deliverNowAndCheck } from "@/lib/messaging/delivery-check";
+import { receiptSentWords } from "@/lib/messaging/delivery-words";
 
 const ZERO = BigInt(0);
 
@@ -35,7 +37,8 @@ export type Collected = {
   when: string;
   mode: string;
   items: { label: string; amount: string }[];
-  sent: boolean;
+  /** The parents' "Fee received" message, if one was queued; what happened to it is asked after saving (receiptDelivery). */
+  messageId: string | null;
 };
 
 /** Collect Fee: posts the payment, makes the receipt and tells the parent, all in one step (A1). */
@@ -74,7 +77,8 @@ export async function collectFee(_prev: unknown, fd: FormData) {
     if (result.payment.advancePaise > ZERO) items.push({ label: "Advance, held for the next installments", amount: formatRupees(result.payment.advancePaise) });
     const p = result.payment;
     const mode2 = p.mode === "CHEQUE" ? `Cheque ${p.chequeNo}, ${p.chequeBank}` : COUNTER_MODES.find((m) => m.value === p.mode)?.label ?? p.mode;
-    const sent = !result.waiting && (await tx.message.count({ where: { sourceType: "Payment", sourceId: p.id } })) > 0;
+    // Only queued here: the screen asks receiptDelivery what really happened (self-test B1, Test mode said "got it").
+    const queued = result.waiting ? null : await tx.message.findFirst({ where: { sourceType: "Payment", sourceId: p.id }, orderBy: { createdAt: "desc" }, select: { id: true } });
     return {
       paymentId: p.id,
       receiptNo: result.receiptNo,
@@ -83,7 +87,7 @@ export async function collectFee(_prev: unknown, fd: FormData) {
       when: formatDateTime(p.paidAt, school.timeZone),
       mode: `${mode2}${p.reference ? ` · ${p.reference}` : ""}`,
       items,
-      sent,
+      messageId: queued?.id ?? null,
     } satisfies Collected;
   }, (r) => r.waiting
     ? { message: `${r.amount} saved. It waits for verification before the receipt is made.`, tone: "info" }
@@ -114,7 +118,7 @@ export async function sendLink(_prev: unknown, fd: FormData) {
   return feeAction("create", fd, async (tx, ctx, viewer) => {
     const r = await sendPaymentLink(tx, ctx, { studentId: await student(tx, viewer, fd), dueIds: ids(fd, "dueId"), channel: "whatsapp" });
     return { amount: formatRupees(r.amount), to: r.card.fatherName ?? r.card.primaryGuardian?.name ?? "the parent", expires: formatDate(r.link.expiresAt) };
-  }, (r) => `Payment link sent to ${r.to}. ${r.amount} · WhatsApp, with SMS backup. Valid till ${r.expires}.`, { staffOnly: "send payment links" });
+  }, (r) => `Payment link for ${r.amount} is on its way to ${r.to} by WhatsApp, with SMS backup. Valid till ${r.expires}. Message History shows when it arrives; nothing goes while messages are in Test mode.`, { staffOnly: "send payment links" });
 }
 
 export type QrLink = { url: string; svg: string; amount: string; linkId: string };
@@ -168,5 +172,18 @@ export async function resendReceipt(_prev: unknown, fd: FormData) {
     // No channel can carry it (for example WhatsApp has not approved the template and SMS has no DLT template ID): say why, nothing is sent.
     if (r.status === "not-sent") throw new MoneyProblem(`The receipt was not sent: ${r.reason.replace(/^Not sent: /, "")}. Print the receipt instead.`, undefined, { href: "/communication/settings", label: "Open Message Settings" });
     return { no: receipt.number };
-  }, (r) => `Receipt ${r.no} sent again to the parents.`, { staffOnly: false });
+  }, (r) => `Receipt ${r.no}: sending it again to the parents.`, { staffOnly: false });
+}
+
+/** What happened to the parents' receipt message: hands it to the providers now and says only what is true
+ * (Test mode or a queued message is never "got it"; self-test B1, 2026-11-12). */
+export async function receiptDelivery(paymentId: string, studentName: string): Promise<string> {
+  if (!UUID_RE.test(paymentId)) return receiptSentWords(studentName, null);
+  const { current } = await requireAction("fee-management", "print");
+  const messageId = await withSchool(current.ctx, async (tx) => {
+    const p = await tx.payment.findFirst({ where: { id: paymentId }, select: { studentId: true } });
+    if (!p || !(await canSeeStudent(tx, await feeViewer(tx, current.ctx, current), p.studentId))) return null;
+    return (await tx.message.findFirst({ where: { sourceType: "Payment", sourceId: paymentId }, orderBy: { createdAt: "desc" }, select: { id: true } }))?.id ?? null;
+  });
+  return receiptSentWords(studentName, messageId ? await deliverNowAndCheck(current.ctx, messageId) : null);
 }

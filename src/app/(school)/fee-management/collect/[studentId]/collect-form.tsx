@@ -20,7 +20,7 @@ import { cx } from "@/components/ui/cx";
 import type { FormState } from "@/lib/forms";
 import type { DueStatus } from "@/lib/fees/dues";
 import { DUE_WORD } from "../../_components/bits";
-import { askDiscountApproval, collectFee, qrPaid, resendReceipt, sendLink, showQr, type Collected, type QrLink } from "./actions";
+import { askDiscountApproval, collectFee, qrPaid, receiptDelivery, resendReceipt, sendLink, showQr, type Collected, type QrLink } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
 import { FormProblems, bringToBox } from "@/components/ui/form-problems";
@@ -256,7 +256,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
           {verifyModes.includes(mode) && <p className="text-[12.5px] text-ink3 -mt-2 flex gap-1.5"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{mode === "CHEQUE" ? "Cheques wait" : `${MODES.find((m) => m.id === mode)?.label} payments wait`} <Words k="for the accountant to verify before the receipt is final." /></p>}
 
           <div>
-            <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="inline-flex items-center gap-1.5 text-[13px] font-semibold text-brand hover:underline">
+            <button type="button" onClick={() => setMore(!more)} aria-expanded={more} className="inline-flex items-center gap-1.5 min-h-10 text-[13px] font-semibold text-brand hover:underline">
               <ChevronDown size={15} className={cx("transition", more && "rotate-180")} aria-hidden="true" />
               {counter.discount || counter.waive ? "Discount, waiver, date or note" : "Date or note"}
             </button>
@@ -314,8 +314,10 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
           {qrState && !qrState.ok && <Alert tone="danger">{qrState.message}</Alert>}
         </div>
         <div className="border-t border-line p-4 bg-sunken/50 flex flex-col gap-2">
-          <Button type="submit" variant="primary" size="lg" className="w-full !h-14 !text-[16px]" icon={Check} loading={busy} disabled={selTotal === 0 && !(advanceOn && open.length === 0)}>
-            {busy ? "Saving payment…" : `Collect ${inr(Number.isNaN(amt) ? 0 : amt)}`}
+          {/* With no amount it looks switched off and says what to do; pressing it still names the empty box (self-test B3).
+              scroll-mb keeps it clear of the phone's bottom Quick menu when brought into view. */}
+          <Button type="submit" variant="primary" size="lg" className={cx("w-full !h-14 !text-[16px] scroll-mb-28", !busy && !(amt > 0) && "opacity-50")} icon={Check} loading={busy} disabled={selTotal === 0 && !(advanceOn && open.length === 0)}>
+            {busy ? "Saving payment…" : amt > 0 ? `Collect ${inr(amt)}` : "Enter the amount"}
           </Button>
           <Button type="submit" formAction={linkAction} data-plain="1" variant="ghost" className="w-full" icon={Send} loading={linkBusy} disabled={selTotal === 0 || !gateway}
             title={gateway ? undefined : "Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support."}><Words k="Send payment link instead" /></Button>
@@ -363,6 +365,16 @@ function ReceiptSheet({ r, studentName, onClose }: { r: Collected; studentName: 
   const titleId = useId();
   const [resent, resend, resending] = useActionState<FormState<unknown>, FormData>(resendReceipt as never, null);
   useEffect(() => { const d = ref.current; if (d && !d.open) d.showModal(); }, []);
+  // Say what really happened to the parents' message (Test mode or still queued is never "got it").
+  const [told, setTold] = useState<string | null>(null);
+  const resentOk = resent?.ok ?? false;
+  useEffect(() => {
+    if (r.waiting || (!r.messageId && !resentOk)) return;
+    let live = true;
+    setTold(null);
+    receiptDelivery(r.paymentId, studentName).then((w) => { if (live) setTold(w); }).catch(() => { if (live) setTold("Could not check the parents' message. See Message History."); });
+    return () => { live = false; };
+  }, [r.paymentId, r.messageId, r.waiting, studentName, resentOk, resent]);
   const total = useMemo(() => r.amount, [r]);
   const pdf = `/fee-management/payments/${r.paymentId}/receipt`;
   return (
@@ -376,7 +388,7 @@ function ReceiptSheet({ r, studentName, onClose }: { r: Collected; studentName: 
             </span>
             <h2 id={titleId} className="font-display text-[26px] font-semibold mt-4 tnum">{r.waiting ? `${total} saved` : `${total} received`}</h2>
             <p className="text-ink3 text-[14px] mt-1">
-              {r.waiting ? "It waits for verification. The receipt is made once the accountant approves it." : r.sent ? `${studentName}’s parents got the receipt on WhatsApp.` : "The receipt is ready to print. No message was sent to the parents."}
+              {r.waiting ? "It waits for verification. The receipt is made once the accountant approves it." : !r.messageId && !resentOk ? "The receipt is ready to print. No message was sent to the parents." : told ?? "Sending the receipt to the parents…"}
             </p>
             <div className="w-full mt-5 text-left rounded-2xl border border-line overflow-hidden">
               <div className="flex justify-between items-center px-4 py-3 bg-sunken/60 text-[13px]">

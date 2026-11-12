@@ -77,12 +77,16 @@ export type SchoolTemplate = {
   rollNumberOrder: "name" | "gender-name" | "admission";
 };
 
-/** School-type templates (inferred names and contents). They only switch modules on, never off. */
+/**
+ * School-type templates (inferred names and contents). They only switch modules on, never off.
+ * None switches Transport on: no Transport in version 1 (README decisions; owner, 2026-11-12).
+ * A school can still switch it on itself in Settings, Modules On/Off.
+ */
 export const SCHOOL_TEMPLATES: SchoolTemplate[] = [
-  { key: "cbse-day", name: "CBSE day school", about: "A CBSE school where children go home each day, with a library and school buses.", board: "CBSE", modulesOn: ["library-management", "transport-management", "inventory-management"], weekStart: "monday", rollNumberOrder: "name" },
+  { key: "cbse-day", name: "CBSE day school", about: "A CBSE school where children go home each day, with a library and a store.", board: "CBSE", modulesOn: ["library-management", "inventory-management"], weekStart: "monday", rollNumberOrder: "name" },
   { key: "state-day", name: "State board day school", about: "A state board school with a library.", board: "State Board", modulesOn: ["library-management"], weekStart: "monday", rollNumberOrder: "name" },
   { key: "boarding", name: "Boarding school", about: "Children live at school: hostel, library and store.", board: "CBSE", modulesOn: ["hostel-management", "library-management", "inventory-management"], weekStart: "monday", rollNumberOrder: "name" },
-  { key: "pre-school", name: "Pre-school", about: "Nursery to UKG, with school vans.", board: "Custom", modulesOn: ["transport-management"], weekStart: "monday", rollNumberOrder: "gender-name" },
+  { key: "pre-school", name: "Pre-school", about: "Nursery to UKG.", board: "Custom", modulesOn: [], weekStart: "monday", rollNumberOrder: "gender-name" },
 ];
 
 export type IntegrationField = { key: string; label: string; type: "text" | "url" | "secret" | "email" | "ip"; required: boolean; help?: string; placeholder?: string };

@@ -29,8 +29,9 @@ export default async function SignInCodePage() {
   const t = await getT();
   return (
     <AuthFrame eyebrow={second ? t("Last step") : t("One more step")} title={second ? t("Enter the second code") : t("Enter the code")} sub={second ? t("The first code was right. Your role needs a second code, on your other contact.") : t("This keeps your school's records safe.")}>
+      {/* Keyed without the tries count, so a wrong-code answer is not wiped when the cookie changes. */}
       {decoy ? (
-        <CodeForm key={held} sentTo={t.any(CODE_SIGN_IN_SENT_TO)} remembers={false} sharedDefault={shared} />
+        <CodeForm key={(held ?? "").slice(0, (held ?? "").lastIndexOf("."))} sentTo={t.any(CODE_SIGN_IN_SENT_TO)} remembers={false} sharedDefault={shared} />
       ) : challenge ? (
         // A code typed instead of the password never makes a remembered device, so no choice is shown.
         <CodeForm key={challenge.id} sentTo={challenge.purpose === "code-sign-in" ? t.any(CODE_SIGN_IN_SENT_TO) : challenge.sentTo} remembers={challenge.purpose !== "code-sign-in"} sharedDefault={shared} />

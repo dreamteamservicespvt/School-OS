@@ -2872,6 +2872,7 @@ export const EN = [
   "Bills",
   // src/app/(school)/inventory-management/purchases/sheets.tsx
   "Pay from cash anyway",
+  "Pay anyway",
   "Add a vendor",
   "Ordered",
   "· received",

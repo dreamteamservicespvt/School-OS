@@ -113,7 +113,7 @@ describe("Inventory Management rules", () => {
     expect(bill.outcome).toBe("approved");
     await expect(run((tx) => recordBill(tx, ctx(), { orderId: o.order.id, vendorId: null, billNo: "HS-1001", billDate: TODAY, dueDate: null, amountPaise: R(1500), fileId: null, note: null, duplicateReason: null }))).rejects.toThrow(/already/i);
     const acc = as(f, f.accountant.id);
-    await withSchool(acc, async (tx) => payBill(tx, acc, bill.invoice.id, { date: TODAY, mode: "BANK_TRANSFER", reference: "NEFT1", accountId: (await mainBankAccount(tx, acc)).id }));
+    await withSchool(acc, async (tx) => payBill(tx, acc, bill.invoice.id, { date: TODAY, mode: "BANK_TRANSFER", reference: "NEFT1", accountId: (await mainBankAccount(tx, acc)).id, confirmLowCash: true }));
     const entry = await run((tx) => tx.dayBookEntry.findFirst({ where: { sourceType: "expense-payment", amountPaise: R(1500) } }));
     expect(entry).not.toBeNull();
     expect(entry!.date.toISOString().slice(0, 10)).toBe("2026-10-12");

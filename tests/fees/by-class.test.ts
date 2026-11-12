@@ -109,9 +109,9 @@ describe("Fee desk work by role", () => {
     expect(() => requireFeeStaff({ change: "none" }, "collect fees")).toThrow(/cannot do collect fees/);
   });
 
-  it("the Principal and School Admin never get the Collect Fee page; the Accountant does", () => {
+  it("the Principal never gets the Collect Fee page; the Accountant and School Admin (Full, 05-roles.md) do", () => {
     expect(pageMode({ roles: [{ key: "principal" }] }, "fee-management", "collect")).toBe("hidden");
-    expect(pageMode({ roles: [{ key: "school-admin" }] }, "fee-management", "collect")).toBe("hidden");
+    expect(pageMode({ roles: [{ key: "school-admin" }] }, "fee-management", "collect")).toBe("full");
     expect(pageMode({ roles: [{ key: "principal" }] }, "fee-management", "defaulters")).toBe("view");
     expect(pageMode({ roles: [{ key: "accountant" }] }, "fee-management", "collect")).toBe("full");
     expect(pageMode({ roles: [{ key: "principal" }] }, "fee-management", "structure")).toBe("full");

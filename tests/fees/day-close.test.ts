@@ -43,7 +43,7 @@ describe("who closes the day", () => {
   it("is the accountant's desk: the Principal and School Admin read the Day Book and remind, the Vice Principal only reads", () => {
     expect(closesDays(person("accountant"))).toBe(true);
     expect(closesDays(person("principal"))).toBe(false);
-    expect(closesDays(person("school-admin"))).toBe(false);
+    expect(closesDays(person("school-admin"))).toBe(true); // Full on Fee Management (05-roles.md, owner decision 12-11-2026)
     expect(closesDays(person("vice-principal"))).toBe(false);
     // An accountant who is also School Admin keeps the desk work.
     expect(closesDays(person("school-admin", "accountant"))).toBe(true);

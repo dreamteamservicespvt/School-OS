@@ -9906,6 +9906,7 @@ export const hi: Catalogue = {
   "Why save it again?": "इसे फिर क्यों सहेजें?",
   "Example: a second bill with the same number, confirmed with the vendor": "उदाहरण: उसी संख्या का दूसरा बिल, विक्रेता से पुष्टि की",
   "Pay from cash anyway": "फिर भी नकद से भुगतान करें",
+  "Pay anyway": "फिर भी भुगतान करें",
   "Cash in hand goes below zero until cash comes in.": "नकद आने तक हाथ की नकदी शून्य से नीचे जाती है।",
   "Cheque 118204": "चेक 118204",
   "UTR SBIN2262…": "UTR SBIN2262…",

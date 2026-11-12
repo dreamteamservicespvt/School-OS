@@ -9906,6 +9906,7 @@ export const te: Catalogue = {
   "Why save it again?": "దీన్ని మళ్ళీ ఎందుకు సేవ్ చేయాలి?",
   "Example: a second bill with the same number, confirmed with the vendor": "ఉదాహరణ: అదే నంబర్‌తో రెండవ బిల్, విక్రేతతో ధృవీకరించారు",
   "Pay from cash anyway": "అయినా నగదు నుండి చెల్లించండి",
+  "Pay anyway": "అయినా చెల్లించండి",
   "Cash in hand goes below zero until cash comes in.": "నగదు వచ్చే వరకు చేతిలో నగదు సున్నా కంటే తక్కువకు వెళ్తుంది.",
   "Cheque 118204": "చెక్ 118204",
   "UTR SBIN2262…": "UTR SBIN2262…",

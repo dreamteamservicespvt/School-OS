@@ -32,7 +32,7 @@ export function Warned() {
       {state?.errors?.billNo && <SArea name="duplicateReason" label="Why save it again?" required placeholder="For example: a second bill with the same number, confirmed with the vendor" />}
       {state?.errors?.mode && (
         <label className="flex items-center gap-2 rounded-xl bg-warn/12 px-3.5 py-3 text-[14px] font-semibold">
-          <input type="checkbox" name="confirmLowCash" className="size-4" /> <Words k="Pay from cash anyway" />
+          <input type="checkbox" name="confirmLowCash" className="size-4" /> <Words k="Pay anyway" />
         </label>
       )}
     </>

@@ -125,6 +125,7 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
   const prDone = rows.filter((r) => r.principalRemark).length;
   const coDone = rows.filter((r) => !r.missing.includes("Co-scholastic grades")).length;
   const marksIn = rows.filter((r) => !r.missing.includes("Marks")).length;
+  const blanks = rows.filter((r) => r.status !== "NOT_READY" && r.missing.length > 0).length;
   const tone = (n: number) => (n === rows.length ? "ok" : "warn") as StatItem["tone"];
 
   const stats: StatItem[] = [
@@ -148,6 +149,11 @@ export default async function ReportCardsPage({ searchParams }: { searchParams: 
     </Banner>
   ) : sent === rows.length ? (
     <Banner tone="ok" title="Every report card is sent."><Words k="They are on Parent Link for each family." /></Banner>
+  ) : blanks > 0 ? (
+    // Ready means the results are published (08 §2); a card with an empty remark or grade prints that part blank (layman test LC5).
+    <Banner tone="warn" title={`${plural(ready, "report card")} of ${rows.length} ready, but ${blanks} still ${blanks === 1 ? "has" : "have"} empty parts.`}>
+      <Words k="A remark or grade not filled in prints blank on the report card. Fill them in before printing; the list below says what each one is missing." />
+    </Banner>
   ) : (
     <Banner tone="ok" title={`${plural(ready, "report card")} of ${rows.length} ready.`}>
       <Words k="Published report cards show on Parent Link at once. Print them for the parent-teacher meeting, or mark them as sent when handed over." />

@@ -300,6 +300,8 @@ export const te: Catalogue = {
   "Your sign-in has timed out, or the code was used up. Sign in again to get a new code.": "మీ సైన్ ఇన్ సమయం ముగిసింది, లేదా కోడ్ ఇప్పటికే వాడేశారు. కొత్త కోడ్ కోసం మళ్ళీ సైన్ ఇన్ చేయండి.",
   "present": "హాజరు",
   "{days} school days · {absent} absent · {late} late · {leave} leave": "{days} పని దినాలు · {absent} గైర్హాజరు · {late} ఆలస్యం · {leave} సెలవు",
+  "{marked} of {days} school days marked · {absent} absent · {late} late · {leave} leave": "{days} పాఠశాల రోజుల్లో {marked} నమోదు · {absent} గైర్హాజరు · {late} ఆలస్యం · {leave} సెలవు",
+  "A remark or grade not filled in prints blank on the report card. Fill them in before printing; the list below says what each one is missing.": "నింపని వ్యాఖ్య లేదా గ్రేడ్ రిపోర్ట్ కార్డ్‌పై ఖాళీగా ముద్రించబడుతుంది. ముద్రించే ముందు వాటిని నింపండి; ఒక్కోదానిలో ఏమి మిగిలి ఉందో కింది జాబితా చెబుతుంది.",
   "Attendance in {month}": "{month} హాజరు",
   "Not marked": "నమోదు కాలేదు",
   "Not yet": "ఇంకా లేదు",

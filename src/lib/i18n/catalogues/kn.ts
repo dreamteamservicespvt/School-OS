@@ -300,6 +300,7 @@ export const kn: Catalogue = {
   "Your sign-in has timed out, or the code was used up. Sign in again to get a new code.": "ನಿಮ್ಮ ಸೈನ್ ಇನ್ ಸಮಯ ಮುಗಿದಿದೆ, ಅಥವಾ ಕೋಡ್ ಈಗಾಗಲೇ ಬಳಸಲಾಗಿದೆ. ಹೊಸ ಕೋಡ್‌ಗಾಗಿ ಮತ್ತೆ ಸೈನ್ ಇನ್ ಮಾಡಿ.",
   "present": "ಹಾಜರು",
   "{days} school days · {absent} absent · {late} late · {leave} leave": "{days} ಶಾಲಾ ದಿನಗಳು · {absent} ಗೈರು · {late} ತಡ · {leave} ರಜೆ",
+  "{marked} of {days} school days marked · {absent} absent · {late} late · {leave} leave": "{days} ಶಾಲಾ ದಿನಗಳಲ್ಲಿ {marked} ದಾಖಲು · {absent} ಗೈರು · {late} ತಡ · {leave} ರಜೆ",
   "Attendance in {month}": "{month} ಹಾಜರಾತಿ",
   "Not marked": "ದಾಖಲಾಗಿಲ್ಲ",
   "Not yet": "ಇನ್ನೂ ಇಲ್ಲ",

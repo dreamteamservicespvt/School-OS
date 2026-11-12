@@ -300,6 +300,7 @@ export const ta: Catalogue = {
   "Your sign-in has timed out, or the code was used up. Sign in again to get a new code.": "உங்கள் உள்நுழைவு நேரம் முடிந்தது, அல்லது குறியீடு ஏற்கனவே பயன்படுத்தப்பட்டது. புதிய குறியீட்டுக்கு மீண்டும் உள்நுழையவும்.",
   "present": "வருகை",
   "{days} school days · {absent} absent · {late} late · {leave} leave": "{days} பள்ளி நாட்கள் · {absent} வரவில்லை · {late} தாமதம் · {leave} விடுப்பு",
+  "{marked} of {days} school days marked · {absent} absent · {late} late · {leave} leave": "{days} பள்ளி நாட்களில் {marked} பதிவு · {absent} வரவில்லை · {late} தாமதம் · {leave} விடுப்பு",
   "Attendance in {month}": "{month} வருகைப்பதிவு",
   "Not marked": "பதியப்படவில்லை",
   "Not yet": "இன்னும் இல்லை",

@@ -300,6 +300,7 @@ export const bn: Catalogue = {
   "Your sign-in has timed out, or the code was used up. Sign in again to get a new code.": "আপনার সাইন ইনের সময় শেষ, অথবা কোডটি আগেই ব্যবহার হয়েছে। নতুন কোড পেতে আবার সাইন ইন করুন।",
   "present": "উপস্থিত",
   "{days} school days · {absent} absent · {late} late · {leave} leave": "{days} স্কুল দিবস · {absent} অনুপস্থিত · {late} দেরি · {leave} ছুটি",
+  "{marked} of {days} school days marked · {absent} absent · {late} late · {leave} leave": "{days} স্কুল দিনের মধ্যে {marked} দিন লেখা · {absent} অনুপস্থিত · {late} দেরি · {leave} ছুটি",
   "Attendance in {month}": "{month}-এর উপস্থিতি",
   "Not marked": "চিহ্নিত হয়নি",
   "Not yet": "এখনও নয়",

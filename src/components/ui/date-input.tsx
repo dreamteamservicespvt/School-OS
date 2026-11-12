@@ -641,10 +641,11 @@ export function DateTimeInput(props: PickerProps) {
   const label = rest["aria-label"];
   return (
     <div className={cx("grid grid-cols-[minmax(0,3fr)_minmax(0,2fr)] gap-2", wrapperClassName)}>
-      <DateInput {...rest} id={id} className={className} disabled={disabled} readOnly={readOnly} required={required}
+      {/* A day without a time (or a time without a day) was sent empty and lost (layman test LC1): each half needs the other. */}
+      <DateInput {...rest} id={id} className={className} disabled={disabled} readOnly={readOnly} required={required || Boolean(parts.time)}
         aria-label={label ? `${label}: ${t.any("Date")}` : undefined}
         value={parts.date} min={min.slice(0, 10)} max={max.slice(0, 10)} onChange={(e) => change({ ...parts, date: e.target.value })} />
-      <TimeInput {...rest} id={id ? `${id}-time` : undefined} className={className} disabled={disabled} readOnly={readOnly} required={required}
+      <TimeInput {...rest} id={id ? `${id}-time` : undefined} className={className} disabled={disabled} readOnly={readOnly} required={required || Boolean(parts.date)}
         aria-label={label ? `${label}: ${t.any("Time")}` : t.any("Time")} step={step}
         value={parts.time} min={sameDay(min)} max={sameDay(max)} onChange={(e) => change({ ...parts, time: e.target.value })} />
       <input ref={hidden} type="hidden" name={name} form={form} value={held} disabled={disabled} />

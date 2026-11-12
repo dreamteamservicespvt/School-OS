@@ -300,6 +300,7 @@ export const mr: Catalogue = {
   "Your sign-in has timed out, or the code was used up. Sign in again to get a new code.": "तुमच्या साइन इनची वेळ संपली, किंवा कोड आधीच वापरला गेला. नवीन कोडसाठी पुन्हा साइन इन करा.",
   "present": "उपस्थित",
   "{days} school days · {absent} absent · {late} late · {leave} leave": "{days} शाळा दिवस · {absent} गैरहजर · {late} उशीरा · {leave} रजा",
+  "{marked} of {days} school days marked · {absent} absent · {late} late · {leave} leave": "{days} शाळा दिवसांपैकी {marked} नोंदवले · {absent} गैरहजर · {late} उशीरा · {leave} रजा",
   "Attendance in {month}": "{month} मधील हजेरी",
   "Not marked": "नोंद नाही",
   "Not yet": "अजून नाही",

@@ -4624,6 +4624,8 @@ export const EN = [
   "The school cancelled this certificate. Ask the school for a current one.",
   // src/components/attendance/month-calendar.tsx
   "{days} school days · {absent} absent · {late} late · {leave} leave",
+  "{marked} of {days} school days marked · {absent} absent · {late} late · {leave} leave",
+  "A remark or grade not filled in prints blank on the report card. Fill them in before printing; the list below says what each one is missing.",
   "Attendance in {month}",
   "Colour legend",
   // src/components/attendance/month-select.tsx

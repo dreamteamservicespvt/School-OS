@@ -300,6 +300,8 @@ export const hi: Catalogue = {
   "Your sign-in has timed out, or the code was used up. Sign in again to get a new code.": "आपके साइन इन का समय खत्म हो गया, या कोड इस्तेमाल हो चुका है। नया कोड पाने के लिए फिर से साइन इन करें।",
   "present": "उपस्थित",
   "{days} school days · {absent} absent · {late} late · {leave} leave": "{days} स्कूल दिवस · {absent} अनुपस्थित · {late} देर से · {leave} छुट्टी",
+  "{marked} of {days} school days marked · {absent} absent · {late} late · {leave} leave": "{days} स्कूल दिवसों में से {marked} दर्ज · {absent} अनुपस्थित · {late} देर से · {leave} छुट्टी",
+  "A remark or grade not filled in prints blank on the report card. Fill them in before printing; the list below says what each one is missing.": "जो टिप्पणी या ग्रेड नहीं भरा गया, वह रिपोर्ट कार्ड पर खाली छपता है। छापने से पहले उन्हें भरें; नीचे की सूची बताती है कि हर एक में क्या बाकी है।",
   "Attendance in {month}": "{month} की उपस्थिति",
   "Not marked": "दर्ज नहीं",
   "Not yet": "अभी नहीं",

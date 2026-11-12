@@ -17,7 +17,7 @@ export function monthWords(t: T, label: string) {
 export type CalMonth = {
   label: string;
   month: string;
-  summary: { percent: number | null; workingDays: number; countedDays: number; present: number; absent: number; late: number; leave: number };
+  summary: { percent: number | null; workingDays: number; markedDays: number; countedDays: number; present: number; absent: number; late: number; leave: number };
   cells: { date: string; day: number; weekday: number; statusKey: string | null; off: string | null; future: boolean }[];
 };
 export type CalStatus = { key: string; name: string; letter: string; tone: string };
@@ -47,7 +47,10 @@ export function MonthCalendar({ view, statuses, min, max, param = "month", today
       <MonthSelect value={view.month} min={min} max={max} param={param} />
       <div className="flex items-baseline justify-between gap-3 text-[13px] text-ink3 flex-wrap">
         <span><b className={cx("font-display text-[20px] font-semibold tnum", s.percent === null ? "text-ink" : s.percent < threshold ? "text-bad" : s.percent < 85 ? "text-warn" : "text-ok")}>{pct(s.percent)}</b> {t("present")}</span>
-        <span className="tnum">{t("{days} school days · {absent} absent · {late} late · {leave} leave", { days: s.workingDays, absent: s.absent, late: s.late, leave: s.leave })}</span>
+        {/* The percent counts marked days only: say so when some school days are not marked (layman test LC6). */}
+        <span className="tnum">{s.markedDays < s.workingDays
+          ? t("{marked} of {days} school days marked · {absent} absent · {late} late · {leave} leave", { marked: s.markedDays, days: s.workingDays, absent: s.absent, late: s.late, leave: s.leave })
+          : t("{days} school days · {absent} absent · {late} late · {leave} leave", { days: s.workingDays, absent: s.absent, late: s.late, leave: s.leave })}</span>
       </div>
       <div role="grid" aria-label={t("Attendance in {month}", { month: monthWords(t, view.label) })} className={cx("grid grid-cols-7 text-center", compact ? "gap-1" : "gap-1.5")}>
         {WEEK.map((w) => <div key={w} role="columnheader" className="py-1 text-[11.5px] font-semibold text-ink3">{compact && t.lang === "en" ? w.slice(0, 1) : t.any(w)}</div>)}

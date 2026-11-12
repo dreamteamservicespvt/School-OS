@@ -122,7 +122,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
   const classesTaught = [...new Set(s.pairs.map((x) => data.all.find((r) => r.sectionId === x.sectionId)?.sectionLabel).filter(Boolean))];
   const sub = mine
     ? `${subjectsTaught.length ? subjectsTaught.join(", ") : "Your subjects"}${classesTaught.length ? ` · ${classesTaught.join(", ")}` : ""} · only your classes and subjects`
-    : "Homework given across the school this week";
+    : `Homework given across the school · ${per.label.toLowerCase()}`;
   const menu = (r: HomeworkRow) => (
     <CardMenu detail={`${BASE}/homework/${r.id}`} edit={editsHere && mayWork(s, r) && !r.archived ? here({ do: "edit", id: r.id }) : undefined} archive={editsHere && mayWork(s, r) && !r.archived ? here({ do: "archive", id: r.id }) : undefined} />
   );
@@ -136,8 +136,8 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
           { label: `Current · ${per.label.toLowerCase()}`, big: String(t.given), foot: `${plural(t.assigned, "student")} in ${plural(t.classes, "class", "classes")}` },
           { label: "Handed in", big: `${pct(t.submitted, t.assigned)}%`, foot: `${t.submitted} of ${t.assigned}` },
           subsOpen
-            ? { label: mine ? "Waiting for you to check" : "Waiting to be checked", big: String(t.toCheck), foot: "Open Submissions & Grading", href: `${BASE}/submissions` }
-            : { label: "Waiting to be checked", big: String(t.toCheck), foot: "Teachers check these in their classes" },
+            ? { label: mine ? "Waiting for you to check" : "Waiting to be checked", big: String(checkIds ? pieces : t.toCheck), foot: "Open Submissions & Grading", href: `${BASE}/submissions` }
+            : { label: "Waiting to be checked", big: String(checkIds ? pieces : t.toCheck), foot: "Teachers check these in their classes" },
           { label: "Seen by parents", big: t.messaged ? `${pct(t.seen, t.seenOf)}%` : "—", foot: t.messaged ? "From WhatsApp read receipts" : "No homework messages yet" },
         ]} />
 

@@ -300,6 +300,7 @@ export const ml: Catalogue = {
   "Your sign-in has timed out, or the code was used up. Sign in again to get a new code.": "നിങ്ങളുടെ സൈൻ ഇൻ സമയം കഴിഞ്ഞു, അല്ലെങ്കിൽ കോഡ് ഇതിനകം ഉപയോഗിച്ചു. പുതിയ കോഡിനായി വീണ്ടും സൈൻ ഇൻ ചെയ്യുക.",
   "present": "ഹാജർ",
   "{days} school days · {absent} absent · {late} late · {leave} leave": "{days} സ്കൂൾ ദിവസങ്ങൾ · {absent} ഹാജരില്ല · {late} വൈകി · {leave} അവധി",
+  "{marked} of {days} school days marked · {absent} absent · {late} late · {leave} leave": "{days} സ്കൂൾ ദിവസങ്ങളിൽ {marked} രേഖപ്പെടുത്തി · {absent} ഹാജരില്ല · {late} വൈകി · {leave} അവധി",
   "Attendance in {month}": "{month} ലെ ഹാജർ",
   "Not marked": "രേഖപ്പെടുത്തിയിട്ടില്ല",
   "Not yet": "ഇതുവരെയില്ല",

@@ -112,15 +112,20 @@ describe("Class-wise attendance", () => {
 });
 
 describe("Desk pages by role", () => {
-  it("Principal, School Admin and Vice Principal do not take attendance or record student leave; they open the class-wise register", async () => {
-    for (const id of [f.principal.id, f.admin.id, vp.id]) {
+  it("Principal and Vice Principal do not take attendance or record student leave; they open the class-wise register", async () => {
+    for (const id of [f.principal.id, vp.id]) {
       const p = await pagesFor(id);
       expect(p.take).toBe("hidden");
       expect(p.studentLeave).toBe("hidden");
       expect(p.register).not.toBe("hidden");
       expect((await accessFor(f, id)).classWise).toBe(true);
     }
-    expect((await pagesFor(f.admin.id)).register).toBe("view");
+  });
+
+  it("the School Admin has Full (05-roles.md) and may take attendance and record student leave (owner decision 12-11-2026, layman test LA11)", async () => {
+    const p = await pagesFor(f.admin.id);
+    expect([p.take, p.studentLeave, p.register]).toEqual(["full", "full", "full"]);
+    expect((await accessFor(f, f.admin.id)).classWise).toBe(true);
   });
 
   it("the Academic Head reads the register only; a class teacher keeps every desk page", async () => {

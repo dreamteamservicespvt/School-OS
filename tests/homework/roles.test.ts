@@ -94,9 +94,9 @@ describe("who reaches Homework & Learning, and on which pages", () => {
     expect(s.modes).toMatchObject({ homework: "view", "learning-progress": "view", settings: "view", submissions: null, "study-material": null, quizzes: null, discussions: null, "online-classes": null });
   });
 
-  it("the School Admin reads homework and progress, and runs Homework Settings", async () => {
+  it("the School Admin works every page, as docs/blueprint/05-roles.md gives Full (owner decision 12-11-2026)", async () => {
     const s = await scopeOf(people.admin);
-    expect(s.modes).toMatchObject({ homework: "view", "learning-progress": "view", settings: "edit", submissions: null, quizzes: null });
+    expect(s.modes).toMatchObject({ homework: "edit", settings: "edit", submissions: "edit", quizzes: "edit" });
   });
 
   it("the Vice Principal reads every teaching page but works on none", async () => {

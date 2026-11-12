@@ -134,9 +134,11 @@ const iconBtn = "absolute right-1 top-1/2 -translate-y-1/2 grid place-items-cent
 const badCls = "!border-bad !ring-4 !ring-bad/10";
 
 /** The typed box shared by the date and time fields. */
-function useTyped({ held, show, parse, check, commitValue }: {
+function useTyped({ held, show, parse, check, commitValue, sendUnreadable = false }: {
   held: string; show: (v: string) => string; parse: (text: string) => string | null;
   check: (v: string) => string; commitValue: (v: string) => void;
+  /** Send text that cannot be read as it is, so the server refuses it, instead of sending nothing (self-test A4). */
+  sendUnreadable?: boolean;
 }) {
   const [draft, setDraft] = useState<string | null>(null);
   const [bad, setBad] = useState("");
@@ -145,7 +147,9 @@ function useTyped({ held, show, parse, check, commitValue }: {
     const v = parse(draft);
     if (v === null) {
       setBad("unreadable");
-      if (held) commitValue("");
+      // An optional time sent empty was saved without it (an event lost its end time); send the text instead.
+      if (sendUnreadable) commitValue(draft.trim());
+      else if (held) commitValue("");
       return false;
     }
     setDraft(null);
@@ -489,7 +493,7 @@ export function TimeInput(props: PickerProps) {
 
   const set = (v: string) => { setHeld(v); emit(hidden.current, v, onChange); };
   const typed = useTyped({
-    held, show: showTime, parse: parseTimeText, commitValue: set,
+    held, show: showTime, parse: parseTimeText, commitValue: set, sendUnreadable: true,
     check: (v) => (min && v < min ? t.any("Pick a time from {time}.", { time: showTime(min) })
       : max && v > max ? t.any("Pick a time up to {time}.", { time: showTime(max) }) : ""),
   });

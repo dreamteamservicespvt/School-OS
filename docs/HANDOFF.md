@@ -22,10 +22,13 @@ Last updated: 2026-11-12 16:30 IST (team-test readiness day). Older: docs/archiv
 - Progress page: https://claude.ai/artifact/7WSVY4hW97JfXoJkfRvNUV (docs/qa/team-ready-progress.html).
 
 ## Next steps
-1. Full suite (`npx vitest run`, default test DB) + `tsc` + eslint must pass on the branch HEAD. Then `npx prisma generate`.
-2. Rebuild on the SSD (local DB already migrated) and browser-check today's screen fixes at 390 px light/dark: Collect fee
-   (B1 words, B2, B3), attendance Add note + Saved bar (B5), marks keypad (B4), empty ActionForm messages (B8, ~31 forms),
-   Change section, forgot password, register after section move (B7), event end time (A4), salary pre-send check (A13).
+1. Full suite (`npx vitest run`, started 16:24 on the default test DB, BEFORE 0bef74f3) must pass; rerun its failures and
+   the salary/front-office/collect tests on HEAD. tsc 0 errors and eslint clean on HEAD (17:00). Then `npx prisma generate`.
+2. Browser recheck 17:00 on the rebuilt :3000 (docs/qa/2026-11-12-selftest-B.md "Recheck 17:00"): 31 pass, 4 fail.
+   Open: B6 wrong-code message after an unknown login (fixed in 2066471a, rebuild + recheck with qa/full/selftest-B-decoy-check.mjs);
+   A4 typing over a selected end time gives "10:00 AM:00 PM" (now refused, not dropped; fix the time box's typing);
+   Adjust "remove" result message not seen by the script (check by eye; the row does show "Waiting for approval");
+   Low: old section's register calls a moved student "(left)" (should say "moved to 5 B"). Smoke 29/29 pages open.
 3. Deploy 2: `git merge origin/main` (its 2 commits only touch next.config.ts and src/lib/pdf.ts, same as the branch), push
    HEAD to main and the branch; watch Vercel (GitHub commit status); then live check a receipt PDF and sign-in.
 4. Known, not fixed: A3 no warning when a bank payment takes the bank below zero; "Move money" sheet is pre-filled with the

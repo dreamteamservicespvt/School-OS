@@ -1,0 +1,31 @@
+// Self-test B item 5, issue 30: Collect fee, discount above the limit is refused; the typed Reason stays;
+// the red refusal goes once the discount changes. Diya Iyer (Class 4 B). Collects nothing in the end.
+//   MSYS_NO_PATHCONV=1 node qa/full/selftest-B-issue30.mjs
+import { asB, go, mainText, close, sleep, DESK, snap, rec } from "./selftest-B-h.mjs";
+import { controls } from "./look.mjs";
+const p = await asB("accountant", DESK);
+await go(p, "/fee-management/collect/b6ac9102-4392-4ac3-ad9c-fea2930bacca"); await sleep(1500);
+await p.getByRole("button", { name: /Discount, waiver, date or note/ }).click(); await sleep(600);
+const c = await controls(p); console.log("FIELDS\n  " + c.fields.join("\n  "));
+const disc = p.getByLabel(/^Discount/).first();
+const reason = p.getByLabel(/Reason/).first();
+await disc.click(); await disc.pressSequentially("1500", { delay: 20 });
+await reason.click(); await reason.pressSequentially("Sibling concession agreed by phone", { delay: 5 });
+await snap(p, "i30-1-typed");
+await p.getByRole("button", { name: /^Collect ₹/ }).first().click(); await sleep(3000);
+const t1 = await mainText(p, 6000);
+const refusal = t1.match(/[^\n]*(principal's approval|need[^\n]*approval|above ₹1,000)[^\n]*/i)?.[0];
+rec("i30: discount above the limit is refused with a clear message", !!refusal, refusal);
+const rv = await reason.inputValue();
+rec("i30: typed reason kept after the refusal", rv === "Sibling concession agreed by phone", JSON.stringify(rv));
+await snap(p, "i30-2-refused");
+await disc.click(); await disc.fill(""); await disc.pressSequentially("500", { delay: 20 }); await sleep(800);
+const t2 = await mainText(p, 6000);
+const still = t2.match(/[^\n]*(principal's approval|need[^\n]*approval)[^\n]*/i)?.[0];
+rec("i30: refusal box goes once the discount changes", !still, still ?? "gone");
+rec("i30: reason still there after changing the discount", (await reason.inputValue()) === "Sibling concession agreed by phone");
+await snap(p, "i30-3-changed");
+await disc.fill(""); await sleep(600);
+rec("i30: no stale refusal with the discount cleared", !/(principal's approval)/i.test(await mainText(p, 6000)));
+if (p.problems.length) console.log("PROBLEMS", p.problems);
+await close();

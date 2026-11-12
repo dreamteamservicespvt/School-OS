@@ -90,7 +90,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
 
   return (
     <>
-      <InvHead pageName={itemLabel(item)} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/items`} className="hover:underline"><Words k={"Items & Stock"} /></Link> · <span className="font-mono">{item.code}</span></>} />
+      <InvHead pageName={itemLabel(item)} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/items`} className="hover:underline"><Words k={"Items & Stock"} /></Link> · <span className="font-semibold text-ink">{itemLabel(item)}</span> · <span className="font-mono">{item.code}</span></>} />
       <Stack>
         {archived && <Banner tone="info" title="Archived"><Words k="This item is archived. Its history stays; its code is never given again." /></Banner>}
         <Stats items={[

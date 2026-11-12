@@ -37,27 +37,23 @@ h1{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)
 </main>
 <script>
 var S={
-start:"2026-11-12T08:50:00Z",
-eta:"2026-11-12T17:30:00Z",
-updated:"2026-11-12T15:05:00Z",
-now:"4 fixers are fixing the 56 problems the testers found; test D (staff, transport, hostel) still running",
-main:75,mainline:"4 of 5 layman tests done: 937 checks, 56 problems (2 High, 21 Medium, 33 Low). Fixing all, then deploy 3 (time is an estimate)",
+start:"2026-11-12T16:55:00Z",
+eta:"2026-11-12T23:00:00Z",
+updated:"2026-11-12T17:00:00Z",
+now:"Checking the helpers' unfinished work (commit 8816c758): type check, lint, tests, database change",
+main:3,mainline:"Round 2: finish all 69 problems from the 5 layman tests (6 already fixed, 63 to check), retest like a layman, then deploy 3 (time is an estimate)",
 rows:[
-["Refund rule (33), Transport off (34B), old test data",100,"Done","took 50 min","Commits f6d02b7e, 82020db2, 828e9d4a"],
-["Deploy 1 to school-os-beta",100,"Done","took 95 min","Live since 3:54 pm: all fixes up to 6 Nov. The team can test it now"],
-["Fee Adjust 'remove' goes to Approvals above the limit",100,"Done","took 85 min","Commit c216aa79; 18 of 18 tests"],
-["Campus filter: one shared filter + guard test",100,"Done","took 25 min","Not a bug: the desk shows first names (Neha, 5 A); test corrected"],
-["Browser tests A and B + their fixes",100,"Done","took 2 h","About 15 problems fixed; recheck 31 of 35 pass"],
-["Full test suite (299 files)",100,"Done","took 1 h","Open files rerun: 165 of 165 pass (17 files, incl. restore test). Forgot-password recheck passes"],
-["Time box bug (A4): first key lost after an error",100,"Done","took 45 min","Fixed for every date and time box (47fc6b86); rechecked: event saves with 1:00 PM"],
-["Layman test A: admissions, students, classes, attendance",100,"Done","took 76 min","112 screens; 12 problems (0 High, 4 Medium, 8 Low)"],
-["Layman test B: fees, finance, salary",100,"Done","took 76 min","180 checks; 11 problems (1 High: a concession bigger than the fee was accepted)"],
-["Layman test C: exams, homework, messages, parent view",100,"Done","took 64 min","283 checks; 24 problems (1 High: a notice publish date was dropped, fixed)"],
-["Layman test D: staff, front office, events, transport, hostel",5,"Running","Est. 75 min","Includes role checks by URL"],
-["Layman test E: library, store, reports, settings, sign-in",100,"Done","took 73 min","237 checks; 9 problems (0 High, 7 Medium, 2 Low)"],
-["Fix everything the testers find + deploy 3",15,"Running","Est. 120 min","5 of C fixed by me (79813078); 4 fixer helpers on the rest"],
-["Type check and lint",100,"Done","took 10 min","0 errors after fixing what the parallel helpers left"],
-["Deploy 2: today's fixes + live PDF check",90,"Checking","took 20 min","Live since 6:15 pm (989111c5). Receipt PDF on the live site still to check: needs one sign-in"]
+["Check the helpers' unfinished work (8816c758)",10,"Running","Est. 40 min","Type check, lint, its new tests, and the new appraisal database change"],
+["High problems: concession above the fee (LB1), leave dates reset (LD1)",0,"Waiting","Est. 30 min","Fixed first"],
+["Test A: admissions, students, classes, attendance",0,"Waiting","Est. 60 min","12 problems; 0 of 12 confirmed fixed yet"],
+["Test B: fees, finance, salary",0,"Waiting","Est. 60 min","11 problems; 0 of 11 confirmed fixed yet"],
+["Test C: exams, homework, messages, parent view",21,"Waiting","Est. 60 min","24 problems; 5 of 24 fixed earlier (LC1, LC4, LC5, LC6, LC24)"],
+["Test D: staff, front office, events, transport, hostel",0,"Waiting","Est. 60 min","13 problems; 0 of 13 confirmed fixed yet"],
+["Test E: library, store, reports, settings",0,"Waiting","Est. 45 min","9 problems; 0 of 9 confirmed fixed yet"],
+["Full test suite, type check, lint",0,"Waiting","Est. 60 min","All 299+ test files"],
+["Rebuild the app and recheck every fix in the browser like a layman",0,"Waiting","Est. 60 min","qa/layman scripts"],
+["Deploy 3 to school-os-beta",0,"Waiting","Est. 20 min","Push to main, watch Vercel, open /sign-in"],
+["Live receipt PDF check",0,"Waiting","Est. 10 min","Needs one sign-in on the live site (see below)"]
 ],
 wait:"Optional: sign in on school-os-beta as Principal in the Dream Team Services Chrome so I can check a receipt PDF on the live site. Nothing else is needed from you."
 };

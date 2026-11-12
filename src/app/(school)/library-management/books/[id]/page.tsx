@@ -84,7 +84,7 @@ export default async function BookPage({ params, searchParams }: { params: Promi
 
   return (
     <>
-      <LibHead pageName={book.title} href={self} mode={p.mode} actions={actions} sub={<Link href={`${BASE}/books`} className="hover:underline"><Words k="Books" /></Link>} />
+      <LibHead pageName={book.title} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/books`} className="hover:underline"><Words k="Books" /></Link> · <span className="font-semibold text-ink">{book.title}</span></>} />
       <Stack>
         <Stats items={[
           { label: "Copies", value: d.counts.total },

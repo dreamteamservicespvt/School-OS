@@ -33,8 +33,8 @@ describe("how the work is shared out", () => {
   it("never takes more than half the connection pool for one page", () => {
     expect(poolSize("postgresql://u:p@db.example/school?connection_limit=3&sslmode=require")).toBe(3);
     // No limit in the address: 20 on one server, 5 per serverless copy (src/lib/db.ts).
-    expect(poolSize("postgresql://u:p@localhost/school", {})).toBe(20);
-    expect(poolSize("postgresql://u:p@db.example/school", { VERCEL: "1" })).toBe(5);
+    expect(poolSize("postgresql://u:p@localhost/school", {} as NodeJS.ProcessEnv)).toBe(20);
+    expect(poolSize("postgresql://u:p@db.example/school", { VERCEL: "1" } as unknown as NodeJS.ProcessEnv)).toBe(5);
     expect(laneCount(20, 3)).toBe(2);
     expect(laneCount(20, 1)).toBe(1);
     expect(laneCount(2, 17)).toBe(2);

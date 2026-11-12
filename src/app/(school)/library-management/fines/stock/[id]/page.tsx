@@ -52,7 +52,7 @@ export default async function StockCheckPage({ params }: { params: Promise<{ id:
 
   return (
     <>
-      <LibHead pageName={session.name} href={`${base}/stock/${id}`} mode={p.mode} sub={<Link href={`${base}?view=stock`} className="hover:underline"><Words k="Stock check" /></Link>}
+      <LibHead pageName={session.name} href={`${base}/stock/${id}`} mode={p.mode} sub={<><Link href={`${base}?view=stock`} className="hover:underline"><Words k="Stock check" /></Link> · <span className="font-semibold text-ink">{session.name}</span></>}
         actions={can.fines && open && d.progress ? <CloseStockButton sessionId={id} notScanned={d.progress.notScanned} /> : undefined} />
       <Stack>
         {open && d.progress ? (

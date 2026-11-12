@@ -84,7 +84,7 @@ export default async function OrderPage({ params, searchParams }: { params: Prom
 
   return (
     <>
-      <InvHead pageName={`Purchase order ${o.number}`} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/purchases?tab=orders`} className="hover:underline"><Words k="Purchase orders" /></Link> · {d.vendor?.name}</>} />
+      <InvHead pageName={`Purchase order ${o.number}`} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/purchases?tab=orders`} className="hover:underline"><Words k="Purchase orders" /></Link> · <span className="font-semibold text-ink">{o.number}</span>{d.vendor?.name ? ` · ${d.vendor.name}` : ""}</>} />
       <Stack>
         {o.status === "WAITING" && (d.mine
           ? <DecideBox action={decideAction} approvalId={o.approvalId!} question={`Approve ${o.number} to ${d.vendor?.name ?? "the vendor"} for ${formatRupees(o.totalPaise)}?`} />

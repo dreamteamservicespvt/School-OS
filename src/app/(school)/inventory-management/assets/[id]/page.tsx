@@ -90,7 +90,7 @@ export default async function AssetPage({ params, searchParams }: { params: Prom
 
   return (
     <>
-      <InvHead pageName={a.name} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/assets`} className="hover:underline"><Words k="Assets" /></Link> · <span className="font-mono">{a.tag}</span></>} />
+      <InvHead pageName={a.name} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/assets`} className="hover:underline"><Words k="Assets" /></Link> · <span className="font-semibold text-ink">{a.name}</span> · <span className="font-mono">{a.tag}</span></>} />
       <Stack>
         {d.waiting && (d.waiting.approvalId && d.mine.has(d.waiting.approvalId)
           ? <DecideBox action={decideAction} approvalId={d.waiting.approvalId} question={`Dispose of ${a.name} ${a.tag} (${DISPOSAL_METHOD[d.waiting.method] ?? d.waiting.method}${d.waiting.salePaise !== null ? `, ${formatRupees(d.waiting.salePaise)}` : ""})? Reason: ${d.waiting.reason}`} />

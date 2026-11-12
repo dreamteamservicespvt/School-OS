@@ -7,19 +7,19 @@ import { BUSY_DIGEST, databaseUrl, markBusy, poolLimit } from "@/lib/db";
 
 describe("databaseUrl", () => {
   it("adds a pool size and wait when the address has none", () => {
-    const u = new URL(databaseUrl("postgresql://u:p@localhost:5432/school", {})!);
+    const u = new URL(databaseUrl("postgresql://u:p@localhost:5432/school", {} as NodeJS.ProcessEnv)!);
     expect(u.searchParams.get("connection_limit")).toBe("20");
     expect(u.searchParams.get("pool_timeout")).toBe("20");
-    expect(poolLimit(databaseUrl("postgresql://u:p@localhost/school", { VERCEL: "1" }))).toBe(5);
+    expect(poolLimit(databaseUrl("postgresql://u:p@localhost/school", { VERCEL: "1" } as unknown as NodeJS.ProcessEnv))).toBe(5);
   });
 
   it("keeps what DATABASE_URL already says", () => {
-    const u = new URL(databaseUrl("postgresql://u:p@db.example/school?connection_limit=3&pool_timeout=5&sslmode=require", { VERCEL: "1" })!);
+    const u = new URL(databaseUrl("postgresql://u:p@db.example/school?connection_limit=3&pool_timeout=5&sslmode=require", { VERCEL: "1" } as unknown as NodeJS.ProcessEnv)!);
     expect(u.searchParams.get("connection_limit")).toBe("3");
     expect(u.searchParams.get("pool_timeout")).toBe("5");
     expect(u.searchParams.get("sslmode")).toBe("require");
     expect(u.password).toBe("p");
-    expect(databaseUrl("", {})).toBeUndefined();
+    expect(databaseUrl("", {} as NodeJS.ProcessEnv)).toBeUndefined();
   });
 });
 

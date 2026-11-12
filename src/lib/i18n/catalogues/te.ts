@@ -14322,4 +14322,5 @@ export const te: Catalogue = {
   "To change it first, withdraw it: it goes back to Draft.": "ముందు మార్చాలంటే దీన్ని వెనక్కి తీసుకోండి: ఇది మళ్లీ డ్రాఫ్ట్ అవుతుంది.",
   "It goes back to Draft and the Principal no longer sees the request. Nothing has been sent yet.": "ఇది మళ్లీ డ్రాఫ్ట్ అవుతుంది, ప్రిన్సిపాల్‌కు ఈ అభ్యర్థన కనిపించదు. ఇంకా ఏదీ పంపలేదు.",
   "Overdue or due soon": "గడువు దాటినవి లేదా త్వరలో గడువు",
+  "File not collected": "ఫైల్ ఇంకా తీసుకోలేదు",
 };

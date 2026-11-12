@@ -14871,6 +14871,7 @@ export const EN = [
   "To change it first, withdraw it: it goes back to Draft.",
   "It goes back to Draft and the Principal no longer sees the request. Nothing has been sent yet.",
   "Overdue or due soon",
+  "File not collected",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

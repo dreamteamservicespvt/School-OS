@@ -14322,4 +14322,5 @@ export const hi: Catalogue = {
   "To change it first, withdraw it: it goes back to Draft.": "बदलने के लिए पहले इसे वापस लें: यह फिर से ड्राफ़्ट बन जाता है।",
   "It goes back to Draft and the Principal no longer sees the request. Nothing has been sent yet.": "यह फिर से ड्राफ़्ट बन जाता है और प्रधानाचार्य को अनुरोध नहीं दिखता। अभी तक कुछ भी नहीं भेजा गया है।",
   "Overdue or due soon": "समय निकल गया या जल्द देय",
+  "File not collected": "फ़ाइल अभी नहीं ली गई",
 };

@@ -65,7 +65,7 @@ export function EnquirySheet({ closeHref, classes, preset, source, admissions }:
 export function CallSheet({ closeHref, purposes, classes, staff, defaultWho, today, follow, admissions }: { closeHref: string; purposes: string[]; classes: Opt[]; staff: Opt[]; defaultWho: string; today: string; follow: { date: string; time: string }; admissions: boolean }) {
   return (
     <SheetForm title="Log a call" sub="Known parents and enquiries are recognised from the number." closeHref={closeHref} action={logCallAction} submitLabel={<CallSubmit />} pendingText="Saving…">
-      <CallFields purposes={purposes} classes={classes} staff={staff} defaultWho={defaultWho} today={today} follow={follow} admissions={admissions} />
+      <CallFields purposes={purposes} classes={classes} staff={staff} defaultWho={defaultWho} today={today} followAt={follow} admissions={admissions} />
     </SheetForm>
   );
 }
@@ -78,7 +78,7 @@ function CallSubmit() {
   return <>{p === "Admission enquiry" ? "Save call and enquiry" : p === "Complaint" ? "Save and send as a query" : "Save call"}</>;
 }
 
-function CallFields({ purposes, classes, staff, defaultWho, today, follow, admissions }: { purposes: string[]; classes: Opt[]; staff: Opt[]; defaultWho: string; today: string; follow: { date: string; time: string }; admissions: boolean }) {
+function CallFields({ purposes, classes, staff, defaultWho, today, followAt, admissions }: { purposes: string[]; classes: Opt[]; staff: Opt[]; defaultWho: string; today: string; followAt: { date: string; time: string }; admissions: boolean }) {
   const purpose = useTyped("purpose", purposes.includes("Fee") ? "Fee" : purposes[0]);
   const name = useTyped("name", "");
   const fu = useTyped("followUp", "");
@@ -134,8 +134,8 @@ function CallFields({ purposes, classes, staff, defaultWho, today, follow, admis
         </div>
         {follow && (
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 px-4 pb-4 animate-fade">
-            <SText name="followDate" label="Date" type="date" start={follow.date} min={today} />
-            <SText name="followTime" label="Time" type="time" start={follow.time} />
+            <SText name="followDate" label="Date" type="date" start={followAt.date} min={today} />
+            <SText name="followTime" label="Time" type="time" start={followAt.time} />
             <SSelect name="followWho" label="Who" options={staff} start={defaultWho} className="col-span-2 sm:col-span-1" />
           </div>
         )}

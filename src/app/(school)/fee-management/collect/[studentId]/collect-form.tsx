@@ -366,15 +366,19 @@ function ReceiptSheet({ r, studentName, onClose }: { r: Collected; studentName: 
   const [resent, resend, resending] = useActionState<FormState<unknown>, FormData>(resendReceipt as never, null);
   useEffect(() => { const d = ref.current; if (d && !d.open) d.showModal(); }, []);
   // Say what really happened to the parents' message (Test mode or still queued is never "got it").
-  const [told, setTold] = useState<string | null>(null);
+  // Each answer is kept with the request it answers, so an earlier answer never shows for a new one.
+  const [answer, setAnswer] = useState<{ key: string; text: string } | null>(null);
   const resentOk = resent?.ok ?? false;
+  const askKey = `${r.paymentId}|${r.messageId ?? ""}|${resent ? JSON.stringify(resent) : ""}`;
+  const told = answer?.key === askKey ? answer.text : null;
   useEffect(() => {
     if (r.waiting || (!r.messageId && !resentOk)) return;
     let live = true;
-    setTold(null);
-    receiptDelivery(r.paymentId, studentName).then((w) => { if (live) setTold(w); }).catch(() => { if (live) setTold("Could not check the parents' message. See Message History."); });
+    receiptDelivery(r.paymentId, studentName)
+      .then((w) => { if (live) setAnswer({ key: askKey, text: w }); })
+      .catch(() => { if (live) setAnswer({ key: askKey, text: "Could not check the parents' message. See Message History." }); });
     return () => { live = false; };
-  }, [r.paymentId, r.messageId, r.waiting, studentName, resentOk, resent]);
+  }, [r.paymentId, r.messageId, r.waiting, studentName, resentOk, askKey]);
   const total = useMemo(() => r.amount, [r]);
   const pdf = `/fee-management/payments/${r.paymentId}/receipt`;
   return (

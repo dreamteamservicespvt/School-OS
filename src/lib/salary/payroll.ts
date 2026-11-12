@@ -247,7 +247,7 @@ export async function addAdjustment(tx: Tx, ctx: SchoolContext, input: Adjustmen
   const adj = await tx.payrollAdjustment.create({ data: { schoolId: ctx.schoolId, runId: run.id, staffId: input.staffId, type, amountPaise: input.amountPaise, reason, createdById: ctx.userId } });
   await writeAudit(tx, ctx, { action: "payroll-adjustment-added", recordType: "Payroll Adjustment", recordId: adj.id, after: { month: monthName(run.month), staff: staff.fullName, type: adjustmentLabel(type), amount: formatRupees(input.amountPaise), reason } });
   await calculateRun(tx, ctx, run.id, today);
-  return { adj, staff: staff.fullName, month: run.month };
+  return { adj, staff: staff.fullName, month: run.month, otherChangePaise };
 }
 
 /** Removes an adjustment before the run is sent (kept, archived, with who did it). */

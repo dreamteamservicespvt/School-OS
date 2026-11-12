@@ -39,6 +39,10 @@ export async function issueAction(_p: S<IssueDone>, fd: FormData): Promise<S<Iss
   return libAction("create", fd, async (w) => {
     need(w.can.desk, "issue books");
     const member = await memberOf(w, fd);
+    // The desk always sends the due date shown in the box. An empty one means the typed date could not be
+    // read: refuse, never issue with the normal due date while the box shows another (LE3). Without the
+    // box at all (a scripted issue), the normal due date is used.
+    if (fd.has("dueOn") && !str(fd, "dueOn")) throw new LibraryProblem("The due date could not be read. Type it as DD-MM-YYYY, or pick it from the calendar. The book was not issued.", "dueOn");
     const r = await issueBook(w.tx, w.ctx, { member, copyId: id(fd, "copyId", "copy"), dueOn: isoDate(fd, "dueOn", "Due date", { required: false }), dueReason: maybe(fd, "dueReason", "Reason", 200), today: w.today });
     return { title: r.copy.book.title, accessionNo: r.copy.accessionNo, member: member.name, memberKey: member.key, due: formatDate(r.dueOn, "UTC"), moved: r.dueMoved };
   }, (r) => ({ message: `“${r.title}” issued to ${r.member}. Due ${r.due}.` }));

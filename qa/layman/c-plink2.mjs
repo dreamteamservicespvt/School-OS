@@ -1,0 +1,12 @@
+import { asRole, go, mainText, sleep, close, snap } from "../full/selftest-A-h.mjs";
+const a = await asRole("admin");
+await go(a, "/communication/parent-link"); await sleep(1000);
+const ids = await a.locator("main a[href*='/communication/parent-link/']").evaluateAll((as) => [...new Set(as.map((x) => x.getAttribute("href")).filter((h) => /parent-link\/[0-9a-f-]{36}$/.test(h)))]);
+await a.setViewportSize({ width: 390, height: 844 });
+await go(a, `${ids[4]}/preview`); await sleep(1500);
+console.log("PREVIEW", (await mainText(a, 8000)).replace(/\n+/g, " | ").slice(0, 3500));
+await snap(a, "c-plink-preview-5a-390");
+const more = a.locator("main").getByRole("button", { name: /▾|More|Show/ });
+console.log("expanders", await more.count());
+console.log("PROBLEMS", a.problems);
+await close();

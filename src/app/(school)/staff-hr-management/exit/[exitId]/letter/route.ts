@@ -1,6 +1,6 @@
 // The experience letter as a PDF, in the school's Experience letter design (Settings, Document Designs).
 // The number is given the first time and kept, so a reprint shows the same number.
-import { requireAction } from "@/lib/current";
+import { staffRouteAccess } from "@/lib/staff/route";
 import { withSchool } from "@/lib/db";
 import { logExport } from "@/lib/exports";
 import { experienceLetter } from "@/lib/staff/print";
@@ -14,7 +14,9 @@ const text = (t: string, status: number) => new Response(t, { status, headers: {
 
 async function handleGET(_req: Request, { params }: { params: Promise<{ exitId: string }> }) {
   const { exitId } = await params;
-  const { current, reach } = await requireAction("staff-hr-management", "print");
+  const access = await staffRouteAccess("print");
+  if (access instanceof Response) return access;
+  const { current, reach } = access;
   if (reach !== "all") return text("Only HR can print experience letters.", 403);
   if (!UUID_RE.test(exitId)) return text("This exit was not found.", 404);
   try {

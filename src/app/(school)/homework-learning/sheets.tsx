@@ -24,14 +24,16 @@ export type GiveSection = {
   roster: { id: string; name: string; rollNo: number | null }[];
 };
 
-export function Text({ name, label, start, required, placeholder, help, value, onValue, area, rows = 3, className }: {
+export function Text({ name, label, start, required, placeholder, help, value, onValue, area, rows = 3, className, maxLength }: {
   name: string; label: string; start?: string; required?: boolean; placeholder?: string; help?: React.ReactNode;
   value?: string; onValue?: (v: string) => void; area?: boolean; rows?: number; className?: string;
+  /** The same limit the server checks, so the box stops there instead of refusing after sending (QA LC12). */
+  maxLength?: number;
 }) {
   const t = useTyped(name, start);
   const id = `f-${name}`;
   const common = {
-    id, name, placeholder, "aria-invalid": t.error ? true : undefined, "aria-describedby": t.error ? `${id}-error` : help ? `${id}-help` : undefined,
+    id, name, placeholder, maxLength, "aria-invalid": t.error ? true : undefined, "aria-describedby": t.error ? `${id}-error` : help ? `${id}-help` : undefined,
     ...(onValue ? { value: value ?? "", onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => onValue(e.target.value) } : { defaultValue: t.value }),
   };
   return (
@@ -141,8 +143,8 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
             </div>
           </div>
         )}
-        <Text name="title" label="Title" required placeholder="Exercise 4.3, Q1–Q8" value={title} onValue={setTitle} />
-        <Text name="instructions" label="Instructions" area placeholder="What should students do?" help="Or just attach a photo of the board" value={instr} onValue={setInstr} />
+        <Text name="title" label="Title" required maxLength={200} placeholder="Exercise 4.3, Q1–Q8" value={title} onValue={setTitle} />
+        <Text name="instructions" label="Instructions" area maxLength={4000} placeholder="What should students do?" help="Or just attach a photo of the board" value={instr} onValue={setInstr} />
         <AttachPicker />
       </div>
 
@@ -209,8 +211,8 @@ export function EditSheet({ closeHref, hw, files, onlineOn }: {
   return (
     <SheetForm title={`Edit: ${hw.title}`} sub={`${hw.label} · students and parents see the change. It is logged.`} closeHref={closeHref} action={editHomeworkAction}
       submitLabel="Save changes" pendingText="Saving…" hidden={{ id: hw.id }}>
-      <Text name="title" label="Title" required start={hw.title} />
-      <Text name="instructions" label="Instructions" area start={hw.instructions} />
+      <Text name="title" label="Title" required maxLength={200} start={hw.title} />
+      <Text name="instructions" label="Instructions" area maxLength={4000} start={hw.instructions} />
       {files.length > 0 && (
         <fieldset className="flex flex-col gap-1.5">
           <legend className="text-[13px] font-semibold text-ink2 mb-1"><Words k="Attached" /></legend>
@@ -266,7 +268,7 @@ export function SubmitSheet({ closeHref, id, title, sub, maxMb, again }: { close
     <SheetForm title={`${again ? "Hand in again" : "Hand in"}: ${title}`} sub={sub} closeHref={closeHref} action={submitWorkAction} hidden={{ id }} pendingText="Handing in…" submitDisabled={!ready}
       submitLabel={<><Upload size={16} aria-hidden="true" />{count ? `Hand in ${count} ${count === 1 ? "file" : "files"}` : ready ? "Hand in" : "Add a photo or file first"}</>}>
       <HandInPicker maxMb={maxMb} onCount={setCount} />
-      <Text name="note" label="Note to your teacher" area rows={2} placeholder="For example: I could not do Q9" help="Optional" value={note} onValue={setNote} />
+      <Text name="note" label="Note to your teacher" area rows={2} maxLength={4000} placeholder="For example: I could not do Q9" help="Optional" value={note} onValue={setNote} />
     </SheetForm>
   );
 }

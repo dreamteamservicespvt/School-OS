@@ -34,7 +34,7 @@ function QuestionEditor({ q, n, onChange, onRemove }: { q: QDraft; n: number; on
       <div className="flex items-start gap-2">
         <span className="text-[14px] font-semibold pt-2.5 tnum">{n}.</span>
         <label htmlFor={`q-${n}`} className="sr-only"><Words k="Question" /> {n}</label>
-        <textarea id={`q-${n}`} rows={1} value={q.text} onChange={(e) => onChange({ ...q, text: e.target.value })} placeholder="Type the question" className={cx(inputCls(), "py-2 flex-1 resize-y")} />
+        <textarea id={`q-${n}`} rows={1} maxLength={1000} value={q.text} onChange={(e) => onChange({ ...q, text: e.target.value })} placeholder="Type the question" className={cx(inputCls(), "py-2 flex-1 resize-y")} />
         <button type="button" onClick={onRemove} aria-label={`Remove question ${n}`} className="w-10 h-10 grid place-items-center rounded-lg text-ink3 hover:bg-sunken shrink-0"><Trash2 size={16} aria-hidden="true" /></button>
       </div>
       <div className="flex flex-wrap items-center gap-2 pl-5">
@@ -96,7 +96,7 @@ export function QuizSheet({ closeHref, sections, bank, start, defaults, edit }: 
       hidden={{ questions: JSON.stringify(qs), ...(start ? { id: start.id, label } : { sectionId: section?.id ?? "", subjectId }) }}
       submitLabel={<><Send size={16} aria-hidden="true" /><Words k="Open for" /> {label}</>} pendingText="Saving…"
       extraButtons={<Button type="submit" name="intent" value="draft" variant="secondary"><Words k="Save draft" /></Button>}>
-      <Text name="title" label="Title" required start={start?.title} placeholder="Simple equations: practice 2" />
+      <Text name="title" label="Title" required maxLength={160} start={start?.title} placeholder="Simple equations: practice 2" />
       {!start && (
         <div className="grid grid-cols-2 gap-3">
           <FieldShell label="Class and section" id="cq-cls" required>

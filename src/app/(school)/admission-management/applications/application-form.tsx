@@ -51,6 +51,8 @@ type Props = {
   /** Transport and Hostel are optional modules: their switches show only when the school has them on (02 §3 "when those modules are on"). */
   transportOn?: boolean;
   hostelOn?: boolean;
+  /** Today (YYYY-MM-DD, the school's day): a date of birth after it is flagged on screen, as on Add student (LA12). */
+  today?: string;
 };
 
 const GENDER_OPTIONS = [{ value: "Female", label: "Girl" }, { value: "Male", label: "Boy" }, { value: "Other", label: "Other" }];
@@ -153,7 +155,7 @@ export function ApplicationForm(p: Props) {
           <TextField label="Last name" name="lastName" maxLength={80} defaultValue={val("lastName")} error={err("lastName")} />
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <TextField label="Date of birth" name="dateOfBirth" type="date" required defaultValue={val("dateOfBirth")} error={err("dateOfBirth")} className="tnum" />
+          <TextField label="Date of birth" name="dateOfBirth" type="date" required max={p.today} defaultValue={val("dateOfBirth")} error={err("dateOfBirth")} className="tnum" />
           <div>
             <SegField name="gender" label="Gender" required size="sm" options={GENDER_OPTIONS} defaultValue={val("gender") ?? ""} />
             {err("gender") && <p className="mt-1 text-[12.5px] text-bad">{err("gender")}</p>}

@@ -18,7 +18,7 @@ import { parentLinkProvider, parentLinkStatus } from "@/lib/students/guardians";
 import { CONSENT_STATUS_LABEL } from "@/lib/students/labels";
 import { phoneShow, classShort } from "@/lib/students/show";
 import { shortDate } from "@/lib/students/show";
-import { BASE, studentPageOnCampus } from "../_lib/page";
+import { BASE, studentPageOnCampus, NO_ACCESS } from "../_lib/page";
 import { StudentsHead } from "../_lib/head";
 import { sectionNames } from "../_lib/queries";
 import { Words } from "@/lib/i18n/client";
@@ -36,7 +36,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
   const raw = await searchParams;
   // One campus chosen on the Dashboard (?campus=): that campus's parents, as the card counted them.
   const { current, yearIds, can, tz } = await studentPageOnCampus(raw.campus);
-  if (!can.seeParents) redirect(BASE);
+  if (!can.seeParents) redirect(NO_ACCESS);
   const params = readListParams(raw, FILTERS);
   const take = Math.min(500, Math.max(STEP, Number.parseInt(String(raw.n ?? ""), 10) || STEP));
   const provider = parentLinkProvider();

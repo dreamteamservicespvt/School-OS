@@ -7,6 +7,7 @@ import { formatDate, formatRupeesShort } from "@/lib/format";
 import { cellText } from "@/lib/fees/reports";
 import { FINANCE_REPORTS, findFinanceReport, type FinanceFilter } from "@/lib/finance/reports";
 import { chosenFinancialYear, financialYears } from "@/lib/finance/years";
+import { shortfallWords } from "@/lib/finance/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { buttonClass } from "@/components/ui/button";
 import { ExportButton } from "@/components/ui/export-button";
@@ -28,6 +29,7 @@ export async function generateMetadata() {
 const HREF = `${BASE}/reports`;
 const SHOW = 500;
 const ZERO = BigInt(0);
+const abs = (v: bigint) => (v < ZERO ? -v : v);
 
 /** How each report shows in the list (mod-finance.jsx FIN_REPORTS). */
 const LOOK: Record<string, { group: string; icon: LucideIcon }> = {
@@ -94,7 +96,8 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
   const ticks = [0, step, step * 2, step * 3];
   const inc = (r?.totals?.income as bigint | undefined) ?? ZERO;
   const exp = (r?.totals?.expense as bigint | undefined) ?? ZERO;
-  const chartMax = r?.chart?.reduce((m, c) => (c.value > m ? c.value : m), ZERO) ?? ZERO;
+  // By size: a loss (Day Book for a range) is a red bar of its own length, with its minus amount.
+  const chartMax = r?.chart?.reduce((m, c) => (abs(c.value) > m ? abs(c.value) : m), ZERO) ?? ZERO;
   const shown = r ? r.rows.slice(0, SHOW) : [];
 
   return (
@@ -122,7 +125,7 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
                 <Stats items={[
                   { label: "Income", value: formatRupeesShort(inc), tone: "ok", sub: dates },
                   { label: "Expenses", value: formatRupeesShort(exp), sub: dates },
-                  { label: inc >= exp ? "Surplus" : "Shortfall", value: formatRupeesShort(inc >= exp ? inc - exp : exp - inc), tone: inc >= exp ? "brand" : "bad", sub: inc > ZERO ? `${Math.round((Number(inc - exp) * 100) / Number(inc))}% of income` : "No income yet" },
+                  { label: inc >= exp ? "Surplus" : "Shortfall", value: formatRupeesShort(inc >= exp ? inc - exp : exp - inc), tone: inc >= exp ? "brand" : "bad", sub: shortfallWords(inc, exp) },
                 ]} />
               )}
               {months.size > 0 && (
@@ -139,7 +142,7 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
                 <Card>
                   <CardHeader title={def.key === "expense-analysis" ? "Where the money went" : def.label} description={dates} icon={LOOK[def.key]?.icon} />
                   <div className="px-5 pb-5">
-                    <HBars labelWidth={150} rows={r.chart.map((c) => ({ key: c.label, label: c.label, value: Number((c.value * BigInt(1000)) / chartMax) / 10, text: formatRupeesShort(c.value) }))} />
+                    <HBars labelWidth={150} rows={r.chart.map((c) => ({ key: c.label, label: c.label, value: Number((abs(c.value) * BigInt(1000)) / chartMax) / 10, text: formatRupeesShort(c.value), tone: c.value < ZERO ? "bad" as const : undefined }))} />
                   </div>
                 </Card>
               )}

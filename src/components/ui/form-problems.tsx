@@ -19,6 +19,7 @@
 // <ProblemText name="..." />.
 
 import { createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { CircleAlert } from "lucide-react";
 import { firstInOrder, problemMessage, shownProblem } from "@/lib/form-problems";
 import { tx } from "@/lib/i18n/tx";
@@ -32,6 +33,10 @@ const ProblemsContext = createContext<Ctx | null>(null);
 /** The message a field shows: what this page found, else the server's until the box is changed to a good value. */
 export function useFieldProblem(name: string | undefined, given?: string): string | undefined {
   const c = useContext(ProblemsContext);
+  // While a new save is on its way the last answer's messages are out of date (layman test LA2:
+  // "already exists" stayed on screen through a slow save that worked).
+  const { pending } = useFormStatus();
+  if (pending) return undefined;
   return name && c ? c.shown(name, given) : given;
 }
 
@@ -99,6 +104,17 @@ export function bringToBox(el: HTMLElement) {
   }));
 }
 
+/** A box with a place for its message: inside a shared field, or with a <ProblemText> for its name. */
+function hasSlot(form: HTMLFormElement, el: Box): boolean {
+  const name = boxName(el);
+  return Boolean(el.closest("[data-field]") || (name && form.querySelector(`[data-problem-slot="${CSS.escape(name)}"]`)));
+}
+
+/** A bad box this page can mark and bring into view. */
+function canShow(form: HTMLFormElement, el: Box): boolean {
+  return hasSlot(form, el) && canFocus(el);
+}
+
 /** Checks every box inside `root` (one step of a form): each bad one is marked by <FormProblems>. True when all are good. */
 export function checkBoxes(root: ParentNode | null | undefined): boolean {
   if (!root) return true;
@@ -148,8 +164,7 @@ export function FormProblems({ errors, children }: { errors?: Record<string, str
       const el = e.target;
       if (!isBox(el)) return;
       // A box with no place for its message (plain markup) keeps the browser's own bubble.
-      const name = boxName(el);
-      if (!el.closest("[data-field]") && !(name && form.querySelector(`[data-problem-slot="${CSS.escape(name)}"]`))) return;
+      if (!hasSlot(form, el)) return;
       e.preventDefault(); // no browser bubble: the box shows its own message
       batch.push(el);
       if (timer) return;
@@ -181,18 +196,33 @@ export function FormProblems({ errors, children }: { errors?: Record<string, str
         return out;
       }), 0);
     };
+    // A form with noValidate (every sheet) sent empty or wrong boxes to the server, which named
+    // only the first; the next try named the next (layman test LE6). Every box this page can
+    // check is marked at once instead, and the save waits. When a bad box cannot show its message
+    // here (plain markup, a box on another step), the server answers as before: never a silent stop.
+    const checkAll = (e: Event) => {
+      if (!form.noValidate || e.defaultPrevented) return;
+      if ((e as SubmitEvent).submitter?.hasAttribute("formnovalidate")) return;
+      const bad = Array.from(form.elements).filter(isBox).filter((b) => b.willValidate && !b.validity.valid);
+      if (!bad.length || !bad.every((b) => canShow(form, b))) return;
+      e.preventDefault();
+      for (const b of bad) b.checkValidity(); // each fires "invalid": its box shows its message
+    };
     // Only an answer to Save or Next moves the page; a message set when a box is left does not.
     const arm = (e: Event) => {
+      if (e.type === "submit" && e.defaultPrevented) return;
       const b = e.type === "submit" ? form : (e.target as Element | null)?.closest?.("button:not([type=button]), [data-submit]");
       if (b) armed.current = true;
     };
     const kinds = ["input", "change", "focusout", "click"] as const;
     form.addEventListener("invalid", onInvalid, true);
+    form.addEventListener("submit", checkAll, true);
     form.addEventListener("submit", arm, true);
     form.addEventListener("click", arm, true);
     for (const k of kinds) form.addEventListener(k, recheck, true);
     return () => {
       form.removeEventListener("invalid", onInvalid, true);
+      form.removeEventListener("submit", checkAll, true);
       form.removeEventListener("submit", arm, true);
       form.removeEventListener("click", arm, true);
       for (const k of kinds) form.removeEventListener(k, recheck, true);

@@ -12,7 +12,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { enqueue } from "../jobs";
 import { notify } from "../notifications";
-import { decidesRequestsOf, requestApproval } from "../approvals";
+import { decide, DecisionProblem, decidesRequestsOf, requestApproval } from "../approvals";
 import { currentYears } from "../academic/years";
 import { OPEN_LINK } from "../students/guardian-access";
 import { sectionLabel } from "../people";
@@ -389,6 +389,24 @@ export async function expireNotices(tx: Tx, ctx: SchoolContext, now = new Date()
   await tx.notice.updateMany({ where: { id: { in: due.map((d) => d.id) } }, data: { status: "EXPIRED" } });
   for (const d of due) await writeAudit(tx, ctx, { action: "expired", recordType: "Notice", recordId: d.id, after: { status: "EXPIRED" } });
   return due.length;
+}
+
+/**
+ * The writer takes back a notice waiting for approval (QA LC14): its request is withdrawn and the
+ * notice goes back to Draft to be changed (the approval's follow-up does that, src/lib/communication/handlers.ts).
+ * Only the person who sent it for approval can.
+ */
+export async function withdrawNotice(tx: Tx, ctx: SchoolContext, noticeId: string) {
+  const n = await tx.notice.findFirst({ where: { id: noticeId, schoolId: ctx.schoolId } });
+  if (!n) throw new NoticeProblem("This notice was not found.");
+  if (n.status !== "WAITING_APPROVAL" || !n.approvalId) throw new NoticeProblem("This notice is not waiting for approval.");
+  try {
+    await decide(tx, ctx, n.approvalId, "withdraw", null);
+  } catch (e) {
+    if (e instanceof DecisionProblem) throw new NoticeProblem(e.message);
+    throw e;
+  }
+  return n;
 }
 
 export async function archiveNotice(tx: Tx, ctx: SchoolContext, noticeId: string) {

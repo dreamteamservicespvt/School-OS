@@ -1,0 +1,14 @@
+import { asRole, go, mainText, sleep, close, snap } from "../full/selftest-A-h.mjs";
+const p = await asRole("teacher");
+await go(p, "/attendance-management/register"); await sleep(800);
+const rows = await p.evaluate(() => [...document.querySelectorAll("main table tbody tr")].map((r) => r.innerText.replace(/\s+/g, " ").slice(0, 60) + " ... " + r.innerText.replace(/\s+/g, " ").slice(-12)));
+console.log(rows.length, rows.join("\n"));
+console.log((await mainText(p, 600)).replace(/\n/g, " | "));
+await snap(p, "att-reg-teacher");
+await go(p, "/attendance-management"); await sleep(800);
+console.log("TAKE rows", await p.evaluate(() => [...document.querySelectorAll("main li, main [role=row]")].filter((e) => /SPS\//.test(e.innerText)).map((e) => e.innerText.replace(/\s+/g, " ").slice(0, 50))).then((x) => x.length + "\n" + x.join("\n")));
+const d = await asRole("admin");
+await go(d, "/dashboard"); await sleep(800);
+console.log("DASH", ((await mainText(d, 800)).match(/Students present[^]*?not marked/) ?? [""])[0].replace(/\n/g, " | "));
+await go(d, "/student-management?q=" + encodeURIComponent("5 A")); await sleep(800);
+await close();

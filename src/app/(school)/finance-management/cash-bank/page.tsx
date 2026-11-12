@@ -194,8 +194,10 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
 
       {moving && data.cash && (
         <MoveMoneySheet closeHref={here()} accounts={accountChoices} today={today}
-          from={data.cash.id} to={firstBank?.id ?? data.cash.id} amount={cashBefore > ZERO ? rupees(cashBefore) : 0}
-          hint={cashBefore > ZERO ? `${formatRupees(cashBefore)} from before today` : undefined} />
+          // Starts empty: the person types what they took to the bank. A pre-filled amount was moved
+          // again after it had already been deposited that day (layman test B, note 1).
+          from={data.cash.id} to={firstBank?.id ?? data.cash.id} amount={0}
+          hint={cashBefore > ZERO && data.depositedToday === 0 ? `${formatRupees(cashBefore)} from before today` : undefined} />
       )}
       {adding && <AddAccountSheet closeHref={here()} today={today} hasMain={data.accounts.some((a) => a.kind === "BANK" && a.isMain)} />}
       {opening && (

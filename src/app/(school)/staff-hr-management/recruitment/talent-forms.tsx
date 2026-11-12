@@ -4,6 +4,7 @@ import { CheckboxField, SelectField, TextArea, TextField } from "@/components/ui
 import { ActionButton, FormDialog, type Action } from "../_components/forms";
 import { Plus } from "lucide-react";
 import { Words } from "@/lib/i18n/client";
+import { STAFF_CRITERIA, TEACHING_CRITERIA } from "@/lib/staff/criteria";
 
 type Option = { value: string; label: string };
 
@@ -112,8 +113,10 @@ export function CycleForm({ action, years, today }: { action: Action; years: Opt
           <SelectField label="Academic year" name="academicYearId" required options={years} defaultValue={f.val("academicYearId", years[0]?.value)} error={f.err("academicYearId")} />
           <TextField label="Start date" name="startDate" type="date" required defaultValue={f.val("startDate", today)} error={f.err("startDate")} />
           <TextField label="End date" name="endDate" type="date" required defaultValue={f.val("endDate")} error={f.err("endDate")} />
-          <TextArea label="What to rate, one per line" name="criteria" required rows={5} className="sm:col-span-2" error={f.err("criteria")}
-            defaultValue={f.val("criteria", "Subject knowledge\nClassroom teaching\nStudent results\nPunctuality\nWorking with parents")} help="Each is rated 1 to 5." />
+          <TextArea label="What to rate for teachers, one per line" name="criteria" required rows={5} error={f.err("criteria")}
+            defaultValue={f.val("criteria", TEACHING_CRITERIA.join("\n"))} help="Each is rated 1 to 5." />
+          <TextArea label="What to rate for other staff, one per line" name="staffCriteria" rows={5} error={f.err("staffCriteria")}
+            defaultValue={f.val("staffCriteria", STAFF_CRITERIA.join("\n"))} help="Office, transport and support staff. Leave empty to use the teachers' points." />
         </div>
       )}
     </FormDialog>

@@ -138,7 +138,7 @@ describe("a salary month from open to locked", () => {
     const again = await withSchool(acc, (tx) => sendForApproval(tx, acc, runId));
     // The accountant cannot approve their own request.
     await expect(withSchool(acc, (tx) => decide(tx, acc, again.approvalId!, "approve", null))).rejects.toThrow(/own request/);
-    await expect(withSchool(acc, (tx) => markPaid(tx, acc, runId, { date: d("2026-09-30"), mode: "BANK_TRANSFER", reference: "UTR1", accountId: null, today }))).rejects.toThrow(/not approved yet/);
+    await expect(withSchool(acc, (tx) => markPaid(tx, acc, runId, { date: d("2026-09-30"), mode: "BANK_TRANSFER", reference: "UTR1", accountId: null, today, confirmLowCash: true }))).rejects.toThrow(/not approved yet/);
     await withSchool(as(f, f.principal.id), (tx) => decide(tx, as(f, f.principal.id), again.approvalId!, "approve", null));
     const slips = await withSchool(acc, (tx) => tx.payslip.findMany({ where: { runId } }));
     expect(slips).toHaveLength(3);
@@ -169,8 +169,10 @@ describe("a salary month from open to locked", () => {
 
   it("posts to the Day Book once when paid, reverses with a reason, and locks", async () => {
     const acc = as(f, f.accountant.id);
-    await withSchool(acc, (tx) => markPaid(tx, acc, runId, { date: d("2026-09-30"), mode: "BANK_TRANSFER", reference: "UTR1", accountId: null, today }));
-    await expect(withSchool(acc, (tx) => markPaid(tx, acc, runId, { date: d("2026-09-30"), mode: "BANK_TRANSFER", reference: "UTR1", accountId: null, today }))).rejects.toThrow(/already marked paid/);
+    // Self-test A3: the bank account is empty, so marking paid warns first ("Pay anyway").
+    await expect(withSchool(acc, (tx) => markPaid(tx, acc, runId, { date: d("2026-09-30"), mode: "BANK_TRANSFER", reference: "UTR1", accountId: null, today }))).rejects.toThrow(/so the balance goes below zero/);
+    await withSchool(acc, (tx) => markPaid(tx, acc, runId, { date: d("2026-09-30"), mode: "BANK_TRANSFER", reference: "UTR1", accountId: null, today, confirmLowCash: true }));
+    await expect(withSchool(acc, (tx) => markPaid(tx, acc, runId, { date: d("2026-09-30"), mode: "BANK_TRANSFER", reference: "UTR1", accountId: null, today, confirmLowCash: true }))).rejects.toThrow(/already marked paid/);
     const run = await withSchool(acc, (tx) => tx.payrollRun.findUniqueOrThrow({ where: { id: runId } }));
     const entries = await withSchool(acc, (tx) => tx.dayBookEntry.findMany({ where: { sourceType: "payroll", sourceId: runId } }));
     expect(entries).toHaveLength(1);
@@ -179,7 +181,7 @@ describe("a salary month from open to locked", () => {
     await withSchool(acc, (tx) => reversePayment(tx, acc, runId, "Bank returned the batch", today));
     const rev = await withSchool(acc, (tx) => tx.dayBookEntry.findMany({ where: { sourceId: runId, reversesEntryId: { not: null } } }));
     expect(rev).toHaveLength(1);
-    await withSchool(acc, (tx) => markPaid(tx, acc, runId, { date: d("2026-10-01"), mode: "BANK_TRANSFER", reference: "UTR2", accountId: null, today }));
+    await withSchool(acc, (tx) => markPaid(tx, acc, runId, { date: d("2026-10-01"), mode: "BANK_TRANSFER", reference: "UTR2", accountId: null, today, confirmLowCash: true }));
     expect(await withSchool(acc, (tx) => tx.dayBookEntry.count({ where: { sourceType: "payroll", sourceId: runId } }))).toBe(2);
     await withSchool(acc, (tx) => lockRun(tx, acc, runId));
     await expect(withSchool(acc, (tx) => reversePayment(tx, acc, runId, "Wrong again", today))).rejects.toThrow(/locked/);

@@ -130,7 +130,7 @@ function checkInput(input: ConcessionInput) {
  * Records a concession. Up to the school's limit it applies at once;
  * above it, it goes to Approvals (Waiting) and is applied only after approval.
  */
-export async function giveConcession(tx: Tx, ctx: SchoolContext, input: ConcessionInput, opts: { forceApproval?: boolean } = {}) {
+export async function giveConcession(tx: Tx, ctx: SchoolContext, input: ConcessionInput, opts: { forceApproval?: boolean; amountField?: string } = {}) {
   checkInput(input);
   // The year of the chosen rows, else the student's class this year (never the enrolment made last).
   const enrolment = await currentEnrolment(tx, input.studentId);
@@ -162,8 +162,14 @@ export async function giveConcession(tx: Tx, ctx: SchoolContext, input: Concessi
       status: "WAITING",
     },
   });
-  const estimate = await estimateConcession(tx, c);
+  const covered = await coveredDues(tx, c);
+  const estimate = spread(c, covered).reduce((s, l) => s + l.amountPaise, BigInt(0));
   if (estimate <= BigInt(0)) throw new MoneyProblem("Nothing is left to pay on the chosen fee heads and period, so there is nothing to reduce.", "feeHeadIds");
+  // A concession can never be more than is still to pay on what it covers (layman test LB1:
+  // ₹50,000 asked on ₹16,899 owed went to the approver as ₹50,000). Said on the form, like a refund's maximum.
+  if (input.mode === "amount" && input.amountPaise > estimate) {
+    throw new MoneyProblem(`Not more than ${formatRupees(estimate)}: that is all that is still to pay on the chosen fee heads in this period.`, opts.amountField ?? "value");
+  }
   await tx.concession.update({ where: { id: c.id }, data: { estimatedPaise: estimate } });
   await writeAudit(tx, ctx, {
     action: "created",

@@ -8,7 +8,7 @@ import { writeAudit } from "../audit";
 import { DAY_MS } from "../staff/dates";
 import { MoneyProblem } from "./problem";
 import { classOfStudents } from "./dues";
-import { ageingGroupOf, featureOn, feeSettings } from "./settings";
+import { ageingGroupOf, ageingIndexOf, featureOn, feeSettings } from "./settings";
 import { PROMISE_FEATURE, promisesOf, recordPromise, type PromiseView } from "./promises";
 import { studentScope, type FeeViewer } from "./access";
 import { ageingLabel, type AgeingGroup } from "./words";
@@ -54,6 +54,8 @@ export type DefaulterRow = {
   promise: PromiseView | null;
   /** The fee heads overdue, like "Tuition fee, Late fee". */
   heads: string;
+  /** The overdue amount in each ageing group, each row by its own due date (as the Outstanding report). */
+  overdueByAge: bigint[];
 };
 
 /** Every student with overdue fees for one search and fee head, before the other filters (see defaulterLists). */
@@ -78,14 +80,14 @@ async function defaulterBase(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, toda
   const dues = await tx.studentFeeDue.findMany({ where: { ...where, studentId: { in: sIds } }, select: { studentId: true, balancePaise: true, dueDate: true, feeHeadId: true, kind: true } });
   const headNames = new Map((await tx.feeHead.findMany({ where: { id: { in: [...new Set(dues.map((d) => d.feeHeadId))] } }, select: { id: true, name: true } })).map((h) => [h.id, h.name]));
   const headOf = (d: { kind: string; feeHeadId: string }) => (d.kind === "LATE_FEE" ? "Late fee" : headNames.get(d.feeHeadId) ?? "Fees");
-  const byStudent = new Map<string, { overdue: bigint; oldest: Date; heads: Set<string> }>();
+  const byStudent = new Map<string, { overdue: bigint; oldest: Date; heads: Set<string>; byAge: bigint[] }>();
   for (const d of dues) {
-    const cur = byStudent.get(d.studentId);
-    if (cur) {
-      cur.overdue += d.balancePaise;
-      if (d.dueDate < cur.oldest) cur.oldest = d.dueDate;
-      cur.heads.add(headOf(d));
-    } else byStudent.set(d.studentId, { overdue: d.balancePaise, oldest: d.dueDate, heads: new Set([headOf(d)]) });
+    let cur = byStudent.get(d.studentId);
+    if (!cur) byStudent.set(d.studentId, (cur = { overdue: ZERO, oldest: d.dueDate, heads: new Set<string>(), byAge: settings.ageing.map(() => ZERO) }));
+    cur.overdue += d.balancePaise;
+    if (d.dueDate < cur.oldest) cur.oldest = d.dueDate;
+    cur.heads.add(headOf(d));
+    cur.byAge[ageingIndexOf(settings.ageing, Math.floor((today.getTime() - d.dueDate.getTime()) / DAY_MS))] += d.balancePaise;
   }
   const ids = [...byStudent.keys()];
   // Each student's class in their own campus's current year.
@@ -132,6 +134,7 @@ async function defaulterBase(tx: Tx, ctx: SchoolContext, viewer: FeeViewer, toda
       promisedOn: promisedOn.get(s.id) ?? null,
       promise: promises.get(s.id) ?? null,
       heads: [...info.heads].join(", "),
+      overdueByAge: info.byAge,
     });
   }
   // The call list order: a broken promise first (call them again), then the longest overdue; families with an open promise last.
@@ -147,7 +150,8 @@ async function pickDefaulters(tx: Tx, base: Awaited<ReturnType<typeof defaulterB
     !(f.amountAbove && r.overduePaise < f.amountAbove) &&
     !(f.oldestFrom && r.oldestDue < f.oldestFrom) &&
     !(f.oldestTo && r.oldestDue > f.oldestTo) &&
-    !(f.ageing !== null && f.ageing !== undefined && f.ageing !== r.ageingIndex) &&
+    // A student is in an ageing group when some of their overdue money is (each row by its own due date).
+    !(f.ageing !== null && f.ageing !== undefined && !((r.overdueByAge[f.ageing] ?? ZERO) > ZERO)) &&
     !(f.reminded === "yes" && !r.reminders) &&
     !(f.reminded === "no" && r.reminders));
   // Totals by class, and by ageing group.
@@ -162,7 +166,8 @@ async function pickDefaulters(tx: Tx, base: Awaited<ReturnType<typeof defaulterB
   const classOrder = new Map((await tx.schoolClass.findMany({ where: { id: { in: [...byClass.values()].map((c) => c.classId).filter((x): x is string => Boolean(x)) } }, select: { id: true, sortOrder: true } })).map((c) => [c.id, c.sortOrder]));
   const orderOf = (id: string | null) => (id ? classOrder.get(id) : undefined) ?? 999;
   const classTotals = [...byClass.values()].sort((a, b) => orderOf(a.classId) - orderOf(b.classId));
-  const ageingTotals = base.ageing.map((g, i) => ({ index: i, label: ageingLabel(g), amount: rows.filter((r) => r.ageingIndex === i).reduce((s, r) => s + r.overduePaise, ZERO), students: rows.filter((r) => r.ageingIndex === i).length }));
+  // The same rule as the Outstanding report: each overdue row in the group of its own due date (layman test LB3).
+  const ageingTotals = base.ageing.map((g, i) => ({ index: i, label: ageingLabel(g), amount: rows.reduce((s, r) => s + (r.overdueByAge[i] ?? ZERO), ZERO), students: rows.filter((r) => (r.overdueByAge[i] ?? ZERO) > ZERO).length }));
   const total = rows.reduce((s, r) => s + r.overduePaise, ZERO);
   return { rows, classTotals, ageingTotals, total, ageing: base.ageing };
 }

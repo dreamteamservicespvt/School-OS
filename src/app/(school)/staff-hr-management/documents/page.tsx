@@ -70,7 +70,9 @@ export default async function DocumentsPage({ searchParams }: Props) {
   const counts = Object.fromEntries(STATUSES.map((s) => [s, everyDoc.filter((x) => x === s).length])) as Record<DocStatus, number>;
   const endOfMonth = monthEnd(today);
   const thisMonth = data.all.filter((r) => r.expiresOn && r.expiresOn >= today && r.expiresOn <= endOfMonth).length;
-  const staffWithDocs = new Set(data.all.map((d) => d.staffId)).size;
+  // "On file" means a file was collected; the staff count is out of everyone on the roll (LD3).
+  const onFile = data.all.filter((d) => d.fileId);
+  const staffWithFiles = new Set(onFile.map((d) => d.staffId)).size;
   const rows = data.docs.map((d) => ({ ...d, st: docStatus(d, today, data.soonDays) }));
   type Doc = (typeof rows)[number];
   const shown = rows.filter((r) => (status ? r.st === status : view === "attention" ? r.st !== "Valid" : true));
@@ -88,11 +90,16 @@ export default async function DocumentsPage({ searchParams }: Props) {
     { key: "kind", label: "Document", render: (d) => d.kind },
     { key: "number", label: "Number", render: (d) => d.number ? <span className="font-mono text-[13px]">{showDocNumber(d.kind, d.number, viewer.restricted)}</span> : <span className="text-ink3">–</span> },
     { key: "expires", label: "Expires", nowrap: true, render: (d) => d.expiresOn ? <span className="tnum">{formatDate(d.expiresOn, tz)}</span> : <span className="text-ink3"><Words k="No expiry" /></span> },
-    { key: "status", label: "Status", render: (d) => <Pill tone={DOC_TONE[d.st]}>{d.st}</Pill> },
+    { key: "status", label: "Status", render: (d) => (
+      <span className="inline-flex flex-col items-start gap-0.5">
+        <Pill tone={DOC_TONE[d.st]}>{d.st}</Pill>
+        {!d.fileId && d.st !== "Missing" && <span className="text-[12.5px] text-ink3"><Words k="File not collected" /></span>}
+      </span>
+    ) },
     { key: "act", label: <span className="sr-only"><Words k="Actions" /></span>, align: "right", render: (d) => (
       <div className="relative z-[1] flex items-center justify-end gap-1">
         {d.fileId && <a href={`${BASE}/files/${d.fileId}`} target="_blank" rel="noopener" className={buttonClass("ghost", "sm")}><Words k="Open" /><span className="sr-only"> {d.kind} <Words k="of" /> {d.staff.fullName}</span></a>}
-        {hr && d.st !== "Valid" && <UploadDocumentForm staffOptions={staffOptions} types={data.settings.documentTypes} action={uploadDocument} fixedStaffId={d.staff.id} replace={{ id: d.id, kind: d.kind }} />}
+        {hr && d.st !== "Valid" && <UploadDocumentForm staffOptions={staffOptions} types={data.settings.documentTypes} action={uploadDocument} fixedStaffId={d.staff.id} replace={{ id: d.id, kind: d.kind, missing: !d.fileId }} />}
       </div>
     ) },
   ];
@@ -106,7 +113,7 @@ export default async function DocumentsPage({ searchParams }: Props) {
         </>} />
 
       <Stats label="Staff documents" className="mb-5" items={[
-        { label: "Documents on file", icon: FolderOpen, value: data.all.length - counts.Missing, sub: `for ${staffWithDocs} staff` },
+        { label: "Documents on file", icon: FolderOpen, value: onFile.length, sub: `from ${staffWithFiles} of ${data.staff.length} staff` },
         { label: "Expiring this month", icon: Hourglass, value: thisMonth, sub: `reminders ${data.settings.reminderDays.join(" and ")} days before`, tone: thisMonth ? "warn" : undefined },
         { label: "Expired", icon: FileWarning, value: counts.Expired, sub: "need renewal", tone: counts.Expired ? "bad" : undefined, href: `${BASE}/documents?status=Expired` },
         { label: "Missing", icon: FileX, value: counts.Missing, sub: "not collected yet", href: `${BASE}/documents?status=Missing` },

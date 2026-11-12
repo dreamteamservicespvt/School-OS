@@ -6,6 +6,7 @@
 // Save or Next is pressed, and drops a message as soon as it holds a good value.
 
 import { useId } from "react";
+import { useFormStatus } from "react-dom";
 import { CircleAlert } from "lucide-react";
 import { cx } from "./cx";
 import { KeepSelect } from "./keep-select";
@@ -51,7 +52,7 @@ export function TextField({ label, name, help, error: given, required, className
       {type && PICKER_TYPES.has(type) ? (
         // Dates and times use the shared picker; a date of birth opens on the years.
         <PickerInput type={type as "date" | "time" | "datetime-local"} id={id} name={name} required={required}
-          aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, help)}
+          aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, help)} shownError={error}
           className={cx(inputCls(error), "h-11")} {...box as PickerProps}
           pickYearFirst={/birth/i.test(`${label} ${name}`)} weekdayHint={!/birth/i.test(`${label} ${name}`)} />
       ) : (
@@ -103,11 +104,14 @@ export function CheckboxField({ label, name, help, className = "", ...rest }: { 
 
 /** One error summary at the top when there are several (P7). It brings itself into view when a save is refused. */
 export function ErrorSummary({ errors }: { errors?: Record<string, string> }) {
+  // While a new save is on its way the list is out of date (layman test LA2).
+  const { pending } = useFormStatus();
   const list = Object.values(errors ?? {});
-  if (list.length < 2) return null;
+  if (list.length < 2 || pending) return null;
   return (
     <ProblemInView token={errors}>
-      <div role="alert" className="rounded-xl bg-bad/10 p-3.5 text-sm text-bad">
+      {/* data-error-summary: the form's own "Please fix 2 things" line is not shown again (./form-message.tsx). */}
+      <div role="alert" data-error-summary="" className="rounded-xl bg-bad/10 p-3.5 text-sm text-bad">
         <p className="font-semibold flex items-center gap-2"><CircleAlert size={16} aria-hidden="true" /><Words k="Please fix {n} things before saving:" vars={{ n: list.length }} /></p>
         <ul className="mt-1 list-disc pl-10">{list.map((e) => <li key={e}>{tx(e)}</li>)}</ul>
       </div>

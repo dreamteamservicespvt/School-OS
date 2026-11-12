@@ -32,13 +32,14 @@ registerSection<ParentReportCard[]>({
   Render: ReportCardsSection,
 });
 
+// The Parent Link page puts each section in its own card under the section's name (guardian-page.tsx),
+// so these render only their content: a second card and heading showed "Report cards" twice (QA LC18).
 function DatesheetSection({ data, view }: { data: ParentDatesheet[]; view: GuardianView }) {
   const t = makeT(view.lang);
   return (
-    <section aria-labelledby="pl-exams" className="rounded-2xl border border-line bg-surface p-4 shadow-card">
-      <h2 id="pl-exams" className="text-lg font-semibold">{t("Exams for {name}", { name: view.child.firstName })}</h2>
+    <div className="flex flex-col gap-3">
       {data.map((x) => (
-        <div key={x.examId} className="mt-3">
+        <div key={x.examId}>
           <p className="font-medium">{x.title} <span className="font-normal text-ink-2">· {t("{from} to {to}", { from: x.from, to: x.to })}</span></p>
           <ul className="mt-2 divide-y divide-line rounded-xl border border-line">
             {x.papers.map((p) => (
@@ -50,7 +51,7 @@ function DatesheetSection({ data, view }: { data: ParentDatesheet[]; view: Guard
           </ul>
         </div>
       ))}
-    </section>
+    </div>
   );
 }
 
@@ -58,9 +59,7 @@ function ReportCardsSection({ data, view }: { data: ParentReportCard[]; view: Gu
   const t = makeT(view.lang);
   const href = (r: ParentReportCard) => `/p/${view.token}/report-card?child=${view.child.id}&year=${r.yearId}&period=${encodeURIComponent(r.period)}`;
   return (
-    <section aria-labelledby="pl-report-cards" className="rounded-2xl border border-line bg-surface p-4 shadow-card">
-      <h2 id="pl-report-cards" className="text-lg font-semibold">{t("Report cards")}</h2>
-      <ul className="mt-2 divide-y divide-line">
+    <ul className="divide-y divide-line">
         {data.map((r) => (
           <li key={`${r.yearId}-${r.period}`} className="flex flex-wrap items-center justify-between gap-2 py-2">
             <span><span className="font-medium">{r.label}</span> <span className="text-sm text-ink-2">{r.year}{r.publishedOn ? ` · ${t("published {date}", { date: r.publishedOn })}` : ""}</span></span>
@@ -68,8 +67,7 @@ function ReportCardsSection({ data, view }: { data: ParentReportCard[]; view: Gu
               ? <span className="text-sm text-ink-2">{t("Download (shown to the parent)")}</span>
               : <a href={href(r)} className="inline-flex min-h-11 items-center rounded-lg border border-line-strong px-3 font-medium text-brand-text hover:bg-surface-2">{t("Download PDF")}</a>}
           </li>
-        ))}
-      </ul>
-    </section>
+      ))}
+    </ul>
   );
 }

@@ -8,7 +8,7 @@ import { randomUUID } from "node:crypto";
 import type { Current } from "@/lib/current";
 import { todayIn } from "@/lib/academic/common";
 import { homeworkScope, workSections, type HomeworkScope } from "@/lib/homework/scope";
-import { countsFor, giveHomework, givenWords, nextClassDay, type GiveInput } from "@/lib/homework/homework";
+import { countsFor, giveHomework, givenWords, nextClassDay, tellAfterGiving, type GiveInput } from "@/lib/homework/homework";
 import { bulkComplete, bulkPreview, submitWork, undoBulkComplete } from "@/lib/homework/submissions";
 import { createQuiz, startAttempt, submitAttempt } from "@/lib/homework/quizzes";
 import { classProgress } from "@/lib/homework/progress";
@@ -74,12 +74,27 @@ describe("setting homework", () => {
   it("tells the teacher only what really happened: no WhatsApp promise when parents are not messaged (ACADEMICS-16)", async () => {
     const r = await as(teacher, (tx, s) => giveHomework(tx, s, give(), today));
     expect(r.made[0].students).toBe(30);
+    // Saved first; students and parents are told afterwards, outside the save (QA LC2).
+    expect(r.made[0].notified).toBe(0);
+    expect(r.tell[0].logins).toHaveLength(1);
+    await tellAfterGiving(teacher.ctx, r);
+    expect(r.made[0].notified).toBe(1);
     expect(r.made[0].parents).not.toBe("sent");
     const words = givenWords(r.made);
     expect(words).toMatch(/^Homework sent to .+ \(30 students\)\./);
     expect(words).not.toMatch(/WhatsApp\.$|get it on WhatsApp/);
     expect(words).toMatch(/Parents were not messaged/);
     expect(givenWords([{ sectionLabel: "5 A", students: 2, notified: 1, parents: "sent" }])).toBe("Homework sent to 5 A (2 students). 1 student notified in the app. Parents were messaged.");
+    expect(givenWords([{ sectionLabel: "5 A", students: 2, notified: 0, parents: "failed" }])).toMatch(/homework is saved, but students and parents could not be told/);
+  });
+
+  it("keeps the homework when telling students and parents fails (QA LC2)", async () => {
+    const r = await as(teacher, (tx, s) => giveHomework(tx, s, give(), today));
+    // A broken step: a login that does not exist breaks the notification insert in its own transaction.
+    r.tell[0].logins = [randomUUID()];
+    await tellAfterGiving(teacher.ctx, r);
+    expect(r.made[0].parents).toBe("failed");
+    expect(await f.run((tx) => tx.homework.count({ where: { id: r.made[0].id, archivedAt: null } }))).toBe(1);
   });
 });
 

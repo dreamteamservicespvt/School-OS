@@ -63,7 +63,7 @@ describe("an expense paid today in the Day Book", () => {
         date: today, accountHeadId: head.id, amountPaise: R(300), vendorId: null, costCentreId: null, billFileId: null,
         note: "Chalk", isVendorBill: false, billNo: null, billDueDate: null, duplicateReason: null,
       }, null);
-      await payExpense(tx, f.ctx, r.expense.id, { date: today, mode: "BANK_TRANSFER", reference: "UTR9", accountId: null });
+      await payExpense(tx, f.ctx, r.expense.id, { date: today, mode: "BANK_TRANSFER", reference: "UTR9", accountId: null, confirmLowCash: true });
       return r.expense.id;
     });
     const view = await withSchool(f.ctx, (tx) => dayBookView(tx, { from: today, to: today, classId: null, depositAccountId: null, waiting: false }));

@@ -14,6 +14,7 @@ import { checkAadhaar, createStaff, findDuplicates, StaffProblem, type StaffDeta
 import { campusLimitOf } from "./campus-logins";
 import { EMPLOYMENT_TYPES, BLOOD_GROUPS, GENDERS, ensureHrDefaults } from "./settings";
 import { day } from "./dates";
+import { staffAgeProblem } from "./schemas";
 
 export function parseDateText(v: string): Date | null {
   const t = v.trim();
@@ -101,6 +102,8 @@ defineImport<Row>({
     if (!joiningDate) problems.push("Joining date is not a date like 01-06-2026.");
     const dateOfBirth = row.dateOfBirth ? parseDateText(row.dateOfBirth) : null;
     if (row.dateOfBirth && !dateOfBirth) problems.push("Date of birth is not a date like 14-03-1990.");
+    const ageWhy = staffAgeProblem(dateOfBirth);
+    if (ageWhy) problems.push(ageWhy);
     const gender = row.gender ? pickOne(GENDERS, row.gender) : null;
     if (row.gender && !gender) problems.push("Gender must be Female, Male or Other.");
     const bloodGroup = row.bloodGroup ? pickOne(BLOOD_GROUPS, row.bloodGroup.replace(/\s/g, "")) : null;

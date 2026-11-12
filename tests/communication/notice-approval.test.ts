@@ -126,6 +126,23 @@ describe("a class teacher's notice to their section's parents", () => {
     expect(await notice(id)).toMatchObject({ title: "Picnic at 10", status: "WAITING_APPROVAL" });
   });
 
+  it("the writer can withdraw it while it waits, back to Draft; nobody else can (QA LC14)", async () => {
+    await signIn(s.teacher.id);
+    const id = savedId(await save({ title: "Withdraw me" }));
+    const n = await notice(id);
+    expect(n.status).toBe("WAITING_APPROVAL");
+    const { withdrawNoticeAction } = await import("@/app/(school)/communication/notices/actions");
+    // The Principal decides it but did not send it, so cannot withdraw it.
+    await signIn(s.principal.id);
+    expect(await withdrawNoticeAction(id)).toBe("Only the person who asked can withdraw a request.");
+    await signIn(s.teacher.id);
+    expect(await withdrawNoticeAction(id)).toBeUndefined();
+    expect(await notice(id)).toMatchObject({ status: "DRAFT", approvalId: null });
+    const approval = await withSchool(sys(), (tx) => tx.approval.findUniqueOrThrow({ where: { id: n.approvalId! } }));
+    expect(approval.status).toBe("WITHDRAWN");
+    expect(await withdrawNoticeAction(id)).toBe("This notice is not waiting for approval.");
+  });
+
   it("is refused for another section, a whole class, staff, or Critical, and nothing is saved", async () => {
     await signIn(s.teacher.id);
     const before = await noticeCount();

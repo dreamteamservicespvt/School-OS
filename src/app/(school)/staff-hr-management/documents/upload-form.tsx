@@ -7,16 +7,20 @@ import { Words } from "@/lib/i18n/client";
 
 type Option = { value: string; label: string };
 
-/** Upload a staff document; with replace, renews an expired one or adds the missing file. */
+/**
+ * Upload a staff document; with replace, renews a document that has a file, or adds the file
+ * of one never collected (`replace.missing`: the button says Upload, not Renew; layman test LD3).
+ */
 export function UploadDocumentForm({ staffOptions, types, action, fixedStaffId, replace }: {
-  staffOptions: Option[]; types: string[]; action: Action; fixedStaffId?: string; replace?: { id: string; kind: string };
+  staffOptions: Option[]; types: string[]; action: Action; fixedStaffId?: string; replace?: { id: string; kind: string; missing?: boolean };
 }) {
   const hidden: Record<string, string> = {};
   if (fixedStaffId) hidden.staffId = fixedStaffId;
   if (replace) { hidden.replaceId = replace.id; hidden.kind = replace.kind; }
+  const verb = replace?.missing ? "Upload" : "Renew";
   return (
-    <FormDialog trigger={<><Upload size={replace ? 15 : 17} aria-hidden="true" />{replace ? "Renew" : "Upload document"}</>} triggerSize={replace ? "sm" : "md"} triggerVariant={replace ? "secondary" : "primary"}
-      title={replace ? `Renew ${replace.kind}` : "Upload document"} action={action} submitLabel="Save document" pendingText="Uploading…" hidden={hidden} multipart>
+    <FormDialog trigger={<><Upload size={replace ? 15 : 17} aria-hidden="true" />{replace ? verb : "Upload document"}</>} triggerSize={replace ? "sm" : "md"} triggerVariant={replace ? "secondary" : "primary"}
+      title={replace ? `${verb} ${replace.kind}` : "Upload document"} action={action} submitLabel="Save document" pendingText="Uploading…" hidden={hidden} multipart>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           {!fixedStaffId && <SelectField label="Staff member" name="staffId" required options={staffOptions} placeholder="Choose" defaultValue={f.val("staffId")} error={f.err("staffId")} className="sm:col-span-2" />}

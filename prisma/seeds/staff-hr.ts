@@ -6,6 +6,7 @@
 import { withSchool, type SchoolContext } from "../../src/lib/db";
 import { applyLeave, countLeaveDays, leaveSummary, offDaySet } from "../../src/lib/staff/leave";
 import { ensureHrDefaults } from "../../src/lib/staff/settings";
+import { STAFF_CRITERIA, TEACHING_CRITERIA } from "../../src/lib/staff/criteria";
 import type { ModuleSeed } from "./types";
 
 const day = (iso: string) => new Date(`${iso}T00:00:00Z`);
@@ -128,19 +129,21 @@ export const seedStaffHr: ModuleSeed = async (school) => {
     }
 
     // Appraisal: the 2026-27 cycle, some reviews done.
-    const criteria = ["Subject knowledge", "Classroom teaching", "Student results", "Punctuality", "Working with parents"];
-    const cycle = await tx.appraisalCycle.create({ data: { schoolId, academicYearId: school.yearId, name: "Appraisal 2026-27", criteria, startDate: day("2026-10-01"), endDate: day("2026-11-30"), createdById: users.principal ?? null } });
+    // Teachers and other staff are rated on their own points (layman test LD11).
+    const teacherPoints = TEACHING_CRITERIA;
+    const cycle = await tx.appraisalCycle.create({ data: { schoolId, academicYearId: school.yearId, name: "Appraisal 2026-27", criteria: teacherPoints, staffCriteria: STAFF_CRITERIA, startDate: day("2026-10-01"), endDate: day("2026-11-30"), createdById: users.principal ?? null } });
     for (const [i, s] of staff.filter((x) => x.status === "ACTIVE").entries()) {
       const reviewerId = s.department?.headStaffId && s.department.headStaffId !== s.id ? s.department.headStaffId : principalStaff && principalStaff.id !== s.id ? principalStaff.id : null;
+      const criteria = s.staffType === "Teaching" ? teacherPoints : STAFF_CRITERIA;
       const rate = (n: number) => Object.fromEntries(criteria.map((c, k) => [c, Math.min(5, Math.max(2, n + ((k + i) % 3) - 1))]));
       const stage = i % 4;
       const managerRatings = stage === 0 ? rate(4) : {};
       const avg = stage === 0 ? Math.round((Object.values(managerRatings).reduce((a, b) => a + b, 0) / criteria.length) * 10) / 10 : null;
       await tx.appraisal.create({
         data: {
-          schoolId, cycleId: cycle.id, staffId: s.id, reviewerId,
+          schoolId, cycleId: cycle.id, staffId: s.id, reviewerId, criteria,
           status: stage === 0 ? "DONE" : stage === 1 ? "MANAGER_REVIEW" : "SELF_REVIEW",
-          selfRatings: stage <= 1 ? rate(4) : {}, selfComment: stage <= 1 ? "Completed the syllabus on time and ran remedial classes." : null,
+          selfRatings: stage <= 1 ? rate(4) : {}, selfComment: stage <= 1 ? (s.staffType === "Teaching" ? "Completed the syllabus on time and ran remedial classes." : "Did my duties on time every day.") : null,
           managerRatings, managerComment: stage === 0 ? "Dependable and well prepared." : null, finalRating: avg,
         },
       });

@@ -24,7 +24,7 @@ beforeAll(async () => {
       date: today, accountHeadId: heads.Stationery, amountPaise: R(1000), vendorId: null, costCentreId: null, billFileId: null,
       note: "Printing paper", isVendorBill: false, billNo: null, billDueDate: null, duplicateReason: null,
     }, null);
-    await payExpense(tx, f.ctx, r.expense.id, { date: today, mode: "BANK_TRANSFER", reference: "UTR1", accountId: null });
+    await payExpense(tx, f.ctx, r.expense.id, { date: today, mode: "BANK_TRANSFER", reference: "UTR1", accountId: null, confirmLowCash: true });
     const fy = await financialYearOf(tx, f.ctx, today);
     filter = { financialYearId: fy.id, yearStart: fy.startDate, from: fy.startDate, to: today, group: "month", by: "head", today, hidePay: null };
   });

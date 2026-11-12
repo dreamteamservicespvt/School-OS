@@ -97,6 +97,9 @@ describe("Library Management by role", () => {
     asUser(f.principal.id);
     expect(await actions.issueAction(null, fd())).toMatchObject({ ok: false, message: "Your role cannot issue books. Ask the librarian." });
     asUser(f.librarian.id);
+    // Layman test LE3: a due date box that could not be read sends an empty date; the book is not issued with the normal date.
+    expect(await actions.issueAction(null, form({ member: `S:${f.meena.id}`, copyId, dueOn: "", dueReason: "Project work" }))).toMatchObject({ ok: false, errors: { dueOn: expect.stringMatching(/could not be read/) } });
+    expect(await withSchool(as(f, f.librarian.id), (tx) => tx.bookIssue.count({ where: { copyId, returnedAt: null } }))).toBe(0);
     const done = await actions.issueAction(null, fd());
     expect(done).toMatchObject({ ok: true, data: { title: "Panchatantra", member: "Meena Reddy" } });
     expect(await withSchool(as(f, f.librarian.id), (tx) => tx.bookIssue.count({ where: { copyId, returnedAt: null } }))).toBe(1);

@@ -110,7 +110,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Sea
       <TrHead page="vehicles" sub={`${plural(data.vehicles.length, "vehicle")} · ${plural(data.people.filter((r) => r.d.role === "DRIVER").length, "driver")} · ${plural(data.people.filter((r) => r.d.role === "ATTENDANT").length, "attendant")}`} actions={addButton} />
       <Stack>
         <Stats items={[
-          { label: "Vehicles running", value: `${active} of ${data.vehicles.length}`, icon: Bus, sub: repair ? `${repair} under repair` : "None under repair", tone: repair ? "warn" : undefined, href: here({ view: null }) },
+          { label: "Vehicles in service", value: `${active} of ${data.vehicles.length}`, icon: Bus, sub: repair ? `${repair} under repair` : "None under repair", tone: repair ? "warn" : undefined, href: here({ view: null }) },
           { label: "Papers and licences", value: papersBad, icon: FileWarning, sub: papersBad ? "expired or ending soon" : "All valid", tone: papersBad ? "bad" : "ok", href: qs(HREF, { view: "papers" }) },
           { label: "Service due", value: serviceDueN, icon: Wrench, sub: serviceDueN ? "due or within a week" : "None due", tone: serviceDueN ? "warn" : undefined, href: here({ view: null }) },
           { label: "Driver app logins", value: `${appActive} of ${data.people.length}`, icon: Smartphone, sub: "active", href: qs(HREF, { view: "people" }) },

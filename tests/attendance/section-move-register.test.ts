@@ -45,6 +45,11 @@ describe("a student who changed section", () => {
     // The old section keeps her up to the move.
     expect(book.has(f.sectionA.id, mover, "2026-10-13")).toBe(true);
     expect(book.has(f.sectionA.id, mover, "2026-10-15")).toBe(false);
+    // Layman test LA3: the day of the move belongs to the new section only, so every screen counts her once.
+    expect(book.has(f.sectionA.id, mover, MOVE)).toBe(false);
+    expect(book.countOn(f.sectionA.id, MOVE)).toBe(f.studentsA.length - 1);
+    expect(book.countOn(f.sectionB.id, MOVE)).toBe(f.studentsB.length + 1);
+    expect(book.movedOut(f.sectionA.id, mover)).toEqual({ toSectionId: f.sectionB.id, on: MOVE });
   });
 
   it("the new section's monthly register says from which day she is on it", async () => {
@@ -63,5 +68,24 @@ describe("a student who changed section", () => {
     const row = grid!.rows.find((r) => r.id === mover)!;
     expect(Object.keys(row.days).sort()).toEqual(BEFORE);
     expect(row.summary.present).toBe(2);
+    // LA3: she is studying in the other section, so the row says where she went, not "(left)".
+    expect(row.name).toContain("(moved to ");
+    expect(row.name).toContain("on 14-10-2026)");
+    expect(row.name).not.toContain("(left)");
+    // The header count is the register on the last day shown, as Take Attendance lists it.
+    expect(grid!.onRoll).toBe(f.studentsA.length - 1);
+  });
+
+  it("a mark taken in the old section on the day of the move is not counted there", async () => {
+    const ctx = as(f, f.principal.id);
+    const access = await accessFor(f, f.teacherA.id);
+    // The old section's list for the day of the move no longer holds her; the mark saved for the rest counts.
+    await withSchool(ctx, (tx) => saveClassAttendance(tx, as(f, f.teacherA.id), access, {
+      sectionId: f.sectionA.id, date: d(MOVE), periodNo: 0, timeZone: TZ, now: at(MOVE, "09:00"),
+      entries: f.studentsA.filter((s) => s.id !== mover).map((s) => ({ studentId: s.id, statusKey: "present" })),
+    }));
+    const grid = await withSchool(ctx, (tx) => registerMonth(tx, ctx, { sectionId: f.sectionA.id, month: d("2026-10-01"), today: d("2026-10-20") }));
+    const row = grid!.rows.find((r) => r.id === mover)!;
+    expect(row.days[MOVE]).toBeUndefined();
   });
 });

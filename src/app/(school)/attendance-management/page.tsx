@@ -45,8 +45,10 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
   const future = date > today;
 
   const data = await withSchool(current.ctx, async (tx) => {
-    const choices = future ? [] : await takeChoices(tx, current.ctx, access, date);
     const year = access.yearId ? await tx.academicYear.findUnique({ where: { id: access.yearId }, select: { startDate: true, name: true } }) : null;
+    // A day before this academic year is not taken here (LA4): only the message, no class and no correction.
+    if (future || (year && date < year.startDate)) return { choices: [], chosen: null, sheet: null, problem: null, info: null, year, teacher: null, beforeYear: !future };
+    const choices = await takeChoices(tx, current.ctx, access, date);
     const section = one(sp.section);
     const period = Number(one(sp.period) ?? 0) || 0;
     let chosen = section && UUID_RE.test(section) ? choices.find((c) => c.sectionId === section && (period ? c.periodNo === period : true)) : undefined;
@@ -95,6 +97,11 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
       {future ? (
         <EmptyState title={`${dayText(date)} has not come yet`} Icon={CalendarX2} action={<Link href={BASE} className={buttonClass("secondary", "md")}><Words k="Go to today" /></Link>}>
           <Words k="Attendance can be taken for today or earlier days." />
+        </EmptyState>
+      ) : "beforeYear" in data && data.beforeYear && data.year ? (
+        <EmptyState title="This day is before this academic year" Icon={CalendarX2}
+          action={<Link href={`${BASE}/register`} className={buttonClass("secondary", "md")}><Words k="Open the register" /></Link>}>
+          <Words k="This academic year starts on {date}. Days of earlier years are read in the Attendance Register." vars={{ date: dayText(data.year.startDate) }} />
         </EmptyState>
       ) : data.info && !data.info.on ? (
         <>

@@ -114,6 +114,9 @@ export function parseDateText(text: string, today: string): string | null {
   if (s === "tomorrow") return addDays(today, 1);
   if (s === "yesterday") return addDays(today, -1);
   if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return isoParts(s) ? s : null;
+  // Year first with other marks ("2026/12/31", "2026.12.31"), as copied from another program.
+  const yf = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})$/.exec(s);
+  if (yf) return checked(Number(yf[1]), Number(yf[2]) - 1, Number(yf[3]));
   const r = readDate(s, today);
   return r && checked(r.y, r.m0, r.d);
 }
@@ -130,10 +133,44 @@ export function missingDay(text: string, today: string): { d: number; m0: number
 }
 
 /**
+ * A date pasted year first, as other programs and spreadsheets copy it ("2026-12-31",
+ * "2026/12/31", "2026-12-31T10:00", "20261231"), turned round to DD-MM-YYYY; else null.
+ * It was cut into "20-26-12" (layman test LE3). Eight digits are read year first only
+ * when they are not a real day-month-year date ("20122012" stays 20-12-2012).
+ */
+function yearFirst(text: string): string | null {
+  const t = text.trim();
+  let m = /^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})(?:[T ][\d:.]*(?:Z|[+-]\d{2}:?\d{2})?)?$/.exec(t);
+  if (!m) {
+    m = /^((?:19|20)\d{2})(\d{2})(\d{2})$/.exec(t);
+    if (!m || checked(Number(t.slice(4)), Number(t.slice(2, 4)) - 1, Number(t.slice(0, 2)))) return null;
+    if (!checked(Number(m[1]), Number(m[2]) - 1, Number(m[3]))) return null;
+  }
+  return `${pad(Number(m[3]))}-${pad(Number(m[2]))}-${m[1]}`;
+}
+
+/**
+ * The text a date box shows after a change. Typing at the end goes through maskDate. When the
+ * box held a whole date and more is typed after it (one click into a filled box, then typing),
+ * maskDate cut the new digits off and the old date stayed with no message (layman test LD2):
+ * the new typing starts a new date instead. A date pasted after it is read the same way.
+ */
+export function typedDate(before: string, raw: string, atEnd: boolean): string {
+  if (!atEnd) return raw;
+  const masked = maskDate(raw);
+  if (before && raw.length > before.length && raw.startsWith(before) && masked === maskDate(before)) {
+    return maskDate(raw.slice(before.length));
+  }
+  return masked;
+}
+
+/**
  * Puts the dashes in while digits are typed: "1405" shows "14-05", "14052012" shows
  * "14-05-2012". A dash typed early ("1-5-2012") is kept. Text with letters is left alone.
  */
 export function maskDate(text: string): string {
+  const yf = yearFirst(text);
+  if (yf) return yf;
   if (!/^[\d\-/. ]*$/.test(text)) return text;
   const groups: string[] = [];
   for (let part of text.split(/[-/. ]/)) {

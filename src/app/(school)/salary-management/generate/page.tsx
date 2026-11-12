@@ -6,7 +6,7 @@ import {
 import { withSchool } from "@/lib/db";
 import { canDecide } from "@/lib/approvals";
 import { formatDate, formatDateTime, formatRupees, formatRupeesShort } from "@/lib/format";
-import { payrollStaff, runBreakdown, lineDays } from "@/lib/salary/payroll";
+import { payrollCoverage, runBreakdown, lineDays } from "@/lib/salary/payroll";
 import { salarySettings } from "@/lib/salary/settings";
 import { runsOnCampus } from "@/lib/salary/campus";
 import { staffWithoutStructure, addMonths, correctionLabel, dayNum, dayShort, firstOfMonth, lastOfMonth, monthKey, monthName, monthShort } from "@/lib/salary/words";
@@ -72,9 +72,8 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
       ?? runs.find((r) => r.month.getTime() === thisMonth.getTime()) ?? runs[0]
       ?? (await tx.payrollRun.findFirst({ where: { campusId }, orderBy: { month: "desc" } }));
     const allRuns = await tx.payrollRun.findMany({ where: { campusId }, select: { month: true, status: true } });
-    const staffNow = await payrollStaff(tx, campusId, run?.month ?? thisMonth);
-    const withStructure = await tx.salaryStructure.findMany({ where: { staffId: { in: staffNow.map((s) => s.id) }, archivedAt: null }, distinct: ["staffId"], select: { staffId: true } });
-    const missing = staffNow.filter((s) => !withStructure.some((w) => w.staffId === s.id));
+    // The same rule as Salary Structures: on this month's payroll, with a structure for this month.
+    const { staff: staffNow, missing } = await payrollCoverage(tx, campusId, run?.month ?? thisMonth);
     const lines = run ? await tx.payrollLine.findMany({ where: { runId: run.id } }) : [];
     const staff = await tx.staff.findMany({ where: { id: { in: [...lines.map((l) => l.staffId), ...missing.map((m) => m.id)] } }, select: { id: true, fullName: true, staffCode: true, designation: true, joiningDate: true } });
     const adjustments = run ? await tx.payrollAdjustment.findMany({ where: { runId: run.id, archivedAt: null }, orderBy: { createdAt: "asc" } }) : [];
@@ -147,7 +146,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
         actions={<ButtonLink href={here({ do: "open-month" })} scroll={false} variant="secondary" icon={CalendarPlus}><Words k="Open a month" /></ButtonLink>} />
       <Stack>
         <Stats items={[
-          { label: "Salary structures", value: `${data.staffNow.length - data.missing.length} of ${data.staffNow.length}`, sub: data.missing.length ? `${data.missing.length} missing · ${data.missing.slice(0, 2).map((s) => s.fullName).join(", ")}` : "Everyone has one", tone: data.missing.length ? "warn" : undefined, icon: FileSpreadsheet, href: p.may("structures") ? `${BASE}/structures` : undefined },
+          { label: "Salary structures", value: `${data.staffNow.length - data.missing.length} of ${data.staffNow.length}`, sub: `${p.campuses.length > 1 && campus ? `${campus.name} · ` : ""}${data.missing.length ? `${data.missing.length} missing · ${someNames(data.missing.map((s) => s.fullName), 2)}` : "Everyone has one"}`, tone: data.missing.length ? "warn" : undefined, icon: FileSpreadsheet, href: p.may("structures") ? `${BASE}/structures` : undefined },
           { label: "Runs this year", value: String(yearRuns), sub: data.runs.length ? `${monthName(data.runs[data.runs.length - 1].month).split(" ")[0]} to ${monthName(data.runs[0].month)}` : per.label, icon: CalendarRange },
           { label: "Waiting for approval", value: String(waiting.length), sub: waiting.length ? waiting.map((r) => monthName(r.month)).join(", ") : "Nothing waiting", tone: waiting.length ? "warn" : undefined, icon: Hourglass },
           money
@@ -394,7 +393,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                                 <td className="px-2">{amt(l.pfPaise)}</td>
                                 <td className="px-2">{l.esiPaise ? amt(l.esiPaise) : "—"}</td>
                                 <td className="px-2">{l.ptPaise ? amt(l.ptPaise) : "—"}</td>
-                                <td className={cx("px-2", l.flags.includes("No TDS amount") && "text-warn font-semibold")}>{l.tdsPaise ? amt(l.tdsPaise) : "0"}</td>
+                                <td className={cx("px-2", l.flags.includes("No TDS amount") && "text-warn font-semibold")}>{l.tdsPaise ? amt(l.tdsPaise) : "—"}</td>
                                 <td className="px-2">{l.recoveryPaise + l.cutPaise ? amt(l.recoveryPaise + l.cutPaise) : "—"}</td>
                                 <td className="px-2 font-semibold">{amt(l.netPaise)}</td>
                               </>}

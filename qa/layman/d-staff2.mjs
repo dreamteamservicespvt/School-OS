@@ -1,0 +1,36 @@
+import { asRole, go, mainText, sleep, close, snap } from "./d-h.mjs";
+const p = await asRole("hr");
+const S = new Date().toISOString().slice(11, 16).replace(":", "");
+const NAME = `LD-Ramesh ${S}`;
+const log = async (tag) => console.log(`\n--- ${tag} [${new URL(p.url()).pathname}${new URL(p.url()).search}]\n` + (await mainText(p, 3000)).replace(/\n+/g, " | ").slice(0, 1600));
+const setD = async (loc, v) => { await loc.click({ clickCount: 3 }); await p.keyboard.press("Control+A"); await p.keyboard.type(v); await p.keyboard.press("Tab"); await sleep(300); console.log("  date now:", await loc.inputValue()); };
+const next = () => p.getByRole("button", { name: "Next", exact: true });
+await go(p, "/staff-hr-management/add");
+await sleep(1500);
+await p.locator("input[name=phone]").fill("12345");
+await next().click(); await sleep(1200);
+console.log("phone 12345 msg:", ((await mainText(p, 2000)).match(/Phone[^\n]*\n[^\n]*/g) ?? []).join(" || "));
+const jd = p.locator("input[id$=-joiningDate]");
+await go(p, "/staff-hr-management/add"); await sleep(1500);
+await p.locator("input[name=fullName]").fill("x");
+await p.locator("input[name=phone]").fill("98765");
+await jd.click(); await sleep(400);
+await p.keyboard.type("05112026"); await sleep(300);
+console.log("FOCUS TEST: date=", await jd.inputValue(), " phone=", await p.locator("input[name=phone]").inputValue(), " focused=", await p.evaluate(() => document.activeElement?.getAttribute("name") || document.activeElement?.id));
+await p.keyboard.press("Escape");
+await setD(jd, "05112026");
+await p.locator("input[name=fullName]").fill(NAME);
+await p.locator("input[name=phone]").fill(`8${S}${S}7`.slice(0, 10));
+await p.getByText("More details").click(); await sleep(400);
+await p.locator("input[name=experienceYears]").fill("-5");
+await setD(p.locator("input[id$=-dateOfBirth]"), "01-01-2025");
+await next().click(); await sleep(2000);
+await log("exp -5, dob 2025");
+await snap(p, "staff2-after-step1");
+if (/Step 2: What/.test(await mainText(p, 3000))) {
+  await next().click(); await sleep(2000);
+  await log("step 2 Next with no role");
+  await snap(p, "staff2-step2-next");
+}
+console.log("main buttons:", (await p.locator("main button:visible").allInnerTexts()).filter(Boolean).join(" / "));
+await close();

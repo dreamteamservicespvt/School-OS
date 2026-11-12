@@ -224,7 +224,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
                   <PeriodFilter timeZone={tz} allLabel="Any date added" className="col-span-2 md:col-span-1" />
                   <UrlSelect param="class" label="Class" allLabel="All classes" options={choices.classes} className="md:w-36" />
                   <UrlSelect param="source" label="Source" allLabel="All sources" options={live(settings.sourceList).map((s) => ({ value: s.key, label: s.label }))} className="md:w-36" />
-                  {!own && <UrlSelect param="owner" label="Owner" allLabel="All owners" options={[...choices.owners.map((o) => ({ value: o.value, label: o.label.replace(/ \(.*\)$/, "") })), { value: "none", label: "No owner" }]} className="col-span-2 md:col-span-1 md:w-44" />}
+                  {!own && <UrlSelect param="owner" label="Owner" allLabel="All owners" options={[...ownerFilter(choices.owners), { value: "none", label: "No owner" }]} className="col-span-2 md:col-span-1 md:w-44" />}
                 </div>
               </div>
               {selectable && <EnquiryBulk owners={choices.owners} campaigns={settings.campaignsOn} schoolName={current.school.name} />}
@@ -246,4 +246,12 @@ export default async function EnquiriesPage({ searchParams }: Search) {
         </div>
     </>
   );
+}
+
+/** The Owner filter: names only, with the job title kept where two staff share a name (LA9: "Naresh Kumar" twice). */
+function ownerFilter(owners: { value: string; label: string }[]) {
+  const bare = (label: string) => label.replace(/ \(.*\)$/, "");
+  const seen = new Map<string, number>();
+  for (const o of owners) seen.set(bare(o.label), (seen.get(bare(o.label)) ?? 0) + 1);
+  return owners.map((o) => ({ value: o.value, label: (seen.get(bare(o.label)) ?? 0) > 1 ? o.label : bare(o.label) }));
 }

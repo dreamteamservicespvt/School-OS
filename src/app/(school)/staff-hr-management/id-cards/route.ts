@@ -2,7 +2,7 @@
 // ID card design (Settings, Document Designs). Chosen staff (?ids=), one staff member (?staff=), or the
 // Staff List filters (?designation=...). Every printed card is recorded;
 // a card printed before is a reprint, with its reason.
-import { requireAction } from "@/lib/current";
+import { staffRouteAccess } from "@/lib/staff/route";
 import { withSchool } from "@/lib/db";
 import { readListParams } from "@/lib/list";
 import { writeAudit } from "@/lib/audit";
@@ -18,7 +18,9 @@ const BATCH = 50;
 const problem = (text: string, status = 400) => new Response(text, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 
 async function handleGET(req: Request) {
-  const { current } = await requireAction("staff-hr-management", "print");
+  const access = await staffRouteAccess("print");
+  if (access instanceof Response) return access;
+  const { current } = access;
   const url = new URL(req.url);
   const sp = url.searchParams;
   const batch = Math.max(1, Number.parseInt(sp.get("batch") ?? "1", 10) || 1);

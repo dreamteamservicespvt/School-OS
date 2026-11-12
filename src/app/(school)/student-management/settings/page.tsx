@@ -14,7 +14,7 @@ import { ActionForm, FormArea, FormCheck, FormFieldError, FormSelect, FormText }
 import { previewAdmissionNo } from "@/lib/students/students";
 import { currentPolicy } from "@/lib/students/settings";
 import { BEHAVIOUR_KINDS, BEHAVIOUR_KIND_LABEL, CERTIFICATE_LABEL, ID_CARD_FIELDS, LIST_COLUMNS, OPTIONAL_FORM_FIELDS, STATUS_RULES } from "@/lib/students/labels";
-import { BASE, studentPage } from "../_lib/page";
+import { BASE, studentPage, NO_ACCESS } from "../_lib/page";
 import { campusPrefixes } from "../_lib/queries";
 import { saveSettingsAction } from "../_actions/settings";
 import { aiAllowed } from "@/lib/settings/switch-rules";
@@ -61,7 +61,7 @@ const body = "space-y-4 px-5 pb-5";
 /** Student Settings (03 §6): the rules for student records, all on one page as in the approved design. Each card saves on its own. */
 export default async function StudentSettingsPage({ searchParams }: { searchParams: Promise<{ tab?: string; year?: string }> }) {
   const { current, settings, year, can, tz } = await studentPage();
-  if (!can.manage) redirect(BASE);
+  if (!can.manage) redirect(NO_ACCESS);
   // Only people who may open Settings get the link to Document Designs.
   const canSettings = canDo(current.permissions, "settings", "view");
   const sp = await searchParams;

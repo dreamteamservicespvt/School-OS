@@ -6,6 +6,7 @@ import { useEffect } from "react";
 import * as I from "lucide-react";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { NO_PERMISSION_DIGEST } from "@/lib/permissions";
+import { BUSY_DIGEST } from "@/lib/db-busy";
 import { findModule } from "@/lib/modules";
 import { useT } from "@/lib/i18n/client";
 
@@ -27,6 +28,23 @@ export default function SchoolError({ error, reset }: { error: Error & { digest?
           </p>
           <div className="mt-2 flex flex-wrap justify-center gap-2">
             <ButtonLink href="/dashboard" variant="primary" icon={I.House}>{t("Go to your home")}</ButtonLink>
+          </div>
+        </div>
+      </section>
+    );
+  }
+  // The database was busy (many people at once): say so, not "something went wrong" (layman test LA5).
+  const busy = Boolean(error.digest?.startsWith(BUSY_DIGEST));
+  if (busy) {
+    return (
+      <section role="alert" className="max-w-xl mx-auto mt-4 md:mt-10 bg-surface rounded-2xl border border-line/70 shadow-card">
+        <div className="flex flex-col items-center text-center px-6 py-14 gap-3">
+          <span className="w-14 h-14 rounded-2xl bg-warn/10 text-warn grid place-items-center" aria-hidden="true"><I.Hourglass size={26} /></span>
+          <h1 className="font-semibold text-[15px]">{t("School OS is busy right now")}</h1>
+          <p className="text-sm text-ink3 max-w-sm">{t("Many people are using it at the same time. Nothing you saved was lost. Wait a few seconds and try again.")}</p>
+          <div className="mt-2 flex flex-wrap justify-center gap-2">
+            <Button variant="primary" icon={I.RotateCw} onClick={() => reset()}>{t("Try again")}</Button>
+            <ButtonLink href="/dashboard" variant="secondary" icon={I.House}>{t("Go to your home")}</ButtonLink>
           </div>
         </div>
       </section>

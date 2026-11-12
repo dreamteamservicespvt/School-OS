@@ -30,13 +30,16 @@ const byId = (id: string) => {
 };
 
 describe("how the work is shared out", () => {
-  it("never opens more transactions than the connection pool holds", () => {
+  it("never takes more than half the connection pool for one page", () => {
     expect(poolSize("postgresql://u:p@db.example/school?connection_limit=3&sslmode=require")).toBe(3);
-    expect(poolSize("postgresql://u:p@localhost/school", 8)).toBe(9);
-    expect(laneCount(20, 3)).toBe(3);
+    // No limit in the address: 20 on one server, 5 per serverless copy (src/lib/db.ts).
+    expect(poolSize("postgresql://u:p@localhost/school", {})).toBe(20);
+    expect(poolSize("postgresql://u:p@db.example/school", { VERCEL: "1" })).toBe(5);
+    expect(laneCount(20, 3)).toBe(2);
     expect(laneCount(20, 1)).toBe(1);
     expect(laneCount(2, 17)).toBe(2);
-    expect(laneCount(20, 17)).toBe(6);
+    expect(laneCount(20, 9)).toBe(5);
+    expect(laneCount(20, 20)).toBe(6);
   });
 
   it("keeps a module's widgets together, fees with finance, in registry order", () => {

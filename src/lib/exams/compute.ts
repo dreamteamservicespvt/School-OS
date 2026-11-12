@@ -245,6 +245,44 @@ export function checkMark(category: string, max: number, value: number | null): 
 }
 
 /**
+ * What a teacher typed in a marks box (QA LC9): only digits with an optional half mark, AB
+ * (absent) or ML (medical leave), in capitals or small letters. Nothing is changed silently:
+ * "abc", "-5" and "1e2" are problems in plain words, never AB, 5 or 12. "A" and "M" are a
+ * code still being typed; "7." a mark still being typed.
+ */
+export type MarkText = { kind: "blank" } | { kind: "mark"; text: string } | { kind: "code"; code: "AB" | "ML" } | { kind: "partial" } | { kind: "bad"; problem: string };
+
+export function readMarkText(raw: string): MarkText {
+  const t = raw.trim();
+  if (t === "") return { kind: "blank" };
+  if (/^\d{1,4}(\.\d*)?$/.test(t)) return { kind: "mark", text: t };
+  if (t === ".") return { kind: "partial" };
+  const up = t.toUpperCase();
+  if (up === "AB" || up === "ML") return { kind: "code", code: up };
+  if (up === "A" || up === "M") return { kind: "partial" };
+  if (t.startsWith("-")) return { kind: "bad", problem: "a minus sign is not allowed: marks start at 0." };
+  return { kind: "bad", problem: `“${t.slice(0, 8)}” is not a mark. Type a number such as 37 or 37.5, or AB for absent and ML for medical leave.` };
+}
+
+/** A typed mark as a number: null when blank, NaN for anything that is not plain digits (so "1e2" is never 100). */
+export function markNumber(text: string): number | null {
+  const t = text.trim();
+  if (t === "") return null;
+  return /^\d+(\.\d+)?\.?$/.test(t) ? Number(t.replace(/\.$/, "")) : NaN;
+}
+
+/**
+ * Which part of a student's marks is still empty, when some are in: ": Internal missing" for a
+ * student with Theory but no Internal, so the teacher is not told a marked student has no mark (QA LC10).
+ */
+export function missingWords(r: { parts: Record<string, string>; absent: boolean }, cats: { name: string }[], gradeOnly: boolean) {
+  if (gradeOnly || r.absent || cats.length < 2) return "";
+  const empty = cats.filter((c) => (r.parts[c.name] ?? "").trim() === "").map((c) => c.name);
+  if (empty.length === 0 || empty.length === cats.length) return "";
+  return `: ${empty.join(" and ")} missing`;
+}
+
+/**
  * The total and grade the marks screens show while marks are typed: nothing
  * while a mark is blank, not a number or outside its maximum, so a grade never
  * shows next to a mark the server would refuse (25 out of 20 has no grade).

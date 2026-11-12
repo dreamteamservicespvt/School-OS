@@ -9,7 +9,7 @@ import { momentWhere, periodFromSearch } from "@/lib/periods";
 import { approvalsFor } from "@/lib/approvals";
 import { mayApprove } from "@/lib/shell-data";
 import { cx } from "@/components/ui/cx";
-import { OPEN_STATUSES, REQUEST_TYPES, requestLabel, workingDaysBetween } from "@/lib/approvals";
+import { mayReject, OPEN_STATUSES, REQUEST_TYPES, requestLabel, workingDaysBetween } from "@/lib/approvals";
 import { VIEWS, decidableIds, inboxWhere, isOverseer, statusWords, type HistoryLine, type InboxView } from "@/lib/approvals-inbox";
 import { rulesInUse } from "@/lib/settings/approval-rules";
 import { PageHeader } from "@/components/shell/page-header";
@@ -77,6 +77,9 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       rulesInUse(tx, current.school.id),
     ]);
     const decidable = await decidableIds(tx, current.ctx, rows);
+    // The list's Reject button only where the details page offers Reject (QA LC15).
+    const rejectable = new Set<string>();
+    for (const type of new Set(rows.filter((r) => decidable.has(r.id)).map((r) => r.type))) if (await mayReject(tx, current.ctx, type)) rejectable.add(type);
     const ids = [...new Set(rows.flatMap((r) => [r.askedById, r.currentApproverId].filter((x): x is string => Boolean(x))))];
     const people = await tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } });
     const roles = await schoolRoles(tx, current.ctx, { select: { key: true, name: true } });
@@ -88,7 +91,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
     const decidedSome = any || Boolean(await tx.approval.findFirst({ where: { decidedById: current.user.id, status: { in: ["APPROVED", "REJECTED"] } }, select: { id: true } }));
     const unfinished = decidedSome ? await unfinishedApprovals(tx, current.ctx, { any }) : [];
     const deciders = await tx.userLogin.findMany({ where: { id: { in: unfinished.map((a) => a.decidedById).filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
-    return { rows, total, counts: new Map(counts), rules, decidable, jobs, facts, unfinished, deciders: new Map(deciders.map((p) => [p.id, p.displayName])), people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
+    return { rows, total, counts: new Map(counts), rules, decidable, rejectable, jobs, facts, unfinished, deciders: new Map(deciders.map((p) => [p.id, p.displayName])), people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
   });
 
   const now = new Date();
@@ -141,6 +144,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       status: statusWords(a.status, a.history),
       waitingFor: open ? (a.currentApproverId ? (a.currentApproverId === current.user.id ? "you" : data.people.get(a.currentApproverId) ?? "a person") : a.currentApproverRole ? `the ${data.roles.get(a.currentApproverRole) ?? a.currentApproverRole}` : null) : null,
       decidable: data.decidable.has(a.id),
+      rejectable: data.decidable.has(a.id) && data.rejectable.has(a.type),
       job: a.askedById === current.user.id ? null : data.jobs.get(a.askedById) ?? null,
       reason: a.reason,
       facts: data.facts.get(a.id),

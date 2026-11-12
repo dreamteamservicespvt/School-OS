@@ -61,7 +61,7 @@ export default async function EditStudentSection({ params }: { params: Promise<{
         <CardBody>
           {section === "personal" && (
             <ActionForm action={savePersonalAction.bind(null, id)} submitLabel="Save personal details" pendingText="Saving…" footer={cancel} className="grid gap-4 sm:grid-cols-2">
-              <FormText name="fullName" label="Full name" required defaultValue={s.fullName} className="sm:col-span-2" />
+              <FormText name="fullName" label="Full name" required maxLength={120} defaultValue={s.fullName} className="sm:col-span-2" />
               <FormText name="dateOfBirth" label="Date of birth" type="date" required max={todayIso(tz)} defaultValue={iso(s.dateOfBirth)} />
               <FormSelect name="gender" label="Gender" required placeholder="Choose" options={GENDERS.map((g) => ({ value: g, label: g }))} defaultValue={s.gender} />
               <FormSelect name="bloodGroup" label="Blood group" placeholder="Not known" options={BLOOD_GROUPS.map((b) => ({ value: b, label: b }))} defaultValue={s.bloodGroup} />

@@ -56,7 +56,7 @@ describe("net pay below zero", () => {
     asUser(f.accountant.id);
     const added = (await addAdjustmentAction(null, form({ runId, staffId: f.staffB.id, type: "DEDUCTION", amount: "13500", reason: "Laptop damaged" }))) as State;
     expect(added?.ok).toBe(true);
-    expect(added?.message).toMatch(/net pay is now -₹1,500, below zero/);
+    expect(added?.message).toMatch(/net pay is now −₹1,500, below zero/);
     const line = await lineOf(f.staffB.id);
     expect(line.netPaise).toBe(R(-1500));
     expect(line.flags).toContain(BELOW_ZERO);
@@ -64,7 +64,7 @@ describe("net pay below zero", () => {
 
     const sent = (await sendRunAction(null, form({ runId }))) as State;
     expect(sent?.ok).toBe(false);
-    expect(sent?.message).toMatch(/Net pay is below zero for .*\(-₹1,500\)\. Change or remove the adjustment/);
+    expect(sent?.message).toMatch(/Net pay is below zero for .*\(−₹1,500\)\. Change or remove the adjustment/);
     expect((await run()).status).toBe("CALCULATED");
     expect(await withSchool(as(f, null), (tx) => tx.approval.count({ where: { recordId: runId } }))).toBe(0);
   });
@@ -78,8 +78,8 @@ describe("net pay below zero", () => {
     asUser(f.accountant.id);
     const sent = (await sendRunAction(null, form({ runId }))) as State;
     expect(sent?.ok).toBe(false);
-    expect(sent?.message).toContain("(-₹1,000)");
-    expect(sent?.message).toContain("(-₹1,500)");
+    expect(sent?.message).toContain("(−₹1,000)");
+    expect(sent?.message).toContain("(−₹1,500)");
   });
 
   it("goes once the Accountant changes the adjustments", async () => {
@@ -99,7 +99,7 @@ describe("net pay below zero", () => {
     asUser(f.principal.id);
     const refused = (await decideRunAction(null, form({ runId, decision: "approve" }))) as State;
     expect(refused?.ok).toBe(false);
-    expect(refused?.message).toMatch(/Net pay is below zero for .*\(-₹700\), so this month cannot be approved/);
+    expect(refused?.message).toMatch(/Net pay is below zero for .*\(−₹700\), so this month cannot be approved/);
     const r = await run();
     expect(r.status).toBe("WAITING");
     expect(await withSchool(as(f, null), (tx) => tx.approval.findUniqueOrThrow({ where: { id: r.approvalId! } }))).toMatchObject({ status: "WAITING" });

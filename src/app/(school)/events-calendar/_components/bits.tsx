@@ -31,12 +31,14 @@ export function JumpSelect({ value, options, label, id, className }: { value: st
 
 /**
  * After a warning the person may accept ("Make it a holiday anyway?"), the
- * next press of the same button sends `confirm` and saves anyway.
+ * next press of the same button sends `confirm` and saves anyway. A warning
+ * key may carry the ones accepted before it ("venue-clash,past-date").
  */
-export function WarningConfirm({ keyName }: { keyName: string }) {
+export function WarningConfirm({ keyName }: { keyName: string | string[] }) {
   const state = useSheetResult() as FormState<{ warning?: string }>;
   const w = state && !state.ok ? (state.data as { warning?: string } | undefined)?.warning : undefined;
-  if (w !== keyName) return null;
+  const mine = Array.isArray(keyName) ? keyName : [keyName];
+  if (!w || !w.split(",").some((k) => mine.includes(k))) return null;
   return (
     <>
       <input type="hidden" name="confirm" value={w} />

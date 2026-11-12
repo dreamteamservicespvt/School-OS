@@ -19,6 +19,10 @@ export const maxDuration = 60;
 
 
 const plain = (m: string, status: number) => new Response(m, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
+// A person whose role does not print these cards sees the app's own "not part of your role" page, with the
+// menu and a way back, not a bare line of text (QA LC17).
+const noAccess = () => new Response(null, { status: 303, headers: { Location: "/no-access?m=examination-results", "Cache-Control": "no-store" } });
+class NotTheirs extends Error {}
 const UUID = /^[0-9a-f-]{36}$/i;
 const PERIOD = /^(year|exam:[0-9a-f-]{36}|term:[0-9a-f-]{36})$/i;
 
@@ -30,7 +34,7 @@ async function handleGET(req: Request) {
   if (!UUID.test(sectionId) || !PERIOD.test(period) || studentIds.some((s) => !UUID.test(s))) return plain("Choose the class and the report card period first.", 400);
   let current;
   try { ({ current } = await requireAction("examination-results", "print")); } catch (e) {
-    if (e instanceof PermissionDeniedError) return plain(e.message, 403);
+    if (e instanceof PermissionDeniedError) return noAccess();
     throw e;
   }
   try {
@@ -43,7 +47,7 @@ async function handleGET(req: Request) {
       // sees every subject's results in this section (as on the Report Cards page and the Student Profile). Not Office
       // Staff, who see no results, and not a subject teacher of the section (G02).
       const seesWholeCard = writesReportCards(scope, sectionId) || (scope.results && resultSubjects(scope, sectionId) === null && seesSection(scope, sectionId));
-      if (!(single ? seesWholeCard : writesReportCards(scope, sectionId))) throw new ExamRuleError(`Only the class teacher of ${section.label}, the Exam In-charge or the Principal can print these report cards.`);
+      if (!(single ? seesWholeCard : writesReportCards(scope, sectionId))) throw new NotTheirs();
       const option = await findPeriod(tx, section.academicYearId, section.classId, period);
       if (!option) throw new ExamRuleError("This report card period was not found.");
       const roster = await sectionStudents(tx, [sectionId], section.academicYearId);
@@ -60,6 +64,7 @@ async function handleGET(req: Request) {
     }, { timeout: 120_000 });
     return new Response(new Uint8Array(out.pdf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `inline; filename="${out.name}"`, "Cache-Control": "no-store" } });
   } catch (e) {
+    if (e instanceof NotTheirs) return noAccess();
     if (e instanceof ExamRuleError) return plain(e.message, 400);
     console.error(JSON.stringify({ level: "error", event: "report-card-pdf", error: e instanceof Error ? e.message : String(e) }));
     return plain("The report cards could not be made right now. Please try again in a minute.", 503);

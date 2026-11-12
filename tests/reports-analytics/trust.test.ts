@@ -422,7 +422,7 @@ describe("Money and messages", () => {
     const out = await run((cx) => cashForecasts(cx));
     expect(out).toHaveLength(1);
     expect(out[0]).toMatchObject({ key: "cash-setup", title: "Cash forecast needs your opening cash and bank balances", href: "/finance-management/cash-bank" });
-    expect(out[0].body).toMatch(/show -₹24,16,897, which cannot be right/);
+    expect(out[0].body).toMatch(/show −₹24,16,897, which cannot be right/);
   });
 
   it("asks for a check while the books show less than nothing, and forecasts 8 weeks with salary on pay day once they are right", async () => {

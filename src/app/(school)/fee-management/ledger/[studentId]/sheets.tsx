@@ -37,7 +37,7 @@ export function OldDuesSheet({ studentId, closeHref, name, heads, start }: Commo
  * `amounts`: may add to or reduce a row ("edit a student's fees"); without it
  * only removing a row is offered ("assign / unassign fees", via `removable`).
  */
-export function AdjustSheet({ studentId, closeHref, rows, start, amounts = true }: Common & { rows: (Option & { removable: boolean; left: string })[]; start: string; amounts?: boolean }) {
+export function AdjustSheet({ studentId, closeHref, rows, start, amounts = true, limit }: Common & { rows: (Option & { removable: boolean; left: string })[]; start: string; amounts?: boolean; /** The concession limit, in words: above it a reduction or removal waits for approval. */ limit: string }) {
   const [how, setHow] = useState<"reduce" | "add" | "remove">(amounts ? "reduce" : "remove");
   const [row, setRow] = useState(start || rows[0]?.value || "");
   const chosen = rows.find((r) => r.value === row);
@@ -56,6 +56,7 @@ export function AdjustSheet({ studentId, closeHref, rows, start, amounts = true 
           </div>
           {how !== "remove" ? <SMoney name="amount" label={how === "add" ? "Amount to add" : "Amount to reduce"} required />
             : <Alert tone="warning"><Words k="The row comes off the student’s fees. It stays on the ledger, struck through, with your reason." /></Alert>}
+          {how !== "add" && <p className="text-[12.5px] text-ink3"><Words k="Up to" /> {limit} <Words k="changes the fee at once. A bigger reduction or removal waits for approval and changes the fee once approved." /></p>}
           <SArea name="reason" label="Reason" required placeholder="Example: fee for the hostel was charged twice in June" />
         </>
       )}

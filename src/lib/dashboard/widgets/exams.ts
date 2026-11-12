@@ -6,7 +6,7 @@
 import "server-only";
 
 import { examScope, resultSubjects, type ExamScope } from "../../exams/scope";
-import { marksDueSoon, papersFor } from "../../exams/marks";
+import { marksDueFilter, marksDueSoon, papersFor } from "../../exams/marks";
 import { classRange } from "../../exams/common";
 import { addDays, dayWord, dueWord, n, plural, someNames } from "../common";
 import { isWeakResult } from "../../exams/results";
@@ -122,8 +122,8 @@ const marksDue: Widget<"attention"> = {
         : `${plural(papers.length, "paper")} ${own ? "of yours " : ""}waiting for marks`,
       detail: someNames(papers.map((p) => `${p.subjectName} ${p.sectionLabel}`), 3) + (due ? ` · ${dueWord(due, c.today)}` : ""),
       action: own ? "Enter marks" : "See papers",
-      // Marks Entry's "Due soon" (marksDueSoon), every exam unless there is only one (gap list G36).
-      href: `${BASE}/marks?status=due&exam=${exams.length === 1 ? exams[0] : "all"}`, value: `${papers.length}:${late.length}`,
+      // Marks Entry's Overdue / Due soon filter (both when some are late), every exam unless there is only one (gap list G36).
+      href: `${BASE}/marks?status=${marksDueFilter(papers, c.today)}&exam=${exams.length === 1 ? exams[0] : "all"}`, value: `${papers.length}:${late.length}`,
     };
   },
 };
@@ -138,6 +138,12 @@ async function wholeResults(c: DashContext, v: View) {
   if (!latest) return null;
   const results = latest.results.filter((r) => resultSubjects(v.scope, r.sectionId) === null);
   return results.length ? { ...latest, results } : null;
+}
+
+/** How many students with a result are no longer studying in the section they sat the exam in. */
+export function leftSince(results: { studentId: string; sectionId: string }[], studying: { studentId: string; sectionId: string }[]) {
+  const now = new Set(studying.map((e) => `${e.studentId}|${e.sectionId}`));
+  return results.filter((r) => !now.has(`${r.studentId}|${r.sectionId}`)).length;
 }
 
 /** Average in the latest exam with results: by class (full reach) or by the person's own sections. */
@@ -159,11 +165,18 @@ const average: Widget<"panel"> = {
     const shown = rows.filter((r) => r.value >= 0);
     if (!shown.length) return null;
     const all = percent(latest.results);
+    // Those who sat the exam, and how many of them have since left the class, so the count
+    // matches "My class" (QA LC21: 16 students here, 15 in the class).
+    const still = await c.tx.enrolment.findMany({
+      where: { academicYearId: v.yearId, archivedAt: null, status: "STUDYING", studentId: { in: latest.results.map((r) => r.studentId) }, student: { status: "ACTIVE" } },
+      select: { studentId: true, sectionId: true },
+    });
+    const left = leftSince(latest.results, still);
     return {
       slot: "side",
       panel: {
         kind: "bars", title: "Exam results", icon: "Award",
-        sub: `${latest.exam.title} · average ${all ?? 0}% · ${plural(latest.results.length, "student")}`,
+        sub: `${latest.exam.title} · average ${all ?? 0}% · ${plural(latest.results.length, "student")} sat${left ? `, ${left} since left the class` : ""}`,
         rows: shown, lowBelow: 50, href: v.scope.analysis ? `${BASE}/analysis?exam=${latest.exam.id}` : `${BASE}/results?exam=${latest.exam.id}`, linkLabel: v.scope.analysis ? "Analysis" : "Results", empty: "",
       },
     };

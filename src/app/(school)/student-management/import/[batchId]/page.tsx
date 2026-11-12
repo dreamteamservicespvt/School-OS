@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { ConfirmAction } from "@/components/students/confirm-action";
 import { STUDENT_IMPORT_KINDS } from "@/lib/students/import-kinds";
-import { BASE, studentPage } from "../../_lib/page";
+import { BASE, studentPage, NO_ACCESS } from "../../_lib/page";
 import { undoImportAction } from "../../_actions/import";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -22,7 +22,7 @@ export async function generateMetadata(): Promise<Metadata> {
 /** Import (P10), step 5: what was imported, the skipped rows to download, and Undo. */
 export default async function ImportBatchPage({ params }: { params: Promise<{ batchId: string }> }) {
   const { current, can, tz } = await studentPage();
-  if (!can.manage) redirect(BASE);
+  if (!can.manage) redirect(NO_ACCESS);
   const { batchId } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(batchId)) notFound();
   const data = await withSchool(current.ctx, async (tx) => {

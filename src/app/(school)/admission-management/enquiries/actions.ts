@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { flash } from "@/lib/flash";
 import { formValues, type FormState } from "@/lib/forms";
-import { AdmissionProblem, dateTimeOf, emailOf, id, maybe, mobileOf, need, optionalDateOf, optionalId, problemState, str, todayIn, UUID_RE } from "@/lib/admission/act";
+import { AdmissionProblem, dateTimeOf, emailOf, id, maybe, mobileOf, need, needName, optionalDateOf, optionalId, problemState, str, todayIn, UUID_RE } from "@/lib/admission/act";
 import { admissionAct, customFrom, inSchool } from "@/lib/admission/server";
 import { admissionYear, openYears } from "@/lib/admission/settings";
 import { enquiryScope } from "@/lib/admission/access";
@@ -52,8 +52,8 @@ export async function addEnquiryAction(_: DupState, fd: FormData): Promise<DupSt
       if (!year) throw new AdmissionProblem("Set up an academic year in Academic Management first.");
       const customFields = await customFrom(w, "enquiry", fd, {});
       return createEnquiry(w.tx, w.ctx, w.v, w.s, {
-        childName: need(fd, "childName", "Child's name", 120),
-        parentName: need(fd, "parentName", "Parent's name", 120),
+        childName: needName(fd, "childName", "Child's name", "Type the child's name in letters."),
+        parentName: needName(fd, "parentName", "Parent's name", "Type the parent's name in letters."),
         phone: mobileOf(fd, "phone"),
         email: emailOf(fd, "email"),
         classId: optionalId(fd, "classId"),
@@ -83,8 +83,8 @@ export async function editEnquiryAction(_: DupState, fd: FormData): Promise<DupS
       const enquiryId = id(fd, "id", "enquiry");
       const before = await w.tx.enquiry.findFirst({ where: { id: enquiryId, AND: [enquiryScope(w.v)] }, select: { customFields: true } });
       return editEnquiry(w.tx, w.ctx, w.v, enquiryId, {
-        childName: need(fd, "childName", "Child's name", 120),
-        parentName: need(fd, "parentName", "Parent's name", 120),
+        childName: needName(fd, "childName", "Child's name", "Type the child's name in letters."),
+        parentName: needName(fd, "parentName", "Parent's name", "Type the parent's name in letters."),
         phone: mobileOf(fd, "phone"),
         email: emailOf(fd, "email"),
         classId: optionalId(fd, "classId"),

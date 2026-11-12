@@ -1,7 +1,7 @@
 // Typed dates and times in the date and time boxes (src/components/ui/date-input.tsx):
 // DD-MM-YYYY and 12-hour times on screen (00-global.md P17), YYYY-MM-DD and HH:MM to the form.
 import { describe, expect, it } from "vitest";
-import { addDays, addMonths, maskDate, missingDay, monthCells, parseDateText, parseTimeText, showDate, showTime, timeChoices } from "@/lib/date-text";
+import { addDays, addMonths, maskDate, missingDay, monthCells, parseDateText, parseTimeText, showDate, showTime, timeChoices, typedDate } from "@/lib/date-text";
 
 const today = "2026-10-26";
 
@@ -75,8 +75,38 @@ describe("maskDate", () => {
     ["14-", "14-"],
     ["14052012999", "14-05-2012"],
     ["14 may", "14 may"],
+    // Pasted year first (layman test LE3: "2026-12-31" became "20-26-12").
+    ["2026-12-31", "31-12-2026"],
+    ["2026/1/5", "05-01-2026"],
+    ["2026-12-31T10:30:00Z", "31-12-2026"],
+    ["20261231", "31-12-2026"],
+    ["20122012", "20-12-2012"],
   ])("turns %s into %s", (typed, shown) => {
     expect(maskDate(typed)).toBe(shown);
+  });
+
+  it("reads pasted year-first dates as the same day, never another one", () => {
+    for (const text of ["2026-12-31", "2026/12/31", "2026.12.31"]) expect(parseDateText(maskDate(text), today)).toBe("2026-12-31");
+    expect(parseDateText("2026/12/31", today)).toBe("2026-12-31");
+    expect(parseDateText("2026/02/30", today)).toBeNull();
+  });
+});
+
+// Layman test LD2: one click into a box holding a date, then typing, did nothing.
+describe("typedDate", () => {
+  it.each([
+    ["12-11-2026", "12-11-20260", "0"],
+    ["12-11-2026", "12-11-202605112026", "05-11-2026"],
+    ["12-11-2026", "12-11-20262026-12-31", "31-12-2026"],
+    ["", "05112026", "05-11-2026"],
+    ["14-05", "14-052", "14-05-2"],
+    ["0", "05", "05"],
+  ])("after %s, the box with %s shows %s", (before, raw, shown) => {
+    expect(typedDate(before, raw, true)).toBe(shown);
+  });
+
+  it("leaves typing in the middle of the box as it is", () => {
+    expect(typedDate("12-11-2026", "12-131-2026", false)).toBe("12-131-2026");
   });
 });
 

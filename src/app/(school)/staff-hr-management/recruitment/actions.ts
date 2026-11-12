@@ -14,6 +14,7 @@ import {
   addApplication, addTraining, APPLICATION_STATUSES, closeCycle, makeOffer, openVacancy, recordOutcome, recordPromotion, saveReview, scheduleInterview, setApplicationStatus, setOfferStatus,
   setVacancyStatus, startCycle, TalentProblem, VACANCY_STATUSES,
 } from "@/lib/staff/talent";
+import { pointsOf } from "@/lib/staff/criteria";
 
 type Ctx = Awaited<ReturnType<typeof requireAction>>["current"];
 
@@ -115,10 +116,12 @@ export async function offerStatusAction(_: FormState<unknown>, fd: FormData) {
 
 export async function cycleAction(_: FormState<unknown>, fd: FormData) {
   return act(fd, async () => {
-    const criteria = str(fd, "criteria").split("\n").map((c) => c.trim()).filter(Boolean).slice(0, 15);
+    const lines = (key: string) => str(fd, key).split("\n").map((c) => c.trim()).filter(Boolean).slice(0, 15);
+    const criteria = lines("criteria");
+    const staffCriteria = lines("staffCriteria");
     const name = str(fd, "name");
     if (name.length < 3) throw new FieldProblem("Name is needed, like Appraisal 2026-27.", "name");
-    await hrIn("hr-appraisal", fd, (tx, c) => startCycle(tx, c.ctx, { name: name.slice(0, 80), academicYearId: id(fd, "academicYearId", "academic year"), criteria, startDate: dateOf(fd, "startDate", "Start date"), endDate: dateOf(fd, "endDate", "End date") }, { campusId: c.campusId }));
+    await hrIn("hr-appraisal", fd, (tx, c) => startCycle(tx, c.ctx, { name: name.slice(0, 80), academicYearId: id(fd, "academicYearId", "academic year"), criteria, staffCriteria, startDate: dateOf(fd, "startDate", "Start date"), endDate: dateOf(fd, "endDate", "End date") }, { campusId: c.campusId }));
   }, () => "Appraisal cycle started. Every staff member was asked for a self review.");
 }
 
@@ -146,7 +149,7 @@ export async function reviewAction(_: FormState<unknown>, fd: FormData) {
         if (a.reviewerId !== viewer.staffId && viewer.change !== "all") throw new HrOnlyError("this review");
       }
       const ratings: Record<string, number> = {};
-      a.cycle.criteria.forEach((c, i) => { ratings[c] = Number(str(fd, `r${i}`)); });
+      pointsOf(a, a.cycle).forEach((c, i) => { ratings[c] = Number(str(fd, `r${i}`)); });
       await saveReview(tx, current.ctx, a.id, by, ratings, text(fd, "comment", 2000));
     });
     return by;

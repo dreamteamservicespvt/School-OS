@@ -6,6 +6,7 @@
 // subject teachers see only their own subjects (owner's rules, 12 Oct 2026).
 import { beforeAll, describe, expect, it } from "vitest";
 import { buildHome } from "@/lib/dashboard/compose";
+import { leftSince } from "@/lib/dashboard/widgets/exams";
 import { dueWord } from "@/lib/dashboard/common";
 import type { Panel } from "@/lib/dashboard/types";
 import { isWeakResult, resultSheet } from "@/lib/exams/results";
@@ -72,7 +73,7 @@ describe("exams.marks-due", () => {
     expect(a?.detail).toContain("Mathematics Class 5 A");
     expect(a?.detail).toContain("Mathematics Class 5 B");
     expect(a?.detail).not.toMatch(/English|Class 6/);
-    expect(a?.href).toBe(`/examination-results/marks?status=due&exam=${examId}`);
+    expect(a?.href).toBe(`/examination-results/marks?status=soon&exam=${examId}`); // none late: Due soon (QA LC8)
   });
 
   it("a class teacher enters marks only for papers given to them, not every paper of their class", async () => {
@@ -117,7 +118,15 @@ describe("exams.average", () => {
     const p = panel(await buildHome(principal, { now: NOW }));
     expect(p?.rows.map((r) => r.label)).toEqual(["Class 5", "Class 6"]);
     expect(p?.rows.map((r) => r.value)).toEqual([55, 20]);
-    expect(p?.sub).toContain("3 students");
+    expect(p?.sub).toContain("3 students sat");
+    expect(p?.sub).not.toContain("since left");
+  });
+
+  it("says how many who sat have since left the class, so it matches My class (QA LC21)", () => {
+    const sat = [{ studentId: "a", sectionId: "5a" }, { studentId: "b", sectionId: "5a" }, { studentId: "c", sectionId: "5a" }];
+    expect(leftSince(sat, [{ studentId: "a", sectionId: "5a" }, { studentId: "b", sectionId: "5a" }, { studentId: "c", sectionId: "5a" }])).toBe(0);
+    // c left; b moved to another section.
+    expect(leftSince(sat, [{ studentId: "a", sectionId: "5a" }, { studentId: "b", sectionId: "5b" }])).toBe(2);
   });
 });
 

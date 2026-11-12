@@ -198,6 +198,22 @@ describe("concessions and discounts with approval (Done when 7)", () => {
     void open;
   });
 
+  it("refuses a concession bigger than what is still to pay, and a percent above 100 (layman test LB1)", async () => {
+    const s = await freshStudent();
+    const owed = (await dues(f.ctx, s)).filter((d) => d.feeHeadId === f.tuition.id).reduce((t, d) => t + d.balancePaise, BigInt(0));
+    const ask = (amountPaise: bigint, mode: "amount" | "percent" = "amount", percentBp = 0) =>
+      withSchool(f.ctx, (tx) => giveConcession(tx, f.ctx, { studentId: s, type: "DISCOUNT", mode, amountPaise, percentBp, feeHeadIds: [f.tuition.id], periodFrom: null, periodTo: null, reason: "Hardship case" }));
+    const err = await ask(owed + R(1)).catch((e) => e);
+    expect(err).toBeInstanceOf(MoneyProblem);
+    expect(err.message).toContain(`Not more than ₹`);
+    expect(err.field).toBe("value");
+    await expect(ask(BigInt(0), "percent", 10001)).rejects.toThrow("at most 100");
+    // Nothing was kept from the refused requests.
+    expect(await withSchool(f.ctx, (tx) => tx.concession.count({ where: { studentId: s } }))).toBe(0);
+    // Exactly what is owed is fine (it waits for approval above the limit).
+    expect((await ask(owed)).estimate).toBe(owed);
+  });
+
   it("turns a counter discount above the limit into an approval request", async () => {
     const s = await freshStudent();
     const open = await dues(f.ctx, s);

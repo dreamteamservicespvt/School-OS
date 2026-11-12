@@ -16,7 +16,8 @@ import "server-only";
 import type { DayBookEntry, Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { assertBooksOpen, financialYearOf, openDayFor } from "./years";
-import { formatDate } from "../format";
+import { formatDate, formatRupees } from "../format";
+import { MoneyWarning } from "../fees/problem";
 import { PAY_SECTIONS, PAY_SOURCES } from "./access";
 
 export type DayBookSection = "fees-full" | "fees-partial" | "other-fees" | "other-income" | "expense" | "salary" | "salary-advance" | "refund" | "reversal" | "opening" | "transfer";
@@ -231,4 +232,20 @@ export async function accountBalances(tx: Tx, ctx: SchoolContext) {
     out.set(r.accountId!, (out.get(r.accountId!) ?? BigInt(0)) + (r.direction === "IN" ? v : -v));
   }
   return out;
+}
+
+/**
+ * Paying out more than a cash or bank account holds: a warning the person can
+ * pass by ticking "pay anyway" (cash as in 07 §5 "Cash in hand is ₹1,200.
+ * This payment is ₹3,000."; a bank account too, self-test A3).
+ */
+export async function warnIfBelowZero(tx: Tx, ctx: SchoolContext, input: { accountId: string; amountPaise: bigint; field: string; confirmed?: boolean }) {
+  if (input.confirmed) return;
+  const a = await tx.bankAccount.findFirst({ where: { id: input.accountId }, select: { name: true, kind: true } });
+  if (!a) return;
+  const balance = (await accountBalances(tx, ctx)).get(input.accountId) ?? BigInt(0);
+  if (balance >= input.amountPaise) return;
+  throw new MoneyWarning(a.kind === "CASH"
+    ? `Cash in hand is ${formatRupees(balance)}. This payment is ${formatRupees(input.amountPaise)}.`
+    : `${a.name} has ${formatRupees(balance)}. This payment is ${formatRupees(input.amountPaise)}, so the balance goes below zero.`, input.field);
 }

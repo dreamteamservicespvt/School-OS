@@ -46,7 +46,7 @@ describe("PF, ESI, Professional Tax and TDS to pay", () => {
   });
 
   it("owes the staff share and the school's share once paid, due by the 15th (TDS by the 7th)", async () => {
-    await withSchool(acc(), (tx) => markPaid(tx, acc(), runId, { date: d("2026-09-30"), mode: "BANK_TRANSFER", reference: "UTR1", accountId: null, today }));
+    await withSchool(acc(), (tx) => markPaid(tx, acc(), runId, { date: d("2026-09-30"), mode: "BANK_TRANSFER", reference: "UTR1", accountId: null, today, confirmLowCash: true }));
     const list = await dues();
     const pf = list.find((x) => x.kind === "PF")!;
     // Ravi: PF on the ₹15,000 ceiling, ₹1,800 each side; Kavitha: 12% of ₹12,000, ₹1,440 each side.

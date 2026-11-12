@@ -14,6 +14,7 @@ import { attendanceSettings, statusList, statusesFor } from "./settings";
 import { attendanceSummary, type PersonSummary } from "./summary";
 import { absentKeys, absentReason, type ShownReason } from "./absence-reasons";
 import { registerBook } from "./on-register";
+import { formatDate } from "../format";
 
 export type RegisterDate = { iso: string; day: number; weekday: string; off: string | null; future: boolean };
 export type RegisterRow = {
@@ -104,9 +105,22 @@ export async function registerMonth(tx: Tx, ctx: SchoolContext, input: { section
   const extra = extraIds.length
     ? await tx.student.findMany({ where: { id: { in: extraIds } }, select: { id: true, fullName: true, admissionNo: true } })
     : [];
+  // A student moved to another section is still studying: say where (LA3), not "(left)".
+  const outs = new Map(extra.map((s) => [s.id, book.movedOut(section.id, s.id)]));
+  const toIds = [...new Set([...outs.values()].filter((o) => o !== null).map((o) => o!.toSectionId))];
+  const toNames = new Map<string, string>();
+  if (toIds.length) {
+    const secs = await tx.section.findMany({ where: { id: { in: toIds } }, select: { id: true, name: true, schoolClass: { select: { name: true } } } });
+    for (const x of secs) toNames.set(x.id, `${x.schoolClass.name} ${x.name}`);
+  }
+  const awayText = (id: string, fullName: string) => {
+    const out = outs.get(id);
+    const to = out ? toNames.get(out.toSectionId) : undefined;
+    return out && to ? `${fullName} (moved to ${to} on ${formatDate(new Date(`${out.on}T00:00:00Z`), "UTC")})` : `${fullName} (left)`;
+  };
   const people = [
     ...students.map((s) => ({ id: s.studentId, roll: s.rollNo, name: s.name, admissionNo: s.admissionNo })),
-    ...extra.map((s) => ({ id: s.id, roll: null, name: `${s.fullName} (left)`, admissionNo: s.admissionNo })),
+    ...extra.map((s) => ({ id: s.id, roll: null, name: awayText(s.id, s.fullName), admissionNo: s.admissionNo })),
   ];
   // Absence reasons (when the school records them): the first reason recorded for each absent day.
   const reasonsBy = new Map<string, Record<string, ShownReason>>();
@@ -134,8 +148,11 @@ export async function registerMonth(tx: Tx, ctx: SchoolContext, input: { section
     const info = days.info(d);
     return { iso: isoDay(d), day: d.getUTCDate(), weekday: WEEKDAYS[d.getUTCDay()], off: info.on ? null : info.title, future: d > input.today };
   });
+  // The students on the register on the last day shown (today in this month): the count Take Attendance and the Dashboard give (LA3).
+  const rollDay = isoDay(input.today < to ? (input.today < from ? from : input.today) : to);
   return {
     section, label: monthLabel(from), month: isoDay(from).slice(0, 7), from, to, dates, rows,
+    onRoll: book.countOn(section.id, rollDay),
     workingDays: sum.workingDays, overall: sum.overall,
     statuses: statusesFor(list, "students"),
   };

@@ -27,7 +27,7 @@ function decorate(html: string, pages: { label: string | null; extra: string | n
   const style = `<style>
     .sos-copy{position:absolute;top:2mm;right:3mm;font:600 8pt Arial,sans-serif;letter-spacing:.06em;text-transform:uppercase;border:1px solid #888;padding:.6mm 2mm;border-radius:1mm;background:#fff;color:#333}
     .sos-stamp{position:absolute;left:50%;top:45%;transform:translate(-50%,-50%) rotate(-18deg);font:800 34pt Arial,sans-serif;color:rgba(185,28,28,.55);border:5px solid rgba(185,28,28,.55);padding:2mm 8mm;border-radius:3mm;pointer-events:none;white-space:nowrap}
-    .sos-extra{margin-top:3mm;font-size:8.5pt;color:#333;border-top:1px dashed #bbb;padding-top:2mm}
+    .sos-extra{margin-top:3mm;font-size:8.5pt;color:#333;border-top:1px dashed #bbb;padding-top:2mm;overflow-wrap:anywhere;word-break:break-word}
   </style>`;
   let i = 0;
   const out = html

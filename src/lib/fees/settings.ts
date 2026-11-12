@@ -78,6 +78,16 @@ export function ageingGroupOf(groups: AgeingGroup[], days: number): AgeingGroup 
   return groups.find((g) => days >= g.from && (g.to === null || days <= g.to)) ?? null;
 }
 
+/**
+ * The ageing group (index) one overdue amount is in, by its own due date: the
+ * one rule for Defaulters and the Outstanding report (layman test LB3). Days
+ * outside every group count in the last one.
+ */
+export function ageingIndexOf(groups: AgeingGroup[], days: number): number {
+  const g = ageingGroupOf(groups, days);
+  return g ? groups.indexOf(g) : groups.length - 1;
+}
+
 /** The gateway a student's class uses (Fee Settings routing), else the default, else the first switched-on Razorpay. */
 export async function gatewayFor(tx: Tx, ctx: SchoolContext, classId: string | null) {
   const s = await feeSettings(tx, ctx);

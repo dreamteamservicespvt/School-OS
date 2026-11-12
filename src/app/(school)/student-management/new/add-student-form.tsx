@@ -10,7 +10,8 @@ import { BLOOD_GROUPS, CATEGORIES, GENDERS, RELATIONS } from "@/lib/students/lab
 import type { FormState } from "@/lib/forms";
 import { addStudent, checkAdmissionNo, parentsForPhone, type AddStudentData } from "../_actions/students";
 import { KeepCheck } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { useT, Words } from "@/lib/i18n/client";
+import { useLeaveWarning } from "../_lib/leave-warning";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 
 type Section = { value: string; label: string; seats: number; filled: number };
@@ -29,6 +30,10 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
   const [admNote, setAdmNote] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
   const draft = useFormDraft(formRef, "Add student");
+  const t = useT();
+  const formKey = state?.ok ? "done" : "form";
+  // Leaving a half-filled form asks first (B10).
+  useLeaveWarning(formRef, t("Leave Add student? What you typed is not saved yet."), formKey);
   const forget = draft.done;
   // Before the fresh form (key "done") looks for a draft, so the saved student does not come back.
   useLayoutEffect(() => { if (state?.ok) forget(); }, [state, forget]);
@@ -51,7 +56,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
   const req = (k: string) => required.includes(k);
 
   return (
-    <form ref={formRef} action={action} className="space-y-5" key={state?.ok ? "done" : "form"}>
+    <form ref={formRef} action={action} className="space-y-5" key={formKey}>
       <FormProblems errors={state?.errors}>
       <DraftHint draft={draft} />
       <FormMessage state={state && !duplicates.length ? state : null} />
@@ -75,7 +80,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
 
       <fieldset className="grid gap-4 sm:grid-cols-2">
         <legend className="sr-only"><Words k="Student" /></legend>
-        <TextField name="fullName" label="Full name" required autoComplete="off" defaultValue={v("fullName")} error={err("fullName")} className="sm:col-span-2" />
+        <TextField name="fullName" label="Full name" required maxLength={120} autoComplete="off" defaultValue={v("fullName")} error={err("fullName")} className="sm:col-span-2" />
         {/* Keyed by the value sent, so it remounts with that class selected: the form reset
             after a failed save (React 19) otherwise put it back to "Choose" (PEOPLE-12). */}
         <SelectField key={`section-${v("sectionId", defaultSection)}`} name="sectionId" label="Class and section" required placeholder="Choose" options={sections.map((s) => ({ value: s.value, label: `${s.label} (${Math.max(0, s.seats - s.filled)} seats left)` }))}
@@ -121,7 +126,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           </div>
         )}
         <input type="hidden" name="linkGuardianId" value={linkId} />
-        <TextField name="guardianName" label="Parent's or guardian's name" required className="sm:col-span-2"
+        <TextField name="guardianName" label="Parent's or guardian's name" required maxLength={120} className="sm:col-span-2"
           defaultValue={linked?.name ?? v("guardianName")} key={linked?.id ?? "new"} readOnly={Boolean(linked)} error={err("guardianName")}
           help={linked ? "Linked to the existing parent. Their details are changed on the parent's page." : undefined} />
       </fieldset>

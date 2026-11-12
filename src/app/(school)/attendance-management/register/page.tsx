@@ -180,12 +180,14 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
   const anyNotKnown = grid.rows.some((r) => Object.values(r.reasons).some((x) => x.key === "not-known"));
   const why = (r: Grid["rows"][number], iso: string) => { const x = r.reasons[iso]; return x ? ` · ${x.label}${x.note ? `: ${x.note}` : ""}` : ""; };
   const legend = statuses.filter((s) => CORE.includes(s.key) || used.has(s.key));
+  // On the register today (as Take Attendance and the Dashboard count); a status filter counts the rows it shows (LA3).
+  const headCount = statusFilter ? grid.rows.length : grid.onRoll;
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-5 py-4 flex-wrap">
         <div>
           <h2 className="font-semibold">{grid.label}</h2>
-          <p className="text-[13px] text-ink3">{grid.section.name} · {grid.rows.length} {grid.rows.length === 1 ? "student" : "students"} · {grid.workingDays} <Words k="school" /> {grid.workingDays === 1 ? "day" : "days"}{thisMonth ? " so far" : ""} · {percentText(grid.overall.percent)} <Words k="present" /></p>
+          <p className="text-[13px] text-ink3">{grid.section.name} · {headCount} {headCount === 1 ? "student" : "students"} · {grid.workingDays} <Words k="school" /> {grid.workingDays === 1 ? "day" : "days"}{thisMonth ? " so far" : ""} · {percentText(grid.overall.percent)} <Words k="present" /></p>
         </div>
         <Legend statuses={legend} extra={<>
           {shown.some((d) => d.off) && <li className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("w-4 h-4 rounded grid place-items-center text-[9px] font-bold", HOLIDAY_CELL)}>H</span><Words k="Holiday" /></li>}

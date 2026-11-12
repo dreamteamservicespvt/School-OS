@@ -1,0 +1,32 @@
+import { asRole, go, mainText, sleep, close, snap } from "../full/selftest-A-h.mjs";
+const p = await asRole("teacher");
+await go(p, "/homework-learning"); await sleep(800); await p.getByRole("button", { name: "Give homework" }).or(p.getByRole("link", { name: "Give homework" })).first().click(); await sleep(1500);
+const sheet = p.getByRole("dialog").filter({ hasText: "Three steps" }).first();
+const st = async () => (await sheet.innerText().catch(() => "CLOSED")).replace(/\n+/g, " | ");
+const submit = sheet.getByRole("button", { name: /^Send to/ });
+const waitDone = async () => { for (let i = 0; i < 60; i++) { await sleep(500); if (!(await sheet.isVisible().catch(() => false))) return "closed"; if (!/Sending…/.test(await st())) return "done"; } return "still sending"; };
+await sheet.locator("button, [role=radio]").filter({ hasText: /^6 A/ }).first().click(); await sleep(500);
+await sheet.locator("input[name=title]").fill("LC- గణితం హోంవర్క్ 🙂 पाठ 4");
+await sheet.locator("textarea[name=instructions]").fill("LC- పాఠం 4 చదవండి.\nपाठ 4 पढ़ें। <b>bold</b>");
+await sheet.getByText("Pick a date", { exact: true }).click(); await sleep(500);
+const due = p.locator("input#gh-due"); await due.click(); await due.fill("14-11-2026"); await p.keyboard.press("Escape");
+await sheet.getByRole("button", { name: /More details/ }).click(); await sleep(300);
+const start = p.locator("input#gh-start"); await start.click(); await start.fill("20-11-2026"); await p.keyboard.press("Escape");
+await sheet.locator("#gh-max").fill("10");
+let b = await st(); await submit.click(); let r = await waitDone();
+console.log("START AFTER DUE:", r, JSON.stringify((await st()).split(" | ").filter((x) => !b.split(" | ").includes(x))));
+await snap(p, "c-hw3-start-after-due", false);
+if (r !== "closed") {
+  await start.click(); await start.fill("12-11-2026"); await p.keyboard.press("Escape");
+  b = await st(); const tt = Date.now(); await submit.click(); r = await waitDone(); console.log("took", Date.now() - tt);
+  console.log("VALID (single click):", r, JSON.stringify((await st()).split(" | ").filter((x) => !b.split(" | ").includes(x))));
+}
+await sleep(1500);
+await go(p, "/homework-learning?range=all"); await sleep(1500);
+const t = await mainText(p, 20000);
+console.log("LC rows on list:", (t.match(/LC- గణితం[^\n]*/g) ?? []).length, (t.match(/LC- గణితం[^\n]*/g) ?? []));
+await snap(p, "c-hw3-list");
+const link = p.locator("main a[href*='/homework-learning/homework/']").filter({ hasText: "LC-" }).first();
+console.log("HW LINK", await link.getAttribute("href").catch(() => "none"));
+console.log("PROBLEMS", p.problems);
+await close();

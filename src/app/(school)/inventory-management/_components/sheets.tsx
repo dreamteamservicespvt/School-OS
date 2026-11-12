@@ -13,7 +13,7 @@ import {
   archiveCategoryAction, archiveItemAction, archiveLocationAction, saveCategoryAction, saveItemAction, saveLocationAction, saveSetAction, startAuditAction,
   returnAction, stockInAction, stockOutAction, transferAction,
 } from "../actions";
-import { KeepCheck } from "@/components/ui/keep-select";
+import { KeepCheck, KeepSelect } from "@/components/ui/keep-select";
 import { Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
@@ -29,6 +29,10 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
   const expiry = useTyped("tracksExpiry", start?.tracksExpiry ? "on" : "");
   const [tracks, setTracks] = useState(expiry.value === "on" || (!start && labCategories.includes(cat.value)));
   const [storeRows, setStoreRows] = useState(1);
+  // Opening stock is held here, so a refused save keeps every row as typed (LE1: the boxes came back empty).
+  const [openLoc, setOpenLoc] = useState<string[]>([]);
+  const [openQty, setOpenQty] = useState<string[]>([]);
+  const setAt = (set: React.Dispatch<React.SetStateAction<string[]>>, i: number, v: string) => set((a) => { const b = [...a]; b[i] = v; return b; });
   const reorderHint = categories.find((c) => c.value === catId)?.reorder ?? 0;
   return (
     <SheetForm title={editing ? `Change ${start!.name}` : "Add an item"} sub={editing ? start!.code : "The code is given in sequence unless you type one."} closeHref={closeHref} doneHref={doneHref}
@@ -40,11 +44,12 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
       <div className="grid sm:grid-cols-2 gap-3">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="item-cat" className="text-[13px] font-semibold text-ink2"><Words k="Category" /> <span className="text-bad" aria-hidden="true">*</span></label>
-          <select key={cat.key} id="item-cat" name="categoryId" defaultValue={cat.value} onChange={(e) => { setCatId(e.target.value); if (!editing && labCategories.includes(e.target.value)) setTracks(true); }}
+          {/* Held by React (not the box's default), so the form reset after a refused save keeps the category and the reorder hint follows it (LE1). */}
+          <KeepSelect id="item-cat" name="categoryId" value={catId} onChange={(e) => { setCatId(e.target.value); if (!editing && labCategories.includes(e.target.value)) setTracks(true); }}
             aria-invalid={cat.error ? true : undefined} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px] aria-[invalid=true]:border-bad">
             <option value="">Choose the category</option>
             {categories.map((c) => <option key={c.value} value={c.value}>{c.label}</option>)}
-          </select>
+          </KeepSelect>
           {cat.error && <p className="text-[12.5px] text-bad">{cat.error}</p>}
         </div>
         <div className="grid grid-cols-2 gap-3">
@@ -69,11 +74,11 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
           {Array.from({ length: storeRows }, (_, i) => (
             <div key={i} className="grid grid-cols-[1fr_110px] gap-2">
               <label className="sr-only" htmlFor={`open-loc-${i}`}><Words k="Store" /> {i + 1}</label>
-              <select id={`open-loc-${i}`} name="openLoc" defaultValue={stores[i]?.value ?? stores[0]?.value} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
+              <KeepSelect id={`open-loc-${i}`} name="openLoc" value={openLoc[i] ?? stores[i]?.value ?? stores[0]?.value ?? ""} onChange={(e) => setAt(setOpenLoc, i, e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-[14.5px]">
                 {stores.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
+              </KeepSelect>
               <label className="sr-only" htmlFor={`open-qty-${i}`}><Words k="Quantity in store" /> {i + 1}</label>
-              <input id={`open-qty-${i}`} name="openQty" inputMode="numeric" placeholder="0" className="h-11 rounded-xl border border-line bg-surface px-3 text-right tnum text-[14.5px]" />
+              <input id={`open-qty-${i}`} name="openQty" inputMode="numeric" placeholder="0" value={openQty[i] ?? ""} onChange={(e) => setAt(setOpenQty, i, e.target.value)} className="h-11 rounded-xl border border-line bg-surface px-3 text-right tnum text-[14.5px]" />
             </div>
           ))}
           {storeRows < stores.length && <button type="button" className="self-start text-[13px] font-semibold text-brand hover:underline" onClick={() => setStoreRows((n) => n + 1)}><Words k="Add stock in another store" /></button>}

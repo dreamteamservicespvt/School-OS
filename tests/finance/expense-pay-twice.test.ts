@@ -27,7 +27,7 @@ async function approvedExpense(rupees: number, bill = false) {
 }
 
 const pay = (id: string, amount?: number) =>
-  withSchool(f.ctx, (tx) => payExpense(tx, f.ctx, id, { date: today, mode: "BANK_TRANSFER", reference: "UTR123", accountId: null, amountPaise: amount ? R(amount) : null }));
+  withSchool(f.ctx, (tx) => payExpense(tx, f.ctx, id, { date: today, mode: "BANK_TRANSFER", reference: "UTR123", accountId: null, amountPaise: amount ? R(amount) : null, confirmLowCash: true }));
 
 describe("paying an expense twice at the same moment", () => {
   it("pays it once; the second attempt is told it is already paid", async () => {

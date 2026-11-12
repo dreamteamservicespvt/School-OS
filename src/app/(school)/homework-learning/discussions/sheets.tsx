@@ -19,8 +19,8 @@ export function TopicSheet({ closeHref, boardId, boardTitle, student }: { closeH
   return (
     <SheetForm title={student ? "Ask a question" : "New topic"} sub={boardTitle} closeHref={closeHref} action={postTopicAction} hidden={{ boardId, boardTitle }}
       submitLabel={<><Send size={16} aria-hidden="true" /><Words k="Post" /></>} pendingText="Posting…">
-      <Text name="title" label="Title" required help="One short line, like “Q3 of exercise 4.2”" />
-      <Text name="body" label="Details" area rows={4} />
+      <Text name="title" label="Title" required maxLength={160} help="One short line, like “Q3 of exercise 4.2”" />
+      <Text name="body" label="Details" area rows={4} maxLength={4000} />
     </SheetForm>
   );
 }
@@ -36,7 +36,7 @@ export function BoardSheet({ closeHref, courses, start }: {
   return (
     <SheetForm title={start ? `Edit: ${start.title}` : "New board"} closeHref={closeHref} action={(start ? editBoardAction : createBoardAction) as (p: unknown, fd: FormData) => Promise<{ ok: boolean; message?: string }>}
       hidden={{ audience, ...(start ? { id: start.id, course: start.course } : {}) }} submitLabel={start ? "Save changes" : "Create board"} pendingText="Saving…">
-      <Text name="title" label="Title" required start={start?.title} placeholder="Science · 7 A" />
+      <Text name="title" label="Title" required maxLength={120} start={start?.title} placeholder="Science · 7 A" />
       {!start && (
         <FieldShell label="Class and subject" id="nb-cls" error={course.error} help={audience === "staff" ? "Optional for a staff board" : "Students of this class can use it"}>
           <select id="nb-cls" name="course" defaultValue={course.value} key={course.key} className={cx(inputCls(course.error), "h-11")}>
@@ -45,7 +45,7 @@ export function BoardSheet({ closeHref, courses, start }: {
           </select>
         </FieldShell>
       )}
-      <Text name="description" label="Description" area rows={2} start={start?.description} placeholder="Questions and answers about Science lessons." />
+      <Text name="description" label="Description" area rows={2} maxLength={600} start={start?.description} placeholder="Questions and answers about Science lessons." />
       <FieldShell label="Who can use it" id="nb-who" required>
         <Segmented value={audience} onChange={setAudience} className="w-full" label="Who can use it" options={[{ value: "all", label: "Staff and students" }, { value: "staff", label: "Staff only" }]} />
       </FieldShell>
@@ -109,7 +109,7 @@ export function ReplyBox({ topicId, student }: { topicId: string; student: boole
     <div className="mt-4">
       <div className="flex gap-2">
         <label htmlFor="reply-box" className="sr-only"><Words k="Write a reply" /></label>
-        <input id="reply-box" value={text} onChange={(e) => setText(e.target.value)} placeholder={student ? "Write a reply to your class" : "Write a reply"} className={cx(inputCls(problem), "h-11")}
+        <input id="reply-box" maxLength={2000} value={text} onChange={(e) => setText(e.target.value)} placeholder={student ? "Write a reply to your class" : "Write a reply"} className={cx(inputCls(problem), "h-11")}
           onKeyDown={(e) => { if (e.key === "Enter" && text.trim()) { e.preventDefault(); send(); } }} aria-invalid={problem ? true : undefined} />
         <Button variant="primary" icon={Send} disabled={!text.trim()} loading={busy} onClick={send}><Words k="Post" /></Button>
       </div>

@@ -12,8 +12,8 @@ import type { Decision } from "@/lib/approvals";
 import { decideAction } from "../actions";
 import { Words } from "@/lib/i18n/client";
 
-export function DecisionBar({ id, summary, canDecide, canReject = true, canWithdraw }: { id: string; summary: string; canDecide: boolean; canReject?: boolean; canWithdraw: boolean }) {
-  const [asking, setAsking] = useState<null | "reject" | "ask-change">(null);
+export function DecisionBar({ id, summary, canDecide, canReject = true, canWithdraw, startReject = false }: { id: string; summary: string; canDecide: boolean; canReject?: boolean; canWithdraw: boolean; startReject?: boolean }) {
+  const [asking, setAsking] = useState<null | "reject" | "ask-change">(startReject && canDecide && canReject ? "reject" : null);
   const [note, setNote] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [noteError, setNoteError] = useState<string | null>(null);

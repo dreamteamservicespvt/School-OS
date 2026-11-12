@@ -15,6 +15,7 @@ import { saveFile, IMAGE_TYPES } from "../files";
 import { FrontOfficeProblem } from "./problem";
 import { frontOfficeSettings, passExpiryFor } from "./settings";
 import { instantOf, clockAt, todayIso } from "./time";
+import { formatDate } from "../format";
 import { mobileDigits, phoneProblem, replyOf, tidyVehicle, vehicleProblem, type ReplyKey, type VisitorStatus } from "./words";
 
 export function visitorStatus(v: Pick<VisitorEntry, "timeOut" | "passExpiresAt">, now = new Date()): VisitorStatus {
@@ -43,7 +44,7 @@ export async function returningVisitor(tx: Tx, rawPhone: string, timeZone: strin
   if (last) {
     const met = last.meetStaffId ? await tx.staff.findFirst({ where: { id: last.meetStaffId }, select: { fullName: true } }) : null;
     const d = last.timeIn;
-    const day = new Intl.DateTimeFormat("en-IN", { timeZone, day: "numeric", month: "short", year: "numeric" }).format(d);
+    const day = formatDate(d, timeZone);
     return { kind: "visitor", name: last.name, purpose: last.purpose, meetStaffId: last.meetStaffId, last: `${day}${met ? `, met ${met.fullName}` : ""}` };
   }
   const g = await tx.guardian.findFirst({

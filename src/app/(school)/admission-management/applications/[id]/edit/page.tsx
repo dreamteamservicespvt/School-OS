@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { workPage, BASE } from "@/lib/admission/page";
-import { UUID_RE } from "@/lib/admission/act";
+import { todayIn, UUID_RE } from "@/lib/admission/act";
 import { OPEN_STAGES, RELATIONS } from "@/lib/admission/applications";
 import { applicationChoices } from "@/lib/admission/choices";
 import type { CustomValues } from "@/lib/custom-field-rules";
@@ -38,7 +38,7 @@ export default async function EditApplicationPage({ params }: { params: Promise<
       <ApplicationForm
         classes={data.choices.classes} years={data.choices.years} relations={RELATIONS} categories={data.choices.categories}
         restricted={viewer.restricted} customFields={data.choices.customFields} cancelHref={`${BASE}/applications/${id}`} applicationNo={app.applicationNo}
-        transportOn={current.modulesOn.has("transport-management")} hostelOn={current.modulesOn.has("hostel-management")}
+        today={todayIn(current.school.timeZone)} transportOn={current.modulesOn.has("transport-management")} hostelOn={current.modulesOn.has("hostel-management")}
         values={{
           id: app.id, yearId: app.academicYearId, classId: app.classId, firstName: app.firstName, lastName: app.lastName, dateOfBirth: app.dateOfBirth.toISOString().slice(0, 10),
           gender: app.gender, fatherName: app.fatherName, motherName: app.motherName, guardianName: app.guardianName, guardianRelation: app.guardianRelation,

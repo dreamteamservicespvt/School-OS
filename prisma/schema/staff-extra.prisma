@@ -228,8 +228,10 @@ model AppraisalCycle {
   schoolId       String    @map("school_id") @db.Uuid
   academicYearId String    @map("academic_year_id") @db.Uuid
   name           String
-  /// The form: criteria names, each rated 1 to 5.
+  /// The form: criteria names, each rated 1 to 5 (teaching staff, and everyone when staffCriteria is empty).
   criteria       String[]
+  /// The points for non-teaching staff (drivers, office, support); empty: the same as criteria.
+  staffCriteria  String[]  @default([]) @map("staff_criteria")
   startDate      DateTime  @map("start_date") @db.Date
   endDate        DateTime  @map("end_date") @db.Date
   /// OPEN or CLOSED.
@@ -252,6 +254,8 @@ model Appraisal {
   cycleId        String   @map("cycle_id") @db.Uuid
   staffId        String   @map("staff_id") @db.Uuid
   reviewerId     String?  @map("reviewer_id") @db.Uuid
+  /// The points this staff member is rated on, fixed when the cycle starts (by staff type); empty: the cycle's criteria.
+  criteria       String[] @default([])
   /// SELF_REVIEW, MANAGER_REVIEW, DONE.
   status         String   @default("SELF_REVIEW")
   selfRatings    Json     @default("{}") @map("self_ratings")

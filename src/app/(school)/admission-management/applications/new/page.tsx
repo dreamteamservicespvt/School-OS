@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { withSchool } from "@/lib/db";
 import { workPage, BASE } from "@/lib/admission/page";
-import { UUID_RE } from "@/lib/admission/act";
+import { todayIn, UUID_RE } from "@/lib/admission/act";
 import { RELATIONS } from "@/lib/admission/applications";
 import { applicationChoices } from "@/lib/admission/choices";
 import { admissionYears } from "@/lib/admission/settings";
@@ -63,7 +63,7 @@ export default async function NewApplicationPage({ searchParams }: Search) {
           parentHint={e?.parentName ?? null} cancelHref={e ? `${BASE}/enquiries?id=${e.id}` : `${BASE}/applications`}
           consentVersion={dataText?.version ? `version ${dataText.version}` : null}
           photoConsentAsked={data.texts.some((t) => t.type === PHOTO_CONSENT)}
-          transportOn={current.modulesOn.has("transport-management")} hostelOn={current.modulesOn.has("hostel-management")}
+          today={todayIn(current.school.timeZone)} transportOn={current.modulesOn.has("transport-management")} hostelOn={current.modulesOn.has("hostel-management")}
         />
       )}
     </>

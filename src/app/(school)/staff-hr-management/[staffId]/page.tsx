@@ -680,8 +680,9 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge tone={DOC_TONE[status]}>{status}</Badge>
+                      {!d.fileId && status !== "Missing" && <span className="text-sm text-ink-2"><Words k="File not collected" /></span>}
                       {d.fileId && <a href={`${BASE}/files/${d.fileId}`} target="_blank" rel="noopener" className="inline-flex min-h-11 items-center px-2 font-medium text-brand-text hover:underline"><Words k="Open" /></a>}
-                      {hr && !left && <UploadDocumentForm staffOptions={[{ value: s!.id, label: s!.fullName }]} types={types} action={uploadDocument} fixedStaffId={s!.id} replace={{ id: d.id, kind: d.kind }} />}
+                      {hr && !left && <UploadDocumentForm staffOptions={[{ value: s!.id, label: s!.fullName }]} types={types} action={uploadDocument} fixedStaffId={s!.id} replace={{ id: d.id, kind: d.kind, missing: !d.fileId }} />}
                       {hr && !left && (
                         <ConfirmButton trigger="Remove" triggerVariant="danger-soft" title={`Remove ${d.kind}?`} confirmLabel="Remove document" confirmVariant="danger" onConfirm={removeDocumentAction.bind(null, d.id)}>
                           <Words k="It is taken off" /> {s!.fullName}<Words k="’s record and its expiry reminders stop. Use this for a document added by mistake. The file itself is kept for the record." />

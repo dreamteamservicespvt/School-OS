@@ -35,13 +35,13 @@ export function clockAt(d: Date, timeZone: string) {
 }
 
 const WEEKDAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-/** "Fri, 9 Oct" for a date at 00:00 UTC. */
-export const shortDay = (d: Date) => `${WEEKDAY[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTH[d.getUTCMonth()]}`;
-/** "9 Oct". */
-export const dayMonth = (d: Date) => `${d.getUTCDate()} ${MONTH[d.getUTCMonth()]}`;
+// Dates show as DD-MM-YYYY like every other module (00-global.md P17; layman test LD7).
+/** "09-10-2026" for a date at 00:00 UTC. */
+export const dayMonth = (d: Date) => d.toISOString().slice(0, 10).split("-").reverse().join("-");
+/** "Fri, 09-10-2026" for a date at 00:00 UTC. */
+export const shortDay = (d: Date) => `${WEEKDAY[d.getUTCDay()]}, ${dayMonth(d)}`;
 
-/** How a moment reads on a list: "10:22 AM" today, "Yesterday", or "8 Oct, 2:40 PM". */
+/** How a moment reads on a list: "10:22 AM" today, "Yesterday", or "08-10-2026, 2:40 PM". */
 export function whenWords(d: Date, timeZone: string, now = new Date()) {
   const day = localOf(d, timeZone).slice(0, 10);
   const today = todayIso(timeZone, now);

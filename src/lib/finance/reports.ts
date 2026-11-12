@@ -7,10 +7,11 @@ import "server-only";
 
 import type { DayBookEntry } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
-import { formatDate } from "../format";
+import { formatDate, formatRupees } from "../format";
 import type { Cell, ReportColumn, ReportResult } from "../fees/reports";
 import { budgetsWithUse } from "./budgets";
-import { chart, headSide, payables, trialBalance } from "./journals";
+import { chart, headSide, isStaffAdvance, payables, trialBalance, type LedgerAccount } from "./journals";
+import { APPLICATION_FEE_SOURCE } from "../fees/application-fee";
 import { EXPENSE_STATUS_WORDS } from "./words";
 import { dayBookWithoutPay } from "./access";
 import { accountBook } from "./daybook";
@@ -45,8 +46,21 @@ async function byHead(tx: Tx, ctx: SchoolContext, f: FinanceFilter) {
   const { accounts, bySystem } = await chart(tx, ctx);
   const entries = await tx.dayBookEntry.findMany({ where: { financialYearId: f.financialYearId, date: { gte: f.from, lte: f.to }, section: { notIn: ["opening", "transfer"] }, sourceType: { notIn: MOVES }, ...(f.hidePay ? dayBookWithoutPay(f.hidePay) : {}) } });
   const lines: { key: string; kind: "INCOME" | "EXPENSE"; date: Date; amount: bigint }[] = [];
+  const feeHeadKey = bySystem.get("fees") ? `head:${bySystem.get("fees")}` : null;
+  const feeAccount = feeHeadKey ? accounts.get(feeHeadKey) : undefined;
+  // Admission application fees are posted to the Fees head, but Fee Reports and the Fee Dashboard
+  // count only student fee payments. They get a line of their own, so both screens can be matched (layman test LB4).
+  accounts.set(APPLICATION_FEES.key, { ...APPLICATION_FEES, group: feeAccount?.group ?? APPLICATION_FEES.group });
+  let advancesOut = ZERO;
+  let advancesIn = ZERO;
   for (const e of entries) {
-    const key = headSide(e, bySystem);
+    // Staff advances and loans are money the school gets back: neither salary nor income (layman test LB5).
+    if (isStaffAdvance(e)) {
+      if (e.direction === "OUT") advancesOut += e.amountPaise; else advancesIn += e.amountPaise;
+      continue;
+    }
+    const side = headSide(e, bySystem);
+    const key = side === feeHeadKey && e.sourceType.startsWith(APPLICATION_FEE_SOURCE) ? APPLICATION_FEES.key : side;
     const a = accounts.get(key);
     // Money in raises income; money out raises expense. A reversal is the other way, so it lowers the original's side.
     const kind: "INCOME" | "EXPENSE" = a?.kind === "INCOME" ? "INCOME" : a?.kind === "EXPENSE" ? "EXPENSE" : isIncome(e) ? "INCOME" : "EXPENSE";
@@ -77,14 +91,26 @@ async function byHead(tx: Tx, ctx: SchoolContext, f: FinanceFilter) {
     lines.push({ key, kind, date: l.entry.date, amount });
     journal++;
   }
-  return { accounts, lines, broughtIn, journal };
+  const salaryKey = bySystem.get("salary") ? `head:${bySystem.get("salary")}` : null;
+  const salary = lines.some((l) => l.key === salaryKey && l.amount !== ZERO);
+  return { accounts, lines, broughtIn, journal, advancesOut, advancesIn, salary };
 }
 
-/** The report's note: records brought in from old software, journal entries. */
-function headNote(broughtIn: bigint, journal: number) {
-  const parts = [broughtIn > ZERO ? BROUGHT_IN_NOTE : null, journal ? JOURNAL_NOTE : null].filter(Boolean);
+/**
+ * The report's note: records brought in from old software, journal entries,
+ * what Salaries holds and the staff advances left out (layman test LB5).
+ */
+function headNote(h: { broughtIn: bigint; journal: number; advancesOut: bigint; advancesIn: bigint; salary: boolean }) {
+  const advances = h.advancesOut > ZERO || h.advancesIn > ZERO
+    ? `Staff advances and loans are not salary or income, so they are left out: ${formatRupees(h.advancesOut)} paid out${h.advancesIn > ZERO ? ` and ${formatRupees(h.advancesIn)} paid back` : ""} in this period (see Salary Advances).`
+    : null;
+  const parts = [h.broughtIn > ZERO ? BROUGHT_IN_NOTE : null, h.journal ? JOURNAL_NOTE : null, h.salary ? SALARY_NOTE : null, advances].filter(Boolean);
   return parts.length ? parts.join(" ") : undefined;
 }
+
+const SALARY_NOTE = "Salaries is money paid out: net pay to staff, and PF, ESI, PT and TDS (with the school's share) when they are paid. Salary History shows each month's gross pay.";
+/** Its own line under the Fees group: Fee Reports leave these out. */
+const APPLICATION_FEES: LedgerAccount = { key: "application-fees", name: "Admission application fees", group: "Academic income", kind: "INCOME", code: null };
 
 function isIncome(e: Pick<DayBookEntry, "section" | "direction">) {
   if (e.section === "reversal") return e.direction === "OUT";
@@ -101,7 +127,8 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
     about: "By head and by month",
     filters: ["dates", "group"],
     run: async (tx, ctx, f) => {
-      const { accounts, lines, broughtIn, journal } = await byHead(tx, ctx, f);
+      const h = await byHead(tx, ctx, f);
+      const { accounts, lines } = h;
       const map = new Map<string, { period: string; key: string; kind: string; amount: bigint }>();
       for (const l of lines) {
         const p = periodOf(l.date, f.group);
@@ -120,7 +147,7 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
         columns: [{ key: "period", label: f.group === "month" ? "Month" : "Date" }, { key: "head", label: "Head" }, { key: "group", label: "Group" }, { key: "income", label: "Income", kind: "money" }, { key: "expense", label: "Expense", kind: "money" }],
         rows,
         totals: { period: "Total", income, expense },
-        note: headNote(broughtIn, journal),
+        note: headNote(h),
       };
     },
   },
@@ -130,7 +157,8 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
     about: "Income less expenses for the period",
     filters: ["dates"],
     run: async (tx, ctx, f) => {
-      const { accounts, lines, broughtIn, journal } = await byHead(tx, ctx, f);
+      const h = await byHead(tx, ctx, f);
+      const { accounts, lines } = h;
       const totals = new Map<string, bigint>();
       for (const l of lines) totals.set(l.key, (totals.get(l.key) ?? ZERO) + l.amount);
       const rowsFor = (kind: "INCOME" | "EXPENSE") =>
@@ -155,7 +183,7 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
         columns: [{ key: "section", label: "" }, { key: "group", label: "Group" }, { key: "head", label: "Head" }, { key: "amount", label: "Amount", kind: "money" }],
         rows,
         totals: { section: income >= expense ? "Surplus" : "Deficit", amount: income >= expense ? income - expense : expense - income },
-        note: headNote(broughtIn, journal),
+        note: headNote(h),
         chart: [{ label: "Income", value: income }, { label: "Expenses", value: expense }],
       };
     },
@@ -321,7 +349,8 @@ export const FINANCE_REPORTS: FinanceReportDef[] = [
         columns: [{ key: "period", label: f.group === "month" ? "Month" : "Date" }, { key: "income", label: "Income", kind: "money" }, { key: "expense", label: "Expense", kind: "money" }, { key: "net", label: "Net", kind: "money" }],
         rows,
         totals: { period: "Total", income: sum(rows, (r) => r.income), expense: sum(rows, (r) => r.expense), net: sum(rows, (r) => r.net) },
-        chart: rows.slice(-12).map((r) => ({ label: r.period, value: r.net > ZERO ? r.net : ZERO })),
+        // A loss shows as a minus bar, never as ₹0 (layman test LB2).
+        chart: rows.slice(-12).map((r) => ({ label: r.period, value: r.net })),
       };
     },
   },

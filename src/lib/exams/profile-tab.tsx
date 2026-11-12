@@ -45,7 +45,7 @@ function ExamsTab({ data, studentId }: { data: StudentExamsTab | null; studentId
           {y.exams.map((e) => (
             <details key={e.examId} className="mt-3 rounded-xl border border-line">
               <summary className="flex min-h-11 cursor-pointer flex-wrap items-center justify-between gap-2 px-3 py-2">
-                <span className="font-medium">{e.title} <span className="text-sm font-normal text-ink-2">{formatDate(e.from)}</span></span>
+                <span className="font-medium">{e.title} <span className="text-sm font-normal text-ink-2">{formatDate(e.from)}{e.takenIn ? ` · in ${e.takenIn}` : ""}</span></span>
                 <span className="text-sm">
                   {y.onlySubjects ? (e.complete ? "" : "Marks still being entered") : e.complete ? `${showPercent(e.percent)}${e.grade ? ` · ${e.grade}` : ""}${e.rank ? ` · Rank ${e.rank}` : ""}${e.outcome ? ` · ${e.outcome}` : ""}` : "Marks still being entered"}
                   {e.status === "DRAFT" && <span className="ml-2 rounded-full bg-surface-2 px-2 py-0.5 text-xs text-ink-2">Draft</span>}

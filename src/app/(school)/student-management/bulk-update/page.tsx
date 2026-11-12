@@ -11,7 +11,7 @@ import { ActionForm, FormSelect } from "@/components/students/action-form";
 import { readField } from "@/lib/students/bulk";
 import { studentYearLookup } from "@/lib/academic/years";
 import { BULK_FIELDS } from "@/lib/students/labels";
-import { BASE, studentPage } from "../_lib/page";
+import { BASE, studentPage, NO_ACCESS } from "../_lib/page";
 import { sectionOptions } from "../_lib/queries";
 import { bulkSectionAction } from "../_actions/bulk";
 import { BulkFieldForm } from "./bulk-field-form";
@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
 /** Bulk field update and bulk section change for students chosen on the Student List, or a whole section. */
 export default async function BulkUpdatePage({ searchParams }: { searchParams: Promise<{ ids?: string; section?: string; field?: string }> }) {
   const { current, yearIds, can } = await studentPage();
-  if (!can.manage) redirect(BASE);
+  if (!can.manage) redirect(NO_ACCESS);
   const sp = await searchParams;
   const fields = BULK_FIELDS.filter((f) => can.seeRestricted || !["apaarId", "pen"].includes(f.key));
   const field = sp.field === "section" ? "section" : fields.find((f) => f.key === sp.field)?.key ?? null;

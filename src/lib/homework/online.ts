@@ -145,6 +145,7 @@ export async function removeMaterial(tx: Tx, s: HomeworkScope, id: string, key: 
 }
 
 export async function addMaterial(tx: Tx, s: HomeworkScope, id: string, input: { file: File | null; url: string; name: string }) {
+  if (input.name.trim().length > 120) throw new HomeworkProblem("The name can be at most 120 characters.", "name");
   const x = await sessionFor(tx, s, id);
   const list = (Array.isArray(x.materials) ? x.materials : []) as Material[];
   if (list.length >= 20) throw new HomeworkProblem("A class can share at most 20 materials.");

@@ -26,6 +26,8 @@ export type DocumentData = {
   extraTables?: { title: string; columns: TableColumn[]; rows: Record<string, FieldValue>[] }[];
   /** Blank signature lines before the signatories, e.g. "Student" and "Class teacher" on an admit card. */
   signLines?: string[];
+  /** "Issued on <date>" printed above the signatures (a report card's date of issue), already formatted. */
+  issuedOn?: string | null;
   /** Student or staff photo (a Stored File id). */
   photoFileId?: string | null;
   /** What the QR code holds, e.g. a link to check the certificate. Defaults to the document's number. */
@@ -286,6 +288,7 @@ function tablePage(input: RenderInput, data: DocumentData, values: Record<string
     ${summary}
     ${extra}
     ${options.body ? `<div class="body small">${paragraphs(mergeText(options.body, values))}</div>` : ""}
+    ${data.issuedOn ? `<p class="issued" style="margin:3mm 0 0;font-size:9.5pt">Issued on ${esc(data.issuedOn)}</p>` : ""}
     ${endRow(codeBlock(input, values, data, "18mm"), lines ? `<div class="sigs">${lines}</div>` : "", signatures(input.signatories))}
     ${options.footer ? `<footer class="foot">${mergeText(options.footer, values)}</footer>` : ""}`;
 }

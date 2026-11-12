@@ -16,11 +16,15 @@ import { DAY_MS, isoDay } from "./dates";
 
 export type DocStatus = "Valid" | "Expiring soon" | "Expired" | "Missing";
 
-/** Valid, Expiring soon (within the first reminder window), Expired, or Missing (no file yet). */
+/**
+ * Valid, Expiring soon (within the first reminder window), Expired, or Missing (no file yet).
+ * A date past its expiry is Expired even when no file was ever collected (layman test LD3):
+ * the expiry is what HR must act on, so it counts with the expired ones, not the missing ones.
+ */
 export function docStatus(doc: Pick<StaffDocument, "fileId" | "expiresOn">, today: Date, soonDays = 30): DocStatus {
+  if (doc.expiresOn && doc.expiresOn < today) return "Expired";
   if (!doc.fileId) return "Missing";
   if (!doc.expiresOn) return "Valid";
-  if (doc.expiresOn < today) return "Expired";
   if (doc.expiresOn.getTime() - today.getTime() <= soonDays * DAY_MS) return "Expiring soon";
   return "Valid";
 }

@@ -6,6 +6,8 @@ import { formatDate, formatRupees, formatRupeesShort } from "@/lib/format";
 import { workOutPay } from "@/lib/salary/calc";
 import { asStatutory, components, ptSlabs, statutoryFor, templates as loadTemplates, lastFrozenMonth } from "@/lib/salary/settings";
 import { fromStored } from "@/lib/salary/structures";
+import { payrollCoverage } from "@/lib/salary/payroll";
+import { someNames } from "@/lib/dashboard/common";
 import { staffOnCampus } from "@/lib/salary/campus";
 import { addMonths, firstOfMonth, monthName } from "@/lib/salary/words";
 import { Card } from "@/components/ui/card";
@@ -60,7 +62,9 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
     ]);
     const slabs = stat.ptOn ? await ptSlabs(tx, stat.ptState) : [];
     const people = await tx.userLogin.findMany({ where: { id: { in: [...new Set(all.map((s) => s.createdById).filter((x): x is string => Boolean(x)))] } }, select: { id: true, displayName: true } });
-    return { staff, depts, all, stat, slabs, comps, tpls, frozen, people };
+    // Who is on this month's payroll and who is left out: the same rule as Generate Salary, campus by campus (layman test LB7).
+    const coverage = await Promise.all(p.campuses.map(async (c) => ({ campus: c, ...(await payrollCoverage(tx, c.id, thisMonth)) })));
+    return { staff, depts, all, stat, slabs, comps, tpls, frozen, people, coverage };
   });
 
   // The version that applies today (or the next one when none has started).
@@ -75,6 +79,9 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
     statutory: asStatutory(data.stat), ptSlabs: data.slabs, month: thisMonth.getUTCMonth() + 1,
   });
   const without = data.staff.filter((s) => !versions.has(s.id));
+  const onPayroll = data.coverage.reduce((n, c) => n + c.staff.length, 0);
+  const missing = data.coverage.flatMap((c) => c.missing);
+  const byCampus = data.coverage.length > 1 ? data.coverage.filter((c) => c.missing.length).map((c) => `${c.campus.name} ${c.missing.length}`).join(", ") : "";
   const withS = data.staff.filter((s) => versions.has(s.id));
   const revised = data.all.filter((s) => s.version > 1 && (!per.from || s.effectiveFrom >= per.from) && (!per.to || s.effectiveFrom <= per.to));
   const revisedStaff = new Set(revised.map((s) => s.staffId)).size;
@@ -109,14 +116,14 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
         </>} />
       <Stack>
         <Stats items={[
-          { label: "Active structures", value: String(withS.length), sub: `of ${data.staff.length} staff`, icon: FileSpreadsheet },
-          { label: "Without a structure", value: String(without.length), sub: without.length ? `${without[0].fullName}${without.length > 1 ? ` and ${without.length - 1} more` : ""} · joined ${formatDate(without[0].joiningDate)}` : "Everyone has one", tone: without.length ? "warn" : undefined, icon: FileWarning },
+          { label: "Salary structures", value: `${onPayroll - missing.length} of ${onPayroll}`, sub: `staff on ${monthName(thisMonth)}’s payroll${data.coverage.length > 1 ? ", all campuses" : ""}`, icon: FileSpreadsheet },
+          { label: "Without a structure", value: String(missing.length), sub: missing.length ? `${someNames(missing.map((s) => s.fullName))}${byCampus ? ` · ${byCampus}` : ""}` : "Everyone has one", tone: missing.length ? "warn" : undefined, icon: FileWarning },
           { label: "Revised", value: String(revisedStaff), sub: revised.length ? `${per.label} · ${commonReason || "new versions"}` : per.label, icon: TrendingUp },
           { label: "Monthly gross", value: formatRupeesShort(monthly), sub: "before loss of pay", icon: Wallet },
         ]} />
-        {without.length > 0 && (
-          <Banner tone="warn" title={`${without.length === 1 ? without[0].fullName : `${without.length} staff`} ${without.length === 1 ? "has" : "have"} no salary structure.`}
-            action={p.change ? <Link href={here({ do: "add", staff: without[0].id })} scroll={false} className={buttonClass("secondary", "sm")}><Words k="Add one" /></Link> : undefined}>
+        {missing.length > 0 && (
+          <Banner tone="warn" title={`${missing.length === 1 ? missing[0].fullName : `${missing.length} staff`} ${missing.length === 1 ? "has" : "have"} no salary structure.`}
+            action={p.change ? <Link href={here({ do: "add", staff: missing[0].id })} scroll={false} className={buttonClass("secondary", "sm")}><Words k="Add one" /></Link> : undefined}>
             <Words k="Left out of" /> {monthName(thisMonth)}<Words k="’s salary until one is added." />
           </Banner>
         )}

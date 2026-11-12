@@ -9,6 +9,7 @@ import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { nextNumber, formatNumber } from "../sequences";
 import { formatDateTime } from "../format";
+import { pointsOf } from "./criteria";
 
 export class TalentProblem extends Error {
   constructor(message: string, public field?: string) {
@@ -136,27 +137,31 @@ export async function markHired(tx: Tx, ctx: SchoolContext, applicationId: strin
 
 // ---------------------------------------------------------------- appraisal
 
+
 /**
  * Starts an appraisal cycle for every staff member on roll. `campusId`: the
  * campus the person starting it is limited to ("One campus"): the cycle is for
  * that campus's staff, in a year of that campus.
  */
-export async function startCycle(tx: Tx, ctx: SchoolContext, input: { name: string; academicYearId: string; criteria: string[]; startDate: Date; endDate: Date }, opts: { campusId?: string | null } = {}) {
+export async function startCycle(tx: Tx, ctx: SchoolContext, input: { name: string; academicYearId: string; criteria: string[]; staffCriteria?: string[]; startDate: Date; endDate: Date }, opts: { campusId?: string | null } = {}) {
   if (input.criteria.length === 0) throw new TalentProblem("Add at least one thing to rate, one per line.", "criteria");
+  // Non-teaching staff are rated on their own points; none given: the same points as teachers.
+  const staffCriteria = input.staffCriteria ?? [];
   if (input.endDate < input.startDate) throw new TalentProblem("End date is before the start date.", "endDate");
   if (opts.campusId && !(await tx.academicYear.findFirst({ where: { id: input.academicYearId, campusId: opts.campusId, archivedAt: null }, select: { id: true } }))) {
     throw new TalentProblem("Choose the academic year from the list.", "academicYearId");
   }
   if (await tx.appraisalCycle.findFirst({ where: { schoolId: ctx.schoolId, name: input.name } })) throw new TalentProblem(`A cycle named ${input.name} already exists.`, "name");
-  const cycle = await tx.appraisalCycle.create({ data: { schoolId: ctx.schoolId, ...input, createdById: ctx.userId } });
+  const cycle = await tx.appraisalCycle.create({ data: { schoolId: ctx.schoolId, ...input, staffCriteria, createdById: ctx.userId } });
   const staff = await tx.staff.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, ...(opts.campusId ? { campusId: opts.campusId } : {}) }, include: { department: true } });
   await tx.appraisal.createMany({
     data: staff.map((s) => ({
       schoolId: ctx.schoolId, cycleId: cycle.id, staffId: s.id,
+      criteria: s.staffType !== "Teaching" && staffCriteria.length ? staffCriteria : input.criteria,
       reviewerId: s.reportingToId ?? (s.department?.headStaffId && s.department.headStaffId !== s.id ? s.department.headStaffId : null),
     })),
   });
-  await writeAudit(tx, ctx, { action: "created", recordType: "Appraisal Cycle", recordId: cycle.id, after: { name: cycle.name, staff: staff.length, criteria: input.criteria } });
+  await writeAudit(tx, ctx, { action: "created", recordType: "Appraisal Cycle", recordId: cycle.id, after: { name: cycle.name, staff: staff.length, criteria: input.criteria, staffCriteria } });
   for (const s of staff) {
     if (s.userLoginId) await notify(tx, ctx, { to: s.userLoginId, type: "appraisal", text: `${cycle.name} has started. Fill your self review.`, link: "/staff-hr-management/recruitment?view=appraisal", groupKey: "appraisal" });
   }
@@ -177,7 +182,7 @@ const cleanRatings = (criteria: string[], raw: Record<string, number>) => {
 export async function saveReview(tx: Tx, ctx: SchoolContext, appraisalId: string, by: "self" | "manager", ratings: Record<string, number>, comment: string | null) {
   const a = await tx.appraisal.findFirstOrThrow({ where: { id: appraisalId }, include: { cycle: true } });
   if (a.cycle.status !== "OPEN") throw new TalentProblem("This appraisal cycle is closed.");
-  const clean = cleanRatings(a.cycle.criteria, ratings);
+  const clean = cleanRatings(pointsOf(a, a.cycle), ratings);
   if (by === "self") {
     if (a.status !== "SELF_REVIEW") throw new TalentProblem("The self review is already done.");
     await tx.appraisal.update({ where: { id: a.id }, data: { selfRatings: clean, selfComment: comment, status: "MANAGER_REVIEW" } });

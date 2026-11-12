@@ -25,7 +25,6 @@ export default async function InvitePage({ searchParams }: { searchParams: Promi
       select: { id: true, fullName: true, phone: true, email: true, designation: true },
     }),
   }));
-  const teacher = roles.find((r) => r.key === "teacher");
   return (
     <>
       <Link href="/settings/users" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline"><Words k={"← Users & Permissions"} /></Link>
@@ -39,7 +38,8 @@ export default async function InvitePage({ searchParams }: { searchParams: Promi
             roles={roles}
             campuses={campuses}
             staff={staff.map((s) => ({ id: s.id, name: s.fullName, phone: s.phone, email: s.email, designation: s.designation }))}
-            defaultRoleId={teacher?.id ?? ""}
+            // No role is ticked for the admin: a pre-ticked Teacher gave every invited person Teacher access too (LE4).
+            defaultRoleId=""
             defaultStaffId={staff.some((s) => s.id === sp.staff) ? sp.staff! : ""}
           />
         </CardBody>

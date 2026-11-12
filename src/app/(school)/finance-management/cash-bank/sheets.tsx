@@ -8,7 +8,7 @@ import { WarnCheck } from "../_components/forms";
 import { addAccountAction, moveMoneyAction, openingAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
 
-const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
+const inr = (n: number) => `${n < 0 ? "−" : ""}₹${Math.abs(Math.round(n)).toLocaleString("en-IN")}`;
 const num = (s: string) => Number(s.replace(/[^\d.]/g, "")) || 0;
 
 export type AccountChoice = Option & { balance: number };

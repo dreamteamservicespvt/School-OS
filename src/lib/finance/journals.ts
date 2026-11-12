@@ -80,6 +80,14 @@ export type LedgerLine = { date: Date; key: string; debit: bigint; credit: bigin
 const OPENING: LedgerAccount = { key: "opening", name: "Opening balances", group: "Capital", kind: "OTHER", code: null };
 const CONTRA: LedgerAccount = { key: "contra", name: "Money moved (contra)", group: "Cash and bank", kind: "OTHER", code: null };
 const UNASSIGNED: LedgerAccount = { key: "unassigned", name: "Not assigned to a head", group: "Other", kind: "OTHER", code: null };
+/**
+ * A salary advance or staff loan paid out, and its repayments: money the school
+ * gets back, so neither salary expense nor income (layman test LB5: a ₹30,000
+ * loan was counted in Salaries on the Profit and loss).
+ */
+export const STAFF_ADVANCES: LedgerAccount = { key: "staff-advances", name: "Staff advances and loans", group: "Money owed to the school", kind: "OTHER", code: null };
+/** A Day Book entry of a salary advance or loan (paid out, repaid, or reversed). */
+export const isStaffAdvance = (e: Pick<DayBookEntry, "section" | "sourceType">) => e.section === "salary-advance" || e.sourceType.startsWith("salary-advance");
 
 export async function chart(tx: Tx, ctx: SchoolContext) {
   const [heads, banks] = await Promise.all([
@@ -89,7 +97,7 @@ export async function chart(tx: Tx, ctx: SchoolContext) {
   const accounts = new Map<string, LedgerAccount>();
   for (const b of banks) accounts.set(`bank:${b.id}`, { key: `bank:${b.id}`, name: b.name, group: "Cash and bank", kind: b.kind, code: b.accountLast4 ? `…${b.accountLast4}` : null });
   for (const h of heads) accounts.set(`head:${h.id}`, { key: `head:${h.id}`, name: h.name, group: h.groupName, kind: h.kind === "INCOME" ? "INCOME" : "EXPENSE", code: h.code });
-  for (const a of [OPENING, CONTRA, UNASSIGNED]) accounts.set(a.key, a);
+  for (const a of [OPENING, CONTRA, UNASSIGNED, STAFF_ADVANCES]) accounts.set(a.key, a);
   const bySystem = new Map(heads.filter((h) => h.systemKey).map((h) => [h.systemKey!, h.id]));
   return { accounts, bySystem };
 }
@@ -100,9 +108,11 @@ function sourceHref(e: DayBookEntry) {
 }
 
 /** The income or expense side of a Day Book entry: "head:<id>", or opening, contra, unassigned. */
-export function headSide(e: Pick<DayBookEntry, "section" | "accountHeadId" | "studentId">, bySystem: Map<string, string>): string {
+export function headSide(e: Pick<DayBookEntry, "section" | "accountHeadId" | "studentId" | "sourceType">, bySystem: Map<string, string>): string {
   if (e.section === "opening") return "opening";
   if (e.section === "transfer") return "contra";
+  // Before the head: advances are posted with the Salaries head, but they are not salary.
+  if (isStaffAdvance(e)) return STAFF_ADVANCES.key;
   if (e.accountHeadId) return `head:${e.accountHeadId}`;
   const sys = ["fees-full", "fees-partial", "other-fees", "online-fees", "daycare"].includes(e.section) ? "fees" : e.section === "refund" ? "refunds" : e.section.startsWith("salary") ? "salary" : null;
   // Reversals carry the original's head; fee reversals have none, so they go back to Fees.

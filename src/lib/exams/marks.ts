@@ -20,7 +20,7 @@ import { formatDate } from "../format";
 import { assertYearOpen } from "../academic/years";
 import { plural, wordList } from "../academic/common";
 import { ExamRuleError, showMarks } from "./common";
-import { checkMark, isDone, round2 } from "./compute";
+import { checkMark, isDone, missingWords, round2 } from "./compute";
 import { categoriesOf, type Category } from "./datesheet";
 import { examSettings } from "./settings";
 import { sectionStudents, sitters, type RosterStudent } from "./roster";
@@ -161,7 +161,13 @@ export async function submitPaper(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
   const missing = paper.students.filter((s) => !isDone(paper.marks.find((m) => m.studentId === s.studentId), paper.subject.gradeOnly));
   if (paper.students.length === 0) throw new ExamRuleError(`No students sit ${paper.subject.name} in ${paper.section.label}.`);
   if (missing.length) {
-    const names = missing.slice(0, 4).map((s) => s.name);
+    // A student with Theory but no Internal is named with the part missing (QA LC10).
+    const names = missing.slice(0, 4).map((s) => {
+      const m = paper.marks.find((x) => x.studentId === s.studentId);
+      const saved = (m?.parts ?? {}) as Record<string, unknown>;
+      const parts = Object.fromEntries(paper.categories.map((c) => [c.name, saved[c.name] === null || saved[c.name] === undefined ? "" : String(saved[c.name])]));
+      return `${s.name}${missingWords({ parts, absent: Boolean(m?.absent) }, paper.categories, paper.subject.gradeOnly)}`;
+    });
     throw new ExamRuleError(`Enter marks for ${plural(missing.length, "more student")} before submitting: ${wordList(names)}${missing.length > 4 ? " and others" : ""}. Tick Absent for a student who missed the paper.`);
   }
   await tx.marksPaper.update({ where: { id: paper.paper.id }, data: { status: "SUBMITTED", submittedAt: new Date(), submittedById: ctx.userId } });
@@ -339,6 +345,22 @@ export function marksDueSoon(p: { status: string; date: Date; due: Date | null }
   return p.status !== "SUBMITTED" && p.status !== "LOCKED" && p.date <= today && (!p.due || p.due.getTime() <= today.getTime() + MARKS_DUE_DAYS * 86_400_000);
 }
 
+/** A paper still waiting for marks whose marks due date has passed (Marks Entry's "Overdue"). */
+export function marksOverdue(p: { status: string; due: Date | null }, today: Date) {
+  return p.status !== "SUBMITTED" && p.status !== "LOCKED" && Boolean(p.due && p.due.getTime() < today.getTime());
+}
+
+/** Marks Entry's "Due soon": waiting for marks and due within MARKS_DUE_DAYS, not yet late (QA LC8: all late papers were "Due soon"). */
+export function marksDueSoonOnly(p: { status: string; date: Date; due: Date | null }, today: Date) {
+  return marksDueSoon(p, today) && !marksOverdue(p, today);
+}
+
+/** Which Marks Entry filter shows a set of waiting papers: Overdue, Due soon, or both ("due"). */
+export function marksDueFilter(papers: { status: string; due: Date | null }[], today: Date) {
+  const late = papers.filter((p) => marksOverdue(p, today)).length;
+  return late === papers.length ? "overdue" : late === 0 ? "soon" : "due";
+}
+
 /**
  * `counts: false` leaves out what each paper's marks and teachers are (done, of, waiting, teachers come back
  * empty): for the Dashboard, which shows only which papers wait for marks (G37: it read every mark of the year).
@@ -392,9 +414,12 @@ export async function papersFor(tx: Tx, ctx: SchoolContext, scope: ExamScope, ye
     const students = sitters(rosterBySection.get(section.id) ?? [], subject);
     const mine = first(marksByEntry.get(entry.id) ?? [], (m) => m.studentId);
     const done = students.filter((s: RosterStudent) => isDone(mine.get(s.studentId), subject.gradeOnly)).length;
+    const saved = paperByKey.get(`${entry.id}|${section.id}`)?.status ?? "NOT_STARTED";
+    // "In progress" only once a mark is in: a paper opened (or every mark cleared) with nothing entered is still Not started (QA LC8).
+    const status = counts && saved === "IN_PROGRESS" && !students.some((s: RosterStudent) => mine.has(s.studentId)) ? "NOT_STARTED" : saved;
     return {
       entryId: entry.id, sectionId: section.id, examId: exam.id, examTitle: exam.title, sectionLabel: `${section.schoolClass.name} ${section.name}`, subjectName: subject.name,
-      date: entry.date, due: entry.marksDueDate, status: paperByKey.get(`${entry.id}|${section.id}`)?.status ?? "NOT_STARTED", done, of: students.length, gradeOnly: subject.gradeOnly,
+      date: entry.date, due: entry.marksDueDate, status, done, of: students.length, gradeOnly: subject.gradeOnly,
       waiting: waitingByEntry.get(entry.id)?._count ?? 0,
       teachers: (allocsByPaper.get(`${section.id}|${entry.subjectId}`) ?? []).flatMap((a) => (staffById.get(a.staffId) ?? []).map((x) => ({ name: x.fullName, userId: x.userLoginId }))),
     };

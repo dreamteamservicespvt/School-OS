@@ -126,7 +126,7 @@ describe("leave reaches salary once (Done when 1)", () => {
 describe("a change after September is paid comes into October (Done when 7)", () => {
   beforeAll(async () => {
     await approveRun(sepId);
-    await withSchool(acc(), (tx) => markPaid(tx, acc(), sepId, { date: d("2026-09-30"), mode: "BANK_TRANSFER", reference: "UTR-SEP", accountId: null, today }));
+    await withSchool(acc(), (tx) => markPaid(tx, acc(), sepId, { date: d("2026-09-30"), mode: "BANK_TRANSFER", reference: "UTR-SEP", accountId: null, today, confirmLowCash: true }));
     // After payment: Ravi's absence on 24 September becomes sick leave; Kavitha is found absent on 28
     // September; Hema's 29 September is marked absent by mistake.
     await applyAndApprove(f.teacherA.id, f.staffA.id, sl.id, "2026-09-24", "2026-09-24");

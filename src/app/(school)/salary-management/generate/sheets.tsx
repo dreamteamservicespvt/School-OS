@@ -8,6 +8,7 @@ import { Segmented } from "@/components/ui/controls";
 import { FieldShell, type Option } from "@/components/ui/field";
 import { buttonClass } from "@/components/ui/button";
 import { ProblemLink } from "../_components/forms";
+import { WarnCheck } from "../../finance-management/_components/forms";
 import { addAdjustmentAction, markPaidAction, openMonthAction, payStatutoryAction, tdsAction } from "./actions";
 import { Words } from "@/lib/i18n/client";
 import { PaymentRefField } from "@/components/ui/payment-ref-field";
@@ -59,6 +60,7 @@ export function PayRunSheet({ closeHref, runId, title, net, today, banks, mainBa
       {mode !== "CASH" && <PaymentRefField mode={mode} label={mode === "CHEQUE" ? "Cheque numbers" : "Bank batch reference or UTR"} required className="font-mono" placeholder={mode === "CHEQUE" ? "004581-004584" : "HDFCB26100941"} />}
       {mode !== "CASH" && banks.length > 0 && <SSelect name="accountId" label="From account" options={banks} start={mainBank} />}
       {mode === "BANK_TRANSFER" && <a href={bankFileHref} download className={buttonClass("ghost", "md", "self-start -ml-2")}><FileDown size={17} aria-hidden="true" /><Words k="Download bank transfer file" /></a>}
+      <WarnCheck field="mode" name="confirmLowCash" title="Pay anyway" sub="The cash or bank balance goes below zero until money comes in." />
     </SheetForm>
   );
 }

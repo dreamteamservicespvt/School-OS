@@ -18,7 +18,8 @@ export type StudentExamsTab = {
     yearId: string; year: string; section: string; sectionId: string;
     /** Set when the viewer sees only the subjects they teach: their names. */
     onlySubjects: string[] | null;
-    exams: { examId: string; title: string; from: Date; percent: number | null; grade: string | null; rank: number | null; outcome: string | null; status: "DRAFT" | "PUBLISHED"; complete: boolean; subjects: SubjectResult[] }[];
+    /** `takenIn`: the section the exam was taken in, when it is not the year's section shown (the student moved since; QA B9). */
+    exams: { examId: string; title: string; from: Date; takenIn: string | null; percent: number | null; grade: string | null; rank: number | null; outcome: string | null; status: "DRAFT" | "PUBLISHED"; complete: boolean; subjects: SubjectResult[] }[];
     final: { percent: number | null; grade: string | null; outcome: string | null; status: "DRAFT" | "PUBLISHED" } | null;
     reportCards: { period: string; label: string; status: string; ready: boolean }[];
   }[];
@@ -42,6 +43,9 @@ export async function studentExamsTab(tx: Tx, ctx: SchoolContext, scope: ExamSco
   const results = await tx.result.findMany({ where: { studentId, academicYearId: { in: visible.map((e) => e.academicYearId) }, leftOut: false } });
   const exams = await tx.exam.findMany({ where: { id: { in: results.map((r) => r.examId).filter((x): x is string => Boolean(x)) } }, select: { id: true, title: true, startDate: true } });
   const cards = await tx.reportCard.findMany({ where: { studentId } });
+  // A result keeps the section the exam was taken in; its rank is in that section.
+  const takenSections = await tx.section.findMany({ where: { id: { in: [...new Set(results.map((r) => r.sectionId))] } }, include: { schoolClass: { select: { name: true } } } });
+  const sectionLabel = new Map(takenSections.map((x) => [x.id, `${x.schoolClass.name} ${x.name}`]));
   const years: StudentExamsTab["years"] = [];
   for (const e of visible) {
     const mine = results.filter((r) => r.academicYearId === e.academicYearId);
@@ -59,8 +63,9 @@ export async function studentExamsTab(tx: Tx, ctx: SchoolContext, scope: ExamSco
         .map((x) => {
           const r = mine.find((m) => m.key === examKey(x.id))!;
           const subjects = ((r.subjects as unknown as SubjectResult[]) ?? []).filter((s) => !own || own.has(s.subjectId));
-          if (own) return { examId: x.id, title: x.title, from: x.startDate, percent: null, grade: null, rank: null, outcome: null, status: r.status, complete: r.complete, subjects };
-          return { examId: x.id, title: x.title, from: x.startDate, percent: r.percent, grade: r.grade, rank: r.rank, outcome: r.outcome, status: r.status, complete: r.complete, subjects };
+          const takenIn = r.sectionId !== e.sectionId ? sectionLabel.get(r.sectionId) ?? null : null;
+          if (own) return { examId: x.id, title: x.title, from: x.startDate, takenIn, percent: null, grade: null, rank: null, outcome: null, status: r.status, complete: r.complete, subjects };
+          return { examId: x.id, title: x.title, from: x.startDate, takenIn, percent: r.percent, grade: r.grade, rank: r.rank, outcome: r.outcome, status: r.status, complete: r.complete, subjects };
         })
         .filter((x) => !own || x.subjects.length > 0),
       onlySubjects: own ? [...new Set(exams.flatMap((x) => ((mine.find((m) => m.key === examKey(x.id))?.subjects as unknown as SubjectResult[]) ?? []).filter((s) => own.has(s.subjectId)).map((s) => s.name)))] : null,

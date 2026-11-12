@@ -49,7 +49,7 @@ export function Thread({ items, submissionId, canReply }: { items: ThreadItem[];
       {canReply && (
         <div className="flex gap-2 mt-2">
           <label htmlFor={`reply-${submissionId}`} className="sr-only"><Words k="Reply to the student" /></label>
-          <input id={`reply-${submissionId}`} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Reply to the student" className={cx(inputCls(problem), "!h-10")}
+          <input id={`reply-${submissionId}`} maxLength={1000} value={reply} onChange={(e) => setReply(e.target.value)} placeholder="Reply to the student" className={cx(inputCls(problem), "!h-10")}
             onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); if (reply.trim()) send(); } }} />
           <Button variant="secondary" icon={Reply} disabled={!reply.trim()} loading={busy} onClick={send} className="!h-10"><Words k="Reply" /></Button>
         </div>
@@ -100,7 +100,7 @@ export function GradeSheet({ closeHref, id, name, sub, max, bands, showGrade, st
             {showGrade && <FieldShell label="Grade" id="gr-grade" help="Worked out from the score"><div id="gr-grade" className="h-11 rounded-xl bg-sunken/60 px-3.5 flex items-center font-semibold">{grade}</div></FieldShell>}
           </div>
           <FieldShell label="Feedback" id="gr-fb" help="The student sees this">
-            <textarea id="gr-fb" name="feedback" rows={3} value={fb} onChange={(e) => setFb(e.target.value)} placeholder="One thing done well, one thing to fix" className={cx(inputCls(), "py-2.5")} />
+            <textarea id="gr-fb" name="feedback" rows={3} maxLength={2000} value={fb} onChange={(e) => setFb(e.target.value)} placeholder="One thing done well, one thing to fix" className={cx(inputCls(), "py-2.5")} />
           </FieldShell>
           {ai && (!draft ? (
             <div className="flex flex-col gap-1">

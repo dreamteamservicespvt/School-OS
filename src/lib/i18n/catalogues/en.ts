@@ -20,6 +20,8 @@ export const EN = [
   "This page could not open",
   "Something went wrong on our side while loading it. Nothing you saved was lost. Try again; if it keeps happening, tell your School Admin or DREAM TEAM support.",
   "Reference:",
+  "School OS is busy right now",
+  "Many people are using it at the same time. Nothing you saved was lost. Wait a few seconds and try again.",
   "Try again",
   // src/app/(school)/layout.tsx
   "Now",
@@ -1945,6 +1947,7 @@ export const EN = [
   "Amount or %",
   "Up to",
   "applies at once. Above it, the request goes to Approvals and applies once approved.",
+  "changes the fee at once. A bigger reduction or removal waits for approval and changes the fee once approved.",
   "No fee heads yet. Add them in Fee Structure first.",
   "Takes off late fees the student has not paid yet.",
   "Optional. Photo or PDF.",
@@ -14855,6 +14858,19 @@ export const EN = [
   "They are not on this list or in the staff counts. Add their staff record; their login stays as it is.",
   "Add staff record",
   "1 person can sign in but has no staff record",
+  // layman test A/E fixes (LA3, LA4, LA7, LA11, LE3, B10)
+  "This day is before this academic year",
+  "This academic year starts on {date}. Days of earlier years are read in the Attendance Register.",
+  "Leave Add student? What you typed is not saved yet.",
+  "Type the child's name in letters.",
+  "Type the parent's name in letters.",
+  "The due date could not be read. Type it as DD-MM-YYYY, or pick it from the calendar. The book was not issued.",
+  "On screen they only read: {pages}",
+  "Not shown to them (another role's desk): {pages}",
+  "Full, oversees",
+  "To change it first, withdraw it: it goes back to Draft.",
+  "It goes back to Draft and the Principal no longer sees the request. Nothing has been sent yet.",
+  "Overdue or due soon",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

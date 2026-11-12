@@ -9,7 +9,7 @@ import { ActionForm, FormArea, FormSelect } from "@/components/students/action-f
 import { StudentPicker } from "@/components/students/student-picker";
 import { loadVisibleStudent } from "@/lib/students/access";
 import { counsellors } from "@/lib/students/behaviour";
-import { BASE, studentPage } from "../../../_lib/page";
+import { BASE, studentPage, NO_ACCESS } from "../../../_lib/page";
 import { sectionOptions } from "../../../_lib/queries";
 import { referAction } from "../../../_actions/behaviour";
 import { Words } from "@/lib/i18n/client";
@@ -21,7 +21,8 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function ReferPage({ searchParams }: { searchParams: Promise<{ student?: string; incident?: string }> }) {
   const { current, settings, yearIds, can } = await studentPage();
-  if (!settings.counsellingOn || !can.contribute) redirect(`${BASE}/behaviour`);
+  if (!settings.counsellingOn) redirect(`${BASE}/behaviour`);
+  if (!can.contribute) redirect(NO_ACCESS);
   const sp = await searchParams;
   const data = await withSchool(current.ctx, async (tx) => {
     const sections = await sectionOptions(tx, current, yearIds, { own: can.reach === "own" });

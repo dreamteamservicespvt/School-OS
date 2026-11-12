@@ -1,13 +1,22 @@
 // Who does the desk work (owner's prototype changes of 13 and 14 Oct 2026,
-// design/ui-prototype/src/config.js DUTY). The Principal, School Admin and
-// Vice Principal look after the whole school: they read the register, the
-// fee pages and marks progress, see the gaps and send reminders, but they do
-// not take a class register, sit at the fee counter or enter marks.
+// design/ui-prototype/src/config.js DUTY). The Principal and Vice Principal
+// look after the whole school: they read the register, the fee pages and
+// marks progress, see the gaps and send reminders, but they do not take a
+// class register, sit at the fee counter or enter marks.
+//
+// The School Admin is not narrowed here (layman tests LA11 and LD6, 12 Nov
+// 2026). docs/blueprint/05-roles.md gives the School Admin Full in every
+// module ("Gets everything": the office head who runs the software), and
+// Settings, Users & Permissions said "Full" and "Everything, in every module"
+// while the screens said "View only" and hid Student Leave, so in a school
+// without the Office Staff template nobody in the office could record a
+// student's leave. The School Admin's screens now follow the blueprint: Full.
 //
 // This narrows what the screens offer. What the server allows still follows
 // docs/blueprint/05-roles.md (a Principal has Full Attendance there), so a
 // page or button hidden here stays allowed by requireAction(); pages hidden
-// here send the person to the page they use instead.
+// here send the person to the page they use instead. Settings shows the same
+// narrowing in words (dutyNotes), so the two never disagree.
 //
 //   hide: pages of the module this role never uses (not in the tabs, the
 //         address goes to the module's overview page)
@@ -22,7 +31,7 @@ import type { ModuleKey } from "./modules";
 export type PageMode = "full" | "view" | "hidden";
 type Rule = { hide?: readonly string[]; view?: readonly string[] };
 
-/** The roles that look after the whole school rather than one desk. */
+/** The roles that look after the whole school rather than one desk (homes, reminders). The School Admin is one, but its pages are not narrowed (see above). */
 export const OVERSIGHT_ROLES = ["principal", "school-admin", "vice-principal"] as const;
 
 /** Taking attendance and recording student leave belong to class teachers and the office. */
@@ -75,22 +84,6 @@ export const DUTY: Readonly<Record<string, Partial<Record<ModuleKey, Rule>>>> = 
     "hostel-management": { view: ["rooms", "allocation", "rollcall", "outings", "mess", "reports", "settings"] },
     // Inventory: the Store Keeper runs the store; the Principal approves and orders purchases and reads the rest (with Remind).
     "inventory-management": { view: ["items", "issue", "assets", "rooms", "reports", "settings"] },
-  },
-  "school-admin": {
-    "events-calendar": { view: ["daily"] },
-    "attendance-management": { hide: ATTENDANCE_DESK, view: ["register"] },
-    "fee-management": { hide: ["collect"], view: ["dashboard", "payments", "documents", "ledger", "defaulters", "concessions", "reports"] },
-    "finance-management": { view: ["day-book"] },
-    "examination-results": { view: ["marks"] },
-    "homework-learning": { hide: TEACHING_DESK, view: ["homework", "learning-progress"] },
-    "reports-analytics": { view: ["warnings"] },
-    "transport-management": { view: TRANSPORT_PAGES.filter((p) => p !== "settings") },
-    // Library: the School Admin reads every page and keeps Library Settings.
-    "library-management": { view: ["issue", "books", "members", "fines", "reports"] },
-    // Hostel: the School Admin reads every page and keeps Hostel Settings (hostels, wardens, fee plans).
-    "hostel-management": { view: ["rooms", "allocation", "rollcall", "outings", "mess", "reports"] },
-    // Inventory: the School Admin reads every page and keeps Inventory Settings.
-    "inventory-management": { view: ["items", "issue", "purchases", "assets", "rooms", "reports"] },
   },
   "vice-principal": {
     "events-calendar": { view: ["daily"] },
@@ -151,4 +144,35 @@ export function leaderKind(person: DutyPerson): LeaderKind {
   if (keys.includes("school-admin")) return "office";
   if (keys.includes("vice-principal")) return "vp";
   return "principal";
+}
+
+/** Plain names of the page keys in DUTY, for Settings (the module's own tab words). */
+const PAGE_WORDS: Record<string, string> = {
+  take: "Take Attendance", "student-leave": "Student Leave", staff: "Staff Attendance", devices: "Devices", register: "Attendance Register",
+  collect: "Collect Fee", dashboard: "Fee dashboard", payments: "Payments", documents: "Documents", ledger: "Student ledger", defaulters: "Defaulters", concessions: "Concessions",
+  "day-book": "Day Book", marks: "Marks Entry", add: "Add Staff", warnings: "Early Warnings", daily: "Daily Activities",
+  "payment-gateways": "Payment gateways", messaging: "Messaging", "data-security": "Data & Security", "school-profile": "School profile", users: "Users & Permissions", "document-designs": "Document designs", modules: "Modules",
+  homework: "Homework", submissions: "Submissions", "study-material": "Study material", quizzes: "Quizzes", discussions: "Discussions", "online-classes": "Online classes", "learning-progress": "Learning progress",
+  live: "Live map", routes: "Routes", vehicles: "Vehicles", students: "Students", trips: "Trips", issue: "Issue & Return", books: "Books", members: "Members & Cards", fines: "Fines",
+  rooms: "Rooms", allocation: "Allocation", rollcall: "Roll call", outings: "Outings", mess: "Mess", items: "Items & Stock", assets: "Assets", purchases: "Purchases", reports: "Reports", settings: "Settings",
+};
+
+/**
+ * What the screens narrow for this person in a module, in words for Settings, Users & Permissions
+ * ("Full" there, but these pages are only read or not shown), or null when nothing is narrowed.
+ */
+export function dutyNotes(person: DutyPerson, module: ModuleKey): { reads: string[]; notShown: string[] } | null {
+  const pages = new Set<string>();
+  for (const role of person.roles) {
+    const rule = role.key ? DUTY[role.key]?.[module] : undefined;
+    for (const p of [...(rule?.hide ?? []), ...(rule?.view ?? [])]) pages.add(p);
+  }
+  const reads: string[] = [];
+  const notShown: string[] = [];
+  for (const p of pages) {
+    const mode = pageMode(person, module, p);
+    if (mode === "view") reads.push(PAGE_WORDS[p] ?? p);
+    else if (mode === "hidden") notShown.push(PAGE_WORDS[p] ?? p);
+  }
+  return reads.length || notShown.length ? { reads, notShown } : null;
 }

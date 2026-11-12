@@ -28,9 +28,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
-export default async function ApprovalPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function ApprovalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const current = await requireCurrent();
   const { id } = await params;
+  // "Reject" in the Approvals list opens the reason box at once (QA LC15).
+  const startReject = (await searchParams)?.reject === "1";
   if (!UUID.test(id)) notFound();
   const roleKeys = current.roles.map((r) => r.key);
   const tz = current.school.timeZone;
@@ -67,7 +69,8 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
   const mine = a.askedById === current.user.id;
 
   return (
-    <div className="pb-32 sm:pb-0">
+    // A long title with no spaces wraps instead of running off the screen (QA LC16).
+    <div className="pb-32 sm:pb-0 min-w-0 [&_h1]:[overflow-wrap:anywhere]">
       <PageHeader title={a.summary} href={`/approvals/${a.id}`} userId={current.user.id}
         crumbs={<><Link href="/approvals" className="font-semibold text-brand hover:underline"><Words k="Approvals" /></Link><I.ChevronRight size={14} aria-hidden="true" /><span>{requestLabel(a.type)}</span></>}>
         <Badge tone={status.tone}>{status.label}</Badge>
@@ -128,7 +131,7 @@ export default async function ApprovalPage({ params }: { params: Promise<{ id: s
           </CardBody>
         </Card>
 
-        <DecisionBar id={a.id} summary={a.summary} canDecide={mayDecide} canReject={mayRejectIt} canWithdraw={open && mine} />
+        <DecisionBar id={a.id} summary={a.summary} canDecide={mayDecide} canReject={mayRejectIt} canWithdraw={open && mine} startReject={startReject} />
       </div>
     </div>
   );

@@ -2,7 +2,7 @@
 
 import { file as oneFile, optionalText, str, strs } from "@/lib/fees/act";
 import { HomeworkProblem } from "@/lib/homework/access";
-import { archiveHomework, editHomework, giveHomework, givenWords, type NewAttachment } from "@/lib/homework/homework";
+import { archiveHomework, editHomework, giveHomework, givenWords, tellAfterGiving, type NewAttachment } from "@/lib/homework/homework";
 import { resendToUnseen } from "@/lib/homework/notify-parents";
 import { remindTeacher } from "@/lib/homework/overview";
 import { submitWork } from "@/lib/homework/submissions";
@@ -59,7 +59,11 @@ export async function giveHomeworkAction(_prev: unknown, fd: FormData) {
   }, (r) => ({
     message: givenWords(r.made),
     link: { href: `/homework-learning/homework/${r.first.id}`, label: "Open" },
-  }));
+  }), async (r, current) => {
+    // Students and parents hear once the homework is saved (QA LC2); who was told stays on the server.
+    await tellAfterGiving(current.ctx, r);
+    return { ...r, tell: [] };
+  });
 }
 
 export async function editHomeworkAction(_prev: unknown, fd: FormData) {

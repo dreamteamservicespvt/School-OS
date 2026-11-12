@@ -34,6 +34,66 @@ export function toCsv<Row>(columns: ExportColumn<Row>[], rows: Row[], meta: Expo
   return Buffer.from("﻿" + lines.join("\r\n"), "utf8");
 }
 
+/** What a column holds in Excel: kept as text, or numbers with a format that looks like the screen. */
+type CellKind = { kind: "text" } | { kind: "number" | "money" | "percent"; format: string };
+
+/** Columns that hold numbers which are names, not amounts: never added up, and "0042" must keep its zeros. */
+const ID_LABEL = /phone|mobile|whatsapp|aadhaar|aadhar|pin ?code|pincode|account|ifsc|isbn|accession|card|code|\b(no|number|id)\.?$/i;
+const PLAIN = /^-?(?:0|[1-9]\d{0,2}(?:,\d{2,3})+|[1-9]\d{0,8})(?:\.\d+)?$/;
+const MONEY = /^(-?)₹\s?(-?)((?:\d{1,3}(?:,\d{2,3})*|\d+)(?:\.\d+)?)$/;
+const PERCENT = /^(-?\d+(?:\.\d+)?)\s?%$/;
+/** Shown for "nothing" in some columns; left as it is, and does not stop the rest being numbers. */
+const BLANK = /^(?:|-|–|—|n\/a)$/i;
+
+/** ₹ with Indian grouping (₹1,23,456): Excel's own grouping is in threes, so lakhs and crores get their own sections. */
+const rupeeFormat = (paise: boolean) => {
+  const d = paise ? ".00" : "";
+  return `[>=10000000]"₹"##\\,##\\,##\\,##0${d};[>=100000]"₹"##\\,##\\,##0${d};"₹"#,##0${d}`;
+};
+
+const decimals = (s: string) => (s.includes(".") ? s.split(".")[1].length : 0);
+
+/**
+ * Reads a column's cells as numbers when every filled cell is one (layman tests LE5, LC11:
+ * "55", "₹14,300" and "87.5%" were text, so SUM gave 0 and sorting was wrong). Money becomes
+ * rupees with a ₹ format, a percentage a fraction with a % format, so the file looks as before.
+ */
+export function cellKind(label: string, cells: unknown[]): CellKind {
+  if (ID_LABEL.test(label.trim())) return { kind: "text" };
+  const filled = cells.filter((c) => !(typeof c === "string" && BLANK.test(c.trim())) && c !== null && c !== undefined);
+  if (!filled.length || filled.some((c) => typeof c !== "string" && typeof c !== "number")) return { kind: "text" };
+  const texts = filled.map((c) => String(c).trim());
+  if (texts.every((t) => MONEY.test(t))) {
+    return { kind: "money", format: rupeeFormat(texts.some((t) => decimals(t) > 0)) };
+  }
+  if (texts.every((t) => PERCENT.test(t))) {
+    const d = Math.min(2, Math.max(0, ...texts.map((t) => decimals(t.replace(/\s?%$/, "")))));
+    return { kind: "percent", format: d ? `0.${"0".repeat(d)}%` : "0%" };
+  }
+  if (filled.every((c) => typeof c === "number" || PLAIN.test(String(c).trim()))) {
+    const grouped = texts.some((t) => t.includes(","));
+    const d = Math.min(4, Math.max(0, ...texts.map(decimals)));
+    return { kind: "number", format: grouped ? `#,##0${d ? `.${"0".repeat(d)}` : ""}` : "General" };
+  }
+  return { kind: "text" };
+}
+
+/** One cell in a column of `kind`: a number where it reads as one, else the text as it was. */
+export function cellValue(kind: CellKind, v: unknown): string | number {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "number" || kind.kind === "text") return typeof v === "number" ? v : String(v);
+  const t = String(v).trim();
+  if (kind.kind === "money") {
+    const m = MONEY.exec(t);
+    return m ? Number(`${m[1] || m[2] ? "-" : ""}${m[3].replace(/,/g, "")}`) : String(v);
+  }
+  if (kind.kind === "percent") {
+    const m = PERCENT.exec(t);
+    return m ? Number(m[1]) / 100 : String(v);
+  }
+  return PLAIN.test(t) ? Number(t.replace(/,/g, "")) : String(v);
+}
+
 export async function toXlsx<Row>(columns: ExportColumn<Row>[], rows: Row[], meta: ExportMeta) {
   const wb = new ExcelJS.Workbook();
   wb.creator = "School OS";
@@ -45,10 +105,21 @@ export async function toXlsx<Row>(columns: ExportColumn<Row>[], rows: Row[], met
   const header = ws.addRow(columns.map((c) => c.label));
   header.font = { bold: true };
   header.eachCell((cell) => { cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FFE8EFFF" } }; });
-  for (const r of rows) ws.addRow(columns.map((c) => c.value(r) ?? ""));
+  const values = columns.map((c) => rows.map((r) => c.value(r)));
+  const kinds = columns.map((c, i) => cellKind(c.label, values[i]));
+  rows.forEach((_, r) => {
+    const row = ws.addRow(columns.map((_, i) => cellValue(kinds[i], values[i][r])));
+    kinds.forEach((k, i) => {
+      if (k.kind === "text" || k.format === "General") return;
+      const cell = row.getCell(i + 1);
+      if (typeof cell.value === "number") cell.numFmt = k.format;
+    });
+  });
   columns.forEach((c, i) => {
-    const longest = Math.max(c.label.length, ...rows.slice(0, 500).map((r) => String(c.value(r) ?? "").length));
-    ws.getColumn(i + 1).width = Math.min(50, Math.max(10, longest + 2));
+    const longest = Math.max(c.label.length, ...values[i].slice(0, 500).map((v) => String(v ?? "").length));
+    const col = ws.getColumn(i + 1);
+    col.width = Math.min(50, Math.max(10, longest + 2));
+    if (kinds[i].kind !== "text") header.getCell(i + 1).alignment = { horizontal: "right" };
   });
   ws.views = [{ state: "frozen", ySplit: 5 }];
   return Buffer.from(await wb.xlsx.writeBuffer());

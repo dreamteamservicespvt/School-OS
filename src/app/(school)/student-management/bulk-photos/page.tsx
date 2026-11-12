@@ -3,7 +3,7 @@ import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/shell/page-header";
 import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody } from "@/components/ui/card";
-import { BASE, studentPage } from "../_lib/page";
+import { BASE, studentPage, NO_ACCESS } from "../_lib/page";
 import { PhotosForm } from "./photos-form";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -15,7 +15,7 @@ export async function generateMetadata(): Promise<Metadata> {
 /** Bulk profile photos: many photos at once, matched to students by admission number in the file name. */
 export default async function BulkPhotosPage() {
   const { current, can } = await studentPage();
-  if (!can.manage) redirect(BASE);
+  if (!can.manage) redirect(NO_ACCESS);
   return (
     <>
       <BackLink href={BASE} label="Students" />

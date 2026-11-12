@@ -17,7 +17,7 @@ import { studentScope } from "@/lib/students/access";
 import { blockMessage, isCleared } from "@/lib/students/leaving";
 import { originalTc } from "@/lib/students/certificates";
 import { CERTIFICATE_LABEL } from "@/lib/students/labels";
-import { BASE, certificatesPage, todayIso } from "../../_lib/page";
+import { BASE, certificatesPage, todayIso, NO_ACCESS } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { requestCertificateAction } from "../../_actions/certificates";
 import { Words } from "@/lib/i18n/client";
@@ -33,7 +33,7 @@ const CONDUCT = ["Good", "Very good", "Excellent", "Satisfactory"];
 /** Issue certificate (03 §2): student, type, purpose, date of issue, signatory; preview; issue (or send for approval). */
 export default async function IssueCertificatePage({ searchParams }: { searchParams: Promise<{ student?: string; type?: string; ids?: string }> }) {
   const { current, settings, yearIds, can, tz } = await certificatesPage();
-  if (!can.manage) redirect(`${BASE}/certificates`);
+  if (!can.manage) redirect(NO_ACCESS);
   const sp = await searchParams;
   const types = (Object.keys(CERTIFICATE_LABEL) as CertificateType[]).filter((t) => t !== "MIGRATION" || settings.migrationOn);
   const type = (types.includes(sp.type as CertificateType) ? sp.type : "BONAFIDE") as CertificateType;

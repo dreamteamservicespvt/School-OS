@@ -6,6 +6,7 @@ import { dayStartUtc } from "@/lib/periods";
 import { isoDay } from "@/lib/staff/dates";
 import { sectionFees } from "@/lib/fees/by-class";
 import { followUpAskedSince } from "@/lib/fees/follow-up";
+import { plural } from "@/lib/fees/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -71,7 +72,7 @@ export default async function ClassFeesPage({ params, searchParams }: { params: 
           <ButtonLink href={`${BASE}/dashboard#by-class`} variant="secondary" icon={ArrowLeft}><Words k="All classes" /></ButtonLink>
         </div>
         <Stats items={[
-          { label: "Due so far", value: money(t.due), sub: `${t.students} students · fees due in the next 30 days included`, icon: FileText },
+          { label: "Due so far", value: money(t.due), sub: `${plural(t.students, "student")} · fees due in the next 30 days included`, icon: FileText },
           { label: "Collected", value: money(t.paid), sub: t.due > zero ? `${t.percent}% of what is due` : "Nothing is due yet", icon: IndianRupee, tone: t.due > zero ? "ok" : undefined },
           { label: "Pending", value: t.pending > zero ? money(t.pending) : "Nil", sub: t.owe ? `${t.owe} ${t.owe === 1 ? "student" : "students"} · ${money(t.overdue)} overdue` : "Everyone has paid", icon: Hourglass, tone: t.overdue > zero ? "bad" : t.pending > zero ? "warn" : "ok" },
           { label: "Class teacher", value: data.teacher?.name ?? "Not set", sub: data.teacher ? `Looks after ${data.name}` : "Set one in Academic Management", icon: UserRound },

@@ -108,7 +108,7 @@ export async function askDiscountApproval(_prev: unknown, fd: FormData) {
     // Pressing the button twice must not send the same request twice.
     const sameWaiting = await tx.concession.findFirst({ where: { studentId, type: "DISCOUNT", mode: "amount", amountPaise: amount, status: "WAITING", requestedById: ctx.userId, dueIds: { equals: dueIds } }, select: { id: true } });
     if (sameWaiting) throw new MoneyProblem("This discount is already waiting for the principal. See it in Approvals, under Asked by me.");
-    const r = await giveConcession(tx, ctx, { studentId, type: "DISCOUNT", mode: "amount", amountPaise: amount, percentBp: 0, feeHeadIds: [], dueIds, periodFrom: null, periodTo: null, reason }, { forceApproval: true });
+    const r = await giveConcession(tx, ctx, { studentId, type: "DISCOUNT", mode: "amount", amountPaise: amount, percentBp: 0, feeHeadIds: [], dueIds, periodFrom: null, periodTo: null, reason }, { forceApproval: true, amountField: "discount" });
     return { estimate: formatRupees(r.estimate) };
   }, (r) => ({ message: `Discount of ${r.estimate} sent to the principal for approval. Collect once it is approved.`, tone: "info", link: { href: "/approvals", label: "Open Approvals" } }), { staffOnly: "give discounts" });
 }

@@ -11,7 +11,7 @@ import { requestApproval } from "../approvals";
 import { formatDate, formatRupees } from "../format";
 import { nextNumber, formatNumber } from "../sequences";
 import { MoneyProblem, MoneyWarning } from "../fees/problem";
-import { postToDayBook, reverseSource, accountBalances } from "./daybook";
+import { postToDayBook, reverseSource, warnIfBelowZero } from "./daybook";
 import { accountForMode, financeFeaturesOn, financeSettings } from "./settings";
 import { assertBooksOpen, assertNotFuture, financialYearOf } from "./years";
 import { budgetImpact } from "./budgets";
@@ -191,10 +191,8 @@ export async function payExpense(tx: Tx, ctx: SchoolContext, expenseId: string, 
   const accountId = await accountForMode(tx, ctx, input.mode, input.accountId);
   const account = await tx.bankAccount.findFirst({ where: { id: accountId, archivedAt: null } });
   if (!account) throw new MoneyProblem("Choose the cash or bank account the money comes from.", "accountId");
-  if (account.kind === "CASH" && !input.confirmLowCash) {
-    const balance = (await accountBalances(tx, ctx)).get(account.id) ?? ZERO;
-    if (balance < amount) throw new MoneyWarning(`Cash in hand is ${formatRupees(balance)}. This payment is ${formatRupees(amount)}.`, "mode");
-  }
+  // Cash or bank: paying more than the account holds is a warning, passed with "pay anyway" (self-test A3).
+  await warnIfBelowZero(tx, ctx, { accountId: account.id, amountPaise: amount, field: "mode", confirmed: input.confirmLowCash });
   const pay = await tx.expensePayment.create({ data: { schoolId: ctx.schoolId, expenseId: e.id, amountPaise: amount, date: input.date, mode: input.mode, reference: input.reference, accountId, paidById: ctx.userId } });
   const paid = e.paidPaise + amount;
   await tx.expense.update({ where: { id: e.id }, data: { paidPaise: paid, status: paid >= e.amountPaise ? "PAID" : "APPROVED" } });

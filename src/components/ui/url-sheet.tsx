@@ -15,6 +15,8 @@ import { Alert } from "./alert";
 import { DraftHint, useFormDraft } from "./form-draft";
 import type { FormState } from "@/lib/forms";
 import { FormProblems, useFieldProblem } from "./form-problems";
+import { HideWhileSaving } from "./form-message";
+import { isSummaryMessage } from "@/lib/form-problems";
 
 const CloseCtx = createContext<() => void>(() => {});
 /** Closes the sheet this is inside (goes back to the page without the sheet). */
@@ -81,6 +83,7 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
   // sheet's result, or a name the form does not have) is shown at the bottom instead,
   // so a refused form never stays silent.
   const [unseen, setUnseen] = useState<FormState<T>>(null);
+  const fieldsRef = useRef<HTMLDivElement>(null);
   useEffect(() => {
     if (state?.ok) {
       draft.done();
@@ -88,14 +91,19 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
     } else if (state) {
       const invalid = formRef.current?.querySelector<HTMLElement>("[aria-invalid=true]");
       invalid?.focus();
-      const t = window.setTimeout(() => setUnseen(invalid ? null : state), 0);
+      // A field that shows its problem without a marked box (the hand-in file picker) counts as seen:
+      // the message was shown twice (layman test LC13).
+      const shown = invalid ?? fieldsRef.current?.querySelector("[role=alert], [data-problem-for]");
+      const t = window.setTimeout(() => setUnseen(shown ? null : state), 0);
       return () => window.clearTimeout(t);
     }
     // draft.done is stable.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [state, doneHref, closeHref, router]);
   const fieldErrors = Object.keys(state?.errors ?? {}).length;
-  const showMessage = Boolean(state && !state.ok && state.message && (fieldErrors === 0 || unseen === state));
+  // "Please fix 2 things" is said by the summary above its list already (layman test LE7).
+  const summarised = fieldErrors >= 2 && isSummaryMessage(state?.message);
+  const showMessage = Boolean(state && !state.ok && state.message && !summarised && (fieldErrors === 0 || unseen === state));
   return (
     <CloseCtx.Provider value={close}>
       <ResultCtx.Provider value={state as FormState<unknown>}>
@@ -108,8 +116,8 @@ export function SheetForm<T>({ title, sub, wide, closeHref, doneHref, action, su
               <DraftHint draft={draft} />
               <ErrorSummary errors={state?.errors} />
               {/* Each field's message goes once it holds a good value; the first bad one comes into view. */}
-              <FormProblems errors={state?.errors}>{children}</FormProblems>
-              {showMessage && <ProblemInView token={state}><Alert tone="danger">{state?.message}</Alert></ProblemInView>}
+              <div ref={fieldsRef} className="contents"><FormProblems errors={state?.errors}>{children}</FormProblems></div>
+              {showMessage && <HideWhileSaving><ProblemInView token={state}><Alert tone="danger">{state?.message}</Alert></ProblemInView></HideWhileSaving>}
             </div>
             <div className="border-t border-line px-5 py-3.5 flex flex-wrap gap-2 justify-end">
               {extraButtons}

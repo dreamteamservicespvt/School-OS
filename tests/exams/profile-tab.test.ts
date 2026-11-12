@@ -61,5 +61,14 @@ describe("Exams tab by role", () => {
     const tab = await s.run(async (tx) => studentExamsTab(tx, s.ctx, await examScope(tx, principal, s.year.id), ids.b));
     expect(tab!.years[0].onlySubjects).toBeNull();
     expect(tab!.years[0].exams[0].subjects).toHaveLength(3);
+    expect(tab!.years[0].exams[0].takenIn).toBeNull(); // taken in the section shown
+  });
+
+  it("names the section an exam was taken in after the student moved (QA B9)", async () => {
+    // Pupil b moves from 5 B to 5 A; Unit Test 1 (rank 3) was taken in 5 B.
+    await s.run((tx) => tx.enrolment.updateMany({ where: { studentId: ids.b, academicYearId: s.year.id }, data: { sectionId: s.s5a.id } }));
+    const tab = await s.run(async (tx) => studentExamsTab(tx, s.ctx, await examScope(tx, principal, s.year.id), ids.b));
+    expect(tab!.years[0].section).toMatch(/5 A$/);
+    expect(tab!.years[0].exams[0].takenIn).toMatch(/5 B$/);
   });
 });

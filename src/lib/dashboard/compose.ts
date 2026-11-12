@@ -3,9 +3,8 @@
 // the way the approved design lays it out (01-dashboard.md §2).
 import "server-only";
 
-import { availableParallelism } from "node:os";
 import type { TaskStatus } from "@prisma/client";
-import { withSchool, type Tx } from "../db";
+import { databaseUrl, poolLimit, withSchool, type Tx } from "../db";
 import { currentYear, yearsFor } from "../academic/years";
 import { personCampusId } from "../campus";
 import { approvalsFor, requestLabel } from "../approvals";
@@ -72,17 +71,20 @@ type Collected = { [K in WidgetKind]: { w: Widget; item: unknown }[] };
 const MAX_LANES = 6;
 
 /**
- * Connections in the app's database pool: connection_limit in DATABASE_URL
- * (the Vercel test copy sets 3), else about Prisma's default (2 per CPU core + 1).
+ * Connections in the app's database pool: connection_limit in DATABASE_URL (the
+ * Vercel test copy sets 3), else what src/lib/db.ts gives the pool.
  */
-export function poolSize(url = process.env.DATABASE_URL ?? "", cpus = availableParallelism()) {
-  const m = /[?&]connection_limit=(\d+)/.exec(url);
-  return m ? Math.max(1, Number(m[1])) : cpus + 1;
+export function poolSize(url = process.env.DATABASE_URL ?? "", env: NodeJS.ProcessEnv = process.env) {
+  return poolLimit(databaseUrl(url, env));
 }
 
-/** Lanes for one page: never more than the pool holds, MAX_LANES, or the bundles to share out. */
+/**
+ * Lanes for one page: never more than half the pool (layman tests LA5, LC3: one Dashboard
+ * took 6 of 9 connections, and two people opening it at once left nothing for anyone
+ * else), MAX_LANES, or the bundles to share out.
+ */
 export function laneCount(bundles: number, pool = poolSize()) {
-  return Math.max(1, Math.min(MAX_LANES, pool, bundles));
+  return Math.max(1, Math.min(MAX_LANES, Math.ceil(pool / 2), bundles));
 }
 
 /**

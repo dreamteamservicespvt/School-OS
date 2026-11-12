@@ -7,6 +7,7 @@ import { combineRoles, applyExceptions, narrowToOwn, type ModuleAccess } from "@
 import { formatDateTime } from "@/lib/format";
 import { schoolsFor } from "@/lib/auth/access";
 import { MODULES } from "@/lib/modules";
+import { dutyNotes } from "@/lib/duty";
 import type { AccessLevel, RolePermissions } from "@/lib/roles";
 import { assignableRoles } from "@/lib/settings/roles";
 import { STATE_LABEL, STATE_TONE, scopeLabel, stateOf, type UserState } from "@/lib/settings/users";
@@ -105,6 +106,9 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
   const exceptions = (shown.exceptions ?? {}) as Record<string, AccessLevel>;
   const effective = applyExceptions(scoped, [exceptions]);
   const twoStepNeeded = roleList.some((r) => r.requiresTwoStep);
+  // The pages their screens only read or do not show (src/lib/duty.ts), said next to the level, so Settings
+  // says what the screens do (layman test LA11: "Full" here, "View only" on Attendance).
+  const dutyPerson = { roles: roleList.filter((r) => r.isEnabled && !r.archivedAt).map((r) => ({ key: r.key, permissions: r.permissions as RolePermissions })) };
 
   const linkOptions = [
     ...(staff ? [{ value: `staff:${staff.id}`, label: `Staff: ${staff.fullName}, ${staff.designation}` }] : []),
@@ -193,10 +197,19 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
             <ul className="grid gap-x-6 gap-y-1 sm:grid-cols-2">
               {MODULES.map((m) => {
                 const lvl = levelOf(effective[m.key]);
+                const notes = lvl === "full" && !exceptions[m.key] ? dutyNotes(dutyPerson, m.key) : null;
                 return (
                   <li key={m.key} className="flex min-h-9 items-center justify-between gap-3 border-b border-line py-1 text-sm">
-                    <span>{m.name}{exceptions[m.key] && <span className="ml-1 text-xs text-ink-2"><Words k="(exception)" /></span>}</span>
-                    <Badge tone={LEVEL_TONE[lvl]}>{LEVEL_LABEL[lvl]}</Badge>
+                    <span className="min-w-0">
+                      {m.name}{exceptions[m.key] && <span className="ml-1 text-xs text-ink-2"><Words k="(exception)" /></span>}
+                      {notes && (
+                        <span className="block text-xs text-ink-2">
+                          {notes.reads.length > 0 && <span className="block"><Words k="On screen they only read: {pages}" vars={{ pages: notes.reads.join(", ") }} /></span>}
+                          {notes.notShown.length > 0 && <span className="block"><Words k="Not shown to them (another role's desk): {pages}" vars={{ pages: notes.notShown.join(", ") }} /></span>}
+                        </span>
+                      )}
+                    </span>
+                    <Badge tone={LEVEL_TONE[lvl]}>{notes ? <Words k="Full, oversees" /> : LEVEL_LABEL[lvl]}</Badge>
                   </li>
                 );
               })}

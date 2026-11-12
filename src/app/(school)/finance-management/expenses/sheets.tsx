@@ -31,7 +31,7 @@ function Warned() {
   return (
     <>
       {dup && <SArea name="duplicateReason" label="Why save it again?" required placeholder="Example: a second bill with the same number, confirmed with the vendor" />}
-      {cash && <WarnCheck field="mode" name="confirmLowCash" title="Pay from cash anyway" sub="Cash in hand goes below zero until cash comes in." />}
+      {cash && <WarnCheck field="mode" name="confirmLowCash" title="Pay anyway" sub="The cash or bank balance goes below zero until money comes in." />}
     </>
   );
 }

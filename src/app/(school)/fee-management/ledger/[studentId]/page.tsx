@@ -437,7 +437,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
         <CertificateSheet studentId={studentId} closeHref={close} years={data.extra.years} start={data.extra.start} />
       )}
       {canAdjust && doing === "adjust" && (
-        <AdjustSheet studentId={studentId} closeHref={close} start={one(sp.row)} amounts={canEditFees}
+        <AdjustSheet studentId={studentId} closeHref={close} start={one(sp.row)} amounts={canEditFees} limit={formatRupees(p.settings.concessionLimitPaise)}
           rows={L.installments.filter((r) => r.status !== "Removed" && (canEditFees || r.paid === ZERO)).map((r) => ({
             value: r.id, label: `${r.head} · ${r.label} (${formatRupees(r.amount)})`, left: formatRupees(r.balance), removable: canAssignFees && r.paid === ZERO,
           }))} />

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileText, Info, Megaphone } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { OPEN_STATUSES } from "@/lib/approvals";
 import { commPage } from "@/lib/communication/access";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { fileLink } from "@/lib/files";
@@ -58,7 +59,10 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
     const files = n.attachmentFileIds.length ? await tx.storedFile.findMany({ where: { id: { in: n.attachmentFileIds } }, select: { id: true, fileName: true } }) : [];
     const setups = await channelSetups(tx, current.ctx);
     const author = n.createdById ? await tx.userLogin.findUnique({ where: { id: n.createdById }, select: { displayName: true } }) : null;
-    return { n, a, people, acks, myAck, guardians, views, files, manager, inAudience, setups, author: author?.displayName ?? null };
+    // The person who sent it for approval can take it back while it waits (QA LC14).
+    const asked = n.status === "WAITING_APPROVAL" && n.approvalId ? await tx.approval.findUnique({ where: { id: n.approvalId }, select: { askedById: true, status: true } }) : null;
+    const canWithdraw = Boolean(asked && asked.askedById === current.user.id && OPEN_STATUSES.includes(asked.status));
+    return { n, a, people, acks, myAck, guardians, views, files, manager, inAudience, setups, canWithdraw, author: author?.displayName ?? null };
   });
   if (!data) notFound();
   const { n } = data;
@@ -87,6 +91,7 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
   return (
     <>
       <BackLink href="/communication/notices" label="Notice Board" sub={STATUS_LABEL[n.status]} />
+      <div className="min-w-0 [&_h1]:[overflow-wrap:anywhere]">
       <RecordHead title={n.title}
         sub={<>
           <Pill tone={STATUS_TONE[n.status]} dot>{STATUS_LABEL[n.status]}</Pill>
@@ -96,12 +101,14 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
         actions={<NoticeActions id={n.id}
           canEdit={data.manager && access.canChange && n.status === "DRAFT"}
           canArchive={data.manager && access.canChange && n.status !== "ARCHIVED" && n.status !== "WAITING_APPROVAL"}
+          canWithdraw={data.canWithdraw}
           canAck={data.inAudience && n.askAck && n.status === "PUBLISHED"} acked={Boolean(data.myAck?.acknowledgedAt)}
           canRemind={access.full && n.askAck && n.status === "PUBLISHED" ? notRead.length : 0}
           unseen={access.full && n.status === "PUBLISHED" ? unseen : 0} channels={[...channels]} />} />
+      </div>
 
       <div className="flex flex-col gap-5 lg:gap-6">
-        {n.status === "WAITING_APPROVAL" && <Banner tone="warn" title="Waiting for the Principal."><Words k="It goes out on the chosen channels once approved." /></Banner>}
+        {n.status === "WAITING_APPROVAL" && <Banner tone="warn" title="Waiting for the Principal."><Words k="It goes out on the chosen channels once approved." />{data.canWithdraw ? <> <Words k="To change it first, withdraw it: it goes back to Draft." /></> : null}</Banner>}
         {n.status === "SCHEDULED" && n.publishAt && <Banner tone="info" title={`Scheduled for ${formatDateTime(n.publishAt, tz)}.`}><Words k="It is published at that time." /></Banner>}
         {n.status === "ARCHIVED" && <Banner tone="info" title="Archived."><Words k="It is no longer on the board or Parent Link." /></Banner>}
         <Split side={340}>

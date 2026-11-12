@@ -16,7 +16,7 @@ import { seesStudentFees } from "@/lib/fees/access";
 import { seesResults } from "@/lib/exams/scope";
 import { RESULT_LABEL } from "@/lib/students/labels";
 import { StudentProblem } from "@/lib/students/students";
-import { BASE, studentPage } from "../_lib/page";
+import { BASE, studentPage, NO_ACCESS } from "../_lib/page";
 import { campusPrefixes, classOptions, sectionOptions } from "../_lib/queries";
 import { campusAllows, sectionCampusId } from "@/lib/campus";
 import { StudentsHead } from "../_lib/head";
@@ -33,7 +33,7 @@ const isId = (v?: string) => Boolean(v && /^[0-9a-f-]{36}$/i.test(v));
 /** Promotion (03 §2): choose, review the batch, confirm. Past batches below with who confirmed them. */
 export default async function PromotionPage({ searchParams }: { searchParams: Promise<{ fromYear?: string; from?: string; toYear?: string; toClass?: string }> }) {
   const { current, year, can, tz } = await studentPage();
-  if (!can.manage) redirect(BASE);
+  if (!can.manage) redirect(NO_ACCESS);
   const sp = await searchParams;
   // Fee amounts only for people allowed to see fees; the "no fee dues" rule applies either way.
   const seeFees = seesStudentFees(current);

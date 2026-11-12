@@ -4,7 +4,7 @@ import { withSchool } from "@/lib/db";
 import { formatDate, formatRupees } from "@/lib/format";
 import { defaultSteps, type RuleStep } from "@/lib/approvals";
 import { ruleNamer } from "@/lib/settings/approval-rules";
-import { FINANCE_FEATURES } from "@/lib/finance/words";
+import { FINANCE_FEATURES, systemHeadSource } from "@/lib/finance/words";
 import { mayChangeLimits } from "@/lib/fees/settings-save";
 import { fySpanWords } from "@/lib/finance/years";
 import { yearClosePlan } from "@/lib/finance/year-close";
@@ -152,7 +152,7 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
                         <li key={h.id} className="flex items-center gap-3 py-2 text-[14px]">
                           <span className="font-mono text-[12.5px] text-ink3 w-10 shrink-0">{h.code}</span>
                           <span className="flex-1 min-w-0 truncate">{h.name}</span>
-                          {h.systemKey ? <Pill tone="info" className="!h-5 !text-[11px]"><Words k="From" /> {h.systemKey === "fees" ? "Fees" : h.systemKey === "salary" ? "Salary" : "Refunds"}</Pill>
+                          {systemHeadSource(h.systemKey) ? <Pill tone="info" className="!h-5 !text-[11px]"><Words k="From" /> <Words k={systemHeadSource(h.systemKey)!} /></Pill>
                             : <span className="text-[12px] text-ink3 tnum">{usedBy.get(h.id) ? formatRupees(usedBy.get(h.id)!) : "—"}</span>}
                         </li>
                       ))}

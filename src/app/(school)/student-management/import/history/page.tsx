@@ -10,7 +10,7 @@ import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { EmptyState } from "@/components/empty-state";
 import { STUDENT_IMPORT_KINDS, importKindLabel } from "@/lib/students/import-kinds";
-import { BASE, studentPage } from "../../_lib/page";
+import { BASE, studentPage, NO_ACCESS } from "../../_lib/page";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
@@ -21,7 +21,7 @@ export async function generateMetadata(): Promise<Metadata> {
 /** Every student import: file, who, when, added, skipped; open one to undo it or download its skipped rows. */
 export default async function ImportHistoryPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { current, can, tz } = await studentPage();
-  if (!can.manage) redirect(BASE);
+  if (!can.manage) redirect(NO_ACCESS);
   const params = readListParams(await searchParams);
   const path = `${BASE}/import/history`;
   const data = await withSchool(current.ctx, async (tx) => {

@@ -1,0 +1,24 @@
+// Layman E: sign in with the changed password; then Forgot password for the LE user (code from the server log), then sign-in page checks.
+process.env.QA_OUT ??= "D:/all/Projects/School-OS/qa-output/layman-e";
+const { go, snap, note, close, sleep, mainText, newPage, signIn, BASE } = await import("../full/selftest-A-h.mjs");
+const { logSize, waitLog } = await import("../full/h.mjs");
+const fs = await import("node:fs");
+const U = JSON.parse(fs.readFileSync(`${process.env.QA_OUT}/le-user.json`, "utf8"));
+const settle = async (p) => { await sleep(600); for (let i = 0; i < 40; i++) { const busy = await p.locator('button[aria-busy="true"], button:has(.animate-spin)').count(); if (!busy) break; await sleep(500); } await sleep(800); };
+const step = async (p, label, n = 900) => { await settle(p); const t = (await mainText(p, 3000)); note("forgot", `\n--- ${label} [${p.url().replace(BASE, "")}]\n${t}\nPROBLEMS: ${p.problems.join(" ; ")}`); await snap(p, `forgot-${label}`, false); console.log(`--- ${label} [${p.url().replace(BASE, "")}]\n${t.slice(0, n)}`); return t; };
+const p = await newPage({ width: 390, height: 844 });
+await signIn(p, U.username, U.pw); console.log("NEW PW sign-in ->", p.url());
+await p.context().clearCookies();
+await go(p, "/sign-in"); await settle(p);
+console.log("controls:", (await p.locator("a, button").allInnerTexts()).map((s) => s.trim()).filter(Boolean).join(" | "));
+await p.getByText(/Forgot password/i).first().click(); await step(p, "01-forgot");
+const inp = p.locator("main input:visible, form input:visible").first();
+await inp.fill(""); await p.getByRole("button").filter({ hasText: /code|Send|Next|Continue/i }).first().click().catch(() => {}); await step(p, "02-empty");
+await inp.fill("nobody.like.this"); const from0 = logSize();
+await p.getByRole("button").filter({ hasText: /code|Send|Next|Continue/i }).first().click().catch(() => {}); await step(p, "03-unknown");
+await go(p, "/sign-in"); await p.getByText(/Forgot password/i).first().click(); await settle(p);
+await p.locator("main input:visible, form input:visible").first().fill(U.username); const from = logSize();
+await p.getByRole("button").filter({ hasText: /code|Send|Next|Continue/i }).first().click().catch(() => {}); await step(p, "04-known");
+const m = await waitLog(from, /\[dev\] (one-time code[^\n]*: (\d{4,6})|[^\n]*reset[^\n]*: (http\S+))/i, 15000);
+console.log("log:", m?.[0]?.replace(/\d{6}/, "<code>"));
+await close();

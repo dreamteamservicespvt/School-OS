@@ -1,0 +1,36 @@
+import { asRole, go, mainText, sleep, close, snap } from "./d-h.mjs";
+const p = await asRole("hr");
+const dlg = () => p.getByRole("dialog").last();
+const errsIn = async () => (await dlg().locator("[id$=-error], [role=alert], .text-bad").allInnerTexts().catch(() => [])).join(" / ");
+const setD = async (loc, v) => { await loc.click({ clickCount: 3 }); await p.keyboard.press("Control+A"); await p.keyboard.type(v); await p.keyboard.press("Tab"); await sleep(300); };
+const F = "D:/all/Projects/School-OS/qa-output/layman-d/files/";
+await go(p, "/staff-hr-management/documents"); await sleep(1500);
+await p.getByRole("button", { name: /Upload document/ }).first().click(); await sleep(1500);
+const save = () => dlg().getByRole("button", { name: "Save document" });
+await save().click(); await sleep(1500);
+console.log("EMPTY:", await errsIn());
+const st = dlg().locator("[name=staffId]");
+const l = (await st.locator("option").allInnerTexts()).find((x) => x.includes("LD-")); await st.selectOption({ label: l });
+await dlg().locator("[name=kind]").fill("Police verification");
+await dlg().locator("[name=number]").fill("LD-PV-123456789012");
+await setD(dlg().locator("input[name=issuedOn], input[id$=-issuedOn]").first(), "10-11-2026");
+await setD(dlg().locator("input[name=expiresOn], input[id$=-expiresOn]").first(), "01-01-2026");
+await dlg().locator("input[type=file]").setInputFiles(F + "card.png");
+await save().click(); await sleep(2500);
+console.log("EXP<ISSUE + good PNG:", await errsIn(), "| dialog open:", await dlg().isVisible().catch(() => false));
+await snap(p, "doc2-bad");
+await setD(dlg().locator("input[name=expiresOn], input[id$=-expiresOn]").first(), "01-01-2030");
+await dlg().locator("input[type=file]").setInputFiles(F + "card.png");
+await save().click(); await sleep(3000);
+console.log("VALID PNG:", await errsIn(), "| dialog open:", await dlg().isVisible().catch(() => false), "|", (await mainText(p, 800)).replace(/\n+/g, " | ").slice(0, 300));
+await snap(p, "doc2-fakepdf");
+if (await dlg().isVisible().catch(() => false)) {
+  await dlg().locator("input[type=file]").setInputFiles(F + "card.png");
+  await save().dblclick(); await sleep(4000);
+  console.log("PNG dbl:", await errsIn(), "| dialog open:", await dlg().isVisible().catch(() => false));
+}
+await go(p, "/staff-hr-management/documents?tab=all"); await sleep(1500);
+const t = await mainText(p, 30000);
+console.log("LD doc rows:", t.split("\n").filter((x) => /LD-PV|LD-/.test(x)).join(" || "));
+await snap(p, "doc2-all");
+await close();

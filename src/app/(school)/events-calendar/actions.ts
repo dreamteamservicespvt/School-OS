@@ -131,7 +131,9 @@ export async function saveEventAction(_: S, fd: FormData): Promise<S> {
   return evAction("create", fd, async (w) => {
     need(w.can.events, "plan events");
     const input = eventInput(fd);
-    const confirm = str(fd, "confirm") === "venue-clash";
+    // Warnings already accepted ("venue-clash,past-date"): each is asked once.
+    const accepted = str(fd, "confirm").split(",");
+    const warned = { confirm: accepted.includes("venue-clash"), confirmPast: accepted.includes("past-date") };
     const eventId = str(fd, "eventId");
     // A person kept to one campus plans events for that campus only.
     const mine = await evCampus(w.tx, w.current);
@@ -139,11 +141,11 @@ export async function saveEventAction(_: S, fd: FormData): Promise<S> {
     await assertEvClasses(w.tx, w.current, input.classIds);
     if (eventId) {
       await assertEvCampus(w.tx, w.current, "event", eventId);
-      const r = await updateEvent(w.tx, w.ctx, eventId, input, { confirm, today: today(w.tz) });
+      const r = await updateEvent(w.tx, w.ctx, eventId, input, { ...warned, today: today(w.tz) });
       const told = r.moved && checked(fd, "tell") ? await tellSafely(() => messageAudience(w.tx, w.ctx, r.event, "changed")) : null;
       return { event: r.event, created: false, told };
     }
-    return { event: await createEvent(w.tx, w.ctx, input, { confirm }), created: true, told: null };
+    return { event: await createEvent(w.tx, w.ctx, input, { ...warned, today: today(w.tz) }), created: true, told: null };
   }, (r) => r.created
     ? { message: `Event created: ${r.event.name}. It is on the School Calendar.`, link: { href: `/events-calendar/events/${r.event.id}`, label: "Open" } }
     : `${r.event.name} saved.${r.told?.problem ? toldWords(r.told) : r.told?.people ? ` ${count(r.told.people, "person", "people")} told about the change.` : ""}`);

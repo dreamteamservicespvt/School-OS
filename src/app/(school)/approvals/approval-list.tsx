@@ -17,6 +17,8 @@ import { Words } from "@/lib/i18n/client";
 export type ApprovalRow = {
   id: string; summary: string; typeLabel: string; amount: string | null; amountPaise: string | null; askedBy: string; askedByName: string; asked: string;
   status: { label: string; tone: BadgeTone }; waitingFor: string | null; decidable: boolean; overdue: boolean;
+  /** The person may reject this kind of request: the list offers Reject, which opens the reason box on its page (QA LC15). */
+  rejectable?: boolean;
   /** The asker's job ("Teacher, Science · Class teacher, Class 5 A") and the reason they gave. */
   job: string | null; reason: string | null;
   /** What the approver needs to see before deciding (the leave balance, the change asked for). */
@@ -84,7 +86,7 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
               )}
               <Avatar name={r.askedBy === "you" ? r.askedByName : r.askedBy} size={42} />
               <Link href={`/approvals/${r.id}`} className="min-w-0 flex-1 group">
-                <p className="font-semibold text-[15px] group-hover:text-brand transition">{r.summary}</p>
+                <p className="font-semibold text-[15px] group-hover:text-brand transition [overflow-wrap:anywhere]">{r.summary}</p>
                 <p className="text-[13px] text-ink2"><Words k="Asked by" /> {r.askedBy}{r.job ? <span className="text-ink3">, {r.job}</span> : null}</p>
                 {r.reason && <p className="text-[13px] text-ink2 line-clamp-2 mt-0.5">“{shownReason(r.reason)}”</p>}
                 {r.facts?.map((f) => <p key={f.label} className="text-[13px] text-ink2 mt-0.5"><span className="text-ink3">{f.label}:</span> {f.value}</p>)}
@@ -99,7 +101,9 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
             {r.decidable && (
               <div className="flex gap-2 md:shrink-0 pl-[54px] md:pl-0">
                 <Button variant="soft" icon={Check} loading={busy === r.id} onClick={() => approve(r)}><Words k="Approve" /></Button>
-                <ButtonLink href={`/approvals/${r.id}`} variant="ghost"><Words k="Decline" /></ButtonLink>
+                {r.rejectable
+                  ? <ButtonLink href={`/approvals/${r.id}?reject=1`} variant="ghost"><Words k="Reject" /></ButtonLink>
+                  : <ButtonLink href={`/approvals/${r.id}`} variant="ghost"><Words k="Open" /></ButtonLink>}
               </div>
             )}
           </li>

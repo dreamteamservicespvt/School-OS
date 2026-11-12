@@ -93,7 +93,7 @@ export async function markPaidAction(_prev: unknown, fd: FormData) {
     const mode = str(fd, "mode");
     const reference = mode === "CASH" ? null : optionalText(fd, "reference", "Reference", 60);
     if (reference && !/^[A-Za-z0-9 /,.-]{4,60}$/.test(reference)) throw new MoneyProblem("This does not look like a bank reference. Use 6 to 24 letters or digits.", "reference");
-    const run = await markPaid(tx, ctx, (await campusRun(tx, id(fd, "runId", "salary month"), current)).id, { date: dateOf(fd, "date", "Date paid"), mode, reference, accountId: mode === "CASH" ? null : optionalId(fd, "accountId"), today: tz(current) });
+    const run = await markPaid(tx, ctx, (await campusRun(tx, id(fd, "runId", "salary month"), current)).id, { date: dateOf(fd, "date", "Date paid"), mode, reference, accountId: mode === "CASH" ? null : optionalId(fd, "accountId"), today: tz(current), confirmLowCash: str(fd, "confirmLowCash") === "on" });
     return { month: monthName(run.month), net: formatRupees(run.netPaise), date: formatDate(run.paidOn!) };
   }, (r) => `${r.month} marked paid. ${r.net} added to the Day Book on ${r.date} as one salary entry.`);
 }

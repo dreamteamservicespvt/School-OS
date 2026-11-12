@@ -7,7 +7,7 @@
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
-import { chart, headSide } from "./journals";
+import { STAFF_ADVANCES, chart, headSide } from "./journals";
 
 const ZERO = BigInt(0);
 
@@ -44,6 +44,7 @@ export async function tallyVouchers(tx: Tx, ctx: SchoolContext, from: Date, to: 
     tx.journalEntry.findMany({ where: { date: { gte: from, lte: to } }, include: { lines: true }, orderBy: [{ date: "asc" }, { createdAt: "asc" }] }),
   ]);
   const headLedger = (key: string) => {
+    if (key === STAFF_ADVANCES.key) return "Staff Advances";
     if (!key.startsWith("head:")) return "Suspense";
     const h = heads.find((y) => y.id === key.slice(5));
     return h ? h.tallyLedger || h.name : "Suspense";

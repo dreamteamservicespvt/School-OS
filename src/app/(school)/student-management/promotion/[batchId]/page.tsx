@@ -9,7 +9,7 @@ import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
 import { ConfirmAction } from "@/components/students/confirm-action";
-import { BASE, studentPage } from "../../_lib/page";
+import { BASE, studentPage, NO_ACCESS } from "../../_lib/page";
 import { undoPromotionAction } from "../../_actions/promotion";
 import { seesStudentFees } from "@/lib/fees/access";
 import { seesResults } from "@/lib/exams/scope";
@@ -26,7 +26,7 @@ const TONE = { PROMOTE: "success", DETAIN: "warning", LEAVING: "neutral" } as co
 /** One saved promotion batch: every decision, and Undo while nothing is recorded in the new year. */
 export default async function PromotionBatchPage({ params }: { params: Promise<{ batchId: string }> }) {
   const { current, can, tz } = await studentPage();
-  if (!can.manage) redirect(BASE);
+  if (!can.manage) redirect(NO_ACCESS);
   const seeFees = seesStudentFees(current);
   const seeResults = seesResults(current);
   const { batchId } = await params;

@@ -12,9 +12,12 @@
 //   marks are not counted.
 // - A student who finished the year in the section (promoted or held back)
 //   was on it for the whole year.
-// - A student moved to another section was on this one until the day of the
-//   move, and is on the new one from the day of the move (self-test B7: the
-//   new section's register showed the days before as "not marked").
+// - A student moved to another section was on this one until the day before
+//   the move, and is on the new one from the day of the move (self-test B7: the
+//   new section's register showed the days before as "not marked"; layman
+//   test LA3: a student moved today was counted in both the old section's
+//   register and Dashboard and the new section's Take Attendance). The day of
+//   the move belongs to the new section, as Take Attendance lists it.
 //
 // Marks are never removed: a mark saved for a day the student was not on the
 // register stays stored (and in the audit log); it is only left out of counts.
@@ -38,6 +41,8 @@ export type RegisterBook = {
   current(sectionId: string): Set<string>;
   /** The first day of the student's present stay on this section's register (the day they moved in), or null for the whole year. */
   onFrom(sectionId: string, studentId: string): string | null;
+  /** The latest move of this student out of this section: the section moved to and the day (LA3: "moved to 5 B on ..."). */
+  movedOut(sectionId: string, studentId: string): { toSectionId: string; on: string } | null;
 };
 
 /**
@@ -85,11 +90,15 @@ export async function registerBook(tx: Tx, sectionIds: string[]): Promise<Regist
     // Left: on the register on the days before the leaving date.
     if (s.leavingDate) put(e.sectionId, e.studentId, dayBefore(isoDay(s.leavingDate)));
   }
+  const outs = new Map<string, { toSectionId: string; on: string }>();
   for (const m of moves) {
     if (!ids.includes(m.fromSectionId)) continue;
-    // Moved out: on this section's register up to the day of the move (the
-    // mark of that day belongs to whichever section it was taken in).
-    let until = isoDay(m.createdAt);
+    const ok = `${m.fromSectionId}|${m.studentId}`;
+    const day = isoDay(m.createdAt);
+    if (!outs.has(ok) || outs.get(ok)!.on < day) outs.set(ok, { toSectionId: m.toSectionId, on: day });
+    // Moved out: on this section's register up to the day before the move; from
+    // the day of the move the student is on the new section's register (LA3).
+    let until = dayBefore(isoDay(m.createdAt));
     const left = leftOn.get(m.studentId);
     if (left && dayBefore(left) < until) until = dayBefore(left);
     put(m.fromSectionId, m.studentId, until);
@@ -111,6 +120,9 @@ export async function registerBook(tx: Tx, sectionIds: string[]): Promise<Regist
     },
     onFrom(sectionId, studentId) {
       return (spans.get(sectionId)?.get(studentId) ?? []).find((span) => span.until === null)?.from ?? null;
+    },
+    movedOut(sectionId, studentId) {
+      return outs.get(`${sectionId}|${studentId}`) ?? null;
     },
   };
 }

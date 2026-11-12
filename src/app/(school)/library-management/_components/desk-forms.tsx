@@ -29,10 +29,15 @@ export function IssueForm({ action, memberKey, copyId, title, defaultDue, minDue
   useEffect(() => {
     if (state?.ok) router.replace(nextHref, { scroll: false });
   }, [state, nextHref, router]);
-  const changed = due !== defaultDue;
+  // A box that cannot be read holds no date: that is not "a different due date" (LE3).
+  const changed = Boolean(due) && due !== defaultDue;
   const err = (k: string) => state?.errors?.[k];
   return (
-    <form action={run} className="flex flex-col gap-3" noValidate>
+    <form action={run} className="flex flex-col gap-3" noValidate onSubmit={(e) => {
+      // The due date box shows its own message when what was typed is not a date: do not issue until it is right (LE3).
+      const box = e.currentTarget.querySelector<HTMLInputElement>("#issue-due");
+      if (box && !box.checkValidity()) { e.preventDefault(); box.focus(); }
+    }}>
       <input type="hidden" name="member" value={memberKey} />
       <input type="hidden" name="copyId" value={copyId} />
       <div className="flex flex-col gap-1.5">

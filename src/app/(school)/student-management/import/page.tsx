@@ -7,7 +7,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { PageHeader } from "@/components/shell/page-header";
 import { BackLink } from "@/components/ui/module-head";
 import { ImportHome } from "@/components/import/import-home";
-import { BASE, studentPage } from "../_lib/page";
+import { BASE, studentPage, NO_ACCESS } from "../_lib/page";
 import { sectionOptions } from "../_lib/queries";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -25,7 +25,7 @@ const ABOUT = {
 /** Workflow 15, step 3: students and parents, on the same engine as Switching to School OS (P10). */
 export default async function ImportPage({ searchParams }: { searchParams: Promise<{ section?: string; kind?: string }> }) {
   const { current, yearIds, can } = await studentPage();
-  if (!can.manage) redirect(BASE);
+  if (!can.manage) redirect(NO_ACCESS);
   const sp = await searchParams;
   const sections = await withSchool(current.ctx, (tx) => sectionOptions(tx, current, yearIds));
   return (

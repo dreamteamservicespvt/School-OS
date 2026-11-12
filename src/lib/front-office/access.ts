@@ -33,8 +33,10 @@ export function foViewer(current: Source): FoViewer {
   const roleKeys = (current.roles ?? []).map((r) => r.key).filter((k): k is string => Boolean(k));
   let level: FoLevel | null = null;
   if (a.change === "all") {
-    // The desk does the work; the Principal and School Admin oversee it (unless they also hold the desk role).
-    level = roleKeys.includes("receptionist") ? "full" : roleKeys.includes("principal") ? "principal" : roleKeys.includes("school-admin") ? "admin" : "full";
+    // The desk does the work; the Principal oversees it (unless they also hold the desk role). The School Admin
+    // has Full here as in docs/blueprint/05-roles.md and works the desk too (layman test LD6: the pages said
+    // "View only" while Settings said Full; src/lib/duty.ts).
+    level = roleKeys.includes("receptionist") || roleKeys.includes("school-admin") ? "full" : roleKeys.includes("principal") ? "principal" : "full";
   } else if (a.see === "all") level = roleKeys.includes("office-staff") && !roleKeys.includes("vice-principal") && !roleKeys.some((k) => MANAGER_ROLES.includes(k)) ? "office" : "view";
   else if (a.see === "own") level = "gate";
   return { userId: current.user.id, see: a.see, change: a.change, roleKeys, level };

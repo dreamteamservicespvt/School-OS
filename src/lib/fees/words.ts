@@ -127,3 +127,6 @@ export function daysWord(n: number) {
 export function percentWord(bp: number) {
   return `${(bp / 100).toLocaleString("en-IN", { maximumFractionDigits: 2 })}%`;
 }
+
+/** "1 concession", "3 concessions": the count with the right word (layman test LB9). */
+export const plural = (n: number, one: string, many = `${one}s`) => `${n.toLocaleString("en-IN")} ${n === 1 ? one : many}`;

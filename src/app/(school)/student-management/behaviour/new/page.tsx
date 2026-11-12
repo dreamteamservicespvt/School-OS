@@ -4,7 +4,7 @@ import { withSchool } from "@/lib/db";
 import { PageHeader } from "@/components/shell/page-header";
 import { BackLink } from "@/components/ui/module-head";
 import { Card, CardBody } from "@/components/ui/card";
-import { BASE, studentPage, todayIso } from "../../_lib/page";
+import { BASE, studentPage, todayIso, NO_ACCESS } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { IncidentForm } from "./incident-form";
 import { loadVisibleStudent } from "@/lib/students/access";
@@ -17,7 +17,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function ReportIncidentPage({ searchParams }: { searchParams: Promise<{ student?: string }> }) {
   const { current, settings, yearIds, can, tz } = await studentPage();
-  if (!can.contribute || !can.seeBehaviour) redirect(`${BASE}/behaviour`);
+  if (!can.contribute || !can.seeBehaviour) redirect(NO_ACCESS);
   const { student } = await searchParams;
   const data = await withSchool(current.ctx, async (tx) => {
     const sections = await sectionOptions(tx, current, yearIds, { own: can.reach === "own" });

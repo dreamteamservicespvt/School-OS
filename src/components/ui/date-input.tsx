@@ -19,8 +19,8 @@ import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight, Clock } from "luc
 import { cx } from "./cx";
 import { useT } from "@/lib/i18n/client";
 import {
-  addDays, addMonths, daysIn, isoOf, isoParts, maskDate, missingDay, monthCells, parseDateText, parseTimeText,
-  showDate, showTime, timeChoices, todayIn, weekdayOf,
+  addDays, addMonths, daysIn, isoOf, isoParts, missingDay, monthCells, parseDateText, parseTimeText,
+  showDate, showTime, timeChoices, todayIn, typedDate, weekdayOf,
 } from "@/lib/date-text";
 
 type InputProps = Omit<React.InputHTMLAttributes<HTMLInputElement>, "type" | "value" | "defaultValue" | "onChange" | "min" | "max" | "size">;
@@ -33,6 +33,11 @@ export type PickerProps = InputProps & {
   onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   /** Classes for the box around the field and its button (the field takes `className`). */
   wrapperClassName?: string;
+  /**
+   * The message the field around the box already shows (TextField). The box's own message
+   * is not shown again under it when it is the same words (layman test LD4: twice).
+   */
+  shownError?: string;
 };
 
 type DateProps = PickerProps & {
@@ -40,6 +45,8 @@ type DateProps = PickerProps & {
   pickYearFirst?: boolean;
   /** Show the day of the week inside the box when there is room ("Mon"). */
   weekdayHint?: boolean;
+  /** Told the typed text while it is not a date ("" once it is one or the box is empty). */
+  onUnreadable?: (text: string) => void;
 };
 
 const str = (v: unknown) => (v === undefined || v === null ? "" : String(v));
@@ -60,7 +67,10 @@ function emit(el: HTMLInputElement | null, value: string, onChange?: PickerProps
   el.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
-/** The value held here: follows `value` when the screen controls it, else starts from defaultValue. */
+/**
+ * The value held here: follows `value` when the screen controls it, else starts from defaultValue.
+ * Also gives the props for the hidden input, which keep the value a form reset puts back.
+ */
 function useHeld(value: string | undefined, defaultValue: string, hidden: React.RefObject<HTMLInputElement | null>) {
   const [cur, setCur] = useState(value ?? defaultValue);
   const [prev, setPrev] = useState(value);
@@ -68,18 +78,25 @@ function useHeld(value: string | undefined, defaultValue: string, hidden: React.
     setPrev(value);
     if (value !== undefined) setCur(value);
   }
-  // React 19 resets an action form once its action ends: a box the screen does not
-  // control goes back to its defaultValue, as the browser's own box did.
-  const latest = useRef({ controlled: value !== undefined, defaultValue });
-  useEffect(() => { latest.current = { controlled: value !== undefined, defaultValue }; });
+  // React 19 resets an action form once its action ends: a box the screen does not control goes
+  // back to its defaultValue, as the browser's own box did. The reset comes in the same commit
+  // that brings the values a refused save sends back, before any effect has run, so the value is
+  // read from the hidden input (React has already written this render's defaultValue on it). A
+  // copy kept by an effect was the first render's: a refused save emptied a date of birth and put
+  // a leave's From and To back to today (layman tests LA1, LD1).
   useEffect(() => {
     const form = hidden.current?.form;
     if (!form) return;
-    const onReset = () => { if (!latest.current.controlled) setCur(latest.current.defaultValue); };
+    const onReset = () => {
+      const to = hidden.current?.dataset.resetTo;
+      if (to !== undefined) setCur(to);
+    };
     form.addEventListener("reset", onReset);
     return () => form.removeEventListener("reset", onReset);
   }, [hidden]);
-  return [cur, setCur] as const;
+  // A controlled box has no reset value: the screen holds it.
+  const resetProps = { "data-reset-to": value === undefined ? defaultValue : undefined };
+  return [cur, setCur, resetProps] as const;
 }
 
 const isShown = (p: HTMLElement) => { try { return p.matches(":popover-open"); } catch { return false; } };
@@ -163,7 +180,7 @@ function useTyped({ held, show, parse, check, commitValue, sendUnreadable = fals
 
 export function DateInput(props: DateProps) {
   const {
-    value, defaultValue, min: minP, max: maxP, onChange, wrapperClassName, pickYearFirst, weekdayHint,
+    value, defaultValue, min: minP, max: maxP, onChange, wrapperClassName, pickYearFirst, weekdayHint, shownError, onUnreadable,
     name, form, disabled, readOnly, required, className, placeholder, onBlur, onKeyDown, ...rest
   } = props;
   const t = useT();
@@ -173,7 +190,7 @@ export function DateInput(props: DateProps) {
   const field = useRef<HTMLInputElement>(null);
   const pop = useRef<HTMLDivElement>(null);
   const popId = useId();
-  const [held, setHeld] = useHeld(value, str(defaultValue), hidden);
+  const [held, setHeld, resetProps] = useHeld(value, str(defaultValue), hidden);
   const [open, setOpen] = useState<false | "mouse" | "keys">(false);
   const [touch, setTouch] = useState(false);
   const today = todayIn();
@@ -194,6 +211,11 @@ export function DateInput(props: DateProps) {
     : typed.bad === "unreadable" ? t.any("Type the date as DD-MM-YYYY, for example 14-05-2012.") : typed.bad;
 
   useEffect(() => { field.current?.setCustomValidity(message); }, [message]);
+  // Text that is not a date goes to the form as it is, so the save is refused; it was sent empty
+  // and a due date was saved as the normal one while the box showed "20-26-12" (layman test LE3).
+  // The screen is still told "" (no date), as before.
+  const unreadable = typed.bad === "unreadable" ? (typed.draft ?? "").trim() : "";
+  useEffect(() => { onUnreadable?.(unreadable); }, [unreadable, onUnreadable]);
 
   const close = useCallback(() => setOpen(false), [setOpen]);
   usePopover(Boolean(open), box, pop, close);
@@ -238,7 +260,7 @@ export function DateInput(props: DateProps) {
         }}
         onChange={(e) => {
           const end = e.target.selectionStart === e.target.value.length;
-          typed.setDraft(end ? maskDate(e.target.value) : e.target.value);
+          typed.setDraft(typedDate(typed.text, e.target.value, end));
           typed.setBad("");
         }}
         onBlur={(e) => {
@@ -265,12 +287,12 @@ export function DateInput(props: DateProps) {
         onClick={() => { typed.commit(); setOpen((o) => (o ? false : "keys")); }}>
         <CalendarDays size={18} aria-hidden="true" />
       </button>
-      <input ref={hidden} type="hidden" name={name} form={form} value={held} disabled={disabled} />
-      {message && <p className="mt-1.5 text-[12.5px] text-bad" role="alert">{message}</p>}
+      <input ref={hidden} type="hidden" name={name} form={form} value={unreadable || held} disabled={disabled} {...resetProps} />
+      {message && message !== shownError && <p className="mt-1.5 text-[12.5px] text-bad" role="alert">{message}</p>}
       <div ref={pop} id={popId} popover="manual" role="dialog" aria-label={t.any("Choose a date")} className={cx(popCls, "w-[min(20rem,calc(100vw-1rem))]")}
         onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setOpen(false); field.current?.focus(); } }}>
         {open && (
-          <Calendar value={held} min={min} max={max} today={today} yearFirst={Boolean(pickYearFirst) && !held}
+          <Calendar value={isoParts(held) ? held : ""} min={min} max={max} today={today} yearFirst={Boolean(pickYearFirst) && !held}
             focusOnOpen={open === "keys" || touch} canClear={!required && Boolean(held)} onPick={pick} />
         )}
       </div>
@@ -477,7 +499,7 @@ function Years({ from, to, focusYear, selected, thisYear, tile, onKeys, label, o
 
 export function TimeInput(props: PickerProps) {
   const {
-    value, defaultValue, min: minP, max: maxP, step, onChange, wrapperClassName,
+    value, defaultValue, min: minP, max: maxP, step, onChange, wrapperClassName, shownError,
     name, form, disabled, readOnly, required, className, placeholder, onBlur, onKeyDown, ...rest
   } = props;
   const t = useT();
@@ -487,7 +509,7 @@ export function TimeInput(props: PickerProps) {
   const field = useRef<HTMLInputElement>(null);
   const pop = useRef<HTMLDivElement>(null);
   const popId = useId();
-  const [held, setHeld] = useHeld(value === undefined ? undefined : value.slice(0, 5), str(defaultValue).slice(0, 5), hidden);
+  const [held, setHeld, resetProps] = useHeld(value === undefined ? undefined : value.slice(0, 5), str(defaultValue).slice(0, 5), hidden);
   const [open, setOpen] = useState<false | "mouse" | "keys">(false);
   const [touch, setTouch] = useState(false);
 
@@ -562,8 +584,8 @@ export function TimeInput(props: PickerProps) {
         onClick={() => { typed.commit(); setOpen((o) => (o ? false : "keys")); }}>
         <Clock size={18} aria-hidden="true" />
       </button>
-      <input ref={hidden} type="hidden" name={name} form={form} value={held} disabled={disabled} />
-      {message && <p className="mt-1.5 text-[12.5px] text-bad" role="alert">{message}</p>}
+      <input ref={hidden} type="hidden" name={name} form={form} value={held} disabled={disabled} {...resetProps} />
+      {message && message !== shownError && <p className="mt-1.5 text-[12.5px] text-bad" role="alert">{message}</p>}
       <div ref={pop} id={popId} popover="manual" className={cx(popCls, "!p-1.5 w-44")}
         onKeyDown={(e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setOpen(false); field.current?.focus(); } }}>
         {open && <TimeList choices={choices} value={held} focusOnOpen={open === "keys" || touch} label={t.any("Choose a time")} onPick={pick} />}
@@ -620,7 +642,9 @@ export function DateTimeInput(props: PickerProps) {
   const { value, defaultValue, min: minP, max: maxP, step, onChange, wrapperClassName, name, form, disabled, readOnly, required, className, id, ...rest } = props;
   const t = useT();
   const hidden = useRef<HTMLInputElement>(null);
-  const [held, setHeld] = useHeld(value, str(defaultValue), hidden);
+  const [held, setHeld, resetProps] = useHeld(value, str(defaultValue), hidden);
+  // A day typed that is not a date goes to the form as typed, so the save is refused (layman test LE3).
+  const [badDay, setBadDay] = useState("");
   const split = (v: string) => ({ date: v.slice(0, 10), time: v.slice(11, 16) });
   const join = (p: { date: string; time: string }) => (p.date && p.time ? `${p.date}T${p.time}` : "");
   // The day and time are kept apart, so a day picked before its time is not lost.
@@ -644,11 +668,11 @@ export function DateTimeInput(props: PickerProps) {
       {/* A day without a time (or a time without a day) was sent empty and lost (layman test LC1): each half needs the other. */}
       <DateInput {...rest} id={id} className={className} disabled={disabled} readOnly={readOnly} required={required || Boolean(parts.time)}
         aria-label={label ? `${label}: ${t.any("Date")}` : undefined}
-        value={parts.date} min={min.slice(0, 10)} max={max.slice(0, 10)} onChange={(e) => change({ ...parts, date: e.target.value })} />
+        value={parts.date} min={min.slice(0, 10)} max={max.slice(0, 10)} onChange={(e) => change({ ...parts, date: e.target.value })} onUnreadable={setBadDay} />
       <TimeInput {...rest} id={id ? `${id}-time` : undefined} className={className} disabled={disabled} readOnly={readOnly} required={required || Boolean(parts.date)}
         aria-label={label ? `${label}: ${t.any("Time")}` : t.any("Time")} step={step}
         value={parts.time} min={sameDay(min)} max={sameDay(max)} onChange={(e) => change({ ...parts, time: e.target.value })} />
-      <input ref={hidden} type="hidden" name={name} form={form} value={held} disabled={disabled} />
+      <input ref={hidden} type="hidden" name={name} form={form} value={badDay ? `${badDay}${parts.time ? `T${parts.time}` : ""}` : held} disabled={disabled} {...resetProps} />
     </div>
   );
 }

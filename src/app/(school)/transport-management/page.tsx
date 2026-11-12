@@ -149,7 +149,7 @@ export default async function LivePage({ searchParams }: { searchParams: SearchP
         )}
 
         <Stats items={[
-          { label: "Buses running", value: `${running.length} of ${data.rows.length}`, icon: Bus, sub: tripKind(kind) },
+          { label: "Buses on a trip now", value: `${running.length} of ${data.rows.length}`, icon: Bus, sub: tripKind(kind) },
           { label: "Not updating", value: staleN, icon: Clock, tone: staleN ? "warn" : undefined, sub: staleN ? "stale or offline" : "All live" },
           { label: "Students on board", value: onBoard, icon: Users },
           { label: "Alerts today", value: data.alerts.length, icon: AlertTriangle, tone: openAlerts.length ? "bad" : undefined, sub: openAlerts.length ? `${openAlerts.length} open` : "None open" },

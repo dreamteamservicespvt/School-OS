@@ -6,7 +6,7 @@ import "server-only";
 
 import { randomUUID } from "node:crypto";
 import type { Prisma } from "@prisma/client";
-import type { SchoolContext, Tx } from "../db";
+import { withSchool, type SchoolContext, type Tx } from "../db";
 import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { saveFile, DOCUMENT_TYPES } from "../files";
@@ -153,6 +153,9 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
   }
   const groupId = targets.length > 1 ? randomUUID() : null;
   const made: { id: string; sectionLabel: string; students: number; notified: number; parents: string | null }[] = [];
+  // Telling students and parents happens after the homework is saved (tellAfterGiving), never inside
+  // this transaction: credits, WhatsApp copies and push alerts are slow, and the save must not wait or fail for them (QA LC2).
+  const tell: TellAfterGiving[] = [];
   const settings = await homeworkSettings(tx, ctx);
   for (const t of targets) {
     let students = await sectionStudents(tx, t.yearId, t.id);
@@ -169,23 +172,53 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
       },
     });
     await tx.submission.createMany({ data: students.map((st) => ({ schoolId: ctx.schoolId, homeworkId: hw.id, studentId: st.id })) });
-    const entry = { id: hw.id, sectionLabel: t.label, students: students.length, notified: 0, parents: null as string | null };
-    made.push(entry);
+    made.push({ id: hw.id, sectionLabel: t.label, students: students.length, notified: 0, parents: null });
     await writeAudit(tx, ctx, {
       action: "created", recordType: "Homework", recordId: hw.id,
       after: { title, section: t.label, subject: subject.name, givenTo: input.givenTo, students: students.length, start: formatDate(input.startDate), due: formatDate(input.dueDate), maxMarks: input.maxMarks },
       actorNote: input.fromSuggestion ? await aiConfirmedNote(tx, ctx) : null,
     });
-    // Students with logins get an app notification (17 §2 "Students are notified when homework is set").
-    for (const st of students) {
-      if (!st.userLoginId) continue;
-      await notify(tx, ctx, { to: st.userLoginId, type: "homework-set", text: `New homework in ${subject.name}: ${title}. Due ${dayDate(input.dueDate)}.`, link: "/homework-learning", groupKey: "homework-set", mergedText: (n) => `${n} new homework` });
-      entry.notified++;
-    }
-    entry.parents = await tellParentsHomeworkSet(tx, ctx, { homeworkId: hw.id, title, subject: subject.name, sectionLabel: t.label, dueDate: input.dueDate, studentIds: students.map((x) => x.id) });
+    tell.push({
+      homeworkId: hw.id,
+      logins: students.map((st) => st.userLoginId).filter((x): x is string => Boolean(x)),
+      text: `New homework in ${subject.name}: ${title}. Due ${dayDate(input.dueDate)}.`,
+      parents: { homeworkId: hw.id, title, subject: subject.name, sectionLabel: t.label, dueDate: input.dueDate, studentIds: students.map((x) => x.id) },
+    });
   }
   await addAttachments(tx, ctx, made.map((m) => m.id), input.attachments);
-  return { made, subject: subject.name };
+  return { made, subject: subject.name, tell };
+}
+
+/** Who to tell about one section's new homework, once it is saved. */
+export type TellAfterGiving = { homeworkId: string; logins: string[]; text: string; parents: Parameters<typeof tellParentsHomeworkSet>[2] };
+
+/**
+ * After the homework is saved: students with logins get an app notification (17 §2 "Students are
+ * notified when homework is set") and parents the "Homework set" message. Each section in its own
+ * transaction, so a slow or failing message step never undoes the homework. Fills in `made`.
+ */
+export async function tellAfterGiving(ctx: SchoolContext, r: { made: { id: string; notified: number; parents: string | null }[]; tell: TellAfterGiving[] }) {
+  for (const t of r.tell) {
+    const entry = r.made.find((m) => m.id === t.homeworkId);
+    if (!entry) continue;
+    try {
+      await withSchool(ctx, async (tx) => {
+        let notified = 0;
+        for (const to of t.logins) {
+          await notify(tx, ctx, { to, type: "homework-set", text: t.text, link: "/homework-learning", groupKey: "homework-set", mergedText: (n) => `${n} new homework` });
+          notified++;
+        }
+        const parents = await tellParentsHomeworkSet(tx, ctx, t.parents);
+        entry.notified = notified;
+        entry.parents = parents;
+      }, { timeout: 60_000 });
+    } catch (e) {
+      console.error(JSON.stringify({ level: "error", event: "homework-tell-failed", homeworkId: t.homeworkId, error: e instanceof Error ? e.message : String(e) }));
+      entry.notified = 0;
+      entry.parents = "failed";
+    }
+  }
+  return r;
 }
 
 /**
@@ -198,7 +231,8 @@ export function givenWords(made: { sectionLabel: string; students: number; notif
   const notified = made.reduce((a, m) => a + m.notified, 0);
   const parents = made.map((m) => m.parents);
   const told = notified ? ` ${plural(notified, "student")} notified in the app.` : "";
-  const toParents = parents.includes("sent") ? " Parents were messaged."
+  const toParents = parents.includes("failed") ? " The homework is saved, but students and parents could not be told just now because of a problem on our side. Open the homework and use Resend to parents."
+    : parents.includes("sent") ? " Parents were messaged."
     : parents.includes("no-channel") || parents.includes("not-sent") ? " Parents were not messaged: no channel can carry it yet (see Communication, Message History)."
       : parents.includes("off") ? " Parents were not messaged: the Homework set message is off (Communication, Message Settings)."
         : parents.includes("held") ? " Parents were not messaged: automatic messages to parents start when the school goes live on School OS."

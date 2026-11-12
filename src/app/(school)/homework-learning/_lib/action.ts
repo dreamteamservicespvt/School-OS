@@ -40,8 +40,11 @@ async function run<T>(current: Current, work: Work<T>) {
   }
 }
 
-/** For a form in a sheet: the FormState the sheet shows (problems next to their fields, typed values kept). */
-export async function hwForm<T>(action: Action, fd: FormData | undefined, work: Work<T>, success: (result: T) => Flash | string): Promise<FormState<T>> {
+/**
+ * For a form in a sheet: the FormState the sheet shows (problems next to their fields, typed values kept).
+ * `after` runs once the work is saved, outside its transaction (messages that must never undo the save).
+ */
+export async function hwForm<T>(action: Action, fd: FormData | undefined, work: Work<T>, success: (result: T) => Flash | string, after?: (result: T, current: Current) => Promise<T>): Promise<FormState<T>> {
   let current: Current;
   try {
     ({ current } = await requireAction("homework-learning", action));
@@ -49,7 +52,10 @@ export async function hwForm<T>(action: Action, fd: FormData | undefined, work: 
     if (e instanceof PermissionDeniedError) return problemState(e, fd) as FormState<T>;
     throw e;
   }
-  return act(fd, () => run(current, work), success);
+  return act(fd, async () => {
+    const result = await run(current, work);
+    return after ? after(result, current) : result;
+  }, success);
 }
 
 /** For a question from the screen that changes nothing (a draft, a preview): the answer, or a problem in plain words. */

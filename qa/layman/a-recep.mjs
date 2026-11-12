@@ -1,0 +1,15 @@
+import { asRole, go, mainText, sleep, close, snap } from "../full/selftest-A-h.mjs";
+import { readFileSync } from "node:fs";
+const p = await asRole("reception");
+await go(p, "/student-management/students/7fb68bce-c215-4acf-a55f-8e0790ac7b03"); await sleep(1000);
+console.log("PROFILE", (await mainText(p, 3000)).replace(/\n/g, " | ").slice(0, 1500));
+await snap(p, "recep-profile");
+await go(p, "/student-management"); await sleep(800);
+await p.locator("main").getByText("Export", { exact: true }).first().click(); await sleep(1200);
+const dl = p.locator("main details[open], [role=dialog]").last();
+console.log("EXPORT BOX", (await dl.innerText().catch(() => "")).replace(/\n+/g, " | ").slice(0, 700));
+const csv = dl.locator("label").filter({ hasText: /CSV/ }).first(); if (await csv.count()) await csv.click();
+const [d] = await Promise.all([p.waitForEvent("download", { timeout: 30000 }).catch(() => null), dl.getByRole("button", { name: /Export|Download/ }).last().click().catch(() => {})]);
+if (d) { const txt = readFileSync(await d.path(), "utf8"); console.log("FILE lines", txt.split("\n").length); console.log(txt.split("\n").slice(4, 7).join("\n").slice(0, 600)); } else console.log("NO DOWNLOAD");
+await snap(p, "recep-export");
+await close();

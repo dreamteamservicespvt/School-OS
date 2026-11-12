@@ -3,10 +3,15 @@
 const wholeRupees = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 });
 const withPaise = new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", minimumFractionDigits: 2 });
 
-/** Money is stored in paise. 11640000 paise is shown as ₹1,16,400; 50050 as ₹500.50. */
+/** The one minus sign for money below zero, everywhere: "−₹1,200" (layman test LB9 found "-" and "−" side by side). */
+export const MINUS = "−";
+
+/** Money is stored in paise. 11640000 paise is shown as ₹1,16,400; 50050 as ₹500.50; -120000 as −₹1,200. */
 export function formatRupees(paise: bigint | number): string {
   const p = Number(paise);
-  return p % 100 === 0 ? wholeRupees.format(p / 100) : withPaise.format(p / 100);
+  const a = Math.abs(p);
+  const text = a % 100 === 0 ? wholeRupees.format(a / 100) : withPaise.format(a / 100);
+  return p < 0 ? `${MINUS}${text}` : text;
 }
 
 /**
@@ -74,7 +79,7 @@ export function checkIndianMobile(input: string): string | null {
 /** Big amounts in short words for tiles and charts: ₹2.33 Cr, ₹42.3 L, ₹8.4k (paise in). */
 export function formatRupeesShort(paise: bigint | number): string {
   const n = Math.round(Number(paise) / 100);
-  const neg = n < 0 ? "-" : "";
+  const neg = n < 0 ? MINUS : "";
   const a = Math.abs(n);
   if (a >= 1e7) return `${neg}₹${(a / 1e7).toFixed(2).replace(/\.?0+$/, "")} Cr`;
   if (a >= 1e5) return `${neg}₹${(a / 1e5).toFixed(2).replace(/\.?0+$/, "")} L`;

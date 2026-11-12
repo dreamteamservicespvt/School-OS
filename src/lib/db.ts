@@ -10,10 +10,43 @@
 //   Querying school records with it returns nothing, by design.
 
 import { PrismaClient, type Prisma } from "@prisma/client";
+import { BUSY_DIGEST } from "./db-busy";
+
+export { BUSY_DIGEST };
 
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-export const prisma = globalForPrisma.prisma ?? new PrismaClient();
+/** Running as a serverless function (Vercel, AWS Lambda): many small copies, each with its own pool. */
+const serverless = (env: NodeJS.ProcessEnv) => Boolean(env.VERCEL || env.AWS_LAMBDA_FUNCTION_NAME);
+
+/**
+ * The database address the app uses: DATABASE_URL, with a pool size and a wait for a free
+ * connection added when it names none (layman tests LA5, LC3, LE9). Prisma's own default is
+ * 2 per CPU core + 1 (9 on the test laptop) and 10 s: one Dashboard alone opens up to 6
+ * transactions, so a few people at once found the pool full and got the error page.
+ * - One long-running server (a laptop, a VPS): 20 connections, under PostgreSQL's 100.
+ * - Serverless: 5 per copy, because every copy has its own pool (a hosted PostgreSQL or
+ *   its pooler sets the real total); set connection_limit in DATABASE_URL to change it.
+ * - A busy moment waits up to 20 s for a connection rather than failing at once.
+ * Values already in DATABASE_URL always win. Nothing secret is added here.
+ */
+export function databaseUrl(url = process.env.DATABASE_URL ?? "", env: NodeJS.ProcessEnv = process.env): string | undefined {
+  if (!url) return undefined;
+  let u: URL;
+  try { u = new URL(url); } catch { return url; }
+  if (!u.searchParams.has("connection_limit")) u.searchParams.set("connection_limit", serverless(env) ? "5" : "20");
+  if (!u.searchParams.has("pool_timeout")) u.searchParams.set("pool_timeout", "20");
+  return u.toString();
+}
+
+/** Connections in the app's pool (the dashboard shares its work out within it). */
+export function poolLimit(url = databaseUrl()): number {
+  const m = /[?&]connection_limit=(\d+)/.exec(url ?? "");
+  return m ? Math.max(1, Number(m[1])) : 9;
+}
+
+const datasourceUrl = databaseUrl();
+export const prisma = globalForPrisma.prisma ?? new PrismaClient(datasourceUrl ? { datasourceUrl } : undefined);
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
 
 export type Tx = Prisma.TransactionClient;
@@ -56,6 +89,21 @@ export type WorkOptions = {
   timeout?: number;
 };
 
+/** Pool full (P2024), a transaction that could not start or ran out of time (P2028), a write conflict (P2034). */
+const BUSY_CODES = new Set(["P2024", "P2028", "P2034"]);
+
+/** Marks a "database busy" error with BUSY_DIGEST (Next.js keeps an error's own digest; production hides the message) and throws it on. */
+export function markBusy(e: unknown): never {
+  const code = e && typeof e === "object" ? (e as { code?: unknown }).code : undefined;
+  if (typeof code === "string" && BUSY_CODES.has(code) && !(e as { digest?: unknown }).digest) {
+    try { Object.defineProperty(e, "digest", { value: `${BUSY_DIGEST}${code}`, configurable: true, writable: true }); } catch { /* a frozen error stays as it is */ }
+  }
+  throw e;
+}
+
+/** Up to 20 s to get a connection for a transaction (Prisma's own is 2 s), so a busy moment waits rather than fails. */
+const MAX_WAIT = 20_000;
+
 export async function withSchool<T>(ctx: SchoolContext, work: (tx: Tx) => Promise<T>, opts: WorkOptions = {}): Promise<T> {
   const schoolId = checkId(ctx.schoolId, "School");
   // A support person is nobody inside the school: no person is set on the wall.
@@ -65,8 +113,8 @@ export async function withSchool<T>(ctx: SchoolContext, work: (tx: Tx) => Promis
       await tx.$executeRaw`SELECT set_config('app.school_id', ${schoolId}, true), set_config('app.user_id', ${userId}, true)`;
       return work(tx);
     },
-    { timeout: opts.timeout ?? 15_000, maxWait: 10_000 },
-  );
+    { timeout: opts.timeout ?? 15_000, maxWait: MAX_WAIT },
+  ).catch(markBusy);
 }
 
 export async function withUser<T>(userId: string, work: (tx: Tx) => Promise<T>, opts: WorkOptions = {}): Promise<T> {
@@ -78,8 +126,8 @@ export async function withUser<T>(userId: string, work: (tx: Tx) => Promise<T>, 
       await tx.$executeRaw`SELECT set_config('app.school_id', '', true), set_config('app.user_id', ${id}, true)`;
       return work(tx);
     },
-    { timeout: opts.timeout ?? 15_000, maxWait: 10_000 },
-  );
+    { timeout: opts.timeout ?? 15_000, maxWait: MAX_WAIT },
+  ).catch(markBusy);
 }
 
 // ---------------------------------------------------------------------------
@@ -95,8 +143,8 @@ export async function withConsole<T>(work: (tx: Tx) => Promise<T>, opts: WorkOpt
       await tx.$executeRaw`SELECT set_config('app.console', 'on', true), set_config('app.school_id', '', true), set_config('app.user_id', '', true)`;
       return work(tx);
     },
-    { timeout: opts.timeout ?? 15_000, maxWait: 10_000 },
-  );
+    { timeout: opts.timeout ?? 15_000, maxWait: MAX_WAIT },
+  ).catch(markBusy);
 }
 
 /**
@@ -114,6 +162,6 @@ export async function withConsoleSchool<T>(schoolId: string, work: (tx: Tx) => P
       await tx.$executeRaw`SELECT set_config('app.console', 'on', true), set_config('app.school_id', ${id}, true), set_config('app.user_id', '', true)`;
       return work(tx);
     },
-    { timeout: opts.timeout ?? 15_000, maxWait: 10_000 },
-  );
+    { timeout: opts.timeout ?? 15_000, maxWait: MAX_WAIT },
+  ).catch(markBusy);
 }

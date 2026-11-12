@@ -1,0 +1,30 @@
+// Layman E: does the Add item form keep my category and opening stock after a mistake? Then save, stock in/out.
+process.env.QA_OUT ??= "D:/all/Projects/School-OS/qa-output/layman-e";
+const { asRole, go, snap, note, close, sleep } = await import("../full/selftest-A-h.mjs");
+const p = await asRole("store");
+const settle = async () => { await sleep(600); for (let i = 0; i < 40; i++) { const busy = await p.locator('button[aria-busy="true"], button:has(.animate-spin)').count(); if (!busy) break; await sleep(500); } await sleep(800); };
+const dlg = () => p.getByRole("dialog").last();
+const step = async (label, where) => { await settle(); const t = ((await (where ?? (await dlg().count() ? dlg() : p.locator("main"))).innerText().catch(() => "")) || "").replace(/\n{2,}/g, "\n").replace(/Choose the category\n(Stationery\n|Cleaning\n|Lab\n|Sports\n|Uniforms\n|Books\n)+/, "[cats]\n").replace(/piece\nbox[\s\S]*?dozen\n/, "[units]\n"); note("inv2", `\n--- ${label}\n${t.slice(0, 3000)}\nPROBLEMS: ${p.problems.join(" ; ")}`); await snap(p, `inv2-${label}`, false); console.log(`--- ${label}\n${t.slice(0, 900)}`); return t; };
+const N = `LE-చాక్ పీస్ ${Date.now() % 10000}`;
+await go(p, "/inventory-management/items?open=add"); await settle();
+const save = () => dlg().getByRole("button", { name: /^(Add item|Save)$/ });
+await dlg().getByLabel(/Item name/).fill(N);
+await dlg().locator("#item-cat").selectOption({ label: "Stationery" });
+await dlg().getByLabel(/Reorder level/).fill("-5");
+await dlg().getByLabel(/Price per unit/).fill("12.50");
+await dlg().locator("#open-qty-0").fill("10");
+await save().click(); await step("01-reorder-negative");
+console.log("AFTER ERROR: category=", await dlg().locator("#item-cat").inputValue(), " openQty=", await dlg().locator("#open-qty-0").inputValue(), " price=", await dlg().getByLabel(/Price per unit/).inputValue(), " name=", await dlg().getByLabel(/Item name/).inputValue());
+// price letters
+await dlg().getByLabel(/Reorder level/).fill("5");
+await dlg().locator("#item-cat").selectOption({ label: "Stationery" });
+await dlg().getByLabel(/Price per unit/).fill("abc");
+await dlg().locator("#open-qty-0").fill("-3");
+await save().click(); await step("02-price-letters-qty-negative");
+await dlg().locator("#item-cat").selectOption({ label: "Stationery" });
+await dlg().getByLabel(/Price per unit/).fill("12.50");
+await dlg().locator("#open-qty-0").fill("10");
+await save().click(); await step("03-save", p.locator("body"));
+console.log("URL", p.url());
+note("inv2", `ITEMNAME ${N} URL ${p.url()}`);
+await close();

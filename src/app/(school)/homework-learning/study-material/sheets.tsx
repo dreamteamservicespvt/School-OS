@@ -35,14 +35,14 @@ export function LessonSheet({ closeHref, course, chapters, lesson, maxMb }: {
       <FieldShell label="Course" id="ls-course" required>
         <input id="ls-course" value={`${course.subject} · Class ${course.label}`} readOnly className={cx(inputCls(), "h-11 bg-sunken/50")} />
       </FieldShell>
-      <Text name="title" label="Lesson title" required start={lesson?.title} placeholder="For example: Simple Equations" />
+      <Text name="title" label="Lesson title" required maxLength={160} start={lesson?.title} placeholder="For example: Simple Equations" />
       <FieldShell label="Chapter" id="ls-ch" help={chapters.length ? "From the syllabus" : "The syllabus for this class has no chapters yet"} error={ch.error}>
         <select id="ls-ch" name="chapterId" defaultValue={ch.value} key={ch.key} className={cx(inputCls(ch.error), "h-11")}>
           <option value="">No chapter</option>
           {chapters.map((c) => <option key={c.id} value={c.id}>{c.title}</option>)}
         </select>
       </FieldShell>
-      <Text name="notes" label="Notes" area rows={3} start={lesson?.notes} placeholder="Typed notes students read with the lesson" help="Optional when you add a file or link" />
+      <Text name="notes" label="Notes" area rows={3} maxLength={8000} start={lesson?.notes} placeholder="Typed notes students read with the lesson" help="Optional when you add a file or link" />
       {edit && lesson.items.length > 0 && (
         <fieldset className="flex flex-col gap-1.5">
           <legend className="text-[13px] font-semibold text-ink2 mb-1"><Words k="In this lesson" /></legend>

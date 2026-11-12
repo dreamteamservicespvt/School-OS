@@ -1,0 +1,16 @@
+import { asRole, go, mainText, sleep, close, snap } from "../full/selftest-A-h.mjs";
+const ID = "343443c8-7b6d-4dda-921f-b7b125ddc77e";
+const p = await asRole("admin");
+await go(p, `/communication/notices/${ID}/edit`); await sleep(1000);
+const base = await mainText(p, 20000);
+const diff = async () => (await mainText(p, 20000)).split("\n").filter((l) => !base.includes(l)).slice(0, 8);
+console.log("EDIT publishAt box:", await p.locator("#n-publishAt").inputValue().catch((e) => "ERR"), "| hidden:", await p.locator("input[name=publishAt]").inputValue().catch(() => "-"), "| expires:", await p.locator("#n-expiresOn").inputValue().catch(() => "-"));
+const pa = p.locator("#n-publishAt");
+await pa.click(); await pa.fill("20-11-2026"); await p.keyboard.press("Tab"); await sleep(500);
+console.log("after typing publish date:", await pa.inputValue(), "| hidden:", await p.locator("input[name=publishAt]").inputValue().catch(() => "-"));
+await snap(p, "c-notice-edit");
+await p.getByRole("button", { name: /Send for approval|Save/ }).first().click(); await sleep(3000);
+console.log("SEND FOR APPROVAL ->", new URL(p.url()).pathname, JSON.stringify(await diff()));
+await snap(p, "c-notice-send");
+console.log("PROBLEMS", p.problems);
+await close();

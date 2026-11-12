@@ -82,3 +82,11 @@ export function firstInOrder(order: readonly string[], names: Iterable<string>):
   const want = new Set(names);
   return order.find((n) => want.has(n)) ?? null;
 }
+
+/**
+ * The form-level line that only counts the problems ("Please fix 2 things before saving."),
+ * which the error summary already says above its list (layman tests LE7, LC13: shown twice).
+ */
+export function isSummaryMessage(message: string | undefined | null): boolean {
+  return /^Please fix \d+ things before saving[.:]?$/.test((message ?? "").trim());
+}

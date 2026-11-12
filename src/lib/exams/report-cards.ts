@@ -514,8 +514,21 @@ export async function renderReportCards(tx: Tx, ctx: SchoolContext, items: { stu
     board = d.board;
   }
   const base = await reportFormatFor(tx, ctx, board);
-  const design = base ? await currentDesign(tx, "report-card") : null;
-  return renderDocument(tx, ctx, "report-card", datas, design && base ? { design: { base, options: design.options } } : {});
+  const design = await currentDesign(tx, "report-card");
+  // 08 Report card contents: places to sign for the class teacher, the Principal and the parent, and the
+  // day it was issued (QA LC7). The signatories chosen in Document Designs print with their names; with
+  // none chosen, a blank line for the Principal.
+  const signatories = design.options.signatoryIds.length ? await tx.signatory.count({ where: { id: { in: design.options.signatoryIds }, archivedAt: null } }) : 0;
+  const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { timeZone: true } });
+  const signLines = reportSignLines(signatories > 0);
+  const issuedOn = generatedOn(school?.timeZone ?? "Asia/Kolkata");
+  for (const d of datas) Object.assign(d, { signLines, issuedOn });
+  return renderDocument(tx, ctx, "report-card", datas, base ? { design: { base, options: design.options } } : {});
+}
+
+/** The blank signature lines on a report card: the Principal's only when no signatory is chosen to print instead. */
+export function reportSignLines(hasSignatories: boolean) {
+  return ["Class teacher", ...(hasSignatories ? [] : ["Principal"]), "Parent"];
 }
 
 /**

@@ -1,6 +1,6 @@
 // Staff List export (P8): Excel, CSV or PDF with the filters on screen. Only
 // fields everyone with the list may see; restricted fields are never exported.
-import { requireAction } from "@/lib/current";
+import { staffRouteAccess } from "@/lib/staff/route";
 import { withSchool } from "@/lib/db";
 import { readListParams } from "@/lib/list";
 import { buildExport, exportResponse, logExport, type ExportFormat } from "@/lib/exports";
@@ -10,7 +10,9 @@ import { describeFilters, STAFF_FILTERS, staffOrder, staffWhere } from "@/lib/st
 import { statusLabel } from "@/lib/staff/settings";
 
 export async function GET(req: Request) {
-  const { current } = await requireAction("staff-hr-management", "export");
+  const access = await staffRouteAccess("export");
+  if (access instanceof Response) return access;
+  const { current } = access;
   const url = new URL(req.url);
   const format = (["csv", "xlsx", "pdf"].includes(url.searchParams.get("format") ?? "") ? url.searchParams.get("format") : "xlsx") as ExportFormat;
   const params = readListParams(Object.fromEntries(url.searchParams.entries()), STAFF_FILTERS);

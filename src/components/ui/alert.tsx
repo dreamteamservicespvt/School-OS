@@ -1,6 +1,5 @@
 import { CircleAlert, CircleCheck, Info, TriangleAlert } from "lucide-react";
 import { cx } from "./cx";
-import { ProblemInView } from "./problem-in-view";
 import { tx } from "@/lib/i18n/tx";
 
 type Tone = "info" | "success" | "warning" | "danger";
@@ -28,9 +27,5 @@ export function Alert({ tone = "info", title, children, className = "", action }
   );
 }
 
-/** The result of a form or action, shown above the form (P7, P15). A problem brings itself into view (QA ADMIT-02). */
-export function FormMessage({ state }: { state?: { ok: boolean; message?: string } | null }) {
-  if (!state?.message) return null;
-  if (state.ok) return <Alert tone="success">{state.message}</Alert>;
-  return <ProblemInView token={state}><Alert tone="danger">{state.message}</Alert></ProblemInView>;
-}
+/** The result of a form or action, shown above the form (./form-message.tsx). */
+export { FormMessage } from "./form-message";

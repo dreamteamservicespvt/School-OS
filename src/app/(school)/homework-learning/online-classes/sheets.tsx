@@ -44,7 +44,7 @@ export function ScheduleSheet({ closeHref, sections, start }: { closeHref: strin
           </KeepSelect>
         </FieldShell>
       </div>
-      <Text name="title" label="Title" placeholder="Half Yearly revision: geometry" help="Optional. Left empty, it is the subject and class." />
+      <Text name="title" label="Title" maxLength={160} placeholder="Half Yearly revision: geometry" help="Optional. Left empty, it is the subject and class." />
       <div className="grid grid-cols-2 gap-3">
         <FieldShell label="Date and time" id="oc-when" required error={when.error}><DateTimeInput id="oc-when" name="startsAt" defaultValue={when.value} key={when.key} className={cx(inputCls(when.error), "h-11 tnum")} /></FieldShell>
         <FieldShell label="Length" id="oc-len" required error={len.error}>
@@ -72,7 +72,7 @@ export function CancelSheet({ closeHref, id, title }: { closeHref: string; id: s
   return (
     <SheetForm title={`Cancel “${title}”?`} closeHref={closeHref} action={cancelClassAction} hidden={{ id }} submitLabel="Cancel class" pendingText="Cancelling…" submitVariant="danger">
       <p className="text-[14px] text-ink2"><Words k="Students are told at once. You can undo it from the message that follows." /></p>
-      <Text name="note" label="Note for students" placeholder="For example: Moved to Sat 17 Oct" help="Optional" />
+      <Text name="note" label="Note for students" maxLength={200} placeholder="For example: Moved to Sat 17 Oct" help="Optional" />
     </SheetForm>
   );
 }
@@ -109,7 +109,7 @@ export function MaterialSheet({ closeHref, id, title }: { closeHref: string; id:
     <SheetForm title="Share a material" sub={title} closeHref={closeHref} action={materialAction} hidden={{ id }} submitLabel="Share" pendingText="Sharing…">
       <FieldShell label="File" id="mt-file" error={f.error} help="Photos or PDF, up to 10 MB"><input id="mt-file" name="file" type="file" accept="image/jpeg,image/png,application/pdf" className="text-[14px]" /></FieldShell>
       <FieldShell label="Or a link" id="mt-url" error={u.error}><input id="mt-url" name="url" defaultValue={u.value} key={u.key} placeholder="https://…" className={cx(inputCls(u.error), "h-11")} inputMode="url" /></FieldShell>
-      <Text name="name" label="Name" placeholder="Light: notes" help="Optional" />
+      <Text name="name" label="Name" maxLength={120} placeholder="Light: notes" help="Optional" />
     </SheetForm>
   );
 }

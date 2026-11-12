@@ -10,7 +10,7 @@ import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { commAction, commOfficeAction } from "@/lib/communication/access";
 import { localToUtc } from "@/lib/communication/time";
-import { archiveNotice, checkNoticeCampus, checkNoticeScope, markRead, noticeOnCampus, NoticeProblem, NOTICE_CHANNELS, noticeResendInput, remindUnacknowledged, saveNotice, CRITICAL_WORD, type NoticeChannel, type NoticeInput } from "@/lib/communication/notices";
+import { archiveNotice, withdrawNotice, checkNoticeCampus, checkNoticeScope, markRead, noticeOnCampus, NoticeProblem, NOTICE_CHANNELS, noticeResendInput, remindUnacknowledged, saveNotice, CRITICAL_WORD, type NoticeChannel, type NoticeInput } from "@/lib/communication/notices";
 import { DOCUMENT_TYPES, FileProblem, saveFile } from "@/lib/files";
 import { creditWords, planMessage, sendMessage, MessagingProblem } from "@/lib/messaging/send";
 import { requireAction } from "@/lib/current";
@@ -90,7 +90,8 @@ export async function saveNoticeAction(_prev: NoticeState, form: FormData): Prom
     throw e;
   }
   const words = { draft: "Saved as a draft.", approval: "Sent for approval. It is published once it is approved.", scheduled: "Scheduled. It is published at its time.", published: "Published." }[result.outcome];
-  await flash({ message: `${words}`, tone: "success", link: { href: `/communication/notices/${result.notice.id}`, label: "Open notice" } });
+  // The page moves to the notice itself, so no "Open notice" link (QA LC20).
+  await flash({ message: `${words}`, tone: "success" });
   redirect(`/communication/notices/${result.notice.id}`);
 }
 
@@ -109,6 +110,24 @@ export async function archiveNoticeAction(id: string): Promise<string | void> {
     throw e;
   }
   revalidatePath("/communication/notices");
+}
+
+/** The writer takes a notice back from approval to change it (QA LC14). */
+export async function withdrawNoticeAction(id: string): Promise<string | void> {
+  const { current, scope } = await commAction("edit");
+  try {
+    const n = await withSchool(current.ctx, async (tx) => {
+      const own = await tx.notice.findFirst({ where: { id, schoolId: current.ctx.schoolId } });
+      if (!own || !noticeOnCampus(own, scope.campusId, current.user.id)) throw new NoticeProblem("This notice was not found.");
+      return withdrawNotice(tx, current.ctx, id);
+    });
+    await flash({ message: `Withdrawn: "${n.title}" is a draft again. Change it and send it for approval when ready.`, tone: "success" });
+  } catch (e) {
+    if (e instanceof NoticeProblem) return e.message;
+    throw e;
+  }
+  revalidatePath("/communication/notices");
+  revalidatePath(`/communication/notices/${id}`);
 }
 
 /** "I have read this" (and opening the notice counts as read). */

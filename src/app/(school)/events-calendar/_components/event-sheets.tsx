@@ -64,7 +64,7 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
       </div>
       {campuses.length > 1 && <SSelect name="campusId" label="Campus" help="An event of one campus is shown and sent only to that campus" options={[{ value: "", label: "All campuses" }, ...campuses]} start={start.campusId ?? ""} />}
       {audience === "classes" && <SChips name="classIds" label="Classes" options={classes} start={start.classIds} required />}
-      <WarningConfirm keyName="venue-clash" />
+      <WarningConfirm keyName={["venue-clash", "past-date"]} />
       <div className="rounded-xl bg-sunken/70 p-3.5 flex flex-col gap-3">
         <label className="flex items-center gap-3">
           <Checkbox checked={reg} onChange={setReg} label="Registration" />

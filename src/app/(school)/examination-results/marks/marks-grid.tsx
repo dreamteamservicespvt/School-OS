@@ -27,7 +27,7 @@ import { Kbd } from "@/components/ui/display";
 import { Banner, Stats, Timeline, TONE_SOFT } from "@/components/ui/kit";
 import { inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
-import { checkMark, typedTotal } from "@/lib/exams/compute";
+import { checkMark, markNumber, missingWords, readMarkText, typedTotal } from "@/lib/exams/compute";
 import type { Band } from "@/lib/exams/grades";
 import type { FormState } from "@/lib/forms";
 import { ActionSheet } from "../_components/sheets";
@@ -57,7 +57,8 @@ type Props = {
   lateMarks: "approval" | "off";
 };
 
-const num = (s: string) => (s.trim() === "" ? null : Number(s.trim()));
+// Plain digits only: "1e2" is not 100 and "-5" is not 5 (QA LC9).
+const num = markNumber;
 const fmt = (n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(/\.0$/, ""));
 const code = (r: { absent: boolean; medical: boolean }) => (r.absent ? (r.medical ? "ML" : "AB") : "");
 
@@ -99,8 +100,13 @@ export function MarksGrid(props: Props) {
     if (r.absent && (entered || r.grade)) return `marked ${r.medical ? "ML" : "AB"} and also has marks. Remove one.`;
     if (gradeOnly) return r.grade && !gradeList.includes(r.grade) ? `choose a grade from ${gradeList.join(", ")}.` : null;
     for (const c of cats) {
-      const v = num(r.parts[c.name] ?? "");
-      if (v !== null && Number.isNaN(v)) return `${cats.length === 1 ? "the mark" : c.name} is not a number.`;
+      const label = cats.length === 1 ? "the mark" : c.name;
+      const text = r.parts[c.name] ?? "";
+      const read = readMarkText(text);
+      if (read.kind === "bad") return `${label}: ${read.problem}`;
+      if (read.kind === "partial") return `${label}: “${text.trim()}” is not finished. Type AB for absent, ML for medical leave, or the mark.`;
+      const v = num(text);
+      if (v !== null && Number.isNaN(v)) return `${label} is not a number.`;
       const p = checkMark(cats.length === 1 ? "This paper" : c.name, c.max, v);
       if (p) return p;
     }
@@ -216,16 +222,21 @@ export function MarksGrid(props: Props) {
   }
   /** What a cell shows: the text being typed, AB or ML, or the mark. */
   const shown = (id: string, cat: string) => (typing?.key === `${id}:${cat}` ? typing.text : rows[id].absent ? code(rows[id]) : rows[id].parts[cat] ?? "");
+  // What was typed is kept as typed: a mark, AB or ML (any case) is used; anything else stays in the
+  // box with a message, never quietly changed into AB or a different number (QA LC9).
   function type(id: string, cat: string, raw: string) {
-    const text = raw.toUpperCase().replace(/[^0-9.ABML]/g, "").slice(0, 5);
+    const text = raw.slice(0, 8);
     setTyping({ key: `${id}:${cat}`, text });
-    if (text === "" || /^\d*\.?\d*$/.test(text) || text === "AB" || text === "ML") setCell(id, cat, text);
+    const m = readMarkText(text);
+    if (m.kind === "blank") setCell(id, cat, "");
+    else if (m.kind === "mark") setCell(id, cat, m.text);
+    else if (m.kind === "code") setCell(id, cat, m.code);
+    else if (m.kind === "bad") setCell(id, cat, text.trim());
+    // "A", "M" or ".": still being typed; leaving the box like that shows a message.
   }
   function settle(id: string, cat: string) {
     if (!typing || typing.key !== `${id}:${cat}`) return;
-    const t = typing.text;
-    if (t === "A") setCell(id, cat, "AB");
-    else if (t === "M") setCell(id, cat, "ML");
+    if (readMarkText(typing.text).kind === "partial") setCell(id, cat, typing.text.trim());
     setTyping(null);
   }
 
@@ -314,8 +325,8 @@ export function MarksGrid(props: Props) {
               </Banner>
             )}
             {tried && !problems.length && blanks.length > 0 && (
-              <Banner tone="warn" title={`${blanks.length} ${blanks.length === 1 ? "student has" : "students have"} no ${gradeOnly ? "grade" : "mark"} yet:`}>
-                {blanks.slice(0, 4).map((s) => `${s.name} (roll ${s.rollNo ?? "–"})`).join(", ")}{blanks.length > 4 ? ` and ${blanks.length - 4} more` : ""}<Words k=". Type the mark, or AB for absent and ML for medical leave." />
+              <Banner tone="warn" title={`${blanks.length} ${blanks.length === 1 ? "student has" : "students have"} ${gradeOnly ? "no grade" : "marks missing"} yet:`}>
+                {blanks.slice(0, 4).map((s) => `${s.name} (roll ${s.rollNo ?? "–"})${missingWords(rows[s.id], cats, gradeOnly)}`).join(", ")}{blanks.length > 4 ? ` and ${blanks.length - 4} more` : ""}<Words k=". Type the mark, or AB for absent and ML for medical leave." />
               </Banner>
             )}
 
@@ -539,7 +550,8 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
             <div className={cx("grid gap-2 mt-4 [@media(max-height:720px)]:mt-3", cats.length > 1 ? "grid-cols-2" : "grid-cols-1")}>
               {cats.map((x, n) => {
                 const xv = r.absent ? code(r) : r.parts[x.name] ?? "";
-                const xBad = !r.absent && xv !== "" && (Number.isNaN(Number(xv)) || Boolean(checkMark(x.name, x.max, Number(xv))));
+                const xn = num(xv);
+                const xBad = !r.absent && xn !== null && (Number.isNaN(xn) || Boolean(checkMark(x.name, x.max, xn)));
                 return (
                   <button key={x.name} type="button" onClick={() => (canEdit ? pick(n) : canRequest && !s.waiting ? onAsk(s) : undefined)} aria-pressed={k === n}
                     className={cx("rounded-2xl border-2 p-3 text-left transition flex items-end justify-between gap-2 [@media(max-height:720px)]:p-2", k === n && canEdit ? "border-brand bg-brand/5" : "border-line")}>
@@ -635,7 +647,7 @@ function ChangeSheet({ entryId, sectionId, categories: cats, gradeOnly, gradeLis
         <span className="flex flex-wrap gap-1.5 mb-1">
           {(student.late ? LATE_REASONS : REASONS).map((x) => <button key={x} type="button" onClick={() => setReason(x)} className="h-8 px-3 rounded-full bg-sunken text-[13px] font-medium text-ink hover:bg-line">{x}</button>)}
         </span>
-        <textarea name="reason" required rows={3} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="For example: question 7 was checked but not added to the total" className={cx(inputCls(), "py-2 font-normal")} />
+        <textarea name="reason" required rows={3} maxLength={300} value={reason} onChange={(e) => setReason(e.target.value)} placeholder="For example: question 7 was checked but not added to the total" className={cx(inputCls(), "py-2 font-normal")} />
       </label>
       <p className="text-[12.5px] text-ink3 flex gap-1.5"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{student.late
         ? `Goes to ${head.approver} in Approvals. Nothing changes until it is approved. The student's result counts once every paper has marks, and is then published like any other; the class's published results do not change.`

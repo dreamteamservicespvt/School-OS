@@ -16,7 +16,7 @@ import { formatDate, formatRupees } from "../format";
 import { isoDay } from "../staff/dates";
 import { staffMonthForSalary } from "../attendance/staff";
 import { salaryBroughtInForMonth, yearlyGross } from "./to-date-totals";
-import { postToDayBook, reverseSource } from "../finance/daybook";
+import { postToDayBook, reverseSource, warnIfBelowZero } from "../finance/daybook";
 import { assertBooksOpen } from "../finance/years";
 import { accountForMode, systemHead } from "../finance/settings";
 import { sendAutomatic } from "../messaging";
@@ -81,6 +81,20 @@ export async function payrollStaff(tx: Tx, campusId: string, month: Date) {
     orderBy: [{ staffCode: "asc" }],
     select: { id: true, fullName: true, staffCode: true, designation: true, departmentId: true, joiningDate: true, leavingDate: true, userLoginId: true },
   });
+}
+
+/**
+ * Who is on a month's payroll on a campus, and which of them have no salary
+ * structure for that month (left out of it, as the calculation does: a
+ * structure counts from its effective month). The one rule for Generate Salary
+ * and Salary Structures, so both pages give the same numbers (layman test LB7).
+ */
+export async function payrollCoverage(tx: Tx, campusId: string, month: Date) {
+  const staff = await payrollStaff(tx, campusId, month);
+  // campus: only the staff of this campus (read above).
+  const has = await tx.salaryStructure.findMany({ where: { staffId: { in: staff.map((s) => s.id) }, archivedAt: null, effectiveFrom: { lte: month } }, distinct: ["staffId"], select: { staffId: true } });
+  const covered = new Set(has.map((h) => h.staffId));
+  return { staff, missing: staff.filter((s) => !covered.has(s.id)) };
 }
 
 /** Recoveries due this month: active, not paused advances and loans, oldest first. */
@@ -368,7 +382,7 @@ async function approveRun(tx: Tx, ctx: SchoolContext, runId: string) {
   await writeAudit(tx, ctx, { action: "payroll-approved", recordType: "Payroll Run", recordId: run.id, before: { status: "WAITING" }, after: { status: "APPROVED", slips: lines.length, net: formatRupees(run.netPaise) } });
 }
 
-export type PayInput = { date: Date; mode: string; reference: string | null; accountId: string | null; today: Date };
+export type PayInput = { date: Date; mode: string; reference: string | null; accountId: string | null; today: Date; /** "Pay anyway" when the account goes below zero (self-test A3). */ confirmLowCash?: boolean };
 
 /** Mark paid: only now does the salary reach the Day Book, as one entry on the date paid (D12, Done when 6 and 12). */
 export async function markPaid(tx: Tx, ctx: SchoolContext, runId: string, input: PayInput) {
@@ -384,6 +398,7 @@ export async function markPaid(tx: Tx, ctx: SchoolContext, runId: string, input:
   await assertBooksOpen(tx, ctx, input.date, "date");
   const head = await systemHead(tx, ctx, "salary");
   const accountId = await accountForMode(tx, ctx, input.mode, input.accountId);
+  if (accountId) await warnIfBelowZero(tx, ctx, { accountId, amountPaise: run.netPaise, field: "mode", confirmed: input.confirmLowCash });
   const reversals = (run.reversals as unknown[]) ?? [];
   await postToDayBook(tx, ctx, {
     date: input.date, direction: "OUT", amountPaise: run.netPaise, mode: input.mode, section: "salary", headName: head?.name ?? "Salaries", accountHeadId: head?.id ?? null,

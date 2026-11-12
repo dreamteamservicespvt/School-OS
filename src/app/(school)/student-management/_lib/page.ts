@@ -28,6 +28,8 @@ import "@/lib/students/provider-modules";
 
 export const MODULE = "student-management" as const;
 export const BASE = "/student-management";
+/** A page this person's role may not use: the same "not for your role" page as every module (LA8), not a silent jump to the Student List. */
+export const NO_ACCESS = `/no-access?m=${MODULE}`;
 
 /**
  * The years the pages work in. `year`: the current year of the person's own
@@ -60,14 +62,14 @@ export const studentPage = cache(async () => {
 /** Certificates & ID Cards: whole-school reach, not a lookup-only role. */
 export async function certificatesPage() {
   const p = await studentPage();
-  if (p.can.reach !== "all" || p.can.lookupOnly) redirect(BASE);
+  if (p.can.reach !== "all" || p.can.lookupOnly) redirect(NO_ACCESS);
   return p;
 }
 
 /** Leaving & Alumni: whole-school reach. */
 export async function leavingPage() {
   const p = await studentPage();
-  if (p.can.reach !== "all") redirect(BASE);
+  if (p.can.reach !== "all") redirect(NO_ACCESS);
   return p;
 }
 

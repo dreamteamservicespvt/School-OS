@@ -114,18 +114,19 @@ export const timeSpan = (start: number, end: number | null | undefined) => (end 
 export const isoOf = (d: Date) => d.toISOString().slice(0, 10);
 export const dayOf = (iso: string) => new Date(`${iso}T00:00:00Z`);
 export const addDaysIso = (iso: string, n: number) => isoOf(new Date(dayOf(iso).getTime() + n * 86_400_000));
-/** "Fri, 9 Oct" */
-export const niceDay = (iso: string) => { const d = dayOf(iso); return `${DOW[d.getUTCDay()]}, ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()].slice(0, 3)}`; };
-/** "Fri 9 Oct 2026" */
-export const longDay = (iso: string) => { const d = dayOf(iso); return `${DOW[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()].slice(0, 3)} ${d.getUTCFullYear()}`; };
-/** "9 Oct 2026" */
-export const niceYear = (iso: string) => { const d = dayOf(iso); return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()].slice(0, 3)} ${d.getUTCFullYear()}`; };
-/** "Sat 17 Oct" */
-export const shortDay = (iso: string) => { const d = dayOf(iso); return `${DOW[d.getUTCDay()]} ${d.getUTCDate()} ${MONTHS[d.getUTCMonth()].slice(0, 3)}`; };
+// Dates show as DD-MM-YYYY (00-global.md P3 and P17; layman test LD7); a weekday name may stand before it.
 /** "DD-MM-YYYY" */
 export const dmy = (iso: string) => iso.split("-").reverse().join("-");
-/** "19 Oct – 25 Oct 2026" for a range, "15 Aug 2026" for one day. */
-export const spanWords = (from: string, to: string) => (from === to ? niceYear(from) : `${niceYear(from).replace(/ \d{4}$/, "")} – ${niceYear(to)}`);
+/** "Fri, 09-10-2026" */
+export const niceDay = (iso: string) => `${DOW[dayOf(iso).getUTCDay()]}, ${dmy(iso)}`;
+/** "Fri 09-10-2026" */
+export const longDay = (iso: string) => `${DOW[dayOf(iso).getUTCDay()]} ${dmy(iso)}`;
+/** "09-10-2026" */
+export const niceYear = (iso: string) => dmy(iso);
+/** "Sat 17-10-2026" */
+export const shortDay = (iso: string) => `${DOW[dayOf(iso).getUTCDay()]} ${dmy(iso)}`;
+/** "19-10-2026 – 25-10-2026" for a range, "15-08-2026" for one day. */
+export const spanWords = (from: string, to: string) => (from === to ? dmy(from) : `${dmy(from)} – ${dmy(to)}`);
 export const dayCount = (from: string, to: string) => Math.round((dayOf(to).getTime() - dayOf(from).getTime()) / 86_400_000) + 1;
 
 /** Which weekend a date is: Sunday always; the second and fourth Saturday when the school has them off. */

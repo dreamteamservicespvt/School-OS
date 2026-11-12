@@ -90,7 +90,15 @@ async function eventFeeHead(tx: Tx, ctx: SchoolContext) {
   return tx.feeHead.create({ data: { schoolId: ctx.schoolId, name: "Event fees", kind: "activity", systemKey: "event-fees", lateFeeApplies: false, createdById: ctx.userId } });
 }
 
-async function checkInput(tx: Tx, ctx: SchoolContext, input: EventInput, opts: { confirm?: boolean; ignoreId?: string; campusBefore?: string | null }) {
+/**
+ * The warnings a person can accept with "save anyway". `confirmed` holds the ones already accepted;
+ * a new warning sends them back with its own key, so accepting one never undoes another.
+ */
+export type EventConfirm = { confirm?: boolean; confirmPast?: boolean };
+const warnKey = (key: "venue-clash" | "past-date", opts: EventConfirm) =>
+  [...(opts.confirm ? ["venue-clash"] : []), ...(opts.confirmPast ? ["past-date"] : []), key].join(",");
+
+async function checkInput(tx: Tx, ctx: SchoolContext, input: EventInput, opts: EventConfirm & { ignoreId?: string; campusBefore?: string | null; pastFrom?: string | null }) {
   const name = input.name.trim().replace(/\s+/g, " ");
   if (name.length < 2) throw new EventsProblem("Give the event a name.", "name");
   if (name.length > 80) throw new EventsProblem("The name can be at most 80 characters.", "name");
@@ -119,12 +127,17 @@ async function checkInput(tx: Tx, ctx: SchoolContext, input: EventInput, opts: {
   const year = await tx.academicYear.findFirst({ where: { archivedAt: null, ...(campus ? { campusId: campus.id } : {}), startDate: { lte: dayOf(input.date) }, endDate: { gte: dayOf(input.date) } } });
   if (!year) throw new EventsProblem(campus ? `Pick a date inside the school year of ${campus.name}.` : "Pick a date inside the school year.", "date");
   await assertYearOpen(tx, year.id);
+  // A date that has passed: the event is saved as Done at once, so the person is asked first (layman test LD8).
+  // `pastFrom` is today; it is null when the date did not change (editing a past event keeps its date).
+  if (opts.pastFrom && input.date < opts.pastFrom && !opts.confirmPast) {
+    throw new EventsWarning(`${dmy(input.date)} has passed, so the event is saved as Done. Check the date, or save anyway to record a past event.`, warnKey("past-date", opts), "date");
+  }
   // Two events in one venue at once: a warning (18 §5).
   if (input.venue && !opts.confirm) {
     const same = await tx.event.findMany({ where: { archivedAt: null, status: { not: "CANCELLED" }, date: dayOf(input.date), venue: input.venue, ...(opts.ignoreId ? { id: { not: opts.ignoreId } } : {}) } });
     const end = input.endMin ?? input.startMin + 60;
     const clash = same.find((o) => o.startMin < end && (o.endMin ?? o.startMin + 60) > input.startMin);
-    if (clash) throw new EventsWarning(`${input.venue} is booked for the ${clash.name} on ${dmy(input.date)}, ${timeSpan(clash.startMin, clash.endMin)}. Change the venue or time, or save anyway.`, "venue-clash", "venue");
+    if (clash) throw new EventsWarning(`${input.venue} is booked for the ${clash.name} on ${dmy(input.date)}, ${timeSpan(clash.startMin, clash.endMin)}. Change the venue or time, or save anyway.`, warnKey("venue-clash", opts), "venue");
   }
   return { name, year, settings: s, campusId: campus?.id ?? null, campusName: campus?.name ?? null };
 }
@@ -137,8 +150,9 @@ async function calendarFor(tx: Tx, ctx: SchoolContext, e: Event) {
   });
 }
 
-export async function createEvent(tx: Tx, ctx: SchoolContext, input: EventInput, opts: { confirm?: boolean } = {}) {
-  const { name, year, campusId, campusName } = await checkInput(tx, ctx, input, opts);
+/** `today` (the school's "YYYY-MM-DD"): a date before it asks first (`confirmPast`). */
+export async function createEvent(tx: Tx, ctx: SchoolContext, input: EventInput, opts: EventConfirm & { today?: string } = {}) {
+  const { name, year, campusId, campusName } = await checkInput(tx, ctx, input, { ...opts, pastFrom: opts.today ?? null });
   const n = await nextNumber(tx, ctx, `event-${year.startDate.getUTCFullYear()}`);
   const number = `EV-${String(year.startDate.getUTCFullYear()).slice(2)}-${String(n).padStart(3, "0")}`;
   const fee = input.feePaise && input.feePaise > ZERO ? input.feePaise : null;
@@ -158,11 +172,13 @@ export async function createEvent(tx: Tx, ctx: SchoolContext, input: EventInput,
   return e;
 }
 
-export async function updateEvent(tx: Tx, ctx: SchoolContext, eventId: string, input: EventInput, opts: { confirm?: boolean; today: string }) {
+export async function updateEvent(tx: Tx, ctx: SchoolContext, eventId: string, input: EventInput, opts: EventConfirm & { today: string }) {
   const before = await tx.event.findFirst({ where: { id: eventId, archivedAt: null } });
   if (!before) throw new EventsProblem("This event was not found.");
   if (before.status === "CANCELLED") throw new EventsProblem("This event is cancelled. Create a new event instead.");
-  const { name, year, campusId, campusName } = await checkInput(tx, ctx, input, { confirm: opts.confirm, ignoreId: eventId, campusBefore: before.campusId });
+  const { name, year, campusId, campusName } = await checkInput(tx, ctx, input, {
+    confirm: opts.confirm, confirmPast: opts.confirmPast, ignoreId: eventId, campusBefore: before.campusId, pastFrom: isoOf(before.date) === input.date ? null : opts.today,
+  });
   const fee = input.feePaise && input.feePaise > ZERO ? input.feePaise : null;
   const charged = await tx.eventRegistration.count({ where: { eventId, withdrawnAt: null, dueId: { not: null } } });
   if (charged && (fee ?? ZERO) !== (before.feePaise ?? ZERO)) throw new EventsProblem(`${charged} students already have the fee on their fees. The fee cannot change now.`, "fee");

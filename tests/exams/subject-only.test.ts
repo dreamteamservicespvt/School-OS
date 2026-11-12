@@ -140,8 +140,9 @@ describe("one student's report card PDF (G02)", () => {
   it("is refused to a subject teacher who is not the class teacher, with the whole card's subjects, total and rank", async () => {
     who.current = teacherCurrent;
     const res = await card(s.s5b.id, in5b[0]);
-    expect(res.status).toBe(400);
-    expect(await res.text()).toMatch(/Only the class teacher of .*5 B/);
+    // The app's own "not part of your role" page, not a bare line of text (QA LC17).
+    expect(res.status).toBe(303);
+    expect(res.headers.get("Location")).toBe("/no-access?m=examination-results");
   });
 
   it("is refused to Office Staff, who see no results", async () => {
@@ -149,15 +150,15 @@ describe("one student's report card PDF (G02)", () => {
     await s.run((tx) => tx.role.updateMany({ where: { key: "office-staff" }, data: { isEnabled: true } }));
     who.current = await s.currentFor(office.id);
     const res = await card(s.s5a.id, in5a[0]);
-    expect(res.status).toBe(400);
-    expect(await res.text()).toMatch(/Only the class teacher of/);
+    expect(res.status).toBe(303);
+    expect(res.headers.get("Location")).toBe("/no-access?m=examination-results");
   });
 
   it("is not refused to the class teacher of the section or the Principal", async () => {
     for (const [c, sectionId, studentId] of [[teacherCurrent, s.s5a.id, in5a[0]], [principalCurrent, s.s5b.id, in5b[0]]] as const) {
       who.current = c;
-      const text = await (await card(sectionId, studentId)).clone().text().catch(() => "");
-      expect(text).not.toMatch(/Only the class teacher of/);
+      const res = await card(sectionId, studentId);
+      expect(res.status).not.toBe(303);
     }
   });
 });

@@ -1,0 +1,34 @@
+import { asRole, go, mainText, sleep, close, snap } from "./d-h.mjs";
+const p = await asRole("hr");
+const S = new Date().toISOString().slice(11, 16).replace(":", "");
+const NAME = `LD-రమేష్ Ramesh ${S}`;
+const log = async (tag) => console.log(`\n--- ${tag} [${new URL(p.url()).pathname}${new URL(p.url()).search}]\n` + (await mainText(p, 3000)).replace(/\n+/g, " | ").slice(0, 1400));
+const next = () => p.getByRole("button", { name: "Next", exact: true });
+await go(p, "/staff-hr-management/add");
+await sleep(1500);
+if (await p.getByRole("button", { name: "Clear" }).isVisible().catch(() => false)) { await p.getByRole("button", { name: "Clear" }).click(); await sleep(800); }
+// date typing test
+const jd = p.locator("input[id$=-joiningDate]");
+await jd.click(); await p.keyboard.type("05112026"); await p.keyboard.press("Tab"); await sleep(400);
+console.log("single click + type + Tab =>", await jd.inputValue(), (await mainText(p, 3000)).match(/Joining date \*\n[^\n]*/)?.[0]);
+await jd.click(); await p.keyboard.press("End"); for (let i = 0; i < 10; i++) await p.keyboard.press("Backspace"); await p.keyboard.type("05112026"); await p.keyboard.press("Tab"); await sleep(400);
+console.log("backspace + type =>", await jd.inputValue());
+await p.locator("input[name=fullName]").fill(NAME);
+await p.locator("input[name=phone]").fill(`7${S}${S}3`.slice(0, 10));
+await p.locator("select[name=designation]").selectOption({ label: "Teacher" }).catch(() => {});
+await next().click(); await sleep(2000);
+await log("to step 2");
+await next().click(); await sleep(2000);
+await log("step 2 Next, no role, no login");
+await snap(p, "staff3-step3");
+const save = p.getByRole("button", { name: /^(Save|Add staff|Finish|Create)/ }).last();
+console.log("save button:", await save.innerText().catch(() => "none"));
+await save.dblclick().catch((e) => console.log("dbl", e.message.slice(0, 80)));
+await sleep(5000);
+await log("after double-click save");
+await snap(p, "staff3-after-save");
+await go(p, "/staff-hr-management?q=" + encodeURIComponent(`Ramesh ${S}`)); await sleep(2000);
+const t = await mainText(p, 20000);
+console.log("rows with name:", (t.match(new RegExp(`Ramesh ${S}`, "g")) ?? []).length);
+await log("list search");
+await close();

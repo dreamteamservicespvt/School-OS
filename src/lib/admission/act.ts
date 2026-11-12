@@ -113,6 +113,18 @@ export function need(fd: FormData, key: string, label: string, max = 200): strin
   return v;
 }
 
+/** A person's name must hold at least one letter, in any script (LA7: "😀😀" or "1" was saved as a name). */
+export function hasLetter(v: string) {
+  return /\p{L}/u.test(v);
+}
+
+/** A needed name: as need(), and refused when it holds no letter, with the given plain message. */
+export function needName(fd: FormData, key: string, label: string, noLetters: string, max = 120): string {
+  const v = need(fd, key, label, max);
+  if (!hasLetter(v)) throw new AdmissionProblem(noLetters, key);
+  return v;
+}
+
 export function maybe(fd: FormData, key: string, label: string, max = 500): string | null {
   const v = str(fd, key);
   if (v.length > max) throw new AdmissionProblem(`${label} can be at most ${max} characters.`, key);

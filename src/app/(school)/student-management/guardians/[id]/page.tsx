@@ -21,7 +21,7 @@ import { consentState } from "@/lib/students/consent";
 import { parentLinkProvider } from "@/lib/students/guardians";
 import { CONSENT_STATUS_LABEL, CONSENT_TYPES, consentHowWords, RESULT_LABEL, STATUS_LABEL, STATUS_TONE, languageLabel } from "@/lib/students/labels";
 import { classShort, phoneShow } from "@/lib/students/show";
-import { BASE, studentPage } from "../../_lib/page";
+import { BASE, studentPage, NO_ACCESS } from "../../_lib/page";
 import { consentRequestAction, parentLinkAction, removeGuardianPhoto, setPrimaryAction, uploadGuardianPhoto, withdrawConsentAction } from "../../_actions/guardians";
 import { PhotoUpload } from "../../students/[id]/photo-upload";
 import { feePageAllowedFor } from "@/lib/fees/access";
@@ -40,7 +40,7 @@ const stateWord = (s: keyof typeof TONE) => s === "NONE" ? "Not given" : CONSENT
 export default async function Parent360({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const { current, year, can, tz } = await studentPage();
-  if (!can.seeParents) redirect(BASE);
+  if (!can.seeParents) redirect(NO_ACCESS);
   const provider = parentLinkProvider();
   const data = await withSchool(current.ctx, (tx) => loadParent360(tx, current, id, { yearId: year?.id ?? null, seeDocuments: can.seeDocuments, parentLink: Boolean(provider) }));
   if (!data) notFound();

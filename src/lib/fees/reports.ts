@@ -9,8 +9,8 @@ import type { SchoolContext, Tx } from "../db";
 import { formatDate, formatRupees } from "../format";
 import { DAY_MS } from "../staff/dates";
 import { classInYearOf, classOfStudents } from "./dues";
-import { ageingGroupOf, feeSettings } from "./settings";
-import { ageingLabel, cancelReasonLabel, concessionTypeLabel, modeLabel, percentWord, CONCESSION_STATUS_WORDS, REFUND_STATUS_WORDS } from "./words";
+import { ageingIndexOf, feeSettings } from "./settings";
+import { ageingLabel, cancelReasonLabel, concessionTypeLabel, modeLabel, percentWord, plural, CONCESSION_STATUS_WORDS, REFUND_STATUS_WORDS } from "./words";
 import { defaulters } from "./defaulters";
 import { feesByClass } from "./by-class";
 import { feeStudentFilter, type FeeViewer } from "./access";
@@ -105,6 +105,41 @@ async function campusInvoices<T extends { paymentId: string }>(tx: Tx, viewer: F
   return inv.filter((i) => ok.has(i.paymentId));
 }
 
+/** Each month (or year) key from one date to another, in order. */
+export function periodKeysBetween(from: Date, to: Date, g: "month" | "year"): string[] {
+  const keys: string[] = [];
+  if (to < from) return keys;
+  let y = from.getUTCFullYear();
+  let m = g === "year" ? 0 : from.getUTCMonth();
+  const endY = to.getUTCFullYear();
+  const endM = g === "year" ? 0 : to.getUTCMonth();
+  while (y < endY || (y === endY && m <= endM)) {
+    keys.push(g === "year" ? String(y) : `${y}-${String(m + 1).padStart(2, "0")}`);
+    if (g === "year") y++;
+    else if (++m > 11) { m = 0; y++; }
+  }
+  return keys;
+}
+
+/**
+ * Admission application fees are income in Finance (their own line, "Admission
+ * application fees") but are not student fee payments, so this report leaves
+ * them out. Says how much, so the two totals can be matched (layman test LB4).
+ * Only when no class, head or collector filter is on and the person sees the whole school.
+ */
+async function applicationFeeNote(tx: Tx, f: ReportFilter, viewer: FeeViewer) {
+  if (f.classId || f.feeHeadId || f.collectorId) return undefined;
+  if (viewer.campusId) return undefined;
+  // campus: whole-school total only; a person limited to one campus gets no note (returned above).
+  const entries = await tx.dayBookEntry.findMany({
+    where: { sourceType: { startsWith: "application-fee" }, date: { gte: f.from, lte: f.to }, ...(f.mode ? { mode: f.mode as never } : {}) },
+    select: { direction: true, amountPaise: true },
+  });
+  const total = entries.reduce((t, e) => t + (e.direction === "IN" ? e.amountPaise : -e.amountPaise), ZERO);
+  if (total <= ZERO) return undefined;
+  return `Admission application fees are not in this report: ${formatRupees(total)} in this period. Finance Reports count them as income, on a line of their own.`;
+}
+
 export const FEE_REPORTS: ReportDef[] = [
   {
     key: "collection",
@@ -114,6 +149,8 @@ export const FEE_REPORTS: ReportDef[] = [
     async run(tx, _ctx, f, viewer) {
       const list = await payments(tx, f, viewer);
       const groups = new Map<string, { count: number; amount: bigint; late: bigint; cash: bigint; other: bigint }>();
+      // Every month (or year) of the period shows, ₹0 when nothing came in, so none looks lost (layman test LB10).
+      if (f.group !== "day") for (const k of periodKeysBetween(f.from, f.to < f.today ? f.to : f.today, f.group)) groups.set(k, { count: 0, amount: ZERO, late: ZERO, cash: ZERO, other: ZERO });
       for (const p of list) {
         const k = periodKey(p.paymentDate, f.group);
         const g = groups.get(k) ?? { count: 0, amount: ZERO, late: ZERO, cash: ZERO, other: ZERO };
@@ -137,6 +174,7 @@ export const FEE_REPORTS: ReportDef[] = [
         rows,
         totals: { period: "Total", payments: list.length, cash: sum(rows, (r) => r.cash), other: sum(rows, (r) => r.other), late: sum(rows, (r) => r.late), amount: sum(rows, (r) => r.amount) },
         chart: rows.map((r) => ({ label: r.period, value: r.amount })),
+        note: await applicationFeeNote(tx, f, viewer),
       };
     },
   },
@@ -171,7 +209,7 @@ export const FEE_REPORTS: ReportDef[] = [
           { key: "collector", label: "Collected by" }, { key: "amount", label: "Amount", kind: "money" },
         ],
         rows,
-        totals: { date: null, receipt: `${rows.length} payments`, amount: sum(rows, (r) => r.amount) },
+        totals: { date: null, receipt: plural(rows.length, "payment"), amount: sum(rows, (r) => r.amount) },
       };
     },
   },
@@ -194,9 +232,7 @@ export const FEE_REPORTS: ReportDef[] = [
         const days = Math.floor((f.today.getTime() - d.dueDate.getTime()) / DAY_MS);
         if (days <= 0) row.notDue += d.balancePaise;
         else {
-          const g = ageingGroupOf(s.ageing, days);
-          const i = g ? s.ageing.indexOf(g) : s.ageing.length - 1;
-          row.buckets[i] += d.balancePaise;
+          row.buckets[ageingIndexOf(s.ageing, days)] += d.balancePaise;
         }
         row.total += d.balancePaise;
         per.set(d.studentId, row);
@@ -257,11 +293,11 @@ export const FEE_REPORTS: ReportDef[] = [
       return {
         columns: [
           { key: "student", label: "Student" }, { key: "admissionNo", label: "Admission no." }, { key: "class", label: "Class" }, { key: "parent", label: "Parent" }, { key: "phone", label: "Phone" },
-          { key: "oldest", label: "Oldest due", kind: "date" }, { key: "days", label: "Days overdue", kind: "number" }, { key: "ageing", label: "Ageing group" },
+          { key: "oldest", label: "Oldest due", kind: "date" }, { key: "days", label: "Days overdue", kind: "number" }, { key: "ageing", label: "Oldest due is" },
           { key: "reminders", label: "Reminders sent", kind: "number" }, { key: "overdue", label: "Overdue", kind: "money" },
         ],
         rows: d.rows.map((r) => ({ student: r.name, admissionNo: r.admissionNo, class: r.classLabel, parent: r.parentName, phone: r.phone, oldest: r.oldestDue, days: r.daysOverdue, ageing: r.ageing ? ageingLabel(r.ageing) : "", reminders: r.reminders, overdue: r.overduePaise })),
-        totals: { student: `${d.rows.length} students`, overdue: d.total },
+        totals: { student: plural(d.rows.length, "student"), overdue: d.total },
       };
     },
   },
@@ -288,7 +324,7 @@ export const FEE_REPORTS: ReportDef[] = [
           { key: "reason", label: "Reason" }, { key: "requestedBy", label: "Requested by" }, { key: "decidedBy", label: "Approved by" }, { key: "status", label: "Status" }, { key: "applied", label: "Applied", kind: "money" },
         ],
         rows,
-        totals: { date: null, student: `${rows.length} concessions`, applied: sum(rows, (r) => r.applied) },
+        totals: { date: null, student: plural(rows.length, "concession"), applied: sum(rows, (r) => r.applied) },
       };
     },
   },
@@ -309,7 +345,7 @@ export const FEE_REPORTS: ReportDef[] = [
           { key: "added", label: "Added", kind: "money" }, { key: "waived", label: "Waived", kind: "money" }, { key: "collected", label: "Collected", kind: "money" }, { key: "open", label: "Still to pay", kind: "money" },
         ],
         rows,
-        totals: { date: null, student: `${rows.length} late fees`, added: sum(rows, (r) => r.added), waived: sum(rows, (r) => r.waived), collected: sum(rows, (r) => r.collected), open: sum(rows, (r) => r.open) },
+        totals: { date: null, student: plural(rows.length, "late fee"), added: sum(rows, (r) => r.added), waived: sum(rows, (r) => r.waived), collected: sum(rows, (r) => r.collected), open: sum(rows, (r) => r.open) },
       };
     },
   },
@@ -376,7 +412,7 @@ export const FEE_REPORTS: ReportDef[] = [
           { key: "status", label: "Status" }, { key: "refundedOn", label: "Refunded on", kind: "date" }, { key: "reference", label: "Reference" }, { key: "amount", label: "Amount", kind: "money" },
         ],
         rows,
-        totals: { asked: null, student: `${rows.length} refunds`, amount: sum(rows.filter((r) => r.status === REFUND_STATUS_WORDS.REFUNDED.label), (r) => r.amount) },
+        totals: { asked: null, student: plural(rows.length, "refund"), amount: sum(rows.filter((r) => r.status === REFUND_STATUS_WORDS.REFUNDED.label), (r) => r.amount) },
         note: "The total counts refunds already paid.",
       };
     },
@@ -408,7 +444,7 @@ export const FEE_REPORTS: ReportDef[] = [
           { key: "dueDate", label: "Due date", kind: "date" }, { key: "account", label: "Bank account" }, { key: "mode", label: "Mode" }, { key: "amount", label: "Amount", kind: "money" },
         ],
         rows,
-        totals: { date: null, receipt: `${rows.length} lines`, amount: sum(rows, (r) => r.amount as bigint) },
+        totals: { date: null, receipt: plural(rows.length, "line"), amount: sum(rows, (r) => r.amount as bigint) },
       };
     },
   },
@@ -463,7 +499,7 @@ export const FEE_REPORTS: ReportDef[] = [
           { key: "taxable", label: "Taxable value", kind: "money" }, { key: "cgst", label: "CGST", kind: "money" }, { key: "sgst", label: "SGST", kind: "money" }, { key: "total", label: "Invoice value", kind: "money" },
         ],
         rows,
-        totals: { date: null, invoice: `${inv.length} invoices`, taxable: sum(rows, (r) => r.taxable as bigint), cgst: sum(rows, (r) => r.cgst as bigint), sgst: sum(rows, (r) => r.sgst as bigint), total: sum(rows, (r) => r.total as bigint) },
+        totals: { date: null, invoice: plural(inv.length, "invoice"), taxable: sum(rows, (r) => r.taxable as bigint), cgst: sum(rows, (r) => r.cgst as bigint), sgst: sum(rows, (r) => r.sgst as bigint), total: sum(rows, (r) => r.total as bigint) },
         note: summary ? `By fee head and rate: ${summary}.` : undefined,
       };
     },
@@ -491,7 +527,7 @@ export const FEE_REPORTS: ReportDef[] = [
       return {
         columns: [{ key: "at", label: "Received", kind: "date" }, { key: "event", label: "Event" }, { key: "paymentId", label: "Gateway payment ID" }, { key: "order", label: "Order" }, { key: "student", label: "Student" }, { key: "outcome", label: "Outcome" }, { key: "amount", label: "Amount", kind: "money" }],
         rows,
-        totals: { at: null, event: `${rows.length} confirmations`, amount: sum(rows.filter((r) => r.outcome === "Posted"), (r) => r.amount ?? ZERO) },
+        totals: { at: null, event: plural(rows.length, "confirmation"), amount: sum(rows.filter((r) => r.outcome === "Posted"), (r) => r.amount ?? ZERO) },
         note: `The total counts posted payments only. ${rows.filter((r) => r.outcome === "Posted" && (r.event === "Found by reconciliation" || r.event === "Matched by hand")).length} were reconciled: found by asking Razorpay, or matched to a student by hand.`,
       };
     },

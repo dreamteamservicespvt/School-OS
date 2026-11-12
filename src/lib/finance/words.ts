@@ -1,4 +1,5 @@
 // School words for Finance Management screens. Safe to use in the browser.
+import type { MessageKey } from "../i18n/catalogues/en";
 
 export const FINANCE_FEATURES = [
   { key: "finance-budget", label: "Budget", about: "Yearly budgets by head and department, with budget against actual and alerts at 80% and 100%." },
@@ -46,3 +47,24 @@ export const DAY_BOOK_SECTIONS = [
 
 export const sectionLabel = (key: string) =>
   ({ "fees-full": "Fee payment", "fees-partial": "Partial payment", "other-fees": "Other fee", "other-income": "Other income", expense: "Expense", salary: "Salary", "salary-advance": "Salary advance", refund: "Refund", reversal: "Reversal", opening: "Opening balance", transfer: "Money moved" } as Record<string, string>)[key] ?? key;
+
+/**
+ * The line under Surplus or Shortfall on Finance Reports, in plain words
+ * (layman test LB8: "-50% of income" meant nothing to a reader).
+ */
+export function shortfallWords(income: bigint, expense: bigint): string {
+  if (income <= BigInt(0)) return expense > BigInt(0) ? "No income yet" : "Nothing in or out yet";
+  const pct = Math.round((Math.abs(Number(income - expense)) * 100) / Number(income));
+  if (income === expense) return "Spent exactly what came in";
+  return income > expense ? `${pct}% of income left over` : `Spent ${pct}% more than came in`;
+}
+
+/**
+ * The module a system head's money comes from, for "From …" on the chart of
+ * accounts; null for a key with no module of its own (layman test LB6: Hostel
+ * mess was labelled "From Refunds").
+ */
+export function systemHeadSource(systemKey: string | null): MessageKey | null {
+  const from: Record<string, MessageKey> = { fees: "Fees", salary: "Salary", refunds: "Refunds", "hostel-mess": "Hostel", "library-fine": "Library" };
+  return from[systemKey ?? ""] ?? null;
+}

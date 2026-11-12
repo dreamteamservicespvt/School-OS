@@ -10,6 +10,7 @@ import { staffPage, BASE } from "@/lib/staff/page";
 import { campusStaffWhere, staffIdOnCampus } from "@/lib/staff/list";
 import { APPLICATION_STATUSES, INTERVIEW_OUTCOMES, label, OFFER_STATUSES, VACANCY_STATUSES } from "@/lib/staff/talent";
 import { addDays, isoDay } from "@/lib/staff/dates";
+import { pointsOf } from "@/lib/staff/criteria";
 import { StaffHead } from "../_components/head";
 import { Avatar, SubNav } from "../_components/bits";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -37,6 +38,13 @@ const APP_TONE: Record<string, BadgeTone> = { NEW: "neutral", SHORTLISTED: "info
 const VACANCY_TONE: Record<string, BadgeTone> = { OPEN: "info", ON_HOLD: "warn", FILLED: "ok", CLOSED: "neutral" };
 const OFFER_TONE: Record<string, BadgeTone> = { MADE: "warn", ACCEPTED: "ok", DECLINED: "neutral", WITHDRAWN: "neutral" };
 type VacancyWithApplications = Prisma.VacancyGetPayload<{ include: { applications: { include: { offers: true; interviews: true } } } }>;
+/** The two lists of points of a cycle: teachers' and other staff's (one list when they are the same). */
+function ratedLists(cycle: { criteria: string[]; staffCriteria: string[] }) {
+  return cycle.staffCriteria.length && cycle.staffCriteria.join("|") !== cycle.criteria.join("|")
+    ? [{ label: "Teachers", points: cycle.criteria }, { label: "Other staff", points: cycle.staffCriteria }]
+    : [{ label: null, points: cycle.criteria }];
+}
+
 const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
 
 export default async function RecruitmentPage({ searchParams }: Props) {
@@ -87,7 +95,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
 
   return (
     <>
-      <StaffHead page="Recruitment & Appraisal" href={`${BASE}/recruitment`} sub={`${subs[view]}. Each part can be switched off in HR Settings.`} actions={action ?? undefined} />
+      <StaffHead page={hr ? "Recruitment & Appraisal" : "My appraisal"} href={`${BASE}/recruitment`} sub={hr ? `${subs[view]}. Each part can be switched off in HR Settings.` : subs[view]} actions={action ?? undefined} />
       {views.length > 1 && <SubNav current={view} items={views} />}
       {view === "recruitment" && <Recruitment />}
       {view === "appraisal" && <Appraisal />}
@@ -314,14 +322,14 @@ export default async function RecruitmentPage({ searchParams }: Props) {
                             {mine.status === "DONE" && mine.managerComment && <p className="mt-1 text-[13.5px] text-ink2">“{mine.managerComment}”</p>}
                           </div>
                           {stage(mine.status)}
-                          {mine.status === "SELF_REVIEW" && data.cycle.status === "OPEN" && <ReviewForm action={reviewAction} appraisalId={mine.id} by="self" name="" criteria={data.cycle.criteria} />}
+                          {mine.status === "SELF_REVIEW" && data.cycle.status === "OPEN" && <ReviewForm action={reviewAction} appraisalId={mine.id} by="self" name="" criteria={pointsOf(mine, data.cycle)} />}
                         </li>
                       )}
                       {toReview.map((a) => (
                         <li key={a.id} className="flex flex-wrap items-center gap-3 px-5 py-3">
                           <Avatar name={who(a.staffId)?.fullName ?? "Staff"} photoFileId={who(a.staffId)?.photoFileId ?? null} size={38} />
                           <div className="min-w-0 flex-1"><p className="font-semibold">{who(a.staffId)?.fullName}</p><p className="text-[13px] text-ink3">{who(a.staffId)?.designation} <Words k="· waiting for your review" /></p></div>
-                          {data.cycle!.status === "OPEN" && <ReviewForm action={reviewAction} appraisalId={a.id} by="manager" name={who(a.staffId)?.fullName ?? ""} criteria={data.cycle!.criteria} earlier={a.selfRatings as Record<string, number>} />}
+                          {data.cycle!.status === "OPEN" && <ReviewForm action={reviewAction} appraisalId={a.id} by="manager" name={who(a.staffId)?.fullName ?? ""} criteria={pointsOf(a, data.cycle!)} earlier={a.selfRatings as Record<string, number>} />}
                         </li>
                       ))}
                     </ul>
@@ -342,9 +350,15 @@ export default async function RecruitmentPage({ searchParams }: Props) {
               <Col>
                 <Card>
                   <CardHeader title="What is rated" icon={Star} description="Each point from 1 to 5, by the staff member and then the reviewer" />
-                  <ul className="space-y-2 px-5 pb-5">
-                    {data.cycle.criteria.map((c) => <li key={c} className="flex items-center gap-2 text-[14px]"><Star size={15} className="text-ink3" aria-hidden="true" />{c}</li>)}
-                  </ul>
+                  {/* Someone who sees only their own appraisal sees only their own points (teachers' or other staff's, LD11). */}
+                  {(hr ? ratedLists(data.cycle) : [{ label: null, points: mine ? pointsOf(mine, data.cycle) : data.cycle.criteria }]).map((l) => (
+                    <div key={l.label ?? "points"} className="px-5 pb-5">
+                      {l.label && <p className="mb-2 text-[13px] font-semibold text-ink2">{l.label}</p>}
+                      <ul className="space-y-2">
+                        {l.points.map((c) => <li key={c} className="flex items-center gap-2 text-[14px]"><Star size={15} className="text-ink3" aria-hidden="true" />{c}</li>)}
+                      </ul>
+                    </div>
+                  ))}
                 </Card>
               </Col>
             </Split>

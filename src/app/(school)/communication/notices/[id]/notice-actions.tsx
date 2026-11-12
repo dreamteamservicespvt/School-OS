@@ -2,20 +2,20 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Archive, BellRing, Check, CircleCheck, Pencil, Send } from "lucide-react";
+import { Archive, BellRing, Check, CircleCheck, Pencil, Send, Undo2 } from "lucide-react";
 import { ConfirmButton } from "@/components/ui/confirm";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
 import { Segmented } from "@/components/ui/controls";
 import { Pill } from "@/components/ui/badge";
-import { acknowledgeNotice, archiveNoticeAction, previewNoticeResend, remindAction, resendNotice, type NoticeResendPreview } from "../actions";
+import { acknowledgeNotice, archiveNoticeAction, withdrawNoticeAction, previewNoticeResend, remindAction, resendNotice, type NoticeResendPreview } from "../actions";
 import { Words } from "@/lib/i18n/client";
 
 type Ch = "whatsapp" | "sms" | "email";
 const LABEL: Record<Ch, string> = { whatsapp: "WhatsApp", sms: "SMS", email: "Email" };
 
-export function NoticeActions({ id, canEdit, canArchive, canAck, acked, canRemind, unseen, channels }: {
-  id: string; canEdit: boolean; canArchive: boolean; canAck: boolean; acked: boolean; canRemind: number; unseen: number; channels: Ch[];
+export function NoticeActions({ id, canEdit, canArchive, canWithdraw = false, canAck, acked, canRemind, unseen, channels }: {
+  id: string; canEdit: boolean; canArchive: boolean; canWithdraw?: boolean; canAck: boolean; acked: boolean; canRemind: number; unseen: number; channels: Ch[];
 }) {
   const router = useRouter();
   const [ackPending, startAck] = useTransition();
@@ -33,6 +33,12 @@ export function NoticeActions({ id, canEdit, canArchive, canAck, acked, canRemin
         ? <Pill tone="ok" className="!h-10 !px-4 !text-[14px]"><CircleCheck size={16} aria-hidden="true" /><Words k="You have read this" /></Pill>
         : <Button icon={Check} loading={ackPending} loadingText="Saving" onClick={() => startAck(async () => { await acknowledgeNotice(id); router.refresh(); })}><Words k="I have read this" /></Button>)}
       {canEdit && <ButtonLink href={`/communication/notices/${id}/edit`} icon={Pencil}><Words k="Edit draft" /></ButtonLink>}
+      {canWithdraw && (
+        <ConfirmButton trigger={<><Undo2 size={17} aria-hidden="true" /><Words k="Withdraw" /></>} triggerVariant="secondary" title="Withdraw this notice from approval?" confirmLabel="Withdraw"
+          onConfirm={async () => { const m = await withdrawNoticeAction(id); if (!m) router.refresh(); return m; }}>
+          <Words k="It goes back to Draft and the Principal no longer sees the request. Nothing has been sent yet." />
+        </ConfirmButton>
+      )}
       {canRemind > 0 && (
         <ConfirmButton trigger={<><BellRing size={17} aria-hidden="true" /><Words k="Remind" /> {canRemind} <Words k="not acknowledged" /></>} title="Remind those who have not acknowledged?" confirmLabel={`Remind ${canRemind}`}
           onConfirm={async () => { const m = await remindAction(id); if (!m) router.refresh(); return m; }}>

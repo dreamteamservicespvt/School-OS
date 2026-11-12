@@ -7,6 +7,7 @@ import { formatDate, formatRupees, formatTime } from "@/lib/format";
 import { featureOn } from "@/lib/fees/settings";
 import { dayBookView, feeDashboardMatch, type DayRow } from "@/lib/finance/daybook-view";
 import { financeModeLabel } from "@/lib/finance/words";
+import { plural } from "@/lib/fees/words";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
@@ -179,8 +180,8 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
         <OldSoftwareBanner goLive={p.goLive} from={from} to={to} what="Day Book entries" />
         {allBeforeGoLive(p.goLive, from, to) ? <Card><OldSoftwareEmpty goLive={p.goLive} what="Day Book entries" /></Card> : <>
         <Band items={[
-          { label: "Total income", big: formatRupees(v.totals.income), foot: `${nIn} transactions · Fees ${formatRupees(v.feesFull)} + Partial ${formatRupees(v.feesPartial)}${v.otherIncome > ZERO ? ` + Other ${formatRupees(v.otherIncome)}` : ""}${v.reversed < ZERO ? ` · less ${formatRupees(-v.reversed)} reversed` : ""}` },
-          { label: "Total expense", big: formatRupees(v.totals.expense), foot: `${v.totals.expenseCount} transactions${p.payHeads ? " · staff pay not shown" : v.sections.salary.length ? " · includes salary" : ""}${v.expenseReversed > ZERO ? ` · less ${formatRupees(v.expenseReversed)} cancelled` : ""}` },
+          { label: "Total income", big: formatRupees(v.totals.income), foot: `${plural(nIn, "transaction")} · Fees ${formatRupees(v.feesFull)} + Partial ${formatRupees(v.feesPartial)}${v.otherIncome > ZERO ? ` + Other ${formatRupees(v.otherIncome)}` : ""}${v.reversed < ZERO ? ` · less ${formatRupees(-v.reversed)} reversed` : ""}` },
+          { label: "Total expense", big: formatRupees(v.totals.expense), foot: `${plural(v.totals.expenseCount, "transaction")}${p.payHeads ? " · staff pay not shown" : v.sections.salary.length ? " · includes salary" : ""}${v.expenseReversed > ZERO ? ` · less ${formatRupees(v.expenseReversed)} cancelled` : ""}` },
           { label: "Net balance", big: signed(v.totals.net), foot: shownClose ? "Day closed and locked" : allClosed ? "All these days are closed" : isToday ? `Live · updated ${formatTime(new Date(), p.tz)}` : oneDay && from < p.today && v.rows.length ? "Not closed yet" : per.label },
         ]} />
 
@@ -222,8 +223,8 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
                 <CardHeader title="Matches the Fee Dashboard" description="Fees collected today" icon={ShieldCheck}
                   action={<Pill tone={data.match.waiting.count === 0 || waiting ? "ok" : "info"}>{data.match.waiting.count === 0 || waiting ? "Same total" : `${formatRupees(data.match.waiting.amount)} waiting`}</Pill>} />
                 <ul className="px-5 pb-4">
-                  <Line k={`Fee Dashboard · ${data.match.posted.count + data.match.waiting.count} payments`} v={formatRupees(data.match.posted.amount + data.match.waiting.amount)} bold />
-                  <Line k={`Posted here · ${data.match.posted.count} payments`} v={formatRupees(data.match.posted.amount)} />
+                  <Line k={`Fee Dashboard · ${plural(data.match.posted.count + data.match.waiting.count, "payment")}`} v={formatRupees(data.match.posted.amount + data.match.waiting.amount)} bold />
+                  <Line k={`Posted here · ${plural(data.match.posted.count, "payment")}`} v={formatRupees(data.match.posted.amount)} />
                   <Line k={`Waiting for verification · ${data.match.waiting.count}`} v={formatRupees(data.match.waiting.amount)} tone={data.match.waiting.count ? "warn" : undefined} />
                   {data.match.applicationFees.count > 0 && <Line k={`Application fees, from Admissions · ${data.match.applicationFees.count}`} v={formatRupees(data.match.applicationFees.amount)} />}
                 </ul>

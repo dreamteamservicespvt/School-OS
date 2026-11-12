@@ -20,7 +20,8 @@ export async function staffTabs(): Promise<Tab[]> {
     : [
         ...(viewer.staffId ? [{ href: `${BASE}/${viewer.staffId}`, label: "My profile" }] : []),
         { href: `${BASE}/leave`, label: "Staff Leave" },
-        ...(features.has("hr-appraisal") ? [{ href: `${BASE}/recruitment`, label: "Recruitment & Appraisal" }] : []),
+        // Own-only people see only their appraisal there, so the tab says so (layman test LD11).
+        ...(features.has("hr-appraisal") ? [{ href: `${BASE}/recruitment`, label: "My appraisal" }] : []),
       ];
 }
 

@@ -106,5 +106,12 @@ export function whenWords(f: ReportFilters, entry: Pick<ReportEntry, "dated" | "
 
 /** "Class 5, 2026-27, 01-09-2026 to 30-09-2026": printed on the screen and in every file (19 §5). */
 export function filterWords(f: ReportFilters, entry: Pick<ReportEntry, "dated" | "money" | "byClass">, names: { cls?: string | null; campus?: string | null; extra?: string[] }) {
-  return [entry.byClass ? names.cls ?? "All classes" : "Whole school", whenWords(f, entry), names.campus ? `${names.campus} campus` : null, ...(names.extra ?? [])].filter(Boolean).join(" · ");
+  return [entry.byClass ? names.cls ?? "All classes" : "Whole school", whenWords(f, entry), campusWords(names.campus), ...(names.extra ?? [])].filter(Boolean).join(" · ");
+}
+
+/** "All campuses", "Main Campus" or "Kondapur campus" (never "All campus" or "Main Campus campus"; self-test A, 2026-11-12). */
+export function campusWords(name: string | null | undefined) {
+  if (!name) return null;
+  if (name === "All") return "All campuses";
+  return /\bcampus$/i.test(name.trim()) ? name.trim() : `${name.trim()} campus`;
 }

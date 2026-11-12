@@ -38,25 +38,27 @@ h1{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)
 <script>
 var S={
 start:"2026-11-12T08:50:00Z",
-eta:"2026-11-12T16:30:00Z",
-updated:"2026-11-12T09:03:00Z",
-now:"Fixing the refund rule (issue 33)",
-main:3,mainline:"0 of 12 pieces done (real count); the bar is an estimate of the work",
+eta:"2026-11-12T12:20:00Z",
+updated:"2026-11-12T10:56:00Z",
+now:"Full test suite, type check and rebuild running side by side",
+main:75,mainline:"10 of 14 pieces done (real count). 5 pm was the target; checking everything properly moves the second deploy to about 5:50 pm (estimate)",
 rows:[
-["Refund rule (33): a refund lowers Paid only, so what is left goes up",10,"Running","Est. 40 min","The fee stays the same; the form warns when the family still owes money"],
-["Fee Adjust 'remove' goes to Approvals like a large reduce",0,"Waiting","Est. 40 min","Today it happens at once with only a reason"],
-["Transport off for new schools (34B)",0,"Waiting","Est. 20 min","Blueprint: no Transport in version 1. Schools that use it now keep it"],
-["Campus filter: shared check so a one-campus login never sees another campus",0,"Waiting","Est. 60 min","Look at the size first; if it's big, add a test that catches any query missing the filter"],
-["Old test data: 30 test students with wrong due dates",0,"Waiting","Est. 20 min","Test school only"],
-["Full test suite, type check, lint, build",0,"Waiting","Est. 50 min","Must all pass before the browser tests"],
-["Browser: Salary/Finance, Front Office, Events, Reports",0,"Waiting","Est. 90 min","Never tested yet"],
-["Phone size 390 px: Fee collect, Marks entry, Attendance",0,"Waiting","Est. 30 min","Light and dark screenshots"],
-["Forgotten password, student changes class, double-tap Collect",0,"Waiting","Est. 40 min","Layman mistakes"],
-["Recheck by hand: issues 7, 10, 25, 30",0,"Waiting","Est. 20 min","Fixed earlier, never rechecked in a browser"],
-["Push and deploy to school-os-beta",0,"Waiting","Est. 15 min","Waiting for your OK"],
-["Live check after deploy: PDFs, sign-in status",0,"Waiting","Est. 15 min","ID card and receipt PDF on Vercel"]
+["Refund rule (33): a refund lowers Paid only, so what is left goes up",100,"Done","took 25 min","Commits f6d02b7e, 82020db2; 27 of 27 tests pass"],
+["Transport off for new schools (34B)",100,"Done","took 20 min","Commit 828e9d4a; 10 of 10 tests pass"],
+["Old test data: 30 test students with old due dates",100,"Done","took 5 min","Left as they are; the team is told"],
+["Deploy 1 to school-os-beta",100,"Done","took 95 min","Live at 3:54 pm. Two builds failed first (free plan allows 12 server functions; the PDF browser made them too big). Now the browser is fetched on the first PDF"],
+["Fee Adjust 'remove' goes to Approvals above the limit",100,"Done","took 85 min","Commit c216aa79; 18 of 18 tests pass; one new database field (default off)"],
+["Browser test A: Salary, Finance, Front Office, Events, Reports",100,"Done","took 45 min","303 checks, 300 pass. The 'cash in hand' alarm was caused by the test itself"],
+["Fixes from A: salary check counts all 6, net pay explained, no approving your own bonus, call follow-up time, event end time",100,"Done","took 30 min","33 of 33 tests pass"],
+["Browser test B: phone size, forgotten password, class change, double-tap, rechecks",100,"Done","took 40 min","5 of 5 items pass; issues 7, 10, 25, 30 pass"],
+["Fixes from B: 'sent on WhatsApp' only when really sent, register after class change, keypad, tap sizes, forgot password",100,"Done","took 25 min","20 of 20 tests pass"],
+["Campus filter: one shared filter + a test that catches new gaps",80,"Running","Est. 10 min","3 commits in; finishing its checks"],
+["Full test suite (about 290 files), type check, lint",5,"Running","Est. 45 min","The laptop is busy, so this is slower than usual"],
+["Rebuild + browser recheck of today's screen fixes (phone, light and dark)",5,"Running","Est. 25 min","One fix touches about 31 forms, so it must be seen in a browser"],
+["Deploy 2: today's fixes",0,"Waiting","Est. 15 min","Only after the suite passes"],
+["Live check: receipt PDF, sign-in",0,"Waiting","Est. 10 min","Needs someone signed in"]
 ],
-wait:"OK to push and deploy to school-os-beta (test school) so the team tests the fixed version?"
+wait:"To check PDFs on the live site I need a signed-in browser: please sign in to school-os-beta as the Principal in the 'Dream Team Services' Chrome (it signed out after 7 days), or ask a team member to open any receipt PDF and tell me if it downloads."
 };
 function el(i){return document.getElementById(i)}
 function clk(d){return d.toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit",timeZone:"Asia/Kolkata"})}

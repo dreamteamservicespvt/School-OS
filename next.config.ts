@@ -21,6 +21,26 @@ const nextConfig: NextConfig = {
   outputFileTracingIncludes: {
     "/**": ["./node_modules/@sparticuz/chromium/bin/**", "./src/app/fonts/noto-sans-*.woff2"],
   },
+  // The browser (~68 MB) made every server function too big to share, so Vercel needed more
+  // than the Hobby plan's 12 functions (deploy of 2026-11-12 failed). Leave out what is never
+  // loaded: Prisma's WebAssembly and edge engines (the Node client uses library.js and the
+  // native engine; engineWasm is undefined), about 60 MB per function.
+  outputFileTracingExcludes: {
+    "/**": [
+      "./node_modules/@prisma/client/runtime/*.wasm",
+      "./node_modules/@prisma/client/runtime/*.wasm-base64.js",
+      "./node_modules/@prisma/client/runtime/*.wasm-base64.mjs",
+      "./node_modules/@prisma/client/runtime/wasm-*.js",
+      "./node_modules/@prisma/client/runtime/wasm-*.mjs",
+      "./node_modules/@prisma/client/runtime/edge*.js",
+      "./node_modules/@prisma/client/runtime/edge*.mjs",
+      "./node_modules/.prisma/client/query_engine_bg.*",
+      "./node_modules/.prisma/client/edge.js",
+      "./node_modules/.prisma/client/wasm.js",
+      "./node_modules/.prisma/client/wasm-*.mjs",
+      "./node_modules/.prisma/client/*.tmp*",
+    ],
+  },
   // Homework hand-ins and study material carry photos and PDFs of up to 10 MB each (17 §6).
   experimental: { serverActions: { bodySizeLimit: "25mb" } },
   async headers() {

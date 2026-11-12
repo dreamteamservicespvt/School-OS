@@ -6113,6 +6113,7 @@ export const te: Catalogue = {
   "No fee heads yet. Add them in Fee Structure first.": "ఇంకా ఫీజు శీర్షికలు లేవు. ముందుగా ఫీజు నిర్మాణంలో జోడించండి.",
   "Takes off late fees the student has not paid yet.": "విద్యార్థి ఇంకా చెల్లించని ఆలస్య రుసుములను తీసివేస్తుంది.",
   "Optional. Photo or PDF.": "ఐచ్ఛికం. ఫోటో లేదా PDF.",
+  "A refund gives money back. The fee stays the same, so the amount refunded is added to what is left to pay. If the fee itself should be lower (for example, the student is leaving), also give a concession or waiver.": "రిఫండ్ అంటే డబ్బు తిరిగి ఇవ్వడం. ఫీజు అలాగే ఉంటుంది, కాబట్టి తిరిగి ఇచ్చిన మొత్తం ఇంకా కట్టాల్సిన దానికి కలుస్తుంది. ఫీజే తగ్గాలంటే (ఉదాహరణకు విద్యార్థి స్కూల్ వదిలి వెళ్తుంటే), రాయితీ లేదా మినహాయింపు కూడా ఇవ్వండి.",
   "This student has no payment that can be refunded. Cancelled payments, payments brought in from old software and payments refunded in full are left out.": "ఈ విద్యార్థికి రీఫండ్ చేయగల చెల్లింపు లేదు. రద్దు చేసిన చెల్లింపులు, పాత సాఫ్ట్‌వేర్ నుండి తెచ్చిన చెల్లింపులు మరియు పూర్తిగా రీఫండ్ అయిన చెల్లింపులు వదిలేయబడతాయి.",
   "The rows it covered are due again, from what is still unpaid. Payments already made do not change. The record stays with your reason.": "ఇది కవర్ చేసిన వరుసలు ఇంకా చెల్లించని దాని నుండి మళ్ళీ చెల్లించాల్సినవి అవుతాయి. ఇప్పటికే చేసిన చెల్లింపులు మారవు. రికార్డ్ మీ కారణంతో ఉంటుంది.",
   "It stops applying at Collect Fee. Discounts it already gave stay on the receipts.": "ఇది ఫీజు వసూలులో వర్తించడం ఆగిపోతుంది. ఇప్పటికే ఇచ్చిన తగ్గింపులు రసీదులపై ఉంటాయి.",

@@ -70,8 +70,12 @@ export async function decideRefund(tx: Tx, ctx: SchoolContext, refundId: string,
 
 /**
  * Records that the money went back. First uses the advance held on the
- * payment; the rest comes off what the payment paid (newest rows first), with
- * an adjustment so those rows stay settled. Posts money out in the Day Book.
+ * payment; the rest comes off what the payment paid (newest rows first). The
+ * fee itself stays, so what is left to pay goes up by that much (issue 33,
+ * 2026-11-12: a refund is money given back, not a discount; to lower the fee
+ * too, give a concession or waiver). Posts money out in the Day Book.
+ * Refunds made before 2026-11-12 also lowered the fee with a "Refunded: …"
+ * adjustment; those rows are kept as they are (fee records are never rewritten).
  */
 export async function markRefunded(tx: Tx, ctx: SchoolContext, refundId: string, input: { date: Date; reference: string | null; accountId: string | null }) {
   // "Mark refunded" sent twice at once: the second waits here, then finds it refunded (the dues change once).
@@ -104,8 +108,7 @@ export async function markRefunded(tx: Tx, ctx: SchoolContext, refundId: string,
       const room = d.paidPaise < a.amountPaise ? d.paidPaise : a.amountPaise;
       const take = rest < room ? rest : room;
       if (take <= ZERO) continue;
-      await tx.feeAdjustment.create({ data: { schoolId: ctx.schoolId, studentId: r.studentId, dueId: d.id, amountPaise: -take, reason: `Refunded: ${r.reason}`, createdById: ctx.userId } });
-      await tx.studentFeeDue.update({ where: { id: d.id }, data: { paidPaise: { decrement: take }, adjustmentPaise: { decrement: take } } });
+      await tx.studentFeeDue.update({ where: { id: d.id }, data: { paidPaise: { decrement: take } } });
       touched.push(d.id);
       rest -= take;
     }

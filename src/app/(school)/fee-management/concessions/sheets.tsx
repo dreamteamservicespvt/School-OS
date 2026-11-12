@@ -116,6 +116,7 @@ export function RefundSheet({ closeHref, student, payments, modes }: {
       closeHref={closeHref} action={newRefundAction} submitLabel="Send for approval" pendingText="Sending…" submitDisabled={!payments.length}>
       {payments.length === 0 ? <Alert tone="info"><Words k="This student has no payment that can be refunded. Cancelled payments, payments brought in from old software and payments refunded in full are left out." /></Alert> : (
         <>
+          <Alert tone="info"><Words k="A refund gives money back. The fee stays the same, so the amount refunded is added to what is left to pay. If the fee itself should be lower (for example, the student is leaving), also give a concession or waiver." /></Alert>
           <SSelect name="paymentId" label="Payment" required options={payments} start={pay} onChange={(e) => setPay(e.target.value)} />
           <SMoney key={pay} name="amount" label="Amount" required start={chosen?.maxRupees} help={chosen ? `Not more than ${chosen.max} (paid, minus earlier refunds)` : undefined} />
           <SSelect key={`m-${pay}`} name="mode" label="Refund mode" required options={modes} start={modes.some((m) => m.value === chosen?.mode) ? chosen?.mode : modes[0]?.value} />

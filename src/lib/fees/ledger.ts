@@ -139,15 +139,20 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
     }
   }
 
+  // Refunds before 2026-11-12 also lowered the fee with a "Refunded: <reason>" adjustment, so the
+  // balance stayed the same. Since issue 33 a refund only takes back what was paid: the balance goes up.
+  const oldStyle = new Set(adjustments.filter((a) => a.reason.startsWith("Refunded: ")).map((a) => a.reason.slice("Refunded: ".length)));
   const refundTakes = new Set<string>();
   for (const r of refunds.filter((x) => x.status === "REFUNDED")) {
+    const old = oldStyle.has(r.reason);
+    const owedAgain = r.amountPaise - r.advanceUsedPaise;
     entries.push({
       ...base, key: `refund:${r.id}`, kind: "refund", date: r.refundedOn ?? dayOf(r.updatedAt, tz),
       title: `Refund · ${formatRupees(r.amountPaise)} by ${modeLabel(r.mode).toLowerCase()}`,
-      sub: `${r.reason}${r.reference ? ` · ${r.reference}` : ""} · the fee and the payment both come down, so the balance stays the same`,
-      ref: receiptOf(r.paymentId), debit: ZERO, credit: ZERO, balance: ZERO, paymentId: r.paymentId, order: 5,
+      sub: `${r.reason}${r.reference ? ` · ${r.reference}` : ""} · ${old ? "the fee and the payment both come down, so the balance stays the same" : owedAgain > ZERO ? `${formatRupees(owedAgain)} is to pay again` : "from the advance held"}`,
+      ref: receiptOf(r.paymentId), debit: old ? ZERO : owedAgain, credit: ZERO, balance: ZERO, paymentId: r.paymentId, order: 5,
     });
-    refundTakes.add(r.reason);
+    if (old) refundTakes.add(r.reason);
   }
 
   for (const a of adjustments) {

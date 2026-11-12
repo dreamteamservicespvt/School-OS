@@ -1948,6 +1948,7 @@ export const EN = [
   "No fee heads yet. Add them in Fee Structure first.",
   "Takes off late fees the student has not paid yet.",
   "Optional. Photo or PDF.",
+  "A refund gives money back. The fee stays the same, so the amount refunded is added to what is left to pay. If the fee itself should be lower (for example, the student is leaving), also give a concession or waiver.",
   "This student has no payment that can be refunded. Cancelled payments, payments brought in from old software and payments refunded in full are left out.",
   "The rows it covered are due again, from what is still unpaid. Payments already made do not change. The record stays with your reason.",
   "It stops applying at Collect Fee. Discounts it already gave stay on the receipts.",

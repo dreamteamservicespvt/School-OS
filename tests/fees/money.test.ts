@@ -158,11 +158,19 @@ describe("refunds (rule 9)", () => {
     await expect(withSchool(f.ctx, (tx) => markRefunded(tx, f.ctx, refund.id, { date: r.payment.paymentDate, reference: null, accountId: null }))).rejects.toThrow("only after it is approved");
     const waiting = await withSchool(f.ctx, (tx) => tx.refund.findUniqueOrThrow({ where: { id: refund.id } }));
     await withSchool(f.pctx, (tx) => decide(tx, f.pctx, waiting.approvalId!, "approve", null));
+    const row = () => withSchool(f.ctx, (tx) => tx.studentFeeDue.findUniqueOrThrow({ where: { id: open[0].id } }));
+    const before = await row();
     await withSchool(f.ctx, (tx) => markRefunded(tx, f.ctx, refund.id, { date: r.payment.paymentDate, reference: null, accountId: null }));
     const out = await withSchool(f.ctx, (tx) => tx.dayBookEntry.findMany({ where: { sourceType: "refund", sourceId: refund.id } }));
     expect(out).toHaveLength(1);
     expect(out[0].direction).toBe("OUT");
     expect(out[0].amountPaise).toBe(R(4000));
+    // Issue 33 (2026-11-12): money went back, so Paid drops and what is left goes up; the fee itself stays.
+    const after = await row();
+    expect(after.adjustmentPaise).toBe(before.adjustmentPaise);
+    expect(after.paidPaise).toBe(before.paidPaise - R(4000));
+    expect(after.balancePaise).toBe(before.balancePaise + R(4000));
+    expect(await withSchool(f.ctx, (tx) => tx.feeAdjustment.count({ where: { dueId: open[0].id } }))).toBe(0);
   });
 });
 

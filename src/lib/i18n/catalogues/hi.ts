@@ -6113,6 +6113,7 @@ export const hi: Catalogue = {
   "No fee heads yet. Add them in Fee Structure first.": "अभी कोई फ़ीस मद नहीं। पहले फ़ीस ढाँचे में जोड़ें।",
   "Takes off late fees the student has not paid yet.": "विद्यार्थी की अभी न भरी लेट फ़ीस हटाता है।",
   "Optional. Photo or PDF.": "वैकल्पिक। फ़ोटो या PDF।",
+  "A refund gives money back. The fee stays the same, so the amount refunded is added to what is left to pay. If the fee itself should be lower (for example, the student is leaving), also give a concession or waiver.": "रिफ़ंड से पैसा वापस दिया जाता है। फ़ीस वही रहती है, इसलिए वापस दी गई राशि बाकी देय रकम में जुड़ जाती है। अगर फ़ीस ही कम होनी चाहिए (जैसे विद्यार्थी स्कूल छोड़ रहा है), तो रियायत या छूट भी दें।",
   "This student has no payment that can be refunded. Cancelled payments, payments brought in from old software and payments refunded in full are left out.": "इस विद्यार्थी का कोई रिफ़ंड योग्य भुगतान नहीं है। रद्द भुगतान, पुराने सॉफ़्टवेयर से लाए भुगतान और पूरे रिफ़ंड हुए भुगतान छोड़े जाते हैं।",
   "The rows it covered are due again, from what is still unpaid. Payments already made do not change. The record stays with your reason.": "इसकी पंक्तियाँ अभी बाकी राशि से फिर देय हो जाती हैं। किए गए भुगतान नहीं बदलते। रिकॉर्ड आपके कारण के साथ रहता है।",
   "It stops applying at Collect Fee. Discounts it already gave stay on the receipts.": "यह फ़ीस लें में लागू होना बंद हो जाता है। दी जा चुकी छूट रसीदों पर रहती है।",

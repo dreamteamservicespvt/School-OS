@@ -1,0 +1,27 @@
+// Self-test A: Create event after a refused time (end before start), then fixed; and Remove a holiday from the day panel.
+import { asRole, go, text, sleep, close, snap } from "./selftest-A-h.mjs";
+const p = await asRole("principal");
+const dlg = () => p.getByRole("dialog").last();
+const dt = async () => (await dlg().innerText().catch(() => "(closed)")).replace(/\n+/g, " | ");
+const vals = async () => JSON.stringify(await dlg().locator("input, select").evaluateAll((els) => els.map((e) => `${e.name||e.id}(${e.type})=${e.value}`)));
+await go(p, "/events-calendar/events?do=create"); await sleep(2500);
+await dlg().getByLabel(/^Name/).fill("QA-A retry3 Fair");
+await dlg().getByLabel(/^Date/).fill("03-12-2026");
+await dlg().getByLabel(/^From/).fill("11:00");
+await dlg().getByLabel(/^To( |$)/).fill("10:00");
+await dlg().getByRole("button", { name: /Create event|Save/ }).last().click();
+await sleep(3000);
+console.log("ERR:", (await dt()).match(/The end time[^|]*/)?.[0]);
+console.log("VALUES AFTER ERROR:", await vals());
+const to = dlg().getByLabel(/^To( |$)/); await to.click(); await p.keyboard.press("Control+A"); await p.keyboard.type("1:00 PM", { delay: 40 }); await p.keyboard.press("Tab"); await sleep(500); console.log("TO NOW", await to.inputValue());
+await dlg().getByRole("button", { name: /Create event|Save/ }).last().click();
+await sleep(6000);
+console.log("AFTER FIX:", (await dt()).slice(0, 900));
+console.log("VALUES:", await vals().catch(() => ""));
+await snap(p, "events-create-after-retry", false);
+await go(p, "/events-calendar?m=2026-12&d=2026-12-09"); await sleep(2500);
+const t = await text(p, 20000);
+const i = t.indexOf("9 Dec"); console.log("DAY PANEL:", t.slice(Math.max(0, i - 100), i + 600).replace(/\n/g, " | "));
+console.log("REMOVE", await p.locator('a[aria-label^="Remove"]').evaluateAll((as) => as.map((a) => a.getAttribute("aria-label") + " -> " + a.getAttribute("href"))));
+await snap(p, "events-day-panel");
+await close();

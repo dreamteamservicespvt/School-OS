@@ -1,0 +1,25 @@
+// Self-test A: probe of Create event (stays open?) and Remove on the School Calendar.
+import { asRole, go, text, sleep, close, snap } from "./selftest-A-h.mjs";
+const p = await asRole("principal");
+const dlg = () => p.getByRole("dialog").last();
+const dt = async () => (await dlg().innerText().catch(() => "(closed)")).replace(/\n+/g, " | ");
+await go(p, "/events-calendar/events?do=create"); await sleep(2500);
+await dlg().getByLabel(/^Name/).fill("QA-A probe Science Fair");
+await dlg().getByLabel(/^Date/).fill("02-12-2026");
+await dlg().getByLabel(/^From/).fill("10:00");
+await dlg().getByLabel(/^To( |$)/).fill("13:00");
+await snap(p, "events-create-filled", false);
+await dlg().getByRole("button", { name: /Create event|Save/ }).last().click();
+await sleep(6000);
+console.log("AFTER CREATE DIALOG:", (await dt()).slice(0, 1500));
+console.log("URL", p.url());
+await snap(p, "events-create-after", false);
+await go(p, "/events-calendar?month=2026-12"); await sleep(2500);
+const labels = await p.locator('main a[aria-label^="Remove"]').evaluateAll((as) => as.map((a) => a.getAttribute("aria-label")));
+console.log("REMOVE LINKS", labels.join(" / "));
+const t = await text(p, 20000);
+console.log((t.match(/[^\n]*QA-A[^\n]*/g) ?? []).join(" / "));
+await p.getByText(/QA-A \d+ holiday/).first().click().catch((e) => console.log("click fail", e.message.slice(0, 80)));
+await sleep(2500); console.log("URL2", p.url(), (await dt()).slice(0, 600));
+await snap(p, "events-calendar-click-holiday", false);
+await close();

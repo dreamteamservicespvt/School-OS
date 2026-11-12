@@ -2,8 +2,10 @@ import { createHash } from "node:crypto";
 // Turns a printable HTML page into a PDF (receipts, certificates, ID cards,
 // report cards, list printouts), using a headless Chromium on the server.
 // CHROMIUM_PATH points at the browser; see docs/DEPLOYMENT.md. On Vercel (and
-// AWS Lambda), where no browser is installed, the Chromium build packed in
-// @sparticuz/chromium is used instead.
+// AWS Lambda), where no browser is installed, @sparticuz/chromium fetches its
+// Chromium pack (pinned release, PACK_URL) once per server instance into /tmp.
+// The pack is not bundled: at ~68 MB in every function it pushed the app past
+// the Hobby plan's 12 functions (deploys of 2026-11-12 failed).
 //
 // When no PDF can be made, htmlToPdf throws PdfUnavailableError, and a route
 // wrapped in withPdfErrors() shows the document as a printable page (Print, then
@@ -30,12 +32,15 @@ export class PdfUnavailableError extends Error {
 
 let browser: Promise<Browser> | null = null;
 
+/** The Chromium pack for serverless hosts: the release matching @sparticuz/chromium in package.json. */
+export const PACK_URL = "https://github.com/Sparticuz/chromium/releases/download/v141.0.0/chromium-v141.0.0-pack.x64.tar";
+
 async function launch(): Promise<Browser> {
   const { chromium } = await import("playwright-core");
   if (onServerless()) {
     const { default: lambda } = await import("@sparticuz/chromium");
     return chromium.launch({
-      executablePath: await lambda.executablePath(),
+      executablePath: await lambda.executablePath(process.env.CHROMIUM_PACK_URL || PACK_URL),
       // Playwright sets the headless mode itself.
       args: [...lambda.args.filter((a) => !a.startsWith("--headless")), "--font-render-hinting=none"],
       headless: true,

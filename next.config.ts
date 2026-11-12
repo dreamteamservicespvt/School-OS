@@ -16,17 +16,19 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // The PDF browser (src/lib/pdf.ts) is loaded from node_modules at run time, not bundled.
   serverExternalPackages: ["@node-rs/argon2", "playwright-core", "@sparticuz/chromium"],
-  // @sparticuz/chromium reads its packed browser from bin/ at run time, and PDFs
-  // read the Indian-script fonts from src/app/fonts; file tracing finds neither.
+  // PDFs read the Indian-script fonts from src/app/fonts; file tracing does not find them.
+  // The browser itself is NOT bundled: bundled (~68 MB in every function) it made the
+  // functions too big to share, and Vercel needed more than the Hobby plan's 12 (deploys of
+  // 2026-11-12 failed). src/lib/pdf.ts fetches the pinned pack at run time instead.
   outputFileTracingIncludes: {
-    "/**": ["./node_modules/@sparticuz/chromium/bin/**", "./src/app/fonts/noto-sans-*.woff2"],
+    "/**": ["./src/app/fonts/noto-sans-*.woff2"],
   },
-  // The browser (~68 MB) made every server function too big to share, so Vercel needed more
-  // than the Hobby plan's 12 functions (deploy of 2026-11-12 failed). Leave out what is never
-  // loaded: Prisma's WebAssembly and edge engines (the Node client uses library.js and the
-  // native engine; engineWasm is undefined), about 60 MB per function.
+  // Never loaded, so left out of every function: the browser's bundled bin/ and Prisma's
+  // WebAssembly and edge engines (the Node client uses library.js and the native engine;
+  // engineWasm is undefined), about 60 MB per function.
   outputFileTracingExcludes: {
     "/**": [
+      "./node_modules/@sparticuz/chromium/bin/**",
       "./node_modules/@prisma/client/runtime/*.wasm",
       "./node_modules/@prisma/client/runtime/*.wasm-base64.js",
       "./node_modules/@prisma/client/runtime/*.wasm-base64.mjs",

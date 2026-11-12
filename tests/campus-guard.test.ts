@@ -227,7 +227,8 @@ describe("campusWhere: one campus filter for every record type", () => {
     expect(campusWhere("Student", { campusId: "c" })).toEqual({ campusId: "c" });
     expect(() => campusWhere("StudentFeeDue", { campusId: "c" })).toThrow(/campusFilter/);
     expect(campusWay("BookIssue")).toEqual({ kind: "ids", columns: [{ field: "studentId", of: "Student", optional: true }, { field: "sectionId", of: "Section", optional: true }, { field: "staffId", of: "Staff", optional: true }] });
-    expect(campusWhere("Payment", { campusId: "c" })).toEqual({ student: { campusId: "c" } });
+    // Payment holds only a student id (no relation), so it needs the database-backed filter.
+    expect(() => campusWhere("Payment", { campusId: "c" })).toThrow(/campusFilter/);
     expect(campusWhere("Student", { campusId: null })).toEqual({});
     // A PTM note always names its student: the student's campus decides, not the teacher's.
     expect(campusWay("PtmMeetingNote")).toEqual({ kind: "ids", columns: [{ field: "studentId", of: "Student", optional: false }] });

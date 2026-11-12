@@ -81,7 +81,7 @@ export async function accessAction(_: FormState, fd: FormData): Promise<FormStat
   const r = await runSettings(PAGE, "edit", async (tx, current) => {
     const done = await changeAccess(tx, current.ctx, userId, { roleIds, scope, campusId });
     // Class Teacher with no section this year (live test 18): say so now, not on their empty attendance page.
-    const isClassTeacher = roleIds.length > 0 && (await tx.role.count({ where: { id: { in: roleIds }, key: "class-teacher" } })) > 0;
+    const isClassTeacher = roleIds.length > 0 && (await tx.role.count({ where: { id: { in: roleIds }, key: "class-teacher", schoolId: current.ctx.schoolId } })) > 0;
     const staff = isClassTeacher ? await tx.staff.findFirst({ where: { userLoginId: userId, archivedAt: null }, select: { id: true } }) : null;
     const year = staff ? await currentYear(tx, current.ctx) : null;
     const noSection = Boolean(staff && year && (await tx.section.count({ where: { academicYearId: year.id, archivedAt: null, classTeacherId: staff.id } })) === 0);

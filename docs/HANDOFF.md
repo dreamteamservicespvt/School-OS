@@ -22,8 +22,14 @@ Last updated: 2026-11-12 16:30 IST (team-test readiness day). Older: docs/archiv
 - Progress page: https://claude.ai/artifact/7WSVY4hW97JfXoJkfRvNUV (docs/qa/team-ready-progress.html).
 
 ## Next steps
-1. Full suite (`npx vitest run`, started 16:24 on the default test DB, BEFORE 0bef74f3) must pass; rerun its failures and
-   the salary/front-office/collect tests on HEAD. tsc 0 errors and eslint clean on HEAD (17:00). Then `npx prisma generate`.
+1. Full suite 16:24-17:08: 2633/2637 passed. Fixed since: roles-cross-school (users/actions.ts role count) and
+   campus-guard (Payment test) -> 15/15. STILL OPEN before deploy 2:
+   a) tests/run3-campus.test.ts "Library: the desk's overdue list..." (new test from the campus helper, commits
+      23888a79/db3a9699/965de211): the north librarian's desk text lacks "Neha Kumar". Decide: test renderer not
+      rendering the inner client list, or campusFilter over-filtering the Library desk (real bug). Check in the browser too.
+   b) tests/platform/restore-test.test.ts timed out at 600 s under heavy load: rerun alone.
+   c) Rerun salary/front-office/collect tests on HEAD (the suite ran before 0bef74f3). tsc 0 and eslint clean at 17:00.
+   Then `npx prisma generate`.
 2. Browser recheck 17:00 on the rebuilt :3000 (docs/qa/2026-11-12-selftest-B.md "Recheck 17:00"): 31 pass, 4 fail.
    Open: B6 wrong-code message after an unknown login (fixed in 2066471a, rebuild + recheck with qa/full/selftest-B-decoy-check.mjs);
    A4 typing over a selected end time gives "10:00 AM:00 PM" (now refused, not dropped; fix the time box's typing);

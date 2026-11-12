@@ -11,8 +11,12 @@ import { librarySettings } from "../../library/settings";
 import { membersOf } from "../../library/members";
 import { BASE } from "../../library/words";
 import { n, plural, shortDate } from "../common";
-import type { ListRow, Viewer, Widget } from "../types";
+import type { DashContext, ListRow, Viewer, Widget } from "../types";
+import { campusFilter } from "../../campus-scope";
 
+/** One campus (the person's limit, or the campus chosen on the Dashboard): that campus's members' issues and reservations only. */
+const issuesOf = (c: DashContext) => c.memo("library.issues", () => campusFilter(c.tx, "BookIssue", c.viewer));
+const resvOf = (c: DashContext) => c.memo("library.resv", () => campusFilter(c.tx, "Reservation", c.viewer));
 const viewerOf = (v: Viewer) => libViewer(v as unknown as Parameters<typeof libViewer>[0]);
 const deskWorker = (v: Viewer) => libCan(viewerOf(v)).desk;
 const watches = (v: Viewer) => viewerOf(v).pages.issue !== "hidden";
@@ -26,8 +30,8 @@ const dueToday: Widget<"band"> = {
   allowed: deskWorker,
   async load(c) {
     const [due, issuedToday] = await Promise.all([
-      c.tx.bookIssue.count({ where: { returnedAt: null, dueOn: c.today } }),
-      c.tx.bookIssue.count({ where: { issuedOn: c.today } }),
+      c.tx.bookIssue.count({ where: { AND: [await issuesOf(c), { returnedAt: null, dueOn: c.today }] } }),
+      c.tx.bookIssue.count({ where: { AND: [await issuesOf(c), { issuedOn: c.today }] } }),
     ]);
     return { id: "library.due-today", label: "Due back today", big: n(due), foot: `${plural(issuedToday, "book")} issued today`, href: `${BASE}?list=due` };
   },
@@ -42,8 +46,8 @@ const overdueBand: Widget<"band"> = {
   allowed: watches,
   async load(c) {
     const [count, members] = await Promise.all([
-      c.tx.bookIssue.count({ where: overdueWhere(c.today) }),
-      c.tx.bookIssue.findMany({ where: overdueWhere(c.today), select: { studentId: true, staffId: true }, distinct: ["studentId", "staffId"] }),
+      c.tx.bookIssue.count({ where: { AND: [await issuesOf(c), overdueWhere(c.today)] } }),
+      c.tx.bookIssue.findMany({ where: { AND: [await issuesOf(c), overdueWhere(c.today)] }, select: { studentId: true, staffId: true }, distinct: ["studentId", "staffId"] }),
     ]);
     return { id: "library.overdue", label: "Library books overdue", big: n(count), foot: count ? `With ${plural(members.length, "member")}` : "None late", href: `${BASE}?list=overdue` };
   },
@@ -58,8 +62,8 @@ const reservations: Widget<"band"> = {
   allowed: deskWorker,
   async load(c) {
     const [ready, waiting] = await Promise.all([
-      c.tx.reservation.count({ where: { status: "READY" } }),
-      c.tx.reservation.count({ where: { status: "WAITING" } }),
+      c.tx.reservation.count({ where: { AND: [await resvOf(c), { status: "READY" }] } }),
+      c.tx.reservation.count({ where: { AND: [await resvOf(c), { status: "WAITING" }] } }),
     ]);
     return { id: "library.reservations", label: "Reservations", big: n(ready + waiting), foot: ready ? `${plural(ready, "book")} kept at the desk` : waiting ? `${plural(waiting, "member")} waiting` : "Nobody waiting", href: `${BASE}#reservations` };
   },
@@ -76,7 +80,7 @@ const longOverdue: Widget<"attention"> = {
     // The overdue report's own rule, opened with the same "more than 7 days late" (gap list G36).
     // A year that is over: the books late on its last day, as the report reads ?year= (gap list G36).
     const past = Boolean(c.filters.yearId && c.year && (c.year.status === "CLOSED" || c.year.endDate <= c.today));
-    const count = await c.tx.bookIssue.count({ where: past ? overdueAsAt(c.today, 7) : overdueWhere(c.today, 7) });
+    const count = await c.tx.bookIssue.count({ where: { AND: [await issuesOf(c), past ? overdueAsAt(c.today, 7) : overdueWhere(c.today, 7)] } });
     if (!count) return null;
     const desk = deskWorker(c.viewer);
     const report = viewerOf(c.viewer).pages.reports !== "hidden";
@@ -97,7 +101,7 @@ const readyToCollect: Widget<"panel"> = {
   homes: ["librarian"],
   allowed: deskWorker,
   async load(c) {
-    const rows = await c.tx.reservation.findMany({ where: { status: { in: ["READY", "WAITING"] } }, orderBy: [{ status: "asc" }, { reservedAt: "asc" }], take: 6 });
+    const rows = await c.tx.reservation.findMany({ where: { AND: [await resvOf(c), { status: { in: ["READY", "WAITING"] } }] }, orderBy: [{ status: "asc" }, { reservedAt: "asc" }], take: 6 });
     if (!rows.length) return null;
     const s = await librarySettings(c.tx, c.viewer.ctx);
     const [members, books] = await Promise.all([

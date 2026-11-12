@@ -12,6 +12,7 @@ import { liveStatus, BASE, showPlate, tripKind, vehicleName } from "../../transp
 import { transportSettings } from "../../transport/settings";
 import { feeCoverage, onBusOn } from "../../transport/places";
 import { campusStudentIds } from "../../campus";
+import { campusFilter } from "../../campus-scope";
 import { minutesLate } from "../../transport/views";
 import { addDays, n, plural, someNames } from "../common";
 import type { DashContext, ListRow, Viewer, Widget } from "../types";
@@ -45,7 +46,8 @@ const onRoad: Widget<"band"> = {
     const { v } = await tr(c);
     const trips = await todayTrips(c);
     if (!trips.length) {
-      const students = await c.tx.transportAssignment.count({ where: onBusOn(c.today) });
+      // One campus: that campus's students on the buses.
+      const students = await c.tx.transportAssignment.count({ where: { AND: [await campusFilter(c.tx, "TransportAssignment", c.viewer), onBusOn(c.today)] } });
       return { id: "transport.on-road", label: "Buses on the road", big: "0", foot: students ? `${plural(students, "student")} use the buses` : "No trips today", href: `${BASE}/trips` };
     }
     const running = trips.filter((t) => t.status === "STARTED").length;

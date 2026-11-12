@@ -348,6 +348,32 @@ describe("Hostel, Library and Transport refuse another campus's student or staff
     expect(staff).not.toContain(NAMES.main.staff);
   }, 120_000);
 
+  it("Library: the desk's overdue list, the fines and the reports show the librarian's own campus's members only (campus guard, 2026-11-12)", async () => {
+    const t = day(today());
+    await run(async (tx) => {
+      const book = await tx.book.create({ data: { schoolId: school.id, title: "Guard Atlas", authorText: "A. Writer" } });
+      for (const [i, side] of [main, north].entries()) {
+        const copy = await tx.bookCopy.create({ data: { schoolId: school.id, bookId: book.id, accessionNo: `G-${i}`, barcode: `G-${i}` } });
+        await tx.bookIssue.create({ data: { schoolId: school.id, copyId: copy.id, bookId: book.id, memberKind: "STUDENT", studentId: side.studentId, sectionId: side.sectionId, issuedOn: new Date(t.getTime() - 10 * DAY), dueOn: new Date(t.getTime() - 3 * DAY) } });
+        await tx.libraryFine.create({ data: { schoolId: school.id, fineNo: `GF-${i}`, copyId: copy.id, bookId: book.id, memberKind: "STUDENT", studentId: side.studentId, reason: "LATE", amountPaise: BigInt(1000 + i) } });
+      }
+    });
+    who.current = northStaff.library;
+    const desk = textOf(await (await import("@/app/(school)/library-management/page")).default({ searchParams: Promise.resolve({ list: "overdue" }) } as never));
+    expect(desk).toContain(NAMES.north.student);
+    expect(desk).not.toContain(NAMES.main.student);
+    const fines = textOf(await (await import("@/app/(school)/library-management/fines/page")).default({ searchParams: Promise.resolve({ status: "all" }) } as never));
+    expect(fines).toContain(NAMES.north.student);
+    expect(fines).not.toContain(NAMES.main.student);
+    const report = textOf(await (await import("@/app/(school)/library-management/reports/page")).default({ searchParams: Promise.resolve({ r: "lib-overdue" }) } as never));
+    expect(report).toContain(NAMES.north.student);
+    expect(report).not.toContain(NAMES.main.student);
+    // The whole school still sees both campuses' members.
+    who.current = cur.admin;
+    const all = textOf(await (await import("@/app/(school)/library-management/page")).default({ searchParams: Promise.resolve({ list: "overdue" }) } as never));
+    expect(all).toContain(NAMES.main.student);
+  }, 180_000);
+
   it("Transport: refuses a bus place for, or a change to the place of, another campus's student", async () => {
     const { assignStudents } = await import("@/lib/transport/places");
     const place = (await run((tx) => assignStudents(tx, ctx, { studentIds: [main.studentId], routeId: route.id, stopId: route.stopId, type: "TWO_WAY", fromDate: day(today()), reason: null }, day(today())))).placed[0].assignmentId;

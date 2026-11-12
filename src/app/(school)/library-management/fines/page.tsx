@@ -7,6 +7,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { ClipboardCheck, Receipt, ScanLine, Search } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { campusFilter } from "@/lib/campus-scope";
 import { formatDate, formatDateTime, formatRupees } from "@/lib/format";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { momentWhere } from "@/lib/periods";
@@ -64,8 +65,10 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
   const d = await withSchool(current.ctx, async (tx) => {
     // Fines added to fees are paid in Fee Management: bring their status up to date first.
     await syncFeeFines(tx, current.ctx);
-    const where = await finesWhere(tx, f, tz);
-    const periodWhere = per.range ? { createdAt: momentWhere(per.range, tz) } : {};
+    // A person kept to one campus sees that campus's students' and staff's charges only.
+    const mine = await campusFilter(tx, "LibraryFine", current);
+    const where = { AND: [mine, await finesWhere(tx, f, tz)] };
+    const periodWhere = { AND: [mine, per.range ? { createdAt: momentWhere(per.range, tz) } : {}] };
     const [total, rows, due, waiting, paid, waived, byStatus] = await Promise.all([
       tx.libraryFine.count({ where }),
       tx.libraryFine.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "asc" }], ...skipTake(params) }),
@@ -75,7 +78,7 @@ async function FinesView({ p, sp }: { p: P; sp: Raw }) {
       tx.libraryFine.aggregate({ where: { status: "WAIVED", ...periodWhere }, _sum: { amountPaise: true } }),
       tx.libraryFine.groupBy({ by: ["status"], where: { ...periodWhere }, _count: { _all: true } }),
     ]);
-    const shown = highlight && !rows.some((r) => r.id === highlight) ? await tx.libraryFine.findFirst({ where: { id: highlight } }) : null;
+    const shown = highlight && !rows.some((r) => r.id === highlight) ? await tx.libraryFine.findFirst({ where: { AND: [mine, { id: highlight }] } }) : null;
     const all = shown ? [shown, ...rows] : rows;
     const [members, books, copies, approvals, runs] = await Promise.all([
       issueMembers(tx, current.ctx, s, all),

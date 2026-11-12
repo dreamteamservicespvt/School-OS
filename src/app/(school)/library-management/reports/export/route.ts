@@ -5,7 +5,7 @@ import { exportResponse, logExport } from "@/lib/exports";
 import { reportFile } from "@/lib/reports/run";
 import { LIBRARY_REPORTS } from "@/lib/reports/catalogue/library";
 import { libRoute, plain, rangeWords } from "../../_lib/route";
-import { readReportFilter } from "../../_lib/reports";
+import { readReportFilter, withCampus } from "../../_lib/reports";
 
 export const dynamic = "force-dynamic";
 
@@ -18,7 +18,7 @@ export async function GET(req: Request) {
   const report = r.report;
   const entry = LIBRARY_REPORTS.find((e) => e.key === report.key)!;
   const out = await withSchool(x.current.ctx, async (tx) => {
-    const t = await report.run(tx, x.current.ctx, r.forReport(report));
+    const t = await report.run(tx, x.current.ctx, await withCampus(tx, x.current, r.forReport(report)));
     const sec = report.byClass && r.sec ? await tx.section.findFirst({ where: { id: r.sec }, select: { name: true, schoolClass: { select: { name: true } } } }) : null;
     const session = report.key === "lib-stock" && r.session ? await tx.stockCheckSession.findFirst({ where: { id: r.session }, select: { name: true } }) : null;
     const filters = [report.dated ? rangeWords(range) : "As on today", r.late ? `More than ${r.late} days late` : "", sec ? `Class: ${sec.schoolClass.name} ${sec.name}` : "", session ? `Stock check: ${session.name}` : ""].filter(Boolean).join(" · ");

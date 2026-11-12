@@ -7,6 +7,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { AlertTriangle, ArrowRightLeft, BookOpen, BookmarkCheck, CalendarClock, CornerDownLeft, History, Search, UserRound } from "lucide-react";
 import { withSchool, type Tx, type SchoolContext } from "@/lib/db";
+import type { CampusLimit } from "@/lib/campus";
+import { campusFilter } from "@/lib/campus-scope";
 import { formatDate, formatRupees } from "@/lib/format";
 import { fileLink } from "@/lib/files";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -64,14 +66,20 @@ export default async function IssueReturnPage({ searchParams }: { searchParams: 
 
 /* ---------- Numbers shared by the desk and the watch ---------- */
 
-async function deskCounts(tx: Tx, today: Date) {
+/** The person's campus's issues, reservations and charges (every campus for the whole school). */
+async function libScope(tx: Tx, who: CampusLimit) {
+  return { issue: await campusFilter(tx, "BookIssue", who), resv: await campusFilter(tx, "Reservation", who), fine: await campusFilter(tx, "LibraryFine", who) };
+}
+type LibCampusScope = Awaited<ReturnType<typeof libScope>>;
+
+async function deskCounts(tx: Tx, today: Date, sc: LibCampusScope) {
   const [issued, returned, due, overdue, ready, waiting] = await Promise.all([
-    tx.bookIssue.count({ where: { issuedOn: today } }),
-    tx.bookIssue.count({ where: { returnedOn: today } }),
-    tx.bookIssue.count({ where: { returnedAt: null, dueOn: today } }),
-    tx.bookIssue.count({ where: overdueWhere(today) }),
-    tx.reservation.count({ where: { status: "READY" } }),
-    tx.reservation.count({ where: { status: "WAITING" } }),
+    tx.bookIssue.count({ where: { AND: [sc.issue, { issuedOn: today }] } }),
+    tx.bookIssue.count({ where: { AND: [sc.issue, { returnedOn: today }] } }),
+    tx.bookIssue.count({ where: { AND: [sc.issue, { returnedAt: null, dueOn: today }] } }),
+    tx.bookIssue.count({ where: { AND: [sc.issue, overdueWhere(today)] } }),
+    tx.reservation.count({ where: { AND: [sc.resv, { status: "READY" }] } }),
+    tx.reservation.count({ where: { AND: [sc.resv, { status: "WAITING" }] } }),
   ]);
   return { issued, returned, due, overdue, ready, waiting };
 }
@@ -83,9 +91,9 @@ function listWhere(list: ListKey, today: Date) {
   return overdueWhere(today);
 }
 
-async function listRows(tx: Tx, ctx: SchoolContext, s: LibrarySettings, list: ListKey, today: Date, take = 60) {
+async function listRows(tx: Tx, ctx: SchoolContext, s: LibrarySettings, sc: LibCampusScope, list: ListKey, today: Date, take = 60) {
   const rows = await tx.bookIssue.findMany({
-    where: listWhere(list, today),
+    where: { AND: [sc.issue, listWhere(list, today)] },
     orderBy: list === "overdue" ? [{ dueOn: "asc" }] : list === "returned" ? [{ returnedAt: "desc" }] : [{ issuedAt: "desc" }],
     take,
     include: { copy: { select: { accessionNo: true, book: { select: { title: true } } } } },
@@ -95,12 +103,12 @@ async function listRows(tx: Tx, ctx: SchoolContext, s: LibrarySettings, list: Li
 }
 type TodayRow = Awaited<ReturnType<typeof listRows>>[number];
 
-async function historyRows(tx: Tx, ctx: SchoolContext, s: LibrarySettings, sp: Raw, p: LibPageData) {
+async function historyRows(tx: Tx, ctx: SchoolContext, s: LibrarySettings, sc: LibCampusScope, sp: Raw, p: LibPageData) {
   const h = libPeriod(sp, p.dates, "month", "h");
   const q = one(sp.hq).trim().slice(0, 80);
   const status = one(sp.hstatus);
   const page = Math.max(1, Math.min(500, Number(one(sp.hpage)) || 1));
-  const where = await historyWhere(tx, { range: h.range, q, status, today: p.today });
+  const where = { AND: [sc.issue, await historyWhere(tx, { range: h.range, q, status, today: p.today })] };
   const [total, rows] = await Promise.all([
     tx.bookIssue.count({ where }),
     tx.bookIssue.findMany({ where, orderBy: [{ issuedOn: "desc" }, { issuedAt: "desc" }], skip: (page - 1) * HISTORY_SIZE, take: HISTORY_SIZE, include: { copy: { select: { accessionNo: true, book: { select: { title: true } } } } } }),
@@ -191,12 +199,13 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
     const reserveBook = reserveId ? await tx.book.findFirst({ where: { id: reserveId, archivedAt: null }, select: { id: true, title: true, authorText: true } }) : null;
     const reserveQueue = reserveBook ? (await queueOf(tx, s, reserveBook.id)).length : 0;
 
-    const counts = await deskCounts(tx, today);
-    const rows = await listRows(tx, ctx, s, list, today);
-    const resv = await tx.reservation.findMany({ where: { status: { in: ["READY", "WAITING"] } }, orderBy: [{ status: "asc" }, { reservedAt: "asc" }], take: 200 }); // every reservation, as the Reservations number counts them
+    const sc = await libScope(tx, current);
+    const counts = await deskCounts(tx, today, sc);
+    const rows = await listRows(tx, ctx, s, sc, list, today);
+    const resv = await tx.reservation.findMany({ where: { AND: [sc.resv, { status: { in: ["READY", "WAITING"] } }] }, orderBy: [{ status: "asc" }, { reservedAt: "asc" }], take: 200 }); // every reservation, as the Reservations number counts them
     const resvMembers = await issueMembers(tx, ctx, s, resv);
-    const cancel = cancelId ? resv.find((r) => r.id === cancelId) ?? (await tx.reservation.findFirst({ where: { id: cancelId, status: { in: ["READY", "WAITING"] } } })) : null;
-    const history = await historyRows(tx, ctx, s, sp, p);
+    const cancel = cancelId ? resv.find((r) => r.id === cancelId) ?? (await tx.reservation.findFirst({ where: { AND: [sc.resv, { id: cancelId, status: { in: ["READY", "WAITING"] } }] } })) : null;
+    const history = await historyRows(tx, ctx, s, sc, sp, p);
     return { member, matches, memberProblem, load, copy, bookMatches, issueCheck, returnInfo, copyProblem, copyDone, reserveBook, reserveQueue, counts, rows, resv: await withBookTitles(tx, resv.map((r) => ({ ...r, member: resvMembers.get(r.studentId ? `S:${r.studentId}` : `T:${r.staffId}`) ?? null }))), cancel: cancel ? (await withBookTitles(tx, [cancel]))[0] : null, history };
   });
 
@@ -332,14 +341,15 @@ async function OverdueWatch({ p, sp }: { p: LibPageData & { mode: string }; sp: 
   const { current, settings: s, today, can } = p;
   const ctx = current.ctx;
   const d = await withSchool(ctx, async (tx) => {
-    const counts = await deskCounts(tx, today);
-    const buckets = await overdueBuckets(tx, today);
-    const rows = await listRows(tx, ctx, s, "overdue", today, 40);
-    const out = await tx.bookIssue.count({ where: { returnedAt: null } });
-    const waitingCharges = await tx.libraryFine.count({ where: { status: "WAITING" } });
-    const resv = await tx.reservation.findMany({ where: { status: { in: ["READY", "WAITING"] } }, orderBy: [{ status: "asc" }, { reservedAt: "asc" }], take: 8});
+    const sc = await libScope(tx, current);
+    const counts = await deskCounts(tx, today, sc);
+    const buckets = await overdueBuckets(tx, today, false, sc.issue);
+    const rows = await listRows(tx, ctx, s, sc, "overdue", today, 40);
+    const out = await tx.bookIssue.count({ where: { AND: [sc.issue, { returnedAt: null }] } });
+    const waitingCharges = await tx.libraryFine.count({ where: { AND: [sc.fine, { status: "WAITING" }] } });
+    const resv = await tx.reservation.findMany({ where: { AND: [sc.resv, { status: { in: ["READY", "WAITING"] } }] }, orderBy: [{ status: "asc" }, { reservedAt: "asc" }], take: 8});
     const resvMembers = await issueMembers(tx, ctx, s, resv);
-    const history = await historyRows(tx, ctx, s, sp, p);
+    const history = await historyRows(tx, ctx, s, sc, sp, p);
     return { counts, buckets, rows, out, waitingCharges, resv: await withBookTitles(tx, resv.map((r) => ({ ...r, member: resvMembers.get(r.studentId ? `S:${r.studentId}` : `T:${r.staffId}`) ?? null }))), history };
   });
   const stats: StatItem[] = [

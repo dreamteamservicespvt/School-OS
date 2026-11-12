@@ -21,6 +21,10 @@ one school can never see another school's data.
 - Permissions: src/lib/roles.ts copies docs/blueprint/05-roles.md, and
   tests/permissions.test.ts reads that file to prove they match. Check permissions on the
   server with `requireAction()` in src/lib/current.ts before any change.
+- One-campus logins: every list read of a campus record (student, staff, section, class, or a
+  record that holds their id) takes `campusFilter(tx, "<Model>", current)` from
+  src/lib/campus-scope.ts. tests/campus-guard.test.ts fails on a new read without it (or
+  without a `// campus: <why>` note); tests/campus-guard-baseline.txt only shrinks.
 - New features can be switched on per school with the School Feature record.
 - Money is stored in whole paise (BigInt). Show it with `formatRupees()`; dates with `formatDate()`.
 - Screen words follow docs/blueprint/modules/00-global.md §9 and patterns P1 to P20.

@@ -1,5 +1,6 @@
 import { AlertTriangle, BadgeIndianRupee, Bus, CalendarCheck, Clock, FileWarning, Fuel, Timer, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
+import { campusFilter } from "@/lib/campus-scope";
 import { formatDate, formatRupees } from "@/lib/format";
 import { TR_REPORTS, type TrReportKey } from "@/lib/transport/reports";
 import type { Cell, Column, Row, Table } from "@/lib/reports/types";
@@ -48,7 +49,8 @@ export default async function TransportReportsPage({ searchParams }: { searchPar
     const [trips, alerts, students, costs] = await Promise.all([
       r30 ? tx.trip.groupBy({ by: ["status"], where: { date: { gte: new Date(`${r30.from}T00:00:00Z`), lte: new Date(`${r30.to}T00:00:00Z`) } }, _count: { _all: true } }) : Promise.resolve([]),
       r30 ? tx.transportAlert.count({ where: { at: { gte: new Date(`${r30.from}T00:00:00Z`), lte: new Date(`${r30.to}T23:59:59Z`) } } }) : Promise.resolve(0),
-      tx.transportAssignment.count({ where: { status: "ACTIVE", fromDate: { lte: p.today }, OR: [{ toDate: null }, { toDate: { gte: p.today } }] } }),
+      // One campus: that campus's students on the buses (the buses, trips and costs are the whole school's).
+      tx.transportAssignment.count({ where: { AND: [await campusFilter(tx, "TransportAssignment", p.current), { status: "ACTIVE", fromDate: { lte: p.today }, OR: [{ toDate: null }, { toDate: { gte: p.today } }] }] } }),
       r30 ? Promise.all([
         tx.fuelLog.aggregate({ where: { cancelledAt: null, date: { gte: new Date(`${r30.from}T00:00:00Z`), lte: new Date(`${r30.to}T00:00:00Z`) } }, _sum: { amountPaise: true } }),
         tx.maintenanceLog.aggregate({ where: { cancelledAt: null, date: { gte: new Date(`${r30.from}T00:00:00Z`), lte: new Date(`${r30.to}T00:00:00Z`) } }, _sum: { amountPaise: true } }),

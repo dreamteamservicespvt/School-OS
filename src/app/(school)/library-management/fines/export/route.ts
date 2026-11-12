@@ -1,6 +1,7 @@
 // Fines for the status, reason, search and dates on screen; or, with
 // view=stock, the stock check sessions in the dates on screen.
 import { withSchool } from "@/lib/db";
+import { campusFilter } from "@/lib/campus-scope";
 import { buildExport, exportResponse, logExport, type ExportColumn } from "@/lib/exports";
 import { formatDate, formatRupees } from "@/lib/format";
 import { momentWhere } from "@/lib/periods";
@@ -44,7 +45,7 @@ export async function GET(req: Request) {
   const r = await withSchool(x.current.ctx, async (tx) => {
     const s = await librarySettings(tx, x.current.ctx);
     await syncFeeFines(tx, x.current.ctx);
-    const rows = await tx.libraryFine.findMany({ where: await finesWhere(tx, f, x.tz), orderBy: { createdAt: "desc" }, take: 20000 });
+    const rows = await tx.libraryFine.findMany({ where: { AND: [await campusFilter(tx, "LibraryFine", x.current), await finesWhere(tx, f, x.tz)] }, orderBy: { createdAt: "desc" }, take: 20000 });
     const [members, books, copies] = await Promise.all([
       issueMembers(tx, x.current.ctx, s, rows),
       tx.book.findMany({ where: { id: { in: [...new Set(rows.map((i) => i.bookId))] } }, select: { id: true, title: true } }),

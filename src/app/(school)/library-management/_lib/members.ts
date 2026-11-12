@@ -25,6 +25,7 @@ export function readMembersFilter(get: (k: string) => string): MembersFilter {
 
 /** Blocked members, of the person's campus only when they are kept to one. */
 async function blockedRows(tx: Tx, limit: CampusLimit | null | undefined) {
+  // campus: kept to the person's campus just below, by the members' students and staff.
   const rows = await tx.libraryMember.findMany({ where: { blockedAt: { not: null } }, orderBy: { blockedAt: "desc" } });
   if (!limit?.campusId) return rows;
   const ids = <T extends string | null>(xs: T[]) => xs.filter((x): x is NonNullable<T> => Boolean(x));
@@ -38,6 +39,7 @@ async function blockedRows(tx: Tx, limit: CampusLimit | null | undefined) {
 
 /** How many members are blocked (of the person's campus when they are kept to one). */
 export async function blockedCount(tx: Tx, limit: CampusLimit | null | undefined) {
+  // campus: the whole school's count only for the whole school; one campus counts blockedRows.
   return limit?.campusId ? (await blockedRows(tx, limit)).length : tx.libraryMember.count({ where: { blockedAt: { not: null } } });
 }
 

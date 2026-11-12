@@ -1,5 +1,6 @@
 // The issue history on Issue & Return, for the dates, status and search on screen.
 import { withSchool } from "@/lib/db";
+import { campusFilter } from "@/lib/campus-scope";
 import { buildExport, exportResponse, logExport, type ExportColumn } from "@/lib/exports";
 import { formatDate } from "@/lib/format";
 import { librarySettings } from "@/lib/library/settings";
@@ -20,7 +21,8 @@ export async function GET(req: Request) {
   const filters = [rangeWords(range), HISTORY_STATUS.find((s) => s.value === status && s.value)?.label ?? "", q ? `Search: ${q}` : ""].filter(Boolean).join(" · ");
   const r = await withSchool(x.current.ctx, async (tx) => {
     const s = await librarySettings(tx, x.current.ctx);
-    const where = await historyWhere(tx, { range, q, status, today: x.today });
+    // A person kept to one campus exports that campus's students' and staff's issues only.
+    const where = { AND: [await campusFilter(tx, "BookIssue", x.current), await historyWhere(tx, { range, q, status, today: x.today })] };
     const rows = await tx.bookIssue.findMany({ where, orderBy: [{ issuedOn: "desc" }, { issuedAt: "desc" }], take: 20000, include: { copy: { select: { accessionNo: true, book: { select: { title: true } } } } } });
     const members = await issueMembers(tx, x.current.ctx, s, rows);
     await logExport(tx, x.current.ctx, { title, format: x.format, filters, rows: rows.length });

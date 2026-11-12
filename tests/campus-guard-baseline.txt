@@ -1,0 +1,197 @@
+# One-campus guard: the reviewed list (tests/campus-guard.test.ts). Each line is a list
+# read of a campus-bearing record type whose where shows no campus filter, found when the
+# guard was added on 2026-11-12. Most are kept to the campus another way (filtered in code
+# right after, keyed by ids chosen from campus rows, or rightly whole-school); they still
+# need a one-by-one look. This list may only shrink: when a line's read gets campusWhere()
+# or a "// campus: <why>" note, take the line off. Never add lines for new code.
+src/app/(school)/academic-management/settings/page.tsx | teacherPreference.findMany | { where: { schoolId: ctx.schoolId } }
+src/app/(school)/admission-management/applications/page.tsx | application.count | { where: all }
+src/app/(school)/admission-management/applications/page.tsx | application.count | { where: { ...all, stage: { in: OPEN_STAGES }, documents: { some: { required: true, status: { not: "VERIFIED" } } } } }
+src/app/(school)/admission-management/applications/page.tsx | application.count | { where: { ...all, stage: { notIn: ["WITHDRAWN", "REJECTED"] }, feeDuePaise: { gt: 0 }, payments: { none: { status: "CONFIRMED", cancelledAt: null } } } }
+src/app/(school)/attendance-management/devices/[id]/page.tsx | devicePunch.count | { where }
+src/app/(school)/attendance-management/devices/[id]/page.tsx | devicePunch.findMany | { where, orderBy: { punchedAt: "desc" }, ...skipTake(list) }
+src/app/(school)/attendance-management/register/corrections/page.tsx | attendanceCorrection.groupBy | { by: ["status"], where: base, _count: true }
+src/app/(school)/attendance-management/settings/actions.ts | timetablePeriod.count | {}
+src/app/(school)/attendance-management/staff/export/route.ts | overtimeEntry.findMany | { where: { archivedAt: null, ...(range ? { date: dateWhere(range) } : {}), ...staffIdLimit(access) }, orderBy: { date: "asc" } }
+src/app/(school)/attendance-management/staff/page.tsx | attendanceCorrection.findMany | { where: { forWhom: "staff", archivedAt: null }, orderBy: { createdAt: "desc" }, take: access.limitStaff ? 200 : 5 }
+src/app/(school)/attendance-management/staff/page.tsx | staffShiftAssignment.findMany | { where: { archivedAt: null, fromDate: { lte: today }, ...staffIdLimit(access) }, orderBy: { fromDate: "desc" }, include: { shift: true } }
+src/app/(school)/dashboard/setup/page.tsx | student.count | { where: { archivedAt: null, status: { in: ["ADMITTED", "ACTIVE", "PROMOTED"] } } }
+src/app/(school)/events-calendar/cocurricular/page.tsx | clubMember.groupBy | { by: ["clubId"], where: { academicYearId: { in: yearIds }, archivedAt: null }, _count: { _all: true } }
+src/app/(school)/events-calendar/cocurricular/page.tsx | enrolment.count | { where: { academicYearId: { in: yearIds }, archivedAt: null, status: "STUDYING" } }
+src/app/(school)/events-calendar/cocurricular/page.tsx | enrolment.groupBy | { by: ["classId"], where: { academicYearId: { in: yearIds }, archivedAt: null, status: "STUDYING" }, _count: { _all: true } }
+src/app/(school)/events-calendar/cocurricular/page.tsx | fitnessRecord.findMany | { where: seeWhere, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 6 }
+src/app/(school)/events-calendar/cocurricular/page.tsx | fitnessRecord.findMany | { where: { ...seeWhere, date: dateWhere(range) }, orderBy: { date: "desc" }, take: 3000 }
+src/app/(school)/events-calendar/cocurricular/page.tsx | houseMember.count | { where: { academicYearId: { in: yearIds }, archivedAt: null } }
+src/app/(school)/events-calendar/cocurricular/page.tsx | teamMember.groupBy | { by: ["teamId"], where: { academicYearId: { in: yearIds }, archivedAt: null }, _count: { _all: true } }
+src/app/(school)/examination-results/analysis/page.tsx | result.groupBy | { by: ["key"], where: { key: { in: list.map((e) => examKey(e.id)) }, complete: true }, _count: true }
+src/app/(school)/fee-management/concessions/page.tsx | concession.groupBy | { by: ["scholarshipType"], where: { type: "SCHOLARSHIP", scholarshipType: { not: null } } }
+src/app/(school)/fee-management/structure/actions.ts | feeStructure.findMany | { where: { academicYearId: fromYear, status: "PUBLISHED", archivedAt: null } }
+src/app/(school)/finance-management/cash-bank/page.tsx | bankAccount.findMany | { where: { archivedAt: null }, orderBy: [{ kind: "asc" }, { isMain: "desc" }, { name: "asc" }] }
+src/app/(school)/finance-management/cash-bank/page.tsx | openingBalance.findMany | { where: { kind: { in: ["CASH", "BANK"] }, archivedAt: null }, orderBy: { date: "asc" } }
+src/app/(school)/finance-management/cash-bank/page.tsx | payment.aggregate | { where: { status: "WAITING" }, _sum: { amountPaise: true }, _count: { _all: true } }
+src/app/(school)/finance-management/cash-bank/page.tsx | payment.groupBy | { by: ["mode"], where: { status: "POSTED", paymentDate: p.today, mode: { in: ["GATEWAY", "CARD"] } }, _sum: { amountPaise: true }, _count: { _all: true } }
+src/app/(school)/finance-management/settings/page.tsx | bankAccount.findMany | { where: { archivedAt: null }, orderBy: [{ kind: "asc" }, { isMain: "desc" }, { name: "asc" }] }
+src/app/(school)/front-office/appointments/export/route.ts | appointment.findMany | { where: { archivedAt: null, date: { gte: new Date(`${range.from}T00:00:00Z`), lte: new Date(`${range.to}T00:00:00Z`) } }, orderBy: [{ date: "asc" }, { startMin: "asc" }], take: 20_000 }
+src/app/(school)/front-office/appointments/page.tsx | appointment.findMany | { where: { archivedAt: null, date: new Date(`${dayIso}T00:00:00Z`) }, orderBy: { startMin: "asc" } }
+src/app/(school)/front-office/appointments/page.tsx | periodSlot.findMany | { where: { archivedAt: null }, select: { days: true } }
+src/app/(school)/front-office/enquiries/page.tsx | enquiry.findMany | { where: enqWhere, orderBy: { createdAt: "desc" }, take: 300 }
+src/app/(school)/front-office/enquiries/page.tsx | enquiry.findMany | { where: { archivedAt: null, source: { in: ["walk-in", "phone"] }, createdAt: today }, select: { source: true } }
+src/app/(school)/front-office/enquiries/page.tsx | walkInRequest.findMany | { where: reqWhere, orderBy: { createdAt: "desc" }, take: 300 }
+src/app/(school)/front-office/page.tsx | appointment.findMany | { where: { archivedAt: null, date: p.today, status: { not: "CANCELLED" } }, orderBy: { startMin: "asc" } }
+src/app/(school)/front-office/page.tsx | enquiry.count | { where: { archivedAt: null, createdAt: day, source: { in: ["walk-in", "phone"] } } }
+src/app/(school)/front-office/page.tsx | walkInRequest.findMany | { where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 6 }
+src/app/(school)/hostel-management/allocation/page.tsx | bedAllocation.count | { where: all }
+src/app/(school)/hostel-management/allocation/page.tsx | bedAllocation.count | { where: arrivingW }
+src/app/(school)/hostel-management/allocation/page.tsx | bedAllocation.count | { where: awayW }
+src/app/(school)/hostel-management/allocation/page.tsx | bedAllocation.count | { where: inW }
+src/app/(school)/inventory-management/assets/tags/route.ts | asset.findMany | { where, orderBy: { tag: "asc" }, take: 2000 }
+src/app/(school)/inventory-management/page.tsx | stockIssue.aggregate | { where: { date: today }, _sum: { chargePaise: true } }
+src/app/(school)/inventory-management/page.tsx | stockIssue.count | { where: { date: today } }
+src/app/(school)/inventory-management/page.tsx | stockIssue.count | { where: { date: today, toKind: "STUDENT" } }
+src/app/(school)/inventory-management/rooms/page.tsx | room.findMany | { where: { archivedAt: null }, orderBy: { name: "asc" } }
+src/app/(school)/library-management/_lib/members.ts | libraryFine.groupBy | { by: ["studentId", "staffId"], where: { status: "DUE", OR: whoOr }, _sum: { amountPaise: true } }
+src/app/(school)/settings/data-security/switching/page.tsx | feeStructure.count | { where: { archivedAt: null } }
+src/app/(school)/settings/data-security/switching/page.tsx | leaveBalance.count | { where: { archivedAt: null, adjustments: { array_contains: [{ kind: "brought-in" }] } } }
+src/app/(school)/settings/data-security/switching/page.tsx | openingAttendance.count | { where: { archivedAt: null } }
+src/app/(school)/settings/data-security/switching/page.tsx | openingBalance.count | { where: { archivedAt: null, kind: { not: "STUDENT_DUES" } } }
+src/app/(school)/settings/data-security/switching/page.tsx | payment.count | { where: { broughtIn: true, status: { not: "CANCELLED" } } }
+src/app/(school)/settings/data-security/switching/page.tsx | salaryToDate.count | { where: { archivedAt: null } }
+src/app/(school)/settings/data-security/switching/page.tsx | staff.count | { where: { archivedAt: null, OR: [{ bankAccountEnc: { not: null } }, { panEnc: { not: null } }, { uan: { not: null } }] } }
+src/app/(school)/settings/data-security/switching/page.tsx | studentFeeDue.count | { where: { broughtIn: true, kind: "OLD_DUES", state: { not: "REMOVED" } } }
+src/app/(school)/settings/data-security/switching/page.tsx | syllabusItem.count | { where: { archivedAt: null } }
+src/app/(school)/settings/data-security/switching/page.tsx | teacherAllocation.count | { where: { archivedAt: null, toDate: null } }
+src/app/(school)/staff-hr-management/settings/actions.ts | staff.count | { where: { designation: d.name, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } } }
+src/app/(school)/staff-hr-management/settings/page.tsx | staff.groupBy | { by: ["departmentId"], where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] } }, _count: true }
+src/app/(school)/student-management/_lib/queries.ts | enrolment.groupBy | { by: ["sectionId"], where: { academicYearId: { in: years }, archivedAt: null, status: "STUDYING" }, _count: true }
+src/app/(school)/student-management/certificates/id-cards/page.tsx | idCardPrint.groupBy | { by: ["sectionId"], where: { academicYearId: { in: yearIds }, replacedAt: null }, _count: true }
+src/app/(school)/transport-management/_lib/options.ts | driver.findMany | { where: { archivedAt: null, status: "ACTIVE" }, orderBy: { name: "asc" } }
+src/app/api/v1/calendar/[schoolId]/[file]/route.ts | calendarEntry.findMany | { where: { archivedAt: null, endDate: { gte: from }, startDate: { lte: to } }, orderBy: { startDate: "asc" }, take: 3000 }
+src/lib/academic/calendar.ts | calendarEntry.findMany | { where: { schoolId: ctx.schoolId, archivedAt: null, type: { in: CLOSED_TYPES }, startDate: { lte: to }, endDate: { gte: from } }, orderBy: { startDate: "asc" }, }
+src/lib/academic/substitutions.ts | staffAbsence.findMany | { where: { schoolId: ctx.schoolId, archivedAt: null, date: { gte: from, lte: year.endDate } } }
+src/lib/academic/timetable.ts | section.findMany | { where: { academicYearId: from.academicYearId, archivedAt: null } }
+src/lib/academic/timetable.ts | subjectCondition.findMany | { where: { schoolId: ctx.schoolId, archivedAt: null } }
+src/lib/academic/timetable.ts | subjectCondition.findMany | { where: { schoolId: ctx.schoolId, archivedAt: null } }
+src/lib/admission/settings.ts | admissionClassRule.findMany | 
+src/lib/attendance/devices.ts | devicePunch.groupBy | { by: ["deviceId", "accepted", "rejectReason"], where: { receivedAt: { gte: from, lt: to } }, _count: true }
+src/lib/attendance/reports.ts | overtimeEntry.groupBy | { by: ["staffId"], where: { archivedAt: null, date: { gte: from, lte: to }, ...staffIdLimit(access) }, _sum: { minutes: true }, _count: true }
+src/lib/attendance/reports.ts | staffShiftAssignment.findMany | { where: { archivedAt: null, fromDate: { lte: to } }, orderBy: { fromDate: "desc" }, include: { shift: true } }
+src/lib/attendance/student-leave-list.ts | leaveRequest.count | { where }
+src/lib/attendance/student-leave-list.ts | leaveRequest.findMany | { where, orderBy: [{ fromDate: "desc" }, { createdAt: "desc" }], skip: f.skip, take: f.take }
+src/lib/attendance/student-leave-list.ts | leaveRequest.groupBy | { by: ["status"], where: base, _count: true }
+src/lib/communication/queries.ts | query.findMany | { where: { schoolId: ctx.schoolId, status: { in: ["OPEN", "IN_PROGRESS"] }, dueBy: { lt: now }, escalatedAt: null } }
+src/lib/communication/student-profile-tab.tsx | messageRecipient.count | { where }
+src/lib/dashboard/setup.ts | calendarEntry.count | { where: { academicYearId: { in: ids }, type: { in: ["holiday", "vacation"] }, archivedAt: null } }
+src/lib/dashboard/setup.ts | periodSlot.count | { where: { archivedAt: null } }
+src/lib/dashboard/setup.ts | schoolClass.count | { where: { archivedAt: null, sections: { some: { academicYearId: { in: ids }, archivedAt: null } } } }
+src/lib/dashboard/setup.ts | section.count | { where: { academicYearId: { in: ids }, archivedAt: null } }
+src/lib/dashboard/setup.ts | staff.count | { where: { archivedAt: null, status: "ACTIVE" } }
+src/lib/dashboard/setup.ts | student.count | { where: { archivedAt: null, status: { in: ["ADMITTED", "ACTIVE", "PROMOTED"] } } }
+src/lib/dashboard/widgets/admissions.ts | enquiry.count | { where: late }
+src/lib/dashboard/widgets/admissions.ts | enquiry.count | { where: today }
+src/lib/dashboard/widgets/admissions.ts | enquiry.count | { where: today }
+src/lib/dashboard/widgets/admissions.ts | enquiry.count | { where: week }
+src/lib/dashboard/widgets/admissions.ts | enquiry.findMany | { where: late, orderBy: { nextFollowUpAt: "asc" }, take: 2, select: { parentName: true, childName: true } }
+src/lib/dashboard/widgets/front-office.ts | appointment.count | { where: { archivedAt: null, date: c.today, status: { in: ["BOOKED", "ARRIVED"] } } }
+src/lib/dashboard/widgets/front-office.ts | appointment.count | { where: { archivedAt: null, date: c.today, status: { not: "CANCELLED" } } }
+src/lib/dashboard/widgets/inventory.ts | asset.count | { where: { status: { not: "DISPOSED" }, archivedAt: null, OR: [{ warrantyEnd: { gte: c.today, lte: until } }, { amcEnd: { gte: c.today, lte: until } }] } }
+src/lib/dashboard/widgets/inventory.ts | stockIssue.count | { where: { date: c.today } }
+src/lib/dashboard/widgets/students.ts | section.count | { where: { academicYearId: { in: c.yearIds }, archivedAt: null } }
+src/lib/dashboard/widgets/transport.ts | driver.count | { where: { archivedAt: null, status: "ACTIVE", role: "DRIVER" } }
+src/lib/dashboard/widgets/transport.ts | driver.findMany | { where: { archivedAt: null, status: "ACTIVE", role: "DRIVER", licenceExpiry: { lte: until } }, select: { name: true, licenceExpiry: true }, orderBy: { licenceExpiry: "asc" } }
+src/lib/data-security/retention.ts | enquiry.count | { where: w.enquiries }
+src/lib/events/calendar.ts | academicYear.findMany | { where: { schoolId: ctx.schoolId, archivedAt: null }, orderBy: { startDate: "desc" } }
+src/lib/events/cocurricular.ts | academicYear.findMany | { where: { archivedAt: null, startDate: { lte: dayOf(iso) }, endDate: { gte: dayOf(iso) } }, orderBy: { startDate: "asc" } }
+src/lib/events/cocurricular.ts | houseMember.groupBy | { by: ["houseId"], where: { academicYearId: { in: yearIds }, archivedAt: null }, _count: { _all: true } }
+src/lib/events/events.ts | event.findMany | { where: { archivedAt: null, status: { not: "CANCELLED" }, reminder: { not: "none" }, reminderSentAt: null, date: { gte: dayOf(today), lte: dayOf(isoOf(new Date(dayOf(today).getTime() + 3 * 86_400_000
+src/lib/exams/board.ts | result.groupBy | { by: ["key", "sectionId"], where: { key: { in: ids.map(examKey) }, status: "PUBLISHED" } }
+src/lib/exams/datesheet.ts | datesheetEntry.findMany | { where: { archivedAt: null, date: { in: dates }, exam: { archivedAt: null }, ...(examId ? { examId: { not: examId } } : {}) }, include: { exam: { select: { title: true } } }, }
+src/lib/exams/jobs.ts | datesheetEntry.findMany | { where: { date: day, archivedAt: null, reminderSentAt: null, exam: { archivedAt: null, status: { not: "DRAFT" } } }, include: { exam: true } }
+src/lib/exams/jobs.ts | datesheetEntry.findMany | { where: { marksDueDate: today, archivedAt: null, exam: { archivedAt: null, status: "PUBLISHED" } }, include: { exam: true } }
+src/lib/exams/marks.ts | marksModeration.findMany | { where: { ...(f.status ? { status: f.status } : {}), ...entryFilter }, orderBy: { createdAt: "desc" }, take: 500 }
+src/lib/exams/marks.ts | marksPaper.count | { where: { ...where, status: { in: OPEN } } }
+src/lib/exams/questions.ts | question.count | { where }
+src/lib/exams/questions.ts | question.findMany | { where, orderBy: [{ createdAt: "desc" }], skip: page.skip, take: page.take }
+src/lib/exams/report-cards.ts | coScholasticGrade.findMany | { where: { period: option.key, academicYearId: section.academicYearId } }
+src/lib/exams/results.ts | result.groupBy | { by: ["sectionId"], where: { key: examKey(examId), status: "PUBLISHED" } }
+src/lib/exams/seating.ts | datesheetEntry.findMany | { where: { examId, archivedAt: null }, orderBy: [{ date: "asc" }, { startTime: "asc" }] }
+src/lib/exams/seating.ts | datesheetEntry.findMany | { where: { examId, archivedAt: null, date, startTime } }
+src/lib/exams/seating.ts | seatAllocation.findMany | { where: { examId, date: s.date, startTime: s.startTime, archivedAt: null }, orderBy: [{ room: "asc" }, { seatNo: "asc" }] }
+src/lib/exams/settings.ts | schoolClass.findMany | { where: { archivedAt: null }, select: { name: true, board: true, sortOrder: true }, orderBy: { sortOrder: "asc" } }
+src/lib/fees/concession-list.ts | concession.count | { where }
+src/lib/fees/concession-list.ts | concession.count | { where: all }
+src/lib/fees/concession-list.ts | concession.findMany | { where, orderBy: { createdAt: "desc" }, take }
+src/lib/fees/concession-list.ts | concession.groupBy | { by: ["scholarshipType"], where: { ...only, type: "SCHOLARSHIP", status: "APPLIED", ...(years.length ? { academicYearId: { in: years } } : {}) }, _count: { _all: true }, _sum: { appliedPaise: true },
+src/lib/fees/concession-list.ts | refund.count | { where }
+src/lib/fees/concession-list.ts | refund.count | { where: all }
+src/lib/fees/concession-list.ts | refund.findMany | { where, orderBy: { createdAt: "desc" }, take }
+src/lib/fees/dashboard.ts | payment.groupBy | { by: ["mode"], where: { ...only, status: "POSTED", broughtIn: false, paymentDate: { gte: from, lte: to } }, _sum: { amountPaise: true }, _count: { _all: true } }
+src/lib/fees/dashboard.ts | payment.groupBy | { by: ["paymentDate"], where: { ...only, status: "POSTED", broughtIn: false, paymentDate: { gte: yearStart, lte: yearEnd } }, _sum: { amountPaise: true } }
+src/lib/fees/dashboard.ts | studentFeeDue.aggregate | { where: { ...only, state: "OPEN", balancePaise: { gt: 0 }, dueDate: { gte: start, lte: end } }, _sum: { balancePaise: true } }
+src/lib/fees/dashboard.ts | studentFeeDue.aggregate | { where: { ...only, state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, dueDate: { gte: pastFrom, lte: pastTo } }, _sum: { amountPaise: true, concessionPaise: true, adjustmentPaise: true, paidPaise: true 
+src/lib/fees/dashboard.ts | studentFeeDue.groupBy | { by: ["dueDate"], where: { ...only, state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, ...dueWhere }, _sum: { amountPaise: true, concessionPaise: true, adjustmentPaise: true } }
+src/lib/fees/documents.ts | bankAccount.findMany | { where: { kind: "BANK" } }
+src/lib/fees/find.ts | studentFeeDue.groupBy | { by: ["studentId"], where, _min: { dueDate: true }, _sum: { balancePaise: true }, orderBy: [{ _min: { dueDate: "asc" } }], take }
+src/lib/fees/late-fees.ts | studentFeeDue.findMany | { where: { state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, balancePaise: { gt: 0 }, dueDate: { lt: addDays(today, -s.graceDays) }, broughtIn: false }, orderBy: { dueDate: "asc" }, }
+src/lib/fees/online.ts | payment.findMany | { where: { ...only, status: "FAILED", createdAt: { gte: since } }, orderBy: { createdAt: "desc" }, take: 50 }
+src/lib/fees/online.ts | payment.findMany | { where: { mode: "GATEWAY", reference: { in: payIds }, status: { not: "FAILED" } }, select: { reference: true } }
+src/lib/fees/promises.ts | feeCallNote.findMany | { where: { ...only, promiseState: "OPEN" }, select: { promisedOn: true, promisedPaise: true, owedPaise: true } }
+src/lib/fees/promises.ts | feeCallNote.findMany | { where: { ...only, promiseState: "OPEN", promisedOn: { gte: today, ...(until ? { lte: until } : {}) } } }
+src/lib/fees/promises.ts | feeCallNote.groupBy | { by: ["promiseState"], where: { ...only, promiseState: { in: ["KEPT", "BROKEN"] }, promisedOn: { gte: term.from, lte: term.to } }, _count: { _all: true } }
+src/lib/fees/reports.ts | bankAccount.findMany | {}
+src/lib/fees/structure.ts | studentFeeDue.findMany | { where, orderBy: [{ dueDate: "asc" }, { createdAt: "asc" }] }
+src/lib/finance/daybook-view.ts | dayBookEntry.aggregate | { where: { sourceType: "application-fee", date: day }, _sum: { amountPaise: true }, _count: { _all: true } }
+src/lib/finance/daybook-view.ts | dayBookEntry.findMany | { where, orderBy: [{ date: "asc" }, { postedAt: "asc" }] }
+src/lib/finance/daybook-view.ts | payment.aggregate | { where: { status: "POSTED", broughtIn: false, paymentDate: day }, _sum: { amountPaise: true }, _count: { _all: true } }
+src/lib/finance/daybook-view.ts | payment.aggregate | { where: { status: "WAITING", paymentDate: day }, _sum: { amountPaise: true }, _count: { _all: true } }
+src/lib/finance/daybook.ts | dayBookEntry.groupBy | { by: ["direction"], where: openingWhere, _sum: { amountPaise: true } }
+src/lib/finance/journals.ts | bankAccount.findMany | { where: { schoolId: ctx.schoolId }, orderBy: [{ kind: "asc" }, { name: "asc" }] }
+src/lib/finance/journals.ts | dayBookEntry.findMany | { where: { date }, orderBy: [{ date: "asc" }, { postedAt: "asc" }] }
+src/lib/finance/journals.ts | journalEntry.findMany | { where: { date }, include: { lines: true }, orderBy: [{ date: "asc" }, { createdAt: "asc" }] }
+src/lib/finance/journals.ts | journalEntry.findMany | { where: { date: { gte: from, lte: to } }, include: { lines: true }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 500 }
+src/lib/finance/reports.ts | bankAccount.findMany | { where: { archivedAt: null }, orderBy: [{ kind: "asc" }, { isMain: "desc" }, { name: "asc" }] }
+src/lib/finance/reports.ts | payment.findMany | { where: { broughtIn: true, status: "POSTED", paymentDate: { gte: f.from, lte: f.to } }, select: { paymentDate: true, amountPaise: true } }
+src/lib/finance/tally.ts | bankAccount.findMany | { where: { schoolId: ctx.schoolId } }
+src/lib/finance/tally.ts | journalEntry.findMany | { where: { date: { gte: from, lte: to } }, include: { lines: true }, orderBy: [{ date: "asc" }, { createdAt: "asc" }] }
+src/lib/finance/year-close.ts | payment.count | { where: { status: "WAITING", paymentDate: inYear } }
+src/lib/finance/year-close.ts | payrollRun.count | { where: { status: { in: ["OPEN", "CALCULATED", "WAITING", "APPROVED"] }, month: inYear } }
+src/lib/front-office/pickup.ts | gatePass.findMany | { where: { kind: "PICKUP", archivedAt: null, timeOut: { gte: from, lt: to } }, orderBy: { timeOut: "desc" }, take: 200 }
+src/lib/front-office/settings.ts | periodSlot.findMany | { where: { schoolId: ctx.schoolId, archivedAt: null }, select: { startTime: true, endTime: true, days: true } }
+src/lib/homework/online.ts | onlineClassSession.findMany | { where: { archivedAt: null, status: "SCHEDULED", remindedAt: null, startsAt: { gt: now, lte: new Date(now.getTime() + REMIND_BEFORE_MIN * 60_000) } }, take: 200 }
+src/lib/homework/submissions.ts | homework.findMany | { where: { archivedAt: null, missingMarkedAt: null, dueDate: { lt: today }, closedAt: null }, take: 500 }
+src/lib/hostel/carry.ts | academicYear.findMany | { where: { archivedAt: null } }
+src/lib/hostel/carry.ts | academicYear.findMany | { where: { status: "ACTIVE", archivedAt: null } }
+src/lib/hostel/outings.ts | gatePass.findMany | { where: { kind: "HOSTEL_OUTING", status: "OUT", archivedAt: null, lateAlertedAt: null, toAt: { lt: cutoff } }, take: 200 }
+src/lib/hostel/reports.ts | gatePass.findMany | { where: { kind: "HOSTEL_OUTING", archivedAt: null, fromAt: momentRange(f), ...hostelWhere(f), ...studentWhere(f) }, orderBy: { fromAt: "desc" }, take: 5000 }
+src/lib/inventory/alerts.ts | asset.findMany | { where: { status: { not: "DISPOSED" }, archivedAt: null, OR: [{ warrantyEnd: { gte: today, lte: until } }, { amcEnd: { gte: today, lte: until } }] }, orderBy: { tag: "asc" }, }
+src/lib/inventory/import.ts | staff.findMany | { where: { archivedAt: null, OR: [{ staffCode: { equals: where, mode: "insensitive" } }, { fullName: { equals: where, mode: "insensitive" } }] }, take: 2 }
+src/lib/inventory/reports.ts | asset.findMany | { where: { archivedAt: null, ...(f.from && f.to ? { purchaseDate: range(f) } : {}) }, orderBy: { tag: "asc" } }
+src/lib/inventory/reports.ts | asset.findMany | { where: { archivedAt: null, status: { not: "DISPOSED" } } }
+src/lib/inventory/reports.ts | asset.findMany | { where: { archivedAt: null, status: { not: "DISPOSED" }, OR: [{ warrantyEnd: { lte: until, gte: new Date(f.today.getTime() - 30 * DAY) } }, { amcEnd: { lte: until, gte: new Date(f.today.getTime() - 3
+src/lib/inventory/reports.ts | asset.findMany | { where: { archivedAt: null, status: { not: "DISPOSED" }, costPaise: { not: null } }, orderBy: { tag: "asc" } }
+src/lib/inventory/reports.ts | stockIssue.groupBy | { by: ["toKind"], where: { date: range(f) }, _count: { _all: true } }
+src/lib/library/members.ts | libraryFine.aggregate | { where: { ...whereMember(m), status: "DUE" }, _sum: { amountPaise: true } }
+src/lib/move-in/service.ts | staff.count | { where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } } }
+src/lib/move-in/service.ts | staff.findMany | { where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, staffType: "Teaching" }, orderBy: { fullName: "asc" }, select: { fullName: true, staffCode: true } }
+src/lib/reports/attendance-rows.ts | riskFlag.findMany | { where: { area: "attendance", closedAt: null } }
+src/lib/reports/catalogue/people.ts | messageRecipient.groupBy | { by: ["status", "channel"], where: { queuedAt: range }, _count: { _all: true } }
+src/lib/reports/catalogue/students.ts | leavingRequest.findMany | { where: { status: { not: "CANCELLED" }, type: { in: ["TRANSFER", "WITHDRAWAL"] }, lastDate: { gte: f.from, lte: f.to } }, orderBy: { lastDate: "asc" } }
+src/lib/reports/forecasts-more.ts | messageRecipient.groupBy | { by: ["guardianId"], where: { ...base, status: "FAILED", NOT: { failReason: CANCELLED_REASON } }, _count: { _all: true } }
+src/lib/reports/forecasts-more.ts | messageRecipient.groupBy | { by: ["guardianId"], where: { ...base, status: { in: ["SENT", "DELIVERED", "READ"] } }, _count: { _all: true } }
+src/lib/reports/forecasts-more.ts | openingBalance.count | { where: { kind: { in: ["CASH", "BANK"] }, archivedAt: null } }
+src/lib/reports/forecasts-more.ts | studentFeeDue.aggregate | { where: { state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, balancePaise: { gt: 0 }, dueDate: { gte: start, lte: end } }, _sum: { balancePaise: true } }
+src/lib/reports/forecasts-more.ts | studentFeeDue.aggregate | { where: { state: "OPEN", kind: { in: ["FEE", "CHARGE"] }, dueDate: { gte: pastFrom, lt: c.today } }, _sum: { amountPaise: true, concessionPaise: true, adjustmentPaise: true, paidPaise: true } }
+src/lib/reports/forecasts.ts | enquiry.groupBy | { by: ["status"], where: { archivedAt: null, createdAt: { gte: new Date(c.today.getTime() - 365 * DAY_MS) }, status: { in: ["admitted", "lost", "applied"] } }, _count: { _all: true } }
+src/lib/reports/forecasts.ts | forecastSignal.findMany | { where: { archivedAt: null } }
+src/lib/reports/forecasts.ts | forecastSignal.findMany | { where: { archivedAt: null, NOT: { key: "_run" } }, orderBy: [{ strength: "asc" }, { firstSeenAt: "desc" }] }
+src/lib/reports/forecasts.ts | forecastSignal.findMany | { where: { archivedAt: null, notifiedAt: null } }
+src/lib/reports/warnings.ts | riskFlag.findMany | { where: { closedAt: null } }
+src/lib/staff/exit.ts | exitCase.findMany | { where: { schoolId: ctx.schoolId, status: "IN_PROGRESS", loginDisabledAt: null, lastWorkingDay: { lte: today } } }
+src/lib/staff/settings.ts | staff.groupBy | { by: ["designation", "staffType", "departmentId"], where: { schoolId: ctx.schoolId }, _count: true }
+src/lib/students/id-cards.ts | academicYear.findMany | { where: { status: { not: "CLOSED" }, archivedAt: null } }
+src/lib/students/leaving.ts | leavingRequest.findMany | { where: { status: "IN_PROGRESS", lastDate: { lte: now } } }
+src/lib/transport/carry.ts | academicYear.findMany | { where: { archivedAt: null } }
+src/lib/transport/carry.ts | academicYear.findMany | { where: { status: "ACTIVE", archivedAt: null } }
+src/lib/transport/jobs.ts | driver.findMany | { where: { archivedAt: null, status: "ACTIVE", role: "DRIVER", licenceExpiry: { not: null, lte: until } } }
+src/lib/transport/reports.ts | driver.findMany | { where: { archivedAt: null, status: "ACTIVE", role: "DRIVER", licenceExpiry: { lte: until } }, orderBy: { licenceExpiry: "asc" } }
+src/lib/transport/views.ts | driver.findMany | { where: { archivedAt: null, status: "ACTIVE", role: "DRIVER", OR: [{ licenceExpiry: { gte: range?.from ?? today, lte: until } }, ...(withExpired ? [{ licenceExpiry: { lt: today } }] : [])] }, orderBy
+src/lib/transport/views.ts | transportAssignment.findMany | { where, orderBy: { fromDate: "desc" }, take: 3000 }

@@ -30,6 +30,8 @@ export type LibFilter = {
   lateMoreThan?: number;
   /** A year that is over (?year=): overdue as it stood at the end of `today`, its last day (desk.ts overdueAsAt). */
   asAt?: boolean;
+  /** A person kept to one campus: that campus's members' issues and charges (campusFilter); left out for the whole school. */
+  campus?: { issues: Prisma.BookIssueWhereInput; fines: Prisma.LibraryFineWhereInput };
 };
 
 const ZERO = BigInt(0);
@@ -49,11 +51,12 @@ async function sectionLabels(tx: Tx, ids: (string | null)[]) {
   return new Map(rows.map((s) => [s.id, { label: `${s.schoolClass.name} ${s.name}`, sort: s.schoolClass.sortOrder * 100 + s.name.charCodeAt(0) }]));
 }
 
-const sectionWhere = (f: LibFilter): Prisma.BookIssueWhereInput => (f.sectionIds ? { sectionId: { in: f.sectionIds } } : {});
+const sectionWhere = (f: Pick<LibFilter, "sectionIds" | "campus">): Prisma.BookIssueWhereInput => ({ ...(f.sectionIds ? { sectionId: { in: f.sectionIds } } : {}), AND: [f.campus?.issues ?? {}] });
+const finesCampus = (f: Pick<LibFilter, "campus">): Prisma.LibraryFineWhereInput => ({ AND: [f.campus?.fines ?? {}] });
 
 /** The overdue count on a day: the same number on the desk, the dashboard and the reports. */
-export async function overdueCount(tx: Tx, today: Date, f?: Pick<LibFilter, "sectionIds" | "asAt">) {
-  return tx.bookIssue.count({ where: { ...(f?.asAt ? overdueAsAt(today) : overdueWhere(today)), ...(f ? sectionWhere(f as LibFilter) : {}) } });
+export async function overdueCount(tx: Tx, today: Date, f?: Pick<LibFilter, "sectionIds" | "asAt" | "campus">) {
+  return tx.bookIssue.count({ where: { ...(f?.asAt ? overdueAsAt(today) : overdueWhere(today)), ...(f ? sectionWhere(f) : {}) } });
 }
 
 /* ---------- Books issued ---------- */
@@ -102,8 +105,9 @@ export async function overdueReport(tx: Tx, ctx: SchoolContext, f: LibFilter): P
 }
 
 /** Overdue books in buckets of days late (Library Reports, and the Principal's overdue watch). */
-export async function overdueBuckets(tx: Tx, today: Date, asAt = false) {
-  const rows = await tx.bookIssue.findMany({ where: asAt ? overdueAsAt(today) : overdueWhere(today), select: { dueOn: true } });
+/** `campus`: the person's campus's issues (campusFilter), every issue when left out. */
+export async function overdueBuckets(tx: Tx, today: Date, asAt = false, campus: Prisma.BookIssueWhereInput = {}) {
+  const rows = await tx.bookIssue.findMany({ where: { AND: [campus, asAt ? overdueAsAt(today) : overdueWhere(today)] }, select: { dueOn: true } });
   const b = [{ key: "1-7", label: "1–7 days", value: 0 }, { key: "8-14", label: "8–14 days", value: 0 }, { key: "15-30", label: "15–30 days", value: 0 }, { key: "30+", label: "Over 30", value: 0 }];
   for (const r of rows) {
     const d = daysBetween(r.dueOn, today);
@@ -189,19 +193,20 @@ export async function issuedByClass(tx: Tx, f: LibFilter) {
 export async function fineTotals(tx: Tx, ctx: SchoolContext, f: LibFilter) {
   await syncFeeFines(tx, ctx);
   const where = (status: FineStatus, by: "created" | "paid" | "waived" = "created"): Prisma.LibraryFineWhereInput => ({
-    status, ...(by === "paid" ? { paidAt: momentRange(f) } : by === "waived" ? { waivedAt: momentRange(f) } : { createdAt: momentRange(f) }),
+    status, ...(by === "paid" ? { paidAt: momentRange(f) } : by === "waived" ? { waivedAt: momentRange(f) } : { createdAt: momentRange(f) }), ...finesCampus(f),
   });
   const sum = async (w: Prisma.LibraryFineWhereInput) => {
+    // campus: every `w` here carries finesCampus(f).
     const r = await tx.libraryFine.aggregate({ where: w, _sum: { amountPaise: true }, _count: { _all: true } });
     return { paise: r._sum.amountPaise ?? ZERO, count: r._count._all };
   };
-  const [collected, due, waived, waiting] = await Promise.all([sum(where("PAID", "paid")), sum({ status: "DUE" }), sum(where("WAIVED", "waived")), sum({ status: "WAITING" })]);
+  const [collected, due, waived, waiting] = await Promise.all([sum(where("PAID", "paid")), sum({ status: "DUE", ...finesCampus(f) }), sum(where("WAIVED", "waived")), sum({ status: "WAITING", ...finesCampus(f) })]);
   return { collected, due, waived, waiting };
 }
 
 export async function finesReport(tx: Tx, ctx: SchoolContext, f: LibFilter): Promise<Table> {
   await syncFeeFines(tx, ctx);
-  const fines = await tx.libraryFine.findMany({ where: { createdAt: momentRange(f) }, orderBy: { createdAt: "desc" }, take: 5000 });
+  const fines = await tx.libraryFine.findMany({ where: { createdAt: momentRange(f), ...finesCampus(f) }, orderBy: { createdAt: "desc" }, take: 5000 });
   const members = await membersFor(tx, ctx, fines);
   const books = await tx.book.findMany({ where: { id: { in: [...new Set(fines.map((x) => x.bookId))] } }, select: { id: true, title: true } });
   const visible = f.sectionIds ? fines.filter((x) => { const m = mOf(members, x); return m?.sectionId ? f.sectionIds!.includes(m.sectionId) : false; }) : fines;

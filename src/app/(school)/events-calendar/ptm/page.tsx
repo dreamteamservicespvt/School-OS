@@ -24,6 +24,7 @@ import { BASE, UUID, evGuard, evPeriod, one, qs, type SearchParams } from "../_l
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 import { evPtmWhere } from "@/lib/events/campus";
+import { campusFilter } from "@/lib/campus-scope";
 
 export async function generateMetadata() {
   return { title: await pageTitle("PTM") };
@@ -77,8 +78,8 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
     const classes = await tx.schoolClass.findMany({ where: { id: { in: D.classIds } }, select: { id: true, name: true, sortOrder: true }, orderBy: { sortOrder: "asc" } });
     const queue = ptmStatus(D, p.today) === "Today" ? await waitingQueue(tx, D.id) : [];
     const absent = ptmStatus(D, p.today) === "Done" && full ? await absentParents(tx, D.id) : [];
-    // Recent meeting notes (whole school for the events team; own for teachers).
-    const recent = full ? await tx.ptmMeetingNote.findMany({ orderBy: { createdAt: "desc" }, take: 4 }) : [];
+    // Recent meeting notes (whole school for the events team; own for teachers); one campus: its students' notes only.
+    const recent = full ? await tx.ptmMeetingNote.findMany({ where: await campusFilter(tx, "PtmMeetingNote", p.current), orderBy: { createdAt: "desc" }, take: 4 }) : [];
     const rStudents = recent.length ? await tx.student.findMany({ where: { id: { in: recent.map((r) => r.studentId) } }, select: { id: true, fullName: true } }) : [];
     const rStaff = recent.length ? await tx.staff.findMany({ where: { id: { in: recent.map((r) => r.staffId) } }, select: { id: true, fullName: true } }) : [];
     const rPlaces = recent.length ? await placesOf(tx, recent.map((r) => r.studentId), D.academicYearId) : new Map();

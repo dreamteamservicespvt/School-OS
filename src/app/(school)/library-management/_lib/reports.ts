@@ -4,12 +4,21 @@
 import "server-only";
 
 import type { DayRange } from "@/lib/periods";
+import type { CampusLimit } from "@/lib/campus";
+import { campusFilter } from "@/lib/campus-scope";
+import type { Tx } from "@/lib/db";
 import { LIBRARY_REPORT_LIST, type LibFilter } from "@/lib/library/reports";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const day = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
 export type ReportPick = (typeof LIBRARY_REPORT_LIST)[number] | null;
+
+/** The filter kept to the person's campus when they are limited to one (that campus's members' issues and charges). */
+export async function withCampus(tx: Tx, who: CampusLimit, f: LibFilter): Promise<LibFilter> {
+  if (!who.campusId) return f;
+  return { ...f, campus: { issues: await campusFilter(tx, "BookIssue", who), fines: await campusFilter(tx, "LibraryFine", who) } };
+}
 
 export function readReportFilter(get: (k: string) => string, range: DayRange | null, today: Date) {
   const sec = UUID.test(get("sec")) ? get("sec") : "";

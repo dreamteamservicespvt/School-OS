@@ -21,7 +21,7 @@ import { LIBRARY_REPORT_LIST, copiesByStatus, fineTotals, issuedByClass, issuedB
 import { formatDate } from "@/lib/format";
 import { LibHead } from "../_components/head";
 import { BASE, libGuard, libPeriod, one, qs, type SearchParams } from "../_lib/page";
-import { readReportFilter } from "../_lib/reports";
+import { readReportFilter, withCampus } from "../_lib/reports";
 import { backToThisYear, readViewYear, withYearDates } from "@/lib/academic/view-year";
 import { ViewYearStrip } from "@/components/view-year-strip";
 import { Words } from "@/lib/i18n/client";
@@ -44,24 +44,25 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
   const per = libPeriod(sp, p.dates, "acyear");
   const r0 = readReportFilter((k) => one(sp[k]), per.range, today);
   const r = view?.past ? { ...r0, f: { ...r0.f, asAt: true }, forReport: (x: Parameters<typeof r0.forReport>[0]) => ({ ...r0.forReport(x), asAt: true }) } : r0;
-  const f = r.f;
 
   const d = await withSchool(current.ctx, async (tx) => {
+    // A person kept to one campus: that campus's members' issues and charges only.
+    const f = await withCampus(tx, current, r.f);
     const [sections, issued, overdue, fines, byMonth, byClass, popular, cats, buckets, copies, sessions] = await Promise.all([
       // Each campus's classes, from its own current year.
       sectionsForCurrentYears(tx, current.ctx, current.campusId),
-      tx.bookIssue.count({ where: { ...(f.from && f.to ? { issuedOn: { gte: f.from, lte: f.to } } : {}), ...(f.sectionIds ? { sectionId: { in: f.sectionIds } } : {}) } }),
-      overdueCount(tx, today, { sectionIds: f.sectionIds, asAt: f.asAt }),
+      tx.bookIssue.count({ where: { ...(f.from && f.to ? { issuedOn: { gte: f.from, lte: f.to } } : {}), ...(f.sectionIds ? { sectionId: { in: f.sectionIds } } : {}), AND: [f.campus?.issues ?? {}] } }),
+      overdueCount(tx, today, { sectionIds: f.sectionIds, asAt: f.asAt, campus: f.campus }),
       fineTotals(tx, current.ctx, f),
       issuedByMonth(tx, f),
       issuedByClass(tx, f),
       popularBooks(tx, f, 5),
       categoriesRead(tx, f),
-      overdueBuckets(tx, today, f.asAt),
+      overdueBuckets(tx, today, f.asAt, f.campus?.issues),
       copiesByStatus(tx),
       r.report?.key === "lib-stock" ? stockSessions(tx, f) : Promise.resolve([]),
     ]);
-    const table = r.report ? await r.report.run(tx, current.ctx, r.forReport(r.report)) : null;
+    const table = r.report ? await r.report.run(tx, current.ctx, await withCampus(tx, current, r.forReport(r.report))) : null;
     return { sections, issued, overdue, fines, byMonth, byClass, popular, cats, buckets, copies, sessions, table };
   }, { timeout: 60_000 });
 

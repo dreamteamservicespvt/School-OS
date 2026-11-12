@@ -371,8 +371,10 @@ describe("Hostel, Library and Transport refuse another campus's student or staff
     const page = async (p: Promise<{ default: (a: never) => unknown }>, sp: Record<string, string>) => deep(await (await p).default({ searchParams: Promise.resolve(sp) } as never));
     who.current = northStaff.library;
     const desk = await page(import("@/app/(school)/library-management/page"), { list: "overdue" });
-    expect(desk).toContain(NAMES.north.student);
-    expect(desk).not.toContain(NAMES.main.student);
+    // The desk lists a member by first name and class ("Neha, 5 A").
+    const first = (n: string) => n.split(" ")[0];
+    expect(desk).toContain(first(NAMES.north.student));
+    expect(desk).not.toContain(first(NAMES.main.student));
     const fines = await page(import("@/app/(school)/library-management/fines/page"), { status: "all" });
     expect(fines).toContain(NAMES.north.student);
     expect(fines).not.toContain(NAMES.main.student);
@@ -382,7 +384,8 @@ describe("Hostel, Library and Transport refuse another campus's student or staff
     // The whole school still sees both campuses' members.
     who.current = cur.admin;
     const all = await page(import("@/app/(school)/library-management/page"), { list: "overdue" });
-    expect(all).toContain(NAMES.main.student);
+    expect(all).toContain(first(NAMES.main.student));
+    expect(all).toContain(first(NAMES.north.student));
   }, 180_000);
 
   it("Transport: refuses a bus place for, or a change to the place of, another campus's student", async () => {

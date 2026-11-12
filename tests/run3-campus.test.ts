@@ -358,19 +358,30 @@ describe("Hostel, Library and Transport refuse another campus's student or staff
         await tx.libraryFine.create({ data: { schoolId: school.id, fineNo: `GF-${i}`, copyId: copy.id, bookId: book.id, memberKind: "STUDENT", studentId: side.studentId, reason: "LATE", amountPaise: BigInt(1000 + i) } });
       }
     });
+    // These pages hand their data to inner async components (the desk, the watch): render those too.
+    const deep = async (n: unknown): Promise<string> => {
+      if (n && typeof n === "object" && "type" in n && typeof (n as { type: unknown }).type === "function") {
+        const el = n as { type: (p: unknown) => unknown; props: unknown };
+        try { return await deep(await el.type(el.props)); } catch { return textOf(el.props); }
+      }
+      if (Array.isArray(n)) return (await Promise.all(n.map(deep))).join(" ");
+      if (n && typeof n === "object" && "props" in n) return (await Promise.all(Object.values((n as { props: Record<string, unknown> }).props ?? {}).map(deep))).join(" ");
+      return textOf(n);
+    };
+    const page = async (p: Promise<{ default: (a: never) => unknown }>, sp: Record<string, string>) => deep(await (await p).default({ searchParams: Promise.resolve(sp) } as never));
     who.current = northStaff.library;
-    const desk = textOf(await (await import("@/app/(school)/library-management/page")).default({ searchParams: Promise.resolve({ list: "overdue" }) } as never));
+    const desk = await page(import("@/app/(school)/library-management/page"), { list: "overdue" });
     expect(desk).toContain(NAMES.north.student);
     expect(desk).not.toContain(NAMES.main.student);
-    const fines = textOf(await (await import("@/app/(school)/library-management/fines/page")).default({ searchParams: Promise.resolve({ status: "all" }) } as never));
+    const fines = await page(import("@/app/(school)/library-management/fines/page"), { status: "all" });
     expect(fines).toContain(NAMES.north.student);
     expect(fines).not.toContain(NAMES.main.student);
-    const report = textOf(await (await import("@/app/(school)/library-management/reports/page")).default({ searchParams: Promise.resolve({ r: "lib-overdue" }) } as never));
+    const report = await page(import("@/app/(school)/library-management/reports/page"), { r: "lib-overdue" });
     expect(report).toContain(NAMES.north.student);
     expect(report).not.toContain(NAMES.main.student);
     // The whole school still sees both campuses' members.
     who.current = cur.admin;
-    const all = textOf(await (await import("@/app/(school)/library-management/page")).default({ searchParams: Promise.resolve({ list: "overdue" }) } as never));
+    const all = await page(import("@/app/(school)/library-management/page"), { list: "overdue" });
     expect(all).toContain(NAMES.main.student);
   }, 180_000);
 

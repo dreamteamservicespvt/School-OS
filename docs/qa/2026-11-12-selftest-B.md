@@ -163,7 +163,7 @@ Scripts: `qa/full/selftest-B-recheck.mjs` (B fixes, 390 px light + dark), `selft
 Fee Adjust, smoke), `selftest-B-decoy-check.mjs`. Screenshots `qa-output/2026-11-12-B/re-*.png`. Saved sessions only
 (principal and reception reused from self-test A; no new sign-ins).
 
-**Result: 33 PASS, 4 FAIL, 1 not checkable.** (2 of my script's FAILs were wrong locators, and I corrected them from
+**Result: 31 PASS, 4 FAIL, 1 not checkable.** (2 of my script's FAILs were wrong locators, and I corrected them from
 the screenshots: B3 and A1, both counted as PASS.)
 
 | Check | Light | Dark |

@@ -11,25 +11,27 @@ Last updated: 2026-11-12 19:10 IST (team-test readiness day). Older: docs/archiv
   rebuild: the event saves with 1:00 PM. tests/form-problems.test.ts 7/7.
 - Settled: the Library campus test was a test mistake (desk shows "Neha, 5 A"), fixed in f32f46f2. Rerun of the open files:
   17 files, 165/165 (incl. restore-test). B6 recheck PASS ("4 more tries", then "3 more tries").
-- Layman tests A, B, C, E DONE (docs/qa/2026-11-12-layman-A/B/C/E.md: 56 problems, 2 High). D (staff/front office/events/
-  transport/hostel) still running -> docs/qa/2026-11-12-layman-D.md. Claude fixed LC1 LC4 LC5 LC6 LC24 (79813078).
-  RUNNING since ~20:30: 4 fixer agents, each commits its own files: shared components (LA1 LA2 LA5 LE2 LE3 LE5/LC11 LE6
-  LE7/LC13 LC22 LC23 + DB pool), money (LB1-LB11, A3, Move money, Adjust text), exams/homework/comms (rest of LC + B9),
-  students/library/inventory/settings (rest of LA + LE + B10). Their final reports list fixed/not fixed per ID.
+- Layman tests A-E ALL DONE: docs/qa/2026-11-12-layman-A.md .. -E.md (1,180 checks, 69 problems: 3 High LB1 LC1 LD1).
+  Claude fixed and verified LC1 LC4 LC5 LC6 LC24 (79813078) and A4 (47fc6b86).
+- 5 fixer helpers (shared components, money, exams/homework/comms, students/library/inventory/settings, staff/front
+  office/events/transport/hostel) were STOPPED mid-work when the chat closed. Their partial work is ONE commit 8816c758
+  "WIP: unverified ..." (152 files + new migration 20261112100000_appraisal_points_by_staff_type + new tests + qa/layman
+  scripts). It is NOT type-checked or tested; which IDs it fully fixes is unknown.
 - Live receipt PDF NOT checked: Chrome "Dream Team Services" (deviceId 694c21cd) is signed out of beta (7-day timeout).
   Claude does not type passwords into the live site, so the user signs in once, then Claude checks.
 - Progress page: https://claude.ai/artifact/7WSVY4hW97JfXoJkfRvNUV (docs/qa/team-ready-progress.html).
 
 ## Next steps
-1. Check each fixer's commits (git log), fix D's report too; fix every confirmed problem (High first), with tests; tsc + eslint; run the touched
-   test files; rebuild :3000 and recheck each fix in the browser.
-2. Deploy 3: push HEAD to main and the branch; watch the GitHub commit status for Vercel; smoke /sign-in.
-3. Live receipt PDF check on beta once the user has signed in (Principal) in Chrome 694c21cd.
-4. Known, not fixed: A3 no warning when a bank payment takes the bank below zero; "Move money" sheet pre-filled with the
-   whole cash amount; B9 exam tab shows the new section for old exams; B10 no warning when leaving a half-filled Add
-   Student; Adjust sheet does not say "above the limit it waits for approval"; old register says "(left)" for a moved
-   student; Meta template "Admission consent code" to submit per school.
-5. Team test: docs/qa/test-plan.md + write docs/qa/2026-11-12-team-brief.md.
+1. Verify WIP 8816c758: `NODE_OPTIONS=--max-old-space-size=8192 npx tsc --noEmit -p .`, `npx eslint src tests`, then run
+   the new/changed tests (git show --stat 8816c758) and `npx prisma migrate deploy` + `npx prisma generate`. Fix what fails.
+2. For every problem ID in the 5 layman reports (except those fixed above), check the code: fixed / partly / not done.
+   Finish the rest. High first (LB1 concession above the fee, LD1 leave dates reset after an error), then Medium, Low.
+   LA11/LD6 owner decision: make screens, badges and Settings follow docs/blueprint/05-roles.md.
+3. Full suite in parallel (node qa/vitest-worker.mjs, see below), tsc 0, eslint clean.
+4. Rebuild :3000 (see below) and recheck each fixed ID in the browser with the qa/layman/*.mjs scripts.
+5. Deploy 3: push HEAD to main and the branch; watch the GitHub commit status (Vercel); smoke /sign-in.
+6. Live receipt PDF check on beta once the user has signed in (Principal) in Chrome 694c21cd.
+7. Team test brief docs/qa/2026-11-12-team-brief.md. Test data left by testers: names start with LA-, LB-, LC-, LD-, LE-.
 
 ## How to run things locally
 - DB: `powershell -c "Start-Process -WindowStyle Hidden -FilePath 'D:\all\Projects\School-OS\tools\pg16\pgsql\bin\pg_ctl.exe' -ArgumentList '-D','D:\all\Projects\School-OS\tools\pgdata','-l','D:\all\Projects\School-OS\tools\pg.log','start'"`; wait for pg_isready.

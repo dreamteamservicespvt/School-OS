@@ -10,6 +10,7 @@ import { FormMessage } from "@/components/ui/alert";
 import { CheckboxField, ErrorSummary, SelectField, TextArea, TextField, type Option } from "@/components/ui/field";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
+import { FormProblems } from "@/components/ui/form-problems";
 import type { ButtonVariant } from "@/components/ui/button";
 import type { FormState } from "@/lib/forms";
 
@@ -46,7 +47,8 @@ export function ActionForm({ action, children, submitLabel, pendingText, submitV
         <DraftHint draft={draft} />
         <FormMessage state={state} />
         <ErrorSummary errors={state?.errors} />
-        {children}
+        {/* An empty or wrong box shows our own message under it, never the browser's bubble (self-test B8). */}
+        <FormProblems errors={state?.errors}>{children}</FormProblems>
         {(submitLabel || footer) && (
           <div className="flex flex-wrap items-center gap-2 pt-1">
             {submitLabel && <SubmitButton pendingText={pendingText} variant={submitVariant}>{submitLabel}</SubmitButton>}

@@ -261,7 +261,7 @@ export function TakeSheet(p: Props) {
                       ? reasonText(s.id)
                       : <button type="button" onClick={() => setNoteFor(s.id)} className="text-bad/90 hover:text-brand text-left truncate max-w-full">{reasonText(s.id)}{m?.note ? ` · ${m.note}` : ""}</button>)
                     : readOnly ? (m?.note || s.admissionNo)
-                      : <button type="button" onClick={() => setNoteFor(s.id)} className="hover:text-brand text-left truncate max-w-full">{m?.note ? m.note : s.leave?.halfDay ? "Half-day leave approved · Add note" : "Add note"}</button>}
+                      : <button type="button" onClick={() => setNoteFor(s.id)} className="hover:text-brand text-left truncate max-w-full min-h-10">{m?.note ? m.note : s.leave?.halfDay ? "Half-day leave approved · Add note" : "Add note"}</button>}
                 </p>
               </div>
               {isFixed ? <Pill tone="info"><Words k="Leave" /></Pill> : (
@@ -302,7 +302,7 @@ export function TakeSheet(p: Props) {
       {/* Save bar */}
       {!readOnly && (
         <div className="sticky bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-0 z-20 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-3 bg-gradient-to-t from-bg via-bg to-bg/0">
-          <Button variant="primary" size="lg" className="w-full !h-14 !text-[16px] !whitespace-normal !leading-tight text-center shadow-pop" icon={savedNow ? Check : Save} loading={pending} onClick={save} disabled={savedNow}>
+          <Button variant="primary" size="lg" className={cx("w-full !h-14 !text-[16px] !whitespace-normal !leading-tight text-center shadow-pop", savedNow && "disabled:!opacity-100 !bg-surface !text-ink border border-line")} icon={savedNow ? Check : Save} loading={pending} onClick={save} disabled={savedNow}>
             {saveLabel}
           </Button>
         </div>

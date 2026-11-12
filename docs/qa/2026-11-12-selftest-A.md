@@ -95,7 +95,18 @@ Should happen: the default follow-up is in the future. The Follow-up sheet on an
 Fix: `followUpStart()` in src/lib/front-office/words.ts (an hour from now on the half hour, or 10:00 next day late in the evening), used by both sheets; test tests/front-office/follow-up-start.test.ts. Commit `4f78da07`.
 Screenshot: qa-output/2026-11-12-A/fo-calls-after.png (call log with no call), text in fo.txt "AFTER CALL".
 
-## A2. Cash in hand differs between Cash & Bank and Finance Reports (High)
+## A2. Cash in hand differs between Cash & Bank and Finance Reports (WITHDRAWN: not a bug, my test caused it)
+
+**Root cause (traced 12 Nov, 16:00):** both screens read the same Day Book entries (`accountBalances` and
+`accountBook` in src/lib/finance/daybook.ts) and agree. Between my two readings, my own finance script opened
+Cash & Bank → "Move money", which is prefilled for a cash deposit ("Move ₹12,58,185", cash to the main bank),
+and clicked the button to test an empty save. That recorded a real deposit of ₹12,58,185 at 15:15
+(one cash_transfer, one OUT entry in cash, one IN entry in the bank). Rechecked at 16:00: Cash & Bank shows Cash
+in hand ₹17,234 and Main bank −₹24,36,363; the "Cash book and bank book" report shows the same, ₹17,234 and
+−₹24,36,363 (qa-output/2026-11-12-A/a2-recheck-cash-bank.png, a2-recheck-books-report.png). No code change.
+Note: the local database now holds that ₹12,58,185 deposit dated 12-11-2026.
+
+Original (wrong) report kept below for the record.
 
 Steps: accountant → Finance Management → Cash & Bank; then Finance Reports → "Cash book and bank book" (2026-27 so far).
 What happened: Cash & Bank: Cash in hand ₹12,70,419, Main bank account −₹36,94,548. The report: Cash in hand closing ₹12,234, Main bank account −₹24,36,363. The totals agree (−₹24,24,129) but ₹12,58,185 sits in cash on one screen and in the bank on the other. ₹12,58,185 is exactly "Cash in the box from before today" on Cash & Bank, which asks to "Record deposit"; the report shows cash payments of ₹12,89,100 (it says payments include cash moved to the bank).
@@ -201,3 +212,13 @@ Note: one `npx vitest run` of a single test file started the global test setup (
 database school_os_test) and failed; if another tester's `npm test` was running at 15:22-15:25 it may
 have been disturbed. The two new tests were then run with a database-free config: 7 of 7 pass.
 Typecheck after fix A1: clean.
+
+## Fixes after review (12 Nov, 15:45-16:45)
+
+- **A2:** withdrawn, not a bug (see A2): my script recorded a ₹12,58,185 cash deposit between the two readings. Both screens now agree (₹17,234 cash, −₹24,36,363 bank).
+- **A13 (fixed in code):** root cause: the pre-send check counted only the month's saved lines. Five drivers and attendants were added after October was last calculated, so they had no line yet. The top card counted them (live) and the check did not. Now `staffWithoutStructure()` (src/lib/salary/words.ts) counts the flagged lines plus staff with no structure who have no line yet. It names them, and says "N of them were added after the last calculation: Recalculate to bring them in." Test: tests/salary/self-test-a-words.test.ts.
+- **A5 (fixed in code):** `addAdjustment` now works the month out first, then adds the adjustment, and returns how much net pay changed besides it. The saved message adds: "Net pay also went up by ₹620 because attendance and leave up to 12-11-2026 were brought in." Test: tests/salary/self-test-a-words.test.ts (wording).
+- **A4 (fixed in code, partly):** the time box used to send an empty value when its text could not be read. An optional end time was therefore dropped silently. It now sends the text as typed (`sendUnreadable` in src/components/ui/date-input.tsx, time box only), so the server refuses it with "Enter the end time like 10:30.". Test: tests/events-calendar/self-test-a-time.test.ts covers the box and the server parsers. Not fixed or explained: why Ctrl+A then typing "1:00 PM" gave "10:00 AM:00 PM", and why Playwright `fill("13:00")` after the error left "10:00 AM". That needs a person in a browser after a rebuild.
+- **A14 (owner decision, fixed in code):** `sendForApproval` passes the logins of every staff member with an adjustment in the month as `aboutUserIds`, so `requestApproval` never routes it to them. A month with a bonus for the Principal goes to the School Admin, and the Principal cannot approve it. Test: tests/salary/own-adjustment-approval.test.ts.
+- All of these need a rebuild of the :3000 server before they show in the browser.
+- Commits: `b8b52e57` (A13, A5, A14), `0d74ae01` (A4). Tests on worker 4 (`node qa/vitest-worker.mjs 4 …`): the 6 files `tests/salary/self-test-a-words.test.ts`, `tests/salary/own-adjustment-approval.test.ts`, `tests/salary/payroll.test.ts`, `tests/events-calendar/self-test-a-time.test.ts`, `tests/front-office/follow-up-start.test.ts` and `tests/reports/campus-words.test.ts` passed, 33 of 33 tests. Typecheck (`tsc --noEmit -p .`): clean. ESLint on the changed files: clean.

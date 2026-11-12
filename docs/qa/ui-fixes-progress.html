@@ -1,0 +1,45 @@
+<title>School OS UI Fixes</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+:root{--bg:#f6f7f9;--fg:#15202b;--mut:#5b6672;--card:#fff;--line:#dde2e8;--bar:#e6eaef;--acc:#1f6f5c;--run:#b26a00;--done:#1f7a3d;--wait:#6b7480}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10161c;--fg:#e8edf2;--mut:#9aa6b2;--card:#18212a;--line:#2a3541;--bar:#2a3541;--acc:#4fc3a1;--run:#f0b04a;--done:#5bd28a;--wait:#9aa6b2;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10161c;--fg:#e8edf2;--mut:#9aa6b2;--card:#18212a;--line:#2a3541;--bar:#2a3541;--acc:#4fc3a1;--run:#f0b04a;--done:#5bd28a;--wait:#9aa6b2;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif;padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:760px;margin:0 auto;display:grid;gap:14px}
+h1{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0}
+.now{font-size:19px;font-weight:600}
+.bar{height:14px;background:var(--bar);border-radius:7px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}
+.big .bar{height:22px}
+.row{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:6px}
+.top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.name{font-weight:600}
+.tag{font-size:12px;font-weight:600}.Done{color:var(--done)}.Running{color:var(--run)}.Checking{color:var(--run)}.Waiting{color:var(--wait)}
+.row p{margin:0;color:var(--mut);font-size:14px}.sm{color:var(--mut);font-size:14px;margin:4px 0 0}
+</style>
+<main>
+<h1>School OS UI fixes</h1>
+<div class="now" id="now"></div>
+<div class="big"><div class="bar"><i id="mainbar"></i></div><p class="sm" id="mainline"></p></div>
+<div id="rows" style="display:grid;gap:10px"></div>
+<p class="sm"><b>Waiting on you:</b> <span id="wait"></span></p>
+</main>
+<script>
+var S={
+now:"Reading the code for issues 1 to 5",
+main:0,mainline:"0 of 12 pieces done (estimate: 5 issues, 3 UI review passes, tests, browser check, commit)",
+rows:[
+["Issue 1 Add fee row with no fee heads",0,"Running","Show a clear message and an Add fee head button"],
+["Issue 2 Student list chips",0,"Waiting","'My class' only for class teachers; show all classes"],
+["Issue 3 Fee Settings switches",0,"Waiting","Put the two switches in the Payments card"],
+["Issue 4 Discount lowers amount",0,"Waiting","Amount and Collect button follow the discount"],
+["Issue 5 Ask for approval form",0,"Waiting","Keep reason, show success, block duplicates"],
+["Whole-platform UI/UX review",0,"Waiting","Silent empty states, misleading labels, forms that reset"],
+["Tests, typecheck, lint",0,"Waiting","Not started"],
+["Browser check (education Chrome)",0,"Waiting","Read-only; no live data changed"],
+["Local commits",0,"Waiting","No push"]],
+wait:"Nothing yet. I will not submit anything on the live school."};
+document.getElementById("now").textContent="Now doing: "+S.now;
+document.getElementById("mainbar").style.width=S.main+"%";
+document.getElementById("mainline").textContent=S.mainline;
+document.getElementById("wait").textContent=S.wait;
+document.getElementById("rows").innerHTML=S.rows.map(function(r){return '<div class="row"><div class="top"><span class="name">'+r[0]+'</span><span class="tag '+r[2]+'">'+r[2]+' · '+r[1]+'/100</span></div><div class="bar"><i style="width:'+r[1]+'%"></i></div><p>'+r[3]+'</p></div>'}).join("");
+</script>

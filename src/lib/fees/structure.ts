@@ -759,20 +759,78 @@ export async function assignToStudent(tx: Tx, ctx: SchoolContext, studentId: str
   return made;
 }
 
-/** Removes an unpaid row from a student's fees, with a reason ("assign / unassign fees"). */
+/** Why a row cannot come off the fees now, or null when it can. A row with money paid on it never comes off. */
+async function removalProblem(tx: Tx, d: StudentFeeDue | null): Promise<string | null> {
+  if (!d || d.state === "REMOVED") return "This row was not found.";
+  if (d.paidPaise > BigInt(0)) return "This row has payments against it. Cancel the payment first, or adjust the amount with a reason.";
+  if (await tx.concessionLine.count({ where: { dueId: d.id } })) return "This row has a concession applied. Remove the row's concession first, or adjust the amount with a reason.";
+  return null;
+}
+
+/** Takes the row off, with its unpaid late fee rows; `byId` is recorded as the person who removed it. */
+async function takeRowOff(tx: Tx, d: StudentFeeDue, reason: string, byId: string | null) {
+  const now = new Date();
+  await tx.studentFeeDue.update({ where: { id: d.id }, data: { state: "REMOVED", removedReason: reason, removedById: byId, removedAt: now } });
+  // Late fee rows added on it go too, when unpaid.
+  const late = await tx.studentFeeDue.findMany({ where: { parentDueId: d.id, state: "OPEN", paidPaise: 0 } });
+  for (const l of late) await tx.studentFeeDue.update({ where: { id: l.id }, data: { state: "REMOVED", removedReason: `Row removed: ${reason}`, removedById: byId, removedAt: now } });
+  await refreshBalances(tx, [d.id]);
+}
+
+/** What the family would no longer owe if the row came off: what is unpaid on it and on its unpaid late fee rows. */
+async function unpaidGoing(tx: Tx, d: StudentFeeDue) {
+  const late = await tx.studentFeeDue.findMany({ where: { parentDueId: d.id, state: "OPEN", paidPaise: 0 }, select: { balancePaise: true } });
+  return late.reduce((s, l) => s + l.balancePaise, d.balancePaise);
+}
+
+/**
+ * Removes an unpaid row from a student's fees, with a reason, at once. Used by
+ * the modules that undo their own charges (events, hostel, store, library
+ * fines). Adjust "remove" on the ledger uses `removeDueWithLimit`.
+ */
 export async function removeDue(tx: Tx, ctx: SchoolContext, dueId: string, reason: string) {
   if (reason.trim().length < 5) throw new MoneyProblem("Give a reason of at least 5 characters.", "reason");
   const d = await tx.studentFeeDue.findFirst({ where: { id: dueId } });
-  if (!d || d.state === "REMOVED") throw new MoneyProblem("This row was not found.");
-  if (d.paidPaise > BigInt(0)) throw new MoneyProblem("This row has payments against it. Cancel the payment first, or adjust the amount with a reason.");
-  const conc = await tx.concessionLine.count({ where: { dueId } });
-  if (conc) throw new MoneyProblem("This row has a concession applied. Remove the row's concession first, or adjust the amount with a reason.");
-  await tx.studentFeeDue.update({ where: { id: dueId }, data: { state: "REMOVED", removedReason: reason.trim(), removedById: ctx.userId, removedAt: new Date() } });
-  // Late fee rows added on it go too, when unpaid.
-  const late = await tx.studentFeeDue.findMany({ where: { parentDueId: dueId, state: "OPEN", paidPaise: 0 } });
-  for (const l of late) await tx.studentFeeDue.update({ where: { id: l.id }, data: { state: "REMOVED", removedReason: `Row removed: ${reason.trim()}`, removedById: ctx.userId, removedAt: new Date() } });
-  await refreshBalances(tx, [dueId]);
+  const problem = await removalProblem(tx, d);
+  if (problem || !d) throw new MoneyProblem(problem ?? "This row was not found.");
+  await takeRowOff(tx, d, reason.trim(), ctx.userId);
   await writeAudit(tx, ctx, { action: "removed", recordType: "Student Fee Due", recordId: dueId, before: { label: d.label, amount: formatRupees(d.amountPaise) }, after: { reason } });
+}
+
+/**
+ * Adjust "remove" on the student ledger ("assign / unassign fees"). Owner
+ * decision 2026-11-12: it follows the same rule as Adjust "reduce". When what
+ * would no longer be owed is above the school's concession limit, the removal
+ * goes to Approvals as a "Discount or concession" request about a waiting Fee
+ * Adjustment (`removes`), and the row stays as it is until approved. Up to the
+ * limit it is removed at once, as before. Nobody approves their own request.
+ */
+export async function removeDueWithLimit(tx: Tx, ctx: SchoolContext, dueId: string, reason: string): Promise<{ waiting: boolean; amountPaise: bigint }> {
+  if (reason.trim().length < 5) throw new MoneyProblem("Give a reason of at least 5 characters.", "reason");
+  await lockDues(tx, [dueId]);
+  const d = await tx.studentFeeDue.findFirst({ where: { id: dueId } });
+  const problem = await removalProblem(tx, d);
+  if (problem || !d) throw new MoneyProblem(problem ?? "This row was not found.");
+  if (await tx.feeAdjustment.count({ where: { dueId, removes: true, status: "WAITING" } })) throw new MoneyProblem("Removing this row is already waiting for approval. Open Approvals to see it.");
+  const going = await unpaidGoing(tx, d);
+  const settings = await feeSettings(tx, ctx);
+  if (going <= settings.concessionLimitPaise) {
+    await removeDue(tx, ctx, dueId, reason);
+    return { waiting: false, amountPaise: going };
+  }
+  const student = await tx.student.findFirst({ where: { id: d.studentId }, select: { fullName: true } });
+  const adj = await tx.feeAdjustment.create({ data: { schoolId: ctx.schoolId, studentId: d.studentId, dueId, amountPaise: -going, reason: reason.trim(), createdById: ctx.userId, status: "WAITING", removes: true } });
+  await writeAudit(tx, ctx, { action: "created", recordType: "Fee Adjustment", recordId: adj.id, after: { row: d.label, remove: formatRupees(going), reason, waiting: "above the concession limit, sent for approval" } });
+  const approval = await requestApproval(tx, ctx, {
+    type: "concession",
+    recordType: "Fee Adjustment",
+    recordId: adj.id,
+    summary: `Fee row removed: ${formatRupees(going)} for ${student?.fullName ?? "a student"} (${d.label})`,
+    amountPaise: going,
+    reason: reason.trim(),
+  });
+  await tx.feeAdjustment.update({ where: { id: adj.id }, data: { approvalId: approval.id } });
+  return { waiting: true, amountPaise: going };
 }
 
 /** Adds a one-off charge to one student (a fine, a lost book, an extra activity). It is an exception with a reason. */
@@ -848,6 +906,7 @@ export async function decideAdjustment(tx: Tx, ctx: SchoolContext, adjustmentId:
     if (done.count === 1) await writeAudit(tx, ctx, { action: decision === "withdraw" ? "withdrawn" : "rejected", recordType: "Fee Adjustment", recordId: a.id, after: { note } });
     return;
   }
+  if (a.removes) return approveRemoval(tx, ctx, a);
   await lockDues(tx, [a.dueId]);
   const d = await tx.studentFeeDue.findFirst({ where: { id: a.dueId } });
   const wanted = -a.amountPaise;
@@ -867,6 +926,30 @@ export async function decideAdjustment(tx: Tx, ctx: SchoolContext, adjustmentId:
     before: { balance: formatRupees(left) },
     after: { asked: formatRupees(wanted), made: formatRupees(take), ...(take < wanted ? { why: take > BigInt(0) ? "only this much was still unpaid" : "nothing was left to pay on the row" } : {}) },
   });
+}
+
+/**
+ * An approved removal above the limit: the row comes off now, recorded as
+ * removed by the person who asked, with the approver on the adjustment. It is
+ * not made when the row cannot come off any more (paid on, or a concession
+ * given, while it waited) or when more would now be taken off than was
+ * approved (the row went up while it waited): the row then stays as it is.
+ */
+async function approveRemoval(tx: Tx, ctx: SchoolContext, a: { id: string; dueId: string; amountPaise: bigint; reason: string; createdById: string | null }) {
+  await lockDues(tx, [a.dueId]);
+  const d = await tx.studentFeeDue.findFirst({ where: { id: a.dueId } });
+  const problem = await removalProblem(tx, d);
+  const asked = -a.amountPaise;
+  const going = d && !problem ? await unpaidGoing(tx, d) : BigInt(0);
+  const why = problem ?? (going > asked ? `More is owed on the row now (${formatRupees(going)}) than was approved. Ask again.` : null);
+  const done = await tx.feeAdjustment.updateMany({ where: { id: a.id, status: "WAITING" }, data: { status: why ? "REJECTED" : "APPLIED", decidedById: ctx.userId } });
+  if (done.count !== 1) return;
+  if (!why && d) await takeRowOff(tx, d, a.reason, a.createdById);
+  await writeAudit(tx, ctx, {
+    action: why ? "not-applied" : "applied", recordType: "Fee Adjustment", recordId: a.id,
+    after: { remove: d?.label ?? null, asked: formatRupees(asked), removed: why ? formatRupees(BigInt(0)) : formatRupees(going), ...(why ? { why } : {}) },
+  });
+  if (!why && d) await writeAudit(tx, ctx, { action: "removed", recordType: "Student Fee Due", recordId: d.id, before: { label: d.label, amount: formatRupees(d.amountPaise) }, after: { reason: a.reason, approval: "approved" } });
 }
 
 /** Class cards for Fee Structure: each class's published rows, draft and "5 of 18 set". */

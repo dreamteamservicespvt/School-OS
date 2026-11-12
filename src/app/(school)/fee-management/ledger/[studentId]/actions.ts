@@ -8,7 +8,7 @@ import { sendPaymentLink } from "@/lib/fees/online";
 import { addOldDues } from "@/lib/fees/opening";
 import { MoneyProblem } from "@/lib/fees/problem";
 import { counterAllowed, feeSettings } from "@/lib/fees/settings";
-import { addCharge, adjustDue, assignToStudent, removeDue } from "@/lib/fees/structure";
+import { addCharge, adjustDue, assignToStudent, removeDueWithLimit } from "@/lib/fees/structure";
 import { dateOf, id, ids, needRupees, optionalId, optionalText, str, text } from "@/lib/fees/act";
 import { feeAction } from "../../_lib/action";
 
@@ -58,7 +58,9 @@ export async function adjustAction(_prev: unknown, fd: FormData) {
     if (how === "remove" || how === "add" || how === "reduce") await mayDo(tx, ctx, viewer, how === "remove" ? "assign-fees" : "edit-student-fees");
     const reason = text(fd, "reason", "Reason", { min: 5, max: 300 });
     if (how === "remove") {
-      await removeDue(tx, ctx, dueId, reason);
+      // Above the concession limit a removal waits for approval, like a reduction (owner decision 2026-11-12).
+      const r = await removeDueWithLimit(tx, ctx, dueId, reason);
+      if (r.waiting) return { message: `Sent for approval: removing ${due.label} (${formatRupees(r.amountPaise)}) is above the limit. The row stays until approved.`, tone: "info" as const, link: { href: "/approvals", label: "Open Approvals" } };
       return `${due.label} removed from the fees. It stays on the ledger with the reason.`;
     }
     if (how !== "add" && how !== "reduce") throw new MoneyProblem("Choose what to do with the row.", "how");

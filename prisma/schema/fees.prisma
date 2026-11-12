@@ -302,6 +302,8 @@ model FeeAdjustment {
   approvalId  String?  @map("approval_id") @db.Uuid
   /// Who approved it: the approver in Approvals, or the person who made it when it applied at once.
   decidedById String?  @map("decided_by_id") @db.Uuid
+  /// Adjust "remove" above the concession limit: the whole row comes off once approved (amountPaise is what was unpaid when asked).
+  removes     Boolean  @default(false)
   createdAt   DateTime @default(now()) @map("created_at")
 
   @@index([schoolId, studentId])

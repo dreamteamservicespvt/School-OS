@@ -275,13 +275,13 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
                   { key: "paid", label: "Paid", align: "right", render: (r) => (r.paid > ZERO ? formatRupees(r.paid) : "—") },
                   { key: "late", label: "Late fee", align: "right", render: (r) => (r.late > ZERO ? <span className="text-bad">{formatRupees(r.late)}</span> : "—") },
                   { key: "bal", label: "Balance", align: "right", render: (r) => <b className="font-semibold">{formatRupees(r.balance)}</b> },
-                  { key: "status", label: "Status", render: (r) => <Pill tone={feeTone(r.status)}>{r.status}</Pill> },
+                  { key: "status", label: "Status", render: (r) => <><Pill tone={feeTone(r.status)}>{r.status}</Pill>{r.removalWaiting && <RemovalWaiting />}</> },
                 ]}
                 phone={(r) => ({
                   title: `${r.head} · ${r.label}`,
                   sub: `Due ${formatDate(r.dueDate)}${r.paid > ZERO && r.status !== "Paid" ? ` · ${formatRupees(r.paid)} paid` : ""}${r.late > ZERO ? ` · late fee ${formatRupees(r.late)}` : ""}`,
                   icon: ReceiptIndianRupee, iconTone: feeTone(r.status),
-                  right: <><p className="font-semibold tnum">{formatRupees(r.status === "Paid" ? r.amount : r.balance)}</p><Pill tone={feeTone(r.status)} className="!h-5 !text-[11px]">{r.status}</Pill></>,
+                  right: <><p className="font-semibold tnum">{formatRupees(r.status === "Paid" ? r.amount : r.balance)}</p><Pill tone={feeTone(r.status)} className="!h-5 !text-[11px]">{r.status}</Pill>{r.removalWaiting && <RemovalWaiting />}</>,
                 })} />
             </Card>
           )}
@@ -392,7 +392,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
             <ul className="px-5 pb-4 flex flex-col">
               {L.comingUp.slice(0, 12).map((r) => (
                 <li key={r.id} className="flex items-center gap-3 py-2 border-t border-line/70 first:border-0 text-[14px]">
-                  <span className="flex-1 min-w-0"><b className="font-semibold">{r.head}</b> <span className="text-ink3">· {r.label}</span></span>
+                  <span className="flex-1 min-w-0"><b className="font-semibold">{r.head}</b> <span className="text-ink3">· {r.label}</span>{r.removalWaiting && <RemovalWaiting />}</span>
                   <span className="text-ink3 tnum"><Words k="Due" /> {dshort(r.dueDate)}</span>
                   <span className="font-semibold tnum w-24 text-right">{formatRupees(r.amount)}</span>
                 </li>
@@ -456,6 +456,11 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
       )}
     </div>
   );
+}
+
+/** Adjust "remove" above the concession limit, waiting in Approvals: the row still counts until approved. */
+function RemovalWaiting() {
+  return <Pill tone="warn" className="ml-1.5 !h-5 !text-[11px]"><Words k="Waiting for approval" /></Pill>;
 }
 
 function StatementRow({ e, href, tz }: { e: LedgerEntry; href: string | null; tz: string }) {

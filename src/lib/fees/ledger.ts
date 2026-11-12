@@ -45,6 +45,8 @@ export type LedgerInstallment = {
   status: "Paid" | "Part paid" | "Due" | "Overdue" | "Not due" | "Removed";
   kind: string;
   broughtIn: boolean;
+  /** Adjust "remove" above the concession limit is waiting in Approvals: the row still counts until approved. */
+  removalWaiting: boolean;
 };
 
 export type LedgerPayment = {
@@ -103,6 +105,9 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
 
   const entries: LedgerEntry[] = [];
   const base = { paymentId: null, cancelled: null, waiting: false, broughtIn: false };
+  // Adjust "remove" above the concession limit: waiting in Approvals, or approved (who asked, who approved).
+  const removalWaiting = new Set(adjustments.filter((a) => a.removes && a.status === "WAITING").map((a) => a.dueId));
+  const removalApproved = new Map(adjustments.filter((a) => a.removes && a.status === "APPLIED").map((a) => [a.dueId, a]));
 
   for (const d of shown) {
     const kind: LedgerKind = d.kind === "OLD_DUES" ? "opening" : d.kind === "LATE_FEE" ? "late" : "charge";
@@ -119,9 +124,11 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
       const left = netAmount(d) - d.paidPaise;
       if (left !== ZERO) {
         const by = who(d.removedById);
+        const approval = removalApproved.get(d.id);
+        const byText = approval ? ` · ${who(approval.createdById) ?? "Someone"}, approved by ${who(approval.decidedById) ?? "someone else"}` : by ? ` · by ${by}` : "";
         entries.push({
           ...base, key: `removed:${d.id}`, kind: "reversal", date: d.removedAt ? dayOf(d.removedAt, tz) : d.dueDate,
-          title: `Removed · ${title}`, sub: `${d.removedReason ?? "Removed"}${by ? ` · by ${by}` : ""}`, ref: null,
+          title: `Removed · ${title}`, sub: `${d.removedReason ?? "Removed"}${byText}`, ref: null,
           debit: left < ZERO ? -left : ZERO, credit: left > ZERO ? left : ZERO, balance: ZERO, order: 3,
         });
       }
@@ -159,13 +166,15 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
     if (!shownIds.has(a.dueId)) continue;
     // Not approved: nothing changed on the row.
     if (a.status === "REJECTED") continue;
+    // An approved removal shows as the row's Removed entry, never as a second credit.
+    if (a.removes && a.status !== "WAITING") continue;
     if (a.reason.startsWith("Refunded: ") && refundTakes.has(a.reason.slice("Refunded: ".length))) continue;
     const waiting = a.status === "WAITING";
     const asked = who(a.createdById);
     const approved = who(a.decidedById);
     const by = waiting ? `${asked ? `asked by ${asked} · ` : ""}Waiting for approval` : approved && approved !== asked ? `${asked ?? "Someone"}, approved by ${approved}` : asked;
     entries.push({
-      ...base, key: `adj:${a.id}`, kind: "adjust", date: dayOf(a.createdAt, tz), title: `Adjustment · ${rowName(a.dueId)}`,
+      ...base, key: `adj:${a.id}`, kind: "adjust", date: dayOf(a.createdAt, tz), title: `${a.removes ? "Removal" : "Adjustment"} · ${rowName(a.dueId)}`,
       sub: `${a.reason}${by ? ` · ${by}` : ""}`, ref: null, debit: a.amountPaise > ZERO ? a.amountPaise : ZERO, credit: a.amountPaise < ZERO ? -a.amountPaise : ZERO, balance: ZERO, order: 1, waiting,
     });
   }
@@ -223,6 +232,7 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
         status,
         kind: d.kind,
         broughtIn: d.broughtIn,
+        removalWaiting: removalWaiting.has(d.id),
       };
     });
 
@@ -273,7 +283,7 @@ export async function studentLedger(tx: Tx, studentId: string, today: Date, tz: 
     invoices: invoiceRows,
     certificates: certificates.map((c) => ({ id: c.id, number: c.number, total: c.totalPaise, date: dayOf(c.createdAt, tz), year: (c.details as { financialYear?: string }).financialYear ?? "" })),
     adjustments: adjustList,
-    comingUp: comingUp.map((d) => ({ id: d.id, head: headName(d.feeHeadId), label: d.label, dueDate: d.dueDate, amount: netAmount(d) })),
+    comingUp: comingUp.map((d) => ({ id: d.id, head: headName(d.feeHeadId), label: d.label, dueDate: d.dueDate, amount: netAmount(d), removalWaiting: removalWaiting.has(d.id) })),
     heads: [...byHead.values()],
     yearTotal,
     paidTotal,

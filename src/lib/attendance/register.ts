@@ -13,12 +13,15 @@ import { previousYearStart } from "./calendar-months";
 import { attendanceSettings, statusList, statusesFor } from "./settings";
 import { attendanceSummary, type PersonSummary } from "./summary";
 import { absentKeys, absentReason, type ShownReason } from "./absence-reasons";
+import { registerBook } from "./on-register";
 
 export type RegisterDate = { iso: string; day: number; weekday: string; off: string | null; future: boolean };
 export type RegisterRow = {
   id: string; roll: number | null; name: string; admissionNo: string; days: Record<string, string>; summary: PersonSummary;
   /** Absence reasons by date, as this person may see them (absence reasons on). */
   reasons: Record<string, ShownReason>;
+  /** The day this student moved into the section (on its register from then), or null: the whole month. */
+  from: string | null;
 };
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -87,12 +90,13 @@ export async function registerMonth(tx: Tx, ctx: SchoolContext, input: { section
   const from = monthStart(input.month);
   const to = monthEnd(input.month);
   const settings = await attendanceSettings(tx, ctx);
-  const [students, days, sum, list] = await Promise.all([
+  const [students, days, sum, list, book] = await Promise.all([
     tx.academicYear.findUnique({ where: { id: section.academicYearId }, select: { endDate: true } })
       .then((y) => roster(tx, section.id, section.academicYearId, settings.registerOrder, { pastYear: Boolean(y && y.endDate < input.today) })),
     schoolDays(tx, ctx, from, to, section.campusId, { classId: section.classId }),
     attendanceSummary(tx, ctx, { sectionId: section.id, from, to, today: input.today, campusId: section.campusId }),
     statusList(tx, ctx),
+    registerBook(tx, [section.id]),
   ]);
   // Students who left during the month still appear with their marks.
   const known = new Set(students.map((s) => s.studentId));
@@ -119,6 +123,8 @@ export async function registerMonth(tx: Tx, ctx: SchoolContext, input: { section
   }
   let rows: RegisterRow[] = people.map((p) => ({
     ...p,
+    // A student who moved in from another section is on this register from that day (self-test B7).
+    from: book.onFrom(section.id, p.id),
     reasons: reasonsBy.get(p.id) ?? {},
     days: Object.fromEntries(sum.days.get(p.id) ?? new Map()),
     summary: sum.people.get(p.id) ?? { workingDays: sum.workingDays, markedDays: 0, countedDays: 0, present: 0, absent: 0, late: 0, leave: 0, byStatus: {}, percent: null },

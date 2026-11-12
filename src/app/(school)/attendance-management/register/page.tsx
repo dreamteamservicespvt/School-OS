@@ -227,6 +227,8 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
                       const label = `${r.name}, ${d.day} ${grid.label}`;
                       if (d.off) return <td key={d.iso} className="px-1 py-1.5 text-center border-b border-line/60 group-last:border-0"><span title={d.off} className={cx("inline-grid place-items-center w-7 h-7 rounded-md text-[10.5px] font-bold", HOLIDAY_CELL)}><span aria-hidden="true">H</span><span className="sr-only">{label}: {d.off}</span></span></td>;
                       const key = r.days[d.iso];
+                      // Before the day they moved in, the student was in another section: nothing to mark here (self-test B7).
+                      if (!key && r.from && d.iso < r.from) return <td key={d.iso} className="px-1 py-1.5 text-center border-b border-line/60 group-last:border-0"><span title={`${label}: not in this section yet`} className="inline-grid place-items-center w-7 h-7 text-ink3/60" aria-hidden="true">–</span><span className="sr-only">{label}: not in this section yet</span></td>;
                       const st = key ? byKey.get(key) ?? { key, name: key, letter: "?", tone: "neutral" } : undefined;
                       const href = cellHref(r.id, d.iso);
                       const unknown = r.reasons[d.iso]?.key === "not-known";

@@ -13,7 +13,8 @@
 // - A student who finished the year in the section (promoted or held back)
 //   was on it for the whole year.
 // - A student moved to another section was on this one until the day of the
-//   move.
+//   move, and is on the new one from the day of the move (self-test B7: the
+//   new section's register showed the days before as "not marked").
 //
 // Marks are never removed: a mark saved for a day the student was not on the
 // register stays stored (and in the audit log); it is only left out of counts.
@@ -26,7 +27,7 @@ import { isoDay } from "../staff/dates";
 /** Student statuses that put a Studying enrolment on today's register (Take Attendance). */
 export const ON_REGISTER_STATUSES: StudentStatus[] = ["ACTIVE", "ADMITTED"];
 
-type Span = { until: string | null };
+type Span = { from: string | null; until: string | null };
 
 export type RegisterBook = {
   /** Was this student on this section's register on this day (YYYY-MM-DD)? */
@@ -35,6 +36,8 @@ export type RegisterBook = {
   countOn(sectionId: string, day: string): number;
   /** Students on the section's register today. */
   current(sectionId: string): Set<string>;
+  /** The first day of the student's present stay on this section's register (the day they moved in), or null for the whole year. */
+  onFrom(sectionId: string, studentId: string): string | null;
 };
 
 /**
@@ -49,17 +52,26 @@ export async function registerBook(tx: Tx, sectionIds: string[]): Promise<Regist
       select: { sectionId: true, studentId: true, status: true, archivedAt: true, student: { select: { status: true, archivedAt: true, leavingDate: true } } },
     }),
     tx.sectionChange.findMany({
-      where: { fromSectionId: { in: ids }, undoneAt: null },
-      select: { fromSectionId: true, studentId: true, createdAt: true, enrolmentId: true },
+      where: { OR: [{ fromSectionId: { in: ids } }, { toSectionId: { in: ids } }], undoneAt: null },
+      select: { fromSectionId: true, toSectionId: true, studentId: true, createdAt: true, enrolmentId: true },
     }),
   ]);
-  // Per section: student -> null (on it now / the whole year) or the last day before they left.
-  const spans = new Map<string, Map<string, Span>>();
-  const put = (sectionId: string, studentId: string, span: Span) => {
-    const m = spans.get(sectionId) ?? new Map<string, Span>();
-    const before = m.get(studentId);
-    // The widest span wins (on the register now beats an earlier stay).
-    if (!before || span.until === null || (before.until !== null && span.until > before.until)) m.set(studentId, span);
+  // Days a student moved into a section, so a stay starts there (the latest move in on or before its end).
+  const movedIn = new Map<string, string[]>();
+  for (const m of moves) {
+    const k = `${m.toSectionId}|${m.studentId}`;
+    movedIn.set(k, [...(movedIn.get(k) ?? []), isoDay(m.createdAt)]);
+  }
+  const fromFor = (sectionId: string, studentId: string, until: string | null) => {
+    let best: string | null = null;
+    for (const day of movedIn.get(`${sectionId}|${studentId}`) ?? []) if ((until === null || day <= until) && (best === null || day > best)) best = day;
+    return best;
+  };
+  // Per section: student -> the stays on its register (from the day they moved in, or the whole year, to the last day).
+  const spans = new Map<string, Map<string, Span[]>>();
+  const put = (sectionId: string, studentId: string, until: string | null) => {
+    const m = spans.get(sectionId) ?? new Map<string, Span[]>();
+    m.set(studentId, [...(m.get(studentId) ?? []), { from: fromFor(sectionId, studentId, until), until }]);
     spans.set(sectionId, m);
   };
   const leftOn = new Map<string, string | null>();
@@ -69,35 +81,36 @@ export async function registerBook(tx: Tx, sectionIds: string[]): Promise<Regist
     if (e.archivedAt) continue;
     const onNow = e.status === "STUDYING" && !s.archivedAt && ON_REGISTER_STATUSES.includes(s.status);
     const finishedYear = e.status === "PROMOTED" || e.status === "HELD_BACK";
-    if (onNow || finishedYear) { put(e.sectionId, e.studentId, { until: null }); continue; }
+    if (onNow || finishedYear) { put(e.sectionId, e.studentId, null); continue; }
     // Left: on the register on the days before the leaving date.
-    if (s.leavingDate) put(e.sectionId, e.studentId, { until: dayBefore(isoDay(s.leavingDate)) });
+    if (s.leavingDate) put(e.sectionId, e.studentId, dayBefore(isoDay(s.leavingDate)));
   }
   for (const m of moves) {
+    if (!ids.includes(m.fromSectionId)) continue;
     // Moved out: on this section's register up to the day of the move (the
     // mark of that day belongs to whichever section it was taken in).
     let until = isoDay(m.createdAt);
     const left = leftOn.get(m.studentId);
     if (left && dayBefore(left) < until) until = dayBefore(left);
-    put(m.fromSectionId, m.studentId, { until });
+    put(m.fromSectionId, m.studentId, until);
   }
 
-  const has = (sectionId: string, studentId: string, day: string) => {
-    const span = spans.get(sectionId)?.get(studentId);
-    if (!span) return false;
-    return span.until === null || day <= span.until;
-  };
+  const covers = (span: Span, day: string) => (span.from === null || day >= span.from) && (span.until === null || day <= span.until);
+  const has = (sectionId: string, studentId: string, day: string) => (spans.get(sectionId)?.get(studentId) ?? []).some((span) => covers(span, day));
   return {
     has,
     countOn(sectionId, day) {
       let n = 0;
-      for (const span of spans.get(sectionId)?.values() ?? []) if (span.until === null || day <= span.until) n++;
+      for (const list of spans.get(sectionId)?.values() ?? []) if (list.some((span) => covers(span, day))) n++;
       return n;
     },
     current(sectionId) {
       const out = new Set<string>();
-      for (const [id, span] of spans.get(sectionId) ?? []) if (span.until === null) out.add(id);
+      for (const [id, list] of spans.get(sectionId) ?? []) if (list.some((span) => span.until === null)) out.add(id);
       return out;
+    },
+    onFrom(sectionId, studentId) {
+      return (spans.get(sectionId)?.get(studentId) ?? []).find((span) => span.until === null)?.from ?? null;
     },
   };
 }

@@ -4,8 +4,8 @@
 // approved design's config.js): the Warden does the hostel's daily work for
 // their own hostel only; the Principal reads every page, including Hostel
 // Settings, and reminds the warden instead of taking roll call; the School
-// Admin reads every page and keeps Hostel Settings (hostels, wardens, fee
-// plans); the Vice Principal (View) reads Rooms & Beds, Allocation, Roll
+// Admin has Full as 05-roles.md gives it and works every page (owner decision
+// 12 Nov 2026, layman test LD6); the Vice Principal (View) reads Rooms & Beds, Allocation, Roll
 // Call, Outings, Mess and Hostel Reports. Adding a hostel and choosing its
 // wardens are never the warden's. Hostel fee amounts show only to people who
 // have Fee Management. What is hidden here is also refused on the server.

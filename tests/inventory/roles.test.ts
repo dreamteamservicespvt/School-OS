@@ -79,7 +79,8 @@ describe("Inventory Management by role", () => {
   it("opens only the pages each role works in, full or to read", async () => {
     expect(await modes(f.store.id)).toEqual({ items: "full", issue: "full", purchases: "full", assets: "full", rooms: "full", reports: "full", settings: "full" });
     expect(await modes(f.principal.id)).toEqual({ items: "view", issue: "view", purchases: "full", assets: "view", rooms: "view", reports: "view", settings: "view" });
-    expect(await modes(f.admin.id)).toEqual({ items: "view", issue: "view", purchases: "view", assets: "view", rooms: "view", reports: "view", settings: "full" });
+    // The School Admin has Full (05-roles.md) and works every page (owner decision 12-11-2026, layman tests LA11/LD6).
+    expect(await modes(f.admin.id)).toEqual({ items: "full", issue: "full", purchases: "full", assets: "full", rooms: "full", reports: "full", settings: "full" });
     expect(await modes(f.vp.id)).toEqual({ items: "view", issue: "hidden", purchases: "view", assets: "view", rooms: "hidden", reports: "view", settings: "hidden" });
     expect(await modes(f.accountant.id)).toEqual({ items: "hidden", issue: "hidden", purchases: "view", assets: "hidden", rooms: "hidden", reports: "view", settings: "hidden" });
     for (const id of [f.teacher.id, f.frontdesk.id]) {
@@ -91,10 +92,10 @@ describe("Inventory Management by role", () => {
     expect(pageOpen((await invFor(f, f.vp.id)).v, "rooms")).toBe(false);
   });
 
-  it("gives the store work to the Store Keeper, paying and bank details to those who pay, and Remind to the leaders", async () => {
+  it("gives the store work to the Store Keeper, paying and bank details to those who pay, and Remind to the Principal", async () => {
     expect((await invFor(f, f.store.id)).can).toEqual({ stock: true, issue: true, purchase: true, pay: false, bank: false, assets: true, rooms: true, settings: true, remind: false, export: true });
     expect((await invFor(f, f.principal.id)).can).toMatchObject({ stock: false, issue: false, purchase: true, pay: true, bank: true, assets: false, rooms: false, settings: false, remind: true });
-    expect((await invFor(f, f.admin.id)).can).toMatchObject({ stock: false, issue: false, purchase: false, assets: false, settings: true, remind: true });
+    expect((await invFor(f, f.admin.id)).can).toMatchObject({ stock: true, issue: true, purchase: true, assets: true, rooms: true, settings: true, remind: false });
     expect((await invFor(f, f.accountant.id)).can).toMatchObject({ stock: false, issue: false, purchase: false, pay: true, bank: true, settings: false, remind: false, export: true });
     expect((await invFor(f, f.vp.id)).can).toMatchObject({ stock: false, issue: false, purchase: false, pay: false, bank: false, remind: false });
     expect((await invFor(f, f.teacher.id)).can).toMatchObject({ stock: false, issue: false, export: false });
@@ -108,8 +109,6 @@ describe("Inventory Management by role", () => {
     }
     asUser(f.principal.id);
     expect(await actions.issueAction(null, fd())).toMatchObject({ ok: false, message: "Your role cannot issue stock. Ask the store keeper." });
-    asUser(f.admin.id);
-    expect(await actions.saveItemAction(null, form({ name: "Admin item", categoryId: f.stationery, unit: "piece" }))).toMatchObject({ ok: false, message: "Your role cannot add items. Ask the store keeper." });
     expect(await withSchool(keeper(f), (tx) => tx.stockIssue.count())).toBe(0);
     asUser(f.store.id);
     expect(await actions.issueAction(null, fd())).toMatchObject({ ok: true });
@@ -142,7 +141,7 @@ describe("Inventory Management by role", () => {
 
   it("refuses asset, room and settings work to roles that only read them", async () => {
     const asset = () => form({ name: "Steel almirah", type: "Furniture", placeKind: "ROOM", roomId: f.room1.id });
-    for (const id of [f.principal.id, f.admin.id, f.vp.id, f.accountant.id, f.teacher.id]) {
+    for (const id of [f.principal.id, f.vp.id, f.accountant.id, f.teacher.id]) {
       asUser(id);
       expect(await assets.addAssetAction(null, asset())).toMatchObject({ ok: false, message: DENIED });
       expect(await rooms.saveFacilityAction(null, form({ name: "Room 99", type: "classroom" }))).toMatchObject({ ok: false, message: DENIED });
@@ -155,7 +154,7 @@ describe("Inventory Management by role", () => {
     expect(await assets.addAssetAction(null, asset())).toMatchObject({ ok: true });
   });
 
-  it("lets the Principal and School Admin remind the store keeper, but not the Store Keeper or the Vice Principal", async () => {
+  it("lets the Principal remind the store keeper, but not the Store Keeper, the School Admin (who works the store) or the Vice Principal", async () => {
     asUser(f.principal.id);
     expect(await actions.remindStoreAction(null, form({ what: "low" }))).toMatchObject({ ok: true });
     const note = await withSchool(keeper(f), (tx) => tx.notification.findFirst({ where: { userLoginId: f.store.id, type: "inventory-remind" } }));
@@ -163,6 +162,8 @@ describe("Inventory Management by role", () => {
     asUser(f.store.id);
     expect(await actions.remindStoreAction(null, form({ what: "low" }))).toMatchObject({ ok: false });
     asUser(f.vp.id);
+    expect(await actions.remindStoreAction(null, form({ what: "low" }))).toMatchObject({ ok: false });
+    asUser(f.admin.id);
     expect(await actions.remindStoreAction(null, form({ what: "low" }))).toMatchObject({ ok: false });
   });
 

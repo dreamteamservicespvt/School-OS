@@ -59,6 +59,9 @@ export async function deskEnquiry(tx: Tx, ctx: SchoolContext, current: Pick<Curr
   const parentName = input.parentName.trim().replace(/\s+/g, " ");
   if (childName.length < 2) throw new FrontOfficeProblem("Enter the child’s name.", "childName");
   if (parentName.length < 2) throw new FrontOfficeProblem("Enter the parent’s name.", "parentName");
+  // A name holds at least one letter, in any script, as in Admissions (layman test LA7: "😀😀" or "1").
+  if (!/\p{L}/u.test(childName)) throw new FrontOfficeProblem("Type the child's name in letters.", "childName");
+  if (!/\p{L}/u.test(parentName)) throw new FrontOfficeProblem("Type the parent's name in letters.", "parentName");
   if (childName.length > 120 || parentName.length > 120) throw new FrontOfficeProblem("Names can be at most 120 characters.", childName.length > 120 ? "childName" : "parentName");
   const pp = phoneProblem(input.phone);
   if (pp) throw new FrontOfficeProblem(pp, "phone");

@@ -70,7 +70,8 @@ describe("Front Office by role", () => {
     expect(await pagesOf(f.frontdesk.id)).toEqual(["desk", "visitors", "pickup", "enquiries", "appointments", "postal"]);
     expect(await pagesOf(f.custom.id)).toEqual(["desk", "visitors", "pickup", "enquiries", "appointments", "postal"]);
     expect(await pagesOf(f.principal.id)).toEqual(["visitors", "enquiries", "appointments"]);
-    expect(await pagesOf(f.admin.id)).toEqual(["visitors", "pickup", "enquiries", "appointments", "postal"]);
+    // The School Admin has Full (05-roles.md) and works the desk (owner decision 12-11-2026, layman tests LA11/LD6).
+    expect(await pagesOf(f.admin.id)).toEqual(["desk", "visitors", "pickup", "enquiries", "appointments", "postal"]);
     expect(await pagesOf(f.vp.id)).toEqual(["visitors", "appointments"]);
     expect(await pagesOf(f.office.id)).toEqual(["visitors", "pickup"]);
     expect(await pagesOf(f.gate.id)).toEqual(["visitors", "pickup"]);
@@ -80,15 +81,16 @@ describe("Front Office by role", () => {
   it("opens the menu link straight on a page the role can see, with no redirect on the way (QA PERF-01)", async () => {
     const landing = async (id: string) => foLanding((await foFor(f, id)).v);
     expect(await landing(f.frontdesk.id)).toBe("/front-office");
-    for (const id of [f.principal.id, f.admin.id, f.vp.id, f.office.id, f.gate.id]) expect(await landing(id)).toBe("/front-office/visitors");
+    expect(await landing(f.admin.id)).toBe("/front-office");
+    for (const id of [f.principal.id, f.vp.id, f.office.id, f.gate.id]) expect(await landing(id)).toBe("/front-office/visitors");
     expect(await landing(f.teacher.id)).toBeNull();
   });
 
-  it("gives desk work only to the desk, booking to the Principal too, and masks phones for Office Staff and Gate Security", async () => {
+  it("gives desk work to the desk and the School Admin, booking to the Principal too, and masks phones for Office Staff and Gate Security", async () => {
     const c = async (id: string) => (await foFor(f, id)).can;
     expect(await c(f.frontdesk.id)).toMatchObject({ desk: true, register: true, release: true, book: true, remind: false, manage: false, visitorPhones: true, parentPhones: true });
     expect(await c(f.principal.id)).toMatchObject({ desk: false, register: false, release: false, book: true, remind: true, manage: true, visitorPhones: true });
-    expect(await c(f.admin.id)).toMatchObject({ desk: false, register: false, release: false, book: false, remind: true, manage: true });
+    expect(await c(f.admin.id)).toMatchObject({ desk: true, register: true, release: true, book: true, remind: false, manage: true });
     expect(await c(f.vp.id)).toMatchObject({ desk: false, register: false, book: false, remind: true, manage: false, visitorPhones: true });
     expect(await c(f.office.id)).toMatchObject({ desk: false, register: false, release: false, visitorPhones: false, export: true });
     expect(await c(f.gate.id)).toMatchObject({ desk: false, register: true, checkOut: true, gateWork: true, release: false, visitorPhones: false, pickupPhones: false, export: false, exportGate: false });
@@ -97,7 +99,7 @@ describe("Front Office by role", () => {
 
   it("refuses desk work on the server for roles that do not do it", async () => {
     const visitorForm = () => form({ phone: "9700000011", name: "Refused Visitor", purpose: "Delivery", peopleCount: "1" });
-    for (const id of [f.office.id, f.vp.id, f.principal.id, f.admin.id, f.teacher.id]) {
+    for (const id of [f.office.id, f.vp.id, f.principal.id, f.teacher.id]) {
       asUser(id);
       const r = await actions.registerVisitorAction(null, visitorForm());
       expect(r?.ok, `register as ${id}`).toBe(false);
@@ -105,7 +107,7 @@ describe("Front Office by role", () => {
     expect(await withSchool(as(f, f.frontdesk.id), (tx) => tx.visitorEntry.count({ where: { name: "Refused Visitor" } }))).toBe(0);
 
     const release = form({ studentId: f.aarav.id, guardianId: f.father.id, photoMatch: "on", reason: "Unwell" });
-    for (const id of [f.gate.id, f.office.id, f.principal.id, f.admin.id]) {
+    for (const id of [f.gate.id, f.office.id, f.principal.id]) {
       asUser(id);
       const r = await actions.releaseAction(null, release);
       expect(r?.ok).toBe(false);
@@ -114,7 +116,7 @@ describe("Front Office by role", () => {
     expect((await actions.releaseAction(null, release))?.message).toBe("Your role cannot release students. Ask the front desk or your School Admin.");
     expect(await withSchool(as(f, f.frontdesk.id), (tx) => tx.gatePass.count())).toBe(0);
 
-    for (const id of [f.principal.id, f.admin.id, f.gate.id]) {
+    for (const id of [f.principal.id, f.gate.id]) {
       asUser(id);
       expect((await actions.logCallAction(null, form({ direction: "IN", phone: "9700000012", name: "Caller", purpose: "Other" })))?.ok).toBe(false);
       expect((await actions.walkInAction(null, form({ fromName: "Walk In", request: "Fee statement", department: "Accounts", givenBy: "slip" })))?.ok).toBe(false);
@@ -125,13 +127,13 @@ describe("Front Office by role", () => {
     expect(counts).toEqual([0, 0, 0, 0]);
   });
 
-  it("lets the Principal book appointments but not the School Admin or the Vice Principal", async () => {
+  it("lets the Principal book appointments (and the desk, School Admin included) but not the Vice Principal", async () => {
     // The next day that is not a Sunday, so the test does not depend on the day it runs.
     let ahead = Date.now() + 86_400_000;
     if (new Date(ahead).getUTCDay() === 0) ahead += 86_400_000;
     const tomorrow = new Date(ahead).toISOString().slice(0, 10);
     const book = (startMin: number) => form({ staffId: f.principalStaff.id, date: tomorrow, startMin: String(startMin), lengthMin: "15", visitorName: "Padmini Rao", visitorPhone: "9701230098", purpose: "Behaviour in class" });
-    for (const id of [f.admin.id, f.vp.id, f.office.id, f.gate.id]) {
+    for (const id of [f.vp.id, f.office.id, f.gate.id]) {
       asUser(id);
       expect((await actions.bookAction(null, book(10 * 60)))?.ok).toBe(false);
     }
@@ -140,7 +142,7 @@ describe("Front Office by role", () => {
     expect(ok?.ok, ok?.message).toBe(true);
   });
 
-  it("lets the Principal, School Admin and Vice Principal remind the desk about an expired pass, and nobody else", async () => {
+  it("lets the Principal and Vice Principal (who only read the desk) remind the desk about an expired pass, and nobody else", async () => {
     for (const id of [f.frontdesk.id, f.office.id, f.gate.id]) {
       asUser(id);
       expect((await actions.remindDeskAction(null, form({ visitorId: expiredId })))?.ok).toBe(false);

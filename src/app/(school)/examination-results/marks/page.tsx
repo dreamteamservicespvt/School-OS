@@ -32,6 +32,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 const PATH = "/examination-results/marks";
 const PAGE = 50;
+/** Previous / Next under the list: 44 px tall to tap on a phone (QA LC22). */
+const PAGE_LINK = "inline-flex items-center min-h-11 px-1 font-semibold text-brand hover:underline";
 const STATUSES = ["NOT_STARTED", "IN_PROGRESS", "SUBMITTED", "LOCKED"] as const;
 const STATUS_ICON = { NOT_STARTED: CircleDashed, IN_PROGRESS: PencilLine, SUBMITTED: Send, LOCKED: Lock };
 
@@ -202,7 +204,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
               { key: "s", label: "Status", nowrap: true, render: (r) => <Pill tone={PAPER_STATUS_TONE[r.status]}>{PAPER_STATUS_WORDS[r.status]}</Pill> },
             ]}
             mobile={(r) => ({ icon: STATUS_ICON[r.status], iconTone: PAPER_STATUS_TONE[r.status], title: `${r.subjectName} · ${r.sectionLabel}`, sub: `${r.teachers[0]?.name ?? "No teacher"} · ${r.done} of ${r.of}${overdue(r) ? " · overdue" : ""}`, pills: <Pill tone={PAPER_STATUS_TONE[r.status]}>{PAPER_STATUS_WORDS[r.status]}</Pill> })}
-            footer={<span><Words k="Showing" /> {shown.length ? (pageNo - 1) * PAGE + 1 : 0} <Words k="to" /> {(pageNo - 1) * PAGE + shown.length} <Words k="of" /> {rows.length}{pages > 1 && <> · {pageNo > 1 && <Link className="font-semibold text-brand hover:underline" href={`${link({})}${link({}).includes("?") ? "&" : "?"}page=${pageNo - 1}`}><Words k="Previous" /></Link>}{pageNo > 1 && pageNo < pages && " · "}{pageNo < pages && <Link className="font-semibold text-brand hover:underline" href={`${link({})}${link({}).includes("?") ? "&" : "?"}page=${pageNo + 1}`}><Words k="Next" /></Link>}</>}</span>} />
+            footer={<span><Words k="Showing" /> {shown.length ? (pageNo - 1) * PAGE + 1 : 0} <Words k="to" /> {(pageNo - 1) * PAGE + shown.length} <Words k="of" /> {rows.length}{pages > 1 && <> · {pageNo > 1 && <Link className={PAGE_LINK} href={`${link({})}${link({}).includes("?") ? "&" : "?"}page=${pageNo - 1}`}><Words k="Previous" /></Link>}{pageNo > 1 && pageNo < pages && " · "}{pageNo < pages && <Link className={PAGE_LINK} href={`${link({})}${link({}).includes("?") ? "&" : "?"}page=${pageNo + 1}`}><Words k="Next" /></Link>}</>}</span>} />
         </Card>
       </div>
     </>

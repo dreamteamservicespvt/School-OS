@@ -69,7 +69,8 @@ describe("Hostel Management by role", () => {
     const all = (m: string) => Object.fromEntries(HOSTEL_PAGES.map((p) => [p, m]));
     expect(await modes(f.warden.id)).toEqual(all("full"));
     expect(await modes(f.principal.id)).toEqual(all("view"));
-    expect(await modes(f.admin.id)).toEqual({ ...all("view"), settings: "full" });
+    // The School Admin has Full (05-roles.md) and works every page (owner decision 12-11-2026, layman test LD6).
+    expect(await modes(f.admin.id)).toEqual(all("full"));
     expect(await modes(f.vp.id)).toEqual({ ...all("view"), settings: "hidden" });
     for (const id of [f.teacher.id, f.accountant.id, f.frontdesk.id]) {
       expect(Object.values(await modes(id)).every((m) => m === "hidden")).toBe(true);
@@ -80,7 +81,7 @@ describe("Hostel Management by role", () => {
     expect(pageOpen((await hostelFor(f, f.vp.id)).v, "settings")).toBe(false);
   });
 
-  it("gives the daily work to the Warden in their own hostel, Remind to the leaders, and hostels and wardens never to the Warden", async () => {
+  it("gives the daily work to the Warden in their own hostel, Remind to the Principal, and hostels and wardens never to the Warden", async () => {
     const warden = await hostelFor(f, f.warden.id);
     expect(warden.can).toMatchObject({ rooms: true, allocate: true, rollcall: true, outings: true, mess: true, settings: true, hostels: false, remind: false, export: true });
     expect(warden.v.wardenOnly).toBe(true);
@@ -89,7 +90,7 @@ describe("Hostel Management by role", () => {
     expect(principal.can).toMatchObject({ rooms: false, allocate: false, rollcall: false, outings: false, mess: false, settings: false, hostels: false, remind: true, export: true });
     expect(principal.mine).toBeNull();
     const admin = await hostelFor(f, f.admin.id);
-    expect(admin.can).toMatchObject({ allocate: false, rollcall: false, settings: true, hostels: true, remind: true });
+    expect(admin.can).toMatchObject({ allocate: true, rollcall: true, settings: true, hostels: true, remind: false });
     const vp = await hostelFor(f, f.vp.id);
     expect(vp.can).toMatchObject({ rooms: false, allocate: false, rollcall: false, outings: false, mess: false, settings: false, hostels: false, remind: false });
   });
@@ -119,8 +120,6 @@ describe("Hostel Management by role", () => {
     asUser(f.vp.id);
     expect(await actions.allocateAction(null, fd())).toMatchObject(PERMISSION);
     asUser(f.principal.id);
-    expect(await actions.allocateAction(null, fd())).toMatchObject({ ok: false, message: "Your role cannot give beds. Ask the hostel warden." });
-    asUser(f.admin.id);
     expect(await actions.allocateAction(null, fd())).toMatchObject({ ok: false, message: "Your role cannot give beds. Ask the hostel warden." });
     asUser(f.warden.id);
     expect(await actions.allocateAction(null, fd())).toMatchObject({ ok: true });

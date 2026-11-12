@@ -201,3 +201,13 @@ describe("calendar helpers", () => {
     expect(timeChoices(15).length).toBe(96);
   });
 });
+
+import { showPhone } from "../src/lib/documents/render";
+describe("showPhone (layman test LC7)", () => {
+  it("spaces mobiles and big-city landlines, leaves others", () => {
+    expect(showPhone("04023456789")).toBe("040 2345 6789");
+    expect(showPhone("9876543210")).toBe("98765 43210");
+    expect(showPhone("+91 98765 43210")).toBe("+91 98765 43210");
+    expect(showPhone(null)).toBe("");
+  });
+});

@@ -79,8 +79,9 @@ export function cellKind(label: string, cells: unknown[]): CellKind {
 }
 
 /** One cell in a column of `kind`: a number where it reads as one, else the text as it was. */
-export function cellValue(kind: CellKind, v: unknown): string | number {
-  if (v === null || v === undefined) return "";
+export function cellValue(kind: CellKind, v: unknown): string | number | null {
+  // No value: an empty cell, not an empty text cell (layman test LC11: a late joiner's total).
+  if (v === null || v === undefined || (typeof v === "string" && !v.trim())) return null;
   if (typeof v === "number" || kind.kind === "text") return typeof v === "number" ? v : String(v);
   const t = String(v).trim();
   if (kind.kind === "money") {

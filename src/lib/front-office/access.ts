@@ -11,7 +11,7 @@
 import type { Prisma } from "@prisma/client";
 import type { Reach } from "../permissions";
 
-export type FoLevel = "full" | "principal" | "admin" | "view" | "office" | "gate";
+export type FoLevel = "full" | "principal" | "view" | "office" | "gate";
 
 export type FoViewer = {
   userId: string;
@@ -36,7 +36,7 @@ export function foViewer(current: Source): FoViewer {
     // The desk does the work; the Principal oversees it (unless they also hold the desk role). The School Admin
     // has Full here as in docs/blueprint/05-roles.md and works the desk too (layman test LD6: the pages said
     // "View only" while Settings said Full; src/lib/duty.ts).
-    level = roleKeys.includes("receptionist") || roleKeys.includes("school-admin") ? "full" : roleKeys.includes("principal") ? "principal" : "full";
+    level = roleKeys.includes("principal") && !roleKeys.includes("receptionist") && !roleKeys.includes("school-admin") ? "principal" : "full";
   } else if (a.see === "all") level = roleKeys.includes("office-staff") && !roleKeys.includes("vice-principal") && !roleKeys.some((k) => MANAGER_ROLES.includes(k)) ? "office" : "view";
   else if (a.see === "own") level = "gate";
   return { userId: current.user.id, see: a.see, change: a.change, roleKeys, level };
@@ -44,11 +44,11 @@ export function foViewer(current: Source): FoViewer {
 
 export const FO_PAGES = {
   desk: ["full"],
-  visitors: ["full", "principal", "admin", "view", "office", "gate"],
-  pickup: ["full", "admin", "office", "gate"],
-  enquiries: ["full", "principal", "admin"],
-  appointments: ["full", "principal", "admin", "view"],
-  postal: ["full", "admin"],
+  visitors: ["full", "principal", "view", "office", "gate"],
+  pickup: ["full", "office", "gate"],
+  enquiries: ["full", "principal"],
+  appointments: ["full", "principal", "view"],
+  postal: ["full"],
 } as const satisfies Record<string, readonly FoLevel[]>;
 export type FoPageKey = keyof typeof FO_PAGES;
 
@@ -70,7 +70,7 @@ export function foLanding(v: Pick<FoViewer, "level">): string | null {
 export function foCan(v: FoViewer) {
   const full = v.level === "full";
   const gate = v.level === "gate";
-  const oversee = v.level === "principal" || v.level === "admin" || v.level === "view";
+  const oversee = v.level === "principal" || v.level === "view";
   return {
     /** Register a visitor and make a pass. */
     register: full || gate,
@@ -91,7 +91,7 @@ export function foCan(v: FoViewer) {
     /** Gate Security cannot export the gate log. */
     exportGate: v.see === "all",
     /** Change the lists and policy (Front Office manager). */
-    manage: (full || v.level === "principal" || v.level === "admin") && v.roleKeys.some((k) => MANAGER_ROLES.includes(k)),
+    manage: (full || v.level === "principal") && v.roleKeys.some((k) => MANAGER_ROLES.includes(k)),
     /** Visitors' phone numbers in full (Office Staff and Gate Security see them masked). */
     visitorPhones: full || oversee,
     /** Parents' phone numbers in the call log and the enquiry register. */

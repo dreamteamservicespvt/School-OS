@@ -198,6 +198,13 @@ describe("Front Office rules", () => {
     expect(phoned.source).toBe("phone");
   });
 
+  it("asks for names in letters on a desk enquiry, as Admissions does (layman test LA7)", async () => {
+    const current = await currentOf(f, f.frontdesk.id);
+    const ask = (childName: string, parentName: string) => withSchool(desk(), (tx) => deskEnquiry(tx, desk(), current, { childName, parentName, phone: "98491 22099", classId: f.c1, source: "walk-in", note: null }, { timeZone: TZ }));
+    await expect(ask("😀😀", "Swapnil Rao")).rejects.toThrow("Type the child's name in letters.");
+    await expect(ask("Advik Rao", "11")).rejects.toThrow("Type the parent's name in letters.");
+  });
+
   it("does not let the Principal be booked twice at the same time (Done when 6)", async () => {
     const now = at(TODAY, "08:00");
     const day2 = "2026-10-15";

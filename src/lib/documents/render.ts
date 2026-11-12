@@ -10,6 +10,18 @@ import { rupeesInWords } from "./words";
 import { CARD_SIZES, type DesignOptions } from "./designs-shared";
 import { allFields, type DocType, type TableColumn } from "./types";
 
+/**
+ * A phone number as people read it: "98765 43210", "040 2345 6789" (layman test LC7: the report
+ * card printed "04023456789"). Anything else is printed as the school typed it.
+ */
+export function showPhone(p: string | null | undefined): string {
+  const t = (p ?? "").trim();
+  const d = t.replace(/[\s-]/g, "");
+  if (/^[6-9]\d{9}$/.test(d)) return `${d.slice(0, 5)} ${d.slice(5)}`;
+  if (/^0(11|20|22|33|40|44|79|80)\d{8}$/.test(d)) return `${d.slice(0, 3)} ${d.slice(3, 7)} ${d.slice(7)}`;
+  return t;
+}
+
 export type FieldValue = string | number | Date | null | undefined;
 
 /** What a module passes to print one document. */
@@ -90,7 +102,7 @@ export function mergeValues(type: DocType, branding: Branding, data: DocumentDat
   const values: Record<string, string> = {
     school_name: branding.name,
     school_address: branding.address ?? "",
-    school_phone: branding.phone ?? "",
+    school_phone: showPhone(branding.phone),
     school_email: branding.email ?? "",
     school_website: branding.website ?? "",
     affiliation_number: branding.affiliationNumber ?? "",
@@ -150,7 +162,7 @@ function header(input: RenderInput, values: Record<string, string>, compact = fa
   const style = BASE_STYLE[input.base] ?? BASE_STYLE.classic;
   const logo = options.showLogo && assets.logo ? `<img class="logo" src="${assets.logo}" alt="">` : "";
   const note = options.headerNote ? `<div class="note">${mergeText(options.headerNote, values)}</div>` : "";
-  const lines = [branding.campusName && branding.campusAddress ? `${branding.campusName}, ${branding.campusAddress}` : branding.address, [branding.phone, branding.email, branding.website].filter(Boolean).join(" · ")].filter(Boolean);
+  const lines = [branding.campusName && branding.campusAddress ? `${branding.campusName}, ${branding.campusAddress}` : branding.address, [showPhone(branding.phone), branding.email, branding.website].filter(Boolean).join(" · ")].filter(Boolean);
   return `<header class="head ${style.align} ${compact ? "compact" : ""}">
     ${logo}
     <div class="who">
@@ -261,7 +273,7 @@ function card(input: RenderInput, data: DocumentData, values: Record<string, str
       ${options.showQr ? codeBlock({ ...input, options: { ...options, showBarcode: false } }, values, data, "14mm") : ""}
     </div>
     ${options.showBarcode ? `<div class="cardbar">${codeBlock({ ...input, options: { ...options, showQr: false } }, values, data)}</div>` : ""}
-    <div class="cardfoot">${esc([branding.phone, branding.website].filter(Boolean).join(" · "))}${footer ? `<span>${footer}</span>` : ""}</div>
+    <div class="cardfoot">${esc([showPhone(branding.phone), branding.website].filter(Boolean).join(" · "))}${footer ? `<span>${footer}</span>` : ""}</div>
   </div>`;
 }
 

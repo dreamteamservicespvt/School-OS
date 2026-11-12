@@ -91,7 +91,8 @@ describe("Transport Management by role", () => {
     const all = (mode: string) => Object.fromEntries(PAGES.map((p) => [p.key, mode]));
     expect(await pagesOf(f.incharge.id)).toEqual(all("full"));
     expect(await pagesOf(f.principal.id)).toEqual(all("view"));
-    expect(await pagesOf(f.admin.id)).toEqual({ ...all("view"), settings: "full" });
+    // The School Admin has Full (05-roles.md) and works every page (owner decision 12-11-2026, layman test LD6).
+    expect(await pagesOf(f.admin.id)).toEqual(all("full"));
     const vpPages = all("view");
     delete vpPages.settings;
     expect(await pagesOf(f.vp.id)).toEqual(vpPages);
@@ -109,14 +110,14 @@ describe("Transport Management by role", () => {
     expect(PAGES.filter((p) => pageAllowed(v, p.key))).toEqual([]);
   });
 
-  it("gives the work only to the In-charge; leaders oversee and remind; everyone who reads may export", async () => {
+  it("gives the work to the In-charge and the School Admin; the Principal oversees and reminds; everyone who reads may export", async () => {
     const c = async (id: string) => (await trFor(f, id)).can;
     const incharge = await c(f.incharge.id);
     expect([incharge.routes, incharge.fleet, incharge.students, incharge.trips, incharge.live, incharge.settings, incharge.export, incharge.vendorBank, incharge.remind]).toEqual([true, true, true, true, true, true, true, true, false]);
     const principal = await c(f.principal.id);
     expect([principal.routes, principal.fleet, principal.students, principal.trips, principal.settings, principal.export, principal.remind, principal.emergencyMessage]).toEqual([false, false, false, false, false, true, true, true]);
     const admin = await c(f.admin.id);
-    expect([admin.routes, admin.students, admin.trips, admin.settings, admin.export, admin.remind]).toEqual([false, false, false, true, true, true]);
+    expect([admin.routes, admin.students, admin.trips, admin.settings, admin.export, admin.remind]).toEqual([true, true, true, true, true, false]);
     const vp = await c(f.vp.id);
     expect([vp.routes, vp.students, vp.trips, vp.settings, vp.export, vp.vendorBank]).toEqual([false, false, false, false, true, false]);
     const driver = await c(f.rameshLogin.id);
@@ -148,7 +149,7 @@ describe("Transport Management by role", () => {
     expect(await run((tx) => tx.transportAssignment.count())).toBe(0);
     expect((await run((tx) => tx.trip.findUniqueOrThrow({ where: { id: rameshTrip } }))).status).toBe("SCHEDULED");
 
-    // The School Admin keeps Transport Settings; the In-charge does the work.
+    // The School Admin (Full) changes Transport Settings; the In-charge does the work.
     asUser(f.admin.id);
     expect((await actions.saveSettingsAction(null, form({ section: "Live tracking", locationIntervalSec: "45" })))?.ok).toBe(true);
     asUser(f.incharge.id);

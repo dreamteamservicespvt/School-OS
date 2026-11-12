@@ -38,22 +38,22 @@ h1{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)
 <script>
 var S={
 start:"2026-11-12T16:55:00Z",
-eta:"2026-11-12T23:00:00Z",
-updated:"2026-11-12T17:55:00Z",
-now:"The laptop ran out of memory (5 helpers type-checking at once) and the local database restarted; it is recovering by itself. Helpers told to stop the heavy checks; I run them once at the end",
-main:20,mainline:"Round 2: finish all 69 problems from the 5 layman tests (6 already fixed, 63 to check), retest like a layman, then deploy 3 (time is an estimate)",
+eta:"2026-11-13T00:30:00Z",
+updated:"2026-11-12T18:35:00Z",
+now:"Laptop restarted the session; all work saved (commit 568b0692). Database recovering; 2 helpers finishing exams/messages and students/staff; I run the one type check",
+main:45,mainline:"69 problems: about 45 fixed in code (not all tested yet), 2 areas still in progress, then full tests, browser recheck, deploy 3 (time is an estimate)",
 rows:[
-["Check the helpers' unfinished work (8816c758)",100,"Done","took 60 min","Type check 0 errors (8 fixed), lint 0 errors, database change applied, tests 299 of 301 pass; the 2 failures follow the owner decision (School Admin Full on Library) and are being updated"],
-["High problems: concession above the fee (LB1), leave dates reset (LD1)",50,"Running","Est. 30 min","Both have code fixes from the earlier helpers; being checked and finished first"],
-["Test A: admissions, students, classes, attendance",10,"Running","Est. 60 min","12 problems; a helper is on 11. LA10 speed: on the built app most pages open in 1 to 4 s; Academic Settings took 9 to 30 s, fixed (one query instead of 100+)"],
-["Test B: fees, finance, salary",10,"Running","Est. 60 min","11 problems; 0 of 11 confirmed fixed yet"],
-["Test C: exams, homework, messages, parent view",25,"Running","Est. 60 min","24 problems; 5 of 24 fixed earlier (LC1, LC4, LC5, LC6, LC24)"],
-["Test D: staff, front office, events, transport, hostel",15,"Running","Est. 60 min","13 problems; LD10 (two meanings of Running) found fixed"],
-["Test E: library, store, reports, settings",15,"Running","Est. 45 min","9 problems; LE2 (book and item name on their page) fixed by me"],
-["Full test suite, type check, lint",0,"Waiting","Est. 60 min","All 299+ test files"],
+["Check the helpers' unfinished work (8816c758)",100,"Done","took 60 min","Type check 0 errors, lint 0 errors, database change applied, tests 299 of 301 (2 follow the owner's roles decision)"],
+["High problems: concession above the fee (LB1), leave dates reset (LD1)",80,"Checking","Est. 20 min","Both fixed in code: the form shows the most that can be taken off; dates stay after a refusal. Tests and browser check next"],
+["Test A: admissions, students, classes, attendance",50,"Running","Est. 60 min","Forms part done (LA1, LA2, LA6, LA12); Academic Settings 9-30 s fixed; LA3-LA11 being finished"],
+["Test B: fees, finance, salary",90,"Checking","Est. 20 min","11 of 11 fixed in code; tests to run"],
+["Test C: exams, homework, messages, parent view",45,"Running","Est. 60 min","LC1, LC4-6, LC11-13, LC24 done; the rest being finished"],
+["Test D: staff, front office, events, transport, hostel",40,"Running","Est. 60 min","LD1, LD2, LD4, LD10 done; the rest being finished"],
+["Test E: library, store, reports, settings",90,"Checking","Est. 20 min","9 of 9 fixed in code (Telugu/Hindi library and store: 156 new words); tests to run"],
+["Full test suite, type check, lint",5,"Running","Est. 60 min","Type check running"],
 ["Rebuild the app and recheck every fix in the browser like a layman",0,"Waiting","Est. 60 min","qa/layman scripts"],
 ["Deploy 3 to school-os-beta",0,"Waiting","Est. 20 min","Push to main, watch Vercel, open /sign-in"],
-["Live receipt PDF check",0,"Waiting","Est. 10 min","Needs one sign-in on the live site (see below)"]
+["Live receipt PDF check",0,"Waiting","Est. 10 min","Live site is signed out; needs your sign-in"]
 ],
 wait:"Optional: sign in on school-os-beta as Principal in the Dream Team Services Chrome so I can check a receipt PDF on the live site. Nothing else is needed from you."
 };

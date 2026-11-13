@@ -22,6 +22,9 @@ Last updated: 2026-11-13 07:30 IST (leftovers + team brief after deploy 3).
   (src/components/ui/record-title.tsx, drawn after the page's access checks). tsc 0, eslint 0, 84 affected tests pass.
 - Progress page: https://claude.ai/artifact/7WSVY4hW97JfXoJkfRvNUV (docs/qa/team-ready-progress.html).
 
+- Team Test Desk (13-11): https://claude.ai/artifact/V9TZmB75Pu1NfBLLLzZbsX (docs/qa/team-test-desk.html). Reports land in its
+  db collection "reports", doubts asked in "doubts": read them with ArtifactData list to fix problems.
+
 ## Next steps
 1. Live receipt PDF check on beta once the user has signed in (Principal) in Chrome 694c21cd.
 2. Team brief is ready (docs/qa/2026-11-12-team-brief.md); the owner shares it with the testers.

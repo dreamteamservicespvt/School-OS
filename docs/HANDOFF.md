@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-13 02:00 IST (round 2 done, deploy 3).
+Last updated: 2026-11-13 07:30 IST (leftovers + team brief after deploy 3).
 
 ## State
 - ROUND 2 DONE (13-11-2026, 02:00 IST): all 69 layman problems (docs/qa/2026-11-12-layman-A..E.md) fixed. Commits
@@ -16,13 +16,17 @@ Last updated: 2026-11-13 02:00 IST (round 2 done, deploy 3).
   Busy database shows "School OS is busy right now" (pool 20 on one server / 5 per Vercel copy, 20 s wait).
   Shared kit labels go through tx() (Telugu/Hindi); +156 library/store words. Excel cells are real numbers; empty = blank.
 - Live receipt PDF NOT checked: Chrome "Dream Team Services" (694c21cd) is signed out of beta; Claude does not type passwords.
+- 13-11 morning (0811c4f5): team test brief docs/qa/2026-11-12-team-brief.md written. Leftovers fixed: staff leave form names
+  every mistake at once (LeaveProblem.errors / leaveProblems()); staff age (src/lib/staff/age.ts) refuses only under 14 or
+  over 100 and warns under 18 / over 80 while typing (StaffDobField); record name in the browser tab on 13 record pages
+  (src/components/ui/record-title.tsx, drawn after the page's access checks). tsc 0, eslint 0, 84 affected tests pass.
 - Progress page: https://claude.ai/artifact/7WSVY4hW97JfXoJkfRvNUV (docs/qa/team-ready-progress.html).
 
 ## Next steps
 1. Live receipt PDF check on beta once the user has signed in (Principal) in Chrome 694c21cd.
-2. Team test brief docs/qa/2026-11-12-team-brief.md. Test data left by testers: names start with LA-, LB-, LC-, LD-, LE-.
-3. Small leftovers (not tester problems): staff leave save still names one problem at a time (LE6 note); LD5 refuses an age
-   under 18 / over 80 instead of a soft warning; generic page titles ("Book") in the browser tab on record pages.
+2. Team brief is ready (docs/qa/2026-11-12-team-brief.md); the owner shares it with the testers.
+3. Record name in the tab is on 13 record pages; other record pages (enquiry, route, quiz, survey...) can take
+   `<RecordTitle name={...} />` the same way.
 
 ## How to run things locally
 - DB: `powershell -c "Start-Process -WindowStyle Hidden -FilePath 'D:\all\Projects\School-OS\tools\pg16\pgsql\bin\pg_ctl.exe' -ArgumentList '-D','D:\all\Projects\School-OS\tools\pgdata','-l','D:\all\Projects\School-OS\tools\pg.log','start'"`; wait for pg_isready.

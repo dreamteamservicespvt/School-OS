@@ -44,8 +44,8 @@ Names, titles and notes that start with **LA-, LB-, LC-, LD- or LE-** were made 
 
 Same as `docs/qa/test-plan.md` section 4: one row per problem in the shared sheet (or `docs/qa/testing-issues.md`) with role, screen, what you did, what you expected, what happened, a screenshot or phone video, and severity (Blocker / High / Medium / Small). Write it the moment you see it.
 
-## Known small things (no need to report)
+## Also fixed on 13-11 (deploy 4)
 
-- The staff leave form names one mistake at a time. *(Being fixed 13-11.)*
-- Add Staff refuses a date of birth under 18 or over 80 years old, instead of a gentle warning. *(Being fixed 13-11.)*
-- The browser tab shows a general title ("Book") on record pages. *(Being fixed 13-11.)*
+- The staff leave form names every mistake at once.
+- Add Staff warns gently when a date of birth makes someone under 18 or over 80 (the save still goes ahead); it refuses only under 14 or over 100.
+- Record pages (student, staff, parent, book, item, asset, order, application, event, notice, user) show the record's name in the browser tab, so several tabs can be told apart.

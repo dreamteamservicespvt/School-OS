@@ -13,7 +13,8 @@ import { FINANCE_PAGES, financePageAllowed, type FinancePageKey } from "./financ
 import { pageHidden } from "./duty";
 import { answersSupport, waitingSupportCount } from "./console/support";
 import type { ModuleKey } from "./modules";
-import { foLanding, foViewer } from "./front-office/access";
+import { FO_PAGES, foLanding, foPageAllowed, foViewer, type FoPageKey } from "./front-office/access";
+import { PAGE_INDEX } from "./page-index";
 import { offeredQuestions, readyMadeFor } from "./ask/answer";
 
 /** The page a module's own address opens, when the link names no page. */
@@ -37,6 +38,18 @@ export function moneyPageOpen(current: Pick<Current, "roles" | "permissions">, h
   if (mod === "fee-management" && key in FEE_PAGES) return feePageAllowedFor(current, key as FeePageKey);
   if (mod === "finance-management" && key in FINANCE_PAGES) return financePageAllowed(current.permissions, key as FinancePageKey);
   return true;
+}
+
+/** The pages inside the person's modules that they may open, for the top search box (src/lib/page-index.ts). */
+export function innerPages(current: Pick<Current, "roles" | "permissions" | "menu" | "user">, visible: Set<string>) {
+  const fo = foViewer(current);
+  const names = new Map<string, string>(current.menu.map((m) => [m.key, m.name]));
+  return PAGE_INDEX.filter((p) => {
+    if (!visible.has(p.module) || !moneyPageOpen(current, p.href) || !dutyOpen(current, p.href)) return false;
+    const sub = p.href.split("/")[2];
+    if (p.module === "front-office" && sub in FO_PAGES) return foPageAllowed(fo, sub as FoPageKey);
+    return true;
+  }).map((p) => ({ label: p.title, href: p.href, hint: names.get(p.module) }));
 }
 
 /**
@@ -88,6 +101,8 @@ export async function shellData(current: Current) {
   const visible = new Set<string>(current.menu.map((m) => m.key));
   const pages = [
     ...current.menu.map((m) => ({ label: m.name, href: `/${m.key}`, hint: BUILT_MODULES.has(m.key) ? undefined : `Stage ${m.stage}` })),
+    // Every page inside the modules this person opens (team test 13-11: "Postal" was not found).
+    ...innerPages(current, visible),
     { label: "Approvals", href: "/approvals" },
     { label: "Notifications", href: "/notifications" },
     { label: "Messages", href: "/messages" },

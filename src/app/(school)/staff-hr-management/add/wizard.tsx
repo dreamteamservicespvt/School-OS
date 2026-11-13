@@ -8,6 +8,7 @@ import Link from "next/link";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { CheckboxField, SelectField, TextArea, TextField } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
+import { StaffDobField } from "../dob-field";
 import { Button, ButtonLink, buttonClass } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { checkIndianMobile } from "@/lib/format";
@@ -236,7 +237,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
         <details className="rounded-xl border border-line p-4" open={Object.keys(errors).some((k) => ["staffCode", "dateOfBirth", "bloodGroup", "aadhaar", "address", "permanentAddress", "qualification", "experienceYears", "employmentType", "reportingToId", "campusId"].includes(k)) || undefined}>
           <summary className="cursor-pointer font-medium"><Words k="More details" /></summary>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
-            <TextField label="Date of birth" name="dateOfBirth" type="date" max={data.today} error={err("dateOfBirth")} />
+            <StaffDobField today={data.today} error={err("dateOfBirth")} />
             <SelectField label="Blood group" name="bloodGroup" defaultValue="" options={["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((b) => ({ value: b, label: b }))} placeholder="Choose" error={err("bloodGroup")} />
             <TextField label="Aadhaar" name="aadhaar" inputMode="numeric" maxLength={14} pattern="[0-9 ]{12,14}" title="12 digits" error={err("aadhaar")} help="Restricted: only HR, the School Admin and the Principal see it in full." autoComplete="off" />
             <SelectField label="Employment type" name="employmentType" defaultValue="Permanent" options={data.employmentTypes.map((t) => ({ value: t, label: t }))} error={err("employmentType")} />

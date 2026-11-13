@@ -23,7 +23,7 @@ export class FieldProblem extends Error {
   }
 }
 
-type Known = Error & { field?: string; link?: { href: string; label: string } };
+type Known = Error & { field?: string; errors?: Record<string, string>; link?: { href: string; label: string } };
 
 /** The form's values to show again after a refusal, without a typed temporary password (08 §2: passwords are never shown). */
 function keptValues(fd?: FormData) {
@@ -37,7 +37,7 @@ export function problemState(e: unknown, fd?: FormData): NonNullable<FormState<{
   const known = [LeaveProblem, StaffProblem, ExitProblem, TalentProblem, HrOnlyError, PermissionDeniedError, ClosedYearError, FileProblem, DecisionProblem, FieldProblem];
   if (known.some((K) => e instanceof K)) {
     const err = e as Known;
-    return { ok: false, message: err.message, errors: err.field ? { [err.field]: err.message } : undefined, values: keptValues(fd), data: err.link ? { link: err.link } : undefined };
+    return { ok: false, message: err.message, errors: err.errors ?? (err.field ? { [err.field]: err.message } : undefined), values: keptValues(fd), data: err.link ? { link: err.link } : undefined };
   }
   console.error(JSON.stringify({ level: "error", event: "staff-action-failed", error: e instanceof Error ? e.message : String(e) }));
   return { ok: false, message: "That did not save because of a problem on our side. Nothing was changed. Please try again.", values: keptValues(fd) };

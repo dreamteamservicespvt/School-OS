@@ -89,6 +89,13 @@ describe("a teacher's casual leave, approved by the Principal (Done when 4)", ()
 });
 
 describe("leave rules", () => {
+  it("names every mistake of the form at once (LE6): To before From and no reason", async () => {
+    const e = await withSchool(as(f.teacherLogin.id), (tx) => applyLeave(tx, as(f.teacherLogin.id), { ...base, reason: "", staffId: f.teacher.id, leaveTypeId: f.cl.id, from: d("2026-11-20"), to: d("2026-11-18") })).catch((x) => x);
+    expect(e).toBeInstanceOf(LeaveProblem);
+    expect(e.message).toBe("Please fix 2 things before saving.");
+    expect(e.errors).toEqual({ to: "To date is before the from date. Choose a to date on or after the from date.", reason: "Reason is needed." });
+  });
+
   it("refuses leave beyond the balance, in plain words", async () => {
     await expect(withSchool(as(f.teacherLogin.id), (tx) => applyLeave(tx, as(f.teacherLogin.id), { ...base, staffId: f.teacher.id, leaveTypeId: f.cl.id, from: d("2026-11-16"), to: d("2026-11-30") })))
       .rejects.toThrow("Casual Leave left: 12 days. You asked for 13 days.");

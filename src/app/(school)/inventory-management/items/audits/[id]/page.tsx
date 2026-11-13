@@ -18,6 +18,7 @@ import { decidable, whoNames } from "../../../_lib/lists";
 import { decideAction, saveCountsAction } from "../../../actions";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Stock audit · Inventory Management") };
@@ -49,7 +50,7 @@ export default async function AuditPage({ params }: { params: Promise<{ id: stri
     .map(({ l, it }) => ({ itemId: l.itemId, name: itemLabel(it!), code: it!.code, unit: it!.unit, system: l.systemQty, counted: l.countedQty === null ? "" : String(l.countedQty), note: l.note ?? "", pricePaise: Number(it!.pricePaise ?? BigInt(0)) }));
   return (
     <>
-      <InvHead pageName={audit.name} href={`${BASE}/items/audits/${audit.id}`} mode={p.mode} sub={<><Link href={`${BASE}/items?view=audits`} className="hover:underline"><Words k="Stock audits" /></Link> · <span className="font-semibold text-ink">{audit.name}</span> · {audit.number}</>} />
+      <RecordTitle name={audit.name} /><InvHead pageName={audit.name} href={`${BASE}/items/audits/${audit.id}`} mode={p.mode} sub={<><Link href={`${BASE}/items?view=audits`} className="hover:underline"><Words k="Stock audits" /></Link> · <span className="font-semibold text-ink">{audit.name}</span> · {audit.number}</>} />
       <Stack>
         {audit.status === "WAITING" && (d.mine
           ? <DecideBox action={decideAction} approvalId={audit.approvalId!} question="Approve these differences? Stock changes to the counts as Audit adjustments." />

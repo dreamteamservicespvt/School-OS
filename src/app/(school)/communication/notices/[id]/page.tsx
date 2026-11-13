@@ -19,6 +19,7 @@ import { cx } from "@/components/ui/cx";
 import { NoticeActions } from "./notice-actions";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Notice") };
@@ -92,7 +93,7 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
     <>
       <BackLink href="/communication/notices" label="Notice Board" sub={STATUS_LABEL[n.status]} />
       <div className="min-w-0 [&_h1]:[overflow-wrap:anywhere]">
-      <RecordHead title={n.title}
+      <RecordTitle name={n.title} /><RecordHead title={n.title}
         sub={<>
           <Pill tone={STATUS_TONE[n.status]} dot>{STATUS_LABEL[n.status]}</Pill>
           <Pill tone={PRIORITY_TONE[n.priority]}>{PRIORITY_LABEL[n.priority]} <Words k="priority" /></Pill>

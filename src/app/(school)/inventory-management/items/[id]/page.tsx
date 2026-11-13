@@ -29,6 +29,7 @@ import { whoNames } from "../../_lib/lists";
 import { restoreItemAction } from "../../actions";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Item · Inventory Management") };
@@ -90,7 +91,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
 
   return (
     <>
-      <InvHead pageName={itemLabel(item)} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/items`} className="hover:underline"><Words k={"Items & Stock"} /></Link> · <span className="font-semibold text-ink">{itemLabel(item)}</span> · <span className="font-mono">{item.code}</span></>} />
+      <RecordTitle name={itemLabel(item)} /><InvHead pageName={itemLabel(item)} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/items`} className="hover:underline"><Words k={"Items & Stock"} /></Link> · <span className="font-semibold text-ink">{itemLabel(item)}</span> · <span className="font-mono">{item.code}</span></>} />
       <Stack>
         {archived && <Banner tone="info" title="Archived"><Words k="This item is archived. Its history stays; its code is never given again." /></Banner>}
         <Stats items={[

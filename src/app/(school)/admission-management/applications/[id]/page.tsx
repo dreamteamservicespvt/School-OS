@@ -37,6 +37,7 @@ import { BackLink } from "../../_components/pills";
 import { AppActions, CancelPayment, ConsentButtons, ExceptionButton, RemindButton } from "./app-forms";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Application") };
@@ -139,7 +140,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
             <Avatar name={app.fullName} size={60} />
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-display text-[23px] md:text-[26px] font-semibold tracking-tight leading-tight">{app.fullName}</h1>
+                <h1 className="font-display text-[23px] md:text-[26px] font-semibold tracking-tight leading-tight">{app.fullName}<RecordTitle name={app.fullName} /></h1>
                 <Pill tone={STAGE_TONE[app.stage] ?? "neutral"} dot>{stageLabel(app.stage)}</Pill>
                 {app.channel === "online" && <Pill tone="info"><Words k="Filled online" /></Pill>}
               </div>

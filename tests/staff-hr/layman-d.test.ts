@@ -26,6 +26,7 @@ import { withSchool } from "@/lib/db";
 import { accessIn } from "@/lib/auth/access";
 import { parseForm } from "@/lib/forms";
 import { ageOn, detailsSchema, personalSchema, staffAgeProblem } from "@/lib/staff/schemas";
+import { staffAgeWarningFor } from "@/lib/staff/age";
 import { docStatus } from "@/lib/staff/documents";
 import { saveReview, startCycle } from "@/lib/staff/talent";
 import { pointsOf, STAFF_CRITERIA, TEACHING_CRITERIA } from "@/lib/staff/criteria";
@@ -55,19 +56,25 @@ describe("staff date of birth (LD5)", () => {
   it("refuses a date of birth that makes them 1 year old, on Add Staff and on the profile", () => {
     const r = parseForm(detailsSchema, form({ dateOfBirth: yearsAgo(1) }));
     expect(r.ok).toBe(false);
-    if (!r.ok) expect(r.state.errors?.dateOfBirth).toBe("Staff must be at least 18 years old. Check the year of birth.");
+    if (!r.ok) expect(r.state.errors?.dateOfBirth).toBe("This date of birth makes them 1 year old. Check the year of birth.");
     const p = new FormData();
     for (const [k, v] of Object.entries({ fullName: "Meena Rao", dateOfBirth: yearsAgo(1), gender: "", bloodGroup: "", address: "", permanentAddress: "", qualification: "", experienceYears: "" })) p.set(k, v);
     expect(parseForm(personalSchema, p).ok).toBe(false);
   });
 
-  it("takes 18 on the birthday, refuses the day before, and refuses over 80", () => {
+  it("refuses an age that cannot be right (under 14, over 100) and takes an unusual one with a warning", () => {
     expect(parseForm(detailsSchema, form({ dateOfBirth: yearsAgo(18) })).ok).toBe(true);
-    expect(parseForm(detailsSchema, form({ dateOfBirth: yearsAgo(18, 1) })).ok).toBe(false);
-    const old = parseForm(detailsSchema, form({ dateOfBirth: "1930-01-01" }));
+    expect(parseForm(detailsSchema, form({ dateOfBirth: yearsAgo(16) })).ok).toBe(true);
+    expect(parseForm(detailsSchema, form({ dateOfBirth: yearsAgo(14, 1) })).ok).toBe(false);
+    const old = parseForm(detailsSchema, form({ dateOfBirth: "1920-01-01" }));
     expect(old.ok).toBe(false);
-    if (!old.ok) expect(old.state.errors?.dateOfBirth).toMatch(/over 80 years old/);
+    if (!old.ok) expect(old.state.errors?.dateOfBirth).toMatch(/makes them 10\d years old/);
+    expect(parseForm(detailsSchema, form({ dateOfBirth: "1940-06-15" })).ok).toBe(true);
     expect(parseForm(detailsSchema, form({ dateOfBirth: "1985-06-15" })).ok).toBe(true);
+    expect(staffAgeWarningFor("2010-06-15", "2026-11-13")).toBe("This makes them 16 years old. Check the year of birth; if it is right, carry on.");
+    expect(staffAgeWarningFor("1940-06-15", "2026-11-13")).toMatch(/86 years old/);
+    expect(staffAgeWarningFor("1985-06-15", "2026-11-13")).toBeNull();
+    expect(staffAgeWarningFor("2025-01-01", "2026-11-13")).toBeNull(); // refused instead
   });
 
   it("counts whole years", () => {

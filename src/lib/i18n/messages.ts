@@ -11,6 +11,8 @@ const PATTERNS: [RegExp, (t: T, m: RegExpExecArray) => string][] = [
   [/^Too many tries in a short time\. Please wait (\d+) seconds and try again\.$/, (t, m) => t("Too many tries in a short time. Please wait {n} seconds and try again.", { n: m[1] })],
   [/^Too many tries in a short time\. Please wait (\d+) minutes and try again\.$/, (t, m) => t("Too many tries in a short time. Please wait {n} minutes and try again.", { n: m[1] })],
   [/^That code is not right\. (\d+) (?:try|tries) left\.$/, (t, m) => t("That code is not right. {n} tries left.", { n: m[1] })],
+  [/^This date of birth makes them (\d+) years? old\. Check the year of birth\.$/, (t, m) => t("This date of birth makes them {n} years old. Check the year of birth.", { n: m[1] })],
+  [/^This makes them (\d+) years? old\. Check the year of birth; if it is right, carry on\.$/, (t, m) => t("This makes them {n} years old. Check the year of birth; if it is right, carry on.", { n: m[1] })],
   [/^Code sent\. It works for (\d+) minutes\.$/, (t, m) => t("Code sent. It works for {n} minutes.", { n: m[1] })],
   // A day with no attendance (offDayMessage in src/lib/attendance/calendar.ts).
   [/^Holiday: (.+)\. Attendance is off for (\d{2}-\d{2}-\d{4})\.$/, (t, m) => t("Holiday: {title}. Attendance is off for {date}.", { title: m[1], date: m[2] })],

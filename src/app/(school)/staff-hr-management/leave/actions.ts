@@ -9,7 +9,7 @@ import { act, dateOf, file, FieldProblem, id, str } from "@/lib/staff/act";
 import { HrOnlyError, viewerFor, type Viewer } from "@/lib/staff/access";
 import { offCampus } from "@/lib/staff/list";
 import { campusAllows } from "@/lib/campus";
-import { adjustBalance, applyLeave, cancelLeave, carryForward, checkLeave, daysText, LeaveProblem, type ApplyInput } from "@/lib/staff/leave";
+import { adjustBalance, applyLeave, cancelLeave, carryForward, checkLeave, daysText, LeaveProblem, leaveProblems, type ApplyInput } from "@/lib/staff/leave";
 import { todayIn } from "@/lib/staff/dates";
 
 async function asker(action: "view" | "create" | "edit") {
@@ -21,16 +21,30 @@ async function asker(action: "view" | "create" | "edit") {
 function applyInput(fd: FormData, viewer: Viewer): Omit<ApplyInput, "documentFileId"> {
   const viewerStaffId = viewer.staffId;
   const hr = viewer.change === "all";
-  const staffId = hr && str(fd, "staffId") ? id(fd, "staffId", "staff member") : viewerStaffId;
-  if (!staffId) throw new LeaveProblem("Your login is not linked to a staff record. Ask HR to apply for you.");
-  if (!hr && staffId !== viewerStaffId) throw new HrOnlyError("applying leave for someone else");
+  // Every box is checked before saying no, so the person sees all the mistakes at once (LE6).
+  const errors: Record<string, string> = {};
+  const take = <T,>(work: () => T, fallback: T): T => {
+    try { return work(); } catch (e) {
+      if (!(e instanceof FieldProblem) || !e.field) throw e;
+      errors[e.field] ??= e.message;
+      return fallback;
+    }
+  };
+  const staffId = hr && str(fd, "staffId") ? take(() => id(fd, "staffId", "staff member"), "") : viewerStaffId;
+  if (!staffId && !errors.staffId) throw new LeaveProblem("Your login is not linked to a staff record. Ask HR to apply for you.");
+  if (staffId && !hr && staffId !== viewerStaffId) throw new HrOnlyError("applying leave for someone else");
   // One campus: HR applies only for their campus's staff; another campus's staff member is not found.
-  if (offCampus(viewer, staffId)) throw new LeaveProblem("This staff member was not found.", "staffId");
-  const from = dateOf(fd, "from", "From date");
+  if (staffId && offCampus(viewer, staffId)) errors.staffId ??= "This staff member was not found.";
+  const leaveTypeId = take(() => id(fd, "leaveTypeId", "leave type"), "");
+  const from = take(() => dateOf(fd, "from", "From date"), null as Date | null);
   const part = str(fd, "halfDay");
   const halfDayPart = part === "first" || part === "second" ? part : null;
-  const to = halfDayPart ? from : dateOf(fd, "to", "To date");
-  return { staffId, leaveTypeId: id(fd, "leaveTypeId", "leave type"), from, to, halfDayPart, reason: str(fd, "reason").slice(0, 500), onBehalf: staffId !== viewerStaffId };
+  const to = halfDayPart ? from : take(() => dateOf(fd, "to", "To date"), null as Date | null);
+  const reason = str(fd, "reason").slice(0, 500);
+  if (from && to && to < from) errors.to ??= "To date is before the from date. Choose a to date on or after the from date.";
+  if (reason.length < 3) errors.reason ??= "Reason is needed.";
+  if (Object.keys(errors).length || !staffId || !from || !to) throw leaveProblems(errors);
+  return { staffId, leaveTypeId, from, to, halfDayPart, reason, onBehalf: staffId !== viewerStaffId };
 }
 
 /** Apply for leave: for yourself, or by HR for someone else. */
@@ -59,7 +73,7 @@ export async function previewLeave(_: FormState<{ text: string }>, fd: FormData)
     return { ok: true, data: { text: `${parts.join(" · ")}.` } };
   } catch (e) {
     const err = e as Error & { field?: string };
-    if (e instanceof LeaveProblem || e instanceof FieldProblem || e instanceof HrOnlyError) return { ok: false, message: err.message, errors: err.field ? { [err.field]: err.message } : undefined };
+    if (e instanceof LeaveProblem || e instanceof FieldProblem || e instanceof HrOnlyError) return { ok: false, message: err.message, errors: (err as { errors?: Record<string, string> }).errors ?? (err.field ? { [err.field]: err.message } : undefined) };
     return { ok: false, message: "The check did not work. You can still apply." };
   }
 }

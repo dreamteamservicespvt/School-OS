@@ -19,6 +19,7 @@ import { BASE, libGuard, UUID } from "../../../_lib/page";
 import { CloseStockButton, MarkLostButton, StockScanner } from "./stock-client";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Stock check · Library Management") };
@@ -52,7 +53,7 @@ export default async function StockCheckPage({ params }: { params: Promise<{ id:
 
   return (
     <>
-      <LibHead pageName={session.name} href={`${base}/stock/${id}`} mode={p.mode} sub={<><Link href={`${base}?view=stock`} className="hover:underline"><Words k="Stock check" /></Link> · <span className="font-semibold text-ink">{session.name}</span></>}
+      <RecordTitle name={session.name} /><LibHead pageName={session.name} href={`${base}/stock/${id}`} mode={p.mode} sub={<><Link href={`${base}?view=stock`} className="hover:underline"><Words k="Stock check" /></Link> · <span className="font-semibold text-ink">{session.name}</span></>}
         actions={can.fines && open && d.progress ? <CloseStockButton sessionId={id} notScanned={d.progress.notScanned} /> : undefined} />
       <Stack>
         {open && d.progress ? (

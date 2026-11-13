@@ -18,10 +18,20 @@ import { tellArrangers } from "../academic/arrangers";
 import { schoolCalendar, type SchoolDayInfo } from "../calendar/school-days";
 
 export class LeaveProblem extends Error {
+  /** Every problem of the form at once, by field (LE6); `field` is the first. */
+  public errors?: Record<string, string>;
   constructor(message: string, public field?: string) {
     super(message);
     this.name = "LeaveProblem";
   }
+}
+
+/** One problem for the whole leave form: "Please fix 2 things before saving." with each box's message. */
+export function leaveProblems(errors: Record<string, string>): LeaveProblem {
+  const keys = Object.keys(errors);
+  const p = new LeaveProblem(keys.length === 1 ? errors[keys[0]] : `Please fix ${keys.length} things before saving.`, keys[0]);
+  p.errors = errors;
+  return p;
 }
 
 const num = (d: Prisma.Decimal | number | null | undefined) => Number(d ?? 0);
@@ -276,12 +286,15 @@ async function loadForApply(tx: Tx, ctx: SchoolContext, input: Pick<ApplyInput, 
 export async function checkLeave(tx: Tx, ctx: SchoolContext, input: ApplyInput, opts: { ignoreRequestId?: string } = {}) {
   const { staff, type, rule } = await loadForApply(tx, ctx, input);
   const who = input.onBehalf ? `${staff.fullName} already has` : "You already have";
-  if (input.to < input.from) throw new LeaveProblem("To date is before the from date. Choose a to date on or after the from date.", "to");
+  // The form's own checks are named together, so one try shows every mistake (LE6).
+  const errors: Record<string, string> = {};
+  if (input.to < input.from) errors.to = "To date is before the from date. Choose a to date on or after the from date.";
   if (input.halfDayPart) {
-    if (rule && !rule.halfDayAllowed) throw new LeaveProblem(`${type.name} cannot be taken as a half day (HR Settings).`, "halfDay");
-    if (isoDay(input.from) !== isoDay(input.to)) throw new LeaveProblem("A half day is for one date. Make the from and to dates the same.", "to");
+    if (rule && !rule.halfDayAllowed) errors.halfDay = `${type.name} cannot be taken as a half day (HR Settings).`;
+    if (isoDay(input.from) !== isoDay(input.to)) errors.to ??= "A half day is for one date. Make the from and to dates the same.";
   }
-  if (input.reason.trim().length < 3) throw new LeaveProblem("Reason is needed.", "reason");
+  if (input.reason.trim().length < 3) errors.reason = "Reason is needed.";
+  if (Object.keys(errors).length) throw leaveProblems(errors);
 
   const year = await leaveYearFor(tx, ctx, input.from, staff.campusId);
   if (!year) throw new LeaveProblem(`There is no academic year for ${formatDate(input.from)}. Leave can only be applied inside an academic year.`, "from");

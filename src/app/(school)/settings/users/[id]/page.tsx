@@ -18,6 +18,7 @@ import { Alert } from "@/components/ui/alert";
 import { AccessForm, DetailsForm, DisableButton, EnableButton, ExceptionsForm, LinkForm, ResendInvite, TwoStepReset } from "./person-forms";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("User") };
@@ -120,7 +121,7 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
   return (
     <>
       <Link href="/settings/users" className="mb-2 inline-flex min-h-11 items-center text-sm font-medium text-brand-text hover:underline"><Words k={"← Users & Permissions"} /></Link>
-      <PageHeader title={login.displayName} href={`/settings/users/${id}`} userId={current.user.id}>
+      <RecordTitle name={login.displayName} /><PageHeader title={login.displayName} href={`/settings/users/${id}`} userId={current.user.id}>
         <div className="flex flex-wrap items-center gap-2">
           <Badge tone={STATE_TONE[state]}>{STATE_LABEL[state]}</Badge>
           {mayEdit && !isSelf && (state === "DISABLED"

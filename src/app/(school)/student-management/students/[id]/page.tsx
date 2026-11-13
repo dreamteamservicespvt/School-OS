@@ -29,6 +29,7 @@ import { LibraryView, PickupView } from "./lookup-views";
 import { LibraryPanel } from "@/lib/library/profile-tab";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Student Profile") };
@@ -140,7 +141,7 @@ export default async function StudentProfilePage({ params, searchParams }: { par
             </div>
             <div className="min-w-0 pt-3">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-display text-[24px] md:text-[28px] font-semibold tracking-tight leading-tight">{s.fullName}</h1>
+                <h1 className="font-display text-[24px] md:text-[28px] font-semibold tracking-tight leading-tight">{s.fullName}<RecordTitle name={s.fullName} /></h1>
                 <Pill tone={statusTone} dot>{status === "ACTIVE" ? "Studying" : STATUS_LABEL[status]}</Pill>
                 {p.photoWithdrawn && <Pill tone="warn"><Words k="Photo consent withdrawn" /></Pill>}
                 <PinButton label={s.fullName} href={href} userId={current.user.id} />

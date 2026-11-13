@@ -5,6 +5,7 @@
 import { useActionState, useState } from "react";
 import { CheckboxField, SelectField, TextArea, TextField } from "@/components/ui/field";
 import { Alert } from "@/components/ui/alert";
+import { StaffDobField } from "../dob-field";
 import { KeepCheck } from "@/components/ui/keep-select";
 import { Button, buttonClass } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -34,7 +35,7 @@ export function PersonalForm({ v, action, defaultOpen }: { v: ProfileValues; act
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Full name" name="fullName" required defaultValue={f.val("fullName", v.fullName)} error={f.err("fullName")} className="sm:col-span-2" />
-          <TextField label="Date of birth" name="dateOfBirth" type="date" defaultValue={f.val("dateOfBirth", v.dateOfBirth)} error={f.err("dateOfBirth")} />
+          <StaffDobField defaultValue={f.val("dateOfBirth", v.dateOfBirth)} error={f.err("dateOfBirth")} />
           <SelectField label="Gender" name="gender" defaultValue={f.val("gender", v.gender)} options={GENDER} placeholder="Choose" error={f.err("gender")} />
           <SelectField label="Blood group" name="bloodGroup" defaultValue={f.val("bloodGroup", v.bloodGroup)} options={BLOOD} placeholder="Choose" error={f.err("bloodGroup")} />
           <TextField label="Experience (years)" name="experienceYears" inputMode="numeric" defaultValue={f.val("experienceYears", v.experienceYears)} error={f.err("experienceYears")} />

@@ -29,6 +29,7 @@ import { PAYMENT_STATUS_WORDS, modeLabel } from "@/lib/fees/words";
 import { loadParent360 } from "../load";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Parent") };
@@ -96,7 +97,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
             ) : <Avatar name={g.name} size={60} src={g.photoFileId ? fileLink(g.photoFileId, current.ctx.schoolId) : null} />}
             <div className="min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
-                <h1 className="font-display text-[23px] md:text-[26px] font-semibold tracking-tight leading-tight">{g.name}</h1>
+                <h1 className="font-display text-[23px] md:text-[26px] font-semibold tracking-tight leading-tight">{g.name}<RecordTitle name={g.name} /></h1>
                 <Pill tone={TONE[dataState]} dot><Words k="Consent" /> {stateWord(dataState).toLowerCase()}</Pill>
               </div>
               <p className="text-[13.5px] text-ink3 mt-0.5">

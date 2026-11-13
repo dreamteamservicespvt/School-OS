@@ -44,6 +44,7 @@ import { schoolRoles } from "@/lib/school-roles";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 import { isTopRole, managesUsers } from "@/lib/staff/login-ceiling";
+import { RecordTitle } from "@/components/ui/record-title";
 
 type Props = { params: Promise<{ staffId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> };
 
@@ -169,7 +170,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
             </div>
             <div className="min-w-0 pt-3">
               <div className="flex flex-wrap items-center gap-2">
-                <h1 className="font-display text-[24px] font-semibold leading-tight tracking-tight md:text-[28px]">{s.fullName}</h1>
+                <h1 className="font-display text-[24px] font-semibold leading-tight tracking-tight md:text-[28px]">{s.fullName}<RecordTitle name={s.fullName} /></h1>
                 <StatusBadge status={s.status} />
                 {head.onLeave && s.status === "ACTIVE" && <Pill tone="warn"><Words k="On leave today" /></Pill>}
                 <PinButton label={s.fullName} href={`${BASE}/${s.id}`} userId={current.user.id} />

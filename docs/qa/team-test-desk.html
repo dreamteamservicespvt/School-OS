@@ -1,0 +1,487 @@
+<title>School OS Test Desk</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: sticky top bar with 4 big tabs; one narrow column per tab; phone first */
+:root{
+  --bg:#f4f6f5;--card:#ffffff;--ink:#14202b;--mut:#56636e;--line:#dbe2df;--soft:#e9efec;
+  --acc:#0e6b5c;--acc-ink:#ffffff;--acc-soft:#dff1ec;
+  --bad:#b42318;--bad-soft:#fde8e6;--warn:#9a5b00;--warn-soft:#fdf1dc;--ok:#1d7a3e;--ok-soft:#e1f4e7;--info:#1f5fa8;--info-soft:#e3eefb;
+  --display:"Bricolage Grotesque","Segoe UI",system-ui,sans-serif;--text:"Figtree","Segoe UI",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0f1517;--card:#172024;--ink:#e7eeeb;--mut:#9fb0aa;--line:#2a3639;--soft:#1e292c;
+  --acc:#4cc7ad;--acc-ink:#062a23;--acc-soft:#173a33;
+  --bad:#ff9b8f;--bad-soft:#3b1c19;--warn:#f3be6a;--warn-soft:#3a2c14;--ok:#7fd99c;--ok-soft:#173222;--info:#8dbdf5;--info-soft:#172a40;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0f1517;--card:#172024;--ink:#e7eeeb;--mut:#9fb0aa;--line:#2a3639;--soft:#1e292c;
+  --acc:#4cc7ad;--acc-ink:#062a23;--acc-soft:#173a33;
+  --bad:#ff9b8f;--bad-soft:#3b1c19;--warn:#f3be6a;--warn-soft:#3a2c14;--ok:#7fd99c;--ok-soft:#173222;--info:#8dbdf5;--info-soft:#172a40;color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font:16px/1.55 var(--text);margin:0}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--card)}
+.wrap{max-width:860px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+header.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--card);border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-block:12px 4px}
+.brand h1{font:700 21px/1.2 var(--display);margin:0;letter-spacing:-.01em}
+.brand small{color:var(--mut);font-size:13px}
+nav.tabs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding-block:8px 10px}
+nav.tabs a{display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;border-radius:10px;color:var(--mut);text-decoration:none;font-weight:600;font-size:14px;text-align:center}
+nav.tabs a svg{width:22px;height:22px}
+nav.tabs a[aria-current="page"]{background:var(--acc-soft);color:var(--acc)}
+nav.tabs a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,summary:focus-visible{outline:3px solid var(--acc);outline-offset:2px}
+main{padding-block:20px 60px}
+section.view{display:grid;gap:18px}
+h2{font:700 26px/1.2 var(--display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+h3{font:700 19px/1.3 var(--display);margin:0;text-wrap:balance}
+p{margin:0}
+.lead{color:var(--mut);font-size:17px;max-width:62ch}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:18px;display:grid;gap:12px;min-width:0}
+.steps{display:grid;gap:12px;counter-reset:s;list-style:none;padding:0;margin:0}
+.steps li{display:grid;grid-template-columns:40px 1fr;gap:12px;align-items:start;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px}
+.steps li::before{counter-increment:s;content:counter(s);display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--acc);color:var(--acc-ink);font:700 18px var(--display)}
+.steps b{display:block;font-size:17px}
+.steps span{color:var(--mut)}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+table{border-collapse:collapse;width:100%;font-size:15px}
+.tbl{overflow-x:auto;border:1px solid var(--line);border-radius:12px;background:var(--card)}
+th,td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);background:var(--soft)}
+tr:last-child td{border-bottom:0}
+ul.plain{margin:0;padding-left:20px;display:grid;gap:6px}
+details{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:4px 16px}
+summary{cursor:pointer;font-weight:700;padding-block:12px;font-size:17px}
+details[open] summary{border-bottom:1px solid var(--line);margin-bottom:12px}
+details>div{padding-bottom:14px;display:grid;gap:10px}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:48px;padding:10px 20px;border-radius:12px;border:0;background:var(--acc);color:var(--acc-ink);font:700 16px var(--text);cursor:pointer;text-decoration:none}
+.btn.ghost{background:var(--soft);color:var(--ink)}
+.btn.small{min-height:38px;padding:6px 14px;font-size:14px}
+.btn:disabled{opacity:.55;cursor:not-allowed}
+form{display:grid;gap:16px}
+label.f{display:grid;gap:6px;font-weight:600;min-width:0}
+label.f em{font-style:normal;font-weight:400;color:var(--mut);font-size:14px}
+input[type=text],input[type=url],select,textarea{width:100%;font:16px var(--text);color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:10px;padding:12px}
+textarea{min-height:88px;resize:vertical}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chips label{position:relative}
+.chips input{position:absolute;opacity:0;inset:0}
+.chips span{display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:8px 14px;border:1.5px solid var(--line);border-radius:999px;font-weight:600;cursor:pointer;background:var(--card)}
+.chips input:checked+span{border-color:var(--acc);background:var(--acc-soft);color:var(--acc)}
+.chips input:focus-visible+span{outline:3px solid var(--acc);outline-offset:2px}
+.fieldset{display:grid;gap:8px;border:0;padding:0;margin:0;min-width:0}
+.fieldset legend{font-weight:600;padding:0;margin-bottom:8px}
+.err{color:var(--bad);font-size:14px;font-weight:600}
+.note{border-radius:12px;padding:12px 14px;font-weight:500}
+.note.ok{background:var(--ok-soft);color:var(--ok)}.note.bad{background:var(--bad-soft);color:var(--bad)}.note.info{background:var(--info-soft);color:var(--info)}.note.warn{background:var(--warn-soft);color:var(--warn)}
+.pill{display:inline-flex;align-items:center;padding:3px 10px;border-radius:999px;font-size:12.5px;font-weight:700;white-space:nowrap}
+.p-blocker{background:var(--bad-soft);color:var(--bad)}.p-high{background:var(--warn-soft);color:var(--warn)}.p-medium{background:var(--info-soft);color:var(--info)}.p-small{background:var(--soft);color:var(--mut)}
+.s-new{background:var(--info-soft);color:var(--info)}.s-fixing{background:var(--warn-soft);color:var(--warn)}.s-recheck{background:var(--acc-soft);color:var(--acc)}.s-ok{background:var(--ok-soft);color:var(--ok)}.s-no{background:var(--soft);color:var(--mut)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+.stat b{display:block;font:700 26px/1.1 var(--display);font-variant-numeric:tabular-nums}
+.stat span{color:var(--mut);font-size:14px}
+.filters{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.rep{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;display:grid;gap:8px;min-width:0}
+.rep .head{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.rep h4{margin:0;font-size:17px;flex:1 1 220px;min-width:0;overflow-wrap:anywhere}
+.rep .meta{color:var(--mut);font-size:14px}
+.rep dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;margin:0;font-size:15px}
+.rep dt{color:var(--mut)}.rep dd{margin:0;overflow-wrap:anywhere;white-space:pre-wrap}
+.shots{display:flex;gap:8px;flex-wrap:wrap}
+.shots img{width:110px;height:80px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+.chat{display:grid;gap:12px}
+.msg{padding:12px 14px;border-radius:14px;max-width:92%;white-space:pre-wrap;overflow-wrap:anywhere}
+.msg.me{justify-self:end;background:var(--acc);color:var(--acc-ink);border-bottom-right-radius:4px}
+.msg.ai{justify-self:start;background:var(--card);border:1px solid var(--line);border-bottom-left-radius:4px}
+.ask-box{display:grid;grid-template-columns:1fr auto;gap:8px;position:sticky;bottom:calc(10px + env(safe-area-inset-bottom,0px));background:var(--bg);padding-block:8px}
+.ask-box textarea{min-height:52px}
+.quick{display:flex;flex-wrap:wrap;gap:8px}
+.quick button{min-height:40px;border-radius:999px;border:1.5px solid var(--line);background:var(--card);color:var(--ink);padding:6px 14px;font:600 14px var(--text);cursor:pointer;text-align:left}
+.kbd{font-family:ui-monospace,Consolas,monospace;background:var(--soft);padding:1px 6px;border-radius:6px;font-size:14px}
+.copy{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.copy code{background:var(--soft);padding:8px 10px;border-radius:8px;font-size:14px;overflow-wrap:anywhere}
+@media (prefers-reduced-motion:no-preference){.view{animation:in .18s ease-out}@keyframes in{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}}
+@media (max-width:520px){h2{font-size:23px}nav.tabs a{font-size:12.5px}}
+</style>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand"><div><h1>School OS Test Desk</h1><small>Test, write down what is wrong, ask when stuck</small></div><small id="who"></small></div>
+    <nav class="tabs" aria-label="Sections">
+      <a href="#guide" data-tab="guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2"/><path d="M8 7h6M8 11h6"/></svg>How to test</a>
+      <a href="#report" data-tab="report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Report</a>
+      <a href="#reports" data-tab="reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>All reports</a>
+      <a href="#ask" data-tab="ask"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.8 7L3 21l2-6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5M12 16h.01"/></svg>Ask Claude</a>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+
+<!-- ================= GUIDE ================= -->
+<section class="view" id="v-guide">
+  <h2>Testing School OS: the whole plan on one page</h2>
+  <p class="lead">You are not checking code. You are a school worker doing a normal day. Whenever something is wrong, confusing, slow or ugly, write it down in <b>Report</b>. When you don't know how to do something, ask in <b>Ask Claude</b>.</p>
+
+  <ol class="steps">
+    <li><div><b>Open School OS with your own login</b><span>On your laptop open the site below and sign in with the login the owner gave you. On your phone, open the same address in Chrome. Never use someone else's login.</span>
+      <div class="copy" style="margin-top:8px"><code id="site">https://school-os-beta.vercel.app</code><button class="btn small ghost" type="button" data-copy="site">Copy</button></div></div></li>
+    <li><div><b>Do your role's jobs from the table below</b><span>Work the way a real school person would. Use real-looking Indian names and phone numbers. Use the Test School only.</span></div></li>
+    <li><div><b>Something wrong? Report it the same minute</b><span>Take a screenshot (laptop: <span class="kbd">Win + Shift + S</span>; phone: power + volume down), open <b>Report</b>, fill 4 short boxes, add the picture, press Send. Two minutes.</span></div></li>
+    <li><div><b>Stuck? Ask Claude</b><span>Example: "How do I remove a student who left?" You get step-by-step help. If the answer does not match the screen, that is a problem too: report it.</span></div></li>
+    <li><div><b>Next morning, re-check what was fixed</b><span>In <b>All reports</b>, filter "Fixed, please re-check". Try it again, then mark it "Works now" or "Still wrong".</span></div></li>
+  </ol>
+
+  <div class="card">
+    <h3>Who plays which role (10 people)</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>Person</th><th>Role in School OS</th><th>Main things to test</th><th>Device</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Principal</td><td>Dashboard, Approvals, Reports & Analytics, report cards</td><td>Laptop + phone</td></tr>
+        <tr><td>2</td><td>School Admin</td><td>Settings, Users, Academic Management (year, classes, subjects), Admissions</td><td>Laptop</td></tr>
+        <tr><td>3</td><td>Accountant</td><td>Fee Management (collect, concession, refund, receipts), Finance, Salary</td><td>Laptop</td></tr>
+        <tr><td>4</td><td>Class Teacher (e.g. Class 5 A)</td><td>Take Attendance, Marks Entry, Homework, Student Profile, messages to parents</td><td>Phone first, then laptop</td></tr>
+        <tr><td>5</td><td>Subject Teacher</td><td>Same as class teacher, but only own classes. Try to open other classes: it must be refused</td><td>Phone</td></tr>
+        <tr><td>6</td><td>HR</td><td>Staff & HR: add staff, documents, leave, staff attendance</td><td>Laptop</td></tr>
+        <tr><td>7</td><td>Receptionist</td><td>Front Office (visitors, gate pass, pickup), enquiries</td><td>Laptop + phone</td></tr>
+        <tr><td>8</td><td>Librarian + Store keeper</td><td>Library (issue, return, fines), Inventory (items, purchases, assets)</td><td>Laptop</td></tr>
+        <tr><td>9</td><td>Transport + Hostel warden</td><td>Buses, routes, students on buses; hostel rooms, roll call, outings</td><td>Phone + laptop</td></tr>
+        <tr><td>10</td><td>Parent</td><td>Parent Link on the phone: fees, receipts, attendance, homework, report card</td><td>Phone only</td></tr>
+      </tbody>
+    </table></div>
+    <p class="note info">Fewer than 10 people on a day? One person can take two roles, but sign out fully before switching, or use a second Chrome profile.</p>
+  </div>
+
+  <div class="card">
+    <h3>The 7 test days (2 to 3 hours each)</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>Day</th><th>Goal</th><th>Who works</th><th>Good looks like</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Set up the school: year, classes, sections, subjects, fee heads, staff logins</td><td>Admin, Principal, HR</td><td>Everyone can sign in and sees only their own menu</td></tr>
+        <tr><td>2</td><td>Admissions and students: 10 enquiries, 6 admissions, parents</td><td>Receptionist, Admin</td><td>Clear messages for wrong data, no duplicates</td></tr>
+        <tr><td>3</td><td>Money day: collect cash, UPI, part payment, concession, refund, cancel a receipt</td><td>Accountant, Principal</td><td>Totals match your calculator. Nothing disappears, only cancelled with a reason</td></tr>
+        <tr><td>4</td><td>A normal week: attendance 5 days, homework, notices to parents</td><td>Teachers</td><td>Counts match what you entered; a teacher cannot touch another class</td></tr>
+        <tr><td>5</td><td>Exams: datesheet, marks, results, report cards</td><td>Teachers, Principal</td><td>Check percent, grade and rank of 5 students by hand</td></tr>
+        <tr><td>6</td><td>Staff, leave, salary, expenses, Day Book</td><td>HR, Accountant, Principal</td><td>Salary matches your hand calculation</td></tr>
+        <tr><td>7</td><td>Library, store, buses, hostel, events, then "break it"</td><td>Everyone</td><td>No role sees what it should not; no error screens</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <div class="grid2">
+    <div class="card">
+      <h3>On every screen, ask yourself 8 questions</h3>
+      <ul class="plain">
+        <li>Does the button do what its name says?</li>
+        <li>If I make a mistake, is the message clear?</li>
+        <li>After saving and refreshing, is the number or name still right?</li>
+        <li>Can I fix a mistake later (edit or cancel)?</li>
+        <li>Does it look right on my phone too?</li>
+        <li>Did it open in under 3 seconds?</li>
+        <li>Is there any word I don't understand?</li>
+        <li>Did the right person, and only the right person, see it?</li>
+      </ul>
+    </div>
+    <div class="card">
+      <h3>"Break it" list (try these on purpose)</h3>
+      <ul class="plain">
+        <li>Press Save twice quickly. Press Back after saving.</li>
+        <li>Leave boxes empty; type letters in money or phone boxes.</li>
+        <li>Very long names, Telugu or Hindi names, an emoji.</li>
+        <li>Dates like 31-02, a past date, a future date.</li>
+        <li>Collect the same fee twice for the same student.</li>
+        <li>As a Teacher, paste the address of a Principal-only page.</li>
+        <li>Turn the phone's internet off in the middle of a save.</li>
+        <li>Upload a very big photo or a wrong file type.</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="card">
+    <h3>How serious is it?</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>Pick</th><th>When</th><th>Example</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill p-blocker">Stops work</span></td><td>Wrong money, lost data, cannot sign in, cannot finish a daily job, another school's data shows</td><td>Receipt shows ₹15,000 but ₹14,500 was paid</td></tr>
+        <tr><td><span class="pill p-high">Big problem</span></td><td>The job works but is confusing, so staff could make a mistake</td><td>Concession box takes more than the fee</td></tr>
+        <tr><td><span class="pill p-medium">Annoying</span></td><td>There is a way around it, but it wastes time</td><td>Form forgets what I typed after an error</td></tr>
+        <tr><td><span class="pill p-small">Small</span></td><td>Spelling, spacing, colours, looks</td><td>Button text cut off on the phone</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+
+  <details>
+    <summary>Rules (read once)</summary>
+    <div>
+      <ul class="plain">
+        <li>Use only the Test School. Never a real school's data.</li>
+        <li>One person, one login. Never share a login, never send passwords in WhatsApp.</li>
+        <li>Online payments are in test mode. No real money moves. Never use your real card.</li>
+        <li>Records whose names start with LA-, LB-, LC-, LD- or LE- were made by a computer tester. Leave them alone and don't count them.</li>
+        <li>Write it down the moment you see it. Don't fix, don't argue, don't wait.</li>
+        <li>Nothing in School OS is deleted for good. Things are archived or cancelled with a reason, so a "delete" button you expected may be called Archive, Cancel or Change status.</li>
+      </ul>
+    </div>
+  </details>
+  <p><a class="btn" href="#report">Report a problem now</a></p>
+</section>
+
+<!-- ================= REPORT ================= -->
+<section class="view" id="v-report" hidden>
+  <h2>Report a problem or an idea</h2>
+  <p class="lead">Only the first 3 boxes are needed. A screenshot helps the most.</p>
+  <div id="rep-off" class="note warn" hidden>Reports can't be saved here. Open this page in claude.ai while signed in, with the access the owner gave you.</div>
+  <form id="rep-form" class="card" novalidate>
+    <fieldset class="fieldset">
+      <legend>1. What kind is it?</legend>
+      <div class="chips" id="kind">
+        <label><input type="radio" name="kind" value="Error" checked><span>Error or wrong result</span></label>
+        <label><input type="radio" name="kind" value="Looks wrong"><span>Looks wrong</span></label>
+        <label><input type="radio" name="kind" value="Hard to use"><span>Hard to understand</span></label>
+        <label><input type="radio" name="kind" value="Slow"><span>Slow</span></label>
+        <label><input type="radio" name="kind" value="Idea"><span>Idea</span></label>
+      </div>
+    </fieldset>
+    <label class="f" for="r-module">2. Where? <em>Pick the menu item you were in</em>
+      <select id="r-module" name="module"></select>
+      <span class="err" id="e-module" hidden>Pick where it happened.</span>
+    </label>
+    <label class="f" for="r-happened">3. What went wrong? <em>In your own words, Telugu or English is fine</em>
+      <textarea id="r-happened" name="happened" placeholder="Example: I collected ₹5,000 but the receipt shows ₹15,000"></textarea>
+      <span class="err" id="e-happened" hidden>Write a few words about what went wrong.</span>
+    </label>
+    <label class="f" for="r-did">What did you do just before? <em>Optional, but it helps us repeat it</em>
+      <textarea id="r-did" name="did" placeholder="Example: Fee Management, Collect Fee, student Ravi 5 A, typed 5000, pressed Collect"></textarea>
+    </label>
+    <label class="f" for="r-expected">What should have happened? <em>Optional</em>
+      <input id="r-expected" name="expected" type="text" placeholder="Example: receipt for ₹5,000">
+    </label>
+    <fieldset class="fieldset">
+      <legend>How serious?</legend>
+      <div class="chips">
+        <label><input type="radio" name="sev" value="blocker"><span>Stops work</span></label>
+        <label><input type="radio" name="sev" value="high"><span>Big problem</span></label>
+        <label><input type="radio" name="sev" value="medium" checked><span>Annoying</span></label>
+        <label><input type="radio" name="sev" value="small"><span>Small</span></label>
+      </div>
+    </fieldset>
+    <div class="grid2">
+      <fieldset class="fieldset">
+        <legend>Device</legend>
+        <div class="chips">
+          <label><input type="radio" name="device" value="Laptop" checked><span>Laptop</span></label>
+          <label><input type="radio" name="device" value="Phone"><span>Phone</span></label>
+        </div>
+      </fieldset>
+      <label class="f" for="r-role">Your role in the test
+        <select id="r-role" name="role">
+          <option>Principal</option><option>School Admin</option><option>Accountant</option><option>Class Teacher</option><option>Subject Teacher</option><option>HR</option><option>Receptionist</option><option>Librarian / Store</option><option>Transport / Hostel</option><option>Parent</option>
+        </select>
+      </label>
+    </div>
+    <label class="f" for="r-link">Page address <em>Optional: copy it from the address bar</em>
+      <input id="r-link" name="link" type="url" inputmode="url" placeholder="https://school-os-beta.vercel.app/...">
+    </label>
+    <label class="f" for="r-shot">Screenshots <em>Up to 3 pictures</em>
+      <input id="r-shot" type="file" accept="image/*" multiple>
+      <span id="shot-note" class="err" hidden></span>
+    </label>
+    <div class="shots" id="shot-prev"></div>
+    <div><button class="btn" id="r-send" type="submit">Send report</button></div>
+    <div id="r-msg" role="status" aria-live="polite"></div>
+  </form>
+</section>
+
+<!-- ================= REPORTS ================= -->
+<section class="view" id="v-reports" hidden>
+  <h2>All reports</h2>
+  <p class="lead">Everything the team has found, newest first. Change the status as work moves on.</p>
+  <div class="stats" id="stats"></div>
+  <div class="filters">
+    <label class="f" for="f-status">Status<select id="f-status"><option value="">All</option><option value="open">Still open</option><option value="new">New</option><option value="fixing">Being fixed</option><option value="recheck">Fixed, please re-check</option><option value="ok">Works now</option><option value="no">Not a problem</option></select></label>
+    <label class="f" for="f-module">Where<select id="f-module"><option value="">All places</option></select></label>
+    <label class="f" for="f-sev">How serious<select id="f-sev"><option value="">All</option><option value="blocker">Stops work</option><option value="high">Big problem</option><option value="medium">Annoying</option><option value="small">Small</option></select></label>
+    <label class="f" for="f-mine">Whose<select id="f-mine"><option value="">Everyone's</option><option value="mine">Only mine</option></select></label>
+  </div>
+  <div id="list" style="display:grid;gap:12px"><div class="note info">Loading reports…</div></div>
+</section>
+
+<!-- ================= ASK ================= -->
+<section class="view" id="v-ask" hidden>
+  <h2>Ask Claude</h2>
+  <p class="lead">Ask how to do anything in School OS, in plain words. Telugu or English.</p>
+  <div id="ask-off" class="note warn" hidden>Ask Claude can't run here. Open this page in claude.ai while signed in.</div>
+  <div class="quick" id="quick">
+    <button type="button">How do I remove a student who left the school?</button>
+    <button type="button">How do I cancel a wrong fee receipt?</button>
+    <button type="button">How do I take attendance on my phone?</button>
+    <button type="button">How do I give a concession to a student?</button>
+    <button type="button">How do I add a new teacher and give them a login?</button>
+    <button type="button">How does a parent see their child's fees?</button>
+  </div>
+  <div class="chat" id="chat"></div>
+  <form class="ask-box" id="ask-form">
+    <label for="ask-in" class="sr" style="position:absolute;left:-9999px">Your question</label>
+    <textarea id="ask-in" placeholder="Type your doubt, e.g. how do I promote students to the next class?"></textarea>
+    <button class="btn" id="ask-send" type="submit">Ask</button>
+  </form>
+</section>
+</main>
+
+<script>
+(function(){
+"use strict";
+var MODULES=["Sign in / my profile","Dashboard","Admission Management","Student Management","Academic Management","Attendance Management","Fee Management","Finance Management","Examination & Results","Staff & HR Management","Salary Management","Communication","Parent Link (parent's phone)","Transport Management","Library Management","Inventory Management","Hostel Management","Front Office","Homework & Learning","Events & Calendar","Reports & Analytics","Approvals","Settings","Other / not sure"];
+var SEV={blocker:["Stops work","p-blocker",0],high:["Big problem","p-high",1],medium:["Annoying","p-medium",2],small:["Small","p-small",3]};
+var STATUS={new:["New","s-new"],fixing:["Being fixed","s-fixing"],recheck:["Fixed, please re-check","s-recheck"],ok:["Works now","s-ok"],no:["Not a problem","s-no"]};
+function $(id){return document.getElementById(id)}
+function el(tag,cls,text){var e=document.createElement(tag);if(cls)e.className=cls;if(text!=null)e.textContent=text;return e}
+
+/* ---------- tabs (hash routing) ---------- */
+var TABS=["guide","report","reports","ask"];
+function show(){var h=(location.hash||"#guide").slice(1);if(TABS.indexOf(h)<0)h="guide";
+  TABS.forEach(function(t){$("v-"+t).hidden=t!==h;var a=document.querySelector('nav.tabs a[data-tab="'+t+'"]');if(t===h)a.setAttribute("aria-current","page");else a.removeAttribute("aria-current")});
+  window.scrollTo(0,0)}
+window.addEventListener("hashchange",show);show();
+
+/* ---------- copy ---------- */
+document.querySelectorAll("[data-copy]").forEach(function(b){b.addEventListener("click",function(){var t=$(b.dataset.copy).textContent;
+  try{navigator.clipboard.writeText(t).then(function(){b.textContent="Copied"},function(){sel(b.dataset.copy)})}catch(e){sel(b.dataset.copy)}})});
+function sel(id){var r=document.createRange();r.selectNodeContents($(id));var s=getSelection();s.removeAllRanges();s.addRange(r)}
+
+/* ---------- selects ---------- */
+var rm=$("r-module"),fm=$("f-module");rm.appendChild(new Option("Choose…",""));
+MODULES.forEach(function(m){rm.appendChild(new Option(m,m));fm.appendChild(new Option(m,m))});
+try{var lastRole=localStorage.getItem("td-role");if(lastRole)$("r-role").value=lastRole;var lastDev=localStorage.getItem("td-dev");if(lastDev){var d=document.querySelector('input[name=device][value="'+lastDev+'"]');if(d)d.checked=true}}catch(e){}
+
+/* ---------- capabilities ---------- */
+var db=null,user=null,assets=null,sample=null,myId=null,reports=[],names={};
+var cl=window.claude;
+function use(n){return cl&&cl.use?cl.use(n).catch(function(){return null}):Promise.resolve(null)}
+
+use("user").then(function(u){user=u;if(!u)return;u.id().then(function(id){myId=id;render()});u.me().then(function(me){if(me&&me.name)$("who").textContent="Signed in as "+me.name})});
+use("assets").then(function(a){assets=a});
+use("sample").then(function(s){sample=s;if(!s){$("ask-off").hidden=false}});
+var dbTimer=setTimeout(function(){if(!db){$("list").innerHTML="";$("list").appendChild(el("div","note warn","Reports can't load here. Open this page in claude.ai while signed in."));$("rep-off").hidden=false}},10000);
+use("db").then(function(d){db=d;if(!d){clearTimeout(dbTimer);$("rep-off").hidden=false;$("list").innerHTML="";$("list").appendChild(el("div","note warn","Reports can't load here. Open this page in claude.ai while signed in."));return}
+  d.collection("reports").orderBy("at","desc").onSnapshot(function(snap){clearTimeout(dbTimer);reports=snap.docs.map(function(x){var v=x.data()||{};return Object.assign({id:x.id},v)});render()},
+  function(err){clearTimeout(dbTimer);$("list").innerHTML="";$("list").appendChild(el("div","note bad","Reports could not load: "+(err&&err.message||"unknown problem")+". Refresh the page."))})});
+
+/* ---------- report form ---------- */
+var files=[];
+$("r-shot").addEventListener("change",function(e){var note=$("shot-note");note.hidden=true;files=[].slice.call(e.target.files||[]).filter(function(f){return /^image\//.test(f.type)});
+  if(files.length>3){files=files.slice(0,3);note.textContent="Only the first 3 pictures are kept.";note.hidden=false}
+  var big=files.filter(function(f){return f.size>20*1024*1024});if(big.length){files=files.filter(function(f){return f.size<=20*1024*1024});note.textContent="A picture over 20 MB was left out.";note.hidden=false}
+  var p=$("shot-prev");p.innerHTML="";files.forEach(function(f){var i=el("img");i.alt="Screenshot to send";i.src=URL.createObjectURL(f);p.appendChild(i)})});
+$("rep-form").addEventListener("submit",function(e){e.preventDefault();
+  var f=e.target,msg=$("r-msg");msg.innerHTML="";
+  var module=rm.value,happened=$("r-happened").value.trim(),ok=true;
+  $("e-module").hidden=!!module;$("e-happened").hidden=happened.length>=3;
+  if(!module){ok=false}if(happened.length<3){ok=false}
+  if(!ok){(module?$("r-happened"):rm).focus();return}
+  if(!db){msg.appendChild(el("div","note bad","Not saved: this page can't save reports here. Open it in claude.ai while signed in."));return}
+  var btn=$("r-send");btn.disabled=true;btn.textContent="Sending…";
+  var get=function(n){var x=f.querySelector('input[name="'+n+'"]:checked');return x?x.value:""};
+  try{localStorage.setItem("td-role",$("r-role").value);localStorage.setItem("td-dev",get("device"))}catch(_){}
+  var up=files.length&&assets?Promise.all(files.map(function(fl){return assets.upload(fl).then(function(r){return r.id},function(){return null})})):Promise.resolve([]);
+  up.then(function(ids){ids=(ids||[]).filter(Boolean);
+    var shotNote=files.length&&ids.length<files.length?" "+(files.length-ids.length)+" picture(s) could not be added.":"";
+    var doc={kind:get("kind")||"Error",module:module,happened:happened.slice(0,2000),did:$("r-did").value.trim().slice(0,2000),expected:$("r-expected").value.trim().slice(0,500),
+      sev:get("sev")||"medium",device:get("device")||"Laptop",role:$("r-role").value,link:$("r-link").value.trim().slice(0,500),shots:ids,status:"new",by:myId||"",at:Date.now(),num:nextNum()};
+    return db.collection("reports").add(doc).then(function(){
+      f.reset();files=[];$("shot-prev").innerHTML="";try{var lr=localStorage.getItem("td-role");if(lr)$("r-role").value=lr}catch(_){}
+      var n=el("div","note ok","Report #"+doc.num+" sent. Thank you."+shotNote+" You can see it in All reports.");msg.appendChild(n);n.scrollIntoView({block:"nearest"})})})
+  .catch(function(err){var c=err&&err.code;msg.appendChild(el("div","note bad",c==="permission_denied"||c==="not_granted"?"Not saved: your access to this page is view-only. Ask the owner to give you 'can interact' access.":"Not saved: "+((err&&err.message)||"something went wrong")+". Your text is still in the boxes; press Send again."))})
+  .then(function(){btn.disabled=false;btn.textContent="Send report"})});
+function nextNum(){var m=0;reports.forEach(function(r){if(typeof r.num==="number"&&r.num>m)m=r.num});return m+1}
+
+/* ---------- reports list ---------- */
+["f-status","f-module","f-sev","f-mine"].forEach(function(id){$(id).addEventListener("change",render)});
+function render(){
+  var list=$("list");if(!db)return;
+  var open=reports.filter(function(r){return r.status==="new"||r.status==="fixing"});
+  var st=$("stats");st.innerHTML="";
+  [["Reports",reports.length],["Still open",open.length],["Stops work, open",open.filter(function(r){return r.sev==="blocker"}).length],["To re-check",reports.filter(function(r){return r.status==="recheck"}).length],["Works now",reports.filter(function(r){return r.status==="ok"}).length]]
+    .forEach(function(s){var d=el("div","stat");d.appendChild(el("b",null,String(s[1])));d.appendChild(el("span",null,s[0]));st.appendChild(d)});
+  var fs=$("f-status").value,fmv=$("f-module").value,fsev=$("f-sev").value,mine=$("f-mine").value;
+  var rows=reports.filter(function(r){
+    if(fs==="open"&&!(r.status==="new"||r.status==="fixing"))return false;
+    if(fs&&fs!=="open"&&r.status!==fs)return false;
+    if(fmv&&r.module!==fmv)return false;if(fsev&&r.sev!==fsev)return false;
+    if(mine&&(!myId||r.by!==myId))return false;return true});
+  list.innerHTML="";
+  if(!reports.length){list.appendChild(el("div","note info","No reports yet. When someone presses Send report, it shows up here for everyone."));return}
+  if(!rows.length){list.appendChild(el("div","note info","No reports match these filters."));return}
+  var ids=rows.map(function(r){return r.by}).filter(Boolean);
+  if(user&&ids.length){user.profiles(ids).then(function(ps){var ch=false;Object.keys(ps||{}).forEach(function(k){var n=ps[k]&&ps[k].name||"";if(n&&names[k]!==n){names[k]=n;ch=true}});if(ch)render()}).catch(function(){})}
+  rows.forEach(function(r){list.appendChild(card(r))});
+}
+function card(r){
+  var c=el("article","rep");var h=el("div","head");
+  var sv=SEV[r.sev]||SEV.medium,ss=STATUS[r.status]||STATUS.new;
+  h.appendChild(el("span","pill "+sv[1],sv[0]));h.appendChild(el("span","pill "+ss[1],ss[0]));
+  h.appendChild(el("h4",null,"#"+(r.num||"?")+" "+(r.kind||"")+" · "+(r.module||"")));c.appendChild(h);
+  var who=names[r.by]||"Someone";var when=r.at?new Date(r.at).toLocaleString("en-IN",{day:"2-digit",month:"2-digit",year:"numeric",hour:"numeric",minute:"2-digit"}).replace(/\//g,"-"):"";
+  c.appendChild(el("div","meta",who+" as "+(r.role||"?")+" · "+(r.device||"")+" · "+when));
+  var dl=el("dl");
+  [["Went wrong",r.happened],["Did before",r.did],["Expected",r.expected],["Page",r.link],["Fix note",r.note]].forEach(function(p){if(p[1]){dl.appendChild(el("dt",null,p[0]));dl.appendChild(el("dd",null,p[1]))}});
+  c.appendChild(dl);
+  if(r.shots&&r.shots.length){var s=el("div","shots");r.shots.forEach(function(id){if(!/^[0-9a-f]{32}$/.test(id))return;var a=el("a");a.href="/_blob/"+id;a.target="_blank";a.rel="noopener";var i=el("img");i.alt="Screenshot for report "+(r.num||"");i.src="/_blob/"+id;i.loading="lazy";a.appendChild(i);s.appendChild(a)});c.appendChild(s)}
+  var row=el("div","copy");var lab=el("label",null,"Status ");lab.style.fontWeight="600";
+  var sel=el("select");sel.style.width="auto";sel.setAttribute("aria-label","Status of report "+(r.num||""));
+  Object.keys(STATUS).forEach(function(k){var o=new Option(STATUS[k][0],k);if(k===(r.status||"new"))o.selected=true;sel.appendChild(o)});
+  sel.addEventListener("change",function(){var v=sel.value;sel.disabled=true;db.doc("reports/"+r.id).update({status:v,statusAt:Date.now(),statusBy:myId||""}).catch(function(err){alertIn(c,"Status not changed: "+((err&&err.message)||"try again"));sel.value=r.status||"new"}).then(function(){sel.disabled=false})});
+  lab.appendChild(sel);row.appendChild(lab);
+  var nb=el("button","btn small ghost","Add a note");nb.type="button";
+  nb.addEventListener("click",function(){if(c.querySelector("textarea"))return;var t=el("textarea");t.value=r.note||"";t.setAttribute("aria-label","Note for report "+(r.num||""));var sv2=el("button","btn small","Save note");sv2.type="button";
+    sv2.addEventListener("click",function(){sv2.disabled=true;db.doc("reports/"+r.id).update({note:t.value.trim().slice(0,1000)}).catch(function(err){alertIn(c,"Note not saved: "+((err&&err.message)||"try again"));sv2.disabled=false})});
+    c.appendChild(t);c.appendChild(sv2);t.focus()});
+  row.appendChild(nb);c.appendChild(row);return c}
+function alertIn(c,t){var n=el("div","note bad",t);c.appendChild(n);setTimeout(function(){n.remove()},6000)}
+
+/* ---------- Ask Claude ---------- */
+var GUIDE=[
+"You are the helper inside the School OS Test Desk. School OS is a school management web app (site https://school-os-beta.vercel.app, works on laptop and phone). Office staff of a school-software company are testing it, each playing one role. They ask how to do things. Answer like a patient trainer talking to a school office clerk: short numbered steps, the exact menu and button names in quotes, plain words, no jargon. Reply in the language of the question (Telugu, Hindi or English). Keep answers under about 150 words unless they ask for detail.",
+"If you are not sure of the exact button, say which menu to open and what to look for, and say 'if you can't find it, report it in the Report tab, because staff must find this easily'. Never invent features. If something is not in School OS version 1, say so. If they describe something that looks like a bug, tell them to report it in the Report tab with a screenshot. Never ask for or repeat passwords.",
+"FACTS ABOUT SCHOOL OS:",
+"- Left menu modules: Dashboard; Admission Management; Student Management; Academic Management; Attendance Management; Fee Management; Finance Management; Examination & Results; Staff & HR Management; Salary Management; Communication; Transport Management; Library Management; Inventory Management; Hostel Management; Front Office; Homework & Learning; Events & Calendar; Reports & Analytics; Settings. Also Approvals, Messages, Notifications, My profile. A person sees only the modules their role allows. A big blue '+ New' button at the top left starts common jobs; the search box at the top (Ctrl K) finds students, staff and pages.",
+"- NOTHING IS DELETED FOR GOOD. Records are archived, cancelled with a reason, or given a new status. So 'delete' means: Archive (with Restore/Undo later), Cancel (for receipts, notices), or Change status.",
+"- Remove a student who left: Student Management > open the student (search by name or admission number) > Student Profile > 'Change status' (or the Leaving page under Student Management) > choose Left / TC and the reason and date. The student moves out of class lists but the record, fees and history stay. Transfer and leaving certificates are under Student Management > Certificates. A student added by mistake: change status or archive; it is never wiped.",
+"- Students: Student Management > 'Add a student' (or '+ New'); bulk 'Import' from Excel; 'Bulk update'; 'Bulk photos'; Guardians (parents); 'Promotion' moves a whole class to the next class at year end (with 'Undo this promotion'); 'Logins' gives students/parents app logins; Behaviour; Certificates.",
+"- Admissions: Admission Management > Enquiries ('New enquiry'), convert an enquiry to an Application, entrance Tests, Decision (admit / waiting list / reject), Documents, Reports. Admitting creates the student.",
+"- Academic Management: academic year and Settings, classes and sections, Subjects, Teacher allocation, Time table, Substitutions, Syllabus, Import.",
+"- Attendance: Attendance Management > 'Take Attendance' > pick class and section and date > everyone starts Present, tap the absent or late ones > Save. Works on the phone. Register shows the month; corrections to a past day go through 'Request a correction' (needs approval). Staff attendance, Student leave, Reports, Devices (QR/biometric) are tabs there.",
+"- Fees: Fee Management > 'Collect Fee' > search the student > tick fee heads > amount > payment mode (cash, UPI, cheque, online) > Collect > receipt (print or send to parent). Part payment is allowed. Fee Structure sets fees per class; Concessions (a discount; above the limit needs the Principal's approval; cannot be more than what is still due); Defaulters (send reminders); Ledger shows a student's full fee history; Reports; Settings. A wrong receipt is never deleted: open the payment (from the student's Ledger or the receipt) and press 'Cancel payment' with a reason; then collect again correctly. Refunds are on the payment / ledger with a refund mode. Online payments use Razorpay (test mode in this test).",
+"- Finance: Day Book (all money in and out, close the day), Expenses ('Add expense'), Income, Cash & bank, Accounts, Budget, Reports.",
+"- Exams: Examination & Results > Datesheet (create exam and dates), Admit cards, 'Marks Entry' (teacher enters marks; absent can be marked), Results (publish), Report cards (PDF, after remarks and grades), Analysis, Question papers.",
+"- Staff & HR: 'Add staff' (3 steps: details, what they can open = role and login, classes and subjects), Documents & ID cards, Leave ('Apply for leave'; HR can apply for someone), Recruitment & appraisal, Exit (resign/retire uses 'Change status' on the staff profile), Import, Settings (leave types, departments).",
+"- Logins and roles: Settings > 'Users & Permissions' > invite a user and choose a role (no role is ticked until you choose). Roles: Principal, School Admin (full access), Accountant, Class Teacher, Teacher, HR, Receptionist, Librarian, Store keeper, Transport supervisor, Driver, Hostel warden, Gate security, Parent. Forgot password: the 'Forgot password?' link on the sign-in page (signs in with a one-time code); a School Admin can also reset it from the user's page. Sign-in may ask for a 6-digit code sent to the phone.",
+"- Salary: Salary Management > Structures (salary per staff), 'Generate' the month (PF, ESI, loss of pay from leave), Slips, History, Advances.",
+"- Communication: send messages to parents or staff (SMS / WhatsApp / app), Notices (draft, schedule with 'Publish at', approval), Templates, Surveys, Queries from parents, History. Parent Link = the parent's phone view: fees and receipts, pay online, attendance, homework, notices, results and report card.",
+"- Homework & Learning: 'Give homework' (class, subject, due date), Submissions, Study material, Quizzes, Online classes.",
+"- Front Office: Visitors (gate pass), Pickup (who may collect a child, with photo), Appointments, Postal, Enquiries.",
+"- Library: Books (add, import, labels), 'Issue a book' / return at the desk, Members, Fines, Stock check. Inventory: Items & stock, Purchases (orders, bills), Assets, Rooms, Stock audits, Report a problem. Transport: Vehicles, Routes and stops, Students on the buses, Trips (buses today). Hostel: Rooms, Allocation, Roll call, Outings, Mess. Events & Calendar: Events, PTMs, School Calendar and holidays, Gallery.",
+"- Reports & Analytics: every report in one place, Early warnings, Government reports, Custom reports. Most lists have Export (Excel / CSV / PDF).",
+"- Approvals: requests that need a yes (concessions above the limit, leave, attendance corrections, notices) wait in Approvals for the right person.",
+"- Settings: School profile, Users & Permissions, Modules (switch optional modules on), Payment gateways, Messaging, Document designs (receipt and certificate looks), Forms & approvals, Data & security (backups, switching from another software).",
+"- Dates are shown as DD-MM-YYYY. Money is in rupees. Telugu and Hindi screens: My profile > Appearance / language."
+].join("\n");
+var history=[],busy=false;
+function addMsg(who,text){var m=el("div","msg "+who,text);$("chat").appendChild(m);m.scrollIntoView({block:"end"});return m}
+$("quick").addEventListener("click",function(e){var b=e.target.closest("button");if(!b)return;$("ask-in").value=b.textContent;ask()});
+$("ask-form").addEventListener("submit",function(e){e.preventDefault();ask()});
+$("ask-in").addEventListener("keydown",function(e){if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();ask()}});
+function ask(){
+  var q=$("ask-in").value.trim();if(!q||busy)return;
+  if(!sample){$("ask-off").hidden=false;return}
+  busy=true;$("ask-send").disabled=true;$("ask-in").value="";addMsg("me",q);var out=addMsg("ai","Thinking…");
+  var input=[];history.slice(-8).forEach(function(h,i){input.push({role:"user",content:(i===0?GUIDE+"\n\nQUESTION: ":"")+h.q});input.push({role:"assistant",content:h.a})});
+  input.push({role:"user",content:(input.length?"":GUIDE+"\n\nQUESTION: ")+q});
+  sample(input,{cache:false,onText:function(p){out.textContent=p.text}}).then(function(r){var a=(r&&r.text)||out.textContent;out.textContent=a;history.push({q:q,a:a});
+      if(db)db.collection("doubts").add({q:q.slice(0,1000),a:a.slice(0,3000),by:myId||"",at:Date.now()}).catch(function(){})})
+    .catch(function(err){var c=err&&err.code;out.textContent=c==="not_granted"?"Ask Claude is switched off for you on this page. Allow it in the page's permissions to use it.":c==="rate_limited"?"Too many questions at once. Wait a minute and ask again.":"Sorry, no answer came back ("+((err&&err.message)||"unknown problem")+"). Ask again in a moment.";if(c==="not_granted")$("ask-off").hidden=false})
+    .then(function(){busy=false;$("ask-send").disabled=false;$("ask-in").focus()});
+}
+})();
+</script>

@@ -2369,6 +2369,9 @@ export const EN = [
   // src/app/(school)/front-office/appointments/page.tsx
   "Book appointment",
   "Open Staff & HR",
+  "The Principal is not in the staff list yet, so meetings with the Principal cannot be booked.",
+  "has a Principal login but no staff record.",
+  "The School Admin adds them in Staff & HR Management > Add staff (title: Principal) and links their login. Then they show first in the list.",
   "Another day",
   "-minute slots",
   "With",

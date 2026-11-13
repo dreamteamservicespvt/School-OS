@@ -18,6 +18,35 @@ const DAY_WORDS: Record<string, string> = { leave: "On leave", absent: "Absent",
 
 export const rank = (designation: string) => (/^principal$/i.test(designation) ? 0 : /principal/i.test(designation) ? 1 : /admin|accountant|counsellor|office/i.test(designation) ? 2 : 3);
 
+type StaffLike = { id: string; fullName: string; designation: string; userLoginId: string | null };
+
+/**
+ * The Principal for appointments and visitors (team test 13-11: the front desk
+ * could not find the Principal). The Principal is the staff record whose login
+ * holds the Principal role, or one titled "Principal" (a school may call them
+ * "Head Master" or "Headmistress"). `missing` names Principal logins that have
+ * no staff record yet, so the desk can be told why they cannot be booked.
+ */
+export async function principalOf(tx: Tx, staff: StaffLike[]) {
+  // campus: the Principal role is whole-school; this only finds who holds it.
+  const holders = await tx.schoolAccess.findMany({
+    where: { archivedAt: null, roles: { some: { role: { key: "principal", isEnabled: true, archivedAt: null } } } },
+    select: { userLoginId: true, userLogin: { select: { displayName: true } } },
+  });
+  const logins = new Set(holders.map((h) => h.userLoginId));
+  const ids = new Set(staff.filter((s) => (s.userLoginId && logins.has(s.userLoginId)) || /^principal$/i.test(s.designation.trim())).map((s) => s.id));
+  const linked = new Set(staff.map((s) => s.userLoginId).filter(Boolean));
+  const missing = ids.size ? [] : holders.filter((h) => !linked.has(h.userLoginId)).map((h) => h.userLogin.displayName).filter(Boolean);
+  return { ids, missing };
+}
+
+/** Principal first, then by title and name; the Principal is labelled "Principal" whatever their title. */
+export function principalFirst<T extends StaffLike>(staff: T[], ids: Set<string>) {
+  const r = (s: T) => (ids.has(s.id) ? -1 : rank(s.designation));
+  return [...staff].sort((a, b) => r(a) - r(b) || a.fullName.localeCompare(b.fullName))
+    .map((s) => ({ ...s, designation: ids.has(s.id) && !/principal/i.test(s.designation) ? `Principal (${s.designation})` : s.designation }));
+}
+
 /** Every working staff member, each with where they are now: on leave, teaching, in a meeting, or free. */
 export async function staffToMeet(tx: Tx, ctx: SchoolContext, today: Date, minute: number): Promise<MeetOption[]> {
   const staff = await tx.staff.findMany({
@@ -46,13 +75,14 @@ export async function staffToMeet(tx: Tx, ctx: SchoolContext, today: Date, minut
       teaching.set(who, { label, until: p.endTime });
     }
   }
+  const principal = await principalOf(tx, staff);
   const meetings = await tx.appointment.findMany({
     where: { date: today, archivedAt: null, status: { in: ["BOOKED", "ARRIVED"] }, startMin: { lte: minute } },
     select: { staffId: true, startMin: true, lengthMin: true },
   });
   const inMeeting = new Map<string, number>();
   for (const m of meetings) if (m.startMin + m.lengthMin > minute) inMeeting.set(m.staffId, m.startMin + m.lengthMin);
-  return staff
+  return principalFirst(staff, principal.ids)
     .map((s) => {
       const off = away.get(s.id);
       const t = teaching.get(s.id);
@@ -63,8 +93,7 @@ export async function staffToMeet(tx: Tx, ctx: SchoolContext, today: Date, minut
       if (t) return { ...base, now: `Teaching ${t.label} till ${clockOf(minutesOf(t.until))}`, tone: "warn" as const };
       if (meet) return { ...base, now: `In a meeting till ${clockOf(meet)}`, tone: "warn" as const };
       return { ...base, now: "In school, free now", tone: "ok" as const };
-    })
-    .sort((a, b) => rank(a.role) - rank(b.role) || a.name.localeCompare(b.name));
+    });
 }
 
 export type Segment = { start: number; end: number; kind: "teach" | "booked" | "now" | "done" | "noshow" | "arrived"; label: string; appointmentId?: string; status?: string };

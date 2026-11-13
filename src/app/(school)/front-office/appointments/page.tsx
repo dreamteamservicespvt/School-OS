@@ -2,7 +2,7 @@ import Link from "next/link";
 import { CalendarClock, CalendarPlus, CalendarX2, UsersRound } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { dayPlan, type DayPlan } from "@/lib/front-office/appointments";
-import { rank } from "@/lib/front-office/staff";
+import { principalFirst, principalOf } from "@/lib/front-office/staff";
 import { addDaysIso, shortDay } from "@/lib/front-office/time";
 import { APPOINTMENT_STATUS, clockOf } from "@/lib/front-office/words";
 import { Card, CardHeader } from "@/components/ui/card";
@@ -48,10 +48,11 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
 
   const data = await withSchool(ctx, async (tx) => {
     const [staffRows, slots] = await Promise.all([
-      tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, select: { id: true, fullName: true, designation: true } }),
+      tx.staff.findMany({ where: { archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] } }, select: { id: true, fullName: true, designation: true, userLoginId: true } }),
       tx.periodSlot.findMany({ where: { archivedAt: null }, select: { days: true } }),
     ]);
-    const staff = staffRows.sort((a, b) => rank(a.designation) - rank(b.designation) || a.fullName.localeCompare(b.fullName));
+    const principal = await principalOf(tx, staffRows);
+    const staff = principalFirst(staffRows, principal.ids);
     const chosen = staff.find((s) => s.id === one(sp.staff)) ?? staff[0] ?? null;
     const schoolDays = new Set(slots.flatMap((s) => s.days));
     const plan = chosen ? await dayPlan(tx, ctx, chosen.id, dayIso, { timeZone: p.tz, now: p.now }) : null;
@@ -66,7 +67,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
     const bookDay = re ? re.date.toISOString().slice(0, 10) : ISO.test(one(sp.on)) ? one(sp.on) : dayIso >= p.todayStr ? dayIso : p.todayStr;
     const bookLength = re?.lengthMin ?? p.settings.slotMinutes;
     const bookPlan = bookOpen && bookStaff ? await dayPlan(tx, ctx, bookStaff, bookDay, { timeZone: p.tz, now: p.now, length: [15, 30, 45].includes(bookLength) ? bookLength : 15, ignoreId: re?.id ?? null }) : null;
-    return { staff, chosen, schoolDays, plan, appts, re, cancel, bookOpen, bookStaff, bookDay, bookLength, bookPlan };
+    return { staff, noPrincipal: principal.ids.size === 0, principalNames: principal.missing, chosen, schoolDays, plan, appts, re, cancel, bookOpen, bookStaff, bookDay, bookLength, bookPlan };
   });
 
   const staffName = (id: string) => data.staff.find((s) => s.id === id)?.fullName ?? "Staff";
@@ -91,6 +92,15 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
     <div>
       <FoHead pageName="Appointments" href={HREF} sub="Meetings with the Principal and staff. Booked, leave and teaching times cannot be chosen."
         actions={desk ? <ButtonLink href={addQ(here, { do: "book" })} scroll={false} variant="primary" icon={CalendarPlus}><Words k="Book appointment" /></ButtonLink> : null} />
+      {data.noPrincipal && data.staff.length > 0 && (
+        <div role="status" className="mb-3 rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-[13.5px] text-ink2">
+          <p className="font-semibold text-ink"><Words k="The Principal is not in the staff list yet, so meetings with the Principal cannot be booked." /></p>
+          <p className="mt-0.5">
+            {data.principalNames.length ? <>{data.principalNames.join(", ")} <Words k="has a Principal login but no staff record." /> </> : null}
+            <Words k="The School Admin adds them in Staff & HR Management > Add staff (title: Principal) and links their login. Then they show first in the list." />
+          </p>
+        </div>
+      )}
       {!chosen ? (
         <Card><Empty icon={UsersRound} title="No staff yet" body="Appointments are booked with staff members. Add staff in Staff & HR Management first." action={<ButtonLink href="/staff-hr-management" variant="secondary"><Words k={"Open Staff & HR"} /></ButtonLink>} /></Card>
       ) : (

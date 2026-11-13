@@ -101,6 +101,26 @@ textarea{min-height:88px;resize:vertical}
 .kbd{font-family:ui-monospace,Consolas,monospace;background:var(--soft);padding:1px 6px;border-radius:6px;font-size:14px}
 .copy{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .copy code{background:var(--soft);padding:8px 10px;border-radius:8px;font-size:14px;overflow-wrap:anywhere}
+.tasks{display:grid;gap:8px}
+.task{display:grid;grid-template-columns:28px 1fr;gap:10px;align-items:start;padding:10px 12px;border:1.5px solid var(--line);border-radius:12px;background:var(--card);cursor:pointer}
+.task input{width:24px;height:24px;margin:2px 0 0;accent-color:var(--acc);cursor:pointer}
+.task.done{background:var(--ok-soft);border-color:transparent}
+.task.done span{color:var(--mut);text-decoration:line-through}
+.prog{height:14px;background:var(--soft);border-radius:7px;overflow:hidden}.prog i{display:block;height:100%;background:var(--acc);transition:width .3s}
+.big-prog .prog{height:22px;border-radius:11px}
+.team{display:grid;gap:10px}
+.mate{display:grid;grid-template-columns:minmax(0,1fr) 54px;gap:4px 10px;align-items:center}
+.mate b{font-weight:600;overflow-wrap:anywhere}.mate em{font-style:normal;color:var(--mut);font-size:14px}
+.mate .prog{grid-column:1/-1;height:10px}
+.mate .pc{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.timeline{display:grid;gap:0;list-style:none;margin:0;padding:0}
+.timeline li{display:grid;grid-template-columns:72px 1fr;gap:14px;padding:12px 0;border-bottom:1px solid var(--line)}
+.timeline li:last-child{border-bottom:0}
+.timeline time{font:700 15px var(--display);color:var(--acc);font-variant-numeric:tabular-nums}
+.timeline b{display:block}.timeline span{color:var(--mut)}
+.timeline li.now{background:var(--acc-soft);margin-inline:-12px;padding-inline:12px;border-radius:10px}
+.muted{color:var(--mut);font-size:14px}
+.cheer{font:700 18px var(--display);color:var(--ok)}
 @media (prefers-reduced-motion:no-preference){.view{animation:in .18s ease-out}@keyframes in{from{opacity:.4;transform:translateY(4px)}to{opacity:1;transform:none}}}
 @media (max-width:520px){h2{font-size:23px}nav.tabs a{font-size:12.5px}}
 </style>
@@ -109,7 +129,7 @@ textarea{min-height:88px;resize:vertical}
   <div class="wrap">
     <div class="brand"><div><h1>School OS Test Desk</h1><small>Test, write down what is wrong, ask when stuck</small></div><small id="who"></small></div>
     <nav class="tabs" aria-label="Sections">
-      <a href="#guide" data-tab="guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2"/><path d="M8 7h6M8 11h6"/></svg>How to test</a>
+      <a href="#guide" data-tab="guide"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 19.5V5a2 2 0 0 1 2-2h12v16H6a2 2 0 0 0-2 2"/><path d="M8 7h6M8 11h6"/></svg>Today</a>
       <a href="#report" data-tab="report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>Report</a>
       <a href="#reports" data-tab="reports"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>All reports</a>
       <a href="#ask" data-tab="ask"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 12a8 8 0 0 1-11.8 7L3 21l2-6A8 8 0 1 1 21 12z"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.6.3-1 .8-1 1.5M12 16h.01"/></svg>Ask Claude</a>
@@ -121,16 +141,48 @@ textarea{min-height:88px;resize:vertical}
 
 <!-- ================= GUIDE ================= -->
 <section class="view" id="v-guide">
-  <h2>Testing School OS: the whole plan on one page</h2>
+  <h2>Test School OS today: one day, the whole team</h2>
   <p class="lead">You are not checking code. You are a school worker doing a normal day. Whenever something is wrong, confusing, slow or ugly, write it down in <b>Report</b>. When you don't know how to do something, ask in <b>Ask Claude</b>.</p>
+
+  <div class="card" id="mytasks">
+    <h3>My tasks today</h3>
+    <label class="f" for="t-role">I am playing
+      <select id="t-role"><option value="">Choose your role…</option></select>
+    </label>
+    <div id="t-body" hidden>
+      <div class="big-prog" style="display:grid;gap:6px;margin-bottom:12px"><div class="prog"><i id="t-bar" style="width:0%"></i></div><p id="t-count" class="muted"></p></div>
+      <div class="tasks" id="t-list"></div>
+      <p class="note info" style="margin-top:12px">Tick a task when you have tried it. If anything was wrong on the way, send a <a href="#report">Report</a> first, then tick.</p>
+    </div>
+    <p id="t-save" class="muted"></p>
+  </div>
+
+  <div class="card">
+    <h3>Team progress</h3>
+    <div class="big-prog" style="display:grid;gap:6px"><div class="prog"><i id="team-bar" style="width:0%"></i></div><p id="team-line" class="muted">Nobody has started yet. Pick your role above to begin.</p></div>
+    <div class="team" id="team"></div>
+  </div>
+
+  <div class="card">
+    <h3>Today's timetable</h3>
+    <ol class="timeline" id="timeline">
+      <li data-from="09:30" data-to="10:00"><time>09:30</time><div><b>Get ready (30 min)</b><span>Everyone opens this page and School OS, signs in with their own login, and picks their role in "My tasks". Phone people open School OS in Chrome on the phone.</span></div></li>
+      <li data-from="10:00" data-to="13:00"><time>10:00</time><div><b>Round 1: your own role's jobs</b><span>Work down "My tasks" in order. Report every problem the same minute. School Admin and HR set things up first; the others start with what already exists in the Test School.</span></div></li>
+      <li data-from="13:00" data-to="13:45"><time>13:00</time><div><b>Lunch, while Claude fixes round 1</b><span>The owner tells Claude: "read the Test Desk reports". Fixes for "Stops work" and "Big problem" go live while you eat.</span></div></li>
+      <li data-from="13:45" data-to="15:30"><time>13:45</time><div><b>Round 2: phone and "break it"</b><span>Do your role again on the phone, then the "break it" list below. The Parent checks Parent Link on the phone all afternoon.</span></div></li>
+      <li data-from="15:30" data-to="16:30"><time>15:30</time><div><b>Money and marks check</b><span>Accountant and Principal match today's fee totals with a calculator; teachers check 5 students' percent and grade by hand. Any difference is a "Stops work" report.</span></div></li>
+      <li data-from="16:30" data-to="17:15"><time>16:30</time><div><b>Claude fixes round 2</b><span>The owner tells Claude "read the Test Desk reports" again. Meanwhile everyone writes UI and UX ideas as "Idea" reports.</span></div></li>
+      <li data-from="17:15" data-to="18:15"><time>17:15</time><div><b>Re-check and close the day</b><span>In All reports, filter "Fixed, please re-check". Try each again and mark "Works now", or set it back to "New". The day is done when no "Stops work" report is open.</span></div></li>
+    </ol>
+  </div>
 
   <ol class="steps">
     <li><div><b>Open School OS with your own login</b><span>On your laptop open the site below and sign in with the login the owner gave you. On your phone, open the same address in Chrome. Never use someone else's login.</span>
       <div class="copy" style="margin-top:8px"><code id="site">https://school-os-beta.vercel.app</code><button class="btn small ghost" type="button" data-copy="site">Copy</button></div></div></li>
-    <li><div><b>Do your role's jobs from the table below</b><span>Work the way a real school person would. Use real-looking Indian names and phone numbers. Use the Test School only.</span></div></li>
+    <li><div><b>Do your role's jobs from the table below</b><span>Your list is in "My tasks" above. Work the way a real school person would. Use real-looking Indian names and phone numbers. Use the Test School only.</span></div></li>
     <li><div><b>Something wrong? Report it the same minute</b><span>Take a screenshot (laptop: <span class="kbd">Win + Shift + S</span>; phone: power + volume down), open <b>Report</b>, fill 4 short boxes, add the picture, press Send. Two minutes.</span></div></li>
     <li><div><b>Stuck? Ask Claude</b><span>Example: "How do I remove a student who left?" You get step-by-step help. If the answer does not match the screen, that is a problem too: report it.</span></div></li>
-    <li><div><b>Next morning, re-check what was fixed</b><span>In <b>All reports</b>, filter "Fixed, please re-check". Try it again, then mark it "Works now" or "Still wrong".</span></div></li>
+    <li><div><b>Re-check what was fixed (after lunch and at 17:15)</b><span>In <b>All reports</b>, filter "Fixed, please re-check". Try it again, then mark it "Works now", or set it back to "New" if it is still wrong.</span></div></li>
   </ol>
 
   <div class="card">
@@ -150,23 +202,7 @@ textarea{min-height:88px;resize:vertical}
         <tr><td>10</td><td>Parent</td><td>Parent Link on the phone: fees, receipts, attendance, homework, report card</td><td>Phone only</td></tr>
       </tbody>
     </table></div>
-    <p class="note info">Fewer than 10 people on a day? One person can take two roles, but sign out fully before switching, or use a second Chrome profile.</p>
-  </div>
-
-  <div class="card">
-    <h3>The 7 test days (2 to 3 hours each)</h3>
-    <div class="tbl"><table>
-      <thead><tr><th>Day</th><th>Goal</th><th>Who works</th><th>Good looks like</th></tr></thead>
-      <tbody>
-        <tr><td>1</td><td>Set up the school: year, classes, sections, subjects, fee heads, staff logins</td><td>Admin, Principal, HR</td><td>Everyone can sign in and sees only their own menu</td></tr>
-        <tr><td>2</td><td>Admissions and students: 10 enquiries, 6 admissions, parents</td><td>Receptionist, Admin</td><td>Clear messages for wrong data, no duplicates</td></tr>
-        <tr><td>3</td><td>Money day: collect cash, UPI, part payment, concession, refund, cancel a receipt</td><td>Accountant, Principal</td><td>Totals match your calculator. Nothing disappears, only cancelled with a reason</td></tr>
-        <tr><td>4</td><td>A normal week: attendance 5 days, homework, notices to parents</td><td>Teachers</td><td>Counts match what you entered; a teacher cannot touch another class</td></tr>
-        <tr><td>5</td><td>Exams: datesheet, marks, results, report cards</td><td>Teachers, Principal</td><td>Check percent, grade and rank of 5 students by hand</td></tr>
-        <tr><td>6</td><td>Staff, leave, salary, expenses, Day Book</td><td>HR, Accountant, Principal</td><td>Salary matches your hand calculation</td></tr>
-        <tr><td>7</td><td>Library, store, buses, hostel, events, then "break it"</td><td>Everyone</td><td>No role sees what it should not; no error screens</td></tr>
-      </tbody>
-    </table></div>
+    <p class="note info">Fewer than 10 people today? One person can take two roles, but sign out fully before switching, or use a second Chrome profile.</p>
   </div>
 
   <div class="grid2">
@@ -360,11 +396,13 @@ var db=null,user=null,assets=null,sample=null,myId=null,reports=[],names={};
 var cl=window.claude;
 function use(n){return cl&&cl.use?cl.use(n).catch(function(){return null}):Promise.resolve(null)}
 
-use("user").then(function(u){user=u;if(!u)return;u.id().then(function(id){myId=id;render()});u.me().then(function(me){if(me&&me.name)$("who").textContent="Signed in as "+me.name})});
+use("user").then(function(u){user=u;if(!u)return;u.id().then(function(id){myId=id;render();if(team[id]&&!myRole){myRole=team[id].role||"";myDone=(team[id].done||[]).slice();drawTasks()}else if(myRole)saveTasks();drawTeam()});u.me().then(function(me){if(me&&me.name)$("who").textContent="Signed in as "+me.name})});
 use("assets").then(function(a){assets=a});
 use("sample").then(function(s){sample=s;if(!s){$("ask-off").hidden=false}});
 var dbTimer=setTimeout(function(){if(!db){$("list").innerHTML="";$("list").appendChild(el("div","note warn","Reports can't load here. Open this page in claude.ai while signed in."));$("rep-off").hidden=false}},10000);
 use("db").then(function(d){db=d;if(!d){clearTimeout(dbTimer);$("rep-off").hidden=false;$("list").innerHTML="";$("list").appendChild(el("div","note warn","Reports can't load here. Open this page in claude.ai while signed in."));return}
+  d.collection("progress").onSnapshot(function(snap){team={};snap.docs.forEach(function(x){team[x.id]=x.data()||{}});
+    if(myId&&team[myId]&&!myRole){myRole=team[myId].role||"";myDone=(team[myId].done||[]).slice();drawTasks()}drawTeam()},function(){});
   d.collection("reports").orderBy("at","desc").onSnapshot(function(snap){clearTimeout(dbTimer);reports=snap.docs.map(function(x){var v=x.data()||{};return Object.assign({id:x.id},v)});render()},
   function(err){clearTimeout(dbTimer);$("list").innerHTML="";$("list").appendChild(el("div","note bad","Reports could not load: "+(err&&err.message||"unknown problem")+". Refresh the page."))})});
 
@@ -399,7 +437,7 @@ function nextNum(){var m=0;reports.forEach(function(r){if(typeof r.num==="number
 /* ---------- reports list ---------- */
 ["f-status","f-module","f-sev","f-mine"].forEach(function(id){$(id).addEventListener("change",render)});
 function render(){
-  var list=$("list");if(!db)return;
+  var list=$("list");if(!db)return;drawTeam();
   var open=reports.filter(function(r){return r.status==="new"||r.status==="fixing"});
   var st=$("stats");st.innerHTML="";
   [["Reports",reports.length],["Still open",open.length],["Stops work, open",open.filter(function(r){return r.sev==="blocker"}).length],["To re-check",reports.filter(function(r){return r.status==="recheck"}).length],["Works now",reports.filter(function(r){return r.status==="ok"}).length]]
@@ -439,6 +477,57 @@ function card(r){
     c.appendChild(t);c.appendChild(sv2);t.focus()});
   row.appendChild(nb);c.appendChild(row);return c}
 function alertIn(c,t){var n=el("div","note bad",t);c.appendChild(n);setTimeout(function(){n.remove()},6000)}
+
+/* ---------- My tasks + team progress ---------- */
+var TASKS={
+ "Principal":["Sign in on the laptop and the phone; the Dashboard shows today's numbers","Open Approvals: approve one request, reject one with a reason","Open a student's profile and a staff profile: is everything clear?","Reports & Analytics: open 3 reports and download one to Excel","Check today's fee totals with the Accountant","Open a report card PDF: names, marks, signature lines, date","Send one notice to all parents","Phone: approve a request on the phone","Look at every menu once: is any word unclear?","Write 2 UI/UX ideas as Idea reports"],
+ "School Admin":["Settings > School Profile: check name, logo, address, phone","Academic Management: check the year, classes, sections, subjects","Add one new section and one subject","Settings > Users & Permissions: invite a test user with a role","Admission Management: add 2 enquiries, convert one to an application, admit it","Student Management: add a student by hand with a parent","Change a student's section, then change another student's status to Left","Import 5 students from Excel (use the import template)","Search a student by name, admission number and phone","Write 2 UI/UX ideas as Idea reports"],
+ "Accountant":["Fee Management > Collect Fee: collect full fees in cash for one student","Collect part of a fee by UPI for another student","Print or send the receipt; check the amount in words","Give a concession; try one bigger than the fee (it must be refused)","Cancel one wrong payment with a reason","Refund a payment","Defaulters: send a reminder to 2 parents","Finance: add an expense and check the Day Book","Salary: generate this month for 2 staff and open a slip","Match today's collection total with your calculator"],
+ "Class Teacher":["Phone: Take Attendance for your section; mark 2 absent and 1 late","Correct a mistake in today's attendance","Give homework to your class with a due date","Marks Entry: enter marks for one subject, mark one student absent","Open a student in your class: profile and attendance","Send a message to your class's parents","Apply for your own leave","Try to open another class's attendance (it must be refused)","Do all of this once more on the laptop","Write 2 UI/UX ideas as Idea reports"],
+ "Subject Teacher":["Phone: open My Time Table","Take attendance for a period you teach","Give homework for your subject","Marks Entry for your subject only","Check submissions and mark one homework as checked","Try to open a class you don't teach (it must be refused)","Try to open Fee Management (it must be refused)","Apply for leave for tomorrow","Do it all again on the laptop","Write 2 UI/UX ideas as Idea reports"],
+ "HR":["Staff & HR: add a new teacher with a login (3 steps)","Add a driver with no login","Upload a document with an expiry date","Apply for leave for a staff member; approve it as the right person","Mark staff attendance for today","Print one ID card","Change a staff member's status to resigned","Search staff by name and by phone","Export the staff list to Excel","Write 2 UI/UX ideas as Idea reports"],
+ "Receptionist":["Front Office: add a visitor and print the gate pass","Close the visit when they leave","Pickup: check who may collect a student","Add an enquiry from a walk-in parent","Book an appointment with the Principal","Log a postal item","Phone: add a visitor on the phone","Search a student by name","Look at every screen you have: is any word unclear?","Write 2 UI/UX ideas as Idea reports"],
+ "Librarian / Store":["Library: add 2 books (one by import)","Issue a book to a student, then return it late (fine)","Collect or waive the fine","Members: find a student's borrowed books","Print book labels","Inventory: add an item with opening stock","Issue stock to a department","Make a purchase order and receive it","Add an asset and move it to a room","Write 2 UI/UX ideas as Idea reports"],
+ "Transport / Hostel":["Transport: add a vehicle with its papers","Add a route with 3 stops","Put 3 students on the bus with their stops","Buses today: start and end a trip on the phone","Hostel: add a room with beds","Give a student a bed","Phone: take hostel roll call","Record an outing and the return","Add a mess menu","Write 2 UI/UX ideas as Idea reports"],
+ "Parent":["Phone: open Parent Link","See your child's attendance: does it match the teacher's?","See fees due and past receipts; download one receipt","Pay a fee online in test mode (test card only)","See today's homework and notices","See exam results and the report card","Send a query to the school","Change the language to Telugu and back","Try it on a second phone or browser","Write 2 UI/UX ideas as Idea reports"]
+};
+var tRole=$("t-role"),myDone=[],myRole="",team={};
+Object.keys(TASKS).forEach(function(r){tRole.appendChild(new Option(r,r))});
+try{var svd=JSON.parse(localStorage.getItem("td-tasks")||"null");if(svd){myRole=svd.role||"";myDone=svd.done||[]}}catch(e){}
+function drawTasks(){
+  tRole.value=myRole;$("t-body").hidden=!myRole;if(!myRole)return;
+  var list=TASKS[myRole]||[],box=$("t-list");box.innerHTML="";
+  list.forEach(function(t,i){var on=myDone.indexOf(i)>=0;var lab=el("label","task"+(on?" done":""));lab.htmlFor="tk-"+i;
+    var cb=el("input");cb.type="checkbox";cb.id="tk-"+i;cb.checked=on;cb.addEventListener("change",function(){if(cb.checked){if(myDone.indexOf(i)<0)myDone.push(i)}else myDone=myDone.filter(function(x){return x!==i});saveTasks();drawTasks()});
+    lab.appendChild(cb);lab.appendChild(el("span",null,t));box.appendChild(lab)});
+  var n=myDone.filter(function(i){return i<list.length}).length,pc=list.length?Math.round(n*100/list.length):0;
+  $("t-bar").style.width=pc+"%";var all=n===list.length&&n>0;
+  $("t-count").textContent=all?"All "+n+" tasks done. Great work! Now try the break-it list.":n+" of "+list.length+" tasks done";
+  $("t-count").className=all?"cheer":"muted";
+}
+tRole.addEventListener("change",function(){myRole=tRole.value;myDone=[];saveTasks();drawTasks()});
+var saveT=null;
+function saveTasks(){try{localStorage.setItem("td-tasks",JSON.stringify({role:myRole,done:myDone}))}catch(e){}
+  clearTimeout(saveT);saveT=setTimeout(function(){if(!db||!myId){$("t-save").textContent="Your ticks are kept on this device.";return}
+    db.doc("progress/"+myId).set({role:myRole,done:myDone.slice(),total:(TASKS[myRole]||[]).length,at:Date.now()}).then(function(){$("t-save").textContent="Saved. The team sees your progress."},function(){$("t-save").textContent="Your ticks could not be shared; they are kept on this device."})},600)}
+function drawTeam(){
+  var ids=Object.keys(team).filter(function(k){return team[k].role}),box=$("team");box.innerHTML="";
+  if(!ids.length){$("team-bar").style.width="0%";$("team-line").textContent="Nobody has started yet. Pick your role above to begin.";return}
+  var done=0,total=0;
+  var frac=function(p){return (p.done||[]).length/(p.total||10)};
+  ids.sort(function(a,b){return frac(team[b])-frac(team[a])});
+  ids.forEach(function(k){var p=team[k],t=p.total||(TASKS[p.role]||[]).length||10,d=Math.min((p.done||[]).length,t);done+=d;total+=t;
+    var pc=Math.round(d*100/t),row=el("div","mate"),left=el("div");
+    left.appendChild(el("b",null,(names[k]||(k===myId?"You":"Someone"))+(k===myId?" (you)":"")));left.appendChild(el("em",null," · "+p.role));
+    row.appendChild(left);row.appendChild(el("span","pc",pc+"%"));
+    var bar=el("div","prog"),i=el("i");i.style.width=pc+"%";bar.appendChild(i);row.appendChild(bar);box.appendChild(row)});
+  var tp=total?Math.round(done*100/total):0;$("team-bar").style.width=tp+"%";
+  $("team-line").textContent=ids.length+" people testing · "+done+" of "+total+" tasks done ("+tp+"%) · "+reports.length+" reports sent";
+  if(user){user.profiles(ids).then(function(ps){var ch=false;ids.forEach(function(k){var n=ps&&ps[k]&&ps[k].name||"";if(n&&names[k]!==n){names[k]=n;ch=true}});if(ch)drawTeam()}).catch(function(){})}
+}
+function markNow(){var d=new Date(),hm=("0"+d.getHours()).slice(-2)+":"+("0"+d.getMinutes()).slice(-2);
+  document.querySelectorAll("#timeline li").forEach(function(li){li.classList.toggle("now",hm>=li.dataset.from&&hm<li.dataset.to)})}
+markNow();setInterval(markNow,60000);drawTasks();
 
 /* ---------- Ask Claude ---------- */
 var GUIDE=[

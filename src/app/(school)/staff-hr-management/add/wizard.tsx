@@ -276,6 +276,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
             <div>
               <p className="mb-1 font-medium"><Words k="Roles" /> <span className="text-danger" aria-hidden="true">*</span></p>
               <p className="mb-3 text-sm text-ink-2"><Words k="Pick one or more. What each role can open is shown in plain words." /></p>
+              <p className="mb-3 text-sm text-ink-2"><Words k="No role with the post's own name (for example Academic Head or Vice Principal)? Pick the closest role, then change single modules under Adjust permissions." /></p>
               {errors.roleKeys && <p className="mb-2 text-sm text-danger" role="alert">{errors.roleKeys}</p>}
               <ul className="grid gap-2 sm:grid-cols-2">
                 {data.roles.map((r) => (

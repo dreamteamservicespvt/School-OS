@@ -9047,6 +9047,7 @@ export const te: Catalogue = {
   ". Check and complete the details.": ". వివరాలు తనిఖీ చేసి పూర్తి చేయండి.",
   "Step 2: What they can open": "దశ 2: వారు ఏమి తెరవగలరు",
   "Pick one or more. What each role can open is shown in plain words.": "ఒకటి లేదా ఎక్కువ ఎంచుకోండి. ప్రతి పాత్ర ఏమి తెరవగలదో సరళమైన మాటల్లో చూపబడింది.",
+  "No role with the post's own name (for example Academic Head or Vice Principal)? Pick the closest role, then change single modules under Adjust permissions.": "పదవి పేరుతో పాత్ర లేదా (ఉదాహరణకు అకడమిక్ హెడ్ లేదా వైస్ ప్రిన్సిపాల్)? దగ్గరగా ఉండే పాత్రను ఎంచుకోండి, తర్వాత అనుమతులు మార్చండిలో ఒక్కో మాడ్యూల్ మార్చండి.",
   "module": "మాడ్యూల్",
   "Start from the roles; change a module only when this one person needs something different. Changes show on their profile.": "పాత్రల నుండి ప్రారంభించండి; ఈ ఒక్క వ్యక్తికి వేరేది అవసరమైనప్పుడు మాత్రమే మాడ్యూల్ మార్చండి. మార్పులు వారి ప్రొఫైల్‌లో కనిపిస్తాయి.",
   "extra permission": "అదనపు అనుమతి",

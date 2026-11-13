@@ -1,0 +1,71 @@
+<title>School OS Night Test</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* Layout: one narrow column; clock strip, main bar, then one card per piece of work */
+:root{--bg:#f6f7f9;--fg:#15202b;--mut:#5b6672;--card:#fff;--line:#dde2e8;--bar:#e6eaef;--acc:#1f6f5c;--run:#9a5c00;--done:#1f7a3d;--wait:#5f6873;--warn:#a32d2d;--warnbg:#fdecec}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#10161c;--fg:#e8edf2;--mut:#9aa6b2;--card:#18212a;--line:#2a3541;--bar:#2a3541;--acc:#4fc3a1;--run:#f0b04a;--done:#5bd28a;--wait:#9aa6b2;--warn:#ff9b9b;--warnbg:#3a1d1d;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#10161c;--fg:#e8edf2;--mut:#9aa6b2;--card:#18212a;--line:#2a3541;--bar:#2a3541;--acc:#4fc3a1;--run:#f0b04a;--done:#5bd28a;--wait:#9aa6b2;--warn:#ff9b9b;--warnbg:#3a1d1d;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,sans-serif;padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+main{max-width:760px;margin:0 auto;display:grid;gap:14px}
+h1{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0}
+.now{font-size:19px;font-weight:600;text-wrap:balance}
+.clock{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:10px 12px;min-width:0}
+.box b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;color:var(--mut);font-weight:600}
+.box span{font-size:18px;font-weight:600;font-variant-numeric:tabular-nums}
+.box small{display:block;color:var(--mut);font-size:13px}
+.stuck{background:var(--warnbg);color:var(--warn);border-radius:8px;padding:8px 12px;font-weight:600}
+.bar{height:14px;background:var(--bar);border-radius:7px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}
+.big .bar{height:22px}
+.row{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:12px;display:grid;gap:6px;min-width:0}
+.top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}.name{font-weight:600}
+.tag{font-size:12px;font-weight:600}.Done{color:var(--done)}.Running{color:var(--run)}.Checking{color:var(--run)}.Waiting{color:var(--wait)}
+.row p{margin:0;color:var(--mut);font-size:14px}.est{font-size:13px;color:var(--mut)}.sm{color:var(--mut);font-size:14px;margin:4px 0 0}
+</style>
+<main>
+<h1>School OS: night 2 self-test (13-14 Nov)</h1>
+<div class="now" id="now"></div>
+<div class="clock">
+<div class="box"><b>Time spent</b><span id="spent"></span></div>
+<div class="box"><b>Ready about</b><span id="eta"></span><small id="left"></small></div>
+<div class="box"><b>Last update</b><span id="ago"></span><small id="upd"></small></div>
+</div>
+<div class="stuck" id="stuck" hidden>No update for over 15 minutes: the work may be stuck or waiting. Check the chat.</div>
+<div class="big"><div class="bar"><i id="mainbar"></i></div><p class="sm" id="mainline"></p></div>
+<div id="rows" style="display:grid;gap:10px"></div>
+<p class="sm"><b>Waiting on you:</b> <span id="wait"></span></p>
+</main>
+<script>
+var S={
+start:"2026-11-13T13:40:00Z",
+eta:"2026-11-13T23:30:00Z",
+updated:"2026-11-13T13:45:00Z",
+now:"Starting the database and rebuilding the app from the newest code",
+main:3,mainline:"Night plan: 7 steps. 0 of 7 done (the % is an estimate of the work left)",
+rows:[
+["Start the database and rebuild the app (newest code)",20,"Running","Est. 20 min","Database is recovering after the laptop restart"],
+["Read the testers' questions from the Test Desk",100,"Done","took 5 min","0 reports, 10 questions. Postal search and Principal appointments were already fixed today; Academic Head role question left"],
+["Layman test round 3: office desk (Receptionist, School Admin, admissions, students, classes)",0,"Waiting","Est. 90 min","A computer tester plays each person and writes every problem down"],
+["Layman test round 3: money (Accountant, fees, refunds, concessions, finance, salaries)",0,"Waiting","Est. 90 min","Same, for the money screens the testers asked about today"],
+["Layman test round 3: teaching (Teacher, Class Teacher, Principal, Parent, Library, Store, HR)",0,"Waiting","Est. 90 min","Same, for the teaching and staff screens"],
+["Fix every problem found",0,"Waiting","Est. 3 h","Count shows once the testers finish"],
+["Full tests, rebuild, browser recheck, put live",0,"Waiting","Est. 90 min","All automatic tests, then each fix rechecked in a real browser, then deploy"]
+],
+wait:"Nothing. Sleep well; everything runs on its own tonight."
+};
+function el(i){return document.getElementById(i)}
+function clk(d){return d.toLocaleTimeString("en-IN",{hour:"numeric",minute:"2-digit",timeZone:"Asia/Kolkata"})}
+function dur(m){m=Math.max(0,Math.round(m));var h=Math.floor(m/60);return (h?h+" h ":"")+(m%60)+" min"}
+function tick(){var n=Date.now(),st=new Date(S.start),e=new Date(S.eta),u=new Date(S.updated);
+el("spent").textContent=dur((n-st)/60000);
+el("eta").textContent=clk(e)+" IST";
+var l=(e-n)/60000;el("left").textContent=l>0?"about "+dur(l)+" left (estimate)":"past the estimate";
+var a=(n-u)/60000;el("ago").textContent=dur(a)+" ago";el("upd").textContent="at "+clk(u)+" IST";
+el("stuck").hidden=!(a>15&&S.main<100);}
+el("now").textContent="Now doing: "+S.now;
+el("mainbar").style.width=S.main+"%";
+el("mainline").textContent=S.mainline;
+S.rows.forEach(function(r){var d=document.createElement("div");d.className="row";d.innerHTML='<div class="top"><span class="name"></span><span class="tag '+r[2]+'">'+r[2]+'</span></div><div class="bar"><i style="width:'+r[1]+'%"></i></div><p></p><span class="est"></span>';d.querySelector(".name").textContent=r[0];d.querySelector("p").textContent=r[4];d.querySelector(".est").textContent=r[3];el("rows").appendChild(d);});
+el("wait").textContent=S.wait;
+tick();setInterval(tick,30000);
+</script>

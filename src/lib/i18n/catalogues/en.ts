@@ -3993,6 +3993,7 @@ export const EN = [
   ". Check and complete the details.",
   "Step 2: What they can open",
   "Pick one or more. What each role can open is shown in plain words.",
+  "No role with the post's own name (for example Academic Head or Vice Principal)? Pick the closest role, then change single modules under Adjust permissions.",
   "module",
   "Start from the roles; change a module only when this one person needs something different. Changes show on their profile.",
   "extra permission",

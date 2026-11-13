@@ -9047,6 +9047,7 @@ export const hi: Catalogue = {
   ". Check and complete the details.": "। जानकारी जाँचें और पूरी करें।",
   "Step 2: What they can open": "चरण 2: वे क्या खोल सकते हैं",
   "Pick one or more. What each role can open is shown in plain words.": "एक या ज़्यादा चुनें। हर भूमिका क्या खोल सकती है, सरल शब्दों में दिखाया गया है।",
+  "No role with the post's own name (for example Academic Head or Vice Principal)? Pick the closest role, then change single modules under Adjust permissions.": "पद के नाम वाली कोई भूमिका नहीं (जैसे अकादमिक प्रमुख या उप-प्रधानाचार्य)? सबसे नज़दीकी भूमिका चुनें, फिर अनुमतियाँ बदलें में एक-एक मॉड्यूल बदलें।",
   "module": "मॉड्यूल",
   "Start from the roles; change a module only when this one person needs something different. Changes show on their profile.": "भूमिकाओं से शुरू करें; मॉड्यूल तभी बदलें जब इस एक व्यक्ति को कुछ अलग चाहिए। बदलाव उनकी प्रोफ़ाइल पर दिखते हैं।",
   "extra permission": "अतिरिक्त अनुमति",

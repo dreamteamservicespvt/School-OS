@@ -28,6 +28,12 @@ Last updated: 2026-11-14 12:00 IST (attendance correction status + subject-teach
   db collection "reports", doubts asked in "doubts": read them with ArtifactData list to fix problems.
 
 ## Next steps
+00. 2026-11-14 17:20 NOT DEPLOYED (main push was blocked by the permission check; needs the owner's OK):
+   cb01d10c Employment edit saves in one-campus schools (live said "Required") + default posts for every role;
+   4dd5f0a0 Structures list shows a later saved version under today's gross. After deploy, on live (Browser 4 =
+   Saiveni, School Admin): Staff List > Change post: Saiveni -> School Administrator, anjali -> Principal,
+   harikaa -> Receptionist (posts + 4 staff leave types already added on live 14 Nov). KUSUMA: Rs 35,000 from
+   1 Dec (v3) already saved; November is approved at Rs 52,500 (overpaid Rs 17,500: owner/Accountant decide).
 0. 2026-11-14 DEPLOY 5 live (main acbbab5c, Vercel ~5 min, full suite 2,759 pass in 4 workers): 196afc97 "Me > My leave / My salary slips" menu for
    own-record staff; 453b5544 DA/HRA switch per structure, removed salary item leaves structures from first open
    month, Add Staff no default post + Staff List "posts may be wrong" box. After deploy: HR fixes posts with

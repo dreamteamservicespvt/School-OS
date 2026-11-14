@@ -74,6 +74,9 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
     const vs = versions.get(id) ?? [];
     return vs.find((v) => v.effectiveFrom <= p.today) ?? vs[vs.length - 1] ?? null;
   };
+  // A saved revision that starts later (the form starts next month): shown under today's amount, so it never looks lost
+  // (owner live test 14 Nov: the Accountant's ₹35,000 from December looked "not updated" behind November's ₹52,500).
+  const nextOf = (id: string) => { const vs = versions.get(id) ?? []; return vs[0] && vs[0].effectiveFrom > p.today ? vs[0] : null; };
   const figures = (st: NonNullable<ReturnType<typeof currentOf>>) => workOutPay({
     lines: fromStored(st.lines), pfApplies: st.pfApplies, esiApplies: st.esiApplies, tdsPaise: st.tdsPaise, daysInMonth: 30, notEmployedDays: 0, lopDays: 0,
     statutory: asStatutory(data.stat), ptSlabs: data.slabs, month: thisMonth.getUTCMonth() + 1,
@@ -147,13 +150,13 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
               columns={[
                 ...(p.change ? [{ key: "t", label: "", className: "w-10", render: (s: (typeof rows)[number]) => (versions.has(s.id) ? <RowTick group="str" id={s.id} label={`Tick ${s.fullName}`} /> : null) }] : []),
                 { key: "n", label: "Staff member", render: (s) => <div className="flex items-center gap-3"><Avatar name={s.fullName} size={34} /><div><p className="font-semibold leading-tight">{s.fullName}</p><p className="text-[12px] text-ink3">{s.designation}</p></div></div> },
-                { key: "g", label: "Gross", align: "right", render: (s) => { const c = currentOf(s.id); return c ? formatRupees(c.grossPaise) : "—"; } },
+                { key: "g", label: "Gross", align: "right", render: (s) => { const c = currentOf(s.id); const n = nextOf(s.id); return c ? <>{formatRupees(c.grossPaise)}{n && n.id !== c.id && <span className="block text-[12px] text-ink3 tnum">{formatRupees(n.grossPaise)} <Words k="from" /> {formatDate(n.effectiveFrom)}</span>}</> : "—"; } },
                 { key: "d", label: "Deductions", align: "right", render: (s) => { const c = currentOf(s.id); return c ? formatRupees(figures(c).deductions) : "—"; } },
                 { key: "net", label: "Net", align: "right", render: (s) => { const c = currentOf(s.id); return c ? <b className="font-semibold">{formatRupees(figures(c).net)}</b> : "—"; } },
                 { key: "f", label: "From", nowrap: true, render: (s) => { const c = currentOf(s.id); return c ? formatDate(c.effectiveFrom) : <Pill tone="warn"><Words k="No structure" /></Pill>; } },
                 { key: "v", label: "Version", render: (s) => { const c = currentOf(s.id); return c ? <Pill>v{c.version}</Pill> : null; } },
               ]}
-              phone={(s) => { const c = currentOf(s.id); return { avatar: s.fullName, title: s.fullName, sub: c ? `${s.designation} · net ${formatRupees(figures(c).net)}` : "No salary structure", pills: c ? undefined : <Pill tone="warn" className="!h-[22px] !text-[11.5px]"><Words k="No structure" /></Pill> }; }} />
+              phone={(s) => { const c = currentOf(s.id); return { avatar: s.fullName, title: s.fullName, sub: c ? `${s.designation} · net ${formatRupees(figures(c).net)}${nextOf(s.id) && nextOf(s.id)!.id !== c.id ? ` · ${formatRupees(nextOf(s.id)!.grossPaise)} gross from ${formatDate(nextOf(s.id)!.effectiveFrom)}` : ""}` : "No salary structure", pills: c ? undefined : <Pill tone="warn" className="!h-[22px] !text-[11.5px]"><Words k="No structure" /></Pill> }; }} />
             {p.change && rows.some((s) => versions.has(s.id)) && <div className="hidden lg:flex items-center gap-2 px-5 py-2 border-t border-line text-[12.5px] text-ink3"><AllTick group="str" /><Words k="Tick everyone shown" /></div>}
           </Card>
         </div>

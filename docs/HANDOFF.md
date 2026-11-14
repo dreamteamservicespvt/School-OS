@@ -1,8 +1,10 @@
 # School OS handoff
 
-Last updated: 2026-11-13 07:30 IST (leftovers + team brief after deploy 3).
+Last updated: 2026-11-14 12:00 IST (attendance correction status + subject-teacher register, commits d392d26b, 5fea18f2, not deployed).
 
 ## State
+
+- 2026-11-14: Take Attendance shows a correction's state (waiting/approved/not approved) and names parents already told the old mark, with a Send a correction message link (d392d26b). Subject teachers read the register only: no Take tab in once-a-day schools, no editing, no daily corrections; one rule `mayChangeSection`/`takesAttendance` in src/lib/attendance/access.ts (5fea18f2). Tests pass; not pushed or deployed; no screenshots yet.
 - ROUND 2 DONE (13-11-2026, 02:00 IST): all 69 layman problems (docs/qa/2026-11-12-layman-A..E.md) fixed. Commits
   d15f298c..1f8ccb61 on this branch. Full suite 315 files / 2,744 tests pass; tsc 0; eslint 0 errors (1 old warning
   tests/platform/pdf.test.ts). Browser recheck on the production build: 14 of 14 (qa/layman/r2-recheck.mjs + r2-recheck2.mjs):

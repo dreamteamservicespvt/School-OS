@@ -4,6 +4,7 @@ import { errorCsv } from "@/lib/importer";
 import { PermissionDeniedError } from "@/lib/permissions";
 import { PLACES } from "@/lib/imports/places";
 import { placeRefusal } from "@/lib/imports/place-access";
+import { batchCampusWhere } from "@/lib/move-in/service";
 import { STUDENT_IMPORT_KINDS, studentImportFor } from "@/lib/students/import-kinds";
 
 export const dynamic = "force-dynamic";
@@ -25,7 +26,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ batchId
   }
   const { batchId } = await params;
   if (!/^[0-9a-f-]{36}$/i.test(batchId)) return new Response("This import was not found.", { status: 404 });
-  const batch = await withSchool(current.ctx, (tx) => tx.importBatch.findUnique({ where: { id: batchId } }));
+  // One campus: another campus's import is not found (security review 2026-11-15).
+  const batch = await withSchool(current.ctx, async (tx) => tx.importBatch.findFirst({ where: { id: batchId, ...(await batchCampusWhere(tx, current.ctx)) } }));
   if (!batch || !STUDENT_IMPORT_KINDS.includes(batch.kind)) return new Response("This import was not found.", { status: 404 });
   const why = await placeRefusal(current, PLACES.students, batch.kind, "create");
   if (why) return new Response(why, { status: 403 });

@@ -12,7 +12,7 @@ import { writeAudit } from "../audit";
 import { importKind, importKinds, leftCounts, previewImport, type Decisions, type ImportKind, type RowChoice } from "../importer";
 import { startImport } from "../data-security/imports";
 import { currentYear } from "../academic/years";
-import { mainCampus } from "../campus";
+import { campusPeers, mainCampus } from "../campus";
 import { addClass, addSection } from "../academic/structure";
 import { ensureHrDefaults } from "../staff/settings";
 import { fileStore } from "../storage";
@@ -219,9 +219,26 @@ export async function addUpload(tx: Tx, ctx: SchoolContext, permissions: Permiss
   return made;
 }
 
-export async function getFile(tx: Tx, id: string) {
+/**
+ * A file being brought in, by id. With `ctx`, only one the person may open: someone kept to one
+ * campus opens the files uploaded by people of that campus only (security review 2026-11-15), the
+ * same words as a file that is not there; someone who works for the whole school opens every one.
+ */
+export async function getFile(tx: Tx, id: string, ctx?: SchoolContext) {
   if (!/^[0-9a-f-]{36}$/i.test(id)) return null;
-  return tx.moveInFile.findFirst({ where: { id, archivedAt: null } });
+  return tx.moveInFile.findFirst({ where: { id, archivedAt: null, ...(ctx ? await fileCampusWhere(tx, ctx) : {}) } });
+}
+
+/** The files a person may see and work on (see getFile): every file, or those of their campus's people. */
+export async function fileCampusWhere(tx: Tx, ctx: SchoolContext): Promise<Prisma.MoveInFileWhereInput> {
+  const peers = await campusPeers(tx, ctx);
+  return peers ? { createdById: { in: peers } } : {};
+}
+
+/** The imports a person may see (the rows each left out): every one, or those made by their campus's people. */
+export async function batchCampusWhere(tx: Tx, ctx: SchoolContext): Promise<Prisma.ImportBatchWhereInput> {
+  const peers = await campusPeers(tx, ctx);
+  return peers ? { importedById: { in: peers } } : {};
 }
 
 /**
@@ -294,7 +311,7 @@ function decisionsOf(choices: Choices, prepared: Prepared): Decisions {
 
 /** Everything a file's page shows: the sheet, the cleaned rows and, when asked, each row's check. */
 export async function workOn(tx: Tx, ctx: SchoolContext, id: string, opts: { check: boolean }) {
-  const file = await getFile(tx, id);
+  const file = await getFile(tx, id, ctx);
   if (!file) throw new MoveInProblem("This file was not found. It may have been removed.");
   const sheets = await readStored(tx, file.fileId);
   const sheet = sheets[file.sheetIndex] ?? sheets[0];
@@ -588,7 +605,7 @@ export async function addMissingOptions(tx: Tx, ctx: SchoolContext, id: string, 
 }
 
 export async function removeFile(tx: Tx, ctx: SchoolContext, id: string) {
-  const f = await getFile(tx, id);
+  const f = await getFile(tx, id, ctx);
   if (!f) throw new MoveInProblem("This file was not found.");
   if (f.status === "importing") throw new MoveInProblem("This file is being imported. Wait for it to finish.");
   await tx.moveInFile.update({ where: { id }, data: { archivedAt: new Date(), status: f.status === "imported" || fileBatchIds(f).length ? "imported" : "cancelled" } });

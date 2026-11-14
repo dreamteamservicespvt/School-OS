@@ -56,7 +56,8 @@ async function forFile(placeKey: unknown, id: string, need: "create" | "archive"
   const place = placeOf(placeKey);
   const current = await placeCurrent(place, need);
   if (!isId(id)) throw new MoveInProblem("This file was not found.");
-  const f = await withSchool(current.ctx, (tx) => getFile(tx, id));
+  // One campus: another campus's file is not found (security review 2026-11-15).
+  const f = await withSchool(current.ctx, (tx) => getFile(tx, id, current.ctx));
   if (!f) throw new MoveInProblem("This file was not found. It may have been removed.");
   const why = await placeRefusal(current, place, f.kind, need);
   if (why) throw new MoveInProblem(why);

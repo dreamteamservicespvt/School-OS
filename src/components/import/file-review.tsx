@@ -13,7 +13,7 @@ import { can } from "@/lib/permissions";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { PARTS } from "@/lib/move-in/match";
 import { sectionLabel } from "@/lib/move-in/lookups";
-import { kindInfo, kindModule, lastFailure, moveInKinds, MoveInProblem, photosOf, settleImports, workOn } from "@/lib/move-in/service";
+import { fileCampusWhere, kindInfo, kindModule, lastFailure, moveInKinds, MoveInProblem, photosOf, settleImports, workOn } from "@/lib/move-in/service";
 import { placeHolds, errorsHref, fileHref, HOME, problemsHref, wordsFor, type ImportPlace } from "@/lib/imports/places";
 import { placeRefusal } from "@/lib/imports/place-access";
 import { fileBatchIds } from "@/lib/move-in/batches";
@@ -49,7 +49,8 @@ export async function FileReview({ current, place, id, sp }: Props) {
   const result = await withSchool(current.ctx, async (tx) => {
     await settleImports(tx);
     try {
-      const f = /^[0-9a-f-]{36}$/i.test(id) ? await tx.moveInFile.findFirst({ where: { id, archivedAt: null }, select: { kind: true, batchIds: true, batchId: true } }) : null;
+      // One campus: only the files of people of that campus (security review 2026-11-15).
+      const f = /^[0-9a-f-]{36}$/i.test(id) ? await tx.moveInFile.findFirst({ where: { id, archivedAt: null, ...(await fileCampusWhere(tx, current.ctx)) }, select: { kind: true, batchIds: true, batchId: true } }) : null;
       // A module's page shows only the files it brings in.
       if (f && !placeHolds(place, f.kind)) throw new MoveInProblem("This file was not found. It may have been removed.");
       // Its rows only for people who may see those records in their own module (salary details, for example).

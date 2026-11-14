@@ -8,7 +8,7 @@ import type { Current } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { formatDateTime } from "@/lib/format";
 import { importKind, leftWords } from "@/lib/importer";
-import { kindInfo, settleImports } from "@/lib/move-in/service";
+import { batchCampusWhere, fileCampusWhere, kindInfo, settleImports } from "@/lib/move-in/service";
 import { shownFileName } from "@/lib/data-security/imports";
 import { errorsHref, fileHref, templateHref, wordsFor, type ImportPlace } from "@/lib/imports/places";
 import { placeRefusal } from "@/lib/imports/place-access";
@@ -37,9 +37,11 @@ export async function ImportHome({ current, place, initial, about, students }: {
   const keys = place.kinds ?? [];
   const { files, history } = await withSchool(current.ctx, async (tx) => {
     await settleImports(tx);
+    // One campus: only the files and imports of people of that campus (security review 2026-11-15).
+    const [mineFiles, mineBatches] = [await fileCampusWhere(tx, current.ctx), await batchCampusWhere(tx, current.ctx)];
     const [files, history] = await Promise.all([
-      tx.moveInFile.findMany({ where: { kind: { in: [...keys] }, status: { in: ["open", "importing"] }, archivedAt: null }, orderBy: { createdAt: "desc" }, take: 20 }),
-      tx.importBatch.findMany({ where: { kind: { in: [...keys] } }, orderBy: { createdAt: "desc" }, take: 15 }),
+      tx.moveInFile.findMany({ where: { kind: { in: [...keys] }, status: { in: ["open", "importing"] }, archivedAt: null, ...mineFiles }, orderBy: { createdAt: "desc" }, take: 20 }),
+      tx.importBatch.findMany({ where: { kind: { in: [...keys] }, ...mineBatches }, orderBy: { createdAt: "desc" }, take: 15 }),
     ]);
     return { files, history };
   });

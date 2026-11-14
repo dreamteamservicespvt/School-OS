@@ -5,7 +5,7 @@ import { withSchool } from "@/lib/db";
 import { can } from "@/lib/permissions";
 import { findModule } from "@/lib/modules";
 import { formatDate, formatDateTime } from "@/lib/format";
-import { canBring, canUndo, goLiveSummary, kindInfo, kindModule, moveInKinds, settleImports } from "@/lib/move-in/service";
+import { canBring, canUndo, fileCampusWhere, goLiveSummary, kindInfo, kindModule, moveInKinds, settleImports } from "@/lib/move-in/service";
 import { fileBatchIds } from "@/lib/move-in/batches";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -52,7 +52,8 @@ export default async function SwitchingPage({ searchParams }: Search) {
   const data = await withSchool(current.ctx, async (tx) => {
     await settleImports(tx);
     const [files, summary, counts] = await Promise.all([
-      tx.moveInFile.findMany({ where: { archivedAt: null }, orderBy: { createdAt: "desc" }, take: 100 }),
+      // One campus: only the files of people of that campus (security review 2026-11-15).
+      tx.moveInFile.findMany({ where: { archivedAt: null, ...(await fileCampusWhere(tx, current.ctx)) }, orderBy: { createdAt: "desc" }, take: 100 }),
       goLiveSummary(tx, current.ctx),
       Promise.all([
         tx.department.count({ where: { archivedAt: null } }),

@@ -229,7 +229,8 @@ describe("Front Office rules", () => {
     const input = { staffId: f.principalStaff.id, dayIso: "2026-10-16", startMin: 12 * 60, lengthMin: 15, visitorName: "Demo Visitor Rao", visitorPhone: "9848055130", purpose: "Fee query", confirm: true };
     const r = await withSchool(desk(), (tx) => bookAppointment(tx, desk(), input, { timeZone: TZ, now }));
     expect(r.sent).toBeNull();
-    expect(r.notSent).toMatch(/No WhatsApp or SMS is set up/);
+    // SMS is not used for now (owner, 15 Nov): the note names WhatsApp only.
+    expect(r.notSent).toMatch(/WhatsApp is n/);
     expect(r.appointment.confirmationSent).toBe(false);
   });
 

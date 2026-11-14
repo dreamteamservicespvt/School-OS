@@ -140,7 +140,13 @@ describe("the translator", () => {
     const { LOGIN_CEILING_WORDS } = await import("@/lib/staff/login-ceiling");
     for (const [lang, words] of [["hi", "सेटिंग्स"], ["te", "సెట్టింగ్‌లు"]] as const) {
       const t = makeT(lang);
-      for (const m of Object.values(LOGIN_CEILING_WORDS)) expect(screenMessage(t, m), `${lang}: ${m}`).toContain(words);
+      // Each refusal is really translated; those that point to Settings name it in the language (15 Nov: the
+      // "school you do not manage" refusal points to DREAM TEAM support instead).
+      for (const m of Object.values(LOGIN_CEILING_WORDS)) {
+        const said = screenMessage(t, m);
+        expect(said, `${lang}: ${m}`).not.toBe(m);
+        if (/Settings/.test(m)) expect(said, `${lang}: ${m}`).toContain(words);
+      }
     }
   });
 

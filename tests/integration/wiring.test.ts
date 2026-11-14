@@ -124,8 +124,8 @@ describe("Staff List, Send message", () => {
     expect(again.copies?.messageId).toBe(r.copies!.messageId);
   });
 
-  it("refuses SMS without a DLT template ID", async () => {
-    await expect(withSchool(s.ctx, (tx) => messageStaff(tx, s.ctx, { staffIds: [s.officeStaff.id], text: "Hello", channels: ["sms"], senderName: "P", key: "6f0c1d1e-0000-4000-8000-000000000002" }))).rejects.toThrow(/DLT template ID/);
+  it("refuses SMS while SMS is not used (owner, 15 Nov)", async () => {
+    await expect(withSchool(s.ctx, (tx) => messageStaff(tx, s.ctx, { staffIds: [s.officeStaff.id], text: "Hello", channels: ["sms"], senderName: "P", key: "6f0c1d1e-0000-4000-8000-000000000002" }))).rejects.toThrow(/SMS is (switched off|not used)/);
   });
 });
 

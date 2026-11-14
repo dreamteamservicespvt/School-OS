@@ -25,7 +25,7 @@ export function LogoForm({ logoHref }: { logoHref: string | null }) {
           <img src={shown} alt="School logo" className="size-full object-contain p-2" />
         ) : <span className="px-2 text-center text-sm text-ink-2"><Words k="No logo yet" /></span>}
       </div>
-      <form action={action} className="min-w-0 flex-1 space-y-3" onSubmit={() => setPreview(null)}>
+      <form action={action} className="min-w-[15rem] flex-1 space-y-3" onSubmit={() => setPreview(null)}>
         <FormMessage state={state} />
         <div>
           <label htmlFor="logo" className="mb-1 block text-sm font-medium"><Words k="Logo file" /></label>

@@ -324,6 +324,7 @@ export const EN = [
   // src/app/(school)/admission-management/page.tsx
   "New application",
   "Open Academic Management",
+  "Set up the year",
   "Add the academic year and its classes and sections in Academic Management. Admissions open for it straight away.",
   "Admission year",
   "this week",

@@ -3556,6 +3556,7 @@ export const hi: Catalogue = {
   ", then come back.": ", फिर वापस आएँ।",
   "The list uses the published final results, and the attendance and fees recorded so far, and updates by itself. Saved batches move students into": "सूची जारी अंतिम परिणामों, और अब तक दर्ज उपस्थिति और फ़ीस का इस्तेमाल करती है, और अपने आप अपडेट होती है। सहेजे गए बैच विद्यार्थियों को यहाँ ले जाते हैं:",
   "Open Academic Management": "शैक्षणिक प्रबंधन खोलें",
+  "Set up the year": "साल सेट करें",
   "Students can be split across sections in the next step": "अगले चरण में विद्यार्थियों को सेक्शनों में बाँटा जा सकता है",
   "in": "में",
   "· moving to": "· जा रहे हैं",

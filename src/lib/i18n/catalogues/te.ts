@@ -3556,6 +3556,7 @@ export const te: Catalogue = {
   ", then come back.": ", తర్వాత తిరిగి రండి.",
   "The list uses the published final results, and the attendance and fees recorded so far, and updates by itself. Saved batches move students into": "జాబితా ప్రచురించిన తుది ఫలితాలు, ఇప్పటివరకు నమోదైన హాజరు మరియు ఫీజులను వాడుతుంది, దానంతట అదే నవీకరించబడుతుంది. సేవ్ చేసిన బ్యాచ్‌లు విద్యార్థులను ఇక్కడికి తరలిస్తాయి:",
   "Open Academic Management": "అకడమిక్ నిర్వహణ తెరవండి",
+  "Set up the year": "సంవత్సరం సెట్ చేయండి",
   "Students can be split across sections in the next step": "తదుపరి దశలో విద్యార్థులను సెక్షన్లలో విభజించవచ్చు",
   "in": "లో",
   "· moving to": "· వెళ్తున్నది",

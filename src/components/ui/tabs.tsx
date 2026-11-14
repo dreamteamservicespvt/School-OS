@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useRef } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -20,6 +20,17 @@ export function Tabs({ tabs, label, className }: { tabs: Tab[]; label: string; c
   const t = useT();
   const pathname = usePathname();
   const row = useRef<HTMLUListElement>(null);
+  // Layman loop 15 Nov: on a phone, Academic Settings was the 8th tab and off screen, so the row showed other pages
+  // and not the one you were on. The row (never the page) slides so the current tab is in view.
+  useEffect(() => {
+    const ul = row.current;
+    const on = ul?.querySelector<HTMLElement>('[aria-current="page"]');
+    if (!ul || !on) return;
+    const left = on.offsetLeft - ul.offsetLeft;
+    if (left < ul.scrollLeft || left + on.offsetWidth > ul.scrollLeft + ul.clientWidth) {
+      ul.scrollLeft = Math.max(0, left - (ul.clientWidth - on.offsetWidth) / 2);
+    }
+  }, [pathname]);
   const slide = (dir: 1 | -1) => row.current?.scrollBy({ left: dir * Math.max(160, row.current.clientWidth * 0.6), behavior: "smooth" });
   const arrow = "absolute top-1/2 -translate-y-1/2 z-10 hidden size-8 place-items-center rounded-full border border-line bg-surface text-ink2 shadow-card hover:text-ink";
   return (

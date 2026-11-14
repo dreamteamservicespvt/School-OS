@@ -84,7 +84,7 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
     return (
       <div>
         <FeeHead pageName="Fee Structure" href={HREF} />
-        <Card><Empty icon={GraduationCap} title="Set up the academic year first" body="Fee structures are made for each class in an academic year. Add the year and classes in Academic Management." action={<Link href="/academic-management" className={buttonClass("secondary")}><Words k="Open Academic Management" /></Link>} /></Card>
+        <Card><Empty icon={GraduationCap} title="Set up the academic year first" body="Fee structures are made for each class in an academic year. Add the year and classes in Academic Management." action={<Link href="/academic-management/settings" className={buttonClass("primary")}><Words k="Set up the year" /></Link>} /></Card>
       </div>
     );
   }

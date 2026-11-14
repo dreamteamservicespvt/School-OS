@@ -75,8 +75,13 @@ export async function createYear(tx: Tx, ctx: SchoolContext, input: NewYearInput
   const removed = await tx.academicYear.findFirst({ where: { campusId: input.campusId, name, archivedAt: { not: null } } });
   if (removed) await tx.academicYear.update({ where: { id: removed.id }, data: { name: `${name} (removed ${removed.id.slice(0, 4)})` } });
 
+  // A campus's first year that has already started is active at once. Left Upcoming, every Dashboard number
+  // (attendance, fees) stays empty until someone finds "Open" in Academic Settings (live test school, 14 Nov).
+  const now = new Date();
+  const hasActive = await tx.academicYear.findFirst({ where: { campusId: input.campusId, archivedAt: null, status: "ACTIVE" }, select: { id: true } });
+  const startsActive = !hasActive && input.startDate <= now && input.endDate >= now;
   const year = await tx.academicYear.create({
-    data: { schoolId: ctx.schoolId, campusId: input.campusId, name, startDate: input.startDate, endDate: input.endDate, status: "UPCOMING", createdById: ctx.userId },
+    data: { schoolId: ctx.schoolId, campusId: input.campusId, name, startDate: input.startDate, endDate: input.endDate, status: startsActive ? "ACTIVE" : "UPCOMING", createdById: ctx.userId },
   });
 
   const copied = { classes: 0, sections: 0, allocations: 0, terms: 0 };
@@ -122,10 +127,12 @@ export async function createYear(tx: Tx, ctx: SchoolContext, input: NewYearInput
   }
 
   await writeAudit(tx, ctx, { action: "created", recordType: "Academic Year", recordId: year.id, after: { name, startDate: input.startDate.toISOString().slice(0, 10), endDate: input.endDate.toISOString().slice(0, 10), copiedFrom: input.copyFromYearId ?? null, ...copied } });
-  const message = input.copyFromYearId
+  if (startsActive) await writeAudit(tx, ctx, { action: "opened", recordType: "Academic Year", recordId: year.id, before: { status: "UPCOMING" }, after: { status: "ACTIVE", why: "First year of the campus, already started" } });
+  const message0 = input.copyFromYearId
     ? `Copied ${plural(copied.classes, "class", "classes")}, ${plural(copied.sections, "section")}, ${plural(copied.allocations, "allocation")} into ${name}.`
-    : `${name} created with ${plural(copied.terms, "term")}.`;
-  return { year, copied, message };
+    : `${name} created with ${plural(copied.terms, "term")}.`
+  const said = startsActive ? `${message0} It is the active year now.` : message0;
+  return { year, copied, message: said };
 }
 
 /** Changes a year's name or dates. Closed years cannot be changed here. */

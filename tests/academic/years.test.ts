@@ -90,3 +90,22 @@ describe("terms", () => {
     expect(ok.warning).toBe("01-10-2026 to 09-10-2026 is in no term.");
   });
 });
+
+// Live test school, 14 Nov: its only year stayed Upcoming, so every Dashboard number was empty.
+describe("a campus's first year", () => {
+  it("is active at once when it has already started, and Upcoming when it starts later", async () => {
+    const campusId = await s.run(async (tx) => (await tx.campus.create({ data: { schoolId: s.school.id, name: "First-year campus" } })).id);
+    const now = new Date();
+    const later = await s.run((tx) => createYear(tx, s.ctx, { campusId, name: "Later", startDate: new Date(now.getTime() + 30 * 86_400_000), endDate: new Date(now.getTime() + 300 * 86_400_000) }));
+    expect(later.year.status).toBe("UPCOMING");
+    const current = await s.run((tx) => createYear(tx, s.ctx, { campusId, name: "Current", startDate: new Date(now.getTime() - 60 * 86_400_000), endDate: new Date(now.getTime() + 20 * 86_400_000) }));
+    expect(current.year.status).toBe("ACTIVE");
+    const opened = await s.run((tx) => tx.auditLogEntry.findFirst({ where: { recordId: current.year.id, action: "opened" } }));
+    expect(opened).not.toBeNull();
+  });
+
+  it("stays Upcoming when the campus already has an active year", async () => {
+    const r = await s.run((tx) => createYear(tx, s.ctx, { campusId: s.campusId, name: "2040-41", startDate: d("2040-04-01"), endDate: d("2041-03-31") }));
+    expect(r.year.status).toBe("UPCOMING");
+  });
+});

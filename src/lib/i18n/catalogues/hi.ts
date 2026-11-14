@@ -2239,6 +2239,8 @@ export const hi: Catalogue = {
   "This is a standard status: how it counts and who it is for stay fixed.": "यह एक मानक स्थिति है: यह कैसे गिनी जाती है और किसके लिए है, यह तय रहता है।",
   "· standard": "· मानक",
   "Request a correction": "सुधार का अनुरोध करें",
+  "Send a correction message": "सुधार संदेश भेजें",
+  "A correction sends no new message by itself. Send these parents a short correction message.": "सुधार अपने आप कोई नया संदेश नहीं भेजता। इन अभिभावकों को एक छोटा सुधार संदेश भेजें।",
   "Staff not yet marked can still be marked. A change to a saved mark needs a correction request.": "जिन स्टाफ़ की उपस्थिति अभी नहीं ली गई, वह अब भी ली जा सकती है। सहेजे गए निशान को बदलने के लिए सुधार अनुरोध चाहिए।",
   "Mark all present": "सबको उपस्थित करें",
   "not marked": "दर्ज नहीं",

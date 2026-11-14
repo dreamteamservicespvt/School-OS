@@ -15,9 +15,9 @@ import "@/lib/attendance/handlers";
 import "@/lib/approval-handlers";
 import { approvalFacts } from "@/lib/approval-facts";
 import { addDevice, mapUser, receivePunches } from "@/lib/attendance/devices";
-import { saveClassAttendance, type Entry } from "@/lib/attendance/marks";
+import { loadSheet, saveClassAttendance, type Entry } from "@/lib/attendance/marks";
 import { absenceMessagesOn, afterAttendanceSaved, messageCountText } from "@/lib/attendance/alerts";
-import { requestCorrection } from "@/lib/attendance/corrections";
+import { parentsToTell, requestCorrection } from "@/lib/attendance/corrections";
 import { recordStudentLeave } from "@/lib/attendance/student-leave";
 import { saveStaffAttendance } from "@/lib/attendance/staff";
 import { setAttendanceFeature } from "@/lib/attendance/settings";
@@ -147,6 +147,24 @@ describe("corrections and approved leave run A4 too", () => {
     const jobs = (await jobsFor("2026-11-04")).filter((j) => j.idempotencyKey.endsWith(":flags"));
     expect(jobs).toHaveLength(1);
     expect(jobs[0].payload).toMatchObject({ sectionId: f.sectionA.id, messages: false });
+  });
+
+  it("after approval, Take Attendance shows the correction as approved and names the parent already told absent", async () => {
+    // 4 Nov: this student's parent was sent the absence message (Unexcused, above). Corrected to present.
+    const kid = f.studentsA[2];
+    const access = await accessFor(f, f.teacherA.id);
+    const ctx = as(f, f.teacherA.id);
+    const sheetNow = () => withSchool(ctx, (tx) => loadSheet(tx, ctx, access, { sectionId: f.sectionA.id, date: d("2026-11-04"), periodNo: 0, now: at("2026-11-06", "10:00"), timeZone: TZ }));
+    const c = await withSchool(ctx, (tx) => requestCorrection(tx, ctx, access, { forWhom: "student", sectionId: f.sectionA.id, date: d("2026-11-04"), periodNo: 0, changes: [{ id: kid.id, to: "present" }], reason: "Came late, was in class", today: d("2026-11-06") }));
+    expect((await sheetNow()).correction).toMatchObject({ id: c.id, status: "WAITING", tellParents: null });
+    await withSchool(as(f, f.principal.id), (tx) => decide(tx, as(f, f.principal.id), c.approvalId!, "approve", null));
+    const sheet = await sheetNow();
+    expect(sheet.correction).toMatchObject({ id: c.id, status: "APPROVED", by: expect.any(String) });
+    expect(sheet.students.find((s) => s.studentId === kid.id)?.statusKey).toBe("present");
+    expect(sheet.correction?.tellParents?.names).toEqual([kid.name]);
+    expect(sheet.correction?.tellParents?.href).toBe(`/communication?for=students&ids=${kid.id}`);
+    const fresh = await withSchool(sys(), (tx) => tx.attendanceCorrection.findUniqueOrThrow({ where: { id: c.id } }));
+    expect(await withSchool(ctx, (tx) => parentsToTell(tx, ctx, fresh))).toEqual([{ id: kid.id, name: kid.name, told: "absent" }]);
   });
 
   it("leave approved after the day was saved turns the saved mark into Leave, counted as leave and audited (TEACHING-02)", async () => {

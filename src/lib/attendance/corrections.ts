@@ -169,6 +169,35 @@ export async function applyCorrection(tx: Tx, ctx: SchoolContext, correctionId: 
   return changed.length;
 }
 
+/**
+ * Students of an approved correction whose parent was already sent an "absent"
+ * or "late" message for that day which the correction made wrong (05 §4: a
+ * correction sends no new message; the parent gets a correction message by
+ * hand from Communication). Empty for staff or a correction not approved.
+ */
+export async function parentsToTell(tx: Tx, ctx: SchoolContext, c: { status: string; forWhom: string; date: Date; entries: Prisma.JsonValue }) {
+  if (c.status !== "APPROVED" || c.forWhom !== "student") return [];
+  const entries = c.entries as CorrectionEntry[];
+  if (!entries.length) return [];
+  const [keys, alerts] = await Promise.all([
+    absentKeys(tx, ctx),
+    // campus: only the students of one correction the caller may already see, not a list.
+    tx.attendanceAlert.findMany({ where: { schoolId: ctx.schoolId, date: c.date, status: "sent", kind: { in: ["absence", "late"] }, studentId: { in: entries.map((e) => e.id) } }, select: { studentId: true, kind: true } }),
+  ]);
+  const out: { id: string; name: string; told: "absent" | "late" }[] = [];
+  for (const e of entries) {
+    const sent = alerts.filter((a) => a.studentId === e.id);
+    if (sent.some((a) => a.kind === "absence") && !keys.has(e.to)) out.push({ id: e.id, name: e.name, told: "absent" });
+    else if (sent.some((a) => a.kind === "late") && e.to !== "late") out.push({ id: e.id, name: e.name, told: "late" });
+  }
+  return out;
+}
+
+/** Link to Communication with these students chosen, to send their parents a correction message. */
+export function tellParentsHref(ids: string[]) {
+  return `/communication?for=students&ids=${ids.join(",")}`;
+}
+
 /** What happens when a correction is decided (listed in src/lib/approval-handlers.ts). */
 export async function onCorrectionDecision(tx: Tx, ctx: SchoolContext, approval: { id: string; recordId: string }, decision: Decision, note: string | null) {
   const c = await tx.attendanceCorrection.findFirst({ where: { id: approval.recordId, status: "WAITING" } });

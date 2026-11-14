@@ -6,7 +6,7 @@ import { canDecide } from "@/lib/approvals";
 import { attendancePage } from "@/lib/attendance/page";
 import { BASE, correctionAllowed } from "@/lib/attendance/access";
 import { registerChoices } from "@/lib/attendance/register";
-import { CORRECTION_WORDS, type CorrectionEntry } from "@/lib/attendance/corrections";
+import { CORRECTION_WORDS, parentsToTell, tellParentsHref, type CorrectionEntry } from "@/lib/attendance/corrections";
 import { statusList } from "@/lib/attendance/settings";
 import { UUID_RE } from "@/lib/staff/act";
 import { ArrowLeft, ExternalLink } from "lucide-react";
@@ -57,6 +57,7 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
       c, approval, decider, mine, entries, nowMap,
       sectionName: section ? `${section.schoolClass.name} ${section.name}` : null,
       names: new Map(users.map((u) => [u.id, u.displayName])),
+      tell: await parentsToTell(tx, current.ctx, c),
       statuses: await statusList(tx, current.ctx, { includeArchived: true }),
     };
   });
@@ -85,7 +86,13 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
                 <DecisionButtons hidden={hidden} canDecide={data.decider} canWithdraw={data.mine} what="correction"
                   approve={approveCorrectionAction} reject={rejectCorrectionAction} withdraw={withdrawCorrectionAction} />
               )}
-              {waiting && !data.decider && !data.mine && <Banner tone="info"><Words k="This correction is waiting for the approver in Approvals." /></Banner>}
+              {data.tell.length > 0 && (
+                <Banner tone="warn" title={`Parents already told the old mark: ${data.tell.map((t) => `${t.name} (${t.told})`).join(", ")}.`}
+                  action={<ButtonLink href={tellParentsHref(data.tell.map((t) => t.id))} size="sm"><Words k="Send a correction message" /></ButtonLink>}>
+                  <Words k="A correction sends no new message by itself. Send these parents a short correction message." />
+                </Banner>
+              )}
+              {waiting && !data.decider && !data.mine &&<Banner tone="info"><Words k="This correction is waiting for the approver in Approvals." /></Banner>}
               <div className="overflow-x-auto">
                 <table className="w-full text-left text-[15px]">
                   <caption className="sr-only"><Words k="Changes asked for" /></caption>

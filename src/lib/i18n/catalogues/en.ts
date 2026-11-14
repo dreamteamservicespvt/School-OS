@@ -684,6 +684,8 @@ export const EN = [
   "Staff",
   // src/app/(school)/attendance-management/_components/staff-sheet.tsx
   "Request a correction",
+  "Send a correction message",
+  "A correction sends no new message by itself. Send these parents a short correction message.",
   "Staff not yet marked can still be marked. A change to a saved mark needs a correction request.",
   "Mark all present",
   "not marked",

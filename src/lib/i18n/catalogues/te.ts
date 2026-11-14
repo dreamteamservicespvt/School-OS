@@ -2239,6 +2239,8 @@ export const te: Catalogue = {
   "This is a standard status: how it counts and who it is for stay fixed.": "ఇది ప్రామాణిక స్థితి: ఇది ఎలా లెక్కించబడుతుంది మరియు ఎవరి కోసం అనేది మారదు.",
   "· standard": "· ప్రామాణికం",
   "Request a correction": "సవరణ అభ్యర్థించండి",
+  "Send a correction message": "సవరణ సందేశం పంపండి",
+  "A correction sends no new message by itself. Send these parents a short correction message.": "సవరణ దానంతట అదే కొత్త సందేశం పంపదు. ఈ తల్లిదండ్రులకు చిన్న సవరణ సందేశం పంపండి.",
   "Staff not yet marked can still be marked. A change to a saved mark needs a correction request.": "ఇంకా గుర్తించని సిబ్బందిని ఇప్పటికీ గుర్తించవచ్చు. సేవ్ చేసిన గుర్తు మార్చడానికి సవరణ అభ్యర్థన అవసరం.",
   "Mark all present": "అందరినీ హాజరుగా గుర్తించండి",
   "not marked": "గుర్తించలేదు",

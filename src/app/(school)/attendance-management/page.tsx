@@ -134,7 +134,12 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
             {data.messages?.notSent ? "Those parents were not told by message. Call them, or fix what stopped it (the parent's phone, the message switch in Communication)." : "Parents of students marked absent are told once for the day."}
           </Banner>
         )}
-        <TakeSheet key={`${sheet.section.id}:${isoDay(date)}:${data.chosen!.periodNo}`}
+        <TakeSheet key={`${sheet.section.id}:${isoDay(date)}:${data.chosen!.periodNo}:${sheet.savedAt?.getTime() ?? 0}:${sheet.correction?.id ?? ""}:${sheet.correction?.status ?? ""}`}
+          correction={sheet.correction ? {
+            status: sheet.correction.status, by: sheet.correction.by, note: sheet.correction.note,
+            atText: `${dayText(sheet.correction.at)}, ${formatTime(sheet.correction.at, tz)}`,
+            href: `${BASE}/register/corrections/${sheet.correction.id}`, tellParents: sheet.correction.tellParents,
+          } : null}
           userId={current.user.id}
           sectionId={sheet.section.id} sectionName={sheet.section.name}
           date={isoDay(date)} dateText={dayText(date)}

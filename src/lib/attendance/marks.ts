@@ -20,7 +20,7 @@ import { loadSchoolCalendar } from "../calendar/school-days";
 import { attendanceFeatures, attendanceSettings, statusList, statusesFor, type StatusInfo } from "./settings";
 import { instantAt, schoolDateOf, time12 } from "./time";
 import { sectionPeriods, teacherPeriodsOn } from "./timetable";
-import { createCorrection } from "./corrections";
+import { createCorrection, parentsToTell, tellParentsHref } from "./corrections";
 import { ON_REGISTER_STATUSES } from "./on-register";
 import { nextReason, reasonChoices, reasonFromLeave, REASONS_FEATURE, shownReason, type ShownReason } from "./absence-reasons";
 import { queueAfterSave } from "./after-save";
@@ -174,7 +174,22 @@ export async function loadSheet(tx: Tx, ctx: SchoolContext, access: AttendanceAc
   const savedBy = lastSubmission?.submittedById ? await tx.userLogin.findUnique({ where: { id: lastSubmission.submittedById }, select: { displayName: true } }) : null;
   const lock = lockState(settings, input.date, input.now, input.timeZone);
   const future = input.date > schoolDateOf(input.now, input.timeZone);
+  // The latest correction for this register, so the sheet says "waiting" or "approved" instead of the plain lock text.
+  // campus: one section the caller may already take (checked above), not a list.
+  const lastCorrection = await tx.attendanceCorrection.findFirst({
+    where: { schoolId: ctx.schoolId, forWhom: "student", sectionId: input.sectionId, date: input.date, periodNo: input.periodNo, archivedAt: null, status: { in: ["WAITING", "APPROVED", "REJECTED"] } },
+    orderBy: { createdAt: "desc" },
+    select: { id: true, status: true, decidedAt: true, decidedById: true, decisionNote: true, createdAt: true, forWhom: true, date: true, entries: true },
+  });
+  const tell = lastCorrection ? await parentsToTell(tx, ctx, lastCorrection) : [];
+  const decider = lastCorrection?.decidedById ? await tx.userLogin.findUnique({ where: { id: lastCorrection.decidedById }, select: { displayName: true } }) : null;
+  const correction = lastCorrection ? {
+    id: lastCorrection.id, status: lastCorrection.status as "WAITING" | "APPROVED" | "REJECTED",
+    at: lastCorrection.decidedAt ?? lastCorrection.createdAt, by: decider?.displayName ?? null, note: lastCorrection.decisionNote,
+    tellParents: tell.length ? { names: tell.map((t) => t.name), href: tellParentsHref(tell.map((t) => t.id)) } : null,
+  } : null;
   return {
+    correction,
     section, settings, day: info, statuses: statusesFor(statuses, "students") as StatusInfo[], students: sheet,
     saved: marks.length > 0, savedAt: lastSubmission?.receivedAt ?? (marks[0]?.markedAt ?? null), savedBy: savedBy?.displayName ?? null,
     lock, canChangeAfterLock: access.lockOverride, future,

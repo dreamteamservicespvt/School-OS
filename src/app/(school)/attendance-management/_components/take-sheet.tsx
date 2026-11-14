@@ -47,6 +47,8 @@ type Props = {
   students: SheetRow[];
   saved: boolean; savedAtText: string | null; savedBy: string | null;
   locked: boolean; lockText: string; canChangeAfterLock: boolean; correctionHref: string;
+  /** The latest correction for this register (waiting, approved or not approved), or null. */
+  correction?: { status: "WAITING" | "APPROVED" | "REJECTED"; atText: string; by: string | null; note: string | null; href: string; tellParents?: { names: string[]; href: string } | null } | null;
   offlineOn: boolean;
   /** Absence reasons this person may choose, or null when the school does not record them. */
   reasons?: ReasonChoice[] | null;
@@ -186,7 +188,32 @@ export function TakeSheet(p: Props) {
   return (
     <div className="pb-4 relative">
       {/* Status banner */}
-      {readOnly ? (
+      {readOnly && p.correction ? (
+        <Banner tone={p.correction.status === "APPROVED" ? "ok" : p.correction.status === "WAITING" ? "info" : "warn"}
+          icon={p.correction.status === "APPROVED" ? CircleCheck : Info} className="mb-4" role="status"
+          title={p.correction.status === "APPROVED"
+            ? `Correction approved${p.correction.by ? ` by ${p.correction.by}` : ""} at ${p.correction.atText}. The attendance below is updated.`
+            : p.correction.status === "WAITING"
+              ? `Correction sent at ${p.correction.atText}. Waiting for the principal.`
+              : `Correction not approved${p.correction.by ? ` by ${p.correction.by}` : ""} at ${p.correction.atText}.`}
+          action={<div className="flex flex-wrap gap-2">
+            <Link href={p.correction.href} className={buttonClass("secondary", "sm")}><Words k="See the correction" /></Link>
+            {p.correction.status !== "WAITING" && <Link href={p.correctionHref} className={buttonClass("secondary", "sm")}><Words k="Request a correction" /></Link>}
+          </div>}>
+          {p.correction.status === "APPROVED"
+            ? `Locked at ${p.lockText}. Another change needs a new correction request.`
+            : p.correction.status === "WAITING"
+              ? "The marks below are the saved ones. They change once the principal approves."
+              : `The marks below are unchanged.${p.correction.note ? ` Reason: ${p.correction.note}` : ""}`}
+        </Banner>
+      ) : null}
+      {readOnly && p.correction?.tellParents ? (
+        <Banner tone="warn" icon={Info} className="mb-4" title={`Parents already told the old mark: ${p.correction.tellParents.names.join(", ")}.`}
+          action={<Link href={p.correction.tellParents.href} className={buttonClass("secondary", "sm")}><Words k="Send a correction message" /></Link>}>
+          <Words k="A correction sends no new message by itself. Send these parents a short correction message." />
+        </Banner>
+      ) : null}
+      {readOnly && p.correction ? null : readOnly ? (
         <Banner tone="warn" icon={Lock} className="mb-4" title={`Attendance for ${p.dateText} locked at ${p.lockText}.`}
           action={<Link href={p.correctionHref} className={buttonClass("secondary", "sm")}><Words k="Request a correction" /></Link>}>
           {!p.saved

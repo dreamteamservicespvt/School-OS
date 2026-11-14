@@ -7188,6 +7188,7 @@ export const te: Catalogue = {
   "Marks can be seen but not changed.": "మార్కులు చూడవచ్చు కానీ మార్చలేము.",
   "You can see them here. To hurry them up, use Remind on Marks Entry.": "మీరు వాటిని ఇక్కడ చూడవచ్చు. త్వరపెట్టడానికి మార్కుల నమోదులో “గుర్తుచేయండి” వాడండి.",
   "Enter the rest and submit as soon as you can.": "మిగతావి నమోదు చేసి వీలైనంత త్వరగా సమర్పించండి.",
+  "Enter marks after the students write it.": "విద్యార్థులు రాసిన తర్వాత మార్కులు నమోదు చేయండి.",
   "A change needs a reason and an approval, and the old mark stays in the history.": "మార్పుకు కారణం మరియు ఆమోదం అవసరం, పాత మార్కు చరిత్రలో ఉంటుంది.",
   "Final": "తుది",
   "Difficulty": "కష్టత",

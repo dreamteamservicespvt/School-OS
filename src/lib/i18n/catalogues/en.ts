@@ -1724,6 +1724,7 @@ export const EN = [
   "Marks can be seen but not changed.",
   "You can see them here. To hurry them up, use Remind on Marks Entry.",
   "Enter the rest and submit as soon as you can.",
+  "Enter marks after the students write it.",
   "A change needs a reason and an approval, and the old mark stays in the history.",
   // src/app/(school)/examination-results/question-papers/page.tsx
   "Final",

@@ -7188,6 +7188,7 @@ export const hi: Catalogue = {
   "Marks can be seen but not changed.": "अंक देखे जा सकते हैं पर बदले नहीं जा सकते।",
   "You can see them here. To hurry them up, use Remind on Marks Entry.": "आप इन्हें यहाँ देख सकते हैं। जल्दी करवाने के लिए अंक प्रविष्टि पर “याद दिलाएँ” इस्तेमाल करें।",
   "Enter the rest and submit as soon as you can.": "बाकी लिखें और जितनी जल्दी हो सके जमा करें।",
+  "Enter marks after the students write it.": "विद्यार्थियों के लिखने के बाद अंक दर्ज करें।",
   "A change needs a reason and an approval, and the old mark stays in the history.": "बदलाव के लिए कारण और स्वीकृति चाहिए, और पुराना अंक इतिहास में रहता है।",
   "Final": "अंतिम",
   "Difficulty": "कठिनाई",

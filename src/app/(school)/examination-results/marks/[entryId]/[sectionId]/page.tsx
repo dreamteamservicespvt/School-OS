@@ -57,6 +57,8 @@ export default async function PaperPage({ params, searchParams }: { params: Prom
   const label = `${p.subject.name}, ${p.section.label}`;
   const due = p.entry.marksDueDate;
   const overdue = Boolean(due && open && due < page.today);
+  // Layman test 14 Nov: a paper two days away was open for marks with nothing to say it is not written yet.
+  const notWritten = open && p.entry.date > page.today;
   // The Principal, School Admin, Vice Principal, Academic Head and Exam In-charge check marks; the subject teacher
   // enters them (src/lib/duty.ts, owner's changes of 13 Oct 2026). 05-roles still lets them, so this is the screen only.
   const checksOnly = !teaches && pageMode(page.current, "examination-results", "marks") === "view";
@@ -67,6 +69,7 @@ export default async function PaperPage({ params, searchParams }: { params: Prom
       {p.exam.status === "DRAFT" && <Banner tone="warn" title="Marks open once the datesheet is published."><Words k="Publish the datesheet of" /> {p.exam.title} <Words k="first." /></Banner>}
       {!page.writable && <Banner tone="warn" title="This year is closed."><Words k="Marks can be seen but not changed." /></Banner>}
       {page.writable && open && checksOnly && <Banner tone="info" title={`${teachers.join(", ") || "The subject teacher"} enters these marks.`}><Words k="You can see them here. To hurry them up, use Remind on Marks Entry." /></Banner>}
+      {notWritten && canEdit && <Banner tone="info" title={`This paper is written on ${formatDate(p.entry.date, tz)}.`}><Words k="Enter marks after the students write it." /></Banner>}
       {overdue && canEdit && <Banner tone="bad" title={`Marks were due on ${formatDate(due!, tz)}.`}><Words k="Enter the rest and submit as soon as you can." /></Banner>}
       {p.paper.status === "SUBMITTED" && <Banner tone="brand" icon={Send} title={p.paper.submittedAt ? `Submitted ${formatDateTime(p.paper.submittedAt, tz)}${name(p.paper.submittedById) ? ` by ${name(p.paper.submittedById)}` : ""}.` : "Submitted."}><Words k="A change needs a reason and an approval, and the old mark stays in the history." />{page.scope.manage ? " Lock the marks once you have checked them." : ""}</Banner>}
       {p.paper.status === "LOCKED" && <Banner tone="ok" icon={Lock} title={p.paper.lockedAt ? `Locked ${formatDateTime(p.paper.lockedAt, tz)}.` : "Locked."}><Words k="A change needs a reason and an approval, and the old mark stays in the history." /></Banner>}

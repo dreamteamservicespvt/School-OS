@@ -9,6 +9,7 @@ import { dayBookView, feeDashboardMatch, type DayRow } from "@/lib/finance/daybo
 import { financeModeLabel } from "@/lib/finance/words";
 import { plural } from "@/lib/fees/words";
 import { Card, CardHeader } from "@/components/ui/card";
+import { EmptyState } from "@/components/empty-state";
 import { Pill } from "@/components/ui/badge";
 import { buttonClass } from "@/components/ui/button";
 import { Banner, Band, Col, DataList, Mini, Split, Stack, Stats, TONE_SOFT, type Tone } from "@/components/money/kit";
@@ -141,6 +142,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
 
   const sourceLink = (r: DayRow) => dayBookSourceLink(r, linkAccess);
 
+  const nothing = !v.filtered && [v.sections.full, v.sections.partial, v.sections.otherFees, v.sections.daycare, v.sections.income, v.sections.expense, v.sections.salary, v.sections.refunds].every((x) => !x || x.length === 0);
   return (
     <div>
       <FinanceHead title="Day Book" pageName="Day Book" href={HREF} sub={`Daily income and expense summary, ${dayWords}`}
@@ -161,7 +163,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
         {data.closedYear && <Banner tone="warn" title={`Finance year ${data.closedYear.name} is closed.`}><Words k="Its books are read only. Put a mistake right with an adjustment in the open year." /></Banner>}
 
         <Card>
-          <CardHeader title="Show the Day Book for" description="Financial year April to March, apart from the academic year" icon={Filter}
+          <CardHeader title="Show the Day Book for" description="Money is counted by the financial year, April to March" icon={Filter}
             action={<div className="flex gap-1.5 shrink-0">
               {p.can.export && <ExportButton href={qs(`${HREF}/export`, keep)} size="sm" always />}
               {p.can.export && <a href={`${qs(`${HREF}/export`, keep)}${Object.values(keep).some(Boolean) ? "&" : "?"}format=pdf`} target="_blank" rel="noreferrer" className={cx(buttonClass("ghost", "sm"), "hidden sm:inline-flex")}><Printer size={15} aria-hidden="true" /><Words k="Print" /></a>}
@@ -185,13 +187,19 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
           { label: "Net balance", big: signed(v.totals.net), foot: shownClose ? "Day closed and locked" : allClosed ? "All these days are closed" : isToday ? `Live · updated ${formatTime(new Date(), p.tz)}` : oneDay && from < p.today && v.rows.length ? "Not closed yet" : per.label },
         ]} />
 
-        <Stats items={v.groups.map((g) => ({
+        {/* Layman loop 15 Nov: a quiet day showed 8 empty cards and 6 "₹0 None" tiles; one line says it. */}
+        {!nothing && <Stats items={v.groups.map((g) => ({
           label: g.label, value: formatRupees(g.amount), sub: g.count ? `${g.count} ${g.count === 1 ? "entry" : "entries"}` : g.key === "daycare" ? "No daycare payments" : "None",
           icon: ({ online: Globe, full: CircleCheck, partial: CirclePause, daycare: Baby, "other-fees": Shirt, "other-income": HandCoins } as Record<string, LucideIcon>)[g.key],
-        }))} />
+        }))} />}
 
         <Split side={340} className="[&>*]:min-w-0">
           <Col>
+            {nothing ? (
+              <Card><EmptyState title={oneDay ? "Nothing was paid in or out on this date" : "Nothing was paid in or out in these dates"} Icon={ReceiptText}>
+                <Words k="Fee payments, other income, expenses, salary and refunds show here as soon as they are made." />
+              </EmptyState></Card>
+            ) : <>
             {section("Fee payments (full)", ReceiptIndianRupee, v.sections.full, "ok", `No full fee payments ${oneDay ? "on this date" : "in these dates"}.`, "fee")}
             {section("Partial payments", CirclePause, v.sections.partial, "ok", `No partial payments ${oneDay ? "on this date" : "in these dates"}.`, "fee")}
             {v.sections.otherFees.length > 0 && section("Other fee types", Shirt, v.sections.otherFees, "ok", "", "fee")}
@@ -200,6 +208,7 @@ export default async function DayBookPage({ searchParams }: { searchParams: Sear
             {section("Expenses", ReceiptText, v.sections.expense, "warn", v.filtered ? hidden : `No expenses paid ${oneDay ? "on this date" : "in these dates"}.`, "other")}
             {!p.payHeads && section("Salary", Wallet, v.sections.salary, "warn", v.filtered ? hidden : "No salary or salary advance paid. Salary is added on the day it is marked paid.", "other")}
             {section("Refunds and reversals", Undo2, v.sections.refunds, "bad", `No refunds or reversals ${oneDay ? "on this date" : "in these dates"}.`, "reversal")}
+            </>}
           </Col>
           <Col>
             {shownClose && (

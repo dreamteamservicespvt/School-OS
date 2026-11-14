@@ -10,6 +10,14 @@ Local commits only. Nothing pushed or deployed (owner reviews on Monday).
 
 Progress page: see docs/HANDOFF.md (link).
 
+## Owner's requests during the loop (15 Nov)
+
+1. Sunday: "No school" shown twice on every Dashboard; Take Attendance says it twice → DONE e0a8ddd8 (one "Today" tile, one calm card with when school is back).
+2. Staff Attendance calendar: month dropdown with one choice looks broken ("UI corrupted") → fix it and every one-choice dropdown on the platform.
+3. Admissions Pipeline is confusing; cards hard to use → redesign simply.
+4. WhatsApp is not working → find out why (read-only in the Dream Team Services Chrome, never touch the gym's setup); test sends only to 9390011378, checked in WhatsApp Web (chsrinu4644 Chrome, device 69dcd765).
+5. WhatsApp only: switch off normal SMS by default everywhere (not implemented now).
+
 ## Mindsets (one per round, then start over)
 
 1. Older office clerk, little English, scared of breaking something

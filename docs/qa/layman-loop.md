@@ -45,10 +45,12 @@ Progress page: see docs/HANDOFF.md (link).
 | 37 | Phone top bar cut "Attendance Managem…"; Attendance tab looked selected on every page; day-off advice told teachers to edit the School Calendar; "Go to today" on today | Teacher (phone) | Top bar, bottom bar, Take Attendance | Short word in the bar; outline main button; "the School Admin can turn on…"; button hidden on today | 0feb7e6b |
 | 38 | Teacher home on a holiday said "not a working day" 3 times | Teacher (phone) | Dashboard, My classes today | Said once | ba5cbac2 |
 | 39-62 | 24 money findings (audit, accountant mindset): Close the day mixed cash with UPI/bank and showed the expected cash in the counted box, "Pending" vs late, % raise started at 5, invoice button did not say it sends WhatsApp, Approve refund in one tap with no amount, "Receipts/Payments" in the cash book, "Resend", "Row", jargon in reminders and Department/Income head help, … | Accountant | Fee and Finance screens | See commit message and audit file (area money) | 3959523e |
+| 63 | Day Book on a quiet day: 6 tiles of ₹0 "None" and 8 empty cards; "apart from the academic year" | Accountant (phone) | Day Book | One line: nothing paid in or out; plain filter note | ac4cbd8f |
+| 64 | Fee Dashboard on a phone: every class listed, ~6,000 px | Accountant (phone) | Fee Dashboard | 6 most overdue first, "Show all N classes" | d716b33e |
+| 65-89 | 25 front-office findings (audit, receptionist) + certificate form showing TC-only boxes for a Bonafide and "signatories": button names per certificate type, welcome-message status in words, pickup "Allow to pick up", lock messages with a next step, promotion "batch", Aadhaar help, … | Receptionist, Clerk | Front Office, Admissions, Students | See commit and audit file (area front) | a2446e02 |
 
 ### Noted for the next batches
 - Marks Entry list on a phone: the red line ends "paper 14-10-2026 · ov…" so "overdue" is cut (teaching batch).
 - Teacher home on a holiday: "Take attendance" shown twice and "not a working day" said 3 times (teaching batch).
-- Issue certificate: Bonafide shows "Conduct" and "Reason for a duplicate" that only apply to a TC/character certificate; "signatories" is a hard word (front batch).
 - Send Message is heavy for a simple notice: 4 channels, Message type, 2 template boxes, Title, SMS backup (parent/communication batch: simplify the first view).
 - 76 forms use side-by-side pairs; check each at 390 px in screenshots and stack where text is cut.

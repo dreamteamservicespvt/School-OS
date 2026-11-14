@@ -85,8 +85,9 @@ const classesCard: Widget<"panel"> = {
       slot: "first",
       panel: {
         kind: "classes-today", title: "My classes today", timetableHref: TT,
-        sub: day.off ? `${weekdayName} · ${day.off.title}` : `${weekdayName} · ${plural(rows.length, "period")} from your Time Table`,
-        rows, off: day.off ? (day.off.kind === "holiday" ? `Holiday: ${day.off.title}. No periods today.` : `${day.off.title}. No periods today.`) : null,
+        // Layman loop 15 Nov: on a Sunday the card said "Sunday is not a working day" three times. Once is enough.
+        sub: day.off ? (day.off.kind === "holiday" ? `Holiday: ${day.off.title}` : day.off.title) : `${weekdayName} · ${plural(rows.length, "period")} from your Time Table`,
+        rows, off: day.off ? "No periods today." : null,
       },
     };
   },

@@ -1332,6 +1332,7 @@ export const EN = [
   // src/app/(school)/dashboard/panels.tsx
   "Time Table",
   "You have no periods on your Time Table today.",
+  "No periods today.",
   "No room set",
   "Taken",
   "Take",

@@ -90,6 +90,7 @@ export const hi: Catalogue = {
   "Your day": "आपका दिन",
   "Time Table": "समय सारणी",
   "You have no periods on your Time Table today.": "आज आपकी समय सारणी में कोई पीरियड नहीं है।",
+  "No periods today.": "आज कोई पीरियड नहीं।",
   "No room set": "कमरा तय नहीं",
   "Taken": "ले ली गई",
   "Take": "लें",

@@ -90,6 +90,7 @@ export const te: Catalogue = {
   "Your day": "మీ రోజు",
   "Time Table": "టైమ్ టేబుల్",
   "You have no periods on your Time Table today.": "ఈరోజు మీ టైమ్ టేబుల్‌లో పీరియడ్‌లు లేవు.",
+  "No periods today.": "ఈ రోజు పీరియడ్లు లేవు.",
   "No room set": "గది నిర్ణయించలేదు",
   "Taken": "తీసుకున్నారు",
   "Take": "తీసుకోండి",

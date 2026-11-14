@@ -3322,7 +3322,7 @@ export const EN = [
   "Advances and loans: Principal approves. Nobody approves a run they sent; it goes to the School Admin instead.",
   "Change in Forms & Approvals",
   "Change the slip design",
-  "New structures cannot use it. Structures and salaries that already have it keep it, and it stays in the audit log.",
+  "It is taken out of every staff structure from the first month not yet approved (a new version each). Approved salaries keep what they paid, and it stays in the audit log.",
   // src/app/(school)/salary-management/settings/sheets.tsx
   "Track what is to pay",
   "Off: nothing is listed as to pay.",
@@ -3365,7 +3365,7 @@ export const EN = [
   "Copy to someone",
   "Versions",
   // src/app/(school)/salary-management/structures/sheets.tsx
-  "worked out from basic. Gross:",
+  "Gross:",
   "a month.",
   "Fixed earnings go up and are rounded to the rupee; percentage parts follow basic pay.",
   // src/app/(school)/salary-management/structures/import/page.tsx
@@ -14887,6 +14887,10 @@ export const EN = [
   "They already have a login",
   "They are not on this list or in the staff counts. Add their staff record; their login stays as it is.",
   "Add staff record",
+  "Their post does not match the role they sign in with. The post shows under their name in every list, so check it.",
+  "role",
+  "Change post",
+  "is their post, but none of the chosen roles is that post's role. If the post is wrong, go Back and change it: it shows under their name everywhere.",
   "1 person can sign in but has no staff record",
   // layman test A/E fixes (LA3, LA4, LA7, LA11, LE3, B10)
   "This day is before this academic year",

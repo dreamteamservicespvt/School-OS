@@ -22,6 +22,8 @@ export async function saveStructureAction(_prev: unknown, fd: FormData) {
       const v = rupeesOf(fd, `c_${c.id}`, c.name);
       if (v !== null && v > ZERO) amounts.set(c.id, v);
     }
+    // Each percentage item (DA, HRA...) has its own switch: off leaves it out of this person's salary.
+    const percentOn = new Set(comps.filter((c) => c.calc === "PERCENT" && str(fd, `p_${c.id}`) === "on").map((c) => c.id));
     const basic = comps.find((c) => c.systemKey === "basic");
     if (!basic || !amounts.get(basic.id)) throw new MoneyProblem("Enter at least basic pay.", basic ? `c_${basic.id}` : undefined);
     const account = optionalText(fd, "bankAccount", "Bank account", 30)?.replace(/\s/g, "") ?? null;
@@ -31,7 +33,7 @@ export async function saveStructureAction(_prev: unknown, fd: FormData) {
     const revising = str(fd, "mode") === "revise";
     const row = await saveStructure(tx, ctx, {
       staffId, effectiveFrom: dateOf(fd, "effectiveFrom", "Effective from"),
-      lines: linesFrom(comps, amounts), pfApplies: str(fd, "pf") === "on", esiApplies: str(fd, "esi") === "on",
+      lines: linesFrom(comps, amounts, percentOn), pfApplies: str(fd, "pf") === "on", esiApplies: str(fd, "esi") === "on",
       tdsPaise: rupeesOf(fd, "tds", "TDS per month") ?? ZERO,
       reason: revising ? text(fd, "reason", "Reason", { min: 3, max: 200 }) : optionalText(fd, "reason", "Reason", 200),
       bank: account ? { account, ifsc, bankName: optionalText(fd, "bankName", "Bank name", 80) } : null,

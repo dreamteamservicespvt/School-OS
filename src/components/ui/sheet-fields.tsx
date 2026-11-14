@@ -50,7 +50,7 @@ export function SMoney({ name, label, help, required, className, start, big, onV
 }
 
 /** A switch with its words, sent as "on" when on. */
-export function SSwitch({ name, title, sub, start = false }: { name: string; title: string; sub?: React.ReactNode; start?: boolean }) {
+export function SSwitch({ name, title, sub, start = false, onValue }: { name: string; title: string; sub?: React.ReactNode; start?: boolean; onValue?: (on: boolean) => void }) {
   const t = useTyped(name, start ? "on" : "");
   const [on, setOn] = useState(t.value === "on");
   return (
@@ -59,7 +59,7 @@ export function SSwitch({ name, title, sub, start = false }: { name: string; tit
         <b className="font-semibold block">{tx(title)}</b>
         {sub && <span className="block text-[12.5px] text-ink3 mt-0.5">{tx(sub)}</span>}
       </div>
-      <Switch on={on} onChange={setOn} label={title} name={name} />
+      <Switch on={on} onChange={(v) => { setOn(v); onValue?.(v); }} label={title} name={name} />
     </div>
   );
 }

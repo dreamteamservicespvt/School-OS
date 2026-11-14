@@ -78,9 +78,14 @@ export async function templates(tx: Tx, ctx: SchoolContext) {
   return rows.map((t) => ({ id: t.id, name: t.name, lines: ((t.lines as { componentId: string; amountPaise: string }[]) ?? []).map((l) => ({ componentId: l.componentId, amountPaise: BigInt(l.amountPaise) })) }));
 }
 
-/** Structure lines from the school's components and the typed fixed amounts (by component id). */
-export function linesFrom(comps: { id: string; name: string; kind: string; calc: string; percentBp: number | null; taxable: boolean; systemKey: string | null }[], amounts: Map<string, bigint>): StructureLine[] {
+/**
+ * Structure lines from the school's components and the typed fixed amounts (by component id).
+ * percentOn: the percentage items (DA, HRA...) this person gets. Left out, every one applies (import).
+ * Owner, 14 Nov 2026: a teacher on ₹35,000 was shown about ₹52,000 because DA and HRA were always added.
+ */
+export function linesFrom(comps: { id: string; name: string; kind: string; calc: string; percentBp: number | null; taxable: boolean; systemKey: string | null }[], amounts: Map<string, bigint>, percentOn?: ReadonlySet<string>): StructureLine[] {
   return comps
+    .filter((c) => c.calc !== "PERCENT" || !percentOn || percentOn.has(c.id))
     .filter((c) => c.calc !== "ATTENDANCE")
     .map((c) => ({ componentId: c.id, name: c.name, kind: c.kind as StructureLine["kind"], calc: c.calc as StructureLine["calc"], percentBp: c.percentBp, amountPaise: c.calc === "FIXED" ? amounts.get(c.id) ?? BigInt(0) : BigInt(0), taxable: c.taxable, systemKey: c.systemKey }))
     .filter((l) => l.calc === "PERCENT" || l.amountPaise > BigInt(0) || l.systemKey === "basic");

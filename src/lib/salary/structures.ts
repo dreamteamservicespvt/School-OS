@@ -96,6 +96,38 @@ export async function setTds(tx: Tx, ctx: SchoolContext, staffId: string, tdsPai
   return saveStructure(tx, ctx, { staffId, effectiveFrom: from, lines: fromStored(cur.lines), pfApplies: cur.pfApplies, esiApplies: cur.esiApplies, tdsPaise, reason });
 }
 
+/**
+ * A component removed in Salary Settings leaves every staff structure from `from` (the first month not yet
+ * approved): each version that applies then, or starts later, gets a new version without that line.
+ * Approved months keep what they paid. Owner, 14 Nov 2026: Special allowance was removed in Settings but
+ * a teacher's structure still added it. Returns the staff whose structure changed.
+ */
+export async function dropComponentFromStructures(tx: Tx, ctx: SchoolContext, componentId: string, name: string, from: Date) {
+  // campus: salary components are school-wide, so a removed one leaves every campus's structures.
+  const rows = await tx.salaryStructure.findMany({ where: { archivedAt: null }, orderBy: [{ effectiveFrom: "asc" }, { version: "asc" }] });
+  const byStaff = new Map<string, typeof rows>();
+  for (const r of rows) byStaff.set(r.staffId, [...(byStaff.get(r.staffId) ?? []), r]);
+  const changed: string[] = [];
+  for (const [staffId, versions] of byStaff) {
+    // The version in force on `from` (latest start on or before it, highest version on a tie), then every later start.
+    const atFrom = [...versions].filter((v) => v.effectiveFrom <= from).sort((a, b) => +b.effectiveFrom - +a.effectiveFrom || b.version - a.version)[0];
+    const later = versions.filter((v) => v.effectiveFrom > from);
+    const latestPerStart = new Map<number, (typeof versions)[number]>();
+    for (const v of later) { const k = +v.effectiveFrom; if (!latestPerStart.has(k) || latestPerStart.get(k)!.version < v.version) latestPerStart.set(k, v); }
+    const todo = [...(atFrom ? [atFrom] : []), ...latestPerStart.values()];
+    let did = false;
+    for (const v of todo) {
+      const lines = fromStored(v.lines);
+      if (!lines.some((l) => l.componentId === componentId)) continue;
+      const start = v.effectiveFrom > from ? v.effectiveFrom : from;
+      await saveStructure(tx, ctx, { staffId, effectiveFrom: start, lines: lines.filter((l) => l.componentId !== componentId), pfApplies: v.pfApplies, esiApplies: v.esiApplies, tdsPaise: v.tdsPaise, reason: `${name} removed in Salary Settings` });
+      did = true;
+    }
+    if (did) changed.push(staffId);
+  }
+  return changed;
+}
+
 /** The lines raised by a percentage: fixed earnings go up, rounded to the rupee; percentage lines follow basic pay. */
 export function raisedLines(lines: StructureLine[], percentBp: number) {
   return lines.map((l) => (l.kind === "EARNING" && l.calc === "FIXED" ? { ...l, amountPaise: toRupee((l.amountPaise * BigInt(10000 + percentBp)) / BigInt(10000)) } : l));

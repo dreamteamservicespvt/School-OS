@@ -12,19 +12,26 @@ export type Template = { id: string; name: string; amounts: Record<string, numbe
 const inr = (n: number) => `₹${Math.round(n).toLocaleString("en-IN")}`;
 const num = (s: string) => Number(String(s).replace(/[^\d.]/g, "")) || 0;
 
-/** Add, copy or revise a structure: the school's fixed earnings (percentage ones are worked out from basic), PF, ESI, TDS and the salary account. */
+/**
+ * Add, copy or revise a structure: the school's fixed earnings, the percentage items (DA, HRA...) each with
+ * its own switch (worked out from basic when on), PF, ESI, TDS and the salary account.
+ */
 export function StructureSheet({ closeHref, mode, title, sub, staff, staffId, comps, templates, start, from, esiLimit, reasonStart }: {
   closeHref: string; mode: "add" | "revise"; title: string; sub: string; staff: Option[]; staffId: string; comps: Comp[]; templates: Template[];
-  start: { amounts: Record<string, number>; tds: number; pf: boolean; esi: boolean }; from: string; esiLimit: number; reasonStart?: string;
+  start: { amounts: Record<string, number>; pctOn: string[]; tds: number; pf: boolean; esi: boolean }; from: string; esiLimit: number; reasonStart?: string;
 }) {
   const fixed = comps.filter((c) => c.calc === "FIXED");
   const pct = comps.filter((c) => c.calc === "PERCENT" && c.kind === "EARNING");
+  const pctDed = comps.filter((c) => c.calc === "PERCENT" && c.kind === "DEDUCTION");
+  const [pctOn, setPctOn] = useState<Set<string>>(() => new Set(start.pctOn));
+  const flip = (id: string, on: boolean) => setPctOn((s) => { const n = new Set(s); if (on) n.add(id); else n.delete(id); return n; });
+  const ofBasic = (c: Comp, basic: number) => Math.round((basic * (c.percentBp ?? 0)) / 10000);
   const [tpl, setTpl] = useState("");
   const base = useMemo(() => (tpl ? templates.find((t) => t.id === tpl)?.amounts ?? start.amounts : start.amounts), [tpl, templates, start.amounts]);
   const [typed, setTyped] = useState<Record<string, number>>({});
   const amounts = { ...base, ...typed };
   const basicId = comps.find((c) => c.systemKey === "basic")?.id ?? "";
-  const gross = fixed.filter((c) => c.kind === "EARNING").reduce((s, c) => s + (amounts[c.id] ?? 0), 0) + pct.reduce((s, c) => s + Math.round(((amounts[basicId] ?? 0) * (c.percentBp ?? 0)) / 10000), 0);
+  const gross = fixed.filter((c) => c.kind === "EARNING").reduce((s, c) => s + (amounts[c.id] ?? 0), 0) + pct.filter((c) => pctOn.has(c.id)).reduce((s, c) => s + ofBasic(c, amounts[basicId] ?? 0), 0);
   const t = useTyped("staffId", staffId);
   return (
     <SheetForm title={title} sub={sub} closeHref={closeHref} action={saveStructureAction} submitLabel={mode === "revise" ? "Save new version" : "Save structure"} pendingText="Saving…" hidden={{ mode }}>
@@ -41,7 +48,11 @@ export function StructureSheet({ closeHref, mode, title, sub, staff, staffId, co
           <SMoney key={c.id} name={`c_${c.id}`} label={c.name} required={c.systemKey === "basic"} start={base[c.id] ? String(base[c.id]) : ""} onValue={(v) => setTyped((x) => ({ ...x, [c.id]: num(v) }))} />
         ))}
       </div>
-      {pct.length > 0 && <p className="text-[13px] text-ink3 -mt-1">{pct.map((c) => `${c.name.replace(/ allowance$/, "")} (${(c.percentBp ?? 0) / 100}%)`).join(" and ")} {pct.length === 1 ? "is" : "are"} <Words k="worked out from basic. Gross:" /> <b className="text-ink font-semibold tnum">{inr(gross)}</b> <Words k="a month." /></p>}
+      {[...pct, ...pctDed].map((c) => (
+        <SSwitch key={`${tpl}-${c.id}`} name={`p_${c.id}`} title={`${c.name} (${(c.percentBp ?? 0) / 100}% of basic)`} start={pctOn.has(c.id)} onValue={(v) => flip(c.id, v)}
+          sub={pctOn.has(c.id) ? `${inr(ofBasic(c, amounts[basicId] ?? 0))} a month${c.kind === "DEDUCTION" ? ", deducted" : ""}. Switch off if this person does not get it.` : "Not given to this person."} />
+      ))}
+      <p className="text-[13px] text-ink3 -mt-1"><Words k="Gross:" /> <b className="text-ink font-semibold tnum">{inr(gross)}</b> <Words k="a month." /></p>
       {fixed.filter((c) => c.kind === "DEDUCTION").map((c) => (
         <SMoney key={c.id} name={`c_${c.id}`} label={`${c.name} (a month)`} start={base[c.id] ? String(base[c.id]) : ""} help="Leave empty if it does not apply" />
       ))}

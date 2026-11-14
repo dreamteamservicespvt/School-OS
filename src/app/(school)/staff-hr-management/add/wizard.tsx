@@ -81,7 +81,9 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
   const linked = data.linked;
   const [fullName, setFullName] = useState(p?.fullName ?? linked?.displayName ?? "");
   const [phone, setPhone] = useState(p?.phone ?? linked?.phone ?? "");
-  const [designation, setDesignation] = useState(p?.designation ?? data.designations.find((d) => d.name === "Teacher")?.name ?? data.designations[0]?.name ?? "");
+  // No post is chosen for them (owner, 14 Nov 2026): a ready "Teacher" stayed on Librarians and Receptionists
+  // whose role was picked in step 2, so every list showed "Teacher" under their name.
+  const [designation, setDesignation] = useState(p?.designation ?? "");
   const des = data.designations.find((d) => d.name === designation);
   const [deptTouched, setDeptTouched] = useState(Boolean(p?.departmentId));
   const [departmentId, setDepartmentId] = useState(p?.departmentId ?? des?.departmentId ?? "");
@@ -105,6 +107,8 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
   const picksDraft = useStateDraft(`${draftName} picks`, { pairs, ctSection }, (v) => { setPairs(v.pairs); setCtSection(v.ctSection); });
 
   const teaching = (des?.staffType ?? "Teaching") === "Teaching";
+  // The post has its own role (HR Settings) but a different role was picked: the post may have been left as it was.
+  const postMismatch = Boolean(des?.roleKey && roleKeys.length > 0 && !roleKeys.includes(des.roleKey));
   // A linked login keeps its roles from Settings, so step 3 follows those roles.
   const offer = stepThree(linked ? { teachingPost: teaching, giveLogin: true, roleKeys: linked.roleKeys } : { teachingPost: teaching, giveLogin, roleKeys });
 
@@ -217,7 +221,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
           <TextField label="Phone" name="phone" required inputMode="numeric" value={phone} placeholder="10-digit mobile" onChange={(e) => setPhone(e.target.value)}
             onBlur={() => setErrors((x) => ({ ...x, phone: phone ? checkIndianMobile(phone) ?? "" : "" }))} error={err("phone") || undefined} help="+91 is added. We check it is not on another staff record." />
           <SelectField label="Designation" name="designation" required value={designation} onChange={(e) => chooseDesignation(e.target.value)} error={err("designation")}
-            options={data.designations.map((d) => ({ value: d.name, label: d.name }))} help="A designation is not a role: what they can open is chosen in step 2." />
+            options={data.designations.map((d) => ({ value: d.name, label: d.name }))} placeholder="Choose their post" help="Their post, shown under their name everywhere. What they can open is chosen in step 2." />
           <SelectField label="Department" name="departmentId" value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setDeptTouched(true); }} error={err("departmentId")}
             options={data.departments} placeholder="No department" />
           <TextField label="Joining date" name="joiningDate" type="date" required defaultValue={p?.joiningDate ?? data.today} error={err("joiningDate")} />
@@ -278,6 +282,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
               <p className="mb-3 text-sm text-ink-2"><Words k="Pick one or more. What each role can open is shown in plain words." /></p>
               <p className="mb-3 text-sm text-ink-2"><Words k="No role with the post's own name (for example Academic Head or Vice Principal)? Pick the closest role, then change single modules under Adjust permissions." /></p>
               {errors.roleKeys && <p className="mb-2 text-sm text-danger" role="alert">{errors.roleKeys}</p>}
+              {postMismatch && <Alert tone="warning" className="mb-3">{designation} <Words k="is their post, but none of the chosen roles is that post's role. If the post is wrong, go Back and change it: it shows under their name everywhere." /></Alert>}
               <ul className="grid gap-2 sm:grid-cols-2">
                 {data.roles.map((r) => (
                   <li key={r.key} className={`rounded-xl border p-3 ${roleKeys.includes(r.key) ? "border-brand bg-brand-soft/40" : "border-line"}`}>

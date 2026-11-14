@@ -188,7 +188,7 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
       {doing === "component" && <ComponentSheet closeHref={here()} />}
       {archiving && (
         <ConfirmSheet closeHref={here()} title={`Archive ${archiving.name}?`} label="Archive component" action={archiveComponentAction} hidden={{ componentId: archiving.id }} danger>
-          <p className="text-[14px] text-ink2"><Words k="New structures cannot use it. Structures and salaries that already have it keep it, and it stays in the audit log." /></p>
+          <p className="text-[14px] text-ink2"><Words k="It is taken out of every staff structure from the first month not yet approved (a new version each). Approved salaries keep what they paid, and it stays in the audit log." /></p>
         </ConfirmSheet>
       )}
       {doing === "rates" && <RatesSheet closeHref={here()} months={months} now={{ pfEmployeeBp: s.pfEmployeeBp, pfEmployerBp: s.pfEmployerBp, pfCeiling: rupees(s.pfCeilingPaise), esiEmployeeBp: s.esiEmployeeBp, esiEmployerBp: s.esiEmployerBp, esiLimit: rupees(s.esiLimitPaise) }} />}

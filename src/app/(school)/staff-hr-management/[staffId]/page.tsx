@@ -297,7 +297,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
           <Card>
             <CardHeader title="Employment" action={hr && !left ? (
               <EmploymentForm v={v} action={saveEmployment} designations={data.designations.map((d) => ({ value: d.name, label: d.name }))} departments={data.departments.map((d) => ({ value: d.id, label: d.name }))}
-                staff={data.staff.map((x) => ({ value: x.id, label: x.fullName }))} campuses={data.campuses.map((c) => ({ value: c.id, label: c.name }))} types={[...EMPLOYMENT_TYPES]} />
+                staff={data.staff.map((x) => ({ value: x.id, label: x.fullName }))} campuses={data.campuses.map((c) => ({ value: c.id, label: c.name }))} types={[...EMPLOYMENT_TYPES]} defaultOpen={editOpen === "employment"} />
             ) : undefined} />
             <DL rows={[
               ["Staff ID", <span key="c" className="font-mono">{s!.staffCode}</span>],

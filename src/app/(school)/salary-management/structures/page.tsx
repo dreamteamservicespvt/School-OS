@@ -95,6 +95,9 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
   const iso = (d: Date) => d.toISOString().slice(0, 10);
   const comps: Comp[] = data.comps.filter((c) => c.calc !== "ATTENDANCE").map((c) => ({ id: c.id, name: c.name, kind: c.kind, calc: c.calc, percentBp: c.percentBp, systemKey: c.systemKey }));
   const amountsOf = (st: ReturnType<typeof currentOf>) => Object.fromEntries((st ? fromStored(st.lines) : []).filter((l) => l.calc === "FIXED" && l.componentId).map((l) => [l.componentId!, rupees(l.amountPaise)]));
+  // The percentage items (DA, HRA...) a structure has: a revise or copy keeps the same ones switched on.
+  const allPct = comps.filter((c) => c.calc === "PERCENT").map((c) => c.id);
+  const pctOf = (st: ReturnType<typeof currentOf>) => (st ? fromStored(st.lines).filter((l) => l.calc === "PERCENT" && l.componentId).map((l) => l.componentId!) : allPct);
   const tpls = data.tpls.map((t) => ({ id: t.id, name: t.name, amounts: Object.fromEntries(t.lines.map((l) => [l.componentId, rupees(l.amountPaise)])) }));
   const staffOptions = [...without, ...withS].map((s) => ({ value: s.id, label: `${s.fullName} · ${s.designation}${versions.has(s.id) ? "" : " · no structure"}` }));
   const name = (id: string | null) => data.people.find((x) => x.id === id)?.displayName ?? "—";
@@ -210,7 +213,7 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
           <StructureSheet closeHref={here({ do: null, staff: null, copy: null })} mode="add" title={src ? `Copy ${who?.fullName}’s structure` : "Add salary structure"}
             sub={src ? "Pick the staff member it is for. You can change any line." : "Start from the designation’s template, then change any line."}
             staff={staffOptions.filter((o) => o.value !== copyFrom)} staffId={addFor || (without[0]?.id ?? "")} comps={comps} templates={tpls}
-            start={src ? { amounts: amountsOf(src), tds: 0, pf: src.pfApplies, esi: src.esiApplies } : { amounts: {}, tds: 0, pf: true, esi: true }}
+            start={src ? { amounts: amountsOf(src), pctOn: pctOf(src), tds: 0, pf: src.pfApplies, esi: src.esiApplies } : { amounts: {}, pctOn: allPct, tds: 0, pf: true, esi: true }}
             from={iso(earliest && earliest > thisMonth ? earliest : thisMonth)} esiLimit={rupees(data.stat.esiLimitPaise)} />
         );
       })()}
@@ -218,7 +221,7 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
         const c = currentOf(reviseStaff.id);
         return (
           <StructureSheet closeHref={here({ revise: null })} mode="revise" title={`Revise ${reviseStaff.fullName}`} sub="Saved as a new version. Earlier slips keep the old amounts."
-            staff={[]} staffId={reviseStaff.id} comps={comps} templates={[]} start={{ amounts: amountsOf(c), tds: c ? rupees(c.tdsPaise) : 0, pf: c?.pfApplies ?? true, esi: c?.esiApplies ?? true }}
+            staff={[]} staffId={reviseStaff.id} comps={comps} templates={[]} start={{ amounts: amountsOf(c), pctOn: pctOf(c), tds: c ? rupees(c.tdsPaise) : 0, pf: c?.pfApplies ?? true, esi: c?.esiApplies ?? true }}
             from={iso(nextStart)} esiLimit={rupees(data.stat.esiLimitPaise)} />
         );
       })()}

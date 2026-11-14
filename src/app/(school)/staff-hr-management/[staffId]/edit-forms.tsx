@@ -64,9 +64,9 @@ export function ContactForm({ v, action }: { v: ProfileValues; action: Action })
   );
 }
 
-export function EmploymentForm({ v, action, designations, departments, staff, campuses, types }: { v: ProfileValues; action: Action; designations: Option[]; departments: Option[]; staff: Option[]; campuses: Option[]; types: string[] }) {
+export function EmploymentForm({ v, action, designations, departments, staff, campuses, types, defaultOpen }: { v: ProfileValues; action: Action; designations: Option[]; departments: Option[]; staff: Option[]; campuses: Option[]; types: string[]; defaultOpen?: boolean }) {
   return (
-    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" /><Words k="Edit" /></>} triggerSize="sm" triggerVariant="ghost" title="Employment" action={action} submitLabel="Save employment" hidden={{ staffId: v.staffId }} wide>
+    <FormDialog trigger={<><Pencil size={15} aria-hidden="true" /><Words k="Edit" /></>} triggerSize="sm" triggerVariant="ghost" title="Employment" action={action} submitLabel="Save employment" hidden={{ staffId: v.staffId }} defaultOpen={defaultOpen} wide>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Staff ID" name="staffCode" required defaultValue={f.val("staffCode", v.staffCode)} error={f.err("staffCode")} help="Unique in the school. It is checked before saving." />

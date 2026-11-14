@@ -8,6 +8,7 @@ import type { Tx } from "@/lib/db";
 import { addComponent, archiveComponent, asStatutory, lastFrozenMonth, saveSlabs, savePreferences, saveStatutory, setSlipOption, SLIP_OPTIONS, statutoryFor, type SlipOption } from "@/lib/salary/settings";
 import { addMonths, firstOfMonth, monthName, parseMonthKey } from "@/lib/salary/words";
 import { setDuesTracking } from "@/lib/salary/statutory-payments";
+import { dropComponentFromStructures } from "@/lib/salary/structures";
 import { salaryAction } from "../_lib/action";
 
 const pctBp = (fd: FormData, key: string, label: string) => {
@@ -84,9 +85,16 @@ export async function addComponentAction(_prev: unknown, fd: FormData) {
   }, (n) => `Component added: ${n}. Use it in structures from now on.`);
 }
 
+/** Removing a component also takes it out of every staff structure from the first month not yet approved. */
 export async function archiveComponentAction(_prev: unknown, fd: FormData) {
-  return salaryAction("archive", fd, async (tx, ctx) => (await archiveComponent(tx, ctx, id(fd, "componentId", "component"))).name,
-    (n) => `${n} archived. Structures that already use it keep it.`);
+  return salaryAction("archive", fd, async (tx, ctx, current) => {
+    const c = await archiveComponent(tx, ctx, id(fd, "componentId", "component"));
+    const from = await firstOpenMonth(tx, todayIn(current.school.timeZone));
+    const staff = await dropComponentFromStructures(tx, ctx, c.id, c.name, from);
+    return { name: c.name, n: staff.length, month: monthName(from) };
+  }, (r) => r.n
+    ? `${r.name} removed. Taken out of ${r.n} staff ${r.n === 1 ? "structure" : "structures"} from ${r.month}; approved months keep what they paid. If ${r.month}'s salary is already generated, recalculate it.`
+    : `${r.name} removed. No staff structure used it.`);
 }
 
 /** The Professional Tax table: up to six rows of from, to (blank for "and above") and tax a month. */

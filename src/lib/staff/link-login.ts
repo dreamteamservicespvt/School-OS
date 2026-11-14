@@ -17,6 +17,37 @@ export type LoginWithoutStaff = {
   roleKeys: string[];
 };
 
+export type PostMismatch = { staffId: string; fullName: string; designation: string; roleNames: string[] };
+
+/**
+ * Staff whose post (designation) does not fit their login's roles: the post has its own role in HR Settings
+ * and none of their roles is it. Owner, 14 Nov 2026: Add Staff once chose "Teacher" for everyone, so Librarians
+ * and Receptionists showed "Teacher" under their name in every list. A Class Teacher fits the "teacher" post.
+ */
+export async function postsNotMatchingRoles(tx: Tx, ctx: SchoolContext, opts: { campusLimit?: string | null } = {}): Promise<PostMismatch[]> {
+  const staff = await tx.staff.findMany({
+    where: { schoolId: ctx.schoolId, archivedAt: null, userLoginId: { not: null }, status: { in: ["ACTIVE", "ON_LEAVE", "SUSPENDED"] }, ...(opts.campusLimit ? { campusId: opts.campusLimit } : {}) },
+    select: { id: true, fullName: true, designation: true, userLoginId: true }, orderBy: { fullName: "asc" },
+  });
+  if (!staff.length) return [];
+  const [posts, accesses] = await Promise.all([
+    tx.designation.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, defaultRoleKey: { not: null } }, select: { name: true, defaultRoleKey: true } }),
+    tx.schoolAccess.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null, userLoginId: { in: staff.map((s) => s.userLoginId!) } }, include: { roles: { include: { role: { select: { key: true, name: true, archivedAt: true } } } } } }),
+  ]);
+  const postRole = new Map(posts.map((p) => [p.name.toLowerCase(), p.defaultRoleKey!]));
+  const out: PostMismatch[] = [];
+  for (const s of staff) {
+    const want = postRole.get(s.designation.toLowerCase());
+    if (!want) continue;
+    const roles = accesses.filter((a) => a.userLoginId === s.userLoginId).flatMap((a) => a.roles.map((r) => r.role)).filter((r) => !r.archivedAt);
+    if (!roles.length) continue;
+    const keys = new Set(roles.map((r) => r.key));
+    if (keys.has(want) || (want === "teacher" && keys.has("class-teacher"))) continue;
+    out.push({ staffId: s.id, fullName: s.fullName, designation: s.designation, roleNames: [...new Set(roles.map((r) => r.name))] });
+  }
+  return out;
+}
+
 /**
  * Logins that can open this school but have no staff record here (archived
  * staff records count as a record: the login was theirs). Logins of a Student

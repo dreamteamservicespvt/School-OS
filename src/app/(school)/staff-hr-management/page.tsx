@@ -22,7 +22,7 @@ import { CHANNEL_LABEL } from "@/lib/messaging/channels";
 import { bulkChangeDepartment, bulkMessage } from "./actions";
 import { Words } from "@/lib/i18n/client";
 import { Alert } from "@/components/ui/alert";
-import { loginsWithoutStaff } from "@/lib/staff/link-login";
+import { loginsWithoutStaff, postsNotMatchingRoles } from "@/lib/staff/link-login";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -69,7 +69,9 @@ export default async function StaffListPage({ searchParams }: Search) {
     const copyChannels = viewer.change === "all" ? await copyChannelsOn(tx, current.ctx) : [];
     // Live test issue 11: logins made by invite (Principal, School Admin) with no staff record are not on this list.
     const noRecord = canAdd ? await loginsWithoutStaff(tx, current.ctx, { campusLimit: current.campusId }) : [];
-    return { rows, total, designations, departments, campuses, byDept, roll, teaching, leaveToday, leaveNames: names, copyChannels, noRecord };
+    // A post that does not fit the person's roles (Add Staff once chose "Teacher" for everyone): HR corrects it.
+    const wrongPost = canChange ? await postsNotMatchingRoles(tx, current.ctx, { campusLimit: current.campusId }) : [];
+    return { rows, total, designations, departments, campuses, byDept, roll, teaching, leaveToday, leaveNames: names, copyChannels, noRecord, wrongPost };
   });
   type Row = (typeof data.rows)[number];
   const noRecordItem = (u: (typeof data.noRecord)[number]) => (
@@ -133,6 +135,21 @@ export default async function StaffListPage({ searchParams }: Search) {
         { label: "Not in yet", value: "–", sub: "Once staff attendance is taken" },
       ]} />
 
+      {data.wrongPost.length > 0 && (
+        <Alert tone="warning" className="mb-4"
+          title={data.wrongPost.length === 1 ? "1 person's post may be wrong" : `${data.wrongPost.length} people's posts may be wrong`}>
+          <p><Words k="Their post does not match the role they sign in with. The post shows under their name in every list, so check it." /></p>
+          <ul className="mt-2 grid gap-1.5">
+            {data.wrongPost.slice(0, 8).map((w) => (
+              <li key={w.staffId} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                <span><b>{w.fullName}</b> <span className="text-ink-2">· <Words k="post" /> {w.designation} · <Words k="role" /> {w.roleNames.join(", ")}</span></span>
+                <a href={`${BASE}/${w.staffId}?edit=employment`} aria-label={`Change the post of ${w.fullName}`} className="inline-flex min-h-9 items-center font-medium text-brand-text underline"><Words k="Change post" /></a>
+              </li>
+            ))}
+          </ul>
+          {data.wrongPost.length > 8 && <p className="mt-1.5 text-ink-2">{`And ${data.wrongPost.length - 8} more. Filter the list by designation to find them.`}</p>}
+        </Alert>
+      )}
       {data.noRecord.length > 0 && (
         <Alert tone="info" className="mb-4"
           title={data.noRecord.length === 1 ? "1 person can sign in but has no staff record" : `${data.noRecord.length} people can sign in but have no staff record`}>

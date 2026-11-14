@@ -1,83 +1,109 @@
 "use client";
 
-// The pipeline board (design: mod-admissions.jsx AdmDashboard). Drag a card to
-// the next column, or press its arrow; the server applies the same checks
-// as the buttons and says why when a card cannot move on yet.
+// The admission pipeline, as one list of steps (owner, 15 Nov 2026: the funnel and the column
+// board repeated each other, ran off the screen and nobody knew to drag). Each step shows how many
+// are at it, the first few people with one useful fact, and a labelled button for their next step.
+// "Move to ..." uses the same move and checks as before; where that move is always refused
+// (enquiry, interview, decision) the button opens the page where the step is done.
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
 import { ArrowRight } from "lucide-react";
 import { Avatar } from "@/components/ui/avatar";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { useNotice } from "@/components/ui/notice";
 import { cx } from "@/components/ui/cx";
-import type { PipeColumn } from "@/lib/admission/dashboard";
-import { Words } from "@/lib/i18n/client";
+import type { ColumnKey, PipeCard } from "@/lib/admission/dashboard";
+import type { MessageKey } from "@/lib/i18n/t";
+import { useT } from "@/lib/i18n/client";
 
 type Move = (id: string, from: string, to: string) => Promise<{ ok: boolean; title: string; body?: string }>;
 
-export function Pipeline({ columns, move, filtered }: { columns: PipeColumn[]; move?: Move; filtered?: string }) {
-  const [drag, setDrag] = useState<{ id: string; name: string; from: string } | null>(null);
+export type Step = { key: ColumnKey; label: string; count: number; week: number; oldest: string | null; href: string; cards: PipeCard[] };
+
+/** One plain line under each step's name: what being at this step means. */
+const HELP: Record<ColumnKey, MessageKey> = {
+  enq: "Families who asked about admission",
+  app: "Application form filled in",
+  docs: "Checking the child's documents",
+  test: "Waiting for the admission test",
+  int: "Waiting for the interview",
+  appr: "Waiting for a decision",
+  done: "Joined the school this year",
+};
+
+const TONE = { bad: "text-bad", warn: "text-warn", ok: "text-ok" } as const;
+
+export function Pipeline({ steps, move, filtered }: { steps: Step[]; move?: Move; filtered?: string }) {
+  const t = useT();
+  const [busy, setBusy] = useState<string | null>(null);
   const [pending, start] = useTransition();
   const { show, view } = useNotice();
-  const next = (from: string) => columns[columns.findIndex((c) => c.key === from) + 1];
 
-  const go = (id: string, name: string, from: string) => {
-    const to = next(from);
-    if (!to || !move) return;
+  const go = (id: string, from: ColumnKey, to: ColumnKey) => {
+    if (!move) return;
+    setBusy(id);
     start(async () => {
-      const r = await move(id, from, to.key);
+      const r = await move(id, from, to);
+      setBusy(null);
       show(r.ok ? { title: r.title, body: r.body } : { tone: "bad", title: r.title, body: r.body });
     });
   };
-  const drop = (to: string) => {
-    if (!drag) return;
-    const want = next(drag.from);
-    setDrag(null);
-    if (to === drag.from) return;
-    if (want?.key !== to) return show({ tone: "bad", title: "Move one step at a time", body: `${drag.name} can go to ${want?.label ?? "no further step"} next.` });
-    go(drag.id, drag.name, drag.from);
-  };
 
   return (
-    <div className="overflow-x-auto scroll-thin px-4 pb-4" aria-busy={pending || undefined}>
-      <div className="flex gap-3 w-max">
-        {columns.map((col, ci) => {
-          const last = ci === columns.length - 1;
-          const target = drag && next(drag.from)?.key === col.key;
+    <div aria-busy={pending || undefined}>
+      <ol className="pb-2">
+        {steps.map((step, i) => {
+          const next = steps[i + 1];
+          const facts = [t(HELP[step.key]), step.week ? t("+{n} this week", { n: step.week }) : null, step.key !== "done" && step.oldest ? t("Oldest {date}", { date: step.oldest }) : null].filter(Boolean).join(" · ");
           return (
-            <section key={col.key} aria-label={`${col.label}, ${col.count}`} onDragOver={(e) => e.preventDefault()} onDrop={() => drop(col.key)}
-              className={cx("w-[228px] shrink-0 rounded-xl bg-sunken/60 p-2 flex flex-col gap-2 transition", target && "ring-2 ring-brand/40 bg-brand/5")}>
-              <div className="flex items-center justify-between px-1.5 pt-1">
-                <h3 className="text-[13px] font-semibold">{col.label}</h3>
-                <span className="text-[12px] font-semibold text-ink3 tnum">{col.count}</span>
+            <li key={step.key} aria-label={`${t.any(step.label)}, ${step.count}`} className="px-4 md:px-5 py-3.5 border-t border-line/70">
+              <div className="flex items-start gap-3">
+                <span aria-hidden="true" className={cx("w-7 h-7 shrink-0 rounded-full grid place-items-center text-[13px] font-semibold tnum mt-0.5", step.count ? "bg-brand/10 text-brand" : "bg-sunken text-ink3")}>{i + 1}</span>
+                <div className="min-w-0 flex-1">
+                  <h3 className="text-[15px] font-semibold leading-tight">
+                    {t.any(step.label)} <span className={cx("ml-1 tnum", step.count ? "text-ink" : "text-ink3 font-normal")}>{step.count}</span>
+                  </h3>
+                  <p className="text-[12.5px] text-ink3 mt-0.5">
+                    {step.count ? facts : filtered ? t("No one at this step for {cls}", { cls: filtered }) : t("No one at this step")}
+                  </p>
+                </div>
+                {step.count > 0 && (
+                  <Link href={step.href} className="shrink-0 min-h-11 px-2 -my-2 -mr-2 rounded-lg inline-flex items-center gap-1 text-[13px] font-semibold text-brand hover:bg-brand/8 focus-visible:outline-2 focus-visible:outline-brand">
+                    {t("See all {n}", { n: step.count })}<ArrowRight size={14} aria-hidden="true" />
+                  </Link>
+                )}
               </div>
-              {col.cards.map((c) => {
-                const canMove = Boolean(move) && !last;
-                return (
-                  <div key={c.id} draggable={canMove} onDragStart={() => setDrag({ id: c.id, name: c.name, from: col.key })} onDragEnd={() => setDrag(null)}
-                    className={cx("rounded-xl bg-surface border border-line/70 p-2.5 flex items-start gap-2", canMove && "cursor-grab active:cursor-grabbing")}>
-                    <Avatar name={c.name} size={30} />
-                    <Link href={c.href} className="min-w-0 flex-1 rounded-md focus-visible:outline-2 focus-visible:outline-brand">
-                      <p className="text-[13.5px] font-semibold leading-tight truncate">{c.name}</p>
-                      <p className="text-[12px] text-ink3 truncate">{c.cls} · {c.meta}</p>
-                    </Link>
-                    {canMove && (
-                      <button type="button" disabled={pending} onClick={() => go(c.id, c.name, col.key)} aria-label={`Move ${c.name} to ${columns[ci + 1].label}`} title={`Move to ${columns[ci + 1].label}`}
-                        className="w-7 h-7 rounded-lg grid place-items-center text-ink3 hover:bg-sunken hover:text-brand shrink-0 disabled:opacity-50">
-                        <ArrowRight size={15} aria-hidden="true" />
-                      </button>
-                    )}
-                  </div>
-                );
-              })}
-              {!col.cards.length && <p className="text-[12.5px] text-ink3 px-1.5 py-3 text-center"><Words k="Nobody here" />{filtered ? ` for ${filtered}` : ""}</p>}
-              {col.count > col.cards.length && (
-                <Link href={col.href} className="text-[12.5px] font-semibold text-brand h-8 rounded-lg hover:bg-brand/8 grid place-items-center">+{col.count - col.cards.length} <Words k="more" /></Link>
+
+              {step.cards.length > 0 && (
+                <ul className="mt-3 md:ml-10 flex flex-col gap-2">
+                  {step.cards.map((c) => (
+                    <li key={c.id} className="rounded-xl border border-line/70 bg-surface p-3 flex flex-col sm:flex-row sm:items-center gap-3">
+                      <Link href={c.href} className="flex items-center gap-3 min-w-0 flex-1 rounded-lg focus-visible:outline-2 focus-visible:outline-brand">
+                        <Avatar name={c.name} size={36} />
+                        <span className="min-w-0">
+                          <span className="block text-[14px] font-semibold leading-tight">{c.name}</span>
+                          <span className="block text-[12.5px] text-ink3 mt-0.5">{c.cls ? t("Class wanted: {cls}", { cls: c.cls }) : t("Class not set")}</span>
+                          <span className={cx("block text-[12.5px] font-medium mt-0.5", c.fact.tone ? TONE[c.fact.tone] : "text-ink2")}>{t(c.fact.k, c.fact.vars)}</span>
+                        </span>
+                      </Link>
+                      {move && c.act?.kind === "link" && (
+                        <ButtonLink href={c.act.href} variant="secondary" size="lg" className="w-full sm:w-auto shrink-0">{t(c.act.k)}</ButtonLink>
+                      )}
+                      {move && c.act?.kind === "move" && next && (
+                        <Button variant="secondary" size="lg" className="w-full sm:w-auto shrink-0" disabled={pending} loading={busy === c.id}
+                          aria-label={t("Move {name} to {step}", { name: c.name, step: t.any(next.label) })} onClick={() => go(c.id, step.key, next.key)}>
+                          {t("Move to {step}", { step: t.any(next.label) })}
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
               )}
-            </section>
+            </li>
           );
         })}
-      </div>
+      </ol>
       {view}
     </div>
   );

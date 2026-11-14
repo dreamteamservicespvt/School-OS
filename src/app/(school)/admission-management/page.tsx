@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
-import { AlarmClock, Armchair, Building2, CalendarX2, FilePlus2, Filter, SquareKanban } from "lucide-react";
+import { AlarmClock, Armchair, Building2, CalendarX2, FilePlus2, ListOrdered } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatDate, formatTime } from "@/lib/format";
 import { admissionPage, BASE } from "@/lib/admission/page";
@@ -21,7 +21,7 @@ import { cx } from "@/components/ui/cx";
 import { periodFromSearch, momentWhere } from "@/lib/periods";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { AdmissionHead } from "./_components/head";
-import { Pipeline } from "./_components/pipeline";
+import { Pipeline, type Step } from "./_components/pipeline";
 import { AddEnquiryButton } from "./enquiries/enquiry-forms";
 import { moveCard } from "./actions";
 import { Words } from "@/lib/i18n/client";
@@ -76,7 +76,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
     const [band, stages, cols, fu, seats] = await Promise.all([
       headline(tx, viewer, f, dayStart, now),
       whereNow(tx, settings, viewer, f, now),
-      pipeline(tx, settings, viewer, f, n),
+      pipeline(tx, settings, viewer, f, n, 3, tz, now),
       followUps(tx, viewer, f, dayStart, now),
       // Seats of each campus's year; with several campuses, each class shows its campus.
       Promise.all(inView.map(async (y) => [...(await seatsFor(tx, y.id)).values()].map((c) => (inView.length > 1 ? { ...c, className: `${c.className} (${campusName.get(y.campusId) ?? ""})` } : c)))),
@@ -124,7 +124,8 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
   }
 
   const { band, stages, cols, fu, seats, f, n } = data;
-  const max = Math.max(1, ...stages.map((s) => s.count));
+  // One list of steps (the funnel's counts, with the pipeline's people inside each step).
+  const steps: Step[] = stages.map((s) => ({ key: s.key, label: s.label, count: s.count, week: s.week, oldest: s.oldest ? formatDate(s.oldest, tz) : null, href: s.href, cards: cols.find((c) => c.key === s.key)?.cards ?? [] }));
   const className = f.classId ? n.classes.get(f.classId) : undefined;
   const groups = [
     { key: "overdue", label: "Overdue", tone: "text-bad", rows: fu.overdue },
@@ -160,31 +161,8 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
         <Split>
           <Col>
             <Card>
-              <CardHeader title="Where everyone is now" description={`${yl(thisYear)} · tap a stage to open the list behind it`} icon={Filter} />
-              <ul className="px-2 pb-3">
-                {stages.map((s) => (
-                  <li key={s.key}>
-                    <a href={s.href} className="w-full grid grid-cols-[96px_1fr_64px] md:grid-cols-[130px_1fr_150px] items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70 text-left transition">
-                      <span className="min-w-0">
-                        <span className="block font-semibold text-[14px] truncate">{s.label}</span>
-                        <span className="block text-[12px] text-ink3 truncate">{s.key === "done" ? "This year" : s.oldest ? `Oldest ${formatDate(s.oldest, tz)}` : "Nobody waiting"}</span>
-                      </span>
-                      <span className="relative h-3 rounded-full bg-sunken overflow-hidden" aria-hidden="true">
-                        <span className={cx("absolute inset-y-0 left-0 rounded-full", s.key === "done" ? "bg-ok" : "bg-brand")} style={{ width: `${Math.max(4, (s.count / max) * 100)}%` }} />
-                      </span>
-                      <span className="text-right">
-                        <span className="font-display font-semibold text-[18px] tnum">{s.count}</span>
-                        <span className={cx("block md:inline md:ml-2 text-[12px] font-semibold tnum", s.week ? "text-ok" : "text-ink3")}>{s.week ? `+${s.week}` : "0"}<span className="hidden md:inline font-normal text-ink3"> <Words k="this week" /></span></span>
-                      </span>
-                    </a>
-                  </li>
-                ))}
-              </ul>
-            </Card>
-
-            <Card>
-              <CardHeader title="Pipeline" description={canChange ? "Drag a card to the next column, or use its arrow. The same checks as the buttons apply." : "Cards in each step. View only."} icon={SquareKanban} />
-              <Pipeline columns={cols} move={canChange ? moveCard : undefined} filtered={className} />
+              <CardHeader title="Where everyone is now" description={canChange ? "The admission pipeline: every step from enquiry to admission, who is at it, and the next thing to do." : "The admission pipeline: every step from enquiry to admission, and who is at it. View only."} icon={ListOrdered} />
+              <Pipeline steps={steps} move={canChange ? moveCard : undefined} filtered={className} />
             </Card>
           </Col>
 

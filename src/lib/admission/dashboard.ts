@@ -1,16 +1,18 @@
 // Admission Dashboard (02 §2): the headline numbers, where everyone is now
-// (count at each stage, new this week, oldest waiting), the pipeline board
-// whose cards move one step at a time, and seats left for new joiners.
+// (count at each stage, new this week, oldest waiting), the people at each
+// step with their next step (the pipeline), and seats left for new joiners.
 import "server-only";
 
 import type { Prisma } from "@prisma/client";
 import type { Tx } from "../db";
-import { CLOSED_STATUSES, label, stageOn, type Settings } from "./settings";
+import { CLOSED_STATUSES, stageOn, type Settings } from "./settings";
 import { applicationScope, enquiryScope, type Viewer } from "./access";
 import { progressOf } from "./documents";
 import { classRules } from "./settings";
 import { seatsFor } from "./seats";
 import { yearParam, yearWhere, type Filters } from "./reports";
+import { formatDate } from "../format";
+import type { MessageKey, Vars } from "../i18n/t";
 
 const DAY = 86_400_000;
 
@@ -90,24 +92,36 @@ export async function whereNow(tx: Tx, s: Settings, v: Viewer, f: Filters, now =
   return rows;
 }
 
-export type PipeCard = { id: string; name: string; cls: string; meta: string; href: string };
+/** One plain fact on a card (the words are catalogue keys, so each screen says them in its language). */
+export type PipeFact = { k: MessageKey; vars?: Vars; tone?: "bad" | "warn" | "ok" };
+/** The card's next step: move it on with the same checks as the buttons, or open the page where that step is done. */
+export type PipeAct = { kind: "move" } | { kind: "link"; k: MessageKey; href: string };
+export type PipeCard = { id: string; name: string; cls: string | null; fact: PipeFact; href: string; act?: PipeAct };
 export type PipeColumn = { key: ColumnKey; label: string; count: number; cards: PipeCard[]; href: string };
 
-/** The pipeline board: the first few cards of each column, oldest waiting first. */
-export async function pipeline(tx: Tx, s: Settings, v: Viewer, f: Filters, names: { classes: Map<string, string>; staff: Map<string, string> }, take = 3): Promise<PipeColumn[]> {
-  const cls = (id: string | null) => (id ? names.classes.get(id) ?? "" : "Class not set");
+/** The pipeline board: the first few people at each step (oldest waiting first), each with one useful fact and the next step. */
+export async function pipeline(tx: Tx, s: Settings, v: Viewer, f: Filters, names: { classes: Map<string, string>; staff: Map<string, string> }, take = 3, tz = "Asia/Kolkata", now = new Date()): Promise<PipeColumn[]> {
+  const cls = (id: string | null) => (id ? names.classes.get(id) ?? null : null);
   const yearQ = new URLSearchParams(yearParam(f.yearId)).toString();
   const cols = boardColumns(s);
   const e: Prisma.EnquiryWhereInput = { ...enquiryWhere(f, v), status: { notIn: [...CLOSED_STATUSES] } };
   const [eRows, eCount] = await Promise.all([tx.enquiry.findMany({ where: e, take, orderBy: { createdAt: "desc" } }), tx.enquiry.count({ where: e })]);
   const out: PipeColumn[] = [{
     key: "enq", label: "Enquiries", count: eCount, href: `/admission-management/enquiries?${yearQ}`,
-    cards: eRows.map((r) => ({ id: r.id, name: r.childName, cls: cls(r.classId), meta: `${label(s.sourceList, r.source)} · ${r.ownerStaffId ? names.staff.get(r.ownerStaffId) ?? "" : label(s.statusList, r.status)}`, href: `/admission-management/enquiries?id=${r.id}` })),
+    cards: eRows.map((r) => {
+      const due = r.nextFollowUpAt;
+      const fact: PipeFact = due
+        ? due < now ? { k: "Follow-up overdue, was due {date}", vars: { date: formatDate(due, tz) }, tone: "bad" } : { k: "Follow up {date}", vars: { date: formatDate(due, tz) } }
+        : { k: "No follow-up set", tone: "warn" };
+      return { id: r.id, name: r.childName, cls: cls(r.classId), fact, href: `/admission-management/enquiries?id=${r.id}`, act: { kind: "link", k: "Start application", href: `/admission-management/applications/new?enquiry=${r.id}` } };
+    }),
   }];
   if (v.see !== "all") return out;
   const base = appWhere(f, v);
   const rules = await classRules(tx);
-  for (const c of cols.filter((c) => c.key !== "enq")) {
+  for (const [ci, c] of cols.entries()) {
+    if (c.key === "enq") continue;
+    const next = cols[ci + 1]?.key;
     const where = { ...base, ...stageWhere(c.key, s) };
     const [rows, count] = await Promise.all([
       tx.application.findMany({
@@ -121,14 +135,22 @@ export async function pipeline(tx: Tx, s: Settings, v: Viewer, f: Filters, names
       cards: rows.map((r) => {
         const p = progressOf(r.documents, rules.get(r.classId)?.documents ?? []);
         const paid = r.payments.reduce((x, y) => x + y.amountPaise, BigInt(0));
-        let meta: string = r.applicationNo;
-        if (c.key === "app") meta = r.feeDuePaise && paid < r.feeDuePaise && stageOn(s, "payment") ? "Fee not paid" : r.stage === "SUBMITTED_ONLINE" ? "Submitted online" : r.stage === "REVIEWED" ? "Reviewed" : "Not reviewed yet";
-        if (c.key === "docs") meta = `${p.requiredVerified} of ${p.required} verified`;
-        if (c.key === "test") meta = r.tests[0] ? (r.tests[0].marks !== null ? `Scored ${Number(r.tests[0].marks)} of ${r.tests[0].test.maxMarks}` : "Test booked") : "No test booked";
-        if (c.key === "int") meta = r.interviews[0] ? "Interview booked" : "No interview booked";
-        if (c.key === "appr") meta = r.stage === "APPROVED" ? "Approved · confirm admission" : r.approvalId ? "Waiting for approval" : "Ready for decision";
-        if (c.key === "done") meta = r.applicationNo;
-        return { id: r.id, name: r.fullName, cls: cls(r.classId), meta, href: `/admission-management/applications/${r.id}` };
+        let fact: PipeFact = { k: "Not reviewed yet" };
+        // Moving on: the same move (and checks) as before; where that move is always refused, the page that does the step.
+        let act: PipeAct | undefined = next ? { kind: "move" } : undefined;
+        if (c.key === "app") fact = r.feeDuePaise && paid < r.feeDuePaise && stageOn(s, "payment") ? { k: "Fee not paid", tone: "warn" } : r.stage === "SUBMITTED_ONLINE" ? { k: "Submitted online" } : r.stage === "REVIEWED" ? { k: "Reviewed" } : { k: "Not reviewed yet" };
+        if (c.key === "docs") fact = p.required ? { k: "{done} of {total} documents checked", vars: { done: p.requiredVerified, total: p.required }, tone: p.requiredVerified < p.required ? "warn" : "ok" } : { k: "No documents needed" };
+        if (c.key === "test") fact = r.tests[0] ? (r.tests[0].marks !== null ? { k: "Scored {marks} of {max}", vars: { marks: Number(r.tests[0].marks), max: r.tests[0].test.maxMarks } } : { k: "Test booked" }) : { k: "No test booked", tone: "warn" };
+        if (c.key === "test" && next === "int") act = { kind: "link", k: "Book interview", href: "/admission-management/tests?tab=interviews" };
+        if (c.key === "int") fact = r.interviews[0] ? { k: "Interview booked" } : { k: "No interview booked", tone: "warn" };
+        if (c.key === "appr") {
+          fact = r.stage === "APPROVED" ? { k: "Approved", tone: "ok" } : r.approvalId ? { k: "Waiting for approval" } : { k: "Ready for decision" };
+          act = r.stage === "APPROVED"
+            ? { kind: "link", k: "Confirm admission", href: `/admission-management/decision?tab=approved&focus=${r.id}` }
+            : { kind: "link", k: "Decide", href: `/admission-management/decision?focus=${r.id}` };
+        }
+        if (c.key === "done") fact = r.admittedAt ? { k: "Admitted on {date}", vars: { date: formatDate(r.admittedAt, tz) }, tone: "ok" } : { k: "Admitted" };
+        return { id: r.id, name: r.fullName, cls: cls(r.classId), fact, href: `/admission-management/applications/${r.id}`, act };
       }),
     });
   }

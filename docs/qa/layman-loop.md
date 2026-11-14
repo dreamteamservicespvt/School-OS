@@ -20,7 +20,7 @@ Progress page: see docs/HANDOFF.md (link).
 6. Founder review: "the software looks heavy with text, clumsy and confusing" → a "less text" pass over every screen (next round).
 
 7. Send every kind of WhatsApp message to 9390011378 (also as a parent's number); Parent Link not sending; check Parent Link and student progress → same root cause (templates); fix in code, test every message kind locally with 9390011378 as the parent; real delivery after the owner deploys and Meta approves.
-8. School Calendar confusing (month said twice, entries cut off, no colour key, unclear taps) → agent running; then the other Events pages.
+8. School Calendar confusing → DONE ff0cd2ed (month once, names wrap + "+N more", colour key, pick a day, phone list view, shorter Events subtitles). Admissions Pipeline → DONE 0665f5a8 (one step list with labelled next-step buttons).
 9. Staff Attendance month list with one choice ("UI corrupted") → DONE 6cbf8094 (plain text; every one-choice form dropdown too).
 
 10. Moving a school's data in (students, parents, staff, old fees): practise different ways with realistic messy files (made-up data), as a layman, on the new local "Day One Test School" → round "Moving in".

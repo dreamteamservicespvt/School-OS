@@ -77,7 +77,7 @@ export function UndoFixButton({ place, id, line }: OnFile & { line: number }) {
 export function ImportButton({ place, id, ready, problems, leftOut, one, many }: OnFile & { ready: number; problems: number; leftOut: number; one: string; many: string }) {
   const router = useRouter();
   return (
-    <ConfirmButton trigger={`Bring in ${plural(ready, one, many)}`} triggerVariant="primary" title={`Bring in ${plural(ready, one, many)}?`} confirmLabel={`Bring in ${plural(ready, "row")}`}
+    <ConfirmButton trigger={`Bring in ${plural(ready, one, many)}`} triggerVariant="primary" title={`Bring in ${plural(ready, one, many)}?`} confirmLabel={`Bring in ${plural(ready, one, many)}`}
       onConfirm={async () => { const p = await importAction(place, id); if (!p) router.refresh(); return p; }}>
       <p>Only the {plural(ready, "ready row")} {ready === 1 ? "is" : "are"} brought in.{problems || leftOut ? ` ${stayWords(problems, leftOut)}` : ""}</p>
       <p className="mt-2">You can undo this import later from this page; what it added is archived, never lost.</p>

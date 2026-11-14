@@ -35,21 +35,35 @@ export async function enqueue(tx: Tx, ctx: SchoolContext, kind: string, idempote
  * response that queued them, once the change is saved (job-tick.ts). Elsewhere
  * `npm run worker` does it, and outside a request this does nothing.
  */
-let kickPending = false;
+// Layman loop 15 Nov: a burst that never finished (it hung, it did not fail) left the flag on, and from then no job
+// ran on that server: an import stayed "Bringing in students now…" for good. A burst now gives up after its time,
+// and a flag older than a minute no longer blocks the next burst.
+let kickStartedAt = 0;
+const KICK_STALE_MS = 60_000;
+const KICK_GIVE_UP_MS = 35_000;
 function kickJobs() {
-  if (kickPending || (!isTestCopy() && process.env.RUN_JOBS_AFTER_REQUESTS !== "on")) return;
+  if (!isTestCopy() && process.env.RUN_JOBS_AFTER_REQUESTS !== "on") return;
+  const now = Date.now();
   // One burst at a time per server: a bulk send queues hundreds of jobs in one request.
-  kickPending = true;
+  if (kickStartedAt && now - kickStartedAt < KICK_STALE_MS) return;
+  if (kickStartedAt) console.error(JSON.stringify({ level: "error", event: "job-burst-stale", startedSecondsAgo: Math.round((now - kickStartedAt) / 1000) }));
+  kickStartedAt = now;
+  const started = now;
+  const done = () => { if (kickStartedAt === started) kickStartedAt = 0; };
   void import("next/server")
     .then(({ after }) => after(async () => {
+      let timer: ReturnType<typeof setTimeout> | undefined;
       try {
         const { tickJobs } = await import("./job-tick");
-        await tickJobs();
+        const gaveUp = new Promise<"gave-up">((resolve) => { timer = setTimeout(() => resolve("gave-up"), KICK_GIVE_UP_MS); });
+        const r = await Promise.race([tickJobs(), gaveUp]);
+        if (r === "gave-up") console.error(JSON.stringify({ level: "error", event: "job-burst-timeout", seconds: KICK_GIVE_UP_MS / 1000 }));
       } finally {
-        kickPending = false;
+        if (timer) clearTimeout(timer);
+        done();
       }
     }))
-    .catch(() => { kickPending = false; });
+    .catch(() => { done(); });
 }
 
 /**

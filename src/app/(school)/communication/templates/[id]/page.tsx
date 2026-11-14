@@ -15,6 +15,8 @@ import { BackLink, Col, DL, RecordHead, Split } from "@/components/ui/split";
 import { UrlSegmented } from "@/components/ui/url-filters";
 import { ChannelPills } from "../../_components/channel-pills";
 import { ApprovalButton, ArchiveTemplate, RefreshApproval } from "./template-actions";
+import { MakeReadyButton } from "../whatsapp-ready";
+import { newReadyWords } from "@/lib/communication/whatsapp-ready";
 import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
@@ -56,6 +58,8 @@ export default async function TemplatePage({ params, searchParams }: { params: P
   const missingDlt = isSms && currentVersions.some((x) => !x.dltTemplateId);
   const wa = v?.whatsappStatus ?? "NOT_SUBMITTED";
   const waProblems = isWa && v ? whatsappProblems(v.body) : [];
+  // Still in the first words School OS gave it, never approved: one click gives today's ready words.
+  const readyWords = isWa && v && (wa === "NOT_SUBMITTED" || wa === "REJECTED") ? newReadyWords(t.key, v.language, v.body) : null;
   const preview = v ? render(v.body, sampleValues) : null;
   const usedIn = (vid: string) => { const n = data.uses.get(vid) ?? 0; return `${n.toLocaleString("en-IN")} message${n === 1 ? "" : "s"}`; };
   const maxVersion = Math.max(1, ...currentVersions.map((x) => x.version));
@@ -112,8 +116,21 @@ export default async function TemplatePage({ params, searchParams }: { params: P
                   <p className="eyebrow text-ink3 mb-1.5"><Words k="Preview with sample details" /></p>
                   <div className="rounded-2xl rounded-tl-md bg-surface border border-line p-3.5 shadow-card text-[14px] leading-relaxed whitespace-pre-line break-words">{preview?.ok ? preview.text : v.body}</div>
                 </div>
-                {isWa && (wa === "NOT_SUBMITTED" || wa === "REJECTED") && waProblems.length > 0 && (
-                  <Banner tone="warn" title="WhatsApp would refuse these words."><ul className="list-disc pl-5">{waProblems.map((m) => <li key={m}><Any text={m} /></li>)}</ul></Banner>
+                {readyWords && (
+                  <div className="rounded-xl border border-warn/40 bg-warn/12 p-3.5 flex flex-col gap-3">
+                    <p className="text-[14px] text-ink2"><b className="font-semibold text-ink"><Words k="These are the first words School OS gave this template." /></b> <Words k="WhatsApp would refuse them. Make it ready to save today's words as a new version; the old version stays on record." /></p>
+                    <div>
+                      <p className="eyebrow text-ink3 mb-1.5"><Words k="New words" /></p>
+                      <div className="rounded-xl bg-surface border border-line p-3 text-[14px] leading-relaxed whitespace-pre-line break-words"><BlankText text={readyWords} /></div>
+                    </div>
+                    {canEdit && <MakeReadyButton id={t.id} />}
+                  </div>
+                )}
+                {isWa && (wa === "NOT_SUBMITTED" || wa === "REJECTED") && waProblems.length > 0 && !readyWords && (
+                  <Banner tone="warn" title="WhatsApp would refuse these words."
+                    action={canEdit ? <ButtonLink href={`/communication/templates/${t.id}/edit`} size="sm" variant="secondary" icon={Pencil}><Words k="Edit" /></ButtonLink> : undefined}>
+                    <ul className="list-disc pl-5">{waProblems.map((m) => <li key={m}><Any text={m} /></li>)}</ul>
+                  </Banner>
                 )}
                 {(isWa && access.full && !t.archivedAt) && (
                   <div className="flex gap-2 flex-wrap">

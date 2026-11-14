@@ -9,6 +9,7 @@ import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { commAction } from "@/lib/communication/access";
 import { archiveTemplate, checkTemplate, refreshApproval, saveTemplate, submitForApproval, TemplateProblem, WHATSAPP_STATUS_LABEL, type TemplateInput } from "@/lib/communication/templates-admin";
+import { makeReadyForWhatsapp } from "@/lib/communication/whatsapp-ready";
 import { isChannel } from "@/lib/messaging/channels";
 
 export type TemplateState = { ok: boolean; message?: string; errors?: Record<string, string> } | null;
@@ -110,4 +111,37 @@ export async function refreshApprovalAction(templateId: string): Promise<string 
     throw e;
   }
   revalidatePath("/communication/templates");
+}
+
+/**
+ * "Make ready for WhatsApp": one template (or every one, with null) still in
+ * School OS's first words gets today's ready words as a new version.
+ */
+export async function makeReadyAction(templateId: string | null): Promise<string | void> {
+  if (templateId !== null && !uuid.test(templateId)) return "This template was not found.";
+  try {
+    const access = await fullAccess("edit");
+    const done = await withSchool(access.current.ctx, (tx) => makeReadyForWhatsapp(tx, access.current.ctx, templateId));
+    if (!done.length) return "Nothing to change: these templates no longer have the first words School OS gave them.";
+    await flash({ message: "The templates now have words WhatsApp accepts. Next, send them to WhatsApp for approval.", tone: "success" });
+  } catch (e) {
+    if (e instanceof TemplateProblem) return e.message;
+    throw e;
+  }
+  revalidatePath("/communication/templates");
+}
+
+export type SentForApproval = { ok: true; status: string } | { ok: false; message: string };
+
+/** One text of "Send N templates to WhatsApp for approval": the screen sends them one at a time and shows each answer. */
+export async function sendForApprovalAction(versionId: string): Promise<SentForApproval> {
+  if (!uuid.test(versionId)) return { ok: false, message: "This version was not found." };
+  try {
+    const access = await fullAccess("edit");
+    const status = await withSchool(access.current.ctx, (tx) => submitForApproval(tx, access.current.ctx, versionId));
+    return { ok: true, status };
+  } catch (e) {
+    if (e instanceof TemplateProblem) return { ok: false, message: e.message };
+    throw e;
+  }
 }

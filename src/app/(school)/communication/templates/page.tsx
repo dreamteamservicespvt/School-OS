@@ -7,6 +7,7 @@ import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { CHANNELS, offeredChannels, SMS_OFFERED } from "@/lib/messaging/channels";
 import { categoryLabel, ensureReadyTemplates, languageLabel, TEMPLATE_CATEGORIES } from "@/lib/messaging/templates";
 import { ruleTemplateIds, TEMPLATE_FILTERS, templateWhere, usedBy, WHATSAPP_STATUS_LABEL } from "@/lib/communication/templates-admin";
+import { whatsappReadiness } from "@/lib/communication/whatsapp-ready";
 import { Card } from "@/components/ui/card";
 import { Toolbar } from "@/components/ui/toolbar";
 import { DataList } from "@/components/ui/data-list";
@@ -17,6 +18,7 @@ import { UrlSearch, UrlSegmented, UrlSelect } from "@/components/ui/url-filters"
 import { EmptyState } from "@/components/empty-state";
 import { ExportMenu } from "@/components/communication/export-menu";
 import { CommHead } from "../_components/comm-head";
+import { WhatsappReadyPanel } from "./whatsapp-ready";
 import { ChannelPills, CHANNEL_NAME } from "../_components/channel-pills";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
@@ -42,13 +44,15 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
     if (access.full) await ensureReadyTemplates(tx, current.ctx);
     const where = templateWhere(current.ctx, params);
     const orderBy = params.sort === "name" ? { name: params.dir } : params.sort === "updated" ? { updatedAt: params.dir } : [{ category: "asc" as const }, { name: "asc" as const }];
-    const [rows, total, firstIds, noDlt] = await Promise.all([
+    const [rows, total, firstIds, noDlt, ready] = await Promise.all([
       tx.template.findMany({ where, orderBy, ...skipTake(params), include: { versions: { where: { isCurrent: true }, orderBy: { language: "asc" } } } }),
       tx.template.count({ where }),
       ruleTemplateIds(tx, current.ctx),
       SMS_OFFERED ? tx.template.count({ where: { schoolId: current.ctx.schoolId, archivedAt: null, channel: "sms", versions: { some: { isCurrent: true, dltTemplateId: null } } } }) : 0,
+      // The steps to WhatsApp approval, for the people who change templates.
+      access.full && !params.archived ? whatsappReadiness(tx, current.ctx) : null,
     ]);
-    return { rows, total, firstIds, noDlt };
+    return { rows, total, firstIds, noDlt, ready };
   });
   const filtered = Boolean(params.q || Object.keys(params.filters).length || params.archived);
   const canEdit = access.full;
@@ -68,6 +72,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
             <Words k="No SMS can be sent from them until DREAM TEAM adds the ID." />
           </Banner>
         )}
+        {data.ready && <WhatsappReadyPanel {...data.ready} />}
         <Card className="overflow-hidden min-w-0">
           <Toolbar className="flex-wrap">
             <UrlSearch placeholder="Template name or text" className="min-w-[14rem]" />

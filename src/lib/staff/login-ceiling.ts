@@ -10,13 +10,20 @@
 //   - make a new sign-in link ("Reset password") for a login that holds one of
 //     those roles they do not hold themselves, a personal exception they could
 //     not give, or access in another school (it is one login for every school; run-3);
+//     nor for a login whose roles give more than they hold in any module (security
+//     review 2026-11-15: HR took over a Vice Principal's login with the link);
 //   - record the exit of a login that holds one of those roles or a Settings
 //     exception, which closes that login on the last working day (run-3).
 // Someone with Settings "edit" (the School Admin, the Principal) is not limited
-// here, and Settings, Users & Permissions works as before.
+// here, and Settings, Users & Permissions works as before, with two limits for
+// everyone (security review 2026-11-15): no sign-in link for a login that also
+// opens a school they do not manage, and someone kept to one campus gives no
+// access, and makes no link, beyond that campus.
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
+import { accessIn, schoolsFor } from "../auth/access";
+import { campusOf } from "../campus";
 import type { ModuleKey } from "../modules";
 import { applyExceptions, combineRoles, narrowToOwn, type PermissionMap, type Reach } from "../permissions";
 import type { AccessLevel, RolePermissions } from "../roles";
@@ -31,6 +38,11 @@ export const LOGIN_CEILING_WORDS = {
   // Security audit run-3 (the L5 leftover; owner decision taken overnight as the safest choice, to confirm).
   linkAbove: "Only someone who can change Settings, Users & Permissions can make a sign-in link for a login with access to Settings or more access than yours. Ask your School Admin.",
   linkElsewhere: "This login also opens another school. Only someone who can change Settings, Users & Permissions can make a sign-in link for it. Ask your School Admin.",
+  // Security review 2026-11-15.
+  linkOtherSchool: "This login also opens a school you do not manage. Only someone who manages every school it opens, or DREAM TEAM support, can make a sign-in link for it.",
+  linkCampus: "This login works beyond your campus. Only someone who works for the whole school can make a sign-in link for it.",
+  campusScope: "You work for one campus, so you can give access to that campus only.",
+  campusPerson: "This person works beyond your campus. Only someone who works for the whole school can change their access or their login.",
 } as const;
 
 /** Roles that only Settings, Users & Permissions gives. */
@@ -43,7 +55,8 @@ const LEVEL: Record<AccessLevel, { see: Reach; change: Reach }> = {
   none: { see: "none", change: "none" },
 };
 
-type Granter = { permissions: PermissionMap; roleKeys: string[] };
+type Granter = { permissions: PermissionMap; roleKeys: string[]; /** The one campus they are kept to (their widest access is one campus), or null. */ campusId?: string | null };
+type ScopeRow = { scope: string; campusId: string | null };
 type RoleLike = { key: string | null; permissions: unknown };
 
 /** The person giving the login: their roles and what they may do in this school, read in the same transaction. */
@@ -57,7 +70,18 @@ export async function granterOf(tx: Tx, ctx: SchoolContext): Promise<Granter> {
   return {
     permissions: applyExceptions(own ? narrowToOwn(combined) : combined, accesses.map((a) => a.exceptions as Record<string, AccessLevel>)),
     roleKeys: roles.map((r) => r.key).filter((k): k is string => Boolean(k)),
+    campusId: campusOf(accesses),
   };
+}
+
+/**
+ * Does any of these access rows reach beyond the giver's one campus? Whole school, another
+ * campus, or chosen classes (which can be on any campus) do; one campus that is theirs, or own
+ * records only, do not. Someone not kept to one campus is never refused here.
+ */
+export function beyondCampus(giverCampusId: string | null | undefined, rows: ScopeRow[]): boolean {
+  if (!giverCampusId) return false;
+  return rows.some((r) => r.scope !== "OWN" && !(r.scope === "CAMPUS" && r.campusId === giverCampusId));
 }
 
 /** Can this person change Settings, Users & Permissions? Then nothing here limits them. */
@@ -86,8 +110,16 @@ export function loginGrantRefusal(g: Granter, roles: RoleLike[], exceptions: Rec
 /**
  * Why this person may not make a new sign-in link for a login holding these
  * roles and exceptions here, or opening another school too; null when they may.
+ * `elsewhereManaged`: the giver manages users in every other school the login opens.
  */
-export function signInLinkRefusal(g: Granter, targetRoles: RoleLike[], target: { exceptions?: Record<string, AccessLevel>[]; elsewhere?: boolean } = {}): string | null {
+export function signInLinkRefusal(
+  g: Granter,
+  targetRoles: RoleLike[],
+  target: { exceptions?: Record<string, AccessLevel>[]; elsewhere?: boolean; elsewhereManaged?: boolean; scopes?: ScopeRow[] } = {},
+): string | null {
+  // The new password opens every school of the login: a school the giver does not manage too.
+  if (target.elsewhere && managesUsers(g) && !target.elsewhereManaged) return LOGIN_CEILING_WORDS.linkOtherSchool;
+  if (beyondCampus(g.campusId, target.scopes ?? [])) return LOGIN_CEILING_WORDS.linkCampus;
   if (managesUsers(g)) return null;
   const mine = new Set(g.roleKeys);
   if (targetRoles.some((r) => isTopRole(r) && !(r.key && mine.has(r.key)))) return LOGIN_CEILING_WORDS.link;
@@ -95,16 +127,46 @@ export function signInLinkRefusal(g: Granter, targetRoles: RoleLike[], target: {
   if ((target.exceptions ?? []).some((ex) => loginGrantRefusal(g, [], ex ?? {}))) return LOGIN_CEILING_WORDS.linkAbove;
   // The new password would open the other school too, whose people this school cannot see.
   if (target.elsewhere) return LOGIN_CEILING_WORDS.linkElsewhere;
+  // Roles that give more than the giver holds in some module (security review 2026-11-15).
+  if (moreThanGiver(g, targetRoles, target.exceptions ?? [])) return LOGIN_CEILING_WORDS.linkAbove;
   return null;
 }
 
+/** Does a login with these roles and exceptions reach further than the giver in any module? */
+function moreThanGiver(g: Granter, roles: RoleLike[], exceptions: Record<string, AccessLevel>[]): boolean {
+  const theirs = applyExceptions(combineRoles(roles.map((r) => (r.permissions ?? {}) as RolePermissions)), exceptions);
+  return (Object.keys(theirs) as ModuleKey[]).some((key) => {
+    const mine = g.permissions[key] ?? { see: "none", change: "none" };
+    return REACH[theirs[key].see] > REACH[mine.see] || REACH[theirs[key].change] > REACH[mine.change];
+  });
+}
+
 /** The roles and personal exceptions a login holds in this school (its live access here), read in the same transaction. */
-export async function heldHere(tx: Tx, ctx: SchoolContext, userLoginId: string): Promise<{ roles: RoleLike[]; exceptions: Record<string, AccessLevel>[] }> {
+export async function heldHere(tx: Tx, ctx: SchoolContext, userLoginId: string): Promise<{ roles: RoleLike[]; exceptions: Record<string, AccessLevel>[]; scopes: ScopeRow[] }> {
   const accesses = await tx.schoolAccess.findMany({
     where: { schoolId: ctx.schoolId, userLoginId, archivedAt: null },
-    select: { exceptions: true, roles: { select: { role: { select: { key: true, permissions: true } } } } },
+    select: { exceptions: true, scope: true, campusId: true, roles: { select: { role: { select: { key: true, permissions: true } } } } },
   });
-  return { roles: accesses.flatMap((a) => a.roles.map((r) => r.role)), exceptions: accesses.map((a) => (a.exceptions ?? {}) as Record<string, AccessLevel>) };
+  return {
+    roles: accesses.flatMap((a) => a.roles.map((r) => r.role)),
+    exceptions: accesses.map((a) => (a.exceptions ?? {}) as Record<string, AccessLevel>),
+    scopes: accesses.map((a) => ({ scope: a.scope, campusId: a.campusId })),
+  };
+}
+
+/**
+ * Does this giver manage users (Settings "edit", for the whole school) in every school other
+ * than this one that the login opens (true when it opens no other)? Read through each school
+ * as the giver, as sign-in does.
+ */
+export async function managesEveryOtherSchool(giverId: string | null, userLoginId: string, hereSchoolId: string): Promise<boolean> {
+  for (const school of await schoolsFor(userLoginId)) {
+    if (school.id === hereSchoolId) continue;
+    if (!giverId) return false;
+    const view = await accessIn(giverId, school.id);
+    if (!view || view.campusId || !managesUsers(view)) return false;
+  }
+  return true;
 }
 
 /** A personal exception that opens Settings, given in Settings, Users & Permissions. */

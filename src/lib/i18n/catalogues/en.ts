@@ -14948,6 +14948,10 @@ export const EN = [
   "Only someone who can change Settings, Users & Permissions can record the exit of a School Admin, a Principal or anyone with access to Settings. Ask your School Admin.",
   "Only someone who can change Settings, Users & Permissions can make a sign-in link for a login with access to Settings or more access than yours. Ask your School Admin.",
   "This login also opens another school. Only someone who can change Settings, Users & Permissions can make a sign-in link for it. Ask your School Admin.",
+  "This login also opens a school you do not manage. Only someone who manages every school it opens, or DREAM TEAM support, can make a sign-in link for it.",
+  "This login works beyond your campus. Only someone who works for the whole school can make a sign-in link for it.",
+  "You work for one campus, so you can give access to that campus only.",
+  "This person works beyond your campus. Only someone who works for the whole school can change their access or their login.",
   "A fee row needs a fee head, such as Tuition or Transport. This school has none yet.",
   "Each fee head can be used once per class. Add a new fee head to add another row, or change an existing row.",
   // src/components/shell/sound-toggle.tsx (the bell's sound)

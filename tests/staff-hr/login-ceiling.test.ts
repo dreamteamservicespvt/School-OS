@@ -109,7 +109,7 @@ describe("L5: Staff & HR gives only what Settings, Users & Permissions would let
     expect(await loginOf(s.id)).not.toBeNull();
   }, 120_000);
 
-  it("refuses HR a new sign-in link for the Principal's login, but not for a teacher's", async () => {
+  it("refuses HR a new sign-in link for the Principal's login, and (security review 2026-11-15) for a teacher's, whose roles reach further than HR's", async () => {
     const before = await withSchool(sys(), (tx) => tx.userLogin.findUniqueOrThrow({ where: { id: f.principal.id } }));
     as(hr);
     const r = await profile.newSignInLink({ ok: false, message: "" }, form({ staffId: f.principalStaff.id }));
@@ -119,8 +119,10 @@ describe("L5: Staff & HR gives only what Settings, Users & Permissions would let
     const after = await withSchool(sys(), (tx) => tx.userLogin.findUniqueOrThrow({ where: { id: f.principal.id } }));
     expect(after.inviteTokenHash).toBe(before.inviteTokenHash);
 
+    // A Teacher sees their own classes' students and marks attendance; HR does neither (05-roles.md).
     const teacher = await profile.newSignInLink({ ok: false, message: "" }, form({ staffId: f.teacher.id }));
-    expect(teacher?.ok, teacher?.message).toBe(true);
+    expect(teacher?.ok).toBe(false);
+    expect(teacher?.message).toBe(LOGIN_CEILING_WORDS.linkAbove);
   }, 120_000);
 
   it("lets the School Admin make a new sign-in link for the Principal", async () => {
@@ -139,10 +141,10 @@ describe("Security audit run-3: Staff & HR makes no sign-in link for a login abo
   let sister: Awaited<ReturnType<typeof makeSchool>>;
   beforeAll(async () => { sister = await makeSchool("Sister School"); }, 120_000);
 
-  /** A staff record here with a Teacher login, maybe with exceptions here, maybe School Admin in the sister school. */
-  async function withLogin(name: string, o: { exceptions?: Record<string, string>; adminInSister?: boolean }) {
+  /** A staff record here with a Teacher login (or the roles given), maybe with exceptions here, maybe School Admin in the sister school. */
+  async function withLogin(name: string, o: { exceptions?: Record<string, string>; adminInSister?: boolean; roleKeys?: string[] }) {
     const s = await newStaff(name);
-    const login = await makeUser({ schools: [{ id: f.school.id, roleKeys: ["teacher"] }, ...(o.adminInSister ? [{ id: sister.id, roleKeys: ["school-admin"] }] : [])], name });
+    const login = await makeUser({ schools: [{ id: f.school.id, roleKeys: o.roleKeys ?? ["teacher"] }, ...(o.adminInSister ? [{ id: sister.id, roleKeys: ["school-admin"] }] : [])], name });
     await withSchool(sys(), async (tx) => {
       await tx.staff.update({ where: { id: s.id }, data: { userLoginId: login.id } });
       if (o.exceptions) await tx.schoolAccess.updateMany({ where: { userLoginId: login.id }, data: { exceptions: o.exceptions } });
@@ -164,9 +166,9 @@ describe("Security audit run-3: Staff & HR makes no sign-in link for a login abo
     }
   }, 120_000);
 
-  it("lets HR make a link for a login whose exceptions are within HR's own", async () => {
+  it("lets HR make a link for a login whose roles and exceptions are within HR's own", async () => {
     as(hr);
-    const { staff } = await withLogin("Narrow Teacher", { exceptions: { "attendance-management": "own", "fee-management": "none" } });
+    const { staff } = await withLogin("Narrow Colleague", { roleKeys: ["hr"], exceptions: { "attendance-management": "own", "fee-management": "none" } });
     const r = await link(staff.id);
     expect(r?.ok, r?.message).toBe(true);
   }, 120_000);
@@ -190,6 +192,68 @@ describe("Security audit run-3: Staff & HR makes no sign-in link for a login abo
     const { staff } = await withLogin("Admin Made Link", { exceptions: { settings: "view" } });
     const r = await link(staff.id);
     expect(r?.ok, r?.message).toBe(true);
+  }, 120_000);
+});
+
+describe("Security review 2026-11-15: a sign-in link only for a login with the same or less access", () => {
+  // "New sign-in link" is the school's Reset password, and the link is shown to the person who
+  // makes it: with it they set the password and sign in as that person. So it is made only for a
+  // login whose roles reach no further than the maker's own in any module, never for one that
+  // also opens a school the maker does not manage, and never beyond the maker's one campus.
+  let other: Awaited<ReturnType<typeof makeSchool>>;
+  beforeAll(async () => { other = await makeSchool("Other Group School"); }, 120_000);
+
+  async function staffWith(name: string, schools: { id: string; roleKeys: string[] }[], campusId?: string) {
+    const s = await newStaff(name);
+    const login = await makeUser({ schools, name });
+    await withSchool(sys(), (tx) => tx.staff.update({ where: { id: s.id }, data: { userLoginId: login.id, ...(campusId ? { campusId } : {}) } }));
+    return { staff: s, login };
+  }
+  const link = (staffId: string) => profile.newSignInLink({ ok: false, message: "" }, form({ staffId }));
+  const hashOf = async (id: string) => (await withSchool(sys(), (tx) => tx.userLogin.findUniqueOrThrow({ where: { id } }))).inviteTokenHash;
+
+  it("refuses HR a link for a Vice Principal's login, and shows no link", async () => {
+    as(hr);
+    const { staff, login } = await staffWith("Vice Principal Person", [{ id: f.school.id, roleKeys: ["vice-principal"] }]);
+    const r = await link(staff.id);
+    expect(r?.ok).toBe(false);
+    expect(r?.message).toBe(LOGIN_CEILING_WORDS.linkAbove);
+    expect(JSON.stringify(r)).not.toContain("/invite/");
+    expect(await hashOf(login.id)).toBeNull();
+  }, 120_000);
+
+  it("refuses the School Admin a link for a login that also opens a school they do not manage, but not one they manage too", async () => {
+    as(f.admin);
+    const { staff, login } = await staffWith("Group Teacher", [{ id: f.school.id, roleKeys: ["teacher"] }, { id: other.id, roleKeys: ["teacher"] }]);
+    const r = await link(staff.id);
+    expect(r?.ok).toBe(false);
+    expect(r?.message).toBe(LOGIN_CEILING_WORDS.linkOtherSchool);
+    expect(await hashOf(login.id)).toBeNull();
+    // The School Admin of both schools may.
+    await withSchool({ schoolId: other.id, userId: null }, async (tx) => {
+      const role = await tx.role.findFirstOrThrow({ where: { key: "school-admin" } });
+      await tx.schoolAccess.create({ data: { schoolId: other.id, userLoginId: f.admin.id, roles: { create: [{ roleId: role.id, schoolId: other.id }] } } });
+    });
+    const both = await link(staff.id);
+    expect(both?.ok, both?.message).toBe(true);
+  }, 120_000);
+
+  it("refuses a School Admin kept to one campus a link for a whole-school login, but not for one of their campus", async () => {
+    const north = await withSchool(sys(), async (tx) => (await tx.campus.create({ data: { schoolId: f.school.id, name: "North Campus" } })).id);
+    const northAdmin = await makeUser({ schools: [{ id: f.school.id, roleKeys: ["school-admin"] }], name: "North Admin" });
+    await withSchool(sys(), (tx) => tx.schoolAccess.updateMany({ where: { userLoginId: northAdmin.id, schoolId: f.school.id }, data: { scope: "CAMPUS", campusId: north } }));
+    const whole = await staffWith("Whole School Teacher", [{ id: f.school.id, roleKeys: ["teacher"] }], north);
+    const mine = await staffWith("North Teacher", [{ id: f.school.id, roleKeys: ["teacher"] }], north);
+    await withSchool(sys(), (tx) => tx.schoolAccess.updateMany({ where: { userLoginId: mine.login.id, schoolId: f.school.id }, data: { scope: "CAMPUS", campusId: north } }));
+    as(northAdmin);
+    const r = await link(whole.staff.id);
+    expect(r?.ok).toBe(false);
+    expect(r?.message).toBe(LOGIN_CEILING_WORDS.linkCampus);
+    expect(await hashOf(whole.login.id)).toBeNull();
+    const ok = await link(mine.staff.id);
+    expect(ok?.ok, ok?.message).toBe(true);
+    // The fixture keeps one School Admin for the exit tests below.
+    await withSchool(sys(), (tx) => tx.schoolAccess.updateMany({ where: { userLoginId: northAdmin.id }, data: { archivedAt: new Date() } }));
   }, 120_000);
 });
 

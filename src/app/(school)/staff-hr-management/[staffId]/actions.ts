@@ -18,7 +18,7 @@ import { changeStatus, giveLogin, issueInvite, saveEmergencyContacts, StaffProbl
 import { hrSettings, STAFF_STATUSES } from "@/lib/staff/settings";
 import { reopenLogin, switchOffLogin } from "@/lib/staff/exit";
 import { confirmInviteSent, inviteSentWords, type InviteSent } from "@/lib/settings/invite-message";
-import { granterOf, heldHere, signInLinkRefusal } from "@/lib/staff/login-ceiling";
+import { granterOf, heldHere, managesEveryOtherSchool, signInLinkRefusal } from "@/lib/staff/login-ceiling";
 import { worksElsewhere } from "@/lib/auth/access";
 
 type Who = { current: Awaited<ReturnType<typeof requireAction>>["current"]; viewer: Viewer; staffId: string };
@@ -198,9 +198,12 @@ export async function newSignInLink(_: FormState<unknown>, fd: FormData) {
     if (login.status === "DISABLED") throw new StaffProblem("This login is switched off. Switch it on first.");
     // A School Admin's or Principal's password is reset from Settings, Users & Permissions (run-2 lead L5), and so is
     // that of a login with exceptions Staff & HR could not give or that also opens another school (run-3).
+    // Security review 2026-11-15: nor one with more access than the giver's, beyond their one campus,
+    // or opening a school they do not manage.
     const held = await heldHere(tx, w.current.ctx, login.id);
     const elsewhere = await worksElsewhere(login.id, w.current.ctx.schoolId);
-    const refused = signInLinkRefusal(await granterOf(tx, w.current.ctx), held.roles, { exceptions: held.exceptions, elsewhere });
+    const elsewhereManaged = elsewhere && (await managesEveryOtherSchool(w.current.ctx.userId, login.id, w.current.ctx.schoolId));
+    const refused = signInLinkRefusal(await granterOf(tx, w.current.ctx), held.roles, { exceptions: held.exceptions, elsewhere, elsewhereManaged, scopes: held.scopes });
     if (refused) throw new StaffProblem(refused);
     const { link, sent } = await issueInvite(tx, w.current.ctx, login.id);
     await writeAudit(tx, w.current.ctx, { action: "invite-link-made", recordType: "User Login", recordId: login.id, after: { by: w.current.user.displayName, sentBy: sent.sentBy } });

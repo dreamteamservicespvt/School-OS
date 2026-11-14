@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-15 00:05 IST. LAYMAN LOOP running until Mon 16 Nov morning (owner's order: no questions, local commits only, NO push/deploy). Issues log docs/qa/layman-loop.md; progress page https://claude.ai/artifact/FEhJqMhwnvHoauveY1Pz8m (docs/qa/layman-loop-progress.html); screenshots qa/loop/shots.mjs -> qa-output/loop. Deploy 6 live (main 7958c512); branch has 10+ fixes not deployed (7fdc1a98..). Live data changed 14 Nov: 2026-27 year opened, ENQ-0003, V-0008, student Sri Lakshmi, KUSUMA leave 16-11 approved.
+Last updated: 2026-11-15 02:40 IST. LAYMAN LOOP running until Mon 16 Nov morning (owner: no questions, local commits only, NO push/deploy). Log docs/qa/layman-loop.md; audit findings docs/qa/layman-audit-r1.json (143, by area: shell DONE 7f50bf70, money DONE 3959523e, front RUNNING, then teach, setup, parent); progress https://claude.ai/artifact/FEhJqMhwnvHoauveY1Pz8m; screenshots `MSYS_NO_PATHCONV=1 QA_SERVER_LOG=tools/app.log node qa/loop/shots.mjs <role> <name> <paths>`; stage only own catalogue lines with `python qa/loop/stage-lines.py <file> <text>`. Only ONE vitest run at a time (global setup drops the test DB). Local build from a `git archive HEAD` snapshot (C:/Users/chala/sos-snap, robocopy to sos-build) so half-finished edits never break it.
 
 ## State
 

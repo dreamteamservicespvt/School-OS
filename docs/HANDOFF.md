@@ -28,6 +28,10 @@ Last updated: 2026-11-14 12:00 IST (attendance correction status + subject-teach
   db collection "reports", doubts asked in "doubts": read them with ArtifactData list to fix problems.
 
 ## Next steps
+0. 2026-11-14 (not pushed, 6 commits ahead of origin/main): 196afc97 "Me > My leave / My salary slips" menu for
+   own-record staff; 453b5544 DA/HRA switch per structure, removed salary item leaves structures from first open
+   month, Add Staff no default post + Staff List "posts may be wrong" box. After deploy: HR fixes posts with
+   "Change post"; Accountant revises the teacher's structure (DA/HRA off; old removed items drop on revise).
 1. Live receipt PDF check on beta once the user has signed in (Principal) in Chrome 694c21cd.
 2. Team brief is ready (docs/qa/2026-11-12-team-brief.md); the owner shares it with the testers.
 3. Record name in the tab is on 13 record pages; other record pages (enquiry, route, quiz, survey...) can take

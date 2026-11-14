@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-14 19:25 IST. Branch claude/project-thread-cesreq head c5ce50b5 (hidden form fields fix, employment one-campus fix, salary next-revision line, QA self-tests). Full suite 321 files / 2762 tests all pass; local crawl 8 roles x 212 pages clean. DEPLOYED 21:51 IST as main 7958c512 (deploy 6). After deploy: Change post Saiveni -> School Administrator, anjali -> Principal, harikaa -> Receptionist (live, Browser 4).
+Last updated: 2026-11-14 23:50 IST. Deploy 6 live (main 7958c512). Branch claude/project-thread-cesreq has 9 more tested fixes NOT deployed (7fdc1a98..26ad8fa4): first year active at once; PDF retry on dead browser (every 2nd receipt was the fallback page); quick actions open forms (Add enquiry, Give homework, Send a notice, New application); homework card counts work not students; marks "paper not written yet" note; file boxes styled; enquiry "Different family"; UI sounds (src/lib/ui-sound.ts). Live data: 2026-27 year opened (was Upcoming), test ENQ-0003, visitor V-0008, student Sri Lakshmi, KUSUMA casual leave 16-11 approved. Next: owner says "deploy" -> push main, then recheck receipt PDF x4, quick actions, sounds on live; test Accountant salaries (Lk Chemicals Chrome was minimised). Progress page https://claude.ai/artifact/9Rrsu6dMBXdtXLQvFBrkLu
 
 ## State
 

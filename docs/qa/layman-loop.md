@@ -42,7 +42,11 @@ Progress page: see docs/HANDOFF.md (link).
 | 13 | Enquiry form on a phone: "For year" cut off ("2027-28 (Main C…") | Receptionist | Add enquiry, 390 px | Paired fields stack on phones | 72b1d8cc |
 | 14-36 | 23 shell findings (audit): "module/role" on No access, "waiting for nobody" approvals, Decline that did not reject, two "Messages", approvals count hidden on phones, long sign-in refusals, gateway jargon, "these dates", "Watch signs/flag", "data consent", "fault in School OS", notification table on phones, … | Clerk, Principal | Dashboard, Approvals, Sign-in, Menus, Profile | See commit message and audit file (area shell) | 7f50bf70 |
 
+| 37 | Phone top bar cut "Attendance Managem…"; Attendance tab looked selected on every page; day-off advice told teachers to edit the School Calendar; "Go to today" on today | Teacher (phone) | Top bar, bottom bar, Take Attendance | Short word in the bar; outline main button; "the School Admin can turn on…"; button hidden on today | 0feb7e6b |
+
 ### Noted for the next batches
+- Marks Entry list on a phone: the red line ends "paper 14-10-2026 · ov…" so "overdue" is cut (teaching batch).
+- Teacher home on a holiday: "Take attendance" shown twice and "not a working day" said 3 times (teaching batch).
 - Issue certificate: Bonafide shows "Conduct" and "Reason for a duplicate" that only apply to a TC/character certificate; "signatories" is a hard word (front batch).
 - Send Message is heavy for a simple notice: 4 channels, Message type, 2 template boxes, Title, SMS backup (parent/communication batch: simplify the first view).
 - 76 forms use side-by-side pairs; check each at 390 px in screenshots and stack where text is cut.

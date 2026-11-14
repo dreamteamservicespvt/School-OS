@@ -23,6 +23,8 @@ Progress page: see docs/HANDOFF.md (link).
 8. School Calendar confusing (month said twice, entries cut off, no colour key, unclear taps) → agent running; then the other Events pages.
 9. Staff Attendance month list with one choice ("UI corrupted") → DONE 6cbf8094 (plain text; every one-choice form dropdown too).
 
+10. Moving a school's data in (students, parents, staff, old fees): practise different ways with realistic messy files (made-up data), as a layman, on the new local "Day One Test School" → round "Moving in".
+
 ### WhatsApp: why it does not work (found 15 Nov, read-only on live)
 - Connected and sending for real (own WhatsApp Business number, last test passed 04-11, 497 credits). Only 3 messages ever went.
 - 26 of 27 WhatsApp templates are "Not submitted"; only "School connection test" is approved. WhatsApp only lets a business start a chat with an approved template.

@@ -21,6 +21,8 @@ import { MODULE_KEYS, MODULES } from "../modules";
 import type { AccessLevel } from "../roles";
 import { SettingsProblem, activeSchoolAdminIds, actorName, alertPermissionChange, isLastSchoolAdmin } from "./common";
 import { forgetAllDevices } from "../auth/remembered";
+import { LOGIN_CEILING_WORDS, beyondCampus, managesEveryOtherSchool } from "../staff/login-ceiling";
+import { campusOf } from "../campus";
 
 export const SCOPES: { value: AccessScope; label: string; help: string }[] = [
   { value: "WHOLE_SCHOOL", label: "Whole school", help: "Every record their roles allow, in every campus." },
@@ -87,6 +89,31 @@ async function checkScope(tx: Tx, scope: AccessScope, campusId: string | null) {
   return scope === "CAMPUS" ? campusId : null;
 }
 
+/**
+ * One campus (security review 2026-11-15): someone whose access here is one campus gives
+ * access to that campus only (never the whole school, nor to themselves), and changes only the
+ * logins of that campus. The campus they are kept to, read in the same transaction; null when
+ * they work for the whole school.
+ */
+async function actorCampus(tx: Tx, ctx: SchoolContext): Promise<string | null> {
+  if (!ctx.userId) return null;
+  return campusOf(await tx.schoolAccess.findMany({ where: { schoolId: ctx.schoolId, userLoginId: ctx.userId, archivedAt: null }, select: { scope: true, campusId: true } }));
+}
+
+function checkCampusGive(actorCampusId: string | null, scope: AccessScope, campusId: string | null) {
+  if (beyondCampus(actorCampusId, [{ scope, campusId }])) throw new SettingsProblem(LOGIN_CEILING_WORDS.campusScope, "scope");
+}
+
+/** Refuses a one-campus person acting on a login whose access here (or, when disabled, its last access) reaches beyond their campus. */
+async function checkCampusPerson(tx: Tx, ctx: SchoolContext, userLoginId: string) {
+  const mine = await actorCampus(tx, ctx);
+  if (!mine) return mine;
+  const live = await tx.schoolAccess.findMany({ where: { schoolId: ctx.schoolId, userLoginId, archivedAt: null }, select: { scope: true, campusId: true } });
+  const rows = live.length > 0 ? live : await tx.schoolAccess.findMany({ where: { schoolId: ctx.schoolId, userLoginId }, orderBy: { createdAt: "desc" }, take: 1, select: { scope: true, campusId: true } });
+  if (beyondCampus(mine, rows)) throw new SettingsProblem(LOGIN_CEILING_WORDS.campusPerson);
+  return mine;
+}
+
 /** Would this person stop being an active School Admin, leaving none? Then it is refused. */
 async function keepOneAdmin(tx: Tx, schoolId: string, userLoginId: string, stillAdmin: boolean) {
   if (stillAdmin) return;
@@ -119,6 +146,7 @@ export async function inviteUser(tx: Tx, ctx: SchoolContext, input: InviteInput,
   if (await tx.userLogin.findUnique({ where: { username } })) throw new SettingsProblem(`The username ${username} is taken. Try ${await suggestUsername(tx, username)}.`, "username");
   const roles = await rolesFor(tx, ctx.schoolId, input.roleIds);
   const campusId = await checkScope(tx, input.scope, input.campusId);
+  checkCampusGive(await actorCampus(tx, ctx), input.scope, campusId);
   let staff = null;
   if (input.staffId) {
     staff = await tx.staff.findUnique({ where: { id: input.staffId } });
@@ -168,8 +196,11 @@ export async function inviteUser(tx: Tx, ctx: SchoolContext, input: InviteInput,
 /** A new invite link for someone who has not set their password yet. The old link stops working. */
 export async function resendInvite(tx: Tx, ctx: SchoolContext, userLoginId: string, now = new Date()) {
   await belongsHere(tx, ctx.schoolId, userLoginId);
+  await checkCampusPerson(tx, ctx, userLoginId);
   const login = await tx.userLogin.findUnique({ where: { id: userLoginId } });
   if (!login || login.status !== "INVITED") throw new SettingsProblem("This person has already set a password, so they do not need an invite.");
+  // Whoever opens the link sets the one password of every school the login opens (security review 2026-11-15).
+  if (!(await managesEveryOtherSchool(ctx.userId, userLoginId, ctx.schoolId))) throw new SettingsProblem(LOGIN_CEILING_WORDS.linkOtherSchool);
   const nonce = newToken().slice(0, 32);
   const token = inviteTokenFor(login.id, nonce);
   await tx.userLogin.update({ where: { id: login.id }, data: { inviteTokenHash: hashToken(token), inviteExpiresAt: new Date(now.getTime() + INVITE_VALID_MS) } });
@@ -182,8 +213,10 @@ export async function resendInvite(tx: Tx, ctx: SchoolContext, userLoginId: stri
 export async function changeAccess(tx: Tx, ctx: SchoolContext, userLoginId: string, input: { roleIds: string[]; scope: AccessScope; campusId: string | null }) {
   const current = await liveAccess(tx, ctx.schoolId, userLoginId);
   if (!current) throw new SettingsProblem("This person is disabled in your school. Enable them first.");
+  const mine = await checkCampusPerson(tx, ctx, userLoginId);
   const roles = await rolesFor(tx, ctx.schoolId, input.roleIds);
   const campusId = await checkScope(tx, input.scope, input.campusId);
+  checkCampusGive(mine, input.scope, campusId);
   const oldIds = current.roles.map((r) => r.roleId).sort();
   const newIds = roles.map((r) => r.id).sort();
   const rolesChanged = oldIds.join() !== newIds.join();
@@ -229,6 +262,7 @@ export async function changeAccess(tx: Tx, ctx: SchoolContext, userLoginId: stri
 export async function setExceptions(tx: Tx, ctx: SchoolContext, userLoginId: string, input: Record<string, string>) {
   const current = await liveAccess(tx, ctx.schoolId, userLoginId);
   if (!current) throw new SettingsProblem("This person is disabled in your school. Enable them first.");
+  await checkCampusPerson(tx, ctx, userLoginId);
   const next: Record<string, AccessLevel> = {};
   for (const k of MODULE_KEYS) {
     const v = input[k];
@@ -260,6 +294,7 @@ const levelWord = (l: AccessLevel) => ({ full: "Full", view: "View", own: "Own",
 export async function disableUser(tx: Tx, ctx: SchoolContext, userLoginId: string, otherSchoolIds: string[]) {
   if (userLoginId === ctx.userId) throw new SettingsProblem("You cannot disable your own login. Ask another School Admin.");
   await belongsHere(tx, ctx.schoolId, userLoginId);
+  await checkCampusPerson(tx, ctx, userLoginId);
   const live = await tx.schoolAccess.findMany({ where: { schoolId: ctx.schoolId, userLoginId, archivedAt: null } });
   if (live.length === 0) throw new SettingsProblem("This person is already disabled.");
   await keepOneAdmin(tx, ctx.schoolId, userLoginId, false);
@@ -268,8 +303,10 @@ export async function disableUser(tx: Tx, ctx: SchoolContext, userLoginId: strin
   const login = await tx.userLogin.findUniqueOrThrow({ where: { id: userLoginId } });
   const others = otherSchoolIds.filter((s) => s !== ctx.schoolId);
   if (others.length === 0) await tx.userLogin.update({ where: { id: userLoginId }, data: { status: "DISABLED" } });
-  const revoked = await tx.session.updateMany({ where: { userLoginId, revokedAt: null }, data: { revokedAt: now, revokedReason: "Disabled by the school" } });
-  await forgetAllDevices(tx, userLoginId, { now });
+  // A login that also opens another school stays signed in there, on its remembered devices too,
+  // as when Staff & HR closes it (security review 2026-11-15; src/lib/staff/exit.ts).
+  const revoked = await tx.session.updateMany({ where: { userLoginId, revokedAt: null, ...(others.length ? { schoolId: ctx.schoolId } : {}) }, data: { revokedAt: now, revokedReason: "Disabled by the school" } });
+  if (others.length === 0) await forgetAllDevices(tx, userLoginId, { now });
   await writeAudit(tx, ctx, { action: "disabled", recordType: "User Login", recordId: userLoginId, before: { status: login.status }, after: { status: "DISABLED", signedOutDevices: revoked.count } });
   const who = await actorName(tx, ctx);
   await alertPermissionChange(tx, ctx, `${who} disabled ${login.displayName}'s login. They were signed out on ${revoked.count} device${revoked.count === 1 ? "" : "s"}.`, `/settings/users/${userLoginId}`);
@@ -279,6 +316,7 @@ export async function disableUser(tx: Tx, ctx: SchoolContext, userLoginId: strin
 /** Enables a disabled person again, with the roles and scope they had. */
 export async function enableUser(tx: Tx, ctx: SchoolContext, userLoginId: string) {
   const last = await belongsHere(tx, ctx.schoolId, userLoginId);
+  await checkCampusPerson(tx, ctx, userLoginId);
   const login = await tx.userLogin.findUniqueOrThrow({ where: { id: userLoginId } });
   const live = await liveAccess(tx, ctx.schoolId, userLoginId);
   if (live && login.status !== "DISABLED") throw new SettingsProblem("This person is already active.");
@@ -322,6 +360,7 @@ export async function resetTwoStep(tx: Tx, ctx: SchoolContext, actorRoleKeys: (s
   const check = input.checkDone.trim();
   if (check.length < 5) throw new SettingsProblem("Say how the person was confirmed, for example \"in person at the office\".", "checkDone");
   await belongsHere(tx, ctx.schoolId, userLoginId);
+  await checkCampusPerson(tx, ctx, userLoginId);
   const login = await tx.userLogin.findUniqueOrThrow({ where: { id: userLoginId } });
   const now = new Date();
   await tx.userLogin.update({ where: { id: userLoginId }, data: { twoStepResetAt: now } });
@@ -334,6 +373,7 @@ export async function resetTwoStep(tx: Tx, ctx: SchoolContext, actorRoleKeys: (s
 /** Links a login to the Staff or Student record it belongs to (one record, never two). */
 export async function linkRecord(tx: Tx, ctx: SchoolContext, userLoginId: string, target: { kind: "staff" | "student" | "none"; id: string | null }) {
   await belongsHere(tx, ctx.schoolId, userLoginId);
+  await checkCampusPerson(tx, ctx, userLoginId);
   const [staffNow, studentNow] = await Promise.all([
     tx.staff.findFirst({ where: { userLoginId } }),
     tx.student.findFirst({ where: { userLoginId } }),
@@ -371,6 +411,7 @@ export async function linkRecord(tx: Tx, ctx: SchoolContext, userLoginId: string
 /** Name, phone and email of a login that works only in this school. */
 export async function updateDetails(tx: Tx, ctx: SchoolContext, userLoginId: string, otherSchoolIds: string[], input: { displayName: string; phone: string | null; email: string | null }) {
   await belongsHere(tx, ctx.schoolId, userLoginId);
+  await checkCampusPerson(tx, ctx, userLoginId);
   if (otherSchoolIds.some((s) => s !== ctx.schoolId)) throw new SettingsProblem("This login also works in another school, so only the person can change these details, in My profile.");
   const before = await tx.userLogin.findUniqueOrThrow({ where: { id: userLoginId }, select: { displayName: true, phone: true, email: true } });
   const after = { displayName: input.displayName.trim(), phone: input.phone, email: input.email };

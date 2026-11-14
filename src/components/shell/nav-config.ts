@@ -91,7 +91,7 @@ const APPROVALS_QUICK = q("/approvals", "dashboard", "Approvals", "Leave, discou
 export const QUICK_BY_ROLE: Record<string, Quick[]> = {
   principal: [
     APPROVALS_QUICK,
-    q("/communication", "communication", "Send a notice", "To parents, staff or a class", "Send"),
+    q("/communication/notices/new", "communication", "Send a notice", "To parents, staff or a class", "Send"),
     q("/attendance-management/register", "attendance-management", "Who is absent today", "And which classes are not marked yet", "UserX"),
     q("/fee-management/defaulters", "fee-management", "Fee defaulters", "Who owes fees and for how long", "IndianRupee"),
     q("/examination-results/marks", "examination-results", "Marks progress", "Which teachers have not entered marks", "ClipboardCheck"),
@@ -100,7 +100,7 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
   "school-admin": [
     q("/student-management/new", "student-management", "Add student", "Name, class and parent phone is enough", "UserPlus"),
     q("/admission-management/enquiries?do=add", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
-    q("/communication", "communication", "Send a notice", "To parents, staff or a class", "Send"),
+    q("/communication/notices/new", "communication", "Send a notice", "To parents, staff or a class", "Send"),
     q("/staff-hr-management/add", "staff-hr-management", "Add staff", "Name, role and phone to start", "UserPlus"),
     q("/attendance-management/register", "attendance-management", "Who has not marked attendance", "Remind the class teacher", "CalendarCheck2"),
     q("/settings/users", "settings", "Users & permissions", "Who can sign in and what they see", "Users"),
@@ -120,13 +120,13 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
   ],
   teacher: [
     q("/attendance-management", "attendance-management", "Class attendance", "Your periods, or the register of your classes", "CalendarCheck2"),
-    q("/homework-learning", "homework-learning", "Give homework", "Class, subject, due date and done", "NotebookPen"),
+    q("/homework-learning?do=give", "homework-learning", "Give homework", "Class, subject, due date and done", "NotebookPen"),
     q("/examination-results/marks", "examination-results", "Enter marks", "Marks for your subjects", "ClipboardCheck"),
     q("/communication", "communication", "Message parents", "Only parents of your classes", "Send"),
   ],
   "class-teacher": [
     q("/attendance-management", "attendance-management", "Take attendance", "Your section today", "CalendarCheck2"),
-    q("/homework-learning", "homework-learning", "Give homework", "Class, subject, due date and done", "NotebookPen"),
+    q("/homework-learning?do=give", "homework-learning", "Give homework", "Class, subject, due date and done", "NotebookPen"),
     q("/examination-results/marks", "examination-results", "Enter marks", "Marks for your subjects", "ClipboardCheck"),
     q("/communication", "communication", "Message parents", "Only parents of your classes", "Send"),
   ],
@@ -147,7 +147,7 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
   ],
   "admission-counsellor": [
     q("/admission-management/enquiries?do=add", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
-    q("/admission-management/applications", "admission-management", "New application", "Fill the form with the parent", "FileText"),
+    q("/admission-management/applications/new", "admission-management", "New application", "Fill the form with the parent", "FileText"),
   ],
   "exam-in-charge": [
     q("/examination-results/marks", "examination-results", "Enter marks", "Marks entry for any exam", "ClipboardCheck"),

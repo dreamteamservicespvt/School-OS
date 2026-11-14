@@ -133,7 +133,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
         actions={<ButtonLink href={here({ do: "give" })} scroll={false} variant="primary" icon={NotebookPen}><Words k="Give homework" /></ButtonLink>} />
       <Stack>
         <Band items={[
-          { label: `Current · ${per.label.toLowerCase()}`, big: String(t.given), foot: `${plural(t.assigned, "student")} in ${plural(t.classes, "class", "classes")}` },
+          { label: `Current · ${per.label.toLowerCase()}`, big: String(t.given), foot: `${plural(t.assigned, "piece")} of work for ${plural(t.classes, "class", "classes")}` },
           { label: "Handed in", big: `${pct(t.submitted, t.assigned)}%`, foot: `${t.submitted} of ${t.assigned}` },
           subsOpen
             ? { label: mine ? "Waiting for you to check" : "Waiting to be checked", big: String(checkIds ? pieces : t.toCheck), foot: "Open Submissions & Grading", href: `${BASE}/submissions` }

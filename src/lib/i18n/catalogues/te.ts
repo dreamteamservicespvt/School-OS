@@ -4069,6 +4069,8 @@ export const te: Catalogue = {
   "Transfer certificate (TC)": "బదిలీ సర్టిఫికెట్ (TC)",
   "Change status": "స్థితి మార్చండి",
   "Parent link settings": "పేరెంట్ లింక్ సెట్టింగ్‌లు",
+  "Change phone or name": "ఫోన్ లేదా పేరు మార్చండి",
+  "Relation and who may collect": "సంబంధం మరియు ఎవరు తీసుకెళ్లవచ్చు",
   "Do not release to this person. See note.": "ఈ వ్యక్తికి అప్పగించవద్దు. నోట్ చూడండి.",
   "Relation to this student": "ఈ విద్యార్థితో సంబంధం",
   "Off the pickup list and shown in red in Front Office. They cannot be the primary contact, see nothing of this student on Parent Link, and get none of the student's messages.": "పికప్ జాబితాలో ఉండరు, ఫ్రంట్ ఆఫీస్‌లో ఎరుపు రంగులో కనిపిస్తారు. వీరు ప్రధాన సంప్రదింపు కాలేరు, Parent Linkలో ఈ విద్యార్థి వివరాలు చూడలేరు, విద్యార్థి సందేశాలేవీ వీరికి రావు.",

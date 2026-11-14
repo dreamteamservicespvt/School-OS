@@ -15,19 +15,22 @@ export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Edit parent") };
 }
 
-export default async function EditGuardianPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function EditGuardianPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ student?: string }> }) {
   const { id } = await params;
+  // Opened from a child's profile (?student=): saving and Cancel go back to that child.
+  const sp = await searchParams;
+  const from = typeof sp.student === "string" && /^[0-9a-f-]{36}$/i.test(sp.student) ? sp.student : null;
   const { current, can } = await studentPage();
   if (!can.manage) redirect(NO_ACCESS);
   const g = await withSchool(current.ctx, (tx) => visibleGuardianFor(tx, current, id));
   if (!g) notFound();
   return (
     <>
-      <BackLink href={`${BASE}/guardians/${id}`} label={g.name} />
+      <BackLink href={from ? `${BASE}/students/${from}` : `${BASE}/guardians/${id}`} label={g.name} />
       <PageHeader title={`Edit ${g.name}`} href={`${BASE}/guardians/${id}/edit`} userId={current.user.id} />
       <Card className="max-w-3xl">
         <CardBody>
-          <GuardianForm action={saveGuardianAction.bind(null, id, null)} g={g} studentId={null} canRestrict={false} cancelHref={`${BASE}/guardians/${id}`} />
+          <GuardianForm action={saveGuardianAction.bind(null, id, from)} g={g} studentId={null} canRestrict={false} cancelHref={from ? `${BASE}/students/${from}` : `${BASE}/guardians/${id}`} />
           <p className="mt-4 text-[13.5px] text-ink2"><Words k="Custody restrictions are set on each child's link, from the child's profile." /></p>
         </CardBody>
       </Card>

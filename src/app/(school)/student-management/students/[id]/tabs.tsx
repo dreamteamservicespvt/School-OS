@@ -205,7 +205,8 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
                 <div className="flex flex-wrap gap-1 border-t border-line/70 pt-2.5 -mb-1">
                   {!l.isPrimary && !l.restriction && <ActionButton action={setPrimaryAction} fields={{ linkId: l.id, studentId }} variant="ghost"><Words k="Make primary" /></ActionButton>}
                   {!l.restriction && <ActionButton action={pickupAction} fields={{ linkId: l.id, studentId, on: l.canPickUp ? "0" : "1" }} variant="ghost">{l.canPickUp ? "Remove from pickup" : "May pick up"}</ActionButton>}
-                  <Link href={`${href}/parents/${l.id}`} className="inline-flex h-8 items-center rounded-xl px-3 text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink"><Words k="Settings" /></Link>
+                  <Link href={`${BASE}/guardians/${l.guardianId}/edit?student=${studentId}`} className="inline-flex h-8 items-center rounded-xl px-3 text-[13px] font-semibold text-brand hover:bg-sunken"><Words k="Change phone or name" /></Link>
+                  <Link href={`${href}/parents/${l.id}`} className="inline-flex h-8 items-center rounded-xl px-3 text-[13px] font-semibold text-ink2 hover:bg-sunken hover:text-ink"><Words k="Relation and who may collect" /></Link>
                   {p.links.length > 1 && (
                     <ConfirmAction action={unlinkGuardianAction} fields={{ linkId: l.id, studentId }} trigger="Unlink" triggerVariant="ghost"
                       title={`Unlink ${l.guardian.name}?`} confirmLabel={`Unlink ${l.guardian.name}`} confirmVariant="danger">

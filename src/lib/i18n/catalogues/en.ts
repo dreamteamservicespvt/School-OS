@@ -7283,6 +7283,8 @@ export const EN = [
   "Birthday",
   "Transfer certificate (TC)",
   "Parent link settings",
+  "Change phone or name",
+  "Relation and who may collect",
   "Do not release to this person. See note.",
   "Relation to this student",
   "Off the pickup list and shown in red in Front Office. They cannot be the primary contact, see nothing of this student on Parent Link, and get none of the student's messages.",

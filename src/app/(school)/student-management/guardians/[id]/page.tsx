@@ -61,7 +61,6 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
   const anyOverdue = kids.some((k) => k.fact?.feeOverdue);
 
   const menu: MenuItem[] = manage ? [
-    { label: "Edit details", href: `${path}/edit`, icon: <Pencil size={16} aria-hidden="true" /> },
     { label: "Merge with another record", href: `${path}/merge`, icon: <Merge size={16} aria-hidden="true" /> },
   ] : [];
 
@@ -113,6 +112,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                   {g.name}<Words k="’s personal link goes again to +91" /> {phoneShow(g.phone)} <Words k="on WhatsApp, with SMS backup." />
                 </ConfirmAction>
               )}
+              {manage && <ButtonLink href={`${path}/edit`} icon={Pencil}><Words k="Edit details" /></ButtonLink>}
               {menu.length > 0 && <MoreMenu items={menu} label={`More actions for ${g.name}`} />}
             </div>
           )}

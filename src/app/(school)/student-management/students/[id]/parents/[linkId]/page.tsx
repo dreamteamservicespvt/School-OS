@@ -15,7 +15,7 @@ import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
-  return { title: await pageTitle("Parent link settings") };
+  return { title: await pageTitle("Relation and who may collect") };
 }
 
 export default async function LinkSettingsPage({ params }: { params: Promise<{ id: string; linkId: string }> }) {

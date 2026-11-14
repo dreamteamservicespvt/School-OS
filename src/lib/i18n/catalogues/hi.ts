@@ -4069,6 +4069,8 @@ export const hi: Catalogue = {
   "Transfer certificate (TC)": "स्थानांतरण प्रमाणपत्र (TC)",
   "Change status": "स्थिति बदलें",
   "Parent link settings": "पेरेंट लिंक सेटिंग्स",
+  "Change phone or name": "फ़ोन या नाम बदलें",
+  "Relation and who may collect": "रिश्ता और कौन ले जा सकता है",
   "Do not release to this person. See note.": "इस व्यक्ति को न सौंपें। नोट देखें।",
   "Relation to this student": "इस विद्यार्थी से संबंध",
   "Off the pickup list and shown in red in Front Office. They cannot be the primary contact, see nothing of this student on Parent Link, and get none of the student's messages.": "पिकअप सूची से बाहर और फ्रंट ऑफिस में लाल रंग में। ये प्राथमिक संपर्क नहीं हो सकते, Parent Link पर इस विद्यार्थी का कुछ नहीं देखते, और विद्यार्थी का कोई संदेश इन्हें नहीं मिलता।",

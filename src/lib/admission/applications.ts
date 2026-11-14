@@ -292,8 +292,9 @@ export async function sendBack(tx: Tx, ctx: SchoolContext, v: Viewer, schoolName
   const parent = app.fatherName ?? app.motherName ?? app.guardianName ?? "Parent";
   const r = await messageParent(tx, ctx, { to: { name: parent, phone: app.phone, email: app.email }, template: "admission-details-missing", text: `Dear ${parent}, application ${app.applicationNo} for ${app.fullName} at ${schoolName} needs a few more details: ${note.trim()}. Please share them with the school office.`, about: { recordType: "Application", recordId: id } });
   await tx.application.update({ where: { id }, data: { sentBackAt: new Date(), sentBackNote: note.trim(), updatedById: ctx.userId } });
-  await activity(tx, ctx, id, "sent-back", `Sent back to the parent for missing details: ${note.trim()}${r.status === "skipped" ? ` (message not sent: ${(r.note ?? "no valid phone").toLowerCase()})` : ""}`);
+  await activity(tx, ctx, id, "sent-back", `Sent back to the parent for missing details: ${note.trim()}${r.status === "skipped" ? ` (message not sent: ${r.note ?? "No valid mobile number"})` : ""}`);
   await writeAudit(tx, ctx, { action: "sent-back", recordType: "Application", recordId: id, after: { note: note.trim(), message: r.status } });
+  return { notSent: r.status === "skipped" ? r.note ?? "No valid mobile number" : null };
 }
 
 const MOVE_ORDER: ApplicationStage[] = ["SUBMITTED", "SUBMITTED_ONLINE", "REVIEWED", "DOCUMENTS", "TEST_INTERVIEW", "DECISION"];

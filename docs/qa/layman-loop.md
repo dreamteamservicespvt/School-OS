@@ -86,6 +86,7 @@ Progress page: see docs/HANDOFF.md (link).
 | 118 | Principal's phone Dashboard 7,000 px (20 attention rows); early-warning row read like a puzzle | Principal | Dashboard | 6 most urgent first + "Show all"; "13 students need a closer look" with the split below | 38ca8f7f |
 
 ### Noted for the next batches
+- Moving in (staff import): columns of the file that are not brought in ("Emp Code", "Salary") are never named, so a clerk thinks they came in. Name them ("Not brought in from your file: … Salaries go in Salary Structures") and match Emp Code / Employee Code / Emp ID to Staff ID. (Shared importer: after the less-text pass.)
 - Teacher home on a holiday: "Take attendance" shown twice and "not a working day" said 3 times (teaching batch).
 - Send Message is heavy for a simple notice: 4 channels, Message type, 2 template boxes, Title, SMS backup (parent/communication batch: simplify the first view).
 - 76 forms use side-by-side pairs; check each at 390 px in screenshots and stack where text is cut.

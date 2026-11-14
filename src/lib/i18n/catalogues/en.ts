@@ -8514,6 +8514,7 @@ export const EN = [
   "Set up an academic year before importing enquiries.",
   "No messaging channel is set up (Settings, SMS, WhatsApp & Email)",
   "No valid mobile number",
+  "WhatsApp has not approved the General announcement message yet",
   "Online applications are closed at this school just now. Please contact the school office.",
   "Admissions for that year are not open online. Refresh the page and try again.",
   "This class does not take applications online. Please contact the school office.",

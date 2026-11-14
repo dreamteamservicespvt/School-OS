@@ -15,7 +15,27 @@ import { activity, loadApplication, parentName, sendForDecision, stageLabel } fr
 import { loadSettings, type Settings } from "./settings";
 import { fullWords, seatsFor } from "./seats";
 import { bestTestPct } from "./tests";
-import { messageParent } from "./notify-parents";
+import { messageParent, type ParentMessage } from "./notify-parents";
+
+/** Messages the family, and when it could not go, says why on the application's history. */
+async function tellFamily(tx: Tx, ctx: SchoolContext, applicationId: string, msg: ParentMessage) {
+  const r = await messageParent(tx, ctx, msg);
+  if (r.status === "skipped") {
+    const notSent = r.note ?? "No valid mobile number";
+    await activity(tx, ctx, applicationId, "message", `Parent not messaged: ${notSent}.`, { notSent });
+  }
+  return r;
+}
+
+/** Runs a step and returns why the family was not messaged during it (tellFamily), or null; also through Approvals. */
+async function notToldDuring(tx: Tx, applicationId: string, step: () => Promise<unknown>): Promise<string | null> {
+  const where = { applicationId, kind: "message" };
+  const before = new Set((await tx.applicationActivity.findMany({ where, select: { id: true } })).map((a) => a.id));
+  await step();
+  const added = (await tx.applicationActivity.findMany({ where, select: { id: true, data: true } })).filter((a) => !before.has(a.id));
+  const note = added.map((a) => (a.data as { notSent?: unknown } | null)?.notSent).find((n): n is string => typeof n === "string");
+  return note ?? null;
+}
 
 async function schoolName(tx: Tx, ctx: SchoolContext) {
   return (await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true } }))?.name ?? "the school";
@@ -50,14 +70,14 @@ export async function applyDecision(tx: Tx, ctx: SchoolContext, app: Application
     await checkSeat(tx, ctx, s, app);
     await tx.application.update({ where: { id: app.id }, data: { stage: "APPROVED", decisionRemarks: note, decidedById: ctx.userId, decidedAt: new Date() } });
     await activity(tx, ctx, app.id, "decision", `Approved.${note ? ` Remarks: ${note}` : ""}`, { decision: "approved" });
-    await messageParent(tx, ctx, { to: { name: parent, phone: app.phone, email: app.email }, template: "admission-approved", text: `Dear ${parent}, we are happy to tell you that ${app.fullName}'s admission at ${name} is approved (application ${app.applicationNo}). The school office will contact you to complete the admission.`, about: { recordType: "Application", recordId: app.id } });
+    await tellFamily(tx, ctx, app.id, { to: { name: parent, phone: app.phone, email: app.email }, template: "admission-approved", text: `Dear ${parent}, we are happy to tell you that ${app.fullName}'s admission at ${name} is approved (application ${app.applicationNo}). The school office will contact you to complete the admission.`, about: { recordType: "Application", recordId: app.id } });
   } else if (decision === "reject") {
     // Only the Principal rejects an admission (owner's rules, 12 Oct 2026), here or through Approvals.
     if (!(await mayReject(tx, ctx, "admission"))) throw new DecisionProblem(rejectRefusal("admission"));
     if (!note || note.trim().length < 5) throw new DecisionProblem("Give remarks of at least 5 characters, so the family knows why.");
     await tx.application.update({ where: { id: app.id }, data: { stage: "REJECTED", decisionRemarks: note, decidedById: ctx.userId, decidedAt: new Date() } });
     await activity(tx, ctx, app.id, "decision", `Not approved. Remarks: ${note}`, { decision: "rejected" });
-    await messageParent(tx, ctx, { to: { name: parent, phone: app.phone, email: app.email }, template: "admission-not-approved", text: `Dear ${parent}, we are sorry that we cannot offer ${app.fullName} admission at ${name} this time (application ${app.applicationNo}). ${note}`, about: { recordType: "Application", recordId: app.id } });
+    await tellFamily(tx, ctx, app.id, { to: { name: parent, phone: app.phone, email: app.email }, template: "admission-not-approved", text: `Dear ${parent}, we are sorry that we cannot offer ${app.fullName} admission at ${name} this time (application ${app.applicationNo}). ${note}`, about: { recordType: "Application", recordId: app.id } });
   } else if (decision === "ask-change") {
     await tx.application.update({ where: { id: app.id }, data: { stage: "REVIEWED", approvalId: null } });
     await activity(tx, ctx, app.id, "decision", `Sent back before the decision: ${note ?? ""}`, { decision: "ask-change" });
@@ -88,12 +108,11 @@ export async function decideApplication(tx: Tx, ctx: SchoolContext, v: Viewer, i
   if (app.stage !== "DECISION") throw new AdmissionProblem(`This application is ${stageLabel(app.stage).toLowerCase()}, not waiting for a decision. Send it for a decision first.`);
   const approval = app.approvalId ? await tx.approval.findFirst({ where: { id: app.approvalId } }) : null;
   if (approval && ["WAITING", "ESCALATED"].includes(approval.status)) {
-    await decideApproval(tx, ctx, approval.id, decision, remarks?.trim() || null);
-    return;
+    return { notSent: await notToldDuring(tx, app.id, () => decideApproval(tx, ctx, approval.id, decision, remarks?.trim() || null)) };
   }
   const s = await loadSettings(tx, ctx);
   if (s.stageList.find((x) => x.key === "decision")?.needsApproval) throw new AdmissionProblem("This decision goes through Approvals. Send it for a decision first.");
-  await applyDecision(tx, ctx, app, decision, remarks?.trim() || null);
+  return { notSent: await notToldDuring(tx, app.id, () => applyDecision(tx, ctx, app, decision, remarks?.trim() || null)) };
 }
 
 export type RankInfo = { score: number; reasons: string[] };
@@ -144,11 +163,13 @@ export async function addToWaitingList(tx: Tx, ctx: SchoolContext, v: Viewer, id
   await tx.application.update({ where: { id }, data: { stage: "WAITING_LIST", waitingRank: rank, waitingReason: mine.reasons.join(" · "), waitingSince: new Date(), approvalId: null, decisionRemarks: note ?? app.decisionRemarks, updatedById: ctx.userId } });
   await activity(tx, ctx, id, "waiting-list", `Put on the waiting list at position ${rank} (${mine.reasons.join(", ")}).${note ? ` ${note}` : ""}`, { rank, score: mine.score });
   await writeAudit(tx, ctx, { action: "waiting-listed", recordType: "Application", recordId: id, before: { stage: app.stage }, after: { stage: "WAITING_LIST", rank, reasons: mine.reasons } });
+  let notSent: string | null = null;
   if (app.stage !== "APPROVED") {
     const name = parentName(app);
-    await messageParent(tx, ctx, { to: { name, phone: app.phone, email: app.email }, template: "admission-waiting-list", text: `Dear ${name}, ${app.fullName} (application ${app.applicationNo}) is on our waiting list at position ${rank}. We will tell you as soon as a seat is free.`, about: { recordType: "Application", recordId: app.id } });
+    const r = await tellFamily(tx, ctx, app.id, { to: { name, phone: app.phone, email: app.email }, template: "admission-waiting-list", text: `Dear ${name}, ${app.fullName} (application ${app.applicationNo}) is on our waiting list at position ${rank}. We will tell you as soon as a seat is free.`, about: { recordType: "Application", recordId: app.id } });
+    if (r.status === "skipped") notSent = r.note ?? "No valid mobile number";
   }
-  return rank;
+  return { rank, notSent };
 }
 
 /** Move someone up or down by hand: needs a reason, written to the history (Done when 8). */
@@ -204,13 +225,16 @@ export async function markOfferSent(tx: Tx, ctx: SchoolContext, v: Viewer, id: s
     letterNo = formatNumber(`${schoolInfo.code}/OL/${(year?.name ?? "").slice(0, 4)}/`, await nextNumber(tx, ctx, "admission-offer-letter"), 4);
   }
   await tx.application.update({ where: { id }, data: { offerLetterNo: letterNo, offerSentAt: new Date(), updatedById: ctx.userId } });
+  let notSent: string | null = null;
   if (channel !== "printed") {
     const name = parentName(app);
-    await messageParent(tx, ctx, { to: { name, phone: app.phone, email: app.email }, template: "admission-offer-letter", channel, text: `Dear ${name}, please find the offer letter ${letterNo} for ${app.fullName}'s admission at ${schoolInfo.name}. Kindly confirm your acceptance with the school office.`, about: { recordType: "Application", recordId: app.id } });
+    const r = await messageParent(tx, ctx, { to: { name, phone: app.phone, email: app.email }, template: "admission-offer-letter", channel, text: `Dear ${name}, please find the offer letter ${letterNo} for ${app.fullName}'s admission at ${schoolInfo.name}. Kindly confirm your acceptance with the school office.`, about: { recordType: "Application", recordId: app.id } });
+    if (r.status === "skipped") notSent = r.note ?? "No valid mobile number";
   }
-  await activity(tx, ctx, id, "offer", `Offer letter ${letterNo} ${channel === "printed" ? "printed and handed over" : `sent by ${channel === "email" ? "email" : "WhatsApp"}`}.`);
-  await writeAudit(tx, ctx, { action: "offer-sent", recordType: "Application", recordId: id, after: { letterNo, channel } });
-  return letterNo;
+  const how = channel === "printed" ? "printed and handed over" : notSent ? `not sent by ${channel === "email" ? "email" : "WhatsApp"}: ${notSent}` : `sent by ${channel === "email" ? "email" : "WhatsApp"}`;
+  await activity(tx, ctx, id, "offer", `Offer letter ${letterNo} ${how}.`);
+  await writeAudit(tx, ctx, { action: "offer-sent", recordType: "Application", recordId: id, after: { letterNo, channel, ...(notSent ? { notSent } : {}) } });
+  return { letterNo, notSent };
 }
 
 export async function markOfferAccepted(tx: Tx, ctx: SchoolContext, v: Viewer, id: string) {

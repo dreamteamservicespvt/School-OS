@@ -5794,6 +5794,7 @@ export const te: Catalogue = {
   "Set up an academic year before importing enquiries.": "విచారణలు దిగుమతి చేసే ముందు విద్యా సంవత్సరం సెట్ చేయండి.",
   "No messaging channel is set up (Settings, SMS, WhatsApp & Email)": "సందేశ ఛానల్ సెట్ కాలేదు (సెట్టింగ్‌లు, SMS, WhatsApp & ఈమెయిల్)",
   "No valid mobile number": "చెల్లుబాటు అయ్యే మొబైల్ నంబర్ లేదు",
+  "WhatsApp has not approved the General announcement message yet": "సాధారణ ప్రకటన (General announcement) సందేశాన్ని WhatsApp ఇంకా ఆమోదించలేదు",
   "Online applications are closed at this school just now. Please contact the school office.": "ఈ స్కూల్‌లో ప్రస్తుతం ఆన్‌లైన్ దరఖాస్తులు మూసివేయబడ్డాయి. దయచేసి స్కూల్ ఆఫీసును సంప్రదించండి.",
   "Admissions for that year are not open online. Refresh the page and try again.": "ఆ సంవత్సరానికి అడ్మిషన్లు ఆన్‌లైన్‌లో తెరవలేదు. పేజీ రిఫ్రెష్ చేసి మళ్ళీ ప్రయత్నించండి.",
   "This class does not take applications online. Please contact the school office.": "ఈ తరగతి ఆన్‌లైన్ దరఖాస్తులు తీసుకోదు. దయచేసి స్కూల్ ఆఫీసును సంప్రదించండి.",

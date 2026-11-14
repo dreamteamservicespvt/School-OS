@@ -5794,6 +5794,7 @@ export const hi: Catalogue = {
   "Set up an academic year before importing enquiries.": "पूछताछ आयात करने से पहले शैक्षणिक वर्ष सेट करें।",
   "No messaging channel is set up (Settings, SMS, WhatsApp & Email)": "कोई संदेश चैनल सेट नहीं (सेटिंग्स, SMS, WhatsApp और ईमेल)",
   "No valid mobile number": "कोई मान्य मोबाइल नंबर नहीं",
+  "WhatsApp has not approved the General announcement message yet": "WhatsApp ने अभी तक सामान्य सूचना (General announcement) संदेश को स्वीकृति नहीं दी है",
   "Online applications are closed at this school just now. Please contact the school office.": "इस स्कूल में अभी ऑनलाइन आवेदन बंद हैं। कृपया स्कूल ऑफ़िस से संपर्क करें।",
   "Admissions for that year are not open online. Refresh the page and try again.": "उस साल के प्रवेश ऑनलाइन खुले नहीं हैं। पेज ताज़ा करके फिर कोशिश करें।",
   "This class does not take applications online. Please contact the school office.": "यह कक्षा ऑनलाइन आवेदन नहीं लेती। कृपया स्कूल ऑफ़िस से संपर्क करें।",

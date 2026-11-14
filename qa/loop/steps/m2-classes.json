@@ -1,0 +1,1 @@
+[{"go":"/academic-management/settings"},{"click":"Start a new year"},{"wait":1},{"click":"Create year"},{"wait":3},{"shot":"year-made"},{"go":"/academic-management"},{"shot":"classes-empty","chars":900}]

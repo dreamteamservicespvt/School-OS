@@ -1,0 +1,1 @@
+[{"go":"/academic-management"},{"click":"Add several classes"},{"wait":1},{"click":"Nursery to Class 10"},{"fill":"Sections in each class","value":"A, B"},{"fill":"Seats per section","value":"40"},{"shot":"filled","chars":300},{"click":"Add classes"},{"wait":4},{"shot":"classes-added","chars":900}]

@@ -25,6 +25,8 @@ Progress page: see docs/HANDOFF.md (link).
 
 10. Moving a school's data in (students, parents, staff, old fees): practise different ways with realistic messy files (made-up data), as a layman, on the new local "Day One Test School" → round "Moving in".
 
+11. Security and sign-in: "one bug can cost the company" → white-box (code) and black-box (attack the LOCAL app only, never live) review; verify each finding, fix, test.
+
 ### WhatsApp: why it does not work (found 15 Nov, read-only on live)
 - Connected and sending for real (own WhatsApp Business number, last test passed 04-11, 497 credits). Only 3 messages ever went.
 - 26 of 27 WhatsApp templates are "Not submitted"; only "School connection test" is approved. WhatsApp only lets a business start a chat with an approved template.

@@ -30,7 +30,7 @@ export function SoundToggle({ on: initial, className, withHelp = false }: { on: 
         className={cx("inline-flex items-center gap-1.5 h-8 px-3 rounded-lg text-[13px] font-semibold hover:bg-sunken disabled:opacity-60", on ? "text-brand" : "text-ink2 hover:text-ink")}>
         <Ic size={15} aria-hidden="true" />{on ? t("Sound on") : t("Sound off")}
       </button>
-      {withHelp && <p className="text-[13px] text-ink3">{t("A short sound when a new notification comes, while School OS is open on this device.")}</p>}
+      {withHelp && <p className="text-[13px] text-ink3">{t("Short sounds when a notification comes and when something is saved, sent or paid, while School OS is open on this device.")}</p>}
     </div>
   );
 }

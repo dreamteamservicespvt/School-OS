@@ -6,6 +6,7 @@ import { CircleCheck, Info, TriangleAlert, X } from "lucide-react";
 import { cx } from "./cx";
 import { useT } from "@/lib/i18n/client";
 import { screenMessage } from "@/lib/i18n/messages";
+import { playUiSound, soundFor } from "@/lib/ui-sound";
 
 type Flash = { message: string; tone?: "success" | "info" | "danger"; link?: { href: string; label: string }; undo?: { kind: string; id: string } };
 
@@ -21,6 +22,8 @@ export function Toast({ flash, undoAction }: { flash: Flash | null; undoAction?:
   useEffect(() => {
     document.cookie = "sos_flash=; Max-Age=0; path=/";
     if (!flash) return;
+    // A short sound for saved, money in, sent or a problem, when the person has the sound on.
+    playUiSound(soundFor(flash.tone ?? "success", flash.message));
     const t = setTimeout(() => setShown(null), flash.undo ? 10000 : 6000);
     return () => clearTimeout(t);
   }, [flash]);

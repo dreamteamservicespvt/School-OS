@@ -14838,7 +14838,7 @@ export const EN = [
   "Notification sound",
   "Sound on",
   "Sound off",
-  "A short sound when a new notification comes, while School OS is open on this device.",
+  "Short sounds when a notification comes and when something is saved, sent or paid, while School OS is open on this device.",
   // Owner test 2026-11-05 leftovers: Add Staff step 3 and the new form messages
   "One section per class teacher. Teachers who already have a section are shown but cannot be chosen.",
   "Give the start time like {time}.",

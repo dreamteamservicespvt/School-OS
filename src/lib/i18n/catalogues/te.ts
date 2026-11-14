@@ -14295,7 +14295,7 @@ export const te: Catalogue = {
   "Notification sound": "నోటిఫికేషన్ శబ్దం",
   "Sound on": "శబ్దం ఆన్",
   "Sound off": "శబ్దం ఆఫ్",
-  "A short sound when a new notification comes, while School OS is open on this device.": "ఈ పరికరంలో School OS తెరిచి ఉన్నప్పుడు, కొత్త నోటిఫికేషన్ వస్తే చిన్న శబ్దం.",
+  "Short sounds when a notification comes and when something is saved, sent or paid, while School OS is open on this device.": "ఈ పరికరంలో School OS తెరిచి ఉన్నప్పుడు, కొత్త సమాచారం వచ్చినప్పుడు మరియు ఏదైనా సేవ్, పంపడం లేదా చెల్లింపు జరిగినప్పుడు చిన్న శబ్దం.",
   "One section per class teacher. Teachers who already have a section are shown but cannot be chosen.": "ఒక్కో క్లాస్ టీచర్‌కు ఒకే సెక్షన్. ఇప్పటికే సెక్షన్ ఉన్న టీచర్లు కనిపిస్తారు, కానీ ఎంచుకోలేరు.",
   "Give the start time like {time}.": "మొదలయ్యే సమయం ఇలా ఇవ్వండి: {time}.",
   "Give the end time like {time}.": "ముగిసే సమయం ఇలా ఇవ్వండి: {time}.",

@@ -14295,7 +14295,7 @@ export const hi: Catalogue = {
   "Notification sound": "सूचना की आवाज़",
   "Sound on": "आवाज़ चालू",
   "Sound off": "आवाज़ बंद",
-  "A short sound when a new notification comes, while School OS is open on this device.": "इस डिवाइस पर School OS खुला हो, तब नई सूचना आने पर एक छोटी आवाज़।",
+  "Short sounds when a notification comes and when something is saved, sent or paid, while School OS is open on this device.": "इस डिवाइस पर School OS खुला हो, तब नई सूचना आने पर और कुछ सहेजने, भेजने या भुगतान होने पर छोटी आवाज़।",
   "One section per class teacher. Teachers who already have a section are shown but cannot be chosen.": "हर कक्षा शिक्षक का एक ही सेक्शन। जिनके पास पहले से सेक्शन है, वे दिखते हैं पर चुने नहीं जा सकते।",
   "Give the start time like {time}.": "शुरू होने का समय ऐसे दें: {time}।",
   "Give the end time like {time}.": "खत्म होने का समय ऐसे दें: {time}।",

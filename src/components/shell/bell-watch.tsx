@@ -8,6 +8,7 @@
 // clicked, tapped or typed on the page, so nothing plays before that. A check
 // that finds nothing new changes nothing and stays silent. The sound is made
 // in the browser (Web Audio); there is no sound file.
+import { setUiSoundOn, unlockUiSound } from "@/lib/ui-sound";
 import { useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 
@@ -54,7 +55,7 @@ export function BellWatch({ unread, sound }: { unread: number; sound: boolean })
   const stopped = useRef(false);
   const asking = useRef(false);
 
-  useEffect(() => { soundOn.current = sound; }, [sound]);
+  useEffect(() => { soundOn.current = sound; setUiSoundOn(sound); unlockUiSound(); }, [sound]);
   useEffect(() => { shown.current = unread; }, [unread]);
 
   const play = useCallback((s: string) => {
@@ -80,7 +81,7 @@ export function BellWatch({ unread, sound }: { unread: number; sound: boolean })
         if (Ctx) { made = new Ctx(); audio.current = made; }
       } catch { made = null; }
     };
-    const onSound = (e: Event) => { soundOn.current = Boolean((e as CustomEvent<boolean>).detail); };
+    const onSound = (e: Event) => { soundOn.current = Boolean((e as CustomEvent<boolean>).detail); setUiSoundOn(soundOn.current); };
     const check = async () => {
       if (stopped.current || asking.current || document.visibilityState !== "visible") return;
       asking.current = true;
@@ -90,6 +91,7 @@ export function BellWatch({ unread, sound }: { unread: number; sound: boolean })
         if (!res.ok) return;
         const p = (await res.json()) as Poll;
         soundOn.current = p.sound;
+        setUiSoundOn(p.sound);
         const before = stamp.current;
         stamp.current = p.stamp;
         if (before === null) {

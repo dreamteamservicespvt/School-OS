@@ -2,12 +2,12 @@
 import "server-only";
 
 import { withSchool } from "./db";
-import { BUILT_MODULES, MODULES } from "./modules";
+import { BUILT_MODULES, MODULES, SELF_SERVICE_MODULES } from "./modules";
 import { shortcutsFor } from "./shortcuts";
 import { approvalsFor } from "./approvals";
 import { UNREAD } from "./notifications";
 import type { Current } from "./current";
-import { BOTTOM_BY_ROLE, QUICK_BY_ROLE, type BarItem, type Quick } from "@/components/shell/nav-config";
+import { BOTTOM_BY_ROLE, QUICK_BY_ROLE, type BarItem, type MineLink, type Quick } from "@/components/shell/nav-config";
 import { FEE_PAGES, feePageAllowedFor, type FeePageKey } from "./fees/access";
 import { FINANCE_PAGES, financePageAllowed, type FinancePageKey } from "./finance/access";
 import { pageHidden } from "./duty";
@@ -53,6 +53,21 @@ export function innerPages(current: Pick<Current, "roles" | "permissions" | "men
 }
 
 /**
+ * "Me" in the menu: the person's own leave and salary slips. Staff & HR and Salary Management leave the
+ * menu for people who only see their own record (menuModules), so without these a teacher had no way to
+ * apply for leave (owner, 14 Nov 2026). Only for a login linked to a staff record.
+ */
+export function mineLinks(current: Pick<Current, "permissions" | "modulesOn">, linkedToStaff: boolean): MineLink[] {
+  if (!linkedToStaff) return [];
+  const own = (m: ModuleKey) => SELF_SERVICE_MODULES.has(m) && current.permissions[m].see === "own" && BUILT_MODULES.has(m)
+    && (!MODULES.find((x) => x.key === m)?.optional || current.modulesOn.has(m));
+  return [
+    ...(own("staff-hr-management") ? [{ href: "/staff-hr-management/leave?view=mine", label: "My leave", icon: "CalendarDays" as const }] : []),
+    ...(own("salary-management") ? [{ href: "/salary-management/slips?mine=1", label: "My salary slips", icon: "Wallet" as const }] : []),
+  ];
+}
+
+/**
  * Whether Approvals shows "Waiting for me" (00-global.md §1): anyone allowed to approve
  * something (full access to a module, class teachers for student leave, by default),
  * or anyone with a request already waiting for them.
@@ -86,11 +101,12 @@ export function landingFor(current: Pick<Current, "permissions" | "roles" | "use
 }
 
 export async function shellData(current: Current) {
-  const [{ unread, approvals: requests, campus }, supportWaiting] = await Promise.all([withSchool(current.ctx, async (tx) => ({
+  const [{ unread, approvals: requests, campus, linkedToStaff }, supportWaiting] = await Promise.all([withSchool(current.ctx, async (tx) => ({
     unread: await tx.notification.count({ where: { userLoginId: current.user.id, ...UNREAD } }),
     campus: await tx.campus.findFirst({ where: { archivedAt: null }, orderBy: [{ isMain: "desc" }, { createdAt: "asc" }], select: { name: true, address: true } }),
     // Only requests this person may decide: named to them, or to one of their roles (00-global.md §3.2).
     approvals: await tx.approval.count({ where: await approvalsFor(tx, current.ctx, current.roles.map((r) => r.key)) }),
+    linkedToStaff: Boolean(await tx.staff.findFirst({ where: { userLoginId: current.user.id, archivedAt: null }, select: { id: true } })),
   })),
   // DREAM TEAM support access waiting for the School Admin or Principal (07-super-admin.md §3.4).
   answersSupport(current) ? waitingSupportCount(current.school.id).catch(() => 0) : Promise.resolve(0)]);
@@ -99,7 +115,9 @@ export async function shellData(current: Current) {
   const landing = landingFor(current);
   const menu = current.menu.map((m) => ({ key: m.key, name: m.name, href: landing[m.key] ?? `/${m.key}` }));
   const visible = new Set<string>(current.menu.map((m) => m.key));
+  const mine = mineLinks(current, linkedToStaff);
   const pages = [
+    ...mine.map((l) => ({ label: l.label, href: l.href })),
     ...current.menu.map((m) => ({ label: m.name, href: `/${m.key}`, hint: BUILT_MODULES.has(m.key) ? undefined : `Stage ${m.stage}` })),
     // Every page inside the modules this person opens (team test 13-11: "Postal" was not found).
     ...innerPages(current, visible),
@@ -130,6 +148,7 @@ export async function shellData(current: Current) {
 
   return {
     menu,
+    mine,
     landing,
     askKeys,
     questions,

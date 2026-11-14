@@ -46,6 +46,9 @@ export const MODULE_ICON: Record<ModuleKey, IconName> = Object.fromEntries(
   NAV_GROUPS.flatMap((g) => g.items.map((i) => [i.key, i.icon])),
 ) as Record<ModuleKey, IconName>;
 
+/** "Me" in the menu: the person's own leave and salary slips (src/lib/shell-data.ts mineLinks). */
+export type MineLink = { href: string; label: string; icon: IconName };
+
 /** A phone-bar item: [address, label, icon, big centre button]. The module decides who sees it. */
 export type BarItem = { href: string; module: ModuleKey; label: string; icon: IconName; big?: boolean };
 const b = (href: string, module: ModuleKey, label: string, icon: IconName, big?: boolean): BarItem => ({ href, module, label, icon, big });

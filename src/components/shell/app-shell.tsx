@@ -20,7 +20,7 @@ import { Logo } from "./logo";
 import { useT } from "@/lib/i18n/client";
 import { BellWatch } from "./bell-watch";
 import { SoundToggle } from "./sound-toggle";
-import { NAV_GROUPS, type BarItem, type IconName, type Quick } from "./nav-config";
+import { NAV_GROUPS, type BarItem, type IconName, type MineLink, type Quick } from "./nav-config";
 import { CommandPalette, OPEN_SEARCH_EVENT } from "./search-box";
 import type { PageLink } from "./nav-data";
 import type { QuestionKey } from "@/lib/ask/questions";
@@ -32,6 +32,8 @@ export type ShellProps = {
   year: { name: string; closed: boolean } | null;
   person: { id: string; name: string; role: string; photo?: string | null };
   menu: string[];
+  /** "Me": the person's own leave and salary slips, when Staff & HR is only their own record. */
+  mine?: MineLink[];
   /** Where a module's link opens when not at its own address (shellData landingFor). */
   landing?: Record<string, string>;
   bottom: BarItem[];
@@ -120,7 +122,7 @@ function Sheet({ open, onClose, title, sub, children, wide }: { open: boolean; o
 }
 
 /* ---------- Sidebar (computer and tablet) ---------- */
-function Sidebar({ school, schools, menu, landing = {}, quick, ai, onQuick, onSwitch, onAsk }: Pick<ShellProps, "school" | "schools" | "menu" | "landing" | "quick" | "ai"> & { onQuick: () => void; onSwitch: () => void; onAsk: () => void }) {
+function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, ai, onQuick, onSwitch, onAsk }: Pick<ShellProps, "school" | "schools" | "menu" | "mine" | "landing" | "quick" | "ai"> & { onQuick: () => void; onSwitch: () => void; onAsk: () => void }) {
   const t = useT();
   const isOn = useActive();
   const visible = new Set(menu);
@@ -172,6 +174,30 @@ function Sidebar({ school, schools, menu, landing = {}, quick, ai, onQuick, onSw
             </ul>
           </div>
         ))}
+        {mine.length > 0 && (
+          <div className="pt-3">
+            <p className="eyebrow text-ink3 px-3 pb-1.5 hidden lg:block">{t("Me")}</p>
+            <div className="mx-3 mb-2 border-t border-line lg:hidden" aria-hidden="true" />
+            <ul className="flex flex-col gap-0.5">
+              {mine.map((it) => {
+                const Ic = icon(it.icon);
+                const on = isOn(it.href.split("?")[0]);
+                return (
+                  <li key={it.href}>
+                    <Link href={it.href} title={t.any(it.label)} aria-current={on ? "page" : undefined}
+                      className={cx("group w-full h-10 rounded-xl flex items-center gap-3 px-3 text-[14px] font-medium transition relative justify-center lg:justify-start",
+                        on ? "bg-brand/10 text-brand font-semibold" : "text-ink2 hover:bg-sunken hover:text-ink")}>
+                      {on && <span className="absolute left-0 top-2 bottom-2 w-[3px] rounded-r bg-brand -ml-3" aria-hidden="true" />}
+                      <Ic size={19} strokeWidth={on ? 2.3 : 2} className="shrink-0" aria-hidden="true" />
+                      <span className="truncate hidden lg:inline">{t.any(it.label)}</span>
+                      <span className="sr-only lg:hidden">{t.any(it.label)}</span>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
       </nav>
       <button type="button" onClick={onAsk} className="m-3 p-3.5 rounded-2xl bg-sunken text-left hidden lg:block hover:bg-line/60 transition">
         {ai
@@ -286,7 +312,7 @@ function BottomNav({ items, onMore }: { items: BarItem[]; onMore: () => void }) 
 }
 
 /* ---------- "More" on a phone: every module as a big tile ---------- */
-function MoreSheet({ open, onClose, menu, landing = {} }: { open: boolean; onClose: () => void; menu: string[]; landing?: Record<string, string> }) {
+function MoreSheet({ open, onClose, menu, mine = [], landing = {} }: { open: boolean; onClose: () => void; menu: string[]; mine?: MineLink[]; landing?: Record<string, string> }) {
   const t = useT();
   const visible = new Set(menu);
   const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => visible.has(i.key)) })).filter((g) => g.items.length);
@@ -313,7 +339,7 @@ function MoreSheet({ open, onClose, menu, landing = {} }: { open: boolean; onClo
         <div>
           <p className="eyebrow text-ink3 mb-2">{t("You")}</p>
           <div className="grid grid-cols-3 gap-2">
-            {[["/approvals", "Approvals", "ListChecks"], ["/messages", "Messages", "MessageCircle"], ["/profile", "My profile", "UserCog"]].map(([href, label, ic]) => {
+            {[...mine.map((l) => [l.href, l.label, l.icon]), ["/approvals", "Approvals", "ListChecks"], ["/messages", "Messages", "MessageCircle"], ["/profile", "My profile", "UserCog"]].map(([href, label, ic]) => {
               const Ic = icon(ic);
               return (
                 <Link key={href} href={href} onClick={onClose} className="flex flex-col items-center gap-2 rounded-2xl bg-sunken hover:bg-line/60 px-2 py-3.5 text-center">
@@ -495,7 +521,7 @@ function phoneTitle(pathname: string, pages: PageLink[]) {
 }
 
 export function AppShell(props: ShellProps) {
-  const { school, schools, year, person, menu, landing, bottom, quick, pages, shortcuts, questions = [], askKeys = [], approvals, canApprove, canMessage, unread, notes, theme, support, children } = props;
+  const { school, schools, year, person, menu, mine, landing, bottom, quick, pages, shortcuts, questions = [], askKeys = [], approvals, canApprove, canMessage, unread, notes, theme, support, children } = props;
   const sound = props.sound ?? null;
   const ai = props.ai === true;
   const t = useT();
@@ -530,7 +556,7 @@ export function AppShell(props: ShellProps) {
   return (
     <div className="flex min-h-dvh">
       <a href="#main" className="skip-link">{t("Skip to the page")}</a>
-      <Sidebar school={school} schools={schools} menu={menu} landing={landing} quick={quick} ai={ai} onQuick={() => setQuickOpen(true)} onSwitch={() => setSwitchOpen(true)} onAsk={() => setPalette(true)} />
+      <Sidebar school={school} schools={schools} menu={menu} mine={mine} landing={landing} quick={quick} ai={ai} onQuick={() => setQuickOpen(true)} onSwitch={() => setSwitchOpen(true)} onAsk={() => setPalette(true)} />
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar school={school} year={year} person={person} approvals={approvals} canApprove={canApprove} canMessage={canMessage} unread={unread} theme={theme} ai={ai}
           title={t.any(phoneTitle(pathname, pages))} onSearch={() => setPalette(true)} onNotif={() => setNotif(true)} onProfile={() => setProfile(true)} />
@@ -541,7 +567,7 @@ export function AppShell(props: ShellProps) {
       <NotifPanel open={notif} onClose={() => setNotif(false)} notes={notes} total={unread} sound={sound} />
       {sound !== null && <BellWatch unread={unread} sound={sound} />}
       <ProfileMenu open={profile} onClose={() => setProfile(false)} person={person} school={school} schools={schools} theme={theme} onSwitch={() => setSwitchOpen(true)} support={support} />
-      <MoreSheet open={more} onClose={() => setMore(false)} menu={menu} landing={landing} />
+      <MoreSheet open={more} onClose={() => setMore(false)} menu={menu} mine={mine} landing={landing} />
       <QuickSheet open={quickOpen} onClose={() => setQuickOpen(false)} quick={quick} />
       <SwitchSheet open={switchOpen} onClose={() => setSwitchOpen(false)} school={school} schools={schools} />
     </div>

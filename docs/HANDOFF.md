@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-14 12:00 IST (attendance correction status + subject-teacher register, commits d392d26b, 5fea18f2, not deployed).
+Last updated: 2026-11-14 19:25 IST. Branch claude/project-thread-cesreq head c5ce50b5 (hidden form fields fix, employment one-campus fix, salary next-revision line, QA self-tests). Full suite 321 files / 2762 tests all pass; local crawl 8 roles x 212 pages clean. NOT deployed: push to main needs the owner's "deploy". After deploy: Change post Saiveni -> School Administrator, anjali -> Principal, harikaa -> Receptionist (live, Browser 4).
 
 ## State
 

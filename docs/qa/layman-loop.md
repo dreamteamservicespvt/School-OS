@@ -48,9 +48,10 @@ Progress page: see docs/HANDOFF.md (link).
 | 63 | Day Book on a quiet day: 6 tiles of ₹0 "None" and 8 empty cards; "apart from the academic year" | Accountant (phone) | Day Book | One line: nothing paid in or out; plain filter note | ac4cbd8f |
 | 64 | Fee Dashboard on a phone: every class listed, ~6,000 px | Accountant (phone) | Fee Dashboard | 6 most overdue first, "Show all N classes" | d716b33e |
 | 65-89 | 25 front-office findings (audit, receptionist) + certificate form showing TC-only boxes for a Bonafide and "signatories": button names per certificate type, welcome-message status in words, pickup "Allow to pick up", lock messages with a next step, promotion "batch", Aadhaar help, … | Receptionist, Clerk | Front Office, Admissions, Students | See commit and audit file (area front) | a2446e02 |
+| 90-117 | 27 teaching findings + "overdue" cut on phone: messages that cost credits now say how many families and cost first (PTM summary, event reminder, results, homework, attendance absent alert), "audit log", AB rule on marks, Submit marks of N students, syllabus "should be X% done", attendance colours follow the school's threshold, "quota", "Undo excuse", empty register points to Classes & Sections | Teacher | Attendance, Homework, Exams, Time Table, Events | See commit and audit file (area teach) | a1ff91c4 |
+| 118 | Principal's phone Dashboard 7,000 px (20 attention rows); early-warning row read like a puzzle | Principal | Dashboard | 6 most urgent first + "Show all"; "13 students need a closer look" with the split below | 38ca8f7f |
 
 ### Noted for the next batches
-- Marks Entry list on a phone: the red line ends "paper 14-10-2026 · ov…" so "overdue" is cut (teaching batch).
 - Teacher home on a holiday: "Take attendance" shown twice and "not a working day" said 3 times (teaching batch).
 - Send Message is heavy for a simple notice: 4 channels, Message type, 2 template boxes, Title, SMS backup (parent/communication batch: simplify the first view).
 - 76 forms use side-by-side pairs; check each at 390 px in screenshots and stack where text is cut.

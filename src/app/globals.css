@@ -139,6 +139,17 @@ dialog, :is(dialog, [aria-modal="true"], [data-scroll-lock]) :is(.overflow-y-aut
 @layer base {
   .grid { grid-template-columns: minmax(0, 1fr); }
 }
+/* Every visible file box ("Choose File") looks like the app's own secondary button instead of the
+   browser's grey one (layman test 14 Nov: the leave form's Document box looked broken). Hidden ones
+   (sr-only, opened by a button of their own) are not affected. */
+input[type="file"]::file-selector-button {
+  font: inherit; font-weight: 600; font-size: 0.875rem;
+  margin-right: 0.75rem; padding: 0.4rem 0.9rem; cursor: pointer;
+  border-radius: 0.5rem; border: 1px solid rgb(var(--line));
+  background: rgb(var(--surface)); color: rgb(var(--ink));
+}
+input[type="file"]::file-selector-button:hover { background: rgb(var(--sunken)); }
+input[type="file"] { color: rgb(var(--ink-2)); cursor: pointer; }
 /* Every plain dropdown gets the same chevron as UrlSelect's (ChevronDown, 16px, 14px from the edge)
    instead of the browser's own arrow, which differed by phone and by page. Dropdowns that draw their
    own icon say appearance-none and are left alone. */

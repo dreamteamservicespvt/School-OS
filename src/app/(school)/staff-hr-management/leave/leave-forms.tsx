@@ -23,7 +23,7 @@ function Preview({ action }: { action: (s: FormState<{ text: string }>, fd: Form
   };
   return (
     <div className="sm:col-span-2" aria-live="polite">
-      <Button variant="ghost" size="sm" onClick={run} loading={pending} loadingText="Checking…"><Words k="Check days and balance" /></Button>
+      <Button variant="secondary" size="sm" onClick={run} loading={pending} loadingText="Checking…"><Words k="Check days and balance" /></Button>
       {state && <p className={`mt-1 text-sm ${state.ok ? "text-ink" : "text-danger"}`}>{state.ok ? state.data?.text : state.message}</p>}
     </div>
   );

@@ -19,6 +19,10 @@ Progress page: see docs/HANDOFF.md (link).
 5. WhatsApp only: switch off normal SMS by default everywhere (not implemented now). → agent running.
 6. Founder review: "the software looks heavy with text, clumsy and confusing" → a "less text" pass over every screen (next round).
 
+7. Send every kind of WhatsApp message to 9390011378 (also as a parent's number); Parent Link not sending; check Parent Link and student progress → same root cause (templates); fix in code, test every message kind locally with 9390011378 as the parent; real delivery after the owner deploys and Meta approves.
+8. School Calendar confusing (month said twice, entries cut off, no colour key, unclear taps) → agent running; then the other Events pages.
+9. Staff Attendance month list with one choice ("UI corrupted") → DONE 6cbf8094 (plain text; every one-choice form dropdown too).
+
 ### WhatsApp: why it does not work (found 15 Nov, read-only on live)
 - Connected and sending for real (own WhatsApp Business number, last test passed 04-11, 497 credits). Only 3 messages ever went.
 - 26 of 27 WhatsApp templates are "Not submitted"; only "School connection test" is approved. WhatsApp only lets a business start a chat with an approved template.

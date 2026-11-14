@@ -33,6 +33,17 @@ Progress page: see docs/HANDOFF.md (link).
 - ROOT CAUSE IN OUR CODE: the built-in template texts end with "- {school_name}"; WhatsApp refuses a text that ends with a blank, so School OS (correctly) refuses to submit them. The school's General announcement also has too many blanks for its length.
 - Fix: (1) WhatsApp-ready default texts + a test that every default passes; (2) a one-click "make WhatsApp-ready" for existing schools' untouched, never-submitted texts (new version, old kept); (3) "send all for approval". Real submission to Meta only after the owner deploys (no deploy until Monday).
 
+## Needs the owner's decision (Monday)
+
+1. Security fix: Staff & HR can no longer send a reset/sign-in link to a Teacher (a Teacher has some access HR lacks). Keep it, or let HR send the link only to the person's own phone/email without showing it on HR's screen?
+2. "Sign in with a one-time code" tells strangers which logins exist (would remove tonight's helpful wording to fix).
+3. Changing your own mobile/email or switching off two-step asks no password, and the old contact is not told.
+4. A School Admin of one school resets a shared login's two-step for all schools in the group.
+5. Deploy settings to review: console code shown on a test copy; TRUSTED_PROXY_HOPS=0 makes every visitor share one rate-limit bucket.
+6. Console WhatsApp webhook forwards unsigned requests to the gym's live site (shared live setup: not touched).
+7. Admissions: drag-and-drop removed from the pipeline (step list with buttons instead); bring back as an extra?
+8. WhatsApp: after deploy, press "Make WhatsApp-ready" and "Send all for approval" (code coming), then Meta approves.
+
 ## Mindsets (one per round, then start over)
 
 1. Older office clerk, little English, scared of breaking something

@@ -76,7 +76,8 @@ export function SettlementForm({ exitId, sent, action }: { exitId: string; sent:
       submitLabel={sent ? "Mark done" : "Send"} hidden={{ exitId, done: sent ? "yes" : "no" }}>
       {(f) => (
         <>
-          <p className="text-ink-2">{sent ? "Mark it done once Salary Management has paid the final salary, leave encashment and any dues." : "Salary Management is told to work out the final salary, leave encashment and recoveries up to the last working day."}</p>
+          <p className="text-ink-2">{sent ? <Words k="Mark it done once Salary Management has paid the final salary, leave encashment and any dues." />
+            : <Words k="The Accountant is told. They pay it in Generate Salary for the last month: the days up to the last working day come in by themselves; add leave encashment or recoveries with Add adjustment." />}</p>
           <TextArea label="Note" name="note" rows={2} defaultValue={f.val("note")} error={f.err("note")} />
         </>
       )}

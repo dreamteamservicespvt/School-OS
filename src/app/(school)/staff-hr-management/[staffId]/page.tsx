@@ -554,7 +554,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                 <li key={b.type.id} className="rounded-xl border border-line p-3">
                   <p className="text-sm text-ink-2">{b.type.name}</p>
                   <p className="text-2xl font-semibold">{b.left}<span className="text-sm font-normal text-ink-2"> <Words k="left" /></span></p>
-                  <p className="text-xs text-ink-2">{b.given + b.adjusted} <Words k="allocated ·" /> {b.used} <Words k="used" />{b.waiting ? ` · ${b.waiting} waiting` : ""}</p>
+                  <p className="text-xs text-ink-2">{b.given + b.adjusted} <Words k="given ·" /> {b.used} <Words k="used" />{b.waiting ? ` · ${b.waiting} waiting` : ""}</p>
                 </li>
               ))}
             </ul>
@@ -727,7 +727,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
         <Split>
           {money ? (
             <Card>
-              <CardHeader title="Monthly salary" description={st ? `Structure v${st.version} · from ${formatDate(st.effectiveFrom)} · shown only to people with Salary Management` : "No salary structure yet"} icon={Lock} />
+              <CardHeader title="Monthly salary" description={st ? `Salary set from ${formatDate(st.effectiveFrom)}${st.version > 1 ? ` (change ${st.version})` : ""} · only salary staff see this` : "No salary structure yet"} icon={Lock} />
               {st ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 px-5 pb-5">
                   <div><p className="text-[12px] text-ink3 font-semibold"><Words k="Gross" /></p><p className="text-[18px] font-semibold tnum">{formatRupees(st.grossPaise)}</p></div>
@@ -759,7 +759,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
           </Card>
         </Split>
         <Card>
-          <CardHeader title="Bank and statutory numbers" description="Used for the salary bank file and the PF and ESI statements" />
+          <CardHeader title="Bank, PF and ESI numbers" description="Used for the salary bank file and the PF and ESI statements" />
           <CardBody>
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
               <Detail label="Bank account">{showRestricted(s!.bankAccountEnc, viewer.restricted)}</Detail>

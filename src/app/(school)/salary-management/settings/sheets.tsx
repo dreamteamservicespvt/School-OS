@@ -118,7 +118,7 @@ export function PreferencesSheet({ closeHref, now }: { closeHref: string; now: {
       <FieldShell label="Overtime" id="ot-switch"><span className="flex items-center justify-between gap-3 text-[14px]"><span className="text-ink2"><Words k="Pay extra hours" /></span><Switch id="ot-switch" on={ot} onChange={setOt} label="Overtime" /></span></FieldShell>
       {ot && <input type="hidden" name="overtimeOn" value="on" />}
       {ot && <SMoney name="overtimeHour" label="Overtime pay an hour" required start={now.overtimeHour} />}
-      <SMoney name="tdsReminder" label="TDS reminder above" required start={now.tdsReminder} help="Flags staff with no TDS whose yearly pay is above this" />
+      <SMoney name="tdsReminder" label="TDS reminder above" required start={now.tdsReminder} help="Warns about staff with no TDS whose yearly pay is above this" />
     </SheetForm>
   );
 }

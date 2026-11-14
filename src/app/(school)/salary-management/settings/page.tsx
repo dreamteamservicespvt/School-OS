@@ -119,7 +119,7 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
                 ["Days in a month for loss of pay", "Calendar days or a fixed 30", prefs.lopDays === "thirty" ? "A fixed 30" : "Calendar days"],
                 ["Late marks", "From Staff Attendance", prefs.lateMarksPerHalfDay ? `${prefs.lateMarksPerHalfDay} late = ½ day` : "Off"],
                 ["Overtime", "Paid extra periods or hours", prefs.overtimeOn ? `${formatRupees(prefs.overtimeHourPaise)} an hour` : "Off"],
-                ["TDS reminder above", "Flags staff with no TDS whose yearly pay is above this", formatRupees(prefs.tdsReminderAbovePaise)],
+                ["TDS reminder above", "Warns about staff with no TDS whose yearly pay is above this", formatRupees(prefs.tdsReminderAbovePaise)],
               ] as const).map(([t, sub, v]) => <SettingRow key={t} title={t} sub={sub}><span className="flex items-center gap-2"><span className="text-[14px] font-semibold text-ink2">{v}</span>{p.change && <ButtonLink href={here({ do: "prefs" })} scroll={false} size="sm" variant="ghost"><Words k="Change" /></ButtonLink>}</span></SettingRow>)}
             </div>
           </Card>

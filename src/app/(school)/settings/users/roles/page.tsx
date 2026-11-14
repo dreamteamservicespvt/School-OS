@@ -33,9 +33,9 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
   const live = roles.filter((r) => !r.archivedAt);
   const archived = roles.filter((r) => r.archivedAt);
   const groups = [
-    { title: "Ready roles", about: "On from the first day. You can change what they do, but not their names.", list: live.filter((r) => r.kind === "READY") },
-    { title: "Role templates", about: "Switch one on when your school needs it.", list: live.filter((r) => r.kind === "TEMPLATE") },
-    { title: "Your school's own roles", about: "Made by copying a role and changing it.", list: live.filter((r) => r.kind === "CUSTOM") },
+    { title: "Ready roles", about: "On from the first day. You can change what they do, but not their names.", kind: "READY", list: live.filter((r) => r.kind === "READY") },
+    { title: "Role templates", about: "Switch one on when your school needs it.", kind: "TEMPLATE", list: live.filter((r) => r.kind === "TEMPLATE") },
+    { title: "Your school's own roles", about: "Made by copying a role and changing it.", kind: "CUSTOM", list: live.filter((r) => r.kind === "CUSTOM") },
   ];
 
   const row = (r: (typeof roles)[number]) => {
@@ -74,7 +74,12 @@ export default async function RolesPage({ searchParams }: { searchParams: Promis
         {groups.map((g) => (
           <Card key={g.title}>
             <CardHeader title={g.title} description={g.about} />
-            {g.list.length ? <ul>{g.list.map(row)}</ul> : (
+            {g.list.length ? <ul>{g.list.map(row)}</ul> : g.kind !== "CUSTOM" ? (
+              <p className="px-5 pb-5 text-sm text-ink-2">
+                <Words k="All of these roles are archived. Show archived roles to restore one." />{" "}
+                {archived.length > 0 && <Link href="/settings/users/roles?archived=1" className="font-medium text-brand-text underline"><Words k="Show archived roles" /></Link>}
+              </p>
+            ) : (
               <div className="p-4">
                 <EmptyState title="No roles of your own yet">
                   <Words k="Copy a ready role and change it, for example a Fee Clerk from the Accountant role." />

@@ -124,7 +124,15 @@ export default async function StaffLeavePage({ searchParams }: Props) {
 
   async function Mine() {
     const me = base.me;
-    if (!me) return <EmptyState title="Your login is not linked to a staff record">{can(current.permissions, "staff-hr-management", "create") ? <Words k="To link it, bring yourself in with Import staff in Staff & HR, using the name and mobile number on your login." /> : <Words k="Ask HR to link it, or to apply leave for you." />}</EmptyState>;
+    if (!me) {
+      const canAdd = can(current.permissions, "staff-hr-management", "create");
+      return (
+        <EmptyState title="Your login is not linked to a staff record"
+          action={canAdd ? <ButtonLink href={`${BASE}/add?login=${current.ctx.userId}`} variant="primary"><Words k="Add my staff record" /></ButtonLink> : undefined}>
+          {canAdd ? <Words k="Add your own staff record once, and your leave shows here." /> : <Words k="Ask HR to link it, or to apply leave for you." />}
+        </EmptyState>
+      );
+    }
     const data = await withSchool(current.ctx, async (tx) => {
       const year = await leaveYearFor(tx, current.ctx, today, me.campusId);
       const balances = year ? (await balancesFor(tx, current.ctx, [me.id], year.id)).get(me.id) ?? [] : [];
@@ -445,7 +453,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-sm text-ink-2"><Words k="Shown as days left / days allocated. Days beyond the balance are loss of pay where HR Settings allow it." /></p>
+          <p className="mt-3 text-sm text-ink-2"><Words k="Shown as days left / days given for the year. Days beyond the balance are loss of pay where HR Settings allow it." /></p>
         </CardBody>
       </Card>
     );

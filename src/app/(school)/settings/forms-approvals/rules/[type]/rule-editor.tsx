@@ -66,7 +66,7 @@ export function RuleEditor({ type, label, steps: start, escalateAfterDays, roles
   return (
     <form action={action} className="space-y-5" noValidate onSubmit={(e) => {
       const found = checkSteps(steps);
-      if (!daysOk) found.escalateAfterDays = "Escalate after must be between 1 and 30 working days.";
+      if (!daysOk) found.escalateAfterDays = "Type a number of working days from 1 to 30.";
       setChecked(found);
       if (Object.keys(found).length) e.preventDefault();
     }}>
@@ -105,7 +105,7 @@ export function RuleEditor({ type, label, steps: start, escalateAfterDays, roles
       {errors.steps && <p className="text-sm text-danger">{errors.steps}</p>}
       {steps.length < MAX_STEPS && <Button variant="secondary" onClick={() => setSteps([...steps, { approver: "", upTo: "" }])}><Words k="Add a step" /></Button>}
 
-      <TextField label="Escalate after (working days)" name="escalateAfterDays" required inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} className="max-w-xs"
+      <TextField label="Move to the next person if nobody decides in (working days)" name="escalateAfterDays" required inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} className="max-w-xs"
         error={errors.escalateAfterDays} help="If nobody decides in time, the request moves to the next step, or to the Principal." />
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">

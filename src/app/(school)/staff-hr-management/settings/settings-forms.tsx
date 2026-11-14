@@ -16,7 +16,7 @@ export function DepartmentForm({ action, staff, d }: { action: Action; staff: Op
         <>
           <TextField label="Name" name="name" required defaultValue={f.val("name", d?.name)} error={f.err("name")} />
           <SelectField label="Head of department" name="headStaffId" options={staff} placeholder="None" defaultValue={f.val("headStaffId", d?.headStaffId)} error={f.err("headStaffId")}
-            help="Leave requests from this department go to the head first, then to the Principal." />
+            help="Leave requests from this department go to the head first, then to the next approver in Settings, Forms & Approvals (the Principal unless changed)." />
         </>
       )}
     </FormDialog>

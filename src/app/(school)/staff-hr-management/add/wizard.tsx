@@ -235,8 +235,8 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
           </div>
         </div>
         <div className="flex flex-wrap gap-6">
-          <CheckboxField name="phoneVerified" label="Phone verified" />
-          <CheckboxField name="emailVerified" label="Email verified" />
+          <CheckboxField name="phoneVerified" label="Phone verified" help="Tick only if you called this number and the staff member answered." />
+          <CheckboxField name="emailVerified" label="Email verified" help="Tick only if they replied from this email." />
         </div>
         <details className="rounded-xl border border-line p-4" open={Object.keys(errors).some((k) => ["staffCode", "dateOfBirth", "bloodGroup", "aadhaar", "address", "permanentAddress", "qualification", "experienceYears", "employmentType", "reportingToId", "campusId"].includes(k)) || undefined}>
           <summary className="cursor-pointer font-medium"><Words k="More details" /></summary>
@@ -273,7 +273,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
           </Alert>
         ) : (
         <CheckboxField name="giveLogin" label="Give a login to School OS" checked={giveLogin} onChange={(e) => setGiveLogin(e.target.checked)}
-          help="An invite link to set their own password, or a temporary password from you. No login is needed for the Time Table or payroll." />
+          help="An invite link to set their own password, or a temporary password from you. No login is needed for the Time Table or salary." />
         )}
         {giveLogin && !linked && (
           <>

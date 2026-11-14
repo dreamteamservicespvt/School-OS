@@ -24,9 +24,9 @@ function SwitchLook({ on }: { on: boolean }) {
   );
 }
 
-export function ModuleSwitch({ moduleKey, name, on, ready, stage, hides, mayEdit }: { moduleKey: string; name: string; on: boolean; ready: boolean; stage: number; hides: string; mayEdit: boolean }) {
+export function ModuleSwitch({ moduleKey, name, on, ready, hides, mayEdit }: { moduleKey: string; name: string; on: boolean; ready: boolean; hides: string; mayEdit: boolean }) {
   if (!mayEdit) return <Badge tone={on ? "success" : "neutral"}>{on ? "On" : "Off"}</Badge>;
-  if (!on && !ready) return <span className="text-sm text-ink-2"><Words k="Arrives in Stage" /> {stage}</span>;
+  if (!on && !ready) return <Badge><Words k="Coming soon" /></Badge>;
   if (on) {
     return (
       <ConfirmButton trigger={<span className="inline-flex items-center gap-2"><SwitchLook on /><Words k="On" /></span>} triggerVariant="ghost" title={`Switch off ${name}?`} confirmLabel={`Switch off ${name}`}

@@ -57,7 +57,7 @@ export default async function ModulesPage() {
                   <p className="font-medium">{m.name}</p>
                   <p className="text-sm text-ink-2">{m.purpose}</p>
                 </div>
-                <ModuleSwitch moduleKey={m.key} name={m.name} on={on.has(m.key)} ready={canSwitchOn(m.key)} stage={m.stage} hides={m.purpose} mayEdit={mayEdit} />
+                <ModuleSwitch moduleKey={m.key} name={m.name} on={on.has(m.key)} ready={canSwitchOn(m.key)} hides={m.purpose} mayEdit={mayEdit} />
               </li>
             ))}
           </ul>

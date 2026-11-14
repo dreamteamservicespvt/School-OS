@@ -213,7 +213,7 @@ export async function sendSettlement(tx: Tx, ctx: SchoolContext, exitCaseId: str
     });
     // One campus: salary staff limited to another campus are not told.
     for (const p of await loginsForCampus(tx, ctx, [...new Set(payroll.map((x) => x.userLoginId))], staff.campusId)) {
-      await notify(tx, ctx, { to: p, type: "settlement", text: `Final settlement for ${staff.fullName}: last working day ${formatDate(exit.lastWorkingDay)}.`, link: `/staff-hr-management/exit/${exit.id}` });
+      await notify(tx, ctx, { to: p, type: "settlement", text: `Final settlement for ${staff.fullName}: last working day ${formatDate(exit.lastWorkingDay)}. Pay it in Generate Salary for that month; add leave encashment or recoveries with Add adjustment.`, link: "/salary-management/generate" });
     }
   }
 }

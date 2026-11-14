@@ -56,7 +56,7 @@ export async function saveRule(tx: Tx, ctx: SchoolContext, requestType: string, 
   if (steps.length === 0) throw new SettingsProblem("Add at least one step.", "steps");
   if (steps.length > MAX_STEPS) throw new SettingsProblem(`Use at most ${MAX_STEPS} steps.`, "steps");
   if (!Number.isInteger(input.escalateAfterDays) || input.escalateAfterDays < 1 || input.escalateAfterDays > 30) {
-    throw new SettingsProblem("Escalate after must be between 1 and 30 working days.", "escalateAfterDays");
+    throw new SettingsProblem("Type a number of working days from 1 to 30.", "escalateAfterDays");
   }
   const roles = await tx.role.findMany({ where: { schoolId: ctx.schoolId, archivedAt: null } });
   const clean: RuleStep[] = [];

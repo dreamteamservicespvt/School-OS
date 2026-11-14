@@ -74,8 +74,8 @@ export default async function DataSecurityPage() {
             {backup.at ? (
               <p className="text-xl font-semibold"><Words k="Last backup:" /> {backupWords(backup.at, tz)}</p>
             ) : (
-              <Alert tone="warning" title="No backup has been recorded on this server yet">
-                <Words k="On the live service a full copy is made every night and the database is backed up continuously. This server has not recorded one yet; DREAM TEAM sets this up before a school's real data goes in." />
+              <Alert tone="info" title="Backups start before your real data goes in">
+                <Words k="DREAM TEAM switches on nightly copies of your school's records and files before you start using School OS for real. Ask DREAM TEAM support if you are not sure." />
               </Alert>
             )}
             {data.files.setUp ? (
@@ -84,7 +84,7 @@ export default async function DataSecurityPage() {
                 {data.files.waiting === 0 ? `All ${data.files.total} files are in the backup.` : `${data.files.waiting} of ${data.files.total} files wait for the next copy, which runs every hour.`}
               </p>
             ) : (
-              <p className="text-sm text-ink-2"><Words k="Files: copies to a second place are not set up on this server yet. DREAM TEAM sets this up before a school's real data goes in." /></p>
+              <p className="text-sm text-ink-2"><Words k="Files (photos, documents, receipts): DREAM TEAM switches on their copies at the same time." /></p>
             )}
             {data.files.setUp && (data.files.problems > 0 || data.files.lastRunFailed) && (
               <Alert tone="warning" title="Some files could not be copied at the last run">

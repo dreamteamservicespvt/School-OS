@@ -76,7 +76,7 @@ export default async function PaymentGatewaysPage({ searchParams }: Search) {
           { key: "name", label: "Name", phone: "title", cell: (r) => r.displayName },
           { key: "type", label: "Type", phone: "meta", cell: (r) => { const p = findProvider(r.provider); return p ? `${TYPE_WORDS[p.type]} · ${p.name}` : r.provider; } },
           { key: "status", label: "Status", phone: "badge", cell: (r) => r.archivedAt ? <Badge><Words k="Archived" /></Badge> : r.isActive ? <Badge tone="success"><Words k="Active" /></Badge> : <Badge><Words k="Inactive" /></Badge> },
-          { key: "env", label: "Mode", phone: "meta", cell: (r) => r.environment === "live" ? <Badge tone="brand"><Words k="Live" /></Badge> : <Badge tone="warning"><Words k="Test" /></Badge> },
+          { key: "env", label: "Real money?", phone: "meta", cell: (r) => r.environment === "live" ? <Badge tone="brand"><Words k="Live: real payments" /></Badge> : <Badge tone="warning"><Words k="Test: no real money" /></Badge> },
           { key: "test", label: "Last test", phone: "meta", cell: (r) => r.lastTestAt ? <span className={r.lastTestOk ? "text-success" : "text-danger"}>{r.lastTestOk ? <Words k="Passed" /> : <Words k="Problem" />} · {formatDateTime(r.lastTestAt, tz)}</span> : <span className="text-ink-2"><Words k="Not tested" /></span> },
           { key: "changed", label: "Last changed", cell: (r) => formatDateTime(r.updatedAt, tz) },
         ]}

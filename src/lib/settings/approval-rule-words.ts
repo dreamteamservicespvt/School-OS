@@ -1,6 +1,6 @@
 // The plain-words summary of an approval rule (Settings, Forms & Approvals),
 // with no database, so the editor can show it live as the person changes steps:
-// "Refunds: up to ₹5,000 the Accountant approves; above that, the Principal. Escalate after 2 days."
+// "Refunds: up to ₹5,000 the Accountant approves; above that, the Principal. Moves on if nobody decides in 2 days."
 import { formatRupees } from "../format";
 
 export type StepDraft = { approverRole?: string | null; approverUserId?: string | null; upToPaise?: string | null };
@@ -38,5 +38,5 @@ export function ruleSummary(requestLabel: string, steps: StepDraft[], escalateAf
   const later = limited.length === 0 ? rest.slice(1) : rest.slice(1);
   if (later.length) parts.push(`if not decided in time, it moves to ${later.map((s) => approver(s, names)).join(", then ")}`);
   const days = `${escalateAfterDays} day${escalateAfterDays === 1 ? "" : "s"}`;
-  return `${heading}: ${parts.join("; ")}. Escalate after ${days}.`;
+  return `${heading}: ${parts.join("; ")}. Moves on if nobody decides in ${days}.`;
 }

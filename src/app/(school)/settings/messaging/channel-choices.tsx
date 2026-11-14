@@ -39,6 +39,8 @@ export function ChannelChoices({ data, readOnly }: { data: ChannelStatus; readOn
   const [alert, setAlert] = useState(String(data.lowCreditAlert));
   const [state, setState] = useState<ChannelState>(null);
   const [pending, start] = useTransition();
+  /** On or off as just saved, for the line that says it worked (P15). */
+  const [saved, setSaved] = useState<boolean | null>(null);
   const paid = data.channel !== "email";
   const changed = isOn !== data.isOn || alert !== String(data.lowCreditAlert);
 
@@ -47,7 +49,7 @@ export function ChannelChoices({ data, readOnly }: { data: ChannelStatus; readOn
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <h2 id={`ch-${data.channel}`} className="text-lg font-semibold">{data.label}</h2>
         <Badge tone={data.isOn ? (data.live ? "success" : "warning") : "neutral"}>{data.isOn ? (data.live ? "On, sending for real" : "On, test mode") : "Off"}</Badge>
-        {!readOnly && <label className="ml-auto flex items-center gap-2 text-sm font-medium"><Toggle on={isOn} onChange={setOn} label={`${data.label} on or off`} /> {isOn ? "Switched on" : "Switched off"}</label>}
+        {!readOnly && <label className="ml-auto flex items-center gap-2 text-sm font-medium"><Toggle on={isOn} onChange={setOn} label={`${data.label} on or off`} /> {isOn !== data.isOn ? (isOn ? <Words k="On after you press Save" /> : <Words k="Off after you press Save" />) : (isOn ? "Switched on" : "Switched off")}</label>}
       </div>
       <p className="mb-4 text-sm text-ink-2">
         {data.connected
@@ -73,9 +75,16 @@ export function ChannelChoices({ data, readOnly }: { data: ChannelStatus; readOn
           <Button className="ml-auto" disabled={!changed} loading={pending} loadingText="Saving" onClick={() => start(async () => {
             const r = await saveChoicesAction(data.channel, isOn, Number(alert));
             setState(r);
-            if (r?.ok) router.refresh();
+            if (r?.ok) { setSaved(isOn); router.refresh(); }
           })}><Words k="Save" /> {data.label}</Button>
         </div>
+      )}
+      {state?.ok && saved !== null && !changed && (
+        <p role="status" className="mt-3 rounded-lg bg-success-soft px-3 py-2 text-sm text-success">
+          {!saved ? <Words k="{channel} is off. No messages go by {channel}." vars={{ channel: data.label }} />
+            : data.live ? <Words k="{channel} is on. Messages to parents now go by {channel}." vars={{ channel: data.label }} />
+            : <Words k="{channel} is on, in test mode: nothing is sent yet." vars={{ channel: data.label }} />}
+        </p>
       )}
       {state && !state.ok && state.message && !Object.keys(state.errors ?? {}).length && <p role="alert" className="mt-3 rounded-lg bg-danger-soft px-3 py-2 text-sm text-danger">{state.message}</p>}
     </section>

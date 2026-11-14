@@ -32,8 +32,11 @@ export async function previewTemplateAction(key: string, replaceExisting: boolea
 export async function applyTemplateAction(key: string, replaceExisting: boolean): Promise<string | void> {
   const r = await runSettings(PAGE, "edit", (tx, current) => applyTemplate(tx, current.ctx, key, replaceExisting));
   if (!r.ok) return r.message;
-  const n = r.data.modules.length + r.data.settings.length;
-  await flash({ message: n ? `${r.data.template.name} applied: ${n} change${n === 1 ? "" : "s"}.` : `${r.data.template.name} applied. Everything already matched.` });
+  const m = r.data.modules.length, st = r.data.settings.length;
+  // P15: say what changed, in words, and that each one can still be changed here.
+  await flash({ message: m + st
+    ? `${r.data.template.name} applied: ${m} module${m === 1 ? "" : "s"} switched on and ${st} setting${st === 1 ? "" : "s"} filled in. Each one can be changed on this page.`
+    : `${r.data.template.name} applied. Everything already matched.` });
   revalidatePath("/", "layout");
 }
 

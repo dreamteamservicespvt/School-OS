@@ -41,7 +41,7 @@ const ZERO = BigInt(0);
 const amt = formatRupees;
 /** "Venkat Reddy, Mallesh Yadav, Lakshmi Bai and 3 more". */
 const someNames = (names: string[], show = 3) => (names.length <= show ? (names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}` : names.join("")) : `${names.slice(0, show).join(", ")} and ${names.length - show} more`);
-const SHOW = [{ value: "all", label: "Everyone" }, { value: "flag", label: "Flagged" }, { value: "lop", label: "Loss of pay" }, { value: "adj", label: "Adjusted" }];
+const SHOW = [{ value: "all", label: "Everyone" }, { value: "flag", label: "Needs a look" }, { value: "lop", label: "Loss of pay" }, { value: "adj", label: "Adjusted" }];
 
 /** Generate Salary (10 §2, mod-salary.jsx Generate): one run a month per campus, from Open to Locked. */
 export default async function GeneratePage({ searchParams }: { searchParams: SearchParams }) {
@@ -177,7 +177,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                   {status === "WAITING" && data.approval && <Banner tone="warn" title={`Sent by ${data.approval.sentBy}${run.sentAt ? ` · ${formatDateTime(run.sentAt, p.tz)}` : ""}.`}>{data.approval.can ? "Check the totals and approve, or send it back with a reason." : `Waiting for ${data.approval.approver}. Amounts cannot change now unless it is sent back.`}</Banner>}
                   {status === "APPROVED" && <Banner tone="ok" title="Approved.">{included.length} <Words k="salary slips are made and each staff member was told. Amounts are frozen. Pay the staff, then mark it paid." /></Banner>}
                   {status === "PAID" && <Banner tone="ok" title={`Paid ${run.paidOn ? dayShort(run.paidOn) : ""}.`}><Words k="One salary entry is in the Day Book on the date paid. Corrections go in next month as an adjustment." /></Banner>}
-                  {status === "LOCKED" && <Banner tone="info" icon={Lock} title="Locked for good."><Words k="This run never changes. A correction is an adjustment, with a reason, in a following month." /></Banner>}
+                  {status === "LOCKED" && <Banner tone="info" icon={Lock} title="Locked for good."><Words k="This month's salary never changes. A correction is an adjustment, with a reason, in a following month." /></Banner>}
                   {!p.change && <Banner tone="info" icon={Eye}><Words k="View only. Check that leave and attendance reach the salary; the Accountant runs it." /></Banner>}
                 </div>
                 {p.change && (
@@ -211,7 +211,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
 
               {(status === "OPEN" || status === "CALCULATED") && (negative.length + noStructure.length + incomplete.length + noTds.length + lopLines.length + corrections.length > 0) && (
                 <Card>
-                  <CardHeader title="Check before sending" description="Flags from the rules in Salary Settings" icon={ListChecks} />
+                  <CardHeader title="Check before sending" description="Things to check, from the rules in Salary Settings. They do not stop sending." icon={ListChecks} />
                   <ul className="divide-y divide-line/70 border-t border-line/70">
                     {negative.length > 0 && <Check1 icon={TriangleAlert} tone="bad" title={`Net pay below zero for ${negative.length} staff · cannot be sent or approved`}
                       sub={`${negative.slice(0, 3).map((l) => (money ? `${name(l.staffId)} ${amt(l.netPaise)}` : name(l.staffId))).join(", ")}. A correction or one-time deduction is more than the pay. Change or remove the adjustment first.`}
@@ -370,7 +370,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                           <th scope="col" className="px-2 py-3 font-semibold"><Words k="Gross" /></th><th scope="col" className="px-2 py-3 font-semibold"><Words k="PF" /></th><th scope="col" className="px-2 py-3 font-semibold"><Words k="ESI" /></th><th scope="col" className="px-2 py-3 font-semibold"><Words k="PT" /></th>
                           <th scope="col" className="px-2 py-3 font-semibold"><Words k="TDS" /></th><th scope="col" className="px-2 py-3 font-semibold"><Words k="Loans" /></th><th scope="col" className="px-2 py-3 font-semibold"><Words k="Net" /></th>
                         </>}
-                        <th scope="col" className="pl-2 pr-5 py-3 font-semibold text-left"><Words k="Flags" /></th>
+                        <th scope="col" className="pl-2 pr-5 py-3 font-semibold text-left"><Words k="Needs a look" /></th>
                       </tr>
                     </thead>
                     <tbody>
@@ -533,7 +533,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
       )}
       {doing === "lock" && run && status === "PAID" && (
         <ConfirmSheet closeHref={here({ do: null })} title={`Lock ${monthName(run.month)} for good?`} label={`Lock ${monthName(run.month)}`} action={lockRunAction} hidden={{ runId: run.id }}>
-          <p className="text-[14px] text-ink2"><Words k="Nothing in this run can change after locking. It also locks by itself when the next month is approved." /></p>
+          <p className="text-[14px] text-ink2"><Words k="Nothing in this month's salary can change after locking. It also locks by itself when the next month is approved." /></p>
         </ConfirmSheet>
       )}
       {doing === "reverse" && run && status === "PAID" && (
@@ -559,5 +559,5 @@ function Check1({ icon: Icon, tone, title, sub, action }: { icon: typeof Info; t
 }
 
 function FlagPillLop({ n }: { n: number }) {
-  return <span className="inline-flex items-center h-[22px] px-2 rounded-full bg-bad/10 text-bad text-[11.5px] font-semibold">{dayNum(n)} <Words k="LOP" /></span>;
+  return <span className="inline-flex items-center h-[22px] px-2 rounded-full bg-bad/10 text-bad text-[11.5px] font-semibold">{n === 1 ? <Words k="1 day loss of pay" /> : <Words k="{n} days loss of pay" vars={{ n: dayNum(n) }} />}</span>;
 }

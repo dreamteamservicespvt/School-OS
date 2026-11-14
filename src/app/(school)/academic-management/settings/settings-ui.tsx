@@ -40,7 +40,7 @@ function DayChecks({ name, label, chosen, help, error, only }: { name: string; l
 // ---------------------------------------------------------------- years
 
 /** `pageYearId` (on the forms below): the page's year, so the change is made on that year's campus. */
-export function NewYearButton({ years, suggested, presets, pageYearId }: { years: Opt[]; suggested: { name: string; start: string; end: string }; presets: readonly Opt[]; pageYearId: string }) {
+export function NewYearButton({ years, hasActive, suggested, presets, pageYearId }: { years: Opt[]; hasActive: boolean; suggested: { name: string; start: string; end: string }; presets: readonly Opt[]; pageYearId: string }) {
   const [copy, setCopy] = useState(years[0]?.value ?? "");
   return (
     <FormDialog trigger="Start a new year" triggerVariant="primary" title="Start a new academic year" action={createYearAction} submitLabel="Create year" hidden={{ pageYearId }}>
@@ -54,7 +54,11 @@ export function NewYearButton({ years, suggested, presets, pageYearId }: { years
           <SelectField label="Copy classes, sections, allocations and terms from" name="copyFrom" value={copy} onChange={(e) => setCopy(e.target.value)} placeholder="Nothing, start empty" options={years}
             help="The old year stays exactly as it is. Everything is copied into new records." />
           {!copy && <SelectField label="Terms" name="termPreset" defaultValue={v(state, "termPreset", "two-terms")} options={[...presets]} help="Change term dates later in the Terms tab." />}
-          <p className="text-sm text-ink-2"><Words k="The new year is Upcoming. Open it when it starts; the current year stays active until then." /></p>
+          <p className="text-sm text-ink-2">{hasActive
+            ? <Words k="The new year is Upcoming. Open it when it starts; the current year stays active until then." />
+            // A campus's first year that has already started is active at once (src/lib/academic/lifecycle.ts).
+            : years.length === 0 ? <Words k="This is your school's first year. If it has already started, it becomes the current year straight away." />
+            : <Words k="No year is active now. If this year has already started, it becomes the current year straight away." />}</p>
         </>
       )}
     </FormDialog>

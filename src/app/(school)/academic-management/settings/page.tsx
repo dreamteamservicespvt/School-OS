@@ -103,7 +103,7 @@ export default async function AcademicSettingsPage({ searchParams }: { searchPar
           <section aria-labelledby="years-h">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
               <h2 id="years-h" className="text-lg font-semibold"><Words k="Academic years" /></h2>
-              <NewYearButton years={page.years.map((y) => ({ value: y.id, label: y.name }))} presets={TERM_PRESETS} suggested={{ name: yearNameFor(suggestedStart, suggestedEnd), start: isoDay(suggestedStart), end: isoDay(suggestedEnd) }} pageYearId={pageYearId} />
+              <NewYearButton years={page.years.map((y) => ({ value: y.id, label: y.name }))} hasActive={page.years.some((y) => y.status === "ACTIVE")} presets={TERM_PRESETS} suggested={{ name: yearNameFor(suggestedStart, suggestedEnd), start: isoDay(suggestedStart), end: isoDay(suggestedEnd) }} pageYearId={pageYearId} />
             </div>
             <p className="mb-3 text-sm text-ink-2"><Words k="One year is active at a time. Closed years are read-only, except corrections by the Principal or School Admin with a reason." /></p>
             {data.info.length === 0 ? <EmptyState title="No academic year yet"><Words k="Start the current year with its dates and terms. Classes, the Time Table and every record belong to a year." /></EmptyState> : (

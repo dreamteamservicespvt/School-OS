@@ -232,6 +232,12 @@ export type VerifyResult =
   | { ok: false; message: string; restart?: boolean };
 
 /** Checks a typed code. Five wrong codes end it; the person then signs in again. */
+/** Counts one try at a code, unless it is used or has had its five already. False: no try left. */
+async function countTry(id: string) {
+  const r = await prisma.twoStepChallenge.updateMany({ where: { id, usedAt: null, attempts: { lt: MAX_CODE_TRIES } }, data: { attempts: { increment: 1 } } });
+  return r.count === 1;
+}
+
 export async function verifyChallenge(token: string | null | undefined, typed: string, device: DeviceInfo, now = new Date()): Promise<VerifyResult> {
   const code = typed.replace(/\s/g, "");
   if (!token) return { ok: false, message: "Your sign-in has timed out. Sign in again.", restart: true };
@@ -242,12 +248,14 @@ export async function verifyChallenge(token: string | null | undefined, typed: s
   const limit = await hitLimit(`two-step:check:${c.userLoginId}`, 20, 900, now);
   if (!limit.ok) return { ok: false, message: BUSY };
   if (!/^\d{6}$/.test(code)) return { ok: false, message: "Type the 6 digits of the code." };
+  // Counted before the code is compared, in one statement that refuses a sixth, so tries sent at
+  // the same moment cannot all pass the five-try check (security review 2026-11-15).
+  if (!(await countTry(c.id))) return { ok: false, message: "Too many wrong codes. Sign in again to get a new one.", restart: true };
 
   const right = timingSafeEqual(Buffer.from(codeHash(token, code)), Buffer.from(c.codeHash));
   const ctx = { schoolId: c.schoolId!, userId: c.userLoginId };
   if (!right) {
-    // Counted in one statement, so two tries at the same moment cannot both slip through.
-    const updated = await prisma.twoStepChallenge.update({ where: { id: c.id }, data: { attempts: { increment: 1 } } });
+    const updated = await prisma.twoStepChallenge.findUniqueOrThrow({ where: { id: c.id }, select: { attempts: true } });
     const left = MAX_CODE_TRIES - updated.attempts;
     if (c.schoolId) {
       await withSchool(ctx, (tx) => writeAudit(tx, ctx, { action: left <= 0 ? "two-step-locked" : "two-step-failed", recordType: "User Login", recordId: c.userLoginId, device: device.userAgent, ipAddress: device.ipAddress }));
@@ -332,8 +340,9 @@ export async function confirmContactChange(
   if (c.expiresAt <= now) return { ok: false, message: "This code has expired after 10 minutes. Send a new code.", restart: true };
   if (c.attempts >= MAX_CODE_TRIES) return { ok: false, message: "Too many wrong codes. Send a new code.", restart: true };
   if (!/^\d{6}$/.test(code)) return { ok: false, message: "Type the 6 digits of the code." };
+  if (!(await countTry(c.id))) return { ok: false, message: "Too many wrong codes. Send a new code.", restart: true };
   if (!timingSafeEqual(Buffer.from(codeHash(token, code)), Buffer.from(c.codeHash))) {
-    const updated = await prisma.twoStepChallenge.update({ where: { id: c.id }, data: { attempts: { increment: 1 } } });
+    const updated = await prisma.twoStepChallenge.findUniqueOrThrow({ where: { id: c.id }, select: { attempts: true } });
     const left = MAX_CODE_TRIES - updated.attempts;
     if (left <= 0) return { ok: false, message: "Too many wrong codes. Send a new code.", restart: true };
     return { ok: false, message: `That code is not right. ${left} more ${left === 1 ? "try" : "tries"}.` };

@@ -79,11 +79,13 @@ export async function finishSchoolInvite(token: string, code: string, password: 
   if (!inv.codeHash || !inv.codeSentAt || inv.codeSentAt.getTime() + INVITE_CODE_TTL_MS <= now.getTime()) return { ok: false, message: "This code has timed out. Send a new code.", field: "code" };
   if (inv.codeAttempts >= INVITE_CODE_TRIES) return { ok: false, message: "Too many wrong codes. Send a new code.", field: "code" };
   const typed = code.replace(/\D/g, "");
+  // Counted before the compare, in one statement that refuses a sixth (security review 2026-11-15).
+  const counted = await withConsole((tx) => tx.schoolInvite.updateMany({ where: { id: inv.id, usedAt: null, codeAttempts: { lt: INVITE_CODE_TRIES } }, data: { codeAttempts: { increment: 1 } } }));
+  if (counted.count === 0) return { ok: false, message: "Too many wrong codes. Send a new code.", field: "code" };
   const right = typed.length === 6 && timingSafeEqual(Buffer.from(codeHashOf(inv.id, typed)), Buffer.from(inv.codeHash));
-  if (!right) {
-    await withConsole((tx) => tx.schoolInvite.update({ where: { id: inv.id }, data: { codeAttempts: { increment: 1 } } }));
-    return { ok: false, message: "That code is not right. Check the SMS and type it again.", field: "code" };
-  }
+  if (!right) return { ok: false, message: "That code is not right. Check the SMS and type it again.", field: "code" };
+  // A right code is not a wrong try: the person may still need to choose a better password.
+  await withConsole((tx) => tx.schoolInvite.update({ where: { id: inv.id }, data: { codeAttempts: { decrement: 1 } } }));
   // The school's password rules (the strictest of the login's schools), and on a reset its earlier passwords.
   const bad = await newPasswordProblem(inv.userLoginId, password);
   if (bad) return { ok: false, message: bad, field: "password" };

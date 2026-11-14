@@ -139,12 +139,12 @@ export async function signIn(usernameInput: string, password: string, device: De
     const passwordOk = await verifyPassword(user.passwordHash!, password);
 
     if (!passwordOk) {
-      const failedAttempts = user.failedAttempts + 1;
+      // Counted in one statement and the lock decided from the count it returns, so wrong
+      // passwords sent at the same moment cannot all read the same count (security review 2026-11-15).
+      const counted = await prisma.userLogin.update({ where: { id: user.id }, data: { failedAttempts: { increment: 1 } }, select: { failedAttempts: true } });
+      const failedAttempts = counted.failedAttempts;
       const locks = failedAttempts >= MAX_FAILED_ATTEMPTS;
-      await prisma.userLogin.update({
-        where: { id: user.id },
-        data: { failedAttempts: locks ? 0 : failedAttempts, lockedUntil: locks ? new Date(now.getTime() + LOCK_MS) : null },
-      });
+      if (locks) await prisma.userLogin.update({ where: { id: user.id }, data: { failedAttempts: 0, lockedUntil: new Date(now.getTime() + LOCK_MS) } });
       await reportFailure(user.id, device);
       if (locks) {
         await reportLock(user.id, user.displayName, device);

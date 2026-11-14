@@ -210,7 +210,7 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, ai, on
 }
 
 /* ---------- Top bar ---------- */
-function TopBar({ school, year, person, approvals, canApprove, canMessage, unread, theme, ai, onSearch, onNotif, onProfile, title }: Pick<ShellProps, "school" | "year" | "person" | "approvals" | "canApprove" | "canMessage" | "unread" | "theme" | "ai"> & { onSearch: () => void; onNotif: () => void; onProfile: () => void; title: string }) {
+function TopBar({ school, year, person, approvals, canApprove, canMessage, unread, theme, ai, onSearch, onNotif, onProfile, title, phoneApprovals }: Pick<ShellProps, "school" | "year" | "person" | "approvals" | "canApprove" | "canMessage" | "unread" | "theme" | "ai"> & { onSearch: () => void; onNotif: () => void; onProfile: () => void; title: string; phoneApprovals: boolean }) {
   const t = useT();
   const [dark, setDark] = useState(false);
   useEffect(() => {
@@ -254,7 +254,8 @@ function TopBar({ school, year, person, approvals, canApprove, canMessage, unrea
         <I.CalendarRange size={16} aria-hidden="true" /> {year ? yearLabel(year.name) : t("No year yet")}
       </Link>
       <IconButton className="md:hidden" icon={I.Search} label={t("Search")} onClick={onSearch} />
-      {canApprove && <IconLink className="hidden md:inline-flex" href="/approvals" icon={I.ListChecks} label={t("Approvals waiting")} badge={approvals} />}
+      {/* On a phone the count shows here too when the bottom bar has no Approve button (a class teacher, an accountant). */}
+      {canApprove && <IconLink className={phoneApprovals ? "inline-flex" : "hidden md:inline-flex"} href="/approvals" icon={I.ListChecks} label={t("Approvals waiting")} badge={approvals} />}
       {canMessage && <IconLink className="hidden md:inline-flex" href="/messages" icon={I.MessageCircle} label={t("Messages")} />}
       <IconButton icon={I.Bell} label={t("Notifications")} badge={unread} onClick={onNotif} />
       <IconButton className="hidden md:inline-flex" icon={dark ? I.Sun : I.Moon} label={dark ? t("Switch to light mode") : t("Switch to dark mode")} onClick={flip} />
@@ -317,7 +318,7 @@ function MoreSheet({ open, onClose, menu, mine = [], landing = {} }: { open: boo
   const visible = new Set(menu);
   const groups = NAV_GROUPS.map((g) => ({ ...g, items: g.items.filter((i) => visible.has(i.key)) })).filter((g) => g.items.length);
   return (
-    <Sheet open={open} onClose={onClose} title={t("All modules")} sub={t("Tap any module to open it")}>
+    <Sheet open={open} onClose={onClose} title={t("Everything")} sub={t("Tap to open")}>
       <div className="flex flex-col gap-5">
         {groups.map((g) => (
           <div key={g.group ?? "home"}>
@@ -559,6 +560,7 @@ export function AppShell(props: ShellProps) {
       <Sidebar school={school} schools={schools} menu={menu} mine={mine} landing={landing} quick={quick} ai={ai} onQuick={() => setQuickOpen(true)} onSwitch={() => setSwitchOpen(true)} onAsk={() => setPalette(true)} />
       <div className="flex-1 flex flex-col min-w-0">
         <TopBar school={school} year={year} person={person} approvals={approvals} canApprove={canApprove} canMessage={canMessage} unread={unread} theme={theme} ai={ai}
+          phoneApprovals={!bottom.some((b) => b.href === "/approvals")}
           title={t.any(phoneTitle(pathname, pages))} onSearch={() => setPalette(true)} onNotif={() => setNotif(true)} onProfile={() => setProfile(true)} />
         {children}
       </div>

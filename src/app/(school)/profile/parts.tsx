@@ -159,7 +159,26 @@ export function NotePrefsTable({ kinds, prefs, allowed, phone }: { kinds: NoteKi
   const off = NOTE_CHANNELS.filter((c) => !allowed.includes(c)).map((c) => NOTE_CHANNEL_LABEL[c]);
   return (
     <>
-      <div className="overflow-x-auto scroll-thin border-t border-line">
+      {/* Phone: one block per kind, the ways stacked, so nothing runs off the screen (layman audit). */}
+      <ul className="md:hidden border-t border-line divide-y divide-line/60">
+        {kinds.map((k) => (
+          <li key={k.key} className="px-5 py-3">
+            <p className="font-medium text-[14px]">{k.label}{k.locked && <span className="block text-[11.5px] text-ink3 font-normal"><Words k="Always in the app" /></span>}</p>
+            <div className="mt-1 flex flex-wrap gap-x-5">
+              {NOTE_CHANNELS.map((c) => {
+                const on = (value[k.key] ?? []).includes(c);
+                return (
+                  <span key={c} className={cx("inline-flex items-center gap-2 min-h-11 text-[13.5px]", !allowed.includes(c) && "opacity-50")}>
+                    <Checkbox checked={on} label={`${k.label} by ${NOTE_CHANNEL_LABEL[c]}`} onChange={(v) => flip(k, c, v)} />
+                    <span aria-hidden="true" className="cursor-pointer" onClick={() => flip(k, c, !on)}>{NOTE_CHANNEL_LABEL[c]}</span>
+                  </span>
+                );
+              })}
+            </div>
+          </li>
+        ))}
+      </ul>
+      <div className="hidden md:block overflow-x-auto scroll-thin border-t border-line">
         <table className="text-[13.5px] min-w-full">
           <thead>
             <tr className="border-b border-line text-ink3 text-[12px]">
@@ -183,7 +202,7 @@ export function NotePrefsTable({ kinds, prefs, allowed, phone }: { kinds: NoteKi
       </div>
       <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70">
         {phone ? `WhatsApp and SMS go to ${phone}. ` : "Add your mobile number to get WhatsApp and SMS. "}
-        {off.length ? `${off.join(", ")} ${off.length === 1 ? "is" : "are"} not switched on by your school yet.` : "The school decides which channels are allowed."}
+        {off.length ? `${off.join(", ")} ${off.length === 1 ? "is" : "are"} not switched on by your school yet.` : "The school decides which of these can be used."}
       </p>
       {toast}
     </>

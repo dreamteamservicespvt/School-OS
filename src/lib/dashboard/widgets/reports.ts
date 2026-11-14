@@ -45,8 +45,8 @@ const earlyWarnings: Widget<"attention"> = {
         // it opens shows every Act now flag, so its words say what is counted (gap list G36).
         title: `Early warnings: ${closerLookWords(w.look)} (students counted once, from attendance and marks)`,
         detail: reviews
-          ? `${w.actNowToReview ? `${w.actNowToReview} not reviewed yet. ` : ""}Strong signs only. The list shows each Act now flag, fee flags too. Nothing happens to a student until you review the flag.`
-          : "Strong signs only. The list shows each Act now flag; fees stay in Fee Defaulters. Class teachers review; you can remind them.",
+          ? `${w.actNowToReview ? `${w.actNowToReview} not reviewed yet. ` : ""}Only strong signs. The list also shows fee warnings. Nothing is sent or changed until you look at each one.`
+          : "Only strong signs. Fees stay in Fee Defaulters. Class teachers look at each one; you can remind them.",
         action: reviews ? "Review" : "Open", href: ACT_NOW_HREF, value: `${w.look.students}:${w.look.attendance}:${w.look.marks}:${w.look.both}`,
       };
     }
@@ -54,7 +54,7 @@ const earlyWarnings: Widget<"attention"> = {
       return {
         id: "reports.early-warnings", tone: "warn", icon: "TriangleAlert",
         title: `Early warnings: ${plural(w.toReview, "student")} to review`,
-        detail: "Watch signs, from attendance and marks. Nothing happens to a student until you review the flag.",
+        detail: "Attendance or marks have dropped for these students. Nothing is sent or changed until you look at each one.",
         action: "Review", href: `${BASE}/early-warnings?status=NEW&period=all`, value: String(w.toReview),
       };
     }

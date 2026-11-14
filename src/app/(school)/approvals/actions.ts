@@ -13,7 +13,7 @@ const LOOK_ONLY = "DREAM TEAM support access is for looking only. The school dec
 
 const DONE: Record<Decision, string> = {
   approve: "Approved. The person who asked has been told.",
-  reject: "Not approved. The person who asked has been told why.",
+  reject: "Rejected. The person who asked has been told why.",
   "ask-change": "Sent back for a change. The person who asked has been told what to change.",
   withdraw: "Your request is withdrawn.",
 };

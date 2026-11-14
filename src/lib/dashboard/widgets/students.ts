@@ -60,7 +60,7 @@ const parentsBand: Widget<"band"> = {
   async load(c) {
     const g = await guardiansWithoutConsent(c);
     if (!g.total) return null;
-    return { id: "students.parents", label: "Parents", big: n(g.total), foot: g.without ? `${n(g.without)} without data consent` : "All gave data consent", href: `${BASE}/guardians` };
+    return { id: "students.parents", label: "Parents", big: n(g.total), foot: g.without ? `${plural(g.without, "parent has", "parents have")} not said yes to sharing details` : "All parents said yes to sharing details", href: `${BASE}/guardians` };
   },
 };
 

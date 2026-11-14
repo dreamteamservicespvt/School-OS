@@ -12,14 +12,14 @@ export function noAccessWords(o: { name: string; schoolName: string; roles: stri
     return { kind: "off", title: `${o.name} is switched off for ${o.schoolName}`, body: `${o.turnsOn ? "Switch it on" : "The School Admin can switch it on"} in Settings, Modules On/Off. Nothing is lost while it is off.` };
   }
   if (!o.hasModule) {
-    return { kind: "not-in-menu", title: `${o.name} is not in your menu`, body: `As ${o.roles}, you do not have this module. The School Admin can change roles in Settings, Users & Permissions.` };
+    return { kind: "not-in-menu", title: `${o.name} is not in your menu`, body: `Your login cannot open ${o.name}. If you need it for your work, ask the School Admin to give you access.` };
   }
   const pages = (o.pages ?? []).filter(Boolean);
   return {
     kind: "not-this-page",
-    title: `This page of ${o.name} is not part of your role`,
+    title: `Your login cannot open this page of ${o.name}`,
     body: pages.length
-      ? `You can use: ${pages.join(", ")}. The School Admin can change roles in Settings, Users & Permissions.`
-      : `As ${o.roles}, you can use the other pages of ${o.name} in your menu. The School Admin can change roles in Settings, Users & Permissions.`,
+      ? `You can use: ${pages.join(", ")}. If you need this page for your work, ask the School Admin to give you access.`
+      : `You can use the other pages of ${o.name} in your menu. If you need this page for your work, ask the School Admin to give you access.`,
   };
 }

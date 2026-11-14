@@ -19,7 +19,7 @@ export type UnfinishedItem = {
   id: string;
   summary: string;
   typeLabel: string;
-  /** "Approved", "Not approved" or "Sent back for a change" */
+  /** "Approved", "Rejected" or "Sent back for a change" */
   decided: string;
   /** "approved", "not approved", "sent back for a change" */
   decidedWords: string;
@@ -47,7 +47,7 @@ export function UnfinishedList({ items }: { items: UnfinishedItem[] }) {
         <span className="w-10 h-10 rounded-xl bg-warn/15 text-warn grid place-items-center shrink-0"><CircleAlert size={19} aria-hidden="true" /></span>
         <div className="min-w-0">
           <h2 id="unfinished-head" className="font-semibold text-[15px]"><Words k="Approved, but not finished" /></h2>
-          <p className="text-[13px] text-ink2"><Words k="These requests were decided, but their record never moved on, because of a fault in School OS that is now fixed. Open each one to check, then tap Finish now to do what the decision should have done. Nothing is finished by itself." /></p>
+          <p className="text-[13px] text-ink2"><Words k="These were approved or rejected earlier, but the leave, payment or form still shows as waiting. Check each one, then tap Finish now to complete it. Nothing changes until you tap." /></p>
         </div>
       </div>
       <ul className="divide-y divide-line/70 border-t border-line/70">

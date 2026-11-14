@@ -113,7 +113,7 @@ export function AttentionCard({ items, hiddenSeen }: { items: AttentionItem[]; h
                     <p className="text-[13px] text-ink3 truncate">{t.any(n.detail)}</p>
                   </Link>
                   <button type="button" onClick={() => seen(n)} disabled={pending}
-                    className="hidden md:grid w-8 h-8 place-items-center rounded-lg text-ink3 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:bg-line/60 transition" aria-label={t("Mark as seen: {title}", { title: t.any(n.title) })} title={t("Mark as seen")}>
+                    className="grid w-11 h-11 md:w-8 md:h-8 shrink-0 place-items-center rounded-lg text-ink3 md:opacity-0 md:group-hover:opacity-100 focus-visible:opacity-100 hover:bg-line/60 transition" aria-label={t("Mark as seen: {title}", { title: t.any(n.title) })} title={t("Mark as seen")}>
                     <I.EyeOff size={16} aria-hidden="true" />
                   </button>
                   <ButtonLink href={n.href} size="sm" variant="secondary" className="hidden sm:inline-flex shrink-0">{t.any(n.action)}</ButtonLink>
@@ -290,7 +290,7 @@ export function ApprovalsCard({ count, rows }: { count: number; rows: ApprovalCa
                 </Link>
                 <div className="flex gap-2 mt-2 pl-[46px]">
                   <Button size="sm" variant="soft" icon={I.Check} onClick={() => approve(a)} disabled={pending}>{t("Approve")}</Button>
-                  <ButtonLink href={`/approvals/${a.id}`} size="sm" variant="ghost">{t("Decline")}</ButtonLink>
+                  <ButtonLink href={`/approvals/${a.id}?reject=1`} size="sm" variant="ghost">{t("Reject")}</ButtonLink>
                 </div>
               </li>
             ))}

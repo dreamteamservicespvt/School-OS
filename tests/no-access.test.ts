@@ -25,19 +25,19 @@ describe("no-access words", () => {
     const w = noAccessWords({ ...base, roles: "Teacher", off: false, hasModule: false });
     expect(w.kind).toBe("not-in-menu");
     expect(w.title).toBe("Admission Management is not in your menu");
-    expect(w.body).toBe("As Teacher, you do not have this module. The School Admin can change roles in Settings, Users & Permissions.");
+    expect(w.body).toBe("Your login cannot open Admission Management. If you need it for your work, ask the School Admin to give you access.");
   });
 
   it("names the pages a person with part of the module can use", () => {
     const w = noAccessWords({ ...base, off: false, hasModule: true, pages: ["Enquiries"] });
     expect(w.kind).toBe("not-this-page");
-    expect(w.title).toBe("This page of Admission Management is not part of your role");
+    expect(w.title).toBe("Your login cannot open this page of Admission Management");
     expect(w.body).toMatch(/^You can use: Enquiries\./);
   });
 
   it("still makes sense when the pages are not listed", () => {
     const w = noAccessWords({ ...base, off: false, hasModule: true });
-    expect(w.body).toMatch(/you can use the other pages of Admission Management in your menu/);
+    expect(w.body).toMatch(/You can use the other pages of Admission Management in your menu/);
   });
 });
 

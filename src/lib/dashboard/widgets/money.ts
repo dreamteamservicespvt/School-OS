@@ -64,7 +64,7 @@ const collectedToday: Widget<"band"> = {
     // Dates chosen on the Dashboard (from–to): Recent payments' own total for those days, the list the card opens.
     if (c.filters.from) {
       const list = await recentPayments(c.tx, await fees(c), { from: c.filters.from, to: c.today, status: "POSTED", partial: null }, 0);
-      return { id: "fees.collected-today", label: "Fees collected", big: formatRupeesShort(list.sum), foot: list.total ? `${plural(list.total, "payment")} · these dates` : "No payments on these dates", href: COLLECTED_TODAY };
+      return { id: "fees.collected-today", label: "Fees collected", big: formatRupeesShort(list.sum), foot: list.total ? `${plural(list.total, "payment")} · ${shortDate(c.filters.from)} to today` : `No payments from ${shortDate(c.filters.from)} to today`, href: COLLECTED_TODAY };
     }
     const t = (await tiles(c)).today;
     const upi = await c.tx.payment.count({ where: { status: "POSTED", broughtIn: false, paymentDate: c.today, mode: "UPI", ...(await onCampus(c)) } });
@@ -90,8 +90,8 @@ const chequesToVerify: Widget<"band"> = {
     ]);
     const count = agg._count._all;
     return {
-      id: "fees.cheques-to-verify", label: "Waiting for verification", big: n(count),
-      foot: count ? `${formatRupees(agg._sum.amountPaise ?? ZERO)} · oldest ${shortDate(oldest!.paymentDate)}` : "Nothing to verify",
+      id: "fees.cheques-to-verify", label: "Payments waiting for verification", big: n(count),
+      foot: count ? `${formatRupees(agg._sum.amountPaise ?? ZERO)} not counted yet · oldest ${shortDate(oldest!.paymentDate)}` : "Nothing to verify",
       href: waitingHref(oldest?.paymentDate ?? null, c.today),
     };
   },

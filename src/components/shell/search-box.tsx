@@ -240,7 +240,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
         <div className="hidden md:flex items-center gap-4 px-4 h-11 border-t border-line text-xs text-ink3 shrink-0">
           <span className="flex items-center gap-1.5"><Kbd>↑</Kbd><Kbd>↓</Kbd> {t("move")}</span>
           <span className="flex items-center gap-1.5"><Kbd>Enter</Kbd> {t("open")}</span>
-          <span className="ml-auto">{t("Only shows what your role is allowed to see")}</span>
+          <span className="ml-auto">{t("You only see students and pages your login can open.")}</span>
         </div>
       </div>
     </div>

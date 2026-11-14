@@ -14,7 +14,7 @@ export type InboxView = "mine" | "asked" | "all";
 export const VIEWS: { value: InboxView; label: string }[] = [
   { value: "mine", label: "Waiting for me" },
   { value: "asked", label: "Asked by me" },
-  { value: "all", label: "All I may see" },
+  { value: "all", label: "All requests" },
 ];
 
 export type HistoryLine = { at: string; by: string | null; action: string; note?: string | null };

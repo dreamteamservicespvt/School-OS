@@ -45,7 +45,7 @@ function support(): Support {
 
 async function pushToken(config: PushWebConfig): Promise<string> {
   const [{ initializeApp, getApps }, { getMessaging, getToken, isSupported }] = await Promise.all([import("firebase/app"), import("firebase/messaging")]);
-  if (!(await isSupported())) throw new Error("This browser cannot get push alerts.");
+  if (!(await isSupported())) throw new Error("This browser cannot get pop-up alerts.");
   const app = getApps().find((a) => a.name === "school-os-push") ?? initializeApp({ apiKey: config.apiKey, projectId: config.projectId, messagingSenderId: config.messagingSenderId, appId: config.appId }, "school-os-push");
   const registration = await navigator.serviceWorker.register(SW_URL, { scope: SW_SCOPE });
   await navigator.serviceWorker.ready.catch(() => undefined);
@@ -85,7 +85,7 @@ export function PushSwitch({ config, schoolAllows }: { config: PushWebConfig | n
         const permission = await Notification.requestPermission();
         if (permission !== "granted") {
           changed();
-          say("Allow notifications for School OS in the browser to get push alerts.", "info");
+          say("Allow notifications for School OS in the browser to get pop-up alerts.", "info");
           return;
         }
         const token = await pushToken(config);
@@ -110,17 +110,17 @@ export function PushSwitch({ config, schoolAllows }: { config: PushWebConfig | n
   const help =
     state === "ios-home" ? "On iPhone and iPad, add School OS to the Home Screen first (Share, then Add to Home Screen), then open it from there. Needs iOS 16.4 or later."
     : state === "blocked" ? "Notifications are blocked for School OS in this browser. Allow them in the browser's site settings, then switch this on."
-    : state === "no" ? "This browser cannot get push alerts. Use Chrome, Edge, Firefox or Safari."
-    : on ? "Alerts for the kinds ticked under Push reach this device, even when School OS is closed."
-    : "Get alerts for the kinds ticked under Push on this phone or computer, even when School OS is closed.";
+    : state === "no" ? "This browser cannot get pop-up alerts. Use Chrome, Edge, Firefox or Safari."
+    : on ? "Alerts for the kinds ticked under Pop-up reach this device, even when School OS is closed."
+    : "Get alerts for the kinds ticked under Pop-up on this phone or computer, even when School OS is closed.";
 
   return (
     <div className="flex items-start gap-3 px-5 py-3.5 border-t border-line">
       <div className="min-w-0 flex-1">
-        <p className="font-semibold text-[14px]"><Words k="Push alerts on this device" /></p>
+        <p className="font-semibold text-[14px]"><Words k="Pop-up alerts on this phone or computer" /></p>
         <p className="text-[12.5px] text-ink3">{help}</p>
       </div>
-      <Switch on={on} onChange={(v) => void flip(v)} label="Push alerts on this device" disabled={busy || state !== "ok"} />
+      <Switch on={on} onChange={(v) => void flip(v)} label="Pop-up alerts on this phone or computer" disabled={busy || state !== "ok"} />
       {toast && <Toast key={toast.n} flash={{ message: toast.message, tone: toast.tone }} />}
     </div>
   );

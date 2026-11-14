@@ -28,7 +28,7 @@ export default async function SignInCodePage() {
   const second = challenge?.purpose === "code-sign-in-second";
   const t = await getT();
   return (
-    <AuthFrame eyebrow={second ? t("Last step") : t("One more step")} title={second ? t("Enter the second code") : t("Enter the code")} sub={second ? t("The first code was right. Your role needs a second code, on your other contact.") : t("This keeps your school's records safe.")}>
+    <AuthFrame eyebrow={second ? t("Last step") : t("One more step")} title={second ? t("Enter the second code") : t("Enter the code")} sub={second ? t("The first code was right. For your safety, we need one more code.") : t("This keeps your school's records safe.")}>
       {/* Keyed without the tries count, so a wrong-code answer is not wiped when the cookie changes. */}
       {decoy ? (
         <CodeForm key={(held ?? "").slice(0, (held ?? "").lastIndexOf("."))} sentTo={t.any(CODE_SIGN_IN_SENT_TO)} remembers={false} sharedDefault={shared} />

@@ -4,7 +4,7 @@
 
 export const NOTE_CHANNELS = ["app", "push", "whatsapp", "sms", "email"] as const;
 export type NoteChannel = (typeof NOTE_CHANNELS)[number];
-export const NOTE_CHANNEL_LABEL: Record<NoteChannel, string> = { app: "App", push: "Push", whatsapp: "WhatsApp", sms: "SMS", email: "Email" };
+export const NOTE_CHANNEL_LABEL: Record<NoteChannel, string> = { app: "App", push: "Pop-up", whatsapp: "WhatsApp", sms: "SMS", email: "Email" };
 
 export type NoteKind = {
   key: string;

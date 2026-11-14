@@ -113,7 +113,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
       focus: r.id === focusSupport,
     }))
     : [];
-  const DECIDED_WORDS = { approve: ["Approved", "approved"], reject: ["Not approved", "not approved"], "ask-change": ["Sent back", "sent back for a change"], withdraw: ["Withdrawn", "withdrawn"] } as const;
+  const DECIDED_WORDS = { approve: ["Approved", "approved"], reject: ["Rejected", "rejected"], "ask-change": ["Sent back", "sent back for a change"], withdraw: ["Withdrawn", "withdrawn"] } as const;
   const unfinished: UnfinishedItem[] = data.unfinished.map((a) => {
     const [decided, decidedWords] = DECIDED_WORDS[decisionOf(a) ?? "approve"];
     return {
@@ -170,7 +170,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
                 <li key={v.value} className="shrink-0">
                   <Link href={listHref("/approvals", { ...params, page: 1 }, { view: v.value === first ? null : v.value })} aria-current={on ? "page" : undefined}
                     className={cx("relative flex items-center h-11 px-3.5 text-sm font-semibold whitespace-nowrap transition", on ? "text-brand" : "text-ink2 hover:text-ink")}>
-                    {v.value === "all" && isOverseer(roleKeys) ? "All requests" : v.label}
+                    {v.label}
                     <span className="ml-1.5 text-xs text-ink3 tnum">{data.counts.get(v.value) ?? 0}</span>
                     {on && <span className="absolute left-2 right-2 -bottom-px h-[3px] rounded-t bg-brand" aria-hidden="true" />}
                   </Link>
@@ -192,7 +192,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           ) : view === "asked" ? (
             <EmptyState title="You have not asked for anything yet" Icon={Inbox}><Words k="Requests you send, such as leave, appear here so you can follow them." /></EmptyState>
           ) : (
-            <EmptyState title="No requests yet" Icon={Inbox}><Words k="Requests from every module appear here once people start asking." /></EmptyState>
+            <EmptyState title="No requests yet" Icon={Inbox}><Words k="Leave, discount, refund and expense requests appear here when staff send them." /></EmptyState>
           )
       ) : (
         <>

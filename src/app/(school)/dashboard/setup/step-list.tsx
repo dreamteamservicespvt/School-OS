@@ -35,7 +35,7 @@ export function StepList({ steps, nextKey }: { steps: Step[]; nextKey: string | 
                 {!s.done && (
                   <div className="flex gap-2 mt-2.5 flex-wrap">
                     <ButtonLink href={s.href} size="sm" variant={isNext ? "primary" : "secondary"} iconRight={ArrowRight}>{s.button}</ButtonLink>
-                    <Button size="sm" variant="ghost" icon={Check} disabled={pending} onClick={() => mark(s.key, "DONE")}><Words k="Mark done" /></Button>
+                    <Button size="sm" variant="ghost" icon={Check} disabled={pending} onClick={() => mark(s.key, "DONE")}><Words k="I already did this" /></Button>
                     {s.optional && !s.skipped && <Button size="sm" variant="ghost" disabled={pending} onClick={() => mark(s.key, "SKIPPED")}><Words k="Skip for now" /></Button>}
                   </div>
                 )}

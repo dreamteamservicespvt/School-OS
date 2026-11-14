@@ -63,7 +63,9 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
   const open = OPEN_STATUSES.includes(a.status);
   const status = statusWords(a.status, a.history);
   const name = (uid: string | null) => (uid ? (uid === current.user.id ? "You" : people.get(uid) ?? "Someone no longer here") : "School OS");
-  const waitingFor = a.currentApproverId ? name(a.currentApproverId) : a.currentApproverRole ? `anyone with the ${roles.get(a.currentApproverRole) ?? a.currentApproverRole} role` : "nobody";
+  // No approver and no approver job: say who can fix that, not "waiting for nobody" (layman audit).
+  const noApprover = !a.currentApproverId && !a.currentApproverRole;
+  const waitingFor = a.currentApproverId ? name(a.currentApproverId) : a.currentApproverRole ? `the ${roles.get(a.currentApproverRole) ?? a.currentApproverRole}` : "no one yet";
   const cap = (t: string) => t.charAt(0).toUpperCase() + t.slice(1);
   const record = approvalRecordLink(a);
   const mine = a.askedById === current.user.id;
@@ -76,8 +78,9 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
         <Badge tone={status.tone}>{status.label}</Badge>
       </PageHeader>
       <div className="space-y-5">
-        {open && mine && <Alert tone="info"><Words k="This is your request, so you cannot approve it. It is waiting for" /> {waitingFor === "You" ? "you" : waitingFor}.</Alert>}
-        {open && !mine && !mayDecide && <Alert tone="info"><Words k="This request is waiting for" /> {waitingFor}<Words k=". You can see it but not decide it." /></Alert>}
+        {open && noApprover && (mine || !mayDecide) && <Alert tone="warning"><Words k="No one is set to decide this kind of request yet. The School Admin can choose who approves it in Settings, Forms & Approvals." /></Alert>}
+        {open && !noApprover && mine && <Alert tone="info"><Words k="This is your request, so you cannot approve it. It is waiting for" /> {waitingFor === "You" ? "you" : waitingFor}.</Alert>}
+        {open && !noApprover && !mine && !mayDecide && <Alert tone="info"><Words k="This request is waiting for" /> {waitingFor}<Words k=". You can see it but not decide it." /></Alert>}
         {!open && a.decisionReason && <Alert tone={a.status === "APPROVED" ? "success" : "warning"} title={status.label}>{a.decisionReason}</Alert>}
         <Card>
           <div className="flex items-center gap-3 px-5 pt-5 pb-1">

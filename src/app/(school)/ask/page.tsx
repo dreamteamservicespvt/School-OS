@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ArrowRight, CircleHelp, MessageCircleQuestion, ShieldAlert } from "lucide-react";
+import { ArrowRight, CircleHelp, MessageCircleQuestion } from "lucide-react";
 import { requireCurrent } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { periodSetup } from "@/lib/period-setup";
@@ -59,7 +59,7 @@ export default async function AskPage({ searchParams }: Props) {
   if (!isQuestionKey(key)) {
     return (
       <>
-        <PageHeader title="Questions" href={href} userId={current.user.id} sub="Ready-made questions about the lists your role opens. Each answer comes from the list itself." />
+        <PageHeader title="Questions" href={href} userId={current.user.id} sub="Quick answers, such as who is absent today or whose fees are due. Tap a question." />
         <OtherQuestions ready={ready.map((r) => ({ ...r, title: linkTitleIn(t, r.href, r.title) }))} current={null} />
       </>
     );
@@ -85,7 +85,7 @@ export default async function AskPage({ searchParams }: Props) {
           </p>
         )}
         {answer.ok ? <Answer a={answer} t={t} /> : (
-          <EmptyState title="This question cannot be answered here" Icon={ShieldAlert}
+          <EmptyState title="There is no answer for you here" Icon={CircleHelp}
             action={answer.link ? <Link href={answer.link.href} className={buttonClass("secondary", "md")}>{answer.link.label}</Link> : undefined}>
             {answer.problem}
           </EmptyState>

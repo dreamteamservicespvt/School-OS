@@ -120,8 +120,8 @@ const notDelivered: Widget<"attention"> = {
     return {
       id: "communication.not-delivered", tone: "bad", icon: "Send",
       title: `${plural(messages, "message")} not delivered to ${plural(count, "person", "people")} in the last 7 days`,
-      detail: notSent ? `${n(notSent)} not sent: no channel could carry ${notSent === 1 ? "it" : "them"} · retry or resend` : "Retry, or resend by another channel",
-      action: "Retry", href: `/communication/history?status=not-delivered&period=custom&from=${range.from}&to=${range.to}`, value: `${messages}:${count}`,
+      detail: notSent ? `${plural(notSent, "person", "people")} had no WhatsApp, SMS or app that could reach them, so it was not sent to them` : "Open it to see who did not get it and send it again",
+      action: "See who missed it", href: `/communication/history?status=not-delivered&period=custom&from=${range.from}&to=${range.to}`, value: `${messages}:${count}`,
     };
   },
 };
@@ -142,8 +142,8 @@ const settingsAlerts: Widget<"attention"> = {
     ]);
     for (const g of gateways) out.push({
       id: `settings.gateway-test:${g.displayName}`, tone: "bad", icon: "CreditCard",
-      title: `Payment gateway test failed: ${g.displayName}`, detail: `${g.lastTestNote ?? "Parents cannot pay online until it works."} DREAM TEAM fixes gateways: tell DREAM TEAM support.`,
-      action: "Open", href: "/settings/payment-gateways", value: "failed",
+      title: `Parents cannot pay fees online right now (${g.displayName})`, detail: "Fees can still be collected at the counter. DREAM TEAM support fixes this: call or message them.",
+      action: "See details", href: "/settings/payment-gateways", value: "failed",
     });
     for (const ch of ["whatsapp", "sms"] as const) {
       const s = channels[ch];

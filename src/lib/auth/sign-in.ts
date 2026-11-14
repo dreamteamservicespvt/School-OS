@@ -33,9 +33,9 @@ export type SignInResult =
   /** The password is right, but a one-time code is needed first (two-step login). */
   | { ok: false; message: string; twoStep: { userLoginId: string; schoolId: string }; firstChange?: undefined };
 
-const WRONG = "The login or password is wrong. Check both and try again.";
+const WRONG = "The mobile number, email, username or password is wrong. Check them and try again.";
 /** After 3 wrong passwords in a row: a warning, with no countdown on the screen (owner, 2026-11-05). */
-export const WRONG_NEAR_LOCK = "The login or password is wrong. Check both and try again. A few more wrong tries will lock this login. If you are not sure of it, use 'Forgot password' below.";
+export const WRONG_NEAR_LOCK = "The mobile number, email, username or password is wrong. Check them and try again. A few more wrong tries will lock this login. If you are not sure of it, use 'Forgot password' below.";
 /**
  * Said while the login is locked after too many wrong passwords. The lock itself
  * stays (08-platform-security.md §2), but the screen shows no timer: the person
@@ -290,7 +290,7 @@ export async function startSecondStep(userLoginId: string, schoolId: string, dev
 /** Also said when the mobile or email typed is on several logins: the username picks one (the same words, so it never tells which). */
 export const CANNOT_SEND = "We could not send a code to that login. Check what you typed, or type your username instead. If it still does not work, ask your School Admin to send you a new sign-in link.";
 /** Said to a person whose role needs two-step login when a code alone cannot sign them in. */
-export const CODE_ALONE_WORDS = "Your role needs your password and a one-time code to sign in, so one code alone is not enough. Signing in with codes needs both an email and a mobile number on your login that codes can reach. If you forgot your password, ask your Principal or another School Admin for a new sign-in link, or call DREAM TEAM support.";
+export const CODE_ALONE_WORDS = "For your safety, you need two codes to sign in without your password: one on your mobile and one by email. Your login does not have both yet. Ask your Principal or another School Admin for a new sign-in link, or call DREAM TEAM support.";
 
 export type CodeSignInStart = { ok: true; token: string } | { ok: false; message: string };
 
@@ -350,7 +350,7 @@ export async function afterRightCode(
   if (v.purpose === "code-sign-in" && (await needsTwoStepInAny(v.userLoginId, await schoolsFor(v.userLoginId)))) {
     const only = v.channel === "sms" ? "email" : "phone";
     const s = await startChallenge(v.userLoginId, v.schoolId, device, { now, deliver: opts.deliver, purpose: "code-sign-in-second", only, confirmNow: opts.confirmNow });
-    if (!s.ok) return { kind: "problem", message: `${s.message} Your role needs a second code ${only === "phone" ? "on your mobile" : "by email"}. Sign in with your password instead, or ask your School Admin or DREAM TEAM support.` };
+    if (!s.ok) return { kind: "problem", message: `${s.message} For your safety, you also need a second code ${only === "phone" ? "on your mobile" : "by email"}. Sign in with your password instead, or ask your School Admin or DREAM TEAM support.` };
     return { kind: "second-code", token: s.token, sentTo: s.sentTo };
   }
   const { token } = await completeSignIn(v.userLoginId, v.schoolId, device, now, { byCode: v.purpose !== "sign-in" });

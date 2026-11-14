@@ -11,7 +11,7 @@ let user: Awaited<ReturnType<typeof makeUser>>;
 let schoolId: string;
 const tag = randomUUID().slice(0, 8);
 const phone = `9${String(Date.now()).slice(-9)}`;
-const WRONG = "The login or password is wrong. Check both and try again.";
+const WRONG = "The mobile number, email, username or password is wrong. Check them and try again.";
 
 beforeAll(async () => {
   const school = await makeSchool();

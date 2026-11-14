@@ -577,6 +577,7 @@ export const EN = [
   "New requests show up here and in your notifications.",
   "Requests you send, such as leave, appear here so you can follow them.",
   "Requests from every module appear here once people start asking.",
+  "Leave, discount, refund and expense requests appear here when staff send them.",
   "request",
   "Who approves what is set in",
   "Settings, Forms & Approvals",
@@ -596,6 +597,7 @@ export const EN = [
   "’s School OS, from this moment.",
   // src/app/(school)/approvals/unfinished-list.tsx
   "Approved, but not finished",
+  "These were approved or rejected earlier, but the leave, payment or form still shows as waiting. Check each one, then tap Finish now to complete it. Nothing changes until you tap.",
   "These requests were decided, but their record never moved on, because of a fault in School OS that is now fixed. Open each one to check, then tap Finish now to do what the decision should have done. Nothing is finished by itself.",
   "· not finished",
   "by",
@@ -612,6 +614,7 @@ export const EN = [
   "Approvals",
   "This is your request, so you cannot approve it. It is waiting for",
   "This request is waiting for",
+  "No one is set to decide this kind of request yet. The School Admin can choose who approves it in Settings, Forms & Approvals.",
   ". You can see it but not decide it.",
   "Reason given",
   // src/app/(school)/ask/page.tsx
@@ -1355,6 +1358,7 @@ export const EN = [
   // src/app/(school)/dashboard/setup/step-list.tsx
   "Skipped for now",
   "Mark done",
+  "I already did this",
   "Skip for now",
   // src/app/(school)/dashboard/tasks/page.tsx
   "Dashboard",
@@ -3146,6 +3150,9 @@ export const EN = [
   "Rotate",
   // src/app/(school)/profile/push-switch.tsx
   "Push alerts on this device",
+  "The school decides which of these can be used.",
+  "Pop-up",
+  "Pop-up alerts on this phone or computer",
   // src/app/(school)/profile/appearance/page.tsx
   "Appearance",
   // src/app/(school)/reports-analytics/page.tsx
@@ -4640,6 +4647,7 @@ export const EN = [
   "Enter the second code",
   "Enter the code",
   "The first code was right. Your role needs a second code, on your other contact.",
+  "The first code was right. For your safety, we need one more code.",
   "This keeps your school's records safe.",
   "Your sign-in has timed out, or the code was used up. Sign in again to get a new code.",
   // src/app/verify/[code]/page.tsx
@@ -4850,6 +4858,7 @@ export const EN = [
   "More",
   "All modules",
   "Tap any module to open it",
+  "Tap to open",
   "You",
   "What do you want to do?",
   "{count} new",
@@ -4890,6 +4899,7 @@ export const EN = [
   "move",
   "open",
   "Only shows what your role is allowed to see",
+  "You only see students and pages your login can open.",
   // src/components/students/bulk-bar.tsx
   "chosen",
   // src/components/students/student-picker.tsx
@@ -5204,6 +5214,8 @@ export const EN = [
   "Staff present",
   "Buses on the road",
   "Waiting for verification",
+  "All parents said yes to sharing details",
+  "Payments waiting for verification",
   "Visitors in the building",
   "Transport",
   "Staff on leave today",
@@ -5279,9 +5291,12 @@ export const EN = [
   "Every item is above its reorder level.",
   // Fixed messages from the rules (sign-in, Parent Link, payments)
   "The login or password is wrong. Check both and try again.",
+  "For your safety, you need two codes to sign in without your password: one on your mobile and one by email. Your login does not have both yet. Ask your Principal or another School Admin for a new sign-in link, or call DREAM TEAM support.",
+  "The mobile number, email, username or password is wrong. Check them and try again.",
   "This login has not been set up yet. Open the invite link your school sent you to set your password.",
   "Too many wrong passwords. This login is locked for 15 minutes. Your School Admin has been told.",
   "The login or password is wrong. Check both and try again. A few more wrong tries will lock this login. If you are not sure of it, use 'Forgot password' below.",
+  "The mobile number, email, username or password is wrong. Check them and try again. A few more wrong tries will lock this login. If you are not sure of it, use 'Forgot password' below.",
   "Too many wrong passwords, so this login is locked for now. Use 'Forgot password' below to sign in with a one-time code and set a new password, or ask your School Admin.",
   "Too many sign-in tries from this device in a short time. Try again a little later, or use 'Forgot password' below.",
   "Too many tries in a short time. Try again a little later.",
@@ -8559,6 +8574,7 @@ export const EN = [
   "Text size",
   "Bigger text helps on small phones",
   "Your role needs two-step login, but no one-time code can reach you yet",
+  "We could not send you a sign-in code this time",
   "You signed in with a one-time code",
   "Sign out everywhere else",
   "Sign out everywhere else?",
@@ -8628,6 +8644,7 @@ export const EN = [
   "Waiting for me",
   "Asked by me",
   "All I may see",
+  "Rejected. The person who asked has been told why.",
   "Escalated",
   "Sent back for a change",
   "Sign in to finish a request.",
@@ -9233,6 +9250,9 @@ export const EN = [
   "See students",
   "Reply, or pass it to the right person",
   "Retry",
+  "Fees can still be collected at the counter. DREAM TEAM support fixes this: call or message them.",
+  "Open it to see who did not get it and send it again",
+  "See who missed it",
   "Fix",
   "Answer",
   "Check work",
@@ -9241,6 +9261,8 @@ export const EN = [
   "All open requests",
   "Spent today",
   "Watch signs, from attendance and marks. Nothing happens to a student until you review the flag.",
+  "Only strong signs. Fees stay in Fee Defaulters. Class teachers look at each one; you can remind them.",
+  "Attendance or marks have dropped for these students. Nothing is sent or changed until you look at each one.",
   "Mark it paid when the bank transfer is done; it then goes in the Day Book.",
   "Attendance and leave come in as the month goes.",
   "Pay it and mark it paid; it goes in the Day Book on that date.",
@@ -14400,7 +14422,9 @@ export const EN = [
   "This suggestion is no longer there.",
   // Phase 3 batch 5: page titles, Ask page, aria-labels
   "Ready-made questions about the lists your role opens. Each answer comes from the list itself.",
+  "Quick answers, such as who is absent today or whose fees are due. Tap a question.",
   "This question cannot be answered here",
+  "There is no answer for you here",
   "No ready-made questions for your role yet",
   "Other questions",
   "Questions you can ask",

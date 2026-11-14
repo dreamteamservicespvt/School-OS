@@ -19,7 +19,7 @@ import { classWise, registerWhole } from "../../attendance/classwise";
 import { ON_REGISTER_STATUSES } from "../../attendance/on-register";
 import { chronicFlags, type FlagKind } from "../../attendance/reports";
 import { reportAccess } from "../../reports/access";
-import { addDays, campusStudents, iso, moduleOpen, n, plural, reach } from "../common";
+import { addDays, campusStudents, iso, moduleOpen, n, plural, reach, shortDate } from "../common";
 import type { AttentionItem, BarRow, DashContext, Viewer, Widget } from "../types";
 
 const MODULE = "attendance-management" as const;
@@ -88,7 +88,7 @@ const studentsPresent: Widget<"band"> = {
       const t = cw.totals;
       return {
         id: "attendance.students-present", label: "Student attendance", big: t.percent === null ? "Not taken" : `${t.percent}%`,
-        ring: t.percent ?? undefined, foot: `${n(t.present)} present, ${n(t.absent)} absent, ${n(t.late)} late · these dates`, href,
+        ring: t.percent ?? undefined, foot: `${n(t.present)} present, ${n(t.absent)} absent, ${n(t.late)} late · ${shortDate(from)} to today`, href,
       };
     }
     // No section has school today (a holiday on every campus the person sees, a Sunday...).

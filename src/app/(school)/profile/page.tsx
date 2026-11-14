@@ -105,7 +105,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
       <PageHeader title={t("My profile")} href="/profile" userId={u.id} sub={t("Your own details, password, language, devices and alerts. Only you see this page.")} />
       <div className="flex flex-col gap-5 lg:gap-6">
         {twoStepOn && params.twoStep === "add" && (
-          <Alert tone="warning" title="Your role needs two-step login, but no one-time code can reach you yet">
+          <Alert tone="warning" title="We could not send you a sign-in code this time">
             <Words k="You signed in with your password only this time." /> {cannotReach ?? (setsUpSms
               ? "The sign-in code could not be sent (for example, the school's SMS has no credits left). Check SMS in Settings, SMS, WhatsApp & Email."
               : "The sign-in code could not be sent (for example, the school's SMS has no credits left). Ask your School Admin.")}

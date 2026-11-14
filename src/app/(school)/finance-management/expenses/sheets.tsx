@@ -105,7 +105,7 @@ export function RecordExpenseSheet(p: ExpenseFormData) {
       <SText name="what" label="What was it for" required placeholder="Example: Chalk and dusters for Block B" maxLength={200} />
       <div className={cx("grid gap-3", p.centres && "grid-cols-2")}>
         <SSelect name="accountHeadId" label="Expense head" required options={p.heads} start={p.lastHead ?? undefined} placeholder="Choose a head" help={p.lastHead ? "The one you used last" : undefined} />
-        {p.centres && <SSelect name="costCentreId" label="Department" options={p.centres} placeholder="None" help="Cost centre" />}
+        {p.centres && <SSelect name="costCentreId" label="Department" options={p.centres} placeholder="None" help="Which part of the school spent it, like Science labs" />}
       </div>
       <SText name="vendorName" label="Vendor" placeholder="Example: Sri Sai Stationers" list="re-vendors" maxLength={120} help="Pick one, or type a new name to add it" />
       <datalist id="re-vendors">{p.vendors.map((v) => <option key={v} value={v} />)}</datalist>
@@ -144,7 +144,7 @@ export function ChangeExpenseSheet({ closeHref, expenseId, number, reason, start
       <SText name="what" label="What was it for" required start={start.what} maxLength={200} />
       <div className={cx("grid gap-3", centres && "grid-cols-2")}>
         <SSelect name="accountHeadId" label="Expense head" required options={heads} start={start.headId} placeholder="Choose a head" />
-        {centres && <SSelect name="costCentreId" label="Department" options={centres} start={start.costCentreId ?? undefined} placeholder="None" help="Cost centre" />}
+        {centres && <SSelect name="costCentreId" label="Department" options={centres} start={start.costCentreId ?? undefined} placeholder="None" help="Which part of the school spent it, like Science labs" />}
       </div>
       <SText name="vendorName" label="Vendor" start={start.vendor} list="ce-vendors" maxLength={120} help="Pick one, or type a new name to add it" />
       <datalist id="ce-vendors">{vendors.map((v) => <option key={v} value={v} />)}</datalist>

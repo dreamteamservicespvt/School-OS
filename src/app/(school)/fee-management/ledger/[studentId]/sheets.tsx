@@ -17,7 +17,7 @@ import type { FormState } from "@/lib/forms";
 import { formatRupees } from "@/lib/format";
 import { addChargeAction, addOldDuesAction, adjustAction, assignPlanAction, certificateAction, invoiceAction, resendInvoiceAction } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 
 type Common = { studentId: string; closeHref: string };
 
@@ -43,20 +43,20 @@ export function AdjustSheet({ studentId, closeHref, rows, start, amounts = true,
   const chosen = rows.find((r) => r.value === row);
   return (
     <SheetForm title="Adjust an amount" sub="Adds an adjustment row with a reason. Payments themselves never change."
-      closeHref={closeHref} action={adjustAction} submitLabel={how === "remove" ? "Remove the row" : "Save adjustment"} submitVariant={how === "remove" ? "danger" : "primary"}
+      closeHref={closeHref} action={adjustAction} submitLabel={how === "remove" ? "Remove this fee" : "Save adjustment"} submitVariant={how === "remove" ? "danger" : "primary"}
       pendingText="Saving…" hidden={{ studentId, how }}>
       {rows.length === 0 ? <Alert tone="info"><Words k="This student has no open rows to adjust." /></Alert> : (
         <>
-          <SSelect name="dueId" label="Row" required options={rows} start={row} onChange={(e) => setRow(e.target.value)} help={chosen ? `${chosen.left} left on this row` : undefined} />
+          <SSelect name="dueId" label="Which fee" required options={rows} start={row} onChange={(e) => setRow(e.target.value)} help={chosen ? `${chosen.left} left to pay on this fee` : undefined} />
           <div className="flex flex-col gap-1.5">
             <span className="text-[13px] font-semibold text-ink2"><Words k="What to do" /></span>
             <Segmented label="What to do" value={how} onChange={(v) => setHow(v as typeof how)} options={[
-              ...(amounts ? [{ value: "reduce", label: "Reduce" }, { value: "add", label: "Add" }] : []), ...(chosen?.removable ? [{ value: "remove", label: "Remove the row" }] : []),
+              ...(amounts ? [{ value: "reduce", label: "Reduce" }, { value: "add", label: "Add" }] : []), ...(chosen?.removable ? [{ value: "remove", label: "Remove this fee" }] : []),
             ]} />
           </div>
           {how !== "remove" ? <SMoney name="amount" label={how === "add" ? "Amount to add" : "Amount to reduce"} required />
             : <Alert tone="warning"><Words k="The row comes off the student’s fees. It stays on the ledger, struck through, with your reason." /></Alert>}
-          {how !== "add" && <p className="text-[12.5px] text-ink3"><Words k="Up to" /> {limit} <Words k="changes the fee at once. A bigger reduction or removal waits for approval and changes the fee once approved." /></p>}
+          {how !== "add" && <p className="text-[12.5px] text-ink3"><Words k="Up to" /> {limit} <Words k="changes the fee at once. A bigger reduction or removal goes to the Principal in Approvals. The fee changes once they approve." /></p>}
           <SArea name="reason" label="Reason" required placeholder="Example: fee for the hostel was charged twice in June" />
         </>
       )}
@@ -107,7 +107,10 @@ export type InvoiceRow = { id: string; label: string; status: string; amount: st
 
 /** A fee invoice for the ticked rows: what is due now is ticked; rows not due yet can be ticked too. The total is what is ticked. */
 export function InvoiceSheet({ studentId, closeHref, rows, father, canLink }: Common & { rows: InvoiceRow[]; father: string; canLink: boolean }) {
+  const t = useT();
   const [ticked, setTicked] = useState(() => new Set(rows.filter((r) => r.dueNow).map((r) => r.id)));
+  // The button says when a WhatsApp message goes too (P4).
+  const [send, setSend] = useState(canLink);
   const total = rows.filter((r) => ticked.has(r.id)).reduce((s, r) => s + BigInt(r.paise), BigInt(0));
   const flip = (id: string) => setTicked((t) => {
     const next = new Set(t);
@@ -116,7 +119,7 @@ export function InvoiceSheet({ studentId, closeHref, rows, father, canLink }: Co
   });
   return (
     <SheetForm title="Fee invoice" sub="What is due now is ticked. Tick more rows to ask for them early. The invoice gets its own number." closeHref={closeHref} action={invoiceAction}
-      submitLabel="Make invoice" pendingText="Making…" hidden={{ studentId }} submitDisabled={ticked.size === 0}>
+      submitLabel={canLink && send && rows.length > 0 ? t("Make invoice and send to {name}", { name: father }) : t("Make invoice")} pendingText="Making…" hidden={{ studentId }} submitDisabled={ticked.size === 0}>
       {rows.length === 0 ? <Alert tone="info"><Words k="Nothing is left to pay, so there is nothing to invoice." /></Alert> : (
         <>
           <ul className="rounded-xl border border-line divide-y divide-line/70 text-[14px]" aria-label="Rows on the invoice">
@@ -131,7 +134,7 @@ export function InvoiceSheet({ studentId, closeHref, rows, father, canLink }: Co
             ))}
             <li className="flex justify-between gap-3 px-4 py-2.5 font-semibold"><span><Words k="Total on the invoice" /></span><span className="tnum">{formatRupees(total)}</span></li>
           </ul>
-          {canLink ? <SSwitch name="send" title={`Send to ${father} on WhatsApp`} sub="With a Razorpay link to pay online. The link works for 7 days." start />
+          {canLink ? <SSwitch name="send" title={`Send to ${father} on WhatsApp`} sub="With a Razorpay link to pay online. The link works for 7 days. A sent message cannot be taken back." start onValue={setSend} />
             : <p className="text-[13px] text-ink3"><Words k="Online payment is not set up, so the invoice is made without a payment link. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support." /></p>}
         </>
       )}

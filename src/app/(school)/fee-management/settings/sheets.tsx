@@ -108,7 +108,7 @@ export function PaymentsSheet({ closeHref, s, modes, verifyOn }: C & { s: { veri
     <SheetForm title="Payments" sub="Limits and checks at the counter." closeHref={closeHref} action={paymentsAction} submitLabel="Save" pendingText="Saving…">
       <SMoney name="limit" label="Concessions apply at once up to" required start={s.limit} help="Above this, a concession or counter discount goes to Approvals." />
       <SSwitch name="cancelPast" title="Cancelling a payment from before today needs approval" start={s.cancelPast} />
-      <SChips name="verifyMode" label="Modes that wait for verification" options={modes} start={s.verifyModes} help={verifyOn ? "Payments in these modes post only after the accountant verifies them." : "Switch on “Verify payments before posting” for this to apply."} />
+      <SChips name="verifyMode" label="Modes that wait for verification" options={modes} start={s.verifyModes} help={verifyOn ? "Payments in these modes post only after the accountant verifies them." : "Switch on “Verify before posting” on the Payments card for this to apply."} />
     </SheetForm>
   );
 }

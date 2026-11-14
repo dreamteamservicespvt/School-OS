@@ -327,7 +327,7 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
         );
       })()}
       {canManage && sheet && !sheet.waiting && doing === "publish" && sheet.st.draft && sheet.impact && (
-        <PublishSheet closeHref={clsHref(sheet.card.classId)} structureId={sheet.st.draft.id} version={sheet.st.draft.version} impact={{ message: sheet.impact.message, details: sheet.impact.details }} start={iso(sheet.start)} withoutPlan={sheet.card.withoutPlan} needsOk={sheet.needsOk} approver={approver && started} />
+        <PublishSheet closeHref={clsHref(sheet.card.classId)} structureId={sheet.st.draft.id} version={sheet.st.draft.version} impact={{ message: sheet.impact.message, details: sheet.impact.details, students: sheet.impact.students }} start={iso(sheet.start)} withoutPlan={sheet.card.withoutPlan} needsOk={sheet.needsOk} approver={approver && started} />
       )}
       {canManage && sheet && doing === "copy" && sheet.shown && (
         <CopySheet closeHref={clsHref(sheet.card.classId)} fromId={sheet.shown.id} yearId={year.id} className={sheet.card.className}

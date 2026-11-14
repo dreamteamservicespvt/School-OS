@@ -130,7 +130,7 @@ if (want("MONEY-07")) await check({ id: "MONEY-07", area: A, role: `${M7.acc} + 
     const cs = await sheetText(p);
     // Count the cash as shown (the sheet asks for the counted cash when there is cash).
     const cash = d.getByLabel(/Cash counted/);
-    if (await cash.count()) { const exp = cs.match(/Cash the books expect ₹([\d,]+)/i)?.[1]; if (exp) await cash.fill(String(rupees(exp))); }
+    if (await cash.count()) { const exp = cs.match(/Cash that should be in the box now \(cash only, all days\) ₹([\d,]+)/i)?.[1]; if (exp) await cash.fill(String(rupees(exp))); }
     await d.getByRole("button", { name: /^Close/ }).last().click();
     await p.waitForTimeout(3500);
     closedNow = /closed/i.test(await toastOf(p));

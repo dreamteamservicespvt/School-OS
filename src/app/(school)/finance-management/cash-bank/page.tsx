@@ -137,8 +137,8 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
               <div className="md:ml-auto"><PeriodFilter {...p.dates} fallback="today" /></div>
             </div>
             <div className="grid grid-cols-2 xl:grid-cols-4 gap-px bg-line/70 border-y border-line/70">
-              {([["Opening balance", data.book?.opening ?? ZERO, ""], ["Receipts", data.book?.receipts ?? ZERO, "text-ok"], ["Payments", data.book?.payments ?? ZERO, "text-bad"], ["Closing balance", data.book?.closing ?? ZERO, "text-brand"]] as const).map(([k, v, c]) => (
-                <div key={k} className="bg-surface px-4 md:px-5 py-3"><p className="text-[12px] text-ink3 font-semibold">{k}</p><p className={cx("font-display font-semibold text-[19px] tnum", c)}>{v < ZERO ? `−${formatRupees(-v)}` : formatRupees(v)}</p></div>
+              {([["Opening balance", data.book?.opening ?? ZERO, ""], ["Money in", data.book?.receipts ?? ZERO, "text-ok"], ["Money out", data.book?.payments ?? ZERO, "text-bad"], ["Closing balance", data.book?.closing ?? ZERO, "text-brand"]] as const).map(([k, v, c]) => (
+                <div key={k} className="bg-surface px-4 md:px-5 py-3"><p className="text-[12px] text-ink3 font-semibold"><Words k={k} /></p><p className={cx("font-display font-semibold text-[19px] tnum", c)}>{v < ZERO ? `−${formatRupees(-v)}` : formatRupees(v)}</p></div>
               ))}
             </div>
             <OldSoftwareBanner goLive={p.goLive} from={from} to={to} what="cash and bank entries" className="mx-4 mb-3" />
@@ -150,8 +150,8 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
                 { key: "t", label: oneDay ? "Time" : "Date", nowrap: true, render: (r) => <span className="tnum text-ink2">{oneDay ? formatTime(r.postedAt, p.tz) : formatDate(r.date)}</span> },
                 { key: "what", label: "Details", render: (r) => <><p className="text-[13.5px] leading-snug">{r.partyName}{r.headName && r.headName !== r.partyName ? ` · ${r.headName}` : ""}</p><p className="text-[12px] text-ink3">{sectionLabel(r.section)}</p></> },
                 { key: "ref", label: "Reference", render: (r) => <Ref v={r.reference} /> },
-                { key: "inn", label: "Receipts", align: "right", render: (r) => (r.direction === "IN" ? <span className="text-ok font-semibold">{formatRupees(r.amountPaise)}</span> : "") },
-                { key: "out", label: "Payments", align: "right", render: (r) => (r.direction === "OUT" ? <span className="text-bad font-semibold">{formatRupees(r.amountPaise)}</span> : "") },
+                { key: "inn", label: "Money in", align: "right", render: (r) => (r.direction === "IN" ? <span className="text-ok font-semibold">{formatRupees(r.amountPaise)}</span> : "") },
+                { key: "out", label: "Money out", align: "right", render: (r) => (r.direction === "OUT" ? <span className="text-bad font-semibold">{formatRupees(r.amountPaise)}</span> : "") },
                 { key: "bal", label: "Balance", align: "right", render: (r) => <b className="font-semibold">{r.balance < ZERO ? `−${formatRupees(-r.balance)}` : formatRupees(r.balance)}</b> },
               ]}
               phone={(r) => ({

@@ -215,12 +215,12 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
           ))}
         </div>
         <div className="grid md:grid-cols-2 gap-4">
-          <div className="flex flex-col gap-1.5"><span className="text-[13px] font-semibold text-ink2"><Words k="Channel" /></span><Segmented label="Channel" value={channel} onChange={(v) => pickChannel(v as typeof channel)} options={CHANNELS} className="w-full" /></div>
-          <SelectField name="_tpl" label="Template" value={tpl} onChange={(e) => setTpl(e.target.value)}
-            options={[...opts, ...(channel === "sms" ? [] : [{ value: OWN, label: "Own wording" }])]} placeholder={opts.length || channel !== "sms" ? undefined : "No approved SMS template"} />
+          <div className="flex flex-col gap-1.5"><span className="text-[13px] font-semibold text-ink2"><Words k="Send by" /></span><Segmented label="Send by" value={channel} onChange={(v) => pickChannel(v as typeof channel)} options={CHANNELS} className="w-full" /></div>
+          <SelectField name="_tpl" label="Ready message" value={tpl} onChange={(e) => setTpl(e.target.value)}
+            options={[...opts, ...(channel === "sms" ? [] : [{ value: OWN, label: "Write my own message" }])]} placeholder={opts.length || channel !== "sms" ? undefined : "No approved SMS template"} />
         </div>
         {ownWording && channel !== "sms" && (
-          <TextArea name="text" label="Message" rows={3} value={text} onChange={(e) => setText(e.target.value)} help="You can use {guardian_name}, {student_name}, {class}, {due_amount}, {due_date}, {how_to_pay}, {link} and {school_name}. {how_to_pay} says how each parent pays." />
+          <TextArea name="text" label="Message" rows={3} value={text} onChange={(e) => setText(e.target.value)} help="Words in { } fill in by themselves for each parent: {guardian_name} becomes the parent’s name, {due_amount} their dues. You can also use {student_name}, {class}, {due_date}, {how_to_pay}, {link} and {school_name}. Do not change the words inside { }." />
         )}
         {channel === "sms" && opts.length === 0 && <Alert tone="warning"><Words k="SMS needs an approved template. Add one in Communication, Templates (category Fees), or choose WhatsApp." /></Alert>}
         <div className="rounded-2xl border border-line divide-y divide-line/70">

@@ -159,14 +159,14 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
         <Band items={[
           { label: "Collected today", big: formatRupees(tiles.today.amount), foot: `${tiles.today.count} ${tiles.today.count === 1 ? "payment" : "payments"} · ${data.upiToday} by UPI`, href: `${HREF}#recent` },
           { label: "Collected this year", big: formatRupeesShort(tiles.year.paid), foot: tiles.year.due > BigInt(0) ? `of ${formatRupeesShort(tiles.year.due)} due so far · ${Math.round(tiles.year.percent)}%` : "Nothing is due yet this year", href: `${HREF}#by-class` },
-          { label: "Pending", big: formatRupeesShort(tiles.pending), foot: tiles.nextDue ? `Not late yet · next due ${formatDate(tiles.nextDue)}` : "Nothing falls due in the next 30 days", href: p.may("reports") ? `${BASE}/reports?r=outstanding` : undefined },
+          { label: "Pending, not late", big: formatRupeesShort(tiles.pending), foot: tiles.nextDue ? `Not late yet · next due ${formatDate(tiles.nextDue)}` : "Nothing falls due in the next 30 days", href: p.may("reports") ? `${BASE}/reports?r=outstanding` : undefined },
           { label: "Overdue", big: formatRupeesShort(tiles.overdue), foot: `${tiles.overdueStudents} ${tiles.overdueStudents === 1 ? "student" : "students"} · ${tiles.over30} over 30 days`, href: p.may("defaulters") ? `${BASE}/defaulters` : undefined },
         ]} />
 
         {data.waiting.length > 0 && (
           <Banner tone="warn" title={`${data.waiting.length} ${data.waiting.length === 1 ? "payment waits" : "payments wait"} for verification (${formatRupees(waitingSum)}).`}
-            action={<Link href={qs(HREF, { ...keep, pay: data.waiting[0].id })} scroll={false} className={buttonClass("secondary", "sm")}>{p.does("dashboard") ? "Verify" : "See"}</Link>}>
-            <Words k="Cheques and bank transfers post to the Day Book only after the accountant checks them." />
+            action={<Link href={qs(HREF, { ...keep, pay: data.waiting[0].id })} scroll={false} className={buttonClass("secondary", "sm")}><Words k={p.does("dashboard") ? "Verify, oldest first" : "See the oldest"} /></Link>}>
+            <Words k="Cheques and bank transfers post to the Day Book only after the accountant checks them." />{data.waiting.length > 1 && <> <Words k="After each one, this button opens the next." /></>}
           </Banner>
         )}
 

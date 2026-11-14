@@ -26,7 +26,7 @@ export function RecordIncomeSheet({ closeHref, today, heads, payers, cash, banks
         <SDate name="date" label="Date" required start={today} max={today} />
         <SMoney name="amount" label="Amount" required />
       </div>
-      <SSelect name="accountHeadId" label="Income head" required options={heads} placeholder="Choose a head" help="From the chart of accounts" />
+      <SSelect name="accountHeadId" label="Income head" required options={heads} placeholder="Choose a head" help="The kind of money, like Hall rent or Scrap sale. The list is in Finance Settings." />
       <SText name="receivedFrom" label="Received from" required placeholder="Example: Annapurna Caterers" list="ri-from-list" maxLength={120} />
       <datalist id="ri-from-list">{payers.map((x) => <option key={x} value={x} />)}</datalist>
       <div className="flex flex-col gap-1.5">

@@ -43,7 +43,7 @@ export function ClassFees({ data, sort, group, href, classHref, today }: {
     <div id="by-class" className="flex flex-col gap-4 scroll-mt-4">
       {/* For all classes these are the band's four numbers again; they show for one class group. */}
       {group !== "all" && <Stats items={[
-        { label: "Due so far", value: money(t.due), sub: `This year's fees due up to ${formatDate(new Date(today.getTime() + 30 * 86_400_000))} · ${plural(t.students, "student")}`, icon: FileText },
+        { label: "Due up to 30 days ahead", value: money(t.due), sub: `This year's fees due up to ${formatDate(new Date(today.getTime() + 30 * 86_400_000))} · ${plural(t.students, "student")}`, icon: FileText },
         { label: "Collected", value: money(t.paid), sub: t.due > BigInt(0) ? `${pct}% of what is due` : "Nothing is due yet", icon: IndianRupee, tone: t.due > BigInt(0) ? "ok" : undefined },
         { label: "Pending, not late", value: money(t.notLate), sub: data.nextDue ? `Next due ${formatDate(data.nextDue)}` : "Nothing falls due in the next 30 days", icon: Hourglass, tone: t.notLate > BigInt(0) ? "warn" : undefined },
         { label: "Overdue", value: money(t.overdue), sub: `${t.overdueStudents} ${t.overdueStudents === 1 ? "student" : "students"} · ${t.over30} over 30 days`, icon: TriangleAlert, tone: t.overdue > BigInt(0) ? "bad" : undefined },
@@ -79,7 +79,7 @@ export function ClassFees({ data, sort, group, href, classHref, today }: {
                     <Progress value={s.percent} tone={tone} />
                     <span className="grid grid-cols-2 gap-x-3 text-[12.5px]">
                       <span className="min-w-0"><span className="block text-ink3"><Words k="Collected" /></span><span className="block font-semibold tnum truncate">{money(s.paid)}</span></span>
-                      <span className="min-w-0 text-right"><span className="block text-ink3"><Words k="Pending" /></span><span className={cx("block font-semibold tnum truncate", s.pending > BigInt(0) ? "text-bad" : "text-ok")}>{s.pending > BigInt(0) ? money(s.pending) : "Nil"}</span></span>
+                      <span className="min-w-0 text-right"><span className="block text-ink3"><Words k="Left to pay" /></span><span className={cx("block font-semibold tnum truncate", s.pending > BigInt(0) ? "text-bad" : "text-ok")}>{s.pending > BigInt(0) ? money(s.pending) : "Nil"}</span></span>
                     </span>
                     <span className="text-[12.5px] text-ink2 truncate">
                       {s.owe ? `${s.owe} of ${s.students} owe${s.overdueStudents ? ` · ${s.overdueStudents} overdue (${money(s.overdue)})` : " · none overdue"}` : s.students === 1 ? "The student has paid" : `All ${s.students} students paid`}
@@ -90,7 +90,7 @@ export function ClassFees({ data, sort, group, href, classHref, today }: {
             })}
           </ul>
         )}
-        <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="Green is 90% or more collected, amber 80% to 90%, red below 80%. Due so far counts fees falling due in the next 30 days, the same as Pending above." /></p>
+        <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="Green is 90% or more collected, amber 80% to 90%, red below 80%. Left to pay on a class is everything not paid yet, late or not late. Due amounts include fees falling due in the next 30 days." /></p>
       </Card>
     </div>
   );

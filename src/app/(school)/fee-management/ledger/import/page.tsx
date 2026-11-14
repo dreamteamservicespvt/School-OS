@@ -39,7 +39,7 @@ export default async function FeeImportPage({ searchParams }: { searchParams: Se
       <ImportHome current={p.current} place={PLACES.fees} initial={one(sp.kind)} about={ABOUT} />
       {before && (
         <Card className="mt-5">
-          <CardHeader title="Fees due before go-live" description="Months the old software kept. They are never billed twice." />
+          <CardHeader title="Fees due before you started School OS" description="Months the old software kept. They are never billed twice." />
           <CardBody><BeforeGoLivePanel view={before} canSettle={p.can.change && p.can.counter("edit-student-fees")} /></CardBody>
         </Card>
       )}

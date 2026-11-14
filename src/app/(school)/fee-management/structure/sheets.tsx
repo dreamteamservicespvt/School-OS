@@ -22,7 +22,7 @@ import {
   archiveHeadAction, assignClassAction, copyAction, discardAction, prepareYearAction, publishAction, removeRowAction, restoreAction, saveHeadAction, saveRowAction,
 } from "./actions";
 import { KeepCheck } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 import { DateInput } from "@/components/ui/date-input";
 
 export type HeadData = { id: string; name: string; kind: string; taxable: boolean; gstRate: string; sacCode: string; bankAccountId: string; lateFeeApplies: boolean; system: boolean };
@@ -139,7 +139,7 @@ export function RemoveRow({ yearId, classId, category, feeHeadId, name }: { year
   );
 }
 
-type ImpactWords = { message: string; details: string[] };
+type ImpactWords = { message: string; details: string[]; /** Students whose unpaid fees change. */ students?: number };
 
 /**
  * The date a version applies from, and what it changes worked out for that
@@ -194,12 +194,15 @@ export function PublishSheet({ closeHref, structureId, version, impact, start, w
   /** The Principal, mid-year: applies at once. */
   approver?: boolean;
 }) {
+  const t = useT();
+  const n = impact.students ?? 0;
+  const publishLabel = n > 0 ? t(n === 1 ? "Publish for 1 student" : "Publish for {n} students", { n }) : t("Publish");
   return (
     <SheetForm title={needsOk ? `Send version ${version} for approval` : `Publish version ${version}`}
       sub={needsOk ? "This year has started, so the Principal decides. Nothing changes for students until they approve. Paid rows never change."
         : approver ? "You approve fee changes, so this applies at once, to unpaid installments only. Parents see it in Parent Link."
           : "The new version is in use from the date you choose. Paid rows never change."}
-      closeHref={closeHref} action={publishAction} submitLabel={needsOk ? "Send for approval" : "Publish"} pendingText={needsOk ? "Sending…" : "Publishing…"} hidden={{ structureId }}>
+      closeHref={closeHref} action={publishAction} submitLabel={needsOk ? "Send for approval" : publishLabel} pendingText={needsOk ? "Sending…" : "Publishing…"} hidden={{ structureId }}>
       <FromDate start={start} impact={impact} help="Unpaid installments due on or after this date follow the new version." />
       {needsOk && <SArea name="reason" label="Why the fees change mid-year" required rows={3} help="The Principal sees this in Approvals." />}
       {!needsOk && withoutPlan > 0 && <SSwitch name="assign" title={`Give it to ${withoutPlan} ${withoutPlan === 1 ? "student" : "students"} without fees`} sub="Students of the class who have no fees for this year yet." start />}
@@ -222,7 +225,7 @@ export function PrepareSheet({ closeHref, fromYearId, toYearId, fromName, toName
   return (
     <SheetForm title={`Prepare ${toName}`} sub={`Copies every class’s structure from ${fromName} as drafts. Nothing changes for this year.`} closeHref={closeHref}
       action={prepareYearAction} submitLabel={`Open ${toName} drafts`} pendingText="Copying…" hidden={{ fromYearId, toYearId }}>
-      <SText name="percent" label="Increase amounts by (%)" start="5" inputMode="decimal" help="Due dates move to the new year. Check each class before you publish." />
+      <SText name="percent" label="Increase amounts by (%)" start="0" inputMode="decimal" help="0 keeps the same amounts. Type 5 to add 5% to every fee. Due dates move to the new year. Check each class before you publish." />
     </SheetForm>
   );
 }

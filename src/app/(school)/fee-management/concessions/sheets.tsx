@@ -20,7 +20,7 @@ import { mostOff, type OpenRow } from "@/lib/fees/concession-max";
 import {
   archiveRuleAction, decideAction, markRefundedAction, newConcessionAction, newRefundAction, revokeConcessionAction, saveRuleAction, toggleRuleAction,
 } from "./actions";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 
 /** Runs a server action from a button; returns the problem in words, if any. */
 async function run(fn: (prev: unknown, fd: FormData) => Promise<FormState<unknown>>, fields: Record<string, string>) {
@@ -182,16 +182,36 @@ export function RevokeSheet({ closeHref, concessionId, words }: { closeHref: str
   );
 }
 
-/** Approve (one tap) and Decline (opens a sheet for the reason). Shown only to the person who may decide. */
-export function ApproveButton({ kind, recordId }: { kind: "concession" | "refund"; recordId: string }) {
+/**
+ * Approve and Decline (opens a sheet for the reason). Shown only to the person who may decide.
+ * The button names the amount; a refund (money going back) asks once more first (P4).
+ */
+export function ApproveButton({ kind, recordId, amount, name }: { kind: "concession" | "refund"; recordId: string; /** In words, e.g. "₹2,000"; empty when not known yet. */ amount: string; name: string }) {
+  const t = useT();
   const [state, action, pending] = useActionState<FormState<unknown>, FormData>(decideAction as never, null);
-  if (state?.ok) return null;
+  const [done, setDone] = useState(false);
+  if (state?.ok || done) return null;
+  const label = amount ? t("Approve {amount}", { amount }) : t("Approve");
+  if (kind === "refund") {
+    return (
+      <span className="relative z-10 inline-flex">
+        <ConfirmButton trigger={label} triggerVariant="soft" triggerClassName="!h-8 !px-3 !text-[13px]" title={t("Approve refund of {amount} to {name}?", { amount: amount || "the amount asked", name })}
+          confirmLabel={label} onConfirm={async () => {
+            const e = await run(decideAction, { kind, recordId, decision: "approve" });
+            if (!e) setDone(true);
+            return e;
+          }}>
+          <Words k="The refund is then ready to pay. After paying the family, press Mark refunded." />
+        </ConfirmButton>
+      </span>
+    );
+  }
   return (
     <form action={action} className="relative z-10 inline-flex flex-col">
       <input type="hidden" name="kind" value={kind} />
       <input type="hidden" name="recordId" value={recordId} />
       <input type="hidden" name="decision" value="approve" />
-      <Button type="submit" size="sm" variant="soft" icon={Check} loading={pending}><Words k="Approve" /></Button>
+      <Button type="submit" size="sm" variant="soft" icon={Check} loading={pending}>{label}</Button>
       {state && !state.ok && <span className="text-[12px] text-bad max-w-[200px]" role="alert">{state.message}</span>}
     </form>
   );

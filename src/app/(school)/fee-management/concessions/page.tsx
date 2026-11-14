@@ -177,13 +177,13 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
   const headName = new Map(data.heads.map((h) => [h.id, h.name]));
   const filtered = Boolean(q || st || per.range);
 
-  const decideCell = (r: { status: string; approvalId: string | null; id: string }, kind: "concession" | "refund") => {
+  const decideCell = (r: { status: string; approvalId: string | null; id: string; name: string; amountPaise: bigint }, kind: "concession" | "refund") => {
     if (r.status !== "WAITING") return null;
     const d = r.approvalId ? data.decide.get(r.approvalId) : undefined;
     if (canEdit && d?.can) {
       return (
         <div className="relative z-10 flex gap-1.5">
-          <ApproveButton kind={kind} recordId={r.id} />
+          <ApproveButton kind={kind} recordId={r.id} name={r.name} amount={r.amountPaise > ZERO ? formatRupees(r.amountPaise) : ""} />
           <Link href={here({ decline: r.id })} scroll={false} className={buttonClass("ghost", "sm")}><Words k="Decline" /></Link>
         </div>
       );

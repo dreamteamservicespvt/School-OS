@@ -104,7 +104,7 @@ export function PaymentSheet({ p, closeHref, cancelHref, canEdit, ledgerHref }: 
               <a href={`${pdf}?download=1`} className={buttonClass("secondary")}><Download size={17} aria-hidden="true" /><Words k="PDF" /></a>
               {p.tax && <a href={`/fee-management/payments/${p.id}/tax-invoice?download=1`} className={buttonClass("secondary")}><BookText size={17} aria-hidden="true" /><Words k="Tax invoice" /></a>}
               {posted && canEdit && (
-                <form action={resend}><input type="hidden" name="paymentId" value={p.id} /><Button type="submit" variant="secondary" icon={MessageCircle} loading={sending}><Words k="WhatsApp" /></Button></form>
+                <form action={resend}><input type="hidden" name="paymentId" value={p.id} /><Button type="submit" variant="secondary" icon={MessageCircle} loading={sending}><Words k="Send receipt on WhatsApp" /></Button></form>
               )}
             </>
           )}

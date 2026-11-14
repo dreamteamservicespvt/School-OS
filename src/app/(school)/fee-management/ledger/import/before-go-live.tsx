@@ -11,12 +11,13 @@ import { settleBeforeGoLiveAction, undoSettleBeforeGoLiveAction } from "./action
 
 import type { BeforeGoLiveView } from "@/lib/fees/before-go-live";
 import { GO_LIVE_FORM_ANCHOR, goLiveDateHint, type GoLiveDatePlace } from "@/lib/fees/go-live-date-hint";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export function BeforeGoLivePanel({ view, canSettle, place = { on: "fee-import" } }: { view: BeforeGoLiveView; canSettle: boolean; place?: GoLiveDatePlace }) {
   const router = useRouter();
+  const t = useT();
   if (!view.goLive) {
     // On the go-live check the date is typed on the same page; elsewhere, by its path in Settings.
     const hint = goLiveDateHint(place);
@@ -45,14 +46,14 @@ export function BeforeGoLivePanel({ view, canSettle, place = { on: "fee-import" 
       {canSettle ? (
         <div className="flex flex-wrap gap-2">
           {both.rows > 0 && (
-            <ConfirmButton trigger="Settle for students with old dues" triggerVariant="primary" title="Settle the fees due before go-live for students with old dues?" confirmLabel={`Settle ${both.amount}`}
+            <ConfirmButton trigger="Settle for students with old dues" triggerVariant="primary" title={t("Settle the fees due before {date} for students with old dues?", { date: view.goLive })} confirmLabel={`Settle ${both.amount}`}
               onConfirm={() => run(settleBeforeGoLiveAction, "old-dues")}>
               <p>{both.amount} <Words k="on" /> {plural(both.rows, "installment")} <Words k="of" /> {plural(both.students, "student")} <Words k="due before" /> {view.goLive} <Words k="is taken off as settled in the old software, because their old dues already hold it." /></p>
               <p className="mt-2"><Words k="Their old dues stay as they are. Undo puts the amounts back." /></p>
             </ConfirmButton>
           )}
           {owed.rows > 0 && (
-            <ConfirmButton trigger="Settle for every student" triggerVariant={both.rows > 0 ? "secondary" : "primary"} title="Settle the fees due before go-live for every student?" confirmLabel={`Settle ${owed.amount}`}
+            <ConfirmButton trigger="Settle for every student" triggerVariant={both.rows > 0 ? "secondary" : "primary"} title={t("Settle the fees due before {date} for every student?", { date: view.goLive })} confirmLabel={`Settle ${owed.amount}`}
               onConfirm={() => run(settleBeforeGoLiveAction, "all")}>
               <p>{owed.amount} <Words k="on" /> {plural(owed.rows, "installment")} <Words k="of" /> {plural(owed.students, "student")} <Words k="due before" /> {view.goLive} <Words k="is taken off as settled in the old software." /></p>
               <p className="mt-2"><Words k="Choose this only if the old software collected these fees, or the old dues brought in hold everything still unpaid on" /> {view.goLive}<Words k=". Undo puts the amounts back." /></p>

@@ -88,7 +88,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   const discountPaise = toPaise(discount) || 0;
   const waiveTotal = rows.filter((r) => waive.has(r.id) && ticked.has(r.id)).reduce((a, r) => a + r.balance, 0);
   const owed = Math.max(0, selTotal - discountPaise - waiveTotal);
-  const errAmt = Number.isNaN(amt) ? "Type the amount in rupees, like 4500 or 4500.50." : amt <= 0 ? "Enter an amount" : amt > owed && !advanceOn && owed > 0 ? `More than the ${inr(owed)} ticked. Tick more rows, or advance payment is off for this school.` : "";
+  const errAmt = Number.isNaN(amt) ? "Type the amount in rupees, like 4500 or 4500.50." : amt <= 0 ? "Enter an amount" : amt > owed && !advanceOn && owed > 0 ? `More than the ${inr(owed)} ticked. Lower the amount or tick more rows. Advance payments are off in Fee Settings.` : "";
   const needRef = NEEDS_REF.includes(mode);
   const refText = ref.trim();
   const errRef = needRef && mode === "UPI" ? (!refText ? "Enter the UPI transaction (UTR) number" : paymentRefProblem(mode, refText) ?? "")
@@ -98,6 +98,9 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
   const valid = (selTotal > 0 || (advanceOn && open.length === 0)) && !errAmt && !errRef && !errChqNo && !errChqBank;
   const partial = amt > 0 && amt < owed;
   const extra = amt > owed && advanceOn ? amt - owed : 0;
+  // The fee a part payment leaves unpaid: rows are paid oldest first, so it is the last ticked one when the rest fits on it.
+  const lastTicked = [...rows].reverse().find((r) => ticked.has(r.id) && !waive.has(r.id));
+  const leftOn = partial && lastTicked && owed - amt + discountPaise <= lastTicked.balance ? `${lastTicked.head} · ${lastTicked.label}` : null;
 
   // A refusal stops showing once the discount it was about changes (QA issue 30).
   const [hideFor, setHideFor] = useState<unknown>(null);
@@ -201,7 +204,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
           </div>
           {advanceHeld && <p className="text-[12.5px] text-info flex gap-1.5 -mt-2"><Info size={14} className="shrink-0 mt-0.5" aria-hidden="true" />{advanceHeld} <Words k="advance is held. It is used for the next installments by itself." /></p>}
           <FieldShell label="Amount received" id="pay-amt" error={(tried && errAmt) || serverErr("amount")}
-            help={discountPaise > 0 && !Number.isNaN(amt) && amt === owed ? `Fees ${inr(selTotal)} − discount ${inr(discountPaise)} = ${inr(owed)}` : extra ? `${inr(extra)} more than the dues${discountPaise > 0 ? " after the discount" : ""}. It is held as advance.` : partial ? `Part payment. ${inr(owed - amt)} stays due on the latest row.` : "Change it for a part payment"}>
+            help={discountPaise > 0 && !Number.isNaN(amt) && amt === owed ? `Fees ${inr(selTotal)} − discount ${inr(discountPaise)} = ${inr(owed)}` : extra ? `${inr(extra)} more than the dues${discountPaise > 0 ? " after the discount" : ""}. It is held as advance.` : partial ? `Part payment. ${inr(owed - amt)} stays due on ${leftOn ?? "the newest fees ticked"}.` : "Change it for a part payment"}>
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[22px] font-semibold text-ink3" aria-hidden="true">₹</span>
               <input id="pay-amt" name="amount" inputMode="decimal" autoComplete="off" value={amount} onChange={(e) => setEdited(e.target.value)} placeholder="0"
@@ -321,6 +324,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
           </Button>
           <Button type="submit" formAction={linkAction} data-plain="1" variant="ghost" className="w-full" icon={Send} loading={linkBusy} disabled={selTotal === 0 || !gateway}
             title={gateway ? undefined : "Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support."}><Words k="Send payment link instead" /></Button>
+          {!gateway && <p className="text-[12.5px] text-ink3 text-center"><Words k="Show QR and the payment link are off: online payment is not set up yet. Tell DREAM TEAM support." /></p>}
         </div>
       </Card>
       </FormProblems>
@@ -411,7 +415,7 @@ function ReceiptSheet({ r, studentName, onClose }: { r: Collected; studentName: 
                 <a href={`${pdf}?download=1`} className={buttonClass("secondary")}><Download size={17} aria-hidden="true" /><Words k="PDF" /></a>
                 <form action={resend} className="contents">
                   <input type="hidden" name="paymentId" value={r.paymentId} />
-                  <Button type="submit" variant="secondary" icon={MessageCircle} loading={resending}><Words k="Resend" /></Button>
+                  <Button type="submit" variant="secondary" icon={MessageCircle} loading={resending}><Words k="Send to parent again" /></Button>
                 </form>
               </div>
             )}

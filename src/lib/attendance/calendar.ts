@@ -39,7 +39,7 @@ export function offDayMessage(info: DayInfo, date: Date) {
 export class OffDayError extends Error {
   field = "date";
   constructor(info: DayInfo, date: Date) {
-    super(`${offDayMessage(info, date)} If the school opens that day, turn on "allow attendance" for the date in the School Calendar.`);
+    super(`${offDayMessage(info, date)} If the school is open that day, the School Admin can turn on "allow attendance" for the date in the School Calendar.`);
     this.name = "OffDayError";
   }
 }

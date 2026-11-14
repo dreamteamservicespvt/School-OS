@@ -627,6 +627,7 @@ export const EN = [
   "Go to today",
   "Attendance can be taken for today or earlier days.",
   "If the school opens that day, turn on \"allow attendance\" for the date in the School Calendar.",
+  "If the school is open that day, the School Admin can turn on \"allow attendance\" for the date in the School Calendar.",
   "Holidays, Sundays and days off are left out of every %, report and register total.",
   "Open the register",
   "Open Student Management",

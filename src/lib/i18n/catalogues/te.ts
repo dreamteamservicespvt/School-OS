@@ -2173,6 +2173,7 @@ export const te: Catalogue = {
   "Go to today": "ఈ రోజుకు వెళ్ళండి",
   "Attendance can be taken for today or earlier days.": "హాజరు ఈ రోజు లేదా ముందు రోజులకు తీసుకోవచ్చు.",
   "If the school opens that day, turn on \"allow attendance\" for the date in the School Calendar.": "ఆ రోజు స్కూల్ తెరిస్తే, స్కూల్ క్యాలెండర్‌లో ఆ తేదీకి \"హాజరు అనుమతించు\" ఆన్ చేయండి.",
+  "If the school is open that day, the School Admin can turn on \"allow attendance\" for the date in the School Calendar.": "ఆ రోజు స్కూల్ తెరిచి ఉంటే, స్కూల్ అడ్మిన్ స్కూల్ క్యాలెండర్‌లో ఆ తేదీకి \"హాజరు అనుమతి\" ఆన్ చేయవచ్చు.",
   "Holidays, Sundays and days off are left out of every %, report and register total.": "సెలవులు, ఆదివారాలు మరియు విరామ రోజులు ప్రతి %, నివేదిక మరియు రిజిస్టర్ మొత్తం నుండి తీసివేయబడతాయి.",
   "Open the register": "రిజిస్టర్ తెరవండి",
   "Open Student Management": "విద్యార్థి నిర్వహణ తెరవండి",

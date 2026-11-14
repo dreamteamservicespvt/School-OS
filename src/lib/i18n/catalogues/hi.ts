@@ -2173,6 +2173,7 @@ export const hi: Catalogue = {
   "Go to today": "आज पर जाएँ",
   "Attendance can be taken for today or earlier days.": "उपस्थिति आज या पिछले दिनों की ली जा सकती है।",
   "If the school opens that day, turn on \"allow attendance\" for the date in the School Calendar.": "अगर उस दिन स्कूल खुलता है, तो स्कूल कैलेंडर में उस तारीख़ के लिए \"उपस्थिति की अनुमति\" चालू करें।",
+  "If the school is open that day, the School Admin can turn on \"allow attendance\" for the date in the School Calendar.": "अगर उस दिन स्कूल खुला है, तो स्कूल एडमिन स्कूल कैलेंडर में उस तारीख़ के लिए \"हाज़िरी की अनुमति\" चालू कर सकते हैं।",
   "Holidays, Sundays and days off are left out of every %, report and register total.": "छुट्टियाँ, रविवार और अवकाश के दिन हर %, रिपोर्ट और रजिस्टर के जोड़ से बाहर रहते हैं।",
   "Open the register": "रजिस्टर खोलें",
   "Open Student Management": "विद्यार्थी प्रबंधन खोलें",

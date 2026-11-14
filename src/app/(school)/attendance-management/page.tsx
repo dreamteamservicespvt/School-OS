@@ -107,9 +107,9 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
       ) : data.info && !data.info.on ? (
         <>
           <Banner tone="warn" icon={CalendarOff} className="mb-4" title={offDayMessage(data.info, date)}>
-            <Words k={"If the school opens that day, turn on \"allow attendance\" for the date in the School Calendar."} />
+            <Words k={"If the school is open that day, the School Admin can turn on \"allow attendance\" for the date in the School Calendar."} />
           </Banner>
-          <EmptyState title="No attendance on this day" Icon={CalendarOff} action={<Link href={BASE} className={buttonClass("secondary", "md")}><Words k="Go to today" /></Link>}>
+          <EmptyState title="No attendance on this day" Icon={CalendarOff} action={isoDay(date) === isoDay(today) ? undefined : <Link href={BASE} className={buttonClass("secondary", "md")}><Words k="Go to today" /></Link>}>
             <Words k="Holidays, Sundays and days off are left out of every %, report and register total." />
           </EmptyState>
         </>

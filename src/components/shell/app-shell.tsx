@@ -237,7 +237,8 @@ function TopBar({ school, year, person, approvals, canApprove, canMessage, unrea
       <Link href="/dashboard" className="md:hidden flex items-center gap-2.5 min-w-0 flex-1 text-left">
         <Logo size={34} />
         <span className="min-w-0">
-          <span className="block font-display font-semibold text-[15px] leading-tight truncate">{title || school.name}</span>
+          {/* Layman loop 15 Nov: "Attendance Managem…" was cut at 390 px. The bar says the short school word; the menu keeps the full name. */}
+          <span className="block font-display font-semibold text-[15px] leading-tight truncate">{title ? title.replace(/ Management$/, "") : school.name}</span>
           <span className="block text-[11.5px] text-ink3 truncate">{school.name}{year ? ` · ${yearLabel(year.name)}` : ""}</span>
         </span>
       </Link>
@@ -288,7 +289,7 @@ function BottomNav({ items, onMore }: { items: BarItem[]; onMore: () => void }) 
               <Link href={it.href} aria-current={on ? "page" : undefined}
                 className={cx("flex flex-col items-center gap-1 w-full py-1 text-[11px] font-semibold", on ? "text-brand" : "text-ink3")}>
                 {it.big ? (
-                  <span className={cx("w-12 h-9 -mt-0.5 rounded-2xl grid place-items-center transition", on ? "bg-brand text-brandink" : "bg-brand/12 text-brand")}>
+                  <span className={cx("w-12 h-9 -mt-0.5 rounded-2xl grid place-items-center transition", on ? "bg-brand text-brandink" : "border-[1.5px] border-brand/45 text-brand")}>
                     <Ic size={20} strokeWidth={2.4} aria-hidden="true" />
                   </span>
                 ) : (

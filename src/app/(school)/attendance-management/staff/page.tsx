@@ -230,7 +230,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
           { label: "On leave", value: leave.length, sub: "Approved in Staff & HR", icon: CalendarDays, href: qs({ status: "leave" }) },
           { label: isToday ? "Not in yet" : "Not marked", value: missing.length, sub: missing.length ? (isToday ? `No punch by ${formatTime(now, tz)}` : "No mark that day") : "Everyone is in", tone: missing.length ? "bad" : "ok", icon: UserX, href: qs({ status: "not-marked" }) },
         ]} />
-        {!data.info.on && <Banner tone="warn" title={offDayMessage(data.info, date)}><Words k={"If the school opens that day, turn on \"allow attendance\" for the date in the School Calendar."} /></Banner>}
+        {!data.info.on && <Banner tone="warn" title={offDayMessage(data.info, date)}><Words k={"If the school is open that day, the School Admin can turn on \"allow attendance\" for the date in the School Calendar."} /></Banner>}
         {tiles.length > 1 && (
           <Card>
             <CardHeader icon={Building2} title="By department" description={deptName ? `Showing ${deptName} only · tap it again for everyone` : "Tap a department to see only its staff"} />
@@ -348,7 +348,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
         </div>
         <p className="text-[14px] text-ink2 -mt-2"><Words k="For staff without a punch. Mark everyone present, then change the exceptions. Devices, QR and the app fill the rest." /></p>
         {!data.info.on ? (
-          <Banner tone="warn" title={offDayMessage(data.info, date)}><Words k={"If the school opens that day, turn on \"allow attendance\" for the date in the School Calendar."} /></Banner>
+          <Banner tone="warn" title={offDayMessage(data.info, date)}><Words k={"If the school is open that day, the School Admin can turn on \"allow attendance\" for the date in the School Calendar."} /></Banner>
         ) : data.rows.length === 0 ? (
           <EmptyState title="No staff yet" Icon={Users}><Words k={"Staff appear here once they are added in Staff & HR Management."} /></EmptyState>
         ) : (

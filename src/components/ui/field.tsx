@@ -79,6 +79,17 @@ export type Option = { value: string; label: string; /** Shown but cannot be cho
 export function SelectField({ label, name, help, error: given, required, className, options, placeholder, ...rest }: FieldShell & { options: readonly Option[]; placeholder?: string } & Omit<React.SelectHTMLAttributes<HTMLSelectElement>, "name">) {
   const id = `${useId()}-${name}`;
   const error = useFieldProblem(name, given);
+  // Owner, 15 Nov: a list with one choice is not a choice (opened, it looked broken). When the field is not driven by
+  // the page (no value/onChange) and has no "Choose…" line, the one choice shows as plain text and is still sent.
+  const only = !placeholder && rest.value === undefined && rest.onChange === undefined && options.length === 1 && !options[0].disabled ? options[0] : null;
+  if (only) {
+    return (
+      <FieldShell label={label} id={id} name={name} help={help} error={error} required={required} className={className}>
+        <input type="hidden" name={name} value={only.value} />
+        <p id={id} className="h-11 flex items-center rounded-xl bg-sunken/60 px-3.5 text-[14.5px] font-medium text-ink" aria-describedby={describedBy(id, error, help)}>{tx(only.label)}</p>
+      </FieldShell>
+    );
+  }
   return (
     <FieldShell label={label} id={id} name={name} help={help} error={error} required={required} className={className}>
       <KeepSelect id={id} name={name} required={required} aria-invalid={error ? true : undefined} aria-describedby={describedBy(id, error, help)}

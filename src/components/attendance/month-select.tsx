@@ -44,6 +44,11 @@ export function MonthSelect({ value, min, max, param = "month", keep, className 
     next.set(param, month);
     start(() => router.push(`${pathname}?${next}`, { scroll: false }));
   };
+  // Owner, 15 Nov ("UI corrupted"): a staff member who joined this month had a month list with one choice; opened,
+  // the browser's list covered the line below. One month is just its name.
+  if (!canBack && !canNext) {
+    return <p className={cx("h-9 grid place-items-center rounded-xl bg-sunken/70 text-[14px] font-semibold", className)}>{dayWords(t, monthOptions(min, max)[0]?.label ?? value)}</p>;
+  }
   return (
     <div className={cx("flex items-center gap-2", className)} aria-busy={pending}>
       <Button variant="secondary" size="sm" icon={ChevronLeft} aria-label={t("Earlier month")} disabled={!canBack || pending} onClick={() => go(key(k - 1))} className="!px-2.5" />

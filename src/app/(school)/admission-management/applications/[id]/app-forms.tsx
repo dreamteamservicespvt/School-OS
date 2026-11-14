@@ -97,8 +97,8 @@ export function AppActions({ id, name, applicationNo, parent, moves, canReview, 
               <>
                 <TextField label="Amount (₹)" name="amount" required inputMode="decimal" defaultValue={f.val("amount", fee.amount.replace(/[^\d.]/g, ""))} error={f.err("amount")} className="tnum" />
                 <SelectField label="Paid by" name="mode" required options={fee.modes} defaultValue={f.val("mode", "cash")} error={f.err("mode")} />
-                <TextField label="Reference" name="reference" maxLength={80} defaultValue={f.val("reference")} error={f.err("reference")} help="UPI: the 12-digit UTR. Cheque or card: its number. Not for cash." onInput={upiOnly} />
-                <p className="text-[13px] text-ink3"><Words k="A receipt is made only after the money is received." /></p>
+                <TextField label="Reference" name="reference" maxLength={80} defaultValue={f.val("reference")} error={f.err("reference")} help="UPI: the 12-digit number in the payment message on the parent's phone (called UTR or reference number). Cheque or card: its number. Leave empty for cash." onInput={upiOnly} />
+                <p className="text-[13px] text-ink3"><Words k="Take the money first. Pressing the button makes the receipt at once." /></p>
               </>
             )}
           </FormSheet>
@@ -117,7 +117,7 @@ export function ExceptionButton({ id }: { id: string }) {
   return (
     <>
       <Button size="sm" variant="ghost" onClick={() => setOpen(true)}><Words k="Admit with papers pending" /></Button>
-      <FormSheet open={open} onClose={() => setOpen(false)} title="Admit with papers pending" sub="The admission can then be confirmed before every required paper is verified." action={exceptionAction} hidden={{ id }} submitLabel="Record exception">
+      <FormSheet open={open} onClose={() => setOpen(false)} title="Admit with papers pending" sub="The admission can be confirmed now. The missing papers stay on the list until they are verified." action={exceptionAction} hidden={{ id }} submitLabel="Allow admission before papers">
         {(f) => <TextArea label="Reason" name="reason" required rows={2} maxLength={300} placeholder="TC to come from the old school by 30-06" defaultValue={f.val("reason")} error={f.err("reason")} help="Kept in the history." />}
       </FormSheet>
     </>

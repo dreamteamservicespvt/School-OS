@@ -11,7 +11,7 @@ import { feePlanApplies } from "@/lib/students/hooks";
 import { Card } from "@/components/ui/card";
 import { ButtonLink } from "@/components/ui/button";
 import { UndoAdmission } from "../../decision-forms";
-import { Words } from "@/lib/i18n/client";
+import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -47,14 +47,17 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
   const place = section ? `${section.schoolClass.name} ${section.name}` : "";
   const welcome = c?.welcome === "queued" || c?.welcome === "sent" ? "“Admission confirmed” message, with the admission number"
     : c?.welcome === "held" ? "Not sent: automatic messages to parents start when the school goes live on School OS. Send it from Communication if needed."
-      : c?.welcome ? `Not sent (${c.welcome}). Send it from Communication.` : "Not sent. Check the “admission-welcome” rule in Communication.";
+      : c?.welcome === "nobody" ? "Not sent: the parent has no mobile number on record. Give the admission number to the parent yourself."
+        : c?.welcome === "no-channel" ? "Not sent: WhatsApp or SMS is not set up yet. Give the admission number to the parent yourself."
+          : c?.welcome === "duplicate" ? "Already sent once for this admission."
+            : "Not sent. Give the admission number to the parent yourself, or send it from Communication, Send Message.";
   const parents = data.guardians.map((g) => `${g.name}${c?.linkedGuardianIds.includes(g.id) ? " (already a parent here)" : ""}`).join(" and ");
 
   const sentLinks = data.links.filter((l) => l.lastSentAt).length;
   const rows: [LucideIcon, string, string, string | null][] = [
     [GraduationCap, "Student record", `${admNo}${place ? ` · ${place}` : ""}${c?.rollNo ? ` · roll ${c.rollNo}` : ""}`, `/student-management/students/${app.studentId}`],
     [Users, "Parents linked", parents || "No parent records made", data.guardians[0] ? `/student-management/guardians/${data.guardians[0].id}` : null],
-    [ShieldCheck, "Consent moved", data.consents > 0 ? `${data.consents} consent ${data.consents === 1 ? "record" : "records"} moved to the parents` : "No consent records were moved", "/student-management/guardians/consent"],
+    [ShieldCheck, "Consent moved to the parents", data.consents > 0 ? `${data.consents} consent ${data.consents === 1 ? "record" : "records"} moved to the parents` : "No consent records were moved", "/student-management/guardians/consent"],
     // A link is made even when it cannot go (no WhatsApp or SMS): say so, never "sent" (QA PEOPLE-22).
     [Smartphone, !data.links.length ? "Parent Link not made" : sentLinks ? "Parent Link on its way" : "Parent Link made, not sent",
       !data.links.length ? "Parent Link is off for this school, or the parent has no mobile number"
@@ -63,9 +66,9 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
       null],
     ...(c?.studentDocumentIds?.length ? [[FileText, "Documents", `${c.studentDocumentIds.length} ${c.studentDocumentIds.length === 1 ? "paper" : "papers"} added to the student's documents${c.photoFileId ? ", with the photo" : ""}`, `/student-management/students/${app.studentId}?tab=documents`] as [LucideIcon, string, string, string | null]] : []),
     [IndianRupee, "Fee plan", !feePlanApplies() ? "Set up in Fee Management once its fee structures are ready"
-      : c?.feeDueIds?.length ? `${c.feeDueIds.length} fee ${c.feeDueIds.length === 1 ? "row" : "rows"} set up from the class fee structure for the year`
+      : c?.feeDueIds?.length ? `${c.feeDueIds.length} ${c.feeDueIds.length === 1 ? "fee" : "fees"} set up from the class fee structure for the year`
         : c?.feeDueIds ? "No fee structure is published for this class yet. Set it up in Fee Management, Fee Structure." : "Set up from the class fee structure for the year", null],
-    [IdCard, "ID card queued", "Certificates & ID Cards · next batch", `/student-management/certificates/id-cards/print?ids=${app.studentId}`],
+    [IdCard, "ID card: ready to print", "Print it now, or later with the class in Certificates & ID Cards", `/student-management/certificates/id-cards/print?ids=${app.studentId}`],
     [MessageCircle, "Welcome message", welcome, null],
   ];
 
@@ -81,7 +84,7 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
             const inner = (
               <>
                 <span className="w-9 h-9 rounded-xl bg-ok/10 text-ok grid place-items-center shrink-0"><Ic size={17} aria-hidden="true" /></span>
-                <span className="min-w-0 flex-1"><b className="font-semibold text-[14px] block">{t}</b><span className="text-[12.5px] text-ink3 block">{s}</span></span>
+                <span className="min-w-0 flex-1"><b className="font-semibold text-[14px] block"><Any text={t} /></b><span className="text-[12.5px] text-ink3 block"><Any text={s} /></span></span>
                 {href && <ChevronRight size={17} className="text-ink3 shrink-0" aria-hidden="true" />}
               </>
             );

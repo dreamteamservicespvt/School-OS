@@ -115,7 +115,7 @@ function VisitorFields({ purposes, staff, photoRequired, idRequired, preset }: {
           <div className="grid grid-cols-[140px_1fr] gap-3">
             <SSelect name="idProofType" label="ID proof" required={idRequired} start="Aadhaar" options={ID_PROOF_TYPES.map((t) => ({ value: t, label: t }))} />
             <SText name="idProofNo" label="Number" required={idRequired} className="[&_input]:font-mono" placeholder="XXXX XXXX 4821" maxLength={30} autoComplete="off"
-              help={`${idRequired ? "Required" : "Optional"} by school policy. Only the last 4 are shown later.`} />
+              help={idRequired ? "Required by school policy. Later, staff see only its last 4 digits." : "Optional. Later, staff see only its last 4 digits."} />
           </div>
           <FieldShell label="Vehicle number" id="vs-veh" error={vErr || undefined} help="Also goes into the gate log">
             <input key={vehicle.key} id="vs-veh" name="vehicleNo" defaultValue={veh} onChange={(e) => { e.target.value = e.target.value.toUpperCase(); setVeh(e.target.value); }}

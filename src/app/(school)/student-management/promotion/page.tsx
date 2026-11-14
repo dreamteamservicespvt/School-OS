@@ -80,8 +80,8 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
   const nextYear = laterYears[0] ?? null;
   const steps = [
     { n: 1, title: "Choose", sub: "Class and target" },
-    { n: 2, title: "Review the batch", sub: p ? `${rows.length} students` : "Check each student" },
-    { n: 3, title: "Confirm", sub: "Save the batch" },
+    { n: 2, title: "Review the list", sub: p ? `${rows.length} students` : "Check each student" },
+    { n: 3, title: "Confirm", sub: "Save the promotion" },
   ];
 
   return (
@@ -90,7 +90,7 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
       <div className="flex flex-col gap-5">
         {nextYear && (
           <Banner tone="info" icon={CalendarDays} title={`${nextYear.name} is being prepared.`}>
-            <Words k="The list uses the published final results, and the attendance and fees recorded so far, and updates by itself. Saved batches move students into" /> {nextYear.name}.
+            <Words k="The list uses the published final results, and the attendance and fees recorded so far, and updates by itself. Saved promotions move students into" /> {nextYear.name}.
           </Banner>
         )}
         <Card className="p-2.5 md:p-3">
@@ -169,8 +169,8 @@ export default async function PromotionPage({ searchParams }: { searchParams: Pr
         )}
 
         <Card>
-          <CardHeader title="Promotion history" description="Past batches and who confirmed them" icon={History} />
-          {data.batches.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No promotions yet. Batches you confirm show here with who confirmed them." /></p> : (
+          <CardHeader title="Promotion history" description="Past promotions and who confirmed them" icon={History} />
+          {data.batches.length === 0 ? <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No promotions yet. Promotions you confirm show here with who confirmed them." /></p> : (
             <ul className="px-3 pb-3">
               {data.batches.map((b) => {
                 const s = data.batchSections.find((x) => x.id === b.fromSectionId);

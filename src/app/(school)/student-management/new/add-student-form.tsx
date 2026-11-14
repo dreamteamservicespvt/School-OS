@@ -115,12 +115,12 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
               {parents.map((p) => (
                 <label key={p.id} className="flex min-h-11 items-start gap-2">
                   <KeepCheck type="radio" name="linkChoice" checked={linkId === p.id} onChange={() => setLinkId(p.id)} className="mt-1 size-4 accent-brand" />
-                  <span><Words k="Link" /> <strong>{p.name}</strong> ({p.relationship}{p.children.length ? `, parent of ${p.children.join(", ")}` : ""})</span>
+                  <span><Words k="Brother or sister, same parent:" /> <strong>{p.name}</strong> ({p.relationship}{p.children.length ? `, parent of ${p.children.join(", ")}` : ""})</span>
                 </label>
               ))}
               <label className="flex min-h-11 items-center gap-2">
                 <KeepCheck type="radio" name="linkChoice" checked={!linkId} onChange={() => setLinkId("")} className="size-4 accent-brand" />
-                <span><Words k="Add as a new parent" /></span>
+                <span><Words k="A different family: add a new parent with this phone" /></span>
               </label>
             </div>
           </div>
@@ -151,7 +151,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           <TextField name="religion" label="Religion" required={req("religion")} maxLength={60} defaultValue={v("religion")} error={err("religion")} />
           <TextField name="motherTongue" label="Mother tongue" required={req("motherTongue")} maxLength={60} defaultValue={v("motherTongue")} error={err("motherTongue")} />
           <TextArea name="address" label="Address" required={req("address")} maxLength={300} rows={2} className="sm:col-span-2" defaultValue={v("address")} error={err("address")} />
-          {showAadhaar && <TextField name="aadhaar" label="Aadhaar number" required={req("aadhaar")} inputMode="numeric" autoComplete="off" defaultValue={v("aadhaar")} error={err("aadhaar")} help="Restricted. Stored encrypted and shown masked." />}
+          {showAadhaar && <TextField name="aadhaar" label="Aadhaar number" required={req("aadhaar")} inputMode="numeric" autoComplete="off" defaultValue={v("aadhaar")} error={err("aadhaar")} help="Kept private and locked. Screens show only the last 4 digits." />}
           <TextField name="previousSchool" label="Previous school" required={req("previousSchool")} maxLength={200} className="sm:col-span-2" defaultValue={v("previousSchool")} error={err("previousSchool")} />
           <p className="text-[13.5px] text-ink2 sm:col-span-2"><Words k="Photo, identifiers, emergency contacts and the school's extra fields are added on the Student Profile after saving." /></p>
         </div>

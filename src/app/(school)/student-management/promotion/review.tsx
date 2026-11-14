@@ -60,7 +60,7 @@ export function PromotionReview({ rows, fromSectionId, fromLabel, fromYear, toYe
     return parts.join(", ");
   }, [open, dec, targetSections, defaultSectionName, toClassName]);
 
-  if (open.length === 0) return <p className="rounded-xl border border-line bg-surface p-4"><Words k="Everyone in" /> {fromLabel} <Words k="is already in" /> {toYearName}<Words k=". See the batch below to undo it." /></p>;
+  if (open.length === 0) return <p className="rounded-xl border border-line bg-surface p-4"><Words k="Everyone in" /> {fromLabel} <Words k="is already in" /> {toYearName}<Words k=". See this promotion below to undo it." /></p>;
 
   return (
     <div ref={top} className="space-y-4">
@@ -129,7 +129,7 @@ export function PromotionReview({ rows, fromSectionId, fromLabel, fromYear, toYe
             <li><Words k="Each student gets a new class for" /> {toYearName} <Words k="with the new year's fee plan." /></li>
             <li>{fromLabel} <Words k="in" /> {fromYear} <Words k="keeps the same students, roll numbers and marks." /></li>
             <li><Words k={"Students marked Leaving go to the Leaving & Alumni list."} /></li>
-            <li><Words k="You can undo the batch while nothing is recorded for these students in the new year." /></li>
+            <li><Words k="You can undo this promotion while nothing is recorded for these students in the new year." /></li>
           </ul>
           <input type="hidden" name="fromSectionId" value={fromSectionId} />
           <input type="hidden" name="toYearId" value={toYearId} />

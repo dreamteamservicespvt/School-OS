@@ -154,8 +154,8 @@ export async function pickupCodeLock(tx: Tx, studentId: string, userId: string |
 export function pickupLockWords(lock: PickupCodeLock, first: string, timeZone: string) {
   const until = clockAt(lock.until, timeZone);
   return lock.by === "student"
-    ? `Code checks for ${first} are locked until ${until} after ${PICKUP_WRONG_LIMIT} wrong codes in an hour. Even the right code is not accepted before then. The Principal and School Admins have been told.`
-    : `Your code checks are locked until ${until} after ${PICKUP_WRONG_LIMIT} wrong pickup codes in an hour. Even the right code is not accepted before then. The Principal and School Admins have been told.`;
+    ? `Code checks for ${first} are locked until ${until} after ${PICKUP_WRONG_LIMIT} wrong codes in an hour. Even the right code is not accepted before then. The Principal and School Admins have been told. Until then, ask the parent to wait, or call the Principal.`
+    : `Your code checks are locked until ${until} after ${PICKUP_WRONG_LIMIT} wrong pickup codes in an hour. Even the right code is not accepted before then. The Principal and School Admins have been told. Until then, ask a colleague to check the code, or call the Principal.`;
 }
 
 /** Sends a one-time 4-digit code to the guardian's registered mobile (kept only as a hash). */

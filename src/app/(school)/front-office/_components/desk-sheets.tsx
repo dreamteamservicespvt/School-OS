@@ -37,7 +37,7 @@ function Duplicates({ admissions }: { admissions: boolean }) {
       </Banner>
       <label className="flex items-center gap-3 rounded-xl bg-sunken/70 px-3.5 py-3 text-[14px]">
         <input type="checkbox" name="force" className="w-5 h-5 accent-[var(--color-brand)]" />
-        <span><b className="font-semibold"><Words k="Save anyway" /></b><span className="block text-[12.5px] text-ink3"><Words k="For example a brother or sister, or a different family with the same phone" /></span></span>
+        <span><b className="font-semibold"><Words k="Yes, save this as a new enquiry" /></b><span className="block text-[12.5px] text-ink3"><Words k="For a brother or sister, or a different family with the same phone. Tick this, then press the button below again." /></span></span>
       </label>
     </div>
   );

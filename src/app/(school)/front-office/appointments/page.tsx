@@ -165,9 +165,9 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
           reschedule={data.re ? { id: data.re.id, name: data.re.visitorName, phone: data.re.visitorPhone, purpose: data.re.purpose } : null} />
       )}
       {data.cancel && (
-        <SheetForm title={`Cancel ${data.cancel.visitorName}’s appointment?`} sub={`${shortDay(data.cancel.date)}, ${clockOf(data.cancel.startMin)} with ${staffName(data.cancel.staffId)}. A message goes to the visitor.`}
+        <SheetForm title={`Cancel ${data.cancel.visitorName}’s appointment?`} sub={`${shortDay(data.cancel.date)}, ${clockOf(data.cancel.startMin)} with ${staffName(data.cancel.staffId)}. A cancellation message goes to the visitor at once.`}
           closeHref={here} action={appointmentStatusAction} hidden={{ appointmentId: data.cancel.id, status: "CANCELLED" }} submitLabel="Cancel appointment" submitVariant="danger" pendingText="Cancelling…">
-          <p className="text-[14px] text-ink2"><Words k="The time becomes free for someone else. You can undo this for a short while." /></p>
+          <p className="text-[14px] text-ink2"><Words k="The time becomes free for someone else. You can undo this for a short while, but the message has already gone. If you undo, call the visitor." /></p>
         </SheetForm>
       )}
       {(one(sp.re) || one(sp.cancel)) && !data.re && !data.cancel && (

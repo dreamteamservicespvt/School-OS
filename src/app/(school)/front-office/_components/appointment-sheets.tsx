@@ -59,7 +59,7 @@ export function BookSheet({ closeHref, staff, days, start, slots: first, resched
   const atError = typedAt.error;
 
   return (
-    <SheetForm wide title={reschedule ? `Reschedule ${reschedule.name}` : "Book appointment"} sub="Only free slots can be picked. The server checks again before saving." closeHref={closeHref}
+    <SheetForm wide title={reschedule ? `Reschedule ${reschedule.name}` : "Book appointment"} sub="Only free times can be picked. If someone else books the same time first, you will be asked to pick another." closeHref={closeHref}
       action={bookAction} submitLabel={reschedule ? "Reschedule" : "Book"} pendingText={reschedule ? "Moving…" : "Booking…"}
       hidden={{ startMin: chosenOk ? String(at) : "", lengthMin: String(length), ...(reschedule ? { rescheduleId: reschedule.id } : {}) }}>
       <div className="grid sm:grid-cols-2 gap-3">

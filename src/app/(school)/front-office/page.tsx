@@ -94,7 +94,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
           { label: "In the building now", big: String(data.inside.length), foot: waiting ? `${waiting} waiting to be called in` : data.inside.length ? "Nobody waiting" : "Nobody inside", href: `${BASE}/visitors?status=In` },
           { label: "Visitors today", big: String(data.todayCount), foot: avg != null ? `Average ${avg} minutes inside` : "No visit closed yet", href: `${BASE}/visitors` },
           { label: "Appointments today", big: String(data.appts.length), foot: next ? `Next: ${clockOf(next.startMin)}, ${next.visitorName}` : "None left today", href: p.may("appointments") ? `${BASE}/appointments` : undefined },
-          { label: "Calls and enquiries", big: <>{data.calls}<span className="text-[0.55em] opacity-70 font-medium"> <Words k="calls ·" /> {data.enquiries} <Words k="enq." /></span></>, foot: data.followUps ? `${data.followUps} follow-up${data.followUps === 1 ? "" : "s"} due today` : "No follow-ups due today", href: p.may("enquiries") ? `${BASE}/enquiries` : undefined },
+          { label: "Calls and enquiries", big: <>{data.calls}<span className="text-[0.55em] opacity-70 font-medium"> <Words k="calls," /> {data.enquiries} <Words k="enquiries" /></span></>, foot: data.followUps ? `${data.followUps} follow-up${data.followUps === 1 ? "" : "s"} due today` : "No follow-ups due today", href: p.may("enquiries") ? `${BASE}/enquiries` : undefined },
         ]} />
 
         {BIG.length > 0 && (

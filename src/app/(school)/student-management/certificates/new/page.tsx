@@ -21,6 +21,7 @@ import { BASE, certificatesPage, todayIso, NO_ACCESS } from "../../_lib/page";
 import { sectionOptions } from "../../_lib/queries";
 import { requestCertificateAction } from "../../_actions/certificates";
 import { Words } from "@/lib/i18n/client";
+import { ForTypes, IssueLabel } from "./type-aware";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -69,10 +70,10 @@ export default async function IssueCertificatePage({ searchParams }: { searchPar
             <Alert tone="warning" className="mb-4" title="TC blocked" action={firstStudent ? <Link className="font-medium underline" href={`${BASE}/leaving${data.tc.block.includes("Start leaving") ? `/new?student=${firstStudent.id}` : ""}`}>{data.tc.block.includes("Start leaving") ? "Start leaving" : "Open Leaving & Alumni"}</Link> : undefined}>{data.tc.block}</Alert>
           )}
           {data.tc?.original && <Alert tone="info" className="mb-4"><Words k="An original TC was issued (" />{data.tc.original}<Words k="). A new one prints as Duplicate and needs a reason." /></Alert>}
-          {data.signatories.length === 0 && <Alert tone="warning" className="mb-4"><Words k="No signatories are set up. Add the Principal's name and signature in" /> <SettingsLink href="/settings/document-designs"><Words k="Settings, Document Designs" /></SettingsLink><Words k=". A character certificate needs a signatory." /></Alert>}
+          {data.signatories.length === 0 && <Alert tone="warning" className="mb-4"><Words k="No one is set up to sign certificates yet. Add the Principal's name and signature in" /> <SettingsLink href="/settings/document-designs"><Words k="Settings, Document Designs" /></SettingsLink>.</Alert>}
           <ActionForm action={requestCertificateAction}
             footer={<>
-              <SubmitButton pendingText="Saving…"><Words k="Issue" /></SubmitButton>
+              <SubmitButton pendingText="Saving…"><IssueLabel first={type} approval={settings.approvalCertificates} /></SubmitButton>
               <button type="submit" formAction={`${BASE}/certificates/preview`} formMethod="get" formTarget="_blank" formNoValidate className={buttonClass("secondary")}><Words k="Preview" /></button>
               <Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>
             </>}>
@@ -82,8 +83,12 @@ export default async function IssueCertificatePage({ searchParams }: { searchPar
             <FormText name="purpose" label="Purpose" maxLength={200} help="Needed for a bonafide certificate, for example: bank account opening." />
             <FormText name="issueDate" label="Date of issue" type="date" required defaultValue={todayIso(tz)} />
             {data.signatories.length > 0 && <FormSelect name="signatoryId" label="Signatory" required defaultValue={defaultSig} options={data.signatories.map((s) => ({ value: s.id, label: `${s.name}, ${s.title}` }))} />}
-            <FormSelect name="conduct" label="Conduct" defaultValue="Good" options={CONDUCT.map((c) => ({ value: c, label: c }))} help="Printed on a TC and a character certificate." />
-            <FormText name="duplicateReason" label="Reason for a duplicate" required={Boolean(type === "TC" && data.tc?.original)} maxLength={300} help="Only for a second copy of a TC, for example: the original was lost." />
+            <ForTypes types={["TC", "CHARACTER"]} first={type}>
+              <FormSelect name="conduct" label="Conduct" defaultValue="Good" options={CONDUCT.map((c) => ({ value: c, label: c }))} help="Printed on a TC and a character certificate." />
+            </ForTypes>
+            <ForTypes types={["TC"]} first={type}>
+              <FormText name="duplicateReason" label="Reason for a duplicate" required={Boolean(type === "TC" && data.tc?.original)} maxLength={300} help="Only for a second copy of a TC, for example: the original was lost." />
+            </ForTypes>
             <p className="text-[13.5px] text-ink2"><Words k="Certificate number: given automatically, next in the series for the type and year" />{type === "TC" ? " (when approved)" : ""}.</p>
           </ActionForm>
         </CardBody>

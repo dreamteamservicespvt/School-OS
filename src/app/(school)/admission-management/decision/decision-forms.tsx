@@ -74,7 +74,7 @@ export function ConfirmButton({ id, name, sub, sections, defaultSection, today, 
                 {f.err("family") && <p className="text-[12.5px] text-bad">{f.err("family")}</p>}
               </fieldset>
             )}
-            <p className="text-[12.5px] text-ink3"><Words k="Makes the student with an admission number, links the parents, sends Parent Link, sets up the fee plan and queues the ID card. Runs once per application." /></p>
+            <p className="text-[12.5px] text-ink3"><Words k="This makes the student with an admission number, adds the parents, sets up the fees and gets the ID card ready. A message with the admission number and Parent Link goes to the parent, when messages are set up. You can do this only once for each application." /></p>
           </>
         )}
       </FormSheet>

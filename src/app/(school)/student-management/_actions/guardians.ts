@@ -110,11 +110,13 @@ export async function linkSettingsAction(linkId: string, _prev: FormState, fd: F
   const values = formValues(fd);
   const d = parsed.data;
   let studentId = "";
+  const said: string[] = [];
   const r = await attemptForm(values, async () => {
     await withSchool(current.ctx, async (tx) => {
       const link = await visibleLink(tx, current, linkId);
       studentId = link.studentId;
       if (link.relationship !== d.relationship) {
+        said.push(`Relation changed to ${d.relationship}.`);
         await tx.studentGuardian.update({ where: { id: link.id }, data: { relationship: d.relationship } });
       }
       // Only the School Admin or Principal see the restriction fields; for anyone else they are left as they are.
@@ -123,11 +125,12 @@ export async function linkSettingsAction(linkId: string, _prev: FormState, fd: F
       if (can.seeRestricted && (wantNote ?? null) !== (link.restriction ?? null)) {
         if (!d.reason || d.reason.length < 5) throw new StudentProblem("Give a reason of at least 5 characters for changing the restriction.", "reason");
         await setRestriction(tx, current.ctx, link.id, wantNote, d.reason);
+        said.push(wantNote ? (link.restriction ? "Restriction note changed. Do not release the child to this person; Front Office sees this in red." : "Marked: do not release the child to this person. Front Office sees this in red.") : "Restriction removed. Press “Allow to pick up” only if they may collect the child.");
       }
     });
   });
   if (!r?.ok) return r;
-  await flash({ message: "Link settings saved." });
+  await flash({ message: said.length ? `Saved. ${said.join(" ")}` : "Nothing was changed." });
   revalidatePath(profile(studentId));
   redirect(profile(studentId));
 }

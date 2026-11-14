@@ -59,6 +59,6 @@ export async function undoPromotionAction(fd: FormData) {
     return undoPromotion(tx, current.ctx, id);
   }, { timeout: 120_000 }));
   if (r) return r;
-  await flash({ message: "Promotion undone. The students are back in their class, and the batch is kept in the history." });
+  await flash({ message: "Promotion undone. The students are back in their class, and the promotion is kept in the history." });
   revalidatePath(`${BASE}/promotion`);
 }

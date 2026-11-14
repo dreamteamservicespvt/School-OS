@@ -268,7 +268,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
 
             {provider && (
               <Card>
-                <CardHeader title="Parent Link" description="One personal link. No password. Owned by Communication." icon={Smartphone} />
+                <CardHeader title="Parent Link" description="One personal link for the parent's phone. No password needed. Other Parent Link settings are in Communication, Parent Link." icon={Smartphone} />
                 <DL cols={1} rows={[
                   ["Status", <Pill key="s" tone={data.link?.status === "Active" ? "ok" : data.link?.status === "Revoked" ? "bad" : "neutral"}>{data.link?.status ?? "Not sent"}</Pill>],
                   ["Last opened", data.link?.lastOpenedAt ? formatDateTime(data.link.lastOpenedAt, tz) : "Never"],

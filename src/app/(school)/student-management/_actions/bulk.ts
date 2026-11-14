@@ -51,7 +51,7 @@ export async function bulkFieldAction(_prev: FormState, fd: FormData): Promise<F
   const label = BULK_FIELDS.find((f) => f.key === field)!.label.toLowerCase();
   await flash({ message: `${label.charAt(0).toUpperCase()}${label.slice(1)} updated for ${updated} ${updated === 1 ? "student" : "students"}.`, undo: { kind: "student-bulk-update", id: undoId } });
   revalidatePath(BASE);
-  return { ok: true, message: `Saved for ${updated} ${updated === 1 ? "student" : "students"}. You can undo it from the message.`, data: { step: "done", rows } };
+  return { ok: true, message: `Saved for ${updated} ${updated === 1 ? "student" : "students"}. If this was a mistake, press Undo on the note that just appeared.`, data: { step: "done", rows } };
 }
 
 export async function bulkSectionAction(_prev: FormState, fd: FormData): Promise<FormState> {

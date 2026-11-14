@@ -120,7 +120,7 @@ describe(`${PICKUP_WRONG_LIMIT} wrong codes in an hour for one student`, () => {
     lockedAt = minutes(day, 12);
     const r = await release(f.office.id, f.diya.id, wrongFor(right), lockedAt);
     const until = new Date(lockedAt.getTime() + PICKUP_LOCK_MS);
-    expect(refusal(r)).toBe(`Code checks for Diya are locked until ${clockAt(until, TZ)} after ${PICKUP_WRONG_LIMIT} wrong codes in an hour. Even the right code is not accepted before then. The Principal and School Admins have been told.`);
+    expect(refusal(r)).toBe(`Code checks for Diya are locked until ${clockAt(until, TZ)} after ${PICKUP_WRONG_LIMIT} wrong codes in an hour. Even the right code is not accepted before then. The Principal and School Admins have been told. Until then, ask the parent to wait, or call the Principal.`);
     const kept = await tries(f.diya.id);
     expect(kept).toHaveLength(PICKUP_WRONG_LIMIT);
     expect(kept.at(-1)).toMatchObject({ studentLockedUntil: until, personLockedUntil: null });
@@ -174,7 +174,7 @@ describe(`${PICKUP_WRONG_LIMIT} wrong codes in an hour by one person at the desk
     const lockedAt = minutes(day, 11);
     const r = await release(f.office.id, f.diya.id, wrongFor(d), lockedAt);
     const until = new Date(lockedAt.getTime() + PICKUP_LOCK_MS);
-    expect(refusal(r)).toBe(`Your code checks are locked until ${clockAt(until, TZ)} after ${PICKUP_WRONG_LIMIT} wrong pickup codes in an hour. Even the right code is not accepted before then. The Principal and School Admins have been told.`);
+    expect(refusal(r)).toBe(`Your code checks are locked until ${clockAt(until, TZ)} after ${PICKUP_WRONG_LIMIT} wrong pickup codes in an hour. Even the right code is not accepted before then. The Principal and School Admins have been told. Until then, ask a colleague to check the code, or call the Principal.`);
     expect((await audits(f.diya.id, "pickup-code-locked")).at(-1)?.after).toMatchObject({ lockedFor: "person", lockedUntil: until.toISOString() });
 
     // Another person sends a new code; the locked person cannot use even that right code, or send one.

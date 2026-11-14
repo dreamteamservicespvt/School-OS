@@ -268,7 +268,7 @@ export function ReleaseForm({ student, people, codeCheck, codeLock = null, relea
           </div>
           {state && !state.ok && !Object.keys(err).length && <p className="text-[13px] text-bad" role="alert">{state.message}</p>}
           <Button type="submit" variant="primary" size="lg" className="w-full !h-14 !text-[16px]" icon={DoorOpen} disabled={!ready} loading={pending}>
-            {pending ? "Making gate pass…" : ready ? `Release ${student.first} and make gate pass` : !verified ? (g.photo ? "Check the photo first" : "Check ID proof or call first") : codeCheck && codeLock ? "Code checks are locked" : codeCheck && code.length !== 4 ? (codeSent ? "Enter the code from the guardian" : "Send the code first") : "Choose a reason"}
+            {pending ? "Making gate pass…" : ready ? `Release ${student.first} and make gate pass` : !verified ? (g.photo ? "Check the photo first" : "Check ID proof or call first") : codeCheck && codeLock ? "Code checks are locked: read the red note above" : codeCheck && code.length !== 4 ? (codeSent ? "Enter the code from the guardian" : "Send the code first") : "Choose a reason"}
           </Button>
         </div>
       ) : (

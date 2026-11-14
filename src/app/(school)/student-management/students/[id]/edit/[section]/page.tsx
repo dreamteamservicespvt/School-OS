@@ -71,7 +71,7 @@ export default async function EditStudentSection({ params }: { params: Promise<{
               {can.seeRestricted && (
                 <div className="space-y-2 sm:col-span-2">
                   <FormText name="aadhaar" label="Aadhaar number" inputMode="numeric" autoComplete="off"
-                    help={s.aadhaarEnc ? `On record: ${p.identifiers.find((i) => i.key === "aadhaar")?.value ?? "hidden"}. Leave empty to keep it.` : "Restricted. Stored encrypted and shown masked to others."} />
+                    help={s.aadhaarEnc ? `On record: ${p.identifiers.find((i) => i.key === "aadhaar")?.value ?? "hidden"}. Leave empty to keep it.` : "Kept private and locked. Screens show only the last 4 digits."} />
                   {s.aadhaarEnc && <FormCheck name="keepAadhaar" label="Keep the Aadhaar number on record when the box is empty" defaultChecked />}
                 </div>
               )}

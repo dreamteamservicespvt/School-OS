@@ -167,7 +167,7 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
 
         {view === "requests" && (
           <Card className="overflow-hidden">
-            <CardHeader title="Walk-in requests" description="Each has a number the person can ask about. The status follows the department’s task." icon={ClipboardList}
+            <CardHeader title="Walk-in requests" description="Each has a number the person can ask about. It shows Done when the department finishes the work; then the person can collect it." icon={ClipboardList}
               action={desk ? <ButtonLink href={addQ(sheetHref, { do: "walkin" })} scroll={false} size="sm" variant="soft" icon={Plus}><Words k="New request" /></ButtonLink> : undefined} />
             <Toolbar>
               <UrlSearch id="req-search" placeholder="Request number, like REQ-2026-0012, or name" />

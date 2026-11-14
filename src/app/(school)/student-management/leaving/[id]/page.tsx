@@ -69,7 +69,7 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
             ? <Banner tone="ok" title="Clearance passed.">{tc ? `The TC is ${CERT_LABEL[tc.status].toLowerCase()}${tc.number ? ` (${tc.number})` : ""}.` : "The TC can be issued now."}</Banner>
             : <Banner tone="warn" title="Clearance pending.">{block}<Words k=". Settle each one below, or ask for a waiver with a reason." /></Banner>)}
           <Card>
-            <CardHeader title="Clearance" icon={ListChecks} description="Checked when leaving started and each time you check again. Only modules that are switched on are checked."
+            <CardHeader title="Clearance" icon={ListChecks} description="Checked when leaving started and each time you press Check again. Only the parts of School OS your school uses are checked, for example fee dues and library books."
               action={open && can.manage ? <ActionButton action={refreshClearanceAction} fields={{ id }}><Words k="Check again" /></ActionButton> : undefined} />
             <div className="px-5 pb-5">
               {req.checks.length === 0 ? (
@@ -92,7 +92,7 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
                             {c.actionHref && <ButtonLink href={c.actionHref} size="sm" variant="soft">{c.actionLabel ?? "Settle"}</ButtonLink>}
                             <ConfirmAction action={askWaiverAction} fields={{ checkId: c.id }} trigger="Ask for waiver" triggerVariant="secondary"
                               title={`Waive ${c.name} for ${student.name}?`} confirmLabel="Send for approval" reason={{ label: "Reason", min: 5 }}>
-                              {c.detail}<Words k=". The waiver goes to Approvals; someone allowed to approve it decides. The check stays pending until then." />
+                              {c.detail}<Words k=". The waiver goes to Approvals. Once it is approved there, this check clears and the TC can be issued. Until then it stays pending." />
                             </ConfirmAction>
                           </div>
                         )}

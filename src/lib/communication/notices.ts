@@ -500,7 +500,9 @@ export async function noticesForGuardian(tx: Tx, ctx: SchoolContext, children: {
 
 /** Guardians in a notice's audience who have not seen it (Parent Link or WhatsApp read). */
 export async function unseenGuardianIds(tx: Tx, ctx: SchoolContext, noticeId: string) {
-  const n = await tx.notice.findFirstOrThrow({ where: { id: noticeId, schoolId: ctx.schoolId } });
+  // Another school's notice (hidden by the database) or a wrong id: the plain words, never a server error (security review 2026-11-15).
+  const n = /^[0-9a-f-]{36}$/i.test(noticeId) ? await tx.notice.findFirst({ where: { id: noticeId, schoolId: ctx.schoolId } }) : null;
+  if (!n) throw new NoticeProblem("This notice was not found.");
   const all = await audienceGuardianIds(tx, ctx, readAudience(n.audience));
   const seen = new Set((await tx.noticeGuardianView.findMany({ where: { noticeId }, select: { guardianId: true } })).map((v) => v.guardianId));
   return { notice: n, ids: all.filter((g) => !seen.has(g)) };

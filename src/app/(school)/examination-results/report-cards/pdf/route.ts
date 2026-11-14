@@ -31,12 +31,13 @@ async function handleGET(req: Request) {
   const sectionId = p.get("section") ?? "";
   const period = p.get("period") ?? "";
   const studentIds = p.getAll("student").filter(Boolean);
-  if (!UUID.test(sectionId) || !PERIOD.test(period) || studentIds.some((s) => !UUID.test(s))) return plain("Choose the class and the report card period first.", 400);
+  // The person's permission first, then what they asked for (security review 2026-11-15).
   let current;
   try { ({ current } = await requireAction("examination-results", "print")); } catch (e) {
     if (e instanceof PermissionDeniedError) return noAccess();
     throw e;
   }
+  if (!UUID.test(sectionId) || !PERIOD.test(period) || studentIds.some((s) => !UUID.test(s))) return plain("Choose the class and the report card period first.", 400);
   try {
     const out = await withSchool(current.ctx, async (tx) => {
       const section = await sectionInfo(tx, sectionId);

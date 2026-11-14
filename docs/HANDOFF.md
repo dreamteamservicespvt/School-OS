@@ -28,7 +28,7 @@ Last updated: 2026-11-14 12:00 IST (attendance correction status + subject-teach
   db collection "reports", doubts asked in "doubts": read them with ArtifactData list to fix problems.
 
 ## Next steps
-0. 2026-11-14 (not pushed, 6 commits ahead of origin/main): 196afc97 "Me > My leave / My salary slips" menu for
+0. 2026-11-14 DEPLOY 5 live (main acbbab5c, Vercel ~5 min, full suite 2,759 pass in 4 workers): 196afc97 "Me > My leave / My salary slips" menu for
    own-record staff; 453b5544 DA/HRA switch per structure, removed salary item leaves structures from first open
    month, Add Staff no default post + Staff List "posts may be wrong" box. After deploy: HR fixes posts with
    "Change post"; Accountant revises the teacher's structure (DA/HRA off; old removed items drop on revise).

@@ -897,6 +897,7 @@ export const EN = [
   "Attach a file",
   "Language: each parent gets a template in their own language when the template has that version; a typed message goes as written",
   "Users to notify",
+  "Who will get it",
   "Limited to",
   "Message credits",
   "SMS backup · up to",

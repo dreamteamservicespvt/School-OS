@@ -4368,6 +4368,7 @@ export const hi: Catalogue = {
   "Attach a file": "फ़ाइल लगाएँ",
   "Language: each parent gets a template in their own language when the template has that version; a typed message goes as written.": "भाषा: टेम्पलेट में उस भाषा का संस्करण होने पर हर अभिभावक को अपनी भाषा में टेम्पलेट मिलता है; लिखा हुआ संदेश जैसा लिखा है वैसा जाता है।",
   "Users to notify": "सूचना पाने वाले यूज़र",
+  "Who will get it": "किसे मिलेगा",
   "Limited to": "सीमा",
   "Message credits": "संदेश क्रेडिट",
   "SMS backup · up to": "SMS बैकअप · इतने तक",

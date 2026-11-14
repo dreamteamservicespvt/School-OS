@@ -439,7 +439,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
     const versions = ch === "sms" ? all.filter((v) => v.dltTemplateId) : all.filter(isApproved);
     if (versions.length) return { ok: true, versions, carried: true };
     const name = t?.name ?? (kind === "guardian" ? "General announcement" : "Message to staff");
-    return no(ch === "sms" ? `a typed SMS goes only in the "${name}" template, which has no DLT template ID` : `a typed WhatsApp message goes only in the "${name}" template, which WhatsApp has not approved yet`);
+    return no(ch === "sms" ? `a typed SMS goes only in the "${name}" template, which has no DLT template ID` : `WhatsApp has not approved the "${name}" message yet, so typed words cannot go by WhatsApp. Choose an approved WhatsApp template, or ask DREAM TEAM to get it approved`);
   };
   const routes = new Map<string, Route>();
   for (const ch of tried) for (const kind of ["guardian", "staff"] as const) routes.set(`${ch}:${kind}`, await routeFor(ch, kind));
@@ -511,8 +511,11 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
         const route = routes.get(`${ch}:${kind}`)!;
         if (!route.ok) {
           // Parents chosen for the app on purpose keep the plain reason they always had.
-          if (ch === "app" && c.type === "guardian" && isPrimary) { const a = addressFor(c, ch, providersOn); if ("skip" in a) addressSkip ??= a.skip; }
-          else whys.push(route.why);
+          // Layman loop 15 Nov: with WhatsApp also ticked, "parents have no app, they get WhatsApp" hid the real
+          // reason WhatsApp could not carry it, and the screen said nobody could be reached without saying why.
+          if (ch === "app" && c.type === "guardian" && isPrimary) {
+            if (primary.length === 1) { const a = addressFor(c, ch, providersOn); if ("skip" in a) addressSkip ??= a.skip; }
+          } else whys.push(route.why);
           return null;
         }
         const addr = addressFor(c, ch, providersOn);

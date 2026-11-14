@@ -205,12 +205,22 @@ describe("a real WhatsApp account: only approved templates", () => {
     expect(template.components.find((c) => c.type === "button")).toMatchObject({ sub_type: "url", parameters: [{ text: receiptKeyFor(s.school.id, paymentId) }] });
   });
 
+  // Layman loop 15 Nov: WhatsApp and App notice ticked, the typed WhatsApp message not approved yet. The screen said
+  // "they get WhatsApp, SMS or email" and "nobody can be reached" without the real reason.
+  it("names the real WhatsApp reason when App notice is ticked too", async () => {
+    stubWhatsapp();
+    const plan = await withSchool(s.ctx, (tx) => planMessage(tx, s.ctx, { to: { guardiansOf: [s.ravi.id] }, channels: ["whatsapp", "app"], title: "Closed", text: `School is closed on Monday. - ${s.school.name}` }));
+    const reasons = plan.skipped.map((g) => g.reason).join(" | ");
+    expect(reasons).not.toContain("they get WhatsApp, SMS or email");
+    expect(reasons).toMatch(/WhatsApp has not approved the "General announcement" message yet/);
+  });
+
   it("typed words ride the approved General announcement template, never plain text", async () => {
     stubWhatsapp();
     const input = { to: { guardiansOf: [s.ravi.id] }, channels: ["whatsapp" as const], text: `Dear Parent, school closes at noon today. - ${s.school.name}` };
     const before = await withSchool(s.ctx, (tx) => planMessage(tx, s.ctx, input));
     expect(before.rows).toHaveLength(0);
-    expect(before.skipped[0].reason).toMatch(/a typed WhatsApp message goes only in the "General announcement" template, which WhatsApp has not approved yet/);
+    expect(before.skipped[0].reason).toMatch(/WhatsApp has not approved the "General announcement" message yet, so typed words cannot go by WhatsApp/);
     await approve(s, "general", "general_announcement_1");
     const plan = await withSchool(s.ctx, (tx) => planMessage(tx, s.ctx, input));
     expect(plan.rows[0].text).toBe(`Dear Srinivas Kumar, here is a message from ${s.school.name}:

@@ -609,7 +609,7 @@ export function SendForm({ data }: { data: SendFormData }) {
           <Card className={cx("overflow-hidden", emergency && "border-bad/40")} aria-live="polite">
             <CardHeader title="3. Check and send" icon={ListChecks} description="Exactly who, how much, and what they will see" />
             <div className="px-5 pb-4">
-              <p className="eyebrow text-ink3"><Words k="Users to notify" /></p>
+              <p className="eyebrow text-ink3"><Words k="Who will get it" /></p>
               <p className={cx("font-display text-[34px] font-semibold tnum leading-tight transition-opacity", checking && "opacity-50")}>
                 {whoReady && live ? fmt(n) : "–"} <span className="text-[16px] text-ink3 font-sans font-semibold">{noun}</span>
               </p>

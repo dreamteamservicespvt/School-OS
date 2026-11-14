@@ -107,7 +107,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
       <TextField label="Parent’s name" name="parentName" required maxLength={120} placeholder="Father, mother or guardian" autoComplete="off" defaultValue={val("parentName", saved?.parentName)} error={err("parentName")} />
       <PhoneField label="Phone" name="phone" required defaultValue={val("phone", saved?.phone)} error={err("phone")} onBlur={check} help="We check for a matching family when you leave this box" />
       <DuplicateBox matches={matches} pick={pick} onSibling={() => setPick("sibling")} onNewFamily={mode === "add" ? () => setPick("new") : undefined} onCancel={() => { setTyped([]); onCancel(); }} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} />
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SelectField label="Class wanted" name="classId" options={c.classes} placeholder="Not decided" value={classId} onChange={(e) => setClassId(e.target.value)} error={err("classId")} />
         {mode === "add" ? <SelectField label="For year" name="yearId" options={c.years} defaultValue={val("yearId", c.defaultYearId)} error={err("yearId")} /> : <div />}
       </div>
@@ -134,7 +134,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
       )}
       <MoreDetails defaultOpen={mode === "edit" || Boolean(state?.values?.email || state?.values?.notes)}>
         <TextField label="Email" name="email" type="email" maxLength={200} placeholder="name@example.com" defaultValue={val("email", saved?.email)} error={err("email")} onBlur={check} />
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <TextField label="Child’s date of birth" name="childDob" type="date" defaultValue={val("childDob", saved?.childDob)} error={err("childDob")} />
           <TextField label="Current school" name="currentSchool" maxLength={150} defaultValue={val("currentSchool", saved?.currentSchool)} error={err("currentSchool")} />
         </div>

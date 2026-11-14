@@ -4368,6 +4368,7 @@ export const te: Catalogue = {
   "Attach a file": "ఫైల్ జత చేయండి",
   "Language: each parent gets a template in their own language when the template has that version; a typed message goes as written.": "భాష: టెంప్లేట్‌కు ఆ భాష వెర్షన్ ఉంటే ప్రతి తల్లిదండ్రులకు వారి భాషలో టెంప్లేట్ వస్తుంది; టైప్ చేసిన సందేశం రాసినట్లే వెళ్తుంది.",
   "Users to notify": "తెలియజేయాల్సిన యూజర్లు",
+  "Who will get it": "ఎవరికి అందుతుంది",
   "Limited to": "పరిమితి",
   "Message credits": "సందేశ క్రెడిట్‌లు",
   "SMS backup · up to": "SMS బ్యాకప్ · ఇన్ని వరకు",

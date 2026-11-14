@@ -22,6 +22,8 @@ for (const p of paths) {
   for (const vp of SIZES) {
     for (const scheme of ["light", "dark"]) {
       const ctx = await browser.newContext({ viewport: vp, colorScheme: scheme, storageState: state, isMobile: vp.width < 600, hasTouch: vp.width < 600 });
+      // The app's theme comes from the person's own choice (cookie sos_theme), not the device's setting.
+      await ctx.addCookies([{ name: "sos_theme", value: scheme, url: "http://localhost:3000" }]);
       const page = await ctx.newPage();
       const errs = [];
       page.on("pageerror", (e) => errs.push(e.message.split("\n")[0].slice(0, 140)));

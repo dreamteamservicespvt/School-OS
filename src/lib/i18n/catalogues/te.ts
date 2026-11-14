@@ -5992,6 +5992,7 @@ export const te: Catalogue = {
   "8 or more characters": "8 లేదా ఎక్కువ అక్షరాలు",
   "A letter": "ఒక అక్షరం",
   "A number": "ఒక అంకె",
+  "Not easy to guess, like Password@123": "సులభంగా ఊహించలేనిది, Password@123 లాంటిది కాదు",
   "Current password": "ప్రస్తుత పాస్‌వర్డ్",
   "Type the new password again": "కొత్త పాస్‌వర్డ్ మళ్ళీ టైప్ చేయండి",
   "Changing…": "మారుస్తోంది…",

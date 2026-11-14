@@ -5992,6 +5992,7 @@ export const hi: Catalogue = {
   "8 or more characters": "8 या ज़्यादा अक्षर",
   "A letter": "एक अक्षर",
   "A number": "एक अंक",
+  "Not easy to guess, like Password@123": "आसानी से अंदाज़ा न लगे, जैसे Password@123 नहीं",
   "Current password": "मौजूदा पासवर्ड",
   "Type the new password again": "नया पासवर्ड फिर से लिखें",
   "Changing…": "बदला जा रहा है…",

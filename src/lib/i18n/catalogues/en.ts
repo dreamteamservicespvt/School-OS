@@ -8594,6 +8594,7 @@ export const EN = [
   "8 or more characters",
   "A letter",
   "A number",
+  "Not easy to guess, like Password@123",
   "Current password",
   "Type the new password again",
   "Changing…",

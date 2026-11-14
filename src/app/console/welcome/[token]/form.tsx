@@ -1,5 +1,6 @@
 "use client";
 
+import { isCommonPassword } from "@/lib/auth/common-passwords";
 import { useActionState, useState, useTransition } from "react";
 import { Check, Circle, Eye, EyeOff, ShieldCheck } from "lucide-react";
 import { Alert } from "@/components/ui/alert";
@@ -47,6 +48,8 @@ export function WelcomeForm({ token, phoneMasked }: { token: string; phoneMasked
     { ok: pw.length >= 8, label: "At least 8 characters" },
     { ok: /[a-z]/i.test(pw), label: "A letter" },
     { ok: /\d/.test(pw), label: "A number" },
+    // Layman loop 15 Nov: all ticks were green and the password was still refused as too common.
+    { ok: pw.length > 0 && !isCommonPassword(pw), label: "Not easy to guess, like Password@123" },
   ];
   const mismatch = again.length > 0 && again !== pw;
   const ready = rules.every((r) => r.ok) && pw === again;

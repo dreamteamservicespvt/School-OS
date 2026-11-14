@@ -193,6 +193,9 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
           </div>
         )}
       </div>
+      <p className="text-[12.5px] text-ink3 rounded-xl bg-sunken/70 px-3.5 py-2.5">
+        <Words k="Students see it in the app. If homework messages are on, the parents of" /> {to === "CLASS" && sameClass.length > 1 ? sameClass.reduce((a, s) => a + s.students, 0) : to === "STUDENTS" ? chosen.size : section.students} <Words k="students also get one message each (about 1 credit each)." />
+      </p>
     </SheetForm>
   );
 }

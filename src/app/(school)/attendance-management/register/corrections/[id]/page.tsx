@@ -153,7 +153,7 @@ export default async function CorrectionDetail({ params }: { params: Promise<{ i
           <CardHeader title="Details" />
           <CardBody className="space-y-4">
             <DL cols={1} rows={[
-              ["Asked by", data.names.get(c.requestedById ?? "") ?? "The phone's offline queue"],
+              ["Asked by", data.names.get(c.requestedById ?? "") ?? "Sent from a phone that was offline"],
               ["Asked on", formatDateTime(c.createdAt, tz)],
               ...(c.decidedAt ? [[c.status === "WITHDRAWN" ? "Withdrawn on" : "Decided", `${formatDateTime(c.decidedAt, tz)}${c.decidedById ? ` by ${data.names.get(c.decidedById) ?? "the approver"}` : ""}`] as [string, React.ReactNode]] : []),
               ...(c.decisionNote ? [["Decision note", c.decisionNote] as [string, React.ReactNode]] : []),

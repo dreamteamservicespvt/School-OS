@@ -13,6 +13,7 @@ import type { FormState } from "@/lib/forms";
 import { EvIcon } from "./icons";
 import { Words } from "@/lib/i18n/client";
 import { ShareMenu } from "@/components/ui/share-menu";
+import { ConfirmButton } from "@/components/ui/confirm";
 
 /** A select whose choices are page addresses (Jump to month, class, campus). */
 export function JumpSelect({ value, options, label, id, className }: { value: string; options: { value: string; label: string; href: string }[]; label: string; id: string; className?: string }) {
@@ -49,9 +50,23 @@ export function WarningConfirm({ keyName }: { keyName: string | string[] }) {
 
 type Act = (s: FormState<unknown>, fd: FormData) => Promise<FormState<unknown>>;
 
-/** A one-tap action (a small form) that shows its problem in place. */
-export function ActButton({ action, fields, label, icon, variant = "secondary", size = "sm", className, pendingText }: { action: Act; fields: Record<string, string>; label: React.ReactNode; icon?: string; variant?: ButtonVariant; size?: "sm" | "md"; className?: string; pendingText?: string }) {
+/** A one-tap action (a small form) that shows its problem in place. With `confirm`, it asks first (P4). */
+export function ActButton({ action, fields, label, icon, variant = "secondary", size = "sm", className, pendingText, confirm }: { action: Act; fields: Record<string, string>; label: React.ReactNode; icon?: string; variant?: ButtonVariant; size?: "sm" | "md"; className?: string; pendingText?: string; confirm?: { title: string; body: React.ReactNode; confirmLabel: string } }) {
   const [state, run, pending] = useActionState<FormState<unknown>, FormData>(action, null);
+  if (confirm) {
+    return (
+      <ConfirmButton triggerVariant={variant} triggerClassName={className} title={confirm.title} confirmLabel={confirm.confirmLabel}
+        trigger={<>{icon && <EvIcon name={icon} size={size === "sm" ? 15 : 17} />}{label}</>}
+        onConfirm={async () => {
+          const fd = new FormData();
+          for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+          const r = await action(null, fd);
+          return r && !r.ok ? r.message : undefined;
+        }}>
+        {confirm.body}
+      </ConfirmButton>
+    );
+  }
   return (
     <form action={run} className={cx("relative z-[1] inline-flex flex-col items-start gap-1", className)}>
       {Object.entries(fields).map(([k, v]) => <input key={k} type="hidden" name={k} value={v} />)}

@@ -240,7 +240,7 @@ export function givenWords(made: { sectionLabel: string; students: number; notif
   const told = notified ? ` ${plural(notified, "student")} notified in the app.` : "";
   const toParents = parents.includes("failed") ? " The homework is saved, but students and parents could not be told just now because of a problem on our side. Open the homework and use Resend to parents."
     : parents.includes("sent") ? " Parents were messaged."
-    : parents.includes("no-channel") || parents.includes("not-sent") ? " Parents were not messaged: no channel can carry it yet (see Communication, Message History)."
+    : parents.includes("no-channel") || parents.includes("not-sent") ? " Parents were not messaged: the school has not set up WhatsApp or SMS yet. Tell the School Admin. Students can still see the homework in the app."
       : parents.includes("off") ? " Parents were not messaged: the Homework set message is off (Communication, Message Settings)."
         : parents.includes("held") ? " Parents were not messaged: automatic messages to parents start when the school goes live on School OS."
           : "";

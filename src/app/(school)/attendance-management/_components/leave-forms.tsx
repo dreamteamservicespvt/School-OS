@@ -97,7 +97,7 @@ function AutoPreview({ preview, onResult, tick }: { preview: (s: PreviewState, f
   }, [preview, tick]);
   return (
     <div ref={ref} className="sm:col-span-2" aria-live="polite">
-      {pending ? <p className="flex items-center gap-2 text-sm text-ink-2"><Spinner className="size-4" /> <Words k="Checking days and quota…" /></p>
+      {pending ? <p className="flex items-center gap-2 text-sm text-ink-2"><Spinner className="size-4" /> <Words k="Checking days and leave limit…" /></p>
         : state && !fieldOf(state) ? <p className={`rounded-lg px-3 py-2 text-sm ${!state.ok ? "bg-danger-soft text-danger" : state.data?.warn ? "bg-warn-bg text-warn-text" : "bg-surface-2"}`}>{state.ok ? state.data?.text : state.message}</p>
           : null}
     </div>

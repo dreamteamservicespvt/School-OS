@@ -161,7 +161,7 @@ export async function recordStudentLeave(tx: Tx, ctx: SchoolContext, access: Att
     },
   });
   const dates = isoDay(input.from) === isoDay(input.to) ? dayText(input.from) : `${dayText(input.from)} to ${dayText(input.to)}`;
-  const summary = `${c.type.name} leave: ${c.student.fullName} (${c.where.sectionName}), ${dates} (${daysText(c.days)})${c.overQuota ? ", over the quota" : ""}`;
+  const summary = `${c.type.name} leave: ${c.student.fullName} (${c.where.sectionName}), ${dates} (${daysText(c.days)})${c.overQuota ? ", over the leave limit" : ""}`;
   await writeAudit(tx, ctx, {
     action: "created", recordType: "Leave Request", recordId: request.id,
     after: { student: c.student.fullName, class: c.where.sectionName, type: c.type.name, from: isoDay(input.from), to: isoDay(input.to), days: c.days, halfDay: input.halfDay, overQuota: c.overQuota },

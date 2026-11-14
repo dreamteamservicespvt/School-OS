@@ -174,7 +174,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
         </EmptyState>
       ) : data.slots.length === 0 ? (
         <EmptyState title="No periods set up">
-          {scope.manage ? <><Words k="Add the periods, breaks and lunch with their times first." /> <Link className="font-medium text-brand-text underline" href="/academic-management/settings?tab=periods"><Words k="Open the period master" /></Link></> : "Ask the Principal to set up the periods in Academic Settings."}
+          {scope.manage ? <><Words k="Add the periods, breaks and lunch with their times first." /> <Link className="font-medium text-brand-text underline" href="/academic-management/settings?tab=periods"><Words k="Set up periods and breaks" /></Link></> : "Ask the Principal to set up the periods in Academic Settings."}
         </EmptyState>
       ) : view === "class" ? (
         data.sections.length === 0 ? (
@@ -198,7 +198,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
         )
       ) : view === "teacher" ? (
         !data.staffId ? (
-          <EmptyState title="No teacher record">{can(page.current.permissions, "staff-hr-management", "create") ? <Words k="Your login is not linked to a staff record. To link it, bring yourself in with Import staff in Staff & HR, using the name and mobile number on your login." /> : <Words k={"Your login is not linked to a staff record. Ask the office to link it in Staff & HR."} />}</EmptyState>
+          <EmptyState title="We could not find you in the staff list">{can(page.current.permissions, "staff-hr-management", "create") ? <Words k="To fix it, add yourself with Import staff in Staff & HR, using the name and mobile number you sign in with. Your periods then show here." /> : <Words k="Your periods show here once the office links your sign-in to your name in the staff list (Staff & HR). Ask the office." />}</EmptyState>
         ) : (
           <>
             <div className="no-print mb-3 flex flex-wrap items-end justify-between gap-3">

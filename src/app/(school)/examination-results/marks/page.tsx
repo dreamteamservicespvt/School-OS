@@ -133,8 +133,9 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
                           <span className={cx("w-11 h-11 rounded-xl grid place-items-center shrink-0 font-semibold text-[13px]", TONE_SOFT[PAPER_STATUS_TONE[r.status]])}>{r.sectionLabel.replace(/^Class /, "")}</span>
                           <div className="min-w-0 flex-1">
                             <p className="font-semibold text-[14.5px] truncate">{r.subjectName} · {r.sectionLabel}</p>
-                            <p className={cx("text-[12.5px] truncate", overdue(r) ? "text-bad font-medium" : "text-ink3")}>
-                              {r.status === "LOCKED" ? `${r.of} of ${r.of} · locked` : `${r.done} of ${r.of} entered`} <Words k="· paper" /> {formatDate(r.date, tz)}{r.due && open(r) ? ` · ${overdue(r) ? "overdue since" : "due"} ${formatDate(r.due, tz)}` : ""}{r.waiting ? ` · ${plural(r.waiting, "change")} waiting` : ""}
+                            {/* Wraps, so "Overdue" is never cut off on a phone (layman test, 390 px). */}
+                            <p className={cx("text-[12.5px] leading-snug", overdue(r) ? "text-bad font-medium" : "text-ink3")}>
+                              {overdue(r) && <b className="font-semibold"><Words k="Overdue" />: </b>}{r.status === "LOCKED" ? `${r.of} of ${r.of} · locked` : `${r.done} of ${r.of} entered`} <Words k="· paper" /> {formatDate(r.date, tz)}{r.due && open(r) ? ` · ${overdue(r) ? "was due" : "due"} ${formatDate(r.due, tz)}` : ""}{r.waiting ? ` · ${plural(r.waiting, "change")} waiting` : ""}
                             </p>
                             {open(r) && <Progress value={r.of ? (r.done / r.of) * 100 : 0} className="mt-1.5 max-w-xs" />}
                           </div>

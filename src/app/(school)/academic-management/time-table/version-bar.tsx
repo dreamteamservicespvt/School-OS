@@ -53,7 +53,7 @@ export function VersionBar({ versions, shown, yearId, canArrange, writable, clas
               <p className="flex flex-wrap items-center gap-2 font-semibold">
                 {shown.name}
                 <Badge tone={shown.status === "DRAFT" ? "warning" : "success"}>{shown.status === "DRAFT" ? "Draft" : "Published"}</Badge>
-                {shown.inForce && <Badge tone="brand"><Words k="In force" /></Badge>}
+                {shown.inForce && <Badge tone="brand"><Words k="In use now" /></Badge>}
               </p>
               <p className="text-sm text-ink-2">
                 {shown.status === "DRAFT" ? "Only you and others who keep the Time Table see this draft. Teachers see the published one." : shown.effectiveFrom ? `Effective from ${fmt(shown.effectiveFrom)}.` : ""}
@@ -107,7 +107,7 @@ export function VersionBar({ versions, shown, yearId, canArrange, writable, clas
               <li key={x.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
                 <span>
                   {x.name} <span className="text-ink-2">· {x.status === "DRAFT" ? "Draft" : "Published"}{x.effectiveFrom ? `, from ${fmt(x.effectiveFrom)}` : ""} · {x.periods} <Words k="periods" /></span>
-                  {x.inForce && <Badge tone="brand" className="ml-2"><Words k="In force" /></Badge>}
+                  {x.inForce && <Badge tone="brand" className="ml-2"><Words k="In use now" /></Badge>}
                 </span>
                 {shown?.id === x.id ? <span className="text-ink-2"><Words k="Showing" /></span> : <Link href={href(x.id)} className="min-h-11 py-2 font-medium text-brand-text hover:underline"><Words k="Show" /></Link>}
               </li>

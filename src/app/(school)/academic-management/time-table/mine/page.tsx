@@ -47,7 +47,7 @@ export default async function MyTimeTablePage({ searchParams }: { searchParams: 
       <h2 className="mb-3 text-lg font-semibold">{isToday ? "Today, " : ""}{DAY_NAMES[weekday(date)]} {formatDate(date)}</h2>
 
       {!staffId || !data ? (
-        <EmptyState title="Your login is not linked to a staff record">{can(page.current.permissions, "staff-hr-management", "create") ? <Words k="To link it, bring yourself in with Import staff in Staff & HR, using the name and mobile number on your login. Your periods then show here." /> : <Words k={"Ask the office to link your login to your staff record in Staff & HR. Your periods then show here."} />}</EmptyState>
+        <EmptyState title="We could not find you in the staff list">{can(page.current.permissions, "staff-hr-management", "create") ? <Words k="To fix it, add yourself with Import staff in Staff & HR, using the name and mobile number you sign in with. Your periods then show here." /> : <Words k="Your periods show here once the office links your sign-in to your name in the staff list (Staff & HR). Ask the office." />}</EmptyState>
       ) : data.off ? (
         <Alert tone="info" title={data.off.kind === "holiday" ? `Holiday: ${data.off.title}` : `${data.off.title}: no school`}><Words k="No periods on this day." /></Alert>
       ) : (

@@ -70,7 +70,7 @@ export default async function CorrectionPage({ searchParams }: Props) {
 
   return (
     <>
-      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register/correction`} sub="Request a correction: the principal approves it, and the original stays in the audit log"
+      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register/correction`} sub="Request a correction: the principal approves it, and the old marks are kept"
         actions={<ButtonLink href={back} icon={ArrowLeft}><Words k="Back to the" /> {forWhom === "staff" ? "staff attendance" : "register"}</ButtonLink>} />
 
       {forWhom === "staff" && access.staff !== "all" ? (
@@ -81,7 +81,7 @@ export default async function CorrectionPage({ searchParams }: Props) {
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Card>
             <CardHeader title={forWhom === "staff" ? `Staff attendance, ${dayText(date)}` : `${data.section?.name ?? ""}, ${dayText(date)}${periodNo ? `, period ${periodNo}` : ""}`}
-              description="The request goes to Approvals. When it is approved the register changes, and the original marks stay in the audit log." />
+              description="The request goes to Approvals. When it is approved the register changes, and the old marks are kept." />
             <CardBody>
               <UrlFilters fields={[
                 ...(forWhom === "student" ? [{ name: "section", label: "Class and section", type: "select" as const, value: data.section?.id ?? "", options: data.sections.map((s) => ({ value: s.id, label: s.name })) }] : []),
@@ -109,7 +109,7 @@ export default async function CorrectionPage({ searchParams }: Props) {
               <Timeline items={[
                 { icon: Lock, tone: "warn", what: `Attendance locks at ${lock.atText} each day`, when: "Set in Attendance Settings" },
                 { icon: ClipboardIcon, tone: "brand", what: "You ask for the change with a reason", when: "It goes to Approvals" },
-                { icon: ShieldCheck, tone: "ok", what: "The principal approves it", when: "The register, % and reports change. The original stays in the audit log." },
+                { icon: ShieldCheck, tone: "ok", what: "The principal approves it", when: "The register, % and reports change. The old marks are kept." },
               ]} />
               <p className="mt-4 text-[13px] text-ink3"><Words k="A correction does not send a new absence message to parents." /></p>
             </CardBody>

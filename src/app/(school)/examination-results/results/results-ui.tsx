@@ -79,7 +79,7 @@ export function PublishFlow({ keyName, title, sections, chosen, today, label = "
           )}
           <div className="rounded-xl border border-line px-3.5 py-3 flex items-center gap-3">
             <Switch id="pb-msg" on={msg} onChange={setMsg} label="Message parents" />
-            <label htmlFor="pb-msg" className="text-[13.5px]"><b className="font-semibold block"><Words k="Message parents" /></b><span className="text-ink3 text-[12.5px]"><Words k="Uses the “Results published” template, one message to each family" /></span></label>
+            <label htmlFor="pb-msg" className="text-[13.5px]"><b className="font-semibold block"><Words k="Message parents" /></b><span className="text-ink3 text-[12.5px]"><Words k="One message to each family saying the report card is ready on Parent Link" /></span></label>
           </div>
           {problem && <p role="alert" className="rounded-xl bg-bad/10 px-3.5 py-2.5 text-sm text-bad">{problem}</p>}
         </div>
@@ -97,7 +97,7 @@ export function PublishFlow({ keyName, title, sections, chosen, today, label = "
         }}>
         <ul className="flex flex-col gap-2 text-[14px] text-ink2">
           <li className="flex gap-2"><Award size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />{n} <Words k="report cards become ready and appear on each guardian’s Parent Link" />{when === "later" ? " on that day" : ""}.</li>
-          {msg && <li className="flex gap-2"><Send size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" /><Words k="Parents get one message each. A message cannot be unsent." /></li>}
+          {msg && <li className="flex gap-2"><Send size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" />{n} <Words k="families get one message each. Cost: about" /> {n} <Words k="credits. A message cannot be unsent." /></li>}
           <li className="flex gap-2"><History size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" /><Words k="The result is kept in the result history. Changing the grade scale later will not change it. The marks of these sections lock." /></li>
           {when === "later" && <li className="flex gap-2"><CalendarClock size={17} className="text-brand shrink-0 mt-0.5" aria-hidden="true" /><Words k="They publish by themselves then, if every mark is still complete. You can cancel the date until then." /></li>}
         </ul>

@@ -153,7 +153,7 @@ export function RemindSheet({ closeHref, hw, ids, names, title }: { closeHref: s
 }
 
 export function ExcuseButton({ id, excused }: { id: string; excused: boolean }) {
-  return <ActionButton action={excuseAction} fields={{ id, excused: excused ? "0" : "1" }} variant="ghost" size="sm">{excused ? "Give back" : "Excuse"}</ActionButton>;
+  return <ActionButton action={excuseAction} fields={{ id, excused: excused ? "0" : "1" }} variant="ghost" size="sm">{excused ? "Undo excuse" : "Excuse"}</ActionButton>;
 }
 
 export function AcceptLateButton({ id }: { id: string }) {

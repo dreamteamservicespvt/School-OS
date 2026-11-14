@@ -55,9 +55,11 @@ export function NotMarkedCard({ rows, lockText, locked, canRemind, tz }: { rows:
   );
 }
 
-export function ClassWiseView({ cw, sort, group, href, period, today }: {
+export function ClassWiseView({ cw, sort, group, href, period, today, threshold = 85 }: {
   cw: ClassWise; sort: "low" | "class"; group: string; href: (change: Record<string, string | null>) => string;
   period: PeriodFilterProps; today: boolean;
+  /** Attendance Settings: below this % is red, here and in the register of one section. */
+  threshold?: number;
 }) {
   const shown = cw.sections.filter((s) => s.students > 0 && (group === "all" || s.group.key === group));
   const list = sortSections(shown, sort);
@@ -66,7 +68,7 @@ export function ClassWiseView({ cw, sort, group, href, period, today }: {
   const students = marked.reduce((a, s) => a + s.students, 0);
   const counted = marked.reduce((a, s) => a + s.counted, 0);
   const avg = counted ? Math.round((marked.reduce((a, s) => a + s.weight, 0) / counted) * 1000) / 10 : null;
-  const low = marked.filter((s) => s.percent !== null && s.percent < 85).length;
+  const low = marked.filter((s) => s.percent !== null && s.percent < threshold).length;
   const rangeText = cw.oneDay && today ? "Today" : "These dates";
 
   return (
@@ -82,8 +84,8 @@ export function ClassWiseView({ cw, sort, group, href, period, today }: {
           : { label: "Sections marked", value: `${marked.length} of ${shown.length}`, sub: shown.length - marked.length ? `${shown.length - marked.length} not marked yet` : "All marked", icon: ListChecks, tone: shown.length - marked.length ? "warn" : "ok" },
       ] : [
         { label: "Average attendance", value: percentText(avg), sub: `${cw.sections[0]?.days ?? 0} school days`, icon: UserCheck },
-        { label: "Student-days absent", value: n(sum("absent")), sub: "Across these sections", icon: UserX },
-        { label: "Below 85%", value: n(low), sub: low ? "Sections to look at" : "None", icon: TriangleAlert, tone: low ? "bad" : undefined },
+        { label: "Absences, all days added up", value: n(sum("absent")), sub: "1 student away 3 days counts 3", icon: UserX },
+        { label: `Below ${threshold}%`, value: n(low), sub: low ? "Sections to look at" : "None", icon: TriangleAlert, tone: low ? "bad" : undefined },
         { label: "Sections", value: n(shown.length), sub: group === "all" ? "Whole school" : cw.groups.find((g) => g.key === group)?.label, icon: LayoutGrid },
       ]} />
       <Card className="overflow-hidden">
@@ -107,7 +109,7 @@ export function ClassWiseView({ cw, sort, group, href, period, today }: {
         ) : (
           <ul className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2.5 p-3">
             {list.map((s) => {
-              const t = attendanceTone(s.percent, s.notMarked || s.marked === 0);
+              const t = attendanceTone(s.percent, s.notMarked || s.marked === 0, threshold);
               return (
                 <li key={s.sectionId} className="min-w-0">
                   <Link href={`${BASE}/register?section=${s.sectionId}&month=${cw.from.toISOString().slice(0, 7)}`}
@@ -126,7 +128,7 @@ export function ClassWiseView({ cw, sort, group, href, period, today }: {
                     <span className="text-[12.5px] text-ink2 truncate">
                       {s.marked === 0 ? (today ? "Not taken yet today" : "No marks on these dates")
                         : cw.oneDay ? `${n(s.present)} of ${n(s.students)} present · ${n(s.absent)} absent${s.late ? ` · ${n(s.late)} late` : ""}${s.leave ? ` · ${n(s.leave)} on leave` : ""}`
-                          : `${n(s.absent)} student-days absent over ${n(s.days)} school days`}
+                          : `${n(s.absent)} absences over ${n(s.days)} school days`}
                     </span>
                   </Link>
                 </li>
@@ -134,7 +136,7 @@ export function ClassWiseView({ cw, sort, group, href, period, today }: {
             })}
           </ul>
         )}
-        <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="Green is 92% or more, amber 85% to 92%, red below 85%. Late counts as present; leave, holidays and Sundays are not counted." /></p>
+        <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="Red is below" /> {threshold}<Words k="% (Attendance Settings), amber below 92%, green 92% or more. Late counts as present; leave, holidays and Sundays are not counted." /></p>
       </Card>
     </div>
   );

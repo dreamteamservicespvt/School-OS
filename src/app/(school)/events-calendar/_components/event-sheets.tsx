@@ -20,7 +20,7 @@ import { attendanceAction, cancelEventAction, officeConsentAction, registerActio
 import { StudentPicker, type PickStudent } from "./co-sheets";
 import { WarningConfirm } from "./bits";
 import { KeepSelect } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 
@@ -86,23 +86,26 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
         <SSelect name="reminder" label="Reminder" options={reminders} start={start.reminder ?? "1d"} />
       </div>
       <SArea name="description" label="Description" rows={2} start={start.description} maxLength={1000} />
-      {editing && <SSwitch name="tell" title="Tell the audience if the date, time or venue changes" sub="A message goes to the registered students’ parents, or the audience." start />}
+      {editing && <SSwitch name="tell" title="Tell people if the date, time or venue changes" sub="A message goes to the parents of registered students. With no registration, it goes to everyone the event is for." start />}
     </SheetForm>
   );
 }
 
 export function CancelEventSheet({ closeHref, eventId, name, fee }: { closeHref: string; eventId: string; name: string; fee: string | null }) {
   return (
-    <SheetForm title={`Cancel ${name}?`} sub={`The audience is told.${fee ? ` ${fee}` : ""}`} closeHref={closeHref} action={cancelEventAction} submitLabel="Cancel the event" submitVariant="danger" hidden={{ eventId }}>
+    <SheetForm title={`Cancel ${name}?`} sub={`Everyone the event is for gets a message with the reason.${fee ? ` ${fee}` : ""}`} closeHref={closeHref} action={cancelEventAction} submitLabel="Cancel the event" submitVariant="danger" hidden={{ eventId }}>
       <SArea name="reason" label="Reason" required rows={3} placeholder="For example: heavy rain warning for Saturday" maxLength={300} />
-      <SSwitch name="tell" title="Tell the audience" sub="By message, with the reason." start />
+      <SSwitch name="tell" title="Tell people by message" sub="Parents of registered students, or everyone the event is for. The reason is in the message." start />
     </SheetForm>
   );
 }
 
-export function RemindSheet({ closeHref, eventId, people, preview }: { closeHref: string; eventId: string; people: string; preview: string }) {
+export function RemindSheet({ closeHref, eventId, people, count, preview }: { closeHref: string; eventId: string; people: string; count: number | null; preview: string }) {
+  const t = useT();
   return (
-    <SheetForm title={`Send a reminder to ${people}?`} sub="Through Communication. Track it in Message History." closeHref={closeHref} action={remindAction} submitLabel="Send reminder" hidden={{ eventId }}>
+    <SheetForm title={`Send a reminder to ${people}?`}
+      sub={count != null ? t("One message to each of {n} families. Cost: about {n} credits. A message cannot be unsent.", { n: count }) : t("One message to each person. A message cannot be unsent.")}
+      closeHref={closeHref} action={remindAction} submitLabel={count != null ? t("Send to {n} families", { n: count }) : t("Send reminder")} hidden={{ eventId }}>
       <p className="text-[14px] text-ink2 rounded-xl bg-sunken/70 p-3.5 leading-relaxed">{preview}</p>
     </SheetForm>
   );

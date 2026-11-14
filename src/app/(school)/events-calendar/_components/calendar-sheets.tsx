@@ -29,10 +29,12 @@ export function AddEntrySheet({ closeHref, defDate, classes, campuses }: { close
   const [type, setType] = useState(typed.value || "holiday");
   const appliesT = useTyped("applies", "school");
   const [applies, setApplies] = useState(appliesT.value || "school");
+  const notifyT = useTyped("notify", "");
+  const [notify, setNotify] = useState(notifyT.value === "on");
   const closes = CLOSING.includes(type);
   const appliesOptions: Opt[] = [{ value: "school", label: "Whole school" }, ...campuses.map((c) => ({ value: `campus:${c.value}`, label: c.label })), ...(closes ? [] : [{ value: "classes", label: "Chosen classes" }])];
   return (
-    <SheetForm title="Add to calendar" sub="Holidays switch attendance off for that day." closeHref={closeHref} action={addEntryAction} submitLabel="Add to calendar">
+    <SheetForm title="Add to calendar" sub="Holidays switch attendance off for that day." closeHref={closeHref} action={addEntryAction} submitLabel={notify ? "Add and tell parents" : "Add to calendar"}>
       <SText name="title" label="Name" required placeholder="For example: Republic Day, Annual Function" maxLength={80} />
       <SSelect name="type" label="Type" required options={TYPE_OPTIONS} start="holiday" onChange={(e) => { setType(e.target.value); if (CLOSING.includes(e.target.value) && applies === "classes") setApplies("school"); }} />
       <div className="grid grid-cols-2 gap-3">
@@ -55,21 +57,22 @@ export function AddEntrySheet({ closeHref, defDate, classes, campuses }: { close
         <summary className="cursor-pointer text-[13.5px] font-semibold text-brand list-none flex items-center gap-1.5"><ChevronRight size={15} className="group-open:rotate-90 transition" aria-hidden="true" /><Words k="More details" /></summary>
         <div className="flex flex-col gap-3 mt-3">
           <SArea name="details" label="Description" rows={2} maxLength={500} />
-          <NotifyBox />
+          <NotifyBox on={notify} setOn={setNotify} />
         </div>
       </details>
     </SheetForm>
   );
 }
 
-function NotifyBox() {
-  const t = useTyped("notify", "");
-  const [on, setOn] = useState(t.value === "on");
+function NotifyBox({ on, setOn }: { on: boolean; setOn: (v: boolean) => void }) {
   return (
-    <label className="flex items-center gap-3 text-[14px]">
-      <Checkbox checked={on} onChange={setOn} label="Tell parents" /><Words k="Tell parents by message" />
-      {on && <input type="hidden" name="notify" value="on" />}
-    </label>
+    <div className="flex flex-col gap-1.5">
+      <label className="flex items-center gap-3 text-[14px]">
+        <Checkbox checked={on} onChange={setOn} label="Tell parents" /><Words k="Tell parents by message" />
+        {on && <input type="hidden" name="notify" value="on" />}
+      </label>
+      {on && <p className="text-[12.5px] text-ink3 rounded-xl bg-warn/10 px-3 py-2"><Words k="When you save, every family it applies to gets one message. Each message costs about 1 credit. A message cannot be unsent." /></p>}
+    </div>
   );
 }
 

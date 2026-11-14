@@ -25,7 +25,7 @@ import { enqueueSave, isNetworkError, newClientId } from "./offline-queue";
 import { QuickChips } from "./sheet-form";
 import { STATUS_ON, STATUS_SOFT, type StatusView } from "./status";
 import { startMarks, unsavedCount } from "./sheet-start";
-import { Words } from "@/lib/i18n/client";
+import { Words, useT } from "@/lib/i18n/client";
 
 export type SheetStatus = StatusView & { counts: string };
 export type SheetRow = {
@@ -218,19 +218,19 @@ export function TakeSheet(p: Props) {
           action={<Link href={p.correctionHref} className={buttonClass("secondary", "sm")}><Words k="Request a correction" /></Link>}>
           {!p.saved
             ? "Attendance was not taken: nothing is saved for this day, so nobody is marked. To add the marks, request a correction; the principal approves it."
-            : `${unsaved ? `${studentsWord(unsaved)} not marked: no mark is saved for them on this day. ` : ""}A change now needs a correction request. The principal approves it, and the original stays in the audit log.`}
+            : `${unsaved ? `${studentsWord(unsaved)} not marked: no mark is saved for them on this day. ` : ""}A change now needs a correction request. The principal approves it, and the old marks are kept.`}
         </Banner>
       ) : savedNow ? (
         <Banner tone={unsaved ? "warn" : "ok"} icon={unsaved ? Info : CircleCheck} className="mb-4" role="status" title={`Saved at ${p.savedAtText}${p.savedBy ? ` by ${p.savedBy}` : ""}.`}>
           {unsaved ? `${studentsWord(unsaved)} not marked yet: tap P, A or L for each, then save. ` : ""}
-          {p.locked ? `It locked at ${p.lockText}; your changes are recorded in the audit log.` : `You can change it until ${p.lockText}.`}
+          {p.locked ? `It locked at ${p.lockText}; the school keeps a record of who changed it and when.` : `You can change it until ${p.lockText}.`}
         </Banner>
       ) : p.locked && !p.saved ? (
         <Banner tone="warn" icon={Info} className="mb-4" title={`Not taken: nothing is saved for ${p.dateText}.`}>
-          <Words k="It locked at" /> {p.lockText}<Words k=". You may still take it; every change is recorded in the audit log." />{p.defaultStatus === "present" ? " Everyone starts as present until you save." : ""}
+          <Words k="It locked at" /> {p.lockText}<Words k=". You may still take it; the school keeps a record of who changed it and when." />{p.defaultStatus === "present" ? " Everyone starts as present until you save." : ""}
         </Banner>
       ) : p.locked ? (
-        <Banner tone="info" icon={Info} className="mb-4" title={`Locked at ${p.lockText}.`}><Words k="You may still change it; every change is recorded in the audit log." /></Banner>
+        <Banner tone="info" icon={Info} className="mb-4" title={`Locked at ${p.lockText}.`}><Words k="You may still change it; the school keeps a record of who changed it and when." /></Banner>
       ) : p.defaultStatus === "present" && !p.saved ? (
         <Banner tone="info" icon={Info} className="mb-4" title="Not saved yet. Everyone starts as present."><Words k="Tap only the students who are absent or late, then save." /></Banner>
       ) : p.saved ? (
@@ -329,6 +329,9 @@ export function TakeSheet(p: Props) {
       {/* Save bar */}
       {!readOnly && (
         <div className="sticky bottom-[calc(68px+env(safe-area-inset-bottom))] md:bottom-0 z-20 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-3 bg-gradient-to-t from-bg via-bg to-bg/0">
+          {!savedNow && (counts.c.absent ?? 0) > 0 && (
+            <p className="text-[12.5px] text-ink2 text-center mb-1.5"><AbsentNote n={counts.c.absent ?? 0} /></p>
+          )}
           <Button variant="primary" size="lg" className={cx("w-full !h-14 !text-[16px] !whitespace-normal !leading-tight text-center shadow-pop", savedNow && "disabled:!opacity-100 !bg-surface !text-ink border border-line")} icon={savedNow ? Check : Save} loading={pending} onClick={save} disabled={savedNow}>
             {saveLabel}
           </Button>
@@ -423,4 +426,10 @@ function NoteSheet({ row, mark, statuses, extra, reasons, reason, onClose, onSav
       )}
     </Dialog>
   );
+}
+
+/** Said above the save button: saving messages the parents of absent students. */
+function AbsentNote({ n }: { n: number }) {
+  const t = useT();
+  return <>{n === 1 ? t("Saving tells the parent of the 1 absent student by message, once for the day.") : t("Saving tells the parents of the {n} absent students by message, once for the day.", { n })}</>;
 }

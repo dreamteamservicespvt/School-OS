@@ -55,6 +55,8 @@ type Props = {
   status: MarksPaperStatus; canEdit: boolean; canRequest: boolean; head: PaperHead; actions?: React.ReactNode; notes?: React.ReactNode;
   /** Exam Settings, Late joiners: "approval" adds late marks by a request; "off" leaves the student out. */
   lateMarks: "approval" | "off";
+  /** Exam Settings: an absent (AB) student counts as 0 marks, or is left out of the total. */
+  absentRule?: "zero" | "leave-out";
 };
 
 // Plain digits only: "1e2" is not 100 and "-5" is not 5 (QA LC9).
@@ -312,7 +314,7 @@ export function MarksGrid(props: Props) {
           <>
             <Stats items={[
               { label: gradeOnly ? "Graded" : "Entered", value: `${done} of ${students.length}`, tone: done === students.length ? "ok" : undefined, icon: ListChecks },
-              { label: "Absent (AB)", value: ab, sub: "Counted as the school's rule says", icon: UserX },
+              { label: "Absent (AB)", value: ab, sub: props.absentRule === "leave-out" ? "Left out of the total" : "Counted as 0 marks", icon: UserX },
               { label: "Medical (ML)", value: ml, sub: "Left out of the total", icon: Stethoscope },
               problems.length
                 ? { label: "Need a fix", value: problems.length, tone: "bad", icon: TriangleAlert }
@@ -440,10 +442,10 @@ export function MarksGrid(props: Props) {
         <div className="sticky bottom-16 md:bottom-0 mt-4 -mx-4 md:mx-0 px-4 md:px-0 pb-3 pt-3 bg-gradient-to-t from-bg via-bg to-bg/0 z-20">
           <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 bg-surface border border-line rounded-2xl shadow-pop p-2 pl-4" aria-live="polite">
             {/* Shown on a phone too, so "Save now" visibly says it saved (self-test B4). */}
-            <p className={cx("text-[12.5px] basis-full sm:basis-auto sm:flex-1 min-w-0 truncate flex items-center gap-1.5", save.state === "error" ? "text-bad" : save.state === "offline" ? "text-warn" : "text-ink3")}>
+            <p className={cx("text-[12.5px] basis-full sm:basis-auto sm:flex-1 min-w-0 flex items-center gap-1.5 leading-snug", save.state === "error" ? "text-bad" : save.state === "offline" ? "text-warn" : "text-ink3")}>
               {save.state === "saving" ? <><Spinner size={13} /><Words k="Saving…" /></>
                 : save.state === "offline" || save.state === "error" ? <><CircleAlert size={13} aria-hidden="true" />{save.message}</>
-                : dirty.size ? <><Circle size={8} className="text-warn fill-current" aria-hidden="true" /><Words k="Saved on this device as you type" /></>
+                : dirty.size ? <><Circle size={8} className="text-warn fill-current" aria-hidden="true" /><Words k="Not sent to the school yet. Keep this page open, or tap Save now." /></>
                 : <><CircleCheck size={13} className="text-ok" aria-hidden="true" />{save.at ? `All marks saved at ${formatTime(save.at)}` : "Marks save as you type"}</>}
             </p>
             <Button variant="secondary" icon={Save} className="flex-1 sm:flex-none" onClick={() => void flush()} disabled={!dirty.size}><Words k="Save now" /></Button>
@@ -452,7 +454,7 @@ export function MarksGrid(props: Props) {
         </div>
       )}
 
-      <ActionSheet open={confirm} onClose={() => setConfirm(false)} title={`Submit ${props.paperLabel} marks?`} confirmLabel={`Submit ${students.length} marks`} confirmIcon={<Send size={16} />} pendingText="Submitting…" run={submit}>
+      <ActionSheet open={confirm} onClose={() => setConfirm(false)} title={`Submit ${props.paperLabel} marks?`} confirmLabel={`Submit marks of ${students.length} students`} confirmIcon={<Send size={16} />} pendingText="Submitting…" run={submit}>
         <div className="flex flex-col gap-3 text-[14px] text-ink2">
           <p>{head.examTitle} · {props.paperLabel}.</p>
           <ul className="grid grid-cols-3 gap-2 text-center">

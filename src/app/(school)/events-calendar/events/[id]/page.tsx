@@ -122,7 +122,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
     if (doing === "edit") return { classes: await tx.schoolClass.findMany({ where: { archivedAt: null }, select: { id: true, name: true }, orderBy: { sortOrder: "asc" } }) };
     if (doing === "remind") {
       const rule = await audienceRule(tx, e);
-      return { remindTo: rule.guardiansOf ? `the parents of ${rule.guardiansOf.length} registered students` : e.audienceKind === "staff" ? "all staff" : `the parents of ${e.audienceLabel.toLowerCase() === "whole school" ? "the whole school" : e.audienceLabel}` };
+      return { remindCount: rule.guardiansOf ? rule.guardiansOf.length : null, remindTo: rule.guardiansOf ? `the parents of ${rule.guardiansOf.length} registered students` : e.audienceKind === "staff" ? "all staff" : `the parents of ${e.audienceLabel.toLowerCase() === "whole school" ? "the whole school" : e.audienceLabel}` };
     }
     return {};
   });
@@ -285,7 +285,7 @@ export default async function EventPage({ params, searchParams }: { params: Prom
           start={{ id: e.id, campusId: e.campusId ?? "", name: e.name, type: e.type, date: isoOf(e.date), startTime: hhmm(e.startMin), endTime: e.endMin != null ? hhmm(e.endMin) : "", venue: e.venue ?? "", audienceKind: e.audienceKind, classIds: e.classIds, registrationOn: e.registrationOn, seats: e.seats ? String(e.seats) : "", fee: fee ? String(Number(fee) / 100) : "", reminder: e.reminder, description: e.description ?? "", consentOn: e.consentOn, consentBy: e.consentBy ? isoOf(e.consentBy) : "", feeLocked: Boolean(fee && d.regs.some((r) => r.dueId)) }} />
       )}
       {doing === "cancel" && !done && <CancelEventSheet closeHref={closeHref} eventId={e.id} name={e.name} fee={fee && n ? `Unpaid fees are removed; paid fees are refunded through Fee Management.` : null} />}
-      {doing === "remind" && "remindTo" in extra && <RemindSheet closeHref={closeHref} eventId={e.id} people={extra.remindTo ?? "the audience"} preview={reminderPreview} />}
+      {doing === "remind" && "remindTo" in extra && <RemindSheet closeHref={closeHref} eventId={e.id} people={extra.remindTo ?? "the audience"} count={"remindCount" in extra ? extra.remindCount ?? null : null} preview={reminderPreview} />}
       {doing === "register" && "pick" in extra && extra.pick && <RegisterSheet closeHref={closeHref} eventId={e.id} students={extra.pick} seatsLeft={e.seats != null ? Math.max(0, e.seats - n) : null} fee={fee ? formatRupees(fee) : null} />}
       {doing === "volunteer" && "staff" in extra && extra.staff && <VolunteerSheet closeHref={closeHref} eventId={e.id} staff={extra.staff.map((s) => ({ value: s.id, label: s.fullName }))} students={regRows.map((r) => ({ value: r.studentId, label: `${name(r.studentId)}, ${placeOf(r.studentId)}` }))} />}
       {doing === "consent" && "consentPick" in extra && extra.consentPick && <OfficeConsentSheet closeHref={closeHref} eventId={e.id} students={extra.consentPick} fee={fee ? formatRupees(fee) : null} />}

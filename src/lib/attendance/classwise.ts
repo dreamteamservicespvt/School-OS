@@ -231,7 +231,8 @@ export function sortSections(rows: SectionAttendance[], by: "low" | "class") {
 }
 
 /** Green 92% or more, amber 85% to 92%, red below 85% (the approved class-wise view). */
-export function attendanceTone(percent: number | null, notMarked = false): "ok" | "warn" | "bad" {
+export function attendanceTone(percent: number | null, notMarked = false, threshold = 85): "ok" | "warn" | "bad" {
   if (notMarked || percent === null) return "warn";
-  return percent >= 92 ? "ok" : percent >= 85 ? "warn" : "bad";
+  // Red follows the school's own threshold (Attendance Settings), as the register of one section does.
+  return percent < threshold ? "bad" : percent >= 92 ? "ok" : "warn";
 }

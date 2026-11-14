@@ -86,6 +86,7 @@ export default async function PaperPage({ params, searchParams }: { params: Prom
         canEdit={canEdit}
         canRequest={!open && page.writable && teaches}
         lateMarks={p.lateMarks}
+        absentRule={p.absentRule}
         head={{
           title: `${p.subject.name} · ${p.section.label}`, sectionShort: p.section.label.replace(/^Class /, ""), examTitle: p.exam.title,
           paperOn: `${formatDate(p.entry.date, tz)}, ${timeRange(p.entry.startTime, p.entry.durationMin)}`,

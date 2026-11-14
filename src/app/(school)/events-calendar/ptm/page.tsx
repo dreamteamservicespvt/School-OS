@@ -251,7 +251,9 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
         )}
         {status === "Done" && full && (
           <Banner tone="info" title={`Held on ${niceDay(iso)}: ${d.met.get(D.id) ?? 0} of ${d.booked.get(D.id) ?? 0} booked parents came.`}
-            action={plan && (D.summarySentAt ? <Pill tone="ok"><Words k="Summary sent" /> {dmy(isoOf(D.summarySentAt))}</Pill> : d.absent.length ? <ActButton action={summaryAction} fields={{ ptmId: D.id }} icon="Send" label={`Send summary to ${d.absent.length} absent`} /> : null)}>
+            action={plan && (D.summarySentAt ? <Pill tone="ok"><Words k="Summary sent" /> {dmy(isoOf(D.summarySentAt))}</Pill> : d.absent.length ? <ActButton action={summaryAction} fields={{ ptmId: D.id }} icon="Send" label={<><Words k="Send summary to" /> {d.absent.length} <Words k="parents who did not come" /></>}
+              confirm={{ title: `Send the PTM summary to ${d.absent.length} ${d.absent.length === 1 ? "parent" : "parents"} who did not come?`, confirmLabel: `Send to ${d.absent.length} ${d.absent.length === 1 ? "parent" : "parents"}`,
+                body: <><Words k="One message to each family. Cost: about" /> {d.absent.length} <Words k="credits. A message cannot be unsent." /></> }} /> : null)}>
             <Words k="Notes are on each student’s profile, Activities tab." />
           </Banner>
         )}

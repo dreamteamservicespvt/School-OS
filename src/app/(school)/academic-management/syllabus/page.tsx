@@ -137,11 +137,11 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
                     </div>
                     {b.total > 0 && (
                       <>
-                        <div className="relative mt-3 h-2.5 rounded-full bg-surface-3" role="img" aria-label={`${b.completedPct}% completed, ${b.plannedPct}% planned by today`}>
+                        <div className="relative mt-3 h-2.5 rounded-full bg-surface-3" role="img" aria-label={`${b.completedPct}% completed, should be ${b.plannedPct}% done by today`}>
                           <div className={`h-full rounded-full ${behind ? "bg-danger" : "bg-success"}`} style={{ width: `${b.completedPct}%` }} />
-                          <div className="absolute -top-1 h-4.5 w-0.5 bg-ink" style={{ left: `${b.plannedPct}%` }} title={`Planned by today: ${b.plannedPct}%`} />
+                          <div className="absolute -top-1 h-4.5 w-0.5 bg-ink" style={{ left: `${b.plannedPct}%` }} title={`Should be done by today: ${b.plannedPct}%`} />
                         </div>
-                        <p className="mt-2 text-sm text-ink-2">{b.done} <Words k="of" /> {b.total} <Words k="topics done ·" /> {b.plannedPct}<Words k="% planned by today" /></p>
+                        <p className="mt-2 text-sm text-ink-2">{b.done} <Words k="of" /> {b.total} <Words k="topics done ·" /> <Words k="should be" /> {b.plannedPct}<Words k="% done by today" /></p>
                         <p className={`mt-1 text-sm ${b.late.length ? "font-medium text-danger" : "text-success"}`}>{lateWords(b.late)}</p>
                       </>
                     )}
@@ -163,10 +163,10 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
             <div className="no-print mb-4 flex flex-wrap items-end gap-3">
               <ParamSelect name="class" label="Class" current={data.classId} clear={["subject", "section"]} options={data.classes.map((c) => ({ value: c.id, label: c.name }))} />
               {data.subjects.length > 0 && <ParamSelect name="subject" label="Subject" current={data.subjectId} options={data.subjects.map((s) => ({ value: s.id, label: s.name }))} />}
-              {data.sections.length > 0 && <ParamSelect name="section" label="Status for" current={data.sectionId} placeholder="No section (plan only)" options={data.sections.map((s) => ({ value: s.id, label: `Section ${s.name}` }))} />}
+              {data.sections.length > 0 && <ParamSelect name="section" label="Show progress of" current={data.sectionId} placeholder="No section: just the plan" options={data.sections.map((s) => ({ value: s.id, label: `Section ${s.name}` }))} />}
             </div>
             {data.subjects.length === 0 ? (
-              <EmptyState title="No subjects mapped to this class"><Words k="Map subjects to the class in Subjects first." /></EmptyState>
+              <EmptyState title="No subjects added to this class yet" action={page.scope.manage ? <ButtonLink href="/academic-management/subjects" variant="secondary"><Words k="Open Subjects" /></ButtonLink> : undefined}><Words k="Add the subjects this class studies on the Subjects page." /></EmptyState>
             ) : (
               <SyllabusView tree={data.tree} canEdit={scope.manage && page.writable} where={{ yearId: year.id, classId: data.classId, subjectId: data.subjectId }} showStatus={Boolean(data.sectionId)} yearIds={page.years.map((y) => y.id)} />
             )}

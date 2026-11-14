@@ -163,7 +163,7 @@ export default async function StudentLeavePage({ searchParams }: Props) {
         </Card>
         {!ownOnly && (
           <Banner tone="info" title="Who decides:">
-            <Words k="class teachers decide for their own section up to" /> {data.settings.classTeacherLeaveDays} <Words k="days. Longer leave" />{data.settings.quotaOverNeedsApproval ? ", and leave over the quota," : ""} <Words k="goes to the Principal. Set in Attendance Settings, Student leave." />
+            <Words k="class teachers decide for their own section up to" /> {data.settings.classTeacherLeaveDays} <Words k="days. Longer leave" />{data.settings.quotaOverNeedsApproval ? ", and leave over the limit," : ""} <Words k="goes to the Principal. Set in Attendance Settings, Student leave." />
           </Banner>
         )}
         {data.types.length === 0 && <Banner tone="warn" title="No leave types yet."><Words k="Add student leave types in Attendance Settings, Student leave." /></Banner>}
@@ -187,7 +187,7 @@ export default async function StudentLeavePage({ searchParams }: Props) {
           <div className="flex flex-col gap-4">
             {o.r.status === "WAITING" && !o.decidable.has(o.r.id) && (
               <Banner tone="info" title={`Waiting for ${o.waitingFor ?? "the approver"}.`}>
-                {o.r.recordedById === current.user.id ? "You recorded it; someone else decides." : `It is past ${ownOnly ? "your" : "the class teacher's"} limit, or over the quota, so the Principal decides.`}
+                {o.r.recordedById === current.user.id ? "You recorded it; someone else decides." : `It is past ${ownOnly ? "your" : "the class teacher's"} limit, or over the leave limit, so the Principal decides.`}
               </Banner>
             )}
             <div className="rounded-xl border border-line pt-4">
@@ -197,7 +197,7 @@ export default async function StudentLeavePage({ searchParams }: Props) {
                 ["Leave type", o.typeNames.get(o.r.leaveTypeId) ?? "Leave"],
                 ["Dates", `${formatDate(o.r.fromDate, "UTC")} to ${formatDate(o.r.toDate, "UTC")}${o.r.halfDay ? " · half day" : ""}`],
                 ["School days", Number(o.r.days) === 0.5 ? "Half a day" : String(Number(o.r.days))],
-                ["Balance", o.quota ?? "No quota for this type"],
+                ["Balance", o.quota ?? "No limit for this type"],
                 ["Reason", o.r.reason],
                 ["Recorded by", `${o.users.get(o.r.recordedById ?? "") ?? "Staff"} · for the parent`],
               ]} />

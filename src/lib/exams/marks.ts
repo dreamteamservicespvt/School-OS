@@ -64,6 +64,7 @@ export async function loadPaper(tx: Tx, ctx: SchoolContext, entryId: string, sec
     entry, exam: entry.exam, section, subject, students, marks, paper,
     categories: categoriesOf(entry), gradeList: settings.gradeOnlyGrades, bands: scale.bands, waiting,
     lateMarks: settings.lateMarks === "off" ? "off" as const : "approval" as const,
+    absentRule: settings.absentRule === "leave-out" ? "leave-out" as const : "zero" as const,
   };
 }
 

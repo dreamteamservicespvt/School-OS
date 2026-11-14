@@ -121,8 +121,8 @@ export default async function RegisterPage({ searchParams }: Props) {
       <ViewYearStrip year={yearView} back={backToThisYear(`${BASE}/register`, sp)} />
 
       {data.sections.length === 0 ? (
-        <EmptyState title="No classes to show" Icon={Users}>
-          {access.students === "all" ? "No sections are set up for this academic year yet. Add them in Academic Setup." : "You are not class teacher or subject teacher of any section this year."}
+        <EmptyState title="No classes to show" Icon={Users} action={access.students === "all" ? <ButtonLink href="/academic-management" variant="secondary"><Words k="Open Classes & Sections" /></ButtonLink> : undefined}>
+          {access.students === "all" ? "No sections are set up for this academic year yet. Add classes and sections in Academic Management." : "You are not class teacher or subject teacher of any section this year."}
         </EmptyState>
       ) : (
         <div className="flex flex-col gap-4">
@@ -213,7 +213,7 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
             <caption className="sr-only">{grid.section.name}, {grid.label}<Words k=": students down the side, school days across" /></caption>
             <thead>
               <tr className="text-ink3">
-                <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-4 py-2 min-w-[180px] border-y border-line"><Words k="Student" /></th>
+                <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-3 sm:px-4 py-2 min-w-[124px] sm:min-w-[180px] border-y border-line"><Words k="Student" /></th>
                 {shown.map((d) => (
                   <th key={d.iso} scope="col" title={d.off ?? undefined} className="font-semibold px-1 py-2 w-10 tnum border-y border-line">
                     {d.day}<span className="block text-[10px] font-medium">{d.weekday.slice(0, 2)}</span>
@@ -227,8 +227,9 @@ function ClassGrid({ grid, byKey, statuses, cellHref, statusFilter, threshold, t
                 const p = r.summary.percent;
                 return (
                   <tr key={r.id} className="group">
-                    <th scope="row" className="sticky left-0 z-10 bg-surface px-4 py-1.5 font-medium text-left whitespace-nowrap border-b border-line/60 group-last:border-0">
-                      <span className="text-ink3 tnum mr-2 inline-block w-5">{r.roll ?? "–"}</span>{r.name}
+                    <th scope="row" className="sticky left-0 z-10 bg-surface px-3 sm:px-4 py-1.5 font-medium text-left whitespace-nowrap border-b border-line/60 group-last:border-0">
+                      {/* On a phone the name column is narrow, so more days fit; the full name is in the title. */}
+                      <span className="flex items-center max-w-[100px] sm:max-w-none" title={r.name}><span className="text-ink3 tnum mr-2 inline-block w-5 shrink-0">{r.roll ?? "–"}</span><span className="truncate">{r.name}</span></span>
                     </th>
                     {shown.map((d) => {
                       const label = `${r.name}, ${d.day} ${grid.label}`;
@@ -383,7 +384,7 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
       {!data ? (
         <EmptyState title="No academic year running now" Icon={CalendarDays}><Words k="Attendance shows here once the academic year has started and its sections are set up in Academic Management." /></EmptyState>
       ) : data.cw.sections.length === 0 ? (
-        <EmptyState title="No classes to show" Icon={Users}><Words k="No sections are set up for this academic year yet. Add them in Academic Setup." /></EmptyState>
+        <EmptyState title="No classes to show" Icon={Users} action={<ButtonLink href="/academic-management" variant="secondary"><Words k="Open Classes & Sections" /></ButtonLink>}><Words k="No sections are set up for this academic year yet. Add classes and sections in Academic Management." /></EmptyState>
       ) : (
         <div className="flex flex-col gap-5 lg:gap-6">
           <NotMarkedCard rows={data.notMarked} lockText={lock.atText} locked={lock.locked} canRemind={access.students === "all"} tz={tz} />
@@ -392,7 +393,7 @@ async function WholeSchool({ sp }: { sp: Record<string, string | string[] | unde
               {data.messages?.notSent ? "Those parents were not told by message. The class teacher sees the same line on Take Attendance." : "Parents of students marked absent are told once for the day."}
             </Banner>
           )}
-          <ClassWiseView cw={data.cw} sort={sort} group={group} href={href} period={{ ...dates }} today={isToday} />
+          <ClassWiseView cw={data.cw} sort={sort} group={group} href={href} period={{ ...dates }} today={isToday} threshold={settings.thresholdPercent} />
         </div>
       )}
     </>

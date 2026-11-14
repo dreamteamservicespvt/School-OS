@@ -63,7 +63,7 @@ describe("bringing in an old software's workbook", () => {
         ["", "", "", "", "", "", "", "", ""],
         ["Total", 4],
       ],
-      Staff: [["Employee Name", "Mobile No", "Designation", "DOJ"], ["Anita Rao", "9876544444", "PGT", "01-06-2019"], ["Ramu", "9876555555", "Peon", "01/07/2020"], ["Sita Devi", "9876566666", "Librarian", "1 Aug 2021"]],
+      Staff: [["Employee Name", "Mobile No", "Designation", "DOJ"], ["Anita Rao", "9876544444", "PGT", "01-06-2019"], ["Ramu", "9876555555", "Peon", "01/07/2020"], ["Sita Devi", "9876566666", "Lab Assistant", "1 Aug 2021"]],
       Notes: [["just a note"]],
     });
     const ids = await upload(buf, "old-software-export.xlsx");
@@ -139,9 +139,9 @@ describe("bringing in an old software's workbook", () => {
 
   it("matches staff designations by the words schools use, and adds new ones to HR Settings", async () => {
     const w = await withSchool(ctx, (tx) => workOn(tx, ctx, staffFile, { check: false }));
-    expect(w.prepared.rows.map((r) => r.values.designation)).toEqual(["Teacher", "Support Staff", "Librarian"]);
-    expect(w.prepared.unmatched.map((u) => u.value)).toEqual(["Librarian"]);
-    await withSchool(ctx, (tx) => addMissingOptions(tx, ctx, staffFile, "designation", ["Librarian"]));
+    expect(w.prepared.rows.map((r) => r.values.designation)).toEqual(["Teacher", "Support Staff", "Lab Assistant"]);
+    expect(w.prepared.unmatched.map((u) => u.value)).toEqual(["Lab Assistant"]);
+    await withSchool(ctx, (tx) => addMissingOptions(tx, ctx, staffFile, "designation", ["Lab Assistant"]));
     const c = await withSchool(ctx, (tx) => workOn(tx, ctx, staffFile, { check: true }));
     expect(c.prepared.unmatched).toHaveLength(0);
     expect(c.checked!.problems).toEqual([]);

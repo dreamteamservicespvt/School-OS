@@ -79,5 +79,6 @@ export const employmentSchema = z.object({
   joiningDate: dateField("Joining date"),
   employmentType: z.string().trim().refine((v) => (EMPLOYMENT_TYPES as readonly string[]).includes(v), { message: "Choose an employment type." }),
   reportingToId: optionalUuid,
-  campusId: optionalUuid,
+  // A one-campus school has no Campus field in Employment (owner live test 14 Nov: saving said "Required").
+  campusId: optionalUuid.optional(),
 });

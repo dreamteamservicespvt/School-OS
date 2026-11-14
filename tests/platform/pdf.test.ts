@@ -39,6 +39,44 @@ describe("htmlToPdf", () => {
   }, 60_000);
 });
 
+describe("a kept browser that went dead", () => {
+  // Live 14 Nov: Vercel froze the server between requests, so the kept browser still said "connected" but
+  // could not print, and every second receipt came out as the "could not be made" page.
+  it("is replaced by a fresh browser and the PDF is still made", async () => {
+    let launches = 0;
+    vi.doMock("playwright-core", async (orig) => {
+      const real = (await orig()) as typeof import("playwright-core");
+      return {
+        ...real,
+        chromium: {
+          ...real.chromium,
+          launch: async (...a: Parameters<typeof real.chromium.launch>) => {
+            const b = await real.chromium.launch(...a);
+            launches++;
+            if (launches === 1) {
+              let uses = 0;
+              const realNew = b.newContext.bind(b);
+              b.newContext = (async (o?: Parameters<typeof b.newContext>[0]) => {
+                if (++uses > 1) throw new Error("Target page, context or browser has been closed");
+                return realNew(o);
+              }) as typeof b.newContext;
+            }
+            return b;
+          },
+        },
+      };
+    });
+    vi.resetModules();
+    const { htmlToPdf } = await import("@/lib/pdf");
+    expect((await htmlToPdf(RECEIPT)).subarray(0, 5).toString()).toBe("%PDF-");
+    expect((await htmlToPdf(RECEIPT)).subarray(0, 5).toString()).toBe("%PDF-");
+    expect(launches).toBe(2);
+    expect((await htmlToPdf(RECEIPT)).subarray(0, 5).toString()).toBe("%PDF-");
+    expect(launches).toBe(2);
+    vi.doUnmock("playwright-core");
+  }, 120_000);
+});
+
 describe("the serverless browser", () => {
   it("is used on Vercel and AWS Lambda only when CHROMIUM_PATH is not set", async () => {
     const { onServerless } = await import("@/lib/pdf");

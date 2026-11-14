@@ -123,15 +123,45 @@ export function addToHead(html: string, extra: string) {
 
 export type PdfOptions = { format?: "A4" | "A5" | "Letter"; landscape?: boolean; width?: string; height?: string; margin?: string };
 
+/** Drops the shared browser (and closes it) so the next PDF starts a fresh one. */
+async function dropBrowser(b: Browser) {
+  if (browser) {
+    const current = await browser.catch(() => null);
+    if (current === b) browser = null;
+  }
+  await b.close().catch(() => {});
+}
+
+/**
+ * A browser kept from an earlier request can be dead while it still says it is
+ * connected: Vercel freezes the server between requests. Live, every second
+ * receipt came out as the "could not be made" page (school demo check, 14 Nov).
+ * So a failed print on a kept browser starts a fresh browser and prints once more.
+ */
 export async function htmlToPdf(html: string, opts: PdfOptions = {}): Promise<Buffer> {
-  let b: Browser;
+  const content = onServerless() ? addToHead(html, await indianFontCss()) : html;
+  let first: Browser;
   try {
-    b = await getBrowser();
+    first = await getBrowser();
   } catch (e) {
     console.error("PDF: the browser could not start.", e);
     throw new PdfUnavailableError(html, e);
   }
-  const content = onServerless() ? addToHead(html, await indianFontCss()) : html;
+  try {
+    return await printWith(first, content, opts);
+  } catch (e) {
+    console.error("PDF: printing failed; trying once more with a fresh browser.", e);
+    await dropBrowser(first);
+  }
+  try {
+    return await printWith(await getBrowser(), content, opts);
+  } catch (e) {
+    console.error("PDF: the document could not be printed.", e);
+    throw new PdfUnavailableError(html, e);
+  }
+}
+
+async function printWith(b: Browser, content: string, opts: PdfOptions): Promise<Buffer> {
   let context;
   try {
     context = await b.newContext({ javaScriptEnabled: false });
@@ -149,9 +179,6 @@ export async function htmlToPdf(html: string, opts: PdfOptions = {}): Promise<Bu
       margin: { top: margin, bottom: margin, left: margin, right: margin },
     });
     return Buffer.from(pdf);
-  } catch (e) {
-    console.error("PDF: the document could not be printed.", e);
-    throw new PdfUnavailableError(html, e);
   } finally {
     await context?.close().catch(() => {});
   }

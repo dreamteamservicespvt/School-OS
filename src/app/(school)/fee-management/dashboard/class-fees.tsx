@@ -24,8 +24,12 @@ export const FEE_SORTS: { value: FeeSort; label: string }[] = [
   { value: "pct", label: "Lowest collected first" }, { value: "class", label: "Class order" },
 ];
 
-export function ClassFees({ data, sort, group, href, classHref, today }: {
+const PHONE_FIRST = 6;
+
+export function ClassFees({ data, sort, group, href, classHref, today, all = false }: {
   data: FeesByClass; sort: FeeSort; group: string;
+  /** Show every class on a phone too (?fall=1). On a phone the list starts with the first 6 (layman loop 15 Nov: 20 tiles to scroll). */
+  all?: boolean;
   href: (change: Record<string, string | null>) => string;
   classHref: (sectionId: string) => string;
   today: Date;
@@ -63,10 +67,10 @@ export function ClassFees({ data, sort, group, href, classHref, today }: {
           <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No students with fees yet. Classes show here once fee plans are assigned." /></p>
         ) : (
           <ul className="grid sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-2.5 p-3">
-            {list.map((s) => {
+            {list.map((s, i) => {
               const tone = feeTone(s.percent);
               return (
-                <li key={s.sectionId} className="min-w-0">
+                <li key={s.sectionId} className={cx("min-w-0", !all && i >= PHONE_FIRST && "hidden sm:block")}>
                   <Link href={classHref(s.sectionId)} className="flex flex-col gap-2.5 h-full rounded-xl border border-line bg-surface p-3.5 hover:bg-sunken/60 hover:border-ink3/40 transition min-w-0">
                     <span className="flex items-center gap-3 min-w-0">
                       <span className={cx("w-11 h-11 rounded-xl grid place-items-center shrink-0 text-[12.5px] font-bold", BG[tone])} aria-hidden="true">{short(s.name)}</span>
@@ -89,6 +93,9 @@ export function ClassFees({ data, sort, group, href, classHref, today }: {
               );
             })}
           </ul>
+        )}
+        {list.length > PHONE_FIRST && !all && (
+          <div className="sm:hidden px-3 pb-3"><Link href={href({ fall: "1" })} className="flex h-11 items-center justify-center rounded-xl border border-line text-[14px] font-semibold text-brand hover:bg-sunken"><Words k="Show all {n} classes" vars={{ n: String(list.length) }} /></Link></div>
         )}
         <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="Green is 90% or more collected, amber 80% to 90%, red below 80%. Left to pay on a class is everything not paid yet, late or not late. Due amounts include fees falling due in the next 30 days." /></p>
       </Card>

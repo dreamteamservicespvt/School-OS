@@ -6169,6 +6169,7 @@ export const te: Catalogue = {
   "The rows it covered are due again, from what is still unpaid. Payments already made do not change. The record stays with your reason.": "ఇది కవర్ చేసిన వరుసలు ఇంకా చెల్లించని దాని నుండి మళ్ళీ చెల్లించాల్సినవి అవుతాయి. ఇప్పటికే చేసిన చెల్లింపులు మారవు. రికార్డ్ మీ కారణంతో ఉంటుంది.",
   "It stops applying at Collect Fee. Discounts it already gave stay on the receipts.": "ఇది ఫీజు వసూలులో వర్తించడం ఆగిపోతుంది. ఇప్పటికే ఇచ్చిన తగ్గింపులు రసీదులపై ఉంటాయి.",
   "No students with fees yet. Classes show here once fee plans are assigned.": "ఇంకా ఫీజులు ఉన్న విద్యార్థులు లేరు. ఫీజు ప్లాన్‌లు కేటాయించిన తర్వాత తరగతులు ఇక్కడ కనిపిస్తాయి.",
+  "Show all {n} classes": "మొత్తం {n} తరగతులు చూపించండి",
   "Collected": "వసూలైంది",
   "Pending": "పెండింగ్",
   "Green is 90% or more collected, amber 80% to 90%, red below 80%. Due so far counts fees falling due in the next 30 days, the same as Pending above.": "ఆకుపచ్చ 90% లేదా ఎక్కువ వసూలు, పసుపు 80% నుండి 90%, ఎరుపు 80% కంటే తక్కువ. ఇప్పటివరకు చెల్లించాల్సినదిలో తదుపరి 30 రోజుల్లో గడువు ఉన్న ఫీజులు లెక్కించబడతాయి, పైన పెండింగ్ లాగానే.",

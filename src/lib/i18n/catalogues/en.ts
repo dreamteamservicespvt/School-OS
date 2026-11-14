@@ -1987,6 +1987,7 @@ export const EN = [
   "Admissions",
   // src/app/(school)/fee-management/dashboard/class-fees.tsx
   "No students with fees yet. Classes show here once fee plans are assigned.",
+  "Show all {n} classes",
   "Collected",
   "Pending",
   "Green is 90% or more collected, amber 80% to 90%, red below 80%. Due so far counts fees falling due in the next 30 days, the same as Pending above.",

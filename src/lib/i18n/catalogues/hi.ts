@@ -6169,6 +6169,7 @@ export const hi: Catalogue = {
   "The rows it covered are due again, from what is still unpaid. Payments already made do not change. The record stays with your reason.": "इसकी पंक्तियाँ अभी बाकी राशि से फिर देय हो जाती हैं। किए गए भुगतान नहीं बदलते। रिकॉर्ड आपके कारण के साथ रहता है।",
   "It stops applying at Collect Fee. Discounts it already gave stay on the receipts.": "यह फ़ीस लें में लागू होना बंद हो जाता है। दी जा चुकी छूट रसीदों पर रहती है।",
   "No students with fees yet. Classes show here once fee plans are assigned.": "अभी फ़ीस वाले कोई विद्यार्थी नहीं। फ़ीस योजनाएँ देने पर कक्षाएँ यहाँ दिखती हैं।",
+  "Show all {n} classes": "सभी {n} कक्षाएँ दिखाएँ",
   "Collected": "वसूला गया",
   "Pending": "बाकी",
   "Green is 90% or more collected, amber 80% to 90%, red below 80%. Due so far counts fees falling due in the next 30 days, the same as Pending above.": "हरा 90% या ज़्यादा वसूली, पीला 80% से 90%, लाल 80% से कम। अब तक देय में अगले 30 दिनों में देय फ़ीस गिनी जाती है, ऊपर “बाकी” की तरह।",

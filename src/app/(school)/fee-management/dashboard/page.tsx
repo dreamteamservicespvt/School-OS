@@ -170,7 +170,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
           </Banner>
         )}
 
-        <ClassFees data={tiles.byClass} sort={feeSort} group={feeGroup} today={today}
+        <ClassFees data={tiles.byClass} sort={feeSort} group={feeGroup} today={today} all={one(sp.fall) === "1"}
           href={(change) => `${qs(HREF, { ...keep, fsort: feeSort === "overdue" ? null : feeSort, fgroup: feeGroup === "all" ? null : feeGroup, ...change })}#by-class`}
           classHref={(id) => `${HREF}/class/${id}`} />
 

@@ -16,7 +16,14 @@ Progress page: see docs/HANDOFF.md (link).
 2. Staff Attendance calendar: month dropdown with one choice looks broken ("UI corrupted") → fix it and every one-choice dropdown on the platform.
 3. Admissions Pipeline is confusing; cards hard to use → redesign simply.
 4. WhatsApp is not working → find out why (read-only in the Dream Team Services Chrome, never touch the gym's setup); test sends only to 9390011378, checked in WhatsApp Web (chsrinu4644 Chrome, device 69dcd765).
-5. WhatsApp only: switch off normal SMS by default everywhere (not implemented now).
+5. WhatsApp only: switch off normal SMS by default everywhere (not implemented now). → agent running.
+6. Founder review: "the software looks heavy with text, clumsy and confusing" → a "less text" pass over every screen (next round).
+
+### WhatsApp: why it does not work (found 15 Nov, read-only on live)
+- Connected and sending for real (own WhatsApp Business number, last test passed 04-11, 497 credits). Only 3 messages ever went.
+- 26 of 27 WhatsApp templates are "Not submitted"; only "School connection test" is approved. WhatsApp only lets a business start a chat with an approved template.
+- ROOT CAUSE IN OUR CODE: the built-in template texts end with "- {school_name}"; WhatsApp refuses a text that ends with a blank, so School OS (correctly) refuses to submit them. The school's General announcement also has too many blanks for its length.
+- Fix: (1) WhatsApp-ready default texts + a test that every default passes; (2) a one-click "make WhatsApp-ready" for existing schools' untouched, never-submitted texts (new version, old kept); (3) "send all for approval". Real submission to Meta only after the owner deploys (no deploy until Monday).
 
 ## Mindsets (one per round, then start over)
 

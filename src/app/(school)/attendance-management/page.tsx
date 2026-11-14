@@ -5,7 +5,7 @@ import { CalendarOff, CalendarX2, Users } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { formatTime } from "@/lib/format";
 import { attendancePage } from "@/lib/attendance/page";
-import { AttendanceProblem, BASE } from "@/lib/attendance/access";
+import { AttendanceProblem, BASE, takesAttendance } from "@/lib/attendance/access";
 import { loadSheet, takeChoices, dayText } from "@/lib/attendance/marks";
 import { dayInfo, offDayMessage } from "@/lib/attendance/calendar";
 import { absenceMessagesOn, messageCountText } from "@/lib/attendance/alerts";
@@ -34,7 +34,8 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
   const sp = await searchParams;
   const { current, access, settings, features, tz, today, now } = await attendancePage();
   // The Principal and Vice Principal do not take a register: Attendance opens on the class-wise view (src/lib/duty.ts).
-  if (access.students === "none" || access.change === "none" || access.pages.take === "hidden") {
+  // A subject teacher in a once-a-day school has nothing to take: the class teacher does it, so they open the register (read only).
+  if (access.students === "none" || access.change === "none" || access.pages.take === "hidden" || !takesAttendance(access, features.has("attendance-period-wise"))) {
     redirect(access.students !== "none" ? `${BASE}/register` : access.studentLeave !== "none" ? `${BASE}/student-leave` : access.staff !== "none" ? `${BASE}/staff` : `${BASE}/reports`);
   }
   const offlineOn = features.has("attendance-offline");

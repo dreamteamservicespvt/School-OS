@@ -26,7 +26,7 @@ const BY_ROLE: Record<string, Shortcut[]> = {
     { label: "Add expense", href: "/finance-management/expenses?do=new", module: "finance-management" },
   ],
   teacher: [
-    { label: "Take Attendance", href: "/attendance-management", module: "attendance-management" },
+    { label: "Class attendance", href: "/attendance-management", module: "attendance-management" },
     { label: "My Time Table", href: "/academic-management", module: "academic-management" },
     { label: "Give homework", href: "/homework-learning", module: "homework-learning" },
     { label: "Marks Entry", href: "/examination-results", module: "examination-results" },

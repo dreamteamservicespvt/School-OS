@@ -10,7 +10,7 @@ import { writeAudit } from "../audit";
 import { requestApproval, type Decision } from "../approvals";
 import { formatDate } from "../format";
 import { isoDay } from "../staff/dates";
-import { AttendanceProblem, NotYoursError, sectionAllowed, staffLimit, type AttendanceAccess } from "./access";
+import { AttendanceProblem, mayChangeSection, NotYoursError, sectionAllowed, staffLimit, type AttendanceAccess } from "./access";
 import { attendanceSettings, statusList } from "./settings";
 import { queueAfterSave } from "./after-save";
 import { schoolDateOf } from "./time";
@@ -73,8 +73,7 @@ export async function requestCorrection(tx: Tx, ctx: SchoolContext, access: Atte
     const section = await tx.section.findFirst({ where: { id: input.sectionId, archivedAt: null }, include: { schoolClass: { select: { name: true, campusId: true } } } });
     if (!section || !sectionAllowed(access, section.id)) throw new AttendanceProblem("This class was not found.", "sectionId");
     // The daily register is the class teacher's; a subject teacher corrects only their period (as in Take Attendance).
-    const mine = access.students === "all" || access.classSections.includes(section.id) || (input.periodNo > 0 && access.teachingSections.includes(section.id));
-    if (!mine || access.change === "none") throw new NotYoursError();
+    if (!mayChangeSection(access, section.id, input.periodNo)) throw new NotYoursError();
     await assertSchoolDay(tx, ctx, input.date, section.academicYearId, section.schoolClass.campusId, input.today, section.classId);
     sectionName = `${section.schoolClass.name} ${section.name}`;
     const enrolled = await tx.enrolment.findMany({ where: { sectionId: section.id, studentId: { in: input.changes.map((c) => c.id) }, archivedAt: null }, include: { student: { select: { id: true, fullName: true } } } });

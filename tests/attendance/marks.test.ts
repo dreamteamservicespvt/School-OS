@@ -14,7 +14,7 @@ import { afterAttendanceSaved } from "@/lib/attendance/alerts";
 import { attendanceSummary } from "@/lib/attendance/summary";
 import { recordStudentLeave } from "@/lib/attendance/student-leave";
 import { OffDayError } from "@/lib/attendance/calendar";
-import { NotYoursError } from "@/lib/attendance/access";
+import { mayChangeSection, NotYoursError, registerSections, takesAttendance } from "@/lib/attendance/access";
 import { accessFor, as, at, d, makeAttendanceSchool, TZ, type Fixture } from "./fixture";
 
 let f: Fixture;
@@ -193,6 +193,21 @@ describe("the lock and corrections (rule 17, Done when 4)", () => {
     await expect(withSchool(as(f, f.teacherB.id), (tx) => requestCorrection(tx, as(f, f.teacherB.id), access, {
       forWhom: "student", sectionId: f.sectionA.id, date: d("2026-10-09"), periodNo: 0, changes: [{ id: f.studentsA[1].id, to: "absent" }], reason: "Not my class register", today: d("2026-10-16"),
     }))).rejects.toBeInstanceOf(NotYoursError);
+  });
+
+  it("a subject teacher reads the register of a class they teach but gets no Take Attendance and no way to change it", async () => {
+    const access = { ...(await accessFor(f, f.teacherB.id)), teachingSections: [f.sectionA.id] };
+    // Reads it: the section is in their register choices (to check the class strength).
+    expect(registerSections(access)).toContain(f.sectionA.id);
+    // Changes nothing in the class teacher's daily register; only their own period when period-wise.
+    expect(mayChangeSection(access, f.sectionA.id)).toBe(false);
+    expect(mayChangeSection(access, f.sectionA.id, 3)).toBe(true);
+    expect(mayChangeSection(access, f.sectionB.id)).toBe(true); // their own section as class teacher
+    const subjectOnly = { ...access, classSections: [] };
+    expect(takesAttendance(subjectOnly, false)).toBe(false);
+    expect(takesAttendance(subjectOnly, true)).toBe(true);
+    expect(takesAttendance(access, false)).toBe(true);
+    expect(mayChangeSection(await accessFor(f, f.principal.id), f.sectionA.id)).toBe(true);
   });
 
   it("the principal (lock override in Attendance Settings) may still change it, and it is audited", async () => {

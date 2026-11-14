@@ -116,7 +116,7 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
     q("/finance-management/day-book", "finance-management", "Day Book", "Today's money in and out", "BookOpen"),
   ],
   teacher: [
-    q("/attendance-management", "attendance-management", "Take attendance", "Your classes today", "CalendarCheck2"),
+    q("/attendance-management", "attendance-management", "Class attendance", "Your periods, or the register of your classes", "CalendarCheck2"),
     q("/homework-learning", "homework-learning", "Give homework", "Class, subject, due date and done", "NotebookPen"),
     q("/examination-results/marks", "examination-results", "Enter marks", "Marks for your subjects", "ClipboardCheck"),
     q("/communication", "communication", "Message parents", "Only parents of your classes", "Send"),

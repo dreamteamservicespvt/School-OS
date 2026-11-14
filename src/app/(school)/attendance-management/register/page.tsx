@@ -15,7 +15,7 @@ import { withSchool } from "@/lib/db";
 import { attendancePage, onCampusFromPage } from "@/lib/attendance/page";
 import { backToThisYear, readViewYear } from "@/lib/academic/view-year";
 import { ViewYearStrip } from "@/components/view-year-strip";
-import { BASE, sectionLimit } from "@/lib/attendance/access";
+import { BASE, mayChangeSection, sectionLimit } from "@/lib/attendance/access";
 import { readMonth, registerChoices, registerMonth, registerYears } from "@/lib/attendance/register";
 import { clampMonth } from "@/lib/attendance/calendar-months";
 import { studentMonth } from "@/lib/attendance/integrations";
@@ -96,7 +96,9 @@ export default async function RegisterPage({ searchParams }: Props) {
     return p.size ? `${BASE}/register?${p}` : `${BASE}/register`;
   };
   // The School Admin reads the register; the Principal and Vice Principal may still correct a mark (prototype attendance.jsx).
-  const canChange = access.change !== "none" && access.pages.register === "full" && !yearView?.past;
+  // Only someone who keeps this section's register changes it: a subject teacher reads it (05-roles.md).
+  const canChange = access.change !== "none" && access.pages.register === "full" && !yearView?.past && Boolean(data.section && mayChangeSection(access, data.section.id));
+  const subjectOnly = !canChange && !yearView?.past && Boolean(data.section && access.students === "own" && !access.classSections.includes(data.section.id));
   const cellHref = (studentId: string, iso: string) => {
     if (!canChange || !data.section || !data.year || !access.yearIds.includes(data.year.id)) return null;
     const d = new Date(`${iso}T00:00:00Z`);
@@ -158,6 +160,9 @@ export default async function RegisterPage({ searchParams }: Props) {
           ) : (
             <EmptyState title="No students in this section" Icon={Users}><Words k="Students appear here once they are placed in the section." /></EmptyState>
           ))}
+          {subjectOnly && (
+            <Banner tone="info" title="View only: the class teacher keeps this register."><Words k="Use it to check the class strength and who was absent. To change a mark, ask the class teacher." /></Banner>
+          )}
           {canChange && (
             <p className="text-[13px] text-ink3"><Words k="Tap a mark to change it. After the lock time (" />{time12(settings.lockTime)}<Words k=") a change goes to Approvals as a correction request." /></p>
           )}

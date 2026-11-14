@@ -684,6 +684,11 @@ export const EN = [
   "Staff",
   // src/app/(school)/attendance-management/_components/staff-sheet.tsx
   "Request a correction",
+  "Class attendance",
+  "Your periods, or the register of your classes",
+  "View only: the class teacher keeps this register.",
+  "Use it to check the class strength and who was absent. To change a mark, ask the class teacher.",
+  "Only the class teacher corrects a class's attendance. Subject teachers can see the register; ask the class teacher to correct a mark.",
   "Send a correction message",
   "A correction sends no new message by itself. Send these parents a short correction message.",
   "Staff not yet marked can still be marked. A change to a saved mark needs a correction request.",

@@ -2,7 +2,7 @@ import { Eye, User } from "lucide-react";
 import { PageHeader } from "@/components/shell/page-header";
 import { Tabs, type Tab } from "@/components/ui/tabs";
 import { Pill } from "@/components/ui/badge";
-import { BASE, type AttendanceAccess } from "@/lib/attendance/access";
+import { BASE, takesAttendance, type AttendanceAccess } from "@/lib/attendance/access";
 import type { AttendanceFeature } from "@/lib/attendance/settings";
 import { Words } from "@/lib/i18n/client";
 
@@ -12,7 +12,7 @@ export function attendanceTabs(access: AttendanceAccess, features: Set<Attendanc
   const students = access.students !== "none";
   const shown = (mode: AttendanceAccess["pages"]["take"]) => mode !== "hidden";
   return [
-    ...(students && access.change !== "none" && shown(access.pages.take) ? [{ href: BASE, label: "Take Attendance", exact: true }] : []),
+    ...(students && shown(access.pages.take) && takesAttendance(access, features.has("attendance-period-wise")) ? [{ href: BASE, label: "Take Attendance", exact: true }] : []),
     ...(students && shown(access.pages.register) ? [{ href: `${BASE}/register`, label: "Attendance Register" }] : []),
     ...(access.studentLeave !== "none" && shown(access.pages.studentLeave) ? [{ href: `${BASE}/student-leave`, label: "Student Leave" }] : []),
     ...(access.staff !== "none" && shown(access.pages.staff) ? [{ href: `${BASE}/staff`, label: "Staff Attendance" }] : []),

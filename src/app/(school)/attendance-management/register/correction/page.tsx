@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { withSchool } from "@/lib/db";
 import { attendancePage } from "@/lib/attendance/page";
-import { BASE, staffLimit } from "@/lib/attendance/access";
+import { BASE, mayChangeSection, staffLimit } from "@/lib/attendance/access";
 import { registerChoices } from "@/lib/attendance/register";
 import { lockState, roster, sectionInfo, dayText } from "@/lib/attendance/marks";
 import { statusList, statusesFor } from "@/lib/attendance/settings";
@@ -51,7 +51,8 @@ export default async function CorrectionPage({ searchParams }: Props) {
         people: staff.map((s) => ({ id: s.id, label: `${s.fullName} (${s.staffCode})`, current: staffNow.get(s.id) ?? null, checked: ticked.has(s.id) })),
       };
     }
-    const sections = await registerChoices(tx, access);
+    // Only sections they may change: a subject teacher's own period when period-wise, never the class teacher's daily register.
+    const sections = (await registerChoices(tx, access)).filter((s) => mayChangeSection(access, s.id, periodNo));
     const section = sections.find((s) => s.id === one(sp.section)) ?? sections[0] ?? null;
     if (!section) return { statuses, sections, section: null, people: null, info: null };
     const info = await sectionInfo(tx, section.id);
@@ -75,7 +76,7 @@ export default async function CorrectionPage({ searchParams }: Props) {
       {forWhom === "staff" && access.staff !== "all" ? (
         <Banner tone="bad" title="Not for your role."><Words k="Only HR, the School Admin or the Principal can correct staff attendance. Ask them if your own attendance is wrong." /></Banner>
       ) : forWhom === "student" && data.sections.length === 0 ? (
-        <EmptyState title="No classes to correct" Icon={Users}><Words k="You are not class teacher or subject teacher of any section this year." /></EmptyState>
+        <EmptyState title="No classes to correct" Icon={Users}><Words k="Only the class teacher corrects a class's attendance. Subject teachers can see the register; ask the class teacher to correct a mark." /></EmptyState>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Card>

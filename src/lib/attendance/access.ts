@@ -152,7 +152,28 @@ export function canTakeDaily(a: AttendanceAccess, sectionId: string) {
   return a.change !== "none" && a.classSections.includes(sectionId);
 }
 
-const NOBODY = "00000000-0000-0000-0000-000000000000";
+/**
+ * May they change this section's marks, directly or by a correction request?
+ * The daily register is the class teacher's (05-roles.md): a subject teacher
+ * only reads it, and changes only their own period when attendance is period-wise.
+ */
+export function mayChangeSection(a: AttendanceAccess, sectionId: string, periodNo = 0) {
+  if (a.change === "none" || !sectionAllowed(a, sectionId)) return false;
+  if (a.students === "all") return true;
+  return a.classSections.includes(sectionId) || (periodNo > 0 && a.teachingSections.includes(sectionId));
+}
+
+/**
+ * Has Take Attendance anything for them? Whole-school roles and class teachers;
+ * with period-wise attendance, any teacher (their periods and substitutions).
+ * A subject teacher in a once-a-day school only reads the register.
+ */
+export function takesAttendance(a: AttendanceAccess, periodWise: boolean) {
+  if (a.change === "none" || a.students === "none") return false;
+  return a.students === "all" || a.classSections.length > 0 || (periodWise && Boolean(a.staffId));
+}
+
+const NOBODY ="00000000-0000-0000-0000-000000000000";
 
 /** Is this section on the person's campus? Always true for the whole school. */
 export function sectionAllowed(a: Pick<AttendanceAccess, "limitSections">, sectionId: string | null | undefined) {

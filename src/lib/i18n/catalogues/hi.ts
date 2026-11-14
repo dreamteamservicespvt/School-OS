@@ -34,6 +34,7 @@ export const hi: Catalogue = {
   "1 item": "1 काम",
   "{n} items": "{n} काम",
   "Nothing needs you right now": "अभी आपके लिए कुछ नहीं है",
+  "Show all {n}": "सभी {n} दिखाएँ",
   "New items show up here by themselves.": "नए काम यहाँ अपने-आप दिखेंगे।",
   "Mark as seen: {title}": "देखा गया मानें: {title}",
   "Mark as seen": "देखा गया मानें",

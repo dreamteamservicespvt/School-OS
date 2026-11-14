@@ -1276,6 +1276,7 @@ export const EN = [
   "1 item",
   "{n} items",
   "Nothing needs you right now",
+  "Show all {n}",
   "New items show up here by themselves.",
   "Mark as seen: {title}",
   "Mark as seen",

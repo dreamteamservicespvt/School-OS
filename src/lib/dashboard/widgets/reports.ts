@@ -43,10 +43,11 @@ const earlyWarnings: Widget<"attention"> = {
         id: "reports.early-warnings", tone: "bad", icon: "TriangleAlert",
         // The card counts students, once each, from attendance and marks (never fees alone, the owner's rule); the list
         // it opens shows every Act now flag, so its words say what is counted (gap list G36).
-        title: `Early warnings: ${closerLookWords(w.look)} (students counted once, from attendance and marks)`,
+        // Layman loop 15 Nov: "(students counted once, from attendance and marks)" read like a puzzle. The split stays in the detail.
+        title: `Early warnings: ${w.look.students} ${w.look.students === 1 ? "student needs" : "students need"} a closer look`,
         detail: reviews
-          ? `${w.actNowToReview ? `${w.actNowToReview} not reviewed yet. ` : ""}Only strong signs. The list also shows fee warnings. Nothing is sent or changed until you look at each one.`
-          : "Only strong signs. Fees stay in Fee Defaulters. Class teachers look at each one; you can remind them.",
+          ? `${lookSplit(w.look)}${w.actNowToReview ? `${w.actNowToReview} not reviewed yet. ` : ""}Only strong signs. The list also shows fee warnings. Nothing is sent or changed until you look at each one.`
+          : `${lookSplit(w.look)}Only strong signs. Fees stay in Fee Defaulters. Class teachers look at each one; you can remind them.`,
         action: reviews ? "Review" : "Open", href: ACT_NOW_HREF, value: `${w.look.students}:${w.look.attendance}:${w.look.marks}:${w.look.both}`,
       };
     }
@@ -138,3 +139,11 @@ const pinned: Widget<"panel"> = {
 };
 
 export const REPORTS_WIDGETS: readonly Widget[] = [brief, earlyWarnings, lookingAhead, pinned];
+
+/** "Attendance dropped for 3, marks for 9, both for 1. " (each student once). */
+function lookSplit(c: { attendance: number; marks: number; both: number }) {
+  const parts = [c.attendance ? `attendance dropped for ${c.attendance}` : null, c.marks ? `marks for ${c.marks}` : null, c.both ? `both for ${c.both}` : null].filter(Boolean) as string[];
+  if (!parts.length) return "";
+  const text = parts.join(", ");
+  return `${text.charAt(0).toUpperCase()}${text.slice(1)}. `;
+}

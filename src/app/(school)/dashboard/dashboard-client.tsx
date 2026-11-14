@@ -81,11 +81,16 @@ export function RefreshControl({ updated }: { updated: string }) {
 /* ---------- Needs your attention ---------- */
 const TONE_BG = { bad: "bg-bad/10 text-bad", warn: "bg-warn/12 text-warn", info: "bg-info/10 text-info" } as const;
 
+const ATTENTION_FIRST = 6;
+
 export function AttentionCard({ items, hiddenSeen }: { items: AttentionItem[]; hiddenSeen: number }) {
   const t = useT();
   const [pending, start] = useTransition();
   const [gone, setGone] = useState<Set<string>>(new Set());
+  const [all, setAll] = useState(false);
   const list = items.filter((n) => !gone.has(n.id));
+  // Layman loop 15 Nov: 20 rows made the principal's phone Dashboard 7,000 px long. The most urgent 6 first.
+  const shownList = all ? list : list.slice(0, ATTENTION_FIRST);
   const seen = (n: AttentionItem) => {
     setGone((s) => new Set(s).add(n.id));
     start(async () => { const problem = await markSeenAction(n.id, n.value); if (problem) setGone((s) => { const x = new Set(s); x.delete(n.id); return x; }); });
@@ -102,7 +107,7 @@ export function AttentionCard({ items, hiddenSeen }: { items: AttentionItem[]; h
         </div>
       ) : (
         <ul className="px-2 pb-2">
-          {list.map((n) => {
+          {shownList.map((n) => {
             const Ic = icon(n.icon);
             return (
               <li key={n.id}>
@@ -123,6 +128,13 @@ export function AttentionCard({ items, hiddenSeen }: { items: AttentionItem[]; h
             );
           })}
         </ul>
+      )}
+      {!all && list.length > ATTENTION_FIRST && (
+        <div className="px-4 pb-4 -mt-1">
+          <button type="button" onClick={() => setAll(true)} className="w-full h-11 rounded-xl border border-line text-[14px] font-semibold text-brand hover:bg-sunken">
+            {t("Show all {n}", { n: list.length })}
+          </button>
+        </div>
       )}
       {hiddenSeen > 0 && (
         <div className="px-5 pb-4 -mt-1">

@@ -34,6 +34,7 @@ export const te: Catalogue = {
   "1 item": "1 అంశం",
   "{n} items": "{n} అంశాలు",
   "Nothing needs you right now": "ప్రస్తుతం మీకు ఏ పనీ లేదు",
+  "Show all {n}": "మొత్తం {n} చూపించండి",
   "New items show up here by themselves.": "కొత్తవి ఇక్కడ వాటంతట అవే కనిపిస్తాయి.",
   "Mark as seen: {title}": "చూసినట్లు గుర్తించు: {title}",
   "Mark as seen": "చూసినట్లు గుర్తించు",

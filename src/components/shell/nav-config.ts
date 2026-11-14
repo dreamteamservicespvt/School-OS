@@ -99,7 +99,7 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
   ],
   "school-admin": [
     q("/student-management/new", "student-management", "Add student", "Name, class and parent phone is enough", "UserPlus"),
-    q("/admission-management", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
+    q("/admission-management/enquiries?do=add", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
     q("/communication", "communication", "Send a notice", "To parents, staff or a class", "Send"),
     q("/staff-hr-management/add", "staff-hr-management", "Add staff", "Name, role and phone to start", "UserPlus"),
     q("/attendance-management/register", "attendance-management", "Who has not marked attendance", "Remind the class teacher", "CalendarCheck2"),
@@ -132,7 +132,7 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
   ],
   receptionist: [
     q("/front-office/visitors?do=visitor", "front-office", "Add visitor", "Name, phone and who they meet", "IdCard"),
-    q("/admission-management", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
+    q("/admission-management/enquiries?do=add", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
     q("/front-office/pickup", "front-office", "Early pickup", "A parent is taking a child home", "Users"),
     q("/fee-management", "fee-management", "Collect fee", "Find a student and take payment", "IndianRupee"),
   ],
@@ -142,11 +142,11 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
   ],
   "office-staff": [
     q("/student-management/new", "student-management", "Add student", "Name, class and parent phone is enough", "UserPlus"),
-    q("/admission-management", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
+    q("/admission-management/enquiries?do=add", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
     q("/academic-management/substitutions", "academic-management", "Arrange substitute", "Periods with no teacher today", "ArrowRightLeft"),
   ],
   "admission-counsellor": [
-    q("/admission-management", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
+    q("/admission-management/enquiries?do=add", "admission-management", "Add enquiry", "A parent asked about admission", "PhoneIncoming"),
     q("/admission-management/applications", "admission-management", "New application", "Fill the form with the parent", "FileText"),
   ],
   "exam-in-charge": [

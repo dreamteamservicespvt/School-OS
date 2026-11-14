@@ -193,7 +193,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
   const actions = (
     <>
       {full && <ButtonLink href={`${PATH}/import`} variant="secondary" icon={Upload} className="hidden md:inline-flex"><Words k="Import" /></ButtonLink>}
-      {canAdd && <AddEnquiryButton c={choices} />}
+      {canAdd && <AddEnquiryButton c={choices} startOpen={raw.do === "add" && !shut} />}
     </>
   );
   const empty = filtered ? (

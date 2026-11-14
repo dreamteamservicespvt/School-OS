@@ -152,8 +152,9 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
   );
 }
 
-export function AddEnquiryButton({ c, variant = "primary", label = "Add enquiry", size = "md", className }: { c: EnquiryChoices; variant?: ButtonVariant; label?: string; size?: ButtonSize; className?: string }) {
-  const [open, setOpen] = useState(false);
+/** startOpen: the Dashboard's "Add enquiry" quick action (?do=add) opens the form at once, not just the list. */
+export function AddEnquiryButton({ c, variant = "primary", label = "Add enquiry", size = "md", className, startOpen = false }: { c: EnquiryChoices; variant?: ButtonVariant; label?: string; size?: ButtonSize; className?: string; startOpen?: boolean }) {
+  const [open, setOpen] = useState(startOpen);
   const [round, setRound] = useState(0);
   const router = useRouter();
   return (

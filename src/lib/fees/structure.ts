@@ -24,7 +24,8 @@ export type FeeHeadInput = {
   taxable: boolean;
   gstRateBp: number | null;
   sacCode: string | null;
-  bankAccountId: string | null;
+  /** Left out (undefined): the head keeps its account (the field is hidden while bank accounts per head are off). */
+  bankAccountId?: string | null;
   lateFeeApplies: boolean;
 };
 

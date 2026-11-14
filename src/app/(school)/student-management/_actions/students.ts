@@ -48,7 +48,9 @@ const addSchema = z.object({
   religion: optionalText("Religion", 60),
   motherTongue: optionalText("Mother tongue", 60),
   address: optionalText("Address", 300),
-  aadhaar,
+  // Shown only to people who may see restricted data; for others the form has no Aadhaar field (self-test 14 Nov:
+  // their every save said "Required").
+  aadhaar: aadhaar.optional().transform((v) => v ?? null),
   previousSchool: optionalText("Previous school", 200),
 });
 

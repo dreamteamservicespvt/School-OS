@@ -102,7 +102,8 @@ export async function saveClassAction(_: FormState<unknown>, fd: FormData) {
     };
     return saveClassRule(w.tx, w.ctx, w.v, {
       ...r, classId,
-      feePaise: fee,
+      // Hidden while the application fee is off: keep the saved fee (self-test 14 Nov: saving a class rule wiped it).
+      feePaise: fd.has("fee") ? fee : r.feePaise,
       onlineOpen: fd.get("onlineOpen") === "on",
       minAge: age("minAge", "lowest age"),
       maxAge: age("maxAge", "highest age"),

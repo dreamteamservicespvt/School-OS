@@ -59,7 +59,8 @@ export async function saveHeadAction(_prev: unknown, fd: FormData) {
       taxable,
       gstRateBp: taxable ? rate : null,
       sacCode: str(fd, "sacCode") || null,
-      bankAccountId: optionalId(fd, "bankAccountId"),
+      // Hidden while bank accounts per head are off: keep the head's account (self-test 14 Nov: editing cleared it).
+      bankAccountId: fd.has("bankAccountId") ? optionalId(fd, "bankAccountId") : undefined,
       lateFeeApplies: str(fd, "lateFeeApplies") === "on",
     }, headId ?? undefined);
     return { name: head.name, edited: Boolean(headId) };

@@ -43,3 +43,17 @@ export class OffDayError extends Error {
     this.name = "OffDayError";
   }
 }
+
+/** The next day attendance is taken after `after` (within 30 days), for "Attendance opens again on Monday 16 November". */
+export async function nextSchoolDay(tx: Tx, ctx: SchoolContext, after: Date, campusId?: string | null): Promise<Date | null> {
+  const day = 86_400_000;
+  const days = await schoolDays(tx, ctx, new Date(after.getTime() + day), new Date(after.getTime() + 30 * day), campusId);
+  return days.working[0] ?? null;
+}
+
+/** "Sunday · No school", "Holiday: Diwali": the one line a day off is called by (layman loop 15 Nov). */
+export function dayOffTitle(info: DayInfo, date: Date) {
+  if (info.reason === "holiday" && info.title) return `Holiday: ${info.title}`;
+  const weekday = date.toLocaleDateString("en-GB", { weekday: "long", timeZone: "UTC" });
+  return `${weekday} · No school`;
+}

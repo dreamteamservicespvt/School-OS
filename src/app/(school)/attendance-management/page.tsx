@@ -7,7 +7,7 @@ import { formatTime } from "@/lib/format";
 import { attendancePage } from "@/lib/attendance/page";
 import { AttendanceProblem, BASE, takesAttendance } from "@/lib/attendance/access";
 import { loadSheet, takeChoices, dayText } from "@/lib/attendance/marks";
-import { dayInfo, offDayMessage } from "@/lib/attendance/calendar";
+import { dayInfo, dayOffTitle, nextSchoolDay } from "@/lib/attendance/calendar";
 import { absenceMessagesOn, messageCountText } from "@/lib/attendance/alerts";
 import { clockHHMM } from "@/lib/attendance/time";
 import { day, isoDay } from "@/lib/staff/dates";
@@ -82,6 +82,7 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
   const sheet = data.sheet;
   const messageLine = "messages" in data ? messageCountText(data.messages ?? null, isoDay(date) === isoDay(today)) : null;
   const correctionHref = data.chosen ? `${BASE}/register/correction?section=${data.chosen.sectionId}&date=${isoDay(date)}${data.chosen.periodNo ? `&period=${data.chosen.periodNo}` : ""}` : `${BASE}/register`;
+  const nextDay = data.info && !data.info.on ? await withSchool(current.ctx, (tx) => nextSchoolDay(tx, current.ctx, date, access.campusId)) : null;
   const sub = data.chosen
     ? [data.chosen.name, data.chosen.periodLabel, longDay(date), data.teacher ? `Class teacher ${data.teacher}` : null].filter(Boolean).join(" · ")
     : longDay(date);
@@ -105,14 +106,16 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
           <Words k="This academic year starts on {date}. Days of earlier years are read in the Attendance Register." vars={{ date: dayText(data.year.startDate) }} />
         </EmptyState>
       ) : data.info && !data.info.on ? (
-        <>
-          <Banner tone="warn" icon={CalendarOff} className="mb-4" title={offDayMessage(data.info, date)}>
-            <Words k={"If the school is open that day, the School Admin can turn on \"allow attendance\" for the date in the School Calendar."} />
-          </Banner>
-          <EmptyState title="No attendance on this day" Icon={CalendarOff} action={isoDay(date) === isoDay(today) ? undefined : <Link href={BASE} className={buttonClass("secondary", "md")}><Words k="Go to today" /></Link>}>
-            <Words k="Holidays, Sundays and days off are left out of every %, report and register total." />
-          </EmptyState>
-        </>
+        // Layman loop 15 Nov (owner: "I don't like this"): a banner and an empty card both said there is no
+        // attendance. One calm card: what day it is, when attendance opens again, and the register.
+        <EmptyState title={dayOffTitle(data.info, date)} Icon={CalendarOff}
+          action={<div className="flex flex-wrap justify-center gap-2">
+            {isoDay(date) !== isoDay(today) && <Link href={BASE} className={buttonClass("primary", "md")}><Words k="Go to today" /></Link>}
+            <Link href={`${BASE}/register`} className={buttonClass("secondary", "md")}><Words k="Open the register" /></Link>
+          </div>}>
+          {nextDay ? <Words k="Attendance opens again on {day}." vars={{ day: longDay(nextDay) }} /> : <Words k="No school days in the next 30 days on the School Calendar." />}
+          {access.admin && <span className="block mt-2 text-[13px] text-ink3"><Words k="School open today after all?" /> <Link href="/events-calendar" className="underline"><Words k="Allow attendance for this date in the School Calendar" /></Link></span>}
+        </EmptyState>
       ) : data.problem ? (
         <Banner tone="bad" role="alert">{data.problem}</Banner>
       ) : !sheet ? (

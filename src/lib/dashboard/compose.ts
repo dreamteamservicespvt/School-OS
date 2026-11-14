@@ -345,6 +345,7 @@ export async function buildHome(person: Viewer, opts: { now?: Date; widgets?: re
     })
     .map((x) => x.item)
     .filter((b, i, all) => all.findIndex((o) => o.id === b.id) === i)
+    .reduce(oneDayOff, [] as BandItem[])
     .slice(0, 4);
 
   // Needs attention: duplicates merged by id, most urgent first, minus what the person marked Seen (until the number changes).
@@ -397,4 +398,20 @@ export async function buildHome(person: Viewer, opts: { now?: Date; widgets?: re
     tasks: { access, mine: mineRows, given: given.map((t) => row(t, "given")), left: mineTotal, mineTotal, givenTotal },
     failed,
   };
+}
+
+/**
+ * Layman loop 15 Nov (owner: "on Sunday it shows No school twice, in all the logins"): the tiles that say the same
+ * day off (Students present, Staff present, a class) become one "Today" tile, and the space goes to the next tile.
+ */
+function oneDayOff(acc: BandItem[], b: BandItem) {
+  const off = (x: BandItem) => x.big === "No school" || x.big === "Holiday";
+  const first = off(b) ? acc.find((x) => off(x) && x.big === b.big && x.foot === b.foot) : undefined;
+  if (first) {
+    first.label = "Today";
+    first.href = first.href ?? b.href;
+    return acc;
+  }
+  acc.push(b);
+  return acc;
 }

@@ -88,7 +88,7 @@ export default async function GalleryPage({ searchParams }: { searchParams: Sear
                     <span className="absolute right-2 bottom-2 h-6 px-2 rounded-full bg-surface/90 text-ink2 text-[11.5px] font-semibold flex items-center gap-1 tnum"><Images size={12} aria-hidden="true" />{r.photos}{r.videos ? <><Video size={12} className="ml-1" aria-hidden="true" />{r.videos}</> : null}</span>
                   </span>
                   <span className="block p-3">
-                    <span className="block font-semibold text-[14px] truncate">{r.a.name}</span>
+                    <span className="block font-semibold text-[14px] leading-snug line-clamp-2 break-words" title={r.a.name}>{r.a.name}</span>
                     <span className="block text-[12px] text-ink3 truncate"><DayText text={longDay(isoOf(r.a.date))} /> · {d.words.get(r.a.id)}</span>
                     <span className="mt-1.5 flex"><Pill tone={r.consent === "all" ? "ok" : r.consent === "some" ? "warn" : "neutral"} className="!h-[22px] !text-[11px]">{r.consent === "some" ? `${r.without} without consent` : r.consent === "all" ? "All consented" : "Not tagged"}</Pill></span>
                   </span>

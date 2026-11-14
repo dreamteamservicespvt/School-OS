@@ -43,7 +43,7 @@ export default async function EventsSettingsPage({ searchParams }: { searchParam
   const editing = doing === "house" && houseId ? d.houses.find((h) => h.id === houseId) : undefined;
   return (
     <div>
-      <EvHead pageName="Events Settings" href={HREF} sub="Event types, weekends, houses, calendar sharing, PTM defaults, activity credits and photo consent." />
+      <EvHead pageName="Events Settings" href={HREF} sub="Weekends, event types, houses, PTMs and photo consent." />
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-6 items-start">
         <Col>
           <Card>

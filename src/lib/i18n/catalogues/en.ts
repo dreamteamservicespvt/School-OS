@@ -15306,6 +15306,24 @@ export const EN = [
   "Test: no real money",
   "Mark it done once Salary Management has paid the final salary, leave encashment and any dues.",
   "The Accountant is told. They pay it in Generate Salary for the last month: the days up to the last working day come in by themselves; add leave encashment or recoveries with Add adjustment.",
+  // src/app/(school)/events-calendar: the School Calendar made clear (15 Nov 2026)
+  "Holidays, exams, events and PTMs. Read only.",
+  "Holidays, exams, events and PTMs for the year.",
+  "Nothing on the calendar this month",
+  "Pick a day to see everything on it.",
+  "Holiday: no attendance. Event: the day stays as it is. \"Attendance allowed\": the date was opened for attendance. Grey: a weekend ({weekends}) or a day off.",
+  "Holiday: no attendance",
+  "Add on this day",
+  "Nothing planned.",
+  "Weekend or day off",
+  "Events with a fee: collected, due and refunded. Read only.",
+  "Plan events, with registrations and payments when needed.",
+  "Your PTM slots and notes. Parents book on Parent Link.",
+  "Your PTM slots and notes. The office books for parents.",
+  "Parent–teacher meetings. Parents book a slot on Parent Link, or the office books for them.",
+  "Parent–teacher meetings. The office books a slot for each parent.",
+  "Activities, achievements, houses, clubs and sports teams.",
+  "Weekends, event types, houses, PTMs and photo consent.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

@@ -145,7 +145,7 @@ export default async function CocurricularPage({ searchParams }: { searchParams:
 
   return (
     <div>
-      <EvHead pageName="Co-curricular & Sports" href={HREF} sub="Activities, achievements and certificates, houses, clubs and sports teams. Achievements also show on the student’s profile."
+      <EvHead pageName="Co-curricular & Sports" href={HREF} sub="Activities, achievements, houses, clubs and sports teams."
         actions={canEdit && <ButtonLink href={here({ t: null, do: "add" })} scroll={false} variant="primary" icon={Plus}><Words k="Record achievement" /></ButtonLink>} />
       <Chips label="Co-curricular sections" className="mb-5" value={tab} options={tabOptions} />
 

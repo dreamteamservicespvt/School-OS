@@ -12,13 +12,13 @@ import { UrlSheet } from "@/components/ui/url-sheet";
 import { Chips, SegLinks } from "@/components/ui/blocks";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { cx } from "@/components/ui/cx";
-import { Col, DataList, Empty, Legend, Split, Stack, TONE_SOFT, Toolbar } from "@/components/money/kit";
+import { Col, DataList, Empty, Split, Stack, TONE_SOFT, Toolbar } from "@/components/money/kit";
 import { EvHead } from "./_components/head";
 import { EvIcon } from "./_components/icons";
 import { JumpSelect } from "./_components/bits";
 import { AddEntrySheet, CopyHolidaysSheet, RemoveEntrySheet } from "./_components/calendar-sheets";
 import { BASE, evGuard, evPeriod, one, qs, type SearchParams } from "./_lib/page";
-import { Words } from "@/lib/i18n/client";
+import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata() {
@@ -30,6 +30,7 @@ const ym = (iso: string) => iso.slice(0, 7);
 const monthStart = (m: string) => `${m}-01`;
 const monthEnd = (m: string) => { const [y, mo] = m.split("-").map(Number); return `${m}-${pad(new Date(Date.UTC(y, mo, 0)).getUTCDate())}`; };
 const stepMonth = (m: string, k: number) => { const [y, mo] = m.split("-").map(Number); const d = new Date(Date.UTC(y, mo - 1 + k, 1)); return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}`; };
+const DOW_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 const monthLabel = (m: string) => { const [y, mo] = m.split("-").map(Number); return `${MONTHS[mo - 1]} ${y}`; };
 
 /** School Calendar (18 §2, mod-events.jsx SchoolCalendar): holidays, vacations, exams, events, PTMs and admission tests. */
@@ -98,6 +99,14 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
   const selWeekend = weekendOn(sel);
   const coming = out.coming.filter(typeOk).filter((i) => i.to >= p.today).slice(0, 7);
   const listed = out.listItems.filter(typeOk);
+  // The month as a list for phones: each entry once, on its first day in this month.
+  const agenda: { iso: string; items: CalItem[] }[] = [];
+  for (const e of [...shown].sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : 0))) {
+    const iso = e.from < monthStart(month) ? monthStart(month) : e.from;
+    const g = agenda.find((x) => x.iso === iso);
+    if (g) g.items.push(e); else agenda.push({ iso, items: [e] });
+  }
+  agenda.sort((a, b) => (a.iso < b.iso ? -1 : 1));
   const weekendWords = ["Sundays", s.secondSaturdayOff && "the second Saturday", s.fourthSaturdayOff && "the fourth Saturday"].filter(Boolean).join(s.fourthSaturdayOff && s.secondSaturdayOff ? ", " : " and ").replace(/, (?=[^,]*$)/, " and ");
   const monthsList: { value: string; label: string; href: string }[] = [];
   for (let m = lastMonth; m >= firstMonth; m = stepMonth(m, -1)) monthsList.push({ value: m, label: monthLabel(m), href: here({ m, d: null }) });
@@ -105,8 +114,8 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
   const next = stepMonth(month, 1);
   const own = p.v.level === "own";
   const sub = own ? "The whole school’s calendar. Your PTM slots are on the PTM page."
-    : !full ? "Holidays, exams, events and PTMs. Go back to earlier years or ahead to the end of the year. Read only."
-      : `Holidays, vacations, exams, events and PTMs in one place, from ${monthLabel(firstMonth)} to ${monthLabel(lastMonth)}.`;
+    : !full ? "Holidays, exams, events and PTMs. Read only."
+      : "Holidays, exams, events and PTMs for the year.";
   const yearLabel = yearOnScreen?.name.replace("-", "–") ?? "";
   const holidayDays = (e: { startDate: Date; endDate: Date }) => dayCount(isoOf(e.startDate), isoOf(e.endDate));
   const removing = out.entry ? { id: out.entry.id, title: out.entry.title, closes: !out.entry.attendanceOn && ["holiday", "vacation"].includes(out.entry.type), when: out.entry.endDate > out.entry.startDate ? `${dmy(isoOf(out.entry.startDate))} to ${dmy(isoOf(out.entry.endDate))}` : dmy(isoOf(out.entry.startDate)) } : null;
@@ -138,14 +147,35 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
             { value: "list", label: <span className="flex items-center gap-1.5"><List size={15} aria-hidden="true" /><Words k="Year list" /></span>, href: here({ view: "list" }) },
           ]} />
         </div>
-        <Chips label="Entry type" value={type} options={TYPE_CHIPS.map((t) => ({ value: t.value, label: t.label, href: here({ type: t.value === "all" ? null : t.value }) }))} />
+        <Chips label="Entry type" value={type} options={TYPE_CHIPS.map((t) => ({ value: t.value, href: here({ type: t.value === "all" ? null : t.value }),
+          // The chip's colour dot is the key to the colours on the calendar.
+          label: t.value === "all" ? t.label : <span className="flex items-center gap-2"><span className={cx("w-2.5 h-2.5 rounded-full", ENTRY_TYPES[t.value as EntryType].dot)} aria-hidden="true" /><Any text={t.label} /></span> }))} />
 
         {view === "month" ? (
           <Split side={340}>
-            <Card className="overflow-hidden min-w-0">
-              <div className="px-4 md:px-5 pt-4 pb-3 flex items-center justify-between gap-3">
-                <h3 className="font-display font-semibold text-[19px]">{monthLabel(month)}</h3>
-                <span className="text-[12.5px] text-ink3">{shown.filter((e) => ym(e.from) === month || ym(e.to) === month).length} <Words k="entries" /></span>
+            <>
+            {/* Phones and tablets: the month as a list, day by day (a 7-column grid of tiny chips cannot be read there). */}
+            <Card className="lg:hidden overflow-hidden min-w-0">
+              {agenda.length ? (
+                <ul className="divide-y divide-line/70">
+                  {agenda.map((g) => (
+                    <li key={g.iso} className={cx("flex gap-3 px-4 py-3", g.iso === p.today && "bg-brand/[.04]")}>
+                      <span className="w-12 shrink-0 text-center pt-0.5">
+                        <span className="block text-[11px] font-semibold text-ink3 uppercase"><Any text={DOW_SHORT[dayOf(g.iso).getUTCDay()]} /></span>
+                        <span className={cx("mx-auto mt-0.5 w-9 h-9 rounded-full grid place-items-center font-display text-[18px] font-semibold tnum", g.iso === p.today && "bg-brand text-brandink")}>{Number(g.iso.slice(8))}</span>
+                      </span>
+                      <ul className="min-w-0 flex-1 flex flex-col gap-2">
+                        {g.items.map((e) => <EntryRow key={e.id} e={e} removeHref={full && e.removable ? here({ do: "remove", entry: e.id }) : null} />)}
+                      </ul>
+                    </li>
+                  ))}
+                </ul>
+              ) : <Empty icon={CalendarX2} title="Nothing on the calendar this month" action={full ? <ButtonLink variant="secondary" icon={Plus} href={here({ do: "add" })} scroll={false}><Words k="Add to calendar" /></ButtonLink> : undefined} />}
+            </Card>
+            <Card className="hidden lg:block overflow-hidden min-w-0">
+              <div className="px-5 py-3 flex items-center justify-between gap-x-4 gap-y-2 flex-wrap">
+                <ColourKey />
+                <span className="text-[12.5px] text-ink3"><Words k="Pick a day to see everything on it." /></span>
               </div>
               <div className="grid grid-cols-7 border-t border-line/70 text-center text-[11.5px] font-semibold text-ink3" aria-hidden="true">
                 {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => <span key={d} className="py-2">{d}</span>)}
@@ -162,64 +192,45 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
                   return (
                     <Link key={d} href={here({ d: iso })} scroll={false} aria-current={isSel ? "date" : undefined}
                       aria-label={`${d} ${MONTHS[mo - 1]}${es.length ? ": " + es.map((e) => e.title).join(", ") : ""}${wk ? ", " + wk : ""}`}
-                      className={cx("relative min-h-[56px] lg:min-h-[104px] border-r border-b border-line/50 p-1 lg:p-1.5 text-left flex flex-col gap-1 transition hover:bg-sunken/60 min-w-0",
+                      className={cx("relative min-h-[112px] border-r border-b border-line/50 p-1.5 text-left flex flex-col gap-1 transition hover:bg-brand/[.06] min-w-0 cursor-pointer",
                         off ? "bg-bad/[.05]" : wk ? "bg-sunken/60" : "", isSel && "ring-2 ring-inset ring-brand")}>
                       <span className="flex items-center gap-1">
                         <span className={cx("w-7 h-7 rounded-full grid place-items-center text-[13px] font-semibold tnum shrink-0", iso === p.today ? "bg-brand text-brandink" : off ? "text-bad" : wk ? "text-ink3" : "text-ink2")}>{d}</span>
                         {(wk === "Second Saturday" || wk === "Fourth Saturday") && <span className="hidden xl:inline text-[10.5px] text-ink3 truncate">{wk === "Second Saturday" ? "2nd Sat" : "4th Sat"}</span>}
                       </span>
-                      <span className="hidden lg:flex flex-col gap-0.5 min-w-0">
-                        {es.slice(0, 3).map((e) => <span key={e.id} title={e.title} className={cx("truncate rounded-md px-1.5 py-0.5 text-[11px] font-semibold leading-tight", ENTRY_TYPES[e.type].chip)}>{e.title.replace(/^PTM: /, "PTM ")}</span>)}
-                        {es.length > 3 && <span className="text-[11px] text-ink3 font-semibold px-1">+{es.length - 3} <Words k="more" /></span>}
+                      {/* Names wrap to two lines instead of being cut; a busy day says how many more. */}
+                      <span className="flex flex-col gap-0.5 min-w-0">
+                        {es.slice(0, 2).map((e) => <span key={e.id} title={e.title} className={cx("line-clamp-2 break-words rounded-md px-1.5 py-0.5 text-[11.5px] font-semibold leading-tight", ENTRY_TYPES[e.type].chip)}>{e.title.replace(/^PTM: /, "PTM ")}</span>)}
+                        {es.length > 2 && <span className="text-[11.5px] text-ink2 font-semibold px-1">+{es.length - 2} <Words k="more" /></span>}
                       </span>
-                      <span className="lg:hidden flex gap-0.5 justify-center flex-wrap">{es.slice(0, 3).map((e) => <span key={e.id} className={cx("w-1.5 h-1.5 rounded-full", ENTRY_TYPES[e.type].dot)} />)}</span>
                     </Link>
                   );
                 })}
               </div>
-              <div className="px-4 md:px-5 py-3.5 flex flex-col gap-2">
-                <Legend items={[["bg-bad/40", "Holiday or vacation"], ["bg-info/40", "Exam day"], ["bg-ok/40", "Event"], ["bg-brand/40", "PTM"], ["bg-warn/40", "Admission test"], ["bg-sunken border border-line", "Weekend"]]} />
-                <p className="text-[12.5px] text-ink3"><Words k={"Holiday: attendance is off that day. Event: it shows here and the day stays a normal school day or weekend. \"Attendance allowed\": someone opened that date for attendance. Weekends:"} /> {weekendWords}<Words k=", and the days that are not working days in Academic Settings." /></p>
-              </div>
+              <p className="px-5 py-3 text-[12.5px] text-ink3"><Words k={"Holiday: no attendance. Event: the day stays as it is. \"Attendance allowed\": the date was opened for attendance. Grey: a weekend ({weekends}) or a day off."} vars={{ weekends: weekendWords }} /></p>
             </Card>
+            </>
             <Col>
-              <Card>
+              {/* The day picked on the grid (computers); phones read the list above. */}
+              <Card className="hidden lg:block">
                 <CardHeader icon={CalendarDays} title={sel === p.today ? `Today, ${niceDay(sel).split(", ")[1]}` : niceDay(sel)}
-                  description={selInfo.on ? (selInfo.opened ? "School day: attendance allowed" : "School day") : selWeekend ? `${selWeekend} · no school` : "Attendance is off"}
-                  action={full ? <ButtonLink size="sm" variant="soft" icon={Plus} href={here({ do: "add" })} scroll={false}><Words k="Add" /></ButtonLink> : undefined} />
+                  description={selInfo.on ? (selInfo.opened ? "School day: attendance allowed" : "School day") : selWeekend ? `${selWeekend} · no school` : "Holiday: no attendance"}
+                  action={full ? <ButtonLink size="sm" variant="soft" icon={Plus} href={here({ do: "add" })} scroll={false}><Words k="Add on this day" /></ButtonLink> : undefined} />
                 {selEntries.length ? (
-                  <ul className="px-3 pb-3 flex flex-col">
-                    {selEntries.map((e) => (
-                      <li key={e.id} className="flex items-start gap-3 px-2 py-2.5 rounded-xl hover:bg-sunken/60">
-                        <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT[ENTRY_TYPES[e.type].tone])}><EvIcon name={ENTRY_TYPES[e.type].icon} size={18} /></span>
-                        <div className="min-w-0 flex-1">
-                          {e.href ? <Link href={e.href} className="font-semibold text-[14.5px] leading-snug hover:underline">{e.title}</Link> : <p className="font-semibold text-[14.5px] leading-snug">{e.title}</p>}
-                          <p className="text-[12.5px] text-ink3">{[e.time, e.where, e.from !== e.to && spanWords(e.from, e.to)].filter(Boolean).join(" · ") || ENTRY_TYPES[e.type].label}</p>
-                          {e.details && <p className="text-[12.5px] text-ink2 mt-0.5">{e.details}</p>}
-                          <div className="flex gap-1.5 mt-1.5 flex-wrap">
-                            <Pill tone={ENTRY_TYPES[e.type].tone} className="!h-[22px] !text-[11.5px]">{ENTRY_TYPES[e.type].label}</Pill>
-                            {e.source === "datesheet" && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]"><Words k="From the datesheet" /></Pill>}
-                            {e.source === "admission" && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]"><Words k="From Admission" /></Pill>}
-                            {e.attendanceOn && !e.source && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]"><Words k="Attendance allowed" /></Pill>}
-                          </div>
-                        </div>
-                        {full && e.removable && (
-                          <Link href={here({ do: "remove", entry: e.id })} scroll={false} aria-label={`Remove ${e.title}`} className="w-9 h-9 grid place-items-center rounded-lg text-ink3 hover:bg-sunken hover:text-bad shrink-0"><Trash2 size={16} aria-hidden="true" /></Link>
-                        )}
-                      </li>
-                    ))}
+                  <ul className="px-3 pb-3 flex flex-col gap-1">
+                    {selEntries.map((e) => <EntryRow key={e.id} e={e} big removeHref={full && e.removable ? here({ do: "remove", entry: e.id }) : null} />)}
                   </ul>
-                ) : <p className="px-5 pb-5 text-[14px] text-ink3">{selWeekend ? "Weekend. Nothing planned." : "A normal school day. Nothing extra planned."}</p>}
+                ) : <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="Nothing planned." /></p>}
               </Card>
               <Card>
-                <CardHeader icon={CalendarClock} title="Coming up" description="Next on the calendar" />
+                <CardHeader icon={CalendarClock} title="Coming up" />
                 {coming.length ? (
                   <ul className="px-3 pb-3">
                     {coming.map((e) => (
                       <li key={e.id}>
                         <Link href={here({ m: ym(e.from < p.today ? p.today : e.from), d: e.from < p.today ? p.today : e.from })} scroll={false} className="w-full flex items-center gap-3 px-2 py-2 rounded-xl hover:bg-sunken/60 text-left">
                           <span className="w-11 shrink-0 text-center"><span className="block text-[11px] font-semibold text-ink3 uppercase">{MONTHS[Number(e.from.slice(5, 7)) - 1].slice(0, 3)}</span><span className="block font-display text-[18px] font-semibold tnum leading-none">{Number(e.from.slice(8))}</span></span>
-                          <span className="min-w-0 flex-1"><span className="block font-semibold text-[14px] truncate">{e.title}</span><span className="block text-[12.5px] text-ink3 truncate">{e.from !== e.to ? spanWords(e.from, e.to) : [e.time, e.where].filter(Boolean).join(" · ") || ENTRY_TYPES[e.type].label}</span></span>
+                          <span className="min-w-0 flex-1"><span className="block font-semibold text-[14px] leading-snug line-clamp-2 break-words">{e.title}</span><span className="block text-[12.5px] text-ink3 truncate">{e.from !== e.to ? spanWords(e.from, e.to) : [e.time, e.where].filter(Boolean).join(" · ") || ENTRY_TYPES[e.type].label}</span></span>
                           <span className={cx("w-2 h-2 rounded-full shrink-0", ENTRY_TYPES[e.type].dot)} aria-hidden="true" />
                         </Link>
                       </li>
@@ -231,7 +242,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
           </Split>
         ) : (
           <Card className="overflow-hidden">
-            <CardHeader title="Calendar list" description="Exams come from published datesheets; events and PTMs from their pages"
+            <CardHeader title="Calendar list"
               action={p.can.export ? <ExportButton href={qs(`${BASE}/export`, { kind: "calendar", type: type === "all" ? null : type, class: classId || null, campus: campusId || null, ...vp.keep })} size="sm" /> : undefined} />
             <Toolbar><PeriodFilter {...p.dates} fallback="acyear" ahead earliest={data.years[0] ? isoOf(data.years[0].startDate) : undefined} /></Toolbar>
             <DataList rows={listed} rowKey={(e) => e.id} rowHref={(e) => e.href ?? null} minWidth={720} caption="Calendar list"
@@ -249,7 +260,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
         )}
 
         <Card className="overflow-hidden">
-          <CardHeader icon={Sun} title={`Holiday list ${yearLabel}`} description={`${out.holidays.length} holidays and vacations · attendance is off on these days`}
+          <CardHeader icon={Sun} title={`Holiday list ${yearLabel}`} description={`${out.holidays.length} holidays and vacations`}
             action={p.can.export && yearOnScreen ? <ExportButton href={qs(`${BASE}/export`, { kind: "holidays", year: yearOnScreen.id, campus: campusId || null })} size="sm" /> : undefined} />
           {out.holidays.length ? (
             <div className="overflow-x-auto scroll-thin border-t border-line">
@@ -285,6 +296,48 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
         </UrlSheet>
       )}
     </div>
+  );
+}
+
+/** What each colour on the calendar means (the filter chips carry the same dots). */
+function ColourKey() {
+  const keys: [string, string][] = [["bg-bad", "Holiday"], ["bg-info", "Exam day"], ["bg-ok", "Event"], ["bg-brand", "PTM"], ["bg-warn", "Admission test"]];
+  return (
+    <ul className="flex gap-x-4 gap-y-1.5 flex-wrap text-[12.5px] text-ink2" aria-label="Colours">
+      {keys.map(([dot, label]) => <li key={label} className="flex items-center gap-1.5"><span className={cx("w-2.5 h-2.5 rounded-full", dot)} aria-hidden="true" /><Any text={label} /></li>)}
+      <li className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-sm bg-sunken border border-line" aria-hidden="true" /><Words k="Weekend or day off" /></li>
+    </ul>
+  );
+}
+
+/** One calendar entry: its name in full, when and where, and its type. Opens its page when it has one. */
+function EntryRow({ e, big, removeHref }: { e: CalItem; big?: boolean; removeHref: string | null }) {
+  const t = ENTRY_TYPES[e.type];
+  const body = (
+    <>
+      <span className={cx("rounded-xl grid place-items-center shrink-0", big ? "w-10 h-10" : "w-9 h-9", TONE_SOFT[t.tone])}><EvIcon name={t.icon} size={big ? 18 : 16} /></span>
+      <span className="min-w-0 flex-1">
+        <span className="block font-semibold text-[14.5px] leading-snug break-words">{e.title}</span>
+        {[e.time, e.where, e.from !== e.to && spanWords(e.from, e.to)].some(Boolean) && <span className="block text-[12.5px] text-ink3">{[e.time, e.where, e.from !== e.to && spanWords(e.from, e.to)].filter(Boolean).join(" · ")}</span>}
+        {e.details && <span className="block text-[12.5px] text-ink2 mt-0.5">{e.details}</span>}
+        <span className="flex gap-1.5 mt-1.5 flex-wrap">
+          <Pill tone={t.tone} className="!h-[22px] !text-[11.5px]">{t.label}</Pill>
+          {e.source === "datesheet" && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]"><Words k="From the datesheet" /></Pill>}
+          {e.source === "admission" && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]"><Words k="From Admission" /></Pill>}
+          {e.attendanceOn && !e.source && <Pill tone="neutral" className="!h-[22px] !text-[11.5px]"><Words k="Attendance allowed" /></Pill>}
+        </span>
+      </span>
+      {e.href && <ChevronRight size={18} className="text-ink3 shrink-0 self-center" aria-hidden="true" />}
+    </>
+  );
+  const cls = "min-w-0 flex-1 flex items-start gap-3 px-2 py-2 rounded-xl text-left";
+  return (
+    <li className="flex items-start gap-1">
+      {e.href ? <Link href={e.href} className={cx(cls, "hover:bg-sunken/60")}>{body}</Link> : <div className={cls}>{body}</div>}
+      {removeHref && (
+        <Link href={removeHref} scroll={false} aria-label={`Remove ${e.title}`} className="w-11 h-11 grid place-items-center rounded-lg text-ink3 hover:bg-sunken hover:text-bad shrink-0"><Trash2 size={16} aria-hidden="true" /></Link>
+      )}
+    </li>
   );
 }
 

@@ -117,8 +117,8 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
   const classOptions = async () => withSchool(ctx, (tx) => tx.schoolClass.findMany({ where: { archivedAt: null }, select: { id: true, name: true, sortOrder: true }, orderBy: { sortOrder: "asc" } }));
   const byParents = p.settings.ptmParentBooking;
   const sub = p.can.own
-    ? `Only your own PTM slots and notes. ${byParents ? "Parents book a slot on Parent Link; the office can book for them." : "The office books slots for parents who call or come in."}`
-    : `Parent–teacher meetings: slots per teacher, booked ${byParents ? "by parents on Parent Link or by the office" : "by the office for parents"}, with notes.`;
+    ? (byParents ? "Your PTM slots and notes. Parents book on Parent Link." : "Your PTM slots and notes. The office books for parents.")
+    : (byParents ? "Parent–teacher meetings. Parents book a slot on Parent Link, or the office books for them." : "Parent–teacher meetings. The office books a slot for each parent.");
   const head = <EvHead pageName="PTM" href={HREF} sub={sub} actions={plan && <ButtonLink href={here({ do: "plan" })} scroll={false} variant="primary" icon={Plus}><Words k="Plan a PTM" /></ButtonLink>} />;
   const planSheet = plan && doing === "plan" ? await (async () => {
     const cls = await classOptions();

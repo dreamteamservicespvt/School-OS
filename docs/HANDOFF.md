@@ -1,6 +1,6 @@
 # School OS handoff
 
-Last updated: 2026-11-14 23:50 IST. Deploy 6 live (main 7958c512). Branch claude/project-thread-cesreq has 9 more tested fixes NOT deployed (7fdc1a98..26ad8fa4): first year active at once; PDF retry on dead browser (every 2nd receipt was the fallback page); quick actions open forms (Add enquiry, Give homework, Send a notice, New application); homework card counts work not students; marks "paper not written yet" note; file boxes styled; enquiry "Different family"; UI sounds (src/lib/ui-sound.ts). Live data: 2026-27 year opened (was Upcoming), test ENQ-0003, visitor V-0008, student Sri Lakshmi, KUSUMA casual leave 16-11 approved. Next: owner says "deploy" -> push main, then recheck receipt PDF x4, quick actions, sounds on live; test Accountant salaries (Lk Chemicals Chrome was minimised). Progress page https://claude.ai/artifact/9Rrsu6dMBXdtXLQvFBrkLu
+Last updated: 2026-11-15 00:05 IST. LAYMAN LOOP running until Mon 16 Nov morning (owner's order: no questions, local commits only, NO push/deploy). Issues log docs/qa/layman-loop.md; progress page https://claude.ai/artifact/FEhJqMhwnvHoauveY1Pz8m (docs/qa/layman-loop-progress.html); screenshots qa/loop/shots.mjs -> qa-output/loop. Deploy 6 live (main 7958c512); branch has 10+ fixes not deployed (7fdc1a98..). Live data changed 14 Nov: 2026-27 year opened, ENQ-0003, V-0008, student Sri Lakshmi, KUSUMA leave 16-11 approved.
 
 ## State
 

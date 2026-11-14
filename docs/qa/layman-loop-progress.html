@@ -1,0 +1,99 @@
+<title>School OS Layman Loop</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&family=Space+Grotesk:wght@600;700&display=swap">
+<style>
+/* Layout: one narrow column; summary first (now doing, clock, main bar), then one row per mindset round */
+:root{--bg:#f4f7f6;--card:#ffffff;--fg:#14211d;--muted:#55665f;--line:#dbe3df;--accent:#0f7a5c;--ok:#13824b;--run:#1f5fd1;--chk:#a15c00;--wait:#6b7280;--warn:#b42318;
+--display:"Space Grotesk",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0c1311;--card:#141d1a;--fg:#e6efeb;--muted:#9bada6;--line:#26332e;--accent:#3fc79a;--ok:#3ccf86;--run:#6f97ff;--chk:#f0a43a;--wait:#9aa4b8;--warn:#ff7a6e;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0c1311;--card:#141d1a;--fg:#e6efeb;--muted:#9bada6;--line:#26332e;--accent:#3fc79a;--ok:#3ccf86;--run:#6f97ff;--chk:#f0a43a;--wait:#9aa4b8;--warn:#ff7a6e;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);line-height:1.5}
+.wrap{max-width:780px;margin:0 auto;padding-block:20px 40px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:16px}
+h1{font-family:var(--display);font-size:1.5rem;margin:0;text-wrap:balance}
+.sub{color:var(--muted);margin:0}
+.now{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;font-weight:600}
+.now span{color:var(--accent)}
+.clock{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.box{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 12px;min-width:0}
+.box b{display:block;font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.box .v{font-family:var(--display);font-size:1.2rem;font-variant-numeric:tabular-nums}
+.box small{color:var(--muted);display:block}
+.stuck{color:var(--warn);font-weight:600}
+.bar{height:12px;background:var(--line);border-radius:99px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:99px}
+.main{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.main .bar{height:20px}
+.main .pct{font-family:var(--display);font-size:2rem;font-variant-numeric:tabular-nums}
+.counts{display:flex;gap:18px;flex-wrap:wrap;color:var(--muted);font-size:.92rem}
+.counts b{color:var(--fg);font-variant-numeric:tabular-nums}
+.rows{display:flex;flex-direction:column;gap:10px}
+.row{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;min-width:0}
+.top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline}
+.name{font-weight:600}
+.tag{font-size:.75rem;font-weight:700;padding:2px 8px;border-radius:99px;border:1px solid currentColor}
+.Done{color:var(--ok)}.Running{color:var(--run)}.Checking{color:var(--chk)}.Waiting{color:var(--wait)}
+.line{color:var(--muted);font-size:.92rem;min-width:0}
+.est{font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.you{background:var(--card);border:1px dashed var(--line);border-radius:10px;padding:12px 14px}
+@media (max-width:520px){.clock{grid-template-columns:1fr}}
+</style>
+<div class="wrap">
+  <h1>School OS: the layman loop</h1>
+  <p class="sub">Testing as one non-technical person at a time, fixing, checking, then starting over. Runs until Monday morning. Nothing is pushed or deployed.</p>
+  <div class="now">Now doing: <span id="now"></span></div>
+  <div class="clock">
+    <div class="box"><b>Time spent</b><div class="v" id="spent">–</div><small>since 11:55 pm, Sat 14 Nov</small></div>
+    <div class="box"><b>Ready about</b><div class="v" id="ready">–</div><small id="left">–</small></div>
+    <div class="box"><b>Last update</b><div class="v" id="ago">–</div><small id="upd">–</small></div>
+  </div>
+  <div class="main">
+    <div class="pct" id="pct">0%</div>
+    <div class="bar"><i id="mainbar" style="width:0%"></i></div>
+    <div class="line" id="mainline"></div>
+    <div class="counts"><span>Problems found <b id="cf">0</b></span><span>Fixed <b id="cx">0</b></span><span>Commits <b id="cc">0</b></span><span>Loop <b id="cl">1</b></span></div>
+  </div>
+  <div class="rows" id="rows"></div>
+  <div class="you"><b>Waiting on you:</b> <span id="you"></span></div>
+</div>
+<script>
+const DATA={
+  start:"2026-11-14T23:55:00+05:30",
+  end:"2026-11-16T08:00:00+05:30",
+  updated:"2026-11-15T00:05:00+05:30",
+  readyAt:"2026-11-16T08:00:00+05:30",
+  now:"Rebuilding the local copy with today's fixes; a read-only audit of all screens by 6 mindsets is running",
+  mainline:"Loop 1 of many. The bar shows time used until Monday 8:00 am, not 'how finished' the software is (it is never 'good enough').",
+  found:10, fixed:10, commits:9, loop:1,
+  you:"Nothing until Monday. Nothing is pushed or deployed.",
+  rows:[
+    {n:"Round 0: first layman pass (Sat evening)",p:100,s:"Done",l:"10 found, 10 fixed: year off, receipts, 4 quick buttons, homework count, paper note, file boxes, Different family, sounds.",e:"took 3 h"},
+    {n:"Audit: 6 mindsets read every screen (code)",p:20,s:"Running",l:"Clerk, accountant, receptionist, teacher, new school, parent: finding confusing words, empty screens, unclear errors.",e:"Est. 20 min"},
+    {n:"1. Older office clerk, little English",p:0,s:"Waiting",l:"",e:"Est. 90 min"},
+    {n:"2. Teacher on a phone, 2 minutes",p:0,s:"Waiting",l:"",e:"Est. 90 min"},
+    {n:"3. Accountant afraid of money mistakes",p:0,s:"Waiting",l:"",e:"Est. 90 min"},
+    {n:"4. Receptionist, impatient parent",p:0,s:"Waiting",l:"",e:"Est. 90 min"},
+    {n:"5. Principal: is everything okay today?",p:0,s:"Waiting",l:"",e:"Est. 60 min"},
+    {n:"6. Parent on a cheap phone (WhatsApp link)",p:0,s:"Waiting",l:"",e:"Est. 60 min"},
+    {n:"7. Brand-new school, day one, empty",p:0,s:"Waiting",l:"",e:"Est. 90 min"},
+    {n:"8. Wrong click, back, refresh, gives up",p:0,s:"Waiting",l:"",e:"Est. 60 min"},
+    {n:"9. Telugu-first user",p:0,s:"Waiting",l:"",e:"Est. 60 min"},
+    {n:"10. Careless fast user",p:0,s:"Waiting",l:"",e:"Est. 60 min"}
+  ]
+};
+const $=id=>document.getElementById(id);
+const fmt=d=>d.toLocaleString("en-IN",{weekday:"short",hour:"numeric",minute:"2-digit",hour12:true,timeZone:"Asia/Kolkata"});
+function draw(){
+  const now=Date.now(),st=new Date(DATA.start),up=new Date(DATA.updated),rd=new Date(DATA.readyAt),en=new Date(DATA.end);
+  const m=Math.max(0,Math.round((now-st)/60000));$("spent").textContent=(m>=60?Math.floor(m/60)+" h ":"")+(m%60)+" min";
+  $("ready").textContent=fmt(rd);const left=Math.round((rd-now)/60000);
+  $("left").textContent=left>0?"about "+(left>=60?Math.floor(left/60)+" h ":"")+(left%60)+" min left (estimate)":"past the estimate";
+  const ago=Math.max(0,Math.round((now-up)/60000));$("ago").textContent=ago+" min ago";
+  $("upd").innerHTML=ago>15?'<span class="stuck">No update for '+ago+' min: may be stuck or waiting; check the chat</span>':"at "+fmt(up);
+  const pct=Math.min(100,Math.max(0,Math.round((now-st)/(en-st)*100)));$("pct").textContent=pct+"%";$("mainbar").style.width=pct+"%";
+}
+$("now").textContent=DATA.now;$("mainline").textContent=DATA.mainline;$("you").textContent=DATA.you;
+$("cf").textContent=DATA.found;$("cx").textContent=DATA.fixed;$("cc").textContent=DATA.commits;$("cl").textContent=DATA.loop;
+const esc=s=>String(s).replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+$("rows").innerHTML=DATA.rows.map(r=>`<div class="row"><div class="top"><span class="name">${esc(r.n)}</span><span class="tag ${r.s}">${r.s}</span></div><div class="bar"><i style="width:${r.p}%"></i></div><div class="top"><span class="line">${esc(r.l)}</span><span class="est">${esc(r.e)}</span></div></div>`).join("");
+draw();setInterval(draw,30000);
+</script>

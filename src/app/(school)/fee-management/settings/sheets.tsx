@@ -3,6 +3,7 @@
 // The sheets on Fee Settings (mod-fees.jsx FeeSettings): one per card. Each
 // is checked on the server and written to the audit log.
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useState } from "react";
 import { SheetForm } from "@/components/ui/url-sheet";
 import { SArea, SChips, SMoney, SSelect, SSwitch, SText } from "@/components/ui/sheet-fields";
@@ -43,7 +44,7 @@ export function RemindersSheet({ closeHref, s, choices, wordsHref }: C & { s: { 
     <SheetForm title="Reminder schedule" sub="Sent by itself for each unpaid installment. Opted-out parents are skipped." closeHref={closeHref} action={remindersAction} submitLabel="Save schedule" pendingText="Saving…">
       <SSwitch name="on" title="Send reminders by themselves" start={s.on} />
       <SChips name="day" label="When" options={choices.map((d) => ({ value: String(d), label: DAY_WORDS(d) }))} start={s.days.map(String)} help="A family gets at most one reminder a day, about everything it owes now." />
-      <SSelect name="channel" label="Send by" required start={s.channel} options={[{ value: "whatsapp", label: "WhatsApp, SMS if it fails" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }]} />
+      <SSelect name="channel" label="Send by" required start={s.channel} options={SMS_OFFERED ? [{ value: "whatsapp", label: "WhatsApp, SMS if it fails" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }] : [{ value: "whatsapp", label: "WhatsApp" }, { value: "email", label: "Email" }]} />
       <SMoney name="min" label="Only when the family owes at least" start={s.min} help="Empty or 0: any amount gets a reminder." />
       <SSwitch name="quietDays" title="Not on days the school is closed" sub="Reminders due on a holiday go on the next school day." start={s.quietDays} />
       <p className="text-[13px] text-ink3"><Words k="The words are the “Fee reminder” templates in" /> <a href={wordsHref} className="text-brand font-semibold underline"><Words k="Message Templates" /></a><Words k=". The payment link, or how to pay at the school office, is added by itself." /></p>

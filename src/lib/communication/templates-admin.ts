@@ -7,7 +7,7 @@ import type { Prisma } from "@prisma/client";
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import type { ListParams } from "../list";
-import { CHANNELS, channelSecrets, channelSetups, type Channel } from "../messaging/channels";
+import { CHANNELS, channelSecrets, channelSetups, SMS_OFFERED, type Channel } from "../messaging/channels";
 import { checkDltId, LANGUAGES, TEMPLATE_CATEGORIES, unknownVariables, variablesIn, whatsappProblems } from "../messaging/templates";
 import { RULES } from "../messaging/automatic";
 import { listWhatsappTemplates, submitWhatsappTemplate, whatsappTemplateStatus } from "../messaging/providers/whatsapp";
@@ -23,10 +23,12 @@ export function templateWhere(ctx: SchoolContext, params: ListParams): Prisma.Te
   const f = params.filters;
   const and: Prisma.TemplateWhereInput[] = [{ schoolId: ctx.schoolId }, params.archived ? { archivedAt: { not: null } } : { archivedAt: null }];
   if (params.q) and.push({ OR: [{ name: { contains: params.q, mode: "insensitive" } }, { versions: { some: { isCurrent: true, body: { contains: params.q, mode: "insensitive" } } } }] });
+  // SMS templates are kept but not listed while SMS is not used (SMS_OFFERED, owner 15 Nov 2026).
+  if (!SMS_OFFERED) and.push({ channel: { not: "sms" } });
   if (f.channel && (CHANNELS as readonly string[]).includes(f.channel)) and.push({ channel: f.channel });
   if (f.category) and.push({ category: f.category });
   if (f.language) and.push({ versions: { some: { isCurrent: true, language: f.language } } });
-  if (f.status === "dlt-missing") and.push({ channel: "sms", versions: { some: { isCurrent: true, dltTemplateId: null } } });
+  if (f.status === "dlt-missing" && SMS_OFFERED) and.push({ channel: "sms", versions: { some: { isCurrent: true, dltTemplateId: null } } });
   else if (f.status && WHATSAPP_STATUS_LABEL[f.status]) and.push({ channel: "whatsapp", versions: { some: { isCurrent: true, whatsappStatus: f.status } } });
   return { AND: and };
 }

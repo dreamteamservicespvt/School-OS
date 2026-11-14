@@ -124,14 +124,15 @@ export function RuleRow({ rule, channels }: { rule: RuleRowData; channels: Opt[]
 
 // ── Delivery ──────────────────────────────────────────────────────────────
 
-export function DeliveryForm({ retryLimit, backup, backupTypes, noticeApproval }: { retryLimit: number; backup: Record<string, { on: boolean; waitMinutes: number }>; backupTypes: Opt[]; noticeApproval: string }) {
+// showBackup: the SMS backup choices are hidden while SMS is not used (SMS_OFFERED); the saved choices are kept as they are.
+export function DeliveryForm({ retryLimit, backup, backupTypes, noticeApproval, showBackup = true }: { retryLimit: number; backup: Record<string, { on: boolean; waitMinutes: number }>; backupTypes: Opt[]; noticeApproval: string; showBackup?: boolean }) {
   const [retry, setRetry] = useState(String(retryLimit));
   const [b, setB] = useState(backup);
   const [approval, setApproval] = useState(noticeApproval);
   const { msg, pending, save } = useSave();
   return (
     <div className="space-y-4">
-      <fieldset>
+      {showBackup && <fieldset>
         <legend className="mb-1 font-medium"><Words k="SMS backup" /></legend>
         <p className="mb-2 text-sm text-ink3"><Words k="Anyone whose WhatsApp or app message fails, or is not read within the wait time, gets the same message by SMS. Backup SMS use the message type’s SMS template with a DLT template ID and use credits." /></p>
         <ul className="space-y-2">
@@ -147,7 +148,7 @@ export function DeliveryForm({ retryLimit, backup, backupTypes, noticeApproval }
             </li>
           ))}
         </ul>
-      </fieldset>
+      </fieldset>}
       <div className="grid gap-4 sm:grid-cols-2">
         <label className="block font-medium"><Words k="Retry limit for failed messages" />
           <select value={retry} onChange={(e) => setRetry(e.target.value)} className={`${input} mt-1 block w-full`}>

@@ -2,6 +2,7 @@
 
 // The parts of My profile that change something (approved design, dashboards.jsx MyProfile).
 
+import { offeredChannels, SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import * as I from "lucide-react";
@@ -16,6 +17,9 @@ import { NOTE_CHANNELS, NOTE_CHANNEL_LABEL, type NoteChannel, type NoteKind, typ
 import { PasswordForm } from "./password-form";
 import { confirmContactCode, saveMyName, saveNotePrefs, sendContactCode, setTwoStep, type CodeResult, type Result } from "./actions";
 import { Words } from "@/lib/i18n/client";
+
+// SMS is not offered while SMS_OFFERED is false (owner, 15 Nov 2026); a saved SMS choice is kept.
+const SHOWN_CHANNELS = offeredChannels(NOTE_CHANNELS);
 
 type Say = { n: number; message: string; tone?: "success" | "info" | "danger" } | null;
 function useSay() {
@@ -156,7 +160,7 @@ export function NotePrefsTable({ kinds, prefs, allowed, phone }: { kinds: NoteKi
       if (r && !r.ok) { setValue(value); say(r.message, "danger"); }
     });
   };
-  const off = NOTE_CHANNELS.filter((c) => !allowed.includes(c)).map((c) => NOTE_CHANNEL_LABEL[c]);
+  const off = SHOWN_CHANNELS.filter((c) => !allowed.includes(c)).map((c) => NOTE_CHANNEL_LABEL[c]);
   return (
     <>
       {/* Phone: one block per kind, the ways stacked, so nothing runs off the screen (layman audit). */}
@@ -165,7 +169,7 @@ export function NotePrefsTable({ kinds, prefs, allowed, phone }: { kinds: NoteKi
           <li key={k.key} className="px-5 py-3">
             <p className="font-medium text-[14px]">{k.label}{k.locked && <span className="block text-[11.5px] text-ink3 font-normal"><Words k="Always in the app" /></span>}</p>
             <div className="mt-1 flex flex-wrap gap-x-5">
-              {NOTE_CHANNELS.map((c) => {
+              {SHOWN_CHANNELS.map((c) => {
                 const on = (value[k.key] ?? []).includes(c);
                 return (
                   <span key={c} className={cx("inline-flex items-center gap-2 min-h-11 text-[13.5px]", !allowed.includes(c) && "opacity-50")}>
@@ -183,14 +187,14 @@ export function NotePrefsTable({ kinds, prefs, allowed, phone }: { kinds: NoteKi
           <thead>
             <tr className="border-b border-line text-ink3 text-[12px]">
               <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-5 py-2.5 min-w-[190px]"><Words k="Kind" /></th>
-              {NOTE_CHANNELS.map((c) => <th key={c} scope="col" className={cx("font-semibold px-3 py-2.5 text-center", !allowed.includes(c) && "opacity-50")}>{NOTE_CHANNEL_LABEL[c]}</th>)}
+              {SHOWN_CHANNELS.map((c) => <th key={c} scope="col" className={cx("font-semibold px-3 py-2.5 text-center", !allowed.includes(c) && "opacity-50")}>{NOTE_CHANNEL_LABEL[c]}</th>)}
             </tr>
           </thead>
           <tbody>
             {kinds.map((k) => (
               <tr key={k.key} className="border-b border-line/60 last:border-0">
                 <th scope="row" className="sticky left-0 z-10 bg-surface px-5 py-2.5 font-medium text-left">{k.label}{k.locked && <span className="block text-[11.5px] text-ink3 font-normal"><Words k="Always in the app" /></span>}</th>
-                {NOTE_CHANNELS.map((c) => (
+                {SHOWN_CHANNELS.map((c) => (
                   <td key={c} className={cx("px-3 py-2.5 text-center", !allowed.includes(c) && "opacity-40")}>
                     <span className="inline-flex"><Checkbox checked={(value[k.key] ?? []).includes(c)} label={`${k.label} by ${NOTE_CHANNEL_LABEL[c]}`} onChange={(on) => flip(k, c, on)} /></span>
                   </td>
@@ -201,7 +205,7 @@ export function NotePrefsTable({ kinds, prefs, allowed, phone }: { kinds: NoteKi
         </table>
       </div>
       <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70">
-        {phone ? `WhatsApp and SMS go to ${phone}. ` : "Add your mobile number to get WhatsApp and SMS. "}
+        {SMS_OFFERED ? (phone ? `WhatsApp and SMS go to ${phone}. ` : "Add your mobile number to get WhatsApp and SMS. ") : (phone ? `WhatsApp goes to ${phone}. ` : "Add your mobile number to get WhatsApp. ")}
         {off.length ? `${off.join(", ")} ${off.length === 1 ? "is" : "are"} not switched on by your school yet.` : "The school decides which of these can be used."}
       </p>
       {toast}

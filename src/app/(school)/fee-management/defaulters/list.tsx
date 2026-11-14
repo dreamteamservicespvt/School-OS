@@ -4,6 +4,7 @@
 // (mod-fees.jsx Defaulters and ReminderSheet). Rows open the student's
 // reminder and call history (?who=), worked out on the server.
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
 import { useActionState, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -150,7 +151,8 @@ export function DefaulterList({ rows, canEdit, canCollect = canEdit, footer, emp
   );
 }
 
-const CHANNELS = [{ value: "whatsapp", label: "WhatsApp" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }];
+// SMS is not offered while SMS_OFFERED is false (owner, 15 Nov 2026).
+const CHANNELS = [{ value: "whatsapp", label: "WhatsApp" }, ...(SMS_OFFERED ? [{ value: "sms", label: "SMS" }] : []), { value: "email", label: "Email" }];
 const OWN = "__own";
 
 function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: DefaulterItem[]; onClose: () => void; onSent: () => void; templates: Record<"whatsapp" | "sms" | "email", Option[]>; gateway: boolean }) {

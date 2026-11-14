@@ -13,6 +13,7 @@ import { Segmented } from "@/components/ui/controls";
 import { FieldShell, inputCls } from "@/components/ui/field";
 import { cx } from "@/components/ui/cx";
 import { Words } from "@/lib/i18n/client";
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 
 type Text = { language: string; subject: string; body: string; dltTemplateId: string; locked: boolean; saved: boolean };
 export type TemplateFormData = {
@@ -115,7 +116,7 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
     <form onSubmit={submit} noValidate className="flex flex-col gap-5 lg:gap-6">
       {state && !state.ok && state.message && <Banner tone="bad" title={state.message} />}
       <Card>
-        <CardHeader title="About the template" icon={FileText} description={data.id ? "A saved template keeps its channel" : "DREAM TEAM registers SMS texts on the telecom DLT portal for you"} />
+        <CardHeader title="About the template" icon={FileText} description={data.id ? "A saved template keeps its channel" : SMS_OFFERED ? "DREAM TEAM registers SMS texts on the telecom DLT portal for you" : "Choose the channel, then type the text in each language"} />
         <div className="px-5 pb-5 grid grid-cols-1 md:grid-cols-3 gap-3">
           <FieldShell label="Name" id="t-name" required error={err("name")}>
             <input id="t-name" value={name} onChange={(e) => setName(e.target.value)} maxLength={80} aria-invalid={err("name") ? true : undefined}

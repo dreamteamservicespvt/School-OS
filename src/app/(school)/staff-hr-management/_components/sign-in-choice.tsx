@@ -4,6 +4,7 @@
 // an invite link sent to them by message (the default), or a temporary
 // password HR types and hands over in person, which they must change at the
 // first sign-in. The typed password is never shown again (08 §2).
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useState } from "react";
 import { TextField } from "@/components/ui/field";
 import { KeepCheck } from "@/components/ui/keep-select";
@@ -21,7 +22,7 @@ export function SignInChoice({ error }: { error?: string }) {
     <fieldset className="space-y-2">
       <legend className="mb-1 font-medium"><Words k="First sign-in" /></legend>
       <div className="grid gap-2 sm:grid-cols-2">
-        {option("invite", "Send an invite link", "Sent by WhatsApp or SMS, and email when they have one. They choose their own password.")}
+        {option("invite", "Send an invite link", (SMS_OFFERED ? "Sent by WhatsApp or SMS, and email when they have one. They choose their own password." : "Sent by WhatsApp, and email when they have one. They choose their own password."))}
         {option("password", "Temporary password", "You type it and give it to them in person. They must choose their own at the first sign-in.")}
       </div>
       {how === "password" && (

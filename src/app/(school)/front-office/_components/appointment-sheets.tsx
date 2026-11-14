@@ -4,6 +4,7 @@
 // be picked; taken times show crossed out and say why. The server checks
 // again under a lock before saving, so two desks cannot book the same time.
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useEffect, useState, useTransition } from "react";
 import { UserCheck } from "lucide-react";
 import { SheetForm, useTyped } from "@/components/ui/url-sheet";
@@ -101,7 +102,7 @@ export function BookSheet({ closeHref, staff, days, start, slots: first, resched
       </div>
       {known && <p className="text-[13px] text-ok -mt-2 flex items-center gap-1.5"><UserCheck size={15} aria-hidden="true" />{known}</p>}
       <SText name="purpose" label="Purpose" required maxLength={200} start={reschedule?.purpose} placeholder="For example: TC for transfer to Bengaluru" />
-      <SSwitch name="confirm" title="Send confirmation to the visitor" sub="WhatsApp, with SMS backup" start />
+      <SSwitch name="confirm" title="Send confirmation to the visitor" sub={SMS_OFFERED ? "WhatsApp, with SMS backup" : "By WhatsApp"} start />
     </SheetForm>
   );
 }

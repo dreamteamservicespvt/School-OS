@@ -2,6 +2,7 @@
 
 // One applicant's papers, against the list for the class applied for
 // (design: mod-admissions.jsx Documents, UploadSheet, RejectDocSheet).
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, Camera, Check, Eye, FileCheck, FileClock, FileText, FileWarning, FileX, Send, Stamp, Upload, X } from "lucide-react";
@@ -127,12 +128,12 @@ export function DocumentsPanel({ a, closeHref, canWork }: { a: PanelApp; closeHr
             <FieldShell label="Reason" id="rj-r" required error={f.err("reason")}>
               <input id="rj-r" name="reason" value={reason} onChange={(e) => setReason(e.target.value)} maxLength={200} className={cx(inputCls(f.err("reason")), "h-11")} />
             </FieldShell>
-            <div className="flex items-center gap-3 text-[14px]"><Switch on={tell} onChange={setTell} label="Message the parent" /><span><b className="font-semibold"><Words k="Message the parent" /></b><span className="block text-[12.5px] text-ink3"><Words k="WhatsApp with the reason, SMS if WhatsApp is not set up" /></span></span></div>
+            <div className="flex items-center gap-3 text-[14px]"><Switch on={tell} onChange={setTell} label="Message the parent" /><span><b className="font-semibold"><Words k="Message the parent" /></b><span className="block text-[12.5px] text-ink3">{SMS_OFFERED ? <Words k="WhatsApp with the reason, SMS if WhatsApp is not set up" /> : <Words k="WhatsApp with the reason" />}</span></span></div>
           </>
         )}
       </FormSheet>
 
-      <FormSheet open={remind} onClose={() => setRemind(false)} title={`Remind ${a.parent}`} sub={`To +91 ${a.phone}, by WhatsApp or SMS`} action={remindAction} hidden={{ id: a.id }} submitLabel={`Send to ${a.parent}`} submitIcon={Send}>
+      <FormSheet open={remind} onClose={() => setRemind(false)} title={`Remind ${a.parent}`} sub={`To +91 ${a.phone}, by ${SMS_OFFERED ? "WhatsApp or SMS" : "WhatsApp"}`} action={remindAction} hidden={{ id: a.id }} submitLabel={`Send to ${a.parent}`} submitIcon={Send}>
         {() => (
           <div className="rounded-xl bg-sunken p-3.5 text-[14px] leading-relaxed text-ink2">
             <Words k="Dear" /> {a.parent}<Words k=", for" /> {a.name}<Words k="’s admission (application" /> {a.applicationNo}<Words k=") please bring:" /> <b className="text-ink">{a.missing.join(", ")}</b>.

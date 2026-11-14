@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Check, ChevronRight, FileText, GraduationCap, IdCard, IndianRupee, MessageCircle, ShieldCheck, Smartphone, Users, type LucideIcon } from "lucide-react";
@@ -48,7 +49,7 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
   const welcome = c?.welcome === "queued" || c?.welcome === "sent" ? "“Admission confirmed” message, with the admission number"
     : c?.welcome === "held" ? "Not sent: automatic messages to parents start when the school goes live on School OS. Send it from Communication if needed."
       : c?.welcome === "nobody" ? "Not sent: the parent has no mobile number on record. Give the admission number to the parent yourself."
-        : c?.welcome === "no-channel" ? "Not sent: WhatsApp or SMS is not set up yet. Give the admission number to the parent yourself."
+        : c?.welcome === "no-channel" ? (SMS_OFFERED ? "Not sent: WhatsApp or SMS is not set up yet. Give the admission number to the parent yourself." : "Not sent: WhatsApp is not set up yet. Give the admission number to the parent yourself.")
           : c?.welcome === "duplicate" ? "Already sent once for this admission."
             : "Not sent. Give the admission number to the parent yourself, or send it from Communication, Send Message.";
   const parents = data.guardians.map((g) => `${g.name}${c?.linkedGuardianIds.includes(g.id) ? " (already a parent here)" : ""}`).join(" and ");
@@ -62,7 +63,7 @@ export default async function AdmittedPage({ params }: { params: Promise<{ id: s
     [Smartphone, !data.links.length ? "Parent Link not made" : sentLinks ? "Parent Link on its way" : "Parent Link made, not sent",
       !data.links.length ? "Parent Link is off for this school, or the parent has no mobile number"
         : sentLinks ? `${sentLinks} ${sentLinks === 1 ? "link" : "links"}, so the parent can see fees, pay and download receipts${sentLinks < data.links.length ? `. ${data.links.length - sentLinks} not sent` : ""}`
-          : `${data.links.length} ${data.links.length === 1 ? "link" : "links"} made, but no WhatsApp or SMS is set up to send them. The School Admin sends them from Communication, Parent Link, once messages are set up.`,
+          : `${data.links.length} ${data.links.length === 1 ? "link" : "links"} made, but ${SMS_OFFERED ? "no WhatsApp or SMS is" : "WhatsApp is not"} set up to send them. The School Admin sends them from Communication, Parent Link, once messages are set up.`,
       null],
     ...(c?.studentDocumentIds?.length ? [[FileText, "Documents", `${c.studentDocumentIds.length} ${c.studentDocumentIds.length === 1 ? "paper" : "papers"} added to the student's documents${c.photoFileId ? ", with the photo" : ""}`, `/student-management/students/${app.studentId}?tab=documents`] as [LucideIcon, string, string, string | null]] : []),
     [IndianRupee, "Fee plan", !feePlanApplies() ? "Set up in Fee Management once its fee structures are ready"

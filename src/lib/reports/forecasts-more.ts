@@ -13,6 +13,7 @@
 //   Otherwise one item says what to set first, instead of a forecast.
 // Kept here so forecasts.ts only registers them (computeForecasts parts).
 import "server-only";
+import { offeredChannels } from "../messaging/sms-offered";
 
 import { wholeRupees, type Forecast, type Ctx } from "./forecasts";
 import type { SubjectResult } from "../exams/compute";
@@ -235,7 +236,7 @@ export async function creditForecasts(c: Ctx): Promise<Forecast[]> {
   const [balances, setups] = await Promise.all([creditBalances(c.tx, c.ctx), channelSetups(c.tx, c.ctx)]);
   const since = addDays(c.today, -30);
   const out: Forecast[] = [];
-  for (const ch of ["whatsapp", "sms"] as const) {
+  for (const ch of offeredChannels(["whatsapp", "sms"] as const)) {
     if (!setups[ch]?.isOn) continue;
     const [used, scheduled] = await Promise.all([
       c.tx.creditLedgerEntry.aggregate({ where: { channel: ch, createdAt: { gte: since }, messageId: { not: null } }, _sum: { amount: true } }),

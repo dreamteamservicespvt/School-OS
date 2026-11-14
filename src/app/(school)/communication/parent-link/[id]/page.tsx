@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { offeredChannels } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { withSchool } from "@/lib/db";
@@ -55,7 +56,7 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
   const active = link.status === "ACTIVE";
   const title = (tid: string) => data.texts.find((t) => t.id === tid);
   const waiting = data.requests.filter((r) => !data.records.some((c) => c.consentType === r.consentType && !c.withdrawnAt) && !data.records.some((c) => c.consentType === r.consentType && c.withdrawnAt && c.withdrawnHow !== "replaced by a newer version"));
-  const channels = (["whatsapp", "sms"] as const).filter((c) => data.setups[c].isOn).map((c) => ({ value: c, label: c === "sms" ? "SMS" : "WhatsApp" }));
+  const channels = offeredChannels(["whatsapp", "sms"] as const).filter((c) => data.setups[c].isOn).map((c) => ({ value: c, label: c === "sms" ? "SMS" : "WhatsApp" }));
 
   const kidsText = data.kids.length ? data.kids.map((k) => `${k.name}${k.classLabel ? ` (${k.classLabel})` : ""}${k.restricted ? ", not on Parent Link: custody restriction" : ""}`).join("; ") : "None studying now";
   const liveDevices = link.devices.filter((d) => !d.revokedAt && d.expiresAt > now).length;

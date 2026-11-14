@@ -6,6 +6,7 @@
 // and the papers exception. Only shown to people who may do them; the server
 // checks again.
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useState } from "react";
 import { Ban, Banknote, ChevronRight, CircleCheck, ClipboardCheck, FolderOpen, Gavel, Hourglass, IndianRupee, Pencil, Printer, Send, ShieldCheck } from "lucide-react";
 import { ButtonLink, Button } from "@/components/ui/button";
@@ -55,7 +56,7 @@ export function AppActions({ id, name, applicationNo, parent, moves, canReview, 
             <Segmented label="Review" value={mode} onChange={(v) => setMode(v as "ok" | "back")} options={[{ value: "ok", label: "Looks right" }, { value: "back", label: "Send back for details" }]} className="w-full" />
             <TextArea key={mode} label={mode === "ok" ? "Note (staff only)" : "What is missing"} name="note" required={mode === "back"} rows={3} maxLength={500}
               placeholder={mode === "ok" ? "Optional" : "For example: previous school marks for Class 5"} defaultValue={f.val("note")} error={f.err("note")}
-              help={mode === "back" ? "The parent gets this by WhatsApp or SMS. Saved in the history." : undefined} />
+              help={mode === "back" ? (SMS_OFFERED ? "The parent gets this by WhatsApp or SMS. Saved in the history." : "The parent gets this by WhatsApp. Saved in the history.") : undefined} />
           </>
         )}
       </FormSheet>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { Ban, ChevronRight, Eye, FileText, FolderOpen, GraduationCap, IndianRupee, MessageCircle, Pencil, Receipt, RefreshCw, Send, ShieldAlert, ShieldCheck, ShieldX, Smartphone, Merge } from "lucide-react";
@@ -109,7 +110,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
               {message && <ButtonLink href={`/communication?for=students&ids=${kids.map((k) => k.studentId).join(",")}`} icon={MessageCircle}><Words k="Message" /></ButtonLink>}
               {manage && provider && (
                 <ConfirmAction action={parentLinkAction} fields={{ guardianId: id, op: "resend" }} trigger={<><RefreshCw size={16} aria-hidden="true" /><Words k="Resend Parent Link" /></>} title="Resend Parent Link?" confirmLabel={`Send to ${g.name}`}>
-                  {g.name}<Words k="’s personal link goes again to +91" /> {phoneShow(g.phone)} <Words k="on WhatsApp, with SMS backup." />
+                  {g.name}<Words k="’s personal link goes again to +91" /> {phoneShow(g.phone)} {SMS_OFFERED ? <Words k="on WhatsApp, with SMS backup." /> : <Words k="on WhatsApp." />}
                 </ConfirmAction>
               )}
               {manage && <ButtonLink href={`${path}/edit`} icon={Pencil}><Words k="Edit details" /></ButtonLink>}

@@ -13,7 +13,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { chargesFor, MessagingProblem, recordSend, type Plan, type PlannedRow } from "../messaging";
 import { creditBalances, creditProblem, creditsFor } from "../messaging/credits";
-import { onChannels, type Channel } from "../messaging/channels";
+import { codeChannels, onChannels, type Channel } from "../messaging/channels";
 import { CODE_MASK, withCode } from "../messaging/one-time-code";
 import { currentVersions, ensureReadyTemplates, isApproved, render, templateByKey, versionFor, type UsableVersion } from "../messaging/templates";
 
@@ -48,7 +48,8 @@ const TRIGGERS: Record<string, string> = {
 };
 
 export async function messageParent(tx: Tx, ctx: SchoolContext, msg: ParentMessage): Promise<SendResult> {
-  const on = await onChannels(tx, ctx);
+  // A one-time code keeps its SMS path; other messages never go by SMS while it is not offered (SMS_OFFERED).
+  const on = msg.code ? await codeChannels(tx, ctx) : await onChannels(tx, ctx);
   const asked: Channel = msg.channel ?? "whatsapp";
   const phoneOk = /^[6-9]\d{9}$/.test(msg.to.phone);
   let channel: Channel | null = null;

@@ -1,4 +1,5 @@
 import { BadgeIndianRupee, Bell, ClipboardCheck, MapPinned, MessageSquare, Pencil, Radio, Satellite, Smartphone } from "lucide-react";
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { withSchool } from "@/lib/db";
 import { ruleStates } from "@/lib/messaging/automatic";
 import { APPROVAL_CHOICES, FEE_FREQUENCIES } from "@/lib/transport/words";
@@ -79,7 +80,7 @@ export default async function TransportSettingsPage({ searchParams }: { searchPa
         </Card>
 
         <Card>
-          <CardHeader title="Bus messages to parents" description="Sent through Communication, on WhatsApp with SMS where it fails" icon={MessageSquare} action={editBtn("messages")} />
+          <CardHeader title="Bus messages to parents" description={SMS_OFFERED ? "Sent through Communication, on WhatsApp with SMS where it fails" : "Sent through Communication, on WhatsApp"} icon={MessageSquare} action={editBtn("messages")} />
           <div className="px-5 pb-5 flex flex-col gap-1">
             {rules.map((r) => <SettingRow key={r.key} title={r.label} sub={r.when}><Pill tone={r.isOn ? "ok" : "neutral"} dot>{r.isOn ? "On" : "Off"}</Pill></SettingRow>)}
             <SettingRow title="‘Bus arriving’ goes" sub="Once per student per trip">{`${s.arrivingMinutes} minutes before the stop`}</SettingRow>

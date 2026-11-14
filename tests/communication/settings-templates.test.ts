@@ -1,7 +1,7 @@
 // Message Templates (versions, approved WhatsApp text locked, SMS without a
 // DLT ID saved as a draft), channel keys stored encrypted, SMS needing DLT
 // details, credits, consent requests and the Parent Link list figures.
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { withSchool } from "@/lib/db";
 import { saveTemplate, submitForApproval, TemplateProblem } from "@/lib/communication/templates-admin";
 import { addCredits, ChannelProblem, checkChannel, saveChannel, saveDlt } from "@/lib/messaging/channel-admin";
@@ -12,6 +12,9 @@ import { requestConsent, requestStatus } from "@/lib/parent-link/consent";
 import { createLink, revokeLink } from "@/lib/parent-link/links";
 import { guardianIdsIn, linkSummary } from "@/lib/communication/parent-link-admin";
 import { makeCommSchool } from "./fixture";
+// SMS is not offered for now (SMS_OFFERED, owner 15 Nov 2026), but its code is kept for later:
+// this file checks that code, so it switches SMS on for itself.
+vi.mock("@/lib/messaging/sms-offered", () => ({ SMS_OFFERED: true, offeredChannels: <T extends string>(list: readonly T[]) => [...list] }));
 
 let s: Awaited<ReturnType<typeof makeCommSchool>>;
 

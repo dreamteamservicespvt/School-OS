@@ -14,6 +14,7 @@ import { checkOrSend, findPeople, livePreview, saveGroup, type SendState } from 
 import type { SendPreview } from "@/lib/communication/send-form";
 import { blanksFor, strayBlanks, unfitBlankWords, unknownBlankWords, unknownVariables, type BlankAudience } from "@/lib/messaging/blanks";
 import { countWithReason } from "@/lib/messaging/skip-words";
+import { offeredChannels, SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { EMERGENCY_EVENT } from "./send-head-actions";
 import { TranslatePanel } from "./translate-panel";
 import { Button } from "@/components/ui/button";
@@ -183,7 +184,8 @@ export function SendForm({ data }: { data: SendFormData }) {
   const needsText = channels.some((c) => c !== "sms" && !tpl[c]);
   const needsTitle = channels.some((c) => (c === "app" || c === "email") && !tpl[c]);
   const backupOk = type !== "general";
-  const backupShown = channels.some((c) => c === "whatsapp" || c === "app") && !channels.includes("sms");
+  // No SMS backup box while SMS is not used (SMS_OFFERED, owner 15 Nov 2026).
+  const backupShown = SMS_OFFERED && channels.some((c) => c === "whatsapp" || c === "app") && !channels.includes("sms");
   const smsBackupTemplates = data.templates.filter((t) => t.channel === "sms" && t.usable && (!typeInfo.category || t.category === typeInfo.category));
   const backupOn = backup && backupOk && backupShown;
   const attachable = channels.includes("whatsapp") || channels.includes("email");
@@ -465,12 +467,12 @@ export function SendForm({ data }: { data: SendFormData }) {
 
           {/* 2. What and how */}
           <Card>
-            <CardHeader title="2. What and how" icon={MessageSquareText} description="WhatsApp first. SMS needs an approved template with a DLT template ID." />
+            <CardHeader title="2. What and how" icon={MessageSquareText} description={SMS_OFFERED ? "WhatsApp first. SMS needs an approved template with a DLT template ID." : "WhatsApp first."} />
             <div className="px-5 pb-5 flex flex-col gap-4">
               <div>
                 <p className="text-[13px] font-semibold text-ink2 mb-1.5"><Words k="Send by" /> <span className="text-bad" aria-hidden="true">*</span></p>
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-2" id="send-channels" tabIndex={-1}>
-                  {(["whatsapp", "sms", "email", "app"] as Channel[]).map((c) => {
+                <div className={cx("grid grid-cols-2 gap-2", SMS_OFFERED ? "lg:grid-cols-4" : "lg:grid-cols-3")} id="send-channels" tabIndex={-1}>
+                  {offeredChannels<Channel>(["whatsapp", "sms", "email", "app"]).map((c) => {
                     const on = channels.includes(c);
                     const off = !data.on.includes(c);
                     const Ic = CH[c].icon;
@@ -485,7 +487,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                   })}
                 </div>
                 {tried && <Problem text={err.channels} className="mt-1.5" />}
-                {data.on.length < 4 && <p className="text-[12.5px] text-ink3 mt-1.5"><Words k="Channels that are off are switched on in" /> <Link href="/settings/messaging" className="underline"><Words k={"Settings, SMS, WhatsApp & Email"} /></Link>.</p>}
+                {data.on.length < offeredChannels<Channel>(["whatsapp", "sms", "email", "app"]).length && <p className="text-[12.5px] text-ink3 mt-1.5"><Words k="Channels that are off are switched on in" /> <Link href="/settings/messaging" className="underline"><Words k={"Settings, SMS, WhatsApp & Email"} /></Link>.</p>}
                 {channels.includes("sms") && !data.smsReady && <Problem className="mt-1.5" text="SMS can be sent once DREAM TEAM adds the school’s DLT registration. Please tell DREAM TEAM support." />}
               </div>
 

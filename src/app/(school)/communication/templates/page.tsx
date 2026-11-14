@@ -4,7 +4,7 @@ import { FileText, Plus } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
-import { CHANNELS } from "@/lib/messaging/channels";
+import { CHANNELS, offeredChannels, SMS_OFFERED } from "@/lib/messaging/channels";
 import { categoryLabel, ensureReadyTemplates, languageLabel, TEMPLATE_CATEGORIES } from "@/lib/messaging/templates";
 import { ruleTemplateIds, TEMPLATE_FILTERS, templateWhere, usedBy, WHATSAPP_STATUS_LABEL } from "@/lib/communication/templates-admin";
 import { Card } from "@/components/ui/card";
@@ -46,7 +46,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
       tx.template.findMany({ where, orderBy, ...skipTake(params), include: { versions: { where: { isCurrent: true }, orderBy: { language: "asc" } } } }),
       tx.template.count({ where }),
       ruleTemplateIds(tx, current.ctx),
-      tx.template.count({ where: { schoolId: current.ctx.schoolId, archivedAt: null, channel: "sms", versions: { some: { isCurrent: true, dltTemplateId: null } } } }),
+      SMS_OFFERED ? tx.template.count({ where: { schoolId: current.ctx.schoolId, archivedAt: null, channel: "sms", versions: { some: { isCurrent: true, dltTemplateId: null } } } }) : 0,
     ]);
     return { rows, total, firstIds, noDlt };
   });
@@ -71,9 +71,9 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
         <Card className="overflow-hidden min-w-0">
           <Toolbar className="flex-wrap">
             <UrlSearch placeholder="Template name or text" className="min-w-[14rem]" />
-            <UrlSegmented param="channel" label="Channel" options={[{ value: "", label: "All" }, ...CHANNELS.map((c) => ({ value: c, label: CHANNEL_NAME[c] ?? c }))]} />
+            <UrlSegmented param="channel" label="Channel" options={[{ value: "", label: "All" }, ...offeredChannels(CHANNELS).map((c) => ({ value: c, label: CHANNEL_NAME[c] ?? c }))]} />
             <UrlSelect param="category" label="Category" className="md:w-44" options={[{ value: "", label: "Any category" }, ...TEMPLATE_CATEGORIES.map((c) => ({ value: c.key, label: c.label }))]} />
-            <UrlSelect param="status" label="Status" className="md:w-48" options={[{ value: "", label: "Any status" }, { value: "dlt-missing", label: "No DLT ID" }, ...Object.entries(WHATSAPP_STATUS_LABEL).map(([value, label]) => ({ value, label: `WhatsApp ${label.toLowerCase()}` }))]} />
+            <UrlSelect param="status" label="Status" className="md:w-48" options={[{ value: "", label: "Any status" }, ...(SMS_OFFERED ? [{ value: "dlt-missing", label: "No DLT ID" }] : []), ...Object.entries(WHATSAPP_STATUS_LABEL).map(([value, label]) => ({ value, label: `WhatsApp ${label.toLowerCase()}` }))]} />
             {data.total > 0 && <ExportMenu href={listHref("/communication/templates/export", { ...params, page: 1 }, {})} />}
           </Toolbar>
           <DataList
@@ -95,7 +95,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
               { key: "ch", label: "Channel", render: (t) => <ChannelPills channels={[t.channel]} /> },
               { key: "langs", label: "Languages", render: (t) => <span className="text-[13px]">{langs(t)}</span> },
               { key: "wa", label: "WhatsApp", nowrap: true, render: (t) => (t.channel === "whatsapp" ? <Pill tone={WA_TONE[waStatus(t.versions)]} dot>{WHATSAPP_STATUS_LABEL[waStatus(t.versions)]}</Pill> : <span className="text-ink3">–</span>) },
-              { key: "dlt", label: "DLT template ID", render: (t) => (t.channel !== "sms" ? <span className="text-ink3"><Words k="No SMS" /></span> : missing(t) ? <Pill tone="bad"><Words k="Missing" /></Pill> : <span className="font-mono text-[12.5px]">{t.versions.map((v) => v.dltTemplateId).join(", ")}</span>) },
+              ...(SMS_OFFERED ? [{ key: "dlt", label: "DLT template ID", render: (t: (typeof data.rows)[number]) => (t.channel !== "sms" ? <span className="text-ink3"><Words k="No SMS" /></span> : missing(t) ? <Pill tone="bad"><Words k="Missing" /></Pill> : <span className="font-mono text-[12.5px]">{t.versions.map((v) => v.dltTemplateId).join(", ")}</span>) }] : []),
               { key: "ver", label: "Version", align: "right", render: (t) => <span className="tnum">{ver(t)}</span> },
               { key: "used", label: "Used by", render: (t) => <span className="text-[13px] text-ink2">{usedBy(t, data.firstIds, t.id).join(", ") || "Typed messages"}</span> },
             ]}

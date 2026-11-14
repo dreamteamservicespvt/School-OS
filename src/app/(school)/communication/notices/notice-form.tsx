@@ -1,6 +1,7 @@
 "use client";
 
 // Create or change a notice (11-communication.md, Notice Board form).
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { startTransition, useActionState, useRef, useState } from "react";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 import { saveNoticeAction, type NoticeState } from "./actions";
@@ -28,7 +29,7 @@ const CHANNELS = [
   { key: "app", label: "App notification" },
   { key: "parent-link", label: "Parent Link" },
   { key: "whatsapp", label: "WhatsApp" },
-  { key: "sms", label: "SMS" },
+  ...(SMS_OFFERED ? [{ key: "sms", label: "SMS" }] : []),
   { key: "email", label: "Email" },
 ];
 
@@ -181,7 +182,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
               </label>
             ))}
           </div>
-          <p className="text-sm text-ink3"><Words k="WhatsApp, SMS and email go to parents, using the notice template and your credits." /></p>
+          <p className="text-sm text-ink3">{SMS_OFFERED ? <Words k="WhatsApp, SMS and email go to parents, using the notice template and your credits." /> : <Words k="WhatsApp and email go to parents, using the notice template and your credits." />}</p>
         </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>

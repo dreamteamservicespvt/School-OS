@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { redirect } from "next/navigation";
 import { CalendarDays, ClipboardCheck, ClipboardList, SearchX, ThumbsUp, Users } from "lucide-react";
 import type { Prisma } from "@prisma/client";
@@ -162,7 +163,7 @@ export default async function TestsPage({ searchParams }: Search) {
               empty={filtered
                 ? <EmptyState bare Icon={SearchX} title="No tests in these dates"><Words k="Try another date range." /></EmptyState>
                 : <EmptyState bare Icon={ClipboardCheck} title="No tests scheduled"><Words k="Schedule an entrance test for one or many applicants. Parents get the date, time and venue." /></EmptyState>}
-              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3">{data.tests.length} {data.tests.length === 1 ? "test" : "tests"} <Words k="· parents get the date, time and venue by WhatsApp or SMS" /></p>} />
+              footer={<p className="px-4 py-3 border-t border-line text-[13px] text-ink3">{data.tests.length} {data.tests.length === 1 ? "test" : "tests"} {SMS_OFFERED ? <Words k="· parents get the date, time and venue by WhatsApp or SMS" /> : <Words k="· parents get the date, time and venue by WhatsApp" />}</p>} />
           </Card>
         ) : (
           <Card className="overflow-hidden">

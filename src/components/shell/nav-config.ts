@@ -1,5 +1,6 @@
 // The menu of the approved design (design/ui-prototype/src/data.js NAV, config.js BOTTOM and
 // QUICK_BY_ROLE): groups, icons, the phone bar and the "New" quick actions for each role.
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import type { ModuleKey } from "@/lib/modules";
 
 export type IconName =
@@ -108,7 +109,7 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
   "vice-principal": [
     q("/attendance-management/register", "attendance-management", "Who has not marked attendance", "Remind the class teacher", "CalendarCheck2"),
     { ...APPROVALS_QUICK, label: "Approve leave", sub: "Student and staff leave waiting" },
-    q("/communication", "communication", "Send message", "WhatsApp, SMS or notice to parents", "Send"),
+    q("/communication", "communication", "Send message", SMS_OFFERED ? "WhatsApp, SMS or notice to parents" : "WhatsApp or notice to parents", "Send"),
     q("/academic-management/substitutions", "academic-management", "Arrange substitute", "Periods with no teacher today", "ArrowRightLeft"),
     q("/examination-results/marks", "examination-results", "Marks progress", "Which teachers have not entered marks", "ClipboardCheck"),
   ],

@@ -36,6 +36,9 @@ import { planMessage, recordSend, type SendInput } from "@/lib/messaging/send";
 import { readTranslations, translatedLabel, translationKey, translationProblem, TR_FIELDS } from "@/lib/messaging/translation";
 import { checkOrSend, translateForParents } from "@/app/(school)/communication/actions";
 import { addDlt, makeCommSchool } from "./fixture";
+// SMS is not offered for now (SMS_OFFERED, owner 15 Nov 2026), but its code is kept for later:
+// this file checks that code, so it switches SMS on for itself.
+vi.mock("@/lib/messaging/sms-offered", () => ({ SMS_OFFERED: true, offeredChannels: <T extends string>(list: readonly T[]) => [...list] }));
 
 type School = Awaited<ReturnType<typeof makeCommSchool>>;
 let s: School;

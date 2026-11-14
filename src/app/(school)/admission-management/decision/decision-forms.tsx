@@ -3,6 +3,7 @@
 // Admission Decision sheets (design: mod-admissions.jsx ApproveSheet,
 // RejectSheet, MoveSheet, the confirm and undo sheets). Each one is bound to
 // a server action that checks the role again.
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useState } from "react";
 import { ArrowDown, ArrowUp, BadgeCheck, CircleCheck, FileSignature, ListOrdered, RefreshCw, Undo2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -84,7 +85,7 @@ export function ConfirmButton({ id, name, sub, sections, defaultSection, today, 
 
 export function OfferButtons({ id, sent, accepted, hasEmail }: { id: string; sent: boolean; accepted: boolean; hasEmail: boolean }) {
   const [open, setOpen] = useState(false);
-  const channels: Option[] = [{ value: "whatsapp", label: "WhatsApp or SMS" }, ...(hasEmail ? [{ value: "email", label: "Email" }] : []), { value: "printed", label: "Printed and handed over" }];
+  const channels: Option[] = [{ value: "whatsapp", label: SMS_OFFERED ? "WhatsApp or SMS" : "WhatsApp" }, ...(hasEmail ? [{ value: "email", label: "Email" }] : []), { value: "printed", label: "Printed and handed over" }];
   return (
     <>
       {!accepted && <Button variant="secondary" icon={FileSignature} onClick={() => setOpen(true)}>{sent ? "Send offer again" : "Send offer letter"}</Button>}

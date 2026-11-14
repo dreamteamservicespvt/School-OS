@@ -5,7 +5,7 @@ import { randomUUID } from "node:crypto";
 import { withSchool } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { yearsFor } from "@/lib/academic/years";
-import { channelSetups, preferredChannel, CHANNEL_LABEL, type Channel } from "@/lib/messaging/channels";
+import { channelSetups, offeredChannels, preferredChannel, CHANNEL_LABEL, SMS_OFFERED, type Channel } from "@/lib/messaging/channels";
 import { creditBalances } from "@/lib/messaging/credits";
 import { messageSettings } from "@/lib/messaging/settings";
 import { ensureReadyTemplates, categoryLabel } from "@/lib/messaging/templates";
@@ -60,7 +60,7 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
     const classes = [...new Map(sections.map((s) => [s.classId, { id: s.classId, name: className(s), count: 0 }])).values()];
     for (const c of classes) c.count = sections.filter((s) => s.classId === c.id).reduce((n, s) => n + (perSection.get(s.id) ?? 0), 0);
     const setups = await channelSetups(tx, current.ctx);
-    const on: Channel[] = ["app", ...(["whatsapp", "sms", "email"] as const).filter((c) => setups[c].isOn)];
+    const on: Channel[] = ["app", ...offeredChannels(["whatsapp", "sms", "email"] as const).filter((c) => setups[c].isOn)];
     const templates = await tx.template.findMany({
       where: { schoolId: current.ctx.schoolId, archivedAt: null },
       include: { versions: { where: { isCurrent: true }, orderBy: { language: "asc" } } },
@@ -110,6 +110,8 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
       templates: templates
         // Templates whose blanks only the software can fill (personal links and codes) are not offered here.
         .filter((t) => t.versions.length && !["parent-link", "parent-link-code", "staff-invite", "sign-in-code"].includes(t.key ?? ""))
+        // SMS templates are kept, but not offered while SMS is not used (SMS_OFFERED).
+        .filter((t) => SMS_OFFERED || t.channel !== "sms")
         .map((t) => {
           const en = t.versions.find((v) => v.language === "en") ?? t.versions[0];
           const dlt = t.versions.find((v) => v.dltTemplateId)?.dltTemplateId ?? null;
@@ -133,7 +135,7 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
       staffCount,
       groups,
       balances: await creditBalances(tx, current.ctx),
-      backupDefaults: Object.fromEntries(Object.entries(settings.smsBackup).map(([k, v]) => [k, v.on])) as Record<string, boolean>,
+      backupDefaults: Object.fromEntries(Object.entries(settings.smsBackup).map(([k, v]) => [k, SMS_OFFERED && v.on])) as Record<string, boolean>,
       backupWait: Object.fromEntries(Object.entries(settings.smsBackup).map(([k, v]) => [k, v.waitMinutes])) as Record<string, number>,
       smsReady: Boolean(school.smsDltEntityId && school.smsSenderHeader),
     };

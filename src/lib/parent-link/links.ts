@@ -17,7 +17,7 @@ import { hashToken, placeholderFor, tokenFor } from "./token";
 import { prisma, withSchool, type SchoolContext, type Tx } from "../db";
 import { writeAudit } from "../audit";
 import { sendMessage, MessagingProblem, type SendResult } from "../messaging/send";
-import { channelSetups, whatsappIsLive, type Channel } from "../messaging/channels";
+import { channelSetups, offeredChannels, SMS_OFFERED, whatsappIsLive, type Channel } from "../messaging/channels";
 import { inTestMode } from "../messaging/providers";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
 import { messageSettings } from "../messaging/settings";
@@ -60,14 +60,16 @@ async function cannotCarry(tx: Tx, ctx: SchoolContext, ch: "whatsapp" | "sms", t
   }
   if (!whatsappIsLive(setups.whatsapp)) return null;
   const ok = await tx.templateVersion.count({ where: { templateId, isCurrent: true, whatsappStatus: "APPROVED", whatsappName: { not: null } } });
-  return ok ? null : "WhatsApp has not approved the template yet. Send it for approval in Message Templates, or send by SMS.";
+  return ok ? null : SMS_OFFERED ? "WhatsApp has not approved the template yet. Send it for approval in Message Templates, or send by SMS." : "WhatsApp has not approved the template yet. Send it for approval in Message Templates.";
 }
 
 /** The channel and template for sending links: WhatsApp if it can carry it, else SMS (with a DLT ID). */
 async function linkChannel(tx: Tx, ctx: SchoolContext, wanted?: Channel | null): Promise<{ channel: Channel; templateId: string }> {
   await ensureReadyTemplates(tx, ctx);
   const setups = await channelSetups(tx, ctx);
-  const order: Channel[] = wanted ? [wanted] : ["whatsapp", "sms"];
+  // Links never go by SMS while it is not offered (SMS_OFFERED, owner 15 Nov 2026).
+  if (wanted === "sms" && !SMS_OFFERED) wanted = null;
+  const order: Channel[] = wanted ? [wanted] : offeredChannels<Channel>(["whatsapp", "sms"]);
   let why: string | null = null;
   for (const ch of order) {
     if (ch !== "whatsapp" && ch !== "sms") continue;
@@ -79,7 +81,7 @@ async function linkChannel(tx: Tx, ctx: SchoolContext, wanted?: Channel | null):
     return { channel: ch, templateId: t.id };
   }
   if (why) throw new ParentLinkProblem(`Links cannot be sent: ${why}`);
-  throw new ParentLinkProblem(wanted ? `${wanted === "sms" ? "SMS" : "WhatsApp"} is switched off. Switch it on in Settings, SMS, WhatsApp & Email.` : "Neither WhatsApp nor SMS is switched on, so links cannot be sent. Switch one on in Settings, SMS, WhatsApp & Email.");
+  throw new ParentLinkProblem(wanted ? `${wanted === "sms" ? "SMS" : "WhatsApp"} is switched off. Switch it on in Settings, SMS, WhatsApp & Email.` : SMS_OFFERED ? "Neither WhatsApp nor SMS is switched on, so links cannot be sent. Switch one on in Settings, SMS, WhatsApp & Email." : "WhatsApp is switched off, so links cannot be sent. Switch it on in Settings, SMS, WhatsApp & Email.");
 }
 
 /** Sends links (as placeholders) to guardians in one Message. */
@@ -327,15 +329,19 @@ export async function checkCode(tx: Tx, ctx: SchoolContext, linkId: string, purp
   const row = await tx.parentLinkCode.findFirst({ where: { parentLinkId: linkId, purpose, usedAt: null, expiresAt: { gt: now }, ...(purpose === "device" ? { keyHash: keyHash ?? "-" } : {}) }, orderBy: { createdAt: "desc" } });
   if (!row) return { ok: false, message: "This code has expired. Tap \"Send a new code\"." };
   if (row.attempts >= CODE_TRIES) return { ok: false, message: "Too many wrong codes. Tap \"Send a new code\"." };
+  // The try is counted before the compare, in one statement that refuses a sixth (security review
+  // 2026-11-15): codes sent at the same moment cannot all pass the five-try check.
+  const counted = await tx.parentLinkCode.updateMany({ where: { id: row.id, usedAt: null, attempts: { lt: CODE_TRIES } }, data: { attempts: { increment: 1 } } });
+  if (counted.count === 0) return { ok: false, message: "Too many wrong codes. Tap \"Send a new code\"." };
   const expected = Buffer.from(row.codeHash);
   const given = Buffer.from(codeHash(clean, linkId));
   if (clean.length !== 6 || !timingSafeEqual(expected, given)) {
-    await tx.parentLinkCode.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } });
-    const left = CODE_TRIES - row.attempts - 1;
+    const left = CODE_TRIES - (await tx.parentLinkCode.findUniqueOrThrow({ where: { id: row.id }, select: { attempts: true } })).attempts;
     await writeAudit(tx, ctx, { action: "code-wrong", recordType: "Parent Link", recordId: linkId, after: { purpose } });
     return { ok: false, message: left > 0 ? `That code is not right. ${left} ${left === 1 ? "try" : "tries"} left.` : "Too many wrong codes. Tap \"Send a new code\"." };
   }
-  await tx.parentLinkCode.update({ where: { id: row.id }, data: { usedAt: now } });
+  const claimed = await tx.parentLinkCode.updateMany({ where: { id: row.id, usedAt: null }, data: { usedAt: now } });
+  if (claimed.count !== 1) return { ok: false, message: "This code has expired. Tap \"Send a new code\"." };
   return { ok: true, code: { id: row.id, detail: row.detail } };
 }
 

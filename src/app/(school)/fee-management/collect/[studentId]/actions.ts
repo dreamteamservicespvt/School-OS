@@ -1,5 +1,6 @@
 "use server";
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import QRCode from "qrcode";
 import type { PaymentMode } from "@prisma/client";
 import { formatDate, formatDateTime, formatRupees } from "@/lib/format";
@@ -118,7 +119,7 @@ export async function sendLink(_prev: unknown, fd: FormData) {
   return feeAction("create", fd, async (tx, ctx, viewer) => {
     const r = await sendPaymentLink(tx, ctx, { studentId: await student(tx, viewer, fd), dueIds: ids(fd, "dueId"), channel: "whatsapp" });
     return { amount: formatRupees(r.amount), to: r.card.fatherName ?? r.card.primaryGuardian?.name ?? "the parent", expires: formatDate(r.link.expiresAt) };
-  }, (r) => `Payment link for ${r.amount} is on its way to ${r.to} by WhatsApp, with SMS backup. Valid till ${r.expires}. Message History shows when it arrives; nothing goes while messages are in Test mode.`, { staffOnly: "send payment links" });
+  }, (r) => `Payment link for ${r.amount} is on its way to ${r.to} by WhatsApp${SMS_OFFERED ? ", with SMS backup" : ""}. Valid till ${r.expires}. Message History shows when it arrives; nothing goes while messages are in Test mode.`, { staffOnly: "send payment links" });
 }
 
 export type QrLink = { url: string; svg: string; amount: string; linkId: string };
@@ -167,7 +168,7 @@ export async function resendReceipt(_prev: unknown, fd: FormData) {
       byHand: true,
     });
     if (r.status === "off") throw new MoneyProblem("The \"Fee received\" message is switched off. Switch it on in Communication, Message Settings.", undefined, { href: "/communication/settings", label: "Open Message Settings" });
-    if (r.status === "no-channel") throw new MoneyProblem("No messaging channel is set up. Set up WhatsApp or SMS in Settings.", undefined, { href: "/settings", label: "Open Settings" });
+    if (r.status === "no-channel") throw new MoneyProblem(SMS_OFFERED ? "No messaging channel is set up. Set up WhatsApp or SMS in Settings." : "No messaging channel is set up. Set up WhatsApp in Settings.", undefined, { href: "/settings", label: "Open Settings" });
     if (r.status === "nobody") throw new MoneyProblem("No parent can get this message: no phone number, or they opted out. Print the receipt instead.");
     // No channel can carry it (for example WhatsApp has not approved the template and SMS has no DLT template ID): say why, nothing is sent.
     if (r.status === "not-sent") throw new MoneyProblem(`The receipt was not sent: ${r.reason.replace(/^Not sent: /, "")}. Print the receipt instead.`, undefined, { href: "/communication/settings", label: "Open Message Settings" });

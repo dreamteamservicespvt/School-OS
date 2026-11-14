@@ -4,6 +4,7 @@
 // the message to a route's parents, which is sent only after the person
 // confirms the number of parents (12 §5).
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useState } from "react";
 import { Send, TriangleAlert } from "lucide-react";
 import { SheetForm, useTyped } from "@/components/ui/url-sheet";
@@ -117,7 +118,7 @@ export function RouteMessageSheet({ closeHref, routes, start }: {
       </FieldShell>
       <label className="flex items-start gap-3 rounded-xl border border-line px-3.5 py-3 cursor-pointer">
         <KeepCheck type="checkbox" checked={sure} onChange={(e) => setSure(e.target.checked)} className="mt-1 size-4 accent-[rgb(var(--brand))]" />
-        <span className="text-[14px]"><b className="font-semibold">{r ? `Send to ${plural(r.parents, "parent")} of ${r.label}?` : "Send this message?"}</b><span className="block text-[12.5px] text-ink3">I have read the message. It goes on WhatsApp, with SMS where WhatsApp fails.</span></span>
+        <span className="text-[14px]"><b className="font-semibold">{r ? `Send to ${plural(r.parents, "parent")} of ${r.label}?` : "Send this message?"}</b><span className="block text-[12.5px] text-ink3">{SMS_OFFERED ? "I have read the message. It goes on WhatsApp, with SMS where WhatsApp fails." : "I have read the message. It goes on WhatsApp."}</span></span>
       </label>
     </SheetForm>
   );

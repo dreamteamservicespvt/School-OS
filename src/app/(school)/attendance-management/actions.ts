@@ -3,6 +3,7 @@
 // Take Attendance: saving a class (online, or later from the phone's
 // offline queue). Every rule is checked again here on the server.
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { revalidatePath } from "next/cache";
 import { requireAction } from "@/lib/current";
 import { withSchool } from "@/lib/db";
@@ -90,7 +91,7 @@ export async function saveSheet(payload: SheetPayload): Promise<SheetResult> {
     const absent = result.counts.absent ?? 0;
     if (result.messagesAt && absent) parts.push(`Parents of ${absent} absent ${absent === 1 ? "student" : "students"} get a message at ${formatTime(result.messagesAt, tz)}.`);
     else if (result.held && absent) parts.push("No absence message goes to parents yet: messages start when your school goes live on School OS.");
-    else if (result.noChannel && absent) parts.push("No absence message goes to parents: WhatsApp or SMS is not connected yet (Settings, Messaging).");
+    else if (result.noChannel && absent) parts.push(SMS_OFFERED ? "No absence message goes to parents: WhatsApp or SMS is not connected yet (Settings, Messaging)." : "No absence message goes to parents: WhatsApp is not connected yet (Settings, Messaging).");
     else if (result.ruleOff && absent) parts.push("No absence message goes to parents: the \"Absent today\" message is switched off in Communication, Message Settings.");
     else if (!absent && !input.offline) parts.push("Everyone is in today.");
     if (result.clockFlagged) parts.push("The phone's clock was wrong, so the school's time was used.");

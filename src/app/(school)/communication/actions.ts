@@ -1,6 +1,7 @@
 "use server";
 
 // Send Message: check (count, cost, preview), then send or schedule.
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { redirect } from "next/navigation";
 import { withSchool } from "@/lib/db";
 import { findStudents } from "@/lib/students/find";
@@ -167,7 +168,7 @@ export async function translateForParents(form: FormData): Promise<TranslateStat
     if (e instanceof MessagingProblem) return { ok: false, message: e.message };
     throw e;
   }
-  if (!languages.length) return { ok: false, message: "Every parent chosen reads English, or gets this by SMS or a template, so there is nothing to translate." };
+  if (!languages.length) return { ok: false, message: (SMS_OFFERED ? "Every parent chosen reads English, or gets this by SMS or a template, so there is nothing to translate." : "Every parent chosen reads English, or gets this in a template, so there is nothing to translate.") };
   const english = { text, title: read.input.title ?? null };
   const versions = await translateTyped(current.ctx, english, languages.map((l) => l.language));
   return {

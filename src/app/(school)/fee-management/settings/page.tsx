@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { Award, BellRing, Check, Globe, Hourglass, KeyRound, Landmark, Percent, ReceiptIndianRupee, ShieldCheck, Timer, ToggleRight, Wallet, type LucideIcon } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { defaultSteps, requestLabel, type RuleStep } from "@/lib/approvals";
@@ -29,7 +30,7 @@ export async function generateMetadata() {
 const HREF = `${BASE}/settings`;
 const rupees = (p: bigint | null) => (p === null ? "" : (Number(p) / 100).toString());
 const DAY_WORDS = (d: number) => (d === 0 ? "On the due date" : d < 0 ? `${-d} ${d === -1 ? "day" : "days"} before` : `${d} ${d === 1 ? "day" : "days"} after`);
-const CHANNEL: Record<string, string> = { whatsapp: "WhatsApp with SMS backup", sms: "SMS", email: "Email" };
+const CHANNEL: Record<string, string> = { whatsapp: SMS_OFFERED ? "WhatsApp with SMS backup" : "WhatsApp", sms: "SMS", email: "Email" };
 
 type Row = { title: React.ReactNode; sub?: React.ReactNode; value?: React.ReactNode; on?: boolean };
 

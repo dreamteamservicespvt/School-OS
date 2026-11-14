@@ -16,7 +16,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { enqueue } from "../jobs";
 import { formatDate } from "../format";
-import { CHANNEL_LABEL, channelSetups, PREFERRED_ORDER, PROVIDER_CHANNELS, whatsappIsLive, type Channel } from "./channels";
+import { CHANNEL_LABEL, channelSetups, PREFERRED_ORDER, PROVIDER_CHANNELS, SMS_OFFERED, whatsappIsLive, type Channel } from "./channels";
 import { creditBalances, creditProblem, creditsFor, PAID_CHANNELS, spendCredits } from "./credits";
 import { describeAudience, resolveAudience, SYSTEM_SCOPE, type AudienceRule, type Candidate, type Scope, type StudentInfo } from "./recipients";
 import { bareText, currentVersions, isApproved, missingWords, render, strayBlanks, strayBraces, templateByKey, TYPED_CARRIER, unknownVariables, variablesIn, versionFor, type Rendered, type UsableVersion } from "./templates";
@@ -210,7 +210,11 @@ function baseValues(school: { name: string; phone: string | null; timeZone: stri
 function addressFor(c: Candidate, channel: Channel, providersOn = true): { address: string } | { skip: string } {
   if (channel === "app") {
     // With no WhatsApp, SMS or email connected, parents cannot get it at all: say so plainly.
-    if (c.type === "guardian") return { skip: providersOn ? "Parents have no app; they get WhatsApp, SMS or email" : "Parents have no app, and WhatsApp, SMS and email are not connected, so they will not get it" };
+    // SMS is named only while it is offered (SMS_OFFERED).
+    if (c.type === "guardian") {
+      if (!SMS_OFFERED) return { skip: providersOn ? "Parents have no app; they get WhatsApp or email" : "Parents have no app, and WhatsApp and email are not connected, so they will not get it" };
+      return { skip: providersOn ? "Parents have no app; they get WhatsApp, SMS or email" : "Parents have no app, and WhatsApp, SMS and email are not connected, so they will not get it" };
+    }
     return c.userLoginId ? { address: c.userLoginId } : { skip: "No School OS login for app messages" };
   }
   if (c.type === "student") return { skip: "Students get app messages only" };
@@ -356,18 +360,24 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   const problem = (p: string) => { if (!problems.includes(p)) problems.push(p); };
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true, phone: true, timeZone: true, defaultLanguage: true, smsDltEntityId: true, smsSenderHeader: true } });
   const setups = await channelSetups(tx, ctx);
-  const on = new Set<Channel>(["app", ...PROVIDER_CHANNELS.filter((c) => setups[c].isOn)]);
+  // While SMS is not offered (SMS_OFFERED, owner 15 Nov 2026) SMS counts as not connected, so nothing
+  // goes by SMS by default or by accident. Sign-in and confirmation codes (oneTimeCode) keep their SMS path.
+  const smsAllowed = SMS_OFFERED || Boolean(input.oneTimeCode);
+  const on = new Set<Channel>(["app", ...PROVIDER_CHANNELS.filter((c) => setups[c].isOn && (c !== "sms" || smsAllowed))]);
   const providersOn = on.has("whatsapp") || on.has("sms") || on.has("email");
   const live = whatsappIsLive(setups.whatsapp);
   const smsReady = Boolean(school.smsDltEntityId && school.smsSenderHeader);
   const preferred = input.channels === "preferred";
-  const primary: Channel[] = preferred ? [] : [...new Set(input.channels as Channel[])];
-  const fallback: Channel[] = [...new Set(preferred ? PREFERRED_ORDER : input.fallback ?? [])].filter((c) => !primary.includes(c));
+  // SMS asked for while it is not offered is simply left out (an old saved choice, or a caller's list).
+  const asked: Channel[] = preferred ? [] : [...new Set(input.channels as Channel[])];
+  const primary: Channel[] = smsAllowed ? asked : asked.filter((c) => c !== "sms");
+  const fallback: Channel[] = [...new Set(preferred ? PREFERRED_ORDER : input.fallback ?? [])].filter((c) => !primary.includes(c) && (smsAllowed || c !== "sms"));
   const tried = [...primary, ...fallback];
+  if (!tried.length && asked.includes("sms")) problem("SMS is not used for now. Send by WhatsApp instead.");
   const typed = (input.text ?? "").trim();
   const title = (input.title ?? "").trim() || null;
 
-  if (tried.length === 0) problem("Choose at least one channel.");
+  if (tried.length === 0 && !asked.includes("sms")) problem("Choose at least one channel.");
   for (const ch of primary) {
     if (!on.has(ch)) problem(`${CHANNEL_LABEL[ch]} is switched off. Switch it on in Settings, SMS, WhatsApp & Email, or choose another channel.`);
   }
@@ -450,7 +460,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
   // SMS backup (fee, attendance and result messages only).
   let backupVersions: UsableVersion[] = [];
   let backupTemplateId: string | null = null;
-  const backupWanted = Boolean(input.smsBackup && input.messageType && (BACKUP_TYPES as readonly string[]).includes(input.messageType) && tried.some((c) => c !== "sms"));
+  const backupWanted = Boolean(SMS_OFFERED && input.smsBackup && input.messageType && (BACKUP_TYPES as readonly string[]).includes(input.messageType) && tried.some((c) => c !== "sms"));
   if (backupWanted) {
     backupTemplateId = input.backupTemplateId ?? null;
     if (!backupTemplateId) {

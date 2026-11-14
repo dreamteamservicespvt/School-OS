@@ -2,6 +2,7 @@
 // the person, overdue queries, new app messages, and alerts that a
 // messaging channel or payment gateway needs fixing (01 §2 "Alerts").
 import "server-only";
+import { offeredChannels } from "../../messaging/sms-offered";
 
 import { readListParams } from "../../list";
 import { queryWhere } from "../../communication/queries";
@@ -145,7 +146,8 @@ const settingsAlerts: Widget<"attention"> = {
       title: `Parents cannot pay fees online right now (${g.displayName})`, detail: "Fees can still be collected at the counter. DREAM TEAM support fixes this: call or message them.",
       action: "See details", href: "/settings/payment-gateways", value: "failed",
     });
-    for (const ch of ["whatsapp", "sms"] as const) {
+    // SMS alerts are not shown while SMS is not offered (SMS_OFFERED, owner 15 Nov 2026).
+    for (const ch of offeredChannels(["whatsapp", "sms"] as const)) {
       const s = channels[ch];
       if (!s.isOn) continue;
       if (s.lastTestOk === false) out.push({

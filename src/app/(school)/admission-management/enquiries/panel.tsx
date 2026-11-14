@@ -4,6 +4,7 @@
 // four quick actions, the details, Convert to application, the "…" menu,
 // messages and the activity history, which is never deleted.
 
+import { offeredChannels } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
 import { useState } from "react";
 import type { LucideIcon } from "lucide-react";
@@ -180,7 +181,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
       </FormSheet>
       <FormSheet open={sheet === "msg"} onClose={close} title={`Message ${e.parentName}`} sub={`+91 ${e.phone} · saved in this enquiry`} action={messageAction} hidden={{ ...hidden, template: tpl }} submitLabel={`Send to ${e.parentName}`} busyLabel="Sending…" submitIcon={Send}>
         {(f) => <>
-          <SegField name="channel" label="Send by" options={[{ value: "whatsapp", label: "WhatsApp" }, { value: "sms", label: "SMS" }, { value: "email", label: "Email" }]} defaultValue={channel} onChange={setChannel} />
+          <SegField name="channel" label="Send by" options={offeredChannels(["whatsapp", "sms", "email"]).map((c) => ({ value: c, label: c === "sms" ? "SMS" : c === "email" ? "Email" : "WhatsApp" }))} defaultValue={channel} onChange={setChannel} />
           <SelectField label="Template" name="_template" required options={templates.map((t) => ({ value: t.key, label: t.label }))} value={tpl}
             onChange={(x) => { setTpl(x.target.value); setText(templates.find((t) => t.key === x.target.value)?.text ?? ""); }} />
           <TextArea label="Message" name="text" required rows={5} value={text} onChange={(x) => setText(x.target.value)} error={f.err("text")} help="You can change the words before sending." />

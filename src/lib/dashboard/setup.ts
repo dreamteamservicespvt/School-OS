@@ -3,6 +3,7 @@
 // also be marked done (or an optional one skipped) by hand. Steps of modules
 // that are not built or are switched off are hidden.
 import "server-only";
+import { offeredChannels } from "../messaging/sms-offered";
 
 import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
@@ -59,7 +60,7 @@ export async function setupSteps(tx: Tx, ctx: SchoolContext, v: Pick<Viewer, "pe
     tx.student.count({ where: { archivedAt: null, status: { in: ["ADMITTED", "ACTIVE", "PROMOTED"] } } }),
     tx.guardian.count({ where: { archivedAt: null } }),
     tx.paymentGatewayAccount.count({ where: { archivedAt: null, isActive: true } }),
-    tx.messagingChannel.findMany({ where: { channel: { in: ["sms", "whatsapp"] }, isOn: true }, select: { channel: true } }),
+    tx.messagingChannel.findMany({ where: { channel: { in: offeredChannels(["sms", "whatsapp"]) }, isOn: true }, select: { channel: true } }),
     tx.parentLink.count({ where: { status: "ACTIVE" } }),
     tx.setupStepStatus.findMany({ where: { archivedAt: null } }),
     ids.length ? tx.feeStructure.findMany({ where: { academicYearId: { in: ids }, status: "PUBLISHED", archivedAt: null }, select: { classId: true }, distinct: ["classId"] }) : [],

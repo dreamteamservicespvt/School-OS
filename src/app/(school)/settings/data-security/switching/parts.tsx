@@ -3,6 +3,7 @@
 // The go-live button (workflow 15, step 10). The buttons for each file are
 // shared by every import page: src/components/import/file-buttons.tsx.
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ConfirmButton } from "@/components/ui/confirm";
@@ -25,7 +26,7 @@ export function GoLiveButton({ students, staff, guardians, owedBefore }: { stude
         <p><Words k="School OS becomes your school's record from today, with" /> {plural(students, "student")} <Words k="and" /> {plural(staff, "staff member", "staff")}<Words k=". This summary is kept as it is now." /></p>
         <p className="mt-2"><Words k="Automatic messages to parents, fee reminders and late fees start now." /></p>
         {owedBefore && <p className="mt-2 font-medium text-ink">{owedBefore.amount} <Words k="of fees due before go-live is still owed by" /> {plural(owedBefore.students, "student")}<Words k=". Reminders and late fees will go for it. Settle it first under “Fees due before go-live” if the old software collected it or it is in the old dues." /></p>}
-        {send ? <p className="mt-2"><Words k="Every parent is sent their Parent Link with the consent request, by WhatsApp or SMS as set up in Settings." /></p> : <p className="mt-2"><Words k="Parent Links are not sent now. Send them from Communication, Parent Link, when you are ready." /></p>}
+        {send ? <p className="mt-2">{SMS_OFFERED ? <Words k="Every parent is sent their Parent Link with the consent request, by WhatsApp or SMS as set up in Settings." /> : <Words k="Every parent is sent their Parent Link with the consent request, by WhatsApp as set up in Settings." />}</p> : <p className="mt-2"><Words k="Parent Links are not sent now. Send them from Communication, Parent Link, when you are ready." /></p>}
       </ConfirmButton>
     </div>
   );

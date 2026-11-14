@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { offeredChannels } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { FileText, Info, Megaphone } from "lucide-react";
@@ -74,7 +75,7 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
     g.students.length ? `${g.relationship} of ${g.students.map((x) => x.student.fullName).join(", ")}` : g.relationship;
   const notRead = data.people.filter((p) => !ackBy.get(p.id)?.[n.askAck ? "acknowledgedAt" : "readAt"]);
   const unseen = data.guardians.filter((g) => !seenBy.has(g.id)).length;
-  const channels = (["whatsapp", "sms", "email"] as const).filter((c) => data.setups[c].isOn);
+  const channels = offeredChannels(["whatsapp", "sms", "email"] as const).filter((c) => data.setups[c].isOn);
   const show = sp.seen === "seen" || sp.seen === "not" ? sp.seen : "all";
   const guardianRows = data.guardians.filter((g) => show === "all" || (show === "seen" ? seenBy.has(g.id) : !seenBy.has(g.id)));
   const peopleRows = data.people.filter((p) => show === "all" || (show === "seen" ? !notRead.includes(p) : notRead.includes(p)));

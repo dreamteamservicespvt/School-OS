@@ -1,4 +1,5 @@
 // The Add / edit parent or guardian form (03 §2, "Form fields: Add parent or guardian").
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
 import type { Guardian } from "@prisma/client";
 import { ActionForm, FormArea, FormCheck, FormSelect, FormText } from "@/components/students/action-form";
@@ -31,7 +32,7 @@ export function GuardianForm({ action, g, studentId, canRestrict, cancelHref }: 
         <FormSelect name="language" label="Message language" required options={LANGUAGES} defaultValue={g?.language ?? "en"} />
         <FormArea name="address" label="Address" rows={2} className="sm:col-span-2" defaultValue={g?.address} />
       </div>
-      <FormCheck name="optedOut" label="Opted out of messages" defaultChecked={g?.optedOut ?? false} help="No WhatsApp or SMS except urgent safety messages." />
+      <FormCheck name="optedOut" label="Opted out of messages" defaultChecked={g?.optedOut ?? false} help={SMS_OFFERED ? "No WhatsApp or SMS except urgent safety messages." : "No WhatsApp messages except urgent safety messages."} />
       {!g && studentId && <FormCheck name="emergency" label="Emergency contact" help="Adds them to the student's emergency contacts." />}
       {!g && studentId && canRestrict && (
         <fieldset className="space-y-3 rounded-xl border border-danger/30 p-4">

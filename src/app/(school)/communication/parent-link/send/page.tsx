@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { offeredChannels, SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { withSchool } from "@/lib/db";
 import { commOfficePage } from "@/lib/communication/access";
 import { channelSetups } from "@/lib/messaging/channels";
@@ -18,15 +19,15 @@ export default async function SendFamiliesPage() {
   const access = await commOfficePage("create");
   const { current } = access;
   const data = await withSchool(current.ctx, async (tx) => ({ who: await whoOptions(tx, current.ctx, access.scope.campusId), setups: await channelSetups(tx, current.ctx) }));
-  const channels = (["whatsapp", "sms"] as const).filter((c) => data.setups[c].isOn).map((c) => ({ value: c, label: c === "sms" ? "SMS" : "WhatsApp" }));
+  const channels = offeredChannels(["whatsapp", "sms"] as const).filter((c) => data.setups[c].isOn).map((c) => ({ value: c, label: c === "sms" ? "SMS" : "WhatsApp" }));
   return (
     <>
       <BackLink href="/communication/parent-link" label="Parent Link" />
       <RecordHead title="Send Parent Link to existing families"
         sub={<span className="text-[14px] text-ink3"><Words k="Makes a personal link for each guardian with no active link and sends it to their registered mobile." /></span>} />
       {channels.length === 0 ? (
-        <Banner tone="warn" title="Neither WhatsApp nor SMS is switched on." action={<ButtonLink href="/settings/messaging" size="sm" variant="secondary"><Words k="Open settings" /></ButtonLink>}>
-          <Words k={"Links cannot be sent. Switch one on in Settings, SMS, WhatsApp & Email."} />
+        <Banner tone="warn" title={SMS_OFFERED ? "Neither WhatsApp nor SMS is switched on." : "WhatsApp is not switched on."} action={<ButtonLink href="/settings/messaging" size="sm" variant="secondary"><Words k="Open settings" /></ButtonLink>}>
+          {SMS_OFFERED ? <Words k={"Links cannot be sent. Switch one on in Settings, SMS, WhatsApp & Email."} /> : <Words k={"Links cannot be sent. Switch WhatsApp on in Settings, SMS, WhatsApp & Email."} />}
         </Banner>
       ) : (
         <FamiliesForm who={data.who} channels={channels} />

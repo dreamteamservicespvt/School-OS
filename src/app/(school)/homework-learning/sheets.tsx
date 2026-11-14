@@ -1,5 +1,6 @@
 "use client";
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useState, useTransition } from "react";
 import { Archive, ChevronDown, Copy, Eye, Pencil, Send, Sparkles, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -256,7 +257,7 @@ export function ArchiveSheet({ closeHref, id, title }: { closeHref: string; id: 
 export function ResendSheet({ closeHref, id, title, parents, credits, channel, problem }: { closeHref: string; id: string; title: string; parents: number; credits: number; channel: string; problem: string | null }) {
   return (
     <SheetForm title={`Resend to ${parents} parents?`} closeHref={closeHref} action={resendHomeworkAction} submitLabel={`Send to ${parents} parents`} pendingText="Sending…" hidden={{ id }} submitDisabled={!!problem || parents === 0}>
-      <p className="text-[14px] text-ink2"><Words k="Only the parents who have not seen “" />{title}<Words k="”. By" /> {channel}<Words k=", with SMS backup. Cost:" /> {credits} <Words k="credits. A message cannot be unsent." /></p>
+      <p className="text-[14px] text-ink2"><Words k="Only the parents who have not seen “" />{title}<Words k="”. By" /> {channel}{SMS_OFFERED ? <Words k=", with SMS backup. Cost:" /> : <Words k=". Cost:" />} {credits} <Words k="credits. A message cannot be unsent." /></p>
       {problem && <p className="text-[13.5px] text-bad" role="alert">{problem}</p>}
     </SheetForm>
   );

@@ -4,7 +4,7 @@
 import "server-only";
 
 import type { SchoolContext, Tx } from "../db";
-import { onChannels, type Channel } from "./channels";
+import { offeredChannels, onChannels, type Channel } from "./channels";
 import { planMessage, recordSend, type SendInput, type SendResult } from "./send";
 import { messageSettings, type BackupType } from "./settings";
 import { ensureReadyTemplates, templateByKey } from "./templates";
@@ -102,7 +102,7 @@ export async function ruleReady(tx: Tx, ctx: SchoolContext, key: string): Promis
   if (def.audience === "parents" && (await movingIn(tx, ctx))) return { on: true, ready: false, channels: [], label: def.label, held: true };
   const on = await onChannels(tx, ctx);
   const parents = def.audience === "parents";
-  const order: Channel[] = parents ? ["whatsapp", "sms", "email"] : ["app", "whatsapp", "sms", "email"];
+  const order: Channel[] = offeredChannels<Channel>(parents ? ["whatsapp", "sms", "email"] : ["app", "whatsapp", "sms", "email"]);
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { smsDltEntityId: true, smsSenderHeader: true } });
   const smsReady = Boolean(school.smsDltEntityId && school.smsSenderHeader);
   const channels: Channel[] = [];
@@ -192,7 +192,7 @@ async function automaticSend(tx: Tx, ctx: SchoolContext, def: RuleDef, state: Ru
   const on = await onChannels(tx, ctx);
   const parents = def.audience === "parents";
   // Parents have no app: a parents' rule saved with "app" (Homework set used to be) uses the other channels.
-  const order: Channel[] = parents ? ["whatsapp", "sms", "email"] : ["app", "whatsapp", "sms", "email"];
+  const order: Channel[] = offeredChannels<Channel>(parents ? ["whatsapp", "sms", "email"] : ["app", "whatsapp", "sms", "email"]);
   const templates: Partial<Record<Channel, string>> = {};
   for (const c of new Set<Channel>([...state.channels, ...order])) {
     const id = state.templateIds[c] ?? (await templateByKey(tx, ctx, def.key, c))?.id;

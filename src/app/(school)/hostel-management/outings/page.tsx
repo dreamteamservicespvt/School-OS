@@ -4,6 +4,7 @@
 // the hostel visitor log (every visitor names the resident they meet; only
 // the authorised list visits without the warden's approval). A warden works
 // in their own hostel; leaders approve, read and remind.
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
 import type { Metadata } from "next";
 import { AlertTriangle, CalendarClock, DoorOpen, FileText, Plus, Search, Ticket, UserCheck, Users } from "lucide-react";
@@ -209,7 +210,7 @@ async function PassesView({ p, sp }: { p: P; sp: Raw }) {
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(base, params, { page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(base, params, { page: params.page + 1 })} />}
         </Card>
         <p className="text-[12.5px] text-ink3"><Words k="Each pass is a Gate Pass of kind Hostel Outing, so the front gate sees it too. New outings are back by" /> {minuteWords(s.outingBackMinute)} <Words k="unless you change it." /> {!(s.messageOnOut || s.messageOnReturn) ? "Messages to parents are off in Hostel Settings."
-          : !d.canMessage ? "Messages to parents are on in Hostel Settings, but no WhatsApp, SMS or email is switched on, so parents are not told. Switch one on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect one."
+          : !d.canMessage ? (SMS_OFFERED ? "Messages to parents are on in Hostel Settings, but no WhatsApp, SMS or email is switched on, so parents are not told. Switch one on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect one." : "Messages to parents are on in Hostel Settings, but neither WhatsApp nor email is switched on, so parents are not told. Switch one on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect one.")
           : `Parents are told when their child ${[s.messageOnOut && "goes out", s.messageOnReturn && "comes back"].filter(Boolean).join(" and ")}.`}</p>
       </Stack>
 

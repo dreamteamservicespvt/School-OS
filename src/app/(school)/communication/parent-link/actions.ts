@@ -3,6 +3,7 @@
 // Parent Link (school staff): send to existing families (preview, then send),
 // resend, revoke or reissue with a reason, and consent requests with
 // reminders. Principal and School Admin only.
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { revalidatePath } from "next/cache";
 import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
@@ -68,8 +69,10 @@ export async function previewFamilies(form: FormData): Promise<FamiliesPreview> 
       const all = await guardianIdsIn(tx, ctx, pick(who, access.scope.campusId));
       const todo = await guardiansWithoutLinks(tx, ctx, all);
       const setups = await channelSetups(tx, ctx);
-      const channel: Channel | null = wanted === "whatsapp" || wanted === "sms" ? wanted : setups.whatsapp.isOn ? "whatsapp" : setups.sms.isOn ? "sms" : null;
-      if (!channel || !setups[channel].isOn) return { ok: false as const, message: "Neither WhatsApp nor SMS is switched on, so links cannot be sent. Switch one on in Settings, SMS, WhatsApp & Email." };
+      // Links never go by SMS while it is not offered (SMS_OFFERED, owner 15 Nov 2026).
+      const smsOk = SMS_OFFERED;
+      const channel: Channel | null = wanted === "whatsapp" || (wanted === "sms" && smsOk) ? wanted : setups.whatsapp.isOn ? "whatsapp" : smsOk && setups.sms.isOn ? "sms" : null;
+      if (!channel || !setups[channel].isOn) return { ok: false as const, message: smsOk ? "Neither WhatsApp nor SMS is switched on, so links cannot be sent. Switch one on in Settings, SMS, WhatsApp & Email." : "WhatsApp is switched off, so links cannot be sent. Switch it on in Settings, SMS, WhatsApp & Email." };
       const t = await templateByKey(tx, ctx, "parent-link", channel);
       const v = t ? await tx.templateVersion.findFirst({ where: { templateId: t.id, isCurrent: true }, orderBy: { language: "asc" } }) : null;
       if (channel === "sms" && !v?.dltTemplateId) return { ok: false as const, message: "The Parent Link SMS template has no DLT template ID yet; DREAM TEAM adds it. Send by WhatsApp for now." };

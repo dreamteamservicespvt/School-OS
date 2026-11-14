@@ -1,5 +1,6 @@
 "use client";
 
+import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import Link from "next/link";
 import { useActionState, useEffect, useRef, useState } from "react";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
@@ -54,7 +55,7 @@ export function InviteForm({ roles, campuses, staff, defaultRoleId, defaultStaff
         <Alert tone="success" title={`${state.data.name} is invited`}>
           {state.data.sentBy.length
             ? <><Words k="The invite link was sent to" /> {state.data.name} <Words k="by" /> {state.data.sentBy.join(" and ")}<Words k=". You can also copy it below and give it to them yourself." /> </>
-            : <><Words k="Send this link to" /> {state.data.name} <Words k="by WhatsApp, SMS or email." /> </>}
+            : <><Words k="Send this link to" /> {state.data.name} {SMS_OFFERED ? <Words k="by WhatsApp, SMS or email." /> : <Words k="by WhatsApp or email." />} </>}
           <Words k="They open it to choose their own password; nobody else ever sees it. The link works once, for 7 days." />
           {state.data.sentNote && <span className="mt-1 block">{state.data.sentNote}</span>}
         </Alert>

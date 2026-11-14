@@ -42,7 +42,7 @@ Progress page: see docs/HANDOFF.md (link).
 5. Deploy settings to review: console code shown on a test copy; TRUSTED_PROXY_HOPS=0 makes every visitor share one rate-limit bucket.
 6. Console WhatsApp webhook forwards unsigned requests to the gym's live site (shared live setup: not touched).
 7. Admissions: drag-and-drop removed from the pipeline (step list with buttons instead); bring back as an extra?
-8. WhatsApp: after deploy, press "Make WhatsApp-ready" and "Send all for approval" (code coming), then Meta approves.
+8. WhatsApp (DONE in code c5747f67): after deploy, Communication > Message Templates > "Make N templates ready for WhatsApp", then "Send N templates to WhatsApp for approval"; Meta answers in minutes to a day. Root cause corrected: defaults were fixed 30 Oct, but the live school kept old words (test mode had marked them approved, then the real account reset them to Not submitted). Admission messages to families: being moved onto the General announcement template (agent running).
 
 ## Mindsets (one per round, then start over)
 

@@ -1,0 +1,1319 @@
+[
+ {
+  "area": "teach",
+  "findings": [
+   {
+    "route": "/events-calendar/ptm",
+    "file": "src/app/(school)/events-calendar/ptm/page.tsx",
+    "line": 254,
+    "kind": "approval",
+    "severity": "high",
+    "problem": "After a PTM, the button \"Send summary to 5 absent\" sends messages to parents with a single tap. ActButton (events-calendar/_components/bits.tsx:53) is a plain submit, so there is no confirmation step, no cost and no \"cannot be unsent\" line. \"absent\" is also unclear: absent students, or parents who did not come?",
+    "fix": "Open a confirm sheet first, the way RemindSheet does: title \"Send the PTM summary to 5 parents who did not come?\", body \"One message to each family. Cost: 5 credits. A message cannot be unsent.\", confirm button \"Send to 5 parents\". Rename the trigger to \"Send summary to 5 parents who did not come\"."
+   },
+   {
+    "route": "/events-calendar/events/[id]",
+    "file": "src/app/(school)/events-calendar/_components/event-sheets.tsx",
+    "line": 105,
+    "kind": "approval",
+    "severity": "high",
+    "problem": "The event reminder confirm says only \"Through Communication. Track it in Message History.\" It gives no count of parents, no credit cost and no warning that it cannot be unsent. Homework \"Resend\" and \"Remind parents\" do show all three. The words \"Communication\" and \"Message History\" mean nothing to a teacher here.",
+    "fix": "sub=\"One message to each of {n} parents. Cost: {n} credits. A message cannot be unsent.\" submitLabel=`Send to ${n} parents`"
+   },
+   {
+    "route": "/examination-results/results",
+    "file": "src/app/(school)/examination-results/results/results-ui.tsx",
+    "line": 100,
+    "kind": "approval",
+    "severity": "high",
+    "problem": "Publishing results with \"Message parents\" on says \"Parents get one message each. A message cannot be unsent.\" It never says the cost, although this is the biggest send of the year (every family in every chosen section). The switch help \"Uses the 'Results published' template, one message to each family\" uses the word \"template\".",
+    "fix": "Line 100: \"{n} parents get one message each. Cost: {n} credits. A message cannot be unsent.\" Line 82 help: \"One message to each family saying the report card is ready on Parent Link.\""
+   },
+   {
+    "route": "/homework-learning",
+    "file": "src/app/(school)/homework-learning/sheets.tsx",
+    "line": 96,
+    "kind": "approval",
+    "severity": "medium",
+    "problem": "The Give homework button says \"Send to 7 A\". Nothing on the form says parents will also get a WhatsApp message or what that costs. A teacher finds out only from the toast afterwards (\"Parents were messaged.\"). The Resend sheet for the same homework does show \"Cost: N credits\".",
+    "fix": "Add one help line above the button: \"Students see it in the app. Parents of {n} students get one WhatsApp message (about {n} credits).\" Change the sheet sub to \"Three steps: class, what to do, send to students and parents.\""
+   },
+   {
+    "route": "/homework-learning",
+    "file": "src/lib/homework/homework.ts",
+    "line": 243,
+    "kind": "error",
+    "severity": "medium",
+    "problem": "After giving homework a teacher can see \"Parents were not messaged: no channel can carry it yet (see Communication, Message History).\" A teacher does not know what a \"channel\" is and cannot fix it.",
+    "fix": "\"Parents were not messaged: the school has not set up WhatsApp or SMS yet. Tell the School Admin. Students can still see the homework in the app.\""
+   },
+   {
+    "route": "/events-calendar",
+    "file": "src/app/(school)/events-calendar/_components/calendar-sheets.tsx",
+    "line": 70,
+    "kind": "approval",
+    "severity": "medium",
+    "problem": "\"Tell parents by message\" is a small checkbox hidden under \"More details\" on Add to calendar. Ticking it messages every parent when the entry is saved. The form gives no count, no cost and no \"cannot be unsent\", and the button still just says \"Add to calendar\".",
+    "fix": "When ticked, show under it \"All {n} families get one message. Cost: about {n} credits. Cannot be unsent.\" and change the submit label to \"Add and tell {n} parents\"."
+   },
+   {
+    "route": "/events-calendar/events/[id]",
+    "file": "src/app/(school)/events-calendar/_components/event-sheets.tsx",
+    "line": 96,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "Cancel event says \"The audience is told.\" and the toggle says \"Tell the audience\". Edit event (line 89) says \"Tell the audience if the date, time or venue changes\". \"Audience\" is jargon: a clerk cannot tell whether that means parents, students or staff.",
+    "fix": "\"Parents of the registered students are told by message, with the reason.\" Toggle title: \"Tell parents\". Line 89: \"Tell parents if the date, time or venue changes\"."
+   },
+   {
+    "route": "/attendance-management/register",
+    "file": "src/app/(school)/attendance-management/register/page.tsx",
+    "line": 125,
+    "kind": "empty",
+    "severity": "medium",
+    "problem": "The empty state says \"No sections are set up for this academic year yet. Add them in Academic Setup.\" (again at line 386). No screen is called \"Academic Setup\": the module is \"Academic Management\" and Take Attendance (page.tsx:123) says that. It also gives no button to get there (P6).",
+    "fix": "\"No sections are set up for this academic year yet. Add classes and sections in Academic Management.\" Add an action button \"Open Classes & Sections\" linking to /academic-management."
+   },
+   {
+    "route": "/attendance-management",
+    "file": "src/app/(school)/attendance-management/_components/take-sheet.tsx",
+    "line": 186,
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "The big save button reads \"Save attendance: 38 present, 2 absent\". Saving sends an absence message to the parents of the 2 absent students straight away. That is said only in a banner after saving (\"Parents of students marked absent are told once for the day.\"). A teacher who marks the wrong child absent finds out too late.",
+    "fix": "Add one line just above the save bar when anyone is marked absent: \"Saving tells the parents of the 2 absent students by message.\""
+   },
+   {
+    "route": "/attendance-management",
+    "file": "src/app/(school)/attendance-management/_components/take-sheet.tsx",
+    "line": 230,
+    "kind": "word",
+    "severity": "low",
+    "problem": "Teachers see \"every change is recorded in the audit log\" here (and at line 233). The correction page says \"the original stays in the audit log\" (register/correction/page.tsx:73, 84, 112) and the absent list says \"Every change is kept in the audit log\" (absences/page.tsx:124). \"Audit log\" is jargon and sounds like a threat.",
+    "fix": "\"The principal can see who changed it and when.\" (and on the correction page: \"the old marks are kept\")."
+   },
+   {
+    "route": "/examination-results/marks/[entryId]/[sectionId]",
+    "file": "src/app/(school)/examination-results/marks/marks-grid.tsx",
+    "line": 315,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The Absent (AB) tile says \"Counted as the school's rule says\". A teacher entering marks cannot tell whether AB becomes 0 (a fail) or is left out. The tile next to it is clear: ML says \"Left out of the total\".",
+    "fix": "Show the actual setting: \"Counted as 0 marks\" or \"Left out of the total\", read from Exam Settings."
+   },
+   {
+    "route": "/examination-results/marks/[entryId]/[sectionId]",
+    "file": "src/app/(school)/examination-results/marks/marks-grid.tsx",
+    "line": 455,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The submit confirm shows \"37 with marks, 2 absent (AB), 1 medical (ML)\", but the button says \"Submit 40 marks\". It counts students, not marks, so the numbers do not match what the teacher just read.",
+    "fix": "confirmLabel={`Submit marks of ${students.length} students`}"
+   },
+   {
+    "route": "/examination-results/marks/[entryId]/[sectionId]",
+    "file": "src/app/(school)/examination-results/marks/marks-grid.tsx",
+    "line": 446,
+    "kind": "word",
+    "severity": "low",
+    "problem": "While marks are still waiting to go to the school the status reads \"Saved on this device as you type\". A teacher on a shared or borrowed phone reads \"Saved\" and closes the page, but the marks are only on that phone.",
+    "fix": "\"Not sent to school yet. Keep this page open, or tap Save now.\""
+   },
+   {
+    "route": "/academic-management/syllabus",
+    "file": "src/app/(school)/academic-management/syllabus/page.tsx",
+    "line": 144,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "Each subject card reads \"12 of 30 topics done · 60% planned by today\". \"Planned by today\" is easy to read as \"60% of lessons have plans\", not \"by today you should have finished 60%\". So the red or green badge looks wrong.",
+    "fix": "\"12 of 30 topics done · should be 60% done by today\""
+   },
+   {
+    "route": "/academic-management/syllabus",
+    "file": "src/app/(school)/academic-management/syllabus/page.tsx",
+    "line": 166,
+    "kind": "word",
+    "severity": "low",
+    "problem": "In the Syllabus view, the third picker is labelled \"Status for\" with the choice \"No section (plan only)\". A teacher cannot tell that this picks whose progress (Planned, Taught, Completed) is shown.",
+    "fix": "label=\"Show progress of\" placeholder=\"No section: just the plan\""
+   },
+   {
+    "route": "/academic-management/syllabus",
+    "file": "src/app/(school)/academic-management/syllabus/page.tsx",
+    "line": 169,
+    "kind": "empty",
+    "severity": "low",
+    "problem": "Empty state: \"No subjects mapped to this class\" / \"Map subjects to the class in Subjects first.\" \"Mapped\" is jargon and there is no button (P6).",
+    "fix": "Title \"No subjects added to this class yet\", body \"Add the subjects this class studies on the Subjects page.\", plus a button \"Open Subjects\" linking to /academic-management/subjects."
+   },
+   {
+    "route": "/academic-management/time-table",
+    "file": "src/app/(school)/academic-management/time-table/page.tsx",
+    "line": 177,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The link in the \"No periods set up\" empty state reads \"Open the period master\". \"Master\" is software jargon.",
+    "fix": "\"Set up periods and breaks\""
+   },
+   {
+    "route": "/academic-management/time-table",
+    "file": "src/app/(school)/academic-management/time-table/version-bar.tsx",
+    "line": 56,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The version badge says \"In force\" (also line 110), which is legal jargon. Next to \"Draft\" and \"Published\", a clerk cannot tell which Time Table teachers see today.",
+    "fix": "\"In use now\""
+   },
+   {
+    "route": "/academic-management/time-table/mine",
+    "file": "src/app/(school)/academic-management/time-table/mine/page.tsx",
+    "line": 50,
+    "kind": "empty",
+    "severity": "medium",
+    "problem": "A teacher opening My Time Table may see \"Your login is not linked to a staff record\", and an admin sees \"To link it, bring yourself in with Import staff in Staff & HR...\" (same text at time-table/page.tsx:201). \"Staff record\" and \"bring yourself in\" do not say what is wrong or who fixes it.",
+    "fix": "Title: \"We could not find you in the staff list\". Teacher body: \"Your periods show here once the office adds you in Staff & HR with the same mobile number you sign in with. Ask the office.\""
+   },
+   {
+    "route": "/attendance-management/register",
+    "file": "src/app/(school)/attendance-management/_components/class-wise.tsx",
+    "line": 137,
+    "kind": "ui",
+    "severity": "medium",
+    "problem": "The class-wise view uses fixed colours: \"Green is 92% or more, amber 85% to 92%, red below 85%\", and a \"Below 85%\" tile (line 86). The same register for one section turns a student red below the school's own threshold from Attendance Settings (register/page.tsx:253, e.g. 75%). So the same 80% shows red in one view and amber in the other, and the principal is not sure who is really at risk.",
+    "fix": "Use settings.thresholdPercent for red in both views and the tile: \"Below {threshold}%\", with the legend \"red below {threshold}% (Attendance Settings)\"."
+   },
+   {
+    "route": "/attendance-management/register",
+    "file": "src/app/(school)/attendance-management/_components/class-wise.tsx",
+    "line": 85,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The tile is labelled \"Student-days absent\". That is a statistics word, and the number can be read as how many students were absent.",
+    "fix": "Label \"Absences, all days added up\", sub \"For example, 1 student away 3 days counts 3\"."
+   },
+   {
+    "route": "/attendance-management/register",
+    "file": "src/app/(school)/attendance-management/register/page.tsx",
+    "line": 216,
+    "kind": "phone",
+    "severity": "medium",
+    "problem": "On a phone, the class register is a month-wide table. Its sticky name column is min-w-[180px], half of a 360px screen, and each day is a 28px box. Only about 5 days fit and the teacher scrolls sideways for the rest. A teacher who wants one child's month has to find the \"Student calendar\" chip.",
+    "fix": "Below sm, make the name column about 120px with the name truncated, and default phones to the last 7 school days with a \"Whole month\" toggle. Or put a \"See calendar\" link on each student name that opens view=student."
+   },
+   {
+    "route": "/attendance-management/register/absences",
+    "file": "src/app/(school)/attendance-management/register/absences/page.tsx",
+    "line": 83,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The help says \"Switch on Absence reasons in Attendance Settings, Punch methods, More options\". Nobody would look for absence reasons under \"Punch methods\", which is a biometric-device word.",
+    "fix": "\"Switch on Absence reasons in Attendance Settings (under More options).\" Keep the existing \"Open Attendance Settings\" button."
+   },
+   {
+    "route": "/attendance-management/student-leave",
+    "file": "src/app/(school)/attendance-management/_components/leave-forms.tsx",
+    "line": 100,
+    "kind": "word",
+    "severity": "low",
+    "problem": "Student leave screens use \"quota\": \"Checking days and quota…\", \"leave over the quota\" (student-leave/page.tsx:166 and 190), and \"Balance: No quota for this type\" (line 200). Office staff and teachers say \"leave limit\".",
+    "fix": "Replace \"quota\" with \"leave limit\": \"Checking days and leave limit…\", \"leave over the limit\", \"No limit for this type\"."
+   },
+   {
+    "route": "/attendance-management/register/corrections/[id]",
+    "file": "src/app/(school)/attendance-management/register/corrections/[id]/page.tsx",
+    "line": 156,
+    "kind": "word",
+    "severity": "low",
+    "problem": "When a phone sent its attendance late, \"Asked by\" shows \"The phone's offline queue\". The principal cannot tell who took it.",
+    "fix": "\"Sent from a phone that was offline\", plus the teacher's name when known."
+   },
+   {
+    "route": "/homework-learning/submissions",
+    "file": "src/app/(school)/homework-learning/submissions/sheets.tsx",
+    "line": 156,
+    "kind": "word",
+    "severity": "low",
+    "problem": "After a teacher excuses a student, the button changes to \"Give back\". It is unclear whether this gives the homework back to the student or undoes the excuse.",
+    "fix": "\"Undo excuse\""
+   },
+   {
+    "route": "/homework-learning",
+    "file": "src/app/(school)/homework-learning/page.tsx",
+    "line": 187,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The homework card says \"{n} assigned, {x} submitted\", and the detail page tile says \"Submitted\" (homework/[id]/page.tsx:92). The same screens elsewhere say \"Handed in\" (lines 137, 213). Two words for one thing (P17).",
+    "fix": "Use \"handed in\" everywhere: \"{n} given, {x} handed in\" and tile label \"Handed in\"."
+   }
+  ]
+ },
+ {
+  "area": "front",
+  "findings": [
+   {
+    "route": "/student-management/certificates/new",
+    "file": "src/app/(school)/student-management/certificates/new/page.tsx",
+    "line": 75,
+    "kind": "ux",
+    "severity": "high",
+    "problem": "The only button says \"Issue\". For a TC (and any type the school sends for approval) pressing it does not issue anything: it only sends a request to Approvals. The clerk tells the parent at the desk \"the TC is issued\", and the parent waits for a paper that has not been approved yet. The note \"A TC always goes for approval first\" is in the small grey header text, far from the button.",
+    "fix": "Change the button label to follow the chosen type: \"Send TC for approval\" when Certificate type is TC or a type in approvalCertificates, and \"Issue certificate\" otherwise. On success say: \"TC request sent to the Principal for approval. It shows in Approvals; you can print it once approved.\""
+   },
+   {
+    "route": "/admission-management/decision/[id]/admitted",
+    "file": "src/app/(school)/admission-management/decision/[id]/admitted/page.tsx",
+    "line": 50,
+    "kind": "error",
+    "severity": "high",
+    "problem": "The welcome-message row can show an internal status code, \"Not sent (${c.welcome}).\", or \"Not sent. Check the “admission-welcome” rule in Communication.\" The clerk does not know what an \"admission-welcome rule\" is or where to find it, so the parent never gets the admission number (against P7).",
+    "fix": "Replace both strings with: \"Not sent. Give the admission number to the parent yourself, or send it from Communication, Send Message.\" Never print c.welcome raw. Map each value to plain words, for example \"no phone\" becomes \"The parent has no mobile number on record\"."
+   },
+   {
+    "route": "/front-office/appointments",
+    "file": "src/app/(school)/front-office/appointments/page.tsx",
+    "line": 170,
+    "kind": "word",
+    "severity": "high",
+    "problem": "The Cancel appointment sheet says \"A message goes to the visitor.\" and then \"You can undo this for a short while.\" The receptionist reads this as a safe action, but Undo only restores the booking. The cancellation message has already gone and cannot be taken back (against P4 and P5).",
+    "fix": "Sub text: \"<day>, <time> with <staff>. A cancellation message goes to the visitor now and cannot be taken back.\" Body text: \"The time becomes free for someone else. Undo (for 10 seconds) puts the booking back, but the visitor must then be called.\" Button: \"Cancel and tell the visitor\"."
+   },
+   {
+    "route": "/admission-management/applications/[id]",
+    "file": "src/app/(school)/admission-management/applications/[id]/app-forms.tsx",
+    "line": 101,
+    "kind": "ux",
+    "severity": "high",
+    "problem": "In \"Collect at the counter\", the clerk types the amount and presses \"Record payment\". The help line says \"A receipt is made only after the money is received.\" This is confusing: the clerk is recording money already received, so it is unclear whether pressing the button makes the receipt. The button also does not repeat the amount (P4 for money).",
+    "fix": "Change the help line to \"Take the money first. Pressing the button makes the receipt at once.\" Change the submit label to \"Record ₹<amount> received\", using the amount typed."
+   },
+   {
+    "route": "/front-office",
+    "file": "src/app/(school)/front-office/_components/desk-sheets.tsx",
+    "line": 39,
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "When the phone matches a family already with Admissions, the receptionist sees \"This family may already be with Admissions:\" and a small checkbox \"Save anyway\". The button still says \"Send to Admissions\". It is unclear that she must tick the box and press the button again, or what ticking means (same family or a new family). Admission Management's own form uses clear choices instead (\"Open existing\", \"Different family\").",
+    "fix": "Replace the checkbox with two buttons, the same as in admission-management/enquiries/enquiry-forms.tsx: \"Brother or sister: link to this family\" and \"A different family: save as new\". When the box stays, label it \"Yes, save this as a new enquiry\" and change the submit label to \"Save as new enquiry\" once it is ticked."
+   },
+   {
+    "route": "/student-management/students/[id]",
+    "file": "src/app/(school)/student-management/students/[id]/tabs.tsx",
+    "line": 206,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "On each parent card, the green status pill reads \"May pick up\" and the button that turns pickup on also reads \"May pick up\". The clerk cannot tell which one is a status and which one is the button. The empty line \"No one yet. Turn on “May pick up” for a parent below.\" points at both. Mistakes here decide who can take a child from school.",
+    "fix": "Rename the button to \"Allow to pick up\" (and keep \"Remove from pickup\" for the opposite). Change the empty line to \"No one yet. Press “Allow to pick up” on a parent below.\""
+   },
+   {
+    "route": "/student-management/students/[id]",
+    "file": "src/app/(school)/student-management/students/[id]/tabs.tsx",
+    "line": 208,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The parent card has a link called \"Settings\". It actually opens the relation and the custody (do-not-release) restriction. A clerk looking for where to block an ex-husband from collecting the child will not think of \"Settings\".",
+    "fix": "Rename the link to \"Relation and restrictions\"."
+   },
+   {
+    "route": "/front-office/pickup",
+    "file": "src/lib/front-office/pickup.ts",
+    "line": 157,
+    "kind": "error",
+    "severity": "medium",
+    "problem": "After wrong codes, the desk sees \"Code checks for <name> are locked until 3:40 PM ... Even the right code is not accepted before then. The Principal and School Admins have been told.\" A parent is standing at the desk, and nothing says what the receptionist can do now. The release button just reads \"Code checks are locked\" (pickup-forms.tsx line 271), a dead end.",
+    "fix": "Add a next step to both messages: \"Until then, call the Principal to release <name>, or ask the parent to wait.\" Change the button text to \"Locked until 3:40 PM: call the Principal\"."
+   },
+   {
+    "route": "/student-management/students/[id]",
+    "file": "src/app/(school)/student-management/students/[id]/lookup-views.tsx",
+    "line": 53,
+    "kind": "empty",
+    "severity": "medium",
+    "problem": "The receptionist's view-only profile says \"No one is on the pickup list yet. Ask the class teacher or the office.\" The receptionist is the office, and the class teacher cannot change the list. Front Office's own pages say the list is set in Student Management, so this message sends her in a circle while the parent waits.",
+    "fix": "\"No one is on the pickup list yet. The School Admin adds parents to it in Student Management, on this student's Parents card. Until then, do not release the child.\""
+   },
+   {
+    "route": "/student-management/leaving/[id]",
+    "file": "src/app/(school)/student-management/leaving/[id]/page.tsx",
+    "line": 95,
+    "kind": "approval",
+    "severity": "medium",
+    "problem": "The waiver confirmation says \"The waiver goes to Approvals; someone allowed to approve it decides. The check stays pending until then.\" The clerk cannot tell the parent who decides or how long it takes (blueprint 3.2 says to name the approver).",
+    "fix": "Name the approver from the approval rule: \"The waiver goes to <Principal> in Approvals. The TC can be issued once they approve. You will be told.\" When no approver is set, say \"No one is set to approve waivers (Settings, Forms & Approvals).\""
+   },
+   {
+    "route": "/student-management/leaving/[id]",
+    "file": "src/app/(school)/student-management/leaving/[id]/page.tsx",
+    "line": 72,
+    "kind": "word",
+    "severity": "low",
+    "problem": "\"Checked when leaving started and each time you check again. Only modules that are switched on are checked.\" \"Modules\" and \"switched on\" mean nothing to a clerk, and she cannot tell which checks are missing.",
+    "fix": "\"Checked when leaving started and each time you press Check again. Fee dues are checked when Fee Management is in use, library books when Library Management is in use.\""
+   },
+   {
+    "route": "/admission-management/decision/[id]/admitted",
+    "file": "src/app/(school)/admission-management/decision/[id]/admitted/page.tsx",
+    "line": 68,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The admission result list shows \"ID card queued\" with \"Certificates & ID Cards · next batch\", plus \"Consent moved\" and \"N fee rows set up\". \"Queued\", \"batch\" and \"rows\" are system words. The parent asks \"when do we get the ID card?\" and the clerk has no answer.",
+    "fix": "Use \"ID card: ready to print\" with \"Print it now, or with the class in Certificates & ID Cards\". Use \"Consent copied to the parents\" and \"<N> fees set up from the class fee plan\"."
+   },
+   {
+    "route": "/admission-management/decision",
+    "file": "src/app/(school)/admission-management/decision/decision-forms.tsx",
+    "line": 77,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "Before \"Confirm admission\", the note says: \"Makes the student with an admission number, links the parents, sends Parent Link, sets up the fee plan and queues the ID card. Runs once per application.\" \"Queues\" and \"Runs once per application\" are technical, and nothing says that a message goes to the parent.",
+    "fix": "\"This makes the student with an admission number, adds the parents, sets up the fees and gets the ID card ready. The parent gets a message with the admission number and Parent Link. You can do this only once for each application.\""
+   },
+   {
+    "route": "/admission-management/applications/[id]",
+    "file": "src/app/(school)/admission-management/applications/[id]/app-forms.tsx",
+    "line": 120,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The \"Admit with papers pending\" sheet ends with the button \"Record exception\". \"Exception\" is an office-system word, and the button does not say what it allows.",
+    "fix": "Change the submit label to \"Allow admission before papers\". Change the sub text to \"The admission can be confirmed now. The missing papers stay on the list until they are verified.\""
+   },
+   {
+    "route": "/admission-management/applications/[id]",
+    "file": "src/app/(school)/admission-management/applications/[id]/app-forms.tsx",
+    "line": 100,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The Reference help text says \"UPI: the 12-digit UTR.\" Most counter clerks do not know \"UTR\" and type the UPI ID or the phone number instead. That leaves a wrong reference on a money record.",
+    "fix": "\"UPI: the 12-digit number in the payment message on the parent's phone (called UTR or reference number). Cheque or card: its number. Leave empty for cash.\""
+   },
+   {
+    "route": "/student-management/promotion",
+    "file": "src/app/(school)/student-management/promotion/page.tsx",
+    "line": 93,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The Promotion screens keep saying \"batch\": \"Saved batches move students into\", \"See the batch below to undo it.\" (review.tsx 63), \"You can undo the batch while nothing is recorded...\" (review.tsx 132), and \"Past batches and who confirmed them\". A teacher or clerk reads \"batch\" as a group of students (a class), not a saved promotion.",
+    "fix": "Replace \"batch\" with \"promotion\" everywhere: \"Saved promotions move students into <year>\", \"See this promotion below to undo it\", \"You can undo this promotion while nothing is recorded for these students in the new year\", \"Past promotions and who confirmed them\"."
+   },
+   {
+    "route": "/student-management/new",
+    "file": "src/app/(school)/student-management/new/add-student-form.tsx",
+    "line": 118,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "When the phone matches a parent on record, the choices read \"Link <name> (Father, parent of Ravi)\" or \"Add as a new parent\". \"Link\" is unclear. The clerk does not know that choosing it makes this child a brother or sister of Ravi under the same parent, while the blueprint P10 wording is \"Brother or sister\" / \"A different family\".",
+    "fix": "First option: \"Brother or sister: same parent <name> (<relation>, parent of Ravi)\". Second option: \"A different family: add a new parent with this phone\"."
+   },
+   {
+    "route": "/student-management/new",
+    "file": "src/app/(school)/student-management/new/add-student-form.tsx",
+    "line": 154,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The Aadhaar help text reads \"Restricted. Stored encrypted and shown masked.\" (also on the edit page, students/[id]/edit/[section]/page.tsx line 74). The clerk does not know \"encrypted\" or \"masked\", and a worried parent asking \"is my Aadhaar safe?\" gets no clear answer.",
+    "fix": "\"Kept secret. Only the Principal and School Admin see the full number; others see only the last 4 digits.\""
+   },
+   {
+    "route": "/front-office",
+    "file": "src/app/(school)/front-office/page.tsx",
+    "line": 97,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The \"Calls and enquiries\" tile shows a number with the cut-off words \"calls ·\" and \"enq.\". On a small phone, \"3 calls · 2 enq.\" is hard to read, and \"enq.\" is not a word a receptionist with little English knows.",
+    "fix": "Write it out in full, for example \"3 calls, 2 enquiries\", or split it into two lines: \"3 calls\" and \"2 enquiries\"."
+   },
+   {
+    "route": "/front-office/appointments",
+    "file": "src/app/(school)/front-office/_components/appointment-sheets.tsx",
+    "line": 62,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The Book appointment sheet says \"Only free slots can be picked. The server checks again before saving.\" \"The server\" is a technical word that tells the receptionist nothing useful.",
+    "fix": "\"Only free times can be picked. If someone else books the same time first, you will be asked to pick another.\""
+   },
+   {
+    "route": "/front-office/enquiries",
+    "file": "src/app/(school)/front-office/enquiries/page.tsx",
+    "line": 170,
+    "kind": "word",
+    "severity": "low",
+    "problem": "Walk-in requests description: \"Each has a number the person can ask about. The status follows the department’s task.\" \"Status follows the department’s task\" does not tell the receptionist what to tell a parent who asks \"is my bonafide ready?\".",
+    "fix": "\"Each has a number the person can ask about. It shows Done when the department finishes the work, and then the parent can collect it.\""
+   },
+   {
+    "route": "/student-management/guardians/[id]",
+    "file": "src/app/(school)/student-management/guardians/[id]/page.tsx",
+    "line": 271,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The Parent Link card description says \"One personal link. No password. Owned by Communication.\" \"Owned by Communication\" means nothing to a clerk who wants to know why the parent cannot open the app.",
+    "fix": "\"One personal link for the parent's phone. No password needed. Other Parent Link settings are in Communication, Parent Link.\""
+   },
+   {
+    "route": "/student-management/students/[id]/parents/[linkId]",
+    "file": "src/app/(school)/student-management/_actions/guardians.ts",
+    "line": 130,
+    "kind": "word",
+    "severity": "low",
+    "problem": "After saving the relation or the custody restriction, the message is \"Link settings saved.\" It does not say what changed (against P15), and for a do-not-release change the clerk needs to be sure it took effect.",
+    "fix": "Say what changed: \"<name> is now marked: do not release to them. Front Office sees this in red.\" or \"<name>'s relation changed to <relation>.\", whichever applies."
+   },
+   {
+    "route": "/front-office/visitors",
+    "file": "src/app/(school)/front-office/_components/visitor-sheets.tsx",
+    "line": 118,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The ID proof number help text reads \"Required by school policy. Only the last 4 are shown later.\" \"The last 4\" (of what?) is unclear, and visitors worried about giving their Aadhaar get no clear answer.",
+    "fix": "\"Required by school policy. Later, only the last 4 digits are shown to staff.\" (or \"Optional...\" when not required)."
+   },
+   {
+    "route": "/student-management/bulk-update",
+    "file": "src/app/(school)/student-management/_actions/bulk.ts",
+    "line": 54,
+    "kind": "word",
+    "severity": "low",
+    "problem": "After a bulk change, the message says \"Saved for 45 students. You can undo it from the message.\" \"From the message\" is unclear: the clerk may look for a WhatsApp message.",
+    "fix": "\"Saved for 45 students. Press Undo here if this was a mistake.\""
+   }
+  ]
+ },
+ {
+  "area": "setup",
+  "findings": [
+   {
+    "route": "/staff-hr-management/exit/[exitId]",
+    "file": "src/app/(school)/staff-hr-management/exit/exit-forms.tsx",
+    "line": 79,
+    "kind": "ux",
+    "severity": "high",
+    "problem": "HR presses \"Send for final settlement\" and is told \"Salary Management is told to work out the final salary, leave encashment and recoveries up to the last working day.\" But Salary Management has no final settlement screen. The Accountant only gets a notice that links back to the exit page (lib/staff/exit.ts:216). Nobody is told how to actually pay the leaving person's last salary or leave encashment, so the money step ends with nowhere to go.",
+    "fix": "Change the text to: \"The Accountant is told. They pay it in Generate Salary for the last month: the days up to the last working day come in by themselves; add leave encashment or recoveries with Add adjustment.\" Use the same steps in the notice text, and link the notice to /salary-management/generate."
+   },
+   {
+    "route": "/staff-hr-management/leave",
+    "file": "src/app/(school)/staff-hr-management/leave/page.tsx",
+    "line": 127,
+    "kind": "empty",
+    "severity": "high",
+    "problem": "On day one the first School Admin or Principal opens Staff Leave and sees \"Your login is not linked to a staff record\" with \"To link it, bring yourself in with Import staff in Staff & HR, using the name and mobile number on your login.\" Building an Excel import just to add yourself is a dead end, and the screen has no button. A ready page already exists: /staff-hr-management/add?login=<id>, used by \"Add staff record\" on the Staff List.",
+    "fix": "Replace the text with \"Add your own staff record once, and your leave shows here.\" and add a button \"Add my staff record\" linking to /staff-hr-management/add?login={current.user.id} (shown only to people who may create staff)."
+   },
+   {
+    "route": "/salary-management/slips",
+    "file": "src/app/(school)/salary-management/slips/page.tsx",
+    "line": 62,
+    "kind": "empty",
+    "severity": "medium",
+    "problem": "This is the same dead end on My salary slips: \"To link your login, bring yourself in with Import staff in Staff & HR, using the name and mobile number on your login.\" There is no button and the advice is an import.",
+    "fix": "Body: \"Salary slips are for staff. Add your own staff record once and your slips show here.\" Add the button \"Add my staff record\" linking to /staff-hr-management/add?login={current.user.id} (only when they may create staff)."
+   },
+   {
+    "route": "/settings/messaging",
+    "file": "src/app/(school)/settings/messaging/channel-choices.tsx",
+    "line": 50,
+    "kind": "ux",
+    "severity": "high",
+    "problem": "When a clerk taps the WhatsApp/SMS switch, the label next to it changes to \"Switched on\" straight away. Nothing is saved until they also press \"Save WhatsApp\" further down. Many will tap the switch, read \"Switched on\" and leave, so fee and absence messages stay off. After Save there is no success message either (only errors show, line 80), so they cannot tell it worked.",
+    "fix": "Change the label to \"On after you press Save\" / \"Off after you press Save\" while it differs from the saved state, and after a successful save show \"WhatsApp is on. Messages to parents now go by WhatsApp.\" (or \"... is off\")."
+   },
+   {
+    "route": "/dashboard/setup",
+    "file": "src/app/(school)/dashboard/setup/step-list.tsx",
+    "line": 122,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "Every setup step shows a \"Mark done\" button next to \"Add details\" / \"Set up fees\". A new clerk reads \"Mark done\" as the way to do the step and taps it. The step is then ticked even though no fees, classes or holidays were set up, and the checklist says the school is ready.",
+    "fix": "Rename it \"I have done this already\" and add one line of help under the buttons: \"Tick only if it is set up. The button on the left opens the page to do it.\""
+   },
+   {
+    "route": "/academic-management/settings",
+    "file": "src/app/(school)/academic-management/settings/settings-ui.tsx",
+    "line": 57,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "A brand-new school has no year yet. In the \"Start a new academic year\" dialog it reads \"The new year is Upcoming. Open it when it starts; the current year stays active until then.\" There is no current year, and the first year that has already started becomes active by itself (lib/academic/lifecycle.ts:84). The text makes the first user think they must wait or do an extra step.",
+    "fix": "Show this text when the school has no year yet: \"This is your school's first year. If it has already started, it becomes the current year straight away.\" Keep the existing text only when another year is active."
+   },
+   {
+    "route": "/settings/modules",
+    "file": "src/app/(school)/settings/modules/switch-forms.tsx",
+    "line": 110,
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "After \"Apply N changes\" on a school-type template, the dialog just closes. There is no message saying which modules were switched on or which settings changed (P15), so the person cannot tell if anything happened.",
+    "fix": "After success show: \"{template name} applied: {n} modules switched on and {m} settings filled in. Each one can be changed on this page.\""
+   },
+   {
+    "route": "/settings/modules",
+    "file": "src/app/(school)/settings/modules/switch-forms.tsx",
+    "line": 29,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "Modules that cannot be switched on yet show \"Arrives in Stage 3\". \"Stage\" is an internal build-plan word. A principal does not know what Stage 3 is or when it comes.",
+    "fix": "Replace with \"Coming soon\" (the same words the AI features use on this page)."
+   },
+   {
+    "route": "/settings/data-security",
+    "file": "src/app/(school)/settings/data-security/page.tsx",
+    "line": 77,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "A principal opening Data Backup & Security on day one sees a warning: \"No backup has been recorded on this server yet\" and \"On the live service a full copy is made every night and the database is backed up continuously. This server has not recorded one yet\". \"Server\", \"live service\" and \"database\" are technical, and the warning makes it sound as if the school's data is not safe. Line 87 repeats this (\"not set up on this server yet\").",
+    "fix": "Title: \"Backups start before your real data goes in\". Body: \"DREAM TEAM switches on nightly copies of your school's records and files before you start using School OS for real. Ask DREAM TEAM support if you are not sure.\""
+   },
+   {
+    "route": "/settings/forms-approvals/rules/[type]",
+    "file": "src/app/(school)/settings/forms-approvals/rules/[type]/rule-editor.tsx",
+    "line": 108,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The approval rule field is labelled \"Escalate after (working days)\". The error reads \"Escalate after must be between 1 and 30 working days.\" (line 69). \"Escalate\" is office jargon a school clerk does not know.",
+    "fix": "Label: \"Move to the next person if nobody decides in (working days)\". Error: \"Type a number of working days from 1 to 30.\""
+   },
+   {
+    "route": "/settings/forms-approvals?tab=rules",
+    "file": "src/app/(school)/staff-hr-management/settings/settings-forms.tsx",
+    "line": 19,
+    "kind": "approval",
+    "severity": "medium",
+    "problem": "The Department head help says \"Leave requests from this department go to the head first, then to the Principal.\" But the HR Settings \"Leave approvers\" card says the next step is \"Next approver from the rule\" in Forms & Approvals, which the school can change. If the rule was changed, HR is told the wrong person approves.",
+    "fix": "Help: \"Leave requests from this department go to the head first, then to the next approver in Settings, Forms & Approvals (the Principal unless changed).\""
+   },
+   {
+    "route": "/staff-hr-management/add",
+    "file": "src/app/(school)/staff-hr-management/add/wizard.tsx",
+    "line": 238,
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Step 1 of Add staff has two bare checkboxes, \"Phone verified\" and \"Email verified\", with no help line. An HR clerk cannot tell what ticking them does, or whether School OS will send a code. Some will tick them without checking anything.",
+    "fix": "Add help under each one: \"Tick only if you called this number and the staff member answered.\" and \"Tick only if they replied from this email.\" Or move both under \"More details\"."
+   },
+   {
+    "route": "/staff-hr-management/[staffId]?tab=salary",
+    "file": "src/app/(school)/staff-hr-management/[staffId]/page.tsx",
+    "line": 730,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The Monthly salary card subtitle reads \"Structure v3 · from 01-04-2026 · shown only to people with Salary Management\". \"v3\" is developer shorthand, and \"people with Salary Management\" is unclear.",
+    "fix": "\"Salary set from 01-04-2026 (change 3) · only salary staff see this\"."
+   },
+   {
+    "route": "/staff-hr-management/[staffId]?tab=salary",
+    "file": "src/app/(school)/staff-hr-management/[staffId]/page.tsx",
+    "line": 762,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The card title \"Bank and statutory numbers\" uses \"statutory\", a word clerks with little English do not know.",
+    "fix": "\"Bank, PF and ESI numbers\"."
+   },
+   {
+    "route": "/staff-hr-management/leave?view=balances",
+    "file": "src/app/(school)/staff-hr-management/leave/page.tsx",
+    "line": 448,
+    "kind": "word",
+    "severity": "low",
+    "problem": "Leave balances say \"Shown as days left / days allocated\", and the profile shows \"12 allocated · 3 used\" ([staffId]/page.tsx:557). \"Allocated\" is on the list of words these people do not know.",
+    "fix": "\"Shown as days left / days given for the year\" and \"12 given · 3 used\"."
+   },
+   {
+    "route": "/salary-management/generate",
+    "file": "src/app/(school)/salary-management/generate/page.tsx",
+    "line": 180,
+    "kind": "word",
+    "severity": "low",
+    "problem": "A locked month says \"Locked for good. This run never changes.\" The lock dialog says \"Nothing in this run can change after locking\" (line 536), and Open a month says \"One salary run a month for each campus.\" (generate/sheets.tsx:30). \"Run\" is payroll-software jargon; staff think of it as \"this month's salary\".",
+    "fix": "Use \"this month's salary\": \"Locked for good. This month's salary never changes.\" / \"Nothing in this month's salary can change after locking.\" / \"One salary month for each campus.\""
+   },
+   {
+    "route": "/salary-management/generate",
+    "file": "src/app/(school)/salary-management/generate/page.tsx",
+    "line": 562,
+    "kind": "word",
+    "severity": "low",
+    "problem": "Staff rows show a red pill like \"2 LOP\". Many accountants and principals do not know the short form, and the pill sits next to money.",
+    "fix": "Show \"2 days loss of pay\" (or \"2 days no pay\")."
+   },
+   {
+    "route": "/salary-management/generate",
+    "file": "src/app/(school)/salary-management/generate/page.tsx",
+    "line": 373,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The salary table has a column \"Flags\", and the check card says \"Flags from the rules in Salary Settings\" (line 214). Salary Settings also says \"Flags staff with no TDS\" (settings/sheets.tsx:121). \"Flags\" is jargon; the accountant cannot tell whether a flag blocks sending.",
+    "fix": "Column: \"Needs a look\"; card description: \"Things to check, from the rules in Salary Settings. They do not stop sending.\"; help: \"Warns about staff with no TDS whose yearly pay is above this\"."
+   },
+   {
+    "route": "/staff-hr-management/add",
+    "file": "src/app/(school)/staff-hr-management/add/wizard.tsx",
+    "line": 276,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The help under \"Give a login to School OS\" reads \"No login is needed for the Time Table or payroll.\" \"Payroll\" is not the app's word; everywhere else it says Salary.",
+    "fix": "\"No login is needed for the Time Table or salary.\""
+   },
+   {
+    "route": "/settings/users/roles",
+    "file": "src/app/(school)/settings/users/roles/page.tsx",
+    "line": 79,
+    "kind": "empty",
+    "severity": "low",
+    "problem": "Every empty role group shows the same empty state, \"No roles of your own yet\" with \"Copy a ready role and change it\". If all role templates are archived, the \"Role templates\" card wrongly says \"No roles of your own yet\".",
+    "fix": "Show the \"No roles of your own yet\" empty state only for the \"Your school's own roles\" group. For an empty templates group show \"All role templates are archived. Show archived roles to restore one.\""
+   },
+   {
+    "route": "/settings/payment-gateways",
+    "file": "src/app/(school)/settings/payment-gateways/page.tsx",
+    "line": 78,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The \"Mode\" column shows a yellow badge \"Test\" next to an \"Active\" status and a \"Passed\" last test. An accountant can read this as \"online fees work\", when test mode takes no real money.",
+    "fix": "Badge text \"Test: no real money\" and \"Live: real payments\"; rename the column \"Real money?\"."
+   }
+  ]
+ },
+ {
+  "area": "shell",
+  "findings": [
+   {
+    "route": "/no-access",
+    "file": "src/lib/no-access.ts",
+    "line": 15,
+    "kind": "word",
+    "severity": "high",
+    "problem": "A teacher who taps a link to a page they cannot open sees \"Fee Management is not in your menu\" and \"As Teacher and Class Teacher, you do not have this module. The School Admin can change roles in Settings, Users & Permissions.\" 'Module' and 'roles' mean nothing to a clerk. The message also sends them to a Settings page they cannot open.",
+    "fix": "Body: \"Your login cannot open {name}. If you need it for your work, ask the School Admin to give you access.\" On line 20, change the title \"This page of {name} is not part of your role\" to \"Your login cannot open this page of {name}\"."
+   },
+   {
+    "route": "/approvals/[id]",
+    "file": "src/app/(school)/approvals/[id]/page.tsx",
+    "line": 64,
+    "kind": "approval",
+    "severity": "high",
+    "problem": "When no approver is set, the alert reads \"This request is waiting for nobody. You can see it but not decide it.\" This is a dead end: nobody knows who should act. In the other case it reads \"waiting for anyone with the Principal role\", which uses the word 'role'.",
+    "fix": "When there is no approver, show: \"No one is set to decide this kind of request yet. The School Admin can choose who approves it in Settings, Forms & Approvals.\" When a role is set, show \"the Principal\" instead of \"anyone with the Principal role\"."
+   },
+   {
+    "route": "/dashboard",
+    "file": "src/app/(school)/dashboard/dashboard-client.tsx",
+    "line": 293,
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "On the Dashboard card \"Waiting for your approval\", the button \"Decline\" only opens the details page. On that page the same action is called \"Reject\", so the person must find it and press it a second time. A principal who taps \"Decline\" thinks it is done, and the request keeps waiting.",
+    "fix": "Rename the button to \"Reject\" and point it to `/approvals/${a.id}?reject=1` (as approval-list.tsx does), so the reason box opens at once."
+   },
+   {
+    "route": "/dashboard (phone bottom bar)",
+    "file": "src/components/shell/nav-config.ts",
+    "line": 63,
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "For the School Admin (and the Counsellor on line 78), the bottom-bar button \"Messages\" opens /communication, the sending screen. The \"Messages\" tile in the More sheet (app-shell.tsx line 342) and the top-bar icon open /messages, the person's own inbox. The same word leads to two different screens.",
+    "fix": "Change the bottom-bar label for /communication to \"Send message\" (school-admin line 63, counsellor line 78), so \"Messages\" always means the inbox."
+   },
+   {
+    "route": "/dashboard (phone top bar)",
+    "file": "src/components/shell/app-shell.tsx",
+    "line": 257,
+    "kind": "phone",
+    "severity": "medium",
+    "problem": "On phones the \"Approvals waiting\" icon and its count are hidden (className \"hidden md:inline-flex\"). Only Principal, School Admin and Vice Principal have an Approve button in the bottom bar. A class teacher or accountant who approves leave or expenses sees no count on a phone. They reach it only through More > \"Approvals\", which also shows no count.",
+    "fix": "For people who can approve but have no Approve bottom-bar button, show the approvals icon with its badge on phones too (drop \"hidden md:inline-flex\" when canApprove and the bar has no APPROVE item), or add the count badge to the More sheet's \"Approvals\" tile."
+   },
+   {
+    "route": "/sign-in",
+    "file": "src/lib/auth/sign-in.ts",
+    "line": 293,
+    "kind": "error",
+    "severity": "medium",
+    "problem": "A principal who forgot their password and taps \"Forgot password? Sign in with a one-time code\" gets: \"Your role needs your password and a one-time code to sign in, so one code alone is not enough. Signing in with codes needs both an email and a mobile number on your login that codes can reach...\" It is long, uses 'role' and 'login', and buries what to do.",
+    "fix": "\"For your safety, you need two codes: one by SMS and one by email. Your account does not have both yet. Ask the School Admin or another Principal to reset your password.\""
+   },
+   {
+    "route": "/sign-in/code",
+    "file": "src/app/sign-in/code/page.tsx",
+    "line": 201,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The second-code screen says \"The first code was right. Your role needs a second code, on your other contact.\" 'Role' and 'other contact' do not tell the person where to look.",
+    "fix": "\"The first code was right. We sent a second code to your {email / mobile}. Type it below.\" Use the challenge's sentTo value, which the form already shows."
+   },
+   {
+    "route": "/dashboard",
+    "file": "src/lib/dashboard/widgets/communication.ts",
+    "line": 145,
+    "kind": "error",
+    "severity": "medium",
+    "problem": "The principal's \"Needs your attention\" shows \"Payment gateway test failed: <name>\". Its detail is the raw lastTestNote, which can be technical, and its \"Open\" button leads to the Settings payment page, where the principal cannot fix it. 'Gateway' is jargon, and the alert does not say what is broken for parents.",
+    "fix": "Title: \"Parents cannot pay fees online right now ({name})\". Detail: \"Fees can still be collected at the counter. DREAM TEAM support fixes this; call or message them.\" Action: \"Tell support\", linking to /support."
+   },
+   {
+    "route": "/dashboard",
+    "file": "src/lib/dashboard/widgets/communication.ts",
+    "line": 123,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The detail line \"3 not sent: no channel could carry them · retry or resend\" uses 'channel'. The action button \"Retry\" suggests one tap re-sends, but it only opens Message History. A clerk afraid of double-sending cannot tell what will happen.",
+    "fix": "Detail: \"3 parents have no working WhatsApp or phone number, so it was not sent to them.\" Action label: \"See who missed it\"."
+   },
+   {
+    "route": "/dashboard",
+    "file": "src/lib/dashboard/widgets/money.ts",
+    "line": 93,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The accountant and principal see a tile labelled only \"Waiting for verification\" with a number. It does not say what is waiting (cheque, bank transfer or online payments) or that money is not yet in the books.",
+    "fix": "Label: \"Payments to check\". Footer when count > 0: \"{amount} not counted yet · oldest {date}\"."
+   },
+   {
+    "route": "/dashboard",
+    "file": "src/lib/dashboard/widgets/money.ts",
+    "line": 67,
+    "kind": "word",
+    "severity": "low",
+    "problem": "When the principal picks dates on the Dashboard, the tile footers read \"12 payments · these dates\" (and \"40 present, 3 absent, 1 late · these dates\" in attendance.ts line 91). 'These dates' does not say which dates, so the number can be taken for today.",
+    "fix": "Use the real range: \"12 payments · 01-11-2026 to today\" (formatDate(c.filters.from) + \" to today\"), in both tiles."
+   },
+   {
+    "route": "/dashboard",
+    "file": "src/lib/dashboard/widgets/reports.ts",
+    "line": 57,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The principal sees \"Early warnings: 4 students to review\" with the detail \"Watch signs, from attendance and marks. Nothing happens to a student until you review the flag.\" 'Watch signs' and 'flag' are unclear (line 48 also has \"Act now flag, fee flags too\").",
+    "fix": "\"Attendance or marks have dropped for these students. Nothing is sent or changed until you look at each one.\""
+   },
+   {
+    "route": "/dashboard",
+    "file": "src/lib/dashboard/widgets/students.ts",
+    "line": 63,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The Parents tile footer says \"12 without data consent\". 'Data consent' is legal jargon to a clerk, and the footer does not say what to do about it.",
+    "fix": "\"12 parents have not said yes to sharing details\". Keep the \"See list\" action."
+   },
+   {
+    "route": "/approvals",
+    "file": "src/app/(school)/approvals/unfinished-list.tsx",
+    "line": 50,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The box \"Approved, but not finished\" says \"These requests were decided, but their record never moved on, because of a fault in School OS that is now fixed. Open each one to check, then tap Finish now...\" A nervous principal reads 'fault' and worries the software lost data. 'Record never moved on' is unclear.",
+    "fix": "\"These were approved or rejected earlier, but the leave, payment or form still shows as waiting. Check each one, then tap Finish now to complete it. Nothing changes until you tap.\""
+   },
+   {
+    "route": "/approvals",
+    "file": "src/app/(school)/approvals/actions.ts",
+    "line": 16,
+    "kind": "word",
+    "severity": "low",
+    "problem": "After Reject, the message says \"Not approved. The person who asked has been told why.\" The list pill says \"Rejected\" and the filter says \"Rejected or sent back\", so the same result has two names (P17).",
+    "fix": "\"Rejected. The person who asked has been told why.\" Also use \"Rejected\" instead of \"Not approved\" in DECIDED_WORDS in approvals/page.tsx line 116."
+   },
+   {
+    "route": "/approvals",
+    "file": "src/app/(school)/approvals/page.tsx",
+    "line": 195,
+    "kind": "empty",
+    "severity": "low",
+    "problem": "The empty view says \"Requests from every module appear here once people start asking.\" The tab next to it is \"All I may see\" (src/lib/approvals-inbox.ts line 17). 'Module' and 'All I may see' are odd wording for staff.",
+    "fix": "Empty text: \"Leave, discount, refund and expense requests appear here when staff send them.\" Tab label: \"All requests\" (already used for the principal)."
+   },
+   {
+    "route": "/ (phone More sheet)",
+    "file": "src/components/shell/app-shell.tsx",
+    "line": 320,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The phone \"More\" sheet is titled \"All modules\" with the line \"Tap any module to open it\". 'Module' is a technical word for a clerk.",
+    "fix": "Title: \"Everything\". Sub: \"Tap to open\"."
+   },
+   {
+    "route": "/ask",
+    "file": "src/app/(school)/ask/page.tsx",
+    "line": 62,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The Questions page subtitle reads \"Ready-made questions about the lists your role opens. Each answer comes from the list itself.\" It does not say what the page is for. A refused question shows a shield icon with \"This question cannot be answered here\" (line 88), which looks like a security warning.",
+    "fix": "Subtitle: \"Quick answers, such as who is absent today or whose fees are due. Tap a question.\" Line 88 title: \"Your login cannot see this answer\", with the Icon changed from ShieldAlert to CircleHelp."
+   },
+   {
+    "route": "/profile",
+    "file": "src/app/(school)/profile/parts.tsx",
+    "line": 163,
+    "kind": "phone",
+    "severity": "medium",
+    "problem": "\"My notifications\" is a table with a 190 px first column and 5 checkbox columns: \"App\", \"Push\", \"WhatsApp\", \"SMS\", \"Email\". On a 360 to 390 px phone it scrolls sideways, and the right-hand columns are off screen. 'Push' is jargon. Line 186 adds \"The school decides which channels are allowed.\"",
+    "fix": "Below md, show one card per kind with on/off switches stacked vertically. Rename \"Push\" to \"Phone pop-up\" (also \"Push alerts on this device\" in push-switch.tsx line 120 to \"Pop-up alerts on this phone\"). Line 186: \"The school decides which of these can be used.\""
+   },
+   {
+    "route": "/profile",
+    "file": "src/app/(school)/profile/page.tsx",
+    "line": 108,
+    "kind": "error",
+    "severity": "low",
+    "problem": "The alert title \"Your role needs two-step login, but no one-time code can reach you yet\" uses 'role' and 'two-step login' and does not say what to do.",
+    "fix": "\"Add your mobile number and email so we can send you sign-in codes\". Keep the body that says who to ask."
+   },
+   {
+    "route": "/sign-in",
+    "file": "src/lib/auth/sign-in.ts",
+    "line": 36,
+    "kind": "error",
+    "severity": "low",
+    "problem": "A wrong password shows \"The login or password is wrong. Check both and try again.\" The field above is labelled \"Mobile number, email or username\", so 'login' does not match anything on screen.",
+    "fix": "\"The mobile number, username or password is wrong. Check both and try again.\" Make the same change in WRONG_NEAR_LOCK (line 38)."
+   },
+   {
+    "route": "/dashboard",
+    "file": "src/app/(school)/dashboard/dashboard-client.tsx",
+    "line": 116,
+    "kind": "phone",
+    "severity": "low",
+    "problem": "In \"Needs your attention\", the \"Mark as seen\" button is \"hidden md:grid\" and only shows on hover. On a phone an item that was already handled cannot be dismissed, so the card stays full and the principal never sees \"Nothing needs you right now\".",
+    "fix": "Show the Mark-as-seen button on phones as a visible 44 px icon button (drop \"hidden\" and \"opacity-0\" below md)."
+   },
+   {
+    "route": "Search (Ctrl K)",
+    "file": "src/components/shell/search-box.tsx",
+    "line": 243,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The footer of the search box says \"Only shows what your role is allowed to see\". 'Role' is jargon, and a clerk who cannot find a student may think the student is missing.",
+    "fix": "\"You only see students and pages your login can open.\""
+   },
+   {
+    "route": "/dashboard/setup",
+    "file": "src/app/(school)/dashboard/setup/step-list.tsx",
+    "line": 38,
+    "kind": "ux",
+    "severity": "low",
+    "problem": "Every setup step has a \"Mark done\" button next to the real action (\"Set up fees\", \"Add classes\"). A nervous admin may tap \"Mark done\" without doing the work, and the checklist then hides the step as finished.",
+    "fix": "Rename it to \"I've done this\", and show it only after the person has opened the step's page. Or add a help line: \"Use this only if you already did it another way.\""
+   }
+  ]
+ },
+ {
+  "area": "parent",
+  "findings": [
+   {
+    "route": "/pay/[schoolId]/[token]",
+    "file": "src/app/pay/[schoolId]/[token]/pay-button.tsx",
+    "line": 70,
+    "kind": "error",
+    "severity": "high",
+    "problem": "When a payment fails the parent reads \"The payment did not go through. No money was taken. You can try again.\" followed by Razorpay's English error text in brackets. With UPI in India the money often does leave the account and the bank returns it days later. A parent who sees the money gone after being told \"No money was taken\" will think the school cheated them, or will pay a second time.",
+    "fix": "Replace with: \"The payment did not go through. If money left your account, your bank returns it in 5 to 7 days. Please do not pay again until the school confirms. Call the school if you are not sure.\" Drop the English r.error.description, or show it only to staff."
+   },
+   {
+    "route": "/apply/[code]/status/[id]",
+    "file": "src/app/apply/[code]/status/[id]/pay-button.tsx",
+    "line": 53,
+    "kind": "error",
+    "severity": "high",
+    "problem": "Closing the payment window always shows \"Payment not finished. Nothing was taken. You can try again.\" A parent who approved the UPI request in their UPI app and then closed the window may already have paid. Line 55 shows only Razorpay's English description when a payment fails.",
+    "fix": "ondismiss: \"Payment window closed. If you already approved it in your UPI app, wait 10 minutes and open this page again before paying again.\" payment.failed: use the same plain words as the fee pay page and skip the English description."
+   },
+   {
+    "route": "/communication (sent to parents)",
+    "file": "src/lib/messaging/templates.ts",
+    "line": 278,
+    "kind": "link",
+    "severity": "high",
+    "problem": "The ready notice, result, exam and consent messages tell the parent to \"Please see your Parent Link\" (lines 181, 184, 187, 245, 278, 281). None of them has a {link} blank, and notices.ts gives only title and message. The parent gets \"New notice: X. Please see your Parent Link.\" with nothing to tap and does not know what or where Parent Link is. For consent this is a dead end.",
+    "fix": "Fill {link} with the guardian's own Parent Link when these are sent and add it to each text, e.g. \"See the report card here: {link}\". Until then, say \"Open the Parent Link message the school sent you on WhatsApp.\""
+   },
+   {
+    "route": "/communication (sent to parents)",
+    "file": "src/lib/fees/reminder-pay.ts",
+    "line": 47,
+    "kind": "word",
+    "severity": "high",
+    "problem": "The {how_to_pay} blank is always English (\"Pay online on your Parent Link: …\", \"Pay online with this link (it works until …)\"), even inside the Telugu fee reminder template (templates.ts line 167). A Telugu-first parent gets a Telugu message whose one important line, how to pay, is in English.",
+    "fix": "Build how_to_pay in the guardian's language using the same catalogue (te: \"మీ Parent Linkలో ఆన్‌లైన్‌లో చెల్లించండి: {link}\")."
+   },
+   {
+    "route": "/p/[token] (SMS/WhatsApp code)",
+    "file": "src/lib/messaging/templates.ts",
+    "line": 233,
+    "kind": "error",
+    "severity": "medium",
+    "problem": "The Parent Link code messages say \"It works for 10 minutes\" (lines 233, 236, 239, 242). The real expiry is the school's codeMinutes setting (5 to 30, links.ts line 287), and the page itself says \"Code sent. It works for N minutes.\" If a school sets 5 minutes, the parent trusts the SMS, types the code at minute 7 and it is refused with no clear reason.",
+    "fix": "Use a {minutes} blank filled from settings.parentLink.codeMinutes: \"{code} is your one-time code for Parent Link of {school_name}. It works for {minutes} minutes.\""
+   },
+   {
+    "route": "/s/[schoolId]/[token]",
+    "file": "src/app/s/[schoolId]/[token]/answer-form.tsx",
+    "line": 16,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "On the survey page, the rating words \"Very poor … Very good\" (line 16), \"Tap a star\" (line 63), the box hint \"Write here\" (line 78) and the error \"Please answer the marked question.\" (line 33) are plain English strings that never go through t(). A Telugu parent sees an English survey on a Telugu page.",
+    "fix": "Wrap them in useT(): t(\"Very poor\") … t(\"Tap a star\"), placeholder={t(\"Write here\")}, and t(\"Please answer the {n} marked questions.\"). These words are already in the catalogue."
+   },
+   {
+    "route": "/p/[token] (School bus)",
+    "file": "src/lib/transport/parent-link.tsx",
+    "line": 43,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The School bus card on Parent Link is all hard-coded English: \"Bus … · starts\", \"Pickup\", \"Drop\", \"Driver:\", \"Today, morning:\", \"No bus\", \"On the way\", \"The trip was cancelled: …\", \"Planned at your stop: …\" (lines 43-58, 95-119). It never uses makeT(view.lang), so a Telugu page shows the most time-critical card in English.",
+    "fix": "Take t = makeT(view.lang) in TransportSection and the loader, and pass every state and detail through t(\"Pickup {time}\"), t(\"Driver: {name}\"), t(\"No bus\") and so on."
+   },
+   {
+    "route": "/p/[token] (Fee receipts)",
+    "file": "src/lib/fees/words.ts",
+    "line": 11,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "An online receipt on Parent Link shows its mode as \"Online (gateway)\" (shown by parent-link-section.tsx line 90). \"Gateway\" means nothing to a parent.",
+    "fix": "Change the label to \"Online\", or show \"Paid online\" on Parent Link."
+   },
+   {
+    "route": "/p/[token] (Fee receipts)",
+    "file": "src/lib/fees/parent-link-section.tsx",
+    "line": 92,
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "A cancelled payment shows only a grey \"Cancelled\" badge next to the amount the parent paid, with no reason and no next step. A parent who paid ₹5,000 and sees \"Cancelled\" will panic.",
+    "fix": "Show \"Cancelled by the school. This amount is not counted. Please call the school office if you did not expect this.\" with the school phone."
+   },
+   {
+    "route": "/p/[token]/report-card, /p/[token]/fees/[paymentId]",
+    "file": "src/app/p/[token]/report-card/route.ts",
+    "line": 21,
+    "kind": "error",
+    "severity": "medium",
+    "problem": "When a report card or receipt cannot be downloaded, the parent's phone shows a blank white page with one line of English plain text, such as \"This report card is not available. Results may not be published yet.\" or \"Too many downloads. Please try again later.\" (fees/[paymentId]/route.ts line 20). There is no language, no school name and no button back. It is a dead end on a cheap phone.",
+    "fix": "On failure, redirect to /p/{token} with a message shown in the page's language, or return a small HTML page with the PhoneShell and a \"Back to your Parent Link\" button."
+   },
+   {
+    "route": "/p/[token] (Events and PTM)",
+    "file": "src/components/parent-link/event-consent-card.tsx",
+    "line": 85,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The code step says \"You are saying yes for {title}…\" but title is the child's first name, so it reads \"You are saying yes for Ravi\" without saying what for. A parent of two with several trips cannot tell which consent the code confirms.",
+    "fix": "Use t(\"You are saying yes for {child} to go to {event}. To confirm, enter the 6-digit code sent to {phone}.\", { child: c.child, event: c.name, phone })."
+   },
+   {
+    "route": "/p/[token] (Events and PTM)",
+    "file": "src/components/parent-link/event-consent-card.tsx",
+    "line": 104,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "After saying yes the parent reads \"Confirmed with a one-time code. Any fee is in fees due.\" It does not say whether money was added, how much, or where to pay.",
+    "fix": "When the event has a fee: \"Saved. {amount} is added to {child}'s Fees due above. You can pay it there.\" When it has none: \"Saved. There is no fee.\""
+   },
+   {
+    "route": "/g/[schoolId]/[albumId]/[token]",
+    "file": "src/app/g/[schoolId]/[albumId]/[token]/page.tsx",
+    "line": 75,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "\"Only photos of students whose parents gave photo consent are shown; other students are blurred.\" contradicts itself (are they hidden or blurred?). A parent who finds their own child blurred is not told why or how to fix it.",
+    "fix": "\"Children whose parents have not given photo consent are blurred. To give consent, open your Parent Link (Consent forms) or call the school.\""
+   },
+   {
+    "route": "/communication",
+    "file": "src/app/(school)/communication/send-form.tsx",
+    "line": 612,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The send summary heading says \"Users to notify\". The blueprint word list (00-global §9) says not to say \"User\", and a clerk does not know whether this means parents, students or staff.",
+    "fix": "\"Will get this message\" (the count and noun under it already say parents, staff or students)."
+   },
+   {
+    "route": "/communication",
+    "file": "src/app/(school)/communication/send-form.tsx",
+    "line": 712,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The \"Schedule to N parents?\" confirm box shows the time as at.replace(\"T\", \", \"), i.e. \"2026-11-15, 17:30\". That is a raw ISO date in 24-hour time, against P17 (DD-MM-YYYY, 12-hour AM/PM). A clerk can easily misread when the message to hundreds of parents will go.",
+    "fix": "Show it with formatDate and a 12-hour time: \"15-11-2026, 5:30 PM\"."
+   },
+   {
+    "route": "/communication",
+    "file": "src/app/(school)/communication/send-form.tsx",
+    "line": 468,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The step header says \"WhatsApp first. SMS needs an approved template with a DLT template ID.\" Lines 226, 232, 489 and 522 repeat \"DLT template ID\" / \"DLT registration\". A clerk does not know what DLT is, or whether they can fix it.",
+    "fix": "\"WhatsApp first. SMS can only use a message text the phone companies have approved; DREAM TEAM sets that up for you.\" The line 226 error becomes: \"This template is not approved for SMS yet. Pick another template, or untick SMS.\""
+   },
+   {
+    "route": "/communication/parent-link/[id]",
+    "file": "src/app/(school)/communication/parent-link/[id]/link-panel.tsx",
+    "line": 62,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The buttons and choices say \"Revoke or reissue\", \"Revoke and reissue\" and \"Revoke only\" (lines 62, 79, 83). A receptionist helping a parent who lost a phone does not know these words, and picking the wrong one either locks the parent out or leaves a lost phone able to see the child's records.",
+    "fix": "\"Stop this link\" (button); options \"Stop it and send a new link\" / \"Stop it only\"; confirm button \"Stop and send new link\" / \"Stop link\"."
+   },
+   {
+    "route": "/communication/parent-link",
+    "file": "src/app/(school)/communication/parent-link/page.tsx",
+    "line": 102,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The staff banner says parents see \"Parent Link is not available right now\". The parent page actually shows \"Parent Link is switched off\" and \"The school has switched off Parent Link for now…\" (src/app/p/[token]/page.tsx line 86), so staff quoting it on the phone confuse parents.",
+    "fix": "\"Parents who open their link see “Parent Link is switched off”. Switch it on under What parents see.\""
+   },
+   {
+    "route": "/p/[token] (Consent forms)",
+    "file": "src/lib/parent-link/builtin-sections.tsx",
+    "line": 110,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The link to open a consent form reads \"Read the form (version 3)\". \"Version\" means nothing to a parent and makes it look as if there are several forms to choose from.",
+    "fix": "\"Read the form\" (keep the version only in the staff screens and the saved record)."
+   },
+   {
+    "route": "/apply/[code]/status/[id]",
+    "file": "src/app/apply/[code]/status/[id]/page.tsx",
+    "line": 37,
+    "kind": "word",
+    "severity": "low",
+    "problem": "A withdrawn application shows only \"Withdrawn.\" with no reason or next step. A parent who did not withdraw it will not know who did or what to do. Also, step 1 is labelled \"Papers checked\" (line 25), but stage REVIEWED says \"Papers are next\", so the bar and the sentence disagree.",
+    "fix": "\"This application was withdrawn. If you did not ask for this, please call the school office.\" Rename step 1 to \"Checked by the school\"."
+   },
+   {
+    "route": "/apply/[code]",
+    "file": "src/app/apply/[code]/apply-form.tsx",
+    "line": 84,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The admission form shows a bare \"Category\" dropdown with no help. A first-time parent does not know it means caste or reservation category, or that it can be left blank.",
+    "fix": "Add help=\"Caste category, only if you want to give it (for example for a government quota). You can leave it blank.\""
+   },
+   {
+    "route": "/p/[token] (Events and PTM)",
+    "file": "src/lib/events/parent-link.tsx",
+    "line": 54,
+    "kind": "word",
+    "severity": "low",
+    "problem": "Parent Link list rows say \"PTM: {when}\". Many parents do not know the short form, while the booking card above says \"Parent–teacher meeting\", so the same thing has two names on one screen.",
+    "fix": "t(\"Parent–teacher meeting: {when}\")."
+   }
+  ]
+ },
+ {
+  "area": "money",
+  "findings": [
+   {
+    "route": "/finance-management/day-book (Close the day sheet)",
+    "file": "src/app/(school)/finance-management/day-book/sheets.tsx",
+    "line": 36,
+    "kind": "word",
+    "severity": "high",
+    "problem": "The close sheet lists \"Income · N entries that day\", then \"Expense\", then \"Cash the books expect\" in bold right under them. Income and Expense count every way of paying (UPI, card, bank) for that one day. \"Cash the books expect\" is something else: all the cash in the box, carried over from every earlier day (expectedCash in lib/finance/day-close.ts). A day with ₹50,000 income (mostly UPI) and ₹2,000 expense can show ₹12,300 expected. The accountant thinks the software is wrong, or counts the box against the wrong number.",
+    "fix": "Rename the lines to \"Income that day (cash, UPI, bank, all)\", \"Expense that day (all)\" and \"Cash that should be in the box now (cash only, all days)\". Add one help line: \"UPI, card and bank money is not in the box, so it is not counted here.\""
+   },
+   {
+    "route": "/fee-management/dashboard",
+    "file": "src/app/(school)/fee-management/dashboard/class-fees.tsx",
+    "line": 82,
+    "kind": "word",
+    "severity": "high",
+    "problem": "The word \"Pending\" means two different amounts on the same Fee Dashboard. The top tile \"Pending\" (dashboard/page.tsx:162, foot \"Not late yet\") counts only fees that are not late. Each class card's \"Pending\" (shown in red) is not-late plus overdue (by-class.ts pending = notLate + overdue). The accountant adds up the class cards, gets a different total from the tile, and reports a wrong figure to the principal.",
+    "fix": "On the class card, change \"Pending\" to \"Left to pay\". On the top tile (dashboard/page.tsx:162), change \"Pending\" to \"Due soon, not late\" so it matches \"Pending, not late\" in class-fees.tsx:48."
+   },
+   {
+    "route": "/fee-management/structure (Prepare next year)",
+    "file": "src/app/(school)/fee-management/structure/sheets.tsx",
+    "line": 225,
+    "kind": "ux",
+    "severity": "high",
+    "problem": "\"Increase amounts by (%)\" is filled with 5 already (start=\"5\"). A clerk who presses \"Open 2027–28 drafts\" without reading raises every class's fees by 5%. The blueprint calls the increase optional (06 line 175). Copy to classes (line 216) starts at 0, so the two copy tools do not match.",
+    "fix": "Use start=\"0\" and the help \"0 keeps the same amounts. Type 5 to add 5% to every fee.\""
+   },
+   {
+    "route": "/fee-management/ledger/[studentId]?do=invoice",
+    "file": "src/app/(school)/fee-management/ledger/[studentId]/sheets.tsx",
+    "line": 134,
+    "kind": "approval",
+    "severity": "high",
+    "problem": "The switch \"Send to {father} on WhatsApp\" is on already (start), but the button only says \"Make invoice\" (line 119). An accountant who only wants a printed invoice sends a WhatsApp message with a payment link to the parent without knowing. P4 says a confirm button must repeat the action when it sends messages.",
+    "fix": "Make the button follow the switch: \"Make invoice and send to {father}\" when the switch is on, \"Make invoice\" when it is off. Add to the switch sub: \"This cannot be unsent.\""
+   },
+   {
+    "route": "/fee-management/collect/[studentId]",
+    "file": "src/app/(school)/fee-management/collect/[studentId]/collect-form.tsx",
+    "line": 91,
+    "kind": "error",
+    "severity": "medium",
+    "problem": "Typing more than the dues shows \"More than the ₹X ticked. Tick more rows, or advance payment is off for this school.\" The message does not say where advance payment is switched on. Breaks P7; the blueprint's own text is \"Advance payments are off in Fee Settings.\"",
+    "fix": "\"More than the ₹X ticked. Lower the amount or tick more rows. Advance payments are off in Fee Settings.\""
+   },
+   {
+    "route": "/fee-management/collect/[studentId]",
+    "file": "src/app/(school)/fee-management/collect/[studentId]/collect-form.tsx",
+    "line": 204,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The help under the amount says \"Part payment. ₹X stays due on the latest row.\" A clerk does not know what \"the latest row\" is. They cannot tell the parent which month or fee is still unpaid.",
+    "fix": "Name the row: \"Part payment. ₹X stays due on {head} · {label}\" (the last ticked row by due date), for example \"₹1,500 stays due on Tuition fee · March\"."
+   },
+   {
+    "route": "/fee-management/collect/[studentId]",
+    "file": "src/app/(school)/fee-management/collect/[studentId]/collect-form.tsx",
+    "line": 223,
+    "kind": "phone",
+    "severity": "medium",
+    "problem": "\"Show QR\" and \"Send payment link instead\" (line 323) are greyed out. The only explanation, \"Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support.\", is in a title tooltip. Phones never show tooltips, so the clerk sees dead buttons and does not know why.",
+    "fix": "When !gateway, show the sentence as visible small text under the buttons: \"Online payment is not set up yet. Tell DREAM TEAM support.\" Keep the title as well."
+   },
+   {
+    "route": "/fee-management/settings?edit=payments",
+    "file": "src/app/(school)/fee-management/settings/sheets.tsx",
+    "line": 111,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The help says \"Switch on “Verify payments before posting” for this to apply.\" The switch on the Fee Settings page is called \"Verify before posting\" (settings/page.tsx:227,232). The accountant looks for a switch name that does not exist.",
+    "fix": "Use the same name in both places: \"Switch on “Verify before posting” on the Payments card for this to apply.\""
+   },
+   {
+    "route": "/fee-management/structure (Publish version)",
+    "file": "src/app/(school)/fee-management/structure/sheets.tsx",
+    "line": 202,
+    "kind": "approval",
+    "severity": "medium",
+    "problem": "When the person may approve, the button is just \"Publish\". This changes unpaid fees for a whole class at once, and parents see it in Parent Link. The button does not say how many students it touches. P4 asks for the count in the confirm button.",
+    "fix": "Button: \"Publish for {students} students\". Sub: \"Unpaid fees of {students} students change from {date}. Parents see it in Parent Link.\""
+   },
+   {
+    "route": "/fee-management/defaulters (Send fee reminder)",
+    "file": "src/app/(school)/fee-management/defaulters/list.tsx",
+    "line": 223,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The message box starts as \"Dear {guardian_name}, fees of {due_amount} for {student_name} ...\". The help only lists \"{guardian_name}, {student_name}, {class}, {due_amount} ...\". A clerk does not know these fill in by themselves. They may delete or retype them, or type a real name, and then every parent gets the wrong text.",
+    "fix": "Help: \"Words in { } are filled in for each parent: {guardian_name} becomes the parent's name, {due_amount} their dues. Do not change the words inside { }.\""
+   },
+   {
+    "route": "/fee-management/defaulters (Send fee reminder)",
+    "file": "src/app/(school)/fee-management/defaulters/list.tsx",
+    "line": 219,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The labels \"Channel\" (line 218), \"Template\" and the option \"Own wording\" are system words. A receptionist does not know that \"Template\" means a ready-made message.",
+    "fix": "\"Channel\" → \"Send by\"; \"Template\" → \"Ready message\"; \"Own wording\" → \"Write my own message\"."
+   },
+   {
+    "route": "/fee-management/concessions?tab=refunds",
+    "file": "src/app/(school)/fee-management/concessions/sheets.tsx",
+    "line": 194,
+    "kind": "approval",
+    "severity": "medium",
+    "problem": "Refunds and concessions are approved with one tap on a small \"Approve\" button inside a list row. There is no confirm, and the button does not show the amount. On a phone, one wrong tap approves giving money back to the wrong family. Expenses already use \"Approve ₹X\" (expenses/page.tsx:359).",
+    "fix": "Pass the amount and show \"Approve ₹2,000\", as on Expenses. For refunds, open a short confirm: \"Approve refund of ₹2,000 to {name}?\""
+   },
+   {
+    "route": "/fee-management/dashboard",
+    "file": "src/app/(school)/fee-management/dashboard/page.tsx",
+    "line": 167,
+    "kind": "ux",
+    "severity": "low",
+    "problem": "The banner says \"5 payments wait for verification\", but its \"Verify\" button opens only the first one (data.waiting[0]). After that the accountant has to find the other four alone. The list below has a \"Waiting for verification\" status filter, but nothing points to it.",
+    "fix": "Point the button to the Recent payments list filtered to status=WAITING (with #recent) and call it \"Verify 5 payments\"."
+   },
+   {
+    "route": "/fee-management/dashboard?pay=[id] (payment sheet)",
+    "file": "src/app/(school)/fee-management/_components/payment-sheet.tsx",
+    "line": 107,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "A button that only says \"WhatsApp\" sits next to Print and PDF. It does not say it sends the receipt to the parent again. The accountant may press it to \"open WhatsApp\" and send a message without meaning to.",
+    "fix": "\"Send receipt on WhatsApp\""
+   },
+   {
+    "route": "/fee-management/collect/[studentId] (receipt sheet)",
+    "file": "src/app/(school)/fee-management/collect/[studentId]/collect-form.tsx",
+    "line": 414,
+    "kind": "word",
+    "severity": "low",
+    "problem": "After a payment, the third button just says \"Resend\". It is not clear what is sent again, or to whom.",
+    "fix": "\"Send to parent again\""
+   },
+   {
+    "route": "/fee-management/ledger/[studentId]?do=adjust",
+    "file": "src/app/(school)/fee-management/ledger/[studentId]/sheets.tsx",
+    "line": 59,
+    "kind": "approval",
+    "severity": "medium",
+    "problem": "The text says \"... A bigger reduction or removal waits for approval and changes the fee once approved.\" It does not say who approves or where to follow the request. The accountant cannot tell the parent when it will be done.",
+    "fix": "\"... A bigger reduction or removal goes to the Principal in Approvals. The fee changes once they approve.\" Use the approver name the cancel sheet already gets."
+   },
+   {
+    "route": "/fee-management/ledger/[studentId]?do=adjust",
+    "file": "src/app/(school)/fee-management/ledger/[studentId]/sheets.tsx",
+    "line": 50,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The first field is labelled \"Row\", and one choice is \"Remove the row\" (line 54). A clerk does not think of a fee as a \"row\".",
+    "fix": "Label \"Which fee\"; choice \"Remove this fee\"; button \"Remove this fee\"."
+   },
+   {
+    "route": "/fee-management/dashboard",
+    "file": "src/app/(school)/fee-management/dashboard/class-fees.tsx",
+    "line": 46,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The tile \"Due so far\" says \"This year's fees due up to {today + 30 days}\". \"So far\" sounds like up to today, but it counts fees that fall due in the next 30 days. The \"% of what is due\" then looks lower than it really is.",
+    "fix": "Label: \"Due by {date}\". Sub: \"Fees due up to 30 days from today\"."
+   },
+   {
+    "route": "/finance-management/day-book (Close the day sheet)",
+    "file": "src/app/(school)/finance-management/day-book/sheets.tsx",
+    "line": 42,
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "The \"Cash counted\" box shows the expected cash (for example 12300) as grey placeholder text. It reads as a pre-filled answer, and a tired clerk types it back without counting. Then the cash check means nothing.",
+    "fix": "Use placeholder \"Count the notes and coins, then type\" (or no placeholder). Show the expected figure only on the line above."
+   },
+   {
+    "route": "/finance-management/cash-bank",
+    "file": "src/app/(school)/finance-management/cash-bank/page.tsx",
+    "line": 153,
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The cash book and bank book columns are \"Receipts\" and \"Payments\" (line 154). Everywhere else in School OS, \"Receipt\" means a fee receipt and \"Payment\" means a fee payment. A clerk reads \"Payments\" as fees paid in, which is the opposite of money going out.",
+    "fix": "\"Receipts\" → \"Money in\"; \"Payments\" → \"Money out\"."
+   },
+   {
+    "route": "/fee-management/ledger/import",
+    "file": "src/app/(school)/fee-management/ledger/import/page.tsx",
+    "line": 42,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The card title \"Fees due before go-live\" and the confirm text \"Settle the fees due before go-live ...\" (before-go-live.tsx:48,55) use \"go-live\", a project word that school staff do not use.",
+    "fix": "\"Fees due before you started School OS ({goLive date})\". In the confirm titles, use \"before {date}\" in place of \"before go-live\"."
+   },
+   {
+    "route": "/finance-management/cash-bank?do=opening",
+    "file": "src/app/(school)/finance-management/cash-bank/sheets.tsx",
+    "line": 71,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The label \"Right opening balance on {date}\" reads oddly, as if it means the right-hand balance.",
+    "fix": "\"Correct opening balance on {date}\""
+   },
+   {
+    "route": "/finance-management/expenses?do=new",
+    "file": "src/app/(school)/finance-management/expenses/sheets.tsx",
+    "line": 108,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The help under \"Department\" is only \"Cost centre\". It swaps a clear word for an accounting word and does not help a clerk choose.",
+    "fix": "Help: \"Which part of the school spent it, like Science labs\" (also on line 147)."
+   },
+   {
+    "route": "/finance-management/income?do=new",
+    "file": "src/app/(school)/finance-management/income/sheets.tsx",
+    "line": 29,
+    "kind": "word",
+    "severity": "low",
+    "problem": "The help under \"Income head\" is \"From the chart of accounts\". A clerk does not know what a chart of accounts is, or how to choose between heads.",
+    "fix": "Help: \"The kind of money, like Hall rent or Scrap sale. The list is in Finance Settings.\""
+   }
+  ]
+ }
+]

@@ -236,6 +236,8 @@ describe("Security review 2026-11-15: a sign-in link only for a login with the s
     });
     const both = await link(staff.id);
     expect(both?.ok, both?.message).toBe(true);
+    // Put the shared School Admin back to one school, or later tests see a login that works elsewhere.
+    await withSchool({ schoolId: other.id, userId: null }, (tx) => tx.schoolAccess.updateMany({ where: { schoolId: other.id, userLoginId: f.admin.id, archivedAt: null }, data: { archivedAt: new Date() } }));
   }, 120_000);
 
   it("refuses a School Admin kept to one campus a link for a whole-school login, but not for one of their campus", async () => {

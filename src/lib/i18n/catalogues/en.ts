@@ -497,6 +497,8 @@ export const EN = [
   "· closed enquiries are skipped",
   // src/app/(school)/admission-management/enquiries/enquiry-forms.tsx
   "Will be added as a sibling enquiry, linked to the same family.",
+  "Will be added as a new family.",
+  "Different family",
   // src/app/(school)/admission-management/enquiries/page.tsx
   "No messages yet",
   "Import",

@@ -5208,6 +5208,8 @@ export const hi: Catalogue = {
   "Assign owner": "ज़िम्मेदार तय करें",
   "· closed enquiries are skipped": "· बंद पूछताछ छोड़ी जाती हैं",
   "Will be added as a sibling enquiry, linked to the same family.": "भाई-बहन की पूछताछ के रूप में जुड़ेगी, उसी परिवार से जुड़ी।",
+  "Will be added as a new family.": "नया परिवार के रूप में जोड़ा जाएगा।",
+  "Different family": "अलग परिवार",
   "No messages yet": "अभी कोई संदेश नहीं",
   "Add each walk-in or phone enquiry here, with a follow-up date, so no family is forgotten.": "हर आने वाली या फ़ोन पूछताछ यहाँ फ़ॉलो-अप तारीख़ के साथ जोड़ें, ताकि कोई परिवार भूला न जाए।",
   "All enquiries": "सभी पूछताछ",

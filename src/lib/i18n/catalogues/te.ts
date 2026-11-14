@@ -5208,6 +5208,8 @@ export const te: Catalogue = {
   "Assign owner": "బాధ్యులను కేటాయించండి",
   "· closed enquiries are skipped": "· మూసిన విచారణలు వదిలేయబడతాయి",
   "Will be added as a sibling enquiry, linked to the same family.": "తోబుట్టువు విచారణగా జోడించబడుతుంది, అదే కుటుంబానికి కలపబడుతుంది.",
+  "Will be added as a new family.": "కొత్త కుటుంబంగా జోడించబడుతుంది.",
+  "Different family": "వేరే కుటుంబం",
   "No messages yet": "ఇంకా సందేశాలు లేవు",
   "Add each walk-in or phone enquiry here, with a follow-up date, so no family is forgotten.": "ప్రతి వచ్చిన లేదా ఫోన్ విచారణను ఫాలో-అప్ తేదీతో ఇక్కడ జోడించండి, ఏ కుటుంబమూ మరచిపోకుండా.",
   "All enquiries": "అన్ని విచారణలు",

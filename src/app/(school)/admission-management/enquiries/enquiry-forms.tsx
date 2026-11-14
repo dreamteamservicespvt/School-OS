@@ -37,19 +37,21 @@ export type EnquiryChoices = {
 
 export type SavedEnquiry = { id: string; childName: string; parentName: string; phone: string; email: string | null; classId: string | null; childDob: string | null; currentSchool: string | null; referredBy: string | null; customFields: CustomValues };
 
-function DuplicateBox({ matches, sibling, onSibling, onCancel, siblingLabel }: { matches: Match[]; sibling: boolean; onSibling: () => void; onCancel: () => void; siblingLabel: string }) {
+/** pick: what the person chose for the match. "new" = a different family that shares the phone (as Add student offers). */
+function DuplicateBox({ matches, pick, onSibling, onNewFamily, onCancel, siblingLabel }: { matches: Match[]; pick: "sibling" | "new" | null; onSibling: () => void; onNewFamily?: () => void; onCancel: () => void; siblingLabel: string }) {
   if (matches.length === 0) return null;
   return (
     <div role="alert" className="rounded-xl border border-warn/40 bg-warn/12 p-3.5 animate-rise">
       {matches.slice(0, 3).map((m) => (
         <p key={`${m.kind}-${m.id}`} className="font-semibold text-[14px] flex gap-2"><TriangleAlert size={17} className="text-warn shrink-0 mt-0.5" aria-hidden="true" />{m.text}</p>
       ))}
-      {sibling ? (
-        <p className="text-[13px] text-ink2 mt-2 flex items-center gap-1.5"><Check size={15} className="text-ok" aria-hidden="true" /><Words k="Will be added as a sibling enquiry, linked to the same family." /></p>
+      {pick ? (
+        <p className="text-[13px] text-ink2 mt-2 flex items-center gap-1.5"><Check size={15} className="text-ok" aria-hidden="true" />{pick === "new" ? <Words k="Will be added as a new family." /> : <Words k="Will be added as a sibling enquiry, linked to the same family." />}</p>
       ) : (
         <div className="flex gap-2 mt-3 flex-wrap">
           <Link href={matches[0].kind === "enquiry" ? `/admission-management/enquiries?id=${matches[0].id}` : matches[0].href} className={buttonClass("secondary", "sm")}><ExternalLink size={15} aria-hidden="true" /><Words k="Open existing" /></Link>
           <Button size="sm" variant="soft" icon={Users} onClick={onSibling}>{siblingLabel}</Button>
+          {onNewFamily && <Button size="sm" variant="secondary" onClick={onNewFamily}><Words k="Different family" /></Button>}
           <Button size="sm" variant="ghost" onClick={onCancel}><Words k="Cancel" /></Button>
         </div>
       )}
@@ -63,7 +65,8 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
   const mode = saved ? "edit" : "add";
   const [state, formAction, pending] = useActionState(saved ? editEnquiryAction : addEnquiryAction, null);
   const [typed, setTyped] = useState<Match[] | null>(null);
-  const [sibling, setSibling] = useState(false);
+  const [pick, setPick] = useState<"sibling" | "new" | null>(null);
+  const sibling = pick !== null;
   const [classId, setClassId] = useState(saved?.classId ?? "");
   const [owner, setOwner] = useState("");
   const [source, setSource] = useState(c.defaultSource);
@@ -84,7 +87,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
     const phone = read("phone");
     const email = read("email");
     if (phone.replace(/\D/g, "").length !== 10 && !email.includes("@")) return setTyped([]);
-    start(async () => { setTyped(await checkDuplicates(phone, email, saved?.id)); setSibling(false); });
+    start(async () => { setTyped(await checkDuplicates(phone, email, saved?.id)); setPick(null); });
   };
   const ruleOwner = c.ownerRule === "class" && classId ? c.ownerByClass[classId] ?? c.defaultOwner : c.ownerRule === "turn" ? "" : c.defaultOwner;
   const ownerValue = owner || ruleOwner;
@@ -98,12 +101,12 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
       {saved && <input type="hidden" name="id" value={saved.id} />}
       <DraftHint draft={draft} />
       {sibling && <input type="hidden" name="force" value="1" />}
-      {sibling && matches.find((m) => m.kind === "enquiry") && <input type="hidden" name="siblingOfId" value={matches.find((m) => m.kind === "enquiry")!.id} />}
+      {pick === "sibling" && matches.find((m) => m.kind === "enquiry") && <input type="hidden" name="siblingOfId" value={matches.find((m) => m.kind === "enquiry")!.id} />}
       {!state?.data?.matches && <FormProblem state={state} />}
       <TextField label="Child’s name" name="childName" required maxLength={120} placeholder="First and last name" autoComplete="off" defaultValue={val("childName", saved?.childName)} error={err("childName")} />
       <TextField label="Parent’s name" name="parentName" required maxLength={120} placeholder="Father, mother or guardian" autoComplete="off" defaultValue={val("parentName", saved?.parentName)} error={err("parentName")} />
       <PhoneField label="Phone" name="phone" required defaultValue={val("phone", saved?.phone)} error={err("phone")} onBlur={check} help="We check for a matching family when you leave this box" />
-      <DuplicateBox matches={matches} sibling={sibling} onSibling={() => setSibling(true)} onCancel={() => { setTyped([]); onCancel(); }} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} />
+      <DuplicateBox matches={matches} pick={pick} onSibling={() => setPick("sibling")} onNewFamily={mode === "add" ? () => setPick("new") : undefined} onCancel={() => { setTyped([]); onCancel(); }} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} />
       <div className="grid grid-cols-2 gap-3">
         <SelectField label="Class wanted" name="classId" options={c.classes} placeholder="Not decided" value={classId} onChange={(e) => setClassId(e.target.value)} error={err("classId")} />
         {mode === "add" ? <SelectField label="For year" name="yearId" options={c.years} defaultValue={val("yearId", c.defaultYearId)} error={err("yearId")} /> : <div />}

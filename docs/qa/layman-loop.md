@@ -43,6 +43,8 @@ Progress page: see docs/HANDOFF.md (link).
 | 14-36 | 23 shell findings (audit): "module/role" on No access, "waiting for nobody" approvals, Decline that did not reject, two "Messages", approvals count hidden on phones, long sign-in refusals, gateway jargon, "these dates", "Watch signs/flag", "data consent", "fault in School OS", notification table on phones, … | Clerk, Principal | Dashboard, Approvals, Sign-in, Menus, Profile | See commit message and audit file (area shell) | 7f50bf70 |
 
 | 37 | Phone top bar cut "Attendance Managem…"; Attendance tab looked selected on every page; day-off advice told teachers to edit the School Calendar; "Go to today" on today | Teacher (phone) | Top bar, bottom bar, Take Attendance | Short word in the bar; outline main button; "the School Admin can turn on…"; button hidden on today | 0feb7e6b |
+| 38 | Teacher home on a holiday said "not a working day" 3 times | Teacher (phone) | Dashboard, My classes today | Said once | ba5cbac2 |
+| 39-62 | 24 money findings (audit, accountant mindset): Close the day mixed cash with UPI/bank and showed the expected cash in the counted box, "Pending" vs late, % raise started at 5, invoice button did not say it sends WhatsApp, Approve refund in one tap with no amount, "Receipts/Payments" in the cash book, "Resend", "Row", jargon in reminders and Department/Income head help, … | Accountant | Fee and Finance screens | See commit message and audit file (area money) | 3959523e |
 
 ### Noted for the next batches
 - Marks Entry list on a phone: the red line ends "paper 14-10-2026 · ov…" so "overdue" is cut (teaching batch).

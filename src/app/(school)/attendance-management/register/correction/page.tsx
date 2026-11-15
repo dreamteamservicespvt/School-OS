@@ -95,6 +95,7 @@ export default async function CorrectionPage({ searchParams }: Props) {
               )}
               {data.people && data.people.length > 0 && !(data.info && !data.info.on) ? (
                 <CorrectionForm key={`${data.section?.id}:${isoDay(date)}`} action={requestCorrectionAction} forWhom={forWhom} people={data.people}
+                  startStatus={settings.defaultStatus === "none" ? null : "present"}
                   statuses={data.statuses.map((s) => ({ key: s.key, name: s.name, letter: s.letter, tone: s.tone }))}
                   hidden={{ forWhom, sectionId: data.section?.id ?? "", date: isoDay(date), periodNo: String(periodNo) }} />
               ) : data.people && data.people.length === 0 ? (

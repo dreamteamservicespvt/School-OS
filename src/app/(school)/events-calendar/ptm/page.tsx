@@ -339,7 +339,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
                           {done ? <Pill tone="ok"><Words k="Notes saved" /></Pill> : c.arrivedAt ? <Pill tone="brand"><Words k="Arrived" /></Pill> : null}
                         </>
                       )}
-                      {!c.studentId ? (bookable ? <ButtonLink size="sm" variant="ghost" icon={Plus} href={here({ do: "book", slot: c.id })} scroll={false}><Words k="Book" /></ButtonLink> : null)
+                      {!c.studentId ? (bookable ? <ButtonLink size="sm" variant="ghost" icon={Plus} href={here({ do: "book", slot: c.id })} scroll={false}><Words k="Book@@verb" /></ButtonLink> : null)
                         : <ButtonLink size="sm" variant="secondary" href={here({ do: "meet", slot: c.id })} scroll={false}><Words k="Open" /></ButtonLink>}
                     </div>
                   </li>

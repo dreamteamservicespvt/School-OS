@@ -51,7 +51,10 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
   const statusRaw = one(sp.status);
   const status = (STATUSES as string[]).includes(statusRaw) ? (statusRaw as FlagStatus) : "open";
   const areas = AREAS.filter((x) => x.value !== "fees" || a.warnings.fees);
-  const area = (areas.find((x) => x.value === one(sp.area))?.value ?? "all") as Area | "all";
+  // With fee flags on, the page opens on attendance and marks, the same students the Dashboard counts;
+  // fees have their own choice (layman loop 4: "Watch 341" against the Dashboard's 13).
+  const firstArea = a.warnings.fees ? "no-fees" : "all";
+  const area = (one(sp.area) === "all" ? "all" : areas.find((x) => x.value === one(sp.area))?.value ?? firstArea) as Area | "all" | "no-fees";
   const q = one(sp.q).trim();
   const strength = one(sp.strength) === "ACT_NOW" || one(sp.strength) === "WATCH" ? (one(sp.strength) as "ACT_NOW" | "WATCH") : "all";
   // "period=all": every open flag whatever day it was raised (the Dashboard card's list).
@@ -85,7 +88,7 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
   const shown = list.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
   const studentsShown = new Set(list.map((f) => f.studentId)).size;
 
-  const keep = { status: status === "open" ? null : status, area: area === "all" ? null : area, strength: strength === "all" ? null : strength, q: q || null, period: one(sp.period) || null, from: one(sp.from) || null, to: one(sp.to) || null };
+  const keep = { status: status === "open" ? null : status, area: area === firstArea ? null : area, strength: strength === "all" ? null : strength, q: q || null, period: one(sp.period) || null, from: one(sp.from) || null, to: one(sp.to) || null };
   const close = withQ(HREF, sp, { open: null, review: null, as: null, rule: null, first: null, ahead: null });
   const due = formatDate(addDays(p.today, 3), "UTC");
   const own = p.own.map((s) => s.label);
@@ -111,7 +114,7 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
             <Toolbar className="md:flex-wrap">
               <UrlSearch id="ew-q" placeholder="Student name or class" label="Find a student" />
               <PeriodFilter {...p.dates} fallback="last30" className="w-full md:w-auto" />
-              <UrlSegmented param="area" fallback="all" label="Signal" options={[{ value: "all", label: "All" }, ...areas.map((x) => ({ value: x.value, label: x.label }))]} />
+              <UrlSegmented param="area" fallback={firstArea} label="Signal" options={[...(a.warnings.fees ? [{ value: "no-fees", label: "Attendance and marks" }] : []), { value: "all", label: "All" }, ...areas.map((x) => ({ value: x.value, label: x.label }))]} />
             </Toolbar>
             <p className="px-4 pt-3 text-[12.5px] text-ink3">
               <Words k="Showing flags raised:" /> {range ? `${range.label} · ${rangeWords(range.from, range.to)}` : "All dates"}

@@ -93,7 +93,7 @@ export const QUICK_BY_ROLE: Record<string, Quick[]> = {
   principal: [
     APPROVALS_QUICK,
     q("/communication/notices/new", "communication", "Send a notice", "To parents, staff or a class", "Send"),
-    q("/attendance-management/register", "attendance-management", "Who is absent today", "And which classes are not marked yet", "UserX"),
+    q("/attendance-management/register/absences", "attendance-management", "Who is absent today", "Students and staff, by name", "UserX"),
     q("/fee-management/defaulters", "fee-management", "Fee defaulters", "Who owes fees and for how long", "IndianRupee"),
     q("/examination-results/marks", "examination-results", "Marks progress", "Which teachers have not entered marks", "ClipboardCheck"),
     q("/reports-analytics", "reports-analytics", "Reports", "Fees, attendance, results and more", "ChartColumn"),

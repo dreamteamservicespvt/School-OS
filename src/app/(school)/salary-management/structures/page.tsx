@@ -64,7 +64,9 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
     const people = await tx.userLogin.findMany({ where: { id: { in: [...new Set(all.map((s) => s.createdById).filter((x): x is string => Boolean(x)))] } }, select: { id: true, displayName: true } });
     // Who is on this month's payroll and who is left out: the same rule as Generate Salary, campus by campus (layman test LB7).
     const coverage = await Promise.all(p.campuses.map(async (c) => ({ campus: c, ...(await payrollCoverage(tx, c.id, thisMonth)) })));
-    return { staff, depts, all, stat, slabs, comps, tpls, frozen, people, coverage };
+    // This month's salary already sent (or approved): its own staff count, not the structures' (loop 4).
+    const sentRuns = await tx.payrollRun.findMany({ where: { month: thisMonth, campusId: { in: p.campuses.map((c) => c.id) }, status: { notIn: ["OPEN", "CALCULATED"] } }, select: { staffCount: true } });
+    return { staff, depts, all, stat, slabs, comps, tpls, frozen, people, coverage, sentRuns };
   });
 
   // The version that applies today (or the next one when none has started).
@@ -122,7 +124,7 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
         </>} />
       <Stack>
         <Stats items={[
-          { label: "Salary structures", value: `${onPayroll - missing.length} of ${onPayroll}`, sub: `staff on ${monthName(thisMonth)}’s payroll${data.coverage.length > 1 ? ", all campuses" : ""}`, icon: FileSpreadsheet },
+          { label: "Salary structures", value: `${onPayroll - missing.length} of ${onPayroll}`, sub: data.sentRuns.length ? `${monthName(thisMonth)} already sent with ${data.sentRuns.reduce((n, r) => n + r.staffCount, 0)} staff` : `staff on ${monthName(thisMonth)}’s payroll${data.coverage.length > 1 ? ", all campuses" : ""}`, icon: FileSpreadsheet },
           { label: "Without a structure", value: String(missing.length), sub: missing.length ? `${someNames(missing.map((s) => s.fullName))}${byCampus ? ` · ${byCampus}` : ""}` : "Everyone has one", tone: missing.length ? "warn" : undefined, icon: FileWarning },
           { label: "Revised", value: String(revisedStaff), sub: revised.length ? `${per.label} · ${commonReason || "new versions"}` : per.label, icon: TrendingUp },
           { label: "Monthly gross", value: formatRupeesShort(monthly), sub: "before loss of pay", icon: Wallet },

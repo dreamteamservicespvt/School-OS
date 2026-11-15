@@ -80,6 +80,10 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
     label: `${c.name}${c.periodLabel ? ` · ${c.periodLabel}` : ""}${c.done ? " ✓" : ""}`,
   }));
   const sheet = data.sheet;
+  // The next class not taken yet, after the one on screen: a button once this one is saved.
+  const at = data.chosen ? data.choices.indexOf(data.chosen) : -1;
+  const nextUp = at < 0 ? null : [...data.choices.slice(at + 1), ...data.choices.slice(0, at)].find((c) => !c.done) ?? null;
+  const nextLink = nextUp ? { href: `${BASE}?date=${isoDay(date)}&section=${nextUp.sectionId}${nextUp.periodNo ? `&period=${nextUp.periodNo}` : ""}`, label: `${nextUp.name}${nextUp.periodLabel ? ` · ${nextUp.periodLabel}` : ""}` } : null;
   const messageLine = "messages" in data ? messageCountText(data.messages ?? null, isoDay(date) === isoDay(today)) : null;
   const correctionHref = data.chosen ? `${BASE}/register/correction?section=${data.chosen.sectionId}&date=${isoDay(date)}${data.chosen.periodNo ? `&period=${data.chosen.periodNo}` : ""}` : `${BASE}/register`;
   const nextDay = data.info && !data.info.on ? await withSchool(current.ctx, (tx) => nextSchoolDay(tx, current.ctx, date, access.campusId)) : null;
@@ -159,7 +163,7 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
           saved={sheet.saved}
           savedAtText={sheet.savedAt ? formatTime(sheet.savedAt, tz) : null} savedBy={sheet.savedBy}
           locked={sheet.lock.locked} lockText={sheet.lock.atText} canChangeAfterLock={sheet.canChangeAfterLock}
-          correctionHref={correctionHref} offlineOn={offlineOn} />
+          correctionHref={correctionHref} offlineOn={offlineOn} next={nextLink} />
         </>
       )}
     </>

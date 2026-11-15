@@ -86,7 +86,7 @@ export function CountDot({ count }: { count?: number | null }) {
   if (!count || count <= 0) return null;
   return (
     <span aria-hidden="true" className="absolute top-1 right-1 min-w-[17px] h-[17px] px-1 rounded-full bg-bad text-badink text-[10px] font-bold grid place-items-center ring-2 ring-surface tnum">
-      {count > 99 ? "99+" : count}
+      {count > 9 ? "9+" : count}
     </span>
   );
 }

@@ -208,7 +208,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           )
       ) : (
         <>
-          <ApprovalList rows={rows} paged={pages > 1} />
+          <ApprovalList rows={rows} paged={pages > 1} total={data.total} />
           <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-[13.5px] text-ink3">
             <span className="tnum">{data.total} <Words k="request" />{data.total === 1 ? "" : "s"}{pages > 1 ? ` · page ${params.page} of ${pages}` : ""}</span>
             {pages > 1 && (

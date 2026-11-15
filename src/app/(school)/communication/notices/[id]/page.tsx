@@ -167,7 +167,10 @@ export default async function NoticePage({ params, searchParams }: { params: Pro
             {data.manager && data.people.length > 0 && (
               <Card className="overflow-hidden">
                 <div className="p-4 md:px-5">
-                  <p className="text-[13px] font-semibold text-ink3">{n.askAck ? "Acknowledged by staff and students" : "Read by staff and students"}</p>
+                  {/* Says who the notice was for: "staff and students" on a staff notice read as if students were counted (layman loop 4). */}
+                  <p className="text-[13px] font-semibold text-ink3">{n.askAck
+                    ? (data.a.staff && !data.a.students ? "Acknowledged by staff" : data.a.students && !data.a.staff ? "Acknowledged by students" : "Acknowledged by staff and students")
+                    : (data.a.staff && !data.a.students ? "Read by staff with a login" : data.a.students && !data.a.staff ? "Read by students" : "Read by staff and students")}</p>
                   <p className="font-display text-[24px] font-semibold tnum leading-tight">{data.people.length - notRead.length} <span className="text-[14px] text-ink3 font-sans"><Words k="of" /> {data.people.length}</span></p>
                 </div>
                 <ul className="divide-y divide-line/70 border-t border-line max-h-96 overflow-y-auto scroll-thin">

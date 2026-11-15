@@ -9,6 +9,7 @@ import { ChevronRight, Circle, CircleCheck, Info, Lightbulb, SearchX, Sparkles, 
 import { Card } from "./card";
 import { Pill } from "./badge";
 import { cx } from "./cx";
+import { BAND_STYLE } from "./band-style";
 import { tx } from "@/lib/i18n/tx";
 
 export type Tone = "ok" | "warn" | "bad" | "info" | "brand";
@@ -56,7 +57,7 @@ const BAND_CELL: Record<number, string[]> = {
 export function Band({ items, className, label }: { items: BandItem[]; className?: string; label?: string }) {
   const n = Math.max(2, Math.min(items.length, 4));
   return (
-    <section aria-label={label} className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)}>
+    <section aria-label={label} className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)} style={BAND_STYLE}>
       <div className="absolute inset-0 dotgrid opacity-60 pointer-events-none" aria-hidden="true" />
       <div className="absolute -right-16 -top-24 w-72 h-72 rounded-full bg-white/10 blur-2xl pointer-events-none" aria-hidden="true" />
       <div className={cx("relative grid", BAND_GRID[n])}>
@@ -279,7 +280,7 @@ export function HBars({ rows, max = 100, goal, unit = "%", lowBelow, labelWidth 
 }
 
 /** Vertical bars. `v2` draws a lighter bar behind, for a target or the earlier value. */
-export function Bars({ data, max, height = 170, unit = "", ariaLabel = "Chart", ticks }: { data: { k: string; v: number; v2?: number; tone?: Tone }[]; max?: number; height?: number; unit?: string; ariaLabel?: string; ticks?: number[] }) {
+export function Bars({ data, max, height = 170, unit = "", ariaLabel = "Chart", ticks, values = false }: { data: { k: string; v: number; v2?: number; tone?: Tone }[]; max?: number; height?: number; unit?: string; ariaLabel?: string; ticks?: number[]; values?: boolean }) {
   const W = 360, H = height, padL = 30, padB = 22, top = 8;
   const mx = max || Math.max(1, ...data.map((d) => Math.max(d.v, d.v2 ?? 0))) * 1.1;
   const y = (v: number) => top + (H - padB - top) * (1 - v / mx);
@@ -301,6 +302,7 @@ export function Bars({ data, max, height = 170, unit = "", ariaLabel = "Chart", 
             <rect x={padL + i * bw} y={top} width={bw} height={H - padB - top} fill="transparent" />
             {d.v2 != null && <rect x={x} y={y(d.v2)} width={w} height={Math.max(0, y(0) - y(d.v2))} rx="4" style={{ fill: "rgb(var(--ink-3) / .22)" }} />}
             <rect className="bar" x={x} y={y(d.v)} width={w} height={Math.max(0, y(0) - y(d.v))} rx="4" style={{ fill: `rgb(var(--${d.tone ?? "brand"}))` }} />
+            {values && <text x={x + w / 2} y={Math.max(top + 9, y(d.v) - 4)} textAnchor="middle" fontSize="10.5" fontWeight="600" className="tnum" style={{ fill: "rgb(var(--ink))" }}>{d.v.toLocaleString("en-IN")}{unit}</text>}
             <text x={x + w / 2} y={H - 6} textAnchor="middle" fontSize="10.5" fontWeight="500" style={{ fill: "rgb(var(--ink-2))" }}>{d.k}</text>
           </g>
         );

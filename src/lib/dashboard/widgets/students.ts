@@ -101,11 +101,12 @@ const classesOverview: Widget<"panel"> = {
     const unplaced = c.filters.classId ? 0 : unplacedAll;
     if (!tiles.length && !unplaced) return null;
     const total = tiles.reduce((s, t) => s + t.total, 0);
-    // Students not yet in a section are shown too, so the classes and they add up to the Students number (gap list G36).
+    // Students not yet in a section are shown too, so the classes and they add up to the Students number (gap list G36);
+    // the line leads with that same number, never a smaller one (layman loop 4).
     return {
       slot: "main",
       panel: {
-        kind: "classes-overview", title: "Classes overview", sub: `${n(total)} students studying in ${plural(tiles.reduce((s, t) => s + t.sections.length, 0), "section")}${unplaced ? ` · ${n(unplaced)} not yet in a section` : ""}`, total, href: BASE,
+        kind: "classes-overview", title: "Classes overview", sub: `${plural(total + unplaced, "student")} · ${plural(tiles.reduce((s, t) => s + t.sections.length, 0), "section")}${unplaced ? ` · ${n(unplaced)} not yet in a section` : ""}`, total, href: BASE,
         classes: tiles.map((t) => ({ id: t.id, name: t.name, total: t.total, href: `${BASE}?class=${t.id}`, sections: t.sections.map((s) => ({ ...s, href: `${BASE}?class=${t.id}&section=${s.id}` })) })),
         ...(unplaced ? { unplaced: { count: unplaced, href: `${BASE}?section=none` } } : {}),
       },

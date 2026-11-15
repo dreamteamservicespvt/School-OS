@@ -13,7 +13,6 @@ import { closeDayAction, reopenDayAction } from "./actions";
 import { Words, useT } from "@/lib/i18n/client";
 
 const inr = (paise: number) => `${paise < 0 ? "−" : ""}₹${(Math.abs(paise) / 100).toLocaleString("en-IN", { minimumFractionDigits: paise % 100 ? 2 : 0, maximumFractionDigits: 2 })}`;
-const signedInr = (paise: number) => (paise > 0 ? `+${inr(paise)}` : inr(paise));
 /** Typed rupees as paise, or null while the box is empty or not an amount. */
 const toPaise = (s: string) => {
   const v = s.replace(/[,₹\s]/g, "");
@@ -38,13 +37,14 @@ export function CloseDaySheet({ closeHref, date, dateWords, expectedPaise, incom
         <Line k={<Words k="Expense that day, all modes" />} v={inr(expensePaise)} />
         <Line k={<Words k="Cash that should be in the box now (cash only, all days)" />} v={inr(expectedPaise)} bold />
         <Line k={<Words k="You counted" />} v={counted === null ? "—" : inr(counted)} />
-        <Line k={<Words k="Difference" />} v={diff === null ? "—" : diff === 0 ? t("None") : signedInr(diff)} tone={diff === null ? undefined : diff === 0 ? "ok" : "bad"} />
+        <Line k={<Words k="Difference" />} v={diff === null ? "—" : diff === 0 ? t("None") : `${inr(Math.abs(diff))} ${t(diff < 0 ? "short" : "extra")}`} tone={diff === null ? undefined : diff === 0 ? "ok" : "bad"} />
       </ul>
       <p className="text-[12.5px] text-ink3 -mt-2"><Words k="UPI, card and bank money is not in the box, so it is not counted here." /></p>
       <SMoney name="counted" label="Cash counted" required big placeholder="0" onValue={setTyped}
         help="Notes and coins in the office cash box, in rupees" />
       {diff !== null && diff !== 0 && (
-        <SArea name="reason" label="Why is it different?" required rows={2} placeholder="Example: ₹100 short, change given twice to a parent"
+        // Not "required" in the browser: the server says what is wrong in words ("The count is ₹100 less than the books. Say why…"), loop 4.
+        <SArea name="reason" label="Why is the cash different?" rows={2} placeholder="Example: ₹100 short, change given twice to a parent"
           help="The Principal is told, with this reason." />
       )}
     </SheetForm>

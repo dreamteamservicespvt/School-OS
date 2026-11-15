@@ -65,7 +65,8 @@ export default async function StudentProfilePage({ params, searchParams }: { par
   if (view.mode === "pickup") {
     const fo = BUILT_MODULES.has("front-office") && allowed(current.permissions, "front-office", "view");
     // The walk-in request opens filled in for Accounts (the sheet itself checks the person may log requests).
-    const accountsHref = fo && view.phones ? `/front-office?${new URLSearchParams({ do: "walkin", dept: "Accounts", ask: `Fee balance for ${s.fullName} (${s.admissionNo})`, from: s.fullName })}` : null;
+    // In the screen's language, from the parent (the first person on the pickup list), not the child (layman loop 4).
+    const accountsHref = fo && view.phones ? `/front-office?${new URLSearchParams({ do: "walkin", dept: "Accounts", ask: t("Fee balance for {name} ({admissionNo})", { name: s.fullName, admissionNo: s.admissionNo }), from: p.pickups.allowed[0]?.name ?? s.fullName })}` : null;
     return <PickupView p={p} back={back} showPhones={view.phones} pickupHref={fo ? `/front-office/pickup?student=${id}` : null} accountsHref={accountsHref} />;
   }
   if (view.mode === "library") return <LibraryView p={p} back={back} panel={current.modulesOn.has("library-management") ? <LibraryPanel current={current} studentId={id} /> : undefined} />;

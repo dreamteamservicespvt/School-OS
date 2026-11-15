@@ -145,7 +145,7 @@ function ChartBody({ c, drillHref }: { c: AChart; drillHref: (k: string) => stri
   return (
     <>
       {c.kind === "hbars" && c.hbars && <div className="px-5 pb-4"><HBars rows={c.hbars} max={c.max ?? 100} goal={c.goal} lowBelow={c.lowBelow} labelWidth={c.labelWidth ?? 64} unit={c.unit ?? "%"} /></div>}
-      {c.kind === "bars" && c.bars && <div className="px-3 pb-2"><Bars data={c.bars} max={c.max} ticks={c.ticks} unit={c.unit ?? ""} ariaLabel={c.title} /></div>}
+      {c.kind === "bars" && c.bars && <div className="px-3 pb-2"><Bars data={c.bars} max={c.max} ticks={c.ticks} unit={c.unit ?? ""} ariaLabel={c.title} values={c.values} /></div>}
       {c.legend && <div className="px-5 pb-4"><Legend items={c.legend} /></div>}
       {(c.drills?.length || c.note) && (
         <div className={cx("px-5 pb-4", c.kind === "hbars" && c.note && "border-t border-line/70 pt-3")}>

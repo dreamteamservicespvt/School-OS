@@ -52,6 +52,8 @@ type Props = {
   offlineOn: boolean;
   /** Absence reasons this person may choose, or null when the school does not record them. */
   reasons?: ReasonChoice[] | null;
+  /** The next class of the day not taken yet: offered after saving, never opened by itself. */
+  next?: { href: string; label: string } | null;
 };
 
 type Why = { key: string | null; note: string };
@@ -162,7 +164,15 @@ export function TakeSheet(p: Props) {
         if (r.ok) {
           clientId.current = newClientId();
           setDirty(false);
-          router.refresh();
+          // Stay on the class just saved. With no class in the address the page opened the next class by
+          // itself, all marked present, under the finger that had just pressed Save (layman loop 4).
+          const url = new URL(window.location.href);
+          if (url.searchParams.get("section") !== p.sectionId) {
+            url.searchParams.set("section", p.sectionId);
+            url.searchParams.set("date", p.date);
+            if (p.periodNo) url.searchParams.set("period", String(p.periodNo)); else url.searchParams.delete("period");
+            router.replace(`${url.pathname}${url.search}`, { scroll: false });
+          } else router.refresh();
         } else {
           setProblem({ text: r.message, link: r.link });
         }
@@ -225,7 +235,8 @@ export function TakeSheet(p: Props) {
             : `${unsaved ? `${studentsWord(unsaved)} not marked: no mark is saved for them on this day. ` : ""}A change now needs a correction request. The principal approves it, and the old marks are kept.`}
         </Banner>
       ) : savedNow ? (
-        <Banner tone={unsaved ? "warn" : "ok"} icon={unsaved ? Info : CircleCheck} className="mb-4" role="status" title={`Saved at ${p.savedAtText}${p.savedBy ? ` by ${p.savedBy}` : ""}.`}>
+        <Banner tone={unsaved ? "warn" : "ok"} icon={unsaved ? Info : CircleCheck} className="mb-4" role="status" title={`Saved at ${p.savedAtText}${p.savedBy ? ` by ${p.savedBy}` : ""}.`}
+          action={p.next && !unsaved ? <Link href={p.next.href} className={buttonClass("secondary", "sm")}><Words k="Next class: {class}" vars={{ class: p.next.label }} /> →</Link> : undefined}>
           {unsaved ? `${studentsWord(unsaved)} not marked yet: tap P, A or L for each, then save. ` : ""}
           {p.locked ? `It locked at ${p.lockText}; the school keeps a record of who changed it and when.` : `You can change it until ${p.lockText}.`}
         </Banner>

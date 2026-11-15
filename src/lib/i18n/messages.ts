@@ -32,10 +32,23 @@ const PATTERNS: [RegExp, (t: T, m: RegExpExecArray) => string][] = [
   [/^Back on (.+)$/, (t, m) => t("Back on {day}", { day: dayWords(t, m[1]) })],
   [/^due (\w{3}(?: \d{1,2} \w{3})?)$/, (t, m) => t("due {day}", { day: dayWords(t, m[1]) })],
   [/^Holiday: (.+)$/, (t, m) => t("Holiday: {title}", { title: m[1] })],
+  [/^Vacation: (.+)$/, (t, m) => t("Vacation: {title}", { title: m[1] })],
+  // Notifications in the bell (layman loop 4): the sign-in alert said whole in the reader's language.
+  [/^New sign-in to (.+?) on (.+), (\d{2}-\d{2}-\d{4},? \d{1,2}:\d{2} [AP]M)\. Not you\? Sign out everywhere in My profile and change your password\.$/,
+    (t, m) => t("New sign-in to {school} on {where}, {when}. Not you? Sign out everywhere in My profile and change your password.", { school: m[1], where: m[2], when: m[3] })],
   [/^Enquiry added for (.+)\.$/, (t, m) => t("Enquiry added for {name}.", { name: m[1] })],
   [/^Homework sent to (.+) \((\d[\d,]*) students?\)\.$/, (t, m) => t("Homework sent to {class} ({n} students).", { class: m[1], n: m[2] })],
   [/^Parents of (.+)$/, (t, m) => t("Parents of {class}", { class: m[1] })],
   [/^(.+) and (\d[\d,]*) more$/, (t, m) => t("{names} and {n} more", { names: m[1], n: m[2] })],
+  // "Sanjay Verma (V-0240) and Deepika Rao (V-0232) and 4 more." (Front Office dashboard card, layman loop 4).
+  [/^(.+) and (\d[\d,]*) more\.$/, (t, m) => t("{names} and {n} more.", { names: m[1].split(" and ").join(", "), n: m[2] })],
+  [/^Was due (.+)$/, (t, m) => t("Was due {day}", { day: dayWords(t, m[1]) })],
+  // Where a staff member is now (Front Office, src/lib/front-office/staff.ts), layman loop 4.
+  [/^Teaching (.+) till (\d{1,2}:\d{2} [AP]M)$/, (t, m) => t("Teaching {class} till {time}", { class: m[1], time: m[2] })],
+  [/^Teaching (.+)$/, (t, m) => t("Teaching {class}", { class: m[1] })],
+  // An enquiry's history line "Enquiry added. Source: Walk-in. Owner: Divya Menon." (each sentence alone).
+  [/^Source: (.+)\.$/, (t, m) => t("Source: {source}.", { source: t.any(m[1]) })],
+  [/^Owner: (.+)\.$/, (t, m) => t("Owner: {name}.", { name: m[1] })],
 ];
 
 const TESTER = " (On this tester's computer the code is in the server log.)";

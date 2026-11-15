@@ -148,10 +148,14 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
     const parts = fullName.trim().split(/\s+/);
     if (data.usernameFormat === "phone") return phone.replace(/\D/g, "").slice(-10);
     if (data.usernameFormat === "staffid") return "staff ID";
-    const first = slug(parts[0] ?? "");
+    // As usernameFor() on the server: a first name with no a-z letters becomes "staff", never ".ramesh".
+    const first = parts[0] ? slug(parts[0]) || "staff" : "";
     const last = slug(parts.slice(1).join(""));
     return data.usernameFormat === "firstlast" ? `${first}${last}` : last ? `${first}.${last}` : first;
   }, [fullName, phone, data.usernameFormat]);
+
+  // At most about 3 months ahead, as JOINING_MAX_DAYS_AHEAD in src/lib/staff/schemas.ts (01-01-2031 was saved, layman loop 4).
+  const joinMax = useMemo(() => { const d = new Date(`${data.today}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + 92); return d.toISOString().slice(0, 10); }, [data.today]);
 
   const base = combineLevels(data.roles.filter((r) => roleKeys.includes(r.key)).map((r) => r.perms as Partial<Record<ModuleKey, AccessLevel>>));
   const extras = extraPermissions(base, exceptions);
@@ -266,7 +270,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
             options={data.designations.map((d) => ({ value: d.name, label: d.name }))} placeholder="Choose their post" help="Shown under their name everywhere." />
           <SelectField label="Department" name="departmentId" value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setDeptTouched(true); }} error={err("departmentId")}
             options={data.departments} placeholder="No department" />
-          <TextField label="Joining date" name="joiningDate" type="date" required defaultValue={p?.joiningDate ?? data.today} error={err("joiningDate")} />
+          <TextField label="Joining date" name="joiningDate" type="date" required max={joinMax} defaultValue={p?.joiningDate ?? data.today} error={err("joiningDate")} />
           <SelectField label="Gender" name="gender" defaultValue="" options={[{ value: "Female", label: "Female" }, { value: "Male", label: "Male" }, { value: "Other", label: "Other" }]} placeholder="Choose" error={err("gender")} />
           <TextField label="Email" name="email" type="email" defaultValue={p?.email ?? linked?.email} error={err("email")} help="Needed for an email invite." autoComplete="off" />
           <div>

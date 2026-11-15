@@ -62,8 +62,8 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
   // Another year (?year=): that year's fees, as at its last day when it is over, read-only (gap list G36).
   const { p, viewer, view } = await feeYearView(p0, await feeViewOnCampus(p0, raw.campus), raw.year);
   const sp = withYearDates(raw, view);
-  // "all": full and partial payments together (the Dashboard's money tiles open this, so the list holds every payment they count).
-  const tab = one(sp.kind) === "partial" ? "partial" : one(sp.kind) === "all" ? "all" : "full";
+  // Opens on "all": full and partial payments together, so the list holds every payment "Collected today" counts (loop 4).
+  const tab = one(sp.kind) === "partial" ? "partial" : one(sp.kind) === "full" ? "full" : "all";
   const status = STATUS.some((s) => s.value === one(sp.status)) ? one(sp.status) : "all";
   const mode = MODES.some((s) => s.value === one(sp.mode)) ? one(sp.mode) : "all";
   const per = feePeriod(sp, p.dates, "today");
@@ -75,6 +75,9 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
   const cancelId = one(sp.cancel);
   const matchId = one(sp.match);
   const today = p.today;
+  // One past day chosen (Yesterday, or one date): the money tiles follow it, not only the list (loop 4).
+  const day = per.range && per.range.from === per.range.to && per.from! <= today ? per.from! : today;
+  const onToday = day.getTime() === today.getTime();
   const from = per.from ?? new Date("2000-01-01T00:00:00Z");
   const to = per.to ?? today;
   const take = 25;
@@ -87,9 +90,9 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
     const onCampus = only.studentId ? new Set(only.studentId.in) : null;
     const mine = (studentId: string) => !onCampus || onCampus.has(studentId);
     const [tiles, trend, modes, failed, waiting, list, counts, fc, promises] = await Promise.all([
-      feeTiles(tx, viewer, today),
+      feeTiles(tx, viewer, today, day),
       p.year ? monthlyTrend(tx, p.year.startDate, p.year.endDate, only, p.year.id) : Promise.resolve([]),
-      modeBreakdown(tx, period === "today" ? today : monthStart(today), today, only),
+      modeBreakdown(tx, period === "today" ? day : monthStart(today), period === "today" ? day : today, only),
       failedOnline(tx, addDays(today, -7), only),
       tx.payment.findMany({ where: { ...only, status: "WAITING" }, orderBy: { paidAt: "asc" }, select: { id: true, amountPaise: true } }),
       recentPayments(tx, viewer, { ...base, partial: tab === "all" ? null : tab === "partial" }, take, (page - 1) * take),
@@ -98,7 +101,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
       p.features.has("fee-forecast") && aiAllowed(p.current) ? forecast(tx, today, { promises: promisesOn, only }) : Promise.resolve(null),
       promisesOn ? promiseSummary(tx, today, viewer.yearId, only) : Promise.resolve(null),
     ]);
-    const upiToday = (await modeBreakdown(tx, today, today, only)).find((m) => m.mode === "UPI")?.count ?? 0;
+    const upiToday = (await modeBreakdown(tx, day, day, only)).find((m) => m.mode === "UPI")?.count ?? 0;
     // Online payments to check (A8): only for the people who collect fees. One not matched to a student belongs to no campus yet.
     const [unmatched, reversalsAll] = p.desk ? await Promise.all([unmatchedOnline(tx, addDays(today, -30)), reversalsToCheck(tx, addDays(today, -30))]) : [[], []];
     const reversals = reversalsAll.filter((r) => mine(r.studentId));
@@ -129,12 +132,15 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
   const mMax = methods.reduce((a, m) => (m.amount > a ? m.amount : a), BigInt(0));
   const mTotal = methods.reduce((a, m) => a + m.amount, BigInt(0));
   const waitingSum = data.waiting.reduce((a, w) => a + w.amountPaise, BigInt(0));
-  const keep = { campus: one(sp.campus) || null, year: view?.id ?? null, kind: tab === "full" ? null : tab, status: status === "all" ? null : status, mode: mode === "all" ? null : mode, ...per.keep, how: period === "month" ? "month" : null, q: q || null };
+  const keep = { campus: one(sp.campus) || null, year: view?.id ?? null, kind: tab === "all" ? null : tab, status: status === "all" ? null : status, mode: mode === "all" ? null : mode, ...per.keep, how: period === "month" ? "month" : null, q: q || null };
   const here = qs(HREF, keep);
   const payHref = (id: string) => qs(HREF, { ...keep, page: page > 1 ? String(page) : null, pay: id });
   const fullCount = data.counts[0].total;
   const partCount = data.counts[1].total;
   const whenWord = per.words;
+  /** The day the money tiles count: "today", "yesterday" or one date. */
+  const dayWords = onToday ? "today" : whenWord === "yesterday" ? "yesterday" : `on ${formatDate(day)}`;
+  const pastDays = !!per.to && per.to < today;
   const failedRows = [
     ...data.failed.failed.map((f) => ({ id: f.id, kind: "payment" as const, studentId: f.studentId, amount: f.amountPaise, at: f.createdAt, why: f.failureReason ?? "Declined by the bank" })),
     ...data.failed.stuck.map((s) => ({ id: s.id, kind: "link" as const, studentId: s.studentId, amount: s.amountPaise, at: s.lastAttemptAt ?? s.updatedAt,
@@ -149,7 +155,10 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
     <div>
       <FeeHead pageName="Fee Dashboard" href={HREF}
         sub={`${longDate} · updated ${formatTime(new Date(), p.tz)}`}
-        viewActions={<ExportButton href={qs(`${BASE}/dashboard/export`, keep)} />}
+        viewActions={<>
+          <UrlSegmented size="sm" param="period" fallback="today" label="Day" options={[{ value: "today", label: "Today" }, { value: "yesterday", label: "Yesterday" }]} />
+          <ExportButton href={qs(`${BASE}/dashboard/export`, keep)} />
+        </>}
         actions={p.can.change ? <>
           <ButtonLink href={`${BASE}/ledger/import`} variant="secondary" icon={FileInput} className="hidden md:inline-flex"><Words k="Import old dues and receipts" /></ButtonLink>
           {p.desk && <ButtonLink href={BASE} variant="primary" icon={IndianRupee}><Words k="Collect fee" /></ButtonLink>}
@@ -157,7 +166,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
       <ViewYearStrip year={view} back={backToThisYear(HREF, raw)} />
       <Stack>
         <Band items={[
-          { label: "Collected today", big: formatRupees(tiles.today.amount), foot: `${tiles.today.count} ${tiles.today.count === 1 ? "payment" : "payments"} · ${data.upiToday} by UPI`, href: `${HREF}#recent` },
+          { label: `Collected ${dayWords}`, big: formatRupees(tiles.today.amount), foot: `${tiles.today.count} ${tiles.today.count === 1 ? "payment" : "payments"} · ${data.upiToday} by UPI`, href: `${HREF}#recent` },
           { label: "Collected this year", big: formatRupeesShort(tiles.year.paid), foot: tiles.year.due > BigInt(0) ? `of ${formatRupeesShort(tiles.year.due)} due so far · ${Math.round(tiles.year.percent)}%` : "Nothing is due yet this year", href: `${HREF}#by-class` },
           { label: "Pending, not late", big: formatRupeesShort(tiles.pending), foot: tiles.nextDue ? `Not late yet · next due ${formatDate(tiles.nextDue)}` : "Nothing falls due in the next 30 days", href: p.may("reports") ? `${BASE}/reports?r=outstanding` : undefined },
           { label: "Overdue", big: formatRupeesShort(tiles.overdue), foot: `${tiles.overdueStudents} ${tiles.overdueStudents === 1 ? "student" : "students"} · ${tiles.over30} over 30 days`, href: p.may("defaulters") ? `${BASE}/defaulters` : undefined },
@@ -189,8 +198,8 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
             <div className="px-5 pb-4 flex items-center gap-4 flex-wrap"><Legend items={[["bg-brand", "Collected"], ["bg-ink3/25", "Due"]]} /><span className="ml-auto text-[12.5px] text-ink3">{new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(today)} <Words k="is still open" /></span></div>
           </Card>
           <Card>
-            <CardHeader title="How parents paid" description={period === "today" ? `Today · ${formatRupees(mTotal)}` : `${new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(today)} so far · ${formatRupeesShort(mTotal)}`} icon={Wallet} />
-            <div className="px-5 pb-3"><UrlSegmented size="sm" className="w-full" param="how" fallback="today" label="Period" options={[{ value: "today", label: "Today" }, { value: "month", label: "This month" }]} /></div>
+            <CardHeader title="How parents paid" description={period === "today" ? `${onToday ? "Today" : formatDate(day)} · ${formatRupees(mTotal)}` : `${new Intl.DateTimeFormat("en-IN", { month: "long", timeZone: "UTC" }).format(today)} so far · ${formatRupeesShort(mTotal)}`} icon={Wallet} />
+            <div className="px-5 pb-3"><UrlSegmented size="sm" className="w-full" param="how" fallback="today" label="Period" options={[{ value: "today", label: onToday ? "Today" : formatDate(day) }, { value: "month", label: "This month" }]} /></div>
             <ul className="px-5 pb-5 flex flex-col gap-3">
               {methods.map((m) => (
                 <li key={m.mode} className="text-[13.5px]">
@@ -305,9 +314,9 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
           <Card className="overflow-hidden">
             <CardHeader title="Recent payments" description="Newest first" icon={ReceiptIndianRupee} />
             <LinkTabs className="px-3" label="Payment kind" tabs={[
-              { href: qs(HREF, { ...keep, kind: null }), label: "Full payments", count: fullCount, on: tab === "full" },
+              { href: qs(HREF, { ...keep, kind: null }), label: "All payments", count: fullCount + partCount, on: tab === "all" },
+              { href: qs(HREF, { ...keep, kind: "full" }), label: "Full payments", count: fullCount, on: tab === "full" },
               { href: qs(HREF, { ...keep, kind: "partial" }), label: "Partial payments", count: partCount, on: tab === "partial" },
-              { href: qs(HREF, { ...keep, kind: "all" }), label: "All payments", count: fullCount + partCount, on: tab === "all" },
             ]} />
             <Toolbar>
               <UrlSearch id="pay-q" placeholder="Student, class or receipt no." />
@@ -324,9 +333,10 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
                   {page > 1 && <Link className={buttonClass("ghost", "sm")} href={qs(HREF, { ...keep, page: String(page - 1) })} scroll={false}><Words k="Newer" /></Link>}
                   {page * take < list.total && <Link className={buttonClass("ghost", "sm")} href={qs(HREF, { ...keep, page: String(page + 1) })} scroll={false}><Words k="Older" /></Link>}
                 </span></>}
-              empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="fee payments" /> : <Empty icon={SearchX} title={q || status !== "all" || mode !== "all" ? "No payments match" : `No ${tab === "partial" ? "partial " : ""}payments ${whenWord} yet`}
-                body={q || status !== "all" || mode !== "all" ? "Try another status or mode." : "Payments show here as they come in."}
-                action={q || status !== "all" || mode !== "all" ? <Link href={qs(HREF, { kind: keep.kind, ...per.keep })} className={buttonClass("secondary")}><Words k="Clear filters" /></Link> : undefined} />}
+              empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="fee payments" /> : <Empty icon={SearchX} title={q || status !== "all" || mode !== "all" ? "No payments match" : `No ${tab === "partial" ? "partial " : tab === "full" ? "full " : ""}payments ${whenWord}${pastDays ? "" : " yet"}`}
+                body={q || status !== "all" || mode !== "all" ? "Try another status or mode." : tab !== "all" && fullCount + partCount > 0 ? <Words k="See All payments." /> : pastDays ? undefined : "Payments show here as they come in."}
+                action={q || status !== "all" || mode !== "all" ? <Link href={qs(HREF, { kind: keep.kind, ...per.keep })} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>
+                  : tab !== "all" && fullCount + partCount > 0 ? <Link href={qs(HREF, { ...keep, kind: null })} scroll={false} className={buttonClass("secondary")}><Words k="All payments" /></Link> : undefined} />}
               rowClass={(r) => r.status === "CANCELLED" && "bg-bad/[.03]"}
               columns={[
                 { key: "t", label: "Time", nowrap: true, render: (r) => <span className="tnum text-ink2">{when === "today" ? formatTime(r.paidAt, p.tz) : `${formatDate(r.paymentDate)} ${formatTime(r.paidAt, p.tz)}`}</span> },

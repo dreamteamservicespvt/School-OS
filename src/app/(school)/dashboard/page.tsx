@@ -69,6 +69,7 @@ export default async function DashboardPage({ searchParams }: Search) {
   // Layman loop 2 (15 Nov): no "Take attendance" on a day with no school. The big button that repeated the first
   // shortcut is gone: the shortcuts (or the Quick actions card) already carry it.
   const quick = quickActionsFor(current, home.approvals !== null).filter((q) => !(home.dayOff && q.href === "/attendance-management"));
+  const waiting = home.approvals?.count ?? 0;
   // A teacher's home: the work comes first on the phone; no refresh picker and no filters (they mean nothing there).
   // Front-line homes (teacher, reception, gate, library…) get no refresh picker or Filters bar: those
   // words meant nothing to them (layman loop 2 and 3). Office homes keep them for dates and campuses.
@@ -93,6 +94,8 @@ export default async function DashboardPage({ searchParams }: Search) {
           return (
             <Link key={q.label} href={q.href} className="flex items-center gap-2 h-11 pl-2 pr-4 rounded-full bg-surface border border-line text-[14px] font-semibold shadow-card hover:text-brand">
               <span className="w-8 h-8 rounded-full bg-brand/10 text-brand grid place-items-center"><Ic size={16} aria-hidden="true" /></span>{t.any(q.label)}
+              {/* How many wait, at a glance (layman loop 4: "Approvals" had no count). */}
+              {q.href === "/approvals" && waiting > 0 && <span className="ml-0.5 min-w-6 h-6 px-1.5 rounded-full bg-bad text-badink text-[12px] font-bold grid place-items-center tnum">{waiting}</span>}
             </Link>
           );
         })}
@@ -160,12 +163,14 @@ export default async function DashboardPage({ searchParams }: Search) {
         <div className="flex flex-col gap-5 lg:gap-6 min-w-0">
           {first.length > 0 && <div className="hidden md:flex flex-col gap-5 lg:gap-6">{first.map((p, i) => <PanelCard key={i} panel={p} t={t} />)}</div>}
           {attentionUp ? <div className="hidden md:block">{attention}</div> : attention}
+          {/* A leader's waiting requests sit right under Needs your attention on phones and tablets, not below every chart (layman loop 4). */}
+          {home.leader && waiting > 0 && <div className="xl:hidden">{approvals}</div>}
           {home.panels.main.map((p, i) => <PanelCard key={i} panel={p} t={t} />)}
           {tasks}
         </div>
         <div className="flex flex-col gap-5 lg:gap-6 min-w-0">
           {quickCard}
-          {home.leader ? <>{todayCard}{approvals}</> : <>{approvals}{todayCard}</>}
+          {home.leader ? <>{todayCard}{waiting > 0 ? <div className="hidden xl:block">{approvals}</div> : approvals}</> : <>{approvals}{todayCard}</>}
           {home.panels.side.map((p, i) => <PanelCard key={i} panel={p} t={t} />)}
         </div>
       </div>

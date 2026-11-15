@@ -21,7 +21,7 @@ import { mobileDigits } from "@/lib/front-office/words";
 import { addNoteAction, callFollowUpAction, clearNoteAction, enquiryAction, logCallAction, lookupPhone, searchFrom, walkInAction } from "../actions";
 import { PhoneBox, SegField } from "./fields";
 import { KeepSelect } from "@/components/ui/keep-select";
-import { Words } from "@/lib/i18n/client";
+import { useT, Words } from "@/lib/i18n/client";
 
 type Opt = { value: string; label: string };
 
@@ -75,7 +75,7 @@ const purposeListeners = new Set<(v: string) => void>();
 function CallSubmit() {
   const [p, setP] = useState(purposeNow);
   useEffect(() => { purposeListeners.add(setP); return () => { purposeListeners.delete(setP); }; }, []);
-  return <>{p === "Admission enquiry" ? "Save call and enquiry" : p === "Complaint" ? "Save and send as a query" : "Save call"}</>;
+  return <Words k={p === "Admission enquiry" ? "Save call and enquiry" : p === "Complaint" ? "Save and send as a query" : "Save call"} />;
 }
 
 function CallFields({ purposes, classes, staff, defaultWho, today, followAt, admissions }: { purposes: string[]; classes: Opt[]; staff: Opt[]; defaultWho: string; today: string; followAt: { date: string; time: string }; admissions: boolean }) {
@@ -85,6 +85,7 @@ function CallFields({ purposes, classes, staff, defaultWho, today, followAt, adm
   const [why, setWhy] = useState(purpose.value);
   const [known, setKnown] = useState<KnownPhone | null>(null);
   const [follow, setFollow] = useState(fu.value === "on");
+  const t = useT();
   const [, start] = useTransition();
   const nameRef = useRef<HTMLInputElement>(null);
   const asked = useRef("");
@@ -107,7 +108,7 @@ function CallFields({ purposes, classes, staff, defaultWho, today, followAt, adm
       <PhoneBox id="cl-phone" name="phone" label="Phone" required onPhone={onPhone} />
       {known && (
         <div className="rounded-xl bg-ok/10 px-3.5 py-2.5 text-[13.5px] flex items-center gap-2 -mt-2 animate-fade" role="status">
-          <UserCheck size={16} className="text-ok shrink-0" aria-hidden="true" /><span className="text-ink2"><b className="text-ink font-semibold">{known.name}.</b> {known.who}</span>
+          <UserCheck size={16} className="text-ok shrink-0" aria-hidden="true" /><span className="text-ink2"><b className="text-ink font-semibold">{known.name}.</b> {t.any(known.who)}</span>
         </div>
       )}
       <FieldShell label="Name" id="cl-name" required error={name.error}>
@@ -115,7 +116,7 @@ function CallFields({ purposes, classes, staff, defaultWho, today, followAt, adm
       </FieldShell>
       <FieldShell label="Purpose" id="cl-purpose" required error={purpose.error}>
         <KeepSelect id="cl-purpose" name="purpose" value={why} onChange={(e) => setWhy(e.target.value)} className={cx(inputCls(purpose.error), "h-11")}>
-          {purposes.map((p) => <option key={p} value={p}>{p}</option>)}
+          {purposes.map((p) => <option key={p} value={p}>{t.any(p)}</option>)}
         </KeepSelect>
       </FieldShell>
       {why === "Admission enquiry" && (
@@ -162,9 +163,12 @@ type FromHit = { guardianId: string; studentId: string; label: string; student: 
 type WalkInPreset = { department?: string; request?: string; from?: string };
 
 export function WalkInSheet({ closeHref, departments, nextNo, preset }: { closeHref: string; departments: string[]; nextNo: string; preset?: WalkInPreset }) {
+  const t = useT();
+  // Opened for one department (the student page's "fee balance" link): the sheet says so (layman loop 4).
+  const dept = preset?.department ? t.any(preset.department) : null;
   return (
-    <SheetForm title="Walk-in request" sub="The person gets a request number." closeHref={closeHref} action={walkInAction}
-      submitLabel="Send to department" pendingText="Sending…">
+    <SheetForm title={dept ? t("Request to {dept}", { dept }) : "Walk-in request"} sub={dept ? t("{dept} replies to the person. They get a request number.", { dept }) : "The person gets a request number."} closeHref={closeHref} action={walkInAction}
+      submitLabel={dept ? t("Send to {dept}", { dept }) : "Send to department"} pendingText="Sending…">
       <WalkInFields departments={departments} nextNo={nextNo} preset={preset} />
     </SheetForm>
   );

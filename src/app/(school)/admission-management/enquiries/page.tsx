@@ -35,7 +35,7 @@ import { periodFromSearch } from "@/lib/periods";
 import { PeriodFilter } from "@/components/list/period-filter";
 import { Words } from "@/lib/i18n/client";
 import { tx } from "@/lib/i18n/tx";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Enquiries") };
@@ -132,7 +132,8 @@ export default async function EnquiriesPage({ searchParams }: Search) {
     return y ? (y.status === "ACTIVE" && data.admitting.some((a) => a.campusId === y.campusId && a.id !== y.id) ? `${y.name} mid-year` : y.name) : "";
   };
   const yearsText = data.years.length > 1 && year ? `${year.name} and mid-year ${data.years.find((y) => y.status === "ACTIVE" && y.id !== year.id && y.campusId === year.campusId)?.name ?? ""}`.trim() : year?.name ?? "";
-  const sub = own ? `Only the enquiries you added or own · ${counts.all} ${counts.all === 1 ? "enquiry" : "enquiries"}` : `${counts.openCount} open enquiries · ${yearsText}`;
+  const t = await getT();
+  const sub = own ? `${t("Only the enquiries you added or own")} · ${counts.all === 1 ? t("1 enquiry") : t("{n} enquiries", { n: counts.all })}` : `${t("{n} open enquiries", { n: counts.openCount })} · ${t.any(yearsText)}`;
   const canAdd = viewer.change !== "none" && data.years.length > 0 && !shut;
   const full = viewer.change === "all" && !own && !shut;
   const selectable = full;

@@ -11,7 +11,17 @@ import type { NoticeFormData } from "./notice-form";
 
 const noAudience = { parents: false, students: false, staff: false, roleKeys: [], classIds: [], sectionIds: [], campusIds: [] };
 
-export async function noticeFormData(access: CommAccess, notice: Notice | null): Promise<NoticeFormData> {
+/** "Student" is a login kind, not a staff job: it is never offered under Staff roles (layman loop 4). */
+const NOT_STAFF = new Set(["student"]);
+/** "All teachers": subject teachers and class teachers together. */
+const TEACHER_KEYS = ["teacher", "class-teacher"];
+
+/**
+ * `start`: who a new notice is for at first ("staff", "teachers" or "parents", from the page address).
+ * Without it, a person who may write to staff starts with nothing ticked and picks (layman loop 4:
+ * "Send a notice" for teachers opened on Parents); others start on Parents, the only people they write to.
+ */
+export async function noticeFormData(access: CommAccess, notice: Notice | null, start: string | null = null): Promise<NoticeFormData> {
   const { current, scope } = access;
   const tz = current.school.timeZone;
   return withSchool(current.ctx, async (tx) => {
@@ -28,18 +38,22 @@ export async function noticeFormData(access: CommAccess, notice: Notice | null):
     const campusOf = (id: string) => campuses.find((c) => c.id === id)?.name;
     const className = (s: (typeof sections)[number]) => (several && campusOf(s.schoolClass.campusId) ? `${s.schoolClass.name} (${campusOf(s.schoolClass.campusId)})` : s.schoolClass.name);
     const classes = [...new Map(sections.map((s) => [s.classId, { id: s.classId, name: className(s), sections: sections.filter((x) => x.classId === s.classId).map((x) => ({ id: x.id, name: x.name })) }])).values()];
-    const roles = scope.staff ? await tx.role.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null, isEnabled: true, key: { not: null } }, select: { key: true, name: true }, orderBy: { name: "asc" } }) : [];
+    const roles = (scope.staff ? await tx.role.findMany({ where: { schoolId: current.ctx.schoolId, archivedAt: null, isEnabled: true, key: { not: null } }, select: { key: true, name: true }, orderBy: { name: "asc" } }) : []).filter((r) => !NOT_STAFF.has(r.key!));
+    // Staff with no login never see a notice (the board and the bell need a login; messages go to parents only).
+    const staffNoLogin = scope.staff ? await tx.staff.count({ where: { schoolId: current.ctx.schoolId, archivedAt: null, status: { in: ["ACTIVE", "ON_LEAVE"] }, userLoginId: null, ...(scope.campusId ? { campusId: scope.campusId } : {}) } }) : 0;
     const files = notice?.attachmentFileIds.length ? await tx.storedFile.findMany({ where: { id: { in: notice.attachmentFileIds } }, select: { id: true, fileName: true } }) : [];
     const a = notice ? readAudience(notice.audience) : null;
+    const to = scope.staff && (start === "staff" || start === "teachers") ? start : start === "parents" ? "parents" : null;
+    const teacherKeys = roles.map((r) => r.key!).filter((k) => TEACHER_KEYS.includes(k));
     return {
       id: notice?.id ?? null,
       values: {
         title: notice?.title ?? "",
         body: notice?.body ?? "",
-        parents: a?.parents ?? true,
+        parents: a?.parents ?? (to ? to === "parents" : !scope.staff),
         students: a?.students ?? false,
-        staff: a?.staff ?? false,
-        roleKeys: a?.roleKeys ?? [],
+        staff: a?.staff ?? (to === "staff" || to === "teachers"),
+        roleKeys: a?.roleKeys ?? (to === "teachers" ? teacherKeys : []),
         classIds: a?.classIds ?? [],
         sectionIds: a?.sectionIds ?? [],
         campusIds: a?.campusIds ?? [],
@@ -52,6 +66,8 @@ export async function noticeFormData(access: CommAccess, notice: Notice | null):
       },
       classes,
       roles: roles.map((r) => ({ key: r.key!, name: r.name })),
+      teacherKeys,
+      staffNoLogin,
       campuses,
       staffAllowed: scope.staff,
       wholeSchool: scope.sectionIds === "all",

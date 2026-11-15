@@ -3,6 +3,7 @@ import type { LucideIcon } from "lucide-react";
 import { ChevronRight } from "lucide-react";
 import { Card } from "./card";
 import { cx } from "./cx";
+import { BAND_STYLE } from "./band-style";
 import { tx } from "@/lib/i18n/tx";
 
 // Numbers at the top of a page and the one bold moment (design/ui-prototype/src/kit.jsx Stats, Band).
@@ -51,7 +52,7 @@ const BAND_CELL: Record<number, string[]> = {
 export function Band({ items, className }: { items: BandItem[]; className?: string }) {
   const n = Math.max(2, Math.min(items.length, 4));
   return (
-    <section className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)}>
+    <section className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)} style={BAND_STYLE}>
       <div className="absolute inset-0 dotgrid opacity-60 pointer-events-none" aria-hidden="true" />
       <div className="absolute -right-16 -top-24 w-72 h-72 rounded-full bg-white/10 blur-2xl pointer-events-none" aria-hidden="true" />
       <div className={cx("relative grid", BAND_GRID[n])}>

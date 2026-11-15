@@ -352,7 +352,8 @@ async function visibleRows(tx: Tx, who: ReportViewer, a: ReportAccess, q: { stud
   ];
 }
 
-export type FlagFilter = { status: "open" | FlagStatus; area: Area | "all"; q: string; raisedFrom: Date | null; raisedTo: Date | null; strength?: "ACT_NOW" | "WATCH" | "all" };
+/** "no-fees": attendance and marks, the Early Warnings page's first view (fee flags are an accounts matter). */
+export type FlagFilter = { status: "open" | FlagStatus; area: Area | "all" | "no-fees"; q: string; raisedFrom: Date | null; raisedTo: Date | null; strength?: "ACT_NOW" | "WATCH" | "all" };
 
 export async function listFlags(tx: Tx, who: ReportViewer, a: ReportAccess, f: FlagFilter) {
   const all = await visibleRows(tx, who, a, { raisedFrom: f.raisedFrom, raisedTo: f.raisedTo });
@@ -367,19 +368,23 @@ export async function listFlags(tx: Tx, who: ReportViewer, a: ReportAccess, f: F
     signals: x.reason.split("\n").map((text, i) => ({ text, basis: x.basis.split("\n")[i] ?? x.basis })),
     reviews: x.reviews.map((r) => ({ ...r, who: people.get(r.reviewerId) ?? "Someone" })),
   }));
+  // The numbers follow the signal chosen, so the page's headline matches its list (layman loop 4:
+  // "Watch 341" was fee flags the Dashboard never counts).
+  const inArea = (r: { area: string }) => f.area === "all" || (f.area === "no-fees" ? r.area !== "fees" : r.area === f.area);
+  const counted = rows.filter(inArea);
   const counts = {
-    actNow: rows.filter((r) => r.strength === "ACT_NOW" && r.status !== "CLOSED").length,
-    watch: rows.filter((r) => r.strength === "WATCH" && r.status !== "CLOSED").length,
-    open: rows.filter((r) => r.status !== "CLOSED").length,
-    NEW: rows.filter((r) => r.status === "NEW").length,
-    REVIEWED: rows.filter((r) => r.status === "REVIEWED").length,
-    ACTION_PLANNED: rows.filter((r) => r.status === "ACTION_PLANNED").length,
-    CLOSED: rows.filter((r) => r.status === "CLOSED").length,
+    actNow: counted.filter((r) => r.strength === "ACT_NOW" && r.status !== "CLOSED").length,
+    watch: counted.filter((r) => r.strength === "WATCH" && r.status !== "CLOSED").length,
+    open: counted.filter((r) => r.status !== "CLOSED").length,
+    NEW: counted.filter((r) => r.status === "NEW").length,
+    REVIEWED: counted.filter((r) => r.status === "REVIEWED").length,
+    ACTION_PLANNED: counted.filter((r) => r.status === "ACTION_PLANNED").length,
+    CLOSED: counted.filter((r) => r.status === "CLOSED").length,
   };
   const q = f.q.trim().toLowerCase();
   const list = rows
     .filter((r) => (f.status === "open" ? r.status !== "CLOSED" : r.status === f.status))
-    .filter((r) => f.area === "all" || r.area === f.area)
+    .filter(inArea)
     .filter((r) => !f.strength || f.strength === "all" || r.strength === f.strength)
     .filter((r) => !q || `${r.name} ${r.cls} ${r.admissionNo}`.toLowerCase().includes(q))
     .sort(byStrength);

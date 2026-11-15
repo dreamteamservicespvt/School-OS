@@ -53,7 +53,7 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
     const accounts = await tx.bankAccount.findMany({ where: { archivedAt: null }, orderBy: [{ kind: "asc" }, { isMain: "desc" }, { name: "asc" }] });
     const cash = accounts.find((a) => a.kind === "CASH") ?? accounts[0];
     const bookId = accounts.some((a) => a.id === one(sp.book)) ? one(sp.book) : cash?.id;
-    const [balances, book, cashToday, depositedToday, onWay, waiting, openings, years, transfer] = await Promise.all([
+    const [balances, book, cashToday, depositedToday, onWay, waiting, openings, years, transfer, lastClose] = await Promise.all([
       accountBalances(tx, ctx),
       bookId ? accountBook(tx, bookId, from, to, p.payHeads) : null,
       cash ? accountBook(tx, cash.id, p.today, p.today, p.payHeads) : null,
@@ -63,9 +63,11 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
       tx.openingBalance.findMany({ where: { kind: { in: ["CASH", "BANK"] }, archivedAt: null }, orderBy: { date: "asc" } }),
       tx.financialYear.findMany({ where: { archivedAt: null }, orderBy: { startDate: "desc" }, take: 3 }),
       transferId ? tx.cashTransfer.findFirst({ where: { id: transferId } }) : null,
+      // The latest closed day: a cash count that differed from the books shows here until the books match (loop 4).
+      tx.dayClose.findFirst({ where: { reopenedAt: null }, orderBy: { date: "desc" } }),
     ]);
     const approvers = openings.some((o) => o.approvalId) ? await tx.approval.findMany({ where: { id: { in: openings.map((o) => o.approvalId).filter((x): x is string => Boolean(x)) } }, select: { id: true, status: true } }) : [];
-    return { accounts, cash, bookId, balances, book, cashToday, depositedToday, onWay, waiting, openings, years, transfer, approvers };
+    return { accounts, cash, bookId, balances, book, cashToday, depositedToday, onWay, waiting, openings, years, transfer, approvers, lastClose };
   });
 
   const keep = { ...per.keep, book: data.bookId && data.bookId !== data.cash?.id ? data.bookId : null };
@@ -90,6 +92,11 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
   // An entry opens where it came from: a money move here, anything else through its Day Book link.
   const entryHref = (id: string) => `${BASE}/day-book/${id}`;
   const t = data.transfer;
+  // An account below ₹0 with no opening balance: the books start from ₹0, so the number is not real yet (loop 4).
+  const noOpening = (a: (typeof data.accounts)[number]) => (data.balances.get(a.id) ?? ZERO) < ZERO && !data.openings.some((o) => o.accountId === a.id);
+  const unset = data.accounts.filter(noOpening);
+  const lc = data.lastClose;
+  const countDiff = lc ? lc.countedCashPaise - lc.expectedCashPaise : ZERO;
 
   return (
     <div>
@@ -100,9 +107,23 @@ export default async function CashBankPage({ searchParams }: { searchParams: Sea
         </> : null} />
       <Stack>
         <Stats items={[
-          ...data.accounts.slice(0, 5).map((a) => ({ label: a.name, value: formatRupees(data.balances.get(a.id) ?? ZERO), sub: sub4(a), icon: a.kind === "CASH" ? Banknote : Landmark, href: qs(HREF, { ...per.keep, book: a.kind === "CASH" ? null : a.id }), active: a.id === data.bookId })),
+          ...data.accounts.slice(0, 5).map((a) => ({ label: a.name, value: formatRupees(data.balances.get(a.id) ?? ZERO), sub: noOpening(a) ? "Opening balance not set" : sub4(a), ...(noOpening(a) ? { tone: "bad" as const } : {}), icon: a.kind === "CASH" ? Banknote : Landmark, href: qs(HREF, { ...per.keep, book: a.kind === "CASH" ? null : a.id }), active: a.id === data.bookId })),
           { label: "On the way", value: formatRupees(wayTotal), sub: wayCount ? `${wayCount} online and card ${wayCount === 1 ? "payment" : "payments"} today` : "No online or card payments today", icon: Hourglass, tone: "info" as const },
         ].slice(0, 6)} />
+
+        {unset.length > 0 && (
+          <Banner tone="bad" title={`${unset.map((a) => a.name).join(", ")}: opening balance not set.`}
+            action={p.can.edit ? <Link href={here({ do: "opening" })} scroll={false} className={buttonClass("secondary", "sm")}><Flag size={15} aria-hidden="true" /><Words k="Set opening balance" /></Link> : undefined}>
+            <Words k="The books start from ₹0, so money paid out shows as below ₹0. Enter what the account held on the first day." />
+          </Banner>
+        )}
+
+        {lc && countDiff !== ZERO && (
+          <Banner tone="warn" title={`Counted ${formatRupees(lc.countedCashPaise)} at close on ${formatDate(lc.date)}: ${formatRupees(countDiff < ZERO ? -countDiff : countDiff)} ${countDiff < ZERO ? "short" : "extra"}.`}
+            action={p.can.create ? <ButtonLink href={countDiff < ZERO ? `${BASE}/expenses?do=new` : `${BASE}/income?do=new`} size="sm" variant="secondary"><Words k={countDiff < ZERO ? "Record expense" : "Record income"} /></ButtonLink> : undefined}>
+            <Words k="Cash in hand still shows what the books expect. Record the difference so they match." />
+          </Banner>
+        )}
 
         {cashBefore > ZERO && data.depositedToday === 0 && p.can.create && data.cash && (
           <Banner tone="info" title={`Cash in the box from before today: ${formatRupees(cashBefore)}.`}

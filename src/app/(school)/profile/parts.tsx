@@ -16,7 +16,7 @@ import { cx } from "@/components/ui/cx";
 import { NOTE_CHANNELS, NOTE_CHANNEL_LABEL, type NoteChannel, type NoteKind, type NotePrefs } from "@/lib/notification-kinds";
 import { PasswordForm } from "./password-form";
 import { confirmContactCode, saveMyName, saveNotePrefs, sendContactCode, setTwoStep, type CodeResult, type Result } from "./actions";
-import { Words } from "@/lib/i18n/client";
+import { useT, Words } from "@/lib/i18n/client";
 import { tx } from "@/lib/i18n/tx";
 
 // SMS is not offered while SMS_OFFERED is false (owner, 15 Nov 2026); a saved SMS choice is kept.
@@ -122,11 +122,13 @@ export function TwoStepRow({ required, on, sendsTo, cannotReach = null }: { requ
   const [pending, start] = useTransition();
   const [say, toast] = useSay();
   const router = useRouter();
+  const t = useT();
+  const to = sendsTo ?? t("your phone or email");
   const sub = cannotReach
-    ? `Required for your role, but no code can reach you yet, so you sign in with your password only. ${cannotReach}`
+    ? `${t("Required for your role, but no code can reach you yet, so you sign in with your password only.")} ${t.any(cannotReach)}`
     : required
-    ? `A code goes to ${sendsTo ?? "your phone or email"} after your password. Required for your role.`
-    : value ? `A code goes to ${sendsTo ?? "your phone or email"} after your password.` : "A code to your phone or email after your password. Safer if someone learns your password.";
+    ? t("A code goes to {to} after your password. Required for your role.", { to })
+    : value ? t("A code goes to {to} after your password.", { to }) : t("A code to your phone or email after your password. Safer if someone learns your password.");
   return (
     <div className="flex items-center gap-3 px-5 py-3.5">
       <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block"><Words k="Two-step login" /></b><span className={cx("block text-[12.5px]", cannotReach ? "text-warn" : "text-ink3")}>{tx(sub)}</span></div>
@@ -151,6 +153,8 @@ export function NotePrefsTable({ kinds, prefs, allowed, phone }: { kinds: NoteKi
   const [value, setValue] = useState(prefs);
   const [, start] = useTransition();
   const [say, toast] = useSay();
+  const t = useT();
+  const ch = (c: NoteChannel) => t.any(NOTE_CHANNEL_LABEL[c]);
   const flip = (k: NoteKind, c: NoteChannel, on: boolean) => {
     if (k.locked && c === "app") { say("This one always shows in the app", "info"); return; }
     if (!allowed.includes(c)) { say(`${NOTE_CHANNEL_LABEL[c]} is not switched on by your school`, "info"); return; }
@@ -161,21 +165,21 @@ export function NotePrefsTable({ kinds, prefs, allowed, phone }: { kinds: NoteKi
       if (r && !r.ok) { setValue(value); say(r.message, "danger"); }
     });
   };
-  const off = SHOWN_CHANNELS.filter((c) => !allowed.includes(c)).map((c) => NOTE_CHANNEL_LABEL[c]);
+  const off = SHOWN_CHANNELS.filter((c) => !allowed.includes(c)).map(ch);
   return (
     <>
       {/* Phone: one block per kind, the ways stacked, so nothing runs off the screen (layman audit). */}
       <ul className="md:hidden border-t border-line divide-y divide-line/60">
         {kinds.map((k) => (
           <li key={k.key} className="px-5 py-3">
-            <p className="font-medium text-[14px]">{k.label}{k.locked && <span className="block text-[11.5px] text-ink3 font-normal"><Words k="Always in the app" /></span>}</p>
+            <p className="font-medium text-[14px]">{t.any(k.label)}{k.locked && <span className="block text-[11.5px] text-ink3 font-normal"><Words k="Always in the app" /></span>}</p>
             <div className="mt-1 flex flex-wrap gap-x-5">
               {SHOWN_CHANNELS.map((c) => {
                 const on = (value[k.key] ?? []).includes(c);
                 return (
                   <span key={c} className={cx("inline-flex items-center gap-2 min-h-11 text-[13.5px]", !allowed.includes(c) && "opacity-50")}>
-                    <Checkbox checked={on} label={`${k.label} by ${NOTE_CHANNEL_LABEL[c]}`} onChange={(v) => flip(k, c, v)} />
-                    <span aria-hidden="true" className="cursor-pointer" onClick={() => flip(k, c, !on)}>{NOTE_CHANNEL_LABEL[c]}</span>
+                    <Checkbox checked={on} label={t("{kind} by {channel}", { kind: t.any(k.label), channel: ch(c) })} onChange={(v) => flip(k, c, v)} />
+                    <span aria-hidden="true" className="cursor-pointer" onClick={() => flip(k, c, !on)}>{ch(c)}</span>
                   </span>
                 );
               })}
@@ -188,16 +192,16 @@ export function NotePrefsTable({ kinds, prefs, allowed, phone }: { kinds: NoteKi
           <thead>
             <tr className="border-b border-line text-ink3 text-[12px]">
               <th scope="col" className="sticky left-0 z-10 bg-surface text-left font-semibold px-5 py-2.5 min-w-[190px]"><Words k="Kind" /></th>
-              {SHOWN_CHANNELS.map((c) => <th key={c} scope="col" className={cx("font-semibold px-3 py-2.5 text-center", !allowed.includes(c) && "opacity-50")}>{NOTE_CHANNEL_LABEL[c]}</th>)}
+              {SHOWN_CHANNELS.map((c) => <th key={c} scope="col" className={cx("font-semibold px-3 py-2.5 text-center", !allowed.includes(c) && "opacity-50")}>{ch(c)}</th>)}
             </tr>
           </thead>
           <tbody>
             {kinds.map((k) => (
               <tr key={k.key} className="border-b border-line/60 last:border-0">
-                <th scope="row" className="sticky left-0 z-10 bg-surface px-5 py-2.5 font-medium text-left">{k.label}{k.locked && <span className="block text-[11.5px] text-ink3 font-normal"><Words k="Always in the app" /></span>}</th>
+                <th scope="row" className="sticky left-0 z-10 bg-surface px-5 py-2.5 font-medium text-left">{t.any(k.label)}{k.locked && <span className="block text-[11.5px] text-ink3 font-normal"><Words k="Always in the app" /></span>}</th>
                 {SHOWN_CHANNELS.map((c) => (
                   <td key={c} className={cx("px-3 py-2.5 text-center", !allowed.includes(c) && "opacity-40")}>
-                    <span className="inline-flex"><Checkbox checked={(value[k.key] ?? []).includes(c)} label={`${k.label} by ${NOTE_CHANNEL_LABEL[c]}`} onChange={(on) => flip(k, c, on)} /></span>
+                    <span className="inline-flex"><Checkbox checked={(value[k.key] ?? []).includes(c)} label={t("{kind} by {channel}", { kind: t.any(k.label), channel: ch(c) })} onChange={(on) => flip(k, c, on)} /></span>
                   </td>
                 ))}
               </tr>
@@ -206,8 +210,8 @@ export function NotePrefsTable({ kinds, prefs, allowed, phone }: { kinds: NoteKi
         </table>
       </div>
       <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70">
-        {SMS_OFFERED ? (phone ? `WhatsApp and SMS go to ${phone}. ` : "Add your mobile number to get WhatsApp and SMS. ") : (phone ? `WhatsApp goes to ${phone}. ` : "Add your mobile number to get WhatsApp. ")}
-        {off.length ? `${off.join(", ")} ${off.length === 1 ? "is" : "are"} not switched on by your school yet.` : "The school decides which of these can be used."}
+        {SMS_OFFERED ? (phone ? t("WhatsApp and SMS go to {phone}.", { phone }) : t("Add your mobile number to get WhatsApp and SMS.")) : (phone ? t("WhatsApp goes to {phone}.", { phone }) : t("Add your mobile number to get WhatsApp."))}{" "}
+        {off.length ? (off.length === 1 ? t("{list} is not switched on by your school yet.", { list: off[0] }) : t("{list} are not switched on by your school yet.", { list: off.join(", ") })) : t("The school decides which of these can be used.")}
       </p>
       {toast}
     </>

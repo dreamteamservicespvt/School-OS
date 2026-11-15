@@ -173,8 +173,15 @@ export const OPTIONAL_FORM_FIELDS: { key: string; label: string }[] = [
   { key: "previousSchool", label: "Previous school" },
 ];
 
+/**
+ * Up to two initials for an avatar, made from letters only. Taking word[0] split an emoji
+ * in half ("◆?C") and the page then failed to match the server's text (React error 418).
+ */
 export function initials(name: string) {
-  return name.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]!.toUpperCase()).join("");
+  return name.split(/\s+/).filter(Boolean)
+    .map((w) => Array.from(w).find((ch) => /\p{L}/u.test(ch)))
+    .filter((ch): ch is string => Boolean(ch))
+    .slice(0, 2).join("").toUpperCase();
 }
 
 /** A published final result from Examination & Results, as the Student List and Promotion show it. */

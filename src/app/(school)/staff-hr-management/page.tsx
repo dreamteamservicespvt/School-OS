@@ -21,7 +21,6 @@ import { copyChannelsOn } from "@/lib/staff/staff-message";
 import { CHANNEL_LABEL } from "@/lib/messaging/channels";
 import { bulkChangeDepartment, bulkMessage } from "./actions";
 import { Words } from "@/lib/i18n/client";
-import { Alert } from "@/components/ui/alert";
 import { loginsWithoutStaff, postsNotMatchingRoles } from "@/lib/staff/link-login";
 import { pageTitle } from "@/lib/i18n/server";
 
@@ -118,6 +117,8 @@ export default async function StaffListPage({ searchParams }: Search) {
     ) },
   ];
 
+  const firstVisit = data.roll === 0 && data.noRecord.length > 0 && data.noRecord.every((u) => u.id === current.user.id);
+  const tidy = data.wrongPost.length + (firstVisit ? 0 : data.noRecord.length);
   return (
     <>
       <StaffHead page="Staff List" href={BASE}
@@ -135,37 +136,42 @@ export default async function StaffListPage({ searchParams }: Search) {
         { label: "Not in yet", value: "–", sub: "Once staff attendance is taken" },
       ]} />
 
-      {data.wrongPost.length > 0 && (
-        <Alert tone="warning" className="mb-4"
-          title={data.wrongPost.length === 1 ? "1 person's post may be wrong" : `${data.wrongPost.length} people's posts may be wrong`}>
-          <p><Words k="Their post does not match their login role. Check it." /></p>
-          <ul className="mt-2 grid gap-1.5">
-            {data.wrongPost.slice(0, 8).map((w) => (
-              <li key={w.staffId} className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                <span><b>{w.fullName}</b> <span className="text-ink-2">· <Words k="post" /> {w.designation} · <Words k="role" /> {w.roleNames.join(", ")}</span></span>
-                <a href={`${BASE}/${w.staffId}?edit=employment`} aria-label={`Change the post of ${w.fullName}`} className="inline-flex min-h-9 items-center font-medium text-brand-text underline"><Words k="Change post" /></a>
-              </li>
-            ))}
-          </ul>
-          {data.wrongPost.length > 8 && <p className="mt-1.5 text-ink-2">{`And ${data.wrongPost.length - 8} more. Filter the list by designation to find them.`}</p>}
-        </Alert>
-      )}
       {/* A new school's first visit: the only login without a record is the person reading. A small offer, not a warning. */}
-      {data.roll === 0 && data.noRecord.length > 0 && data.noRecord.every((u) => u.id === current.user.id) ? (
+      {firstVisit && (
         <p className="mb-4 text-sm text-ink-2"><Words k="Add yourself as staff too?" /> <a href={`${BASE}/add?login=${current.user.id}`} className="inline-flex min-h-9 items-center font-medium text-brand-text underline"><Words k="Add staff record" /></a></p>
-      ) : data.noRecord.length > 0 && (
-        <Alert tone="info" className="mb-4"
-          title={data.noRecord.length === 1 ? "1 person can sign in but has no staff record" : `${data.noRecord.length} people can sign in but have no staff record`}>
-          <p><Words k="They are not on this list or in the staff counts. Add their staff record; their login stays as it is." /></p>
-          {/* Three names show; the rest fold away so a long notice does not push the list down on a phone. */}
-          <ul className="mt-2 grid gap-1.5">{data.noRecord.slice(0, 3).map(noRecordItem)}</ul>
-          {data.noRecord.length > 3 && (
-            <details className="mt-1.5">
-              <summary className="inline-flex min-h-9 cursor-pointer items-center font-medium text-brand-text">{`Show ${data.noRecord.length - 3} more`}</summary>
-              <ul className="mt-1 grid gap-1.5">{data.noRecord.slice(3).map(noRecordItem)}</ul>
-            </details>
-          )}
-        </Alert>
+      )}
+      {/* Layman loop 4: two big warning boxes filled half the first screen. One slim line now; it opens to both lists. */}
+      {tidy > 0 && (
+        <details className="mb-4 rounded-xl border border-warn/30 bg-warn/10 px-4 text-sm">
+          <summary className="flex min-h-11 cursor-pointer items-center gap-2 font-medium">
+            <span className="flex-1">{tidy === 1 ? "1 staff record to tidy" : `${tidy} staff records to tidy`}</span>
+            <span className="text-brand-text underline"><Words k="Review" /></span>
+          </summary>
+          <div className="space-y-4 pb-3">
+            {data.wrongPost.length > 0 && (
+              <div>
+                <p className="font-semibold">{data.wrongPost.length === 1 ? "1 person's post may be wrong" : `${data.wrongPost.length} people's posts may be wrong`}</p>
+                <p className="text-ink-2"><Words k="Their post does not match their login role. Check it." /></p>
+                <ul className="mt-2 grid gap-1.5">
+                  {data.wrongPost.slice(0, 8).map((w) => (
+                    <li key={w.staffId} className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span><b>{w.fullName}</b> <span className="text-ink-2">· <Words k="post" /> {w.designation} · <Words k="role" /> {w.roleNames.join(", ")}</span></span>
+                      <a href={`${BASE}/${w.staffId}?edit=employment`} aria-label={`Change the post of ${w.fullName}`} className="inline-flex min-h-9 items-center font-medium text-brand-text underline"><Words k="Change post" /></a>
+                    </li>
+                  ))}
+                </ul>
+                {data.wrongPost.length > 8 && <p className="mt-1.5 text-ink-2">{`And ${data.wrongPost.length - 8} more. Filter the list by designation to find them.`}</p>}
+              </div>
+            )}
+            {!firstVisit && data.noRecord.length > 0 && (
+              <div>
+                <p className="font-semibold">{data.noRecord.length === 1 ? "1 person can sign in but has no staff record" : `${data.noRecord.length} people can sign in but have no staff record`}</p>
+                <p className="text-ink-2"><Words k="They are not on this list or in the staff counts. Add their staff record; their login stays as it is." /></p>
+                <ul className="mt-2 grid gap-1.5">{data.noRecord.map(noRecordItem)}</ul>
+              </div>
+            )}
+          </div>
+        </details>
       )}
 
       {data.departments.length > 0 && (

@@ -53,7 +53,7 @@ export async function giveHomeworkAction(_prev: unknown, fd: FormData) {
       givenTo, studentIds: strs(fd, "studentIds").filter((x) => UUID.test(x)),
       startDate: day(fd, "startDate", "Start date"), dueDate: day(fd, "dueDate", "Due date"),
       maxMarks: marks(fd), onlineSubmission: str(fd, "online") === "on", fromSuggestion: str(fd, "fromSuggestion") === "1",
-      attachments: attachments(fd),
+      attachments: attachments(fd), sendAgain: str(fd, "sendAgain") === "1",
     }, today);
     const students = r.made.reduce((a, m) => a + m.students, 0);
     return { ...r, students, first: r.made[0] };

@@ -227,7 +227,7 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
         {link && <input type="hidden" name="link" value="on" />}
         {!ownWording && <input type="hidden" name="templateId" value={tpl} />}
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-          {[["Parents", ready ? ready.recipients : "…"], ["Overdue", totalShort], ["Cost", ready ? `${ready.cost} ${ready.cost === 1 ? "credit" : "credits"}` : "…"]].map(([k, v]) => (
+          {[["Parents", ready ? ready.recipients : "…"], ["Overdue", totalShort], ["Cost", ready ? (ready.testMode ? "None (test mode)" : `${ready.cost} ${ready.cost === 1 ? "credit" : "credits"}`) : "…"]].map(([k, v]) => (
             <div key={String(k)} className="rounded-xl bg-sunken/70 px-3 py-2.5"><p className="text-[12px] text-ink3 font-semibold">{k}</p><p className="font-display text-[19px] font-semibold tnum leading-tight truncate">{v}</p></div>
           ))}
         </div>
@@ -255,13 +255,16 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
           </div>
         </div>
         {preview && !preview.ok && <Alert tone="danger">{preview.message}</Alert>}
+        {preview?.ok && preview.testMode && <Banner tone="warn" title="Test mode: nothing is sent, no credits used." />}
         {preview?.ok && (
           <Banner tone={preview.creditProblem || preview.problems.length ? "bad" : "info"}
-            title={preview.creditProblem ?? preview.problems[0] ?? `${preview.messages} ${channelLabel} ${preview.messages === 1 ? "message" : "messages"} to ${parents(preview.recipients)}${preview.messages > preview.recipients ? " (one for each child)" : ""}. Cost: ${preview.cost} ${preview.cost === 1 ? "credit" : "credits"}. This cannot be unsent.`}>
+            title={preview.creditProblem ?? preview.problems[0] ?? `${preview.messages} ${channelLabel} ${preview.messages === 1 ? "message" : "messages"} to ${parents(preview.recipients)}${preview.messages > preview.recipients ? " (one for each child)" : ""}.${preview.testMode ? "" : ` Cost: ${preview.cost} ${preview.cost === 1 ? "credit" : "credits"}. This cannot be unsent.`}`}>
+            {/* Every student on the list is counted: reached, skipped (with names) or owing nothing now (loop 4). */}
             {[
-              ...preview.skipped.map((s) => `${s.count} skipped: ${s.reason.toLowerCase()}`),
+              `${preview.reached} of ${preview.students} ${preview.students === 1 ? "student" : "students"} covered`,
+              ...preview.skipped.map((s) => `${s.count} skipped: ${s.reason.toLowerCase()}${s.names.length ? ` (${s.names.join(", ")}${s.count > s.names.length ? "…" : ""})` : ""}`),
               preview.nothingDue ? `${preview.nothingDue} owe nothing now` : null,
-            ].filter(Boolean).join(" · ") || "Nobody on this list opted out of messages."}
+            ].filter(Boolean).join(" · ")}
           </Banner>
         )}
         {state && !state.ok && state.message && <Alert tone="danger">{state.message}</Alert>}

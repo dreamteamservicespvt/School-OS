@@ -3,11 +3,11 @@
 import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
 import { useState, useTransition } from "react";
 import { Archive, ChevronDown, Copy, Eye, Pencil, Send, Sparkles, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Button, ButtonLink } from "@/components/ui/button";
 import { Pill } from "@/components/ui/badge";
 import { Segmented, Switch } from "@/components/ui/controls";
 import { FieldShell, inputCls } from "@/components/ui/field";
-import { SheetForm, useTyped } from "@/components/ui/url-sheet";
+import { SheetForm, useSheetResult, useTyped } from "@/components/ui/url-sheet";
 import { MoreMenu } from "@/components/money/more-menu";
 import { cx } from "@/components/ui/cx";
 import { AttachPicker, HandInPicker } from "./_components/attach";
@@ -75,6 +75,9 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
   const sectionErr = useTyped("sectionId").error;
   const subjectErr = useTyped("subjectId").error;
   const classError = sectionErr ?? subjectErr;
+  // "Already given": the same title, class, subject and due date (layman loop 4: two cards, two messages to parents).
+  const again = useTyped("sendAgain").error;
+  const firstOne = (useSheetResult()?.data as { link?: { href: string } } | undefined)?.link?.href;
   if (!section || !subject) return null;
 
   const pick = (id: string) => {
@@ -144,7 +147,17 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
             </div>
           </div>
         )}
-        <Text name="title" label="Title" required maxLength={200} placeholder="Exercise 4.3, Q1–Q8" value={title} onValue={setTitle} />
+        {/* The box stops at 200: the count shows near the end, so a long pasted title is not cut without notice. */}
+        <Text name="title" label="Title" required maxLength={200} placeholder="Exercise 4.3, Q1–Q8" value={title} onValue={setTitle} help={title.length >= 160 ? `${title.length} / 200` : undefined} />
+        {again && (
+          <div role="alert" data-problem-for="sendAgain" data-problem-slot="sendAgain" className="rounded-xl border border-warn/40 bg-warn/10 px-3.5 py-3 text-[13.5px]">
+            <p className="font-semibold"><Words k="This homework was already given. Send it again?" /></p>
+            <div className="flex flex-wrap gap-2 mt-2">
+              {firstOne && <ButtonLink href={firstOne} size="sm" variant="secondary"><Words k="Open the first one" /></ButtonLink>}
+              <Button type="submit" name="sendAgain" value="1" size="sm" variant="secondary"><Words k="Send again" /></Button>
+            </div>
+          </div>
+        )}
         <Text name="instructions" label="Instructions" area maxLength={4000} placeholder="What should students do?" help="Or just attach a photo of the board" value={instr} onValue={setInstr} />
         <AttachPicker />
       </div>

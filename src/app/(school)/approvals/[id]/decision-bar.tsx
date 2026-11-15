@@ -29,8 +29,9 @@ export function DecisionBar({ id, summary, amount = null, canDecide, canReject =
       if (problem) setError(problem);
       else {
         setAsking(null);
-        // Came from "Reject" in the list: back to the list once it is done.
-        if (startReject) router.push("/approvals");
+        // Every decision stays on the request, which then offers the next one (layman loop 4: Reject went
+        // back to the list, Approve stayed). Drop ?reject=1 so a refresh does not open the reason box again.
+        if (startReject) router.replace(`/approvals/${id}`, { scroll: false });
       }
     } catch {
       setError("That did not work, and nothing was changed. Please try again.");

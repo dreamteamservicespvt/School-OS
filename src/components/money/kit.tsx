@@ -2,6 +2,7 @@
 // None of these need browser code: links instead of click handlers, so pages
 // written on the server can use them directly.
 
+import { BAND_STYLE } from "@/components/ui/band-style";
 import Link from "next/link";
 import type { LucideIcon } from "lucide-react";
 import { ChevronRight, CircleCheck, Info, Lightbulb, Sparkles, TriangleAlert } from "lucide-react";
@@ -54,7 +55,7 @@ const BAND_CELL: Record<number, string[]> = {
 export function Band({ items, className }: { items: BandItem[]; className?: string }) {
   const n = Math.max(2, Math.min(items.length, 4));
   return (
-    <section className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)}>
+    <section className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)} style={BAND_STYLE}>
       <div className="absolute inset-0 dotgrid opacity-60 pointer-events-none" aria-hidden="true" />
       <div className="absolute -right-16 -top-24 w-72 h-72 rounded-full bg-white/10 blur-2xl pointer-events-none" aria-hidden="true" />
       <div className={cx("relative grid", BAND_GRID[n])}>

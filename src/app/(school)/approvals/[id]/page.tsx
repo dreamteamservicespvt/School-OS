@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { requireCurrent } from "@/lib/current";
 import { withSchool } from "@/lib/db";
 import { formatDateTime, formatRupees } from "@/lib/format";
-import { OPEN_STATUSES, canDecide, mayReject, requestLabel, ruleStepCount, stepWords } from "@/lib/approvals";
+import { OPEN_STATUSES, approvalsFor, canDecide, mayReject, requestLabel, ruleStepCount, stepWords } from "@/lib/approvals";
 import { approvalFacts } from "@/lib/approval-facts";
 import { ACTION_WORDS, canSeeApproval, statusWords, type HistoryLine } from "@/lib/approvals-inbox";
 import { approvalOffCampus } from "@/lib/approval-campus";
@@ -15,6 +15,7 @@ import { Card, CardBody, CardHeader, Detail } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert } from "@/components/ui/alert";
 import { Avatar } from "@/components/ui/avatar";
+import { ButtonLink } from "@/components/ui/button";
 import * as I from "lucide-react";
 import { DecisionBar } from "./decision-bar";
 import { schoolRoles } from "@/lib/school-roles";
@@ -54,11 +55,14 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
     ]);
     // What the approver needs to see before deciding: the leave balance, the change asked for.
     const facts = (await approvalFacts(tx, current.ctx, [a])).get(a.id) ?? [];
-    return { a, history, mayDecide, mayRejectIt, job: jobs.get(a.askedById) ?? null, links, steps, facts, people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
+    // Decided: the next request waiting for this person, oldest first, the same order as the Approvals list (layman loop 4).
+    const next = OPEN_STATUSES.includes(a.status) ? null
+      : await tx.approval.findFirst({ where: await approvalsFor(tx, current.ctx, roleKeys, { id: { not: a.id } }), orderBy: { createdAt: "asc" }, select: { id: true, summary: true } });
+    return { a, history, mayDecide, mayRejectIt, job: jobs.get(a.askedById) ?? null, links, steps, facts, next, people: new Map(people.map((p) => [p.id, p.displayName])), roles: new Map(roles.map((r) => [r.key, r.name])) };
   });
   // Not found and not allowed look the same, so nobody learns what exists.
   if (!data) notFound();
-  const { a, history, mayDecide, mayRejectIt, job, links, steps, facts, people, roles } = data;
+  const { a, history, mayDecide, mayRejectIt, job, links, steps, facts, next, people, roles } = data;
   const step = stepWords(a.step, steps);
   const open = OPEN_STATUSES.includes(a.status);
   const status = statusWords(a.status, a.history);
@@ -83,6 +87,12 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
         {open && !noApprover && mine && <Alert tone="info"><Words k="This is your request, so you cannot approve it. It is waiting for" /> {waitingFor === "You" ? "you" : waitingFor}.</Alert>}
         {open && !noApprover && !mine && !mayDecide && <Alert tone="info"><Words k="This request is waiting for" /> {waitingFor}<Words k=". You can see it but not decide it." /></Alert>}
         {!open && a.decisionReason && <Alert tone={a.status === "APPROVED" ? "success" : "warning"} title={status.label}>{a.decisionReason}</Alert>}
+        {next && (
+          <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-surface px-4 py-3">
+            <p className="min-w-0 flex-1 text-[14px] [overflow-wrap:anywhere]"><span className="text-ink3"><Words k="Next" />:</span> <span className="font-semibold">{next.summary}</span></p>
+            <ButtonLink href={`/approvals/${next.id}`} variant="primary" iconRight={I.ArrowRight}><Words k="Next request" /></ButtonLink>
+          </div>
+        )}
         <Card>
           <div className="flex items-center gap-3 px-5 pt-5 pb-1">
             <Avatar name={name(a.askedById)} size={44} />
@@ -108,7 +118,8 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
               <Detail label="Kind">{requestLabel(a.type)}</Detail>
               {open && <Detail label="Waiting for">{cap(waitingFor)}{a.status === "ESCALATED" ? " (moved on after nobody decided in time)" : ""}</Detail>}
               {!open && a.decidedById && <Detail label={a.status === "WITHDRAWN" ? "Withdrawn by" : "Decided by"}>{name(a.decidedById)}{a.decidedAt ? `, ${formatDateTime(a.decidedAt, tz)}` : ""}</Detail>}
-              {step && <Detail label="Step">{step}</Detail>}
+              {/* "2 of 2" alone meant nothing to a principal (layman loop 4): the last step says so. */}
+              {step && <Detail label="Step">{open && a.step >= steps ? <Words k="Last approval needed" /> : step}</Detail>}
               {facts.map((f) => <Detail key={f.label} label={f.label}>{f.value}</Detail>)}
             </dl>
             {a.reason && <div className="mt-4 rounded-xl bg-sunken/60 px-4 py-3"><p className="text-[12.5px] text-ink3"><Words k="Reason given" /></p><p className="whitespace-pre-line text-[14.5px] mt-0.5">{shownReason(a.reason)}</p></div>}

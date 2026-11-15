@@ -7,12 +7,13 @@ import { canSeeStudent } from "@/lib/fees/access";
 import { defaulterLists, type DefaulterFilter } from "@/lib/fees/defaulters";
 import { feeTemplates, reminderHistory } from "@/lib/fees/reminders";
 import { gatewayFor } from "@/lib/fees/settings";
+import { chargesFor } from "@/lib/messaging/send";
 import { parseRupees } from "@/lib/fees/act";
 import { PROMISE_FEATURE, PROMISE_MAX_DAYS, promiseTarget, promiseWords } from "@/lib/fees/promises";
 import { addDays } from "@/lib/staff/dates";
 import { Card, CardHeader } from "@/components/ui/card";
 import { ButtonLink, buttonClass } from "@/components/ui/button";
-import { Empty, HBars, Stack, Stats, Timeline, Toolbar, type Tone } from "@/components/money/kit";
+import { Banner, Empty, HBars, Stack, Stats, Timeline, Toolbar, type Tone } from "@/components/money/kit";
 import { UrlSearch, UrlSelect } from "@/components/money/url-filters";
 import { UrlSheet } from "@/components/ui/url-sheet";
 import { ExportButton } from "@/components/ui/export-button";
@@ -71,6 +72,8 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
     const photos = await tx.student.findMany({ where: { id: { in: list.rows.map((r) => r.studentId) } }, select: { id: true, photoFileId: true } });
     const templates = canEdit ? await Promise.all((["whatsapp", "sms", "email"] as const).map((c) => feeTemplates(tx, p.current.ctx, c))) : [[], [], []];
     const gateway = canEdit ? Boolean(await gatewayFor(tx, p.current.ctx, null)) : false;
+    // WhatsApp in test mode: reminders are only recorded, so the page says so (loop 4).
+    const testMode = canEdit ? (await chargesFor(tx, p.current.ctx, { whatsapp: 1 })).testMode.length > 0 : false;
     let history = null;
     if (/^[0-9a-f-]{36}$/i.test(who) && (await canSeeStudent(tx, viewer, who))) {
       const row = all.rows.find((r) => r.studentId === who) ?? null;
@@ -79,7 +82,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
       const users = await tx.userLogin.findMany({ where: { id: { in: [...calls.map((c) => c.createdById), ...rems.map((r) => r.sentById)].filter((x): x is string => Boolean(x)) } }, select: { id: true, displayName: true } });
       history = student ? { row, student, rems, calls, users } : null;
     }
-    return { all, list, photos, templates, gateway, history };
+    return { all, list, photos, templates, gateway, history, testMode };
   });
 
   const { all, list } = data;
@@ -100,7 +103,6 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
   });
   const whoHref = Object.fromEntries(items.map((d) => [d.id, here({ who: d.id })]));
   const cMax = all.classTotals.reduce((m, c) => (c.amount > m ? c.amount : m), BigInt(0));
-  const half = Math.ceil(all.classTotals.length / 2);
   const toBars = (rows: typeof all.classTotals) => rows.map((c) => ({
     key: c.classId ?? "none", label: c.className, value: cMax > BigInt(0) ? Number((c.amount * BigInt(1000)) / cMax) / 10 : 0,
     text: <>{formatRupeesShort(c.amount)} <span className="text-ink3 font-normal">· {c.students}</span></>,
@@ -112,11 +114,12 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
   return (
     <div>
       <FeeHead pageName="Defaulters" href={HREF}
-        sub={all.rows.length ? `${all.rows.length} ${all.rows.length === 1 ? "student owes" : "students owe"} ${formatRupees(all.total)} past the due date · ${over30} more than 30 days late` : "Nobody owes fees past the due date"}
-        viewActions={<ExportButton href={qs(`${HREF}/export`, keep)} />}
+        sub={all.rows.length ? `${all.rows.length} ${all.rows.length === 1 ? "student owes" : "students owe"} ${formatRupeesShort(all.total)} past the due date · ${over30} more than 30 days late` : "Nobody owes fees past the due date"}
+        viewActions={<ExportButton always href={qs(`${HREF}/export`, keep)} />}
         actions={list.rows.length && !view?.past ? <ButtonLink href={here({ send: "all" })} scroll={false} variant="secondary" icon={Send}>{filtered ? `Send reminder to ${list.rows.length}` : `Send reminder to all ${list.rows.length}`}</ButtonLink> : null} />
       <ViewYearStrip year={view} back={backToThisYear(HREF, sp)} />
       <Stack>
+        {data.testMode && <Banner tone="warn" title="Test mode: nothing is sent, no credits used." />}
         <Stats items={all.ageingTotals.map((g, i) => ({
           // Amounts only: each installment counts by its own due date, so student counts overlapped and did not add up (layman loop 2).
           label: g.label, value: formatRupees(g.amount), sub: filter.ageing === g.index ? "Showing these students" : "Tap to see who owes it",
@@ -126,9 +129,9 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
         {all.classTotals.length > 0 && (
           <Card>
             <CardHeader title="Overdue by class" description="Tap a class to see its students" icon={ChartColumn} />
-            <div className="px-5 pb-5 grid lg:grid-cols-2 gap-x-8 gap-y-2.5">
-              <HBars rows={toBars(all.classTotals.slice(0, half))} />
-              <HBars rows={toBars(all.classTotals.slice(half))} />
+            {/* One list, so every bar uses one scale (the largest class = a full bar); two columns on a wide screen (loop 4). */}
+            <div className="px-5 pb-5 lg:[&>ul]:grid lg:[&>ul]:grid-cols-2 lg:[&>ul]:gap-x-8">
+              <HBars rows={toBars(all.classTotals)} />
             </div>
           </Card>
         )}

@@ -27,7 +27,7 @@ export type ApprovalRow = {
   repeat?: boolean;
 };
 
-export function ApprovalList({ rows, paged = false }: { rows: ApprovalRow[]; paged?: boolean }) {
+export function ApprovalList({ rows, paged = false, total = rows.length }: { rows: ApprovalRow[]; paged?: boolean; total?: number }) {
   const router = useRouter();
   const t = useT();
   const [picked, setPicked] = useState<string[]>([]);
@@ -50,8 +50,8 @@ export function ApprovalList({ rows, paged = false }: { rows: ApprovalRow[]; pag
     router.refresh();
   };
   const chosen = rows.filter((r) => picked.includes(r.id));
-  const total = chosen.reduce((s, r) => s + (r.amountPaise ? BigInt(r.amountPaise) : BigInt(0)), BigInt(0));
-  const totalWords = total > BigInt(0) ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(total / BigInt(100))) : null;
+  const pickedPaise = chosen.reduce((s, r) => s + (r.amountPaise ? BigInt(r.amountPaise) : BigInt(0)), BigInt(0));
+  const totalWords = pickedPaise > BigInt(0) ? new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(Number(pickedPaise / BigInt(100))) : null;
 
   return (
     <div className="space-y-3">
@@ -65,7 +65,7 @@ export function ApprovalList({ rows, paged = false }: { rows: ApprovalRow[]; pag
           <label className="flex min-h-11 items-center gap-3 text-[14px] font-medium">
             <Checkbox checked={pickable.length > 0 && pickable.every((r) => picked.includes(r.id))} indeterminate={picked.length > 0 && !pickable.every((r) => picked.includes(r.id))} label="Choose all"
               onChange={(on) => setPicked(on ? pickable.map((r) => r.id) : [])} />
-            {picked.length ? `${picked.length} chosen${totalWords ? `, ${totalWords} in all` : ""}` : paged ? t("Choose all {n} on this page", { n: pickable.length }) : `Choose all ${pickable.length} you can decide`}
+            {picked.length ? `${picked.length} chosen${totalWords ? `, ${totalWords} in all` : ""}` : paged ? t("Choose all {n} shown ({total} in all)", { n: pickable.length, total }) : `Choose all ${pickable.length} you can decide`}
           </label>
           {picked.length > 0 && (
             <ConfirmButton trigger={`Approve ${picked.length}`} triggerVariant="primary" title={`Approve ${picked.length} request${picked.length === 1 ? "" : "s"}?`}
@@ -106,7 +106,8 @@ export function ApprovalList({ rows, paged = false }: { rows: ApprovalRow[]; pag
                   {r.amount && <span className="font-display font-semibold text-[14px] tnum mr-1">{r.amount}</span>}
                   {r.overdue && <Pill tone="bad"><Words k="Overdue" /></Pill>}
                   {r.repeat && <Pill tone="warn"><Words k="Same as another waiting request" /></Pill>}
-                  <Pill tone={r.status.tone}>{r.status.label}</Pill>
+                  {/* Overdue already says it is waiting: one pill, not two (layman loop 4). */}
+                  {!(r.overdue && r.status.label === "Waiting") && <Pill tone={r.status.tone}>{r.status.label}</Pill>}
                 </span>
               </Link>
             </div>

@@ -138,7 +138,9 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
   const versionQ = shown ? `&version=${shown.id}` : "";
   const yearQ = page.yearQuery ? `&${page.yearQuery}` : "";
   const hard = data.clashes.filter((c) => c.hard);
-  const soft = data.clashes.filter((c) => !c.hard);
+  // Limits and preferences are advice while a draft is made. On a published Time Table they read as
+  // "128 errors" (layman loop 4): there only clashes that break a rule are shown.
+  const soft = shown?.status === "DRAFT" ? data.clashes.filter((c) => !c.hard) : [];
   const sectionLabel = (id: string) => { const s = data.sections.find((x) => x.id === id); return s ? `${s.schoolClass.name} ${s.name}` : ""; };
   const slots = data.slots.map((s) => ({ number: s.number, label: s.label, startTime: s.startTime, endTime: s.endTime, isBreak: s.isBreak, days: s.days }));
   const freeDay = data.days.includes(Number(one(raw.day))) ? Number(one(raw.day)) : data.days.includes(todayDay) ? todayDay : data.days[0];

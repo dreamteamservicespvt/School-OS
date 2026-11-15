@@ -138,7 +138,11 @@ export type ReminderPreview = {
   messages: number;
   skipped: { reason: string; count: number; names: string[] }[];
   skippedNothingDue: number;
+  /** Students the messages are about (brothers and sisters can share one message). */
+  reached: number;
   cost: number;
+  /** The channel is in test mode: nothing is sent and no credits are used. */
+  testMode: boolean;
   creditProblem: string | null;
   problems: string[];
   sample: string | null;
@@ -153,7 +157,7 @@ export async function previewReminders(tx: Tx, ctx: SchoolContext, input: Remind
   const p = await whoOwes(tx, input.studentIds, input.today);
   const linkAvailable = p.out.length > 0 && Boolean(await gatewayFor(tx, ctx, p.out[0].classId));
   const students = new Set(input.studentIds).size;
-  if (!p.out.length) return { students, recipients: 0, messages: 0, skipped: [], skippedNothingDue: p.nothing, cost: 0, creditProblem: null, problems: [], sample: null, sampleFor: null, linkAvailable };
+  if (!p.out.length) return { students, recipients: 0, messages: 0, skipped: [], skippedNothingDue: p.nothing, reached: 0, cost: 0, testMode: false, creditProblem: null, problems: [], sample: null, sampleFor: null, linkAvailable };
   const pay = await payPlan(tx, ctx, p.out, { online: input.includeLink, makeLinks: false, allGuardians: false });
   const plan = await planMessage(tx, ctx, feeMessageInput({
     studentIds: p.out.map((r) => r.studentId), channel: c.channel, templateId: c.templateId, text: c.text,
@@ -169,7 +173,10 @@ export async function previewReminders(tx: Tx, ctx: SchoolContext, input: Remind
     messages: plan.rows.length,
     skipped: plan.skipped.map((s) => ({ reason: s.reason, count: s.count, names: s.names })),
     skippedNothingDue: p.nothing,
+    reached: new Set(plan.rows.flatMap((r) => [r.studentId, ...(r.students ?? []).map((x) => x.id)]).filter(Boolean)).size,
     cost: plan.cost[c.channel] ?? 0,
+    // Test mode sends nothing, so it uses no credits (COMM-04): the dialog says so instead of the cost (loop 4).
+    testMode: plan.testMode.includes(c.channel),
     creditProblem: plan.creditProblem,
     problems: plan.problems,
     sample: first ? withHiddenLinks(first.text) : null,
@@ -208,7 +215,7 @@ export async function sendReminders(tx: Tx, ctx: SchoolContext, input: ReminderI
   }
   const skipped = plan.skipped.reduce((s, g) => s + g.count, 0);
   await writeAudit(tx, ctx, { action: "sent-reminders", recordType: "Fee Reminder", recordId: null, after: { students: reached.size, people: plan.people, skipped, channel: c.channel, scheduledAt: input.scheduledAt?.toISOString() ?? null } });
-  return { sent: plan.people, students: reached.size, skipped: plan.skipped, skippedNothingDue: p.nothing, scheduled: result.scheduled, messageId: result.messageId };
+  return { sent: plan.people, students: reached.size, skipped: plan.skipped, skippedNothingDue: p.nothing, scheduled: result.scheduled, messageId: result.messageId, testMode: plan.testMode.includes(c.channel) };
 }
 
 /** With quiet days on, how far back a closed stretch (a vacation) is looked at when the school opens again. */
@@ -342,10 +349,10 @@ const RECIPIENT_STATUS: Record<string, string> = { QUEUED: "Waiting", SENDING: "
 export async function reminderHistory(tx: Tx, studentId: string) {
   const rows = await tx.feeReminder.findMany({ where: { studentId }, orderBy: { sentAt: "desc" }, take: 50 });
   const ids = rows.map((r) => r.messageId).filter((x): x is string => Boolean(x));
-  const recipients = ids.length ? await tx.messageRecipient.findMany({ where: { messageId: { in: ids }, studentId }, select: { messageId: true, status: true, channel: true } }) : [];
+  const recipients = ids.length ? await tx.messageRecipient.findMany({ where: { messageId: { in: ids }, studentId }, select: { messageId: true, status: true, channel: true, provider: true } }) : [];
   return rows.map((r) => {
     const mine = recipients.filter((x) => x.messageId === r.messageId);
-    const status = !r.messageId ? (r.status === "skipped" ? "Skipped" : "Not sent") : mine.length ? [...new Set(mine.map((m) => RECIPIENT_STATUS[m.status] ?? m.status))].join(", ") : r.status === "scheduled" ? "Scheduled" : "Waiting";
+    const status = !r.messageId ? (r.status === "skipped" ? "Skipped" : "Not sent") : mine.length ? [...new Set(mine.map((m) => (m.provider === "sandbox" && m.status !== "FAILED" ? "Test mode, not sent" : RECIPIENT_STATUS[m.status] ?? m.status)))].join(", ") : r.status === "scheduled" ? "Scheduled" : "Waiting";
     // Never a link that opens a Parent Link or pays: placeholders show as words.
     return { ...r, text: withHiddenLinks(r.text), deliveryStatus: status, channels: [...new Set(mine.map((m) => m.channel))] };
   });

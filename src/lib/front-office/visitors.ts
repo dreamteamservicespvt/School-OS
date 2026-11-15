@@ -36,7 +36,9 @@ export const MEET_PURPOSES = ["Meeting", "Interview", "Fee payment"];
 
 /** Someone still inside on a pass that works: the desk is told before a second pass is made. */
 export type InsideNow = { id: string; passNo: string; since: string };
-export type ReturningVisitor = { name: string; purpose: string | null; meetStaffId: string | null; last: string | null; kind: "visitor" | "parent"; inside?: InsideNow | null };
+export type ReturningVisitor = { name: string; purpose: string | null; meetStaffId: string | null; last: string | null; kind: "visitor" | "parent"; inside?: InsideNow | null;
+  /** The parts of `last`, so the screen can say it whole in its language. */
+  lastDay?: string; lastMet?: string | null; relation?: string; kids?: string };
 
 /** The pass this phone is still inside on (not checked out, not expired), if any. */
 async function openPassFor(tx: Tx, phone: string, now: Date) {
@@ -54,7 +56,7 @@ export async function returningVisitor(tx: Tx, rawPhone: string, timeZone: strin
     const day = formatDate(d, timeZone);
     const open = await openPassFor(tx, phone, now);
     return {
-      kind: "visitor", name: last.name, purpose: last.purpose, meetStaffId: last.meetStaffId, last: `${day}${met ? `, met ${met.fullName}` : ""}`,
+      kind: "visitor", name: last.name, purpose: last.purpose, meetStaffId: last.meetStaffId, last: `${day}${met ? `, met ${met.fullName}` : ""}`, lastDay: day, lastMet: met?.fullName ?? null,
       inside: open ? { id: open.id, passNo: open.passNo, since: clockAt(open.timeIn, timeZone) } : null,
     };
   }
@@ -64,7 +66,7 @@ export async function returningVisitor(tx: Tx, rawPhone: string, timeZone: strin
   });
   if (!g) return null;
   const kids = g.students.map((s) => s.student.firstName || s.student.fullName).join(" and ");
-  return { kind: "parent", name: g.name, purpose: null, meetStaffId: null, last: kids ? `${g.relationship} of ${kids}` : g.relationship };
+  return { kind: "parent", name: g.name, purpose: null, meetStaffId: null, last: kids ? `${g.relationship} of ${kids}` : g.relationship, relation: g.relationship, kids };
 }
 
 export type RegisterInput = {

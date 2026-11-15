@@ -30,7 +30,8 @@ const HREF = `${BASE}/advances`;
 const UUID = /^[0-9a-f-]{36}$/i;
 const ZERO = BigInt(0);
 // "To pay": approved and not paid out yet (the Dashboard's card opens this).
-const SHOW = [{ value: "active", label: "Active" }, { value: "unpaid", label: "To pay" }, { value: "closed", label: "Closed" }, { value: "all", label: "All" }];
+// "Open" (key "active" kept for links): waiting, to pay and being recovered, as the first card counts them (loop 4).
+const SHOW = [{ value: "active", label: "Open" }, { value: "unpaid", label: "To pay" }, { value: "closed", label: "Closed" }, { value: "all", label: "All" }];
 const OPEN = ["WAITING", "APPROVED", "ACTIVE"];
 type Hist = { at?: string; by?: string; what: string; reason?: string | null };
 
@@ -53,12 +54,14 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
     const all = await tx.salaryAdvance.findMany({ where: onCampus, orderBy: [{ createdAt: "desc" }] });
     const staff = await tx.staff.findMany({ where: { id: { in: all.map((a) => a.staffId) } }, select: { id: true, fullName: true, staffCode: true, designation: true } });
     const thisMonth = await tx.salaryRecovery.aggregate({ where: { kind: "PAYROLL", date: { gte: monthNow }, advance: onCampus }, _sum: { amountPaise: true } });
+    // This month's salary not paid yet: what it will take back (recoveries are recorded when it is paid), loop 4.
+    const planned = await tx.payrollLine.aggregate({ where: { ...onCampus, included: true, run: { month: monthNow, status: { in: ["CALCULATED", "WAITING", "APPROVED"] } } }, _sum: { recoveryPaise: true } });
     const recoveries = openId ? await tx.salaryRecovery.findMany({ where: { advanceId: openId, advance: onCampus }, orderBy: { date: "asc" } }) : [];
     const people = doing === "give" ? await tx.staff.findMany({ where: { archivedAt: null, status: { notIn: ["RESIGNED", "RETIRED", "TERMINATED"] }, ...(p.current.campusId ? { campusId: p.current.campusId } : {}) }, orderBy: { fullName: "asc" }, select: { id: true, fullName: true, designation: true } }) : [];
     const banks = doing === "pay" ? await tx.bankAccount.findMany({ where: { kind: "BANK", archivedAt: null }, orderBy: [{ isMain: "desc" }, { name: "asc" }], select: { id: true, name: true, isMain: true, accountLast4: true } }) : [];
     const ids = [...new Set(all.flatMap((a) => (a.history as Hist[]).map((h) => h.by)).filter((x): x is string => !!x))];
     const users = openId ? await tx.userLogin.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } }) : [];
-    return { settings, all, staff, recovered: thisMonth._sum.amountPaise ?? ZERO, recoveries, people, banks, users };
+    return { settings, all, staff, recovered: thisMonth._sum.amountPaise ?? ZERO, planned: planned._sum.recoveryPaise ?? ZERO, recoveries, people, banks, users };
   });
   const staffOf = new Map(data.staff.map((s) => [s.id, s]));
   const given = (a: (typeof data.all)[number]) => a.paidOn ?? a.createdAt;
@@ -97,9 +100,9 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
         actions={p.can.create && data.settings.advancesOn ? <ButtonLink href={here({ do: "give" })} scroll={false} variant="primary" icon={HandCoins}><Words k="Give advance or loan" /></ButtonLink> : null} />
       <Stack>
         <Stats items={[
-          { label: "Active", value: String(active.length), sub: unpaid.length ? `${unpaid.length} approved, not paid yet` : waiting.length ? `${waiting.length} waiting for approval` : "being recovered", icon: HandCoins },
+          { label: "Open", value: String(active.length + unpaid.length + waiting.length), sub: [active.length ? `${active.length} being recovered` : null, unpaid.length ? `${unpaid.length} to pay` : null, waiting.length ? `${waiting.length} waiting for approval` : null].filter(Boolean).join(" · ") || "None open", icon: HandCoins },
           { label: "Outstanding", value: formatRupees(outstanding), sub: "still to recover", icon: Wallet },
-          { label: `Recovered in ${monthName(monthNow).split(" ")[0]}`, value: formatRupees(data.recovered), sub: "in this month’s salary", tone: data.recovered > ZERO ? "ok" : undefined, icon: Repeat },
+          { label: `Recovered in ${monthName(monthNow).split(" ")[0]}`, value: formatRupees(data.recovered), sub: data.planned > ZERO ? `${formatRupees(data.planned)} in this month’s salary, taken when it is paid` : "in this month’s salary", tone: data.recovered > ZERO ? "ok" : undefined, icon: Repeat },
           { label: "Paid out", value: formatRupees(paidOut), sub: per.from ? per.label : "in the Day Book when paid", icon: Landmark },
         ]} />
         {!data.settings.advancesOn && <Banner tone="info" title="Advances and loans are switched off."><Words k="Switch them on in Salary Settings to give new ones. Open ones are still recovered." /></Banner>}
@@ -158,7 +161,8 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
       )}
       {doing === "pay" && target && target.status === "APPROVED" && (
         <PaySheet closeHref={here({ do: null, id: null })} advanceId={target.id} title={`Pay ${name(target)}’s ${kind(target).toLowerCase()}`} amount={formatRupees(target.amountPaise)} today={p.today.toISOString().slice(0, 10)}
-          banks={data.banks.map((b) => ({ value: b.id, label: `${b.name}${b.accountLast4 ? ` · XXXX${b.accountLast4}` : ""}` }))} mainBank={data.banks.find((b) => b.isMain)?.id ?? data.banks[0]?.id ?? ""} />
+          banks={data.banks.map((b) => ({ value: b.id, label: `${b.name}${b.accountLast4 ? ` · XXXX${b.accountLast4}` : ""}` }))} mainBank={data.banks.find((b) => b.isMain)?.id ?? data.banks[0]?.id ?? ""}
+          recovery={`${formatRupees(target.installmentPaise)} a month from ${monthName(target.startMonth)} salary`} />
       )}
       {(doing === "pause" || doing === "restart") && target && target.status === "ACTIVE" && (
         <ReasonSheet closeHref={here({ do: null, id: null })} danger={false} action={pauseAdvanceAction} hidden={{ advanceId: target.id, paused: doing === "pause" ? "1" : "0" }}

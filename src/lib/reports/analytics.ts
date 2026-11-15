@@ -18,6 +18,7 @@ import { readFilters, type PeriodSetupLike, type Raw } from "./filters";
 import { runEntry } from "./run";
 import type { Cell, Column, ReportViewer, Row, Table } from "./types";
 import { periodFromSearch, type DayRange } from "../periods";
+import { STUDYING } from "../students/labels";
 
 export type AreaKey = "students" | "results" | "finance" | "hr" | "workload" | "teachers" | "admissions";
 export const AREA_LABEL: Record<AreaKey, string> = {
@@ -56,6 +57,8 @@ export type AChart = {
   kind: "hbars" | "bars" | "table" | "empty";
   hbars?: { k: string; v: number; label?: string }[]; max?: number; goal?: number; lowBelow?: number; labelWidth?: number; unit?: string;
   bars?: { k: string; v: number; v2?: number; tone?: Tone }[]; ticks?: number[];
+  /** Write each bar's number on top of it (few bars of close height). */
+  values?: boolean;
   legend?: [string, string][];
   table?: Table;
   note?: string;
@@ -84,6 +87,18 @@ function monthsBetween(from: Date, to: Date) {
 }
 const lakhs = (paise: bigint) => Math.round(Number(paise) / 1e7 * 10) / 10; // paise to lakhs of rupees
 const tableOf = (columns: Column[], rows: Row[], totals?: Row | null): Table => ({ columns, rows, totals: totals ?? null });
+
+/** Round axis numbers (0, 100, 200, 300), not 0, 118, 237 (layman loop 4), with room above the tallest bar. */
+function niceAxis(top: number): { max: number; ticks: number[] } {
+  const room = top * 1.08;
+  const pow = 10 ** Math.floor(Math.log10(Math.max(1, top / 4)));
+  // The smallest round step that needs at most four lines.
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * pow).find((x) => Math.ceil(room / x) <= 4) ?? 10 * pow;
+  const max = Math.ceil(room / step) * step;
+  const ticks: number[] = [];
+  for (let v = 0; v < max; v += step) ticks.push(Math.round(v));
+  return { max, ticks };
+}
 const num = (c: Cell | undefined) => (typeof c === "number" ? c : typeof c === "bigint" ? Number(c) : typeof c === "string" ? Number(c.replace(/[^\d.-]/g, "")) || 0 : 0);
 const big = (c: Cell | undefined) => (typeof c === "bigint" ? c : typeof c === "number" ? BigInt(Math.round(c)) : BigInt(0));
 
@@ -128,10 +143,13 @@ async function students(inp: AnalyticsInput): Promise<AreaView> {
   const sections = new Map((await tx.section.findMany({ where: { id: { in: [...new Set(enrol.map((e) => e.sectionId))] } }, include: { schoolClass: { select: { name: true } } } })).map((s) => [s.id, `${s.schoolClass.name.replace(/^Class\s+/i, "")} ${s.name}`]));
   const byClass = classes.map((c) => ({ c, list: enrol.filter((e) => e.classId === c.id) }));
   const total = enrol.length;
+  // Studying but not yet in a class this year: counted too, so the number agrees with Students and the Dashboard (layman loop 4).
+  const unplaced = await tx.student.count({ where: { archivedAt: null, status: { in: [...STUDYING] }, enrolments: { none: { academicYearId: { in: nowYears.map((y) => y.id) }, archivedAt: null } }, ...(inp.campusId ? { campusId: inp.campusId } : {}) } });
+  const onRolls = total + unplaced;
   const drills: Record<string, Drill> = {};
   drills["students-by-class"] = {
-    title: "Students by class", sub: `${n(total)} on the rolls today`, basis: `Student Management, ${year.name}`,
-    table: tableOf([{ key: "cls", label: "Class" }, { key: "n", label: "Students", kind: "number" }], byClass.map((x) => ({ cls: x.c.name, n: x.list.length })), { cls: "All classes", n: total }),
+    title: "Students by class", sub: `${n(onRolls)} on the rolls today`, basis: `Student Management, ${year.name}`,
+    table: tableOf([{ key: "cls", label: "Class" }, { key: "n", label: "Students", kind: "number" }], [...byClass.map((x) => ({ cls: x.c.name, n: x.list.length })), ...(unplaced ? [{ cls: "Not in a class yet", n: unplaced }] : [])], { cls: "All classes", n: onRolls }),
   };
 
   // Admitted and left in the dates.
@@ -192,13 +210,13 @@ async function students(inp: AnalyticsInput): Promise<AreaView> {
   return {
     drills,
     stats: [
-      { label: "Students", value: n(total), sub: inp.compare && strength.length > 1 ? `${total - strength[strength.length - 2].v >= 0 ? "+" : ""}${total - strength[strength.length - 2].v} on last year` : "On the rolls today", icon: "GraduationCap", drill: "students-by-class" },
+      { label: "Students", value: n(onRolls), sub: inp.compare && strength.length > 1 ? `${total - strength[strength.length - 2].v >= 0 ? "+" : ""}${total - strength[strength.length - 2].v} on last year` : unplaced ? `${n(unplaced)} not in a class yet` : "On the rolls today", icon: "GraduationCap", drill: "students-by-class" },
       { label: "Admitted", value: n(joined.length), sub: `${left.length} left · ${inp.range.label}`, icon: "UserPlus", tone: "ok", drill: "admitted" },
       { label: "Attendance today", value: dayPct === null ? "Not marked" : `${dayPct}%`, sub: `${absentToday.length} absent, ${lateToday} late`, icon: "CalendarCheck2", drill: "absent-today" },
       { label: "Girls", value: `${Math.round(pct(girls, total))}%`, sub: `${n(girls)} of ${n(total)}`, icon: "Users" },
     ],
     charts: [
-      { key: "students.strength", title: "Strength over the years", sub: `Students on the rolls each year · ${year.name} today`, icon: "ChartColumn", kind: strength.length ? "bars" : "empty", bars: strength, max: Math.max(10, ...strength.map((s) => s.v)) * 1.1, data: tableOf([{ key: "year", label: "Year" }, { key: "n", label: "Students", kind: "number" }], strength.map((s) => ({ year: s.k, n: s.v }))), empty: "No earlier years yet." },
+      { key: "students.strength", title: "Strength over the years", sub: `Students on the rolls each year · ${year.name} today`, icon: "ChartColumn", kind: strength.length ? "bars" : "empty", bars: strength, ...niceAxis(Math.max(10, ...strength.map((s) => s.v))), values: true, data: tableOf([{ key: "year", label: "Year" }, { key: "n", label: "Students", kind: "number" }], strength.map((s) => ({ year: s.k, n: s.v }))), empty: "No earlier years yet." },
       {
         key: "students.attendance", title: "Attendance by class", sub: `${inp.range.label} · goal 90% · tap a class to see who was absent`, icon: "CalendarCheck2", kind: marked.length ? "hbars" : "empty",
         hbars: marked.map((r) => ({ k: r.k, v: r.v! })), goal: 90, lowBelow: 90, drills: marked.map((r) => ({ label: r.k, drill: `att-class:${r.id}` })),

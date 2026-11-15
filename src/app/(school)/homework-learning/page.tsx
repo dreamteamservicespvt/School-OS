@@ -148,7 +148,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
 
         <Card>
           <Toolbar>
-            <UrlSearch id="hw-search" placeholder="Search homework title" label="Search homework" />
+            <UrlSearch id="hw-search" placeholder="Search homework" label="Search homework" />
             <PeriodFilter {...p.dates} fallback="thismonth" className="w-full md:w-auto" />
             {sectionOpts.length > 1 && <UrlSelect param="section" id="hw-class" label="Class" className="md:w-36" options={[{ value: "", label: "All classes" }, ...sectionOpts.map(([v, l]) => ({ value: v, label: `Class ${l}` }))]} />}
             {!mine && subjectOpts.length > 1 && <UrlSelect param="subject" id="hw-sub" label="Subject" className="md:w-44" options={[{ value: "", label: "All subjects" }, ...subjectOpts.map(([v, l]) => ({ value: v, label: l }))]} />}

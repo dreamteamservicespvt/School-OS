@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { cx } from "./cx";
+import { BAND_STYLE } from "./band-style";
 import { Line } from "@/lib/i18n/client";
 
 // The one bold moment on a page: two to four numbers on the brand colour
@@ -41,7 +42,7 @@ export function Band({ items, label, className }: { items: BandCell[]; label: st
   const shown = items.slice(0, 4);
   const count = Math.max(2, shown.length);
   return (
-    <section aria-label={label} className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)}>
+    <section aria-label={label} className={cx("relative overflow-hidden rounded-3xl bg-brand text-brandink shadow-pop", className)} style={BAND_STYLE}>
       <div className="absolute inset-0 dotgrid opacity-60 pointer-events-none" />
       <div className="absolute -right-16 -top-24 w-72 h-72 rounded-full bg-white/10 blur-2xl pointer-events-none" />
       <div className={cx("relative grid", GRID[count])}>
@@ -62,7 +63,7 @@ export function Band({ items, label, className }: { items: BandCell[]; label: st
           );
           const cls = cx("text-left p-4 md:p-6 min-w-0 border-white/15 flex items-center gap-4", CELL[count][i]);
           return m.href
-            ? <Link key={m.key} href={m.href} className={cx(cls, "hover:bg-white/[.07] transition focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-brandink")}>{body}</Link>
+            ? <Link key={m.key} href={m.href} className={cx(cls, "hover:bg-white/[.07] transition focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-current")}>{body}</Link>
             : <div key={m.key} className={cls}>{body}</div>;
         })}
       </div>

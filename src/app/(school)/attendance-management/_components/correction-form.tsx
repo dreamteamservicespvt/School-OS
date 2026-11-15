@@ -12,8 +12,10 @@ import { NeedOne, ProblemText } from "@/components/ui/form-problems";
 
 export type CorrectionPerson = { id: string; label: string; current: string | null; checked: boolean };
 
-export function CorrectionForm({ action, hidden, people, statuses, forWhom }: {
+export function CorrectionForm({ action, hidden, people, statuses, forWhom, startStatus }: {
   action: Action; hidden: Record<string, string>; people: CorrectionPerson[]; statuses: StatusView[]; forWhom: "student" | "staff";
+  /** The school's starting status for a register (present), used when a whole day is filled here. */
+  startStatus?: string | null;
 }) {
   const [q, setQ] = useState("");
   const t = useT();
@@ -24,6 +26,42 @@ export function CorrectionForm({ action, hidden, people, statuses, forWhom }: {
   });
   const byKey = useMemo(() => new Map(statuses.map((s) => [s.key, s])), [statuses]);
   const shown = q.trim() ? people.filter((p) => p.label.toLowerCase().includes(q.trim().toLowerCase()) || p.checked) : people;
+  // Nothing saved for the day: the usual register, each student with their own status, sent once with one
+  // reason. One status for everyone made a teacher send a request per status (layman loop 4).
+  if (forWhom === "student" && people.length > 0 && people.every((p) => !p.current)) {
+    const first = startStatus && byKey.has(startStatus) ? startStatus : "";
+    return (
+      <ActionForm action={action} hidden={{ ...hidden, sheet: "1" }} submitLabel="Send for approval" pendingText="Sending…" keep>
+        {(f) => (
+          <>
+            <fieldset>
+              <legend className="mb-1 font-medium"><Words k="Mark each student" /> <span className="text-danger">*</span></legend>
+              <p className="mb-2 text-sm text-ink-2"><Words k="Nothing was saved for this day. Mark everyone, then send it once." /></p>
+              <ul className="max-h-[28rem] divide-y divide-line overflow-y-auto rounded-xl border border-line">
+                {people.map((p) => (
+                  <li key={p.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
+                    <input type="hidden" name="people" value={p.id} />
+                    <span className="min-w-0 flex-1 truncate">{p.label}</span>
+                    <span role="radiogroup" aria-label={p.label} className="flex flex-wrap gap-1">
+                      {statuses.map((st) => (
+                        <label key={st.key} title={t.any(st.name)} className="inline-flex size-10 cursor-pointer items-center justify-center rounded-lg border border-line-strong text-sm font-semibold has-[:checked]:border-ink has-[:checked]:bg-ink has-[:checked]:text-bg has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand">
+                          <input type="radio" name={`to:${p.id}`} value={st.key} defaultChecked={f.val(`to:${p.id}`) ? f.val(`to:${p.id}`) === st.key : st.key === first} className="sr-only" />
+                          <span aria-hidden="true">{st.letter}</span><span className="sr-only">{t.any(st.name)}</span>
+                        </label>
+                      ))}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+              <ProblemText name="people" given={f.err("people")} />
+            </fieldset>
+            <TextArea label="Reason" name="reason" required minLength={5} maxLength={500} rows={3} defaultValue={f.val("reason")} error={f.err("reason")}
+              help="The approver sees this. For example: forgot to save on that day." />
+          </>
+        )}
+      </ActionForm>
+    );
+  }
   return (
     <ActionForm action={action} hidden={hidden} submitLabel="Send for approval" pendingText="Sending…" keep>
       {(f) => (

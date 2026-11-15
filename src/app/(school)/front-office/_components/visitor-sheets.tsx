@@ -20,6 +20,7 @@ import { checkOutAction, gateEntryAction, lookupVisitor, registerVisitorAction }
 import { CameraBox, PhoneBox, SegField, useCanScanQr } from "./fields";
 import { KeepSelect } from "@/components/ui/keep-select";
 import { useT, Words } from "@/lib/i18n/client";
+import { screenLine } from "@/lib/i18n/messages";
 import { TimeInput } from "@/components/ui/date-input";
 
 export type MeetChoice = { id: string; name: string; role: string; now: string; tone: "ok" | "warn" | "bad" };
@@ -97,21 +98,23 @@ function VisitorFields({ purposes, staff, photoRequired, idRequired, preset, pas
           ) : phoneErr?.includes("New pass anyway") ? <NewPassAnyway /> : found && (
             <div className="rounded-xl bg-ok/10 px-3.5 py-2.5 text-[13.5px] flex items-center gap-2 -mt-2 animate-fade" role="status">
               <UserCheck size={16} className="text-ok shrink-0" aria-hidden="true" />
-              <span className="text-ink2"><b className="text-ink font-semibold">{found.kind === "parent" ? "Parent of the school." : "Returning visitor."}</b> {found.kind === "parent" ? found.last : `Last visit ${found.last}.`}</span>
+              <span className="text-ink2"><b className="text-ink font-semibold">{found.kind === "parent" ? t("Parent of the school.") : t("Returning visitor.")}</b> {found.kind === "parent"
+                ? (found.kids ? t("{relation} of {name}", { relation: t.any(found.relation ?? ""), name: found.kids }) : t.any(found.relation ?? found.last ?? ""))
+                : found.lastMet ? t("Last visit {date}, met {name}.", { date: found.lastDay ?? "", name: found.lastMet }) : t("Last visit {date}.", { date: found.lastDay ?? found.last ?? "" })}</span>
             </div>
           )}
           <FieldShell label="Name" id="vs-name" required error={name.error}>
-            <input key={name.key} ref={nameRef} id="vs-name" name="name" defaultValue={who} onChange={(e) => setWho(e.target.value)} placeholder="Full name" autoComplete="off" maxLength={120}
+            <input key={name.key} ref={nameRef} id="vs-name" name="name" defaultValue={who} onChange={(e) => setWho(e.target.value)} placeholder={t("Full name")} autoComplete="off" maxLength={120}
               aria-invalid={name.error ? true : undefined} className={cx(inputCls(name.error), "h-11")} />
           </FieldShell>
           <FieldShell label="Purpose" id="vs-purpose" required error={purpose.error}>
             <KeepSelect id="vs-purpose" name="purpose" value={why} onChange={(e) => setWhy(e.target.value)} className={cx(inputCls(purpose.error), "h-11")}>
-              {purposes.map((p) => <option key={p} value={p}>{p}</option>)}
+              {purposes.map((p) => <option key={p} value={p}>{t.any(p)}</option>)}
             </KeepSelect>
           </FieldShell>
           {why === "Admission enquiry" && <Banner tone="info" title="The enquiry form opens next,"><Words k="so the details reach Admissions with an owner and a follow-up." /></Banner>}
           <FieldShell label="Person to meet" id="vs-meet" required={needMeet} error={meet.error}
-            help={m ? <span className={cx("font-semibold", TONE[m.tone])}>{m.now}</span> : "Shows if they are on leave or teaching now"}>
+            help={m ? <span className={cx("font-semibold", TONE[m.tone])}>{screenLine(t, m.now)}</span> : "Shows if they are on leave or teaching now"}>
             <div className="flex flex-col gap-2">
               {/* A long list is found by typing (layman loop 3: 42 names, no search on a phone). One match is chosen at once. */}
               {staff.length > 12 && (
@@ -120,12 +123,12 @@ function VisitorFields({ purposes, staff, photoRequired, idRequired, preset, pas
                   onChange={(e) => { setFind(e.target.value); const hits = matching(e.target.value); if (hits.length === 1) setMeetId(hits[0].id); }} />
               )}
               <KeepSelect id="vs-meet" name="meetStaffId" value={meetId} onChange={(e) => setMeetId(e.target.value)} className={cx(inputCls(meet.error), "h-11")} aria-invalid={meet.error ? true : undefined}>
-                <option value="">Choose staff member</option>
-                {shownStaff.map((s) => <option key={s.id} value={s.id}>{s.name} · {s.role}</option>)}
+                <option value="">{t("Choose staff member")}</option>
+                {shownStaff.map((s) => <option key={s.id} value={s.id}>{s.name} · {t.any(s.role)}</option>)}
               </KeepSelect>
             </div>
           </FieldShell>
-          {m?.tone === "bad" && <p className="text-[12.5px] text-bad flex items-center gap-1.5" role="alert"><CircleAlert size={14} aria-hidden="true" />{m.name} <Words k="is not in today (" />{m.now.toLowerCase()}<Words k="). Book an appointment instead, or choose someone else." /></p>}
+          {m?.tone === "bad" && <p className="text-[12.5px] text-bad flex items-center gap-1.5" role="alert"><CircleAlert size={14} aria-hidden="true" />{t("{name} is not in today ({why}). Book an appointment instead, or choose someone else.", { name: m.name, why: screenLine(t, m.now).toLowerCase() })}</p>}
           {preset?.note && <input type="hidden" name="note" value={preset.note} />}
         </div>
         <div className="flex flex-col gap-4 min-w-0">
@@ -139,7 +142,7 @@ function VisitorFields({ purposes, staff, photoRequired, idRequired, preset, pas
         </summary>
         <div className="px-4 pb-4 flex flex-col gap-4">
           <div className="grid grid-cols-[140px_1fr] gap-3">
-            <SSelect name="idProofType" label="ID proof" required={idRequired} start="Aadhaar" options={ID_PROOF_TYPES.map((t) => ({ value: t, label: t }))} />
+            <SSelect name="idProofType" label="ID proof" required={idRequired} start="Aadhaar" options={ID_PROOF_TYPES.map((x) => ({ value: x, label: x }))} />
             <SText name="idProofNo" label="Number" required={idRequired} className="[&_input]:font-mono" maxLength={30} autoComplete="off"
               help={idRequired ? "Required by school policy. Later, staff see only its last 4 digits." : "Optional. Later, staff see only its last 4 digits."} />
           </div>
@@ -163,9 +166,11 @@ function NewPassAnyway() {
 }
 
 export function CheckOutSheet({ closeHref, visitor, start }: { closeHref: string; visitor: { id: string; name: string; passNo: string; expired: boolean; when: string }; start: string }) {
+  const t = useT();
+  const vars = { name: visitor.name, pass: visitor.passNo, date: visitor.when };
   return (
-    <SheetForm title={`Check out ${visitor.name}?`} closeHref={closeHref} action={checkOutAction} hidden={{ visitorId: visitor.id }} pendingText="Checking out…"
-      sub={visitor.expired ? `Pass ${visitor.passNo} from ${visitor.when} was never checked out. Enter the time they actually left.` : `Pass ${visitor.passNo} stops working now.`}
+    <SheetForm title={t("Check out {name}?", vars)} closeHref={closeHref} action={checkOutAction} hidden={{ visitorId: visitor.id }} pendingText="Checking out…"
+      sub={visitor.expired ? (visitor.when === "today" ? t("Pass {pass} from today was never checked out. Enter the time they actually left.", vars) : t("Pass {pass} from {date} was never checked out. Enter the time they actually left.", vars)) : t("Pass {pass} stops working now.", vars)}
       submitLabel={<TimeLabel start={start} />}>
       <TimeField start={start} />
     </SheetForm>
@@ -192,14 +197,14 @@ function TimeField({ start }: { start: string }) {
 function TimeLabel({ start }: { start: string }) {
   const [v, setV] = useState(shared || start);
   useEffect(() => { listeners.add(setV); return () => { listeners.delete(setV); }; }, []);
-  return <><Words k="Check out at" /> {ampm(v) || "…"}</>;
+  return <Words k="Check out at {time}" vars={{ time: ampm(v) || "…" }} />;
 }
 
 const GATE_OPTIONS = [{ value: "vehicle", label: "Vehicle" }, { value: "school-bus", label: "School bus" }, { value: "delivery", label: "Delivery" }, { value: "person", label: "Person" }];
 
 export function GateEntrySheet({ closeHref, nowWords }: { closeHref: string; nowWords: string }) {
   return (
-    <SheetForm title="Gate entry" sub={`Recorded with the time now: ${nowWords}`} closeHref={closeHref} action={gateEntryAction} submitLabel="Record" pendingText="Recording…">
+    <SheetForm title="Gate entry" sub={<Words k="Recorded with the time now: {time}" vars={{ time: nowWords }} />} closeHref={closeHref} action={gateEntryAction} submitLabel="Record" pendingText="Recording…">
       <GateFields />
     </SheetForm>
   );
@@ -225,6 +230,7 @@ export function PassCheckForm({ base, code }: { base: string; code: string }) {
   const video = useRef<HTMLVideoElement>(null);
   const [scanning, setScanning] = useState(false);
   const canScan = useCanScanQr();
+  const tr = useT();
   const [busy, start] = useTransition();
   const go = (c: string) => {
     const m = /check=([A-Z0-9-]+)/i.exec(c);
@@ -264,13 +270,13 @@ export function PassCheckForm({ base, code }: { base: string; code: string }) {
         <span className={cx("absolute inset-x-6 h-0.5 bg-brand/70 rounded-full", busy || scanning ? "top-1/2 animate-pulse" : "top-6")} aria-hidden="true" />
         {!scanning && (
           <div className="flex flex-col items-center gap-1.5 text-ink3 text-[13px]">
-            <ScanLine size={28} aria-hidden="true" />{busy ? "Reading…" : canScan ? "Hold the QR inside the frame" : "Type the pass number below"}
+            <ScanLine size={28} aria-hidden="true" /><Words k={busy ? "Reading…" : canScan ? "Hold the QR inside the frame" : "Type the pass number below"} />
             {canScan && <Button size="sm" variant="secondary" onClick={() => setScanning(true)}><Words k="Use the camera" /></Button>}
           </div>
         )}
       </div>
       <form className="flex gap-2" onSubmit={(e) => { e.preventDefault(); go(String(new FormData(e.currentTarget).get("code") ?? "")); }}>
-        <input name="code" defaultValue={code} placeholder="V-0246 or GP-2026-0190" className={cx(inputCls(false), "h-11 font-mono uppercase")} aria-label="Pass number" autoComplete="off" />
+        <input name="code" defaultValue={code} placeholder="V-0246 or GP-2026-0190" className={cx(inputCls(false), "h-11 font-mono uppercase")} aria-label={tr("Pass number")} autoComplete="off" />
         <Button type="submit" variant="primary" loading={busy}><Words k="Check" /></Button>
       </form>
     </div>

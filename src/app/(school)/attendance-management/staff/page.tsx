@@ -184,7 +184,11 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
     const dc = { all: inDept.length, late: inDept.filter(isLate).length, leave: inDept.filter(isLeave).length, notIn: inDept.filter(notIn).length };
     const rows = inDept.filter((r) => (status === "late" ? isLate(r) : status === "leave" ? isLeave(r) : status === "not-marked" ? notIn(r) : true))
       .toSorted((a, b) => Number(notIn(b)) - Number(notIn(a)) || Number(isLate(b)) - Number(isLate(a)));
+    // A day off (Sunday, a holiday): nobody is "not in", so no red counts or pills (layman loop 4: 42 staff
+    // showed "Not in yet" on a Sunday, as if the whole staff was absent).
+    const off = !data.info.on;
     const statusPill = (r: StaffDayRow) => {
+      if (notIn(r) && off) return null;
       if (notIn(r)) return <Pill tone={isToday && !lock.locked ? "bad" : "neutral"}>{isToday ? "Not in yet" : "Not marked"}</Pill>;
       if (!r.mark) return <Pill tone="info"><Words k="On leave" /></Pill>;
       const st = byKey.get(r.mark.statusKey);
@@ -224,14 +228,14 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
 
     return (
       <>
-        <Stats items={[
+        {!off && <Stats items={[
           { label: "Present", value: `${present} of ${total}`, sub: total ? `${Math.round((present / total) * 1000) / 10}% · ${late.length} of them late` : "No staff", tone: "ok", icon: UserCheck, href: qs({ status: null }) },
           { label: "Late", value: late.length, sub: late.length ? `${lateAvg} min late on average` : "Nobody late", tone: late.length ? "warn" : undefined, icon: Clock, href: qs({ status: "late" }) },
           { label: "On leave", value: leave.length, sub: "Approved in Staff & HR", icon: CalendarDays, href: qs({ status: "leave" }) },
           { label: isToday ? "Not in yet" : "Not marked", value: missing.length, sub: missing.length ? (isToday ? `No punch by ${formatTime(now, tz)}` : "No mark that day") : "Everyone is in", tone: missing.length ? "bad" : "ok", icon: UserX, href: qs({ status: "not-marked" }) },
-        ]} />
-        {!data.info.on && <Banner tone="warn" title={offDayMessage(data.info, date)}><Words k={"If the school is open that day, the School Admin can turn on \"allow attendance\" for the date in the School Calendar."} /></Banner>}
-        {tiles.length > 1 && (
+        ]} />}
+        {off && <Banner tone="info" title={offDayMessage(data.info, date)}><Words k={"If the school is open that day, the School Admin can turn on \"allow attendance\" for the date in the School Calendar."} /></Banner>}
+        {tiles.length > 1 && !off && (
           <Card>
             <CardHeader icon={Building2} title="By department" description={deptName ? `Showing ${deptName} only · tap it again for everyone` : "Tap a department to see only its staff"} />
             <ul className="grid grid-cols-2 md:grid-cols-4 gap-2.5 px-4 pb-4">
@@ -268,7 +272,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
                 { value: "all", label: deptName ? `All in ${deptName}` : "Everyone", count: dc.all, href: qs({ status: null }) },
                 { value: "late", label: "Late", count: dc.late, href: qs({ status: "late" }) },
                 { value: "leave", label: "On leave", count: dc.leave, href: qs({ status: "leave" }) },
-                { value: "not-marked", label: isToday ? "Not in yet" : "Not marked", count: dc.notIn, href: qs({ status: "not-marked" }) },
+                ...(off ? [] : [{ value: "not-marked", label: isToday ? "Not in yet" : "Not marked", count: dc.notIn, href: qs({ status: "not-marked" }) }]),
               ]} />
             </div>
             <DataList rows={rows} rowKey={(r) => r.staffId} href={(r) => qs({ staff: r.staffId, month: null })} minWidth={600} caption={`Staff attendance, ${dayText(date)}`}
@@ -278,7 +282,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
                 { key: "in", label: "Came in", render: (r) => r.mark?.inTime ? <div className="whitespace-nowrap"><p className="tnum leading-tight">{formatTime(r.mark.inTime, tz)}{r.mark.outTime ? <span className="text-ink3"> <Words k="to" /> {formatTime(r.mark.outTime, tz)}</span> : null}</p>{source(r)}</div> : <span className="text-ink3">—</span> },
                 { key: "st", label: "Status", render: (r) => <div>{statusPill(r)}{r.onLeave && r.mark?.statusKey !== "leave" && <p className="text-[11.5px] text-ink3 mt-0.5"><Words k="Approved leave" /></p>}{r.overtimeMinutes > 0 && <p className="text-[11.5px] text-ink3 mt-0.5"><Words k="Overtime" /> {minutesText(r.overtimeMinutes)}</p>}</div> },
               ]}
-              mobile={(r) => ({ avatar: r.name, title: r.name, sub: `${r.designation} · ${r.mark?.inTime ? `in ${formatTime(r.mark.inTime, tz)}` : r.onLeave ? "on leave" : "no punch yet"}`, right: statusPill(r) })}
+              mobile={(r) => ({ avatar: r.name, title: r.name, sub: `${r.designation}${r.mark?.inTime ? ` · in ${formatTime(r.mark.inTime, tz)}` : r.onLeave ? " · on leave" : off ? "" : " · no punch yet"}`, right: statusPill(r) })}
               footer={rows.length > 0 ? <p className="px-4 py-3 border-t border-line text-[13px] text-ink3 tnum"><Words k="Showing {n} of {total}" vars={{ n: rows.length, total: dc.all }} /></p> : false}
               empty={<EmptyState bare Icon={Users} title={filtered ? "No staff match" : "No staff yet"}>{filtered ? "Try another name, department or status." : "Staff appear here once they are added in Staff & HR Management."}</EmptyState>} />
           </Card>

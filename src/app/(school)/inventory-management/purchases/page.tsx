@@ -162,7 +162,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
     requests: [{ value: "", label: t("All") }, ...Object.entries(REQUEST_STATUS).map(([value, v]) => ({ value, label: v.label }))],
     orders: [{ value: "", label: t("All") }, { value: "open", label: t("To receive") }, ...Object.entries(ORDER_STATUS).map(([value, v]) => ({ value, label: v.label }))],
     receipts: [],
-    bills: [{ value: "", label: t("All") }, { value: "unpaid", label: t("Unpaid") }, { value: "due7", label: t("Due within 7 days") }, { value: "waiting", label: t("Waiting approval") }, { value: "paid", label: t("Paid") }, { value: "cancelled", label: t("Cancelled") }],
+    bills: [{ value: "", label: t("All") }, { value: "unpaid", label: t("Unpaid") }, { value: "due7", label: t("Overdue or due in 7 days") }, { value: "waiting", label: t("Waiting approval") }, { value: "paid", label: t("Paid") }, { value: "cancelled", label: t("Cancelled") }],
     vendors: [{ value: "", label: t("Active") }, { value: "archived", label: t("Archived") }],
   };
   const pager = d.total > PAGE_SIZE ? <Pager page={page} pageSize={PAGE_SIZE} total={d.total} prevHref={here({ page: page > 2 ? String(page - 1) : null })} nextHref={here({ page: String(page + 1) })} /> : null;
@@ -170,7 +170,8 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
 
   return (
     <>
-      <InvHead pageName="Purchases & Vendors" href={`${BASE}/purchases`} mode={p.mode} actions={actions} />
+      {/* No "View only" tag beside buttons that work: a person who records or pays bills does the work here (loop 4). */}
+      <InvHead pageName="Purchases & Vendors" href={`${BASE}/purchases`} mode={can.purchase || can.pay ? "full" : p.mode} actions={actions} />
       <Stack>
         <Stats items={stats} />
         <SegLinks label={t("Purchases tabs")} value={tab} options={[
@@ -244,7 +245,7 @@ export default async function PurchasesPage({ searchParams }: { searchParams: Se
               columns={[
                 { key: "date", label: t("Bill date"), nowrap: true, render: (b) => <span className="tnum">{day(b.bill.billDate)}<span className="block text-[12px] text-ink3 font-mono">{b.bill.billNo}</span></span> },
                 { key: "vendor", label: t("Vendor"), render: (b) => <b className="font-semibold">{d.vendorName.get(b.bill.vendorId) ?? ""}</b> },
-                { key: "order", label: t("Order"), render: (b) => (b.bill.orderId ? <Link className="font-mono text-[13px] text-brand hover:underline" href={`${BASE}/purchases/orders/${b.bill.orderId}`}><Words k="Open order" /></Link> : <span className="text-ink3"><Words k="Direct" /></span>) },
+                { key: "order", label: t("Order"), render: (b) => (b.bill.orderId ? <Link className="text-[13px] font-semibold text-brand hover:underline" href={`${BASE}/purchases/orders/${b.bill.orderId}`}><Words k="Open order" /></Link> : <span className="text-ink3"><Words k="Direct" /></span>) },
                 { key: "amount", label: t("Amount"), align: "right", nowrap: true, render: (b) => formatRupees(b.bill.amountPaise) },
                 { key: "left", label: t("To pay"), align: "right", nowrap: true, render: (b) => (b.expense && b.expense.status !== "CANCELLED" ? formatRupees(b.expense.amountPaise - b.expense.paidPaise) : "") },
                 { key: "due", label: t("Due"), nowrap: true, render: (b) => (b.bill.dueDate ? <span className={b.bill.dueDate < today && b.expense && b.expense.paidPaise < b.expense.amountPaise ? "text-bad font-semibold" : ""}>{day(b.bill.dueDate)}</span> : "") },

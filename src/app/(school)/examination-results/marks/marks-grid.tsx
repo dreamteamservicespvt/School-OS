@@ -92,9 +92,22 @@ export function MarksGrid(props: Props) {
   const [importOpen, setImportOpen] = useState(false);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const saving = useRef(false);
+  /** Rows with a wrong mark already saved with that box empty, as they looked then. */
+  const emptied = useRef<Record<string, string>>({});
   const rowsRef = useRef(rows);
   const dirtyRef = useRef(dirty);
   useEffect(() => { rowsRef.current = rows; dirtyRef.current = dirty; }, [rows, dirty]);
+
+  // The problem with one box of marks, or null.
+  const partProblem = useCallback((c: Cat, text: string): string | null => {
+    const label = cats.length === 1 ? "the mark" : c.name;
+    const read = readMarkText(text);
+    if (read.kind === "bad") return `${label}: ${read.problem}`;
+    if (read.kind === "partial") return `${label}: “${text.trim()}” is not finished. Type AB for absent, ML for medical leave, or the mark.`;
+    const v = num(text);
+    if (v !== null && Number.isNaN(v)) return `${label} is not a number.`;
+    return checkMark(cats.length === 1 ? "This paper" : c.name, c.max, v);
+  }, [cats]);
 
   // Problems per student, checked as typed (the server checks again).
   const problemOf = useCallback((r: Row): string | null => {
@@ -102,18 +115,11 @@ export function MarksGrid(props: Props) {
     if (r.absent && (entered || r.grade)) return `marked ${r.medical ? "ML" : "AB"} and also has marks. Remove one.`;
     if (gradeOnly) return r.grade && !gradeList.includes(r.grade) ? `choose a grade from ${gradeList.join(", ")}.` : null;
     for (const c of cats) {
-      const label = cats.length === 1 ? "the mark" : c.name;
-      const text = r.parts[c.name] ?? "";
-      const read = readMarkText(text);
-      if (read.kind === "bad") return `${label}: ${read.problem}`;
-      if (read.kind === "partial") return `${label}: “${text.trim()}” is not finished. Type AB for absent, ML for medical leave, or the mark.`;
-      const v = num(text);
-      if (v !== null && Number.isNaN(v)) return `${label} is not a number.`;
-      const p = checkMark(cats.length === 1 ? "This paper" : c.name, c.max, v);
+      const p = partProblem(c, r.parts[c.name] ?? "");
       if (p) return p;
     }
     return null;
-  }, [cats, gradeOnly, gradeList]);
+  }, [cats, gradeOnly, gradeList, partProblem]);
 
   const totals = useMemo(() => Object.fromEntries(students.map((s) => {
     const r = rows[s.id];
@@ -132,14 +138,21 @@ export function MarksGrid(props: Props) {
   const marked = students.map((s) => totals[s.id]?.total).filter((t): t is number => t !== null && t !== undefined);
   const average = marked.length ? fmt(Math.round((marked.reduce((a, b) => a + b, 0) / marked.length) * 10) / 10) : null;
 
-  // Save what changed. Rows with a problem wait until they are fixed.
+  // Save what changed. A row with a wrong mark stays "not saved" until it is fixed, but its wrong
+  // box is saved EMPTY: typing 999 on the keypad had already saved the first 9, and that 9 stayed
+  // in the school's records while the screen showed 999 in red (layman loop 4).
   const flush = useCallback(async () => {
     if (saving.current) return;
-    const ids = [...dirtyRef.current].filter((id) => !problemOf(rowsRef.current[id]));
+    const good = [...dirtyRef.current].filter((id) => !problemOf(rowsRef.current[id]));
+    const wrong = gradeOnly ? [] : [...dirtyRef.current].filter((id) => {
+      const r = rowsRef.current[id];
+      return problemOf(r) && !r.absent && emptied.current[id] !== JSON.stringify(r);
+    });
+    const ids = [...good, ...wrong];
     if (ids.length === 0) return;
     const payload = ids.map((id) => {
       const r = rowsRef.current[id];
-      return { studentId: id, parts: Object.fromEntries(cats.map((c) => [c.name, num(r.parts[c.name] ?? "")])), absent: r.absent, medical: r.absent && r.medical, grade: r.grade || null, remark: r.remark || null };
+      return { studentId: id, parts: Object.fromEntries(cats.map((c) => [c.name, partProblem(c, r.parts[c.name] ?? "") ? null : num(r.parts[c.name] ?? "")])), absent: r.absent, medical: r.absent && r.medical, grade: r.grade || null, remark: r.remark || null };
     });
     const sent = Object.fromEntries(ids.map((id) => [id, JSON.stringify(rowsRef.current[id])]));
     saving.current = true;
@@ -148,7 +161,8 @@ export function MarksGrid(props: Props) {
       if (typeof navigator !== "undefined" && !navigator.onLine) throw new Error("offline");
       const res = await saveMarksAction(entryId, sectionId, payload);
       if (res.ok) {
-        const savedIds = ids.filter((id) => JSON.stringify(rowsRef.current[id]) === sent[id]);
+        for (const id of wrong) if (JSON.stringify(rowsRef.current[id]) === sent[id]) emptied.current[id] = sent[id];
+        const savedIds = good.filter((id) => JSON.stringify(rowsRef.current[id]) === sent[id]);
         setDirty((d) => { const n = new Set(d); for (const id of savedIds) n.delete(id); return n; });
         dirtyRef.current = new Set([...dirtyRef.current].filter((id) => !savedIds.includes(id)));
         try {
@@ -165,7 +179,7 @@ export function MarksGrid(props: Props) {
     } finally {
       saving.current = false;
     }
-  }, [cats, entryId, sectionId, storeKey, problemOf]);
+  }, [cats, entryId, sectionId, storeKey, problemOf, partProblem, gradeOnly]);
 
   // Marks typed earlier on this device that did not reach the school yet.
   useEffect(() => {
@@ -261,7 +275,12 @@ export function MarksGrid(props: Props) {
     if (!e) { try { localStorage.removeItem(storeKey); } catch { /* ignore */ } }
     return e;
   }
-  const trySubmit = () => { setTried(true); if (problems.length || blanks.length) return; setConfirm(true); };
+  // A failed Submit brings the list of what to fix into view: on a phone it was above the card, off screen (layman loop 4).
+  const trySubmit = () => {
+    setTried(true);
+    if (!problems.length && !blanks.length) return setConfirm(true);
+    requestAnimationFrame(() => document.getElementById("marks-fix")?.scrollIntoView({ block: "center", behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth" }));
+  };
 
   function fillFromSheet(list: ImportedRow[]) {
     for (const x of list) {
@@ -324,6 +343,7 @@ export function MarksGrid(props: Props) {
                 : { label: "Class average", value: average !== null && !gradeOnly ? `${average} / ${max}` : "—", icon: Calculator },
             ]} />
 
+            {(problems.length > 0 || (tried && blanks.length > 0)) && <div id="marks-fix" className="flex flex-col gap-5">
             {problems.length > 0 && (
               <Banner tone="bad" title={`${problems.length} ${problems.length === 1 ? "mark needs" : "marks need"} a fix.`}>
                 {problems.slice(0, 3).map((x) => `Roll ${x.s.rollNo ?? "–"}, ${x.s.name}: ${x.e}`).join(" ")}{problems.length > 3 ? ` And ${problems.length - 3} more.` : ""}
@@ -334,6 +354,7 @@ export function MarksGrid(props: Props) {
                 {blanks.slice(0, 4).map((s) => `${s.name} (roll ${s.rollNo ?? "–"})${missingWords(rows[s.id], cats, gradeOnly)}`).join(", ")}{blanks.length > 4 ? ` and ${blanks.length - 4} more` : ""}<Words k=". Type the mark, or AB for absent and ML for medical leave." />
               </Banner>
             )}
+            </div>}
 
             {view === "grid" ? (
               <Card className="overflow-hidden">
@@ -449,6 +470,7 @@ export function MarksGrid(props: Props) {
             <p className={cx("text-[12.5px] basis-full sm:basis-auto sm:flex-1 min-w-0 flex items-center gap-1.5 leading-snug", save.state === "error" ? "text-bad" : save.state === "offline" ? "text-warn" : "text-ink3")}>
               {save.state === "saving" ? <><Spinner size={13} /><Words k="Saving…" /></>
                 : save.state === "offline" || save.state === "error" ? <><CircleAlert size={13} aria-hidden="true" />{save.message}</>
+                : dirty.size && problems.length ? <><CircleAlert size={13} className="text-bad" aria-hidden="true" /><Words k="Marks in red are not saved. Fix them first." /></>
                 : dirty.size ? <><Circle size={8} className="text-warn fill-current" aria-hidden="true" /><Words k="Not sent to the school yet. Keep this page open, or tap Save now." /></>
                 : <><CircleCheck size={13} className="text-ok" aria-hidden="true" />{save.at ? <Words k="All marks saved at {time}" vars={{ time: formatTime(save.at) }} /> : <Words k="Marks save as you type" />}</>}
             </p>
@@ -539,7 +561,10 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
   const shown = r.absent ? code(r) : r.grade;
   return (
     // data-keypad: the phone's bottom menu steps aside while these keys are on screen (src/components/shell/app-shell.tsx).
-    <Card className="p-4 md:p-6 max-w-xl w-full mx-auto" data-keypad={canEdit ? "" : undefined}>
+    // overflow-anchor none: when the red line under the mark appears, the keys move down under it. The browser
+    // otherwise scrolled the page to keep the keys still, and the part that stays on screen then hid the
+    // top row of keys (layman loop 4).
+    <Card className="p-4 md:p-6 max-w-xl w-full mx-auto [overflow-anchor:none]" data-keypad={canEdit ? "" : undefined}>
       {/* On a phone the student and the mark box stay in view while the number keys and Next
           are on screen, even on a small phone (TEACHING-14); short screens get smaller keys. */}
       <div className="sticky top-16 z-10 -mx-4 -mt-4 px-4 pt-4 pb-2 rounded-t-2xl bg-surface md:static md:m-0 md:p-0 md:rounded-none">
@@ -587,9 +612,9 @@ function OneAtATime({ students, rows, cats, gradeOnly, gradeList, canEdit, canRe
             </div>
             {cats.length > 1 && <p className="mt-2 text-[13.5px] text-ink2"><Words k="Total" /> <b className="tnum text-ink">{t.total !== null ? `${fmt(t.total)} / ${max}` : !r.absent && !e && cats.some((x) => r.parts[x.name]) ? cats.map((x) => r.parts[x.name] || "—").join(" + ") : "—"}</b>{t.grade && <> <Words k="· Grade" /> <Pill tone={toneOf(t.grade, bands)} className="!h-5 !text-[11px]">{t.grade}</Pill></>}</p>}
             {canEdit && !e && !r.absent && fresh && c && r.parts[c.name] && <p className="mt-1 text-[12.5px] text-ink3"><Words k="The next key replaces this mark." /></p>}
-            {e && <p className="text-[13px] text-bad flex items-center gap-1.5 mt-2" role="alert"><CircleAlert size={15} aria-hidden="true" />{s.name} {e}</p>}
           </>
         )}
+        {e && <p className="text-[13px] text-bad flex items-center gap-1.5 mt-2" role="alert"><CircleAlert size={15} aria-hidden="true" />{s.name} {e}</p>}
       </div>
       {gradeOnly ? (
         canEdit ? (

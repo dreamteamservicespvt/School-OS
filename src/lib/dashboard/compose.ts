@@ -154,6 +154,8 @@ async function yearIdsIn(tx: Tx, viewer: Viewer, year: DashContext["year"]): Pro
 
 /** Thrown inside a lane's transaction to roll it back after a job failed. */
 const RESTART = Symbol("restart");
+/** A lane that has run this long starts a new transaction before its next job (the limit is 30 s). */
+const LANE_ROTATE_MS = 10_000;
 
 /**
  * Runs the bundles in a few transactions at the same time (QA PLATFORM-13:
@@ -171,26 +173,46 @@ async function runLanes(viewer: Viewer, base: Omit<DashContext, "tx" | "memo" | 
     let bundle = queue.shift();
     let at = 0;
     while (bundle) {
+      // This transaction's own state. A transaction that fails before any job ran is a real
+      // database problem (shown as such). After that it only ends the job that was running
+      // (layman loop 4: one slow widget ran a lane past the time limit, and "Transaction
+      // already closed" failed the whole home page); the lane goes on in a new transaction.
+      const run = { alive: true, started: 0, running: null as Job | null, opened: Date.now() };
       try {
         await withSchool(viewer.ctx, async (tx) => {
           // A year chosen in the filters: that year alone (gap list G36, Done when 8).
           const chosen = base.filters.yearId ? await yearById(tx, base.filters.yearId) : null;
           const year = chosen ?? await yearIn(tx, viewer);
           const c: DashContext = { ...base, tx, year, yearIds: chosen ? [chosen.id] : await yearIdsIn(tx, viewer, year), memo: memoFor() };
-          for (; bundle; bundle = queue.shift(), at = 0) {
-            while (at < bundle.length) {
-              const job = bundle[at++];
-              try {
-                await job.run(c);
-              } catch (e) {
-                job.fail(e);
-                throw RESTART;
-              }
+          // A transaction the lane already left takes no more jobs (and no more bundles); a long one
+          // hands over to a fresh transaction between jobs, well before the time limit.
+          const stop = () => !run.alive || (run.started > 0 && Date.now() - run.opened > LANE_ROTATE_MS);
+          while (bundle) {
+            if (at >= bundle.length) {
+              if (!run.alive) return;
+              bundle = queue.shift();
+              at = 0;
+              continue;
+            }
+            if (stop()) return;
+            const job = bundle[at++];
+            run.started++;
+            run.running = job;
+            try {
+              await job.run(c);
+              run.running = null;
+            } catch (e) {
+              run.running = null;
+              if (run.alive) job.fail(e);
+              throw RESTART;
             }
           }
         }, { timeout: 30_000 });
       } catch (e) {
-        if (e !== RESTART) throw e;
+        run.alive = false;
+        if (e === RESTART) continue;
+        if (run.running) { run.running.fail(e); continue; }
+        if (!run.started) throw e;
       }
     }
   };

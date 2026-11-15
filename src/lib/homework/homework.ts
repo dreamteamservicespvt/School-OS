@@ -91,6 +91,8 @@ export type GiveInput = {
   onlineSubmission: boolean;
   fromSuggestion: boolean;
   attachments: NewAttachment[];
+  /** The teacher saw "already given" and chose Send again. */
+  sendAgain?: boolean;
 };
 
 export function checkLink(raw: string) {
@@ -149,6 +151,18 @@ export async function giveHomework(tx: Tx, s: HomeworkScope, input: GiveInput, t
     for (const x of sections.filter((y) => y.classId === section.classId && y.yearId === section.yearId)) {
       const subs = await workSubjects(tx, s, x.id, x.classId, today);
       if (subs.some((y) => y.id === subject.id)) targets.push(x);
+    }
+  }
+  // The same title for the same class, subject and due date is almost always a second tap of Give homework:
+  // parents got two messages and the school paid twice (layman loop 4). Asked first; Send again gives it anyway.
+  if (!input.sendAgain) {
+    const same = await tx.homework.findFirst({
+      where: { sectionId: { in: targets.map((t) => t.id) }, subjectId: subject.id, dueDate: input.dueDate, archivedAt: null, title: { equals: title, mode: "insensitive" } },
+      select: { id: true, sectionId: true }, orderBy: { createdAt: "desc" },
+    });
+    if (same) {
+      const label = targets.find((t) => t.id === same.sectionId)?.label ?? section.label;
+      throw new HomeworkProblem(`You already gave “${title}” to ${label}, due ${dayDate(input.dueDate)}. Send it again?`, "sendAgain", { href: `/homework-learning/homework/${same.id}`, label: "Open the first one" });
     }
   }
   const groupId = targets.length > 1 ? randomUUID() : null;

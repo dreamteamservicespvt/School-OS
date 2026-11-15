@@ -9,10 +9,11 @@ import { redirect } from "next/navigation";
 import { z } from "zod";
 import { withSchool, type Tx } from "@/lib/db";
 import { flash } from "@/lib/flash";
-import { checkbox, formValues, indianMobile, optionalDate, optionalEmail, optionalIndianMobile, optionalText, parseForm, text, type FormState } from "@/lib/forms";
+import { checkbox, formValues, indianMobile, optionalDate, optionalEmail, optionalIndianMobile, optionalText, parseForm, type FormState } from "@/lib/forms";
 import { loadVisibleStudent, type Who } from "@/lib/students/access";
 import { createGuardian, linkGuardian, mergeGuardians, parentLinkProvider, PhoneOnRecord, setGuardianPhoto, setPickup, setPrimary, setRestriction, unlinkGuardian, updateGuardian } from "@/lib/students/guardians";
 import { IMAGE_TYPES, saveFile } from "@/lib/files";
+import { personName } from "@/lib/validate-name";
 import { requestConsent, withdrawConsent } from "@/lib/students/consent";
 import { CONSENT_TYPES, LANGUAGES, RELATIONS } from "@/lib/students/labels";
 import { StudentProblem } from "@/lib/students/students";
@@ -143,7 +144,7 @@ export async function linkSettingsAction(linkId: string, _prev: FormState, fd: F
 
 const guardianSchema = z.object({
   relationship: z.enum(RELATIONS, { message: "Choose the relation." }),
-  name: text("Full name", 120),
+  name: personName("Full name"),
   phone: indianMobile("Phone"),
   altPhone: optionalIndianMobile("Other phone"),
   email: optionalEmail(),

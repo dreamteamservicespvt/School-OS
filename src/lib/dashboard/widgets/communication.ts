@@ -46,14 +46,18 @@ const overdueQueries: Widget<"attention"> = {
   homes: ["leader"],
   allowed: (v) => reach(v, "communication") === "all",
   async load(c) {
-    const { count, where } = await queryCount(c, { overdue: "1" });
+    // Every open parent message, not only late ones (layman loop 4: a principal could not find the 3 open
+    // complaints from her home). Late ones come first and are named; the card opens Feedback & Queries.
+    const { count, where } = await queryCount(c, {});
     if (!count) return null;
+    const late = await c.tx.query.count({ where: { AND: [where, { dueBy: { lt: c.now } }] } });
     const rows = await c.tx.query.findMany({ where, orderBy: { dueBy: "asc" }, take: 2, select: { fromName: true, number: true } });
+    const names = count > 2 ? `${rows.map((r) => `${r.fromName} (${r.number})`).join(", ")} and ${count - 2} more` : someNames(rows.map((r) => `${r.fromName} (${r.number})`));
     return {
-      id: "communication.overdue-queries", tone: "warn", icon: "MessagesSquare",
-      title: `${plural(count, "parent query", "parent queries")} past the reply time`,
-      detail: count > 2 ? `${rows.map((r) => `${r.fromName} (${r.number})`).join(", ")} and ${count - 2} more` : someNames(rows.map((r) => `${r.fromName} (${r.number})`)),
-      action: "Open", href: `${QUERIES}?overdue=1`, value: String(count),
+      id: "communication.overdue-queries", tone: late ? "warn" : "info", icon: "MessagesSquare",
+      title: `Parent messages: ${n(count)} open`,
+      detail: late ? `${n(late)} past the reply time · ${names}` : names,
+      action: "Open", href: late ? `${QUERIES}?overdue=1` : QUERIES, value: `${count}:${late}`,
     };
   },
 };

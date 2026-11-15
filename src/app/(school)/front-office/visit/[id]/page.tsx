@@ -19,7 +19,7 @@ import { BackLink } from "@/components/ui/module-head";
 import { ActButton, type ActIcon } from "../../_components/fields";
 import { replyAction } from "../../actions";
 import { BASE, UUID } from "../../_lib/page";
-import { Words } from "@/lib/i18n/client";
+import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata() {
@@ -59,8 +59,8 @@ export default async function VisitPage({ params }: { params: Promise<{ id: stri
           <Avatar name={v.name} size={56} src={v.photoFileId ? fileLink(v.photoFileId, current.ctx.schoolId) : null} />
           <div className="min-w-0 flex-1">
             <p className="text-[17px] font-semibold text-ink">{v.name}{v.peopleCount > 1 && <span className="text-ink3 font-normal"> +{v.peopleCount - 1}</span>}</p>
-            <p className="text-[14px] text-ink2 mt-0.5">{v.purpose}{v.note ? ` · ${v.note}` : ""}</p>
-            <p className="text-[13px] text-ink3 mt-1 tnum"><Words k="Pass" /> <span className="font-mono">{v.passNo}</span> <Words k="· came in at" /> {clockAt(v.timeIn, tz)}{v.timeOut ? ` · left at ${clockAt(v.timeOut, tz)}` : ""}</p>
+            <p className="text-[14px] text-ink2 mt-0.5"><Any text={v.purpose} />{v.note ? ` · ${v.note}` : ""}</p>
+            <p className="text-[13px] text-ink3 mt-1 tnum"><Words k="Pass {pass} · came in at {time}" vars={{ pass: v.passNo, time: clockAt(v.timeIn, tz) }} />{v.timeOut ? <> · <Words k="left at {time}" vars={{ time: clockAt(v.timeOut, tz) }} /></> : null}</p>
           </div>
           <Pill tone={status === "In" ? "ok" : status === "Expired" ? "bad" : "neutral"}>{status === "In" ? "Inside" : status === "Expired" ? "Pass expired" : "Left"}</Pill>
         </div>

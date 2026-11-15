@@ -16,6 +16,10 @@ export type NoticeFormData = {
   values: { title: string; body: string; parents: boolean; students: boolean; staff: boolean; roleKeys: string[]; classIds: string[]; sectionIds: string[]; campusIds: string[]; priority: string; channels: string[]; publishAt: string; expiresOn: string; askAck: boolean; files: { id: string; name: string }[] };
   classes: { id: string; name: string; sections: { id: string; name: string }[] }[];
   roles: { key: string; name: string }[];
+  /** The subject and class teacher roles among them: "All teachers" ticks these. */
+  teacherKeys: string[];
+  /** Staff (working now) with no login: a notice never reaches them. */
+  staffNoLogin: number;
   campuses: { id: string; name: string }[];
   staffAllowed: boolean;
   wholeSchool: boolean;
@@ -44,6 +48,19 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
   const [staff, setStaff] = useState(v.staff);
   const [priority, setPriority] = useState(v.priority);
   const [classes, setClasses] = useState<string[]>(v.classIds);
+  const [roleKeys, setRoleKeys] = useState<string[]>(v.roleKeys);
+  // One tap for the usual audiences (layman loop 4: reaching teachers took untick Parents, tick Staff, find two roles).
+  const pick = (to: "parents" | "staff" | "teachers") => {
+    setParents(to === "parents"); setStudents(false); setStaff(to !== "parents"); setClasses([]);
+    setRoleKeys(to === "teachers" ? data.teacherKeys : []);
+  };
+  const QUICK: { key: "parents" | "staff" | "teachers"; label: string; on: boolean }[] = [
+    { key: "parents", label: "All parents", on: parents && !students && !staff && classes.length === 0 },
+    ...(data.staffAllowed ? [
+      { key: "staff" as const, label: "All staff", on: staff && !parents && !students && roleKeys.length === 0 },
+      ...(data.teacherKeys.length ? [{ key: "teachers" as const, label: "All teachers", on: staff && !parents && !students && roleKeys.length === data.teacherKeys.length && data.teacherKeys.every((k) => roleKeys.includes(k)) }] : []),
+    ] : []),
+  ];
   const [keep, setKeep] = useState(v.files);
   const [word, setWord] = useState("");
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -141,6 +158,16 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
       <section className="space-y-4 rounded-2xl border border-line/70 bg-surface p-5 shadow-card">
         <fieldset id="n-audience" tabIndex={-1}>
           <legend className="mb-2 font-semibold"><Words k="Audience" /> <span className="text-bad" aria-hidden>*</span></legend>
+          {QUICK.length > 1 && (
+            <div className="mb-2 flex flex-wrap gap-2">
+              {QUICK.map((q) => (
+                <button key={q.key} type="button" aria-pressed={q.on} onClick={() => pick(q.key)}
+                  className={`inline-flex min-h-11 items-center rounded-full border px-4 text-[14px] font-medium ${q.on ? "border-brand bg-brand/10 text-brand" : "border-line hover:border-ink3/50"}`}>
+                  {t.any(q.label)}
+                </button>
+              ))}
+            </div>
+          )}
           <div className="flex flex-wrap gap-x-6">
             <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="parents" checked={parents} onChange={(e) => setParents(e.target.checked)} className={box} /><Words k="Parents" /></label>
             <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="students" checked={students} onChange={(e) => setStudents(e.target.checked)} className={box} /><Words k="Students" /></label>
@@ -148,6 +175,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
           </div>
           {err("audience") && <p className="mt-1.5 text-[12.5px] text-bad">{err("audience")}</p>}
           {parents && wa && <p className="text-sm text-ink3"><Words k="Parents see it on Parent Link and by message." /></p>}
+          {staff && roleKeys.length === 0 && data.staffNoLogin > 0 && <p className="text-sm font-medium text-warn">{t("{n} staff have no login, so they will not see this.", { n: data.staffNoLogin })}</p>}
         </fieldset>
         {(parents || students) && data.classes.length > 0 && (
           <fieldset>
@@ -173,7 +201,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
           <fieldset>
             <legend className="mb-1 text-[13px] font-semibold text-ink2"><Words k="Staff roles (nothing ticked: all staff)" /></legend>
             <div className="flex flex-wrap gap-x-5">
-              {data.roles.map((r) => <label key={r.key} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="roleKeys" value={r.key} defaultChecked={v.roleKeys.includes(r.key)} className={box} />{r.name}</label>)}
+              {data.roles.map((r) => <label key={r.key} className="flex min-h-11 items-center gap-2"><input type="checkbox" name="roleKeys" value={r.key} checked={roleKeys.includes(r.key)} onChange={(e) => setRoleKeys(e.target.checked ? [...roleKeys, r.key] : roleKeys.filter((x) => x !== r.key))} className={box} />{r.name}</label>)}
             </div>
           </fieldset>
         )}
@@ -202,7 +230,8 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
         <fieldset>
           <legend className="mb-2 font-semibold"><Words k="Channels" /></legend>
           <div className="flex flex-wrap gap-x-5">
-            {CHANNELS.map((c) => (
+            {/* Parent Link reaches parents only: not offered (or listed) for a notice to staff or students (layman loop 4). */}
+            {CHANNELS.filter((c) => c.key !== "parent-link" || parents).map((c) => (
               <label key={c.key} className="flex min-h-11 items-center gap-2">
                 <input type="checkbox" name="channels" value={c.key} defaultChecked={c.fixed || v.channels.includes(c.key) || (c.key === "parent-link" && parents)} disabled={c.fixed || (c.key === "parent-link" && parents)} className={box}
                   onChange={c.key === "whatsapp" ? (e) => setWa(e.target.checked) : undefined} />
@@ -261,6 +290,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
             <li><b className="font-semibold"><Words k="Channels" />:</b> {confirm.by}</li>
             {/* Repeated here, so the clerk sees it at the moment of pressing Publish (layman loop 3). */}
             {parents && !wa && <li className="font-medium text-warn"><Words k="Parents without Parent Link will not get this. Tick WhatsApp to reach everyone." /></li>}
+            {staff && roleKeys.length === 0 && data.staffNoLogin > 0 && <li className="font-medium text-warn">{t("{n} staff have no login, so they will not see this.", { n: data.staffNoLogin })}</li>}
           </ul>
         )}
       </Dialog>

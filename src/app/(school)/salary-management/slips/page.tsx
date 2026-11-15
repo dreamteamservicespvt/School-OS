@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { ArrowUpRight, Calculator, Download, Eye, Hourglass, Info, Printer, ReceiptText, SearchX, Send, UserRound } from "lucide-react";
 import { withSchool } from "@/lib/db";
 import { channelSetups } from "@/lib/messaging/channels";
+import { inTestMode } from "@/lib/messaging/providers";
 import { decryptField, maskLast4 } from "@/lib/crypto";
 import { formatRupees } from "@/lib/format";
 import { salarySettings } from "@/lib/salary/settings";
@@ -200,7 +201,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
     const viewLine = view ? await tx.payrollLine.findUnique({ where: { id: view.lineId } }) : null;
     const viewAdjustments = view ? await tx.payrollAdjustment.findMany({ where: { runId: view.runId, staffId: view.staffId, archivedAt: null }, orderBy: { createdAt: "asc" } }) : [];
     const channels = await channelSetups(tx, ctx);
-    return { settings, runs, run, slips, staff, campus, view, viewLine, viewAdjustments, waOn: channels.whatsapp.isOn, emailOn: channels.email.isOn };
+    return { settings, runs, run, slips, staff, campus, view, viewLine, viewAdjustments, waOn: channels.whatsapp.isOn, emailOn: channels.email.isOn, waTest: channels.whatsapp.isOn && inTestMode(channels.whatsapp), emailTest: channels.email.isOn && inTestMode(channels.email) };
   });
   const run = data.run;
   const done = data.runs.filter((r) => DONE.includes(r.status as (typeof DONE)[number]));
@@ -282,11 +283,13 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
       })()}
       {doing === "send" && run && bulkIds.length > 0 && (
         <ConfirmSheet closeHref={here({ do: null, how: null, ids: null })} title={`Send ${bulkIds.length} salary slip${bulkIds.length === 1 ? "" : "s"} by ${howWord}?`} label={`Send to ${bulkIds.length} staff`} action={sendSlipsAction} hidden={{ ids: bulkIds.join(","), how }}>
+          {((how === "whatsapp" && data.waTest) || (how === "email" && data.emailTest)) && <Banner tone="warn" className="mb-3" title="Test mode: nothing is sent, no credits used." />}
           <p className="text-[14px] text-ink2"><Words k="Each staff member gets only their own" /> {monthName(run.month)} <Words k="slip: the message says it is ready and the slip opens in My profile, behind their login. Messages cannot be unsent." /></p>
         </ConfirmSheet>
       )}
       {doing === "send-unsent" && run && notSent > 0 && data.waOn && (
-        <ConfirmSheet closeHref={here({ do: null })} title={`Send ${notSent} unsent salary slip${notSent === 1 ? "" : "s"}?`} label={`Send to ${notSent} staff`} action={sendSlipsAction} hidden={{ runId: run.id, how: "whatsapp" }}>
+        <ConfirmSheet closeHref={here({ do: null })} title={`Send ${monthName(run.month)} slips to ${notSent} staff?`} label={`Send to ${notSent} staff`} action={sendSlipsAction} hidden={{ runId: run.id, how: "whatsapp" }}>
+          {data.waTest && <Banner tone="warn" className="mb-3" title="Test mode: nothing is sent, no credits used." />}
           <p className="text-[14px] text-ink2"><Words k="By WhatsApp. Staff with no WhatsApp number on file are listed after sending; print their slips instead. Messages cannot be unsent." /></p>
         </ConfirmSheet>
       )}

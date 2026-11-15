@@ -67,6 +67,11 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
   const targets = data.settings.queryTargets;
   const status = params.filters.status ?? "active";
   const filtered = Boolean(params.q || params.filters.type || params.filters.topic || params.filters.owner || params.filters.priority || params.filters.period || params.filters.from);
+  // What the parent said, first line (layman loop 4: rows showed only "Harish Mehta · Transport · Q-00001").
+  const saidLine = (text: string) => {
+    const line = text.trim().split(/\r?\n/)[0]?.trim() ?? "";
+    return line.length > 70 ? `${line.slice(0, 69)}…` : line;
+  };
   const isOverdue = (q: (typeof data.rows)[number]) => Boolean(q.dueBy && q.dueBy < now && (q.status === "OPEN" || q.status === "IN_PROGRESS"));
 
   return (
@@ -75,14 +80,17 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
         sub={access.full ? "Each gets a number, an owner and a status." : "Given to you or your department, or logged by you."}
         actions={<ButtonLink href="/communication/queries/new" variant="primary" icon={Plus}><Words k="Log a query" /></ButtonLink>} />
       <div className="flex flex-col gap-5 lg:gap-6">
+        {/* Phones: the tickets come first and the numbers after them (layman loop 4: six tiles before 3 tickets). */}
+        <div className="order-last md:order-none">
         <Stats items={[
-          { label: "Open", value: count("OPEN").toLocaleString("en-IN"), icon: Inbox, tone: "warn", href: "/communication/queries" },
-          { label: "In progress", value: count("IN_PROGRESS").toLocaleString("en-IN"), icon: LoaderCircle, tone: "info", href: "/communication/queries" },
-          { label: "Overdue", value: data.overdue.toLocaleString("en-IN"), icon: Clock, tone: data.overdue ? "bad" : undefined, sub: targets.on ? "Sent up the line" : "Reply targets are off", href: "/communication/queries?status=overdue" },
-          { label: "Resolved this month", value: data.resolvedMonth.toLocaleString("en-IN"), icon: CircleCheck, tone: "ok", href: "/communication/queries?status=done" },
+          { label: "Open", value: count("OPEN").toLocaleString("en-IN"), icon: Inbox, tone: "warn" as const, href: "/communication/queries" },
+          { label: "In progress", value: count("IN_PROGRESS").toLocaleString("en-IN"), icon: LoaderCircle, tone: "info" as const, href: "/communication/queries" },
+          { label: "Overdue", value: data.overdue.toLocaleString("en-IN"), icon: Clock, tone: data.overdue ? "bad" as const : undefined, sub: targets.on ? "Sent up the line" : "Reply targets are off", href: "/communication/queries?status=overdue" },
+          { label: "Resolved this month", value: data.resolvedMonth.toLocaleString("en-IN"), icon: CircleCheck, tone: "ok" as const, href: "/communication/queries?status=done" },
           { label: "Time to resolve", value: avgDays === null ? "–" : `${avgDays < 1 ? avgDays.toFixed(1) : Math.round(avgDays * 10) / 10} days`, icon: Timer, sub: "Average" },
           { label: "Satisfaction", value: data.ratings._count.rating ? `${(data.ratings._avg.rating ?? 0).toFixed(1)} of 5` : "–", icon: Star, sub: `${data.ratings._count.rating} ${data.ratings._count.rating === 1 ? "rating" : "ratings"}` },
-        ]} />
+        ].filter((x) => x.value !== "–")} />
+        </div>
         <Card className="overflow-hidden min-w-0">
           <Toolbar className="flex-wrap">
             <UrlSearch placeholder="Ticket no., name or details" className="min-w-[14rem]" />
@@ -110,7 +118,7 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
             }
             columns={[
               { key: "id", label: "Ticket", nowrap: true, render: (q) => <span className="font-mono text-[12.5px]">{q.number}</span> },
-              { key: "from", label: "From", render: (q) => <div><p className="font-semibold leading-tight">{q.fromName}</p><p className="text-[12.5px] text-ink3">{labels.about(q) || q.details.slice(0, 40)}</p></div> },
+              { key: "from", label: "From", render: (q) => <div><p className="font-semibold leading-tight">{q.fromName}</p>{labels.about(q) && <p className="text-[12.5px] text-ink3">{labels.about(q)}</p>}<p className="text-[12.5px] text-ink2 line-clamp-1">{saidLine(q.details)}</p></div> },
               { key: "type", label: "Type", render: (q) => <span className="text-[13px]">{QUERY_TYPE_LABEL[q.type as QueryType] ?? q.type}<span className="block text-ink3 text-[12px]">{labels.topic(q)}</span></span> },
               { key: "pri", label: "Priority", render: (q) => <Pill tone={PRIORITY_TONE[q.priority] ?? "neutral"}>{QUERY_PRIORITIES.find((p) => p.key === q.priority)?.label ?? q.priority}</Pill> },
               { key: "owner", label: "Owner", render: (q) => <span className="text-[13px]">{labels.owner(q)}</span> },
@@ -118,7 +126,7 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
               { key: "due", label: "Due by", nowrap: true, render: (q) => <span className={cx("text-[13px]", isOverdue(q) && "text-bad font-semibold")}>{q.dueBy ? formatDateTime(q.dueBy, tz) : "–"}<span className="block text-ink3 text-[12px] font-normal">{ageWords(q.createdAt, now)} <Words k="old" /></span></span> },
             ]}
             mobile={(q) => ({
-              title: `${q.fromName}${labels.topic(q) ? ` · ${labels.topic(q)}` : ""}`, sub: `${q.number} · ${labels.about(q) || ageWords(q.createdAt, now)}`,
+              title: `${q.fromName}${labels.topic(q) ? ` · ${labels.topic(q)}` : ""}`, sub: `${saidLine(q.details)} · ${q.number}`,
               icon: q.type === "complaint" ? TriangleAlert : MessageSquareText, iconTone: isOverdue(q) ? "bad" : (STATUS_TONE[q.status] as "warn"),
               pills: [
                 <Pill key="s" tone={STATUS_TONE[q.status]} className="!h-[22px] !text-[11.5px]">{QUERY_STATUS_LABEL[q.status]}</Pill>,

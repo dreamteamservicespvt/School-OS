@@ -9,6 +9,8 @@ import { Prisma } from "@prisma/client";
 import { requireAction, type Current } from "../current";
 import { withSchool, type SchoolContext, type Tx } from "../db";
 import { flash, type Flash } from "../flash";
+import { makeT, personLanguage } from "../i18n/server";
+import { englishT, type T as Words } from "../i18n/t";
 import { formValues, type FormState } from "../forms";
 import { PermissionDeniedError, type Action } from "../permissions";
 import { FileProblem } from "../files";
@@ -40,6 +42,15 @@ export function problemState(e: unknown, fd?: FormData): NonNullable<FormState<{
   return { ok: false, message: "That did not save because of a problem on our side. Nothing was changed. Please try again.", values };
 }
 
+/** The signed-in person's screen language, for toasts said whole with names in them (layman loop 4); English if unknown. */
+export function foT(current: Pick<Current, "user" | "school">): Words {
+  try {
+    return makeT(personLanguage(current.user, current.school));
+  } catch {
+    return englishT;
+  }
+}
+
 /** Runs work for a person allowed this action in Front Office, inside the school's walls. */
 export async function inFrontOffice<T>(action: Action, work: (w: FoWork) => Promise<T>) {
   const { current } = await requireAction("front-office", action);
@@ -51,14 +62,16 @@ export async function inFrontOffice<T>(action: Action, work: (w: FoWork) => Prom
  * A server action: checks, does the work, answers with a FormState. Work that
  * returns a KeptRefusal is saved (what it wrote stays) and answered as a refusal.
  */
-export async function foAction<T>(action: Action, fd: FormData | undefined, work: (w: FoWork) => Promise<T | KeptRefusal>, success: (result: T) => Flash | string): Promise<FormState<T>> {
+export async function foAction<T>(action: Action, fd: FormData | undefined, work: (w: FoWork) => Promise<T | KeptRefusal>, success: (result: T, t: Words) => Flash | string): Promise<FormState<T>> {
   try {
-    const result = await inFrontOffice(action, work);
+    let say: Words = englishT;
+    const result = await inFrontOffice(action, (w) => { say = foT(w.current); return work(w); });
     if (result instanceof KeptRefusal) {
       revalidatePath("/", "layout");
       return { ok: false, message: result.message, errors: result.field ? { [result.field]: result.message } : undefined, values: fd ? formValues(fd) : undefined };
     }
-    const f = success(result);
+    // The toast is said in the screen's language, names and times filled in (layman loop 4).
+    const f = success(result, say);
     const message = typeof f === "string" ? f : f.message;
     await flash(typeof f === "string" ? { message } : f);
     revalidatePath("/", "layout");

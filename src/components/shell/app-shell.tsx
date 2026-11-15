@@ -18,6 +18,7 @@ import { SheetHead } from "@/components/ui/dialog";
 import { markAllNotificationsRead, openNotification, setAppearance, signOut, switchSchool } from "@/app/(school)/actions";
 import { Logo } from "./logo";
 import { useT } from "@/lib/i18n/client";
+import { screenLine } from "@/lib/i18n/messages";
 import { LANGUAGE_OWN_NAME } from "@/lib/i18n/languages";
 import { BellWatch } from "./bell-watch";
 import { SoundToggle } from "./sound-toggle";
@@ -469,9 +470,9 @@ function NotifPanel({ open, onClose, notes, total, sound }: { open: boolean; onC
                   <span className={cx("mt-1.5 w-2 h-2 rounded-full shrink-0", n.unread ? "bg-brand" : "bg-transparent")} aria-hidden="true" />
                   <span className="min-w-0 flex-1">
                     {n.unread && <span className="sr-only">{t("Unread.")} </span>}
-                    <span className={cx("block text-[14px] leading-snug", n.unread ? "font-semibold" : "text-ink2")}>{n.text}</span>
+                    <span className={cx("block text-[14px] leading-snug", n.unread ? "font-semibold" : "text-ink2")}>{screenLine(t, n.text)}</span>
                   </span>
-                  <span className="text-[11.5px] text-ink3 whitespace-nowrap">{n.when}</span>
+                  <span className="text-[11.5px] text-ink3 whitespace-nowrap">{screenLine(t, n.when)}</span>
                 </button>
               </form>
             </li>

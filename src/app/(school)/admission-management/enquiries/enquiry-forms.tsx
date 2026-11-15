@@ -17,7 +17,7 @@ import type { CustomFieldDef, CustomValues } from "@/lib/custom-field-rules";
 import type { Match } from "@/lib/admission/enquiries";
 import { FormProblem, MoreDetails, PhoneField, SegField, Submit, WhenField } from "../_components/forms";
 import { addEnquiryAction, checkDuplicates, editEnquiryAction } from "./actions";
-import { Words } from "@/lib/i18n/client";
+import { useT, Words } from "@/lib/i18n/client";
 import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
 
 export type EnquiryChoices = {
@@ -71,6 +71,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
   const [owner, setOwner] = useState("");
   const [source, setSource] = useState(c.defaultSource);
   const [, start] = useTransition();
+  const t = useT();
   const done = useRef(false);
   const formRef = useRef<HTMLFormElement>(null);
   const draft = useFormDraft(formRef, mode === "add" ? "Add enquiry" : "Edit enquiry");
@@ -91,7 +92,10 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
   };
   const ruleOwner = c.ownerRule === "class" && classId ? c.ownerByClass[classId] ?? c.defaultOwner : c.ownerRule === "turn" ? "" : c.defaultOwner;
   const ownerValue = owner || ruleOwner;
-  const ownerHint = owner ? "Changed by hand. The history keeps it." : c.ownerRule === "turn" ? `Set by “Who gets new enquiries”: in turn${c.turnNext ? `, next is ${c.turnNext}` : ""}` : "Follow-up calls go to this person. Usually leave as is.";
+  // Say why this owner was picked: a first-time receptionist did not know why a teacher got her follow-ups (layman loop 4).
+  const ruleName = c.owners.find((o) => o.value === ownerValue)?.label.replace(/ \(.*\)$/, "");
+  const ownerHint = owner ? t("Changed by hand. The history keeps it.") : c.ownerRule === "turn" ? (c.turnNext ? t("Set by “Who gets new enquiries”: in turn, next is {name}", { name: c.turnNext }) : t("Set by “Who gets new enquiries”: in turn"))
+    : ruleName ? t("School rule: new enquiries go to {name}. Follow-up calls go to them.", { name: ruleName }) : t("Follow-up calls go to this person. Usually leave as is.");
   const live = c.sources.map((s) => s.value);
   const segSources = PRIMARY_SOURCES.filter((s) => live.includes(s));
   const others = c.sources.filter((s) => !segSources.includes(s.value));
@@ -105,7 +109,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
       {!state?.data?.matches && <FormProblem state={state} />}
       <TextField label="Child’s name" name="childName" required maxLength={120} placeholder="First and last name" autoComplete="off" defaultValue={val("childName", saved?.childName)} error={err("childName")} />
       <TextField label="Parent’s name" name="parentName" required maxLength={120} placeholder="Father, mother or guardian" autoComplete="off" defaultValue={val("parentName", saved?.parentName)} error={err("parentName")} />
-      <PhoneField label="Phone" name="phone" required defaultValue={val("phone", saved?.phone)} error={err("phone")} onBlur={check} help="We look for a matching family" />
+      <PhoneField label="Phone" name="phone" required defaultValue={val("phone", saved?.phone)} error={err("phone")} onBlur={check} help="We find a family already linked to this number" />
       <DuplicateBox matches={matches} pick={pick} onSibling={() => setPick("sibling")} onNewFamily={mode === "add" ? () => setPick("new") : undefined} onCancel={() => setTyped([])} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SelectField label="Class wanted" name="classId" options={c.classes} placeholder="Not decided" value={classId} onChange={(e) => setClassId(e.target.value)} error={err("classId")} />

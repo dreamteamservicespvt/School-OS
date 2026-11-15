@@ -118,6 +118,12 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
   const noStructureNow = staffWithoutStructure(data.lines, data.missing.map((m) => m.id));
   const noStructure = noStructureNow.all.map((staffId) => ({ staffId }));
   const incomplete = included.filter((l) => l.flags.includes("Attendance not complete"));
+  // Days nobody marked are paid as present (calc.ts takes only loss of pay off), so every place says so (loop 4).
+  const unmarkedDays = incomplete.reduce((s, l) => s + l.notMarkedDays, 0);
+  const sameUnmarked = incomplete.length > 0 && incomplete.every((l) => l.notMarkedDays === incomplete[0].notMarkedDays);
+  const unmarkedWords = incomplete.length ? `Attendance not marked for ${incomplete.length} staff (${sameUnmarked ? `${incomplete[0].notMarkedDays} ${incomplete[0].notMarkedDays === 1 ? "day" : "days"} each` : `${unmarkedDays} days in all`}): those days are paid as present.` : "";
+  // A tag on every row means nothing: when all staff have it, it shows once, in the checks (loop 4).
+  const hideFlag = (f: string) => f === "Attendance not complete" && included.length > 1 && incomplete.length === included.length;
   const noTds = included.filter((l) => l.flags.includes("No TDS amount"));
   const lopLines = included.filter((l) => Number(l.lopDays) > 0);
   const corrections = data.adjustments.filter((a) => a.forMonth);
@@ -228,7 +234,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                       action={<ButtonLink href={here({ show: "flag" })} scroll={false} size="sm" variant="secondary"><Words k="Show" /></ButtonLink>} />}
                     {noStructure.length > 0 && <Check1 icon={FileWarning} tone="warn" title={`${noStructure.length} staff ${noStructure.length === 1 ? "has" : "have"} no salary structure`} sub={`${noStructure.slice(0, 3).map((l) => `${name(l.staffId)}, ${staffOf.get(l.staffId)?.designation}`).join("; ")}${noStructure.length > 3 ? ` and ${noStructure.length - 3} more` : ""}. Left out until a structure exists.${noStructureNow.notYetInRun.length ? ` ${noStructureNow.notYetInRun.length} of them ${noStructureNow.notYetInRun.length === 1 ? "was" : "were"} added after the last calculation: Recalculate to bring them in.` : ""}`}
                       action={p.change ? <ButtonLink href={`${BASE}/structures?do=add&staff=${noStructure[0].staffId}`} size="sm" variant="secondary"><Words k="Add" /></ButtonLink> : null} />}
-                    {incomplete.length > 0 && <Check1 icon={CalendarX2} tone="warn" title={`Attendance missing for ${incomplete.length} staff`} sub={incomplete.slice(0, 3).map((l) => `${name(l.staffId)} ${l.notMarkedDays} ${l.notMarkedDays === 1 ? "day" : "days"}`).join(", ") + ". Not marked and no leave asked."}
+                    {incomplete.length > 0 && <Check1 icon={CalendarX2} tone="warn" title={`Attendance missing for ${incomplete.length} staff`} sub={incomplete.slice(0, 3).map((l) => `${name(l.staffId)} ${l.notMarkedDays} ${l.notMarkedDays === 1 ? "day" : "days"}`).join(", ") + ". Not marked and no leave asked: paid as present."}
                       action={p.current.permissions["attendance-management"]?.see !== "none" ? <ButtonLink href="/attendance-management/staff" size="sm" variant="secondary"><Words k="Open" /></ButtonLink> : null} />}
                     {noTds.length > 0 && <Check1 icon={Receipt} tone="warn" title={`${noTds.length} staff ${noTds.length === 1 ? "has" : "have"} no TDS amount`} sub={`${noTds.slice(0, 2).map((l) => name(l.staffId)).join(", ")} · yearly pay is above the ${formatRupeesShort(data.settings.tdsReminderAbovePaise)} limit set in Salary Settings`}
                       action={p.change ? <ButtonLink href={here({ tds: noTds[0].staffId })} scroll={false} size="sm" variant="secondary"><Words k="Enter TDS" /></ButtonLink> : null} />}
@@ -358,9 +364,6 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                   </ul>
                 ) : <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No salary months in" /> {per.label.toLowerCase()}.</p>}
               </Card>
-              {p.campuses.length > 1 && (
-                <Card className="p-4"><UrlSelect id="gen-campus" param="campus" label="Campus" options={p.campuses.map((c) => ({ value: c.id, label: campusWord(c.name) }))} /></Card>
-              )}
             </Col>
           </Split>
         )}
@@ -369,6 +372,8 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
           <Card className="overflow-hidden">
             <Toolbar>
               <UrlSearch id="sal-search" placeholder="Staff name, ID or designation" label="Search staff" />
+              {/* Beside the search it filters, not far away in the side column (loop 4). */}
+              {p.campuses.length > 1 && <UrlSelect id="gen-campus" param="campus" label="Campus" className="md:w-48 shrink-0" options={p.campuses.map((c) => ({ value: c.id, label: campusWord(c.name) }))} />}
               <div className="overflow-x-auto no-scrollbar shrink-0"><UrlSegmented param="show" options={SHOW} fallback="all" label="Show" /></div>
               {p.can.export && <ExportButton href={qs(`${HREF}/export`, { run: run.id, q: q || null, show: show === "all" ? null : show })} />}
             </Toolbar>
@@ -403,7 +408,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                               <p className="font-semibold leading-tight font-sans">{s?.fullName}</p><p className="text-[12px] text-ink3 font-sans">{s?.designation}</p>
                             </td>
                             {l.included ? <>
-                              <td className="px-2">{dayNum(d.paid)}</td>
+                              <td className="px-2">{dayNum(d.paid)}{l.notMarkedDays > 0 && <span className="block text-[11.5px] text-warn font-sans">{l.notMarkedDays} <Words k="not marked" /></span>}</td>
                               <td className="px-2">{d.leave + d.unpaid + d.beyond ? dayNum(d.leave + d.unpaid + d.beyond) : "—"}</td>
                               <td className={cx("px-2", d.lop > 0 && "text-bad font-semibold")}>{d.lop ? dayNum(d.lop) : "—"}</td>
                               {money && <>
@@ -416,7 +421,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                                 <td className="px-2 font-semibold">{amt(l.netPaise)}</td>
                               </>}
                             </> : <td colSpan={money ? 10 : 3} className="px-2 text-center text-ink3 font-sans"><Words k="Not paid until a salary structure is added" /></td>}
-                            <td className="pl-2 pr-5 text-left"><div className="flex gap-1 flex-wrap">{l.flags.map((f) => <FlagPill key={f} f={f} />)}</div></td>
+                            <td className="pl-2 pr-5 text-left"><div className="flex gap-1 flex-wrap">{l.flags.filter((f) => !hideFlag(f)).map((f) => <FlagPill key={f} f={f} />)}</div></td>
                           </tr>
                         );
                       })}
@@ -433,7 +438,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
                         <div className="min-w-0 flex-1">
                           <p className="font-semibold text-[15px] truncate">{s?.fullName}</p>
                           <p className="text-[13px] text-ink3 truncate">{l.included ? `${dayNum(d.paid)} days paid${money ? ` · gross ${amt(l.grossPaise)}` : d.leave ? ` · ${dayNum(d.leave)} leave` : ""}` : "No salary structure"}</p>
-                          {(l.flags.length > 0 || d.lop > 0) && <div className="flex gap-1.5 mt-1.5 flex-wrap">{d.lop > 0 && <FlagPillLop n={d.lop} />}{l.flags.filter((f) => f !== "No salary structure").map((f) => <FlagPill key={f} f={f} phone />)}</div>}
+                          {(l.flags.some((f) => !hideFlag(f)) || d.lop > 0) && <div className="flex gap-1.5 mt-1.5 flex-wrap">{d.lop > 0 && <FlagPillLop n={d.lop} />}{l.flags.filter((f) => f !== "No salary structure" && !hideFlag(f)).map((f) => <FlagPill key={f} f={f} phone />)}</div>}
                         </div>
                         {l.included && money && <span className="text-right shrink-0"><span className="block font-semibold tnum">{amt(l.netPaise)}</span><span className="text-[12px] text-ink3"><Words k="net" /></span></span>}
                       </>
@@ -516,6 +521,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
         <ConfirmSheet closeHref={here({ do: null })} title={`Send ${monthName(run.month)} salary for approval?`} label="Send for approval" action={sendRunAction} hidden={{ runId: run.id }}>
           <div className="flex flex-col gap-3 text-[14px] text-ink2">
             <p><b className="font-semibold text-ink">{run.staffCount} <Words k="staff, net" /> {amt(run.netPaise)}</b> <Words k="(gross" /> {amt(run.grossPaise)}).{noStructure.length ? ` ${noStructure.length} staff ${noStructure.length === 1 ? "is" : "are"} left out until they have a salary structure: ${someNames(noStructure.map((l) => name(l.staffId)))}.` : ""}</p>
+            {unmarkedWords && <p className="text-warn font-semibold">{unmarkedWords}</p>}
             <p><Words k="Attendance after today is not in yet. Days after today, and leave or attendance changed after approval, come into next month’s salary by themselves as arrears or a deduction, with the reason." /></p>
             {data.adjustments.length > 0 && <p>{data.adjustments.length} <Words k="adjustment" />{data.adjustments.length > 1 ? "s" : ""} <Words k="included, each with its reason." /></p>}
             <p><Words k="Nobody approves a month they sent: it goes to the Principal, or to the School Admin when the Principal sent it." /></p>

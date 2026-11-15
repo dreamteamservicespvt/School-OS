@@ -146,7 +146,7 @@ export async function dayBookView(tx: Tx, f: DayBookFilter) {
   const online = posted.filter((r) => r.mode === "GATEWAY");
   const offline = posted.filter((r) => r.mode !== "GATEWAY");
   const groups = [
-    { key: "online", label: "Online fees", amount: sum(online), count: online.length },
+    { key: "online", label: "Online (Razorpay)", amount: sum(online), count: online.length },
     { key: "full", label: "Full payments", amount: sum(offline.filter((r) => r.section === "fees-full")), count: offline.filter((r) => r.section === "fees-full").length },
     { key: "partial", label: "Partial payments", amount: sum(offline.filter((r) => r.section === "fees-partial")), count: offline.filter((r) => r.section === "fees-partial").length },
     { key: "daycare", label: "Daycare", amount: sum(sections.daycare), count: sections.daycare.length },

@@ -11,6 +11,7 @@ import { withSchool } from "@/lib/db";
 import { flash } from "@/lib/flash";
 import { dateField, optionalDate, optionalEmail, optionalIndianMobile, optionalText, parseForm, text, indianMobile, checkbox, formValues, type FormState } from "@/lib/forms";
 import { IMAGE_TYPES, saveFile } from "@/lib/files";
+import { personName } from "@/lib/validate-name";
 import { CATEGORIES, GENDERS, BLOOD_GROUPS, RELATIONS, STATUS_LABEL, type StudentStatusKey } from "@/lib/students/labels";
 import { loadVisibleStudent, type Who } from "@/lib/students/access";
 import { campusAllows, sectionCampusId } from "@/lib/campus";
@@ -30,11 +31,11 @@ const aadhaar = z.string().trim().transform((v) => v.replace(/\s+/g, "")).refine
 // ---------- Add student ----------
 
 const addSchema = z.object({
-  fullName: text("Full name", 120),
+  fullName: personName("Full name"),
   sectionId: uuid("class and section"),
   dateOfBirth: dateField("Date of birth").refine((d) => d < new Date(), "Date of birth must be in the past."),
   gender: z.enum(GENDERS, { message: "Choose the gender." }),
-  guardianName: text("Parent's or guardian's name", 120),
+  guardianName: personName("Parent's or guardian's name"),
   guardianRelation: z.enum(RELATIONS, { message: "Choose the relation." }),
   guardianPhone: indianMobile("Parent's phone"),
   linkGuardianId: z.string().trim().optional().transform((v) => (v && /^[0-9a-f-]{36}$/i.test(v) ? v : null)),
@@ -133,7 +134,7 @@ async function onStudent(id: string, values: Record<string, string>, fn: (tx: Pa
 }
 
 const personalSchema = z.object({
-  fullName: text("Full name", 120),
+  fullName: personName("Full name"),
   dateOfBirth: dateField("Date of birth").refine((d) => d < new Date(), "Date of birth must be in the past."),
   gender: z.enum(GENDERS, { message: "Choose the gender." }),
   bloodGroup: choice(BLOOD_GROUPS, "blood group"),
@@ -346,7 +347,7 @@ export async function archiveNoteAction(fd: FormData) {
 
 // ---------- Emergency contacts ----------
 
-const contactPersonSchema = z.object({ name: text("Name", 120), relation: text("Relation", 40), phone: indianMobile("Phone") });
+const contactPersonSchema = z.object({ name: personName("Name"), relation: text("Relation", 40), phone: indianMobile("Phone") });
 export async function addEmergencyAction(id: string, _prev: FormState, fd: FormData): Promise<FormState> {
   const parsed = parseForm(contactPersonSchema, fd);
   if (!parsed.ok) return parsed.state;

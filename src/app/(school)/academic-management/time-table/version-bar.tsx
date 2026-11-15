@@ -65,7 +65,8 @@ export function VersionBar({ versions, shown, yearId, canArrange, writable, clas
         </div>
         {canArrange && writable && (
           <div className="flex flex-wrap gap-2">
-            {draft && shown?.id !== draft.id && <Link href={href(draft.id)} className="inline-flex min-h-11 items-center rounded-lg bg-brand px-4 font-medium text-brand-ink hover:bg-brand-hover"><Words k="Open the draft" /></Link>}
+            {/* A published Time Table in use is the finished one: the waiting draft is a quiet second choice, not the main button (layman loop 4). */}
+            {draft && shown?.id !== draft.id && <Link href={href(draft.id)} className="inline-flex min-h-11 items-center rounded-lg border border-line bg-surface px-4 font-medium text-ink hover:bg-sunken"><Words k="Open the draft" /></Link>}
             {!draft && <Button onClick={startDraft} loading={pending} loadingText="Starting…" disabled={notReady && !shown}>{shown ? "Start a draft to edit" : "Start the Time Table"}</Button>}
             {draft && shown?.id === draft.id && (
               <>

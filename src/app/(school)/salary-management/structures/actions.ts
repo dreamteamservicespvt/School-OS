@@ -6,6 +6,7 @@ import { formatDate, formatRupees } from "@/lib/format";
 import { components, linesFrom } from "@/lib/salary/settings";
 import { reviseByPercent, saveStructure } from "@/lib/salary/structures";
 import { assertStaffOnCampus } from "@/lib/salary/campus";
+import { addMonths, monthName } from "@/lib/salary/words";
 import { salaryAction } from "../_lib/action";
 
 const ZERO = BigInt(0);
@@ -38,9 +39,14 @@ export async function saveStructureAction(_prev: unknown, fd: FormData) {
       reason: revising ? text(fd, "reason", "Reason", { min: 3, max: 200 }) : optionalText(fd, "reason", "Reason", 200),
       bank: account ? { account, ifsc, bankName: optionalText(fd, "bankName", "Bank name", 80) } : null,
     });
-    const s = await tx.staff.findFirst({ where: { id: row.staffId }, select: { fullName: true } });
-    return { who: s?.fullName ?? "", v: row.version, from: formatDate(row.effectiveFrom), gross: formatRupees(row.grossPaise) };
-  }, (r) => r.v > 1 ? `New version for ${r.who} from ${r.from}: v${r.v}, gross ${r.gross}. Earlier slips keep the old amounts.` : `Salary structure saved for ${r.who} from ${r.from}, gross ${r.gross}. Included when the month is recalculated.`);
+    const s = await tx.staff.findFirst({ where: { id: row.staffId }, select: { fullName: true, campusId: true } });
+    // A month from the start date already sent for approval is not worked out again: say so, and what to do (loop 4).
+    const sent = s ? await tx.payrollRun.findFirst({ where: { campusId: s.campusId, status: "WAITING", month: { gte: row.effectiveFrom } }, orderBy: { month: "asc" }, select: { month: true } }) : null;
+    return { who: s?.fullName ?? "", v: row.version, from: formatDate(row.effectiveFrom), gross: formatRupees(row.grossPaise), sent: sent ? monthName(sent.month) : null, next: sent ? monthName(addMonths(sent.month, 1)) : null };
+  }, (r) => {
+    const later = r.sent ? ` ${r.sent} is already sent for approval, so it is not in it. Take ${r.sent} back to recalculate, or add it as arrears in ${r.next}.` : "";
+    return r.v > 1 ? `New version for ${r.who} from ${r.from}: v${r.v}, gross ${r.gross}. Earlier slips keep the old amounts.${later}` : `Salary structure saved for ${r.who} from ${r.from}, gross ${r.gross}.${later || " Included when the month is recalculated."}`;
+  });
 }
 
 export async function reviseBulkAction(_prev: unknown, fd: FormData) {

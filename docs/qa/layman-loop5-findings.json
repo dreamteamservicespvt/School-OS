@@ -1,0 +1,832 @@
+[
+ {
+  "who": "visitor",
+  "findings": [
+   {
+    "screen": "/staff-hr-management/[staffId]",
+    "kind": "ui",
+    "severity": "high",
+    "problem": "On a staff profile the full Aadhaar \"402006629932\" is printed in the ordinary \"Personal details\" card. The same number shows again lower down under \"Restricted details – Shown in full only to HR, the School Admin and the Principal\". A visiting owner sees the restriction label is pointless when the number is already in plain view above it. This looks careless about privacy, and that is a deal-breaker topic for schools.",
+    "fix": "Take Aadhaar out of Personal details. Show it only in Restricted details, masked as XXXX XXXX 9932, with a 'Show' tap for allowed roles. This is the same treatment the student profile's Identifiers card already uses.",
+    "evidence": "qa-output/loop/l5-visitor-a4-06-staffprofile.png"
+   },
+   {
+    "screen": "/dashboard, /reports-analytics/early-warnings, /staff-hr-management, /salary-management/generate, /student-management",
+    "kind": "bug",
+    "severity": "high",
+    "problem": "The same thing has different numbers on different pages, and a buyer notices that at once. Early warnings: the Dashboard says \"13 students need a closer look\", but the Early Warnings page shows \"Act now 14 · Watch 23 · Not reviewed yet 37\". Staff: Staff & HR says \"43 staff on roll\", while Salary shows \"Salary structures 33 of 42\", \"Showing 42 of 42 staff · totals are for all 32 paid\" and \"November net pay · 32 staff\". Students: the header says \"325 studying\" but the chip says \"All classes 323\".",
+    "fix": "Use one count per thing everywhere. When a page counts a subset, say so in the label, for example \"323 in a class · 2 not in a class\" or \"13 students (37 flags)\".",
+    "evidence": "qa-output/loop/l5-visitor-p1-05-warnings.png"
+   },
+   {
+    "screen": "/fee-management, /library-management, /inventory-management, /hostel-management",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Clicking a module in the menu opens a tab in the middle of its tab strip. \"Fee Management\" opens \"Collect fee\", the 2nd tab: a bare search box and 6 names, with two-thirds of the screen empty. The owner never sees the Fee Dashboard. Library opens \"Issue & Return\" (2nd tab), Inventory opens \"Issue Stock\" (2nd) and Hostel opens \"Roll Call & Incidents\" (3rd). Other modules open their first tab, so the start point feels random.",
+    "fix": "Open each module on its first tab, or move the landing tab to the first position. For School Admin and Principal, open Fee Management on the Fee Dashboard.",
+    "evidence": "qa-output/loop/l5-visitor-a1-06-fee.png"
+   },
+   {
+    "screen": "/academic-management, /settings, /communication, /student-management, /finance-management/day-book",
+    "kind": "ui",
+    "severity": "medium",
+    "problem": "The page header looks different from module to module. Academic Management and Settings put the tab strip ABOVE the page title; every other module puts it below. Some pages carry a small module name above the title (\"Communication\", \"Front Office\", \"Homework & Learning\", \"Salary\", \"Fees\", \"Transport Management\"), and others have none (Students, Admissions, Attendance, Day Book, Examination & Results, Staff & HR, Collect fee). Titles also differ from the menu: \"Admissions\" vs \"Admission Management\", \"Staff & HR\" vs \"Staff & HR Management\", \"Attendance\" vs \"Attendance Management\".",
+    "fix": "Use one header pattern on every page: small module name, then page title, then subtitle, then actions on the right, then tabs. Move the Academic and Settings tabs below the title.",
+    "evidence": "qa-output/loop/l5-visitor-a1-04-academic.png"
+   },
+   {
+    "screen": "/admission-management, /communication, /settings, /student-management/students/[id]",
+    "kind": "ui",
+    "severity": "medium",
+    "problem": "Even on a 1440 px screen, the tab strips are cut off mid-word: \"Admissi…\" on Admissions, \"Messag…\" on Communication and \"Module…\" on Settings, each with a small arrow. The student profile tabs end in \"Docum…\" with no arrow at all. On a big demo screen this looks broken.",
+    "fix": "Shorten the tab names (for example \"Settings\" instead of \"Admission Settings\" inside its own module), or put the last tabs under a \"More\" menu so nothing is cut at 1440 px.",
+    "evidence": "qa-output/loop/l5-visitor-a2-01-communication.png"
+   },
+   {
+    "screen": "/homework-learning",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The tiles disagree: \"Handed in 0% · 0 of 91\" sits next to \"Waiting to be checked 209 · From every month\". An owner asks how 209 can be waiting to be checked when nothing was handed in. \"Current · this month 6\" is also unclear.",
+    "fix": "Use the same period for all four tiles, or label the third one \"Not checked yet (all months) 209\". Rename the first tile \"Homework given this month 6\".",
+    "evidence": "qa-output/loop/l5-visitor-a2-03-homework.png"
+   },
+   {
+    "screen": "/front-office",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "\"Visitors today 4 · Average 0 minutes inside\" is shown while two visitors have been inside since 8:33 AM, more than 4 hours. The red banner says \"6 visitors not checked out\" right above \"In the building now 2\". The calls tile mixes a giant \"0\" with small \"calls, 5 enquiries\". The subtitle is one long run-on line: \"Sun, 15-11-2026 · Naresh Kumar at the desk · School is closed today (Sunday) · today's passes expire by themselves at 3:00 PM\".",
+    "fix": "Count time inside for people still in the building, or show \"–\" until someone checks out. Say \"6 old passes (earlier days) not closed\". Show calls and enquiries as two equal numbers. Cut the subtitle to the date and who is at the desk.",
+    "evidence": "qa-output/loop/l5-visitor-a2-02-frontoffice.png"
+   },
+   {
+    "screen": "/finance-management/day-book",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The Day Book repeats itself and has too much text. \"Partial payments ₹10,100\" appears three times: in the blue band, as a lone full-width card, and as a table title. \"Cash the books expected ₹22,507.50\" sits next to today's cash income of only ₹5,100, with no word about an opening balance. A whole card, \"Where entries come from\", explains how the system works. Table rows say \"Deepika Patel (Class 2 B)\" and then \"Class 2 B\" again in the next column.",
+    "fix": "Remove the lone Partial payments card. Show \"Opening cash ₹X + cash in ₹5,100 − cash out = expected ₹22,507.50\". Fold \"Where entries come from\" behind a small \"How is this filled?\" link. Remove the class from the name cell.",
+    "evidence": "qa-output/loop/l5-visitor-a1-07-finance.png"
+   },
+   {
+    "screen": "/salary-management/generate",
+    "kind": "ui",
+    "severity": "medium",
+    "problem": "The layout leaves a large empty white area. The left column has one short status card, the right column runs long (Totals, then Salary months), and the staff table only starts after both, so about 700 px on the left stay empty. Every staff row also shows a red \"30 · 11 not marked\" under Paid days, which tells a visitor that salaries are wrong.",
+    "fix": "Put the Salary months list under the status card on the left, or place the staff table full width right after the status card. Explain \"11 not marked\" in one grey line at the top of the table, for example \"11 days have no staff attendance yet; counted as present\", and drop the red on every row.",
+    "evidence": "qa-output/loop/l5-visitor-a1-10-salary.png"
+   },
+   {
+    "screen": "/fee-management/defaulters, /finance-management/day-book",
+    "kind": "ui",
+    "severity": "medium",
+    "problem": "Money is written three different ways on one page. The Defaulters tiles read \"₹2,22,050\", \"₹42,78,542\" and \"₹43,76,248.50\" (with paise), while the dashboard on the same module says \"₹90.11 L\". The Day Book shows \"₹22,507.50\" next to round rupees.",
+    "fix": "Pick one style per size. Use lakh short form (₹42.79 L) in summary tiles, full rupees in tables, and paise only on receipts.",
+    "evidence": "qa-output/loop/l5-visitor-a3-02-defaulters.png"
+   },
+   {
+    "screen": "/student-management/students/[id], /staff-hr-management/[staffId], /staff-hr-management",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "Dates and phone numbers change format between pages. The student profile shows \"1 October 2022\", the staff profile shows \"21-09-1990\" and \"Sept 2019\", and the dashboard shows \"Sun 22 / 22 Nov\". Student phones show as \"90000 00123\", but staff phones show as \"8144344285\" and \"+91 8144344285\".",
+    "fix": "Run every date through formatDate() and every phone through one phone formatter, so both profiles and both lists look the same.",
+    "evidence": "qa-output/loop/l5-visitor-a1-09-staff.png"
+   },
+   {
+    "screen": "/transport-management",
+    "kind": "word",
+    "severity": "low",
+    "problem": "Live Tracking reads \"Buses on a trip now 0 of 0\" next to \"Not updating 0 · All live\". \"All live\" is wrong when no bus is running. The \"map\" is grey lines on a plain grid with no streets, which looks unfinished for a feature called Live Tracking in a sales demo.",
+    "fix": "When no trip is running, replace the four tiles with one line: \"No trips running now · next: Morning pickup Mon 7:00 AM\". Use real map tiles, or call the drawing \"Route sketch\".",
+    "evidence": "qa-output/loop/l5-visitor-a5-04-transport.png"
+   },
+   {
+    "screen": "/dashboard (New button)",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "The big blue \"New\" button opens \"What do you want to do?\" with exactly the same 6 items as the dashboard's \"Quick actions\". Two of them, \"Users & permissions\" and \"Who has not marked attendance\", are not new things to create.",
+    "fix": "Make New list only things you create: student, enquiry, staff, notice, fee payment, homework, visitor, event. Keep the lookups in Quick actions.",
+    "evidence": "qa-output/loop/l5-visitor-a5-01-newmenu.png"
+   },
+   {
+    "screen": "/settings",
+    "kind": "word",
+    "severity": "low",
+    "problem": "School-facing text names the vendor in capitals: \"See which payment gateways DREAM TEAM has connected\" and \"DREAM TEAM connects them\". A school owner does not know who DREAM TEAM is, and it reads like a placeholder.",
+    "fix": "Write \"your School OS support team connects them (call or WhatsApp support)\", or show the product name with a contact link.",
+    "evidence": "qa-output/loop/l5-visitor-a2-06-settings.png"
+   },
+   {
+    "screen": "/fee-management/structure",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The same rule is said twice, one line after the other: \"This year has started. Changes need the Principal's approval and touch only unpaid installments.\" and then \"Mid-year changes need the Principal's approval. Paid rows never change. Unpaid installments change only after the Principal approves. Most changes are better made for next year.\" Separately, each class says \"3 of 5 heads set\", while the subtitle says \"13 of 13 classes have fees set\".",
+    "fix": "Keep one line: \"This year has started: changes need the Principal's approval and only touch unpaid installments.\" Explain \"3 of 5 heads\" (for example \"2 optional heads not used\").",
+    "evidence": "qa-output/loop/l5-visitor-a3-03-structure.png"
+   },
+   {
+    "screen": "/examination-results/results",
+    "kind": "word",
+    "severity": "low",
+    "problem": "Above the results there is a note of about 60 words about one late joiner: \"…joined after this exam. Left out of Unit Test 2; they do not stop the results being published. To include them, the subject teacher adds their marks on each paper; this needs approval. In the final result, a missed exam is left out…\". It is too wordy for the first thing on the page.",
+    "fix": "One line: \"1 student joined after this exam and is left out. Add marks?\", with the details behind a link.",
+    "evidence": "qa-output/loop/l5-visitor-p1-03-results.png"
+   },
+   {
+    "screen": "/communication",
+    "kind": "word",
+    "severity": "low",
+    "problem": "Under the message box: \"Blanks you can use: {guardian_name}, {student_name}, {class}, {admission_no}, {school_name}, {school_phone}, {date}\". Curly-brace codes look technical to a school office.",
+    "fix": "Show small chips such as \"+ Parent name\", \"+ Student name\" and \"+ Class\" that insert the blank when tapped.",
+    "evidence": "qa-output/loop/l5-visitor-a2-01-communication.png"
+   },
+   {
+    "screen": "all pages (side menu)",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "At 1440x900, Reports & Analytics and Settings are hidden below the menu fold behind \"More below\". The last visible item, \"Library Management\", is faded by the scroll fade and looks like a switched-off module, yet Settings > Modules shows Library \"On\".",
+    "fix": "Group the optional modules (Transport, Library, Inventory, Hostel) under one collapsible \"More modules\" entry so Reports and Settings stay visible. Alternatively, make the fade start below the last full item.",
+    "evidence": "qa-output/loop/l5-visitor-v-salary.png"
+   },
+   {
+    "screen": "/approvals",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "For the School Admin, each row offers \"Approve\" and \"Open\". The dashboard widget and the Principal's list offer \"Approve\" and \"Reject\", so the same request has different buttons on different screens. The Principal's page also says \"Choose all 23 shown (30 in all)\" with \"page 1 of 2\", an odd page size.",
+    "fix": "Show Approve and Reject on every approval row, with the row itself opening the details. Use a round page size (25) and say \"Choose all 25 on this page\".",
+    "evidence": "qa-output/loop/l5-visitor-a2-07-approvals.png"
+   },
+   {
+    "screen": "/staff-hr-management, /salary-management/generate, /academic-management vs /dashboard, /admission-management",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "The summary number band has two styles. Dashboard, Admissions, Exams, Day Book, Fee Dashboard, Front Office and Homework use a big blue gradient band. Staff, Salary, Academic, Transport and Library use plain white tiles. The product feels like two products.",
+    "fix": "Choose one summary band style for every module's main page.",
+    "evidence": "qa-output/loop/l5-visitor-a1-09-staff.png"
+   },
+   {
+    "screen": "/staff-hr-management/[staffId]",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "The header buttons do not match: \"Print ID card\" is smaller and shorter than \"Message\", \"Apply leave for Anil\" and \"Change status\" next to it.",
+    "fix": "Give all header buttons the same height and padding, and move the less-used ones (Print ID card, Change status) into the ⋯ menu.",
+    "evidence": "qa-output/loop/l5-visitor-a4-06-staffprofile.png"
+   },
+   {
+    "screen": "/events-calendar",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "The same colour key appears twice: once as filter chips (Holidays, Exams, Events, PTMs, Admission tests) and again as a legend row inside the calendar. There is also a 40-word footnote under the grid: \"Holiday: no attendance. Event: the day stays as it is. 'Attendance allowed'…\".",
+    "fix": "Drop the legend row, since the filter chips already carry the colours. Shorten the footnote to \"Grey = weekend or day off\".",
+    "evidence": "qa-output/loop/l5-visitor-a2-04-events.png"
+   },
+   {
+    "screen": "top bar (all pages)",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "The top-right row is four icons with badges and no words: a checklist with \"2\", a chat bubble, a bell with \"9+\" and a moon. In the demo, a first-time owner cannot tell which one is approvals, tasks or messages.",
+    "fix": "Add short labels under or beside the icons at desktop widths (\"Approvals\", \"Messages\", \"Alerts\"), or at least tooltips that show on hover and focus.",
+    "evidence": "qa-output/loop/l5-visitor-a1-01-dashboard.png"
+   }
+  ],
+  "tasksDone": "I played a nearby school owner seeing School OS for the first time, at 1440 px in light mode, plus dark mode on 4 pages. As School Admin I visited 27 screens: Dashboard, the New menu, Ask, Admissions, Students, a student profile, Academic Classes & Sections, the Time Table, Attendance, Attendance Reports, Fee Collect, the Fee Dashboard, Defaulters, Fee Structure, the Day Book, Examination & Results, Staff & HR, a staff profile, Salary, Communication Send Message, Parent Link, Front Office, Homework, the School Calendar, Reports & Analytics (All Reports and Analytics), Settings (overview, Modules, Users), Approvals, My Tasks, Transport, Library, Inventory and Hostel. As Principal I visited Dashboard, Approvals, Results, Report Cards, Early Warnings and Attendance Reports. Dark mode (Dashboard, Fee Dashboard, Calendar, Day Book) looks clean, with no contrast problems seen. No page errors and no slow pages. One tool note: clicking a student or staff name in the lists by its text timed out (the visible name text is not the clickable element), so I opened the profiles by URL.\n\n3 strongest pages: (1) Dashboard: clear greeting, one blue summary band, \\\"Needs your attention\\\" ranked with one action button each, rich side widgets. (2) Admission Dashboard: the 7-step pipeline from enquiry to admitted, with the next button on every family, today's follow-ups and seats left per class. (3) Student profile, with the Exam Datesheet as a close fourth: a strong header with 5 key tiles, parents with pickup rights and masked restricted IDs; tidy cards with dates and status.\n\n3 weakest pages: (1) Fee Management's landing \\\"Collect fee\\\": a bare search box and 6 names with two-thirds of the screen empty, while the Fee Dashboard is hidden on another tab. (2) Day Book: \\\"Partial payments\\\" three times, an unexplained \\\"Cash the books expected ₹22,507.50\\\", an explainer card and repeated class names. (3) Generate Salary: a big empty gap on the left and red \\\"11 not marked\\\" on every staff row. Transport Live Tracking (\\\"0 of 0\\\" next to \\\"All live\\\", and a map with no streets) is also weak.\n\nAll screenshots are in D:/all/Projects/School-OS/qa-output/loop/ (l5-visitor-*), and the steps files are in D:/all/Projects/School-OS/qa-output/loop5/."
+ },
+ {
+  "who": "parent",
+  "findings": [
+   {
+    "screen": "/p/[token] (any open, child switch, month or language change)",
+    "kind": "bug",
+    "severity": "high",
+    "problem": "After a few minutes of normal use the parent is locked out: \"Please wait a moment. Too many tries in a short time. Please wait 2 minutes and try again.\" The limit is 60 page opens per IP per 10 minutes (pl-open:ip in src/app/p/[token]/page.tsx:34). Each open by a 3-child parent costs about 4 hits, because the cards for the other children are prefetched and each prefetch renders the page. The counter went from 0 to 4 after one open and to 9 after one open plus one child switch. That allows only about 12 views per 10 minutes. Parents on the same mobile network (Jio/Airtel CGNAT) or on the school Wi-Fi share one IP, so when the school messages all parents at 9 am, many of them will be locked out. The lockout page is in English and says \"School OS\", not the school's name.",
+    "fix": "Count opens per link, not per IP (or raise the IP limit a lot). Set prefetch={false} on the child cards so prefetches stop counting. Show the wait message in the parent's language with the school's name and phone.",
+    "evidence": "qa-output/loop/l5-parent-switch-300ms.png"
+   },
+   {
+    "screen": "/p/[token] Consent forms (Read the form)",
+    "kind": "translation",
+    "severity": "high",
+    "problem": "A Telugu parent taps \"ఫారం చదవండి\" and gets \"ఈ ఫారం ఇంకా మీ భాషలో లేదు\" with the full legal text only in English (\"I agree that Sunrise Public School may keep and use my child's details...\"). The \"అంగీకారం ఇవ్వండి\" button is still right under it. A parent who reads only Telugu or Hindi is asked to give legal consent to text they cannot read.",
+    "fix": "Ship ready Telugu and Hindi versions of the standard consent texts (data use, photos). Until a translation exists, show a short summary in the parent's language above the English text.",
+    "evidence": "qa-output/loop/l5-parent-cons-1read.png"
+   },
+   {
+    "screen": "/p/[token]/report-card and /p/[token]/fees/[id]?doc=receipt",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "A parent using the page in Telugu or Hindi taps \"PDF డౌన్‌లోడ్ చేయండి\" or \"రసీదు\" and gets an all-English PDF (\"REPORT CARD\", \"Result Fail\", \"FEE RECEIPT\", \"Rupees One Thousand Two Hundred Only\"). The report card also spills onto a second page that holds only the three signature lines. The page shows 42.7% while the PDF shows 42.67%.",
+    "fix": "Print the labels in the link's language (amount in words too). Fit the report card on one page by tightening the empty co-scholastic and skills tables. Round the percentage the same way on the page and in the PDF.",
+    "evidence": "qa-output/loop5/rc-66180.pdf"
+   },
+   {
+    "screen": "/p/[token] (wrong or old link, wait page)",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "A parent who opens a cut-off or old link sees \"School OS · Parent Link · This link does not work · Please check you opened the whole link...\" only in English. There is no language choice, no school name and no phone to call. Below it, \"Only you can see this page\" looks strange on an error page.",
+    "fix": "Use the phone's language (Accept-Language) or offer the language picker on error pages. Add a plain \"Call your school\" line. Drop the \"Only you can see this page\" line here.",
+    "evidence": "qa-output/loop/l5-parent-badlink.png"
+   },
+   {
+    "screen": "/p/[token] Exam date sheet",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "The Telugu date sheet reads \"సోమవారం 12-10-2026, 9:00 AM to 12:00 PM · 100కి\": the word \"to\" is hard-coded English (src/lib/exams/common.ts:71). Subject names are half translated: \"ఇంగ్లీష్\", \"సైన్స్\", \"తెలుగు\", \"హిందీ\" appear next to \"Mathematics\" and \"Social Studies\", because some names happen to exist in the catalogue.",
+    "fix": "Pass the time range through t() (\"{a} to {b}\"). Either show every subject exactly as the school typed it or translate all of them, not some by accident.",
+    "evidence": "qa-output/loop/l5-parent-te2-01-te2-home.png"
+   },
+   {
+    "screen": "/p/[token] Exam date sheet",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "On 15 November the parent still sees \"పరీక్షల డేట్‌షీట్ · Half Yearly · 12-10-2026 నుండి 27-10-2026 వరకు\" with all six subjects listed, for an exam that ended three weeks ago. It also takes a place in the jump chips.",
+    "fix": "Hide a date sheet once its last exam date has passed, or fold it into one line such as \"Half Yearly finished on 27-10\".",
+    "evidence": "qa-output/loop/l5-parent-te2-01-te2-home.png"
+   },
+   {
+    "screen": "/p/[token] footer",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "There is no school WhatsApp link. The footer shows only \"సందేహాలా? స్కూల్ ఆఫీసుకు కాల్ చేయండి 04023456789\". The WhatsApp link is built only from the office phone (phone-shell.tsx:55), so a school with a landline office number can never offer WhatsApp, even though its parent messages come by WhatsApp. The number is printed unformatted (the receipt prints \"040 2345 6789\").",
+    "fix": "Use the school's WhatsApp number from messaging settings (or add a \"WhatsApp for parents\" field) for the WhatsApp button. Format the phone number as on the receipt.",
+    "evidence": "qa-output/loop5/te-home-2.png"
+   },
+   {
+    "screen": "/p/[token]",
+    "kind": "slow",
+    "severity": "medium",
+    "problem": "On a cheap phone the page downloads 583 KB in 22 requests. About 370 KB of that is fonts: Noto Sans Devanagari (119 KB) on a Telugu page, Noto Sans Telugu (122 KB), Bricolage display (76 KB), JetBrains Mono (31 KB) and Figtree. On a 1.6 Mbps connection the load event came at about 3.5 s. The HTML itself is fine: 28 KB gzipped (137 KB raw).",
+    "fix": "On /p, load only the script font for the page's language (the picker can use the system font for its option names). Drop the mono and display fonts there.",
+    "evidence": "qa-output/loop/l5-parent-full3g.png"
+   },
+   {
+    "screen": "/p/[token] Attendance",
+    "kind": "empty",
+    "severity": "medium",
+    "problem": "The attendance card opens on the current month. With nothing marked yet, the parent sees \"– హాజరు\" and \"11 పాఠశాల రోజుల్లో 0 నమోదు · 0 గైర్హాజరు · 0 ఆలస్యం · 0 సెలవు\", a dash and a row of zeros that look broken or alarming. October uses a different phrase for the same idea (\"18 పని దినాలు\").",
+    "fix": "When the month has no marks, say so in one line (\"ఈ నెల హాజరు ఇంకా వేయలేదు\") and show last month's percentage. Use one phrase for school days in every month.",
+    "evidence": "qa-output/loop5/nv-1.png"
+   },
+   {
+    "screen": "/p/[token] Report cards",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Report card rows are not consistent. \"Unit Test 1 · 88.8% · A2\" has a percent and a grade, but \"Unit Test 2 · 64.7%\" (Krishna) has no grade, and \"Term 1 (Unit Test 1, Unit Test 2)\" shows neither percent nor grade, though the term result is what parents care about most.",
+    "fix": "Show the percent and grade on every row, the term row included. If a value is missing, show one plain word instead of leaving it out.",
+    "evidence": "qa-output/loop5/te-home-1.png"
+   },
+   {
+    "screen": "/p/[token] Fees and Notices",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "Parts the system generates show up in English on the Hindi and Telugu pages: \"पुस्तकालय जुर्माने, Library: late return (5 days) · Tinkle Digest 28\", \"Books and uniforms, Class 6 book set 2026-27\". The term names in the Hindi fee rows are translated, but these generated parts are not.",
+    "fix": "Translate the system-made parts (\"Library: late return ({n} days)\", the \"Books and uniforms\" category). Leave only names the school typed (book titles, set names) as typed.",
+    "evidence": "qa-output/loop/l5-parent-hi-full.png"
+   },
+   {
+    "screen": "/p/[token] child cards",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "On the selected child card the class teacher's name is cut off: \"క్లాస్ టీచర్: Padma Chowda…\". The brief asks that a parent can read the teacher's full name, and Telugu labels are long.",
+    "fix": "Let the class-teacher line wrap to two lines (remove truncate), or put the name on its own line under a short label.",
+    "evidence": "qa-output/loop5/te-home-0.png"
+   },
+   {
+    "screen": "/p/[token] Consent: one-time code",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "After \"కోడ్ పంపండి\" the parent sees an empty white box with no visible label or hint. The words \"6 అంకెల కోడ్\" are not shown, so a parent may not know to type the code from the SMS there.",
+    "fix": "Show a visible label or placeholder \"6 అంకెల కోడ్\", use inputmode=numeric and autocomplete=one-time-code, and focus the box.",
+    "evidence": "qa-output/loop/l5-parent-cons-4code.png"
+   },
+   {
+    "screen": "/p/[token] child switch, PTM booking, PDF links",
+    "kind": "slow",
+    "severity": "low",
+    "problem": "Tapping another child's card shows no change for 1 to 2 s, then the page jumps. \"సమయం బుక్ చేయండి\" stays on the spinner \"బుక్ చేస్తోంది\" for more than 3 s. The first receipt PDF took 6.2 s and the report card 1.8 s, with no sign anything is happening, so a parent taps again (and each tap adds to the rate limit).",
+    "fix": "Highlight the tapped card at once and dim the sections while loading. On PDF links, show \"PDF తయారవుతోంది…\" after the tap.",
+    "evidence": "qa-output/loop/l5-parent-ptm3-b.png"
+   },
+   {
+    "screen": "/p/[token] Consent: remove",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "Tapping \"అనుమతి తీసివేయండి\" (photos) opens \"వీరికి అనుమతి తీసివేయండి\" with all three children already ticked. A parent who meant to remove one child's photo consent can easily remove it for all three. The chip also says \"అంగీకారం ఇచ్చారు\" (consent) while the button says \"అనుమతి\" (permission): two words for one thing.",
+    "fix": "On removal, tick no child by default (or only the selected child). Use one Telugu word (అంగీకారం) everywhere.",
+    "evidence": "qa-output/loop/l5-parent-remove.png"
+   },
+   {
+    "screen": "/p/[token] PTM booking",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The slot heading reads \"Prakash Kulkarni, క్లాస్ టీచర్, 5 Bతో ఖాళీ సమయాలు\". The \"తో\" (with) sticks to \"5 B\", so it reads like \"free times with 5 B\". The slots show \"9:30\" with no AM/PM.",
+    "fix": "Use \"Prakash Kulkarni (క్లాస్ టీచర్, 5 B): ఖాళీ సమయాలు\" and show AM/PM once in the heading.",
+    "evidence": "qa-output/loop5/ptm-a.png"
+   },
+   {
+    "screen": "/p/[token] new phone check",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The new-phone screen says \"ఈరోజు తర్వాత ఈ ఫోన్ గుర్తుంచుకోబడుతుంది\" (English: \"This phone is remembered after today\"). A parent reads this as needing a code again today. The Hindi data-consent title \"मेरे बच्चे के डेटा का उपयोग\" is singular for a parent with two children.",
+    "fix": "Say \"ఇకపై ఈ ఫోన్‌లో మళ్ళీ కోడ్ అడగము\" / \"From now on this phone will not ask for a code\". Use the plural (मेरे बच्चों) when the parent has more than one child.",
+    "evidence": "qa-output/loop/l5-parent-newphone.png"
+   }
+  ],
+  "tasksDone": "I tested Parent Link as a parent on a 390 px phone, in Telugu and then Hindi, for about 40 minutes on localhost only. To get links I ran qa/people/parent-link-fixture.ts (the same createLink call the Resend button uses, plus a confirmed device cookie). I made links for 4 Sunrise guardians (Mohan Gupta, 3 children, Telugu; Ramesh Joshi, Hindi; Madhavi Mehta, Telugu, with a Class 5 child for PTM; Latha Nair, Hindi) and 1 Green Valley guardian. Green Valley has Parent Link switched off, and its off-message is fine.\n\nWhat I checked:\n- **Size and speed:** the HTML is 137 KB raw and 28 KB gzipped. The whole page is 583 KB in 22 requests, about 370 KB of it fonts. On a 1.6 Mbps connection the load event came at about 3.5 s.\n- **New phone:** the code screen without the device cookie.\n- **Fees:** Due now / Not due yet / Paid totals add up, and a part-paid row shows \"₹8,000 में से ₹7,500 दिए\". Online pay is off for this class.\n- **Receipts:** opened the PDFs (all English; the first took 6.2 s).\n- **Attendance:** November (nothing marked) and October with data.\n- **Date sheet and report cards:** report rows with percent; downloaded a report card PDF (it spills onto a second page).\n- **Notices and events.**\n- **PTM:** picked a slot and booked it. The booked view is clear, and change/cancel are offered.\n- **Consent:** read the form (English only), gave data-use consent with the one-time code from the server log (success message is clear), and opened the remove-consent step without confirming.\n- **Other:** the class teacher names on child cards, the footer (no WhatsApp, because the office number is a landline), switching language Telugu to Hindi (took 1.8 s), a bad link, and the rate-limit page.\n\nChanges I left in the local database:\n- 5 Parent Links and their device rows.\n- One PTM booking: Naveen Mehta, 25-11, 9:40 AM.\n- One data-use consent given by Madhavi Mehta.\n\nI also tripped the local pl-open rate limit once; it clears by itself. My scripts and session files are in D:/all/Projects/School-OS/qa-output/loop5/. Screenshots are D:/all/Projects/School-OS/qa-output/loop/l5-parent-*.png, with crops in D:/all/Projects/School-OS/qa-output/loop5/."
+ },
+ {
+  "who": "telugu",
+  "tasksDone": "I tested in Telugu as a teacher on a phone (390 px) and as an admin on a computer (1440 px), then switched both back to the school language (English) at the end.\n\nTeacher on the phone:\n- Changed the language to Telugu in My profile.\n- Read the home screen.\n- Opened attendance. Today is Sunday, so I opened Friday 13 Nov instead. It was locked, so I opened the \"సవరణ అభ్యర్థించండి\" (request a correction) form.\n- Gave homework to 5 A (\"L5 పాఠం 3 అభ్యాసం 1-4\"). It saved and the confirmation message appeared.\n- Entered a mark of 62 for Harini Varma in Half Yearly Maths 6 A. It saved itself. I pressed submit and was told that 10 students still have missing marks.\n- Searched for Myra in the students list and opened her record.\n- Opened the message-to-parents page.\n- Checked dark mode on the homework form.\n\nAdmin on the computer:\n- Changed the language to Telugu.\n- Read the home screen.\n- Added an enquiry (Lasya Testkumar, 9000000517).\n- Published a staff notice (\"L5 సిబ్బంది సమావేశం\") to the notice board and in-app only.\n- Searched for a student in Telugu letters and in English letters.\n\nScreenshots are in D:/all/Projects/School-OS/qa-output/loop (l5-telugu-*). The steps files and probe scripts are in D:/all/Projects/School-OS/qa-output/loop5.",
+  "findings": [
+   {
+    "screen": "/attendance-management/register/correction?section=…&date=2026-11-13",
+    "kind": "phone",
+    "severity": "high",
+    "problem": "On a 390 px phone the correction form is 654 px wide, so the whole page scrolls sideways. Each student row shows only the 'P' button. A/గైర్హాజరు, L/ఆలస్యం, H/సగం రోజు, E/మినహాయింపు, LV/సెలవు and M/అనారోగ్యం are off-screen to the right. The help line 'ఈ రోజుకు ఏమీ సేవ్ కాలేదు. అందరి హాజరు వేసి, ఒకేసారి పంపండి.' is cut off too. The same thing happens in English.",
+    "fix": "On a phone, wrap the 7 mark choices onto two lines (or use a 4+3 grid, or a single dropdown per student), and let the tab row and help line wrap. Make the page fit within 390 px.",
+    "evidence": "qa-output/loop/l5-telugu-corr-vp.png"
+   },
+   {
+    "screen": "/examination-results/marks/[exam]/[paper]",
+    "kind": "translation",
+    "severity": "high",
+    "problem": "Marks entry, the teacher's main job, is still mostly in English after switching to Telugu: 'Theory / 80 open', 'Internal / 20 open', 'Roll 6', 'Clear', 'Marks were due on 21-10-2026.', '16 students · marks due', '9:00 AM to 12:00 PM'. The submit warning is fully English: '10 students have marks missing yet: Hasini Reddy (roll 7): Theory missing…and 6 more.' The list page has '1 paper is past the marks due date. Enter and submit these first.', 'Subject, class or exam', 'All exams', 'All exam dates', '16 of 16 · locked', '1 change waiting', 'only your subjects and classes' and '2026-27 (active)'.",
+    "fix": "Add Telugu text for the marks list and entry screen: థియరీ/ఇంటర్నల్, 'తెరిచి ఉంది', 'రోల్', 'తుడిచివేయి', '…మార్కులు ఇంకా లేవు', '16లో 16 · లాక్', '1 మార్పు వేచి ఉంది'.",
+    "evidence": "qa-output/loop/l5-telugu-t9-03-submit.png"
+   },
+   {
+    "screen": "/homework-learning",
+    "kind": "translation",
+    "severity": "high",
+    "problem": "The blue summary box on the homework page is half English: '107 pieces of work for 2 classes', '0 of 107', 'From every month', 'From WhatsApp read receipts'. There is also 'only your classes and subjects' under the title, 'Showing: This month · 01-11-2026 – 15-11-2026 · 6 homework' at the bottom, 'This month' and 'Class' filters, and English hints in the Give homework form: 'Exercise 4.3, Q1–Q8', 'What should students do?', 'Next Mathematics class: Mon 16 Nov, period 6'.",
+    "fix": "Translate these: '2 తరగతులకు 107 పనులు', '107లో 0', 'అన్ని నెలలవి', 'WhatsApp చదివిన రసీదుల నుండి', 'తర్వాతి గణితం తరగతి: సోమ 16 నవంబర్, 6వ పీరియడ్', and Telugu placeholders.",
+    "evidence": "qa-output/loop5/sent-top.png"
+   },
+   {
+    "screen": "/communication/notices/new",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "The attachments label 'జతలు' means 'pairs' in Telugu, not attachments, so a Telugu reader won't know it is for files. Elsewhere on the same form: 'Notices to parents go for approval first.' is in English, the date boxes say 'DD-MM-YYYY', and the staff role ticks are all English ('Accountant', 'Class Teacher', 'Driver', 'Office Staff'…), even though the profile page shows 'క్లాస్ టీచర్'.",
+    "fix": "Use 'జత చేసే ఫైళ్ళు' (or 'అటాచ్‌మెంట్లు'). Translate the approval line and role names with the same words as the profile page, and change the placeholder to 'రోజు-నెల-సంవత్సరం'.",
+    "evidence": "qa-output/loop/l5-telugu-a4-01-notice.png"
+   },
+   {
+    "screen": "/communication/notices/[id]",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "One action uses three different words. The button is 'విడుదల చేయండి', the success message says 'ప్రచురించబడింది', the status is 'విడుదలైంది', and the time field is 'ప్రచురించే సమయం'. The channel is called 'యాప్ నోటిఫికేషన్' in the form and 'యాప్ నోటీసు' on the saved notice. The saved page also has 'By Suresh Kumar', 'Read by staff with a login', 'Not read' (×24) and 'All staff' in English.",
+    "fix": "Pick one word ('ప్రచురించండి / ప్రచురించబడింది') everywhere, and one name for the app channel. Translate 'రాసినవారు', 'లాగిన్ ఉన్న సిబ్బందిలో చదివినవారు', 'చదవలేదు', 'అందరు సిబ్బంది'.",
+    "evidence": "qa-output/loop/l5-telugu-notice-done.png"
+   },
+   {
+    "screen": "/dashboard (admin)",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "The admin home screen in Telugu still has many English bits:\n- '1 by UPI'\n- '1 transport paper expired · 3 more due in 30 days … Upload the renewed papers.'\n- '2 not yet in a section'\n- '₹48.17 L of ₹1.53 Cr due so far'\n- 'All campuses' and 'All classes' filters\n- 'Analysis'\n- 'Latest in 2026-27'\n- 'No trips today.'\n- '4 routes · 4 drivers'\n- '50 of 96 beds taken'\n- 'Principal, Administration'\n- 'Was due 1 Nov' on tasks\n\nIn the fee chart every month is Telugu except 'Sept'. Class names are mixed: 'Class 1' in one box, 'తరగతి 5' in the next.",
+    "fix": "Translate these strings. Use the same Telugu month list for 'Sept' (సెప్టెంబర్), and the same class word ('తరగతి') everywhere.",
+    "evidence": "qa-output/loop/l5-telugu-a1-01-home.png"
+   },
+   {
+    "screen": "/student-management/students/[id]",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "On Sunday, with no school, the student record says 'Attendance today · Not marked yet' (in English). It reads like the teacher forgot to take attendance. The same record also has English lines: '(11 years)', 'Fee receipts and Parent Link go to Rajesh Nair's number', 'Father · Parent Link · Accountant', 'Mother · Teacher', 'Early warning: Attendance · Watch', 'Aadhaar number', 'Board registration number', 'Not added', 'Not given. A parent gives it in Parent Link…'.",
+    "fix": "On a no-school day show 'ఈ రోజు స్కూల్ లేదు' instead of 'Not marked yet'. Translate the guardian role line, age ('11 సంవత్సరాలు'), ID labels and 'జోడించలేదు'.",
+    "evidence": "qa-output/loop/l5-telugu-t12-01-student.png"
+   },
+   {
+    "screen": "global search (Ctrl K)",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "A Telugu-first clerk typed the name in Telugu letters ('మైరా') and got '\"మైరా\"కు ఏమీ దొరకలేదు', with a hint to check spelling. The same name typed as 'Myra' finds six students. Nothing tells the person that names are stored in English letters.",
+    "fix": "When the search text is in Telugu script and nothing is found, say: 'పేర్లు ఇంగ్లీష్ అక్షరాల్లో ఉన్నాయి — ఇంగ్లీష్‌లో టైప్ చేయండి (ఉదా: Myra)'. Better: also transliterate Telugu input before searching.",
+    "evidence": "qa-output/loop/l5-telugu-search-te.png"
+   },
+   {
+    "screen": "/communication",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "The teacher's 'తల్లిదండ్రులకు మెసేజ్' page has many English lines:\n- 'Only the people you may message: Your own sections.'\n- 'Test mode'\n- 'office@… · free'\n- 'Staff logins and Parent Link · free'\n- 'WhatsApp template'\n- 'App notice template'\n- 'Blanks you can use: {guardian_name}…'\n- 'Choose at least one section.'\n- 'పరిమితి Your own sections'\n- 'App notice'\n- 'Free'\n- 'Choose who gets it to see the message as they will.'\n\nThe last two sit next to the Send button.",
+    "fix": "Translate these, e.g. 'కనీసం ఒక సెక్షన్ ఎంచుకోండి', 'ఉచితం', 'మీ సెక్షన్లు మాత్రమే', 'ఖాళీలు: …'.",
+    "evidence": "qa-output/loop/l5-telugu-t13-01-msg.png"
+   },
+   {
+    "screen": "/admission-management/enquiries",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "After 'విచారణ జోడించండి' the message says 'Lasya Testkumar విచారణ జోడించబడింది. మరొకటి జోడించండి'. The new enquiry is nowhere on screen because the list is sorted by follow-up date, so the clerk can't check what was saved. The message has no 'open' link. At 1440 px the table is also cut on the right: the follow-up times are clipped ('28-10-2026, 12:00 I') and the 'తయారైంది' and 'తెరవండి' columns are hidden.",
+    "fix": "Add 'తెరవండి' to the success message, or briefly show the new row at the top, highlighted. Fit the table into 1440 px by shortening the follow-up time, or drop the created-date column.",
+    "evidence": "qa-output/loop/l5-telugu-enq-saved.png"
+   },
+   {
+    "screen": "/admission-management/enquiries?do=add",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "The add-enquiry form and list still show English:\n- the phone placeholder '10 digits'\n- the year box '2027-28 (Main Camp…', cut off\n- 'Any date added'\n- 'Export'\n- '… and mid-year 2026-27'\n- '2026-27 mid-year'\n\nAlso, 'విచారణ' usually means an investigation (police or court), not an admission enquiry. Some parents and staff may find this odd.",
+    "fix": "Translate the placeholder ('10 అంకెలు'), 'ఎగుమతి', 'ఏ తేదీ అయినా' and 'మధ్య సంవత్సరం'. Shorten the year option so it fits. Consider 'ప్రవేశ విచారణ' or 'ఎంక్వైరీ'.",
+    "evidence": "qa-output/loop5/enq-vp.png"
+   },
+   {
+    "screen": "/student-management (teacher, phone)",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "The students list mixes English into the Telugu screen: 'Your classes: 5 A, 5 B, 6 A', the filter chip 'My classes', 'Roll 1' on every row, 'Showing 25 of 50' and the 'Show more' button.",
+    "fix": "Translate: 'మీ తరగతులు', 'నా తరగతులు', 'రోల్', '50లో 25 చూపిస్తున్నాం', 'ఇంకా చూపించండి'.",
+    "evidence": "qa-output/loop/l5-telugu-t10-01-myclass.png"
+   },
+   {
+    "screen": "/dashboard (teacher, phone)",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "Teacher home has English lines: 'Was due 2 Nov' and 'Was due 3 Nov' on tasks, 'Mathematics · share taught so far' under syllabus progress, and 'Unit Test 2 · average 70% · 16 students sat, 1 since left the class' under exam results. 'school' is also written two ways on one screen: 'ఈ రోజు స్కూల్ లేదు' at the top and 'పాఠశాల లేదు' in the blue card.",
+    "fix": "Translate the due line ('గడువు 2 నవంబర్'), the syllabus and exam summary lines, and use one word for school everywhere ('స్కూల్').",
+    "evidence": "qa-output/loop/l5-telugu-t1-03-home-te.png"
+   },
+   {
+    "screen": "/homework-learning",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "On the phone, the homework card dates break in the middle: 'ఇచ్చిన తేదీ ఆదివారం 15 / నవంబర్ · గడువు సోమవారం 16 / నవంబర్', with the month alone on the next line. '15 ఇచ్చారు, 0 సమర్పించారు' reads as 'gave 15' and doesn't say 15 what.",
+    "fix": "Keep the day and month together (non-breaking space), or use the short form 'ఆది 15 నవం'. Write '15 మందికి ఇచ్చారు, 0 మంది సమర్పించారు'.",
+    "evidence": "qa-output/loop/l5-telugu-t5-01-hw.png"
+   },
+   {
+    "screen": "/examination-results/marks vs /dashboard",
+    "kind": "word",
+    "severity": "low",
+    "problem": "Dates appear in three styles for the same paper: 'గడువు బుధవారం 21 అక్టోబర్' on home, 'was due 21-10-2026' on the marks list, and 'Was due 2 Nov' on tasks. Times stay in English AM/PM everywhere ('12:41 PMకు సేవ్ అయ్యాయి', '9:00 AM to 12:00 PM', '2:52 AM').",
+    "fix": "Use one Telugu date style for due dates, and show times as 'మధ్యాహ్నం 12:41' / 'ఉదయం 9:00' (or at least translate 'to' as 'నుండి … వరకు').",
+    "evidence": "qa-output/loop/l5-telugu-t7-01-marks.png"
+   },
+   {
+    "screen": "/attendance-management",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "The attendance header shows 'Class teacher Ravi Teja' in English. The mark buttons are bare 'P', 'A', 'L' letters with no Telugu meaning on the take-attendance screen, so a Telugu-first teacher has to guess (the correction form does explain them). 'హాజరు మళ్లీ సోమవారం 16 నవంబర్ న తెరుచుకుంటుంది' has a stray space before 'న'. 'ప్రిన్సిపాల్' (lock message) and 'ప్రిన్సిపల్' (correction page) are spelled two ways.",
+    "fix": "Translate 'క్లాస్ టీచర్ Ravi Teja' and add a one-line key under the counts ('P హాజరు · A గైర్హాజరు · L ఆలస్యం'). Write '16 నవంబర్‌న' and spell 'ప్రిన్సిపాల్' one way.",
+    "evidence": "qa-output/loop/l5-telugu-t3-01-att13.png"
+   },
+   {
+    "screen": "/examination-results/marks/[exam]/[paper]",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "In one-at-a-time mode, after typing 62 for Theory the teacher pressed 'తర్వాతి' expecting the next student. It only moved to Internal for the same student, and a new line appeared: 'ఇప్పుడు టైప్ చేసే అంకె ఈ మార్కును మారుస్తుంది'. The total line shows 'మొత్తం — + 10' before a mark is typed, which looks like a formula.",
+    "fix": "Label the button by what it does ('తర్వాతి మార్కు' when there is another part, 'తర్వాతి విద్యార్థి' on the last part). Show 'మొత్తం: ఇంకా లేదు' until all parts are filled.",
+    "evidence": "qa-output/loop5/next-crop.png"
+   },
+   {
+    "screen": "/profile",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "In Signed-in devices the current device reads 'Windowsలో Chromeఈ పరికరం', with no space between 'Chrome' and the 'ఈ పరికరం' tag. Last-used times stay '2:52 AM'.",
+    "fix": "Add a gap or separator before the 'ఈ పరికరం' tag, and use a Telugu time format.",
+    "evidence": "qa-output/loop/l5-telugu-t1-02-profile-te.png"
+   }
+  ]
+ },
+ {
+  "who": "movein",
+  "findings": [
+   {
+    "screen": "/fee-management/ledger/import/review/39f9872f-3a20-4899-aa5f-8a72aeb4baa9?step=values",
+    "kind": "bug",
+    "severity": "high",
+    "evidence": "qa-output/loop/l5-movein-zm-01-check.png",
+    "problem": "My Excel of old balances had the columns Adm No, Student Name, Class, Total Fee, Paid, Balance. On 'Fee opening balances (old dues)' the app matched 'Due date *' to my Total Fee column (examples '46000, 40000, 40000'). Then the 'Tidy-ups' step changed the amounts into dates: 'Due date: 46000 → 09-12-2025 · 40000 → 06-07-2009 · 38000 → 14-01-2004'. All 5 rows came out 'Ready to bring in'. I brought them in, and the ledger showed 'Old dues … 9 Dec'. The past-receipts import does the same thing ('Date *' matched to Total Fee).",
+    "fix": "Never match a date column to a column that holds plain amounts, and never tidy a 4–6 digit number into a date. If the file has no date column, ask for one date for every row (default: the go-live date)."
+   },
+   {
+    "screen": "/salary-management/structures/import/review/e140a4d2-a248-46da-b324-70f9be1b290e?step=check",
+    "kind": "bug",
+    "severity": "high",
+    "evidence": "qa-output/loop/l5-movein-zf-01-check.png",
+    "problem": "My staff Excel has one 'Salary' column, which is the amount the school actually pays. I matched it to 'Basic *', because no other column fits. The check screen showed only 'Basic 25,000'. After 'Bring in 10 salary structures', the app had added Dearness allowance 20% and House rent allowance 30%, plus PF. K. Ramana Murthy went from 25,000 to gross ₹37,500, the Ayah from 8,000 to ₹12,000 and the Principal from 55,000 to ₹82,500. Nothing warned me about this, so every moved staff member would be paid 50% too much.",
+    "fix": "Ask 'Is this the full monthly salary, or only basic?' and offer a 'Full salary (no allowances added)' choice. In the check table, show Gross and Net for each row before anything is brought in."
+   },
+   {
+    "screen": "/fee-management/ledger/8cba6107-1274-4dd3-b67f-4db3c0f73db2",
+    "kind": "ux",
+    "severity": "high",
+    "evidence": "qa-output/loop/l5-movein-zn-01-ledger-aarav.png",
+    "problem": "The student import has 'Apply the class fee plan' ticked by default. It charged every moved student the whole year: 'Tuition fee · Quarter 1 (Apr to Jun)', 'Quarter 2', 'Quarter 3', 'Half 1', all 'Due 15-11-2026'. In my register, Aarav had paid 30,000 of 46,000, so his balance was 16,000. When I brought in that balance as old dues, the ledger showed 'Year total · paid · due now ₹62,000 · ₹0 · ₹52,500'. No screen tells the clerk that this year's fees are already on the student, or that they should bring in receipts and not balances. Parents would be asked for fees they have already paid.",
+    "fix": "On the student import, when the year is already under way, untick the fee plan by default, or ask 'Have these students already paid part of this year's fees?'. On 'Import old dues and receipts', add one plain line at the top: 'This year's fees are already on each student. Bring in what they PAID this year, not their balance.'"
+   },
+   {
+    "screen": "/salary-management/structures/import/review/2c9456e0-3280-457f-881c-818a5acbaece?step=check",
+    "kind": "ux",
+    "severity": "high",
+    "evidence": "qa-output/loop/l5-movein-zc-01-salcheck.png",
+    "problem": "The salary import matched 'Effective from *' to my 'Date of Joining' column. All 12 rows then failed with 'Salary before 01-11-2026 is already approved. Start from 01-11-2026 or later, and add the difference as arrears in Generate Salary.' or 'Salary changes start on the 1st of a month. Write the 1st.' Clearing the match gave 'Effective from is empty' on all 12 rows. There is no way to give one start date for everyone, so I had to fix 12 rows one by one or rebuild the Excel. 'Arrears' is also a hard word for this clerk.",
+    "fix": "When there is no proper column, offer one 'Salary starts from' choice for all rows, defaulting to the first unpaid month (like 'Class and section' on the student import). Never auto-match the joining date to this field."
+   },
+   {
+    "screen": "/staff-hr-management/import/review/a9d090b6-dfdc-4dc5-8a10-5e2add224b81?step=values",
+    "kind": "bug",
+    "severity": "high",
+    "evidence": "qa-output/loop/l5-movein-v-01-words.png",
+    "problem": "Under 'Designations to match', the row for “Tr.” (Teacher) came pre-selected as 'Transport Supervisor (suggested)'. A clerk who just presses 'Save matches' turns a teacher into a transport supervisor. The tidy-ups also changed 'PET → Teacher' without asking, even though 'Physical Education Teacher' exists. “Maths” got no suggestion, even though the department 'Mathematics' exists.",
+    "fix": "Pre-select only strong matches: Tr./Tchr → Teacher, PET/PT → Physical Education Teacher, Maths → Mathematics. Leave weak guesses on 'Choose…'. Never auto-tidy a designation into a different one."
+   },
+   {
+    "screen": "/fee-management/ledger/import/review/9543987f-c417-4c5a-9954-ca6e685afdde",
+    "kind": "ux",
+    "severity": "medium",
+    "evidence": "qa-output/loop/l5-movein-zp-01-rcpt.png",
+    "problem": "My register only has a 'Paid' total for each child; it has no receipt numbers. 'Fee past receipts (brought in)' needs 'Old receipt number *' and 'Date *' on every row. The only other choice, old dues, takes balances, and that doubles the dues (see the fee plan finding). So a simple Excel register has no correct way in.",
+    "fix": "Allow a 'Paid so far this year' row per student without a receipt number. Make one up automatically (OLD-<adm no>) and date it with one date chosen for all rows."
+   },
+   {
+    "screen": "/student-management/import/review/31a85e76-235d-474c-953a-26197e8ae768?step=check",
+    "kind": "ux",
+    "severity": "medium",
+    "evidence": "qa-output/loop/l5-movein-l-01-result.png",
+    "problem": "After 'Leave out all 6 rows with problems', those rows disappear. The page only says '6 rows are left out. Bring them all back', so I cannot see which children were left out or fix just one. The result banner says 'Fix them below and bring them in', but nothing is below. The bottom text says 'Fix the problems above', but nothing is above. The file header also changed from '43 rows' to '37 rows', as if the file got smaller.",
+    "fix": "List the left-out rows (row number, name, reason), each with its own 'Bring back' and 'Fix'. Keep the header at '43 rows'. Change the banner to '6 children not brought in yet: see list below'."
+   },
+   {
+    "screen": "/student-management/students/8cba6107-1274-4dd3-b67f-4db3c0f73db2",
+    "kind": "bug",
+    "severity": "medium",
+    "evidence": "qa-output/loop/l5-movein-zs-01-profile.png",
+    "problem": "Every student I moved from the old register now shows 'Admitted on 15 November 2026', which is today, although they joined years ago. The import never asked for the admission date, and the check table did not show this date.",
+    "fix": "If the file has no admission date, ask once ('Leave empty' or one date for all) and show it in the 'Ready to bring in' table. Do not fill in today's date without saying so."
+   },
+   {
+    "screen": "/student-management/import/review/7293514a-4145-4ebc-b7b3-71a613dbbf75?step=check",
+    "kind": "ux",
+    "severity": "medium",
+    "evidence": "qa-output/loop/l5-movein-r-01-recheck.png",
+    "problem": "I uploaded the same register again by mistake. Nothing was doubled, which is good. But the page showed 'With problems 43', a long red list saying 'Admission number OLD1000 already belongs to Aarav Gummadi, 6 B.', and 43 separate 'Same student: update…' buttons. There was no plain message that this file was already brought in.",
+    "fix": "On upload, warn: 'You brought in this file on 15-11-2026, 12:42 PM. 38 of its students are already here.' Group those rows as 'Already in School OS: nothing to do' instead of red problems."
+   },
+   {
+    "screen": "/student-management/import/review/31a85e76-235d-474c-953a-26197e8ae768?step=check",
+    "kind": "translation",
+    "severity": "medium",
+    "evidence": "qa-output/loop/l5-movein-n-01-result.png",
+    "problem": "In Telugu, the import screens are half English. The problem messages ('Parent's phone is empty.', 'Admission number … already belongs to …'), the counters 'Added' / 'Updated' / 'Brought in already' / 'Passed over', the step tabs '1. Match columns', the banner '6 rows left out by you not brought in yet…', 'Remove from list', 'Leave out' and 'Students · 37 rows' all stay in English. One line mixes both languages: '6 rows are వదిలేశారు.' The browser message 'Please fill out this field.' is also English.",
+    "fix": "Translate all import-flow strings, including the row problem messages and the count sentences, as whole sentences. Use your own required-field message in the user's language."
+   },
+   {
+    "screen": "/student-management/import/review/31a85e76-235d-474c-953a-26197e8ae768?step=check",
+    "kind": "ux",
+    "severity": "medium",
+    "evidence": "qa-output/loop5/crop-fixrow.png",
+    "problem": "'Fix this row' (for 'Parent's phone is empty.') opens a form with 23 fields: Aadhaar, APAAR ID, PEN, Blood group and more. The empty 'Parent's phone *' box is not highlighted, so I had to hunt for it. Class and Section are free-text boxes, so a typo will fail again. 'Fix this row' also does not look like a button.",
+    "fix": "Show the fields with problems first, outlined in red with the message under them. Put the other fields behind 'More details'. Make Class and Section drop-downs. Style 'Fix this row' as a button."
+   },
+   {
+    "screen": "/student-management/import/review/31a85e76-235d-474c-953a-26197e8ae768?step=check",
+    "kind": "ux",
+    "severity": "medium",
+    "evidence": "qa-output/loop/l5-movein-g-02-check.png",
+    "problem": "5 of my 43 children were blocked only because the old register had no phone ('Parent's phone is empty.'). The only choices were to type a phone now or 'Leave out'. Moving schools often have missing phones, and leaving those children out means they are missing from the class lists.",
+    "fix": "Allow 'Bring in without phone, add it later', marked 'Phone missing' and listed on the dashboard, or at least explain why the phone is needed."
+   },
+   {
+    "screen": "/staff-hr-management/import/review/a9d090b6-dfdc-4dc5-8a10-5e2add224b81?step=check",
+    "kind": "ux",
+    "severity": "medium",
+    "evidence": "qa-output/loop/l5-movein-y-01-after.png",
+    "problem": "The staff import said 'Not brought in from your file: Salary … Salaries go in Salary Management, Salary Structures; it has its own import.' This is plain text, not a link. After 'Added 10', the result does not say 'Next: add their salaries'. Then the salary import page itself shows the same sentence 'Salaries go in Salary Management, Salary Structures, which has its own import.', which sends me back to where I already am.",
+    "fix": "On the staff import, make it a button: 'Bring in salaries from this file →'. Remove that sentence from the salary import page."
+   },
+   {
+    "screen": "/salary-management/structures/import/review/2c9456e0-3280-457f-881c-818a5acbaece?step=check",
+    "kind": "ux",
+    "severity": "medium",
+    "evidence": "qa-output/loop/l5-movein-zc-01-salcheck.png",
+    "problem": "On the salary and old-dues imports, problem rows show only 'Row 2', 'Row 3' with no name. The 'Ready to bring in' table shows only Staff ID / Admission number, Amount and Date. I cannot check that the right person gets the right amount. The student import shows names, so the screens are not consistent.",
+    "fix": "Show the staff or student name (and class) next to each row number, in both the problem list and the ready table."
+   },
+   {
+    "screen": "/student-management/import",
+    "kind": "word",
+    "severity": "medium",
+    "evidence": "qa-output/loop/l5-movein-c-01-import.png",
+    "problem": "Before the upload box there are three long paragraphs (about 120 words: 'One row per student… UDISE+ download… A row that may already be on record waits for your choice…', 'Consent from paper forms… APAAR… text version…'). A clerk with little English has to read all of this before finding 'Choose File'.",
+    "fix": "Put the upload box first. Give each sheet type one short line ('Students: one row per child') and move the details behind 'More'."
+   },
+   {
+    "screen": "/dashboard/setup",
+    "kind": "ux",
+    "severity": "medium",
+    "evidence": "qa-output/loop/l5-movein-zt-01-setup.png",
+    "problem": "The new-school checklist has 'Coming from other software? Bring students and staff from Excel. Import students | Import staff', but no link to old fee dues or salaries. The checklist also lists 'Students and parents (import from Excel)' before 'Fee structure', so 'Apply the class fee plan' at import does nothing, and nobody tells you later.",
+    "fix": "Add 'Old fee dues and receipts' and 'Salaries' to the moving-in list, in the right order (fees, then students, then old fees; staff, then salaries)."
+   },
+   {
+    "screen": "/salary-management/structures/import/review/e140a4d2-a248-46da-b324-70f9be1b290e",
+    "kind": "ux",
+    "severity": "low",
+    "evidence": "qa-output/loop/l5-movein-zf-01-check.png",
+    "problem": "On a second salary file with the same 'Salary' heading, the app did not remember my earlier 'Salary → Basic' match, though the student import does remember ('matched as you confirmed'). 'Save and continue' also let me go on with the required 'Basic *' unmatched, which gave 10 red rows saying 'Basic is empty.'",
+    "fix": "Remember matches across files of the same kind. Hold 'Save and continue' until every * column is matched, or ask 'Basic is not chosen: continue anyway?'."
+   },
+   {
+    "screen": "/student-management/import/review/31a85e76-235d-474c-953a-26197e8ae768",
+    "kind": "ui",
+    "severity": "low",
+    "evidence": "qa-output/loop5/vp-phone-check.png",
+    "problem": "The words 'Import students' appear four times at the top: the top bar, the '← Import students' breadcrumb, the big heading, and a second blue '← Import students' link. On a phone this takes half the screen before any content.",
+    "fix": "Keep one back link and one heading, and drop the second blue '← Import students' link."
+   },
+   {
+    "screen": "/student-management/import/history",
+    "kind": "word",
+    "severity": "low",
+    "evidence": "qa-output/loop/l5-movein-zr-01-history.png",
+    "problem": "Import history shows the file names as 'students_register.csv#08dc6fcd-6d92-422c-9fed-557d14f31ead' (internal codes). The first import says '37 added, 0 skipped' although 6 rows were left out.",
+    "fix": "Show 'students_register.csv (part 2)' and count left-out rows: '37 added, 6 left out'."
+   },
+   {
+    "screen": "/fee-management/ledger/import/review/39f9872f-3a20-4899-aa5f-8a72aeb4baa9?step=check",
+    "kind": "ux",
+    "severity": "low",
+    "evidence": "qa-output/loop/l5-movein-zo-01-undone.png",
+    "problem": "After 'Undo import of 5 old dues', the page quietly went back to the check step with 'Ready to bring in 5'. No message said the undo worked, so I could not tell whether the dues were removed or were about to be added again.",
+    "fix": "Show a clear note after undo: 'Undone at 12:56 PM: 5 old dues removed. Nothing is on the ledger from this file.'"
+   },
+   {
+    "screen": "/staff-hr-management/import/review/a9d090b6-dfdc-4dc5-8a10-5e2add224b81?step=check",
+    "kind": "ux",
+    "severity": "low",
+    "evidence": "qa-output/loop/l5-movein-x-01-check.png",
+    "problem": "The duplicate staff row only says 'This phone is on another row of the file. Staff ID EMP103 is on another row of the file.' It does not say which row; the student import says 'Row 4 has the same child'. The import also added a second 'Ravi Teja' next to the existing 'Ravi Teja (TGT Mathematics)' without asking whether it is the same person.",
+    "fix": "Name the other row ('same as row 4'). For a staff member with the same name as someone already on staff, ask 'Same person or a different person?' as the student import does."
+   },
+   {
+    "screen": "/staff-hr-management/import/review/a9d090b6-dfdc-4dc5-8a10-5e2add224b81?step=values",
+    "kind": "word",
+    "severity": "low",
+    "evidence": "qa-output/loop/l5-movein-w-02-dept.png",
+    "problem": "The staff and salary imports say 'Every class and name in the file matches School OS.' Staff files have no classes. 'Passed over 0' on every import is unclear, and the student page explains it nowhere.",
+    "fix": "Use 'Every designation and department matches' (staff) and 'Every staff ID matches' (salary). Rename 'Passed over' to 'Nothing to bring in', with the reason underneath."
+   },
+   {
+    "screen": "/student-management/import/review/31a85e76-235d-474c-953a-26197e8ae768?step=check",
+    "kind": "ui",
+    "severity": "low",
+    "evidence": "qa-output/loop/l5-movein-g-02-check.png",
+    "problem": "For the duplicate child (Row 42, Charan Bandi), the 'Choose what this row is:' box offers only 'Different children (twins or namesakes): add both'. The obvious choice, 'Same child: drop this copy', is missing; it is the small grey 'Leave out' text, which sits on the right for some rows and under the message for others.",
+    "fix": "Add a 'Same child: keep row 4 only' button next to 'Different children', and put 'Leave out' in the same place, styled as a button, on every row."
+   },
+   {
+    "screen": "/student-management/students/8cba6107-1274-4dd3-b67f-4db3c0f73db2",
+    "kind": "ux",
+    "severity": "low",
+    "evidence": "qa-output/loop/l5-movein-zs-01-profile.png",
+    "problem": "When the register has one phone per family, the import gives the mother the father's number (Lakshmi Gummadi '+91 90000 13801', the same as Naresh). 'Emergency contacts' then lists the same number twice, and messages may go to the same phone twice.",
+    "fix": "Leave the mother's phone empty when the file has none, or mark it 'same as father' and send each message once per number."
+   }
+  ],
+  "tasksDone": "I played the office clerk, as School Admin on the computer, moving a school from Excel registers into School OS. I spent about 40 minutes and made all my own files under D:/all/Projects/School-OS/qa-output/loop5/.\n\n1. **Students:** students_register.csv has 43 rows: 40 students, 2 duplicate rows and 1 broken row. It had mixed date formats, classes written as V-A / 5th A / VI-B, missing phones, and +91 phones written with spaces. I found Import from Student Management, matched columns and words, and fixed one row in the app. I left out the 6 problem rows and brought in 37, then fixed one more row and brought it in separately (38 in total). I uploaded the same file again: nothing was doubled. I then removed that second upload and looked at Import history.\n2. **Staff:** staff_list.csv has 12 rows with Emp Code and Salary, messy designations (Tr., PET, PGT Physics), a missing phone and a duplicate. I matched designations and departments and brought in 10.\n3. **Salaries:** I tried the salary structures import with the staff file. It failed on 'Effective from', so I made salary_fixed.csv and brought in 10. I checked the result in the database: allowances were added on top of the salary.\n4. **Old fee balances:** I brought in old_fee_balance.csv as old dues and checked one student's ledger, which showed the fees counted twice. I then undid that import, and tried the same file as past receipts.\n5. **Other checks:** I looked at a student profile, the new-school setup checklist (as the dayone school admin), the phone view, and the Telugu version, which another session had switched on in the middle of my run.\n\nTest data left on the local database: 38 students with admission numbers OLD1000–OLD1039, 10 staff (EMP101–EMP111) and 10 salary structures. The old-dues import was undone. Two salary files and one receipts file remain in the 'Files being checked' lists."
+ },
+ {
+  "who": "teacher",
+  "tasksDone": "Class teacher (Ravi Teja) on a 390 px phone, about 40 minutes. Checked the home screen in light mode, and the marks keypad in light and dark. Tried attendance for yesterday: Saturday and Sunday show \"No school\". Friday is locked, so I opened \"Request a correction\". Gave homework \"L5 Exercise 6.1 Q1-Q4\" to 5 A and the toast confirmed it. Opened Check work on the new homework and on an old one, filtered \"Not handed in\" and found \"Remind parents (2)\". Entered marks one at a time with the keypad on Half Yearly 6 A. In that test a saved mark was lost, which I reproduced and then put back: the database again shows Hasini {Internal: 8} and Karthik {Internal: 18}. Applied for 1 day of Casual Leave on 14-12-2026; it is waiting for approval. Opened My salary slips and the October slip. Checked My class (bottom bar) and Notifications. While I was testing, the shared teacher account's language switched to Telugu and back to English, probably changed by another tester, so I saw both and checked the Telugu text too. Steps files are in D:/all/Projects/School-OS/qa-output/loop5/ and screenshots in D:/all/Projects/School-OS/qa-output/loop/ (all start with l5-teacher-).",
+  "findings": [
+   {
+    "screen": "/examination-results/marks/<entry>/<section> (One at a time)",
+    "kind": "bug",
+    "severity": "high",
+    "problem": "A typing mistake wiped out a correct, saved mark. Hasini Reddy already had Internal 8. I typed 65 into Theory and tapped \"Next\". Next did not go to the next student: it moved to Hasini's Internal box and showed \"The digit you type now replaces this mark\". Typing 9 replaced the 8, and typing 9 again showed \"99 is too high\" while the screen said \"Saving…\". After a reload, Internal was \"—\": the database held {Theory: 65} and the 8 was gone. No message said the old mark had been removed.",
+    "fix": "Never save a value that fails the check. Keep the last good mark on the server until a valid one replaces it. Make \"Next\" go to the next student's first empty box, so a teacher does not land on a mark that is already filled and overwrite it.",
+    "evidence": "qa-output/loop/l5-teacher-k-03-99.png, qa-output/loop/l5-teacher-l-01-reload.png"
+   },
+   {
+    "screen": "/attendance-management/register/correction?section=…&date=2026-11-13",
+    "kind": "phone",
+    "severity": "high",
+    "problem": "On a phone, the \"Request a correction\" form is 654 px wide on a 390 px screen. Every row shows the student's name and \"P\". The A, L, H, E, LV and M buttons are cut off on the right, so the page scrolls sideways. The hint \"Mark everyone, then send…\" is also cut. The list sits in its own small scroll box, so the page scrolls inside the page. A teacher cannot mark anyone absent without dragging the page sideways.",
+    "fix": "On a phone, use the same P/A/L row as Take Attendance. Put the less common codes (H, E, LV, M) in a \"More\" menu or a second line. Remove the inner scroll box.",
+    "evidence": "qa-output/loop/l5-teacher-zf-corr-vp.png, qa-output/loop/l5-teacher-e-01-corr.png"
+   },
+   {
+    "screen": "/examination-results/marks/<entry>/<section> (One at a time)",
+    "kind": "phone",
+    "severity": "medium",
+    "problem": "On a 390x844 phone, the subject card and the red \"Marks were due on 21-10-2026\" banner fill the top half of the screen. Only the 1–6 keys show. The 7/8/9/0, AB, ML and \"Previous\"/\"Next\" buttons are below the fold, so a teacher has to scroll for every student. That is too slow for a 2-minute gap.",
+    "fix": "In One at a time mode on a phone, shrink the subject card to one line and the overdue banner to a small chip, and keep the student card, keypad and Next always in view.",
+    "evidence": "qa-output/loop/l5-teacher-zd-marks-vp.png"
+   },
+   {
+    "screen": "/examination-results/marks/<entry>/<section>",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The marks screen uses words a teacher cannot read without help: \"Theory / 80 open\" (open how?), \"Entered 6 of 16 · AB 0 · ML 0\", AB and ML keys that are never explained, and \"Total — + 8\" when one part is missing. The \"Clear\" key always shows in English. The list page says \"5 of 16 complete · 11 missing a mark\" while this page says \"Entered 6 of 16\" for the same paper.",
+    "fix": "Write \"Theory (out of 80)\" and drop \"open\". Add a small line under the keypad: \"AB = absent, ML = medical leave\". Show \"Total: 8 so far (Theory missing)\". Use one count everywhere. Translate \"Clear\".",
+    "evidence": "qa-output/loop/l5-teacher-j-01-entry.png"
+   },
+   {
+    "screen": "/homework-learning/submissions?hw=…",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "One homework shows two different counts. The homework card for 5 A Exercise 3.4 says \"16 assigned, 14 submitted\". The Check work page for the same homework says \"Handed in 13 of 15\". The card also says \"Seen by 12 of 16\", fewer than submitted. A teacher cannot tell which number is true.",
+    "fix": "Count from one source on both pages: the students in the class now, plus a note such as \"1 left the class\". \"Seen\" should count everyone who submitted.",
+    "evidence": "qa-output/loop/l5-teacher-zc-02-notin.png"
+   },
+   {
+    "screen": "/homework-learning, /homework-learning?check=1",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "The homework summary cards contradict each other. \"Handed in 0% · 0 of 123\" sits next to \"Waiting for you to check 72 · From every month\". With the \"Current · 8\" tab and \"This month\" filter selected, the list shows October work marked \"Past due\". On the Check work page, the \"This month\" picker also shows an October homework. A teacher reads 0% handed in and 72 to check at the same time.",
+    "fix": "Base every card on the same period, or label each card clearly (\"This month: 0 of 123 handed in\" and \"Older work to check: 72\"). Put past-due work under an \"Older\" or \"To check\" tab that is selected, not under \"Current\".",
+    "evidence": "qa-output/loop/l5-teacher-g-01-top.png"
+   },
+   {
+    "screen": "/staff-hr-management/leave?view=mine",
+    "kind": "phone",
+    "severity": "medium",
+    "problem": "On a phone, the leave request that shows a \"Cancel leave\" link (Approved, 07-12-2026) is squeezed into a very narrow column. \"Casual Leave\" wraps to two lines and \"07-12-2026 · 1 day · 5 periods 'QA self-test 22848'\" breaks into one word per line, down the left edge.",
+    "fix": "On a phone, put the status chip and \"Cancel leave\" on their own line under the details, or make \"Cancel leave\" a small button on the bottom row of the card.",
+    "evidence": "qa-output/loop/l5-teacher-v-02-page.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Every item in \"Needs your attention\" has an unlabelled crossed-out-eye icon right next to the \">\" arrow. On a phone it is a 44 px button beside the open arrow, so a thumb can easily tap it by mistake. Its meaning (\"Mark as seen\") only shows on hover, which a phone does not have. One wrong tap hides an urgent item such as \"1 paper of yours past the marks due date\", with no undo shown.",
+    "fix": "Move \"Mark as seen\" into a swipe or a \"…\" menu, or show the words \"Hide\" next to the icon, and show an \"Undo\" toast after hiding.",
+    "evidence": "qa-output/loop/l5-teacher-a-02-vp.png"
+   },
+   {
+    "screen": "/homework-learning, /homework-learning/submissions",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "In Telugu, the homework pages are half English: \"Mathematics · 5 A, 5 B, 6 A · only your classes and subjects\", \"123 pieces of work for 2 classes\", \"From every month\", \"From WhatsApp read receipts\", \"This month\", \"Class\", \"work to check · 72 pieces in 9 homework\", \"Showing: This month …\", \"Next Mathematics class: Mon 16 Nov, period 6\", \"Not handed in\" on every row, \"Select students\", and the placeholders \"Exercise 4.3, Q1–Q8\" and \"What should students do?\". \"Out of 100\" became \"కు 100\" (\"to 100\"), which makes no sense.",
+    "fix": "Add these strings to the Telugu catalogue (and the other languages), and translate \"Out of {n}\" as a whole phrase, not word by word.",
+    "evidence": "qa-output/loop/l5-teacher-h-01-check.png, qa-output/loop/l5-teacher-f-01-hw.png"
+   },
+   {
+    "screen": "/staff-hr-management/leave?view=mine",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "In Telugu, the leave screen mixes languages. The dropdown says \"క్యాజువల్ లీవ్\", but the balance cards and the request list say \"Casual Leave\", and \"Earned Leave\", \"Sick Leave\" and \"Leave Without Pay\" stay English. The tabs \"My leave / Requests / Leave calendar\", the hint \"12 days a year\", the file box \"Choose File / No file chosen\", the help line \"Such as a doctor's note…\" and the success toast \"Leave applied for 1 day. Sent to Principal for approval.\" are also English.",
+    "fix": "Translate leave type names the same way everywhere, and translate the tabs, hints and toast. Replace the raw browser file input with the app's own upload button (\"Add photo or file\").",
+    "evidence": "qa-output/loop/l5-teacher-w-02-applied-top.png, qa-output/loop/l5-teacher-w-01-filled-top.png"
+   },
+   {
+    "screen": "/student-management (bottom bar \"My class\")",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "The bottom-bar button \"My class\" opens the full Students list for all 3 classes I teach (\"Your classes: 5 A, 5 B, 6 A · 62 students\"), not my own class 5 A. The home screen calls 5 A \"My class: Class 5 A\". A class teacher expects their 16 students, roll order, today's attendance.",
+    "fix": "Point \"My class\" to Class 5 A only (the class teacher's section), with a switch for the other classes. Or rename the button \"Students\".",
+    "evidence": "qa-output/loop/l5-teacher-ze-01-myclass.png"
+   },
+   {
+    "screen": "/salary-management/slips?mine=1",
+    "kind": "phone",
+    "severity": "low",
+    "problem": "Each salary row on a phone is cut off: \"Paid Thu 30 Apr · 29 రోజు…\". The number of days paid is the one thing that explains why April pay is lower, and it is the part that is hidden. In Telugu the page also mixes \"Last paid\", \"Paid Thu 12 Nov to HDFC Bank\", \"This financial year\", \"Tax summary\", \"ఏప్రిల్ to అక్టోబర్\" and \"Income up to ₹12 L has no tax after rebate\".",
+    "fix": "Put \"29 of 30 days paid\" on its own short second line instead of cutting it off. Translate the remaining phrases.",
+    "evidence": "qa-output/loop/l5-teacher-x-01-slips.png"
+   },
+   {
+    "screen": "/salary-management/slips?slip=…",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "The opened slip shows school name, PAN, UAN and every allowance first. \"Net pay ₹35,946\", the one number a teacher looks for, is at the very bottom, under the \"Download PDF\" bar.",
+    "fix": "Show \"Net pay ₹35,946 · paid Thu 12 Nov\" in large type at the top of the slip sheet, with the details below.",
+    "evidence": "qa-output/loop/l5-teacher-y-01-top.png"
+   },
+   {
+    "screen": "/attendance-management?date=2026-11-13",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "On a locked day (\"Attendance locked at 11:00 AM … Ask for a correction\"), every student still shows P / A / L buttons. They are faded but look tappable. Tapping them does nothing, and the only way forward is the small \"Request a correction\" button inside the banner.",
+    "fix": "When the day is locked, hide the P/A/L buttons (or show a lock icon instead). Make \"Request a correction\" a full-width main button.",
+    "evidence": "qa-output/loop/l5-teacher-d-02-fri.png"
+   },
+   {
+    "screen": "/attendance-management",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "To take attendance for yesterday, the teacher has to open the date box and pick a date in the native calendar. There is no \"Yesterday\" chip, although the homework form has \"Next class / Tomorrow / Pick a date\" chips.",
+    "fix": "Add \"Today\" and \"Last school day\" chips next to the date box.",
+    "evidence": "qa-output/loop/l5-teacher-c-01-att.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "On the Telugu home screen, these stay English: \"Lesson plan … Was due 2 Nov\", \"Was due 3 Nov\", \"Mathematics · share taught so far\" and \"Unit Test 2 · average 70% · 16 students sat, 1 since left the class\". On the attendance header, \"Class teacher Ravi Teja\" is also English.",
+    "fix": "Translate the task due lines, the syllabus subtitle, the exam results summary and the \"Class teacher {name}\" label.",
+    "evidence": "qa-output/loop/l5-teacher-b-01-FAILED.png"
+   },
+   {
+    "screen": "/notifications",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The same event appears twice: \"Family function leave: Pooja Verma … approved\" and \"Leave approved: Pooja Verma, 02-11-2026 to 06-11-2026 …\". My own leave reads \"Casual Leave: Ravi Teja, 07-12-2026 (1 day), 5 periods need substitutes: approved\". It is unclear whether my leave or the substitutes were approved. 41 new notifications pile up.",
+    "fix": "Send one notification per event. Write my own leave as \"Your leave on 07-12-2026 is approved.\" and leave the substitute details to the principal.",
+    "evidence": "qa-output/loop/l5-teacher-ze-02-notif.png"
+   },
+   {
+    "screen": "/homework-learning?do=give",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "On Sunday (\"No school today\"), I gave homework that the app records as \"Given Sun 15 Nov · due Mon 16 Nov\", with no warning. The new homework also gets \"Out of 100\" by default, although I never set any marks, and the Check work page then shows \"Not handed in\" for every student before the due date.",
+    "fix": "Before the due date, show \"Not yet due\" instead of \"Not handed in\". Only show \"Out of N\" if the teacher set marks. Give a gentle note when the homework is given on a holiday.",
+    "evidence": "qa-output/loop/l5-teacher-h-01-check.png"
+   }
+  ]
+ }
+]

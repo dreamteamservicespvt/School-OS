@@ -476,7 +476,7 @@ export type AccessRefusal = "gone" | "off" | "device" | "section-off";
 export const ACCESS_WORDS: Record<AccessRefusal, string> = {
   gone: "This link is no longer active. Please ask the school for a new one.",
   off: "The school has switched off Parent Link for now. To ask a question, message or call the school.",
-  device: "Please confirm this phone again: open the link and type the code we send.",
+  device: "Please confirm this phone again: open your Parent Link and follow the steps there.",
   "section-off": "The school has switched this part of Parent Link off. Please call the school.",
 };
 

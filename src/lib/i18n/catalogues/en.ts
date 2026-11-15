@@ -17656,6 +17656,8 @@ export const EN = [
   "A {phone} asked to open your Parent Link {minutes} min ago.",
   "Someone asked to open your Parent Link {minutes} min ago.",
   "Tap only if that was you, on this phone. If someone asked you to send them this message, do not tap and do not forward it.",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "Please confirm this phone again: open your Parent Link and follow the steps there.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

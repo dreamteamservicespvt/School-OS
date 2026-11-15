@@ -17098,4 +17098,6 @@ export const te: Catalogue = {
   "A {phone} asked to open your Parent Link {minutes} min ago.": "{minutes} నిమిషాల క్రితం ఒక {phone} నుండి మీ Parent Link తెరవమని అడిగారు.",
   "Someone asked to open your Parent Link {minutes} min ago.": "{minutes} నిమిషాల క్రితం ఎవరో మీ Parent Link తెరవమని అడిగారు.",
   "Tap only if that was you, on this phone. If someone asked you to send them this message, do not tap and do not forward it.": "అది మీరే, ఈ ఫోన్‌లోనే అడిగితేనే నొక్కండి. ఎవరైనా ఈ సందేశాన్ని తమకు పంపమని అడిగితే, నొక్కకండి, ఎవరికీ ఫార్వర్డ్ చేయకండి.",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "Please confirm this phone again: open your Parent Link and follow the steps there.": "దయచేసి ఈ ఫోన్‌ను మళ్ళీ నిర్ధారించండి: మీ Parent Link తెరిచి అక్కడ చెప్పిన దశలు పూర్తి చేయండి.",
 };

@@ -70,7 +70,9 @@ export default async function DashboardPage({ searchParams }: Search) {
   // shortcut is gone: the shortcuts (or the Quick actions card) already carry it.
   const quick = quickActionsFor(current, home.approvals !== null).filter((q) => !(home.dayOff && q.href === "/attendance-management"));
   // A teacher's home: the work comes first on the phone; no refresh picker and no filters (they mean nothing there).
-  const teacherHome = !home.leader && (home.homes[0] === "teacher" || home.homes[0] === "class-teacher");
+  // Front-line homes (teacher, reception, gate, library…) get no refresh picker or Filters bar: those
+  // words meant nothing to them (layman loop 2 and 3). Office homes keep them for dates and campuses.
+  const teacherHome = !home.leader && (["teacher", "class-teacher", "receptionist", "transport", "librarian", "warden", "store", "gate", "staff"] as const).some((k) => home.homes[0] === k);
   const attentionUp = teacherHome && home.attention.length > 0;
   const updated = formatTime(now, tz);
   const today = todayFor(tz, now).toISOString().slice(0, 10);

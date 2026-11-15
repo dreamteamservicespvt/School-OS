@@ -14,7 +14,6 @@ import type { T } from "@/lib/i18n/t";
 
 export const dashIcon = (name: string): LucideIcon => ((I as unknown as Record<string, LucideIcon>)[name] ?? I.Circle);
 
-const TONE_SOFT = { ok: "bg-ok/10 text-ok", warn: "bg-warn/12 text-warn", bad: "bg-bad/10 text-bad", info: "bg-info/10 text-info", neutral: "bg-sunken text-ink2", brand: "bg-brand/10 text-brand" } as const;
 const PILL_TONE = { ok: "ok", warn: "warn", bad: "bad", info: "info", neutral: "neutral" } as const;
 
 /** A panel's link ("Open", "Time Table", "Class list"): 44 px tall to tap on a phone, without making the heading taller (QA LC22). */
@@ -118,7 +117,8 @@ export function PanelCard({ panel, t }: { panel: Panel; t: T }) {
               {panel.rows.map((r) => {
                 const inner = (
                   <>
-                    {r.avatar ? <Avatar name={r.avatar} size={36} /> : <span className={cx("w-10 h-10 rounded-xl grid place-items-center shrink-0", TONE_SOFT.brand)}><I.Circle size={17} aria-hidden="true" /></span>}
+                    {/* No empty circle in front of a row: it looked like a tick-box (layman loop 3). */}
+                    {r.avatar && <Avatar name={r.avatar} size={36} />}
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-[14.5px] leading-snug truncate">{r.title}</p>
                       {r.sub && <p className="text-[12.5px] text-ink3 truncate">{r.sub}</p>}

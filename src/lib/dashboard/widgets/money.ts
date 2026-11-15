@@ -209,7 +209,7 @@ const recent: Widget<"panel"> = {
       panel: {
         kind: "list", title: "Recent payments", sub: c.year ? `Latest in ${c.year.name}` : "Last 30 days", icon: "CreditCard",
         rows: list.rows.map((r) => ({
-          id: r.id, title: r.student?.fullName ?? "Student",
+          id: r.id, title: r.student?.fullName ?? "Student", avatar: r.student?.fullName ?? undefined,
           sub: [r.classLabel, r.receiptNo, shortDate(r.paymentDate)].filter(Boolean).join(" · "),
           href: `${FEES}/payments/${r.id}`,
           right: word[r.status] ? `${formatRupees(r.amountPaise)} · ${word[r.status]}` : formatRupees(r.amountPaise),

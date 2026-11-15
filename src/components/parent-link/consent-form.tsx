@@ -86,11 +86,11 @@ export function ConsentForm({ token, consentTextId, title, photo = false, kids: 
           ))}
         </fieldset>
         {action === "withdraw" && <p className="text-[13px] text-ink2">{photo ? t("After this, photos of your child are not shared.") : t("After this, the school stops what this form allows.")}</p>}
-        <p className="text-[12.5px] text-ink3">{t("A one-time code goes to {phone} to confirm it is you.", { phone: maskedPhone })}</p>
+        <p className="text-[12.5px] text-ink3">{t("We send a message to {phone} to confirm it is you.", { phone: maskedPhone })}</p>
         {asked && !asked.ok && <p role="alert" className="text-[13px] text-bad">{asked.message}</p>}
         <div className="grid grid-cols-2 gap-2.5">
           <Button variant="ghost" size="lg" className="w-full" onClick={() => setAction(null)}>{t("Cancel")}</Button>
-          <SubmitButton size="lg" className="w-full" pendingText={t("Sending code")}>{t("Send code")}</SubmitButton>
+          <SubmitButton size="lg" className="w-full" pendingText={t("Sending")}>{t("Send to confirm")}</SubmitButton>
         </div>
       </form>
     );

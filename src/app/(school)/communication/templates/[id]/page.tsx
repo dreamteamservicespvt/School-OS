@@ -71,7 +71,9 @@ export default async function TemplatePage({ params, searchParams }: { params: P
   // Still in earlier words School OS gave it (approved ones too, for the new card): one click gives today's card.
   const readyWords = isWa && v && (wa === "NOT_SUBMITTED" || wa === "REJECTED" || wa === "APPROVED") ? newReadyWords(t.key, v.language, v.body) : null;
   const preview = v ? render(card ? cardBody(v.body, card) : v.body, sampleValues) : null;
-  const shownCard = card && v ? { ...card, buttons: effectiveButtons(v.body, card) } : null;
+  // What WhatsApp really has: a receipt card approved with its text header (the sample PDF did not go) shows that header.
+  const sentHeader = card?.header?.type === "document" && card.submitted?.header === "text" && card.header.text ? { type: "text" as const, text: card.header.text } : card?.header;
+  const shownCard = card && v ? { ...card, header: sentHeader, buttons: effectiveButtons(v.body, card) } : null;
   const newCard = readyWords && v ? readyCard(t.key, v.language) : null;
   const usedIn = (vid: string) => { const n = data.uses.get(vid) ?? 0; return `${n.toLocaleString("en-IN")} message${n === 1 ? "" : "s"}`; };
   const maxVersion = Math.max(1, ...currentVersions.map((x) => x.version));

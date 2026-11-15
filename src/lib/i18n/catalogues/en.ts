@@ -17658,6 +17658,10 @@ export const EN = [
   "Tap only if that was you, on this phone. If someone asked you to send them this message, do not tap and do not forward it.",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "Please confirm this phone again: open your Parent Link and follow the steps there.",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "We send a message to {phone} to confirm it is you.",
+  "Send to confirm",
+  "Confirmed from your phone. Any fee is in fees due.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

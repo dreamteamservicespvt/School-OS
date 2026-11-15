@@ -62,7 +62,7 @@ export function EventConsentCard({ token, preview, maskedPhone, c }: { token: st
             <div className="grid grid-cols-2 gap-2.5 mt-4">
               <form action={(fd) => { ask(fd); setState("code"); }}>
                 {hidden}
-                <SubmitButton size="lg" className="w-full" pendingText={t("Sending code")}><Check size={18} aria-hidden="true" />{t("Give consent")}</SubmitButton>
+                <SubmitButton size="lg" className="w-full" pendingText={t("Sending")}><Check size={18} aria-hidden="true" />{t("Give consent")}</SubmitButton>
               </form>
               <form action={decline}>
                 {hidden}
@@ -108,7 +108,7 @@ export function EventConsentCard({ token, preview, maskedPhone, c }: { token: st
             <span className={cx("w-9 h-9 rounded-full grid place-items-center shrink-0", answer === "GIVEN" ? "bg-ok/15 text-ok" : "bg-surface text-ink3")}>{answer === "GIVEN" ? <Check size={18} strokeWidth={2.6} aria-hidden="true" /> : <X size={18} strokeWidth={2.6} aria-hidden="true" />}</span>
             <div className="min-w-0 text-[14px]" role="status">
               <p className="font-semibold">{answer === "GIVEN" ? t("{child} is going to {event}", { child: c.child, event: c.name }) : t("{child} is not going", { child: c.child })}</p>
-              <p className="text-[13px] text-ink3 mt-0.5">{answer === "GIVEN" ? t("Confirmed with a one-time code. Any fee is in fees due.") : t("Saved. Nothing is charged.")}</p>
+              <p className="text-[13px] text-ink3 mt-0.5">{answer === "GIVEN" ? t("Confirmed from your phone. Any fee is in fees due.") : t("Saved. Nothing is charged.")}</p>
             </div>
           </div>
           {c.open && !preview && <button type="button" onClick={() => { setChanging(true); setState("view"); }} className="mt-3 text-[13px] font-semibold text-brand hover:underline h-8">{t("Change my answer")}{c.replyBy ? ` (${t("until {date}", { date: c.replyBy })})` : ""}</button>}

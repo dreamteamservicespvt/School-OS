@@ -280,15 +280,27 @@ export async function submitWhatsappTemplate(p: ProviderConfig, t: TemplateSubmi
   }
 }
 
+type MetaTemplateRow = { name: string; language: string; status: string; rejected_reason?: string; category?: string };
+
+/**
+ * Meta's reason for a refused template. When it refuses with "NONE" (live test 16 Nov: three texts
+ * refused at once, no reason), the category it filed the text under is the only clue, so it is named.
+ */
+function metaNote(t: MetaTemplateRow): string | null {
+  if (t.rejected_reason && t.rejected_reason !== "NONE") return t.rejected_reason;
+  if (t.status.toUpperCase() !== "REJECTED") return null;
+  return t.category ? `NO_REASON_GIVEN (filed as ${t.category.toUpperCase()})` : null;
+}
+
 /** Asks WhatsApp for a submitted template's approval status. */
 export async function whatsappTemplateStatus(p: ProviderConfig, name: string, language: string) {
   if (!p.config.businessAccountId || !p.secrets.accessToken || !META_ID.test(p.config.businessAccountId)) return null;
   try {
-    const url = `${GRAPH}/${encodeURIComponent(p.config.businessAccountId)}/message_templates?name=${encodeURIComponent(name)}`;
+    const url = `${GRAPH}/${encodeURIComponent(p.config.businessAccountId)}/message_templates?name=${encodeURIComponent(name)}&fields=name,language,status,rejected_reason,category`;
     const res = await fetch(url, { headers: { Authorization: `Bearer ${p.secrets.accessToken}` }, signal: AbortSignal.timeout(8000) });
-    const json = (await res.json()) as { data?: { name: string; language: string; status: string; rejected_reason?: string }[] };
+    const json = (await res.json()) as { data?: MetaTemplateRow[] };
     const t = json.data?.find((x) => x.language === language) ?? json.data?.[0];
-    return t ? { status: t.status.toUpperCase(), note: t.rejected_reason && t.rejected_reason !== "NONE" ? t.rejected_reason : null } : null;
+    return t ? { status: t.status.toUpperCase(), note: metaNote(t) } : null;
   } catch {
     return null;
   }
@@ -302,14 +314,14 @@ export async function whatsappTemplateStatus(p: ProviderConfig, name: string, la
 export async function listWhatsappTemplates(p: ProviderConfig): Promise<Map<string, { status: string; note: string | null }> | null> {
   if (!p.config.businessAccountId || !p.secrets.accessToken || !META_ID.test(p.config.businessAccountId)) return null;
   const out = new Map<string, { status: string; note: string | null }>();
-  let url: string | null = `${GRAPH}/${encodeURIComponent(p.config.businessAccountId)}/message_templates?fields=name,language,status,rejected_reason&limit=200`;
+  let url: string | null = `${GRAPH}/${encodeURIComponent(p.config.businessAccountId)}/message_templates?fields=name,language,status,rejected_reason,category&limit=200`;
   try {
     for (let page = 0; url && page < 20; page++) {
       const res: Response = await fetch(url, { headers: { Authorization: `Bearer ${p.secrets.accessToken}` }, signal: AbortSignal.timeout(8000) });
       if (!res.ok) return null;
-      const json = (await res.json()) as { data?: { name: string; language: string; status: string; rejected_reason?: string }[]; paging?: { next?: string } };
+      const json = (await res.json()) as { data?: MetaTemplateRow[]; paging?: { next?: string } };
       for (const t of json.data ?? []) {
-        out.set(`${t.name}|${t.language}`, { status: t.status.toUpperCase(), note: t.rejected_reason && t.rejected_reason !== "NONE" ? t.rejected_reason : null });
+        out.set(`${t.name}|${t.language}`, { status: t.status.toUpperCase(), note: metaNote(t) });
       }
       url = json.paging?.next ?? null;
       // The next page must be on Meta's own address; anything else is not followed, and the list is not complete.

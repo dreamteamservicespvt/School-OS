@@ -130,6 +130,8 @@ export function rejectedWords(note: string): string {
     ABUSIVE_CONTENT: "WhatsApp says the words break its rules",
     SCAM: "WhatsApp says the words look like a scam (often a link in the words)",
   };
+  const none = /^NO_REASON_GIVEN \(filed as ([A-Z_]+)\)$/i.exec(note.trim());
+  if (none) return `WhatsApp refused it without giving a reason; it filed the text as ${none[1].charAt(0).toUpperCase()}${none[1].slice(1).toLowerCase()}. Plainer words usually pass, or ask DREAM TEAM support.`;
   return words[code] ? `${words[code]} (${code}).` : `“${note.trim().slice(0, 200)}”`;
 }
 

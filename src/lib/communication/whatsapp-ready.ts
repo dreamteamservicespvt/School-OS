@@ -61,10 +61,22 @@ export function isOwnReadyText(key: string | null, language: string, body: strin
  * WhatsApp approves it (withLastApproved in ../messaging/templates.ts). A text
  * WhatsApp is checking (Pending) is left alone.
  */
-function rewordFor(key: string | null, v: { language: string; body: string; whatsappStatus: string | null }): string | null {
+function rewordFor(key: string | null, v: { language: string; body: string; whatsappStatus: string | null; whatsappCard?: unknown; whatsappNote?: string | null }): string | null {
   const status = statusOf(v);
   if (status !== "APPROVED" && !OPEN.has(status)) return null;
+  if (status === "APPROVED" && pdfNotTried(key, v)) return readyWhatsappWords(key, v.language);
   return newReadyWords(key, v.language, v.body);
+}
+
+/**
+ * An approved receipt card that went to WhatsApp with its text header, because the sample
+ * PDF could not be given then and nobody was told why (live test 16 Nov): it is offered once
+ * more, so the PDF header is tried again. A later try that also fails keeps its note ("Sent
+ * without the receipt PDF on top: <why>"), so it is not offered again and again.
+ */
+function pdfNotTried(key: string | null, v: { language: string; body: string; whatsappCard?: unknown; whatsappNote?: string | null }) {
+  const card = v.whatsappCard as { header?: { type?: string }; submitted?: { header?: string | null } } | null | undefined;
+  return card?.header?.type === "document" && card.submitted?.header === "text" && !v.whatsappNote?.startsWith("Sent without the receipt PDF") && isOwnReadyText(key, v.language, v.body);
 }
 
 export type ReadyRow = { templateId: string; name: string; language: string; languageLabel: string };
@@ -127,7 +139,7 @@ export async function whatsappReadiness(tx: Tx, ctx: SchoolContext): Promise<Wha
 export async function makeReadyForWhatsapp(tx: Tx, ctx: SchoolContext, templateId: string | null) {
   const rows = await tx.template.findMany({
     where: { schoolId: ctx.schoolId, archivedAt: null, channel: "whatsapp", key: { not: null }, ...(templateId ? { id: templateId } : {}) },
-    select: { id: true, name: true, key: true, versions: { where: { isCurrent: true }, select: { id: true, language: true, body: true, subject: true, whatsappStatus: true } } },
+    select: { id: true, name: true, key: true, versions: { where: { isCurrent: true }, select: { id: true, language: true, body: true, subject: true, whatsappStatus: true, whatsappCard: true, whatsappNote: true } } },
     orderBy: [{ category: "asc" }, { name: "asc" }],
   });
   const done: { templateId: string; name: string; languages: string[] }[] = [];

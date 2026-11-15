@@ -256,3 +256,69 @@ Screenshots (in `qa/whatsapp-cards/`):
 - A second consent request to Venkatesh.
 - The Parent Link was resent (it stays active).
 - The "QA emoji body test" template is **archived** (01:09).
+
+## Deploy 11 (16 Nov)
+
+Deploy 11 (main cb44ec80), tested by Claude, 02:52 to 03:20 IST. Messages went to 9390011378 only. WhatsApp Web showed only the chat from +91 79896 17553.
+
+### A. Templates
+- **"Make N templates ready" was not offered.** The page showed the 4 rejected texts under "Change these before sending. The school wrote or changed them, so School OS does not replace them."
+  - **Bug:** the deploy 10 card words of these 4 were not added to `PAST_READY_WHATSAPP` (`src/lib/messaging/ready-history.ts`). The school's rejected v3 is therefore taken as school-written, and the reworded deploy 11 words are never offered.
+  - Visitor pass and Pickup gate pass had never been in the history at all.
+- **Workaround used:** the page's own path, Edit, then Send for WhatsApp approval. I typed the exact new `ready-whatsapp.ts` words into each.
+  - Afterwards the page did list them as "School OS texts".
+  - The card header stayed the old one (for example "Welcome to school", not "Admission confirmed"), because Edit keeps the saved card.
+
+| Text | Result | Meta's reason |
+|---|---|---|
+| Admission welcome v4 | **Rejected at once** (02:53) | Not shown. Toast: "WhatsApp rejected this text. English: no reason given." Still "gave no reason" at 03:20 |
+| Staff invite v4 | **Pending** (02:54). Still pending at 03:20 ("No change yet. WhatsApp usually answers within a day.") | – |
+| Visitor pass v2 | **Rejected at once** (02:54) | "no reason given" (same as above) |
+| Pickup gate pass v2 | **Rejected at once** (02:55) | "no reason given" |
+| Fee received | **Could not be resent.** Edit shows "Approved by WhatsApp and locked. Make a new template to change the wording.", so no tiny word change is possible | No "Sent without the receipt PDF" note on the page, because this version was submitted before deploy 11. The page's preview still shows "Receipt PDF · The parent's own receipt, attached", although the approved template has a text header (misleading) |
+
+- **Fix 4 is not seen working:** for an instant rejection, Meta's reason is not shown straight away, nor after "Check approval status", nor after 25 minutes.
+  - Deploy 10 showed INCORRECT_CATEGORY after the sync.
+  - Perhaps Meta's create response holds no reason and `rejected_reason` stays NONE for these.
+
+### B. Parent Link tap, same browser (WhatsApp Chrome)
+- I opened the 1:05 "Your Parent Link" card's button, which goes to the plain `/p/<token>`.
+  - It showed "Confirm it's you … we will send your Parent Link to your WhatsApp (+91 ••••• ••378)" with a **Send to my WhatsApp** button.
+  - I pressed it. The page said "We sent your Parent Link to your WhatsApp …".
+- A new **"Your Parent Link" card arrived at 2:57 AM**.
+- Its Open Parent Link goes to `/p/<token>.<secret>`. It showed **"Open your Parent Link on this phone"** and **no warning** (as expected).
+- I tapped **Open my Parent Link**. Parent Link opened: "Namaste, Venkatesh", Sri Lakshmi, fees due ₹19,800, paid ₹200, receipts 00012 and 00011, exam datesheet, consent forms.
+- **390 px screenshots could not be made.** `resize_window` reports success, but the Chrome window stays 1536 px wide (it is maximized). Only desktop-width shots exist.
+
+### C. Parent Link tap, other browser
+- In the Accountant Chrome I opened a fresh tab on the plain link. It showed the same "Confirm it's you" page; I pressed Send to my WhatsApp.
+- A new card arrived at **2:59 AM**. I tapped its button in the WhatsApp Chrome.
+- The page showed the **warning**: "A Windows computer, Chrome asked to open your Parent Link 0 min ago. **Tap only if that was you, on this phone. If someone asked you to send them this message, do not tap and do not forward it.**"
+- **Not confirmed.** I closed the tab, so the accountant browser never became a confirmed device.
+
+### D. Consent tap
+- On the confirmed Parent Link > Consent forms > Photos of my child > **Give consent** (Sri Lakshmi ticked).
+  - The step still says **"A one-time code goes to +91 ••••• ••378 to confirm it is you."** with a **"Send code"** button. This wording is outdated: no code is sent any more.
+  - I pressed it. The page said "You are saying yes for "Photos of my child". To confirm, open the new message we sent to your WhatsApp (+91 ••••• ••378) and tap Open Parent Link."
+- A card arrived at **2:58 AM**. It is a plain **"Your Parent Link"** card that does not mention the consent; a parent may not see that this message is for confirming their answer.
+- Its button opened **"Confirm your answer. You are saying yes for "Photos of my child". Tap Confirm to record it."** I pressed Confirm.
+  - The page said "Thank you. Your consent for "Photos of my child" is recorded."
+  - The Parent Link then showed **Consent given · Sri Lakshmi · given 16-11-2026**, with a "Remove consent" button.
+
+### E. Resending reworded cards
+- Nothing was resent. Three of the four were rejected again; Staff invite is still pending.
+
+### Screenshots
+All in `qa/whatsapp-cards/`, desktop width (1536 px). The files are JPEGs, so they are saved as `.jpg`.
+- `deploy11-confirm-same-browser-1440.jpg`
+- `deploy11-parent-link-opened-1440.jpg`
+- `deploy11-confirm-other-browser-warning-1440.jpg`
+- `deploy11-consent-given-1440.jpg`
+
+### Credits
+- **3 WhatsApp credits** (Parent Link cards at 2:57, 2:58 and 2:59), all to 9390011378.
+
+### Test changes left on the test school
+- Admission welcome v4, Staff invite v4, Visitor pass v2 and Pickup gate pass v2: new versions with the deploy 11 words.
+- The WhatsApp Chrome is now a confirmed device for Venkatesh's Parent Link.
+- Photos consent for Sri Lakshmi is **given**.

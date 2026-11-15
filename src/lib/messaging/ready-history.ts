@@ -219,6 +219,39 @@ const BEFORE_CARDS: Readonly<Record<string, readonly string[]>> = {
   ],
 };
 
+// The card words of four texts Meta refused as the wrong category (deploys 10 and 11, 16 Nov 2026).
+const REFUSED_CARDS: Readonly<Record<string, readonly string[]>> = {
+  "admission-welcome|en": [
+    "Dear {guardian_name}, welcome! We are happy to confirm your child's admission.\n\n👤 *{student_name}* of {class}\n🆔 Admission no.: *{admission_no}*\n\nPlease keep this number safe. We look forward to a wonderful year together.",
+    "Dear {guardian_name}, the admission below is confirmed.\n\n👤 *{student_name}*, {class}\n🆔 Admission no.: *{admission_no}*\n\nPlease keep this admission number for school records.",
+  ],
+  "admission-welcome|hi": [
+    "नमस्ते {guardian_name} जी, स्वागत है! आपके बच्चे का दाख़िला पक्का हो गया है।\n\n👤 *{student_name}*, कक्षा {class}\n🆔 दाख़िला नंबर: *{admission_no}*\n\nकृपया यह नंबर संभालकर रखें। साथ मिलकर एक शानदार साल की प्रतीक्षा है।",
+    "नमस्ते {guardian_name} जी, नीचे दिया गया दाख़िला पक्का हो गया है।\n\n👤 *{student_name}*, कक्षा {class}\n🆔 दाख़िला नंबर: *{admission_no}*\n\nकृपया यह दाख़िला नंबर स्कूल के काम के लिए संभालकर रखें।",
+  ],
+  "admission-welcome|te": [
+    "నమస్కారం {guardian_name} గారు, స్వాగతం! మీ బిడ్డ అడ్మిషన్ ఖరారైంది.\n\n👤 *{student_name}*, తరగతి {class}\n🆔 అడ్మిషన్ నంబర్: *{admission_no}*\n\nఈ నంబర్‌ను జాగ్రత్తగా ఉంచుకోండి. కలిసి ఒక చక్కని సంవత్సరం కోసం ఎదురుచూస్తున్నాము.",
+    "నమస్కారం {guardian_name} గారు, కింది అడ్మిషన్ ఖరారైంది.\n\n👤 *{student_name}*, తరగతి {class}\n🆔 అడ్మిషన్ నంబర్: *{admission_no}*\n\nదయచేసి ఈ అడ్మిషన్ నంబర్‌ను పాఠశాల పనుల కోసం జాగ్రత్తగా ఉంచుకోండి.",
+  ],
+  "staff-invite|en": [
+    "Dear {staff_name}, the school has added you to School OS, the app it uses for its daily work.\n\nTap the button below to start.\n\n🔒 The button works once, for 7 days. Please do not share this message.\n{link}",
+  ],
+  "staff-invite|hi": [
+    "नमस्ते {staff_name} जी, स्कूल ने आपको School OS में जोड़ा है, जिसे स्कूल अपने रोज़ के काम के लिए इस्तेमाल करता है।\n\nशुरू करने के लिए नीचे दिया बटन दबाएँ।\n\n🔒 यह बटन सिर्फ़ एक बार, 7 दिनों तक चलेगा। कृपया यह संदेश किसी से साझा न करें।\n{link}",
+  ],
+  "staff-invite|te": [
+    "నమస్కారం {staff_name} గారు, పాఠశాల రోజువారీ పనుల కోసం ఉపయోగించే School OS లో మిమ్మల్ని చేర్చారు.\n\nమొదలుపెట్టడానికి కింది బటన్ నొక్కండి.\n\n🔒 ఈ బటన్ ఒక్కసారి మాత్రమే, 7 రోజుల వరకు పనిచేస్తుంది. దయచేసి ఈ సందేశాన్ని ఎవరితోనూ పంచుకోవద్దు.\n{link}",
+  ],
+  "visitor-pass|en": [
+    "Dear {visitor_name}, here is your visitor pass for the school.\n\n🎫 {message}\n\nPlease show this message at the gate.",
+    "Dear {visitor_name}, your visit to the school is registered.\n\n🎫 Pass no.: *{pass_no}*\n🕒 Valid until: *{valid_until}* today\n\nPlease show this message at the gate.",
+  ],
+  "gate-pass|en": [
+    "Dear {visitor_name}, here is the gate pass for your child.\n\n🎫 {message}\n\nPlease show this message at the gate.",
+    "Dear {visitor_name}, the school has approved this pickup.\n\n👤 *{student_name}* leaves with you at *{time}*.\n🎫 Gate pass no.: *{pass_no}*\n\nPlease show this message at the gate.",
+  ],
+};
+
 export const PAST_READY_WHATSAPP: Readonly<Record<string, readonly string[]>> = Object.fromEntries(
-  [...new Set([...Object.keys(EARLIER), ...Object.keys(BEFORE_CARDS)])].map((k) => [k, [...(EARLIER[k] ?? []), ...(BEFORE_CARDS[k] ?? [])]]),
+  [...new Set([...Object.keys(EARLIER), ...Object.keys(BEFORE_CARDS), ...Object.keys(REFUSED_CARDS)])].map((k) => [k, [...(EARLIER[k] ?? []), ...(BEFORE_CARDS[k] ?? []), ...(REFUSED_CARDS[k] ?? [])]]),
 );

@@ -17100,4 +17100,8 @@ export const hi: Catalogue = {
   "Tap only if that was you, on this phone. If someone asked you to send them this message, do not tap and do not forward it.": "सिर्फ़ तभी दबाएँ जब यह आपने ही, इसी फ़ोन पर किया हो। अगर किसी ने आपसे यह संदेश भेजने को कहा है, तो न दबाएँ और इसे आगे न भेजें।",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "Please confirm this phone again: open your Parent Link and follow the steps there.": "कृपया इस फ़ोन की फिर से पुष्टि करें: अपना Parent Link खोलें और वहाँ दिए गए कदम पूरे करें।",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "We send a message to {phone} to confirm it is you.": "यह पक्का करने के लिए कि यह आप ही हैं, हम {phone} पर एक संदेश भेजते हैं।",
+  "Send to confirm": "पुष्टि के लिए भेजें",
+  "Confirmed from your phone. Any fee is in fees due.": "आपके फ़ोन से पुष्टि हो गई। कोई फ़ीस हो तो वह बकाया फ़ीस में है।",
 };

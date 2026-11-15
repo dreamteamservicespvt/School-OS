@@ -189,7 +189,7 @@ export async function reopenPaper(tx: Tx, ctx: SchoolContext, scope: ExamScope, 
   const teachers = await tx.teacherAllocation.findMany({ where: { sectionId, subjectId: paper.subject.id, archivedAt: null }, select: { staffId: true } });
   const logins = await tx.staff.findMany({ where: { id: { in: teachers.map((t) => t.staffId) }, userLoginId: { not: null } }, select: { userLoginId: true } });
   for (const l of logins) {
-    await notify(tx, ctx, { to: l.userLoginId!, type: "marks-returned", text: `${paper.subject.name} marks for ${paper.section.label} (${paper.exam.title}) were sent back to you: ${reason.trim()}`, link: `/examination-results/marks/${entryId}/${sectionId}` });
+    await notify(tx, ctx, { to: l.userLoginId!, type: "marks-returned", key: "{subject} marks for {class} ({exam}) were sent back to you: {reason}", values: { subject: paper.subject.name, class: paper.section.label, exam: paper.exam.title, reason: reason.trim() }, link: `/examination-results/marks/${entryId}/${sectionId}` });
   }
   await writeAudit(tx, ctx, { action: "marks-returned", recordType: "Marks Paper", recordId: paper.paper.id, before: { status: "SUBMITTED" }, after: { status: "IN_PROGRESS", reason: reason.trim() } });
   return paper;
@@ -459,7 +459,8 @@ export async function remindTeachers(tx: Tx, ctx: SchoolContext, scope: ExamScop
     const due = list.map((r) => r.due).filter((d): d is Date => Boolean(d)).sort((a, b) => a.getTime() - b.getTime())[0];
     await notify(tx, ctx, {
       to, type: "marks-due",
-      text: `Marks pending: ${list.map((r) => `${r.subjectName} ${r.sectionLabel} (${r.done} of ${r.of})`).join(", ")}.${due ? ` Due ${formatDate(due)}.` : ""}`,
+      key: due ? "Marks pending: {list}. Due {date}." : "Marks pending: {list}.",
+      values: { list: list.map((r) => `${r.subjectName} ${r.sectionLabel} (${r.done} of ${r.of})`).join(", "), date: due ? formatDate(due) : "" },
       link: list.length === 1 ? `/examination-results/marks/${first.entryId}/${first.sectionId}` : "/examination-results/marks",
       groupKey: `marks-remind:${to}:${day}`,
     });

@@ -73,7 +73,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
         const due = alloc && v.seesFees ? await hostelFeesDue(tx, alloc.studentId, p.today) : BigInt(0);
         const planRow = alloc?.feePlanId ? await tx.hostelFeePlan.findFirst({ where: { id: alloc.feePlanId }, include: { installments: { where: { archivedAt: null } } } }) : null;
         const links = alloc ? await tx.studentGuardian.findMany({ where: { studentId: alloc.studentId, archivedAt: null }, include: { guardian: { select: { name: true, phone: true } } }, orderBy: [{ isPrimary: "desc" }, { emergencyOrder: "asc" }], take: 2 }) : [];
-        opened = { room, bed, alloc, due, plan: planRow ? `${planRow.name}${v.seesFees ? ` · ${formatRupees(planTotal(planRow))} a year` : ""}` : alloc ? "No hostel fees" : null, guardians: links.map((l) => ({ name: l.guardian.name, relationship: l.relationship, phone: l.guardian.phone })) };
+        opened = { room, bed, alloc, due, plan: planRow ? `${planRow.name}${v.seesFees ? ` · ${formatRupees(planTotal(planRow))} a year` : ""}` : alloc ? "No hostel fees" : null, guardians: links.map((l) => ({ name: l.guardian.name, relationship: l.relationship, phone: l.guardian.phone ?? "" })) };
       }
     }
     // Every campus's current year's plans (a school's campuses can start the year on different dates).

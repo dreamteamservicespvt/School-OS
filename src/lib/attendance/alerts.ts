@@ -29,6 +29,8 @@ import { studentLeavesOn } from "./marks";
 import { instantAt, schoolDateOf, time12 } from "./time";
 import { CLEARED_REASON } from "./flags";
 import { OPEN_LINK } from "../students/guardian-access";
+import { type NoteValues } from "../notification-words";
+import type { MessageKey } from "../i18n/t";
 
 const day = (iso: string) => new Date(`${iso}T00:00:00Z`);
 
@@ -130,11 +132,11 @@ export async function afterAttendanceSaved(tx: Tx, ctx: SchoolContext, payload: 
   // 2. Flags, once per drop below, cleared when they recover.
   const teacher = section.classTeacherId ? await tx.staff.findUnique({ where: { id: section.classTeacherId }, select: { userLoginId: true } }) : null;
   const principals = await loginsWithRole(tx, ctx, "principal");
-  const tell = async (who: string[], text: string, link: string, kind: "threshold" | "streak") => {
+  const tell = async (who: string[], key: MessageKey, values: NoteValues, link: string, kind: "threshold" | "streak") => {
     const to = new Set<string>();
     if (who.includes("class-teacher") && teacher?.userLoginId) to.add(teacher.userLoginId);
     if (who.includes("principal")) for (const p of principals) to.add(p);
-    for (const person of to) await notify(tx, ctx, { to: person, type: "attendance-flag", text, link, groupKey: `attendance-flag-${kind}-${section.id}`, mergedText: (n) => kind === "threshold" ? `${n} students in ${className} are below ${settings.thresholdPercent}% attendance` : `${n} students in ${className} have been absent ${settings.chronicDays} school days in a row` });
+    for (const person of to) await notify(tx, ctx, { to: person, type: "attendance-flag", key, values, link, groupKey: `attendance-flag-${kind}-${section.id}`, mergedKey: kind === "threshold" ? "{n} students in {class} are below {limit}% attendance" : "{n} students in {class} have been absent {days} school days in a row", mergedValues: { class: className, limit: settings.thresholdPercent, days: settings.chronicDays } });
   };
   let flagged = 0;
   let cleared = 0;
@@ -159,7 +161,7 @@ export async function afterAttendanceSaved(tx: Tx, ctx: SchoolContext, payload: 
         if (flag) continue;
         await tx.attendanceFlag.create({ data: { schoolId: ctx.schoolId, studentId: id, kind: "below-threshold", value: new Prisma.Decimal(p), raisedOn: date } });
         flagged++;
-        await tell(settings.thresholdNotify, `${nameOf(id)} (${className}) is at ${percentText(p)} attendance, below ${settings.thresholdPercent}%`, `${BASE}/register?section=${section.id}&student=${id}`, "threshold");
+        await tell(settings.thresholdNotify, "{name} ({class}) is at {percent} attendance, below {limit}%", { name: nameOf(id), class: className, percent: percentText(p), limit: settings.thresholdPercent }, `${BASE}/register?section=${section.id}&student=${id}`, "threshold");
         if (settings.thresholdNotify.includes("parent")) {
           await raiseAlerts(tx, ctx, date, "threshold", [{ studentId: id, text: `Dear parent, ${nameOf(id)}'s attendance this year is ${percentText(p)}, below the school's ${settings.thresholdPercent}%. Please speak to the class teacher. ${school?.name ?? ""}` }], settings.absenceChannels);
         }
@@ -184,7 +186,7 @@ export async function afterAttendanceSaved(tx: Tx, ctx: SchoolContext, payload: 
       if (absentAll && !flag) {
         await tx.attendanceFlag.create({ data: { schoolId: ctx.schoolId, studentId: id, kind: "absent-streak", value: new Prisma.Decimal(settings.chronicDays), raisedOn: date } });
         flagged++;
-        await tell(settings.chronicNotify, `${nameOf(id)} (${className}) has been absent ${settings.chronicDays} school days in a row`, `${BASE}/register?section=${section.id}&student=${id}`, "streak");
+        await tell(settings.chronicNotify, "{name} ({class}) has been absent {days} school days in a row", { name: nameOf(id), class: className, days: settings.chronicDays }, `${BASE}/register?section=${section.id}&student=${id}`, "streak");
         if (settings.chronicNotify.includes("parent")) {
           await raiseAlerts(tx, ctx, date, "chronic", [{ studentId: id, text: `Dear parent, ${nameOf(id)} has been absent for ${settings.chronicDays} school days in a row. Please speak to the class teacher. ${school?.name ?? ""}` }], settings.absenceChannels);
         }
@@ -261,12 +263,14 @@ async function inAtGate(tx: Tx, studentIds: string[], date: Date, marks: { stude
 async function tellGate(tx: Tx, ctx: SchoolContext, section: { id: string; classTeacherId: string | null }, className: string, date: Date, names: string[]) {
   const teacher = section.classTeacherId ? await tx.staff.findUnique({ where: { id: section.classTeacherId }, select: { userLoginId: true } }) : null;
   if (!teacher?.userLoginId) return;
-  const who = names.length === 1 ? `${names[0]} punched in at the gate` : `${names.length} students punched in at the gate`;
   await notify(tx, ctx, {
     to: teacher.userLoginId, type: "attendance-flag",
-    text: `${who} but ${names.length === 1 ? "is" : "are"} marked absent in ${className} on ${formatDate(date, "UTC")}. No absence message went to the parents. Check the register.`,
+    key: names.length === 1
+      ? "{name} punched in at the gate but is marked absent in {class} on {date}. No absence message went to the parents. Check the register."
+      : "{count} students punched in at the gate but are marked absent in {class} on {date}. No absence message went to the parents. Check the register.",
+    values: { name: names[0], count: names.length, class: className, date: formatDate(date, "UTC") },
     link: `${BASE}/register/absences?date=${isoDay(date)}&section=${section.id}`, groupKey: `attendance-gate-${section.id}-${isoDay(date)}`,
-    mergedText: (n) => `${n} students in ${className} punched in at the gate but are marked absent`,
+    mergedKey: "{n} students in {class} punched in at the gate but are marked absent",
   });
 }
 

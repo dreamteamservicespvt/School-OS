@@ -245,7 +245,7 @@ async function tellClassTeacher(tx: Tx, ctx: SchoolContext, r: LeaveRequest) {
   const teacher = where?.section?.classTeacherId ? await tx.staff.findUnique({ where: { id: where.section.classTeacherId }, select: { userLoginId: true } }) : null;
   if (!teacher?.userLoginId) return;
   const student = where!.enrolment.student.fullName;
-  await notify(tx, ctx, { to: teacher.userLoginId, type: "student-leave", text: `Leave approved: ${student}, ${dayText(r.fromDate)}${isoDay(r.fromDate) !== isoDay(r.toDate) ? ` to ${dayText(r.toDate)}` : ""}. It shows as Leave in Take Attendance.`, link: `${BASE}/student-leave?status=APPROVED` });
+  await notify(tx, ctx, { to: teacher.userLoginId, type: "student-leave", key: isoDay(r.fromDate) !== isoDay(r.toDate) ? "Leave approved: {name}, {from} to {to}. It shows as Leave in Take Attendance." : "Leave approved: {name}, {from}. It shows as Leave in Take Attendance.", values: { name: student, from: dayText(r.fromDate), to: dayText(r.toDate) }, link: `${BASE}/student-leave?status=APPROVED` });
 }
 
 /** May this person decide this student's leave? Full reach, or the class teacher within their limit. */

@@ -455,10 +455,11 @@ export async function notifyOnlinePayment(tx: Tx, ctx: SchoolContext, payment: P
     await notify(tx, ctx, {
       to: p.userLoginId,
       type: "fee-online",
-      text: `Online fee payment: ${formatRupees(payment.amountPaise)} for ${studentName}${source === "PARENT_LINK" ? " from Parent Link" : ""}`,
+      key: source === "PARENT_LINK" ? "Online fee payment: {amount} for {name} from Parent Link" : "Online fee payment: {amount} for {name}",
+      values: { amount: formatRupees(payment.amountPaise), name: studentName },
       link: `/fee-management/payments/${payment.id}`,
       groupKey: "fee-online",
-      mergedText: (n) => `${n} online fee payments came in`,
+      mergedKey: "{n} online fee payments came in",
     });
   }
 }

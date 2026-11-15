@@ -12,7 +12,8 @@ import { reopenAfterUndo } from "./move-in/batches";
 import { campusAllows, OtherCampusError } from "./campus";
 import { campusLimitOf } from "./staff/campus-logins";
 
-export type ImportColumn = { key: string; label: string; required?: boolean; example?: string; help?: string; aliases?: string[] };
+/** `byValues`: an optional column still found by its values like a required one (the parent's phone, optional since 15 Nov). */
+export type ImportColumn = { key: string; label: string; required?: boolean; byValues?: boolean; example?: string; help?: string; aliases?: string[] };
 
 /**
  * A choice a person makes for one row before it can be imported, such as

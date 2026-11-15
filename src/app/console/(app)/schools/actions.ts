@@ -10,6 +10,7 @@ import { sendInvoice, topupInvoice } from "@/lib/console/billing";
 import type { ConsoleAction } from "@/lib/console/roles";
 import type { FormState } from "@/lib/forms";
 import { all, consoleAct, str, uuid } from "../_lib/act";
+import { resetGroupTwoStep } from "@/lib/auth/group-login";
 
 const sentWords = (d: Delivered[]) => {
   const w = deliveredWords(d);
@@ -31,6 +32,11 @@ export async function addAdminAction(_p: FormState, fd: FormData) {
 
 export async function resetAdminAction(_p: FormState, fd: FormData) {
   return consoleAct("reset", fd, (c) => resetAdminLogin(c.actor, uuid(fd, "schoolId"), uuid(fd, "userLoginId"), { reason: str(fd, "reason"), channels: all(fd, "channels") }), (r) => `${r.name}’s login was reset. A reset link was sent.${sentWords(r.delivered)}`);
+}
+
+/** A login used in more than one school: its two-step login is reset only here (owner decision 4, 15 Nov 2026). */
+export async function resetGroupTwoStepAction(_p: FormState, fd: FormData) {
+  return consoleAct("reset", fd, (c) => resetGroupTwoStep(c.actor, uuid(fd, "schoolId"), uuid(fd, "userLoginId"), { reason: str(fd, "reason") }), (r) => `${r.name}’s two-step login was reset in all ${r.schools} schools. They set it up again at their next sign-in.`);
 }
 
 export async function disableAdminAction(_p: FormState, fd: FormData) {

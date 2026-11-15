@@ -19,7 +19,8 @@ import { formatDate } from "../format";
 import { CHANNEL_LABEL, channelSetups, PREFERRED_ORDER, PROVIDER_CHANNELS, SMS_OFFERED, whatsappIsLive, type Channel } from "./channels";
 import { creditBalances, creditProblem, creditsFor, PAID_CHANNELS, spendCredits } from "./credits";
 import { describeAudience, resolveAudience, SYSTEM_SCOPE, type AudienceRule, type Candidate, type Scope, type StudentInfo } from "./recipients";
-import { bareText, currentVersions, isApproved, missingWords, render, strayBlanks, strayBraces, templateByKey, TYPED_CARRIER, unknownVariables, variablesIn, versionFor, type Rendered, type UsableVersion } from "./templates";
+import { bareText, currentVersions, isApproved, missingWords, render, strayBlanks, strayBraces, templateByKey, TYPED_CARRIER, unknownVariables, variablesIn, versionFor, withLastApproved, type Rendered, type UsableVersion } from "./templates";
+import { PARENT_LINK_BLANK, parentLinkBlanks, usesParentLink } from "../parent-link/blank";
 import { blanksFor, unknownBlankWords, type BlankAudience } from "./blanks";
 import { inTestMode } from "./providers";
 import { countWithReason } from "./skip-words";
@@ -220,7 +221,8 @@ function addressFor(c: Candidate, channel: Channel, providersOn = true): { addre
   if (c.type === "student") return { skip: "Students get app messages only" };
   if (channel === "email") return c.email ? { address: c.email } : { skip: "No email address" };
   const phone = digits(c.phone);
-  return phone ? { address: phone } : { skip: "No mobile number" };
+  // A parent with no phone (owner decision 15) is left out and counted as "No phone" until one is added.
+  return phone ? { address: phone } : { skip: c.type === "guardian" ? "No phone" : "No mobile number" };
 }
 
 type Filled = { ok: true; text: string; values: Record<string, string> } | { ok: false; missing: string[] };
@@ -398,6 +400,8 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
       versions = versions.filter((v) => v.dltTemplateId);
       if (versions.length === 0 && primary.includes(ch)) problem(`"${t.name}" has no DLT template ID yet. DREAM TEAM adds it.`);
     }
+    // New words waiting for WhatsApp's approval: the last approved words go meanwhile.
+    if (ch === "whatsapp" && live) versions = await withLastApproved(tx, ctx, t.id, versions);
     chosen.set(ch, { name: t.name, versions });
   }
   if (typed.length > MAX_TEXT) problem(`The message has ${typed.length} characters. It can have at most ${MAX_TEXT}.`);
@@ -481,6 +485,9 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
 
   const scope = input.scope ?? SYSTEM_SCOPE;
   const candidates = await resolveAudience(tx, ctx, input.to, scope);
+  // {parent_link}: each parent's own Parent Link, or "Ask the school office for your Parent Link." (../parent-link/blank.ts).
+  const linkBodies = [typed, ...[...chosen.values()].flatMap((c) => c.versions.map((v) => v.body)), ...backupVersions.map((v) => v.body)];
+  const parentLinks = usesParentLink(...linkBodies) ? await parentLinkBlanks(tx, ctx, candidates.filter((c) => c.type === "guardian").map((c) => c.id)) : {};
   if (unknownTyped.length) {
     const kinds = [...new Set(candidates.map((c): BlankAudience => (c.type === "guardian" ? "parents" : c.type === "student" ? "students" : "staff")))];
     problem(unknownBlankWords(unknownTyped, blanksFor(kinds))!);
@@ -505,6 +512,7 @@ export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput):
       const values: Record<string, string> = {
         ...asTyped,
         ...baseValues(school, c, students),
+        ...(c.type === "guardian" && parentLinks[c.id] ? { [PARENT_LINK_BLANK]: parentLinks[c.id] } : {}),
         ...(input.values ?? {}),
         ...(studentId ? input.perStudent![studentId] : c.students.length === 1 && input.perStudent?.[c.students[0].id] ? input.perStudent[c.students[0].id] : {}),
         ...(input.perPerson?.[c.id] ?? {}),

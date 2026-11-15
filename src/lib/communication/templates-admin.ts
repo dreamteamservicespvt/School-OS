@@ -9,6 +9,7 @@ import { writeAudit } from "../audit";
 import type { ListParams } from "../list";
 import { CHANNELS, channelSecrets, channelSetups, SMS_OFFERED, type Channel } from "../messaging/channels";
 import { checkDltId, LANGUAGES, TEMPLATE_CATEGORIES, unknownVariables, variablesIn, whatsappProblems } from "../messaging/templates";
+import { isCodeTemplate, whatsappCategoryOf, type WhatsappCategory } from "../messaging/blanks";
 import { RULES } from "../messaging/automatic";
 import { listWhatsappTemplates, submitWhatsappTemplate, whatsappTemplateStatus } from "../messaging/providers/whatsapp";
 import { isMetaWhatsapp } from "../messaging/dream-team";
@@ -189,10 +190,22 @@ export async function archiveTemplate(tx: Tx, ctx: SchoolContext, id: string, ar
   return t;
 }
 
-/** WhatsApp names: lower case letters, numbers and underscores. */
-export function whatsappNameFor(name: string, id: string) {
+/**
+ * WhatsApp names: lower case letters, numbers and underscores. A code template
+ * (Authentication) ends in "_otp": Meta keeps a template's category with its
+ * name, so a code template it rejected as Utility (INCORRECT_CATEGORY) is sent
+ * again under a new name, never as a change to the rejected one.
+ */
+export function whatsappNameFor(name: string, id: string, category: WhatsappCategory = "UTILITY") {
   const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) || "template";
-  return `${base}_${id.replace(/-/g, "").slice(0, 6)}`;
+  return `${base}_${id.replace(/-/g, "").slice(0, 6)}${category === "AUTHENTICATION" ? OTP_SUFFIX : ""}`;
+}
+
+export const OTP_SUFFIX = "_otp";
+
+/** A code template WhatsApp rejected when it went as Utility: it is sent again as a code (Authentication) template. */
+export function rejectedAsWrongType(v: { body: string; whatsappStatus: string | null; whatsappName: string | null }) {
+  return v.whatsappStatus === "REJECTED" && isCodeTemplate(v.body) && !(v.whatsappName ?? "").endsWith(OTP_SUFFIX);
 }
 
 /**
@@ -203,10 +216,17 @@ export async function submitForApproval(tx: Tx, ctx: SchoolContext, versionId: s
   const v = await tx.templateVersion.findFirst({ where: { id: versionId, schoolId: ctx.schoolId, isCurrent: true }, include: { template: true } });
   if (!v || v.template.channel !== "whatsapp") throw new TemplateProblem("Only the current version of a WhatsApp template can be sent for approval.");
   if (v.whatsappStatus === "APPROVED" || v.whatsappStatus === "PENDING") throw new TemplateProblem(v.whatsappStatus === "APPROVED" ? "This text is already approved." : "This text is already waiting for WhatsApp's answer.");
-  const problems = whatsappProblems(v.body);
+  const category = whatsappCategoryOf(v.body);
+  // A code template goes in Meta's own words, so its words here are not checked.
+  const problems = category === "AUTHENTICATION" ? [] : whatsappProblems(v.body);
   if (problems.length) throw new TemplateProblem(`WhatsApp would refuse these words. ${problems.join(" ")} Edit the template, then send it again.`);
   const setup = (await channelSetups(tx, ctx)).whatsapp;
-  const name = whatsappNameFor(v.template.name, v.templateId);
+  // New words for a text already sent to WhatsApp before (approved, rejected or waiting) go under a new name with
+  // the version ("…_v2"): Meta refuses other words under a name it has. The approved old words keep going until then.
+  const unversioned = whatsappNameFor(v.template.name, v.templateId, category);
+  const sentBefore = await tx.templateVersion.count({ where: { schoolId: ctx.schoolId, templateId: v.templateId, language: v.language, id: { not: v.id }, whatsappName: { not: null } } });
+  const otp = unversioned.endsWith(OTP_SUFFIX);
+  const name = sentBefore ? `${otp ? unversioned.slice(0, -OTP_SUFFIX.length) : unversioned}_v${v.version}${otp ? OTP_SUFFIX : ""}` : unversioned;
   let status: string;
   let note: string | null = null;
   if (setup.provider === "sandbox") {
@@ -214,7 +234,7 @@ export async function submitForApproval(tx: Tx, ctx: SchoolContext, versionId: s
     note = "Test mode: approved straight away.";
   } else {
     const r = await submitWhatsappTemplate({ config: setup.config, secrets: await channelSecrets(tx, ctx, "whatsapp") }, {
-      name, language: v.language, category: "UTILITY", body: v.body,
+      name, language: v.language, category, body: v.body,
     });
     if (!r.ok) throw new TemplateProblem(r.reason);
     status = r.status === "APPROVED" || r.status === "REJECTED" ? r.status : "PENDING";

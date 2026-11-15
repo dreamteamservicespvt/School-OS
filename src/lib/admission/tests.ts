@@ -163,7 +163,7 @@ export async function scheduleInterview(tx: Tx, ctx: SchoolContext, v: Viewer, s
   const r = await messageParent(tx, ctx, { to: { name, phone: app.phone, email: app.email }, template: "admission-interview-scheduled", text: `Dear ${name}, your interview for ${app.fullName}'s admission at ${school.name} is on ${when} with ${interviewer.fullName}. Please come with the child 10 minutes early.`, about: { recordType: "Application", recordId: app.id } });
   await activity(tx, ctx, app.id, "interview", `Interview on ${when} with ${interviewer.fullName}.${r.status === "queued" ? " Parent told." : ` Parent not told: ${r.note ?? "No valid mobile number"}.`}`, { slotId: slot.id });
   if (interviewer.userLoginId && interviewer.userLoginId !== ctx.userId) {
-    await notify(tx, ctx, { to: interviewer.userLoginId, type: "admission-interview", text: `Admission interview: ${app.fullName} on ${when}.`, link: `/admission-management/tests?tab=interviews`, groupKey: "admission-interview", mergedText: (n) => `${n} admission interviews booked with you` });
+    await notify(tx, ctx, { to: interviewer.userLoginId, type: "admission-interview", key: "Admission interview: {name} on {when}.", values: { name: app.fullName, when }, link: `/admission-management/tests?tab=interviews`, groupKey: "admission-interview", mergedKey: "{n} admission interviews booked with you" });
   }
   await writeAudit(tx, ctx, { action: "interview-scheduled", recordType: "Application", recordId: app.id, after: { interviewer: interviewer.id, startsAt: input.startsAt.toISOString(), minutes } });
   // Why the parent was not told, when no message could go (QA PEOPLE-21).

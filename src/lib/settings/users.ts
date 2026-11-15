@@ -23,6 +23,7 @@ import { SettingsProblem, activeSchoolAdminIds, actorName, alertPermissionChange
 import { forgetAllDevices } from "../auth/remembered";
 import { LOGIN_CEILING_WORDS, beyondCampus, managesEveryOtherSchool } from "../staff/login-ceiling";
 import { campusOf } from "../campus";
+import { GROUP_LOGIN_RESET_WORDS, isGroupLogin } from "../auth/group-login";
 
 export const SCOPES: { value: AccessScope; label: string; help: string }[] = [
   { value: "WHOLE_SCHOOL", label: "Whole school", help: "Every record their roles allow, in every campus." },
@@ -356,6 +357,8 @@ export const TWO_STEP_REASONS = [
 export async function resetTwoStep(tx: Tx, ctx: SchoolContext, actorRoleKeys: (string | null)[], userLoginId: string, input: { reason: string; checkDone: string }) {
   if (!actorRoleKeys.some((k) => k === "school-admin" || k === "principal")) throw new SettingsProblem("Only a School Admin or the Principal can reset two-step login.");
   if (userLoginId === ctx.userId) throw new SettingsProblem("You cannot reset your own two-step login. Ask another School Admin or the Principal.");
+  // A login used in more than one school is reset only from the console (owner decision 4, 15 Nov).
+  if (await isGroupLogin(userLoginId)) throw new SettingsProblem(GROUP_LOGIN_RESET_WORDS);
   if (!TWO_STEP_REASONS.some((r) => r.value === input.reason)) throw new SettingsProblem("Choose the reason.", "reason");
   const check = input.checkDone.trim();
   if (check.length < 5) throw new SettingsProblem("Say how the person was confirmed, for example \"in person at the office\".", "checkDone");
@@ -366,7 +369,7 @@ export async function resetTwoStep(tx: Tx, ctx: SchoolContext, actorRoleKeys: (s
   await tx.userLogin.update({ where: { id: userLoginId }, data: { twoStepResetAt: now } });
   const reasonLabel = TWO_STEP_REASONS.find((r) => r.value === input.reason)!.label;
   await writeAudit(tx, ctx, { action: "reset-two-step", recordType: "User Login", recordId: userLoginId, after: { reason: reasonLabel, checkDone: check.slice(0, 300) } });
-  await notify(tx, ctx, { to: userLoginId, type: "security", text: "Your two-step login was reset. You will set it up again at your next sign-in.", link: "/profile" });
+  await notify(tx, ctx, { to: userLoginId, type: "security", key: "Your two-step login was reset. You will set it up again at your next sign-in.", link: "/profile" });
   return login.displayName;
 }
 

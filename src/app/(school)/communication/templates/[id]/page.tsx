@@ -6,7 +6,8 @@ import { commPage } from "@/lib/communication/access";
 import { formatDateTime } from "@/lib/format";
 import { channelSetups } from "@/lib/messaging/channels";
 import { categoryLabel, languageLabel, render, sampleValues, smsParts, variableLabel, whatsappProblems } from "@/lib/messaging/templates";
-import { ruleTemplateIds, usedBy, WHATSAPP_STATUS_LABEL } from "@/lib/communication/templates-admin";
+import { rejectedAsWrongType, ruleTemplateIds, usedBy, WHATSAPP_STATUS_LABEL } from "@/lib/communication/templates-admin";
+import { isCodeTemplate } from "@/lib/messaging/blanks";
 import { Card, CardHeader } from "@/components/ui/card";
 import { Pill, type PillTone } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
@@ -57,7 +58,9 @@ export default async function TemplatePage({ params, searchParams }: { params: P
   const isWa = t.channel === "whatsapp";
   const missingDlt = isSms && currentVersions.some((x) => !x.dltTemplateId);
   const wa = v?.whatsappStatus ?? "NOT_SUBMITTED";
-  const waProblems = isWa && v ? whatsappProblems(v.body) : [];
+  // A code template goes in Meta's own words (Authentication), so its words here are not checked.
+  const waProblems = isWa && v && !isCodeTemplate(v.body) ? whatsappProblems(v.body) : [];
+  const wrongType = isWa && v ? rejectedAsWrongType(v) : false;
   // Still in the first words School OS gave it, never approved: one click gives today's ready words.
   const readyWords = isWa && v && (wa === "NOT_SUBMITTED" || wa === "REJECTED") ? newReadyWords(t.key, v.language, v.body) : null;
   const preview = v ? render(v.body, sampleValues) : null;
@@ -95,7 +98,9 @@ export default async function TemplatePage({ params, searchParams }: { params: P
         {t.archivedAt && <Banner tone="info" title={`Archived on ${formatDateTime(t.archivedAt, tz)}.`}><Words k="It cannot be chosen for new messages." /></Banner>}
         {missingDlt && <Banner tone="bad" title="No DLT template ID."><Words k="DREAM TEAM must add its DLT ID before it can send SMS." /></Banner>}
         {isWa && data.provider === "sandbox" && <Banner tone="info" title="WhatsApp is in test mode."><Words k="Templates are approved at once here. Once DREAM TEAM connects WhatsApp, they go to WhatsApp for real." /></Banner>}
-        {v?.whatsappStatus === "REJECTED" && <Banner tone="warn" title="WhatsApp rejected this text.">{v.whatsappNote ? `“${v.whatsappNote}” ` : ""}<Words k="Change the wording with Edit and send it again." /></Banner>}
+        {wrongType
+          ? <Banner tone="warn" title="Rejected by WhatsApp: wrong type."><Words k="Send it for approval again. It now goes as a code message, in WhatsApp's own words." /></Banner>
+          : v?.whatsappStatus === "REJECTED" && <Banner tone="warn" title="WhatsApp rejected this text.">{v.whatsappNote ? `“${v.whatsappNote}” ` : ""}<Words k="Change the wording with Edit and send it again." /></Banner>}
         <Split side={340}>
           <Card className="min-w-0">
             <CardHeader title="The text" icon={FileText} description={v ? `Saved ${formatDateTime(v.createdAt, tz)}${v.createdById ? ` by ${data.people.get(v.createdById) ?? "staff"}` : ""} · used in ${usedIn(v.id)}` : undefined} />

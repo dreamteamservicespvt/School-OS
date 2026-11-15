@@ -23,7 +23,7 @@ export function GuardianForm({ action, g, studentId, canRestrict, cancelHref }: 
       <div className="grid gap-4 sm:grid-cols-2">
         <FormSelect name="relationship" label="Relation" required options={RELATIONS.map((r) => ({ value: r, label: r }))} defaultValue={g?.relationship ?? "Father"} />
         <FormText name="name" label="Full name" required defaultValue={g?.name} autoComplete="off" />
-        <FormText name="phone" label="Phone" required type="tel" inputMode="numeric" defaultValue={g?.phone} help="+91. For messages and Parent Link codes." />
+        <FormText name="phone" label="Phone" type="tel" inputMode="numeric" defaultValue={g?.phone ?? ""} help="+91. For messages and Parent Link codes. Leave empty if the parent has no phone; no messages or Parent Link until one is added." />
         {g && <FormCheck name="sendLink" label="If the phone changes, send Parent Link to the new number" defaultChecked help="Parent Link is the parents' app." />}
         <FormText name="altPhone" label="Other phone" type="tel" inputMode="numeric" defaultValue={g?.altPhone} />
         <FormText name="email" label="Email" type="email" defaultValue={g?.email} />

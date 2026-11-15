@@ -11,6 +11,7 @@ import { decodeText, readDelimited } from "../move-in/read";
 import { fileStore } from "../storage";
 import { notify } from "../notifications";
 import "../import-registry";
+import { word } from "../notification-words";
 
 export type ImportJob = {
   kind: string; fileId: string; match: Record<string, number>;
@@ -60,7 +61,10 @@ export async function runImportJob(tx: Tx, ctx: SchoolContext, payload: ImportJo
     await notify(tx, { schoolId: ctx.schoolId, userId: null }, {
       to: ctx.userId,
       type: "import",
-      text: `${kind.label} import finished: ${batch.added} added, ${batch.updated} updated, ${batch.skipped} with problems${batch.skipped ? " (download them from Import history)" : ""}.`,
+      key: batch.skipped
+        ? "{kind} import finished: {added} added, {updated} updated, {skipped} with problems (download them from Import history)."
+        : "{kind} import finished: {added} added, {updated} updated, {skipped} with problems.",
+      values: { kind: word(kind.label), added: batch.added, updated: batch.updated, skipped: batch.skipped },
       link: payload.link && /^\/[a-z0-9/_-]*$/i.test(payload.link) ? payload.link : "/settings/data-security/imports",
     });
   }

@@ -343,7 +343,7 @@ export async function publishVersion(tx: Tx, ctx: SchoolContext, versionId: stri
   const teacherIds = await tx.timetablePeriod.findMany({ where: { versionId, archivedAt: null, staffId: { not: null } }, select: { staffId: true }, distinct: ["staffId"] });
   const logins = await tx.staff.findMany({ where: { id: { in: teacherIds.map((t) => t.staffId!) }, userLoginId: { not: null } }, select: { userLoginId: true } });
   for (const l of logins) {
-    await notify(tx, ctx, { to: l.userLoginId!, type: "timetable-published", text: `A new Time Table starts on ${formatDate(effectiveFrom)}. See your periods.`, link: "/academic-management/time-table/mine", groupKey: `timetable-${versionId}` });
+    await notify(tx, ctx, { to: l.userLoginId!, type: "timetable-published", key: "A new Time Table starts on {date}. See your periods.", values: { date: formatDate(effectiveFrom) }, link: "/academic-management/time-table/mine", groupKey: `timetable-${versionId}` });
   }
   return { effectiveFrom, notified: logins.length };
 }

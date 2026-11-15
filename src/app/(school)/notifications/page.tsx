@@ -14,9 +14,10 @@ import { EmptyState } from "@/components/empty-state";
 import { Button } from "@/components/ui/button";
 import { cx } from "@/components/ui/cx";
 import { isUnread, notificationPage, UNREAD } from "@/lib/notifications";
+import { noteText } from "@/lib/notification-words";
 import { markAllNotificationsRead, openNotification } from "../actions";
 import { Words } from "@/lib/i18n/client";
-import { pageTitle } from "@/lib/i18n/server";
+import { getT, pageTitle } from "@/lib/i18n/server";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Notifications") };
@@ -59,6 +60,8 @@ export default async function NotificationsPage({ searchParams }: { searchParams
     ]);
     return { notes, total, unread };
   });
+  // Each notification in the reader's own language (owner decision 14).
+  const t = await getT();
   const filtered = Boolean(params.q || params.filters.show || range);
   const pages = Math.max(1, Math.ceil(data.total / PAGE));
 
@@ -95,7 +98,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
                       </span>
                       <span className="min-w-0 flex-1">
                         <span className={cx("block text-[14.5px] leading-snug", !fresh ? "text-ink2" : "font-semibold text-ink")}>
-                          {fresh && <span className="sr-only"><Words k="New." /> </span>}{n.text}
+                          {fresh && <span className="sr-only"><Words k="New." /> </span>}{noteText(t, n)}
                           {n.count > 1 && <span className="ml-1.5 tnum text-ink3 font-medium">×{n.count}</span>}
                         </span>
                         <span className="block text-[12.5px] text-ink3 mt-1 tnum">{formatDateTime(n.createdAt, tz)}</span>

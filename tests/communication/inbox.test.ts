@@ -38,7 +38,7 @@ describe("incoming WhatsApp messages", () => {
     const id = await withSchool(s.ctx, async (tx) => {
       const first = await recordIncoming(tx, s.ctx, { from: `91${s.father.phone}`, text: "When is the PTM?", providerMessageId: "wamid-1" });
       await recordIncoming(tx, s.ctx, { from: `91${s.father.phone}`, text: "When is the PTM?", providerMessageId: "wamid-1" });
-      await recordIncoming(tx, s.ctx, { from: s.father.phone, text: "Also, the bus?", providerMessageId: "wamid-2" });
+      await recordIncoming(tx, s.ctx, { from: s.father.phone!, text: "Also, the bus?", providerMessageId: "wamid-2" });
       return first!;
     });
     await withSchool(s.ctx, async (tx) => {
@@ -64,7 +64,7 @@ describe("incoming WhatsApp messages", () => {
 describe("replies", () => {
   it("are sent inside the 24-hour window and refused after it", async () => {
     await withSchool(s.ctx, async (tx) => {
-      const id = (await recordIncoming(tx, s.ctx, { from: s.mother.phone, text: "Thanks", at: new Date(Date.now() - 2 * 3600_000) }))!;
+      const id = (await recordIncoming(tx, s.ctx, { from: s.mother.phone!, text: "Thanks", at: new Date(Date.now() - 2 * 3600_000) }))!;
       const msg = await replyToChat(tx, s.ctx, true, id, "Noted, thank you.");
       expect(msg.direction).toBe("out");
       const later = new Date(Date.now() + 25 * 3600_000);
@@ -76,7 +76,7 @@ describe("replies", () => {
 
   it("turns a chat into a query once", async () => {
     await withSchool(s.ctx, async (tx) => {
-      const id = (await recordIncoming(tx, s.ctx, { from: s.teluguMother.phone, text: "Fee receipt not received" }))!;
+      const id = (await recordIncoming(tx, s.ctx, { from: s.teluguMother.phone!, text: "Fee receipt not received" }))!;
       const q = await chatToQuery(tx, s.ctx, id);
       expect(q.number).toBeTruthy();
       await expect(chatToQuery(tx, s.ctx, id)).rejects.toBeInstanceOf(InboxProblem);
@@ -87,7 +87,7 @@ describe("replies", () => {
 describe("a class teacher", () => {
   it("sees only chats given to them", async () => {
     const tctx = { schoolId: s.school.id, userId: s.teacher.id };
-    const id = await withSchool(s.ctx, (tx) => recordIncoming(tx, s.ctx, { from: s.otherFather.phone, text: "Is Kiran in class today?" }));
+    const id = await withSchool(s.ctx, (tx) => recordIncoming(tx, s.ctx, { from: s.otherFather.phone!, text: "Is Kiran in class today?" }));
     await withSchool(tctx, async (tx) => {
       const before = await tx.whatsappChat.findMany({ where: inboxWhere(tctx, false, "all", "") });
       expect(before.map((c) => c.id)).not.toContain(id);
@@ -119,7 +119,7 @@ describe("switched off", () => {
     const other = await makeCommSchool();
     s = { ...s, school: other.school };
     token = (await createSession(other.principal.id, other.school.id, { userAgent: "test" })).token;
-    const id = await withSchool(other.ctx, (tx) => recordIncoming(tx, other.ctx, { from: other.father.phone, text: "Hi" }));
+    const id = await withSchool(other.ctx, (tx) => recordIncoming(tx, other.ctx, { from: other.father.phone!, text: "Hi" }));
     const a = await import("@/app/(school)/communication/inbox/actions");
     expect(await a.replyChatAction(id!, "Hello")).toMatch(/switched off/);
   });

@@ -31,13 +31,13 @@ export async function AuthFrame({ eyebrow, title, sub, pickLanguage, children }:
           <p className="mt-4 text-[16px] opacity-80 leading-relaxed">{t("Attendance, fees, students and parents. Everything you need today is on the first screen.")}</p>
         </div>
         <ul className="relative mt-10 flex flex-col gap-3 max-w-sm" aria-label={t("What School OS does")}>
-          <li className="self-start rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise [animation-delay:.1s]">
+          <li className="self-start rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise [animation-delay:30ms]">
             <CalendarCheck2 size={20} aria-hidden="true" /><span className="text-[14px]">{t("Attendance for a class in under a minute")}</span>
           </li>
-          <li className="self-end rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise [animation-delay:.25s]">
+          <li className="self-end rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise [animation-delay:60ms]">
             <IndianRupee size={20} aria-hidden="true" /><span className="text-[14px]">{t("Fees collected with a receipt every time")}</span>
           </li>
-          <li className="self-start rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise [animation-delay:.4s]">
+          <li className="self-start rounded-2xl bg-white/12 backdrop-blur px-4 py-3 flex items-center gap-3 animate-rise [animation-delay:90ms]">
             <CheckCheck size={20} aria-hidden="true" /><span className="text-[14px]">{t("Messages seen by parents on WhatsApp")}</span>
           </li>
         </ul>

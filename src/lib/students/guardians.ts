@@ -11,7 +11,8 @@ import { StudentProblem } from "./students";
 export type GuardianInput = {
   name: string;
   relationship: string;
-  phone: string;
+  /** Null when the parent has no phone (owner decision 15): no Parent Link or messages until one is added. */
+  phone: string | null;
   altPhone?: string | null;
   email?: string | null;
   occupation?: string | null;
@@ -28,7 +29,9 @@ export class PhoneOnRecord extends Error {
   }
 }
 
-export async function parentsWithPhone(tx: Tx, phone: string, exceptId?: string) {
+export async function parentsWithPhone(tx: Tx, phone: string | null, exceptId?: string) {
+  // Two families are never matched on an empty phone.
+  if (!phone?.trim()) return [];
   const rows = await tx.guardian.findMany({
     where: { phone, archivedAt: null, ...(exceptId ? { id: { not: exceptId } } : {}) },
     include: { students: { where: { archivedAt: null }, include: { student: { select: { fullName: true } } } } },
@@ -39,7 +42,7 @@ export async function parentsWithPhone(tx: Tx, phone: string, exceptId?: string)
 
 /** Adds a parent. If the phone is already on record, offers to link that parent instead (unless told to add anyway). */
 export async function createGuardian(tx: Tx, ctx: SchoolContext, input: GuardianInput, opts: { addAnyway?: boolean } = {}) {
-  if (!opts.addAnyway) {
+  if (!opts.addAnyway && input.phone) {
     const matches = await parentsWithPhone(tx, input.phone);
     if (matches.length) throw new PhoneOnRecord(matches);
   }
@@ -48,7 +51,7 @@ export async function createGuardian(tx: Tx, ctx: SchoolContext, input: Guardian
       schoolId: ctx.schoolId,
       name: input.name.trim(),
       relationship: input.relationship,
-      phone: input.phone,
+      phone: input.phone || null,
       altPhone: input.altPhone ?? null,
       email: input.email ?? null,
       occupation: input.occupation ?? null,
@@ -70,7 +73,7 @@ export async function updateGuardian(tx: Tx, ctx: SchoolContext, guardianId: str
   const after = await tx.guardian.update({
     where: { id: guardianId },
     data: {
-      name: input.name.trim(), relationship: input.relationship, phone: input.phone, altPhone: input.altPhone ?? null,
+      name: input.name.trim(), relationship: input.relationship, phone: input.phone || null, altPhone: input.altPhone ?? null,
       email: input.email ?? null, occupation: input.occupation ?? null, dateOfBirth: input.dateOfBirth ?? null,
       address: input.address ?? null, language: input.language ?? before.language, optedOut: input.optedOut ?? before.optedOut,
       updatedById: ctx.userId,
@@ -222,7 +225,7 @@ export async function mergeGuardians(tx: Tx, ctx: SchoolContext, keepId: string,
   await tx.studentDocument.updateMany({ where: { guardianId: mergeId }, data: { guardianId: keepId } });
   await tx.guardian.update({
     where: { id: keepId },
-    data: { email: keep.email ?? merge.email, occupation: keep.occupation ?? merge.occupation, altPhone: keep.altPhone ?? (merge.phone !== keep.phone ? merge.phone : merge.altPhone), dateOfBirth: keep.dateOfBirth ?? merge.dateOfBirth, address: keep.address ?? merge.address },
+    data: { email: keep.email ?? merge.email, occupation: keep.occupation ?? merge.occupation, phone: keep.phone ?? merge.phone, altPhone: keep.altPhone ?? (keep.phone && merge.phone && merge.phone !== keep.phone ? merge.phone : merge.altPhone), dateOfBirth: keep.dateOfBirth ?? merge.dateOfBirth, address: keep.address ?? merge.address },
   });
   await tx.guardian.update({ where: { id: mergeId }, data: { archivedAt: new Date() } });
   await tx.guardianMerge.create({ data: { schoolId: ctx.schoolId, keptId: keepId, mergedId: mergeId, moved, createdById: ctx.userId } });

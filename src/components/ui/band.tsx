@@ -33,7 +33,7 @@ function HeroRing({ value }: { value: number }) {
   return (
     <svg width="58" height="58" className="-rotate-90 hidden lg:block shrink-0" aria-hidden="true">
       <circle cx="29" cy="29" r="24" fill="none" stroke="currentColor" strokeOpacity=".2" strokeWidth="6" />
-      <circle cx="29" cy="29" r="24" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - v / 100)} style={{ transition: "stroke-dashoffset .9s cubic-bezier(.2,.8,.2,1)" }} />
+      <circle cx="29" cy="29" r="24" fill="none" stroke="currentColor" strokeWidth="6" strokeLinecap="round" strokeDasharray={c} strokeDashoffset={c * (1 - v / 100)} style={{ transition: "stroke-dashoffset .3s cubic-bezier(.23,1,.32,1)" }} />
     </svg>
   );
 }
@@ -63,7 +63,7 @@ export function Band({ items, label, className }: { items: BandCell[]; label: st
           );
           const cls = cx("text-left p-4 md:p-6 min-w-0 border-white/15 flex items-center gap-4", CELL[count][i]);
           return m.href
-            ? <Link key={m.key} href={m.href} className={cx(cls, "hover:bg-white/[.07] transition focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-current")}>{body}</Link>
+            ? <Link key={m.key} href={m.href} className={cx(cls, "hover:bg-white/[.07] active:bg-white/[.12] transition focus-visible:outline-2 focus-visible:outline-offset-[-4px] focus-visible:outline-current")}>{body}</Link>
             : <div key={m.key} className={cls}>{body}</div>;
         })}
       </div>

@@ -10,12 +10,16 @@ import { cx } from "@/components/ui/cx";
 import { PhoneCard } from "./phone-shell";
 import { useT } from "@/lib/i18n/client";
 
-export function VerifyPhone({ token, maskedPhone, codeSent }: { token: string; maskedPhone: string; codeSent: boolean }) {
+export function VerifyPhone({ token, maskedPhone, codeSent, codeChannel = null, schoolPhone = null }: { token: string; maskedPhone: string; codeSent: boolean; codeChannel?: "sms" | "whatsapp" | null; schoolPhone?: string | null }) {
   const t = useT();
   const [sent, send] = useActionState<GuardianState, FormData>(sendDeviceCode.bind(null, token), codeSent ? { ok: true, step: "code" } : null);
   const [checked, check] = useActionState<GuardianState, FormData>(verifyDevice.bind(null, token), null);
   const haveCode = Boolean(sent?.ok);
   const bad = Boolean(checked && !checked.ok);
+  // Say the channel that really carries the code; with none, the parent is told to call the school.
+  const channel = sent?.channel ?? codeChannel;
+  const callSchool = schoolPhone ? t("The school could not send your code. Please call the school office on {phone}.", { phone: schoolPhone }) : null;
+  const noChannel = !codeChannel && !haveCode;
 
   return (
     <>
@@ -24,17 +28,27 @@ export function VerifyPhone({ token, maskedPhone, codeSent }: { token: string; m
         <h2 className="font-display text-[22px] font-semibold leading-tight mt-3">{t("Confirm it’s you")}</h2>
         {!haveCode ? (
           <>
-            <p className="text-[14px] text-ink2 mt-1">{t("This link is being opened on a new phone. We will send a 6-digit code by SMS to {phone}.", { phone: maskedPhone })}</p>
-            <form action={send} className="mt-4 flex flex-col gap-3">
-              {sent && !sent.ok && <p role="alert" className="rounded-2xl bg-bad/10 border border-bad/30 text-bad text-[14px] px-4 py-3">{sent.message}</p>}
-              <SubmitButton size="lg" className="w-full !h-14 !text-[16px]" pendingText={t("Sending code")}>{t("Send code")}</SubmitButton>
-            </form>
+            {noChannel ? (
+              <p role="alert" className="rounded-2xl bg-bad/10 border border-bad/30 text-bad text-[14px] px-4 py-3 mt-3">{callSchool ?? t("We could not send the code just now. Please contact the school office.")}</p>
+            ) : (
+              <>
+                <p className="text-[14px] text-ink2 mt-1">{codeChannel === "whatsapp"
+                  ? t("This link is being opened on a new phone. We will send a 6-digit code on WhatsApp to {phone}.", { phone: maskedPhone })
+                  : t("This link is being opened on a new phone. We will send a 6-digit code by SMS to {phone}.", { phone: maskedPhone })}</p>
+                <form action={send} className="mt-4 flex flex-col gap-3">
+                  {sent && !sent.ok && <p role="alert" className="rounded-2xl bg-bad/10 border border-bad/30 text-bad text-[14px] px-4 py-3">{sent.callSchool && callSchool ? callSchool : sent.message}</p>}
+                  <SubmitButton size="lg" className="w-full !h-14 !text-[16px]" pendingText={t("Sending code")}>{t("Send code")}</SubmitButton>
+                </form>
+              </>
+            )}
           </>
         ) : (
           <>
             {sent?.notSent
               ? <p role="status" className="text-[14px] text-warn mt-1">{sent.message}</p>
-              : <p role="status" className="text-[14px] text-ink2 mt-1">{t("We sent a 6-digit code to {phone}.", { phone: maskedPhone })}</p>}
+              : <p role="status" className="text-[14px] text-ink2 mt-1">{channel === "whatsapp"
+                ? t("We sent a 6-digit code on WhatsApp to {phone}.", { phone: maskedPhone })
+                : channel === "sms" ? t("We sent a 6-digit code by SMS to {phone}.", { phone: maskedPhone }) : t("We sent a 6-digit code to {phone}.", { phone: maskedPhone })}</p>}
             <form action={check} className="mt-4 flex flex-col gap-3">
               <label htmlFor="pl-code" className="text-[13px] font-semibold text-ink2">{t("6-digit code")}</label>
               <input id="pl-code" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} required autoFocus

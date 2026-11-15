@@ -10,7 +10,7 @@ export function LinkTabs({ tabs, label, className }: { tabs: LinkTab[]; label: s
     <nav aria-label={label} className={cx("flex gap-1 overflow-x-auto no-scrollbar scroll-px-12 border-b border-line lg:flex-wrap", className)}>
       {tabs.map((t) => (
         <Link key={t.href} href={t.href} scroll={false} aria-current={t.on ? "page" : undefined}
-          className={cx("relative inline-flex items-center h-11 px-3.5 text-sm font-semibold whitespace-nowrap transition shrink-0", t.on ? "text-brand" : "text-ink2 hover:text-ink")}>
+          className={cx("relative inline-flex items-center h-11 px-3.5 text-sm font-semibold whitespace-nowrap transition active:bg-sunken/70 shrink-0", t.on ? "text-brand" : "text-ink2 hover:text-ink")}>
           {tx(t.label)}
           {t.count != null && <span className="ml-1.5 text-xs text-ink3 tnum">{t.count}</span>}
           {t.on && <span className="absolute left-2 right-2 -bottom-px h-[3px] rounded-t bg-brand" aria-hidden="true" />}

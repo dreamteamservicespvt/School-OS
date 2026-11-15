@@ -8,6 +8,7 @@
 // page when it first loads is left where it is.
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { cx } from "./cx";
+import { calmScroll } from "./motion";
 
 const noop = () => () => {};
 
@@ -21,8 +22,7 @@ export function ProblemInView({ token, className, children }: { token: unknown; 
     if (onFirstLoad && token === first.current) return;
     const el = ref.current;
     if (!el) return;
-    const still = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-    el.scrollIntoView({ block: "center", behavior: still ? "auto" : "smooth" });
+    el.scrollIntoView({ block: "center", behavior: calmScroll() });
     el.focus({ preventScroll: true });
   }, [token, onFirstLoad]);
   return <div ref={ref} tabIndex={-1} className={cx("outline-none scroll-mt-20", className)}>{children}</div>;

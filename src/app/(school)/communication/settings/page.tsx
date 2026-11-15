@@ -224,7 +224,7 @@ export default async function MessageSettingsPage() {
             <div className="px-5 pb-5">
               <OptOutPanel ways={[...OPT_OUT_WAYS]} rows={data.optedOut.map((g) => {
                 const r = data.records.find((x) => x.guardianId === g.id);
-                return { id: g.id, name: g.name, detail: `${g.relationship} · ••${g.phone.slice(-4)}`, since: r ? formatDate(r.createdAt, tz) : "before records", how: r?.how ?? "Not recorded", note: r?.note ?? null };
+                return { id: g.id, name: g.name, detail: `${g.relationship} · ${g.phone ? `••${g.phone.slice(-4)}` : "Phone missing"}`, since: r ? formatDate(r.createdAt, tz) : "before records", how: r?.how ?? "Not recorded", note: r?.note ?? null };
               })} />
             </div>
           </Card>

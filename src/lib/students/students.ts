@@ -143,7 +143,8 @@ export async function findDuplicates(tx: Tx, q: { fullName: string; dateOfBirth?
     const like = namesAlike(name, s.fullName);
     if (!like) return [];
     const sameDob = Boolean(day && s.dateOfBirth && s.dateOfBirth.toISOString().slice(0, 10) === day);
-    const samePhone = s.guardians.some((g) => phones.includes(g.guardian.phone));
+    // An empty phone never matches (two families are never one on a missing phone).
+    const samePhone = s.guardians.some((g) => Boolean(g.guardian.phone) && phones.includes(g.guardian.phone!));
     if (!sameDob && !samePhone) return [];
     const nameWords = like === "same" ? "same name" : "similar name";
     const why = sameDob ? `${nameWords} and date of birth` : `${nameWords} and parent's phone`;
@@ -179,7 +180,8 @@ export type NewStudent = {
   gender: string;
   guardianName: string;
   guardianRelation?: string;
-  guardianPhone: string;
+  /** Empty or null when the parent has no phone (owner decision 15): saved as "Phone missing". */
+  guardianPhone: string | null;
   /** Link this existing parent instead of making a new one (sibling). */
   linkGuardianId?: string | null;
   admissionNo?: string | null;
@@ -270,7 +272,7 @@ export async function createStudent(tx: Tx, ctx: SchoolContext, input: NewStuden
     if (!g) throw new StudentProblem("That parent record was not found. Add the parent again.", "guardianPhone");
   } else {
     const g = await tx.guardian.create({
-      data: { schoolId: ctx.schoolId, name: input.guardianName.trim(), relationship: input.guardianRelation ?? "Father", phone: input.guardianPhone, createdById: ctx.userId },
+      data: { schoolId: ctx.schoolId, name: input.guardianName.trim(), relationship: input.guardianRelation ?? "Father", phone: input.guardianPhone || null, createdById: ctx.userId },
     });
     guardianId = g.id;
   }
@@ -569,7 +571,7 @@ export async function archiveEmergencyContact(tx: Tx, ctx: SchoolContext, id: st
   await writeAudit(tx, ctx, { action: "archived", recordType: "Emergency Contact", recordId: id, before: { name: row.name, phone: row.phone } });
 }
 
-export type EmergencyItem = { kind: "guardian" | "contact"; id: string; name: string; relation: string; phone: string; order: number; restricted: boolean };
+export type EmergencyItem = { kind: "guardian" | "contact"; id: string; name: string; relation: string; phone: string | null; order: number; restricted: boolean };
 
 /** Parents marked as emergency contacts and other contacts, as one list in priority order. */
 export async function emergencyList(tx: Tx, studentId: string): Promise<EmergencyItem[]> {

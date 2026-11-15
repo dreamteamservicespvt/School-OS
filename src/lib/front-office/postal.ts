@@ -11,6 +11,7 @@ import { formatNumber, nextNumber } from "../sequences";
 import { saveFile, IMAGE_TYPES } from "../files";
 import { FrontOfficeProblem } from "./problem";
 import { todayIso } from "./time";
+import { word } from "../notification-words";
 
 export type PostalInput = {
   direction: "RECEIVED" | "SENT";
@@ -62,7 +63,7 @@ export async function recordPostal(tx: Tx, ctx: SchoolContext, input: PostalInpu
   await writeAudit(tx, ctx, { action: "created", recordType: "Postal Entry", recordId: e.id, after: { entryNo, direction: e.direction, itemType: e.itemType, party, for: forText, courier: e.courier, trackingNo } });
   let told = false;
   if (rec && input.tell && staff?.userLoginId) {
-    const n = await notify(tx, ctx, { to: staff.userLoginId, type: "delivery", text: `A ${input.itemType.toLowerCase()} from ${party} is at the front desk for you. Collect it from the desk.`, link: "/notifications", groupKey: "delivery", mergedText: (c) => `${c} items are at the front desk for you` }, now);
+    const n = await notify(tx, ctx, { to: staff.userLoginId, type: "delivery", key: "A {item} from {party} is at the front desk for you. Collect it from the desk.", values: { item: word(input.itemType.toLowerCase()), party }, link: "/notifications", groupKey: "delivery", mergedKey: "{n} items are at the front desk for you" }, now);
     told = Boolean(n);
   }
   return { entry: e, told };

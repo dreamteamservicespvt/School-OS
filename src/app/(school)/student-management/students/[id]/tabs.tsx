@@ -29,6 +29,7 @@ import { pickupAction, setPrimaryAction, unlinkGuardianAction } from "../../_act
 import { adjustPointsAction } from "../../_actions/behaviour";
 import { DayText, Words } from "@/lib/i18n/client";
 import { tx } from "@/lib/i18n/tx";
+import { PhoneMissing } from "../../_lib/phone-missing";
 
 type Base = { can: StudentAbilities; tz: string };
 
@@ -190,7 +191,9 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
                 <div className="min-w-0 flex-1">
                   <Link href={`${BASE}/guardians/${l.guardianId}`} className="font-semibold text-[14.5px] leading-tight hover:underline">{l.guardian.name}</Link>
                   <p className="text-[12.5px] text-ink3">{l.relationship}{l.isPrimary ? " · Parent Link" : ""}{l.guardian.occupation ? ` · ${l.guardian.occupation}` : ""}</p>
-                  <a href={`tel:+91${l.guardian.phone}`} className="block text-[14px] tnum mt-1.5 hover:underline">+91 {phoneShow(l.guardian.phone)}</a>
+                  {l.guardian.phone
+                    ? <a href={`tel:+91${l.guardian.phone}`} className="block text-[14px] tnum mt-1.5 hover:underline">+91 {phoneShow(l.guardian.phone)}</a>
+                    : <PhoneMissing className="mt-1.5 text-[13.5px]" editHref={can.manage ? `${BASE}/guardians/${l.guardianId}/edit?student=${studentId}` : null} />}
                   {l.guardian.email && <p className="text-[12.5px] text-ink3 truncate">{l.guardian.email}</p>}
                 </div>
               </div>
@@ -259,7 +262,7 @@ function EmergencyCard({ p, can }: { p: Profile; can: StudentAbilities }) {
             <li key={`${e.kind}-${e.id}`} className="flex items-center gap-3 py-2 border-b border-line/70 last:border-0 flex-wrap">
               <span className="w-6 h-6 rounded-full bg-sunken text-[12px] font-bold grid place-items-center tnum shrink-0">{i + 1}</span>
               <span className="flex-1 min-w-0 text-[14px]"><b className="font-semibold">{e.name}</b> <span className="text-ink3">· {e.relation}</span>{e.restricted && <Pill tone="bad" className="ml-1.5 !h-5 !text-[11px]"><Words k="Restricted" /></Pill>}</span>
-              <a className="text-[14px] tnum hover:underline" href={`tel:+91${e.phone}`}>{phoneShow(e.phone)}</a>
+              {e.phone ? <a className="text-[14px] tnum hover:underline" href={`tel:+91${e.phone}`}>{phoneShow(e.phone)}</a> : <PhoneMissing className="text-[13.5px]" />}
               {can.manage && (
                 <span className="flex gap-0.5">
                   {i > 0 && <ActionButton action={emergencyAction} fields={{ studentId, op: "up", kind: e.kind, itemId: e.id }} variant="ghost"><span aria-hidden="true">↑</span><span className="sr-only"><Words k="Move {name} up" vars={{ name: e.name }} /></span></ActionButton>}

@@ -328,10 +328,11 @@ export async function publishNotice(tx: Tx, ctx: SchoolContext, noticeId: string
       await notify(tx, ctx, {
         to,
         type: "notice",
-        text: `${notice.priority === "CRITICAL" ? "Critical notice: " : notice.priority === "HIGH" ? "Important notice: " : "New notice: "}${notice.title}`,
+        key: notice.priority === "CRITICAL" ? "Critical notice: {title}" : notice.priority === "HIGH" ? "Important notice: {title}" : "New notice: {title}",
+        values: { title: notice.title },
         link: `/communication/notices/${notice.id}`,
         groupKey: "notice",
-        mergedText: (n) => `${n} new notices on the notice board`,
+        mergedKey: "{n} new notices on the notice board",
       });
     }
   }
@@ -548,7 +549,7 @@ export async function remindUnacknowledged(tx: Tx, ctx: SchoolContext, noticeId:
   const done = new Set((await tx.noticeAcknowledgement.findMany({ where: { noticeId, acknowledgedAt: { not: null } }, select: { userLoginId: true } })).map((a) => a.userLoginId));
   const todo = logins.filter((l) => !done.has(l));
   if (!todo.length) throw new NoticeProblem("Everyone has acknowledged this notice.");
-  for (const to of todo) await notify(tx, ctx, { to, type: "notice", text: `Reminder: please read and acknowledge "${n.title}"`, link: `/communication/notices/${n.id}` });
+  for (const to of todo) await notify(tx, ctx, { to, type: "notice", key: "Reminder: please read and acknowledge \"{title}\"", values: { title: n.title }, link: `/communication/notices/${n.id}` });
   await writeAudit(tx, ctx, { action: "reminded", recordType: "Notice", recordId: n.id, after: { people: todo.length } });
   return todo.length;
 }

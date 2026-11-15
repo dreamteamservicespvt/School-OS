@@ -85,7 +85,7 @@ type Row = {
   roll_no: number | null;
   class_name: string | null;
   section_name: string | null;
-  parents: { name: string; phone: string; alt: string | null }[];
+  parents: { name: string; phone: string | null; alt: string | null }[];
 };
 
 const isEmpty = (w: Prisma.StudentWhereInput | undefined) => !w || Object.keys(w).length === 0;
@@ -277,7 +277,7 @@ async function candidates(tx: Tx, q: ParsedQuery, f: Filter, pass: "typed" | "cl
     enrolments: Enrolled[];
     sections: { id: string; name: string; class_name: string | null }[];
     links: { student_id: string; guardian_id: string }[];
-    guardians: { id: string; name: string; phone: string; alt: string | null }[];
+    guardians: { id: string; name: string; phone: string | null; alt: string | null }[];
   }[]>(query);
 
   const enrolled = new Map(out.enrolments.map((e) => [e.student_id, e]));

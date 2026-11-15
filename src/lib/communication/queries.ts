@@ -152,10 +152,10 @@ export async function logQuery(tx: Tx, ctx: SchoolContext, input: NewQuery, now 
     },
   });
   await writeAudit(tx, ctx, { action: "created", recordType: "Query", recordId: q.id, after: { number, type: input.type, priority: input.priority, from: from.name } });
-  if (ownerId) await notify(tx, ctx, { to: ownerId, type: "query", text: `Query ${number} is yours: ${input.details.slice(0, 120)}`, link: `/communication/queries/${q.id}` });
+  if (ownerId) await notify(tx, ctx, { to: ownerId, type: "query", key: "Query {number} is yours: {details}", values: { number, details: input.details.slice(0, 120) }, link: `/communication/queries/${q.id}` });
   else if (departmentId) {
     for (const person of await departmentLogins(tx, ctx, departmentId)) {
-      await notify(tx, ctx, { to: person, type: "query", text: `New query ${number} for your department. Pick it up: ${input.details.slice(0, 100)}`, link: `/communication/queries/${q.id}` });
+      await notify(tx, ctx, { to: person, type: "query", key: "New query {number} for your department. Pick it up: {details}", values: { number, details: input.details.slice(0, 100) }, link: `/communication/queries/${q.id}` });
     }
   }
   let told = false;
@@ -197,7 +197,7 @@ export async function assignQuery(tx: Tx, ctx: SchoolContext, id: string, to: { 
   await tx.query.update({ where: { id }, data: { ownerId: to.ownerId, departmentId: to.departmentId } });
   await note(tx, ctx, id, "change", `Assigned to ${words}`);
   await writeAudit(tx, ctx, { action: "assigned", recordType: "Query", recordId: id, before: { ownerId: q.ownerId, departmentId: q.departmentId }, after: to });
-  if (to.ownerId) await notify(tx, ctx, { to: to.ownerId, type: "query", text: `Query ${q.number} is now yours.`, link: `/communication/queries/${id}` });
+  if (to.ownerId) await notify(tx, ctx, { to: to.ownerId, type: "query", key: "Query {number} is now yours.", values: { number: q.number }, link: `/communication/queries/${id}` });
 }
 
 /** Anyone in the department can pick it up and becomes its owner (inferred). */
@@ -310,8 +310,8 @@ export async function escalateQueries(tx: Tx, ctx: SchoolContext, now = new Date
   for (const q of overdue) {
     await tx.query.update({ where: { id: q.id }, data: { escalatedAt: now, ownerId: to } });
     await tx.queryNote.create({ data: { schoolId: ctx.schoolId, queryId: q.id, kind: "change", text: "Escalated: past its reply time limit" } });
-    await notify(tx, ctx, { to, type: "query", text: `Overdue query ${q.number} moved to you: ${q.details.slice(0, 100)}`, link: `/communication/queries/${q.id}` });
-    if (q.ownerId && q.ownerId !== to) await notify(tx, ctx, { to: q.ownerId, type: "query", text: `Query ${q.number} was past its time limit and moved on.`, link: `/communication/queries/${q.id}` });
+    await notify(tx, ctx, { to, type: "query", key: "Overdue query {number} moved to you: {details}", values: { number: q.number, details: q.details.slice(0, 100) }, link: `/communication/queries/${q.id}` });
+    if (q.ownerId && q.ownerId !== to) await notify(tx, ctx, { to: q.ownerId, type: "query", key: "Query {number} was past its time limit and moved on.", values: { number: q.number }, link: `/communication/queries/${q.id}` });
     await writeAudit(tx, ctx, { action: "escalated", recordType: "Query", recordId: q.id, before: { ownerId: q.ownerId }, after: { ownerId: to } });
   }
   return overdue.length;

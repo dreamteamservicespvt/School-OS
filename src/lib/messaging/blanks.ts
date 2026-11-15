@@ -24,6 +24,8 @@ export const VARIABLES: { key: string; label: string; sample: string }[] = [
   { key: "ticket_number", label: "Ticket number", sample: "Q-00012" },
   { key: "code", label: "One-time code", sample: "482913" },
   { key: "link", label: "Link", sample: "https://app.schoolos.in/p/…" },
+  // Filled for each parent with their own Parent Link, or "Ask the school office for your Parent Link." (src/lib/parent-link/blank.ts).
+  { key: "parent_link", label: "Parent Link", sample: "https://app.schoolos.in/p/…" },
   { key: "how_to_pay", label: "How to pay", sample: "Pay online on your Parent Link: https://app.schoolos.in/p/…" },
   { key: "message", label: "Message text", sample: "School will close at 12:30 PM today." },
 ];
@@ -60,6 +62,18 @@ export function whatsappParts(body: string): { text: string; variables: string[]
   if (/\{[a-z_]+\}$/.test(text)) text += ".";
   return { text, variables: variablesIn(text), button: blank ? { blank, label: BUTTON_BLANKS[blank] } : null };
 }
+
+/**
+ * A one-time code template (it has the {code} blank: Parent Link code, admission
+ * consent code, sign-in code). WhatsApp (Meta) takes a code only as an
+ * Authentication template, in Meta's own fixed words ("123456 is your
+ * verification code."), so its words here are never sent to WhatsApp; every
+ * other template goes as Utility (Meta rejected codes sent as Utility with
+ * INCORRECT_CATEGORY, live test 15 Nov 2026).
+ */
+export const isCodeTemplate = (body: string) => variablesIn(body).includes("code");
+export type WhatsappCategory = "UTILITY" | "AUTHENTICATION";
+export const whatsappCategoryOf = (body: string): WhatsappCategory => (isCodeTemplate(body) ? "AUTHENTICATION" : "UTILITY");
 
 /** Words in a text besides its blanks, in any script ("Dear", "ప్రియమైన", "10"). */
 function wordCount(text: string) {

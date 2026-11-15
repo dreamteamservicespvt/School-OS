@@ -22,6 +22,7 @@ import { reportAccess, BASE } from "./access";
 import { closedWords, entryAllowed, findEntry } from "./catalogue";
 import { filterWords, readFilters, type Raw } from "./filters";
 import type { Cell, ColKind, ReportEntry, ReportFilters, ReportViewer, Row, RunCtx, Table } from "./types";
+import { word } from "../notification-words";
 
 /** Files bigger than this are made in the background (as every export, lib/exports.ts). */
 export const BACKGROUND_ROWS = 2000;
@@ -159,7 +160,7 @@ export async function makeRun(tx: Tx, ctx: SchoolContext, runId: string) {
   const who = await viewerOf(tx, run.userId, ctx.schoolId);
   const fail = async (problem: string) => {
     await tx.reportRun.update({ where: { id: run.id }, data: { status: "FAILED", problem } });
-    await notify(tx, { ...ctx, userId: null }, { to: run.userId, type: "report-failed", text: `${run.title} could not be prepared: ${problem}`, link: BASE });
+    await notify(tx, { ...ctx, userId: null }, { to: run.userId, type: "report-failed", key: "{title} could not be prepared: {problem}", values: { title: word(run.title), problem: word(problem) }, link: BASE });
     return { failed: problem };
   };
   if (!entry || !who) return fail("your role no longer allows this report.");
@@ -178,7 +179,7 @@ export async function makeRun(tx: Tx, ctx: SchoolContext, runId: string) {
   await tx.storedFile.create({ data: { id, schoolId: ctx.schoolId, storageKey: key, fileName: file.name, contentType: file.type, sizeBytes: file.body.length, purpose: "report", uploadedById: run.userId } });
   await tx.reportRun.update({ where: { id: run.id }, data: { status: "READY", rows: t.rows.length, fileId: id, readyAt: new Date() } });
   await logExport(tx, { schoolId: ctx.schoolId, userId: run.userId }, { title: run.title, format, filters: run.filters, rows: t.rows.length });
-  await notify(tx, { ...ctx, userId: null }, { to: run.userId, type: "report-ready", text: `Report ready: ${run.title} (${t.rows.length.toLocaleString("en-IN")} rows). Tap to download.`, link: `${BASE}/runs/${run.id}` });
+  await notify(tx, { ...ctx, userId: null }, { to: run.userId, type: "report-ready", key: "Report ready: {title} ({rows} rows). Tap to download.", values: { title: word(run.title), rows: t.rows.length.toLocaleString("en-IN") }, link: `${BASE}/runs/${run.id}` });
   return { rows: t.rows.length, fileId: id };
 }
 

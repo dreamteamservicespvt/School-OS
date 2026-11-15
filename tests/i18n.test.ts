@@ -67,7 +67,7 @@ describe("the screens ask only for English keys", () => {
       }
     }
     expect(unknown).toEqual([]);
-  });
+  }, 240_000); // scans every source file: about 90 s on the D: drive under a full parallel run
 
   it("the menu, the phone bar, the New menu, module names and Parent Link sections are in English", () => {
     const words = [

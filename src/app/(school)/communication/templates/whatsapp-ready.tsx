@@ -16,6 +16,8 @@ type Row = { templateId: string; name: string; languageLabel: string };
 type Result = { key: string; name: string; tone: "ok" | "warn" | "bad"; text: string };
 
 const WAIT = "Sent. Waiting for WhatsApp's answer.";
+/** A code template WhatsApp rejected as an ordinary message, sent again as a code message (Authentication). */
+const AGAIN = "Rejected by WhatsApp: wrong type. Sent again as a code message.";
 
 function answer(status: string): { tone: Result["tone"]; text: string } {
   if (status === "APPROVED") return { tone: "ok", text: "Approved. It can be sent to parents now." };
@@ -27,11 +29,12 @@ const TONE = { ok: "text-ok", warn: "text-warn", bad: "text-bad" } as const;
 
 export function WhatsappReadyPanel({ fixable, toSend, toEdit, pending, approved }: {
   fixable: Row[];
-  toSend: (Row & { versionId: string })[];
+  toSend: (Row & { versionId: string; again?: "wrong-type" })[];
   toEdit: (Row & { problems: string[] })[];
   pending: number;
   approved: number;
 }) {
+  const againNames = toSend.filter((r) => r.again).map((r) => `${r.name} (${r.languageLabel})`);
   const router = useRouter();
   const t = useT();
   const [busy, start] = useTransition();
@@ -58,7 +61,8 @@ export function WhatsappReadyPanel({ fixable, toSend, toEdit, pending, approved 
       const r = list[i];
       try {
         const x = await sendForApprovalAction(r.versionId);
-        out.push({ key: r.versionId, name: label(r), ...(x.ok ? answer(x.status) : { tone: "bad" as const, text: x.message }) });
+        const said = x.ok ? (r.again && x.status === "PENDING" ? { tone: "warn" as const, text: AGAIN } : answer(x.status)) : { tone: "bad" as const, text: x.message };
+        out.push({ key: r.versionId, name: label(r), ...said });
       } catch {
         out.push({ key: r.versionId, name: label(r), tone: "bad", text: "Could not be sent. Try again." });
       }
@@ -92,6 +96,7 @@ export function WhatsappReadyPanel({ fixable, toSend, toEdit, pending, approved 
         {toSend.length > 0 && (
           <section className="flex flex-col gap-2">
             <p className="text-ink2"><Words k="These have words WhatsApp accepts and have not been sent yet." /></p>
+            {againNames.length > 0 && <p className="text-[13px] text-ink3"><Words k="Rejected by WhatsApp: wrong type. These go again as code messages: {names}" vars={{ names: againNames.join(", ") }} /></p>}
             <div>
               <Button variant={fixable.length ? "secondary" : "primary"} icon={Send} loading={Boolean(sending)}
                 loadingText={sending ? t("Sending {i} of {n}…", { i: sending.at, n: sending.of }) : undefined} disabled={busy} onClick={sendAll}>

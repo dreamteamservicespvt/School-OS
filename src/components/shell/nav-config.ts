@@ -1,7 +1,7 @@
 // The menu of the approved design (design/ui-prototype/src/data.js NAV, config.js BOTTOM and
 // QUICK_BY_ROLE): groups, icons, the phone bar and the "New" quick actions for each role.
 import { SMS_OFFERED } from "@/lib/messaging/sms-offered";
-import type { ModuleKey } from "@/lib/modules";
+import { MODULES, type ModuleKey } from "@/lib/modules";
 
 export type IconName =
   | "LayoutGrid" | "CalendarCheck2" | "IndianRupee" | "GraduationCap" | "UserPlus" | "MessagesSquare" | "BookOpen"
@@ -10,36 +10,42 @@ export type IconName =
   | "ArrowRightLeft" | "PackageMinus" | "ShoppingCart" | "PhoneIncoming" | "FileText" | "HeartHandshake" | "Award" | "Send"
   | "ReceiptText" | "FolderOpen" | "Video" | "BadgeCheck";
 
+/**
+ * A menu item: the module's short label (owner decision 13, 15 Nov 2026: "Attendance", "Fees", "Students"),
+ * from src/lib/modules.ts. Page titles and the blueprint keep the full module names.
+ */
+const item = (key: ModuleKey, icon: IconName) => ({ key, label: MODULES.find((m) => m.key === key)!.short, icon });
+
 export const NAV_GROUPS: { group: string | null; items: { key: ModuleKey; label: string; icon: IconName }[] }[] = [
-  { group: null, items: [{ key: "dashboard", label: "Dashboard", icon: "LayoutGrid" }] },
+  { group: null, items: [item("dashboard", "LayoutGrid")] },
   { group: "Daily work", items: [
-    { key: "attendance-management", label: "Attendance Management", icon: "CalendarCheck2" },
-    { key: "fee-management", label: "Fee Management", icon: "IndianRupee" },
-    { key: "student-management", label: "Student Management", icon: "GraduationCap" },
-    { key: "admission-management", label: "Admission Management", icon: "UserPlus" },
-    { key: "communication", label: "Communication", icon: "MessagesSquare" },
+    item("attendance-management", "CalendarCheck2"),
+    item("fee-management", "IndianRupee"),
+    item("student-management", "GraduationCap"),
+    item("admission-management", "UserPlus"),
+    item("communication", "MessagesSquare"),
   ] },
-  { group: "Academics", items: [
-    { key: "academic-management", label: "Academic Management", icon: "BookOpen" },
-    { key: "examination-results", label: "Examination & Results", icon: "ClipboardCheck" },
-    { key: "homework-learning", label: "Homework & Learning", icon: "NotebookPen" },
-    { key: "events-calendar", label: "Events & Calendar", icon: "CalendarDays" },
+  { group: "Teaching", items: [
+    item("academic-management", "BookOpen"),
+    item("examination-results", "ClipboardCheck"),
+    item("homework-learning", "NotebookPen"),
+    item("events-calendar", "CalendarDays"),
   ] },
   { group: "Staff & money", items: [
-    { key: "staff-hr-management", label: "Staff & HR Management", icon: "Users" },
-    { key: "salary-management", label: "Salary Management", icon: "Wallet" },
-    { key: "finance-management", label: "Finance Management", icon: "Landmark" },
+    item("staff-hr-management", "Users"),
+    item("salary-management", "Wallet"),
+    item("finance-management", "Landmark"),
   ] },
   { group: "Campus", items: [
-    { key: "front-office", label: "Front Office", icon: "DoorOpen" },
-    { key: "transport-management", label: "Transport Management", icon: "Bus" },
-    { key: "library-management", label: "Library Management", icon: "Library" },
-    { key: "inventory-management", label: "Inventory Management", icon: "Boxes" },
-    { key: "hostel-management", label: "Hostel Management", icon: "BedDouble" },
+    item("front-office", "DoorOpen"),
+    item("transport-management", "Bus"),
+    item("library-management", "Library"),
+    item("inventory-management", "Boxes"),
+    item("hostel-management", "BedDouble"),
   ] },
   { group: "Insights", items: [
-    { key: "reports-analytics", label: "Reports & Analytics", icon: "ChartColumn" },
-    { key: "settings", label: "Settings", icon: "Settings" },
+    item("reports-analytics", "ChartColumn"),
+    item("settings", "Settings"),
   ] },
 ];
 

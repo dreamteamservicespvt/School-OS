@@ -13,6 +13,7 @@ import { StaffProblem } from "./staff";
 import { campusLimitsOf } from "./campus-logins";
 import { hrSettings } from "./settings";
 import { DAY_MS, isoDay } from "./dates";
+import { word } from "../notification-words";
 
 export type DocStatus = "Valid" | "Expiring soon" | "Expired" | "Missing";
 
@@ -110,14 +111,15 @@ export async function sendExpiryReminders(tx: Tx, ctx: SchoolContext, today: Dat
     const fresh = due.filter((k) => !doc.remindersSent.includes(k));
     if (fresh.length === 0) continue;
     const when = left === 0 ? "today" : `in ${left} day${left === 1 ? "" : "s"}`;
-    const text = `${doc.kind} of ${doc.staff.fullName} expires on ${formatDate(doc.expiresOn!)} (${when}). Upload the renewed document.`;
+    const date = formatDate(doc.expiresOn!);
     const told = hr.filter((h) => !limits.get(h) || limits.get(h) === doc.staff.campusId);
     for (const to of new Set([...told, ...(doc.staff.userLoginId ? [doc.staff.userLoginId] : [])])) {
       await notify(tx, ctx, {
         to, type: "document-expiry",
-        text: to === doc.staff.userLoginId ? `Your ${doc.kind} expires on ${formatDate(doc.expiresOn!)} (${when}). Please give HR the renewed document.` : text,
+        key: to === doc.staff.userLoginId ? "Your {kind} expires on {date} ({when}). Please give HR the renewed document." : "{kind} of {name} expires on {date} ({when}). Upload the renewed document.",
+        values: { kind: word(doc.kind), name: doc.staff.fullName, date, when: word(when) },
         link: to === doc.staff.userLoginId ? `/staff-hr-management/${doc.staffId}?tab=documents` : "/staff-hr-management/documents?status=expiring",
-        groupKey: "document-expiry", mergedText: (n) => `${n} staff documents are about to expire`,
+        groupKey: "document-expiry", mergedKey: "{n} staff documents are about to expire",
       });
     }
     await tx.staffDocument.update({ where: { id: doc.id }, data: { remindersSent: [...doc.remindersSent, ...fresh] } });

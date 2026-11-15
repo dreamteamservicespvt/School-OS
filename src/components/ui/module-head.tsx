@@ -34,7 +34,7 @@ export function PinButton({ label, href, userId }: { label: string; href: string
   }, [userId, label, href]);
   return (
     <button type="button" onClick={toggle} aria-pressed={pinned} aria-label={pinned ? `Unpin ${label}` : `Pin ${label} to Search`} title={pinned ? "Pinned to Search" : "Pin to Search"}
-      className={cx("grid size-9 max-md:size-11 place-items-center rounded-xl transition hover:bg-sunken shrink-0", pinned ? "text-brand" : "text-ink3")}>
+      className={cx("grid size-9 max-md:size-11 place-items-center rounded-xl transition hover:bg-sunken active:bg-line/60 shrink-0", pinned ? "text-brand" : "text-ink3")}>
       <Pin size={17} className={pinned ? "fill-current" : ""} aria-hidden="true" />
     </button>
   );

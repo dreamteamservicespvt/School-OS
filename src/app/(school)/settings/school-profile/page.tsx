@@ -14,8 +14,9 @@ import { BoardForm, ComplianceForm, LogoForm, RegionForm } from "./sections";
 import { Campuses } from "./campuses";
 import { Documents, type DocRow } from "./documents";
 import { schoolRoles } from "@/lib/school-roles";
-import { Words } from "@/lib/i18n/client";
+import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { parentWhatsappNumber } from "@/lib/parent-link/contact";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("School Profile") };
@@ -119,12 +120,12 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
             </section>
             {canEdit ? (
               <DetailsForm logoHref={logoHref} initial={{
-                name: school.name, address: school.address ?? "", phone: school.phone ?? "", email: school.email ?? "", website: school.website ?? "",
+                name: school.name, address: school.address ?? "", phone: school.phone ?? "", parentWhatsapp: school.parentWhatsapp ?? "", email: school.email ?? "", website: school.website ?? "",
                 affiliationNumber: school.affiliationNumber ?? "", gstin: school.gstin ?? "", brandColor: school.brandColor ?? "",
               }} />
             ) : (
               <Facts rows={[
-                ["School name", school.name], ["Address", school.address], ["Phone", school.phone], ["Email", school.email], ["Website address", school.website],
+                ["School name", school.name], ["Address", school.address], ["Phone", school.phone], ["WhatsApp number for parents", school.parentWhatsapp ?? (parentWhatsappNumber(school) ? <Any key="wa" text="The office phone" /> : null)], ["Email", school.email], ["Website address", school.website],
                 ["Affiliation number", school.affiliationNumber], ["GSTIN", school.gstin],
                 ["Brand colour", school.brandColor ? <span className="inline-flex items-center gap-2"><span aria-hidden="true" className="size-5 rounded-full border border-line" style={{ background: school.brandColor }} /><span className="font-mono">{school.brandColor}</span></span> : null],
               ]} />
@@ -168,7 +169,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
             )}
             <p className="mt-6 border-t border-line pt-4 text-sm text-ink-2">
               <Words k="School group:" /> {school.group ? <strong className="text-ink">{school.group.name}</strong> : "this school is not part of a school group"}.
-              {school.group ? " Settings shared by the group are set by DREAM TEAM when the group is set up; this school's own settings above always apply here." : ""}
+              {school.group ? " Settings shared by the group are set by the School OS support team when the group is set up; this school's own settings above always apply here." : ""}
             </p>
           </CardBody>
         </Card>

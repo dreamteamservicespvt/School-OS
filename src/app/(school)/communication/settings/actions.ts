@@ -187,7 +187,7 @@ export async function findGuardians(q: string): Promise<{ id: string; name: stri
       where: { schoolId: access.current.ctx.schoolId, archivedAt: null, OR: [{ name: { contains: text, mode: "insensitive" } }, ...(digits.length >= 4 ? [{ phone: { contains: digits } }] : [])] },
       select: { id: true, name: true, phone: true, optedOut: true, relationship: true }, take: 10, orderBy: { name: "asc" },
     });
-    return rows.map((g) => ({ id: g.id, name: g.name, detail: `${g.relationship} · ••${g.phone.slice(-4)}`, optedOut: g.optedOut }));
+    return rows.map((g) => ({ id: g.id, name: g.name, detail: `${g.relationship} · ${g.phone ? `••${g.phone.slice(-4)}` : "Phone missing"}`, optedOut: g.optedOut }));
   });
 }
 

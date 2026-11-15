@@ -6,6 +6,7 @@ import { describe, expect, it } from "vitest";
 import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { READY_TEMPLATES, whatsappProblems } from "@/lib/messaging/templates";
+import { PAST_READY_WHATSAPP } from "@/lib/messaging/ready-history";
 
 describe("whatsappProblems", () => {
   it("finds a blank at the end, even with a full stop after it", () => {
@@ -65,7 +66,8 @@ describe("migration for schools made before", () => {
     for (const [, key, lang, body] of rows) {
       const ready = READY_TEMPLATES.find((t) => t.key === key && t.channel === "whatsapp")?.texts[lang];
       const words = body.replace(/\\n/g, "\n").replace(/\\'/g, "'");
-      expect(words, `${key} (${lang})`).toBe(ready);
+      // Today's ready words, or words School OS had then that "Make ready for WhatsApp" now rewords.
+      expect([ready, ...(PAST_READY_WHATSAPP[`${key}|${lang}`] ?? [])], `${key} (${lang})`).toContain(words);
       expect(whatsappProblems(words)).toEqual([]);
     }
   });

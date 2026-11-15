@@ -77,7 +77,7 @@ export async function requestPass(tx: Tx, ctx: SchoolContext, input: PassInput, 
     guardianId = link.guardianId;
     collectorName = link.guardian.name;
     collectorRelation = link.relationship;
-    collectorPhone = link.guardian.phone;
+    collectorPhone = link.guardian.phone ?? "";
   } else {
     collectorName = (input.withName ?? "").trim().replace(/\s+/g, " ");
     collectorRelation = (input.withRelation ?? "").trim();

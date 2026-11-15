@@ -61,7 +61,7 @@ export async function sendFineToSalary(tx: Tx, ctx: SchoolContext, fineId: strin
   const updated = await tx.libraryFine.update({ where: { id: f.id }, data: { salaryAt: now, salaryById: ctx.userId } });
   await writeAudit(tx, ctx, { action: "sent-to-salary", recordType: "Library Fine", recordId: f.id, before: { where: "Collect here or from salary" }, after: { where: "From salary", staff: staff.fullName, amount: formatRupees(f.amountPaise) } });
   if (staff.userLoginId) {
-    await notify(tx, ctx, { to: staff.userLoginId, type: "library", text: `Library fine ${f.fineNo} of ${formatRupees(f.amountPaise)} will be taken from your next salary`, link: "/salary-management/slips?mine=1" });
+    await notify(tx, ctx, { to: staff.userLoginId, type: "library", key: "Library fine {number} of {amount} will be taken from your next salary", values: { number: f.fineNo, amount: formatRupees(f.amountPaise) }, link: "/salary-management/slips?mine=1" });
   }
   return { fine: updated, staff };
 }
@@ -153,7 +153,7 @@ export async function releaseFineAdjustment(tx: Tx, ctx: SchoolContext, adjustme
   const tell = new Set<string>();
   if (f.salaryById) tell.add(f.salaryById);
   for (const id of tell) {
-    await notify(tx, ctx, { to: id, type: "library", text: `Library fine ${f.fineNo} (${formatRupees(f.amountPaise)}) was taken off the ${monthWords(month)} salary. Collect it at the desk.`, link: `/library-management/fines?fine=${f.id}` });
+    await notify(tx, ctx, { to: id, type: "library", key: "Library fine {number} ({amount}) was taken off the {month} salary. Collect it at the desk.", values: { number: f.fineNo, amount: formatRupees(f.amountPaise), month: monthWords(month) }, link: `/library-management/fines?fine=${f.id}` });
   }
   return f;
 }

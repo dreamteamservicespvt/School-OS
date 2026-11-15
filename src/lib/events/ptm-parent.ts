@@ -20,6 +20,7 @@ import { isChildOfGuardian } from "../students/guardian-access";
 import { eventsSettings } from "./settings";
 import { tellParent } from "./ptm";
 import { clock, dayOf, isoOf, longDay, shortDay, timeSpan } from "./words";
+import { word } from "../notification-words";
 
 export type ParentSlot = { id: string; time: string };
 export type ParentTeacher = { staffId: string; name: string; label: string; free: ParentSlot[] };
@@ -151,7 +152,7 @@ export async function bookOnParentLink(tx: Tx, ctx: SchoolContext, who: Who & { 
     after: { student: child?.fullName ?? "Student", teacher: t.fullName, time: clock(slot.startMin), date: longDay(isoOf(p.date)) },
   });
   if (t.userLoginId) {
-    await notify(tx, ctx, { to: t.userLoginId, type: "ptm-booking", text: `${parent} ${old ? "moved their PTM slot to" : "booked"} ${when} for ${child?.firstName ?? "their child"}, on Parent Link.`, link: `/events-calendar/ptm?day=${p.id}`, groupKey: `ptm-booking:${p.id}`, mergedText: (n) => `${n} PTM bookings from parents on Parent Link` });
+    await notify(tx, ctx, { to: t.userLoginId, type: "ptm-booking", key: old ? "{parent} moved their PTM slot to {when} for {child}, on Parent Link." : "{parent} booked {when} for {child}, on Parent Link.", values: { parent, when, child: child?.firstName ?? word("their child") }, link: `/events-calendar/ptm?day=${p.id}`, groupKey: `ptm-booking:${p.id}`, mergedKey: "{n} PTM bookings from parents on Parent Link" });
   }
   const fresh = await tx.ptmSlot.findUniqueOrThrow({ where: { id: slot.id } });
   await tellParent(tx, ctx, { ...fresh, ptm: p } as PtmSlot & { ptm: Ptm }, t.fullName, "confirm");
@@ -169,7 +170,7 @@ export async function cancelOnParentLink(tx: Tx, ctx: SchoolContext, who: Who & 
   const [child, t, parent] = await Promise.all([tx.student.findFirst({ where: { id: who.studentId }, select: { firstName: true, fullName: true } }), teacherName(tx, slot.staffId), guardianName(tx, who.guardianId)]);
   await writeAudit(tx, ctx, { action: "booking-cancelled-by-parent", recordType: "PTM Slot", recordId: slot.id, actorNote: `${parent}, on Parent Link`, before: { student: child?.fullName ?? "Student", teacher: t.fullName, time: clock(slot.startMin), date: longDay(isoOf(slot.ptm.date)) } });
   if (t.userLoginId) {
-    await notify(tx, ctx, { to: t.userLoginId, type: "ptm-booking", text: `${parent} cancelled the PTM slot at ${shortDay(isoOf(slot.ptm.date))}, ${clock(slot.startMin)} for ${child?.firstName ?? "their child"}, on Parent Link.`, link: `/events-calendar/ptm?day=${slot.ptmId}`, groupKey: `ptm-booking:${slot.ptmId}`, mergedText: (n) => `${n} PTM bookings from parents on Parent Link` });
+    await notify(tx, ctx, { to: t.userLoginId, type: "ptm-booking", key: "{parent} cancelled the PTM slot at {when} for {child}, on Parent Link.", values: { parent, when: `${shortDay(isoOf(slot.ptm.date))}, ${clock(slot.startMin)}`, child: child?.firstName ?? word("their child") }, link: `/events-calendar/ptm?day=${slot.ptmId}`, groupKey: `ptm-booking:${slot.ptmId}`, mergedKey: "{n} PTM bookings from parents on Parent Link" });
   }
   return { teacher: t.fullName, time: clock(slot.startMin), when: shortDay(isoOf(slot.ptm.date)) };
 }

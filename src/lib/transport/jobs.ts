@@ -20,6 +20,7 @@ import { ensureTrips, watchTrips } from "./trips";
 import { endFinishedPlaces } from "./places";
 import { serviceDue } from "./fleet";
 import { paperLabel, showPlate, vehicleName } from "./words";
+import { word, englishNote, type NoteWords } from "../notification-words";
 
 const DAY = 86_400_000;
 
@@ -59,10 +60,11 @@ export async function sendTransportReminders(tx: Tx, ctx: SchoolContext, today: 
     const left = Math.round((d.licenceExpiry!.getTime() - today.getTime()) / DAY);
     if (left < -30) continue;
     const key = `licence:${d.id}:${d.licenceExpiry!.toISOString().slice(0, 10)}:${windowOf(left)}`;
-    const text = left < 0 ? `Licence of ${d.name} expired on ${formatDate(d.licenceExpiry!)}. Upload the renewed licence or change the driver.` : `Licence of ${d.name} ${when(left)} (${formatDate(d.licenceExpiry!)}). Upload the renewed licence.`;
+    const words: NoteWords = { key: left < 0 ? "Licence of {name} expired on {date}. Upload the renewed licence or change the driver." : "Licence of {name} {when} ({date}). Upload the renewed licence.", values: { name: d.name, when: word(when(left)), date: formatDate(d.licenceExpiry!) } };
+    const text = englishNote(words.key, words.values);
     if (!(await once(tx, ctx, key, text))) continue;
-    for (const to of people) await notify(tx, ctx, { to, type: "transport-reminder", text, link: "/transport-management/vehicles?view=people", groupKey: "transport-reminder", mergedText: (n) => `${n} driver licences and bus papers need renewing` });
-    if (d.userLoginId) await notify(tx, ctx, { to: d.userLoginId, type: "transport-reminder", text: left < 0 ? `Your driving licence expired on ${formatDate(d.licenceExpiry!)}. Give the renewed licence to the Transport in-charge.` : `Your driving licence ${when(left)} (${formatDate(d.licenceExpiry!)}). Give the renewed licence to the Transport in-charge.`, link: "/driver" });
+    for (const to of people) await notify(tx, ctx, { to, type: "transport-reminder", ...words, link: "/transport-management/vehicles?view=people", groupKey: "transport-reminder", mergedKey: "{n} driver licences and bus papers need renewing" });
+    if (d.userLoginId) await notify(tx, ctx, { to: d.userLoginId, type: "transport-reminder", key: left < 0 ? "Your driving licence expired on {date}. Give the renewed licence to the Transport in-charge." : "Your driving licence {when} ({date}). Give the renewed licence to the Transport in-charge.", values: { date: formatDate(d.licenceExpiry!), when: word(when(left)) }, link: "/driver" });
     sent++;
   }
 
@@ -71,9 +73,10 @@ export async function sendTransportReminders(tx: Tx, ctx: SchoolContext, today: 
     const left = Math.round((p.expiresOn.getTime() - today.getTime()) / DAY);
     if (left < -30) continue;
     const key = `paper:${p.id}:${windowOf(left)}`;
-    const text = `${paperLabel(p.kind)} of ${vehicleName(p.vehicle)} ${when(left)} (${formatDate(p.expiresOn)}). Upload the renewed paper.`;
+    const words: NoteWords = { key: "{paper} of {vehicle} {when} ({date}). Upload the renewed paper.", values: { paper: word(paperLabel(p.kind)), vehicle: vehicleName(p.vehicle), when: word(when(left)), date: formatDate(p.expiresOn) } };
+    const text = englishNote(words.key, words.values);
     if (!(await once(tx, ctx, key, text))) continue;
-    for (const to of people) await notify(tx, ctx, { to, type: "transport-reminder", text, link: "/transport-management/vehicles?view=papers", groupKey: "transport-reminder", mergedText: (n) => `${n} driver licences and bus papers need renewing` });
+    for (const to of people) await notify(tx, ctx, { to, type: "transport-reminder", ...words, link: "/transport-management/vehicles?view=papers", groupKey: "transport-reminder", mergedKey: "{n} driver licences and bus papers need renewing" });
     sent++;
   }
 
@@ -84,7 +87,7 @@ export async function sendTransportReminders(tx: Tx, ctx: SchoolContext, today: 
     const key = `service:${v.id}:${v.lastServiceOn?.toISOString().slice(0, 10) ?? "never"}:${v.lastServiceKm ?? 0}`;
     const text = `${v.label ?? showPlate(v.number)} is due for service${due.kmLeft != null && due.kmLeft <= 0 ? ` (${Math.abs(due.kmLeft)} km over)` : ""}${due.daysLeft != null && due.daysLeft <= 0 ? ` (${Math.abs(due.daysLeft)} days over)` : ""}.`;
     if (!(await once(tx, ctx, key, text))) continue;
-    for (const to of people) await notify(tx, ctx, { to, type: "transport-reminder", text, link: "/transport-management/vehicles?view=costs", groupKey: "transport-service", mergedText: (n) => `${n} vehicles are due for service` });
+    for (const to of people) await notify(tx, ctx, { to, type: "transport-reminder", text, link: "/transport-management/vehicles?view=costs", groupKey: "transport-service", mergedKey: "{n} vehicles are due for service" });
     sent++;
   }
   if (sent) await writeAudit(tx, { ...ctx, userId: null }, { action: "expiry-reminders-sent", recordType: "Transport Reminder", recordId: null, after: { reminders: sent } });

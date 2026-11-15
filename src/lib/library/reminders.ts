@@ -21,7 +21,7 @@ export type SendOutcome = { status: "sent" | "skipped"; how: string; note?: stri
 export async function messageMember(tx: Tx, ctx: SchoolContext, m: Member, text: string, opts: { trigger: string; key: string; source: { type: string; id: string } }): Promise<SendOutcome> {
   if (m.kind === "STAFF") {
     if (!m.userLoginId) return { status: "skipped", how: "app", note: `${m.name} has no School OS login` };
-    await notify(tx, ctx, { to: m.userLoginId, type: "library", text, link: "/", groupKey: `library-${opts.trigger}`, mergedText: (n) => `${n} messages from the library` });
+    await notify(tx, ctx, { to: m.userLoginId, type: "library", text, link: "/", groupKey: `library-${opts.trigger}`, mergedKey: "{n} messages from the library" });
     return { status: "sent", how: "in the app" };
   }
   const base = { to: { guardiansOf: [m.studentId!] }, text, trigger: opts.trigger, source: opts.source, audienceLabel: `Parents of ${m.name}`, onNoCredits: "fail" as const };
@@ -92,7 +92,7 @@ export async function librarianLogins(tx: Tx, ctx: SchoolContext) {
 /** The Principal's (or School Admin's) "Remind": the Librarian is told in the app. */
 export async function remindLibrarian(tx: Tx, ctx: SchoolContext, text: string, link = BASE) {
   const to = (await librarianLogins(tx, ctx)).filter((id) => id !== ctx.userId);
-  for (const id of to) await notify(tx, ctx, { to: id, type: "library-remind", text, link, groupKey: "library-remind", mergedText: (n) => `${n} reminders about the library` });
+  for (const id of to) await notify(tx, ctx, { to: id, type: "library-remind", text, link, groupKey: "library-remind", mergedKey: "{n} reminders about the library" });
   await writeAudit(tx, ctx, { action: "reminded-librarian", recordType: "Library", recordId: ctx.schoolId, after: { text, people: to.length } });
   return to.length;
 }

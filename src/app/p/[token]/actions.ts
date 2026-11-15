@@ -19,8 +19,11 @@ import { PARENT_CODE_NOT_SENT } from "@/lib/dev-codes";
 import { deliverCodeNow } from "@/lib/messaging/code-now";
 import { parentLinkWords, parentMessage } from "@/lib/parent-link/language";
 
-/** notSent: Test mode kept the code back; the page shows the message instead of "code sent". */
-export type GuardianState = { ok: boolean; message?: string; step?: "code" | "done"; notSent?: boolean } | null;
+/**
+ * notSent: Test mode kept the code back; the page shows the message instead of "code sent".
+ * channel: what carried the code ("on WhatsApp", "by SMS"). callSchool: no code could go; the page says to call the school.
+ */
+export type GuardianState = { ok: boolean; message?: string; step?: "code" | "done"; notSent?: boolean; channel?: "sms" | "whatsapp"; callSchool?: boolean } | null;
 
 const GONE = ACCESS_WORDS.gone;
 
@@ -81,11 +84,15 @@ async function sendDeviceCodeEn(token: string): Promise<GuardianState> {
       return { sent, settings: (await messageSettings(tx, ctx)).parentLink };
     });
     // "Code sent" only once WhatsApp or SMS really took it (owner test 2026-11-05).
-    if (!pl.sent.testMode && (await deliverCodeNow(ctx, pl.sent.messageId)).state === "failed") return { ok: false, message: PARENT_CODE_NOT_SENT };
+    if (!pl.sent.testMode && (await deliverCodeNow(ctx, pl.sent.messageId)).state === "failed") return { ok: false, message: PARENT_CODE_NOT_SENT, callSchool: true };
     await setDeviceCookie(found.linkId, key, pl.settings.deviceDays);
-    return codeStep(codeSentWords(pl.sent, `Code sent. It works for ${pl.settings.codeMinutes} minutes.`));
+    const step = codeStep(codeSentWords(pl.sent, `Code sent. It works for ${pl.settings.codeMinutes} minutes.`));
+    return step?.ok ? { ...step, channel: pl.sent.channel } : step;
   } catch (e) {
-    if (e instanceof ParentLinkProblem || e instanceof MessagingProblem) return { ok: false, message: e instanceof ParentLinkProblem ? e.message : PARENT_CODE_NOT_SENT };
+    if (e instanceof ParentLinkProblem || e instanceof MessagingProblem) {
+      const notSent = !(e instanceof ParentLinkProblem) || e.message === PARENT_CODE_NOT_SENT;
+      return { ok: false, message: e instanceof ParentLinkProblem ? e.message : PARENT_CODE_NOT_SENT, ...(notSent ? { callSchool: true } : {}) };
+    }
     throw e;
   }
 }

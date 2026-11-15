@@ -95,6 +95,23 @@ export async function currentVersions(tx: Tx, ctx: SchoolContext, templateId: st
   });
 }
 
+/**
+ * On a real WhatsApp account: a language whose current text WhatsApp has not
+ * approved yet (new words sent for approval, src/lib/communication/whatsapp-ready.ts)
+ * keeps going in its last text WhatsApp approved, until the new one is approved.
+ * Texts "approved" only in test mode never count.
+ */
+export async function withLastApproved(tx: Tx, ctx: SchoolContext, templateId: string, versions: UsableVersion[]): Promise<UsableVersion[]> {
+  const waiting = versions.filter((v) => !isApproved(v)).map((v) => v.language);
+  if (!waiting.length) return versions;
+  const older = await tx.templateVersion.findMany({
+    where: { schoolId: ctx.schoolId, templateId, isCurrent: false, language: { in: waiting }, whatsappStatus: "APPROVED", whatsappName: { not: null }, OR: [{ whatsappNote: null }, { NOT: { whatsappNote: { startsWith: "Test mode" } } }] },
+    select: { id: true, templateId: true, language: true, body: true, subject: true, variables: true, dltTemplateId: true, whatsappName: true, whatsappStatus: true },
+    orderBy: { version: "desc" },
+  });
+  return versions.map((v) => (isApproved(v) ? v : older.find((o) => o.language === v.language) ?? v));
+}
+
 /** The version for a language: that language, else the school's main language, else English, else any. */
 export function versionFor(versions: UsableVersion[], language: string, schoolLanguage: string): UsableVersion | null {
   return versions.find((v) => v.language === language) ?? versions.find((v) => v.language === schoolLanguage) ?? versions.find((v) => v.language === "en") ?? versions[0] ?? null;
@@ -178,13 +195,18 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
     en: "Received {paid_amount} for {student_name} on {payment_date}. Receipt {receipt_number}. Thank you. - {school_name}",
   } },
   { key: "exam-reminder", name: "Exam reminder", category: "exam", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {exam_name} for {student_name} of {class} starts on {date}. The datesheet is on your Parent Link; please check it. All the best from the {school_name} team!",
+    // {parent_link} is each parent's own Parent Link, or "Ask the school office for your Parent Link." (src/lib/parent-link/blank.ts).
+    en: "Dear {guardian_name}, {exam_name} for {student_name} of {class} starts on {date}. Please see the datesheet on your Parent Link: {parent_link} All the best from the {school_name} team!",
+    hi: "प्रिय {guardian_name}, {class} के {student_name} की {exam_name} परीक्षा {date} को शुरू होगी। कृपया डेटशीट अपने Parent Link पर देखें: {parent_link} आपको {school_name} टीम की ओर से शुभकामनाएँ!",
+    te: "ప్రియమైన {guardian_name}, {class} లోని {student_name} కు {exam_name} పరీక్షలు {date} న ప్రారంభమవుతాయి. దయచేసి డేట్‌షీట్‌ను మీ Parent Link లో చూడండి: {parent_link} మీకు {school_name} బృందం తరఫున శుభాకాంక్షలు!",
   } },
   { key: "result", name: "Results published", category: "exam", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, the results of {exam_name} for {student_name} are ready. See the report card on your Parent Link. Thank you, {school_name} team.",
+    en: "Dear {guardian_name}, the results of {exam_name} for {student_name} are ready. See the report card on your Parent Link: {parent_link} Thank you, {school_name} team.",
+    hi: "प्रिय {guardian_name}, {student_name} के {exam_name} के परिणाम आ गए हैं। रिपोर्ट कार्ड अपने Parent Link पर देखें: {parent_link} धन्यवाद, {school_name} टीम।",
+    te: "ప్రియమైన {guardian_name}, {student_name} యొక్క {exam_name} ఫలితాలు వచ్చాయి. రిపోర్ట్ కార్డును మీ Parent Link లో చూడండి: {parent_link} ధన్యవాదాలు, {school_name} బృందం.",
   } },
   { key: "result", name: "Results published (SMS)", category: "exam", channel: "sms", texts: {
-    en: "Results of {exam_name} for {student_name} are ready. See your Parent Link. - {school_name}",
+    en: "Results of {exam_name} for {student_name} are ready. See your Parent Link: {parent_link} - {school_name}",
   } },
   { key: "ptm", name: "PTM reminder", category: "events", channel: "whatsapp", texts: {
     en: "Dear {guardian_name}, the parent-teacher meeting for {class} is on {date}. Please attend to hear how your child is doing. Thank you, {school_name} team.",
@@ -224,7 +246,7 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
   { key: "parent-link", name: "Parent Link", category: "parent-link", channel: "whatsapp", texts: {
     en: "Dear {guardian_name}, this is your personal Parent Link from {school_name}. See fees, attendance and notices for your children: {link} Please do not share it.",
     te: "ప్రియమైన {guardian_name}, ఇది {school_name} నుండి మీ వ్యక్తిగత Parent Link: {link} దయచేసి ఎవరితోనూ పంచుకోవద్దు.",
-    hi: "प्रिय {guardian_name}, यह {school_name} से आपका निजी Parent Link है: {link} कृपया इसे किसी के साथ साझा न करें।",
+    hi: "प्रिय {guardian_name}, यह {school_name} से आपका निजी Parent Link है। इसमें अपने बच्चों की फीस, उपस्थिति और सूचनाएँ देखें: {link} कृपया इसे किसी के साथ साझा न करें।",
   } },
   { key: "parent-link", name: "Parent Link (SMS)", category: "parent-link", channel: "sms", texts: {
     en: "Dear Parent, your Parent Link from {school_name}: {link} Do not share it.",
@@ -242,7 +264,9 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
     en: "Your one-time code to confirm consent for admission at {school_name} is {code}. It works for 10 minutes. Do not share it with anyone.",
   } },
   { key: "consent-request", name: "Consent request", category: "parent-link", channel: "whatsapp", texts: {
-    en: "Dear {guardian_name}, {school_name} asks for your consent: {title}. Please open your Parent Link to read it and agree. Thank you.",
+    en: "Dear {guardian_name}, {school_name} asks for your consent: {title}. Please open your Parent Link to read it and agree: {parent_link} Thank you.",
+    hi: "प्रिय {guardian_name}, {school_name} आपकी सहमति माँग रहा है: {title}। कृपया इसे पढ़ने और सहमति देने के लिए अपना Parent Link खोलें: {parent_link} धन्यवाद।",
+    te: "ప్రియమైన {guardian_name}, {school_name} మీ అనుమతి కోరుతోంది: {title}. దయచేసి చదివి అంగీకరించడానికి మీ Parent Link తెరవండి: {parent_link} ధన్యవాదాలు.",
   } },
   { key: "query-number", name: "Query received", category: "queries", channel: "whatsapp", texts: {
     en: "Dear {guardian_name}, we have noted your {message}. Your ticket number is {ticket_number}. We will get back to you soon. Thank you, {school_name} team.",
@@ -251,7 +275,8 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
     en: "Dear {guardian_name}, your ticket {ticket_number} is closed. How happy are you with our help? Reply with a number from 1 (not happy) to 5 (very happy). Thank you, {school_name} team.",
   } },
   { key: "staff-invite", name: "Staff invite", category: "staff", channel: "whatsapp", texts: {
-    en: "Dear {staff_name}, you are invited to School OS at {school_name}. Open this link to choose your password: {link} It works once, for 7 days. Please do not share it.",
+    // No "password" or "sign in": Meta rejects such a Utility text as INCORRECT_CATEGORY (it wants Authentication, which carries only codes).
+    en: "Dear {staff_name}, your School OS account at {school_name} is ready. Open it with this link: {link} The link works once, for 7 days. Please do not share it.",
   } },
   { key: "staff-invite", name: "Staff invite (SMS)", category: "staff", channel: "sms", texts: {
     en: "Dear {staff_name}, set your School OS password for {school_name}: {link} Works once, for 7 days. Do not share it.",
@@ -275,10 +300,12 @@ export const READY_TEMPLATES: ReadyTemplate[] = [
     en: "Dear Parent, about {student_name} ({class}): {title} on {date}. Please contact the class teacher. - {school_name}",
   } },
   { key: "notice", name: "New notice", category: "general", channel: "whatsapp", texts: {
-    en: "Dear Parent, there is a new notice from {school_name}: {title}.\nDetails: {message}\nYou can also read this notice on your Parent Link.",
+    en: "Dear Parent, there is a new notice from {school_name}: {title}.\nDetails: {message}\nYou can also read this notice on your Parent Link: {parent_link} Thank you.",
+    hi: "प्रिय अभिभावक, {school_name} की ओर से नई सूचना: {title}।\nविवरण: {message}\nआप यह सूचना अपने Parent Link पर भी पढ़ सकते हैं: {parent_link} धन्यवाद।",
+    te: "ప్రియమైన తల్లిదండ్రులకు, {school_name} నుండి కొత్త నోటీసు: {title}.\nవివరాలు: {message}\nఈ నోటీసును మీ Parent Link లో కూడా చదవవచ్చు: {parent_link} ధన్యవాదాలు.",
   } },
   { key: "notice", name: "New notice (SMS)", category: "general", channel: "sms", texts: {
-    en: "{school_name}: New notice: {title}. Please see your Parent Link.",
+    en: "{school_name}: New notice: {title}. See it on your Parent Link: {parent_link}",
   } },
   { key: "general", name: "General announcement", category: "general", channel: "whatsapp", texts: {
     en: "Dear {guardian_name}, here is a message from {school_name}:\n{message}\nPlease contact the school office if you have any questions.",

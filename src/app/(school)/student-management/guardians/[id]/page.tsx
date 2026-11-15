@@ -31,6 +31,8 @@ import { loadParent360 } from "../load";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 import { RecordTitle } from "@/components/ui/record-title";
+import { PhoneMissing } from "../../_lib/phone-missing";
+import { Any } from "@/lib/i18n/client";
 
 export async function generateMetadata(): Promise<Metadata> {
   return { title: await pageTitle("Parent") };
@@ -62,6 +64,9 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
   const anyOverdue = kids.some((k) => k.fact?.feeOverdue);
   // "Active" means the link was sent. Before that it is a first send, and there is nothing to revoke.
   const linkSent = data.link?.status === "Active";
+  // No phone (owner decision 15): "Phone missing · Add phone"; no Parent Link or consent request until one is added.
+  const noPhone = !g.phone;
+  const addPhone = manage ? `${path}/edit` : null;
 
   const menu: MenuItem[] = manage ? [
     { label: "Merge with another record", href: `${path}/merge`, icon: <Merge size={16} aria-hidden="true" /> },
@@ -72,7 +77,9 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
     ...(seeFees ? [{ label: "Fees due, all children", value: totalDue > BigInt(0) ? formatRupees(totalDue) : "Nothing due", tone: totalDue > BigInt(0) ? "bad" as const : "ok" as const, sub: totalDue > BigInt(0) ? (anyOverdue ? "Some of it is overdue" : "Not overdue yet") : kids.some((k) => k.fact?.feeDuePaise != null) ? "All paid" : "No fees have fallen due yet", icon: IndianRupee }] : []),
     ...(provider ? [{ label: "Parent Link", value: data.link?.status ?? "Not sent", tone: data.link?.status === "Active" ? "ok" as const : data.link?.status === "Revoked" ? "bad" as const : undefined, sub: data.link?.lastOpenedAt ? `Last opened ${formatDateTime(data.link.lastOpenedAt, tz)}` : "Not opened yet", icon: Smartphone }] : []),
     { label: "Data consent", value: stateWord(dataState), tone: TONE[dataState], sub: CONSENT_TYPES.filter((t) => t.key !== "data-processing").map((t) => `${t.label}: ${stateWord(consentState(data.consents, t.key)).toLowerCase()}`).join(" · ") || undefined, icon: ShieldCheck },
-    { label: "Messages", value: g.optedOut ? "Opted out" : "Yes", tone: g.optedOut ? "warn" : undefined, sub: g.optedOut ? "Only urgent notices" : `In ${languageLabel(g.language)}`, icon: MessageCircle },
+    noPhone
+      ? { label: "Messages", value: "Phone missing", tone: "warn", sub: "None until a phone is added", icon: MessageCircle, ...(addPhone ? { href: addPhone } : {}) }
+      : { label: "Messages", value: g.optedOut ? "Opted out" : "Yes", tone: g.optedOut ? "warn" : undefined, sub: g.optedOut ? "Only urgent notices" : `In ${languageLabel(g.language)}`, icon: MessageCircle },
   ];
 
   return (
@@ -103,14 +110,15 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                 <Pill tone={TONE[dataState]} dot><Words k="Consent" /> {stateWord(dataState).toLowerCase()}</Pill>
               </div>
               <p className="text-[13.5px] text-ink3 mt-0.5">
-                {g.relationship} · <a href={`tel:+91${g.phone}`} className="tnum hover:underline">+91 {phoneShow(g.phone)}</a>{g.email && <> · {g.email}</>}{g.occupation && <> · {g.occupation}</>}
+                {g.relationship} · {g.phone ? <a href={`tel:+91${g.phone}`} className="tnum hover:underline">+91 {phoneShow(g.phone)}</a> : <PhoneMissing editHref={addPhone} />}{g.email && <> · {g.email}</>}{g.occupation && <> · {g.occupation}</>}
               </p>
             </div>
           </div>
           {(message || manage) && (
             <div className="flex gap-2 flex-wrap relative">
               {message && <ButtonLink href={`/communication?for=students&ids=${kids.map((k) => k.studentId).join(",")}`} icon={MessageCircle}><Words k="Message" /></ButtonLink>}
-              {manage && provider && (
+              {manage && provider && noPhone && <ButtonLink href={`${path}/edit`} icon={Send}><Any text="Add a phone first" /></ButtonLink>}
+              {manage && provider && !noPhone && (
                 <ConfirmAction action={parentLinkAction} fields={{ guardianId: id, op: "resend" }} trigger={<>{linkSent ? <RefreshCw size={16} aria-hidden="true" /> : <Send size={16} aria-hidden="true" />}<Words k={linkSent ? "Resend Parent Link" : "Send Parent Link"} /></>} title={linkSent ? "Resend Parent Link?" : "Send Parent Link?"} confirmLabel={`Send to ${g.name}`}>
                   {g.name}<Words k={linkSent ? "’s personal link goes again to +91" : "’s personal link goes to +91"} /> {phoneShow(g.phone)} {SMS_OFFERED ? <Words k="on WhatsApp, with SMS backup." /> : <Words k="on WhatsApp." />}
                 </ConfirmAction>
@@ -204,13 +212,13 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
               <CardHeader title="Contact details" icon={FileText} />
               <DL rows={[
                 ["Relation", g.relationship],
-                ["Phone", <span key="p" className="tnum">+91 {phoneShow(g.phone)}</span>],
+                ["Phone", g.phone ? <span key="p" className="tnum">+91 {phoneShow(g.phone)}</span> : <PhoneMissing key="p" editHref={addPhone} />],
                 ["Other phone", g.altPhone ? <span key="a" className="tnum">+91 {phoneShow(g.altPhone)}</span> : null],
                 ["Email", g.email],
                 ["Occupation", g.occupation],
                 ...(!can.lookupOnly ? [["Date of birth", g.dateOfBirth ? formatDate(g.dateOfBirth, tz) : null] as [string, React.ReactNode]] : []),
                 ["Message language", languageLabel(g.language)],
-                ["Messages", g.optedOut ? "Opted out" : "Receives messages"],
+                ["Messages", noPhone ? "None until a phone is added" : g.optedOut ? "Opted out" : "Receives messages"],
                 ["Address", g.address],
               ]} />
             </Card>
@@ -236,7 +244,8 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                     </li>
                   );
                 })}
-                {manage && (
+                {manage && noPhone && <p className="text-[13px] text-ink3"><Any text="Add a phone first. Consent requests go through Parent Link, with a code to the parent's phone." /></p>}
+                {manage && !noPhone && (
                   <ConfirmAction action={consentRequestAction} fields={{ ids: id }} trigger={<><Send size={16} aria-hidden="true" /><Words k="Send consent request" /></>} triggerVariant="soft" title="Send a consent request?" confirmLabel={`Send to ${g.name}`}>
                     <Words k="Through Parent Link to" /> {g.name}<Words k=", for each child. They agree with a one-time code to +91" /> {phoneShow(g.phone)}<Words k=". Consents already given are left as they are." />
                   </ConfirmAction>
@@ -275,9 +284,10 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                 <DL cols={1} rows={[
                   ["Status", <Pill key="s" tone={data.link?.status === "Active" ? "ok" : data.link?.status === "Revoked" ? "bad" : "neutral"}>{data.link?.status ?? "Not sent"}</Pill>],
                   ["Last opened", data.link?.lastOpenedAt ? formatDateTime(data.link.lastOpenedAt, tz) : "Never"],
-                  ["Sent to", `+91 ${phoneShow(g.phone)}`],
+                  ["Sent to", g.phone ? `+91 ${phoneShow(g.phone)}` : <PhoneMissing key="t" editHref={addPhone} />],
                 ]} />
-                {manage && linkSent && (
+                {noPhone && <p className="px-5 pb-4 -mt-1 text-[13px] text-ink3"><Any text="Add a phone first. Parent Link cannot be sent to a parent with no phone." /></p>}
+                {manage && linkSent && !noPhone && (
                   <div className="px-5 pb-5 -mt-1">
                     <ConfirmAction action={parentLinkAction} fields={{ guardianId: id, op: "revoke" }} trigger={<><Ban size={16} aria-hidden="true" /><Words k="Revoke Parent Link" /></>} triggerVariant="danger-outline" title="Revoke Parent Link?" confirmLabel="Revoke and send a new link" confirmVariant="danger">
                       <Words k="Use this when a phone is lost. The old link stops opening at once, and a new link is sent to +91" /> {phoneShow(g.phone)}.

@@ -8,6 +8,7 @@ import { BUILT_MODULES } from "@/lib/modules";
 import { can } from "@/lib/permissions";
 import { seesStudentFees } from "@/lib/fees/access";
 import { phoneShow, classShort } from "@/lib/students/show";
+import { PhoneMissing } from "./_lib/phone-missing";
 import { CATEGORIES, GENDERS, LIST_COLUMNS, RESULT_LABEL, STATUS_LABEL, STUDENT_STATUSES, type StudentStatusKey } from "@/lib/students/labels";
 import { Card } from "@/components/ui/card";
 import { Pill } from "@/components/ui/badge";
@@ -87,7 +88,7 @@ export default async function StudentListPage({ searchParams }: { searchParams: 
       : <span className="text-ink3 text-[13px]"><Words k="No class this year" /></span> }] : []),
     ...(show.has("guardian") || show.has("phone") ? [{ key: "parent", label: "Parent", render: (s: Row) => {
       const g = mainGuardian(s);
-      return g ? <><p className="leading-tight">{show.has("guardian") ? g.guardian.name : g.relationship}</p>{show.has("phone") && <p className="text-[12.5px] text-ink3 tnum">{phoneShow(g.guardian.phone)}</p>}</> : <span className="text-ink3 text-[13px]"><Words k="Not added" /></span>;
+      return g ? <><p className="leading-tight">{show.has("guardian") ? g.guardian.name : g.relationship}</p>{show.has("phone") && <p className="text-[12.5px] text-ink3 tnum">{g.guardian.phone ? phoneShow(g.guardian.phone) : <PhoneMissing />}</p>}</> : <span className="text-ink3 text-[13px]"><Words k="Not added" /></span>;
     } }] : []),
     ...(show.has("gender") ? [{ key: "gender", label: "Gender", render: (s: Row) => <span className="text-[13.5px]">{s.gender ?? "–"}</span> }] : []),
     ...(show.has("category") ? [{ key: "category", label: "Category", render: (s: Row) => <span className="text-[13.5px]">{s.category ?? "–"}</span> }] : []),

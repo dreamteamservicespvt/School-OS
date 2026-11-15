@@ -300,6 +300,6 @@ async function tellStudents(tx: Tx, ctx: SchoolContext, c: { sectionId: string; 
   const students = await sectionStudents(tx, c.academicYearId, c.sectionId);
   const subject = await tx.subject.findUnique({ where: { id: c.subjectId }, select: { name: true } });
   for (const st of students) {
-    if (st.userLoginId) await notify(tx, ctx, { to: st.userLoginId, type: "lesson-added", text: `${subject?.name ?? "Study Material"}: ${text}`, link: "/homework-learning/study-material", groupKey: "lesson-added", mergedText: (n) => `${n} new lessons in Study Material` });
+    if (st.userLoginId) await notify(tx, ctx, { to: st.userLoginId, type: "lesson-added", text: `${subject?.name ?? "Study Material"}: ${text}`, link: "/homework-learning/study-material", groupKey: "lesson-added", mergedKey: "{n} new lessons in Study Material" });
   }
 }

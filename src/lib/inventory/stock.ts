@@ -17,6 +17,8 @@ import { requestApproval } from "../approvals";
 import { InventoryProblem } from "./problem";
 import { inventorySettings } from "./settings";
 import { BASE, MOVE_KIND, qtyWords, stockState, type MoveKind } from "./words";
+import { word } from "../notification-words";
+import type { MessageKey } from "../i18n/t";
 
 export type MoveInput = {
   itemId: string;
@@ -240,11 +242,12 @@ export async function lowStockCheck(tx: Tx, ctx: SchoolContext, itemId: string) 
   const s = await inventorySettings(tx, ctx);
   await tx.item.update({ where: { id: item.id }, data: { lowAlertAt: new Date() } });
   if (!s.lowStockAlerts) return true;
-  const text = total <= 0 ? `${item.name} is out of stock (reorder at ${reorder}). Raise a purchase request.` : `${item.name} is low: ${qtyWords(total, item.unit)} left (reorder at ${reorder}). Raise a purchase request.`;
+  const key: MessageKey = total <= 0 ? "{item} is out of stock (reorder at {reorder}). Raise a purchase request." : "{item} is low: {left} left (reorder at {reorder}). Raise a purchase request.";
+  const values = { item: item.name, reorder, left: word(qtyWords(total, item.unit)) };
   // An automation (A15), so it reaches the store keeper even when their own issue caused it.
   const system = { schoolId: ctx.schoolId, userId: null };
   for (const to of await storeKeepers(tx, ctx)) {
-    await notify(tx, system, { to, type: "low-stock", text, link: `${BASE}/purchases?tab=requests&new=1&item=${item.id}`, groupKey: "inventory-low-stock", mergedText: (n) => `${n} items are at or below their reorder level. Raise a purchase request.` });
+    await notify(tx, system, { to, type: "low-stock", key, values, link: `${BASE}/purchases?tab=requests&new=1&item=${item.id}`, groupKey: "inventory-low-stock", mergedKey: "{n} items are at or below their reorder level. Raise a purchase request." });
   }
   return true;
 }

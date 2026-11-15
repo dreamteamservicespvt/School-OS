@@ -27,6 +27,7 @@ import { CommandPalette, OPEN_SEARCH_EVENT } from "./search-box";
 import type { PageLink } from "./nav-data";
 import type { QuestionKey } from "@/lib/ask/questions";
 
+/** text: already in the reader's language (src/lib/notification-words.ts, noteText). */
 export type ShellNote = { id: string; text: string; when: string; unread: boolean };
 export type ShellProps = {
   school: { id: string; name: string; place: string };
@@ -394,7 +395,7 @@ function MoreSheet({ open, onClose, menu, mine = [], landing = {} }: { open: boo
                   <Link key={it.key} href={landing[it.key] ?? `/${it.key}`} onClick={onClose}
                     className="flex flex-col items-center gap-2 rounded-2xl bg-sunken hover:bg-line/60 px-2 py-3.5 text-center">
                     <span className="w-10 h-10 rounded-xl bg-surface text-brand grid place-items-center shadow-card"><Ic size={20} aria-hidden="true" /></span>
-                    <span className="text-[12px] font-semibold leading-tight">{t.lang === "en" ? it.label.replace(" Management", "") : t.any(it.label)}</span>
+                    <span className="text-[12px] font-semibold leading-tight">{t.any(it.label)}</span>
                   </Link>
                 );
               })}
@@ -470,7 +471,7 @@ function NotifPanel({ open, onClose, notes, total, sound }: { open: boolean; onC
                   <span className={cx("mt-1.5 w-2 h-2 rounded-full shrink-0", n.unread ? "bg-brand" : "bg-transparent")} aria-hidden="true" />
                   <span className="min-w-0 flex-1">
                     {n.unread && <span className="sr-only">{t("Unread.")} </span>}
-                    <span className={cx("block text-[14px] leading-snug", n.unread ? "font-semibold" : "text-ink2")}>{screenLine(t, n.text)}</span>
+                    <span className={cx("block text-[14px] leading-snug", n.unread ? "font-semibold" : "text-ink2")}>{n.text}</span>
                   </span>
                   <span className="text-[11.5px] text-ink3 whitespace-nowrap">{screenLine(t, n.when)}</span>
                 </button>
@@ -515,7 +516,7 @@ function ProfileMenu({ open, onClose, person, school, schools, theme, onSwitch, 
         </div>
         {support ? (
           <>
-            <p className="px-3 pb-2 text-[13px] text-ink2">{t("DREAM TEAM support access, for looking only. It ends by itself at {time}.", { time: support.ends })}</p>
+            <p className="px-3 pb-2 text-[13px] text-ink2">{t("School OS support access, for looking only. It ends by itself at {time}.", { time: support.ends })}</p>
             <div className="border-t border-line my-1" />
             <form method="post" action="/support/end">
               <button role="menuitem" type="submit" className={cx(row, "text-bad")}><I.LogOut size={18} aria-hidden="true" />{t("End support access now")}</button>

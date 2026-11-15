@@ -19,7 +19,7 @@ export function Segmented({ value, onChange, options, className, size = "md", la
         const on = v === value;
         return (
           <button key={v} type="button" role="radio" aria-checked={on} onClick={() => onChange(v)}
-            className={cx("inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition whitespace-nowrap flex-1 shrink-0",
+            className={cx("inline-flex items-center justify-center gap-1.5 rounded-lg font-semibold transition active:scale-[0.97] whitespace-nowrap flex-1 shrink-0",
               size === "sm" ? "h-7 px-2.5 text-xs" : "h-9 px-3.5 text-[13px]",
               on ? "bg-surface text-ink shadow-card" : "text-ink2 hover:text-ink")}>
             {Ic && <Ic size={15} aria-hidden="true" />}{tx(l)}

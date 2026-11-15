@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { requireSettingsPage } from "@/lib/settings/page-access";
 import { withSchool } from "@/lib/db";
 import { formatDate } from "@/lib/format";
-import { consentTexts, LANGUAGE_NAMES, READY_TEXTS } from "@/lib/data-security/consent";
+import { approvedReadyTranslation, consentTexts, isReadyEnglish, LANGUAGE_NAMES, READY_LANGUAGES, READY_TEXTS, readyTranslationDrafts } from "@/lib/data-security/consent";
 import { Card, CardBody, CardHeader } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { ButtonLink } from "@/components/ui/button";
@@ -10,7 +10,7 @@ import { can } from "@/lib/permissions";
 import { consentLog, type ConsentCounts } from "@/lib/students/consent-log";
 import { goLiveConsentStatus } from "@/lib/parent-link/consent";
 import { ConsentForm } from "./form";
-import { Words } from "@/lib/i18n/client";
+import { Any, Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
 
 const n = (x: number) => x.toLocaleString("en-IN");
@@ -22,6 +22,59 @@ function counts(c: ConsentCounts) {
   if (c.withdrawn) parts.push(`${n(c.withdrawn)} withdrawn`);
   if (c.notAsked) parts.push(`${n(c.notAsked)} not asked`);
   return parts.join(" · ");
+}
+
+/**
+ * What a type's form text starts from: the school's current text, or the ready English. While the
+ * English is still the ready text, a missing language is filled with its owner-approved
+ * translation (never a draft); the school saves it as a new version.
+ */
+function readyStart(key: string, current?: Record<string, string>) {
+  const ready = READY_TEXTS[key];
+  const text: Record<string, string> = current ? { ...current } : ready ? { en: ready.en } : {};
+  if (!ready || !isReadyEnglish(key, text.en)) return text;
+  for (const lang of READY_LANGUAGES) {
+    const tr = approvedReadyTranslation(key, lang);
+    if (tr && !text[lang]) text[lang] = tr.text;
+  }
+  return text;
+}
+
+/**
+ * Hindi and Telugu drafts of a ready text (owner decision 10), shown only to staff here with the
+ * English beside them. Parents keep seeing English until the owner approves a draft.
+ */
+function DraftTranslations({ consentType, schoolEnglish }: { consentType: string; schoolEnglish?: string }) {
+  const ready = READY_TEXTS[consentType];
+  const drafts = readyTranslationDrafts(consentType);
+  if (!ready || drafts.length === 0) return null;
+  return (
+    <details>
+      <summary className="inline-flex min-h-11 cursor-pointer items-center font-medium text-brand-text"><Any text="Hindi and Telugu: draft translations waiting for approval" /></summary>
+      <div className="mt-2 space-y-3">
+        <p className="text-[13.5px] text-ink-2"><Any text="Parents still see the English text until the School OS support team approves these translations." /></p>
+        {schoolEnglish && !isReadyEnglish(consentType, schoolEnglish) && (
+          <p className="text-[13.5px] text-ink-2"><Any text="Your school changed the English text, so these drafts translate the built-in text, not yours." /></p>
+        )}
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="space-y-1">
+            <p className="text-[13px] font-semibold text-ink-2"><Any text="English (built-in text)" /></p>
+            <p lang="en" className="font-medium">{ready.title}</p>
+            <p lang="en" className="whitespace-pre-line text-sm text-ink-2">{ready.en}</p>
+          </div>
+          <div className="space-y-4">
+            {drafts.map((d) => (
+              <div key={d.lang} className="space-y-1">
+                <p className="text-[13px] font-semibold"><Any text={d.name} /> · <span className="text-warn-text"><Any text="Draft translation: waiting for approval" /></span></p>
+                <p lang={d.lang} className="font-medium">{d.title}</p>
+                <p lang={d.lang} className="whitespace-pre-line text-sm text-ink-2">{d.text}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </details>
+  );
 }
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -43,8 +96,8 @@ export default async function ConsentPage({ searchParams }: Search) {
   const canEdit = may.edit;
   const mayRecord = can(current.permissions, "student-management", "create");
   const starts = Object.fromEntries(data.types.map((t) => [t.key, t.current
-    ? { title: t.current.title, text: t.current.text as Record<string, string>, askedOnAdmission: t.current.askedOnAdmission }
-    : { title: READY_TEXTS[t.key]?.title ?? "", text: READY_TEXTS[t.key] ? { en: READY_TEXTS[t.key].en } : {}, askedOnAdmission: t.key === "data-processing" || t.key === "photo" }]));
+    ? { title: t.current.title, text: readyStart(t.key, t.current.text as Record<string, string>), askedOnAdmission: t.current.askedOnAdmission }
+    : { title: READY_TEXTS[t.key]?.title ?? "", text: readyStart(t.key), askedOnAdmission: t.key === "data-processing" || t.key === "photo" }]));
   const chosen = typeof sp.type === "string" && data.types.some((t) => t.key === sp.type) ? sp.type : data.types[0]?.key ?? "data-processing";
 
   return (
@@ -73,6 +126,11 @@ export default async function ConsentPage({ searchParams }: Search) {
                     </ol>
                   </details>
                 )}
+              </CardBody>
+            )}
+            {readyTranslationDrafts(t.key).length > 0 && (
+              <CardBody>
+                <DraftTranslations consentType={t.key} schoolEnglish={(t.current?.text as Record<string, string> | undefined)?.en} />
               </CardBody>
             )}
           </Card>

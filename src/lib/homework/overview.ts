@@ -11,7 +11,7 @@ import { HomeworkProblem } from "./access";
 import type { HomeworkRow } from "./homework";
 import { listWhere, type HomeworkScope } from "./scope";
 import { dayStartUtc } from "../periods";
-import { dayDate, plural } from "./words";
+import { dayDate } from "./words";
 
 /** The start of the school's day as a moment, for "already reminded today". */
 const dayStart = (today: Date, tz: string) => dayStartUtc(today.toISOString().slice(0, 10), tz);
@@ -80,7 +80,7 @@ export async function remindTeacher(tx: Tx, s: HomeworkScope, staffId: string, t
   if (already) throw new HomeworkProblem(`${staff.fullName} was already reminded today.`);
   const waiting = await tx.submission.count({ where: { archivedAt: null, status: { in: ["SUBMITTED", "LATE"] }, homework: { teacherId: staffId, archivedAt: null, ...listWhere(s) } } });
   if (!waiting) throw new HomeworkProblem(`${staff.fullName} has nothing waiting to be checked.`);
-  await notify(tx, s.ctx, { to: staff.userLoginId, type: "homework-remind", text: `${s.name}: ${plural(waiting, "piece")} of homework ${waiting === 1 ? "is" : "are"} waiting to be checked. Today, ${dayDate(today)}.`, link: "/homework-learning/submissions", groupKey: "homework-remind" });
+  await notify(tx, s.ctx, { to: staff.userLoginId, type: "homework-remind", key: waiting === 1 ? "{name}: 1 piece of homework is waiting to be checked. Today, {day}." : "{name}: {n} pieces of homework are waiting to be checked. Today, {day}.", values: { name: s.name, n: waiting.toLocaleString("en-IN"), day: dayDate(today) }, link: "/homework-learning/submissions", groupKey: "homework-remind" });
   await writeAudit(tx, s.ctx, { action: "reminded-teacher", recordType: "Staff", recordId: staffId, after: { teacher: staff.fullName, waiting } });
   return { name: staff.fullName, waiting };
 }

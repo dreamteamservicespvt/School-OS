@@ -112,7 +112,7 @@ export function Suggestion({ title = "Suggestion", children, source, actions, ai
 export function Progress({ value, tone = "brand", className }: { value: number; tone?: "brand" | "ok" | "warn" | "bad" | "info"; className?: string }) {
   const c = { brand: "bg-brand", ok: "bg-ok", warn: "bg-warn", bad: "bg-bad", info: "bg-info" }[tone];
   const v = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
-  return <span className={cx("block h-1.5 rounded-full bg-sunken overflow-hidden", className)} aria-hidden="true"><span className={cx("block h-full rounded-full transition-all duration-700", c)} style={{ width: `${v}%` }} /></span>;
+  return <span className={cx("block h-1.5 rounded-full bg-sunken overflow-hidden", className)} aria-hidden="true"><span className={cx("block h-full rounded-full transition-[width] duration-300 ease-out", c)} style={{ width: `${v}%` }} /></span>;
 }
 
 /** Horizontal bars with a label and a value, like "Overdue by class".

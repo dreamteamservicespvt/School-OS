@@ -74,7 +74,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
   const photoOf = (id: string | null) => (id ? fileLink(id, ctx.schoolId) : null);
   const people: PickupChoice[] = (info?.people ?? []).map((x) => ({
     guardianId: x.guardianId, name: x.name, relationship: x.relationship, photo: photoOf(x.photoFileId), restriction: x.restriction, allowed: x.allowed,
-    phone: gate ? null : p.can.pickupPhones ? showPhone(x.phone) : maskPhone(x.phone),
+    phone: gate || !x.phone ? null : p.can.pickupPhones ? showPhone(x.phone) : maskPhone(x.phone),
   }));
   const here = (extra: Record<string, string | null>) => qs(HREF, { ...keep, ...extra });
   const closeHref = here({});
@@ -195,7 +195,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
 
       {stopOpen && info && (
         <StopSheet closeHref={closeHref} student={{ id: info.student.id, first: info.student.first }} classTeacher={info.classTeacher} deskPhone={gate ? data.deskPhone : null}
-          calls={gate ? [] : info.people.filter((x) => x.allowed && x.phone).map((x) => ({ name: x.name, relationship: x.relationship, tel: x.phone }))} />
+          calls={gate ? [] : info.people.filter((x) => x.allowed && x.phone).map((x) => ({ name: x.name, relationship: x.relationship, tel: x.phone! }))} />
       )}
       {data.pass && data.passMore && !gate && (
         <GatePassSheet t={t} close={closeHref} pass={data.pass} student={data.passMore[0]?.fullName ?? "Student"} studentPhoto={photoOf(data.passMore[0]?.photoFileId ?? null)}

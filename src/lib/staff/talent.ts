@@ -90,7 +90,7 @@ export async function scheduleInterview(tx: Tx, ctx: SchoolContext, input: { app
   await writeAudit(tx, ctx, { action: "created", recordType: "Interview", recordId: i.id, after: { applicant: a.name, startsAt: input.startsAt.toISOString(), interviewers: input.interviewerIds.length } });
   const logins = await tx.staff.findMany({ where: { id: { in: input.interviewerIds }, userLoginId: { not: null } }, select: { userLoginId: true } });
   for (const l of logins) {
-    await notify(tx, ctx, { to: l.userLoginId!, type: "interview", text: `Interview of ${a.name} for ${a.vacancy.designation} at ${formatDateTime(input.startsAt, timeZone)}`, link: "/staff-hr-management/recruitment?view=interviews" });
+    await notify(tx, ctx, { to: l.userLoginId!, type: "interview", key: "Interview of {name} for {post} at {when}", values: { name: a.name, post: a.vacancy.designation, when: formatDateTime(input.startsAt, timeZone) }, link: "/staff-hr-management/recruitment?view=interviews" });
   }
   return i;
 }
@@ -163,7 +163,7 @@ export async function startCycle(tx: Tx, ctx: SchoolContext, input: { name: stri
   });
   await writeAudit(tx, ctx, { action: "created", recordType: "Appraisal Cycle", recordId: cycle.id, after: { name: cycle.name, staff: staff.length, criteria: input.criteria, staffCriteria } });
   for (const s of staff) {
-    if (s.userLoginId) await notify(tx, ctx, { to: s.userLoginId, type: "appraisal", text: `${cycle.name} has started. Fill your self review.`, link: "/staff-hr-management/recruitment?view=appraisal", groupKey: "appraisal" });
+    if (s.userLoginId) await notify(tx, ctx, { to: s.userLoginId, type: "appraisal", key: "{cycle} has started. Fill your self review.", values: { cycle: cycle.name }, link: "/staff-hr-management/recruitment?view=appraisal", groupKey: "appraisal" });
   }
   return cycle;
 }
@@ -189,7 +189,7 @@ export async function saveReview(tx: Tx, ctx: SchoolContext, appraisalId: string
     if (a.reviewerId) {
       const r = await tx.staff.findUnique({ where: { id: a.reviewerId }, select: { userLoginId: true } });
       const s = await tx.staff.findUnique({ where: { id: a.staffId }, select: { fullName: true } });
-      if (r?.userLoginId) await notify(tx, ctx, { to: r.userLoginId, type: "appraisal", text: `${s?.fullName} finished the self review. Your review is next.`, link: "/staff-hr-management/recruitment?view=appraisal", groupKey: "appraisal-review" });
+      if (r?.userLoginId) await notify(tx, ctx, { to: r.userLoginId, type: "appraisal", key: "{name} finished the self review. Your review is next.", values: { name: s?.fullName }, link: "/staff-hr-management/recruitment?view=appraisal", groupKey: "appraisal-review" });
     }
   } else {
     if (a.status === "DONE") throw new TalentProblem("This review is already done.");

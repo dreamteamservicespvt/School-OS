@@ -104,7 +104,7 @@ export async function bookAppointment(tx: Tx, ctx: SchoolContext, input: BookInp
   const staff = await tx.staff.findFirst({ where: { id: input.staffId }, select: { fullName: true, userLoginId: true } });
   const when = `${input.dayIso === todayIso(opts.timeZone, now) ? "today" : shortDay(dateOf(input.dayIso))}, ${clockOf(a.startMin)}`;
   if (staff?.userLoginId) {
-    await notify(tx, ctx, { to: staff.userLoginId, type: "appointment", text: `${old ? "Appointment moved" : "New appointment"}: ${visitorName}, ${when} for ${a.lengthMin} minutes. ${purpose}`, link: "/dashboard" }, now);
+    await notify(tx, ctx, { to: staff.userLoginId, type: "appointment", key: old ? "Appointment moved: {name}, {when} for {n} minutes. {purpose}" : "New appointment: {name}, {when} for {n} minutes. {purpose}", values: { name: visitorName, when, n: a.lengthMin, purpose }, link: "/dashboard" }, now);
   }
   let sent: string | null = null;
   let notSent: string | null = null;

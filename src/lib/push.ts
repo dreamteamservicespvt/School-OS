@@ -149,6 +149,14 @@ export async function sendPush(token: string, a: PushAlert): Promise<PushResult>
   }
 }
 
+/** The push words in the person's own screen language, like the bell (owner decision 14). */
+export async function pushBody(tx: Tx, n: { userLoginId: string; text: string; textKey: string | null; textValues: unknown }, school: { languages: string[]; defaultLanguage: string } | null): Promise<string> {
+  if (!school) return n.text;
+  const login = await tx.userLogin.findUnique({ where: { id: n.userLoginId }, select: { language: true } });
+  const [{ makeT, personLanguage }, { noteText }] = await Promise.all([import("./i18n/server"), import("./notification-words")]);
+  return noteText(makeT(personLanguage({ language: login?.language ?? null }, school)), n);
+}
+
 // ---- Queueing from notify() ----
 
 /** Queues the push for a new notification when the person chose Push for its kind. Safe to call twice. */
@@ -167,10 +175,10 @@ defineJob("push-send", "Push alert", async (tx, ctx, payload) => {
   const n = await tx.notification.findUnique({ where: { id } });
   // Already read in the app, or done: no need to buzz the phone.
   if (!n || n.readAt || n.doneAt) return { sent: 0, skipped: "read" };
-  const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true } });
+  const school = await tx.school.findUnique({ where: { id: ctx.schoolId }, select: { name: true, languages: true, defaultLanguage: true } });
   const since = new Date(Date.now() - PUSH_DEVICE_STALE_MS);
   const devices = await tx.pushDevice.findMany({ where: { schoolId: ctx.schoolId, userLoginId: n.userLoginId, archivedAt: null, lastSeenAt: { gte: since } } });
-  const alert: PushAlert = { title: school?.name ?? "School OS", body: n.text, link: `/api/v1/push/open/${n.id}`, tag: n.groupKey ?? n.id };
+  const alert: PushAlert = { title: school?.name ?? "School OS", body: await pushBody(tx, n, school), link: `/api/v1/push/open/${n.id}`, tag: n.groupKey ?? n.id };
   let sent = 0;
   let retry: string | null = null;
   for (const d of devices) {

@@ -225,7 +225,7 @@ export async function tellAfterGiving(ctx: SchoolContext, r: { made: { id: strin
     if (t.logins.length) {
       try {
         await withSchool(ctx, async (tx) => {
-          for (const to of t.logins) await notify(tx, ctx, { to, type: "homework-set", text: t.text, link: "/homework-learning", groupKey: "homework-set", mergedText: (n) => `${n} new homework` });
+          for (const to of t.logins) await notify(tx, ctx, { to, type: "homework-set", text: t.text, link: "/homework-learning", groupKey: "homework-set", mergedKey: "{n} new homework" });
         });
         entry.notified = t.logins.length;
       } catch (e) {

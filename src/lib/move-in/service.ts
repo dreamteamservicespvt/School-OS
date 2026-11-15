@@ -776,9 +776,14 @@ export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
     c.sections.push({ id: s.id, name: s.name, students: bySection.get(s.id) ?? 0, seats: s.seats });
     classMap.set(s.classId, c);
   }
+  // Families by phone; a parent with no phone (owner decision 15) is a family by their children, never "one family" with every other parent with no phone.
   const phones = new Map<string, Set<string>>();
-  for (const g of guardians) { const set = phones.get(g.phone) ?? new Set(); set.add(plain(g.name)); phones.set(g.phone, set); }
+  for (const g of guardians) {
+    const key = g.phone || `kids:${g.students.map((x) => x.studentId).sort().join(",")}`;
+    const set = phones.get(key) ?? new Set(); set.add(plain(g.name)); phones.set(key, set);
+  }
   const sharedPhones = phonesOfDifferentFamilies(guardians);
+  const noPhone = guardians.filter((g) => !g.phone).length;
   const overFull = [...classMap.values()].flatMap((c) => c.sections.filter((s) => s.students > s.seats).map((s) => `${c.name} ${s.name}`));
   const expected = (plan?.expected ?? {}) as Expected;
   // The money, as of the go-live date typed here (or the day the school went live).
@@ -792,7 +797,7 @@ export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
     guardians: guardians.length,
     families: phones.size,
     departments,
-    checks: { noRoll, staffNoLogin, sharedPhones, overFull, openFiles, partFiles: partFiles.length, waitingRows: partFiles.reduce((n, f) => n + f.waiting, 0), problemBatches },
+    checks: { noRoll, staffNoLogin, sharedPhones, noPhone, overFull, openFiles, partFiles: partFiles.length, waitingRows: partFiles.reduce((n, f) => n + f.waiting, 0), problemBatches },
     expected,
     money,
     plan,
@@ -805,9 +810,10 @@ export async function goLiveSummary(tx: Tx, ctx: SchoolContext) {
  * own number or a van driver's typed in the old software. A father and mother
  * sharing one mobile are one family (they have the same children).
  */
-export function phonesOfDifferentFamilies(guardians: { name: string; phone: string; students: { studentId: string }[] }[]) {
+export function phonesOfDifferentFamilies(guardians: { name: string; phone: string | null; students: { studentId: string }[] }[]) {
   const byPhone = new Map<string, typeof guardians>();
-  for (const g of guardians) byPhone.set(g.phone, [...(byPhone.get(g.phone) ?? []), g]);
+  // Parents with no phone share nothing: an empty phone is never "shared".
+  for (const g of guardians) if (g.phone) byPhone.set(g.phone, [...(byPhone.get(g.phone) ?? []), g]);
   let n = 0;
   for (const list of byPhone.values()) {
     if (list.length < 2) continue;
@@ -845,6 +851,7 @@ export function warnings(s: Summary): string[] {
   if (s.checks.overFull.length) out.push(`More students than seats in ${s.checks.overFull.slice(0, 5).join(", ")}${s.checks.overFull.length > 5 ? ` and ${s.checks.overFull.length - 5} more` : ""}.`);
   if (s.checks.noRoll > 0) out.push(`${s.checks.noRoll} ${s.checks.noRoll === 1 ? "student has" : "students have"} no roll number. Roll numbers can be given class by class in Student Management.`);
   if (s.checks.sharedPhones > 0) out.push(`${s.checks.sharedPhones} phone ${s.checks.sharedPhones === 1 ? "number is" : "numbers are"} shared by parents of different families. It may be the school's own number or a van driver's typed in the old software; correct the parents' phones in Student Management.`);
+  if (s.checks.noPhone > 0) out.push(`${s.checks.noPhone} ${s.checks.noPhone === 1 ? "parent has" : "parents have"} no phone (Phone missing). They get no Parent Link or messages until a phone is added in Student Management, Parents & Guardians.`);
   if (s.checks.staffNoLogin > 0) out.push(`${s.checks.staffNoLogin} staff ${s.checks.staffNoLogin === 1 ? "member has" : "members have"} no login yet.`);
   return out;
 }

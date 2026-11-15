@@ -62,8 +62,17 @@ const TASK_WORDS: Record<string, string> = {
   "/student-management/certificates": "bonafide tc transfer study conduct character certificate",
   "/student-management/guardians": "change phone parent phone mobile number father mother guardian",
   "/communication/notices/new": "holiday notice circular announcement",
+  // Key pages by the words people say (owner decision 13, 15 Nov 2026: the menu shows short module names,
+  // so "Time Table", "Collect Fee", "Take Attendance", "Marks Entry" and "Notices" must be found by name).
+  "/academic-management/time-table": "timetable time table periods schedule",
+  "/academic-management/time-table/mine": "timetable time table my periods schedule",
+  "/fee-management": "collect fee fees take payment counter pay",
+  "/attendance-management": "take attendance mark attendance present absent",
+  "/examination-results/marks": "marks entry enter marks scores",
+  "/communication/notices": "notices notice board circular announcement",
 };
-const withWords = (label: string, href: string) => {
+/** A page's name plus its job words, for matching only (exported for tests/search.test.ts). */
+export const withWords = (label: string, href: string) => {
   const w = TASK_WORDS[href.split(/[?#]/)[0]];
   return w ? `${label} ${w}` : label;
 };
@@ -225,7 +234,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
     <div className="fixed inset-0 z-50 flex justify-center items-start md:pt-[10vh]">
       <div className="absolute inset-0 bg-shade/45 backdrop-blur-[2px] animate-fade" onClick={onClose} aria-hidden="true" />
       <div ref={box} role="dialog" aria-modal="true" aria-label={t("Search")}
-        className="relative w-full h-full md:h-auto md:max-w-2xl bg-surface md:rounded-2xl shadow-pop animate-rise flex flex-col md:max-h-[70vh] md:mx-6">
+        className="relative w-full h-full md:h-auto md:max-w-2xl bg-surface md:rounded-2xl shadow-pop flex flex-col md:max-h-[70vh] md:mx-6">
         <div className="flex items-center gap-3 px-4 h-16 border-b border-line shrink-0">
           {loading || askNote?.busy ? <I.LoaderCircle size={20} className="text-ink3 animate-spin" aria-hidden="true" /> : <I.Search size={20} className="text-ink3" aria-hidden="true" />}
           <input ref={inp} value={q} onChange={(e) => { setQ(e.target.value); setSel(0); }} onKeyDown={onKey} type="search"

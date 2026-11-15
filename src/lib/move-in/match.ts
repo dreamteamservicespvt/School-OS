@@ -201,7 +201,7 @@ export function matchColumns(kindKey: string, columns: ImportColumn[], headers: 
   }
   if (sample.length) {
     for (const c of columns) {
-      if (match[c.key] || !c.required) continue;
+      if (match[c.key] || !(c.required || c.byValues)) continue;
       const col = byContent(valueType(kindKey, c.key), c.key, headers.length, sample, used, undefined, headers);
       if (col !== null) { match[c.key] = [col]; used.add(col); }
     }

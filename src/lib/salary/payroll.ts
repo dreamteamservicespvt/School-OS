@@ -376,7 +376,7 @@ async function approveRun(tx: Tx, ctx: SchoolContext, runId: string) {
     : null;
   if (sent && sent.status !== "sent") {
     for (const s of staff) {
-      if (s.userLoginId) await notify(tx, ctx, { to: s.userLoginId, type: "salary-slip", text: `Your salary slip for ${monthName(run.month)} is ready`, link: "/salary-management/slips?mine=1", groupKey: `salary-slip-${run.id}` });
+      if (s.userLoginId) await notify(tx, ctx, { to: s.userLoginId, type: "salary-slip", key: "Your salary slip for {month} is ready", values: { month: monthName(run.month) }, link: "/salary-management/slips?mine=1", groupKey: `salary-slip-${run.id}` });
     }
   }
   await writeAudit(tx, ctx, { action: "payroll-approved", recordType: "Payroll Run", recordId: run.id, before: { status: "WAITING" }, after: { status: "APPROVED", slips: lines.length, net: formatRupees(run.netPaise) } });

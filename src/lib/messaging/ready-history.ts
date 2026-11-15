@@ -35,9 +35,12 @@ export const PAST_READY_WHATSAPP: Readonly<Record<string, readonly string[]>> = 
   ],
   "exam-reminder|en": [
     "Dear {guardian_name}, {exam_name} for {student_name} ({class}) starts on {date}. The datesheet is on your Parent Link. - {school_name}",
+    // Before {parent_link} (owner's phone test 15 Nov 2026: "on your Parent Link" came with no link).
+    "Dear {guardian_name}, {exam_name} for {student_name} of {class} starts on {date}. The datesheet is on your Parent Link; please check it. All the best from the {school_name} team!",
   ],
   "result|en": [
     "Dear {guardian_name}, the results of {exam_name} for {student_name} are ready. See the report card on your Parent Link. - {school_name}",
+    "Dear {guardian_name}, the results of {exam_name} for {student_name} are ready. See the report card on your Parent Link. Thank you, {school_name} team.",
   ],
   "ptm|en": [
     "Dear {guardian_name}, the parent-teacher meeting for {class} is on {date}. Please attend. - {school_name}",
@@ -63,11 +66,19 @@ export const PAST_READY_WHATSAPP: Readonly<Record<string, readonly string[]>> = 
   "admission-welcome|en": [
     "Dear {guardian_name}, welcome to {school_name}! {student_name} is admitted to {class} with admission number {admission_no}.",
   ],
+  // WhatsApp rejected these two on the live test school (15 Nov 2026).
+  "parent-link|hi": [
+    "प्रिय {guardian_name}, यह {school_name} से आपका निजी Parent Link है: {link} कृपया इसे किसी के साथ साझा न करें।",
+  ],
+  "staff-invite|en": [
+    "Dear {staff_name}, you are invited to School OS at {school_name}. Open this link to choose your password: {link} It works once, for 7 days. Please do not share it.",
+  ],
   "parent-link-code|en": [
     "{code} is your one-time code for Parent Link of {school_name}. It works for 10 minutes. Do not share it with anyone.",
   ],
   "consent-request|en": [
     "Dear {guardian_name}, {school_name} asks for your consent: {title}. Please open your Parent Link to read it and agree. - {school_name}",
+    "Dear {guardian_name}, {school_name} asks for your consent: {title}. Please open your Parent Link to read it and agree. Thank you.",
   ],
   "query-number|en": [
     "Dear {guardian_name}, we have noted your {message}. Your ticket number is {ticket_number}. We will get back to you soon. - {school_name}",
@@ -83,6 +94,7 @@ export const PAST_READY_WHATSAPP: Readonly<Record<string, readonly string[]>> = 
   ],
   "notice|en": [
     "{school_name}: {title}. {message}",
+    "Dear Parent, there is a new notice from {school_name}: {title}.\nDetails: {message}\nYou can also read this notice on your Parent Link.",
   ],
   "general|en": [
     "Dear {guardian_name}, {message} - {school_name}",

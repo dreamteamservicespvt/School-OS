@@ -18,6 +18,7 @@ import { Alert } from "@/components/ui/alert";
 import { AccessForm, DetailsForm, DisableButton, EnableButton, ExceptionsForm, LinkForm, ResendInvite, TwoStepReset } from "./person-forms";
 import { Words } from "@/lib/i18n/client";
 import { pageTitle } from "@/lib/i18n/server";
+import { GROUP_LOGIN_RESET_WORDS } from "@/lib/auth/group-login";
 import { RecordTitle } from "@/components/ui/record-title";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -127,7 +128,11 @@ export default async function UserPage({ params }: { params: Promise<{ id: strin
           {mayEdit && !isSelf && (state === "DISABLED"
             ? <EnableButton userId={id} name={login.displayName} />
             : <DisableButton userId={id} name={login.displayName} devices={sessions.length} />)}
-          {mayEdit && mayResetTwoStep && state !== "DISABLED" && login.status === "ACTIVE" && <TwoStepReset userId={id} name={login.displayName} />}
+          {/* A login used in more than one school: only School OS support resets it (owner decision 4, 15 Nov 2026). */}
+          {mayEdit && mayResetTwoStep && state !== "DISABLED" && login.status === "ACTIVE" && otherSchools.length === 0 && <TwoStepReset userId={id} name={login.displayName} />}
+          {mayEdit && mayResetTwoStep && state !== "DISABLED" && login.status === "ACTIVE" && otherSchools.length > 0 && (
+            <p className="max-w-xs text-[13px] text-ink-3"><Words k={GROUP_LOGIN_RESET_WORDS} /></p>
+          )}
         </div>
       </PageHeader>
 

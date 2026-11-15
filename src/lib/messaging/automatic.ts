@@ -10,6 +10,7 @@ import { messageSettings, type BackupType } from "./settings";
 import { ensureReadyTemplates, templateByKey } from "./templates";
 import type { AudienceRule } from "./recipients";
 import { HELD_UNTIL_LIVE, movingIn } from "../move-in/live";
+import { makeParentLinksFor, noteParentLinksSent } from "../parent-link/message-links";
 
 export type RuleDef = {
   key: string;
@@ -159,6 +160,8 @@ export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: Automatic
   const done = new Set(logged.filter((r) => r.outcome !== "not-sent").map((r) => r.recipientKey));
   const notSentBefore = new Set(logged.filter((r) => r.outcome === "not-sent").map((r) => r.recipientKey));
   const send = await automaticSend(tx, ctx, def, state, input, (key) => done.has(key) || [...done].some((d) => d.startsWith(`${key}:`)));
+  // A text with {parent_link} (exam reminder, results): parents without a Parent Link get one first.
+  const madeLinks = await makeParentLinksFor(tx, ctx, send);
   const plan = await planMessage(tx, ctx, send);
   const duplicates = done.size;
   if (plan.problems.length) {
@@ -179,6 +182,7 @@ export async function sendAutomatic(tx: Tx, ctx: SchoolContext, input: Automatic
     return { status: duplicates ? "duplicate" : "nobody", duplicates };
   }
   const result = await recordSend(tx, ctx, send, { ...plan, notSent });
+  await noteParentLinksSent(tx, ctx, madeLinks, result.messageId);
   const people = new Map<string, string>();
   for (const r of plan.rows) for (const key of r.keys ?? [r.rowKey]) people.set(key, r.candidate.name);
   await logLines(tx, ctx, def.key, input.event, [...people].map(([key, name]) => ({ key, name })), plan.creditProblem ? "no-credits" : "sent", plan.creditProblem, result.messageId);

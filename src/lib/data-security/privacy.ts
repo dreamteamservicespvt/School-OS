@@ -177,7 +177,7 @@ export const followUps = {
       await writeAudit(tx, ctx, { action: "deletion-rejected", recordType: "Deletion Request", recordId: req.id, after: { decision, note } });
     }
     if (req.createdById && req.createdById !== ctx.userId && decision !== "withdraw") {
-      await notify(tx, ctx, { to: req.createdById, type: "privacy", text: decision === "approve" ? `The personal data of ${req.personName} was removed as asked.` : `The request to remove ${req.personName}'s data was not approved.`, link: "/settings/data-security/privacy" });
+      await notify(tx, ctx, { to: req.createdById, type: "privacy", key: decision === "approve" ? "The personal data of {name} was removed as asked." : "The request to remove {name}'s data was not approved.", values: { name: req.personName }, link: "/settings/data-security/privacy" });
     }
   },
 } satisfies Partial<Record<AskableType, FollowUp>>;

@@ -8,6 +8,7 @@ import { prisma, withSchool, type SchoolContext, type Tx } from "./db";
 import { notify } from "./notifications";
 import { isTestCopy } from "./test-copy-env";
 import { HELD_UNTIL_LIVE, movingIn } from "./move-in/live";
+import { word } from "./notification-words";
 
 export const MAX_ATTEMPTS = 3;
 
@@ -111,7 +112,8 @@ async function runOne(jobId: string, schoolId: string) {
         await notify(tx, ctx, {
           to: job.requestedById,
           type: "job-failed",
-          text: `${def?.label ?? "A background task"} did not finish after 3 tries. Nothing was half-done. Please try again, or ask DREAM TEAM support if it keeps failing.`,
+          key: "{task} did not finish after 3 tries. Nothing was half-done. Please try again, or ask DREAM TEAM support if it keeps failing.",
+          values: { task: word(def?.label ?? "A background task") },
           link: "/notifications",
         });
       }

@@ -12,9 +12,9 @@ const VARIANTS: Record<ButtonVariant, string> = {
   secondary: "bg-surface text-ink border border-line hover:bg-sunken active:bg-line/60",
   soft: "bg-brand/10 text-brand hover:bg-brand/15 active:bg-brand/20",
   ghost: "text-ink2 hover:bg-sunken hover:text-ink active:bg-line/60",
-  danger: "bg-bad text-badink hover:brightness-110",
-  "danger-soft": "bg-bad/10 text-bad hover:bg-bad/15",
-  "danger-outline": "bg-bad/10 text-bad hover:bg-bad/15",
+  danger: "bg-bad text-badink hover:brightness-110 active:brightness-95",
+  "danger-soft": "bg-bad/10 text-bad hover:bg-bad/15 active:bg-bad/20",
+  "danger-outline": "bg-bad/10 text-bad hover:bg-bad/15 active:bg-bad/20",
 };
 
 const SIZES: Record<ButtonSize, string> = {
@@ -29,7 +29,8 @@ const shown = (className?: string) => (/(^|\s)hidden(\s|$)/.test(className ?? ""
 
 export function buttonClass(variant: ButtonVariant = "primary", size: ButtonSize = "md", extra = "") {
   return cx(
-    shown(extra), "items-center justify-center font-semibold whitespace-nowrap transition select-none disabled:opacity-50 disabled:pointer-events-none aria-disabled:opacity-50 aria-disabled:pointer-events-none",
+    // Pressed: a 2% shrink and a darker fill, so every tap is answered at once (owner 15 Nov, motion).
+    shown(extra), "items-center justify-center font-semibold whitespace-nowrap transition active:scale-[0.98] select-none disabled:opacity-50 disabled:pointer-events-none aria-disabled:opacity-50 aria-disabled:pointer-events-none",
     VARIANTS[variant], SIZES[size], extra,
   );
 }
@@ -67,7 +68,7 @@ const hit = (size: number) => ({ "--hit": `${Math.min(0, (size - 44) / 2)}px` })
 export function IconButton({ icon: Icon, label, badge, className, size = 40, ...rest }: React.ButtonHTMLAttributes<HTMLButtonElement> & { icon: LucideIcon; label: string; badge?: number | null; size?: number }) {
   return (
     <button type="button" aria-label={badge ? `${label}, ${badge} new` : label} title={label} {...rest}
-      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0 max-md:before:absolute max-md:before:inset-[var(--hit)]", shown(className), className)}
+      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink active:bg-line/60 transition shrink-0 max-md:before:absolute max-md:before:inset-[var(--hit)]", shown(className), className)}
       style={{ width: size, height: size, ...hit(size) }}>
       <Icon size={19} strokeWidth={2} aria-hidden="true" />
       <CountDot count={badge} />
@@ -78,7 +79,7 @@ export function IconButton({ icon: Icon, label, badge, className, size = 40, ...
 export function IconLink({ icon: Icon, label, badge, className, size = 40, ...rest }: React.ComponentProps<typeof Link> & { icon: LucideIcon; label: string; badge?: number | null; size?: number }) {
   return (
     <Link aria-label={badge ? `${label}, ${badge} new` : label} title={label} {...rest}
-      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink transition shrink-0 max-md:before:absolute max-md:before:inset-[var(--hit)]", shown(className), className)}
+      className={cx("relative items-center justify-center rounded-xl text-ink2 hover:bg-sunken hover:text-ink active:bg-line/60 transition shrink-0 max-md:before:absolute max-md:before:inset-[var(--hit)]", shown(className), className)}
       style={{ width: size, height: size, ...hit(size) }}>
       <Icon size={19} strokeWidth={2} aria-hidden="true" />
       <CountDot count={badge} />

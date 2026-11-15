@@ -11,7 +11,7 @@ export type ChipOption = { value: string; label: React.ReactNode; count?: number
 
 /** One chip's look, for chip-like controls that are not links. */
 export const chipCls = (on: boolean) => cx(
-  "h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition inline-flex items-center gap-2 whitespace-nowrap",
+  "h-10 px-3.5 rounded-xl text-[13.5px] font-semibold border transition active:scale-[0.97] inline-flex items-center gap-2 whitespace-nowrap",
   on ? "bg-ink text-bg border-ink" : "bg-surface border-line text-ink2 hover:border-ink3/50 hover:text-ink",
 );
 
@@ -45,7 +45,7 @@ export function LinkTabs({ value, tabs, className, label = "Views" }: { value: s
           return (
             <li key={t.id} className="shrink-0">
               <Link href={t.href} scroll={false} aria-current={on ? "page" : undefined}
-                className={cx("relative flex items-center h-11 px-3.5 text-sm font-semibold whitespace-nowrap transition", on ? "text-brand" : "text-ink2 hover:text-ink")}>
+                className={cx("relative flex items-center h-11 px-3.5 text-sm font-semibold whitespace-nowrap transition active:bg-sunken/70", on ? "text-brand" : "text-ink2 hover:text-ink")}>
                 {t.label}
                 {t.count != null && <span className="ml-1.5 text-xs text-ink3 tnum">{t.count}</span>}
                 {on && <span className="absolute left-2 right-2 -bottom-px h-[3px] rounded-t bg-brand" aria-hidden="true" />}

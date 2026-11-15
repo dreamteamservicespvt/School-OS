@@ -16,12 +16,12 @@ function classWords(t: T, label: string) {
   return m ? t("Class {n}", { n: m[1] }) : label;
 }
 
-export function GuardianPage({ view, sections, schoolPhone, basePath, right, framed }: { view: GuardianView; sections: LoadedSection[]; schoolPhone: string | null; basePath: string; right?: React.ReactNode; framed?: boolean }) {
+export function GuardianPage({ view, sections, schoolPhone, whatsappPhone, basePath, right, framed }: { view: GuardianView; sections: LoadedSection[]; schoolPhone: string | null; whatsappPhone?: string | null; basePath: string; right?: React.ReactNode; framed?: boolean }) {
   const many = view.children.length > 1;
   const t = makeT(view.lang);
   const cards = sections.filter(({ def }) => def.key !== "notices-critical");
   return (
-    <PhoneShell schoolName={view.schoolName} hello={t("Namaste,")} name={view.guardianName} schoolPhone={schoolPhone} right={right} framed={framed} t={t}>
+    <PhoneShell schoolName={view.schoolName} hello={t("Namaste,")} name={view.guardianName} schoolPhone={schoolPhone} whatsappPhone={whatsappPhone} right={right} framed={framed} t={t}>
       <nav aria-label={t("Your children")} className={cx("grid gap-2.5", many ? "grid-cols-2" : "grid-cols-1")}>
         {view.children.map((c) => {
           const on = c.id === view.child.id;

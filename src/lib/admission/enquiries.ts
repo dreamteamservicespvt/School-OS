@@ -16,6 +16,8 @@ import { CLOSED_STATUSES, SYSTEM_STATUSES, label, live, yearOnCampus, type Setti
 import { messageParent } from "./notify-parents";
 import { formatNumber, nextNumber } from "../sequences";
 import { schoolCalendar } from "../calendar/school-days";
+import { type NoteValues } from "../notification-words";
+import type { MessageKey } from "../i18n/t";
 
 /** The next enquiry number, ENQ-0001 (never reused). */
 export async function nextEnquiryNo(tx: Tx, ctx: SchoolContext) {
@@ -71,7 +73,7 @@ export async function findDuplicates(tx: Tx, input: { phone?: string | null; ema
       return `${sg.student.firstName}${sec ? `, ${sec.schoolClass.name.replace(/^Class\s+/i, "")} ${sec.name}` : ""}`;
     });
     if (kids.length === 0) continue;
-    out.push({ kind: "parent", id: g.id, href: `/student-management?q=${encodeURIComponent(g.phone)}`, text: `This ${phone && g.phone === phone ? "phone" : "email"} belongs to ${g.name}, parent of ${kids.join(" and ")}.` });
+    out.push({ kind: "parent", id: g.id, href: `/student-management?q=${encodeURIComponent(g.phone ?? g.name)}`, text: `This ${phone && g.phone === phone ? "phone" : "email"} belongs to ${g.name}, parent of ${kids.join(" and ")}.` });
   }
   return out;
 }
@@ -140,11 +142,11 @@ async function staffName(tx: Tx, id: string | null | undefined) {
   return (await tx.staff.findUnique({ where: { id }, select: { fullName: true } }))?.fullName ?? "a staff member";
 }
 
-async function tellOwner(tx: Tx, ctx: SchoolContext, ownerStaffId: string | null, text: string, enquiryId: string) {
+async function tellOwner(tx: Tx, ctx: SchoolContext, ownerStaffId: string | null, key: MessageKey, values: NoteValues, enquiryId: string) {
   if (!ownerStaffId) return;
   const owner = await tx.staff.findUnique({ where: { id: ownerStaffId }, select: { userLoginId: true } });
   if (!owner?.userLoginId) return;
-  await notify(tx, ctx, { to: owner.userLoginId, type: "enquiry-assigned", text, link: `/admission-management/enquiries/${enquiryId}`, groupKey: "enquiry-assigned", mergedText: (n) => `${n} new enquiries assigned to you` });
+  await notify(tx, ctx, { to: owner.userLoginId, type: "enquiry-assigned", key, values, link: `/admission-management/enquiries/${enquiryId}`, groupKey: "enquiry-assigned", mergedKey: "{n} new enquiries assigned to you" });
 }
 
 export type EnquiryInput = {
@@ -226,7 +228,7 @@ export async function createEnquiry(tx: Tx, ctx: SchoolContext, v: Viewer, s: Se
   const ownerName = await staffName(tx, owner);
   await activity(tx, ctx, e.id, "created", `Enquiry added. Source: ${label(s.sourceList, input.source)}. Owner: ${ownerName}.${siblingOfId ? " Added as a sibling enquiry." : ""}`, { data: { source: input.source, owner } });
   if (input.notes) await activity(tx, ctx, e.id, "note", input.notes);
-  await tellOwner(tx, ctx, owner, `New enquiry assigned to you: ${e.childName} (${e.parentName}). Follow up by ${formatDateTime(input.nextFollowUpAt)}.`, e.id);
+  await tellOwner(tx, ctx, owner, "New enquiry assigned to you: {child} ({parent}). Follow up by {when}.", { child: e.childName, parent: e.parentName, when: formatDateTime(input.nextFollowUpAt) }, e.id);
   await writeAudit(tx, ctx, { action: "created", recordType: "Enquiry", recordId: e.id, after: { childName: e.childName, parentName: e.parentName, phone: e.phone, classId: e.classId, source: e.source, owner, nextFollowUpAt: e.nextFollowUpAt?.toISOString() ?? null } });
   return e;
 }
@@ -293,7 +295,7 @@ export async function reassign(tx: Tx, ctx: SchoolContext, v: Viewer, id: string
   const [from, to] = [await staffName(tx, e.ownerStaffId), await staffName(tx, ownerStaffId)];
   const changed = await tx.enquiry.update({ where: { id: e.id }, data: { ownerStaffId, remindedFor: null, updatedById: ctx.userId } });
   await activity(tx, ctx, e.id, "reassigned", `Reassigned from ${from} to ${to}.${reason ? ` Reason: ${reason}` : ""}`, { data: { from: e.ownerStaffId, to: ownerStaffId, reason } });
-  await tellOwner(tx, ctx, ownerStaffId, `Enquiry reassigned to you: ${e.childName} (${e.parentName}).`, e.id);
+  await tellOwner(tx, ctx, ownerStaffId, "Enquiry reassigned to you: {child} ({parent}).", { child: e.childName, parent: e.parentName }, e.id);
   await writeAudit(tx, ctx, { action: "reassigned", recordType: "Enquiry", recordId: e.id, before: { ownerStaffId: e.ownerStaffId }, after: { ownerStaffId, reason } });
   return changed;
 }
@@ -435,10 +437,11 @@ export async function sendFollowUpReminders(tx: Tx, ctx: SchoolContext, now = ne
     await notify(tx, { schoolId: ctx.schoolId, userId: null }, {
       to,
       type: "enquiry-follow-up",
-      text: `${overdue ? "Overdue follow-up" : "Follow-up due"}: ${e.childName} (${e.parentName})${e.nextAction ? `: ${e.nextAction}` : ""}`,
+      key: overdue ? "Overdue follow-up: {child} ({parent}){action}" : "Follow-up due: {child} ({parent}){action}",
+      values: { child: e.childName, parent: e.parentName, action: e.nextAction ? `: ${e.nextAction}` : "" },
       link: `/admission-management/enquiries/${e.id}`,
       groupKey: "enquiry-follow-up",
-      mergedText: (n) => `${n} enquiry follow-ups are due`,
+      mergedKey: "{n} enquiry follow-ups are due",
     });
     sent++;
   }

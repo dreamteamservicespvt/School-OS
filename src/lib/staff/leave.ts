@@ -16,6 +16,7 @@ import { headLoginFor, ensureHrDefaults } from "./settings";
 import { addDays, eachDay, isoDay, isoWeekday } from "./dates";
 import { tellArrangers } from "../academic/arrangers";
 import { schoolCalendar, type SchoolDayInfo } from "../calendar/school-days";
+import { word } from "../notification-words";
 
 export class LeaveProblem extends Error {
   /** Every problem of the form at once, by field (LE6); `field` is the first. */
@@ -377,7 +378,7 @@ export async function applyLeave(tx: Tx, ctx: SchoolContext, input: ApplyInput) 
     after: { staff: c.staff.fullName, type: c.type.name, from: isoDay(input.from), to: isoDay(input.to), days: c.days, lopDays: c.lopDays, onBehalf: input.onBehalf },
   });
   if (input.onBehalf && c.staff.userLoginId) {
-    await notify(tx, ctx, { to: c.staff.userLoginId, type: "staff-leave", text: `Leave was applied for you: ${summary}`, link: "/staff-hr-management/leave" });
+    await notify(tx, ctx, { to: c.staff.userLoginId, type: "staff-leave", key: "Leave was applied for you: {summary}", values: { summary: word(summary) }, link: "/staff-hr-management/leave" });
   }
   return { request, days: c.days, lopDays: c.lopDays, periods: c.periods, approval };
 }
@@ -401,13 +402,13 @@ export async function onLeaveDecision(tx: Tx, ctx: SchoolContext, approval: { id
       const detail = await tx.staffLeaveDetail.findUnique({ where: { leaveRequestId: r.id } });
       const raised = await raiseSubstitutions(tx, ctx, r, staff, detail?.halfDayPart ?? null);
       // Everyone who arranges substitutions (Full Academic Management, or Office Staff) is told; one campus hears only its own.
-      if (raised > 0) await tellArrangers(tx, ctx, staff.campusId, { date: r.fromDate, text: `${raised} period${raised === 1 ? "" : "s"} of ${staff.fullName} need a substitute (leave from ${formatDate(r.fromDate)})` });
+      if (raised > 0) await tellArrangers(tx, ctx, staff.campusId, { date: r.fromDate, key: raised === 1 ? "1 period of {name} needs a substitute (leave from {date})" : "{n} periods of {name} need a substitute (leave from {date})", values: { n: raised, name: staff.fullName, date: formatDate(r.fromDate) } });
     }
     // The staff member hears the decision even when HR applied for them (decide() tells the requester).
     const asker = (await tx.approval.findUnique({ where: { id: approval.id }, select: { askedById: true } }))?.askedById;
     if (staff.userLoginId && staff.userLoginId !== asker && decision !== "withdraw") {
       const words = decision === "approve" ? "approved" : "not approved";
-      await notify(tx, ctx, { to: staff.userLoginId, type: "staff-leave", text: `Your leave from ${formatDate(r.fromDate)} was ${words}${note ? `. Reason: ${note}` : "."}`, link: "/staff-hr-management/leave" });
+      await notify(tx, ctx, { to: staff.userLoginId, type: "staff-leave", key: note ? "Your leave from {date} was {decision}. Reason: {reason}" : "Your leave from {date} was {decision}.", values: { date: formatDate(r.fromDate), decision: word(words), reason: note ?? "" }, link: "/staff-hr-management/leave" });
     }
   }
 }
@@ -500,7 +501,7 @@ export async function cancelLeave(tx: Tx, ctx: SchoolContext, requestId: string,
     action: kind === "cancelled" ? "leave-cancelled" : "leave-shortened", recordType: "Leave Request", recordId: r.id,
     before: { status: r.status, to: isoDay(r.toDate), days: num(r.days) }, after: { reason, substitutionsCancelled: subs.count },
   });
-  if (staff.userLoginId) await notify(tx, ctx, { to: staff.userLoginId, type: "staff-leave", text: `Your leave from ${formatDate(r.fromDate)} was ${kind === "cancelled" ? "cancelled" : "ended early"}. The days not taken are back in your balance.`, link: "/staff-hr-management/leave" });
+  if (staff.userLoginId) await notify(tx, ctx, { to: staff.userLoginId, type: "staff-leave", key: kind === "cancelled" ? "Your leave from {date} was cancelled. The days not taken are back in your balance." : "Your leave from {date} was ended early. The days not taken are back in your balance.", values: { date: formatDate(r.fromDate) }, link: "/staff-hr-management/leave" });
   return { kind, substitutionsCancelled: subs.count };
 }
 

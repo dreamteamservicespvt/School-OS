@@ -101,7 +101,7 @@ export function UrlChips({ param, options, label }: { param: string; options: { 
       <span className="text-[12.5px] text-ink3 font-semibold mr-1">{tr.any(label)}</span>
       {options.map((o, i) => (
         <button key={o.value} type="button" aria-pressed={o.value === value} onClick={() => go({ [param]: i === 0 ? null : o.value })}
-          className={cx("h-8 px-3 rounded-lg text-[13px] font-semibold transition", o.value === value ? "bg-ink text-bg" : "text-ink2 hover:bg-sunken")}>{tr.any(o.label)}</button>
+          className={cx("h-8 px-3 rounded-lg text-[13px] font-semibold transition active:scale-[0.97]", o.value === value ? "bg-ink text-bg" : "text-ink2 hover:bg-sunken")}>{tr.any(o.label)}</button>
       ))}
     </>
   );

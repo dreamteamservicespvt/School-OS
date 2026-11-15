@@ -62,7 +62,7 @@ export async function recordVisitor(tx: Tx, ctx: SchoolContext, input: VisitorIn
     if (!g) throw new HostelProblem("Choose someone from the student's list, or type the visitor's name.", "guardianId");
     name = g.name;
     relation = g.relation;
-    phone = g.phone;
+    phone = g.phone ?? "";
     onList = g.allowed;
   } else {
     name = (input.name ?? "").trim().replace(/\s+/g, " ");

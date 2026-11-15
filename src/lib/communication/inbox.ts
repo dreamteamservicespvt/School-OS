@@ -75,7 +75,7 @@ export async function recordIncoming(tx: Tx, ctx: SchoolContext, m: { from: stri
   }
   await tx.whatsappChatMessage.create({ data: { schoolId: ctx.schoolId, chatId: chat.id, direction: "in", body: m.text.slice(0, 4000), providerMessageId: m.providerMessageId ?? null, createdAt: at } });
   await tx.whatsappChat.update({ where: { id: chat.id }, data: { lastMessageAt: at, lastInboundAt: at, unreadCount: { increment: 1 }, resolvedAt: null } });
-  if (chat.assignedToId) await notify(tx, ctx, { to: chat.assignedToId, type: "whatsapp", text: `WhatsApp from ${chat.displayName}: ${m.text.slice(0, 100)}`, link: `/communication/inbox?chat=${chat.id}` });
+  if (chat.assignedToId) await notify(tx, ctx, { to: chat.assignedToId, type: "whatsapp", key: "WhatsApp from {name}: {message}", values: { name: chat.displayName, message: m.text.slice(0, 100) }, link: `/communication/inbox?chat=${chat.id}` });
   return chat.id;
 }
 
@@ -122,7 +122,7 @@ export async function assignChat(tx: Tx, ctx: SchoolContext, chatId: string, use
   if (chat.assignedToId === userLoginId) throw new InboxProblem(`This chat is already with ${person.displayName}.`);
   await tx.whatsappChat.update({ where: { id: chat.id }, data: { assignedToId: userLoginId } });
   await writeAudit(tx, ctx, { action: "assigned", recordType: "WhatsApp Conversation", recordId: chat.id, before: { to: chat.assignedToId }, after: { to: userLoginId } });
-  if (userLoginId !== ctx.userId) await notify(tx, ctx, { to: userLoginId, type: "whatsapp", text: `A WhatsApp chat with ${chat.displayName} was given to you.`, link: `/communication/inbox?chat=${chat.id}` });
+  if (userLoginId !== ctx.userId) await notify(tx, ctx, { to: userLoginId, type: "whatsapp", key: "A WhatsApp chat with {name} was given to you.", values: { name: chat.displayName }, link: `/communication/inbox?chat=${chat.id}` });
   return person.displayName;
 }
 

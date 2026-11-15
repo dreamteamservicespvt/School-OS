@@ -11,6 +11,7 @@ import { notify } from "./notifications";
 import { formatRupees } from "./format";
 import { approvalOffCampus, approvalsOnCampus } from "./approval-campus";
 import { missingRecordWords } from "./approval-records";
+import { word } from "./notification-words";
 
 export const REQUEST_TYPES = [
   { key: "student-leave", label: "Student leave" },
@@ -230,10 +231,12 @@ export async function requestApproval(tx: Tx, ctx: SchoolContext, req: NewReques
     await notify(tx, ctx, {
       to: person,
       type: "approval",
-      text: `Waiting for your approval: ${req.summary}`,
+      key: "Waiting for your approval: {summary}",
+      values: { summary: word(req.summary) },
       link: `/approvals/${approval.id}`,
       groupKey: `approval-${req.type}`,
-      mergedText: (n) => `${n} ${requestLabel(req.type).toLowerCase()} requests are waiting for your approval`,
+      mergedKey: "{n} {kind} requests are waiting for your approval",
+      mergedValues: { kind: word(requestLabel(req.type).toLowerCase()) },
     });
   }
   await writeAudit(tx, ctx, { action: "asked-approval", recordType: "Approval", recordId: approval.id, after: { type: req.type, summary: req.summary, amount: amount?.toString() ?? null } });
@@ -374,7 +377,8 @@ export async function decide(tx: Tx, ctx: SchoolContext, approvalId: string, dec
     await notify(tx, ctx, {
       to: approval.askedById,
       type: "approval-decided",
-      text: `${approval.summary}: ${words}${note ? `. Reason: ${note}` : "."}`,
+      key: note ? "{summary}: {decision}. Reason: {reason}" : "{summary}: {decision}.",
+      values: { summary: word(approval.summary), decision: word(words), reason: note ?? "" },
       link: `/approvals/${approval.id}`,
     });
   }
@@ -416,7 +420,7 @@ export async function escalateOverdue(tx: Tx, ctx: SchoolContext, now = new Date
       },
     });
     for (const p of people) {
-      await notify(tx, ctx, { to: p, type: "approval", text: `Moved to you after ${escalateAfterDays} working days: ${a.summary}`, link: `/approvals/${a.id}` });
+      await notify(tx, ctx, { to: p, type: "approval", key: "Moved to you after {n} working days: {summary}", values: { n: escalateAfterDays, summary: word(a.summary) }, link: `/approvals/${a.id}` });
     }
     await writeAudit(tx, ctx, { action: "approval-escalated", recordType: "Approval", recordId: a.id, before, after: { step: nextIndex + 1 } });
     moved++;

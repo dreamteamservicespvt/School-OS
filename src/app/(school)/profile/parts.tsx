@@ -15,7 +15,8 @@ import { Toast } from "@/components/ui/toast";
 import { cx } from "@/components/ui/cx";
 import { NOTE_CHANNELS, NOTE_CHANNEL_LABEL, type NoteChannel, type NoteKind, type NotePrefs } from "@/lib/notification-kinds";
 import { PasswordForm } from "./password-form";
-import { confirmContactCode, saveMyName, saveNotePrefs, sendContactCode, setTwoStep, type CodeResult, type Result } from "./actions";
+import { confirmContactCode, saveMyName, saveNotePrefs, sendConfirmCodeAction, sendContactCode, setTwoStep, switchOffTwoStep, type CodeResult, type Result, type TwoStepResult } from "./actions";
+import type { ConfirmWay } from "@/lib/auth/confirm-me";
 import { useT, Words } from "@/lib/i18n/client";
 import { tx } from "@/lib/i18n/tx";
 
@@ -33,12 +34,51 @@ function useSay() {
 function Msg({ state }: { state: { ok: boolean; message: string } | null }) {
   if (!state) return null;
   return (
-    <p role={state.ok ? "status" : "alert"} className={cx("rounded-xl px-3.5 py-2.5 text-sm", state.ok ? "bg-ok/10 text-ok" : "bg-bad/10 text-bad")}>{state.message}</p>
+    <p role={state.ok ? "status" : "alert"} className={cx("rounded-xl px-3.5 py-2.5 text-sm", state.ok ? "bg-ok/10 text-ok" : "bg-bad/10 text-bad")}>{tx(state.message)}</p>
+  );
+}
+
+/**
+ * "Confirm it is you" (owner decision 3, 15 Nov 2026): the current password, or for a person with no
+ * password a code to their current email or mobile, before a new mobile or email or switching off
+ * two-step login. Held by React, so a wrong answer elsewhere does not empty it.
+ */
+function ConfirmField({ way, id, error }: { way: ConfirmWay; id: string; error?: string | null }) {
+  const t = useT();
+  const [password, setPassword] = useState("");
+  const [code, setCode] = useState("");
+  const [sent, setSent] = useState<Result>(null);
+  const [sending, start] = useTransition();
+  if (way.kind === "none") return null;
+  if (way.kind === "password") {
+    return (
+      <FieldShell label="Your current password" id={`${id}-password`} required error={error ?? undefined} help="So nobody else can change this while you are signed in.">
+        <input id={`${id}-password`} name="confirmPassword" type="password" autoComplete="current-password" required value={password} onChange={(e) => setPassword(e.target.value)}
+          aria-invalid={error ? true : undefined} className={cx(inputCls(Boolean(error)), "h-11")} />
+      </FieldShell>
+    );
+  }
+  return (
+    <div className="flex flex-col gap-2">
+      <p className="text-[13px] text-ink2">{t("First, confirm it is you: we send a code to {to}.", { to: way.to })}</p>
+      <div>
+        <Button type="button" size="sm" variant="secondary" loading={sending} onClick={() => start(async () => setSent(await sendConfirmCodeAction()))}>
+          {sent?.ok ? t("Send a new code") : t("Send code")}
+        </Button>
+      </div>
+      <Msg state={sent} />
+      {sent?.ok && (
+        <FieldShell label="Code to confirm it is you" id={`${id}-code`} required error={error ?? undefined}>
+          <input id={`${id}-code`} name="confirmCode" inputMode="numeric" autoComplete="one-time-code" maxLength={7} required value={code} onChange={(e) => setCode(e.target.value)}
+            aria-invalid={error ? true : undefined} className={cx(inputCls(Boolean(error)), "h-11 tnum tracking-[0.3em] text-lg max-w-[12rem]")} />
+        </FieldShell>
+      )}
+    </div>
   );
 }
 
 /** Edit my details: name at once; a new mobile number or email only after the code sent to it. */
-export function EditDetails({ name, phone, email }: { name: string; phone: string | null; email: string | null }) {
+export function EditDetails({ name, phone, email, confirm }: { name: string; phone: string | null; email: string | null; /** How the person confirms it is them before a new mobile or email. */ confirm: ConfirmWay }) {
   const [open, setOpen] = useState(false);
   return (
     <>
@@ -46,8 +86,8 @@ export function EditDetails({ name, phone, email }: { name: string; phone: strin
       <Dialog open={open} onClose={() => setOpen(false)} title="Edit my details" sub="A new mobile or email needs a one-time code.">
         <div className="flex flex-col gap-5">
           <NameForm name={name} />
-          <ContactForm kind="phone" current={phone} />
-          <ContactForm kind="email" current={email} />
+          <ContactForm kind="phone" current={phone} confirm={confirm} />
+          <ContactForm kind="email" current={email} confirm={confirm} />
         </div>
       </Dialog>
     </>
@@ -69,7 +109,7 @@ function NameForm({ name }: { name: string }) {
   );
 }
 
-function ContactForm({ kind, current }: { kind: "phone" | "email"; current: string | null }) {
+function ContactForm({ kind, current, confirm }: { kind: "phone" | "email"; current: string | null; confirm: ConfirmWay }) {
   const [state, action, pending] = useActionState<CodeResult, FormData>(async (prev, fd) => (fd.get("code") !== null ? confirmContactCode(prev, fd) : sendContactCode(prev, fd)), null);
   const [value, setValue] = useState("");
   const step = state?.step ?? "type";
@@ -88,13 +128,14 @@ function ContactForm({ kind, current }: { kind: "phone" | "email"; current: stri
             className={cx(inputCls(state && !state.ok && step === "type"), "h-11 flex-1 min-w-0")} />
         </div>
       </FieldShell>
+      {step === "type" && <ConfirmField way={confirm} id={id} error={state && !state.ok && state.field ? state.message : null} />}
       {step === "code" && (
         <FieldShell label="Code" id={`${id}-code`}>
           <input id={`${id}-code`} name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={7} required autoFocus
             className={cx(inputCls(state && !state.ok), "h-11 tnum tracking-[0.3em] text-lg max-w-[12rem]")} />
         </FieldShell>
       )}
-      <Msg state={state} />
+      {!(state && !state.ok && state.field) && <Msg state={state} />}
       <div className="flex gap-2">
         <Button type="submit" variant={step === "code" ? "primary" : "soft"} loading={pending} disabled={step === "type" && !value.trim()}>
           {step === "code" ? `Confirm new ${label.toLowerCase()}` : "Send code"}
@@ -117,8 +158,9 @@ export function PasswordButton({ withoutOld = false, minLength, rulesWords }: { 
 }
 
 /** `cannotReach`: the role needs two-step login but no code can reach this person yet, and what to do. */
-export function TwoStepRow({ required, on, sendsTo, cannotReach = null }: { required: boolean; on: boolean; sendsTo: string | null; cannotReach?: string | null }) {
+export function TwoStepRow({ required, on, sendsTo, cannotReach = null, confirm }: { required: boolean; on: boolean; sendsTo: string | null; cannotReach?: string | null; /** How the person confirms it is them before switching it off. */ confirm: ConfirmWay }) {
   const [value, setValue] = useState(on);
+  const [asking, setAsking] = useState(false);
   const [pending, start] = useTransition();
   const [say, toast] = useSay();
   const router = useRouter();
@@ -134,6 +176,8 @@ export function TwoStepRow({ required, on, sendsTo, cannotReach = null }: { requ
       <div className="min-w-0 flex-1 text-[14px]"><b className="font-semibold block"><Words k="Two-step login" /></b><span className={cx("block text-[12.5px]", cannotReach ? "text-warn" : "text-ink3")}>{tx(sub)}</span></div>
       {cannotReach ? <Pill tone="warn"><I.TriangleAlert size={12} aria-hidden="true" /><Words k="Not set up" /></Pill> : required ? <Pill tone="ok"><I.Lock size={12} aria-hidden="true" /><Words k="On" /></Pill> : (
         <Switch on={value} label="Two-step login" disabled={pending} onChange={(v) => {
+          // Off asks for the current password (or a code) first.
+          if (!v) { setAsking(true); return; }
           setValue(v);
           start(async () => {
             const r = await setTwoStep(v);
@@ -143,8 +187,38 @@ export function TwoStepRow({ required, on, sendsTo, cannotReach = null }: { requ
           });
         }} />
       )}
+      {asking && (
+        <SwitchOffDialog confirm={confirm} onClose={() => setAsking(false)} onDone={(message) => {
+          setAsking(false);
+          setValue(false);
+          say(message, "success");
+          router.refresh();
+        }} />
+      )}
       {toast}
     </div>
+  );
+}
+
+/** "Switch off two-step login?": the current password, or a code to the current contact, first. */
+function SwitchOffDialog({ confirm, onClose, onDone }: { confirm: ConfirmWay; onClose: () => void; onDone: (message: string) => void }) {
+  const t = useT();
+  const [state, action, pending] = useActionState<TwoStepResult, FormData>(async (prev, fd) => {
+    const r = await switchOffTwoStep(prev, fd);
+    if (r?.ok) onDone(r.message);
+    return r;
+  }, null);
+  return (
+    <Dialog open onClose={onClose} title="Switch off two-step login?" sub="Then only your password is asked when you sign in.">
+      <form action={action} className="flex flex-col gap-4">
+        <ConfirmField way={confirm} id="two-step-off" error={state && !state.ok && state.field ? state.message : null} />
+        {state && !state.ok && !state.field && <Msg state={state} />}
+        <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+          <Button type="button" variant="secondary" onClick={onClose}>{t("Keep it on")}</Button>
+          <Button type="submit" variant="danger" loading={pending}>{t("Switch off")}</Button>
+        </div>
+      </form>
+    </Dialog>
   );
 }
 

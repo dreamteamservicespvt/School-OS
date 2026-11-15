@@ -11,6 +11,7 @@ import { writeAudit } from "../audit";
 import { notify } from "../notifications";
 import { HomeworkProblem } from "./access";
 import { inYears, onCampus, requireDesk, requireStaff, requireYearOpen, shortSection, type HomeworkScope } from "./scope";
+import { word } from "../notification-words";
 
 export const HIDE_REASONS = ["Not about the subject", "Unkind words", "Personal details shared", "Answers to a test"] as const;
 
@@ -99,7 +100,7 @@ export async function postTopic(tx: Tx, s: HomeworkScope, boardId: string, input
   if (input.body.length > 4000) throw new HomeworkProblem("Details can be at most 4,000 characters.", "body");
   const p = await tx.discussionPost.create({ data: { schoolId: s.ctx.schoolId, boardId, title, body: input.body.trim(), authorId: s.ctx.userId, authorName: s.student?.name ?? s.name, authorIsStaff: s.level !== "student" } });
   await writeAudit(tx, s.ctx, { action: "posted", recordType: "Discussion Post", recordId: p.id, after: { board: b.title, title } });
-  if (s.level === "student" && b.ownerId) await notify(tx, s.ctx, { to: b.ownerId, type: "discussion-topic", text: `${s.student?.name ?? "A student"} asked in ${b.title}: ${title}`, link: `/homework-learning/discussions?board=${b.id}&topic=${p.id}`, groupKey: `discussion:${b.id}`, mergedText: (n) => `${n} new questions in ${b.title}` });
+  if (s.level === "student" && b.ownerId) await notify(tx, s.ctx, { to: b.ownerId, type: "discussion-topic", key: "{name} asked in {board}: {title}", values: { name: s.student?.name ?? word("A student"), board: b.title, title }, link: `/homework-learning/discussions?board=${b.id}&topic=${p.id}`, groupKey: `discussion:${b.id}`, mergedKey: "{n} new questions in {board}" });
   return p;
 }
 
@@ -116,7 +117,7 @@ export async function reply(tx: Tx, s: HomeworkScope, topicId: string, body: str
   const p = await tx.discussionPost.create({ data: { schoolId: s.ctx.schoolId, boardId: t.boardId, topicId, body: text, authorId: s.ctx.userId, authorName: s.student?.name ?? s.name, authorIsStaff: s.level !== "student" } });
   await tx.discussionPost.update({ where: { id: topicId }, data: { updatedAt: new Date() } });
   await writeAudit(tx, s.ctx, { action: "replied", recordType: "Discussion Post", recordId: p.id, after: { topic: t.title } });
-  if (t.authorId && t.authorId !== s.ctx.userId) await notify(tx, s.ctx, { to: t.authorId, type: "discussion-reply", text: `${s.student?.name ?? s.name} replied to “${t.title}”.`, link: `/homework-learning/discussions?board=${b.id}&topic=${t.id}`, groupKey: `discussion-reply:${t.id}`, mergedText: (n) => `${n} replies to “${t.title}”` });
+  if (t.authorId && t.authorId !== s.ctx.userId) await notify(tx, s.ctx, { to: t.authorId, type: "discussion-reply", key: "{name} replied to “{title}”.", values: { name: s.student?.name ?? s.name, title: t.title }, link: `/homework-learning/discussions?board=${b.id}&topic=${t.id}`, groupKey: `discussion-reply:${t.id}`, mergedKey: "{n} replies to “{title}”" });
   return p;
 }
 

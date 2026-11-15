@@ -8,7 +8,7 @@ export function Progress({ value, tone = "brand", className }: { value: number; 
   const v = Number.isFinite(value) ? Math.max(0, Math.min(100, value)) : 0;
   return (
     <span className={cx("block h-1.5 rounded-full bg-sunken overflow-hidden", className)} role="presentation">
-      <span className={cx("block h-full rounded-full transition-all duration-700", c)} style={{ width: `${v}%` }} />
+      <span className={cx("block h-full rounded-full transition-[width] duration-300 ease-out", c)} style={{ width: `${v}%` }} />
     </span>
   );
 }

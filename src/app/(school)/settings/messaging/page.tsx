@@ -48,9 +48,9 @@ export default async function MessagingSettingsPage({ searchParams }: { searchPa
   return (
     <>
       <PageHeader title="SMS, WhatsApp & Email" href="/settings/messaging" userId={current.user.id} />
-      <p className="-mt-3 mb-4 text-ink-2"><Words k="Switch each channel on or off. DREAM TEAM connects them and adds credits. Message words are in" /> <Link href="/communication/templates" className="text-brand-text underline"><Words k="Message Templates" /></Link><Words k="; automatic messages are in" /> <Link href="/communication/settings" className="text-brand-text underline"><Words k="Message Settings" /></Link>.</p>
+      <p className="-mt-3 mb-4 text-ink-2"><Words k="Switch each channel on or off. The School OS support team connects them and adds credits. Message words are in" /> <Link href="/communication/templates" className="text-brand-text underline"><Words k="Message Templates" /></Link><Words k="; automatic messages are in" /> <Link href="/communication/settings" className="text-brand-text underline"><Words k="Message Settings" /></Link>.</p>
       {!canEdit && <Alert tone="info" className="mb-4"><Words k="You can see these settings. The School Admin changes them." /></Alert>}
-      {low.map((c) => <Alert key={c} tone="warning" className="mb-4"><Words k="Only" /> {data.balances[c].toLocaleString("en-IN")} {CHANNEL_LABEL[c]} <Words k="credits left, below your alert of" /> {data.setups[c].lowCreditAlert.toLocaleString("en-IN")}<Words k=". To buy more, tell DREAM TEAM support." /></Alert>)}
+      {low.map((c) => <Alert key={c} tone="warning" className="mb-4"><Words k="Only" /> {data.balances[c].toLocaleString("en-IN")} {CHANNEL_LABEL[c]} <Words k="credits left, below your alert of" /> {data.setups[c].lowCreditAlert.toLocaleString("en-IN")}<Words k=". To buy more, tell the School OS support team." /></Alert>)}
 
       <div className="space-y-5">
         {offeredChannels(PROVIDER_CHANNELS).map((c) => {
@@ -68,9 +68,9 @@ export default async function MessagingSettingsPage({ searchParams }: { searchPa
         {!SMS_OFFERED && <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-ink-2"><Words k="SMS is not used for now. Messages go by WhatsApp, email and the app." /></p>}
 
         {SMS_OFFERED && <Card>
-          <CardHeader title="SMS: DLT registration" description="Every SMS needs a DLT entity ID, sender header and template ID. DREAM TEAM adds them." />
+          <CardHeader title="SMS: DLT registration" description="Every SMS needs a DLT entity ID, sender header and template ID. The School OS support team adds them." />
           <CardBody>
-            {dltMissing && <Alert tone="info" className="mb-3"><Words k="Not added yet. SMS can be switched on after DREAM TEAM adds it." /></Alert>}
+            {dltMissing && <Alert tone="info" className="mb-3"><Words k="Not added yet. SMS can be switched on after the School OS support team adds it." /></Alert>}
             <dl className="grid gap-3 text-sm sm:grid-cols-2">
               <div><dt className="text-ink-2"><Words k="DLT entity ID" /></dt><dd className="font-mono font-medium">{data.school.smsDltEntityId || "Not added yet"}</dd></div>
               <div><dt className="text-ink-2"><Words k="Sender header" /></dt><dd className="font-mono font-medium">{data.school.smsSenderHeader || "Not added yet"}</dd></div>
@@ -79,7 +79,7 @@ export default async function MessagingSettingsPage({ searchParams }: { searchPa
         </Card>}
 
         <Card>
-          <CardHeader title="Credits" description={SMS_OFFERED ? "1 credit per WhatsApp message and 1 per SMS part. Email and app notifications are free. DREAM TEAM adds the credits your school buys." : "1 credit per WhatsApp message. Email and app notifications are free. DREAM TEAM adds the credits your school buys."} />
+          <CardHeader title="Credits" description={SMS_OFFERED ? "1 credit per WhatsApp message and 1 per SMS part. Email and app notifications are free. The School OS support team adds the credits your school buys." : "1 credit per WhatsApp message. Email and app notifications are free. The School OS support team adds the credits your school buys."} />
           <CardBody>
             <dl className="mb-4 grid grid-cols-2 gap-3 sm:max-w-md">
               {paid.map((c) => (
@@ -107,7 +107,7 @@ export default async function MessagingSettingsPage({ searchParams }: { searchPa
                 { key: "channel", label: "Channel", phone: "meta", cell: (l) => (l.channel === "sms" ? "SMS" : "WhatsApp") },
                 { key: "amount", label: "Credits", phone: "title", cell: (l) => <span className={`font-medium tabular-nums ${l.amount < 0 ? "" : "text-success"}`}>{l.amount > 0 ? "+" : ""}{l.amount.toLocaleString("en-IN")}</span> },
                 { key: "note", label: "Note", phone: "meta", cell: (l) => (l.messageId ? <Link href={`/communication/history/${l.messageId}`} className="text-brand-text underline">{l.note}</Link> : l.note) },
-                { key: "by", label: "By", cell: (l) => (l.createdById ? data.people.get(l.createdById) ?? "Staff" : l.messageId ? "School OS" : "DREAM TEAM") },
+                { key: "by", label: "By", cell: (l) => (l.createdById ? data.people.get(l.createdById) ?? "Staff" : l.messageId ? "School OS" : "School OS support") },
               ]}
             />
           </CardBody>

@@ -146,7 +146,7 @@ export async function seedCommunication(school: SeedSchool) {
       await tx.schoolFeature.upsert({ where: { schoolId_featureKey: { schoolId, featureKey: "whatsapp-inbox" } }, create: { schoolId, featureKey: "whatsapp-inbox", isOn: true }, update: {} });
       if (await tx.whatsappChat.count({ where: { schoolId } })) return;
       const people = await tx.guardian.findMany({ where: { id: { in: ids.guardians.slice(0, 4).map((g) => g.guardianId) } }, select: { id: true, phone: true } });
-      const phone = (i: number) => people.find((p) => p.id === ids.guardians[i]?.guardianId)?.phone;
+      const phone = (i: number) => people.find((p) => p.id === ids.guardians[i]?.guardianId)?.phone ?? undefined;
       const ago = (h: number) => new Date(Date.now() - h * 3600_000);
       const say = (from: string | undefined, text: string, h: number, name?: string) => (from ? recordIncoming(tx, principalCtx, { from, text, at: ago(h), name }) : Promise.resolve(null));
       const c1 = await say(phone(0), "Good morning sir. Is tomorrow a holiday for Dussehra?", 3);

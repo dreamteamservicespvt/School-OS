@@ -104,7 +104,7 @@ export function AttentionCard({ items, hiddenSeen }: { items: AttentionItem[]; h
         action={list.length ? <Pill tone={list.some((n) => n.tone === "bad") ? "bad" : "warn"}>{list.length === 1 ? t("1 item") : t("{n} items", { n: list.length })}</Pill> : null} />
       {list.length === 0 ? (
         <div className="px-5 pb-6 pt-1 text-center">
-          <span className="mx-auto w-12 h-12 rounded-2xl bg-ok/10 text-ok grid place-items-center animate-pop"><I.Check size={24} strokeWidth={2.6} aria-hidden="true" /></span>
+          <span className="mx-auto w-12 h-12 rounded-2xl bg-ok/10 text-ok grid place-items-center"><I.Check size={24} strokeWidth={2.6} aria-hidden="true" /></span>
           <p className="font-semibold mt-2.5">{t("Nothing needs you right now")}</p>
           <p className="text-[13px] text-ink3">{t("New items show up here by themselves.")}</p>
         </div>
@@ -285,7 +285,7 @@ export function ApprovalsCard({ count, rows }: { count: number; rows: ApprovalCa
       {problem && <div className="px-5 pb-2"><Alert tone="danger">{problem}</Alert></div>}
       {left === 0 ? (
         <div className="px-5 pb-6 pt-1 text-center">
-          <span className="mx-auto w-12 h-12 rounded-2xl bg-ok/10 text-ok grid place-items-center animate-pop"><I.Check size={24} strokeWidth={2.6} aria-hidden="true" /></span>
+          <span className="mx-auto w-12 h-12 rounded-2xl bg-ok/10 text-ok grid place-items-center"><I.Check size={24} strokeWidth={2.6} aria-hidden="true" /></span>
           <p className="font-semibold mt-2.5">{t("All done")}</p>
           <p className="text-[13px] text-ink3">{t("Nothing is waiting for you.")}</p>
         </div>

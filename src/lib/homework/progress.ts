@@ -206,7 +206,7 @@ export async function issueCertificates(tx: Tx, s: HomeworkScope, courseId: stri
     const n = await nextNumber(tx, s.ctx, `course-certificate:${year}`);
     const cert = await tx.courseCertificate.create({ data: { schoolId: s.ctx.schoolId, courseId, studentId: st.id, number: formatNumber(`CRS/${year}/`, n), issuedById: s.ctx.userId } });
     made.push(cert);
-    if (st.userLoginId) await notify(tx, s.ctx, { to: st.userLoginId, type: "course-certificate", text: "You finished a course. Your certificate is in Study Material.", link: "/homework-learning/study-material", groupKey: "course-certificate" });
+    if (st.userLoginId) await notify(tx, s.ctx, { to: st.userLoginId, type: "course-certificate", key: "You finished a course. Your certificate is in Study Material.", link: "/homework-learning/study-material", groupKey: "course-certificate" });
   }
   await writeAudit(tx, s.ctx, { action: "certificates-issued", recordType: "Course", recordId: courseId, after: { count: made.length, numbers: made.map((m) => m.number) } });
   return made;

@@ -27,6 +27,7 @@ import { ConfirmButton } from "@/components/ui/confirm";
 import { signOut, signOutDevice } from "../actions";
 import { forgetRemembered, signOutOthers } from "./actions";
 import { EditDetails, NotePrefsTable, PasswordButton, TwoStepRow } from "./parts";
+import { confirmWay } from "@/lib/auth/confirm-me";
 import { passwordRulesForLogin, passwordRuleWords } from "@/lib/auth/password-rules";
 import { LanguageChoice } from "./language-choice";
 import { getT, pageTitle } from "@/lib/i18n/server";
@@ -89,6 +90,9 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   const roleNames = current.roles.map((r) => r.name);
   const photo = await withSchool(current.ctx, (tx) => myPhotoLink(tx, current.ctx, u.id));
   const others = sessions.filter((s) => s.id !== current.session.id).length;
+  // How the person confirms it is them before a new mobile or email or switching off two-step login (only the
+  // kind and a masked contact reach the browser, never the password hash).
+  const confirm = confirmWay(u);
 
   const work: { href: string; icon: LucideIcon; title: string; sub: string; show: boolean }[] = [
     { href: "/staff-hr-management/leave", icon: I.CalendarDays, title: t("My leave"), sub: t("Ask for leave and see what is left"), show: Boolean(staff) && can("staff-hr-management") },
@@ -133,7 +137,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
               </div>
             </div>
             <div className="flex gap-2">
-              <EditDetails name={u.displayName} phone={u.phone} email={u.email} />
+              <EditDetails name={u.displayName} phone={u.phone} email={u.email} confirm={confirm} />
             </div>
           </div>
         </Card>
@@ -168,7 +172,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                   </div>
                   <PasswordButton withoutOld={withoutOld} minLength={passwordRules.minLength} rulesWords={passwordRuleWords(passwordRules, t)} />
                 </div>
-                <TwoStepRow required={mustTwoStep} on={twoStepOn} sendsTo={u.email ?? u.phone} cannotReach={cannotReach} />
+                <TwoStepRow required={mustTwoStep} on={twoStepOn} sendsTo={u.email ?? u.phone} cannotReach={cannotReach} confirm={confirm} />
               </div>
             </Card>
 

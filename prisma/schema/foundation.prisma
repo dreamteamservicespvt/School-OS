@@ -54,6 +54,10 @@ model School {
   status            SchoolStatus @default(TRIAL)
   schoolType        String?      @map("school_type")
   phone             String?
+  /// School Profile "WhatsApp number for parents" (owner decision 17): a
+  /// 10-digit Indian mobile shown on the Parent Link footer. Null = use the
+  /// office phone when it is a mobile.
+  parentWhatsapp    String?      @map("parent_whatsapp")
   email             String?
   website           String?
   logoFileId        String?      @map("logo_file_id") @db.Uuid
@@ -286,6 +290,13 @@ model Notification {
   userLoginId String    @map("user_login_id") @db.Uuid
   type        String
   text        String
+  /// The English catalogue words with {blanks} (src/lib/i18n/catalogues/en.ts), so the bell
+  /// says it in each reader's language (owner decision 14). Empty on notifications made
+  /// before 15-11-2026: those show their stored English text.
+  textKey     String?   @map("text_key")
+  /// The values for the blanks: names, amounts and dates exactly as they are, or
+  /// { "t": "English words" } said in the reader's language.
+  textValues  Json?     @map("text_values")
   link        String
   groupKey    String?   @map("group_key")
   count       Int       @default(1)

@@ -76,7 +76,7 @@ export function SChips({ name, label, options, start = [], required, help }: { n
           const sel = on.has(o.value);
           return (
             <button key={o.value} type="button" aria-pressed={sel} onClick={() => setOn((x) => { const n = new Set(x); if (n.has(o.value)) n.delete(o.value); else n.add(o.value); return n; })}
-              className={cx("h-9 px-3 rounded-xl border text-[13.5px] font-semibold transition", sel ? "bg-brand/10 border-brand text-brand" : "border-line text-ink2 hover:border-ink3/50")}>
+              className={cx("h-9 px-3 rounded-xl border text-[13.5px] font-semibold transition active:scale-[0.97]", sel ? "bg-brand/10 border-brand text-brand" : "border-line text-ink2 hover:border-ink3/50")}>
               {tx(o.label)}
             </button>
           );

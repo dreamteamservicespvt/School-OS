@@ -105,7 +105,7 @@ export function DataList<Row>({ rows, columns, rowKey, rowHref: rowHrefIn, href:
             {rows.map((r) => {
               const href = rowHref?.(r) ?? null;
               return (
-                <tr key={rowKey(r)} className={cx("relative border-b border-line/70 last:border-0 transition group has-[:checked]:bg-brand/5", href && "cursor-pointer hover:bg-sunken/60", rowClass?.(r))}>
+                <tr key={rowKey(r)} className={cx("relative border-b border-line/70 last:border-0 transition group has-[:checked]:bg-brand/5", href && "cursor-pointer hover:bg-sunken/60 active:bg-sunken", rowClass?.(r))}>
                   {select && <td className="pl-4 pr-2 py-3 align-middle">{tick(r)}</td>}
                   {columns.map((c, i) => (
                     <td key={c.key} className={cx("px-3 py-2.5 align-middle", i === 0 && !select && "pl-5", i === columns.length - 1 && !href && "pr-5", c.align === "right" && "text-right tnum", c.nowrap && "whitespace-nowrap", c.className)}>

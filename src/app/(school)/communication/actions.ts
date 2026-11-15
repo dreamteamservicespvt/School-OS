@@ -225,7 +225,7 @@ export async function findPeople(q: string): Promise<{ type: "guardian" | "stude
     return [
       ...guardians
         .filter((g) => (scope.sectionIds === "all" && !scope.campusId) || g.students.some((s) => genrol.some((e) => e.studentId === s.studentId && inScope(e))))
-        .map((g) => ({ type: "guardian" as const, id: g.id, name: g.name, detail: `${g.relationship}${g.students.length ? ` of ${g.students.map((s) => s.student.fullName.split(" ")[0]).join(", ")}` : ""} · ••${g.phone.slice(-4)}` })),
+        .map((g) => ({ type: "guardian" as const, id: g.id, name: g.name, detail: `${g.relationship}${g.students.length ? ` of ${g.students.map((s) => s.student.fullName.split(" ")[0]).join(", ")}` : ""} · ${g.phone ? `••${g.phone.slice(-4)}` : "Phone missing"}` })),
       ...students.map((s) => ({ type: "student" as const, id: s.id, name: s.name, detail: `Student · ${s.admissionNo}` })),
       ...staff.map((s) => ({ type: "staff" as const, id: s.id, name: s.fullName, detail: s.designation })),
     ];

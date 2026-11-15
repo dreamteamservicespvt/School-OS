@@ -18,6 +18,7 @@ import { formatDate, formatRupees, formatRupeesShort } from "../format";
 import { addDays } from "../staff/dates";
 import { featureOn } from "./settings";
 import { MoneyProblem } from "./problem";
+import { word } from "../notification-words";
 
 const ZERO = BigInt(0);
 
@@ -136,7 +137,10 @@ export async function settlePromises(tx: Tx, ctx: SchoolContext, today: Date, st
       const s = await tx.student.findUnique({ where: { id: p.studentId }, select: { fullName: true } });
       await notify(tx, ctx, {
         to: p.createdById, type: "fee-promise",
-        text: `Promise broken: ${s?.fullName ?? "A student"}'s family promised ${formatRupees(target)} by ${formatDate(p.promisedOn!)}${paid > ZERO ? ` and paid ${formatRupees(paid)}` : " and has not paid"}. They are back at the top of Defaulters.`,
+        key: paid > ZERO
+          ? "Promise broken: {name}'s family promised {amount} by {date} and paid {paid}. They are back at the top of Defaulters."
+          : "Promise broken: {name}'s family promised {amount} by {date} and has not paid. They are back at the top of Defaulters.",
+        values: { name: s?.fullName ?? word("A student"), amount: formatRupees(target), date: formatDate(p.promisedOn!), paid: formatRupees(paid) },
         link: `/fee-management/defaulters?who=${p.studentId}`,
         groupKey: `fee-promise:${p.id}`,
       });

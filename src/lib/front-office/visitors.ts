@@ -17,6 +17,7 @@ import { frontOfficeSettings, passExpiryFor } from "./settings";
 import { instantOf, clockAt, todayIso } from "./time";
 import { formatDate } from "../format";
 import { mobileDigits, phoneProblem, replyOf, tidyVehicle, vehicleProblem, type ReplyKey, type VisitorStatus } from "./words";
+import { word } from "../notification-words";
 
 export function visitorStatus(v: Pick<VisitorEntry, "timeOut" | "passExpiresAt">, now = new Date()): VisitorStatus {
   if (v.timeOut) return "Out";
@@ -149,7 +150,10 @@ export async function registerVisitor(tx: Tx, ctx: SchoolContext, input: Registe
   if (meetLogin) {
     const n = await notify(tx, ctx, {
       to: meetLogin, type: "visitor-arrived",
-      text: `${name} is at the front desk to meet you (${input.purpose.toLowerCase()}${input.peopleCount > 1 ? `, ${input.peopleCount} people` : ""}). Reply: Send in, Wait or Not available.`,
+      key: input.peopleCount > 1
+        ? "{name} is at the front desk to meet you ({purpose}, {n} people). Reply: Send in, Wait or Not available."
+        : "{name} is at the front desk to meet you ({purpose}). Reply: Send in, Wait or Not available.",
+      values: { name, purpose: word(input.purpose.toLowerCase()), n: input.peopleCount },
       link: `/front-office/visit/${v.id}`,
     }, now);
     told = Boolean(n);
@@ -206,7 +210,7 @@ export async function replyToVisitor(tx: Tx, ctx: SchoolContext, id: string, rep
   await tx.visitorEntry.update({ where: { id }, data: { staffReply: r.key, staffReplyAt: now } });
   await writeAudit(tx, ctx, { action: "visitor-reply", recordType: "Visitor Entry", recordId: id, before: { staffReply: v.staffReply }, after: { staffReply: r.key } });
   if (isMe && v.createdById && v.createdById !== ctx.userId) {
-    await notify(tx, ctx, { to: v.createdById, type: "visitor-reply", text: `${staff?.fullName ?? "Staff"}: ${r.label} for ${v.name} (pass ${v.passNo}).`, link: "/front-office" }, now);
+    await notify(tx, ctx, { to: v.createdById, type: "visitor-reply", key: "{staff}: {reply} for {name} (pass {pass}).", values: { staff: staff?.fullName ?? word("Staff"), reply: word(r.label), name: v.name, pass: v.passNo }, link: "/front-office" }, now);
   }
   return { visitor: v, reply: r, staffName: staff?.fullName ?? null };
 }
@@ -308,7 +312,7 @@ export async function remindDeskAboutPass(tx: Tx, ctx: SchoolContext, id: string
   const to = deskLogins.filter((x) => x !== ctx.userId);
   if (!to.length) throw new FrontOfficeProblem("Nobody else at the front desk has a login to remind. Give the Receptionist a login in Settings, Users & Permissions (the School Admin can).");
   for (const login of to) {
-    await notify(tx, ctx, { to: login, type: "visitor-pass-open", text: `Close pass ${v.passNo} (${v.name}) with the right time: it expired at ${clockAt(v.passExpiresAt, opts.timeZone)} without a check-out.`, link: `/front-office/visitors?status=Expired&out=${v.id}` }, now);
+    await notify(tx, ctx, { to: login, type: "visitor-pass-open", key: "Close pass {pass} ({name}) with the right time: it expired at {time} without a check-out.", values: { pass: v.passNo, name: v.name, time: clockAt(v.passExpiresAt, opts.timeZone) }, link: `/front-office/visitors?status=Expired&out=${v.id}` }, now);
   }
   await writeAudit(tx, ctx, { action: "desk-reminded", recordType: "Visitor Entry", recordId: v.id, after: { passNo: v.passNo, told: to.length } });
   return { visitor: v, told: to.length };

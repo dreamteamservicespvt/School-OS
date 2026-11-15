@@ -31,7 +31,7 @@ export function Stats({ items, className }: { items: StatItem[]; className?: str
               {m.sub && <p className="text-[12px] text-ink3 line-clamp-2">{tx(m.sub)}</p>}
             </>
           );
-          const cls = cx("block bg-surface text-left px-4 md:px-5 py-3.5 min-w-0", m.href && "hover:bg-sunken/60 transition", n === 5 && i === 4 && "col-span-2 xl:col-span-1", n === 3 && i === 2 && "col-span-2 md:col-span-1");
+          const cls = cx("block bg-surface text-left px-4 md:px-5 py-3.5 min-w-0", m.href && "hover:bg-sunken/60 active:bg-sunken transition", n === 5 && i === 4 && "col-span-2 xl:col-span-1", n === 3 && i === 2 && "col-span-2 md:col-span-1");
           return m.href ? <Link key={m.label} href={m.href} className={cls}>{body}</Link> : <div key={m.label} className={cls}>{body}</div>;
         })}
       </div>
@@ -64,7 +64,7 @@ export function Band({ items, className }: { items: BandItem[]; className?: stri
               {m.foot && <p className="text-[12px] md:text-[13px] opacity-90 mt-0.5 line-clamp-2">{tx(m.foot)}</p>}
             </>
           );
-          const cls = cx("block text-left p-4 md:p-6 min-w-0 border-white/15", m.href && "hover:bg-white/[.07] transition", BAND_CELL[n][i]);
+          const cls = cx("block text-left p-4 md:p-6 min-w-0 border-white/15", m.href && "hover:bg-white/[.07] active:bg-white/[.12] transition", BAND_CELL[n][i]);
           return m.href ? <Link key={m.label} href={m.href} className={cls}>{body}</Link> : <div key={m.label} className={cls}>{body}</div>;
         })}
       </div>

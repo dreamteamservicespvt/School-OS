@@ -13,6 +13,7 @@ import { handlerFor } from "./people";
 import { messageVisitor, sentWords } from "./notify";
 import { todayIso } from "./time";
 import { mobileDigits, phoneProblem } from "./words";
+import { word } from "../notification-words";
 
 /* ---------- Front-office notes ---------- */
 
@@ -127,7 +128,7 @@ export async function addWalkIn(tx: Tx, ctx: SchoolContext, input: WalkInInput, 
     });
     taskId = task.id;
     await writeAudit(tx, ctx, { action: "created", recordType: "Task", recordId: task.id, after: { title: task.title, assignedToId: handler.loginId, from: "walk-in request" } });
-    await notify(tx, ctx, { to: handler.loginId, type: "task", text: `Walk-in request ${requestNo} for ${input.department}: ${request}`, link: `/dashboard/tasks?task=${task.id}` }, now);
+    await notify(tx, ctx, { to: handler.loginId, type: "task", key: "Walk-in request {number} for {department}: {request}", values: { number: requestNo, department: word(input.department), request }, link: `/dashboard/tasks?task=${task.id}` }, now);
   }
   const r = await tx.walkInRequest.create({
     data: { schoolId: ctx.schoolId, requestNo, fromName, fromPhone: phone, guardianId: input.guardianId, studentId, about, request, department: input.department, note, givenBy: input.givenBy, taskId, handlerLoginId: handler?.loginId ?? null, createdById: ctx.userId },

@@ -383,7 +383,7 @@ export async function sendDueSchedules(tx: Tx, ctx: SchoolContext, now = new Dat
   for (const s of due) {
     const r = await sendSchedule(tx, ctx, s.id, now, s.nextAt.toISOString().slice(0, 16));
     if (r.problems.length) {
-      await notify(tx, { schoolId: ctx.schoolId, userId: null }, { to: s.createdById, type: "report-schedule-problem", text: `${s.reportName}: not sent to everyone. ${r.problems.join("; ")}`.slice(0, 480), link: `${BASE}/custom` });
+      await notify(tx, { schoolId: ctx.schoolId, userId: null }, { to: s.createdById, type: "report-schedule-problem", key: "{report}: not sent to everyone. {problems}", values: { report: s.reportName, problems: r.problems.join("; ").slice(0, 400) }, link: `${BASE}/custom` });
     }
   }
   return due.length;

@@ -97,7 +97,9 @@ export function landingFor(current: Pick<Current, "permissions" | "roles" | "use
   const out: Record<string, string> = {};
   const fo = foLanding(foViewer(current));
   if (fo && fo !== "/front-office") out["front-office"] = fo;
-  // The School Admin and the Principal open Fee Management on the Fee Dashboard, its first tab, not Collect Fee (layman loop 5).
+  // Owner decision 18 (15 Nov 2026): the School Admin and the Principal open Fee Management on the Fee Dashboard;
+  // everyone else (the Accountant first) on its own address, Collect Fee. That page sends a person who does not
+  // collect on to the Fee Dashboard itself (src/app/(school)/fee-management/page.tsx).
   if (current.roles.some((r) => r.key === "principal" || r.key === "school-admin") && feePageAllowedFor(current, "dashboard")) out["fee-management"] = "/fee-management/dashboard";
   return out;
 }

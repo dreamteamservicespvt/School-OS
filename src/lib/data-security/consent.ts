@@ -17,25 +17,119 @@ export const CONSENT_TYPES = [
 
 export const LANGUAGE_NAMES: Record<string, string> = { en: "English", hi: "Hindi", te: "Telugu", ta: "Tamil", kn: "Kannada", ml: "Malayalam", mr: "Marathi", bn: "Bengali" };
 
-/** Ready texts the school starts from (inferred). */
-export const READY_TEXTS: Record<string, { title: string; en: string }> = {
+/**
+ * Translations of the ready texts (owner decision 10, 15 November 2026). Each one starts as a
+ * draft: it is shown only to school staff in Settings, never put into a school's consent form
+ * and never shown to parents, until the owner reads it (docs/qa/consent-drafts.md) and its
+ * status is changed to "approved" here.
+ */
+export const DRAFT_STATUS = "draft-needs-owner-approval" as const;
+export type ReadyTranslationStatus = typeof DRAFT_STATUS | "approved";
+export type ReadyTranslation = { title: string; text: string; status: ReadyTranslationStatus };
+export const READY_LANGUAGES = ["hi", "te"] as const;
+export type ReadyLanguage = (typeof READY_LANGUAGES)[number];
+export type ReadyText = { title: string; en: string; translations: Partial<Record<ReadyLanguage, ReadyTranslation>> };
+
+/** Ready texts the school starts from (inferred), with their Hindi and Telugu translations. */
+export const READY_TEXTS: Record<string, ReadyText> = {
   "data-processing": {
     title: "Use of my child's data",
     en: "I agree that {school} may keep and use my child's details (name, date of birth, class, attendance, marks, fees, health notes I give, and my contact details) to run the school: admission, teaching, exams, fees, transport, safety and messages to me. The details are kept safely in India, are seen only by school staff who need them, and are never sold or used for advertising. I can ask to see, correct or remove them, and I can withdraw this consent at any time by telling the school office.",
+    translations: {
+      hi: {
+        status: DRAFT_STATUS,
+        title: "मेरे बच्चे की जानकारी का इस्तेमाल",
+        text: "मेरी सहमति है कि {school} मेरे बच्चे की जानकारी (नाम, जन्म तिथि, कक्षा, हाज़िरी, अंक, फ़ीस, सेहत के बारे में मेरी दी हुई जानकारी, और मेरे संपर्क की जानकारी) स्कूल चलाने के लिए रख सकता है और इस्तेमाल कर सकता है: दाख़िला, पढ़ाई, परीक्षा, फ़ीस, ट्रांसपोर्ट, सुरक्षा और मुझे संदेश भेजना। यह जानकारी भारत में सुरक्षित रखी जाती है, इसे स्कूल के केवल वही कर्मचारी देखते हैं जिन्हें इसकी ज़रूरत है, और इसे न कभी बेचा जाता है, न विज्ञापन के लिए इस्तेमाल किया जाता है। मैं यह जानकारी देखने, ठीक करवाने या हटवाने के लिए कह सकता/सकती हूँ, और स्कूल ऑफ़िस को बताकर यह सहमति कभी भी वापस ले सकता/सकती हूँ।",
+      },
+      te: {
+        status: DRAFT_STATUS,
+        title: "నా పిల్లల వివరాల వాడకం",
+        text: "నా పిల్లల వివరాలను (పేరు, పుట్టిన తేదీ, తరగతి, హాజరు, మార్కులు, ఫీజులు, నేను ఇచ్చే ఆరోగ్య వివరాలు, నా కాంటాక్ట్ వివరాలు) {school} ఉంచుకుని, స్కూల్ నడపడానికి వాడుకోవచ్చని నేను అంగీకరిస్తున్నాను: అడ్మిషన్, పాఠాలు, పరీక్షలు, ఫీజులు, ట్రాన్స్‌పోర్ట్, భద్రత, నాకు మెసేజ్‌లు పంపడం. ఈ వివరాలను భారతదేశంలో భద్రంగా ఉంచుతారు, అవసరమైన స్కూల్ సిబ్బంది మాత్రమే వాటిని చూస్తారు, వాటిని ఎప్పుడూ అమ్మరు, ప్రకటనల కోసం వాడరు. వాటిని చూపించమని, సరిచేయమని లేదా తీసివేయమని నేను అడగవచ్చు; స్కూల్ ఆఫీసుకు చెప్పి ఈ అంగీకారాన్ని ఎప్పుడైనా వెనక్కి తీసుకోవచ్చు.",
+      },
+    },
   },
   photo: {
     title: "Photos of my child",
     en: "I agree that {school} may show photos and videos in which my child appears in the school gallery, in notices to parents and on the school's social media pages. I can withdraw this consent at any time; after that my child's photos will not be shared.",
+    translations: {
+      hi: {
+        status: DRAFT_STATUS,
+        title: "मेरे बच्चे की फ़ोटो",
+        text: "मेरी सहमति है कि {school} ऐसी फ़ोटो और वीडियो, जिनमें मेरा बच्चा दिखता है, स्कूल की गैलरी में, अभिभावकों को भेजे जाने वाले नोटिस में और स्कूल के सोशल मीडिया पेजों पर दिखा सकता है। मैं यह सहमति कभी भी वापस ले सकता/सकती हूँ; उसके बाद मेरे बच्चे की फ़ोटो शेयर नहीं की जाएँगी।",
+      },
+      te: {
+        status: DRAFT_STATUS,
+        title: "నా పిల్లల ఫోటోలు",
+        text: "నా పిల్లలు కనిపించే ఫోటోలు, వీడియోలను {school} స్కూల్ గ్యాలరీలో, తల్లిదండ్రులకు పంపే నోటీసుల్లో, స్కూల్ సోషల్ మీడియా పేజీల్లో చూపించవచ్చని నేను అంగీకరిస్తున్నాను. ఈ అంగీకారాన్ని నేను ఎప్పుడైనా వెనక్కి తీసుకోవచ్చు; ఆ తర్వాత నా పిల్లల ఫోటోలను షేర్ చేయరు.",
+      },
+    },
   },
   apaar: {
     title: "APAAR ID",
     en: "As the parent or guardian of my child, who is a minor, I agree that {school} may create or link my child's APAAR ID (Automated Permanent Academic Account Registry) and share the details the government asks for, only for that purpose.",
+    translations: {
+      hi: {
+        status: DRAFT_STATUS,
+        title: "APAAR ID",
+        text: "अपने नाबालिग बच्चे के माता-पिता या अभिभावक के रूप में, मेरी सहमति है कि {school} मेरे बच्चे की APAAR ID (Automated Permanent Academic Account Registry) बना या लिंक कर सकता है, और सरकार जो जानकारी माँगती है, वह केवल इसी काम के लिए साझा कर सकता है।",
+      },
+      te: {
+        status: DRAFT_STATUS,
+        title: "APAAR ID",
+        text: "మైనర్ అయిన నా పిల్లల తల్లిదండ్రులు లేదా సంరక్షకులుగా, {school} నా పిల్లల APAAR ID (Automated Permanent Academic Account Registry) తయారు చేయడానికి లేదా లింక్ చేయడానికి, ప్రభుత్వం అడిగే వివరాలను ఆ పని కోసం మాత్రమే పంచుకోవడానికి నేను అంగీకరిస్తున్నాను.",
+      },
+    },
   },
   "message-opt-in": {
     title: "Messages on WhatsApp and SMS",
     en: "I agree to receive school messages about my child (attendance, fees, notices and results) on WhatsApp and SMS at the number I have given.",
+    translations: {
+      hi: {
+        status: DRAFT_STATUS,
+        title: "WhatsApp और SMS पर संदेश",
+        text: "मेरी सहमति है कि मेरे दिए हुए नंबर पर मुझे WhatsApp और SMS से मेरे बच्चे के बारे में स्कूल के संदेश (हाज़िरी, फ़ीस, नोटिस और रिज़ल्ट) मिलें।",
+      },
+      te: {
+        status: DRAFT_STATUS,
+        title: "WhatsApp, SMS లో మెసేజ్‌లు",
+        text: "నేను ఇచ్చిన నంబర్‌కు WhatsApp, SMS లో నా పిల్లల గురించి స్కూల్ మెసేజ్‌లు (హాజరు, ఫీజులు, నోటీసులు, ఫలితాలు) రావడానికి నేను అంగీకరిస్తున్నాను.",
+      },
+    },
   },
 };
+
+const flat = (s: string) => s.replace(/\s+/g, " ").trim();
+
+/** True while the school's English text is the ready text word for word. */
+export function isReadyEnglish(consentType: string, schoolEnglish: string | undefined) {
+  const ready = READY_TEXTS[consentType]?.en;
+  return Boolean(ready && schoolEnglish && flat(schoolEnglish) === flat(ready));
+}
+
+/** The owner-approved ready translation of a type in a language; null for a draft or none. */
+export function approvedReadyTranslation(consentType: string, lang: string): { title: string; text: string } | null {
+  const tr = READY_TEXTS[consentType]?.translations[lang as ReadyLanguage];
+  return tr && tr.status === "approved" ? { title: tr.title, text: tr.text } : null;
+}
+
+/**
+ * The approved translation to show a parent for a school's saved text, only while the school's
+ * English is still the ready text word for word (a translation of the ready text would not
+ * match wording the school changed). Null for every draft.
+ */
+export function approvedReadyWording(consentType: string, schoolEnglish: string | undefined, lang: string) {
+  return isReadyEnglish(consentType, schoolEnglish) ? approvedReadyTranslation(consentType, lang) : null;
+}
+
+/** Ready translations still waiting for the owner's approval, for school staff to read in Settings. */
+export function readyTranslationDrafts(consentType: string) {
+  const ready = READY_TEXTS[consentType];
+  if (!ready) return [];
+  return READY_LANGUAGES.flatMap((lang) => {
+    const tr = ready.translations[lang];
+    return tr && tr.status === DRAFT_STATUS ? [{ lang, name: LANGUAGE_NAMES[lang], title: tr.title, text: tr.text }] : [];
+  });
+}
 
 export class ConsentProblem extends Error {
   constructor(message: string, readonly field?: string) {

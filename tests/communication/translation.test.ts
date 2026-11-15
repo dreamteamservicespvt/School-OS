@@ -42,8 +42,8 @@ vi.mock("@/lib/messaging/sms-offered", () => ({ SMS_OFFERED: true, offeredChanne
 
 type School = Awaited<ReturnType<typeof makeCommSchool>>;
 let s: School;
-let hindiFather: { id: string; name: string; phone: string };
-let teluguFather: { id: string; name: string; phone: string };
+let hindiFather: { id: string; name: string; phone: string | null };
+let teluguFather: { id: string; name: string; phone: string | null };
 
 const USAGE = { inputTokens: 300, outputTokens: 200, cacheReadTokens: 0, cacheWriteTokens: 0 };
 const TE = "ప్రియమైన తల్లిదండ్రులారా, {student_name} రేపు పాఠశాల 12 గంటలకు మూసివేయబడుతుంది.";

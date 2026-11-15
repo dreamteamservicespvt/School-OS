@@ -50,6 +50,7 @@ import { BASE, type ReportAccess } from "./access";
 import { attendanceFlagRows, coveredStudents, joinAttendanceFlags, JOINED, riskRow, type BaseRow } from "./attendance-rows";
 import { belowThresholdStrength, closerLook, FAILS_FOR_ACT_NOW, marksStrength, withTwoAreas } from "./strength";
 import type { ReportViewer } from "./types";
+import { word } from "../notification-words";
 
 export const WARNINGS_HREF = `${BASE}/early-warnings`;
 
@@ -292,7 +293,7 @@ export async function refreshFlags(tx: Tx, ctx: SchoolContext, now = new Date())
     for (const x of newActNow) {
       const teacher = staff.find((t) => t.id === sections.find((s) => s.id === x.sectionId)?.classTeacherId)?.userLoginId;
       if (!teacher) continue;
-      await notify(tx, { schoolId: ctx.schoolId, userId: null }, { to: teacher, type: "early-warning", text: `Act now: ${names.get(x.studentId) ?? "A student"}. ${x.reason.split("\n")[0]}. Please review.`, link: `${WARNINGS_HREF}?open=${x.flagId}`, groupKey: "early-warning", mergedText: (n) => `${n} new Act now flags for your students. Please review.` });
+      await notify(tx, { schoolId: ctx.schoolId, userId: null }, { to: teacher, type: "early-warning", key: "Act now: {name}. {reason}. Please review.", values: { name: names.get(x.studentId) ?? word("A student"), reason: word(x.reason.split("\n")[0]) }, link: `${WARNINGS_HREF}?open=${x.flagId}`, groupKey: "early-warning", mergedKey: "{n} new Act now flags for your students. Please review." });
     }
   }
   await tx.earlyWarningSetting.update({ where: { schoolId: ctx.schoolId }, data: { lastRefreshAt: now } });

@@ -95,7 +95,12 @@ async function afterReset(userLoginId: string, now: Date, device: { userAgent?: 
       const zone = await tx.school.findUnique({ where: { id: school.id }, select: { timeZone: true } });
       return securityAlert(tx, school.id, userLoginId, {
         subject: "Your School OS password was changed",
-        text: `Your School OS password was changed on ${formatDateTime(now, zone?.timeZone)}${others > 0 ? ` and ${others} other device${others === 1 ? " was" : "s were"} signed out` : ""}. Not you? Tell your School Admin or DREAM TEAM support at once.`,
+        key: others === 0
+          ? "Your School OS password was changed on {when}. Not you? Tell your School Admin or DREAM TEAM support at once."
+          : others === 1
+            ? "Your School OS password was changed on {when} and 1 other device was signed out. Not you? Tell your School Admin or DREAM TEAM support at once."
+            : "Your School OS password was changed on {when} and {n} other devices were signed out. Not you? Tell your School Admin or DREAM TEAM support at once.",
+        values: { when: formatDateTime(now, zone?.timeZone), n: others },
         link: "/profile#password",
       });
     });

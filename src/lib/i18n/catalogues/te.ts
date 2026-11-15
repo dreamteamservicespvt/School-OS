@@ -16378,4 +16378,6 @@ export const te: Catalogue = {
   "Optional by school policy": "స్కూల్ నియమం ప్రకారం ఐచ్ఛికం",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "Students and staff, by name": "విద్యార్థులు, సిబ్బంది, పేర్లతో",
+  // Attendance calendar legend: a school holiday, apart from a student's leave.
+  "School closed": "స్కూల్ సెలవు",
 };

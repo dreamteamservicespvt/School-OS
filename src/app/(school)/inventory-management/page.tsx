@@ -146,7 +146,7 @@ export default async function IssueStockPage({ searchParams }: { searchParams: S
   if (!desk || !d.form) {
     return (
       <>
-        <InvHead pageName="Issue Stock" href={BASE} mode={p.mode} actions={can.remind ? <ActButton action={remindStoreAction} fields={{ what: "low" }} label={t("Remind store keeper")} icon="bell" size="md" /> : undefined} />
+        <InvHead pageName="Issue Stock" href={BASE} mode={can.remind ? "full" : p.mode} actions={can.remind ? <ActButton action={remindStoreAction} fields={{ what: "low" }} label={t("Remind store keeper")} icon="bell" size="md" /> : undefined} />
         <Stack>
           <Stats items={stats} />
           {list}

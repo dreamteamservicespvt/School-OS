@@ -42,6 +42,9 @@ export function MonthCalendar({ view, statuses, min, max, param = "month", today
   const s = view.summary;
   const used = new Set(view.cells.map((c) => c.statusKey).filter(Boolean));
   const legend = statuses.filter((x) => ["present", "absent", "late", "leave"].includes(x.key) || used.has(x.key));
+  // A student's leave reads "On leave", so it is never mixed up with a school holiday ("School closed").
+  const statusName = (x: CalStatus) => (x.key === "leave" && x.name === "Leave" ? t("On leave") : t.any(x.name));
+  const unmarked = view.cells.some((c) => !c.off && !c.future && !c.statusKey);
   return (
     <div className="flex flex-col gap-3">
       <MonthSelect value={view.month} min={min} max={max} param={param} />
@@ -58,7 +61,7 @@ export function MonthCalendar({ view, statuses, min, max, param = "month", today
         {view.cells.map((c) => {
           const st = c.statusKey ? byKey.get(c.statusKey) : undefined;
           const holiday = c.off && c.off !== "Sunday";
-          const title = c.off ? t.any(c.off) : c.future ? "" : st ? t.any(st.name) : t("Not marked");
+          const title = c.off ? t.any(c.off) : c.future ? "" : st ? statusName(st) : t("Not marked");
           const cls = c.off ? (holiday ? "bg-info/10 text-info" : "text-ink3") : c.future ? "text-ink3" : st ? calendarCell(st) : "border border-dashed border-line text-ink3";
           return (
             <div key={c.date} role="gridcell" title={title} aria-label={`${c.day}: ${title || t("Not yet")}`}
@@ -70,8 +73,9 @@ export function MonthCalendar({ view, statuses, min, max, param = "month", today
         })}
       </div>
       <ul aria-label={t("Colour legend")} className="flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-ink2">
-        {legend.map((x) => <li key={x.key} className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("min-w-4 h-4 px-0.5 rounded grid place-items-center text-[9px] font-bold", calendarCell(x))}>{x.letter}</span>{t.any(x.name)}</li>)}
-        {view.cells.some((c) => c.off && c.off !== "Sunday") && <li className="flex items-center gap-1.5"><span aria-hidden="true" className="w-4 h-4 rounded grid place-items-center text-[9px] font-bold bg-info/10 text-info">H</span>{t("Holiday")}</li>}
+        {legend.map((x) => <li key={x.key} className="flex items-center gap-1.5"><span aria-hidden="true" className={cx("min-w-4 h-4 px-0.5 rounded grid place-items-center text-[9px] font-bold", calendarCell(x))}>{x.letter}</span>{statusName(x)}</li>)}
+        {view.cells.some((c) => c.off && c.off !== "Sunday") && <li className="flex items-center gap-1.5"><span aria-hidden="true" className="w-4 h-4 rounded grid place-items-center text-[9px] font-bold bg-info/10 text-info">H</span>{t("School closed")}</li>}
+        {unmarked && <li className="flex items-center gap-1.5"><span aria-hidden="true" className="w-4 h-4 rounded border border-dashed border-line" />{t("Not marked yet")}</li>}
       </ul>
       {note}
     </div>

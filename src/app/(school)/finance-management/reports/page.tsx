@@ -133,10 +133,10 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
                   <CardHeader title="Money in and money out" description="By month (₹ lakh)" icon={ChartColumn} />
                   <div className="px-3 pb-2">
                     {/* Income and expenses side by side in two colours: an expense bar drawn behind income was hidden (loop 4). */}
-                    <Bars data={[...months.entries()].flatMap(([k, m]) => {
-                      const tip = `${k}: ${cellText(m.inc, "money")} in, ${cellText(m.exp, "money")} out`;
-                      return [{ k: k.split(" ")[0].slice(0, 3), v: lakh(m.inc), tip }, { k: "", v: lakh(m.exp), tone: "warn" as const, tip }];
-                    })}
+                    <Bars pair data={[...months.entries()].map(([k, m]) => ({
+                      k: k.split(" ")[0].slice(0, 3), v: lakh(m.inc), v2: lakh(m.exp), tone2: "warn" as const,
+                      tip: `${k}: ${cellText(m.inc, "money")} in, ${cellText(m.exp, "money")} out`,
+                    }))}
                       max={ticks[3] * 1.15} ticks={ticks} ariaLabel="Income and expenses by month" />
                   </div>
                   <div className="px-5 pb-4 flex items-center gap-4 flex-wrap"><Legend items={[["bg-brand", "Income"], ["bg-warn", "Expenses"]]} /></div>

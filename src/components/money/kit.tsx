@@ -115,16 +115,17 @@ export function Progress({ value, tone = "brand", className }: { value: number; 
   return <span className={cx("block h-1.5 rounded-full bg-sunken overflow-hidden", className)} aria-hidden="true"><span className={cx("block h-full rounded-full transition-all duration-700", c)} style={{ width: `${v}%` }} /></span>;
 }
 
-/** Horizontal bars with a label and a value, like "Overdue by class". */
-export function HBars({ rows, labelWidth = 72, valueWidth = 92 }: { rows: { key: string; label: string; value: number; text: React.ReactNode; href?: string; active?: boolean; tone?: "brand" | "warn" | "bad" | "ok" }[]; labelWidth?: number; valueWidth?: number }) {
-  const max = Math.max(1, ...rows.map((r) => r.value));
+/** Horizontal bars with a label and a value, like "Overdue by class".
+ *  `max` sets the full-bar value, so two lists side by side can share one scale (default: the largest row here). */
+export function HBars({ rows, max: maxIn, labelWidth = 72, valueWidth = 92 }: { rows: { key: string; label: string; value: number; text: React.ReactNode; href?: string; active?: boolean; tone?: "brand" | "warn" | "bad" | "ok" }[]; max?: number; labelWidth?: number; valueWidth?: number }) {
+  const max = maxIn && maxIn > 0 ? maxIn : Math.max(1, ...rows.map((r) => r.value));
   return (
     <ul className="flex flex-col gap-2.5">
       {rows.map((r) => {
         const inner = (
           <>
             <span className="text-ink2 font-medium truncate">{tx(r.label)}</span>
-            <span className="relative h-3 rounded-full bg-sunken overflow-hidden"><span className={cx("absolute inset-y-0 left-0 rounded-full", r.tone === "warn" ? "bg-warn" : r.tone === "bad" ? "bg-bad" : r.tone === "ok" ? "bg-ok" : "bg-brand")} style={{ width: `${(r.value / max) * 100}%` }} /></span>
+            <span className="relative h-3 rounded-full bg-sunken overflow-hidden"><span className={cx("absolute inset-y-0 left-0 rounded-full", r.tone === "warn" ? "bg-warn" : r.tone === "bad" ? "bg-bad" : r.tone === "ok" ? "bg-ok" : "bg-brand")} style={{ width: `${Math.min(100, Math.max(0, (r.value / max) * 100))}%` }} /></span>
             <span className="text-right font-semibold tnum">{r.text}</span>
           </>
         );

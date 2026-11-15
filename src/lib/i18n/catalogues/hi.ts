@@ -16378,4 +16378,6 @@ export const hi: Catalogue = {
   "Optional by school policy": "स्कूल के नियम से ज़रूरी नहीं",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "Students and staff, by name": "छात्र और स्टाफ़, नाम के साथ",
+  // Attendance calendar legend: a school holiday, apart from a student's leave.
+  "School closed": "स्कूल बंद",
 };

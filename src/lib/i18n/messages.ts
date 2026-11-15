@@ -49,6 +49,10 @@ const PATTERNS: [RegExp, (t: T, m: RegExpExecArray) => string][] = [
   // An enquiry's history line "Enquiry added. Source: Walk-in. Owner: Divya Menon." (each sentence alone).
   [/^Source: (.+)\.$/, (t, m) => t("Source: {source}.", { source: t.any(m[1]) })],
   [/^Owner: (.+)\.$/, (t, m) => t("Owner: {name}.", { name: m[1] })],
+  // Parent messages card (src/lib/dashboard/widgets/communication.ts) and the Analytics Students tile.
+  [/^Parent messages: (\d[\d,]*) open$/, (t, m) => t("Parent messages: {n} open", { n: m[1] })],
+  [/^(\d[\d,]*) past the reply time$/, (t, m) => t("{n} past the reply time", { n: m[1] })],
+  [/^(\d[\d,]*) not in a class yet$/, (t, m) => t("{n} not in a class yet", { n: m[1] })],
 ];
 
 const TESTER = " (On this tester's computer the code is in the server log.)";
@@ -80,5 +84,5 @@ export function screenLine(t: T, text: string | null | undefined): string | unde
   const whole = screenMessage(t, text);
   if (whole !== text) return whole;
   const part = (p: string) => dayWords(t, screenMessage(t, p));
-  return text.split(" · ").map((p) => (p.includes(". ") ? p.split(/(?<=\.) /).map(part).join(" ") : part(p))).join(" · ");
+  return text.split(" · ").map((p) => (p.includes(". ") ? p.replace(/\. /g, ".\u0000").split("\u0000").map(part).join(" ") : part(p))).join(" · ");
 }

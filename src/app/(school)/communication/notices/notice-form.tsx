@@ -245,7 +245,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label htmlFor="n-publishAt" className="mb-1.5 block text-[13px] font-semibold text-ink2"><Words k="Publish at" /></label>
-            <DateTimeInput id="n-publishAt" name="publishAt" defaultValue={v.publishAt} className="h-11 w-full rounded-lg border border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none bg-surface px-3" />
+            <DateTimeInput id="n-publishAt" name="publishAt" defaultValue={v.publishAt} timePlaceholder="Now" className="h-11 w-full rounded-lg border border-line hover:border-ink3/50 focus:border-brand focus:ring-4 focus:ring-brand/15 outline-none bg-surface px-3" />
             <p className="mt-1.5 text-[12.5px] text-ink3"><Words k="Blank: now." /></p>
             {err("publishAt") && <p className="text-sm text-bad">{err("publishAt")}</p>}
           </div>

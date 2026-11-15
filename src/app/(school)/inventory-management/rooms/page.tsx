@@ -128,7 +128,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
 
   return (
     <>
-      <InvHead pageName="Rooms, Labs & Maintenance" href={`${BASE}/rooms`} mode={p.mode} actions={actions} />
+      <InvHead pageName="Rooms, Labs & Maintenance" href={`${BASE}/rooms`} mode={can.rooms || (can.remind && openTotal > 0) ? "full" : p.mode} actions={actions} />
       <Stack>
         <Stats items={stats} />
         <SegLinks label="Rooms views" value={tab} options={[

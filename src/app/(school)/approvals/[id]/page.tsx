@@ -29,6 +29,16 @@ export async function generateMetadata(): Promise<Metadata> {
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
+/** Some requests carry a line School OS wrote, not a reason the person typed (salary run, stock audit, purchase order lines, a payment's reference, a Razorpay refund). */
+function reasonLabel(a: { type: string; recordType: string | null; reason: string | null }): "Reason given" | "Note" | "Differences" | "Items" | "Reference" {
+  if (a.type === "payroll") return "Note";
+  if (a.type === "stock-audit") return "Differences";
+  if (a.type === "purchase" && a.recordType === "Purchase Order") return "Items";
+  if (a.type === "payment-verification") return "Reference";
+  if (a.type === "payment-cancellation" && /^(Disputed at the parent's bank|Refunded at Razorpay)/.test(a.reason ?? "")) return "Note";
+  return "Reason given";
+}
+
 export default async function ApprovalPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams?: Promise<Record<string, string | string[] | undefined>> }) {
   const current = await requireCurrent();
   const { id } = await params;
@@ -122,7 +132,7 @@ export default async function ApprovalPage({ params, searchParams }: { params: P
               {step && <Detail label="Step">{open && a.step >= steps ? <Words k="Last approval needed" /> : step}</Detail>}
               {facts.map((f) => <Detail key={f.label} label={f.label}>{f.value}</Detail>)}
             </dl>
-            {a.reason && <div className="mt-4 rounded-xl bg-sunken/60 px-4 py-3"><p className="text-[12.5px] text-ink3"><Words k="Reason given" /></p><p className="whitespace-pre-line text-[14.5px] mt-0.5">{shownReason(a.reason)}</p></div>}
+            {a.reason && <div className="mt-4 rounded-xl bg-sunken/60 px-4 py-3"><p className="text-[12.5px] text-ink3"><Words k={reasonLabel(a)} /></p><p className="whitespace-pre-line text-[14.5px] mt-0.5">{shownReason(a.reason)}</p></div>}
             {record && <p className="mt-4"><Link href={record.href} className="inline-flex min-h-11 items-center gap-1.5 font-semibold text-brand hover:underline"><I.ExternalLink size={16} aria-hidden="true" />{record.label}</Link></p>}
           </CardBody>
         </Card>

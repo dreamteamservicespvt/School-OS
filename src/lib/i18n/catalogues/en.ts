@@ -16934,6 +16934,8 @@ export const EN = [
   "Optional by school policy",
   // Layman loop 15 Nov: shorter words (less-text pass).
   "Students and staff, by name",
+  // Attendance calendar legend: a school holiday, apart from a student's leave.
+  "School closed",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

@@ -122,7 +122,10 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     return { manager, campus, exit, printed, login, onLeave, balances, periods, classCount, classTeacher, todayBox };
   });
 
-  const first = s.firstName || s.fullName.split(/\s+/)[0];
+  // The name for greetings and buttons: skip a first word with no letters (an emoji or digits).
+  const hasLetter = (w: string) => /\p{L}/u.test(w);
+  const lettered = (name: string | null | undefined) => { const w = (name ?? "").trim().split(/\s+/); const i = w.findIndex(hasLetter); return i < 0 ? "" : w.slice(i).join(" "); };
+  const first = lettered(s.firstName) || lettered(s.fullName).split(" ")[0] || s.fullName;
   const limited = head.balances.filter((b) => b.limited);
   const mainLeave = limited.find((b) => /casual/i.test(b.type.name)) ?? limited[0];
   const docsNeed = s.documents.filter((d) => docStatus(d, today) !== "Valid").length;

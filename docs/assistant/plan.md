@@ -1,7 +1,7 @@
 # School OS Assistant: plan
 
 Status: steps 1 and 2 (research and plan). No app code yet. Made 15-11-2026.
-Look choices: `docs/assistant/avatar-choices.html`. **Owner, 15 Nov: none of A, B or C. They want a real-time character: a lifelike person who talks (lips move with the voice), blinks, looks at the user and reacts.** Next look round: real-time human characters (see section 4).
+Look choices: `docs/assistant/avatar-choices.html`. **Owner, 15 Nov: none of A, B or C. They want a real-time character: a lifelike person who talks (lips move with the voice), blinks, looks at the user and reacts.** Next look round: real-time human characters (see section 4). Prototype 15 Nov: `docs/assistant/avatar-3d.html` (Meera and Arjun, three.js shapes, 7 feelings), shared at https://claude.ai/artifact/FBX1KtUHpcSzeKU4c5niuP; waiting for the owner's view.
 
 ## 1. The experience
 

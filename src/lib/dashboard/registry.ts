@@ -53,7 +53,8 @@ const setupAttention: Widget<"attention"> = {
   homes: ["leader"],
   allowed: (v) => reach(v, "settings", "edit") === "all",
   async load(c) {
-    const steps = await setupSteps(c.tx, c.viewer.ctx, c.viewer);
+    // The page may have worked it out already (the same school-wide counts); else read it here.
+    const steps = await (c.setup ?? setupSteps(c.tx, c.viewer.ctx, c.viewer));
     const p = setupProgress(steps);
     if (p.complete) return null;
     return {

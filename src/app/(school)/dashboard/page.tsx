@@ -8,7 +8,6 @@ import { reachFor } from "@/lib/permissions";
 import { withSchool } from "@/lib/db";
 import { quickActionsFor } from "@/lib/shell-data";
 import { buildHome } from "@/lib/dashboard/compose";
-import { assignable, taskAccess } from "@/lib/dashboard/tasks";
 import { setupProgress, setupSteps } from "@/lib/dashboard/setup";
 import { moduleOpen, reach } from "@/lib/dashboard/common";
 import { todayFor } from "@/lib/periods";
@@ -53,19 +52,18 @@ export default async function DashboardPage({ searchParams }: Search) {
   // It is read alongside the page rather than before it (QA PLATFORM-13).
   const setupFirst = sp.view !== "dashboard" && moduleOpen(current, "settings") && reach(current, "settings", "edit") === "all";
   const setup = setupFirst ? withSchool(current.ctx, (tx) => setupSteps(tx, current.ctx, current)) : null;
-  const access = taskAccess(current);
   // The filters (01 §2 Controls): a campus within the person's limit, and a past day; the cards and their links follow them.
   const { filters, campuses, years, classes } = await withSchool(current.ctx, (tx) => readDashFilters(tx, current.ctx, current, sp, todayFor(tz, now)));
-  const page = Promise.all([
-    buildHome(current, { now, filters }),
-    withSchool(current.ctx, (tx) => assignable(tx, { ctx: current.ctx, access })),
-  ]);
+  // The Setup card uses the checklist read above rather than reading it again; the people a task can be
+  // given to are read in the Dashboard's own transactions (one connection fewer per page).
+  const page = buildHome(current, { now, filters, setup, people: true });
   page.catch(() => {}); // Awaited below; a school sent to setup never needs it.
   if (setup) {
     const p = setupProgress(await setup);
     if (!p.complete && p.done * 2 < p.total) redirect("/dashboard/setup");
   }
-  const [home, people] = await page;
+  const home = await page;
+  const people = home.people ?? [];
   // Layman loop 2 (15 Nov): no "Take attendance" on a day with no school. The big button that repeated the first
   // shortcut is gone: the shortcuts (or the Quick actions card) already carry it.
   const quick = quickActionsFor(current, home.approvals !== null).filter((q) => !(home.dayOff && q.href === "/attendance-management"));

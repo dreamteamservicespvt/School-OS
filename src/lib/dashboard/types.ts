@@ -4,6 +4,7 @@
 import type { ModuleKey } from "../modules";
 import type { Current } from "../current";
 import type { Tx } from "../db";
+import type { StepState } from "./setup";
 
 /** The parts of the signed-in person the Dashboard needs. Current satisfies it; tests build it from accessIn(). */
 export type Viewer = Pick<Current, "ctx" | "permissions" | "roles" | "modulesOn" | "features" | "school" | "scope" | "campusId"> & {
@@ -134,6 +135,8 @@ export type DashContext = {
    * (`today` is already moved to it), the first day of a range, the year (`year` and `yearIds` are already it) and the class.
    */
   filters: { campusId: string | null; date: Date | null; from?: Date | null; yearId?: string | null; classId?: string | null };
+  /** The setup checklist when the page already works it out (to send a new school to it), so the Setup card does not read it again. */
+  setup?: Promise<StepState[]>;
 };
 
 export type WidgetKind = "band" | "attention" | "agenda" | "birthdays" | "panel";

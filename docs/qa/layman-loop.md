@@ -55,6 +55,20 @@ Progress page: see docs/HANDOFF.md (link).
 18. Accountants still open Fee Management on Collect Fee (the 2nd tab); admin and principal now open the Fee Dashboard. Same for accountants?
 19. Staff with salary vs staff on roll: Salary pages count the payroll subset (42 on payroll, 32 with a structure) while Staff & HR says 43 on roll; next loop: the salary labels will say which subset.
 
+### Owner answers (15 Nov, in chat) — build these
+- 1 HR reset link for a Teacher: keep blocked (School Admin only).
+- 2 One-time code sign-in: always the same message ("If this number has a login, a code is on its way").
+- 3 Changing own mobile/email or switching off two-step: ask the password (or a code) first, and tell the old phone/email.
+- 4 Shared multi-school login two-step reset: console (DREAM TEAM) only; school admins see "ask support".
+- 7 Admissions pipeline: buttons only (no drag-and-drop).
+- 13 Side menu: short labels (Attendance, Fees, Students, Admissions, Exams, ...); page titles keep full names; Time Table findable in search; blueprint updated to match.
+- 15 Moving in: allow a parent without a phone; mark "Phone missing"; no Parent Link or messages until a phone is added.
+- 18 Accountant opens Fee Management on Collect Fee (admin and principal on the Fee Dashboard).
+- 16 Settings wording: "the School OS support team" instead of DREAM TEAM.
+- 14 Bell notifications in each reader's language: build it (kind + values, safe migration; old ones stay English).
+- 17 Parent Link footer: a per-school "WhatsApp number for parents" in School Profile; fallback the office mobile.
+- 10 Consent texts: draft Hindi and Telugu, marked draft, NOT shown to parents until the owner approves on Monday.
+
 ## Mindsets (one per round, then start over)
 
 1. Older office clerk, little English, scared of breaking something

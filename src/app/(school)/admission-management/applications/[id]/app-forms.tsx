@@ -63,10 +63,10 @@ export function AppActions({ id, name, applicationNo, parent, moves, canReview, 
 
       <FormSheet open={sheet === "move"} onClose={close} title={moveTo?.label ?? "Move"} sub={`${name} · ${applicationNo}`} action={moveAction} hidden={{ id, to: moveTo?.value ?? "" }}
         submitLabel={moveTo?.label ?? "Move"} submitIcon={moveTo ? MOVE_ICON[moveTo.value] ?? ChevronRight : null}>
-        {() => <p className="text-[14px] text-ink2"><Words k="The same checks as on each page apply. The move is kept in the application’s history." /></p>}
+        {() => <p className="text-[14px] text-ink2"><Words k="The move is kept in the history." /></p>}
       </FormSheet>
 
-      <FormSheet open={sheet === "withdraw"} onClose={close} title={`Withdraw ${name}’s application?`} sub="The parent is no longer interested. The application stays on record and its number is never reused."
+      <FormSheet open={sheet === "withdraw"} onClose={close} title={`Withdraw ${name}’s application?`} sub="It stays on record. Its number is never reused."
         action={withdrawAction} hidden={{ id }} submitLabel="Withdraw application" submitVariant="danger" submitIcon={Ban}>
         {(f) => <TextArea label="Reason" name="reason" required rows={2} maxLength={300} placeholder="Chose another school" defaultValue={f.val("reason")} error={f.err("reason")} />}
       </FormSheet>
@@ -83,7 +83,7 @@ export function AppActions({ id, name, applicationNo, parent, moves, canReview, 
                     <span className="flex-1"><b className="font-semibold text-[14px] block"><Words k="Send a Razorpay payment link" /></b><span className="text-[12.5px] text-ink3"><Words k="To +91" /> {fee.phone}<Words k=". UPI, card or net banking. The receipt is made only after Razorpay confirms." /></span></span>
                   </div>
                 ) : (
-                  <p className="text-[13px] text-ink3 rounded-xl bg-sunken px-3.5 py-3"><Words k="Online payment is not set up yet. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support. Then you can send links." /></p>
+                  <p className="text-[13px] text-ink3 rounded-xl bg-sunken px-3.5 py-3"><Words k="Online payment is not set up yet. Ask DREAM TEAM support to connect Razorpay." /></p>
                 )}
                 <button type="button" onClick={() => setSheet("counter")} className="flex items-center gap-3 rounded-xl border border-line p-3.5 text-left hover:bg-sunken/60 transition">
                   <span className="w-10 h-10 rounded-xl bg-sunken grid place-items-center shrink-0"><Banknote size={18} aria-hidden="true" /></span>
@@ -98,7 +98,7 @@ export function AppActions({ id, name, applicationNo, parent, moves, canReview, 
               <>
                 <TextField label="Amount (₹)" name="amount" required inputMode="decimal" defaultValue={f.val("amount", fee.amount.replace(/[^\d.]/g, ""))} error={f.err("amount")} className="tnum" />
                 <SelectField label="Paid by" name="mode" required options={fee.modes} defaultValue={f.val("mode", "cash")} error={f.err("mode")} />
-                <TextField label="Reference" name="reference" maxLength={80} defaultValue={f.val("reference")} error={f.err("reference")} help="UPI: the 12-digit number in the payment message on the parent's phone (called UTR or reference number). Cheque or card: its number. Leave empty for cash." onInput={upiOnly} />
+                <TextField label="Reference" name="reference" maxLength={80} defaultValue={f.val("reference")} error={f.err("reference")} help="UPI: the 12-digit UTR. Cheque or card: its number. Empty for cash." onInput={upiOnly} />
                 <p className="text-[13px] text-ink3"><Words k="Take the money first. Pressing the button makes the receipt at once." /></p>
               </>
             )}
@@ -118,7 +118,7 @@ export function ExceptionButton({ id }: { id: string }) {
   return (
     <>
       <Button size="sm" variant="ghost" onClick={() => setOpen(true)}><Words k="Admit with papers pending" /></Button>
-      <FormSheet open={open} onClose={() => setOpen(false)} title="Admit with papers pending" sub="The admission can be confirmed now. The missing papers stay on the list until they are verified." action={exceptionAction} hidden={{ id }} submitLabel="Allow admission before papers">
+      <FormSheet open={open} onClose={() => setOpen(false)} title="Admit with papers pending" sub="Missing papers stay on the list until verified." action={exceptionAction} hidden={{ id }} submitLabel="Allow admission before papers">
         {(f) => <TextArea label="Reason" name="reason" required rows={2} maxLength={300} placeholder="TC to come from the old school by 30-06" defaultValue={f.val("reason")} error={f.err("reason")} help="Kept in the history." />}
       </FormSheet>
     </>
@@ -131,7 +131,7 @@ export function ConsentButtons({ id, phone, texts, parent }: { id: string; phone
     <div className="flex flex-wrap gap-2">
       <ActionButton action={sendCodeAction} hidden={{ id }} icon={Send} variant="soft" busyLabel="Sending…"><Words k="Send code to" /> {phone}</ActionButton>
       <Button size="sm" variant="primary" icon={ShieldCheck} onClick={() => setOpen(true)}><Words k="Enter code" /></Button>
-      <FormSheet open={open} onClose={() => setOpen(false)} wide title="Consent on the application" sub="Read each text to the guardian, or let them read it. Tick only what they agree to." action={confirmConsentAction} hidden={{ id }} submitLabel="Record consent" submitIcon={ShieldCheck}>
+      <FormSheet open={open} onClose={() => setOpen(false)} wide title="Consent on the application" sub="Tick only what the guardian agrees to." action={confirmConsentAction} hidden={{ id }} submitLabel="Record consent" submitIcon={ShieldCheck}>
         {(f) => (
           <>
             {texts.map((t) => (
@@ -154,7 +154,7 @@ export function CancelPayment({ paymentId, receiptNo, reasons }: { paymentId: st
   return (
     <>
       <Button size="sm" variant="ghost" onClick={() => setOpen(true)}><Words k="Cancel" /></Button>
-      <FormSheet open={open} onClose={() => setOpen(false)} title={`Cancel receipt ${receiptNo ?? ""}`.trim()} sub="The payment and its receipt number stay on record, marked cancelled. The Day Book gets a reversal today." action={cancelPaymentAction} hidden={{ paymentId }} submitLabel="Cancel payment" submitVariant="danger">
+      <FormSheet open={open} onClose={() => setOpen(false)} title={`Cancel receipt ${receiptNo ?? ""}`.trim()} sub="The receipt stays on record as cancelled. The Day Book gets a reversal today." action={cancelPaymentAction} hidden={{ paymentId }} submitLabel="Cancel payment" submitVariant="danger">
         {(f) => (
           <>
             <SelectField label="Why" name="reason" required placeholder="Choose" options={reasons.map((r) => ({ value: r, label: r }))} defaultValue={f.val("reason")} error={f.err("reason")} />

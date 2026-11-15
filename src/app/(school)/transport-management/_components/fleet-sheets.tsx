@@ -113,7 +113,7 @@ export function DriverSheet({ closeHref, start, vendors }: { closeHref: string; 
       closeHref={closeHref} action={start ? editDriverAction : addDriverAction} submitLabel={start ? "Save" : role === "DRIVER" ? "Add driver" : "Add attendant"} pendingText="Saving…" hidden={start ? { driverId: start.id } : undefined}>
       <SegField name="role" label="Role" required start={role} onChange={setRole} options={DRIVER_ROLES} />
       <SText name="name" label="Full name" required start={start?.name} maxLength={80} autoComplete="off" />
-      <SText name="phone" label="Mobile number" required start={start?.phone} inputMode="tel" placeholder="98765 43210" help="Checked against staff, so one person is never added twice" />
+      <SText name="phone" label="Mobile number" required start={start?.phone} inputMode="tel" placeholder="98765 43210" />
       <SegField name="employment" label="Staff or hired" required start={emp} onChange={setEmp} options={[{ value: "STAFF", label: "On the staff" }, { value: "HIRED", label: "Hired" }]} />
       {emp === "HIRED" && <SSelect name="vendorId" label="Vendor" start={start?.vendorId ?? ""} options={[{ value: "", label: "Not from a vendor" }, ...vendors]} />}
       {role === "DRIVER" && (
@@ -237,7 +237,7 @@ function ShowKey({ value, school }: { value: string; school: { address: string; 
         <Button icon={Copy} onClick={async () => { try { await navigator.clipboard.writeText(value); setCopied("yes"); } catch { setCopied("no"); } }}>{copied === "yes" ? "Copied" : "Copy"}</Button>
       </div>
       <p className="text-[13.5px] text-ink2 flex gap-2" aria-live="polite"><Smartphone size={17} className="shrink-0 mt-0.5 text-ink3" aria-hidden="true" />
-        {copied === "no" ? "This browser did not allow copying. Select the key and copy it by hand." : "Type it into the driver app now. It is shown only this once; School OS keeps only a scrambled copy. Lost it? Turn this key off and make a new one."}
+        {copied === "no" ? "This browser did not allow copying. Select the key and copy it by hand." : "Type it into the driver app now. It is shown only this once. Lost it? Turn this key off and make a new one."}
       </p>
       <div className="flex justify-end border-t border-line pt-3.5"><Button variant="primary" onClick={close}>I have entered it</Button></div>
     </div>

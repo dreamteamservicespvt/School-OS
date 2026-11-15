@@ -164,7 +164,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
   return (
     <div>
-      <FeeHead pageName="Student Fee Ledger" href={`${BASE}/ledger`} sub="Each student’s fees, payments, balance and receipts. Nothing here is ever deleted."
+      <FeeHead pageName="Student Fee Ledger" href={`${BASE}/ledger`} sub="Nothing here is ever deleted."
         actions={<>
           {canEdit && <ButtonLink href={here({ do: "invoice" })} scroll={false} variant="secondary" icon={FileText} className="hidden md:inline-flex"><Words k="Fee invoice" /></ButtonLink>}
           {p.desk && <ButtonLink href={`${BASE}/collect/${studentId}`} variant="primary" icon={IndianRupee}><Words k="Collect fee" /></ButtonLink>}
@@ -222,9 +222,9 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
         <div key={tab} className="animate-rise">
           {tab === "statement" && (
             <Card className="overflow-hidden">
-              <CardHeader title={`Statement${yearName ? `, ${yearName}` : ""}`} description="Every fee, payment, cancelled receipt, concession and late fee, with the running balance"
+              <CardHeader title={`Statement${yearName ? `, ${yearName}` : ""}`} description="With the running balance"
                 action={<ExportButton size="sm" href={qs(`${BASE}/ledger/${studentId}/export`, per.keep)} />} />
-              {entries.length === 0 && forward === null ? <Empty icon={ReceiptIndianRupee} title="Nothing on the ledger yet" body={`No fees are raised for ${first} yet. Assign the class fee plan in the Fees view, or add old dues.`} /> : (
+              {entries.length === 0 && forward === null ? <Empty icon={ReceiptIndianRupee} title="Nothing on the ledger yet" body="Assign a fee plan, or add old dues." /> : (
                 <>
                   <div className="hidden lg:block overflow-x-auto scroll-thin">
                     <table className="w-full text-[14px] min-w-[760px]">
@@ -262,7 +262,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
           {tab === "fees" && (
             <Card className="overflow-hidden">
-              <CardHeader title={`Fees${yearName ? ` for ${yearName}` : ""}`} description="Each fee head with its installments, oldest first"
+              <CardHeader title={`Fees${yearName ? ` for ${yearName}` : ""}`} description="Oldest first"
                 action={(hasPlan ? canEditFees : canAssignFees) ? <ButtonLink size="sm" variant="ghost" icon={Plus} scroll={false} href={here({ do: hasPlan ? "charge" : "assign" })}>{hasPlan ? "Add a charge" : "Assign fee"}</ButtonLink> : null} />
               <DataList rows={installments} rowKey={(r) => r.id} minWidth={640} caption="Fees and installments"
                 rowClass={(r) => r.status === "Removed" && "opacity-60"}
@@ -288,7 +288,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
           {tab === "payments" && (
             <Card className="overflow-hidden">
-              <CardHeader title="Payments" description="Cancelled payments stay here, struck through, with the reason" />
+              <CardHeader title="Payments" description="Cancelled ones stay, struck through" />
               <DataList rows={receipts} rowKey={(r) => r.id} rowHref={(r) => payHref(r.id)} minWidth={640} caption="Payments"
                 footer={`${receipts.length} ${receipts.length === 1 ? "payment" : "payments"} · ${formatRupees(receipts.filter((r) => r.status === "POSTED").reduce((a, r) => a + r.amount, ZERO))} posted`}
                 empty={<Empty icon={Wallet} title="No payments yet" body={`Nothing has been paid for ${first} yet.`} />}
@@ -309,7 +309,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
           {tab === "partial" && (
             <Card className="overflow-hidden">
-              <CardHeader title="Partial payments" description="Payments that did not clear their row fully" />
+              <CardHeader title="Partial payments" />
               <DataList rows={partial} rowKey={(r) => r.id} rowHref={(r) => payHref(r.id)} minWidth={640} caption="Partial payments"
                 empty={<Empty icon={CircleCheck} title="No partial payments" body={`Every payment by ${first} cleared its row.`} />}
                 columns={[
@@ -329,10 +329,10 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
           {tab === "invoices" && (
             <Card>
-              <CardHeader title="Fee invoices" description="Made for what is due, each with its own number. Sent with a Razorpay link."
+              <CardHeader title="Fee invoices" description="Each sent with a link to pay"
                 action={canEdit ? <ButtonLink size="sm" variant="ghost" icon={Plus} scroll={false} href={here({ do: "invoice" })}><Words k="New invoice" /></ButtonLink> : null} />
               {invoices.length === 0 && certificates.length === 0 ? (
-                <Empty icon={FileText} title="No invoices yet" body={`Make a fee invoice for what ${first} owes now. It goes to the parent with a link to pay.`} />
+                <Empty icon={FileText} title="No invoices yet" body="Make one for what is due now." />
               ) : (
                 <ul className="px-2 pb-2">
                   {invoices.map((inv) => (
@@ -363,7 +363,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
           {tab === "adjust" && (
             <Card>
-              <CardHeader title="Adjustments" description="Concessions, late fees, reversals and old dues, each with its reason and who approved it"
+              <CardHeader title="Adjustments" description="Each with its reason and who approved it"
                 action={canAdjust ? <ButtonLink size="sm" variant="ghost" icon={Scale} scroll={false} href={here({ do: "adjust" })}><Words k="Adjust an amount" /></ButtonLink> : null} />
               {adjustments.length === 0 ? <Empty icon={Scale} title="No adjustments" body={`${first} has no concessions, late fees or corrections.`} /> : (
                 <ul className="px-5 pb-3">
@@ -388,7 +388,7 @@ export default async function LedgerPage({ params, searchParams }: { params: Pro
 
         {L.comingUp.length > 0 && (
           <Card>
-            <CardHeader title="Coming up" description="Not in the balance yet. Each one counts from the day it falls due." icon={CalendarDays} />
+            <CardHeader title="Coming up" description="Not in the balance yet" icon={CalendarDays} />
             <ul className="px-5 pb-4 flex flex-col">
               {L.comingUp.slice(0, 12).map((r) => (
                 <li key={r.id} className="flex items-center gap-3 py-2 border-t border-line/70 first:border-0 text-[14px]">

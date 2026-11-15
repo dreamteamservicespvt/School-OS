@@ -70,7 +70,7 @@ export function VersionBar({ versions, shown, yearId, canArrange, writable, clas
                 <FormDialog trigger="Make automatically" title="Make automatically" action={autoFillAction} submitLabel="Make the draft" pendingText="Making… this can take a minute" hidden={{ versionId: draft.id }}>
                   {(state) => (
                     <>
-                      <p className="text-ink-2"><Words k="Places every subject from Teacher Allocation into free periods, with teacher preferences and subject conditions. Fixed periods and breaks stay. The result stays a draft; the published Time Table does not change." /></p>
+                      <p className="text-ink-2"><Words k="Fills free periods from Teacher Allocation. The result stays a draft; the published Time Table does not change." /></p>
                       <SelectField label="For" name="classId" required defaultValue={v(state, "classId", "all")} error={err(state, "classId")}
                         options={[{ value: "all", label: "The whole school" }, ...classes.map((c) => ({ value: c.id, label: c.name }))]}
                         help="The chosen classes' teaching periods in this draft are made again." />
@@ -88,7 +88,7 @@ export function VersionBar({ versions, shown, yearId, canArrange, writable, clas
               <FormDialog trigger="Copy" title={`Copy ${shown.name}`} action={copyAction} submitLabel="Copy into a draft" hidden={{ versionId: shown.id }}>
                 {(state) => (
                   <>
-                    <p className="text-ink-2"><Words k="Makes a draft from this Time Table. Clashes and missing sections are listed after copying, before you publish." /></p>
+                    <p className="text-ink-2"><Words k="Makes a draft from this Time Table." /></p>
                     <SelectField label="Copy to" name="toYearId" required defaultValue={v(state, "toYearId", yearId)} error={err(state, "toYearId")}
                       options={years.map((y) => ({ value: y.id, label: y.id === yearId ? `Another week of ${y.name} (new effective date)` : `The year ${y.name}` }))} />
                   </>

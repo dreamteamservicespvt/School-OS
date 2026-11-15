@@ -23,21 +23,21 @@ export function GuardianForm({ action, g, studentId, canRestrict, cancelHref }: 
       <div className="grid gap-4 sm:grid-cols-2">
         <FormSelect name="relationship" label="Relation" required options={RELATIONS.map((r) => ({ value: r, label: r }))} defaultValue={g?.relationship ?? "Father"} />
         <FormText name="name" label="Full name" required defaultValue={g?.name} autoComplete="off" />
-        <FormText name="phone" label="Phone" required type="tel" inputMode="numeric" defaultValue={g?.phone} help="+91. Used for messages and the one-time code for Parent Link." />
-        {g && <FormCheck name="sendLink" label="If the phone changes, send Parent Link to the new number" defaultChecked help="Phones that opened Parent Link before must confirm again with a code to the new number." />}
+        <FormText name="phone" label="Phone" required type="tel" inputMode="numeric" defaultValue={g?.phone} help="+91. For messages and Parent Link codes." />
+        {g && <FormCheck name="sendLink" label="If the phone changes, send Parent Link to the new number" defaultChecked help="Linked phones confirm again with a code." />}
         <FormText name="altPhone" label="Other phone" type="tel" inputMode="numeric" defaultValue={g?.altPhone} />
         <FormText name="email" label="Email" type="email" defaultValue={g?.email} />
         <FormText name="occupation" label="Occupation" defaultValue={g?.occupation} />
-        <FormText name="dateOfBirth" label="Date of birth" type="date" defaultValue={iso(g?.dateOfBirth)} help="For parents' birthdays on the Dashboard." />
+        <FormText name="dateOfBirth" label="Date of birth" type="date" defaultValue={iso(g?.dateOfBirth)} />
         <FormSelect name="language" label="Message language" required options={LANGUAGES} defaultValue={g?.language ?? "en"} />
         <FormArea name="address" label="Address" rows={2} className="sm:col-span-2" defaultValue={g?.address} />
       </div>
       <FormCheck name="optedOut" label="Opted out of messages" defaultChecked={g?.optedOut ?? false} help={SMS_OFFERED ? "No WhatsApp or SMS except urgent safety messages." : "No WhatsApp messages except urgent safety messages."} />
-      {!g && studentId && <FormCheck name="emergency" label="Emergency contact" help="Adds them to the student's emergency contacts." />}
+      {!g && studentId && <FormCheck name="emergency" label="Emergency contact" />}
       {!g && studentId && canRestrict && (
         <fieldset className="space-y-3 rounded-xl border border-danger/30 p-4">
           <legend className="px-1 font-semibold"><Words k="Custody / access restriction" /></legend>
-          <FormCheck name="restricted" label="This person must not collect or contact the student" help="Off the pickup list and shown in red in Front Office. No Parent Link for this student, and none of the student's messages." />
+          <FormCheck name="restricted" label="This person must not collect or contact the student" help="Shown in red at Front Office. No pickup, Parent Link or messages." />
           <FormArea name="restriction" label="Note" rows={2} />
         </fieldset>
       )}

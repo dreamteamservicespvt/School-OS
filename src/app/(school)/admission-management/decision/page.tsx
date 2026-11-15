@@ -140,7 +140,7 @@ export default async function DecisionPage({ searchParams }: Search) {
       <AdmissionHead href={PATH} sub={mayApprove ? "Approve or reject with remarks, keep the waiting list and confirm admissions" : "Decisions here need approval (Settings, Forms & Approvals)"} />
       <div className="flex flex-col gap-4">
         {canChange && !viewer.overCapacity && anyApproval && (
-          <Banner tone="info" icon={ShieldCheck} title="Principal approval is on."><Words k="Decisions waiting in Approvals are made there by the approver. Once approved, you confirm the admission when the family accepts." /></Banner>
+          <Banner tone="info" icon={ShieldCheck} title="Principal approval is on."><Words k="The approver decides in Approvals. Then confirm when the family accepts." /></Banner>
         )}
         <div className="flex flex-col md:flex-row md:items-end gap-3 justify-between">
           <LinkTabs value={tab} label="Decision views" className="flex-1 min-w-0" tabs={[
@@ -192,7 +192,7 @@ export default async function DecisionPage({ searchParams }: Search) {
 
         {tab === "approved" && (
           <Card className="overflow-hidden">
-            <CardHeader title="Approved, waiting to be confirmed" description="Confirm when the family accepts. Papers must be verified first, unless an exception is recorded." />
+            <CardHeader title="Approved, waiting to be confirmed" description="Papers must be verified first, unless an exception is recorded." />
             {data.apps.length === 0 ? <EmptyState bare Icon={CheckCheck} title="Everyone approved is admitted"><Words k="Approved applications show here until the admission is confirmed." /></EmptyState> : (
               <ul className="divide-y divide-line/70 border-t border-line/70">
                 {data.apps.map((a) => {
@@ -237,7 +237,7 @@ export default async function DecisionPage({ searchParams }: Search) {
             <Chips value={wcls} label="Class" options={waitClasses.map((c) => ({ value: c, label: n.classes.get(c) ?? "", count: data.apps.filter((a) => a.classId === c).length, href: `${PATH}?tab=waiting&class=${c}` }))} />
             <Split>
               <Card className="overflow-hidden">
-                <CardHeader title={`Waiting list · ${n.classes.get(wcls) ?? ""}`} description="Ranked by the school’s rules: sibling, category, test score, date applied"
+                <CardHeader title={`Waiting list · ${n.classes.get(wcls) ?? ""}`} description="Ranked by sibling, category, test score and date applied"
                   action={canChange && data.apps.filter((a) => a.classId === wcls).length > 1 ? <Rerank yearId={data.apps.find((a) => a.classId === wcls)!.academicYearId} classId={wcls} className={n.classes.get(wcls) ?? ""} /> : undefined} />
                 <ol className="divide-y divide-line/70 border-t border-line/70">
                   {data.apps.filter((a) => a.classId === wcls).map((a, i, arr) => (
@@ -255,7 +255,7 @@ export default async function DecisionPage({ searchParams }: Search) {
                 <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line/70"><Words k="When a seat frees up, the first name gets an offer." /> {seatText(data.apps.find((a) => a.classId === wcls)!)}</p>
               </Card>
               <Card>
-                <CardHeader title="Changes by hand" description="Every move needs a reason and is kept" icon={History} />
+                <CardHeader title="Changes by hand" description="Each move needs a reason" icon={History} />
                 <div className="px-5">
                   {data.history.filter((h) => h.application.classId === wcls).length
                     ? <Timeline items={data.history.filter((h) => h.application.classId === wcls).map((h) => ({ what: h.text, when: `${formatDateTime(h.at, tz)} · ${who(h.byId)}`, icon: ArrowUpDown, tone: "warn" }))} />

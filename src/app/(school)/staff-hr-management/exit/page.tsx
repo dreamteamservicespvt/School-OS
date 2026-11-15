@@ -84,7 +84,7 @@ export default async function StaffExitPage({ searchParams }: Search) {
 
   return (
     <>
-      <StaffHead page="Staff Exit" href={`${BASE}/exit`} sub="Resignations, retirements and terminations: handover, clearance and final settlement"
+      <StaffHead page="Staff Exit" href={`${BASE}/exit`} sub="Handover, clearance and final settlement"
         actions={viewer.change === "all" ? <ButtonLink href={`${BASE}/exit/new`} variant="primary" icon={LogOut}><Words k="Record exit" /></ButtonLink> : undefined} />
 
       <Stats label="Staff exits" className="mb-5" items={[

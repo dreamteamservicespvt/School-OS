@@ -26,7 +26,7 @@ export function SignatoryForm() {
         <label htmlFor="sig-image" className="mb-1 block text-sm font-medium"><Words k="Signature picture" /></label>
         <input id="sig-image" name="image" type="file" accept="image/png,image/jpeg,image/webp" aria-describedby="sig-help"
           className="block w-full text-sm file:mr-3 file:min-h-11 file:rounded-lg file:border file:border-line-strong file:bg-surface file:px-4 file:font-medium" />
-        {e.image ? <p id="sig-help" className="mt-1 text-sm text-danger">{e.image}</p> : <p id="sig-help" className="mt-1 text-sm text-ink-2"><Words k="Optional. Sign on white paper, take a clear photo, or use a PNG with a see-through background. At most 2 MB." /></p>}
+        {e.image ? <p id="sig-help" className="mt-1 text-sm text-danger">{e.image}</p> : <p id="sig-help" className="mt-1 text-sm text-ink-2"><Words k="Optional. A clear photo of the signature on white paper. At most 2 MB." /></p>}
       </div>
       <div className="flex justify-end"><SubmitButton pendingText="Adding…"><Words k="Add signatory" /></SubmitButton></div>
     </form>

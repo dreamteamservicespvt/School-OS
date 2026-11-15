@@ -34,7 +34,7 @@ export default async function CollectFeePage({ searchParams }: { searchParams: S
   ]));
   return (
     <div>
-      <FeeHead title="Collect fee" pageName="Collect Fee" href={BASE} sub="Find the student. Their dues show up ready to collect." />
+      <FeeHead title="Collect fee" pageName="Collect Fee" href={BASE} />
       <div className="max-w-3xl">
         <UrlSearch big id="fee-search" placeholder="Student name, admission no., application no. or parent phone" autoFocus label="Find a student" />
         <Card className="mt-4 overflow-hidden">
@@ -43,7 +43,7 @@ export default async function CollectFeePage({ searchParams }: { searchParams: S
           ) : q && list.length === 0 ? (
             <p className="text-[14px] text-ink3 px-5 py-4"><Words k="No student found for “" />{q}<Words k="”. The applicants found are below." /></p>
           ) : !q && list.length === 0 ? (
-            <Empty icon={UserRoundSearch} title="Nobody is overdue" body="Search above to find any student and collect their fees." />
+            <Empty icon={UserRoundSearch} title="Nobody is overdue" body="Search above to find any student." />
           ) : (
             <>
               <p className="eyebrow text-ink3 px-5 pt-4 pb-1">{q ? `${list.length} found` : "Overdue, most likely at the counter today"}</p>

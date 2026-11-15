@@ -216,7 +216,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
 
           <Col>
             <Card>
-              <CardHeader title="Consent records" description="DPDP Act 2023 · given by the parent: in Parent Link, on the application form or on a signed paper form" icon={ShieldCheck} />
+              <CardHeader title="Consent records" description="DPDP Act 2023 · given by the parent" icon={ShieldCheck} />
               <ul className="px-5 pb-4 flex flex-col gap-3">
                 {CONSENT_TYPES.map((t) => {
                   const st = consentState(data.consents, t.key);
@@ -236,7 +236,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                 })}
                 {manage && (
                   <ConfirmAction action={consentRequestAction} fields={{ ids: id }} trigger={<><Send size={16} aria-hidden="true" /><Words k="Send consent request" /></>} triggerVariant="soft" title="Send a consent request?" confirmLabel={`Send to ${g.name}`}>
-                    <Words k="Through Parent Link to" /> {g.name}<Words k=", for each consent the school asks for (data, photo, APAAR), for each child. They agree with a one-time code to +91" /> {phoneShow(g.phone)}<Words k=". Consents already given are left as they are." />
+                    <Words k="Through Parent Link to" /> {g.name}<Words k=", for each child. They agree with a one-time code to +91" /> {phoneShow(g.phone)}<Words k=". Consents already given are left as they are." />
                   </ConfirmAction>
                 )}
               </ul>
@@ -259,9 +259,9 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
                 <details className="border-t border-line px-5 py-3">
                   <summary className="cursor-pointer text-[13.5px] font-semibold text-brand min-h-9 flex items-center"><Words k="Record consent withdrawal" /></summary>
                   <ActionForm action={withdrawConsentAction.bind(null, id)} submitLabel="Record withdrawal" submitVariant="danger" pendingText="Saving…" className="mt-2 grid gap-3">
-                    <FormSelect name="consentType" label="Which consent" required options={CONSENT_TYPES.map((t) => ({ value: t.key, label: t.label }))} defaultValue="photo" help="Photo consent can be withdrawn on its own." />
+                    <FormSelect name="consentType" label="Which consent" required options={CONSENT_TYPES.map((t) => ({ value: t.key, label: t.label }))} defaultValue="photo" />
                     <FormSelect name="studentId" label="For" options={[{ value: "", label: "Every child" }, ...kids.map((l) => ({ value: l.studentId, label: l.student.fullName }))]} />
-                    <FormArea name="note" label="How the parent asked" required rows={2} help="For example: letter dated 12-10-2026, or asked at the office." />
+                    <FormArea name="note" label="How the parent asked" required rows={2} help="For example: letter dated 12-10-2026" />
                   </ActionForm>
                 </details>
               )}
@@ -269,7 +269,7 @@ export default async function Parent360({ params }: { params: Promise<{ id: stri
 
             {provider && (
               <Card>
-                <CardHeader title="Parent Link" description="One personal link for the parent's phone. No password needed. Other Parent Link settings are in Communication, Parent Link." icon={Smartphone} />
+                <CardHeader title="Parent Link" description="A personal link. No password needed." icon={Smartphone} />
                 <DL cols={1} rows={[
                   ["Status", <Pill key="s" tone={data.link?.status === "Active" ? "ok" : data.link?.status === "Revoked" ? "bad" : "neutral"}>{data.link?.status ?? "Not sent"}</Pill>],
                   ["Last opened", data.link?.lastOpenedAt ? formatDateTime(data.link.lastOpenedAt, tz) : "Never"],

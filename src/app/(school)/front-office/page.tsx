@@ -117,7 +117,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
               </Banner>
             )}
             <Card>
-              <CardHeader title="In the building now" description="Staff replies show here as they come in" icon={Users} action={<Pill tone="ok">{data.inside.length}</Pill>} />
+              <CardHeader title="In the building now" icon={Users} action={<Pill tone="ok">{data.inside.length}</Pill>} />
               {data.inside.length === 0 ? (
                 <Empty icon={DoorOpen} title="Nobody is inside" body="Visitors show here from the moment they are registered."
                   action={p.can.register ? <ButtonLink href={here({ do: "visitor" })} scroll={false} variant="secondary" icon={IdCard}><Words k="New visitor" /></ButtonLink> : undefined} />
@@ -142,7 +142,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
               )}
             </Card>
             <Card>
-              <CardHeader title="Walk-in requests" description="Each has a number the person can ask about" icon={ClipboardList}
+              <CardHeader title="Walk-in requests" icon={ClipboardList}
                 action={p.can.desk ? <ButtonLink href={here({ do: "walkin" })} scroll={false} size="sm" variant="soft" icon={ClipboardList}><Words k="New request" /></ButtonLink> : undefined} />
               {data.requests.length === 0 ? (
                 <Empty icon={ClipboardList} title="No walk-in requests yet" body="A parent asking for a bonafide certificate or a fee statement gets a request number here."
@@ -165,7 +165,7 @@ export default async function DeskPage({ searchParams }: { searchParams: SearchP
           </Col>
           <Col>
             <Card>
-              <CardHeader title="Front-office notes" description="Short notes for whoever is at the desk" icon={StickyNote} />
+              <CardHeader title="Front-office notes" icon={StickyNote} />
               <ul className="px-5 flex flex-col gap-2.5">
                 {data.notes.map((n) => (
                   <li key={n.id} className="rounded-xl bg-warn/[.08] border border-warn/20 px-3.5 py-2.5 flex gap-2">

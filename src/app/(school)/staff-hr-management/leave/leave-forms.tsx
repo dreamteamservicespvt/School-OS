@@ -43,7 +43,7 @@ export function ApplyLeaveForm({ action, preview, types, staff, fixedStaff, defa
         <div className="grid gap-4 sm:grid-cols-2">
           {staff && !fixedStaff && (
             <SelectField label="Staff member" name="staffId" options={staff} placeholder="Myself" defaultValue={f.val("staffId")} error={f.err("staffId")} className="sm:col-span-2"
-              help="Leave empty to apply for yourself. Applying for someone else tells them." />
+              help="Leave empty to apply for yourself." />
           )}
           <SelectField label="Leave type" name="leaveTypeId" required options={types} placeholder="Choose" defaultValue={f.val("leaveTypeId")} error={f.err("leaveTypeId")}
             onChange={(e) => setTypeId(e.target.value)} help={type?.note} className="sm:col-span-2" />
@@ -96,7 +96,7 @@ export function AdjustBalanceForm({ staffId, staffName, academicYearId, types, a
       {(f) => (
         <>
           <SelectField label="Leave type" name="leaveTypeId" required options={types} placeholder="Choose" defaultValue={f.val("leaveTypeId")} error={f.err("leaveTypeId")} />
-          <TextField label="Days" name="days" required inputMode="decimal" defaultValue={f.val("days")} error={f.err("days")} help="Use a minus sign to take days away, like -1. Halves allowed, like 0.5." />
+          <TextField label="Days" name="days" required inputMode="decimal" defaultValue={f.val("days")} error={f.err("days")} help="Minus to take away, like -1. Halves allowed, like 0.5." />
           <TextArea label="Reason" name="reason" required rows={2} defaultValue={f.val("reason")} error={f.err("reason")} help="Kept in the history." />
         </>
       )}
@@ -109,7 +109,7 @@ export function CarryForwardForm({ years, action }: { years: Option[]; action: A
     <FormDialog trigger="Carry forward" triggerSize="sm" title="Carry leave forward" action={action} submitLabel="Carry forward">
       {(f) => (
         <>
-          <p className="text-ink-2"><Words k="Days left at the end of the year move to the next year, for leave types with carry-forward on, up to their maximum. Running it again does not add the days twice." /></p>
+          <p className="text-ink-2"><Words k="Days left move to the next year, up to the maximum. Running it again does not add them twice." /></p>
           <SelectField label="From academic year" name="academicYearId" required options={years} defaultValue={f.val("academicYearId", years[0]?.value)} error={f.err("academicYearId")} />
         </>
       )}

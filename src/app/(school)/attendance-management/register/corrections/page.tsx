@@ -89,7 +89,7 @@ export default async function CorrectionsPage({ searchParams }: Props) {
 
   return (
     <>
-      <AttHead access={access} features={features} userId={current.user.id} href={path} sub="Changes asked for after attendance locked, decided in Approvals"
+      <AttHead access={access} features={features} userId={current.user.id} href={path} sub="Changes after the lock, decided in Approvals"
         actions={access.change !== "none" ? <ButtonLink href={`${BASE}/register/correction`} variant="primary" icon={Plus}><Words k="Request a correction" /></ButtonLink> : undefined} />
       <div className="flex flex-col gap-4">
         <Chips label="Register views" value="corrections" options={[
@@ -125,7 +125,7 @@ export default async function CorrectionsPage({ searchParams }: Props) {
             mobile={(r) => ({ icon: ClipboardPen, iconTone: r.status === "WAITING" ? "warn" : r.status === "APPROVED" ? "ok" : "neutral", title: `${who(r)} · ${where(r)}`, sub: `${when(r)} · ${change(r)}`, right: pill(r) })}
             footer={<Pager page={params.page} pageSize={PAGE_SIZE} total={data.total} href={(p) => listHref(path, params, { page: p })} />}
             empty={<EmptyState bare title={filtered ? "No corrections match" : "No corrections yet"} Icon={ClipboardPen}>
-              {filtered ? "Try another search, or choose All." : "After attendance locks, a change is asked for here and decided in Approvals."}
+              {filtered ? "Try another search, or choose All." : "Changes after the lock time show here."}
             </EmptyState>} />
         </Card>
       </div>

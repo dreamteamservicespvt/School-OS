@@ -62,7 +62,7 @@ export function LinkPanel({ id, name, channels, reasons }: { id: string; name: s
       <Button variant="secondary" icon={Send} onClick={() => setOpen("resend")}><Words k="Resend link" /></Button>
       <Button variant="danger-soft" icon={Ban} onClick={() => setOpen("revoke")}><Words k="Revoke or reissue" /></Button>
 
-      <Dialog open={open === "resend"} onClose={close} title={`Resend ${name}’s link`} sub="The same link, for a guardian who lost the message. Phones already confirmed keep working."
+      <Dialog open={open === "resend"} onClose={close} title={`Resend ${name}’s link`} sub="The same link. Confirmed phones keep working."
         footer={<>
           <Button variant="secondary" onClick={close}><Words k="Cancel" /></Button>
           <Button icon={Send} loading={pending} loadingText="Sending" disabled={!channels.length} onClick={resend}><Words k="Resend link" /></Button>

@@ -65,10 +65,10 @@ export default async function LearningProgressPage({ searchParams }: { searchPar
     return { sections, sectionId, subjects, subjectId, allSubjects, progress, low, certs };
   });
 
-  const head = <HomeworkHead page="learning-progress" pageName="Learning Progress" sub={p.own ? "Homework, quizzes and lessons for your classes" : "Homework done, quiz scores and lessons for each student"}
+  const head = <HomeworkHead page="learning-progress" pageName="Learning Progress" sub={p.own ? "Homework, quizzes and lessons for your classes" : "Homework, quizzes and lessons for each student"}
     viewActions={data.sectionId ? <ExportButton href={qs(`${HREF}/export`, { ...per.keep, section: data.sectionId, subject: data.subjectId ?? null, q: q || null })} label="Export homework report" /> : undefined} />;
   if (!data.sectionId || !data.progress) {
-    return <div>{head}<Card><Empty icon={Users} title="No classes to show" body={p.own ? "Progress shows for your own classes. Ask the school office to add your teaching allocations for this year." : "Add sections and students for this academic year first."} /></Card></div>;
+    return <div>{head}<Card><Empty icon={Users} title="No classes to show" body={p.own ? "Ask the school office to add your classes and subjects for this year." : "Add sections and students for this academic year first."} /></Card></div>;
   }
 
   const pr = data.progress;

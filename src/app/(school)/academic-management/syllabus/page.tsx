@@ -176,7 +176,7 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
 
       {data.kind === "log" && (
         data.pairs.length === 0 ? (
-          <EmptyState title="No classes given to you yet"><Words k="The daily log lists the subjects you teach. They appear once you are assigned in Teacher Allocation." /></EmptyState>
+          <EmptyState title="No classes given to you yet"><Words k="Your subjects show here once they are assigned to you in Teacher Allocation." /></EmptyState>
         ) : (
           <>
             <div className="no-print mb-4"><ParamSelect name="pair" label="Class and subject" current={data.pairKey} options={pairOptions} /></div>
@@ -198,7 +198,7 @@ export default async function SyllabusPage({ searchParams }: { searchParams: Sea
             {page.writable && scope.staffId && data.pairs.length > 0 && <LessonPlanButton yearId={year.id} pairs={pairOptions} defaultPair={data.pairKey || undefined} />}
           </div>
           {data.plans.length === 0 ? (
-            <EmptyState title="No lesson plans yet">{scope.staffId && data.pairs.length ? "Write a plan for the next topic. The topic and date are filled in from the syllabus and the Time Table." : "Lesson plans written by teachers show here."}</EmptyState>
+            <EmptyState title="No lesson plans yet">{scope.staffId && data.pairs.length ? "Write a plan for the next topic." : "Lesson plans written by teachers show here."}</EmptyState>
           ) : (
             <>
               <ul className="space-y-3">

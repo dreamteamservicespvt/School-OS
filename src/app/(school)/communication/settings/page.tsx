@@ -122,7 +122,7 @@ export default async function MessageSettingsPage() {
   return (
     <>
       <CommHead access={access} page="Message Settings" href="/communication/settings"
-        sub={SMS_OFFERED ? "Credits, the senders parents see, SMS backup, who may message whom, and the automatic messages." : "Credits, the senders parents see, who may message whom, and the automatic messages."}
+        sub="Credits, senders, who may message whom, and automatic messages."
         actions={<ButtonLink href="/communication/settings/log" variant="secondary" icon={History}><Words k="Automation log" /></ButtonLink>} />
       <div className="flex flex-col gap-5 lg:gap-6">
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-6 items-start">
@@ -165,7 +165,7 @@ export default async function MessageSettingsPage() {
             </div>
           </Card>
           <Card>
-            <CardHeader title="Optional pages and alerts" description="Switched on for this school only. Their data stays if switched off." icon={ToggleRight} />
+            <CardHeader title="Optional pages and alerts" description="Their data stays if switched off." icon={ToggleRight} />
             <FeatureSwitches features={COMM_FEATURE_LIST.map((f) => ({
               key: f.key,
               label: f.label,
@@ -176,7 +176,7 @@ export default async function MessageSettingsPage() {
         </div>
 
         <Card className="overflow-hidden">
-          <CardHeader title="Who may send to whom" description="Set from each role in Settings, Users & Permissions. Teachers are never offered other classes." icon={ShieldCheck}
+          <CardHeader title="Who may send to whom" description="Set from each role in Users & Permissions." icon={ShieldCheck}
             action={<ButtonLink href="/settings/users/roles" size="sm" variant="ghost"><Words k="Roles" /></ButtonLink>} />
           <div className="overflow-x-auto border-t border-line">
             <table className="text-[13px] min-w-[760px] w-full">
@@ -191,11 +191,11 @@ export default async function MessageSettingsPage() {
               </tbody>
             </table>
           </div>
-          <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line"><Words k="Only the Principal and School Admin may send an emergency broadcast. Parents who opted out still get emergency messages." /></p>
+          <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line"><Words k="Only the Principal and School Admin may send an emergency broadcast. It reaches opted-out parents too." /></p>
         </Card>
 
         <Card id="automatic" className="scroll-mt-20">
-          <CardHeader title="Automatic messages" description="When this happens, send this. Each rule sends once per event per person, never twice. Parents who opted out are skipped." icon={Zap} />
+          <CardHeader title="Automatic messages" description="Each rule sends once per event per person. Opted-out parents are skipped." icon={Zap} />
           {data.held && <p className="mx-5 mb-3 rounded-lg bg-surface-2 px-3 py-2 text-[13.5px]">{HELD_WORDS} <Link href="/settings/data-security/switching/check" className="font-semibold text-brand hover:underline"><Words k="Open the go-live check" /></Link></p>}
           {groupsOfRules.map((g) => (
             <div key={g.title} className="border-t border-line/70">
@@ -232,7 +232,7 @@ export default async function MessageSettingsPage() {
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-6 items-start">
           <Card id="queries" className="scroll-mt-20">
-            <CardHeader title="Feedback & Queries" description="Reply time limits are optional, for larger schools. An overdue query is escalated once." icon={MessageSquareText} />
+            <CardHeader title="Feedback & Queries" description="Reply time limits are optional. An overdue query is escalated once." icon={MessageSquareText} />
             <div className="px-5 pb-5">
               <QueryRulesForm on={s.queryTargets.on} hours={s.queryTargets.hours} types={QUERY_TYPES.map((t) => ({ value: t, label: QUERY_TYPE_LABEL[t] }))} escalateToId={s.queryTargets.escalateToId ?? ""} people={people} rating={s.queryRating} />
               <h3 className="mb-1 mt-6 font-semibold text-[14px]"><Words k="Query topics and default owners" /></h3>
@@ -256,7 +256,7 @@ export default async function MessageSettingsPage() {
                     <GroupArchive id={g.id} name={g.name} />
                   </li>
                 ))}
-                {!data.groups.length && <li className="text-[13.5px] text-ink3"><Words k="No saved groups yet. In Send Message, choose people and press “Save as group”." /></li>}
+                {!data.groups.length && <li className="text-[13.5px] text-ink3"><Words k="No saved groups yet. Use “Save as group” in Send Message." /></li>}
               </ul>
             </Card>
           </Col>

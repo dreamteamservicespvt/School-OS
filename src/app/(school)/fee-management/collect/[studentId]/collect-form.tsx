@@ -164,7 +164,7 @@ export function CollectForm({ studentId, studentName, firstName, father, rows, t
       <div className="flex flex-col gap-5 min-w-0">
         {studentCard}
         <Card className="overflow-hidden">
-          <CardHeader title="What is being paid" description="Overdue and due rows are ticked for you"
+          <CardHeader title="What is being paid" description="Due rows are ticked for you"
             action={paidCount > 0 ? <button type="button" onClick={() => setShowPaid(!showPaid)} className="text-[13px] font-semibold text-brand h-8 px-2 rounded-lg hover:bg-brand/8">{showPaid ? "Hide" : "Show"} {paidCount} <Words k="paid" /></button> : null} />
           {open.length === 0 ? (
             <Empty icon={PartyPopper} title="All fees paid for this year" body={`${firstName} has nothing due. ${nextDueText}`} />

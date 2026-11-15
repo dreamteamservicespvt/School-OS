@@ -53,11 +53,11 @@ export default async function PaymentGatewaysPage({ searchParams }: Search) {
     <>
       <PageHeader title="Payment Gateways" href="/settings/payment-gateways" userId={current.user.id} />
       <p className="-mt-3 mb-4 max-w-prose text-ink-2">
-        <Words k="DREAM TEAM connects the school’s payment gateway (Razorpay first) and tests it. To connect a gateway or change one, tell DREAM TEAM support." />{" "}
+        <Words k="DREAM TEAM connects and tests the gateway. To change one, tell DREAM TEAM support." />{" "}
         <Words k="Which class or fee head uses which gateway is set in Fee Management, Fee Settings." />
       </p>
       {!rows.some((r) => r.isActive) && rows.length > 0 && !filtered && (
-        <Alert tone="warning" className="mb-4" title="No gateway is switched on"><Words k="Parents cannot pay online yet. DREAM TEAM switches a gateway on after its test passes. Tell DREAM TEAM support if you are waiting for this." /></Alert>
+        <Alert tone="warning" className="mb-4" title="No gateway is switched on"><Words k="Parents cannot pay online yet. DREAM TEAM switches a gateway on after its test passes." /></Alert>
       )}
       <ListToolbar placeholder="Search gateways"
         filters={[
@@ -84,13 +84,13 @@ export default async function PaymentGatewaysPage({ searchParams }: Search) {
           <EmptyState title="No gateway matches these filters"><Link href="/settings/payment-gateways" className="font-medium text-brand-text underline"><Words k="Clear the filters" /></Link></EmptyState>
         ) : (
           <EmptyState title="No payment gateway yet">
-            <p><Words k="Parents can pay at the counter in cash, UPI or cheque from day one. To take fees online, tell DREAM TEAM support: DREAM TEAM connects the school’s Razorpay account for you." /></p>
+            <p><Words k="Counter payments (cash, UPI, cheque) work now. For online fees, tell DREAM TEAM support." /></p>
           </EmptyState>
         )}
       />
       {linked.length > 0 && !params.archived && (
         <Card className="mt-5">
-          <CardHeader title="Bank accounts for split payments" description="Razorpay splits online payments into these accounts. Fee Settings chooses which fee head goes to which account." />
+          <CardHeader title="Bank accounts for split payments" description="Fee Settings picks the account for each fee head." />
           <CardBody>
             <ul className="divide-y divide-line">
               {linked.map((l) => (

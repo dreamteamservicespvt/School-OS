@@ -108,7 +108,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
       {!canEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2"><Words k="You can see the school's profile here. The School Admin changes it." /></p>}
       <div className="space-y-5">
         <Card id="details" className="scroll-mt-20">
-          <CardHeader title="School details" description="Shown on screens, receipts, certificates and messages. Each section saves on its own." />
+          <CardHeader title="School details" description="Shown on screens, receipts and messages." />
           <CardBody className="space-y-8">
             <section aria-labelledby="logo-title">
               <h3 id="logo-title" className="mb-3 font-semibold"><Words k="Logo" /></h3>
@@ -133,7 +133,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
         </Card>
 
         <Card id="board" className="scroll-mt-20">
-          <CardHeader title="Board and curriculum" description="The board sets defaults for grading, the report card and terms. The modules offer them; each can still be changed there." />
+          <CardHeader title="Board and curriculum" description="Sets defaults for grading, report cards and terms." />
           <CardBody>
             {canEdit ? <BoardForm board={school.board ?? ""} secondBoard={prefs.secondBoard ?? ""} />
               : <Facts rows={[["Board", labelOf(BOARDS, school.board)], ["Second board", prefs.secondBoard ? labelOf(BOARDS, prefs.secondBoard) : "This school runs one board"]]} />}
@@ -141,7 +141,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
         </Card>
 
         <Card id="region" className="scroll-mt-20">
-          <CardHeader title="Language and region" description="Languages switched on here can be chosen for screens and for messages to parents." />
+          <CardHeader title="Language and region" description="For screens and messages to parents." />
           <CardBody>
             {canEdit ? <RegionForm languages={school.languages} defaultLanguage={school.defaultLanguage} timeZone={school.timeZone} />
               : <Facts cols="sm:grid-cols-3" rows={[
@@ -181,7 +181,7 @@ export default async function SchoolProfilePage({ searchParams }: { searchParams
         </Card>
 
         <Card id="documents" className="scroll-mt-20">
-          <CardHeader title="School documents" description="Registration, affiliation, NOCs and other papers, with versions, expiry reminders 30 days ahead, and sharing links that expire." />
+          <CardHeader title="School documents" description="With expiry reminders 30 days ahead." />
           <CardBody>
             <ListToolbar placeholder="Search documents" filters={[
               { key: "type", label: "Type", options: DOCUMENT_TYPES_VAULT.map((t) => ({ value: t, label: t })) },

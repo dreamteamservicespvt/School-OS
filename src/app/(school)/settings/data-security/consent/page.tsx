@@ -79,7 +79,7 @@ export default async function ConsentPage({ searchParams }: Search) {
         ))}
         {data.goLive && (
           <Card id="asked-on-go-live">
-            <CardHeader title="Asked on going live" description="The consent request sent with each parent's Parent Link when the school went live on School OS." />
+            <CardHeader title="Asked on going live" description="Sent with each Parent Link at go-live." />
             <CardBody className="space-y-2">
               <p className="tnum"><strong>{n(data.goLive.asked)}</strong> {data.goLive.asked === 1 ? "parent" : "parents"} <Words k="asked ·" /> <strong>{n(data.goLive.answered)}</strong> <Words k="answered ·" /> <strong>{n(data.goLive.waiting)}</strong> <Words k="waiting" /></p>
               <ul className="space-y-1 text-[13.5px] text-ink-2 tnum">
@@ -92,7 +92,7 @@ export default async function ConsentPage({ searchParams }: Search) {
           </Card>
         )}
         <Card id="who-agreed">
-          <CardHeader title="Who has agreed" description="This year's students, by consent and class. A student counts as given while a parent on record has agreed (in Parent Link, on the application form or on a signed paper form)."
+          <CardHeader title="Who has agreed" description="This year's students. Given means a parent on record agreed."
             action={mayRecord ? <ButtonLink href="/settings/data-security/consent/paper" size="sm" variant="secondary"><Words k="Paper forms received" /></ButtonLink> : undefined} />
           <CardBody className="space-y-5">
             {data.log.length === 0 ? <p className="text-ink-2"><Words k="No consent texts yet, so nobody has been asked." /></p> : data.log.map((t) => (

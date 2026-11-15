@@ -247,7 +247,7 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
                       <MemberPanel m={d.member} load={d.load} today={today} schoolId={ctx.schoolId} changeHref={memberStep} />
                     ) : (
                       <>
-                        <ScanBox id="scan-member" href={memberStep} param="card" label="Library card or name" placeholder="Scan the library card, or type a name or number" start={card} autoFocus hint="The library card number is the admission number (students) or the staff code." />
+                        <ScanBox id="scan-member" href={memberStep} param="card" label="Library card or name" placeholder="Scan the library card, or type a name or number" start={card} autoFocus hint="Students: admission number. Staff: staff code." />
                         {d.memberProblem && <Alert tone="danger">{d.memberProblem}</Alert>}
                         {d.matches.length > 1 && <MemberMatches matches={d.matches} hrefFor={(m) => qs(BASE, { member: m.key, list: list === "issued" ? null : list })} />}
                       </>
@@ -295,7 +295,7 @@ async function Desk({ p, sp }: { p: LibPageData & { mode: string }; sp: Raw }) {
                   <ScanBox key="copy-return" id="scan-return" href={qs(BASE, { mode: "return", list: list === "issued" ? null : list })} param="copy" label="Book barcode" placeholder="Scan the book barcode, or type the accession number" start={copyCode} autoFocus />
                   {d.copyProblem && <Alert tone="danger">{d.copyProblem}</Alert>}
                   {d.copyDone && <Alert tone="info">{d.copyDone}</Alert>}
-                  {d.bookMatches.length > 0 && !d.copy && <Alert tone="info"><Words k="Scan the copy's own barcode or type its accession number to return it. A title is not enough, because each copy is returned on its own." /></Alert>}
+                  {d.bookMatches.length > 0 && !d.copy && <Alert tone="info"><Words k="Scan the copy's own barcode or accession number. A title is not enough." /></Alert>}
                   {d.copy && d.returnInfo && (
                     <div className="flex flex-col gap-3">
                       <CopyLine title={d.copy.book.title} author={d.copy.book.authorText} accession={d.copy.accessionNo} status={d.copy.status} changeHref={qs(BASE, { mode: "return" })} />
@@ -362,11 +362,11 @@ async function OverdueWatch({ p, sp }: { p: LibPageData & { mode: string }; sp: 
   ];
   return (
     <>
-      <LibHead pageName="Issue & Return" href={BASE} mode="view" sub="Overdue books and today's desk work. The librarian issues and returns books." />
+      <LibHead pageName="Issue & Return" href={BASE} mode="view" sub="The librarian issues and returns books." />
       <Stack>
         <Stats items={stats} />
         {d.waitingCharges > 0 && (
-          <Alert tone="warning" title={t(d.waitingCharges === 1 ? "1 library charge waiting for approval" : "{n} library charges waiting for approval", { n: d.waitingCharges })} action={<ButtonLink href="/approvals" size="sm" variant="secondary"><Words k="Open Approvals" /></ButtonLink>}><Words k="Lost or damaged book charges above the set amount wait for approval before they are added." /></Alert>
+          <Alert tone="warning" title={t(d.waitingCharges === 1 ? "1 library charge waiting for approval" : "{n} library charges waiting for approval", { n: d.waitingCharges })} action={<ButtonLink href="/approvals" size="sm" variant="secondary"><Words k="Open Approvals" /></ButtonLink>}><Words k="They are added only after approval." /></Alert>
         )}
         <Split>
           <Col>

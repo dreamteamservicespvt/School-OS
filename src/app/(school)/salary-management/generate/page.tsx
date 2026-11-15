@@ -155,7 +155,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
         ]} />
 
         {!run ? (
-          <Card><Empty icon={CalendarPlus} title="No salary month yet" body="Open the month to work out everyone’s pay from their structure, attendance and leave." action={p.change ? <ButtonLink href={here({ do: "open-month" })} scroll={false} variant="primary" icon={CalendarPlus}><Words k="Open a month" /></ButtonLink> : undefined} /></Card>
+          <Card><Empty icon={CalendarPlus} title="No salary month yet" body="Open the month to work out everyone’s pay." action={p.change ? <ButtonLink href={here({ do: "open-month" })} scroll={false} variant="primary" icon={CalendarPlus}><Words k="Open a month" /></ButtonLink> : undefined} /></Card>
         ) : (
           <Split side={340}>
             <Col className="[&>*]:min-w-0">
@@ -211,7 +211,7 @@ export default async function GeneratePage({ searchParams }: { searchParams: Sea
 
               {(status === "OPEN" || status === "CALCULATED") && (negative.length + noStructure.length + incomplete.length + noTds.length + lopLines.length + corrections.length > 0) && (
                 <Card>
-                  <CardHeader title="Check before sending" description="Things to check, from the rules in Salary Settings. They do not stop sending." icon={ListChecks} />
+                  <CardHeader title="Check before sending" description="They do not stop sending." icon={ListChecks} />
                   <ul className="divide-y divide-line/70 border-t border-line/70">
                     {negative.length > 0 && <Check1 icon={TriangleAlert} tone="bad" title={`Net pay below zero for ${negative.length} staff · cannot be sent or approved`}
                       sub={`${negative.slice(0, 3).map((l) => (money ? `${name(l.staffId)} ${amt(l.netPaise)}` : name(l.staffId))).join(", ")}. A correction or one-time deduction is more than the pay. Change or remove the adjustment first.`}

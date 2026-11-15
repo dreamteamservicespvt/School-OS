@@ -21,7 +21,7 @@ export function MoveMoneySheet({ closeHref, accounts, from: start, to: startTo, 
   const [amt, setAmt] = useState(startAmt);
   const have = accounts.find((a) => a.value === from);
   return (
-    <SheetForm title="Move money" sub="Between cash and bank, for example a cash deposit. Not income or expense." closeHref={closeHref} action={moveMoneyAction}
+    <SheetForm title="Move money" sub="Between cash and bank. Not income or expense." closeHref={closeHref} action={moveMoneyAction}
       submitLabel={amt ? `Move ${inr(amt)}` : "Move money"} pendingText="Saving…">
       <div className="grid grid-cols-2 gap-3">
         <SSelect name="fromId" label="From" required options={accounts} start={start} onChange={(e) => setFrom(e.target.value)} />

@@ -148,7 +148,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
   return (
     <div>
       <FeeHead pageName="Fee Dashboard" href={HREF}
-        sub={`${longDate} · live as money comes in · updated ${formatTime(new Date(), p.tz)}`}
+        sub={`${longDate} · updated ${formatTime(new Date(), p.tz)}`}
         viewActions={<ExportButton href={qs(`${BASE}/dashboard/export`, keep)} />}
         actions={p.can.change ? <>
           <ButtonLink href={`${BASE}/ledger/import`} variant="secondary" icon={FileInput} className="hidden md:inline-flex"><Words k="Import old dues and receipts" /></ButtonLink>
@@ -236,7 +236,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
             {(data.unmatched.length > 0 || data.reversals.length > 0) && (
               <div id="online-check" className="scroll-mt-4">
                 <Card>
-                  <CardHeader title="Online payments to check" description="Razorpay took or gave back money that needs a person" icon={ShieldQuestion} action={<Pill tone="warn">{data.unmatched.length + data.reversals.length}</Pill>} />
+                  <CardHeader title="Online payments to check" icon={ShieldQuestion} action={<Pill tone="warn">{data.unmatched.length + data.reversals.length}</Pill>} />
                   <ul className="px-2 pb-2">
                     {data.unmatched.map((u) => (
                       <li key={u.id} className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-sunken/70">
@@ -303,7 +303,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
 
         <div id="recent" className="scroll-mt-4">
           <Card className="overflow-hidden">
-            <CardHeader title="Recent payments" description="Newest first. Online payments arrive by themselves from Razorpay." icon={ReceiptIndianRupee} />
+            <CardHeader title="Recent payments" description="Newest first" icon={ReceiptIndianRupee} />
             <LinkTabs className="px-3" label="Payment kind" tabs={[
               { href: qs(HREF, { ...keep, kind: null }), label: "Full payments", count: fullCount, on: tab === "full" },
               { href: qs(HREF, { ...keep, kind: "partial" }), label: "Partial payments", count: partCount, on: tab === "partial" },
@@ -325,7 +325,7 @@ export default async function FeeDashboardPage({ searchParams }: { searchParams:
                   {page * take < list.total && <Link className={buttonClass("ghost", "sm")} href={qs(HREF, { ...keep, page: String(page + 1) })} scroll={false}><Words k="Older" /></Link>}
                 </span></>}
               empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="fee payments" /> : <Empty icon={SearchX} title={q || status !== "all" || mode !== "all" ? "No payments match" : `No ${tab === "partial" ? "partial " : ""}payments ${whenWord} yet`}
-                body={q || status !== "all" || mode !== "all" ? "Try another status or mode." : "Payments show here the moment they are collected or arrive online."}
+                body={q || status !== "all" || mode !== "all" ? "Try another status or mode." : "Payments show here as they come in."}
                 action={q || status !== "all" || mode !== "all" ? <Link href={qs(HREF, { kind: keep.kind, ...per.keep })} className={buttonClass("secondary")}><Words k="Clear filters" /></Link> : undefined} />}
               rowClass={(r) => r.status === "CANCELLED" && "bg-bad/[.03]"}
               columns={[

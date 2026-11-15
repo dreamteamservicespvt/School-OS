@@ -19,7 +19,7 @@ type CheckRes = Awaited<ReturnType<typeof checkPass>> | null;
 /** "Check a pass" at the gate (16 §2 Visitors, mod-frontoffice.jsx ScanSheet and ScanResult). */
 export function CheckSheet({ close, code, res, tz, gateWork, today, schoolId, title }: { title?: string; close: string; code: string; res: CheckRes; tz: string; gateWork: boolean; today: Date; schoolId: string }) {
   return (
-    <UrlSheet title={title ?? "Check a pass"} sub="Scan the QR on paper or on the visitor’s phone, or type the pass number." closeHref={close}>
+    <UrlSheet title={title ?? "Check a pass"} sub="Scan the QR or type the pass number." closeHref={close}>
       <div className="flex flex-col gap-4 pb-1">
         <PassCheckForm base={close} code={code} />
         {code && res && <CheckResult res={res} tz={tz} gateWork={gateWork} today={today} schoolId={schoolId} />}

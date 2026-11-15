@@ -83,7 +83,7 @@ export function TagSheet({ closeHref, removeHref, mediaId, src, video, students 
   const miss = students.filter((s) => on.has(s.id) && !s.consent).length;
   const box = useRef<HTMLDivElement>(null);
   return (
-    <SheetForm wide title="Tag students in this photo" sub="Pick from the event’s list. Photo consent is shown for each. Tap a name, then tap the photo to mark where they are."
+    <SheetForm wide title="Tag students in this photo" sub="Tap a name, then tap the photo where they are."
       closeHref={closeHref} action={tagAction} submitLabel={<><Tag size={16} aria-hidden="true" />{on.size === 1 ? "Tag 1 student" : `Tag ${on.size || ""} students`.replace("  ", " ")}</>} submitDisabled={!on.size} hidden={{ mediaId }}
       extraButtons={<Button type="submit" variant="ghost" name="noStudents" value="yes"><Words k="No students in it" /></Button>}>
       <div ref={box} className="relative rounded-xl overflow-hidden bg-sunken select-none"

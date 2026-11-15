@@ -142,7 +142,7 @@ export function TranslatePanel({ text, title, languages, getForm, onChanged, onB
             <div className="pt-0.5"><Checkbox id="send-translations" checked={use} onChange={(on) => { setUse(on); onChanged(); }} label="I have read these translations. Use them." /></div>
             <label htmlFor="send-translations" className="text-[14px]">
               <span className="font-semibold"><Words k="I have read these translations. Use them." /></span>
-              <span className="block text-[12.5px] text-ink3"><Words k="Until this is ticked, everyone gets the English. A language left empty gets the English." /></span>
+              <span className="block text-[12.5px] text-ink3"><Words k="Until ticked, everyone gets the English. Empty languages get it too." /></span>
             </label>
           </div>
         </>

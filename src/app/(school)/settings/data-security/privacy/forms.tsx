@@ -52,7 +52,7 @@ export function RetentionForm({ rules, canEdit }: { rules: Rule[]; canEdit: bool
           );
         })}
       </fieldset>
-      <p className="text-sm text-ink-2"><Words k="After this time, records are listed for the School Admin to review; nothing is removed by itself." /></p>
+      <p className="text-sm text-ink-2"><Words k="After this, records are listed for review. Nothing is removed by itself." /></p>
       {canEdit && <SubmitButton pendingText="Saving…"><Words k="Save periods" /></SubmitButton>}
     </form>
   );
@@ -93,7 +93,7 @@ export function DeletionForm({ personType, personId, personName, parts }: { pers
           className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:text-ink" />
         {state?.errors?.proof ? <p className="mt-1 text-sm text-danger">{state?.errors.proof}</p> : <p id="deletion-proof-help" className="mt-1 text-sm text-ink-2"><Words k="A photo or PDF of the letter, up to 10 MB." /></p>}
       </div>
-      <p className="text-sm text-ink-2"><Words k="Nothing is removed until the request is approved in Approvals. Then the chosen details are blanked out; fee receipts, results and the audit log stay, without the removed details." /></p>
+      <p className="text-sm text-ink-2"><Words k="Nothing is removed until approved in Approvals. Receipts, results and the audit log stay, without these details." /></p>
       <SubmitButton pendingText="Sending…"><Words k="Send for approval" /></SubmitButton>
     </form>
   );
@@ -106,7 +106,7 @@ export function ClearRetentionButton({ runId, total, lines }: { runId: string; t
     <ConfirmButton trigger={total === 1 ? "Clear this record" : `Clear these ${total} records`} triggerVariant="danger-outline" title={`Remove personal details from ${total} record${total === 1 ? "" : "s"}?`} confirmLabel="Remove personal details" confirmVariant="danger"
       onConfirm={async () => { const p = await clearRetentionAction(runId); if (!p) router.refresh(); return p; }}>
       <ul className="list-disc space-y-1 pl-5">{lines.map((l) => <li key={l}>{l}</li>)}</ul>
-      <p className="mt-2"><Words k="This cannot be undone. The records themselves stay (pass numbers, counts and costs), and this is written to the audit log." /></p>
+      <p className="mt-2"><Words k="This cannot be undone. The records stay, without personal details." /></p>
     </ConfirmButton>
   );
 }

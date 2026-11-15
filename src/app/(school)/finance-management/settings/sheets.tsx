@@ -24,7 +24,7 @@ export function YearSheet({ closeHref, start, goLive }: { closeHref: string; sta
       <SSelect name="fyStartMonth" label="Year starts in" options={MONTHS} start={start} onChange={(e) => setM(e.target.value)}
         help={`So the year runs ${MONTHS.find((x) => x.value === m)?.label} to ${END[m]}. A change takes effect from the next financial year.`} />
       <SDate name="goLiveDate" label="Go-live date" required start={goLive}
-        help="The first day the school keeps fees and accounts in School OS. Earlier records stay in the old software." />
+        help="The first day in School OS. Earlier records stay in the old software." />
     </SheetForm>
   );
 }
@@ -72,7 +72,7 @@ export function AddHeadSheet({ closeHref, groups }: { closeHref: string; groups:
 
 export function CostCentreSheet({ closeHref }: { closeHref: string }) {
   return (
-    <SheetForm title="Add department" sub="A cost centre that expenses and budgets are tagged to" closeHref={closeHref} action={costCentreAction} submitLabel="Add" pendingText="Adding…">
+    <SheetForm title="Add department" sub="Departments for expenses and budgets" closeHref={closeHref} action={costCentreAction} submitLabel="Add" pendingText="Adding…">
       <SText name="name" label="Name" required placeholder="Science labs" maxLength={60} />
     </SheetForm>
   );
@@ -80,7 +80,7 @@ export function CostCentreSheet({ closeHref }: { closeHref: string }) {
 
 export function TallySheet({ closeHref, heads }: { closeHref: string; heads: { id: string; name: string; ledger: string }[] }) {
   return (
-    <SheetForm title="Tally ledger names" sub="The ledger each head goes to in Tally. Leave a name blank to use the head’s own name." closeHref={closeHref} action={tallyAction} submitLabel="Save" pendingText="Saving…" wide>
+    <SheetForm title="Tally ledger names" sub="Leave blank to use the head’s own name." closeHref={closeHref} action={tallyAction} submitLabel="Save" pendingText="Saving…" wide>
       <ul className="flex flex-col gap-2.5">
         {heads.map((h) => (
           <li key={h.id} className="grid grid-cols-[1fr_1.2fr] gap-3 items-center">

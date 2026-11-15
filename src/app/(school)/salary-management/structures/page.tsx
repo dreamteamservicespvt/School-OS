@@ -115,7 +115,7 @@ export default async function StructuresPage({ searchParams }: { searchParams: S
 
   return (
     <div>
-      <SalaryHead pageName="Salary Structures" href={HREF} sub="Each staff member’s earnings and deductions, with every past version kept"
+      <SalaryHead pageName="Salary Structures" href={HREF} sub="Earnings and deductions, every version kept"
         actions={<>
           {p.change && <ButtonLink href={`${HREF}/import`} variant="secondary" icon={Upload} className="hidden md:inline-flex"><Words k="Import" /></ButtonLink>}
           <ButtonLink href={here({ do: "add" })} scroll={false} variant="primary" icon={Plus}><Words k="Add structure" /></ButtonLink>

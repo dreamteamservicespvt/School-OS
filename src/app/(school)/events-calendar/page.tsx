@@ -113,7 +113,7 @@ export default async function CalendarPage({ searchParams }: { searchParams: Sea
   const prev = stepMonth(month, -1);
   const next = stepMonth(month, 1);
   const own = p.v.level === "own";
-  const sub = own ? "The whole school’s calendar. Your PTM slots are on the PTM page."
+  const sub = own ? "The whole school’s calendar"
     : !full ? "Holidays, exams, events and PTMs. Read only."
       : "Holidays, exams, events and PTMs for the year.";
   const yearLabel = yearOnScreen?.name.replace("-", "–") ?? "";

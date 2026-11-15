@@ -63,7 +63,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
   return (
     <>
       <CommHead access={access} page="Message Templates" href="/communication/templates"
-        sub="Ready message formats in each language, with blanks like student name and due amount. Each save makes a new version."
+        sub="Ready messages with blanks, in each language. Each save makes a new version."
         actions={canEdit ? <ButtonLink href="/communication/templates/new" variant="primary" icon={Plus}><Words k="New template" /></ButtonLink> : undefined} />
       <div className="flex flex-col gap-5 lg:gap-6">
         {data.noDlt > 0 && params.filters.status !== "dlt-missing" && (
@@ -92,7 +92,7 @@ export default async function TemplatesPage({ searchParams }: { searchParams: Se
             empty={
               <EmptyState bare Icon={FileText} title={filtered ? "No templates here" : "No templates yet"}
                 action={canEdit && !filtered ? <ButtonLink href="/communication/templates/new" icon={Plus}><Words k="New template" /></ButtonLink> : undefined}>
-                {filtered ? "Change the search or filters." : "Templates are ready message formats with blanks like {student_name}, in each language you use."}
+                {filtered ? "Change the search or filters." : "Ready messages with blanks like {student_name}."}
               </EmptyState>
             }
             columns={[

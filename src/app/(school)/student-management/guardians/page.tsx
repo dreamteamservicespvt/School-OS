@@ -120,7 +120,7 @@ export default async function GuardiansPage({ searchParams }: { searchParams: Pr
 
   return (
     <>
-      <StudentsHead page="Parents & Guardians" href={path} sub="Parents’ details and phone numbers, linked to all their children in the school"
+      <StudentsHead page="Parents & Guardians" href={path} sub="Parents, phones and their children"
         actions={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={UserPlus}><Words k="Add parent or guardian" /></ButtonLink> : undefined} />
       <div className="flex flex-col gap-4">
         <Stats items={[

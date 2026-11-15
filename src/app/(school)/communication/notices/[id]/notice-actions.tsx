@@ -36,7 +36,7 @@ export function NoticeActions({ id, canEdit, canArchive, canWithdraw = false, ca
       {canWithdraw && (
         <ConfirmButton trigger={<><Undo2 size={17} aria-hidden="true" /><Words k="Withdraw" /></>} triggerVariant="secondary" title="Withdraw this notice from approval?" confirmLabel="Withdraw"
           onConfirm={async () => { const m = await withdrawNoticeAction(id); if (!m) router.refresh(); return m; }}>
-          <Words k="It goes back to Draft and the Principal no longer sees the request. Nothing has been sent yet." />
+          <Words k="It goes back to Draft. Nothing has been sent yet." />
         </ConfirmButton>
       )}
       {canRemind > 0 && (
@@ -52,7 +52,7 @@ export function NoticeActions({ id, canEdit, canArchive, canWithdraw = false, ca
           <Words k="It leaves the notice board and every Parent Link at once. Messages already delivered cannot be unsent." />
         </ConfirmButton>
       )}
-      <Dialog open={open} onClose={() => setOpen(false)} title={`Resend to ${unseen.toLocaleString("en-IN")} parents?`} sub="Only parents who have not opened it on Parent Link or read it on WhatsApp."
+      <Dialog open={open} onClose={() => setOpen(false)} title={`Resend to ${unseen.toLocaleString("en-IN")} parents?`} sub="Only parents who have not opened or read it."
         footer={<>
           <Button variant="secondary" onClick={() => setOpen(false)}><Words k="Close" /></Button>
           <Button loading={sending} loadingText="Sending" disabled={!preview?.ok || Boolean(preview.problem) || preview.people === 0}

@@ -95,7 +95,7 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
 
         {p.customFields.length > 0 && (
           <Card>
-            <CardHeader title="Extra fields" description="Added by the school in Settings, Forms & Approvals" action={editLink(href, "extra", can)} />
+            <CardHeader title="Extra fields" action={editLink(href, "extra", can)} />
             <DL rows={p.customFields.map((f) => [f.label, f.fieldType === "date" && p.extra[f.key] ? formatDate(new Date(`${p.extra[f.key]}T00:00:00Z`), tz) : p.extra[f.key] ?? null])} />
           </Card>
         )}
@@ -123,7 +123,7 @@ export function OverviewTab({ p, can, settings, href, tz, today }: Base & { p: P
 
         {v.pickup && !can.lookupOnly && (
           <Card>
-            <CardHeader title="Pickup list" description="Who may collect the student. Front Office uses this list." icon={UserRoundCheck} />
+            <CardHeader title="Pickup list" description="Who may collect the student" icon={UserRoundCheck} />
             <ul className="px-5 pb-5 flex flex-col gap-2.5 text-[14px]">
               {p.pickups.allowed.length === 0 && <li className="text-ink3"><Words k="No one yet. Press “Allow to pick up” on a parent below." /></li>}
               {p.pickups.allowed.map((g) => (
@@ -226,7 +226,7 @@ function ParentsCard({ p, can, href }: { p: Profile; can: StudentAbilities; href
 function SiblingsCard({ p }: { p: Profile }) {
   return (
     <Card>
-      <CardHeader title="Brothers and sisters" description="Students at the school who share a parent" icon={Users} />
+      <CardHeader title="Brothers and sisters" icon={Users} />
       {p.siblings.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No brother or sister at the school." /></p> : (
         <ul className="px-2 pb-2">
           {p.siblings.map((b) => (
@@ -294,7 +294,7 @@ function EmergencyCard({ p, can }: { p: Profile; can: StudentAbilities }) {
 function NotesCard({ p, can, tz }: { p: Profile; can: StudentAbilities; tz: string }) {
   return (
     <Card>
-      <CardHeader title="Notes" description="Private notes are seen only by the roles chosen and the person who wrote them" icon={StickyNote} />
+      <CardHeader title="Notes" description="Private notes: only chosen roles and the writer see them" icon={StickyNote} />
       <div className="px-5 pb-5 flex flex-col gap-4">
         {can.contribute && (
           <details className="rounded-xl border border-line p-3.5 open:pb-4">
@@ -322,7 +322,7 @@ function NotesCard({ p, can, tz }: { p: Profile; can: StudentAbilities; tz: stri
                   {n.visibleToRoles.length > 0 && <Pill tone="warn" className="!h-5 !text-[11px]"><Words k="Private:" /> {n.visibleToRoles.map((k) => p.roles.find((r) => r.key === k)?.name ?? k).join(", ")}</Pill>}
                   {can.manage && (
                     <ConfirmAction action={archiveNoteAction} fields={{ noteId: n.id, studentId: p.student.id }} trigger="Remove" triggerVariant="ghost" title="Remove this note?" confirmLabel="Remove note" confirmVariant="danger">
-                      <Words k="The note is archived and kept in the history; it no longer shows on the profile." />
+                      <Words k="The note leaves the profile but stays in the history." />
                     </ConfirmAction>
                   )}
                 </div>
@@ -343,7 +343,7 @@ export async function AcademicsTab({ p, can, href, tz }: Base & { p: Profile; hr
   return (
     <Split side={340}>
       <Card className="overflow-hidden">
-        <CardHeader title="Class history" description="One row for every year. Past years are never changed." icon={ListChecks} />
+        <CardHeader title="Class history" description="Past years are never changed." icon={ListChecks} />
         {p.history.length === 0 ? <p className="px-5 pb-5 text-[14px] text-ink3"><Words k="No class on record yet." /></p> : (
           <div className="overflow-x-auto scroll-thin">
             <table className="w-full text-[14px] min-w-[480px]">

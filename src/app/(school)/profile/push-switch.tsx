@@ -111,8 +111,8 @@ export function PushSwitch({ config, schoolAllows }: { config: PushWebConfig | n
     state === "ios-home" ? "On iPhone and iPad, add School OS to the Home Screen first (Share, then Add to Home Screen), then open it from there. Needs iOS 16.4 or later."
     : state === "blocked" ? "Notifications are blocked for School OS in this browser. Allow them in the browser's site settings, then switch this on."
     : state === "no" ? "This browser cannot get pop-up alerts. Use Chrome, Edge, Firefox or Safari."
-    : on ? "Alerts for the kinds ticked under Pop-up reach this device, even when School OS is closed."
-    : "Get alerts for the kinds ticked under Pop-up on this phone or computer, even when School OS is closed.";
+    : on ? "Pop-up alerts reach this device, even when School OS is closed."
+    : "Get pop-up alerts here, even when School OS is closed.";
 
   return (
     <div className="flex items-start gap-3 px-5 py-3.5 border-t border-line">

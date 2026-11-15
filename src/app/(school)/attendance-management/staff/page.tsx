@@ -94,7 +94,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
   const methods = settings.staffMethods.map((m) => (m === "device" ? "the devices" : m === "qr" ? "QR" : m === "mobile" ? "the app" : null)).filter(Boolean);
   const sub = all
     ? `${isToday ? "Today" : "On"}, ${dayText(date)} · ${base.count} staff${methods.length ? ` · in times from ${methods.join(", ").replace(/, ([^,]*)$/, " and $1")}` : ""}`
-    : "Your own attendance, from the devices, QR, the app or the register";
+    : "Your own attendance";
 
   const opened = one(sp.staff);
   const sheet = opened && /^[0-9a-f-]{36}$/.test(opened) && ((all && staffAllowed(access, opened)) || opened === access.staffId) ? await StaffMonthSheet(opened) : null;
@@ -215,7 +215,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
             { label: "Source", value: me.mark ? METHOD_WORDS[me.mark.method] ?? me.mark.method : "—", icon: Fingerprint },
           ]} />
           <Card>
-            <CardHeader icon={CalendarDays} title="My month" description="Go back to earlier months to see their marks, holidays and leave" />
+            <CardHeader icon={CalendarDays} title="My month" />
             <div className="px-5 pb-5"><OwnCalendar staffId={me.staffId} /></div>
           </Card>
         </>
@@ -346,7 +346,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
           <ButtonLink href={`${PATH}${wanted ? `?date=${wanted}` : ""}`} variant="ghost" icon={ArrowLeft}><Words k="Back to the list" /></ButtonLink>
           <UrlDate label="Date" value={isoDay(date)} max={isoDay(today)} className="w-44" />
         </div>
-        <p className="text-[14px] text-ink2 -mt-2"><Words k="For staff without a punch. Mark everyone present, then change the exceptions. Devices, QR and the app fill the rest." /></p>
+        <p className="text-[14px] text-ink2 -mt-2"><Words k="For staff without a punch. Mark all present, then change the exceptions." /></p>
         {!data.info.on ? (
           <Banner tone="warn" title={offDayMessage(data.info, date)}><Words k={"If the school is open that day, the School Admin can turn on \"allow attendance\" for the date in the School Calendar."} /></Banner>
         ) : data.rows.length === 0 ? (
@@ -448,7 +448,7 @@ export default async function StaffAttendancePage({ searchParams }: Props) {
               </table>
             </div>
           )}
-          <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3"><Words k="Holidays and Sundays are not counted. This month reaches Generate Salary with present days, leave and late marks." /></p>
+          <p className="px-5 py-3 border-t border-line text-[12.5px] text-ink3"><Words k="Holidays and Sundays are not counted. Generate Salary uses this month." /></p>
         </Card>
       </>
     );

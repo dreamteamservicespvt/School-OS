@@ -45,7 +45,7 @@ export default async function QrPosterPage({ params }: { params: Promise<{ id: s
       </PageHeader>
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
         <Card>
-          <CardHeader title="Poster" description="School branding, the QR code and short instructions. No personal data is printed." />
+          <CardHeader title="Poster" description="No personal data is printed." />
           <CardBody>
             {!session.isActive && <Alert tone="warning" className="mb-4"><Words k="This QR is stopped. Scans are refused until it is started again." /></Alert>}
             {expired && <Alert tone="danger" className="mb-4"><Words k="This QR expired on" /> {formatDate(session.expiresAt!, tz)}<Words k=". Create a new one." /></Alert>}

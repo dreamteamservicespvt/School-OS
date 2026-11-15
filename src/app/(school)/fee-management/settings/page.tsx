@@ -138,7 +138,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
 
   return (
     <div>
-      <FeeHead pageName="Fee Settings" href={HREF} sub="Late fee, reminders, receipts, gateways and bank accounts. Every change is logged." />
+      <FeeHead pageName="Fee Settings" href={HREF} sub="Every change is logged." />
       <div className="grid xl:grid-cols-2 gap-5 lg:gap-6 items-start">
         <Col>
           <SetCard title="Late fee rules" sub="Added as its own row after the grace period" icon={Timer} edit="late" rows={[
@@ -149,7 +149,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
             { title: "Waive late fee at the counter", sub: `${counterWords("waive-late-fee")}, with a reason; above ${formatRupees(s.concessionLimitPaise)} goes to Approvals` },
           ]} />
 
-          <SetCard title="Reminder schedule" sub="Sent by itself for each unpaid installment. Opted-out parents are skipped." icon={BellRing} edit="reminders">
+          <SetCard title="Reminder schedule" sub="Sent by itself for each unpaid installment" icon={BellRing} edit="reminders">
             <div className="px-5 pb-4 flex flex-col gap-3">
               {!s.remindersOn && <p className="text-[13.5px] text-ink3"><Words k="Off. Reminders go only when someone sends them from Defaulters." /></p>}
               <div className="flex flex-wrap gap-2">
@@ -188,7 +188,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
             </div>
           </SetCard>
 
-          <SetCard title="Optional parts" sub="Switched on school by school. Records already made stay when a part is off." icon={ToggleRight}>
+          <SetCard title="Optional parts" sub="Records stay when a part is off" icon={ToggleRight}>
             <ul className="px-5 pb-3 flex flex-col text-[14px]">
               {FEE_FEATURES.map((f) => (
                 <li key={f.key} className="flex items-center justify-between gap-3 py-2.5 border-t border-line/70 first:border-0">
@@ -204,7 +204,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
 
         <Col>
           <Card className="overflow-hidden">
-            <CardHeader title="Payment gateway for each class" description="DREAM TEAM connects the gateways; you choose which classes use them" icon={Globe}
+            <CardHeader title="Payment gateway for each class" description="Choose which classes use each gateway" icon={Globe}
               action={<Link href={`${HREF}?edit=gateway`} scroll={false} className={cx(buttonClass("ghost", "sm"), "shrink-0")}><Words k="Change" /></Link>} />
             {data.gateways.length === 0 ? (
               <p className="px-5 pb-5 text-[13.5px] text-ink3"><Words k="No gateway connected yet. Parents cannot pay online until DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support. See what is connected in" /> <Link href="/settings/payment-gateways" className="text-brand font-semibold"><Words k="Settings, Payment Gateways" /></Link>.</p>
@@ -237,7 +237,7 @@ export default async function FeeSettingsPage({ searchParams }: { searchParams: 
             { title: "Payment date can be changed", sub: `Only by ${counterWords("change-payment-date")}, never before a closed day` },
           ]} />
 
-          <SetCard title="Fees into different bank accounts" sub="Each fee head goes to its own account. Razorpay splits online payments." icon={Landmark}
+          <SetCard title="Fees into different bank accounts" sub="Each fee head to its own account" icon={Landmark}
             action={<div className="flex items-center gap-2 shrink-0">{features.has("fee-bank-accounts") && <Link href={`${HREF}?edit=accounts`} scroll={false} className={buttonClass("ghost", "sm")}><Words k="Change" /></Link>}<FeatureSwitch featureKey="fee-bank-accounts" on={features.has("fee-bank-accounts")} label="Fees into different bank accounts" /></div>}>
             {features.has("fee-bank-accounts") ? (
               <ul className="px-5 pb-4 flex flex-col text-[14px]">

@@ -53,7 +53,7 @@ export default async function AlumniRecordPage({ params }: { params: Promise<{ i
               <ActionForm action={saveAlumniAction.bind(null, id)} submitLabel="Save" pendingText="Saving…">
                 <FormText name="phone" label="Phone" type="tel" inputMode="numeric" defaultValue={a.phone} />
                 <FormText name="email" label="Email" type="email" defaultValue={a.email} />
-                <FormText name="career" label="Career" defaultValue={a.career} help="For example: Software engineer at a Hyderabad company." />
+                <FormText name="career" label="Career" defaultValue={a.career} />
                 <FormText name="higherEducation" label="Higher education" defaultValue={a.higherEducation} />
                 <FormArea name="achievements" label="Achievements" rows={3} defaultValue={a.achievements} />
                 <FormCheck name="isMentor" label="Willing to mentor current students" defaultChecked={a.isMentor} />
@@ -86,8 +86,8 @@ export default async function AlumniRecordPage({ params }: { params: Promise<{ i
                     <input type="hidden" name="alumniId" value={id} />
                     <FormText name="amount" label="Amount (₹)" required inputMode="decimal" />
                     <FormText name="date" label="Date" type="date" required defaultValue={todayIso(tz)} />
-                    <FormText name="purpose" label="Purpose" required help="For example: library books, scholarship fund." />
-                    <FormText name="receiptRef" label="Receipt number" help="From Finance, Income, when the receipt is made there." />
+                    <FormText name="purpose" label="Purpose" required />
+                    <FormText name="receiptRef" label="Receipt number" help="From Finance, Income" />
                   </ActionForm>
                 </details>
               )}

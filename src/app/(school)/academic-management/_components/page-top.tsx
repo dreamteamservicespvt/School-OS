@@ -33,7 +33,7 @@ export function PageTop({ page, title, href, children, showYear = true }: { page
 export function NoYear({ page }: { page: AcademicPage }) {
   return (
     <EmptyState title="No academic year yet">
-      <p><Words k="Classes, sections and the Time Table belong to an academic year. Create the current year first, with its dates and terms." /></p>
+      <p><Words k="Create the current year first, with its dates and terms." /></p>
       {page.scope.manage ? (
         <div className="mt-4"><ButtonLink href="/academic-management/settings" variant="primary"><Words k="Open Academic Settings" /></ButtonLink></div>
       ) : <p className="mt-2 text-sm"><Words k="Ask your Principal or School Admin to create it." /></p>}

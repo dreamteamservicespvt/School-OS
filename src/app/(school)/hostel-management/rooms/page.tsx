@@ -107,7 +107,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
   return (
     <>
       <HostelHead pageName="Rooms & Beds" href={`${BASE}/rooms`} mode={p.mode}
-        sub={!can.rooms ? "Every bed: who sleeps where, what is free and what is blocked for repair." : mine ? `Every bed in ${hostel?.name ?? "your hostel"}. Tap a bed to give it, move a student or block it for repair.` : "Every bed in the hostels. Tap a bed to give it, move a student or block it for repair."}
+        sub={can.rooms ? "Tap a bed to give it, move a student or block it." : undefined}
         actions={actions} />
       <Stack>
         {d.occ.rows.length === 0 ? (
@@ -124,7 +124,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
               { label: "Free beds", big: String(t.free), foot: `${t.blocked} blocked for repair` },
             ]} />
             {!hostel ? (
-              <Card><Empty icon={UserCog} title="You are not a warden of any hostel yet" body="The Principal or School Admin sets each hostel's wardens in Hostel Settings. Until then you see the totals above." /></Card>
+              <Card><Empty icon={UserCog} title="You are not a warden of any hostel yet" body="The Principal or School Admin sets wardens in Hostel Settings." /></Card>
             ) : (
               <Card className="overflow-hidden">
                 <Toolbar>
@@ -140,7 +140,7 @@ export default async function RoomsPage({ searchParams }: { searchParams: Search
                   <Legend items={[["bg-ok", "Free"], ["bg-ink3/50", "Taken"], ["bg-info", "Away now"], ["bg-warn", "Blocked"]]} />
                 </div>
                 {d.grid.length === 0 ? (
-                  <Empty icon={BedDouble} title={`No rooms in ${hostel.name} yet`} body="Add the first room. Its beds are made and numbered for you. Many rooms at once: import them in Hostel Settings." action={can.rooms ? <ButtonLink href={here({ add: "room" })} variant="primary" icon={Plus} scroll={false}><Words k="Add room" /></ButtonLink> : undefined} />
+                  <Empty icon={BedDouble} title={`No rooms in ${hostel.name} yet`} body="Its beds are made and numbered for you." action={can.rooms ? <ButtonLink href={here({ add: "room" })} variant="primary" icon={Plus} scroll={false}><Words k="Add room" /></ButtonLink> : undefined} />
                 ) : shownRooms.length === 0 ? (
                   <Empty icon={SearchX} title="No room or student matches" body={q ? `Nothing called “${one(sp.q)}” in ${hostel.name}.` : "No rooms on this floor yet."} action={<ButtonLink href={qs(`${BASE}/rooms`, { hostel: p.myHostels.length > 1 ? hostel.id : null })} variant="secondary"><Words k="Clear filters" /></ButtonLink>} />
                 ) : (

@@ -101,7 +101,7 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
     </div>
   );
 
-  const sub = page.scope.office ? "Print admit cards for a whole class or one student" : "Only datesheets that are published have admit cards";
+  const sub = page.scope.office ? "For a whole class or one student" : "From published datesheets only";
   if (!data.exam) {
     return (
       <>
@@ -109,7 +109,7 @@ export default async function AdmitCardsPage({ searchParams }: { searchParams: S
         <div className="flex flex-col gap-5">
           {chooser}
           {data.exams.length === 0 && range ? <EmptyState title="No exams in these dates"><Words k="Choose other dates, or All exam dates." /></EmptyState>
-            : <EmptyState title="No published datesheets"><Words k="Admit cards are made from a published datesheet. Publish one on the Datesheet page first." /></EmptyState>}
+            : <EmptyState title="No published datesheets"><Words k="Publish a datesheet on the Datesheet page first." /></EmptyState>}
         </div>
       </>
     );

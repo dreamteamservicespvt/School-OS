@@ -35,7 +35,7 @@ export function ArchiveSheet({ examId, title, open, onClose, doneHref }: { examI
   return (
     <ActionSheet open={open} onClose={onClose} title={`Archive ${title}?`} confirmLabel="Archive datesheet" confirmVariant="danger" confirmIcon={<Archive size={17} />}
       doneHref={doneHref} run={() => archiveExamAction(examId)}>
-      <p><Words k="The datesheet leaves the list and its exam days come off the School Calendar and Parent Link. Nothing is deleted: find it with Show, Archived, and restore it from there." /></p>
+      <p><Words k="The datesheet leaves the list and its exam days come off the School Calendar and Parent Link. You can restore it from the archived list." /></p>
     </ActionSheet>
   );
 }

@@ -102,13 +102,13 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
 
   return (
     <div>
-      <PageHeader title={t("My profile")} href="/profile" userId={u.id} sub={t("Your own details, password, language, devices and alerts. Only you see this page.")} />
+      <PageHeader title={t("My profile")} href="/profile" userId={u.id} sub={t("Only you see this page.")} />
       <div className="flex flex-col gap-5 lg:gap-6">
         {twoStepOn && params.twoStep === "add" && (
           <Alert tone="warning" title="We could not send you a sign-in code this time">
             <Words k="You signed in with your password only this time." /> {cannotReach ?? (setsUpSms
-              ? "The sign-in code could not be sent (for example, the school's SMS has no credits left). Check SMS in Settings, SMS, WhatsApp & Email."
-              : "The sign-in code could not be sent (for example, the school's SMS has no credits left). Ask your School Admin.")}
+              ? "The sign-in code could not be sent. Check SMS in Settings, SMS, WhatsApp & Email."
+              : "The sign-in code could not be sent. Ask your School Admin.")}
           </Alert>
         )}
         {withoutOld && params.newPassword === "1" && (
@@ -141,7 +141,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
         <div className="grid gap-5 lg:gap-6 items-start xl:grid-cols-[minmax(0,1fr)_340px]">
           <div className="flex flex-col gap-5 lg:gap-6 min-w-0">
             <Card>
-              <CardHeader title={t("My details")} description={t("Changing your mobile number or email needs a one-time code")} icon={I.User} />
+              <CardHeader title={t("My details")} icon={I.User} />
               <DL rows={[
                 [t("Full name"), u.displayName],
                 [t("Mobile number"), <span key="p" className="tnum">{u.phone ?? t("Not given")}</span>],
@@ -154,7 +154,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             </Card>
 
             <Card id="language" className="scroll-mt-20">
-              <CardHeader title={t("Language")} description={t("The language your screens are shown in. The school chooses which languages are on.")} icon={I.Languages} />
+              <CardHeader title={t("Language")} description={t("The school chooses which languages are on.")} icon={I.Languages} />
               <LanguageChoice chosen={isLang(u.language) && languages.includes(u.language) ? cleanLang(u.language) : null} languages={languages} schoolDefault={cleanLang(current.school.defaultLanguage)} />
             </Card>
 
@@ -207,7 +207,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
                 <div className="border-t border-line/70">
                   <div className="px-5 pt-4 pb-1">
                     <h3 className="font-semibold text-[14px]"><Words k="Remembered devices" /></h3>
-                    <p className="text-[12.5px] text-ink3"><Words k="These do not ask for the one-time code when you sign in with your password. Signing out on a device forgets it. A device not used for" /> {REMEMBER_DAYS} <Words k="days is forgotten." /></p>
+                    <p className="text-[12.5px] text-ink3"><Words k="These skip the one-time code at sign-in. A device not used for" /> {REMEMBER_DAYS} <Words k="days is forgotten." /></p>
                   </div>
                   <ul className="px-2 pb-2">
                     {remembered.map((r) => {
@@ -233,7 +233,7 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
             </Card>
 
             <Card className="overflow-hidden">
-              <CardHeader title={t("My notifications")} description={t("Choose how each kind reaches you. Some cannot be switched off.")} icon={I.Bell} />
+              <CardHeader title={t("My notifications")} description={t("Some cannot be switched off.")} icon={I.Bell} />
               <NotePrefsTable kinds={kinds} prefs={readNotePrefs(u.notificationPrefs)} allowed={allowed as NoteChannel[]} phone={u.phone} />
               <PushSwitch config={pushWebConfig()} schoolAllows={allowed.includes("push")} />
               <div className="border-t border-line px-5 py-4">

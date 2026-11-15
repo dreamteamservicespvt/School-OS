@@ -184,7 +184,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
           <SegField name="channel" label="Send by" options={offeredChannels(["whatsapp", "sms", "email"]).map((c) => ({ value: c, label: c === "sms" ? "SMS" : c === "email" ? "Email" : "WhatsApp" }))} defaultValue={channel} onChange={setChannel} />
           <SelectField label="Template" name="_template" required options={templates.map((t) => ({ value: t.key, label: t.label }))} value={tpl}
             onChange={(x) => { setTpl(x.target.value); setText(templates.find((t) => t.key === x.target.value)?.text ?? ""); }} />
-          <TextArea label="Message" name="text" required rows={5} value={text} onChange={(x) => setText(x.target.value)} error={f.err("text")} help="You can change the words before sending." />
+          <TextArea label="Message" name="text" required rows={5} value={text} onChange={(x) => setText(x.target.value)} error={f.err("text")} />
           {channel === "email" && !e.email && <Banner tone="warn"><Words k="No email on this enquiry yet. Add one with Edit, or send on WhatsApp." /></Banner>}
           {f.err("channel") && <p className="text-[12.5px] text-bad">{f.err("channel")}</p>}
         </>}
@@ -220,7 +220,7 @@ export function EnquiryPanel({ e, closeHref, canWork, full, canArchive, c, statu
       <FormSheet open={sheet === "reopen"} onClose={close} title="Reopen enquiry" sub="It goes back to Contacted with a new follow-up." action={reopenAction} hidden={hidden} submitLabel="Reopen" submitIcon={RotateCcw}>
         {(f) => <WhenField label="Next follow-up" name="nextFollowUpAt" required defaultValue={f.val("nextFollowUpAt", c.defaultFollowUp)} error={f.err("nextFollowUpAt")} />}
       </FormSheet>
-      <FormSheet open={sheet === "archive"} onClose={close} title="Archive enquiry" sub="It leaves the lists but is kept with its history. You can restore it." action={archiveAction} hidden={hidden} submitLabel="Archive" submitVariant="danger" submitIcon={Archive}>
+      <FormSheet open={sheet === "archive"} onClose={close} title="Archive enquiry" sub="It leaves the lists. You can restore it." action={archiveAction} hidden={hidden} submitLabel="Archive" submitVariant="danger" submitIcon={Archive}>
         {(f) => <TextField label="Reason" name="reason" required maxLength={300} placeholder="For example: entered twice by mistake" defaultValue={f.val("reason")} error={f.err("reason")} />}
       </FormSheet>
     </Card>

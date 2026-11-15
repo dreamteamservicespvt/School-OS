@@ -42,7 +42,7 @@ export function EditDetails({ name, phone, email }: { name: string; phone: strin
   return (
     <>
       <Button variant="primary" icon={I.Pencil} onClick={() => setOpen(true)}><Words k="Edit details" /></Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Edit my details" sub="Your name changes at once. A new mobile number or email needs a one-time code sent to it.">
+      <Dialog open={open} onClose={() => setOpen(false)} title="Edit my details" sub="A new mobile or email needs a one-time code.">
         <div className="flex flex-col gap-5">
           <NameForm name={name} />
           <ContactForm kind="phone" current={phone} />

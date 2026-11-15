@@ -96,7 +96,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
   return (
     <>
       <CommHead access={access} page="Message History" href="/communication/history"
-        sub={access.full ? "Everything sent: by people, by automatic rules and with notices. Open one to see each person’s status." : "Only messages you sent. Open one to see each person’s status."}
+        sub={access.full ? "Everything sent. Open one to see each person’s status." : "Only messages you sent."}
         actions={<ButtonLink href="/communication" variant="primary" icon={Send}><Words k="Send message" /></ButtonLink>} />
       <div className="flex flex-col gap-5 lg:gap-6">
         <Stats items={[
@@ -156,7 +156,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
                   when: `${formatDateTime(r.queuedAt, tz)}${r.readAt ? ` · read ${formatDateTime(r.readAt, tz)}` : ""}`,
                 }))} />
               ) : (
-                <EmptyState bare Icon={HistoryIcon} title="Find a person"><Words k="Search for a parent, student or staff member to see every message they were sent." /></EmptyState>
+                <EmptyState bare Icon={HistoryIcon} title="Find a person"><Words k="See every message one person was sent." /></EmptyState>
               )}
             </div>
           ) : (
@@ -170,7 +170,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
               empty={
                 <EmptyState bare Icon={HistoryIcon} title={anyFilter ? "Nothing matches" : "You have not sent any messages yet"}
                   action={!anyFilter && access.canChange ? <ButtonLink href="/communication" icon={Send}><Words k="Send a message" /></ButtonLink> : undefined}>
-                  {anyFilter ? "Try another channel or status." : "Messages you send show up here with each person’s status."}
+                  {anyFilter ? "Try another channel or status." : "Messages you send show here."}
                 </EmptyState>
               }
               columns={[

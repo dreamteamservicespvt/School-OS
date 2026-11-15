@@ -47,7 +47,7 @@ export function RequestSheet({ closeHref, items, start, departments, myDepartmen
   const waits = amount > limit;
   return (
     <SheetForm title="Raise a purchase request" sub={`Up to ${inr(limit)} is approved at once; above it goes to Approvals.`} closeHref={closeHref} action={requestAction} submitLabel={waits ? "Send for approval" : "Raise request"} wide>
-      <ItemLines items={items} start={start} price="unit" onTotal={setTotal} help="The rate is an estimate: the last purchase price is filled in. Leave it empty if not known." />
+      <ItemLines items={items} start={start} price="unit" onTotal={setTotal} help="An estimate. Leave it empty if not known." />
       <SArea name="reason" label="Reason" required maxLength={300} placeholder="For example: notebooks for the new term" />
       <div className="grid sm:grid-cols-3 gap-3">
         <SDate name="neededBy" label="Needed by" min={today} />
@@ -78,7 +78,7 @@ export function OrderSheet({ closeHref, items, start, vendors, stores, mainStore
         <SSelect name="vendorId" label="Vendor" required options={vendors} placeholder="Choose the vendor" help={<a href={addVendorHref} className="font-semibold text-brand hover:underline"><Words k="Add a vendor" /></a>} />
         <SSelect name="locationId" label="Deliver to store" required options={stores} start={mainStore} />
       </div>
-      <ItemLines items={items} start={start} price="unit" onTotal={setTotal} help="Price per unit from the vendor's quote. The last price paid is filled in." />
+      <ItemLines items={items} start={start} price="unit" onTotal={setTotal} help="Price per unit from the vendor's quote." />
       {over && <Alert tone="info">{`The order (${inr(total / 100)}) is above ${inr(approvedUpTo)} approved, so it waits in Approvals before it is sent.`}</Alert>}
       <div className="grid sm:grid-cols-2 gap-3">
         <SDate name="expectedOn" label="Expected by" min={today} />
@@ -112,7 +112,7 @@ export function ReceiveSheet({ closeHref, orderId, number, lines, stores, store,
   const [qty, setQty] = useState<Record<string, string>>(() => Object.fromEntries(lines.map((l) => [l.id, typed?.[`recv-${l.id}`] ?? String(Math.max(0, l.ordered - l.received))])));
   const extra = lines.filter((l) => (Number(qty[l.id]) || 0) > l.ordered - l.received);
   return (
-    <SheetForm title={`Goods received: ${number}`} sub="Enter what arrived. Part deliveries are fine; stock goes up in the store chosen." closeHref={closeHref} action={receiveAction} submitLabel="Add to stock" hidden={{ orderId }} wide>
+    <SheetForm title={`Goods received: ${number}`} sub="Enter what arrived. Part deliveries are fine." closeHref={closeHref} action={receiveAction} submitLabel="Add to stock" hidden={{ orderId }} wide>
       <div className="grid sm:grid-cols-2 gap-3">
         <SSelect name="locationId" label="Store" required options={stores} start={store} />
         <SDate name="date" label="Date received" required start={today} max={today} />
@@ -182,7 +182,7 @@ export function BillSheet({ closeHref, orders, vendors, start, today }: { closeH
       {!order && <SSelect name="vendorId" label="Vendor" required options={vendors} placeholder="Choose the vendor" />}
       <div className="grid grid-cols-2 gap-3">
         <SText name="billNo" label="Bill number" required maxLength={40} className="[&_input]:font-mono" />
-        <SMoney key={orderId} name="amount" label="Amount" required start={order?.left ?? ""} help={order ? "Filled in with what is still unbilled on the order. Change it to the bill's total." : undefined} />
+        <SMoney key={orderId} name="amount" label="Amount" required start={order?.left ?? ""} help={order ? "Change it to the bill's total." : undefined} />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <SDate name="billDate" label="Bill date" required start={today} max={today} />
@@ -232,7 +232,7 @@ export type VendorStart = { id: string; name: string; contactName: string; phone
 
 export function VendorSheet({ closeHref, start, bank }: { closeHref: string; start: VendorStart | null; bank: boolean }) {
   return (
-    <SheetForm title={start ? `Change ${start.name}` : "Add a vendor"} sub="The same vendor list as Finance. A GSTIN or phone already in the list shows that vendor instead." closeHref={closeHref} action={saveVendorAction} submitLabel="Save vendor" hidden={start ? { vendorId: start.id } : undefined}>
+    <SheetForm title={start ? `Change ${start.name}` : "Add a vendor"} sub="The same vendor list as Finance." closeHref={closeHref} action={saveVendorAction} submitLabel="Save vendor" hidden={start ? { vendorId: start.id } : undefined}>
       <SText name="name" label="Vendor name" required maxLength={120} start={start?.name} placeholder="Sri Sai Stationers" />
       <div className="grid sm:grid-cols-2 gap-3">
         <SText name="contactName" label="Contact person" maxLength={80} start={start?.contactName} />

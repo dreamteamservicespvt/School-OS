@@ -34,7 +34,7 @@ export function HeadSheet({ closeHref, head, banks, gstin, splitOn }: { closeHre
       closeHref={closeHref} action={saveHeadAction} submitLabel={head ? "Save fee head" : "Add fee head"} pendingText="Saving…" hidden={head ? { headId: head.id } : undefined}
       extraButtons={head && !head.system ? <ArchiveHead id={head.id} name={head.name} /> : undefined}>
       <SText name="name" label="Name" required start={head?.name} placeholder="Example: Robotics club" maxLength={80} />
-      <SSelect name="kind" label="Kind" start={head?.kind ?? "other"} options={HEAD_KINDS.map((k) => ({ value: k, label: headKindLabel(k) }))} help="Used for reports and the fee certificate (tuition is shown on its own)." />
+      <SSelect name="kind" label="Kind" start={head?.kind ?? "other"} options={HEAD_KINDS.map((k) => ({ value: k, label: headKindLabel(k) }))} help="Used on reports and the fee certificate" />
       <div className="rounded-xl border border-line flex items-center gap-3 px-4 py-3">
         <div className="min-w-0 flex-1 text-[14px]">
           <b className="font-semibold block"><Words k="Taxable (GST)" /></b>
@@ -48,8 +48,8 @@ export function HeadSheet({ closeHref, head, banks, gstin, splitOn }: { closeHre
           <SText name="sacCode" label="SAC or HSN code" start={head?.sacCode} help="Printed on the tax invoice" inputMode="numeric" />
         </div>
       )}
-      {splitOn && <SSelect name="bankAccountId" label="Bank account" start={head?.bankAccountId ?? ""} options={[{ value: "", label: "Main bank account" }, ...banks]} help="Fees into different bank accounts is on" />}
-      <SSwitch name="lateFeeApplies" title="Late fee applies" sub="When on, the late fee rule in Fee Settings adds to this head when it is overdue." start={head?.lateFeeApplies ?? true} />
+      {splitOn && <SSelect name="bankAccountId" label="Bank account" start={head?.bankAccountId ?? ""} options={[{ value: "", label: "Main bank account" }, ...banks]} />}
+      <SSwitch name="lateFeeApplies" title="Late fee applies" sub="Uses the late fee rule in Fee Settings" start={head?.lateFeeApplies ?? true} />
     </SheetForm>
   );
 }
@@ -107,7 +107,7 @@ export function RowSheet({ closeHref, yearId, classId, category, className, head
           onChange={(e) => { setTotal(e.target.value); setInst(make(freq, e.target.value)); }} placeholder="₹ 0" />
         <SelectField name="frequency" label="Frequency" required value={freq} onChange={(e) => { const f = e.target.value as FrequencyValue; setFreq(f); setInst(make(f, total)); }} options={FREQUENCIES.map((f) => ({ value: f.value, label: f.label }))} />
       </div>
-      <FieldShell id="inst" label="Installments" help="Due on the 10th by default. Change any name, date or amount.">
+      <FieldShell id="inst" label="Installments" help="Due on the 10th by default.">
         <ul className="flex flex-col gap-2">
           {inst.map((x, i) => (
             <li key={i} className="grid grid-cols-[1.2fr_1fr_0.9fr_auto] gap-2 items-center">
@@ -225,7 +225,7 @@ export function PrepareSheet({ closeHref, fromYearId, toYearId, fromName, toName
   return (
     <SheetForm title={`Prepare ${toName}`} sub={`Copies every class’s structure from ${fromName} as drafts. Nothing changes for this year.`} closeHref={closeHref}
       action={prepareYearAction} submitLabel={`Open ${toName} drafts`} pendingText="Copying…" hidden={{ fromYearId, toYearId }}>
-      <SText name="percent" label="Increase amounts by (%)" start="0" inputMode="decimal" help="0 keeps the same amounts. Type 5 to add 5% to every fee. Due dates move to the new year. Check each class before you publish." />
+      <SText name="percent" label="Increase amounts by (%)" start="0" inputMode="decimal" help="0 copies the same amounts. 5 adds 5%." />
     </SheetForm>
   );
 }

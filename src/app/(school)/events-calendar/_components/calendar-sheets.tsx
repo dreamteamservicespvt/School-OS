@@ -44,7 +44,7 @@ export function AddEntrySheet({ closeHref, defDate, classes, campuses }: { close
       <WarningConfirm keyName="attendance-taken" />
       <div key={type} className="[&>div]:bg-sunken/70 [&>div]:border-0">
         <SSwitch name="attendanceOn" title="Allow attendance on this date"
-          sub={closes ? "Off: attendance is off and reports leave the day out." : "Off: the day stays as it is. On: attendance is taken that day even on a Sunday, weekend or holiday, and the day counts in every %."} start={false} />
+          sub={closes ? "Off: attendance is off and reports leave the day out." : "On: attendance is taken that day, even on a holiday."} start={false} />
       </div>
       <label className="flex flex-col gap-1.5">
         <span className="text-[13px] font-semibold text-ink2"><Words k="Applies to" /></span>

@@ -271,7 +271,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
           </Col>
           <Col>
             <Card>
-              <CardHeader title="Fees" description="Receipts are made only after the payment is confirmed" icon={IndianRupee} />
+              <CardHeader title="Fees" description="Receipt only after the payment is confirmed" icon={IndianRupee} />
               <div className="px-5 pb-5 flex flex-col gap-3">
                 <div className="rounded-xl border border-line p-3.5">
                   <div className="flex items-center justify-between gap-2">
@@ -344,7 +344,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
               </Card>
             )}
             <Card>
-              <CardHeader title="Timeline" description="Newest first. Nothing here is deleted." icon={Clock} />
+              <CardHeader title="Timeline" description="Newest first" icon={Clock} />
               <div className="px-5">{timeline.length ? <Timeline items={timeline} /> : <p className="pb-5 text-[13.5px] text-ink3"><Words k="Nothing yet." /></p>}</div>
               {(data.enquiry || data.approval) && (
                 <div className="px-5 pb-5 flex flex-wrap gap-3 text-[13px]">

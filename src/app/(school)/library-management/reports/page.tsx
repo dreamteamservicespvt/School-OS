@@ -129,7 +129,7 @@ export default async function LibraryReportsPage({ searchParams }: { searchParam
         </div>
 
         <Card>
-          <CardHeader title="Reports" icon={FileBarChart} description="Open a report to see its rows and export it with the dates and class above." divided />
+          <CardHeader title="Reports" icon={FileBarChart} divided />
           <ul className="grid sm:grid-cols-2 xl:grid-cols-3 gap-px bg-line/70">
             {LIBRARY_REPORT_LIST.map((x, i, all) => (
               // The last report fills the rest of its row, so no empty grey cell shows.

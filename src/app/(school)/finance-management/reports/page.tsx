@@ -102,7 +102,7 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
 
   return (
     <div>
-      <FinanceHead pageName="Finance Reports" href={HREF} sub="Every report works by financial year (April to March), with a date range inside it · also in Reports & Analytics"
+      <FinanceHead pageName="Finance Reports" href={HREF} sub="By financial year, April to March"
         viewActions={p.can.export && p.has("finance-tally") && full ? <a href={qs(`${HREF}/tally`, { fy: keep.fy, period: keep.period, from: keep.from, to: keep.to })} className={buttonClass("secondary")}><FileCode2 size={17} aria-hidden="true" /><Words k="Export for Tally" /></a> : undefined} />
       <Toolbar className="!px-0 !pt-0 mb-5 md:!flex-row">
         <UrlSelect id="fr-fy" param="fy" label="Financial year" className="md:w-72" options={yearOptions} />
@@ -116,7 +116,7 @@ export default async function FinanceReportsPage({ searchParams }: { searchParam
         <ReportsFrame reports={links} active={def.key}>
           {off ? (
             <Card><Empty icon={LOOK[def.key]?.icon ?? Gauge} title={off === "finance-budget" ? "Budgets are switched off" : "Accounts are switched off"}
-              body={off === "finance-budget" ? "Switch budgets on in Finance Settings to see each head’s budget against what was spent, with alerts at 80% and 100%." : "Switch Accounts on in Finance Settings for journal entries, the ledger and the trial balance."}
+              body={off === "finance-budget" ? "Switch budgets on in Finance Settings." : "Switch Accounts on in Finance Settings."}
               action={p.may("settings") ? <Link href={`${BASE}/settings`} className={buttonClass("secondary")}><Words k="Open Finance Settings" /></Link> : undefined} /></Card>
           ) : r && (
             <Stack>

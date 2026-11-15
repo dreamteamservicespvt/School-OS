@@ -123,7 +123,7 @@ const noFee: Widget<"attention"> = {
     return {
       id: "transport.no-fee", tone: "warn", icon: "CreditCard",
       title: `${plural(cov.noFee.length, "student")} on a bus with no transport fee`,
-      detail: "Add the stop's fee so it is collected with their other fees.",
+      detail: "Add the stop's fee.",
       action: "Fix", href: `${BASE}/students?show=no-fee`, value: String(cov.noFee.length),
     };
   },

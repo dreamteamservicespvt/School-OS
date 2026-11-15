@@ -42,7 +42,7 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
   const typeOptions = [...new Set([...(start.type ? [start.type] : []), ...types])].map((t) => ({ value: t, label: t }));
   const venueOptions = [{ value: "", label: "No venue" }, ...[...new Set([...(start.venue ? [start.venue] : []), ...venues])].map((v) => ({ value: v, label: v }))];
   return (
-    <SheetForm wide title={editing ? "Change event" : "Create event"} sub={editing ? "Changes to date, time or venue can be sent to the audience." : "It appears on the School Calendar. Reminders go through Communication."}
+    <SheetForm wide title={editing ? "Change event" : "Create event"} sub={editing ? "Changes to date, time or venue can be sent to the audience." : "It appears on the School Calendar."}
       closeHref={closeHref} action={saveEventAction} submitLabel={editing ? "Save" : "Create event"} hidden={start.id ? { eventId: start.id } : undefined}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <SText name="name" label="Name" required start={start.name} placeholder="For example: Annual Day 2027" maxLength={80} />
@@ -86,7 +86,7 @@ export function EventSheet({ closeHref, start, types, venues, classes, reminders
         <SSelect name="reminder" label="Reminder" options={reminders} start={start.reminder ?? "1d"} />
       </div>
       <SArea name="description" label="Description" rows={2} start={start.description} maxLength={1000} />
-      {editing && <SSwitch name="tell" title="Tell people if the date, time or venue changes" sub="A message goes to the parents of registered students. With no registration, it goes to everyone the event is for." start />}
+      {editing && <SSwitch name="tell" title="Tell people if the date, time or venue changes" sub="Goes to parents of registered students, or everyone the event is for." start />}
     </SheetForm>
   );
 }

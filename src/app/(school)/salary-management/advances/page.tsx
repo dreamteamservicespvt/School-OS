@@ -93,7 +93,7 @@ export default async function AdvancesPage({ searchParams }: { searchParams: Sea
 
   return (
     <div>
-      <SalaryHead pageName="Advances & Loans" href={HREF} sub="Salary advances and loans, recovered from monthly pay until the balance is zero"
+      <SalaryHead pageName="Advances & Loans" href={HREF} sub="Recovered from monthly pay until paid back"
         actions={p.can.create && data.settings.advancesOn ? <ButtonLink href={here({ do: "give" })} scroll={false} variant="primary" icon={HandCoins}><Words k="Give advance or loan" /></ButtonLink> : null} />
       <Stack>
         <Stats items={[

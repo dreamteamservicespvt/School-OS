@@ -147,7 +147,7 @@ export default async function ReportsPage({ searchParams }: Search) {
 
   return (
     <>
-      <AdmissionHead href={PATH} sub="Where enquiries come from, how many join, and applications still pending" />
+      <AdmissionHead href={PATH} sub="Sources, joins and pending applications" />
       {!read ? (
         <Card><EmptyState bare Icon={FileClock} title="No academic year is set up yet"><Words k="Reports appear once an admission year is open." /></EmptyState></Card>
       ) : (

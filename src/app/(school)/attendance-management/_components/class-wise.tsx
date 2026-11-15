@@ -50,7 +50,7 @@ export function NotMarkedCard({ rows, lockText, locked, canRemind, tz }: { rows:
           </li>
         ))}
       </ul>
-      <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="A class not marked by" /> {lockText} <Words k="shows as not taken, and no absence message goes to parents. Remind sends the class teacher a message in the app." /></p>
+      <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="A class not marked by" /> {lockText} <Words k="shows as not taken, and no absence message goes to parents." /></p>
     </Card>
   );
 }
@@ -136,7 +136,7 @@ export function ClassWiseView({ cw, sort, group, href, period, today, threshold 
             })}
           </ul>
         )}
-        <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="Red is below" /> {threshold}<Words k="% (Attendance Settings), amber below 92%, green 92% or more. Late counts as present; leave, holidays and Sundays are not counted." /></p>
+        <p className="px-5 pb-4 text-[12.5px] text-ink3"><Words k="Red is below" /> {threshold}<Words k="%, amber below 92%, green 92% or more. Late counts as present." /></p>
       </Card>
     </div>
   );

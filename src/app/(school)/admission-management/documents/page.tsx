@@ -137,7 +137,7 @@ export default async function DocumentsPage({ searchParams }: Search) {
 
   return (
     <>
-      <AdmissionHead href={PATH} sub="Birth certificate, TC, marksheets and other papers, checked against the list for each class" />
+      <AdmissionHead href={PATH} sub="Papers checked against each class's list" />
       <div className={cx("grid gap-5 lg:gap-6 items-start", "xl:grid-cols-[minmax(0,1fr)_440px]")}>
         <div className={cx("min-w-0 flex-col gap-4", panel ? "hidden xl:flex" : "flex")}>
           <Chips value={f.show ?? "all"} label="Show" options={[
@@ -168,7 +168,7 @@ export default async function DocumentsPage({ searchParams }: Search) {
         ) : openId ? (
           <Card><EmptyState bare Icon={SearchX} title="Applicant not found" action={<ButtonLink href={PATH} variant="secondary"><Words k="All applicants" /></ButtonLink>}><Words k="It may have been archived." /></EmptyState></Card>
         ) : (
-          <Card className="hidden xl:block"><EmptyState bare Icon={FolderOpen} title="Pick an applicant"><Words k="Their checklist for the class applied for opens here, with Verify and Reject on each paper." /></EmptyState></Card>
+          <Card className="hidden xl:block"><EmptyState bare Icon={FolderOpen} title="Pick an applicant"><Words k="Their papers checklist opens here." /></EmptyState></Card>
         )}
       </div>
     </>

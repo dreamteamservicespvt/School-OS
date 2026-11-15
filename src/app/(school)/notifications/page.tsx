@@ -77,7 +77,7 @@ export default async function NotificationsPage({ searchParams }: { searchParams
       {data.notes.length === 0 ? (
         <EmptyState title={filtered ? "No notifications match" : "No notifications"} Icon={filtered ? I.SearchX : I.Bell}
           action={filtered ? <Link href="/notifications" className="text-sm font-semibold text-brand hover:underline"><Words k="Clear the filters" /></Link> : undefined}>
-          {filtered ? "Change the search, the dates or the filter." : "Alerts meant for you, such as requests waiting for your approval, appear here. Each one opens the right screen."}
+          {filtered ? "Change the search, the dates or the filter." : "Alerts for you, like approvals, show here."}
         </EmptyState>
       ) : (
         <>

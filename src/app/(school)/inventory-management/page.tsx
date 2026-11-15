@@ -157,7 +157,7 @@ export default async function IssueStockPage({ searchParams }: { searchParams: S
 
   return (
     <>
-      <InvHead pageName="Issue Stock" href={BASE} mode={p.mode} sub="Pick who receives, then the items. Stock in hand shows on every line." />
+      <InvHead pageName="Issue Stock" href={BASE} mode={p.mode} sub="Pick who receives, then the items." />
       <Stack>
         <Stats items={stats} />
         <Split side={380}>

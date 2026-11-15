@@ -80,7 +80,7 @@ export function IssueForm({ action, find, items, stockBy, staff, departments, se
             <ItemLines items={items} limit stockAt={(id) => stockBy[id]?.[store] ?? 0} help="A quantity above the stock in this store cannot be issued."
               unitPaise={priced} onTotal={setTotal} onOver={setOver} />
             {to === "STUDENT" && <Toggle name="chargeToFees" title="Charge to the student's fees" sub={charge ? "At each item's price. Shown in Fee Management." : "A free issue: nothing is charged."} on={charge} onChange={setCharge} />}
-            <Toggle name="returnable" title="To be returned" sub={returnable ? "Shown as out until it comes back (and in leaving clearance)." : "Given for use; not expected back."} on={returnable} onChange={setReturnable} />
+            <Toggle name="returnable" title="To be returned" sub={returnable ? "Shown as out until it comes back." : "Given for use; not expected back."} on={returnable} onChange={setReturnable} />
             <SArea name="note" label="Note" maxLength={300} placeholder="Optional" />
           </>
         );

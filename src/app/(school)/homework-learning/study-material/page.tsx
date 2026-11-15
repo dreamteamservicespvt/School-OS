@@ -68,14 +68,14 @@ async function StaffMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
 
   const head = (actions?: React.ReactNode) => (
     <HomeworkHead page="study-material" pageName="Study Material" actions={actions}
-      sub={p.own ? `Your courses: ${[...new Set(data.courses.filter((c) => c.canWork).map((c) => c.subject))].join(", ") || "none yet"}` : "A course workspace for each class and subject"} />
+      sub={p.own ? `Your courses: ${[...new Set(data.courses.filter((c) => c.canWork).map((c) => c.subject))].join(", ") || "none yet"}` : "Lessons for each class and subject"} />
   );
 
   if (!data.pick) {
     return (
       <div>
         {head()}
-        <Card><Empty icon={Library} title="No courses yet" body={p.own ? "Courses come from your teaching allocations. Ask the school office to add your classes and subjects." : "Courses appear once teachers are given classes and subjects for this year."} /></Card>
+        <Card><Empty icon={Library} title="No courses yet" body={p.own ? "Ask the school office to add your classes and subjects for this year." : "Courses show once teachers get classes and subjects."} /></Card>
       </div>
     );
   }
@@ -200,7 +200,7 @@ async function StudentMaterial({ p, sp }: { p: HomeworkPage; sp: Sp }) {
     return { courses, pick, lessons: d.lessons };
   });
   const head = <HomeworkHead page="study-material" pageName="Study Material" sub={`Class ${(s.student?.label ?? "").replace(/^Class\s+/i, "")} · notes, files and videos from your teachers`} />;
-  if (!data.pick) return <div>{head}<Card><Empty icon={Library} title="Nothing to study yet" body="Your teachers have not shared lessons yet. They appear here when they do." /></Card></div>;
+  if (!data.pick) return <div>{head}<Card><Empty icon={Library} title="Nothing to study yet" body="Your teachers have not shared lessons yet." /></Card></div>;
 
   const c = data.pick;
   const here = (extra: Record<string, string | null> = {}) => qs(HREF, { c: keyOf(c), ...extra });

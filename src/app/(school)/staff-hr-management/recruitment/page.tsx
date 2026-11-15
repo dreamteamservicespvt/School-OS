@@ -349,7 +349,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
               </Col>
               <Col>
                 <Card>
-                  <CardHeader title="What is rated" icon={Star} description="Each point from 1 to 5, by the staff member and then the reviewer" />
+                  <CardHeader title="What is rated" icon={Star} description="Each point from 1 to 5" />
                   {/* Someone who sees only their own appraisal sees only their own points (teachers' or other staff's, LD11). */}
                   {(hr ? ratedLists(data.cycle) : [{ label: null, points: mine ? pointsOf(mine, data.cycle) : data.cycle.criteria }]).map((l) => (
                     <div key={l.label ?? "points"} className="px-5 pb-5">
@@ -404,7 +404,7 @@ export default async function RecruitmentPage({ searchParams }: Props) {
     const rows = await withSchool(current.ctx, (tx) => tx.promotionRecord.findMany({ where: staffIdOnCampus(viewer), orderBy: { effectiveFrom: "desc" }, take: 200 }));
     return (
       <Card className="overflow-hidden">
-        <CardHeader title="Promotions" icon={TrendingUp} description="A promotion changes the designation from a date; salary changes go to Salary Structures" divided />
+        <CardHeader title="Promotions" icon={TrendingUp} description="Salary changes go to Salary Structures" divided />
         {rows.length === 0 ? <Empty icon={TrendingUp} title="No promotions yet" body="A promotion changes the designation from a date and is kept in the staff member's history." /> : (
           <ul className="divide-y divide-line">
             {rows.map((p) => (

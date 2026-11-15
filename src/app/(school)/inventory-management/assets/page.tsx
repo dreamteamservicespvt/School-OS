@@ -179,7 +179,7 @@ export default async function AssetsPage({ searchParams }: { searchParams: Searc
 
         {view === "repairs" && (
           <Card>
-            <CardHeader title="Repair log" description="Repairs and services of every asset. Open them from the asset." icon={Wrench} divided action={rangeDate("Date")} />
+            <CardHeader title="Repair log" icon={Wrench} divided action={rangeDate("Date")} />
             <SimpleTable caption="Repairs" rows={d.repairs} rowKey={(r) => r.id} minWidth={720} cols={[
               { label: "Date", nowrap: true, render: (r) => day(r.date) },
               { label: "Asset", render: (r) => <Link className="font-semibold hover:underline" href={`${BASE}/assets/${r.assetId}`}>{r.asset.tag} {r.asset.name}</Link> },
@@ -259,7 +259,7 @@ export default async function AssetsPage({ searchParams }: { searchParams: Searc
               </Card>
             ) : (
               <Banner tone="info" icon={ScanLine} title="No asset check open" action={can.assets ? <ButtonLink href={here({ open: "audit" })} size="sm" variant="primary" scroll={false}><Words k="Start a check" /></ButtonLink> : undefined}>
-                <Words k="A check lists what is missing and misplaced as tags are scanned room by room." />
+                <Words k="Scan the tags room by room to find what is missing." />
               </Banner>
             )}
             {d.audits.length > 0 && (

@@ -48,7 +48,7 @@ export default async function MessagingSettingsPage({ searchParams }: { searchPa
   return (
     <>
       <PageHeader title="SMS, WhatsApp & Email" href="/settings/messaging" userId={current.user.id} />
-      <p className="-mt-3 mb-4 text-ink-2">{SMS_OFFERED ? <Words k="DREAM TEAM connects WhatsApp, SMS and email for your school, registers your SMS sender, and adds message credits. Here you switch each channel on or off. What each message says is in" /> : <Words k="DREAM TEAM connects WhatsApp and email for your school and adds message credits. Here you switch each channel on or off. What each message says is in" />} <Link href="/communication/templates" className="text-brand-text underline"><Words k="Message Templates" /></Link><Words k="; automatic messages are in" /> <Link href="/communication/settings" className="text-brand-text underline"><Words k="Message Settings" /></Link>.</p>
+      <p className="-mt-3 mb-4 text-ink-2"><Words k="Switch each channel on or off. DREAM TEAM connects them and adds credits. Message words are in" /> <Link href="/communication/templates" className="text-brand-text underline"><Words k="Message Templates" /></Link><Words k="; automatic messages are in" /> <Link href="/communication/settings" className="text-brand-text underline"><Words k="Message Settings" /></Link>.</p>
       {!canEdit && <Alert tone="info" className="mb-4"><Words k="You can see these settings. The School Admin changes them." /></Alert>}
       {low.map((c) => <Alert key={c} tone="warning" className="mb-4"><Words k="Only" /> {data.balances[c].toLocaleString("en-IN")} {CHANNEL_LABEL[c]} <Words k="credits left, below your alert of" /> {data.setups[c].lowCreditAlert.toLocaleString("en-IN")}<Words k=". To buy more, tell DREAM TEAM support." /></Alert>)}
 
@@ -68,9 +68,9 @@ export default async function MessagingSettingsPage({ searchParams }: { searchPa
         {!SMS_OFFERED && <p className="rounded-xl bg-surface-2 px-4 py-3 text-sm text-ink-2"><Words k="SMS is not used for now. Messages go by WhatsApp, email and the app." /></p>}
 
         {SMS_OFFERED && <Card>
-          <CardHeader title="SMS: DLT registration" description="Indian telecom rules: every SMS needs the school's DLT entity ID, an approved sender header, and a DLT template ID on each SMS template. DREAM TEAM adds them for you." />
+          <CardHeader title="SMS: DLT registration" description="Every SMS needs a DLT entity ID, sender header and template ID. DREAM TEAM adds them." />
           <CardBody>
-            {dltMissing && <Alert tone="info" className="mb-3"><Words k="Not added yet. SMS can be switched on once DREAM TEAM adds the school's DLT registration." /></Alert>}
+            {dltMissing && <Alert tone="info" className="mb-3"><Words k="Not added yet. SMS can be switched on after DREAM TEAM adds it." /></Alert>}
             <dl className="grid gap-3 text-sm sm:grid-cols-2">
               <div><dt className="text-ink-2"><Words k="DLT entity ID" /></dt><dd className="font-mono font-medium">{data.school.smsDltEntityId || "Not added yet"}</dd></div>
               <div><dt className="text-ink-2"><Words k="Sender header" /></dt><dd className="font-mono font-medium">{data.school.smsSenderHeader || "Not added yet"}</dd></div>

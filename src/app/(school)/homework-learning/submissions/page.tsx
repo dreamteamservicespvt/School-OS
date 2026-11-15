@@ -66,8 +66,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
   });
 
   const head = (sub: string) => <HomeworkHead page="submissions" pageName="Submissions & Grading" sub={sub} />;
-  const own = s.level === "own";
-  const subLine = own ? "Your homework · who handed in, marks and feedback · only your classes and subjects" : "Who handed in, and the marks and feedback";
+  const subLine = "Who handed in, and the marks and feedback";
   const range = per.range ? rangeWords(per.range.from, per.range.to) : "";
   if (!data.hw) {
     return (
@@ -129,7 +128,7 @@ export default async function SubmissionsPage({ searchParams }: { searchParams: 
               <ExportButton href={qs(`${HREF}/export`, { hw: hw.id, f: f === "all" ? null : f, q: q || null })} />
             </div>
           </Toolbar>
-          {canEdit && picking && <p className="px-4 pt-3 text-[13px] text-ink3 lg:hidden"><Words k="Tap students to tick them, then choose Mark Complete or Remind parents. You see what will change before anything is saved." /></p>}
+          {canEdit && picking && <p className="px-4 pt-3 text-[13px] text-ink3 lg:hidden"><Words k="Tick students, then choose Mark Complete or Remind parents." /></p>}
           <div className="px-3 pt-3">
             <Chips value={f} label="Show" options={[
               { value: "all", label: "Everyone", count: rows.length, href: here({ f: null }) },

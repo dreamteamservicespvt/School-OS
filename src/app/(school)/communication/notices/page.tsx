@@ -72,7 +72,7 @@ export default async function NoticeBoardPage({ searchParams }: { searchParams: 
   return (
     <>
       <CommHead access={access} page="Notice Board" href="/communication/notices"
-        sub={access.full ? "Circulars and notices with read tracking. Notices to parents go for approval first, unless you approve them yourself." : access.canChange ? "Notices for you are on the board, with the notices you wrote. Notices to parents go for approval first." : "Notices for you are on the board."}
+        sub={access.canChange ? "Notices to parents go for approval first." : "Notices for you are on the board."}
         actions={access.canChange ? <ButtonLink href="/communication/notices/new" variant="primary" icon={Plus}><Words k="New notice" /></ButtonLink> : undefined} />
       <Split side={340}>
         <Card className="overflow-hidden min-w-0">

@@ -70,7 +70,7 @@ export function AssignSheet({ closeHref, sections, sectionId, find, students, pr
   const free = students.filter((s) => !s.has);
   const allOn = free.length > 0 && free.every((s) => picked.has(s.id));
   return (
-    <SheetForm title="Give transport" sub="The stop's transport fee is added to each student's fees from the start date, and the seat is counted at once."
+    <SheetForm title="Give transport" sub="The stop's fee is added to each student's fees from the start date."
       closeHref={closeHref} action={assignAction} submitLabel={picked.size > 1 ? `Give transport to ${picked.size} students` : "Give transport"} pendingText="Saving…" submitDisabled={picked.size === 0} wide
       hidden={{ studentIds: [...picked].join(",") }}>
       <fieldset className="flex flex-col gap-2">

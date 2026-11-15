@@ -36,7 +36,7 @@ export default async function StudentLoginsPage({ searchParams }: { searchParams
       ) : (
         <div className="max-w-3xl space-y-4">
           <Card>
-            <CardHeader title={data.students.length ? `${data.students.length} students chosen` : "Choose the students"} description="Students who already have a login get a new set-password link; their username stays." />
+            <CardHeader title={data.students.length ? `${data.students.length} students chosen` : "Choose the students"} description="Students with a login get a new set-password link." />
             <CardBody className="space-y-4">
               {!sp.ids && (
                 <form method="get" className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">

@@ -62,9 +62,9 @@ export default async function ApplicantFeePage({ params }: { params: Promise<{ a
             <p className="mt-1 text-[13px] text-ink3"><Words k="Not a student yet, so this fee stays on the application with its own receipts. It goes into the Day Book under Other fee types, Application fee." />{a.admitted ? " Now admitted: the student’s other fees are collected from their own Collect Fee page." : ""}</p>
           </Card>
           <Card className="overflow-hidden">
-            <CardHeader title="Payments" description="Payments are never deleted. A cancelled one stays with its receipt number." icon={ReceiptText} />
+            <CardHeader title="Payments" description="Payments are never deleted." icon={ReceiptText} />
             {a.payments.length === 0 ? (
-              <Empty icon={IndianRupee} title="Nothing paid yet" body="When the application fee is paid, its receipt shows here." />
+              <Empty icon={IndianRupee} title="Nothing paid yet" body="Its receipt shows here once paid." />
             ) : (
               <ul className="px-2 pb-2">
                 {a.payments.map((x) => (

@@ -25,16 +25,16 @@ export type SetupStep = {
 };
 
 export const SETUP_STEPS: readonly SetupStep[] = [
-  { key: "profile", label: "School profile and logo", module: "settings", href: "/settings/school-profile", sub: "Name, address, board and logo. They print on receipts, certificates and ID cards.", time: "5 minutes", button: "Add details" },
-  { key: "year", label: "Academic year, terms and timings", module: "academic-management", href: "/academic-management/settings", sub: "The year's dates, its terms, school timings and periods.", time: "5 minutes", button: "Set up the year" },
-  { key: "classes", label: "Classes and sections", module: "academic-management", href: "/academic-management", sub: "Nursery to Class 12, with the sections in each.", time: "10 minutes", button: "Add classes" },
-  { key: "subjects", label: "Subjects", module: "academic-management", href: "/academic-management/subjects", sub: "The subjects taught, and which classes take them.", time: "5 minutes", button: "Add subjects" },
+  { key: "profile", label: "School profile and logo", module: "settings", href: "/settings/school-profile", sub: "Name, address, board and logo.", time: "5 minutes", button: "Add details" },
+  { key: "year", label: "Academic year, terms and timings", module: "academic-management", href: "/academic-management/settings", sub: "Dates, terms, timings and periods.", time: "5 minutes", button: "Set up the year" },
+  { key: "classes", label: "Classes and sections", module: "academic-management", href: "/academic-management", sub: "Nursery to Class 12, with sections.", time: "10 minutes", button: "Add classes" },
+  { key: "subjects", label: "Subjects", module: "academic-management", href: "/academic-management/subjects", sub: "Subjects and the classes that take them.", time: "5 minutes", button: "Add subjects" },
   { key: "staff", label: "Staff and their logins", module: "staff-hr-management", href: "/staff-hr-management", sub: "Add your staff, then invite them to sign in.", time: "20 minutes", button: "Add staff" },
-  { key: "students", label: "Students and parents (import from Excel)", module: "student-management", href: "/student-management/import", sub: "Bring your students and their parents from Excel. Every row is checked first.", time: "15 minutes", button: "Import students" },
+  { key: "students", label: "Students and parents (import from Excel)", module: "student-management", href: "/student-management/import", sub: "Every row is checked first.", time: "15 minutes", button: "Import students" },
   { key: "fees", label: "Fee structure", module: "fee-management", href: "/fee-management/structure", sub: "Fee heads, amounts and due dates per class.", time: "20 minutes", button: "Set up fees" },
-  { key: "gateway", label: "Payment gateway", module: "settings", href: "/settings/payment-gateways", sub: "DREAM TEAM connects your school's Razorpay account so parents can pay online. Tell DREAM TEAM support when you want it.", time: "1 minute", button: "See status", optional: true },
-  { key: "messaging", label: "SMS and WhatsApp", module: "settings", href: "/settings/messaging", sub: "DREAM TEAM connects WhatsApp and SMS and registers your SMS sender. You switch each one on.", time: "2 minutes", button: "Switch on" },
-  { key: "holidays", label: "Holiday list", module: "events-calendar", href: "/events-calendar", sub: "The year's holidays, so attendance and the Time Table skip them.", time: "5 minutes", button: "Add holidays" },
+  { key: "gateway", label: "Payment gateway", module: "settings", href: "/settings/payment-gateways", sub: "For online fees. Ask DREAM TEAM support to connect it.", time: "1 minute", button: "See status", optional: true },
+  { key: "messaging", label: "SMS and WhatsApp", module: "settings", href: "/settings/messaging", sub: "DREAM TEAM connects them. You switch each one on.", time: "2 minutes", button: "Switch on" },
+  { key: "holidays", label: "Holiday list", module: "events-calendar", href: "/events-calendar", sub: "Attendance and the Time Table skip them.", time: "5 minutes", button: "Add holidays" },
   { key: "parent-link", label: "Parent Link", module: "communication", href: "/communication/parent-link", sub: "Choose what parents see, then send each guardian their own link.", time: "5 minutes", button: "Set up" },
 ];
 

@@ -140,7 +140,7 @@ export default async function LinkPage({ params }: { params: Promise<{ id: strin
                     </li>
                   );
                 })}
-                {!link.devices.length && <li className="text-ink3"><Words k="No phone yet. The first time the link opens on a phone, a one-time code goes to the registered mobile." /></li>}
+                {!link.devices.length && <li className="text-ink3"><Words k="No phone yet. The first open asks for a one-time code." /></li>}
               </ul>
             </Card>
           </Col>

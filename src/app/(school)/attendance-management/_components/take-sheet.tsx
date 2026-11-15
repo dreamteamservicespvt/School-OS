@@ -217,7 +217,7 @@ export function TakeSheet(p: Props) {
         <Banner tone="warn" icon={Lock} className="mb-4" title={`Attendance for ${p.dateText} locked at ${p.lockText}.`}
           action={<Link href={p.correctionHref} className={buttonClass("secondary", "sm")}><Words k="Request a correction" /></Link>}>
           {!p.saved
-            ? "Attendance was not taken: nothing is saved for this day, so nobody is marked. To add the marks, request a correction; the principal approves it."
+            ? "Nothing was saved for this day. To add marks, request a correction; the principal approves it."
             : `${unsaved ? `${studentsWord(unsaved)} not marked: no mark is saved for them on this day. ` : ""}A change now needs a correction request. The principal approves it, and the old marks are kept.`}
         </Banner>
       ) : savedNow ? (
@@ -323,7 +323,7 @@ export function TakeSheet(p: Props) {
           );
         })}
       </ul>
-      {!readOnly && extraStatuses.length > 0 && <p className="text-[12.5px] text-ink3 mt-2"><Words k="For other marks such as Half-day or Leave, press and hold a student's button (right-click on a computer)." /></p>}
+      {!readOnly && extraStatuses.length > 0 && <p className="text-[12.5px] text-ink3 mt-2"><Words k="For Half-day or Leave, press and hold a student's button (right-click on a computer)." /></p>}
       {list.length === 0 && <p className="text-center text-ink3 py-10"><Words k="No student called “" />{q}<Words k="” in" /> {p.sectionName}.</p>}
 
       {/* Save bar */}

@@ -39,7 +39,7 @@ export function DaySheet({ closeHref, routes, start, vehicles, drivers, today }:
   start: { routeId: string; kind: string; date: string };
 }) {
   return (
-    <SheetForm title="Change for one day" sub="Another bus or driver for one trip, such as when a bus breaks down. The schedule stays the same." closeHref={closeHref} action={changeForDayAction} submitLabel="Save for that day" pendingText="Saving…">
+    <SheetForm title="Change for one day" sub="Another bus or driver for one trip. The schedule stays the same." closeHref={closeHref} action={changeForDayAction} submitLabel="Save for that day" pendingText="Saving…">
       <SSelect name="routeId" label="Route" required start={start.routeId} placeholder="Choose the route" options={routes} />
       <SegField name="kind" label="Trip" required start={start.kind || "MORNING"} options={[{ value: "MORNING", label: "Morning pickup" }, { value: "EVENING", label: "Evening drop" }]} />
       <SDate name="date" label="Date" required start={start.date || today} min={today} />

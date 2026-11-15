@@ -94,7 +94,7 @@ export function SettingsForm({ start, readOnly }: { start: SettingsStart; readOn
     <form action={run} key={key} className="flex flex-col gap-5" noValidate>
       {state && !state.ok && <Alert tone="danger">{state.message}</Alert>}
       <Card>
-        <CardHeader title="Borrowing limits and loan days" description="Books at a time and days per loan. A category's own loan days come first." divided />
+        <CardHeader title="Borrowing limits and loan days" description="A category's own loan days come first." divided />
         <div className="relative overflow-x-auto scroll-thin">
           <table className="w-full text-[14px] min-w-[420px]">
             <caption className="sr-only"><Words k="Borrowing limits by member type" /></caption>
@@ -121,8 +121,8 @@ export function SettingsForm({ start, readOnly }: { start: SettingsStart; readOn
           </table>
         </div>
         <div className="border-t border-line divide-y divide-line/70">
-          <Toggle name="moveDueOffHolidays" title="Move due dates off holidays" sub="A due date on a Sunday or a School Calendar holiday moves to the next school day." start={start.moveDueOffHolidays} />
-          <Row title="Most renewals per issue" sub="After this the book must be returned. 0 switches renewals off."><Num name="maxRenewals" label="Most renewals" start={start.maxRenewals} max={10} width="w-20" /></Row>
+          <Toggle name="moveDueOffHolidays" title="Move due dates off holidays" sub="Sundays and holidays move to the next school day." start={start.moveDueOffHolidays} />
+          <Row title="Most renewals per issue" sub="0 switches renewals off."><Num name="maxRenewals" label="Most renewals" start={start.maxRenewals} max={10} width="w-20" /></Row>
           <Row title="Reservation queue order" sub="Who gets the next copy returned."><Seg name="queueOrder" label="Queue order" start={start.queueOrder} options={[{ value: "fcfs", label: "First come, first served" }, { value: "staff-first", label: "Staff first" }]} /></Row>
         </div>
       </Card>
@@ -134,7 +134,7 @@ export function SettingsForm({ start, readOnly }: { start: SettingsStart; readOn
           <Row title="Most fine for one book"><Num name="maxFine" label="Most fine for one book" start={start.maxFine} money /></Row>
           <Row title="Days of grace" sub="Days late with no fine."><Num name="graceDays" label="Days of grace" start={start.graceDays} max={30} suffix="days" width="w-20" /></Row>
           <Row title="Stop issuing when fines due are above" sub="0 never stops issues."><Num name="blockAbove" label="Block issues above" start={start.blockAbove} money /></Row>
-          <Toggle name="finesToFees" title="Add students' fines to their fees" sub="Paid with the other fees in Fee Management. Staff fines are collected at the desk." start={start.finesToFees} />
+          <Toggle name="finesToFees" title="Add students' fines to their fees" sub="Paid in Fee Management. Staff pay at the desk." start={start.finesToFees} />
           <Row title="Charge for a lost book"><Seg name="lostCharge" label="Lost book charge" start={start.lostCharge} options={[{ value: "price", label: "Book price" }, { value: "price-plus", label: "Price plus a fee" }]} /></Row>
           <Row title="Fee on top of the price" sub="Used when the charge is price plus a fee."><Num name="lostExtra" label="Fee on top of the price" start={start.lostExtra} money /></Row>
           <Row title="Charges that need approval" sub="Lost or damaged charges above this go to Approvals first."><Num name="approvalAbove" label="Needs approval above" start={start.approvalAbove} money /></Row>
@@ -151,13 +151,13 @@ export function SettingsForm({ start, readOnly }: { start: SettingsStart; readOn
               aria-invalid={err("accessionPrefix") ? true : undefined} className={cx(inputCls(err("accessionPrefix")), "h-10 w-24 font-mono")} />
             <Num name="accessionWidth" label="Digits" start={start.accessionWidth} min={1} max={10} suffix="digits" width="w-20" />
           </Row>
-          <Row title="Next accession number" sub="Raise it to skip numbers already used on old labels. It cannot go back."><Num name="nextAccession" label="Next accession number" start={start.nextAccession} min={1} width="w-28" /></Row>
+          <Row title="Next accession number" sub="Raise it to skip old numbers. It cannot go back."><Num name="nextAccession" label="Next accession number" start={start.nextAccession} min={1} width="w-28" /></Row>
           {err("accessionPrefix") && <p className="px-5 py-2 text-[12.5px] text-bad">{screenMessage(tr, err("accessionPrefix"))}</p>}
         </div>
       </Card>
 
       <Card>
-        <CardHeader title="Reminders" description="Students' parents get a message on their preferred channel; staff are told in the app." divided />
+        <CardHeader title="Reminders" description="Parents get a message; staff see it in the app." divided />
         <div className="divide-y divide-line/70">
           <Toggle name="remindDueTomorrow" title="Remind the day before a book is due" start={start.remindDueTomorrow} />
           <Toggle name="remindOverdue" title="Remind when a book is overdue" sub="On the first day late, then once a week." start={start.remindOverdue} />

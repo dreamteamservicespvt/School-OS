@@ -97,7 +97,7 @@ export function AttentionCard({ items, hiddenSeen }: { items: AttentionItem[]; h
   };
   return (
     <Card>
-      <CardHeader title={t("Needs your attention")} description={t("Most urgent first. Each one opens the exact list behind it.")} icon={I.Flag}
+      <CardHeader title={t("Needs your attention")} description={t("Most urgent first")} icon={I.Flag}
         action={list.length ? <Pill tone={list.some((n) => n.tone === "bad") ? "bad" : "warn"}>{list.length === 1 ? t("1 item") : t("{n} items", { n: list.length })}</Pill> : null} />
       {list.length === 0 ? (
         <div className="px-5 pb-6 pt-1 text-center">
@@ -187,7 +187,7 @@ export function TasksCard({ mine, given, left, access, people, meId, today }: { 
       {problem && <div className="px-5 pb-2"><Alert tone="danger">{problem}</Alert></div>}
       {rows.length === 0 ? (
         <p className="px-5 pb-5 pt-2 text-[13.5px] text-ink3">
-          {tab === "mine" ? t("No tasks for you. Use “Add task” to note something to do, with a reminder.") : t("You have not given anyone a task. Use “Add task” and pick a person.")}
+          {tab === "mine" ? t("No tasks for you.") : t("You have not given anyone a task.")}
         </p>
       ) : (
         <ul className="px-2 pb-2">
@@ -231,14 +231,14 @@ export function TaskDialog({ open, onClose, access, people, meId, today, task }:
   const askPast = Boolean((state?.data as { confirmPast?: boolean } | undefined)?.confirmPast);
   const me = people.find((p) => p.id === meId);
   return (
-    <Dialog open={open} onClose={onClose} title={task ? t("Edit task") : t("Add task")} sub={t("Only the task is needed. A reminder goes out before it is due.")}>
+    <Dialog open={open} onClose={onClose} title={task ? t("Edit task") : t("Add task")}>
       <form action={action} className="space-y-4">
         {task && <input type="hidden" name="id" value={task.id} />}
         {askPast && <input type="hidden" name="confirmPast" value="1" />}
         {state && !state.ok && state.message && !askPast && <Alert tone="danger">{screenMessage(t, state.message)}</Alert>}
         <TextField label={t("Task")} name="title" required maxLength={150} defaultValue={v("title", task?.title)} error={screenMessage(t, state?.errors?.title)} placeholder={t("For example, check PTM slots for Saturday")} autoFocus />
         <SelectField label={t("Assign to")} name="assignedToId" defaultValue={v("assignedToId", task?.assignedToId ?? meId)}
-          help={access === "full" ? t("You can give tasks to any staff member who can sign in.") : t("You can give tasks only to yourself.")}
+          help={access === "full" ? t("Only staff who can sign in are listed.") : t("You can give tasks only to yourself.")}
           error={screenMessage(t, state?.errors?.assignedToId)}
           options={(access === "full" ? people : me ? [me] : [{ id: meId, name: t("Me") }]).map((p) => ({ value: p.id, label: p.id === meId ? t("Me ({name})", { name: p.name }) : p.name }))} />
         <div className="grid grid-cols-2 gap-4">
@@ -246,7 +246,7 @@ export function TaskDialog({ open, onClose, access, people, meId, today, task }:
           <TextField label={t("Time")} name="dueTime" type="time" defaultValue={v("dueTime", task?.dueTime ?? "17:00")} />
         </div>
         {askPast && (
-          <Alert tone="warning" title={t("Due date is before today. Save anyway?")}>{t("Change the date, or press Save anyway to keep it. It will show as overdue.")}</Alert>
+          <Alert tone="warning" title={t("Due date is before today. Save anyway?")}>{t("It will show as overdue.")}</Alert>
         )}
         <CheckboxField label={t("Remind before it is due (the day before and on the morning)")} name="remind" defaultChecked={state?.values ? state.values.remind === "on" : task?.remind ?? true} />
         <TextArea label={t("More details")} name="details" rows={3} maxLength={2000} defaultValue={v("details", task?.details)} />

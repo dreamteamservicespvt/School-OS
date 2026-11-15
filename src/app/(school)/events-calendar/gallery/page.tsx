@@ -63,7 +63,7 @@ export default async function GalleryPage({ searchParams }: { searchParams: Sear
 
   return (
     <div>
-      <EvHead pageName="Gallery" href={HREF} sub="Photo and video albums by event. Students without photo consent are blurred or left out."
+      <EvHead pageName="Gallery" href={HREF} sub="Photo and video albums by event"
         actions={p.can.gallery && <ButtonLink href={here({ do: "new" })} scroll={false} variant="primary" icon={FolderPlus}><Words k="New album" /></ButtonLink>} />
       <Stack>
         {d.missing > 0 && <Banner tone="warn" title={`${d.missing} ${d.missing === 1 ? "student" : "students"} in published albums ${d.missing === 1 ? "has" : "have"} no photo consent.`}><Words k="They are left out of shared photos or blurred. Ask their guardians from the album page." /></Banner>}
@@ -97,7 +97,7 @@ export default async function GalleryPage({ searchParams }: { searchParams: Sear
             ))}
           </ul>
         ) : (
-          <Card><Empty icon={Images} title="No albums here" body="No albums in these dates. Pick other dates or another filter." action={p.can.gallery ? <ButtonLink variant="secondary" icon={FolderPlus} href={here({ do: "new" })} scroll={false}><Words k="New album" /></ButtonLink> : undefined} /></Card>
+          <Card><Empty icon={Images} title="No albums here" body="Pick other dates or another filter." action={p.can.gallery ? <ButtonLink variant="secondary" icon={FolderPlus} href={here({ do: "new" })} scroll={false}><Words k="New album" /></ButtonLink> : undefined} /></Card>
         )}
       </Stack>
       {doing === "new" && (

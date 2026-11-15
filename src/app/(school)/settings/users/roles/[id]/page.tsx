@@ -66,7 +66,7 @@ export default async function RolePage({ params }: { params: Promise<{ id: strin
       </PageHeader>
       <div className="space-y-5">
         {role.archivedAt && <Alert tone="info"><Words k="This role is archived. Restore it to change it or give it to people." /></Alert>}
-        {role.key === "school-admin" && <Alert tone="info"><Words k="The School Admin role always keeps Full access to Settings, so someone can always manage logins and roles." /></Alert>}
+        {role.key === "school-admin" && <Alert tone="info"><Words k="The School Admin role always keeps Full access to Settings." /></Alert>}
         <Card>
           <CardHeader title="Permissions" description={people.size ? `${people.size} ${people.size === 1 ? "person has" : "people have"} this role. Changes apply to all of them.` : "Nobody has this role yet."} />
           <CardBody>

@@ -46,7 +46,7 @@ export function DashFilterBar({ campuses, dates, today, years, classes, showing 
       </PhoneFilters>
       {showing && (
         <p className="text-[13px] text-ink2">
-          <Words k="Showing" /> {showing}<Words k=". Each number opens its list with the same filter." />{" "}
+          <Words k="Showing" /> {showing}.{" "}
           <Link href="/dashboard?view=dashboard" className="font-semibold text-brand hover:underline"><Words k="Reset" /></Link>
         </p>
       )}

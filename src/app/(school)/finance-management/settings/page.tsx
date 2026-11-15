@@ -100,7 +100,7 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
 
   return (
     <div>
-      <FinanceHead pageName="Finance Settings" href={HREF} sub="Financial year, heads, approval limits, cost centres and Tally. Every change is logged." />
+      <FinanceHead pageName="Finance Settings" href={HREF} sub="Every change is logged." />
       <div className="grid xl:grid-cols-2 gap-5 lg:gap-6 items-start">
         <Col>
           <Card>
@@ -166,7 +166,7 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
 
         <Col>
           <Card>
-            <CardHeader title="Expense categories" description="The heads shown on the Record expense form. Tap to show or hide." icon={Tags} />
+            <CardHeader title="Expense categories" description="Tap to show or hide" icon={Tags} />
             <div className="px-5 pb-5 flex flex-wrap gap-2">
               {expenseHeads.map((h) => <HeadChip key={h.id} id={h.id} name={h.name} shown={!h.archivedAt} locked={Boolean(h.systemKey)} />)}
             </div>
@@ -193,7 +193,7 @@ export default async function FinanceSettingsPage({ searchParams }: { searchPara
           </Card>
 
           <Card>
-            <CardHeader title="Cost centres" description="Departments that expenses and budgets are tagged to" icon={Building2}
+            <CardHeader title="Cost centres" description="Departments for expenses and budgets" icon={Building2}
               action={<FeatureSwitch featureKey="finance-cost-centres" on={featureOn("finance-cost-centres")} label="Cost centres" />} />
             {featureOn("finance-cost-centres") ? (
               <div className="px-5 pb-5 flex flex-wrap gap-2 items-center">

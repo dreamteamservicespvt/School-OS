@@ -203,7 +203,7 @@ function Sidebar({ school, schools, menu, mine = [], landing = {}, quick, ai, on
         {ai
           ? <span className="text-[13px] font-semibold flex items-center gap-2"><I.Sparkles size={15} className="text-brand" aria-hidden="true" />{t("Ask School OS")}</span>
           : <span className="text-[13px] font-semibold flex items-center gap-2"><I.Search size={15} className="text-brand" aria-hidden="true" />{t("Search")}</span>}
-        <span className="block text-xs text-ink3 mt-1 leading-relaxed">{t("Type what you want, like a student's name, an admission number or a page.")}</span>
+        <span className="block text-xs text-ink3 mt-1 leading-relaxed">{t("A name, admission number or page.")}</span>
       </button>
     </aside>
   );
@@ -411,7 +411,7 @@ function NotifPanel({ open, onClose, notes, total, sound }: { open: boolean; onC
           </div>
         </div>
         <ul className="overflow-y-auto scroll-thin px-2 pb-2">
-          {notes.length === 0 && <li className="px-3 py-8 text-center text-sm text-ink3">{t("Alerts meant for you, like requests waiting for your approval, appear here.")}</li>}
+          {notes.length === 0 && <li className="px-3 py-8 text-center text-sm text-ink3">{t("Alerts for you, like approvals, show here.")}</li>}
           {notes.map((n) => (
             <li key={n.id}>
               <form action={openNotification}>
@@ -497,7 +497,7 @@ function SwitchSheet({ open, onClose, school, schools }: { open: boolean; onClos
   const t = useT();
   const pathname = usePathname();
   return (
-    <Sheet open={open} onClose={onClose} title={t("Switch school or campus")} sub={t("Your one login works in each of your schools. Each keeps its own data.")}>
+    <Sheet open={open} onClose={onClose} title={t("Switch school or campus")} sub={t("Each school keeps its own data.")}>
       <div className="flex flex-col gap-2">
         {schools.map((x) => (
           <form key={x.id} action={switchSchool}>

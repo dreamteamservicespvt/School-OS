@@ -45,7 +45,7 @@ export default async function RulePage({ params }: { params: Promise<{ type: str
         {rule.custom && <DefaultRuleButton type={type} label={t.label} />}
       </PageHeader>
       <p className="mb-4 max-w-3xl text-sm text-ink-2">
-        <Words k="Each step names who approves, as a role or a named person, and up to which amount. A request goes to the first step whose limit covers it. Nobody ever approves their own request; it goes to the next approver. Changes apply to new requests." />
+        <Words k="A request goes to the first step whose limit covers it. Nobody approves their own request. Changes apply to new requests." />
       </p>
       <Card>
         <CardBody>

@@ -51,7 +51,7 @@ export default async function ConsentRequestPage({ searchParams }: { searchParam
   return (
     <>
       <BackLink href={`${BASE}/guardians`} label="Parents & Guardians" />
-      <PageHeader title="Send consent request" sub={<span className="block max-w-prose"><Words k="Each parent gets a request through Parent Link and agrees with a one-time code sent to their registered mobile. Staff never tick consent for a parent. Consents already given are left as they are." /></span>} href={`${BASE}/guardians/consent`} userId={current.user.id} />
+      <PageHeader title="Send consent request" sub={<span className="block max-w-prose"><Words k="Parents agree in Parent Link with a one-time code. Staff never tick consent for a parent." /></span>} href={`${BASE}/guardians/consent`} userId={current.user.id} />
       <div className="grid max-w-3xl gap-4">
         <Card>
           <CardHeader title="Who gets it" />
@@ -78,7 +78,7 @@ export default async function ConsentRequestPage({ searchParams }: { searchParam
                 {data.pending.length === 0 ? <p className="text-ink2"><Words k="Everyone here has already given consent. Nothing to send." /></p> : (
                   <ConfirmAction action={consentRequestAction} fields={{ ids: data.pending.map((g) => g.id).join(","), types: "" }} trigger={`Send to ${data.pending.length} ${data.pending.length === 1 ? "parent" : "parents"}`} triggerVariant="primary"
                     title={`Send a consent request to ${data.pending.length} ${data.pending.length === 1 ? "parent" : "parents"}?`} confirmLabel={`Send to ${data.pending.length}`}>
-                    <Words k="They get a request for each consent the school asks for (data, photo and APAAR consent where set up), for each of their children, through Parent Link." />
+                    <Words k="They get a request in Parent Link for each child." />
                   </ConfirmAction>
                 )}
               </CardBody>

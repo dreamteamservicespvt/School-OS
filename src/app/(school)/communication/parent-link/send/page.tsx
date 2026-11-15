@@ -24,7 +24,7 @@ export default async function SendFamiliesPage() {
     <>
       <BackLink href="/communication/parent-link" label="Parent Link" />
       <RecordHead title="Send Parent Link to existing families"
-        sub={<span className="text-[14px] text-ink3"><Words k="Makes a personal link for each guardian with no active link and sends it to their registered mobile." /></span>} />
+        sub={<span className="text-[14px] text-ink3"><Words k="Sends a personal link to each guardian who has none." /></span>} />
       {channels.length === 0 ? (
         <Banner tone="warn" title={SMS_OFFERED ? "Neither WhatsApp nor SMS is switched on." : "WhatsApp is not switched on."} action={<ButtonLink href="/settings/messaging" size="sm" variant="secondary"><Words k="Open settings" /></ButtonLink>}>
           {SMS_OFFERED ? <Words k={"Links cannot be sent. Switch one on in Settings, SMS, WhatsApp & Email."} /> : <Words k={"Links cannot be sent. Switch WhatsApp on in Settings, SMS, WhatsApp & Email."} />}

@@ -29,14 +29,14 @@ export function DecideButtons({ id, name, sub, canDecide, canReject, full, waiti
           <>
             <p className="rounded-xl bg-sunken px-3.5 py-3 text-[13.5px] text-ink2">{seatsNote}</p>
             <TextArea label="Remarks" name="remarks" rows={2} maxLength={1000} placeholder="For example: good test score, sister in 5 A" defaultValue={f.val("remarks")} error={f.err("remarks")} help="Optional. Kept with the decision." />
-            <p className="text-[12.5px] text-ink3"><Words k="The parent gets a message that the admission is approved. Confirm the admission when the family accepts." /></p>
+            <p className="text-[12.5px] text-ink3"><Words k="The parent gets a message. Confirm when the family accepts." /></p>
           </>
         )}
       </FormSheet>
       <FormSheet open={open === "reject"} onClose={close} title={`Reject ${name}’s application`} sub={sub} action={decideAction} hidden={{ id, decision: "reject" }} submitLabel="Reject application" submitVariant="danger" submitIcon={X}>
-        {(f) => <TextArea label="Remarks" name="remarks" required rows={3} maxLength={1000} placeholder="For example: test 18 of 100, advised to apply for Class 5" defaultValue={f.val("remarks")} error={f.err("remarks")} help="Required. Kept with the decision and sent to the parent." />}
+        {(f) => <TextArea label="Remarks" name="remarks" required rows={3} maxLength={1000} placeholder="For example: test 18 of 100, advised to apply for Class 5" defaultValue={f.val("remarks")} error={f.err("remarks")} help="Sent to the parent." />}
       </FormSheet>
-      <FormSheet open={open === "wait"} onClose={close} title={`Put ${name} on the waiting list`} sub="Ranked by the school’s rules: sibling, category, test score, then date applied" action={waitAction} hidden={{ id }} submitLabel="Add to waiting list" submitIcon={ListOrdered}>
+      <FormSheet open={open === "wait"} onClose={close} title={`Put ${name} on the waiting list`} sub="Ranked by sibling, category, test score and date applied" action={waitAction} hidden={{ id }} submitLabel="Add to waiting list" submitIcon={ListOrdered}>
         {(f) => <TextArea label="Note" name="note" rows={2} maxLength={500} placeholder="Optional" defaultValue={f.val("note")} error={f.err("note")} />}
       </FormSheet>
     </>
@@ -75,7 +75,7 @@ export function ConfirmButton({ id, name, sub, sections, defaultSection, today, 
                 {f.err("family") && <p className="text-[12.5px] text-bad">{f.err("family")}</p>}
               </fieldset>
             )}
-            <p className="text-[12.5px] text-ink3"><Words k="This makes the student with an admission number, adds the parents, sets up the fees and gets the ID card ready. A message with the admission number and Parent Link goes to the parent, when messages are set up. You can do this only once for each application." /></p>
+            <p className="text-[12.5px] text-ink3"><Words k="Makes the student, parents and fees. The parent gets the admission number. Only once per application." /></p>
           </>
         )}
       </FormSheet>
@@ -90,7 +90,7 @@ export function OfferButtons({ id, sent, accepted, hasEmail }: { id: string; sen
     <>
       {!accepted && <Button variant="secondary" icon={FileSignature} onClick={() => setOpen(true)}>{sent ? "Send offer again" : "Send offer letter"}</Button>}
       {sent && !accepted && <ActionButton action={offerAcceptedAction} hidden={{ id }} size="md" icon={CircleCheck} className="inline-flex"><Words k="Mark accepted" /></ActionButton>}
-      <FormSheet open={open} onClose={() => setOpen(false)} title="Send the offer letter" sub="Made from the offer-letter design in Settings" action={offerSentAction} hidden={{ id }} submitLabel="Record as sent" submitIcon={FileSignature}>
+      <FormSheet open={open} onClose={() => setOpen(false)} title="Send the offer letter" action={offerSentAction} hidden={{ id }} submitLabel="Record as sent" submitIcon={FileSignature}>
         {(f) => <SelectField label="How" name="channel" required options={channels} defaultValue={f.val("channel", "whatsapp")} error={f.err("channel")} />}
       </FormSheet>
     </>
@@ -121,7 +121,7 @@ export function Rerank({ yearId, classId, className }: { yearId: string; classId
   return (
     <>
       <Button size="sm" variant="soft" icon={RefreshCw} onClick={() => setOpen(true)}><Words k="Re-rank by the rules" /></Button>
-      <FormSheet open={open} onClose={() => setOpen(false)} title={`Re-rank the ${className} waiting list`} sub="Every position is worked out again from the rules. Moves made by hand are replaced." action={rerankAction} hidden={{ yearId, classId }} submitLabel="Re-rank" submitIcon={RefreshCw}>
+      <FormSheet open={open} onClose={() => setOpen(false)} title={`Re-rank the ${className} waiting list`} sub="Moves made by hand are replaced." action={rerankAction} hidden={{ yearId, classId }} submitLabel="Re-rank" submitIcon={RefreshCw}>
         {(f) => <TextArea label="Reason" name="reason" required rows={2} maxLength={300} defaultValue={f.val("reason")} error={f.err("reason")} />}
       </FormSheet>
     </>
@@ -133,9 +133,9 @@ export function UndoAdmission({ id }: { id: string }) {
   return (
     <>
       <Button variant="ghost" icon={Undo2} onClick={() => setOpen(true)}><Words k="Undo admission (10 min)" /></Button>
-      <FormSheet open={open} onClose={() => setOpen(false)} title="Undo admission?" sub="The student, the new parent records, their Parent Links, the class place, the fee plan and the documents are taken back. Allowed only while nothing else has happened to the student (no payment, attendance or marks), because fee payments are never deleted. The application fee stays with the application."
+      <FormSheet open={open} onClose={() => setOpen(false)} title="Undo admission?" sub="The student, new parents, class place and fee plan are taken back. Only while the student has no payment, attendance or marks. The application fee stays."
         action={undoAction} hidden={{ id }} submitLabel="Undo admission" submitVariant="danger" submitIcon={Undo2}>
-        {() => <p className="text-[14px] text-ink2"><Words k="The application goes back to approved. Nothing is deleted; the history keeps both steps." /></p>}
+        {() => <p className="text-[14px] text-ink2"><Words k="It goes back to approved. Nothing is deleted." /></p>}
       </FormSheet>
     </>
   );

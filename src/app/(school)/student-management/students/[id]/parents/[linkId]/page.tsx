@@ -51,9 +51,9 @@ export default async function LinkSettingsPage({ params }: { params: Promise<{ i
               {can.seeRestricted ? (
                 <>
                   <FormCheck name="restricted" label="This person must not collect or contact the student" defaultChecked={Boolean(l.restriction)}
-                    help="Off the pickup list and shown in red in Front Office. They cannot be the primary contact, see nothing of this student on Parent Link, and get none of the student's messages." />
-                  <FormArea name="restriction" label="Note" rows={2} defaultValue={l.restriction} help="For example: court order dated 03-02-2026; mother has custody." />
-                  <FormArea name="reason" label="Reason for the change" rows={2} help="Needed when the restriction is set, changed or removed. Kept in the history." />
+                    help="Shown in red at Front Office. No pickup, Parent Link or messages." />
+                  <FormArea name="restriction" label="Note" rows={2} defaultValue={l.restriction} help="For example: court order dated 03-02-2026" />
+                  <FormArea name="reason" label="Reason for the change" rows={2} help="Needed for any change. Kept in the history." />
                 </>
               ) : (
                 <p className="text-ink2"><Words k="Only the School Admin or Principal can change a restriction." />{l.restriction ? " A restriction is set on this link." : ""}</p>

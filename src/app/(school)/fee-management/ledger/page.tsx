@@ -40,7 +40,7 @@ export default async function LedgerIndexPage({ searchParams }: { searchParams: 
   const list = await withSchool(p.current.ctx, (tx) => (q ? findStudents(tx, p.viewer, q, p.today, 20) : mostOverdue(tx, p.viewer, p.today, own ? 40 : 10)));
   return (
     <div>
-      <FeeHead pageName="Student Fee Ledger" href={`${BASE}/ledger`} sub={own ? "Fee status of the students in your classes." : "Each student’s fees, payments, balance and receipts. Nothing here is ever deleted."}
+      <FeeHead pageName="Student Fee Ledger" href={`${BASE}/ledger`} sub={own ? "Students of your classes" : "Nothing here is ever deleted."}
         actions={p.can.change ? <ButtonLink href={`${BASE}/ledger/import`} variant="secondary" icon={FileInput}><Words k="Import old dues and receipts" /></ButtonLink> : undefined} />
       <ViewYearStrip year={view} back={backToThisYear(`${BASE}/ledger`, sp)} />
       <div className="max-w-3xl">

@@ -37,7 +37,7 @@ function Duplicates({ admissions }: { admissions: boolean }) {
       </Banner>
       <label className="flex items-center gap-3 rounded-xl bg-sunken/70 px-3.5 py-3 text-[14px]">
         <input type="checkbox" name="force" className="w-5 h-5 accent-[var(--color-brand)]" />
-        <span><b className="font-semibold"><Words k="Yes, save this as a new enquiry" /></b><span className="block text-[12.5px] text-ink3"><Words k="For a brother or sister, or a different family with the same phone. Tick this, then press the button below again." /></span></span>
+        <span><b className="font-semibold"><Words k="Yes, save this as a new enquiry" /></b><span className="block text-[12.5px] text-ink3"><Words k="For a sibling or another family. Tick, then press the button again." /></span></span>
       </label>
     </div>
   );
@@ -46,7 +46,7 @@ function Duplicates({ admissions }: { admissions: boolean }) {
 /** New enquiry: the short form from Admission Management (A3). */
 export function EnquirySheet({ closeHref, classes, preset, source, admissions }: { closeHref: string; classes: Opt[]; preset?: { name: string; phone: string; visitorId: string } | null; source: "walk-in" | "phone"; admissions: boolean }) {
   return (
-    <SheetForm title="New enquiry" sub="Goes straight to Admission Management with an owner and a follow-up reminder." closeHref={closeHref} action={enquiryAction}
+    <SheetForm title="New enquiry" sub="Goes straight to Admission Management" closeHref={closeHref} action={enquiryAction}
       submitLabel="Send to Admissions" pendingText="Sending…" hidden={preset ? { visitorId: preset.visitorId } : undefined}>
       <Duplicates admissions={admissions} />
       <SText name="childName" label="Child’s name" required placeholder="Full name" maxLength={120} autoComplete="off" />
@@ -64,7 +64,7 @@ export function EnquirySheet({ closeHref, classes, preset, source, admissions }:
 /** Log a call: incoming or outgoing; admission enquiries and complaints go on in the same step. */
 export function CallSheet({ closeHref, purposes, classes, staff, defaultWho, today, follow, admissions }: { closeHref: string; purposes: string[]; classes: Opt[]; staff: Opt[]; defaultWho: string; today: string; follow: { date: string; time: string }; admissions: boolean }) {
   return (
-    <SheetForm title="Log a call" sub="Known parents and enquiries are recognised from the number." closeHref={closeHref} action={logCallAction} submitLabel={<CallSubmit />} pendingText="Saving…">
+    <SheetForm title="Log a call" closeHref={closeHref} action={logCallAction} submitLabel={<CallSubmit />} pendingText="Saving…">
       <CallFields purposes={purposes} classes={classes} staff={staff} defaultWho={defaultWho} today={today} followAt={follow} admissions={admissions} />
     </SheetForm>
   );
@@ -161,7 +161,7 @@ type FromHit = { guardianId: string; studentId: string; label: string; student: 
 /** Walk-in request: routed to a department with a request number. */
 export function WalkInSheet({ closeHref, departments, nextNo }: { closeHref: string; departments: string[]; nextNo: string }) {
   return (
-    <SheetForm title="Walk-in request" sub="For example a bonafide certificate or a fee statement. The person gets a request number." closeHref={closeHref} action={walkInAction}
+    <SheetForm title="Walk-in request" sub="The person gets a request number." closeHref={closeHref} action={walkInAction}
       submitLabel="Send to department" pendingText="Sending…">
       <WalkInFields departments={departments} nextNo={nextNo} />
     </SheetForm>
@@ -184,7 +184,7 @@ function WalkInFields({ departments, nextNo }: { departments: string[]; nextNo: 
   };
   return (
     <>
-      <FieldShell label="From" id="wi-from" required error={from.error} help="Search a parent or student, or type a name and phone">
+      <FieldShell label="From" id="wi-from" required error={from.error} help="Search, or type a name and phone">
         <div className="relative">
           <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink3" aria-hidden="true" />
           <input id="wi-from" name="fromName" value={q} onChange={(e) => onType(e.target.value)} placeholder="Parent or student name" autoComplete="off" maxLength={120}

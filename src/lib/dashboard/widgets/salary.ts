@@ -51,7 +51,7 @@ const monthToDo: Widget<"attention"> = {
     const last = runs.filter((r) => r.month.getTime() === prev.getTime());
     const unpaid = last.filter((r) => r.status === "APPROVED");
     if (unpaid.length) {
-      return { id: `salary.unpaid:${prev.toISOString().slice(0, 7)}`, tone: "warn", icon: "CreditCard", title: `${MONTH(prev)} salary is approved, not paid`, detail: "Mark it paid when the bank transfer is done; it then goes in the Day Book.", action: "Mark paid", href: `${BASE}/generate?run=${unpaid[0].id}`, value: String(unpaid.length) };
+      return { id: `salary.unpaid:${prev.toISOString().slice(0, 7)}`, tone: "warn", icon: "CreditCard", title: `${MONTH(prev)} salary is approved, not paid`, detail: "Mark it paid after the bank transfer.", action: "Mark paid", href: `${BASE}/generate?run=${unpaid[0].id}`, value: String(unpaid.length) };
     }
     const lastOpen = last.filter((r) => !DONE.includes(r.status as (typeof DONE)[number]));
     if (lastOpen.length) {
@@ -95,7 +95,7 @@ const advancesToPay: Widget<"attention"> = {
     const onCampus = c.viewer.campusId ? (await c.tx.staff.findMany({ where: { campusId: c.viewer.campusId }, select: { id: true } })).map((s) => s.id) : null;
     const count = await c.tx.salaryAdvance.count({ where: { status: "APPROVED", ...(onCampus ? { staffId: { in: onCampus } } : {}) } });
     if (!count) return null;
-    return { id: "salary.advances-to-pay", tone: "info", icon: "CreditCard", title: `${plural(count, "advance")} approved, not paid yet`, detail: "Pay it and mark it paid; it goes in the Day Book on that date.", action: "Advances", href: `${BASE}/advances?show=unpaid`, value: String(count) };
+    return { id: "salary.advances-to-pay", tone: "info", icon: "CreditCard", title: `${plural(count, "advance")} approved, not paid yet`, detail: "Pay it, then mark it paid.", action: "Advances", href: `${BASE}/advances?show=unpaid`, value: String(count) };
   },
 };
 

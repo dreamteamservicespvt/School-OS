@@ -70,11 +70,11 @@ export default async function StockCheckPage({ params }: { params: Promise<{ id:
                 {can.fines ? (
                   <Card className="p-4 md:p-5 flex flex-col gap-3">
                     <h2 className="font-semibold text-[15px]"><Words k="Scan the shelves" /></h2>
-                    <p className="text-[13.5px] text-ink3"><Words k="Go shelf by shelf. Each copy counts once; scanning it again does nothing. Issued books are out with members and are not expected." /></p>
+                    <p className="text-[13.5px] text-ink3"><Words k="Go shelf by shelf. Issued books are not expected." /></p>
                     <StockScanner sessionId={id} />
                   </Card>
                 ) : (
-                  <Card className="p-5 text-[14px] text-ink2"><Words k="The librarian is scanning the shelves. The result shows here when the check is closed." /></Card>
+                  <Card className="p-5 text-[14px] text-ink2"><Words k="The result shows here when the check is closed." /></Card>
                 )}
               </Col>
               <Col>
@@ -95,7 +95,7 @@ export default async function StockCheckPage({ params }: { params: Promise<{ id:
               <Col>
                 <Card>
                   <CardHeader title="Missing copies" icon={PackageSearch} divided
-                    description={d.missing.length ? `${plural(d.missing.length, "copy", "copies")} not scanned and still not found. Look on the shelves once more before marking them lost.` : session.missing ? "Every missing copy has been found or marked since." : "Nothing was missing."}
+                    description={d.missing.length ? `${plural(d.missing.length, "copy", "copies")} not found. Check the shelves before marking them lost.` : session.missing ? "Every missing copy has been found or marked since." : "Nothing was missing."}
                     action={can.fines && !session.lostMarkedAt && d.missing.length > 0 ? <MarkLostButton sessionId={id} count={d.missing.length} /> : undefined} />
                   <DataList rows={d.missing} rowKey={(c) => c.id} rowHref={(c) => `${BASE}/books/${c.book.id}`} minWidth={560}
                     empty={<Empty icon={ClipboardCheck} title="Nothing missing" />}

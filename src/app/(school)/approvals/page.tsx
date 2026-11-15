@@ -158,7 +158,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
   return (
     <div className="max-w-5xl">
       <PageHeader title="Approvals" href="/approvals" userId={current.user.id}
-        sub={approver ? "Requests only you can decide, and the ones you asked for" : "Requests you asked for, such as leave, and where each one is"} />
+        sub={approver ? "Requests for you to decide, and your own" : "Your requests and where each one is"} />
       {support.length > 0 && <SupportRequests items={support} schoolName={current.school.name} />}
       {unfinished.length > 0 && !current.support && <UnfinishedList items={unfinished} />}
       {views.length > 1 && (
@@ -190,7 +190,7 @@ export default async function ApprovalsPage({ searchParams }: { searchParams: Pr
           ) : view === "mine" ? (
             <EmptyState title="Nothing waiting" Icon={CheckCheck}><Words k="New requests show up here and in your notifications." /></EmptyState>
           ) : view === "asked" ? (
-            <EmptyState title="You have not asked for anything yet" Icon={Inbox}><Words k="Requests you send, such as leave, appear here so you can follow them." /></EmptyState>
+            <EmptyState title="You have not asked for anything yet" Icon={Inbox}><Words k="Your leave and other requests show here." /></EmptyState>
           ) : (
             <EmptyState title="No requests yet" Icon={Inbox}><Words k="Leave, discount, refund and expense requests appear here when staff send them." /></EmptyState>
           )

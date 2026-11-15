@@ -138,7 +138,7 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
       </Card>
 
       <Card className="min-w-0">
-        <CardHeader title="The text" icon={Languages} description="One version in each language. Tap a blank to add it where the cursor is."
+        <CardHeader title="The text" icon={Languages} description="One version in each language. Tap a blank to add it."
           action={unused.length > 0 ? (
             <div className="flex gap-2">
               <label htmlFor="t-addlang" className="sr-only"><Words k="Add a language" /></label>
@@ -183,8 +183,8 @@ export function TemplateForm({ data }: { data: TemplateFormData }) {
                   <div className="rounded-xl bg-sunken/70 p-3 text-[13.5px]">
                     <p className="font-semibold"><Words k="DLT template ID" /></p>
                     {cur.dltTemplateId
-                      ? <p className="mt-0.5"><span className="font-mono">{cur.dltTemplateId}</span> · <span className="text-ink2"><Words k="Added by DREAM TEAM. If you change this text, it needs a new ID, which DREAM TEAM adds." /></span></p>
-                      : <p className="mt-0.5 text-ink2"><Words k="DREAM TEAM registers this text on the DLT portal and adds its ID. SMS from it waits until then." /></p>}
+                      ? <p className="mt-0.5"><span className="font-mono">{cur.dltTemplateId}</span> · <span className="text-ink2"><Words k="Added by DREAM TEAM. Changing the text needs a new ID." /></span></p>
+                      : <p className="mt-0.5 text-ink2"><Words k="DREAM TEAM adds its DLT ID. SMS waits until then." /></p>}
                   </div>
                 )}
               </div>

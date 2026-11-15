@@ -39,7 +39,7 @@ export function SegField({ name, label, options, start, required, onChange, help
  * A stop's location: "Use my current location" (standing at the stop), a tap
  * on the route sketch, or the numbers typed. Sent as `lat` and `lng`.
  */
-export function LocationField({ start, sketch, names = { lat: "lat", lng: "lng" }, label = "Location", help = "Needed for arrival times, the geofence and the ‘bus arriving’ message" }: { start: { lat: number | null; lng: number | null }; sketch: { routes: MapRoute[]; school: (LatLng & { name: string }) | null } | null; names?: { lat: string; lng: string }; label?: string; help?: string }) {
+export function LocationField({ start, sketch, names = { lat: "lat", lng: "lng" }, label = "Location", help = "Needed for arrival times and ‘bus arriving’ messages" }: { start: { lat: number | null; lng: number | null }; sketch: { routes: MapRoute[]; school: (LatLng & { name: string }) | null } | null; names?: { lat: string; lng: string }; label?: string; help?: string }) {
   const tLat = useTyped(names.lat, start.lat);
   const tLng = useTyped(names.lng, start.lng);
   const [lat, setLat] = useState(tLat.value);

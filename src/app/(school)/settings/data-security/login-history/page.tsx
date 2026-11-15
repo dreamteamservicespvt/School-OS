@@ -47,7 +47,7 @@ export default async function LoginHistoryPage({ searchParams }: Search) {
   return (
     <>
       <h2 className="sr-only"><Words k="Login history" /></h2>
-      <p className="mb-4 max-w-prose text-ink-2"><Words k="Every sign-in, wrong password, one-time code and sign-out, with the device. A person can sign themselves out of other devices from My Profile." /></p>
+      <p className="mb-4 max-w-prose text-ink-2"><Words k="Every sign-in, wrong password, code and sign-out, with the device." /></p>
       <ListToolbar placeholder="Search by IP address" showArchived={false} period={dates}
         filters={[
           { key: "outcome", label: "Result", options: [{ value: "failed", label: "Failed or locked" }, { value: "ok", label: "Signed in or out" }] },

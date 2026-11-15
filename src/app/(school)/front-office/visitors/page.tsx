@@ -199,7 +199,7 @@ export default async function VisitorsPage({ searchParams }: { searchParams: Sea
           </Split>
         ) : (
           <Card className="overflow-hidden">
-            <CardHeader title="Gate log" description="Entries and exits at the main gate, with vehicle numbers and passes checked" icon={Car}
+            <CardHeader title="Gate log" description="Entries and exits at the main gate" icon={Car}
               action={<div className="flex gap-2 flex-wrap justify-end">
                 {p.can.gateWork && <ButtonLink href={addQ(sheetHref, { do: "gate" })} scroll={false} size="sm" variant="soft" icon={Plus} aria-label="Gate entry"><span className="hidden sm:inline"><Words k="Gate entry" /></span></ButtonLink>}
                 {p.can.exportGate && <ExportButton href={gateExportHref} size="sm" />}

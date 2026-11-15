@@ -158,7 +158,7 @@ async function PassesView({ p, sp }: { p: P; sp: Raw }) {
   return (
     <>
       <HostelHead pageName="Outing & Visitors" href={base} mode={p.mode}
-        sub={can.outings ? "Outing and leave passes: the warden approves, you mark the student out and back." : "Outing and leave passes, students out now and late returns."}
+        sub={can.outings ? "The warden approves; you mark them out and back." : undefined}
         actions={can.outings ? <ButtonLink href={href({ new: "1" })} variant="primary" icon={Plus} scroll={false}><Words k="New pass" /></ButtonLink> : undefined} />
       <Stack>
         <Views view="passes" />
@@ -209,8 +209,8 @@ async function PassesView({ p, sp }: { p: P; sp: Raw }) {
           />
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(base, params, { page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(base, params, { page: params.page + 1 })} />}
         </Card>
-        <p className="text-[12.5px] text-ink3"><Words k="Each pass is a Gate Pass of kind Hostel Outing, so the front gate sees it too. New outings are back by" /> {minuteWords(s.outingBackMinute)} <Words k="unless you change it." /> {!(s.messageOnOut || s.messageOnReturn) ? "Messages to parents are off in Hostel Settings."
-          : !d.canMessage ? (SMS_OFFERED ? "Messages to parents are on in Hostel Settings, but no WhatsApp, SMS or email is switched on, so parents are not told. Switch one on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect one." : "Messages to parents are on in Hostel Settings, but neither WhatsApp nor email is switched on, so parents are not told. Switch one on in Settings, SMS, WhatsApp & Email, or ask DREAM TEAM support to connect one.")
+        <p className="text-[12.5px] text-ink3"><Words k="The front gate sees each pass too. New outings are back by" /> {minuteWords(s.outingBackMinute)} <Words k="unless you change it." /> {!(s.messageOnOut || s.messageOnReturn) ? "Messages to parents are off in Hostel Settings."
+          : !d.canMessage ? (SMS_OFFERED ? "Parents are not told: no WhatsApp, SMS or email is switched on. Switch one on in Settings, SMS, WhatsApp & Email." : "Parents are not told: neither WhatsApp nor email is switched on. Switch one on in Settings, SMS, WhatsApp & Email.")
           : `Parents are told when their child ${[s.messageOnOut && "goes out", s.messageOnReturn && "comes back"].filter(Boolean).join(" and ")}.`}</p>
       </Stack>
 
@@ -292,7 +292,7 @@ async function VisitorsView({ p, sp }: { p: P; sp: Raw }) {
   return (
     <>
       <HostelHead pageName="Outing & Visitors" href={base} mode={p.mode}
-        sub={`Hostel visitors, each meeting one resident. Visiting hours: ${visitingWords(s)}.`}
+        sub={`Visiting hours: ${visitingWords(s)}.`}
         actions={can.outings ? <ButtonLink href={href({ new: "1" })} variant="primary" icon={Plus} scroll={false}><Words k="Record visitor" /></ButtonLink> : undefined} />
       <Stack>
         <Views view="visitors" />
@@ -328,7 +328,7 @@ async function VisitorsView({ p, sp }: { p: P; sp: Raw }) {
           />
           {d.total > 0 && <Pager page={params.page} pageSize={PAGE_SIZE} total={d.total} prevHref={listHref(base, params, { view: "visitors", page: params.page > 2 ? params.page - 1 : null })} nextHref={listHref(base, params, { view: "visitors", page: params.page + 1 })} />}
         </Card>
-        <p className="text-[12.5px] text-ink3"><Words k={"Hostel visits are Visitor Entries, so they also show in the Front Office visitor log. Requests and complaints from residents go to Communication, Feedback & Queries."} /></p>
+        <p className="text-[12.5px] text-ink3"><Words k="Visits also show in the Front Office visitor log." /></p>
       </Stack>
       {d.fresh && <VisitorSheet closeHref={href({ new: null, student: null })} hours={visitingWords(s)} inHours={inHours} start={d.fresh.student} startGuardians={d.fresh.guardians} />}
     </>

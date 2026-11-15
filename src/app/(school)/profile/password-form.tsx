@@ -26,7 +26,7 @@ export function PasswordForm({ withoutOld = false, minLength = 8, rulesWords }: 
       {state && <p role="alert" className="rounded-xl bg-bad/10 px-3.5 py-2.5 text-sm text-bad">{state.message}</p>}
       {rulesWords && <p className="text-sm text-ink2">{rulesWords}</p>}
       {withoutOld ? (
-        <p className="rounded-xl bg-sunken px-3.5 py-2.5 text-sm text-ink2"><Words k="You signed in with a one-time code, so your old password is not needed. Choose a new one." /></p>
+        <p className="rounded-xl bg-sunken px-3.5 py-2.5 text-sm text-ink2"><Words k="Your old password is not needed. Choose a new one." /></p>
       ) : (
         <FieldShell label="Current password" id="currentPassword" required>
           <input id="currentPassword" name="currentPassword" type={show ? "text" : "password"} autoComplete="current-password" required className={cx(inputCls(), "h-11")} />

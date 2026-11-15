@@ -168,7 +168,7 @@ export default async function ApplicationsPage({ searchParams }: Search) {
 
   return (
     <>
-      <AdmissionHead href={PATH} sub="Admission forms filled at the counter or online, with previous school, marks and application fee" actions={actions} />
+      <AdmissionHead href={PATH} sub="Forms from the counter or online" actions={actions} />
       <ViewYearStrip year={yearView} back={backToThisYear(PATH, raw)} />
       <div className="flex flex-col gap-4">
         <Stats items={[
@@ -202,7 +202,7 @@ export default async function ApplicationsPage({ searchParams }: Search) {
               </EmptyState>
             ) : (
               <EmptyState bare Icon={FileText} title="No applications yet" action={canAdd ? <ButtonLink href={`${PATH}/new`} variant="primary" icon={FilePlus2}><Words k="New application" /></ButtonLink> : undefined}>
-                <Words k="Fill an application at the counter, or open an enquiry and convert it, so nothing is typed twice." />
+                <Words k="Fill one at the counter, or convert an enquiry." />
               </EmptyState>
             )}
             footer={<Pager page={params.page} pageSize={PAGE_SIZE} total={data.total} prevHref={listHref(PATH, params, { page: params.page - 1 })} nextHref={listHref(PATH, params, { page: params.page + 1 })} />} />

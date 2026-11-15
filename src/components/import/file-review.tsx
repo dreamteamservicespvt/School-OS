@@ -136,7 +136,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
           <Card className="mb-4"><CardBody className="space-y-2" >
             <AutoRefresh seconds={4} />
             <p className="font-medium" role="status"><Words k="Bringing in" /> {words.many} <Words k="now…" /></p>
-            <p className="text-ink-2"><Words k="This page updates by itself. You can leave it; you will get a notification when it is done." /></p>
+            <p className="text-ink-2"><Words k="This page updates by itself. You will get a notification when it is done." /></p>
           </CardBody></Card>
         )}
         {broughtIn || (file.status === "imported" && <Alert><Words k="This file was imported." /></Alert>)}
@@ -181,7 +181,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
       {header}
       {photos.length > 0 && (
         <Alert tone="warning" className="mb-4" title="Read from a photo: check every row against the register.">
-          <Words k="The AI assistant copied these rows from" /> {photos.length === 1 ? "the photo" : `${photos.length} photos`} <Words k="of the register, and it can misread handwriting. A part it could not read shows as [unclear] and must be typed in. Fix a wrong row or leave it out; nothing is saved until you press Bring in." />
+          <Words k="The AI assistant copied these rows from" /> {photos.length === 1 ? "the photo" : `${photos.length} photos`} <Words k="of the register. Handwriting can be misread; type in any [unclear] part. Nothing is saved until you press Bring in." />
         </Alert>
       )}
       {failure && <Alert tone="danger" className="mb-4" title="The last import did not finish, and nothing was saved.">{failure} <Words k="Fix the rows below and bring them in again." /></Alert>}
@@ -220,7 +220,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
       {step === "columns" && (
         <div className="grid gap-5 2xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
           <Card>
-            <CardHeader title="1. Match columns" description="School OS matched the headings it recognised, and found some columns by what they hold. Check each one against the examples." />
+            <CardHeader title="1. Match columns" description="Check each one against the examples." />
             <CardBody className="space-y-4">
               {w.remembered && (
                 <Alert title="Matched as last time.">
@@ -267,7 +267,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
       {step === "values" && (
         <div className="space-y-5">
           <Card>
-            <CardHeader title="Tidy-ups" description={file.tidy ? "Small fixes made for you, so the rows match School OS. The file itself is not changed." : "Tidy-ups are off: values are used exactly as the file has them."}
+            <CardHeader title="Tidy-ups" description={file.tidy ? "Small fixes so rows match School OS. Your file is not changed." : "Tidy-ups are off: values are used exactly as the file has them."}
               action={mayEdit ? <TidySwitch place={place.key} id={file.id} on={file.tidy} /> : undefined} />
             <CardBody>
               {prepared.tidied.length === 0 ? <p className="text-ink-2">{file.tidy ? "Nothing needed tidying." : "Switch them on to fix dates, phone numbers, capital letters and class names."}</p> : (
@@ -290,7 +290,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
             const title = column === "class" ? "Classes and sections to match" : column === "designation" ? "Designations to match" : "Departments to match";
             return (
               <Card key={column}>
-                <CardHeader title={title} description={column === "class" ? "These are not this year's classes as written. Choose the class each one means, or add the missing ones." : `These are not in HR Settings as written. Choose the one each means, or add them.`} />
+                <CardHeader title={title} description={column === "class" ? "Not this year's classes as written. Choose the right class, or add it." : "Not in HR Settings as written. Choose the right one, or add it."} />
                 <CardBody>
                   {mayEdit ? (
                     <ValuesForm place={place.key} id={file.id} column={column} rows={groups.map((g) => ({
@@ -336,7 +336,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
 
           {checked.problems.length > 0 && (
             <Card>
-              <CardHeader title="Rows with problems" description="Fix a row here, or leave it out. Fixes are kept with this file, never written into your file."
+              <CardHeader title="Rows with problems" description="Fix a row here, or leave it out. Your file is not changed."
                 action={<a href={problemsHref(place, file.id)} download className="inline-flex min-h-11 items-center rounded-lg px-3 text-sm font-medium text-brand-text hover:bg-surface-2"><Words k="Download these rows" /></a>} />
               <ul className="divide-y divide-line">
                 {checked.problems.slice(0, 100).map((p) => {
@@ -373,7 +373,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
 
           {checked.decided.length > 0 && (
             <Card>
-              <CardHeader title="Your choices" description="Rows that may already be on record, with what you chose for each. Nothing is merged unless you chose it." />
+              <CardHeader title="Your choices" description="Nothing is merged unless you chose it." />
               <ul className="divide-y divide-line">
                 {checked.decided.slice(0, 100).map((d) => (
                   <li key={d.line} className="flex flex-wrap items-start justify-between gap-2 px-5 py-3">
@@ -428,7 +428,7 @@ export async function FileReview({ current, place, id, sp }: Props) {
             <CardBody className="flex flex-wrap items-center gap-3 border-t border-line">
               {mayEdit && checked.ready.length > 0 ? <ImportButton place={place.key} id={file.id} ready={checked.ready.length} problems={checked.problems.length} leftOut={prepared.passed.leftOut} one={words.one} many={words.many} />
                 : <p className="text-ink-2">{checked.ready.length ? bringRefused ?? "Your role cannot bring these in." : "Fix the problems above, or match the columns and words, to make rows ready."}</p>}
-              {kind.key === "students" && <p className="text-sm text-ink-2"><Words k="A parent already on record with the same phone is linked only when the name matches (a close spelling is fine), so brothers and sisters share their parents. Any other match waits for your choice above." /></p>}
+              {kind.key === "students" && <p className="text-sm text-ink-2"><Words k="A parent with the same phone is linked only when the name matches. Other matches wait for your choice above." /></p>}
             </CardBody>
           </Card>
         </div>

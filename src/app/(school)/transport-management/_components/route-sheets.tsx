@@ -26,7 +26,7 @@ export function RouteSheet({ closeHref, start, vehicles, drivers, attendants }: 
   const t = useTyped("feeMode", start?.feeMode ?? "stop");
   const [mode, setMode] = useState(t.value || "stop");
   return (
-    <SheetForm title={start ? `Edit ${start.name}` : "Add route"} sub={start ? "Changes to the fee apply to students given a stop from now on." : "Add stops after saving. Fees come from each stop, or one fee for the route."}
+    <SheetForm title={start ? `Edit ${start.name}` : "Add route"} sub={start ? "Changes to the fee apply to students given a stop from now on." : "Add stops after saving."}
       closeHref={closeHref} action={start ? editRouteAction : addRouteAction} submitLabel={start ? "Save route" : "Add route"} pendingText="Saving…" hidden={start ? { routeId: start.id } : undefined}>
       <SText name="name" label="Route name" required start={start?.name} placeholder="Like Hafeezpet" help="Usually the farthest area" maxLength={60} autoComplete="off" />
       <div className="grid sm:grid-cols-2 gap-3">

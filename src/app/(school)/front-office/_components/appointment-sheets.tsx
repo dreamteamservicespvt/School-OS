@@ -60,7 +60,7 @@ export function BookSheet({ closeHref, staff, days, start, slots: first, resched
   const atError = typedAt.error;
 
   return (
-    <SheetForm wide title={reschedule ? `Reschedule ${reschedule.name}` : "Book appointment"} sub="Only free times can be picked. If someone else books the same time first, you will be asked to pick another." closeHref={closeHref}
+    <SheetForm wide title={reschedule ? `Reschedule ${reschedule.name}` : "Book appointment"} sub="Only free times can be picked." closeHref={closeHref}
       action={bookAction} submitLabel={reschedule ? "Reschedule" : "Book"} pendingText={reschedule ? "Moving…" : "Booking…"}
       hidden={{ startMin: chosenOk ? String(at) : "", lengthMin: String(length), ...(reschedule ? { rescheduleId: reschedule.id } : {}) }}>
       <div className="grid sm:grid-cols-2 gap-3">
@@ -80,7 +80,7 @@ export function BookSheet({ closeHref, staff, days, start, slots: first, resched
           {loading ? <span className="text-[13px] text-ink3 inline-flex items-center gap-2"><Spinner size={16} /><Words k="Checking free times…" /></span>
             : !slots ? <p className="text-[13.5px] text-bad"><Words k="This day could not be loaded. Pick another day or person." /></p>
               : slots.leave ? <p className="text-[13.5px] text-bad">{who} <Words k="is not available on this day (" />{slots.leave.toLowerCase()}<Words k="). Pick another day or person." /></p>
-                : slots.free.length === 0 ? <p className="text-[13.5px] text-bad">{who} <Words k="has no free" /> {length}<Words k="-minute slot on this day. Pick another day, a shorter meeting or another person." /></p>
+                : slots.free.length === 0 ? <p className="text-[13.5px] text-bad">{who} <Words k="has no free" /> {length}<Words k="-minute slot on this day. Pick another day or person." /></p>
                   : <>
                     {slots.free.map((m) => (
                       <button type="button" key={m} onClick={() => { setAt(m); setClash(null); }} aria-pressed={at === m}

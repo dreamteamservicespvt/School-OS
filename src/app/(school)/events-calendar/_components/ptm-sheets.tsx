@@ -25,7 +25,7 @@ export function PlanPtmSheet({ closeHref, classes, groups, slotMinutes, venues, 
   const b = useTyped("breakOn", "");
   const [brk, setBrk] = useState(b.value === "on");
   return (
-    <SheetForm title="Plan a PTM" sub="Teachers’ slots are made from their classes. The office books for parents who call; parents get a confirmation and a reminder." closeHref={closeHref} action={planPtmAction} submitLabel="Create slots" hidden={{ slotMinutes: slot }}>
+    <SheetForm title="Plan a PTM" sub="Teachers’ slots are made from their classes." closeHref={closeHref} action={planPtmAction} submitLabel="Create slots" hidden={{ slotMinutes: slot }}>
       <SDate name="date" label="Date" required help="Must be a working day" start={start} />
       {groups.length > 0 && (
         <div className="flex flex-wrap gap-1.5" aria-label="Quick choice of classes">

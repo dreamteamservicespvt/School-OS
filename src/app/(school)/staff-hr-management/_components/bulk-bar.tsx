@@ -63,7 +63,7 @@ export function BulkBar({ departments, changeDepartment, message, copyChannels =
           <>
             <SendKey />
             <TextArea label="Message" name="text" required maxLength={500} rows={4} error={f.err("text")} defaultValue={f.val("text")}
-              help="Staff with a login get it in School OS straight away. Messages cannot be unsent." />
+              help="Messages cannot be unsent." />
             {copyChannels.length > 0 && (
               <fieldset className="flex flex-col gap-1">
                 <legend className="text-[13px] font-semibold text-ink2"><Words k="Also send to their phones" /></legend>

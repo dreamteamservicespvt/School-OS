@@ -120,12 +120,12 @@ export default async function SwitchingPage({ searchParams }: Search) {
       )}
       <div className="grid gap-5 xl:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]">
         <Card>
-          <CardHeader title="Your move to School OS" description="Bring in what your old software, Excel sheets or registers hold, in this order. You can start on any day of the year." />
+          <CardHeader title="Your move to School OS" description="In this order. Start on any day of the year." />
           <CardBody className="p-0">
             <ol className="divide-y divide-line">
               <Step n={1} title="Set up the school year" done={setUp}
                 status={setUp ? `${summary.year!.name}: ${summary.classes.length} classes, ${sectionCount} sections` : summary.year ? "Add this year's classes and sections" : "Add the current academic year"}
-                about="School profile, the current academic year, classes, sections and subjects. Students are matched to these.">
+                about="School profile, academic year, classes, sections and subjects.">
                 <ButtonLink href="/academic-management" size="sm">{setUp ? "Open Academic Management" : "Set up classes"}</ButtonLink>
               </Step>
               {steps.map(({ kind: k, screen: s }, i) => k ? (
@@ -142,7 +142,7 @@ export default async function SwitchingPage({ searchParams }: Search) {
               ))}
               <Step n={steps.length + 2} title="Check and go live" done={Boolean(live)}
                 status={live ? `Live since ${formatDate(summary.plan!.goLiveDate ?? live, tz)}` : "Compare the totals with your old software, then go live"}
-                about="Students per class, staff, parents and the money brought in, beside what your old software says. The Principal confirms going live, and automatic messages and late fees start.">
+                about="Compare totals with your old software. The Principal confirms going live; automatic messages and late fees then start.">
                 <ButtonLink href={`${BASE}/check`} size="sm" variant={live ? "secondary" : "primary"}><Words k="Open the go-live check" /></ButtonLink>
               </Step>
             </ol>
@@ -150,13 +150,13 @@ export default async function SwitchingPage({ searchParams }: Search) {
         </Card>
 
         <Card id="bring-in" className="self-start">
-          <CardHeader title="Bring in a file" description="School OS finds the headings, works out what the file holds, matches the columns and tidies dates, phones and names. You check every row before anything is saved." />
+          <CardHeader title="Bring in a file" description="You check every row before anything is saved." />
           <CardBody>
             {mine.length ? <UploadForm place="settings" kinds={mine.map((k) => ({ value: k.key, label: k.label }))} kind={wantKind && mine.some((k) => k.key === wantKind) ? wantKind : undefined} />
-              : <p className="text-ink-2"><Words k="Your role can see this page but not add records. Ask your School Admin." /></p>}
+              : <p className="text-ink-2"><Words k="Your role cannot add records. Ask your School Admin." /></p>}
             <details className="mt-4 text-sm text-ink-2">
               <summary className="min-h-11 cursor-pointer py-2 font-medium text-ink"><Words k="Records on paper?" /></summary>
-              <p><Words k="Download the ready Excel sheet next to each step. It has drop-down lists of your own classes, sections and designations, so typing from the register is quick and the rows are right the first time." /></p>
+              <p><Words k="Download the ready Excel sheet next to each step. It lists your own classes, sections and designations." /></p>
               {mine.length > 0 && (
                 <div className="mt-3 border-t border-line pt-3 text-ink">
                   <p className="mb-2 font-medium"><Words k="Or upload photos of the register pages" /></p>
@@ -175,7 +175,7 @@ export default async function SwitchingPage({ searchParams }: Search) {
       <h2 className="mb-3 mt-8 text-lg font-semibold"><Words k="Files" /></h2>
       {importing && <p className="mb-3 text-ink-2" role="status"><Words k="An import is running now. This page updates by itself." /></p>}
       {files.length === 0 ? (
-        <EmptyState title="No files yet"><Words k="Upload your first file above. Staff usually come first, then students and parents." /></EmptyState>
+        <EmptyState title="No files yet"><Words k="Upload a file above. Staff usually come first." /></EmptyState>
       ) : (
         <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
           {files.map((f) => {

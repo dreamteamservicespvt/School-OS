@@ -21,7 +21,7 @@ export function OnlineLinkButton({ code, classes, schoolName, feeOn, yearName }:
   return (
     <>
       <Button variant="secondary" icon={LinkIcon} onClick={() => setOpen(true)}><Words k="Online application" /></Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Online application" sub="Parents fill the form on their phone, without a login. It arrives here as “Submitted online”.">
+      <Dialog open={open} onClose={() => setOpen(false)} title="Online application" sub="Parents fill it on their phone. No login needed.">
         <div className="flex flex-col gap-4">
           <FieldShell label="Link for" id="ol-cls">
             <select id="ol-cls" value={cls} onChange={(e) => setCls(e.target.value)} className={cx(inputCls(false), "h-11 pr-9")}>

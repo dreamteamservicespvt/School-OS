@@ -54,7 +54,7 @@ export function CopySheet({ closeHref, fromYear, nextLabel, total }: { closeHref
   const [p, setP] = useState("8");
   const v = Number(p) || 0;
   return (
-    <SheetForm title={`Plan ${nextLabel}`} sub="Copy this year’s budget with a change. You can change each head afterwards." closeHref={closeHref} action={copyBudgetsAction} submitLabel="Make next year’s budget" pendingText="Saving…" hidden={{ fromYearId: fromYear }}>
+    <SheetForm title={`Plan ${nextLabel}`} sub="Copy this year’s budget. Change any head later." closeHref={closeHref} action={copyBudgetsAction} submitLabel="Make next year’s budget" pendingText="Saving…" hidden={{ fromYearId: fromYear }}>
       <div className="flex items-end gap-2">
         <SText name="percent" label="Change on every head" required start="8" inputMode="numeric" className="w-28" onChange={(e) => setP(e.target.value)} />
         <span className="text-[15px] text-ink2 pb-2.5"><Words k="% more" /></span>

@@ -88,13 +88,13 @@ export default async function AnalysisPage({ searchParams }: { searchParams: Sea
       </Toolbar>
     </Card>
   );
-  const head = <PageTop page={page} href={PATH} sub={s.manage ? "Subject-wise and class-wise results, toppers and students who need help" : "Results of the sections you teach"} />;
+  const head = <PageTop page={page} href={PATH} sub={s.manage ? "Results, toppers and students who need help" : "Results of the sections you teach"} />;
 
   if (!exam && !final) {
     return (
       <>{head}<div className="flex flex-col gap-5">{toolbar}
         <EmptyState title={range ? "No results in these dates" : "No results to analyse yet"} Icon={ChartColumn}>
-          <p>{range ? "Choose other dates, or All exam dates." : "Analysis shows once marks are entered and results are worked out for an exam."}</p>
+          <p>{range ? "Choose other dates, or All exam dates." : "Shows once marks are entered for an exam."}</p>
         </EmptyState></div></>
     );
   }

@@ -106,7 +106,7 @@ export function RuleEditor({ type, label, steps: start, escalateAfterDays, roles
       {steps.length < MAX_STEPS && <Button variant="secondary" onClick={() => setSteps([...steps, { approver: "", upTo: "" }])}><Words k="Add a step" /></Button>}
 
       <TextField label="Move to the next person if nobody decides in (working days)" name="escalateAfterDays" required inputMode="numeric" value={days} onChange={(e) => setDays(e.target.value)} className="max-w-xs"
-        error={errors.escalateAfterDays} help="If nobody decides in time, the request moves to the next step, or to the Principal." />
+        error={errors.escalateAfterDays} help="Then it moves to the next step, or to the Principal." />
 
       <div className="flex flex-wrap items-center gap-3 border-t border-line pt-4">
         <SubmitButton pendingText="Saving…"><Words k="Save rule" /></SubmitButton>

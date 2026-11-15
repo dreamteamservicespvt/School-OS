@@ -141,7 +141,7 @@ export default async function PickupPage({ searchParams }: { searchParams: Searc
                       {p.can.gateWork && <Link href={here({ stop: "1" })} scroll={false} className="mt-3 inline-flex items-center gap-1.5 text-[13.5px] font-semibold text-bad hover:underline"><UserRound size={16} aria-hidden="true" /><Words k="Someone not on this list is here" /></Link>}
                     </div>
                     {gate ? <Banner tone="info" title="At the gate:"><Words k="a child leaves only with a pickup gate pass from the desk. Match both faces with these photos." /></Banner>
-                      : <Banner tone="info"><Words k="Only the reception desk releases a student. The list is changed in Student Management." /></Banner>}
+                      : <Banner tone="info"><Words k="Only the reception desk releases a student." /></Banner>}
                   </>
                 )}
               </div>

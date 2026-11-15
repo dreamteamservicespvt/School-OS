@@ -100,7 +100,7 @@ export default async function QuestionPapersPage({ searchParams }: { searchParam
     if (base.tab !== "bank") for (const [k, v] of periodQuery(raw)) p.set(k, v);
     return withYear(`${PATH}${p.size ? `?${p}` : ""}`, page);
   };
-  const sub = s.manage ? "Question bank by chapter and difficulty, and papers made from it" : "Questions and papers for the subjects you teach";
+  const sub = s.manage ? "Question bank and papers made from it" : "Questions and papers for the subjects you teach";
 
   const toolbar = (
     <Toolbar>
@@ -114,7 +114,7 @@ export default async function QuestionPapersPage({ searchParams }: { searchParam
   if (options.length === 0) {
     body = (
       <EmptyState title="No subjects to work on" Icon={CircleHelp}>
-        <p>{s.manage ? "Add subjects to classes in Academic Management first." : "Question Papers shows the subjects given to you in Teacher Allocation. Ask the Exam In-charge if one is missing."}</p>
+        <p>{s.manage ? "Add subjects to classes in Academic Management first." : "Ask the Exam In-charge if a subject is missing."}</p>
       </EmptyState>
     );
   } else if (tab === "papers") {

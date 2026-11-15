@@ -408,7 +408,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       ]);
       return { year, allocs, sections };
     });
-    if (!data) return <EmptyState title="No academic year is open"><Words k="Classes are given in Teacher Allocation once the academic year is opened in Academic Management." /></EmptyState>;
+    if (!data) return <EmptyState title="No academic year is open"><Words k="Open the year in Academic Management first." /></EmptyState>;
     return (
       <div className="space-y-5">
         <Card>
@@ -418,7 +418,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
         <Card>
           <CardHeader title="Classes and subjects" description={`From Teacher Allocation, ${data.year.name}`} action={hr ? <ButtonLink size="sm" href="/academic-management/teacher-allocation"><Words k="Teacher Allocation" /></ButtonLink> : undefined} />
           <CardBody>
-            {data.allocs.length === 0 ? <p className="text-ink-2"><Words k="No classes given yet. Classes are given in Add Staff step 3 or in Teacher Allocation." /></p> : (
+            {data.allocs.length === 0 ? <p className="text-ink-2"><Words k="No classes given yet. Give them in Teacher Allocation." /></p> : (
               <ul className="divide-y divide-line">
                 {data.allocs.map((a) => (
                   <li key={a.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
@@ -441,7 +441,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
       const periods = await tx.timetablePeriod.findMany({ where: { versionId: version.id, staffId: s!.id, archivedAt: null }, include: { section: { include: { schoolClass: true } }, subject: true }, orderBy: [{ dayOfWeek: "asc" }, { periodNo: "asc" }] });
       return { version, periods };
     });
-    if (!data) return <EmptyState title="No published Time Table"><Words k="The teacher's week shows here once a Time Table is published in Academic Management." /></EmptyState>;
+    if (!data) return <EmptyState title="No published Time Table"><Words k="Publish a Time Table in Academic Management first." /></EmptyState>;
     const days = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
     const nos = [...new Set(data.periods.map((p) => p.periodNo))].sort((a, b) => a - b);
     if (data.periods.length === 0) return <EmptyState title="No periods on the Time Table">{s!.fullName} <Words k="has no periods in" /> {data.version.name}.</EmptyState>;
@@ -667,7 +667,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
     const docs = s!.documents;
     return (
       <Card>
-        <CardHeader title="Documents" description="Certificates, ID proof and contracts, with expiry dates." action={hr && !left ? <UploadDocumentForm staffOptions={[{ value: s!.id, label: s!.fullName }]} types={types} action={uploadDocument} fixedStaffId={s!.id} /> : undefined} />
+        <CardHeader title="Documents" action={hr && !left ? <UploadDocumentForm staffOptions={[{ value: s!.id, label: s!.fullName }]} types={types} action={uploadDocument} fixedStaffId={s!.id} /> : undefined} />
         <CardBody>
           {docs.length === 0 ? <p className="text-ink-2"><Words k="No documents yet." />{hr ? " Upload certificates, ID proof and contracts with their expiry dates to get reminders." : " Give your documents to HR."}</p> : (
             <ul className="divide-y divide-line">
@@ -686,7 +686,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
                       {hr && !left && <UploadDocumentForm staffOptions={[{ value: s!.id, label: s!.fullName }]} types={types} action={uploadDocument} fixedStaffId={s!.id} replace={{ id: d.id, kind: d.kind, missing: !d.fileId }} />}
                       {hr && !left && (
                         <ConfirmButton trigger="Remove" triggerVariant="danger-soft" title={`Remove ${d.kind}?`} confirmLabel="Remove document" confirmVariant="danger" onConfirm={removeDocumentAction.bind(null, d.id)}>
-                          <Words k="It is taken off" /> {s!.fullName}<Words k="’s record and its expiry reminders stop. Use this for a document added by mistake. The file itself is kept for the record." />
+                          <Words k="It is taken off" /> {s!.fullName}<Words k="’s record. Its reminders stop. The file is kept." />
                         </ConfirmButton>
                       )}
                     </div>
@@ -739,7 +739,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
             </Card>
           ) : (
             <Card>
-              <CardHeader title="Salary days" description="Days, leave and loss of pay that reached the salary. Amounts are not shown here." icon={Lock} />
+              <CardHeader title="Salary days" description="Amounts are not shown here." icon={Lock} />
               <div className="px-5 pb-5"><ButtonLink variant="secondary" icon={ArrowUpRight} href={`/salary-management/history?tab=staff&who=${s!.id}`}><Words k="Open Salary History" /></ButtonLink></div>
             </Card>
           )}
@@ -759,7 +759,7 @@ export default async function StaffProfilePage({ params, searchParams }: Props) 
           </Card>
         </Split>
         <Card>
-          <CardHeader title="Bank, PF and ESI numbers" description="Used for the salary bank file and the PF and ESI statements" />
+          <CardHeader title="Bank, PF and ESI numbers" />
           <CardBody>
             <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
               <Detail label="Bank account">{showRestricted(s!.bankAccountEnc, viewer.restricted)}</Detail>

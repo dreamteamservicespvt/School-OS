@@ -48,7 +48,7 @@ export function AssetSheet({ closeHref, doneHref, types, vendors, places, start,
   const count = useTyped("count", receipt?.count ?? "1");
   const [n, setN] = useState(Number(count.value) || 1);
   return (
-    <SheetForm title={editing ? `Change ${start!.name}` : "Add an asset"} sub={editing ? start!.tag : receipt ? receipt.words : `Tags are given in sequence from ${nextTag} unless you type one.`} closeHref={closeHref} doneHref={doneHref}
+    <SheetForm title={editing ? `Change ${start!.name}` : "Add an asset"} sub={editing ? start!.tag : receipt ? receipt.words : `Tags start from ${nextTag} unless you type one.`} closeHref={closeHref} doneHref={doneHref}
       action={editing ? (updateAssetAction as unknown as typeof addAssetAction) : addAssetAction} submitLabel={editing ? "Save" : n > 1 ? `Add ${n} assets` : "Add asset"} pendingText="Saving…"
       hidden={start ? { assetId: start.id } : receipt ? { receiptId: receipt.id, ...(receipt.itemId ? { itemId: receipt.itemId } : {}) } : undefined}>
       <div className="grid grid-cols-[1fr_150px] gap-3">
@@ -140,7 +140,7 @@ export function RepairUpdateSheet({ closeHref, logId, words, vendors, today, sta
 export function DisposeSheet({ closeHref, assetId, words, today }: { closeHref: string; assetId: string; words: string; today: string }) {
   const [method, setMethod] = useState("SCRAPPED");
   return (
-    <SheetForm title="Dispose of the asset" sub={`${words}. Needs approval; the asset stays in the register as Disposed.`} closeHref={closeHref} action={disposeAction} submitLabel="Send for approval" submitVariant="danger" hidden={{ assetId }}>
+    <SheetForm title="Dispose of the asset" sub={`${words}. Needs approval.`} closeHref={closeHref} action={disposeAction} submitLabel="Send for approval" submitVariant="danger" hidden={{ assetId }}>
       <SegField name="method" label="How" start="SCRAPPED" onChange={setMethod} options={[{ value: "SOLD", label: "Sold" }, { value: "SCRAPPED", label: "Scrapped" }, { value: "DONATED", label: "Donated" }]} />
       <SArea name="reason" label="Reason" required maxLength={300} placeholder="For example: beyond repair, motherboard failed" />
       <SDate name="date" label="Date" required start={today} max={today} />
@@ -172,7 +172,7 @@ export function LinkItemSheet({ closeHref, assetId, words, items }: { closeHref:
 
 export function StartAssetAuditSheet({ closeHref, rooms, suggested }: { closeHref: string; rooms: Opt[]; suggested: string }) {
   return (
-    <SheetForm title="Start an asset check" sub="Scan the tags room by room; missing and misplaced assets are listed." closeHref={closeHref} action={startAssetAuditAction} submitLabel="Start check">
+    <SheetForm title="Start an asset check" sub="Scan the tags room by room." closeHref={closeHref} action={startAssetAuditAction} submitLabel="Start check">
       <SText name="name" label="Name" required maxLength={80} start={suggested} />
       <SSelect name="roomId" label="Only one room" options={rooms} placeholder="Every room" />
     </SheetForm>

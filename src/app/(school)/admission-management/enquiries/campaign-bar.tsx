@@ -31,11 +31,11 @@ export function EnquiryBulk({ owners, campaigns, schoolName }: { owners: Option[
           <Button size="sm" variant="ghost" onClick={clear}><Words k="Clear" /></Button>
         </div>
       )}
-      <FormSheet open={sheet === "campaign"} onClose={() => setSheet(null)} title={`Run campaign for ${n} ${n === 1 ? "enquiry" : "enquiries"}`} sub="Sent through Communication. Each enquiry then shows the campaign name."
+      <FormSheet open={sheet === "campaign"} onClose={() => setSheet(null)} title={`Run campaign for ${n} ${n === 1 ? "enquiry" : "enquiries"}`} sub="Sent through Communication"
         action={campaignAction} submitLabel={`Send to ${n} ${n === 1 ? "family" : "families"}`} busyLabel="Sending…" submitIcon={Send} onSaved={() => { clear(); setText(""); }}>
         {(f) => <>
           {idInputs}
-          <TextField label="Campaign" name="name" required maxLength={80} placeholder="Open House on Saturday" defaultValue={f.val("name")} error={f.err("name")} help="Shown on each enquiry it reaches." />
+          <TextField label="Campaign" name="name" required maxLength={80} placeholder="Open House on Saturday" defaultValue={f.val("name")} error={f.err("name")} />
           <SegField name="channel" label="Send by" options={offeredChannels(["whatsapp", "sms", "email"]).map((c) => ({ value: c, label: c === "sms" ? "SMS" : c === "email" ? "Email" : "WhatsApp" }))} defaultValue={f.val("channel", "whatsapp")!} />
           <TextArea label="Message" name="message" required rows={4} maxLength={1000} defaultValue={f.val("message")} error={f.err("message")} onChange={(e) => setText(e.target.value)}
             help={`Use {parent} and {child} for names. Sent from ${schoolName}; it cannot be unsent.`} />
@@ -43,7 +43,7 @@ export function EnquiryBulk({ owners, campaigns, schoolName }: { owners: Option[
           <p className="text-[13px] text-ink3 tnum">{n} {n === 1 ? "message" : "messages"} <Words k="· closed enquiries are skipped" /></p>
         </>}
       </FormSheet>
-      <FormSheet open={sheet === "assign"} onClose={() => setSheet(null)} title={`Assign ${n} ${n === 1 ? "enquiry" : "enquiries"}`} sub="The history keeps the old and new owner." action={bulkAssignAction} submitLabel="Assign owner" onSaved={clear}>
+      <FormSheet open={sheet === "assign"} onClose={() => setSheet(null)} title={`Assign ${n} ${n === 1 ? "enquiry" : "enquiries"}`} action={bulkAssignAction} submitLabel="Assign owner" onSaved={clear}>
         {(f) => <>
           {idInputs}
           <SelectField label="New owner" name="ownerStaffId" required options={owners} placeholder="Choose" defaultValue={f.val("ownerStaffId")} error={f.err("ownerStaffId")} />

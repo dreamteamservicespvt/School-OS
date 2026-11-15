@@ -75,7 +75,7 @@ export function NameList({ kind, items, canEdit, what, example }: { kind: "examT
       </ActionSheet>
       <ActionSheet open={Boolean(archive)} onClose={() => setArchive(null)} title={`Archive ${archive?.name ?? ""}?`} confirmLabel="Archive" confirmVariant="danger" pendingText="Archiving…"
         run={() => archiveListItemAction(kind, archive!.id)}>
-        <p className="text-[14px] text-ink2"><Words k="It will no longer be offered for new datesheets. Exams that already use it keep it. Adding the same name again brings it back." /></p>
+        <p className="text-[14px] text-ink2"><Words k="It will no longer be offered for new datesheets. Exams that already use it keep it." /></p>
       </ActionSheet>
     </>
   );
@@ -519,7 +519,7 @@ export function RemarkPhrasesEditor({ bank, canEdit, on }: { bank: PhraseBank; c
     <div className="px-5 pb-5 flex flex-col gap-3">
       <p className="text-[13px] text-ink3">
         {on ? "Used when a class teacher asks for remark suggestions. " : "Used once Remark suggestions is switched on below, or the AI teacher assistant is on. "}
-        <Words k="The numbers always come from the student's own records and are shown as the source; only these words change. Words in braces are filled in:" /> {Object.entries(BLANK_WORDS).map(([k, w]) => `{${k}} ${w}`).join(", ")}.
+        <Words k="Numbers come from the student's records. Words in braces are filled in:" /> {Object.entries(BLANK_WORDS).map(([k, w]) => `{${k}} ${w}`).join(", ")}.
       </p>
       {PHRASE_KEYS.map((k) => {
         const p = problem(k);

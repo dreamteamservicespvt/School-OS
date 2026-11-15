@@ -135,8 +135,8 @@ export default async function MessagePage({ params, searchParams }: Props) {
       <div className="flex flex-col gap-5 lg:gap-6">
         {m.status === "SCHEDULED" && m.scheduledAt && <Banner tone="info" title={`Scheduled for ${formatDateTime(m.scheduledAt, tz)}.`}><Words k="Nobody has received it yet. You can cancel it until it goes." /></Banner>}
         {m.status === "CANCELLED" && <Banner tone="warn" title="Cancelled.">{m.cancelledAt ? `On ${formatDateTime(m.cancelledAt, tz)}` : ""}{m.cancelledById ? ` by ${data.names.get(m.cancelledById) ?? "staff"}` : ""}<Words k=". Nobody got it, and no credits were used." /></Banner>}
-        {isCode && <Banner tone="info" title={`${CODE_HIDDEN_LABEL}.`}><Words k="The code is never kept or shown here; only the person it went to saw it. A code that did not arrive is not sent again: the person asks for a new code." /></Banner>}
-        {system && <Banner tone="info" title="Sent by School OS."><Words k="This is" /> {systemWhatWords(system)}<Words k=". It goes also to people who opted out of messages, because it is their own link. It is not an emergency broadcast." /></Banner>}
+        {isCode && <Banner tone="info" title={`${CODE_HIDDEN_LABEL}.`}><Words k="The code is never shown here. If it did not arrive, the person asks for a new one." /></Banner>}
+        {system && <Banner tone="info" title="Sent by School OS."><Words k="This is" /> {systemWhatWords(system)}<Words k=". It also goes to people who opted out, because it is their own link." /></Banner>}
         {m.isEmergency && !isCode && !system && <Banner tone="bad" title="Emergency broadcast."><Words k="Sent also to parents who opted out." /></Banner>}
         {counts.testMode > 0 && <Banner tone="warn" title="Test mode: not really sent."><Words k={"The channel is in test mode (DREAM TEAM has not connected it for real yet), so the"} /> {counts.testMode.toLocaleString("en-IN")} {counts.testMode === 1 ? "person" : "people"} <Words k="marked “Test mode” below did not receive this message. It is only recorded." /></Banner>}
         {skipped.length > 0 && (
@@ -190,7 +190,7 @@ export default async function MessagePage({ params, searchParams }: Props) {
             </Card>
             {versions.length > 0 && (
               <Card>
-                <CardHeader title="Language versions" icon={Languages} description="Translated by the AI service, read and confirmed by the sender before sending" />
+                <CardHeader title="Language versions" icon={Languages} description="Checked by the sender before sending" />
                 <ul className="px-5 pb-5 flex flex-col gap-3">
                   <li>
                     <p className="text-[12.5px] font-semibold text-ink3 mb-1"><Words k="English, as typed" /></p>

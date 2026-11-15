@@ -52,7 +52,7 @@ export function NewYearButton({ years, hasActive, suggested, presets, pageYearId
             <TextField label="Ends" name="endDate" type="date" required defaultValue={v(state, "endDate", suggested.end)} error={err(state, "endDate")} />
           </div>
           <SelectField label="Copy classes, sections, allocations and terms from" name="copyFrom" value={copy} onChange={(e) => setCopy(e.target.value)} placeholder="Nothing, start empty" options={years}
-            help="The old year stays exactly as it is. Everything is copied into new records." />
+            help="The old year stays as it is." />
           {!copy && <SelectField label="Terms" name="termPreset" defaultValue={v(state, "termPreset", "two-terms")} options={[...presets]} help="Change term dates later in the Terms tab." />}
           <p className="text-sm text-ink-2">{hasActive
             ? <Words k="The new year is Upcoming. Open it when it starts; the current year stays active until then." />
@@ -212,12 +212,12 @@ export function TimingsForm({ s, pageYearId }: { s: { dayStart: string; dayEnd: 
           <TextField label="Periods a week, at most" name="maxPeriodsPerWeek" inputMode="numeric" required defaultValue={v(state, "maxPeriodsPerWeek", s.maxPeriodsPerWeek)} error={err(state, "maxPeriodsPerWeek")} />
           <TextField label="Periods in a row, at most" name="maxConsecutive" inputMode="numeric" required defaultValue={v(state, "maxConsecutive", s.maxConsecutive)} error={err(state, "maxConsecutive")} />
         </div>
-        <p className="text-sm text-ink-2"><Words k="Shown as a warning when assigning teachers and in the Time Table clash check. A teacher's own preferences can set lower limits." /></p>
+        <p className="text-sm text-ink-2"><Words k="Shown as a warning when assigning teachers and in the clash check." /></p>
       </section>
       <section className="space-y-2 rounded-2xl border border-line bg-surface p-4">
         <h2 className="font-semibold"><Words k="Substitution rule" /></h2>
         <CheckboxField label="Raise substitutions automatically when a teacher's leave is approved" name="autoSubstitutions" defaultChecked={(v(state, "autoSubstitutions", s.autoSubstitutions ? "on" : "")) === "on"}
-          help="Their periods show as Needed in Substitutions. When this is off, mark the teacher absent on Substitutions to list their periods." />
+          help="Their periods show as Needed in Substitutions." />
       </section>
       <SubmitButton pendingText="Saving…"><Words k="Save timings and rules" /></SubmitButton>
     </form>
@@ -304,7 +304,7 @@ export function ConditionButton({ subjects, classes, days, slots }: { subjects: 
           <SelectField label="Period" name="periodNo" required defaultValue={v(state, "periodNo")} placeholder="Choose a period" options={slots} error={err(state, "periodNo")} />
           <SelectField label="Day" name="dayOfWeek" defaultValue={v(state, "dayOfWeek")} placeholder="Every day" options={days.map((d) => ({ value: String(d), label: ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"][d] }))} error={err(state, "dayOfWeek")} />
           <SelectField label="Class" name="classId" defaultValue={v(state, "classId")} placeholder="All classes" options={classes} error={err(state, "classId")} />
-          <p className="text-sm text-ink-2"><Words k="For example, no Maths in period 8. Used when making the Time Table automatically, and warned about in the clash check." /></p>
+          <p className="text-sm text-ink-2"><Words k="For example, no Maths in period 8." /></p>
         </>
       )}
     </FormDialog>

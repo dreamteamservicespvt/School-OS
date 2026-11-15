@@ -125,7 +125,7 @@ export function AchievementSheet({ closeHref, students, kinds, levels, credits, 
 
 export function IssueSheet({ closeHref, ids, names }: { closeHref: string; ids: string[]; names: string[] }) {
   return (
-    <SheetForm title={`Issue ${ids.length === 1 ? "1 certificate" : `${ids.length} certificates`}?`} sub="Each gets its number now, in the design from Settings, Document Designs. Parents are told by message." closeHref={closeHref}
+    <SheetForm title={`Issue ${ids.length === 1 ? "1 certificate" : `${ids.length} certificates`}?`} sub="Each gets its number now. Parents are told by message." closeHref={closeHref}
       action={certificatesAction} submitLabel={`Issue ${ids.length === 1 ? "1 certificate" : `${ids.length} certificates`}`}>
       {ids.map((i) => <input key={i} type="hidden" name="achievementIds" value={i} />)}
       <ul className="text-[14px] text-ink2 flex flex-col gap-1 max-h-[30vh] overflow-y-auto scroll-thin">{names.map((n, i) => <li key={i}>{n}</li>)}</ul>

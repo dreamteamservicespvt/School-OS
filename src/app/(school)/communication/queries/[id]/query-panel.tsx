@@ -46,7 +46,7 @@ export function QueryHeadActions({ id, status, canPickUp, owners }: { id: string
       {status === "RESOLVED" && (
         <ConfirmButton trigger="Close" title="Close this query?" confirmLabel="Close query"
           onConfirm={async () => { const m = await statusAction(id, "CLOSED", null); if (!m) router.refresh(); return m; }}>
-          <Words k="The requester may be asked to rate how it was handled (1 to 5), if that is switched on in Message Settings." />
+          <Words k="The requester may be asked to rate it (1 to 5)." />
         </ConfirmButton>
       )}
       {(status === "RESOLVED" || status === "CLOSED") && <Button variant="ghost" icon={RotateCcw} loading={pending} onClick={() => run(() => statusAction(id, "OPEN", null))}><Words k="Reopen" /></Button>}
@@ -64,7 +64,7 @@ export function QueryHeadActions({ id, status, canPickUp, owners }: { id: string
           ))}
         </ul>
       </Dialog>
-      <Dialog open={resolve} onClose={() => setResolve(false)} title="Resolve this query" sub="The resolution is kept on the ticket and sent to the requester."
+      <Dialog open={resolve} onClose={() => setResolve(false)} title="Resolve this query" sub="Kept on the ticket and sent to the requester."
         footer={<>
           <Button variant="secondary" onClick={() => setResolve(false)}><Words k="Cancel" /></Button>
           <Button loading={pending} loadingText="Saving" disabled={resolution.trim().length < 5} onClick={() => run(() => statusAction(id, "RESOLVED", resolution), () => setResolve(false))}><Words k="Resolve" /></Button>

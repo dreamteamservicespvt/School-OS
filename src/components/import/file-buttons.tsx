@@ -29,7 +29,7 @@ export function AddClassesButton({ place, id, words, labels }: OnFile & { words:
       onConfirm={async () => { const p = await addClassesAction(place, id, words); if (!p) router.refresh(); return p; }}>
       <p>{words.length === 1 ? "It is added in Academic Management with 40 seats, and the rows are matched to it:" : "They are added in Academic Management with 40 seats each, and the rows are matched to them:"}</p>
       <p className="mt-2 font-medium text-ink">{labels.slice(0, 12).join(", ")}{labels.length > 12 ? ` and ${labels.length - 12} more` : ""}</p>
-      <p className="mt-2">Check the spelling first: a class written wrongly should be matched to the right class instead.</p>
+      <p className="mt-2">Check the spelling first: a misspelt class should be matched instead.</p>
     </ConfirmButton>
   );
 }
@@ -80,7 +80,7 @@ export function ImportButton({ place, id, ready, problems, leftOut, one, many }:
     <ConfirmButton trigger={`Bring in ${plural(ready, one, many)}`} triggerVariant="primary" title={`Bring in ${plural(ready, one, many)}?`} confirmLabel={`Bring in ${plural(ready, one, many)}`}
       onConfirm={async () => { const p = await importAction(place, id); if (!p) router.refresh(); return p; }}>
       <p>Only the {plural(ready, "ready row")} {ready === 1 ? "is" : "are"} brought in.{problems || leftOut ? ` ${stayWords(problems, leftOut)}` : ""}</p>
-      <p className="mt-2">You can undo this import later from this page; what it added is archived, never lost.</p>
+      <p className="mt-2">You can undo it later from this page; nothing is lost.</p>
     </ConfirmButton>
   );
 }

@@ -75,7 +75,7 @@ export function FamiliesForm({ who: whoOpts, channels }: { who: Opt[]; channels:
       <Card>
         <CardHeader title="Who and how" icon={Send} description="New families get theirs automatically when the admission is approved" />
         <div className="px-5 pb-5 flex flex-col gap-3">
-          <FieldShell label="Who" id="f-who" required help="Guardians who already have an active link are left out. Use Resend on their link instead.">
+          <FieldShell label="Who" id="f-who" required help="Those with an active link are left out.">
             <select id="f-who" value={who} onChange={(e) => change(setWho)(e.target.value)} className={field}>
               {groups.map((g) => g ? (
                 <optgroup key={g} label={g}>{whoOpts.filter((o) => o.group === g).map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}</optgroup>

@@ -28,7 +28,7 @@ export function AccessFields({ roles, campuses, roleIds, scope, campusId, errors
     <div className="space-y-5">
       <fieldset aria-describedby={errors.roleIds ? "roles-error" : undefined}>
         <legend className="mb-1 text-sm font-medium"><Words k="Roles" /> <span className="text-danger" aria-hidden="true">*</span></legend>
-        <p className="mb-2 text-sm text-ink-2"><Words k="A person can have more than one role; they get the widest access any of them gives." /></p>
+        <p className="mb-2 text-sm text-ink-2"><Words k="With more than one role, they get the widest access." /></p>
         {groups.map((g) => (
           <div key={g.title} className="mb-3">
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-2">{g.title}</p>

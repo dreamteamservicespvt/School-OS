@@ -74,7 +74,7 @@ export function Campuses({ campuses, canEdit }: { campuses: CampusRow[]; canEdit
                     )}
                     {!c.isMain && (
                       <ConfirmButton trigger="Archive" triggerVariant="ghost" title={`Archive ${c.name}?`} confirmLabel={`Archive ${c.name}`} confirmVariant="danger" onConfirm={() => campusAction(c.id, "archive")}>
-                        <Words k="It drops out of campus choices. A campus that still has students, staff, academic years or logins cannot be archived. You can restore it later." />
+                        <Words k="You can restore it later. A campus still in use cannot be archived." />
                       </ConfirmButton>
                     )}
                   </>

@@ -73,7 +73,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
             ))}
           </ul>
           <TextArea name="duplicateReason" label="Reason to save anyway" required maxLength={300} rows={2} className="mt-3"
-            help="For example: twins, or a different child with the same name. Kept in the history." defaultValue={v("duplicateReason")} error={err("duplicateReason")} />
+            help="For example: twins. Kept in the history." defaultValue={v("duplicateReason")} error={err("duplicateReason")} />
           <div className="mt-3"><SubmitButton pendingText="Saving…"><Words k="Save anyway" /></SubmitButton></div>
         </Alert>
       )}
@@ -107,7 +107,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
         <TextField name="guardianPhone" label="Parent's phone" required type="tel" inputMode="numeric" autoComplete="off" placeholder="10-digit mobile"
           defaultValue={v("guardianPhone")} error={err("guardianPhone")} onBlur={(e) => lookPhone(e.target.value)}
           onChange={(e) => { if (e.target.value.replace(/\D/g, "").length >= 10) void lookPhone(e.target.value); }}
-          help="+91. A parent already on record with this phone can be linked (brother or sister)." />
+          help="+91. Links a known parent (brother or sister)." />
         {parents.length > 0 && (
           <div className="rounded-xl border border-brand/40 bg-brand/8 p-3 sm:col-span-2" role="status">
             <p className="font-medium"><Words k="This phone belongs to a parent already on record." /></p>
@@ -138,7 +138,7 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           onBlur={async (e) => { const r = await checkAdmissionNo(e.target.value); setAdmNote(r.taken); }}
           help={`Leave empty for the next number (${nextAdmissionNo}). Type one only when moving old records.`} />
         <TextField name="rollNo" label="Roll number" inputMode="numeric" placeholder={sectionId && nextRolls[sectionId] ? String(nextRolls[sectionId]) : "Next free number"}
-          defaultValue={v("rollNo")} error={err("rollNo")} help="Leave empty for the next free number in the section." />
+          defaultValue={v("rollNo")} error={err("rollNo")} help="Leave empty for the next number." />
       </fieldset>
 
       <CheckboxField name="applyFeePlan" label="Apply class fee plan" defaultChecked={state && !state.ok ? state.values?.applyFeePlan === "on" : true} help={feePlanNote} />
@@ -151,9 +151,9 @@ export function AddStudentForm({ sections, defaultSection, today, nextAdmissionN
           <TextField name="religion" label="Religion" required={req("religion")} maxLength={60} defaultValue={v("religion")} error={err("religion")} />
           <TextField name="motherTongue" label="Mother tongue" required={req("motherTongue")} maxLength={60} defaultValue={v("motherTongue")} error={err("motherTongue")} />
           <TextArea name="address" label="Address" required={req("address")} maxLength={300} rows={2} className="sm:col-span-2" defaultValue={v("address")} error={err("address")} />
-          {showAadhaar && <TextField name="aadhaar" label="Aadhaar number" required={req("aadhaar")} inputMode="numeric" autoComplete="off" defaultValue={v("aadhaar")} error={err("aadhaar")} help="Kept private and locked. Screens show only the last 4 digits." />}
+          {showAadhaar && <TextField name="aadhaar" label="Aadhaar number" required={req("aadhaar")} inputMode="numeric" autoComplete="off" defaultValue={v("aadhaar")} error={err("aadhaar")} help="Kept private. Only the last 4 digits show." />}
           <TextField name="previousSchool" label="Previous school" required={req("previousSchool")} maxLength={200} className="sm:col-span-2" defaultValue={v("previousSchool")} error={err("previousSchool")} />
-          <p className="text-[13.5px] text-ink2 sm:col-span-2"><Words k="Photo, identifiers, emergency contacts and the school's extra fields are added on the Student Profile after saving." /></p>
+          <p className="text-[13.5px] text-ink2 sm:col-span-2"><Words k="Add the photo and other details on the profile after saving." /></p>
         </div>
       </details>
 

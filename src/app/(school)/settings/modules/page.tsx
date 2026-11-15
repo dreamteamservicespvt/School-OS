@@ -63,12 +63,12 @@ export default async function ModulesPage() {
           </ul>
           <CardBody className="border-t border-line">
             <p className="text-sm font-medium"><Words k="Always on" /></p>
-            <p className="text-sm text-ink-2">{core.map((m) => m.name).join(", ")}<Words k=". These hold the school's core records, so they cannot be switched off." /></p>
+            <p className="text-sm text-ink-2">{core.map((m) => m.name).join(", ")}<Words k=". These cannot be switched off." /></p>
           </CardBody>
         </Card>
 
         <Card>
-          <CardHeader id="templates" title="School-type templates" description="Start from a template: it switches on the right modules and fills sensible settings. You see every change first." />
+          <CardHeader id="templates" title="School-type templates" description="Switches on the right modules. You see every change first." />
           <CardBody>
             <TemplatePicker templates={SCHOOL_TEMPLATES.map((t) => ({ key: t.key, name: t.name, about: t.about }))} current={prefs.schoolTemplate ?? null} mayEdit={mayEdit} />
           </CardBody>
@@ -80,21 +80,21 @@ export default async function ModulesPage() {
         </Card>
 
         <Card>
-          <CardHeader id="ai" title="AI assistant" description="Off until you switch it on. Each feature below has its own switch." />
+          <CardHeader id="ai" title="AI assistant" description="Each feature has its own switch." />
           <CardBody className="space-y-5">
             <div className="rounded-xl border border-line px-4 py-3">
               <p className="font-medium"><Words k="AI service" />{" "}{usage.connected ? <Badge tone="success"><Words k="Connected" /></Badge> : <Badge><Words k="Not connected yet" /></Badge>}</p>
               <p className="text-sm text-ink-2">
                 {usage.connected
-                  ? "Run by DREAM TEAM. Only what each task needs is sent: never Aadhaar, bank details, salary or counselling notes, and phone numbers are hidden unless a feature needs them. Every request is logged, and nothing changes until a person accepts a suggestion."
-                  : "Not connected yet: DREAM TEAM connects it. Until then every feature below works on School OS's own rules, with no outside service."}
+                  ? "Run by DREAM TEAM. Never sent: Aadhaar, bank details, salary or counselling notes. Every request is logged; nothing changes until a person accepts."
+                  : "Not connected yet: DREAM TEAM connects it. Until then features use School OS's own rules."}
               </p>
               <p className="mt-1 text-sm"><Words k="This month:" /> {usage.month.requests} {usage.month.requests === 1 ? "request" : "requests"}<Words k=", about" /> {formatRupees(usage.month.costPaise)} <Words k="· Today:" /> {usage.today} <Words k="of" /> {usage.dailyLimit} <Words k="a day" /></p>
             </div>
             <AssistantForm on={assistantOn} roles={data.roles.map((r) => ({ key: r.key!, name: r.name }))} chosen={aiRolesOf(prefs)} mayEdit={mayEdit} dailyLimit={prefs.aiDailyLimit ?? null} platformLimit={usage.platformLimit} />
             <div>
               <p className="mb-2 font-medium"><Words k="AI features" /></p>
-              {!assistantOn && <p className="mb-2 text-sm text-ink-2"><Words k="Switch on the AI assistant first. While it is off, every feature is off." /></p>}
+              {!assistantOn && <p className="mb-2 text-sm text-ink-2"><Words k="Switch on the AI assistant first." /></p>}
               <ul className="divide-y divide-line rounded-xl border border-line">
                 {SHOWN_AI_FEATURES.map((f) => (
                   <li key={f.key} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
@@ -111,9 +111,9 @@ export default async function ModulesPage() {
         </Card>
 
         <Card>
-          <CardHeader id="integrations" title="Integrations" description="DREAM TEAM connects these for your school, so nobody here needs a key, password or address. This shows what is connected." />
+          <CardHeader id="integrations" title="Integrations" description="DREAM TEAM connects these for your school." />
           <CardBody>
-            {data.integrations.some((i) => i.status === "error") && <p className="mb-3 text-sm"><Badge tone="danger"><Words k="Error" /></Badge> <span className="text-ink-2"><Words k="A connection failed its last check. Tell DREAM TEAM support so they can fix it." /></span></p>}
+            {data.integrations.some((i) => i.status === "error") && <p className="mb-3 text-sm"><Badge tone="danger"><Words k="Error" /></Badge> <span className="text-ink-2"><Words k="A connection failed its last check. Tell DREAM TEAM support." /></span></p>}
             <ul className="grid gap-3 md:grid-cols-2">
               {INTEGRATIONS.map((def) => {
                 const row = data.integrations.find((i) => i.key === def.key);

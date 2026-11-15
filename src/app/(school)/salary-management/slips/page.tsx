@@ -58,11 +58,11 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
   const me = p.me;
   const per = salaryPeriod(sp, p.dates, "finyear");
   const href = p.level === "own" ? HREF : `${HREF}?mine=1`;
-  const head = <SalaryHead pageName="My Salary Slips" href={href} sub="Only your own slips. Nobody else’s salary shows here." />;
+  const head = <SalaryHead pageName="My Salary Slips" href={href} sub="Only your own slips" />;
   if (!me) {
     const canAdd = can(p.current.permissions, "staff-hr-management", "create");
     return <div>{head}<Card><Empty icon={UserRound} title="No staff record is linked to your login"
-      body={canAdd ? "Salary slips are for staff. Add your own staff record once and your slips show here." : "Salary slips are for staff. Ask the School Admin to link your login to your staff record."}
+      body={canAdd ? "Add your own staff record once to see your slips." : "Ask the School Admin to link your login to your staff record."}
       action={canAdd ? <ButtonLink href={`/staff-hr-management/add?login=${p.current.ctx.userId}`} variant="primary"><Words k="Add my staff record" /></ButtonLink> : undefined} /></Card></div>;
   }
   const data = await withSchool(p.current.ctx, async (tx) => {
@@ -135,7 +135,7 @@ async function MySlips({ sp }: { sp: Record<string, string | string[] | undefine
                     );
                   })}
                 </ul>
-              ) : <Empty icon={ReceiptText} title={`No slips in ${per.label.toLowerCase()}`} body="Slips are made when the month’s salary is approved. Pick another period to see earlier ones." />}
+              ) : <Empty icon={ReceiptText} title={`No slips in ${per.label.toLowerCase()}`} body="Slips are made when the month’s salary is approved." />}
             </Card>
           </Col>
           <Col className="[&>*]:min-w-0">
@@ -219,7 +219,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
 
   return (
     <div>
-      <SalaryHead pageName="Salary Slips" href={HREF} sub="Made only from the approved salary · each person can download only their own"
+      <SalaryHead pageName="Salary Slips" href={HREF} sub="Each person can download only their own"
         actions={ready && notSent > 0 && data.waOn ? <ButtonLink href={here({ do: "send-unsent" })} scroll={false} variant="primary" icon={Send}><Words k="Send unsent slips" /></ButtonLink> : null}
         viewActions={p.me ? <ButtonLink href={`${HREF}?mine=1`} variant="ghost" icon={UserRound}><Words k="My slips" /></ButtonLink> : null} />
       <Stack>
@@ -236,7 +236,7 @@ async function AllSlips({ sp }: { sp: Record<string, string | string[] | undefin
             <div className="overflow-x-auto no-scrollbar shrink-0"><UrlSegmented param="status" options={STATUS} fallback="all" label="Slip status" /></div>
           </Toolbar>
           {!run || !ready ? (
-            <Empty icon={Hourglass} title={run ? `${monthName(run.month)} slips are not made yet` : "No salary months yet"} body="Slips are made the moment the Principal approves the month’s salary, never before."
+            <Empty icon={Hourglass} title={run ? `${monthName(run.month)} slips are not made yet` : "No salary months yet"} body="Made once the Principal approves the month’s salary."
               action={<ButtonLink href={`${BASE}/generate${run ? `?run=${run.id}` : ""}`} variant="secondary" icon={ArrowUpRight}><Words k="Open Generate Salary" /></ButtonLink>} />
           ) : (
             <>

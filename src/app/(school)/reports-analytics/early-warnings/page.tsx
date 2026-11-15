@@ -95,11 +95,11 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
   return (
     <div>
       <RepHead pageName="Early Warnings" href={HREF}
-        sub={a.own ? `Students in ${own.length === 1 ? `Class ${own[0]}` : "your classes"} who may need help. Nothing happens until a person reviews.` : "Students who may need help, from attendance, marks and fees. Nothing happens to a student until a person reviews."}
+        sub={a.own ? `Students in ${own.length === 1 ? `Class ${own[0]}` : "your classes"} who may need help. Nothing happens until a person reviews.` : "Students who may need help. Nothing happens until a person reviews."}
         actions={a.warnings.rule ? <ButtonLink href={withQ(HREF, sp, { rule: "1" })} scroll={false} variant="secondary" icon={Settings2}><Words k="Marks-drop rule" /></ButtonLink> : null} />
       <div className="flex flex-col gap-5 lg:gap-6">
         {a.own && <Banner tone="info" title="Showing your classes only."><Words k="Fee signals go to the Principal and accounts, not to teachers." /></Banner>}
-        {!a.own && a.warnings.review === "none" && <Banner tone="info" title="You watch these flags."><Words k="Class teachers review their students’ flags; use Remind to ask them. Fee flags go to accounts." /></Banner>}
+        {!a.own && a.warnings.review === "none" && <Banner tone="info" title="You watch these flags."><Words k="Class teachers review them; use Remind to ask. Fee flags go to accounts." /></Banner>}
         <Stats items={[
           { label: "Act now", value: String(counts.actNow), sub: "Open flags · strong signs", tone: "bad", icon: TriangleAlert, href: qs(HREF, { ...keep, status: null, strength: "ACT_NOW" }) },
           { label: "Watch", value: String(counts.watch), sub: "Open flags · fees are always Watch", tone: "warn", icon: Eye, href: qs(HREF, { ...keep, status: null, strength: "WATCH" }) },
@@ -125,7 +125,7 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
             </div>
             <DataList rows={shown} rowKey={(f) => f.id} minWidth={720} href={(f) => withQ(HREF, sp, { open: f.id })}
               empty={status === "NEW" && !q
-                ? <Empty icon={CircleCheck} title="Every flag has been reviewed" body="New flags appear here each morning after attendance is taken, and when marks or fees cross a rule." />
+                ? <Empty icon={CircleCheck} title="Every flag has been reviewed" body="New flags appear each morning after attendance." />
                 : <Empty icon={SearchX} title="No flag matches" body="Try another status, signal or dates." action={<Link href={qs(HREF, { period: "acyear" })} className={buttonClass("secondary")}><Words k="Show all open flags this year" /></Link>} />}
               columns={[
                 { key: "n", label: "Student", render: (f) => <span className="flex items-center gap-3"><Avatar name={f.name} size={34} /><span className="min-w-0"><b className="font-semibold block leading-tight">{f.name}</b><span className="text-[12.5px] text-ink3">{f.cls}</span></span></span> },
@@ -161,7 +161,7 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
             {/* A class teacher sees only the items about their own students, and the heading only when there are some. */}
             {(a.ai.forecasts || a.ai.insights) && (a.ai.forecastScope === "all" || view.total > 0) && (
               <>
-                <div id="looking-ahead" className="scroll-mt-4 flex items-center gap-2 px-1"><Telescope size={15} className="text-brand" aria-hidden="true" /><p className="text-[13px] font-semibold text-ink2"><Words k="Looking ahead" /></p><span className="text-[12px] text-ink3">· {a.ai.forecastScope === "own" ? "about students in your class, " : ""}<Words k="what may happen next, if nothing changes · most important first" /></span></div>
+                <div id="looking-ahead" className="scroll-mt-4 flex items-center gap-2 px-1"><Telescope size={15} className="text-brand" aria-hidden="true" /><p className="text-[13px] font-semibold text-ink2"><Words k="Looking ahead" /></p><span className="text-[12px] text-ink3">· {a.ai.forecastScope === "own" ? "about students in your class, " : ""}<Words k="what may happen next, if nothing changes" /></span></div>
                 {view.groups.length > 0 && (
                   <Card>
                     <div className="px-4 py-3 flex flex-wrap gap-2" aria-label="Looking ahead by area">
@@ -175,7 +175,7 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
                 )}
                 {view.top.map((s) => <AheadCard key={s.key} s={s} />)}
                 {view.total > view.top.length && <ButtonLink href={withQ(HREF, sp, { ahead: "all" })} scroll={false} variant="secondary" icon={Sparkles}><Words k="See all" /> {view.total} <Words k="suggestions" /></ButtonLink>}
-                {view.total === 0 && <Card><Empty icon={Telescope} title="Nothing to look out for right now" body="Worked out again every few hours from attendance, marks, fees, admissions, the syllabus, messages, staff leave, the cash and bank books and unusual changes." /></Card>}
+                {view.total === 0 && <Card><Empty icon={Telescope} title="Nothing to look out for right now" body="Checked again every few hours." /></Card>}
               </>
             )}
           </Col>
@@ -225,7 +225,7 @@ export default async function EarlyWarningsPage({ searchParams }: { searchParams
       {one(sp.rule) === "1" && a.warnings.rule && <DropRuleSheet value={rules.drop} closeHref={close} />}
       {all && (
         <UrlSheet wide title={aheadArea === "all" ? "Looking ahead: all suggestions" : `Looking ahead: ${all.groups[0]?.label ?? "suggestions"}`} closeHref={close}
-          sub={`${all.groups.reduce((n, g) => n + g.count, 0)} suggestions, most important first. Each one is only a suggestion: nothing changes until a person decides.`}>
+          sub={`${all.groups.reduce((n, g) => n + g.count, 0)} suggestions. Nothing changes until a person decides.`}>
           <div className="flex flex-col gap-6">
             {all.groups.map((g) => (
               <section key={g.area} className="flex flex-col gap-3">

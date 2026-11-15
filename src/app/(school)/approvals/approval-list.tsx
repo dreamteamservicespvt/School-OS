@@ -70,7 +70,7 @@ export function ApprovalList({ rows }: { rows: ApprovalRow[] }) {
                 router.refresh();
               }}>
               <ul className="max-h-60 list-disc overflow-y-auto pl-5 text-sm">{chosen.map((r) => <li key={r.id}>{r.summary}{r.amount ? `: ${r.amount}` : ""}</li>)}</ul>
-              <p className="mt-2">{totalWords ? `Total ${totalWords}. ` : ""}<Words k="Each is checked on its own; any that cannot be approved are listed after." /></p>
+              <p className="mt-2">{totalWords ? `Total ${totalWords}. ` : ""}<Words k="Any that cannot be approved are listed after." /></p>
             </ConfirmButton>
           )}
         </div>

@@ -17,7 +17,7 @@ export default async function ImportRoomsPage() {
   const p = await hostelGuard("rooms");
   if (!p.can.rooms) redirect(`${BASE}/rooms`);
   const about = {
-    "hostel-rooms": `One row per room. Each room is checked as if typed on Add room: the hostel must exist, and a room number is used once in a hostel.${p.mine !== null ? " You can import into your own hostel only." : ""}`,
+    "hostel-rooms": `One row per room, in a hostel already added.${p.mine !== null ? " You can import into your own hostel only." : ""}`,
   };
   return (
     <>

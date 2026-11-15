@@ -122,20 +122,20 @@ export default async function TakeAttendancePage({ searchParams }: Props) {
         <EmptyState title={periodWise ? "No periods to take on this date" : "No class to take"} Icon={Users}
           action={<Link href={`${BASE}/register`} className={buttonClass("secondary", "md")}><Words k="Open the register" /></Link>}>
           {periodWise
-            ? "Your Time Table has no periods for you on this date. If you are covering a class, ask for the substitution to be arranged."
-            : access.admin ? "There are no sections to take this year. Add classes and sections in Academic Management."
-              : "Daily attendance is taken by the class teacher. You are not class teacher of any section this year. Ask the principal if you need a class."}
+            ? "No periods for you on this date. Covering a class? Ask for a substitution."
+            : access.admin ? "Add classes and sections in Academic Management."
+              : "Only class teachers take daily attendance. Ask the principal if you need a class."}
         </EmptyState>
       ) : sheet.students.length === 0 ? (
         <EmptyState title={`No students in ${sheet.section.name}`} Icon={Users}
           action={<Link href="/student-management" className={buttonClass("secondary", "md")}><Words k="Open Student Management" /></Link>}>
-          <Words k="Students appear here once they are placed in this section in Student Management." />
+          <Words k="Students show here once placed in this section." />
         </EmptyState>
       ) : (
         <>
         {messageLine && (
           <Banner tone={data.messages?.notSent ? "warn" : "info"} className="mb-4" title={`${messageLine}.`}>
-            {data.messages?.notSent ? "Those parents were not told by message. Call them, or fix what stopped it (the parent's phone, the message switch in Communication)." : "Parents of students marked absent are told once for the day."}
+            {data.messages?.notSent ? "Call those parents. Then check their phone number or the message switch in Communication." : "Parents of students marked absent are told once for the day."}
           </Banner>
         )}
         <TakeSheet key={`${sheet.section.id}:${isoDay(date)}:${data.chosen!.periodNo}:${sheet.savedAt?.getTime() ?? 0}:${sheet.correction?.id ?? ""}:${sheet.correction?.status ?? ""}`}

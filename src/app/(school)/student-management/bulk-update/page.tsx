@@ -63,7 +63,7 @@ export default async function BulkUpdatePage({ searchParams }: { searchParams: P
 
         {data.students.length > 0 && field === "section" && (
           <Card>
-            <CardHeader title="Move to another section" description="Each student keeps their class history, roll number in the old section, and marks." />
+            <CardHeader title="Move to another section" description="Class history and marks are kept." />
             <CardBody>
               <ActionForm action={bulkSectionAction} submitLabel={`Move ${data.students.length} students`} pendingText="Moving…">
                 {data.students.map((s) => <input key={s.id} type="hidden" name="ids" value={s.id} />)}
@@ -77,7 +77,7 @@ export default async function BulkUpdatePage({ searchParams }: { searchParams: P
 
         {data.students.length > 0 && meta && (
           <Card>
-            <CardHeader title={`Change ${meta.label.toLowerCase()}`} description="Check shows each change and any problem first. Nothing is saved until you press Save." />
+            <CardHeader title={`Change ${meta.label.toLowerCase()}`} description="Nothing is saved until you press Save." />
             <CardBody>
               <BulkFieldForm key={`${meta.key}-${keep.map((k) => k.join("=")).join("&")}`} field={meta.key} label={meta.label} help={meta.help} students={data.students.map((s) => ({ id: s.id, name: s.name, admissionNo: s.admissionNo, cls: s.cls, current: s.current }))} />
             </CardBody>

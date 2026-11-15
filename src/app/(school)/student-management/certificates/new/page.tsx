@@ -63,7 +63,7 @@ export default async function IssueCertificatePage({ searchParams }: { searchPar
   return (
     <>
       <BackLink href={back} label={sp.student ? "Student profile" : "Certificates & ID Cards"} />
-      <PageHeader title="Issue certificate" sub={<><Words k="The certificate fills from the student's record. Preview it, then issue. A TC always goes for approval first" />{settings.approvalCertificates.length ? `, and so do ${settings.approvalCertificates.map((t) => CERTIFICATE_LABEL[t as CertificateType]?.toLowerCase()).filter(Boolean).join(", ")}` : ""}.</>} href={`${BASE}/certificates/new`} userId={current.user.id} />
+      <PageHeader title="Issue certificate" sub={<><Words k="A TC always goes for approval first" />{settings.approvalCertificates.length ? `, and so do ${settings.approvalCertificates.map((t) => CERTIFICATE_LABEL[t as CertificateType]?.toLowerCase()).filter(Boolean).join(", ")}` : ""}.</>} href={`${BASE}/certificates/new`} userId={current.user.id} />
       <Card className="max-w-2xl">
         <CardBody>
           {data.tc?.block && (
@@ -78,18 +78,18 @@ export default async function IssueCertificatePage({ searchParams }: { searchPar
               <Link href={back} className="inline-flex h-11 items-center rounded-xl px-4 text-[14px] font-semibold text-ink2 transition hover:bg-sunken hover:text-ink"><Words k="Cancel" /></Link>
             </>}>
             <StudentPicker name="studentIds" label={data.students.length > 1 ? "Students" : "Student"} multiple={data.students.length > 1 || !sp.student} initial={data.students.map((s) => ({ id: s.id, name: s.fullName, admissionNo: s.admissionNo, cls: "" }))}
-              anyStatus sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} help="Several students get one certificate each (not for a TC)." />
+              anyStatus sections={data.sections.map((s) => ({ value: s.value, label: s.label }))} help="One certificate each. Not for a TC." />
             <FormSelect name="type" label="Certificate type" required defaultValue={type} options={types.map((t) => ({ value: t, label: CERTIFICATE_LABEL[t] }))} />
-            <FormText name="purpose" label="Purpose" maxLength={200} help="Needed for a bonafide certificate, for example: bank account opening." />
+            <FormText name="purpose" label="Purpose" maxLength={200} help="Needed for a bonafide certificate" />
             <FormText name="issueDate" label="Date of issue" type="date" required defaultValue={todayIso(tz)} />
             {data.signatories.length > 0 && <FormSelect name="signatoryId" label="Signatory" required defaultValue={defaultSig} options={data.signatories.map((s) => ({ value: s.id, label: `${s.name}, ${s.title}` }))} />}
             <ForTypes types={["TC", "CHARACTER"]} first={type}>
-              <FormSelect name="conduct" label="Conduct" defaultValue="Good" options={CONDUCT.map((c) => ({ value: c, label: c }))} help="Printed on a TC and a character certificate." />
+              <FormSelect name="conduct" label="Conduct" defaultValue="Good" options={CONDUCT.map((c) => ({ value: c, label: c }))} />
             </ForTypes>
             <ForTypes types={["TC"]} first={type}>
-              <FormText name="duplicateReason" label="Reason for a duplicate" required={Boolean(type === "TC" && data.tc?.original)} maxLength={300} help="Only for a second copy of a TC, for example: the original was lost." />
+              <FormText name="duplicateReason" label="Reason for a duplicate" required={Boolean(type === "TC" && data.tc?.original)} maxLength={300} help="Only for a second copy of a TC" />
             </ForTypes>
-            <p className="text-[13.5px] text-ink2"><Words k="Certificate number: given automatically, next in the series for the type and year" />{type === "TC" ? " (when approved)" : ""}.</p>
+            <p className="text-[13.5px] text-ink2"><Words k="Certificate number: given automatically" />{type === "TC" ? " (when approved)" : ""}.</p>
           </ActionForm>
         </CardBody>
       </Card>

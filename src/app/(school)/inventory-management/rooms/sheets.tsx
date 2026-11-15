@@ -66,7 +66,7 @@ export type FacilityStart = { roomId: string; name: string; type: string; capaci
 
 export function FacilitySheet({ closeHref, start, types, campuses, staff }: { closeHref: string; start: FacilityStart | null; types: readonly string[]; campuses: Opt[]; staff: Opt[] }) {
   return (
-    <SheetForm title={start ? `Change ${start.name}` : "Add a place"} sub={start ? "The Time Table uses the same rooms." : "Rooms, labs, halls and grounds. Rooms also appear in the Time Table."} closeHref={closeHref}
+    <SheetForm title={start ? `Change ${start.name}` : "Add a place"} sub={start ? "The Time Table uses the same rooms." : "Rooms, labs, halls and grounds."} closeHref={closeHref}
       action={saveFacilityAction} submitLabel={start ? "Save" : "Add place"} hidden={start ? { roomId: start.roomId } : undefined}>
       <div className="grid grid-cols-[1fr_150px] gap-3">
         <SText name="name" label="Name" required maxLength={60} start={start?.name} placeholder="Lab 1, Main ground" />

@@ -221,7 +221,7 @@ async function flagCard(c: DashContext, kind: FlagKind): Promise<AttentionItem |
     ? {
         id: "attendance.absent-streak", tone: "warn", icon: "UserX",
         title: `${plural(count, "student")} absent ${s.chronicDays} days in a row`,
-        detail: `Call the parents. The card goes when they are marked present.${review}`, action: "See students",
+        detail: `Call the parents.${review}`, action: "See students",
         href, value: String(count),
       }
     : {

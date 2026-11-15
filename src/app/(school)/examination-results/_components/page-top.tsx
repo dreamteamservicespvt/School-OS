@@ -82,7 +82,7 @@ export function BackLink({ page, href, label, sub }: { page: Pick<ExamPage, "yea
 export function NoYear() {
   return (
     <EmptyState title="No academic year yet" Icon={CalendarX2} action={<ButtonLink href="/academic-management/settings" variant="primary"><Words k="Open Academic Settings" /></ButtonLink>}>
-      <p><Words k="Exams belong to an academic year and its terms. Create the current year first in Academic Management." /></p>
+      <p><Words k="Create the current year first in Academic Management." /></p>
     </EmptyState>
   );
 }

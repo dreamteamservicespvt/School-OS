@@ -55,7 +55,7 @@ export default async function GovernmentPage({ searchParams }: { searchParams: S
 
   return (
     <div>
-      <RepHead pageName="Government Reports" href={HREF} sub="UDISE+, APAAR and PEN, RTE and CBSE returns in the government’s latest format. Check the data first, then export." />
+      <RepHead pageName="Government Reports" href={HREF} sub="Check the data first, then export." />
       <div className="flex flex-col gap-5 lg:gap-6">
         <Split side={340} className="[&>*]:min-w-0">
           <Col>
@@ -164,7 +164,7 @@ export default async function GovernmentPage({ searchParams }: { searchParams: S
             </Card>
             <Card>
               <CardHeader title="Direct upload to the portals" description="Where an official connection exists" icon={Globe} action={<Pill tone="neutral"><Words k="Later" /></Pill>} />
-              <p className="px-5 pb-4 text-[13.5px] text-ink2"><Words k="For now, download the file and upload it on the UDISE+, APAAR or CBSE portal. Direct upload will come when the government opens these connections." /></p>
+              <p className="px-5 pb-4 text-[13.5px] text-ink2"><Words k="For now, download the file and upload it on the portal." /></p>
             </Card>
           </Col>
         </Split>
@@ -185,7 +185,7 @@ export default async function GovernmentPage({ searchParams }: { searchParams: S
         </UrlSheet>
       )}
       {anyway && check && canExport && (
-        <UrlSheet title={`Export ${ret.name} with ${check.problems.length} problems?`} sub="The file is made with what is there now. The problems go in a separate file so the office can fix them on the portal or here."
+        <UrlSheet title={`Export ${ret.name} with ${check.problems.length} problems?`} sub="The problems go in a separate file."
           closeHref={withQ(HREF, sp, { anyway: null })}
           footer={<><CloseSheetButton><Words k="Cancel" /></CloseSheetButton><ExportForm fields={{ ...exportFields, anyway: "1" }} label="Export anyway" primary /></>}>
           <ul className="text-[13.5px] text-ink2 flex flex-col gap-1.5 mb-1">

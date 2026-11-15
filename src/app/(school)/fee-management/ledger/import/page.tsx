@@ -35,11 +35,11 @@ export default async function FeeImportPage({ searchParams }: { searchParams: Se
   return (
     <>
       <FeeHead pageName="Import old dues and receipts" href={`${BASE}/ledger/import`}
-        sub={<><Words k="Moving from old software or registers: set this year's fee structures first, then bring in old dues, then this year's receipts." /> <Link href={`${BASE}/ledger`} className="font-semibold text-brand hover:underline"><Words k="Student Fee Ledger" /></Link></>} />
+        sub={<><Words k="First set fee structures, then add old dues, then receipts." /> <Link href={`${BASE}/ledger`} className="font-semibold text-brand hover:underline"><Words k="Student Fee Ledger" /></Link></>} />
       <ImportHome current={p.current} place={PLACES.fees} initial={one(sp.kind)} about={ABOUT} />
       {before && (
         <Card className="mt-5">
-          <CardHeader title="Fees due before you started School OS" description="Months the old software kept. They are never billed twice." />
+          <CardHeader title="Fees due before you started School OS" description="They are never billed twice." />
           <CardBody><BeforeGoLivePanel view={before} canSettle={p.can.change && p.can.counter("edit-student-fees")} /></CardBody>
         </Card>
       )}

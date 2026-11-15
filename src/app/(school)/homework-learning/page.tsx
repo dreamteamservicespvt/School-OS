@@ -224,7 +224,7 @@ async function StaffHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
         <GiveSheet closeHref={here({ do: null })} sections={data.give} own={mine} today={iso(p.today)} defaultMax={p.settings.defaultMaxMarks} onlineOn={p.settings.onlineSubmission} ai={p.ai} startSection={sectionF || undefined} />
       ) : (
         <UrlSheet title="Give homework" closeHref={here({ do: null })}>
-          <Empty icon={Users} title="No class to give homework to" body="Homework goes to your classes that have students. Ask the Academic Head to check your Teacher Allocation, or add students to the class first." />
+          <Empty icon={Users} title="No class to give homework to" body="Your classes need students. Ask the Academic Head to check your Teacher Allocation." />
         </UrlSheet>
       ))}
       {data.editing && mayWork(s, data.editing) && (
@@ -267,7 +267,7 @@ function Overview({ lines, idle, load, per, today, tz, canRemind }: {
         )}
       </Card>
       <Card>
-        <CardHeader title="Load on each day" description="Current homework by due date · more than one for a class on the same day shows in amber" icon={CalendarDays} />
+        <CardHeader title="Load on each day" description="Amber: more than one for a class on a day" icon={CalendarDays} />
         {load.length === 0 ? <Empty icon={CalendarCheck2} title="Nothing due" body="No current homework in these dates." /> : (
           <ul className="px-2 pb-2">
             {load.map((x) => (
@@ -315,7 +315,7 @@ async function StudentHomework({ p, sp }: { p: HomeworkPage; sp: Sp }) {
 
   const head = <HomeworkHead page="homework" pageName="Homework" sub={st ? `${st.name} · ${st.label.replace(/^Class\s+/i, "Class ")}${st.rollNo ? ` · roll ${st.rollNo}` : ""} · only your own work` : "Only your own work"} />;
   if (!st || !data) {
-    return <div>{head}<Card><Empty icon={NotebookPen} title="You are not in a class this year" body="Homework shows here once the school puts you in a class for this academic year. Ask your class teacher." /></Card></div>;
+    return <div>{head}<Card><Empty icon={NotebookPen} title="You are not in a class this year" body="Ask your class teacher to add you to a class." /></Card></div>;
   }
 
   const state = (x: (typeof data.subs)[number]) => (x.status === "GRADED" ? "checked" : x.status === "SUBMITTED" || x.status === "LATE" ? "submitted" : x.status === "EXCUSED" ? "excused" : "todo");

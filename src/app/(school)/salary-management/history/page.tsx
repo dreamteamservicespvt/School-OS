@@ -212,7 +212,7 @@ export default async function HistoryPage({ searchParams }: { searchParams: Sear
 
   return (
     <div>
-      <SalaryHead pageName="Salary History" href={HREF} sub={money ? "Salary paid by month and by staff member, and the salary reports" : "Days, leave and loss of pay that reached the salary, by month and by staff member"} />
+      <SalaryHead pageName="Salary History" href={HREF} sub={money ? "Salary paid, by month and by staff" : "Days and loss of pay, by month and by staff"} />
       <Stack>
         {head}
         {body}

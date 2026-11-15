@@ -34,7 +34,7 @@ export default async function EditApplicationPage({ params }: { params: Promise<
   return (
     <>
       <BackLink href={`${BASE}/applications/${id}`} label="Application" sub={app.applicationNo} />
-      <PageHeader title={`Edit ${app.fullName}`} href={`${BASE}/applications/${id}/edit`} userId={current.user.id} sub="Changes are kept in the history of the application." />
+      <PageHeader title={`Edit ${app.fullName}`} href={`${BASE}/applications/${id}/edit`} userId={current.user.id} sub="Changes are kept in the history." />
       <ApplicationForm
         classes={data.choices.classes} years={data.choices.years} relations={RELATIONS} categories={data.choices.categories}
         restricted={viewer.restricted} customFields={data.choices.customFields} cancelHref={`${BASE}/applications/${id}`} applicationNo={app.applicationNo}

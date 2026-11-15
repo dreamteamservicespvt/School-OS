@@ -110,7 +110,7 @@ export function PasteItems({ where }: { where: Where }) {
     <FormDialog trigger="Paste a list" title="Paste the syllabus as a list" action={pasteItemsAction} submitLabel="Add all" hidden={where} wide>
       {(state) => (
         <>
-          <p className="text-ink-2"><Words k="One item a line. No dash for a unit, one dash for a chapter, two for a lesson, three for a topic. Add a planned end date after a bar. Copy a column from Excel and add the dashes, or type it." /></p>
+          <p className="text-ink-2"><Words k="One item a line. No dash for a unit, one dash for a chapter, two for a lesson, three for a topic. Add a planned end date after a bar." /></p>
           <pre className="overflow-x-auto rounded-lg bg-surface-2 p-3 text-sm">{"Unit 1: Numbers\n- Large numbers | 15-07-2026\n--- Place value\n--- Comparing numbers\n- Fractions | 30-08-2026"}</pre>
           <TextArea label="List" name="text" required rows={10} defaultValue={v(state, "text")} error={err(state, "text")} />
         </>
@@ -261,7 +261,7 @@ function PlanDialog({ yearId, pairs, plan, defaultPair, onClose }: { yearId: str
         <>
           <SelectField label="Class, section and subject" name="pair" required value={pair} onChange={(e) => setPair(e.target.value)} options={pairs} error={err(state, "pair")} placeholder={pairs.length ? undefined : "No classes given to you yet"} />
           {info === null ? <p className="text-sm text-ink-2" aria-live="polite"><Words k="Loading topics…" /></p> : info.topics.length === 0 ? (
-            <p className="rounded-xl bg-warn-bg px-3 py-2 text-sm text-warn-text"><Words k="This subject has no syllabus yet for the class. Ask the Academic Head to set it up in the Syllabus view." /></p>
+            <p className="rounded-xl bg-warn-bg px-3 py-2 text-sm text-warn-text"><Words k="No syllabus yet. Ask the Academic Head to set it up." /></p>
           ) : (
             <SelectField label="Topic" name="topicId" required value={topicId} onChange={(e) => setTopicId(e.target.value)} options={info.topics.map((t) => ({ value: t.id, label: t.label }))} error={err(state, "topicId")} help={plan ? undefined : "The next pending topic is chosen for you."} />
           )}

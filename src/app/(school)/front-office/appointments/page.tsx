@@ -90,14 +90,14 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
 
   return (
     <div>
-      <FoHead pageName="Appointments" href={HREF} sub="Meetings with the Principal and staff. Booked, leave and teaching times cannot be chosen."
+      <FoHead pageName="Appointments" href={HREF} sub="Meetings with the Principal and staff"
         actions={desk ? <ButtonLink href={addQ(here, { do: "book" })} scroll={false} variant="primary" icon={CalendarPlus}><Words k="Book appointment" /></ButtonLink> : null} />
       {data.noPrincipal && data.staff.length > 0 && (
         <div role="status" className="mb-3 rounded-xl border border-warn/40 bg-warn/10 px-4 py-3 text-[13.5px] text-ink2">
           <p className="font-semibold text-ink"><Words k="The Principal is not in the staff list yet, so meetings with the Principal cannot be booked." /></p>
           <p className="mt-0.5">
             {data.principalNames.length ? <>{data.principalNames.join(", ")} <Words k="has a Principal login but no staff record." /> </> : null}
-            <Words k="The School Admin adds them in Staff & HR Management > Add staff (title: Principal) and links their login. Then they show first in the list." />
+            <Words k="The School Admin adds them in Staff & HR Management > Add staff." />
           </p>
         </div>
       )}
@@ -167,7 +167,7 @@ export default async function AppointmentsPage({ searchParams }: { searchParams:
       {data.cancel && (
         <SheetForm title={`Cancel ${data.cancel.visitorName}’s appointment?`} sub={`${shortDay(data.cancel.date)}, ${clockOf(data.cancel.startMin)} with ${staffName(data.cancel.staffId)}. A cancellation message goes to the visitor at once.`}
           closeHref={here} action={appointmentStatusAction} hidden={{ appointmentId: data.cancel.id, status: "CANCELLED" }} submitLabel="Cancel appointment" submitVariant="danger" pendingText="Cancelling…">
-          <p className="text-[14px] text-ink2"><Words k="The time becomes free for someone else. You can undo this for a short while, but the message has already gone. If you undo, call the visitor." /></p>
+          <p className="text-[14px] text-ink2"><Words k="The time becomes free. The message has already gone; if you undo, call the visitor." /></p>
         </SheetForm>
       )}
       {(one(sp.re) || one(sp.cancel)) && !data.re && !data.cancel && (

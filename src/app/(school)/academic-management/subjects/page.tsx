@@ -93,7 +93,7 @@ async function SubjectList({ raw, page, canEdit }: P) {
         actions={canEdit ? (r) => <SubjectRowActions s={{ id: r.id, name: r.name, code: r.code, type: r.type, gradeOnly: r.gradeOnly, archived: Boolean(r.archivedAt) }} /> : undefined}
         empty={params.q || params.filters.type || params.archived
           ? <EmptyState title="No subjects match"><Words k="Try another search or remove a filter." /></EmptyState>
-          : <EmptyState title="No subjects yet"><Words k="Add the subjects you teach, such as English, Mathematics and Science, and the classes they are taught in." /></EmptyState>} />
+          : <EmptyState title="No subjects yet"><Words k="Add subjects such as English and Maths, and their classes." /></EmptyState>} />
       <div className="mt-4"><ExportLinks href={`/academic-management/export?kind=subjects${params.q ? `&q=${encodeURIComponent(params.q)}` : ""}${params.filters.type ? `&type=${params.filters.type}` : ""}${page.yearQuery ? `&${page.yearQuery}` : ""}`} label="Subjects" /></div>
     </>
   );

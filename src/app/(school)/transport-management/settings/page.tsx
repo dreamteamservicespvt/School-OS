@@ -45,13 +45,13 @@ export default async function TransportSettingsPage({ searchParams }: { searchPa
       <TrHead page="settings" sub={p.mode === "full" ? "Each change is saved in the audit log" : "Only the Transport In-charge and School Admin change these"} />
       <div className="grid lg:grid-cols-2 gap-5 lg:gap-6 items-start [&>*]:min-w-0">
         <Card>
-          <CardHeader title="Live tracking" description="The map of running buses. Trips, stops and boarding work without it." icon={Radio}
+          <CardHeader title="Live tracking" description="Trips, stops and boarding work without it." icon={Radio}
             action={p.mode === "full" ? (p.v.live
               ? <ConfirmAct action={setLiveAction} fields={{ on: "0" }} trigger="Switch off" triggerVariant="ghost" title="Switch live tracking off?" confirmLabel="Switch off">Live Tracking is hidden and no more locations are kept. Trips, stops, boarding and messages keep working.</ConfirmAct>
               : <ActButton action={setLiveAction} fields={{ on: "1" }} label="Switch on" variant="primary" />) : undefined} />
           <div className="px-5 pb-5 flex flex-col gap-1">
             <SettingRow title="Live tracking" sub="Optional for schools tracking buses by GPS"><Pill tone={p.v.live ? "ok" : "neutral"} dot>{p.v.live ? "On" : "Off"}</Pill></SettingRow>
-            <SettingRow title="Location update interval" sub="Shorter uses more of the driver's phone battery and data">{`Every ${s.locationIntervalSec} seconds`}</SettingRow>
+            <SettingRow title="Location update interval" sub="Shorter uses more battery and data">{`Every ${s.locationIntervalSec} seconds`}</SettingRow>
             <SettingRow title="Locations kept" sub="Decided 9 October 2026">Only between Start trip and End trip</SettingRow>
           </div>
         </Card>
@@ -89,7 +89,7 @@ export default async function TransportSettingsPage({ searchParams }: { searchPa
         </Card>
 
         <Card>
-          <CardHeader title="Driver app" description="The Android app sends the location with the screen off; the web driver page only while open" icon={Smartphone} action={editBtn("driver")} />
+          <CardHeader title="Driver app" description="The Android app works with the screen off" icon={Smartphone} action={editBtn("driver")} />
           <div className="px-5 pb-5 flex flex-col gap-1">
             <SettingRow title="Boarding marked per student">{s.boardingRequired ? "Yes" : "No"}</SettingRow>
             <SettingRow title="Parents' phone numbers in the app">{s.showParentPhones ? "Shown" : "Hidden"}</SettingRow>
@@ -133,7 +133,7 @@ export default async function TransportSettingsPage({ searchParams }: { searchPa
           </div>
           <SText name="expiryReminderDays" label="Paper and licence reminder (days before)" inputMode="numeric" required start={s.expiryReminderDays} />
           {present("delaySuggestion")}
-          <SSwitch name="delaySuggestion" title="Suggest a delay message" sub="When a bus runs late, Live Tracking offers a ready message to the route's parents" start={s.delaySuggestion} />
+          <SSwitch name="delaySuggestion" title="Suggest a delay message" sub="Offers a ready message to the route's parents" start={s.delaySuggestion} />
           {present("alertRoleKeys")}
           <SChips name="alertRoleKeys" label="Who is alerted" required options={roleOpts} start={s.alertRoleKeys} help="The emergency button always alerts the Transport In-charge and the Principal" />
         </SettingsSheet>
@@ -148,7 +148,7 @@ export default async function TransportSettingsPage({ searchParams }: { searchPa
         </SettingsSheet>
       )}
       {edit === "messages" && (
-        <SettingsSheet closeHref={HREF} title="Bus messages" sub="Switch each message on, and choose its template, in Communication, Message Settings" section="Bus messages">
+        <SettingsSheet closeHref={HREF} title="Bus messages" sub="Templates are in Communication, Message Settings" section="Bus messages">
           <SText name="arrivingMinutes" label="‘Bus arriving’ minutes before the stop" inputMode="numeric" required start={s.arrivingMinutes} />
         </SettingsSheet>
       )}
@@ -156,13 +156,13 @@ export default async function TransportSettingsPage({ searchParams }: { searchPa
         <SettingsSheet closeHref={HREF} title="Driver app" section="Driver app">
           <SText name="locationIntervalSec" label="Send the location every (seconds)" inputMode="numeric" required start={s.locationIntervalSec} help="10 to 120. About 30 is a good balance with battery and data." />
           {present("boardingRequired")}
-          <SSwitch name="boardingRequired" title="Mark boarding per student" sub="The driver or attendant marks each student boarded or not" start={s.boardingRequired} />
+          <SSwitch name="boardingRequired" title="Mark boarding per student" start={s.boardingRequired} />
           {present("showParentPhones")}
           <SSwitch name="showParentPhones" title="Show parents' phone numbers in the app" sub="So the attendant can call a parent at the stop" start={s.showParentPhones} />
         </SettingsSheet>
       )}
       {edit === "gps" && (
-        <SettingsSheet closeHref={HREF} title="GPS tracking provider" sub="DREAM TEAM connects the company’s system for you; tell DREAM TEAM support which company it is" section="GPS tracking provider">
+        <SettingsSheet closeHref={HREF} title="GPS tracking provider" sub="Tell DREAM TEAM support which company; they connect it" section="GPS tracking provider">
           <SText name="gpsProvider" label="GPS device company" start={s.gpsProvider} maxLength={60} placeholder="Empty when the driver app sends the location" />
         </SettingsSheet>
       )}

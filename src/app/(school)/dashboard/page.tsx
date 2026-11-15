@@ -124,7 +124,7 @@ export default async function DashboardPage({ searchParams }: Search) {
 
       {home.filters.pastYear && (
         <Alert tone="warning" title={t("You are viewing {year}", { year: home.filters.pastYear.name })}>
-          {t("This year is over, so its numbers are shown as they stood at its end and nothing can be changed from here.")}{" "}
+          {t("This year is over. Nothing can be changed here.")}{" "}
           <Link href="/dashboard?view=dashboard" className="font-semibold underline">{t("Back to this year")}</Link>
         </Alert>
       )}

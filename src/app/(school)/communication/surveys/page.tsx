@@ -35,7 +35,7 @@ export default async function SurveysPage({ searchParams }: { searchParams: Sear
   const { current } = access;
   const tz = current.school.timeZone;
   const head = (actions?: React.ReactNode) => (
-    <CommHead access={access} page="Surveys" href="/communication/surveys" sub="Short surveys for parents and staff. Each person answers once, through a link in a message." actions={actions} />
+    <CommHead access={access} page="Surveys" href="/communication/surveys" sub="Each person answers once, through their own link." actions={actions} />
   );
   if (!current.features.has(COMM_FEATURES.surveys)) {
     return (

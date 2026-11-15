@@ -159,7 +159,7 @@ export function MarkRefundedSheet({ closeHref, refundId, words, today, accounts,
   return (
     <SheetForm title="Mark refunded" sub={words} closeHref={closeHref} action={markRefundedAction} submitLabel="Mark refunded" pendingText="Saving…" hidden={{ refundId }}>
       <SDate name="date" label="Date paid" required start={today} />
-      <SText name="reference" label="Reference" required={needsReference} placeholder={needsReference ? "UTR or cheque number" : "Cash voucher number (optional)"} className="font-mono" maxLength={80} help="UTR, cheque number or cash voucher" />
+      <SText name="reference" label="Reference" required={needsReference} placeholder={needsReference ? "UTR or cheque number" : "Cash voucher number (optional)"} className="font-mono" maxLength={80} />
       {accounts.length > 1 && <SSelect name="accountId" label="Paid from" options={accounts} placeholder="The usual account for this mode" />}
     </SheetForm>
   );

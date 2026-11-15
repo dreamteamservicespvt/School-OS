@@ -963,7 +963,7 @@ describe("A route message from a person kept to one campus reaches that campus's
     const actions = (await import("@/app/(school)/transport-management/actions")) as unknown as Record<string, (s: unknown, fd: FormData) => Promise<{ ok: boolean; message?: string }>>;
     const r = await actions.messageRouteAction(null, form({ routeId, kind: "message", text: "The bus leaves ten minutes early tomorrow.", confirmed: "yes" }));
     // No channel is connected in tests, so nothing goes out; the answer counts the parents it was for.
-    expect(r.message).toBe("Nobody would get this message. Not sent: WhatsApp, SMS and email are not connected (1).");
+    expect(r.message).toBe("Nobody would get this message. Not sent: WhatsApp and email are not connected (1).");
   }, 120_000);
 });
 

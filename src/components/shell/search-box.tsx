@@ -172,7 +172,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
     pages.filter((p) => found(p.label)).slice(0, 8).forEach((p) => out.push({ sec: t("Pages"), label: t.any(p.label), sub: p.hint ? t.any(p.hint) : t("Open"), href: p.href, icon: I.FileText }));
     // A question no ready-made one matches: the closest ones the person may ask.
     if (!asked.length && askKeys.length && looksLikeQuestion(typed)) {
-      if (ai) out.unshift({ sec: t("Ask School OS"), label: t("Ask: “{text}”", { text: typed }), sub: t("The AI assistant picks the question; the answer comes from your school's lists"), href: "#ask", icon: I.Sparkles, run: () => void askAi(typed) });
+      if (ai) out.unshift({ sec: t("Ask School OS"), label: t("Ask: “{text}”", { text: typed }), sub: t("Answers come from your school's lists"), href: "#ask", icon: I.Sparkles, run: () => void askAi(typed) });
       const ready = questions.map((x) => new URLSearchParams(x.href.split("?")[1] ?? "").get("q")).filter(isQuestionKey);
       closestQuestions(typed, askKeys, ready).forEach((k) => out.push({ sec: t("Closest questions"), label: questionTitleIn(t, k), href: askHref(k), icon: I.CircleHelp }));
     }
@@ -214,7 +214,7 @@ function Palette({ onClose, userId, pages, shortcuts, quick, questions = NO_LINK
             </div>
           )}
           {typed.length < 2 && results.length === 0 && (
-            <p className="text-center py-12 px-6 text-sm text-ink3">{t("Type at least two letters of a name, an admission number, a phone number or a page.")}</p>
+            <p className="text-center py-12 px-6 text-sm text-ink3">{t("Type at least two letters.")}</p>
           )}
           {results.map((r, i) => {
             const head = r.sec !== lastSec ? (lastSec = r.sec) : null;

@@ -169,7 +169,7 @@ export function ApplicationForm(p: Props) {
           <TextField label="Mother’s name" name="motherName" maxLength={120} defaultValue={val("motherName")} error={err("motherName")} help="At least one parent or guardian" />
         </div>
         <div className="grid md:grid-cols-2 gap-3">
-          <PhoneField name="phone" label="Parent’s phone" required defaultValue={val("phone") ?? undefined} error={err("phone")} help="Brothers and sisters already in the school are found from this number."
+          <PhoneField name="phone" label="Parent’s phone" required defaultValue={val("phone") ?? undefined} error={err("phone")} help="Finds brothers and sisters in the school."
             onValue={onPhone} />
           <PhoneField name="altPhone" label="Other phone" defaultValue={val("altPhone") ?? undefined} error={err("altPhone")} />
         </div>
@@ -244,7 +244,7 @@ export function ApplicationForm(p: Props) {
               {p.photoConsentAsked !== false && (
                 <div className="flex items-start gap-3 text-[13.5px]">
                   <Checkbox checked={photo} onChange={setPhoto} label="Photo consent" />
-                  <span><b className="font-semibold"><Words k="Photo consent" /></b> <span className="text-ink3"><Words k="(separate): the child’s photo may be used in the gallery and on social media. Confirmed with the same code." /></span></span>
+                  <span><b className="font-semibold"><Words k="Photo consent" /></b> <span className="text-ink3"><Words k="(separate): photo in the gallery and on social media." /></span></span>
                   {photo && <input type="hidden" name="consent_photo" value="on" />}
                 </div>
               )}

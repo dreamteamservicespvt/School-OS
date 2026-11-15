@@ -60,13 +60,13 @@ export default async function ImportsPage({ searchParams }: Search) {
       {running > 0 && <AutoRefresh seconds={6} />}
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         <Card>
-          <CardHeader title="Import from a spreadsheet" description="Upload, check the matched columns and every row, fix or leave out the rows with problems, then bring in the rest. Nothing is saved before that." />
+          <CardHeader title="Import from a spreadsheet" description="You check every row before anything is saved." />
           <CardBody>
-            {canImport ? <UploadForm place="settings" kinds={kinds.map((k) => ({ value: k.key, label: k.label }))} kind={wanted} /> : <p className="text-ink-2"><Words k="Your role can see import history but not import. Ask your School Admin." /></p>}
+            {canImport ? <UploadForm place="settings" kinds={kinds.map((k) => ({ value: k.key, label: k.label }))} kind={wanted} /> : <p className="text-ink-2"><Words k="Your role cannot import. Ask your School Admin." /></p>}
           </CardBody>
         </Card>
         <Card>
-          <CardHeader title="Ready sheets" description="Excel sheets made for your school, with drop-down lists of your own classes, designations and fee heads. Columns with a star must be filled." />
+          <CardHeader title="Ready sheets" description="Made for your school. Starred columns must be filled." />
           <CardBody>
             {kinds.length === 0 ? <p className="text-ink-2"><Words k="No imports are available yet." /></p> : (
               <ul className="divide-y divide-line">
@@ -77,8 +77,7 @@ export default async function ImportsPage({ searchParams }: Search) {
                   </li>
                 ))}
               </ul>
-            )}
-            <p className="mt-3 text-sm text-ink-2"><Words k="Students, staff, fee dues and other records are imported from their own pages too; every import appears in the history below." /></p>
+            )}
           </CardBody>
         </Card>
       </div>
@@ -106,7 +105,7 @@ export default async function ImportsPage({ searchParams }: Search) {
             {canUndo(r.kind) && !r.undoneAt && (r.added > 0 || r.updated > 0) && importKind(r.kind) && <UndoImportButton batchId={r.id} label={importKind(r.kind)!.label} added={r.added} />}
           </div>
         )}
-        empty={<EmptyState title="Nothing has been imported yet"><Words k="When a school moves to School OS, its students, staff and fee dues usually come in from spreadsheets. Each import is listed here and can be undone." /></EmptyState>}
+        empty={<EmptyState title="Nothing has been imported yet"><Words k="Each import shows here and can be undone." /></EmptyState>}
       />
     </>
   );

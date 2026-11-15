@@ -122,7 +122,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
           tone: STAT_TONES[Math.min(i, STAT_TONES.length - 1)], icon: Hourglass, href: here({ age: filter.ageing === g.index ? null : String(g.index), who: null }), active: filter.ageing === g.index,
         }))} />
         {/* The same rule as the Outstanding report (layman test LB3), said so the counts add up for the reader. */}
-        {all.rows.length > 0 && <p className="text-[12.5px] text-ink3 -mt-2"><Words k="Each unpaid installment is counted by its own due date, as in the Outstanding report. A student with installments of different ages is in more than one group." /></p>}
+        {all.rows.length > 0 && <p className="text-[12.5px] text-ink3 -mt-2"><Words k="Each installment counts by its own due date, so a student can be in more than one group." /></p>}
 
         {all.classTotals.length > 0 && (
           <Card>
@@ -148,7 +148,7 @@ export default async function DefaultersPage({ searchParams }: { searchParams: S
           <DefaulterList rows={items} canEdit={canEdit} canCollect={p.desk} openAll={canEdit && one(sp.send) === "all"} templates={tpl} gateway={data.gateway} csvHref={qs(`${HREF}/export`, keep)} whoHref={whoHref}
             footer={`Showing ${list.rows.length} of ${all.rows.length} · ${formatRupees(list.total)} overdue`}
             empty={all.rows.length === 0
-              ? <Empty icon={UserCheck} title="Nobody is overdue" body="Every student has paid what has fallen due. Students show here the day after a due date passes." />
+              ? <Empty icon={UserCheck} title="Nobody is overdue" body="Everyone has paid what is due." />
               : <Empty icon={SearchX} title="Nobody on this list" body="No student matches these filters." action={<Link href={HREF} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>} />} />
         </Card>
       </Stack>

@@ -59,7 +59,7 @@ export default async function ChangeStatusPage({ params }: { params: Promise<{ i
                 <FormArea name="reason" label="Reason" required rows={2} help="Kept in the student's history." />
               </ActionForm>
             )}
-            <p className="mt-4 text-[13.5px] text-ink2"><Words k="Only the allowed changes are offered. Promotion, transfer, withdrawal and graduation are done on their own pages." /></p>
+            <p className="mt-4 text-[13.5px] text-ink2"><Words k="Promotion and leaving have their own pages." /></p>
           </CardBody>
         </Card>
         <Card>

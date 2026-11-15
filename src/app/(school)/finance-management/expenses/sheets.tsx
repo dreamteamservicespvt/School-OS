@@ -95,7 +95,7 @@ export function RecordExpenseSheet(p: ExpenseFormData) {
   const payNow = paid && amt > 0 && !who;
   const label = !amt ? "Save expense" : who ? `Send to ${who}` : payNow ? "Save and mark paid" : "Save expense";
   return (
-    <SheetForm title="Record expense" sub="Photo of the bill, amount, head. Takes under a minute." closeHref={p.closeHref} action={recordExpenseAction}
+    <SheetForm title="Record expense" sub="Photo of the bill, amount, head." closeHref={p.closeHref} action={recordExpenseAction}
       submitLabel={label} pendingText="Saving…" hidden={{ paid: payNow ? "on" : "", mode }}>
       <BillPicker required={amt > p.billAbove} help={`Needed above ${inr(p.billAbove)}`} />
       <div className="grid grid-cols-2 gap-3">
@@ -105,9 +105,9 @@ export function RecordExpenseSheet(p: ExpenseFormData) {
       <SText name="what" label="What was it for" required placeholder="Example: Chalk and dusters for Block B" maxLength={200} />
       <div className={cx("grid gap-3", p.centres && "grid-cols-2")}>
         <SSelect name="accountHeadId" label="Expense head" required options={p.heads} start={p.lastHead ?? undefined} placeholder="Choose a head" help={p.lastHead ? "The one you used last" : undefined} />
-        {p.centres && <SSelect name="costCentreId" label="Department" options={p.centres} placeholder="None" help="Which part of the school spent it, like Science labs" />}
+        {p.centres && <SSelect name="costCentreId" label="Department" options={p.centres} placeholder="None" />}
       </div>
-      <SText name="vendorName" label="Vendor" placeholder="Example: Sri Sai Stationers" list="re-vendors" maxLength={120} help="Pick one, or type a new name to add it" />
+      <SText name="vendorName" label="Vendor" placeholder="Example: Sri Sai Stationers" list="re-vendors" maxLength={120} help="Pick one, or type a new name" />
       <datalist id="re-vendors">{p.vendors.map((v) => <option key={v} value={v} />)}</datalist>
       {who ? (
         <Alert tone="info" title={`Above ${inr(p.atOnce)}: it waits for ${who}.`}><Words k="It cannot be marked paid until approved. You will be told when it is decided." /></Alert>
@@ -144,9 +144,9 @@ export function ChangeExpenseSheet({ closeHref, expenseId, number, reason, start
       <SText name="what" label="What was it for" required start={start.what} maxLength={200} />
       <div className={cx("grid gap-3", centres && "grid-cols-2")}>
         <SSelect name="accountHeadId" label="Expense head" required options={heads} start={start.headId} placeholder="Choose a head" />
-        {centres && <SSelect name="costCentreId" label="Department" options={centres} start={start.costCentreId ?? undefined} placeholder="None" help="Which part of the school spent it, like Science labs" />}
+        {centres && <SSelect name="costCentreId" label="Department" options={centres} start={start.costCentreId ?? undefined} placeholder="None" />}
       </div>
-      <SText name="vendorName" label="Vendor" start={start.vendor} list="ce-vendors" maxLength={120} help="Pick one, or type a new name to add it" />
+      <SText name="vendorName" label="Vendor" start={start.vendor} list="ce-vendors" maxLength={120} help="Pick one, or type a new name" />
       <datalist id="ce-vendors">{vendors.map((v) => <option key={v} value={v} />)}</datalist>
       <Warned />
     </SheetForm>
@@ -183,7 +183,7 @@ export function PaySheet({ closeHref, expenseId, title, sub, left, partial, toda
   const [amt, setAmt] = useState(left);
   return (
     <SheetForm title={title} sub={sub} closeHref={closeHref} action={payExpenseAction} submitLabel={`Mark ${inr(amt || 0)} paid`} pendingText="Saving…" hidden={{ expenseId, mode }}>
-      {partial && <SMoney name="payAmount" label="Amount" required start={String(left)} onValue={(v) => setAmt(num(v))} help="Pay part now and the rest later, if you like" />}
+      {partial && <SMoney name="payAmount" label="Amount" required start={String(left)} onValue={(v) => setAmt(num(v))} help="You can pay part now" />}
       <ModeFields prefix="mp" mode={mode} setMode={setMode} cash={cash} banks={banks} mainBank={mainBank} cashInHand={cashInHand} amount={amt} />
       <SDate name="date" label="Date paid" required start={today} max={today} />
       <Warned />

@@ -219,9 +219,9 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Full name" name="fullName" required maxLength={120} value={fullName} onChange={(e) => setFullName(e.target.value)} error={err("fullName")} autoComplete="off" />
           <TextField label="Phone" name="phone" required inputMode="numeric" value={phone} placeholder="10-digit mobile" onChange={(e) => setPhone(e.target.value)}
-            onBlur={() => setErrors((x) => ({ ...x, phone: phone ? checkIndianMobile(phone) ?? "" : "" }))} error={err("phone") || undefined} help="+91 is added. We check it is not on another staff record." />
+            onBlur={() => setErrors((x) => ({ ...x, phone: phone ? checkIndianMobile(phone) ?? "" : "" }))} error={err("phone") || undefined} help="+91 is added for you." />
           <SelectField label="Designation" name="designation" required value={designation} onChange={(e) => chooseDesignation(e.target.value)} error={err("designation")}
-            options={data.designations.map((d) => ({ value: d.name, label: d.name }))} placeholder="Choose their post" help="Their post, shown under their name everywhere. What they can open is chosen in step 2." />
+            options={data.designations.map((d) => ({ value: d.name, label: d.name }))} placeholder="Choose their post" help="Shown under their name everywhere." />
           <SelectField label="Department" name="departmentId" value={departmentId} onChange={(e) => { setDepartmentId(e.target.value); setDeptTouched(true); }} error={err("departmentId")}
             options={data.departments} placeholder="No department" />
           <TextField label="Joining date" name="joiningDate" type="date" required defaultValue={p?.joiningDate ?? data.today} error={err("joiningDate")} />
@@ -235,7 +235,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
           </div>
         </div>
         <div className="flex flex-wrap gap-6">
-          <CheckboxField name="phoneVerified" label="Phone verified" help="Tick only if you called this number and the staff member answered." />
+          <CheckboxField name="phoneVerified" label="Phone verified" help="Tick only if they answered your call." />
           <CheckboxField name="emailVerified" label="Email verified" help="Tick only if they replied from this email." />
         </div>
         <details className="rounded-xl border border-line p-4" open={Object.keys(errors).some((k) => ["staffCode", "dateOfBirth", "bloodGroup", "aadhaar", "address", "permanentAddress", "qualification", "experienceYears", "employmentType", "reportingToId", "campusId"].includes(k)) || undefined}>
@@ -243,13 +243,13 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <StaffDobField today={data.today} error={err("dateOfBirth")} />
             <SelectField label="Blood group" name="bloodGroup" defaultValue="" options={["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"].map((b) => ({ value: b, label: b }))} placeholder="Choose" error={err("bloodGroup")} />
-            <TextField label="Aadhaar" name="aadhaar" inputMode="numeric" maxLength={14} pattern="[0-9 ]{12,14}" title="12 digits" error={err("aadhaar")} help="Restricted: only HR, the School Admin and the Principal see it in full." autoComplete="off" />
+            <TextField label="Aadhaar" name="aadhaar" inputMode="numeric" maxLength={14} pattern="[0-9 ]{12,14}" title="12 digits" error={err("aadhaar")} help="Only HR, the School Admin and the Principal see it in full." autoComplete="off" />
             <SelectField label="Employment type" name="employmentType" defaultValue="Permanent" options={data.employmentTypes.map((t) => ({ value: t, label: t }))} error={err("employmentType")} />
             <TextField label="Qualifications" name="qualification" defaultValue={p?.qualification} error={err("qualification")} />
             <TextField label="Experience (years)" name="experienceYears" inputMode="numeric" defaultValue={p?.experienceYears} error={err("experienceYears")} />
             <SelectField label="Reporting manager" name="reportingToId" defaultValue="" options={data.staff} placeholder="None" error={err("reportingToId")} />
             {data.campuses.length > 1 ? <SelectField label="Campus" name="campusId" defaultValue={data.campusId} options={data.campuses} error={err("campusId")} /> : <input type="hidden" name="campusId" value={data.campuses[0]?.value ?? ""} />}
-            <TextField label="Staff ID" name="staffCode" error={err("staffCode")} help="Leave empty to give the next free ID automatically." autoComplete="off" />
+            <TextField label="Staff ID" name="staffCode" error={err("staffCode")} help="Leave empty for the next ID." autoComplete="off" />
             <div />
             <TextArea label="Current address" name="address" rows={2} error={err("address")} />
             <TextArea label="Permanent address" name="permanentAddress" rows={2} error={err("permanentAddress")} />
@@ -269,20 +269,20 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
         <legend className="sr-only"><Words k="Step 2: What they can open" /></legend>
         {linked ? (
           <Alert tone="info" title="They already have a login">
-            <Words k="This staff record is linked to the login" /> <b>{linked.username}</b>{linked.roleNames.length ? <> ({linked.roleNames.join(", ")})</> : null}. <Words k="No second login is made. Roles and permissions stay as they are; change them in Settings, Users & Permissions." />
+            <Words k="This staff record is linked to the login" /> <b>{linked.username}</b>{linked.roleNames.length ? <> ({linked.roleNames.join(", ")})</> : null}. <Words k="No second login is made. Roles stay as they are." />
           </Alert>
         ) : (
         <CheckboxField name="giveLogin" label="Give a login to School OS" checked={giveLogin} onChange={(e) => setGiveLogin(e.target.checked)}
-          help="An invite link to set their own password, or a temporary password from you. No login is needed for the Time Table or salary." />
+          help="No login is needed for the Time Table or salary." />
         )}
         {giveLogin && !linked && (
           <>
             <div>
               <p className="mb-1 font-medium"><Words k="Roles" /> <span className="text-danger" aria-hidden="true">*</span></p>
               <p className="mb-3 text-sm text-ink-2"><Words k="Pick one or more. What each role can open is shown in plain words." /></p>
-              <p className="mb-3 text-sm text-ink-2"><Words k="No role with the post's own name (for example Academic Head or Vice Principal)? Pick the closest role, then change single modules under Adjust permissions." /></p>
+              <p className="mb-3 text-sm text-ink-2"><Words k="No role with the post's name? Pick the closest role." /></p>
               {errors.roleKeys && <p className="mb-2 text-sm text-danger" role="alert">{errors.roleKeys}</p>}
-              {postMismatch && <Alert tone="warning" className="mb-3">{designation} <Words k="is their post, but none of the chosen roles is that post's role. If the post is wrong, go Back and change it: it shows under their name everywhere." /></Alert>}
+              {postMismatch && <Alert tone="warning" className="mb-3">{designation} <Words k="is their post, but no chosen role matches it. If the post is wrong, go Back and change it." /></Alert>}
               <ul className="grid gap-2 sm:grid-cols-2">
                 {data.roles.map((r) => (
                   <li key={r.key} className={`rounded-xl border p-3 ${roleKeys.includes(r.key) ? "border-brand bg-brand-soft/40" : "border-line"}`}>
@@ -310,7 +310,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
             <SignInChoice error={err("temporaryPassword")} />
             <details className="rounded-xl border border-line p-4">
               <summary className="cursor-pointer font-medium"><Words k="Adjust permissions (advanced)" /></summary>
-              <p className="mt-2 text-sm text-ink-2"><Words k="Start from the roles; change a module only when this one person needs something different. Changes show on their profile." /></p>
+              <p className="mt-2 text-sm text-ink-2"><Words k="Change a module only if this person needs it." /></p>
               {extras.length > 0 && <Alert tone="warning" className="mt-3">{extras.length} <Words k="extra permission" />{extras.length === 1 ? "" : "s"} <Words k="beyond the chosen role" />{roleKeys.length === 1 ? "" : "s"}.</Alert>}
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 {data.modules.map((m) => (
@@ -338,7 +338,7 @@ export function Wizard({ data, checkDetails, create }: { data: WizardData; check
             {offer.classTeacher && (
               <div className="rounded-xl border border-line bg-surface-2 p-4">
                 <p className="font-medium">{"Class teacher"}</p>
-                <p className="mt-1 text-sm text-ink-2"><Words k="The class teacher takes the daily attendance of one section and writes its report card remarks. A teacher is class teacher of one section only; in other classes they teach subjects only." /></p>
+                <p className="mt-1 text-sm text-ink-2"><Words k="A teacher is class teacher of one section only." /></p>
                 <label className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full border border-line px-3">
                   <input type="radio" className="size-4 accent-brand" checked={!ctChosen} onChange={() => setCtSection("")} />
                   <Words k="Not a class teacher" />
@@ -448,7 +448,7 @@ function Summary({ done, onAnother }: { done: Created; onAnother: () => void }) 
       </dl>
       {done.temporary && done.username && (
         <Alert tone="info" title="Temporary password">
-          <Words k="They sign in with the username" /> <b>{done.username}</b> <Words k="and the temporary password you typed. Give it to them in person: it is not shown again or sent by message. At their first sign-in they choose their own password." />
+          <Words k="They sign in with the username" /> <b>{done.username}</b> <Words k="and the temporary password you typed. Give it in person: it is not shown again." />
         </Alert>
       )}
       {link && (

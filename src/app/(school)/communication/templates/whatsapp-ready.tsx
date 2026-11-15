@@ -72,13 +72,13 @@ export function WhatsappReadyPanel({ fixable, toSend, toEdit, pending, approved 
   return (
     <Card className="min-w-0">
       <CardHeader title="Getting WhatsApp messages approved" icon={Send}
-        description={<Words k="WhatsApp checks each message before it can be sent to parents. This usually takes a few minutes to a day." />} />
+        description={<Words k="WhatsApp checks each message first. This takes minutes to a day." />} />
       <div className="px-5 pb-5 flex flex-col gap-5 text-[14px]">
         <p className="text-[13px] text-ink3"><Words k="Approved: {n}" vars={{ n: approved }} /> · <Words k="Waiting for WhatsApp: {n}" vars={{ n: pending }} /></p>
 
         {fixable.length > 0 && (
           <section className="flex flex-col gap-2">
-            <p className="text-ink2"><Words k="These templates still have the first words School OS gave them, which WhatsApp would refuse. Making them ready saves today's words as a new version; the old version stays on record." /></p>
+            <p className="text-ink2"><Words k="These still have School OS's first words, which WhatsApp would refuse. Making them ready saves a new version; the old one stays." /></p>
             <p className="text-[13px] text-ink3">{fixNames.join(", ")}</p>
             <div>
               <Button variant="primary" icon={Sparkles} loading={busy} loadingText="Making ready…" onClick={makeReady} disabled={Boolean(sending)}>
@@ -111,7 +111,7 @@ export function WhatsappReadyPanel({ fixable, toSend, toEdit, pending, approved 
 
         {toEdit.length > 0 && (
           <section className="flex flex-col gap-2">
-            <p className="text-ink2"><Words k="Change these before sending them. Their words were written or changed by the school, so School OS does not replace them." /></p>
+            <p className="text-ink2"><Words k="Change these before sending. The school wrote them, so School OS does not replace them." /></p>
             <ul className="flex flex-col divide-y divide-line rounded-xl border border-line">
               {toEdit.map((r) => (
                 <li key={`${r.templateId}:${r.languageLabel}`} className="flex flex-wrap items-start justify-between gap-3 px-3.5 py-3">

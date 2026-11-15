@@ -118,7 +118,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
     return (
       <>
         <AdmissionHead href={BASE} sub={sub} />
-        <Card><EmptyState bare Icon={CalendarX2} title="No academic year yet" action={<ButtonLink href="/academic-management" variant="primary"><Words k="Open Academic Management" /></ButtonLink>}><Words k="Add the academic year and its classes and sections in Academic Management. Admissions open for it straight away." /></EmptyState></Card>
+        <Card><EmptyState bare Icon={CalendarX2} title="No academic year yet" action={<ButtonLink href="/academic-management" variant="primary"><Words k="Open Academic Management" /></ButtonLink>}><Words k="Add the year and its classes in Academic Management." /></EmptyState></Card>
       </>
     );
   }
@@ -168,7 +168,7 @@ export default async function AdmissionDashboard({ searchParams }: Search) {
 
           <Col>
             <Card>
-              <CardHeader title="Today’s follow-ups" description="Owners got a reminder at the set time" icon={AlarmClock} action={fu.overdueCount ? <Pill tone="bad">{fu.overdueCount} <Words k="overdue" /></Pill> : undefined} />
+              <CardHeader title="Today’s follow-ups" icon={AlarmClock} action={fu.overdueCount ? <Pill tone="bad">{fu.overdueCount} <Words k="overdue" /></Pill> : undefined} />
               <div className="px-2 pb-3">
                 {groups.map((g) => g.rows.length > 0 && (
                   <div key={g.key} className="mb-1">

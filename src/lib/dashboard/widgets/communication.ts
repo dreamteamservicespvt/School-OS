@@ -121,7 +121,7 @@ const notDelivered: Widget<"attention"> = {
     return {
       id: "communication.not-delivered", tone: "bad", icon: "Send",
       title: `${plural(messages, "message")} not delivered to ${plural(count, "person", "people")} in the last 7 days`,
-      detail: notSent ? `${plural(notSent, "person", "people")} had no WhatsApp, SMS or app that could reach them, so it was not sent to them` : "Open it to see who did not get it and send it again",
+      detail: notSent ? `${plural(notSent, "person", "people")} had no WhatsApp, SMS or app, so it was not sent` : "Open it to see who did not get it and send it again",
       action: "See who missed it", href: `/communication/history?status=not-delivered&period=custom&from=${range.from}&to=${range.to}`, value: `${messages}:${count}`,
     };
   },
@@ -143,7 +143,7 @@ const settingsAlerts: Widget<"attention"> = {
     ]);
     for (const g of gateways) out.push({
       id: `settings.gateway-test:${g.displayName}`, tone: "bad", icon: "CreditCard",
-      title: `Parents cannot pay fees online right now (${g.displayName})`, detail: "Fees can still be collected at the counter. DREAM TEAM support fixes this: call or message them.",
+      title: `Parents cannot pay fees online right now (${g.displayName})`, detail: "Collect at the counter. Call DREAM TEAM support.",
       action: "See details", href: "/settings/payment-gateways", value: "failed",
     });
     // SMS alerts are not shown while SMS is not offered (SMS_OFFERED, owner 15 Nov 2026).

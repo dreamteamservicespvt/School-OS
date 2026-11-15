@@ -98,7 +98,7 @@ export function StopSheet({ closeHref, student, classTeacher, calls, deskPhone }
         <a key={c.tel + c.name} href={`tel:${c.tel}`} className={cx(buttonClass("secondary"), "w-full !justify-start")}><PhoneCall size={17} aria-hidden="true" /><Words k="Call" /> {c.name} ({c.relationship.toLowerCase()})</a>
       ))}
       {!calls.length && deskPhone && <a href={`tel:${deskPhone}`} className={cx(buttonClass("primary"), "w-full")}><PhoneCall size={17} aria-hidden="true" /><Words k="Call the front desk" /></a>}
-      <p className="text-[12.5px] text-ink3 text-center"><Words k="Adding a person to the list is done in Student Management by someone allowed, never at the desk or gate." /></p>
+      <p className="text-[12.5px] text-ink3 text-center"><Words k="People are added to the list only in Student Management." /></p>
     </SheetForm>
   );
 }

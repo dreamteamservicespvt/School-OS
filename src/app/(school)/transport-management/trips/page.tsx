@@ -156,7 +156,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Search
 
         {view === "schedule" && (
           <Card className="overflow-hidden">
-            <CardHeader title="Trip schedule" description="Morning and evening trips of each route, by day. Trips are made each day from this; none on school holidays." icon={CalendarClock}
+            <CardHeader title="Trip schedule" description="No trips on school holidays." icon={CalendarClock}
               action={can.trips ? <ButtonLink size="sm" href={addQ(close, { do: "schedule" })} scroll={false} icon={Pencil}>Set a trip</ButtonLink> : undefined} />
             <DataList rows={data.plan} rowKey={(r) => `${r.routeId}-${r.kind}`} minWidth={860} caption="Trip schedule"
               columns={[
@@ -169,7 +169,7 @@ export default async function TripsPage({ searchParams }: { searchParams: Search
                 { key: "a", label: "", render: (r) => (can.trips ? <span className="flex gap-1"><ButtonLink size="sm" variant="ghost" href={addQ(close, { do: "schedule", route: r.routeId, kind: r.kind })} scroll={false}>Edit</ButtonLink><ButtonLink size="sm" variant="ghost" href={addQ(close, { do: "day", route: r.routeId, kind: r.kind })} scroll={false}>One day</ButtonLink></span> : null) },
               ]}
               phone={(r) => { const route = data.routes.find((x) => x.id === r.routeId)!; return { title: `Route ${route.number} · ${tripKind(r.kind)}`, icon: r.kind === "MORNING" ? Sun : Moon, sub: `${clockOf(r.startMin)} · ${daysWords(r.days)} · ${data.crew.find((x) => x.id === r.driverId)?.name ?? "no driver"}`, right: can.trips ? <Link href={addQ(close, { do: "schedule", route: r.routeId, kind: r.kind })} scroll={false} className="text-brand text-[13px] font-semibold relative z-[1]">Edit</Link> : undefined }; }}
-              empty={<Empty icon={CalendarClock} title="No routes yet" body="Add routes and stops first. Each route gets a morning and an evening trip." />} />
+              empty={<Empty icon={CalendarClock} title="No routes yet" body="Add routes and stops first." />} />
           </Card>
         )}
 

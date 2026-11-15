@@ -59,7 +59,7 @@ export default async function AskPage({ searchParams }: Props) {
   if (!isQuestionKey(key)) {
     return (
       <>
-        <PageHeader title="Questions" href={href} userId={current.user.id} sub="Quick answers, such as who is absent today or whose fees are due. Tap a question." />
+        <PageHeader title="Questions" href={href} userId={current.user.id} sub="Tap a question for a quick answer." />
         <OtherQuestions ready={ready.map((r) => ({ ...r, title: linkTitleIn(t, r.href, r.title) }))} current={null} />
       </>
     );
@@ -81,7 +81,7 @@ export default async function AskPage({ searchParams }: Props) {
         {via === "ai" && (
           <p className="rounded-2xl border border-info/30 bg-info/10 px-4 py-3 text-[13.5px]">
             <span className="mr-2 inline-flex h-[22px] items-center rounded-full bg-info/15 px-2 text-[11.5px] font-semibold text-info"><Words k="Suggestion" /></span>
-            <Words k="The AI assistant read your words as this question. Check it is what you meant; the answer below is from the school's own records." />
+            <Words k="The AI picked this question from your words. Check it is what you meant." />
           </p>
         )}
         {answer.ok ? <Answer a={answer} t={t} /> : (
@@ -155,13 +155,13 @@ function OtherQuestions({ ready, current }: { ready: { key: string; title: strin
   if (!list.length) {
     return current ? null : (
       <EmptyState title="No ready-made questions for your role yet" Icon={CircleHelp}>
-        <Words k="Questions are about lists your role already opens, such as today's absent list or fees overdue. Use Search to find a student, staff member or page." />
+        <Words k="Use Search to find a student, staff member or page." />
       </EmptyState>
     );
   }
   return (
     <Card>
-      <CardHeader title={current ? "Other questions" : "Questions you can ask"} description="Or type your own words in Search, such as “absent today” or “fees due class 5”." icon={MessageCircleQuestion} />
+      <CardHeader title={current ? "Other questions" : "Questions you can ask"} description="Or type in Search, like “absent today”." icon={MessageCircleQuestion} />
       <ul className="px-3 pb-3 flex flex-col">
         {list.map((r) => (
           <li key={r.href}>

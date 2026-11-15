@@ -202,7 +202,7 @@ export default async function EnquiriesPage({ searchParams }: Search) {
     </EmptyState>
   ) : (
     <EmptyState bare Icon={Inbox} title={own ? "No enquiries of yours yet" : "No enquiries yet"} action={canAdd ? <AddEnquiryButton c={choices} /> : undefined}>
-      <Words k="Add each walk-in or phone enquiry here, with a follow-up date, so no family is forgotten." />
+      <Words k="Add walk-in and phone enquiries here." />
     </EmptyState>
   );
 

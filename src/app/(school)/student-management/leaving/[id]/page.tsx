@@ -69,11 +69,11 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
             ? <Banner tone="ok" title="Clearance passed.">{tc ? `The TC is ${CERT_LABEL[tc.status].toLowerCase()}${tc.number ? ` (${tc.number})` : ""}.` : "The TC can be issued now."}</Banner>
             : <Banner tone="warn" title="Clearance pending.">{block}<Words k=". Settle each one below, or ask for a waiver with a reason." /></Banner>)}
           <Card>
-            <CardHeader title="Clearance" icon={ListChecks} description="Checked when leaving started and each time you press Check again. Only the parts of School OS your school uses are checked, for example fee dues and library books."
+            <CardHeader title="Clearance" icon={ListChecks} description="Fee dues, library books and more"
               action={open && can.manage ? <ActionButton action={refreshClearanceAction} fields={{ id }}><Words k="Check again" /></ActionButton> : undefined} />
             <div className="px-5 pb-5">
               {req.checks.length === 0 ? (
-                <div className="flex items-start gap-3 rounded-2xl bg-sunken/60 px-4 py-3 text-[14px] text-ink2"><Info size={18} className="mt-0.5 shrink-0 text-ink3" aria-hidden="true" /><Words k="Nothing to check yet: fee dues and library books are checked here once Fee Management and Library Management are in use. Clearance passes." /></div>
+                <div className="flex items-start gap-3 rounded-2xl bg-sunken/60 px-4 py-3 text-[14px] text-ink2"><Info size={18} className="mt-0.5 shrink-0 text-ink3" aria-hidden="true" /><Words k="Nothing to check yet. Clearance passes." /></div>
               ) : (
                 <ul className="divide-y divide-line/70 rounded-2xl border border-line">
                   {req.checks.map((c) => {
@@ -92,7 +92,7 @@ export default async function LeavingRequestPage({ params }: { params: Promise<{
                             {c.actionHref && <ButtonLink href={c.actionHref} size="sm" variant="soft">{c.actionLabel ?? "Settle"}</ButtonLink>}
                             <ConfirmAction action={askWaiverAction} fields={{ checkId: c.id }} trigger="Ask for waiver" triggerVariant="secondary"
                               title={`Waive ${c.name} for ${student.name}?`} confirmLabel="Send for approval" reason={{ label: "Reason", min: 5 }}>
-                              {c.detail}<Words k=". The waiver goes to Approvals. Once it is approved there, this check clears and the TC can be issued. Until then it stays pending." />
+                              {c.detail}<Words k=". The waiver goes to Approvals. Until it is approved, this check stays pending." />
                             </ConfirmAction>
                           </div>
                         )}

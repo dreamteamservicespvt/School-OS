@@ -61,7 +61,7 @@ function FieldForm({ mode, owner, others, field, onDone }: Omit<Props, "trigger"
       <TextField label="Label" name="label" required value={label} maxLength={80} error={errors.label} onChange={(e) => setLabel(e.target.value)}
         onBlur={() => setChecked((c) => ({ ...c, label: checkFieldDefinition(draft(), others.filter((o) => o.key !== field?.key)).label ?? "" }))} />
       <SelectField label="Type" name="fieldType" required value={type} disabled={Boolean(field)} options={FIELD_TYPES} onChange={(e) => setType(e.target.value)} error={errors.fieldType}
-        help={field ? "The type cannot change once saved, because answers already given must still fit." : undefined} />
+        help={field ? "The type cannot change once saved." : undefined} />
       {field && <input type="hidden" name="fieldType" value={type} />}
       {type === "choice" && (
         <TextArea label="Choices" name="choices" required rows={4} value={choices} onChange={(e) => setChoices(e.target.value)} error={errors.choices} help="One per line. At least 2." />
@@ -79,7 +79,7 @@ function FieldForm({ mode, owner, others, field, onDone }: Omit<Props, "trigger"
       <fieldset className="rounded-xl border border-line p-3">
         <legend className="px-1 text-sm font-medium"><Words k="Show only when (optional)" /></legend>
         {parents.length === 0 ? (
-          <p className="text-sm text-ink-2"><Words k="Add a choice or yes-or-no field first; then this field can show only for one of its answers." /></p>
+          <p className="text-sm text-ink-2"><Words k="Add a choice or yes-or-no field first." /></p>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2">
             <SelectField label="Another field" name="showWhenField" value={showField} onChange={(e) => { setShowField(e.target.value); setShowValue(""); }}

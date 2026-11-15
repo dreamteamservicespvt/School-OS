@@ -36,7 +36,7 @@ export default async function DocumentDesignsPage() {
       <PageHeader title="Document Designs" href="/settings/document-designs" userId={current.user.id} />
       {!canEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2"><Words k="You can see and preview every design. The School Admin changes them." /></p>}
       <p className="-mt-3 mb-5 max-w-prose text-ink-2">
-        <Words k="How receipts, certificates, ID cards, admit cards, report cards and salary slips look, with your logo, colours and signatures. Every module prints with the design chosen here." />
+        <Words k="How printed documents look. Every module prints with these." />
       </p>
 
       <div className="space-y-6">
@@ -72,10 +72,10 @@ export default async function DocumentDesignsPage() {
         })}
 
         <Card>
-          <CardHeader title="Signatories" description="People who sign documents. Add a picture of the signature to print it; otherwise a line is left to sign by hand." />
+          <CardHeader title="Signatories" description="No picture? A line is left to sign by hand." />
           <CardBody className="space-y-5">
             {signatories.length === 0 ? (
-              <p className="text-ink-2"><Words k="No signatories yet. Add the Principal first; most certificates need that signature." /></p>
+              <p className="text-ink-2"><Words k="No signatories yet. Add the Principal first." /></p>
             ) : (
               <ul className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {signatories.map((s) => (

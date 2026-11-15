@@ -108,7 +108,7 @@ export default async function TasksPage({ searchParams }: Search) {
       <PageHead
         crumbs={<Link href="/dashboard" className="inline-flex items-center gap-1 hover:text-ink"><ArrowLeft size={14} aria-hidden="true" /><Words k="Dashboard" /></Link>}
         title="My Tasks"
-        sub={access === "full" ? "Tasks for any staff member, with due dates and reminders." : "Your own tasks and the ones given to you, with reminders."}
+        sub={access === "full" ? "Give tasks to staff, with reminders." : "Your tasks and ones given to you."}
         actions={<AddTaskButton access={access} people={data.people.map((p) => ({ id: p.id, name: p.name }))} meId={current.user.id} today={today} />}
       />
 
@@ -152,7 +152,7 @@ export default async function TasksPage({ searchParams }: Search) {
         rowHref={(t) => `/dashboard/tasks?${new URLSearchParams({ ...(view === "mine" ? {} : { view }), task: t.id })}`}
         caption="Tasks" empty={
           <EmptyState title={params.q || Object.keys(params.filters).length || range ? "No tasks match these filters" : view === "given" ? "You have not given anyone a task" : "No tasks here yet"}>
-            {view === "given" ? "Use Add task and pick a person. They are told in the app." : "Use Add task to note something to do. A reminder goes out before it is due."}
+            {view === "given" ? "Use Add task and pick a person." : "Use Add task to note something to do."}
           </EmptyState>
         } />
 

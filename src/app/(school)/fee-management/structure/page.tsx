@@ -84,7 +84,7 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
     return (
       <div>
         <FeeHead pageName="Fee Structure" href={HREF} />
-        <Card><Empty icon={GraduationCap} title="Set up the academic year first" body="Fee structures are made for each class in an academic year. Add the year and classes in Academic Management." action={<Link href="/academic-management/settings" className={buttonClass("primary")}><Words k="Set up the year" /></Link>} /></Card>
+        <Card><Empty icon={GraduationCap} title="Set up the academic year first" body="Add the year and classes in Academic Management." action={<Link href="/academic-management/settings" className={buttonClass("primary")}><Words k="Set up the year" /></Link>} /></Card>
       </div>
     );
   }
@@ -181,7 +181,7 @@ export default async function StructurePage({ searchParams }: { searchParams: Se
             <CardHeader title="Fee heads" description={`${heads.length} ${heads.length === 1 ? "head" : "heads"} · taxable ones show their GST rate`} icon={Tags}
               action={canManage ? <ButtonLink size="sm" variant="soft" icon={Plus} href={here({ head: "new" })} scroll={false}><Words k="Add" /></ButtonLink> : null} />
             <DataList rows={heads} rowKey={(h) => h.id} minWidth={640} caption="Fee heads" rowHref={canManage ? (h) => here({ head: h.id }) : undefined}
-              empty={<Empty icon={Tag} title="No fee heads yet" body="Add the fees the school charges, such as Tuition fee and Annual fee." />}
+              empty={<Empty icon={Tag} title="No fee heads yet" body="Example: Tuition fee, Annual fee." />}
               columns={[
                 { key: "name", label: "Fee head", render: (h) => { const u = headUse(h.id); return <><p className="font-semibold leading-tight">{h.name}</p><p className="text-[12.5px] text-ink3">{headKindLabel(h.kind)} · {u.classes ? `in ${u.classes} ${u.classes === 1 ? "class" : "classes"}` : "not in any class yet"}</p></>; } },
                 { key: "freq", label: "Usually", nowrap: true, render: (h) => <span className="text-[13px] text-ink2">{headUse(h.id).freq}</span> },

@@ -179,7 +179,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Sea
 
   return (
     <div>
-      <FinanceHead pageName="Expenses" href={HREF} sub="Bills and expenses with a photo of the bill. Bigger amounts wait for approval."
+      <FinanceHead pageName="Expenses" href={HREF} sub="Bigger amounts wait for approval."
         viewActions={p.can.export ? <ExportButton href={qs(`${HREF}/export`, keep)} /> : null}
         actions={p.can.create ? <>
           <ButtonLink href={`${HREF}/import`} variant="secondary" icon={FileInput} className="hidden md:inline-flex"><Words k="Import past expenses" /></ButtonLink>
@@ -223,7 +223,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Sea
             <DataList rows={data.list.rows} rowKey={(r) => r.id} rowHref={(r) => here({ open: r.id })} minWidth={980} caption="Expenses"
               footer={`Showing ${data.list.rows.length} of ${data.list.count} · ${formatRupees(data.list.paid)} paid`}
               empty={allBeforeGoLive(p.goLive, per.from, per.to) ? <OldSoftwareEmpty goLive={p.goLive} what="expenses" /> : data.total === 0
-                ? <Empty icon={ReceiptText} title="No expenses recorded yet" body="Take a photo of the bill, enter the amount and the head. Small ones are approved at once." action={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="Record expense" /></ButtonLink> : undefined} />
+                ? <Empty icon={ReceiptText} title="No expenses recorded yet" body="Photo of the bill, amount, head." action={p.can.create ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="Record expense" /></ButtonLink> : undefined} />
                 : <Empty icon={SearchX} title="No expenses match" body="Try another status, head or amount." action={filtered ? <Link href={HREF} scroll={false} className={buttonClass("secondary")}><Words k="Clear filters" /></Link> : undefined} />}
               columns={[
                 { key: "d", label: "Date", nowrap: true, render: (r) => <><p className="tnum">{formatDate(r.date)}</p><p className="text-[12px] text-ink3 font-mono">{r.number}</p></> },
@@ -269,7 +269,7 @@ export default async function ExpensesPage({ searchParams }: { searchParams: Sea
           {tab === "bills" && data.bills && (
             <DataList rows={data.bills.rows} rowKey={(b) => b.id} rowHref={(b) => here({ open: b.id })} minWidth={900} caption="Vendor bills"
               footer={`${formatRupees(toPayBills)} still to pay on ${unpaidBills.length} ${unpaidBills.length === 1 ? "bill" : "bills"}`}
-              empty={<Empty icon={FileText} title="No vendor bills yet" body="Record a vendor’s bill with its number and due date, and pay it later in parts." action={p.can.create ? <ButtonLink href={here({ do: "bill" })} scroll={false} variant="secondary" icon={Plus}><Words k="Record vendor bill" /></ButtonLink> : undefined} />}
+              empty={<Empty icon={FileText} title="No vendor bills yet" body="Record a bill now, pay it later in parts." action={p.can.create ? <ButtonLink href={here({ do: "bill" })} scroll={false} variant="secondary" icon={Plus}><Words k="Record vendor bill" /></ButtonLink> : undefined} />}
               columns={[
                 { key: "no", label: "Bill number", render: (b) => <><p className="font-mono text-[12.5px]">{b.billNo}</p><p className="text-[12px] text-ink3">{formatDate(b.date)}</p></> },
                 { key: "vendor", label: "Vendor", render: (b) => <><p className="font-semibold leading-tight">{b.vendorName}</p><p className="text-[12px] text-ink3">{b.headName}</p></> },

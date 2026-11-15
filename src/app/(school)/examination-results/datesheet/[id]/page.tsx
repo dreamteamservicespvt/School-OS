@@ -125,9 +125,9 @@ export default async function DatesheetDetail({ params, searchParams }: { params
           </div>
         </Card>
 
-        {exam.archivedAt && <Banner tone="warn" title="Archived."><Words k="This datesheet is not shown to parents or on the School Calendar. Restore it to use it again." /></Banner>}
-        {!exam.archivedAt && status === "Draft" && <Banner tone="info" title="Draft."><Words k="Only staff can see it. Publishing puts the papers on the School Calendar and the Time Table, makes admit cards ready and tells parents." /></Banner>}
-        {!exam.archivedAt && (status === "Published" || status === "Ongoing") && !data.locked && <Banner tone="ok" title="Published."><Words k="Parents see this datesheet on Parent Link. The exam days are on the School Calendar and in the Time Table, and reminders go to parents the day before each paper." /></Banner>}
+        {exam.archivedAt && <Banner tone="warn" title="Archived."><Words k="Hidden from parents and the School Calendar. Restore it to use it again." /></Banner>}
+        {!exam.archivedAt && status === "Draft" && <Banner tone="info" title="Draft."><Words k="Only staff can see it. Publishing tells parents and makes admit cards ready." /></Banner>}
+        {!exam.archivedAt && (status === "Published" || status === "Ongoing") && !data.locked && <Banner tone="ok" title="Published."><Words k="Parents see it on Parent Link and get a reminder the day before each paper." /></Banner>}
         {can && !exam.archivedAt && exam.status !== "DRAFT" && !data.locked && noInvigilator > 0 && (
           <Banner tone="warn" title={`${noInvigilator} ${noInvigilator === 1 ? "paper has" : "papers have"} no invigilator.`}
             action={<ButtonLink href={withYear(`/examination-results/datesheet/${id}/edit`, page)} size="sm" variant="secondary"><Words k="Rooms & invigilators" /></ButtonLink>}>
@@ -155,13 +155,13 @@ export default async function DatesheetDetail({ params, searchParams }: { params
                 empty={<p className="px-5 pb-5 text-ink3 text-[14px]"><Words k="No papers for" /> {chosen?.name} <Words k="in this datesheet." /></p>} />
             </Card>
             <Card>
-              <CardHeader icon={SlidersHorizontal} title="Mark categories" description={data.locked ? "Marks are entered, so the split stays as it is." : "How each subject's marks are split. Teachers enter each part in Marks Entry."} />
+              <CardHeader icon={SlidersHorizontal} title="Mark categories" description={data.locked ? "Marks are entered, so the split stays as it is." : "How each subject's marks are split"} />
               <ul className="px-5 pb-5 grid md:grid-cols-2 gap-2">
                 {sched.map((x) => (
                   <li key={x.id} className="flex items-center justify-between gap-3 rounded-xl border border-line pl-3.5 pr-1.5 py-1.5 min-h-12 text-[13.5px]">
                     <span className="min-w-0">
                       <span className="font-semibold truncate block">{x.subjectName}</span>
-                      <span className="text-ink2 tnum text-[12.5px]">{x.gradeOnly ? "Grade only, no marks (set in Academic Management, Subjects)" : x.categories.length ? x.categories.map((c) => `${c.name} ${c.max}`).join(" · ") : `Marks ${x.maxMarks}`}</span>
+                      <span className="text-ink2 tnum text-[12.5px]">{x.gradeOnly ? "Grade only, no marks" : x.categories.length ? x.categories.map((c) => `${c.name} ${c.max}`).join(" · ") : `Marks ${x.maxMarks}`}</span>
                     </span>
                     {can && !data.locked && !x.gradeOnly && <CategoriesButton entryId={x.id} subject={x.subjectName} maxMarks={x.maxMarks} current={x.categories} names={data.categories} classes={exam.classIds.length} />}
                   </li>

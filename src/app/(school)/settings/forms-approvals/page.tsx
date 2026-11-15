@@ -61,7 +61,7 @@ export default async function FormsApprovalsPage({ searchParams }: { searchParam
 
       {data.kind === "rules" && (
         <Card>
-          <CardHeader title="Approval rules" description="Who approves each kind of request, up to which amount, and when it moves on if nobody decides. Changes apply to new requests." />
+          <CardHeader title="Approval rules" description="Who approves, up to which amount. Changes apply to new requests." />
           <ul>
             {data.rules.map((r) => (
               <li key={r.type} className="flex flex-wrap items-start justify-between gap-3 border-t border-line px-5 py-3 first:border-t-0">
@@ -92,10 +92,10 @@ export default async function FormsApprovalsPage({ searchParams }: { searchParam
               ))}
             </nav>
             <Card>
-              <CardHeader title={`Extra fields on ${label}`} description="They show at the end of the record's form and on its profile. Archiving a field keeps every answer already given."
+              <CardHeader title={`Extra fields on ${label}`} description="Archiving a field keeps every answer."
                 action={mayCreate && <FieldEditor mode="record" owner={record} others={data.fields} trigger="Add a field" triggerVariant="primary" />} />
               {live.length === 0 ? (
-                <div className="p-5"><EmptyState title={`No extra fields on ${label} yet`}><Words k="Add one for anything your school records that the standard form does not have, like a house or a bus pass number." /></EmptyState></div>
+                <div className="p-5"><EmptyState title={`No extra fields on ${label} yet`}><Words k="For anything the standard form does not have, like a house." /></EmptyState></div>
               ) : (
                 <ol>
                   {live.map((f, i) => (
@@ -118,7 +118,7 @@ export default async function FormsApprovalsPage({ searchParams }: { searchParam
             </Card>
             {live.length > 0 && (
               <Card>
-                <CardHeader title="Preview" description={`How the extra fields look on the ${label} form. Try the answers: fields with a rule appear and disappear.`} />
+                <CardHeader title="Preview" description="Try answers to test the rules." />
                 <CardBody><CustomFieldInputs fields={live} /></CardBody>
               </Card>
             )}
@@ -147,7 +147,7 @@ export default async function FormsApprovalsPage({ searchParams }: { searchParam
         return (
           <div className="space-y-5">
             <Card>
-              <CardHeader title="Custom forms" description="Forms your school designs itself, such as an appraisal or a consent form." />
+              <CardHeader title="Custom forms" description="Such as an appraisal or a consent form." />
               {live.length === 0 ? (
                 <div className="p-5"><EmptyState title="No custom forms yet"><Words k="Create one below, add its fields, preview it, and publish." /></EmptyState></div>
               ) : (

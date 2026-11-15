@@ -122,7 +122,7 @@ export default async function LivePage({ searchParams }: { searchParams: SearchP
       <Stack>
         {openAlerts.length > 0 && (
           <Card className="overflow-hidden border-bad/30">
-            <CardHeader title={`${plural(openAlerts.length, "alert")} open`} description="Emergency and breakdown alerts reach the Transport In-charge and the Principal at once" icon={Siren} />
+            <CardHeader title={`${plural(openAlerts.length, "alert")} open`} description="Sent at once to the Transport In-charge and the Principal" icon={Siren} />
             <ul className="divide-y divide-line/70 border-t border-line">
               {openAlerts.map((a) => {
                 const k = ALERT_KINDS[a.kind];
@@ -165,7 +165,7 @@ export default async function LivePage({ searchParams }: { searchParams: SearchP
 
         <div className="grid xl:grid-cols-[minmax(0,1fr)_400px] gap-5 lg:gap-6 items-start [&>*]:min-w-0">
           <Card className="overflow-hidden">
-            <CardHeader title={sel ? `Route ${sel.r.route.number} · ${sel.r.route.name}` : "All buses"} description="A sketch from the stop locations. Faded buses have an old location." icon={MapPinned}
+            <CardHeader title={sel ? `Route ${sel.r.route.number} · ${sel.r.route.name}` : "All buses"} description="Faded buses have an old location." icon={MapPinned}
               action={sel ? <ButtonLink size="sm" variant="ghost" href={qs(BASE, { kind: one(sp.kind) ? kind : null })}>Show all</ButtonLink> : undefined} />
             <div className="px-3 pb-3"><div className="rounded-xl overflow-hidden border border-line/70">
               <TransportMap routes={mapRoutes} school={schoolPoint} selected={routeSel} buses={buses} labelStops={Boolean(routeSel)} ariaLabel="Sketch of the bus routes with the running buses" />

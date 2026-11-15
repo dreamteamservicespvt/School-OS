@@ -95,7 +95,7 @@ export default async function HostelReportsPage({ searchParams }: { searchParams
         </div>
 
         <Card>
-          <CardHeader title="Reports" icon={FileBarChart} description="Open a report to see its rows and export it with the dates above." divided />
+          <CardHeader title="Reports" icon={FileBarChart} divided />
           <ul className="grid sm:grid-cols-2 xl:grid-cols-3 gap-px bg-line/70">
             {HOSTEL_REPORT_LIST.map((x, i, all) => (
               <li key={x.key} className={cx("bg-surface", i === all.length - 1 && cx(all.length % 2 === 1 && "sm:col-span-2", all.length % 3 === 1 ? "xl:col-span-3" : all.length % 3 === 2 ? "xl:col-span-2" : "xl:col-span-1"))}>

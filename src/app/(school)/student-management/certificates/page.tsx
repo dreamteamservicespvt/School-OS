@@ -102,13 +102,13 @@ export default async function CertificatesPage({ searchParams }: { searchParams:
 
   return (
     <>
-      <StudentsHead page="Certificates & ID Cards" href={path} sub="TC, bonafide, study and character certificates, and student ID cards class by class"
+      <StudentsHead page="Certificates & ID Cards" href={path} sub="Certificates and student ID cards"
         actions={can.manage ? <ButtonLink href={`${path}/new`} variant="primary" icon={FilePlus2}><Words k="Issue certificate" /></ButtonLink> : undefined}
         subTabs={await certificateTabs()} subLabel="Certificates & ID Cards" />
       <div className="flex flex-col gap-4">
         {data.waiting.length > 0 && (
           <Card>
-            <CardHeader title={`Waiting for approval (${data.waiting.length})`} description="A TC always needs approval; other types as set in Student Settings." icon={Hourglass} />
+            <CardHeader title={`Waiting for approval (${data.waiting.length})`} description="A TC always needs approval" icon={Hourglass} />
             <ul className="divide-y divide-line/70 border-t border-line/70">
               {data.waiting.map((c) => {
                 const s = who(c.studentId);

@@ -118,7 +118,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
   const byParents = p.settings.ptmParentBooking;
   const sub = p.can.own
     ? (byParents ? "Your PTM slots and notes. Parents book on Parent Link." : "Your PTM slots and notes. The office books for parents.")
-    : (byParents ? "Parent–teacher meetings. Parents book a slot on Parent Link, or the office books for them." : "Parent–teacher meetings. The office books a slot for each parent.");
+    : (byParents ? "Parents book on Parent Link, or the office books for them." : "The office books a slot for each parent.");
   const head = <EvHead pageName="PTM" href={HREF} sub={sub} actions={plan && <ButtonLink href={here({ do: "plan" })} scroll={false} variant="primary" icon={Plus}><Words k="Plan a PTM" /></ButtonLink>} />;
   const planSheet = plan && doing === "plan" ? await (async () => {
     const cls = await classOptions();
@@ -312,7 +312,7 @@ export default async function PtmPage({ searchParams }: { searchParams: SearchPa
                 </tbody>
               </table>
             </div>
-            <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line"><Words k="One parent per slot. The % on a booked slot is the student’s homework done this year. Parents get a confirmation and a reminder the evening before" />{byParents ? ", and can change or cancel on Parent Link until the day before" : ""}. {d.teachers.length} <Words k="teachers." /></p>
+            <p className="px-5 py-3 text-[12.5px] text-ink3 border-t border-line"><Words k="One parent per slot. The % is the student’s homework done this year." /> {d.teachers.length} <Words k="teachers." /></p>
           </Card>
         )}
 

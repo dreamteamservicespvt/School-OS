@@ -78,7 +78,7 @@ export default async function ClassFeesPage({ params, searchParams }: { params: 
           { label: "Class teacher", value: data.teacher?.name ?? "Not set", sub: data.teacher ? `Looks after ${data.name}` : "Set one in Academic Management", icon: UserRound },
         ]} />
         <Card className="overflow-hidden">
-          <CardHeader icon={Users} title={`${data.name} · students and fees`} description={`Pending as of today, ${formatDate(p.today)} · overdue first`} />
+          <CardHeader icon={Users} title={`${data.name} · students and fees`} description="Overdue first" />
           {(canAsk || remind) && (
             <div className="px-5 pb-3 -mt-1 flex gap-2 flex-wrap items-center">
               {canAsk && <RemindButton label={`Ask ${first} to follow up`} variant="secondary" doneLabel="Asked" done={data.askedAt ? formatTime(data.askedAt, p.tz) : null} run={askFollowUpAction.bind(null, sectionId)} />}

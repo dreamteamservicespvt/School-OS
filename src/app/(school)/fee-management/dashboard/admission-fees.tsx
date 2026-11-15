@@ -87,7 +87,7 @@ export async function AdmissionFees({ searchParams }: { searchParams: SearchPara
 
   return (
     <div>
-      <FeeHead pageName="Admission Fees" href={HREF} sub="Whether new families have paid the application and admission fees. Other fee details stay with the accounts team." />
+      <FeeHead pageName="Admission Fees" href={HREF} sub="Have new families paid their fees?" />
       <Stack>
         <Stats items={[
           { label: "Application fee paid", value: `${paidN(application)} of ${application.length}`, icon: CircleCheck, tone: "ok" },
@@ -108,7 +108,7 @@ export async function AdmissionFees({ searchParams }: { searchParams: SearchPara
           <DataList rows={rows.slice(0, 100)} rowKey={(r) => r.id} minWidth={600} caption={`${word} status`}
             footer={`Showing ${Math.min(rows.length, 100)} of ${rows.length}`}
             empty={<Empty icon={per.range ? SearchX : UserPlus} title={per.range ? `No ${word.toLowerCase()} ${per.range.label.toLowerCase()}` : `No ${word.toLowerCase()} yet`}
-              body={tab === "admission" ? "When a new student is given an admission fee, whether it is paid shows here." : "Applications that need an application fee show here, with whether it is paid."} />}
+              body={tab === "admission" ? "Admission fees of new students show here." : "Application fees show here."} />}
             columns={[
               { key: "name", label: tab === "admission" ? "Student" : "Applicant", render: (r) => <p className="font-semibold leading-tight">{r.name}</p> },
               { key: "no", label: tab === "admission" ? "Admission no." : "Application no.", render: (r) => <span className="font-mono text-[12.5px]">{r.number}</span> },

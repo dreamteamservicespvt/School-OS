@@ -217,7 +217,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
 
   return (
     <div>
-      <FeeHead pageName="Concessions & Refunds" href={HREF} sub="Discounts, scholarships and refunds, each with a reason and who approved it"
+      <FeeHead pageName="Concessions & Refunds" href={HREF} sub="Discounts, scholarships and refunds"
         viewActions={tab !== "bulk" ? <ExportButton href={qs(`${HREF}/export`, { ...keep, tab })} /> : null}
         actions={<>
           <ButtonLink href={here({ do: "refund" })} scroll={false} variant="secondary" icon={Undo2}><Words k="New refund" /></ButtonLink>
@@ -258,14 +258,14 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
             <DataList {...conColumns(data.cons.rows)} caption="Concessions"
               footer={`Showing ${data.cons.rows.length} of ${data.cons.total}${per.range ? ` · asked ${per.words}` : ""}`}
               empty={data.cons.total === 0 && !filtered
-                ? <Empty icon={BadgePercent} title="No concessions yet" body="Discounts, sibling and staff-child concessions and late fee waivers show here with who asked and who approved." action={canEdit ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="New concession" /></ButtonLink> : undefined} />
+                ? <Empty icon={BadgePercent} title="No concessions yet" body="They show here with who approved them." action={canEdit ? <ButtonLink href={here({ do: "new" })} scroll={false} variant="secondary" icon={Plus}><Words k="New concession" /></ButtonLink> : undefined} />
                 : <Empty icon={SearchX} title="No concessions match" body="Try another search, status or date." action={<Link href={tabHref("concessions")} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>} />} />
           )}
 
           {tab === "bulk" && (
             <div>
               {data.rules.length === 0 ? (
-                <Empty icon={Gift} title="No bulk discount rules" body="Example: pay 3 months together, get 5% off. Collect Fee applies a rule by itself when a payment qualifies." />
+                <Empty icon={Gift} title="No bulk discount rules" body="Example: pay 3 months, get 5% off. Applied by itself at Collect Fee." />
               ) : (
                 <ul className="divide-y divide-line/70">
                   {data.rules.map((r) => {
@@ -337,7 +337,7 @@ export default async function ConcessionsPage({ searchParams }: { searchParams: 
             <DataList rows={data.refs.rows} rowKey={(r) => r.id} rowHref={(r) => here({ open: r.id })} minWidth={900} caption="Refunds"
               footer={`${data.refs.rows.length} of ${plural(data.refs.total, "refund")} · never more than was paid`}
               empty={data.refs.total === 0 && !filtered
-                ? <Empty icon={Undo2} title="No refunds" body="A refund comes from one payment and goes to Approvals. Once approved, mark it refunded with the date and reference." action={canEdit ? <ButtonLink href={here({ do: "refund" })} scroll={false} variant="secondary" icon={Undo2}><Words k="New refund" /></ButtonLink> : undefined} />
+                ? <Empty icon={Undo2} title="No refunds" body="Each refund goes to Approvals first." action={canEdit ? <ButtonLink href={here({ do: "refund" })} scroll={false} variant="secondary" icon={Undo2}><Words k="New refund" /></ButtonLink> : undefined} />
                 : <Empty icon={SearchX} title="No refunds match" body="Try another search, status or date." action={<Link href={tabHref("refunds")} className={buttonClass("secondary")}><Words k="Clear filters" /></Link>} />}
               columns={[
                 { key: "name", label: "Student", render: (r) => <><p className="font-semibold leading-tight">{r.name}</p><p className="text-[12.5px] text-ink3">{[r.classLabel, formatDate(r.createdAt, p.tz)].filter(Boolean).join(" · ")}</p></> },

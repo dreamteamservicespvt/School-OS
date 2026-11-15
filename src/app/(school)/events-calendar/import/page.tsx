@@ -13,7 +13,7 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 const ABOUT = {
-  "calendar-holidays": "One row per holiday or vacation, with its date (and a vacation's last day). Each is added as if typed on the School Calendar: attendance is off on those days. A holiday already on the calendar is not added twice.",
+  "calendar-holidays": "One row per holiday or vacation, with its date (and a vacation's last day). Attendance is off on those days. A holiday already on the calendar is not added twice.",
 };
 
 /** The holiday list from a spreadsheet (18 §2 School Calendar), for whoever keeps the School Calendar; no Settings needed. */

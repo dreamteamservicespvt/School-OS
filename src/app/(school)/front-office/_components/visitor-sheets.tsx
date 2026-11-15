@@ -30,7 +30,7 @@ export function VisitorSheet({ closeHref, back, purposes, staff, photoRequired, 
   preset?: { appointmentId: string; name: string; phone: string; meetStaffId: string; note: string } | null;
 }) {
   return (
-    <SheetForm title="New visitor" sub="Type the phone first. Returning visitors fill in by themselves." closeHref={closeHref} action={registerVisitorAction}
+    <SheetForm title="New visitor" sub="Type the phone first." closeHref={closeHref} action={registerVisitorAction}
       submitLabel="Register and make pass" pendingText="Registering…" wide hidden={{ back, ...(preset ? { appointmentId: preset.appointmentId } : {}) }}>
       <VisitorFields purposes={purposes} staff={staff} photoRequired={photoRequired} idRequired={idRequired} preset={preset ?? null} />
     </SheetForm>

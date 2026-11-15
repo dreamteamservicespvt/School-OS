@@ -115,7 +115,7 @@ export default async function MarksEntryPage({ searchParams }: { searchParams: S
                 action={page.scope.datesheets && page.writable
                   ? <ButtonLink href="/examination-results/datesheet/new" variant="secondary"><Words k="Add datesheet" /></ButtonLink>
                   : <ButtonLink href="/examination-results/datesheet" variant="secondary"><Words k="See datesheets" /></ButtonLink>}>
-                <Words k="Papers appear here once a datesheet with your subjects is published. If a subject is missing, ask the Exam In-charge to check Teacher Allocation." />
+                <Words k="Papers appear here once a datesheet is published. Subject missing? Ask the Exam In-charge." />
               </EmptyState>
             )
           ) : groups.map(([id, title]) => {

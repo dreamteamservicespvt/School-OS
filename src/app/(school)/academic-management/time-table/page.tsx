@@ -170,7 +170,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
 
       {!shown ? (
         <EmptyState title="No Time Table yet">
-          {scope.arrange ? "Start the Time Table above. Fill it by hand or make it automatically from Teacher Allocation, then publish it." : "The Time Table appears here once the school publishes it."}
+          {scope.arrange ? "Start the Time Table above, fill it, then publish it." : "The Time Table appears here once the school publishes it."}
         </EmptyState>
       ) : data.slots.length === 0 ? (
         <EmptyState title="No periods set up">
@@ -198,7 +198,7 @@ export default async function TimeTablePage({ searchParams }: { searchParams: Se
         )
       ) : view === "teacher" ? (
         !data.staffId ? (
-          <EmptyState title="We could not find you in the staff list">{can(page.current.permissions, "staff-hr-management", "create") ? <Words k="To fix it, add yourself with Import staff in Staff & HR, using the name and mobile number you sign in with. Your periods then show here." /> : <Words k="Your periods show here once the office links your sign-in to your name in the staff list (Staff & HR). Ask the office." />}</EmptyState>
+          <EmptyState title="We could not find you in the staff list">{can(page.current.permissions, "staff-hr-management", "create") ? <Words k="To fix it, add yourself with Import staff in Staff & HR, using the name and mobile number you sign in with." /> : <Words k="Ask the office to link your sign-in to your staff record." />}</EmptyState>
         ) : (
           <>
             <div className="no-print mb-3 flex flex-wrap items-end justify-between gap-3">

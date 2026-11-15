@@ -109,7 +109,7 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
             )}
             {rows.length === 0 ? (
               <EmptyState title={mineOnly ? "Nothing for you on this day" : "No substitutions needed"}>
-                {mineOnly ? "Extra periods you are asked to take appear here and on My Time Table." : "No teacher is on leave or marked absent on this day. If someone is absent, mark them absent and their periods appear here."}
+                {mineOnly ? "Extra periods you are asked to take appear here and on My Time Table." : "Nobody is absent on this day. Mark a teacher absent to list their periods."}
               </EmptyState>
             ) : (
               <>
@@ -153,7 +153,7 @@ export default async function SubstitutionsPage({ searchParams }: { searchParams
       )}
 
       {view === "temporary" && (
-        data.covers.length === 0 ? <EmptyState title="No temporary teachers now"><Words k="For a longer absence, name a temporary teacher with the button above. They take the absent teacher's periods for the dates you choose." /></EmptyState> : (
+        data.covers.length === 0 ? <EmptyState title="No temporary teachers now"><Words k="For a longer absence, name a temporary teacher with the button above." /></EmptyState> : (
           <ul className="divide-y divide-line rounded-2xl border border-line bg-surface">
             {data.covers.map((c) => (
               <li key={c.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">

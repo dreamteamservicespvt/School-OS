@@ -49,7 +49,7 @@ export default async function AuditLogPage({ searchParams }: Search) {
     <>
       <h2 className="sr-only"><Words k="Audit log" /></h2>
       <p className="mb-4 max-w-prose text-ink-2">
-        <Words k="Every change in School OS: who, what, when, from which device, with the values before and after. Nobody can change or remove these lines." />
+        <Words k="Every change: who, what, when, and the values before and after. Nobody can change these lines." />
         {reach === "own" && " Your role shows only your own changes."}
       </p>
       <ListToolbar placeholder="Record type, action or record ID" showArchived={false} period={dates}

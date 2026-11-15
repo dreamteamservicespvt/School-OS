@@ -32,7 +32,7 @@ export function UploadForm({ place, kinds, kind, guess = true, help, students }:
           aria-describedby="move-in-file-help" aria-invalid={Boolean(state?.errors?.file)}
           className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:text-ink" />
         {state?.errors?.file ? <p className="mt-1 text-sm text-danger">{state.errors.file}</p> : (
-          <p id="move-in-file-help" className="mt-1 text-sm text-ink-2">{help ?? "Excel (.xlsx) or CSV, up to 10 MB: an export from your old software, a UDISE+ download, your own sheet or our ready sheet. A workbook with several sheets is fine."}</p>
+          <p id="move-in-file-help" className="mt-1 text-sm text-ink-2">{help ?? "Excel (.xlsx) or CSV, up to 10 MB. Several sheets are fine."}</p>
         )}
       </div>
       {kinds.length === 1 && !guess ? <input type="hidden" name="kind" value={kinds[0].value} /> : (
@@ -77,7 +77,7 @@ export function PhotoUploadForm({ place, kinds, kind, guess = true, students, re
     <form action={action} className="space-y-4" noValidate onSubmit={(e) => { if (tooMuch) e.preventDefault(); }}>
       <FormMessage state={state} />
       <input type="hidden" name="place" value={place} />
-      <p className="text-sm text-ink-2"><Words k="Take a clear photo of each register page, straight from above in good light, or upload a PDF scan. The AI assistant copies each page into rows; you then match the columns and check every row against the photo before anything is saved." /></p>
+      <p className="text-sm text-ink-2"><Words k="Take a clear photo of each register page from above, or upload a PDF scan. You check every row before anything is saved." /></p>
       <div>
         <label htmlFor="move-in-photos" className="mb-1 block text-sm font-medium"><Words k="Photos of the pages" /><span className="text-danger" aria-hidden="true"> *</span></label>
         <input id="move-in-photos" name="photos" type="file" multiple required accept="image/jpeg,image/png,image/webp,application/pdf"
@@ -89,7 +89,7 @@ export function PhotoUploadForm({ place, kinds, kind, guess = true, students, re
           }}
           className="block w-full rounded-lg border border-line-strong bg-surface p-2 text-base file:mr-3 file:min-h-10 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:text-ink" />
         {fileError ? <p className="mt-1 text-sm text-danger">{fileError}</p> : (
-          <p id="move-in-photos-help" className="mt-1 text-sm text-ink-2"><Words k="JPG, PNG or PDF, up to" /> {MAX_PHOTOS} <Words k="pages at a time, 24 MB together. Only these pictures are sent to the AI service, for reading them, and each request is logged." /></p>
+          <p id="move-in-photos-help" className="mt-1 text-sm text-ink-2"><Words k="JPG, PNG or PDF, up to" /> {MAX_PHOTOS} <Words k="pages at a time, 24 MB together. Only these pictures go to the AI service." /></p>
         )}
       </div>
       {kinds.length === 1 && !guess ? <input type="hidden" name="kind" value={kinds[0].value} /> : (

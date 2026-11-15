@@ -56,7 +56,7 @@ export function InviteForm({ roles, campuses, staff, defaultRoleId, defaultStaff
           {state.data.sentBy.length
             ? <><Words k="The invite link was sent to" /> {state.data.name} <Words k="by" /> {state.data.sentBy.join(" and ")}<Words k=". You can also copy it below and give it to them yourself." /> </>
             : <><Words k="Send this link to" /> {state.data.name} {SMS_OFFERED ? <Words k="by WhatsApp, SMS or email." /> : <Words k="by WhatsApp or email." />} </>}
-          <Words k="They open it to choose their own password; nobody else ever sees it. The link works once, for 7 days." />
+          <Words k="Only they see their password. The link works once, for 7 days." />
           {state.data.sentNote && <span className="mt-1 block">{state.data.sentNote}</span>}
         </Alert>
         <CopyLink path={state.data.link} />
@@ -87,7 +87,7 @@ export function InviteForm({ roles, campuses, staff, defaultRoleId, defaultStaff
       {staff.length > 0 && (
         <SelectField label="Belongs to a staff member" name="staffId" value={staffId} onChange={(e) => pickStaff(e.target.value)}
           options={staff.map((s) => ({ value: s.id, label: `${s.name}, ${s.designation}` }))} placeholder="Not linked (for example an admin from the trust)"
-          help="Pick the Staff record this login belongs to; their name and phone are filled in." error={state?.errors?.staffId} />
+          help="Their name and phone are filled in." error={state?.errors?.staffId} />
       )}
       <div className="grid gap-4 sm:grid-cols-2">
         <TextField label="Full name" name="displayName" required value={name} error={state?.errors?.displayName}

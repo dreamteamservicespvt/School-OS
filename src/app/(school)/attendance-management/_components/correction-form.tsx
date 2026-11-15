@@ -62,7 +62,7 @@ export function CorrectionForm({ action, hidden, people, statuses, forWhom }: {
             options={statuses.map((s) => ({ value: s.key, label: `${s.name} (${s.letter})` }))} />
           <TextField label="Note on the entry" name="note" maxLength={300} defaultValue={f.val("note")} help="Optional. For example: came at 10:15, doctor's visit." />
           <TextArea label="Reason" name="reason" required minLength={5} maxLength={500} rows={3} defaultValue={f.val("reason")} error={f.err("reason")}
-            help="The approver sees this. For example: marked absent by mistake; the student was at the sports trial." />
+            help="The approver sees this. For example: marked absent by mistake." />
         </>
       )}
     </ActionForm>

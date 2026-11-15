@@ -148,7 +148,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Sea
                 pills: <><Pill tone={VEHICLE_STATUS[r.v.status]?.tone ?? "neutral"} className="!h-[22px] !text-[11.5px]">{VEHICLE_STATUS[r.v.status]?.label}</Pill>{r.paperTone !== "ok" && <Pill tone={r.paperTone === "bad" ? "bad" : "warn"} className="!h-[22px] !text-[11.5px]">{r.papers.length ? (r.paperTone === "bad" ? "Paper expired" : "Paper ending") : "No papers"}</Pill>}{(r.service.due || r.service.soon) && <Pill tone="warn" className="!h-[22px] !text-[11.5px]">{serviceWords(r.service)}</Pill>}</>,
               })}
               empty={q ? <Empty icon={Bus} title="No vehicle matches" body={`Nothing matches “${one(sp.q)}”.`} action={<ButtonLink href={HREF} variant="secondary">Clear search</ButtonLink>} />
-                : <Empty icon={Bus} title="No vehicles yet" body="Add each bus or van with its papers' expiry dates, so reminders go before they end." action={can.fleet ? <ButtonLink href={addQ(close, { do: "vehicle" })} scroll={false} variant="secondary" icon={Plus}>Add vehicle</ButtonLink> : undefined} />} />
+                : <Empty icon={Bus} title="No vehicles yet" body="Add each bus or van with its papers' expiry dates." action={can.fleet ? <ButtonLink href={addQ(close, { do: "vehicle" })} scroll={false} variant="secondary" icon={Plus}>Add vehicle</ButtonLink> : undefined} />} />
           </Card>
         )}
 
@@ -190,7 +190,7 @@ export default async function VehiclesPage({ searchParams }: { searchParams: Sea
                 empty={<Empty icon={ShieldCheck} title="Nothing ending" body={papersP.range ? `No paper or licence ends ${papersP.label.toLowerCase()}.` : "Every paper and licence is valid for the next 45 days."} />} />
             </Card>
             <Card className="overflow-hidden">
-              <CardHeader title="Papers of each vehicle" description="The current paper of each kind. Renewing keeps the old one on record." icon={ShieldCheck} />
+              <CardHeader title="Papers of each vehicle" icon={ShieldCheck} />
               <DataList rows={data.vehicles} rowKey={(r) => r.v.id} minWidth={760} caption="Papers by vehicle" rowHref={(r) => here({ show: r.v.id })}
                 columns={[
                   { key: "v", label: "Vehicle", render: (r) => <span className="font-semibold">{vName(r.v)}<span className="block text-[12px] text-ink3 font-mono font-normal">{showPlate(r.v.number)}</span></span> },

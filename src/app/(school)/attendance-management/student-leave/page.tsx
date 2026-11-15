@@ -98,8 +98,8 @@ export default async function StudentLeavePage({ searchParams }: Props) {
   const exportHref = `${path}/export?${new URLSearchParams(Object.entries(raw).filter((e): e is [string, string] => typeof e[1] === "string" && !["open", "page"].includes(e[0]))).toString()}`;
   const sub = ownOnly
     ? `${data.sections.filter((s) => access.classSections.includes(s.id)).map((s) => s.name).join(", ") || "Your class"} only · you decide up to ${data.settings.classTeacherLeaveDays} days; longer leave goes to the Principal`
-    : office ? "You record leave for parents, who have no login. Class teachers and the Principal decide."
-      : "Leave requests for students, recorded by staff when a parent calls, writes or messages";
+    : office ? "Class teachers and the Principal decide."
+      : "Recorded when a parent calls, writes or messages";
   const approvedDays = data.approvedMonth.reduce((a, l) => a + Number(l.days), 0);
   const o = data.open;
   const classes = ownOnly ? data.sections.filter((s) => access.classSections.includes(s.id)) : data.sections;
@@ -110,13 +110,13 @@ export default async function StudentLeavePage({ searchParams }: Props) {
         actions={canRecord && data.types.length > 0 ? (
           <RecordLeaveButton action={recordStudentLeaveAction} preview={previewStudentLeave} find={findStudents} today={isoDay(today)} defaultOpen={raw.record === "1"}
             types={data.types.map((t) => ({ value: t.id, label: t.name }))} placeholder={ownOnly ? "Name or admission no. in your class" : "Name or admission no."}
-            sub="For a parent who called, wrote or messaged. Parents have no login." />
+            sub="For a parent who called, wrote or messaged." />
         ) : undefined} />
 
       <div className="flex flex-col gap-5 lg:gap-6">
         {office && features.has(REASONS_FEATURE) && (
           <Banner tone="info" title="A parent called about an absence?" action={<Link href={`${BASE}/register/absences`} className={buttonClass("secondary", "sm")}><Words k="Open the absent list" /></Link>}>
-            <Words k="Record why the student was absent in the day's absent list. Record leave here when the parent asks for days off." />
+            <Words k="Record the reason in the day's absent list. Record leave here for days off." />
           </Banner>
         )}
         <Stats items={[

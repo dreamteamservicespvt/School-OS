@@ -34,7 +34,7 @@ function IsbnField({ start }: { start: string }) {
   const good = clean.length >= 10 && isbnValid(clean);
   const error = t.error ?? (bad ? ISBN_INVALID : undefined);
   return (
-    <FieldShell label="ISBN" id="book-isbn" error={error} help={good ? "Valid ISBN." : "10 or 13 digits from the back cover. Hyphens and spaces are fine. Leave empty if there is none."}>
+    <FieldShell label="ISBN" id="book-isbn" error={error} help={good ? "Valid ISBN." : "10 or 13 digits. Leave empty if there is none."}>
       <input key={t.key} id="book-isbn" name="isbn" defaultValue={t.value} onChange={(e) => setV(e.target.value)} inputMode="text" autoComplete="off" spellCheck={false} maxLength={20}
         aria-invalid={error ? true : undefined} aria-describedby={error ? "book-isbn-error" : "book-isbn-help"} placeholder="978-81-7371-146-6"
         className={cx(inputCls(error), "h-11 font-mono")} />
@@ -62,14 +62,14 @@ export function BookSheet({ closeHref, doneHref, categories, start, nextAccessio
       action={saveBookAction} submitLabel={editing ? "Save" : n > 1 ? `Add book and ${n} copies` : "Add book"} pendingText="Saving…" hidden={start ? { bookId: start.id } : undefined}>
       <IsbnField start={start?.isbn ?? ""} />
       <SText name="title" label="Title" required maxLength={300} start={start?.title} placeholder="Wings of Fire" />
-      <SText name="authors" label="Author(s)" required maxLength={300} start={start?.authors} placeholder="A. P. J. Abdul Kalam" help="Several authors: separate them with ; (semicolon). New names are added to the list." />
+      <SText name="authors" label="Author(s)" required maxLength={300} start={start?.authors} placeholder="A. P. J. Abdul Kalam" help="Several authors: separate them with ;" />
       <SText name="publisher" label="Publisher" maxLength={120} start={start?.publisher} placeholder="Optional" />
       <SSelect name="categoryId" label="Category" options={categories} placeholder="No category" start={start?.categoryId ?? ""} />
       {!editing && (
         <div className="grid grid-cols-[110px_1fr] gap-3 items-start">
           <CopiesField onCount={setN} />
           <SText name="accessions" label="Accession numbers" maxLength={2000} className="[&_input]:font-mono" placeholder={`From ${nextAccession}`}
-            help={`Empty: numbered in sequence from ${nextAccession}. Or type one per copy, separated by commas.`} />
+            help={`Empty: numbered from ${nextAccession}. Or type them, separated by commas.`} />
         </div>
       )}
       {!more ? (
@@ -94,14 +94,14 @@ export function AddCopiesSheet({ closeHref, bookId, title, nextAccession }: { cl
     <SheetForm title="Add copies" sub={title} closeHref={closeHref} action={addCopiesAction} submitLabel="Add copies" pendingText="Adding…" hidden={{ bookId }}>
       <SText name="copies" label="Number of copies" required type="number" min={1} max={200} start="1" className="max-w-[160px]" />
       <SText name="accessions" label="Accession numbers" maxLength={2000} className="[&_input]:font-mono" placeholder={`From ${nextAccession}`}
-        help={`Empty: numbered in sequence from ${nextAccession}. Or type one per copy, separated by commas.`} />
+        help={`Empty: numbered from ${nextAccession}. Or type them, separated by commas.`} />
     </SheetForm>
   );
 }
 
 export function WithdrawSheet({ closeHref, copyId, accession, title }: { closeHref: string; copyId: string; accession: string; title: string }) {
   return (
-    <SheetForm title={`Withdraw copy ${accession}`} sub={`${title}. It stays in the book's history; its number is never given again.`} closeHref={closeHref} action={withdrawCopyAction} submitLabel="Withdraw copy" submitVariant="danger" hidden={{ copyId }}>
+    <SheetForm title={`Withdraw copy ${accession}`} sub={`${title}. Its number is never given again.`} closeHref={closeHref} action={withdrawCopyAction} submitLabel="Withdraw copy" submitVariant="danger" hidden={{ copyId }}>
       <SArea name="reason" label="Reason" required maxLength={200} placeholder="For example: old and torn, replaced with a new copy" />
     </SheetForm>
   );
@@ -203,7 +203,7 @@ export function ToSalarySheet({ closeHref, fineId, words, name }: { closeHref: s
   return (
     <SheetForm title="Take from salary" sub={words} closeHref={closeHref} action={fineToSalaryAction} submitLabel="Take from salary" hidden={{ fineId }} pendingText="Saving…">
       <p className="text-[14px] text-ink2"><Words k="The fine is added as a deduction to" /> {name}<Words k="'s next salary worked out in Salary Management, with the fine number as the reason." /> {name} <Words k="is told." /></p>
-      <p className="text-[13px] text-ink3"><Words k="It shows as paid here when that salary is approved. It cannot be collected at the desk in the meantime, so it is never taken twice." /></p>
+      <p className="text-[13px] text-ink3"><Words k="It shows as paid when that salary is approved. Until then it cannot be collected at the desk." /></p>
     </SheetForm>
   );
 }
@@ -237,7 +237,7 @@ export function RejectChargeSheet({ closeHref, fineId, words }: { closeHref: str
 
 export function StartStockSheet({ closeHref, suggested }: { closeHref: string; suggested: string }) {
   return (
-    <SheetForm title="Start a stock check" sub="Scan every copy on the shelves, then close the check to see what is missing." closeHref={closeHref} action={startStockAction} submitLabel="Start stock check">
+    <SheetForm title="Start a stock check" sub="Scan every copy, then close the check." closeHref={closeHref} action={startStockAction} submitLabel="Start stock check">
       <SText name="name" label="Name" required maxLength={80} start={suggested} />
     </SheetForm>
   );

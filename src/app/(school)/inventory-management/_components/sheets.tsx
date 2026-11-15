@@ -68,7 +68,7 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
       <div className="flex items-center gap-3 rounded-xl border border-line px-4 py-3">
         <div className="min-w-0 flex-1 text-[14px]">
           <b className="font-semibold block"><Words k="Expiry tracking" /></b>
-          <span className="block text-[12.5px] text-ink3 mt-0.5"><Words k="For chemicals and perishables: stock is kept by batch, and expired stock cannot be issued." /></span>
+          <span className="block text-[12.5px] text-ink3 mt-0.5"><Words k="For chemicals and perishables. Expired stock cannot be issued." /></span>
         </div>
         <KeepCheck type="checkbox" name="tracksExpiry" checked={tracks} onChange={(e) => setTracks(e.target.checked)} className="size-5 accent-[var(--brand)]" aria-label="Expiry tracking" />
       </div>
@@ -95,7 +95,7 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
               <SDate name="expiresOn" label="Expiry date" help="Of the opening stock" />
             </div>
           )}
-          <p className="text-[12.5px] text-ink3"><Words k="Empty or 0: no stock yet. Stock comes in later with Stock in or a purchase order." /></p>
+          <p className="text-[12.5px] text-ink3"><Words k="Empty or 0: no stock yet." /></p>
         </fieldset>
       )}
       <SArea name="note" label="Note" maxLength={300} start={start?.note} placeholder="Optional" />
@@ -105,7 +105,7 @@ export function ItemSheet({ closeHref, doneHref, categories, units, stores, star
 
 export function ArchiveItemSheet({ closeHref, itemId, name }: { closeHref: string; itemId: string; name: string }) {
   return (
-    <SheetForm title={`Archive ${name}`} sub="Only an item with no stock left can be archived. Its movements stay; its code is never given again." closeHref={closeHref} action={archiveItemAction} submitLabel="Archive item" submitVariant="danger" hidden={{ itemId }}>
+    <SheetForm title={`Archive ${name}`} sub="Only an item with no stock left can be archived. Its code is never given again." closeHref={closeHref} action={archiveItemAction} submitLabel="Archive item" submitVariant="danger" hidden={{ itemId }}>
       <SArea name="reason" label="Reason" required maxLength={200} placeholder="For example: no longer stocked" />
     </SheetForm>
   );
@@ -163,7 +163,7 @@ export function StockOutSheet({ closeHref, items, stores, batches, start, today 
   const [kind, setKind] = useState(start.kind || "OUT");
   const itemBatches = batches.filter((b) => b.itemId === itemId && b.locationId === locId);
   return (
-    <SheetForm title={kind === "OUT" ? "Stock out" : "Write off stock"} sub={kind === "OUT" ? "Stock used up, for example cleaning material for the month." : "Damaged, lost or expired stock leaves the store with a reason. It is never deleted from the history."}
+    <SheetForm title={kind === "OUT" ? "Stock out" : "Write off stock"} sub={kind === "OUT" ? "Stock used up, for example cleaning material for the month." : "Damaged, lost or expired stock leaves the store with a reason."}
       closeHref={closeHref} action={stockOutAction} submitLabel={kind === "OUT" ? "Record stock out" : `Record as ${kind.toLowerCase()}`} submitVariant={kind === "OUT" ? "primary" : "danger"}>
       <SegField name="kind" label="What happened" start={start.kind || "OUT"} options={OUT_KINDS} onChange={setKind} />
       <div className="flex flex-col gap-1.5">
@@ -223,7 +223,7 @@ export function SetSheet({ closeHref, items, classes, start }: { closeHref: stri
   const [total, setTotal] = useState(0);
   const [unit] = useState(() => Object.fromEntries(items.map((i) => [i.value, Math.round((Number(i.price) || 0) * 100)])));
   return (
-    <SheetForm title={start ? `Change ${start.name}` : "Make a book set"} sub="Items issued together, for example a class's textbooks and notebooks, or a uniform set." closeHref={closeHref} action={saveSetAction} submitLabel="Save set" hidden={start ? { setId: start.id } : undefined} wide>
+    <SheetForm title={start ? `Change ${start.name}` : "Make a book set"} sub="For example a class's textbooks, or a uniform set." closeHref={closeHref} action={saveSetAction} submitLabel="Save set" hidden={start ? { setId: start.id } : undefined} wide>
       <SText name="name" label="Set name" required maxLength={80} start={start?.name} placeholder="Class 5 book set 2026-27" />
       <ItemLines items={items} start={start?.lines} minRows={2} unitPaise={unit} onTotal={setTotal} label="Items and quantities" help="At least 2 items." />
       <SMoney name="price" label="Set price" start={start?.price} placeholder={total ? (total / 100).toFixed(0) : ""} help={`Empty: the total of the item prices${total ? ` (₹${(total / 100).toLocaleString("en-IN")})` : ""}. Charged to the student's fees when issued.`} />
@@ -252,7 +252,7 @@ export function CategorySheet({ closeHref, heads, start }: { closeHref: string; 
       <SText name="name" label="Name" required maxLength={60} start={start?.name} placeholder="Stationery" />
       <SText name="defaultReorderLevel" label="Default reorder level" type="number" min={0} start={start?.reorder ?? "0"} help="Used by items with no level of their own. 0: no alert." />
       <SSelect name="expenseHeadId" label="Expense head in Finance" options={heads} start={start?.headId ?? ""} placeholder="As in Inventory Settings" help="Where bills for these items go." />
-      <SSwitch name="isLab" title="Lab stock" sub="Lab equipment and chemicals: shown under Lab stock, with expiry tracking on for new items." start={start?.isLab ?? false} />
+      <SSwitch name="isLab" title="Lab stock" sub="Lab equipment and chemicals, with expiry tracking." start={start?.isLab ?? false} />
     </SheetForm>
   );
 }

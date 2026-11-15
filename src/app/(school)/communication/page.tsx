@@ -160,16 +160,16 @@ export default async function SendMessagePage({ searchParams }: { searchParams: 
   return (
     <>
       <CommHead access={access} page="Send Message" href="/communication"
-        sub={access.full ? "By class, section, bus route or group. Count and cost shown before anything goes." : `Only the people you may message: ${scope.label}.`}
+        sub={access.full ? "Count and cost shown before anything goes." : `Only the people you may message: ${scope.label}.`}
         actions={<SendHeadActions full={access.full} groups={data.groups} canEmergency={access.canEmergency} />} />
       {!data.year && (
         <Banner tone="warn" className="mb-5" title="No academic year is open.">
-          <Words k="Parents and students are chosen by class and section of the current year. Open the year in" />{" "}
+          <Words k="To send to classes, open the year in" />{" "}
           <Link className="underline font-semibold" href="/academic-management"><Words k="Academic Management" /></Link><Words k=", or send to staff or chosen people for now." />
         </Banner>
       )}
       {scope.sectionIds !== "all" && data.year && data.sections.length === 0 && (
-        <Banner tone="info" className="mb-5"><Words k="You are not the teacher of any section this year, so you can send only to chosen people. Ask the office to send to a class." /></Banner>
+        <Banner tone="info" className="mb-5"><Words k="You can send only to chosen people. Ask the office to send to a class." /></Banner>
       )}
       <SendForm data={form} />
     </>

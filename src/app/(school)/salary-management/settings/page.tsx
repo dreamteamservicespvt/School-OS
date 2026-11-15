@@ -73,7 +73,7 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
 
   return (
     <div>
-      <SalaryHead pageName="Salary Settings" href={HREF} sub="Salary parts, PF, ESI and Professional Tax, approval steps and slip options. Rate changes apply from a month you choose and never change approved salaries." />
+      <SalaryHead pageName="Salary Settings" href={HREF} sub="Approved salaries never change." />
       <div className="grid xl:grid-cols-2 gap-5 lg:gap-6 items-start">
         <Col className="[&>*]:min-w-0">
           <Card>
@@ -155,7 +155,7 @@ export default async function SalarySettingsPage({ searchParams }: { searchParam
             <DL rows={[["TDS", "Typed in by the Accountant as a monthly amount on each structure. Not worked out by School OS."], ["PF statement", "EPFO ECR text file, each month"], ["ESI statement", "ESIC monthly contribution Excel file"]]} className="!grid-cols-1" />
           </Card>
           <Card>
-            <CardHeader title="Paid to the government" description="PF, ESI, Professional Tax and TDS taken from salary stay to pay until recorded paid" icon={Landmark}
+            <CardHeader title="Paid to the government" description="To pay until recorded paid" icon={Landmark}
               action={p.change ? <ButtonLink href={here({ do: "dues" })} scroll={false} size="sm" variant="ghost"><Words k="Change" /></ButtonLink> : null} />
             <DL rows={[["Track what is to pay", duesWord], ["Where", "Each paid month in Generate Salary, and Pending expenses in Finance Reports"]]} className="!grid-cols-1" />
           </Card>

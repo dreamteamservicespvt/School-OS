@@ -123,7 +123,7 @@ export function RecordLeaveForm({ action, preview, find, types, today, defaultOp
           <StudentPicker find={find} error={err("studentId")} fixed={fixedStudent} onPick={() => setTick((t) => t + 1)} />
           <SelectField label="Leave type" name="leaveTypeId" required options={types} defaultValue={f.val("leaveTypeId", medical)} error={err("leaveTypeId")} className="sm:col-span-2" />
           <TextField label="From date" name="from" type="date" required defaultValue={f.val("from", today)} error={err("from")} />
-          {!half && <TextField label="To date" name="to" type="date" required defaultValue={f.val("to", today)} error={err("to")} help="Days without school inside (Sundays, holidays, days off) are not counted." />}
+          {!half && <TextField label="To date" name="to" type="date" required defaultValue={f.val("to", today)} error={err("to")} help="Sundays and holidays are not counted." />}
           <CheckboxField label="Half day" name="halfDay" checked={half} onChange={(e) => setHalf(e.target.checked)} help="For one date only." className="sm:col-span-2" />
           <TextArea label="Reason" name="reason" required rows={2} maxLength={500} defaultValue={f.val("reason")} error={err("reason")} className="sm:col-span-2"
             help="For example: fever, the parent called at 8:10 AM." />
@@ -137,7 +137,7 @@ export function RecordLeaveForm({ action, preview, find, types, today, defaultOp
             const k = fieldOf(s);
             setChecked(k && s && !s.ok ? { field: k, message: s.message ?? "" } : null);
           }} />
-          {canApprove && <CheckboxField label="Approve now" name="approveNow" defaultChecked className="sm:col-span-2" help="You may decide this leave. Leave it ticked to approve it as you save; untick to send it to Approvals." />}
+          {canApprove && <CheckboxField label="Approve now" name="approveNow" defaultChecked className="sm:col-span-2" help="Untick to send it to Approvals instead." />}
         </div>
         );
       }}

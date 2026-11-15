@@ -105,7 +105,7 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
       {!state?.data?.matches && <FormProblem state={state} />}
       <TextField label="Child’s name" name="childName" required maxLength={120} placeholder="First and last name" autoComplete="off" defaultValue={val("childName", saved?.childName)} error={err("childName")} />
       <TextField label="Parent’s name" name="parentName" required maxLength={120} placeholder="Father, mother or guardian" autoComplete="off" defaultValue={val("parentName", saved?.parentName)} error={err("parentName")} />
-      <PhoneField label="Phone" name="phone" required defaultValue={val("phone", saved?.phone)} error={err("phone")} onBlur={check} help="We check for a matching family when you leave this box" />
+      <PhoneField label="Phone" name="phone" required defaultValue={val("phone", saved?.phone)} error={err("phone")} onBlur={check} help="We look for a matching family" />
       <DuplicateBox matches={matches} pick={pick} onSibling={() => setPick("sibling")} onNewFamily={mode === "add" ? () => setPick("new") : undefined} onCancel={() => { setTyped([]); onCancel(); }} siblingLabel={mode === "add" ? "Add as sibling enquiry" : "Save anyway"} />
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <SelectField label="Class wanted" name="classId" options={c.classes} placeholder="Not decided" value={classId} onChange={(e) => setClassId(e.target.value)} error={err("classId")} />
@@ -115,16 +115,16 @@ function EnquiryForm({ c, saved, onDone, onCancel }: { c: EnquiryChoices; saved?
         <>
           {others.length === 0 || segSources.length < 2 ? (
             segSources.length >= 2 && others.length === 0
-              ? <SegField name="source" label="Source" required size="sm" options={c.sources.map((s) => ({ value: s.value, label: s.label }))} defaultValue={val("source", c.defaultSource) ?? ""} help="Kept as first recorded. Changing it later needs a reason." />
-              : <SelectField label="Source" name="source" required options={c.sources} defaultValue={val("source", c.defaultSource)} error={err("source")} help="Kept as first recorded. Changing it later needs a reason." />
+              ? <SegField name="source" label="Source" required size="sm" options={c.sources.map((s) => ({ value: s.value, label: s.label }))} defaultValue={val("source", c.defaultSource) ?? ""} help="Changing it later needs a reason." />
+              : <SelectField label="Source" name="source" required options={c.sources} defaultValue={val("source", c.defaultSource)} error={err("source")} help="Changing it later needs a reason." />
           ) : (
             <div className="flex flex-col gap-2">
               <SegField name={segSources.includes(source) ? "source" : "_source"} label="Source" required size="sm"
                 options={[...segSources.map((s) => ({ value: s, label: c.sources.find((x) => x.value === s)!.label })), { value: "_other", label: "Other" }]}
                 defaultValue={segSources.includes(source) ? source : "_other"} onChange={(v) => setSource(v === "_other" ? others[0].value : v)}
-                help={segSources.includes(source) ? "Kept as first recorded. Changing it later needs a reason." : undefined} />
+                help={segSources.includes(source) ? "Changing it later needs a reason." : undefined} />
               {!segSources.includes(source) && (
-                <SelectField label="Other source" name="source" options={others} value={source} onChange={(e) => setSource(e.target.value)} error={err("source")} help="Kept as first recorded. Changing it later needs a reason." />
+                <SelectField label="Other source" name="source" options={others} value={source} onChange={(e) => setSource(e.target.value)} error={err("source")} help="Changing it later needs a reason." />
               )}
             </div>
           )}
@@ -163,7 +163,7 @@ export function AddEnquiryButton({ c, variant = "primary", label = "Add enquiry"
   return (
     <>
       <Button variant={variant} size={size} icon={Plus} className={className} onClick={() => { setRound((r) => r + 1); setOpen(true); }}>{label}</Button>
-      <Dialog open={open} onClose={() => setOpen(false)} title="Add enquiry" sub="The basics now. Add the rest later from the enquiry.">
+      <Dialog open={open} onClose={() => setOpen(false)} title="Add enquiry" sub="The basics now. The rest later.">
         <EnquiryForm key={round} c={c} onCancel={() => setOpen(false)} onDone={(id) => { setOpen(false); router.push(`/admission-management/enquiries?id=${id}`); }} />
       </Dialog>
     </>

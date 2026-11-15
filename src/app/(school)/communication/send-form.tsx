@@ -348,7 +348,7 @@ export function SendForm({ data }: { data: SendFormData }) {
           {/* 1. Who */}
           <Card>
             <CardHeader title="1. Who gets it" icon={Users}
-              description={data.full ? "Pick one group. Anyone who opted out is left out, except in an emergency." : "Only the people you are allowed to message are offered."} />
+              description={data.full ? "Opted-out people are left out, except in an emergency." : "Only people you may message."} />
             <div className="px-5 pb-5 flex flex-col gap-4">
               <div className={cx("grid gap-2", audOptions.length > 3 ? "grid-cols-2 md:grid-cols-4" : audOptions.length === 1 ? "grid-cols-1" : "grid-cols-2 md:grid-cols-3")} role="radiogroup" aria-label="Who gets it" id="send-who" tabIndex={-1}>
                 {audOptions.map((a) => {
@@ -467,7 +467,7 @@ export function SendForm({ data }: { data: SendFormData }) {
 
           {/* 2. What and how */}
           <Card>
-            <CardHeader title="2. What and how" icon={MessageSquareText} description={SMS_OFFERED ? "WhatsApp first. SMS needs an approved template with a DLT template ID." : "WhatsApp first."} />
+            <CardHeader title="2. What and how" icon={MessageSquareText} description={SMS_OFFERED ? "WhatsApp first. SMS needs a template with a DLT ID." : "WhatsApp first."} />
             <div className="px-5 pb-5 flex flex-col gap-4">
               <div>
                 <p className="text-[13px] font-semibold text-ink2 mb-1.5"><Words k="Send by" /> <span className="text-bad" aria-hidden="true">*</span></p>
@@ -586,7 +586,7 @@ export function SendForm({ data }: { data: SendFormData }) {
                 </div>
               )}
               {!isStaff && (
-                <p className="text-[12.5px] text-ink3"><Words k="Language: each parent gets a template in their own language when the template has that version; a typed message goes as written" />{data.translate && needsText ? ", unless you translate it above" : ""}.</p>
+                <p className="text-[12.5px] text-ink3"><Words k="Each parent gets the template in their language, if it has one; typed text goes as written" />{data.translate && needsText ? ", unless you translate it above" : ""}.</p>
               )}
             </div>
           </Card>
@@ -704,7 +704,7 @@ export function SendForm({ data }: { data: SendFormData }) {
         </>}>
         {testWords && (
           <Banner tone="warn" icon={FlaskConical} className="mb-3" title={`${testWords}.`}>
-            <Words k="Nobody will receive this message. It is only recorded in Message History, and no credits are used." />
+            <Words k="Nobody will receive this. It is only recorded, and no credits are used." />
           </Banner>
         )}
         <ul className="flex flex-col gap-2.5 text-[14px] pb-1">

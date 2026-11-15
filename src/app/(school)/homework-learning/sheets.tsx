@@ -93,7 +93,7 @@ export function GiveSheet({ closeHref, sections, own, today, defaultMax, onlineO
   });
 
   return (
-    <SheetForm title="Give homework" sub="Three steps: class, what to do, send. Due date is filled for you." closeHref={closeHref} action={giveHomeworkAction}
+    <SheetForm title="Give homework" closeHref={closeHref} action={giveHomeworkAction}
       submitLabel={<><Send size={16} aria-hidden="true" />{`Send to ${to === "CLASS" && sameClass.length > 1 ? `all of ${section.className}` : section.label}`}</>} pendingText="Sending…"
       hidden={{ sectionId: section.id, subjectId: subject.id, dueDate, due, givenTo: to, fromSuggestion: fromSuggestion ? "1" : "" }}>
       <FieldShell label="1 · Class" id="gh-class" required help="Only your classes that have students are shown" error={classError}>
@@ -249,7 +249,7 @@ export function EditSheet({ closeHref, hw, files, onlineOn }: {
 export function ArchiveSheet({ closeHref, id, title }: { closeHref: string; id: string; title: string }) {
   return (
     <SheetForm title={`Archive “${title}”?`} closeHref={closeHref} action={archiveHomeworkAction} submitLabel="Archive homework" pendingText="Archiving…" hidden={{ id }}>
-      <p className="text-[14px] text-ink2"><Words k="It leaves the lists for students, parents and teachers. Hand-ins and marks are kept, and you can undo it from the message that follows, or find it in History with Archived." /></p>
+      <p className="text-[14px] text-ink2"><Words k="It leaves the lists. Hand-ins and marks are kept. You can undo it from the message that follows." /></p>
     </SheetForm>
   );
 }

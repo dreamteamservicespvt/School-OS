@@ -47,15 +47,15 @@ export default async function DesignPage({ params }: Params) {
           <span><Words k="Printed by" /> {t.usedBy}</span>
         </div>
       </PageHeader>
-      {!canEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2"><Words k="You can see this design and preview it with real records. The School Admin changes it." /></p>}
+      {!canEdit && <p className="mb-4 rounded-xl bg-surface-2 p-3 text-sm text-ink-2"><Words k="You can preview this design. The School Admin changes it." /></p>}
       <DesignEditor type={t} fields={allFields(t)} initial={{ base: design.base, options: design.options }}
         signatories={signatories.map((s) => ({ id: s.id, name: s.name, title: s.title }))} canEdit={canEdit} recordKinds={[...recordKinds]} />
 
       <Card className="mt-6">
-        <CardHeader title="Versions" description="Every save is kept. Use an earlier version again at any time; it is saved as a new version." />
+        <CardHeader title="Versions" description="Every save is kept. Use any earlier one again." />
         <CardBody>
           {versions.length === 0 ? (
-            <p className="text-ink-2"><Words k="Not changed yet. Documents use the ready Classic design until you save." /></p>
+            <p className="text-ink-2"><Words k="Not changed yet. The Classic design is used." /></p>
           ) : (
             <ul className="divide-y divide-line">
               {versions.map((v) => (

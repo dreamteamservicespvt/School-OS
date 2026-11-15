@@ -71,7 +71,7 @@ export default async function EditStudentSection({ params }: { params: Promise<{
               {can.seeRestricted && (
                 <div className="space-y-2 sm:col-span-2">
                   <FormText name="aadhaar" label="Aadhaar number" inputMode="numeric" autoComplete="off"
-                    help={s.aadhaarEnc ? `On record: ${p.identifiers.find((i) => i.key === "aadhaar")?.value ?? "hidden"}. Leave empty to keep it.` : "Kept private and locked. Screens show only the last 4 digits."} />
+                    help={s.aadhaarEnc ? `On record: ${p.identifiers.find((i) => i.key === "aadhaar")?.value ?? "hidden"}. Leave empty to keep it.` : "Kept private. Only the last 4 digits show."} />
                   {s.aadhaarEnc && <FormCheck name="keepAadhaar" label="Keep the Aadhaar number on record when the box is empty" defaultChecked />}
                 </div>
               )}
@@ -83,14 +83,14 @@ export default async function EditStudentSection({ params }: { params: Promise<{
               <FormText name="city" label="City" defaultValue={s.city} />
               <FormText name="state" label="State" defaultValue={s.state} />
               <FormText name="pinCode" label="PIN code" inputMode="numeric" defaultValue={s.pinCode} />
-              <FormArea name="permanentAddress" label="Permanent address" rows={2} defaultValue={p.permanentAddress} className="sm:col-span-2" help="Leave empty when it is the same as the current address." />
+              <FormArea name="permanentAddress" label="Permanent address" rows={2} defaultValue={p.permanentAddress} className="sm:col-span-2" help="Leave empty if it is the same." />
               <FormText name="studentPhone" label="Student's phone" type="tel" inputMode="numeric" defaultValue={p.studentPhone} />
               <FormText name="studentEmail" label="Student's email" type="email" defaultValue={p.studentEmail} />
             </ActionForm>
           )}
           {section === "enrolment" && (
             <ActionForm action={saveEnrolmentAction.bind(null, id)} submitLabel="Save enrolment details" pendingText="Saving…" footer={cancel} className="grid gap-4 sm:grid-cols-2">
-              <FormText name="admissionNo" label="Admission number" required defaultValue={s.admissionNo} help="Must be unique in the school. The old number is kept in the history." />
+              <FormText name="admissionNo" label="Admission number" required defaultValue={s.admissionNo} help="Must be unique. The old number is kept." />
               <FormText name="admissionDate" label="Admission date" type="date" defaultValue={iso(s.joiningDate)} />
               <FormText name="rollNo" label="Roll number" inputMode="numeric" defaultValue={p.now?.rollNo ?? ""} disabled={!p.now} help={p.now ? `In ${p.now.section?.schoolClass.name} ${p.now.section?.name}.` : "The student has no class this year."} />
               <div className="text-[13.5px] text-ink2 sm:col-span-2">
@@ -131,7 +131,7 @@ export default async function EditStudentSection({ params }: { params: Promise<{
                   </div>
                 );
               })}
-              <p className="text-[13.5px] text-ink2 sm:col-span-2"><Words k="Aadhaar is changed with the personal details. Identifier types are set in Student Settings." /></p>
+              <p className="text-[13.5px] text-ink2 sm:col-span-2"><Words k="Aadhaar is changed with the personal details." /></p>
             </ActionForm>
           )}
           {section === "extra" && (

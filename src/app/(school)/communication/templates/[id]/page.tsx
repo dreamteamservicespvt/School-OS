@@ -93,8 +93,8 @@ export default async function TemplatePage({ params, searchParams }: { params: P
 
       <div className="flex flex-col gap-5 lg:gap-6">
         {t.archivedAt && <Banner tone="info" title={`Archived on ${formatDateTime(t.archivedAt, tz)}.`}><Words k="It cannot be chosen for new messages." /></Banner>}
-        {missingDlt && <Banner tone="bad" title="No DLT template ID."><Words k="This SMS template cannot send SMS yet. DREAM TEAM registers the text on the DLT portal and adds its ID." /></Banner>}
-        {isWa && data.provider === "sandbox" && <Banner tone="info" title="WhatsApp is in test mode."><Words k="A template sent for approval is approved straight away. Once DREAM TEAM connects WhatsApp, it goes to WhatsApp for real." /></Banner>}
+        {missingDlt && <Banner tone="bad" title="No DLT template ID."><Words k="DREAM TEAM must add its DLT ID before it can send SMS." /></Banner>}
+        {isWa && data.provider === "sandbox" && <Banner tone="info" title="WhatsApp is in test mode."><Words k="Templates are approved at once here. Once DREAM TEAM connects WhatsApp, they go to WhatsApp for real." /></Banner>}
         {v?.whatsappStatus === "REJECTED" && <Banner tone="warn" title="WhatsApp rejected this text.">{v.whatsappNote ? `“${v.whatsappNote}” ` : ""}<Words k="Change the wording with Edit and send it again." /></Banner>}
         <Split side={340}>
           <Card className="min-w-0">
@@ -118,7 +118,7 @@ export default async function TemplatePage({ params, searchParams }: { params: P
                 </div>
                 {readyWords && (
                   <div className="rounded-xl border border-warn/40 bg-warn/12 p-3.5 flex flex-col gap-3">
-                    <p className="text-[14px] text-ink2"><b className="font-semibold text-ink"><Words k="These are the first words School OS gave this template." /></b> <Words k="WhatsApp would refuse them. Make it ready to save today's words as a new version; the old version stays on record." /></p>
+                    <p className="text-[14px] text-ink2"><b className="font-semibold text-ink"><Words k="These are the first words School OS gave this template." /></b> <Words k="WhatsApp would refuse them. Making it ready saves a new version; the old one stays." /></p>
                     <div>
                       <p className="eyebrow text-ink3 mb-1.5"><Words k="New words" /></p>
                       <div className="rounded-xl bg-surface border border-line p-3 text-[14px] leading-relaxed whitespace-pre-line break-words"><BlankText text={readyWords} /></div>

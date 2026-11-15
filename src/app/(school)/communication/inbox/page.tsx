@@ -42,7 +42,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
   const on = current.features.has(COMM_FEATURES.inbox);
   const head = (
     <CommHead access={access} page="WhatsApp Inbox" href="/communication/inbox"
-      sub={full ? "All school WhatsApp chats in one place. Each staff member sees the chats given to them." : "Only chats given to you. The office can pass a chat to you."} />
+      sub={full ? "All school WhatsApp chats in one place." : "Only chats given to you."} />
   );
   if (!on) {
     return (
@@ -50,7 +50,7 @@ export default async function InboxPage({ searchParams }: { searchParams: Search
         {head}
         <Card><EmptyState Icon={Inbox} title="WhatsApp Inbox is switched off"
           action={full ? <ButtonLink href="/communication/settings" icon={Settings2}><Words k="Message Settings" /></ButtonLink> : undefined}>
-          {full ? "Switch it on under Optional pages in Message Settings once WhatsApp Business is connected." : "The Principal or School Admin can switch it on."}
+          {full ? "Switch it on in Message Settings once WhatsApp Business is connected." : "The Principal or School Admin can switch it on."}
         </EmptyState></Card>
       </>
     );

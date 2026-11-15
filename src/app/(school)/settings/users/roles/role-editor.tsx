@@ -54,17 +54,17 @@ export function RoleEditor({ id, name, kind, permissions, requiresTwoStep, sensi
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Role name" name="name" required value={roleName} disabled={nameLocked || readOnly} maxLength={60}
             onChange={(e) => { setRoleName(e.target.value); setNameError(null); }} onBlur={(e) => setNameError(e.target.value.trim() ? null : "Role name is needed.")}
-            error={nameError ?? state?.errors?.name} help={nameLocked ? "Ready roles and role templates keep their names. Copy the role to make one with another name." : "For example: Fee Clerk, Exam Cell, Lab Assistant."} />
+            error={nameError ?? state?.errors?.name} help={nameLocked ? "Ready roles keep their names. Copy it to use another name." : "For example: Fee Clerk, Exam Cell, Lab Assistant."} />
           {nameLocked && <input type="hidden" name="name" value={roleName} />}
           <label className="flex min-h-11 items-start gap-3 self-end rounded-lg border border-line px-3 py-2">
             <KeepCheck type="checkbox" name="requiresTwoStep" checked={twoStep} disabled={readOnly} onChange={(e) => setTwoStep(e.target.checked)} className="mt-0.5 size-5 accent-brand" />
-            <span><span className="font-medium"><Words k="Needs two-step login" /></span><span className="block text-sm text-ink-2"><Words k="A one-time code at every sign-in. Turn on for roles that handle money or every record." /></span></span>
+            <span><span className="font-medium"><Words k="Needs two-step login" /></span><span className="block text-sm text-ink-2"><Words k="A code at every sign-in. For roles that handle money or all records." /></span></span>
           </label>
         </div>
 
         <fieldset>
           <legend className="mb-1 font-medium"><Words k="Sensitive fields this role may see" /></legend>
-          <p className="mb-2 text-sm text-ink-2"><Words k="Hidden everywhere from a role that may not see them: on screen, in exports, in Search and in AI answers. Only the levels this role may have are offered." /></p>
+          <p className="mb-2 text-sm text-ink-2"><Words k="Hidden everywhere from a role that may not see them, including exports and Search." /></p>
           {state?.errors?.sensitiveFields && <p className="mb-2 text-sm text-danger">{state.errors.sensitiveFields}</p>}
           <div className="grid gap-2 sm:grid-cols-2">
             {sensitiveOptions.map((o) => (

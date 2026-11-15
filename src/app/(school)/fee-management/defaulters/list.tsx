@@ -222,13 +222,13 @@ function ReminderSheet({ list, onClose, onSent, templates, gateway }: { list: De
             options={[...opts, ...(channel === "sms" ? [] : [{ value: OWN, label: "Write my own message" }])]} placeholder={opts.length || channel !== "sms" ? undefined : "No approved SMS template"} />
         </div>
         {ownWording && channel !== "sms" && (
-          <TextArea name="text" label="Message" rows={3} value={text} onChange={(e) => setText(e.target.value)} help="Words in { } fill in by themselves for each parent: {guardian_name} becomes the parent’s name, {due_amount} their dues. You can also use {student_name}, {class}, {due_date}, {how_to_pay}, {link} and {school_name}. Do not change the words inside { }." />
+          <TextArea name="text" label="Message" rows={3} value={text} onChange={(e) => setText(e.target.value)} help="Words in { } fill in by themselves: {guardian_name}, {due_amount}, {student_name}, {class}, {due_date}, {how_to_pay}, {link}, {school_name}. Do not change them." />
         )}
         {channel === "sms" && opts.length === 0 && <Alert tone="warning"><Words k="SMS needs an approved template. Add one in Communication, Templates (category Fees), or choose WhatsApp." /></Alert>}
         <div className="rounded-2xl border border-line divide-y divide-line/70">
           {gateway
-            ? <SettingRow title="Add the payment link" sub="Parents with a Parent Link get it, with its Pay button; others a Razorpay link for their exact dues, valid 7 days. Off: pay at the school office."><Switch on={link} onChange={setLink} label="Add the payment link" /></SettingRow>
-            : <SettingRow title="Payment link" sub="Online payment is not set up, so no payment link is added. DREAM TEAM connects Razorpay for the school; tell DREAM TEAM support." />}
+            ? <SettingRow title="Add the payment link" sub="A link to pay online, valid 7 days. Off: pay at the school office."><Switch on={link} onChange={setLink} label="Add the payment link" /></SettingRow>
+            : <SettingRow title="Payment link" sub="Online payment is not set up. Ask DREAM TEAM support." />}
           <SettingRow title="Send" sub={when === "now" ? "Goes out now" : "Goes out tomorrow at 9:00 AM"}><Segmented size="sm" label="When" value={when} onChange={setWhen} options={[{ value: "now", label: "Now" }, { value: "later", label: "Tomorrow 9 AM" }]} /></SettingRow>
         </div>
         <div>

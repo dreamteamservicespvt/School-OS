@@ -86,7 +86,7 @@ function Time({ name, label, start, readOnly, err }: { name: string; label: stri
 export function TimingsForm({ start, readOnly }: { start: TimingsStart; readOnly: boolean }) {
   const [days, setDays] = useState<number[]>(start.visitingDays);
   return (
-    <Box title="Timings" description="Roll call times, the outing back-by time and visiting hours. Times are in the school's time zone." action={saveTimingsAction} readOnly={readOnly} saveLabel="Save timings">
+    <Box title="Timings" description="Times are in the school's time zone." action={saveTimingsAction} readOnly={readOnly} saveLabel="Save timings">
       {(v, err) => (
         <div className="divide-y divide-line/70">
           <Row title="Morning roll call" htmlFor="hs-morning"><Time name="morning" label="Morning roll call" start={v("morning", start.morning)} readOnly={readOnly} err={err("morning")} /></Row>
@@ -120,12 +120,12 @@ export function TimingsForm({ start, readOnly }: { start: TimingsStart; readOnly
 
 export function MealsForm({ meals, readOnly }: { meals: string[]; readOnly: boolean }) {
   return (
-    <Box title="Meals" description="The meals of the day, in order. Used by the menu and the head count." action={saveMealsAction} readOnly={readOnly} saveLabel="Save meals">
+    <Box title="Meals" description="The meals of the day, in order." action={saveMealsAction} readOnly={readOnly} saveLabel="Save meals">
       {(v, err) => (
         <div className="px-5 py-4 flex flex-col gap-1.5">
           <label htmlFor="hs-meals" className="text-[13px] font-semibold text-ink2"><Words k="Meals, separated by commas" /></label>
           <input id="hs-meals" name="meals" defaultValue={v("meals", meals.join(", "))} maxLength={200} disabled={readOnly} aria-invalid={err("meals") ? true : undefined} className={cx(inputCls(err("meals")), "h-11")} />
-          {err("meals") ? <p className="text-[12.5px] text-bad">{err("meals")}</p> : <p className="text-[12.5px] text-ink3"><Words k="For example: Breakfast, Lunch, Snacks, Dinner. Menus already set for a meal you remove are kept." /></p>}
+          {err("meals") ? <p className="text-[12.5px] text-bad">{err("meals")}</p> : <p className="text-[12.5px] text-ink3"><Words k="For example: Breakfast, Lunch, Snacks, Dinner." /></p>}
         </div>
       )}
     </Box>
@@ -136,7 +136,7 @@ export type MessagesStart = { messageOnOut: boolean; messageOnReturn: boolean; m
 
 export function MessagesForm({ start, readOnly }: { start: MessagesStart; readOnly: boolean }) {
   return (
-    <Box title="Parent messages and alerts" description="Parents get a message on their preferred channel through Communication. Alerts go to the warden and the Principal." action={saveMessagesAction} readOnly={readOnly} saveLabel="Save messages">
+    <Box title="Parent messages and alerts" description="Alerts go to the warden and the Principal." action={saveMessagesAction} readOnly={readOnly} saveLabel="Save messages">
       {() => (
         <div className="divide-y divide-line/70">
           <Toggle name="messageOnOut" title="Tell parents when their child goes out" start={start.messageOnOut} readOnly={readOnly} />

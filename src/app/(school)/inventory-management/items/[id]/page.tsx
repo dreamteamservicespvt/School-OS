@@ -93,7 +93,7 @@ export default async function ItemPage({ params, searchParams }: { params: Promi
     <>
       <RecordTitle name={itemLabel(item)} /><InvHead pageName={itemLabel(item)} href={self} mode={p.mode} actions={actions} sub={<><Link href={`${BASE}/items`} className="hover:underline"><Words k={"Items & Stock"} /></Link> · <span className="font-semibold text-ink">{itemLabel(item)}</span> · <span className="font-mono">{item.code}</span></>} />
       <Stack>
-        {archived && <Banner tone="info" title="Archived"><Words k="This item is archived. Its history stays; its code is never given again." /></Banner>}
+        {archived && <Banner tone="info" title="Archived"><Words k="This item is archived. Its code is never given again." /></Banner>}
         <Stats items={[
           { label: "In stock", value: qtyWords(total, item.unit), tone: state === "OUT" ? "bad" : state === "LOW" ? "warn" : undefined },
           { label: "Reorder level", value: reorder ? reorder.toLocaleString("en-IN") : "None", sub: item.reorderLevel === null ? "From the category" : "This item's own" },

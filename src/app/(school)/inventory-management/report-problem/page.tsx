@@ -66,7 +66,7 @@ export default async function ReportProblemPage({ searchParams }: { searchParams
 
   return (
     <div>
-      <PageHeader title="Report a problem" href={SELF} userId={current.user.id} sub="Something broken or not working? Send it with a photo. The store keeper is told." />
+      <PageHeader title="Report a problem" href={SELF} userId={current.user.id} sub="Send it with a photo. The store keeper is told." />
       <Stack>
         {!d.staff ? (
           <Banner tone="info" title="Only staff members report problems here"><Words k="Ask a staff member to report it." /></Banner>

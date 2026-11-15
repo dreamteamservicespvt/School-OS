@@ -359,7 +359,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
     const busy = days.map((d) => ({ d, people: data.leaves.filter((l) => l.fromDate <= d && l.toDate >= d) })).filter((x) => x.people.length || data.holidays.get(isoDay(x.d))?.reason === "holiday");
     return (
       <Card>
-        <CardHeader title={`Who is on leave, ${monthLabel(from)}`} description="Approved leave, and leave waiting for a decision (marked)."
+        <CardHeader title={`Who is on leave, ${monthLabel(from)}`}
           action={<div className="flex gap-2"><ButtonLink size="sm" href={q(prev)}><Words k="‹ Previous" /></ButtonLink><ButtonLink size="sm" href={q(next)}><Words k="Next ›" /></ButtonLink></div>} />
         <CardBody className="space-y-4">
           {data.departments.length > 1 && (
@@ -418,7 +418,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
     const paid = base.types.filter((t) => t.paid);
     return (
       <Card>
-        <CardHeader title={`Leave balances, ${yearLabel(data.year)}`} description="Days left of each leave type. Adjust a balance with a reason; every change is kept."
+        <CardHeader title={`Leave balances, ${yearLabel(data.year)}`} description="Days left of each leave type"
           action={canHr ? <CarryForwardForm years={data.years.map((y) => ({ value: y.id, label: yearLabel(y) }))} action={carryForwardAction} /> : undefined} />
         <CardBody>
           {data.years.length > 1 && (
@@ -453,7 +453,7 @@ export default async function StaffLeavePage({ searchParams }: Props) {
               </tbody>
             </table>
           </div>
-          <p className="mt-3 text-sm text-ink-2"><Words k="Shown as days left / days given for the year. Days beyond the balance are loss of pay where HR Settings allow it." /></p>
+          <p className="mt-3 text-sm text-ink-2"><Words k="Days left / days given. Days beyond the balance can be loss of pay." /></p>
         </CardBody>
       </Card>
     );

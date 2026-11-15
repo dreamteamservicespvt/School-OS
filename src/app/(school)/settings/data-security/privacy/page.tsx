@@ -82,12 +82,12 @@ export default async function PrivacyPage({ searchParams }: Search) {
     <div className="space-y-5">
       <h2 className="sr-only"><Words k="Privacy" /></h2>
       <Card>
-        <CardHeader title="How long records are kept" description="Under the DPDP Act 2023, personal data is kept only as long as it is needed. Some records must be kept by law." />
+        <CardHeader title="How long records are kept" description="DPDP Act 2023: personal data is kept only as long as needed." />
         <CardBody><RetentionForm rules={data.rules} canEdit={canEdit} /></CardBody>
       </Card>
 
       <Card id="retention">
-        <CardHeader title="Records past their keeping period" description="Every night School OS looks for records older than the periods above. They are listed here for the School Admin; nothing is cleared until you say yes. Clearing removes the personal details and keeps the record." />
+        <CardHeader title="Records past their keeping period" description="Checked every night. Nothing is cleared until you say yes; clearing removes personal details only." />
         <CardBody className="space-y-4">
           {data.retention.waiting ? (() => {
             const due = data.retention.waiting.due as Due;
@@ -104,7 +104,7 @@ export default async function PrivacyPage({ searchParams }: Search) {
           })() : (
             <p className="text-ink-2">{data.retention.latest ? `Nothing is past its period. Last checked ${formatDate(data.retention.latest.runOn, tz)}.` : "The first check runs tonight."}</p>
           )}
-          <p className="text-sm text-ink-2"><Words k="Never cleared here:" /> {NEVER_CLEARED.join("; ")}<Words k=". One-time codes older than 30 days and full data exports whose link has expired are cleared by themselves." /></p>
+          <p className="text-sm text-ink-2"><Words k="Never cleared here:" /> {NEVER_CLEARED.join("; ")}<Words k=". Old one-time codes and expired exports clear by themselves." /></p>
           {data.retention.history.length > 0 && (
             <>
               <h3 className="pt-2 font-semibold"><Words k="What was cleared" /></h3>
@@ -126,10 +126,10 @@ export default async function PrivacyPage({ searchParams }: Search) {
       </Card>
 
       <Card id="deletion">
-        <CardHeader title="A person's data" description="When a parent, student or staff member asks to see or remove their data. Removal needs approval and is written to the audit log." />
+        <CardHeader title="A person's data" description="Requests to see or remove data. Removal needs approval." />
         <CardBody className="space-y-4">
           {types.length === 0 ? (
-            <p className="text-ink-2"><Words k="Your role cannot see student or staff records, so you cannot look a person up here." /></p>
+            <p className="text-ink-2"><Words k="Your role cannot see student or staff records." /></p>
           ) : (
             <form method="get" action="/settings/data-security/privacy#deletion" className="flex flex-wrap items-end gap-2">
               <div>

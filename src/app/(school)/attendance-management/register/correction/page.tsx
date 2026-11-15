@@ -70,18 +70,17 @@ export default async function CorrectionPage({ searchParams }: Props) {
 
   return (
     <>
-      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register/correction`} sub="Request a correction: the principal approves it, and the old marks are kept"
+      <AttHead access={access} features={features} userId={current.user.id} href={`${BASE}/register/correction`} sub="The principal approves it. Old marks are kept."
         actions={<ButtonLink href={back} icon={ArrowLeft}><Words k="Back to the" /> {forWhom === "staff" ? "staff attendance" : "register"}</ButtonLink>} />
 
       {forWhom === "staff" && access.staff !== "all" ? (
         <Banner tone="bad" title="Not for your role."><Words k="Only HR, the School Admin or the Principal can correct staff attendance. Ask them if your own attendance is wrong." /></Banner>
       ) : forWhom === "student" && data.sections.length === 0 ? (
-        <EmptyState title="No classes to correct" Icon={Users}><Words k="Only the class teacher corrects a class's attendance. Subject teachers can see the register; ask the class teacher to correct a mark." /></EmptyState>
+        <EmptyState title="No classes to correct" Icon={Users}><Words k="Only the class teacher corrects a class's attendance. Ask them to correct a mark." /></EmptyState>
       ) : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_20rem]">
           <Card>
-            <CardHeader title={forWhom === "staff" ? `Staff attendance, ${dayText(date)}` : `${data.section?.name ?? ""}, ${dayText(date)}${periodNo ? `, period ${periodNo}` : ""}`}
-              description="The request goes to Approvals. When it is approved the register changes, and the old marks are kept." />
+            <CardHeader title={forWhom === "staff" ? `Staff attendance, ${dayText(date)}` : `${data.section?.name ?? ""}, ${dayText(date)}${periodNo ? `, period ${periodNo}` : ""}`} />
             <CardBody>
               <UrlFilters fields={[
                 ...(forWhom === "student" ? [{ name: "section", label: "Class and section", type: "select" as const, value: data.section?.id ?? "", options: data.sections.map((s) => ({ value: s.id, label: s.name })) }] : []),

@@ -120,7 +120,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
             {data.staffAllowed && <label className="flex min-h-11 items-center gap-2"><input type="checkbox" name="staff" checked={staff} onChange={(e) => setStaff(e.target.checked)} className={box} /><Words k="Staff" /></label>}
           </div>
           {err("audience") && <p className="mt-1.5 text-[12.5px] text-bad">{err("audience")}</p>}
-          {parents && <p className="text-sm text-ink3"><Words k="Parents see it on their Parent Link, and by message on the channels chosen below." /></p>}
+          {parents && <p className="text-sm text-ink3"><Words k="Parents see it on Parent Link and by message." /></p>}
         </fieldset>
         {(parents || students) && data.classes.length > 0 && (
           <fieldset>
@@ -170,7 +170,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
               </label>
             ))}
           </div>
-          {priority === "CRITICAL" && <p className="mt-2 text-sm text-bad"><Words k="A Critical notice is pinned at the top of every chosen parent’s Parent Link until it expires, and goes even to parents who opted out of messages." /></p>}
+          {priority === "CRITICAL" && <p className="mt-2 text-sm text-bad"><Words k="Pinned on every chosen parent’s Parent Link until it expires. Goes even to parents who opted out." /></p>}
         </fieldset>
         <fieldset>
           <legend className="mb-2 font-semibold"><Words k="Channels" /></legend>
@@ -182,7 +182,7 @@ export function NoticeForm({ data }: { data: NoticeFormData }) {
               </label>
             ))}
           </div>
-          <p className="text-sm text-ink3">{SMS_OFFERED ? <Words k="WhatsApp, SMS and email go to parents, using the notice template and your credits." /> : <Words k="WhatsApp and email go to parents, using the notice template and your credits." />}</p>
+          <p className="text-sm text-ink3"><Words k="Messages use the notice template and your credits." /></p>
         </fieldset>
         <div className="grid gap-4 sm:grid-cols-2">
           <div>

@@ -72,7 +72,6 @@ export default async function HostelSettingsPage({ searchParams }: { searchParam
   return (
     <>
       <HostelHead pageName="Hostel Settings" href={base} mode={p.mode}
-        sub={readOnly ? "The hostel rules, timings, wardens and fee plans." : "The hostel rules, timings, meals, messages, wardens and fee plans."}
         actions={can.hostels ? <ButtonLink href={qs(base, { hostel: "new" })} variant="secondary" icon={Building2} scroll={false}><Words k="Add a hostel" /></ButtonLink> : undefined} />
       <Split side={380}>
         <Col>
@@ -126,7 +125,7 @@ export default async function HostelSettingsPage({ searchParams }: { searchParam
             </Card>
 
             <Card>
-              <CardHeader title="Hostel fees" icon={IndianRupee} description={d.year ? `Fee plans for ${d.year.name}. Allocating a bed adds the plan's installments to the student's fees.` : "Set up this academic year first."} divided
+              <CardHeader title="Hostel fees" icon={IndianRupee} description={d.year ? `Fee plans for ${d.year.name}. Giving a bed adds these fees.` : "Set up this academic year first."} divided
                 action={can.feePlans && d.year ? <ButtonLink href={qs(base, { plan: "new", year: d.picked?.id ?? null })} size="sm" variant="secondary" icon={Plus} scroll={false}><Words k="Add plan" /></ButtonLink> : undefined} />
               {d.years.length > 1 && (
                 <div className="px-5 pt-3">

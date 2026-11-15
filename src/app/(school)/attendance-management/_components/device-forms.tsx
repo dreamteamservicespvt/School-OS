@@ -27,7 +27,7 @@ function CopyKey({ value }: { value: string }) {
         }}>{copied === "yes" ? "Copied" : "Copy"}</Button>
       </div>
       {copied === "no" && <p className="text-sm text-danger"><Words k="This browser did not allow copying. Select the key and copy it by hand." /></p>}
-      <p className="text-sm text-ink-2" aria-live="polite">{copied === "yes" ? "Copied. Paste it into the device's settings now." : "Paste it into the device's settings. It is shown only this once; School OS keeps only a scrambled copy."}</p>
+      <p className="text-sm text-ink-2" aria-live="polite">{copied === "yes" ? "Copied. Paste it into the device's settings now." : "Paste it into the device's settings. It is shown only this once."}</p>
     </div>
   );
 }
@@ -123,7 +123,7 @@ export function QrSettingsForm({ action, values, themes }: { action: Action; val
     <ActionForm action={action} submitLabel="Save QR settings" keep>
       {(f) => (
         <div className="grid gap-4 sm:grid-cols-2">
-          <CheckboxField label="QR check-in for staff" name="qrStaffOn" defaultChecked={values.qrStaffOn} help="Staff scan the entrance QR on their own phone when they arrive." />
+          <CheckboxField label="QR check-in for staff" name="qrStaffOn" defaultChecked={values.qrStaffOn} />
           <CheckboxField label="QR check-in for students" name="qrStudentsOn" defaultChecked={values.qrStudentsOn} help="Only for students who have their own login." />
           <SelectField label="New QR codes" name="qrRotation" options={[{ value: "daily", label: "Change every day (safer)" }, { value: "fixed", label: "Fixed (print once)" }]} defaultValue={f.val("qrRotation", values.qrRotation)} />
           <SelectField label="Poster theme" name="posterTheme" options={themes} defaultValue={f.val("posterTheme", values.posterTheme)} error={f.err("posterTheme")} />

@@ -138,7 +138,7 @@ export default async function StaffListPage({ searchParams }: Search) {
       {data.wrongPost.length > 0 && (
         <Alert tone="warning" className="mb-4"
           title={data.wrongPost.length === 1 ? "1 person's post may be wrong" : `${data.wrongPost.length} people's posts may be wrong`}>
-          <p><Words k="Their post does not match the role they sign in with. The post shows under their name in every list, so check it." /></p>
+          <p><Words k="Their post does not match their login role. Check it." /></p>
           <ul className="mt-2 grid gap-1.5">
             {data.wrongPost.slice(0, 8).map((w) => (
               <li key={w.staffId} className="flex flex-wrap items-center gap-x-3 gap-y-1">

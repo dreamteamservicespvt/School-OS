@@ -97,7 +97,7 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
 
   return (
     <div>
-      <FoHead pageName="Enquiries & Calls" href={HREF} sub="Walk-in and phone enquiries go straight to Admission Management. Every call is logged."
+      <FoHead pageName="Enquiries & Calls" href={HREF} sub="Enquiries go straight to Admission Management."
         actions={desk ? <>
           <ButtonLink href={addQ(sheetHref, { do: "call" })} scroll={false} variant="secondary" icon={PhoneCall}><Words k="Log a call" /></ButtonLink>
           {admCreate && <ButtonLink href={addQ(sheetHref, { do: "enquiry" })} scroll={false} variant="primary" icon={Plus}><Words k="New enquiry" /></ButtonLink>}
@@ -117,7 +117,7 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
 
         {view === "enq" && (
           <Card className="overflow-hidden">
-            <CardHeader title="Enquiries taken at the desk" description="The same records as Admission Management, Enquiries" icon={UserPlus}
+            <CardHeader title="Enquiries taken at the desk" icon={UserPlus}
               action={admSee ? <ButtonLink href="/admission-management/enquiries" size="sm" variant="soft" icon={ExternalLink}><Words k="Open in Admissions" /></ButtonLink> : undefined} />
             <Toolbar>
               <UrlSearch id="enq-search" placeholder={phones ? "Child, parent, phone or enquiry number" : "Child, parent or enquiry number"} />
@@ -167,7 +167,7 @@ export default async function EnquiriesPage({ searchParams }: { searchParams: Se
 
         {view === "requests" && (
           <Card className="overflow-hidden">
-            <CardHeader title="Walk-in requests" description="Each has a number the person can ask about. It shows Done when the department finishes the work; then the person can collect it." icon={ClipboardList}
+            <CardHeader title="Walk-in requests" description="Done means the person can collect it." icon={ClipboardList}
               action={desk ? <ButtonLink href={addQ(sheetHref, { do: "walkin" })} scroll={false} size="sm" variant="soft" icon={Plus}><Words k="New request" /></ButtonLink> : undefined} />
             <Toolbar>
               <UrlSearch id="req-search" placeholder="Request number, like REQ-2026-0012, or name" />

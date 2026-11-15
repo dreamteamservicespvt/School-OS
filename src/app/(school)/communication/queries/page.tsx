@@ -72,7 +72,7 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
   return (
     <>
       <CommHead access={access} page="Feedback & Queries" href="/communication/queries"
-        sub={access.full ? "Questions and complaints from parents, students and staff. Each gets a number, an owner and a status." : "Queries given to you or your department, and those you logged."}
+        sub={access.full ? "Each gets a number, an owner and a status." : "Given to you or your department, or logged by you."}
         actions={<ButtonLink href="/communication/queries/new" variant="primary" icon={Plus}><Words k="Log a query" /></ButtonLink>} />
       <div className="flex flex-col gap-5 lg:gap-6">
         <Stats items={[
@@ -105,7 +105,7 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
             empty={
               <EmptyState bare Icon={Inbox} title={filtered || status !== "active" ? "No queries here" : "No open queries"}
                 action={filtered ? <ButtonLink href="/communication/queries?status=all"><Words k="Show all" /></ButtonLink> : undefined}>
-                {filtered || status !== "active" ? "Nothing matches this filter." : "Queries and complaints from calls, visits, WhatsApp or staff are logged here, each with a ticket number, an owner and a status."}
+                {filtered || status !== "active" ? "Nothing matches this filter." : "Queries from calls, visits and WhatsApp show here."}
               </EmptyState>
             }
             columns={[
@@ -130,7 +130,7 @@ export default async function QueriesPage({ searchParams }: { searchParams: Sear
         </Card>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-5 lg:gap-6 items-start">
           <Card>
-            <CardHeader title="Feedback by topic" description="All queries and feedback in the last four months" icon={ChartColumn} />
+            <CardHeader title="Feedback by topic" description="Last four months" icon={ChartColumn} />
             <div className="px-5 pb-5">{topicRows.length ? <HBars rows={topicRows} unit="" labelWidth={90} ariaLabel="Queries by topic" /> : <p className="text-[13.5px] text-ink3"><Words k="No queries yet." /></p>}</div>
           </Card>
           <Card>

@@ -43,7 +43,7 @@ export function whatsappReason(code: number | undefined, message?: string): { re
     case 131049: return { reason: "WhatsApp held this message back to protect the parent from too many messages.", retryable: false };
     case 131042: return { reason: "The WhatsApp Business account has a payment problem. Add a payment method in Meta Business Settings.", retryable: false };
     case 131050: return { reason: "This person has turned off marketing messages from this business on WhatsApp.", retryable: false };
-    default: return { reason: message ? `WhatsApp did not send it: ${message.slice(0, 160)}.` : "WhatsApp did not send it.", retryable: false };
+    default: return { reason: message ? `WhatsApp did not send it: ${message.replace(/\/(p|r|invite)\/[A-Za-z0-9_.-]{8,}/g, "/$1/…").slice(0, 160)}.` : "WhatsApp did not send it.", retryable: false };
   }
 }
 

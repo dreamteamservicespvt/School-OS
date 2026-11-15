@@ -74,7 +74,7 @@ export async function confirmConsent(tx: Tx, ctx: SchoolContext, linkId: string,
   // A code sent for an event's consent never records a consent form (../events/consent.ts has its own).
   if (action.kind === "event" || !action.consentTextId) return { ok: false as const, message: "This code was sent for another form. Please open the page again." };
   const how = TAP_SECRET.test(typed) ? "Parent Link, confirmed by a tap on the school's WhatsApp message" : "Parent Link, confirmed by a one-time code";
-  const text = await tx.consentText.findFirst({ where: { id: action.consentTextId, schoolId: ctx.schoolId } });
+  const text = await tx.consentText.findFirst({ where: { id: action.consentTextId, schoolId: ctx.schoolId, isCurrent: true } });
   if (!text) return { ok: false as const, message: "This consent form has changed. Please open the page again." };
   // Checked again: a custody restriction set after the code was sent stops it too.
   const mine = await childrenOfGuardian(tx, ctx, guardianId, { studying: true });

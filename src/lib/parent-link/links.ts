@@ -406,9 +406,9 @@ export const TAP_GONE = "This confirmation has run out or was already used. Plea
  */
 export async function tapRequest(tx: Tx, linkId: string, secret: string, now = new Date()) {
   if (!TAP_SECRET.test(secret)) return null;
-  const row = await tx.parentLinkCode.findFirst({ where: { parentLinkId: linkId, usedAt: null, expiresAt: { gt: now }, codeHash: codeHash(secret, linkId) }, select: { purpose: true, detail: true } });
+  const row = await tx.parentLinkCode.findFirst({ where: { parentLinkId: linkId, usedAt: null, expiresAt: { gt: now }, codeHash: codeHash(secret, linkId) }, select: { purpose: true, detail: true, keyHash: true, createdAt: true } });
   if (!row || (row.detail as { via?: string } | null)?.via !== "tap") return null;
-  return { purpose: row.purpose as "device" | "consent", detail: (row.detail ?? {}) as Record<string, unknown> };
+  return { purpose: row.purpose as "device" | "consent", detail: (row.detail ?? {}) as Record<string, unknown>, keyHash: row.keyHash, askedAt: row.createdAt };
 }
 
 export type CodeCheck = { ok: true; code: { id: string; detail: unknown } } | { ok: false; message: string };

@@ -17094,4 +17094,8 @@ export const te: Catalogue = {
   "You are removing your consent for “{title}”. To confirm, open the new message we sent to your WhatsApp ({phone}) and tap Open Parent Link.": "మీరు “{title}” కోసం మీ అనుమతిని తీసివేస్తున్నారు. నిర్ధారించడానికి, మీ WhatsApp ({phone}) కు పంపిన కొత్త సందేశాన్ని తెరిచి Open Parent Link నొక్కండి.",
   "You are saying yes for {title}. To confirm, open the new message we sent to your WhatsApp ({phone}) and tap Open Parent Link.": "మీరు {title} కు అవును అంటున్నారు. నిర్ధారించడానికి, మీ WhatsApp ({phone}) కు పంపిన కొత్త సందేశాన్ని తెరిచి Open Parent Link నొక్కండి.",
   "This code was sent for another form. Please open the page again.": "ఈ కోడ్ మరో ఫారం కోసం పంపబడింది. దయచేసి పేజీని మళ్ళీ తెరవండి.",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "A {phone} asked to open your Parent Link {minutes} min ago.": "{minutes} నిమిషాల క్రితం ఒక {phone} నుండి మీ Parent Link తెరవమని అడిగారు.",
+  "Someone asked to open your Parent Link {minutes} min ago.": "{minutes} నిమిషాల క్రితం ఎవరో మీ Parent Link తెరవమని అడిగారు.",
+  "Tap only if that was you, on this phone. If someone asked you to send them this message, do not tap and do not forward it.": "అది మీరే, ఈ ఫోన్‌లోనే అడిగితేనే నొక్కండి. ఎవరైనా ఈ సందేశాన్ని తమకు పంపమని అడిగితే, నొక్కకండి, ఎవరికీ ఫార్వర్డ్ చేయకండి.",
 };

@@ -22,6 +22,9 @@ export const PARENT_BROWSER_WORDS: readonly string[] = [
   "6-digit code",
   // Tap to confirm on WhatsApp (tap-confirm.tsx, verify-phone.tsx, consent-form.tsx, event-consent-card.tsx).
   "Open your Parent Link on this phone",
+  "A {phone} asked to open your Parent Link {minutes} min ago.",
+  "Someone asked to open your Parent Link {minutes} min ago.",
+  "Tap only if that was you, on this phone. If someone asked you to send them this message, do not tap and do not forward it.",
   "You opened the message the school sent to your WhatsApp. Tap the button to confirm it’s you. This phone will then open your Parent Link straight away.",
   "Open my Parent Link",
   "Opening your Parent Link",

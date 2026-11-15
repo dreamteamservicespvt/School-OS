@@ -8,12 +8,15 @@
 // - The secret is 144 random bits, kept only as a hash, used once, and runs
 //   out with the code minutes (Message Settings, Parent Link).
 // - A new phone: the browser that opens the guardian's own WhatsApp message is
-//   the one confirmed (not tied to the phone that asked).
+//   the one confirmed. When it is not the browser that asked, the page warns:
+//   someone with a forwarded link could ask the parent to forward this one too
+//   (security review 16 Nov), so it says which phone asked and when.
 // - A consent: the link must be usable and the section switched on; the child
 //   is checked again (./consent.ts, ../events/consent.ts).
 import "server-only";
 
 import { withSchool, type SchoolContext, type Tx } from "../db";
+import { hashToken } from "./token";
 import { messageSettings } from "../messaging/settings";
 import { localNow } from "../events/jobs";
 import { confirmEventConsent } from "../events/consent";
@@ -21,15 +24,18 @@ import { confirmConsent } from "./consent";
 import { ACCESS_WORDS, confirmDevice, linkUsable, TAP_GONE, tapRequest, type LinkFound } from "./links";
 
 export type TapView =
-  | { kind: "device" }
+  | { kind: "device"; sameBrowser: boolean; askedOn: string | null; askedMinutesAgo: number }
   | { kind: "consent"; title: string; action: "give" | "withdraw" }
   | { kind: "event"; title: string };
 
 /** What a tapped confirmation is for, to show before it is used; null when it ran out or was used. Only reads. */
-export async function tapView(tx: Tx, linkId: string, secret: string, now = new Date()): Promise<TapView | null> {
+export async function tapView(tx: Tx, linkId: string, secret: string, deviceKey: string | null = null, now = new Date()): Promise<TapView | null> {
   const req = await tapRequest(tx, linkId, secret, now);
   if (!req) return null;
-  if (req.purpose === "device") return { kind: "device" };
+  if (req.purpose === "device") {
+    const asked = typeof req.detail.asked === "string" ? req.detail.asked.slice(0, 60) : null;
+    return { kind: "device", sameBrowser: Boolean(deviceKey && req.keyHash && req.keyHash === hashToken(deviceKey)), askedOn: asked, askedMinutesAgo: Math.max(0, Math.round((now.getTime() - req.askedAt.getTime()) / 60_000)) };
+  }
   const d = req.detail;
   if (d.kind === "event" && typeof d.eventId === "string") {
     const e = await tx.event.findFirst({ where: { id: d.eventId }, select: { name: true } });

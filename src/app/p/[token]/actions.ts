@@ -12,7 +12,7 @@ import { deviceInfo } from "@/lib/current";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { MessagingProblem } from "@/lib/messaging/send";
 import { messageSettings } from "@/lib/messaging/settings";
-import { ACCESS_WORDS, confirmDevice, deviceCookieName, findLink, hashToken, linkUsable, newDeviceKey, ParentLinkProblem, codeSentWords, sendCode, TAP_GONE, TAP_SECRET } from "@/lib/parent-link/links";
+import { ACCESS_WORDS, confirmDevice, deviceCookieName, deviceLabel, findLink, hashToken, linkUsable, newDeviceKey, ParentLinkProblem, codeSentWords, sendCode, TAP_GONE, TAP_SECRET } from "@/lib/parent-link/links";
 import { askConsentCode, confirmConsent } from "@/lib/parent-link/consent";
 import { confirmTap } from "@/lib/parent-link/tap";
 import { guardianFor } from "./guardian";
@@ -70,7 +70,7 @@ async function sendDeviceCodeEn(token: string): Promise<GuardianState> {
   if (!found) return { ok: false, message: GONE };
   const limited = await limits([
     [`pl-code:ip:${device.ipAddress ?? "unknown"}`, 100, 3600],
-    [`pl-code:link:${found.linkId}`, 5, 3600],
+    [`pl-code:link:${found.linkId}`, 3, 3600],
   ]);
   if (limited) return { ok: false, message: limited };
   const jar = await cookies();
@@ -82,7 +82,7 @@ async function sendDeviceCodeEn(token: string): Promise<GuardianState> {
       // No code while the school has Parent Link off or the link is revoked.
       const stop = await linkUsable(tx, ctx, found.linkId);
       if (stop) throw new ParentLinkProblem(ACCESS_WORDS[stop]);
-      const sent = await sendCode(tx, ctx, found.linkId, "device", { keyHash: hashToken(key) });
+      const sent = await sendCode(tx, ctx, found.linkId, "device", { keyHash: hashToken(key), detail: { asked: deviceLabel(device.userAgent) } });
       return { sent, settings: (await messageSettings(tx, ctx)).parentLink };
     });
     // "Code sent" only once WhatsApp or SMS really took it (owner test 2026-11-05).

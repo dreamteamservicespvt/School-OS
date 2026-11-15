@@ -17094,4 +17094,8 @@ export const hi: Catalogue = {
   "You are removing your consent for “{title}”. To confirm, open the new message we sent to your WhatsApp ({phone}) and tap Open Parent Link.": "आप “{title}” के लिए अपनी सहमति हटा रहे हैं। पक्का करने के लिए, आपके WhatsApp ({phone}) पर भेजा गया नया संदेश खोलें और Open Parent Link दबाएँ।",
   "You are saying yes for {title}. To confirm, open the new message we sent to your WhatsApp ({phone}) and tap Open Parent Link.": "आप {title} के लिए हाँ कह रहे हैं। पक्का करने के लिए, आपके WhatsApp ({phone}) पर भेजा गया नया संदेश खोलें और Open Parent Link दबाएँ।",
   "This code was sent for another form. Please open the page again.": "यह कोड किसी दूसरे फ़ॉर्म के लिए भेजा गया था। कृपया पेज फिर से खोलें।",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "A {phone} asked to open your Parent Link {minutes} min ago.": "{minutes} मिनट पहले एक {phone} से आपका Parent Link खोलने को कहा गया।",
+  "Someone asked to open your Parent Link {minutes} min ago.": "{minutes} मिनट पहले किसी ने आपका Parent Link खोलने को कहा।",
+  "Tap only if that was you, on this phone. If someone asked you to send them this message, do not tap and do not forward it.": "सिर्फ़ तभी दबाएँ जब यह आपने ही, इसी फ़ोन पर किया हो। अगर किसी ने आपसे यह संदेश भेजने को कहा है, तो न दबाएँ और इसे आगे न भेजें।",
 };

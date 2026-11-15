@@ -125,7 +125,8 @@ export default async function ParentLinkPage({ params, searchParams }: { params:
   }
   if (secret) {
     // Only shows what the tap confirms; the button records it (a link preview opening this page changes nothing).
-    const view = await withSchool({ schoolId: state.schoolId, userId: null }, (tx) => tapView(tx, state.linkId, secret));
+    const asker = (await cookies()).get(deviceCookieName(state.linkId))?.value ?? null;
+    const view = await withSchool({ schoolId: state.schoolId, userId: null }, (tx) => tapView(tx, state.linkId, secret, asker));
     return (
       <Shell schoolName={state.schoolName} hello={t("Welcome to")} name={t("Your Parent Link")} t={t} choices={choices}>
         <TapConfirm token={token} secret={secret} view={view} />

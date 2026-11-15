@@ -13,6 +13,8 @@ import {
 import { askConsentCode } from "@/lib/parent-link/consent";
 import { confirmTap, tapView } from "@/lib/parent-link/tap";
 import { deliverMessage } from "@/lib/messaging/deliver";
+import { whatsappReason } from "@/lib/messaging/providers/whatsapp";
+import { hashToken } from "@/lib/parent-link/token";
 import { EN } from "@/lib/i18n/catalogues/en";
 import { hi } from "@/lib/i18n/catalogues/hi";
 import { te } from "@/lib/i18n/catalogues/te";
@@ -97,8 +99,8 @@ describe("tap to confirm a new phone on WhatsApp", () => {
   it("the browser that opens it and taps is confirmed, once; the page alone changes nothing", async () => {
     const { secret } = await sendTap(() => withSchool(job(), (tx) => sendCode(tx, job(), linkId, "device", { keyHash: "asking-phone" })));
     // Opening the page only reads (a link preview changes nothing).
-    expect(await withSchool(s.ctx, (tx) => tapView(tx, linkId, secret))).toEqual({ kind: "device" });
-    expect(await withSchool(s.ctx, (tx) => tapView(tx, linkId, secret))).toEqual({ kind: "device" });
+    expect(await withSchool(s.ctx, (tx) => tapView(tx, linkId, secret))).toMatchObject({ kind: "device", sameBrowser: false });
+    expect(await withSchool(s.ctx, (tx) => tapView(tx, linkId, secret))).toMatchObject({ kind: "device", sameBrowser: false });
 
     const found = (await findLink(token))!;
     // A wrong secret of the right shape does nothing.
@@ -117,6 +119,18 @@ describe("tap to confirm a new phone on WhatsApp", () => {
     // Used once.
     expect(await confirmTap(found, secret, newDeviceKey(), device)).toEqual({ ok: false, message: TAP_GONE });
     expect(await withSchool(s.ctx, (tx) => tapView(tx, linkId, secret))).toBeNull();
+  });
+
+  it("warns unless the tapping browser is the one that asked, naming the phone that asked", async () => {
+    const key = "k".repeat(43);
+    const { secret } = await sendTap(() => withSchool(job(), (tx) => sendCode(tx, job(), linkId, "device", { keyHash: hashToken(key), detail: { asked: "Android phone, Chrome" } })));
+    expect(await withSchool(s.ctx, (tx) => tapView(tx, linkId, secret, key))).toMatchObject({ kind: "device", sameBrowser: true, askedOn: "Android phone, Chrome" });
+    expect(await withSchool(s.ctx, (tx) => tapView(tx, linkId, secret, "x".repeat(43)))).toMatchObject({ kind: "device", sameBrowser: false, askedOn: "Android phone, Chrome", askedMinutesAgo: 0 });
+    expect(await withSchool(s.ctx, (tx) => tapView(tx, linkId, secret, null))).toMatchObject({ sameBrowser: false });
+  });
+
+  it("a WhatsApp failure reason never keeps a Parent Link address", () => {
+    expect(whatsappReason(999, "Bad value https://x.app/p/AbCdEf0123456789xyz.SECRETsecret0123456789ab").reason).not.toMatch(/AbCdEf|SECRET/);
   });
 
   it("runs out with the code minutes, and a newer one replaces it", async () => {

@@ -4,7 +4,7 @@
 // WhatsApp with a one-time secret in it. The page says what it confirms (this phone, or the consent they
 // asked for); this button records it. Opening the page alone changes nothing.
 import { useActionState } from "react";
-import { Check, Link2Off, ShieldCheck } from "lucide-react";
+import { Check, Link2Off, ShieldAlert, ShieldCheck } from "lucide-react";
 import { confirmTapped, type GuardianState } from "@/app/p/[token]/actions";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { PhoneCard } from "./phone-shell";
@@ -48,6 +48,18 @@ export function TapConfirm({ token, secret, view }: { token: string; secret: str
         : view.kind === "consent" && view.action === "withdraw"
           ? t("You are removing your consent for “{title}”. Tap Confirm to record it.", { title: view.title })
           : t("You are saying yes for “{title}”. Tap Confirm to record it.", { title: view.title })}</p>
+      {view.kind === "device" && !view.sameBrowser && (
+        // Not the browser that asked: someone could have asked the parent to forward this message (security review 16 Nov).
+        <div role="note" className="mt-4 rounded-2xl border border-warn/40 bg-warn/10 px-4 py-3 flex items-start gap-3">
+          <ShieldAlert size={20} className="text-warn shrink-0 mt-0.5" aria-hidden="true" />
+          <p className="min-w-0 text-[14px] text-ink">
+            {view.askedOn
+              ? t("A {phone} asked to open your Parent Link {minutes} min ago.", { phone: view.askedOn, minutes: String(view.askedMinutesAgo) })
+              : t("Someone asked to open your Parent Link {minutes} min ago.", { minutes: String(view.askedMinutesAgo) })}{" "}
+            <b>{t("Tap only if that was you, on this phone. If someone asked you to send them this message, do not tap and do not forward it.")}</b>
+          </p>
+        </div>
+      )}
       <form action={act} className="mt-4 flex flex-col gap-3">
         {state && !state.ok && <p role="alert" className="rounded-2xl bg-bad/10 border border-bad/30 text-bad text-[14px] px-4 py-3">{state.message}</p>}
         <SubmitButton size="lg" className="w-full !h-14 !text-[16px]" pendingText={device ? t("Opening your Parent Link") : t("Checking")}>{device ? t("Open my Parent Link") : t("Confirm")}</SubmitButton>

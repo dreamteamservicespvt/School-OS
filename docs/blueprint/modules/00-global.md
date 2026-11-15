@@ -194,6 +194,8 @@ Every screen works on phone, tablet and computer. School OS is an installable we
 | Tablet, 600 to 1023 px | Collapsible side menu. Two columns where useful (list and detail side by side in landscape). |
 | Computer, 1024 px and wider | Full side menu with the 20 items. Lists as tables. |
 
+**Menu labels (owner, 15 Nov 2026).** The side menu, the phone's "Everything" sheet and the phone bar show short module labels: Dashboard, Admissions, Students, Academics, Attendance, Fees, Finance, Exams, Staff & HR, Salary, Communication, Transport, Library, Inventory, Hostel, Front Office, Homework, Events, Reports, Settings. Page titles, the module header, Search results and every record keep the full module names of `../README.md` ("The names used everywhere"). Key pages whose module label no longer names them are found in Search by their own words: Time Table (also "timetable"), Collect Fee, Take Attendance, Marks Entry and Notices.
+
 Rules:
 
 1. **One main action per screen**, in a fixed button at the bottom on phones (for example "Save attendance", "Collect ₹5,000").
@@ -400,6 +402,7 @@ The owner decided these on 9 October 2026. Each module that depends on them mark
 | D10 | School groups | **Group record now;** one login can work in several schools through School Access. | 20 Settings, every module through the School switcher |
 | D11 | Phone apps | **Installable web app for staff;** a small **Android driver app** with Transport; a native parent app with the full parent app later. | 12 Transport, this file §6 |
 | D12 | When salary and expenses reach the Day Book | **When marked paid.** | 07 Finance, 10 Salary |
+| D13 | Menu labels (owner, 15 Nov 2026) | **The menu shows short module labels** (Attendance, Fees, Students, Admissions, Exams, ...); page titles and records keep the full module names. Time Table and other key pages are found in Search. See §6. | Every module |
 
 D4 to D12 were decided by Claude at the owner's request after the gap review; full wording in `school-os/reviews/decisions-2026-10-09.md`.
 

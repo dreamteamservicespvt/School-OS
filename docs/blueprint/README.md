@@ -72,6 +72,14 @@ The owner asked Claude to decide these on 9 October 2026, after the gap review (
 | Who sets up SMS, WhatsApp, email, payment gateways and other connections? | **DREAM TEAM, in the console** (decided by the owner 26 October 2026; `07-super-admin.md` §3.8). Schools never type keys, provider IDs or DLT IDs; their Settings shows the status and lets them switch message channels on or off. |
 | Is the Super Admin console part of the plan? | **Yes.** DREAM TEAM's own console for adding schools, their first admin login, plans and billing, and support access only with the school's Allow. See `07-super-admin.md`. |
 
+Decided by the owner on 15 November 2026:
+
+| Question | Decided |
+|---|---|
+| Menu labels | **Menu shows short module labels; page titles keep full names (owner, 15 Nov 2026).** The short labels are listed under "The names used everywhere" and in `modules/00-global.md` §6. |
+| Where Fee Management opens | **The Accountant opens it on Collect Fee; the School Admin and the Principal on the Fee Dashboard.** |
+| The support team's name on school screens | **"The School OS support team"** (the support-access bar: "School OS support"). DREAM TEAM's name stays on the console's own screens. |
+
 ## Not included
 
 - **Safety & Health:** health records, medical room, vaccinations, safety incidents and the nurse role.
@@ -82,6 +90,8 @@ The owner asked Claude to decide these on 9 October 2026, after the gap review (
 ## The names used everywhere
 
 **The 20 modules, in menu order:** Dashboard, Admission Management, Student Management, Academic Management, Attendance Management, Fee Management, Finance Management, Examination & Results, Staff & HR Management, Salary Management, Communication, Transport Management *(optional)*, Library Management *(optional)*, Inventory Management *(optional)*, Hostel Management *(optional)*, Front Office, Homework & Learning, Events & Calendar, Reports & Analytics, Settings.
+
+**Short menu labels, in the same order** (the menu only; owner, 15 Nov 2026): Dashboard, Admissions, Students, Academics, Attendance, Fees, Finance, Exams, Staff & HR, Salary, Communication, Transport, Library, Inventory, Hostel, Front Office, Homework, Events, Reports, Settings.
 
 **The top bar, on every screen:** Search, Approvals, Notifications, Messages, Profile, School switcher, Academic year.
 

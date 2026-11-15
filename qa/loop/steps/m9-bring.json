@@ -1,0 +1,1 @@
+[{"go":"/student-management/import/review/472fe93f-55b1-43c7-96a8-b9a0ebcf2245?step=check"},{"click":"Bring in 13 students"},{"wait":3},{"shot":"confirm","chars":1500},{"click":"Bring in 13 rows"},{"wait":10},{"shot":"done","chars":1500}]

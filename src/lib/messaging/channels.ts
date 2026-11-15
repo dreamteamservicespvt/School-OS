@@ -143,13 +143,21 @@ export async function onChannels(tx: Tx, ctx: SchoolContext): Promise<Set<Channe
   return on;
 }
 
+/** Why a one-time code cannot go by WhatsApp on a real account (live tests 16 Nov 2026: none ever arrived). */
+export const WHATSAPP_NO_CODES = "WhatsApp does not deliver one-time codes to Indian (+91) numbers, so no code can be sent";
+
 /**
  * The channels a one-time code may use (admission consent, pickup codes): onChannels, plus SMS
- * when it is switched on even while SMS_OFFERED is false, so codes keep their SMS path.
+ * when it is switched on even while SMS_OFFERED is false, so codes keep their SMS path. Never a
+ * real WhatsApp account: Meta does not deliver code (Authentication) messages to +91 numbers, so
+ * a code "sent" there never came and the desk was told it had (Parent Link uses a tap instead,
+ * ../parent-link/tap.ts). Test mode keeps WhatsApp, as nothing reaches a phone there.
  */
 export async function codeChannels(tx: Tx, ctx: SchoolContext): Promise<Set<Channel>> {
   const on = await onChannels(tx, ctx);
-  if (!SMS_OFFERED && (await channelSetups(tx, ctx)).sms.isOn) on.add("sms");
+  const setups = await channelSetups(tx, ctx);
+  if (!SMS_OFFERED && setups.sms.isOn) on.add("sms");
+  if (whatsappIsLive(setups.whatsapp)) on.delete("whatsapp");
   return on;
 }
 

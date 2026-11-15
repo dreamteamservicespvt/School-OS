@@ -13,7 +13,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { chargesFor, MessagingProblem, recordSend, type Plan, type PlannedRow } from "../messaging";
 import { creditBalances, creditProblem, creditsFor } from "../messaging/credits";
-import { channelSetups, codeChannels, onChannels, whatsappIsLive, type Channel } from "../messaging/channels";
+import { channelSetups, codeChannels, onChannels, WHATSAPP_NO_CODES, whatsappIsLive, type Channel } from "../messaging/channels";
 import { CODE_MASK, withCode } from "../messaging/one-time-code";
 import { bareText, currentVersions, ensureReadyTemplates, isApproved, render, templateByKey, TYPED_CARRIER, versionFor, type UsableVersion, withLastApproved } from "../messaging/templates";
 import { formatDate } from "../format";
@@ -60,6 +60,7 @@ export async function messageParent(tx: Tx, ctx: SchoolContext, msg: ParentMessa
   if (asked === "email") channel = msg.to.email && on.has("email") ? "email" : null;
   else if (on.has(asked)) channel = asked;
   if (!channel) channel = on.has("whatsapp") ? "whatsapp" : on.has("sms") ? "sms" : msg.to.email && on.has("email") ? "email" : null;
+  if (!channel && msg.code && whatsappIsLive((await channelSetups(tx, ctx)).whatsapp)) return { status: "skipped", channel: asked, note: WHATSAPP_NO_CODES };
   if (!channel) return { status: "skipped", channel: asked, note: "No messaging channel is set up (Settings, SMS, WhatsApp & Email)" };
   if (channel !== "email" && !phoneOk) return { status: "skipped", channel, note: "No valid mobile number" };
   const address = channel === "email" ? msg.to.email! : msg.to.phone;

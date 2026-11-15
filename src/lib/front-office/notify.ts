@@ -19,7 +19,7 @@ import type { SchoolContext, Tx } from "../db";
 import { writeAudit } from "../audit";
 import { chargesFor, MessagingProblem, recordSend, type Plan, type PlannedRow } from "../messaging";
 import { creditBalances, creditProblem, creditsFor } from "../messaging/credits";
-import { channelSetups, codeChannels, onChannels, SMS_OFFERED, whatsappIsLive, type Channel } from "../messaging/channels";
+import { channelSetups, codeChannels, onChannels, SMS_OFFERED, WHATSAPP_NO_CODES, whatsappIsLive, type Channel } from "../messaging/channels";
 import { CODE_MASK, withCode } from "../messaging/one-time-code";
 import { bareText, currentVersions, ensureReadyTemplates, isApproved, render, templateByKey, versionFor, withLastApproved, type UsableVersion } from "../messaging/templates";
 import { maskPhone } from "./words";
@@ -75,6 +75,7 @@ export async function messageVisitor(tx: Tx, ctx: SchoolContext, msg: DeskMessag
   // A pickup code keeps its SMS path; other messages never go by SMS while it is not offered (SMS_OFFERED).
   const on = msg.code ? await codeChannels(tx, ctx) : await onChannels(tx, ctx);
   const channel: Channel | null = on.has("whatsapp") ? "whatsapp" : on.has("sms") ? "sms" : null;
+  if (!channel && msg.code && whatsappIsLive((await channelSetups(tx, ctx)).whatsapp)) return { status: "skipped", channel: "whatsapp", note: WHATSAPP_NO_CODES };
   if (!channel) return { status: "skipped", channel: "whatsapp", note: SMS_OFFERED ? "No WhatsApp or SMS is set up (Settings, SMS, WhatsApp & Email)" : "WhatsApp is not set up (Settings, SMS, WhatsApp & Email)" };
   if (!/^[6-9]\d{9}$/.test(msg.to.phone)) return { status: "skipped", channel, note: "No valid mobile number" };
   const words = channel === "whatsapp" ? await whatsappText(tx, ctx, msg) : { version: null, text: msg.text, values: {} };

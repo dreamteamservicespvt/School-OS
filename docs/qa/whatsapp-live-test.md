@@ -180,3 +180,79 @@ Screenshot: `qa/whatsapp-cards/deploy9-fallback-general-0002.png` (the 12:02 AM 
 - 24 new card versions (current, "Not submitted", refused). The old approved versions keep going.
 - Custom template "QA emoji body test" (Pending on WhatsApp, `qa_emoji_body_test_ade03e`). Archive it after the fix.
 - One General announcement to Venkatesh (16-11 00:02).
+
+## Deploy 10 cards (16 Nov)
+
+Deploy 10 (main 7840694d), live 00:39. Tested by Claude, 00:42 to 01:12 IST. Every message went to 9390011378 only: parent Venkatesh, and teacher aswini for the staff message. Arrivals were checked in WhatsApp Web, in the chat from +91 79896 17553 only (opened directly by its link; no search, no other chat opened).
+
+### Approval
+- "Send 32 templates to WhatsApp for approval" sent **40 texts**. All were accepted for review: no "Invalid parameter" any more, so the deploy 10 fix works.
+  - **36 approved** within about 25 minutes. Fee received was approved first, at about 00:52.
+  - Consent request was the last, approved by about 01:08.
+  - The page then showed **Approved: 40 · Waiting: 1**, and that one was approved soon after.
+- **4 rejected at once, all INCORRECT_CATEGORY.** At first the page said "WhatsApp rejected this text and gave no reason". After the background sync it showed "WhatsApp says the words do not fit the message type (a code, account or sign-in message is not a Utility message) (INCORRECT_CATEGORY)".
+  - **Admission welcome**. Probably "Please keep this number safe" next to the admission number reads as an account message.
+  - **Pickup gate pass**. Probably "here is the gate pass … show this message at the gate".
+  - **Visitor pass**. Probably the same pass wording.
+  - **Staff invite**. Rejected again.
+- The page offers "Edit" for each rejected text, and the template page offers "Send for WhatsApp approval" again. So there is a re-send path; the words must change first.
+
+### Results by kind
+
+| Kind | Template status (+ Meta reason) | How sent | Arrived (time) | What the card showed | Problem |
+|---|---|---|---|---|---|
+| Fee received | Approved (v3) | **Real flow:** Accountant aksha collected ₹100 cash for Sri (receipt C-CHE-001/2026-27/00012), then pressed "Send to parent again" | Yes, 12:52 AM | Header "Fee received" (**text, not the PDF**). Bold: Sri Lakshmi, ₹100, **Paid by: Cash**, Paid on 16-11-2026, receipt no., **Still due: ₹19,800**. Footer "chaitanya · School OS". **Open receipt** button opens the right receipt PDF (00012, parent copy) | **No receipt PDF header** (bug A). "Send to parent again" when nothing was sent before (known) |
+| Fee reminder | Approved (v3, en + te) | **Real flow:** Accountant > Defaulters > "Sri Lakshmi" > Send reminder to 1 (1 parent, 1 credit) | Yes, 12:56 AM | Header "Fee reminder", ₹19,800, due 14-11-2026, **"How to pay: Please pay at the school office."**, Call school button | None. The dialog's preview shows `*…*` stars instead of bold (small) |
+| Absent today | Approved (v3, en/hi/te) | Send Message > One person > Venkatesh | Yes, 12:57 AM | Header "Absent today", bold child and date, **Call school** button | None (the Call button was not pressed) |
+| Arrived late | Approved (v3) | Send Message > One person | Yes, 12:58 AM | Header "Arrived late", **Call school** button | None |
+| PTM reminder | Approved (v3) | Send Message > One person | Yes, 12:58 AM | Header "Parent-teacher meeting", class 1 A, date, **Open Parent Link** button. It opens Venkatesh's own link (`/p/…`, "code on WhatsApp to ••378") | None |
+| Birthday wishes (student) | Approved (Marketing) | Send Message > One person | Yes, 12:59 AM | Header "Happy birthday!", "Dear Sri Lakshmi…", WhatsApp's ⓘ marketing marker | None |
+| Homework set | Approved (v3) | Send Message > One person, homework typed in "Message for the other channels" | Yes, 1:00 AM | Header "New homework", class 1 A, the homework line, **See homework** button | None |
+| General announcement | Approved (v3) | Send Message > One person | Yes, 1:01 AM | Header "Message from school", the typed line, **Call school** button | None |
+| Parent Link code (one-time code) | Approved (v2, AUTHENTICATION) | Opened the PTM card's Open Parent Link, then pressed **Send code**. The page said "We sent a 6-digit code on WhatsApp" | **NO.** Not arrived after 10 minutes | – | **Bug B.** History says "Sent to WhatsApp", but nothing came. The code was not typed |
+| Message to staff | Approved (v3) | Send Message > One person > aswini | Yes, 1:04 AM | Header "Message from school", "Dear aswini…", the typed line, no button | None |
+| Parent Link | Approved (v3, en/hi/te) | **Real flow:** Venkatesh's guardian page > Resend Parent Link | Yes, 1:05 AM | Header "Your Parent Link", 🔒 line, **Open Parent Link** button | None |
+| Appointment confirmation (Front Office) | Approved (v1) | **Real flow:** Receptionist harikaa booked aswini, Tue 17-11 10:00, visitor Venkatesh 9390011378 (the page matched the number to Ramesh Reddy), "Send confirmation" on | Yes, 1:06 AM | Header "Appointment confirmed", "with aswini at chaitanya on Tue, 17-11-2026, 10:00 AM for 15 minutes", **Call school** button | None. Last run's problem 2 (plain text never arrived) is fixed |
+| Consent request | Approved (v4) | **Real flow:** Venkatesh's guardian page > Send consent request | Yes, 1:09 AM | Header "Consent needed", **Photos of my child** in bold, **Read and answer** button (the link) | None |
+| New notice | Approved (v4) | Tried Send Message > One person with a Title | Not sent | – | **"1 has no notice title"**: the Title field does not fill `{title}`, so it cannot go to one person (known problem 6). The real flow messages whole classes |
+| Results published | Approved (v4) | Not sent | – | – | The real flow messages a whole class; Send Message cannot fill `{exam_name}` |
+| Admission welcome | **Rejected: INCORRECT_CATEGORY** | Not sent | – | – | Reword it |
+| Staff invite | **Rejected: INCORRECT_CATEGORY** | Not sent | – | – | Reword it |
+| Visitor pass, Pickup gate pass | **Rejected: INCORRECT_CATEGORY** | Not sent | – | – | Reword them |
+| WhatsApp test (Settings) | Connection test approved | Not sent | – | – | The school's Settings has no test button. Only the DREAM TEAM console (`console/schools/[id]/connections`) has one |
+
+Screenshots (in `qa/whatsapp-cards/`):
+- `deploy10-fee-received.png`
+- `deploy10-fee-reminder-absent.png`
+- `deploy10-homework-general.png`
+- `deploy10-parent-link-appointment.png`
+- `deploy10-consent.png`
+
+### Credits
+- **13 WhatsApp credits** used in this run (474 → 461), plus 1 in the deploy 9 run.
+- All of them went to 9390011378.
+
+### Bugs found
+- **A. Fee received has a text header, not the receipt PDF.**
+  - At submission, `uploadTemplateSample()` (`src/lib/messaging/providers/whatsapp.ts:214`) evidently got no sample handle. `cardSubmission()` then falls back to the text header "Fee received" (card.ts:225), and the message goes without the PDF.
+  - Likely cause: `WHATSAPP_APP_ID` is not set on Vercel, and the access token cannot read `/app`.
+  - Fix: set `WHATSAPP_APP_ID`. Then make a new Fee received version and resubmit; Meta needs a new version for a different header type.
+  - Also log or show when the sample upload fails, instead of falling back quietly.
+- **B. The Parent Link one-time code never arrives.**
+  - The Authentication template is approved, and Meta took the message (it has an id, status "Sent to WhatsApp"), but nothing reached the phone in 10 minutes.
+  - Without delivery reports (the webhook points at the gym's site) the reason cannot be seen.
+  - Suggest: read the message status once by its id, or connect delivery reports. Also check the auth send against Meta's format (body parameter plus button `sub_type: "url"`, index 0 with the code).
+  - Parent Link still cannot be opened on a new phone.
+- **C. Four texts rejected as INCORRECT_CATEGORY:** Admission welcome, Visitor pass, Pickup gate pass, Staff invite. Reword them without "keep this number safe", "pass" or "show at the gate" style words.
+- **D. A rejected text's reason only shows after the background sync.** At first the page shows "gave no reason"; "Check approval status" right after sending also said "no reason given".
+- **E. Small UI problems:**
+  - Message History lists template sends without a title as raw words, for example "Dear {guardian_name}, your child is marked absent at school".
+  - The fee reminder dialog's preview shows `*…*` stars instead of bold.
+  - Send Message keeps the last typed message and title as a draft but returns to "Whole school · 8 parents". A careless second send would go to the whole school with the old test words.
+
+### Test changes left on the test school
+- ₹100 cash receipt C-CHE-001/2026-27/00012 for Sri.
+- Appointment with aswini, Tue 17-11 10:00 (visitor Venkatesh).
+- A second consent request to Venkatesh.
+- The Parent Link was resent (it stays active).
+- The "QA emoji body test" template is **archived** (01:09).

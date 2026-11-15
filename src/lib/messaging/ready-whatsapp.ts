@@ -139,11 +139,11 @@ export const READY_WHATSAPP: ReadyWhatsapp[] = [
       te: lines("నమస్కారం {staff_name} గారు, *{month}* నెల మీ జీతం స్లిప్ సిద్ధంగా ఉంది.", "", "చూడటానికి, డౌన్‌లోడ్ చేయడానికి కింది బటన్ నొక్కండి."),
     } },
   { key: "admission-welcome", name: "Admission welcome", category: "admission",
-    card: { header: { en: "🎉 Welcome to school", hi: "🎉 स्कूल में स्वागत है", te: "🎉 పాఠశాలకు స్వాగతం" }, buttons: [CALL] },
+    card: { header: { en: "✅ Admission confirmed", hi: "✅ दाख़िला पक्का", te: "✅ అడ్మిషన్ ఖరారైంది" }, buttons: [CALL] },
     texts: {
-      en: lines("Dear {guardian_name}, welcome! We are happy to confirm your child's admission.", "", "👤 *{student_name}* of {class}", "🆔 Admission no.: *{admission_no}*", "", "Please keep this number safe. We look forward to a wonderful year together."),
-      hi: lines("नमस्ते {guardian_name} जी, स्वागत है! आपके बच्चे का दाख़िला पक्का हो गया है।", "", "👤 *{student_name}*, कक्षा {class}", "🆔 दाख़िला नंबर: *{admission_no}*", "", "कृपया यह नंबर संभालकर रखें। साथ मिलकर एक शानदार साल की प्रतीक्षा है।"),
-      te: lines("నమస్కారం {guardian_name} గారు, స్వాగతం! మీ బిడ్డ అడ్మిషన్ ఖరారైంది.", "", "👤 *{student_name}*, తరగతి {class}", "🆔 అడ్మిషన్ నంబర్: *{admission_no}*", "", "ఈ నంబర్‌ను జాగ్రత్తగా ఉంచుకోండి. కలిసి ఒక చక్కని సంవత్సరం కోసం ఎదురుచూస్తున్నాము."),
+      en: lines("Dear {guardian_name}, the admission below is confirmed.", "", "👤 *{student_name}*, {class}", "🆔 Admission no.: *{admission_no}*", "", "Please keep this admission number for school records."),
+      hi: lines("नमस्ते {guardian_name} जी, नीचे दिया गया दाख़िला पक्का हो गया है।", "", "👤 *{student_name}*, कक्षा {class}", "🆔 दाख़िला नंबर: *{admission_no}*", "", "कृपया यह दाख़िला नंबर स्कूल के काम के लिए संभालकर रखें।"),
+      te: lines("నమస్కారం {guardian_name} గారు, కింది అడ్మిషన్ ఖరారైంది.", "", "👤 *{student_name}*, తరగతి {class}", "🆔 అడ్మిషన్ నంబర్: *{admission_no}*", "", "దయచేసి ఈ అడ్మిషన్ నంబర్‌ను పాఠశాల పనుల కోసం జాగ్రత్తగా ఉంచుకోండి."),
     } },
   // The long link leaves the words: it is the button.
   { key: "parent-link", name: "Parent Link", category: "parent-link",
@@ -176,14 +176,15 @@ export const READY_WHATSAPP: ReadyWhatsapp[] = [
       hi: lines("नमस्ते {guardian_name} जी, आपका सवाल अब बंद कर दिया गया है।", "", "🎫 टिकट नंबर: *{ticket_number}*", "", "हमारी मदद से आप कितने खुश हैं? कृपया 1 (खुश नहीं) से 5 (बहुत खुश) तक कोई एक नंबर लिखकर भेजें।"),
       te: lines("నమస్కారం {guardian_name} గారు, మీ ప్రశ్న ఇప్పుడు పరిష్కరించబడింది.", "", "🎫 టికెట్ నంబర్: *{ticket_number}*", "", "మా సహాయంతో మీరు ఎంత సంతోషంగా ఉన్నారు? దయచేసి 1 (సంతోషంగా లేదు) నుండి 5 (చాలా సంతోషం) వరకు ఒక నంబర్ పంపండి."),
     } },
-  // No "password", "sign in", "account" or link in the words: Meta rejected those as not Utility twice (live tests 15 Nov 2026).
+  // No "password", "sign in", "account", "welcome", "works once" or "do not share" in the words: Meta rejected those as
+  // not Utility three times (live tests 15 and 16 Nov 2026). Plain facts: the name is on the staff list, one next step.
   // The invite link is only the button (its secret is the end of the address).
   { key: "staff-invite", name: "Staff invite", category: "staff",
-    card: { header: { en: "👋 Welcome to School OS", hi: "👋 School OS में स्वागत", te: "👋 School OS కు స్వాగతం" }, buttons: [{ type: "URL", target: "invite", blank: "link", text: { en: "Open School OS", hi: "School OS खोलें", te: "School OS తెరవండి" } }] },
+    card: { header: { en: "📋 Added to the staff list", hi: "📋 स्टाफ़ सूची में नाम जुड़ा", te: "📋 సిబ్బంది జాబితాలో మీ పేరు" }, buttons: [{ type: "URL", target: "invite", blank: "link", text: { en: "Open School OS", hi: "School OS खोलें", te: "School OS తెరవండి" } }] },
     texts: {
-      en: lines("Dear {staff_name}, the school has added you to School OS, the app it uses for its daily work.", "", "Tap the button below to start.", "", "🔒 The button works once, for 7 days. Please do not share this message.", "{link}"),
-      hi: lines("नमस्ते {staff_name} जी, स्कूल ने आपको School OS में जोड़ा है, जिसे स्कूल अपने रोज़ के काम के लिए इस्तेमाल करता है।", "", "शुरू करने के लिए नीचे दिया बटन दबाएँ।", "", "🔒 यह बटन सिर्फ़ एक बार, 7 दिनों तक चलेगा। कृपया यह संदेश किसी से साझा न करें।", "{link}"),
-      te: lines("నమస్కారం {staff_name} గారు, పాఠశాల రోజువారీ పనుల కోసం ఉపయోగించే School OS లో మిమ్మల్ని చేర్చారు.", "", "మొదలుపెట్టడానికి కింది బటన్ నొక్కండి.", "", "🔒 ఈ బటన్ ఒక్కసారి మాత్రమే, 7 రోజుల వరకు పనిచేస్తుంది. దయచేసి ఈ సందేశాన్ని ఎవరితోనూ పంచుకోవద్దు.", "{link}"),
+      en: lines("Dear {staff_name}, the school has added your name to its staff list in School OS.", "", "📋 Next step: tap the button below to finish joining.", "", "The button stays open for 7 days.", "{link}"),
+      hi: lines("नमस्ते {staff_name} जी, स्कूल ने School OS में अपनी स्टाफ़ सूची में आपका नाम जोड़ा है।", "", "📋 अगला कदम: जुड़ना पूरा करने के लिए नीचे दिया बटन दबाएँ।", "", "यह बटन 7 दिनों तक खुला रहेगा।", "{link}"),
+      te: lines("నమస్కారం {staff_name} గారు, పాఠశాల School OS లోని తన సిబ్బంది జాబితాలో మీ పేరును చేర్చింది.", "", "📋 తదుపరి అడుగు: చేరడం పూర్తి చేయడానికి కింది బటన్ నొక్కండి.", "", "ఈ బటన్ 7 రోజుల వరకు తెరిచి ఉంటుంది.", "{link}"),
     } },
   { key: "staff-message", name: "Message to staff", category: "staff",
     card: { header: FROM_SCHOOL },
@@ -227,13 +228,13 @@ export const READY_WHATSAPP: ReadyWhatsapp[] = [
     texts: { en: lines("Dear {visitor_name}, your appointment at the school has been cancelled.", "", "📅 {message}", "", "Please call the school to choose a new time.") } },
   { key: "visitor-pass", name: "Visitor pass", category: "front-office",
     card: { header: { en: "🎫 Visitor pass" } },
-    texts: { en: lines("Dear {visitor_name}, here is your visitor pass for the school.", "", "🎫 {message}", "", "Please show this message at the gate.") } },
+    texts: { en: lines("Dear {visitor_name}, your visit to the school is registered.", "", "🎫 Pass no.: *{pass_no}*", "🕒 Valid until: *{valid_until}* today", "", "Please show this message at the gate.") } },
   { key: "walk-in-number", name: "Walk-in request number", category: "front-office",
     card: { header: { en: "🎫 Request received" } },
     texts: { en: lines("Dear {visitor_name}, thank you for visiting the school. We have noted your request.", "", "🎫 {message}", "", "We will get back to you soon.") } },
   { key: "gate-pass", name: "Pickup gate pass", category: "front-office",
     card: { header: { en: "🚸 Pickup gate pass" } },
-    texts: { en: lines("Dear {visitor_name}, here is the gate pass for your child.", "", "🎫 {message}", "", "Please show this message at the gate.") } },
+    texts: { en: lines("Dear {visitor_name}, the school has approved this pickup.", "", "👤 *{student_name}* leaves with you at *{time}*.", "🎫 Gate pass no.: *{pass_no}*", "", "Please show this message at the gate.") } },
   // The WhatsApp test from Settings (src/lib/messaging/channel-admin.ts): a template always arrives, plain text only within 24 hours.
   { key: "connection-test", name: "WhatsApp connection test", category: "general",
     card: { header: { en: "✅ WhatsApp is working" } },

@@ -180,7 +180,7 @@ export function gluedBlanks(text: string): string | null {
  */
 export const META_SAMPLES: Record<string, string> = {
   guardian_name: "Venkatesh", student_name: "Sri Lakshmi", class: "Class 1 A", admission_no: "CHS/2026/00123",
-  staff_name: "Aswini", visitor_name: "Ramesh", school_name: "Chaitanya School", school_phone: "9876500001",
+  staff_name: "Aswini", visitor_name: "Ramesh", pass_no: "V-0012", valid_until: "5:30 PM", school_name: "Chaitanya School", school_phone: "9876500001",
   date: "18-11-2026", due_amount: "₹2,500", due_date: "25-11-2026", receipt_number: "CHS/2026/00456",
   paid_amount: "₹2,500", payment_date: "18-11-2026", payment_mode: "UPI", balance_due: "₹7,500",
   exam_name: "Half Yearly Exam", title: "Diwali holidays", ticket_number: "Q-00012",

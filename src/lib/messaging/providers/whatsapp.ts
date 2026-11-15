@@ -208,28 +208,41 @@ export function templateSubmissionParts(t: TemplateSubmission): { body: Record<s
  * The sample PDF a document header needs at submission, given to WhatsApp with
  * the Resumable Upload API (an upload session on the Meta app, then the bytes);
  * returns WhatsApp's handle. The app is WHATSAPP_APP_ID on the server, or the
- * app the access token belongs to. Null when it cannot be done: the card then
- * goes with its text header instead.
+ * app the access token belongs to (asked as /app, then /debug_token, which
+ * also answers for a system user's token). When it cannot be done it says which
+ * step failed and WhatsApp's words: the card then goes with its text header and
+ * the person is told why (live test 16 Nov: the receipt PDF went missing silently).
  */
-export async function uploadTemplateSample(p: ProviderConfig): Promise<string | null> {
+export async function uploadTemplateSample(p: ProviderConfig): Promise<{ handle: string } | { problem: string }> {
   const token = p.secrets.accessToken;
-  if (!token) return null;
+  if (!token) return { problem: "no access token" };
+  const metaSaid = async (res: Response) => {
+    const e = ((await res.json().catch(() => null)) as GraphError | null)?.error;
+    return [e?.error_user_msg, e?.message].find(Boolean)?.slice(0, 200) ?? `HTTP ${res.status}`;
+  };
   try {
     let appId = (process.env.WHATSAPP_APP_ID ?? "").trim();
     if (!appId) {
       const res = await fetch(`${GRAPH}/app`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
       appId = res.ok ? String(((await res.json()) as { id?: string }).id ?? "") : "";
     }
-    if (!META_ID.test(appId)) return null;
+    if (!META_ID.test(appId)) {
+      const res = await fetch(`${GRAPH}/debug_token?input_token=${encodeURIComponent(token)}`, { headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
+      if (!res.ok) return { problem: `the Meta app could not be found (${await metaSaid(res)}); set WHATSAPP_APP_ID on the server` };
+      appId = String(((await res.json()) as { data?: { app_id?: string } }).data?.app_id ?? "");
+    }
+    if (!META_ID.test(appId)) return { problem: "the Meta app could not be found; set WHATSAPP_APP_ID on the server" };
     const pdf = samplePdf();
     const start = await fetch(`${GRAPH}/${appId}/uploads?file_name=sample-receipt.pdf&file_length=${pdf.length}&file_type=application/pdf`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, signal: AbortSignal.timeout(8000) });
-    const session = start.ok ? String(((await start.json()) as { id?: string }).id ?? "") : "";
-    if (!/^upload:[A-Za-z0-9_=:-]+$/.test(session)) return null;
+    if (!start.ok) return { problem: `WhatsApp did not open the upload (${await metaSaid(start)})` };
+    const session = String(((await start.json()) as { id?: string }).id ?? "");
+    if (!/^upload:[A-Za-z0-9_=:-]+$/.test(session)) return { problem: "WhatsApp did not open the upload" };
     const put = await fetch(`${GRAPH}/${session}`, { method: "POST", headers: { Authorization: `OAuth ${token}`, file_offset: "0" }, body: new Uint8Array(pdf), signal: AbortSignal.timeout(15_000) });
-    const h = put.ok ? ((await put.json()) as { h?: string }).h : null;
-    return typeof h === "string" && h ? h : null;
+    if (!put.ok) return { problem: `WhatsApp did not take the sample PDF (${await metaSaid(put)})` };
+    const h = ((await put.json()) as { h?: string }).h;
+    return typeof h === "string" && h ? { handle: h } : { problem: "WhatsApp did not take the sample PDF" };
   } catch {
-    return null;
+    return { problem: "WhatsApp could not be reached for the sample PDF" };
   }
 }
 
@@ -237,11 +250,17 @@ export async function uploadTemplateSample(p: ProviderConfig): Promise<string | 
  * Sends a template to WhatsApp for approval (see templateSubmission), and says
  * what was submitted, so each message is later sent with the same parts.
  */
-export async function submitWhatsappTemplate(p: ProviderConfig, t: TemplateSubmission): Promise<{ ok: true; status: string; submitted: SubmittedCard | null } | { ok: false; reason: string }> {
+export async function submitWhatsappTemplate(p: ProviderConfig, t: TemplateSubmission): Promise<{ ok: true; status: string; submitted: SubmittedCard | null; note?: string } | { ok: false; reason: string }> {
   if (!p.config.businessAccountId || !p.secrets.accessToken) return { ok: false as const, reason: "Add the WhatsApp Business account ID and access token in Settings, SMS, WhatsApp & Email first." };
   if (!META_ID.test(p.config.businessAccountId)) return { ok: false as const, reason: "The WhatsApp Business account ID has only numbers. Check it in Settings, SMS, WhatsApp & Email." };
   try {
-    const documentHandle = t.card?.header?.type === "document" ? t.documentHandle ?? (await uploadTemplateSample(p)) : null;
+    let documentHandle: string | null = null;
+    let note: string | undefined;
+    if (t.card?.header?.type === "document") {
+      const sample = t.documentHandle ? { handle: t.documentHandle } : await uploadTemplateSample(p);
+      if ("handle" in sample) documentHandle = sample.handle;
+      else note = `Sent without the receipt PDF on top: ${sample.problem}.`;
+    }
     const { body, submitted } = templateSubmissionParts({ ...t, documentHandle });
     const res = await postJson(
       `${GRAPH}/${encodeURIComponent(p.config.businessAccountId)}/message_templates`,
@@ -250,7 +269,7 @@ export async function submitWhatsappTemplate(p: ProviderConfig, t: TemplateSubmi
       8000,
     );
     const json = res.json as ({ id?: string; status?: string } & GraphError) | null;
-    if (res.ok && json?.id) return { ok: true as const, status: (json.status ?? "PENDING").toUpperCase(), submitted };
+    if (res.ok && json?.id) return { ok: true as const, status: (json.status ?? "PENDING").toUpperCase(), submitted, ...(note ? { note } : {}) };
     // Meta's own words for the person: the user title and message and the details say what is wrong
     // ("Invalid parameter" alone hid a header emoji, live test 16 Nov).
     const e = json?.error;

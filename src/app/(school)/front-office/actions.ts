@@ -103,6 +103,7 @@ export async function sendPassAction(_: S, fd: FormData): Promise<S> {
     const r = await messageVisitor(w.tx, w.ctx, {
       to: { name: v.name, phone: v.phone }, trigger: "Visitor pass",
       text: `${school?.name ?? "School"} visitor pass ${v.passNo} for ${v.name}. Show this at the gate. Valid until ${clockAt(v.passExpiresAt, w.tz)} today.`,
+      values: { pass_no: v.passNo, valid_until: clockAt(v.passExpiresAt, w.tz) },
       about: { recordType: "Visitor Entry", recordId: v.id },
     });
     if (r.status !== "queued") throw new FrontOfficeProblem(`The pass was not sent: ${r.note ?? "messages are not set up"}. Print it instead.`);
@@ -173,6 +174,7 @@ export async function sendGatePassAction(_: S, fd: FormData): Promise<S> {
     const r = await messageVisitor(w.tx, w.ctx, {
       to: { name: guardian.name, phone: guardian.phone }, trigger: "Pickup gate pass",
       text: `Gate pass ${g.passNo}: ${student?.firstName ?? "Your child"} leaves with ${guardian.name} at ${clockAt(g.timeOut, w.tz)}. Show this number at the gate.`,
+      values: { pass_no: g.passNo, student_name: student?.firstName ?? "Your child", time: clockAt(g.timeOut, w.tz) },
       about: { recordType: "Gate Pass", recordId: g.id },
     });
     if (r.status !== "queued") throw new FrontOfficeProblem(`The pass was not sent: ${r.note ?? "messages are not set up"}. Print it instead.`);

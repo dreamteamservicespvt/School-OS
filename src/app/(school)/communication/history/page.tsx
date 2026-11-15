@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { CalendarClock, CheckCheck, CircleAlert, Eye, History as HistoryIcon, Megaphone, Send, Users, Zap } from "lucide-react";
 import type { Prisma } from "@prisma/client";
-import { withSchool } from "@/lib/db";
+import { withSchool, type Tx } from "@/lib/db";
 import { commPage } from "@/lib/communication/access";
 import { readListParams, skipTake, listHref, PAGE_SIZE } from "@/lib/list";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -80,7 +80,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
       });
       timeline = { name: items[0]?.name ?? "", description: items[0]?.description ?? null, items };
     }
-    return { rows, total, sentCount, reach, firstSent, testMode, people, timeline, counts: await countsFor(tx, current.ctx, rows.map((r) => r.id)), names: await senderNames(tx, rows.map((r) => r.sentById)) };
+    return { rows, total, sentCount, reach, firstSent, testMode, people, timeline, counts: await countsFor(tx, current.ctx, rows.map((r) => r.id)), names: await senderNames(tx, rows.map((r) => r.sentById)), templateNames: await templateNames(tx, rows.map((r) => r.templateId)) };
   });
 
   const by = (s: string) => data.reach.filter((r) => r.status === s && !inTestMode(r)).reduce((a, r) => a + r._count._all, 0);
@@ -92,6 +92,8 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
   const exportHref = listHref("/communication/history/export", { ...params, page: 1 }, {});
   const anyFilter = Boolean(params.q || Object.keys(params.filters).length);
   const sender = (m: (typeof data.rows)[number]) => senderWords(m, data.names).replace(/^Rule: /, "");
+  // A template sent with no title is named by its template, never by its words with "{blanks}" (live test 16 Nov).
+  const headline = (m: (typeof data.rows)[number]) => m.title ?? m.trigger ?? (m.templateId ? data.templateNames.get(m.templateId) : undefined) ?? m.body.replace(/\{[a-z_]+\}/g, "…").slice(0, 60);
 
   return (
     <>
@@ -175,7 +177,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
               }
               columns={[
                 { key: "at", label: "When", nowrap: true, render: (m) => <span className="tnum text-[13px]">{formatDateTime(m.scheduledAt && m.status === "SCHEDULED" ? m.scheduledAt : m.createdAt, tz)}</span> },
-                { key: "title", label: "Message", render: (m) => <div className="max-w-[260px]"><p className="font-semibold leading-snug truncate">{m.title ?? m.trigger ?? m.body.slice(0, 60)}</p><p className="text-[12.5px] text-ink3 flex items-center gap-1 truncate">{m.ruleKey && <Zap size={12} aria-hidden="true" />}{sender(m)}</p></div> },
+                { key: "title", label: "Message", render: (m) => <div className="max-w-[260px]"><p className="font-semibold leading-snug truncate">{headline(m)}</p><p className="text-[12.5px] text-ink3 flex items-center gap-1 truncate">{m.ruleKey && <Zap size={12} aria-hidden="true" />}{sender(m)}</p></div> },
                 { key: "ch", label: "Channel", render: (m) => <ChannelPills channels={m.channels} backup={m.smsBackup} /> },
                 { key: "n", label: "To", align: "right", render: (m) => m.recipientCount.toLocaleString("en-IN") },
                 { key: "del", label: "Delivered", align: "right", render: (m) => m.status === "SCHEDULED" ? <Pill tone="info"><Words k="Scheduled" /></Pill> : m.status === "CANCELLED" ? <Pill tone="neutral"><Words k="Cancelled" /></Pill> : (data.counts.get(m.id)?.testMode ?? 0) > 0 && !data.counts.get(m.id)?.delivered ? <Pill tone="warn"><Words k="Test mode" /></Pill> : <span className="text-ok font-semibold">{(data.counts.get(m.id)?.delivered ?? 0).toLocaleString("en-IN")}</span> },
@@ -187,7 +189,7 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
                 const c = data.counts.get(m.id);
                 const Ic = m.channels.includes("whatsapp") ? CHANNEL_ICON.whatsapp : m.channels.includes("email") ? CHANNEL_ICON.email : m.status === "SCHEDULED" ? CalendarClock : CHANNEL_ICON.app;
                 return {
-                  title: m.title ?? m.trigger ?? m.body.slice(0, 60),
+                  title: headline(m),
                   sub: `${formatDateTime(m.scheduledAt && m.status === "SCHEDULED" ? m.scheduledAt : m.createdAt, tz)} · ${sender(m)}`,
                   icon: Ic, iconTone: c?.failed ? "bad" : "ok",
                   pills: m.status === "SCHEDULED"
@@ -201,4 +203,11 @@ export default async function MessageHistoryPage({ searchParams }: { searchParam
       </div>
     </>
   );
+}
+
+/** The names of the templates these messages were sent from. */
+async function templateNames(tx: Tx, ids: (string | null)[]) {
+  const want = [...new Set(ids.filter((x): x is string => Boolean(x)))];
+  const rows = want.length ? await tx.template.findMany({ where: { id: { in: want } }, select: { id: true, name: true } }) : [];
+  return new Map(rows.map((t) => [t.id, t.name]));
 }

@@ -283,12 +283,18 @@ export async function submitForApproval(tx: Tx, ctx: SchoolContext, versionId: s
     if (!r.ok) throw new TemplateProblem(r.reason);
     status = r.status === "APPROVED" || r.status === "REJECTED" ? r.status : "PENDING";
     submitted = r.submitted ?? null;
+    note = r.note ?? null;
+    // Meta can refuse at once (a wrong category): its reason is asked for now, not only at the next sync (live test 16 Nov).
+    if (status === "REJECTED") {
+      const why = await whatsappTemplateStatus({ config: setup.config, secrets: await channelSecrets(tx, ctx, "whatsapp") }, name, v.language).catch(() => null);
+      if (why?.note) note = [note, `WhatsApp said: ${why.note}`].filter(Boolean).join(" ");
+    }
   }
   await tx.templateVersion.update({
     where: { id: v.id },
     data: { whatsappName: name, whatsappStatus: status, whatsappNote: note, ...(card ? { whatsappCard: { ...card, submitted } as Prisma.InputJsonValue } : {}) },
   });
-  await writeAudit(tx, ctx, { action: "changed", recordType: "Template", recordId: v.templateId, actorNote: `Template "${v.template.name}" (${v.language}) sent for WhatsApp approval: ${WHATSAPP_STATUS_LABEL[status]}` });
+  await writeAudit(tx, ctx, { action: "changed", recordType: "Template", recordId: v.templateId, actorNote: `Template "${v.template.name}" (${v.language}) sent for WhatsApp approval: ${WHATSAPP_STATUS_LABEL[status]}${note ? `. ${note}` : ""}` });
   return status;
 }
 
@@ -315,7 +321,7 @@ export async function syncWhatsappApprovals(tx: Tx, ctx: SchoolContext): Promise
   for (const v of versions) {
     const real = v.whatsappName ? known.get(`${v.whatsappName}|${v.language}`) : undefined;
     const next = real
-      ? { whatsappStatus: WHATSAPP_STATUS_LABEL[real.status] ? real.status : "PENDING", whatsappNote: real.note }
+      ? { whatsappStatus: WHATSAPP_STATUS_LABEL[real.status] ? real.status : "PENDING", whatsappNote: real.note ?? (v.whatsappNote?.startsWith("Sent without the receipt PDF") ? v.whatsappNote : null) }
       : { whatsappStatus: "NOT_SUBMITTED", whatsappNote: v.whatsappStatus && v.whatsappStatus !== "NOT_SUBMITTED" ? "Not on this WhatsApp account yet. Send it for approval." : v.whatsappNote };
     if (next.whatsappStatus === v.whatsappStatus && next.whatsappNote === v.whatsappNote) continue;
     await tx.templateVersion.update({ where: { id: v.id }, data: next });

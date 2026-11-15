@@ -31,7 +31,7 @@ import { cx } from "@/components/ui/cx";
 import { Line, Words, useT } from "@/lib/i18n/client";
 import { tx } from "@/lib/i18n/tx";
 import { DateTimeInput } from "@/components/ui/date-input";
-import { DraftHint, useFormDraft } from "@/components/ui/form-draft";
+import { DraftHint, useFormDraft, useStateDraft } from "@/components/ui/form-draft";
 
 type Channel = "whatsapp" | "sms" | "email" | "app";
 export type Person = { type: "guardian" | "student" | "staff" | "parentsOf"; id: string; name: string; detail: string };
@@ -180,6 +180,13 @@ export function SendForm({ data }: { data: SendFormData }) {
   const liveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const liveSeq = useRef(0);
 
+  // Who gets it lives in state, not in the form's boxes: it is kept with the words, so a kept draft never
+  // comes back with "Whole school" in place of the one person chosen (live WhatsApp test 16 Nov 2026).
+  const audDraft = useStateDraft("Send message audience", { aud, who, classes, sections, staffKinds, depts, allGuardians, groupId, people }, (v) => {
+    setAud(audOptions.includes(v.aud) ? v.aud : firstAud); setWho(v.who); setClasses(v.classes); setSections(v.sections);
+    setStaffKinds(v.staffKinds); setDepts(v.depts); setAllGuardians(v.allGuardians); setGroupId(v.groupId); setPeople(v.people);
+  });
+  const drafts = useMemo(() => ({ ...draft, restored: draft.restored || audDraft.restored, clear: () => { draft.clear(); audDraft.clear(); } }), [draft, audDraft]);
   const touch = () => setVersion((v) => v + 1);
   const isStaff = aud === "staff";
   const parentsChosen = (["school", "classes", "sections"].includes(aud) && who.includes("parents")) || (aud === "single" && people.some((p) => p.type === "parentsOf"));
@@ -316,6 +323,7 @@ export function SendForm({ data }: { data: SendFormData }) {
     fd.set("intent", "send");
     fd.set("fingerprint", live.fingerprint);
     draft.done();
+    audDraft.done();
     startTransition(() => dispatch(fd));
   }
 
@@ -328,7 +336,7 @@ export function SendForm({ data }: { data: SendFormData }) {
   return (
     <form ref={formRef} onSubmit={(e) => { e.preventDefault(); trySend(); }} noValidate encType="multipart/form-data">
       <input type="hidden" name="sendKey" value={data.sendKey} />
-      <DraftHint draft={draft} />
+      <DraftHint draft={drafts} />
       {/* Who, as the form fields the server reads. */}
       {(aud === "school" || aud === "classes" || aud === "sections") && who.map((k) => <input key={k} type="hidden" name="kinds" value={k} />)}
       {aud === "classes" && classes.map((id) => <input key={id} type="hidden" name="classIds" value={id} />)}

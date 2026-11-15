@@ -41,6 +41,8 @@ export const VARIABLES: { key: string; label: string; sample: string }[] = [
   { key: "minutes", label: "Minutes", sample: "5" },
   // Front Office messages to visitors (src/lib/front-office/notify.ts) and the salary slip.
   { key: "visitor_name", label: "Visitor name", sample: "Ramesh" },
+  { key: "pass_no", label: "Pass number", sample: "V-0012" },
+  { key: "valid_until", label: "Valid until", sample: "5:30 PM" },
   { key: "month", label: "Month", sample: "October 2026" },
 ];
 

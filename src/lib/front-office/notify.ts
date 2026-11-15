@@ -48,7 +48,7 @@ async function whatsappText(tx: Tx, ctx: SchoolContext, msg: DeskMessage): Promi
   const v = versionFor(versions, "en", "en");
   if (!v) return live ? { skip: `WhatsApp has not approved the "${t?.name ?? msg.trigger}" template yet. Send it for approval in Message Templates` } : { version: null, text: msg.text, values: {} };
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true } });
-  const values: Record<string, string> = { visitor_name: msg.to.name, school_name: school.name, message: bareText(msg.text, school.name), ...(msg.code ? { code: CODE_MASK } : {}) };
+  const values: Record<string, string> = { visitor_name: msg.to.name, school_name: school.name, message: bareText(msg.text, school.name), ...(msg.values ?? {}), ...(msg.code ? { code: CODE_MASK } : {}) };
   const r = render(v.body, values);
   if (!r.ok) return live ? { skip: `The "${t!.name}" template has a blank Front Office cannot fill (${r.missing.map((k) => `{${k}}`).join(", ")})` } : { version: null, text: msg.text, values: {} };
   return { version: v, text: r.text, values };
@@ -59,6 +59,8 @@ export type DeskMessage = {
   /** What the message is, shown as its trigger in Message History. */
   trigger: "Visitor pass" | "Appointment confirmation" | "Appointment reminder" | "Appointment cancelled" | "Walk-in request number" | "Pickup code" | "Pickup gate pass";
   text: string;
+  /** The card's own blanks (a pass's number and time): Meta refused cards whose whole content was one {message} (16 Nov). */
+  values?: Record<string, string>;
   about: { recordType: string; recordId: string };
   /**
    * A one-time code: the text has "••••••" where the code goes, and the code goes only to

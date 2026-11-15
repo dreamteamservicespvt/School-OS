@@ -70,6 +70,8 @@ export const withCode = (text: string, code: string | null) => (code ? text.spli
 
 /** Whether a text has the code in it as a number of its own (never in a stored message). */
 export function hasCode(text: string, code: string): boolean {
+  // A tap secret (letters too, ../parent-link/links.ts) is looked for as it is; a number code by its digits.
+  if (/[^\d\s-]/.test(code)) return text.includes(code);
   return new RegExp(`(^|\\D)${code.replace(/\D/g, "")}(\\D|$)`).test(text);
 }
 

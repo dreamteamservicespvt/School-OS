@@ -40,6 +40,17 @@ export function ConsentForm({ token, consentTextId, title, photo = false, kids: 
     );
   }
 
+  if (asked?.ok && asked.step === "code" && action && asked.tap) {
+    // On WhatsApp: the parent's own Parent Link comes to tap (src/lib/parent-link/tap.ts), no code to type.
+    return (
+      <div className="mt-4 flex flex-col gap-3" role="status">
+        <p className="text-[14px] text-ink2">{action === "give" ? t("You are saying yes for “{title}”. To confirm, open the new message we sent to your WhatsApp ({phone}) and tap Open Parent Link.", { title, phone: maskedPhone }) : t("You are removing your consent for “{title}”. To confirm, open the new message we sent to your WhatsApp ({phone}) and tap Open Parent Link.", { title, phone: maskedPhone })}</p>
+        {asked.notSent && <p className="text-[13px] text-warn">{asked.message}</p>}
+        <Button variant="ghost" size="lg" className="w-full" onClick={() => setAction(null)}>{t("Cancel")}</Button>
+      </div>
+    );
+  }
+
   if (asked?.ok && asked.step === "code" && action) {
     return (
       <form action={confirm} className="mt-4 flex flex-col gap-3">

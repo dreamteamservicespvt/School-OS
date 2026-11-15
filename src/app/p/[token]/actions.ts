@@ -12,8 +12,9 @@ import { deviceInfo } from "@/lib/current";
 import { hitLimit, limitMessage } from "@/lib/rate-limit";
 import { MessagingProblem } from "@/lib/messaging/send";
 import { messageSettings } from "@/lib/messaging/settings";
-import { ACCESS_WORDS, confirmDevice, deviceCookieName, findLink, hashToken, linkUsable, newDeviceKey, ParentLinkProblem, codeSentWords, sendCode } from "@/lib/parent-link/links";
+import { ACCESS_WORDS, confirmDevice, deviceCookieName, findLink, hashToken, linkUsable, newDeviceKey, ParentLinkProblem, codeSentWords, sendCode, TAP_GONE, TAP_SECRET } from "@/lib/parent-link/links";
 import { askConsentCode, confirmConsent } from "@/lib/parent-link/consent";
+import { confirmTap } from "@/lib/parent-link/tap";
 import { guardianFor } from "./guardian";
 import { PARENT_CODE_NOT_SENT } from "@/lib/dev-codes";
 import { deliverCodeNow } from "@/lib/messaging/code-now";
@@ -22,8 +23,9 @@ import { parentLinkWords, parentMessage } from "@/lib/parent-link/language";
 /**
  * notSent: Test mode kept the code back; the page shows the message instead of "code sent".
  * channel: what carried the code ("on WhatsApp", "by SMS"). callSchool: no code could go; the page says to call the school.
+ * tap: WhatsApp carried the parent's own Parent Link to tap ("tap to confirm", src/lib/parent-link/tap.ts), not a code to type.
  */
-export type GuardianState = { ok: boolean; message?: string; step?: "code" | "done"; notSent?: boolean; channel?: "sms" | "whatsapp"; callSchool?: boolean } | null;
+export type GuardianState = { ok: boolean; message?: string; step?: "code" | "done"; notSent?: boolean; channel?: "sms" | "whatsapp"; callSchool?: boolean; tap?: boolean } | null;
 
 const GONE = ACCESS_WORDS.gone;
 
@@ -87,7 +89,7 @@ async function sendDeviceCodeEn(token: string): Promise<GuardianState> {
     if (!pl.sent.testMode && (await deliverCodeNow(ctx, pl.sent.messageId)).state === "failed") return { ok: false, message: PARENT_CODE_NOT_SENT, callSchool: true };
     await setDeviceCookie(found.linkId, key, pl.settings.deviceDays);
     const step = codeStep(codeSentWords(pl.sent, `Code sent. It works for ${pl.settings.codeMinutes} minutes.`));
-    return step?.ok ? { ...step, channel: pl.sent.channel } : step;
+    return step?.ok ? { ...step, channel: pl.sent.channel, tap: pl.sent.mode === "tap" } : step;
   } catch (e) {
     if (e instanceof ParentLinkProblem || e instanceof MessagingProblem) {
       const notSent = !(e instanceof ParentLinkProblem) || e.message === PARENT_CODE_NOT_SENT;
@@ -144,7 +146,8 @@ async function askConsentEn(token: string, form: FormData): Promise<GuardianStat
   try {
     const sent = await withSchool(g.ctx, (tx) => askConsentCode(tx, g.ctx, g.linkId, g.guardianId, { consentTextId, studentIds, action }));
     if (!sent.testMode && (await deliverCodeNow(g.ctx, sent.messageId)).state === "failed") return { ok: false, message: PARENT_CODE_NOT_SENT };
-    return codeStep(codeSentWords(sent, "Code sent. Type it below to confirm."));
+    const step = codeStep(codeSentWords(sent, "Code sent. Type it below to confirm."));
+    return step?.ok ? { ...step, tap: sent.mode === "tap" } : step;
   } catch (e) {
     if (e instanceof ParentLinkProblem) return { ok: false, message: e.message };
     if (e instanceof MessagingProblem) return { ok: false, message: PARENT_CODE_NOT_SENT };
@@ -171,4 +174,33 @@ async function confirmConsentCodeEn(token: string, form: FormData): Promise<Guar
   // Already in the page's language: parentMessage leaves words it does not know as they are.
   const title = t.any(result.title);
   return { ok: true, step: "done", message: result.action === "give" ? t("Thank you. Your consent for “{title}” is recorded.", { title }) : t("Your consent for “{title}” is removed.", { title }) };
+}
+
+/**
+ * The tap on the parent's own WhatsApp message ("tap to confirm"): this browser
+ * is confirmed (then the page opens), or the consent the parent asked for is
+ * recorded. The page with the secret only shows what it confirms; this is the tap.
+ */
+// eslint-disable-next-line @typescript-eslint/no-unused-vars -- the form action passes these; nothing is read from them
+export async function confirmTapped(token: string, secret: string, _prev: GuardianState, _form: FormData): Promise<GuardianState> {
+  return inPageLanguage(token, await confirmTappedEn(token, secret));
+}
+
+async function confirmTappedEn(token: string, secret: string): Promise<GuardianState> {
+  const device = await deviceInfo();
+  if (!TAP_SECRET.test(secret)) return { ok: false, message: TAP_GONE };
+  const found = await findLink(token);
+  if (!found) return { ok: false, message: GONE };
+  const limited = await limits([[`pl-verify:ip:${device.ipAddress ?? "unknown"}`, 200, 600], [`pl-verify:link:${found.linkId}`, 20, 600]]);
+  if (limited) return { ok: false, message: limited };
+  const key = newDeviceKey();
+  const r = await confirmTap(found, secret, key, device);
+  if (!r.ok) return { ok: false, message: r.message };
+  if (r.kind === "device") {
+    await setDeviceCookie(found.linkId, key, r.days);
+    redirect(`/p/${token}`);
+  }
+  const t = await parentLinkWords(token);
+  const title = t.any(r.title);
+  return { ok: true, step: "done", message: r.kind === "consent" && r.action === "withdraw" ? t("Your consent for “{title}” is removed.", { title }) : t("Thank you. Your consent for “{title}” is recorded.", { title }) };
 }

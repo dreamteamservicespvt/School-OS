@@ -70,7 +70,8 @@ async function askEventConsentEn(token: string, form: FormData): Promise<Guardia
   if (limited) return { ok: false, message: limited };
   try {
     const sent = await withSchool(g.ctx, (tx) => askEventConsentCode(tx, g.ctx, g.linkId, g.guardianId, x.eventId, x.studentId, g.today));
-    return codeStep(codeSentWords(sent, "Code sent. Type it below to confirm."));
+    const step = codeStep(codeSentWords(sent, "Code sent. Type it below to confirm."));
+    return step?.ok ? { ...step, tap: sent.mode === "tap" } : step;
   } catch (e) {
     if (e instanceof ParentLinkProblem) return { ok: false, message: e.message };
     if (e instanceof MessagingProblem) return { ok: false, message: PARENT_CODE_NOT_SENT };

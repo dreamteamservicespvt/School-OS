@@ -1,7 +1,8 @@
 "use client";
 
-// First open on a new phone (apps.jsx ParentFirst, "Confirm it's you"): a one-time code to the
-// guardian's registered mobile must be typed before anything is shown.
+// First open on a new phone (apps.jsx ParentFirst, "Confirm it's you"): before anything is shown, the
+// guardian's registered mobile confirms it. By SMS a 6-digit code to type; on WhatsApp ("tap", Meta does
+// not deliver code messages to +91 numbers) their own Parent Link comes to WhatsApp, to open from there.
 import { useActionState } from "react";
 import { Lock, ShieldCheck } from "lucide-react";
 import { sendDeviceCode, verifyDevice, type GuardianState } from "@/app/p/[token]/actions";
@@ -10,7 +11,7 @@ import { cx } from "@/components/ui/cx";
 import { PhoneCard } from "./phone-shell";
 import { useT } from "@/lib/i18n/client";
 
-export function VerifyPhone({ token, maskedPhone, codeSent, codeChannel = null, schoolPhone = null }: { token: string; maskedPhone: string; codeSent: boolean; codeChannel?: "sms" | "whatsapp" | null; schoolPhone?: string | null }) {
+export function VerifyPhone({ token, maskedPhone, codeSent, codeChannel = null, tap = false, schoolPhone = null }: { token: string; maskedPhone: string; codeSent: boolean; codeChannel?: "sms" | "whatsapp" | null; tap?: boolean; schoolPhone?: string | null }) {
   const t = useT();
   const [sent, send] = useActionState<GuardianState, FormData>(sendDeviceCode.bind(null, token), codeSent ? { ok: true, step: "code" } : null);
   const [checked, check] = useActionState<GuardianState, FormData>(verifyDevice.bind(null, token), null);
@@ -20,6 +21,7 @@ export function VerifyPhone({ token, maskedPhone, codeSent, codeChannel = null, 
   const channel = sent?.channel ?? codeChannel;
   const callSchool = schoolPhone ? t("The school could not send your code. Please call the school office on {phone}.", { phone: schoolPhone }) : null;
   const noChannel = !codeChannel && !haveCode;
+  const byTap = sent?.ok ? sent.tap ?? tap : tap;
 
   return (
     <>
@@ -32,15 +34,27 @@ export function VerifyPhone({ token, maskedPhone, codeSent, codeChannel = null, 
               <p role="alert" className="rounded-2xl bg-bad/10 border border-bad/30 text-bad text-[14px] px-4 py-3 mt-3">{callSchool ?? t("We could not send the code just now. Please contact the school office.")}</p>
             ) : (
               <>
-                <p className="text-[14px] text-ink2 mt-1">{codeChannel === "whatsapp"
+                <p className="text-[14px] text-ink2 mt-1">{byTap
+                  ? t("This link is being opened on a new phone. To confirm it’s you, we will send your Parent Link to your WhatsApp ({phone}).", { phone: maskedPhone })
+                  : codeChannel === "whatsapp"
                   ? t("This link is being opened on a new phone. We will send a 6-digit code on WhatsApp to {phone}.", { phone: maskedPhone })
                   : t("This link is being opened on a new phone. We will send a 6-digit code by SMS to {phone}.", { phone: maskedPhone })}</p>
                 <form action={send} className="mt-4 flex flex-col gap-3">
                   {sent && !sent.ok && <p role="alert" className="rounded-2xl bg-bad/10 border border-bad/30 text-bad text-[14px] px-4 py-3">{sent.callSchool && callSchool ? callSchool : sent.message}</p>}
-                  <SubmitButton size="lg" className="w-full !h-14 !text-[16px]" pendingText={t("Sending code")}>{t("Send code")}</SubmitButton>
+                  <SubmitButton size="lg" className="w-full !h-14 !text-[16px]" pendingText={byTap ? t("Sending") : t("Sending code")}>{byTap ? t("Send to my WhatsApp") : t("Send code")}</SubmitButton>
                 </form>
               </>
             )}
+          </>
+        ) : byTap ? (
+          <>
+            {sent?.notSent
+              ? <p role="status" className="text-[14px] text-warn mt-1">{sent.message}</p>
+              : <p role="status" className="text-[14px] text-ink2 mt-1">{t("We sent your Parent Link to your WhatsApp ({phone}). Open that new message on this phone and tap Open Parent Link.", { phone: maskedPhone })}</p>}
+            <form action={send} className="mt-4">
+              {sent && !sent.ok && <p role="alert" className="mb-3 rounded-2xl bg-bad/10 border border-bad/30 text-bad text-[14px] px-4 py-3">{sent.callSchool && callSchool ? callSchool : sent.message}</p>}
+              <SubmitButton variant="ghost" className="w-full" pendingText={t("Sending")}>{t("Send it again")}</SubmitButton>
+            </form>
           </>
         ) : (
           <>
@@ -66,7 +80,9 @@ export function VerifyPhone({ token, maskedPhone, codeSent, codeChannel = null, 
       </PhoneCard>
       <PhoneCard className="flex gap-4">
         <span className="w-12 h-12 rounded-2xl bg-sunken text-ink2 grid place-items-center shrink-0"><Lock size={21} aria-hidden="true" /></span>
-        <div className="min-w-0"><p className="font-semibold text-[15px]">{t("Why this step?")}</p><p className="text-[13px] text-ink3 mt-0.5">{t("Your link shows your children’s records. The code makes sure only you can open it on a new phone. After this, this phone will not need a code each time. If this is not your number, please call the school.")}</p></div>
+        <div className="min-w-0"><p className="font-semibold text-[15px]">{t("Why this step?")}</p><p className="text-[13px] text-ink3 mt-0.5">{byTap
+          ? t("Your link shows your children’s records. Opening it from your own WhatsApp makes sure only you can open it on a new phone. After this, this phone opens it straight away. If this is not your number, please call the school.")
+          : t("Your link shows your children’s records. The code makes sure only you can open it on a new phone. After this, this phone will not need a code each time. If this is not your number, please call the school.")}</p></div>
       </PhoneCard>
     </>
   );

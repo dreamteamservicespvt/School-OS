@@ -22,9 +22,9 @@ import { currentVersions, render } from "./templates";
 import { linksIn, receiptKeyIn, withRealLinks } from "../parent-link/token";
 import { isCodeTemplate, variablesIn, whatsappParts } from "./blanks";
 import { cardBody, effectiveButtons, readCard, type SubmittedCard, type WhatsappCard } from "./card";
-import { buttonSuffix, receiptPaymentIn } from "./button-links";
+import { buttonSuffix, NO_LINK_SUFFIX, receiptPaymentIn } from "./button-links";
 import { logTestModeLink, testModeCarriesCodes } from "../dev-codes";
-import { CODE_EXPIRED, CODE_NOT_RESENT, CODE_SEND_WINDOW_MS, isCodeMessage, unsealCode, withCode } from "./one-time-code";
+import { CODE_EXPIRED, CODE_MASK, CODE_NOT_RESENT, CODE_SEND_WINDOW_MS, isCodeMessage, unsealCode, withCode } from "./one-time-code";
 import { word } from "../notification-words";
 
 /** Stop starting new sends after this long, so a job always finishes within its transaction time. */
@@ -124,6 +124,16 @@ async function ownCodesOnly(tx: Tx, r: Claimed, words: Record<string, string>): 
 
 type Prepared = Outgoing & { refuse?: string; receiptFor?: string };
 
+/**
+ * A link button's end of address. A Parent Link confirmation on WhatsApp ("tap to confirm",
+ * ../parent-link/links.ts) holds the link code and the mask in its blank: the one-time secret
+ * joins the guardian's own link after a dot, only here, as it is handed to WhatsApp.
+ */
+function tapSuffix(target: Parameters<typeof buttonSuffix>[0], raw: string | undefined, code: string | null): string {
+  const suffix = buttonSuffix(target, raw);
+  return code && target === "parent-link" && raw?.includes(CODE_MASK) && suffix !== NO_LINK_SUFFIX ? `${suffix}.${code}` : suffix;
+}
+
 /** code: a one-time code, put in only now, for the provider (QA SEC-01). */
 async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context, code: string | null): Promise<Prepared> {
   let v = r.templateVersionId ? c.versions.get(r.templateVersionId) : undefined;
@@ -157,7 +167,7 @@ async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context, c
       } else if (card) {
         // A card: the same parts it was approved with. Each link button gets this person's own secret at its own position.
         const layout = layoutOf(v.body, card);
-        const buttons = layout.buttons.flatMap((b, index) => (b.type === "URL" && "target" in b ? [{ index, value: buttonSuffix(b.target, values[b.blank]) }] : []));
+        const buttons = layout.buttons.flatMap((b, index) => (b.type === "URL" && "target" in b ? [{ index, value: tapSuffix(b.target, values[b.blank], code) }] : []));
         out.whatsappTemplate = { name: v.whatsappName, language, params: variablesIn(cardBody(v.body, card)).map(fill), buttons };
         if (layout.header === "document") {
           // The receipt comes only from the card's own receipt button blank, never from other words (a typed

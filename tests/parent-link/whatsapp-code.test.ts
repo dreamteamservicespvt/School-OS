@@ -8,7 +8,6 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { withSchool } from "@/lib/db";
 import { callSchoolWords, createLink, openLink, sendCode } from "@/lib/parent-link/links";
 import { tokenFor } from "@/lib/parent-link/token";
-import { deliverMessage } from "@/lib/messaging/deliver";
 import { submitForApproval } from "@/lib/communication/templates-admin";
 import { whatsappReadiness } from "@/lib/communication/whatsapp-ready";
 import { PARENT_CODE_NOT_SENT } from "@/lib/dev-codes";
@@ -97,24 +96,13 @@ describe("a Parent Link code on a real WhatsApp account", () => {
     expect((calls[0].body.components as { type: string; text?: string }[]).find((c) => c.type === "BODY")).toMatchObject({ type: "BODY", text: expect.stringContaining("{{1}}") });
   });
 
-  it("once approved, the screen says WhatsApp, and the code goes in the body and the copy-code button", async () => {
+  it("an approved code template is not used on WhatsApp: Meta does not deliver codes to +91 numbers (live test 16 Nov)", async () => {
+    // The confirmation goes as the parent's own Parent Link card to tap instead (tests/parent-link/tap-confirm.test.ts).
     const v = await codeVersion();
     await withSchool(s.ctx, (tx) => tx.templateVersion.update({ where: { id: v.id }, data: { whatsappStatus: "APPROVED" } }));
-    expect(await openLink(token, null, device)).toMatchObject({ state: "verify", codeChannel: "whatsapp" });
-
+    expect(await openLink(token, null, device)).toMatchObject({ state: "verify", codeChannel: null, tap: false });
     const job = { schoolId: s.school.id, userId: null };
-    const sent = await withSchool(job, (tx) => sendCode(tx, job, linkId, "device", { keyHash: "k" }));
-    expect(sent.channel).toBe("whatsapp");
-    const calls = stubMeta();
-    await withSchool(job, (tx) => deliverMessage(tx, job, { messageId: sent.messageId!, round: "0", chunk: 0 }));
-    const msg = calls.find((c) => c.url.endsWith("/1/messages"));
-    expect(msg).toBeTruthy();
-    const tpl = msg!.body.template as { name: string; components: { type: string; sub_type?: string; index?: string; parameters: { type: string; text: string }[] }[] };
-    expect(tpl.name).toBe(v.whatsappName);
-    expect(tpl.components).toHaveLength(2);
-    const [body, button] = tpl.components;
-    expect(body).toMatchObject({ type: "body", parameters: [{ type: "text", text: expect.stringMatching(/^\d{6}$/) }] });
-    expect(button).toMatchObject({ type: "button", sub_type: "url", index: "0", parameters: [{ type: "text", text: body.parameters[0].text }] });
+    await expect(withSchool(job, (tx) => sendCode(tx, job, linkId, "device", { keyHash: "k" }))).rejects.toThrow(PARENT_CODE_NOT_SENT);
   });
 
   it("the new screen words are in English, Hindi and Telugu", () => {

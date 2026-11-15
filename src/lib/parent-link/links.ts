@@ -7,9 +7,14 @@
 //   revoked link stops working at once.
 // - In message texts the link is kept as a placeholder and put in only when
 //   the message is handed to WhatsApp or SMS.
-// - A new phone must be confirmed with a one-time code to the guardian's
-//   registered mobile. The phone then keeps a random key (cookie); only its
-//   hash is kept, for 180 days by default.
+// - A new phone must be confirmed by the guardian's registered mobile: by SMS
+//   a 6-digit code to type; on WhatsApp a tap ("tap to confirm"): the
+//   guardian's own Parent Link card comes again with a one-time secret in its
+//   "Open Parent Link" button (/p/<token>.<secret>), and the browser that
+//   opens it is remembered. Meta does not deliver code (Authentication)
+//   messages to WhatsApp users on +91 numbers (live test 16 Nov 2026: the code
+//   never came), so on WhatsApp no code is sent. The phone then keeps a random
+//   key (cookie); only its hash is kept, for 180 days by default.
 import "server-only";
 
 import { createHash, randomBytes, randomInt, timingSafeEqual } from "node:crypto";
@@ -24,6 +29,8 @@ import { messageSettings } from "../messaging/settings";
 import type { AudienceRule } from "../messaging/recipients";
 import { OPEN_LINK } from "../students/guardian-access";
 import { codeNotSentParentWords, logCodeSentBy, mayLogCode, PARENT_CODE_NOT_SENT } from "../dev-codes";
+import { CODE_MASK } from "../messaging/one-time-code";
+import { linkUrl as linkUrlOf } from "./token";
 
 export class ParentLinkProblem extends Error {}
 
@@ -244,7 +251,7 @@ export type OpenState =
   | { state: "invalid" }
   | { state: "revoked"; schoolName: string; schoolPhone: string | null }
   | { state: "off"; schoolName: string; schoolPhone: string | null }
-  | { state: "verify"; schoolName: string; schoolPhone: string | null; maskedPhone: string; linkId: string; schoolId: string; codeSentAt: Date | null; codeChannel: "sms" | "whatsapp" | null }
+  | { state: "verify"; schoolName: string; schoolPhone: string | null; maskedPhone: string; linkId: string; schoolId: string; codeSentAt: Date | null; codeChannel: "sms" | "whatsapp" | null; tap: boolean }
   | { state: "open"; schoolName: string; linkId: string; schoolId: string; guardianId: string; deviceId: string };
 
 /**
@@ -286,27 +293,46 @@ export async function openLink(token: string, deviceKey: string | null, device: 
     const pending = await tx.parentLinkCode.findFirst({ where: { parentLinkId: link.id, purpose: "device", usedAt: null, expiresAt: { gt: now }, ...(deviceKey ? { keyHash: hashToken(deviceKey) } : { keyHash: "-" }) }, orderBy: { createdAt: "desc" } });
     // The screen names the channel that will really carry the code ("on WhatsApp", "by SMS"), or says to call the school.
     const carrier = await codeCarrier(tx, ctx);
-    return { state: "verify" as const, schoolName: school.name, schoolPhone: school.phone, maskedPhone: maskPhone(guardian.phone), linkId: link.id, schoolId: found.schoolId, codeSentAt: pending?.createdAt ?? null, codeChannel: carrier?.channel ?? null };
+    return { state: "verify" as const, schoolName: school.name, schoolPhone: school.phone, maskedPhone: maskPhone(guardian.phone), linkId: link.id, schoolId: found.schoolId, codeSentAt: pending?.createdAt ?? null, codeChannel: carrier?.channel ?? null, tap: carrier?.mode === "tap" };
   });
 }
 
 /**
- * The channel that really carries a Parent Link code now, and its template: SMS
- * first (codes are what SMS is for), else WhatsApp; each only when it can carry
- * the code (on a real WhatsApp account, an approved code template). Null when
- * neither can: the parent is told to call the school.
+ * The channel that really carries a Parent Link confirmation now, and its
+ * template: SMS first, with a 6-digit code ("code"); else WhatsApp, with the
+ * guardian's own Parent Link card and a one-time secret in its button ("tap";
+ * Meta does not deliver code messages to +91 numbers; in Test mode, which never
+ * reaches a phone, the 6-digit code as before). Each only when it can
+ * carry it (SMS: a DLT template ID; a real WhatsApp account: the Parent Link
+ * template approved). Null when neither can: the parent is told to call the school.
  */
-async function codeCarrier(tx: Tx, ctx: SchoolContext, setups?: Awaited<ReturnType<typeof channelSetups>>): Promise<{ channel: "sms" | "whatsapp"; templateId: string } | null> {
+async function codeCarrier(tx: Tx, ctx: SchoolContext, setups?: Awaited<ReturnType<typeof channelSetups>>): Promise<{ channel: "sms" | "whatsapp"; templateId: string; mode: "code" | "tap" } | null> {
   await ensureReadyTemplates(tx, ctx);
   const s = setups ?? await channelSetups(tx, ctx);
   for (const ch of ["sms", "whatsapp"] as const) {
     if (!s[ch].isOn) continue;
-    const t = await templateByKey(tx, ctx, "parent-link-code", ch);
+    // Test mode never reaches a phone: the code to type stays (read from the log on a tester's computer).
+    const mode = ch === "whatsapp" && whatsappIsLive(s.whatsapp) ? "tap" : "code";
+    const t = await templateByKey(tx, ctx, mode === "tap" ? "parent-link" : "parent-link-code", ch);
     if (!t) continue;
     if (await cannotCarry(tx, ctx, ch, t.id, s)) continue;
-    return { channel: ch, templateId: t.id };
+    return { channel: ch, templateId: t.id, mode };
   }
   return null;
+}
+
+/** A tap secret: 18 random bytes, base64url (24 characters). */
+export const TAP_SECRET = /^[A-Za-z0-9_-]{24}$/;
+
+/**
+ * "/p/<token>.<secret>" from a tapped WhatsApp button: the link's own token and
+ * the one-time secret; a secret only when it has the right shape.
+ */
+export function splitTap(raw: string): { token: string; secret: string | null } {
+  const dot = raw.lastIndexOf(".");
+  if (dot < 0) return { token: raw, secret: null };
+  const secret = raw.slice(dot + 1);
+  return TAP_SECRET.test(secret) ? { token: raw.slice(0, dot), secret } : { token: raw, secret: null };
 }
 
 /** The parent's words when no code could go: call the school office (on its number, when the school has one). */
@@ -325,17 +351,22 @@ export async function sendCode(tx: Tx, ctx: SchoolContext, linkId: string, purpo
   const setups = await channelSetups(tx, ctx);
   const carrier = await codeCarrier(tx, ctx, setups);
   if (!carrier) throw new ParentLinkProblem(PARENT_CODE_NOT_SENT);
-  const { channel, templateId } = carrier;
+  const { channel, templateId, mode } = carrier;
   // An earlier unused code stops working when a new one is sent.
   await tx.parentLinkCode.updateMany({ where: { parentLinkId: linkId, purpose, usedAt: null }, data: { expiresAt: now } });
-  const code = String(randomInt(0, 1_000_000)).padStart(6, "0");
+  // A tap secret is long (144 bits), so it cannot be guessed; a typed code is 6 digits with five tries.
+  const code = mode === "tap" ? randomBytes(18).toString("base64url") : String(randomInt(0, 1_000_000)).padStart(6, "0");
+  const detail = mode === "tap" ? { ...(opts.detail ?? {}), via: "tap" } : opts.detail ?? {};
   const row = await tx.parentLinkCode.create({
-    data: { schoolId: ctx.schoolId, parentLinkId: linkId, purpose, codeHash: codeHash(code, linkId), keyHash: opts.keyHash ?? null, detail: opts.detail ?? {}, expiresAt: new Date(now.getTime() + settings.parentLink.codeMinutes * 60_000) },
+    data: { schoolId: ctx.schoolId, parentLinkId: linkId, purpose, codeHash: codeHash(code, linkId), keyHash: opts.keyHash ?? null, detail, expiresAt: new Date(now.getTime() + settings.parentLink.codeMinutes * 60_000) },
   });
   const sent = await sendMessage(tx, ctx, {
     to: { guardianIds: [link.guardianId] },
     channels: [channel],
     templates: { [channel]: templateId },
+    // Tap: the guardian's own Parent Link card; the secret joins the button's link only when the
+    // message is handed to WhatsApp (deliver.ts). The text keeps the link code and the mask.
+    ...(mode === "tap" ? { perPerson: { [link.guardianId]: { link: `${placeholderFor(linkId)}.${CODE_MASK}` } } } : {}),
     // The code goes only to the provider; Message History keeps "••••••" (QA SEC-01).
     oneTimeCode: { code, purpose: "parent-link" },
     single: true,
@@ -347,12 +378,12 @@ export async function sendCode(tx: Tx, ctx: SchoolContext, linkId: string, purpo
   const testMode = inTestMode(setups[channel]);
   const guardian = await tx.guardian.findUnique({ where: { id: link.guardianId }, select: { phone: true } });
   const inLog = mayLogCode(testMode ? "test" : "real")
-    && await logCodeSentBy(tx, ctx, channel, { to: guardian?.phone, purpose: purpose === "device" ? "Parent Link, new phone" : "Parent Link, consent", code });
+    && await logCodeSentBy(tx, ctx, channel, { to: guardian?.phone, purpose: purpose === "device" ? "Parent Link, new phone" : "Parent Link, consent", code: mode === "tap" ? `${linkUrlOf(linkId)}.${code}` : code });
   // Nobody can read a code Test mode kept back (outside a tester's computer): end it, so the page does not wait for it.
   if (testMode && !inLog) await tx.parentLinkCode.update({ where: { id: row.id }, data: { expiresAt: now } });
   await writeAudit(tx, ctx, { action: "code-sent", recordType: "Parent Link", recordId: linkId, after: { purpose, channel } });
   // Test mode only records the message: the page must not say "Code sent" (QA ADMIT-03).
-  return { ...row, messageId: sent.messageId, channel, testMode, inLog, sentTo: maskPhone(guardian?.phone ?? "") };
+  return { ...row, messageId: sent.messageId, channel, mode, testMode, inLog, sentTo: maskPhone(guardian?.phone ?? "") };
 }
 
 /**
@@ -365,10 +396,37 @@ export function codeSentWords(r: { testMode: boolean; inLog: boolean }, sent: st
   return { ok: r.inLog, message: codeNotSentParentWords(r.inLog), notSent: true };
 }
 
+/** A tapped confirmation that was used, ran out or was replaced by a newer one. */
+export const TAP_GONE = "This confirmation has run out or was already used. Please open your Parent Link and ask again.";
+
+/**
+ * What a tapped confirmation is for, before it is used: a new phone, or a
+ * consent (a consent form or an event), with its detail; null when the secret
+ * does not match an unused one. Only reads.
+ */
+export async function tapRequest(tx: Tx, linkId: string, secret: string, now = new Date()) {
+  if (!TAP_SECRET.test(secret)) return null;
+  const row = await tx.parentLinkCode.findFirst({ where: { parentLinkId: linkId, usedAt: null, expiresAt: { gt: now }, codeHash: codeHash(secret, linkId) }, select: { purpose: true, detail: true } });
+  if (!row || (row.detail as { via?: string } | null)?.via !== "tap") return null;
+  return { purpose: row.purpose as "device" | "consent", detail: (row.detail ?? {}) as Record<string, unknown> };
+}
+
 export type CodeCheck = { ok: true; code: { id: string; detail: unknown } } | { ok: false; message: string };
 
-/** Checks a typed code. Five wrong tries and the code stops working. */
+/**
+ * Checks a typed code (five wrong tries and the code stops working), or a tap
+ * secret from the WhatsApp button. A tap secret is matched by its hash and is
+ * not tied to the phone that asked: the browser that opens the guardian's own
+ * WhatsApp message is the one confirmed. Either is used once.
+ */
 export async function checkCode(tx: Tx, ctx: SchoolContext, linkId: string, purpose: "device" | "consent", typed: string, keyHash: string | null, now = new Date()): Promise<CodeCheck> {
+  if (TAP_SECRET.test(typed)) {
+    const tapped = await tx.parentLinkCode.findFirst({ where: { parentLinkId: linkId, purpose, usedAt: null, expiresAt: { gt: now }, codeHash: codeHash(typed, linkId) } });
+    if (!tapped || (tapped.detail as { via?: string } | null)?.via !== "tap") return { ok: false, message: TAP_GONE };
+    const claimed = await tx.parentLinkCode.updateMany({ where: { id: tapped.id, usedAt: null }, data: { usedAt: now, attempts: { increment: 1 } } });
+    if (claimed.count !== 1) return { ok: false, message: TAP_GONE };
+    return { ok: true, code: { id: tapped.id, detail: tapped.detail } };
+  }
   const clean = typed.replace(/\D/g, "");
   const row = await tx.parentLinkCode.findFirst({ where: { parentLinkId: linkId, purpose, usedAt: null, expiresAt: { gt: now }, ...(purpose === "device" ? { keyHash: keyHash ?? "-" } : {}) }, orderBy: { createdAt: "desc" } });
   if (!row) return { ok: false, message: "This code has expired. Tap \"Send a new code\"." };
@@ -391,6 +449,7 @@ export async function checkCode(tx: Tx, ctx: SchoolContext, linkId: string, purp
 
 /** Confirms a new phone: the code was right, so this phone's key is remembered. */
 export async function confirmDevice(tx: Tx, ctx: SchoolContext, linkId: string, deviceKey: string, typed: string, device: { userAgent: string | null; ipAddress: string | null }, now = new Date()) {
+  const byTap = TAP_SECRET.test(typed);
   const keyHash = hashToken(deviceKey);
   const check = await checkCode(tx, ctx, linkId, "device", typed, keyHash, now);
   if (!check.ok) return check;
@@ -398,7 +457,7 @@ export async function confirmDevice(tx: Tx, ctx: SchoolContext, linkId: string, 
   const dev = await tx.parentLinkDevice.create({
     data: { schoolId: ctx.schoolId, parentLinkId: linkId, keyHash, label: deviceLabel(device.userAgent), ipAddress: device.ipAddress, verifiedAt: now, lastUsedAt: now, expiresAt: new Date(now.getTime() + settings.parentLink.deviceDays * 86400_000) },
   });
-  await writeAudit(tx, ctx, { action: "phone-confirmed", recordType: "Parent Link", recordId: linkId, after: { phone: dev.label }, device: device.userAgent, ipAddress: device.ipAddress });
+  await writeAudit(tx, ctx, { action: "phone-confirmed", recordType: "Parent Link", recordId: linkId, after: { phone: dev.label, how: byTap ? "by a tap on the school's WhatsApp message" : "by a one-time code" }, device: device.userAgent, ipAddress: device.ipAddress });
   return { ok: true as const, deviceId: dev.id, days: settings.parentLink.deviceDays };
 }
 

@@ -6,7 +6,9 @@ import { cookies, headers } from "next/headers";
 import { withSchool } from "@/lib/db";
 import { deviceInfo } from "@/lib/current";
 import { hitLimit, peekLimit, type LimitResult } from "@/lib/rate-limit";
-import { deviceCookieName, findLink, openLink } from "@/lib/parent-link/links";
+import { deviceCookieName, findLink, openLink, splitTap } from "@/lib/parent-link/links";
+import { tapView } from "@/lib/parent-link/tap";
+import { TapConfirm } from "@/components/parent-link/tap-confirm";
 import { loadGuardianView } from "@/lib/parent-link/view";
 import { loadSections } from "@/lib/parent-link/render";
 import { GuardianPage } from "@/components/parent-link/guardian-page";
@@ -69,7 +71,7 @@ function waitWords(t: T, r: { retryAfterSeconds: number }) {
 
 /** The tab title in the same language as the page. */
 export async function generateMetadata({ params }: { params: Promise<{ token: string }> }): Promise<Metadata> {
-  const { t } = await openGate((await params).token);
+  const { t } = await openGate(splitTap((await params).token).token);
   return { title: titleIn(t, "Parent Link"), robots: { index: false, follow: false }, referrer: "no-referrer" };
 }
 
@@ -89,7 +91,8 @@ function Shell({ schoolName, schoolPhone, whatsappPhone, children, hello, name, 
 }
 
 export default async function ParentLinkPage({ params, searchParams }: { params: Promise<{ token: string }>; searchParams: Promise<{ child?: string; month?: string }> }) {
-  const { token } = await params;
+  // "/p/<token>.<secret>": the parent's own WhatsApp message to tap ("tap to confirm", src/lib/parent-link/tap.ts).
+  const { token, secret } = splitTap((await params).token);
   const { child, month } = await searchParams;
   const { device, limited, found, t, choices, school } = await openGate(token);
   if (!limited.ok) return <Shell schoolName={school?.name} schoolPhone={school?.phone} whatsappPhone={school?.parentWhatsapp} t={t} choices={choices} notice><Notice title={t("Please wait a moment")}>{waitWords(t, limited)}</Notice></Shell>;
@@ -120,10 +123,19 @@ export default async function ParentLinkPage({ params, searchParams }: { params:
       </Shell>
     );
   }
+  if (secret) {
+    // Only shows what the tap confirms; the button records it (a link preview opening this page changes nothing).
+    const view = await withSchool({ schoolId: state.schoolId, userId: null }, (tx) => tapView(tx, state.linkId, secret));
+    return (
+      <Shell schoolName={state.schoolName} hello={t("Welcome to")} name={t("Your Parent Link")} t={t} choices={choices}>
+        <TapConfirm token={token} secret={secret} view={view} />
+      </Shell>
+    );
+  }
   if (state.state === "verify") {
     return (
       <Shell schoolName={state.schoolName} hello={t("Welcome to")} name={t("Your Parent Link")} t={t} choices={choices}>
-        <VerifyPhone token={token} maskedPhone={state.maskedPhone} codeSent={Boolean(state.codeSentAt)} codeChannel={state.codeChannel} schoolPhone={state.schoolPhone} />
+        <VerifyPhone token={token} maskedPhone={state.maskedPhone} codeSent={Boolean(state.codeSentAt)} codeChannel={state.codeChannel} tap={state.tap} schoolPhone={state.schoolPhone} />
       </Shell>
     );
   }

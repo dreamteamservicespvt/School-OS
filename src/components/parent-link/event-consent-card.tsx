@@ -80,6 +80,13 @@ export function EventConsentCard({ token, preview, maskedPhone, c }: { token: st
             <p role="alert" className="text-[13px] text-bad">{t.any(asked.message ?? "")}</p>
             <Button variant="ghost" onClick={() => setState("view")}>{t("Back")}</Button>
           </div>
+        ) : asked?.ok && asked.tap ? (
+          // On WhatsApp: the parent's own Parent Link comes to tap (src/lib/parent-link/tap.ts), no code to type.
+          <div className="mt-4 flex flex-col gap-2" role="status">
+            <p className="text-[14px] text-ink2">{t("You are saying yes for {title}. To confirm, open the new message we sent to your WhatsApp ({phone}) and tap Open Parent Link.", { title: c.child, phone: maskedPhone })}</p>
+            {asked.notSent && <p className="text-[13px] text-warn">{t.any(asked.message ?? "")}</p>}
+            <Button variant="ghost" onClick={() => setState("view")}>{t("Back")}</Button>
+          </div>
         ) : (
           <form action={(fd) => { confirm(fd); }} className="mt-4 flex flex-col gap-3">
             <p className="text-[14px] text-ink2">{t("You are saying yes for {title}. To confirm, enter the 6-digit code sent to {phone}.", { title: c.child, phone: maskedPhone })}</p>

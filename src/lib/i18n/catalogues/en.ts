@@ -17633,6 +17633,25 @@ export const EN = [
   "WhatsApp says the words do not fit the message type (a code, account or sign-in message is not a Utility message)",
   "WhatsApp says the format is wrong (blanks, buttons or the header)",
   "WhatsApp says the words read like an advertisement",
+  // Layman loop 15 Nov: shorter words (less-text pass).
+  "Open your Parent Link on this phone",
+  "You opened the message the school sent to your WhatsApp. Tap the button to confirm it’s you. This phone will then open your Parent Link straight away.",
+  "Open my Parent Link",
+  "Opening your Parent Link",
+  "Confirm your answer",
+  "You are saying yes for “{title}”. Tap Confirm to record it.",
+  "You are removing your consent for “{title}”. Tap Confirm to record it.",
+  "This confirmation has run out or was already used. Please open your Parent Link and ask again.",
+  "Open your Parent Link",
+  "This link is being opened on a new phone. To confirm it’s you, we will send your Parent Link to your WhatsApp ({phone}).",
+  "Send to my WhatsApp",
+  "We sent your Parent Link to your WhatsApp ({phone}). Open that new message on this phone and tap Open Parent Link.",
+  "Send it again",
+  "Your link shows your children’s records. Opening it from your own WhatsApp makes sure only you can open it on a new phone. After this, this phone opens it straight away. If this is not your number, please call the school.",
+  "You are saying yes for “{title}”. To confirm, open the new message we sent to your WhatsApp ({phone}) and tap Open Parent Link.",
+  "You are removing your consent for “{title}”. To confirm, open the new message we sent to your WhatsApp ({phone}) and tap Open Parent Link.",
+  "You are saying yes for {title}. To confirm, open the new message we sent to your WhatsApp ({phone}) and tap Open Parent Link.",
+  "This code was sent for another form. Please open the page again.",
 ] as const;
 
 export type MessageKey = (typeof EN)[number];

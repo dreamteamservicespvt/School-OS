@@ -10,7 +10,7 @@ import { writeAudit } from "../audit";
 import { MessagingProblem, NOT_SENT, sendMessage, type SendInput } from "../messaging/send";
 import { makeParentLinksFor, noteParentLinksSent } from "./message-links";
 import { ensureReadyTemplates, templateByKey } from "../messaging/templates";
-import { checkCode, ParentLinkProblem, sendCode } from "./links";
+import { checkCode, ParentLinkProblem, sendCode, TAP_SECRET } from "./links";
 import { childrenOfGuardian } from "../students/guardian-access";
 import { campusGuardianIds } from "../communication/parent-link-admin";
 
@@ -70,7 +70,10 @@ export async function askConsentCode(tx: Tx, ctx: SchoolContext, linkId: string,
 export async function confirmConsent(tx: Tx, ctx: SchoolContext, linkId: string, guardianId: string, typed: string, device: { userAgent: string | null; ipAddress: string | null }) {
   const check = await checkCode(tx, ctx, linkId, "consent", typed, null);
   if (!check.ok) return check;
-  const action = check.code.detail as ConsentAction;
+  const action = check.code.detail as ConsentAction & { kind?: string };
+  // A code sent for an event's consent never records a consent form (../events/consent.ts has its own).
+  if (action.kind === "event" || !action.consentTextId) return { ok: false as const, message: "This code was sent for another form. Please open the page again." };
+  const how = TAP_SECRET.test(typed) ? "Parent Link, confirmed by a tap on the school's WhatsApp message" : "Parent Link, confirmed by a one-time code";
   const text = await tx.consentText.findFirst({ where: { id: action.consentTextId, schoolId: ctx.schoolId } });
   if (!text) return { ok: false as const, message: "This consent form has changed. Please open the page again." };
   // Checked again: a custody restriction set after the code was sent stops it too.
@@ -85,10 +88,10 @@ export async function confirmConsent(tx: Tx, ctx: SchoolContext, linkId: string,
       // Agreeing to a new version replaces the old one, which stays on record as withdrawn.
       if (standing) await tx.consentRecord.update({ where: { id: standing.id }, data: { withdrawnAt: now, withdrawnHow: "replaced by a newer version" } });
       const rec = await tx.consentRecord.create({ data: { schoolId: ctx.schoolId, guardianId, studentId, consentType: text.consentType, consentTextId: text.id, textVersion: text.version, givenAt: now, how: "parent-link", parentLinkId: linkId } });
-      await writeAudit(tx, ctx, { action: "consent-given", recordType: "Consent Record", recordId: rec.id, after: { type: text.consentType, version: text.version, how: "Parent Link, confirmed by a one-time code" }, device: device.userAgent, ipAddress: device.ipAddress });
+      await writeAudit(tx, ctx, { action: "consent-given", recordType: "Consent Record", recordId: rec.id, after: { type: text.consentType, version: text.version, how }, device: device.userAgent, ipAddress: device.ipAddress });
     } else if (standing) {
       await tx.consentRecord.update({ where: { id: standing.id }, data: { withdrawnAt: now, withdrawnHow: "parent-link" } });
-      await writeAudit(tx, ctx, { action: "consent-withdrawn", recordType: "Consent Record", recordId: standing.id, before: { withdrawnAt: null }, after: { withdrawnAt: now.toISOString(), how: "Parent Link, confirmed by a one-time code" }, device: device.userAgent, ipAddress: device.ipAddress });
+      await writeAudit(tx, ctx, { action: "consent-withdrawn", recordType: "Consent Record", recordId: standing.id, before: { withdrawnAt: null }, after: { withdrawnAt: now.toISOString(), how }, device: device.userAgent, ipAddress: device.ipAddress });
     }
   }
   return { ok: true as const, action: action.action, count: students.length, title: text.title };

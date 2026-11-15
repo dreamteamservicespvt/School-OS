@@ -996,6 +996,18 @@ describe("The AI Call log stays in its school", () => {
   });
 });
 
+describe("Assistant Conversations stay in their school", () => {
+  it("school A cannot read, change or add to school B's assistant conversations", async () => {
+    const row = await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.assistantConversation.create({ data: { schoolId: b.id, userLoginId: userB.id, language: "te", turns: [{ said: "Only in B", tools: [], action: null, reply: "B", at: "2026-11-15T00:00:00Z" }] } }));
+    await withSchool(ctxA(), async (tx) => {
+      expect(await tx.assistantConversation.count()).toBe(0);
+      expect(await tx.assistantConversation.findUnique({ where: { id: row.id } })).toBeNull();
+      expect((await tx.assistantConversation.updateMany({ where: { id: row.id }, data: { language: "en" } })).count).toBe(0);
+    });
+    await expect(withSchool(ctxA(), (tx) => tx.assistantConversation.create({ data: { schoolId: b.id, userLoginId: userB.id } }))).rejects.toThrow();
+  });
+});
+
 describe("Retention runs stay in their school", () => {
   it("school A cannot read, change or add to school B's retention runs (Privacy, G46)", async () => {
     const row = await withSchool({ schoolId: b.id, userId: userB.id }, (tx) => tx.retentionRun.create({ data: { schoolId: b.id, runOn: new Date("2026-10-23"), status: "waiting", due: { enquiries: { count: 3, before: "2024-10-23T00:00:00.000Z" } } } }));

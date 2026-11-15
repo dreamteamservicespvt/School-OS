@@ -50,6 +50,8 @@ export type AiTask<T> = {
   maxTokens?: number;
   /** A longer time limit for a task that reads a picture (never more than 2 minutes); the platform setting when longer. */
   minTimeoutMs?: number;
+  /** A model for this feature (from its own platform setting), else the platform's AI_MODEL. */
+  model?: string;
 };
 
 export type AiResult<T> = { ok: true; data: T; callId: string } | { ok: false; reason: AiReason; words: string; callId: string | null };
@@ -105,7 +107,7 @@ async function sentToday(tx: Tx, timeZone: string, now: Date) {
 /** Runs one AI task for the person in ctx, or says why not. Never throws: a failure is a reason, and the screen carries on. */
 export async function aiTask<T>(ctx: SchoolContext, task: AiTask<T>, now = new Date()): Promise<AiResult<T>> {
   const started = Date.now();
-  const model = aiModel();
+  const model = task.model?.trim() || aiModel();
   const base = { schoolId: ctx.schoolId, feature: task.feature, purpose: task.purpose.slice(0, 120), userLoginId: ctx.userId, model };
   let callId: string | null = null;
   try {

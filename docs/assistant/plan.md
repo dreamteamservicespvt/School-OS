@@ -1,6 +1,9 @@
 # School OS Assistant: plan
 
-Status: steps 1 and 2 (research and plan). No app code yet. Made 15-11-2026.
+Status (15-11-2026, later): the conversation core is built on branch `claude/ai-assistant` (section 10), behind
+the School Feature "ai-school-assistant", OFF for every school until switched on. No live model call has been
+made; the live eval waits for the owner's OK. The face (avatar or mascot) is not wired into the panel yet.
+Earlier: steps 1 and 2 (research and plan). Made 15-11-2026.
 Look choices: `docs/assistant/avatar-choices.html`. **Owner, 15 Nov: none of A, B or C. They want a real-time character: a lifelike person who talks (lips move with the voice), blinks, looks at the user and reacts.** Next look round: real-time human characters (see section 4). Prototype 15 Nov: `docs/assistant/avatar-3d.html` (Meera and Arjun, three.js shapes, 7 feelings), shared at https://claude.ai/artifact/FBX1KtUHpcSzeKU4c5niuP; owner: "Awkward, it was worst" (dropped). Second try 15 Nov: `docs/assistant/avatar-live.html` (TalkingHead 1.8.2 + three.js 0.186.1, real lip-sync, moods, gestures; commit a2d54492). Works, but the free sample models are not Indian and are non-commercial only (CC BY-NC / Avatar SDK), so they are a technology test, not the product. Next: our own Indian helper characters (a woman and a man), commercial-safe, made with MakeHuman/MPFB in Blender (CC0), exported as GLB with ARKit + Oculus viseme shape keys for TalkingHead. Needs the owner's OK to install Blender + the MPFB add-on on this laptop (a download/install). Publishing needs the GLB files published next to the page (the artifact sandbox blocks fetching models from jsDelivr). 15 Nov: own Meera/Arjun built with Blender 5.3 portable + MPFB 2.0.18 + CC0 packs (commit 325ad026, ~12 MB each, pipeline in C:/Users/chala/avatar-work/scripts). Works (lip-sync, 7 feelings) but looks like an old game: the lead judged it below the bar and did not present it as final. Free tools are at their limit; the lifelike route needs money (owner's call): a 3D artist-made stylised Indian character with ARKit + viseme shape keys (one-time cost), a paid avatar creator (Character Creator / Avaturn with a commercial licence), or a paid live photoreal avatar service (per minute). Engine stays TalkingHead either way.
 
 ## 1. The experience
@@ -160,3 +163,54 @@ the line our code returns; the output transcript is compared with the card in th
 - Dream Team Services appears as the maker in "About School OS" and the sign-in footer ("School OS by Dream Team Services").
 - Monday question for the owner: switch the app icon (now a rising sun on blue) to the same glowing book mark, so the product logo, the mascot and the sound brand match.
 - Final art: docs/assistant/mascot-live.html with docs/assistant/mascot-live/*.webp (owner's ChatGPT renders; robot face drawn live). Shared at https://claude.ai/artifact/3QBC68PCuaUj2RaWPzzkxY.
+
+## 10. Built: the conversation core (15 Nov, branch claude/ai-assistant)
+
+Owner's two new rules, as built:
+- **Language follows the person.** Each message is detected with no extra paid call: Telugu script, Devanagari,
+  else Latin, with a word list for romanised Telugu and Hindi ("ee roju absent evaru?", "aaj kaun absent hai");
+  for Latin words the list does not know, the model's own judgement from the same planning request decides.
+  The first message sets the conversation's language, stored on the **Assistant Conversation** record; it changes
+  only after two messages in a row in another language, or an explicit "speak in English / telugu lo cheppandi".
+  Replies, questions back, the card, errors and chips are in that language; a model reply in the wrong script is
+  not shown (the code's own sentence in the right language is). `src/lib/assistant/language.ts`, `words.ts`.
+- **Dynamic, not templates.** The model writes a short, warm reply from REAL records that read tools return
+  (`src/lib/assistant/tools.ts`): Ask's answers (absent, streaks, attendance line, not marked, staff late/absent/
+  leave, fee collection, defaulters, below pass mark, birthdays), one student's details and attendance, homework
+  not handed in, the School Calendar, approvals waiting. Each runs as the person with their reach (Ask's
+  `answerQuestion`, `studentScope`, `mayViewStudent`, `homeworkScope`, `approvalsFor`, the person's campus).
+  Follow-ups ("and yesterday?", "only 5 A?") work from the last turns' tools.
+- **Plan change (section 2, "the AI never writes a number").** Now the AI writes the words, but a reply with any
+  number not in the records, the person's words or today's date is never shown; the code's own sentence from the
+  same records is shown instead (`numbers.ts`). Every answer still links to the screen behind it.
+
+Two requests per question, both through `aiTask()` (switches, hiding of phones and restricted fields, daily
+limit, AI Call with cost in paise): 1 **understand** (`prompt.ts` PLANNER: the words, earlier tools, the person's
+tool list; never a record), 2 **reply** (COMPOSER: the records in a block marked as data; it can only write
+words). Words the rules already understand skip request 1. With no key, or the limit used, the rules still
+answer in the conversation's language. Every turn writes an Audit Log entry without the words or values.
+
+One prepared change, to prove Layer 3: **add an enquiry** (`enquiry.ts`). The card shows every field the form
+saves; the phone is taken from the person's own words (the model never sees it); "Yes" runs `inSchool("create")`
+(requireAction), the campus/year, extra-field and duplicate rules, `createEnquiry()`, and in the same transaction
+"prepared by AI, confirmed by <person>". Card buttons: "Yes, add the enquiry" / "No" (decision 2 still open).
+
+Switches: School Feature `ai-school-assistant` (default off; needs the AI assistant on and the role chosen);
+kill switch `ASSISTANT_OFF=1` (all schools, no release); `AI_GLOBAL_OFF`; `ASSISTANT_AI_MODEL` (cheaper model for
+the assistant, else `AI_MODEL`); per person 12 messages a minute; the school's daily AI limit (each question uses
+1 or 2 requests).
+
+Voice (section 5, first step): the browser's own speech recognition, run in the conversation's language
+(te-IN, hi-IN, en-IN), never forced to English; before the first message a one-tap picker (English, తెలుగు, हिंदी)
+sets it. Replies are spoken only when the person turns it on, with a voice of the same language; with none on
+the device the reply stays text and says so. Model speech (Gemini TTS / Live) is not built: it needs a Gemini key
+and a second provider in `src/lib/ai/provider.ts` (the one door), which is the owner's call.
+
+Panel: `src/components/assistant/assistant-panel.tsx`, mounted in the school layout only when the switch allows
+(no visual change for any school until then). `mascot-live.html` is untouched; the face joins later.
+
+Tests: `tests/assistant/` (language, numbers, tools with role/campus/school walls, whole turns with a fake
+model), `tests/assistant-eval/` (37 cases: 10 English, 10 Telugu script, 12 romanised or mixed, 4 must-refuse,
+1 injection; fake model for structure). Live run (paid, owner's OK first):
+`$env:ASSISTANT_EVAL_LIVE="1"; $env:ASSISTANT_EVAL_KEY="<key>"; node qa/vitest-worker.mjs 6 tests/assistant-eval/live.test.ts`.
+Log: `docs/qa/assistant-loop.md`.

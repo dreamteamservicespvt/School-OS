@@ -30,6 +30,8 @@ import { AwayWatch } from "@/components/shell/away-watch";
 import { I18nProvider } from "@/lib/i18n/client";
 import { catalogueFor, makeT, personLanguage } from "@/lib/i18n/server";
 import type { T } from "@/lib/i18n/t";
+import { AssistantPanel } from "@/components/assistant/assistant-panel";
+import { assistantOff } from "@/lib/assistant/conversation";
 
 export const dynamic = "force-dynamic";
 
@@ -125,6 +127,8 @@ export default async function SchoolLayout({ children }: { children: React.React
       )}
       <main id="main" className="w-full max-w-[1400px] mx-auto px-4 md:px-6 xl:px-8 py-5 md:py-7 pb-28 md:pb-10 animate-rise">{children}</main>
       <Toast key={flashed ? JSON.stringify(flashed) : "none"} flash={flashed} undoAction={undoChange} />
+      {/* The School OS Assistant: only when the school switched it on for this role (default off), never for support access. */}
+      {!current.support && !isPaused(current) && assistantOff(current) === null && <AssistantPanel screen={lang} />}
     </AppShell>
     </I18nProvider>
   );

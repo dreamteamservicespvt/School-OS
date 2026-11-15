@@ -70,7 +70,7 @@ async function sendDeviceCodeEn(token: string): Promise<GuardianState> {
   if (!found) return { ok: false, message: GONE };
   const limited = await limits([
     [`pl-code:ip:${device.ipAddress ?? "unknown"}`, 100, 3600],
-    [`pl-code:link:${found.linkId}`, 3, 3600],
+    [`pl-code:link:${found.linkId}`, 5, 3600],
   ]);
   if (limited) return { ok: false, message: limited };
   const jar = await cookies();

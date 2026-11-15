@@ -94,6 +94,15 @@ function layoutOf(body: string, card: WhatsappCard): SubmittedCard {
   };
 }
 
+/** True when the payment is of the recipient's own child (or the recipient is that student). */
+async function paymentOfRecipient(tx: Tx, paymentId: string, r: Claimed): Promise<boolean> {
+  const p = await tx.payment.findFirst({ where: { id: paymentId }, select: { studentId: true } });
+  if (!p) return false;
+  if (r.studentId && r.studentId === p.studentId) return true;
+  if (!r.guardianId) return false;
+  return Boolean(await tx.studentGuardian.findFirst({ where: { guardianId: r.guardianId, studentId: p.studentId }, select: { studentId: true } }));
+}
+
 type Prepared = Outgoing & { refuse?: string; receiptFor?: string };
 
 /** code: a one-time code, put in only now, for the provider (QA SEC-01). */
@@ -129,9 +138,12 @@ async function outgoingFor(tx: Tx, ctx: SchoolContext, r: Claimed, c: Context, c
         const buttons = layout.buttons.flatMap((b, index) => (b.type === "URL" && "target" in b ? [{ index, value: buttonSuffix(b.target, values[b.blank]) }] : []));
         out.whatsappTemplate = { name: v.whatsappName, language, params: variablesIn(cardBody(v.body, card)).map(fill), buttons };
         if (layout.header === "document") {
-          const paid = receiptPaymentIn(values);
+          // The receipt comes only from the card's own receipt button blank, never from other words (a typed
+          // message could carry another family's receipt), and it must be a payment of this person's own child.
+          const rb = layout.buttons.find((b) => b.type === "URL" && "target" in b && b.target === "receipt");
+          const paid = rb && "blank" in rb ? receiptPaymentIn({ receipt: values[rb.blank] ?? "" }) : null;
           out.whatsappTemplate.header = { type: "document", filename: "receipt.pdf" };
-          if (paid && paid.schoolId === ctx.schoolId) out.receiptFor = paid.paymentId;
+          if (paid && paid.schoolId === ctx.schoolId && (await paymentOfRecipient(tx, paid.paymentId, r))) out.receiptFor = paid.paymentId;
         }
       } else {
         // An older plain text: blanks in order, and the "Open receipt" line as the first button.

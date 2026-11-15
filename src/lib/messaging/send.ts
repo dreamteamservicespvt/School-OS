@@ -39,6 +39,16 @@ export const CANCELLED_REASON = "Cancelled before it was sent.";
 
 export class MessagingProblem extends Error {}
 
+const LINK_CODE = /⟦[^⟧]*⟧/g;
+/** The input with every link code removed from the words a person typed (text, title, translations). */
+export function stripTypedLinkCodes(input: SendInput): SendInput {
+  const clean = (s: string | null | undefined) => (typeof s === "string" ? s.replace(LINK_CODE, "") : s);
+  const translations = input.translations
+    ? (Object.fromEntries(Object.entries(input.translations).map(([k, v]) => [k, v ? { ...v, text: clean(v.text) ?? "", title: clean(v.title) ?? null } : v])) as typeof input.translations)
+    : input.translations;
+  return { ...input, text: clean(input.text), title: clean(input.title), translations };
+}
+
 export type SendInput = {
   to: AudienceRule;
   /** One or more channels, or "preferred": for each person the first of WhatsApp, SMS, email and app that can carry it to them. */
@@ -358,6 +368,11 @@ function notSentReason(whys: string[]) {
  * counts the credits. Used for the preview and for the send.
  */
 export async function planMessage(tx: Tx, ctx: SchoolContext, input: SendInput): Promise<Plan> {
+  // Link codes (⟦parent-link:…⟧, ⟦receipt:…⟧, invite and survey codes) become real secret links only when a
+  // message is handed to the provider. School OS puts them in blanks (values) only; anything a person typed
+  // (text, title, translations) must never carry one, or a typed code could send another family's link or
+  // receipt (security review, 15 Nov).
+  input = stripTypedLinkCodes(input);
   const problems: string[] = [];
   const problem = (p: string) => { if (!problems.includes(p)) problems.push(p); };
   const school = await tx.school.findUniqueOrThrow({ where: { id: ctx.schoolId }, select: { name: true, phone: true, timeZone: true, defaultLanguage: true, smsDltEntityId: true, smsSenderHeader: true } });

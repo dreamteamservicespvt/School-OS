@@ -57,7 +57,7 @@ Progress page: see docs/HANDOFF.md (link).
 20. App icon: the Assistant wears a glowing open-book badge (the School OS mark, decided 15 Nov). Switch the School OS app icon (now a rising sun on blue) to the same book mark so logo, mascot and the sound brand match?
 21. Pickup check over WhatsApp: WhatsApp never delivers code messages to Indian (+91) numbers (live test 16 Nov), so the pickup code can no longer go by WhatsApp (the desk is told to call the guardian). Build a "tap to approve" instead: the guardian gets a card "<person> is at the desk to collect <child>" with an Approve button, and the desk sees "Approved by the guardian"? (Or connect SMS with DLT, which carries codes.)
 22. Receipt PDF on the Fee received card: needs WHATSAPP_APP_ID (the Meta app's number) in Vercel's settings, or a token that may read the app; the template page now shows the exact reason after resending. Also verify the Meta business to lift the 250-template cap.
-23. Admission consent code: same +91 block as 21; until SMS is connected, consent at admission is recorded by the office (the page says why).
+23. Admission consent code: same +91 block as 21. Until SMS is connected, the counter cannot confirm a parent's consent by code (the page now says why). Allow the office to record a signed paper consent form instead, or confirm consent later by the Parent Link tap?
 
 ### Owner answers (15 Nov, in chat) — build these
 - 1 HR reset link for a Teacher: keep blocked (School Admin only).

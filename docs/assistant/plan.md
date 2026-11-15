@@ -1,7 +1,7 @@
 # School OS Assistant: plan
 
 Status: steps 1 and 2 (research and plan). No app code yet. Made 15-11-2026.
-Look choices: `docs/assistant/avatar-choices.html` (the owner picks A, B or C).
+Look choices: `docs/assistant/avatar-choices.html`. **Owner, 15 Nov: none of A, B or C. They want a real-time character: a lifelike person who talks (lips move with the voice), blinks, looks at the user and reacts.** Next look round: real-time human characters (see section 4).
 
 ## 1. The experience
 
@@ -77,7 +77,7 @@ opened form; it stops at the first "No" or error and says what was done and what
 Rules: every state can be left at any moment without a jump (values ease toward the new state);
 the status words are in an `aria-live` region; with "reduce motion" the avatar shows still poses
 and only the words change; no sound effects in v1 (staff rooms are shared).
-Build: the avatar in code (SVG and a few lines of script, as in the choices page, no new
+Build (changed 15 Nov after the owner's answer): a lifelike real-time character, a 3D person drawn in the browser (three.js) with face shapes for lip-sync, blinking and eye contact, driven by the same states. A candidate is the open-source TalkingHead approach (a GLB model with ARKit and viseme blend shapes); the model files and library need the owner's OK to download. Earlier plan, kept for reference: the avatar in code (SVG, no new
 dependency, follows the school's colours). If the owner picks the parrot and wants richer motion
 later, move it to a Rive state machine (inputs: `state`, `level`, `blink`), the way Duolingo
 drives Lily.

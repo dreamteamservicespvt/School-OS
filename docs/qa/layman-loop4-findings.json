@@ -1,0 +1,784 @@
+[
+ {
+  "who": "visitor",
+  "findings": [
+   {
+    "screen": "/admission-management, /events-calendar, /front-office, /homework-learning, /student-management, /staff-hr-management, /notifications",
+    "kind": "empty",
+    "severity": "high",
+    "problem": "Junk test records are on almost every main page and would embarrass the demo. Admissions pipeline: \"L3 సాయి కిరణ్\", \"Deepa Testwrong\", \"Charan Testwrong\", \"Kiran Testchild\", \"NA-अनन्या रेड्डी 01\". Events \"Coming up\": \"QA-A probe Science Fair\", \"QA-A retry3 Fair\" (twice), \"QA-A 0948 holiday\" (also in the Holiday list), and on 1 Nov \"LD-వార్షికోత్సవం Annual 1412 xxxxxxxx\". Front Office: \"Hari Testvisitor\" twice, \"Bonafide certificate for passport (QA test)\", \"QA Walkin 0956\", and a red banner \"LD-వెంకట్ Visitor 1420 😀\". Homework: all 4 cards are test items (\"L3 పాఠం 2\", \"L2 test: Exercise 5.2\", \"NC- गृहकार्य అభ్యాసం 5.1 😀\"). Students: \"QA Vp Student 476 / QA Parent\". Staff: \"LD-రమేష్ Ramesh 1345\", \"QA Invite 57984\". Finance: \"Test Stationers\", \"WC test: printer toner\". Notifications: \"Meena Testparent\", \"NA-Single Click Parent 02\".",
+    "fix": "Before the demo, archive every record whose name starts with L1–L3, LA-, LD-, NA-, NC-, QA or contains Test/Testwrong/xxxx/emoji (or re-seed a clean demo school). Keep a clean demo school separate from the QA school from now on.",
+    "evidence": "qa-output/loop/l4-visitor-a1-03-admissions.png"
+   },
+   {
+    "screen": "/fee-management/dashboard",
+    "kind": "bug",
+    "severity": "high",
+    "problem": "The page says two different things about today. The top card says \"Collected today ₹10,100 · 3 payments\", but at the bottom \"Recent payments\" opens on the \"Full payments 0\" tab and says \"No payments today yet. Payments show here as they come in.\" A buyer reads this as broken.",
+    "fix": "Open Recent payments on \"All payments\" by default, or let the empty text follow the tab (\"No full payments today. 3 part payments: see All payments\").",
+    "evidence": "qa-output/loop/l4-visitor-p1-03-feedash.png"
+   },
+   {
+    "screen": "/fee-management/defaulters, /student-management, /fee-management/dashboard, /dashboard",
+    "kind": "empty",
+    "severity": "high",
+    "problem": "In the demo data every child owes money. \"321 students owe ₹90,11,120.50 past the due date · 319 more than 30 days late\". Every row in Students has a red \"₹13,000 overdue\" pill. Every class card on the Fee Dashboard is red at 28–44%. The dashboard says \"₹48.17 L of ₹1.4 Cr due so far · 35%\". The pages look alarming, the data looks unrealistic, and the amount shows paise (\".50\").",
+    "fix": "Re-seed fees so most families have paid (e.g. 80–90% collected, about 30 defaulters). Round rupee totals in headlines (no paise).",
+    "evidence": "qa-output/loop/l4-visitor-a1-02-students.png"
+   },
+   {
+    "screen": "/dashboard (and every module's blue summary band)",
+    "kind": "ui",
+    "severity": "medium",
+    "problem": "In dark mode the big summary band (\"No school / ₹10,100 / 7 / 323\") and the same band on Fees, Front Office and Exams turn into a bright pale-periwinkle slab. It glares against the black page and is the brightest thing on screen.",
+    "fix": "Give the band a dark-mode colour: deep blue (e.g. blue-900/950) with light text, or a surface card with a blue accent.",
+    "evidence": "qa-output/loop4/v-dash-dark.png"
+   },
+   {
+    "screen": "/fee-management, /finance-management, /salary-management, /settings, /academic-management, /homework-learning",
+    "kind": "ui",
+    "severity": "medium",
+    "problem": "Page headings follow no single pattern. Students, Admissions and Attendance show the module name as the title. Fee Management opens on \"Collect fee\", Finance on \"Day Book\", Salary on \"Generate Salary\" with a small \"Salary\" above it, and Homework on \"Homework\" with \"Homework & Learning\" above it. On Settings and Academic Management (Time Table) the tab row sits ABOVE the title, while everywhere else it sits below. Fees also opens on a different tab for different roles (Collect Fee for admin, Fee Dashboard for principal). Clicking through the sidebar in a demo, it feels like several different apps.",
+    "fix": "Use one header pattern everywhere: module name as the title, one short line under it, then the tabs. Open each module on its dashboard tab for owner and admin roles.",
+    "evidence": "qa-output/loop/l4-visitor-a2-08-settings.png"
+   },
+   {
+    "screen": "sidebar (all pages)",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "An owner asked to see \"Time Table\" or \"Exams\" has to guess. Time Table has no sidebar entry and is hidden as the 4th tab of \"Academic Management\". Every sidebar label repeats \"Management\" (\"Attendance Management\", \"Fee Management\", \"Student Management\"...), which makes the menu long, so \"Library Management\" sits half-faded behind a \"More below\" button at 1440×900.",
+    "fix": "Shorten the sidebar labels to Attendance, Fees, Students, Admissions, Academics (Classes & Time Table), Exams, Homework, Events, Staff, Salary, Finance, Front Office, Transport, Library. Name Academics \"Classes & Time Table\", or add Time Table to search and quick links.",
+    "evidence": "qa-output/loop4/v-dash-top.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The first screen a buyer sees is mostly bad news: \"Needs your attention 23 items\", \"7 staff documents have expired\", \"42 papers past the marks due date\", \"42 students below 50%\", \"6 visitor passes expired\". \"Show all 23\" adds \"568 of 573 guardians have not given data consent\" and \"₹90,11,120.50 overdue\". The bell shows a red \"50\" (principal 57/58), the task icon shows 31, and \"Attendance this week\" shows only Class 5 plus \"Not marked this week: Nursery, LKG, UKG, Class 1 ... Class 10\". The school looks like it is falling apart.",
+    "fix": "Fix the demo data so the attention list has 3–5 realistic items, notifications are mostly read, and attendance is marked for all classes for the past week. In the product, cap the visible badge at \"9+\".",
+    "evidence": "qa-output/loop/l4-visitor-a1-01-dashboard.png"
+   },
+   {
+    "screen": "/dashboard vs /student-management vs /reports-analytics/analytics",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "Three pages give three student counts. The dashboard top band says \"Students 323\", the Classes overview just below says \"321 students studying in 20 sections\", Students says \"323 studying in 2026-27 · 2 not in a class\", and Analytics says \"Students 321 On the rolls today\". A buyer asks which number is right.",
+    "fix": "Use one count everywhere (e.g. 323), with \"2 not in a class yet\" as a small note under it rather than a different total.",
+    "evidence": "qa-output/loop4/v-analytics.png"
+   },
+   {
+    "screen": "/academic-management/time-table",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "On a published time table (\"Published · In use now\") the main blue button is \"Open the draft\", and a beige banner says \"128 things to check (limits and conditions)\". The owner reads this as \"the time table is not finished and has 128 errors\".",
+    "fix": "For a published time table, make the main action \"Edit\" or \"Print\". Show checks only when something truly breaks a rule, and word it as \"All periods fit\", or \"3 clashes to fix\" with a count of real problems.",
+    "evidence": "qa-output/loop/l4-visitor-p1-02-timetable.png"
+   },
+   {
+    "screen": "/staff-hr-management",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Before the staff list, two large coloured warning boxes fill half the first screen: \"4 people's posts may be wrong ... Change post\" and \"5 people can sign in but have no staff record\" (including \"QA Invite 57984\"). The list also has a duplicate \"Naresh Kumar · Receptionist\" (SPS-ST-040 and SPS-ST-029), and several staff have Department \"—\". The page looks unset-up.",
+    "fix": "Fold both warnings into one slim line (\"9 staff records to tidy · Review\") that opens a panel. Clean the duplicate and fill the departments in the demo data.",
+    "evidence": "qa-output/loop/l4-visitor-a1-08-staff.png"
+   },
+   {
+    "screen": "/salary-management/generate",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "All 32 rows carry the same amber tag \"Attendance not complete\", and 10 rows have two tags (\"No salary structure\" + \"Attendance not complete\"). The checks say \"Attendance missing for 32 staff\" and \"10 staff have no salary structure\". When every row is flagged, the flag means nothing, and a buyer sees a payroll with problems on every line.",
+    "fix": "When a problem applies to everyone, show it once at the top and not on every row. Keep row tags for real exceptions. In the demo data, take staff attendance and add the missing salary structures.",
+    "evidence": "qa-output/loop/l4-visitor-a1-07-salary.png"
+   },
+   {
+    "screen": "/reports-analytics/early-warnings",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The summary shows \"Watch 341\", \"Not reviewed yet 355\", \"Open 355 · New 355 · Reviewed 0\". The dashboard says \"13 students need a closer look\". The student profile of a nursery child with 98.4% attendance says \"Early warning: Fees · Watch\". The two numbers don't match, and 355 flags is overwhelming.",
+    "fix": "Count the fee-only \"Watch\" flags separately or hide them by default (\"Show fee watches\"), so the page headline matches the dashboard's 13.",
+    "evidence": "qa-output/loop/l4-visitor-a3-03-warnings.png"
+   },
+   {
+    "screen": "/finance-management/day-book",
+    "kind": "ui",
+    "severity": "medium",
+    "problem": "In the Expenses table, the Notes column is cut off at the card edge (\"EXP/2026-2...\", \"markers for :\"). Most of the page is empty cards that each say \"None\": \"Fee payments (full) None\", \"Daycare payments None\", \"Other income None\", \"Salary None\", \"Refunds and reversals None\". The top line reads \"3 transactions · Fees ₹0 + Partial ₹10,100\", which sounds as if no fees came in.",
+    "fix": "Let the table wrap or scroll inside its card. Hide empty sections behind one line (\"Nothing in daycare, other income, salary, refunds today\"). Write \"3 fee payments ₹10,100 (all part payments)\".",
+    "evidence": "qa-output/loop/l4-visitor-a1-06-finance.png"
+   },
+   {
+    "screen": "/homework-learning",
+    "kind": "empty",
+    "severity": "medium",
+    "problem": "The headline numbers look dead: \"Handed in 0%\", \"Seen by parents 0%\", \"Waiting to be checked 209\". 5 of 6 teachers say \"No homework given in these dates\". The search box placeholder is cut to \"Search homework t\".",
+    "fix": "Seed realistic homework with submissions for several classes. Widen the search box or shorten the placeholder to \"Search\".",
+    "evidence": "qa-output/loop/l4-visitor-a2-02-homework.png"
+   },
+   {
+    "screen": "/front-office",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The top band shows \"Average 0 minutes inside\", and the last box mixes sizes: \"0 calls, 4 enquiries\", with a big 0 next to small faded text. \"Front-office notes\" still shows notes from 30-10 and 31-10 (\"Bus 3 running 15 minutes late this afternoon\"), two weeks old.",
+    "fix": "Hide the average when it is 0 or unknown (\"—\"). Show \"4 enquiries · 0 calls\" at one size. Auto-hide notes older than about 2 days.",
+    "evidence": "qa-output/loop/l4-visitor-a2-06-frontoffice.png"
+   },
+   {
+    "screen": "/student-management, /staff-hr-management, /admission-management, /communication, /settings, student profile",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "Chip and tab rows are cut off at the right edge. Students shows \"Class 7\" sliced in half with no arrow, so Classes 8–10 seem missing. Staff shows \"Support\" cut. The student profile tabs end in \"Docum...\". Admissions, Communication and Settings tabs end in \"Admissi\", \"Messag\" and \"Module\" (those have a small arrow).",
+    "fix": "Use one pattern everywhere: wrap chips onto a second line, or always show a fade plus an arrow button when a row scrolls.",
+    "evidence": "qa-output/loop/l4-visitor-a1-02-students.png"
+   },
+   {
+    "screen": "/student-management/students/[id]",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "Each parent card ends in four loose text actions in mixed colours: \"Remove from pickup\", \"Change phone or name\" (blue), \"Relation and who may collect\", \"Unlink\". They are uneven and busy on an otherwise strong page. The full Aadhaar number (\"501408048385\") shows in plain view, which a buyer worried about privacy will notice.",
+    "fix": "Put the four parent actions in one \"⋯\" menu, or show a single \"Edit\" link. Show Aadhaar masked (\"XXXX XXXX 8385\") with a \"Show\" button that is logged.",
+    "evidence": "qa-output/loop/l4-visitor-a6-01-profile.png"
+   },
+   {
+    "screen": "/communication",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The message box help text lists technical tokens: \"Blanks you can use: {guardian_name}, {student_name}, {class}, {admission_no}...\". There are three template pickers (\"Message type\", \"WhatsApp template\", \"App notice template\"). The page says \"All 321 students\" but sends to \"283 parents\", and the preview shows \"1 of 25\". The flow is good but wordy.",
+    "fix": "Make the blanks clickable chips with plain names (\"Parent name\", \"Child name\"). Fold the two template pickers into one \"Use a saved message\" picker. Explain \"283 families (2 opted out)\" in one line.",
+    "evidence": "qa-output/loop/l4-visitor-a2-04-communication.png"
+   },
+   {
+    "screen": "/reports-analytics/analytics",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "\"Strength over the years\" has odd axis numbers (0, 118, 237) and two bars of nearly the same height with no value labels, so a buyer can't read 2025-26 vs 2026-27.",
+    "fix": "Put the value on top of each bar (e.g. \"236\" and \"321\") and use round axis ticks (0, 100, 200, 300).",
+    "evidence": "qa-output/loop4/v-analytics.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "The big blue \"+ New\" button opens \"What do you want to do?\" with exactly the same 6 tiles as the \"Quick actions\" card already on the dashboard. The dashboard \"Fee collection\" chart uses amber bars, while the Fee Dashboard uses blue bars and says 34% where the dashboard says 35%.",
+    "fix": "Remove the duplicate Quick actions card from the dashboard, or make \"New\" offer more choices. Use the same colour and rounding for the same number on both pages.",
+    "evidence": "qa-output/loop/l4-visitor-a4-01-newmenu.png"
+   },
+   {
+    "screen": "/settings",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The vendor name appears in capitals inside the school's own settings: \"See which payment gateways DREAM TEAM has connected\", \"DREAM TEAM connects them\". Settings cards have no icons, while every other overview page uses them. The page feels plainer than the rest.",
+    "fix": "Write \"Your School OS team connects them\" (or the brand in normal case) and add the same icon style used on the dashboard cards.",
+    "evidence": "qa-output/loop/l4-visitor-a2-08-settings.png"
+   }
+  ],
+  "tasksDone": "I went through all 16 main modules as admin (School Admin) and principal at 1440 px in light mode, then repeated some pages in dark mode: Dashboard, Students, Admissions, Attendance (Sunday shows \"No school\"), Fees (Collect Fee, Fee Dashboard, Defaulters), Finance Day Book, Salary, Staff, Exams (Datesheet, Results), Homework, Time Table, Communication (Send Message, Notice Board), Events calendar, Front Office, Reports (All Reports, Analytics, Early Warnings), Settings, Library, Notifications, Approvals, the New menu and a student profile.\n\nDark mode pages: Dashboard, Students, Fee Dashboard, Front Office and Exams. Steps files are in D:/all/Projects/School-OS/qa-output/loop4/. Screenshots are D:/all/Projects/School-OS/qa-output/loop/l4-visitor-*.png and D:/all/Projects/School-OS/qa-output/loop4/v-*.png.\n\nOverall look: calm, modern and consistent cards, good type and spacing. Nothing crashed. One click on a student name timed out in the test script (probably the sticky top bar covering it), so I opened that profile by its address.\n\nThe main risks for tomorrow's demo are data problems, not code:\n- Junk QA/LD/NA/Test records are on almost every page.\n- Every student shows as owing fees (₹90 L).\n- The dashboard is full of red \"needs attention\" items, and the bell shows 50+.\n\nReal UI problems: on the Fee Dashboard, \"Recent payments\" says \"No payments today yet\" while the top card shows ₹10,100 collected today. Student counts disagree (323 vs 321). Page headings and tab positions differ from module to module. In dark mode the summary band is too bright.\n\n3 strongest pages:\n1. Admissions dashboard: clear 7-step pipeline with the next action for each family, plus seats left.\n2. Examination & Results datesheet: clean exam cards with status, dates and publish actions.\n3. Student profile: rich summary strip, parents and pickup, emergency contacts, identifiers.\n\nClose runners-up: Reports (100 reports, well grouped) and the Time Table grid."
+ },
+ {
+  "who": "principal",
+  "findings": [
+   {
+    "screen": "/attendance-management/register/absences",
+    "kind": "ux",
+    "severity": "high",
+    "problem": "The principal wants the names of absent students. The only page that lists them, \"Absent list\", shows nothing but \"Absence reasons are off. Switch on Absence reasons in Attendance Settings, under More options...\" and an \"Open Attendance Settings\" button. To see the 17 absent students on 30-10-2026 she has to tap each of 13 classes one at a time on Class-wise attendance.",
+    "fix": "Always show the absent list (name, class, parent phone). Show the reason column only when Absence reasons is on, and drop the settings block for anyone who can't change settings.",
+    "evidence": "qa-output/loop/l4-principal-e-02-absentlist.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "slow",
+    "severity": "high",
+    "problem": "The first open of the home page on a phone took more than 30 s and then showed \"School OS is busy right now. Many people are using it at the same time... Try again\". The server log shows P2028 \"Transaction already closed... 30106 ms passed\" in the dashboard widget reports.early-warnings. A principal with 5 minutes before assembly gets an error screen first.",
+    "fix": "Run each dashboard widget in its own short transaction, or stream it in after the page with a time limit, so one slow widget (early warnings) never fails the whole home page.",
+    "evidence": "qa-output/loop/l4-principal-a-01-home.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "ux",
+    "severity": "high",
+    "problem": "\"Who is absent today\" opens Class-wise attendance, which shows class percentages for students only. Staff absence is on a separate \"Staff Attendance\" tab. The one-tap answer to \"who is absent, staff and students\" doesn't exist.",
+    "fix": "Make \"Who is absent today\" open one screen with two short lists: staff not in (name, job) and absent students (name, class). Link each list to its full page.",
+    "evidence": "qa-output/loop/l4-principal-d-01-absent.png"
+   },
+   {
+    "screen": "/approvals",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Tapping \"Approve\" on a non-money request in the list (attendance correction for Akshara Pillai) approved it at once. The card just vanished with no message and no undo, so on a phone she can't tell whether it worked. Approving from the detail page shows \"Approved. The person who asked has been told.\" The dashboard approval card also gives no message.",
+    "fix": "After a one-tap approve, show the same toast (\"Approved. Ravi Teja has been told.\") with an Undo for a few seconds, in the list and on the dashboard card.",
+    "evidence": "qa-output/loop/l4-principal-f-01-confirm.png"
+   },
+   {
+    "screen": "/approvals/[id]",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "After approving from the detail page, she stays on the now-decided request with no \"Next request\" button. Rejecting sends her back to the list instead. With 29 waiting, each approval costs an extra Back tap, and the two actions behave differently.",
+    "fix": "After Approve or Reject, go to the next waiting request (or back to the list) the same way every time, and show \"Next: <summary>\".",
+    "evidence": "qa-output/loop/l4-principal-i-01-after.png"
+   },
+   {
+    "screen": "/communication/notices/new",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "The dashboard button \"Send a notice\" opens a form with Audience already set to \"Parents\". To reach teachers she must untick Parents and tick Staff. The staff roles list then splits \"Teacher\" and \"Class Teacher\" and even includes \"Student\" as a staff role. With Staff only, the channels still tick \"Parent Link\", and the confirm says \"Channels: Notice board, App notification, Parent Link\".",
+    "fix": "Start with nothing ticked, or offer quick chips \"All teachers / All staff / All parents\". Add one \"Teachers\" choice that covers class and subject teachers, remove \"Student\" from staff roles, and hide Parent Link when parents aren't in the audience.",
+    "evidence": "qa-output/loop/l4-principal-y-03-after.png"
+   },
+   {
+    "screen": "/communication/notices/[id]",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "The notice to \"All staff\" showed \"Read by staff and students 1 of 24\", but the school has 42 staff. 18 staff (drivers, attendants, etc.) without a login never get it, and the form didn't warn her before \"Publish\".",
+    "fix": "In the publish confirm, say \"24 of 42 staff will see this. 18 have no login. Tick WhatsApp to reach them.\" Change \"staff and students\" to just \"staff\" when the audience is staff.",
+    "evidence": "qa-output/loop/l4-principal-z-03-done.png"
+   },
+   {
+    "screen": "/fee-management/dashboard",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Monday job: fees collected yesterday. Home shows only \"Fees collected today\", and the Filters panel has only From/To dates. On the Fee Dashboard, \"Yesterday\" is only inside the Recent payments filter far down the page. After picking it, the top tile still says \"Collected today ₹10,100\" and \"How parents paid: Today\".",
+    "fix": "Add a \"Yesterday\" / \"Last school day\" chip next to \"Collected today\" on the home tile and the Fee Dashboard, and make all the money tiles follow the chosen day.",
+    "evidence": "qa-output/loop/l4-principal-v-01-yfull.png"
+   },
+   {
+    "screen": "/fee-management/dashboard?period=yesterday",
+    "kind": "word",
+    "severity": "low",
+    "problem": "For a past day with no payments the list says \"No payments yesterday yet. Payments show here as they come in.\" Yesterday is over, so \"yet\" and \"as they come in\" read as if something is still pending.",
+    "fix": "For past days, say \"No payments on Sat, 14 Nov.\" Keep \"yet\" only for today.",
+    "evidence": "qa-output/loop/l4-principal-v-01-yfull.png"
+   },
+   {
+    "screen": "/attendance-management/staff",
+    "kind": "ui",
+    "severity": "medium",
+    "problem": "On a Sunday the staff page explains \"Attendance is off for this date\", but still shows \"Not in yet 42 · No punch by 10:58 AM\" in red and an amber \"Not in yet\" pill on every one of 42 staff. It looks like the whole staff is absent.",
+    "fix": "On holidays and Sundays, hide the counters and pills and show one calm line, \"Sunday: no staff attendance today\".",
+    "evidence": "qa-output/loop/l4-principal-e-01-staff.png"
+   },
+   {
+    "screen": "/communication/queries",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "Parent complaints sit in two places, \"Feedback & Queries\" and \"WhatsApp Inbox\", both under More > Communication, and neither is on the principal's home. On the phone she scrolls past six stat tiles (\"Time to resolve 0.0 days\", \"Satisfaction –\") and filters before reaching the 3 tickets. The rows show only \"Harish Mehta · Transport · Q-00001\", not what the parent said.",
+    "fix": "Add a \"Parent messages: 3 open\" line to Needs your attention. On the list, show the first line of the message on each row and move the stat tiles below the list on phones.",
+    "evidence": "qa-output/loop/l4-principal-r-01-full.png"
+   },
+   {
+    "screen": "/approvals",
+    "kind": "word",
+    "severity": "low",
+    "problem": "Counts disagree on the same screen: tab \"Waiting for me 29\" but \"Choose all 23 on this page\". The second page is only mentioned at the very bottom (\"page 1 of 2\"). Every row also carries two pills, \"Overdue\" and \"Waiting\", which adds noise on a phone.",
+    "fix": "Say \"Choose all 23 shown (29 waiting)\". On the Waiting tab, show only the Overdue pill.",
+    "evidence": "qa-output/loop/l4-principal-m-01-full.png"
+   },
+   {
+    "screen": "/approvals",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The concession request title reads \"Sibling of ₹6,000 for Sneha Varma\", which sounds like a sibling worth ₹6,000.",
+    "fix": "\"Sibling discount ₹6,000 for Sneha Varma\".",
+    "evidence": "qa-output/loop/l4-principal-vp-appr.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "The \"Approvals\" quick button at the top has no count, and the \"Waiting for your approval\" card is about 4,700 px down the phone page, below classes, fee charts and tasks. She can't see at a glance that 29 requests are waiting.",
+    "fix": "Show the count on the quick button (\"Approvals 29\") and move the approvals card right under Needs your attention for principals.",
+    "evidence": "qa-output/loop/l4-principal-b-01-home.png"
+   },
+   {
+    "screen": "/attendance-management/register",
+    "kind": "word",
+    "severity": "low",
+    "problem": "For a single past date the tiles read \"Average attendance 94.5% · 1 school days\" and \"Absences, all days added up 17 · 1 student away 3 days counts 3\", which is range wording for one day. Rows say \"15 of 17 present · 1 absent\" next to 93.8%, which doesn't match 15/17 (the on-leave child is left out silently).",
+    "fix": "For one day, use the same tiles as Today (Present / Absent / On leave), fix \"1 school day\", and add \"· 1 on leave\" to the row.",
+    "evidence": "qa-output/loop/l4-principal-ab-01-cw.png"
+   },
+   {
+    "screen": "/approvals/[id]",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "On the phone the pin icon sits alone on its own line under the long title, and \"Step 2 of 2\" is shown without saying what the steps are.",
+    "fix": "Put the pin next to the status pill. Replace \"Step 2 of 2\" with \"Last approval needed\" or \"Approved by Admin, now you\".",
+    "evidence": "qa-output/loop/l4-principal-vp-det.png"
+   },
+   {
+    "screen": "/communication/notices/new",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "\"Publish at\" shows a grey \"9:30 AM\" in the time box, while the hint says \"Blank: now.\" It looks like a set time.",
+    "fix": "Leave the time box empty with the placeholder \"Now\".",
+    "evidence": "qa-output/loop/l4-principal-w-01-notice.png"
+   }
+  ],
+  "tasksDone": "I tested as the principal on a 390 px phone (light, plus a dark check), about 35 min. Today in the demo data is a Sunday, so I used a past school day (30-10-2026) for attendance.\n- Home: the first load failed after 30 s with the \"busy\" screen; the retry worked.\n- Who is absent: I checked students (class-wise and the Absent list, which is blocked) and staff.\n- Approvals: I approved one non-money request from the list (no message shown), approved a ₹9,450 expense through the new confirm sheet, and rejected a marks change. Trying to reject without a reason showed a clear error; with a reason it worked.\n- Parent messages: I read Feedback & Queries, the WhatsApp Inbox and the Q-00001 transport complaint.\n- Fees: I checked today's tile and \"Yesterday\" on the Fee Dashboard.\n- Notice: I published a staff-only notice (\"Staff meeting after assembly L4\") through the confirm sheet.\n- I also opened the notifications page.\n\nLocal demo data I changed: attendance correction approved (Akshara Pillai), expense EXP/2026-27/00005 approved, marks change for Charan Menon rejected, one staff notice published.\nMy files are in D:/all/Projects/School-OS/qa-output/loop4/: steps files and a helper script, dlg.mjs, which can click inside open dialogs. Screenshots are in D:/all/Projects/School-OS/qa-output/loop/ with names starting l4-principal-."
+ },
+ {
+  "who": "monthend",
+  "tasksDone": "I worked as the accountant on desktop and phone, in light and dark mode, for about 40 minutes. Done: opened the November salary, checked it and sent it for approval (32 staff, net Rs 10,34,727). Added a salary structure for Vani Singh. Checked advances and opened Mark paid (did not save it). Looked at the 321 defaulters, opened \"Send reminder to all 321\" without sending, and sent one real reminder in test mode (Vaishnavi Rao's parent). Checked the Day Book, then closed 15-11-2026 with Rs 22,000 counted, which was Rs 507.50 short, with a reason. Viewed Finance Reports, Fee Reports, Income, Cash & Bank and Salary History. Exported Income and expense to Excel (income-and-expense.xlsx; it opens correctly with totals). Opened the Send unsent slips and Pay vendor bill dialogs without sending. Numbers that agree across pages: fees this year Rs 48.17 L (Fee Dashboard = Fee Reports = Finance Reports minus other income); defaulters Rs 90,11,120.50 (the age groups and the class list both add up to it, 321 students); Apr-Oct salary paid Rs 71,90,048 (Salary History = Finance Reports); today's fees Rs 10,100 (dashboard = Day Book = Cash book). Changes left on local data: November salary is waiting for the Principal; 15-11-2026 is closed; Vani Singh now has a structure; one reminder is logged.",
+  "findings": [
+   {
+    "screen": "/fee-management/defaulters",
+    "kind": "bug",
+    "severity": "high",
+    "problem": "WhatsApp is in test mode (sandbox; the database shows credit_cost 0), but nothing on screen says so. The dialog says \"Cost: 318 credits. This cannot be unsent.\" After sending to one parent, the message says \"Reminder sent to 1 parent\" and the row shows \"1 sent\". An accountant would believe the parent got the message and that credits were spent. The \"Send unsent slips\" dialog on Salary Slips has the same problem.",
+    "fix": "When a channel is in test mode, show a yellow line in the dialog: \"Test mode: nobody receives this, no credits used\". Make the cost read \"No credits (test mode)\", and make the result message and the row say \"Test mode, not delivered\".",
+    "evidence": "qa-output/loop/l4-monthend-i-01-remind-dlg.png, qa-output/loop/l4-monthend-j-03-after.png"
+   },
+   {
+    "screen": "/finance-management/cash-bank",
+    "kind": "ux",
+    "severity": "high",
+    "problem": "The top card shows \"Main bank account -Rs 24,30,863\", a bank account more than Rs 24 lakh in the red, with no reason given. The cause (\"Opening balances: Not set yet\") is in a small box further down the page. An accountant would panic or think money is missing.",
+    "fix": "Until the opening balance is set, show \"Opening balance not set\" with a Set button in place of the negative number, or put a banner at the top saying the bank figure is wrong until the opening balance is entered.",
+    "evidence": "qa-output/loop/l4-monthend-cb-dark.png"
+   },
+   {
+    "screen": "/finance-management/day-book",
+    "kind": "bug",
+    "severity": "high",
+    "problem": "I closed the day with Rs 22,000 counted. The message said \"Cash was Rs 507.50 short; the Principal is told\". After that, the dashboard \"Cash in hand\" and the Cash & Bank \"Cash in hand\" both still show Rs 22,507.50, and no page shows the shortage. The books and the cash box no longer match, and nothing shows it.",
+    "fix": "Next to Cash in hand (dashboard and Cash & Bank), show \"Counted Rs 22,000 at close, Rs 507.50 short\", with a link to record the difference as an expense or an adjustment.",
+    "evidence": "qa-output/loop/l4-monthend-n-01-closed.png, qa-output/loop/l4-monthend-z-01-cashbank.png"
+   },
+   {
+    "screen": "/finance-management/day-book",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "After the day is closed, the big blue \"Close today\" button is still there. Clicking it opens the whole cash-count form, with an error inside: \"This day cannot be closed now. 15-11-2026 is already closed.\"",
+    "fix": "Once the day is closed, replace the button with a \"Day closed\" tag showing who closed it and when, plus a Reopen action for people allowed to reopen.",
+    "evidence": "qa-output/loop/l4-monthend-o-01-close-again.png"
+   },
+   {
+    "screen": "/salary-management/generate",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "The check list warns \"Attendance missing for 32 staff: Mahesh Yadav 11 days, Meena Iyer 11 days...\", yet every row shows \"Paid days 30\". The \"Send November 2026 salary for approval?\" dialog only mentions the 10 staff with no salary structure, not the missing attendance. The accountant sends a full month's pay for days nobody marked, without being warned.",
+    "fix": "Add a line to the send dialog: \"Attendance not marked for 32 staff (11 days each); those days are paid as present\". Show the unmarked days in the table instead of a plain 30.",
+    "evidence": "qa-output/loop/l4-monthend-b-01-salary.png, qa-output/loop/l4-monthend-c-dlg.png"
+   },
+   {
+    "screen": "/salary-management/structures",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "November was already waiting for approval when I added Vani Singh's structure (from 01-11-2026). The page then said \"33 of 42 staff on November 2026's payroll\" and \"9 staff have no salary structure. Left out of November 2026's salary until one is added.\", which suggests she is now in November. The November run still shows 32 staff and Rs 10,34,727, and nothing says when she will be paid.",
+    "fix": "On save, say: \"November is already sent for approval. Vani Singh's November pay will come in December as arrears. Or take November back to add her now.\" Count the people on the payroll from the run, not from the structures.",
+    "evidence": "qa-output/loop/l4-monthend-y-01-saved.png"
+   },
+   {
+    "screen": "/fee-management/defaulters",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "The button says \"Send reminder to all 321\". The dialog says \"321 students on the list\", \"318 WhatsApp messages\" and \"2 skipped: opted out of messages\". 321 minus 2 is 319, so one student is dropped without a reason.",
+    "fix": "List every skipped student with a reason (for example \"1 has no parent phone\") so the counts add up.",
+    "evidence": "qa-output/loop/l4-monthend-i-01-remind-dlg.png"
+   },
+   {
+    "screen": "/fee-management/defaulters",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "The Telugu reminder says \"ఫీజు ₹97,100 ను 10-04-2026 లోపు చెల్లించాలి\" (\"pay by 10-04-2026\"), a date seven months in the past. It also mixes in an English line: \"Please pay at the school office.\"",
+    "fix": "For overdue fees, say it was due on that date and is still unpaid (for example \"10-04-2026 న కట్టవలసిన ₹97,100 ఇంకా బాకీ ఉంది\"), and translate the how-to-pay line into Telugu.",
+    "evidence": "qa-output/loop/l4-monthend-i-01-remind-dlg.png"
+   },
+   {
+    "screen": "/fee-management/defaulters",
+    "kind": "ui",
+    "severity": "medium",
+    "problem": "The \"Overdue by class\" bars use a different scale in each column. Class 4 (Rs 7.17 L) and Class 6 (Rs 13.52 L) both show full bars. Class 1 (Rs 6.88 L) is almost full while Class 9 (Rs 6.88 L) is half. The chart misleads about which classes owe most.",
+    "fix": "Use one scale for all classes (the largest amount = a full bar).",
+    "evidence": "qa-output/loop/l4-monthend-h-vp.png"
+   },
+   {
+    "screen": "/finance-management/reports",
+    "kind": "ui",
+    "severity": "medium",
+    "problem": "In the \"Money in and money out\" chart, the grey expense bars sit behind the blue income bars. In Apr to Jun the expenses (about Rs 10 L a month) are hidden, and the grey bars look like empty background rather than money spent.",
+    "fix": "Draw income and expenses side by side, in two clearly different colours.",
+    "evidence": "qa-output/loop/l4-monthend-r-exp2-menu.png"
+   },
+   {
+    "screen": "/salary-management/advances",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "The card says \"Active 1\", but the \"Active\" tab lists 3 rows (one \"Waiting for approval\", one \"Not paid yet\"). The \"Recovered in November Rs 0\" card contradicts the November salary, which shows \"Loans and advances Rs 3,000\" for Mahesh Yadav.",
+    "fix": "Make the Active tab show only active loans (or match the card count). Word the card as \"Rs 3,000 in November salary, recovered when it is paid\".",
+    "evidence": "qa-output/loop/l4-monthend-f-03-advances.png"
+   },
+   {
+    "screen": "/inventory-management/purchases",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The dashboard \"Pay\" button opens Purchases & Vendors, which carries a \"View only\" tag next to the title even though \"Record bill\", \"Pay\" and \"Cancel\" all work. The filter is named \"Due within 7 days\" but shows bills overdue since 30-09 and 29-10. A red \"Cancel\" for the bill sits right next to Pay.",
+    "fix": "Remove the View only tag when the person can pay bills. Name the filter \"Overdue or due in 7 days\". Move Cancel bill into a ... menu.",
+    "evidence": "qa-output/loop/l4-monthend-zb-01-pay-bills.png"
+   },
+   {
+    "screen": "/finance-management/day-book",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The dashboard says \"3 payments, 1 by UPI\", and the Day Book has a UPI payment of Rs 5,000. The Day Book card still reads \"Online fees Rs 0, None\". Accountants think of UPI as online.",
+    "fix": "Rename the card to \"Paid by payment link\" (or count UPI under it), so UPI money does not look missing.",
+    "evidence": "qa-output/loop/l4-monthend-k-vp.png"
+   },
+   {
+    "screen": "/finance-management/day-book",
+    "kind": "word",
+    "severity": "low",
+    "problem": "In the Close dialog, the difference shows only as \"-Rs 507.50\", without the word short or extra. Leaving the reason empty gives the clumsy error \"Why is it different? is needed.\"",
+    "fix": "Show \"Rs 507.50 short\" or \"Rs 200 extra\". Change the error to \"Write why the cash is different.\"",
+    "evidence": "qa-output/loop/l4-monthend-m-01-close-diff.png"
+   },
+   {
+    "screen": "/salary-management/slips",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The \"Send 31 unsent salary slips?\" dialog does not name the month (they are October's), and it does not say these are WhatsApp messages in test mode.",
+    "fix": "Title: \"Send October 2026 slips to 31 staff?\" Add the test-mode line when it applies.",
+    "evidence": "qa-output/loop/l4-monthend-za-01-slips-dlg.png"
+   },
+   {
+    "screen": "/approvals/309b65e2-41c2-4dfc-930d-8d8db0c65a25",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The salary approval shows \"Reason given: 10 staff left out: no salary structure.\" The accountant never typed a reason; the system wrote it, and the label reads as if she did.",
+    "fix": "Label it \"Note\" or \"Warnings when sent\".",
+    "evidence": "qa-output/loop/l4-monthend-f-01-approvals.png"
+   },
+   {
+    "screen": "/salary-management/advances",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "In the \"Pay Sunita Patil's advance\" dialog, the \"Reference\" label and the \"UTR or cheque number\" placeholder are in a typewriter (monospace) font, unlike every other field. The bills table shows \"Open order\" in blue monospace too, which looks like code. The dialog also does not say when recovery starts (Rs 2,000 a month from which salary).",
+    "fix": "Use the normal font. Add one line: \"Rs 2,000 will be taken from salary each month from December.\"",
+    "evidence": "qa-output/loop/l4-monthend-g-01-markpaid.png"
+   },
+   {
+    "screen": "/salary-management/generate",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "The campus picker (\"Main Campus\") that filters the staff table sits on the right, under \"Salary months\", far from the table and the search box it belongs with. It is easy to miss.",
+    "fix": "Move the campus picker into the table's filter row, next to \"Search staff\".",
+    "evidence": "qa-output/loop/l4-monthend-b-01-salary.png"
+   },
+   {
+    "screen": "/fee-management/defaulters",
+    "kind": "phone",
+    "severity": "low",
+    "problem": "On a 390 px phone the Defaulters page shows only \"Send reminder to all 321\". The \"Export\" button is gone, so you cannot get the list to a spreadsheet from a phone.",
+    "fix": "Keep Export in a ... menu next to the send button on phones.",
+    "evidence": "qa-output/loop/l4-monthend-u-def-phone.png"
+   }
+  ]
+ },
+ {
+  "who": "hindi",
+  "findings": [
+   {
+    "screen": "/front-office/appointments?do=book",
+    "kind": "translation",
+    "severity": "high",
+    "problem": "In Hindi, the main button of the 'मुलाक़ात बुक करें' form says 'किताब', which means a book you read. A receptionist would not know this button saves the appointment. The Hindi catalogue has \"Book\": \"किताब\" (hi.ts line 9329), so the verb was translated as a noun.",
+    "fix": "Give the button its own key, 'Book appointment', and translate it as 'मुलाक़ात बुक करें' (or 'बुक करें'). Search the catalogue for other one-word verb keys that came out as nouns.",
+    "evidence": "qa-output/loop/l4-hindi-u-01-book-form.png"
+   },
+   {
+    "screen": "/front-office",
+    "kind": "translation",
+    "severity": "high",
+    "problem": "The desk warning reads '6 visitors not checked out. उत्तीर्ण V-0260 (...) समाप्त हुआ 8:51 PM on Thu, 12-11-2026.' Here 'Pass' (a visitor pass) became 'उत्तीर्ण', which means passed an exam. The line also mixes English with broken Hindi word order.",
+    "fix": "Use the word 'पास' (visitor pass), never 'उत्तीर्ण', and write the whole line as one Hindi sentence: '6 आगंतुक बाहर दर्ज नहीं हुए। पास V-0260 … 12-11-2026 को 8:51 PM पर ख़त्म हुआ।'",
+    "evidence": "qa-output/loop/l4-hindi-zb-01-desk.png"
+   },
+   {
+    "screen": "/front-office",
+    "kind": "translation",
+    "severity": "high",
+    "problem": "The Reception Desk home stays almost all English in Hindi mode. The four action tiles say 'New visitor / Name, phone, whom to meet', 'Student pickup / Early pickup gate pass', 'New enquiry / Goes to Admissions' and 'Log a call / Incoming or outgoing'. The counters say 'Nobody waiting', 'Average 0 minutes inside', 'None left today' and 'No follow-ups due today', and the header says 'You are at the desk · School is closed today (Sunday) · today’s passes expire by themselves at 3:00 PM'. A Hindi reader cannot use the page meant to be her home. 'Nobody waiting' next to '2' people in the building is also confusing.",
+    "fix": "Pass every tile title, help line and counter subline through t() and add Hindi entries. Change 'Nobody waiting' to say how many are waiting, or drop it when people are inside.",
+    "evidence": "qa-output/loop/l4-hindi-zb-01-desk.png"
+   },
+   {
+    "screen": "/front-office/pickup",
+    "kind": "translation",
+    "severity": "high",
+    "problem": "The safety step of early pickup is fully English. It shows 'ID proof shows Rajesh Kumar / Aadhaar, driving licence or another photo ID. Match the face with the ID photo.' and 'A parent or guardian confirmed on a call / Call a number on the student’s record…'. The reason chips ('Doctor visit', 'Unwell', 'Family function', 'Exam or competition', 'Other'), the disabled button 'Check ID proof or call first' and the final button 'Release Rohan and make gate pass' are English too. This is the one step where she must understand exactly what to check before handing over a child.",
+    "fix": "Translate the two check options and their help lines, the reason chips and both button states, for example 'Rohan को छोड़ें और गेट पास बनाएँ' and 'पहले ID देखें या फ़ोन करें'.",
+    "evidence": "qa-output/loop/l4-hindi-q-01-ready.png"
+   },
+   {
+    "screen": "/front-office/visitors?do=visitor",
+    "kind": "translation",
+    "severity": "high",
+    "problem": "The New visitor form has a Hindi title, but the parts she acts on are English: the main button 'Register and make pass', placeholders '10 digits' and 'Full name', purpose options 'Meeting / Fee payment / Admission enquiry / Delivery / Interview / Other', 'Choose staff member', 'Optional by school policy', 'Number of people' and the staff warning 'School closed today: not in school'. The pass sheet then shows 'Visitor pass V-0264', 'Valid until 3:00 PM today. It expires by itself.', 'to meet' and the button 'Check out now'.",
+    "fix": "Translate the button ('आगंतुक दर्ज करें और पास बनाएँ'), the placeholders, the purpose list, the staff status line and all pass-sheet words. The purpose options are fixed words, so they belong in the catalogue.",
+    "evidence": "qa-output/loop/l4-hindi-j-01-visitor-form.png"
+   },
+   {
+    "screen": "/admission-management/enquiries?id=…",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "After saving the walk-in enquiry, the record she lands on is mostly English: 'Log call', 'Add note', 'Message', 'Follow-up', 'Parent', 'Phone', 'Source', 'Walk-in', 'Owner', 'Next follow-up', 'Tomorrow, 11:00 AM', 'Campaign', 'None', 'Added', 'By', 'Class wanted', 'Not decided', 'Class not decided', 'Messages', 'Activity'. The history line 'पूछताछ जोड़ी गई। Source: Walk-in. Owner: Divya Menon.' is half English. No Hindi 'saved' message appears either, so she is not sure it worked.",
+    "fix": "Translate the action tiles, field labels and the activity sentence, and show a short Hindi toast such as 'पूछताछ सेव हो गई'.",
+    "evidence": "qa-output/loop/l4-hindi-i-01-enq-detail.png"
+   },
+   {
+    "screen": "/front-office/visitors, /front-office/appointments",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "Every confirmation after saving is an English toast. After check-out: 'Mohan Testvisitor checked out at 11:07 AM. Pass V-0264 no longer works.' After booking: 'Booked: Sunil Testparent with Lakshmi Rao, सोमवार, 16-11-2026, 9:15 AM for 15 minutes. Confirmation sent on WhatsApp.' The one sign that her work succeeded is the one part she cannot read.",
+    "fix": "Put the toast sentences through t() with name and time placeholders, for example '{name} 11:07 AM पर बाहर गए। पास V-0264 अब काम नहीं करेगा।'",
+    "evidence": "qa-output/loop/l4-hindi-m-01-done.png"
+   },
+   {
+    "screen": "/front-office/pickup",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "Hindi sentences that contain a name come out in the wrong order and read like machine output. Examples: 'छोड़ें Rohan सिर्फ़ अगर वे आज स्कूल में हैं…', 'ले जाने वाला व्यक्ति चुनें Rohan।', 'सत्यापित करें Rajesh', 'इसकी कोई फ़ोटो नहीं: Rajesh रिकॉर्ड में' and 'ऑफ़िस से जोड़ने को कहें Rajeshकी फ़ोटो…' (no space before की). The same page still says 'Boarders going out use a Hostel Outing pass…', 'Father', 'Mother', 'Roll 13' and 'Class 3 A'.",
+    "fix": "Use whole-sentence keys with placeholders, for example '{name} को ले जाने वाला व्यक्ति चुनें।', 'आज स्कूल बंद है। {name} को तभी छोड़ें जब वह किसी कार्यक्रम के लिए स्कूल में हो।' and 'ऑफ़िस से {name} की फ़ोटो जोड़ने को कहें…'. Translate the relation words too.",
+    "evidence": "qa-output/loop/l4-hindi-o-01-student.png"
+   },
+   {
+    "screen": "/front-office/visitors?out=…",
+    "kind": "word",
+    "severity": "medium",
+    "problem": "The check-out confirm sheet has an English title, 'Check out Mohan Testvisitor?' and 'Pass V-0264 stops working now.' Its blue button says 'बाहर जाने का समय 11:07 AM' ('time of going out 11:07 AM'). That reads like a label, not an action, and is the same text as the field above it, so she does not know which part to tap.",
+    "fix": "Translate the title. Make the button a verb, for example '11:07 AM पर बाहर दर्ज करें'.",
+    "evidence": "qa-output/loop/l4-hindi-l-01-after-checkout.png"
+   },
+   {
+    "screen": "/student-management/students/…",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "To check a parent's fee balance, the student page says 'फ़ीस बकाया: Accounts से पूछें।' with a button 'Accounts को भेजें'. The button opens a form titled 'सीधे आने का अनुरोध' ('walk-in request'), not a fee question. Its 'से *' (From) box is filled with the child's name instead of the parent's. The request text is pre-filled in English ('Fee balance for Rohan Kumar…'), the department shows 'खाते' while the button said 'Accounts', and 'Give the number by' and 'Send to department' are English. She cannot tell whether she is sending a ticket or will get the answer now.",
+    "fix": "Title the sheet 'फ़ीस बकाया पूछें (Accounts को)', fill 'से' with the parent picked from the student's guardians, translate the pre-filled request, and use 'खाते' everywhere. After sending, say in Hindi who will reply and how, for example 'खाते वाले अभिभावक को WhatsApp पर बताएँगे'.",
+    "evidence": "qa-output/loop/l4-hindi-za-01-send-acc.png"
+   },
+   {
+    "screen": "/front-office/appointments",
+    "kind": "bug",
+    "severity": "medium",
+    "problem": "On the Appointments tab, tapping the day chip 'सोमवार 16' highlights Monday and loads Monday's slots, but the date box beside it still shows '15-11-2026'. Two different dates on one screen make her unsure which day she is booking.",
+    "fix": "Keep the date input in step with the chosen chip (and the URL ?day=) after every chip tap.",
+    "evidence": "qa-output/loop/l4-hindi-t-01-mon.png"
+   },
+   {
+    "screen": "/dashboard",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "The Hindi dashboard still has English sentences: 'Sanjay Verma (V-0240) and Deepika Rao (V-0232) and 4 more.', 'The oldest has waited 17 days. Remind the person or hand it over.', '0 still to come · 0 calls logged', 'Was due 12 Nov', and the visitor rows 'Meeting · Kavitha Nair' and 'In 8:34 AM'.",
+    "fix": "Translate these templated lines ('और 4 और', 'सबसे पुरानी चीज़ 17 दिन से रखी है…', '0 बाकी · 0 कॉल दर्ज', '12 नवंबर को देना था', 'आए 8:34 AM') and the visit-purpose words.",
+    "evidence": "qa-output/loop/l4-hindi-c-02-dash.png"
+   },
+   {
+    "screen": "/front-office/visitors",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "On the Visitors page, the header ('School is closed today (Sunday) · today’s passes expire by themselves at 3:00 PM') is English on every Front Office tab. So are the counter sublines ('Oldest since 8:33 AM', 'None yet', 'Pass expired'), the red banner start ('6 visitors not checked out:'), 'Search', 'Today', 'Showing 4 visitors · today', the chart days 'Mon Tue Wed…', 'Meeting / Fee payment' and '0 minutes'.",
+    "fix": "Translate the shared Front Office header and the counter, banner, list footer and chart labels. Use Hindi weekday short names.",
+    "evidence": "qa-output/loop/l4-hindi-dark-visitors.png"
+   },
+   {
+    "screen": "/dashboard (bell)",
+    "kind": "translation",
+    "severity": "medium",
+    "problem": "All notifications are English even in Hindi mode: 'New sign-in to Sunrise Public School on Chrome on Windows computer… Not you? Sign out everywhere in My profile and change your password.', 'Salary slip ready: Dear Naresh Kumar…', 'Holiday: … The school is closed.' The security alert in particular should be understood.",
+    "fix": "Store the notification type and its values, and render the text in the reader's language when it is shown (at least for system notices: sign-in alert, salary slip, holiday).",
+    "evidence": "qa-output/loop/l4-hindi-zd-01-bell.png"
+   },
+   {
+    "screen": "/admission-management/enquiries?do=add",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "When the receptionist adds a walk-in enquiry, 'ज़िम्मेदार *' is pre-set to 'Divya Menon (TGT Science)', with the hint 'फ़ॉलो-अप कॉल इसी व्यक्ति को जाते हैं। आमतौर पर इसे न बदलें।'. A first-time user does not know why a science teacher gets her follow-up calls. The list also has two 'Naresh Kumar (Receptionist…)' entries, and the '(Receptionist, you)' tag is English. The phone placeholder '10 digits' is English, and the phone hint 'हम मिलता-जुलता परिवार खोजते हैं' reads oddly.",
+    "fix": "Say why this owner was picked, for example 'स्कूल का नियम: नई पूछताछ Divya Menon को जाती है'. Translate '(आप)' and the placeholder. Reword the hint as 'इस नंबर से पहले से जुड़े परिवार को हम ढूँढ लेंगे'.",
+    "evidence": "qa-output/loop/l4-hindi-e-01-bottom.png"
+   },
+   {
+    "screen": "/front-office/appointments?do=book",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "In the booking form the date list shows English days ('Today, Sun 15', 'Mon 16', 'Tue 17'…), while the page behind shows 'Today, रविवार 15'. The 'Length *' label is English even though the catalogue has 'अवधि', so the label is not passed through t().",
+    "fix": "Use Hindi day names in the date list and wrap the 'Length' label in t(). Translate 'Today' as 'आज'.",
+    "evidence": "qa-output/loop/l4-hindi-v-01-lower.png"
+   },
+   {
+    "screen": "/front-office/appointments",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "The first staff chip shows the principal's name transliterated, 'प्रधानाचार्य · लक्ष्मी राव', while the dropdown under it and every other screen show 'Lakshmi Rao · Principal'. The other chips stay English ('Accountant · Priya Sharma', 'Office Assistant · …'). A person's name ('Lakshmi Rao') sits in the Hindi catalogue (hi.ts line 1666), so only names that happen to be in the catalogue get changed.",
+    "fix": "Remove person names from the catalogue and never translate names. Translate only the role words (लेखाकार, कार्यालय सहायक…).",
+    "evidence": "qa-output/loop/l4-hindi-s-01-appts.png"
+   },
+   {
+    "screen": "/front-office/pickup?gp=…",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The gate pass sheet title is English ('Gate pass GP-2026-0204') and shows 'student', 'Father', 'Unwell' and 'जाँचा हुआ ID proof'. The final button says 'पूरा' ('complete/whole'), an odd word for Done. Elsewhere Undo is 'पहले जैसा करें', where 'वापस लें' is the usual word.",
+    "fix": "Translate the title and labels ('गेट पास', 'विद्यार्थी', 'पिता', 'बीमार', 'ID देखा गया'). Use 'हो गया' for Done and 'वापस लें' for Undo.",
+    "evidence": "qa-output/loop/l4-hindi-r-01-gatepass.png"
+   },
+   {
+    "screen": "/dashboard, /front-office",
+    "kind": "word",
+    "severity": "low",
+    "problem": "One idea has several Hindi names. Visitor is 'आगंतुक' in most places but 'विज़िटर पास' in the dashboard alert. Early pickup is 'जल्दी ले जाना' on the dashboard button, 'विद्यार्थी को ले जाना' on the tab and 'पिकअप' in the bottom bar. The fix-time button is 'सही समय के साथ बाहर करें' on Visitors but 'सही समय के साथ बंद करें' on the Desk. A new user wonders if these are different things.",
+    "fix": "Pick one word per idea ('आगंतुक', 'जल्दी छुट्टी / पिकअप', 'बाहर दर्ज करें') and use it in all places.",
+    "evidence": "qa-output/loop/l4-hindi-c-02-dash.png"
+   },
+   {
+    "screen": "/front-office/enquiries",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "On the Enquiries and calls tab the counter sublines stay English: '4 walk-in, 1 phone', '0 incoming', 'Last 7 days', 'Search', and the footer 'Owner and follow-up are set by Admissions as soon as the enquiry is saved'. 'प्रश्नों के रूप में भेजी शिकायतें' reads awkwardly. The Admissions enquiry list header shows 'सिर्फ़ आपकेOnly the enquiries you added or own · 5 enquiries' (English with no space) and rows say 'Not decided · Walk-in'.",
+    "fix": "Translate these sublines and the footer, add the missing space, and translate the source and class words in list rows. Use 'Class 3' → 'कक्षा 3' the same way everywhere; this tab already does.",
+    "evidence": "qa-output/loop/l4-hindi-zc-01-calls.png"
+   },
+   {
+    "screen": "/front-office/visitors",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The red banner ends 'पास V-0260, समाप्त हुआ 8:51 PM को 12-11-2026.', which is verb-first, unnatural Hindi. The visitor time chip 'आए 11:07 AM' is only the verb 'came'.",
+    "fix": "Write 'पास V-0260 12-11-2026 को 8:51 PM पर ख़त्म हुआ।' and 'आने का समय 11:07 AM' (or 'अंदर: 11:07 AM').",
+    "evidence": "qa-output/loop/l4-hindi-m-01-done.png"
+   },
+   {
+    "screen": "/profile",
+    "kind": "translation",
+    "severity": "low",
+    "problem": "On the profile page in Hindi, the 'दो-चरण लॉगिन' help text stays English ('A code to your phone or email after your password. Safer if someone learns your password.'). So do the notification setting names ('Approvals waiting for me', 'Tasks and questions for me', 'My leave and staff matters', 'Documents running out', 'Notices from the school', 'Security alerts…'), the channel names 'App / Pop-up / Email' and 'WhatsApp goes to 9876500007. Pop-up is not switched on by your school yet.'",
+    "fix": "Add Hindi entries for these profile lines.",
+    "evidence": "qa-output/loop/l4-hindi-c-01-after-pick.png"
+   },
+   {
+    "screen": "/front-office/appointments?do=book",
+    "kind": "slow",
+    "severity": "low",
+    "problem": "Typing the visitor's phone in the booking form sends one server request per key (10 requests for one number). On a slow school connection the form may lag while she types.",
+    "fix": "Look the number up only once 10 digits are typed, or on leaving the box, as the enquiry form does.",
+    "evidence": "qa-output/loop/l4-hindi-v-01-lower.png"
+   }
+  ],
+  "tasksDone": "Played a Hindi-first receptionist (role reception, 390 px phone) on localhost. (1) Switched to Hindi like a layman: avatar 'NK' → 'Language: English' → profile language card → 'हिन्दी'. The screen changed at once and the menu row then read 'भाषा / Language: हिन्दी'. (2) Added walk-in enquiry ENQ-0049 'Aarav Testsharma' / parent 'Rakesh Testsharma', 9000000417. (3) Registered visitor 'Mohan Testvisitor' (9000000418, Meeting with Geetha Verma), got pass V-0264 and checked him out. (4) Early pickup: Rohan Kumar (3 A) collected by father Rajesh Kumar, ID proof checked, reason Unwell, gate pass GP-2026-0204. (5) Booked an appointment with the Principal on Mon 16-11-2026 at 9:15 AM for 'Sunil Testparent' (9000000419); the booking toast said a WhatsApp confirmation was sent, my attempt to switch that off probably did not take effect, and the number is made up. (6) Fee balance: reception cannot see it; the student page says 'फ़ीस बकाया: Accounts से पूछें।' and the button opens a request form, which I looked at but did not send. Also checked the Reception Desk, Visitors (light and dark), Enquiries and calls tab, notifications bell and More menu in Hindi. (7) Switched back to the school's language (English) on the profile page; the profile then showed English. Not checked: 'डाक और डिलीवरी' and the gate pass scanner. Note: my own step runner is at qa-output/loop4/hindi/run.mjs. While making it I briefly broke one line in the shared qa-output/loop4/run.mjs, which another tester had rewritten; I put it back to valid JavaScript and it passes a syntax check. No repo source files were edited."
+ },
+ {
+  "who": "careless",
+  "findings": [
+   {
+    "screen": "/student-management/students/9f96854a-6e18-49ac-91bb-3eb10580efff and /staff-hr-management/8ecfdf16-2a86-490e-90f4-348971009b9b",
+    "kind": "bug",
+    "severity": "high",
+    "problem": "If a name starts with an emoji ('😀 Chintu ...' as a student, '🔥 Ramesh L4careless' as staff), both forms save it. The profile avatar then shows a broken character ('◆?C' / '�R'), the staff button reads 'Apply leave for 🔥', and both profile pages throw React error #418 (hydration text mismatch) in the browser. Cause: initials() in src/lib/students/labels.ts takes p[0], which is half of the emoji's UTF-16 pair.",
+    "fix": "Build initials from letters only, e.g. Array.from(word).find(ch => /\\p{L}/u.test(ch)). Also reject a name that does not start with a letter, as the staff form already does ('Full name must have letters.').",
+    "evidence": "qa-output/loop/l4-careless-a8-avatar.png"
+   },
+   {
+    "screen": "/examination-results/marks/[entryId]/[sectionId] (phone, One at a time)",
+    "kind": "bug",
+    "severity": "high",
+    "problem": "I tapped 9-9-9 on the keypad for Theory / 80. The screen shows '999' in red ('Harini Gupta Theory is out of 80. 999 is too high.'), but autosave had already stored '9' after the first tap. The database now has Theory 9, Internal 9, and 'Entered' went from 4 of 16 to 5 of 16. A teacher who leaves the page thinking the wrong mark was refused leaves a wrong mark saved.",
+    "fix": "While a cell is invalid, don't keep the earlier half-typed value: save it as blank, or keep the last good value and show 'Not saved: fix this mark' on the cell. Only count a student as entered when every cell is valid.",
+    "evidence": "qa-output/loop/l4-careless-t15-01-999.png"
+   },
+   {
+    "screen": "/homework-learning?do=give",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "I gave 'L4 careless dup test' to 5 A, then opened Give homework again, typed the same title and pressed 'Send to 5 A'. No warning appeared. Two identical homework cards now exist, and the toast said 'Homework sent to 5 A (15 students). Parents were messaged.' twice, so parents get two messages and the school pays twice. (A triple-click on one send is handled: only one record.)",
+    "fix": "Before saving, check for homework with the same title, class and due date. Ask: 'You already gave this to 5 A today. Send it again?' with 'Open the first one' and 'Send again' buttons.",
+    "evidence": "qa-output/loop/l4-careless-t12-01-again.png"
+   },
+   {
+    "screen": "/attendance-management?date=2026-11-12 (admin)",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "After 'Save attendance' for Nursery A, the page loads LKG A by itself with everyone already set to Present. Its 'Save attendance: 16 present, 0 absent' bar sits exactly where the user just clicked. A user who clicks again (because they think nothing happened) saves a whole class as all present without looking at it. The toast also covers the bar and says 'Attendance saved for Nursery A: 17 present. Everyone is in today.' for a past day (12 November).",
+    "fix": "After saving, stay on the saved class and show a clear 'Saved' state plus a 'Next class: LKG A →' button, instead of loading the next sheet under the cursor. Toast wording for past days: 'Everyone was in on Thu 12 Nov.'",
+    "evidence": "qa-output/loop/l4-careless-a25-02-after.png"
+   },
+   {
+    "screen": "/student-management/new",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "The form shows errors a few at a time. Round 1: only 'Choose class and section.', 'Pick a date on or before 15-11-2026.' and the admission-number clash. Round 2: the browser's own bubble 'Please select one of these options.' on Gender (different style, not translated). Round 3: 'Please fix 2 things before saving: Parent's phone must have 10 digits. Roll number must be a whole number.' A careless user has to press Add student 4 times to learn everything that is wrong.",
+    "fix": "Check every field on the first press and list all problems in the one 'Please fix N things' box, with the app's own wording for Gender ('Choose gender.').",
+    "evidence": "qa-output/loop/l4-careless-a5-01-bad3.png"
+   },
+   {
+    "screen": "/student-management/new",
+    "kind": "error",
+    "severity": "medium",
+    "problem": "'12345' is accepted as Parent's or guardian's name. The profile then says 'Fee receipts and Parent Link go to 12345's number', and the emergency contact reads '12345 · Father'. Staff Add rejects the same input ('Full name must have letters.'), so the two forms follow different rules.",
+    "fix": "Use the staff rule for student and parent names: at least one letter, no leading emoji or digits only.",
+    "evidence": "qa-output/loop/l4-careless-a7-01-saved.png"
+   },
+   {
+    "screen": "/staff-hr-management/add",
+    "kind": "error",
+    "severity": "medium",
+    "problem": "Joining date 01-01-2031 (5 years ahead) saves with no warning. The person shows as 'Active', is counted in '43 staff on roll', gets 'Casual Leave left 12 of 12', and 'Joined Jan 2031' appears in the header.",
+    "fix": "Allow at most about 3 months ahead, with the message 'Joining date is far in the future. Check the year.'. For a future joiner, show 'Joins on 01-01-2031' instead of Active, and leave them out of today's counts.",
+    "evidence": "qa-output/loop/l4-careless-a26-01-staff.png"
+   },
+   {
+    "screen": "/attendance-management/register/correction",
+    "kind": "ux",
+    "severity": "medium",
+    "problem": "After the 11:00 AM lock, a teacher who missed a whole day ('Nothing was saved for this day.') is sent to the correction form. It has a single 'New status *' for every ticked student. To record 13 present and 2 absent, the teacher has to send 2 separate requests (more for Late or Leave), each with its own reason, and the principal approves each one.",
+    "fix": "When nothing was saved for the day, let the teacher fill the normal P/A/L sheet and send the whole sheet as one correction with one reason.",
+    "evidence": "qa-output/loop/l4-careless-t5-01-empty.png"
+   },
+   {
+    "screen": "/staff-hr-management/add (Step 2)",
+    "kind": "bug",
+    "severity": "low",
+    "problem": "For the name '🔥 Ramesh L4careless', the suggested username is '.rameshl4careless', with a leading dot: 'Leave empty to use \".rameshl4careless\"'.",
+    "fix": "Build the username only from letters and digits, and drop any leading dot.",
+    "evidence": "qa-output/loop/l4-careless-a14-01-step2.png"
+   },
+   {
+    "screen": "/examination-results/marks/[entryId]/[sectionId] (phone)",
+    "kind": "ui",
+    "severity": "low",
+    "problem": "On a phone, when a mark is too high, the red line 'Harini Gupta Theory is out of 80. 999 is too high.' covers the top of the keypad. The 1 / 2 / 3 / ⌫ keys are cut in half.",
+    "fix": "Give the error line its own space above the keypad, so the keypad moves down instead of being overlapped.",
+    "evidence": "qa-output/loop/l4-careless-t15-01-999.png"
+   },
+   {
+    "screen": "/examination-results/marks/[entryId]/[sectionId] (phone)",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "With an invalid mark on screen, tapping 'Submit marks' seems to do nothing. The '1 mark needs a fix' banner is drawn above the student card, out of view on a phone, and the page doesn't scroll to it.",
+    "fix": "On a failed submit, scroll to the first problem (or show a toast: 'Fix 1 mark first: Harini Gupta, Theory').",
+    "evidence": "qa-output/loop/l4-careless-t16-02-submit.png"
+   },
+   {
+    "screen": "/communication/notices/new",
+    "kind": "error",
+    "severity": "low",
+    "problem": "'Publish at' set to 01-01-2020 is silently ignored: the notice goes for approval and the detail page says 'Published: Not yet'. The past date is never mentioned. The 'Expires on' error ('The expiry date has passed. Choose a later date.') appears as text only; the field is not outlined in red like other errors.",
+    "fix": "Show 'This time has passed. Leave it blank to publish as soon as it is approved.' under Publish at, and give the field with the error a red outline.",
+    "evidence": "qa-output/loop/l4-careless-a19-02-bad.png"
+   },
+   {
+    "screen": "/examination-results/marks",
+    "kind": "word",
+    "severity": "low",
+    "problem": "The card reads 'Overdue: 4 of 16 entered · 11 started'. A teacher can't tell what 'started' means (11 students have only Internal and are missing Theory).",
+    "fix": "Write '4 of 16 complete · 11 missing Theory'.",
+    "evidence": "qa-output/loop/l4-careless-t13-01-marks.png"
+   },
+   {
+    "screen": "/homework-learning?do=give",
+    "kind": "ux",
+    "severity": "low",
+    "problem": "The Title field stops at 200 characters with no counter or message. A long pasted title is cut off without the teacher knowing.",
+    "fix": "Show a counter near the limit ('180 / 200'), or a note when text is cut.",
+    "evidence": "qa-output/loop/l4-careless-t10-01-past.png"
+   }
+  ],
+  "tasksDone": "I tested for about 40 minutes as a careless fast user, first as the class teacher on a 390 px phone, then as the admin on a 1440 px computer, all on localhost. The runner I used is D:/all/Projects/School-OS/qa-output/loop4/careless/run.mjs (my own copy, because another tester overwrote the shared qa-output/loop4/run.mjs). Screenshots are in qa-output/loop/l4-careless-*.png.\n\nWhat I did, as the teacher (phone):\n- Opened attendance on a Sunday, a locked past day, a future date and a broken date. All got clear words.\n- Sent an empty correction request (it showed all 3 errors).\n- Homework: sent it empty (clear error), with a past due date (clear error), with a 240-character emoji title, triple-tapped Send (only 1 record), then sent the same homework again (it went through with no warning).\n- Marks: entered 999 and 99 on the keypad, used Save now, Submit, reload, and typed 'abc' and -5 in the grid (clear errors).\n\nWhat I did, as the admin (computer):\n- Add student: pressed Enter early, then entered a future birth date, a duplicate admission number, letters in the phone, roll -3, a parent name of '12345' and an emoji name. I triple-clicked Add student (1 record), added the same child again (a good duplicate warning appeared), and used Back then submit (the form was empty, no duplicate).\n- Add staff: submitted empty, then an emoji-only name, letters in the phone, a bad email and a 2031 joining date. I created one staff member without a login, then tried a duplicate phone (good warning).\n- Notice: pressed Enter early and used a past expiry date (error shown) and a past publish date (silently ignored). I triple-clicked Send for approval (1 record).\n- Attendance on locked past days: triple-clicked and double-clicked Save (1 save each), and reloaded.\n\nWhat held up well: duplicate taps never made double records, and nothing crashed with a raw error.\n\nLocal demo data I left behind:\n- Students 'Chintu L4careless…' (first name is the emoji 😀) in 5 A, and 'Bunty L4careless' in 5 B, each with a fee plan applied.\n- Staff member '🔥 Ramesh L4careless' (SPS-ST-044).\n- Homework 'L4 careless dup test' twice in 5 A.\n- Notice 'L4 careless holiday', waiting for approval.\n- Nursery A attendance saved for 12 and 13 November (one student marked absent on the 13th).\n- Half Yearly Mathematics 6 A: Harini Gupta now has Theory 9 and Internal 9 (from the half-typed marks)."
+ }
+]
